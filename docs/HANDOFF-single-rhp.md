@@ -1,6 +1,6 @@
 # Almond 단일 RHP 통합 및 실제 Rhino 검증 기록
 
-갱신일: 2026-10-22 (검증 종료 12:55 UTC)
+갱신일: 2026-10-22 (실제 Rhino 검증 종료 12:55 UTC, 이후 기본 pytest 리뷰 수정 검증)
 
 ## 현재 상태
 
@@ -21,6 +21,8 @@ PR #2의 기존 리뷰 수정은 `74488900f11b78fe95c4e5e841fef15efd1e8c19`로 �
 - 기존 Undo/Redo 수정, solver 수식, MCP schema, 자산·패널 JS, Engine/COS 기능은 변경하지 않았다.
 
 PR 리뷰 수정에서는 Terminal의 공용 저장소 경로를 `src/engine/data`로 맞추고, Bridge의 checkout 자산 탐색 깊이를 새 폴더 구조에 맞춰 한 단계 늘렸다. 기존 프로세스 소유권과 경로를 검증하는 HostContracts를 보강했다. 두 리뷰 thread는 resolve했다.
+
+최종 리뷰 재확인에서는 기본 pytest가 준비되지 않은 COS pipe fixture까지 수집하는 P1을 추가로 확인했다. `pyproject.toml`의 기본 `testpaths`에서 `tests/cos`만 제외하고 import 경로와 기존 `src/cos/run_tests.ps1`은 유지했다. COS 환경변수 없이 MCP 400개·Engine 80개가 모두 수집되고 COS는 0개임을 확인했다. ArchiveHost를 준비한 실제 기본 pytest는 479 passed, 1 skipped, 21 subtests passed였다.
 
 ## 설치 상태와 사용자 세션
 
@@ -46,6 +48,7 @@ C:\TOOL\Rhino\mcp\almond-mcp\src\rhp\RhinoAlmondBridge\plugin-build\RhinoAlmondB
 | ConPTY smoke | 5개 통과 — 한글 입력·경로, resize, 자식 정리, exit code, startup stop |
 | Panel JS | 19개 통과 |
 | PR 경로 resolver | reflection 검사 3개 통과 |
+| 기본 pytest / release 테스트 단계 | 479 passed, 1 skipped, 21 subtests passed — COS 전용 fixture 환경 없이 통과 |
 | NativeUndoTests | 실제 로드한 Rhino 안에서 21/21 통과 |
 | 단일 RHP 빌드 | 성공, 기존 `ResultsPanel.Load` CS0108 warning 1개 |
 | 실제 assembly | plugin subclass 1개, 명령 12개, Terminal resource 4개, 기대 GUID/version/path 확인 |
@@ -82,6 +85,8 @@ Rhino 8.34의 floating Almond 패널은 Structure 전환 후 창이 숨는 상�
 
 최종 Yak 첫 로그 수집은 PowerShell 5.1의 전체 stream redirection이 Yak의 기존 name mismatch warning을 terminating error로 승격해 중단됐다. redirection 없이 별도 staging 빌드를 실행해 정상 완료했다. assembly/package 이름은 기존 연결 계약 때문에 유지했다.
 
+기본 pytest의 8개 경고는 FastMCP deprecation 4개와 Node 출력의 Windows cp949 reader 경고 4개였다. 출력 경고가 발생한 UI 테스트 4개를 `python -X utf8 -m pytest`로 재실행해 4 passed, 경고 없음으로 확인했다. 이 때문에 제품 코드나 테스트 assertion을 완화하지 않았다.
+
 ## 산출물과 재현
 
 ```powershell
@@ -92,7 +97,7 @@ Rhino 8.34의 floating Almond 패널은 Structure 전환 후 창이 숨는 상�
 최종 패키지: `dist/yak/almondbridge-0.7.0-rc.2-rh8_34-win.yak` (49.67 MB).
 SHA-256: `3c3508302eb5154faff75bf1388419c0708cc0fa560c3ea48c3f3e812419a605`.
 
-`tools/build_yak.ps1`은 실제 참조 SDK에 맞는 Rhino 태그와 net8 의존성·라이선스를 검사한다. `tools/prepare_release.ps1`은 새 staging Yak만 사용하고 이전 release 출력이 남아 있으면 중단한다. 이번에는 COS 제외 범위를 지키기 위해 전체 prepare_release pipeline을 실행하지 않았다.
+`tools/build_yak.ps1`은 실제 참조 SDK에 맞는 Rhino 태그와 net8 의존성·라이선스를 검사한다. `tools/prepare_release.ps1`은 새 staging Yak만 사용하고 이전 release 출력이 남아 있으면 중단한다. 전체 prepare_release pipeline은 실행하지 않았고, 변경된 기본 pytest 단계와 Yak 빌드·검증을 각각 실행했다.
 
 상세 로컬 증거는 ignored `data/single-rhp-verification-20261022/`에 있다:
 
@@ -100,6 +105,7 @@ SHA-256: `3c3508302eb5154faff75bf1388419c0708cc0fa560c3ea48c3f3e812419a605`.
 - `ui_bridge_trial.json`, `ui_commands.jsonl`, `frame_create.json`, `live_state.json`, `live_states.jsonl`.
 - `installation-backup.json`, `installation-result.json`, GUID별 registry backup.
 - `reopened_fixture_report.json`, `postflight.json`, `final-evidence.json`.
+- `default-pytest-collection.json`, `default-pytest.log`, `default-pytest.xml`.
 
 RHP·Yak·SDK·venv·검증 모델·로그는 Git에 넣지 않는다. 저작권·vendor·asset 고지와 manifest/hash는 유지한다. 자세한 빌드·실행 절차는 [LOCAL_SETUP](../LOCAL_SETUP.md), 계약은 [SPEC](../SPEC.md)을 따른다.
 

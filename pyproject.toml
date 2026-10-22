@@ -106,5 +106,6 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/mcp", "tests/engine", "tests/cos"]
+# COS requires the .NET fixtures and environment prepared by src/cos/run_tests.ps1.
+testpaths = ["tests/mcp", "tests/engine"]
 pythonpath = ["src/mcp", "src/engine", "src/cos", "tests/mcp", "tests/engine", "tests/cos"]

@@ -86,8 +86,11 @@ Python과 RHP가 동일한 `RHINO_MCP_*_DIR` 설정을 사용하도록 하고 Rh
 
 ## 검증
 
+기본 `pytest`는 MCP와 Engine을 수집합니다. COS는 .NET pipe/lifecycle fixture와
+환경변수 준비가 필요하므로 기본 수집에서 제외하고 전용 `src/cos/run_tests.ps1`로 실행합니다.
+
 ```powershell
-& ./src/engine/.venv/Scripts/python.exe -m pytest tests/mcp tests/engine
+& ./src/engine/.venv/Scripts/python.exe -X utf8 -m pytest tests/mcp tests/engine
 ./src/cos/run_tests.ps1
 & ./src/engine/.venv/Scripts/python.exe src/engine/verify_library_sources.py
 node --test (Get-ChildItem tests/rhp/Asset_Panel -Filter *.test.mjs | ForEach-Object FullName)
