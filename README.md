@@ -1,5 +1,9 @@
 # Almond MCP for Rhino
 
+이 포크는 개인용 Almond Engine·AlmondCOS·RhinoTerminal을 함께 관리합니다.
+**현재 실행 환경의 설치·빌드·연결 방법은 [LOCAL_SETUP.md](LOCAL_SETUP.md)를 따릅니다.**
+아래는 원본 프로젝트의 기능 및 배포판 안내입니다.
+
 **0.7.0-rc.2 — structural analysis pre-release.** The Structure workspace now runs
 Almond's own 3D frame solver: floor and placed-model loads, EN 1990 combinations,
 rigid/simple joints, stability (αcr, sway imperfections, P-Δ), EN 1993-1-1 member

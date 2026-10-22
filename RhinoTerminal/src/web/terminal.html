@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* XTERM_CSS */
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#151719;color:#e4e6e8;font:12px 'Segoe UI',sans-serif}
+body{display:flex;flex-direction:column}
+header{display:flex;gap:5px;padding:7px;flex-wrap:wrap;border-bottom:1px solid #393d42;background:#24272b}
+button{background:#343a40;color:#f0f1f2;border:1px solid #535b64;border-radius:3px;padding:5px 8px;cursor:pointer;font:inherit}
+button:focus-visible{outline:2px solid #8cb9df}button:hover{background:#454c54}
+#meta{padding:5px 8px;line-height:1.4;border-bottom:1px solid #33373c}
+#cwd{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c3cbd4;user-select:text}
+#terminal{flex:1;min-height:0;padding:5px 7px;overflow:hidden}
+footer{padding:4px 8px;color:#acb4be;border-top:1px solid #33373c;font-size:11px}
+</style>
+</head>
+<body>
+<header>
+<button id="new" title="현재 터미널을 종료하고 현재 Rhino 파일 폴더에서 새로 시작">새 터미널</button>
+<button id="stop" title="이 터미널과 자식 프로그램만 종료">종료</button>
+<button id="copy" title="선택한 텍스트 복사 (Ctrl+Shift+C)">복사</button>
+<button id="paste" title="클립보드 텍스트 붙여넣기 (Ctrl+V)">붙여넣기</button>
+</header>
+<div id="meta"><span id="status">화면 준비 중</span><span id="cwd"></span></div>
+<div id="terminal"></div>
+<footer>Almond 연결: almond · 연결 종료: Codex에서 /exit · 패널 숨김: 유지 · Rhino 종료: 함께 종료</footer>
+<script>/* XTERM_JS */</script>
+<script>/* FIT_JS */</script>
+<script>
+(() => {
+  'use strict';
+  const send = data => {
+    const text = JSON.stringify(data);
+    if (window.eto && window.eto.postMessage) window.eto.postMessage(text);
+    else if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(text);
+  };
+  const term = new Terminal({fontFamily:'Consolas, "Malgun Gothic", monospace',fontSize:13,
+    cursorBlink:true,scrollback:5000,allowProposedApi:false,
+    theme:{background:'#151719',foreground:'#e4e6e8',cursor:'#e4e6e8',selectionBackground:'#465568'},
+    windowsPty:{backend:'conpty',buildNumber:22621}});
+  const fit = new FitAddon.FitAddon();
+  term.loadAddon(fit);
+  const element = document.getElementById('terminal');
+  term.open(element);
+  let fitting = false;
+  const refit = () => {
+    if (fitting || element.clientWidth < 100 || element.clientHeight < 40) return;
+    fitting = true;
+    requestAnimationFrame(() => { fitting=false; fit.fit(); });
+  };
+  new ResizeObserver(refit).observe(element);
+  term.onResize(size => send({type:'resize',cols:size.cols,rows:size.rows}));
+  term.onData(text => send({type:'input',text}));
+  const copy = () => {
+    const text=term.getSelection();
+    if(text) send({type:'copy',text});
+    term.focus();
+  };
+  const paste = () => { send({type:'paste'}); term.focus(); };
+  term.attachCustomKeyEventHandler(e => {
+    if (e.type !== 'keydown' || e.isComposing) return true;
+    const key=e.code || e.key;
+    const ctrl=e.ctrlKey && !e.altKey && !e.metaKey;
+    if (ctrl && (key==='KeyV' || key.toLowerCase()==='v')) {e.preventDefault();paste();return false;}
+    if (ctrl && (key==='KeyC' || key.toLowerCase()==='c') && (e.shiftKey || term.hasSelection())) {e.preventDefault();copy();return false;}
+    if (e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && key==='Insert') {e.preventDefault();paste();return false;}
+    return true;
+  });
+  document.getElementById('new').onclick=()=>send({type:'new'});
+  document.getElementById('stop').onclick=()=>send({type:'stop'});
+  document.getElementById('copy').onclick=copy;
+  document.getElementById('paste').onclick=paste;
+  window.RhinoTerminal={
+    write:text=>term.write(text),
+    focus:()=>term.focus(),
+    paste:text=>{term.paste(text);term.focus();},
+    reset:()=>{term.reset();refit();term.focus();},
+    meta:value=>{
+      document.getElementById('status').textContent=value.status;
+      const cwd=document.getElementById('cwd');cwd.textContent=value.cwd;cwd.title=value.cwd;
+      document.getElementById('stop').disabled=!value.running;
+    }
+  };
+  refit();term.focus();send({type:'ready'});
+})();
+</script>
+</body>
+</html>

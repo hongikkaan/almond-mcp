@@ -36,3 +36,11 @@ obj/
 # Superseded local drawing pilot previews (never packaged)
 .drafting-dev-archive-*/
 
+# Personal integration runtime, local settings and verification artifacts
+data/
+.almond/
+**/plugin*/
+**/cos-plugin.json
+*.rhp
+*.dll
+

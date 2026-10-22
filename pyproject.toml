@@ -30,9 +30,17 @@ dependencies = [
 almond-mcp = "almond_mcp.cli:main"
 
 [dependency-groups]
+local = [
+    "fastmcp==4.1.0",
+    "mcp==2.3.0",
+    "mcp-types==2.3.0",
+]
 dev = [
     "pytest>=8.0",
 ]
+
+[tool.uv]
+default-groups = ["local", "dev"]
 
 [build-system]
 requires = ["hatchling"]
