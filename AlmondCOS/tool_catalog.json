@@ -1,0 +1,2847 @@
+{
+  "format": 1,
+  "packages": {
+    "almond-mcp": "0.7.0rc2",
+    "fastmcp": "4.1.0",
+    "mcp": "2.3.0"
+  },
+  "sources": {
+    "project": "477e3fba58515bbe6fbc1cc777cfe814b77a936f15bcecec712eda5221a90329",
+    "entry": "0e21319767f94bc721910efaea3436ef41a5d66a2f753c301b2bbf5e869a0aef",
+    "shared_store": "f88e1a570332024ea51e1077dab7d2f02485e469df5ead4d57b74300955187f3",
+    "native_request": "a49132b8745d8c38ea4a1417c22771b2c8a6b3be88c19f950ae816a3157b29b9",
+    "compat_almond": "ba7f0023e259bca960f26a3a5bfbe6a102d84572360a93c90476e59ed400da25",
+    "library_paths": "68aa94e41941fa67dcbabc5d0d1313e5cf036bf4dfeb0e33e5fb9f5c25fd3ec0",
+    "server": "1a1abe1c975547eded2a15bb8ac53464947b0d80cc957cdbd8289967fedb55dc"
+  },
+  "tools": [
+    {
+      "name": "almond_project_info",
+      "title": "Almond Project Info",
+      "description": "Read the bound model, DB and artifact_dir before the first Rhino action.\n\nUse artifact_dir as the explicit absolute base for task-local reports,\nscreenshots and temporary code, including C# executed inside Rhino and\nshell/image reads. mcp_temp/effective_temp belong to Python; Rhino's original\nTEMP (rhino_temp_at_attach) may differ and is not the project output path.\nThis is binding metadata, not a live active-document check. For a terminal\nconnection, use /exit, switch the saved document, then almond to reconnect.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "apply_drawing_style",
+      "title": "Apply Drawing Style",
+      "description": "Creates or updates the Rhino layer hierarchy, plot weights, colours, and\nlinetypes defined by an audited drawing recipe.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "recipe_id": {
+            "default": "technical_axon_v1",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "assign_material",
+      "title": "Assign Material",
+      "description": "Assigns a curated PBR material to Rhino objects and stamps them with\nmachine-readable material metadata for downstream pipelines (Unreal).\n\nFor structural members, also declare what the object IS in construction\nterms: structural_role (e.g. \"joist\", \"girder\", \"stud\", \"truss_chord\")\nand construction_system (a system_id from get_construction_guidance).\nThese are written as almond:structural_role / almond:construction_system\nuser text on the objects, so the stated construction intent lives on the\nRhino geometry itself and survives export. If the chosen material_id is\nnot a typical finish for the declared system, the response carries a\nwarning (it still applies).\n\nTwo effects, independently switchable:\n- apply_render_material: creates/reuses a physically-based Rhino\n  material (ALMOND::<material_id>) and assigns it per object, so GLB\n  export (publish_to_chestnut) and Datasmith carry real PBR channels.\n- attach_metadata: writes almond:* user-text keys (material_id, name,\n  category, ue_material_slot, base_color, metallic, roughness, opacity)\n  on each object - Datasmith imports these as asset metadata in Unreal,\n  so materials can be remapped by ue_material_slot deterministically.\n\nWorks on breps, meshes, and block instances (an instance's material\napplies to definition geometry set to 'by parent'; the metadata is\nalways attached to the instance itself). Call list_materials first to\ndiscover material_ids.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "guids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "material_id": {
+            "type": "string"
+          },
+          "apply_render_material": {
+            "default": true,
+            "type": "boolean"
+          },
+          "attach_metadata": {
+            "default": true,
+            "type": "boolean"
+          },
+          "structural_role": {
+            "default": "",
+            "type": "string"
+          },
+          "construction_system": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "guids",
+          "material_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "audit_asset_drawing",
+      "title": "Audit Asset Drawing",
+      "description": "Check exported files and whether source geometry changed. Custom packages\nneed the current source_glb to check staleness; library assets resolve automatically.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "package_dir": {
+            "type": "string"
+          },
+          "source_glb": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "package_dir"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "capture_conditioning_pass",
+      "title": "Capture Conditioning Pass",
+      "description": "Capture RGB + edge (line drawing) + depth frames along a camera path from the LIVE Rhino\ndocument, as conditioning for geometry-guided video generation (Wan VACE / ControlNet).\nDepth and edges are read from the model itself, not estimated, and every frame's camera is\nrecorded so the generated video can be re-projected against the source geometry.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "shot": {
+            "type": "string"
+          },
+          "out_dir": {
+            "type": "string"
+          },
+          "width": {
+            "default": 832,
+            "type": "integer"
+          },
+          "height": {
+            "default": 480,
+            "type": "integer"
+          },
+          "passes": {
+            "default": "rgb,edge,depth",
+            "type": "string"
+          },
+          "fps": {
+            "default": 16,
+            "type": "integer"
+          },
+          "chunk": {
+            "default": 16,
+            "type": "integer"
+          },
+          "rgb_mode": {
+            "default": "Rendered",
+            "type": "string"
+          },
+          "edge_mode": {
+            "default": "Technical",
+            "type": "string"
+          },
+          "invert_depth": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "shot",
+          "out_dir"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "check_egress",
+      "title": "Check Egress",
+      "description": "Checks a floor plate's means of egress against the construction library's\negress rules (BCI A.10-A.13 framework + IBC-typical numeric factors -\nalways verify against the governing code; the response repeats this).\n\nCall AFTER laying out cores/exits and BEFORE detailing: it verifies exit\ncount, exit separation, egress width, travel distances and dead ends in\none pass, and names the failing requirement so the layout can be fixed\n(add an exit, move a core, widen a stair) instead of guessed at.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "plate_bounds_mm": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "description": "Floor plate [min_x, min_y, max_x, max_y] in mm\n(sets gross area and the diagonal used for exit separation)."
+          },
+          "exits": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "description": "One entry per exit (stair door or exterior exit door):\n{\"name\": str, \"x_mm\": float, \"y_mm\": float, \"width_mm\": float}.\nPositions are the door centers; width is the clear egress width."
+          },
+          "occupancy": {
+            "default": "business",
+            "type": "string",
+            "description": "Occupant-load key: business, mercantile, assembly_\nunconcentrated, classroom, residential, storage."
+          },
+          "stories": {
+            "default": 1,
+            "type": "integer",
+            "description": "Stories served. Above 1, at least two exits are required\nand exit width demand uses the stair factor (7.6 mm/occupant)\ninstead of the door factor (5.1)."
+          },
+          "sprinklered": {
+            "default": true,
+            "type": "boolean",
+            "description": "Sprinklered throughout (affects separation fraction,\ntravel-distance and dead-end limits)."
+          },
+          "net_area_m2": {
+            "default": 0.0,
+            "type": "number",
+            "description": "Override the occupied area; 0 uses the gross plate area."
+          },
+          "travel_distances_m": {
+            "default": [],
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "description": "Measured worst-case travel distances (e.g. from\ndrawn egress paths); empty skips the travel check."
+          },
+          "dead_end_m": {
+            "default": 0.0,
+            "type": "number",
+            "description": "Longest dead-end corridor in metres; 0 skips the check."
+          }
+        },
+        "required": [
+          "plate_bounds_mm",
+          "exits"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "create_design_scene",
+      "title": "Create Design Scene",
+      "description": "Creates a persistent scene handle for a house or interior generation.\nScene metadata remains local and is retrieved by ID instead of being\nrepeated in the model context.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "units": {
+            "default": "mm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "create_generation_plan",
+      "title": "Create Generation Plan",
+      "description": "Creates a dependency-ordered local plan. scope may be house, interior,\nstructure, or drawing. The plan stores handles and step state rather than verbose\nrepeated context.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "goal": {
+            "type": "string"
+          },
+          "scope": {
+            "default": "house",
+            "type": "string"
+          },
+          "scene_id": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "goal"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "evaluate_generated_asset_fit",
+      "title": "Evaluate Generated Asset Fit",
+      "description": "Check one model's rotated clearance envelope against a rectangle in mm.\nThis is a preflight size check, not obstacle detection or code certification.\nMounting heights and actual scene positions are not evaluated.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "width_mm": {
+            "type": "number"
+          },
+          "depth_mm": {
+            "type": "number"
+          },
+          "height_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "rotation_degrees": {
+            "default": 0,
+            "type": "number"
+          },
+          "include_clearances": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "asset_id",
+          "width_mm",
+          "depth_mm"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "execute_rhino_script",
+      "title": "Execute Rhino Script",
+      "description": "Sends a C# RhinoCommon script to the Rhino 3D Bridge for compilation and execution.\nThe script is compiled by Roslyn inside Rhino and executed natively as JIT-compiled C#.\n\nThe script MUST define a class with a static Run method that returns created GUIDs:\n\n    public class Script\n    {\n        public static List<Guid> Run(RhinoDoc doc)\n        {\n            var guids = new List<Guid>();\n            // Use doc.Objects.AddSphere(), doc.Objects.AddBrep(), etc.\n            // Append each GUID: guids.Add(guid);\n            return guids;\n        }\n    }\n\nAvailable namespaces (auto-imported if not present):\n    System, System.Collections.Generic, System.Linq,\n    Rhino, Rhino.Geometry, Rhino.DocObjects",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "script": {
+            "type": "string",
+            "description": "C# source code containing a class with public static List<Guid> Run(RhinoDoc doc)."
+          }
+        },
+        "required": [
+          "script"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "export_asset_contract",
+      "title": "Export Asset Contract",
+      "description": "Exports Rhino objects as a portable Almond asset: a GLB plus an asset\ncontract (.almond.json) carrying what the file cannot.\n\nThe contract records real dimensions in mm, the anchor and support plane,\nclearances, and the Almond material_id of every object - so another\napplication (Blender, Unreal, another Rhino) can restore full meaning\neven though glTF drops per-object metadata. Pair with\nimport_asset_contract on the receiving side.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "guids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "description": "Rhino object GUIDs to export (from execute_rhino_script)."
+          },
+          "asset_id": {
+            "type": "string",
+            "description": "Stable id, e.g. \"canopy-pavilion-01\" (letters, digits, . _ -)."
+          },
+          "name": {
+            "default": "",
+            "type": "string",
+            "description": "Human-readable name; defaults to asset_id."
+          },
+          "output_dir": {
+            "default": "",
+            "type": "string",
+            "description": "Destination folder. Default: <user data dir>/exchange."
+          }
+        },
+        "required": [
+          "guids",
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "export_structural_report",
+      "title": "Export Structural Report",
+      "description": "Renders the persisted validate_structure history to a Markdown report.\n\nEvery successful validate_structure call is recorded in the local state\ndatabase (inputs, analysis method, confidence, numbers, warnings). This\ntool writes them to a .md file, newest first, with an explanation of the\nanalysis pathways and pass criteria.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "default": "",
+            "type": "string",
+            "description": "Output file path. Default:\n<user data dir>/reports/structural-validation-<timestamp>.md"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "description": "Maximum number of runs to include (default 50, max 500)."
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "generate_asset_drawing_views",
+      "title": "Generate Asset Drawing Views",
+      "description": "Generate plan/front/right mesh silhouettes with source metadata, full-size DXF,\nscaled SVG and A3 SVG sheets where they fit. Writes a NEW local drawing-runs folder.\nChoose a library asset_id OR an absolute custom source_glb path. Custom files\nREQUIRE input_units mm or m; up_axis y or z. Scales default to [50,100].\nSupports static, uncompressed triangle GLBs only (max 100 MB/250k triangles).\nNo hidden lines, inferred construction or product-front recognition.\nOptional item-level source_references require source_id/title/url/publisher/\nlocator/accessed_on/relationship/used_for/terms_url. They describe references\nattached to this drawing, never retroactive generation inputs.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "default": "",
+            "type": "string"
+          },
+          "source_glb": {
+            "default": "",
+            "type": "string"
+          },
+          "input_units": {
+            "default": "",
+            "type": "string"
+          },
+          "up_axis": {
+            "default": "y",
+            "type": "string"
+          },
+          "scales": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "source_references": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_asset_drawing",
+      "title": "Get Asset Drawing",
+      "description": "Retrieve a bundled pilot drawing package: mm DXF, scaled SVG, A3 SVG sheets and provenance.\nTen models have precomputed views; use generate_asset_drawing_views for others.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_blender_helper_script",
+      "title": "Get Blender Helper Script",
+      "description": "Returns Python to run inside Blender (via blender-mcp's execute_code) so\nBlender participates in the Almond workflow without a dedicated bridge.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "\"export\" or \"materials\"."
+          },
+          "asset_id": {
+            "default": "",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "type": "string"
+          },
+          "output_dir": {
+            "default": "",
+            "type": "string"
+          },
+          "material_id": {
+            "default": "",
+            "type": "string"
+          },
+          "object_names": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_construction_guidance",
+      "title": "Get Construction Guidance",
+      "description": "Curated construction-system guidance for generating structures that are\nbuilt the way real buildings are built - not arbitrary members in space.\nParameters are distilled from Ching's Building Construction Illustrated\n(4th ed.): per-system span ranges, depth rules of thumb (depth = span/N),\nmember spacing, element roles, and assembly notes.\n\nCall this BEFORE generating structural geometry: pick a system, size and\nspace members from its rules, then generate and run validate_structure\n(which cross-checks the result against this same library). Each system\nnames its structural_material (validate_structure vocabulary) and\nrender_material_ids (assign_material vocabulary), so the declared\nconstruction material flows through analysis AND appears on the Rhino\nobjects.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "type": "string",
+            "description": "Free-text filter (e.g. \"glulam\", \"longspan\", \"bearing wall\")."
+          },
+          "category": {
+            "default": "",
+            "type": "string",
+            "description": "\"floor\", \"wall\", \"roof\", \"foundation\" (empty = all)."
+          },
+          "material": {
+            "default": "",
+            "type": "string",
+            "description": "\"Wood\", \"Steel\", \"Concrete\" - validate_structure names."
+          },
+          "structure_type": {
+            "default": "",
+            "type": "string",
+            "description": "validate_structure type (\"beam\", \"truss\", \"shell\",\n\"frame\", \"canopy\", \"gridshell\", \"membrane\", \"highrise\")."
+          },
+          "span_m": {
+            "default": 0.0,
+            "type": "number",
+            "description": "If > 0, each returned system reports fits_span and\nsuggested member depths from its span-ratio rules."
+          },
+          "include_reference_data": {
+            "default": false,
+            "type": "boolean",
+            "description": "Also return occupancy live loads (kPa) and\nmaterial densities (kg/m3) for choosing load_kn inputs."
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_design_scene",
+      "title": "Get Design Scene",
+      "description": "Returns a token-efficient scene summary by stable handle.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "scene_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_diagram_asset",
+      "title": "Get Diagram Asset",
+      "description": "Returns one diagram asset's metadata.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_drawing_asset",
+      "title": "Get Drawing Asset",
+      "description": "Returns one drawing asset's provenance, scale guidance, and availability.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_drawing_recipe",
+      "title": "Get Drawing Recipe",
+      "description": "Returns one complete audited drawing recipe.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "recipe_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_generated_asset",
+      "title": "Get Generated Asset",
+      "description": "Returns one generated asset's measured dimensions, spatial contract,\nmaterial, generation provenance (Meshy task ids, prompt) and availability.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_generated_asset_passport",
+      "title": "Get Generated Asset Passport",
+      "description": "Read portable asset metadata: measured vs nominal dimensions, provenance,\nmaterials, spatial contract, usage suggestions, quality limits and rights.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_generation_plan",
+      "title": "Get Generation Plan",
+      "description": "Returns a compact dependency graph and current step states.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_generation_sources",
+      "title": "Get Generation Sources",
+      "description": "Get original recorded provider/task IDs, prompt, transformations and evidence gaps.\nIncludes Higgsfield image job IDs where recorded before the Meshy stage.\nThis is local evidence, not an independent provider/account verification.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_logic_by_id",
+      "title": "Get Logic By Id",
+      "description": "Retrieves parsed physics context for a specific Kangaroo2 or Karamba3D archetype.\nReturns detected components, descriptions, and metadata extracted from the\nGrasshopper binary file.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "logic_id": {
+            "type": "string",
+            "description": "The filename (without extension) of the Grasshopper file.\n      Use list_library() first to see available IDs.\n      Examples: catenary, bending, 01_simplebeam"
+          }
+        },
+        "required": [
+          "logic_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_retrieval_status",
+      "title": "Get Retrieval Status",
+      "description": "Returns compact diagnostics for the local structured retrieval system.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_typology_narrative",
+      "title": "Get Typology Narrative",
+      "description": "Architectural typology narratives for project storytelling - precedents,\neras, and urban roles distilled from Ching, Jarzombek & Prakash's\nA Global History of Architecture, with page references (gha_ref).\n\nNARRATION ONLY: use these entries to caption, contextualize and narrate\na design (which tradition a courtyard block belongs to, what a truss\nhall's civic ancestors are). They must NEVER drive geometry, member\nsizing, or structural decisions - that is get_construction_guidance's\njob. A natural pairing: after building with a construction system, call\nthis with construction_system=<that system_id> to fetch the lineage for\nthe project description.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "type": "string",
+            "description": "Free text (e.g. \"courtyard\", \"skyscraper\", \"timber hall\")."
+          },
+          "construction_system": {
+            "default": "",
+            "type": "string",
+            "description": "Filter to entries related to a construction\nlibrary system_id (e.g. \"steel-column-frame\")."
+          },
+          "structure_type": {
+            "default": "",
+            "type": "string",
+            "description": "Filter by validate_structure type (\"shell\",\n\"truss\", \"frame\", \"membrane\", ...)."
+          },
+          "limit": {
+            "default": 5,
+            "type": "integer",
+            "description": "Maximum entries returned (default 5)."
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "import_asset_contract",
+      "title": "Import Asset Contract",
+      "description": "Imports an Almond asset contract (from Blender, Unreal, or another Rhino)\ninto the open Rhino document, restoring everything the file format drops.\n\nRuns the full receive sequence: import the GLB, collapse the duplicate\nmaterials glTF creates, restore canonical PBR values from the Almond\nmaterial library (glTF round trips shift base colours), re-attach the\nalmond:* metadata keyed off the surviving material name, place the asset\nat the requested point using the contract's anchor, and verify the\nmeasured size against the contract's recorded dimensions.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_path": {
+            "type": "string",
+            "description": "Path to a .almond.json contract file."
+          },
+          "x_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "y_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "z_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "rotation_degrees": {
+            "default": 0,
+            "type": "number",
+            "description": "Rotation about world Z."
+          },
+          "layer": {
+            "default": "ALMOND-EXCHANGE",
+            "type": "string",
+            "description": "Destination layer, created if absent."
+          }
+        },
+        "required": [
+          "contract_path"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "import_drawing_hatch_patterns",
+      "title": "Import Drawing Hatch Patterns",
+      "description": "Imports the AutoCAD-style .pat hatch definitions of an indexed drawing\nasset into the active Rhino document's hatch pattern table.\n\nThe tool accepts only .pat files resolved from the controlled\nDrawingAssetfiles manifest, mirroring the placement tools' security\nboundary.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_capsules",
+      "title": "List Capsules",
+      "description": "Lists Grasshopper capsules: GH definitions with a typed, audited input/output\ncontract that can be executed via run_gh_definition.\n\nCall this FIRST to discover what capsules exist before calling run_gh_definition.\nEach entry is a compact card with capsule_id, capability, structure_type,\naudited flag, and the reserved ALMOND_IN_* / ALMOND_OUT_* port names. Only\ncapsules with audited=true can actually run; audited=false capsules are\nretrieval context only (read them via get_logic_by_id instead).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "default": "",
+            "type": "string",
+            "description": "Optional filter: \"analyze\", \"generate\", \"form_find\", or \"aggregate\"."
+          },
+          "audited_only": {
+            "default": false,
+            "type": "boolean",
+            "description": "When true, list only capsules that run_gh_definition will accept."
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_design_codes",
+      "title": "List Design Codes",
+      "description": "Lists the design code profiles validate_structure / visualize_structure accept as design_code.\n\nA profile holds the numbers a design code or National Annex sets (load factors gamma_G,\ngamma_Q, psi_0, xi; the ULS expression; material factors gamma_M0, gamma_M1; the deflection\nlimit; suggested imposed floor loads), each with its source clause and a verified flag.\n\"eurocode\" (EN recommended values) is built in and the default; \"off\" is unfactored mechanics.\nPractices add National Annex profiles as JSON files in user_dir (see docs/design-codes.md).\nUnverified values are allowed but flagged in every result that uses them.\n\nReturns JSON: default, profiles [{id, name, basis, origin, verified, unverified,\nuls_expression, uls_default, deflection_limit_ratio, imposed_floor_kn_m2}], problems\n(files that failed validation), user_dir.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_diagram_assets",
+      "title": "List Diagram Assets",
+      "description": "Lists available vector and CAD diagram assets (people, trees, symbols).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "default": "",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_drawing_assets",
+      "title": "List Drawing Assets",
+      "description": "Lists representation-only entourage and graphic proxy assets.\n\nDrawing assets are representation elements and do\nnot participate in room collision checks unless explicitly registered.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "default": "",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_drawing_recipes",
+      "title": "List Drawing Recipes",
+      "description": "Lists compact audited layer, lineweight, projection, and export recipes.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_generated_assets",
+      "title": "List Generated Assets",
+      "description": "Lists the redistributable generated asset library: 3D entourage (people,\ntrees, vehicles), site furniture, columns, balustrades,\nsanitary/kitchen fixtures, and unbranded\nfurniture placeholders. Every asset is a GLB normalised to real-world\nmillimetres with a measured spatial contract and an Almond material_id,\nso placement, collision checks and material restore work without any\nthird-party download. Place with place_generated_asset.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "default": "",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_library",
+      "title": "List Library",
+      "description": "Lists all available physics logic archetypes in the Grasshopper library.\nUse this tool first to discover what logic IDs are available before\ncalling get_logic_by_id.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_materials",
+      "title": "List Materials",
+      "description": "Lists the curated PBR material library used by assign_material.\n\nEach entry carries metallic/roughness PBR channels, an Unreal material\nslot name (ue_material_slot) for deterministic remapping after import,\nand tags. Categories: metal, plastic, glass, wood, mineral, polymer.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "default": "",
+            "type": "string"
+          },
+          "query": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "place_diagram_asset",
+      "title": "Place Diagram Asset",
+      "description": "Places an indexed diagram asset (SVG, DWG, DXF).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "x": {
+            "default": 0,
+            "type": "number"
+          },
+          "y": {
+            "default": 0,
+            "type": "number"
+          },
+          "z": {
+            "default": 0,
+            "type": "number"
+          },
+          "rotation_degrees": {
+            "default": 0,
+            "type": "number"
+          },
+          "scale": {
+            "default": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "place_drawing_asset",
+      "title": "Place Drawing Asset",
+      "description": "Places an indexed representation asset as a reusable Rhino block.\n\nDrawing assets are placed on ALMOND-DRAW::ASSETS and remain distinct from\ngenerated model blocks. The tool accepts only files resolved from the\ncontrolled DrawingAssetfiles manifest.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "x": {
+            "default": 0,
+            "type": "number"
+          },
+          "y": {
+            "default": 0,
+            "type": "number"
+          },
+          "z": {
+            "default": 0,
+            "type": "number"
+          },
+          "rotation_degrees": {
+            "default": 0,
+            "type": "number"
+          },
+          "scale": {
+            "default": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "place_generated_asset",
+      "title": "Place Generated Asset",
+      "description": "Imports a generated-library asset into the open Rhino document and places\nit at a point (contract anchor = bottom centre, mm), restoring its Almond\nmaterial and almond:* metadata and verifying the landed size against the\ncontract. Use search_generated_assets to choose an asset_id; afterwards\ncall register_scene_instance so the scene ledger and layout validation\nknow about it.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "description": "e.g. \"gen-park-bench-1\"."
+          },
+          "x_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "y_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "z_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "rotation_degrees": {
+            "default": 0,
+            "type": "number",
+            "description": "rotation about world Z."
+          },
+          "layer": {
+            "default": "ALMOND-GEN",
+            "type": "string",
+            "description": "destination layer, created if absent."
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "publish_objects_to_chestnut",
+      "title": "Publish Objects To Chestnut",
+      "description": "Exports specific Rhino objects as one GLB and publishes them to Chestnut.\n\nUse this after execute_rhino_script (and optionally validate_structure), passing\nthe returned object GUIDs. Reusing asset_id updates the existing Chestnut asset\nwithout changing placements that already reference it.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "guids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "description": "Rhino object GUIDs to export. Unrelated document objects are excluded."
+          },
+          "asset_name": {
+            "type": "string",
+            "description": "Human-readable name shown in Chestnut."
+          },
+          "asset_id": {
+            "default": "",
+            "type": "string",
+            "description": "Stable optional ID for linked updates. Generated deterministically\n      from the Rhino document and GUIDs when omitted."
+          },
+          "body_type": {
+            "default": "static",
+            "type": "string",
+            "description": "\"static\" for architecture, \"dynamic\" for loose props, or\n       \"kinematic\" for script-driven objects."
+          },
+          "collider": {
+            "default": "box",
+            "type": "string",
+            "description": "Collider intent: \"box\", \"convex\", \"compound\", or \"trimesh\".\n      Chestnut currently falls back to a box where needed."
+          },
+          "preserve_scale": {
+            "default": true,
+            "type": "boolean",
+            "description": "Keep Rhino's real-world dimensions instead of normalizing\n            the model to a one-metre display prop."
+          },
+          "mass": {
+            "default": 0.0,
+            "type": "number",
+            "description": "Physics mass in kilograms. Static bodies always use zero."
+          }
+        },
+        "required": [
+          "guids",
+          "asset_name"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "publish_to_chestnut",
+      "title": "Publish To Chestnut",
+      "description": "Publishes Rhino objects to Chestnut using safe semantic defaults.\n\nThis is the preferred publishing tool for normal use. It hides collider,\nscale, mass, and rigid-body details. Call it when the user says things such\nas \"publish that to Chestnut\".",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "guids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "description": "Rhino object GUIDs returned by execute_rhino_script."
+          },
+          "asset_name": {
+            "type": "string",
+            "description": "Human-readable asset name."
+          },
+          "behavior": {
+            "default": "auto",
+            "type": "string",
+            "description": "Optional semantic preset:\n\"auto\"         — infer architecture versus movable object from name\n\"architecture\" — fixed building, terrain, structure, or enclosure\n\"object\"       — movable physical prop affected by gravity\n\"animated\"     — script-driven door, lift, platform, or mechanism"
+          },
+          "asset_id": {
+            "default": "",
+            "type": "string",
+            "description": "Optional stable link ID. Omit for a deterministic Rhino link."
+          }
+        },
+        "required": [
+          "guids",
+          "asset_name"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "recommend_generated_assets",
+      "title": "Recommend Generated Assets",
+      "description": "Shortlist available models with explicit reasons, quality notes and fit\noptions. Query matches product/variant/tags; room_type is an inferred usage\nfilter (e.g. living_room, dining_room, office, bathroom, landscape).\nSupply width AND depth for rectangular fit at 0/90 degrees; height 0 is\nunbounded. Authored clearances count by default. No Rhino connection needed.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "type": "string"
+          },
+          "category": {
+            "default": "",
+            "type": "string"
+          },
+          "room_type": {
+            "default": "",
+            "type": "string"
+          },
+          "width_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "depth_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "height_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "max_triangles": {
+            "default": 0,
+            "type": "integer"
+          },
+          "include_clearances": {
+            "default": true,
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 5,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "register_scene_instance",
+      "title": "Register Scene Instance",
+      "description": "Registers or moves an asset instance in millimetres without retransmitting\nits full metadata. Returns a stable instance handle and scene revision.\nWhen z_mm is omitted the instance stands on its room's floor (the room's\nmin_z), so rooms at storey elevation validate correctly.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "scene_id": {
+            "type": "string"
+          },
+          "asset_id": {
+            "type": "string"
+          },
+          "x_mm": {
+            "type": "number"
+          },
+          "y_mm": {
+            "type": "number"
+          },
+          "z_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "rotation_degrees": {
+            "default": 0,
+            "type": "number"
+          },
+          "scale": {
+            "default": 1,
+            "type": "number"
+          },
+          "room_id": {
+            "default": "",
+            "type": "string"
+          },
+          "instance_id": {
+            "default": "",
+            "type": "string"
+          },
+          "locked": {
+            "default": false,
+            "type": "boolean"
+          },
+          "rhino_guid": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_id",
+          "asset_id",
+          "x_mm",
+          "y_mm"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "remove_design_room",
+      "title": "Remove Design Room",
+      "description": "Removes a room from the scene ledger. Instances that referenced it stay\nin the scene, orphaned (re-home them with register_scene_instance).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "scene_id": {
+            "type": "string"
+          },
+          "room_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_id",
+          "room_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "remove_scene_instance",
+      "title": "Remove Scene Instance",
+      "description": "Removes an instance from the scene ledger (recorded as a revision delta).\nThe Rhino geometry, if any, is not touched.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "scene_id": {
+            "type": "string"
+          },
+          "instance_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_id",
+          "instance_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "run_gh_definition",
+      "title": "Run Gh Definition",
+      "description": "Runs an audited Grasshopper capsule (GH definition + typed contract) through\nthe Rhino bridge and returns its declared outputs.\n\nWorkflow: call list_capsules() first to pick a capsule_id and see its input/\noutput port names. Create any geometry with execute_rhino_script, then pass\nthe returned GUIDs here. Inputs are validated client-side against the capsule\nmanifest before anything is sent to Rhino, so errors from this tool name the\nexact port at fault.\n\nInput value forms (keyed by the exact ALMOND_IN_* port name):\n  - Geometry ports (point/curve/mesh/brep and their [] list forms):\n    {\"guids\": [\"<rhino-object-guid>\", ...]} referencing objects already in\n    the Rhino document.\n  - number / integer / string / bool ports: the raw JSON value.\n  - number[] / integer[] / string[] ports: a flat JSON list.\nUnits are declared per port in the manifest — supply values in those units;\nnothing is guessed or auto-converted client-side. Optional inputs may be\nomitted; the capsule's declared defaults then apply inside the definition.\n\nOnly audited capsules run. audited=false means the GHX has no verified\nALMOND_IN_*/ALMOND_OUT_* harness params yet; this tool refuses it\n(see capsules/AUTHORING.md for how to harness one).\n\nThe response's \"outputs\" object is keyed by ALMOND_OUT_* names; interpret\neach value using the manifest's semantics field (e.g. max_nodal_displacement,\nper_element_utilization) and declared units. The response also carries\nanalysis_method (api|template|rule_based), confidence (high|medium|low),\nwarnings, and baked_guids — report method and confidence honestly;\nrule_based/low means an estimate, not FEA.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "capsule_id": {
+            "type": "string",
+            "description": "Stable capsule identifier from list_capsules (e.g. \"karamba_beam_v1\")."
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "type": "object",
+            "description": "Object mapping ALMOND_IN_* port names to values (forms above)."
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional integer seed for stochastic definitions; omit for deterministic ones."
+          },
+          "timeout_s": {
+            "default": 60.0,
+            "type": "number",
+            "description": "Solver budget in seconds (default 60, max 600)."
+          }
+        },
+        "required": [
+          "capsule_id",
+          "inputs"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "search_asset_repository",
+      "title": "Search Asset Repository",
+      "description": "Search the unified model/drawing archive. kind: all, model or element.\n\nReturns stable IDs, file availability, dimensions and MCP resource URIs.\nDrawing-ready means a derived projection package is linked to the object.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "type": "string"
+          },
+          "kind": {
+            "default": "all",
+            "type": "string"
+          },
+          "drawing_ready": {
+            "default": false,
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 20,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "search_detail_sources",
+      "title": "Search Detail Sources",
+      "description": "Search six curated free architectural source directories offline.\nReturns links, formats and rights notes; no external content is fetched.\nResults are research candidates, not attributed inputs or certified details.\nDETAIL subscription access is not required.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "search_diagram_assets",
+      "title": "Search Diagram Assets",
+      "description": "Searches the diagram asset library.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "type": "string"
+          },
+          "category": {
+            "default": "",
+            "type": "string"
+          },
+          "max_width_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "max_depth_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "max_height_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "limit": {
+            "default": 10,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "search_drawing_assets",
+      "title": "Search Drawing Assets",
+      "description": "Searches only the controlled architectural drawing-asset library.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "type": "string"
+          },
+          "category": {
+            "default": "",
+            "type": "string"
+          },
+          "max_width_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "max_depth_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "max_height_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "limit": {
+            "default": 10,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "search_generated_assets",
+      "title": "Search Generated Assets",
+      "description": "Searches only the generated asset library (FTS over product, variant,\ncategory and tags; dimension filters use the measured GLB bounds).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "type": "string"
+          },
+          "category": {
+            "default": "",
+            "type": "string"
+          },
+          "max_width_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "max_depth_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "max_height_mm": {
+            "default": 0,
+            "type": "number"
+          },
+          "limit": {
+            "default": 10,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "update_generation_step",
+      "title": "Update Generation Step",
+      "description": "Advances a generation step after its dependencies complete. Input and\noutput references should be stable scene, room, asset, instance, or Rhino\nGUID handles.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": {
+            "type": "string"
+          },
+          "step_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "input_refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "output_refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "plan_id",
+          "step_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "upsert_design_room",
+      "title": "Upsert Design Room",
+      "description": "Creates or updates a room in the local scene ledger.\nbounds_mm is [min_x, min_y, min_z, max_x, max_y, max_z]. When room_id is\nomitted, an existing room with the same name in the scene is updated\ninstead of creating a duplicate.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "scene_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "bounds_mm": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "room_id": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_id",
+          "name",
+          "bounds_mm"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "validate_scene_layout",
+      "title": "Validate Scene Layout",
+      "description": "Runs local R-tree broad-phase collision and room-containment checks.\nOnly compact violations are returned; geometry remains in Rhino.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "scene_id": {
+            "type": "string"
+          },
+          "detail_limit": {
+            "default": 50,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scene_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "validate_structure",
+      "title": "Validate Structure",
+      "description": "Validates AI-generated geometry with a structural analysis.\nCall this AFTER execute_rhino_script to verify the generated structure is buildable.\n\nengine=\"auto\" (default) analyses line models (beams, columns, trusses, frames) with\nAlmond's built-in 3D frame solver: analysis_method \"native\", confidence \"high\",\nno Karamba install needed. It is a linear-elastic first-order frame analysis with\nEN 1993-1-1 member checks (elastic moduli; flexural buckling with L_cr = member\nlength; no lateral-torsional buckling), benchmarked against closed-form results\nand live Karamba runs. Models with shells, and shell/gridshell/membrane structure\ntypes, go to Karamba. engine=\"karamba\" forces the Karamba route, which tries three\npathways in strict order of confidence and always tells you which one ran:\n    analysis_method \"api\"        — direct Karamba 3.1 API solve, confidence \"high\"\n    analysis_method \"template\"   — audited capsule GHX template,  confidence \"medium\"\n    analysis_method \"rule_based\" — heuristic span/slenderness rules, confidence \"low\"\nThe verdict string names the method (e.g. \"[RULE-BASED ESTIMATE, LOW CONFIDENCE] ...\").\nTreat rule_based/low results as estimates, NOT finite element analysis, and say so\nwhen reporting to the user.\n\nIf the structure FAILS, modify the design (add supports, increase member size,\nchange material) and call execute_rhino_script + validate_structure again.\nWhen worst_member_guids is present, edit only those offending members instead\nof regenerating everything. Iterate up to 3 times before reporting the best attempt.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "guids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "description": "List of Rhino object GUID strings from execute_rhino_script output."
+          },
+          "structure_type": {
+            "default": "beam",
+            "type": "string",
+            "description": "Analysis template to use. Options:\n\"beam\"       — simple beam bending/deflection\n\"truss\"      — axial force/buckling analysis\n\"shell\"      — shell stress/displacement\n\"frame\"      — moment/shear frame analysis\n\"canopy\"     — cantilevered canopy\n\"gridshell\"  — large deformation gridshell\n\"membrane\"   — form-finding membrane\n\"highrise\"   — high-rise structural systems"
+          },
+          "load_kn": {
+            "default": 10.0,
+            "type": "number",
+            "description": "Applied load in kN (default 10.0)."
+          },
+          "material": {
+            "default": "Steel",
+            "type": "string",
+            "description": "Material type: \"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\" (default \"Steel\")."
+          },
+          "engine": {
+            "default": "auto",
+            "type": "string",
+            "description": "\"auto\" | \"native\" | \"karamba\" (see above)."
+          },
+          "fixed_supports": {
+            "default": true,
+            "type": "boolean",
+            "description": "True = fully fixed supports, False = pinned (rotations free)."
+          },
+          "self_weight": {
+            "default": true,
+            "type": "boolean",
+            "description": "include member self weight."
+          },
+          "span_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "structural span in meters for the L/250 limit when members are split at\nevery node (e.g. a 6.2 m joist drawn as two 3.1 m segments). Native engine only."
+          },
+          "asset_loads": {
+            "default": false,
+            "type": "boolean",
+            "description": "add the gravity loads of placed library assets (estimated self weight\nplus in-use contents/occupants from each asset's load entry, e.g. a filled\nbathtub) where they stand on (or hang from) the frame. Placements come from\nRhino objects tagged with an Almond asset id, or from the scene ledger when\nscene_id is given. Native engine only; the result's \"asset_loads\" lists every\nplacement with its load and carrying members, or why it was not applied."
+          },
+          "scene_id": {
+            "default": "",
+            "type": "string",
+            "description": "scene ledger to read placements from (default: tagged Rhino objects)."
+          },
+          "floor_load_kn_m2": {
+            "default": 0.0,
+            "type": "number",
+            "description": "imposed floor load in kN/m2 (e.g. 2.0 for homes, EN 1991-1-1\ncategory A) on every bay enclosed by beams on a level; the beams take it by the\n45-degree rule (two-way, one-way above 2:1). Native engine only. A code floor load\nalready covers movable furniture and people: combine it with asset_loads only for\nheavy specific items, and set load_kn to 0 to avoid double counting."
+          },
+          "floor_dead_kn_m2": {
+            "default": 0.0,
+            "type": "number",
+            "description": "superimposed dead load in kN/m2 (floor build-up, finishes) on the\nsame bays."
+          },
+          "design_basis": {
+            "default": "en1990",
+            "type": "string",
+            "description": "\"en1990\" (default): deflection at SLS characteristic (G + Q), member\nchecks at ULS 1.35 G + 1.5 Q. G = self weight, floor build-up and the weight of\nplaced items; Q = load_kn, the occupancy floor load, contents and occupants.\n\"unfactored\" checks both at G + Q (the Karamba route's basis). Native engine."
+          },
+          "uls_combination": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "\"6.10\" or \"6.10ab\" (the worse of 6.10a and 6.10b per member). Default:\nthe design code's choice (Eurocode profile: 6.10). A profile that prescribes one\nexpression overrides the request (with a warning)."
+          },
+          "connections": {
+            "default": "rigid",
+            "type": "string",
+            "description": "\"rigid\" (default: every joint transmits moment) or \"simple\": beams are\npinned (major-axis bending released) and braces pinned in both axes where they\nstop - not where another member carries on in line - while columns stay\ncontinuous. Typical bolted steel and timber framing is closer to \"simple\"; rigid\njoints can flatter beam deflection. A curve's user text almond:release = \"pinned\" |\n\"pinned_start\" | \"pinned_end\" | \"rigid\" overrides either mode. Native engine."
+          },
+          "stability": {
+            "default": "auto",
+            "type": "string",
+            "description": "\"auto\" (default): elastic critical load factor alpha_cr for every ULS\ncombination (EN 1993-1-1 5.2.1) and sway imperfections phi = 1/200 x alpha_h x alpha_m\n(5.3.2) in +/-x and +/-y; alpha_cr < 10 runs a second-order (P-Delta) ULS analysis,\nalpha_cr <= 1 fails as unstable. \"off\": first-order without imperfections."
+          },
+          "design_code": {
+            "default": "eurocode",
+            "type": "string",
+            "description": "design code profile for the numbers a code or National Annex sets\n(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, deflection limit): \"eurocode\"\n(default, EN recommended values), any profile from list_design_codes, or \"off\"\n(unfactored G + Q, no partial factors; same as design_basis=\"unfactored\").\nResults carry \"design_code\" with the values used and any unverified ones."
+          },
+          "detail": {
+            "default": false,
+            "type": "boolean",
+            "description": "native engine only. Adds \"members\" (per member: role, length, section, ULS design\nforces N/V/M/T, governing combination and check, slenderness, chi, stress,\nutilization, SLS deflection and span/deflection ratio, pinned ends) and \"supports\"\n(reactions Fx..Mz at SLS and each ULS combination). Off by default to keep replies short."
+          },
+          "fabrication": {
+            "default": "cold_formed",
+            "type": "string",
+            "description": "hollow steel sections (CHS/RHS) are \"cold_formed\" (default, EN 10219,\nbuckling curve c) or \"hot_finished\" (EN 10210, curve a; a0 for S460). The difference\nis up to about 23 % in buckling resistance; use hot_finished only when specified."
+          }
+        },
+        "required": [
+          "guids"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "visualize_structure",
+      "title": "Visualize Structure",
+      "description": "Run a live structural analysis on a line model and SHOW it in every Rhino viewport:\nthe undeformed wireframe, the exaggerated deformed shape coloured blue -> red by\ndisplacement (or by utilization), supports, load arrows and a legend panel with\nmax deflection, the L/limit check and PASS/FAIL. Nothing is baked into the document.\n\nUse it to make structural behaviour visible while designing: model the structural\naxes as curves, include Rhino point objects at the supports, call this tool, then\nfix the members it shows in red (add a column, shorten a cantilever, upsize the\nsection via beam_diameter_mm) and call it again. validate_structure gives the\nauditable verdict; this tool is the visual, iterative view of the same solve.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "guids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Curve GUIDs of the structural axes plus point GUIDs marking supports\n(see fixed_supports). Without points, the lowest nodes are supported."
+          },
+          "load_kn": {
+            "default": 10.0,
+            "type": "number",
+            "description": "Total imposed load in kN, shared equally by the free nodes (-Z)."
+          },
+          "material": {
+            "default": "Steel",
+            "type": "string",
+            "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\"."
+          },
+          "beam_diameter_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "beam_wall_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "self_weight": {
+            "default": true,
+            "type": "boolean",
+            "description": "include gravity."
+          },
+          "fixed_supports": {
+            "default": true,
+            "type": "boolean",
+            "description": "True = fully fixed supports, False = pinned (rotations free)."
+          },
+          "deflection_limit_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "span/ratio limit, e.g. 250 for L/250. Default: the design code's\nlimit (Eurocode profile: 250)."
+          },
+          "span_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "reference span in meters for the limit (default: longest member).\nSet it when members are split at every node, e.g. a 6.2 m joist drawn\nas two 3.1 m segments."
+          },
+          "color_by": {
+            "default": "displacement",
+            "type": "string",
+            "description": "\"displacement\" or \"utilization\"."
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "deformation exaggeration; omit for automatic (~6% of span)."
+          },
+          "reveal": {
+            "default": 1.0,
+            "type": "number",
+            "description": "0..1 fraction of members drawn (for staged construction playback)."
+          },
+          "reanalyze": {
+            "default": true,
+            "type": "boolean",
+            "description": "False re-uses the last solve and only changes the display\n(scale / color_by / reveal / physics / title) - cheap enough to animate."
+          },
+          "physics": {
+            "default": true,
+            "type": "boolean",
+            "description": "False draws the same members as plain geometry with no analysis\noverlay (\"physics off\"), for before/after comparisons."
+          },
+          "display_guids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "draw only these members (e.g. one frame line for a section\nview); the analysis still covers every member in guids."
+          },
+          "title": {
+            "default": "",
+            "type": "string",
+            "description": "legend title."
+          },
+          "clear": {
+            "default": false,
+            "type": "boolean",
+            "description": "remove the overlay."
+          },
+          "engine": {
+            "default": "auto",
+            "type": "string",
+            "description": "\"auto\" (default: Almond's native frame solver, no Karamba needed; Karamba\nwhen the selection has shells or the bridge cannot export a model),\n\"native\" or \"karamba\"."
+          },
+          "asset_loads": {
+            "default": false,
+            "type": "boolean"
+          },
+          "scene_id": {
+            "default": "",
+            "type": "string"
+          },
+          "floor_load_kn_m2": {
+            "default": 0.0,
+            "type": "number"
+          },
+          "floor_dead_kn_m2": {
+            "default": 0.0,
+            "type": "number"
+          },
+          "design_basis": {
+            "default": "en1990",
+            "type": "string"
+          },
+          "uls_combination": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "connections": {
+            "default": "rigid",
+            "type": "string",
+            "description": "\"rigid\" or \"simple\", as in validate_structure; pinned ends are drawn\nas small circles."
+          },
+          "stability": {
+            "default": "auto",
+            "type": "string",
+            "description": "\"auto\" or \"off\", as in validate_structure."
+          },
+          "design_code": {
+            "default": "eurocode",
+            "type": "string"
+          },
+          "fabrication": {
+            "default": "cold_formed",
+            "type": "string"
+          },
+          "view": {
+            "default": "deflection",
+            "type": "string",
+            "description": "\"deflection\" (default) or \"buckling\": draw the first buckling mode of the\ngoverning ULS combination with its alpha_cr (STABLE >= 10, SWAY-SENSITIVE 1-10,\nUNSTABLE <= 1) instead of the deflected shape."
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    }
+  ]
+}

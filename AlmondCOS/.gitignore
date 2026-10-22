@@ -1,0 +1,10 @@
+data/*
+plugin-build/
+src/bin/
+src/obj/
+tests/bin/
+tests/obj/
+tests/HostLifecycle/bin/
+tests/HostLifecycle/obj/
+__pycache__/
+*.pyc

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/CosHost.cs" Link="CosHost.cs" />
+    <Compile Include="../../../Almond/_engine/native/SessionFiles.cs" Link="SessionFiles.cs" />
+    <Compile Include="../../../Almond/_engine/native/SharedStorageLease.cs" Link="SharedStorageLease.cs" />
+  </ItemGroup>
+</Project>
