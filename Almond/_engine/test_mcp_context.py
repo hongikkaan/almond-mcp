@@ -18,6 +18,7 @@ FIXTURE_ROOT = None
 def setUpModule():
     global FIXTURE_ROOT
     data = Path(__file__).resolve().parent.parent / 'data'
+    data.mkdir(parents=True, exist_ok=True)
     FIXTURE_ROOT = Path(tempfile.mkdtemp(prefix='_mcp_context_', dir=data))
     print('MCP context fixtures retained at:', FIXTURE_ROOT, flush=True)
 

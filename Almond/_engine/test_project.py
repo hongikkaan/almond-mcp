@@ -14,6 +14,7 @@ from project import project_paths, ExclusiveFile, read_binding
 class ProjectTests(unittest.TestCase):
     def setUp(self):
         data = Path(__file__).resolve().parent.parent / 'data'
+        data.mkdir(parents=True, exist_ok=True)
         self.temp = tempfile.TemporaryDirectory(prefix='_storage_test_', dir=data)
         self.root = Path(self.temp.name)
         self.model = self.root / '설계 초안.3dm'

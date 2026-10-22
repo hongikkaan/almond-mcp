@@ -160,6 +160,7 @@ class WindowsSmoke(unittest.TestCase):
     @unittest.skipUnless(sys.platform=='win32' and os.environ.get('ALMOND_PURGE_SMOKE')=='1', 'opt-in disposable-process test')
     def test_disposable_orphan_termination_and_unrelated_survival(self):
         root=Path(__file__).resolve().parent.parent/'data'
+        root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='_purge_test_',dir=root) as tmp:
             engine=Path(tmp)/'_engine';engine.mkdir()
             script=engine/'mcp_server.py'

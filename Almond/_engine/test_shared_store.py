@@ -45,6 +45,7 @@ def no_original_server():
 def setUpModule():
     global FIXTURE_ROOT
     no_original_server()
+    (ENGINE.parent / "data").mkdir(parents=True, exist_ok=True)
     FIXTURE_ROOT = Path(tempfile.mkdtemp(prefix="_shared_store_", dir=ENGINE.parent / "data"))
     print("Shared-store fixtures retained at:", FIXTURE_ROOT, flush=True)
 

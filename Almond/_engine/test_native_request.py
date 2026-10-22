@@ -214,6 +214,7 @@ class RuntimeRequestTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         data = Path(__file__).resolve().parent.parent / "data"
+        data.mkdir(parents=True, exist_ok=True)
         cls.fixture_root = Path(tempfile.mkdtemp(prefix="_native_request_tests_", dir=data))
         print("Native request fixture retained for recoverable cleanup:", cls.fixture_root)
 
