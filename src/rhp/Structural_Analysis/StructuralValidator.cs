@@ -36,7 +36,8 @@ namespace RhinoAlmondBridge
             if (!string.IsNullOrEmpty(env)) return env;
 
             string directory = Path.GetDirectoryName(typeof(StructuralValidator).Assembly.Location);
-            for (int i = 0; i < 6 && directory != null; i++)
+            // Include the checkout root from src/rhp/<project>/bin/Release/<tfm>.
+            for (int i = 0; i < 7 && directory != null; i++)
             {
                 string assetCandidate = Path.Combine(directory, "asset", "capsules");
                 if (Directory.Exists(assetCandidate)) return assetCandidate;

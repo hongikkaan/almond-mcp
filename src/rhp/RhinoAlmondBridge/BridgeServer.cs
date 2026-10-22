@@ -81,7 +81,8 @@ namespace RhinoAlmondBridge
                 : name == "DrawingAssetfiles" ? Path.Combine("asset", "drawing", "DrawingAssetfiles")
                 : name == "Grasshopperfiles" ? Path.Combine("asset", "grasshopper", "Grasshopperfiles") : null;
             string directory = Path.GetDirectoryName(typeof(BridgeServer).Assembly.Location);
-            for (int i = 0; i < 6 && directory != null; i++)
+            // Include the checkout root from src/rhp/<project>/bin/Release/<tfm>.
+            for (int i = 0; i < 7 && directory != null; i++)
             {
                 if (assetPath != null)
                 {

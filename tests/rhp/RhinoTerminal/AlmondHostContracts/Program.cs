@@ -98,6 +98,20 @@ try
     }
     Console.WriteLine("PASS: protocol mismatch and reused token fail before overwriting metadata");
 
+    using (var fixture = new HostFixture(suite, "external-owner", bind: false))
+    using (var process = Process.GetCurrentProcess())
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(fixture.Locator)!);
+        var owner = JsonSerializer.Serialize(new { pid = process.Id,
+            process_start_ticks = process.StartTime.ToUniversalTime().Ticks.ToString(),
+            token = "external-owner-preserved" });
+        File.WriteAllText(fixture.Locator, owner);
+        Check.Throws<InvalidOperationException>(() => fixture.Attach(), "기존 Almond 연결");
+        Check.That(!Directory.Exists(fixture.Session), "A second host created connection state for an externally owned Rhino.");
+        Check.That(File.ReadAllText(fixture.Locator) == owner, "The external launcher's Engine/data locator changed.");
+    }
+    Console.WriteLine("PASS: Engine/data external process ownership rejects a second panel attachment");
+
     using (var fixture = new HostFixture(suite, "failed-start", bind: false))
     using (var retry = new HostFixture(suite, "retry", bind: false))
     {
@@ -105,6 +119,9 @@ try
         BoundBridge.PendingOnStart = 1;
         Check.Throws<IOException>(() => fixture.Attach(), "fixture native start failure");
         var native = (BoundBridge)HostFixture.Get(fixture.Host, "bridge")!;
+        Check.That(File.Exists(fixture.Locator) &&
+            (string?)HostFixture.Get(fixture.Host, "locatorPath") == fixture.Locator,
+            "Pending terminal ownership was not published in Engine/data for the shared slot allocator.");
         Check.That(!Check.Free(Path.Combine(fixture.Session, "rhino.lock")), "Failed startup released pending ownership.");
         Check.Throws<InvalidOperationException>(() => retry.Attach(), "이전 Almond 작업");
         native.Pending = 0;
@@ -116,7 +133,7 @@ try
         Check.That(!retry.Host.HasBinding, "Retry retained a fully drained binding.");
     }
     Console.WriteLine("PASS: failed startup retains pending ownership, blocks another panel and then recovers");
-    Console.WriteLine("All seven host contract checks passed. Rhino UI/native execution were fixture doubles; no native listener was opened.");
+    Console.WriteLine("All eight host contract checks passed. Rhino UI/native execution were fixture doubles; no native listener was opened.");
 }
 finally
 {

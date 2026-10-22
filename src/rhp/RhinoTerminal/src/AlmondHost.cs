@@ -184,7 +184,7 @@ internal sealed class AlmondHost : IDisposable
         // Do not attach a second bridge to a Rhino owned by the external launcher.
         using var process = Process.GetCurrentProcess();
         var ticks = process.StartTime.ToUniversalTime().Ticks.ToString();
-        var data = Path.Combine(Engine, "..", "data");
+        var data = Path.Combine(Engine, "data");
         foreach (var label in SupportedSlots)
         foreach (var name in new[] { "active.json", "ready.json" })
         {
