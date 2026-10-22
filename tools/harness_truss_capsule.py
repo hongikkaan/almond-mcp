@@ -8,7 +8,7 @@ curves - rather than the slider-parametric 01_ParametricTruss.ghx the
 manifest originally pointed at; its Line-Line Intersection stage shatters
 input lines at crossings, so continuous chords node-merge automatically.
 
-Harness contract (mirrors capsules/karamba_truss_v1.capsule.json):
+Harness contract (mirrors asset/capsules/karamba_truss_v1.capsule.json):
   ALMOND_IN_LINES     rename of the template's existing floating Curve
                       param "Crv" (BindParam clears its referenced data)
   ALMOND_IN_LOAD_KN   Param_Number -> Unit-Z factor that drives the

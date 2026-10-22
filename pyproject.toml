@@ -47,46 +47,47 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["almond_mcp"]
+packages = ["src/mcp/almond_mcp"]
 
 # Manifests and audited JSON ship inside the wheel as almond_mcp/data/ so a
 # fresh install can scaffold the user data directory. Only the original,
 # generated CC BY 4.0 model pack is included. Downloaded 3D Warehouse models
 # are NEVER included; see THIRD-PARTY-NOTICES.md and docs/licensing-audit.md.
 [tool.hatch.build.targets.wheel.force-include]
-"DrawingAssetfiles/manifest.json" = "almond_mcp/data/DrawingAssetfiles/manifest.json"
-"DiagramAssetfiles/manifest.json" = "almond_mcp/data/DiagramAssetfiles/manifest.json"
-"GeneratedAssetfiles/manifest.json" = "almond_mcp/data/GeneratedAssetfiles/manifest.json"
-"GeneratedAssetfiles/models" = "almond_mcp/data/GeneratedAssetfiles/models"
-"GeneratedAssetfiles/previews" = "almond_mcp/data/GeneratedAssetfiles/previews"
-"GeneratedAssetfiles/passport.schema.json" = "almond_mcp/data/GeneratedAssetfiles/passport.schema.json"
-"GeneratedAssetfiles/README.md" = "almond_mcp/data/GeneratedAssetfiles/README.md"
-"GeneratedAssetfiles/catalogue.json" = "almond_mcp/data/GeneratedAssetfiles/catalogue.json"
-"GeneratedAssetfiles/provenance.json" = "almond_mcp/data/GeneratedAssetfiles/provenance.json"
-"GeneratedAssetfiles/structural-loads.json" = "almond_mcp/data/GeneratedAssetfiles/structural-loads.json"
-"GeneratedAssetfiles/source-register.json" = "almond_mcp/data/GeneratedAssetfiles/source-register.json"
-"GeneratedAssetfiles/batches" = "almond_mcp/data/GeneratedAssetfiles/batches"
-"DrawingRecipes" = "almond_mcp/data/DrawingRecipes"
-"Draftingfiles" = "almond_mcp/data/Draftingfiles"
-"capsules" = "almond_mcp/data/capsules"
-"Materialfiles/manifest.json" = "almond_mcp/data/Materialfiles/manifest.json"
-"Constructionfiles/manifest.json" = "almond_mcp/data/Constructionfiles/manifest.json"
-"Historyfiles/manifest.json" = "almond_mcp/data/Historyfiles/manifest.json"
+"src/rhp/Asset_Panel/web" = "almond_mcp/library_ui"
+"asset/drawing/DrawingAssetfiles/manifest.json" = "almond_mcp/data/DrawingAssetfiles/manifest.json"
+"asset/diagram/DiagramAssetfiles/manifest.json" = "almond_mcp/data/DiagramAssetfiles/manifest.json"
+"asset/models/GeneratedAssetfiles/manifest.json" = "almond_mcp/data/GeneratedAssetfiles/manifest.json"
+"asset/models/GeneratedAssetfiles/models" = "almond_mcp/data/GeneratedAssetfiles/models"
+"asset/models/GeneratedAssetfiles/previews" = "almond_mcp/data/GeneratedAssetfiles/previews"
+"asset/models/GeneratedAssetfiles/passport.schema.json" = "almond_mcp/data/GeneratedAssetfiles/passport.schema.json"
+"asset/models/GeneratedAssetfiles/README.md" = "almond_mcp/data/GeneratedAssetfiles/README.md"
+"asset/models/GeneratedAssetfiles/catalogue.json" = "almond_mcp/data/GeneratedAssetfiles/catalogue.json"
+"asset/models/GeneratedAssetfiles/provenance.json" = "almond_mcp/data/GeneratedAssetfiles/provenance.json"
+"asset/models/GeneratedAssetfiles/structural-loads.json" = "almond_mcp/data/GeneratedAssetfiles/structural-loads.json"
+"asset/models/GeneratedAssetfiles/source-register.json" = "almond_mcp/data/GeneratedAssetfiles/source-register.json"
+"asset/models/GeneratedAssetfiles/batches" = "almond_mcp/data/GeneratedAssetfiles/batches"
+"asset/drawing/DrawingRecipes" = "almond_mcp/data/DrawingRecipes"
+"asset/drawing/Draftingfiles" = "almond_mcp/data/Draftingfiles"
+"asset/capsules" = "almond_mcp/data/capsules"
+"asset/constructions/Materialfiles/manifest.json" = "almond_mcp/data/Materialfiles/manifest.json"
+"asset/constructions/Constructionfiles/manifest.json" = "almond_mcp/data/Constructionfiles/manifest.json"
+"asset/history/Historyfiles/manifest.json" = "almond_mcp/data/Historyfiles/manifest.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/almond_mcp", "/tests", "/docs", "/capsules", "/DrawingRecipes",
-    "/Draftingfiles", "/tools/build_drawing_pilot.py",
-    "/GeneratedAssetfiles/manifest.json", "/GeneratedAssetfiles/catalogue.json",
-    "/GeneratedAssetfiles/provenance.json", "/GeneratedAssetfiles/passport.schema.json",
-    "/GeneratedAssetfiles/structural-loads.json",
-    "/GeneratedAssetfiles/source-register.json",
-    "/GeneratedAssetfiles/README.md", "/GeneratedAssetfiles/models", "/GeneratedAssetfiles/previews",
-    "/DrawingAssetfiles/manifest.json", "/DiagramAssetfiles/manifest.json",
-    "/Materialfiles/manifest.json", "/Constructionfiles/manifest.json", "/Historyfiles/manifest.json",
+    "/src/mcp/almond_mcp", "/src/rhp/Asset_Panel/web", "/tests/mcp", "/docs", "/asset/capsules", "/asset/drawing/DrawingRecipes",
+    "/asset/drawing/Draftingfiles", "/tools/build_drawing_pilot.py",
+    "/asset/models/GeneratedAssetfiles/manifest.json", "/asset/models/GeneratedAssetfiles/catalogue.json",
+    "/asset/models/GeneratedAssetfiles/provenance.json", "/asset/models/GeneratedAssetfiles/passport.schema.json",
+    "/asset/models/GeneratedAssetfiles/structural-loads.json",
+    "/asset/models/GeneratedAssetfiles/source-register.json",
+    "/asset/models/GeneratedAssetfiles/README.md", "/asset/models/GeneratedAssetfiles/models", "/asset/models/GeneratedAssetfiles/previews",
+    "/asset/drawing/DrawingAssetfiles/manifest.json", "/asset/diagram/DiagramAssetfiles/manifest.json",
+    "/asset/constructions/Materialfiles/manifest.json", "/asset/constructions/Constructionfiles/manifest.json", "/asset/history/Historyfiles/manifest.json",
     "/tools/build_generated_assets.py", "/tools/enrich_generated_assets.py",
     "/tools/document_generation_sources.py",
-    "/tools/run_meshy_batch.py", "/tools/prepare_organic_meshes.py", "/tools/import_organic_batch.py", "/GeneratedAssetfiles/batches",
+    "/tools/run_meshy_batch.py", "/tools/prepare_organic_meshes.py", "/tools/import_organic_batch.py", "/asset/models/GeneratedAssetfiles/batches",
     "/tools/build_archive_bundle.py", "/tools/verify_object_archive_install.py",
     "/tools/render_generated_previews.py", "/tools/verify_release.py",
     "/README.md", "/AGENTS.md", "/LICENSE", "/THIRD-PARTY-NOTICES.md",
@@ -95,14 +96,16 @@ include = [
 # Belt and braces on top of .gitignore: downloaded model files and compiled
 # bridge binaries must never reach a distribution artifact.
 exclude = [
-    "IkeaFurniturefiles/models",
-    "DrawingAssetfiles/models",
-    "DiagramAssetfiles/models",
-    "Grasshopperfiles",
+    "asset/models/IkeaFurniturefiles/models",
+    "asset/drawing/DrawingAssetfiles/models",
+    "asset/diagram/DiagramAssetfiles/models",
+    "asset/grasshopper/Grasshopperfiles",
     "dist",
-    "RhinoAlmondBridge",
+    "src/rhp/RhinoAlmondBridge",
     "*.sqlite3",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# COS requires the .NET fixtures and environment prepared by src/cos/run_tests.ps1.
+testpaths = ["tests/mcp", "tests/engine"]
+pythonpath = ["src/mcp", "src/engine", "src/cos", "tests/mcp", "tests/engine", "tests/cos"]

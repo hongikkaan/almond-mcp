@@ -17,8 +17,11 @@ try {
     $version = & $python -c 'from almond_mcp import __version__; print(__version__)'
     if ($LASTEXITCODE -ne 0) { throw "Version read failed." }
     $output = Join-Path $repo "dist/release-$version"
+    if ((Test-Path -LiteralPath $output) -and @(Get-ChildItem -LiteralPath $output -Force).Count -gt 0) {
+        throw "Release output must be empty; preserve or move the previous artifacts before retrying: $output"
+    }
     New-Item -ItemType Directory -Force -Path $output | Out-Null
-    & dotnet build tests/archive_host/ArchiveHost.csproj -c Release -o (Join-Path $scratch "host")
+    & dotnet build tests/rhp/RhinoAlmondBridge/archive_host/ArchiveHost.csproj -c Release -o (Join-Path $scratch "host")
     if ($LASTEXITCODE -ne 0) { throw "Archive host build failed." }
     $env:ALMOND_ARCHIVE_TEST_HOST = Join-Path $scratch "host/ArchiveHost.exe"
     & $python -m pytest -q --junitxml (Join-Path $output "tests.xml")
@@ -42,15 +45,17 @@ try {
         & $installedPython (Join-Path $repo "tools/verify_object_archive_install.py") (Join-Path $output "clean-install.json")
         if ($LASTEXITCODE -ne 0) { throw "Installed package smoke test failed." }
     } finally { Pop-Location }
-    & (Join-Path $repo "tools/build_yak.ps1") -PythonExecutable $python -YakExecutable $YakExecutable
-    [xml]$project = Get-Content -LiteralPath (Join-Path $repo "RhinoAlmondBridge/RhinoAlmondBridge.csproj")
+    $yakOutput = Join-Path $scratch "yak"
+    & (Join-Path $repo "tools/build_yak.ps1") -PythonExecutable $python -YakExecutable $YakExecutable -OutputDirectory $yakOutput
+    [xml]$project = Get-Content -LiteralPath (Join-Path $repo "src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj")
     $bridgeVersion = $project.Project.PropertyGroup.Version
-    $yakName = "almondbridge-$bridgeVersion-rh8_0-win.yak"
-    Copy-Item -LiteralPath (Join-Path $repo "dist/yak/$yakName") -Destination $output
+    $yakPackages = @(Get-ChildItem -LiteralPath $yakOutput -Filter *.yak)
+    if ($yakPackages.Count -ne 1) { throw "Expected one freshly verified Yak package." }
+    $yakName = $yakPackages[0].Name
+    Copy-Item -LiteralPath $yakPackages[0].FullName -Destination $output
     & $python tools/verify_yak.py (Join-Path $output $yakName) --report (Join-Path $output "yak-verification.json")
     if ($LASTEXITCODE -ne 0) { throw "Final Yak check failed." }
     Copy-Item -LiteralPath (Join-Path $repo "docs/rhino-archive-quickstart.md") -Destination $output
-    Copy-Item -LiteralPath (Join-Path $repo "docs/food4rhino-listing.md") -Destination $output
     $zip = Join-Path $output "almondbridge-$bridgeVersion-food4rhino.zip"
     Compress-Archive -LiteralPath @((Join-Path $output $yakName), (Join-Path $output "rhino-archive-quickstart.md")) -DestinationPath $zip -Force
     $checksums = Get-ChildItem -LiteralPath $output -File | Where-Object { $_.Name -ne "SHA256SUMS.txt" -and $_.Name -notlike ".*" } | Sort-Object Name | ForEach-Object {

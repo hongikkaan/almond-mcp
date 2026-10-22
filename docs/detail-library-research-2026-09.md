@@ -49,7 +49,7 @@ Keep detailed drawing metadata in versioned sidecars and embed a compact, resolv
 
 ## Build on Almond's current drawing features
 
-The repository already has drawing asset search/placement, hatch-pattern import and drawing recipes. `DrawingRecipes/technical_axon.json` defines separate cut, profile, visible, detail, hidden, overhead, entourage, hatch and annotation layers. Reuse those roles across new plan/elevation/section recipes, with weights reviewed at the target paper scale.
+The repository already has drawing asset search/placement, hatch-pattern import and drawing recipes. `asset/drawing/DrawingRecipes/technical_axon.json` defines separate cut, profile, visible, detail, hidden, overhead, entourage, hatch and annotation layers. Reuse those roles across new plan/elevation/section recipes, with weights reviewed at the target paper scale.
 
 Rhino 8 provides the necessary starting points: [Make2D](https://docs.mcneel.com/rhino/8/help/en-us/commands/make2d.htm) supports projected curves, hidden-line handling and source-layer organization; [MeshOutline](https://docs.mcneel.com/rhino/8/help/en-us/commands/meshoutline.htm) supplies mesh outlines. [Clipping drawing commands](https://docs.mcneel.com/rhino/8/help/en-us/commands/clippingplane.htm) support section drawing creation, updating and export. Generated meshes still need quality checks: raw triangle edges do not make useful architectural linework, and open meshes can produce incomplete section boundaries.
 

@@ -23,8 +23,8 @@ From this checkout, use the development interpreter with
 - 6 reference directories, explicitly separate from model-generation evidence.
 
 The catalogue joins existing manifests by stable asset ID. It does not copy or
-move model files. Generated models live in `GeneratedAssetfiles`, drawing
-elements in `DrawingAssetfiles`, and projections in `Draftingfiles`. The normal
+move model files. Generated models live in `asset/models/GeneratedAssetfiles`, drawing
+elements in `asset/drawing/DrawingAssetfiles`, and projections in `asset/drawing/Draftingfiles`. The normal
 Almond environment overrides continue to select each canonical library.
 Restart the archive after changing manifests or adding files. Missing local
 files remain discoverable with an explicit unavailable state and source link.
@@ -42,7 +42,7 @@ GLBs by 0.001 for display only; downloaded geometry is unchanged.
 
 Thumbnails are neutral Blender geometry studies, not material specifications.
 Rebuild with `blender -b --python tools/render_generated_previews.py --
-GeneratedAssetfiles/models GeneratedAssetfiles/previews --archive`.
+asset/models/GeneratedAssetfiles/models asset/models/GeneratedAssetfiles/previews --archive`.
 
 ## Shared MCP and HTTP catalogue
 

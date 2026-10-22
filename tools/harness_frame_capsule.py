@@ -7,7 +7,7 @@ the reserved ALMOND_* harness params by direct XML synthesis, rewires the
 definition, and writes an XML .ghx into the harnessed/ folder that
 GhDefinitionRunner prefers.
 
-Harness contract (mirrors capsules/karamba_frame_v1.capsule.json):
+Harness contract (mirrors asset/capsules/karamba_frame_v1.capsule.json):
   ALMOND_IN_LINES     Param_Curve  -> Create Linear Element "Line" input
                       (replaces the template's internal parametric geometry)
   ALMOND_IN_LOAD_KN   Param_Number -> Unit-Z load vector factor

@@ -1,12 +1,12 @@
 """Normalise Meshy-generated GLBs into the Almond generated-asset library.
 
-Input:  GeneratedAssetfiles/catalogue.json   (what to make: prompts, nominal
+Input:  asset/models/GeneratedAssetfiles/catalogue.json   (what to make: prompts, nominal
                                               dimensions, spatial contract)
-        GeneratedAssetfiles/provenance.json  (Meshy task ids per asset)
-        GeneratedAssetfiles/raw/<asset_id>.glb (raw Meshy download)
-Output: GeneratedAssetfiles/models/<asset_id>.glb          normalised mesh
-        GeneratedAssetfiles/models/<asset_id>.almond.json  asset contract
-        GeneratedAssetfiles/manifest.json                  library manifest
+        asset/models/GeneratedAssetfiles/provenance.json  (Meshy task ids per asset)
+        asset/models/GeneratedAssetfiles/raw/<asset_id>.glb (raw Meshy download)
+Output: asset/models/GeneratedAssetfiles/models/<asset_id>.glb          normalised mesh
+        asset/models/GeneratedAssetfiles/models/<asset_id>.almond.json  asset contract
+        asset/models/GeneratedAssetfiles/manifest.json                  library manifest
 
 Per asset the script:
   1. parses the GLB and measures the world-space bounding box (glTF is
@@ -37,13 +37,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
-    sys.path.insert(0, str(REPO))
+    sys.path.insert(0, str(REPO / "src" / "mcp"))
 
 from almond_mcp import __version__, exchange  # noqa: E402
 from almond_mcp.asset_passport import enrich_asset  # noqa: E402
 
-LIBRARY_DIR = REPO / "GeneratedAssetfiles"
-MATERIAL_MANIFEST = REPO / "Materialfiles" / "manifest.json"
+LIBRARY_DIR = REPO / "asset" / "models" / "GeneratedAssetfiles"
+MATERIAL_MANIFEST = REPO / "asset" / "constructions" / "Materialfiles" / "manifest.json"
 
 GLB_MAGIC = 0x46546C67
 CHUNK_JSON = 0x4E4F534A

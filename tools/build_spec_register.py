@@ -19,7 +19,7 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "Constructionfiles" / "manifest.json"
+MANIFEST = ROOT / "asset" / "constructions" / "Constructionfiles" / "manifest.json"
 TOC = ROOT / "docs" / "reference" / "bci_toc.txt"
 OUT = ROOT / "docs" / "construction-spec-register.md"
 
@@ -91,7 +91,7 @@ def main() -> None:
     w("# Construction spec register")
     w("")
     w("Itemized source register for every parameter in "
-      "`Constructionfiles/manifest.json`. Each value is traced to its section "
+      "`asset/constructions/Constructionfiles/manifest.json`. Each value is traced to its section "
       "in **Francis D.K. Ching, *Building Construction Illustrated*, 4th ed. "
       "(Wiley, 2014)** ('BCI'); page numbers are PDF pages of that volume, "
       "matching [reference/bci_toc.txt](reference/bci_toc.txt). Values BCI "

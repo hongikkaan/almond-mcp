@@ -2,7 +2,7 @@
 
     uv run python tools/run_structural_benchmarks.py
 
-The same cases are asserted in tests/test_frame_solver.py and tests/test_native_structure.py;
+The same cases are asserted in tests/mcp/test_frame_solver.py and tests/mcp/test_native_structure.py;
 this script only renders the numbers for docs/native-solver.md."""
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src" / "mcp"))
 
 from almond_mcp import frame_solver as fs          # noqa: E402
 from almond_mcp import native_structure as ns      # noqa: E402
@@ -57,7 +57,7 @@ def closed_form():
 
 
 def karamba():
-    ref = json.loads((ROOT / "tests" / "data" / "karamba_reference.json").read_text())
+    ref = json.loads((ROOT / "tests" / "mcp" / "data" / "karamba_reference.json").read_text())
     rows = []
     for case in ref["cases"]:
         mm = lambda p: [v / 1000 for v in p]

@@ -15,7 +15,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE.parents[1]))
+sys.path.insert(0, str(HERE.parents[1] / "src" / "mcp"))
 from bridge import run_cs                      # noqa: E402
 import shot, sv                                 # noqa: E402
 from almond_mcp import server                  # noqa: E402

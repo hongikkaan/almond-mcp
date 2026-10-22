@@ -1,10 +1,17 @@
 # Almond workspace for Rhino 8
 
-Install **almondbridge 0.7.0-rc.2** from Rhino's Package Manager (search
-`almondbridge` with **Include pre-releases** ticked), or install the supplied
-**almondbridge-0.7.0-rc.2-rh8_0-win.yak**. Save your work, restart Rhino, and
-run **Almond**. Windows / Rhino 8.0+. This is a pre-release; the stable version
-remains 0.6.0.
+This personal fork builds **almondbridge 0.7.0-rc.2** as one Windows RHP containing
+the Bridge, Models, Structure and RhinoTerminal. Build with `src/rhp/build.ps1`
+and register `src/rhp/RhinoAlmondBridge/plugin-build/RhinoAlmondBridge.rhp`, keeping
+all adjacent dependencies and `archive`. Save your work, restart Rhino, and run
+**Almond** or **RhinoTerminal**. The integrated build uses .NET 8 and was verified
+with Rhino 8.34. The separately built Yak is
+**almondbridge-0.7.0-rc.2-rh8_34-win.yak**; this fork's package has not been published.
+
+RhinoTerminal expects this checkout's `src/engine` at `../../../engine` relative
+to the plugin assembly, with its prepared Python environment. An arbitrary Yak
+installation directory does not configure that personal Engine environment.
+See `LOCAL_SETUP.md` in the checkout for the integrated installation.
 
 Browsing and placing the included library models need neither Python nor an
 MCP client. The structural engine and the optional AI workflow use the matching
@@ -98,7 +105,7 @@ capacity pass/fail. Prismatic solids are read as their centre lines; other solid
 are skipped with a warning. One study takes at most 200 selected objects.
 **Karamba3D** needs its own installation and licence and also handles shells.
 Developers can point the panel at a checkout with `ALMOND_SOLVER_COMMAND`
-(for example `"<repo>\.venv\Scripts\python.exe" -m almond_mcp`).
+(for example `"<repo>\src\engine\.venv\Scripts\python.exe" -m almond_mcp`).
 
 Changing settings marks results stale; recapture after changing Rhino geometry.
 Results are snapshots, not live monitoring. This is design-stage screening of the

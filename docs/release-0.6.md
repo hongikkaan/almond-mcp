@@ -110,7 +110,7 @@ claim this in-process smoke passed based only on the automated build report.
    in source or build artifacts. Future CI can use the documented `YAK_TOKEN`
    secret in a protected publication environment; do not run `login --ci` in
    logs because it prints a credential.
-4. Update the existing Food4Rhino listing using `food4rhino-listing.md`. Preserve
+4. Update the [existing Food4Rhino listing](https://www.food4rhino.com/en/app/almond-mcp). Preserve
    its GUID and app identity, attach the tested package or approved ZIP format,
    and use candidate screenshots. Verify the download/Package Manager link.
 5. Create release notes and retain checksums. Versions already on Yak cannot be

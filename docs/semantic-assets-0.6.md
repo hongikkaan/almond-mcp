@@ -133,7 +133,7 @@ publishing the release also needs review of that existing backlog.
 
 Generation evidence and future reference attribution follow
 [source documentation](generation-source-documentation.md). The per-asset
-`GeneratedAssetfiles/source-register.json` records known history and explicit
+`asset/models/GeneratedAssetfiles/source-register.json` records known history and explicit
 gaps; regenerate it after library edits and run its `--check` before release.
 
 1. Curate per-asset seating/use heights, front direction and explicit contact

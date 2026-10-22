@@ -24,9 +24,9 @@ import tempfile
 import uuid
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, "src", "mcp"))
 os.environ.setdefault("RHINO_MCP_STATE_DB", tempfile.mktemp(suffix=".sqlite3"))
-spec = importlib.util.spec_from_file_location(f"srv_{uuid.uuid4().hex}", os.path.join(REPO, "almond_mcp", "server.py"))
+spec = importlib.util.spec_from_file_location(f"srv_{uuid.uuid4().hex}", os.path.join(REPO, "src", "mcp", "almond_mcp", "server.py"))
 srv = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(srv)
 from almond_mcp import conditioning as cond  # noqa: E402

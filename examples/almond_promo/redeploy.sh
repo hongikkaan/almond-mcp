@@ -2,7 +2,7 @@
 # Swap in a fresh dev bridge build: clean test geometry, close Rhino, copy the .rhp, relaunch, load Grasshopper/Karamba.
 cd "$(dirname "$0")"
 P="$APPDATA/McNeel/Rhinoceros/packages/8.0/almondbridge/0.6.1-dev"
-B="../../RhinoAlmondBridge/bin/Release/net48/RhinoAlmondBridge.dll"
+B="../../src/rhp/RhinoAlmondBridge/bin/Release/net48/RhinoAlmondBridge.dll"
 timeout 60 python -c "
 from bridge import run_cs
 run_cs('''foreach (var nm in new[]{\"SV_TEST\",\"A07 / 16 Structure\"}) { var l = doc.Layers.FindName(nm); if (l != null) foreach (var o in doc.Objects.FindByLayer(l)) doc.Objects.Delete(o, true); } doc.Modified = false; log.Append(\"clean\");''')
@@ -17,7 +17,7 @@ cp "$B" "$P/RhinoAlmondBridge.rhp" && echo copied
 # ARCHIVE=<built bundle dir> also swaps the panel archive (tools/build_archive_bundle.py <dir>)
 [ -n "$ARCHIVE" ] && rm -rf "$P/archive" && cp -r "$ARCHIVE" "$P/archive" && echo archive
 # Rhino inherits this shell's environment: point the panel's native solver at this checkout
-export ALMOND_SOLVER_COMMAND="${ALMOND_SOLVER_COMMAND:-\"$(cd ../.. && pwd -W)/.venv/Scripts/python.exe\" -m almond_mcp}"
+export ALMOND_SOLVER_COMMAND="${ALMOND_SOLVER_COMMAND:-\"$(cd ../.. && pwd -W)/src/engine/.venv/Scripts/python.exe\" -m almond_mcp}"
 powershell -NoProfile -Command "Start-Process 'C:\Program Files\Rhino 8\System\Rhino.exe' -ArgumentList '\"C:\Users\liang\Documents\almond_promo\rhino\A07-promo.3dm\"'"
 for i in $(seq 1 90); do python -c "import socket; socket.create_connection(('127.0.0.1',5000),2).close()" 2>/dev/null && break; sleep 2; done
 sleep 6

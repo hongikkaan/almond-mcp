@@ -27,7 +27,7 @@ this in its `source` field and every `construction_check` repeats it.
 
 ## The library
 
-`Constructionfiles/manifest.json` — 23 systems across four categories:
+`asset/constructions/Constructionfiles/manifest.json` — 23 systems across four categories:
 
 | Category | Systems |
 | --- | --- |
@@ -119,13 +119,13 @@ warning — stating materials clearly beats silently accepting a mismatch.
   trusses, or steel).
 - `assess_span("truss", "Steel", 20.0)` → open-web joists, steel trusses and
   space frames all fit; no warnings.
-- Full test suite: 48 passed (`tests/test_construction.py` covers manifest
-  validity, material-id cross-links to Materialfiles, filtering, span
+- Full test suite: 48 passed (`tests/mcp/test_construction.py` covers manifest
+  validity, material-id cross-links to `asset/constructions/Materialfiles`, filtering, span
   assessment, and metadata script generation).
 
 ## Companion narration layer (prong 2, built 2026-08-30)
 
-`Historyfiles/manifest.json` + `get_typology_narrative`: 18 typology
+`asset/history/Historyfiles/manifest.json` + `get_typology_narrative`: 18 typology
 narratives distilled from Ching/Jarzombek/Prakash, *A Global History of
 Architecture* — precedents, eras and urban roles, cross-linked to
 construction-system ids and page-referenced (`gha_ref`, matching

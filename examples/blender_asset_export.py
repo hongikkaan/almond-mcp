@@ -18,7 +18,7 @@ OUT_DIR = Path(sys.argv[-1] if sys.argv[-1].endswith("out") else
                r"C:\Users\liang\AppData\Local\Temp\almond_blender")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Almond material definitions (subset of Materialfiles/manifest.json)
+# Almond material definitions (subset of asset/constructions/Materialfiles/manifest.json)
 ALMOND_MATERIALS = {
     "wood-oak": {
         "name": "Oak", "category": "wood", "base_color": (200, 170, 130),

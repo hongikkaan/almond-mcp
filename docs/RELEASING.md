@@ -1,8 +1,13 @@
 # Releasing almond-mcp
 
+These are historical upstream maintainer publication notes. The personal fork's
+current build and installation are documented in [LOCAL_SETUP](../LOCAL_SETUP.md).
+Its integrated .NET 8 package is built locally and has not been published;
+versioned examples below retain the original release names.
+
 Two artifacts ship per release: the Python package (PyPI) and the bridge
 (Yak). Keep their versions in lockstep — `pyproject.toml`,
-`almond_mcp/__init__.py.__version__`, and `RhinoAlmondBridge/yak/manifest.yml`.
+`src/mcp/almond_mcp/__init__.py.__version__`, and `src/rhp/RhinoAlmondBridge/yak/manifest.yml`.
 Exception: Yak listings are immutable, so a metadata-only fix (description,
 keywords, icon) is re-pushed as a bridge-only patch bump without a PyPI
 release (e.g. bridge 0.2.1 over python 0.2.0).

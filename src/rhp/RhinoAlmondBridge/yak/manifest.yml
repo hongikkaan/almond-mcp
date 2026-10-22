@@ -1,0 +1,47 @@
+name: almondbridge
+version: 0.7.0-rc.2
+authors:
+  - LiangJung
+description: >
+  Almond for Rhino 8: an offline architectural Object Archive, a structural
+  analysis workspace, an MCP bridge for AI-assisted modelling and RhinoTerminal.
+  Run Almond for the Models and Structural Validation menu. RhinoTerminal uses
+  the personal checkout's separately prepared Engine environment.
+
+  AlmondStructure checks frames drawn as centre lines with Almond's built-in
+  3D frame solver: floor and placed-model loads, EN 1990 combinations, rigid
+  or pinned joints, stability (alpha-cr, sway imperfections, P-Delta) and
+  EN 1993-1-1 steel member checks, with the deflected shape or buckling mode
+  drawn in the viewport. AlmondResults lists every member, support and
+  combination, with CSV export. Concrete, timber and aluminium results are
+  indicative. Design-stage screening, not a substitute for an engineer's
+  design. The native engine needs uv (as the MCP server does); Karamba is
+  optional and needs its own installation/licence.
+
+  AlmondLibrary opens Models; AlmondLibraryBrowser opens the full
+  browser view. Compact thumbnails offer native placement as shared blocks,
+  with optional lighter meshes. Browsing and placement require no Python or AI client.
+
+  Includes 50 generated GLB models with embedded metadata and source records,
+  10 linked drawing packages (60 SVG/DXF view-scale pairs and 20 A3 SVG sheets),
+  and an offline interactive 3D viewer. Models and derived drawings are
+  attributed to Almond generated asset library under CC BY 4.0; code is MIT.
+  Generated geometry and silhouette drawings are design aids, not verified
+  manufacturer products or construction details.
+
+  Seven optional drawing elements are indexed as metadata and source links.
+  Third-party community model files are not bundled. Download them separately
+  from their original sources under the applicable terms.
+
+  The MCP bridge listens on 127.0.0.1:5000. For AI workflows, install uv and
+  register uvx --from almond-mcp==0.7.0rc2 almond-mcp with your MCP client.
+  Windows only; this .NET 8 build targets Rhino 8.34 and later Rhino 8 service releases.
+url: https://github.com/liangjunglj-cpu/almond-mcp
+keywords:
+  - almond
+  - mcp
+  - architecture
+  - models
+  - drawing
+  - meshy
+  - grasshopper

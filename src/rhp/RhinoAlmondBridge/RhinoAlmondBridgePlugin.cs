@@ -1,0 +1,65 @@
+using Rhino;
+using Rhino.PlugIns;
+
+namespace RhinoAlmondBridge
+{
+    /// <summary>
+    /// RhinoAlmondBridge Plugin - MCP Bridge for AI-driven C# RhinoCommon script execution.
+    /// Automatically starts a TCP listener on Rhino startup to receive and compile
+    /// C# scripts from the MCP server.
+    /// </summary>
+    public class RhinoAlmondBridgePlugin : PlugIn
+    {
+        private BridgeServer _server;
+
+        public static RhinoAlmondBridgePlugin Instance { get; private set; }
+
+        public RhinoAlmondBridgePlugin()
+        {
+            Instance = this;
+        }
+
+        // Load at startup so the TCP listener is available without the user
+        // running any command first (Rhino's default is load-when-needed,
+        // which would leave a fresh install silent until AlmondMCPStart).
+        public override PlugInLoadTime LoadTime => PlugInLoadTime.AtStartup;
+
+        protected override LoadReturnCode OnLoad(ref string errorMessage)
+        {
+            RhinoApp.WriteLine("RhinoAlmondBridge: Loading MCP Bridge plugin...");
+            Rhino.UI.Panels.RegisterPanel(this, typeof(AlmondLibraryPanel), "Almond", Icon("almond.ico"));
+            Rhino.UI.Panels.RegisterPanel(this, typeof(AlmondResultsPanel), "Almond Results", Icon("results.ico"));
+            Rhino.UI.Panels.RegisterPanel(this, typeof(RhinoTerminal.TerminalPanel), "Terminal",
+                System.Drawing.SystemIcons.Application, Rhino.UI.PanelType.System);
+
+            _server = new BridgeServer(port: 5000);
+            _server.Start();
+
+            RhinoApp.WriteLine("RhinoAlmondBridge: TCP listener started on port 5000.");
+            RhinoApp.WriteLine("RhinoAlmondBridge: Ready to receive C# scripts from MCP server.");
+
+            return LoadReturnCode.Success;
+        }
+
+        // Panel tab icons, embedded in the assembly (Resources/*.ico, several sizes each).
+        private static System.Drawing.Icon Icon(string name)
+        {
+            try
+            {
+                using (var stream = typeof(RhinoAlmondBridgePlugin).Assembly.GetManifestResourceStream("RhinoAlmondBridge.Resources." + name))
+                    return stream == null ? null : new System.Drawing.Icon(stream);
+            }
+            catch { return null; }
+        }
+
+        protected override void OnShutdown()
+        {
+            try { RhinoTerminal.TerminalPanel.StopAll(); }
+            catch (System.Exception ex) { RhinoApp.WriteLine("RhinoTerminal shutdown failed: " + ex.Message); }
+            AlmondLibraryCommand.StopArchive();
+            _server?.Stop();
+            RhinoApp.WriteLine("RhinoAlmondBridge: Plugin shut down.");
+            base.OnShutdown();
+        }
+    }
+}

@@ -2,24 +2,27 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path, PurePosixPath
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src" / "mcp"))
 from almond_mcp import __version__
 
-RUNTIME = {"RhinoAlmondBridge.rhp", "Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll",
-           "Newtonsoft.Json.dll", "System.Buffers.dll", "System.Collections.Immutable.dll", "System.Memory.dll",
-           "System.Numerics.Vectors.dll", "System.Reflection.Metadata.dll", "System.Runtime.CompilerServices.Unsafe.dll",
-           "System.Text.Encoding.CodePages.dll", "System.Threading.Tasks.Extensions.dll"}
+RUNTIME = {"RhinoAlmondBridge.rhp", "Almond.Engine.dll", "Microsoft.CodeAnalysis.CSharp.dll",
+           "Microsoft.CodeAnalysis.dll", "Newtonsoft.Json.dll", "Porta.Pty.dll",
+           "Vanara.Core.dll", "Vanara.PInvoke.Kernel32.dll", "Vanara.PInvoke.Shared.dll"}
+TERMINAL_LICENSES = {f"licenses/{name}-LICENSE.txt" for name in ("Porta.Pty", "Vanara", "addon-fit", "xterm")}
+RUNTIME_METADATA = {"RhinoAlmondBridge.deps.json", "RhinoAlmondBridge.runtimeconfig.json"}
 
 
-def verify(path):
-    version = ET.parse(ROOT/"RhinoAlmondBridge/RhinoAlmondBridge.csproj").findtext("PropertyGroup/Version")
-    if path.name != f"almondbridge-{version}-rh8_0-win.yak":
+def verify(path, rhino_sdk_version=None):
+    version = ET.parse(ROOT/"src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj").findtext("PropertyGroup/Version")
+    tag = re.fullmatch(rf"almondbridge-{re.escape(version)}-rh(8_\d+)-win\.yak", path.name)
+    if tag is None or (rhino_sdk_version is not None and tag[1] != rhino_sdk_version.replace(".", "_")):
         raise ValueError("Incorrect Yak version or Rhino/platform compatibility tag")
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
@@ -35,7 +38,7 @@ def verify(path):
                 raise ValueError(f"Forbidden member: {name}")
             if "/files/drawing/" in name or "/raw/" in name:
                 raise ValueError(f"Community or raw model included: {name}")
-        for name in RUNTIME | {"manifest.yml", "LICENSE", "THIRD-PARTY-NOTICES.md", "GETTING-STARTED.md", "archive/ATTRIBUTION.txt", "archive/ui/vendor/LICENSE", "archive/ui/vendor/THIRD-PARTY-LICENSES.txt"}:
+        for name in RUNTIME | TERMINAL_LICENSES | RUNTIME_METADATA | {"manifest.yml", "LICENSE", "THIRD-PARTY-NOTICES.md", "GETTING-STARTED.md", "archive/ATTRIBUTION.txt", "archive/ui/vendor/LICENSE", "archive/ui/vendor/THIRD-PARTY-LICENSES.txt"}:
             if name not in names:
                 raise ValueError(f"Missing package file: {name}")
         manifest = archive.read("manifest.yml").decode("utf-8-sig")
@@ -82,6 +85,7 @@ def verify(path):
                     if hashlib.sha256(payload).hexdigest().upper() != expected:
                         raise ValueError("Drawing package is stale or incomplete")
     return {"status":"success", "yak":path.name,"bridge_version":version,"archive_version":__version__,
+            "rhino_sdk_tag":"rh" + tag[1], "target_framework":"net8.0-windows",
             "counts":counts,"routes_checked":len(bundle["routes"]),"sha256":hashlib.sha256(path.read_bytes()).hexdigest(),
             "size_mb":round(path.stat().st_size/1e6,2), "rhino_in_process_smoke":"pending"}
 
@@ -90,7 +94,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("package",type=Path)
     parser.add_argument("--report",type=Path)
+    parser.add_argument("--rhino-sdk-version",help="Expected referenced Rhino SDK major.minor, e.g. 8.34")
     args=parser.parse_args()
-    report=verify(args.package)
+    report=verify(args.package, args.rhino_sdk_version)
     if args.report: args.report.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
     print(json.dumps(report,indent=2))
