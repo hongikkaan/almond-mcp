@@ -11,13 +11,15 @@ remains limited to the existing Undo/Redo fix on `release/0.7.0rc2`.
 - `src/mcp/almond_mcp`: upstream Python server, algorithms and library APIs.
 - `src/engine`: user-made execution, storage/connection layer and Almond.Engine.dll.
 - `src/cos`: user-made COS Python host/worker.
-- `src/rhp/RhinoTerminal`, `src/rhp/AlmondCOS`: user-made Rhino plugins.
+- `src/rhp/RhinoTerminal`: Terminal source/resources included in the Bridge RHP.
+- `src/rhp/AlmondCOS`: separate user-made COS Rhino plugin.
 - `src/rhp/RhinoAlmondBridge`: upstream bridge project and core.
 - `src/rhp/Structural_Analysis`, `src/rhp/Asset_Panel`: feature sources compiled
-  into the same upstream bridge. The shared panel web resources stay together.
+  into the same Bridge with RhinoTerminal. The shared panel web resources stay together.
 
-Folder classification does not change assemblies, GUIDs, namespaces, command
-names, solver logic or tool schemas. Engine and MCP remain separate. The latest
+The integrated RHP keeps the Bridge assembly/version/GUID, panel GUIDs, namespaces,
+command names, solver logic and tool schemas. Terminal has no separate PlugIn entry.
+Engine and MCP remain separate. The latest
 reorganization permits path/packaging/reference changes in upstream files;
 do not use that permission for functional refactors. Preserve the Undo patch.
 Do not confuse Almond.Engine.dll with RhinoAlmondBridge.rhp or the parent's
@@ -28,7 +30,10 @@ unrelated `mcp/native` project. Never patch installed package files.
 One editable environment lives at `src/engine/.venv`, reproduced by `uv.lock`.
 Normal startup never syncs dependencies. Regenerate the COS catalog after source
 path/source changes and retain its version, source-fingerprint and schema checks.
-Local RHP outputs and dependencies belong under `src/rhp/<plugin>/plugin-build`.
+Build the integrated RHP with `src/rhp/build.ps1`; its output and dependencies live
+under `src/rhp/RhinoAlmondBridge/plugin-build`. Keep this depth for the shared Engine
+path. It targets .NET 8 and the installed Rhino 8 SDK (verified with 8.34).
+COS keeps its separate `src/rhp/AlmondCOS/plugin-build` output.
 The optional SDK is ignored at `src/rhp/RhinoTerminal/data/sdk`.
 
 Preserve existing AppData libraries and explicit `RHINO_MCP_*_DIR` overrides.

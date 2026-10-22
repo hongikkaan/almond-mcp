@@ -1,24 +1,41 @@
 # Building RhinoAlmondBridge
 
-For the 0.6 archive release, use `tools/prepare_release.ps1` from the repository
-root. It produces fresh Windows Yak and Python distributions with the bundled
-Object Archive. See [the release guide](../../../docs/release-0.6.md). Copying only an
-RHP will not provide the archive; `AlmondLibrary` needs the adjacent `archive`
-payload assembled by `tools/build_yak.ps1`.
+This personal fork compiles the Bridge, Structural_Analysis, Asset_Panel and
+RhinoTerminal into one `net8.0-windows` RHP. Engine remains a separate DLL and
+Python environment; AlmondCOS remains a separate plugin.
 
 ## Prerequisites
 
-1. Visual Studio 2022 (any edition) with the ".NET desktop development" workload.
-2. Rhino 8 for Windows installed.
+1. .NET 8 SDK, either on PATH or in `src/rhp/RhinoTerminal/data/sdk`.
+2. Rhino 8 for Windows, running .NET 8. The integrated build was verified with
+   Rhino 8.34. RhinoCommon, Rhino.UI, Eto, Grasshopper and GH_IO are referenced
+   from the installed Rhino SDK and are not copied into the package.
 3. Karamba3D 3.1 (build 3.1.60519) installed for Rhino 8. Optional at build time, required at runtime for the "api" analysis path.
-4. Internet access on the first build so NuGet can restore RhinoCommon, Grasshopper, Microsoft.CodeAnalysis.CSharp, and Newtonsoft.Json.
+4. The prepared `src/engine/.venv` from [local setup](../../../LOCAL_SETUP.md).
+   Initial dependency/bootstrap downloads need Internet access. NuGet dependencies
+   include Roslyn, Newtonsoft.Json and Porta.Pty; their versions are locked.
 
 ## Build steps
 
-1. Open `RhinoAlmondBridge.csproj` in Visual Studio (File, Open, Project/Solution). Visual Studio generates a solution around it.
-2. Select the `Release` configuration.
-3. Build (Ctrl+Shift+B). Output lands in `src\rhp\RhinoAlmondBridge\bin\Release\net48\RhinoAlmondBridge.dll`.
-4. Rename or copy `RhinoAlmondBridge.dll` to `RhinoAlmondBridge.rhp` if your install flow loads `.rhp` files, or drag the DLL onto Rhino once; Rhino registers plugin assemblies either way through `PlugInManager`.
+Run from the repository root:
+
+```powershell
+./src/rhp/build.ps1
+```
+
+The complete output is `src/rhp/RhinoAlmondBridge/plugin-build`. Keep
+`RhinoAlmondBridge.rhp`, Almond.Engine/Porta.Pty/Vanara/Roslyn/Newtonsoft DLLs,
+deps/runtimeconfig JSON, `licenses` and `archive` together. The build checks for
+loaded output files, builds into a fresh staging directory, then swaps the output.
+It does not install, register or launch Rhino. Close a Rhino using that output
+normally before rebuilding it.
+
+Terminal resolves `../../../engine` from the assembly directory. Preserve the
+`RhinoAlmondBridge/plugin-*` output depth; moving only an RHP is insufficient.
+For an isolated package build, use `tools/build_yak.ps1` with explicit Python and
+dotnet executable paths as shown in [local setup](../../../LOCAL_SETUP.md).
+The Yak tag follows the referenced Rhino SDK, currently `rh8_34-win`; it is
+verified before copying to `dist/yak` and is not published automatically.
 
 The project intentionally has NO reference to any Karamba assembly. Do not add one. All Karamba access is late bound through reflection inside `KarambaAdapter.cs`, so the plugin compiles and runs on machines without Karamba and simply reports the api path as unavailable there.
 
@@ -59,14 +76,18 @@ setx ALMOND_KARAMBA_DIR "D:\Tools\Karamba"
 
 ## What to check in the Rhino command line on first load
 
-1. Start Rhino 8 and load the plugin (drag the DLL into the viewport or use `PlugInManager`).
+1. Start Rhino 8 with .NET 8 and register the complete local output through
+   `PlugInManager`, using `RhinoAlmondBridge.rhp` and the existing Bridge GUID
+   `c337dbb8-394a-4593-9c2b-a3d7cfc91893`. Remove the obsolete standalone Terminal
+   registration after backing it up. Restart normally and verify the loaded path.
 2. Expect these lines:
    ```
    RhinoAlmondBridge: Loading MCP Bridge plugin...
    RhinoAlmondBridge: TCP listener started on port 5000.
    RhinoAlmondBridge: Ready to receive C# scripts from MCP server.
    ```
-3. If port 5000 is taken you will instead see `Failed to bind port 5000`. Close the other process or change the port in `RhinoAlmondBridgePlugin.cs`.
+3. If port 5000 is taken you will instead see `Failed to bind port 5000`. Identify
+   the owning Rhino before changing anything; do not force-close a user's session.
 4. Run `AlmondMCPStatus` to confirm the bridge is listening.
 5. To confirm the Karamba api path, send a `validate` request (or use the MCP `validate_structure` tool) against a simple line and check the verdict prefix:
    `[KARAMBA 3.1 API, HIGH CONFIDENCE]` means the direct API worked.
@@ -79,8 +100,11 @@ The bridge locates support folders by walking up from the plugin DLL, with envir
 
 | Purpose | Env override | Default search |
 |---|---|---|
-| GHX library | `RHINO_MCP_LIBRARY_DIR` | nearest `Grasshopperfiles` ancestor folder |
-| Capsule manifests | `RHINO_MCP_CAPSULE_DIR` | nearest `capsules` ancestor folder |
+| GHX library | `RHINO_MCP_LIBRARY_DIR` | checkout `asset/grasshopper/Grasshopperfiles`, then AppData |
+| Capsule manifests | `RHINO_MCP_CAPSULE_DIR` | checkout `asset/capsules`, then AppData |
 | Karamba DLLs | `ALMOND_KARAMBA_DIR` | standard Rhino 8 Karamba locations above |
 
-Keep `capsules\*.capsule.json` next to the repository root (the folder Agent 1 populated) so `run_definition` can resolve `capsule_id` values without an explicit `manifest_path`.
+Manifest-relative paths and hashes are preserved under `asset/capsules`.
+The personal Engine defaults to the existing AppData libraries. Before loading
+the checkout build, ensure Bridge and Engine resolve the same `RHINO_MCP_*_DIR`
+locations, preserving every explicit override and the existing user data.

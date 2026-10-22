@@ -25,30 +25,44 @@ COS 카탈로그의 source fingerprint와 tool schema 검사를 우회하지 않
 
 ## Rhino 플러그인 빌드
 
-.NET 8 SDK가 필요합니다. PATH의 SDK 또는 `src/rhp/RhinoTerminal/data/sdk`를 사용합니다.
+.NET 8 SDK와 Windows Rhino 8이 필요합니다. 통합본은 `net8.0-windows`이며
+설치된 Rhino 8.34 SDK / Rhino의 .NET 8 runtime에서 검증했습니다.
+빌드는 `src/rhp/RhinoTerminal/data/sdk` 또는 PATH의 SDK를 사용하고,
+SDK가 없으면 기존 방식대로 검증된 다운로드를 로컬 `data/sdk`에 준비합니다.
+
+```powershell
+./src/rhp/build.ps1
+```
+
+출력은 `src/rhp/RhinoAlmondBridge/plugin-build`입니다. Bridge·Structural_Analysis·
+Asset_Panel·RhinoTerminal이 같은 `RhinoAlmondBridge.rhp`에 포함됩니다.
+Almond.Engine.dll은 별도 DLL로 유지하며 Porta.Pty/Vanara/Roslyn/Newtonsoft DLL,
+deps/runtimeconfig JSON, `licenses`, `archive`를 함께 둡니다.
+Rhino가 제공하는 RhinoCommon/Rhino.UI/Eto/Grasshopper/GH_IO DLL은 배포하지 않습니다.
+
+빌드는 새 staging 폴더에서 완료한 뒤 출력을 교체합니다. 출력이 Rhino에 로드돼 있으면
+중단하므로 해당 Rhino를 정상 종료한 뒤 빌드합니다. 사용자 문서를 강제로 닫지 않습니다.
+Terminal의 `../../../engine` 탐색을 위해 출력은 `RhinoAlmondBridge/plugin-*` 깊이를 유지합니다.
+
+COS는 별도 플러그인입니다. 필요할 때 기존 명령으로 빌드하며 이번 단일 RHP에 포함하지 않습니다.
 
 ```powershell
 ./src/rhp/AlmondCOS/build.ps1
-./src/rhp/RhinoTerminal/build.ps1 -OutputDirectory plugin-build
 ```
 
-Bridge는 다음과 같이 빌드합니다. `$dotnet`에는 실제 SDK 실행 파일을 지정합니다.
+통합 설치 경로는 `src/rhp/RhinoAlmondBridge/plugin-build/RhinoAlmondBridge.rhp`입니다.
+기존 Bridge GUID `c337dbb8-394a-4593-9c2b-a3d7cfc91893`로 등록하고,
+이전 Terminal GUID `27D4B9A1-8FAD-421C-B64A-7A213D3B4079`의 중복 등록은 백업 후 제거합니다.
+빌드는 등록을 변경하지 않습니다. 정상 Rhino 재시작 후 실제 로드 경로·버전을 확인합니다.
+COS의 등록 경로는 `src/rhp/AlmondCOS/plugin-build/AlmondCOS.rhp`로 별도 유지합니다.
+
+Yak 확인이 필요하면 다음을 실행합니다. 설치·게시하지 않는 별도 staging 빌드이며,
+현재 SDK에서 생성하는 이름은 `almondbridge-0.7.0-rc.2-rh8_34-win.yak`입니다.
+Yak만 임의 위치에 설치하면 Terminal이 개인 checkout의 Engine을 자동으로 찾지는 못합니다.
 
 ```powershell
-$dotnet = "$PWD/src/rhp/RhinoTerminal/data/sdk/dotnet.exe"
-& $dotnet build src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj -c Release -o src/rhp/RhinoAlmondBridge/plugin-build
-Copy-Item src/rhp/RhinoAlmondBridge/plugin-build/RhinoAlmondBridge.dll src/rhp/RhinoAlmondBridge/plugin-build/RhinoAlmondBridge.rhp
-& ./src/engine/.venv/Scripts/python.exe tools/build_archive_bundle.py src/rhp/RhinoAlmondBridge/plugin-build/archive
+./tools/build_yak.ps1 -PythonExecutable "$PWD/src/engine/.venv/Scripts/python.exe" -DotnetExecutable "$PWD/src/rhp/RhinoTerminal/data/sdk/dotnet.exe"
 ```
-
-`Structural_Analysis`와 `Asset_Panel`은 Bridge 프로젝트가 함께 컴파일하는 소스 폴더입니다.
-별도 RHP로 나누지 않습니다. 패널은 RHP 옆 `archive`가 필요하므로 RHP만 복사하면 안 됩니다.
-RhinoTerminal과 AlmondCOS는 각각 독립 RHP이고, 각 빌드 폴더의 DLL을 함께 유지합니다.
-
-기존 설치된 Undo 패치 bridge는 유지합니다. 위 로컬 bridge 빌드가 자동으로 기존 설치를
-교체하지는 않습니다. 등록 경로와 실제 로드된 버전은 별도로 확인해야 합니다.
-사용자 제작 RHP의 새 등록 위치는 `src/rhp/AlmondCOS/plugin-build/AlmondCOS.rhp`,
-`src/rhp/RhinoTerminal/plugin-build/RhinoTerminal.rhp`입니다. 정상적으로 Rhino를 재시작해 적용합니다.
 
 ## 실행
 
@@ -58,6 +72,12 @@ RhinoTerminal과 AlmondCOS는 각각 독립 RHP이고, 각 빌드 폴더의 DLL�
   Rhino의 저장된 문서에서 `AlmondCOS`를 실행하고 해당 host/model 연결을 선택합니다.
 - 패널: 기존 `Almond`, `AlmondLibrary`, `AlmondStructure`, `AlmondResults` 명령을 유지합니다.
   UI와 계산기는 기존 구조대로 연결되며, solver 기본 실행 정책도 변경하지 않습니다.
+
+Rhino 8.34에서 떠 있는 Almond 패널이 Structure 전환 후 숨는 현상이 관찰됐습니다.
+이 경우 패널을 오른쪽의 기존 Terminal/Layers dock에 함께 두고 사용합니다.
+검증에서는 `Panels.PanelDockBar(TerminalGuid)`로 얻은 dock에
+`Panels.OpenPanel(dock, AlmondPanelGuid, true)`를 호출해 화면을 복구했습니다.
+플러그인의 패널 GUID나 등록 방식은 변경하지 않았습니다.
 
 AppData 라이브러리와 명시적 환경변수는 유지됩니다. `asset/`은 저장소 원본 자료입니다.
 RHP를 체크아웃 경로에서 직접 새로 로드할 경우 라이브러리 탐색 결과가 달라질 수 있으므로
@@ -70,13 +90,14 @@ Python과 RHP가 동일한 `RHINO_MCP_*_DIR` 설정을 사용하도록 하고 Rh
 & ./src/engine/.venv/Scripts/python.exe -m pytest tests/mcp tests/engine
 ./src/cos/run_tests.ps1
 & ./src/engine/.venv/Scripts/python.exe src/engine/verify_library_sources.py
-node --test tests/rhp/Asset_Panel/*.test.mjs
+node --test (Get-ChildItem tests/rhp/Asset_Panel -Filter *.test.mjs | ForEach-Object FullName)
 ```
 
 네이티브와 Terminal host fixture는 `tests/engine/native`,
 `tests/rhp/RhinoTerminal/AlmondHostContracts`에 있습니다. Terminal host fixture에는
 기존의 빈 테스트용 data 디렉터리를 절대경로 인수로 전달합니다.
 실제 Rhino 로딩·패널 조작·배치 결과는 오프라인 테스트와 별도로 검증합니다.
+통합본의 실제 검증 결과와 남은 작업은 [인계 기록](docs/HANDOFF-single-rhp.md)을 참고합니다.
 
 ## Git
 

@@ -21,7 +21,8 @@ Engine과 MCP는 별도 코드로 유지합니다. 배포 자동화는 사용하
 
 환경은 `src/engine/rebuild_environment.ps1`로 준비합니다.
 외부 실행기는 `src/engine/Almond 시작.cmd`, Rhino 내부 실행기는 `RhinoTerminal` → `almond`입니다.
-설치된 Rhino bridge와 COS/RhinoTerminal의 등록 상태는 [설치 문서](LOCAL_SETUP.md)를 따릅니다.
+Bridge·구조해석·자산 패널·RhinoTerminal은 `src/rhp/build.ps1`로 하나의 RHP에 빌드합니다.
+COS는 별도 플러그인으로 유지합니다. 설치·등록은 [설치 문서](LOCAL_SETUP.md)를 따릅니다.
 
 이 리포는 상위 Rhino 리포의 `mcp/almond-mcp` 서브모듈입니다.
 코드 라이선스와 자산·vendor 고지는 [LICENSE](LICENSE), [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)에 유지합니다.

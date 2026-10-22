@@ -4,8 +4,9 @@ authors:
   - LiangJung
 description: >
   Almond for Rhino 8: an offline architectural Object Archive, a structural
-  analysis workspace and an MCP bridge for AI-assisted modelling. Run Almond
-  for the Models and Structural Validation menu.
+  analysis workspace, an MCP bridge for AI-assisted modelling and RhinoTerminal.
+  Run Almond for the Models and Structural Validation menu. RhinoTerminal uses
+  the personal checkout's separately prepared Engine environment.
 
   AlmondStructure checks frames drawn as centre lines with Almond's built-in
   3D frame solver: floor and placed-model loads, EN 1990 combinations, rigid
@@ -34,7 +35,7 @@ description: >
 
   The MCP bridge listens on 127.0.0.1:5000. For AI workflows, install uv and
   register uvx --from almond-mcp==0.7.0rc2 almond-mcp with your MCP client.
-  Windows only; supports Rhino 8.0 and later Rhino 8 service releases.
+  Windows only; this .NET 8 build targets Rhino 8.34 and later Rhino 8 service releases.
 url: https://github.com/liangjunglj-cpu/almond-mcp
 keywords:
   - almond

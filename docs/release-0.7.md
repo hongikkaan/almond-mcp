@@ -1,5 +1,12 @@
 # Almond 0.7 — structural analysis
 
+This file preserves the upstream release history and publication procedures below.
+The personal fork now builds one .NET 8 RHP against the installed Rhino SDK
+(verified on 8.34, producing `rh8_34-win`). Its local package has not been published.
+Use [LOCAL_SETUP](../LOCAL_SETUP.md) and the [integration record](HANDOFF-single-rhp.md)
+for the current build and actual Rhino results; the older SDK pins and artifact
+hashes below describe their original builds.
+
 Pre-release pair: **almondbridge 0.7.0-rc.2** (Yak, Rhino 8 / Windows) and **almond-mcp 0.7.0rc2** (PyPI).
 rc.1 went to PyPI only (`almond-mcp 0.7.0rc1`); its Yak was never pushed, because the first run from PyPI
 failed behind a TLS-inspecting proxy (fixed in #26) and the shell feedback was unclear (#25).

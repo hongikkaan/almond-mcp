@@ -1,27 +1,27 @@
 # Rhino Manual Test Checklist
 
-Manual verification steps for the almondmcp structural pipeline refactor. Nothing here can be tested in the sandbox; every step needs a real Windows machine with Rhino 8. Work through the steps in order, because later steps depend on earlier ones. For each step, the expected console or JSON output is listed, including the exact warning strings that mark a downgrade.
+Manual verification steps for the Karamba/capsule structural pipeline. These need a real Windows Rhino session and disposable test models. The native solver and integrated Terminal checks completed in this personal fork are recorded separately in [the single-RHP verification record](HANDOFF-single-rhp.md); the Karamba checks below are not claims that those paths have been run.
 
-Prerequisites: Visual Studio 2022 with the .NET desktop development workload, Rhino 8 for Windows, Karamba3D 3.1 (build 3.1.60519) installed for Rhino 8, and internet access for the first NuGet restore. See `src/rhp/RhinoAlmondBridge/BUILD.md` for full details.
+Prerequisites: .NET 8 SDK, Rhino 8 for Windows using .NET 8 (the integrated build was verified on 8.34), the prepared Engine Python environment, and internet access for initial dependencies. Karamba3D 3.1 (build 3.1.60519) is needed for the Karamba API checks, but not for the build or native solver. See [BUILD.md](../src/rhp/RhinoAlmondBridge/BUILD.md).
 
-## 1. Build the plugin in Visual Studio
+## 1. Build the integrated plugin
 
-1. Open `src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj` in Visual Studio 2022.
-2. Select the Release configuration and build (Ctrl+Shift+B).
-3. Expect: build succeeds with zero errors. Output lands in `src/rhp/RhinoAlmondBridge/bin/Release/net48/RhinoAlmondBridge.dll`.
+1. From the repository root, run `./src/rhp/build.ps1`.
+2. If its output is already loaded, close that Rhino normally before rebuilding.
+3. Expect: build succeeds with zero errors. The complete output is `src/rhp/RhinoAlmondBridge/plugin-build`, including `RhinoAlmondBridge.rhp`, dependencies, licenses and archive.
 4. Confirm the project has no reference to any Karamba assembly. All Karamba access is late bound by reflection in `KarambaAdapter.cs`. If the build asks for a Karamba reference, something regressed; do not add one.
 5. Failure modes: NuGet restore errors mean no internet or a wrong feed. Compiler errors in `KarambaAdapter.cs`, `ModelConditioner.cs`, `GhDefinitionRunner.cs`, `StructuralValidator.cs`, or `BridgeServer.cs` mean the C# from this refactor needs fixing; note the first error and file.
 
 ## 2. Load the plugin and confirm startup lines
 
-1. Start Rhino 8 and load the DLL (drag it into the viewport or use `PlugInManager`).
+1. Start Rhino 8 using .NET 8 and register `RhinoAlmondBridge.rhp` through `PlugInManager`, preserving all adjacent output files. Verify the actual loaded path after a normal restart.
 2. Expect these exact lines in the Rhino command line:
    ```
    RhinoAlmondBridge: Loading MCP Bridge plugin...
    RhinoAlmondBridge: TCP listener started on port 5000.
    RhinoAlmondBridge: Ready to receive C# scripts from MCP server.
    ```
-3. If you instead see `RhinoAlmondBridge: Failed to bind port 5000`, another process owns the port. Close it or change the port in `RhinoAlmondBridgePlugin.cs` and rebuild.
+3. If you instead see `RhinoAlmondBridge: Failed to bind port 5000`, identify the owning process before continuing. Do not force-close a user's Rhino session.
 4. Run `AlmondMCPStatus` to confirm the bridge is listening, then start the MCP server (or run `AlmondMCPStart`).
 5. On the Python side, the server startup log (stderr) should include `Synced 8 capsule manifests from ...capsules.` and no `Skipping capsule manifest` lines.
 
@@ -87,6 +87,6 @@ This step verifies the loud downgrade chain. Do it on a machine without Karamba,
 
 ## 8. Wrap up
 
-1. Rerun the automated suite on the workstation for completeness: `uv run pytest` inside `mcp-rhino-plugin` (23 tests, all green, no Rhino required).
+1. Run the automated checks appropriate to your change; for MCP source use `./src/engine/.venv/Scripts/python.exe -m pytest tests/mcp` from the repository root. Record the actual count and outcome.
 2. Record which verdict prefixes you observed in steps 3, 4, and 6.7, since those three lines are the whole confidence story: api high, template medium, rule based low.
 3. Leave `audited` true only for capsules whose harness you personally verified per the checklist at the end of `asset/capsules/AUTHORING.md`. A false flag is honest; a wrong true flag produces fake engineering numbers.
