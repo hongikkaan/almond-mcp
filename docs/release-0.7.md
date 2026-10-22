@@ -118,7 +118,7 @@ supersedes the earlier rc.1 builds from the release branch and from `d73f0de`; t
 On this machine uv needs `UV_NATIVE_TLS=1` (a TLS-inspecting proxy), and the script must run under
 PowerShell 7, or `powershell.exe -File` without stream redirection: Windows PowerShell 5.1 turns uv's stderr
 notes into terminating errors when the streams are redirected inside PowerShell. The bundled
-`food4rhino-listing.md` still describes 0.6.0; it is updated only for a stable release.
+The Food4Rhino listing copy still describes 0.6.0; it is updated only for a stable release.
 
 ### Rhino smoke test so far
 

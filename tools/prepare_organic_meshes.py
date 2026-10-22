@@ -14,7 +14,7 @@ import bpy
 
 REPO = Path(__file__).resolve().parents[1]
 batch = json.loads(Path(sys.argv[sys.argv.index('--') + 1]).read_text())
-root = REPO / 'GeneratedAssetfiles/raw' / batch['batch_id']
+root = REPO / 'asset/models/GeneratedAssetfiles/raw' / batch['batch_id']
 output = root / 'prepared'
 output.mkdir(exist_ok=True)
 records_path = output / 'quality.json'

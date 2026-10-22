@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "src" / "mcp"))
 from almond_mcp.asset_passport import audit_library
 from almond_mcp.drafting import audit_package
 from almond_mcp.asset_repository import AssetRepository

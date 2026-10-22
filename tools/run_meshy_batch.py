@@ -29,7 +29,7 @@ def main():
     parser.add_argument("batch", type=Path)
     args = parser.parse_args()
     batch = json.loads(args.batch.read_text(encoding="utf-8"))
-    root = REPO / "GeneratedAssetfiles/raw" / batch["batch_id"]
+    root = REPO / "asset/models/GeneratedAssetfiles/raw" / batch["batch_id"]
     root.mkdir(parents=True, exist_ok=True)
     key = os.environ["MESHY_API_KEY"]
     with httpx.Client(verify=ssl.create_default_context(), timeout=120) as client:

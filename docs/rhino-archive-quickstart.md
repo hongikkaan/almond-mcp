@@ -98,7 +98,7 @@ capacity pass/fail. Prismatic solids are read as their centre lines; other solid
 are skipped with a warning. One study takes at most 200 selected objects.
 **Karamba3D** needs its own installation and licence and also handles shells.
 Developers can point the panel at a checkout with `ALMOND_SOLVER_COMMAND`
-(for example `"<repo>\.venv\Scripts\python.exe" -m almond_mcp`).
+(for example `"<repo>\src\engine\.venv\Scripts\python.exe" -m almond_mcp`).
 
 Changing settings marks results stale; recapture after changing Rhino geometry.
 Results are snapshots, not live monitoring. This is design-stage screening of the

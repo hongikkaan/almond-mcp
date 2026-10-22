@@ -33,7 +33,7 @@ import importlib.util, json, math, os, sys, tempfile, uuid
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("RHINO_MCP_STATE_DB", tempfile.mktemp(suffix=".sqlite3"))
 spec = importlib.util.spec_from_file_location(
-    f"srv_{uuid.uuid4().hex}", os.path.join(REPO, "almond_mcp", "server.py"))
+    f"srv_{uuid.uuid4().hex}", os.path.join(REPO, "src", "mcp", "almond_mcp", "server.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 fn = lambda t: getattr(t, "fn", t)
 run_script = fn(m.execute_rhino_script)

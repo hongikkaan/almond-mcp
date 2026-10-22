@@ -16,7 +16,7 @@ def write(path, value):
 
 def main():
     batch_file=Path(sys.argv[1]);batch=json.loads(batch_file.read_text())
-    library=REPO/'GeneratedAssetfiles';raw=library/'raw'/batch['batch_id']
+    library=REPO/'asset'/'models'/'GeneratedAssetfiles';raw=library/'raw'/batch['batch_id']
     evidence_dir=library/'batches'/batch['batch_id'];evidence_dir.mkdir(exist_ok=True)
     manifest=json.loads((library/'manifest.json').read_text())
     catalogue=json.loads((library/'catalogue.json').read_text())

@@ -8,7 +8,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src" / "mcp"))
 from almond_mcp import __version__
 
 RUNTIME = {"RhinoAlmondBridge.rhp", "Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll",
@@ -18,7 +18,7 @@ RUNTIME = {"RhinoAlmondBridge.rhp", "Microsoft.CodeAnalysis.CSharp.dll", "Micros
 
 
 def verify(path):
-    version = ET.parse(ROOT/"RhinoAlmondBridge/RhinoAlmondBridge.csproj").findtext("PropertyGroup/Version")
+    version = ET.parse(ROOT/"src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj").findtext("PropertyGroup/Version")
     if path.name != f"almondbridge-{version}-rh8_0-win.yak":
         raise ValueError("Incorrect Yak version or Rhino/platform compatibility tag")
     with zipfile.ZipFile(path) as archive:

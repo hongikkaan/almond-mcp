@@ -66,7 +66,7 @@ not in the file. Because Almond knows the `material_id`, it can:
   beside the file rather than inside it.
 
 File formats lose meaning; the ledger keeps it. That is the whole thesis of
-[Ginkgo](../../Builiding0/Ginkgo/README.md) demonstrated in miniature.
+The Ginkgo project demonstrated in miniature.
 
 ## Design implications for a real integration
 

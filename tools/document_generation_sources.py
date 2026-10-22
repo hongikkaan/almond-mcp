@@ -117,7 +117,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Fail if the saved register is stale or records disagree")
     args = parser.parse_args()
-    library = REPO / "GeneratedAssetfiles"
+    library = REPO / "asset" / "models" / "GeneratedAssetfiles"
     result = build_register(library)
     target = library / "source-register.json"
     content = serialise(result)

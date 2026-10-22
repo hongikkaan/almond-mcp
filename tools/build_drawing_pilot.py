@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "src" / "mcp"))
 from almond_mcp import __version__, drafting
 
 IDS = ["gen-park-bench-1", "gen-office-chair-1", "gen-dining-table-rect-1",
@@ -15,7 +15,8 @@ IDS = ["gen-park-bench-1", "gen-office-chair-1", "gen-dining-table-rect-1",
 
 
 def main():
-    library, target = REPO/"GeneratedAssetfiles", REPO/"Draftingfiles"
+    library = REPO / "asset" / "models" / "GeneratedAssetfiles"
+    target = REPO / "asset" / "drawing" / "Draftingfiles"
     assets = {a["asset_id"]: a for a in json.loads((library/"manifest.json").read_text())["assets"]}
     sources = {a["asset_id"]: a for a in json.loads((library/"source-register.json").read_text())["assets"]}
     records = []

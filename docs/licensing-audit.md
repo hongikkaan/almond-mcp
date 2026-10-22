@@ -22,7 +22,7 @@ user-facing summary; this file is the reasoning.
 | RhinoCommon / Grasshopper SDK | McNeel | MIT (RhinoCommon) / developer terms; referenced not shipped | **no** |
 | Newtonsoft.Json, Roslyn, System.* DLLs | NuGet | MIT | yes — inside Yak package only, with notices |
 | IKEA product names in manifests | public catalogue facts | nominative fair use; disclaimer in notices | yes (names only) |
-| Generated asset library (`GeneratedAssetfiles/models/*.glb` + `.almond.json` contracts) | generated with Meshy from self-authored prompts (`GeneratedAssetfiles/catalogue.json`), normalised by `tools/build_generated_assets.py` | Meshy Terms: output generated on a paid plan belongs to the account; released here under CC BY 4.0 (manifest/contracts MIT) | yes — git repository; manifest in the wheel, model files fetched by `almond-mcp fetch-assets` |
+| Generated asset library (`asset/models/GeneratedAssetfiles/models/*.glb` + `.almond.json` contracts) | generated with Meshy from self-authored prompts (`asset/models/GeneratedAssetfiles/catalogue.json`), normalised by `tools/build_generated_assets.py` | Meshy Terms: output generated on a paid plan belongs to the account; released here under CC BY 4.0 (manifest/contracts MIT) | yes — git repository; manifest in the wheel, model files fetched by `almond-mcp fetch-assets` |
 
 ## 3D Warehouse analysis
 
@@ -53,7 +53,7 @@ into the distributable set.
 
 ## Generated (Meshy) asset library
 
-`GeneratedAssetfiles/` is the one library whose model files *are*
+`asset/models/GeneratedAssetfiles/` is the one library whose model files *are*
 distributed. Every asset was produced from a self-authored prompt through
 Meshy's image and image-to-3D pipelines on a paid plan; Meshy's terms grant
 paid accounts ownership of generated output, so the files are ours to
@@ -61,7 +61,7 @@ license. They are released under CC BY 4.0 (attribution: "Almond generated
 asset library"), and the manifest, contracts and build tooling are MIT like
 the rest of the repository. Provenance is recorded per asset in the manifest
 (`geometry_source.parameters`: prompt, image task id, mesh task id, model,
-date) and in `GeneratedAssetfiles/provenance.json`.
+date) and in `asset/models/GeneratedAssetfiles/provenance.json`.
 
 Starting with 0.6.0rc1, the wheel includes the generated GLBs, MIT contracts,
 catalogue/provenance, passport schema and preview renders for offline use.
@@ -69,7 +69,7 @@ The release verifier checks an explicit allowlist: no 3D Warehouse models,
 raw Meshy downloads, compiled bridge binaries or example projects. Earlier
 versions used repository download URLs. 3D Warehouse content stays manual.
 
-Raw Meshy downloads (`GeneratedAssetfiles/raw/`) are gitignored; the tracked
+Raw Meshy downloads (`asset/models/GeneratedAssetfiles/raw/`) are gitignored; the tracked
 normalised files are derived from them deterministically.
 
 ## Capsules vs. example files
@@ -78,7 +78,7 @@ A capsule manifest declares an input/output contract (reserved
 `ALMOND_IN_*`/`ALMOND_OUT_*` nicknames, types, units, semantics) for a
 Grasshopper definition. The manifests were written for this project; they do
 not embed any third-party definition. The `definition_file` they name is
-supplied by the user (or authored per `capsules/AUTHORING.md`), so shipping
+supplied by the user (or authored per `asset/capsules/AUTHORING.md`), so shipping
 the manifests is analogous to wasp-mcp shipping factual pattern knowledge
 derived from examples without shipping the examples.
 

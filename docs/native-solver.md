@@ -32,7 +32,7 @@ selection**. Step 02 adds the native options (floor imposed and build-up loads,
 loads from placed models, connections, load combinations, stability, deflection
 span, and the viewport overlay: deflected shape or first buckling mode).
 **Run native analysis** exports the conditioned line model, runs
-`almond-mcp solve` out of process (JSON in, JSON out: `almond_mcp/structure_study.py`),
+`almond-mcp solve` out of process (JSON in, JSON out: `src/mcp/almond_mcp/structure_study.py`),
 draws the result through the same `structure_draw` overlay the MCP tools use,
 and fills step 04 with deflection, utilization, the governing combination,
 αcr and the load facts. **Clear viewport overlay** removes the drawing.
@@ -87,7 +87,7 @@ warning saying why.
 ## Method
 
 - Direct stiffness method, Euler-Bernoulli beams, 6 DOF per node, rigid joints
-  (`almond_mcp/frame_solver.py`, numpy only, written from the textbook method).
+  (`src/mcp/almond_mcp/frame_solver.py`, numpy only, written from the textbook method).
 - Uniform and linearly varying member loads (self weight, floor-load triangles and
   trapezoids) are exact within each member: consistent fixed-end forces, Hermite
   interpolation of the end displacements plus the fixed-fixed particular solution
@@ -103,7 +103,7 @@ warning saying why.
 
 The bridge's `structure_model` message exports the conditioned geometry used by the
 Karamba path: welded nodes, members split at intersections, inferred sections, curved
-axes polygonized identically. `almond_mcp/native_structure.py` then applies:
+axes polygonized identically. `src/mcp/almond_mcp/native_structure.py` then applies:
 
 - **Supports:** declared Rhino points (snapped to the nearest node within 50 mm), else
   every lowest-Z node. `fixed_supports=False` pins them (translations only).
@@ -112,7 +112,7 @@ axes polygonized identically. `almond_mcp/native_structure.py` then applies:
 - **Deflection limit:** span/250. Span = longest member for beam/frame, else overall
   extent; `span_m` overrides it when members are split at every node (a 6.2 m joist
   drawn as two 3.1 m segments).
-- **Member checks (EN 1993-1-1, `almond_mcp/ec3.py`), per member** (the member between its
+- **Member checks (EN 1993-1-1, `src/mcp/almond_mcp/ec3.py`), per member** (the member between its
   joints, whatever the analysis split it into), for every ULS combination:
   - **Section class** from Table 5.2 for the actual stresses, with ε = √(235/f_y):
     CHS d/t against 50/70/90 ε² (Class 4 above 59.6 in S355); RHS walls (c = h − 3t) and
@@ -134,7 +134,7 @@ axes polygonized identically. `almond_mcp/native_structure.py` then applies:
 
 ### Validation
 
-- `tests/test_hand_calculations.py` and `tests/test_ec3.py`: closed forms worked from first
+- `tests/mcp/test_hand_calculations.py` and `tests/mcp/test_ec3.py`: closed forms worked from first
   principles and from the standard's text (beam, cantilever, column buckling on curves a and
   c, Table 5.2 classes by grade, Table B.3 C_m, an Annex B case where k = 1.3).
 - `tools/mutation_check.py` plants known engineering errors one at a time (wrong factors,
@@ -287,7 +287,7 @@ CHS 219.1×8 (18.5 mm, utilization 0.59).
 add the gravity load of every placed library asset that stands on (or hangs from) the
 frame:
 
-- **Load data:** `GeneratedAssetfiles/structural-loads.json` gives each of the 50 library
+- **Load data:** `asset/models/GeneratedAssetfiles/structural-loads.json` gives each of the 50 library
   assets an estimated self weight (dead) and in-use load (imposed: occupants at 80 kg,
   water in a filled bath, books on shelves), with category defaults for other libraries.
   These are typical-product estimates, not measured or manufacturer data. The entry is
@@ -322,9 +322,9 @@ CHS 114.3×4 under furniture and self weight only: 17.2 mm, utilization 0.30.
 
 ## Benchmarks
 
-Asserted in `tests/test_frame_solver.py` (20 closed-form cases including equilibrium,
+Asserted in `tests/mcp/test_frame_solver.py` (20 closed-form cases including equilibrium,
 superposition, orientation invariance, mechanisms, section properties and EN 1993
-buckling) and `tests/test_native_structure.py` (Karamba cross-check). Regenerate the
+buckling) and `tests/mcp/test_native_structure.py` (Karamba cross-check). Regenerate the
 tables with `uv run python tools/run_structural_benchmarks.py`.
 
 ### Closed form (CHS 114.3×4, S235)
@@ -341,7 +341,7 @@ tables with `uv run python tools/run_structural_benchmarks.py`.
 ### Karamba3D cross-check
 
 Reference runs: Karamba3D 3.1 (karambaCommon 3.1.60921) in Rhino 8, 2026-09-30, on the
-same geometry and conventions (`tests/data/karamba_reference.json`).
+same geometry and conventions (`tests/mcp/data/karamba_reference.json`).
 
 | Model | Section | Load (kN) | Karamba δ (mm) | Native δ (mm) | Δ | Karamba u | Native u | Δ |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

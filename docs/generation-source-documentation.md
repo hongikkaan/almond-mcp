@@ -6,7 +6,7 @@ Adopted 19 September 2026 for the continuing Almond library work.
 
 Twenty assets record a Higgsfield image job followed by a Meshy mesh task. Their image IDs use `image_job_id`, not `image_task_id`. The register preserves both provider-specific identifiers; the remaining image-stage provider is inferred from the recorded catalogue tool and labelled accordingly.
 
-`GeneratedAssetfiles/source-register.json` inventories the recorded evidence for each generated asset: Meshy task IDs, model labels, recorded prompt, generation date, transformations, output checksums and declared licence. The original `provenance.json`, catalogue, manifest and embedded passports remain the underlying evidence.
+`asset/models/GeneratedAssetfiles/source-register.json` inventories the recorded evidence for each generated asset: Meshy task IDs, model labels, recorded prompt, generation date, transformations, output checksums and declared licence. The original `provenance.json`, catalogue, manifest and embedded passports remain the underlying evidence.
 
 The register explicitly identifies incomplete historical evidence. A stored brief and shared recipe are not proof of the exact API request that ran. An image task ID is not a retained input image. An empty reference list means the external references were not recorded; it does not prove there were none. The audit compares local records and does not authenticate Meshy account rights.
 

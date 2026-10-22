@@ -2,13 +2,13 @@
 
 Manual verification steps for the almondmcp structural pipeline refactor. Nothing here can be tested in the sandbox; every step needs a real Windows machine with Rhino 8. Work through the steps in order, because later steps depend on earlier ones. For each step, the expected console or JSON output is listed, including the exact warning strings that mark a downgrade.
 
-Prerequisites: Visual Studio 2022 with the .NET desktop development workload, Rhino 8 for Windows, Karamba3D 3.1 (build 3.1.60519) installed for Rhino 8, and internet access for the first NuGet restore. See `RhinoAlmondBridge/BUILD.md` for full details.
+Prerequisites: Visual Studio 2022 with the .NET desktop development workload, Rhino 8 for Windows, Karamba3D 3.1 (build 3.1.60519) installed for Rhino 8, and internet access for the first NuGet restore. See `src/rhp/RhinoAlmondBridge/BUILD.md` for full details.
 
 ## 1. Build the plugin in Visual Studio
 
-1. Open `RhinoAlmondBridge/RhinoAlmondBridge.csproj` in Visual Studio 2022.
+1. Open `src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj` in Visual Studio 2022.
 2. Select the Release configuration and build (Ctrl+Shift+B).
-3. Expect: build succeeds with zero errors. Output lands in `RhinoAlmondBridge\bin\Release\net48\RhinoAlmondBridge.dll`.
+3. Expect: build succeeds with zero errors. Output lands in `src/rhp/RhinoAlmondBridge/bin/Release/net48/RhinoAlmondBridge.dll`.
 4. Confirm the project has no reference to any Karamba assembly. All Karamba access is late bound by reflection in `KarambaAdapter.cs`. If the build asks for a Karamba reference, something regressed; do not add one.
 5. Failure modes: NuGet restore errors mean no internet or a wrong feed. Compiler errors in `KarambaAdapter.cs`, `ModelConditioner.cs`, `GhDefinitionRunner.cs`, `StructuralValidator.cs`, or `BridgeServer.cs` mean the C# from this refactor needs fixing; note the first error and file.
 
@@ -53,7 +53,7 @@ This step verifies the loud downgrade chain. Do it on a machine without Karamba,
 
 1. Call the MCP tool `list_capsules()`. Expect 8 capsules, all `capability` "analyze", all `audited: false` out of the box.
 2. Call `run_gh_definition` with `capsule_id` "karamba_beam_v1" and inputs `{"ALMOND_IN_LINES": {"guids": ["<your line guid>"]}}`.
-3. Expect an error JSON refusing to run, with a message containing `is not audited` and a pointer to `capsules/AUTHORING.md`. This refusal happens client side in Python; the Rhino command line must NOT print `Running capsule definition...`, because the bridge is never contacted for a refused capsule.
+3. Expect an error JSON refusing to run, with a message containing `is not audited` and a pointer to `asset/capsules/AUTHORING.md`. This refusal happens client side in Python; the Rhino command line must NOT print `Running capsule definition...`, because the bridge is never contacted for a refused capsule.
 4. Also probe the validation layer while you are here, expecting errors that name the offending port and never reach Rhino:
    - unknown capsule id: message contains `Unknown capsule_id` plus an `available_capsules` list
    - missing required input: message contains `Missing required input(s)` and `ALMOND_IN_LINES`
@@ -62,8 +62,8 @@ This step verifies the loud downgrade chain. Do it on a machine without Karamba,
 
 ## 6. Harness the beam template and run it end to end
 
-1. Follow `capsules/AUTHORING.md` step by step for the beam capsule: open `Grasshopperfiles/Karambafileswithmodel/01_SimpleBeam.ghx`, add the harness params (`ALMOND_IN_LINES`, `ALMOND_IN_LOAD_KN`, `ALMOND_OUT_DISP_MM`, `ALMOND_OUT_UTIL`, `ALMOND_OUT_MASS_KG`) with exact NickNames, wire them in, remove the internal sliders and geometry they replace, group as `ALMOND HARNESS`, test a solve inside Grasshopper, and Save As `Grasshopperfiles/Karambafiles/harnessed/01_SimpleBeam.ghx`.
-2. Edit `capsules/karamba_beam_v1.capsule.json` and set `"audited": true`. Restart the MCP server so the capsule registry resyncs, and confirm `list_capsules(audited_only=true)` now returns the beam capsule.
+1. Follow `asset/capsules/AUTHORING.md` step by step for the beam capsule: open `Grasshopperfiles/Karambafileswithmodel/01_SimpleBeam.ghx`, add the harness params (`ALMOND_IN_LINES`, `ALMOND_IN_LOAD_KN`, `ALMOND_OUT_DISP_MM`, `ALMOND_OUT_UTIL`, `ALMOND_OUT_MASS_KG`) with exact NickNames, wire them in, remove the internal sliders and geometry they replace, group as `ALMOND HARNESS`, test a solve inside Grasshopper, and Save As `Grasshopperfiles/Karambafiles/harnessed/01_SimpleBeam.ghx`.
+2. Edit `asset/capsules/karamba_beam_v1.capsule.json` and set `"audited": true`. Restart the MCP server so the capsule registry resyncs, and confirm `list_capsules(audited_only=true)` now returns the beam capsule.
 3. Call `run_gh_definition` with `capsule_id` "karamba_beam_v1", your line GUID in `ALMOND_IN_LINES`, and `ALMOND_IN_LOAD_KN` 12.5.
 4. Expect the Rhino command line to print `RhinoAlmondBridge: Running capsule definition...`.
 5. Expect response JSON with `status` "ok", `analysis_method` "template", `confidence` "medium", `outputs` keyed by the three ALMOND_OUT names with plausible numbers in the declared units (mm, ratio list, kg), `baked_guids` empty (the beam capsule declares no geometry outputs), and `error` null.
@@ -89,4 +89,4 @@ This step verifies the loud downgrade chain. Do it on a machine without Karamba,
 
 1. Rerun the automated suite on the workstation for completeness: `uv run pytest` inside `mcp-rhino-plugin` (23 tests, all green, no Rhino required).
 2. Record which verdict prefixes you observed in steps 3, 4, and 6.7, since those three lines are the whole confidence story: api high, template medium, rule based low.
-3. Leave `audited` true only for capsules whose harness you personally verified per the checklist at the end of `capsules/AUTHORING.md`. A false flag is honest; a wrong true flag produces fake engineering numbers.
+3. Leave `audited` true only for capsules whose harness you personally verified per the checklist at the end of `asset/capsules/AUTHORING.md`. A false flag is honest; a wrong true flag produces fake engineering numbers.

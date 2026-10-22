@@ -24,7 +24,7 @@ missing and verifies checksums after download.
 
 ## Generated asset library — distributed (CC BY 4.0)
 
-The models in `GeneratedAssetfiles/models/` (people, trees, vehicles, site
+The models in `asset/models/GeneratedAssetfiles/models/` (people, trees, vehicles, site
 furniture, columns, balustrades, sanitary fixtures, generic
 furniture) were generated with [Meshy](https://www.meshy.ai) from prompts
 written for this project and normalised by `tools/build_generated_assets.py`.
@@ -123,6 +123,6 @@ into explicit vector contours.
 The local Object Archive vendors `@google/model-viewer` 4.3.1 from the official
 npm registry (https://www.npmjs.com/package/@google/model-viewer), under Apache
 License 2.0. Its original licence and package integrity record are included in
-`almond_mcp/library_ui/vendor/`. The distribution bundle retains embedded
+`src/rhp/Asset_Panel/web/vendor/`. The distribution bundle retains embedded
 third-party notices. Full component licence texts and their retrieval records
 are also included in `THIRD-PARTY-LICENSES.txt` and `version.json` there.

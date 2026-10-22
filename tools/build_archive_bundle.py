@@ -8,7 +8,7 @@ import sys
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src" / "mcp"))
 from almond_mcp import __version__
 from almond_mcp.asset_repository import AssetRepository, UI_ROOT
 from almond_mcp.asset_passport import audit_library
@@ -20,7 +20,7 @@ def build_bundle(destination: Path):
     destination = destination.resolve()
     if destination.exists() and any(destination.iterdir()):
         raise ValueError("Archive destination must be new or empty")
-    generated = ROOT / "GeneratedAssetfiles"
+    generated = ROOT / "asset" / "models" / "GeneratedAssetfiles"
     register = build_register(generated)
     if register.get("errors") or register != json.loads((generated/"source-register.json").read_text(encoding="utf-8")):
         raise ValueError("Source register is stale or contains errors")
@@ -28,7 +28,7 @@ def build_bundle(destination: Path):
     if audit["status"] != "success":
         raise ValueError(f"Generated asset audit failed: {audit}")
     # Never index installed community files into a redistributable payload.
-    repo = AssetRepository({"generated":generated, "drawing":ROOT/"DrawingAssetfiles", "drafting":ROOT/"Draftingfiles"})
+    repo = AssetRepository({"generated":generated, "drawing":ROOT/"asset/drawing/DrawingAssetfiles", "drafting":ROOT/"asset/drawing/Draftingfiles"})
     for record in repo.records.values():
         if record["kind"] == "element":
             record.update(available=False, model=None, preview=None, contract=None)
@@ -59,7 +59,7 @@ def build_bundle(destination: Path):
             mime = {".html":"text/html; charset=utf-8", ".css":"text/css; charset=utf-8", ".js":"text/javascript; charset=utf-8", ".mjs":"text/javascript; charset=utf-8", ".json":"application/json", ".svg":"image/svg+xml"}.get(path.suffix,"text/plain; charset=utf-8")
             write("/"+relative, "ui/"+relative, path.read_bytes(), mime)
     routes["/"] = routes["/index.html"]
-    write("/api/materials", "api/materials.json", (ROOT/"Materialfiles/manifest.json").read_bytes(), "application/json")
+    write("/api/materials", "api/materials.json", (ROOT/"asset/constructions/Materialfiles/manifest.json").read_bytes(), "application/json")
     catalogue = repo.catalogue()
     catalogue["distribution"] = "rhino"
     catalogue["indexed_at"] = "release-build"

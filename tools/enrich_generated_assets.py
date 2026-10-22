@@ -4,13 +4,13 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "src" / "mcp"))
 from almond_mcp import __version__
 from almond_mcp.asset_passport import AssetPassport, enrich_asset
 
 
 def main():
-    library = REPO / "GeneratedAssetfiles"
+    library = REPO / "asset" / "models" / "GeneratedAssetfiles"
     manifest_path = library / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     for asset in manifest["assets"]:

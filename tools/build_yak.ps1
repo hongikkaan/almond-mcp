@@ -15,7 +15,7 @@ Push-Location $repo
 try {
     & $PythonExecutable tools/document_generation_sources.py --check
     if ($LASTEXITCODE -ne 0) { throw "Source documentation check failed." }
-    & dotnet build RhinoAlmondBridge/RhinoAlmondBridge.csproj -c Release -o $bin
+    & dotnet build src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj -c Release -o $bin
     if ($LASTEXITCODE -ne 0) { throw "Bridge build failed." }
     Copy-Item -LiteralPath (Join-Path $bin "RhinoAlmondBridge.dll") -Destination (Join-Path $stage "RhinoAlmondBridge.rhp")
     Get-ChildItem -LiteralPath $bin -Filter *.dll | Where-Object Name -ne "RhinoAlmondBridge.dll" | ForEach-Object {
@@ -24,8 +24,7 @@ try {
     }
     & $PythonExecutable tools/build_archive_bundle.py (Join-Path $stage "archive")
     if ($LASTEXITCODE -ne 0) { throw "Archive bundle build failed." }
-    Copy-Item -LiteralPath (Join-Path $repo "RhinoAlmondBridge/yak/manifest.yml") -Destination $stage
-    Copy-Item -LiteralPath (Join-Path $repo "assets/almond-icon-48.png") -Destination (Join-Path $stage "icon.png")
+    Copy-Item -LiteralPath (Join-Path $repo "src/rhp/RhinoAlmondBridge/yak/manifest.yml") -Destination $stage
     foreach ($file in @("LICENSE", "THIRD-PARTY-NOTICES.md")) { Copy-Item -LiteralPath (Join-Path $repo $file) -Destination $stage }
     Copy-Item -LiteralPath (Join-Path $repo "docs/rhino-archive-quickstart.md") -Destination (Join-Path $stage "GETTING-STARTED.md")
     Push-Location $stage
