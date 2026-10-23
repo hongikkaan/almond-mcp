@@ -100,7 +100,27 @@ node --test (Get-ChildItem tests/rhp/Asset_Panel -Filter *.test.mjs | ForEach-Ob
 `tests/rhp/RhinoTerminal/AlmondHostContracts`에 있습니다. Terminal host fixture에는
 기존의 빈 테스트용 data 디렉터리를 절대경로 인수로 전달합니다.
 실제 Rhino 로딩·패널 조작·배치 결과는 오프라인 테스트와 별도로 검증합니다.
-통합본의 실제 검증 결과와 남은 작업은 [인계 기록](docs/HANDOFF-single-rhp.md)을 참고합니다.
+단일 RHP 통합 당시의 실제 검증 결과는 [통합 기록](docs/HANDOFF-single-rhp.md),
+후속 문서·뷰포트 조회와 C# 결과 반환의 실제 확인 범위는
+[관측·반환 검증 기록](docs/native-observation-verification.md)을 참고합니다.
+
+새 조회·반환 계약의 Python 검증은 다음과 같이 실행합니다. Rhino를 직접 변경하는 검증은 아닙니다.
+
+```powershell
+& ./src/engine/.venv/Scripts/python.exe -B -X utf8 -m pytest tests/mcp/test_rhino_observation.py tests/cos/test_catalog.py tests/cos/test_broker.py tests/cos/test_compat.py tests/cos/test_transport.py::StdioTests -q
+```
+
+위 명령은 .NET pipe fixture가 필요한 `PipeTests`를 포함하지 않습니다. 전체 COS 검증은
+앞의 `src/cos/run_tests.ps1`을 사용합니다.
+
+실제 연결에서는 `almond_cos_project_info`로 문서를 확인한 뒤
+`almond_cos_get_rhino_context`, 필요할 때 `almond_cos_get_rhino_viewport_image`를 호출합니다.
+세 도구 모두 연결의 `connection_id`를 사용합니다. 반환 형식과 C#의 `result_error` 의미는
+[기능 계약](docs/native-observation.md)을 따릅니다.
+native Undo·조회 fixture의 빌드와 modeless 실행 절차는
+[fixture README](tests/rhp/RhinoAlmondBridge/script_executor_undo/README.md)에 있습니다.
+실제 로드된 RHP와 충돌하지 않게 새 `RhinoAlmondBridge/plugin-*` 후보 경로를 사용하고,
+fixture·빌드 성공과 실제 MCP 클라이언트 수신을 구분합니다.
 
 ## Git
 

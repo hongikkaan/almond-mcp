@@ -18,7 +18,7 @@
 | H2의 빈 Difference를 성공으로 처리한 뒤 원객체를 숨김 | H2 L3515, L3518; L3540/L3544의 복구 | 실행 성공과 수정 의도의 충족은 다르다. 출력 기능만으로 이 잘못된 조건을 고칠 수 없다. |
 | Native도 잘못된 결과와 API 오판을 겪음 | Native L252/L255의 2.992123 m³ 제거 시험; L259–283의 component 조회·정정 | Python이나 Native가 정확도를 자동 보장하지 않는다. 적용 전 시험과 목적에 맞는 보존 검사가 중요하다. |
 | Native는 현재 상태/화면/출력을 한 응답에서 제공 | Native L22/L26, L28/L32, 고정 소스 GetContext/GetViewportImage/RunScript | 필요한 관측 경로가 준비돼 있다. 전체 기하 이해나 건축 판단이 자동으로 제공되지는 않는다. |
-| 공개 도구의 이름·입력은 현재 누락되지 않음 | server 공개 56개, catalog 57개, host 관리 3개; catalog fingerprint 일치 | 새 도구를 많이 추가하거나 기존 전문 기능을 삭제할 이유가 되지 않는다. |
+| 착수 시 공개 도구의 이름·입력은 누락되지 않았음 | 변경 전 server 공개 56개, catalog 57개, host 관리 3개; catalog fingerprint 일치 | 새 도구를 많이 추가하거나 기존 전문 기능을 삭제할 이유가 되지 않는다. |
 | 캡처 입력 설명의 일부가 실제 도구 메타데이터에서 사라짐 | server.py의 shot JSON 문단과 catalog 비교; 동일 FastMCP의 inert AST 등록 재현 | COS만의 잘림이 아니다. source docstring을 FastMCP가 처리하는 방식에 맞춰 수정해야 한다. |
 | 기존 전문 기능도 live 수치를 돌려줌 | conditioning summary.document, export_asset_contract, 구조/자산 export | 일반적인 현재 상태와 임의 실행 결과의 경로가 부족하다는 뜻이지, 모든 수치 반환이 없다는 뜻이 아니다. |
 
@@ -92,11 +92,14 @@
 
 ## 근거 위치
 
-아래 인계 자료와 세션 원문은 로컬 조사 자료이며 Git/PR에 포함하지 않는다.
-구현 계약과 검증 요약은 위의 기능 문서와 검증 기록에 정리했다.
+아래 인계 자료와 세션 원문은 조사 당시 근거이며 Git/PR에 포함하지 않는다.
+로컬 인계 MD·ZIP·추출 폴더는 후속 정리에서 제거됐다. 구현 계약과 검증 요약은
+위의 기능 문서와 검증 기록에 보존했다. 구현 후 COS catalog는 59개, 관리 도구를
+포함한 공개 COS 도구는 62개다. 위 표의 수량은 변경 전 조사 기준이다.
 
-- 인계: 리포 루트 `HANDOFF-native-advantages-to-almond-2026-10-22.md`.
-- 전체 자료: `native-vs-almond-handoff-materials-2026-10-22/`.
+- 인계 원문: [Slack handoff](https://hih-z6k5791.slack.com/archives/C0CA8BC1SS1/p1792678172602669?thread_ts=1792678092.873709&channel=C0CA8BC1SS1&message_ts=1792678172.602669).
+- 조사 당시 로컬 인계: `HANDOFF-native-advantages-to-almond-2026-10-22.md`,
+  전체 자료: `native-vs-almond-handoff-materials-2026-10-22/` (현재 checkout 필수 파일이 아님).
 - Native 원문: `/sessions-2/2026/10/19/rollout-2026-10-19T01-40-34-01a14fe2-eb05-7ef1-a5ff-6ffb10652ab3.jsonl`.
 - H2 원문: `/sessions/2026/10/18/rollout-2026-10-18T16-37-22-01a14df1-9b8b-7e42-bacd-739f0b84a6de.jsonl`.
 - 현재 호출 경계: `ScriptExecutor.cs` → `BridgeServer.cs` → Engine

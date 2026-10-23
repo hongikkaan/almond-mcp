@@ -2,6 +2,19 @@
 
 2026-10-22–23 UTC / 2026-10-23 KST, `codex/native-observation-contracts`. 시작 commit은 `c578115`이다.
 이 기록은 구현, 오프라인 검증, 실제 Rhino에서 확인한 증거를 구분한다.
+저장소 전체 계약은 [SPEC](../SPEC.md), 실행·검증 명령은 [LOCAL_SETUP](../LOCAL_SETUP.md),
+공개 입력·반환 형식은 [기능 계약](native-observation.md)을 기준으로 한다.
+아래 PID·후보 경로·hash·테스트 수는 각 실행 당시의 기록이며 현재 프로세스 상태를 뜻하지 않는다.
+
+후속 `1016fde`는 COS host의 초기 안내에 현황 확인·수정 후보 검증 순서를 반영했다.
+worker의 초기 안내가 외부 클라이언트에 전달된다고 가정하지 않고 host 자체에 명시했다.
+해당 안내 검증은 `tests/cos/test_transport.py`에 있으며
+[PR #3](https://github.com/hongikkaan/almond-mcp/pull/3)에 함께 포함된다.
+
+2026-10-23 문서 정렬 시 `LOCAL_SETUP.md`의 observation/catalog/broker/compat 및
+`StdioTests` 명령을 다시 실행해 **54 passed, 5 subtests passed**를 확인했다.
+수정한 Markdown 7개는 상대 링크 18개·code fence·`git diff --check`를 통과했다.
+이번 후속 변경은 문서만 수정했으며 아래 실환경 결과를 새로 실행한 것으로 집계하지 않는다.
 
 ## 완료한 구현
 

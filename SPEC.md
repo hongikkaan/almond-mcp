@@ -3,9 +3,11 @@
 ## 목적과 변경 경계
 
 개인 Rhino 작업에 필요한 소스를 한 리포에서 관리하되 Engine과 MCP를 분리한다.
-이번 정리는 파일 위치·경로 참조·패키징·설치 경로·문서를 맞추고 Bridge와 Terminal을 단일 RHP로 통합하는 작업이다.
-구조해석 수식, 자산 배치, UI 동작, MCP 도구, 연결 프로토콜, Undo/Redo의 의미를 바꾸지 않는다.
-기존 네임스페이스·Bridge assembly 이름과 GUID·Rhino 명령을 유지한다. 별도 Terminal 플러그인 entry와 GUID는 제거한다.
+2026-10-22의 경로 정리와 단일 RHP 통합은 파일 위치·패키징·설치 경로를 맞춘 작업이다.
+그 작업에서는 구조해석 수식, 자산 배치, UI 동작, MCP 도구, 연결 프로토콜, Undo/Redo의 의미를 바꾸지 않았다.
+기존 네임스페이스·Bridge assembly 이름과 GUID·Rhino 명령을 유지하며, 별도 Terminal 플러그인 entry와 GUID는 제거했다.
+후속 문서·뷰포트 조회와 C# 결과 반환은 아래 실행 계약에 포함한다. 상세 입력·반환 형식은
+[기능 계약](docs/native-observation.md), 실제 확인 범위는 [검증 기록](docs/native-observation-verification.md)을 따른다.
 
 ## 디렉터리
 
@@ -50,7 +52,7 @@ almond-mcp/
 
 | 구성요소 | 책임 | 의존 관계 |
 |---|---|---|
-| Engine | 외부 실행기, A–J 슬롯, 모델별 저장소·프로세스 소유권, 연결 수명 | MCP를 호출하고 원본 Rhino bridge handler를 재사용 |
+| Engine | 외부 실행기, A–J 슬롯, 모델 폴더의 공유 저장소·프로세스 소유권, 연결 수명 | MCP를 호출하고 원본 Rhino bridge handler를 재사용 |
 | MCP | 공개 도구, Python 구조해석 계산, 자산 검색·데이터 관리 | 원본 package 이름 `almond_mcp` 유지 |
 | COS Python | stdio host/worker, 도구 카탈로그·계약 검사 | 같은 Engine·editable MCP 사용 |
 | RhinoAlmondBridge | Rhino 명령·TCP 처리·Undo, 구조해석/자산/Terminal 패널 | 세 feature 폴더의 C#를 하나의 assembly로 컴파일 |
@@ -66,6 +68,32 @@ Bridge csproj의 Compile 경로로 연결한다. Terminal 명령은 `Commands.cs
 개발 checkout에서는 MCP가 그 경로를 읽고, wheel에는 기존 `almond_mcp/library_ui`로 포함한다.
 RHP의 오프라인 화면은 빌드 도구가 만든 RHP 인접 `archive/ui`를 읽는다.
 웹 자산 이동으로 URL route, UI 이벤트, 모델 배치 명령을 바꾸지 않는다.
+
+## 현재 문서 조회와 실행 결과
+
+기존 모델 작업은 연결의 `almond_project_info`를 확인하고 `get_rhino_context`로
+활성 문서의 identity·단위·공차·객체/레이어 수·선택·viewport/camera를 조회한다.
+COS 이름은 각각 `almond_cos_project_info`, `almond_cos_get_rhino_context`이며
+연결별 `connection_id`를 전달한다. 선택 목록은 기본 50개, 최대 200개로 제한하고
+전체 수와 반환 수·잘림 여부를 구분한다.
+
+`get_rhino_viewport_image` / `almond_cos_get_rhino_viewport_image`는 현재 뷰의
+실제 MCP ImageContent와 metadata를 반환한다. 폭·높이 입력은 각각 64–2048의 엄격한
+정수이며 화면 비율을 유지하고 확대하지 않는다. JPEG 한도는 4 MiB이며
+structured metadata에 base64를 중복하지 않는다. 실패하면 이미지 없는 명시적 오류를 반환한다.
+두 조회는 문서 binding·UI thread·호출 identity·native 완료 확인을 거치는 고정 경로다.
+레이어·기하·Undo 기록을 만들거나 카메라·display mode·clipping·선택을 바꾸지 않는다.
+
+`execute_rhino_script`는 JSON으로 표현 가능한 C# 반환값을 `result`로 전달한다.
+한도는 compact UTF-8 JSON 65,536 bytes와 container 깊이 16이며, 미지원 값·순환 참조·
+한도 초과는 `result_error`로 설명한다. 반환 변환 오류로 이미 완료된 수정이 rollback되지는
+않으며 자동 재실행하지 않는다. 기존 `List<Guid>`의 `guids`·자동 치수, void/null,
+레이어 초기화와 Undo/Redo 동작을 유지하므로 일반 C# 실행을 read-only로 취급하지 않는다.
+
+MCP 서버와 COS host의 초기 안내는 현황 조회 → 관련 객체 조사 → 수정 후보의 검증 →
+원본 교체 순서를 안내한다. 실행 성공·현재 화면·기하의 유효성만으로 과제의 정확성을
+인증하지 않는다. COS catalog는 59개, 관리 도구를 포함한 공개 도구는 62개이며
+source fingerprint와 schema 검사를 유지한다.
 
 ## 실행·빌드 산출물
 
@@ -110,20 +138,25 @@ GLB·PNG·도면·계약·vendor 파일의 바이트와 기록된 해시를 보�
 `.gitattributes`의 계약 LF, 도면 원본 줄바꿈 보존, vendor/binary 규칙은 새 경로를 따른다.
 외부 원본 저장소의 다운로드 URL은 이 리포의 이동 경로로 치환하지 않는다.
 
+같은 모델 폴더는 `.almond/scene.sqlite3`와 `.almond/tmp`를 공유하며 각 연결은
+자신의 token·session·call 디렉터리를 소유한다. 한 연결이 전체 DB를 소유하지 않는다.
 공유 DB 잠금, 연결별 token, 작업 완료 확인, 불확실한 작업 격리는 그대로다.
 시간초과를 rollback이나 재실행 허가로 취급하지 않는다.
 
 ## 검증 및 정리 기준
 
-실행 명령은 `LOCAL_SETUP.md`에 둔다. 경로 이동은 다음 증거로 검증한다.
+실행 명령은 `LOCAL_SETUP.md`에 둔다. 경로 이동과 단일 RHP 통합은 다음 증거로 검증한다.
 
 - source import, fixture·csproj·UI·문서의 상대 참조가 새 위치를 가리킨다.
 - 변경 범위에 해당하는 Engine/Terminal 계약 테스트와 패널 web 테스트가 통과한다.
 - 단일 Bridge RHP가 빌드되고 실제 Rhino에서 Terminal·자산 배치·해석·Undo/Redo를 확인한다.
-- COS는 별도 구성으로 유지하며 이번 통합의 코드 수정·실제 연결 검증에서 제외한다.
+- COS는 별도 구성으로 유지한다. 단일 RHP 통합 당시의 COS 제외 범위를 후속 기능 검증 전체에 적용하지 않는다.
 - archive의 hash 검증, wheel의 bundled UI/data 포함, 자산 바이트를 확인한다.
 - 이전 폴더를 제거한 상태에서도 새 환경이 동작한다.
 
+문서·뷰포트 조회와 결과 반환은 Python content/schema 검증, 기존 Undo를 포함한 native
+회귀, 실제 로드한 후보 RHP, 공개 COS stdio 클라이언트의 이미지·계산값 수신으로 확인한다.
+각 검증 결과와 미검증 조건은 [관측·반환 검증 기록](docs/native-observation-verification.md)에 둔다.
 테스트는 fixture에서 실행하며 실제 Rhino 패널·모델 작업 검증과 구분한다.
 이미 존재하던 실패나 외부 도구 부재는 숨기거나 테스트를 완화해서 통과시키지 않는다.
 

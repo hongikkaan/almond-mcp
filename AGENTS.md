@@ -25,6 +25,11 @@ do not use that permission for functional refactors. Preserve the Undo patch.
 Do not confuse Almond.Engine.dll with RhinoAlmondBridge.rhp or the parent's
 unrelated `mcp/native` project. Never patch installed package files.
 
+For current document/viewport queries and C# return values, read
+`docs/native-observation.md` and `docs/native-observation-verification.md`.
+Fixed observations must not use the mutating script executor. A `result_error`
+does not roll back completed edits or authorize an automatic retry.
+
 ## Runtime and data
 
 One editable environment lives at `src/engine/.venv`, reproduced by `uv.lock`.
