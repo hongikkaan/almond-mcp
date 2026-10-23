@@ -1,0 +1,195 @@
+{
+  "session_id": "01a15f29-a7ed-7031-a254-20ec1b309724",
+  "target_session_path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+  "workspace": "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design",
+  "timezone": "Asia/Seoul",
+  "scope": {
+    "start_user_task_row": 11,
+    "current_skill_full_load_row": 13,
+    "rhino_rebuild_start_row": 78,
+    "final_user_facing_row": 2080,
+    "last_source_record_row": 2083,
+    "cutoff_utc": "2026-10-22T02:56:47Z",
+    "cutoff_complied": true,
+    "scope_start_utc": "2026-10-21T15:52:18.515Z",
+    "scope_start_kst": "2026-10-22T00:52:18.515+09:00",
+    "scope_end_utc": "2026-10-21T18:30:00.682Z",
+    "scope_end_kst": "2026-10-22T03:30:00.682+09:00",
+    "eligible": true,
+    "eligibility_basis": "The complete skill body was injected as a user message at row 13 and matched the current global SKILL.md. The initial skill-review request at row 11 is included only as task trigger; actual Rhino work starts at row 78.",
+    "excluded_similarly_named_session": "01a15f29-947d-7d73-83fa-5be3a491f217"
+  },
+  "physical_file_audit": {
+    "session_jsonl_count": 1,
+    "file_bytes": 52587639,
+    "first_line_metadata_session_id_matches": true,
+    "related_fork_or_restart_files_found": [],
+    "candidate_scan": {
+      "method": "first-line session metadata scan of C:\\Users\\hopho\\.codex\\sessions and archived_sessions",
+      "candidate_jsonl_files": 126,
+      "target_logical_session_files": 1,
+      "finding": "only the target physical JSONL was found for this logical UUID; no fork/restart file matched"
+    }
+  },
+  "row_review": {
+    "reviewed_jsonl_rows": {
+      "start": 1,
+      "end": 2083,
+      "complete": true
+    },
+    "eligible_behavior_rows": {
+      "start": 78,
+      "end": 2080,
+      "complete": true
+    },
+    "task_trigger_and_skill_load_rows": [
+      11,
+      13
+    ],
+    "user_role_response_items_in_eligible_task_window": 9,
+    "user_role_items_in_directives": 8,
+    "skill_body_context_items_excluded_from_directive_count": 1,
+    "final_answer_row": 2080,
+    "review_method": "Time-ordered scan of the complete JSONL; public user/assistant/tool records reviewed, with repeated outer exec wrappers linked to nested MCP results by call/event IDs rather than treated as new calls. Encrypted reasoning, token-count records, and base64 payload text were not used as evidence."
+  },
+  "event_msg_item_completed_counts": {
+    "McpToolCall": 245,
+    "CommandExecution": 154,
+    "ImageView": 141,
+    "FileChange": 25,
+    "UserMessage": 8,
+    "AgentMessage": 8,
+    "Extension": 11,
+    "ContextCompaction": 2,
+    "Reasoning": 311
+  },
+  "call_result_linkage": {
+    "nested_mcp_calls": 245,
+    "matching_outer_exec_wrappers": "linked where present by call_id; nested event_msg item_completed is the canonical call/result record",
+    "duplicate_call_counting": false,
+    "executions_deep_reviewed": [
+      "almond_project_info",
+      "create/get/update_generation_plan",
+      "get_construction_guidance",
+      "execute_rhino_script",
+      "register_scene_instance",
+      "place_generated_asset",
+      "assign_material",
+      "validate_structure",
+      "validate_scene_layout",
+      "slack_send_message",
+      "slack_complete_file_upload",
+      "slack_read_thread",
+      "slack_read_file"
+    ],
+    "important_error_and_recovery_rows": [
+      140,
+      276,
+      403,
+      412,
+      423,
+      436,
+      449,
+      472,
+      480,
+      538,
+      553,
+      1066,
+      1074,
+      1157,
+      1168,
+      1177,
+      1363,
+      1370,
+      1666,
+      1674,
+      1683,
+      1823,
+      2044,
+      2051
+    ]
+  },
+  "deep_payload_and_output_review": [
+    {
+      "source": "JSONL rows 97–336; generation-plan-completed.json",
+      "focus": "project/doc/scene identity, reference state, initial-to-revised plan, levels, linked-grid identity"
+    },
+    {
+      "source": "JSONL rows 355, 554, 562, 745, 937; Slack thread 1792598183.055799 and linked source 1792599289.363349",
+      "focus": "separate agent status from bot relays; message source/content checks; file-ownership and upper-interface boundary"
+    },
+    {
+      "source": "JSONL rows 403–553; rebuild.cs; construction-guidance.json; structure-validation-final.json",
+      "focus": "failed geometry validations, successful rebuild, material and structural-analysis limits"
+    },
+    {
+      "source": "JSONL rows 1066–1075; reference-refresh.txt; post-refresh-state.txt",
+      "focus": "Undo-record error, refresh result, current model and source-file state after error"
+    },
+    {
+      "source": "JSONL rows 1157–1177; ramp-headroom-final-summary.json",
+      "focus": "probe input corrections and sampled headroom/intrusion result"
+    },
+    {
+      "source": "JSONL rows 1312–1683; REBUILD_REVIEW.md; REVIEW_FINAL.txt; saved-audit-final.txt",
+      "focus": "first completion, later vision requirements, wall corrections, named-view restoration and saved state"
+    },
+    {
+      "source": "JSONL rows 1762–2080; Slack reports and uploads; saved-final-verification.txt",
+      "focus": "relay chronology, 15 mm correction, boards/PDF delivery, final response and remaining limits"
+    }
+  ],
+  "files_read": [
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\attached-models.txt",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\construction-guidance.json",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\generation-plan-completed.json",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\REBUILD_REVIEW.md",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\structure-validation-final.json",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\saved-final-verification.txt",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\eye-level-review-20261022\\REVIEW_FINAL.txt",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\eye-level-review-20261022\\saved-audit-final.txt",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\eye-level-review-20261022\\BOARD_REPORT.png",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\eye-level-review-20261022\\BOARD_OVERLAP_15mm.png",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\eye-level-review-20261022\\BOARD_EYE_1.png",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\eye-level-review-20261022\\BOARD_EYE_2.png",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\eye-level-review-20261022\\BOARD_CUT_1.png",
+    "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\64501e99d90345e9bc86b2e45b257715\\basement-hall-rebuild-20261022\\eye-level-review-20261022\\rebuild.cs"
+  ],
+  "image_review": {
+    "imageview_event_records": 141,
+    "all_generated_images_individually_opened": false,
+    "opened_representatives": [
+      "before-plan-corrected.png",
+      "02_Technical_Axon.png",
+      "BOARD_REPORT.png",
+      "BOARD_OVERLAP_15mm.png",
+      "BOARD_EYE_1.png",
+      "BOARD_EYE_2.png",
+      "BOARD_CUT_1.png",
+      "BOARD_CUT_2.png"
+    ],
+    "method_limit": "The image records were reviewed as a sequence; representative final composite boards were visually opened. This audit does not claim independent visual reading of all 54 named-view images."
+  },
+  "source_and_deduplication": {
+    "direct_user_messages": 8,
+    "direct_skill_body_context": 1,
+    "unique_bot_user_claim_relays": 9,
+    "unique_upper_file_handoff_relays": 1,
+    "slack_thread_read_snapshots": "same bot relay is repeated in rows 355/554/937 or 1762/1781/1974/2029/2037; one underlying message is counted once when TS is present, otherwise one content-matched claim is retained with unknown TS",
+    "outgoing_agent_messages_excluded": 7,
+    "outgoing_agent_upload_comments_excluded": 10,
+    "outgoing_display_account_note": "The user's Slack display identity appears on agent-originated posts. Each relevant send/upload payload was compared with message body, timestamp or file ID and thread read results before exclusion.",
+    "source_authorship_limits": [
+      "The option-2 central-column choice, Ghost-Xray, elevator-detail, save cadence and urgent-save claims are bot relays without a verified original user entry in this logical session.",
+      "The cross-file boundary source text was read from linked Slack message TS 1792599289.363349 at JSONL row 562, but the source account attribution cannot be independently resolved in this single-session audit.",
+      "The 15mm-detail and visuals-per-report messages have visible relay TSs but no original user message was found in this session; treat as relay claims, not direct inputs."
+    ]
+  },
+  "incomplete_or_unverified": [
+    "No independent structural/FEA, reinforcement, seismic, soil, uplift, accessibility, fire/egress, drainage or governing-code certification was run; validate_structure was low-confidence rule-based only.",
+    "Static Rhino Layout/PDF drawings were not regenerated.",
+    "The upper-file geometry and original linked reference model authorship/content were not independently reviewed as engineering truth; only registered/reference content and selected visuals were checked.",
+    "All 54 named views were not independently inspected one by one; representative boards were reviewed."
+  ],
+  "integration_note": "세션별 원본 분석 산출물은 감사 당시 temp 폴더에 보존. 통합 지시 근거·중복 정정은 상위 steering-evidence.json 참조."
+}

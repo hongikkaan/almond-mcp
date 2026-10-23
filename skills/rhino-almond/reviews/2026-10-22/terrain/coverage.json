@@ -1,0 +1,128 @@
+{
+  "logical_session_id": "01a15f28-5fe8-7c63-9067-046a5572ba29",
+  "physical_files": [
+    "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+  ],
+  "scope": {
+    "eligible_start_line": 89,
+    "eligible_start_utc": "2026-10-21T16:02:40.303Z",
+    "reviewed_through_line": 2582,
+    "end_utc": "2026-10-21T18:53:29.129Z",
+    "fixed_cutoff_utc": "2026-10-22T02:56:47Z",
+    "complete": true,
+    "earlier_interval": "Lines 1-88: skill review/load context only; excluded from work and error assessment except line 13 proving exact current skill text load."
+  },
+  "reviewed_public_records": {
+    "line_range": [
+      89,
+      2582
+    ],
+    "line_count_in_scope": 2494,
+    "trailing_metadata_lines": [
+      2583,
+      2584,
+      2585
+    ],
+    "source_line_count": 2585,
+    "all_public_user_assistant_tool_inputs_and_outputs_reviewed": true,
+    "user_messages": 4,
+    "assistant_messages": 18,
+    "note": "Counts refer to primary response items; nested outputs were linked to their outer exec calls."
+  },
+  "calls": {
+    "outer_exec_calls": 165,
+    "nested_mcp_completion_events_unique": 912,
+    "deduplication": "Linked outer exec call_id to nested MCP item_completed/tool call IDs in its output; tool results counted once, not again as duplicated custom_tool_call_output records.",
+    "tool_counts": {
+      "register_scene_instance": 681,
+      "execute_rhino_script": 91,
+      "update_generation_step": 37,
+      "slack_read_thread": 20,
+      "slack_send_message": 10
+    },
+    "script_failures": {
+      "compile": 5,
+      "runtime": 8
+    },
+    "failure_followup_review": "Inspected failures and subsequent correction/state around lines 208-672, 1312-1549, 1961-1968, 2404-2413; not treated as unresolved when later verification evidenced recovery."
+  },
+  "deep_review_evidence": {
+    "user_directive_lines": [
+      89,
+      155,
+      1249,
+      1573
+    ],
+    "important_tool_result_ranges": [
+      [
+        208,
+        672
+      ],
+      [
+        614,
+        616
+      ],
+      [
+        1145,
+        1146
+      ],
+      [
+        1242,
+        1249
+      ],
+      [
+        1312,
+        1565
+      ],
+      [
+        1573,
+        1582
+      ],
+      [
+        1961,
+        1968
+      ],
+      [
+        2070,
+        2115
+      ],
+      [
+        2404,
+        2457
+      ],
+      [
+        2574,
+        2582
+      ]
+    ],
+    "artifact_roots": [
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\e2c30485bdcd42758b953c6c81d5a848\\DPRK-terrain-rebuild-1792598648405",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\e2c30485bdcd42758b953c6c81d5a848\\DPRK-full-reaudit-1792606665853"
+    ],
+    "images_opened": [
+      "Historical review image payloads at JSONL lines 1331, 1352, 1452, 1613, 1634",
+      "Final re-audit report images final-01, final-02, final-03 in the re-audit artifact directory"
+    ],
+    "inspection_limits": "Not every image from the session was independently reviewed. Slack bot relays whose original user source was not exposed remain marked unverified in directives.json. No Rhino/MCP work was run during this audit."
+  },
+  "exclusions_and_uncertainty": [
+    "Earlier skill-review interval not used to judge task execution.",
+    "Slack messages sent by the assistant as its own reports were not counted as user directives.",
+    "Slack bot relays were collected as relayed instructions; source verification status is per directive.",
+    "A user phrase ‘5 seconds’ was not converted into a measured elapsed interval; actual timestamps are recorded in audit.md.",
+    "Self-generated script/model audit does not establish architectural code compliance, accessibility clearances, physical structure performance, or unverified underground connection elevations.",
+    "No proposed skill edits, improvement rules, or patches included.",
+    "Original Slack send calls at JSONL lines 324, 355, and 1559 prove that messages 1792599289.363349, 1792599468.692689, and 1792605931.374839 were assistant-authored self-reports under the user display account; excluded from directives. The bot relay 1792599460.403559 explicitly claims user acceptance of the file-scope proposal; retained once as an unverified relay because its original user message is not exposed. A basement-to-upper technical handoff (relay 1792600311.089439; source thread 1792600289.266099) was read directly but treated as collaborator handoff, not user directive; provenance beyond account label remains uncertain. The two visual-report/AGENT_Section_Glass relays at JSONL line 1581 lack message timestamps in the stored concise result; retained with stable call ID plus ordinal, observed at 2026-10-21T18:17:09.492Z, and source_timestamp_unavailable=true."
+  ],
+  "deliverables": [
+    "audit.md",
+    "directives.json",
+    "coverage.json"
+  ],
+  "integration_note": "세션별 원본 분석 산출물은 감사 당시 temp 폴더에 보존. 통합 지시 근거·중복 정정은 상위 steering-evidence.json 참조.",
+  "coordinator_load_trigger_correction": {
+    "included_directive_line": 11,
+    "original_verified": true,
+    "note": "동작 평가 구간의 직접 발언 수와 별도로, 그 구간의 현재 버전 로드를 촉발한 사용자 요청을 지시 집계에 포함. 통합 steering-evidence.json에서 확인."
+  }
+}

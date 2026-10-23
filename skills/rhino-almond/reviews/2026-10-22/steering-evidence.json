@@ -1,0 +1,2153 @@
+{
+  "scope": "현재 배포 버전 실제 적용 후 작업, cutoff 2026-10-22T02:56:47Z",
+  "count_policy": "주제별 고유 직접 발언과 별도 사용자지시 전달 기록의 횟수. 한 발언의 동일 주제 분할, event/fork/readback 복제와 확인된 동일 지시 전달은 중복 제외. 서로 다른 실제 재입력은 합산. 원 사용자 글 없는 relay도 출처 미확인으로 포함하므로 원 사용자의 실제 입력 횟수를 확정하는 값은 아님. 주제 간 합계는 전체 발언 수가 아님.",
+  "normalization_notes": [
+    "1F의 교체된 프로젝트 AGENTS 문맥은 관련 공간·현재기준 지시로 요약; 공통 환경 안내를 별도 반복 지시로 부풀리지 않음.",
+    "5F6F S4976-03은 초기 모드 활용 지시를 주 검수 모드로 구체화한 별도 전달로 분류; 단순 의미 유사만으로 반복을 삭제하지 않음.",
+    "지형 초기 모드 지시와 후기 직접 재검수 요청은 시각·맥락이 다른 발언으로 유지; 직후 동일 relay만 제외.",
+    "계정 표시명이 아닌 실제 send/upload 호출과 대조해 에이전트 자기보고를 제외. 협업 handoff는 사용자 지시 집계에서 제외."
+  ],
+  "groups": [
+    {
+      "instruction": "현재 rhino-almond를 깊이 검토·재조회하고 준비 완료를 짧게 알릴 것",
+      "handling": "사용 요청과 실행 검증 구분 유지",
+      "document": "SKILL.md",
+      "count": 8,
+      "evidence": [
+        "5f_legacy:D1",
+        "5f6f:D11-01",
+        "military:mil-001",
+        "terrain:T01",
+        "visitor:D01",
+        "resident:D1",
+        "resident:D3",
+        "hall:D11"
+      ],
+      "direct_records": 8,
+      "relay_records": 0
+    },
+    {
+      "instruction": "플러그인·subagent 허용 범위는 해당 과업의 명시 지시를 따를 것",
+      "handling": "사용자 제한 우선; 금지·허용을 일괄 고정하지 않음",
+      "document": "references/workflow.md",
+      "count": 8,
+      "evidence": [
+        "1f:D01",
+        "b1f:D02",
+        "military:mil-002",
+        "terrain:T01",
+        "visitor:D01",
+        "resident:D1",
+        "resident:D3",
+        "hall:D11"
+      ],
+      "direct_records": 8,
+      "relay_records": 0
+    },
+    {
+      "instruction": "프로젝트 지침·관련 자료와 실제 이용·공간 조건을 읽고 판단할 것",
+      "handling": "최신 기준과 이동·체류·프라이버시 검토 통합",
+      "document": "references/workflow.md",
+      "count": 3,
+      "evidence": [
+        "1f:D05",
+        "b1f:D01",
+        "5f6f:D100-04"
+      ],
+      "direct_records": 3,
+      "relay_records": 0
+    },
+    {
+      "instruction": "선행 세션 질문과 프로그램 검토·대량 세션 조회는 지정한 검토자에게 맡길 것",
+      "handling": "읽기 전용 검토 유지; 조회는 세션별 위임",
+      "document": "AGENTS.md · references/workflow.md",
+      "count": 3,
+      "evidence": [
+        "b1f:D03",
+        "b1f:D05",
+        "5f6f:D100-04"
+      ],
+      "direct_records": 3,
+      "relay_records": 0
+    },
+    {
+      "instruction": "피드백 이미지·Named View·도면을 실제 객체에 맞춰 수정·검수할 것",
+      "handling": "뷰·객체 대응 및 검수 순서 반영",
+      "document": "references/visual-review.md",
+      "count": 4,
+      "evidence": [
+        "1f:D01",
+        "1f:D02",
+        "b1f:D02",
+        "5f6f:D100-01"
+      ],
+      "direct_records": 4,
+      "relay_records": 0
+    },
+    {
+      "instruction": "필요한 그룹만 정리할 것",
+      "handling": "일회성 정리 범위로 유지; 같은 기준으로 보존 확인",
+      "document": "references/workflow.md",
+      "count": 1,
+      "evidence": [
+        "1f:D03"
+      ],
+      "direct_records": 1,
+      "relay_records": 0
+    },
+    {
+      "instruction": "기존 계획·모델을 시공상세에 맞춰 재구축할 것",
+      "handling": "대표 구간과 끝단·코어 경계의 기능·접합 검수 통합",
+      "document": "references/workflow.md",
+      "count": 8,
+      "evidence": [
+        "5f6f:D100-02",
+        "5f6f:D100-03",
+        "military:mil-003a",
+        "terrain:T02",
+        "visitor:D02",
+        "visitor:D06",
+        "resident:D2",
+        "resident:D4",
+        "hall:D78"
+      ],
+      "direct_records": 8,
+      "relay_records": 0
+    },
+    {
+      "instruction": "제공 도면과 실제 linked grid에 맞춰 작업할 것",
+      "handling": "현재 기준·좌표·레벨 대조 유지",
+      "document": "references/workflow.md",
+      "count": 9,
+      "evidence": [
+        "b1f:D02",
+        "5f6f:D348-01",
+        "military:mil-003b",
+        "terrain:T02",
+        "visitor:D02",
+        "visitor:D04",
+        "resident:D2",
+        "resident:D4",
+        "hall:D78"
+      ],
+      "direct_records": 9,
+      "relay_records": 0
+    },
+    {
+      "instruction": "지정 재구축은 RC 구조로 할 것",
+      "handling": "해당 프로젝트 조건으로 유지; 공통 구조 형식으로 강제하지 않음",
+      "document": "references/workflow.md",
+      "count": 6,
+      "evidence": [
+        "military:mil-003c",
+        "terrain:T02",
+        "visitor:D02",
+        "resident:D2",
+        "resident:D4",
+        "hall:D78"
+      ],
+      "direct_records": 6,
+      "relay_records": 0
+    },
+    {
+      "instruction": "문서별 Scene·plan을 식별하고 요구한 Room/instance 범위만 등록할 것",
+      "handling": "문서·Scene 식별과 등록 범위 연결",
+      "document": "references/workflow.md · references/mcp-tools.md",
+      "count": 5,
+      "evidence": [
+        "military:mil-005",
+        "terrain:T02",
+        "visitor:D03",
+        "resident:D5",
+        "hall:D184"
+      ],
+      "direct_records": 5,
+      "relay_records": 0
+    },
+    {
+      "instruction": "지정 Slack 단일 스레드·멘션을 유지하고 결정·질문 외 보고는 묶을 것",
+      "handling": "기존 보고 경로·빈도 규칙 유지",
+      "document": "references/workflow.md",
+      "count": 9,
+      "evidence": [
+        "1f:D01",
+        "b1f:D04",
+        "5f6f:D100-05",
+        "military:mil-004",
+        "terrain:T02",
+        "visitor:D02",
+        "resident:D2",
+        "resident:D4",
+        "hall:D78"
+      ],
+      "direct_records": 9,
+      "relay_records": 0
+    },
+    {
+      "instruction": "오류·완료 전 승인된 작업을 계속하고 중단 뒤 상태를 확인해 재개할 것",
+      "handling": "미확인 실행·저장·남은 상태 확인 보완",
+      "document": "references/workflow.md",
+      "count": 17,
+      "evidence": [
+        "1f:D01",
+        "1f:D04",
+        "1f:D06",
+        "b1f:D04",
+        "b1f:D06",
+        "5f6f:D100-05",
+        "5f6f:D2139-01",
+        "military:mil-004",
+        "terrain:T02",
+        "visitor:D02",
+        "resident:D2",
+        "resident:D4",
+        "resident:D8",
+        "resident:D9",
+        "resident:D10",
+        "hall:D78",
+        "hall:D913"
+      ],
+      "direct_records": 17,
+      "relay_records": 0
+    },
+    {
+      "instruction": "실제 눈높이 Perspective를 여러 장소·Named View·복수 모드로 먼저 vision 검수할 것",
+      "handling": "매 검수 필수 순서로 반영",
+      "document": "references/visual-review.md",
+      "count": 9,
+      "evidence": [
+        "b1f:D09",
+        "5f6f:D2510-01",
+        "5f6f:D2841-01",
+        "military:mil-010",
+        "terrain:T12",
+        "visitor:D09",
+        "resident:D12",
+        "resident:D13",
+        "hall:D1325"
+      ],
+      "direct_records": 9,
+      "relay_records": 0
+    },
+    {
+      "instruction": "실제 clipping 평면·종횡단면도 반드시 검수할 것",
+      "handling": "필수 검수 범위에 반영",
+      "document": "references/visual-review.md",
+      "count": 9,
+      "evidence": [
+        "b1f:D10",
+        "b1f:D11",
+        "5f6f:D2841-01",
+        "military:mil-009",
+        "military:mil-010",
+        "terrain:T12",
+        "visitor:D09",
+        "resident:D13",
+        "hall:D1325"
+      ],
+      "direct_records": 9,
+      "relay_records": 0
+    },
+    {
+      "instruction": "Technical·Dark·ALMOND 계열과 후속 지정 Ghost_Xray로 보며 작업할 것",
+      "handling": "현재 설치 모드 확인·비교 검수",
+      "document": "references/visual-review.md",
+      "count": 11,
+      "evidence": [
+        "b1f:D08",
+        "5f6f:D1087-01",
+        "military:mil-006",
+        "terrain:T03",
+        "terrain:T07",
+        "visitor:D05",
+        "visitor:R01",
+        "resident:D6",
+        "resident:R1",
+        "hall:D302",
+        "hall:R4"
+      ],
+      "direct_records": 7,
+      "relay_records": 4
+    },
+    {
+      "instruction": "평·단면은 AGENT_Section_Glass를 중심으로 꼼꼼히 검수할 것",
+      "handling": "주 검수 모드로 반영",
+      "document": "references/visual-review.md",
+      "count": 13,
+      "evidence": [
+        "b1f:D13",
+        "5f6f:D2008-01",
+        "5f6f:S4976-03",
+        "military:mil-008",
+        "military:mil-013b",
+        "terrain:T09",
+        "terrain:T13",
+        "visitor:D10",
+        "visitor:R03",
+        "visitor:R07",
+        "resident:R3",
+        "resident:R6",
+        "hall:D1713"
+      ],
+      "direct_records": 6,
+      "relay_records": 7
+    },
+    {
+      "instruction": "vision 검수를 자주 하고 잘못된 완료 판단 뒤 전면 재검수할 것",
+      "handling": "가려짐·관찰 결과·수정 후 재검수 조건 보완",
+      "document": "references/visual-review.md",
+      "count": 6,
+      "evidence": [
+        "b1f:D12",
+        "b1f:D14",
+        "5f6f:D2523-01",
+        "military:mil-009",
+        "terrain:T13",
+        "visitor:D06"
+      ],
+      "direct_records": 6,
+      "relay_records": 0
+    },
+    {
+      "instruction": "첨부 모델을 켜고 끄며 참조하되 현재 Rhino 문서만 편집할 것",
+      "handling": "소유 문서·접점 확인 보완",
+      "document": "references/workflow.md",
+      "count": 5,
+      "evidence": [
+        "military:mil-007a",
+        "military:mil-007b",
+        "visitor:D07",
+        "visitor:D08",
+        "resident:D7",
+        "hall:D688"
+      ],
+      "direct_records": 5,
+      "relay_records": 0
+    },
+    {
+      "instruction": "수시로 저장하고 긴급 저장 지시를 즉시 처리할 것",
+      "handling": "안정 구간 저장과 저장본 확인 보완",
+      "document": "references/workflow.md",
+      "count": 9,
+      "evidence": [
+        "b1f:R04",
+        "terrain:T10",
+        "terrain:T11",
+        "visitor:R04",
+        "visitor:R05",
+        "resident:R4",
+        "resident:R5",
+        "hall:R6",
+        "hall:R7"
+      ],
+      "direct_records": 0,
+      "relay_records": 9
+    },
+    {
+      "instruction": "보고마다 시각자료를 붙이고 최종 자료를 취합할 것",
+      "handling": "최소 1개 첨부·최종 취합·전달 확인 반영",
+      "document": "references/workflow.md",
+      "count": 7,
+      "evidence": [
+        "5f6f:S4639-04",
+        "5f6f:S4976-02",
+        "military:mil-013a",
+        "terrain:T14",
+        "visitor:R06",
+        "resident:R7",
+        "hall:R9"
+      ],
+      "direct_records": 0,
+      "relay_records": 7
+    },
+    {
+      "instruction": "충돌 원인을 별도 조사해 최종 보고할 것",
+      "handling": "확인된 호출·오류와 원인 추정 구분",
+      "document": "references/workflow.md",
+      "count": 1,
+      "evidence": [
+        "resident:D11"
+      ],
+      "direct_records": 1,
+      "relay_records": 0
+    },
+    {
+      "instruction": "유닛은 숨김·박스 proxy로 두고 나머지 범위를 구현할 것",
+      "handling": "프로젝트 범위 유지; proxy에 가린 바닥·접속 검수",
+      "document": "references/workflow.md",
+      "count": 2,
+      "evidence": [
+        "5f_legacy:D2",
+        "5f6f:D131-01"
+      ],
+      "direct_records": 2,
+      "relay_records": 0
+    },
+    {
+      "instruction": "B1F는 기존 벽보다 1F 벽 라인 정렬을 우선할 것",
+      "handling": "해당 세션 기준으로 유지",
+      "document": "references/workflow.md",
+      "count": 1,
+      "evidence": [
+        "b1f:D07"
+      ],
+      "direct_records": 1,
+      "relay_records": 0
+    },
+    {
+      "instruction": "B1F 북측 진입·서측 문 유지와 외부계단/지형 이동·Grand 북문 개구를 반영할 것",
+      "handling": "해당 배치·승인 조건으로 유지",
+      "document": "references/workflow.md",
+      "count": 4,
+      "evidence": [
+        "b1f:R01",
+        "b1f:R02",
+        "b1f:R03",
+        "b1f:R05"
+      ],
+      "direct_records": 0,
+      "relay_records": 4
+    },
+    {
+      "instruction": "주거동 실내복도·실외회랑의 구분과 승인 FFL/SL·층별 단면을 따를 것",
+      "handling": "해당 공간·레벨 조건으로 유지",
+      "document": "references/workflow.md",
+      "count": 3,
+      "evidence": [
+        "5f6f:S312-01",
+        "5f6f:S410-01",
+        "5f6f:S516-01"
+      ],
+      "direct_records": 0,
+      "relay_records": 3
+    },
+    {
+      "instruction": "복도 유리를 빼고 철골을 마감하며 통행을 막는 트러스를 제거할 것",
+      "handling": "해당 설계 결정 유지; 지지·통행 영향 검수",
+      "document": "references/workflow.md",
+      "count": 2,
+      "evidence": [
+        "5f6f:S4639-05",
+        "5f6f:S4976-01"
+      ],
+      "direct_records": 0,
+      "relay_records": 2
+    },
+    {
+      "instruction": "군대 초소 B1·B2는 각 6m의 외벽으로 둘러싼 빈 공간으로 만들 것",
+      "handling": "해당 프로젝트 층고·프로그램으로 유지",
+      "document": "references/workflow.md",
+      "count": 2,
+      "evidence": [
+        "military:mil-003d",
+        "military:mil-014"
+      ],
+      "direct_records": 1,
+      "relay_records": 1
+    },
+    {
+      "instruction": "군대 초소 북측 연결 공간은 향후 구축 예정임을 반영할 것",
+      "handling": "현재 미구축과 예정 상태 구분",
+      "document": "references/workflow.md",
+      "count": 1,
+      "evidence": [
+        "military:mil-012"
+      ],
+      "direct_records": 0,
+      "relay_records": 1
+    },
+    {
+      "instruction": "역사적 흔적과 중앙 전면계단을 보존할 것",
+      "handling": "지정 보존 대상 유지",
+      "document": "references/workflow.md",
+      "count": 2,
+      "evidence": [
+        "terrain:T04",
+        "terrain:T05"
+      ],
+      "direct_records": 0,
+      "relay_records": 2
+    },
+    {
+      "instruction": "지형·상부와 지하 홀의 파일별 작업 경계를 나눌 것",
+      "handling": "프로젝트별 소유 범위로 유지",
+      "document": "references/workflow.md",
+      "count": 2,
+      "evidence": [
+        "terrain:T06",
+        "hall:R2"
+      ],
+      "direct_records": 0,
+      "relay_records": 2
+    },
+    {
+      "instruction": "해당 과업의 승강기 상세 모델링은 생략할 것",
+      "handling": "해당 상세 범위로 유지",
+      "document": "references/workflow.md",
+      "count": 2,
+      "evidence": [
+        "terrain:T08",
+        "hall:R5"
+      ],
+      "direct_records": 0,
+      "relay_records": 2
+    },
+    {
+      "instruction": "방문자센터 GF를 비우고 주민시설에 할당할 것",
+      "handling": "동일 전달 지시 통합; 문서별 작업 범위 유지",
+      "document": "references/workflow.md",
+      "count": 2,
+      "evidence": [
+        "visitor:R02",
+        "resident:R2"
+      ],
+      "direct_records": 0,
+      "relay_records": 2
+    },
+    {
+      "instruction": "수조 간섭 우수관은 방문자센터에서 제거하고 주민시설에서는 편집하지 말 것",
+      "handling": "동일 결정·문서별 분담 통합; 대체 배수 미해결 기록",
+      "document": "references/workflow.md",
+      "count": 2,
+      "evidence": [
+        "visitor:R08",
+        "resident:R8"
+      ],
+      "direct_records": 0,
+      "relay_records": 2
+    },
+    {
+      "instruction": "지하 홀 중앙 공간의 RC 기둥안을 선택할 것",
+      "handling": "출처 미확인 전달 결정으로 구분; 보편 규칙 제외",
+      "document": "references/workflow.md",
+      "count": 1,
+      "evidence": [
+        "hall:R1"
+      ],
+      "direct_records": 0,
+      "relay_records": 1
+    },
+    {
+      "instruction": "15mm 중첩의 객체·위치·단면 관계를 보여줄 것",
+      "handling": "소유 문서·실제 형상과 시각 근거 연결",
+      "document": "references/visual-review.md",
+      "count": 1,
+      "evidence": [
+        "hall:R8"
+      ],
+      "direct_records": 0,
+      "relay_records": 1
+    }
+  ],
+  "records": {
+    "1f:D01": {
+      "id": "D01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl",
+        "timestamp_utc": "2026-10-21T12:00:44.313Z",
+        "type": "direct",
+        "included_as": "task-start instruction",
+        "line": 9
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl:9"
+    },
+    "1f:D02": {
+      "id": "D02",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl",
+        "timestamp_utc": "2026-10-21T12:02:47.565Z",
+        "type": "direct",
+        "line": 106
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl:106"
+    },
+    "1f:D03": {
+      "id": "D03",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl",
+        "timestamp_utc": "2026-10-21T13:57:25.159Z",
+        "type": "direct",
+        "line": 826
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl:826"
+    },
+    "1f:D04": {
+      "id": "D04",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl",
+        "timestamp_utc": "2026-10-21T14:09:21.616Z",
+        "type": "direct",
+        "line": 965
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl:965"
+    },
+    "1f:D05": {
+      "id": "D05",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl",
+        "timestamp_utc": "2026-10-21T14:11:53.635Z",
+        "type": "direct",
+        "kind": "project AGENTS.md replacement",
+        "line": 1005
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl:1005"
+    },
+    "1f:D06": {
+      "id": "D06",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl",
+        "timestamp_utc": "2026-10-21T14:11:55.121Z",
+        "type": "direct",
+        "line": 1009
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T20-56-17-01a15953-7fda-78a0-a9a8-3d0d5a4449a8_01a15e51-be41-7c61-962e-2a86c04093e9.jsonl:1009"
+    },
+    "5f_legacy:D1": {
+      "id": "01a15970-afbe-72d0-ae65-cde98c7689c9:msg_01a15ecf-0573-7353-90c9-5a23f244645e",
+      "type": "direct",
+      "source": {
+        "session_id": "01a15970-afbe-72d0-ae65-cde98c7689c9",
+        "line": 6113,
+        "timestamp_utc": "2026-10-21T14:13:08.085Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\20\\rollout-2026-10-20T22-11-59-01a15970-afbe-72d0-ae65-cde98c7689c9.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\20\\rollout-2026-10-20T22-11-59-01a15970-afbe-72d0-ae65-cde98c7689c9.jsonl:6113"
+    },
+    "5f_legacy:D2": {
+      "id": "01a15970-afbe-72d0-ae65-cde98c7689c9:msg_01a15ecf-a1ff-7dc2-b524-e4f2e062d167",
+      "type": "direct",
+      "source": {
+        "session_id": "01a15970-afbe-72d0-ae65-cde98c7689c9",
+        "line": 6128,
+        "timestamp_utc": "2026-10-21T14:13:48.159Z",
+        "duplicate_event_line": 6129,
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\20\\rollout-2026-10-20T22-11-59-01a15970-afbe-72d0-ae65-cde98c7689c9.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\20\\rollout-2026-10-20T22-11-59-01a15970-afbe-72d0-ae65-cde98c7689c9.jsonl:6128"
+    },
+    "5f6f:D11-01": {
+      "id": "D11-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 11,
+        "timestamp_utc": "2026-10-21T14:57:53.915Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:11"
+    },
+    "5f6f:D100-01": {
+      "id": "D100-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 100,
+        "timestamp_utc": "2026-10-21T15:18:10.013Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:100"
+    },
+    "5f6f:D100-02": {
+      "id": "D100-02",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 100,
+        "timestamp_utc": "2026-10-21T15:18:10.013Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:100"
+    },
+    "5f6f:D100-03": {
+      "id": "D100-03",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 100,
+        "timestamp_utc": "2026-10-21T15:18:10.013Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:100"
+    },
+    "5f6f:D100-04": {
+      "id": "D100-04",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 100,
+        "timestamp_utc": "2026-10-21T15:18:10.013Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:100"
+    },
+    "5f6f:D100-05": {
+      "id": "D100-05",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 100,
+        "timestamp_utc": "2026-10-21T15:18:10.013Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:100"
+    },
+    "5f6f:D131-01": {
+      "id": "D131-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 131,
+        "timestamp_utc": "2026-10-21T15:18:41.239Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:131"
+    },
+    "5f6f:D348-01": {
+      "id": "D348-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 348,
+        "timestamp_utc": "2026-10-21T15:26:18.226Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:348"
+    },
+    "5f6f:D1087-01": {
+      "id": "D1087-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 1087,
+        "timestamp_utc": "2026-10-21T16:05:48.877Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:1087"
+    },
+    "5f6f:D2008-01": {
+      "id": "D2008-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 2008,
+        "timestamp_utc": "2026-10-21T16:45:15.417Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:2008"
+    },
+    "5f6f:D2139-01": {
+      "id": "D2139-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 2139,
+        "timestamp_utc": "2026-10-21T17:22:46.923Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:2139"
+    },
+    "5f6f:D2510-01": {
+      "id": "D2510-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 2510,
+        "timestamp_utc": "2026-10-21T17:37:11.176Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:2510"
+    },
+    "5f6f:D2523-01": {
+      "id": "D2523-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 2523,
+        "timestamp_utc": "2026-10-21T17:37:37.922Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:2523"
+    },
+    "5f6f:D2841-01": {
+      "id": "D2841-01",
+      "type": "direct",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 2841,
+        "timestamp_utc": "2026-10-21T17:51:37.634Z"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl:2841"
+    },
+    "5f6f:S312-01": {
+      "id": "S312-01",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 312,
+        "timestamp_kst": null
+      },
+      "occurrence": "5f6f:S312-01"
+    },
+    "5f6f:S410-01": {
+      "id": "S410-01",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 410,
+        "timestamp_kst": null
+      },
+      "occurrence": "5f6f:S410-01"
+    },
+    "5f6f:S516-01": {
+      "id": "S516-01",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 516,
+        "timestamp_kst": null
+      },
+      "occurrence": "5f6f:S516-01"
+    },
+    "5f6f:S4639-04": {
+      "id": "S4639-04",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 4639,
+        "timestamp_kst": null
+      },
+      "occurrence": "5f6f:S4639-04"
+    },
+    "5f6f:S4639-05": {
+      "id": "S4639-05",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 4639,
+        "timestamp_kst": null
+      },
+      "occurrence": "5f6f:S4639-05"
+    },
+    "5f6f:S4976-01": {
+      "id": "S4976-01",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 4976,
+        "timestamp_kst": "2026-10-22T03:02:55+09:00",
+        "slack_message_ts": "1792605775.693319"
+      },
+      "occurrence": "5f6f:S4976-01"
+    },
+    "5f6f:S4976-02": {
+      "id": "S4976-02",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 4976,
+        "timestamp_kst": "2026-10-22T03:11:22+09:00",
+        "slack_message_ts": "1792606282.269619"
+      },
+      "occurrence": "5f6f:S4976-02"
+    },
+    "5f6f:S4976-03": {
+      "id": "S4976-03",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-56-52-01a15ef7-1106-74e2-b3c4-a05f3544a6fd.jsonl",
+        "line": 4976,
+        "timestamp_kst": "2026-10-22T03:13:12+09:00",
+        "slack_message_ts": "1792606392.539099"
+      },
+      "occurrence": "5f6f:S4976-03"
+    },
+    "military:mil-001": {
+      "id": "mil-001",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 11,
+        "timestamp": "2026-10-21T15:43:17.677Z",
+        "message_id": "msg_01a15f21-90ac-71c2-8ade-f19ffa3c61dc",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-43-09-01a15f21-71e7-7680-9a06-73241b3644d7.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-43-09-01a15f21-71e7-7680-9a06-73241b3644d7.jsonl:11"
+    },
+    "military:mil-002": {
+      "id": "mil-002",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 19,
+        "timestamp": "2026-10-21T15:44:39.638Z",
+        "message_id": "msg_01a15f22-d0d5-79c3-8039-73ebde61dcd4",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:19"
+    },
+    "military:mil-003a": {
+      "id": "mil-003a",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 101,
+        "timestamp": "2026-10-21T15:48:43.059Z",
+        "message_id": "msg_01a15f26-87b3-7fd0-bd30-de781357bc6b",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:101"
+    },
+    "military:mil-003b": {
+      "id": "mil-003b",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 101,
+        "timestamp": "2026-10-21T15:48:43.059Z",
+        "message_id": "msg_01a15f26-87b3-7fd0-bd30-de781357bc6b",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:101"
+    },
+    "military:mil-003c": {
+      "id": "mil-003c",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 101,
+        "timestamp": "2026-10-21T15:48:43.059Z",
+        "message_id": "msg_01a15f26-87b3-7fd0-bd30-de781357bc6b",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:101"
+    },
+    "military:mil-003d": {
+      "id": "mil-003d",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 101,
+        "timestamp": "2026-10-21T15:48:43.059Z",
+        "message_id": "msg_01a15f26-87b3-7fd0-bd30-de781357bc6b",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:101"
+    },
+    "military:mil-004": {
+      "id": "mil-004",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 123,
+        "timestamp": "2026-10-21T15:49:27.812Z",
+        "message_id": "msg_01a15f27-3684-7d80-b4ff-530f62f637d2",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:123"
+    },
+    "military:mil-005": {
+      "id": "mil-005",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 264,
+        "timestamp": "2026-10-21T15:56:48.135Z",
+        "message_id": "msg_01a15f2d-ee87-76e1-bd3a-a50a52df4571",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:264"
+    },
+    "military:mil-006": {
+      "id": "mil-006",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 374,
+        "timestamp": "2026-10-21T16:04:30.601Z",
+        "message_id": "msg_01a15f34-fd09-7221-a470-9a7936e1bb6e",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:374"
+    },
+    "military:mil-007a": {
+      "id": "mil-007a",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 1294,
+        "timestamp": "2026-10-21T16:38:18.631Z",
+        "message_id": "msg_01a15f53-ef07-7df0-ae29-70e35a02cf6e",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:1294"
+    },
+    "military:mil-007b": {
+      "id": "mil-007b",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 1294,
+        "timestamp": "2026-10-21T16:38:18.631Z",
+        "message_id": "msg_01a15f53-ef07-7df0-ae29-70e35a02cf6e",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:1294"
+    },
+    "military:mil-008": {
+      "id": "mil-008",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 1564,
+        "timestamp": "2026-10-21T16:44:10.566Z",
+        "message_id": "msg_01a15f59-4dc6-7aa3-b8d6-036e36d3229c",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:1564"
+    },
+    "military:mil-009": {
+      "id": "mil-009",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 1924,
+        "timestamp": "2026-10-21T17:36:36.895Z",
+        "message_id": "msg_01a15f89-501f-7902-92cb-7616a72187ce",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:1924"
+    },
+    "military:mil-010": {
+      "id": "mil-010",
+      "type": "direct",
+      "source": {
+        "type": "direct",
+        "line": 2210,
+        "timestamp": "2026-10-21T17:51:23.477Z",
+        "message_id": "msg_01a15f96-d755-78e3-bd91-d01542bebbd6",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl:2210"
+    },
+    "military:mil-012": {
+      "id": "mil-012",
+      "type": "relay",
+      "source": {
+        "type": "relay",
+        "line": 2531,
+        "timestamp": "2026-10-21T18:08:28.196Z",
+        "message_id": null,
+        "original_author": "Slack bot relay (ihhong94-dot)",
+        "original_source_verified": "No; the original user post was not separately observed.",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "military:mil-012"
+    },
+    "military:mil-013a": {
+      "id": "mil-013a",
+      "type": "relay",
+      "source": {
+        "type": "relay",
+        "line": 3486,
+        "timestamp": "2026-10-21T18:26:08.331Z",
+        "message_id": null,
+        "original_author": "Slack bot relay (ihhong94-dot)",
+        "original_source_verified": "No; original user post was not separately observed.",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "military:mil-013a"
+    },
+    "military:mil-013b": {
+      "id": "mil-013b",
+      "type": "relay",
+      "source": {
+        "type": "relay",
+        "line": 3486,
+        "timestamp": "2026-10-21T18:26:08.331Z",
+        "message_id": null,
+        "original_author": "Slack bot relay (ihhong94-dot)",
+        "original_source_verified": "No; original user post was not separately observed.",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "military:mil-013b"
+    },
+    "military:mil-014": {
+      "id": "mil-014",
+      "type": "relay",
+      "source": {
+        "type": "relay",
+        "line": 1946,
+        "timestamp": "2026-10-21T17:37:05.948Z",
+        "message_id": null,
+        "original_author": "Slack bot relay (ihhong94-dot)",
+        "original_source_verified": "No; the relay labels this as the user's answer, but the original user-authored post was not present in the reviewed records.",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl"
+      },
+      "occurrence": "military:mil-014"
+    },
+    "b1f:D01": {
+      "id": "D01",
+      "type": "direct",
+      "source": {
+        "line": 12,
+        "timestamp_utc": "2026-10-21T14:43:12.413Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:12"
+    },
+    "b1f:D02": {
+      "id": "D02",
+      "type": "direct",
+      "source": {
+        "line": 12,
+        "timestamp_utc": "2026-10-21T14:43:12.413Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:12"
+    },
+    "b1f:D03": {
+      "id": "D03",
+      "type": "direct",
+      "source": {
+        "line": 12,
+        "timestamp_utc": "2026-10-21T14:43:12.413Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:12"
+    },
+    "b1f:D04": {
+      "id": "D04",
+      "type": "direct",
+      "source": {
+        "line": 12,
+        "timestamp_utc": "2026-10-21T14:43:12.413Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:12"
+    },
+    "b1f:D05": {
+      "id": "D05",
+      "type": "direct",
+      "source": {
+        "line": 103,
+        "timestamp_utc": "2026-10-21T14:44:57.428Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:103"
+    },
+    "b1f:D06": {
+      "id": "D06",
+      "type": "direct",
+      "source": {
+        "line": 124,
+        "timestamp_utc": "2026-10-21T14:45:39.373Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:124"
+    },
+    "b1f:D07": {
+      "id": "D07",
+      "type": "direct",
+      "source": {
+        "line": 342,
+        "timestamp_utc": "2026-10-21T14:52:13.931Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:342"
+    },
+    "b1f:D08": {
+      "id": "D08",
+      "type": "direct",
+      "source": {
+        "line": 1769,
+        "timestamp_utc": "2026-10-21T16:04:55.665Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:1769"
+    },
+    "b1f:D09": {
+      "id": "D09",
+      "type": "direct",
+      "source": {
+        "line": 3308,
+        "timestamp_utc": "2026-10-21T17:52:14.175Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:3308"
+    },
+    "b1f:D10": {
+      "id": "D10",
+      "type": "direct",
+      "source": {
+        "line": 3308,
+        "timestamp_utc": "2026-10-21T17:52:14.175Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:3308"
+    },
+    "b1f:D11": {
+      "id": "D11",
+      "type": "direct",
+      "source": {
+        "line": 3508,
+        "timestamp_utc": "2026-10-21T18:03:27.764Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:3508"
+    },
+    "b1f:D12": {
+      "id": "D12",
+      "type": "direct",
+      "source": {
+        "line": 3516,
+        "timestamp_utc": "2026-10-21T18:03:35.754Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:3516"
+    },
+    "b1f:D13": {
+      "id": "D13",
+      "type": "direct",
+      "source": {
+        "line": 3867,
+        "timestamp_utc": "2026-10-21T18:14:09.832Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:3867"
+    },
+    "b1f:D14": {
+      "id": "D14",
+      "type": "direct",
+      "source": {
+        "line": 3872,
+        "timestamp_utc": "2026-10-21T18:14:16.897Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl:3872"
+    },
+    "b1f:R01": {
+      "id": "R01",
+      "type": "relay",
+      "source": {
+        "line": 2289,
+        "timestamp_utc": "2026-10-21T16:32:09.007Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "b1f:R01"
+    },
+    "b1f:R02": {
+      "id": "R02",
+      "type": "relay",
+      "source": {
+        "line": 2432,
+        "timestamp_utc": "2026-10-21T16:42:14.598Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "b1f:R02"
+    },
+    "b1f:R03": {
+      "id": "R03",
+      "type": "relay",
+      "source": {
+        "line": 2594,
+        "timestamp_utc": "2026-10-21T16:46:59.519Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "b1f:R03"
+    },
+    "b1f:R04": {
+      "id": "R04",
+      "type": "relay",
+      "source": {
+        "line": 3208,
+        "timestamp_utc": "2026-10-21T17:33:38.280Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "b1f:R04"
+    },
+    "b1f:R05": {
+      "id": "R05",
+      "type": "relay",
+      "source": {
+        "line": 4254,
+        "timestamp_utc": "2026-10-21T18:30:11.126Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\21\\rollout-2026-10-21T23-24-13-01a15ed9-2b31-75d1-bd76-55a17f586f97.jsonl"
+      },
+      "occurrence": "b1f:R05"
+    },
+    "terrain:T01": {
+      "id": "01a15f28-5fe8-7c63-9067-046a5572ba29:msg_01a15f29-20f5-7ca1-a332-6170011f313c",
+      "type": "direct",
+      "source": {
+        "line": 11,
+        "timestamp": "2026-10-21T15:51:33.365Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl:11"
+    },
+    "terrain:T02": {
+      "id": "msg_01a15f33-4e2f-70b1-99ff-bb3ff807ef7f",
+      "type": "direct",
+      "source": {
+        "line": 89,
+        "timestamp": "2026-10-21T16:02:40.303Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl:89"
+    },
+    "terrain:T03": {
+      "id": "msg_01a15f35-10ec-7aa1-9a6a-9980e52c4323",
+      "type": "direct",
+      "source": {
+        "line": 155,
+        "timestamp": "2026-10-21T16:04:35.692Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl:155"
+    },
+    "terrain:T04": {
+      "id": "slack:1792598832.589509",
+      "type": "relay",
+      "source": {
+        "line": 227,
+        "timestamp": "2026-10-21T16:07:12.589509Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T04"
+    },
+    "terrain:T05": {
+      "id": "slack:1792599272.089879",
+      "type": "relay",
+      "source": {
+        "line": 348,
+        "timestamp": "2026-10-21T16:14:32.089879Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T05"
+    },
+    "terrain:T06": {
+      "id": "slack:1792599460.403559",
+      "type": "relay",
+      "source": {
+        "line": 376,
+        "timestamp": "2026-10-21T16:17:40.403559Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T06"
+    },
+    "terrain:T07": {
+      "id": "slack:1792600160.892799",
+      "type": "relay",
+      "source": {
+        "line": 616,
+        "timestamp": "2026-10-21T16:29:20.892799Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T07"
+    },
+    "terrain:T08": {
+      "id": "slack:1792600192.181819",
+      "type": "relay",
+      "source": {
+        "line": 616,
+        "timestamp": "2026-10-21T16:29:20.892799Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T08"
+    },
+    "terrain:T09": {
+      "id": "slack:1792601284.415239",
+      "type": "relay",
+      "source": {
+        "line": 1146,
+        "timestamp": "2026-10-21T16:48:04.415239Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T09"
+    },
+    "terrain:T10": {
+      "id": "slack:1792601758.345659",
+      "type": "relay",
+      "source": {
+        "line": 1146,
+        "timestamp": "2026-10-21T16:48:04.415239Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T10"
+    },
+    "terrain:T11": {
+      "id": "slack:1792602059.920299",
+      "type": "relay",
+      "source": {
+        "line": 1146,
+        "timestamp": "2026-10-21T16:48:04.415239Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T11"
+    },
+    "terrain:T12": {
+      "id": "msg_01a15f97-276d-71d2-96e8-d29651afbcdc",
+      "type": "direct",
+      "source": {
+        "line": 1249,
+        "timestamp": "2026-10-21T17:51:43.981Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl:1249"
+    },
+    "terrain:T13": {
+      "id": "msg_01a15fae-29fe-7c33-9411-1e31b5cce6ef",
+      "type": "direct",
+      "source": {
+        "line": 1573,
+        "timestamp": "2026-10-21T18:16:51.966Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl:1573"
+    },
+    "terrain:T14": {
+      "id": "relay:exec-00308137-7c98-452e-a863-0399bf3b1e33:1",
+      "type": "relay",
+      "source": {
+        "line": 1581,
+        "timestamp": "2026-10-21T18:17:09.492Z",
+        "source_message_ts": null,
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T14"
+    },
+    "terrain:T15": {
+      "id": "relay:exec-00308137-7c98-452e-a863-0399bf3b1e33:2",
+      "type": "relay",
+      "source": {
+        "line": 1581,
+        "timestamp": "2026-10-21T18:17:09.492Z",
+        "source_message_ts": null,
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-50-44-01a15f28-5fe8-7c63-9067-046a5572ba29.jsonl"
+      },
+      "occurrence": "terrain:T15"
+    },
+    "visitor:D01": {
+      "id": "D01",
+      "type": "direct",
+      "source": {
+        "line": 11,
+        "mirror_line": 12,
+        "timestamp_utc": "2026-10-21T15:51:29.151Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:11"
+    },
+    "visitor:D02": {
+      "id": "D02",
+      "type": "direct",
+      "source": {
+        "line": 100,
+        "mirror_line": 101,
+        "timestamp_utc": "2026-10-21T15:55:33.981Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:100"
+    },
+    "visitor:D03": {
+      "id": "D03",
+      "type": "direct",
+      "source": {
+        "line": 233,
+        "mirror_line": 234,
+        "timestamp_utc": "2026-10-21T15:59:49.820Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:233"
+    },
+    "visitor:D04": {
+      "id": "D04",
+      "type": "direct",
+      "source": {
+        "line": 239,
+        "mirror_line": 240,
+        "timestamp_utc": "2026-10-21T16:00:23.223Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:239"
+    },
+    "visitor:D05": {
+      "id": "D05",
+      "type": "direct",
+      "source": {
+        "line": 338,
+        "mirror_line": 339,
+        "timestamp_utc": "2026-10-21T16:05:44.176Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:338"
+    },
+    "visitor:D06": {
+      "id": "D06",
+      "type": "direct",
+      "source": {
+        "line": 520,
+        "mirror_line": 521,
+        "timestamp_utc": "2026-10-21T16:24:02.773Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:520"
+    },
+    "visitor:D07": {
+      "id": "D07",
+      "type": "direct",
+      "source": {
+        "line": 601,
+        "mirror_line": 602,
+        "timestamp_utc": "2026-10-21T16:32:35.380Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:601"
+    },
+    "visitor:D08": {
+      "id": "D08",
+      "type": "direct",
+      "source": {
+        "line": 605,
+        "mirror_line": 606,
+        "timestamp_utc": "2026-10-21T16:32:53.575Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:605"
+    },
+    "visitor:D09": {
+      "id": "D09",
+      "type": "direct",
+      "source": {
+        "line": 1479,
+        "mirror_line": 1480,
+        "timestamp_utc": "2026-10-21T17:51:59.285Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:1479"
+    },
+    "visitor:D10": {
+      "id": "D10",
+      "type": "direct",
+      "source": {
+        "line": 1699,
+        "mirror_line": 1700,
+        "timestamp_utc": "2026-10-21T18:06:55.035Z",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl:1699"
+    },
+    "visitor:R01": {
+      "id": "R01",
+      "type": "relay",
+      "source": {
+        "line": 576,
+        "observed_again_at_lines": [
+          619,
+          687,
+          1044,
+          1137,
+          1434
+        ],
+        "slack_source_time_kst": "2026-10-22 01:29:11",
+        "speaker": "ihhong94-dot bot relay",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl",
+        "session_event_timestamp_utc": "2026-10-21T16:29:46.809Z"
+      },
+      "occurrence": "visitor:R01"
+    },
+    "visitor:R02": {
+      "id": "R02",
+      "type": "relay",
+      "source": {
+        "line": 1434,
+        "slack_source_time_kst": "2026-10-22 01:43:32",
+        "speaker": "ihhong94-dot bot relay",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl",
+        "session_event_timestamp_utc": "2026-10-21T17:36:22.951Z"
+      },
+      "occurrence": "visitor:R02"
+    },
+    "visitor:R03": {
+      "id": "R03",
+      "type": "relay",
+      "source": {
+        "line": 1044,
+        "observed_again_at_lines": [
+          1137,
+          1434
+        ],
+        "slack_source_time_kst": "2026-10-22 01:47:36",
+        "speaker": "ihhong94-dot bot relay",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl",
+        "session_event_timestamp_utc": "2026-10-21T17:18:09.984Z"
+      },
+      "occurrence": "visitor:R03"
+    },
+    "visitor:R04": {
+      "id": "R04",
+      "type": "relay",
+      "source": {
+        "line": 1044,
+        "observed_again_at_lines": [
+          1137,
+          1434
+        ],
+        "slack_source_time_kst": "2026-10-22 01:55:51",
+        "speaker": "ihhong94-dot bot relay",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl",
+        "session_event_timestamp_utc": "2026-10-21T17:18:09.984Z"
+      },
+      "occurrence": "visitor:R04"
+    },
+    "visitor:R05": {
+      "id": "R05",
+      "type": "relay",
+      "source": {
+        "line": 1044,
+        "observed_again_at_lines": [
+          1137,
+          1434
+        ],
+        "slack_source_time_kst": "2026-10-22 02:00:49",
+        "speaker": "ihhong94-dot bot relay",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl",
+        "session_event_timestamp_utc": "2026-10-21T17:18:09.984Z"
+      },
+      "occurrence": "visitor:R05"
+    },
+    "visitor:R06": {
+      "id": "R06",
+      "type": "relay",
+      "source": {
+        "line": 1764,
+        "observed_again_at_lines": [
+          2217
+        ],
+        "slack_source_time_kst": null,
+        "speaker": "ihhong94-dot bot relay",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl",
+        "session_event_timestamp_utc": "2026-10-21T18:11:16.257Z"
+      },
+      "occurrence": "visitor:R06"
+    },
+    "visitor:R07": {
+      "id": "R07",
+      "type": "relay",
+      "source": {
+        "line": 2217,
+        "observed_again_at_lines": [
+          2393
+        ],
+        "slack_source_time_kst": "2026-10-22 03:12:56",
+        "speaker": "ihhong94-dot bot relay",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl",
+        "session_event_timestamp_utc": "2026-10-21T18:26:26.138Z"
+      },
+      "occurrence": "visitor:R07"
+    },
+    "visitor:R08": {
+      "id": "R08",
+      "type": "relay",
+      "source": {
+        "line": 2217,
+        "observed_again_at_lines": [
+          2393
+        ],
+        "slack_source_time_kst": "2026-10-22 03:18:41",
+        "speaker": "ihhong94-dot bot relay",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-51-01-01a15f28-a44c-7cc3-bc30-eb39f35d28db.jsonl",
+        "session_event_timestamp_utc": "2026-10-21T18:26:26.138Z"
+      },
+      "occurrence": "visitor:R08"
+    },
+    "resident:D1": {
+      "id": "msg_01a15f29-f482-7340-bf62-4116c7b8f8f0",
+      "type": "direct",
+      "source": {
+        "line": 11,
+        "timestamp_utc": "2026-10-21T15:52:27.522Z",
+        "message_id": "msg_01a15f29-f482-7340-bf62-4116c7b8f8f0",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-03-01a15f29-947d-7d73-83fa-5be3a491f217.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-03-01a15f29-947d-7d73-83fa-5be3a491f217.jsonl:11"
+    },
+    "resident:D2": {
+      "id": "msg_01a15f2a-941b-72e1-8d96-48a79aa6b219",
+      "type": "direct",
+      "source": {
+        "line": 45,
+        "timestamp_utc": "2026-10-21T15:53:08.379Z",
+        "message_id": "msg_01a15f2a-941b-72e1-8d96-48a79aa6b219",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-03-01a15f29-947d-7d73-83fa-5be3a491f217.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-03-01a15f29-947d-7d73-83fa-5be3a491f217.jsonl:45"
+    },
+    "resident:D3": {
+      "id": "msg_01a15f2b-8567-7272-a3c7-ec8e0065b35a",
+      "type": "direct",
+      "source": {
+        "line": 14,
+        "timestamp_utc": "2026-10-21T15:54:10.151Z",
+        "message_id": "msg_01a15f2b-8567-7272-a3c7-ec8e0065b35a",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl:14"
+    },
+    "resident:D4": {
+      "id": "msg_01a15f2e-40b7-7652-8b1e-3d7aea5f333d",
+      "type": "direct",
+      "source": {
+        "line": 74,
+        "timestamp_utc": "2026-10-21T15:57:09.175Z",
+        "message_id": "msg_01a15f2e-40b7-7652-8b1e-3d7aea5f333d",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl:74"
+    },
+    "resident:D5": {
+      "id": "msg_01a15f2f-54da-7183-a477-49ef7a1dba42",
+      "type": "direct",
+      "source": {
+        "line": 123,
+        "timestamp_utc": "2026-10-21T15:58:19.866Z",
+        "message_id": "msg_01a15f2f-54da-7183-a477-49ef7a1dba42",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl:123"
+    },
+    "resident:D6": {
+      "id": "msg_01a15f36-2f76-79a1-9853-92906e289c60",
+      "type": "direct",
+      "source": {
+        "line": 265,
+        "timestamp_utc": "2026-10-21T16:05:49.047Z",
+        "message_id": "msg_01a15f36-2f76-79a1-9853-92906e289c60",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl:265"
+    },
+    "resident:D7": {
+      "id": "msg_01a15f51-1218-7b80-98bd-2cf4f4f41eb9",
+      "type": "direct",
+      "source": {
+        "line": 673,
+        "timestamp_utc": "2026-10-21T16:35:11.000Z",
+        "message_id": "msg_01a15f51-1218-7b80-98bd-2cf4f4f41eb9",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl:673"
+    },
+    "resident:D8": {
+      "id": "msg_01a15f7e-5f7f-7482-aa52-e2f4252a2396",
+      "type": "direct",
+      "source": {
+        "line": 963,
+        "timestamp_utc": "2026-10-21T17:24:39.935Z",
+        "message_id": "msg_01a15f7e-5f7f-7482-aa52-e2f4252a2396",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl:963"
+    },
+    "resident:D9": {
+      "id": "msg_01a15f7e-8ec5-7c23-8f31-d092cf87b8c2",
+      "type": "direct",
+      "source": {
+        "line": 8,
+        "timestamp_utc": "2026-10-21T17:24:52.038Z",
+        "message_id": "msg_01a15f7e-8ec5-7c23-8f31-d092cf87b8c2",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-24-46-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-782f-7462-a5b4-7e4cfede78b9.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-24-46-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-782f-7462-a5b4-7e4cfede78b9.jsonl:8"
+    },
+    "resident:D10": {
+      "id": "msg_01a15f7e-d2af-71c2-93d2-422265e3b537",
+      "type": "direct",
+      "source": {
+        "line": 8,
+        "timestamp_utc": "2026-10-21T17:25:09.423Z",
+        "message_id": "msg_01a15f7e-d2af-71c2-93d2-422265e3b537",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl:8"
+    },
+    "resident:D11": {
+      "id": "msg_01a15f82-b789-7e62-bbf7-0f9e387adcb7",
+      "type": "direct",
+      "source": {
+        "line": 83,
+        "timestamp_utc": "2026-10-21T17:29:24.618Z",
+        "message_id": "msg_01a15f82-b789-7e62-bbf7-0f9e387adcb7",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl:83"
+    },
+    "resident:D12": {
+      "id": "msg_01a15f93-c9e0-7fb2-93f4-f8ad68b5cd9b",
+      "type": "direct",
+      "source": {
+        "line": 444,
+        "timestamp_utc": "2026-10-21T17:48:03.424Z",
+        "message_id": "msg_01a15f93-c9e0-7fb2-93f4-f8ad68b5cd9b",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl:444"
+    },
+    "resident:D13": {
+      "id": "msg_01a15f96-ed21-7d62-a8f1-b32fa2787679",
+      "type": "direct",
+      "source": {
+        "line": 496,
+        "timestamp_utc": "2026-10-21T17:51:29.057Z",
+        "message_id": "msg_01a15f96-ed21-7d62-a8f1-b32fa2787679",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl:496"
+    },
+    "resident:R1": {
+      "id": "relay:root_work:L747:ghost-xray",
+      "type": "relay",
+      "source": {
+        "line": 747,
+        "timestamp_utc": "2026-10-21T16:41:41.855Z",
+        "slack_original_message_id": null,
+        "relay_account": "ihhong94-dot",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl"
+      },
+      "occurrence": "resident:R1"
+    },
+    "resident:R2": {
+      "id": "relay:root_work:L841:choice-2",
+      "type": "relay",
+      "source": {
+        "line": 841,
+        "timestamp_utc": "2026-10-21T16:45:08.469Z",
+        "slack_original_message_id": null,
+        "relay_account": "ihhong94-dot",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl"
+      },
+      "occurrence": "resident:R2"
+    },
+    "resident:R3": {
+      "id": "relay:resume_main:L34:section-glass",
+      "type": "relay",
+      "source": {
+        "line": 34,
+        "timestamp_utc": "2026-10-21T17:25:59.371Z",
+        "slack_original_message_id": null,
+        "relay_account": "ihhong94-dot",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "resident:R3"
+    },
+    "resident:R4": {
+      "id": "relay:resume_main:L34:save-periodic",
+      "type": "relay",
+      "source": {
+        "line": 34,
+        "timestamp_utc": "2026-10-21T17:25:59.371Z",
+        "slack_original_message_id": null,
+        "relay_account": "ihhong94-dot",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "resident:R4"
+    },
+    "resident:R5": {
+      "id": "relay:resume_main:L34:save-now",
+      "type": "relay",
+      "source": {
+        "line": 34,
+        "timestamp_utc": "2026-10-21T17:25:59.371Z",
+        "slack_original_message_id": null,
+        "relay_account": "ihhong94-dot",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "resident:R5"
+    },
+    "resident:R6": {
+      "id": "relay:resume_main:L791:section-glass",
+      "type": "relay",
+      "source": {
+        "line": 791,
+        "timestamp_utc": "2026-10-21T18:15:12.709Z",
+        "slack_original_message_id": null,
+        "relay_account": "ihhong94-dot",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "resident:R6"
+    },
+    "resident:R7": {
+      "id": "relay:resume_main:L791:visual-reports",
+      "type": "relay",
+      "source": {
+        "line": 791,
+        "timestamp_utc": "2026-10-21T18:15:12.709Z",
+        "slack_original_message_id": null,
+        "relay_account": "ihhong94-dot",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "resident:R7"
+    },
+    "resident:R8": {
+      "id": "relay:resume_main:L1370:drainage-scope",
+      "type": "relay",
+      "source": {
+        "line": 1370,
+        "timestamp_utc": "2026-10-21T18:41:24.035Z",
+        "slack_original_message_id": null,
+        "relay_account": "ihhong94-dot",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl"
+      },
+      "occurrence": "resident:R8"
+    },
+    "hall:D11": {
+      "id": "direct:row11",
+      "type": "direct",
+      "source": {
+        "type": "codex_user",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "timestamp_utc": "2026-10-21T15:52:18.515Z",
+        "timestamp_kst": "2026-10-22T00:52:18.515+09:00",
+        "message_id": "msg_01a15f29-d153-7dd0-9a27-3baea1408a60",
+        "line": 11
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl:11"
+    },
+    "hall:D78": {
+      "id": "direct:row78",
+      "type": "direct",
+      "source": {
+        "type": "codex_user",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "timestamp_utc": "2026-10-21T15:55:06.77Z",
+        "timestamp_kst": "2026-10-22T00:55:06.77+09:00",
+        "message_id": "msg_01a15f2c-6292-78e2-b44e-fd0ea903fa85",
+        "line": 78
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl:78"
+    },
+    "hall:D184": {
+      "id": "direct:row184",
+      "type": "direct",
+      "source": {
+        "type": "codex_user",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "timestamp_utc": "2026-10-21T15:58:56.175Z",
+        "timestamp_kst": "2026-10-22T00:58:56.175+09:00",
+        "message_id": "msg_01a15f2f-e2af-7791-9787-da47c3199f2f",
+        "line": 184
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl:184"
+    },
+    "hall:D302": {
+      "id": "direct:row302",
+      "type": "direct",
+      "source": {
+        "type": "codex_user",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "timestamp_utc": "2026-10-21T16:05:38.304Z",
+        "timestamp_kst": "2026-10-22T01:05:38.304+09:00",
+        "message_id": "msg_01a15f36-0580-7aa1-b75b-8a283bd753e3",
+        "line": 302
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl:302"
+    },
+    "hall:D688": {
+      "id": "direct:row688",
+      "type": "direct",
+      "source": {
+        "type": "codex_user",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "timestamp_utc": "2026-10-21T16:33:58.244Z",
+        "timestamp_kst": "2026-10-22T01:33:58.244+09:00",
+        "message_id": "msg_01a15f4f-f5e3-7371-8ba8-f894ea08a6f8",
+        "line": 688
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl:688"
+    },
+    "hall:D913": {
+      "id": "direct:row913",
+      "type": "direct",
+      "source": {
+        "type": "codex_user",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "timestamp_utc": "2026-10-21T17:22:27.918Z",
+        "timestamp_kst": "2026-10-22T02:22:27.918+09:00",
+        "message_id": "msg_01a15f7c-5bce-7690-97cb-c3ec6968d2b5",
+        "line": 913
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl:913"
+    },
+    "hall:D1325": {
+      "id": "direct:row1325",
+      "type": "direct",
+      "source": {
+        "type": "codex_user",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "timestamp_utc": "2026-10-21T17:51:51.487Z",
+        "timestamp_kst": "2026-10-22T02:51:51.487+09:00",
+        "message_id": "msg_01a15f97-44be-7271-91cd-705b06f24aa3",
+        "line": 1325
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl:1325"
+    },
+    "hall:D1713": {
+      "id": "direct:row1713",
+      "type": "direct",
+      "source": {
+        "type": "codex_user",
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "timestamp_utc": "2026-10-21T18:11:21.371Z",
+        "timestamp_kst": "2026-10-22T03:11:21.371+09:00",
+        "message_id": "msg_01a15fa9-1e9b-7ad0-a178-1685a293e9d0",
+        "line": 1713
+      },
+      "occurrence": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl:1713"
+    },
+    "hall:R1": {
+      "id": "relay:rc-support-option2",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "observed_rows": [
+          355,
+          554,
+          937
+        ],
+        "thread_root_ts": "1792598183.055799",
+        "message_ts": null,
+        "author_as_shown": "ihhong94-dot / botuser",
+        "line": 355
+      },
+      "occurrence": "hall:R1"
+    },
+    "hall:R2": {
+      "id": "relay:file-boundary",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "observed_rows": [
+          554,
+          937
+        ],
+        "thread_root_ts": "1792598183.055799",
+        "message_ts": null,
+        "linked_source_ts": "1792599289.363349",
+        "linked_source_observed_row": 562,
+        "author_as_shown": "ihhong94-dot / botuser",
+        "line": 554
+      },
+      "occurrence": "hall:R2"
+    },
+    "hall:R4": {
+      "id": "relay:view-mode-ghost-xray",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "observed_rows": [
+          937
+        ],
+        "thread_root_ts": "1792598183.055799",
+        "message_ts": null,
+        "author_as_shown": "ihhong94-dot / botuser",
+        "line": 937
+      },
+      "occurrence": "hall:R4"
+    },
+    "hall:R5": {
+      "id": "relay:elevator-detail",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "observed_rows": [
+          937
+        ],
+        "thread_root_ts": "1792598183.055799",
+        "message_ts": null,
+        "author_as_shown": "ihhong94-dot / botuser",
+        "line": 937
+      },
+      "occurrence": "hall:R5"
+    },
+    "hall:R6": {
+      "id": "relay:save-periodically",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "observed_rows": [
+          937
+        ],
+        "thread_root_ts": "1792598183.055799",
+        "message_ts": null,
+        "author_as_shown": "ihhong94-dot / botuser",
+        "line": 937
+      },
+      "occurrence": "hall:R6"
+    },
+    "hall:R7": {
+      "id": "relay:save-now",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "observed_rows": [
+          937
+        ],
+        "thread_root_ts": "1792598183.055799",
+        "message_ts": null,
+        "author_as_shown": "ihhong94-dot / botuser",
+        "line": 937
+      },
+      "occurrence": "hall:R7"
+    },
+    "hall:R8": {
+      "id": "relay:overlap-detail",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "observed_rows": [
+          1762,
+          1781,
+          1974,
+          2029,
+          2037
+        ],
+        "thread_root_ts": "1792598183.055799",
+        "message_ts": "1792605620.615479",
+        "timestamp_kst": "2026-10-22T03:00:20+09:00",
+        "author_as_shown": "ihhong94-dot / botuser",
+        "line": 1762
+      },
+      "occurrence": "hall:R8"
+    },
+    "hall:R9": {
+      "id": "relay:visuals-with-reports",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "observed_rows": [
+          1762,
+          1781,
+          1974,
+          2029,
+          2037
+        ],
+        "thread_root_ts": "1792598183.055799",
+        "message_ts": "1792606265.096789",
+        "timestamp_kst": "2026-10-22T03:11:05+09:00",
+        "author_as_shown": "ihhong94-dot / botuser",
+        "line": 1762
+      },
+      "occurrence": "hall:R9"
+    },
+    "hall:R10": {
+      "id": "relay:agent-section-glass",
+      "type": "relay",
+      "source": {
+        "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-08-01a15f29-a7ed-7031-a254-20ec1b309724.jsonl",
+        "thread_root_ts": "1792598183.055799",
+        "message_ts": "1792606373.042789",
+        "timestamp_kst": "2026-10-22T03:12:53+09:00",
+        "author_as_shown": "ihhong94-dot / botuser",
+        "line": 1762
+      },
+      "occurrence": "hall:R10"
+    }
+  },
+  "excluded": {
+    "terrain:T15": "같은 직전 직접 지시 T13을 전한 relay; 중복 집계 제외",
+    "hall:R10": "direct D1713과 동일 지시를 전한 relay; 중복 집계 제외"
+  }
+}
