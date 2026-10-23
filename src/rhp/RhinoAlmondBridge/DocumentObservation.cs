@@ -78,6 +78,7 @@ namespace RhinoAlmondBridge
             return new JObject
             {
                 ["status"] = "success",
+                ["capabilities"] = new JObject { ["fixed_probes"] = 1 },
                 ["document"] = document,
                 ["selection"] = selection,
                 ["viewport"] = viewport,

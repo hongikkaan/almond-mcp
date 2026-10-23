@@ -436,7 +436,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.calls, [])
 
     async def test_live_observations_keep_binding_and_operation_guards_without_db_gate(self):
-        names = ("get_rhino_context", "get_rhino_viewport_image")
+        names = ("get_rhino_context", "get_rhino_viewport_image", "get_rhino_probe")
         for name in names:
             def observe() -> dict:
                 self.calls.append("observed")
@@ -451,7 +451,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(read_json(self.operation_path)["state"], "completed")
                 self.assert_locked(self.gate_path)
         self.assertEqual(temp_state(), before)
-        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(len(self.calls), len(names))
         self.assert_operation_completed()
 
         self.session.binding["valid"] = False
@@ -459,7 +459,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         for name in names:
             with self.assertRaisesRegex(Exception, "connection ended or changed"):
                 await self.mcp.call_tool(name, {})
-        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(len(self.calls), len(names))
 
     async def test_tool_failure_still_restores_temp_and_releases_gate(self):
         @self.mcp.tool()

@@ -115,6 +115,7 @@ class PipeTests(unittest.IsolatedAsyncioTestCase):
 
 class StdioTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        (ROOT / "data").mkdir(parents=True, exist_ok=True)
         self.data = tempfile.TemporaryDirectory(prefix="stdio-fixture-", dir=ROOT / "data")
 
     async def asyncTearDown(self):
@@ -137,8 +138,8 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("validate proposed geometry against the task before replacing originals", instructions)
                 self.assertIn("Execution success and a viewport image do not establish geometric correctness", instructions)
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 62)
-                self.assertEqual(len({t.name for t in listing.tools}), 62)
+                self.assertEqual(len(listing.tools), 63)
+                self.assertEqual(len({t.name for t in listing.tools}), 63)
                 original = load_catalog()["tools"]
                 public = {t.name: t for t in listing.tools}
                 for tool in original:

@@ -35,6 +35,7 @@ Almond MCP의 검색·계획·모델링·등록·검증 기능을 적극적으�
 |---|---|---|
 | 연결·자료 상태 파악 | `almond_project_info`, `get_retrieval_status` | 연결에 묶인 모델 경로와 실제 artifact_dir를 확인하라. `project_info`는 실제 활성 문서나 형상을 조회하지 않으며 `live_document_checked=false` 자체는 오류가 아니다. 검색 인덱스 상태와 실제 Rhino 형상 상태를 구분하라. |
 | 실제 문서·선택·뷰 조회 | `get_rhino_context` | 편집 전 문서 identity·단위·공차·선택·현재 뷰를 조회하라. `selection_limit`은 정수 0–200, 기본 50이다. `selection.total/returned/truncated`, `warnings`와 `null`을 읽고 누락을 빈 상태로 간주하지 마라. 레이어·형상·Undo를 만들지 않는다. |
+| 블록·지형·접합부 고정 조회 | `get_rhino_probe` | `probe`, `options`, `expected_model_path`로 아래 다섯 helper를 호출한다. 문서 경로를 검사하고 Undo·레이어·선택·뷰를 변경하지 않는다. 요청·응답은 각각 256 KiB 한도다. [고정 probe 계약](references/probe-tools.md)을 확인하라. |
 | 현재 화면 확인 | `get_rhino_viewport_image` | JPEG ImageContent와 문서·뷰 metadata를 같은 응답에서 읽어라. `max_width/max_height`는 각각 정수 64–2048, 기본 1280/960이며 비율 유지·확대 없음·JPEG 4 MiB 한도다. 현재 카메라·Named View·display mode·clipping·선택을 바꾸지 않는다. |
 | 형상 편집·계산값 회수 | `execute_rhino_script` | 전용 도구가 다루지 않는 형상과 계산에 사용하라. 작은 JSON-safe 반환은 `result`로 직접 받고 `result_error`를 실행 실패와 구분하라. 자동 레이어·Undo 등 부수 효과가 있으므로 읽기 전용 조회로 간주하지 마라. [실행·결과 계약](references/probe-tools.md)을 확인하라. |
 | 과업·진행 상태 관리 | `create_generation_plan`, `get_generation_plan`, `update_generation_step` | 목표와 완료 기준을 세우고 실제 scene·room·instance·Rhino GUID와 검증 결과를 연결하라. 선택한 scope의 단계와 의존성을 조회한 뒤 갱신하라. |
@@ -63,7 +64,7 @@ Almond MCP의 검색·계획·모델링·등록·검증 기능을 적극적으�
 
 ### Rhino 코드 도구
 
-아래 표에서 필요한 기능을 고른 뒤 해당 문서에서 함수·입출력·사용 예를 확인하라. 스크립트는 Almond MCP에서 실행하는 보조 코드이며, 필요한 파일만 읽고 호출하라.
+아래 표에서 필요한 기능을 고른 뒤 해당 문서에서 입출력을 확인하고 `get_rhino_probe`로 호출하라. C# 파일은 Bridge에 컴파일되는 구현 원본이다.
 
 | 필요한 기능 | 활용 | 사용법·코드 |
 |---|---|---|
@@ -71,4 +72,4 @@ Almond MCP의 검색·계획·모델링·등록·검증 기능을 적극적으�
 | 지형 단면 | Brep/Mesh/Extrusion을 지정한 X/Y/Z 위치에서 잘라 단면의 닫힘·길이·범위를 관찰 | [사용법](references/terrain-probes.md) · [AlmondTerrain.cs](scripts/AlmondTerrain.cs) |
 | 수직선 검사 | 지정한 XY에서 교차 높이·채움 구간·객체 사이 표본 관입을 확인 | [사용법](references/terrain-probes.md) · [AlmondTerrain.cs](scripts/AlmondTerrain.cs) |
 | 접합부 쌍 검사 | Brep/Extrusion 쌍의 실제 교차 체적, bbox 거리 하한, 선택적 Join/Union 결과를 관찰 | [사용법](references/joint-probes.md) · [AlmondJoints.cs](scripts/AlmondJoints.cs) |
-| 실행과 결과 회수 | 위 함수를 실행 소스로 조립하고 실행 ID·모델 경로가 일치하는 JSON 결과를 읽음 | [사용법](references/probe-tools.md) · [almond_probe.py](scripts/almond_probe.py) |
+| 호출과 결과 회수 | 고정 probe를 호출하고 같은 응답의 문서 identity·측정값·누락을 확인 | [사용법](references/probe-tools.md) |

@@ -1,11 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Newtonsoft.Json.Linq;
 
 internal static class Program
@@ -15,7 +12,7 @@ internal static class Program
     [STAThread]
     static int Main(string[] args)
     {
-        if (args.Length < 2) throw new ArgumentException("mode report_path [manifest_path]");
+        if (args.Length < 2) throw new ArgumentException("mode report_path [request_path]");
         string reportPath = Path.GetFullPath(args[1]);
         if (File.Exists(reportPath)) throw new ArgumentException("Report must be new.");
         AppDomain.CurrentDomain.AssemblyResolve += (s, e) => {
@@ -35,7 +32,7 @@ internal static class Program
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static string Run(string mode, string reportPath, string manifestPath)
+    static string Run(string mode, string reportPath, string requestPath)
     {
         using (var core = new Rhino.Runtime.InProcess.RhinoCore(
             new[] { "/NOSPLASH", "/NOTEMPLATE" }, Rhino.Runtime.InProcess.WindowStyle.NoWindow))
@@ -69,34 +66,48 @@ internal static class Program
                 var type = typeof(Program).Assembly.GetType("NativeTests", true);
                 return (string)type.GetMethod("RunAll", BindingFlags.Public | BindingFlags.Static).Invoke(null, null);
             }
-            if (mode == "script") {
-                var manifest = JObject.Parse(File.ReadAllText(manifestPath));
-                string source = File.ReadAllText((string)manifest["script_path"]);
-                using (var doc = Rhino.RhinoDoc.OpenHeadless((string)manifest["model_path"])) {
+            if (mode == "probe") {
+                var request = JObject.Parse(File.ReadAllText(requestPath));
+                using (var doc = Rhino.RhinoDoc.OpenHeadless((string)request["expected_model_path"])) {
                     if (doc == null) throw new Exception("Could not open isolated fixture.");
-                    var before = doc.Objects.Select(o => o.Id.ToString() + ":" + o.Geometry.DataCRC(0)).OrderBy(x => x).ToArray();
-                    var tree = CSharpSyntaxTree.ParseText(source);
-                    var refs = AppDomain.CurrentDomain.GetAssemblies()
-                        .Where(a => !a.IsDynamic && !String.IsNullOrEmpty(a.Location))
-                        .Select(a => a.Location).Distinct()
-                        .Select(p => MetadataReference.CreateFromFile(p)).ToList();
-                    var compilation = CSharpCompilation.Create("Probe_" + Guid.NewGuid().ToString("N"),
-                        new[] { tree }, refs, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-                    using (var stream = new MemoryStream()) {
-                        var emitted = compilation.Emit(stream);
-                        if (!emitted.Success) throw new Exception(String.Join("\n", emitted.Diagnostics
-                            .Where(x => x.Severity == DiagnosticSeverity.Error).Select(x => x.ToString())));
-                        var assembly = Assembly.Load(stream.ToArray());
-                        var returned = assembly.GetType("Script", true).GetMethod("Run").Invoke(null, new object[] { doc }) as List<Guid>;
-                        if (returned == null || returned.Count != 0) throw new Exception("Query returned created geometry.");
-                    }
-                    var after = doc.Objects.Select(o => o.Id.ToString() + ":" + o.Geometry.DataCRC(0)).OrderBy(x => x).ToArray();
-                    if (!before.SequenceEqual(after)) throw new Exception("Query changed document geometry.");
-                    return new JObject { ["status"] = "ok", ["compiled_and_executed"] = true,
-                        ["geometry_unchanged"] = true, ["helper_result"] = JObject.Parse(File.ReadAllText((string)manifest["result_path"])) }.ToString();
+                    if (new[] { "A-WALL", "A-STRC", "A-GLAZ" }.Any(name => doc.Layers.FindName(name) != null))
+                        throw new Exception("Fixture already contains executor-created layers.");
+                    doc.UndoRecordingEnabled = true;
+                    doc.Modified = false;
+                    var before = Snapshot(doc);
+                    var result = RhinoAlmondBridge.ProbeObservation.GetProbe(doc, request);
+                    if (!JToken.DeepEquals(before, Snapshot(doc))) throw new Exception("Probe changed document state.");
+                    var wrongDocument = (JObject)request.DeepClone();
+                    wrongDocument["expected_model_path"] = Path.Combine(Path.GetDirectoryName(doc.Path), "wrong.3dm");
+                    if ((string)RhinoAlmondBridge.ProbeObservation.GetProbe(doc, wrongDocument)["error_code"] != "document_mismatch")
+                        throw new Exception("Probe accepted a different document.");
+                    var invalid = (JObject)request.DeepClone();
+                    invalid["probe"] = "execute";
+                    invalid["script"] = "doc.Objects.Clear();";
+                    if ((string)RhinoAlmondBridge.ProbeObservation.GetProbe(doc, invalid)["error_code"] != "invalid_arguments")
+                        throw new Exception("Probe accepted an arbitrary execution request.");
+                    if (!JToken.DeepEquals(before, Snapshot(doc))) throw new Exception("Rejected probe changed document state.");
+                    return new JObject { ["status"] = "ok", ["document_unchanged"] = true,
+                        ["invalid_requests_rejected"] = true, ["probe_result"] = result }.ToString();
                 }
             }
             throw new ArgumentException("Unknown mode.");
         }
+    }
+
+    static JObject Snapshot(Rhino.RhinoDoc doc)
+    {
+        return new JObject {
+            ["modified"] = doc.Modified,
+            ["undo_enabled"] = doc.UndoRecordingEnabled,
+            ["recording"] = doc.UndoRecordingIsActive,
+            ["current_record"] = doc.CurrentUndoRecordSerialNumber,
+            ["next_record"] = doc.NextUndoRecordSerialNumber,
+            ["layers"] = new JArray(doc.Layers.OrderBy(l => l.Id).Select(l => new JObject {
+                ["id"] = l.Id.ToString(), ["index"] = l.Index, ["crc"] = l.DataCRC(0), ["deleted"] = l.IsDeleted })),
+            ["objects"] = new JArray(doc.Objects.OrderBy(o => o.Id).Select(o => new JObject {
+                ["id"] = o.Id.ToString(), ["crc"] = o.Geometry.DataCRC(0), ["selected"] = o.IsSelected(false),
+                ["attributes"] = o.Attributes.ToJSON(new Rhino.FileIO.SerializationOptions { WriteUserData = true }) }))
+        };
     }
 }

@@ -84,6 +84,10 @@ structured metadata에 base64를 중복하지 않는다. 실패하면 이미지 
 두 조회는 문서 binding·UI thread·호출 identity·native 완료 확인을 거치는 고정 경로다.
 레이어·기하·Undo 기록을 만들거나 카메라·display mode·clipping·선택을 바꾸지 않는다.
 
+`get_rhino_probe`는 스킬의 outline·resolve-block·sections·vertical-probe·joint-pairs
+helper를 Bridge에 컴파일하여 같은 고정 관찰 경로에서 실행한다. 모델 경로를 확인하고
+요청·응답을 각각 256 KiB로 제한한다. 별도 C# 소스 조립이나 일반 실행기를 사용하지 않는다.
+
 `execute_rhino_script`는 JSON으로 표현 가능한 C# 반환값을 `result`로 전달한다.
 한도는 compact UTF-8 JSON 65,536 bytes와 container 깊이 16이며, 미지원 값·순환 참조·
 한도 초과는 `result_error`로 설명한다. 반환 변환 오류로 이미 완료된 수정이 rollback되지는
@@ -92,7 +96,7 @@ structured metadata에 base64를 중복하지 않는다. 실패하면 이미지 
 
 MCP 서버와 COS host의 초기 안내는 현황 조회 → 관련 객체 조사 → 수정 후보의 검증 →
 원본 교체 순서를 안내한다. 실행 성공·현재 화면·기하의 유효성만으로 과제의 정확성을
-인증하지 않는다. COS catalog는 59개, 관리 도구를 포함한 공개 도구는 62개이며
+인증하지 않는다. COS catalog는 60개, 관리 도구를 포함한 공개 도구는 63개이며
 source fingerprint와 schema 검사를 유지한다.
 
 ## 실행·빌드 산출물
