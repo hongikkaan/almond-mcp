@@ -1,0 +1,463 @@
+{
+  "id": "gen-person-standing-1",
+  "name": "Person standing",
+  "kind": "model",
+  "library": "generated",
+  "category": "human_figure",
+  "variant": "adult, casual clothing",
+  "format": "glb",
+  "tags": [
+    "person",
+    "human",
+    "scale figure",
+    "entourage",
+    "standing"
+  ],
+  "roles": [
+    "section",
+    "elevation",
+    "interior_perspective",
+    "axonometric"
+  ],
+  "dimensions_mm": {
+    "width": 577.6,
+    "depth": 284.5,
+    "height": 1750.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-person-standing-1.glb",
+  "preview": "/files/generated/previews/gen-person-standing-1.png",
+  "contract": "/files/generated/models/gen-person-standing-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-person-standing-1",
+    "name": "Person standing",
+    "model_file": "models/gen-person-standing-1.glb",
+    "model_sha256": "A297AD2AE6C0BF367CBC259D34F2C97CA579FECBB9932428E087A2ECDEF6D13B",
+    "contract_file": "models/gen-person-standing-1.almond.json",
+    "contract_sha256": "F48A11C8B2BD86C1097CE219973BAE41AEF76E01B0E9944B502D544D6100CBF0",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A full-body adult person standing upright in a relaxed pose, casual everyday clothing, arms at sides, plain matte grey clay-like appearance.",
+      "image_task_id": "01a09787-a448-7360-939a-ab919d08398e",
+      "image_model": "nano-banana",
+      "mesh_task_id": "01a0978d-653f-734a-8edf-ce2ffc1bda07",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-12",
+      "orientation_correction": null,
+      "scale_applied": 1029.411736
+    },
+    "recorded_task_history": {
+      "image_model": "nano-banana",
+      "image_task_id": "01a09787-a448-7360-939a-ab919d08398e",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0978d-653f-734a-8edf-ce2ffc1bda07",
+      "generated_at": "2026-09-12"
+    },
+    "image_generation": {
+      "provider": "meshy",
+      "provider_basis": "catalogue_image_stage_tool",
+      "id": "01a09787-a448-7360-939a-ab919d08398e",
+      "id_type": "image_task_id",
+      "source_image_url_recorded": false,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-person-standing-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "section",
+      "elevation",
+      "interior_perspective",
+      "axonometric"
+    ],
+    "geometry_mode": "3d_entourage",
+    "lod": "medium",
+    "category": "human_figure",
+    "series": "ALMOND-GEN",
+    "product": "Person standing",
+    "variant": "adult, casual clothing",
+    "dimensions_mm": {
+      "width": 577.6,
+      "depth": 284.5,
+      "height": 1750.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 550,
+      "depth": 350,
+      "height": 1750
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.187,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-person-standing-1.glb",
+    "contract_file": "models/gen-person-standing-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-person-standing-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-person-standing-1.almond.json",
+    "sha256": "A297AD2AE6C0BF367CBC259D34F2C97CA579FECBB9932428E087A2ECDEF6D13B",
+    "file_size_bytes": 343220,
+    "triangle_count": 4383,
+    "tags": [
+      "person",
+      "human",
+      "scale figure",
+      "entourage",
+      "standing"
+    ],
+    "render_material_id": "plaster-white",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A full-body adult person standing upright in a relaxed pose, casual everyday clothing, arms at sides, plain matte grey clay-like appearance.",
+        "image_task_id": "01a09787-a448-7360-939a-ab919d08398e",
+        "image_model": "nano-banana",
+        "mesh_task_id": "01a0978d-653f-734a-8edf-ce2ffc1bda07",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-12",
+        "orientation_correction": null,
+        "scale_applied": 1029.411736
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -288.8,
+          -142.25,
+          0.0
+        ],
+        "max": [
+          288.8,
+          142.25,
+          1750.0
+        ]
+      },
+      "footprint": [
+        [
+          -288.8,
+          -142.25
+        ],
+        [
+          288.8,
+          -142.25
+        ],
+        [
+          288.8,
+          142.25
+        ],
+        [
+          -288.8,
+          142.25
+        ]
+      ],
+      "clearance_mm": {
+        "front": 0,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "accessory"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-person-standing-1",
+      "library_id": "generated_assets",
+      "name": "Person standing (adult, casual clothing)",
+      "category": "human_figure",
+      "tags": [
+        "person",
+        "human",
+        "scale figure",
+        "entourage",
+        "standing"
+      ],
+      "dimensions_mm": {
+        "width": 577.6,
+        "depth": 284.5,
+        "height": 1750.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 550.0,
+        "depth": 350.0,
+        "height": 1750.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -288.8,
+            -142.25,
+            0.0
+          ],
+          "max": [
+            288.8,
+            142.25,
+            1750.0
+          ]
+        },
+        "footprint": [
+          [
+            -288.8,
+            -142.25
+          ],
+          [
+            288.8,
+            -142.25
+          ],
+          [
+            288.8,
+            142.25
+          ],
+          [
+            -288.8,
+            142.25
+          ]
+        ],
+        "clearance_mm": {
+          "front": 0,
+          "back": 0,
+          "left": 0,
+          "right": 0
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "accessory"
+      },
+      "materials": [
+        {
+          "material_id": "plaster-white",
+          "objects": [
+            "gen-person-standing-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A full-body adult person standing upright in a relaxed pose, casual everyday clothing, arms at sides, plain matte grey clay-like appearance.",
+          "image_task_id": "01a09787-a448-7360-939a-ab919d08398e",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978d-653f-734a-8edf-ce2ffc1bda07",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 1029.411736
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "interior",
+          "streetscape"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "section",
+          "elevation",
+          "interior_perspective",
+          "axonometric"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.187,
+        "triangle_count": 4383,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "F48A11C8B2BD86C1097CE219973BAE41AEF76E01B0E9944B502D544D6100CBF0"
+  },
+  "drawing": {
+    "record": "/files/drafting/pilot/gen-person-standing-1/drawing.json",
+    "views": [
+      {
+        "view": "plan",
+        "scale": 50,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-person-standing-1/plan-1-50.svg",
+        "dxf": "/files/drafting/pilot/gen-person-standing-1/plan-1-50.dxf"
+      },
+      {
+        "view": "front",
+        "scale": 50,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-person-standing-1/front-1-50.svg",
+        "dxf": "/files/drafting/pilot/gen-person-standing-1/front-1-50.dxf"
+      },
+      {
+        "view": "right",
+        "scale": 50,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-person-standing-1/right-1-50.svg",
+        "dxf": "/files/drafting/pilot/gen-person-standing-1/right-1-50.dxf"
+      },
+      {
+        "view": "plan",
+        "scale": 100,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-person-standing-1/plan-1-100.svg",
+        "dxf": "/files/drafting/pilot/gen-person-standing-1/plan-1-100.dxf"
+      },
+      {
+        "view": "front",
+        "scale": 100,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-person-standing-1/front-1-100.svg",
+        "dxf": "/files/drafting/pilot/gen-person-standing-1/front-1-100.dxf"
+      },
+      {
+        "view": "right",
+        "scale": 100,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-person-standing-1/right-1-100.svg",
+        "dxf": "/files/drafting/pilot/gen-person-standing-1/right-1-100.dxf"
+      }
+    ],
+    "sheets": [
+      {
+        "scale": 50,
+        "svg": "/files/drafting/pilot/gen-person-standing-1/sheet-A3-1-50.svg"
+      },
+      {
+        "scale": 100,
+        "svg": "/files/drafting/pilot/gen-person-standing-1/sheet-A3-1-100.svg"
+      }
+    ],
+    "source": {
+      "asset_id": "gen-person-standing-1",
+      "geometry_sha256": "17AFD6870F8A3147EB5EB5E9E1B2B166AC1F359BE0F0938C23FD86BA9190429D",
+      "model_sha256": "A297AD2AE6C0BF367CBC259D34F2C97CA579FECBB9932428E087A2ECDEF6D13B",
+      "units": "mm",
+      "input_units": "mm",
+      "input_up_axis": "y",
+      "coordinate_transform": "X,-Z,Y",
+      "view_axes": {
+        "plan": "X,Y",
+        "front": "X,Z; looking +Y",
+        "right": "-Y,Z; looking -X"
+      },
+      "dimension_basis": "measured_mesh_geometry",
+      "engine_version": 2,
+      "method": "triangle_union_or_dense_mesh_raster_projection; see per-view method and resolution",
+      "source_references": [],
+      "reference_relationship_scope": "attached_to_this_drawing; not original mesh-generation inputs",
+      "created_at": "2026-09-19T02:00:57.225997+00:00",
+      "attribution": "Almond generated asset library",
+      "derived_asset_license": "CC-BY-4.0",
+      "generation_record": {
+        "asset_id": "gen-person-standing-1",
+        "name": "Person standing",
+        "model_file": "models/gen-person-standing-1.glb",
+        "model_sha256": "A297AD2AE6C0BF367CBC259D34F2C97CA579FECBB9932428E087A2ECDEF6D13B",
+        "contract_file": "models/gen-person-standing-1.almond.json",
+        "contract_sha256": "F48A11C8B2BD86C1097CE219973BAE41AEF76E01B0E9944B502D544D6100CBF0",
+        "generator": "meshy",
+        "recorded_generation": {
+          "prompt": "A full-body adult person standing upright in a relaxed pose, casual everyday clothing, arms at sides, plain matte grey clay-like appearance.",
+          "image_task_id": "01a09787-a448-7360-939a-ab919d08398e",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978d-653f-734a-8edf-ce2ffc1bda07",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 1029.411736
+        },
+        "recorded_task_history": {
+          "image_model": "nano-banana",
+          "image_task_id": "01a09787-a448-7360-939a-ab919d08398e",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "mesh_task_id": "01a0978d-653f-734a-8edf-ce2ffc1bda07",
+          "generated_at": "2026-09-12"
+        },
+        "image_generation": {
+          "provider": "meshy",
+          "provider_basis": "catalogue_image_stage_tool",
+          "id": "01a09787-a448-7360-939a-ab919d08398e",
+          "id_type": "image_task_id",
+          "source_image_url_recorded": false,
+          "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+        },
+        "catalogue_recipe_override": null,
+        "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+        "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+        "external_reference_ids": [],
+        "evidence_gaps": [
+          "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+          "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+          "External design references are not recorded; absence of records does not establish no references were used."
+        ],
+        "declared_license": "CC-BY-4.0",
+        "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+        "missing_recorded_fields": []
+      },
+      "limitations": [
+        "Projected silhouettes only: internal visible/hidden edges and construction layers are not inferred.",
+        "Front is the declared coordinate direction, not a verified product front.",
+        "Dimensions describe mesh geometry, not a manufacturer-verified product."
+      ]
+    }
+  },
+  "uri": "almond://repository/gen-person-standing-1",
+  "record_url": "/api/assets/gen-person-standing-1.json"
+}

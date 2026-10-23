@@ -76,7 +76,7 @@ try {
     . (Join-Path $PSScriptRoot 'codex_path.ps1')
     $config.codex_exe=Resolve-AlmondCodex -PreferredPath $config.codex_exe
     $python=Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
-    $native=Join-Path $PSScriptRoot 'native\bin\Release\net8.0\Almond.Engine.dll'
+    $native=Join-Path $PSScriptRoot '..\rhp\RhinoAlmondBridge\plugin-runtime\Almond.Engine.dll'
     foreach($file in @($config.rhino_exe,$config.codex_exe,$python,$native)){
         if(-not (Test-Path -LiteralPath $file -PathType Leaf)){throw "필수 실행 파일이 없습니다: $file`n이 메시지를 전달해 주세요."}
     }

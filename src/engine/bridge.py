@@ -192,10 +192,10 @@ class RhinoBackend(object):
         if self.session_path:
             import os
             from System.Reflection import Assembly
-            dll = os.path.join(os.path.dirname(os.path.abspath(__file__)), "native", "bin", "Release",
-                               "net8.0", "Almond.Engine.dll")
+            dll = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rhp", "RhinoAlmondBridge",
+                               "plugin-runtime", "Almond.Engine.dll")
             if not os.path.isfile(dll):
-                raise RuntimeError("Build the Almond engine native helper before starting a shared connection: " + dll)
+                raise RuntimeError("Committed Almond runtime is missing: " + dll)
             assembly = Assembly.LoadFrom(dll)
             kind = assembly.GetType("AlmondEngine.BoundBridge", True)
             arguments = self.System.Array[self.System.Object]([

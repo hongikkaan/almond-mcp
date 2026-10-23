@@ -1,0 +1,329 @@
+{
+  "id": "gen-lounge-chair-bent-plywood-1",
+  "name": "Lounge chair",
+  "kind": "model",
+  "library": "generated",
+  "category": "seating",
+  "variant": "cantilevered bent-plywood lounge chair, scroll seat",
+  "format": "glb",
+  "tags": [
+    "lounge chair",
+    "armchair",
+    "cantilever",
+    "bent plywood",
+    "scandinavian"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "interior_axonometric",
+    "interior_perspective"
+  ],
+  "dimensions_mm": {
+    "width": 564.6,
+    "depth": 910.7,
+    "height": 640.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-lounge-chair-bent-plywood-1.glb",
+  "preview": "/files/generated/previews/gen-lounge-chair-bent-plywood-1.png",
+  "contract": "/files/generated/models/gen-lounge-chair-bent-plywood-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-lounge-chair-bent-plywood-1",
+    "name": "Lounge chair",
+    "model_file": "models/gen-lounge-chair-bent-plywood-1.glb",
+    "model_sha256": "D12302E5FFAC3FF25E16660FEF2C6DF0D6709EED0E6FCA4FD4E27D11E4A3302F",
+    "contract_file": "models/gen-lounge-chair-bent-plywood-1.almond.json",
+    "contract_sha256": "A983D20716A01CEAA4F6D3BD3A1913C8987D2922912FBB277C7BB1963C0A3AB0",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A cantilevered lounge chair whose frame is two closed loops of laminated bent birch on each side, with a single thin sheet of moulded plywood seat and back that curls into a scroll at the head and foot, pale birch frame, black lacquered seat, 1930s Scandinavian functionalist design, no branding.",
+      "image_task_id": null,
+      "image_model": "nano_banana",
+      "mesh_task_id": "01a0aa90-e5e2-7691-95e9-74574f2c643d",
+      "mesh_model": "meshy-7 ultra (untextured, 60k target polycount)",
+      "generated_at": "2026-09-16",
+      "orientation_correction": null,
+      "scale_applied": 800.003535
+    },
+    "recorded_task_history": {
+      "image_provider": "higgsfield",
+      "image_model": "nano_banana",
+      "image_job_id": "a06b9eba-bd31-4b55-8e95-bb1c948be748",
+      "mesh_provider": "meshy",
+      "mesh_model": "meshy-7 ultra (untextured, 60k target polycount)",
+      "mesh_task_id": "01a0aa90-e5e2-7691-95e9-74574f2c643d",
+      "generated_at": "2026-09-16"
+    },
+    "image_generation": {
+      "provider": "higgsfield",
+      "provider_basis": "provenance",
+      "id": "a06b9eba-bd31-4b55-8e95-bb1c948be748",
+      "id_type": "image_job_id",
+      "source_image_url_recorded": true,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": "high_detail",
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-lounge-chair-bent-plywood-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "interior_axonometric",
+      "interior_perspective"
+    ],
+    "geometry_mode": "3d_furniture",
+    "lod": "high",
+    "category": "seating",
+    "series": "ALMOND-GEN",
+    "product": "Lounge chair",
+    "variant": "cantilevered bent-plywood lounge chair, scroll seat",
+    "dimensions_mm": {
+      "width": 564.6,
+      "depth": 910.7,
+      "height": 640.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 600,
+      "depth": 800,
+      "height": 640
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.138,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-lounge-chair-bent-plywood-1.glb",
+    "contract_file": "models/gen-lounge-chair-bent-plywood-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-lounge-chair-bent-plywood-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-lounge-chair-bent-plywood-1.almond.json",
+    "sha256": "D12302E5FFAC3FF25E16660FEF2C6DF0D6709EED0E6FCA4FD4E27D11E4A3302F",
+    "file_size_bytes": 975528,
+    "triangle_count": 79999,
+    "tags": [
+      "lounge chair",
+      "armchair",
+      "cantilever",
+      "bent plywood",
+      "scandinavian"
+    ],
+    "render_material_id": "wood-birch-ply",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A cantilevered lounge chair whose frame is two closed loops of laminated bent birch on each side, with a single thin sheet of moulded plywood seat and back that curls into a scroll at the head and foot, pale birch frame, black lacquered seat, 1930s Scandinavian functionalist design, no branding.",
+        "image_task_id": null,
+        "image_model": "nano_banana",
+        "mesh_task_id": "01a0aa90-e5e2-7691-95e9-74574f2c643d",
+        "mesh_model": "meshy-7 ultra (untextured, 60k target polycount)",
+        "generated_at": "2026-09-16",
+        "orientation_correction": null,
+        "scale_applied": 800.003535
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -282.3,
+          -455.35,
+          0.0
+        ],
+        "max": [
+          282.3,
+          455.35,
+          640.0
+        ]
+      },
+      "footprint": [
+        [
+          -282.3,
+          -455.35
+        ],
+        [
+          282.3,
+          -455.35
+        ],
+        [
+          282.3,
+          455.35
+        ],
+        [
+          -282.3,
+          455.35
+        ]
+      ],
+      "clearance_mm": {
+        "front": 500,
+        "back": 0,
+        "left": 100,
+        "right": 100
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "primary"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-lounge-chair-bent-plywood-1",
+      "library_id": "generated_assets",
+      "name": "Lounge chair (cantilevered bent-plywood lounge chair, scroll seat)",
+      "category": "seating",
+      "tags": [
+        "lounge chair",
+        "armchair",
+        "cantilever",
+        "bent plywood",
+        "scandinavian"
+      ],
+      "dimensions_mm": {
+        "width": 564.6,
+        "depth": 910.7,
+        "height": 640.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 600.0,
+        "depth": 800.0,
+        "height": 640.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -282.3,
+            -455.35,
+            0.0
+          ],
+          "max": [
+            282.3,
+            455.35,
+            640.0
+          ]
+        },
+        "footprint": [
+          [
+            -282.3,
+            -455.35
+          ],
+          [
+            282.3,
+            -455.35
+          ],
+          [
+            282.3,
+            455.35
+          ],
+          [
+            -282.3,
+            455.35
+          ]
+        ],
+        "clearance_mm": {
+          "front": 500,
+          "back": 0,
+          "left": 100,
+          "right": 100
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "primary"
+      },
+      "materials": [
+        {
+          "material_id": "wood-birch-ply",
+          "objects": [
+            "gen-lounge-chair-bent-plywood-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A cantilevered lounge chair whose frame is two closed loops of laminated bent birch on each side, with a single thin sheet of moulded plywood seat and back that curls into a scroll at the head and foot, pale birch frame, black lacquered seat, 1930s Scandinavian functionalist design, no branding.",
+          "image_task_id": null,
+          "image_model": "nano_banana",
+          "mesh_task_id": "01a0aa90-e5e2-7691-95e9-74574f2c643d",
+          "mesh_model": "meshy-7 ultra (untextured, 60k target polycount)",
+          "generated_at": "2026-09-16",
+          "orientation_correction": null,
+          "scale_applied": 800.003535
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "living_room"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "interior_axonometric",
+          "interior_perspective"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.138,
+        "triangle_count": 79999,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "A983D20716A01CEAA4F6D3BD3A1913C8987D2922912FBB277C7BB1963C0A3AB0"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-lounge-chair-bent-plywood-1",
+  "record_url": "/api/assets/gen-lounge-chair-bent-plywood-1.json"
+}

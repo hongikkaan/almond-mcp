@@ -1,0 +1,131 @@
+{
+  "id": "diagram-person-standing-1",
+  "name": "Person Standing",
+  "kind": "element",
+  "library": "drawing",
+  "category": "human_figure",
+  "variant": "line_art",
+  "format": "svg",
+  "tags": [
+    "person",
+    "human",
+    "silhouette",
+    "line_art",
+    "standing"
+  ],
+  "roles": [
+    "section",
+    "elevation"
+  ],
+  "dimensions_mm": {
+    "width": 600,
+    "depth": 10,
+    "height": 1800
+  },
+  "dimension_basis": "warehouse_model_estimate",
+  "available": false,
+  "model": null,
+  "preview": null,
+  "contract": null,
+  "license": "Source terms apply; not cleared for redistribution",
+  "source_url": "",
+  "publisher": "DiagramGen",
+  "provenance": null,
+  "metadata": {
+    "asset_id": "diagram-person-standing-1",
+    "brand": "Generic",
+    "source_class": "drawing_asset",
+    "catalogue_status": "community_drawing_asset",
+    "drawing_roles": [
+      "section",
+      "elevation"
+    ],
+    "geometry_mode": "2d_diagram",
+    "lod": "low",
+    "recommended_scales": [
+      "1:50",
+      "1:100",
+      "1:200"
+    ],
+    "default_line_class": "entourage",
+    "hidden_line_policy": "silhouette_only",
+    "category": "human_figure",
+    "series": "GENERIC",
+    "product": "Person Standing",
+    "variant": "line_art",
+    "dimensions_mm": {
+      "width": 600,
+      "depth": 10,
+      "height": 1800
+    },
+    "warehouse_title": "Person Standing SVG",
+    "warehouse_publisher": "DiagramGen",
+    "warehouse_status": "community",
+    "match_status": "generic_context_asset_scale_estimated",
+    "warehouse_url": "",
+    "file": "models/2D_human_standing.svg",
+    "sha256": "1DB45D9B5483647EC33D6DD943B7CD3406CDFDF7C78D1CDA557FD11BA0E72386",
+    "tags": [
+      "person",
+      "human",
+      "silhouette",
+      "line_art",
+      "standing"
+    ],
+    "geometry_source": {
+      "type": "downloaded_asset",
+      "format": "svg",
+      "generator": null,
+      "parameters": null
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "warehouse_model_estimate",
+      "geometry_bounds_status": "pending_rhino_measurement",
+      "local_aabb": {
+        "min": [
+          -300,
+          -5,
+          0
+        ],
+        "max": [
+          300,
+          5,
+          1800
+        ]
+      },
+      "footprint": [
+        [
+          -300,
+          -5
+        ],
+        [
+          300,
+          -5
+        ],
+        [
+          300,
+          5
+        ],
+        [
+          -300,
+          5
+        ]
+      ],
+      "clearance_mm": {
+        "front": 0,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "accessory"
+    }
+  },
+  "drawing": null,
+  "uri": "almond://repository/diagram-person-standing-1",
+  "record_url": "/api/assets/diagram-person-standing-1.json"
+}

@@ -1,0 +1,331 @@
+{
+  "id": "gen-desk-1",
+  "name": "Desk",
+  "kind": "model",
+  "library": "generated",
+  "category": "desk",
+  "variant": "generic writing desk, timber top, steel legs",
+  "format": "glb",
+  "tags": [
+    "desk",
+    "table",
+    "workstation",
+    "office",
+    "study",
+    "furniture"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "interior_axonometric",
+    "interior_perspective"
+  ],
+  "dimensions_mm": {
+    "width": 1306.1,
+    "depth": 655.6,
+    "height": 750.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-desk-1.glb",
+  "preview": "/files/generated/previews/gen-desk-1.png",
+  "contract": "/files/generated/models/gen-desk-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-desk-1",
+    "name": "Desk",
+    "model_file": "models/gen-desk-1.glb",
+    "model_sha256": "B02DE4245F24D78DE86516DDC6380676B384649ABE2190D75B65D691BDBE3933",
+    "contract_file": "models/gen-desk-1.almond.json",
+    "contract_sha256": "EDDEC65962739A6B98FD3AB50B633354D906F6817B4E449470616804451F825D",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A generic minimal writing desk with a plain rectangular light plywood top on four slim black steel legs, no drawers.",
+      "image_task_id": "01a09789-49cf-751a-91c2-e35703aadf86",
+      "image_model": "nano-banana",
+      "mesh_task_id": "01a0978f-411c-776c-b0dd-45ba52352c11",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-12",
+      "orientation_correction": null,
+      "scale_applied": 1000.0
+    },
+    "recorded_task_history": {
+      "image_model": "nano-banana",
+      "image_task_id": "01a09789-49cf-751a-91c2-e35703aadf86",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0978f-411c-776c-b0dd-45ba52352c11",
+      "generated_at": "2026-09-12"
+    },
+    "image_generation": {
+      "provider": "meshy",
+      "provider_basis": "catalogue_image_stage_tool",
+      "id": "01a09789-49cf-751a-91c2-e35703aadf86",
+      "id_type": "image_task_id",
+      "source_image_url_recorded": false,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-desk-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "interior_axonometric",
+      "interior_perspective"
+    ],
+    "geometry_mode": "3d_furniture",
+    "lod": "medium",
+    "category": "desk",
+    "series": "ALMOND-GEN",
+    "product": "Desk",
+    "variant": "generic writing desk, timber top, steel legs",
+    "dimensions_mm": {
+      "width": 1306.1,
+      "depth": 655.6,
+      "height": 750.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 1400,
+      "depth": 700,
+      "height": 750
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.067,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-desk-1.glb",
+    "contract_file": "models/gen-desk-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-desk-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-desk-1.almond.json",
+    "sha256": "B02DE4245F24D78DE86516DDC6380676B384649ABE2190D75B65D691BDBE3933",
+    "file_size_bytes": 236432,
+    "triangle_count": 3965,
+    "tags": [
+      "desk",
+      "table",
+      "workstation",
+      "office",
+      "study",
+      "furniture"
+    ],
+    "render_material_id": "wood-birch-ply",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A generic minimal writing desk with a plain rectangular light plywood top on four slim black steel legs, no drawers.",
+        "image_task_id": "01a09789-49cf-751a-91c2-e35703aadf86",
+        "image_model": "nano-banana",
+        "mesh_task_id": "01a0978f-411c-776c-b0dd-45ba52352c11",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-12",
+        "orientation_correction": null,
+        "scale_applied": 1000.0
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -653.05,
+          -327.8,
+          0.0
+        ],
+        "max": [
+          653.05,
+          327.8,
+          750.0
+        ]
+      },
+      "footprint": [
+        [
+          -653.05,
+          -327.8
+        ],
+        [
+          653.05,
+          -327.8
+        ],
+        [
+          653.05,
+          327.8
+        ],
+        [
+          -653.05,
+          327.8
+        ]
+      ],
+      "clearance_mm": {
+        "front": 900,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "primary"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-desk-1",
+      "library_id": "generated_assets",
+      "name": "Desk (generic writing desk, timber top, steel legs)",
+      "category": "desk",
+      "tags": [
+        "desk",
+        "table",
+        "workstation",
+        "office",
+        "study",
+        "furniture"
+      ],
+      "dimensions_mm": {
+        "width": 1306.1,
+        "depth": 655.6,
+        "height": 750.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 1400.0,
+        "depth": 700.0,
+        "height": 750.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -653.05,
+            -327.8,
+            0.0
+          ],
+          "max": [
+            653.05,
+            327.8,
+            750.0
+          ]
+        },
+        "footprint": [
+          [
+            -653.05,
+            -327.8
+          ],
+          [
+            653.05,
+            -327.8
+          ],
+          [
+            653.05,
+            327.8
+          ],
+          [
+            -653.05,
+            327.8
+          ]
+        ],
+        "clearance_mm": {
+          "front": 900,
+          "back": 0,
+          "left": 0,
+          "right": 0
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "primary"
+      },
+      "materials": [
+        {
+          "material_id": "wood-birch-ply",
+          "objects": [
+            "gen-desk-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A generic minimal writing desk with a plain rectangular light plywood top on four slim black steel legs, no drawers.",
+          "image_task_id": "01a09789-49cf-751a-91c2-e35703aadf86",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978f-411c-776c-b0dd-45ba52352c11",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 1000.0
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "office",
+          "bedroom"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "interior_axonometric",
+          "interior_perspective"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.067,
+        "triangle_count": 3965,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "EDDEC65962739A6B98FD3AB50B633354D906F6817B4E449470616804451F825D"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-desk-1",
+  "record_url": "/api/assets/gen-desk-1.json"
+}

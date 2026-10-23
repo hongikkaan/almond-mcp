@@ -1,0 +1,138 @@
+{
+  "id": "context-tree-chinese-elm-a708cff4",
+  "name": "Low-poly Chinese elm",
+  "kind": "element",
+  "library": "drawing",
+  "category": "tree",
+  "variant": "exterior deciduous tree",
+  "format": "skp",
+  "tags": [
+    "tree",
+    "landscape",
+    "exterior",
+    "vegetation",
+    "chinese elm",
+    "low poly"
+  ],
+  "roles": [
+    "site_plan",
+    "site_section",
+    "axonometric"
+  ],
+  "dimensions_mm": {
+    "width": 8000,
+    "depth": 8000,
+    "height": 12000
+  },
+  "dimension_basis": "warehouse_model_estimate",
+  "available": false,
+  "model": null,
+  "preview": null,
+  "contract": null,
+  "license": "Source terms apply; not cleared for redistribution",
+  "source_url": "https://3dwarehouse.sketchup.com/model/a708cff473b0f231f9e8cd846ef13776/Low-Poly-Chinese-Elm",
+  "publisher": "Nate",
+  "provenance": null,
+  "metadata": {
+    "asset_id": "context-tree-chinese-elm-a708cff4",
+    "brand": "Generic",
+    "source_class": "drawing_asset",
+    "catalogue_status": "community_drawing_asset",
+    "drawing_roles": [
+      "site_plan",
+      "site_section",
+      "axonometric"
+    ],
+    "geometry_mode": "3d_entourage",
+    "lod": "low",
+    "recommended_scales": [
+      "1:100",
+      "1:200",
+      "1:500"
+    ],
+    "default_line_class": "entourage",
+    "hidden_line_policy": "silhouette_only",
+    "category": "tree",
+    "series": "GENERIC",
+    "product": "Low-poly Chinese elm",
+    "variant": "exterior deciduous tree",
+    "dimensions_mm": {
+      "width": 8000,
+      "depth": 8000,
+      "height": 12000
+    },
+    "ikea_product_id": null,
+    "ikea_url": null,
+    "warehouse_title": "Low Poly Chinese Elm",
+    "warehouse_publisher": "Nate",
+    "warehouse_status": "community",
+    "match_status": "generic_context_asset_scale_estimated",
+    "warehouse_url": "https://3dwarehouse.sketchup.com/model/a708cff473b0f231f9e8cd846ef13776/Low-Poly-Chinese-Elm",
+    "file": "models/CONTEXT_chinese_elm_tree.skp",
+    "sha256": "18A9EB2F8E5956E18F7BC69A2C0C876EAE56565E49B678675614656E11AFECF5",
+    "tags": [
+      "tree",
+      "landscape",
+      "exterior",
+      "vegetation",
+      "chinese elm",
+      "low poly"
+    ],
+    "geometry_source": {
+      "type": "downloaded_asset",
+      "format": "skp",
+      "generator": null,
+      "parameters": null
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "ground",
+      "bounds_source": "warehouse_model_estimate",
+      "geometry_bounds_status": "pending_rhino_measurement",
+      "local_aabb": {
+        "min": [
+          -4000,
+          -4000,
+          0
+        ],
+        "max": [
+          4000,
+          4000,
+          12000
+        ]
+      },
+      "footprint": [
+        [
+          -4000,
+          -4000
+        ],
+        [
+          4000,
+          -4000
+        ],
+        [
+          4000,
+          4000
+        ],
+        [
+          -4000,
+          4000
+        ]
+      ],
+      "clearance_mm": {
+        "front": 1000,
+        "back": 1000,
+        "left": 1000,
+        "right": 1000
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "fixed"
+    },
+    "library_id": "drawing_assets"
+  },
+  "drawing": null,
+  "uri": "almond://repository/context-tree-chinese-elm-a708cff4",
+  "record_url": "/api/assets/context-tree-chinese-elm-a708cff4.json"
+}

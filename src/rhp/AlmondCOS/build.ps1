@@ -18,7 +18,7 @@ if(-not (Test-Path -LiteralPath $sdk)) {
     $sdk=$installed.Source
 }
 # CosHost resolves the shared Engine and COS data from this plugin directory.
-if(-not $OutputDirectory) { $OutputDirectory=Join-Path $root 'plugin-build' }
+if(-not $OutputDirectory) { $OutputDirectory=Join-Path $root 'plugin-runtime' }
 & $sdk build (Join-Path $root 'src\AlmondCOS.csproj') -c Release -o $OutputDirectory --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
 if($LASTEXITCODE) { throw 'AlmondCOS build failed.' }
 if($RefreshCatalog) {

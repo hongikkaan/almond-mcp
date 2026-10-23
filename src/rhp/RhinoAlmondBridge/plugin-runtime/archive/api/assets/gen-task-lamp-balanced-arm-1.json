@@ -1,0 +1,332 @@
+{
+  "id": "gen-task-lamp-balanced-arm-1",
+  "name": "Task lamp",
+  "kind": "model",
+  "library": "generated",
+  "category": "lighting",
+  "variant": "two-arm balanced desk lamp",
+  "format": "glb",
+  "tags": [
+    "desk lamp",
+    "task lamp",
+    "lighting",
+    "balanced arm",
+    "italian"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "interior_axonometric",
+    "interior_perspective"
+  ],
+  "dimensions_mm": {
+    "width": 321.4,
+    "depth": 115.9,
+    "height": 450.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-task-lamp-balanced-arm-1.glb",
+  "preview": "/files/generated/previews/gen-task-lamp-balanced-arm-1.png",
+  "contract": "/files/generated/models/gen-task-lamp-balanced-arm-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-task-lamp-balanced-arm-1",
+    "name": "Task lamp",
+    "model_file": "models/gen-task-lamp-balanced-arm-1.glb",
+    "model_sha256": "CAAC2A41AC48038D7BA89A37828D40F621F540780EE35FF6867E4C945B09E41F",
+    "contract_file": "models/gen-task-lamp-balanced-arm-1.almond.json",
+    "contract_sha256": "3E5B546333CBA8D7C435E06A38961F21A11C0C9EB1D3F75DBD123BCD16380F7F",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A desk task lamp with two slender polished aluminium arms joined by a balanced hinge with exposed springs and cables, a small round base, and a conical aluminium shade with a knurled swivel, 1980s Italian design, no branding.",
+      "image_task_id": null,
+      "image_model": "nano_banana",
+      "mesh_task_id": "01a0aa92-2a21-71f4-9798-7d07610f78ef",
+      "mesh_model": "meshy-7 ultra (untextured, 60k target polycount)",
+      "generated_at": "2026-09-16",
+      "orientation_correction": "rotated_90_about_vertical",
+      "scale_applied": 899.941195
+    },
+    "recorded_task_history": {
+      "image_provider": "higgsfield",
+      "image_model": "nano_banana",
+      "image_job_id": "a4941f59-8e5d-4c56-98b5-d51a863153b9",
+      "mesh_provider": "meshy",
+      "mesh_model": "meshy-7 ultra (untextured, 60k target polycount)",
+      "mesh_task_id": "01a0aa92-2a21-71f4-9798-7d07610f78ef",
+      "generated_at": "2026-09-16"
+    },
+    "image_generation": {
+      "provider": "higgsfield",
+      "provider_basis": "provenance",
+      "id": "a4941f59-8e5d-4c56-98b5-d51a863153b9",
+      "id_type": "image_job_id",
+      "source_image_url_recorded": true,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": "high_detail",
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-task-lamp-balanced-arm-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "interior_axonometric",
+      "interior_perspective"
+    ],
+    "geometry_mode": "3d_fixture",
+    "lod": "high",
+    "category": "lighting",
+    "series": "ALMOND-GEN",
+    "product": "Task lamp",
+    "variant": "two-arm balanced desk lamp",
+    "dimensions_mm": {
+      "width": 321.4,
+      "depth": 115.9,
+      "height": 450.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 1000,
+      "depth": 200,
+      "height": 450
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.679,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-task-lamp-balanced-arm-1.glb",
+    "contract_file": "models/gen-task-lamp-balanced-arm-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-task-lamp-balanced-arm-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-task-lamp-balanced-arm-1.almond.json",
+    "sha256": "CAAC2A41AC48038D7BA89A37828D40F621F540780EE35FF6867E4C945B09E41F",
+    "file_size_bytes": 1134852,
+    "triangle_count": 80000,
+    "tags": [
+      "desk lamp",
+      "task lamp",
+      "lighting",
+      "balanced arm",
+      "italian"
+    ],
+    "render_material_id": "aluminium-anodized",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A desk task lamp with two slender polished aluminium arms joined by a balanced hinge with exposed springs and cables, a small round base, and a conical aluminium shade with a knurled swivel, 1980s Italian design, no branding.",
+        "image_task_id": null,
+        "image_model": "nano_banana",
+        "mesh_task_id": "01a0aa92-2a21-71f4-9798-7d07610f78ef",
+        "mesh_model": "meshy-7 ultra (untextured, 60k target polycount)",
+        "generated_at": "2026-09-16",
+        "orientation_correction": "rotated_90_about_vertical",
+        "scale_applied": 899.941195
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "work_surface",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -160.7,
+          -57.95,
+          0.0
+        ],
+        "max": [
+          160.7,
+          57.95,
+          450.0
+        ]
+      },
+      "footprint": [
+        [
+          -160.7,
+          -57.95
+        ],
+        [
+          160.7,
+          -57.95
+        ],
+        [
+          160.7,
+          57.95
+        ],
+        [
+          -160.7,
+          57.95
+        ]
+      ],
+      "clearance_mm": {
+        "front": 0,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "accessory",
+      "mount_height_mm": 750
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-task-lamp-balanced-arm-1",
+      "library_id": "generated_assets",
+      "name": "Task lamp (two-arm balanced desk lamp)",
+      "category": "lighting",
+      "tags": [
+        "desk lamp",
+        "task lamp",
+        "lighting",
+        "balanced arm",
+        "italian"
+      ],
+      "dimensions_mm": {
+        "width": 321.4,
+        "depth": 115.9,
+        "height": 450.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 1000.0,
+        "depth": 200.0,
+        "height": 450.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "work_surface",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -160.7,
+            -57.95,
+            0.0
+          ],
+          "max": [
+            160.7,
+            57.95,
+            450.0
+          ]
+        },
+        "footprint": [
+          [
+            -160.7,
+            -57.95
+          ],
+          [
+            160.7,
+            -57.95
+          ],
+          [
+            160.7,
+            57.95
+          ],
+          [
+            -160.7,
+            57.95
+          ]
+        ],
+        "clearance_mm": {
+          "front": 0,
+          "back": 0,
+          "left": 0,
+          "right": 0
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "accessory",
+        "mount_height_mm": 750
+      },
+      "materials": [
+        {
+          "material_id": "aluminium-anodized",
+          "objects": [
+            "gen-task-lamp-balanced-arm-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A desk task lamp with two slender polished aluminium arms joined by a balanced hinge with exposed springs and cables, a small round base, and a conical aluminium shade with a knurled swivel, 1980s Italian design, no branding.",
+          "image_task_id": null,
+          "image_model": "nano_banana",
+          "mesh_task_id": "01a0aa92-2a21-71f4-9798-7d07610f78ef",
+          "mesh_model": "meshy-7 ultra (untextured, 60k target polycount)",
+          "generated_at": "2026-09-16",
+          "orientation_correction": "rotated_90_about_vertical",
+          "scale_applied": 899.941195
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "interior"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "interior_axonometric",
+          "interior_perspective"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.679,
+        "triangle_count": 80000,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product.",
+          "Measured width/depth differs from the prompt target by more than 25%."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "3E5B546333CBA8D7C435E06A38961F21A11C0C9EB1D3F75DBD123BCD16380F7F"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-task-lamp-balanced-arm-1",
+  "record_url": "/api/assets/gen-task-lamp-balanced-arm-1.json"
+}

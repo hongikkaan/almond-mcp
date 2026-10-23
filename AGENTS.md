@@ -1,5 +1,45 @@
 # Personal Almond fork
 
+## Explain and deliver the complete user workflow
+
+- The user is not a developer. Explain the complete practical sequence before
+  abbreviating it; do not make the user infer missing steps or correct the workflow.
+- Distinguish the development worktree, GitHub main, everyday checkout, compiled
+  RHP/dependencies, Rhino registration, and the RHP already loaded in a process.
+  Give the actual affected folder/file and the user's resulting behavior.
+- The intended delivery is: develop and build in the worktree, commit source and
+  RHP together, push, open a PR, merge, then update the everyday main with
+  `git pull --ff-only` while Rhino is closed and start Rhino. Each checkout has
+  its own runtime files; Git transfers them through the commit, not by copying
+  from a developer's absolute worktree path on the user's next launch.
+- `fetch` only updates remote-tracking information. Never say it updates the
+  everyday working files or the running Rhino. Explain `pull --ff-only` as
+  fetching and fast-forwarding the current branch and its tracked working files.
+- Never use "updated", "applied", "configured", or "ready" without identifying
+  what changed and what was actually verified. Do not present copied/registered
+  files as a successful live Rhino load, or local commits as GitHub publication.
+- Before claiming a build/restart is required, inspect the actual startup code,
+  committed artifacts, registration and loaded modules. State unknowns explicitly.
+- Disclose code edits as code edits: name the affected entry point/script and
+  its purpose. Do not describe installation/verification code as "settings only".
+- When asked to finish setup before replying, suppress routine narration. Answer
+  direct questions plainly and report material blockers promptly. Do not substitute
+  repeated explanations or apologies for completing the authorized work.
+
+## Required runnable delivery
+
+The repository must include a ready-to-load RHP and its dependencies, not only
+source. Ship Bridge and COS under their fixed `src/rhp/*/plugin-runtime` paths.
+When changing RHP/native C# or packaged UI, build the affected RHPs, include the
+updated runtime files in the same commit, and record/check their hashes with
+`python tools/verify_runtime.py --record` and `python tools/verify_runtime.py`.
+Never deliver a source-only change that requires the everyday user to build,
+copy binaries, or edit registration after pulling. Keep Bridge/COS Engine DLLs
+identical. Test the registered runtime before reporting it ready to use.
+`tools/install_runtime.ps1` registers the fixed paths once; later `pull --ff-only`
+updates those same executable files. Pull/build only while Rhino is closed.
+Development outputs outside the committed `plugin-runtime` folders stay ignored.
+
 ## Layout and ownership
 
 Read `SPEC.md` for the structure and `LOCAL_SETUP.md` for execution/build paths.
@@ -41,9 +81,9 @@ One editable environment lives at `src/engine/.venv`, reproduced by `uv.lock`.
 Normal startup never syncs dependencies. Regenerate the COS catalog after source
 path/source changes and retain its version, source-fingerprint and schema checks.
 Build the integrated RHP with `src/rhp/build.ps1`; its output and dependencies live
-under `src/rhp/RhinoAlmondBridge/plugin-build`. Keep this depth for the shared Engine
+under `src/rhp/RhinoAlmondBridge/plugin-runtime`. Keep this depth for the shared Engine
 path. It targets .NET 8 and the installed Rhino 8 SDK (verified with 8.34).
-COS keeps its separate `src/rhp/AlmondCOS/plugin-build` output.
+COS keeps its separate `src/rhp/AlmondCOS/plugin-runtime` output.
 The optional SDK is ignored at `src/rhp/RhinoTerminal/data/sdk`.
 
 Preserve existing AppData libraries and explicit `RHINO_MCP_*_DIR` overrides.
@@ -64,7 +104,7 @@ Undo backups: the source fix is in Git and the installed RHP is separate.
 ## Verification and changes
 
 Tests live in root `tests/engine`, `tests/mcp`, `tests/cos`, `tests/rhp`.
-Keep source, tests, locks, licenses and useful docs. Exclude venvs, SDKs, binaries,
+Keep source, tests, locks, licenses and useful docs. Exclude venvs, SDKs, unshipped build outputs,
 local config, sessions, user models and logs. Keep asset contracts/vendor hashes
 and `.gitattributes` aligned when moving files. Preserve unrelated user changes.
 

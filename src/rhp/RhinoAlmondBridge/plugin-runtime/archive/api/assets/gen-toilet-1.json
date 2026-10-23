@@ -1,0 +1,324 @@
+{
+  "id": "gen-toilet-1",
+  "name": "Toilet",
+  "kind": "model",
+  "library": "generated",
+  "category": "sanitary",
+  "variant": "close-coupled floor mounted",
+  "format": "glb",
+  "tags": [
+    "toilet",
+    "wc",
+    "bathroom",
+    "sanitary",
+    "fixture"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "axonometric"
+  ],
+  "dimensions_mm": {
+    "width": 448.4,
+    "depth": 670.3,
+    "height": 800.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-toilet-1.glb",
+  "preview": "/files/generated/previews/gen-toilet-1.png",
+  "contract": "/files/generated/models/gen-toilet-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-toilet-1",
+    "name": "Toilet",
+    "model_file": "models/gen-toilet-1.glb",
+    "model_sha256": "4619E273B07329F33F200F9593A7D1FB8580DB41C64B60FF40E7FC1723A0FB1B",
+    "contract_file": "models/gen-toilet-1.almond.json",
+    "contract_sha256": "3B8EB2CA52866B8F29DF6DC06EB8BDFC38D9957D4ADF1E091986ED36AB114F42",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A close-coupled floor-mounted white ceramic toilet with cistern and closed seat lid, plain modern design.",
+      "image_task_id": "01a09788-bf8b-74b2-be55-75e578e73068",
+      "image_model": "nano-banana",
+      "mesh_task_id": "01a0978e-b787-7347-afc4-29e5a6b44b90",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-12",
+      "orientation_correction": null,
+      "scale_applied": 999.999985
+    },
+    "recorded_task_history": {
+      "image_model": "nano-banana",
+      "image_task_id": "01a09788-bf8b-74b2-be55-75e578e73068",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0978e-b787-7347-afc4-29e5a6b44b90",
+      "generated_at": "2026-09-12"
+    },
+    "image_generation": {
+      "provider": "meshy",
+      "provider_basis": "catalogue_image_stage_tool",
+      "id": "01a09788-bf8b-74b2-be55-75e578e73068",
+      "id_type": "image_task_id",
+      "source_image_url_recorded": false,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-toilet-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "axonometric"
+    ],
+    "geometry_mode": "3d_fixture",
+    "lod": "medium",
+    "category": "sanitary",
+    "series": "ALMOND-GEN",
+    "product": "Toilet",
+    "variant": "close-coupled floor mounted",
+    "dimensions_mm": {
+      "width": 448.4,
+      "depth": 670.3,
+      "height": 800.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 380,
+      "depth": 700,
+      "height": 800
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.18,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-toilet-1.glb",
+    "contract_file": "models/gen-toilet-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-toilet-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-toilet-1.almond.json",
+    "sha256": "4619E273B07329F33F200F9593A7D1FB8580DB41C64B60FF40E7FC1723A0FB1B",
+    "file_size_bytes": 306120,
+    "triangle_count": 4216,
+    "tags": [
+      "toilet",
+      "wc",
+      "bathroom",
+      "sanitary",
+      "fixture"
+    ],
+    "render_material_id": "ceramic-teal",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A close-coupled floor-mounted white ceramic toilet with cistern and closed seat lid, plain modern design.",
+        "image_task_id": "01a09788-bf8b-74b2-be55-75e578e73068",
+        "image_model": "nano-banana",
+        "mesh_task_id": "01a0978e-b787-7347-afc4-29e5a6b44b90",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-12",
+        "orientation_correction": null,
+        "scale_applied": 999.999985
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -224.2,
+          -335.15,
+          0.0
+        ],
+        "max": [
+          224.2,
+          335.15,
+          800.0
+        ]
+      },
+      "footprint": [
+        [
+          -224.2,
+          -335.15
+        ],
+        [
+          224.2,
+          -335.15
+        ],
+        [
+          224.2,
+          335.15
+        ],
+        [
+          -224.2,
+          335.15
+        ]
+      ],
+      "clearance_mm": {
+        "front": 600,
+        "back": 0,
+        "left": 200,
+        "right": 200
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "fixed"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-toilet-1",
+      "library_id": "generated_assets",
+      "name": "Toilet (close-coupled floor mounted)",
+      "category": "sanitary",
+      "tags": [
+        "toilet",
+        "wc",
+        "bathroom",
+        "sanitary",
+        "fixture"
+      ],
+      "dimensions_mm": {
+        "width": 448.4,
+        "depth": 670.3,
+        "height": 800.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 380.0,
+        "depth": 700.0,
+        "height": 800.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -224.2,
+            -335.15,
+            0.0
+          ],
+          "max": [
+            224.2,
+            335.15,
+            800.0
+          ]
+        },
+        "footprint": [
+          [
+            -224.2,
+            -335.15
+          ],
+          [
+            224.2,
+            -335.15
+          ],
+          [
+            224.2,
+            335.15
+          ],
+          [
+            -224.2,
+            335.15
+          ]
+        ],
+        "clearance_mm": {
+          "front": 600,
+          "back": 0,
+          "left": 200,
+          "right": 200
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "fixed"
+      },
+      "materials": [
+        {
+          "material_id": "ceramic-teal",
+          "objects": [
+            "gen-toilet-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A close-coupled floor-mounted white ceramic toilet with cistern and closed seat lid, plain modern design.",
+          "image_task_id": "01a09788-bf8b-74b2-be55-75e578e73068",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978e-b787-7347-afc4-29e5a6b44b90",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 999.999985
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "bathroom"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "axonometric"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.18,
+        "triangle_count": 4216,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "3B8EB2CA52866B8F29DF6DC06EB8BDFC38D9957D4ADF1E091986ED36AB114F42"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-toilet-1",
+  "record_url": "/api/assets/gen-toilet-1.json"
+}

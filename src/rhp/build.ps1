@@ -1,7 +1,7 @@
 # Build only; no Rhino, Codex, package registration, or global PATH changes.
 [CmdletBinding()]
 param(
-    [string]$OutputDirectory = 'RhinoAlmondBridge\plugin-build',
+    [string]$OutputDirectory = 'RhinoAlmondBridge\plugin-runtime',
     [string]$PythonExecutable = ''
 )
 $ErrorActionPreference='Stop'

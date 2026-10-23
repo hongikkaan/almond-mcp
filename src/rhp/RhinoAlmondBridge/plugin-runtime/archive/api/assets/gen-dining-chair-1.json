@@ -1,0 +1,324 @@
+{
+  "id": "gen-dining-chair-1",
+  "name": "Dining chair",
+  "kind": "model",
+  "library": "generated",
+  "category": "seating",
+  "variant": "generic timber, armless",
+  "format": "glb",
+  "tags": [
+    "chair",
+    "dining",
+    "seating",
+    "furniture"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "interior_axonometric",
+    "interior_perspective"
+  ],
+  "dimensions_mm": {
+    "width": 462.3,
+    "depth": 566.0,
+    "height": 900.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-dining-chair-1.glb",
+  "preview": "/files/generated/previews/gen-dining-chair-1.png",
+  "contract": "/files/generated/models/gen-dining-chair-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-dining-chair-1",
+    "name": "Dining chair",
+    "model_file": "models/gen-dining-chair-1.glb",
+    "model_sha256": "0BBDCDCB7F1889F9C92EB4B1858F7A73AC03C0FD3E27520A57DCA39A21B6A7ED",
+    "contract_file": "models/gen-dining-chair-1.almond.json",
+    "contract_sha256": "4ABC506B5A4DBC2EBD268931D7D8D99015D098FF605C709639ABEDF8F66FD664",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A generic armless timber dining chair with four straight legs, a flat seat and a simple slatted backrest, plain light oak.",
+      "image_task_id": "01a09789-2b97-72fd-8906-ed90e2d6402d",
+      "image_model": "nano-banana",
+      "mesh_task_id": "01a0978f-2694-77ef-92e9-19a4597946d2",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-12",
+      "orientation_correction": null,
+      "scale_applied": 1000.000026
+    },
+    "recorded_task_history": {
+      "image_model": "nano-banana",
+      "image_task_id": "01a09789-2b97-72fd-8906-ed90e2d6402d",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0978f-2694-77ef-92e9-19a4597946d2",
+      "generated_at": "2026-09-12"
+    },
+    "image_generation": {
+      "provider": "meshy",
+      "provider_basis": "catalogue_image_stage_tool",
+      "id": "01a09789-2b97-72fd-8906-ed90e2d6402d",
+      "id_type": "image_task_id",
+      "source_image_url_recorded": false,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-dining-chair-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "interior_axonometric",
+      "interior_perspective"
+    ],
+    "geometry_mode": "3d_furniture",
+    "lod": "medium",
+    "category": "seating",
+    "series": "ALMOND-GEN",
+    "product": "Dining chair",
+    "variant": "generic timber, armless",
+    "dimensions_mm": {
+      "width": 462.3,
+      "depth": 566.0,
+      "height": 900.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 450,
+      "depth": 520,
+      "height": 900
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.088,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-dining-chair-1.glb",
+    "contract_file": "models/gen-dining-chair-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-dining-chair-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-dining-chair-1.almond.json",
+    "sha256": "0BBDCDCB7F1889F9C92EB4B1858F7A73AC03C0FD3E27520A57DCA39A21B6A7ED",
+    "file_size_bytes": 283244,
+    "triangle_count": 4337,
+    "tags": [
+      "chair",
+      "dining",
+      "seating",
+      "furniture"
+    ],
+    "render_material_id": "wood-oak",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A generic armless timber dining chair with four straight legs, a flat seat and a simple slatted backrest, plain light oak.",
+        "image_task_id": "01a09789-2b97-72fd-8906-ed90e2d6402d",
+        "image_model": "nano-banana",
+        "mesh_task_id": "01a0978f-2694-77ef-92e9-19a4597946d2",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-12",
+        "orientation_correction": null,
+        "scale_applied": 1000.000026
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -231.15,
+          -283.0,
+          0.0
+        ],
+        "max": [
+          231.15,
+          283.0,
+          900.0
+        ]
+      },
+      "footprint": [
+        [
+          -231.15,
+          -283.0
+        ],
+        [
+          231.15,
+          -283.0
+        ],
+        [
+          231.15,
+          283.0
+        ],
+        [
+          -231.15,
+          283.0
+        ]
+      ],
+      "clearance_mm": {
+        "front": 0,
+        "back": 500,
+        "left": 100,
+        "right": 100
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "secondary"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-dining-chair-1",
+      "library_id": "generated_assets",
+      "name": "Dining chair (generic timber, armless)",
+      "category": "seating",
+      "tags": [
+        "chair",
+        "dining",
+        "seating",
+        "furniture"
+      ],
+      "dimensions_mm": {
+        "width": 462.3,
+        "depth": 566.0,
+        "height": 900.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 450.0,
+        "depth": 520.0,
+        "height": 900.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -231.15,
+            -283.0,
+            0.0
+          ],
+          "max": [
+            231.15,
+            283.0,
+            900.0
+          ]
+        },
+        "footprint": [
+          [
+            -231.15,
+            -283.0
+          ],
+          [
+            231.15,
+            -283.0
+          ],
+          [
+            231.15,
+            283.0
+          ],
+          [
+            -231.15,
+            283.0
+          ]
+        ],
+        "clearance_mm": {
+          "front": 0,
+          "back": 500,
+          "left": 100,
+          "right": 100
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "secondary"
+      },
+      "materials": [
+        {
+          "material_id": "wood-oak",
+          "objects": [
+            "gen-dining-chair-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A generic armless timber dining chair with four straight legs, a flat seat and a simple slatted backrest, plain light oak.",
+          "image_task_id": "01a09789-2b97-72fd-8906-ed90e2d6402d",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978f-2694-77ef-92e9-19a4597946d2",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 1000.000026
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "dining_room"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "interior_axonometric",
+          "interior_perspective"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.088,
+        "triangle_count": 4337,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "4ABC506B5A4DBC2EBD268931D7D8D99015D098FF605C709639ABEDF8F66FD664"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-dining-chair-1",
+  "record_url": "/api/assets/gen-dining-chair-1.json"
+}
