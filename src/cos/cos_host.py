@@ -505,7 +505,12 @@ async def serve(catalog: dict, data: Path = ROOT / "data"):
     async def on_call_tool(ctx, params):
         return await broker.call(params.name, params.arguments or {})
 
-    server = Server("AlmondCOS", version=VERSION, instructions=GUIDANCE,
+    # The worker's initialize instructions do not reach this host's client.
+    server = Server("AlmondCOS", version=VERSION, instructions=(GUIDANCE + " " +
+                    "Before inspecting or editing existing geometry, call almond_cos_get_rhino_context. "
+                    "Use almond_cos_get_rhino_viewport_image when the current view matters. "
+                    "Inspect relevant objects and validate proposed geometry against the task before replacing originals. "
+                    "Execution success and a viewport image do not establish geometric correctness."),
                     get_tool_input_schema=schemas.get,
                     on_list_tools=on_list_tools, on_call_tool=on_call_tool)
     try:

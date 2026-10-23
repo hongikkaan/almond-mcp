@@ -1,6 +1,6 @@
 """Coordinate shared SQLite work and per-call files through public MCP middleware.
 
-The two Rhino-only tools may run in parallel in different workers. Operations that can touch SQLite, including
+The reviewed Rhino-only tools may run in parallel in different workers. Operations that can touch SQLite, including
 initial indexing, hold one OS file lease through the connection close/checkpoint.
 """
 from __future__ import annotations
@@ -25,7 +25,10 @@ from native_request import RequestBatch
 
 # These reviewed tools use the native bridge and files, without opening SQLite.
 # All other upstream tools conservatively share the DB gate.
-NATIVE_ONLY_TOOLS = frozenset({"execute_rhino_script", "capture_conditioning_pass"})
+NATIVE_ONLY_TOOLS = frozenset({
+    "execute_rhino_script", "capture_conditioning_pass",
+    "get_rhino_context", "get_rhino_viewport_image",
+})
 BINDING_TOOLS = frozenset({"almond_project_info", "almond_cos_worker_state"})
 
 

@@ -2,11 +2,18 @@
 
 갱신일: 2026-10-22 (실제 Rhino 검증 종료 12:55 UTC, 이후 기본 pytest 리뷰 수정 검증)
 
-## 현재 상태
+2026-10-23 정합성 확인: 이 문서는 단일 RHP 통합 당시의 실행 기록이다.
+후속 문서·뷰포트 조회, C# 결과 반환, COS 실제 연결·이미지 수신은
+[기능 계약](native-observation.md)과 [후속 검증 기록](native-observation-verification.md)을 따른다.
+아래 PID·등록 경로·산출물·승인 대기는 기록 시점의 상태이며 현재 상태나 새 작업 지시가 아니다.
+[PR #2](https://github.com/hongikkaan/almond-mcp/pull/2)는 2026-10-22 22:32 KST에
+`e921f298c0e4e788d186d5dd943fe9e857c05fa7`로 병합됐다.
+
+## 통합 완료 당시 상태
 
 Bridge·Structural_Analysis·Asset_Panel·RhinoTerminal의 단일 RHP 통합과 로컬 등록, 실제 Rhino 검증을 완료했다. 이 문서는 구현 전 인계문서를 대체한다. COS 소스와 연결은 이번 범위에서 제외했고 Engine과 MCP는 분리 상태로 유지했다.
 
-PR #2의 기존 리뷰 수정은 `74488900f11b78fe95c4e5e841fef15efd1e8c19`로 먼저 push했다. 이번 통합 커밋도 같은 PR의 head `codex/repository-layout`에 정상 fast-forward로 반영한다. `main` 직접 push나 upstream Undo PR 변경은 하지 않는다. PR 병합과 Slack 전송은 자동 승인 검토가 직접 승인을 요구하며 거절해 아직 실행하지 못했다.
+PR #2의 기존 리뷰 수정은 `74488900f11b78fe95c4e5e841fef15efd1e8c19`로 먼저 push했다. 당시 통합 커밋도 같은 PR의 head `codex/repository-layout`에 정상 fast-forward로 반영하는 계획이었다. `main` 직접 push나 upstream Undo PR 변경은 범위에 없었다. 아래 승인 대기는 당시 기록이며, 이후 PR #2 병합은 위에서 별도로 확인했다.
 
 ## 구현과 보존 계약
 
@@ -94,8 +101,9 @@ Rhino 8.34의 floating Almond 패널은 Structure 전환 후 창이 숨는 상�
 ./tools/build_yak.ps1 -PythonExecutable "$PWD/src/engine/.venv/Scripts/python.exe" -DotnetExecutable "$PWD/src/rhp/RhinoTerminal/data/sdk/dotnet.exe"
 ```
 
-최종 패키지: `dist/yak/almondbridge-0.7.0-rc.2-rh8_34-win.yak` (49.67 MB).
+당시 검증한 패키지: `dist/yak/almondbridge-0.7.0-rc.2-rh8_34-win.yak` (49.67 MB).
 SHA-256: `3c3508302eb5154faff75bf1388419c0708cc0fa560c3ea48c3f3e812419a605`.
+이 재생성 가능한 패키지는 후속 로컬 정리에서 제거됐다. 위 빌드 명령과 검증 기록을 재현 기준으로 사용한다.
 
 `tools/build_yak.ps1`은 실제 참조 SDK에 맞는 Rhino 태그와 net8 의존성·라이선스를 검사한다. `tools/prepare_release.ps1`은 새 staging Yak만 사용하고 이전 release 출력이 남아 있으면 중단한다. 전체 prepare_release pipeline은 실행하지 않았고, 변경된 기본 pytest 단계와 Yak 빌드·검증을 각각 실행했다.
 
@@ -109,7 +117,7 @@ SHA-256: `3c3508302eb5154faff75bf1388419c0708cc0fa560c3ea48c3f3e812419a605`.
 
 RHP·Yak·SDK·venv·검증 모델·로그는 Git에 넣지 않는다. 저작권·vendor·asset 고지와 manifest/hash는 유지한다. 자세한 빌드·실행 절차는 [LOCAL_SETUP](../LOCAL_SETUP.md), 계약은 [SPEC](../SPEC.md)을 따른다.
 
-## Git와 남은 외부 작업
+## 당시 Git와 외부 작업 인계
 
 - Child repo: `C:\TOOL\Rhino\mcp\almond-mcp`, origin `git@github.com:hongikkaan/almond-mcp.git`.
 - PR: https://github.com/hongikkaan/almond-mcp/pull/2, base `main`, head `codex/repository-layout`.
@@ -118,8 +126,8 @@ RHP·Yak·SDK·venv·검증 모델·로그는 Git에 넣지 않는다. 저작권
 - parent의 기존 `01_WorkFlow/02_Agent_Skill/rhino-almond/tests/` 삭제 5개와 `FloorPlan_made_using_Bonsai.png`는 stage하거나 변경하지 않는다.
 - upstream `codex/undo-recovery` / Undo PR #39는 변경하지 않는다.
 
-자동 승인 검토가 거절한 미완료 작업은 **PR #2의 main 병합**과 **Slack 최종 보고 전송**이다. 도구의 보충 문맥에 전달된 요청을 직접 승인으로 인정하지 않았고, default branch 병합과 메시지 전송에 대해 명시적 확인을 요구했다. 다른 API·CLI로 우회하지 않는다. 사용자에게 이 두 동작에 대한 직접 승인을 받은 후 최종 PR head와 상태를 다시 확인해 처리한다.
+당시 자동 승인 검토가 거절한 작업은 **PR #2의 main 병합**과 **Slack 최종 보고 전송**이었다. 도구의 보충 문맥에 전달된 요청을 직접 승인으로 인정하지 않았고 명시적 확인을 요구했다. 이는 과거 차단 기록이다. PR #2는 이후 병합됐으며 현재 작업의 승인은 현재 세션 지시를 따른다.
 
-Slack 보고 대상은 `#almond` (`C0CA8BC1SS1`), thread `1792650597.726109`, 멘션 `<@U0C6K22KK0A>`이며 기존 스레드 https://hih-z6k5791.slack.com/archives/C0CA8BC1SS1/p1792650597726109 이다. 이번 작업의 Slack 보고는 아직 전송되지 않았다.
+당시 Slack 보고 대상은 `#almond` (`C0CA8BC1SS1`), thread `1792650597.726109`, 멘션 `<@U0C6K22KK0A>`였으며 [당시 스레드](https://hih-z6k5791.slack.com/archives/C0CA8BC1SS1/p1792650597726109)에 관한 전송 대기 기록이었다. 후속 관측·반환 작업과 PR #3의 완료 보고는 [별도 작업 스레드](https://hih-z6k5791.slack.com/archives/C0CA8BC1SS1/p1792679154884469)에 전송됐다.
 
 Ponytail은 연결된 플러그인 검색에서 찾지 못해 Core/Desktop으로 작업했다. 복잡하지 않은 검토는 요청한 medium worker에, 핵심 통합 검토는 default Pro worker에 맡겼다. worker의 파일 도구 호출 일부가 장시간 중단돼 실제 변경과 검증은 root가 결과를 직접 확인했다.

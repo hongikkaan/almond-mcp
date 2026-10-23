@@ -227,6 +227,12 @@ namespace RhinoAlmondBridge
 
                 switch (requestType.ToLower())
                 {
+                    case "get_rhino_context":
+                        return DocumentObservation.HandleContext(jobj);
+
+                    case "get_rhino_viewport_image":
+                        return DocumentObservation.HandleViewportImage(jobj);
+
                     case "place_drawing_asset":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Placing indexed drawing asset...");
                         var drawingAssetRequest = jobj.ToObject<FurniturePlacementRequest>();

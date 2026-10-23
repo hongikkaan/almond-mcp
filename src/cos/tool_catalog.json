@@ -8,11 +8,11 @@
   "sources": {
     "project": "477e3fba58515bbe6fbc1cc777cfe814b77a936f15bcecec712eda5221a90329",
     "entry": "0e21319767f94bc721910efaea3436ef41a5d66a2f753c301b2bbf5e869a0aef",
-    "shared_store": "f88e1a570332024ea51e1077dab7d2f02485e469df5ead4d57b74300955187f3",
+    "shared_store": "8c64fa1684d243ee8d3467bd00dc31614eb0c32dea463b148de74485ce6141e4",
     "native_request": "a49132b8745d8c38ea4a1417c22771b2c8a6b3be88c19f950ae816a3157b29b9",
     "compat_almond": "ba7f0023e259bca960f26a3a5bfbe6a102d84572360a93c90476e59ed400da25",
     "library_paths": "68aa94e41941fa67dcbabc5d0d1313e5cf036bf4dfeb0e33e5fb9f5c25fd3ec0",
-    "server": "704432b904ffdd630bf76e873226de475ffd0c79657a89c9eedede42dbb950c2"
+    "server": "316e95fab05e1513aacccf3a49c4b1cf6cae3adf18be814ef4f07a3c1b0e8c2a"
   },
   "tools": [
     {
@@ -160,7 +160,7 @@
     {
       "name": "capture_conditioning_pass",
       "title": "Capture Conditioning Pass",
-      "description": "Capture RGB + edge (line drawing) + depth frames along a camera path from the LIVE Rhino\ndocument, as conditioning for geometry-guided video generation (Wan VACE / ControlNet).\nDepth and edges are read from the model itself, not estimated, and every frame's camera is\nrecorded so the generated video can be re-projected against the source geometry.",
+      "description": "Capture RGB + edge (line drawing) + depth frames along a camera path from the LIVE Rhino\ndocument, as conditioning for geometry-guided video generation (Wan VACE / ControlNet).\nDepth and edges are read from the model itself, not estimated, and every frame's camera is\nrecorded so the generated video can be re-projected against the source geometry.\n\nThe shot JSON describes a camera path in model units, usually mm, using one of these forms.\n  {\"type\":\"orbit\",\"center\":[x,y,z],\"radius\":r,\"height\":z,\"frames\":81,\n   \"start_deg\":0,\"end_deg\":90,\"lens\":35,\"target_height\":z}\n  {\"type\":\"track\",\"cam0\":[x,y,z],\"cam1\":[..],\"target0\":[..],\"target1\":[..],\"frames\":81,\"lens\":35}\n  {\"type\":\"keyframes\",\"keyframes\":[{\"camera\":[..],\"target\":[..],\"lens\":35}, ...],\"frames\":81}\nUse 4n+1 frames for Wan models (17, 33, 49, 65, 81). 81 frames = 5 s at 16 fps.\n\nWrites to out_dir: rgb/ edge/ depth/ (f0000.png ...), rgb.mp4 / edge.mp4 / depth.mp4\n(when ffmpeg is available), camera.json (per-frame camera receipt, schema building0.camera/0.1),\nzrange.csv (per-frame depth range), doc.json, summary.json. Depth is grayscale with near = bright\n(Rhino's native convention, what Wan/ControlNet depth expects); set invert_depth for near = dark.\nCamera restoration is best effort after the pass. Returns the summary JSON.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -440,13 +440,13 @@
     {
       "name": "execute_rhino_script",
       "title": "Execute Rhino Script",
-      "description": "Sends a C# RhinoCommon script to the Rhino 3D Bridge for compilation and execution.\nThe script is compiled by Roslyn inside Rhino and executed natively as JIT-compiled C#.\n\nThe script MUST define a class with a static Run method that returns created GUIDs:\n\n    public class Script\n    {\n        public static List<Guid> Run(RhinoDoc doc)\n        {\n            var guids = new List<Guid>();\n            // Use doc.Objects.AddSphere(), doc.Objects.AddBrep(), etc.\n            // Append each GUID: guids.Add(guid);\n            return guids;\n        }\n    }\n\nAvailable namespaces (auto-imported if not present):\n    System, System.Collections.Generic, System.Linq,\n    Rhino, Rhino.Geometry, Rhino.DocObjects",
+      "description": "Sends a C# RhinoCommon script to the Rhino 3D Bridge for compilation and execution.\nThe script is compiled by Roslyn inside Rhino and executed natively as JIT-compiled C#.\n\nThe script MUST define a class with a public static Run(RhinoDoc doc) method.\nThe existing modelling form returns a List<Guid>:\n\n    public class Script\n    {\n        public static List<Guid> Run(RhinoDoc doc)\n        {\n            var guids = new List<Guid>();\n            // Use doc.Objects.AddSphere(), doc.Objects.AddBrep(), etc.\n            // Append each GUID: guids.Add(guid);\n            return guids;\n        }\n    }\n\nFor numeric or inspection results, Run may instead return a JSON-safe object, for example:\n\n    public static object Run(RhinoDoc doc)\n    {\n        return new { object_count = doc.Objects.Count };\n    }\n\nSupported results are finite scalars, anonymous objects, arrays/lists and string-keyed\ndictionaries of supported values, limited to 16 container levels and 64 KiB of compact\nUTF-8 JSON. Void/null and List<Guid> retain their existing behaviour. A result_error\nmeans the result could not be represented; already executed model changes are not\nrolled back for that reason. Inspect the current state and do not automatically retry.\nThe guids field contains the script's declared IDs, not a complete change history.\nThis executor can modify layers and create dimensions even for an inspection script;\nuse get_rhino_context for a fixed read-only document snapshot. Execution success does\nnot validate the geometry's design intent. Check meaningful invariants before Replace/Delete.\n\nAvailable namespaces (auto-imported if not present):\n    System, System.Collections.Generic, System.Linq,\n    Rhino, Rhino.Geometry, Rhino.DocObjects",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "script": {
             "type": "string",
-            "description": "C# source code containing a class with public static List<Guid> Run(RhinoDoc doc)."
+            "description": "C# source code containing a class with public static Run(RhinoDoc doc)."
           }
         },
         "required": [
@@ -1105,6 +1105,73 @@
         ],
         "type": "object",
         "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_rhino_context",
+      "title": "Get Rhino Context",
+      "description": "Read the LIVE bound Rhino document, selection and current viewport on the UI thread.\n\nIncludes document identity/path, units/tolerances, object/layer counts, a bounded\nselection summary and camera/display metadata. This query does not create layers,\ngeometry, dimensions or an Undo record. Unavailable values are null with warnings.\nCounts and the current view are context, not a geometric or visibility validation.\nUse this snapshot before focused object inspection or editing an existing model.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "selection_limit": {
+            "default": 50,
+            "type": "integer",
+            "description": "Maximum selected object summaries, from 0 to 200; total/truncated are still reported."
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_rhino_viewport_image",
+      "title": "Get Rhino Viewport Image",
+      "description": "Return the LIVE current Rhino viewport as a JPEG image with document/view metadata.\n\nCaptures the current view without changing its camera, projection, display mode,\nclipping, selection or Undo history. The image preserves the viewport aspect ratio\nwithin the requested bounds; it does not zoom to fit or prove geometric correctness.\nA missing view, failed capture or oversized image is an explicit error, never a stale\nfile. Use capture_conditioning_pass for deliberate camera paths and multiple passes.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_width": {
+            "default": 1280,
+            "type": "integer",
+            "description": "Maximum image width in pixels, from 64 to 2048."
+          },
+          "max_height": {
+            "default": 960,
+            "type": "integer",
+            "description": "Maximum image height in pixels, from 64 to 2048."
+          }
+        },
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
       },
       "_meta": {
         "fastmcp": {

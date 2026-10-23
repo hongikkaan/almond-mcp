@@ -130,10 +130,15 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
         started = time.monotonic()
         async with stdio_client(params) as (reader, writer):
             async with ClientSession(reader, writer, read_timeout_seconds=15.0) as session:
-                await session.initialize()
+                initialization = await session.initialize()
+                instructions = initialization.instructions or ""
+                for name in ("almond_cos_get_rhino_context", "almond_cos_get_rhino_viewport_image"):
+                    self.assertIn(name, instructions)
+                self.assertIn("validate proposed geometry against the task before replacing originals", instructions)
+                self.assertIn("Execution success and a viewport image do not establish geometric correctness", instructions)
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 60)
-                self.assertEqual(len({t.name for t in listing.tools}), 60)
+                self.assertEqual(len(listing.tools), 62)
+                self.assertEqual(len({t.name for t in listing.tools}), 62)
                 original = load_catalog()["tools"]
                 public = {t.name: t for t in listing.tools}
                 for tool in original:
