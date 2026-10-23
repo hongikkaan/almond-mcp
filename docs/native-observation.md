@@ -2,8 +2,9 @@
 
 기존 모델 작업에서는 먼저 `almond_project_info`로 연결을 확인하고,
 `get_rhino_context`로 실제 활성 문서를 조회한다. 현재 화면이 판단에 필요할 때
-`get_rhino_viewport_image`를 호출한다. COS에서는 이름 앞에 `almond_cos_`가 붙으며
-기존과 같이 `connection_id`를 전달한다.
+`get_rhino_viewport_image`를 호출한다. COS의 공개 이름은 각각
+`almond_cos_project_info`, `almond_cos_get_rhino_context`,
+`almond_cos_get_rhino_viewport_image`이며 기존과 같이 `connection_id`를 전달한다.
 
 두 조회는 기존 Engine의 문서 binding·UI thread·호출 identity·native 완료 확인을
 거친다. 파일 경로를 임의로 골라 다른 모델을 조회하는 기능은 없다.

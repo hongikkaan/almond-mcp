@@ -92,6 +92,9 @@
 
 ## 근거 위치
 
+아래 인계 자료와 세션 원문은 로컬 조사 자료이며 Git/PR에 포함하지 않는다.
+구현 계약과 검증 요약은 위의 기능 문서와 검증 기록에 정리했다.
+
 - 인계: 리포 루트 `HANDOFF-native-advantages-to-almond-2026-10-22.md`.
 - 전체 자료: `native-vs-almond-handoff-materials-2026-10-22/`.
 - Native 원문: `/sessions-2/2026/10/19/rollout-2026-10-19T01-40-34-01a14fe2-eb05-7ef1-a5ff-6ffb10652ab3.jsonl`.
