@@ -3,6 +3,18 @@
 모든 명령은 리포 루트에서 실행합니다. 개인 실행 환경은 `src/engine/.venv`이며
 `src/mcp/almond_mcp`를 editable로 사용합니다. Engine과 MCP 소스는 분리돼 있습니다.
 
+## 일상 업데이트
+
+기존 Python 환경과 최초 등록이 완료된 일상 폴더에서는 Rhino를 닫고
+`git pull --ff-only`를 실행한 뒤 Rhino를 켜면 됩니다. Bridge/COS RHP와
+의존 파일은 `src/rhp/*/plugin-runtime`에 Git으로 함께 배포합니다.
+별도 빌드, 바이너리 복사, 매번 등록 변경은 필요하지 않습니다.
+다른 위치에 처음 설치할 때만 `tools/install_runtime.ps1`을 실행합니다.
+Python 환경의 최초 구성은 아래 설명을 따릅니다.
+
+개발자는 C# 변경 시 아래 빌드 명령으로 고정 runtime 폴더를 갱신하고
+`python tools/verify_runtime.py --record`와 `python tools/verify_runtime.py`를
+실행한 뒤 소스와 실행 파일을 같은 커밋에 포함해야 합니다.
 ## Python
 
 ```powershell
@@ -34,7 +46,7 @@ SDK가 없으면 기존 방식대로 검증된 다운로드를 로컬 `data/sdk`
 ./src/rhp/build.ps1
 ```
 
-출력은 `src/rhp/RhinoAlmondBridge/plugin-build`입니다. Bridge·Structural_Analysis·
+출력은 `src/rhp/RhinoAlmondBridge/plugin-runtime`입니다. Bridge·Structural_Analysis·
 Asset_Panel·RhinoTerminal이 같은 `RhinoAlmondBridge.rhp`에 포함됩니다.
 Almond.Engine.dll은 별도 DLL로 유지하며 Porta.Pty/Vanara/Roslyn/Newtonsoft DLL,
 deps/runtimeconfig JSON, `licenses`, `archive`를 함께 둡니다.
@@ -50,11 +62,11 @@ COS는 별도 플러그인입니다. 필요할 때 기존 명령으로 빌드하
 ./src/rhp/AlmondCOS/build.ps1
 ```
 
-통합 설치 경로는 `src/rhp/RhinoAlmondBridge/plugin-build/RhinoAlmondBridge.rhp`입니다.
+통합 설치 경로는 `src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp`입니다.
 기존 Bridge GUID `c337dbb8-394a-4593-9c2b-a3d7cfc91893`로 등록하고,
 이전 Terminal GUID `27D4B9A1-8FAD-421C-B64A-7A213D3B4079`의 중복 등록은 백업 후 제거합니다.
 빌드는 등록을 변경하지 않습니다. 정상 Rhino 재시작 후 실제 로드 경로·버전을 확인합니다.
-COS의 등록 경로는 `src/rhp/AlmondCOS/plugin-build/AlmondCOS.rhp`로 별도 유지합니다.
+COS의 등록 경로는 `src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`로 별도 유지합니다.
 
 Yak 확인이 필요하면 다음을 실행합니다. 설치·게시하지 않는 별도 staging 빌드이며,
 현재 SDK에서 생성하는 이름은 `almondbridge-0.7.0-rc.2-rh8_34-win.yak`입니다.

@@ -1,0 +1,327 @@
+{
+  "id": "gen-shower-enclosure-1",
+  "name": "Shower enclosure",
+  "kind": "model",
+  "library": "generated",
+  "category": "sanitary",
+  "variant": "square, glass, low tray",
+  "format": "glb",
+  "tags": [
+    "shower",
+    "enclosure",
+    "cubicle",
+    "bathroom",
+    "sanitary",
+    "fixture"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "axonometric"
+  ],
+  "dimensions_mm": {
+    "width": 1035.2,
+    "depth": 1035.2,
+    "height": 2000.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-shower-enclosure-1.glb",
+  "preview": "/files/generated/previews/gen-shower-enclosure-1.png",
+  "contract": "/files/generated/models/gen-shower-enclosure-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-shower-enclosure-1",
+    "name": "Shower enclosure",
+    "model_file": "models/gen-shower-enclosure-1.glb",
+    "model_sha256": "E53E3C7219DE324827776A59D6C224411739F1317398085A4274075F9AA4645B",
+    "contract_file": "models/gen-shower-enclosure-1.almond.json",
+    "contract_sha256": "4A58AC7EA31F62B1EAFAFF9C206F3D4789A7B38CF3A97493D842D730E7FED776",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A square shower enclosure with a low white tray, two clear glass sides with slim chrome frame and a hinged glass door, wall-mounted shower head and mixer.",
+      "image_task_id": "01a09788-e678-710f-8a5a-72838507090a",
+      "image_model": "nano-banana",
+      "mesh_task_id": "01a0978e-e0ce-7335-a72e-c933cb1e0723",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-12",
+      "orientation_correction": null,
+      "scale_applied": 1111.111141
+    },
+    "recorded_task_history": {
+      "image_model": "nano-banana",
+      "image_task_id": "01a09788-e678-710f-8a5a-72838507090a",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0978e-e0ce-7335-a72e-c933cb1e0723",
+      "generated_at": "2026-09-12"
+    },
+    "image_generation": {
+      "provider": "meshy",
+      "provider_basis": "catalogue_image_stage_tool",
+      "id": "01a09788-e678-710f-8a5a-72838507090a",
+      "id_type": "image_task_id",
+      "source_image_url_recorded": false,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-shower-enclosure-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "axonometric"
+    ],
+    "geometry_mode": "3d_fixture",
+    "lod": "medium",
+    "category": "sanitary",
+    "series": "ALMOND-GEN",
+    "product": "Shower enclosure",
+    "variant": "square, glass, low tray",
+    "dimensions_mm": {
+      "width": 1035.2,
+      "depth": 1035.2,
+      "height": 2000.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 900,
+      "depth": 900,
+      "height": 2000
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.15,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-shower-enclosure-1.glb",
+    "contract_file": "models/gen-shower-enclosure-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-shower-enclosure-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-shower-enclosure-1.almond.json",
+    "sha256": "E53E3C7219DE324827776A59D6C224411739F1317398085A4274075F9AA4645B",
+    "file_size_bytes": 286032,
+    "triangle_count": 3870,
+    "tags": [
+      "shower",
+      "enclosure",
+      "cubicle",
+      "bathroom",
+      "sanitary",
+      "fixture"
+    ],
+    "render_material_id": "glass-clear",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A square shower enclosure with a low white tray, two clear glass sides with slim chrome frame and a hinged glass door, wall-mounted shower head and mixer.",
+        "image_task_id": "01a09788-e678-710f-8a5a-72838507090a",
+        "image_model": "nano-banana",
+        "mesh_task_id": "01a0978e-e0ce-7335-a72e-c933cb1e0723",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-12",
+        "orientation_correction": null,
+        "scale_applied": 1111.111141
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -517.6,
+          -517.6,
+          0.0
+        ],
+        "max": [
+          517.6,
+          517.6,
+          2000.0
+        ]
+      },
+      "footprint": [
+        [
+          -517.6,
+          -517.6
+        ],
+        [
+          517.6,
+          -517.6
+        ],
+        [
+          517.6,
+          517.6
+        ],
+        [
+          -517.6,
+          517.6
+        ]
+      ],
+      "clearance_mm": {
+        "front": 700,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "fixed"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-shower-enclosure-1",
+      "library_id": "generated_assets",
+      "name": "Shower enclosure (square, glass, low tray)",
+      "category": "sanitary",
+      "tags": [
+        "shower",
+        "enclosure",
+        "cubicle",
+        "bathroom",
+        "sanitary",
+        "fixture"
+      ],
+      "dimensions_mm": {
+        "width": 1035.2,
+        "depth": 1035.2,
+        "height": 2000.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 900.0,
+        "depth": 900.0,
+        "height": 2000.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -517.6,
+            -517.6,
+            0.0
+          ],
+          "max": [
+            517.6,
+            517.6,
+            2000.0
+          ]
+        },
+        "footprint": [
+          [
+            -517.6,
+            -517.6
+          ],
+          [
+            517.6,
+            -517.6
+          ],
+          [
+            517.6,
+            517.6
+          ],
+          [
+            -517.6,
+            517.6
+          ]
+        ],
+        "clearance_mm": {
+          "front": 700,
+          "back": 0,
+          "left": 0,
+          "right": 0
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "fixed"
+      },
+      "materials": [
+        {
+          "material_id": "glass-clear",
+          "objects": [
+            "gen-shower-enclosure-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A square shower enclosure with a low white tray, two clear glass sides with slim chrome frame and a hinged glass door, wall-mounted shower head and mixer.",
+          "image_task_id": "01a09788-e678-710f-8a5a-72838507090a",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978e-e0ce-7335-a72e-c933cb1e0723",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 1111.111141
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "bathroom"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "axonometric"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.15,
+        "triangle_count": 3870,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "4A58AC7EA31F62B1EAFAFF9C206F3D4789A7B38CF3A97493D842D730E7FED776"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-shower-enclosure-1",
+  "record_url": "/api/assets/gen-shower-enclosure-1.json"
+}

@@ -1,0 +1,326 @@
+{
+  "id": "gen-ottoman-leather-plywood-1",
+  "name": "Ottoman",
+  "kind": "model",
+  "library": "generated",
+  "category": "seating",
+  "variant": "matching leather ottoman on aluminium base",
+  "format": "glb",
+  "tags": [
+    "ottoman",
+    "footstool",
+    "leather",
+    "mid-century"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "interior_axonometric",
+    "interior_perspective"
+  ],
+  "dimensions_mm": {
+    "width": 703.4,
+    "depth": 652.6,
+    "height": 430.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-ottoman-leather-plywood-1.glb",
+  "preview": "/files/generated/previews/gen-ottoman-leather-plywood-1.png",
+  "contract": "/files/generated/models/gen-ottoman-leather-plywood-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-ottoman-leather-plywood-1",
+    "name": "Ottoman",
+    "model_file": "models/gen-ottoman-leather-plywood-1.glb",
+    "model_sha256": "6F0F374835DF25039447F769AF9DC8FF0B36E6A27DDF12100EA853A30B5B866D",
+    "contract_file": "models/gen-ottoman-leather-plywood-1.almond.json",
+    "contract_sha256": "5DD7593F546F1E9862AA5DDE337B6B19ABEB36EEE26BD58486C3942B3E5415A7",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A rectangular ottoman with a single curved moulded rosewood plywood shell holding a thick tufted black leather cushion, on a four-star cast aluminium base, 1950s American mid-century design, no branding.",
+      "image_task_id": null,
+      "image_model": "nano_banana",
+      "mesh_task_id": "01a0aa91-49ea-7048-9c4c-58c716e6105c",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-16",
+      "orientation_correction": null,
+      "scale_applied": 781.81808
+    },
+    "recorded_task_history": {
+      "image_provider": "higgsfield",
+      "image_model": "nano_banana",
+      "image_job_id": "9ee68080-35d4-4726-9d51-6b136e9fdb32",
+      "mesh_provider": "meshy",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0aa91-49ea-7048-9c4c-58c716e6105c",
+      "generated_at": "2026-09-16"
+    },
+    "image_generation": {
+      "provider": "higgsfield",
+      "provider_basis": "provenance",
+      "id": "9ee68080-35d4-4726-9d51-6b136e9fdb32",
+      "id_type": "image_job_id",
+      "source_image_url_recorded": true,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-ottoman-leather-plywood-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "interior_axonometric",
+      "interior_perspective"
+    ],
+    "geometry_mode": "3d_furniture",
+    "lod": "medium",
+    "category": "seating",
+    "series": "ALMOND-GEN",
+    "product": "Ottoman",
+    "variant": "matching leather ottoman on aluminium base",
+    "dimensions_mm": {
+      "width": 703.4,
+      "depth": 652.6,
+      "height": 430.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 660,
+      "depth": 540,
+      "height": 430
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.209,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-ottoman-leather-plywood-1.glb",
+    "contract_file": "models/gen-ottoman-leather-plywood-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-ottoman-leather-plywood-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-ottoman-leather-plywood-1.almond.json",
+    "sha256": "6F0F374835DF25039447F769AF9DC8FF0B36E6A27DDF12100EA853A30B5B866D",
+    "file_size_bytes": 289212,
+    "triangle_count": 3976,
+    "tags": [
+      "ottoman",
+      "footstool",
+      "leather",
+      "mid-century"
+    ],
+    "render_material_id": "wood-walnut",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A rectangular ottoman with a single curved moulded rosewood plywood shell holding a thick tufted black leather cushion, on a four-star cast aluminium base, 1950s American mid-century design, no branding.",
+        "image_task_id": null,
+        "image_model": "nano_banana",
+        "mesh_task_id": "01a0aa91-49ea-7048-9c4c-58c716e6105c",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-16",
+        "orientation_correction": null,
+        "scale_applied": 781.81808
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -351.7,
+          -326.3,
+          0.0
+        ],
+        "max": [
+          351.7,
+          326.3,
+          430.0
+        ]
+      },
+      "footprint": [
+        [
+          -351.7,
+          -326.3
+        ],
+        [
+          351.7,
+          -326.3
+        ],
+        [
+          351.7,
+          326.3
+        ],
+        [
+          -351.7,
+          326.3
+        ]
+      ],
+      "clearance_mm": {
+        "front": 0,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "secondary"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-ottoman-leather-plywood-1",
+      "library_id": "generated_assets",
+      "name": "Ottoman (matching leather ottoman on aluminium base)",
+      "category": "seating",
+      "tags": [
+        "ottoman",
+        "footstool",
+        "leather",
+        "mid-century"
+      ],
+      "dimensions_mm": {
+        "width": 703.4,
+        "depth": 652.6,
+        "height": 430.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 660.0,
+        "depth": 540.0,
+        "height": 430.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -351.7,
+            -326.3,
+            0.0
+          ],
+          "max": [
+            351.7,
+            326.3,
+            430.0
+          ]
+        },
+        "footprint": [
+          [
+            -351.7,
+            -326.3
+          ],
+          [
+            351.7,
+            -326.3
+          ],
+          [
+            351.7,
+            326.3
+          ],
+          [
+            -351.7,
+            326.3
+          ]
+        ],
+        "clearance_mm": {
+          "front": 0,
+          "back": 0,
+          "left": 0,
+          "right": 0
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "secondary"
+      },
+      "materials": [
+        {
+          "material_id": "wood-walnut",
+          "objects": [
+            "gen-ottoman-leather-plywood-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A rectangular ottoman with a single curved moulded rosewood plywood shell holding a thick tufted black leather cushion, on a four-star cast aluminium base, 1950s American mid-century design, no branding.",
+          "image_task_id": null,
+          "image_model": "nano_banana",
+          "mesh_task_id": "01a0aa91-49ea-7048-9c4c-58c716e6105c",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-16",
+          "orientation_correction": null,
+          "scale_applied": 781.81808
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "living_room"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "interior_axonometric",
+          "interior_perspective"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.209,
+        "triangle_count": 3976,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "5DD7593F546F1E9862AA5DDE337B6B19ABEB36EEE26BD58486C3942B3E5415A7"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-ottoman-leather-plywood-1",
+  "record_url": "/api/assets/gen-ottoman-leather-plywood-1.json"
+}

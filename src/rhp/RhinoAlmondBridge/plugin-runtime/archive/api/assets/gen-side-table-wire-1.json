@@ -1,0 +1,330 @@
+{
+  "id": "gen-side-table-wire-1",
+  "name": "Side table",
+  "kind": "model",
+  "library": "generated",
+  "category": "table",
+  "variant": "stacking wire side table",
+  "format": "glb",
+  "tags": [
+    "side table",
+    "wire",
+    "stacking",
+    "occasional table",
+    "mid-century"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "interior_axonometric",
+    "interior_perspective"
+  ],
+  "dimensions_mm": {
+    "width": 377.9,
+    "depth": 377.9,
+    "height": 500.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-side-table-wire-1.glb",
+  "preview": "/files/generated/previews/gen-side-table-wire-1.png",
+  "contract": "/files/generated/models/gen-side-table-wire-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-side-table-wire-1",
+    "name": "Side table",
+    "model_file": "models/gen-side-table-wire-1.glb",
+    "model_sha256": "575153F2964BDC8E7EA2C414EDA3A420F773410D7C518B5EF69D612EF1F14662",
+    "contract_file": "models/gen-side-table-wire-1.almond.json",
+    "contract_sha256": "1CC02955E697405330CA2D171A1D92986DDECC1670917907C39B1083D91F24AE",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A small round stacking side table made entirely of thin powder-coated steel wire: a flat round wire-mesh top on a tapered cage of vertical wires that flare out to a wire ring foot, matte charcoal, 1950s design, no branding.",
+      "image_task_id": null,
+      "image_model": "nano_banana",
+      "mesh_task_id": "01a0aa92-37e0-71b6-9452-48d949d658dd",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-16",
+      "orientation_correction": null,
+      "scale_applied": 1111.111141
+    },
+    "recorded_task_history": {
+      "image_provider": "higgsfield",
+      "image_model": "nano_banana",
+      "image_job_id": "91d5c06c-6c11-43f7-9437-e92cb03389f6",
+      "mesh_provider": "meshy",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0aa92-37e0-71b6-9452-48d949d658dd",
+      "generated_at": "2026-09-16"
+    },
+    "image_generation": {
+      "provider": "higgsfield",
+      "provider_basis": "provenance",
+      "id": "91d5c06c-6c11-43f7-9437-e92cb03389f6",
+      "id_type": "image_job_id",
+      "source_image_url_recorded": true,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-side-table-wire-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "interior_axonometric",
+      "interior_perspective"
+    ],
+    "geometry_mode": "3d_furniture",
+    "lod": "medium",
+    "category": "table",
+    "series": "ALMOND-GEN",
+    "product": "Side table",
+    "variant": "stacking wire side table",
+    "dimensions_mm": {
+      "width": 377.9,
+      "depth": 377.9,
+      "height": 500.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 450,
+      "depth": 450,
+      "height": 500
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.16,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-side-table-wire-1.glb",
+    "contract_file": "models/gen-side-table-wire-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-side-table-wire-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-side-table-wire-1.almond.json",
+    "sha256": "575153F2964BDC8E7EA2C414EDA3A420F773410D7C518B5EF69D612EF1F14662",
+    "file_size_bytes": 275552,
+    "triangle_count": 4235,
+    "tags": [
+      "side table",
+      "wire",
+      "stacking",
+      "occasional table",
+      "mid-century"
+    ],
+    "render_material_id": "steel-painted-charcoal",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A small round stacking side table made entirely of thin powder-coated steel wire: a flat round wire-mesh top on a tapered cage of vertical wires that flare out to a wire ring foot, matte charcoal, 1950s design, no branding.",
+        "image_task_id": null,
+        "image_model": "nano_banana",
+        "mesh_task_id": "01a0aa92-37e0-71b6-9452-48d949d658dd",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-16",
+        "orientation_correction": null,
+        "scale_applied": 1111.111141
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -188.95,
+          -188.95,
+          0.0
+        ],
+        "max": [
+          188.95,
+          188.95,
+          500.0
+        ]
+      },
+      "footprint": [
+        [
+          -188.95,
+          -188.95
+        ],
+        [
+          188.95,
+          -188.95
+        ],
+        [
+          188.95,
+          188.95
+        ],
+        [
+          -188.95,
+          188.95
+        ]
+      ],
+      "clearance_mm": {
+        "front": 300,
+        "back": 300,
+        "left": 300,
+        "right": 300
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "secondary"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-side-table-wire-1",
+      "library_id": "generated_assets",
+      "name": "Side table (stacking wire side table)",
+      "category": "table",
+      "tags": [
+        "side table",
+        "wire",
+        "stacking",
+        "occasional table",
+        "mid-century"
+      ],
+      "dimensions_mm": {
+        "width": 377.9,
+        "depth": 377.9,
+        "height": 500.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 450.0,
+        "depth": 450.0,
+        "height": 500.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -188.95,
+            -188.95,
+            0.0
+          ],
+          "max": [
+            188.95,
+            188.95,
+            500.0
+          ]
+        },
+        "footprint": [
+          [
+            -188.95,
+            -188.95
+          ],
+          [
+            188.95,
+            -188.95
+          ],
+          [
+            188.95,
+            188.95
+          ],
+          [
+            -188.95,
+            188.95
+          ]
+        ],
+        "clearance_mm": {
+          "front": 300,
+          "back": 300,
+          "left": 300,
+          "right": 300
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "secondary"
+      },
+      "materials": [
+        {
+          "material_id": "steel-painted-charcoal",
+          "objects": [
+            "gen-side-table-wire-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A small round stacking side table made entirely of thin powder-coated steel wire: a flat round wire-mesh top on a tapered cage of vertical wires that flare out to a wire ring foot, matte charcoal, 1950s design, no branding.",
+          "image_task_id": null,
+          "image_model": "nano_banana",
+          "mesh_task_id": "01a0aa92-37e0-71b6-9452-48d949d658dd",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-16",
+          "orientation_correction": null,
+          "scale_applied": 1111.111141
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "living_room",
+          "dining_room"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "interior_axonometric",
+          "interior_perspective"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.16,
+        "triangle_count": 4235,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "1CC02955E697405330CA2D171A1D92986DDECC1670917907C39B1083D91F24AE"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-side-table-wire-1",
+  "record_url": "/api/assets/gen-side-table-wire-1.json"
+}

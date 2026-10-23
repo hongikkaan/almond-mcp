@@ -1,0 +1,138 @@
+{
+  "id": "context-planter-1b011d3a",
+  "name": "Plant pot",
+  "kind": "element",
+  "library": "drawing",
+  "category": "planter",
+  "variant": "decorative planter",
+  "format": "skp",
+  "tags": [
+    "plant pot",
+    "planter",
+    "decor",
+    "accessory",
+    "indoor",
+    "outdoor"
+  ],
+  "roles": [
+    "interior_axonometric",
+    "section",
+    "elevation"
+  ],
+  "dimensions_mm": {
+    "width": 300,
+    "depth": 300,
+    "height": 300
+  },
+  "dimension_basis": "warehouse_model_estimate",
+  "available": false,
+  "model": null,
+  "preview": null,
+  "contract": null,
+  "license": "Source terms apply; not cleared for redistribution",
+  "source_url": "https://3dwarehouse.sketchup.com/model/1b011d3a-011c-45ab-8c65-37b921a6aaaa/Ikea-Plant-Pot",
+  "publisher": "Simon",
+  "provenance": null,
+  "metadata": {
+    "asset_id": "context-planter-1b011d3a",
+    "brand": "Generic",
+    "source_class": "drawing_asset",
+    "catalogue_status": "community_drawing_asset",
+    "drawing_roles": [
+      "interior_axonometric",
+      "section",
+      "elevation"
+    ],
+    "geometry_mode": "3d_entourage",
+    "lod": "low",
+    "recommended_scales": [
+      "1:20",
+      "1:50",
+      "1:100"
+    ],
+    "default_line_class": "entourage",
+    "hidden_line_policy": "silhouette_and_visible",
+    "category": "planter",
+    "series": "GENERIC",
+    "product": "Plant pot",
+    "variant": "decorative planter",
+    "dimensions_mm": {
+      "width": 300,
+      "depth": 300,
+      "height": 300
+    },
+    "ikea_product_id": null,
+    "ikea_url": null,
+    "warehouse_title": "Ikea Plant Pot",
+    "warehouse_publisher": "Simon",
+    "warehouse_status": "community",
+    "match_status": "generic_context_asset_scale_estimated",
+    "warehouse_url": "https://3dwarehouse.sketchup.com/model/1b011d3a-011c-45ab-8c65-37b921a6aaaa/Ikea-Plant-Pot",
+    "file": "models/CONTEXT_plant_pot.skp",
+    "sha256": "B358BA4D70828CD5D7DA9077FD7781083A7AB07D72C9A0DFB3895C712C867E15",
+    "tags": [
+      "plant pot",
+      "planter",
+      "decor",
+      "accessory",
+      "indoor",
+      "outdoor"
+    ],
+    "geometry_source": {
+      "type": "downloaded_asset",
+      "format": "skp",
+      "generator": null,
+      "parameters": null
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "warehouse_model_estimate",
+      "geometry_bounds_status": "pending_rhino_measurement",
+      "local_aabb": {
+        "min": [
+          -150,
+          -150,
+          0
+        ],
+        "max": [
+          150,
+          150,
+          300
+        ]
+      },
+      "footprint": [
+        [
+          -150,
+          -150
+        ],
+        [
+          150,
+          -150
+        ],
+        [
+          150,
+          150
+        ],
+        [
+          -150,
+          150
+        ]
+      ],
+      "clearance_mm": {
+        "front": 100,
+        "back": 100,
+        "left": 100,
+        "right": 100
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "accessory"
+    },
+    "library_id": "drawing_assets"
+  },
+  "drawing": null,
+  "uri": "almond://repository/context-planter-1b011d3a",
+  "record_url": "/api/assets/context-planter-1b011d3a.json"
+}

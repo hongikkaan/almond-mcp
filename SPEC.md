@@ -106,7 +106,7 @@ Python 환경은 `src/engine/.venv`에 새로 만든다. 이전 venv를 복사�
 package import는 `src/mcp/almond_mcp`를 가리킨다. 서버가 시작될 때 의존성을 다시 설치하지 않는다.
 
 `src/rhp/build.ps1`은 `net8.0-windows` 단일 RHP를
-`src/rhp/RhinoAlmondBridge/plugin-build`에 빌드한다. 설치된 Rhino SDK를 참조하며
+`src/rhp/RhinoAlmondBridge/plugin-runtime`에 빌드한다. 설치된 Rhino SDK를 참조하며
 Rhino 8.34 / .NET 8에서 검증했다. Yak의 최소 Rhino 태그는 실제 참조 SDK 버전을 따른다.
 RhinoCommon·Rhino.UI·Eto·Grasshopper·GH_IO는 호스트 제공 DLL이므로 패키지에 복사하지 않는다.
 Almond.Engine·Porta.Pty·Vanara·Roslyn·Newtonsoft DLL, deps/runtimeconfig JSON,
@@ -114,7 +114,7 @@ Terminal 라이선스, `archive`를 RHP와 함께 유지한다. 로드 중인 �
 
 Terminal은 assembly 위치에서 `../../../engine`을 찾으므로 출력은 위 깊이의
 `RhinoAlmondBridge/plugin-*` 폴더여야 한다. 임의 Yak 설치 위치만으로 개인 Engine 환경이
-자동 구성되지는 않는다. 별도 AlmondCOS 출력은 `src/rhp/AlmondCOS/plugin-build`이며
+자동 구성되지는 않는다. 별도 AlmondCOS 출력은 `src/rhp/AlmondCOS/plugin-runtime`이며
 COS의 기존 Engine/host 탐색은 유지한다.
 
 Bridge assembly 이름 `RhinoAlmondBridge`, informational version `0.7.0-rc.2`,

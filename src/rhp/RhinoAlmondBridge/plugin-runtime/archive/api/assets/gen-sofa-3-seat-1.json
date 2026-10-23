@@ -1,0 +1,462 @@
+{
+  "id": "gen-sofa-3-seat-1",
+  "name": "Sofa",
+  "kind": "model",
+  "library": "generated",
+  "category": "seating",
+  "variant": "generic three-seat, fabric",
+  "format": "glb",
+  "tags": [
+    "sofa",
+    "couch",
+    "seating",
+    "living room",
+    "furniture"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "interior_axonometric",
+    "interior_perspective"
+  ],
+  "dimensions_mm": {
+    "width": 2346.1,
+    "depth": 982.9,
+    "height": 850.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-sofa-3-seat-1.glb",
+  "preview": "/files/generated/previews/gen-sofa-3-seat-1.png",
+  "contract": "/files/generated/models/gen-sofa-3-seat-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-sofa-3-seat-1",
+    "name": "Sofa",
+    "model_file": "models/gen-sofa-3-seat-1.glb",
+    "model_sha256": "EE978EF6EDFF09F7FB5CD2CF6DC8D81EB802487959BF6565BCB2CAEAE4C9FD12",
+    "contract_file": "models/gen-sofa-3-seat-1.almond.json",
+    "contract_sha256": "A4EED8FE76AEC23A8FEEF4C7B8442A1D436DFFC771CE8FAC1D04AC076A7FADB9",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A generic modern three-seat sofa with square arms, three seat cushions and three back cushions, plain grey fabric upholstery, short legs.",
+      "image_task_id": "01a09789-0ef6-754a-b0cd-e3f54dfe4a6e",
+      "image_model": "nano-banana",
+      "mesh_task_id": "01a0978f-0a4a-7263-b015-501f0fd70df6",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-12",
+      "orientation_correction": null,
+      "scale_applied": 999.999937
+    },
+    "recorded_task_history": {
+      "image_model": "nano-banana",
+      "image_task_id": "01a09789-0ef6-754a-b0cd-e3f54dfe4a6e",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0978f-0a4a-7263-b015-501f0fd70df6",
+      "generated_at": "2026-09-12"
+    },
+    "image_generation": {
+      "provider": "meshy",
+      "provider_basis": "catalogue_image_stage_tool",
+      "id": "01a09789-0ef6-754a-b0cd-e3f54dfe4a6e",
+      "id_type": "image_task_id",
+      "source_image_url_recorded": false,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-sofa-3-seat-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "interior_axonometric",
+      "interior_perspective"
+    ],
+    "geometry_mode": "3d_furniture",
+    "lod": "medium",
+    "category": "seating",
+    "series": "ALMOND-GEN",
+    "product": "Sofa",
+    "variant": "generic three-seat, fabric",
+    "dimensions_mm": {
+      "width": 2346.1,
+      "depth": 982.9,
+      "height": 850.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 2100,
+      "depth": 900,
+      "height": 850
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.117,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-sofa-3-seat-1.glb",
+    "contract_file": "models/gen-sofa-3-seat-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-sofa-3-seat-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-sofa-3-seat-1.almond.json",
+    "sha256": "EE978EF6EDFF09F7FB5CD2CF6DC8D81EB802487959BF6565BCB2CAEAE4C9FD12",
+    "file_size_bytes": 309028,
+    "triangle_count": 4087,
+    "tags": [
+      "sofa",
+      "couch",
+      "seating",
+      "living room",
+      "furniture"
+    ],
+    "render_material_id": "rubber-black",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A generic modern three-seat sofa with square arms, three seat cushions and three back cushions, plain grey fabric upholstery, short legs.",
+        "image_task_id": "01a09789-0ef6-754a-b0cd-e3f54dfe4a6e",
+        "image_model": "nano-banana",
+        "mesh_task_id": "01a0978f-0a4a-7263-b015-501f0fd70df6",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-12",
+        "orientation_correction": null,
+        "scale_applied": 999.999937
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -1173.05,
+          -491.45,
+          0.0
+        ],
+        "max": [
+          1173.05,
+          491.45,
+          850.0
+        ]
+      },
+      "footprint": [
+        [
+          -1173.05,
+          -491.45
+        ],
+        [
+          1173.05,
+          -491.45
+        ],
+        [
+          1173.05,
+          491.45
+        ],
+        [
+          -1173.05,
+          491.45
+        ]
+      ],
+      "clearance_mm": {
+        "front": 450,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "primary"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-sofa-3-seat-1",
+      "library_id": "generated_assets",
+      "name": "Sofa (generic three-seat, fabric)",
+      "category": "seating",
+      "tags": [
+        "sofa",
+        "couch",
+        "seating",
+        "living room",
+        "furniture"
+      ],
+      "dimensions_mm": {
+        "width": 2346.1,
+        "depth": 982.9,
+        "height": 850.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 2100.0,
+        "depth": 900.0,
+        "height": 850.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -1173.05,
+            -491.45,
+            0.0
+          ],
+          "max": [
+            1173.05,
+            491.45,
+            850.0
+          ]
+        },
+        "footprint": [
+          [
+            -1173.05,
+            -491.45
+          ],
+          [
+            1173.05,
+            -491.45
+          ],
+          [
+            1173.05,
+            491.45
+          ],
+          [
+            -1173.05,
+            491.45
+          ]
+        ],
+        "clearance_mm": {
+          "front": 450,
+          "back": 0,
+          "left": 0,
+          "right": 0
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "primary"
+      },
+      "materials": [
+        {
+          "material_id": "rubber-black",
+          "objects": [
+            "gen-sofa-3-seat-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A generic modern three-seat sofa with square arms, three seat cushions and three back cushions, plain grey fabric upholstery, short legs.",
+          "image_task_id": "01a09789-0ef6-754a-b0cd-e3f54dfe4a6e",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978f-0a4a-7263-b015-501f0fd70df6",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 999.999937
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "living_room"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "interior_axonometric",
+          "interior_perspective"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.117,
+        "triangle_count": 4087,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "A4EED8FE76AEC23A8FEEF4C7B8442A1D436DFFC771CE8FAC1D04AC076A7FADB9"
+  },
+  "drawing": {
+    "record": "/files/drafting/pilot/gen-sofa-3-seat-1/drawing.json",
+    "views": [
+      {
+        "view": "plan",
+        "scale": 50,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-sofa-3-seat-1/plan-1-50.svg",
+        "dxf": "/files/drafting/pilot/gen-sofa-3-seat-1/plan-1-50.dxf"
+      },
+      {
+        "view": "front",
+        "scale": 50,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-sofa-3-seat-1/front-1-50.svg",
+        "dxf": "/files/drafting/pilot/gen-sofa-3-seat-1/front-1-50.dxf"
+      },
+      {
+        "view": "right",
+        "scale": 50,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-sofa-3-seat-1/right-1-50.svg",
+        "dxf": "/files/drafting/pilot/gen-sofa-3-seat-1/right-1-50.dxf"
+      },
+      {
+        "view": "plan",
+        "scale": 100,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-sofa-3-seat-1/plan-1-100.svg",
+        "dxf": "/files/drafting/pilot/gen-sofa-3-seat-1/plan-1-100.dxf"
+      },
+      {
+        "view": "front",
+        "scale": 100,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-sofa-3-seat-1/front-1-100.svg",
+        "dxf": "/files/drafting/pilot/gen-sofa-3-seat-1/front-1-100.dxf"
+      },
+      {
+        "view": "right",
+        "scale": 100,
+        "method": "projected_triangle_union",
+        "approximation_note": null,
+        "svg": "/files/drafting/pilot/gen-sofa-3-seat-1/right-1-100.svg",
+        "dxf": "/files/drafting/pilot/gen-sofa-3-seat-1/right-1-100.dxf"
+      }
+    ],
+    "sheets": [
+      {
+        "scale": 50,
+        "svg": "/files/drafting/pilot/gen-sofa-3-seat-1/sheet-A3-1-50.svg"
+      },
+      {
+        "scale": 100,
+        "svg": "/files/drafting/pilot/gen-sofa-3-seat-1/sheet-A3-1-100.svg"
+      }
+    ],
+    "source": {
+      "asset_id": "gen-sofa-3-seat-1",
+      "geometry_sha256": "1BF8C78D975EF51BF9757A3F51DA0C1AA26A4991BC170FD0784F5B2208220EB1",
+      "model_sha256": "EE978EF6EDFF09F7FB5CD2CF6DC8D81EB802487959BF6565BCB2CAEAE4C9FD12",
+      "units": "mm",
+      "input_units": "mm",
+      "input_up_axis": "y",
+      "coordinate_transform": "X,-Z,Y",
+      "view_axes": {
+        "plan": "X,Y",
+        "front": "X,Z; looking +Y",
+        "right": "-Y,Z; looking -X"
+      },
+      "dimension_basis": "measured_mesh_geometry",
+      "engine_version": 2,
+      "method": "triangle_union_or_dense_mesh_raster_projection; see per-view method and resolution",
+      "source_references": [],
+      "reference_relationship_scope": "attached_to_this_drawing; not original mesh-generation inputs",
+      "created_at": "2026-09-19T01:55:35.087570+00:00",
+      "attribution": "Almond generated asset library",
+      "derived_asset_license": "CC-BY-4.0",
+      "generation_record": {
+        "asset_id": "gen-sofa-3-seat-1",
+        "name": "Sofa",
+        "model_file": "models/gen-sofa-3-seat-1.glb",
+        "model_sha256": "EE978EF6EDFF09F7FB5CD2CF6DC8D81EB802487959BF6565BCB2CAEAE4C9FD12",
+        "contract_file": "models/gen-sofa-3-seat-1.almond.json",
+        "contract_sha256": "A4EED8FE76AEC23A8FEEF4C7B8442A1D436DFFC771CE8FAC1D04AC076A7FADB9",
+        "generator": "meshy",
+        "recorded_generation": {
+          "prompt": "A generic modern three-seat sofa with square arms, three seat cushions and three back cushions, plain grey fabric upholstery, short legs.",
+          "image_task_id": "01a09789-0ef6-754a-b0cd-e3f54dfe4a6e",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978f-0a4a-7263-b015-501f0fd70df6",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 999.999937
+        },
+        "recorded_task_history": {
+          "image_model": "nano-banana",
+          "image_task_id": "01a09789-0ef6-754a-b0cd-e3f54dfe4a6e",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "mesh_task_id": "01a0978f-0a4a-7263-b015-501f0fd70df6",
+          "generated_at": "2026-09-12"
+        },
+        "image_generation": {
+          "provider": "meshy",
+          "provider_basis": "catalogue_image_stage_tool",
+          "id": "01a09789-0ef6-754a-b0cd-e3f54dfe4a6e",
+          "id_type": "image_task_id",
+          "source_image_url_recorded": false,
+          "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+        },
+        "catalogue_recipe_override": null,
+        "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+        "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+        "external_reference_ids": [],
+        "evidence_gaps": [
+          "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+          "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+          "External design references are not recorded; absence of records does not establish no references were used."
+        ],
+        "declared_license": "CC-BY-4.0",
+        "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+        "missing_recorded_fields": []
+      },
+      "limitations": [
+        "Projected silhouettes only: internal visible/hidden edges and construction layers are not inferred.",
+        "Front is the declared coordinate direction, not a verified product front.",
+        "Dimensions describe mesh geometry, not a manufacturer-verified product."
+      ]
+    }
+  },
+  "uri": "almond://repository/gen-sofa-3-seat-1",
+  "record_url": "/api/assets/gen-sofa-3-seat-1.json"
+}

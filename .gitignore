@@ -49,3 +49,9 @@ data/
 *.rhp
 *.dll
 
+
+# Shipped Rhino runtime: committed together with its C# source.
+!src/rhp/RhinoAlmondBridge/plugin-runtime/
+!src/rhp/RhinoAlmondBridge/plugin-runtime/**
+!src/rhp/AlmondCOS/plugin-runtime/
+!src/rhp/AlmondCOS/plugin-runtime/**

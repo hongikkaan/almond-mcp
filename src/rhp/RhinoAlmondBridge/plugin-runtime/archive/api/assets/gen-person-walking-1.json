@@ -1,0 +1,329 @@
+{
+  "id": "gen-person-walking-1",
+  "name": "Person walking",
+  "kind": "model",
+  "library": "generated",
+  "category": "human_figure",
+  "variant": "adult, mid-stride",
+  "format": "glb",
+  "tags": [
+    "person",
+    "human",
+    "scale figure",
+    "entourage",
+    "walking"
+  ],
+  "roles": [
+    "section",
+    "elevation",
+    "interior_perspective",
+    "axonometric"
+  ],
+  "dimensions_mm": {
+    "width": 584.5,
+    "depth": 1032.2,
+    "height": 1750.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-person-walking-1.glb",
+  "preview": "/files/generated/previews/gen-person-walking-1.png",
+  "contract": "/files/generated/models/gen-person-walking-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-person-walking-1",
+    "name": "Person walking",
+    "model_file": "models/gen-person-walking-1.glb",
+    "model_sha256": "D384C2C5C8D60FB940E91A2C0B10B73C21716E78B5588292EFA359AEAEF60DD4",
+    "contract_file": "models/gen-person-walking-1.almond.json",
+    "contract_sha256": "684DF154521BBDAEB2F8BB8E9623DEFBC00EF3389AC665ECB8590C7C7134FDD7",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A full-body adult person walking, mid-stride, casual clothing, one arm swinging forward, plain matte grey clay-like appearance.",
+      "image_task_id": "01a09787-b24a-7035-9f02-e9e209cc99e3",
+      "image_model": "nano-banana",
+      "mesh_task_id": "01a0978d-73c0-710c-9a02-fdb87841247f",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-12",
+      "orientation_correction": null,
+      "scale_applied": 1000.0
+    },
+    "recorded_task_history": {
+      "image_model": "nano-banana",
+      "image_task_id": "01a09787-b24a-7035-9f02-e9e209cc99e3",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0978d-73c0-710c-9a02-fdb87841247f",
+      "generated_at": "2026-09-12"
+    },
+    "image_generation": {
+      "provider": "meshy",
+      "provider_basis": "catalogue_image_stage_tool",
+      "id": "01a09787-b24a-7035-9f02-e9e209cc99e3",
+      "id_type": "image_task_id",
+      "source_image_url_recorded": false,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-person-walking-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "section",
+      "elevation",
+      "interior_perspective",
+      "axonometric"
+    ],
+    "geometry_mode": "3d_entourage",
+    "lod": "medium",
+    "category": "human_figure",
+    "series": "ALMOND-GEN",
+    "product": "Person walking",
+    "variant": "adult, mid-stride",
+    "dimensions_mm": {
+      "width": 584.5,
+      "depth": 1032.2,
+      "height": 1750.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 500,
+      "depth": 750,
+      "height": 1750
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.376,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-person-walking-1.glb",
+    "contract_file": "models/gen-person-walking-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-person-walking-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-person-walking-1.almond.json",
+    "sha256": "D384C2C5C8D60FB940E91A2C0B10B73C21716E78B5588292EFA359AEAEF60DD4",
+    "file_size_bytes": 334652,
+    "triangle_count": 4270,
+    "tags": [
+      "person",
+      "human",
+      "scale figure",
+      "entourage",
+      "walking"
+    ],
+    "render_material_id": "plaster-white",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A full-body adult person walking, mid-stride, casual clothing, one arm swinging forward, plain matte grey clay-like appearance.",
+        "image_task_id": "01a09787-b24a-7035-9f02-e9e209cc99e3",
+        "image_model": "nano-banana",
+        "mesh_task_id": "01a0978d-73c0-710c-9a02-fdb87841247f",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-12",
+        "orientation_correction": null,
+        "scale_applied": 1000.0
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -292.25,
+          -516.1,
+          0.0
+        ],
+        "max": [
+          292.25,
+          516.1,
+          1750.0
+        ]
+      },
+      "footprint": [
+        [
+          -292.25,
+          -516.1
+        ],
+        [
+          292.25,
+          -516.1
+        ],
+        [
+          292.25,
+          516.1
+        ],
+        [
+          -292.25,
+          516.1
+        ]
+      ],
+      "clearance_mm": {
+        "front": 0,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "accessory"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-person-walking-1",
+      "library_id": "generated_assets",
+      "name": "Person walking (adult, mid-stride)",
+      "category": "human_figure",
+      "tags": [
+        "person",
+        "human",
+        "scale figure",
+        "entourage",
+        "walking"
+      ],
+      "dimensions_mm": {
+        "width": 584.5,
+        "depth": 1032.2,
+        "height": 1750.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 500.0,
+        "depth": 750.0,
+        "height": 1750.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -292.25,
+            -516.1,
+            0.0
+          ],
+          "max": [
+            292.25,
+            516.1,
+            1750.0
+          ]
+        },
+        "footprint": [
+          [
+            -292.25,
+            -516.1
+          ],
+          [
+            292.25,
+            -516.1
+          ],
+          [
+            292.25,
+            516.1
+          ],
+          [
+            -292.25,
+            516.1
+          ]
+        ],
+        "clearance_mm": {
+          "front": 0,
+          "back": 0,
+          "left": 0,
+          "right": 0
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "accessory"
+      },
+      "materials": [
+        {
+          "material_id": "plaster-white",
+          "objects": [
+            "gen-person-walking-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A full-body adult person walking, mid-stride, casual clothing, one arm swinging forward, plain matte grey clay-like appearance.",
+          "image_task_id": "01a09787-b24a-7035-9f02-e9e209cc99e3",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978d-73c0-710c-9a02-fdb87841247f",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 1000.0
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "interior",
+          "streetscape"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "section",
+          "elevation",
+          "interior_perspective",
+          "axonometric"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.376,
+        "triangle_count": 4270,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product.",
+          "Measured width/depth differs from the prompt target by more than 25%."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "684DF154521BBDAEB2F8BB8E9623DEFBC00EF3389AC665ECB8590C7C7134FDD7"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-person-walking-1",
+  "record_url": "/api/assets/gen-person-walking-1.json"
+}

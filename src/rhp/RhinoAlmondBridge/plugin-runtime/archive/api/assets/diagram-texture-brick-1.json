@@ -1,0 +1,130 @@
+{
+  "id": "diagram-texture-brick-1",
+  "name": "Brick Texture",
+  "kind": "element",
+  "library": "drawing",
+  "category": "texture",
+  "variant": "line_art",
+  "format": "svg",
+  "tags": [
+    "texture",
+    "brick",
+    "pattern",
+    "wall"
+  ],
+  "roles": [
+    "section",
+    "elevation",
+    "plan"
+  ],
+  "dimensions_mm": {
+    "width": 1000,
+    "depth": 10,
+    "height": 1000
+  },
+  "dimension_basis": "warehouse_model_estimate",
+  "available": false,
+  "model": null,
+  "preview": null,
+  "contract": null,
+  "license": "Source terms apply; not cleared for redistribution",
+  "source_url": "",
+  "publisher": "DiagramGen",
+  "provenance": null,
+  "metadata": {
+    "asset_id": "diagram-texture-brick-1",
+    "brand": "Generic",
+    "source_class": "drawing_asset",
+    "catalogue_status": "community_drawing_asset",
+    "drawing_roles": [
+      "section",
+      "elevation",
+      "plan"
+    ],
+    "geometry_mode": "2d_diagram",
+    "lod": "low",
+    "recommended_scales": [
+      "1:20",
+      "1:50"
+    ],
+    "default_line_class": "texture",
+    "hidden_line_policy": "visible_only",
+    "category": "texture",
+    "series": "GENERIC",
+    "product": "Brick Texture",
+    "variant": "line_art",
+    "dimensions_mm": {
+      "width": 1000,
+      "depth": 10,
+      "height": 1000
+    },
+    "warehouse_title": "Brick Texture SVG",
+    "warehouse_publisher": "DiagramGen",
+    "warehouse_status": "community",
+    "match_status": "generic_context_asset_scale_estimated",
+    "warehouse_url": "",
+    "file": "models/2D_brick_texture.svg",
+    "sha256": "CD49D160B67E8A8F71CCC9F2343ED5A452560DD6948155C9045EA5956E9C3E03",
+    "tags": [
+      "texture",
+      "brick",
+      "pattern",
+      "wall"
+    ],
+    "geometry_source": {
+      "type": "downloaded_asset",
+      "format": "svg",
+      "generator": null,
+      "parameters": null
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "wall",
+      "bounds_source": "warehouse_model_estimate",
+      "geometry_bounds_status": "pending_rhino_measurement",
+      "local_aabb": {
+        "min": [
+          -500,
+          -5,
+          0
+        ],
+        "max": [
+          500,
+          5,
+          1000
+        ]
+      },
+      "footprint": [
+        [
+          -500,
+          -5
+        ],
+        [
+          500,
+          -5
+        ],
+        [
+          500,
+          5
+        ],
+        [
+          -500,
+          5
+        ]
+      ],
+      "clearance_mm": {
+        "front": 0,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "accessory"
+    }
+  },
+  "drawing": null,
+  "uri": "almond://repository/diagram-texture-brick-1",
+  "record_url": "/api/assets/diagram-texture-brick-1.json"
+}

@@ -90,7 +90,7 @@ def main():
         if 'Almond.project_lease' in sc.sticky:
             raise RuntimeError('This Rhino already owns a project. Close it before changing models.')
         from System.Reflection import Assembly
-        native_dll = os.path.join(ENGINE, 'native', 'bin', 'Release', 'net8.0', 'Almond.Engine.dll')
+        native_dll = os.path.join(ENGINE, '..', 'rhp', 'RhinoAlmondBridge', 'plugin-runtime', 'Almond.Engine.dll')
         native = Assembly.LoadFrom(native_dll)
         shared_type = native.GetType('AlmondEngine.SharedStorageLease', True)
         shared = System.Activator.CreateInstance(shared_type, System.Array[System.Object]([storage]))

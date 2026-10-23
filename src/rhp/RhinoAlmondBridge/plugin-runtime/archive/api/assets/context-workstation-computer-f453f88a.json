@@ -1,0 +1,138 @@
+{
+  "id": "context-workstation-computer-f453f88a",
+  "name": "Computer monitor, keyboard and mouse",
+  "kind": "element",
+  "library": "drawing",
+  "category": "workstation_equipment",
+  "variant": "desktop set",
+  "format": "skp",
+  "tags": [
+    "computer",
+    "monitor",
+    "keyboard",
+    "mouse",
+    "workstation",
+    "office equipment"
+  ],
+  "roles": [
+    "interior_axonometric",
+    "section",
+    "interior_perspective"
+  ],
+  "dimensions_mm": {
+    "width": 600,
+    "depth": 300,
+    "height": 500
+  },
+  "dimension_basis": "warehouse_model_estimate",
+  "available": false,
+  "model": null,
+  "preview": null,
+  "contract": null,
+  "license": "Source terms apply; not cleared for redistribution",
+  "source_url": "https://3dwarehouse.sketchup.com/model/f453f88a83c19a385b274c087fb9b8c2/Computer-monitor-keyboard-and-mouse",
+  "publisher": "James",
+  "provenance": null,
+  "metadata": {
+    "asset_id": "context-workstation-computer-f453f88a",
+    "brand": "Generic",
+    "source_class": "drawing_asset",
+    "catalogue_status": "community_drawing_asset",
+    "drawing_roles": [
+      "interior_axonometric",
+      "section",
+      "interior_perspective"
+    ],
+    "geometry_mode": "3d_entourage",
+    "lod": "low",
+    "recommended_scales": [
+      "1:20",
+      "1:50",
+      "1:100"
+    ],
+    "default_line_class": "entourage",
+    "hidden_line_policy": "silhouette_and_visible",
+    "category": "workstation_equipment",
+    "series": "GENERIC",
+    "product": "Computer monitor, keyboard and mouse",
+    "variant": "desktop set",
+    "dimensions_mm": {
+      "width": 600,
+      "depth": 300,
+      "height": 500
+    },
+    "ikea_product_id": null,
+    "ikea_url": null,
+    "warehouse_title": "Computer, monitor, keyboard and mouse",
+    "warehouse_publisher": "James",
+    "warehouse_status": "community",
+    "match_status": "generic_context_asset_scale_estimated",
+    "warehouse_url": "https://3dwarehouse.sketchup.com/model/f453f88a83c19a385b274c087fb9b8c2/Computer-monitor-keyboard-and-mouse",
+    "file": "models/CONTEXT_desktop_computer_set.skp",
+    "sha256": "0935A4E4F9227E46CA1718702614166A7D119FBB62F67261B2891F580E33C9B9",
+    "tags": [
+      "computer",
+      "monitor",
+      "keyboard",
+      "mouse",
+      "workstation",
+      "office equipment"
+    ],
+    "geometry_source": {
+      "type": "downloaded_asset",
+      "format": "skp",
+      "generator": null,
+      "parameters": null
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "work_surface",
+      "bounds_source": "warehouse_model_estimate",
+      "geometry_bounds_status": "pending_rhino_measurement",
+      "local_aabb": {
+        "min": [
+          -300,
+          -150,
+          0
+        ],
+        "max": [
+          300,
+          150,
+          500
+        ]
+      },
+      "footprint": [
+        [
+          -300,
+          -150
+        ],
+        [
+          300,
+          -150
+        ],
+        [
+          300,
+          150
+        ],
+        [
+          -300,
+          150
+        ]
+      ],
+      "clearance_mm": {
+        "front": 300,
+        "back": 50,
+        "left": 50,
+        "right": 50
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "accessory"
+    },
+    "library_id": "drawing_assets"
+  },
+  "drawing": null,
+  "uri": "almond://repository/context-workstation-computer-f453f88a",
+  "record_url": "/api/assets/context-workstation-computer-f453f88a.json"
+}

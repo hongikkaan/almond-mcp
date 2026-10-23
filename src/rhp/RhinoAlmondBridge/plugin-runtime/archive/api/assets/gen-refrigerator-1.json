@@ -1,0 +1,324 @@
+{
+  "id": "gen-refrigerator-1",
+  "name": "Refrigerator",
+  "kind": "model",
+  "library": "generated",
+  "category": "appliance",
+  "variant": "freestanding fridge-freezer",
+  "format": "glb",
+  "tags": [
+    "fridge",
+    "refrigerator",
+    "freezer",
+    "kitchen",
+    "appliance"
+  ],
+  "roles": [
+    "plan",
+    "section",
+    "axonometric"
+  ],
+  "dimensions_mm": {
+    "width": 766.2,
+    "depth": 671.3,
+    "height": 1800.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-refrigerator-1.glb",
+  "preview": "/files/generated/previews/gen-refrigerator-1.png",
+  "contract": "/files/generated/models/gen-refrigerator-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-refrigerator-1",
+    "name": "Refrigerator",
+    "model_file": "models/gen-refrigerator-1.glb",
+    "model_sha256": "FE8C7E47BC899C6DCD820BF4C5E0F80363020565211D6DBA9B698B21FDB9EF8C",
+    "contract_file": "models/gen-refrigerator-1.almond.json",
+    "contract_sha256": "3BF1F242CB9A2A273E34F5926738DE3D68ECF6A4EC4B7EC72DF209249F320892",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A freestanding tall stainless steel fridge-freezer with two vertical doors and long handles, plain modern design.",
+      "image_task_id": "01a09789-01b0-7012-a2f8-f58cadfeb3f4",
+      "image_model": "nano-banana",
+      "mesh_task_id": "01a0978e-fc89-71c4-985b-8599687baf80",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-12",
+      "orientation_correction": null,
+      "scale_applied": 1000.000026
+    },
+    "recorded_task_history": {
+      "image_model": "nano-banana",
+      "image_task_id": "01a09789-01b0-7012-a2f8-f58cadfeb3f4",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0978e-fc89-71c4-985b-8599687baf80",
+      "generated_at": "2026-09-12"
+    },
+    "image_generation": {
+      "provider": "meshy",
+      "provider_basis": "catalogue_image_stage_tool",
+      "id": "01a09789-01b0-7012-a2f8-f58cadfeb3f4",
+      "id_type": "image_task_id",
+      "source_image_url_recorded": false,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-refrigerator-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "plan",
+      "section",
+      "axonometric"
+    ],
+    "geometry_mode": "3d_fixture",
+    "lod": "medium",
+    "category": "appliance",
+    "series": "ALMOND-GEN",
+    "product": "Refrigerator",
+    "variant": "freestanding fridge-freezer",
+    "dimensions_mm": {
+      "width": 766.2,
+      "depth": 671.3,
+      "height": 1800.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 700,
+      "depth": 700,
+      "height": 1800
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.095,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-refrigerator-1.glb",
+    "contract_file": "models/gen-refrigerator-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-refrigerator-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-refrigerator-1.almond.json",
+    "sha256": "FE8C7E47BC899C6DCD820BF4C5E0F80363020565211D6DBA9B698B21FDB9EF8C",
+    "file_size_bytes": 77364,
+    "triangle_count": 1016,
+    "tags": [
+      "fridge",
+      "refrigerator",
+      "freezer",
+      "kitchen",
+      "appliance"
+    ],
+    "render_material_id": "steel-galvanized",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A freestanding tall stainless steel fridge-freezer with two vertical doors and long handles, plain modern design.",
+        "image_task_id": "01a09789-01b0-7012-a2f8-f58cadfeb3f4",
+        "image_model": "nano-banana",
+        "mesh_task_id": "01a0978e-fc89-71c4-985b-8599687baf80",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-12",
+        "orientation_correction": null,
+        "scale_applied": 1000.000026
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "floor",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -383.1,
+          -335.65,
+          0.0
+        ],
+        "max": [
+          383.1,
+          335.65,
+          1800.0
+        ]
+      },
+      "footprint": [
+        [
+          -383.1,
+          -335.65
+        ],
+        [
+          383.1,
+          -335.65
+        ],
+        [
+          383.1,
+          335.65
+        ],
+        [
+          -383.1,
+          335.65
+        ]
+      ],
+      "clearance_mm": {
+        "front": 1000,
+        "back": 50,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "fixed"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-refrigerator-1",
+      "library_id": "generated_assets",
+      "name": "Refrigerator (freestanding fridge-freezer)",
+      "category": "appliance",
+      "tags": [
+        "fridge",
+        "refrigerator",
+        "freezer",
+        "kitchen",
+        "appliance"
+      ],
+      "dimensions_mm": {
+        "width": 766.2,
+        "depth": 671.3,
+        "height": 1800.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 700.0,
+        "depth": 700.0,
+        "height": 1800.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "floor",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -383.1,
+            -335.65,
+            0.0
+          ],
+          "max": [
+            383.1,
+            335.65,
+            1800.0
+          ]
+        },
+        "footprint": [
+          [
+            -383.1,
+            -335.65
+          ],
+          [
+            383.1,
+            -335.65
+          ],
+          [
+            383.1,
+            335.65
+          ],
+          [
+            -383.1,
+            335.65
+          ]
+        ],
+        "clearance_mm": {
+          "front": 1000,
+          "back": 50,
+          "left": 0,
+          "right": 0
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "fixed"
+      },
+      "materials": [
+        {
+          "material_id": "steel-galvanized",
+          "objects": [
+            "gen-refrigerator-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A freestanding tall stainless steel fridge-freezer with two vertical doors and long handles, plain modern design.",
+          "image_task_id": "01a09789-01b0-7012-a2f8-f58cadfeb3f4",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978e-fc89-71c4-985b-8599687baf80",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 1000.000026
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "kitchen"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "plan",
+          "section",
+          "axonometric"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.095,
+        "triangle_count": 1016,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "3BF1F242CB9A2A273E34F5926738DE3D68ECF6A4EC4B7EC72DF209249F320892"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-refrigerator-1",
+  "record_url": "/api/assets/gen-refrigerator-1.json"
+}

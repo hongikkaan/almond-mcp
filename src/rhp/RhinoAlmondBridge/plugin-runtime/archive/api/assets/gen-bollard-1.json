@@ -1,0 +1,325 @@
+{
+  "id": "gen-bollard-1",
+  "name": "Bollard",
+  "kind": "model",
+  "library": "generated",
+  "category": "site_furniture",
+  "variant": "cylindrical steel",
+  "format": "glb",
+  "tags": [
+    "bollard",
+    "traffic",
+    "street furniture",
+    "site",
+    "urban"
+  ],
+  "roles": [
+    "site_plan",
+    "elevation",
+    "axonometric"
+  ],
+  "dimensions_mm": {
+    "width": 190.7,
+    "depth": 189.4,
+    "height": 900.0
+  },
+  "dimension_basis": "measured_from_normalised_glb",
+  "available": true,
+  "model": "/files/generated/models/gen-bollard-1.glb",
+  "preview": "/files/generated/previews/gen-bollard-1.png",
+  "contract": "/files/generated/models/gen-bollard-1.almond.json",
+  "license": "CC-BY-4.0",
+  "source_url": "https://www.meshy.ai/",
+  "publisher": "Almond generated asset library",
+  "provenance": {
+    "asset_id": "gen-bollard-1",
+    "name": "Bollard",
+    "model_file": "models/gen-bollard-1.glb",
+    "model_sha256": "B6B33FECA43E660D5F2F03B82C5C7F16514C48D1D79E426EFC5485EF6DC44C55",
+    "contract_file": "models/gen-bollard-1.almond.json",
+    "contract_sha256": "5ECA8FC3400804DF9F2F014ED7BCAF884A2BF4E26D762BE3495922883E8CD867",
+    "generator": "meshy",
+    "recorded_generation": {
+      "prompt": "A simple cylindrical steel street bollard with a slightly domed top, plain matte dark grey, standing on the ground.",
+      "image_task_id": "01a09788-29cb-7622-915a-8f9095238de7",
+      "image_model": "nano-banana",
+      "mesh_task_id": "01a0978d-fee4-72c7-9cc1-f2bbf76bb25b",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "generated_at": "2026-09-12",
+      "orientation_correction": null,
+      "scale_applied": 5999.999762
+    },
+    "recorded_task_history": {
+      "image_model": "nano-banana",
+      "image_task_id": "01a09788-29cb-7622-915a-8f9095238de7",
+      "mesh_model": "meshy-t2 smart-topology (untextured)",
+      "mesh_task_id": "01a0978d-fee4-72c7-9cc1-f2bbf76bb25b",
+      "generated_at": "2026-09-12"
+    },
+    "image_generation": {
+      "provider": "meshy",
+      "provider_basis": "catalogue_image_stage_tool",
+      "id": "01a09788-29cb-7622-915a-8f9095238de7",
+      "id_type": "image_task_id",
+      "source_image_url_recorded": false,
+      "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here."
+    },
+    "catalogue_recipe_override": null,
+    "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",
+    "external_reference_status": "not_recorded_in_legacy_generation_evidence",
+    "external_reference_ids": [],
+    "evidence_gaps": [
+      "Exact submitted request, seed and complete per-task settings are not captured in this register.",
+      "Input image bytes and checksum are not linked in this register; provider task/job ID is retained.",
+      "External design references are not recorded; absence of records does not establish no references were used."
+    ],
+    "declared_license": "CC-BY-4.0",
+    "rights_evidence": "Existing manifest declaration; generating account entitlement not independently verified by this audit.",
+    "missing_recorded_fields": []
+  },
+  "metadata": {
+    "asset_id": "gen-bollard-1",
+    "brand": "Generic",
+    "source_class": "generated_asset",
+    "catalogue_status": "generated",
+    "drawing_roles": [
+      "site_plan",
+      "elevation",
+      "axonometric"
+    ],
+    "geometry_mode": "3d_entourage",
+    "lod": "low",
+    "category": "site_furniture",
+    "series": "ALMOND-GEN",
+    "product": "Bollard",
+    "variant": "cylindrical steel",
+    "dimensions_mm": {
+      "width": 190.7,
+      "depth": 189.4,
+      "height": 900.0
+    },
+    "nominal_dimensions_mm": {
+      "width": 160,
+      "depth": 160,
+      "height": 900
+    },
+    "match_status": "generated_height_normalised",
+    "plan_dimension_deviation": 0.192,
+    "warehouse_title": null,
+    "warehouse_publisher": null,
+    "warehouse_status": "generated",
+    "warehouse_url": "",
+    "file": "models/gen-bollard-1.glb",
+    "contract_file": "models/gen-bollard-1.almond.json",
+    "download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-bollard-1.glb",
+    "contract_download_url": "https://raw.githubusercontent.com/liangjunglj-cpu/almond-mcp/master/GeneratedAssetfiles/models/gen-bollard-1.almond.json",
+    "sha256": "B6B33FECA43E660D5F2F03B82C5C7F16514C48D1D79E426EFC5485EF6DC44C55",
+    "file_size_bytes": 310620,
+    "triangle_count": 4278,
+    "tags": [
+      "bollard",
+      "traffic",
+      "street furniture",
+      "site",
+      "urban"
+    ],
+    "render_material_id": "steel-painted-charcoal",
+    "license": "CC-BY-4.0",
+    "geometry_source": {
+      "type": "generated",
+      "format": "glb",
+      "generator": "meshy",
+      "parameters": {
+        "prompt": "A simple cylindrical steel street bollard with a slightly domed top, plain matte dark grey, standing on the ground.",
+        "image_task_id": "01a09788-29cb-7622-915a-8f9095238de7",
+        "image_model": "nano-banana",
+        "mesh_task_id": "01a0978d-fee4-72c7-9cc1-f2bbf76bb25b",
+        "mesh_model": "meshy-t2 smart-topology (untextured)",
+        "generated_at": "2026-09-12",
+        "orientation_correction": null,
+        "scale_applied": 5999.999762
+      }
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "ground",
+      "bounds_source": "measured_from_normalised_glb",
+      "geometry_bounds_status": "measured",
+      "local_aabb": {
+        "min": [
+          -95.35,
+          -94.7,
+          0.0
+        ],
+        "max": [
+          95.35,
+          94.7,
+          900.0
+        ]
+      },
+      "footprint": [
+        [
+          -95.35,
+          -94.7
+        ],
+        [
+          95.35,
+          -94.7
+        ],
+        [
+          95.35,
+          94.7
+        ],
+        [
+          -95.35,
+          94.7
+        ]
+      ],
+      "clearance_mm": {
+        "front": 0,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "fixed"
+    },
+    "passport": {
+      "schema_version": 1,
+      "asset_id": "gen-bollard-1",
+      "library_id": "generated_assets",
+      "name": "Bollard (cylindrical steel)",
+      "category": "site_furniture",
+      "tags": [
+        "bollard",
+        "traffic",
+        "street furniture",
+        "site",
+        "urban"
+      ],
+      "dimensions_mm": {
+        "width": 190.7,
+        "depth": 189.4,
+        "height": 900.0
+      },
+      "nominal_dimensions_mm": {
+        "width": 160.0,
+        "depth": 160.0,
+        "height": 900.0
+      },
+      "coordinate_convention": {
+        "contract_axes": "X width, Y depth, Z up",
+        "glb_axes": "X width, Y up, Z depth",
+        "glb_numeric_units": "mm",
+        "contract_units": "mm",
+        "note": "Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside the Almond import workflow."
+      },
+      "spatial": {
+        "metadata_version": 1,
+        "units": "mm",
+        "anchor": "bottom_center",
+        "support_plane": "ground",
+        "bounds_source": "measured_from_normalised_glb",
+        "geometry_bounds_status": "measured",
+        "local_aabb": {
+          "min": [
+            -95.35,
+            -94.7,
+            0.0
+          ],
+          "max": [
+            95.35,
+            94.7,
+            900.0
+          ]
+        },
+        "footprint": [
+          [
+            -95.35,
+            -94.7
+          ],
+          [
+            95.35,
+            -94.7
+          ],
+          [
+            95.35,
+            94.7
+          ],
+          [
+            -95.35,
+            94.7
+          ]
+        ],
+        "clearance_mm": {
+          "front": 0,
+          "back": 0,
+          "left": 0,
+          "right": 0
+        },
+        "collision_shape": "oriented_box",
+        "placement_priority": "fixed"
+      },
+      "materials": [
+        {
+          "material_id": "steel-painted-charcoal",
+          "objects": [
+            "gen-bollard-1_part1"
+          ]
+        }
+      ],
+      "provenance": {
+        "type": "generated",
+        "format": "glb",
+        "generator": "meshy",
+        "parameters": {
+          "prompt": "A simple cylindrical steel street bollard with a slightly domed top, plain matte dark grey, standing on the ground.",
+          "image_task_id": "01a09788-29cb-7622-915a-8f9095238de7",
+          "image_model": "nano-banana",
+          "mesh_task_id": "01a0978d-fee4-72c7-9cc1-f2bbf76bb25b",
+          "mesh_model": "meshy-t2 smart-topology (untextured)",
+          "generated_at": "2026-09-12",
+          "orientation_correction": null,
+          "scale_applied": 5999.999762
+        }
+      },
+      "usage": {
+        "suggested_rooms": [
+          "landscape",
+          "streetscape"
+        ],
+        "basis": "category_and_label_heuristic",
+        "drawing_roles": [
+          "site_plan",
+          "elevation",
+          "axonometric"
+        ],
+        "intended_use": [
+          "visualisation",
+          "concept_layout"
+        ],
+        "clearance_basis": "authored_design_allowance_not_code_certification"
+      },
+      "quality": {
+        "dimension_basis": "measured_normalised_geometry",
+        "plan_dimension_deviation": 0.192,
+        "triangle_count": 4278,
+        "topology_review": "not_performed",
+        "warnings": [
+          "Generated representation; not a manufacturer-verified product."
+        ]
+      },
+      "rights": {
+        "model_license": "CC-BY-4.0",
+        "metadata_license": "MIT",
+        "attribution": "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)"
+      }
+    },
+    "contract_sha256": "5ECA8FC3400804DF9F2F014ED7BCAF884A2BF4E26D762BE3495922883E8CD867"
+  },
+  "drawing": null,
+  "uri": "almond://repository/gen-bollard-1",
+  "record_url": "/api/assets/gen-bollard-1.json"
+}

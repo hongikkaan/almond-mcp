@@ -1,0 +1,133 @@
+{
+  "id": "diagram-tree-deciduous-1",
+  "name": "Deciduous Tree",
+  "kind": "element",
+  "library": "drawing",
+  "category": "vegetation",
+  "variant": "line_art",
+  "format": "svg",
+  "tags": [
+    "tree",
+    "vegetation",
+    "plant",
+    "line_art",
+    "deciduous",
+    "stylized"
+  ],
+  "roles": [
+    "section",
+    "elevation"
+  ],
+  "dimensions_mm": {
+    "width": 4000,
+    "depth": 10,
+    "height": 5000
+  },
+  "dimension_basis": "warehouse_model_estimate",
+  "available": false,
+  "model": null,
+  "preview": null,
+  "contract": null,
+  "license": "Source terms apply; not cleared for redistribution",
+  "source_url": "",
+  "publisher": "DiagramGen",
+  "provenance": null,
+  "metadata": {
+    "asset_id": "diagram-tree-deciduous-1",
+    "brand": "Generic",
+    "source_class": "drawing_asset",
+    "catalogue_status": "community_drawing_asset",
+    "drawing_roles": [
+      "section",
+      "elevation"
+    ],
+    "geometry_mode": "2d_diagram",
+    "lod": "low",
+    "recommended_scales": [
+      "1:100",
+      "1:200",
+      "1:500"
+    ],
+    "default_line_class": "entourage",
+    "hidden_line_policy": "silhouette_only",
+    "category": "vegetation",
+    "series": "GENERIC",
+    "product": "Deciduous Tree",
+    "variant": "line_art",
+    "dimensions_mm": {
+      "width": 4000,
+      "depth": 10,
+      "height": 5000
+    },
+    "warehouse_title": "Stylized Diagram Tree",
+    "warehouse_publisher": "DiagramGen",
+    "warehouse_status": "community",
+    "match_status": "generic_context_asset_scale_estimated",
+    "warehouse_url": "",
+    "file": "models/2D_plant_silhouette.svg",
+    "sha256": "2190CDC66D20ACB9348EACD52838293B421B2F802066AB55816D68B1FDA86BA2",
+    "tags": [
+      "tree",
+      "vegetation",
+      "plant",
+      "line_art",
+      "deciduous",
+      "stylized"
+    ],
+    "geometry_source": {
+      "type": "downloaded_asset",
+      "format": "svg",
+      "generator": null,
+      "parameters": null
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "ground",
+      "bounds_source": "warehouse_model_estimate",
+      "geometry_bounds_status": "pending_rhino_measurement",
+      "local_aabb": {
+        "min": [
+          -2000,
+          -5,
+          0
+        ],
+        "max": [
+          2000,
+          5,
+          5000
+        ]
+      },
+      "footprint": [
+        [
+          -2000,
+          -5
+        ],
+        [
+          2000,
+          -5
+        ],
+        [
+          2000,
+          5
+        ],
+        [
+          -2000,
+          5
+        ]
+      ],
+      "clearance_mm": {
+        "front": 0,
+        "back": 0,
+        "left": 0,
+        "right": 0
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "fixed"
+    }
+  },
+  "drawing": null,
+  "uri": "almond://repository/diagram-tree-deciduous-1",
+  "record_url": "/api/assets/diagram-tree-deciduous-1.json"
+}

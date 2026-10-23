@@ -1,0 +1,139 @@
+{
+  "id": "context-vehicle-compact-dc11548f",
+  "name": "Compact car",
+  "kind": "element",
+  "library": "drawing",
+  "category": "vehicle",
+  "variant": "simple low-detail model",
+  "format": "skp",
+  "tags": [
+    "car",
+    "vehicle",
+    "parking",
+    "driveway",
+    "garage",
+    "transport"
+  ],
+  "roles": [
+    "site_plan",
+    "elevation",
+    "section",
+    "axonometric"
+  ],
+  "dimensions_mm": {
+    "width": 1800,
+    "depth": 4200,
+    "height": 1500
+  },
+  "dimension_basis": "warehouse_model_estimate",
+  "available": false,
+  "model": null,
+  "preview": null,
+  "contract": null,
+  "license": "Source terms apply; not cleared for redistribution",
+  "source_url": "https://3dwarehouse.sketchup.com/model/dc11548f-bb29-4868-a578-d6f164faa98e/3D-Simple-Car-Compact",
+  "publisher": "Paige C.",
+  "provenance": null,
+  "metadata": {
+    "asset_id": "context-vehicle-compact-dc11548f",
+    "brand": "Generic",
+    "source_class": "drawing_asset",
+    "catalogue_status": "community_drawing_asset",
+    "drawing_roles": [
+      "site_plan",
+      "elevation",
+      "section",
+      "axonometric"
+    ],
+    "geometry_mode": "3d_entourage",
+    "lod": "low",
+    "recommended_scales": [
+      "1:100",
+      "1:200"
+    ],
+    "default_line_class": "entourage",
+    "hidden_line_policy": "silhouette_and_visible",
+    "category": "vehicle",
+    "series": "GENERIC",
+    "product": "Compact car",
+    "variant": "simple low-detail model",
+    "dimensions_mm": {
+      "width": 1800,
+      "depth": 4200,
+      "height": 1500
+    },
+    "ikea_product_id": null,
+    "ikea_url": null,
+    "warehouse_title": "3D Simple Car - Compact",
+    "warehouse_publisher": "Paige C.",
+    "warehouse_status": "community",
+    "match_status": "generic_context_asset_scale_estimated",
+    "warehouse_url": "https://3dwarehouse.sketchup.com/model/dc11548f-bb29-4868-a578-d6f164faa98e/3D-Simple-Car-Compact",
+    "file": "models/CONTEXT_compact_car.skp",
+    "sha256": "028C337A79C95DCB16C969B2DB19B71F7513CA32E2E72823CF3A333CC1B6AB6F",
+    "tags": [
+      "car",
+      "vehicle",
+      "parking",
+      "driveway",
+      "garage",
+      "transport"
+    ],
+    "geometry_source": {
+      "type": "downloaded_asset",
+      "format": "skp",
+      "generator": null,
+      "parameters": null
+    },
+    "spatial": {
+      "metadata_version": 1,
+      "units": "mm",
+      "anchor": "bottom_center",
+      "support_plane": "ground",
+      "bounds_source": "warehouse_model_estimate",
+      "geometry_bounds_status": "pending_rhino_measurement",
+      "local_aabb": {
+        "min": [
+          -900,
+          -2100,
+          0
+        ],
+        "max": [
+          900,
+          2100,
+          1500
+        ]
+      },
+      "footprint": [
+        [
+          -900,
+          -2100
+        ],
+        [
+          900,
+          -2100
+        ],
+        [
+          900,
+          2100
+        ],
+        [
+          -900,
+          2100
+        ]
+      ],
+      "clearance_mm": {
+        "front": 1000,
+        "back": 1000,
+        "left": 500,
+        "right": 500
+      },
+      "collision_shape": "oriented_box",
+      "placement_priority": "movable"
+    },
+    "library_id": "drawing_assets"
+  },
+  "drawing": null,
+  "uri": "almond://repository/context-vehicle-compact-dc11548f",
+  "record_url": "/api/assets/context-vehicle-compact-dc11548f.json"
+}
