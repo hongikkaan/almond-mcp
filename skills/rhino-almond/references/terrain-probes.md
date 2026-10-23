@@ -1,6 +1,6 @@
 # 지형 단면과 수직선 관찰
 
-[AlmondTerrain.cs](../scripts/AlmondTerrain.cs)의 `Sections(doc, q)`와 `VerticalProbe(doc, q)`는 명시한 문서 객체의 실제 Brep/Mesh를 관찰하고 `JObject`를 반환한다. 두 함수는 객체·선택·뷰·레이어를 변경하지 않는다. Brep, Mesh, Extrusion만 지원하며 블록 정의 내부 멤버와 다른 형식은 `objects[].status`에 별도로 보고한다.
+[고정 조회 도구](probe-tools.md) `get_rhino_probe`의 `probe="sections"` 또는 `"vertical-probe"`를 호출하라. 구현은 [AlmondTerrain.cs](../scripts/AlmondTerrain.cs)의 `Sections(doc, q)`와 `VerticalProbe(doc, q)`이며 아래 C# 예는 `options` 필드의 대응을 설명한다. 객체·선택·뷰·레이어·Undo를 변경하지 않는다. Brep, Mesh, Extrusion만 지원하며 블록 정의 내부 멤버와 다른 형식은 `objects[].status`에 별도로 보고한다.
 
 모든 좌표·길이·간격·공차는 **현재 Rhino 문서의 model units**다. 반환의 `model_unit_system`을 확인하라. mm로 자동 변환하지 않는다. `tolerance`를 생략하면 `doc.ModelAbsoluteTolerance`를 사용한다.
 

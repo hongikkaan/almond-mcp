@@ -1,12 +1,10 @@
-"""Compile and invoke each prepared source in an isolated Rhino process."""
+"""Invoke the compiled fixed probe handler in isolated Rhino fixture documents."""
 import json
 from pathlib import Path
 import subprocess
-import sys
 import uuid
 
 BASE = Path(__file__).resolve().parent
-PROBE = BASE.parent / "scripts" / "almond_probe.py"
 EXE = BASE / "bin" / "Release" / "net48" / "NativeSkillCheck.exe"
 RUN = BASE / ".artifacts" / ("pipeline-" + uuid.uuid4().hex)
 RUN.mkdir(parents=True)
@@ -29,16 +27,16 @@ requests = {
 }
 results = []
 for tool, options in requests.items():
-    job = dict(tool=tool, options=options, model_path=fixture["model_path"], artifact_dir=str(RUN))
+    job = dict(probe=tool, options=options, expected_model_path=fixture["model_path"])
     input_path = RUN / (tool + ".json")
     input_path.write_text(json.dumps(job), encoding="utf-8")
-    manifest = json.loads(run([sys.executable, "-B", PROBE, "prepare", "--job", input_path]))
     check_path = RUN / (tool + "-native.json")
-    run([EXE, "script", check_path, manifest["manifest_path"]])
+    run([EXE, "probe", check_path, input_path])
     native = json.loads(check_path.read_text(encoding="utf-8"))
-    result = json.loads(run([sys.executable, "-B", PROBE, "read", "--manifest", manifest["manifest_path"]]))
-    assert native["compiled_and_executed"] and native["geometry_unchanged"]
-    assert result["status"] == "ok" and result["run_id"] == manifest["run_id"]
+    result = native["probe_result"]
+    assert native["document_unchanged"] and native["invalid_requests_rejected"]
+    assert result["status"] == "success" and result["probe"] == tool
+    assert Path(result["document"]["path"]) == Path(fixture["model_path"])
     data = result["data"]
     if tool == "sections":
         assert len(data["sections"]) == 2
@@ -52,8 +50,8 @@ for tool, options in requests.items():
         assert data["match_rule"] == "explicit_root_id" and data["editor_owner_verified"] is False
     else:
         assert block in json.dumps(data)
-    row = dict(tool=tool, status="passed", source_compiled=True, native_executed=True,
-               geometry_unchanged=True, result_read=True, manifest=manifest["manifest_path"])
+    row = dict(tool=tool, status="passed", fixed_handler_executed=True,
+               document_unchanged=True, invalid_requests_rejected=True, report=str(check_path))
     results.append(row)
     print(json.dumps(row), flush=True)
 report = dict(status="passed", count=len(results), results=results)

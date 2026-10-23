@@ -183,9 +183,9 @@ def test_catalog_matches_live_schema_and_retains_camera_examples(server):
         async with Client(server.mcp) as client:
             tools = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True)
                      for tool in await client.list_tools()}
-            assert len(tools) == 58
+            assert len(tools) == 59
             for name in ("get_rhino_context", "get_rhino_viewport_image", "execute_rhino_script",
-                         "capture_conditioning_pass"):
+                         "get_rhino_probe", "capture_conditioning_pass"):
                 assert schema_identity(tools[name]) == schema_identity(catalog[name])
             description = tools["capture_conditioning_pass"]["description"]
             for retained in ('"type":"orbit"', '"type":"track"', '"type":"keyframes"', "camera.json"):
@@ -193,3 +193,46 @@ def test_catalog_matches_live_schema_and_retains_camera_examples(server):
                 assert retained in catalog["capture_conditioning_pass"]["description"]
             assert "result_error" in tools["execute_rhino_script"]["description"]
     asyncio.run(verify())
+
+
+@pytest.mark.parametrize("probe", ["outline", "resolve-block", "sections", "vertical-probe", "joint-pairs"])
+def test_fixed_probe_checks_capability_then_uses_native_query(server, monkeypatch, probe):
+    requests = []
+    model = "C:\\fixture\\model.3dm"
+    response = {"status": "success", "probe": probe, "document": {"path": model}, "data": {"measured": 12}}
+
+    def send(payload):
+        request = json.loads(payload)
+        requests.append(request)
+        if request["type"] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {"fixed_probes": 1}})
+        return json.dumps(response)
+
+    monkeypatch.setattr(server, "_send_and_receive", send)
+    assert json.loads(call(server.get_rhino_probe, probe=probe, options={}, expected_model_path=model)) == response
+    assert requests == [{"type": "get_rhino_context", "selection_limit": 0},
+                        {"type": "get_rhino_probe", "probe": probe, "options": {}, "expected_model_path": model}]
+
+
+@pytest.mark.parametrize("arguments", [
+    {"probe": "execute"}, {"options": []}, {"expected_model_path": ""},
+    {"options": {"sample": float("nan")}}, {"options": {"value": "x" * 262144}},
+])
+def test_bad_probe_requests_never_reach_the_bridge(server, monkeypatch, arguments):
+    monkeypatch.setattr(server, "_send_and_receive", lambda *_: pytest.fail("Unexpected bridge call"))
+    request = dict(probe="outline", options={}, expected_model_path="C:\\fixture\\model.3dm")
+    request.update(arguments)
+    assert json.loads(call(server.get_rhino_probe, **request))["error_code"] == "invalid_arguments"
+
+
+def test_old_bridge_never_receives_an_unknown_probe_type(server, monkeypatch):
+    requests = []
+
+    def send(payload):
+        requests.append(json.loads(payload))
+        return json.dumps({"status": "success", "document": {"path": "C:\\fixture\\model.3dm"}})
+
+    monkeypatch.setattr(server, "_send_and_receive", send)
+    result = call(server.get_rhino_probe, probe="outline", options={}, expected_model_path="C:\\fixture\\model.3dm")
+    assert json.loads(result)["error_code"] == "unsupported_probe"
+    assert requests == [{"type": "get_rhino_context", "selection_limit": 0}]

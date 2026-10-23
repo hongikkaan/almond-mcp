@@ -33,6 +33,9 @@
     <Compile Include="..\Structural_Analysis\*.cs" />
     <Compile Include="..\Asset_Panel\*.cs" />
     <Compile Include="..\RhinoTerminal\src\*.cs" />
+    <Compile Include="..\..\..\skills\rhino-almond\scripts\AlmondSpatial.cs" Link="Probes\AlmondSpatial.cs" />
+    <Compile Include="..\..\..\skills\rhino-almond\scripts\AlmondTerrain.cs" Link="Probes\AlmondTerrain.cs" />
+    <Compile Include="..\..\..\skills\rhino-almond\scripts\AlmondJoints.cs" Link="Probes\AlmondJoints.cs" />
     <ProjectReference Include="..\..\engine\native\Almond.Engine.csproj" />
   </ItemGroup>
 

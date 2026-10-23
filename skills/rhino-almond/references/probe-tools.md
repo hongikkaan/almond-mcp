@@ -8,51 +8,39 @@
 
 기존 `List<Guid>`는 `guids`와 자동 치수 동작을 유지하며 `result`를 추가하지 않는다. `void`/`null`도 새 결과 필드가 없다. `guids`는 코드가 선언한 ID로 전체 변경 이력이 아니다. 일반 C# 실행은 자동 레이어·Undo 등 부수 효과가 있으므로 계산만 하더라도 읽기 전용 subagent에게 맡기지 마라.
 
-## 제공 probe의 파일 결과
+## 고정 probe 조회
 
-`scripts/almond_probe.py`는 제공 C# 함수를 완전한 실행 소스로 조립하고 해당 실행의 JSON 결과를 읽는다. Rhino 연결이나 실행을 대신하지 않는다. 실제 실행에는 기존 Almond MCP `execute_rhino_script`를 사용하라.
+제공 probe는 `get_rhino_probe`로 호출하라. COS에서는 `almond_cos_get_rhino_probe`에 `connection_id`를 함께 전달한다. Bridge에 컴파일된 다섯 함수만 UI thread에서 실행하며 C# 소스·출력 파일 경로를 받지 않는다. Undo 기록·AIA 레이어·기하·선택·뷰·문서의 modified 상태를 변경하지 않는다.
 
-## 호출
-
-1. `almond_project_info` 또는 COS `almond_cos_project_info`에서 실제 `model_path`와 `artifact_dir`를 얻고 `get_rhino_context`로 열린 문서와 대조하라. 출력 경로는 해당 `.almond` 아래 반환된 artifact_dir를 사용하라.
-2. artifact_dir 안에 작업 요청 JSON을 작성하라. 아래 경로 자리에는 조회한 절대경로를 넣어라. 도구별 인자는 `options`에 넣어라.
-3. prepare를 실행하고 반환된 `script_path`의 **전체 내용**을 기존 `execute_rhino_script`의 `script` 인자로 전달하라. CoS에서는 확인한 connection_id를 함께 사용하라.
-4. read로 같은 실행의 결과를 회수하라. MCP 내부 실행 상태와 JSON의 `status`·`data`를 함께 확인하라. 오류 뒤 이전 고정 경로의 결과를 대신 읽어 성공으로 처리하지 마라.
+1. `almond_project_info` 또는 COS `almond_cos_project_info`에서 실제 `model_path`를 얻고 `get_rhino_context`로 열린 문서와 대조하라.
+2. 아래 인자로 `get_rhino_probe`를 호출하라. `expected_model_path`에는 조회한 절대경로를 넣고 도구별 인자는 `options`에 넣어라.
+3. 같은 응답의 `status`, `probe`, `document.path`·단위·공차와 `data`를 확인하라. 이전 실행의 파일로 결과를 대신하지 마라. 기록이 필요하면 응답을 해당 연결의 `artifact_dir`에 저장하라.
 
 ```json
 {
-  "tool": "outline",
-  "model_path": "<project_info에서 확인한 저장된 .3dm 절대경로>",
-  "artifact_dir": "<project_info에서 확인한 실제 artifact_dir>",
+  "probe": "outline",
+  "expected_model_path": "<project_info에서 확인한 저장된 .3dm 절대경로>",
   "options": {"scope": "selected", "depth": 2, "include_geometry": true}
 }
 ```
 
-스킬 폴더를 작업 디렉터리로 삼아 실행하라. 실행 결과의 manifest_path를 두 번째 명령에 사용하라.
+현재 문서의 저장 경로가 다르면 계산 전에 `document_mismatch`로 거절한다. 연결 binding·호출 identity·native 완료 확인은 기존 Engine/COS 경로를 따른다. 요청과 응답은 각각 UTF-8 JSON 262,144 bytes 이내다. 출력이 크면 GUID·표본·깊이·출력 예산을 줄여라.
 
-```powershell
-python -B scripts/almond_probe.py prepare --job "<요청 JSON 절대경로>"
-python -B scripts/almond_probe.py read --manifest "<반환된 manifest_path>"
-```
-
-prepare는 매번 새 run_id와 폴더를 만들고 script.cs·query.cs·job.json·result.json 경로를 정한다. `query_path`는 검토할 형상 코드이며, MCP에는 이를 포함한 `script_path`의 전체 내용을 전달하라. 실행기는 Rhino에 두 Newtonsoft JSON 라이브러리가 함께 로드된 경우에도 사용할 참조를 하나로 정해 query를 컴파일한다. 현재 문서의 저장 경로가 요청과 다르면 조회를 중단하고 오류를 기록한다. 기존 결과가 있는 스크립트는 다시 실행하지 않는다.
-
-## probe 파일 결과 해석
+## 결과 해석
 
 | 결과 | 의미·후속 행동 |
 |---|---|
-| read 종료 코드 0, `status: ok` | 조회·계산이 완료됨. `data`의 실제 측정값, 오류·생략·미확정 항목을 읽어라. 설계 합격 판정이 아니다. |
-| 종료 코드 2, `status: error` | 함수 실행 중 오류. message와 MCP 오류를 확인하라. |
-| 종료 코드 3, `report_not_ready` | 완성된 결과 파일이 없음. 컴파일 오류·미실행·실행 중·프로세스 중단 등을 구분해야 한다. 타임아웃만으로 롤백됐다고 추정하거나 실행을 반복하지 마라. |
-| 종료 코드 1 | 요청·파일·형식·실행 ID·모델 경로·출력 크기 검사가 실패함. 오류를 고친 후 새 요청을 준비하라. |
+| `status: success` | 계산 완료. `data`의 실제 측정값·오류·생략·미확정 항목을 읽어라. 설계 합격 판정이 아니다. |
+| `document_mismatch` | 연결의 모델과 실제 문서를 다시 확인하라. |
+| `invalid_arguments` / `probe_too_large` | 인자·요청 범위·출력 예산을 수정하라. |
+| `unsupported_probe` | 로드한 Bridge가 `fixed_probes=1`을 지원하지 않는다. 플러그인 갱신·로드 검증이 필요하다. |
+| `probe_failed` / `bridge_error` | message와 연결 상태·native 완료를 확인하라. 타임아웃만으로 실행을 자동 반복하지 마라. |
 
-read는 run_id·도구·모델 경로가 manifest와 일치하는 결과만 받아들인다. 기본 읽기 한도는 262,144 bytes다. 출력이 크면 먼저 각 함수의 요청 범위를 좁혀라. 전체 결과가 꼭 필요할 때만 `--max-bytes`를 늘려라.
-
-제공 함수는 형상·선택·뷰를 편집하지 않는다. 다만 현재 Almond 브리지의 실행 경로 자체가 Undo 기록과 AIA 레이어를 준비할 수 있으므로 문서의 modified 상태까지 보존한다고 가정하지 마라. 따라서 읽기 전용 설계 subagent에게 이 실행 경로를 맡기지 마라. 주 에이전트가 필요한 결과를 확보하여 전달한다. 반환 GUID가 빈 배열인 조회는 정상이다. 보조 코드가 생성하지 않은 객체를 새 GUID로 돌려주지 마라.
+호출 전에 기존 문서 조회로 capability를 확인하여 이전 Bridge에 알 수 없는 probe 요청을 보내지 않는다. 예전 `almond_probe.py`와 C# bootstrap은 제거했다. 고정 조회 도구가 없으면 일반 `execute_rhino_script`로 우회하지 마라.
 
 ## 도구
 
-| tool | 함수·문서 | options |
+| probe | 함수·문서 | options |
 |---|---|---|
 | `sections` | `AlmondTerrain.Sections` · [지형 검사](terrain-probes.md) | `ids`, `axis`, `stations`, 선택적 표본·예산 |
 | `vertical-probe` | `AlmondTerrain.VerticalProbe` · [지형 검사](terrain-probes.md) | `ids`, `xy`, 선택적 Z범위·예산 |
@@ -60,12 +48,12 @@ read는 run_id·도구·모델 경로가 manifest와 일치하는 결과만 받�
 | `outline` | `AlmondSpatial.Outline` · [블록과 주석](blocks-and-notes.md) | 문서의 Outline 옵션 |
 | `resolve-block` | `AlmondSpatial.ResolveBlock` · [블록과 주석](blocks-and-notes.md) | `{"path": ["root GUID", "direct member GUID", "..."]}` |
 
-제공 helper는 `JObject/JArray`를 사용하며 `almond_probe.py`는 기존 파일 결과 경로를 유지한다. 위의 직접 반환 한도와 probe 파일의 읽기 한도는 별개다. 함수를 별도 C# 작업에 직접 결합할 때는 필요한 using 문과 helper class, `Script.Run(RhinoDoc)`을 한 소스로 컴파일하고, 결과를 JSON-safe 값으로 투영하거나 해당 artifact_dir의 명시적 경로에 기록하라.
+`scripts/`의 C# 파일은 이 고정 API가 컴파일하는 구현 원본이다. 위의 일반 C# 반환 한도 64 KiB와 고정 probe 응답 한도 256 KiB는 별개다.
 
 ## 스킬 유지보수에서 코드 변경 후 검증
 
 아래 명령은 사용자가 스킬 코드 유지보수를 별도로 요청한 때의 검증이다. 스킬 폴더·`tests/.artifacts/`에 쓰거나 별도 Rhino를 실행하므로, 현재 문서와 `.almond`만 편집하는 일반 모델링 작업이나 읽기 전용 subagent는 실행하지 마라. 지침 문서만 바꾼 경우에는 관련 링크·내용과 diff를 검토하라.
 
-`python -B tests/test_probe.py`는 요청·실행 ID·모델 경로·결과 상태 검사를 실행한다. Windows에 Rhino 8과 .NET SDK가 있는 환경에서는 `dotnet build tests/NativeSkillCheck.csproj -c Release` 후 `tests/bin/Release/net48/NativeSkillCheck.exe tests "<새 JSON 보고서 절대경로>"`로 기하 회귀 검사를 실행하라. 기본 Rhino 설치 위치가 다르면 `RHINO_SYSTEM_DIR`로 System 폴더를 지정하라.
+저장소의 `tests/mcp/test_rhino_observation.py`는 공개 probe 인자·capability·schema를 검사한다. Windows에 Rhino 8과 .NET SDK가 있는 환경에서는 스킬 폴더에서 `dotnet build tests/NativeSkillCheck.csproj -c Release` 후 `tests/bin/Release/net48/NativeSkillCheck.exe tests "<새 JSON 보고서 절대경로>"`로 기하 회귀 검사를 실행하라. 기본 Rhino 설치 위치가 다르면 `RHINO_SYSTEM_DIR`로 System 폴더를 지정하라.
 
-`python -B tests/verify_pipeline.py`는 다섯 tool의 prepare → C# 컴파일·실행 → read를 확인한다. 검증은 별도 Rhino 프로세스의 자체 문서만 사용하며, 임시 모델과 결과는 `tests/.artifacts/`에 남긴다.
+`python -B tests/verify_pipeline.py`는 컴파일된 고정 handler의 다섯 probe와 잘못된 문서·도구 거절을 확인한다. 별도 Rhino 프로세스의 자체 문서에서 기하·속성·선택·레이어·modified·Undo 상태를 전후 대조한다. 임시 모델과 결과는 `tests/.artifacts/`에 남긴다. 실제 RHP의 dispatch와 공개 COS 호출은 별도 로드 검증에서 확인한다.

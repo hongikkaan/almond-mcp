@@ -23,6 +23,7 @@ MCP 서버와 COS host의 초기 안내 모두 현황 조회, 관련 객체 조�
 | 필드 | 내용 |
 |---|---|
 | `status` | `success` 또는 명시적 오류 |
+| `capabilities` | `fixed_probes: 1`이면 아래 고정 geometry probe를 지원 |
 | `document` | runtime serial, path, name, units, 절대/각도 공차, modified, 객체/레이어 수 |
 | `selection` | 전체 선택 수 `total`, 반환 수 `returned`, `truncated`, 객체별 id/name/layer/type |
 | `viewport` | 활성 viewport ID/이름, 원본 픽셀 크기, display mode, projection, camera/target/up/lens |
@@ -58,6 +59,27 @@ JPEG 원본 한도는 4 MiB이다. 모델/viewport identity와 원본 화면 크
 검사한다. 기존 경로의 오래된 이미지로 대체하지 않는다. 의도적으로 카메라를
 움직이며 여러 패스를 얻으려면 기존 `capture_conditioning_pass`를 사용한다.
 이 도구의 카메라 복원은 best effort이다.
+
+## 고정 geometry probe
+
+`get_rhino_probe` / COS `almond_cos_get_rhino_probe`는 컴파일된 `outline`,
+`resolve-block`, `sections`, `vertical-probe`, `joint-pairs` 중 하나를 실행한다.
+`probe`, 도구별 `options`, `project_info`에서 얻은 `expected_model_path`를 전달한다.
+COS에서는 동일하게 `connection_id`를 사용한다. 활성 문서 경로가 다르면 계산 전에
+거절하며 새 문서를 열거나 파일에 결과를 기록하지 않는다.
+
+Bridge UI thread의 고정 handler가 스킬의 C# helper를 직접 호출한다.
+일반 스크립트 실행기·Roslyn·BeginUndoRecord·EnsureAiaLayers를 거치지 않으며
+기하·속성·레이어·선택·뷰·modified·Undo 상태를 보존한다. 응답의 `status`, `probe`,
+`document` identity·units·tolerance와 `data`를 함께 읽는다. 요청과 응답은 각각
+UTF-8 JSON 262,144 bytes 이내이며 한도 초과는 명시적 오류다. helper의
+`unknown`, `truncated`, 미지원 객체·미평가 표본을 0이나 설계 통과로 해석하지 않는다.
+
+Python은 기존 문서 조회의 `capabilities.fixed_probes`를 먼저 확인한다.
+이 capability가 없는 이전 관찰용 Bridge에는 알 수 없는 probe 요청을 보내지 않고
+`unsupported_probe`를 반환한다. 새 Bridge의 알 수 없는 request type도 실행 없이
+`unsupported_request`로 거절한다. `execute`와 type 생략의 기존 스크립트 동작은 유지한다.
+옵션별 계약은 [스킬 probe 안내](../skills/rhino-almond/references/probe-tools.md)에 있다.
 
 ## C#에서 계산값 반환
 

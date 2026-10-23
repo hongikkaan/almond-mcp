@@ -233,6 +233,9 @@ namespace RhinoAlmondBridge
                     case "get_rhino_viewport_image":
                         return DocumentObservation.HandleViewportImage(jobj);
 
+                    case "get_rhino_probe":
+                        return ProbeObservation.Handle(jobj);
+
                     case "place_drawing_asset":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Placing indexed drawing asset...");
                         var drawingAssetRequest = jobj.ToObject<FurniturePlacementRequest>();
@@ -282,11 +285,14 @@ namespace RhinoAlmondBridge
                         return StructureView.Handle(jobj);
 
                     case "execute":
-                    default:
                         string script = jobj.Value<string>("script") ?? "";
                         var executor = new ScriptExecutor();
                         var execResult = executor.Execute(script);
                         return JsonConvert.SerializeObject(execResult);
+
+                    default:
+                        return JsonConvert.SerializeObject(new { status = "error", error_code = "unsupported_request",
+                            message = "Unsupported bridge request type: " + requestType });
                 }
             }
             catch (Exception ex)

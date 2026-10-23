@@ -9,10 +9,10 @@
   <ItemGroup>
     <Reference Include="System.Drawing" />
     <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="Program.cs" />
     <Compile Include="NativeTests.cs" />
     <Compile Include="../scripts/*.cs" Link="Helpers\%(Filename)%(Extension)" />
+    <Compile Include="../../../src/rhp/RhinoAlmondBridge/ProbeObservation.cs" Link="ProbeObservation.cs" />
   </ItemGroup>
 </Project>

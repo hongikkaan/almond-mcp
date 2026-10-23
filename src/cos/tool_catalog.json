@@ -8,11 +8,11 @@
   "sources": {
     "project": "477e3fba58515bbe6fbc1cc777cfe814b77a936f15bcecec712eda5221a90329",
     "entry": "0e21319767f94bc721910efaea3436ef41a5d66a2f753c301b2bbf5e869a0aef",
-    "shared_store": "8c64fa1684d243ee8d3467bd00dc31614eb0c32dea463b148de74485ce6141e4",
+    "shared_store": "9b1c0ab8ee94d64bf3cc75ba6876bdf3a524a8b8cf930bb26d9df680e65c33bd",
     "native_request": "a49132b8745d8c38ea4a1417c22771b2c8a6b3be88c19f950ae816a3157b29b9",
     "compat_almond": "ba7f0023e259bca960f26a3a5bfbe6a102d84572360a93c90476e59ed400da25",
     "library_paths": "68aa94e41941fa67dcbabc5d0d1313e5cf036bf4dfeb0e33e5fb9f5c25fd3ec0",
-    "server": "316e95fab05e1513aacccf3a49c4b1cf6cae3adf18be814ef4f07a3c1b0e8c2a"
+    "server": "3b12d7584cb930b9c0ee1763cce45fc0fd8a4e00cbbbc68ee10c061ca9282413"
   },
   "tools": [
     {
@@ -1125,6 +1125,56 @@
             "description": "Maximum selected object summaries, from 0 to 200; total/truncated are still reported."
           }
         },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_rhino_probe",
+      "title": "Get Rhino Probe",
+      "description": "Read fixed geometry observations on the bound Rhino UI thread without modifying the document.\n\nDoes not execute supplied C#, create layers/Undo records, edit geometry, select objects,\nchange views or write files. Requires the Bridge fixed_probes capability. Requests and\nresponses are limited to 256 KiB of UTF-8 JSON. Unknown/omitted/truncated observations\ndo not mean zero, clearance, structural approval or design correctness.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "probe": {
+            "type": "string",
+            "description": "One of outline, resolve-block, sections, vertical-probe, joint-pairs."
+          },
+          "options": {
+            "additionalProperties": true,
+            "type": "object",
+            "description": "Fixed helper options: outline uses scope/ids/path/depth; resolve-block uses\npath (1..65 GUIDs); sections uses ids/axis/stations; vertical-probe uses ids/xy;\njoint-pairs uses pairs and optional compare_operations. Coordinates are model units."
+          },
+          "expected_model_path": {
+            "type": "string",
+            "description": "Absolute normalized saved .3dm path from project_info; must match the active document."
+          }
+        },
+        "required": [
+          "probe",
+          "options",
+          "expected_model_path"
+        ],
         "type": "object"
       },
       "outputSchema": {

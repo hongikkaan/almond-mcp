@@ -72,8 +72,8 @@ async def generate(engine: Path = ENGINE) -> dict:
     exec(compile(ast.fix_missing_locations(tree), "<AlmondCOS schemas only>", "exec"), module.__dict__)
     tools = [t.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
              for t in await module.mcp.list_tools()]
-    if len(tools) != 59:
-        raise RuntimeError(f"Expected the inspected 59 tools; got {len(tools)}. Review the changed package.")
+    if len(tools) != 60:
+        raise RuntimeError(f"Expected the inspected 60 tools; got {len(tools)}. Review the changed package.")
     if "almond_mcp.server" in sys.modules:
         raise RuntimeError("Catalog generation must not import the Almond server.")
     return {

@@ -138,6 +138,7 @@ fixture·빌드 성공과 실제 MCP 클라이언트 수신을 구분합니다.
 | `main` | `main`; PR 병합 결과 동기화와 통합 검증 |
 | `construction-material` | `work/construction-material`; construction·material·관련 자료 |
 | `scene-workflow` | `work/scene-workflow`; scene·room·instance·plan·step |
+| `skill` | `work/skill`; Rhino Almond 스킬·고정 probe 및 관련 계약 |
 
 asset 작업은 실제 과업이 생길 때 최신 `main`에서 별도 작업 브랜치를 만듭니다.
 `server.py`, `retrieval_store.py`의 스키마, Engine/COS, 카탈로그, 공용 패널과 통합 RHP
@@ -180,7 +181,33 @@ A–J 슬롯과 로드된 RHP는 워크트리를 만든 것만으로 격리되�
 다음 과업은 갱신된 `main`에서 새 브랜치로 시작합니다. 로컬 `skill`은 기존 작업을
 보존하는 브랜치이며 모든 개발의 분기 기준으로 사용하지 않습니다.
 
-현재 기존 실행 경로 `C:\TOOL\Rhino\mcp\almond-mcp`의 체크아웃·RHP와 상위 Rhino
-리포의 gitlink 전환은 별도 작업입니다. 실제 Rhino 검증 때 정상 종료·재시작 및
-로드 경로를 확인한 뒤 전환합니다. 워크트리의 테스트 통과를 실제 플러그인 로드
-성공이나 사용자 모델의 검증으로 해석하지 않습니다.
+### Rhino에서 사용할 워크트리 전환
+
+Rhino의 실행 소스는 로드한 RHP 위치에서 결정됩니다. 같은 프로세스의 Bridge·COS·
+Engine과 Python은 같은 워크트리를 사용해야 합니다. Git의 PR 병합이나 현재 작업
+디렉터리 변경만으로 실행 중인 Rhino가 전환되지는 않습니다.
+
+1. 대상 워크트리의 Python 환경·카탈로그를 준비하고 관련 검증을 실행합니다.
+2. `src/rhp/build.ps1 -OutputDirectory 'RhinoAlmondBridge\plugin-<작업명>'`와
+   `src/rhp/AlmondCOS/build.ps1`로 두 플러그인을 빌드합니다. 로드 중인 출력을
+   덮어쓰지 않으며, 공통 `Almond.Engine.dll`의 빌드가 일치하는지 확인합니다.
+3. 기존 Bridge/COS 레지스트리 키를 백업한 뒤 다음 두 키의 `FileName`만 해당
+   워크트리의 RHP 절대경로로 변경합니다. GUID와 기존 LoadMode는 유지합니다.
+
+   - `HKCU\Software\McNeel\Rhinoceros\8.0\Plug-ins\c337dbb8-394a-4593-9c2b-a3d7cfc91893\PlugIn`
+   - `HKCU\Software\McNeel\Rhinoceros\8.0\Plug-ins\39eb74f6-8283-4e43-bf26-f0106d891b75\PlugIn`
+
+4. 대상 워크트리의 `src/cos/cos-plugin.json`에 있는 command/args를 MCP 클라이언트에
+   적용합니다. 기존 연결은 완료·detach하고, 같은 문서의 DB·세션 보호를 유지합니다.
+5. 새 Rhino 또는 정상 재시작한 Rhino에서 실제 Bridge·COS·Engine 모듈 경로와
+   Python worker 경로를 확인합니다. 기존 `RHINO_MCP_*_DIR`를 유지하고 native와
+   Python 라이브러리 경로를 대조합니다. 고정 조회·캡처·필요한 기능을 실제 호출합니다.
+
+`skills/rhino-almond/scripts/Almond*.cs`는 고정 probe용으로 Bridge에 함께 컴파일됩니다.
+이 helper 변경도 RHP 재빌드·로드 검증 대상입니다. 문서만 바꾸는 스킬 작업에는
+RHP 재빌드가 필요하지 않습니다.
+
+2026-10-23에는 `skill` 워크트리로 Bridge/COS 등록을 전환하고 별도 Rhino에서
+공개 COS 호출까지 검증했습니다. 정확한 경로·검증 범위는
+[전환 기록](docs/worktree-probe-verification.md)에 있습니다. 상위 Rhino 리포의
+gitlink는 이 실행 경로와 별개이며, 상위에서 진행 중인 다른 작업과 섞어 변경하지 않습니다.

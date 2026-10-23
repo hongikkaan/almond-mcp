@@ -27,7 +27,7 @@ from native_request import RequestBatch
 # All other upstream tools conservatively share the DB gate.
 NATIVE_ONLY_TOOLS = frozenset({
     "execute_rhino_script", "capture_conditioning_pass",
-    "get_rhino_context", "get_rhino_viewport_image",
+    "get_rhino_context", "get_rhino_viewport_image", "get_rhino_probe",
 })
 BINDING_TOOLS = frozenset({"almond_project_info", "almond_cos_worker_state"})
 
