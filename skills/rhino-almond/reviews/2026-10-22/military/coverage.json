@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "logical_session_id": "01a15f21-71e7-7680-9a06-73241b3644d7",
+  "analysis_scope": {
+    "eligibility": "Confirmed: full text of current global rhino-almond skill was loaded at 2026-10-21T15:43:17.698Z and matches after wrapper/newline normalization.",
+    "trigger_included_before_load": {
+      "file": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-43-09-01a15f21-71e7-7680-9a06-73241b3644d7.jsonl",
+      "line": 11,
+      "timestamp": "2026-10-21T15:43:17.677Z"
+    },
+    "first_actual_rhino_task": {
+      "file": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl",
+      "line": 101,
+      "timestamp": "2026-10-21T15:48:43.059Z"
+    },
+    "cutoff_utc": "2026-10-22T02:56:47Z",
+    "all_source_records_before_cutoff": true
+  },
+  "physical_files": [
+    {
+      "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-43-09-01a15f21-71e7-7680-9a06-73241b3644d7.jsonl",
+      "physical_lines": 47,
+      "timestamp_start": "2026-10-21T15:43:15.887Z",
+      "timestamp_end": "2026-10-21T15:44:17.189Z",
+      "reviewed_line_ranges": [
+        "1-47"
+      ],
+      "public_user_assistant_records": 4,
+      "status": "Reviewed in full; skill-use task trigger and exact full-text injection establish eligibility. No Rhino operation."
+    },
+    {
+      "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-07-01a15f22-52d7-77c3-be79-c5a2e8fb675e.jsonl",
+      "physical_lines": 66,
+      "timestamp_start": "2026-10-21T15:44:07.558Z",
+      "timestamp_end": "2026-10-21T15:45:11.929Z",
+      "reviewed_line_ranges": [
+        "1-66"
+      ],
+      "public_user_assistant_records": 3,
+      "status": "Reviewed as connected fork. Inherited skill prompt duplicates are excluded; no in-scope Rhino work."
+    },
+    {
+      "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-44-29-01a15f21-71e7-7680-9a06-73241b3644d7_01a15f22-a923-7d02-8543-e2ff1568a30b.jsonl",
+      "physical_lines": 3602,
+      "timestamp_start": "2026-10-21T15:44:29.562Z",
+      "timestamp_end": "2026-10-21T18:32:42.723Z",
+      "reviewed_line_ranges": [
+        "1-3602"
+      ],
+      "public_user_assistant_records": 33,
+      "user_records": 12,
+      "assistant_records": 21,
+      "status": "All public user/assistant messages and in-scope tool/event records reviewed through session end; all are before cutoff."
+    }
+  ],
+  "record_linkage_and_counts": {
+    "method": "Parse outer response_item and event_msg lines. Match item_completed events by event/item id to the originating tool call, and inspect nested MCP arguments/results. Treat outer exec calls/results as wrappers; do not count their nested MCP calls again. Associate executed scripts and outputs by event IDs, source hashes, artifact paths, and timestamps.",
+    "continuation_event_item_completed": 2227,
+    "continuation_nested_mcp_calls": 1363,
+    "continuation_outer_exec_calls": 222,
+    "continuation_outer_exec_outputs": 226,
+    "continuation_rhino_script_calls": 131,
+    "unique_rhino_script_sources": 128,
+    "continuation_scene_instance_registration_calls": 1020,
+    "unique_registered_instance_ids": 456,
+    "continuation_room_upsert_calls": 104,
+    "unique_room_ids": 52,
+    "continuation_image_view_events": 221,
+    "continuation_command_execution_events": 209,
+    "continuation_file_change_events": 36,
+    "continuation_agent_message_events": 21,
+    "continuation_context_compactions": 3,
+    "result_review": "Read original call/result records for mutation failures, retries, recovery, validations, repeated registrations, Slack reports/uploads, and final outputs. Grouped repeated script payloads by source hash while retaining distinct results."
+  },
+  "deep_review_evidence": {
+    "script_sources": "128 unique Rhino C# script payloads extracted and hashed in C:\\Users\\hopho\\.codex\\tmp\\rhino-almond-audit-20261022\\single\\military\\rhino-scripts. All indexed/summarized; deep reads included rebuild/rollback/recovery, geometry edits, final verification, and relevant errors/results. Index files: rhino_script_summary.txt and script_results.tsv.",
+    "session_evidence_rows": [
+      "Root log L11-L13: trigger and exact loaded skill body.",
+      "Continuation log L101-L117: rebuild request and initial project/construction-tool operations.",
+      "Continuation log L251, L269: wrong and correct Scene creation.",
+      "Continuation log L413-L440, L1154: failed mutation attempts, recovery, successful build, and later geometry update.",
+      "Continuation log L1898-L1927, L2088: premature completion, user rejection, assistant admission, and concrete defect.",
+      "Continuation log L216-L231 and L1946-L1957: L216 sends the basement interpretation; L231 returns that same timestamped text, so it is agent-authored. L1946/L1957 separately contain a bot relay of a claimed user answer (each floor 6 m, exterior-enveloped room), but no original user-authored post is present. L2531/L3486 contain other bot relays.",
+      "Continuation log L3571-L3599: final uploads and assistant completion report."
+    ],
+    "reviewed_result_artifacts": [
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\recovery-state.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\recovery-live.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\build-result.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\final-verification.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\redo-20261022\\REVIEW_REPORT.md",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\redo-20261022\\geometry-audit-final.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\redo-20261022\\scene-registration-audit-final.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\redo-20261022\\saved-readback-final.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\redo-20261022\\water-path-final.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\8459fa52c7d94c48a2587b10068793f7\\rebuild-20261022\\redo-20261022\\review-bundle-manifest.json"
+    ],
+    "independent_visual_review": {
+      "reviewed": [
+        "REVIEW_EYE_2F_Lounge_FINAL_Dark.png",
+        "REVIEW_EYE_2F_Lounge_FINAL_Ghost-Xray.png",
+        "REVIEW_EYE_B2_Stair_FINAL_Dark.png",
+        "REVIEW_CLIP_FINAL_plan-GF.png",
+        "REVIEW_CLIP_FINAL_section-core.png",
+        "REVIEW_CLIP_FINAL_lounge-section.png",
+        "Attached review PDF pages 1, 2, 7, 8, 11, and 12 at continuation L3546."
+      ],
+      "limit": "Representative subset only; the entire 37-image upload was not independently reviewed."
+    }
+  },
+  "excluded_or_unverified": {
+    "out_of_scope": [
+      "Records after cutoff 2026-10-22T02:56:47Z.",
+      "Other sessions and unrelated same-day project work.",
+      "The connected 66-line fork as a separate work session; it contained only inherited/duplicate context and no in-scope Rhino work."
+    ],
+    "unverified": [
+      "No user-authored Slack confirmation of the basement interpretation at L216/L231 was found; the returned message is the agent's own send-call.",
+      "A bot-authored relay at continuation L1946/L1957 labels 'each floor 6 m, exterior-enveloped room' as the user's answer. It is included once as unverified relay mil-014, related to direct mil-003d; the original user-authored post was not present in the reviewed records.",
+      "Original user Slack post for the north connection answer relayed at continuation L2531/L3486.",
+      "Original user post for the minimum visual-per-report/final compilation instruction and the AGENT_Section_Glass refinement relayed at continuation L3486.",
+      "Independent visual interpretation of all 37 uploaded images.",
+      "Structural design adequacy, reinforcement, geotechnical/hydrostatic conditions, code/life-safety and MEP, hydraulic capacity, and product-specific buildability."
+    ],
+    "count_limit": "The 2,547, 2,381, and final 2,100 physical counts are different workflow-stage snapshots. Final saved readback and Scene audit agree on 2,100; no per-GUID delta ledger for reductions between stages was found."
+  },
+  "completion": {
+    "all_required_sources_reviewed": true,
+    "all_three_artifacts_created_and_revalidated": true
+  },
+  "directive_reconciliation": {
+    "total_records": 18,
+    "direct_records": 14,
+    "relay_records": 4,
+    "basement_answer_relay": {
+      "counted_as_one_record": "mil-014",
+      "primary_readback": {
+        "line": 1946,
+        "timestamp": "2026-10-21T17:37:05.948Z"
+      },
+      "duplicate_readback": {
+        "line": 1957,
+        "timestamp": "2026-10-21T17:37:18.999Z"
+      },
+      "related_direct_record": "mil-003d",
+      "original_user_source_verified": false,
+      "treatment": "Retained as one separate, source-unverified relay record; duplicate readback is linked, not counted as another utterance."
+    }
+  },
+  "integration_note": "세션별 원본 분석 산출물은 감사 당시 temp 폴더에 보존. 통합 지시 근거·중복 정정은 상위 steering-evidence.json 참조."
+}

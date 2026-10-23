@@ -1,0 +1,82 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Rhino;
+
+// The bridge compiles this outer class with its usual assembly list.
+// Keep Newtonsoft.Json types out of the outer compilation entirely.
+public class Script
+{
+    // Replace the source placeholder with one escaped C# string literal. The source must
+    // expose public static List<Guid> AlmondProbeScript.Run(RhinoDoc doc).
+    private const string InnerSource = __SOURCE__;
+
+    public static List<Guid> Run(RhinoDoc doc)
+    {
+        Assembly[] loaded = AppDomain.CurrentDomain.GetAssemblies();
+        Assembly jsonAssembly = loaded
+            .Where(a => !a.IsDynamic && a.GetName().Name == "Newtonsoft.Json")
+            .Where(a => !String.IsNullOrEmpty(a.Location) && File.Exists(a.Location))
+            .Where(a => a.GetType("Newtonsoft.Json.Linq.JObject", false) != null)
+            .OrderByDescending(a => a.GetName().Version)
+            .FirstOrDefault();
+        if (jsonAssembly == null)
+            throw new InvalidOperationException("A file-backed Newtonsoft.Json assembly must already be loaded by the Almond bridge.");
+
+        var references = new List<MetadataReference>();
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Assembly assembly in loaded)
+        {
+            if (assembly.IsDynamic) continue;
+            string path = assembly.Location;
+            // Byte-loaded prior query assemblies have no referenceable image
+            // path. Leaving them out also prevents old helper classes from
+            // becoming candidates in subsequent compilations.
+            if (String.IsNullOrEmpty(path) || !File.Exists(path)) continue;
+            Type jsonType = assembly.GetType("Newtonsoft.Json.Linq.JObject", false);
+            if (jsonType != null && assembly != jsonAssembly) continue;
+            if (paths.Add(path)) references.Add(MetadataReference.CreateFromFile(path));
+        }
+
+        var syntax = CSharpSyntaxTree.ParseText(InnerSource);
+        var compilation = CSharpCompilation.Create(
+            "AlmondProbe_" + Guid.NewGuid().ToString("N"),
+            new[] { syntax }, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using (var output = new MemoryStream())
+        {
+            var emitted = compilation.Emit(output);
+            if (!emitted.Success)
+            {
+                string diagnostics = String.Join(Environment.NewLine,
+                    emitted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString()));
+                throw new InvalidOperationException("Almond probe compilation failed:" + Environment.NewLine + diagnostics);
+            }
+
+            Assembly query = Assembly.Load(output.ToArray());
+            Type entry = query.GetType("AlmondProbeScript", true);
+            MethodInfo run = entry.GetMethod("Run", BindingFlags.Public | BindingFlags.Static,
+                null, new[] { typeof(RhinoDoc) }, null);
+            if (run == null || run.ReturnType != typeof(List<Guid>))
+                throw new InvalidOperationException("AlmondProbeScript.Run(RhinoDoc) must return List<Guid>.");
+            try
+            {
+                // Preserve the inner result, including an empty created-ID list.
+                return (List<Guid>)run.Invoke(null, new object[] { doc });
+            }
+            catch (TargetInvocationException e)
+            {
+                // Input/validation errors must reach the bridge as their
+                // original exceptions, not as reflection wrappers.
+                if (e.InnerException == null) throw;
+                ExceptionDispatchInfo.Capture(e.InnerException).Throw();
+                throw;
+            }
+        }
+    }
+}

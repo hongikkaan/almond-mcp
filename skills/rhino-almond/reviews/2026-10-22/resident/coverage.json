@@ -1,0 +1,161 @@
+{
+  "logical_session_id": "01a15f29-947d-7d73-83fa-5be3a491f217",
+  "scope": {
+    "eligible_start_utc": "2026-10-21T15:53:08.379Z",
+    "eligible_start_source": {
+      "file": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-03-01a15f29-947d-7d73-83fa-5be3a491f217.jsonl",
+      "line": 45
+    },
+    "skill_load_source": {
+      "file": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-03-01a15f29-947d-7d73-83fa-5be3a491f217.jsonl",
+      "line": 13,
+      "sha256": "500cc81b9c8ffb719b1d18c0aada6fc5db43379eb4cca709d2cacb0cb8c75a56"
+    },
+    "cutoff_utc": "2026-10-22T02:56:47Z",
+    "eligible_review_completed": true,
+    "excluded_session_ids": [
+      "01a15f29-a7ed-7031-a254-20ec1b309724"
+    ],
+    "exclusion_reason": "Hall task log has a separate session_id and no parent/fork link; shared project/channel names do not merge logical sessions."
+  },
+  "physical_files": [
+    {
+      "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-52-03-01a15f29-947d-7d73-83fa-5be3a491f217.jsonl",
+      "line_count": 49,
+      "reviewed_lines": [
+        11,
+        49
+      ],
+      "eligible_start_line": 45,
+      "review_complete_for_scope": true,
+      "record_notes": "L11 skill-use prelude and L13 injected skill text are context; actual rebuild user request L45 begins task scope.",
+      "tallies": {
+        "outer_exec_calls": 3,
+        "CommandExecution_item_completed": 11
+      }
+    },
+    {
+      "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T00-54-03-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f2b-6ba7-72b1-bf8c-e7d0b90aed48.jsonl",
+      "line_count": 968,
+      "reviewed_lines": [
+        1,
+        968
+      ],
+      "review_complete_for_scope": true,
+      "tallies": {
+        "outer_custom_tool_calls": 94,
+        "outer_outputs": 93,
+        "McpToolCall_item_completed": 87,
+        "CommandExecution_item_completed": 89,
+        "ImageView_item_completed": 17,
+        "FileChange_item_completed": 2
+      },
+      "note": "public messages, calls, returned content and event result blocks read; stable IDs and result links checked."
+    },
+    {
+      "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-24-46-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-782f-7462-a5b4-7e4cfede78b9.jsonl",
+      "line_count": 17,
+      "reviewed_lines": [
+        1,
+        17
+      ],
+      "review_complete_for_scope": true,
+      "tallies": {
+        "UserMessage": 1
+      }
+    },
+    {
+      "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-25-00-01a15f29-947d-7d73-83fa-5be3a491f217_01a15f7e-b079-7981-86fe-a9d84c6836e7.jsonl",
+      "line_count": 1424,
+      "reviewed_lines": [
+        1,
+        1424
+      ],
+      "review_complete_for_scope": true,
+      "tallies": {
+        "outer_exec_calls": 130,
+        "outer_exec_outputs": 130,
+        "McpToolCall_item_completed": 155,
+        "Rhino_execute_script_calls": 102,
+        "CommandExecution_item_completed": 100,
+        "ImageView_item_completed": 142,
+        "FileChange_item_completed": 17,
+        "user_messages": 4,
+        "SubAgentActivity_child_events": 3
+      }
+    },
+    {
+      "path": "C:\\Users\\hopho\\.codex\\sessions\\2026\\10\\22\\rollout-2026-10-22T02-29-45-01a15f83-09b7-7b73-8128-e8733a21f158.jsonl",
+      "line_count": 149,
+      "reviewed_lines": [
+        1,
+        149
+      ],
+      "review_complete_for_scope": true,
+      "tallies": {
+        "CommandExecution_item_completed": 21,
+        "McpToolCall_item_completed": 0
+      },
+      "relationship": "fork/child of resume_main; duplicated root user IDs at L10-L11 removed from direct-entry counts; read-only crash investigation content retained."
+    }
+  ],
+  "linkage_and_counts": {
+    "method": "Correlated outer exec/event records with nested MCP item_completed IDs/call IDs and outputs; did not add wrapper and nested result as two distinct operations. Direct user message IDs and timestamps were taken from payload role=user. Fork copies were deduplicated by message_id.",
+    "summed_nested_record_tallies": {
+      "McpToolCall_item_completed": 242,
+      "CommandExecution_item_completed_including_child": 221,
+      "ImageView_item_completed": 159,
+      "FileChange_item_completed": 19
+    },
+    "note": "These are indexed record-type counts, not a claim that each is a unique Rhino mutation. 102 Rhino script calls are within the 155 MCP records for resume_main."
+  },
+  "deeply_reviewed": {
+    "result_artifacts": [
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\50c9ae87058141fdad3b507a1eadb402\\resident-rebuild",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume"
+    ],
+    "code_or_logs": [
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\50c9ae87058141fdad3b507a1eadb402\\resident-rebuild\\build-draft.cs",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\recovered-repairs.cs",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\boolean-volume-level-repair.cs",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\boolean-volume-level-repair.txt",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\structure-final-frame.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\structure-validation-current.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\scene-layout-final.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\final-save-audit.txt",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\registration-verified.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\final-plan.json",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\최종보고.md",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\crash-diagnosis.md"
+    ],
+    "images_opened": {
+      "composite_QA_PNGs": 12,
+      "composition": "8 eye-level perspective + 2 cut-plan + 2 section; each compares 3 display modes",
+      "other": "context screenshots plus final-report render pages 1,2,15,16,17",
+      "folder": "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume",
+      "limitations": "Not every image payload in the JSONL or every page/image in the final PDFs was independently opened; no live Rhino execution was performed during this audit."
+    },
+    "report_PDFs": [
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\주민시설-Rebuilding-최종보고.pdf",
+      "C:\\WIP1\\01_Portfolio\\Projects\\DPRK\\Projects\\01_Schema_Design\\.almond\\tmp\\calls\\b2c39ce77c64495dbbe6a47f87c69466\\resident-rebuild-resume\\주민시설-vision-review.pdf"
+    ]
+  },
+  "excluded_or_unconfirmed": [
+    "Hidden reasoning/token counters and encoded image payload bytes were not semantically reviewed.",
+    "Slack relays at root_work L747/L841 and resume_main L34/L791/L1370 have no original author post in the resident thread; marked relay and source-unverified in directives.json.",
+    "Visitor-team status messages at resume_main L296/L799 are status relays, not direct user directives; they were not used to claim edits to visitor-center document.",
+    "The original cause inside Rhino native code is unknown: no dump or stack was obtained; crash-diagnosis.md records only request and Windows hang evidence.",
+    "The Rhino model was not opened/re-executed as part of this retrospective audit; conclusions about final persisted state come from session outputs and saved manifests/audits.",
+    "The overlap question at root_work L725-L727 is an agent-authored Slack report/question, confirmed by matching the outbound slack_send_message call and thread readback L747; excluded from user directive/relay counts."
+  ],
+  "output_validation_pending": false,
+  "output_validation": {
+    "json_parse": "passed",
+    "direct_message_id_and_line_checks": "13/13 passed",
+    "relay timestamp and line checks": "8/8 passed",
+    "source_line_bounds": "passed",
+    "deep_review_artifact_existence": "passed",
+    "agent-authored overlap report classification": "verified against outbound call L725-L727 and readback L747"
+  },
+  "integration_note": "세션별 원본 분석 산출물은 감사 당시 temp 폴더에 보존. 통합 지시 근거·중복 정정은 상위 steering-evidence.json 참조."
+}
