@@ -1,5 +1,31 @@
 # Personal Almond fork
 
+## Explain and deliver the complete user workflow
+
+- The user is not a developer. Explain the complete practical sequence before
+  abbreviating it; do not make the user infer missing steps or correct the workflow.
+- Distinguish the development worktree, GitHub main, everyday checkout, compiled
+  RHP/dependencies, Rhino registration, and the RHP already loaded in a process.
+  Give the actual affected folder/file and the user's resulting behavior.
+- The intended delivery is: develop and build in the worktree, commit source and
+  RHP together, push, open a PR, merge, then update the everyday main with
+  `git pull --ff-only` while Rhino is closed and start Rhino. Each checkout has
+  its own runtime files; Git transfers them through the commit, not by copying
+  from a developer's absolute worktree path on the user's next launch.
+- `fetch` only updates remote-tracking information. Never say it updates the
+  everyday working files or the running Rhino. Explain `pull --ff-only` as
+  fetching and fast-forwarding the current branch and its tracked working files.
+- Never use "updated", "applied", "configured", or "ready" without identifying
+  what changed and what was actually verified. Do not present copied/registered
+  files as a successful live Rhino load, or local commits as GitHub publication.
+- Before claiming a build/restart is required, inspect the actual startup code,
+  committed artifacts, registration and loaded modules. State unknowns explicitly.
+- Disclose code edits as code edits: name the affected entry point/script and
+  its purpose. Do not describe installation/verification code as "settings only".
+- When asked to finish setup before replying, suppress routine narration. Answer
+  direct questions plainly and report material blockers promptly. Do not substitute
+  repeated explanations or apologies for completing the authorized work.
+
 ## Required runnable delivery
 
 The repository must include a ready-to-load RHP and its dependencies, not only
