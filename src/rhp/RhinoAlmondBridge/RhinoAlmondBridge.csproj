@@ -33,13 +33,11 @@
     <Compile Include="..\Structural_Analysis\*.cs" />
     <Compile Include="..\Asset_Panel\*.cs" />
     <Compile Include="..\RhinoTerminal\src\*.cs" />
-    <Compile Include="..\..\..\skills\rhino-almond\scripts\AlmondSpatial.cs" Link="Probes\AlmondSpatial.cs" />
-    <Compile Include="..\..\..\skills\rhino-almond\scripts\AlmondTerrain.cs" Link="Probes\AlmondTerrain.cs" />
-    <Compile Include="..\..\..\skills\rhino-almond\scripts\AlmondJoints.cs" Link="Probes\AlmondJoints.cs" />
     <ProjectReference Include="..\..\engine\native\Almond.Engine.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\..\mcp\almond_mcp\modeling_policy.json" LogicalName="RhinoAlmondBridge.modeling_policy.json" />
     <!-- Panel tab icons: Almond and Almond Results -->
     <EmbeddedResource Include="Resources\*.ico" />
     <EmbeddedResource Include="..\RhinoTerminal\src\web\terminal.html" LogicalName="RhinoTerminal.terminal.html" />

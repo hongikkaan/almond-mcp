@@ -85,14 +85,14 @@ namespace AlmondScriptUndoTests
                 Idle(doc);
             });
 
-            Run(lines, "first-call failure rolls back layers and next call recreates them", doc =>
+            Run(lines, "first-call failure and no-op do not create unused layers", doc =>
             {
                 Failed(Execute(doc, "doc.Objects.AddPoint(Point3d.Origin); throw new InvalidOperationException(\"expected\");"));
                 Check(Count(doc) == 0, "First-call failure left geometry.");
                 Check(doc.Layers.FindName("A-WALL") == null, "First-call failure left created layers.");
                 Idle(doc);
                 Prepare(doc);
-                Check(doc.Layers.FindName("A-WALL") != null, "Layer initialization stayed incorrectly cached after rollback.");
+                Check(doc.Layers.FindName("A-WALL") == null && doc.Layers.Count == 1, "A no-op created unused layers.");
             });
 
             Run(lines, "compile error does not initialize layers or history", doc =>

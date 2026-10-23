@@ -215,9 +215,10 @@ def test_material_script_carries_construction_metadata():
         {"almond:structural_role": "girder",
          "almond:construction_system": "steel-wide-flange-floor",
          "almond:structural_material": "Steel"})
-    assert 'SetUserString("almond:structural_role", "girder")' in script
-    assert 'SetUserString("almond:construction_system", "steel-wide-flange-floor")' in script
-    assert 'SetUserString("almond:structural_material", "Steel")' in script
+    assert '"almond:structural_role", "girder"' in script
+    assert '"almond:construction_system", "steel-wide-flange-floor"' in script
+    assert '"almond:structural_material", "Steel"' in script
+    assert "ModelingMaterials.Apply" in script
     # default path unchanged
     plain = server._material_script(material, [guid], True, True)
     assert "structural_role" not in plain

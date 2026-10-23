@@ -29,6 +29,12 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "compat_almond": engine / "compat_almond.py",
         "library_paths": engine / "library_paths.py",
         "server": Path(almond_mcp.__file__).with_name("server.py"),
+        "retrieval_store": Path(almond_mcp.__file__).with_name("retrieval_store.py"),
+        "modeling_policy": Path(almond_mcp.__file__).with_name("modeling_policy.py"),
+        "modeling_policy_json": Path(almond_mcp.__file__).with_name("modeling_policy.json"),
+        "drawing_assets": Path(almond_mcp.__file__).with_name("drawing_assets.py"),
+        "drafting": Path(almond_mcp.__file__).with_name("drafting.py"),
+        "asset_repository": Path(almond_mcp.__file__).with_name("asset_repository.py"),
     }
 
 

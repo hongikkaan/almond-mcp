@@ -92,12 +92,56 @@ helper를 Bridge에 컴파일하여 같은 고정 관찰 경로에서 실행한�
 한도는 compact UTF-8 JSON 65,536 bytes와 container 깊이 16이며, 미지원 값·순환 참조·
 한도 초과는 `result_error`로 설명한다. 반환 변환 오류로 이미 완료된 수정이 rollback되지는
 않으며 자동 재실행하지 않는다. 기존 `List<Guid>`의 `guids`·자동 치수, void/null,
-레이어 초기화와 Undo/Redo 동작을 유지하므로 일반 C# 실행을 read-only로 취급하지 않는다.
+Undo/Redo 동작을 유지하므로 일반 C# 실행을 read-only로 취급하지 않는다.
+기본 AIA 레이어 일괄 초기화는 제거했으며, 실제 적용한 재료의 레이어만 생성한다.
 
 MCP 서버와 COS host의 초기 안내는 현황 조회 → 관련 객체 조사 → 수정 후보의 검증 →
 원본 교체 순서를 안내한다. 실행 성공·현재 화면·기하의 유효성만으로 과제의 정확성을
-인증하지 않는다. COS catalog는 60개, 관리 도구를 포함한 공개 도구는 63개이며
+인증하지 않는다. COS catalog는 76개, 관리 도구를 포함한 공개 도구는 79개이며
 source fingerprint와 schema 검사를 유지한다.
+
+## Scene·Component·계획·모델링 규칙
+
+Scene은 공간의 의도와 맥락이고, Component는 명시적으로 등록한 Rhino group이다.
+객체는 최대 하나의 Component에 속하며, Component는 하나 이상의 Scene에 속한다.
+일반 group은 자동 등록하지 않는다. block occurrence를 Component group에 포함할 수 있지만
+공유 block definition의 내부 객체를 occurrence별 소유 객체로 등록하지 않는다.
+일반 객체는 `register_scene_objects`로 Scene에 직접 연결할 수 있어 asset instance 등록이 필요 없다.
+Room과 asset instance는 기존 충돌·containment·하중 계산을 위해 보존한다.
+`validate_scene_layout`의 통과는 그 legacy asset 검사 범위에 한정하며 Component 기하 검증은 별도다.
+
+객체 identity는 문서 경로와 GUID의 조합이다. DB 사전검사 → native group 수정 → 완전한
+객체 snapshot 확인 → DB commit 순서로 등록한다. 캐시 조회는 `live_verified=false`를 명시하고
+`sync_design_component`는 완전한 live group 관찰로 장부를 갱신한다. 수동 regroup/복사로
+태그와 membership이 다르면 명시적인 수리가 필요하다. timeout은 자동 재실행 허가가 아니다.
+Rhino group 자체의 UserString은 Undo로 복원되지 않아 사용하지 않는다. 그룹 내 기존 객체
+하나에 내부 `almond:component_record`를 저장하고 `ModifyAttributes`로 갱신한다. 이 기록이
+group GUID·이름·Scene 참조를 보관한다. 추가 관리용 객체는 생성하지 않는다.
+
+Phase는 Plan의 조직상 부모다. Plan은 여러 Scene·Component, Step은 Component를 참조한다.
+Step의 참조 생략은 Plan 대상을 상속하고 명시적인 빈 목록은 대상 없음이다.
+각 Plan 변경은 전체 계획 상태를 immutable revision으로 저장한다. 이전 DB는 현재 상태를
+revision 0 baseline으로 남기며 존재하지 않았던 과거 revision은 만들지 않는다.
+`expected_revision`으로 오래된 상태의 수정을 거부할 수 있다. 이 기록은 기하 백업이 아니다.
+
+재료 manifest의 `layer_path`가 `M::category::material_id` 등의 계층을 정한다.
+`assign_material`과 C#/Python의 `ModelingMaterials.CreateAttributes`가 같은 native 구현을 쓴다.
+MCP C# 실행은 실행 범위 안의 객체 생성·직접 material 변경을 모아서 최종 속성 기준으로
+레이어를 적용한 뒤 같은 Undo record를 닫는다. 전역 이벤트나 시작 시 문서 전체 변경은 없다.
+ByLayer·ByParent 재료는 추측하지 않는다. MCP 밖의 스크립트는 factory를 명시적으로 사용한다.
+`modeling_policy.json`/`get_modeling_policy`가 key 목록을 제공하며 이름은 자유롭다.
+보통 새 객체에는 material_id와 필요한 floor·construction_detail·typed source만 기록하고,
+Component 등록이 component_id를 설정한다. PBR 값은 native material에 유지한다.
+
+Drafting Sheet는 `upsert/get/list/remove/sync_drawing_sheet`로 관리한다. 도면명·도면 종류·
+축척 분모·용지 크기·모델 공간 작성 영역과 Scene/Component/Plan 참조를 보관하며 Rhino
+Layout GUID와 연결한다. 실제 도면은 모델 공간의 World XY에 작성하고 Layout의 Top detail이
+그 영역을 지정 축척으로 보여 준다. 용지와 축척에 들어가지 않는 영역은 생성 전에 거부한다.
+도면을 자동 생성하거나 실제 단면 포함 대상을 추측하지 않는다. `list_drawing_sheets(plan_id=...)`로
+마무리할 때 목록을 검토한다. 등록 해제는 도면 형상·Layout을 삭제하지 않는다.
+
+상태·관계 다이어그램, 설계 근거와 한계는 [Component 시스템](docs/component-system.md),
+실행 예제는 [재료 모델링 지침](skills/rhino-almond/references/modeling-materials.md)을 따른다.
 
 ## 실행·빌드 산출물
 

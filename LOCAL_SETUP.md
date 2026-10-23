@@ -226,7 +226,7 @@ CoS 등록을 바꾸지 않습니다.
 개발 워크트리의 빌드는 위 레지스트리와 CoS 등록을 변경하지 않습니다. 일상 등록을
 개발 브랜치로 돌렸다가 되돌리는 절차를 사용하지 않습니다.
 
-`skills/rhino-almond/scripts/Almond*.cs`는 고정 probe용으로 Bridge에 함께 컴파일됩니다.
+`src/rhp/RhinoAlmondBridge/Probes/Almond*.cs`는 고정 probe의 네이티브 구현입니다.
 이 helper 변경도 RHP 재빌드·로드 검증 대상입니다. 문서만 바꾸는 스킬 작업에는
 RHP 재빌드가 필요하지 않습니다.
 

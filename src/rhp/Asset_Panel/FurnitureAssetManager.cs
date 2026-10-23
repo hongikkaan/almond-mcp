@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -71,10 +72,28 @@ namespace RhinoAlmondBridge
                 return result;
             }
 
-            uint undoRecord = doc.BeginUndoRecord($"Place {_displayName}");
+            uint undoRecord = 0;
             try
             {
+                Point3d position = ReadPosition(request.Position);
+                if (!Double.IsFinite(request.Scale) || request.Scale <= 0 || !Double.IsFinite(request.RotationDegrees))
+                    throw new ArgumentException("Placement scale must be finite and positive; rotation must be finite.");
                 string definitionName = BuildDefinitionName(request.AssetId);
+                if (String.Equals(Path.GetExtension(fullPath), ".3dm", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (doc.ModelUnitSystem == UnitSystem.None || doc.ModelUnitSystem == UnitSystem.CustomUnits)
+                        throw new ArgumentException("Set standard model units before placing a 3DM drawing asset.");
+                    using (var stream = File.OpenRead(fullPath))
+                    using (var algorithm = SHA256.Create())
+                    {
+                        string hash = BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-", "");
+                        string expected = (string)request.Metadata?["sha256"];
+                        if (!String.IsNullOrEmpty(expected) && !String.Equals(expected, hash, StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidDataException("The 3DM source changed since its asset record was created.");
+                        definitionName += "::" + hash.Substring(0, 16) + "::" + doc.ModelUnitSystem;
+                    }
+                }
+                undoRecord = doc.BeginUndoRecord($"Place {_displayName}");
                 var definition = FindDefinition(doc, definitionName);
                 bool definitionCreated = false;
 
@@ -86,7 +105,6 @@ namespace RhinoAlmondBridge
                     definitionCreated = true;
                 }
 
-                Point3d position = ReadPosition(request.Position);
                 double angleRadians = RhinoMath.ToRadians(request.RotationDegrees);
                 Transform transform =
                     Transform.Translation(position.X, position.Y, position.Z) *

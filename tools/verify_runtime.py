@@ -39,7 +39,7 @@ def record(root):
         and (Path(p).suffix.lower() in (".cs", ".csproj", ".props", ".targets", ".ico", ".resx")
              or Path(p).name in ("NuGet.Config", "packages.lock.json")
              or p.startswith("src/rhp/Asset_Panel/web/")))
-        or (p.startswith("skills/rhino-almond/scripts/") and p.endswith(".cs"))]
+        or p == "src/mcp/almond_mcp/modeling_policy.json"]
     files = sorted(p.relative_to(root).as_posix() for bundle in BUNDLES
                    for p in (root / bundle).rglob("*") if p.is_file())
     required = [f"{BUNDLES[0]}/RhinoAlmondBridge.rhp", f"{BUNDLES[1]}/AlmondCOS.rhp"]

@@ -84,7 +84,20 @@ namespace RhinoAlmondBridge
                 return result;
             }
 
-            uint undoSn = doc.BeginUndoRecord("MCP C# Script Execution");
+            return ExecuteAction(doc, () => runMethod.Invoke(null, new object[] { doc }));
+        }
+
+        // Fixed native mutations share exactly the script executor's Undo recovery.
+        internal ScriptResult ExecuteAction(RhinoDoc doc, Func<object> action)
+        {
+            var result = new ScriptResult { Status = "success" };
+            if (doc == null)
+            {
+                result.Status = "error";
+                result.Message = "No active Rhino document.";
+                return result;
+            }
+            uint undoSn = doc.BeginUndoRecord("Almond model update");
             if (undoSn == 0)
             {
                 result.Status = "error";
@@ -94,8 +107,14 @@ namespace RhinoAlmondBridge
 
             try
             {
-                EnsureAiaLayers(doc);
-                var invokeResult = runMethod.Invoke(null, new object[] { doc });
+                object invokeResult;
+                using (var materialChanges = new MaterialLayerChanges(doc))
+                {
+                    invokeResult = action();
+                    if (!OwnsUndoRecord(doc, undoSn))
+                        throw new InvalidOperationException("The script changed its Undo record; material postprocessing was skipped to protect other work.");
+                    materialChanges.Apply();
+                }
 
                 // Collect GUIDs
                 if (invokeResult is List<Guid> guids)
@@ -482,28 +501,6 @@ using Rhino.Commands;
 
                 ms.Seek(0, SeekOrigin.Begin);
                 return Assembly.Load(ms.ToArray());
-            }
-        }
-
-        /// <summary>
-        /// Creates missing AIA Standard Layers in the current script's Undo record.
-        /// </summary>
-        private void EnsureAiaLayers(RhinoDoc doc)
-        {
-            var layers = new Dictionary<string, System.Drawing.Color>
-            {
-                { "A-WALL", System.Drawing.Color.Black },
-                { "A-STRC", System.Drawing.Color.Red },
-                { "A-GLAZ", System.Drawing.Color.Cyan }
-            };
-
-            foreach (var kvp in layers)
-            {
-                if (doc.Layers.FindName(kvp.Key) == null)
-                {
-                    var layer = new Layer { Name = kvp.Key, Color = kvp.Value };
-                    doc.Layers.Add(layer);
-                }
             }
         }
 

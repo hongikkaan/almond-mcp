@@ -27,9 +27,10 @@ from fastmcp.resources import ResourceContent, ResourceResult
 from fastmcp.tools import ToolResult
 from mcp.types import ImageContent, TextContent
 from PIL import Image as PillowImage
-from pydantic import StrictInt
+from pydantic import StrictFloat, StrictInt
 from almond_mcp.ghx_parser import GHParser, validate_capsule_manifest
-from almond_mcp.retrieval_store import AlmondStore
+from almond_mcp.retrieval_store import AlmondStore, ComponentReconciliationError, DrawingSheetReconciliationError
+from almond_mcp import modeling_policy, drawing_assets
 from almond_mcp import asset_passport, asset_loads, conditioning, exchange, paths, drafting, native_structure, structure_study, design_codes
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -61,12 +62,20 @@ mcp = FastMCP("Almond", instructions=(
     "get_rhino_viewport_image when the current view matters. Inspect relevant objects "
     "and validate proposed geometry against the task before replacing originals. "
     "Execution success and a viewport image do not establish geometric correctness. "
-    "For furnishing: recommend_generated_assets, inspect get_generated_asset_passport "
-    "and preview resources, evaluate_generated_asset_fit, then place_generated_asset. "
-    "For drawings: get_asset_drawing for pilot views or generate_asset_drawing_views "
-    "for a library/custom static GLB. Inspect get_generation_sources and audit_asset_drawing. "
+    "For reusable objects: prepare and visually review a millimeter, Z-up, bottom-center 3DM, "
+    "then register_drawing_asset. Registration derives plan/front/right DXF and SVG plus dimensions "
+    "under the same asset ID. Use get_drawing_asset, get_asset_drawing and place_drawing_asset. "
+    "generate_asset_drawing_views remains available for a custom static GLB; verify outputs with audit_asset_drawing. "
     "search_detail_sources returns candidate directories, not verified construction details. "
-    "Register placements in the scene ledger and validate_scene_layout. "
+    "Choose materials with get_material and use assign_material or the native "
+    "ModelingMaterials.CreateAttributes factory; material layers are created on demand. "
+    "Register physical assemblies as Components: an object has at most one Component, "
+    "each Component belongs to one or more Scenes, and raw objects may also link directly to a Scene. "
+    "Use get_modeling_policy for keys; object names are free. "
+    "Organize work as Phase > Plan > Step; Plans reference Scenes and Components, "
+    "Steps may override Component targets. Resolve and inspect live targets before editing. "
+    "Asset instances and Room bounds remain optional legacy placement checks; "
+    "validate_scene_layout covers those cached asset instances, not all Component geometry. "
     "Use measured dimensions, not nominal prompt targets. Usage suggestions are "
     "heuristics and clearances are design allowances, not certified code compliance."
 ))
@@ -268,7 +277,10 @@ class MaterialLibrary:
             print(f"Material manifest unreadable: {exc}", file=sys.stderr)
             return
         for material in manifest.get("materials", []):
-            if not all(key in material for key in self.REQUIRED):
+            try:
+                material = modeling_policy.validate_material(material)
+            except (KeyError, TypeError, ValueError) as exc:
+                print(f"Skipped invalid material: {exc}", file=sys.stderr)
                 continue
             self.materials[material["material_id"]] = material
         print(f"Indexed {len(self.materials)} PBR materials.", file=sys.stderr)
@@ -831,7 +843,57 @@ def get_drawing_asset(asset_id: str) -> str:
     return json.dumps({"status": "success", "asset": asset})
 
 
-@mcp.tool()
+def _extract_drawing_asset(source_path: str, output_path: str) -> dict:
+    context = json.loads(_send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}'))
+    if context.get("status") != "success" or context.get("capabilities", {}).get("drawing_asset_extract") != 1:
+        raise ValueError("Load a Bridge with drawing_asset_extract=1 before registering a 3DM asset")
+    response = _send_and_receive(json.dumps({"type": "drawing_asset_extract",
+        "source_path": source_path, "output_path": output_path}).encode("utf-8"), timeout=90.0)
+    if len(response.encode("utf-8")) > 262144:
+        raise ValueError("Native extraction acknowledgement exceeds 256 KiB")
+    return json.loads(response)
+
+
+@mcp.tool(annotations={"destructiveHint": False, "openWorldHint": False})
+def register_drawing_asset(source_3dm: str, asset_id: str, name: str,
+                           category: str = "other", tags: list[str] | None = None,
+                           description: str = "", source_url: str = "",
+                           replace_existing: bool = False) -> dict:
+    """Register a reviewed 3DM and automatically derive linked plan/front/right drawings.
+
+    Finish cleanup/orientation review with the asset-converter workflow first.
+    Supply an absolute prepared 3DM path: millimeters, Z up, bottom-center at origin.
+    Native geometry checks support meshes, Breps, extrusions, surfaces, SubD and nested
+    blocks, up to 100 MB/250k triangles. Unsupported objects reject the whole asset.
+    Copies the source, measures dimensions and writes DXF at full-size mm, SVG at
+    1:50/1:100 and A3 sheets where they fit. These are mesh silhouettes, not hidden
+    lines or construction details; visual classification/front are not verified.
+    Existing IDs require replace_existing=true. Prior files and manifest backups
+    are retained. Refreshes this MCP process's index after atomic publication;
+    other running processes must reconnect. The bundled Rhino panel is a release
+    snapshot; use MCP placement for newly registered local assets.
+    """
+    try:
+        if asset_id in generated_asset_indexer.assets or asset_id in diagram_asset_indexer.assets:
+            raise ValueError("Choose an asset_id that does not belong to another library")
+        result = drawing_assets.register_prepared_3dm(Path(DRAWING_LIBRARY_DIR),
+            source_3dm=source_3dm, asset_id=asset_id, name=name, category=category,
+            tags=tags, description=description, source_url=source_url,
+            replace_existing=replace_existing, extract=_extract_drawing_asset)
+    except Exception as exc:
+        return {"status": "error", "registration_applied": False, "message": str(exc)}
+    try:
+        drawing_asset_indexer._load()
+        retrieval_store.sync_assets(list(drawing_asset_indexer.assets.values()), library_id="drawing_assets")
+    except Exception as exc:
+        return {**result, "status": "error", "registration_applied": True,
+                "live_index_refreshed": False,
+                "message": f"Asset files and manifest were published. Reconnect to refresh the index; do not repeat registration: {exc}"}
+    return {**result, "registration_applied": True, "live_index_refreshed": True}
+
+
+# Legacy generated-asset implementations remain for resources, load tables and
+# existing Python callers; the public modeling catalog uses drawing_assets.
 def list_generated_assets(
     category: str = "",
     limit: int = 20,
@@ -860,7 +922,6 @@ def list_generated_assets(
     })
 
 
-@mcp.tool()
 def search_generated_assets(
     query: str = "",
     category: str = "",
@@ -884,7 +945,6 @@ def search_generated_assets(
     ))
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
 def recommend_generated_assets(
     query: str = "", category: str = "", room_type: str = "",
     width_mm: float = 0, depth_mm: float = 0, height_mm: float = 0,
@@ -904,7 +964,6 @@ def recommend_generated_assets(
         return {"status": "error", "message": str(exc)}
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
 def get_generated_asset_passport(asset_id: str) -> dict:
     """Read portable asset metadata: measured vs nominal dimensions, provenance,
     materials, spatial contract, usage suggestions, quality limits and rights."""
@@ -926,7 +985,6 @@ def get_generated_asset_passport(asset_id: str) -> dict:
     return out
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
 def evaluate_generated_asset_fit(
     asset_id: str, width_mm: float, depth_mm: float, height_mm: float = 0,
     rotation_degrees: float = 0, include_clearances: bool = True,
@@ -962,7 +1020,6 @@ def search_detail_sources(query: str = "") -> dict:
     return {"status": "success", "scope": data["scope"], "sources": matches}
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
 def get_generation_sources(asset_id: str) -> dict:
     """Get original recorded provider/task IDs, prompt, transformations and evidence gaps.
     Includes Higgsfield image job IDs where recorded before the Meshy stage.
@@ -982,8 +1039,16 @@ def get_generation_sources(asset_id: str) -> dict:
 
 @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
 def get_asset_drawing(asset_id: str) -> dict:
-    """Retrieve a bundled pilot drawing package: mm DXF, scaled SVG, A3 SVG sheets and provenance.
-    Ten models have precomputed views; use generate_asset_drawing_views for others."""
+    """Retrieve a registered 3DM's linked drawings and dimensions, or a legacy pilot package."""
+    asset = drawing_asset_indexer.get(asset_id)
+    if asset and asset.get("drawing_package"):
+        root = Path(DRAWING_LIBRARY_DIR).resolve()
+        package = (root / asset["drawing_package"]).resolve()
+        package.relative_to(root)
+        manifest = json.loads((package / "drawing.json").read_text(encoding="utf-8"))
+        return {"status": "success", "asset_id": asset_id, "package_dir": str(package), "manifest": manifest,
+                "dimensions_path": str(package / "dimensions.json"),
+                "plan_svg_uri": f"almond://drawing/{asset_id}/drawing/plan/50"}
     root = Path(DRAFTING_LIBRARY_DIR)
     data = json.loads((root/"manifest.json").read_text(encoding="utf-8"))
     record = next((a for a in data["assets"] if a["asset_id"] == asset_id), None)
@@ -1057,10 +1122,12 @@ def audit_asset_drawing(package_dir: str, source_glb: str = "") -> dict:
         if source is not None and not source.is_absolute():
             raise ValueError("Supply an absolute source GLB path")
         if source is None:
-            asset = generated_asset_indexer.get(manifest["source"]["asset_id"])
+            asset = drawing_asset_indexer.get(manifest["source"]["asset_id"])
+            root = Path(DRAWING_LIBRARY_DIR) if asset else Path(GENERATED_LIBRARY_DIR)
+            asset = asset or generated_asset_indexer.get(manifest["source"]["asset_id"])
             if asset:
-                source = (Path(GENERATED_LIBRARY_DIR)/asset["file"]).resolve()
-                source.relative_to(Path(GENERATED_LIBRARY_DIR).resolve())
+                source = (root / asset["file"]).resolve()
+                source.relative_to(root.resolve())
         return drafting.audit_package(package, source)
     except (OSError, ValueError, KeyError, IndexError, TypeError, struct.error) as exc:
         return {"status": "error", "message": str(exc)}
@@ -1079,12 +1146,21 @@ def asset_drawing_resource(asset_id: str, view: str, scale: str) -> ResourceResu
     if result["status"] != "success":
         raise ValueError(result["message"])
     filename = f"{view}-1-{scale}.svg"
-    model = generated_asset_indexer.get(asset_id)
-    source = (Path(GENERATED_LIBRARY_DIR)/model["file"]).resolve() if model else None
+    model = drawing_asset_indexer.get(asset_id)
+    root = Path(DRAWING_LIBRARY_DIR) if model else Path(GENERATED_LIBRARY_DIR)
+    model = model or generated_asset_indexer.get(asset_id)
+    source = (root / model["file"]).resolve() if model else None
+    if source:
+        source.relative_to(root.resolve())
     checked = drafting.audit_package(Path(result["package_dir"]), source)
     if checked["status"] != "success":
         raise ValueError("Drawing package is modified or stale")
     return ResourceResult([ResourceContent((Path(result["package_dir"])/filename).read_text(encoding="utf-8"), mime_type="image/svg+xml")])
+
+
+@mcp.resource("almond://drawing/{asset_id}/drawing/{view}/{scale}", mime_type="image/svg+xml")
+def drawing_asset_view_resource(asset_id: str, view: str, scale: str) -> ResourceResult:
+    return asset_drawing_resource(asset_id, view, scale)
 
 
 @mcp.resource("almond://generated/catalogue", mime_type="application/json")
@@ -1114,7 +1190,6 @@ def generated_preview_resource(asset_id: str) -> ResourceResult:
     return ResourceResult([ResourceContent(preview.read_bytes(), mime_type="image/png")])
 
 
-@mcp.tool()
 def get_generated_asset(asset_id: str) -> str:
     """Returns one generated asset's measured dimensions, spatial contract,
     material, generation provenance (Meshy task ids, prompt) and availability."""
@@ -1197,6 +1272,249 @@ def get_design_scene(scene_id: str) -> str:
     return json.dumps({"status": "success", "scene": scene})
 
 
+
+def _component_bridge(request: dict) -> dict:
+    """Capability-check before one native operation; never retry an uncertain mutation."""
+    payload = json.dumps(request, allow_nan=False).encode("utf-8")
+    if len(payload) > 2_097_152:
+        return {"status": "error", "mutation_applied": False, "message": "Component request exceeds 2 MiB."}
+    try:
+        context = json.loads(_send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}'))
+        if not isinstance(context, dict) or context.get("status") != "success":
+            raise ValueError("Could not inspect the bound Rhino document.")
+        if context.get("capabilities", {}).get("design_components") != 1:
+            raise ValueError("Load a Bridge with design_components=1 before registering Components.")
+    except Exception as exc:
+        return {"status": "error", "mutation_applied": False, "message": str(exc)}
+    response = _send_and_receive(payload)
+    if len(response.encode("utf-8")) > 2_097_152:
+        raise ValueError("Component response exceeds 2 MiB.")
+    result = json.loads(response)
+    if not isinstance(result, dict):
+        raise ValueError("Invalid native Component response.")
+    return result
+
+
+def _component_error(exc: Exception) -> str:
+    result = {"status": "error", "message": str(exc)}
+    if isinstance(exc, ComponentReconciliationError):
+        result.update(error_code="component_reconciliation_required", requires_reconciliation=True,
+                      component_id=exc.component_id, expected_model_path=exc.model_path)
+    return json.dumps(result, ensure_ascii=False)
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def get_modeling_policy() -> dict:
+    """Return JSON-defined object/group metadata keys and material-layer naming rules.
+
+    Names are free. New modeling normally needs only component_id (registration),
+    optional floor and construction_detail, plus material identity and a typed source
+    reference when used. Internal compatibility keys are not a checklist to fill.
+    """
+    return {"status": "success", "policy": modeling_policy.POLICY}
+
+
+@mcp.tool()
+def upsert_design_component(
+    expected_model_path: str,
+    name: str,
+    object_ids: list[str],
+    scene_ids: list[str] | None = None,
+    component_id: str = "",
+    rhino_group_id: str = "",
+    child_component_ids: list[str] | None = None,
+) -> str:
+    """Register direct objects and optional nested child Components in an explicit Rhino group.
+
+    object_ids names DIRECT top-level owners (possibly [] when child_component_ids
+    contains existing children). child_component_ids=None preserves existing children;
+    [] explicitly detaches them. Each object has exactly one direct Component owner,
+    and each child at most one parent in the same document without cycles. Parent
+    group selection includes descendants without rewriting their direct owner IDs.
+    Every Component needs at least one existing Scene; omitting scene_ids preserves
+    an existing association. Geometry is not copied or duplicated.
+    expected_model_path must match the active saved document. After an uncertain
+    native result, inspect and sync_design_component; do not replay the mutation.
+    """
+    try:
+        component = retrieval_store.upsert_component(
+            model_path=expected_model_path, name=name, object_ids=object_ids,
+            scene_ids=scene_ids, component_id=component_id, rhino_group_id=rhino_group_id,
+            native_apply=_component_bridge, child_component_ids=child_component_ids,
+        )
+        return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
+    except Exception as exc:
+        return _component_error(exc)
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def get_design_component(component_id: str, live: bool = False) -> str:
+    """Read cached direct/nested Component members or inspect live Rhino group membership.
+
+    live=True reads the actual group, including unowned group-added TextDots as
+    pending_objects requiring explicit sync; it never changes Rhino or the ledger.
+    """
+    try:
+        component = retrieval_store.get_component(
+            component_id, live=live, native_inspect=_component_bridge if live else None,
+        )
+        if component is None:
+            raise KeyError(f"Unknown component_id: {component_id}")
+        return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
+    except Exception as exc:
+        return _component_error(exc)
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def list_design_components(expected_model_path: str = "") -> str:
+    """List compact cached Components, optionally restricted to one saved model path."""
+    try:
+        components = retrieval_store.list_components(expected_model_path)
+        return json.dumps({"status": "success", "components": components, "total": len(components),
+                           "live_verified": False}, ensure_ascii=False)
+    except Exception as exc:
+        return _component_error(exc)
+
+
+@mcp.tool()
+def sync_design_component(expected_model_path: str, component_id: str, rhino_group_id: str = "") -> str:
+    """Reconcile a Component after inspecting live Rhino group membership.
+
+    When group editing adds unowned TextDots/objects, one explicit native sync may
+    adopt their direct ownership under Undo and normalize ancestor memberships.
+    Unchanged components stay read-only. Conflicting ownership requires explicit
+    repair. A timed-out mutation is never automatically replayed.
+    A complete live proof of a previously registered but now unregistered group
+    also releases its cached registration, after checking Plan/Step/Sheet references.
+    """
+    try:
+        component = retrieval_store.sync_component(
+            model_path=expected_model_path, component_id=component_id,
+            rhino_group_id=rhino_group_id, native_inspect=_component_bridge,
+        )
+        return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
+    except Exception as exc:
+        return _component_error(exc)
+
+
+@mcp.tool(annotations={"destructiveHint": False})
+def remove_design_component(component_id: str) -> str:
+    """Unregister Component ownership while preserving Rhino geometry and the ordinary group.
+
+    A root Component may have children; they become roots and keep their object
+    ownership, registered Rhino groups and Scene links. A Component that still has
+    its own parent must first be detached. Plan/Step/Sheet references to the
+    removed Component must be cleared first. No geometry is deleted or copied.
+    """
+    try:
+        component = retrieval_store.unregister_component(component_id, native_apply=_component_bridge)
+        return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
+    except Exception as exc:
+        return _component_error(exc)
+
+
+@mcp.tool(annotations={"destructiveHint": False})
+def register_scene_objects(
+    scene_id: str, expected_model_path: str, object_ids: list[str], mode: str = "add",
+) -> str:
+    """Link top-level objects directly to a Scene without an asset instance or Component.
+
+    mode is add, remove or replace for this document's direct links. Other model
+    links and Component membership are retained. Observe current GUIDs/bounds live;
+    this updates the local ledger and does not edit Rhino geometry or object names.
+    """
+    try:
+        result = retrieval_store.register_scene_objects(
+            scene_id=scene_id, model_path=expected_model_path, object_ids=object_ids,
+            mode=mode, native_observe=_component_bridge,
+        )
+        return json.dumps({"status": "success", **result}, ensure_ascii=False)
+    except Exception as exc:
+        return _component_error(exc)
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def get_scene_objects(scene_id: str) -> str:
+    """Read cached direct Scene objects and all descendant Component members as one set."""
+    try:
+        objects = retrieval_store.scene_objects(scene_id)
+        return json.dumps({"status": "success", "scene_id": scene_id, "objects": objects,
+                           "total": len(objects), "live_verified": False}, ensure_ascii=False)
+    except Exception as exc:
+        return _component_error(exc)
+
+
+def _component_operation_bridge(action: str, expected_model_path: str,
+                                component_ids: list[str], max_pairs: int = 64) -> str:
+    """Verify the advertised native helper before dispatching one bounded request."""
+    try:
+        model_path = retrieval_store._component_model_path(expected_model_path)
+        if (not isinstance(component_ids, list) or not 1 <= len(component_ids) <= 32
+                or any(not isinstance(value, str) or not value.strip() for value in component_ids)
+                or len(set(component_ids)) != len(component_ids)):
+            raise ValueError("component_ids must contain 1 to 32 distinct Component handles.")
+        if type(max_pairs) is not int or not 1 <= max_pairs <= 64:
+            raise ValueError("max_pairs must be an integer between 1 and 64.")
+        request = {"type": "component_operation", "action": action,
+                   "expected_model_path": model_path, "component_ids": component_ids}
+        if action == "intersections":
+            request["max_pairs"] = max_pairs
+        payload = json.dumps(request, allow_nan=False).encode("utf-8")
+        if len(payload) > 262144:
+            raise ValueError("Component operation request exceeds 256 KiB.")
+    except (ValueError, TypeError, KeyError) as exc:
+        return json.dumps({"status": "error", "error_code": "invalid_arguments",
+                           "mutation_applied": False, "message": str(exc)})
+    try:
+        context = json.loads(_send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}'))
+        if not isinstance(context, dict) or context.get("status") != "success":
+            raise ValueError("Could not inspect the bound Rhino document.")
+        if context.get("capabilities", {}).get("component_operations") != 1:
+            raise ValueError("Load a Bridge with component_operations=1 before using Component helpers.")
+    except Exception as exc:
+        return json.dumps({"status": "error", "error_code": "unsupported_component_operations",
+                           "mutation_applied": False, "message": str(exc)})
+    # After this point a focus timeout cannot certify that Rhino was not changed.
+    try:
+        response = _send_and_receive(payload)
+        if len(response.encode("utf-8")) > 262144:
+            raise ValueError("Component operation response exceeds 256 KiB.")
+        result = json.loads(response)
+        if not isinstance(result, dict):
+            raise ValueError("Native Component helper returned a non-object response.")
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as exc:
+        uncertainty = action == "focus"
+        return json.dumps({"status": "error", "error_code": "component_operation_bridge_error",
+                           "message": str(exc), "requires_reconciliation": uncertainty,
+                           "mutation_applied": None if uncertainty else False})
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def get_component_intersections(expected_model_path: str, component_ids: list[str],
+                                max_pairs: StrictInt = 64) -> str:
+    """Inspect actual solid overlaps among the current recursive members of 1-32 Components.
+
+    The native helper resolves current group members inside the same callback,
+    tests bounded candidate pairs, and reports unsupported/truncated/unknown work.
+    A successful call is not proof of no collision unless complete is true.
+    This helper does not modify Rhino objects or the local Scene ledger.
+    """
+    return _component_operation_bridge("intersections", expected_model_path, component_ids, max_pairs)
+
+
+@mcp.tool(annotations={"destructiveHint": False})
+def focus_components(expected_model_path: str, component_ids: list[str]) -> str:
+    """Select, isolate and zoom to current recursive members of 1-32 Components.
+
+    Uses Rhino's existing Isolate/Unisolate history; other hidden/locked context
+    and any existing document state are subject to the native helper's guards.
+    The operation changes the live selection/visibility/view. An uncertain native
+    result must be inspected; it is never automatically retried.
+    """
+    return _component_operation_bridge("focus", expected_model_path, component_ids)
+
+
 @mcp.tool()
 def upsert_design_room(
     scene_id: str,
@@ -1205,7 +1523,8 @@ def upsert_design_room(
     room_id: str = "",
 ) -> str:
     """
-    Creates or updates a room in the local scene ledger.
+    Creates or updates a legacy room envelope for asset-placement containment checks.
+    Use upsert_design_component for physical architectural assemblies.
     bounds_mm is [min_x, min_y, min_z, max_x, max_y, max_z]. When room_id is
     omitted, an existing room with the same name in the scene is updated
     instead of creating a duplicate.
@@ -1290,8 +1609,8 @@ def remove_design_room(scene_id: str, room_id: str) -> str:
 @mcp.tool()
 def validate_scene_layout(scene_id: str, detail_limit: int = 50) -> str:
     """
-    Runs local R-tree broad-phase collision and room-containment checks.
-    Only compact violations are returned; geometry remains in Rhino.
+    Runs cached legacy asset-instance AABB collisions and room-containment checks.
+    Component/raw-object geometry is reported as unvalidated; inspect it with native probes.
     """
     try:
         return json.dumps({
@@ -1303,15 +1622,64 @@ def validate_scene_layout(scene_id: str, detail_limit: int = 50) -> str:
 
 
 @mcp.tool()
+def create_generation_phase(name: str, description: str = "") -> str:
+    """Create an organizational Phase for Plans; this does not edit Rhino geometry."""
+    try:
+        return json.dumps({"status": "success", "phase": retrieval_store.create_generation_phase(name, description)})
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": str(exc)})
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def get_generation_phase(phase_id: str) -> str:
+    """Read a Phase's name, description and Plan count."""
+    try:
+        phase = retrieval_store.get_generation_phase(phase_id)
+        if phase is None:
+            return json.dumps({"status": "error", "message": f"Unknown phase_id: {phase_id}"})
+        return json.dumps({"status": "success", "phase": phase})
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": str(exc)})
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def list_generation_phases(limit: StrictInt = 50) -> str:
+    """List organizational Phases with totals and an explicit truncation flag; limit is 1-500."""
+    try:
+        return json.dumps({"status": "success", **retrieval_store.list_generation_phases(limit)})
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": str(exc)})
+
+
+@mcp.tool()
+def update_generation_phase(
+    phase_id: str, name: str | None = None, description: str | None = None,
+) -> str:
+    """Update Phase organization; omitted fields retain their values."""
+    try:
+        return json.dumps({
+            "status": "success", "phase": retrieval_store.update_generation_phase(phase_id, name, description),
+        })
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": str(exc)})
+
+
+@mcp.tool()
 def create_generation_plan(
     goal: str,
     scope: str = "house",
     scene_id: str = "",
+    phase_id: str = "",
+    scene_ids: list[str] | None = None,
+    component_ids: list[str] | None = None,
 ) -> str:
     """
-    Creates a dependency-ordered local plan. scope may be house, interior,
-    structure, or drawing. The plan stores handles and step state rather than verbose
-    repeated context.
+    Create a dependency-ordered Plan in an optional organizational Phase.
+    scope is house, interior, structure, drawing, or component; component uses
+    inspect_context, design, model, validate. scene_ids are context; component_ids
+    explicitly bind targets without requiring membership in those Scenes.
+    Legacy scene_id must match the first scene_ids entry when both are supplied.
+    Plans record state and evidence, do not execute steps, and do not authorize edits.
     """
     try:
         return json.dumps({
@@ -1320,19 +1688,79 @@ def create_generation_plan(
                 goal=goal,
                 scope=scope,
                 scene_id=scene_id,
+                phase_id=phase_id,
+                scene_ids=scene_ids,
+                component_ids=component_ids,
             ),
         })
     except Exception as exc:
         return json.dumps({"status": "error", "message": str(exc)})
 
 
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def get_generation_plan(plan_id: str, revision: StrictInt | None = None) -> str:
+    """Read the current Plan or an immutable saved revision, including legacy baseline 0.
+
+    Snapshots contain Plan metadata, step state and handles; they are not Rhino
+    geometry backups. A missing requested revision never falls back to current state.
+    """
+    try:
+        plan = retrieval_store.get_generation_plan(plan_id, revision)
+        if plan is None:
+            message = (f"Unknown plan_id: {plan_id}" if revision is None else
+                       f"Unknown saved revision {revision} for plan_id: {plan_id}")
+            return json.dumps({"status": "error", "message": message})
+        return json.dumps({"status": "success", "plan": plan})
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": str(exc)})
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def list_generation_plans(
+    phase_id: str = "", scene_id: str = "", status: str = "", limit: StrictInt = 50,
+) -> str:
+    """List compact Plan summaries, optionally filtered by Phase, contextual Scene or status."""
+    try:
+        return json.dumps({
+            "status": "success", **retrieval_store.list_generation_plans(phase_id, scene_id, status, limit),
+        })
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": str(exc)})
+
+
 @mcp.tool()
-def get_generation_plan(plan_id: str) -> str:
-    """Returns a compact dependency graph and current step states."""
-    plan = retrieval_store.get_generation_plan(plan_id)
-    if not plan:
-        return json.dumps({"status": "error", "message": f"Unknown plan_id: {plan_id}"})
-    return json.dumps({"status": "success", "plan": plan})
+def update_generation_plan(
+    plan_id: str,
+    goal: str | None = None,
+    phase_id: str | None = None,
+    scene_ids: list[str] | None = None,
+    component_ids: list[str] | None = None,
+    expected_revision: StrictInt | None = None,
+) -> str:
+    """Update Plan metadata and bindings atomically, recording a new saved revision.
+
+    Omitted fields retain prior values; [] clears refs, and phase_id='' detaches
+    the Phase. expected_revision rejects stale updates without changing the Plan.
+    References provide context and explicit targets, not permission to edit geometry.
+    """
+    try:
+        return json.dumps({
+            "status": "success", "plan": retrieval_store.update_generation_plan(
+                plan_id, goal=goal, phase_id=phase_id, scene_ids=scene_ids,
+                component_ids=component_ids, expected_revision=expected_revision,
+            ),
+        })
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": str(exc)})
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def list_generation_plan_revisions(plan_id: str, limit: StrictInt = 50) -> str:
+    """List saved Plan revisions newest first, with operation labels and truncation metadata."""
+    try:
+        return json.dumps({"status": "success", **retrieval_store.list_generation_plan_revisions(plan_id, limit)})
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": str(exc)})
 
 
 @mcp.tool()
@@ -1342,11 +1770,16 @@ def update_generation_step(
     status: str,
     input_refs: list[str] | None = None,
     output_refs: list[str] | None = None,
+    component_ids: list[str] | None = None,
+    expected_revision: StrictInt | None = None,
 ) -> str:
     """
-    Advances a generation step after its dependencies complete. Input and
-    output references should be stable scene, room, asset, instance, or Rhino
-    GUID handles.
+    Record a Step's status, evidence and optional explicit Component targets.
+    Omitted refs retain prior values; [] clears them. Step component_ids=null in a
+    returned Plan inherits Plan targets; explicit [] selects none. Scene refs never
+    expand the selection. running/completed require completed prerequisites, and a
+    prerequisite cannot regress while descendants run or remain completed.
+    expected_revision rejects stale updates. No Rhino operation is executed here.
     """
     try:
         return json.dumps({
@@ -1357,12 +1790,148 @@ def update_generation_step(
                 status=status,
                 input_refs=input_refs,
                 output_refs=output_refs,
+                component_ids=component_ids,
+                expected_revision=expected_revision,
             ),
         })
     except Exception as exc:
         return json.dumps({"status": "error", "message": str(exc)})
 
 
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def resolve_generation_targets(plan_id: str, step_id: str = "") -> str:
+    """Resolve registered Step targets, or Plan targets when the Step has no override.
+
+    An explicit empty Step selection stays empty. Contextual Scenes never expand
+    targets. Returned group/document identities have live_verified=false; inspect
+    current Rhino state and user intent before editing. This does not grant authority.
+    """
+    try:
+        return json.dumps({"status": "success", **retrieval_store.resolve_generation_targets(plan_id, step_id)})
+    except Exception as exc:
+        return json.dumps({"status": "error", "message": str(exc)})
+
+
+def _drawing_sheet_bridge(request: dict) -> dict:
+    """Check Layout capability, then send exactly one requested native operation."""
+    payload = json.dumps(request, allow_nan=False).encode("utf-8")
+    if len(payload) > 2_097_152:
+        return {"status": "error", "mutation_applied": False, "message": "Drawing sheet request exceeds 2 MiB."}
+    try:
+        context = json.loads(_send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}'))
+        if not isinstance(context, dict) or context.get("status") != "success":
+            raise ValueError("Could not inspect the bound Rhino document.")
+        if context.get("capabilities", {}).get("drawing_sheets") != 1:
+            raise ValueError("Load a Bridge with drawing_sheets=1 before managing drawing sheets.")
+    except Exception as exc:
+        return {"status": "error", "mutation_applied": False, "message": str(exc)}
+    response = _send_and_receive(payload)
+    if len(response.encode("utf-8")) > 2_097_152:
+        raise ValueError("Drawing sheet response exceeds 2 MiB.")
+    result = json.loads(response)
+    if not isinstance(result, dict):
+        raise ValueError("Invalid native drawing sheet response.")
+    return result
+
+
+def _drawing_sheet_error(exc: Exception) -> str:
+    result = {"status": "error", "message": str(exc)}
+    if isinstance(exc, DrawingSheetReconciliationError):
+        result.update(error_code="drawing_sheet_reconciliation_required", requires_reconciliation=True,
+                      sheet_id=exc.sheet_id, expected_model_path=exc.model_path)
+    return json.dumps(result, ensure_ascii=False)
+
+
+@mcp.tool(annotations={"destructiveHint": False})
+def upsert_drawing_sheet(
+    expected_model_path: str, title: str, drawing_type: str, scale_denominator: StrictFloat,
+    paper_mm: list[StrictFloat], model_bounds_mm: list[StrictFloat],
+    scene_ids: list[str] | None = None, component_ids: list[str] | None = None,
+    plan_id: str | None = None, sheet_id: str = "", layout_id: str = "",
+) -> str:
+    """Register one authored modelspace drawing region with one Rhino Layout tab.
+
+    Supply world-XY bounds [minX,minY,minZ,maxX,maxY,maxZ] in mm, positive XY
+    extents, paper [width,height] in mm, and a positive scale denominator (100 = 1:100).
+    The native Layout uses a parallel Top detail; the region must fit at that scale.
+    drawing_type is plan, section, elevation, detail, axonometric, perspective,
+    schedule or other. These are labels; this tool does not generate drawing geometry.
+    New sheets create a Layout when layout_id is empty. Existing identities cannot
+    change model or Layout. Omitted refs preserve existing values; [] clears refs,
+    plan_id='' unlinks a Plan. List sheets by Plan at wrapup to inspect duplicates.
+    After an uncertain result, sync_drawing_sheet; do not replay the mutation.
+    """
+    try:
+        sheet = retrieval_store.upsert_drawing_sheet(
+            model_path=expected_model_path, title=title, drawing_type=drawing_type,
+            scale_denominator=scale_denominator, paper_mm=paper_mm, model_bounds_mm=model_bounds_mm,
+            scene_ids=scene_ids, component_ids=component_ids, plan_id=plan_id,
+            sheet_id=sheet_id, layout_id=layout_id, native_apply=_drawing_sheet_bridge,
+        )
+        return json.dumps({"status": "success", "sheet": sheet}, ensure_ascii=False)
+    except Exception as exc:
+        return _drawing_sheet_error(exc)
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def get_drawing_sheet(sheet_id: str) -> str:
+    """Read a cached sheet title, scale, paper, modelspace bounds, Layout and context refs."""
+    try:
+        sheet = retrieval_store.get_drawing_sheet(sheet_id)
+        if sheet is None:
+            raise KeyError(f"Unknown sheet_id: {sheet_id}")
+        return json.dumps({"status": "success", "sheet": sheet}, ensure_ascii=False)
+    except Exception as exc:
+        return _drawing_sheet_error(exc)
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def list_drawing_sheets(
+    plan_id: str = "", scene_id: str = "", component_id: str = "",
+    expected_model_path: str = "", limit: StrictInt = 100,
+) -> str:
+    """List named sheets for Plan wrapup or Scene/Component/model review; combine filters with AND.
+
+    Returns cached registration data, total and truncation. Review names and locations
+    before deciding whether drawings are unnecessary; listing never deletes geometry.
+    """
+    try:
+        return json.dumps({"status": "success", **retrieval_store.list_drawing_sheets(
+            plan_id=plan_id, scene_id=scene_id, component_id=component_id,
+            model_path=expected_model_path, limit=limit,
+        )}, ensure_ascii=False)
+    except Exception as exc:
+        return _drawing_sheet_error(exc)
+
+
+@mcp.tool(annotations={"destructiveHint": False})
+def sync_drawing_sheet(expected_model_path: str, sheet_id: str, layout_id: str = "") -> str:
+    """Reconcile a sheet from read-only native Layout inspection without replaying a mutation.
+
+    Use after a lost response, failed database commit or manual edits. Registered
+    snapshots can restore a missing ledger row. Verified unregistered retained
+    Layouts can release an existing ledger row; a missing Layout is not that proof.
+    """
+    try:
+        sheet = retrieval_store.sync_drawing_sheet(
+            model_path=expected_model_path, sheet_id=sheet_id, layout_id=layout_id,
+            native_inspect=_drawing_sheet_bridge,
+        )
+        return json.dumps({"status": "success", "sheet": sheet}, ensure_ascii=False)
+    except Exception as exc:
+        return _drawing_sheet_error(exc)
+
+
+@mcp.tool(annotations={"destructiveHint": False})
+def remove_drawing_sheet(sheet_id: str) -> str:
+    """Unregister a sheet while preserving its Rhino Layout, detail and modelspace drawing geometry."""
+    try:
+        sheet = retrieval_store.remove_drawing_sheet(sheet_id, native_apply=_drawing_sheet_bridge)
+        return json.dumps({"status": "success", "sheet": sheet}, ensure_ascii=False)
+    except Exception as exc:
+        return _drawing_sheet_error(exc)
 
 
 def _dimension_check(asset: dict, bounds: dict | None, scale: float) -> dict | None:
@@ -1440,81 +2009,26 @@ public class Script
 def _material_script(material: dict, guid_list: list[str],
                      apply_render_material: bool, attach_metadata: bool,
                      extra_strings: dict[str, str] | None = None) -> str:
-    """C# for the bridge: create/reuse a PBR doc material, assign it to the
-    objects, and write almond:* user strings (Datasmith metadata in Unreal)."""
-    r, g, b = (int(v) for v in material["base_color"])
-    metallic = float(material["metallic"])
-    roughness = float(material["roughness"])
-    opacity = float(material["opacity"])
-    mat_name = "ALMOND::" + material["material_id"]
-    guid_array = ", ".join(f'"{value}"' for value in guid_list)
-    user_strings = {
-        "almond:material_id": material["material_id"],
-        "almond:material_name": material["name"],
-        "almond:material_category": material["category"],
-        "almond:ue_material_slot": material["ue_material_slot"],
-        "almond:base_color": f"{r},{g},{b}",
-        "almond:metallic": f"{metallic:g}",
-        "almond:roughness": f"{roughness:g}",
-        "almond:opacity": f"{opacity:g}",
-    }
-    if extra_strings:
-        user_strings.update(extra_strings)
-    set_strings = "\n                ".join(
-        f'obj.Attributes.SetUserString("{key}", "{value.replace(chr(34), "")}");'
-        for key, value in user_strings.items()
-    ) if attach_metadata else "// metadata disabled"
-    assign_material = """
-                var att = obj.Attributes;
-                att.MaterialIndex = matIndex;
-                att.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject;
-""" if apply_render_material else "\n                // render material disabled\n"
+    """Call the compiled assignment helper; JSON string literals preserve user text."""
+    material_id = json.dumps(material["material_id"], ensure_ascii=True)
+    guid_array = ", ".join(f"new Guid({json.dumps(value)})" for value in guid_list)
+    metadata = ",\n            ".join(
+        "{ " + json.dumps(key, ensure_ascii=True) + ", " + json.dumps(value, ensure_ascii=True) + " }"
+        for key, value in (extra_strings or {}).items()
+    )
     return f"""
 using System;
 using System.Collections.Generic;
 using Rhino;
+using RhinoAlmondBridge;
 
 public class Script
 {{
-    public static List<Guid> Run(RhinoDoc doc)
+    public static object Run(RhinoDoc doc)
     {{
-        int matIndex = -1;
-        string matName = "{mat_name}";
-        for (int i = 0; i < doc.Materials.Count; i++)
-        {{
-            var existing = doc.Materials[i];
-            if (existing != null && !existing.IsDeleted && existing.Name == matName)
-            {{ matIndex = i; break; }}
-        }}
-        if (matIndex < 0)
-        {{
-            var mat = new Rhino.DocObjects.Material();
-            mat.Name = matName;
-            mat.DiffuseColor = System.Drawing.Color.FromArgb({r}, {g}, {b});
-            mat.Transparency = {1.0 - opacity:g};
-            mat.ToPhysicallyBased();
-            var pb = mat.PhysicallyBased;
-            if (pb != null)
-            {{
-                pb.BaseColor = new Rhino.Display.Color4f({r}f / 255f, {g}f / 255f, {b}f / 255f, 1f);
-                pb.Metallic = {metallic:g};
-                pb.Roughness = {roughness:g};
-                pb.Opacity = {opacity:g};
-            }}
-            matIndex = doc.Materials.Add(mat);
-        }}
-
-        var done = new List<Guid>();
-        foreach (string s in new[] {{ {guid_array} }})
-        {{
-            var obj = doc.Objects.FindId(new Guid(s));
-            if (obj == null) continue;{assign_material}                {set_strings}
-            obj.CommitChanges();
-            done.Add(obj.Id);
-        }}
-        doc.Views.Redraw();
-        RhinoApp.WriteLine("Almond material '" + matName + "' applied to " + done.Count + " object(s).");
-        return done;
+        return ModelingMaterials.Apply(doc, {material_id}, new Guid[] {{ {guid_array} }},
+            new Dictionary<string, string> {{ {metadata} }},
+            {str(apply_render_material).lower()}, {str(attach_metadata).lower()});
     }}
 }}
 """
@@ -1523,11 +2037,12 @@ public class Script
 @mcp.tool()
 def list_materials(category: str = "", query: str = "") -> str:
     """
-    Lists the curated PBR material library used by assign_material.
+    Lists the curated PBR material library used by assign_material without changing Rhino.
 
     Each entry carries metallic/roughness PBR channels, an Unreal material
     slot name (ue_material_slot) for deterministic remapping after import,
-    and tags. Categories: metal, plastic, glass, wood, mineral, polymer.
+    and tags. layer_path is the canonical material-derived M:: hierarchy;
+    it is created lazily only when that material is applied to geometry.
     """
     materials = material_library.list(category=category, query=query)
     return json.dumps({
@@ -1585,6 +2100,8 @@ def get_construction_guidance(
     }
     for system in systems:
         card = dict(system)
+        card["construction_detail"] = system["name"]
+        card["construction_reference"] = {"kind": "construction_system", "id": system["system_id"]}
         if span_m > 0:
             lo, hi = system["span_range_m"]
             if hi > 0:
@@ -1805,29 +2322,43 @@ def assign_material(
     attach_metadata: bool = True,
     structural_role: str = "",
     construction_system: str = "",
+    floor: str = "",
+    construction_detail: str = "",
+    construction_reference: dict | None = None,
 ) -> str:
     """
-    Assigns a curated PBR material to Rhino objects and stamps them with
-    machine-readable material metadata for downstream pipelines (Unreal).
+    Assigns a curated PBR material and its canonical M:: layer to explicit Rhino objects.
+    The compiled helper creates only the chosen material/layer on demand and reuses
+    existing entries. Returns applied GUIDs without adding automatic dimensions.
 
     For structural members, also declare what the object IS in construction
     terms: structural_role (e.g. "joist", "girder", "stud", "truss_chord")
     and construction_system (a system_id from get_construction_guidance).
-    These are written as almond:structural_role / almond:construction_system
-    user text on the objects, so the stated construction intent lives on the
-    Rhino geometry itself and survives export. If the chosen material_id is
+    An explicit structural_role retains its legacy user-text key. A system is
+    stored as the typed construction_reference described below. If the chosen material_id is
     not a typical finish for the declared system, the response carries a
     warning (it still applies).
+
+    floor is a user-supplied level label. construction_detail is a readable label;
+    construction_reference optionally identifies a known source as
+    {"kind": "construction_system", "id": "<system_id>"}. These source records
+    are preliminary system guidance, not verified construction details. The old
+    construction_system argument is accepted and produces the same typed reference.
+    A source name supplies the detail label when no explicit label is given.
 
     Two effects, independently switchable:
     - apply_render_material: creates/reuses a physically-based Rhino
       material (ALMOND::<material_id>) and assigns it per object, so GLB
-      export (publish_to_chestnut) and Datasmith carry real PBR channels.
-    - attach_metadata: writes almond:* user-text keys (material_id, name,
-      category, ue_material_slot, base_color, metallic, roughness, opacity)
-      on each object - Datasmith imports these as asset metadata in Unreal,
-      so materials can be remapped by ue_material_slot deterministically.
+      export (publish_to_chestnut) and Datasmith carry real PBR channels. The
+      object's layer follows the material's layer_path. If false, neither the
+      native material nor the layer is changed or created.
+    - attach_metadata: writes only material_id when a native material is
+      applied, plus supplied floor/detail/reference metadata. PBR channels
+      remain on the native material. A metadata-only call preserves the
+      current material identity and writes only the supplied metadata.
 
+    Unspecified metadata and asset provenance are preserved. Requires a Bridge
+    with modeling_materials=1; older Bridges are rejected before any mutation.
     Works on breps, meshes, and block instances (an instance's material
     applies to definition geometry set to 'by parent'; the metadata is
     always attached to the instance itself). Call list_materials first to
@@ -1843,7 +2374,9 @@ def assign_material(
     guid_list = []
     for value in guids:
         try:
-            guid_list.append(str(uuid.UUID(str(value))))
+            guid = str(uuid.UUID(str(value)))
+            if guid not in guid_list:
+                guid_list.append(guid)
         except ValueError:
             return json.dumps({
                 "status": "error",
@@ -1854,8 +2387,22 @@ def assign_material(
 
     warnings = []
     extra_strings: dict[str, str] = {}
+    for name, value in (("floor", floor), ("construction_detail", construction_detail),
+                        ("structural_role", structural_role), ("construction_system", construction_system)):
+        if not isinstance(value, str):
+            return json.dumps({"status": "error", "message": f"{name} must be a string."})
+    if construction_reference is not None:
+        if (not isinstance(construction_reference, dict)
+                or set(construction_reference) != {"kind", "id"}
+                or construction_reference.get("kind") != "construction_system"
+                or not isinstance(construction_reference.get("id"), str)
+                or not construction_reference["id"].strip()):
+            return json.dumps({"status": "error", "message": "construction_reference requires kind=construction_system and a known id."})
+        if construction_system and construction_system != construction_reference["id"]:
+            return json.dumps({"status": "error", "message": "construction_system and construction_reference identify different sources."})
+        construction_system = construction_reference["id"]
     if structural_role:
-        extra_strings["almond:structural_role"] = structural_role
+        extra_strings[modeling_policy.key("structural_role")] = structural_role
     if construction_system:
         system = construction_library.get(construction_system)
         if system is None:
@@ -1865,8 +2412,9 @@ def assign_material(
                 "message": f"Unknown construction_system: {construction_system}. "
                            f"Known: {known}",
             })
-        extra_strings["almond:construction_system"] = construction_system
-        extra_strings["almond:structural_material"] = system["structural_material"]
+        construction_reference = {"kind": "construction_system", "id": construction_system}
+        construction_detail = construction_detail or system["name"]
+        extra_strings[modeling_policy.key("construction_reference")] = json.dumps(construction_reference, ensure_ascii=True, separators=(",", ":"))
         typical = system.get("render_material_ids", [])
         if typical and material_id not in typical:
             warnings.append(
@@ -1874,18 +2422,45 @@ def assign_material(
                 f"{construction_system} (typical: {', '.join(typical)}). "
                 f"Applied anyway.")
 
+    if floor:
+        extra_strings[modeling_policy.key("floor")] = floor
+    if construction_detail:
+        extra_strings[modeling_policy.key("construction_detail")] = construction_detail
     script = _material_script(material, guid_list, apply_render_material,
                               attach_metadata, extra_strings)
     payload = json.dumps({"type": "execute", "script": script}).encode("utf-8")
+    assignment_dispatched = False
     try:
+        context_response = _send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}')
+        context = json.loads(context_response)
+        if not isinstance(context, dict) or context.get("status") not in ("success", "error"):
+            raise ValueError("Bridge returned an invalid context response.")
+        if context["status"] == "error":
+            return context_response
+        if context.get("capabilities", {}).get("modeling_materials") != 1:
+            return json.dumps({"status": "error", "error_code": "unsupported_materials",
+                               "message": "Load a Bridge with modeling_materials=1 before assigning materials."})
+        assignment_dispatched = True
         response = json.loads(_send_and_receive(payload, timeout=60.0))
     except ConnectionRefusedError:
         return json.dumps({"status": "error", "message": "Rhino bridge is unavailable. Start RhinoAlmondBridge first."})
     except Exception as exc:
-        return json.dumps({"status": "error", "message": f"Material assignment failed: {exc}"})
+        return json.dumps({"status": "error", "mutation_state": "unknown" if assignment_dispatched else "not_started",
+                           "message": f"Could not confirm material assignment: {exc}. Inspect Rhino before retrying."})
+    if not isinstance(response, dict):
+        return json.dumps({"status": "error", "mutation_state": "unknown",
+                           "message": "Material assignment returned an invalid response. Inspect Rhino before retrying."})
     if response.get("status") != "success":
         return json.dumps(response)
-    applied = response.get("guids") or []
+    if response.get("result_error"):
+        return json.dumps({**response, "material_id": material_id,
+                           "message": "Material assignment ran but its result could not be returned. Inspect Rhino before retrying."})
+    native = response.get("result")
+    applied = native.get("applied_guids") if isinstance(native, dict) else None
+    if (not isinstance(applied, list) or any(not isinstance(g, str) or g not in guid_list for g in applied)
+            or len(applied) != len(set(applied)) or native.get("material_id") != material_id):
+        return json.dumps({"status": "error", "error_code": "material_result_unavailable", "mutation_state": "unknown",
+                           "message": "Material assignment returned no valid applied-object result. Inspect Rhino before retrying."})
     result = {
         "status": "success",
         "material_id": material_id,
@@ -1894,13 +2469,26 @@ def assign_material(
         "applied_count": len(applied),
         "requested_count": len(guid_list),
         "applied_guids": applied,
-        "metadata_attached": attach_metadata,
+        "metadata_attached": native.get("metadata_attached", attach_metadata and (apply_render_material or bool(extra_strings))),
+        "material_metadata_attached": attach_metadata and apply_render_material,
         "render_material_applied": apply_render_material,
+        "layer_path": native.get("layer_path"),
     }
+    changed = native.get("changed_guids")
+    if (isinstance(changed, list) and all(isinstance(g, str) and g in applied for g in changed)
+            and len(changed) == len(set(changed))):
+        result["changed_guids"] = changed
+        result["changed_count"] = len(changed)
     if structural_role:
         result["structural_role"] = structural_role
     if construction_system:
         result["construction_system"] = construction_system
+    if floor:
+        result["floor"] = floor
+    if construction_detail:
+        result["construction_detail"] = construction_detail
+    if construction_reference:
+        result["construction_reference"] = construction_reference
     if warnings:
         result["warnings"] = warnings
     return json.dumps(result)
@@ -1918,6 +2506,8 @@ def place_drawing_asset(
     """
     Places an indexed representation asset as a reusable Rhino block.
 
+    x/y/z and returned bounds use the active document's units; scale is dimensionless.
+    Prepared 3DM geometry is converted from its stored millimeters by Rhino on import.
     Drawing assets are placed on ALMOND-DRAW::ASSETS and remain distinct from
     generated model blocks. The tool accepts only files resolved from the
     controlled asset/drawing/DrawingAssetfiles manifest.
@@ -1968,13 +2558,15 @@ def place_drawing_asset(
             "lod": asset.get("lod"),
             "warehouse_url": asset.get("warehouse_url"),
             "match_status": asset.get("match_status"),
+            "sha256": asset.get("sha256"),
         },
     }).encode("utf-8")
 
     try:
         return _send_and_receive(payload, timeout=90.0)
     except socket.timeout:
-        return json.dumps({"status": "error", "message": "Rhino drawing-asset import timed out."})
+        return json.dumps({"status": "error", "requires_reconciliation": True,
+            "message": "Rhino drawing-asset import timed out; inspect the model before retrying."})
     except ConnectionRefusedError:
         return json.dumps({
             "status": "error",
@@ -3210,13 +3802,6 @@ public class Script
                 obj.Attributes.MaterialSource = ObjectMaterialSource.MaterialFromObject;
                 var spec = Lib[matName];
                 obj.Attributes.SetUserString("almond:material_id", (string)spec[0]);
-                obj.Attributes.SetUserString("almond:material_name", (string)spec[1]);
-                obj.Attributes.SetUserString("almond:material_category", (string)spec[2]);
-                obj.Attributes.SetUserString("almond:ue_material_slot", (string)spec[3]);
-                obj.Attributes.SetUserString("almond:base_color", spec[4] + "," + spec[5] + "," + spec[6]);
-                obj.Attributes.SetUserString("almond:metallic", Convert.ToString(spec[7]));
-                obj.Attributes.SetUserString("almond:roughness", Convert.ToString(spec[8]));
-                obj.Attributes.SetUserString("almond:opacity", Convert.ToString(spec[9]));
                 obj.Attributes.ObjectColor = System.Drawing.Color.FromArgb((int)spec[4], (int)spec[5], (int)spec[6]);
                 obj.Attributes.ColorSource = ObjectColorSource.ColorFromObject;
                 stamped++;
@@ -3371,11 +3956,14 @@ public class Script
             var obj = doc.Objects.FindId(new Guid(s));
             if (obj == null) continue;
             string mid = obj.Attributes.GetUserString("almond:material_id");
-            if (string.IsNullOrEmpty(mid))
+            // A later explicit material change takes precedence over an old object stamp.
+            if (obj.Attributes.MaterialSource == Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject)
             {
-                var mat = doc.Materials[obj.Attributes.MaterialIndex];
-                if (mat != null && mat.Name != null && mat.Name.StartsWith("ALMOND::"))
-                    mid = mat.Name.Substring(8);
+                int index = obj.Attributes.MaterialIndex;
+                var mat = index >= 0 && index < doc.Materials.Count ? doc.Materials[index] : null;
+                mid = mat == null ? null : mat.GetUserString("almond:material_id");
+                if (string.IsNullOrEmpty(mid) && mat != null && mat.Name != null && mat.Name.StartsWith("ALMOND::"))
+                    mid = mat.Name.Substring(8).Split(new[] { "::" }, StringSplitOptions.None)[0];
             }
             if (!string.IsNullOrEmpty(mid)) rows.Add(mid + "|" + s);
         }
@@ -3517,7 +4105,6 @@ public class Script
     }
 
 
-@mcp.tool()
 def place_generated_asset(
     asset_id: str,
     x_mm: float = 0,

@@ -56,7 +56,7 @@ namespace RhinoAlmondBridge
             var catalogue = JObject.Parse(Encoding.UTF8.GetString(AlmondLibraryCommand.ReadArchive("/api/catalogue")));
             var record = catalogue["assets"].OfType<JObject>().SingleOrDefault(a => (string)a["id"] == id);
             if (record == null || (string)record["kind"] != "model" || (string)record["format"] != "glb" || (bool?)record["available"] != true)
-                throw new InvalidDataException("Only installed generated models can be placed.");
+                throw new InvalidDataException("Choose an installed GLB model from the bundled archive.");
             if (doc.ModelUnitSystem == UnitSystem.None || doc.ModelUnitSystem == UnitSystem.CustomUnits)
                 throw new InvalidDataException("Set standard document units before placing a model.");
             double scale = RhinoMath.UnitScale(UnitSystem.Millimeters, doc.ModelUnitSystem);

@@ -30,8 +30,8 @@ def build_bundle(destination: Path):
     # Never index installed community files into a redistributable payload.
     repo = AssetRepository({"generated":generated, "drawing":ROOT/"asset/drawing/DrawingAssetfiles", "drafting":ROOT/"asset/drawing/Draftingfiles"})
     for record in repo.records.values():
-        if record["kind"] == "element":
-            record.update(available=False, model=None, preview=None, contract=None)
+        if record["library"] == "drawing":
+            record.update(available=False, model=None, preview=None, contract=None, drawing=None)
         if record["drawing"]:
             package = repo.files[record["drawing"]["record"]][1].parent
             repo.file("drafting", (package / "views.json").relative_to(repo.roots["drafting"]).as_posix())

@@ -385,6 +385,7 @@
         "svg": "/files/drafting/pilot/gen-park-bench-1/sheet-A3-1-100.svg"
       }
     ],
+    "dimensions": null,
     "source": {
       "asset_id": "gen-park-bench-1",
       "geometry_sha256": "0EA479981979D8D32C2FC82C785A79FD5494E12B4665E7A2B562378A3325C812",

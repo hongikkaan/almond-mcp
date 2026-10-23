@@ -64,7 +64,7 @@ function render() {
     <button class="card-save" data-save="${esc(a.id)}" aria-label="${saved.has(a.id) ? 'Unsave' : 'Save'} ${esc(a.name)}" aria-pressed="${saved.has(a.id)}">${saved.has(a.id) ? '−' : '+'}</button>
     <button class="card-open" data-open="${esc(a.id)}" aria-label="Explore ${esc(a.name)}">
       <div class="card-stage" ${a.kind === 'model' ? `data-asset-id="${esc(a.id)}"` : ''} ${canPlace(a) ? `data-drag="${esc(a.id)}" title="Drag into a Rhino viewport; Esc cancels"` : ''}><span class="card-index">${String(data.assets.indexOf(a)+1).padStart(3,'0')}</span>${a.preview ? `<img src="${esc(a.preview)}" alt="${esc(a.name)}" loading="lazy" draggable="false">` : `<div class="placeholder">${esc(a.format.toUpperCase())}<small>${a.available ? 'LOCAL FILE' : 'FILE NOT INSTALLED'}</small></div>`}<span class="card-format">${esc(a.format.toUpperCase())}</span>${a.drawing ? '<span class="card-status">DRAWING-READY</span>' : ''}</div>
-      <div class="card-name"><span>${esc(a.name)}</span><span aria-hidden="true">↗</span></div><div class="card-sub"><span>${esc(human(a.category))}</span><span>${a.kind === 'model' ? 'MESHY / 3D' : 'DRAWING ELEMENT'}</span></div>
+      <div class="card-name"><span>${esc(a.name)}</span><span aria-hidden="true">↗</span></div><div class="card-sub"><span>${esc(human(a.category))}</span><span>${a.kind === 'model' ? '3D MODEL' : 'DRAWING ELEMENT'}</span></div>
     </button>${placementButton(a)}</article>`).join('');
   $('grid').querySelectorAll('img').forEach(img => img.addEventListener('error', () => {
     img.replaceWith(Object.assign(document.createElement('span'), {className:'placeholder', textContent:'No preview'}));
@@ -95,12 +95,12 @@ function openObject(id) {
   selected = a;
   currentView = a.format === 'glb' && a.available ? '3d' : 'preview';
   $('object-number').textContent = `OBJECT / ${String(data.assets.indexOf(a)+1).padStart(3,'0')}`;
-  $('object-kind').textContent = `${a.kind === 'model' ? 'MESHY MODEL' : 'DRAWING ELEMENT'} / ${human(a.category).toUpperCase()}`;
+  $('object-kind').textContent = `${a.format === '3dm' ? 'DRAWING ASSET / 3D' : a.kind === 'model' ? 'GLB MODEL' : 'DRAWING ELEMENT'} / ${human(a.category).toUpperCase()}`;
   $('object-title').textContent = a.name;
   $('object-variant').textContent = a.variant;
   $('object-tags').innerHTML = a.tags.map(t => `<span>${esc(t)}</span>`).join('');
   $('dimensions').innerHTML = ['width','depth','height'].map(k => `<div><b>${a.dimensions_mm[k] == null ? '—' : Number(a.dimensions_mm[k]).toLocaleString('en', {maximumFractionDigits:1})}</b><span>${k.toUpperCase()} / MM</span></div>`).join('');
-  $('dimension-basis').textContent = human(a.dimension_basis) + '. ' + (a.kind === 'model' ? 'Mesh dimensions; not a product specification.' : 'Verify scale before placement.');
+  $('dimension-basis').textContent = human(a.dimension_basis) + '. ' + (a.kind === 'model' ? 'Model dimensions; not a product specification.' : 'Verify scale before placement.');
   $('object-evidence').innerHTML = meshEvidence(a) + evidence(a);
   $('scale').value = '50';
   $('view-tabs').innerHTML = [[currentView, currentView === '3d' ? '3D model' : a.format === 'svg' ? '2D element' : 'File'], ...(a.drawing ? [['plan','Plan'],['front','Front'],['right','Right'],['sheet','A3 sheet']] : [])].map(([id,title]) => `<button data-view="${id}" aria-pressed="false">${title}</button>`).join('');

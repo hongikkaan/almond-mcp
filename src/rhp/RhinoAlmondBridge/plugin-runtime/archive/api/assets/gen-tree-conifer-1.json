@@ -394,6 +394,7 @@
         "svg": "/files/drafting/pilot/gen-tree-conifer-1/sheet-A3-1-100.svg"
       }
     ],
+    "dimensions": null,
     "source": {
       "asset_id": "gen-tree-conifer-1",
       "geometry_sha256": "E154A8FFF1C48F44F320B6B6ADB69421E49ADA9C145B749499E126EE993AE8BC",
