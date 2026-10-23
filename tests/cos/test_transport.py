@@ -132,8 +132,8 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(reader, writer, read_timeout_seconds=15.0) as session:
                 await session.initialize()
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 60)
-                self.assertEqual(len({t.name for t in listing.tools}), 60)
+                self.assertEqual(len(listing.tools), 62)
+                self.assertEqual(len({t.name for t in listing.tools}), 62)
                 original = load_catalog()["tools"]
                 public = {t.name: t for t in listing.tools}
                 for tool in original:

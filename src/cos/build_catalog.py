@@ -17,13 +17,17 @@ from runtime import CATALOG, ENGINE, digest, source_paths
 def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
     node = copy.deepcopy(node)
     allowed = (ast.Name, ast.Load, ast.Subscript, ast.Tuple, ast.BinOp, ast.BitOr, ast.Constant)
-    for annotation in [a.annotation for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)] + [node.returns]:
+    inputs = [a.annotation for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)]
+    for annotation in inputs + [node.returns]:
         if annotation is None:
+            continue
+        # ToolResult is the reviewed image tool's return envelope, never an input type.
+        if annotation is node.returns and isinstance(annotation, ast.Name) and annotation.id == "ToolResult":
             continue
         for part in ast.walk(annotation):
             if not isinstance(part, allowed):
                 raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
-            if isinstance(part, ast.Name) and part.id not in {"str", "int", "float", "bool", "list", "dict"}:
+            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "float", "bool", "list", "dict"}:
                 raise ValueError(f"Review annotation name {part.id} in {node.name}")
     for default in [*node.args.defaults, *node.args.kw_defaults]:
         if default is not None:
@@ -47,6 +51,8 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
 
 async def generate(engine: Path = ENGINE) -> dict:
     from fastmcp import FastMCP
+    from fastmcp.tools import ToolResult
+    from pydantic import StrictInt
     paths = source_paths(engine)
     server = ast.parse(paths["server"].read_text(encoding="utf-8-sig"))
     functions = [n for n in server.body if isinstance(n, ast.FunctionDef) and
@@ -59,13 +65,15 @@ async def generate(engine: Path = ENGINE) -> dict:
     functions.append(project_info)
     module = types.ModuleType("_almondcos_schema_stubs")
     module.mcp = FastMCP("AlmondCOS schema build")
+    module.ToolResult = ToolResult
+    module.StrictInt = StrictInt
     sys.modules[module.__name__] = module
     tree = ast.Module(body=[checked_stub(n) for n in functions], type_ignores=[])
     exec(compile(ast.fix_missing_locations(tree), "<AlmondCOS schemas only>", "exec"), module.__dict__)
     tools = [t.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
              for t in await module.mcp.list_tools()]
-    if len(tools) != 57:
-        raise RuntimeError(f"Expected the inspected 57 tools; got {len(tools)}. Review the changed package.")
+    if len(tools) != 59:
+        raise RuntimeError(f"Expected the inspected 59 tools; got {len(tools)}. Review the changed package.")
     if "almond_mcp.server" in sys.modules:
         raise RuntimeError("Catalog generation must not import the Almond server.")
     return {

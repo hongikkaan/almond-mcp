@@ -1,8 +1,10 @@
 # Native script Undo regression tests
 
-These tests link the production `ScriptExecutor.cs` and exercise Rhino's native
-Undo stack in disposable headless documents. They do not install a plugin,
-save a model, or edit the active document. Rhino 8 and a .NET SDK are required.
+These tests link the production `ScriptExecutor.cs` and `DocumentObservation.cs`.
+The `RunAll` entry points exercise Rhino's native Undo stack, returned JSON and
+fixed observations in disposable headless documents. They do not install a plugin,
+save a model, or edit the active document. `ObservationTests.RunViewport(doc)`
+separately observes a caller-supplied visible document. Rhino 8 and a .NET SDK are required.
 
 Build from the repository root:
 
@@ -60,3 +62,27 @@ A nonempty failed script is undone and its rollback record is closed before
 only after successful recovery with no active Undo, Redo, or recording operation.
 Purged empty records return before this cleanup, preserving the existing Redo
 chain; earlier successful Undo records are retained.
+
+The executor suite now includes the original 21 Undo cases plus 19 returned-value
+cases. These round-trip the final JSON envelope, check the exact UTF-8 size and
+container-depth boundaries, and verify that conversion errors keep successful
+edits undoable while runtime/Undo errors cannot expose stale results. Arbitrary
+POCO getters must not run during result conversion.
+
+Invoke `AlmondScriptUndoTests.ObservationTests.RunAll()` in the same modeless
+callback for nine headless cases. These include a first query on a fresh document,
+selection limits and unavailable-view warnings, disabled/caller-owned Undo,
+invalid arguments and unchanged document state.
+
+For the four real-view checks, explicitly choose the intended document and call
+`ObservationTests.RunViewport(doc)` from a modeless UI callback. It decodes actual
+640x480 and 64x64 bounded JPEGs, checks metadata and aspect ratio, and compares
+geometry CRC, serialized object attributes, layers, views, clipping, selection,
+Modified and Undo state before/after. Arrange any desired page/detail/clipping
+fixture explicitly before calling it; the tests do not change the current view
+to prepare a capture.
+
+Use a unique output directory and `-p:AssemblyName=...` for a changed fixture if
+an earlier test assembly is already loaded. Do not overwrite loaded assemblies.
+These linked-source tests and a successful product build are separate from
+loading the candidate RHP and receiving an actual image through the MCP client.

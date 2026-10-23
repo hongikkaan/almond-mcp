@@ -435,6 +435,32 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.assert_free(self.gate_path)
         self.assertEqual(self.calls, [])
 
+    async def test_live_observations_keep_binding_and_operation_guards_without_db_gate(self):
+        names = ("get_rhino_context", "get_rhino_viewport_image")
+        for name in names:
+            def observe() -> dict:
+                self.calls.append("observed")
+                return {"status": "success"}
+            self.mcp.tool(name=name)(observe)
+
+        before = temp_state()
+        with StoreGate(self.paths["storage"]):
+            for name in names:
+                result = await asyncio.wait_for(self.mcp.call_tool(name, {}), 3)
+                self.assertEqual(result_json(result)["status"], "success")
+                self.assertEqual(read_json(self.operation_path)["state"], "completed")
+                self.assert_locked(self.gate_path)
+        self.assertEqual(temp_state(), before)
+        self.assertEqual(len(self.calls), 2)
+        self.assert_operation_completed()
+
+        self.session.binding["valid"] = False
+        write_json(self.session.ready, self.session.binding)
+        for name in names:
+            with self.assertRaisesRegex(Exception, "connection ended or changed"):
+                await self.mcp.call_tool(name, {})
+        self.assertEqual(len(self.calls), 2)
+
     async def test_tool_failure_still_restores_temp_and_releases_gate(self):
         @self.mcp.tool()
         def failed_write() -> str:

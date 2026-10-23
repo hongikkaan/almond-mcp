@@ -8,6 +8,8 @@ Exposes tools for Claude to:
   4. validate_structure    — run Karamba3D structural analysis on generated geometry
 """
 import os
+import base64
+import io
 import json
 import math
 import socket
@@ -22,6 +24,10 @@ import urllib.request
 from pathlib import Path
 from fastmcp import FastMCP
 from fastmcp.resources import ResourceContent, ResourceResult
+from fastmcp.tools import ToolResult
+from mcp.types import ImageContent, TextContent
+from PIL import Image as PillowImage
+from pydantic import StrictInt
 from almond_mcp.ghx_parser import GHParser, validate_capsule_manifest
 from almond_mcp.retrieval_store import AlmondStore
 from almond_mcp import asset_passport, asset_loads, conditioning, exchange, paths, drafting, native_structure, structure_study, design_codes
@@ -51,6 +57,10 @@ print(f"Chestnut publish target: {CHESTNUT_URL}", file=sys.stderr)
 
 mcp = FastMCP("Almond", instructions=(
     "Almond combines Rhino modelling with a semantic asset library. "
+    "Before editing an existing model, inspect get_rhino_context; use "
+    "get_rhino_viewport_image when the current view matters. Inspect relevant objects "
+    "and validate proposed geometry against the task before replacing originals. "
+    "Execution success and a viewport image do not establish geometric correctness. "
     "For furnishing: recommend_generated_assets, inspect get_generated_asset_passport "
     "and preview resources, evaluate_generated_asset_fit, then place_generated_asset. "
     "For drawings: get_asset_drawing for pilot views or generate_asset_drawing_views "
@@ -2154,7 +2164,8 @@ def execute_rhino_script(script: str) -> str:
     Sends a C# RhinoCommon script to the Rhino 3D Bridge for compilation and execution.
     The script is compiled by Roslyn inside Rhino and executed natively as JIT-compiled C#.
 
-    The script MUST define a class with a static Run method that returns created GUIDs:
+    The script MUST define a class with a public static Run(RhinoDoc doc) method.
+    The existing modelling form returns a List<Guid>:
 
         public class Script
         {
@@ -2167,14 +2178,31 @@ def execute_rhino_script(script: str) -> str:
             }
         }
 
+    For numeric or inspection results, Run may instead return a JSON-safe object, for example:
+
+        public static object Run(RhinoDoc doc)
+        {
+            return new { object_count = doc.Objects.Count };
+        }
+
+    Supported results are finite scalars, anonymous objects, arrays/lists and string-keyed
+    dictionaries of supported values, limited to 16 container levels and 64 KiB of compact
+    UTF-8 JSON. Void/null and List<Guid> retain their existing behaviour. A result_error
+    means the result could not be represented; already executed model changes are not
+    rolled back for that reason. Inspect the current state and do not automatically retry.
+    The guids field contains the script's declared IDs, not a complete change history.
+    This executor can modify layers and create dimensions even for an inspection script;
+    use get_rhino_context for a fixed read-only document snapshot. Execution success does
+    not validate the geometry's design intent. Check meaningful invariants before Replace/Delete.
+
     Available namespaces (auto-imported if not present):
         System, System.Collections.Generic, System.Linq,
         Rhino, Rhino.Geometry, Rhino.DocObjects
 
     Args:
-        script: C# source code containing a class with public static List<Guid> Run(RhinoDoc doc).
+        script: C# source code containing a class with public static Run(RhinoDoc doc).
     Returns:
-        JSON with status (success/compile_error/runtime_error), created GUIDs, or error trace.
+        JSON with status, declared guids, error_trace and optional result or result_error.
     """
     payload = json.dumps({"type": "execute", "script": script}).encode('utf-8')
 
@@ -2186,6 +2214,99 @@ def execute_rhino_script(script: str) -> str:
         return json.dumps({"status": "error", "message": "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"})
     except Exception as e:
         return json.dumps({"status": "error", "message": f"Bridge error: {e}"})
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def get_rhino_context(selection_limit: StrictInt = 50) -> str:
+    """Read the LIVE bound Rhino document, selection and current viewport on the UI thread.
+
+    Includes document identity/path, units/tolerances, object/layer counts, a bounded
+    selection summary and camera/display metadata. This query does not create layers,
+    geometry, dimensions or an Undo record. Unavailable values are null with warnings.
+    Counts and the current view are context, not a geometric or visibility validation.
+    Use this snapshot before focused object inspection or editing an existing model.
+
+    Args:
+        selection_limit: Maximum selected object summaries, from 0 to 200; total/truncated are still reported.
+    Returns:
+        JSON with status, document, selection, viewport and warnings, or an explicit error.
+    """
+    if type(selection_limit) is not int or not 0 <= selection_limit <= 200:
+        return json.dumps({"status": "error", "error_code": "invalid_arguments",
+                           "message": "selection_limit must be an integer from 0 to 200."})
+    payload = json.dumps({"type": "get_rhino_context", "selection_limit": selection_limit}).encode("utf-8")
+    try:
+        return _send_and_receive(payload)
+    except Exception as exc:
+        return json.dumps({"status": "error", "error_code": "bridge_error",
+                           "message": f"Could not read the live Rhino context: {exc}"})
+
+
+def _viewport_result(metadata: dict, image_data: str | None = None) -> ToolResult:
+    content = [TextContent(type="text", text=json.dumps(metadata, ensure_ascii=False))]
+    if image_data is not None:
+        content.append(ImageContent(type="image", data=image_data, mimeType="image/jpeg"))
+    return ToolResult(content=content, structured_content=metadata,
+                      is_error=metadata.get("status") != "success")
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+def get_rhino_viewport_image(max_width: StrictInt = 1280, max_height: StrictInt = 960) -> ToolResult:
+    """Return the LIVE current Rhino viewport as a JPEG image with document/view metadata.
+
+    Captures the current view without changing its camera, projection, display mode,
+    clipping, selection or Undo history. The image preserves the viewport aspect ratio
+    within the requested bounds; it does not zoom to fit or prove geometric correctness.
+    A missing view, failed capture or oversized image is an explicit error, never a stale
+    file. Use capture_conditioning_pass for deliberate camera paths and multiple passes.
+
+    Args:
+        max_width: Maximum image width in pixels, from 64 to 2048.
+        max_height: Maximum image height in pixels, from 64 to 2048.
+    Returns:
+        An MCP image content block plus JSON metadata. JPEG data is limited to 4 MiB.
+    """
+    if any(type(value) is not int or not 64 <= value <= 2048 for value in (max_width, max_height)):
+        return _viewport_result({"status": "error", "error_code": "invalid_arguments",
+                                 "message": "max_width and max_height must be integers from 64 to 2048."})
+    payload = json.dumps({"type": "get_rhino_viewport_image", "max_width": max_width,
+                          "max_height": max_height}).encode("utf-8")
+    try:
+        response = json.loads(_send_and_receive(payload))
+    except Exception as exc:
+        return _viewport_result({"status": "error", "error_code": "bridge_error",
+                                 "message": f"Could not capture the live Rhino viewport: {exc}"})
+    if not isinstance(response, dict):
+        return _viewport_result({"status": "error", "error_code": "invalid_capture_response",
+                                 "message": "The viewport response must be a JSON object."})
+    if response.get("status") != "success":
+        response.pop("image", None)
+        return _viewport_result(response)
+    try:
+        captured = response["image"]
+        encoded = captured["data"]
+        byte_limit = 4 * 1024 * 1024
+        if captured["mime_type"] != "image/jpeg" or not isinstance(encoded, str):
+            raise ValueError("Expected base64 JPEG image data.")
+        if len(encoded) > 4 * ((byte_limit + 2) // 3):
+            raise ValueError("The captured JPEG exceeds 4 MiB.")
+        raw = base64.b64decode(encoded, validate=True)
+        if not raw or len(raw) > byte_limit:
+            raise ValueError("The captured JPEG is empty or exceeds 4 MiB.")
+        dimensions = (captured["width"], captured["height"])
+        if any(type(value) is not int or value < 1 or value > limit
+               for value, limit in zip(dimensions, (max_width, max_height))):
+            raise ValueError("Captured dimensions exceed the requested bounds.")
+        with PillowImage.open(io.BytesIO(raw)) as picture:
+            if picture.format != "JPEG" or picture.size != dimensions:
+                raise ValueError("JPEG dimensions or format do not match the capture metadata.")
+            picture.load()
+    except Exception as exc:
+        return _viewport_result({"status": "error", "error_code": "invalid_capture_response",
+                                 "message": f"Invalid viewport image: {exc}"})
+    response["image"] = {"mime_type": "image/jpeg", "width": dimensions[0],
+                         "height": dimensions[1], "byte_count": len(raw)}
+    return _viewport_result(response, encoded)
 
 
 @mcp.tool()
@@ -2207,7 +2328,7 @@ def capture_conditioning_pass(
     Depth and edges are read from the model itself, not estimated, and every frame's camera is
     recorded so the generated video can be re-projected against the source geometry.
 
-    shot: JSON string describing the camera path (model units, usually mm). One of:
+    The shot JSON describes a camera path in model units, usually mm, using one of these forms.
       {"type":"orbit","center":[x,y,z],"radius":r,"height":z,"frames":81,
        "start_deg":0,"end_deg":90,"lens":35,"target_height":z}
       {"type":"track","cam0":[x,y,z],"cam1":[..],"target0":[..],"target1":[..],"frames":81,"lens":35}
@@ -2218,7 +2339,7 @@ def capture_conditioning_pass(
     (when ffmpeg is available), camera.json (per-frame camera receipt, schema building0.camera/0.1),
     zrange.csv (per-frame depth range), doc.json, summary.json. Depth is grayscale with near = bright
     (Rhino's native convention, what Wan/ControlNet depth expects); set invert_depth for near = dark.
-    The user's viewport camera is restored when the pass finishes. Returns the summary JSON.
+    Camera restoration is best effort after the pass. Returns the summary JSON.
     """
     try:
         shot_dict = json.loads(shot)

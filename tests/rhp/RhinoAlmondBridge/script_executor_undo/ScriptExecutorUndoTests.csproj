@@ -10,5 +10,6 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ScriptExecutor.cs" Link="ScriptExecutor.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/DocumentObservation.cs" Link="DocumentObservation.cs" />
   </ItemGroup>
 </Project>

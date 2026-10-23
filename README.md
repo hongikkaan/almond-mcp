@@ -7,6 +7,7 @@ Engine과 MCP는 별도 코드로 유지합니다. 배포 자동화는 사용하
 - [환경 구성·빌드·검증](LOCAL_SETUP.md)
 - [작업 지침](AGENTS.md)
 - [Rhino Archive 사용법](docs/rhino-archive-quickstart.md)
+- [현재 문서·화면 조회와 C# 결과 반환](docs/native-observation.md)
 
 | 위치 | 내용 |
 |---|---|
