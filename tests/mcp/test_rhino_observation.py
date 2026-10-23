@@ -225,6 +225,35 @@ def test_bad_probe_requests_never_reach_the_bridge(server, monkeypatch, argument
     assert json.loads(call(server.get_rhino_probe, **request))["error_code"] == "invalid_arguments"
 
 
+def test_probe_preserves_context_error_without_sending_geometry_query(server, monkeypatch):
+    requests = []
+    response = json.dumps({"status": "error", "error_code": "no_document",
+                           "message": "No active Rhino document.", "warnings": []}, indent=2)
+
+    def send(payload):
+        requests.append(json.loads(payload))
+        return response
+
+    monkeypatch.setattr(server, "_send_and_receive", send)
+    assert call(server.get_rhino_probe, probe="outline", options={},
+                expected_model_path="C:\\fixture\\model.3dm") == response
+    assert requests == [{"type": "get_rhino_context", "selection_limit": 0}]
+
+
+@pytest.mark.parametrize("context", [None, [], {}, {"status": "pending"}])
+def test_malformed_context_is_a_bridge_error_without_sending_probe(server, monkeypatch, context):
+    requests = []
+
+    def send(payload):
+        requests.append(json.loads(payload))
+        return json.dumps(context)
+
+    monkeypatch.setattr(server, "_send_and_receive", send)
+    result = call(server.get_rhino_probe, probe="outline", options={}, expected_model_path="C:\\fixture\\model.3dm")
+    assert json.loads(result)["error_code"] == "bridge_error"
+    assert requests == [{"type": "get_rhino_context", "selection_limit": 0}]
+
+
 def test_old_bridge_never_receives_an_unknown_probe_type(server, monkeypatch):
     requests = []
 

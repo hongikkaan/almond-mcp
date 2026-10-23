@@ -2274,9 +2274,13 @@ def get_rhino_probe(probe: str, options: dict, expected_model_path: str) -> str:
         return json.dumps({"status": "error", "error_code": "invalid_arguments", "message": str(exc)})
     try:
         # Older observation-capable Bridges route unknown request types into ScriptExecutor.
-        context = json.loads(_send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}'))
-        if (not isinstance(context, dict) or context.get("status") != "success"
-                or context.get("capabilities", {}).get("fixed_probes") != 1):
+        context_response = _send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}')
+        context = json.loads(context_response)
+        if not isinstance(context, dict) or context.get("status") not in ("success", "error"):
+            raise ValueError("Bridge returned an invalid context response.")
+        if context["status"] == "error":
+            return context_response
+        if context.get("capabilities", {}).get("fixed_probes") != 1:
             return json.dumps({"status": "error", "error_code": "unsupported_probe",
                                "message": "Load a Bridge with fixed_probes=1 before calling geometry probes."})
         return _send_and_receive(payload)

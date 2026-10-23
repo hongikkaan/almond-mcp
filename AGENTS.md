@@ -32,6 +32,11 @@ does not roll back completed edits or authorize an automatic retry.
 
 ## Runtime and data
 
+The everyday Rhino/COS installation uses the original checkout at
+`C:\TOOL\Rhino\mcp\almond-mcp`, regardless of its branch name. Keep both Rhino
+plugin registrations and the CoS command/args there. Development worktrees
+must not repoint those registrations to their own builds.
+
 One editable environment lives at `src/engine/.venv`, reproduced by `uv.lock`.
 Normal startup never syncs dependencies. Regenerate the COS catalog after source
 path/source changes and retain its version, source-fingerprint and schema checks.

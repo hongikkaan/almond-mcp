@@ -181,27 +181,38 @@ A–J 슬롯과 로드된 RHP는 워크트리를 만든 것만으로 격리되�
 다음 과업은 갱신된 `main`에서 새 브랜치로 시작합니다. 로컬 `skill`은 기존 작업을
 보존하는 브랜치이며 모든 개발의 분기 기준으로 사용하지 않습니다.
 
-### Rhino에서 사용할 워크트리 전환
+### 일상 Rhino/COS 실행 경로는 원래 저장소에 고정
 
 Rhino의 실행 소스는 로드한 RHP 위치에서 결정됩니다. 같은 프로세스의 Bridge·COS·
 Engine과 Python은 같은 워크트리를 사용해야 합니다. Git의 PR 병합이나 현재 작업
 디렉터리 변경만으로 실행 중인 Rhino가 전환되지는 않습니다.
 
-1. 대상 워크트리의 Python 환경·카탈로그를 준비하고 관련 검증을 실행합니다.
-2. `src/rhp/build.ps1 -OutputDirectory 'RhinoAlmondBridge\plugin-<작업명>'`와
+평소 CoS의 Almond COS 등록은 원래 저장소인 `C:\TOOL\Rhino\mcp\almond-mcp`의
+`src/cos/cos-plugin.json`을 사용합니다. 이 실행 경로는 브랜치 이름과 별개입니다.
+개발은 작업용 워크트리에서 진행합니다. 개발 결과를 일상 환경에 적용할 때 원래
+저장소의 파일을 갱신하고 필요한 빌드·정상 재시작을 거칩니다. 개발할 때마다 일상
+CoS 등록을 바꾸지 않습니다.
+
+1. 원래 저장소의 Python 환경·카탈로그를 준비하고 관련 검증을 실행합니다.
+2. 원래 저장소에서 `src/rhp/build.ps1 -OutputDirectory 'RhinoAlmondBridge\plugin-<빌드명>'`와
    `src/rhp/AlmondCOS/build.ps1`로 두 플러그인을 빌드합니다. 로드 중인 출력을
    덮어쓰지 않으며, 공통 `Almond.Engine.dll`의 빌드가 일치하는지 확인합니다.
-3. 기존 Bridge/COS 레지스트리 키를 백업한 뒤 다음 두 키의 `FileName`만 해당
-   워크트리의 RHP 절대경로로 변경합니다. GUID와 기존 LoadMode는 유지합니다.
+3. 기존 Bridge/COS 레지스트리 키를 백업한 뒤 다음 두 키의 `FileName`만
+   원래 저장소의 RHP 절대경로로 설정합니다. GUID와 기존 LoadMode는 유지합니다.
 
    - `HKCU\Software\McNeel\Rhinoceros\8.0\Plug-ins\c337dbb8-394a-4593-9c2b-a3d7cfc91893\PlugIn`
    - `HKCU\Software\McNeel\Rhinoceros\8.0\Plug-ins\39eb74f6-8283-4e43-bf26-f0106d891b75\PlugIn`
 
-4. 대상 워크트리의 `src/cos/cos-plugin.json`에 있는 command/args를 MCP 클라이언트에
-   적용합니다. 기존 연결은 완료·detach하고, 같은 문서의 DB·세션 보호를 유지합니다.
+4. 원래 저장소의 `src/cos/cos-plugin.json`에 있는 command/args를 CoS의 Almond COS 등록에
+   적용합니다. 이 파일 생성은 CoS 앱에 플러그인을 등록하는 동작이 아닙니다. 목록에
+   없다면 CoS의 Plugins에서 사용자 지정 실행 파일로 한 번 등록합니다. 기존 연결은
+   완료·detach하고, 같은 문서의 DB·세션 보호를 유지합니다.
 5. 새 Rhino 또는 정상 재시작한 Rhino에서 실제 Bridge·COS·Engine 모듈 경로와
    Python worker 경로를 확인합니다. 기존 `RHINO_MCP_*_DIR`를 유지하고 native와
    Python 라이브러리 경로를 대조합니다. 고정 조회·캡처·필요한 기능을 실제 호출합니다.
+
+개발 워크트리의 빌드는 위 레지스트리와 CoS 등록을 변경하지 않습니다. 일상 등록을
+개발 브랜치로 돌렸다가 되돌리는 절차를 사용하지 않습니다.
 
 `skills/rhino-almond/scripts/Almond*.cs`는 고정 probe용으로 Bridge에 함께 컴파일됩니다.
 이 helper 변경도 RHP 재빌드·로드 검증 대상입니다. 문서만 바꾸는 스킬 작업에는
