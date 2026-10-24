@@ -5,7 +5,7 @@ from contextlib import closing
 
 import pytest
 
-from almond_mcp.retrieval_store import AlmondStore
+from almond_mcp.retrieval_store import AlmondStore, ComponentReconciliationError
 
 
 A, B, C = [str(uuid.UUID(int=value)) for value in (101, 102, 103)]
@@ -308,6 +308,128 @@ def test_group_added_textdot_is_visible_before_sync_and_adopted_once(store):
     assert calls == ["inspect", "inspect", "sync"]
     assert synced["object_ids"] == [A, B]
     assert [row["object_type"] for row in store.scene_objects(store.scene_a)] == ["Brep", "TextDot"]
+
+
+def test_root_sync_adopts_manual_textdot_owned_by_nested_leaf(store):
+    leaf = create(store, "Leaf notes", [A])
+    middle = create(store, "Assembly", [], scenes=[store.scene_b],
+                    children=[leaf["component_id"]])
+    root = create(store, "Building", [], scenes=[store.scene_b],
+                  children=[middle["component_id"]])
+    leaf_id = leaf["component_id"]
+    calls = []
+
+    def snapshot(component_id, *, pending=False, adopted=False):
+        cached = store.get_component(component_id)
+        effective = {row["rhino_guid"]: row for row in cached["effective_objects"]}
+        if pending:
+            effective[B] = object_row(B, None, "TextDot")
+        elif adopted:
+            effective[B] = object_row(B, leaf_id, "TextDot")
+        direct = list(cached["objects"])
+        if adopted and component_id == leaf_id:
+            direct.append(object_row(B, leaf_id, "TextDot"))
+        return dict(cached, complete=True, objects=direct,
+                    effective_objects=[effective[guid] for guid in sorted(effective)],
+                    effective_object_ids=sorted(effective),
+                    pending_objects=[object_row(B, None, "TextDot")] if pending else [],
+                    requires_sync=pending)
+
+    def native(request):
+        calls.append(request["action"])
+        if request["action"] == "inspect":
+            return dict(status="success", component=snapshot(root["component_id"], pending=True))
+        assert request["action"] == "sync" and request["pending_object_ids"] == [B]
+        return dict(status="success", component=snapshot(root["component_id"], adopted=True),
+                    affected_components=[snapshot(middle["component_id"], adopted=True),
+                                         snapshot(leaf_id, adopted=True)])
+
+    revised = store.sync_component(store.model, root["component_id"], native_inspect=native)
+    assert calls == ["inspect", "sync"]
+    assert revised["effective_object_ids"] == [A, B]
+    assert store.get_component(leaf_id)["object_ids"] == [A, B]
+    assert store.get_component(middle["component_id"])["effective_object_ids"] == [A, B]
+    assert [obj["component_id"] for obj in store.scene_objects(store.scene_b)] == [leaf_id, leaf_id]
+
+
+def test_parent_sync_rejects_unobserved_descendant_ownership_without_db_commit(store):
+    child = create(store, "Leaf", [A])
+    parent = create(store, "Parent", [], children=[child["component_id"]])
+    original_revision = store.get_scene(store.scene_a)["revision"]
+
+    def native(request):
+        parent_row = dict(store.get_component(parent["component_id"]), complete=True)
+        if request["action"] == "inspect":
+            parent_row.update(pending_objects=[object_row(B, None, "TextDot")],
+                              effective_objects=[object_row(A, child["component_id"]),
+                                                 object_row(B, None, "TextDot")],
+                              effective_object_ids=[A, B], requires_sync=True)
+            return dict(status="success", component=parent_row)
+        assert request["pending_object_ids"] == [B]
+        new_objects = [object_row(A, child["component_id"]),
+                       object_row(B, child["component_id"], "TextDot"),
+                       object_row(C, child["component_id"])]
+        parent_row.update(effective_objects=new_objects, effective_object_ids=[A, B, C])
+        child_row = dict(store.get_component(child["component_id"]), complete=True,
+                         objects=new_objects, effective_objects=new_objects,
+                         effective_object_ids=[A, B, C])
+        return dict(status="success", component=parent_row, affected_components=[child_row])
+
+    with pytest.raises(ComponentReconciliationError, match="unobserved"):
+        store.sync_component(store.model, parent["component_id"], native_inspect=native)
+    assert store.get_component(child["component_id"])["object_ids"] == [A]
+    assert store.get_component(parent["component_id"])["effective_object_ids"] == [A]
+    assert store.get_scene(store.scene_a)["revision"] == original_revision
+
+
+def test_parent_read_only_sync_refreshes_descendant_geometry_bounds(store):
+    leaf = create(store, "Leaf", [A])
+    root = create(store, "Root", [], scenes=[store.scene_b], children=[leaf["component_id"]])
+    before = store.get_scene(store.scene_b)["revision"]
+    observed = dict(store.get_component(root["component_id"]), complete=True,
+                    effective_objects=[dict(object_row(A, leaf["component_id"]),
+                                            bounds_mm=[50, 0, 0, 150, 200, 300])],
+                    pending_objects=[], requires_sync=False)
+    calls = []
+    def native(request):
+        calls.append(request["action"])
+        return dict(status="success", component=observed)
+
+    synced = store.sync_component(store.model, root["component_id"], native_inspect=native)
+    assert calls == ["inspect"]  # Geometry observation must not mutate Rhino.
+    assert synced["effective_objects"][0]["bounds_mm"] == [50, 0, 0, 150, 200, 300]
+    assert store.get_component(leaf["component_id"])["objects"][0]["bounds_mm"] == [50, 0, 0, 150, 200, 300]
+    assert store.scene_objects(store.scene_b)[0]["bounds_mm"] == [50, 0, 0, 150, 200, 300]
+    assert store.get_scene(store.scene_b)["revision"] > before
+
+
+def test_undo_detaches_child_only_after_parent_relationship_is_reconciled(store):
+    child = create(store, "Child", [A])
+    parent = create(store, "Parent", [B], children=[child["component_id"]])
+    child_id, parent_id = child["component_id"], parent["component_id"]
+    child_native = dict(store.get_component(child_id), complete=True,
+                        parent_component_id=None, pending_objects=[], requires_sync=False)
+    parent_native = dict(store.get_component(parent_id), complete=True,
+                         child_component_ids=[], effective_objects=[object_row(B, parent_id)],
+                         effective_object_ids=[B], pending_objects=[], requires_sync=False)
+
+    def inspect(request):
+        if request["component_id"] == child_id:
+            return dict(status="success", component=child_native,
+                        affected_components=[parent_native])
+        assert request["component_id"] == parent_id
+        return dict(status="success", component=parent_native,
+                    affected_components=[child_native])
+
+    live = store.get_component(child_id, live=True, native_inspect=inspect)
+    assert live["requires_sync"] is True
+    with pytest.raises(ValueError, match="parent"):
+        store.sync_component(store.model, child_id, native_inspect=inspect)
+    assert store.get_component(child_id)["parent_component_id"] == parent_id
+    synced = store.sync_component(store.model, parent_id, native_inspect=inspect)
+    assert synced["child_component_ids"] == []
+    assert synced["effective_object_ids"] == [B]
+    assert store.get_component(child_id)["parent_component_id"] is None
 
 
 def test_existing_unchanged_sync_does_not_create_spurious_scene_revisions(store):

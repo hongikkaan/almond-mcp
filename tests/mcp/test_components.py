@@ -264,6 +264,47 @@ def test_failure_at_commit_after_native_does_not_retry_or_leak_rows(store, model
     assert snapshot(store) == before
 
 
+def test_sync_commit_failure_reports_reconciliation_after_native_mutation(store, model, monkeypatch):
+    registered_component = registered(store, model, [A])
+    component_id = registered_component["component_id"]
+    native_group = registered_component["rhino_group_id"]
+    initial = snapshot(store)
+    calls = []
+    original_connect = store._connect
+
+    @contextmanager
+    def failed_commit():
+        with original_connect() as connection:
+            yield connection
+            raise sqlite3.OperationalError("fixture sync commit failure")
+
+    def native(request):
+        calls.append(request["action"])
+        observed = dict(complete=True, component_id=component_id, model_path=registered_component["model_path"],
+                        rhino_group_id=native_group, name=registered_component["name"],
+                        scene_ids=registered_component["scene_ids"], child_component_ids=[],
+                        parent_component_id=None)
+        if request["action"] == "inspect":
+            return dict(status="success", component=dict(observed,
+                objects=[object_row(A, component_id)],
+                effective_objects=[object_row(A, component_id), object_row(B)],
+                effective_object_ids=[A, B], pending_objects=[object_row(B)], requires_sync=True))
+        assert request["action"] == "sync" and request["pending_object_ids"] == [B]
+        owned = [object_row(A, component_id), object_row(B, component_id)]
+        return dict(status="success", component=dict(observed, objects=owned,
+            effective_objects=owned, effective_object_ids=[A, B], pending_objects=[], requires_sync=False),
+            affected_components=[])
+
+    with monkeypatch.context() as patch:
+        patch.setattr(store, "_connect", failed_commit)
+        with pytest.raises(ComponentReconciliationError, match="commit failure") as failure:
+            store.sync_component(model, component_id, native_inspect=native)
+    assert calls == ["inspect", "sync"]
+    assert failure.value.component_id == component_id
+    assert failure.value.requires_reconciliation is True
+    assert snapshot(store) == initial
+
+
 def test_explicit_sync_refuses_native_overlap_and_preserves_previous_registration(store, model):
     one = registered(store, model, [A])
     two = registered(store, model, [B])
@@ -294,10 +335,35 @@ def test_direct_scene_membership_is_document_scoped_and_native_read_only(store, 
     rows = store.scene_objects(scene)
     assert len(rows) == 2
     assert {row["rhino_guid"] for row in rows} == {A, C}
-    assert requests[-1]["object_ids"] == [A, B, C]
+    assert requests[-1]["object_ids"] == [C]
     store.register_scene_objects(scene, model, [C], mode="remove", native_observe=read)
     assert len(store.scene_objects(scene)) == 1
     assert store.get_scene(scene)["direct_objects"] == 1
+
+
+@pytest.mark.parametrize("mode,ids", [("remove", [A]), ("replace", [])])
+def test_deleted_direct_scene_object_can_be_unlinked_without_native_observation(store, model, mode, ids):
+    scene = store.fixture_scene_id
+    store.register_scene_objects(scene, model, [A], native_observe=observe)
+    def deleted_object(request):
+        pytest.fail("A deleted object must not be sent to Rhino for observation")
+    result = store.register_scene_objects(scene, model, ids, mode=mode,
+                                          native_observe=deleted_object)
+    assert result["object_ids"] == []
+    assert store.scene_objects(scene) == []
+
+
+def test_replace_scene_membership_observes_only_retained_objects(store, model):
+    scene = store.fixture_scene_id
+    store.register_scene_objects(scene, model, [A], native_observe=observe)
+    observed = []
+    def read(request):
+        observed.extend(request["object_ids"])
+        return observe(request)
+    result = store.register_scene_objects(scene, model, [B], mode="replace", native_observe=read)
+    assert observed == [B]
+    assert result["object_ids"] == [B]
+    assert [row["rhino_guid"] for row in store.scene_objects(scene)] == [B]
 
 
 def test_incomplete_direct_observation_rolls_back_membership(store, model):

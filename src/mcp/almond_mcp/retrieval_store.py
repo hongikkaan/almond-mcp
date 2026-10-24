@@ -1642,6 +1642,8 @@ class AlmondStore:
             native_scenes = self._component_scene_ids(connection, observed.get("scene_ids"))
             changed = (direct_ids != cached["object_ids"] or children != cached["child_component_ids"]
                        or native_scenes != cached["scene_ids"] or observed.get("name") != cached["name"]
+                       or ("parent_component_id" in observed and
+                           observed["parent_component_id"] != cached["parent_component_id"])
                        or any(cached["objects"][i]["bounds_mm"] != obj["bounds_mm"]
                               for i, obj in enumerate(objects) if i < len(cached["objects"])))
             result = dict(cached)
@@ -1668,7 +1670,8 @@ class AlmondStore:
     def _component_store_snapshot(
         self, connection, snapshot, model_path, component_id, operation, *,
         expected_ids=None, expected_scene_ids=None, expected_name=None, expected_group_id="",
-        expected_children=None, affected_components=None,
+        expected_children=None, affected_components=None, sync_pending_ids=None,
+        cache_effective=False,
     ):
         if not isinstance(snapshot, dict):
             raise ValueError("Native response must contain a component snapshot.")
@@ -1715,6 +1718,11 @@ class AlmondStore:
             raise ValueError("Native Component snapshot still requires membership reconciliation.")
         ids = [obj["rhino_guid"] for obj in objects]
         self._component_check_owners(connection, model_path, ids, component_id)
+        if sync_pending_ids is not None and previous and (
+            not set(previous["object_ids"]).issubset(ids)
+            or not set(ids).difference(previous["object_ids"]).issubset(sync_pending_ids)
+        ):
+            raise ValueError("Native sync introduced an unobserved direct ownership change.")
         if previous and (previous["model_path"] != model_path
                          or previous["rhino_group_id"] != group_id):
             raise ValueError("A component cannot be rebound to another document or Rhino group.")
@@ -1730,6 +1738,10 @@ class AlmondStore:
             ancestor_id: self._component_read(connection, ancestor_id)["effective_object_ids"]
             for ancestor_id in self._component_ancestor_ids(connection, component_id)
         }
+        prior_descendants = set(self._component_descendant_ids(connection, component_id)) - {component_id}
+        if sync_pending_ids is not None:
+            self._component_sync_descendants(
+                connection, model_path, component_id, affected_components, sync_pending_ids)
         previous_ids = previous["object_ids"] if previous else []
         affected = set(scenes) | set(previous["scene_ids"] if previous else [])
         affected |= self._component_affected_scenes(connection, model_path, ids + previous_ids)
@@ -1763,12 +1775,24 @@ class AlmondStore:
         )
         current = self._component_read(connection, component_id)
         self._component_check_native_effective(snapshot, current, require=bool(children))
+        if cache_effective and "effective_objects" in snapshot:
+            # A parent can have no direct objects while its descendants moved.
+            # Read-only sync must refresh their cached bounds as well.
+            effective = self._component_observed_objects(
+                {"complete": snapshot.get("complete"), "truncated": snapshot.get("truncated"),
+                 "objects": snapshot["effective_objects"]},
+                expected_ids=current["effective_object_ids"],
+            )
+            self._component_cache_objects(connection, model_path, effective)
+            current = self._component_read(connection, component_id)
         ancestors = set(self._component_ancestor_ids(connection, component_id))
         related = affected_components if affected_components is not None else []
         if not isinstance(related, list):
             raise ValueError("affected_components must be a list of complete Component snapshots.")
         related_ids = set()
-        allowed_related = ancestors | set(children) | set(previous["child_component_ids"] if previous else [])
+        descendants = set(self._component_descendant_ids(connection, component_id)) - {component_id}
+        allowed_related = (ancestors | descendants | prior_descendants |
+                           set(previous["child_component_ids"] if previous else []))
         for item in related:
             if not isinstance(item, dict):
                 raise ValueError("affected_components must contain Component snapshots.")
@@ -1790,6 +1814,13 @@ class AlmondStore:
                        != registered["child_component_ids"]):
                 raise ValueError("Related native Component snapshot differs from the registered tree.")
             self._component_check_native_effective(item, registered, require=related_id in ancestors)
+            if sync_pending_ids is not None and related_id in descendants:
+                observed_direct = self._component_observed_objects(item, owner=related_id)
+                if [(obj["rhino_guid"], obj["object_type"], obj["bounds_mm"]) for obj in observed_direct] != [
+                    (obj["rhino_guid"], obj["object_type"], obj["bounds_mm"])
+                    for obj in registered["objects"]
+                ]:
+                    raise ValueError("Native descendant Component bounds disagree with the effective snapshot.")
         changed_ancestors = {
             ancestor_id for ancestor_id in ancestors
             if prior_ancestor_effective.get(ancestor_id) !=
@@ -1835,6 +1866,42 @@ class AlmondStore:
             owners = {obj["rhino_guid"]: obj["component_id"] for obj in registered["effective_objects"]}
             if any(obj.get("component_id") != owners.get(obj.get("rhino_guid")) for obj in objects):
                 raise ValueError("Native ancestor group changed a descendant's direct owner.")
+
+    def _component_sync_descendants(self, connection, model_path, component_id, related, pending_ids):
+        """Cache verified descendant owners adopted by one native subtree sync."""
+        descendants = set(self._component_descendant_ids(connection, component_id)) - {component_id}
+        if not isinstance(related, list):
+            raise ValueError("Native sync must return affected Component snapshots.")
+        for item in related:
+            if not isinstance(item, dict):
+                raise ValueError("Native sync returned an invalid affected Component snapshot.")
+            child_id = item.get("component_id")
+            if child_id not in descendants:
+                continue
+            cached = self._component_read(connection, child_id)
+            if (item.get("complete") is not True or item.get("truncated")
+                    or self._component_model_path(item.get("model_path")) != model_path
+                    or self._component_guid(item.get("rhino_group_id")) != cached["rhino_group_id"]
+                    or item.get("name") != cached["name"]
+                    or self._component_scene_ids(connection, item.get("scene_ids")) != cached["scene_ids"]
+                    or item.get("parent_component_id") != cached["parent_component_id"]
+                    or self._component_child_ids(connection, child_id, model_path,
+                                                 item.get("child_component_ids")) != cached["child_component_ids"]
+                    or item.get("pending_objects") or item.get("requires_sync")):
+                raise ValueError("Native sync changed a descendant Component's registered identity.")
+            direct = self._component_observed_objects(item, owner=child_id)
+            ids = [obj["rhino_guid"] for obj in direct]
+            if (not set(cached["object_ids"]).issubset(ids)
+                    or not set(ids).difference(cached["object_ids"]).issubset(pending_ids)):
+                raise ValueError("Native sync introduced an unobserved descendant ownership change.")
+            self._component_check_owners(connection, model_path, ids, child_id)
+            self._component_cache_objects(connection, model_path, direct)
+            connection.execute("UPDATE document_objects SET component_id = NULL WHERE component_id = ?",
+                               (child_id,))
+            connection.executemany(
+                "UPDATE document_objects SET component_id = ? WHERE model_path = ? AND rhino_guid = ?",
+                [(child_id, model_path, guid) for guid in ids],
+            )
 
     def upsert_component(
         self, model_path: str, name: str, object_ids: list[str],
@@ -1908,6 +1975,19 @@ class AlmondStore:
             raise
         return result
 
+    @contextmanager
+    def _component_sync_transaction(self, component_id, model_path, mutated):
+        # A native mutation can succeed even if SQLite fails on context exit.
+        try:
+            with self._connect() as connection:
+                yield connection
+        except (_NativeRejected, ComponentReconciliationError):
+            raise
+        except Exception as exc:
+            if mutated[0]:
+                raise ComponentReconciliationError(component_id, model_path, str(exc)) from exc
+            raise
+
     def sync_component(
         self, model_path: str, component_id: str, rhino_group_id: str = "",
         native_inspect: Callable | None = None,
@@ -1918,7 +1998,8 @@ class AlmondStore:
         group_id = self._component_guid(rhino_group_id) if rhino_group_id else ""
         if not callable(native_inspect):
             raise ValueError("A native read-only component inspection is required.")
-        with self._connect() as connection:
+        mutated = [False]
+        with self._component_sync_transaction(component_id, model_path, mutated) as connection:
             connection.execute("BEGIN IMMEDIATE")
             existing = self._component_read(connection, component_id)
             if existing:
@@ -1962,6 +2043,14 @@ class AlmondStore:
                     if not isinstance(related_snapshot, dict):
                         raise ValueError("Native ancestor Component inspection did not return a snapshot.")
                     inspected_ancestors.append(related_snapshot)
+                provided_related = reply.get("affected_components") or []
+                if not isinstance(provided_related, list) or any(
+                    not isinstance(item, dict) for item in provided_related
+                ):
+                    raise ValueError("Native inspection returned invalid related Component snapshots.")
+                newest_ancestors = {item["component_id"] for item in inspected_ancestors}
+                related_proof = [item for item in provided_related
+                                 if item.get("component_id") not in newest_ancestors] + inspected_ancestors
                 pending = observed.get("pending_objects", [])
                 if not isinstance(pending, list):
                     raise ValueError("Native pending_objects must be a list.")
@@ -1978,12 +2067,15 @@ class AlmondStore:
                                         expected_child_component_ids=existing["child_component_ids"] if existing else [],
                                         expected_parent_component_id=existing["parent_component_id"] if existing else None)
                     try:
+                        mutated[0] = True
                         applied = self._component_native(native_inspect, sync_request)
                         observed = applied.get("component")
                         result = self._component_store_snapshot(
                             connection, observed, model_path, component_id, "sync_component",
                             expected_group_id=group_id,
                             affected_components=applied.get("affected_components"),
+                            sync_pending_ids=set(sync_request["pending_object_ids"]),
+                            cache_effective=True,
                         )
                     except _NativeRejected:
                         raise
@@ -1992,6 +2084,22 @@ class AlmondStore:
                 else:
                     if existing is not None:
                         inspected = self._component_observed_objects(observed, owner=component_id)
+                        same_direct_tree = (
+                            [obj["rhino_guid"] for obj in inspected] == existing["object_ids"]
+                            and observed.get("child_component_ids", existing["child_component_ids"])
+                            == existing["child_component_ids"])
+                        if same_direct_tree:
+                            self._component_check_native_effective(
+                                observed, existing, require=bool(existing["child_component_ids"]))
+                        if "effective_objects" in observed:
+                            effective = self._component_observed_objects(
+                                {"complete": observed.get("complete"),
+                                 "truncated": observed.get("truncated"),
+                                 "objects": observed["effective_objects"]},
+                                expected_ids=existing["effective_object_ids"] if same_direct_tree else None,
+                            )
+                        else:
+                            effective = inspected
                         unchanged = (
                             self._component_object_ids([obj["rhino_guid"] for obj in inspected])
                             == existing["object_ids"]
@@ -2000,15 +2108,22 @@ class AlmondStore:
                             and observed.get("name") == existing["name"]
                             and observed.get("child_component_ids", existing["child_component_ids"])
                             == existing["child_component_ids"]
+                            and observed.get("parent_component_id", existing["parent_component_id"])
+                            == existing["parent_component_id"]
                             and [obj["bounds_mm"] for obj in inspected]
                             == [obj["bounds_mm"] for obj in existing["objects"]]
+                            and [(obj["rhino_guid"], obj["object_type"], obj["component_id"], obj["bounds_mm"])
+                                 for obj in effective] == [
+                                (obj["rhino_guid"], obj["object_type"], obj["component_id"], obj["bounds_mm"])
+                                for obj in existing["effective_objects"]]
                         )
                         if unchanged:
                             return dict(existing, live_verified=True)
                 result = self._component_store_snapshot(
                     connection, observed, model_path, component_id, "sync_component",
                     expected_group_id=group_id,
-                    affected_components=inspected_ancestors,
+                    affected_components=related_proof,
+                    cache_effective=True,
                 ) if not attempted_sync else result
         return result
 
@@ -2174,8 +2289,10 @@ class AlmondStore:
             )}
             desired = (existing | ids if mode == "add" else
                        existing - ids if mode == "remove" else ids)
-            observed_ids = sorted(existing | desired)
-            affected = {scene_id} | self._component_affected_scenes(connection, model_path, observed_ids)
+            # A removed object may no longer exist in Rhino; only the retained
+            # membership needs live geometry/ownership observation.
+            observed_ids = sorted(desired)
+            affected = {scene_id} | self._component_affected_scenes(connection, model_path, existing | desired)
             if observed_ids:
                 if not callable(native_observe):
                     raise ValueError("Native read-only object observation is required.")
