@@ -12,7 +12,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="Program.cs" />
     <Compile Include="NativeTests.cs" />
-    <Compile Include="../scripts/*.cs" Link="Helpers\%(Filename)%(Extension)" />
+    <Compile Include="../../../src/rhp/RhinoAlmondBridge/Probes/*.cs" Link="Helpers\%(Filename)%(Extension)" />
     <Compile Include="../../../src/rhp/RhinoAlmondBridge/ProbeObservation.cs" Link="ProbeObservation.cs" />
   </ItemGroup>
 </Project>

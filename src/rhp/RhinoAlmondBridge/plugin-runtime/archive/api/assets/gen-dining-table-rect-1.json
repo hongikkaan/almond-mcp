@@ -383,6 +383,7 @@
         "svg": "/files/drafting/pilot/gen-dining-table-rect-1/sheet-A3-1-100.svg"
       }
     ],
+    "dimensions": null,
     "source": {
       "asset_id": "gen-dining-table-rect-1",
       "geometry_sha256": "66EEBD49285E2C19D571DE85799F72A063EE044AC537A24C42B715929DFA8CC0",

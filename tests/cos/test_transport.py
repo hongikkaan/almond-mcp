@@ -138,8 +138,8 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("validate proposed geometry against the task before replacing originals", instructions)
                 self.assertIn("Execution success and a viewport image do not establish geometric correctness", instructions)
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 63)
-                self.assertEqual(len({t.name for t in listing.tools}), 63)
+                self.assertEqual(len(listing.tools), 79)
+                self.assertEqual(len({t.name for t in listing.tools}), 79)
                 original = load_catalog()["tools"]
                 public = {t.name: t for t in listing.tools}
                 for tool in original:

@@ -1,15 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <AssemblyName>AlmondScriptUndoTests</AssemblyName>
+    <RhinoSystem Condition="'$(RhinoSystem)' == ''">C:\Program Files\Rhino 8\System</RhinoSystem>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System.Drawing" />
-    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+    <Reference Include="RhinoCommon"><HintPath>$(RhinoSystem)\RhinoCommon.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Eto"><HintPath>$(RhinoSystem)\Eto.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Rhino.UI"><HintPath>$(RhinoSystem)\Rhino.UI.dll</HintPath><Private>false</Private></Reference>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ScriptExecutor.cs" Link="ScriptExecutor.cs" />
     <Compile Include="../../../../src/rhp/RhinoAlmondBridge/DocumentObservation.cs" Link="DocumentObservation.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/MaterialLayerChanges.cs" Link="MaterialLayerChanges.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ModelingMaterials.cs" Link="ModelingMaterials.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ModelingMetadata.cs" Link="ModelingMetadata.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ComponentRegistry.cs" Link="ComponentRegistry.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/DrawingSheetRegistry.cs" Link="DrawingSheetRegistry.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ComponentOperations.cs" Link="ComponentOperations.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/DrawingAssetGeometry.cs" Link="DrawingAssetGeometry.cs" />
+    <Compile Include="../../../../src/rhp/Asset_Panel/FurnitureAssetManager.cs" Link="FurnitureAssetManager.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/Probes/*.cs" Link="Probes/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../../../../src/mcp/almond_mcp/modeling_policy.json" LogicalName="RhinoAlmondBridge.modeling_policy.json" />
   </ItemGroup>
 </Project>

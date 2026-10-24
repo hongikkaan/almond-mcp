@@ -236,6 +236,18 @@ namespace RhinoAlmondBridge
                     case "get_rhino_probe":
                         return ProbeObservation.Handle(jobj);
 
+                    case "design_component":
+                        return ComponentRegistry.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
+                    case "drawing_sheet":
+                        return DrawingSheetRegistry.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
+                    case "component_operation":
+                        return ComponentOperations.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
+                    case "drawing_asset_extract":
+                        return DrawingAssetGeometry.Handle(jobj).ToString(Formatting.None);
+
                     case "place_drawing_asset":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Placing indexed drawing asset...");
                         var drawingAssetRequest = jobj.ToObject<FurniturePlacementRequest>();

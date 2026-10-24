@@ -8,6 +8,7 @@
       "material_id": "steel-painted-sage",
       "name": "Painted steel - sage green",
       "category": "metal",
+      "layer_path": "M::metal::steel-painted-sage",
       "base_color": [
         150,
         170,
@@ -29,6 +30,7 @@
       "material_id": "steel-galvanized",
       "name": "Galvanized steel",
       "category": "metal",
+      "layer_path": "M::metal::steel-galvanized",
       "base_color": [
         168,
         172,
@@ -49,6 +51,7 @@
       "material_id": "steel-mesh",
       "name": "Steel mesh / grating",
       "category": "metal",
+      "layer_path": "M::metal::steel-mesh",
       "base_color": [
         128,
         148,
@@ -69,6 +72,7 @@
       "material_id": "aluminium-anodized",
       "name": "Anodized aluminium",
       "category": "metal",
+      "layer_path": "M::metal::aluminium-anodized",
       "base_color": [
         200,
         202,
@@ -89,6 +93,7 @@
       "material_id": "metal-corrugated",
       "name": "Corrugated metal sheet",
       "category": "metal",
+      "layer_path": "M::metal::metal-corrugated",
       "base_color": [
         105,
         125,
@@ -109,6 +114,7 @@
       "material_id": "polycarbonate-clear",
       "name": "Polycarbonate - clear",
       "category": "plastic",
+      "layer_path": "M::plastic::polycarbonate-clear",
       "base_color": [
         225,
         232,
@@ -129,6 +135,7 @@
       "material_id": "polycarbonate-opal",
       "name": "Polycarbonate - opal",
       "category": "plastic",
+      "layer_path": "M::plastic::polycarbonate-opal",
       "base_color": [
         235,
         240,
@@ -149,6 +156,7 @@
       "material_id": "glass-clear",
       "name": "Glass - clear",
       "category": "glass",
+      "layer_path": "M::glass::glass-clear",
       "base_color": [
         190,
         212,
@@ -168,6 +176,7 @@
       "material_id": "glass-laminated",
       "name": "Glass - laminated",
       "category": "glass",
+      "layer_path": "M::glass::glass-laminated",
       "base_color": [
         185,
         208,
@@ -188,6 +197,7 @@
       "material_id": "wood-oak",
       "name": "Oak",
       "category": "wood",
+      "layer_path": "M::wood::wood-oak",
       "base_color": [
         200,
         170,
@@ -207,6 +217,7 @@
       "material_id": "wood-birch-ply",
       "name": "Birch plywood",
       "category": "wood",
+      "layer_path": "M::wood::wood-birch-ply",
       "base_color": [
         214,
         190,
@@ -227,6 +238,7 @@
       "material_id": "wood-walnut",
       "name": "Walnut",
       "category": "wood",
+      "layer_path": "M::wood::wood-walnut",
       "base_color": [
         120,
         80,
@@ -246,6 +258,7 @@
       "material_id": "concrete-smooth",
       "name": "Concrete - smooth cast",
       "category": "mineral",
+      "layer_path": "M::mineral::concrete-smooth",
       "base_color": [
         200,
         200,
@@ -265,6 +278,7 @@
       "material_id": "concrete-boardformed",
       "name": "Concrete - board-formed",
       "category": "mineral",
+      "layer_path": "M::mineral::concrete-boardformed",
       "base_color": [
         190,
         188,
@@ -284,6 +298,7 @@
       "material_id": "plaster-white",
       "name": "Plaster - white",
       "category": "mineral",
+      "layer_path": "M::mineral::plaster-white",
       "base_color": [
         240,
         240,
@@ -304,6 +319,7 @@
       "material_id": "brick-red",
       "name": "Brick - red",
       "category": "mineral",
+      "layer_path": "M::mineral::brick-red",
       "base_color": [
         158,
         84,
@@ -323,6 +339,7 @@
       "material_id": "rubber-black",
       "name": "Rubber - black",
       "category": "polymer",
+      "layer_path": "M::polymer::rubber-black",
       "base_color": [
         35,
         35,
@@ -342,6 +359,7 @@
       "material_id": "steel-painted-vermilion",
       "name": "Painted steel - vermilion",
       "category": "metal",
+      "layer_path": "M::metal::steel-painted-vermilion",
       "base_color": [
         214,
         76,
@@ -364,6 +382,7 @@
       "material_id": "steel-painted-charcoal",
       "name": "Painted steel - charcoal",
       "category": "metal",
+      "layer_path": "M::metal::steel-painted-charcoal",
       "base_color": [
         46,
         50,
@@ -385,6 +404,7 @@
       "material_id": "stone-granite-paving",
       "name": "Granite paving",
       "category": "mineral",
+      "layer_path": "M::mineral::stone-granite-paving",
       "base_color": [
         168,
         168,
@@ -406,6 +426,7 @@
       "material_id": "gravel-raked",
       "name": "Raked gravel",
       "category": "mineral",
+      "layer_path": "M::mineral::gravel-raked",
       "base_color": [
         150,
         144,
@@ -426,6 +447,7 @@
       "material_id": "water-still",
       "name": "Still water",
       "category": "water",
+      "layer_path": "M::water::water-still",
       "base_color": [
         18,
         28,
@@ -446,6 +468,7 @@
       "material_id": "foliage-pine",
       "name": "Pine foliage",
       "category": "vegetation",
+      "layer_path": "M::vegetation::foliage-pine",
       "base_color": [
         52,
         82,
@@ -467,6 +490,7 @@
       "material_id": "brass-polished",
       "name": "Polished brass",
       "category": "metal",
+      "layer_path": "M::metal::brass-polished",
       "base_color": [
         212,
         168,
@@ -488,6 +512,7 @@
       "material_id": "ceramic-teal",
       "name": "Glazed teal ceramic",
       "category": "mineral",
+      "layer_path": "M::mineral::ceramic-teal",
       "base_color": [
         42,
         108,
@@ -509,6 +534,7 @@
       "material_id": "grass-meadow",
       "name": "Meadow grass",
       "category": "vegetation",
+      "layer_path": "M::vegetation::grass-meadow",
       "base_color": [
         116,
         166,
@@ -529,6 +555,7 @@
       "material_id": "fabric-linen",
       "name": "Linen - warm natural",
       "category": "textile",
+      "layer_path": "M::textile::fabric-linen",
       "base_color": [
         190,
         178,

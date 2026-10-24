@@ -78,7 +78,8 @@ namespace RhinoAlmondBridge
             return new JObject
             {
                 ["status"] = "success",
-                ["capabilities"] = new JObject { ["fixed_probes"] = 1 },
+                ["capabilities"] = new JObject { ["fixed_probes"] = 1, ["modeling_materials"] = 1, ["design_components"] = 1, ["drawing_sheets"] = 1,
+                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1 },
                 ["document"] = document,
                 ["selection"] = selection,
                 ["viewport"] = viewport,

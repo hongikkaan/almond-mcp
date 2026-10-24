@@ -6,11 +6,11 @@
 
 `result`는 compact JSON 기준 UTF-8 65,536 bytes·container 깊이 16 이내다. Rhino geometry, `JObject/JArray`, 임의 POCO와 lazy enumerable을 그대로 반환하지 말고 필요한 수치·ID를 지원 값으로 투영하라. `status=success`와 `result_error`가 함께 오면 실행은 끝났지만 반환값을 표현하지 못한 것이므로 변경을 자동 재실행하지 마라. `RhinoApp.WriteLine`이 이 결과 채널로 수집된다고 가정하지 마라.
 
-기존 `List<Guid>`는 `guids`와 자동 치수 동작을 유지하며 `result`를 추가하지 않는다. `void`/`null`도 새 결과 필드가 없다. `guids`는 코드가 선언한 ID로 전체 변경 이력이 아니다. 일반 C# 실행은 자동 레이어·Undo 등 부수 효과가 있으므로 계산만 하더라도 읽기 전용 subagent에게 맡기지 마라.
+기존 `List<Guid>`는 `guids`와 자동 치수 동작을 유지하며 `result`를 추가하지 않는다. `void`/`null`도 새 결과 필드가 없다. `guids`는 코드가 선언한 ID로 전체 변경 이력이 아니다. 일반 C# 실행은 Undo 범위에서 동작하고 결과에 따라 자동 치수와 [재료 레이어 후처리](modeling-materials.md)를 수행하므로 계산만 하더라도 읽기 전용 subagent에게 맡기지 마라.
 
 ## 고정 probe 조회
 
-제공 probe는 `get_rhino_probe`로 호출하라. COS에서는 `almond_cos_get_rhino_probe`에 `connection_id`를 함께 전달한다. Bridge에 컴파일된 다섯 함수만 UI thread에서 실행하며 C# 소스·출력 파일 경로를 받지 않는다. Undo 기록·AIA 레이어·기하·선택·뷰·문서의 modified 상태를 변경하지 않는다.
+제공 probe는 `get_rhino_probe`로 호출하라. COS에서는 `almond_cos_get_rhino_probe`에 `connection_id`를 함께 전달한다. Bridge에 컴파일된 다섯 함수만 UI thread에서 실행하며 C# 소스·출력 파일 경로를 받지 않는다. Undo 기록·레이어·기하·선택·뷰·문서의 modified 상태를 변경하지 않는다.
 
 1. `almond_project_info` 또는 COS `almond_cos_project_info`에서 실제 `model_path`를 얻고 `get_rhino_context`로 열린 문서와 대조하라.
 2. 아래 인자로 `get_rhino_probe`를 호출하라. `expected_model_path`에는 조회한 절대경로를 넣고 도구별 인자는 `options`에 넣어라.
@@ -48,7 +48,7 @@
 | `outline` | `AlmondSpatial.Outline` · [블록과 주석](blocks-and-notes.md) | 문서의 Outline 옵션 |
 | `resolve-block` | `AlmondSpatial.ResolveBlock` · [블록과 주석](blocks-and-notes.md) | `{"path": ["root GUID", "direct member GUID", "..."]}` |
 
-`scripts/`의 C# 파일은 이 고정 API가 컴파일하는 구현 원본이다. 위의 일반 C# 반환 한도 64 KiB와 고정 probe 응답 한도 256 KiB는 별개다.
+`src/rhp/RhinoAlmondBridge/Probes`의 C# 파일은 이 고정 API의 구현 원본이다. 위의 일반 C# 반환 한도 64 KiB와 고정 probe 응답 한도 256 KiB는 별개다.
 
 ## 스킬 유지보수에서 코드 변경 후 검증
 

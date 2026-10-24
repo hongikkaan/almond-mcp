@@ -281,7 +281,7 @@ def sheet_svg(views, scale, metadata, title):
 
 def create_package(model: Path, output: Path, *, asset_id: str, name: str,
                    units: str, up_axis: str = "y", scales=(50, 100),
-                   references=(), source_record=None) -> dict:
+                   references=(), source_record=None, triangles_mm=None) -> dict:
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", asset_id) or asset_id in {".", ".."}:
         raise ValueError("Invalid asset ID")
     if not scales or len(scales) > 4 or len(set(scales)) != len(scales) or any(type(s) is not int or s < 5 or s > 1000 for s in scales):
@@ -294,9 +294,20 @@ def create_package(model: Path, output: Path, *, asset_id: str, name: str,
     if output.exists():
         raise ValueError("Output directory already exists; select a new directory to preserve prior revisions")
     if model.stat().st_size > 100_000_000:
-        raise ValueError("GLB exceeds 100 MB limit")
+        raise ValueError("Source model exceeds 100 MB limit")
     data = model.read_bytes()
-    triangles = load_triangles(model, units, up_axis, data=data)
+    if triangles_mm is None:
+        triangles = load_triangles(model, units, up_axis, data=data)
+    else:
+        if model.suffix.lower() != ".3dm" or units != "mm" or up_axis != "z":
+            raise ValueError("Native triangles require a prepared millimeter, Z-up 3DM")
+        triangles = np.asarray(triangles_mm, dtype=float)
+        if (triangles.ndim != 3 or triangles.shape[1:] != (3, 3) or
+                not 0 < len(triangles) <= MAX_TRIANGLES or not np.isfinite(triangles).all() or
+                np.abs(triangles).max() > 1e9):
+            raise ValueError("Invalid or oversized native triangle geometry")
+    low, high = triangles.min(axis=(0, 1)), triangles.max(axis=(0, 1))
+    dimensions = dict(zip(("width", "depth", "height"), map(float, high - low)))
     meta = {"asset_id": asset_id, "geometry_sha256": geometry_hash(triangles),
             "model_sha256": sha(data), "units": "mm", "input_units": units,
             "input_up_axis": up_axis, "coordinate_transform": "X,-Z,Y" if up_axis == "y" else "identity",
@@ -310,6 +321,10 @@ def create_package(model: Path, output: Path, *, asset_id: str, name: str,
             "derived_asset_license": source_record.get("declared_license", "unknown") if source_record else "unknown",
             "generation_record": source_record,
             "limitations": LIMITATIONS}
+    if triangles_mm is not None:
+        meta["source_format"] = "3dm"
+        meta["attribution"] = "Prepared user-supplied 3DM; source terms apply"
+    meta["dimensions_mm"] = dimensions
     files, representations = {}, []
     for scale in scales:
         views = [project(triangles, v, min(0.05*scale, 5.0)) for v in ("plan", "front", "right")]
@@ -322,6 +337,9 @@ def create_package(model: Path, output: Path, *, asset_id: str, name: str,
         except ValueError as exc:
             meta.setdefault("sheet_warnings", []).append(str(exc))
     files["views.json"] = json.dumps(representations, separators=(",", ":"))
+    files["dimensions.json"] = json.dumps({"asset_id": asset_id, "units": "mm",
+        "bounds_mm": [*map(float, low), *map(float, high)], "dimensions_mm": dimensions,
+        "model_sha256": meta["model_sha256"], "geometry_sha256": meta["geometry_sha256"]}, indent=2)
     output.mkdir(parents=True)
     for filename, content in files.items():
         (output/filename).write_text(content, encoding="utf-8")
@@ -349,8 +367,11 @@ def audit_package(package: Path, source_model: Path | None = None) -> dict:
     source_state = "not_checked"
     if source_model is not None:
         meta = manifest["source"]
-        triangles = load_triangles(source_model, meta["input_units"], meta["input_up_axis"])
-        source_state = "current" if geometry_hash(triangles) == meta["geometry_sha256"] else "stale"
+        if meta.get("source_format") == "3dm":
+            source_state = "source_file_current" if sha(source_model.read_bytes()) == meta["model_sha256"] else "stale"
+        else:
+            triangles = load_triangles(source_model, meta["input_units"], meta["input_up_axis"])
+            source_state = "current" if geometry_hash(triangles) == meta["geometry_sha256"] else "stale"
         if source_state == "stale":
             failures.append("Source geometry changed; regenerate drawing views")
     return {"status": "error" if failures else "success", "source_geometry": source_state,

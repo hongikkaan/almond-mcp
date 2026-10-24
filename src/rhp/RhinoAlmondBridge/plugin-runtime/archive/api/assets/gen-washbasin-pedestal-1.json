@@ -383,6 +383,7 @@
         "svg": "/files/drafting/pilot/gen-washbasin-pedestal-1/sheet-A3-1-100.svg"
       }
     ],
+    "dimensions": null,
     "source": {
       "asset_id": "gen-washbasin-pedestal-1",
       "geometry_sha256": "F6ECB5818557BB59F2BB92E5B633657DFE8ACB84C8349294C4E4D096ACBA4F0F",

@@ -192,7 +192,7 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
                     cursor = listing.next_cursor
                     if not cursor:
                         break
-                assert len(tools) == (58 if mode == "cos" else 57), tools
+                assert len(tools) == (77 if mode == "cos" else 76), tools
                 info = unpack(await session.call_tool("almond_project_info", {}))
                 status = unpack(await session.call_tool("get_retrieval_status", {}))
                 library = unpack(await session.call_tool("list_library", {}))
@@ -248,7 +248,7 @@ async def run():
 
     check_contract(load_catalog())
     public, _ = exposed_tools(load_catalog())
-    assert len(public) == 60
+    assert len(public) == 79
     inherited = dict(os.environ)
     for variable in paths.LIBRARY_DIRS:
         if inherited.get(variable):

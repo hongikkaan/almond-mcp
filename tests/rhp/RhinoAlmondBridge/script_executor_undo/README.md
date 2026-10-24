@@ -1,10 +1,13 @@
-# Native script Undo regression tests
+# Native modeling and Undo regression tests
 
-These tests link the production `ScriptExecutor.cs` and `DocumentObservation.cs`.
-The `RunAll` entry points exercise Rhino's native Undo stack, returned JSON and
-fixed observations in disposable headless documents. They do not install a plugin,
-save a model, or edit the active document. `ObservationTests.RunViewport(doc)`
-separately observes a caller-supplied visible document. Rhino 8 and a .NET SDK are required.
+These tests link production sources; they do not install or register a plugin.
+`NativeUndoTests` and `ObservationTests` use disposable headless documents.
+The modeling, Component, Sheet and asset suites also save and open disposable
+regular documents in the supplied test directory. Run those suites in a separate
+Rhino 8 process with an empty, unmodified startup document and no user models.
+They need the actual Rhino UI process for document events, rendering materials,
+Layouts and command behavior. A headless `RhinoCore` host is not equivalent.
+Rhino 8 with .NET 8 and a .NET SDK are required.
 
 Build from the repository root:
 
@@ -13,7 +16,7 @@ dotnet build src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj -c Release
 dotnet build tests/rhp/RhinoAlmondBridge/script_executor_undo/ScriptExecutorUndoTests.csproj -c Release
 ```
 
-With Almond loaded in Rhino 8, run the following Python snippet once. Replace
+In the isolated Rhino 8 process, run the following Python snippet once. Replace
 the DLL path with the full path in your checkout. The queued callback runs after
 the launching command returns: running the tests inside a Rhino command could
 hide the modeless Undo-record leak this suite checks.
@@ -25,7 +28,7 @@ from System.Reflection import Assembly
 from Eto.Forms import Application
 
 assembly = Assembly.LoadFrom(
-    r"C:\path\to\almond-mcp\tests\rhp\RhinoAlmondBridge\script_executor_undo\bin\Release\net48\AlmondScriptUndoTests.dll"
+    r"C:\path\to\almond-mcp\tests\rhp\RhinoAlmondBridge\script_executor_undo\bin\Release\net8.0-windows\AlmondScriptUndoTests.dll"
 )
 
 def run():
@@ -38,6 +41,25 @@ def run():
 
 Application.Instance.AsyncInvoke(Action(run))
 ```
+
+The following suites expose `RunAll(string directory)`. Supply a fresh test
+directory under the checkout's ignored `data` folder through reflection, for
+example `method.Invoke(None, System.Array[System.Object]([directory]))`.
+Call them after the launching command returns, as above. Do not call their
+regular-document fixtures from a working Rhino session.
+
+| Suite | Main behavior checked |
+| --- | --- |
+| `ModelingTests` | Lazy material layers, 101-object shared render material, ordinary Add calls, metadata validation, event routing, Undo/Redo |
+| `ComponentHierarchyTests` | Exclusive direct ownership, nested aggregate groups, manual TextDot additions, cycles and competing parents, root removal and reconciliation |
+| `DrawingSheetTests` | Real Layout/detail identities, updates, physical scale in mixed model/page units, unregister preservation |
+| `ComponentOperationTests` | Exact overlap evidence, incomplete coverage, nested target resolution, Isolate/Unisolate and ZoomSelected |
+| `DrawingAssetGeometryTests` | Prepared 3DM extraction, nested block transforms, source/artifact hashes, units/origin/unsupported-geometry rejection |
+| `DrawingAssetPlacementTests` | Millimeter and meter documents, source revisions, definition reuse, prevalidation and placement Undo |
+
+Read the full reflected inner exception on failure. Each regular-document
+fixture marks only its own disposable document unmodified before closing it.
+Close the isolated test process normally before rebuilding the same assembly.
 
 The suite checks successful Undo/Redo, partial creation/deletion/attribute
 rollback, both exception paths, empty failures with previous Undo and Redo

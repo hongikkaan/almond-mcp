@@ -387,6 +387,7 @@
         "svg": "/files/drafting/pilot/gen-office-chair-1/sheet-A3-1-100.svg"
       }
     ],
+    "dimensions": null,
     "source": {
       "asset_id": "gen-office-chair-1",
       "geometry_sha256": "7C5A999A2362B83642D6808286D1753C4E805B0DDC0B9469996F594AFBB20180",

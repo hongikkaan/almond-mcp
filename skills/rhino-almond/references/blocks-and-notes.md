@@ -1,6 +1,6 @@
 # 블록과 주석
 
-[고정 조회 도구](probe-tools.md) `get_rhino_probe`의 `probe="outline"` 또는 `"resolve-block"`으로 블록과 주석을 읽어라. 구현은 [AlmondSpatial.cs](../scripts/AlmondSpatial.cs)이며 아래 C# 예는 `options` 필드의 대응을 설명한다. 선택·형상·공유 정의·Undo를 변경하지 않는다.
+[고정 조회 도구](probe-tools.md) `get_rhino_probe`의 `probe="outline"` 또는 `"resolve-block"`으로 블록과 주석을 읽어라. 구현은 제품 코드 `src/rhp/RhinoAlmondBridge/Probes/AlmondSpatial.cs`이며 아래 C# 예는 `options` 필드의 대응을 설명한다. 선택·형상·공유 정의·Undo를 변경하지 않는다.
 
 ## 함수
 

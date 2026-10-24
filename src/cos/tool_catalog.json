@@ -12,7 +12,13 @@
     "native_request": "a49132b8745d8c38ea4a1417c22771b2c8a6b3be88c19f950ae816a3157b29b9",
     "compat_almond": "ba7f0023e259bca960f26a3a5bfbe6a102d84572360a93c90476e59ed400da25",
     "library_paths": "68aa94e41941fa67dcbabc5d0d1313e5cf036bf4dfeb0e33e5fb9f5c25fd3ec0",
-    "server": "8ccdacad5e65400c958e09e69c0d3de900baa61dbc445ac737db7d73323e5403"
+    "server": "a14a77e9c3317fd3862194e4cae915b49d1db2ac2020963751476f711c499db3",
+    "retrieval_store": "fa81131c258acc6800d59b872e72243cacaf1633e94122dc993de2408e3427c8",
+    "modeling_policy": "c0e845c30a75fde56935a1c3f45ac0de6777a936965691411593676561b11835",
+    "modeling_policy_json": "734b1b86b73772af4a61b15c4cc2acbf14fcade778048286c40104a560665610",
+    "drawing_assets": "cb38289f9f0050003ac74c45089b258fe09c1abbb483eea442c64b736cea7e35",
+    "drafting": "6da253d969f999950309b9dfded4587443f5f7d4bd18d535fa3a9a1c25f18b9d",
+    "asset_repository": "211b919e1d28c7952673d3f8922414cf08936186f7ae887acc53fcb7415ea96d"
   },
   "tools": [
     {
@@ -69,7 +75,7 @@
     {
       "name": "assign_material",
       "title": "Assign Material",
-      "description": "Assigns a curated PBR material to Rhino objects and stamps them with\nmachine-readable material metadata for downstream pipelines (Unreal).\n\nFor structural members, also declare what the object IS in construction\nterms: structural_role (e.g. \"joist\", \"girder\", \"stud\", \"truss_chord\")\nand construction_system (a system_id from get_construction_guidance).\nThese are written as almond:structural_role / almond:construction_system\nuser text on the objects, so the stated construction intent lives on the\nRhino geometry itself and survives export. If the chosen material_id is\nnot a typical finish for the declared system, the response carries a\nwarning (it still applies).\n\nTwo effects, independently switchable:\n- apply_render_material: creates/reuses a physically-based Rhino\n  material (ALMOND::<material_id>) and assigns it per object, so GLB\n  export (publish_to_chestnut) and Datasmith carry real PBR channels.\n- attach_metadata: writes almond:* user-text keys (material_id, name,\n  category, ue_material_slot, base_color, metallic, roughness, opacity)\n  on each object - Datasmith imports these as asset metadata in Unreal,\n  so materials can be remapped by ue_material_slot deterministically.\n\nWorks on breps, meshes, and block instances (an instance's material\napplies to definition geometry set to 'by parent'; the metadata is\nalways attached to the instance itself). Call list_materials first to\ndiscover material_ids.",
+      "description": "Assigns a curated PBR material and its canonical M:: layer to explicit Rhino objects.\nThe compiled helper creates only the chosen material/layer on demand and reuses\nexisting entries. Returns applied GUIDs without adding automatic dimensions.\n\nFor structural members, also declare what the object IS in construction\nterms: structural_role (e.g. \"joist\", \"girder\", \"stud\", \"truss_chord\")\nand construction_system (a system_id from get_construction_guidance).\nAn explicit structural_role retains its legacy user-text key. A system is\nstored as the typed construction_reference described below. If the chosen material_id is\nnot a typical finish for the declared system, the response carries a\nwarning (it still applies).\n\nfloor is a user-supplied level label. construction_detail is a readable label;\nconstruction_reference optionally identifies a known source as\n{\"kind\": \"construction_system\", \"id\": \"<system_id>\"}. These source records\nare preliminary system guidance, not verified construction details. The old\nconstruction_system argument is accepted and produces the same typed reference.\nA source name supplies the detail label when no explicit label is given.\n\nTwo effects, independently switchable:\n- apply_render_material: creates/reuses a physically-based Rhino\n  material (ALMOND::<material_id>) and assigns it per object, so GLB\n  export (publish_to_chestnut) and Datasmith carry real PBR channels. The\n  object's layer follows the material's layer_path. If false, neither the\n  native material nor the layer is changed or created.\n- attach_metadata: writes only material_id when a native material is\n  applied, plus supplied floor/detail/reference metadata. PBR channels\n  remain on the native material. A metadata-only call preserves the\n  current material identity and writes only the supplied metadata.\n\nUnspecified metadata and asset provenance are preserved. Requires a Bridge\nwith modeling_materials=1; older Bridges are rejected before any mutation.\nWorks on breps, meshes, and block instances (an instance's material\napplies to definition geometry set to 'by parent'; the metadata is\nalways attached to the instance itself). Call list_materials first to\ndiscover material_ids.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -97,6 +103,26 @@
           "construction_system": {
             "default": "",
             "type": "string"
+          },
+          "floor": {
+            "default": "",
+            "type": "string"
+          },
+          "construction_detail": {
+            "default": "",
+            "type": "string"
+          },
+          "construction_reference": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -346,26 +372,22 @@
       }
     },
     {
-      "name": "create_generation_plan",
-      "title": "Create Generation Plan",
-      "description": "Creates a dependency-ordered local plan. scope may be house, interior,\nstructure, or drawing. The plan stores handles and step state rather than verbose\nrepeated context.",
+      "name": "create_generation_phase",
+      "title": "Create Generation Phase",
+      "description": "Create an organizational Phase for Plans; this does not edit Rhino geometry.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
-          "goal": {
+          "name": {
             "type": "string"
           },
-          "scope": {
-            "default": "house",
-            "type": "string"
-          },
-          "scene_id": {
+          "description": {
             "default": "",
             "type": "string"
           }
         },
         "required": [
-          "goal"
+          "name"
         ],
         "type": "object"
       },
@@ -388,48 +410,72 @@
       }
     },
     {
-      "name": "evaluate_generated_asset_fit",
-      "title": "Evaluate Generated Asset Fit",
-      "description": "Check one model's rotated clearance envelope against a rectangle in mm.\nThis is a preflight size check, not obstacle detection or code certification.\nMounting heights and actual scene positions are not evaluated.",
+      "name": "create_generation_plan",
+      "title": "Create Generation Plan",
+      "description": "Create a dependency-ordered Plan in an optional organizational Phase.\nscope is house, interior, structure, drawing, or component; component uses\ninspect_context, design, model, validate. scene_ids are context; component_ids\nexplicitly bind targets without requiring membership in those Scenes.\nLegacy scene_id must match the first scene_ids entry when both are supplied.\nPlans record state and evidence, do not execute steps, and do not authorize edits.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
-          "asset_id": {
+          "goal": {
             "type": "string"
           },
-          "width_mm": {
-            "type": "number"
+          "scope": {
+            "default": "house",
+            "type": "string"
           },
-          "depth_mm": {
-            "type": "number"
+          "scene_id": {
+            "default": "",
+            "type": "string"
           },
-          "height_mm": {
-            "default": 0,
-            "type": "number"
+          "phase_id": {
+            "default": "",
+            "type": "string"
           },
-          "rotation_degrees": {
-            "default": 0,
-            "type": "number"
+          "scene_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
-          "include_clearances": {
-            "default": true,
-            "type": "boolean"
+          "component_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
-          "asset_id",
-          "width_mm",
-          "depth_mm"
+          "goal"
         ],
         "type": "object"
       },
       "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      },
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
       },
       "_meta": {
         "fastmcp": {
@@ -564,6 +610,50 @@
       }
     },
     {
+      "name": "focus_components",
+      "title": "Focus Components",
+      "description": "Select, isolate and zoom to current recursive members of 1-32 Components.\n\nUses Rhino's existing Isolate/Unisolate history; other hidden/locked context\nand any existing document state are subject to the native helper's guards.\nThe operation changes the live selection/visibility/view. An uncertain native\nresult must be inspected; it is never automatically retried.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_model_path": {
+            "type": "string"
+          },
+          "component_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "expected_model_path",
+          "component_ids"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
       "name": "generate_asset_drawing_views",
       "title": "Generate Asset Drawing Views",
       "description": "Generate plan/front/right mesh silhouettes with source metadata, full-size DXF,\nscaled SVG and A3 SVG sheets where they fit. Writes a NEW local drawing-runs folder.\nChoose a library asset_id OR an absolute custom source_glb path. Custom files\nREQUIRE input_units mm or m; up_axis y or z. Scales default to [50,100].\nSupports static, uncompressed triangle GLBs only (max 100 MB/250k triangles).\nNo hidden lines, inferred construction or product-front recognition.\nOptional item-level source_references require source_id/title/url/publisher/\nlocator/accessed_on/relationship/used_for/terms_url. They describe references\nattached to this drawing, never retroactive generation inputs.",
@@ -636,7 +726,7 @@
     {
       "name": "get_asset_drawing",
       "title": "Get Asset Drawing",
-      "description": "Retrieve a bundled pilot drawing package: mm DXF, scaled SVG, A3 SVG sheets and provenance.\nTen models have precomputed views; use generate_asset_drawing_views for others.",
+      "description": "Retrieve a registered 3DM's linked drawings and dimensions, or a legacy pilot package.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -729,6 +819,55 @@
       }
     },
     {
+      "name": "get_component_intersections",
+      "title": "Get Component Intersections",
+      "description": "Inspect actual solid overlaps among the current recursive members of 1-32 Components.\n\nThe native helper resolves current group members inside the same callback,\ntests bounded candidate pairs, and reports unsupported/truncated/unknown work.\nA successful call is not proof of no collision unless complete is true.\nThis helper does not modify Rhino objects or the local Scene ledger.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_model_path": {
+            "type": "string"
+          },
+          "component_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "max_pairs": {
+            "default": 64,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_model_path",
+          "component_ids"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
       "name": "get_construction_guidance",
       "title": "Get Construction Guidance",
       "description": "Curated construction-system guidance for generating structures that are\nbuilt the way real buildings are built - not arbitrary members in space.\nParameters are distilled from Ching's Building Construction Illustrated\n(4th ed.): per-system span ranges, depth rules of thumb (depth = span/N),\nmember spacing, element roles, and assembly notes.\n\nCall this BEFORE generating structural geometry: pick a system, size and\nspace members from its rules, then generate and run validate_structure\n(which cross-checks the result against this same library). Each system\nnames its structural_material (validate_structure vocabulary) and\nrender_material_ids (assign_material vocabulary), so the declared\nconstruction material flows through analysis AND appears on the Rhino\nobjects.",
@@ -779,6 +918,48 @@
         ],
         "type": "object",
         "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_design_component",
+      "title": "Get Design Component",
+      "description": "Read cached direct/nested Component members or inspect live Rhino group membership.\n\nlive=True reads the actual group, including unowned group-added TextDots as\npending_objects requiring explicit sync; it never changes Rhino or the ledger.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "type": "string"
+          },
+          "live": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "component_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
       },
       "_meta": {
         "fastmcp": {
@@ -923,18 +1104,18 @@
       }
     },
     {
-      "name": "get_generated_asset",
-      "title": "Get Generated Asset",
-      "description": "Returns one generated asset's measured dimensions, spatial contract,\nmaterial, generation provenance (Meshy task ids, prompt) and availability.",
+      "name": "get_drawing_sheet",
+      "title": "Get Drawing Sheet",
+      "description": "Read a cached sheet title, scale, paper, modelspace bounds, Layout and context refs.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
-          "asset_id": {
+          "sheet_id": {
             "type": "string"
           }
         },
         "required": [
-          "asset_id"
+          "sheet_id"
         ],
         "type": "object"
       },
@@ -950,6 +1131,10 @@
         "type": "object",
         "x-fastmcp-wrap-result": true
       },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      },
       "_meta": {
         "fastmcp": {
           "tags": []
@@ -957,28 +1142,36 @@
       }
     },
     {
-      "name": "get_generated_asset_passport",
-      "title": "Get Generated Asset Passport",
-      "description": "Read portable asset metadata: measured vs nominal dimensions, provenance,\nmaterials, spatial contract, usage suggestions, quality limits and rights.",
+      "name": "get_generation_phase",
+      "title": "Get Generation Phase",
+      "description": "Read a Phase's name, description and Plan count.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
-          "asset_id": {
+          "phase_id": {
             "type": "string"
           }
         },
         "required": [
-          "asset_id"
+          "phase_id"
         ],
         "type": "object"
       },
       "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
       },
       "annotations": {
         "readOnlyHint": true,
-        "openWorldHint": false
+        "destructiveHint": false
       },
       "_meta": {
         "fastmcp": {
@@ -989,12 +1182,23 @@
     {
       "name": "get_generation_plan",
       "title": "Get Generation Plan",
-      "description": "Returns a compact dependency graph and current step states.",
+      "description": "Read the current Plan or an immutable saved revision, including legacy baseline 0.\n\nSnapshots contain Plan metadata, step state and handles; they are not Rhino\ngeometry backups. A missing requested revision never falls back to current state.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "plan_id": {
             "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -1014,35 +1218,9 @@
         "type": "object",
         "x-fastmcp-wrap-result": true
       },
-      "_meta": {
-        "fastmcp": {
-          "tags": []
-        }
-      }
-    },
-    {
-      "name": "get_generation_sources",
-      "title": "Get Generation Sources",
-      "description": "Get original recorded provider/task IDs, prompt, transformations and evidence gaps.\nIncludes Higgsfield image job IDs where recorded before the Meshy stage.\nThis is local evidence, not an independent provider/account verification.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "asset_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "asset_id"
-        ],
-        "type": "object"
-      },
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      },
       "annotations": {
         "readOnlyHint": true,
-        "openWorldHint": false
+        "destructiveHint": false
       },
       "_meta": {
         "fastmcp": {
@@ -1078,6 +1256,29 @@
         ],
         "type": "object",
         "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_modeling_policy",
+      "title": "Get Modeling Policy",
+      "description": "Return JSON-defined object/group metadata keys and material-layer naming rules.\n\nNames are free. New modeling normally needs only component_id (registration),\noptional floor and construction_detail, plus material identity and a typed source\nreference when used. Internal compatibility keys are not a checklist to fill.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
       },
       "_meta": {
         "fastmcp": {
@@ -1218,6 +1419,44 @@
           }
         },
         "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "get_scene_objects",
+      "title": "Get Scene Objects",
+      "description": "Read cached direct Scene objects and all descendant Component members as one set.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "scene_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
       },
       "annotations": {
         "readOnlyHint": true,
@@ -1434,6 +1673,42 @@
       }
     },
     {
+      "name": "list_design_components",
+      "title": "List Design Components",
+      "description": "List compact cached Components, optionally restricted to one saved model path.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_model_path": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
       "name": "list_diagram_assets",
       "title": "List Diagram Assets",
       "description": "Lists available vector and CAD diagram assets (people, trees, symbols).",
@@ -1541,22 +1816,30 @@
       }
     },
     {
-      "name": "list_generated_assets",
-      "title": "List Generated Assets",
-      "description": "Lists the redistributable generated asset library: 3D entourage (people,\ntrees, vehicles), site furniture, columns, balustrades,\nsanitary/kitchen fixtures, and unbranded\nfurniture placeholders. Every asset is a GLB normalised to real-world\nmillimetres with a measured spatial contract and an Almond material_id,\nso placement, collision checks and material restore work without any\nthird-party download. Place with place_generated_asset.",
+      "name": "list_drawing_sheets",
+      "title": "List Drawing Sheets",
+      "description": "List named sheets for Plan wrapup or Scene/Component/model review; combine filters with AND.\n\nReturns cached registration data, total and truncation. Review names and locations\nbefore deciding whether drawings are unnecessary; listing never deletes geometry.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
-          "category": {
+          "plan_id": {
+            "default": "",
+            "type": "string"
+          },
+          "scene_id": {
+            "default": "",
+            "type": "string"
+          },
+          "component_id": {
+            "default": "",
+            "type": "string"
+          },
+          "expected_model_path": {
             "default": "",
             "type": "string"
           },
           "limit": {
-            "default": 20,
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
+            "default": 100,
             "type": "integer"
           }
         },
@@ -1573,6 +1856,136 @@
         ],
         "type": "object",
         "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_generation_phases",
+      "title": "List Generation Phases",
+      "description": "List organizational Phases with totals and an explicit truncation flag; limit is 1-500.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 50,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_generation_plan_revisions",
+      "title": "List Generation Plan Revisions",
+      "description": "List saved Plan revisions newest first, with operation labels and truncation metadata.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "list_generation_plans",
+      "title": "List Generation Plans",
+      "description": "List compact Plan summaries, optionally filtered by Phase, contextual Scene or status.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "phase_id": {
+            "default": "",
+            "type": "string"
+          },
+          "scene_id": {
+            "default": "",
+            "type": "string"
+          },
+          "status": {
+            "default": "",
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
       },
       "_meta": {
         "fastmcp": {
@@ -1610,7 +2023,7 @@
     {
       "name": "list_materials",
       "title": "List Materials",
-      "description": "Lists the curated PBR material library used by assign_material.\n\nEach entry carries metallic/roughness PBR channels, an Unreal material\nslot name (ue_material_slot) for deterministic remapping after import,\nand tags. Categories: metal, plastic, glass, wood, mineral, polymer.",
+      "description": "Lists the curated PBR material library used by assign_material without changing Rhino.\n\nEach entry carries metallic/roughness PBR channels, an Unreal material\nslot name (ue_material_slot) for deterministic remapping after import,\nand tags. layer_path is the canonical material-derived M:: hierarchy;\nit is created lazily only when that material is applied to geometry.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1700,7 +2113,7 @@
     {
       "name": "place_drawing_asset",
       "title": "Place Drawing Asset",
-      "description": "Places an indexed representation asset as a reusable Rhino block.\n\nDrawing assets are placed on ALMOND-DRAW::ASSETS and remain distinct from\ngenerated model blocks. The tool accepts only files resolved from the\ncontrolled asset/drawing/DrawingAssetfiles manifest.",
+      "description": "Places an indexed representation asset as a reusable Rhino block.\n\nx/y/z and returned bounds use the active document's units; scale is dimensionless.\nPrepared 3DM geometry is converted from its stored millimeters by Rhino on import.\nDrawing assets are placed on ALMOND-DRAW::ASSETS and remain distinct from\ngenerated model blocks. The tool accepts only files resolved from the\ncontrolled asset/drawing/DrawingAssetfiles manifest.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1726,63 +2139,6 @@
           "scale": {
             "default": 1,
             "type": "number"
-          }
-        },
-        "required": [
-          "asset_id"
-        ],
-        "type": "object"
-      },
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "x-fastmcp-wrap-result": true
-      },
-      "_meta": {
-        "fastmcp": {
-          "tags": []
-        }
-      }
-    },
-    {
-      "name": "place_generated_asset",
-      "title": "Place Generated Asset",
-      "description": "Imports a generated-library asset into the open Rhino document and places\nit at a point (contract anchor = bottom centre, mm), restoring its Almond\nmaterial and almond:* metadata and verifying the landed size against the\ncontract. Use search_generated_assets to choose an asset_id; afterwards\ncall register_scene_instance so the scene ledger and layout validation\nknow about it.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "asset_id": {
-            "type": "string",
-            "description": "e.g. \"gen-park-bench-1\"."
-          },
-          "x_mm": {
-            "default": 0,
-            "type": "number"
-          },
-          "y_mm": {
-            "default": 0,
-            "type": "number"
-          },
-          "z_mm": {
-            "default": 0,
-            "type": "number"
-          },
-          "rotation_degrees": {
-            "default": 0,
-            "type": "number",
-            "description": "rotation about world Z."
-          },
-          "layer": {
-            "default": "ALMOND-GEN",
-            "type": "string",
-            "description": "destination layer, created if absent."
           }
         },
         "required": [
@@ -1930,49 +2286,57 @@
       }
     },
     {
-      "name": "recommend_generated_assets",
-      "title": "Recommend Generated Assets",
-      "description": "Shortlist available models with explicit reasons, quality notes and fit\noptions. Query matches product/variant/tags; room_type is an inferred usage\nfilter (e.g. living_room, dining_room, office, bathroom, landscape).\nSupply width AND depth for rectangular fit at 0/90 degrees; height 0 is\nunbounded. Authored clearances count by default. No Rhino connection needed.",
+      "name": "register_drawing_asset",
+      "title": "Register Drawing Asset",
+      "description": "Register a reviewed 3DM and automatically derive linked plan/front/right drawings.\n\nFinish cleanup/orientation review with the asset-converter workflow first.\nSupply an absolute prepared 3DM path: millimeters, Z up, bottom-center at origin.\nNative geometry checks support meshes, Breps, extrusions, surfaces, SubD and nested\nblocks, up to 100 MB/250k triangles. Unsupported objects reject the whole asset.\nCopies the source, measures dimensions and writes DXF at full-size mm, SVG at\n1:50/1:100 and A3 sheets where they fit. These are mesh silhouettes, not hidden\nlines or construction details; visual classification/front are not verified.\nExisting IDs require replace_existing=true. Prior files and manifest backups\nare retained. Refreshes this MCP process's index after atomic publication;\nother running processes must reconnect. The bundled Rhino panel is a release\nsnapshot; use MCP placement for newly registered local assets.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
-          "query": {
-            "default": "",
+          "source_3dm": {
+            "type": "string"
+          },
+          "asset_id": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           },
           "category": {
+            "default": "other",
+            "type": "string"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "description": {
             "default": "",
             "type": "string"
           },
-          "room_type": {
+          "source_url": {
             "default": "",
             "type": "string"
           },
-          "width_mm": {
-            "default": 0,
-            "type": "number"
-          },
-          "depth_mm": {
-            "default": 0,
-            "type": "number"
-          },
-          "height_mm": {
-            "default": 0,
-            "type": "number"
-          },
-          "max_triangles": {
-            "default": 0,
-            "type": "integer"
-          },
-          "include_clearances": {
-            "default": true,
+          "replace_existing": {
+            "default": false,
             "type": "boolean"
-          },
-          "limit": {
-            "default": 5,
-            "type": "integer"
           }
         },
+        "required": [
+          "source_3dm",
+          "asset_id",
+          "name"
+        ],
         "type": "object"
       },
       "outputSchema": {
@@ -1980,7 +2344,7 @@
         "type": "object"
       },
       "annotations": {
-        "readOnlyHint": true,
+        "destructiveHint": false,
         "openWorldHint": false
       },
       "_meta": {
@@ -2071,6 +2435,95 @@
       }
     },
     {
+      "name": "register_scene_objects",
+      "title": "Register Scene Objects",
+      "description": "Link top-level objects directly to a Scene without an asset instance or Component.\n\nmode is add, remove or replace for this document's direct links. Other model\nlinks and Component membership are retained. Observe current GUIDs/bounds live;\nthis updates the local ledger and does not edit Rhino geometry or object names.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "scene_id": {
+            "type": "string"
+          },
+          "expected_model_path": {
+            "type": "string"
+          },
+          "object_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "default": "add",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_id",
+          "expected_model_path",
+          "object_ids"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "remove_design_component",
+      "title": "Remove Design Component",
+      "description": "Unregister Component ownership while preserving Rhino geometry and the ordinary group.\n\nA root Component may have children; they become roots and keep their object\nownership, registered Rhino groups and Scene links. A Component that still has\nits own parent must first be detached. Plan/Step/Sheet references to the\nremoved Component must be cleared first. No geometry is deleted or copied.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
       "name": "remove_design_room",
       "title": "Remove Design Room",
       "description": "Removes a room from the scene ledger. Instances that referenced it stay\nin the scene, orphaned (re-home them with register_scene_instance).",
@@ -2109,6 +2562,43 @@
       }
     },
     {
+      "name": "remove_drawing_sheet",
+      "title": "Remove Drawing Sheet",
+      "description": "Unregister a sheet while preserving its Rhino Layout, detail and modelspace drawing geometry.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "sheet_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sheet_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
       "name": "remove_scene_instance",
       "title": "Remove Scene Instance",
       "description": "Removes an instance from the scene ledger (recorded as a revision delta).\nThe Rhino geometry, if any, is not touched.",
@@ -2139,6 +2629,48 @@
         ],
         "type": "object",
         "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "resolve_generation_targets",
+      "title": "Resolve Generation Targets",
+      "description": "Resolve registered Step targets, or Plan targets when the Step has no override.\n\nAn explicit empty Step selection stays empty. Contextual Scenes never expand\ntargets. Returned group/document identities have live_verified=false; inspect\ncurrent Rhino state and user intent before editing. This does not grant authority.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": {
+            "type": "string"
+          },
+          "step_id": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
       },
       "_meta": {
         "fastmcp": {
@@ -2381,41 +2913,223 @@
       }
     },
     {
-      "name": "search_generated_assets",
-      "title": "Search Generated Assets",
-      "description": "Searches only the generated asset library (FTS over product, variant,\ncategory and tags; dimension filters use the measured GLB bounds).",
+      "name": "sync_design_component",
+      "title": "Sync Design Component",
+      "description": "Reconcile a Component after inspecting live Rhino group membership.\n\nWhen group editing adds unowned TextDots/objects, one explicit native sync may\nadopt their direct ownership under Undo and normalize ancestor memberships.\nUnchanged components stay read-only. Conflicting ownership requires explicit\nrepair. A timed-out mutation is never automatically replayed.\nA complete live proof of a previously registered but now unregistered group\nalso releases its cached registration, after checking Plan/Step/Sheet references.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
-          "query": {
-            "default": "",
+          "expected_model_path": {
             "type": "string"
           },
-          "category": {
-            "default": "",
+          "component_id": {
             "type": "string"
           },
-          "max_width_mm": {
-            "default": 0,
-            "type": "number"
-          },
-          "max_depth_mm": {
-            "default": 0,
-            "type": "number"
-          },
-          "max_height_mm": {
-            "default": 0,
-            "type": "number"
-          },
-          "limit": {
-            "default": 10,
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "type": "integer"
+          "rhino_group_id": {
+            "default": "",
+            "type": "string"
           }
         },
+        "required": [
+          "expected_model_path",
+          "component_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "sync_drawing_sheet",
+      "title": "Sync Drawing Sheet",
+      "description": "Reconcile a sheet from read-only native Layout inspection without replaying a mutation.\n\nUse after a lost response, failed database commit or manual edits. Registered\nsnapshots can restore a missing ledger row. Verified unregistered retained\nLayouts can release an existing ledger row; a missing Layout is not that proof.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_model_path": {
+            "type": "string"
+          },
+          "sheet_id": {
+            "type": "string"
+          },
+          "layout_id": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_model_path",
+          "sheet_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "update_generation_phase",
+      "title": "Update Generation Phase",
+      "description": "Update Phase organization; omitted fields retain their values.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "phase_id": {
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "phase_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "update_generation_plan",
+      "title": "Update Generation Plan",
+      "description": "Update Plan metadata and bindings atomically, recording a new saved revision.\n\nOmitted fields retain prior values; [] clears refs, and phase_id='' detaches\nthe Phase. expected_revision rejects stale updates without changing the Plan.\nReferences provide context and explicit targets, not permission to edit geometry.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": {
+            "type": "string"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "phase_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scene_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "component_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
         "type": "object"
       },
       "outputSchema": {
@@ -2439,7 +3153,7 @@
     {
       "name": "update_generation_step",
       "title": "Update Generation Step",
-      "description": "Advances a generation step after its dependencies complete. Input and\noutput references should be stable scene, room, asset, instance, or Rhino\nGUID handles.",
+      "description": "Record a Step's status, evidence and optional explicit Component targets.\nOmitted refs retain prior values; [] clears them. Step component_ids=null in a\nreturned Plan inherits Plan targets; explicit [] selects none. Scene refs never\nexpand the selection. running/completed require completed prerequisites, and a\nprerequisite cannot regress while descendants run or remain completed.\nexpected_revision rejects stale updates. No Rhino operation is executed here.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2479,6 +3193,31 @@
               }
             ],
             "default": null
+          },
+          "component_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -2507,9 +3246,90 @@
       }
     },
     {
+      "name": "upsert_design_component",
+      "title": "Upsert Design Component",
+      "description": "Register direct objects and optional nested child Components in an explicit Rhino group.\n\nobject_ids names DIRECT top-level owners (possibly [] when child_component_ids\ncontains existing children). child_component_ids=None preserves existing children;\n[] explicitly detaches them. Each object has exactly one direct Component owner,\nand each child at most one parent in the same document without cycles. Parent\ngroup selection includes descendants without rewriting their direct owner IDs.\nEvery Component needs at least one existing Scene; omitting scene_ids preserves\nan existing association. Geometry is not copied or duplicated.\nexpected_model_path must match the active saved document. After an uncertain\nnative result, inspect and sync_design_component; do not replay the mutation.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_model_path": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "object_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "scene_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "component_id": {
+            "default": "",
+            "type": "string"
+          },
+          "rhino_group_id": {
+            "default": "",
+            "type": "string"
+          },
+          "child_component_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "expected_model_path",
+          "name",
+          "object_ids"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
       "name": "upsert_design_room",
       "title": "Upsert Design Room",
-      "description": "Creates or updates a room in the local scene ledger.\nbounds_mm is [min_x, min_y, min_z, max_x, max_y, max_z]. When room_id is\nomitted, an existing room with the same name in the scene is updated\ninstead of creating a duplicate.",
+      "description": "Creates or updates a legacy room envelope for asset-placement containment checks.\nUse upsert_design_component for physical architectural assemblies.\nbounds_mm is [min_x, min_y, min_z, max_x, max_y, max_z]. When room_id is\nomitted, an existing room with the same name in the scene is updated\ninstead of creating a duplicate.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2556,9 +3376,119 @@
       }
     },
     {
+      "name": "upsert_drawing_sheet",
+      "title": "Upsert Drawing Sheet",
+      "description": "Register one authored modelspace drawing region with one Rhino Layout tab.\n\nSupply world-XY bounds [minX,minY,minZ,maxX,maxY,maxZ] in mm, positive XY\nextents, paper [width,height] in mm, and a positive scale denominator (100 = 1:100).\nThe native Layout uses a parallel Top detail; the region must fit at that scale.\ndrawing_type is plan, section, elevation, detail, axonometric, perspective,\nschedule or other. These are labels; this tool does not generate drawing geometry.\nNew sheets create a Layout when layout_id is empty. Existing identities cannot\nchange model or Layout. Omitted refs preserve existing values; [] clears refs,\nplan_id='' unlinks a Plan. List sheets by Plan at wrapup to inspect duplicates.\nAfter an uncertain result, sync_drawing_sheet; do not replay the mutation.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_model_path": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "drawing_type": {
+            "type": "string"
+          },
+          "scale_denominator": {
+            "type": "number"
+          },
+          "paper_mm": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "model_bounds_mm": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "scene_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "component_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "plan_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "sheet_id": {
+            "default": "",
+            "type": "string"
+          },
+          "layout_id": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_model_path",
+          "title",
+          "drawing_type",
+          "scale_denominator",
+          "paper_mm",
+          "model_bounds_mm"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "destructiveHint": false
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
       "name": "validate_scene_layout",
       "title": "Validate Scene Layout",
-      "description": "Runs local R-tree broad-phase collision and room-containment checks.\nOnly compact violations are returned; geometry remains in Rhino.",
+      "description": "Runs cached legacy asset-instance AABB collisions and room-containment checks.\nComponent/raw-object geometry is reported as unvalidated; inspect it with native probes.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

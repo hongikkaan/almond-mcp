@@ -1581,7 +1581,7 @@
     },
     "/app.js": {
       "path": "ui/app.js",
-      "sha256": "105d35cbf769fe66ee7921d1881b2de85e6215ab70639b165cde879584ea60d5",
+      "sha256": "5e7bcd95009081baadc75fce38698a8a55ba830545468236714d0bbdd4b55603",
       "mime": "text/javascript; charset=utf-8"
     },
     "/favicon.svg": {
@@ -1591,7 +1591,7 @@
     },
     "/index.html": {
       "path": "ui/index.html",
-      "sha256": "dabfd3a583c6991e894327661029912893aa4414f31f2a73be1e33bf3e683ca3",
+      "sha256": "e34928e98501726b5e317fd4dbe82f768d32cf51767f68fe5a7ad36137f70228",
       "mime": "text/html; charset=utf-8"
     },
     "/karamba-help.js": {
@@ -1671,22 +1671,22 @@
     },
     "/": {
       "path": "ui/index.html",
-      "sha256": "dabfd3a583c6991e894327661029912893aa4414f31f2a73be1e33bf3e683ca3",
+      "sha256": "e34928e98501726b5e317fd4dbe82f768d32cf51767f68fe5a7ad36137f70228",
       "mime": "text/html; charset=utf-8"
     },
     "/api/materials": {
       "path": "api/materials.json",
-      "sha256": "b6c29a636947c2bc1b7565a68e2d17383464c3b4af5fac84b44d02b9189f5b0e",
+      "sha256": "d6fdc16c05f09d653986488104b31adeb59619f0853d3cfedcbd8a1891f7e975",
       "mime": "application/json"
     },
     "/api/catalogue": {
       "path": "api/catalogue.json",
-      "sha256": "6140417b838313dba458404a4e7aee7a77750e62c2c87956a11712e2dc26ea9f",
+      "sha256": "ed7be75d13a3bf704a837bc167c6d152c904fc81068af0bc6c52f4373a836a0b",
       "mime": "application/json"
     },
     "/api/assets/gen-person-standing-1.json": {
       "path": "api/assets/gen-person-standing-1.json",
-      "sha256": "3070bccc1bccd2edb5f922b827948642184e77b64b79d80431a62d686443e513",
+      "sha256": "fdc6fca857dbf4aa7654177f1848ff4cb8e462646ef62ddec49dbea702b8cebe",
       "mime": "application/json"
     },
     "/api/assets/gen-person-walking-1.json": {
@@ -1706,7 +1706,7 @@
     },
     "/api/assets/gen-tree-conifer-1.json": {
       "path": "api/assets/gen-tree-conifer-1.json",
-      "sha256": "058693770122e6af4d3116751d2a28bc7f8057502e009da899986ab611a4e1d5",
+      "sha256": "9580900a21cde2eb28687b206fb6581dec525b4ed76a7a3dd34a584c1f0b6dfa",
       "mime": "application/json"
     },
     "/api/assets/gen-car-sedan-1.json": {
@@ -1721,12 +1721,12 @@
     },
     "/api/assets/gen-park-bench-1.json": {
       "path": "api/assets/gen-park-bench-1.json",
-      "sha256": "89c18de52aa372549c4310afce4c9dfa7be27d8965efbab3bb9edd0b319f591a",
+      "sha256": "a481625565ae5d308a55c10107df5b963d0871b9432f022f034cfd49251da97d",
       "mime": "application/json"
     },
     "/api/assets/gen-street-lamp-1.json": {
       "path": "api/assets/gen-street-lamp-1.json",
-      "sha256": "2f222b6bade692f4b9943097dc0349b606a1cba44d5819bb32d3f44d4f767dbb",
+      "sha256": "6e1c94947e960625776cdfdcb060abba35d1ed73ad120b03cfb66f6172458fbf",
       "mime": "application/json"
     },
     "/api/assets/gen-bollard-1.json": {
@@ -1766,7 +1766,7 @@
     },
     "/api/assets/gen-washbasin-pedestal-1.json": {
       "path": "api/assets/gen-washbasin-pedestal-1.json",
-      "sha256": "a762ec6346ef8cd836c8728a95cdd7216e26e6183851da33dd85cf956aac8cbc",
+      "sha256": "41f3c77b84c647bac1ca25f5c5eabb8f5e168f679e3a50d38786707528b82e22",
       "mime": "application/json"
     },
     "/api/assets/gen-bathtub-1.json": {
@@ -1791,12 +1791,12 @@
     },
     "/api/assets/gen-sofa-3-seat-1.json": {
       "path": "api/assets/gen-sofa-3-seat-1.json",
-      "sha256": "6b255bae522ea99bbd0de45cd067e87e02a9aa3187ed2df0fece61508a785065",
+      "sha256": "db516839306e862eff17b5e8d967b8fe1dd24df36787376de41dff9c43dec939",
       "mime": "application/json"
     },
     "/api/assets/gen-dining-table-rect-1.json": {
       "path": "api/assets/gen-dining-table-rect-1.json",
-      "sha256": "265486cfc74bf8c3ffc5b640dc4084459f1451fad1c4e3e3ca6c0b1b6df6e7f2",
+      "sha256": "85d18228b6bd24f6d244653f8a451ad807f13431e5493ae655d00b1140a5c1bd",
       "mime": "application/json"
     },
     "/api/assets/gen-dining-chair-1.json": {
@@ -1806,7 +1806,7 @@
     },
     "/api/assets/gen-bed-double-1.json": {
       "path": "api/assets/gen-bed-double-1.json",
-      "sha256": "a7846f207cddff3c2b88512ed253929df48b836d580c25b1f9596e34a2161b20",
+      "sha256": "c33fade2520de542e995e5c494f329976b59eeecfc5be2948551eefba85f5c16",
       "mime": "application/json"
     },
     "/api/assets/gen-desk-1.json": {
@@ -1816,12 +1816,12 @@
     },
     "/api/assets/gen-office-chair-1.json": {
       "path": "api/assets/gen-office-chair-1.json",
-      "sha256": "33885621307f8803def8c7c6e69f19166af42187aa6e50af6a8babea7e38e027",
+      "sha256": "44e7c75f5e3971fdd1fd037dfa06b66a6dbe72020d11faad3b2665ff9c8657fd",
       "mime": "application/json"
     },
     "/api/assets/gen-stool-bent-birch-3leg-1.json": {
       "path": "api/assets/gen-stool-bent-birch-3leg-1.json",
-      "sha256": "8159de6bcad2b4c3c30a214f0b5e8808d8c98bb8a9eae665e4f8babd07fe3bb8",
+      "sha256": "c66600e281aadcd684b8241b9a5e7dad2cab81ae3e09787aa60b1fdd249a27ff",
       "mime": "application/json"
     },
     "/api/assets/gen-lounge-chair-bent-plywood-1.json": {

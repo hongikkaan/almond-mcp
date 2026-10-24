@@ -27,7 +27,7 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         for part in ast.walk(annotation):
             if not isinstance(part, allowed):
                 raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
-            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "float", "bool", "list", "dict"}:
+            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "float", "bool", "list", "dict"}:
                 raise ValueError(f"Review annotation name {part.id} in {node.name}")
     for default in [*node.args.defaults, *node.args.kw_defaults]:
         if default is not None:
@@ -52,7 +52,7 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
 async def generate(engine: Path = ENGINE) -> dict:
     from fastmcp import FastMCP
     from fastmcp.tools import ToolResult
-    from pydantic import StrictInt
+    from pydantic import StrictInt, StrictFloat
     paths = source_paths(engine)
     server = ast.parse(paths["server"].read_text(encoding="utf-8-sig"))
     functions = [n for n in server.body if isinstance(n, ast.FunctionDef) and
@@ -67,13 +67,14 @@ async def generate(engine: Path = ENGINE) -> dict:
     module.mcp = FastMCP("AlmondCOS schema build")
     module.ToolResult = ToolResult
     module.StrictInt = StrictInt
+    module.StrictFloat = StrictFloat
     sys.modules[module.__name__] = module
     tree = ast.Module(body=[checked_stub(n) for n in functions], type_ignores=[])
     exec(compile(ast.fix_missing_locations(tree), "<AlmondCOS schemas only>", "exec"), module.__dict__)
     tools = [t.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
              for t in await module.mcp.list_tools()]
-    if len(tools) != 60:
-        raise RuntimeError(f"Expected the inspected 60 tools; got {len(tools)}. Review the changed package.")
+    if len(tools) != 76:
+        raise RuntimeError(f"Expected the inspected 76 tools; got {len(tools)}. Review the changed package.")
     if "almond_mcp.server" in sys.modules:
         raise RuntimeError("Catalog generation must not import the Almond server.")
     return {

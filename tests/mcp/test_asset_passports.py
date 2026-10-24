@@ -127,19 +127,17 @@ def test_mcp_discovery_structured_result_and_preview_resource():
     async def check():
         async with Client(server.mcp) as client:
             tools = {t.name: t for t in await client.list_tools()}
-            assert tools["recommend_generated_assets"].annotations.readOnlyHint
-            assert tools["recommend_generated_assets"].outputSchema
-            result = await client.call_tool("recommend_generated_assets", {"query": "bench"})
-            assert not result.is_error
-            assert result.structured_content["total_matches"] >= 1
+            assert "recommend_generated_assets" not in tools
+            assert "register_drawing_asset" in tools
+            result = server.recommend_generated_assets(query="bench")
+            assert result["total_matches"] >= 1
             passport = await client.read_resource("almond://generated/gen-park-bench-1/passport")
             assert passport[0].mimeType == "application/json"
             assert json.loads(passport[0].text)["passport"]["asset_id"] == "gen-park-bench-1"
             preview = await client.read_resource("almond://generated/gen-park-bench-1/preview")
             assert preview[0].mimeType == "image/png"
-            bad = await client.call_tool("evaluate_generated_asset_fit", {
-                "asset_id": "unknown", "width_mm": 1000, "depth_mm": 1000})
-            assert bad.structured_content["status"] == "error"
+            bad = server.evaluate_generated_asset_fit(asset_id="unknown", width_mm=1000, depth_mm=1000)
+            assert bad["status"] == "error"
     asyncio.run(check())
 
 

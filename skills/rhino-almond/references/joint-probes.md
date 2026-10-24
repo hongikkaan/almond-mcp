@@ -1,6 +1,6 @@
 # 부재 쌍의 접촉·관입 관찰
 
-[고정 조회 도구](probe-tools.md) `get_rhino_probe`의 `probe="joint-pairs"`로 명시한 부재 쌍을 읽기 전용으로 조사하라. 구현은 [AlmondJoints.cs](../scripts/AlmondJoints.cs)의 `AlmondJoints.AuditPairs(doc, options)`이며 아래 C# 예는 `options` 필드의 대응을 설명한다. 이 코드는 형상 관찰을 제공하며 구조 접합·시공·방수 적합성을 판정하지 않는다.
+[고정 조회 도구](probe-tools.md) `get_rhino_probe`의 `probe="joint-pairs"`로 명시한 부재 쌍을 읽기 전용으로 조사하라. 구현은 제품 코드 `src/rhp/RhinoAlmondBridge/Probes/AlmondJoints.cs`의 `AlmondJoints.AuditPairs(doc, options)`이며 아래 C# 예는 `options` 필드의 대응을 설명한다. 이 코드는 형상 관찰을 제공하며 구조 접합·시공·방수 적합성을 판정하지 않는다.
 
 ## 호출
 

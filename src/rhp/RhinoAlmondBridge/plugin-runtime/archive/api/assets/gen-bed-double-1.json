@@ -384,6 +384,7 @@
         "svg": "/files/drafting/pilot/gen-bed-double-1/sheet-A3-1-100.svg"
       }
     ],
+    "dimensions": null,
     "source": {
       "asset_id": "gen-bed-double-1",
       "geometry_sha256": "62CD062DA041613D4F2791340B59307D20651F34E18971EB171CC40DD42C96D6",

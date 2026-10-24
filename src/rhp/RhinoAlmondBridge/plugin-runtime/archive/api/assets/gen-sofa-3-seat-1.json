@@ -383,6 +383,7 @@
         "svg": "/files/drafting/pilot/gen-sofa-3-seat-1/sheet-A3-1-100.svg"
       }
     ],
+    "dimensions": null,
     "source": {
       "asset_id": "gen-sofa-3-seat-1",
       "geometry_sha256": "1BF8C78D975EF51BF9757A3F51DA0C1AA26A4991BC170FD0784F5B2208220EB1",

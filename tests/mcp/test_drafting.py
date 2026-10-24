@@ -123,8 +123,8 @@ def test_mcp_custom_mesh_sources_and_drawing_resources(tmp_path, monkeypatch):
             assert not tools["generate_asset_drawing_views"].annotations.readOnlyHint
             result = await client.call_tool("search_detail_sources", {"query":"timber"})
             assert "dataholz" in [s["source_id"] for s in result.structured_content["sources"]]
-            sources = await client.call_tool("get_generation_sources", {"asset_id":"gen-stool-bent-birch-3leg-1"})
-            assert sources.structured_content["record"]["image_generation"]["provider"] == "higgsfield"
+            sources = server.get_generation_sources("gen-stool-bent-birch-3leg-1")
+            assert sources["record"]["image_generation"]["provider"] == "higgsfield"
             bad = await client.call_tool("generate_asset_drawing_views", {"source_glb":str(model)})
             assert bad.structured_content["status"] == "error"
             result = await client.call_tool("generate_asset_drawing_views", {"source_glb":str(model), "input_units":"m", "scales":[50]})

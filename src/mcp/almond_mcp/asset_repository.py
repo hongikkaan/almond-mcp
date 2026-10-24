@@ -62,7 +62,7 @@ class AssetRepository:
                 fmt = Path(asset.get("file", "")).suffix.lstrip(".").lower()
                 record = {
                     "id": aid, "name": asset.get("product", aid),
-                    "kind": "model" if library == "generated" else "element",
+                    "kind": "model" if library == "generated" or fmt == "3dm" else "element",
                     "library": library, "category": asset.get("category", "other"),
                     "variant": asset.get("variant", ""), "format": fmt,
                     "tags": asset.get("tags", []), "roles": asset.get("drawing_roles", []),
@@ -81,22 +81,26 @@ class AssetRepository:
                 captured = ((asset.get("geometry_source") or {}).get("parameters") or {}).get("captured_generation")
                 if captured and library == "generated":
                     record["generation_image"] = self.file(library, captured.get("input_image_file"))
-                if aid in drawings:
-                    package = drawings[aid]["package"]
-                    drawing_url = self.file("drafting", package + "/drawing.json")
+                if asset.get("drawing_package") or aid in drawings:
+                    package_library = library if asset.get("drawing_package") else "drafting"
+                    package = asset.get("drawing_package") or drawings[aid]["package"]
+                    drawing_url = self.file(package_library, package + "/drawing.json")
                     if drawing_url:
                         drawing = read_json(self.files[drawing_url][1])
                         views = []
                         for rep in drawing.get("representations", []):
                             view = {k: rep[k] for k in ("view", "scale", "method", "approximation_note") if k in rep}
                             for fmt_name in ("svg", "dxf"):
-                                view[fmt_name] = self.file("drafting", package + "/" + rep[fmt_name])
+                                view[fmt_name] = self.file(package_library, package + "/" + rep[fmt_name])
                             views.append(view)
                         record["drawing"] = {
                             "record": drawing_url, "views": views,
-                            "sheets": [{"scale": s, "svg": self.file("drafting", f"{package}/sheet-A3-1-{s}.svg")} for s in drawing.get("scales", [])],
+                            "sheets": [{"scale": s, "svg": self.file(package_library, f"{package}/sheet-A3-1-{s}.svg")} for s in drawing.get("scales", [])],
+                            "dimensions": self.file(package_library, package + "/dimensions.json"),
                             "source": drawing.get("source", {}),
                         }
+                        if fmt == "3dm":
+                            record["preview"] = next((v["svg"] for v in views if v["view"] == "plan"), None)
                 self.records[aid] = record
         self.sources = read_json(self.roots["drafting"] / "sources.json").get("sources", [])
 

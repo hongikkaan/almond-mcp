@@ -384,6 +384,7 @@
         "svg": "/files/drafting/pilot/gen-person-standing-1/sheet-A3-1-100.svg"
       }
     ],
+    "dimensions": null,
     "source": {
       "asset_id": "gen-person-standing-1",
       "geometry_sha256": "17AFD6870F8A3147EB5EB5E9E1B2B166AC1F359BE0F0938C23FD86BA9190429D",

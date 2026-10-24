@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "material_layer_root": "M",
+  "document_material_layer_root": "M::Custom",
+  "document_material_name_pattern": "[^\\p{L}\\p{N}\\p{M} ._-]",
+  "document_material_id_suffix_length": 12,
+  "material_assignment_keys": [
+    "floor",
+    "construction_detail",
+    "construction_reference",
+    "structural_role"
+  ],
+  "public_object_keys": {
+    "component_id": "almond:component_id",
+    "floor": "almond:floor",
+    "construction_detail": "almond:construction_detail"
+  },
+  "internal_object_keys": {
+    "component_record": "almond:component_record",
+    "sheet_id": "almond:sheet_id",
+    "sheet_metadata": "almond:sheet_metadata",
+    "construction_reference": "almond:construction_reference",
+    "material_id": "almond:material_id",
+    "material_name": "almond:material_name",
+    "material_category": "almond:material_category",
+    "ue_material_slot": "almond:ue_material_slot",
+    "base_color": "almond:base_color",
+    "metallic": "almond:metallic",
+    "roughness": "almond:roughness",
+    "opacity": "almond:opacity",
+    "structural_role": "almond:structural_role",
+    "construction_system": "almond:construction_system",
+    "structural_material": "almond:structural_material",
+    "section": "almond:section",
+    "release": "almond:release",
+    "asset_id": "almond:asset_id",
+    "asset_id_legacy": "almond.asset_id",
+    "asset_id_legacy_caps": "Almond.AssetId",
+    "asset_type": "almond.asset_type",
+    "asset_metadata": "almond.metadata",
+    "passport": "almond:passport",
+    "derivation": "almond:derivation",
+    "source_record": "almond:source_record",
+    "source_app": "almond:source_app",
+    "license": "almond:license",
+    "attribution": "almond:attribution",
+    "scale": "almond:scale",
+    "scale_legacy": "Almond.UniformScale"
+  },
+  "group_keys": {},
+  "component_record_fields": ["component_id", "rhino_group_id", "name", "scene_ids", "child_component_ids"],
+  "construction_reference_kinds": {
+    "construction_system": {
+      "library": "construction_systems",
+      "id_field": "system_id",
+      "name_field": "name",
+      "scope": "Preliminary construction-system guidance, not a verified construction detail."
+    }
+  }
+}

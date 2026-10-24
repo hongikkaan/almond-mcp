@@ -389,6 +389,7 @@
         "svg": "/files/drafting/pilot/gen-stool-bent-birch-3leg-1/sheet-A3-1-100.svg"
       }
     ],
+    "dimensions": null,
     "source": {
       "asset_id": "gen-stool-bent-birch-3leg-1",
       "geometry_sha256": "2E27D08D5B2B362828C308322EE7D49FB1776A3DFE65E875757B06A4CC253F09",
