@@ -201,7 +201,8 @@ namespace RhinoAlmondBridge
             var resolved = (JObject)recipe.DeepClone();
             resolved["name"] = (string)recipe["name"] + " (" +
                 Hash(Encoding.UTF8.GetBytes(recipe.ToString(Formatting.None))).Substring(0,12) + ")";
-            using var attributes = ModelingMaterials.CreateAttributes(doc, resolved.ToString(Formatting.None), attachMetadata: false);
+            using var attributes = ModelingMaterials.CreateAttributes(doc, resolved.ToString(Formatting.None),
+                attachMetadata: false, reuseLegacyMaterial: false);
             return attributes.MaterialIndex;
         }
         private static string MeshHash(IEnumerable<Mesh> meshes)

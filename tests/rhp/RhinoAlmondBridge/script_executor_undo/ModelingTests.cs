@@ -61,6 +61,8 @@ namespace AlmondScriptUndoTests
                 Check(doc.Objects.GetObjectList(ObjectType.AnyObject).Count() == 101 && doc.RenderMaterials.Find(renderId) != null,
                     "Batch Redo lost geometry or the shared render material identity.");
             });
+            Run(lines, directory, "archive revisions stay separate from editable legacy materials",
+                CheckArchiveRevision, foreground: true);
             Run(lines, directory, "direct material attributes do not create or change layers", doc =>
             {
                 using var events = new MaterialEventTrace(doc);
@@ -352,6 +354,42 @@ namespace AlmondScriptUndoTests
             string report = String.Join("\n", lines);
             if (lines.Any(l => l.StartsWith("FAIL "))) throw new InvalidOperationException(report);
             return report + "\nPASS: " + lines.Count + "/" + lines.Count + " modeling cases.";
+        }
+
+        public static void CheckArchiveRevision(RhinoDoc doc)
+        {
+            var original = JObject.Parse(Recipe("wood-oak"));
+            var legacyRecipe = (JObject)original.DeepClone();
+            legacyRecipe["name"] = "ALMOND::wood-oak";
+            legacyRecipe["roughness"] = 0.99;
+            using var legacy = ModelingMaterials.CreateAttributes(doc, legacyRecipe.ToString(),
+                attachMetadata: false, reuseLegacyMaterial: false);
+            doc.Objects.AddPoint(Point3d.Origin, legacy);
+            Guid legacyId = doc.Materials[legacy.MaterialIndex].RenderMaterialInstanceId;
+
+            var archivedRecipe = (JObject)original.DeepClone();
+            archivedRecipe["name"] = (string)original["name"] + " (123456789abc)";
+            using var archived = ModelingMaterials.CreateAttributes(doc, archivedRecipe.ToString(),
+                attachMetadata: false, reuseLegacyMaterial: false);
+            doc.Objects.AddPoint(new Point3d(1, 0, 0), archived);
+            Guid archivedId = doc.Materials[archived.MaterialIndex].RenderMaterialInstanceId;
+            Check(archivedId != legacyId, "Archive revision reused a legacy render material.");
+            using var repeated = ModelingMaterials.CreateAttributes(doc, archivedRecipe.ToString(),
+                attachMetadata: false, reuseLegacyMaterial: false);
+            Check(doc.Materials[repeated.MaterialIndex].RenderMaterialInstanceId == archivedId,
+                "The same archive revision did not reuse its exact name.");
+            using var ordinary = ModelingMaterials.CreateAttributes(doc, original.ToString());
+            Check(doc.Materials[ordinary.MaterialIndex].RenderMaterialInstanceId == legacyId,
+                "Ordinary material assignment lost legacy compatibility.");
+
+            var editable = doc.RenderMaterials.Find(legacyId);
+            editable.BeginChange(Rhino.Render.RenderContent.ChangeContexts.Program);
+            try { Check(editable.SetParameter(Rhino.Render.ParameterNames.PhysicallyBased.Roughness, 0.01),
+                "Could not edit the legacy material."); }
+            finally { editable.EndChange(); }
+            using var simulation = doc.RenderMaterials.Find(archivedId).ToMaterial(Rhino.Render.RenderTexture.TextureGeneration.Allow);
+            Check(Math.Abs(simulation.PhysicallyBased.Roughness - (double)original["roughness"]) < 0.00001,
+                "Legacy edits changed an immutable archive recipe.");
         }
 
         public static ObjectAttributes Factory(RhinoDoc doc) => ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"));

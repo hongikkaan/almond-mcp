@@ -16,16 +16,19 @@ namespace RhinoAlmondBridge
     {
         private static Color ColorFor(JToken rgb) => Color.FromArgb((int)rgb[0], (int)rgb[1], (int)rgb[2]);
 
-        private static RenderMaterial EnsureMaterial(RhinoDoc doc, JObject recipe, bool overwrite = false)
+        private static RenderMaterial EnsureMaterial(RhinoDoc doc, JObject recipe, bool overwrite = false,
+            bool reuseLegacyMaterial = true)
         {
             string name = (string)recipe["name"], legacy = "ALMOND::" + (string)recipe["material_id"];
-            foreach (var material in doc.Materials.Where(m => !m.IsDeleted && (m.Name == name || m.Name == legacy)))
+            foreach (var material in doc.Materials.Where(m => !m.IsDeleted &&
+                (m.Name == name || (reuseLegacyMaterial && m.Name == legacy))))
             {
                 string existingId = material.GetUserString(ModelingMetadata.Key("material_id"));
                 if (!String.IsNullOrEmpty(existingId) && existingId != (string)recipe["material_id"])
                     throw new ArgumentException("The named Rhino material has a conflicting material_id: " + material.Name);
             }
-            var matches = doc.RenderMaterials.Where(m => m != null && (m.Name == name || m.Name == legacy)).ToArray();
+            var matches = doc.RenderMaterials.Where(m => m != null &&
+                (m.Name == name || (reuseLegacyMaterial && m.Name == legacy))).ToArray();
             var existing = matches.FirstOrDefault(m => m.Name == name) ?? matches.FirstOrDefault();
             if (existing != null && !overwrite) return existing;
             var targets = matches.Length > 0 ? matches : new[] {
@@ -57,7 +60,7 @@ namespace RhinoAlmondBridge
 
         public static ObjectAttributes CreateAttributes(RhinoDoc doc, string recipeJson,
             IDictionary<string, string> metadata = null, ObjectAttributes source = null,
-            bool applyRenderMaterial = true, bool attachMetadata = true)
+            bool applyRenderMaterial = true, bool attachMetadata = true, bool reuseLegacyMaterial = true)
         {
             if (doc == null) throw new ArgumentNullException(nameof(doc));
             ValidateMetadata(metadata);
@@ -65,7 +68,7 @@ namespace RhinoAlmondBridge
             var attributes = source?.Duplicate() ?? new ObjectAttributes { LayerIndex = doc.Layers.CurrentLayerIndex };
             if (applyRenderMaterial)
             {
-                var render = EnsureMaterial(doc, recipe);
+                var render = EnsureMaterial(doc, recipe, reuseLegacyMaterial: reuseLegacyMaterial);
                 var existing = doc.Materials.FirstOrDefault(m => !m.IsDeleted && m.RenderMaterialInstanceId == render.Id);
                 int index = existing?.Index ?? -1;
                 if (index < 0)

@@ -249,7 +249,9 @@ M and category containers are gray. Existing matching materials are reused.
 
 `assign_material` preserves the object's layer and unspecified metadata.
 Registration, assignment, layer setup and archive placement share one PBR
-implementation. Direct batch scripts may call `ModelingMaterials.CreateAttributes`
+implementation. Archive recipes with hash-suffixed names reuse only exact names
+and remain separate from legacy `ALMOND::<id>` materials.
+Direct batch scripts may call `ModelingMaterials.CreateAttributes`
 with a resolved recipe JSON string; passing only a library ID is no longer supported.
 No operation guesses a layer from a material name or watches material-table events
 to move unrelated objects. Catalog reads and plugin startup create no modeling state.

@@ -3757,7 +3757,7 @@ public class Script
             if (!canonical.ContainsKey(id))
             {{
                 using var attributes = RhinoAlmondBridge.ModelingMaterials.CreateAttributes(
-                    doc, (string)spec[10], attachMetadata: false);
+                    doc, (string)spec[10], attachMetadata: false, reuseLegacyMaterial: false);
                 canonical[id] = attributes.MaterialIndex;
             }}
         }}
