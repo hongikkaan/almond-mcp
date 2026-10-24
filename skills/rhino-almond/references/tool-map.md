@@ -22,8 +22,8 @@
 | 신규 Layout·Sheet 등록 | `upsert_drawing_sheet`, `get_drawing_sheet`, `list_drawing_sheets`, `sync_drawing_sheet`, `remove_drawing_sheet` | **등록한 Sheet만 조회. 기존 PageSpace Layout 전체 메타데이터 인벤토리 아님.** `upsert`는 Layout+detail 생성/변경이므로 기존 도면 목록 요구에는 사용하지 않는다. 등록 해제는 Layout/도면 형상을 남긴다. [범위](drawing-assets-and-sheets.md). |
 | 구조 검토·시각화 | `list_design_codes`, `validate_structure`, `visualize_structure`, `export_structural_report` | 부재·지지점·단위·하중·접합 가정을 확인하라. 반환된 해석 방식과 신뢰도, 지원 범위와 누락 조건을 읽어라. 전체 모델의 검증 통과가 개별 접합부의 제작 가능성을 뜻하지는 않는다. |
 | GH 정의 실행 | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` | 먼저 실제 라이브러리·캡슐과 입출력 계약을 조회하라. 필요한 기능과 맞는 정의가 있으면 사용하고 출력 핸들을 확인하라. |
-| 재질 등록·구축 레이어 준비 | `list_materials`, `get_construction_guidance`, `get_modeling_policy`, `setup_modeling` | `operation="materials"`는 라이브러리 재질을 등록하고 `operation="layers"`는 구축 시스템별 `M::category::system.name::element.role` 레이어를 준비한다. 재질과 레이어의 준비는 별도 작업이며 객체를 이동하지 않는다. 기존 재질 덮어쓰기 선택과 [계약](modeling-materials.md)을 확인하라. |
-| 재질·표현·내보내기 | `assign_material`, `list/get_drawing_recipe`, `apply_drawing_style`, `capture_conditioning_pass`, `export/import_asset_contract` | `assign_material`은 명시한 객체의 기존 레이어를 보존하고 재질·메타데이터만 적용한다. Bridge `modeling_materials=2`와 [재료·메타데이터 계약](modeling-materials.md)을 확인하라. 파일 생성·내보내기 뒤 실제 파일과 결과를 확인하라. |
+| 재질 등록·구축 레이어 준비 | `setup_modeling`, `get_construction_guidance`, `get_modeling_policy` | `operation="materials"`로 라이브러리 재질을 일괄 등록한 뒤 등록된 재질을 사용한다. `operation="layers"`는 구축 시스템별 `M::category::system.name::element.role` 레이어를 준비한다. 재질과 레이어의 준비는 별도 작업이며 객체를 이동하지 않는다. 기존 재질 덮어쓰기 선택과 [계약](modeling-materials.md)을 확인하라. |
+| 재질·표현·내보내기 | `assign_material`, `list_materials`, `list/get_drawing_recipe`, `apply_drawing_style`, `capture_conditioning_pass`, `export/import_asset_contract` | MCP로 특정 객체에 적용할 때 `assign_material`을 사용하며 기존 레이어는 보존된다. `list_materials`는 ID·레시피 확인이 필요할 때만 조회한다. Bridge `modeling_materials=2`와 [재료·메타데이터 계약](modeling-materials.md)을 확인하라. 파일 생성·내보내기 뒤 실제 파일과 결과를 확인하라. |
 
 `list/search_*`와 `get_*`는 위 표의 계열 표기다. 그대로 호출할 함수명이 아니므로 현재 노출된 정확한 이름과 schema를 사용하라.
 
