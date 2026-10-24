@@ -4,7 +4,8 @@ version = "0.7.0rc2"
 description = "Almond - MCP server for Rhino 8 with a semantic scene layer: curated furniture/drawing/diagram libraries, audited Karamba capsules, structured retrieval (SQLite FTS5 + R-tree scene ledger), and a TCP bridge into Rhino (RhinoAlmondBridge, port 5000)"
 readme = "README.md"
 requires-python = ">=3.12"
-license-files = []
+license = "MIT"
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.md"]
 authors = [{ name = "LiangJung" }]
 keywords = ["mcp", "rhino", "grasshopper", "karamba", "architecture", "claude"]
 classifiers = [
@@ -88,7 +89,7 @@ include = [
     "/src/mcp/tools/run_meshy_batch.py", "/src/mcp/tools/prepare_organic_meshes.py", "/src/mcp/tools/import_organic_batch.py", "/asset/models/GeneratedAssetfiles/batches",
     "/src/rhp/tools/build_archive_bundle.py", "/src/mcp/tools/verify_object_archive_install.py",
     "/src/mcp/tools/render_generated_previews.py", "/src/mcp/tools/verify_release.py",
-    "/README.md", "/AGENTS.md", "/SPEC.md",
+    "/README.md", "/AGENTS.md", "/SPEC.md", "/LICENSE", "/THIRD-PARTY-NOTICES.md",
     "/pyproject.toml", "/uv.lock", "/.gitattributes",
 ]
 # Belt and braces on top of .gitignore: downloaded model files and compiled

@@ -1649,10 +1649,20 @@
       "sha256": "9e4197794eead117a0688e226036b1b3031f30ac7fda677cda862338093a28e7",
       "mime": "text/css; charset=utf-8"
     },
+    "/vendor/LICENSE": {
+      "path": "ui/vendor/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "mime": "text/plain; charset=utf-8"
+    },
     "/vendor/model-viewer.min.js": {
       "path": "ui/vendor/model-viewer.min.js",
       "sha256": "283b0672384614b4847636c306fc93fe4b1fcadc76d668b4e47f0ca76bcf033b",
       "mime": "text/javascript; charset=utf-8"
+    },
+    "/vendor/THIRD-PARTY-LICENSES.txt": {
+      "path": "ui/vendor/THIRD-PARTY-LICENSES.txt",
+      "sha256": "309f2b89938f6d29735579b555635f4d26d08898bda63eecc7c561e4b1432eee",
+      "mime": "text/plain; charset=utf-8"
     },
     "/vendor/version.json": {
       "path": "ui/vendor/version.json",

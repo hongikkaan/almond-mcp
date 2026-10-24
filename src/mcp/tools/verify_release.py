@@ -17,6 +17,9 @@ from almond_mcp.asset_repository import AssetRepository
 def verify(wheel: Path) -> dict:
     with zipfile.ZipFile(wheel) as archive:
         names = archive.namelist()
+        for filename in ("LICENSE", "THIRD-PARTY-NOTICES.md"):
+            if not any(name.endswith(".dist-info/licenses/" + filename) for name in names):
+                raise ValueError(f"Distribution license missing: {filename}")
         forbidden = []
         for name in names:
             path = Path(name)
@@ -68,7 +71,7 @@ def verify(wheel: Path) -> dict:
             counts = archive_catalogue.catalogue()["counts"]
             if counts != {"assets":57, "models":50, "elements":7, "drawing_packages":10, "views":60}:
                 raise ValueError(f"Unified archive coverage changed: {counts}")
-            for filename in ("index.html", "style.css", "app.js", "karamba.js", "karamba-help.js", "panel-theme.js", "panel.css", "analysis-view.mjs", "favicon.svg", "vendor/model-viewer.min.js", "vendor/version.json"):
+            for filename in ("index.html", "style.css", "app.js", "karamba.js", "karamba-help.js", "panel-theme.js", "panel.css", "analysis-view.mjs", "favicon.svg", "vendor/model-viewer.min.js", "vendor/LICENSE", "vendor/THIRD-PARTY-LICENSES.txt", "vendor/version.json"):
                 if "almond_mcp/library_ui/" + filename not in names:
                     raise ValueError(f"Archive UI file missing: {filename}")
             if any(a["available"] for a in archive_catalogue.records.values() if a["kind"] == "element"):

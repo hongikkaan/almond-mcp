@@ -1,0 +1,6 @@
+Generated 3D models and derived drawings: Almond generated asset library.
+Declared licence: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+Retain attribution, link the licence, and indicate modifications.
+Almond code: MIT. Viewer and dependencies: see ui/vendor/ licences.
+Generation source records and documented gaps: evidence/source-register.json.
+Community drawing models are metadata-only here, with separate source terms.
