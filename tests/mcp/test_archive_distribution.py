@@ -23,6 +23,10 @@ def bundle(tmp_path_factory):
 
 
 def test_distributed_archive_excludes_community_files_and_keeps_evidence(bundle):
+    assert (bundle/"THIRD-PARTY-NOTICES.md").read_bytes() == (ROOT/"THIRD-PARTY-NOTICES.md").read_bytes()
+    assert "CC BY 4.0" in (bundle/"ATTRIBUTION.txt").read_text(encoding="utf-8")
+    for name in ("LICENSE", "THIRD-PARTY-LICENSES.txt"):
+        assert (bundle/"ui/vendor"/name).read_bytes() == (ROOT/"src/rhp/Asset_Panel/web/vendor"/name).read_bytes()
     catalogue=json.loads((bundle/"api/catalogue.json").read_text())
     assert catalogue["counts"]["assets"]==57
     assert len(list(bundle.rglob("*.glb")))==50

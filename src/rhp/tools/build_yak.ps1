@@ -31,9 +31,11 @@ try {
     foreach ($file in @("RhinoAlmondBridge.deps.json", "RhinoAlmondBridge.runtimeconfig.json")) {
         Copy-Item -LiteralPath (Join-Path $bin $file) -Destination $stage
     }
+    Copy-Item -LiteralPath (Join-Path $repo "src/rhp/RhinoTerminal/licenses") -Destination (Join-Path $stage "licenses") -Recurse
     & $PythonExecutable src/rhp/tools/build_archive_bundle.py (Join-Path $stage "archive")
     if ($LASTEXITCODE -ne 0) { throw "Archive bundle build failed." }
     Copy-Item -LiteralPath (Join-Path $repo "src/rhp/RhinoAlmondBridge/yak/manifest.yml") -Destination $stage
+    foreach ($file in @("LICENSE", "THIRD-PARTY-NOTICES.md")) { Copy-Item -LiteralPath (Join-Path $repo $file) -Destination $stage }
     Copy-Item -LiteralPath (Join-Path $repo "docs/assets/rhino-archive-quickstart.md") -Destination (Join-Path $stage "GETTING-STARTED.md")
     Push-Location $stage
     try {

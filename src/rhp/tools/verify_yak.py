@@ -16,6 +16,7 @@ RUNTIME = {"RhinoAlmondBridge.rhp", "Almond.Engine.dll", "Microsoft.CodeAnalysis
            "Microsoft.CodeAnalysis.dll", "Newtonsoft.Json.dll", "Porta.Pty.dll",
            "Vanara.Core.dll", "Vanara.PInvoke.Kernel32.dll", "Vanara.PInvoke.Shared.dll"}
 RUNTIME_METADATA = {"RhinoAlmondBridge.deps.json", "RhinoAlmondBridge.runtimeconfig.json"}
+TERMINAL_LICENSES = {f"licenses/{name}-LICENSE.txt" for name in ("Porta.Pty", "Vanara", "addon-fit", "xterm")}
 
 
 def verify(path, rhino_sdk_version=None):
@@ -37,7 +38,10 @@ def verify(path, rhino_sdk_version=None):
                 raise ValueError(f"Forbidden member: {name}")
             if "/files/drawing/" in name or "/raw/" in name:
                 raise ValueError(f"Community or raw model included: {name}")
-        for name in RUNTIME | RUNTIME_METADATA | {"manifest.yml", "GETTING-STARTED.md", "archive/bundle.json"}:
+        for name in RUNTIME | RUNTIME_METADATA | TERMINAL_LICENSES | {
+                "manifest.yml", "GETTING-STARTED.md", "LICENSE", "THIRD-PARTY-NOTICES.md",
+                "archive/bundle.json", "archive/ATTRIBUTION.txt", "archive/THIRD-PARTY-NOTICES.md",
+                "archive/ui/vendor/LICENSE", "archive/ui/vendor/THIRD-PARTY-LICENSES.txt"}:
             if name not in names:
                 raise ValueError(f"Missing package file: {name}")
         manifest = archive.read("manifest.yml").decode("utf-8-sig")

@@ -358,7 +358,7 @@ namespace AlmondScriptUndoTests
 
         private static string Recipe(string id)
         {
-            string root = Environment.GetEnvironmentVariable("RHINO_MCP_MATERIAL_DIR");
+            string root = System.Environment.GetEnvironmentVariable("RHINO_MCP_MATERIAL_DIR");
             if (String.IsNullOrEmpty(root)) throw new InvalidOperationException("Set RHINO_MCP_MATERIAL_DIR for the fixture.");
             var manifest = JObject.Parse(File.ReadAllText(Path.Combine(root, "manifest.json")));
             return manifest["materials"].OfType<JObject>().Single(m => (string)m["material_id"] == id).ToString();

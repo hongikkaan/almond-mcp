@@ -2,6 +2,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("verify_runtime", ROOT / "src/rhp/tools/verify_runtime.py")
@@ -26,3 +27,14 @@ def test_changed_source_requires_new_runtime_record(tmp_path):
 
 def test_missing_runtime_file_is_rejected(tmp_path):
     assert runtime.verify(tmp_path, {"sources": {}, "files": {"Bridge.rhp": "missing"}}) == ["Bridge.rhp"]
+
+
+def test_runtime_record_rejects_missing_dependency_notices(tmp_path, monkeypatch):
+    for bundle, name in zip(runtime.BUNDLES, ("RhinoAlmondBridge.rhp", "AlmondCOS.rhp")):
+        directory = tmp_path / bundle
+        directory.mkdir(parents=True)
+        (directory / name).write_bytes(b"fixture")
+        (directory / "Almond.Engine.dll").write_bytes(b"same-engine")
+    monkeypatch.setattr(runtime.subprocess, "check_output", lambda *args, **kwargs: b"")
+    with pytest.raises(RuntimeError, match="required license notices"):
+        runtime.record(tmp_path)

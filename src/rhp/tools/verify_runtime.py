@@ -44,8 +44,13 @@ def record(root):
     files = sorted(p.relative_to(root).as_posix() for bundle in BUNDLES
                    for p in (root / bundle).rglob("*") if p.is_file())
     required = [f"{BUNDLES[0]}/RhinoAlmondBridge.rhp", f"{BUNDLES[1]}/AlmondCOS.rhp"]
+    required += [f"{BUNDLES[0]}/{name}" for name in (
+        "LICENSE", "THIRD-PARTY-NOTICES.md", "archive/THIRD-PARTY-NOTICES.md",
+        "archive/ATTRIBUTION.txt", "archive/ui/vendor/LICENSE", "archive/ui/vendor/THIRD-PARTY-LICENSES.txt",
+        *(f"licenses/{name}-LICENSE.txt" for name in ("Porta.Pty", "Vanara", "addon-fit", "xterm")),
+    )]
     if not all(p in files for p in required):
-        raise RuntimeError("Build both committed runtime bundles before recording their hashes.")
+        raise RuntimeError("Runtime bundles are missing executables or required license notices.")
     if digest(root / BUNDLES[0] / "Almond.Engine.dll") != digest(root / BUNDLES[1] / "Almond.Engine.dll"):
         raise RuntimeError("Bridge and COS must ship the same Engine binary.")
     return {"format": 1, "sources": {p: source_digest(root / p) for p in sorted(sources)},
