@@ -1,5 +1,3 @@
 @echo off
 chcp 65001 >nul
-title Almond 시작
-powershell.exe -NoLogo -NoProfile -STA -File "%~dp0launch.ps1" -ModelPath "%~1"
-if errorlevel 1 pause
+call "%~dp0..\mcp\runtime\Almond 시작.cmd" %*

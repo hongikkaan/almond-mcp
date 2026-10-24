@@ -15,10 +15,13 @@
 구조는 [SPEC.md](SPEC.md), 기능별 사용법은 [README.md](README.md)의 링크를 필요할 때 읽는다.
 
 - `src/mcp/almond_mcp`: upstream Python MCP·계산·라이브러리 API.
-- `src/engine`: 개인 실행·연결·공유 저장소와 별도 `Almond.Engine.dll`.
-- `src/cos`: 같은 Engine을 사용하는 stdio host/worker와 도구 카탈로그.
+- `src/mcp/runtime`: CLI 실행·연결·공유 저장소와 MCP 실행기. COS는 이 실행기의 공개 확장 훅을 사용한다.
+- `src/rhp/Engine`: Bridge·COS가 공유하는 별도 `Almond.Engine.dll`.
+- `src/cos`: stdio host/worker, 도구 카탈로그, `rhp/`의 COS 플러그인 소스와 자체 빌드·테스트.
 - `src/rhp/RhinoAlmondBridge`: Bridge RHP. `Structural_Analysis`, `Asset_Panel`, `RhinoTerminal` 소스도 여기에 컴파일한다. Terminal에는 별도 PlugIn entry가 없다.
-- `src/rhp/AlmondCOS`: 별도 COS RHP. 패널의 공용 웹 파일은 `src/rhp/Asset_Panel/web`에 둔다.
+- `src/rhp/AlmondCOS`: 기존 등록을 보존하는 COS 출력 폴더. 구현은 `src/cos/rhp`에 둔다. 패널의 공용 웹 원본은 `src/rhp/Asset_Panel/web`이다.
+- `src/engine`: 예전 시작 버튼·설치 명령의 전달 스크립트와 기존 CoS command가 가리키는 `.venv`만 유지한다. 구현을 추가하지 않는다.
+- 모듈 전용 테스트는 각 모듈의 `tests/`, 여러 모듈의 계약 검사는 루트 `tests/`에 둔다. 의존 방향·변경 범위는 [모듈 개발 안내](docs/development/module-boundaries.md)를 따른다.
 
 Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 보존한다. 경로 정리 때문에 기능을 리팩터링하지 않는다. Engine DLL을 Bridge RHP나 상위 리포의 `mcp/native`와 혼동하지 말고 설치된 패키지를 패치하지 않는다.
 이 저장소는 상위 Rhino 리포의 `mcp/almond-mcp` 서브모듈이다. 이 리포의 commit/push 이후 상위 gitlink를 갱신하며, 상위의 다른 작업과 섞지 않는다. 개인 통합은 `main`, upstream `codex/undo-recovery`는 기존 `release/0.7.0rc2` Undo 수정 범위를 유지한다.
@@ -30,11 +33,12 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 최초 설치만, 해당 환경의 host/worker와 Rhino 연결을 종료한 뒤 리포 루트에서 실행한다.
 
 ```powershell
-./src/engine/rebuild_environment.ps1
+./src/mcp/rebuild_environment.ps1
+./src/cos/configure.ps1
 ./src/rhp/tools/install_runtime.ps1
 ```
 
-첫 명령은 `src/engine/.venv`에 Python 3.12.12·`uv.lock` 의존성을 구성하고 MCP를 editable로 설치하며 COS 카탈로그와 로컬 `src/cos/cos-plugin.json`을 생성한다. 둘째 명령은 기존 등록을 `data/runtime-install`에 백업하고 다음 고정 파일을 등록한다. CoS 앱에는 생성된 JSON의 command/args와 600초 제한을 한 번 등록한다. JSON 생성 자체가 CoS 앱 등록은 아니다.
+첫 명령은 `src/engine/.venv`에 Python 3.12.12·`uv.lock` 의존성과 editable MCP를 구성한다. 둘째는 COS 카탈로그와 로컬 `src/cos/cos-plugin.json`만 생성한다. 셋째는 기존 등록을 `data/runtime-install`에 백업하고 다음 고정 파일을 등록한다. CoS 앱에는 생성된 JSON의 command/args와 600초 제한을 한 번 등록한다. JSON 생성 자체가 CoS 앱 등록은 아니다. 예전 `src/engine/rebuild_environment.ps1`은 앞의 두 단계를 호출하는 호환 진입점이다.
 
 | 플러그인 | 등록 파일 | GUID |
 |---|---|---|
@@ -45,7 +49,7 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 이후 업데이트는 **Rhino를 정상 종료 → 일상 폴더에서 `git pull --ff-only` → Rhino 시작** 순서다. pull은 fetch와 현재 브랜치·추적 파일의 fast-forward를 수행한다. fetch만으로 파일은 바뀌지 않고, 실행 중 Rhino는 이미 로드한 assembly를 계속 쓴다. 소스와 실행 파일을 함께 받으므로 매번 빌드·복사·등록할 필요가 없다.
 
-- 외부 실행: `src/engine/Almond 시작.cmd`에서 저장된 모델을 선택한다.
+- 외부 실행: `src/mcp/runtime/Almond 시작.cmd`에서 저장된 모델을 선택한다.
 - Rhino 내부: `RhinoTerminal` → `almond`; 재연결은 `almond resume`.
 - COS: 저장된 Rhino 문서에서 `AlmondCOS`를 실행하고 host/model을 선택한다.
 - 패널: `Almond`, `AlmondLibrary`, `AlmondStructure`, `AlmondResults`. 패널이 숨으면 Terminal/Layers와 같은 dock에 둔다.
@@ -60,12 +64,14 @@ C#/native 또는 실행용 UI 변경은 Rhino를 닫은 상태에서 영향받�
 
 ```powershell
 ./src/rhp/build.ps1
-./src/rhp/AlmondCOS/build.ps1
+./src/cos/build.ps1
 & ./src/engine/.venv/Scripts/python.exe -B src/rhp/tools/verify_runtime.py --record
 & ./src/engine/.venv/Scripts/python.exe -B src/rhp/tools/verify_runtime.py
 ```
 
-Bridge와 COS 출력은 위의 각 `plugin-runtime` 폴더다. Engine을 변경했다면 양쪽을 빌드해 `Almond.Engine.dll`이 같게 한다. RHP와 의존 DLL·deps/runtimeconfig JSON·archive를 함께 추적한다. Rhino 제공 DLL은 포함하지 않는다. 빌드는 staging 후 교체하며 등록하지 않는다. Terminal의 `../../../engine` 탐색 때문에 출력 깊이를 유지한다.
+Bridge와 COS 출력은 위의 각 `plugin-runtime` 폴더다. Engine을 변경했다면 양쪽을 빌드해 `Almond.Engine.dll`이 같게 한다. RHP와 의존 DLL·deps/runtimeconfig JSON·archive를 함께 추적한다. Rhino 제공 DLL은 포함하지 않는다. 빌드는 staging 후 교체하며 등록하지 않는다. Terminal과 COS는 이 고정 출력 위치에서 `src/mcp/runtime`을 찾으므로 출력 깊이를 유지한다.
+
+검증 기록은 `src/rhp/RhinoAlmondBridge/runtime-manifest.json`과 `src/cos/runtime-manifest.json`으로 나뉜다. 모듈별 빌드 후에는 `verify_runtime.py --record --component bridge` 또는 `--component cos`로 자기 기록만 갱신한다. 통합 시 옵션 없이 검사하면 양쪽 기록과 Engine 바이너리 일치까지 확인한다.
 
 **개발 워크트리에서 구현·빌드·검증 → 소스와 실행 파일을 같은 commit → push·PR·merge → Rhino를 닫고 일상 폴더에서 pull → 시작 후 등록된 런타임 확인**이 전체 전달 순서다. 사용자에게 빌드·바이너리 복사·등록 수정을 떠넘기는 소스만의 전달은 하지 않는다. commit, push, merge, 일상 파일 갱신과 실제 로드를 각각 구분해 보고한다.
 
@@ -81,15 +87,16 @@ Rhino 작업 전 `almond_project_info`(COS는 `almond_cos_project_info`)의 연�
 
 ## 검증
 
-오프라인 개발 셸에서 먼저 `./src/engine/use_offline_environment.ps1`을 실행하면 라이브러리와 DB/tmp가 해당 체크아웃의 `asset/`·`data/offline`을 사용한다. 현재 셸과 자식에만 적용되며 네트워크 차단이나 실제 Rhino 격리는 아니다. 일반 실행으로 돌아갈 때는 새 셸을 연다.
+오프라인 개발 셸에서 먼저 `./src/mcp/use_offline_environment.ps1`을 실행하면 라이브러리와 DB/tmp가 해당 체크아웃의 `asset/`·`data/offline`을 사용한다. 현재 셸과 자식에만 적용되며 네트워크 차단이나 실제 Rhino 격리는 아니다. 일반 실행으로 돌아갈 때는 새 셸을 연다.
 
 변경 범위에 맞춰 아래 검사를 선택한다.
 
 ```powershell
-& ./src/engine/.venv/Scripts/python.exe -B -X utf8 -m pytest tests/mcp tests/engine
+./src/mcp/run_tests.ps1
 ./src/cos/run_tests.ps1
-& ./src/engine/.venv/Scripts/python.exe -B src/engine/verify_library_sources.py
-node --test (Get-ChildItem tests/rhp/Asset_Panel -Filter *.test.mjs | ForEach-Object FullName)
+& ./src/engine/.venv/Scripts/python.exe -B -X utf8 -m pytest
+& ./src/engine/.venv/Scripts/python.exe -B tests/verify_library_sources.py
+node --test (Get-ChildItem src/rhp/Asset_Panel/tests -Filter *.test.mjs | ForEach-Object FullName)
 ```
 
-기본 pytest는 MCP/Engine이고 COS는 전용 .NET fixture 준비가 필요하다. native fixture는 `tests/engine/native`, Terminal host는 `tests/rhp/RhinoTerminal/AlmondHostContracts`, Undo·관측은 [fixture README](tests/rhp/RhinoAlmondBridge/script_executor_undo/README.md)를 따른다. 실제 Rhino 검증은 일회용 문서에서 수행하고 빌드·오프라인 검사와 별도로 보고한다. 기존 실패를 숨기거나 기준을 낮추지 않는다.
+루트의 기본 pytest는 통합 검사다. MCP는 자체 `pytest.ini`를 쓰는 `run_tests.ps1`, COS는 .NET fixture를 준비하는 자체 `run_tests.ps1`로 검사한다. native fixture는 `src/rhp/Engine/tests`, Terminal host는 `src/rhp/RhinoTerminal/tests/AlmondHostContracts`, Undo·관측은 [fixture README](src/rhp/RhinoAlmondBridge/tests/script_executor_undo/README.md)를 따른다. 실제 Rhino 검증은 일회용 문서에서 수행하고 빌드·오프라인 검사와 별도로 보고한다. 기존 실패를 숨기거나 기준을 낮추지 않는다.

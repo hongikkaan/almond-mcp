@@ -21,9 +21,11 @@ try {
         throw "Release output must be empty; preserve or move the previous artifacts before retrying: $output"
     }
     New-Item -ItemType Directory -Force -Path $output | Out-Null
-    & dotnet build tests/rhp/RhinoAlmondBridge/archive_host/ArchiveHost.csproj -c Release -o (Join-Path $scratch "host")
+    & dotnet build src/rhp/RhinoAlmondBridge/tests/archive_host/ArchiveHost.csproj -c Release -o (Join-Path $scratch "host")
     if ($LASTEXITCODE -ne 0) { throw "Archive host build failed." }
     $env:ALMOND_ARCHIVE_TEST_HOST = Join-Path $scratch "host/ArchiveHost.exe"
+    & $python -m pytest -c src/mcp/pytest.ini src/mcp/tests -q --junitxml (Join-Path $output "mcp-tests.xml")
+    if ($LASTEXITCODE -ne 0) { throw "MCP module tests failed." }
     & $python -m pytest -q --junitxml (Join-Path $output "tests.xml")
     if ($LASTEXITCODE -ne 0) { throw "Tests failed." }
     & $python src/mcp/tools/document_generation_sources.py --check

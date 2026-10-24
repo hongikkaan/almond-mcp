@@ -2,7 +2,7 @@ Rhino Terminal + Almond
 
 현재 저장소의 통합 RhinoAlmondBridge.rhp와 공용 Engine을 사용합니다.
 빌드: 리포 루트에서 ./src/rhp/build.ps1
-설치: src/rhp/RhinoAlmondBridge/plugin-build/RhinoAlmondBridge.rhp
+설치: src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp
 같은 폴더의 DLL·archive·licenses·JSON 파일을 함께 유지합니다. 별도 RhinoTerminal.rhp는 설치하지 않습니다.
 
 1. 평소처럼 Rhino에서 작업할 .3dm을 엽니다. 새 문서는 먼저 저장하세요.

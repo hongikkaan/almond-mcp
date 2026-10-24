@@ -12,10 +12,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-TESTS = ["tests/mcp/test_frame_solver.py", "tests/mcp/test_native_structure.py", "tests/mcp/test_load_combinations.py",
-         "tests/mcp/test_end_releases.py", "tests/mcp/test_stability.py", "tests/mcp/test_floor_loads.py",
-         "tests/mcp/test_asset_loads.py", "tests/mcp/test_design_codes.py", "tests/mcp/test_structure_study.py",
-         "tests/mcp/test_validate_engines.py", "tests/mcp/test_visualize_native.py", "tests/mcp/test_hand_calculations.py", "tests/mcp/test_ec3.py"]
+TESTS = ["src/mcp/tests/test_frame_solver.py", "src/mcp/tests/test_native_structure.py", "src/mcp/tests/test_load_combinations.py",
+         "src/mcp/tests/test_end_releases.py", "src/mcp/tests/test_stability.py", "src/mcp/tests/test_floor_loads.py",
+         "src/mcp/tests/test_asset_loads.py", "src/mcp/tests/test_design_codes.py", "src/mcp/tests/test_structure_study.py",
+         "src/mcp/tests/test_validate_engines.py", "src/mcp/tests/test_visualize_native.py", "src/mcp/tests/test_hand_calculations.py", "src/mcp/tests/test_ec3.py"]
 
 MUTANTS = [
     ("load factor gamma_G 1.35 -> 1.30", "src/mcp/almond_mcp/code_profiles/eurocode.json", '"gamma_G": {"value": 1.35', '"gamma_G": {"value": 1.30'),
