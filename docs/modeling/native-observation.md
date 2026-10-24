@@ -130,7 +130,7 @@ ID이며 전체 변경 내역을 보장하지 않는다. 일반 실행기는 기
 반환하면 후속 판단을 쉽게 할 수 있지만 검사 조건 자체의 정확성을 보장하지는 않는다.
 
 Python 검증은 실제 MCP content/schema와 위조·누락 이미지/크기 오류를 다룬다.
-`tests/rhp/RhinoAlmondBridge/script_executor_undo`의 native suite는 기존 Undo 회귀,
+`src/rhp/RhinoAlmondBridge/tests/script_executor_undo`의 native suite는 기존 Undo 회귀,
 반환 제한과 headless 조회를 검사하고, `ObservationTests.RunViewport(doc)`는 호출자가
 지정한 실제 문서의 geometry/attributes/layer/view/selection/Undo 상태를 전후 비교한다.
 후보 RHP 빌드, 실제 로드 경로, 실제 클라이언트 수신은 각각 별도로 확인해야 한다.

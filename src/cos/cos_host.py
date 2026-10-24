@@ -17,7 +17,7 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.server.lowlevel.server import Server
 from mcp.server.stdio import stdio_server
 
-from runtime import (ENGINE, PREFIX, ROOT, VERSION, WORKER_STATE_TOOL, check_contract,
+from runtime import (ENGINE, PYTHON, PREFIX, ROOT, VERSION, WORKER_STATE_TOOL, check_contract,
                      load_catalog, validate_worker_tools)
 from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
@@ -111,7 +111,7 @@ class Worker:
 
     async def _own(self):
         params = StdioServerParameters(
-            command=str(ENGINE / ".venv/Scripts/python.exe"),
+            command=str(PYTHON),
             args=["-B", "-u", str(ROOT / "cos_worker.py"), "--session",
                   self.binding["ready_path"], "--port", str(self.binding["port"]),
                   "--connection-id", self.connection_id],

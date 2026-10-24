@@ -8,7 +8,9 @@ from pathlib import Path
 import almond_mcp
 
 ROOT = Path(__file__).resolve().parent
-ENGINE = ROOT.parent / "engine"
+ENGINE = ROOT.parent / "mcp" / "runtime"
+# Keep the interpreter path used by existing CoS registrations stable.
+PYTHON = ROOT.parent / "engine" / ".venv" / "Scripts" / "python.exe"
 CATALOG = ROOT / "tool_catalog.json"
 PREFIX = "almond_cos_"
 WORKER_STATE_TOOL = "almond_cos_worker_state"

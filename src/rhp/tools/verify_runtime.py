@@ -1,4 +1,4 @@
-"""Record or verify the prebuilt Rhino runtime committed with its source."""
+"""Record/verify each owner's runtime; verify shared Engine agreement at integration."""
 import argparse
 import hashlib
 import json
@@ -6,8 +6,18 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[3]
-MANIFEST = "src/rhp/runtime-manifest.json"
+MANIFESTS = {
+    "bridge": "src/rhp/RhinoAlmondBridge/runtime-manifest.json",
+    "cos": "src/cos/runtime-manifest.json",
+}
 BUNDLES = ("src/rhp/RhinoAlmondBridge/plugin-runtime", "src/rhp/AlmondCOS/plugin-runtime")
+COMPONENT_BUNDLES = dict(zip(MANIFESTS, BUNDLES))
+SOURCE_ROOTS = {
+    "bridge": ("src/rhp/RhinoAlmondBridge/", "src/rhp/Structural_Analysis/",
+               "src/rhp/Asset_Panel/", "src/rhp/RhinoTerminal/", "src/rhp/Engine/",
+               "src/mcp/almond_mcp/rhino/"),
+    "cos": ("src/cos/rhp/", "src/rhp/Engine/"),
+}
 
 
 def digest(path):
@@ -21,6 +31,26 @@ def source_digest(path):
     return hashlib.sha256(data).hexdigest()
 
 
+def is_source(relative, component):
+    path = Path(relative)
+    if any(part in {"tests", "data", "bin", "obj"} or part.startswith("plugin-")
+           for part in path.parts):
+        return False
+    if component == "bridge" and relative == "src/mcp/almond_mcp/modeling_policy.json":
+        return True
+    return relative.startswith(SOURCE_ROOTS[component]) and (
+        path.suffix.lower() in {".cs", ".csproj", ".props", ".targets", ".ico", ".resx"}
+        or path.name in {"NuGet.Config", "packages.lock.json"}
+        or relative.startswith("src/rhp/Asset_Panel/web/"))
+
+
+def source_files(root, component):
+    tracked = subprocess.check_output([
+        "git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"
+    ]).decode().split("\0")
+    return sorted({p for p in tracked if (root / p).is_file() and is_source(p, component)})
+
+
 def verify(root, manifest):
     errors = []
     for group in ("sources", "files"):
@@ -32,43 +62,50 @@ def verify(root, manifest):
     return errors
 
 
-def record(root):
-    tracked = subprocess.check_output(["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"]).decode().split("\0")
-    sources = [p for p in sorted(set(tracked)) if (root / p).is_file() and ((
-        p.startswith(("src/rhp/", "src/engine/native/"))
-        and (Path(p).suffix.lower() in (".cs", ".csproj", ".props", ".targets", ".ico", ".resx")
-             or Path(p).name in ("NuGet.Config", "packages.lock.json")
-             or p.startswith("src/rhp/Asset_Panel/web/")))
-        or p == "src/mcp/almond_mcp/modeling_policy.json"
-        or (p.startswith("src/mcp/almond_mcp/rhino/") and p.endswith(".cs")))]
-    files = sorted(p.relative_to(root).as_posix() for bundle in BUNDLES
-                   for p in (root / bundle).rglob("*") if p.is_file())
-    required = [f"{BUNDLES[0]}/RhinoAlmondBridge.rhp", f"{BUNDLES[1]}/AlmondCOS.rhp"]
-    required += [f"{BUNDLES[0]}/{name}" for name in (
-        "LICENSE", "THIRD-PARTY-NOTICES.md", "archive/THIRD-PARTY-NOTICES.md",
-        "archive/ATTRIBUTION.txt", "archive/ui/vendor/LICENSE", "archive/ui/vendor/THIRD-PARTY-LICENSES.txt",
-        *(f"licenses/{name}-LICENSE.txt" for name in ("Porta.Pty", "Vanara", "addon-fit", "xterm")),
-    )]
+def record(root, component):
+    bundle = COMPONENT_BUNDLES[component]
+    files = sorted(p.relative_to(root).as_posix() for p in (root / bundle).rglob("*") if p.is_file())
+    entry = "RhinoAlmondBridge.rhp" if component == "bridge" else "AlmondCOS.rhp"
+    required = [f"{bundle}/{entry}", f"{bundle}/Almond.Engine.dll"]
+    if component == "bridge":
+        required += [f"{bundle}/{name}" for name in (
+            "LICENSE", "THIRD-PARTY-NOTICES.md", "archive/THIRD-PARTY-NOTICES.md",
+            "archive/ATTRIBUTION.txt", "archive/ui/vendor/LICENSE", "archive/ui/vendor/THIRD-PARTY-LICENSES.txt",
+            *(f"licenses/{name}-LICENSE.txt" for name in ("Porta.Pty", "Vanara", "addon-fit", "xterm")),
+        )]
     if not all(p in files for p in required):
         raise RuntimeError("Runtime bundles are missing executables or required license notices.")
-    if digest(root / BUNDLES[0] / "Almond.Engine.dll") != digest(root / BUNDLES[1] / "Almond.Engine.dll"):
-        raise RuntimeError("Bridge and COS must ship the same Engine binary.")
-    return {"format": 1, "sources": {p: source_digest(root / p) for p in sorted(sources)},
+    return {"format": 1, "component": component,
+            "sources": {p: source_digest(root / p) for p in source_files(root, component)},
             "files": {p: digest(root / p) for p in files}}
+
+
+def verify_engine_pair(root):
+    if digest(root / BUNDLES[0] / "Almond.Engine.dll") != digest(root / BUNDLES[1] / "Almond.Engine.dll"):
+        raise RuntimeError("Bridge and COS must ship the same Engine binary. Build both after an Engine change.")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--record", action="store_true", help="Maintainer: record completed builds before committing.")
+    parser.add_argument("--record", action="store_true", help="Record completed builds before committing.")
+    parser.add_argument("--component", choices=("all", *MANIFESTS), default="all")
     args = parser.parse_args()
-    path = ROOT / MANIFEST
-    if args.record:
-        path.write_text(json.dumps(record(ROOT), indent=2) + "\n", encoding="utf-8")
-    manifest = json.loads(path.read_text(encoding="utf-8"))
-    errors = verify(ROOT, manifest)
-    if errors:
-        raise SystemExit("Runtime differs from its recorded source/build; rebuild and commit it:\n" + "\n".join(errors))
-    print(f"Runtime verified: {len(manifest['sources'])} source files, {len(manifest['files'])} runtime files.")
+    selected = list(MANIFESTS) if args.component == "all" else [args.component]
+    if args.component == "all":
+        verify_engine_pair(ROOT)
+    for component in selected:
+        path = ROOT / MANIFESTS[component]
+        if args.record:
+            path.write_text(json.dumps(record(ROOT, component), indent=2) + "\n", encoding="utf-8")
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        if manifest.get("component") != component:
+            raise SystemExit(f"Wrong runtime manifest owner: {path}")
+        errors = verify(ROOT, manifest)
+        if sorted(manifest["sources"]) != source_files(ROOT, component):
+            errors.append("Source inventory changed; rebuild and record this component.")
+        if errors:
+            raise SystemExit(f"{component} runtime differs from its source/build:\n" + "\n".join(errors))
+        print(f"{component}: {len(manifest['sources'])} source files, {len(manifest['files'])} runtime files verified.")
 
 
 if __name__ == "__main__":

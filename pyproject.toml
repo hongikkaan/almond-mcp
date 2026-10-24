@@ -75,7 +75,7 @@ packages = ["src/mcp/almond_mcp"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/src/mcp/almond_mcp", "/src/rhp/Asset_Panel/web", "/tests/mcp", "/docs", "/asset/capsules", "/asset/drawing/DrawingRecipes",
+    "/src/mcp/almond_mcp", "/src/rhp/Asset_Panel/web", "/src/mcp/tests", "/docs", "/asset/capsules", "/asset/drawing/DrawingRecipes",
     "/asset/drawing/Draftingfiles", "/src/mcp/tools/build_drawing_pilot.py",
     "/asset/models/GeneratedAssetfiles/manifest.json", "/asset/models/GeneratedAssetfiles/catalogue.json",
     "/asset/models/GeneratedAssetfiles/provenance.json", "/asset/models/GeneratedAssetfiles/passport.schema.json",
@@ -90,6 +90,9 @@ include = [
     "/src/rhp/tools/build_archive_bundle.py", "/src/mcp/tools/verify_object_archive_install.py",
     "/src/mcp/tools/render_generated_previews.py", "/src/mcp/tools/verify_release.py",
     "/README.md", "/AGENTS.md", "/SPEC.md", "/LICENSE", "/THIRD-PARTY-NOTICES.md",
+    "/src/mcp/SPEC.md", "/src/mcp/AGENTS.md", "/src/mcp/pytest.ini",
+    "/src/cos/SPEC.md", "/src/cos/AGENTS.md", "/src/rhp/SPEC.md", "/src/rhp/AGENTS.md",
+    "/src/engine/README.md",
     "/pyproject.toml", "/uv.lock", "/.gitattributes",
 ]
 # Belt and braces on top of .gitignore: downloaded model files and compiled
@@ -101,10 +104,11 @@ exclude = [
     "asset/grasshopper/Grasshopperfiles",
     "dist",
     "src/rhp/RhinoAlmondBridge",
+    "src/mcp/tests/runtime",
     "*.sqlite3",
 ]
 
 [tool.pytest.ini_options]
-# COS requires the .NET fixtures and environment prepared by src/cos/run_tests.ps1.
-testpaths = ["tests/mcp", "tests/engine"]
-pythonpath = ["src/mcp", "src/engine", "src/cos", "tests/mcp", "tests/engine", "tests/cos"]
+# Root pytest owns integration checks. Modules have their own test entry points.
+testpaths = ["tests"]
+pythonpath = ["src/mcp", "src/mcp/runtime", "src/cos", "src/mcp/tests"]

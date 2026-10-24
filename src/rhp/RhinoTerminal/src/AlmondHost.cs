@@ -26,7 +26,7 @@ internal sealed class AlmondHost : IDisposable
     public string PipeName { get; } = "RhinoTerminal-" + Environment.ProcessId + "-" + Guid.NewGuid().ToString("N");
     public string AccessToken { get; } = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
     public string Engine { get; } = Path.GetFullPath(Path.Combine(
-        Path.GetDirectoryName(typeof(AlmondHost).Assembly.Location)!, "..", "..", "..", "engine"));
+        Path.GetDirectoryName(typeof(AlmondHost).Assembly.Location)!, "..", "..", "..", "mcp", "runtime"));
     readonly CancellationTokenSource shutdown = new();
     readonly Action<string> report;
     Dictionary<string, object?>? binding;

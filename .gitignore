@@ -39,9 +39,11 @@ obj/
 /.trash/
 /data/
 /src/engine/data/
+/tests/engine/data/
+/src/mcp/runtime/data/
 /src/cos/data/
 /src/rhp/*/data/
-/tests/engine/data/
+/src/mcp/tests/runtime/data/
 .almond/
 /src/rhp/*/plugin-*/
 /src/cos/cos-plugin.json

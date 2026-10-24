@@ -2,7 +2,7 @@
 
     uv run python src/mcp/tools/run_structural_benchmarks.py
 
-The same cases are asserted in tests/mcp/test_frame_solver.py and tests/mcp/test_native_structure.py;
+The same cases are asserted in src/mcp/tests/test_frame_solver.py and src/mcp/tests/test_native_structure.py;
 this script only renders the numbers for docs/structure/native-solver.md."""
 from __future__ import annotations
 

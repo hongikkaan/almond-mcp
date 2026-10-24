@@ -117,7 +117,7 @@ axes polygonized identically. `src/mcp/almond_mcp/native_structure.py` then appl
 
 ### Validation
 
-- `tests/mcp/test_hand_calculations.py` and `tests/mcp/test_ec3.py`: closed forms worked from first
+- `src/mcp/tests/test_hand_calculations.py` and `src/mcp/tests/test_ec3.py`: closed forms worked from first
   principles and from the standard's text (beam, cantilever, column buckling on curves a and
   c, Table 5.2 classes by grade, Table B.3 C_m, an Annex B case where k = 1.3).
 - `src/mcp/tools/mutation_check.py` plants known engineering errors one at a time (wrong factors,
@@ -295,9 +295,9 @@ CHS 114.3×4 under furniture and self weight only: 17.2 mm, utilization 0.30.
 
 ## Benchmarks
 
-Asserted in `tests/mcp/test_frame_solver.py` (20 closed-form cases including equilibrium,
+Asserted in `src/mcp/tests/test_frame_solver.py` (20 closed-form cases including equilibrium,
 superposition, orientation invariance, mechanisms, section properties and EN 1993
-buckling) and `tests/mcp/test_native_structure.py` (Karamba cross-check). Regenerate the
+buckling) and `src/mcp/tests/test_native_structure.py` (Karamba cross-check). Regenerate the
 tables with `uv run python src/mcp/tools/run_structural_benchmarks.py`.
 
 ### Closed form (CHS 114.3×4, S235)
@@ -314,7 +314,7 @@ tables with `uv run python src/mcp/tools/run_structural_benchmarks.py`.
 ### Karamba3D cross-check
 
 Reference runs: Karamba3D 3.1 (karambaCommon 3.1.60921) in Rhino 8, 2026-09-30, on the
-same geometry and conventions (`tests/mcp/data/karamba_reference.json`).
+same geometry and conventions (`src/mcp/tests/data/karamba_reference.json`).
 
 | Model | Section | Load (kN) | Karamba δ (mm) | Native δ (mm) | Δ | Karamba u | Native u | Δ |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

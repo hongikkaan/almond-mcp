@@ -54,6 +54,6 @@
 
 아래 명령은 사용자가 스킬 코드 유지보수를 별도로 요청한 때의 검증이다. 스킬 폴더·`tests/.artifacts/`에 쓰거나 별도 Rhino를 실행하므로, 현재 문서와 `.almond`만 편집하는 일반 모델링 작업이나 읽기 전용 subagent는 실행하지 마라. 지침 문서만 바꾼 경우에는 관련 링크·내용과 diff를 검토하라.
 
-저장소의 `tests/mcp/test_rhino_observation.py`는 공개 probe 인자·capability·schema를 검사한다. Windows에 Rhino 8과 .NET SDK가 있는 환경에서는 스킬 폴더에서 `dotnet build tests/NativeSkillCheck.csproj -c Release` 후 `tests/bin/Release/net48/NativeSkillCheck.exe tests "<새 JSON 보고서 절대경로>"`로 기하 회귀 검사를 실행하라. 기본 Rhino 설치 위치가 다르면 `RHINO_SYSTEM_DIR`로 System 폴더를 지정하라.
+저장소의 `src/mcp/tests/test_rhino_observation.py`는 공개 probe 인자·capability·schema를 검사한다. Windows에 Rhino 8과 .NET SDK가 있는 환경에서는 스킬 폴더에서 `dotnet build tests/NativeSkillCheck.csproj -c Release` 후 `tests/bin/Release/net48/NativeSkillCheck.exe tests "<새 JSON 보고서 절대경로>"`로 기하 회귀 검사를 실행하라. 기본 Rhino 설치 위치가 다르면 `RHINO_SYSTEM_DIR`로 System 폴더를 지정하라.
 
 `python -B tests/verify_pipeline.py`는 컴파일된 고정 handler의 다섯 probe와 잘못된 문서·도구 거절을 확인한다. 별도 Rhino 프로세스의 자체 문서에서 기하·속성·선택·레이어·modified·Undo 상태를 전후 대조한다. 임시 모델과 결과는 `tests/.artifacts/`에 남긴다. 실제 RHP의 dispatch와 공개 COS 호출은 별도 로드 검증에서 확인한다.
