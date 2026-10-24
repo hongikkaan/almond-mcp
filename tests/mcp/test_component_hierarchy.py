@@ -403,6 +403,31 @@ def test_parent_read_only_sync_refreshes_descendant_geometry_bounds(store):
     assert store.get_scene(store.scene_b)["revision"] > before
 
 
+@pytest.mark.parametrize("change", ["bounds", "object_type", "owner", "identity"])
+def test_live_parent_reports_descendant_drift_before_sync(store, change):
+    leaf = create(store, "Leaf", [A])
+    root = create(store, "Root", [], scenes=[store.scene_b], children=[leaf["component_id"]])
+    root_id, leaf_id = root["component_id"], leaf["component_id"]
+    cached = store.get_component(root_id)
+    moved = object_row(A, leaf_id)
+    if change == "bounds":
+        moved["bounds_mm"] = [50, 0, 0, 150, 200, 300]
+    elif change == "object_type":
+        moved["object_type"] = "TextDot"
+    elif change == "owner":
+        moved["component_id"] = "other-component"
+    else:
+        moved["rhino_guid"] = C
+    observed = dict(cached, complete=True, effective_objects=[moved],
+                    effective_object_ids=[moved["rhino_guid"]],
+                    pending_objects=[], requires_sync=False)
+    live = store.get_component(root_id, live=True,
+                               native_inspect=lambda request: dict(status="success", component=observed))
+    assert live["live_verified"] is True and live["requires_sync"] is True
+    assert live["effective_objects"][0] == moved
+    assert store.get_component(root_id)["effective_objects"] == cached["effective_objects"]
+
+
 def test_undo_detaches_child_only_after_parent_relationship_is_reconciled(store):
     child = create(store, "Child", [A])
     parent = create(store, "Parent", [B], children=[child["component_id"]])

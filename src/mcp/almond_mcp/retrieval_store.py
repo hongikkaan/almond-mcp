@@ -1640,8 +1640,29 @@ class AlmondStore:
             if not isinstance(children, list) or not isinstance(pending, list):
                 raise ValueError("Native Component children and pending objects must be lists.")
             native_scenes = self._component_scene_ids(connection, observed.get("scene_ids"))
+            effective_changed = False
+            if "effective_objects" in observed:
+                effective = self._component_observed_objects(
+                    {"complete": observed.get("complete"), "truncated": observed.get("truncated"),
+                     "objects": observed["effective_objects"]},
+                )
+                effective_ids = [item["rhino_guid"] for item in effective]
+                if ("effective_object_ids" in observed and
+                        self._component_object_ids(observed["effective_object_ids"]) != effective_ids):
+                    raise ValueError("Native effective object identities and details disagree.")
+                effective_changed = [
+                    (obj["rhino_guid"], obj["object_type"], obj.get("component_id"), obj["bounds_mm"])
+                    for obj in effective
+                ] != [
+                    (obj["rhino_guid"], obj["object_type"], obj["component_id"], obj["bounds_mm"])
+                    for obj in cached["effective_objects"]
+                ]
+            elif "effective_object_ids" in observed:
+                effective_changed = (self._component_object_ids(observed["effective_object_ids"])
+                                     != cached["effective_object_ids"])
             changed = (direct_ids != cached["object_ids"] or children != cached["child_component_ids"]
                        or native_scenes != cached["scene_ids"] or observed.get("name") != cached["name"]
+                       or effective_changed
                        or ("parent_component_id" in observed and
                            observed["parent_component_id"] != cached["parent_component_id"])
                        or any(cached["objects"][i]["bounds_mm"] != obj["bounds_mm"]
