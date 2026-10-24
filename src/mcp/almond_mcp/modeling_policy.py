@@ -1,4 +1,4 @@
-"""Shared metadata names and material-layer rules; loading creates no Rhino state."""
+"""Shared metadata names and MCP modeling rules; loading creates no Rhino state."""
 from __future__ import annotations
 
 import json
@@ -16,17 +16,14 @@ def key(name: str) -> str:
     raise KeyError(name)
 
 
-def material_layer_path(material: dict) -> str:
-    path = material.get("layer_path")
-    if path is None:
-        path = f'{POLICY["material_layer_root"]}::{material["category"]}::{material["material_id"]}'
+def validate_layer_path(path: str) -> str:
     if not isinstance(path, str):
-        raise ValueError("material layer_path must be a string")
+        raise ValueError("layer path must be a string")
     parts = path.split("::")
-    if (len(parts) < 2 or parts[0] != POLICY["material_layer_root"]
+    if (parts[0] != POLICY["construction_layer_root"]
             or any(not part or part != part.strip() or any(
-                ord(c) < 32 or c in ':<>"/\\|?*' for c in part) for part in parts)):
-        raise ValueError("material layer_path must contain valid nonempty names beneath M::")
+                ord(c) < 32 or c == ':' for c in part) for part in parts)):
+        raise ValueError("layer path must contain valid nonempty names beneath M")
     return path
 
 
@@ -43,4 +40,4 @@ def validate_material(material: dict) -> dict:
         value = material.get(field)
         if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1:
             raise ValueError(f"material {field} must be finite and in 0..1")
-    return {**material, "layer_path": material_layer_path(material)}
+    return {key: value for key, value in material.items() if key != "layer_path"}

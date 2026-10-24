@@ -1,4 +1,4 @@
-# Scene, Component, planning and material layers
+# Scene, Component, planning and construction layers
 
 Scene은 공간 맥락, Component는 명시적으로 등록한 Rhino group이며 Phase·Plan·Step은 수동 계획 기록이다. Room과 asset instance는 기존 충돌·containment·하중 경로에 남는다.
 
@@ -224,45 +224,39 @@ snapshot; newly registered local assets are immediately visible to the registeri
 MCP process and its repository UI, not automatically to that bundled panel.
 Other running MCP processes must reconnect to reload their cached library.
 
-## Material-driven layers and small metadata
+## Construction layers and material assignment
 
-The material manifest currently contains a flat material list with categories,
-not an undocumented deeper hierarchy. Each entry gains an explicit `layer_path`.
-Existing user manifests without that field derive the same category/material-ID
-path without rewriting AppData. Library identity remains `material_id`; a
-display-name change must not silently produce a different library material.
+MCP owns catalog loading, material choices, construction-layer specifications and
+metadata policy. `modeling_setup.py` supplies resolved recipes to the shared C#
+implementation in `src/mcp/almond_mcp/rhino/`. The Bridge compiles those files to
+execute Rhino API operations on its UI thread; it does not independently read the
+material or construction manifests. Native document access, Undo recovery,
+panels and geometry services remain in RHP. `DocumentLayers.Ensure` is the common
+native layer-path adapter used by drawing styles, asset placement and setup.
 
-The chosen implementation supports direct RhinoCommon batch scripts without
-requiring geometry-specific wrappers. `ModelingMaterials.CreateAttributes`
-prepares attributes for standard `doc.Objects.Add*` methods, and `assign_material`
-uses the same native material/layer helper. Only the required `M::...` ancestors and leaf are
-created, on demand. Reading a catalog or starting the plugin creates no material
-layers. Existing layers are reused. Generic `A-WALL`, `A-STRC` and `A-GLAZ`
-initialization is removed from the script executor; Undo recovery remains.
+`setup_modeling(operation="materials")` registers the library under its readable
+names. Omit `overwrite` for one Yes/No choice in Rhino; true updates matching
+materials, false leaves them as they are. Existing `ALMOND::<id>` names are accepted
+for migration, but new materials use the manifest's `name`.
 
-```mermaid
-flowchart TD
-    A[MCP script starts] --> B[Observe additions and direct material changes]
-    B --> C{Script succeeds and still owns Undo?}
-    C -->|No| D[Skip routing and report failure]
-    C -->|Yes| E[Unsubscribe and inspect final live objects]
-    E --> F{Direct object material?}
-    F -->|No| G[Keep current layer]
-    F -->|Yes| H[Resolve and lazily apply material layer]
-    H --> I[Finish same Undo record]
-```
+`setup_modeling(operation="layers")` creates/reuses
+`M/category/system.name/element.role`, sets material and matching display/print
+colors, and leaves all objects in their existing layers. The system default is
+the first `render_material_ids` entry. Current role defaults use galvanized steel
+for connection/reinforcement/decking and birch plywood for Wood subfloor/sheathing;
+these are setup choices, not mappings present in the construction manifest.
+M and category containers are gray. Existing matching materials are reused.
 
-`ByLayer` and `ByParent` are not guessed or converted: changing their layer can
-change their effective material and cause a feedback loop. Unmaterialed objects
-remain until a direct material is assigned. Custom document materials use a
-readable name and stable identity under a policy-defined custom root. Notifications
-only collect IDs during an MCP script; they never mutate geometry in an event
-callback. Routing starts after unsubscribing, while the same Undo record is still
-owned. Failed scripts, startup, file loading and unrelated manual UI changes do
-not trigger routing. External Python/C# scripts use the attribute factory explicitly.
-Shared block definitions must not be rewritten by an occurrence-level routing
-operation. Automatic routing and explicit material assignment use the same
-path resolver and lazy layer helper.
+`assign_material` preserves the object's layer and unspecified metadata.
+Registration, assignment, layer setup and archive placement share one PBR
+implementation. Direct batch scripts may call `ModelingMaterials.CreateAttributes`
+with a resolved recipe JSON string; passing only a library ID is no longer supported.
+No operation guesses a layer from a material name or watches material-table events
+to move unrelated objects. Catalog reads and plugin startup create no modeling state.
+
+MCP checks `modeling_materials=2` before these mutations; older Bridges with automatic
+material routing are rejected. RHP source changes require a rebuilt Bridge and a
+new Rhino process. Rebuilding a file does not change a running process's assembly.
 
 `modeling_policy.json` defines supported keys. Public modeling metadata is
 Component ID, floor and construction-detail label; names remain optional/free.

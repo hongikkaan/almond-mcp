@@ -107,14 +107,9 @@ namespace RhinoAlmondBridge
 
             try
             {
-                object invokeResult;
-                using (var materialChanges = new MaterialLayerChanges(doc))
-                {
-                    invokeResult = action();
-                    if (!OwnsUndoRecord(doc, undoSn))
-                        throw new InvalidOperationException("The script changed its Undo record; material postprocessing was skipped to protect other work.");
-                    materialChanges.Apply();
-                }
+                object invokeResult = action();
+                if (!OwnsUndoRecord(doc, undoSn))
+                    throw new InvalidOperationException("The script changed its Undo record; result processing was skipped to protect other work.");
 
                 // Collect GUIDs
                 if (invokeResult is List<Guid> guids)

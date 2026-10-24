@@ -21,6 +21,8 @@ def call_scoped(original, server, folder: Path, allowed: set[str], args, kwargs)
 
     def scoped_sender(payload, *positional, **keywords):
         request = json.loads(payload)
+        if request == {"type": "get_rhino_context", "selection_limit": 0}:
+            return server._send_and_receive(payload, *positional, **keywords)
         if request.get("type") != "execute" or not isinstance(request.get("script"), str):
             raise RuntimeError("Unsupported Almond asset helper payload.")
         script = request["script"]

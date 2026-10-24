@@ -14,9 +14,9 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ScriptExecutor.cs" Link="ScriptExecutor.cs" />
     <Compile Include="../../../../src/rhp/RhinoAlmondBridge/DocumentObservation.cs" Link="DocumentObservation.cs" />
-    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/MaterialLayerChanges.cs" Link="MaterialLayerChanges.cs" />
-    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ModelingMaterials.cs" Link="ModelingMaterials.cs" />
-    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ModelingMetadata.cs" Link="ModelingMetadata.cs" />
+    <Compile Include="../../../../src/rhp/RhinoAlmondBridge/DocumentLayers.cs" Link="DocumentLayers.cs" />
+    <Compile Include="../../../../src/mcp/almond_mcp/rhino/ModelingMaterials.cs" Link="ModelingMaterials.cs" />
+    <Compile Include="../../../../src/mcp/almond_mcp/rhino/ModelingMetadata.cs" Link="ModelingMetadata.cs" />
     <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ComponentRegistry.cs" Link="ComponentRegistry.cs" />
     <Compile Include="../../../../src/rhp/RhinoAlmondBridge/DrawingSheetRegistry.cs" Link="DrawingSheetRegistry.cs" />
     <Compile Include="../../../../src/rhp/RhinoAlmondBridge/ComponentOperations.cs" Link="ComponentOperations.cs" />

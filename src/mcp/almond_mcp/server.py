@@ -30,7 +30,7 @@ from PIL import Image as PillowImage
 from pydantic import StrictFloat, StrictInt
 from almond_mcp.ghx_parser import GHParser, validate_capsule_manifest
 from almond_mcp.retrieval_store import AlmondStore, ComponentReconciliationError, DrawingSheetReconciliationError
-from almond_mcp import modeling_policy, drawing_assets
+from almond_mcp import modeling_policy, modeling_setup, drawing_assets
 from almond_mcp import asset_passport, asset_loads, conditioning, exchange, paths, drafting, native_structure, structure_study, design_codes
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -67,8 +67,8 @@ mcp = FastMCP("Almond", instructions=(
     "under the same asset ID. Use get_drawing_asset, get_asset_drawing and place_drawing_asset. "
     "generate_asset_drawing_views remains available for a custom static GLB; verify outputs with audit_asset_drawing. "
     "search_detail_sources returns candidate directories, not verified construction details. "
-    "Choose materials with get_material and use assign_material or the native "
-    "ModelingMaterials.CreateAttributes factory; material layers are created on demand. "
+    "Choose materials with get_material and use assign_material; existing layers are preserved. "
+    "Use setup_modeling to register library materials or create construction-system layers. "
     "Register physical assemblies as Components: an object has at most one Component, "
     "each Component belongs to one or more Scenes, and raw objects may also link directly to a Scene. "
     "Use get_modeling_policy for keys; object names are free. "
@@ -2010,32 +2010,7 @@ public class Script
         return False
 
 
-def _material_script(material: dict, guid_list: list[str],
-                     apply_render_material: bool, attach_metadata: bool,
-                     extra_strings: dict[str, str] | None = None) -> str:
-    """Call the compiled assignment helper; JSON string literals preserve user text."""
-    material_id = json.dumps(material["material_id"], ensure_ascii=True)
-    guid_array = ", ".join(f"new Guid({json.dumps(value)})" for value in guid_list)
-    metadata = ",\n            ".join(
-        "{ " + json.dumps(key, ensure_ascii=True) + ", " + json.dumps(value, ensure_ascii=True) + " }"
-        for key, value in (extra_strings or {}).items()
-    )
-    return f"""
-using System;
-using System.Collections.Generic;
-using Rhino;
-using RhinoAlmondBridge;
-
-public class Script
-{{
-    public static object Run(RhinoDoc doc)
-    {{
-        return ModelingMaterials.Apply(doc, {material_id}, new Guid[] {{ {guid_array} }},
-            new Dictionary<string, string> {{ {metadata} }},
-            {str(apply_render_material).lower()}, {str(attach_metadata).lower()});
-    }}
-}}
-"""
+_material_script = modeling_setup.material_script
 
 
 @mcp.tool()
@@ -2045,8 +2020,8 @@ def list_materials(category: str = "", query: str = "") -> str:
 
     Each entry carries metallic/roughness PBR channels, an Unreal material
     slot name (ue_material_slot) for deterministic remapping after import,
-    and tags. layer_path is the canonical material-derived M:: hierarchy;
-    it is created lazily only when that material is applied to geometry.
+    and tags. Materials do not define object layers. setup_modeling creates
+    M/category/system/role layers from the construction library separately.
     """
     materials = material_library.list(category=category, query=query)
     return json.dumps({
@@ -2319,6 +2294,42 @@ def check_egress(
 
 
 @mcp.tool()
+def setup_modeling(operation: str, overwrite: bool | None = None) -> str:
+    """Register materials or create construction layers in the current Rhino document.
+
+    operation="materials" registers the curated PBR library using readable names.
+    For matching names overwrite=true updates PBR channels, false preserves them;
+    omit it to choose Yes/No once in Rhino. Cancel performs no changes.
+
+    operation="layers" creates/reuses M/category/system.name/element.role paths,
+    assigns materials and matching display/print colors. A system uses its first
+    render_material_ids recipe; connection/reinforcement/decking use galvanized
+    steel, and Wood subfloor/sheathing use birch plywood. These are setup defaults,
+    not a role mapping supplied by the construction manifest. Container layers
+    are gray. Existing matching materials are reused; overwrite is only for
+    operation="materials". No object is moved or stamped with metadata.
+
+    Requires Bridge modeling_materials=2. The whole operation is one Undo step.
+    Success reports API execution, not visual review or a saved 3DM. An uncertain
+    result must be inspected before any retry.
+    """
+    if operation not in ("materials", "layers"):
+        return json.dumps({"status": "error", "message": "operation must be materials or layers"})
+    if overwrite is not None and type(overwrite) is not bool:
+        return json.dumps({"status": "error", "message": "overwrite must be true, false or null"})
+    if operation == "layers" and overwrite is not None:
+        return json.dumps({"status": "error", "message": "overwrite applies only to materials"})
+    try:
+        code = modeling_setup.setup_script(operation, material_library, construction_library, overwrite)
+    except (KeyError, ValueError, IndexError, TypeError) as exc:
+        return json.dumps({"status": "error", "mutation_state": "not_started", "message": str(exc)})
+    result = modeling_setup.dispatch(code, _send_and_receive, timeout=600.0)
+    if result.get("status") == "success" and (result.get("result_error") or not isinstance(result.get("result"), dict)):
+        result.update(mutation_state="unknown", message="Setup ran but its result is unavailable. Inspect Rhino before retrying.")
+    return json.dumps(result)
+
+
+@mcp.tool()
 def assign_material(
     guids: list[str],
     material_id: str,
@@ -2352,17 +2363,17 @@ def assign_material(
 
     Two effects, independently switchable:
     - apply_render_material: creates/reuses a physically-based Rhino
-      material (ALMOND::<material_id>) and assigns it per object, so GLB
+      material using the library name and assigns it per object, so GLB
       export (publish_to_chestnut) and Datasmith carry real PBR channels. The
-      object's layer follows the material's layer_path. If false, neither the
-      native material nor the layer is changed or created.
+      object's layer is always preserved. If false, no native material is
+      changed or created.
     - attach_metadata: writes only material_id when a native material is
       applied, plus supplied floor/detail/reference metadata. PBR channels
       remain on the native material. A metadata-only call preserves the
       current material identity and writes only the supplied metadata.
 
     Unspecified metadata and asset provenance are preserved. Requires a Bridge
-    with modeling_materials=1; older Bridges are rejected before any mutation.
+    with modeling_materials=2; older Bridges are rejected before any mutation.
     Works on breps, meshes, and block instances (an instance's material
     applies to definition geometry set to 'by parent'; the metadata is
     always attached to the instance itself). Call list_materials first to
@@ -2432,28 +2443,7 @@ def assign_material(
         extra_strings[modeling_policy.key("construction_detail")] = construction_detail
     script = _material_script(material, guid_list, apply_render_material,
                               attach_metadata, extra_strings)
-    payload = json.dumps({"type": "execute", "script": script}).encode("utf-8")
-    assignment_dispatched = False
-    try:
-        context_response = _send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}')
-        context = json.loads(context_response)
-        if not isinstance(context, dict) or context.get("status") not in ("success", "error"):
-            raise ValueError("Bridge returned an invalid context response.")
-        if context["status"] == "error":
-            return context_response
-        if context.get("capabilities", {}).get("modeling_materials") != 1:
-            return json.dumps({"status": "error", "error_code": "unsupported_materials",
-                               "message": "Load a Bridge with modeling_materials=1 before assigning materials."})
-        assignment_dispatched = True
-        response = json.loads(_send_and_receive(payload, timeout=60.0))
-    except ConnectionRefusedError:
-        return json.dumps({"status": "error", "message": "Rhino bridge is unavailable. Start RhinoAlmondBridge first."})
-    except Exception as exc:
-        return json.dumps({"status": "error", "mutation_state": "unknown" if assignment_dispatched else "not_started",
-                           "message": f"Could not confirm material assignment: {exc}. Inspect Rhino before retrying."})
-    if not isinstance(response, dict):
-        return json.dumps({"status": "error", "mutation_state": "unknown",
-                           "message": "Material assignment returned an invalid response. Inspect Rhino before retrying."})
+    response = modeling_setup.dispatch(script, _send_and_receive)
     if response.get("status") != "success":
         return json.dumps(response)
     if response.get("result_error"):
@@ -2468,7 +2458,7 @@ def assign_material(
     result = {
         "status": "success",
         "material_id": material_id,
-        "rhino_material_name": "ALMOND::" + material_id,
+        "rhino_material_name": material["name"],
         "ue_material_slot": material["ue_material_slot"],
         "applied_count": len(applied),
         "requested_count": len(guid_list),
@@ -3710,14 +3700,16 @@ def _restore_and_place_script(contract: dict, materials: dict[str, dict],
     collapse duplicate materials, then place per the contract anchor."""
     lib_rows = []
     for material_id, material in materials.items():
-        r, g, b = (int(v) for v in material["base_color"])
-        lib_rows.append(
-            '{ "%s", new object[] { "%s", "%s", "%s", "%s", %d, %d, %d, %s, %s, %s } }'
-            % (exchange.material_name(material_id), material_id, material["name"],
-               material["category"], material["ue_material_slot"], r, g, b,
-               repr(float(material["metallic"])), repr(float(material["roughness"])),
-               repr(float(material["opacity"])))
-        )
+        resolved = modeling_setup.recipe(material)
+        # Reuse a recipe revision, not a color-shifted material from the imported GLB.
+        revision = hashlib.sha256(json.dumps(resolved, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()[:12]
+        resolved["name"] += f" ({revision})"
+        values = [material_id, material["name"], material["category"], material["ue_material_slot"],
+                  *material["base_color"], material["metallic"], material["roughness"], material["opacity"]]
+        encoded = ", ".join(json.dumps(v, ensure_ascii=True) for v in values)
+        encoded += ", " + modeling_setup.literal(resolved)
+        for alias in dict.fromkeys((exchange.material_name(material_id), material["name"], resolved["name"])):
+            lib_rows.append("{ " + json.dumps(alias, ensure_ascii=True) + ", new object[] { " + encoded + " } }")
     anchor = contract["spatial"].get("anchor", "bottom_center")
     # Library GLBs hold numeric millimetres, but Rhino's glTF import reads metres.
     convention = (contract.get("passport") or {}).get("coordinate_convention") or {}
@@ -3726,7 +3718,7 @@ def _restore_and_place_script(contract: dict, materials: dict[str, dict],
     if contract.get("passport"):
         # C# verbatim string, so quotes/backslashes in provenance stay data.
         encoded = json.dumps(contract["passport"], ensure_ascii=True).replace('"', '""')
-        passport_stamp = f'obj.Attributes.SetUserString("almond:passport", @"{encoded}");'
+        passport_stamp = f'attributes.SetUserString("almond:passport", @"{encoded}");'
     return f"""
 using System;
 using System.Collections.Generic;
@@ -3754,67 +3746,50 @@ public class Script
         }}
         if (imported.Count == 0) return new List<Guid>();
 
-        // 1. collapse duplicate materials: glTF import creates one per mesh
+        // Resolve only imported objects through the shared MCP material implementation.
         var canonical = new Dictionary<string, int>();
         int deduped = 0;
-        for (int i = 0; i < doc.Materials.Count; i++)
+        foreach (var obj in imported)
         {{
-            var m = doc.Materials[i];
-            if (m == null || m.IsDeleted || !Lib.ContainsKey(m.Name)) continue;
-            if (!canonical.ContainsKey(m.Name)) canonical[m.Name] = i;
-        }}
-        // 2. restore canonical PBR values (glTF round trip shifts base colour)
-        foreach (var kv in canonical)
-        {{
-            var spec = Lib[kv.Key];
-            var mat = doc.Materials[kv.Value];
-            mat.Name = kv.Key;
-            mat.DiffuseColor = System.Drawing.Color.FromArgb((int)spec[4], (int)spec[5], (int)spec[6]);
-            mat.Transparency = 1.0 - Convert.ToDouble(spec[9]);
-            mat.ToPhysicallyBased();
-            var pb = mat.PhysicallyBased;
-            if (pb != null)
+            var mat = obj.GetMaterial(true);
+            if (mat == null || !Lib.TryGetValue(mat.Name, out var spec)) continue;
+            string id = (string)spec[0];
+            if (!canonical.ContainsKey(id))
             {{
-                pb.BaseColor = new Color4f((int)spec[4] / 255f, (int)spec[5] / 255f, (int)spec[6] / 255f, 1f);
-                pb.Metallic = Convert.ToDouble(spec[7]);
-                pb.Roughness = Convert.ToDouble(spec[8]);
-                pb.Opacity = Convert.ToDouble(spec[9]);
+                using var attributes = RhinoAlmondBridge.ModelingMaterials.CreateAttributes(
+                    doc, (string)spec[10], attachMetadata: false);
+                canonical[id] = attributes.MaterialIndex;
             }}
-            mat.CommitChanges();
         }}
-
-        int layerIndex = doc.Layers.FindByFullPath("{layer}", -1);
-        if (layerIndex < 0)
-        {{
-            var l = new Layer {{ Name = "{layer}" }};
-            layerIndex = doc.Layers.Add(l);
-        }}
+        int layerIndex = RhinoAlmondBridge.DocumentLayers.Ensure(doc, {json.dumps(layer, ensure_ascii=True)});
 
         // 3. re-attach the metadata glTF dropped, keyed off the surviving name
         int stamped = 0;
         foreach (var obj in imported)
         {{
-            var mat = doc.Materials[obj.Attributes.MaterialIndex];
+            var attributes = obj.Attributes.Duplicate();
+            var mat = obj.GetMaterial(true);
             string matName = mat != null ? mat.Name : "";
             if (matName.Length > 0 && Lib.ContainsKey(matName))
             {{
-                if (canonical.ContainsKey(matName) && obj.Attributes.MaterialIndex != canonical[matName])
+                var spec = Lib[matName];
+                string id = (string)spec[0];
+                if (attributes.MaterialIndex != canonical[id])
                 {{
-                    obj.Attributes.MaterialIndex = canonical[matName];
+                    attributes.MaterialIndex = canonical[id];
                     deduped++;
                 }}
-                obj.Attributes.MaterialSource = ObjectMaterialSource.MaterialFromObject;
-                var spec = Lib[matName];
-                obj.Attributes.SetUserString("almond:material_id", (string)spec[0]);
-                obj.Attributes.ObjectColor = System.Drawing.Color.FromArgb((int)spec[4], (int)spec[5], (int)spec[6]);
-                obj.Attributes.ColorSource = ObjectColorSource.ColorFromObject;
+                attributes.MaterialSource = ObjectMaterialSource.MaterialFromObject;
+                attributes.SetUserString("almond:material_id", (string)spec[0]);
+                attributes.ObjectColor = System.Drawing.Color.FromArgb((int)spec[4], (int)spec[5], (int)spec[6]);
+                attributes.ColorSource = ObjectColorSource.ColorFromObject;
                 stamped++;
             }}
-            obj.Attributes.SetUserString("almond:asset_id", "{contract['asset_id']}");
-            obj.Attributes.SetUserString("almond:source_app", "{contract.get('source_app', 'unknown')}");
+            attributes.SetUserString("almond:asset_id", "{contract['asset_id']}");
+            attributes.SetUserString("almond:source_app", "{contract.get('source_app', 'unknown')}");
             {passport_stamp}
-            obj.Attributes.LayerIndex = layerIndex;
-            obj.CommitChanges();
+            attributes.LayerIndex = layerIndex;
+            if (!doc.Objects.ModifyAttributes(obj.Id, attributes, true)) throw new InvalidOperationException("Cannot restore imported attributes.");
         }}
 
         // 4. place per the contract anchor, in this document's units
@@ -3943,39 +3918,37 @@ def export_asset_contract(
 
 
 def _material_groups(guids: list[str]) -> list[dict]:
-    """Ask Rhino which Almond material each object carries."""
+    """Resolve actual ByObject/ByLayer materials, including readable library names."""
+    names = ", ".join("{ " + json.dumps(m["name"], ensure_ascii=True) + ", " + json.dumps(mid) + " }"
+                      for mid, m in material_library.materials.items())
     script = """
 using System;
 using System.Collections.Generic;
 using System.IO;
 using Rhino;
-
 public class Script
 {
-    public static List<Guid> Run(RhinoDoc doc)
+    public static object Run(RhinoDoc doc)
     {
+        var names = new Dictionary<string, string> { %s };
         var rows = new List<string>();
         foreach (string s in new[] { %s })
         {
             var obj = doc.Objects.FindId(new Guid(s));
             if (obj == null) continue;
-            string mid = obj.Attributes.GetUserString("almond:material_id");
-            // A later explicit material change takes precedence over an old object stamp.
-            if (obj.Attributes.MaterialSource == Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject)
-            {
-                int index = obj.Attributes.MaterialIndex;
-                var mat = index >= 0 && index < doc.Materials.Count ? doc.Materials[index] : null;
-                mid = mat == null ? null : mat.GetUserString("almond:material_id");
-                if (string.IsNullOrEmpty(mid) && mat != null && mat.Name != null && mat.Name.StartsWith("ALMOND::"))
-                    mid = mat.Name.Substring(8).Split(new[] { "::" }, StringSplitOptions.None)[0];
-            }
+            var mat = obj.GetMaterial(true);
+            string mid = mat == null ? null : mat.GetUserString("almond:material_id");
+            string name = obj.GetRenderMaterial(true)?.Name ?? mat?.Name ?? "";
+            if (string.IsNullOrEmpty(mid)) names.TryGetValue(name, out mid);
+            if (string.IsNullOrEmpty(mid) && name.StartsWith("ALMOND::"))
+                mid = name.Substring(8).Split(new[] { "::" }, StringSplitOptions.None)[0];
             if (!string.IsNullOrEmpty(mid)) rows.Add(mid + "|" + s);
         }
         File.WriteAllLines(Path.Combine(Path.GetTempPath(), "almond_matgroups.txt"), rows);
-        return new List<Guid>();
+        return new { recorded = rows.Count };
     }
 }
-""" % ", ".join('"%s"' % g for g in guids)
+""" % (names, ", ".join(json.dumps(str(uuid.UUID(g))) for g in guids))
     try:
         _send_and_receive(json.dumps({"type": "execute", "script": script}).encode("utf-8"),
                           timeout=45.0)
@@ -4032,6 +4005,9 @@ def _receive_contract(contract: dict, x_mm: float, y_mm: float, z_mm: float,
     """Import a loaded contract's GLB into Rhino, restore materials and
     metadata, place it per the contract anchor, and report the dimension
     check. Shared by import_asset_contract and place_generated_asset."""
+    problem = modeling_setup.check_bridge(_send_and_receive)
+    if problem:
+        return problem
     import_script = """
 using System;
 using System.Collections.Generic;

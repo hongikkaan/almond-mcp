@@ -50,7 +50,7 @@ regular-document fixtures from a working Rhino session.
 
 | Suite | Main behavior checked |
 | --- | --- |
-| `ModelingTests` | Lazy material layers, 101-object shared render material, ordinary Add calls, metadata validation, event routing, Undo/Redo |
+| `ModelingTests` | 101-object shared render material, explicit construction layers, material changes preserving object layers, metadata validation, Undo/Redo |
 | `ComponentHierarchyTests` | Exclusive direct ownership, nested aggregate groups, manual TextDot additions, cycles and competing parents, root removal and reconciliation |
 | `DrawingSheetTests` | Real Layout/detail identities, updates, physical scale in mixed model/page units, unregister preservation |
 | `ComponentOperationTests` | Exact overlap evidence, incomplete coverage, nested target resolution, Isolate/Unisolate and ZoomSelected |
