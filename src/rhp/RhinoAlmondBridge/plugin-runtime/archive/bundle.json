@@ -1676,7 +1676,7 @@
     },
     "/api/materials": {
       "path": "api/materials.json",
-      "sha256": "d6fdc16c05f09d653986488104b31adeb59619f0853d3cfedcbd8a1891f7e975",
+      "sha256": "b6c29a636947c2bc1b7565a68e2d17383464c3b4af5fac84b44d02b9189f5b0e",
       "mime": "application/json"
     },
     "/api/catalogue": {

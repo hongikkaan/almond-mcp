@@ -424,7 +424,7 @@ namespace RhinoAlmondBridge
             RhinoDoc doc,
             FurniturePlacementRequest request)
         {
-            int layerIndex = FindOrCreateLayer(doc, _layerPath);
+            int layerIndex = DocumentLayers.Ensure(doc, _layerPath);
             var attributes = new ObjectAttributes
             {
                 Name = request.Name ?? request.AssetId,
@@ -434,44 +434,6 @@ namespace RhinoAlmondBridge
             attributes.SetUserString("almond.asset_type", _assetType);
             attributes.SetUserString("almond.metadata", request.Metadata?.ToString(Formatting.None) ?? "{}");
             return attributes;
-        }
-
-        private static int FindOrCreateLayer(RhinoDoc doc, string name)
-        {
-            string[] parts = (name ?? "Assets").Split(
-                new[] { "::" },
-                StringSplitOptions.RemoveEmptyEntries
-            );
-            Guid parentId = Guid.Empty;
-            int currentIndex = -1;
-            foreach (string rawPart in parts)
-            {
-                string part = rawPart.Trim();
-                currentIndex = -1;
-                foreach (var layer in doc.Layers)
-                {
-                    if (layer != null &&
-                        !layer.IsDeleted &&
-                        layer.ParentLayerId == parentId &&
-                        string.Equals(layer.Name, part, StringComparison.OrdinalIgnoreCase))
-                    {
-                        currentIndex = layer.Index;
-                        break;
-                    }
-                }
-                if (currentIndex < 0)
-                {
-                    currentIndex = doc.Layers.Add(new Layer
-                    {
-                        Name = part,
-                        ParentLayerId = parentId
-                    });
-                }
-                if (currentIndex < 0)
-                    throw new InvalidOperationException($"Rhino failed to create layer {name}.");
-                parentId = doc.Layers[currentIndex].Id;
-            }
-            return currentIndex;
         }
 
         private static Point3d ReadPosition(double[] position)

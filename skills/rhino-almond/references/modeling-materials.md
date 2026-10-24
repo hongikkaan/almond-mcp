@@ -1,16 +1,25 @@
-# 재료 레이어와 최소 메타데이터
+# 재질·구축 레이어와 최소 메타데이터
 
-`list_materials`에서 재료 ID와 `layer_path`를 확인한 뒤 `assign_material`로 명시한 객체에 적용하라. 라이브러리 조회는 Rhino를 변경하지 않는다. 재료를 실제 적용할 때 해당 재료와 `M::...` 부모·말단 레이어만 생성하거나 재사용한다. 전체 재료 목록의 레이어를 미리 만들지 않는다.
+`list_materials`에서 재료 ID·표시 이름·PBR 레시피를 확인한 뒤 `assign_material`로 명시한 객체에 적용하라. 라이브러리 조회는 Rhino를 변경하지 않는다. **재질 적용은 기존 객체의 레이어를 보존한다.** 재질에 따른 자동 레이어 이동이나 실행 후 재분류는 없다.
 
-재료 manifest의 `layer_path`가 기준이다. 기존 사용자 manifest에 이 필드가 없으면 `M::<category>::<material_id>`를 사용하며 파일을 다시 쓰지 않는다. 예를 들어 `steel-painted-sage`의 기본 경로는 `M::metal::steel-painted-sage`다. 라이브러리 밖의 직접 지정 재료는 정책에 따라 `M::Custom::<정리된 재료 이름>__<재료 GUID 앞부분>`에 연결한다. 이름 변경은 해당 실행에서 재료 테이블 변경으로 처리된 경우 다음 후처리에 반영된다.
+## 명시적인 준비 작업
+
+`setup_modeling`은 Bridge `modeling_materials=2`를 확인한 뒤 한 Undo 범위에서 아래 작업을 수행한다. 일반 재질 할당이나 스크립트 실행이 이 준비 작업을 자동 호출하지 않는다.
+
+| 호출 | 실제 효과 |
+|---|---|
+| `setup_modeling(operation="materials", overwrite=...)` | 라이브러리의 읽을 수 있는 이름으로 PBR 재질을 등록한다. 같은 이름의 기존 재질은 `overwrite=true`면 PBR 값을 갱신하고, `false`면 보존한다. 생략하면 Rhino에서 Yes/No를 한 번 선택하며 Cancel은 변경하지 않는다. |
+| `setup_modeling(operation="layers")` | 구축 라이브러리에서 `M::category::system.name::element.role` 레이어를 생성·재사용하고 재질·표시색·출력색을 설정한다. 기존 객체는 이동하거나 메타데이터를 기록하지 않는다. `overwrite`는 이 작업에 적용되지 않는다. |
+
+구축 레이어의 기본 재질은 시스템의 첫 `render_material_ids` 레시피다. connection/reinforcement/decking은 galvanized steel, Wood의 subfloor/sheathing은 birch plywood를 쓰는 현재 구현의 기본값이며, manifest가 제공하는 역할별 매핑이라고 간주하지 않는다. 컨테이너 레이어는 회색이다. 기존 레이어의 색·재질도 갱신하므로 사용자가 요청한 준비 범위에서 실행한다. 재질 manifest의 과거 `layer_path`는 객체 레이어 결정에 사용하지 않는다.
 
 ## 적용 범위
 
-Almond의 관리된 `execute_rhino_script` 실행은 새 객체·객체의 직접 재료 변경·재료 테이블 변경을 수집한다. 스크립트가 속성을 모두 설정한 뒤, 같은 Undo 범위를 닫기 전에 최종 재료에 맞춰 대상의 레이어를 정리한다. 실패한 실행은 기존 Undo 복구 규칙을 따른다.
+`assign_material`은 기존의 편집 가능한 객체 GUID를 명시해 재질과 선택한 메타데이터를 적용한다. 참조 객체와 블록 정의 내부 객체는 대상에서 제외된다. 루트 블록의 재질은 내부의 by-parent 형상에 적용되며 내부 객체의 직접 재질을 덮어쓰지 않는다.
 
-이 처리는 해당 실행에 한정된다. Rhino 시작 시 전체 문서를 재분류하거나 전역 이벤트에서 객체를 즉시 수정하지 않는다. `MaterialFromLayer`·`MaterialFromParent`, 참조 문서 객체와 블록 정의 내부 객체는 자동 후처리 대상에서 제외한다. 루트 블록에 재료를 지정해도 내부의 직접 재료를 덮어쓰지 않는다. 외부 Python/C# 코드로 생성할 때는 아래 공통 속성 팩토리를 사용하라.
+Rhino 시작·재질 이름 변경·`execute_rhino_script` 종료 시 재질을 근거로 객체를 재분류하지 않는다. 새 객체는 호출자가 지정한 레이어를 사용한다. 기존 객체에 `assign_material`을 호출하면 기존 MaterialFromLayer/MaterialFromParent 설정도 명시적인 객체 재질로 바뀔 수 있지만 레이어는 유지된다.
 
-Rhino 8의 `CreateHeadless`·`OpenHeadless` 문서는 정적 문서 이벤트를 발생시키지 않아 자동 후처리 범위에 포함되지 않는다([이벤트 규약](https://mcneel.github.io/rhinocommon-api-docs/api/RhinoCommon/html/T_Rhino_EventWatcher.htm)). 해당 문서에서는 공통 `CreateAttributes`·`Apply`를 직접 사용해 재료·레이어 정책을 적용한다.
+외부 Python/C# 코드와 headless 문서에도 자동 재질·레이어 후처리는 없다. 필요한 재질은 아래 공통 속성 팩토리로 명시하고, 레이어는 별도로 지정한다. 수정 호출의 오류·타임아웃은 변경 취소를 뜻하지 않으므로 자동 재실행하지 않는다.
 
 ## 객체에 기록하는 값
 
@@ -34,7 +43,9 @@ Rhino 8의 `CreateHeadless`·`OpenHeadless` 문서는 정적 문서 이벤트를
 
 ## 새 형상의 C#/Python 공통 경로
 
-기하 생성 API는 기존 RhinoCommon을 그대로 사용한다. `ModelingMaterials.CreateAttributes`가 선택한 재료의 속성·레이어만 준비한다. 호출자는 Rhino command 또는 자신의 Undo 범위를 소유해야 한다.
+기하 생성 API는 기존 RhinoCommon을 그대로 사용한다. `ModelingMaterials.CreateAttributes`의 두 번째 인자는 **material_id 문자열이 아니라 재질 레시피 JSON**이다. `list_materials`의 `materials`에서 선택한 한 재질 객체를 JSON 문자열로 전달한다. MCP가 레시피를 검증·선택하며 네이티브 helper는 라이브러리를 직접 읽지 않는다. 가능하면 기존 객체에는 공개 `assign_material`을 사용한다.
+
+아래 예제는 현재 문서 `doc`와 생성할 `brep`, 선택한 레시피 JSON 문자열 `recipeJson`(Python에서는 `recipe_json`)이 준비된 호출부에 넣는다. `source`가 있으면 속성을 복제해 레이어·이름·그룹·무관한 UserString을 보존하고, 없으면 현재 레이어를 사용한다. 다른 레이어로 생성하려면 반환 속성의 `LayerIndex`를 호출자가 지정한다. 호출자는 Rhino command 또는 자신의 Undo 범위를 소유해야 한다.
 
 ```csharp
 using System.Collections.Generic;
@@ -44,7 +55,7 @@ var metadata = new Dictionary<string, string> {
     [ModelingMetadata.Key("floor")] = "1F",
     [ModelingMetadata.Key("construction_detail")] = "현장타설 콘크리트 벽"
 };
-var attributes = ModelingMaterials.CreateAttributes(doc, "concrete-smooth", metadata);
+var attributes = ModelingMaterials.CreateAttributes(doc, recipeJson, metadata);
 var id = doc.Objects.AddBrep(brep, attributes);
 ```
 
@@ -59,10 +70,10 @@ from RhinoAlmondBridge import ModelingMaterials, ModelingMetadata
 
 metadata = Dictionary[String, String]()
 metadata[ModelingMetadata.Key("floor")] = "1F"
-attributes = ModelingMaterials.CreateAttributes(doc, "concrete-smooth", metadata)
+attributes = ModelingMaterials.CreateAttributes(doc, recipe_json, metadata)
 object_id = doc.Objects.AddBrep(brep, attributes)
 ```
 
-위 코드는 현재 Rhino 문서 `doc`와 생성할 `brep`가 준비된 호출부에 넣는 예다. 문서 단위와 저장 경로를 먼저 확인한다. 기존 속성을 복제해 사용할 때는 `source` 인자를 전달하며 이름·그룹·관련 없는 UserString을 보존한다. 여러 형상마다 새로운 래퍼 도구를 만들 필요는 없다.
+문서 단위와 저장 경로를 먼저 확인한다. 같은 이름의 일반 재질은 레거시 `ALMOND::<material_id>` 이름도 호환 재사용한다. 라이브러리 자산의 해시별 레시피는 내부 호출에서 `reuseLegacyMaterial=false`로 정확한 이름만 재사용한다. 자산의 이름·해시를 임의로 바꿔 이 분리를 우회하지 않는다.
 
-기존 객체에는 `assign_material` 또는 같은 네이티브 `ModelingMaterials.Apply`를 사용한다. `assign_material`은 `modeling_materials=1` capability를 먼저 검사하며, 이전 Bridge로 임의 실행을 우회하지 않는다.
+기존 객체에는 `assign_material` 또는 같은 네이티브 `ModelingMaterials.Apply`를 사용한다. 네이티브 `Apply`의 두 번째 인자도 레시피 JSON이다. `assign_material`과 `setup_modeling`은 `modeling_materials=2` capability를 먼저 검사하며, 이전 Bridge로 임의 실행을 우회하지 않는다.

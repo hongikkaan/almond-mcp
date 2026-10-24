@@ -13,18 +13,17 @@ wheels/
 # Virtual environments
 .venv
 
-# Downloaded model files - 3D Warehouse content that must not be
-# redistributed (see THIRD-PARTY-NOTICES.md). Manifests stay tracked.
+# Downloaded user libraries; manifests stay tracked.
 asset/models/IkeaFurniturefiles/models/
 asset/drawing/DrawingAssetfiles/models/
 asset/diagram/DiagramAssetfiles/models/
 
 # Raw Meshy downloads before normalisation; the normalised
-# asset/models/GeneratedAssetfiles/models/ ARE tracked (CC BY 4.0, ours to ship).
+# asset/models/GeneratedAssetfiles/models/ ARE tracked.
 asset/models/GeneratedAssetfiles/raw/
 
 # Grasshopper example library (Karamba/Kangaroo examples, not redistributable)
-Grasshopperfiles/
+/asset/grasshopper/Grasshopperfiles/
 
 # OneDrive/FUSE litter
 .fuse_hidden*
@@ -36,20 +35,20 @@ Grasshopperfiles/
 bin/
 obj/
 
-# Superseded local drawing pilot previews (never packaged)
-.drafting-dev-archive-*/
-
 # Personal integration runtime, local settings and verification artifacts
-data/
-!tests/mcp/data/
-!tests/mcp/data/karamba_reference.json
+/.trash/
+/data/
+/src/engine/data/
+/src/cos/data/
+/src/rhp/*/data/
+/tests/engine/data/
 .almond/
-**/plugin*/
-**/cos-plugin.json
+/src/rhp/*/plugin-*/
+/src/cos/cos-plugin.json
+/test.3dm
+*.3dmbak
 *.rhp
 *.dll
-
-
 # Shipped Rhino runtime: committed together with its C# source.
 !src/rhp/RhinoAlmondBridge/plugin-runtime/
 !src/rhp/RhinoAlmondBridge/plugin-runtime/**

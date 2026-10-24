@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("source_doc", ROOT / "tools/document_generation_sources.py")
+spec = importlib.util.spec_from_file_location("source_doc", ROOT / "src/mcp/tools/document_generation_sources.py")
 source_doc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(source_doc)
 

@@ -37,8 +37,9 @@ namespace RhinoAlmondBridge
                     if (string.IsNullOrWhiteSpace(specification.Path))
                         throw new ArgumentException("Drawing layer path cannot be empty.");
 
-                    int layerIndex = EnsureLayerPath(doc, specification.Path);
+                    int layerIndex = DocumentLayers.Ensure(doc, specification.Path);
                     var layer = doc.Layers[layerIndex];
+                    layer.EnsurePrivateCopy();
                     layer.Color = ReadColor(specification.Color, Color.Black);
                     layer.PlotColor = ReadColor(specification.PlotColor, layer.Color);
                     layer.PlotWeight = Math.Max(0.0, specification.PlotWeightMm);
@@ -75,44 +76,6 @@ namespace RhinoAlmondBridge
                 if (undoRecord != 0)
                     doc.EndUndoRecord(undoRecord);
             }
-        }
-
-        private static int EnsureLayerPath(RhinoDoc doc, string path)
-        {
-            string[] parts = path.Split(
-                new[] { "::" },
-                StringSplitOptions.RemoveEmptyEntries
-            );
-            Guid parentId = Guid.Empty;
-            int currentIndex = -1;
-            foreach (string rawPart in parts)
-            {
-                string part = rawPart.Trim();
-                currentIndex = -1;
-                foreach (var layer in doc.Layers)
-                {
-                    if (layer != null &&
-                        !layer.IsDeleted &&
-                        layer.ParentLayerId == parentId &&
-                        string.Equals(layer.Name, part, StringComparison.OrdinalIgnoreCase))
-                    {
-                        currentIndex = layer.Index;
-                        break;
-                    }
-                }
-                if (currentIndex < 0)
-                {
-                    currentIndex = doc.Layers.Add(new Layer
-                    {
-                        Name = part,
-                        ParentLayerId = parentId
-                    });
-                }
-                if (currentIndex < 0)
-                    throw new InvalidOperationException($"Could not create layer {path}.");
-                parentId = doc.Layers[currentIndex].Id;
-            }
-            return currentIndex;
         }
 
         private static int EnsureLinetype(RhinoDoc doc, string requestedName)

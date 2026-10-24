@@ -138,10 +138,11 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("validate proposed geometry against the task before replacing originals", instructions)
                 self.assertIn("Execution success and a viewport image do not establish geometric correctness", instructions)
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 79)
-                self.assertEqual(len({t.name for t in listing.tools}), 79)
+                self.assertEqual(len(listing.tools), 80)
+                self.assertEqual(len({t.name for t in listing.tools}), 80)
                 original = load_catalog()["tools"]
                 public = {t.name: t for t in listing.tools}
+                self.assertIn("operation", public["almond_cos_setup_modeling"].input_schema["required"])
                 for tool in original:
                     name = "almond_cos_" + ("project_info" if tool["name"] == "almond_project_info" else tool["name"])
                     self.assertIn("connection_id", public[name].input_schema["required"])

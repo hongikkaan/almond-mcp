@@ -50,9 +50,8 @@ build-backend = "hatchling.build"
 packages = ["src/mcp/almond_mcp"]
 
 # Manifests and audited JSON ship inside the wheel as almond_mcp/data/ so a
-# fresh install can scaffold the user data directory. Only the original,
-# generated CC BY 4.0 model pack is included. Downloaded 3D Warehouse models
-# are NEVER included; see THIRD-PARTY-NOTICES.md and docs/licensing-audit.md.
+# fresh install can scaffold the user data directory. Only the original generated
+# model pack is included; downloaded community models remain user-local.
 [tool.hatch.build.targets.wheel.force-include]
 "src/rhp/Asset_Panel/web" = "almond_mcp/library_ui"
 "asset/drawing/DrawingAssetfiles/manifest.json" = "almond_mcp/data/DrawingAssetfiles/manifest.json"
@@ -77,7 +76,7 @@ packages = ["src/mcp/almond_mcp"]
 [tool.hatch.build.targets.sdist]
 include = [
     "/src/mcp/almond_mcp", "/src/rhp/Asset_Panel/web", "/tests/mcp", "/docs", "/asset/capsules", "/asset/drawing/DrawingRecipes",
-    "/asset/drawing/Draftingfiles", "/tools/build_drawing_pilot.py",
+    "/asset/drawing/Draftingfiles", "/src/mcp/tools/build_drawing_pilot.py",
     "/asset/models/GeneratedAssetfiles/manifest.json", "/asset/models/GeneratedAssetfiles/catalogue.json",
     "/asset/models/GeneratedAssetfiles/provenance.json", "/asset/models/GeneratedAssetfiles/passport.schema.json",
     "/asset/models/GeneratedAssetfiles/structural-loads.json",
@@ -85,12 +84,12 @@ include = [
     "/asset/models/GeneratedAssetfiles/README.md", "/asset/models/GeneratedAssetfiles/models", "/asset/models/GeneratedAssetfiles/previews",
     "/asset/drawing/DrawingAssetfiles/manifest.json", "/asset/diagram/DiagramAssetfiles/manifest.json",
     "/asset/constructions/Materialfiles/manifest.json", "/asset/constructions/Constructionfiles/manifest.json", "/asset/history/Historyfiles/manifest.json",
-    "/tools/build_generated_assets.py", "/tools/enrich_generated_assets.py",
-    "/tools/document_generation_sources.py",
-    "/tools/run_meshy_batch.py", "/tools/prepare_organic_meshes.py", "/tools/import_organic_batch.py", "/asset/models/GeneratedAssetfiles/batches",
-    "/tools/build_archive_bundle.py", "/tools/verify_object_archive_install.py",
-    "/tools/render_generated_previews.py", "/tools/verify_release.py",
-    "/README.md", "/AGENTS.md", "/LICENSE", "/THIRD-PARTY-NOTICES.md",
+    "/src/mcp/tools/build_generated_assets.py", "/src/mcp/tools/enrich_generated_assets.py",
+    "/src/mcp/tools/document_generation_sources.py",
+    "/src/mcp/tools/run_meshy_batch.py", "/src/mcp/tools/prepare_organic_meshes.py", "/src/mcp/tools/import_organic_batch.py", "/asset/models/GeneratedAssetfiles/batches",
+    "/src/rhp/tools/build_archive_bundle.py", "/src/mcp/tools/verify_object_archive_install.py",
+    "/src/mcp/tools/render_generated_previews.py", "/src/mcp/tools/verify_release.py",
+    "/README.md", "/AGENTS.md", "/SPEC.md", "/LICENSE", "/THIRD-PARTY-NOTICES.md",
     "/pyproject.toml", "/uv.lock", "/.gitattributes",
 ]
 # Belt and braces on top of .gitignore: downloaded model files and compiled

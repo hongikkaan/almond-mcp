@@ -197,18 +197,13 @@ namespace RhinoAlmondBridge
         }
         private static int MaterialIndex(RhinoDoc doc, string id, JObject recipe)
         {
-            string name = "ALMOND::" + id + "::" + Hash(Encoding.UTF8.GetBytes(recipe.ToString(Formatting.None))).Substring(0,12);
-            var existing = doc.Materials.FirstOrDefault(m => !m.IsDeleted && m.Name == name);
-            if (existing != null) return existing.Index;
-            var rgb = recipe["base_color"];
-            var material = new Material { Name = name, DiffuseColor = Color.FromArgb((int)rgb[0],(int)rgb[1],(int)rgb[2]) };
-            material.ToPhysicallyBased();
-            material.PhysicallyBased.BaseColor = new Rhino.Display.Color4f(material.DiffuseColor);
-            material.PhysicallyBased.Metallic = (double)recipe["metallic"];
-            material.PhysicallyBased.Roughness = (double)recipe["roughness"];
-            material.PhysicallyBased.Opacity = (double)recipe["opacity"];
-            material.SetUserString("almond:material_id",id);
-            return doc.Materials.Add(material);
+            // Preserve immutable archive revisions while sharing the PBR implementation.
+            var resolved = (JObject)recipe.DeepClone();
+            resolved["name"] = (string)recipe["name"] + " (" +
+                Hash(Encoding.UTF8.GetBytes(recipe.ToString(Formatting.None))).Substring(0,12) + ")";
+            using var attributes = ModelingMaterials.CreateAttributes(doc, resolved.ToString(Formatting.None),
+                attachMetadata: false, reuseLegacyMaterial: false);
+            return attributes.MaterialIndex;
         }
         private static string MeshHash(IEnumerable<Mesh> meshes)
         {

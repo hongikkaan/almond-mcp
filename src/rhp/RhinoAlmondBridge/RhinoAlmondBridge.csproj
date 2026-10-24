@@ -30,6 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\mcp\almond_mcp\rhino\*.cs" Link="Modeling\%(Filename)%(Extension)" />
     <Compile Include="..\Structural_Analysis\*.cs" />
     <Compile Include="..\Asset_Panel\*.cs" />
     <Compile Include="..\RhinoTerminal\src\*.cs" />
