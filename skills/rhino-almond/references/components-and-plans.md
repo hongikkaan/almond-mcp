@@ -6,12 +6,14 @@
 
 | 단위 | 실제 계약 |
 |---|---|
-| Scene | 공간의 의도·맥락. Component를 공유하고 일반 객체를 직접 연결할 수 있다. |
+| Scene | **문서가 아니라 그 안의 특정 공간·동선·활동·경험을 이루는 상황**. 한 3DM 안에 여러 Scene이 있을 수 있으며 Component를 공유하고 일반 객체를 직접 연결할 수 있다. |
 | Component | 명시적으로 등록한 Rhino group. **하나 이상의 기존 Scene에 속해야 한다.** 객체의 직접 소유자는 최대 하나이며 조상 group에는 하위 객체가 함께 포함된다. |
 | 직접 Scene 객체 | asset instance나 Component 없이 연결한 top-level 객체. Scene의 실제 객체 목록은 직접 객체와 Component 멤버의 중복 없는 합집합이다. |
 | Room·asset instance | 선택적인 기존 배치 검사 자료. Room AABB containment, asset AABB 충돌·배치·하중 계산에 사용하며 이전 데이터를 보존한다. |
-| Phase | 여러 Plan을 조직하는 선택적인 부모. 기하·공간의 소유권을 뜻하지 않는다. |
-| Plan·Step | 목표·의존성·상태·근거·명시적 Component 대상을 기록한다. 실제 모델링과 검증은 에이전트가 수행한다. |
+| Phase | 여러 Plan의 상위 작업 단위. **스킬 운영상 최소 1개 필수**이고 모든 사용 Plan에 연결한다. 기하·공간의 소유권을 뜻하지 않는다. |
+| Plan·Step | **독립 과업마다 생성·사용이 필수**인 목표·의존성·상태·근거·명시적 Component 대상의 기록. 실제 모델링과 검증은 에이전트가 수행한다. |
+
+Scene을 `주민시설.3dm 전체` 같은 파일 단위로 자동 생성하지 않는다. 진입·목욕 동선·계단·하부 휴식처럼 사용자 경험이나 공간 관계가 달라지는 상황별 Scene을 정의한다. 같은 문·계단 Component는 연관된 여러 Scene에 연결할 수 있으며 이 연결은 기하를 중복 생성하지 않는다. 기존 Scene을 조회하는 공개 도구는 `get_design_scene(scene_id)`뿐이다. 현재 `list/update/delete_design_scene` 기능이 없으므로, Scene 생성 전 중복·이름·소속·재사용 가능 여부를 기존 맥락에서 확인하고 잘못 생성한 Scene을 곧바로 삭제할 수 있다고 가정하지 않는다.
 
 객체 identity는 **저장된 모델 경로 + Rhino GUID**, Component의 group identity는 그 문서의 영속 group GUID다. 같은 이름이나 group index를 identity로 쓰지 않는다. 일반 group은 자동 등록되지 않는다. 자식은 하나의 부모만 가질 수 있고 순환은 금지된다. 부모 group이 자식의 객체까지 선택하더라도 객체의 `component_id`는 직접 소유 자식을 유지한다.
 
@@ -37,11 +39,22 @@ block은 문서의 **top-level occurrence GUID**를 Component 멤버로 등록�
 
 `get_design_component`, `list_design_components`, `get_scene_objects`는 저장된 관찰값이며 `live_verified=false`다. 등록·sync 성공 응답의 `live_verified=true`는 그 호출에서 확인한 snapshot을 뜻한다. 이후 Rhino의 수동 편집·Undo/Redo가 DB에 자동 반영되지는 않는다.
 
-수동 편집이나 Undo/Redo 이후 `get_design_component(live=True)`로 현재 group과 `pending_objects`를 읽는다. TextDot 등 소유자가 없는 새 그룹 멤버는 읽기 전용 검사에서 후보로만 보인다. 명시적 `sync_design_component`는 **모호하지 않은** 후보를 가장 깊은 등록 group의 직접 소유 객체로 채택하고 조상 group 멤버십을 한 Undo에 정합시키며 DB snapshot을 갱신한다. 이미 정합된 경우 Rhino를 수정하지 않는다. 복사·외부 소유 stamp·불명확한 그룹 중첩은 명시적으로 수리해야 한다. 오류·타임아웃 뒤 원래 수정을 자동 재실행하지 않는다. [네이티브 계층 계약](../../../docs/modeling/component-system.md#native-component-hierarchy)도 확인하라.
+수동 편집이나 Undo/Redo 이후 `get_design_component(live=True)`로 현재 group과 `pending_objects`를 읽는다. TextDot 등 소유자가 없는 새 그룹 멤버는 읽기 전용 검사에서 후보로만 보인다. 명시적 `sync_design_component`는 **모호하지 않은** 후보를 가장 깊은 등록 group의 직접 소유 객체로 채택하고 조상 group 멤버십을 한 Undo에 정합시키며 DB snapshot을 갱신한다. 이미 정합된 경우 Rhino를 수정하지 않는다. 복사·외부 소유 stamp·불명확한 그룹 중첩은 명시적으로 수리해야 한다. 오류·타임아웃 뒤 원래 수정을 자동 재실행하지 않는다. 구현 세부 검토에는 저장소의 `docs/modeling/component-system.md`의 Native Component hierarchy 절을 참고한다(전역 스킬 배포에는 미포함).
 
 `validate_scene_layout`은 기존 asset instance 검사다. `passed_scope="legacy_asset_instances"`, `coverage.registered_object_collisions_checked=false`와 실제 검사 범위를 읽는다. Room이 지정된 instance의 containment와 AABB 충돌 통과를 Component·직접 Scene 객체의 실제 접합·관입·공간 사용성 판정으로 확대하지 않는다.
 
 ## Phase·Plan·Step 호출
+
+### 필수 운영 정책 (현재 API의 선택 인자와 구별)
+
+**Almond로 수행하는 모든 독립 과업은 Phase가 최소 1개 있는 상태에서 유효한 Phase에 속한 Plan을 생성하고 실제로 사용한다.**
+
+1. `list_generation_phases`로 조회한다. 적합한 기존 Phase가 있으면 ID를 재사용하고, 없으면 `create_generation_phase`를 호출한다. Phase는 문서나 Scene의 대체물이 아니므로 단순히 문서마다 별도 Phase를 늘리지 않는다.
+2. `list_generation_plans(phase_id=...)`로 같은 과업의 진행 중인 Plan을 확인한다. **새 독립 과업에는 `create_generation_plan(..., phase_id=...)`을 필수 실행**한다. 같은 과업의 연속 작업이면 그 Plan을 재사용한다. 기존 Plan의 `phase_id`가 없으면 `update_generation_plan(plan_id, phase_id=..., expected_revision=...)`으로 연결한다.
+3. 편집 대상과 선행 단계는 `get_generation_plan`·`resolve_generation_targets`로 확인하고, `update_generation_step`으로 실제 조사·설계·편집·검증의 상태 및 `input_refs`/`output_refs`를 기록한다. 결과가 누락되거나 미지원이면 `blocked` 또는 해당 미완료 상태로 남기며 완료로 위장하지 않는다. 단계 갱신 시 최신 `expected_revision`을 사용한다.
+4. Scope는 고정된 단계 집합을 만든다. 특히 `drawing` Plan에 `create_layout` Step이 있다고 하여 **기존 PageSpace Layout의 메타데이터 조사 요청에서 새 Layout을 만들지 않는다**. 해당 없음·지원 불가 근거를 기록하고 필요 시 Plan을 재조직할 과제를 분리해 보고한다.
+
+현재 서버 API에서는 `create_generation_plan`의 `phase_id`가 선택 인자지만, **이 스킬은 Phase 없는 Plan을 금지**한다. Plan 상태 기록은 사용자 편집 승인이나 Rhino 자동 실행을 의미하지 않는다.
 
 | 목적 | 공개 API와 핵심 인자 |
 |---|---|
