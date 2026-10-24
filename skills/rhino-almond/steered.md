@@ -1,5 +1,6 @@
 | 지시 내용 | 이번 처리 | 적용 문서 | 횟수 |
 |---|---|---|---:|
+| Phase는 최소 1개 존재해야 하며 독립 과업의 Plan 생성·사용을 강제할 것 | 운영 계약으로 강제; 기존 Phase·Plan 재사용과 Step 증거 갱신까지 연결 | SKILL.md · references/components-and-plans.md · references/workflow.md · references/tool-map.md | 1 |
 | 현재 rhino-almond를 깊이 검토·재조회하고 준비 완료를 짧게 알릴 것 | 사용 요청과 실행 검증 구분 유지 | SKILL.md | 8 |
 | 플러그인·subagent 허용 범위는 해당 과업의 명시 지시를 따를 것 | 사용자 제한 우선; 금지·허용을 일괄 고정하지 않음 | references/workflow.md | 8 |
 | 프로젝트 지침·관련 자료와 실제 이용·공간 조건을 읽고 판단할 것 | 현재 목적·조건에서 문제·대응·검증 방법을 판단 | references/workflow.md | 3 |

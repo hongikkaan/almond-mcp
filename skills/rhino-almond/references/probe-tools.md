@@ -2,7 +2,7 @@
 
 ## 직접 계산값 반환
 
-현재 상태·화면은 먼저 [고정 조회 도구](../SKILL.md#almond-mcp-도구-선택)를 사용하라. 그 범위를 넘는 C# 계산은 `execute_rhino_script`의 `public static object Run(RhinoDoc doc)`에서 익명 객체·문자열 키 dictionary·list/1차원 배열·유한 scalar/Guid를 반환하면 응답의 `result`로 받을 수 있다. 작은 계산값을 회수하기 위해 별도 JSON 파일을 만들 필요는 없다.
+현재 상태·화면은 먼저 [고정 조회 도구](tool-map.md#almond-mcp-도구-선택)를 사용하라. 그 범위를 넘는 C# 계산은 `execute_rhino_script`의 `public static object Run(RhinoDoc doc)`에서 익명 객체·문자열 키 dictionary·list/1차원 배열·유한 scalar/Guid를 반환하면 응답의 `result`로 받을 수 있다. 작은 계산값을 회수하기 위해 별도 JSON 파일을 만들 필요는 없다.
 
 `result`는 compact JSON 기준 UTF-8 65,536 bytes·container 깊이 16 이내다. Rhino geometry, `JObject/JArray`, 임의 POCO와 lazy enumerable을 그대로 반환하지 말고 필요한 수치·ID를 지원 값으로 투영하라. `status=success`와 `result_error`가 함께 오면 실행은 끝났지만 반환값을 표현하지 못한 것이므로 변경을 자동 재실행하지 마라. `RhinoApp.WriteLine`이 이 결과 채널로 수집된다고 가정하지 마라.
 

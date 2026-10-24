@@ -16,7 +16,17 @@
 
 custom GLB 파생 도면은 기존 `generate_asset_drawing_views(source_glb=..., input_units="mm" 또는 "m", up_axis="y" 또는 "z")`를 유지한다. 기존 generated 데이터와 하중·resource 읽기 경로도 유지하지만 generated/Meshy 선택·추천·배치 도구는 새 공개 목록에서 사용하지 않는다. Diagram 자산은 별도의 기존 도구를 사용하라.
 
-## 모델 공간의 도면을 Sheet로 등록하기
+## Sheet와 기존 Rhino Layout은 같은 목록이 아니다
+
+**현재 Sheet API는 이미 존재하는 모든 Rhino Layout의 메타데이터 카탈로그가 아니다.** `list_drawing_sheets`는 Almond DB에 **등록된 Sheet만** 반환한다. 사용자가 만든 PageSpace 벡터 도면·텍스트·주석이 이미 Layout에 있어도, Sheet로 등록된 적이 없다면 목록에 나타나지 않는다. `sync_drawing_sheet`도 이미 등록된 `sheet_id`에 대한 관찰/동기화이며, 미등록 Layout 전체를 자동 발견하지 않는다.
+
+실사용 검증(2026-10-24): `주민시설.3dm`의 원래 **13개 Layout**(DPRK-101~108, DPRK-201~205)은 정적 PageSpace 곡선·주석 중심이며 Rhino Detail viewport가 없었다. `list_drawing_sheets`는 별도로 생성한 **3개 QA Sheet**만 반환했다. 이 경험을 모든 3DM에 동일하게 적용하지 말고, **기존 Layout 인벤토리**와 **새 Layout/Detail 생성**의 서로 다른 작업으로 구분하라.
+
+- 사용자가 요청한 것이 기존 도면의 **제목·layout GUID·paper·도면 종류·표기된 축척·Scene/Component/Plan 연계 메타데이터 목록**이면 Rhino Layout을 새로 만들거나 도면 선을 생성하지 않는다. 현재 전용 metadata-only catalog/refresh API는 **없다**. 읽기 전용으로 관찰할 수 있는 범위와 필요한 기능 개선을 명시한다.
+- 축척은 Detail이 없는 PageSpace 도면에서 자동 측정할 수 없다. 도면에 적힌 축척·작업기록의 축척은 **표기·문서상 출처**로 구분하고, 네이티브 Detail scale 실측이라고 기재하지 않는다.
+- `execute_rhino_script`는 조회 코드여도 Undo/후처리가 수반될 수 있다. 기존 Layout 전수조사를 위해 임의 코드를 실행할 때는 사용자의 쓰기·보기 변경 허용 범위를 확인하고, 실행 전후 문서 동일성을 검증한다.
+
+## 새 모델 공간 도면을 Sheet로 등록하기
 
 Sheet 하나는 실제 Rhino Layout 하나와 그 안의 등록된 detail viewport 하나를 가진다. 도면 형상은 모델 공간의 world-XY 영역에 작성하라. `drawing_type`은 도면 성격의 이름이며 3D 형상을 자동 투영하는 명령이 아니다.
 
