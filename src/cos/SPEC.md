@@ -3,6 +3,11 @@
 이 모듈은 Chat on Steroids와 Rhino 사이의 COS 통합을 소유한다.
 [작업 지침](AGENTS.md)과 [공통 경계](../../SPEC.md)를 함께 따른다.
 
+같은 stdio host를 Codex·외부 로컬 MCP 클라이언트에서도 사용한다.
+`client_config.py`는 일상 설치의 설정을 생성하고 명시적으로 요청할 때만 Codex 설정에
+새 항목을 추가한다. 기존 singleton host 잠금·Rhino 연결 소유권을 바꾸지 않는다.
+사용 방법과 동시 연결 제한은 [외부 클라이언트 안내](EXTERNAL_CLIENTS.md)에 둔다.
+
 ## 구성
 
 | 위치 | 책임 |
