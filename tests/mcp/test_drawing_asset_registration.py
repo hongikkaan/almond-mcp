@@ -91,6 +91,26 @@ def test_explicit_revision_retains_previous_source_and_publishes_new_file(librar
     assert drafting.audit_package(Path(second["package_dir"]), Path(second["model_path"]))["status"] == "error"
 
 
+def test_manifest_reload_prunes_removed_assets_from_index_and_retrieval(library, tmp_path):
+    server = load_server_module()
+    root, _ = library
+    indexer = server.AssetLibraryIndexer(str(root), "drawing_assets", "drawing")
+    store = AlmondStore(tmp_path / "index-reload.sqlite3")
+    assert indexer.get("unrelated") is not None
+    store.sync_assets(list(indexer.assets.values()), library_id="drawing_assets")
+    assert store.search_assets(library_id="drawing_assets")["total"] == 1
+
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["assets"] = []
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    indexer._load()
+    assert indexer.get("unrelated") is None
+    assert indexer.search() == []
+    store.sync_assets(list(indexer.assets.values()), library_id="drawing_assets")
+    assert store.search_assets(library_id="drawing_assets")["total"] == 0
+
+
 @pytest.mark.parametrize("change", ["hash", "source", "units", "count", "incomplete"])
 def test_mismatched_native_proof_never_publishes(library, change):
     root, _ = library

@@ -140,6 +140,9 @@ class AssetLibraryIndexer:
                 file=sys.stderr,
             )
             return
+        # Treat each successful manifest read as a complete snapshot. Updating
+        # the old map in place would keep removed IDs searchable after reload.
+        assets: dict[str, dict] = {}
         for asset in manifest.get("assets", []):
             asset_id = str(asset.get("asset_id", "")).strip()
             relative_file = str(asset.get("file", "")).strip()
@@ -155,8 +158,9 @@ class AssetLibraryIndexer:
             record["library_id"] = self.library_id
             record["_resolved_file"] = str(resolved_file)
             record["file_available"] = resolved_file.is_file()
-            self.assets[asset_id] = record
+            assets[asset_id] = record
 
+        self.assets = assets
         print(f"Indexed {len(self.assets)} {self.label} assets.", file=sys.stderr)
 
     def public_record(self, asset: dict) -> dict:
