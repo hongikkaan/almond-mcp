@@ -3,8 +3,8 @@
 almond-mcp builds upon or references the following third-party work. This
 file must accompany any distribution of the software, including standalone
 distribution of the compiled `RhinoAlmondBridge.rhp` (e.g. via Yak /
-Food4Rhino). The full analysis behind each decision is in
-`docs/licensing-audit.md`.
+Food4Rhino). Original component license texts are retained in the viewer vendor
+directory and the Terminal's `licenses` directory.
 
 ## 3D Warehouse models — NOT distributed
 
@@ -27,7 +27,7 @@ missing and verifies checksums after download.
 The models in `asset/models/GeneratedAssetfiles/models/` (people, trees, vehicles, site
 furniture, columns, balustrades, sanitary fixtures, generic
 furniture) were generated with [Meshy](https://www.meshy.ai) from prompts
-written for this project and normalised by `tools/build_generated_assets.py`.
+written for this project and normalised by `src/mcp/tools/build_generated_assets.py`.
 Output generated on a paid Meshy plan belongs to the generating account, and
 these files are released under the
 [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/)
@@ -98,6 +98,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 ```
+
+## Terminal dependencies — distributed with the RHP
+
+xterm.js, addon-fit, Porta.Pty and Vanara retain their original MIT notices in
+`src/rhp/RhinoTerminal/licenses/`, copied into `licenses/` beside the RHP.
 
 ## Python dependencies — installed, not vendored
 

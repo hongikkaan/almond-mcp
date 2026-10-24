@@ -8,7 +8,7 @@ $userDrawing = [Environment]::GetEnvironmentVariable('RHINO_MCP_DRAWING_ASSET_DI
 try {
     $env:RHINO_MCP_DRAWING_ASSET_DIR = 'C:\other-checkout\drawing'
     $env:RHINO_MCP_STATE_DB = 'C:\other-checkout\state.sqlite3'
-    & (Join-Path $testRepo 'tools\use_offline_environment.ps1')
+    & (Join-Path $testRepo 'src\engine\use_offline_environment.ps1')
     $library = Join-Path $testRepo 'asset\grasshopper\Grasshopperfiles'
     if (-not (Test-Path -LiteralPath $library -PathType Container)) {
         $library = Join-Path $testRepo 'data\offline\libraries\Grasshopperfiles'

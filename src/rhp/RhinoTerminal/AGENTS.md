@@ -1,6 +1,6 @@
 # User-made RhinoTerminal
 
-Follow `../../../AGENTS.md`, `../../../LOCAL_SETUP.md` and `../../engine/AGENTS.md`.
+Follow `../../../AGENTS.md` and `../../engine/AGENTS.md`.
 The panel's `almond` command reuses the common Engine and editable environment.
 Keep current document identity, leases and native drain checks. Integration
 maintenance must preserve shell/ConPTY/Ctrl behavior and terminal UI.

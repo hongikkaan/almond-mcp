@@ -59,7 +59,8 @@ $vendor=Join-Path $terminal 'licenses'
 New-Item -ItemType Directory -Path $vendor -Force | Out-Null
 foreach($p in @(@{name='xterm';version='5.5.0';files=@{'lib/xterm.js'='xterm.js';'css/xterm.css'='xterm.css'}},
                 @{name='addon-fit';version='0.10.0';files=@{'lib/addon-fit.js'='addon-fit.js'}})) {
-    if(Test-Path -LiteralPath (Join-Path $web ($p.name+'.js'))) {continue}
+    if((Test-Path -LiteralPath (Join-Path $web ($p.name+'.js'))) -and
+       (Test-Path -LiteralPath (Join-Path $vendor ($p.name+'-LICENSE.txt')))) {continue}
     $meta=Invoke-RestMethod ("https://registry.npmjs.org/@xterm/"+$p.name+'/'+$p.version)
     $archive=Join-Path $data ($p.name+'.tgz')
     $client=New-Object Net.WebClient
@@ -78,7 +79,7 @@ foreach($p in @(@{name='xterm';version='5.5.0';files=@{'lib/xterm.js'='xterm.js'
 & $sdk build (Join-Path $bridge 'RhinoAlmondBridge.csproj') -c Release -o $buildOutput --nologo -p:RestoreLockedMode=true -p:UseSharedCompilation=false -nodeReuse:false
 if($LASTEXITCODE){throw 'Plugin build failed.'}
 Copy-Item -LiteralPath (Join-Path $buildOutput 'RhinoAlmondBridge.dll') -Destination (Join-Path $buildOutput 'RhinoAlmondBridge.rhp') -Force
-& $PythonExecutable (Join-Path $repo 'tools\build_archive_bundle.py') (Join-Path $buildOutput 'archive')
+& $PythonExecutable (Join-Path $repo 'src\rhp\tools\build_archive_bundle.py') (Join-Path $buildOutput 'archive')
 if($LASTEXITCODE){throw 'Archive bundle build failed.'}
 $noticeOutput=Join-Path $buildOutput 'licenses'
 New-Item -ItemType Directory -Path $noticeOutput -Force | Out-Null
