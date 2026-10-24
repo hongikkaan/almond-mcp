@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0,str(ROOT/"tools"))
+sys.path.insert(0,str(ROOT/"src/rhp/tools"))
 from build_archive_bundle import build_bundle
 
 

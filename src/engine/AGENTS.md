@@ -1,6 +1,6 @@
 # User-made Almond Engine
 
-Follow `../../AGENTS.md` and `../../LOCAL_SETUP.md`. This folder owns the shared
+Follow `../../AGENTS.md`. This folder owns the shared
 Python entry point and `Almond.Engine.dll`; neither is the upstream bridge.
 
 All entry points use the same editable environment. Keep per-folder DB/tmp,

@@ -55,8 +55,6 @@ if(-not (Test-Path -LiteralPath $sdk)) {
 }
 $web=Join-Path $terminal 'src\web'
 New-Item -ItemType Directory -Path $web -Force | Out-Null
-$vendor=Join-Path $terminal 'licenses'
-New-Item -ItemType Directory -Path $vendor -Force | Out-Null
 foreach($p in @(@{name='xterm';version='5.5.0';files=@{'lib/xterm.js'='xterm.js';'css/xterm.css'='xterm.css'}},
                 @{name='addon-fit';version='0.10.0';files=@{'lib/addon-fit.js'='addon-fit.js'}})) {
     if(Test-Path -LiteralPath (Join-Path $web ($p.name+'.js'))) {continue}
@@ -72,20 +70,13 @@ foreach($p in @(@{name='xterm';version='5.5.0';files=@{'lib/xterm.js'='xterm.js'
     & tar.exe -xzf $archive -C $unpack
     if($LASTEXITCODE){throw 'tar extraction failed.'}
     foreach($source in $p.files.Keys) {Copy-Item -LiteralPath (Join-Path $unpack ('package/'+$source)) -Destination (Join-Path $web $p.files[$source])}
-    Copy-Item -LiteralPath (Join-Path $unpack 'package/LICENSE') -Destination (Join-Path $vendor ($p.name+'-LICENSE.txt'))
     Remove-Item -LiteralPath $archive,$unpack -Recurse -Force
 }
 & $sdk build (Join-Path $bridge 'RhinoAlmondBridge.csproj') -c Release -o $buildOutput --nologo -p:RestoreLockedMode=true -p:UseSharedCompilation=false -nodeReuse:false
 if($LASTEXITCODE){throw 'Plugin build failed.'}
 Copy-Item -LiteralPath (Join-Path $buildOutput 'RhinoAlmondBridge.dll') -Destination (Join-Path $buildOutput 'RhinoAlmondBridge.rhp') -Force
-& $PythonExecutable (Join-Path $repo 'tools\build_archive_bundle.py') (Join-Path $buildOutput 'archive')
+& $PythonExecutable (Join-Path $repo 'src\rhp\tools\build_archive_bundle.py') (Join-Path $buildOutput 'archive')
 if($LASTEXITCODE){throw 'Archive bundle build failed.'}
-$noticeOutput=Join-Path $buildOutput 'licenses'
-New-Item -ItemType Directory -Path $noticeOutput -Force | Out-Null
-Get-ChildItem -LiteralPath $vendor -File | Copy-Item -Destination $noticeOutput -Force
-foreach($name in 'LICENSE','THIRD-PARTY-NOTICES.md') {
-    Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $buildOutput -Force
-}
 $previous=Join-Path $bridge ('data\previous-build-'+[guid]::NewGuid().ToString('N'))
 if(Test-Path -LiteralPath $output) { Move-Item -LiteralPath $output -Destination $previous }
 try { Move-Item -LiteralPath $buildOutput -Destination $output }

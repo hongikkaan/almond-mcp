@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("verify_runtime", ROOT / "tools/verify_runtime.py")
+spec = importlib.util.spec_from_file_location("verify_runtime", ROOT / "src/rhp/tools/verify_runtime.py")
 runtime = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runtime)
 

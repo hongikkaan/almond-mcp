@@ -1,6 +1,6 @@
 # User-made COS adapter
 
-Follow `../../AGENTS.md`, `../../LOCAL_SETUP.md` and `../engine/AGENTS.md`.
+Follow `../../AGENTS.md` and `../engine/AGENTS.md`.
 One stdio host owns separate workers for each bound Rhino. Engine handles
 storage, native completion and helper compatibility. Do not duplicate these
 policies in COS. Preserve source/schema checks; regenerate the catalog without

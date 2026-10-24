@@ -1,124 +1,95 @@
 # Personal Almond fork
 
-## Explain and deliver the complete user workflow
+## 작업 원칙
 
-- The user is not a developer. Explain the complete practical sequence before
-  abbreviating it; do not make the user infer missing steps or correct the workflow.
-- Distinguish the development worktree, GitHub main, everyday checkout, compiled
-  RHP/dependencies, Rhino registration, and the RHP already loaded in a process.
-  Give the actual affected folder/file and the user's resulting behavior.
-- The intended delivery is: develop and build in the worktree, commit source and
-  RHP together, push, open a PR, merge, then update the everyday main with
-  `git pull --ff-only` while Rhino is closed and start Rhino. Each checkout has
-  its own runtime files; Git transfers them through the commit, not by copying
-  from a developer's absolute worktree path on the user's next launch.
-- `fetch` only updates remote-tracking information. Never say it updates the
-  everyday working files or the running Rhino. Explain `pull --ff-only` as
-  fetching and fast-forwarding the current branch and its tracked working files.
-- Never use "updated", "applied", "configured", or "ready" without identifying
-  what changed and what was actually verified. Do not present copied/registered
-  files as a successful live Rhino load, or local commits as GitHub publication.
-- Before claiming a build/restart is required, inspect the actual startup code,
-  committed artifacts, registration and loaded modules. State unknowns explicitly.
-- Disclose code edits as code edits: name the affected entry point/script and
-  its purpose. Do not describe installation/verification code as "settings only".
-- When asked to finish setup before replying, suppress routine narration. Answer
-  direct questions plainly and report material blockers promptly. Do not substitute
-  repeated explanations or apologies for completing the authorized work.
+- 한국어로 답하고, 기존 호출부를 확인한 뒤 필요한 최소 변경만 한다. SuperPower는 요청 없이는 사용하지 않는다.
+- 사용자는 개발자가 아니다. 실제 사용할 때까지의 절차를 생략하지 말고, 바꾼 파일과 결과를 구체적으로 설명한다.
+- 개발 워크트리, GitHub main, 일상 폴더, 디스크의 RHP·의존 파일, Rhino 등록, 실행 중 로드된 assembly를 구분한다. 소스 수정은 설정 변경이라고 축소하지 않는다.
+- 빌드 성공·파일 배치·등록·실제 로드·모델링 검증은 각각 별도 증거다. 구현과 현재 상태를 확인하지 않고 재빌드·재시작을 단정하지 않는다.
+- 기존 사용자 변경·모델·DB를 보존한다. Rhino를 강제 종료하거나 로드된 RHP를 덮어쓰지 않는다.
+- PowerShell·UTF-8을 사용하고 `rg` 패턴은 작은따옴표로 감싼다. 재귀 삭제·이동 전 절대 경로가 작업 범위 안인지 확인한다.
+- 설정 완료 후 답변하라는 요청에는 일상적인 설명을 줄이고, 중요한 차단과 직접 질문에만 즉시 답한다.
 
-## Required runnable delivery
+## 구조와 변경 경계
 
-The repository must include a ready-to-load RHP and its dependencies, not only
-source. Ship Bridge and COS under their fixed `src/rhp/*/plugin-runtime` paths.
-When changing RHP/native C# or packaged UI, build the affected RHPs, include the
-updated runtime files in the same commit, and record/check their hashes with
-`python tools/verify_runtime.py --record` and `python tools/verify_runtime.py`.
-Never deliver a source-only change that requires the everyday user to build,
-copy binaries, or edit registration after pulling. Keep Bridge/COS Engine DLLs
-identical. Test the registered runtime before reporting it ready to use.
-`tools/install_runtime.ps1` registers the fixed paths once; later `pull --ff-only`
-updates those same executable files. Pull/build only while Rhino is closed.
-Development outputs outside the committed `plugin-runtime` folders stay ignored.
+구조는 [SPEC.md](SPEC.md), 기능별 사용법은 [README.md](README.md)의 링크를 필요할 때 읽는다.
 
-## Layout and ownership
+- `src/mcp/almond_mcp`: upstream Python MCP·계산·라이브러리 API.
+- `src/engine`: 개인 실행·연결·공유 저장소와 별도 `Almond.Engine.dll`.
+- `src/cos`: 같은 Engine을 사용하는 stdio host/worker와 도구 카탈로그.
+- `src/rhp/RhinoAlmondBridge`: Bridge RHP. `Structural_Analysis`, `Asset_Panel`, `RhinoTerminal` 소스도 여기에 컴파일한다. Terminal에는 별도 PlugIn entry가 없다.
+- `src/rhp/AlmondCOS`: 별도 COS RHP. 패널의 공용 웹 파일은 `src/rhp/Asset_Panel/web`에 둔다.
 
-Read `SPEC.md` for the structure and `LOCAL_SETUP.md` for execution/build paths.
-This checkout is the `mcp/almond-mcp` submodule of the local Rhino repository.
-Commit/push this repository before committing its gitlink in the parent.
-`main` contains personal integration. The upstream `codex/undo-recovery` PR
-remains limited to the existing Undo/Redo fix on `release/0.7.0rc2`.
+Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 보존한다. 경로 정리 때문에 기능을 리팩터링하지 않는다. Engine DLL을 Bridge RHP나 상위 리포의 `mcp/native`와 혼동하지 말고 설치된 패키지를 패치하지 않는다.
+이 저장소는 상위 Rhino 리포의 `mcp/almond-mcp` 서브모듈이다. 이 리포의 commit/push 이후 상위 gitlink를 갱신하며, 상위의 다른 작업과 섞지 않는다. 개인 통합은 `main`, upstream `codex/undo-recovery`는 기존 `release/0.7.0rc2` Undo 수정 범위를 유지한다.
 
-- `src/mcp/almond_mcp`: upstream Python server, algorithms and library APIs.
-- `src/engine`: user-made execution, storage/connection layer and Almond.Engine.dll.
-- `src/cos`: user-made COS Python host/worker.
-- `src/rhp/RhinoTerminal`: Terminal source/resources included in the Bridge RHP.
-- `src/rhp/AlmondCOS`: separate user-made COS Rhino plugin.
-- `src/rhp/RhinoAlmondBridge`: upstream bridge project and core.
-- `src/rhp/Structural_Analysis`, `src/rhp/Asset_Panel`: feature sources compiled
-  into the same Bridge with RhinoTerminal. The shared panel web resources stay together.
+## 일상 실행과 최초 설치
 
-The integrated RHP keeps the Bridge assembly/version/GUID, panel GUIDs, namespaces,
-command names, solver logic and tool schemas. Terminal has no separate PlugIn entry.
-Engine and MCP remain separate. The latest
-reorganization permits path/packaging/reference changes in upstream files;
-do not use that permission for functional refactors. Preserve the Undo patch.
-Do not confuse Almond.Engine.dll with RhinoAlmondBridge.rhp or the parent's
-unrelated `mcp/native` project. Never patch installed package files.
+일상 폴더는 브랜치 이름과 무관하게 `C:\TOOL\Rhino\mcp\almond-mcp`다. Rhino의 Bridge/COS 등록과 CoS command/args를 이곳에 고정한다. 개발 워크트리로 등록을 돌리지 않는다.
 
-For current document/viewport queries and C# return values, read
-`docs/native-observation.md` and `docs/native-observation-verification.md`.
-Fixed observations must not use the mutating script executor. A `result_error`
-does not roll back completed edits or authorize an automatic retry.
+최초 설치만, 해당 환경의 host/worker와 Rhino 연결을 종료한 뒤 리포 루트에서 실행한다.
 
-## Runtime and data
+```powershell
+./src/engine/rebuild_environment.ps1
+./src/rhp/tools/install_runtime.ps1
+```
 
-The everyday Rhino/COS installation uses the original checkout at
-`C:\TOOL\Rhino\mcp\almond-mcp`, regardless of its branch name. Keep both Rhino
-plugin registrations and the CoS command/args there. Development worktrees
-must not repoint those registrations to their own builds.
+첫 명령은 `src/engine/.venv`에 Python 3.12.12·`uv.lock` 의존성을 구성하고 MCP를 editable로 설치하며 COS 카탈로그와 로컬 `src/cos/cos-plugin.json`을 생성한다. 둘째 명령은 기존 등록을 `data/runtime-install`에 백업하고 다음 고정 파일을 등록한다. CoS 앱에는 생성된 JSON의 command/args와 600초 제한을 한 번 등록한다. JSON 생성 자체가 CoS 앱 등록은 아니다.
 
-One editable environment lives at `src/engine/.venv`, reproduced by `uv.lock`.
-Normal startup never syncs dependencies. Regenerate the COS catalog after source
-path/source changes and retain its version, source-fingerprint and schema checks.
-Build the integrated RHP with `src/rhp/build.ps1`; its output and dependencies live
-under `src/rhp/RhinoAlmondBridge/plugin-runtime`. Keep this depth for the shared Engine
-path. It targets .NET 8 and the installed Rhino 8 SDK (verified with 8.34).
-COS keeps its separate `src/rhp/AlmondCOS/plugin-runtime` output.
-The optional SDK is ignored at `src/rhp/RhinoTerminal/data/sdk`.
+| 플러그인 | 등록 파일 | GUID |
+|---|---|---|
+| Bridge | `src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp` | `c337dbb8-394a-4593-9c2b-a3d7cfc91893` |
+| COS | `src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp` | `39eb74f6-8283-4e43-bf26-f0106d891b75` |
 
-Preserve existing AppData libraries and explicit `RHINO_MCP_*_DIR` overrides.
-The repository `asset/` tree, wheel `almond_mcp/data/` names and user AppData
-names are different layouts. Do not rewrite upstream asset download URLs as
-local paths. Preserve manifest-relative paths and byte/hash integrity.
+등록 확인은 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`다. 새 Rhino에서 실제 로드 경로도 확인한다. 예전 standalone Terminal GUID `27D4B9A1-8FAD-421C-B64A-7A213D3B4079`가 남았다면 백업 후 중복 등록을 제거한다.
 
-A model folder shares `.almond/scene.sqlite3` and `.almond/tmp`. Each connection
-owns its token/session/call directory. Preserve shared DB locks, role leases,
-A-J slots, process identity, UI-thread checks and acknowledged native completion.
-No session owns the entire DB. Timeout is not rollback; never retry an uncertain
-mutation automatically. Finish/detach before moving or renaming a model.
+이후 업데이트는 **Rhino를 정상 종료 → 일상 폴더에서 `git pull --ff-only` → Rhino 시작** 순서다. pull은 fetch와 현재 브랜치·추적 파일의 fast-forward를 수행한다. fetch만으로 파일은 바뀌지 않고, 실행 중 Rhino는 이미 로드한 assembly를 계속 쓴다. 소스와 실행 파일을 함께 받으므로 매번 빌드·복사·등록할 필요가 없다.
 
-Only delete user models/databases on explicit request. Put temporary development
-artifacts in ignored local `data/`, never in a model's data. Do not retain redundant
-Undo backups: the source fix is in Git and the installed RHP is separate.
+- 외부 실행: `src/engine/Almond 시작.cmd`에서 저장된 모델을 선택한다.
+- Rhino 내부: `RhinoTerminal` → `almond`; 재연결은 `almond resume`.
+- COS: 저장된 Rhino 문서에서 `AlmondCOS`를 실행하고 host/model을 선택한다.
+- 패널: `Almond`, `AlmondLibrary`, `AlmondStructure`, `AlmondResults`. 패널이 숨으면 Terminal/Layers와 같은 dock에 둔다.
 
-## Verification and changes
+## 개발·빌드·반영
 
-Tests live in root `tests/engine`, `tests/mcp`, `tests/cos`, `tests/rhp`.
-Keep source, tests, locks, licenses and useful docs. Exclude venvs, SDKs, unshipped build outputs,
-local config, sessions, user models and logs. Keep asset contracts/vendor hashes
-and `.gitattributes` aligned when moving files. Preserve unrelated user changes.
+기존 적합한 워크트리를 우선 사용한다. 새 작업은 최신 `main`에서 분기하고 환경은 각 체크아웃에서 새로 구성한다. venv를 복사·공유하지 않는다. 작업 폴더를 바꾸는 것만으로 모델 DB·슬롯·로드된 RHP가 격리되지는 않는다.
 
-Build success, registry configuration and live Rhino loading are separate evidence.
-Never force-close a user's Rhino or overwrite loaded RHPs. An offline fixture is
-not actual modeling, panel interaction, placement or structural analysis in Rhino.
-Preserve Terminal UI/ConPTY/Ctrl behavior and all validation/error handling.
+일반 시작은 의존성을 동기화하지 않는다. Python 소스 변경 후에는 관련 host/worker를 다시 시작한다. COS 소스 경로·공개 도구 변경 시 `src/cos/build_catalog.py`로 카탈로그를 재생성하고 version·source fingerprint·schema 검사를 유지한다.
 
-## Working style
+C#/native 또는 실행용 UI 변경은 Rhino를 닫은 상태에서 영향받는 RHP를 빌드한다. .NET 8 SDK와 Windows Rhino 8 SDK를 사용하며 기본 빌드는 설치된 SDK를 참조한다. 선택 SDK 위치는 `src/rhp/RhinoTerminal/data/sdk`다.
 
-- Respond in Korean. Inspect existing callers and make the smallest verified change.
-- Keep a path-only reorganization free of functional changes and new abstractions.
-- Ask only when an important unknown cannot be resolved locally.
-- PowerShell and UTF-8 are defaults. Quote rg patterns/globs with single quotes.
-- Validate absolute paths before recursive move/delete; use one shell end-to-end.
-- Do not use SuperPower unless requested or message others without authorization.
-- Legal notices required by included code/assets are not disposable clutter.
+```powershell
+./src/rhp/build.ps1
+./src/rhp/AlmondCOS/build.ps1
+& ./src/engine/.venv/Scripts/python.exe -B src/rhp/tools/verify_runtime.py --record
+& ./src/engine/.venv/Scripts/python.exe -B src/rhp/tools/verify_runtime.py
+```
+
+Bridge와 COS 출력은 위의 각 `plugin-runtime` 폴더다. Engine을 변경했다면 양쪽을 빌드해 `Almond.Engine.dll`이 같게 한다. RHP와 의존 DLL·deps/runtimeconfig JSON·archive를 함께 추적한다. Rhino 제공 DLL은 포함하지 않는다. 빌드는 staging 후 교체하며 등록하지 않는다. Terminal의 `../../../engine` 탐색 때문에 출력 깊이를 유지한다.
+
+**개발 워크트리에서 구현·빌드·검증 → 소스와 실행 파일을 같은 commit → push·PR·merge → Rhino를 닫고 일상 폴더에서 pull → 시작 후 등록된 런타임 확인**이 전체 전달 순서다. 사용자에게 빌드·바이너리 복사·등록 수정을 떠넘기는 소스만의 전달은 하지 않는다. commit, push, merge, 일상 파일 갱신과 실제 로드를 각각 구분해 보고한다.
+
+## 데이터와 실행 안전
+
+기존 AppData 라이브러리와 명시적 `RHINO_MCP_*_DIR`을 보존한다. 저장소 `asset/`, wheel의 `almond_mcp/data/`, AppData의 이름은 서로 다른 배치다. Bridge와 Python의 라이브러리 경로를 일치시키고 원본 다운로드 URL·manifest 상대 경로·모델 바이트·해시를 임의로 바꾸지 않는다.
+
+모델 폴더는 `.almond/scene.sqlite3`와 `.almond/tmp`를 공유하며, 연결은 자신의 token/session/call 디렉터리를 소유한다. 공유 잠금·역할 lease·A–J 슬롯·프로세스 identity·UI thread·native 완료 확인을 유지한다. 모델을 이동·이름 변경하기 전에 finish/detach한다.
+
+Rhino 작업 전 `almond_project_info`(COS는 `almond_cos_project_info`)의 연결과 `artifact_dir`를 확인한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [native-observation.md](docs/modeling/native-observation.md)를 따른다.
+
+임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. 오래된 인계·배포·검증 로그는 현재 기능 문서에 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
+
+## 검증
+
+오프라인 개발 셸에서 먼저 `./src/engine/use_offline_environment.ps1`을 실행하면 라이브러리와 DB/tmp가 해당 체크아웃의 `asset/`·`data/offline`을 사용한다. 현재 셸과 자식에만 적용되며 네트워크 차단이나 실제 Rhino 격리는 아니다. 일반 실행으로 돌아갈 때는 새 셸을 연다.
+
+변경 범위에 맞춰 아래 검사를 선택한다.
+
+```powershell
+& ./src/engine/.venv/Scripts/python.exe -B -X utf8 -m pytest tests/mcp tests/engine
+./src/cos/run_tests.ps1
+& ./src/engine/.venv/Scripts/python.exe -B src/engine/verify_library_sources.py
+node --test (Get-ChildItem tests/rhp/Asset_Panel -Filter *.test.mjs | ForEach-Object FullName)
+```
+
+기본 pytest는 MCP/Engine이고 COS는 전용 .NET fixture 준비가 필요하다. native fixture는 `tests/engine/native`, Terminal host는 `tests/rhp/RhinoTerminal/AlmondHostContracts`, Undo·관측은 [fixture README](tests/rhp/RhinoAlmondBridge/script_executor_undo/README.md)를 따른다. 실제 Rhino 검증은 일회용 문서에서 수행하고 빌드·오프라인 검사와 별도로 보고한다. 기존 실패를 숨기거나 기준을 낮추지 않는다.

@@ -3307,7 +3307,7 @@ def list_design_codes() -> str:
     gamma_Q, psi_0, xi; the ULS expression; material factors gamma_M0, gamma_M1; the deflection
     limit; suggested imposed floor loads), each with its source clause and a verified flag.
     "eurocode" (EN recommended values) is built in and the default; "off" is unfactored mechanics.
-    Practices add National Annex profiles as JSON files in user_dir (see docs/design-codes.md).
+    Practices add National Annex profiles as JSON files in user_dir (see docs/structure/design-codes.md).
     Unverified values are allowed but flagged in every result that uses them.
 
     Returns JSON: default, profiles [{id, name, basis, origin, verified, unverified,

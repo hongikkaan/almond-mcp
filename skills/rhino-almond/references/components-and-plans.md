@@ -37,7 +37,7 @@ block은 문서의 **top-level occurrence GUID**를 Component 멤버로 등록�
 
 `get_design_component`, `list_design_components`, `get_scene_objects`는 저장된 관찰값이며 `live_verified=false`다. 등록·sync 성공 응답의 `live_verified=true`는 그 호출에서 확인한 snapshot을 뜻한다. 이후 Rhino의 수동 편집·Undo/Redo가 DB에 자동 반영되지는 않는다.
 
-수동 편집이나 Undo/Redo 이후 `get_design_component(live=True)`로 현재 group과 `pending_objects`를 읽는다. TextDot 등 소유자가 없는 새 그룹 멤버는 읽기 전용 검사에서 후보로만 보인다. 명시적 `sync_design_component`는 **모호하지 않은** 후보를 가장 깊은 등록 group의 직접 소유 객체로 채택하고 조상 group 멤버십을 한 Undo에 정합시키며 DB snapshot을 갱신한다. 이미 정합된 경우 Rhino를 수정하지 않는다. 복사·외부 소유 stamp·불명확한 그룹 중첩은 명시적으로 수리해야 한다. 오류·타임아웃 뒤 원래 수정을 자동 재실행하지 않는다. [네이티브 계층 계약](../../../docs/component-native-hierarchy.md)도 확인하라.
+수동 편집이나 Undo/Redo 이후 `get_design_component(live=True)`로 현재 group과 `pending_objects`를 읽는다. TextDot 등 소유자가 없는 새 그룹 멤버는 읽기 전용 검사에서 후보로만 보인다. 명시적 `sync_design_component`는 **모호하지 않은** 후보를 가장 깊은 등록 group의 직접 소유 객체로 채택하고 조상 group 멤버십을 한 Undo에 정합시키며 DB snapshot을 갱신한다. 이미 정합된 경우 Rhino를 수정하지 않는다. 복사·외부 소유 stamp·불명확한 그룹 중첩은 명시적으로 수리해야 한다. 오류·타임아웃 뒤 원래 수정을 자동 재실행하지 않는다. [네이티브 계층 계약](../../../docs/modeling/component-system.md#native-component-hierarchy)도 확인하라.
 
 `validate_scene_layout`은 기존 asset instance 검사다. `passed_scope="legacy_asset_instances"`, `coverage.registered_object_collisions_checked=false`와 실제 검사 범위를 읽는다. Room이 지정된 instance의 containment와 AABB 충돌 통과를 Component·직접 Scene 객체의 실제 접합·관입·공간 사용성 판정으로 확대하지 않는다.
 
