@@ -57,7 +57,7 @@ def closed_form():
 
 
 def karamba():
-    ref = json.loads((ROOT / "tests" / "mcp" / "data" / "karamba_reference.json").read_text())
+    ref = json.loads((ROOT / "src" / "mcp" / "tests" / "data" / "karamba_reference.json").read_text())
     rows = []
     for case in ref["cases"]:
         mm = lambda p: [v / 1000 for v in p]
