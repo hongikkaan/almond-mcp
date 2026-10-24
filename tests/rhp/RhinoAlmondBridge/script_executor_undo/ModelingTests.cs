@@ -23,15 +23,15 @@ namespace AlmondScriptUndoTests
                 using var events = new MaterialEventTrace(doc);
                 var result = new ScriptExecutor().Execute(
                     "public class Script { public static object Run(RhinoDoc doc) { " +
-                    "var a = RhinoAlmondBridge.ModelingMaterials.CreateAttributes(doc, \"wood-oak\"); " +
+                    "var a = AlmondScriptUndoTests.ModelingTests.Factory(doc); " +
                     "a.Name = \"free object name\"; for (int i=0;i<100;i++) doc.Objects.AddPoint(new Point3d(i,0,0), a); " +
                     "doc.Objects.AddBrep(new BoundingBox(0,0,0,10,10,10).ToBrep(), a); " +
                     "return new { count = 101 }; } }", doc);
                 Check(result.Status == "success", result.Message);
                 var all = doc.Objects.GetObjectList(ObjectType.AnyObject).ToArray();
-                Check(all.Length == 101 && all.All(o => doc.Layers[o.Attributes.LayerIndex].FullPath == "M::wood::wood-oak"), "Batch layer assignment failed.");
+                Check(all.Length == 101 && all.All(o => doc.Layers[o.Attributes.LayerIndex].FullPath == "Default"), "Batch layer assignment failed.");
                 Check(all.All(o => o.Attributes.Name == "free object name"), "Names were changed.");
-                Check(doc.Layers.Count(l => !l.IsDeleted) == 4 && doc.RenderMaterials.Count(m => m != null) == 1,
+                Check(doc.Layers.Count(l => !l.IsDeleted) == 1 && doc.RenderMaterials.Count(m => m != null) == 1,
                     "Unused layers or materials were created. Before: " + before + "; after: " + MaterialState(doc) + "; " + events);
                 var shared = doc.RenderMaterials.First(m => m != null);
                 Guid renderId = shared.Id;
@@ -50,7 +50,7 @@ namespace AlmondScriptUndoTests
                 }
                 Check(all.All(o => o.Attributes.GetUserStrings().Count == 1), "Duplicated material metadata was stamped.");
                 var repeated = new ScriptExecutor().ExecuteAction(doc, () =>
-                    ModelingMaterials.Apply(doc, "wood-oak", all.Select(o => o.Id)));
+                    ModelingMaterials.Apply(doc, Recipe("wood-oak"), all.Select(o => o.Id)));
                 Success(repeated);
                 Check(((JArray)repeated.Result["changed_guids"]).Count == 0 && doc.RenderMaterials.Count(m => m != null) == 1,
                     "Repeated assignment created changes or another shared render material.");
@@ -61,7 +61,9 @@ namespace AlmondScriptUndoTests
                 Check(doc.Objects.GetObjectList(ObjectType.AnyObject).Count() == 101 && doc.RenderMaterials.Find(renderId) != null,
                     "Batch Redo lost geometry or the shared render material identity.");
             });
-            Run(lines, directory, "postprocess sees final direct attributes after Add", doc =>
+            Run(lines, directory, "archive revisions stay separate from editable legacy materials",
+                CheckArchiveRevision, foreground: true);
+            Run(lines, directory, "direct material attributes do not create or change layers", doc =>
             {
                 using var events = new MaterialEventTrace(doc);
                 int material = CustomMaterial(doc, "Final / concrete");
@@ -75,15 +77,14 @@ namespace AlmondScriptUndoTests
                     Check(doc.Objects.ModifyAttributes(id, attrs, true), "Final attrs failed.");
                     return null;
                 }));
-                Check(ModelingMaterials.TryLayerForMaterial(doc, material, out string layer), "No custom layer path.");
-                Check(Layer(doc, id) == layer && layer.StartsWith("M::Custom::Final _ concrete__"),
-                    "Final material not routed. actual=" + Layer(doc, id) + "; expected=" + layer + "; " + MaterialState(doc) + "; " + events);
+                string layer = "Default";
+                Check(Layer(doc, id) == layer && doc.Layers.Count(l => !l.IsDeleted) == 1, "Direct material assignment moved the object.");
                 Undo(doc);
                 Check(doc.Objects.FindId(id) == null, "Object not undone.");
                 Redo(doc);
                 Check(Layer(doc, id) == layer, "Postprocess layer not redone.");
             }, foreground: true);
-            Run(lines, directory, "direct material reassignment and rename route existing objects", doc =>
+            Run(lines, directory, "material rename preserves hidden and visible object layers", doc =>
             {
                 using var events = new MaterialEventTrace(doc);
                 var id = doc.Objects.AddPoint(Point3d.Origin);
@@ -104,8 +105,8 @@ namespace AlmondScriptUndoTests
                     Check(doc.Materials.Modify(changed, material, true), "Material rename failed.");
                     return null;
                 }));
-                Check(Layer(doc, id) != firstLayer && Layer(doc, id).Contains("second__"),
-                    "Material table change not routed. first=" + firstLayer + "; actual=" + Layer(doc, id) + "; " + MaterialState(doc) + "; " + events);
+                Check(Layer(doc, id) == firstLayer,
+                    "Material rename moved an object. first=" + firstLayer + "; actual=" + Layer(doc, id) + "; " + MaterialState(doc) + "; " + events);
                 Undo(doc);
                 Check(Layer(doc, id) == firstLayer && doc.Materials[material].Name == "first", "Material/layer Undo diverged.");
             }, foreground: true);
@@ -136,12 +137,12 @@ namespace AlmondScriptUndoTests
             {
                 Guid id = Guid.Empty;
                 Success(new ScriptExecutor().ExecuteAction(doc, () => {
-                    id = doc.Objects.AddPoint(Point3d.Origin, ModelingMaterials.CreateAttributes(doc, "wood-oak"));
+                    id = doc.Objects.AddPoint(Point3d.Origin, ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak")));
                     return null;
                 }));
                 var before = doc.Objects.FindId(id).Attributes.Duplicate();
                 int materials = doc.Materials.Count, layers = doc.Layers.Count;
-                Success(new ScriptExecutor().ExecuteAction(doc, () => ModelingMaterials.Apply(doc, "steel-galvanized",
+                Success(new ScriptExecutor().ExecuteAction(doc, () => ModelingMaterials.Apply(doc, Recipe("steel-galvanized"),
                     new[] { id }, new Dictionary<string,string> { ["almond:floor"] = "L02", ["almond:construction_detail"] = "Facade head A" }, false, true)));
                 var after = doc.Objects.FindId(id).Attributes;
                 Check(after.MaterialIndex == before.MaterialIndex && after.LayerIndex == before.LayerIndex &&
@@ -149,7 +150,7 @@ namespace AlmondScriptUndoTests
                 Check(after.GetUserString("almond:floor") == "L02" && after.GetUserString("almond:construction_detail") == "Facade head A", "Missing requested metadata.");
                 Check(doc.Materials.Count == materials && doc.Layers.Count == layers &&
                     doc.Objects.GetObjectList(ObjectType.AnyObject).Count() == 1, "Metadata created material/layer/dimensions.");
-                Success(new ScriptExecutor().ExecuteAction(doc, () => ModelingMaterials.Apply(doc, "wood-oak", new[] { id }, null, false, false)));
+                Success(new ScriptExecutor().ExecuteAction(doc, () => ModelingMaterials.Apply(doc, Recipe("wood-oak"), new[] { id }, null, false, false)));
                 Check(doc.Objects.FindId(id).Attributes.GetUserStrings().Count == 3, "No-op changed metadata.");
             });
             Run(lines, directory, "material metadata rejects ownership and provenance before mutation", doc =>
@@ -167,8 +168,8 @@ namespace AlmondScriptUndoTests
                         bool rejected = false;
                         try
                         {
-                            if (existing) ModelingMaterials.Apply(doc, "wood-oak", new[] { id }, metadata);
-                            else ModelingMaterials.CreateAttributes(doc, "wood-oak", metadata);
+                            if (existing) ModelingMaterials.Apply(doc, Recipe("wood-oak"), new[] { id }, metadata);
+                            else ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"), metadata);
                         }
                         catch (ArgumentException) { rejected = true; }
                         Check(rejected, "Accepted protected metadata: " + key);
@@ -190,12 +191,12 @@ namespace AlmondScriptUndoTests
                 };
                 Guid id = Guid.Empty;
                 Success(new ScriptExecutor().ExecuteAction(doc, () => {
-                    var attrs = ModelingMaterials.CreateAttributes(doc, "wood-oak", metadata, source);
+                    var attrs = ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"), metadata, source);
                     id = doc.Objects.AddPoint(Point3d.Origin, attrs);
                     return null;
                 }));
                 Success(new ScriptExecutor().ExecuteAction(doc, () =>
-                    ModelingMaterials.Apply(doc, "steel-galvanized", new[] { id }, metadata)));
+                    ModelingMaterials.Apply(doc, Recipe("steel-galvanized"), new[] { id }, metadata)));
                 var after = doc.Objects.FindId(id).Attributes;
                 Check(after.Name == source.Name && after.GetUserString("almond:component_id") == "owner-1" &&
                     after.GetUserString("almond:passport") == "existing provenance" &&
@@ -213,7 +214,7 @@ namespace AlmondScriptUndoTests
                 var id = doc.Objects.AddPoint(Point3d.Origin);
                 int materials = doc.Materials.Count, layers = doc.Layers.Count;
                 var result = new ScriptExecutor().ExecuteAction(doc, () =>
-                    ModelingMaterials.Apply(doc, "wood-oak", new[] { id }));
+                    ModelingMaterials.Apply(doc, Recipe("wood-oak"), new[] { id }));
                 Check(result.Status == "runtime_error" && result.Message.Contains("conflicting material_id"),
                     "Conflicting identity was accepted: " + result.Message);
                 var attrs = doc.Objects.FindId(id).Attributes;
@@ -225,7 +226,7 @@ namespace AlmondScriptUndoTests
             Run(lines, directory, "failed factory batch rolls back material layers and objects", doc =>
             {
                 var result = new ScriptExecutor().ExecuteAction(doc, () => {
-                    var attrs = ModelingMaterials.CreateAttributes(doc, "wood-oak");
+                    var attrs = ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"));
                     doc.Objects.AddPoint(Point3d.Origin, attrs);
                     throw new InvalidOperationException("expected");
                 });
@@ -234,7 +235,7 @@ namespace AlmondScriptUndoTests
                     doc.Layers.Count(l => !l.IsDeleted) == 1 && doc.Materials.All(m => m.IsDeleted) &&
                     !doc.RenderMaterials.Any(m => m != null), "Failed batch left state.");
             });
-            Run(lines, directory, "lost Undo ownership prevents material postprocess", doc =>
+            Run(lines, directory, "lost Undo ownership stops result processing", doc =>
             {
                 int material = CustomMaterial(doc, "ownership");
                 Guid id = Guid.Empty;
@@ -353,6 +354,52 @@ namespace AlmondScriptUndoTests
             string report = String.Join("\n", lines);
             if (lines.Any(l => l.StartsWith("FAIL "))) throw new InvalidOperationException(report);
             return report + "\nPASS: " + lines.Count + "/" + lines.Count + " modeling cases.";
+        }
+
+        public static void CheckArchiveRevision(RhinoDoc doc)
+        {
+            var original = JObject.Parse(Recipe("wood-oak"));
+            var legacyRecipe = (JObject)original.DeepClone();
+            legacyRecipe["name"] = "ALMOND::wood-oak";
+            legacyRecipe["roughness"] = 0.99;
+            using var legacy = ModelingMaterials.CreateAttributes(doc, legacyRecipe.ToString(),
+                attachMetadata: false, reuseLegacyMaterial: false);
+            doc.Objects.AddPoint(Point3d.Origin, legacy);
+            Guid legacyId = doc.Materials[legacy.MaterialIndex].RenderMaterialInstanceId;
+
+            var archivedRecipe = (JObject)original.DeepClone();
+            archivedRecipe["name"] = (string)original["name"] + " (123456789abc)";
+            using var archived = ModelingMaterials.CreateAttributes(doc, archivedRecipe.ToString(),
+                attachMetadata: false, reuseLegacyMaterial: false);
+            doc.Objects.AddPoint(new Point3d(1, 0, 0), archived);
+            Guid archivedId = doc.Materials[archived.MaterialIndex].RenderMaterialInstanceId;
+            Check(archivedId != legacyId, "Archive revision reused a legacy render material.");
+            using var repeated = ModelingMaterials.CreateAttributes(doc, archivedRecipe.ToString(),
+                attachMetadata: false, reuseLegacyMaterial: false);
+            Check(doc.Materials[repeated.MaterialIndex].RenderMaterialInstanceId == archivedId,
+                "The same archive revision did not reuse its exact name.");
+            using var ordinary = ModelingMaterials.CreateAttributes(doc, original.ToString());
+            Check(doc.Materials[ordinary.MaterialIndex].RenderMaterialInstanceId == legacyId,
+                "Ordinary material assignment lost legacy compatibility.");
+
+            var editable = doc.RenderMaterials.Find(legacyId);
+            editable.BeginChange(Rhino.Render.RenderContent.ChangeContexts.Program);
+            try { Check(editable.SetParameter(Rhino.Render.ParameterNames.PhysicallyBased.Roughness, 0.01),
+                "Could not edit the legacy material."); }
+            finally { editable.EndChange(); }
+            using var simulation = doc.RenderMaterials.Find(archivedId).ToMaterial(Rhino.Render.RenderTexture.TextureGeneration.Allow);
+            Check(Math.Abs(simulation.PhysicallyBased.Roughness - (double)original["roughness"]) < 0.00001,
+                "Legacy edits changed an immutable archive recipe.");
+        }
+
+        public static ObjectAttributes Factory(RhinoDoc doc) => ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"));
+
+        private static string Recipe(string id)
+        {
+            string root = System.Environment.GetEnvironmentVariable("RHINO_MCP_MATERIAL_DIR");
+            if (String.IsNullOrEmpty(root)) throw new InvalidOperationException("Set RHINO_MCP_MATERIAL_DIR for the fixture.");
+            var manifest = JObject.Parse(File.ReadAllText(Path.Combine(root, "manifest.json")));
+            return manifest["materials"].OfType<JObject>().Single(m => (string)m["material_id"] == id).ToString();
         }
 
         private static void Run(List<string> lines, string directory, string name, Action<RhinoDoc> test, bool foreground = false)

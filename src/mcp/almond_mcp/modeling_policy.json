@@ -1,9 +1,6 @@
 {
-  "schema_version": 1,
-  "material_layer_root": "M",
-  "document_material_layer_root": "M::Custom",
-  "document_material_name_pattern": "[^\\p{L}\\p{N}\\p{M} ._-]",
-  "document_material_id_suffix_length": 12,
+  "schema_version": 2,
+  "construction_layer_root": "M",
   "material_assignment_keys": [
     "floor",
     "construction_detail",

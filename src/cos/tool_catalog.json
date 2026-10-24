@@ -10,12 +10,13 @@
     "entry": "0e21319767f94bc721910efaea3436ef41a5d66a2f753c301b2bbf5e869a0aef",
     "shared_store": "9b1c0ab8ee94d64bf3cc75ba6876bdf3a524a8b8cf930bb26d9df680e65c33bd",
     "native_request": "a49132b8745d8c38ea4a1417c22771b2c8a6b3be88c19f950ae816a3157b29b9",
-    "compat_almond": "ba7f0023e259bca960f26a3a5bfbe6a102d84572360a93c90476e59ed400da25",
+    "compat_almond": "cd2d09825a932b61a72cf6d019ecdbaf48b596d94ebbca462739c2953f37a735",
     "library_paths": "68aa94e41941fa67dcbabc5d0d1313e5cf036bf4dfeb0e33e5fb9f5c25fd3ec0",
-    "server": "d497ac9cae3b9d7acd4b545c1185e5ae18bf17eb220676dc8e8965098834be0e",
+    "server": "d75f4455dec6c83a453540ecbdf446584f47e9a482b7c584f57bd00fcf8b29c7",
     "retrieval_store": "fa81131c258acc6800d59b872e72243cacaf1633e94122dc993de2408e3427c8",
-    "modeling_policy": "c0e845c30a75fde56935a1c3f45ac0de6777a936965691411593676561b11835",
-    "modeling_policy_json": "734b1b86b73772af4a61b15c4cc2acbf14fcade778048286c40104a560665610",
+    "modeling_policy": "2413787470706414552407b4a0b7214b81aaf8c06630a9ac420fe488e075909b",
+    "modeling_setup": "7b7d210d241d6b3abf78534583fb7c9917d18dba30d4e3c4d039d7a663493ccc",
+    "modeling_policy_json": "a2bbf427f6b7b3d61901516fca39a54d045beebd891ba2bea48cb6d5c59e2948",
     "drawing_assets": "cb38289f9f0050003ac74c45089b258fe09c1abbb483eea442c64b736cea7e35",
     "drafting": "6da253d969f999950309b9dfded4587443f5f7d4bd18d535fa3a9a1c25f18b9d",
     "asset_repository": "211b919e1d28c7952673d3f8922414cf08936186f7ae887acc53fcb7415ea96d"
@@ -75,7 +76,7 @@
     {
       "name": "assign_material",
       "title": "Assign Material",
-      "description": "Assigns a curated PBR material and its canonical M:: layer to explicit Rhino objects.\nThe compiled helper creates only the chosen material/layer on demand and reuses\nexisting entries. Returns applied GUIDs without adding automatic dimensions.\n\nFor structural members, also declare what the object IS in construction\nterms: structural_role (e.g. \"joist\", \"girder\", \"stud\", \"truss_chord\")\nand construction_system (a system_id from get_construction_guidance).\nAn explicit structural_role retains its legacy user-text key. A system is\nstored as the typed construction_reference described below. If the chosen material_id is\nnot a typical finish for the declared system, the response carries a\nwarning (it still applies).\n\nfloor is a user-supplied level label. construction_detail is a readable label;\nconstruction_reference optionally identifies a known source as\n{\"kind\": \"construction_system\", \"id\": \"<system_id>\"}. These source records\nare preliminary system guidance, not verified construction details. The old\nconstruction_system argument is accepted and produces the same typed reference.\nA source name supplies the detail label when no explicit label is given.\n\nTwo effects, independently switchable:\n- apply_render_material: creates/reuses a physically-based Rhino\n  material (ALMOND::<material_id>) and assigns it per object, so GLB\n  export (publish_to_chestnut) and Datasmith carry real PBR channels. The\n  object's layer follows the material's layer_path. If false, neither the\n  native material nor the layer is changed or created.\n- attach_metadata: writes only material_id when a native material is\n  applied, plus supplied floor/detail/reference metadata. PBR channels\n  remain on the native material. A metadata-only call preserves the\n  current material identity and writes only the supplied metadata.\n\nUnspecified metadata and asset provenance are preserved. Requires a Bridge\nwith modeling_materials=1; older Bridges are rejected before any mutation.\nWorks on breps, meshes, and block instances (an instance's material\napplies to definition geometry set to 'by parent'; the metadata is\nalways attached to the instance itself). Call list_materials first to\ndiscover material_ids.",
+      "description": "Assigns a curated PBR material and its canonical M:: layer to explicit Rhino objects.\nThe compiled helper creates only the chosen material/layer on demand and reuses\nexisting entries. Returns applied GUIDs without adding automatic dimensions.\n\nFor structural members, also declare what the object IS in construction\nterms: structural_role (e.g. \"joist\", \"girder\", \"stud\", \"truss_chord\")\nand construction_system (a system_id from get_construction_guidance).\nAn explicit structural_role retains its legacy user-text key. A system is\nstored as the typed construction_reference described below. If the chosen material_id is\nnot a typical finish for the declared system, the response carries a\nwarning (it still applies).\n\nfloor is a user-supplied level label. construction_detail is a readable label;\nconstruction_reference optionally identifies a known source as\n{\"kind\": \"construction_system\", \"id\": \"<system_id>\"}. These source records\nare preliminary system guidance, not verified construction details. The old\nconstruction_system argument is accepted and produces the same typed reference.\nA source name supplies the detail label when no explicit label is given.\n\nTwo effects, independently switchable:\n- apply_render_material: creates/reuses a physically-based Rhino\n  material using the library name and assigns it per object, so GLB\n  export (publish_to_chestnut) and Datasmith carry real PBR channels. The\n  object's layer is always preserved. If false, no native material is\n  changed or created.\n- attach_metadata: writes only material_id when a native material is\n  applied, plus supplied floor/detail/reference metadata. PBR channels\n  remain on the native material. A metadata-only call preserves the\n  current material identity and writes only the supplied metadata.\n\nUnspecified metadata and asset provenance are preserved. Requires a Bridge\nwith modeling_materials=2; older Bridges are rejected before any mutation.\nWorks on breps, meshes, and block instances (an instance's material\napplies to definition geometry set to 'by parent'; the metadata is\nalways attached to the instance itself). Call list_materials first to\ndiscover material_ids.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2023,7 +2024,7 @@
     {
       "name": "list_materials",
       "title": "List Materials",
-      "description": "Lists the curated PBR material library used by assign_material without changing Rhino.\n\nEach entry carries metallic/roughness PBR channels, an Unreal material\nslot name (ue_material_slot) for deterministic remapping after import,\nand tags. layer_path is the canonical material-derived M:: hierarchy;\nit is created lazily only when that material is applied to geometry.",
+      "description": "Lists the curated PBR material library used by assign_material without changing Rhino.\n\nEach entry carries metallic/roughness PBR channels, an Unreal material\nslot name (ue_material_slot) for deterministic remapping after import,\nand tags. Materials do not define object layers. setup_modeling creates\nM/category/system/role layers from the construction library separately.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2892,6 +2893,51 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "setup_modeling",
+      "title": "Setup Modeling",
+      "description": "Register materials or create construction layers in the current Rhino document.\n\noperation=\"materials\" registers the curated PBR library using readable names.\nFor matching names overwrite=true updates PBR channels, false preserves them;\nomit it to choose Yes/No once in Rhino. Cancel performs no changes.\n\noperation=\"layers\" creates/reuses M/category/system.name/element.role paths,\nassigns materials and matching display/print colors. A system uses its first\nrender_material_ids recipe; connection/reinforcement/decking use galvanized\nsteel, and Wood subfloor/sheathing use birch plywood. These are setup defaults,\nnot a role mapping supplied by the construction manifest. Container layers\nare gray. Existing matching materials are reused; overwrite is only for\noperation=\"materials\". No object is moved or stamped with metadata.\n\nRequires Bridge modeling_materials=2. The whole operation is one Undo step.\nSuccess reports API execution, not visual review or a saved 3DM. An uncertain\nresult must be inspected before any retry.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "type": "string"
+          },
+          "overwrite": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "operation"
+        ],
         "type": "object"
       },
       "outputSchema": {

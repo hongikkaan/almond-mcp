@@ -1,6 +1,7 @@
 """Baseline compatibility with unchanged extracted helpers and operation receipts."""
 import ast
 import asyncio
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -8,7 +9,9 @@ import re
 import tempfile
 from types import SimpleNamespace
 import unittest
+import uuid
 import almond_mcp
+from almond_mcp import modeling_setup
 from uuid import uuid4
 
 from compat_almond import install
@@ -72,14 +75,16 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
         self.report_text = json.dumps(REPORT)
         self.native_reply = None
         self.native_sequence = 0
+        self.bridge_version = 2
         exchange = SimpleNamespace(dimension_report=lambda contract, report:
                                    self.dimension_reports.append(dict(report)) or {"status": "fixture-match"})
 
         def bound_sender(payload, *positional, **keywords):
             return self.runtime.send(self.sender, payload, *positional, **keywords)
 
-        namespace = dict(json=json, Path=Path, tempfile=tempfile, material_library={},
-                         exchange=exchange, _send_and_receive=bound_sender)
+        namespace = dict(json=json, Path=Path, tempfile=tempfile, uuid=uuid, hashlib=hashlib,
+                         material_library=SimpleNamespace(materials={}, get={}.get),
+                         modeling_setup=modeling_setup, exchange=exchange, _send_and_receive=bound_sender)
         exec(self.code, namespace)
         self.helpers = SimpleNamespace(**namespace)
         install(self.helpers, self.runtime)
@@ -103,7 +108,12 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(envelope["token"], self.token)
         self.assertEqual(envelope["operation_id"], operation["operation_id"])
         self.assertRegex(envelope["request_id"], r"^[0-9a-f]{32}$")
-        script = json.loads(envelope["payload"])["script"]
+        request = json.loads(envelope["payload"])
+        if request.get("type") == "get_rhino_context":
+            self.assertEqual(request, {"type": "get_rhino_context", "selection_limit": 0})
+            return self.native_response(envelope, operation, {
+                "status": "success", "capabilities": {"modeling_materials": self.bridge_version}})
+        script = request["script"]
         match = re.search(r'(?:System\.IO\.)?File\.WriteAll(?:Lines|Text)\(\s*@"((?:""|[^"])*)"', script)
         self.assertIsNotNone(match, "Baseline compat must set the actual C# write path.")
         path = Path(match.group(1).replace('""', '"'))
@@ -123,6 +133,9 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
                 path.write_text(self.report_text, encoding="utf-8")
         else:
             self.fail("Unexpected helper report")
+        return self.native_response(envelope, operation, {"status": "success", "guids": [G1, G2]})
+
+    def native_response(self, envelope, operation, payload):
         self.native_sequence += 1
         identity = dict(token=self.token, operation_id=operation["operation_id"],
                         request_id=envelope["request_id"])
@@ -131,7 +144,7 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
                         pending=0, phase="idle", completion_status="completed", **identity))
         return json.dumps(dict(schema="almond-native-response", storage_protocol=2,
                                native_sequence=self.native_sequence, completion_status="completed",
-                               payload=json.dumps({"status": "success", "guids": [G1, G2]}), **identity))
+                               payload=json.dumps(payload), **identity))
 
     async def invoke(self, name, function):
         async def call_next(context):
@@ -192,7 +205,15 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({p.name for p in self.paths}, {"almond_imported.txt", "almond_import_report.json"})
         self.assertEqual(len({p.parent for p in self.paths}), 1)
         self.assertEqual(self.paths[0].parent.parent.name, "helpers")
-        self.assert_completion(2)
+        self.assert_completion(3)
+
+    async def test_import_checks_bridge_before_mutating_or_writing_reports(self):
+        self.bridge_version = 1
+        result = await self.invoke("fixture_receive", self.receive)
+        self.assertEqual(result["error_code"], "unsupported_materials")
+        self.assertEqual(result["mutation_state"], "not_started")
+        self.assertEqual(self.paths, [])
+        self.assert_completion(1)
 
     async def test_missing_report_never_reads_an_earlier_operation(self):
         await self.invoke("fixture_material", lambda: self.helpers._material_groups([G1]))
@@ -245,7 +266,7 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(len(self.paths) - before, 2)
                 self.assertEqual(self.paths[-1].parent, self.paths[-2].parent)
                 self.assertNotEqual(old_report.parent, self.paths[-1].parent)
-                self.assert_completion(2)
+                self.assert_completion(3)
         self.assertEqual(len({path.parent for path in self.paths}), 4)
         self.assertEqual(json.loads(old_report.read_text(encoding="utf-8")), REPORT)
 
