@@ -185,3 +185,18 @@ def test_run_resolves_rebound_capsule_directory_and_timeout_response(server, mon
         "ALMOND_IN_LINES": {"guids": ["guid"]},
     }))
     assert "timed out" in response["message"]
+
+
+def test_legacy_parser_module_command_still_parses_a_definition(tmp_path):
+    import subprocess
+    import sys
+
+    definition = tmp_path / "CommandBeam.ghx"
+    definition.write_bytes(b"<Archive>Karamba Assemble Model</Archive>")
+    run = subprocess.run(
+        [sys.executable, "-B", "-X", "utf8", "-m", "almond_mcp.ghx_parser", str(definition)],
+        capture_output=True, text=True, encoding="utf-8", timeout=30, check=True,
+    )
+    parsed = json.loads(run.stdout)
+    assert parsed["file_name"] == "CommandBeam.ghx"
+    assert parsed["components"]

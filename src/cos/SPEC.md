@@ -26,8 +26,10 @@ Python worker는 MCP runtime의 기존 `main`, binding 검증·구성 훅과 완
 RHP는 [공용 Engine](../rhp/Engine/AGENTS.md)을 참조한다. Bridge·Terminal의 구현
 소스를 COS에 링크하지 않는다.
 
-catalog 생성은 원본 AST에서 schema만 읽고 DB를 소유하는 MCP server를 import하지
-않는다. worker 시작 전 패키지 버전·fingerprint를, 연결 구성 시 실제 schema를
+catalog 생성은 MCP server와 `features/*/tools.py`의 `register` 내부 도구 AST에서
+schema만 읽고 DB를 소유하는 MCP server를 import하지 않는다. 같은 이름의 중복
+도구는 거절한다. fingerprint는 runtime의 검토된 소스와 MCP package 전체 Python
+파일 목록·내용을 포함하여 feature 파일의 추가·삭제·이동도 감지한다. worker 시작 전 패키지 버전·fingerprint를, 연결 구성 시 실제 schema를
 대조한다. 실패하면 모델링 요청을 보내지 않는다.
 
 connection ID와 token·프로세스 identity·저장 문서를 함께 확인한다. 변경된 binding,
