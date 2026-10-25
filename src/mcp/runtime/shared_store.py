@@ -19,7 +19,8 @@ import uuid
 import anyio
 from fastmcp.server.middleware import Middleware
 
-from project import ExclusiveFile, read_binding, read_json, verify_process, write_json
+from project import (ExclusiveFile, LOCK_WAIT_SECONDS, serial_gate, read_binding,
+                     read_json, verify_process, write_json)
 from native_request import RequestBatch
 
 
@@ -29,12 +30,12 @@ NATIVE_ONLY_TOOLS = frozenset({
     "execute_rhino_script", "capture_conditioning_pass",
     "get_rhino_context", "get_rhino_viewport_image", "get_rhino_probe",
 })
-BINDING_TOOLS = frozenset({"almond_project_info", "almond_cos_worker_state"})
+BINDING_TOOLS = frozenset({"project_info", "worker_state"})
 
 
 class StoreGate:
     """A cancellable asynchronous wait, or a bounded startup wait, for an OS lease."""
-    def __init__(self, storage: str | Path, timeout: float = 300.0):
+    def __init__(self, storage: str | Path, timeout: float = LOCK_WAIT_SECONDS):
         self.path = Path(storage) / ".sessions" / "store.lock"
         self.timeout = timeout
         self.lease = None
@@ -129,11 +130,13 @@ def output_arguments(name: str, arguments: dict, operation_dir: Path) -> dict:
 
 class ProjectRuntime(Middleware):
     """Own one logical operation at a time for this immutable connection generation."""
-    def __init__(self, args, binding: dict, locations: dict, *, check_owner=True):
+    def __init__(self, args, binding: dict, locations: dict, *, check_owner=True,
+                 queue_timeout: float = LOCK_WAIT_SECONDS):
         self.args = args
         self.binding = dict(binding)
         self.locations = dict(locations)
         self.check_owner = check_owner
+        self.queue_timeout = queue_timeout
         self.batch = None
         self.scope = ContextVar("almond_operation_" + args.token, default=None)
         self.serial = asyncio.Lock()
@@ -246,7 +249,7 @@ class ProjectRuntime(Middleware):
         name = context.message.name
         if name in BINDING_TOOLS:
             return await call_next(context)
-        async with self.serial:
+        async with serial_gate(self.serial, self.queue_timeout):
             self.validate()
             gate = (nullcontext() if name in NATIVE_ONLY_TOOLS
                     else StoreGate(self.locations["storage"]))

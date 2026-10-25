@@ -43,7 +43,7 @@ class ConfigureCompatTests(unittest.TestCase):
         original_path = list(sys.path)
         try:
             with patch.dict(sys.modules, {"mcp_server": entry, "almond_mcp": SimpleNamespace(server=server)}), \
-                    patch.dict(os.environ, {"ALMONDCOS_SESSION_TOKEN": "token"}), \
+                    patch.dict(os.environ, {"ALMONDCOS_SESSION_TOKEN": "token", "ALMONDCOS_CATALOG_ID": cos_worker.catalog_identity(catalog)}), \
                     patch.object(sys, "argv", ["cos_worker", "--session", args.session, "--port", "5501",
                                                "--connection-id", "connection"]), \
                     patch.object(cos_worker, "load_catalog", return_value=catalog), \

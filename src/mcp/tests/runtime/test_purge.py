@@ -24,8 +24,8 @@ def mcp(pid=4, slot='A', parent=0):
 
 
 def codex(pid=3, slot='A', parent=0):
-    return proc(pid, 'codex.exe', ['-c', "mcp_servers.almond_parallel_cli.command='"+str(E/'.venv/Scripts/python.exe')+"'",
-            '-c', "mcp_servers.almond_parallel_cli.args=['-B','"+str(E/'mcp_server.py')+"','--port','"+str(5501+'ABCDEFGHIJ'.index(slot))+"']"], parent)
+    return proc(pid, 'codex.exe', ['-c', "mcp_servers.rhino_session.command='"+str(E/'.venv/Scripts/python.exe')+"'",
+            '-c', "mcp_servers.rhino_session.args=['-B','"+str(E/'mcp_server.py')+"','--port','"+str(5501+'ABCDEFGHIJ'.index(slot))+"']"], parent)
 
 
 def rhino(pid=2, parent=0):
@@ -69,6 +69,16 @@ class SelectionTests(unittest.TestCase):
 
     def test_managed_roots_selected(self):
         self.assertEqual({t.kind for t in self.classify([rhino(),codex(),mcp()])}, {'rhino','codex','mcp'})
+
+    def test_previous_cli_namespace_is_still_recognized_for_existing_processes(self):
+        p = codex()
+        p.argv = [arg.replace('rhino_session', 'almond_parallel_cli') for arg in p.argv]
+        self.assertEqual(self.classify([p])[0].kind, 'codex')
+
+    def test_fields_from_different_namespaces_do_not_establish_ownership(self):
+        p = codex()
+        p.argv[-1] = p.argv[-1].replace('rhino_session', 'almond_parallel_cli')
+        self.assertEqual(self.classify([p]), [])
 
     def test_stable_interpreter_requires_this_checkouts_mcp_entry(self):
         p = codex()

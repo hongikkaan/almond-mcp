@@ -28,7 +28,7 @@ MCP가 소유한 native 모델링 코드는 Bridge에 컴파일되고, 패널 �
 
 | 변경 예 | 주로 수정하는 범위 | 기본 검사와 추가 반영 |
 |---|---|---|
-| MCP 도구 내부 계산·검증 | `src/mcp` | `./src/mcp/run_tests.ps1`; COS fingerprint 대상 소스가 바뀌면 카탈로그도 갱신하고 통합 검사 |
+| MCP 도구 내부 계산·검증 | `src/mcp` | `./src/mcp/run_tests.ps1`; COS 자동 schema 추출·fingerprint·실제 worker 통합 검사 |
 | COS 연결·화면·host 동작 | `src/cos` | `./src/cos/run_tests.ps1`; C# 변경 시 자체 `build.ps1`, COS manifest만 기록 |
 | Terminal 입력·호스트 동작 | `src/rhp/RhinoTerminal` | 자체 `tests`의 TerminalSmoke·AlmondHostContracts, Bridge 빌드와 Bridge manifest 기록 |
 | 공용 native Engine | `src/rhp/Engine` | 자체 NativeFixture, 두 host 검사, 두 RHP 빌드와 DLL 일치 검사 |

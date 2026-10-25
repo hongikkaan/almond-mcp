@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import asyncio
 from importlib.metadata import version
 import json
 from pathlib import Path
@@ -12,9 +13,8 @@ ENGINE = ROOT.parent / "mcp" / "runtime"
 # Keep the interpreter path used by existing CoS registrations stable.
 PYTHON = ROOT.parent / "engine" / ".venv" / "Scripts" / "python.exe"
 CATALOG = ROOT / "tool_catalog.json"
-PREFIX = "almond_cos_"
-WORKER_STATE_TOOL = "almond_cos_worker_state"
-VERSION = "0.1.1"
+WORKER_STATE_TOOL = "worker_state"
+VERSION = "0.2.0"
 
 
 def digest(path: Path) -> str:
@@ -47,11 +47,14 @@ def source_paths(engine: Path) -> dict[str, Path]:
     return paths
 
 
-def load_catalog(path: Path = CATALOG) -> dict:
-    catalog = json.loads(path.read_text(encoding="utf-8"))
-    if catalog.get("format") != 1 or not catalog.get("tools"):
-        raise RuntimeError("AlmondCOS tool catalog is missing or unsupported. Run build_catalog.py.")
-    return catalog
+def load_catalog() -> dict:
+    """Snapshot current source at process startup, without a model runtime import.
+
+    Call before entering the stdio loop. The JSON export is only a developer
+    inspection artifact; clients never depend on its freshness or existence.
+    """
+    from build_catalog import generate
+    return asyncio.run(generate())
 
 
 def check_contract(catalog: dict, engine: Path = ENGINE) -> None:
@@ -61,14 +64,19 @@ def check_contract(catalog: dict, engine: Path = ENGINE) -> None:
             raise RuntimeError(f"AlmondCOS expects {package} {expected}; installed: {actual}. Recheck compatibility.")
     paths = source_paths(engine)
     if set(paths) != set(catalog["sources"]):
-        raise RuntimeError("Almond source inventory changed after this COS build. Rebuild the catalog before connecting.")
+        raise RuntimeError("Tool source inventory changed after this client started. Start a new client session before connecting.")
     for name, path in paths.items():
         if digest(path) != catalog["sources"][name]:
-            raise RuntimeError(f"Almond {path.name} changed after this COS build. Recheck compatibility before connecting.")
+            raise RuntimeError(f"Tool source {path.name} changed after this client started. Start a new client session before connecting.")
 
 
 def schema_identity(tool: dict) -> dict:
     return {key: tool.get(key) for key in ("name", "inputSchema", "outputSchema", "annotations")}
+
+
+def catalog_identity(catalog: dict) -> str:
+    snapshot = json.dumps(catalog, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
 
 
 def validate_worker_tools(catalog: dict, tools: list[dict]) -> None:

@@ -3,17 +3,25 @@
 이 모듈은 Chat on Steroids와 Rhino 사이의 COS 통합을 소유한다.
 [작업 지침](AGENTS.md)과 [공통 경계](../../SPEC.md)를 함께 따른다.
 
-같은 stdio host를 Codex·외부 로컬 MCP 클라이언트에서도 사용한다.
+같은 stdio 진입점을 CoS·Codex·외부 로컬 MCP 클라이언트에서 사용한다.
 `client_config.py`는 일상 설치의 설정을 생성하고 명시적으로 요청할 때만 Codex 설정에
-새 항목을 추가한다. 기존 singleton host 잠금·Rhino 연결 소유권을 바꾸지 않는다.
+`rhino` 항목을 추가한다. 이전 `almond_cos` 항목이 이 생성기의 설정과 정확히 같을 때만
+원본 백업 후 이름을 이전하고, 수정된 항목이나 중복·충돌은 변경 없이 거절한다.
+공개 도구는 `project_info`, `connect`, `start_session` 등 접두사 없는 이름을 사용하고
+이전 이름의 alias를 공개하지 않는다. 클라이언트가 붙이는 서버 namespace는 도구 schema와 별개다.
+등록·initialize·tools/list는 catalog만 제공하며 broker·worker·
+Rhino·모델 DB 연결이나 소유권 잠금을 준비하지 않는다. stdio 통신을 위한 클라이언트별
+최소 Python 프로세스는 필요하다. 모델링 준비는 명시적 connect/start_session 호출에서 한다.
 사용 방법과 동시 연결 제한은 [외부 클라이언트 안내](EXTERNAL_CLIENTS.md)에 둔다.
 
 ## 구성
 
 | 위치 | 책임 |
 |---|---|
-| `cos_host.py`, `cos_worker.py` | 한 stdio host와 Rhino 연결마다 분리된 worker |
-| `runtime.py`, `build_catalog.py`, `tool_catalog.json` | 의존 경로, 버전·source fingerprint·공개 schema 검사 |
+| `cos_host.py`, `cos_worker.py` | 클라이언트별 지연 stdio adapter와 Rhino 연결마다 분리된 worker |
+| `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 COS 광고 확인 |
+| `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
+| `tool_catalog.json` | configure/build에서 선택적으로 만드는 개발용 export; 런타임은 읽지 않음 |
 | `binding_watch.py`, `winpipe.py` | 연결 변경 감시와 Windows 제어 채널 |
 | `rhp/` | Rhino 내부 AlmondCOS 명령·host 탐색·문서 binding |
 | `tests/`, `run_tests.ps1` | Python·native relay·host 수명·pipe·stdio 검사 |
@@ -26,15 +34,43 @@ Python worker는 MCP runtime의 기존 `main`, binding 검증·구성 훅과 완
 RHP는 [공용 Engine](../rhp/Engine/AGENTS.md)을 참조한다. Bridge·Terminal의 구현
 소스를 COS에 링크하지 않는다.
 
-catalog 생성은 MCP server와 `features/*/tools.py`의 `register` 내부 도구 AST에서
+새 클라이언트의 catalog 생성은 MCP server와 `features/*/tools.py`의 `register` 내부 도구 AST에서
 schema만 읽고 DB를 소유하는 MCP server를 import하지 않는다. 같은 이름의 중복
 도구는 거절한다. fingerprint는 runtime의 검토된 소스와 MCP package 전체 Python
-파일 목록·내용을 포함하여 feature 파일의 추가·삭제·이동도 감지한다. worker 시작 전 패키지 버전·fingerprint를, 연결 구성 시 실제 schema를
-대조한다. 실패하면 모델링 요청을 보내지 않는다.
+파일 목록·내용을 포함하여 feature 파일의 추가·삭제·이동도 감지한다. 패키지 버전은
+`uv.lock`과 대조한다. 추출 중 소스 변경, 시작한 클라이언트와 worker의 snapshot 불일치,
+실제 worker schema 불일치를 검사하며 불일치하면 모델링 요청을 보내지 않는다.
+공통 도구 변경 후 수동 catalog 재생성 없이 관련 Codex/CoS MCP를 정상 종료·재시작하면
+새 구현과 schema를 읽는다. Terminal은 almond 세션을 새로 시작한다. 이미 시작한
+프로세스를 자동 교체하거나 restart 도구를 제공하지 않는다. RHP/DLL 변경은 빌드와
+Rhino의 정상 종료·새 시작이 별도로 필요하다.
 
 connection ID와 token·프로세스 identity·저장 문서를 함께 확인한다. 변경된 binding,
 미확인 native 결과, 실행 중 작업의 해제·취소에 대한 기존 소유권 규칙을 유지한다.
 다른 연결의 DB 접근은 기존 공유 lease·gate를 통과한다.
+
+공유 DB gate와 같은 연결의 요청 직렬화 잠금은 획득을 최대 10초 기다린다. 초과한 대기
+호출은 operation/native 요청을 시작하지 않고 종료한다. 실행 중인 소유자의 잠금을 해제하거나
+수정을 자동 재시도하지 않는다. 실제 모델링 실행 제한·cleanup·native drain 대기는 이 값과 별개다.
+
+각 adapter는 자신의 connection ID만 처리한다. 활성 제어 연결은 Rhino PID·시작 시각별
+독점 파일 lease를 유지한다. 다른 클라이언트의 Rhino는 목록에 `in_use`로 표시하고 그
+pipe에 접속하지 않는다. `host.lock`은 활성 연결들이 공유하는 이전 버전 호환 barrier다.
+이전 singleton host가 독점 중이면 새 연결을 거절한다. 어떤 잠금 파일도 삭제하지 않는다.
+adapter lease 해제는 RHP의 native/slot/token 소유권 해제가 아니다. 미확인 native 작업의
+기존 RHP binding은 계속 새 attach를 거절한다.
+
+`start_session`은 저장된 절대 `.3dm` 경로와 request ID를 받는다. 기존
+runtime의 모델 경로 검증을 재사용하고 새 Rhino에 `_AlmondCOS` 명령을 전달한다. 정확히
+그 PID·시작 시각의 광고만 기존 connect 경로에 연결한다. A–J 슬롯·DB·native 준비는
+기존 RHP Attach와 worker 계약을 사용하며 시작 로직에 복제하지 않는다. 모델을 저장하거나
+Rhino를 강제 종료하지 않는다. launch/advertise 실패 후 새 프로세스를 자동 실행하지 않는다.
+
+request ID는 한 adapter 수명 안에서 시작 시도 하나를 가리킨다. startup timeout 뒤 같은
+ID로 호출하면 이미 시작한 프로세스만 재조회한다. connect가 실패하면 같은 ID로 attach를
+반복하지 않는다. caller 취소 뒤에도 결과를 보존하고, adapter 종료 때는 시작 대기를 취소하고
+기존 연결 정리를 수행한다. 열린 Rhino는 남는다. adapter를 재시작한 뒤에는 연결 목록으로
+남은 Rhino를 확인해야 한다.
 
 ## 빌드·검증·설치
 
@@ -48,4 +84,4 @@ connection ID와 token·프로세스 identity·저장 문서를 함께 확인한
 
 COS 전용 C# 변경은 COS manifest만 갱신한다. Engine을 변경하면 두 소비자 RHP를
 빌드하고 루트 통합 검사로 DLL 일치까지 확인한다. MCP 공개 도구 변경에 따른
-catalog 갱신도 의도적인 통합 변경이다.
+자동 schema 추출과 실제 worker의 일치도 통합 검사 대상이다.

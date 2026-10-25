@@ -61,7 +61,7 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('Keep upstream instructions.', instructions)
             self.assertIn(self.locations['call_root'], instructions)
             tools = {tool.name: tool for tool in await client.list_tools()}
-            self.assertEqual(set(tools), {'execute_rhino_script', 'unrelated', 'almond_project_info'})
+            self.assertEqual(set(tools), {'execute_rhino_script', 'unrelated', 'project_info'})
             tool = tools['execute_rhino_script']
             self.assertIn('Original executor description.', tool.description)
             self.assertIn(self.locations['call_root'], tool.description)
@@ -70,7 +70,7 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_metadata_distinguishes_project_and_rhino_temp(self):
         async with Client(self.mcp) as client:
-            result = await client.call_tool('almond_project_info', {})
+            result = await client.call_tool('project_info', {})
             info = json.loads(result.content[0].text)
             self.assertEqual(info['artifact_dir'], self.locations['call_root'])
             self.assertEqual(info['state_db'], self.locations['state_db'])
@@ -98,7 +98,7 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
             self.binding['valid'] = False
             write_json(self.ready, self.binding)
             with self.assertRaisesRegex(Exception, 'connection ended or changed'):
-                await client.call_tool('almond_project_info', {})
+                await client.call_tool('project_info', {})
             self.assertEqual(self.calls, [])
 
 

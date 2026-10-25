@@ -87,7 +87,7 @@ try {
         throw 'Rhino process start time differs from the bound session. PID may have been reused.'
     }
 
-    $serverName = 'almond_parallel_cli'
+    $serverName = 'rhino_session'
     $baseServers = @(Get-CodexMcpList -CodexPath $codexPath -Overrides @())
     $overrides = @()
     foreach ($entry in $baseServers) {

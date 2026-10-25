@@ -9,7 +9,7 @@ Almond MCP는 Rhino 실물 형상, 공간 Scene, 구축·역할·의미의 묶�
 
 ## 시작과 필수 Phase·Plan
 
-1. COS에서는 `almond_cos_list_connections` → 필요 시 `almond_cos_connect`로 `connection_id`를 얻는다. `almond_project_info`(COS: `almond_cos_project_info`)로 모델 binding·`artifact_dir`를, `get_rhino_context`로 **실제 활성 저장 문서·단위·공차·뷰**를 따로 확인한다.
+1. COS에서는 `list_connections` → 필요 시 `connect`로 `connection_id`를 얻는다. 저장된 모델을 별도 Rhino에서 시작하라는 요청이면 `start_session`을 사용한다. `project_info`로 모델 binding·`artifact_dir`를, `get_rhino_context`로 **실제 활성 저장 문서·단위·공차·뷰**를 따로 확인한다. COS 호출에는 해당 `connection_id`를 함께 전달한다.
 2. **Phase 최소 1개 필수:** `list_generation_phases`로 조회해 적합한 Phase를 재사용한다. 없다면 `create_generation_phase`로 생성한다. 모든 Plan에 해당 `phase_id`를 연결한다. API상 Phase 링크가 선택적이더라도 이 스킬에서는 필수다.
 3. **Plan 생성 및 사용 필수:** 새 독립 과업에는 `create_generation_plan(goal, scope, phase_id, ...)`으로 Plan을 만든다. 동일 과업의 연속 작업은 `list_generation_plans`/`get_generation_plan`으로 기존 Plan을 재사용한다. 과거 Plan에 `phase_id`가 없으면 `update_generation_plan`으로 연결한다. 계획만 생성하고 방치하지 않는다.
 4. 작업 전 `get_generation_plan`과 `resolve_generation_targets`로 Step·의존성·대상을 읽는다. 단계마다 `update_generation_step`에 실물 결과와 `input_refs`/`output_refs`, 검증 증거를 기록한다. `expected_revision`으로 충돌을 방지한다. Scope별 Step은 고정 템플릿이므로 수행하지 않은 단계를 완료로 꾸미지 않는다. Scene 참조만으로 객체 편집 범위를 늘리지 않는다.

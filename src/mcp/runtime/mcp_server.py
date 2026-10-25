@@ -81,7 +81,7 @@ async def configure_project_context(mcp, args, binding, locations):
         f"Scene database: {locations['state_db']}\n"
         'The DB is shared by saved models in this directory. Use explicit scene IDs.\n'
         f'Project artifact directory: {artifact_dir}\n'
-        'Before the first Rhino action, call almond_project_info to check this binding. '
+        'Before the first Rhino action, call project_info to check this binding. '
         'Save task-local inventories, screenshots, diagnostic reports and temporary code '
         'under the returned artifact_dir, using an explicit absolute path in both the '
         'Rhino script and subsequent shell/image reads. '
@@ -102,7 +102,7 @@ async def configure_project_context(mcp, args, binding, locations):
         description=((script_tool.description or '') + '\n\n' + guidance).strip())}))
 
     @mcp.tool()
-    def almond_project_info() -> dict:
+    def project_info() -> dict:
         """Read the bound model, DB and artifact_dir before the first Rhino action.
 
         Use artifact_dir as the explicit absolute base for task-local reports,

@@ -69,7 +69,7 @@ class CompletionTests(unittest.IsolatedAsyncioTestCase):
         original_path = list(sys.path)
         try:
             with patch.dict(sys.modules, {"mcp_server": entry}), \
-                    patch.dict(os.environ, {"ALMONDCOS_SESSION_TOKEN": "token"}), \
+                    patch.dict(os.environ, {"ALMONDCOS_SESSION_TOKEN": "token", "ALMONDCOS_CATALOG_ID": cos_worker.catalog_identity(CATALOG)}), \
                     patch.object(sys, "argv", ["cos_worker", "--session", "owned/ready.json",
                                                "--port", "5501", "--connection-id", "connection"]), \
                     patch.object(cos_worker, "load_catalog", return_value=CATALOG), \

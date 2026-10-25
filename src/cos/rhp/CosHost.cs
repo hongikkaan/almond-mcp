@@ -107,7 +107,7 @@ internal sealed class CosHost : IDisposable
     string State => binding == null ? "available" : busy ? "unconfirmed_or_running" : invalid ? "cleanup_pending" : "connected";
 
     internal string StatusText() => binding == null
-        ? "AlmondCOS 준비됨. 저장된 현재 문서를 COS의 almond_cos_list_connections에서 선택하세요."
+        ? "AlmondCOS 준비됨. 저장된 현재 문서를 COS의 list_connections에서 선택하세요."
         : "AlmondCOS " + binding["label"] + " · " + Path.GetFileName((string)binding["model_path"]!) +
           (busy ? " · 요청 처리 중 또는 결과 확인 필요" : invalid ? " · 연결 정리 대기" : " · 연결됨");
 
