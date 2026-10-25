@@ -6,7 +6,7 @@
 
 `result`는 compact JSON 기준 UTF-8 65,536 bytes·container 깊이 16 이내다. Rhino geometry, `JObject/JArray`, 임의 POCO와 lazy enumerable을 그대로 반환하지 말고 필요한 수치·ID를 지원 값으로 투영하라. `status=success`와 `result_error`가 함께 오면 실행은 끝났지만 반환값을 표현하지 못한 것이므로 변경을 자동 재실행하지 마라. `RhinoApp.WriteLine`이 이 결과 채널로 수집된다고 가정하지 마라.
 
-기존 `List<Guid>`는 `guids`와 자동 치수 동작을 유지하며 `result`를 추가하지 않는다. `void`/`null`도 새 결과 필드가 없다. `guids`는 코드가 선언한 ID로 전체 변경 이력이 아니다. 일반 C# 실행은 Undo 범위에서 동작하고 결과에 따라 자동 치수와 [재료 레이어 후처리](modeling-materials.md)를 수행하므로 계산만 하더라도 읽기 전용 subagent에게 맡기지 마라.
+기존 `List<Guid>`는 `guids`와 자동 치수 동작을 유지하며 `result`를 추가하지 않는다. `void`/`null`도 새 결과 필드가 없다. `guids`는 코드가 선언한 ID로 전체 변경 이력이 아니다. 일반 C# 실행은 Undo 범위에서 동작하고 `List<Guid>` 반환에 자동 치수를 추가할 수 있으므로 계산만 하더라도 읽기 전용 subagent에게 맡기지 마라. 재료별 레이어 자동 생성·이동 후처리는 없으며 [레이어는 호출자가 명시한다](modeling-materials.md).
 
 ## 고정 probe 조회
 
