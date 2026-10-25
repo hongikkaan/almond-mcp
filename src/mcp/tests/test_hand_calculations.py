@@ -6,8 +6,8 @@ import math
 
 import pytest
 
-from almond_mcp import frame_solver as fs
-from almond_mcp import native_structure as ns
+from almond_mcp.features.structure import frame_solver as fs
+from almond_mcp.features.structure import native_structure as ns
 from test_stability import portal_model
 
 E, FY, GAM = 210e6, 235e3, 78.5                       # kN/m2, kN/m2, kN/m3 (S235)

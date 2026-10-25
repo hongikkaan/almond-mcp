@@ -6,9 +6,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from almond_mcp import asset_loads as al
-from almond_mcp import frame_solver as fs
-from almond_mcp import native_structure as ns
+from almond_mcp.features.structure import asset_loads as al
+from almond_mcp.features.structure import frame_solver as fs
+from almond_mcp.features.structure import native_structure as ns
 
 ROOT = Path(__file__).resolve().parents[3]
 LIBRARY = ROOT / "asset" / "models" / "GeneratedAssetfiles"

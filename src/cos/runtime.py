@@ -23,6 +23,7 @@ def digest(path: Path) -> str:
 
 
 def source_paths(engine: Path) -> dict[str, Path]:
+    package = Path(almond_mcp.__file__).parent
     paths = {
         "project": engine / "project.py",
         "entry": engine / "mcp_server.py",
@@ -32,14 +33,13 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "library_paths": engine / "library_paths.py",
         "server": Path(almond_mcp.__file__).with_name("server.py"),
         "retrieval_store": Path(almond_mcp.__file__).with_name("retrieval_store.py"),
-        "modeling_policy": Path(almond_mcp.__file__).with_name("modeling_policy.py"),
-        "modeling_setup": Path(almond_mcp.__file__).with_name("modeling_setup.py"),
+        "modeling_policy": package / "features/modeling/modeling_policy.py",
+        "modeling_setup": package / "features/modeling/modeling_setup.py",
         "modeling_policy_json": Path(almond_mcp.__file__).with_name("modeling_policy.json"),
-        "drawing_assets": Path(almond_mcp.__file__).with_name("drawing_assets.py"),
-        "drafting": Path(almond_mcp.__file__).with_name("drafting.py"),
-        "asset_repository": Path(almond_mcp.__file__).with_name("asset_repository.py"),
+        "drawing_assets": package / "features/assets/drawing_assets.py",
+        "drafting": package / "features/assets/drafting.py",
+        "asset_repository": package / "features/assets/asset_repository.py",
     }
-    package = Path(almond_mcp.__file__).parent
     covered = set(paths.values())
     for path in sorted(package.rglob("*.py")):
         if path not in covered:

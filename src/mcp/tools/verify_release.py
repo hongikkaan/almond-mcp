@@ -10,8 +10,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "src" / "mcp"))
 from almond_mcp.asset_passport import audit_library
-from almond_mcp.drafting import audit_package
-from almond_mcp.asset_repository import AssetRepository
+from almond_mcp.features.assets.drafting import audit_package
+from almond_mcp.features.assets.asset_repository import AssetRepository
 
 
 def verify(wheel: Path) -> dict:

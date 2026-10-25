@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from almond_mcp import design_codes as dc
-from almond_mcp import native_structure as ns
-from almond_mcp import structure_study as st
+from almond_mcp.features.structure import design_codes as dc
+from almond_mcp.features.structure import native_structure as ns
+from almond_mcp.features.structure import structure_study as st
 from test_stability import portal_model
 
 EUROCODE = json.loads((dc.BUILT_IN / "eurocode.json").read_text(encoding="utf-8"))

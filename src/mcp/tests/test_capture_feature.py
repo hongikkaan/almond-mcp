@@ -1,5 +1,4 @@
 """Capture factory contracts with bounded senders and no live Rhino calls."""
-import importlib
 import inspect
 import json
 from types import SimpleNamespace
@@ -45,9 +44,8 @@ def test_factory_keeps_registration_and_public_signature():
     assert "building0.camera/0.1" in tool.__doc__
 
 
-def test_legacy_module_patch_and_live_sender_binding_are_preserved(monkeypatch):
-    legacy = importlib.import_module("almond_mcp.conditioning")
-    assert legacy is conditioning
+def test_canonical_module_patch_and_live_sender_binding_are_preserved(monkeypatch):
+    assert tools.conditioning is conditioning
     first, replacement, other = object(), object(), object()
     calls = []
 
@@ -55,7 +53,7 @@ def test_legacy_module_patch_and_live_sender_binding_are_preserved(monkeypatch):
         calls.append((frames, out_dir, sender, options))
         return {"status": "success"}
 
-    monkeypatch.setattr(legacy, "capture_conditioning_pass", fake_capture)
+    monkeypatch.setattr(conditioning, "capture_conditioning_pass", fake_capture)
     shot = '{"type":"orbit","center":[0,0,0],"radius":1,"height":2,"frames":1}'
     tool, context, _, _ = register(first)
     independent, _, _, _ = register(other)

@@ -81,13 +81,24 @@ Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema�
 - Component·Sheet는 DB 사전검사 → native 변경 → 완전한 snapshot 확인 → DB 기록의 기존 순서를 지킨다. native 실행 후 DB 오류를 Rhino rollback으로 취급하지 않는다.
 - `runtime/compat_almond.py`는 외부교환 helper의 보고서를 작업별 디렉터리로 제한한다. factory context override와 기존 module 함수 adapter를 지원하며 현재 sender의 binding·완료 receipt 검증을 유지한다.
 
-### 호환 경로와 검증
+### Python 구현 경로와 검증
 
-기존 `almond_mcp` 바로 아래의 `modeling_policy`, `modeling_setup`, `ghx_parser`,
-`drawing_assets`, `drafting`, `asset_repository`, `conditioning`, `exchange`,
-`native_structure`, `frame_solver`, `ec3`, `floor_loads`, `asset_loads`, `design_codes`,
-`structure_study` import 경로는 새 구현 모듈의 정적 별칭이다. 같은 module identity를
-사용해 기존 monkeypatch·호출부를 보존하며 구현을 두 벌로 유지하지 않는다.
+Python 호출부는 기능별 실제 구현을 직접 import한다. `almond_mcp` 바로 아래에서
+다른 모듈을 연결하던 15개 Python 호환 파일은 제공하지 않는다. 외부 Python 소비자도
+아래 기능 경로를 사용해야 하며, MCP 도구 이름·schema·resource URI는 그대로다.
+
+| 실제 Python 경로 | 모듈 |
+|---|---|
+| `almond_mcp.features.modeling` | `modeling_policy`, `modeling_setup` |
+| `almond_mcp.features.grasshopper` | `ghx_parser` |
+| `almond_mcp.features.assets` | `drawing_assets`, `drafting`, `asset_repository` |
+| `almond_mcp.features.capture` | `conditioning` |
+| `almond_mcp.features.exchange` | `exchange` |
+| `almond_mcp.features.structure` | `native_structure`, `frame_solver`, `ec3`, `floor_loads`, `asset_loads`, `design_codes`, `structure_study` |
+
+예를 들어 `from almond_mcp.features.assets.drafting import load_triangles`로 가져온다.
+GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper.ghx_parser`
+명령을 사용한다. 정책 JSON과 native C#·웹 원본의 공용 자원 위치는 유지한다.
 서버의 기존 함수·클래스 이름도 조립 시 re-export한다. 비공개 generated-asset helper를
 새 공개 MCP 도구로 노출하지 않고 기존 resource URI·등록을 유지한다.
 

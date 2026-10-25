@@ -9,7 +9,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 import uuid
-from almond_mcp import modeling_setup
+from almond_mcp.features.modeling import modeling_setup
 from almond_mcp.feature_context import FeatureContext
 from almond_mcp.features.exchange.tools import register
 from fastmcp import FastMCP
@@ -21,7 +21,8 @@ from shared_store import ProjectRuntime
 from fastmcp.tools.base import ToolResult
 
 
-TEST_DATA = Path(__file__).resolve().parents[4] / "data/mcp-tests"
+# Keep nested helper report paths below Windows MAX_PATH in long worktree roots.
+TEST_DATA = Path(__file__).resolve().parents[4] / "data/compat-tests"
 
 G1 = "11111111-1111-1111-1111-111111111111"
 G2 = "22222222-2222-2222-2222-222222222222"
@@ -46,9 +47,9 @@ class Context:
 
 class HelperTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        fixture_dir = TEST_DATA / "test-fixtures"
+        fixture_dir = TEST_DATA
         fixture_dir.mkdir(parents=True, exist_ok=True)
-        self.temp = tempfile.TemporaryDirectory(prefix="한글 shared fixture ", dir=fixture_dir)
+        self.temp = tempfile.TemporaryDirectory(prefix="한글 ", dir=fixture_dir)
         self.base = Path(self.temp.name)
         model = self.base / "Fixture.3dm"
         model.write_text("Fixture only; never opened by Rhino.", encoding="utf-8")

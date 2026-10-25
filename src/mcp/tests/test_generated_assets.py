@@ -21,7 +21,7 @@ for extra in (PACKAGE_ROOT, REPO / "src/mcp/tools"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
 
-from almond_mcp import exchange  # noqa: E402
+from almond_mcp.features.exchange import exchange  # noqa: E402
 import build_generated_assets as build  # noqa: E402
 
 
