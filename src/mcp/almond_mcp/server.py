@@ -952,29 +952,8 @@ def get_drawing_recipe(recipe_id: str) -> str:
 
 
 
-@mcp.tool()
-def create_design_scene(name: str, units: str = "mm") -> str:
-    """
-    Creates a persistent scene handle for a house or interior generation.
-    Scene metadata remains local and is retrieved by ID instead of being
-    repeated in the model context.
-    """
-    try:
-        return json.dumps({
-            "status": "success",
-            "scene": retrieval_store.create_scene(name=name, units=units),
-        })
-    except Exception as exc:
-        return json.dumps({"status": "error", "message": str(exc)})
 
 
-@mcp.tool()
-def get_design_scene(scene_id: str) -> str:
-    """Returns a token-efficient scene summary by stable handle."""
-    scene = retrieval_store.get_scene(scene_id)
-    if not scene:
-        return json.dumps({"status": "error", "message": f"Unknown scene_id: {scene_id}"})
-    return json.dumps({"status": "success", "scene": scene})
 
 
 
@@ -1109,35 +1088,8 @@ def remove_design_component(component_id: str) -> str:
         return _component_error(exc)
 
 
-@mcp.tool(annotations={"destructiveHint": False})
-def register_scene_objects(
-    scene_id: str, expected_model_path: str, object_ids: list[str], mode: str = "add",
-) -> str:
-    """Link top-level objects directly to a Scene without an asset instance or Component.
-
-    mode is add, remove or replace for this document's direct links. Other model
-    links and Component membership are retained. Observe current GUIDs/bounds live;
-    this updates the local ledger and does not edit Rhino geometry or object names.
-    """
-    try:
-        result = retrieval_store.register_scene_objects(
-            scene_id=scene_id, model_path=expected_model_path, object_ids=object_ids,
-            mode=mode, native_observe=_component_bridge,
-        )
-        return json.dumps({"status": "success", **result}, ensure_ascii=False)
-    except Exception as exc:
-        return _component_error(exc)
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-def get_scene_objects(scene_id: str) -> str:
-    """Read cached direct Scene objects and all descendant Component members as one set."""
-    try:
-        objects = retrieval_store.scene_objects(scene_id)
-        return json.dumps({"status": "success", "scene_id": scene_id, "objects": objects,
-                           "total": len(objects), "live_verified": False}, ensure_ascii=False)
-    except Exception as exc:
-        return _component_error(exc)
 
 
 def _component_operation_bridge(action: str, expected_model_path: str,
@@ -3412,6 +3364,8 @@ def repository_asset_resource(asset_id: str) -> str:
 
 
 
+
+
 # Feature factories: explicit composition, no runtime directory discovery.
 from almond_mcp.feature_context import FeatureContext
 from almond_mcp.features.capture.tools import register as _register_capture
@@ -3420,6 +3374,7 @@ from almond_mcp.features.egress.tools import register as _register_egress
 from almond_mcp.features.guidance.tools import register as _register_guidance
 from almond_mcp.features.modeling.tools import register as _register_modeling
 from almond_mcp.features.publishing.tools import register as _register_publishing
+from almond_mcp.features.scenes.tools import register as _register_scenes
 
 _feature_context = FeatureContext(globals())
 globals().update(_register_capture(mcp, _feature_context))
@@ -3428,6 +3383,7 @@ globals().update(_register_egress(mcp, _feature_context))
 globals().update(_register_guidance(mcp, _feature_context))
 globals().update(_register_modeling(mcp, _feature_context))
 globals().update(_register_publishing(mcp, _feature_context))
+globals().update(_register_scenes(mcp, _feature_context))
 # End feature composition.
 
 if __name__ == "__main__":
