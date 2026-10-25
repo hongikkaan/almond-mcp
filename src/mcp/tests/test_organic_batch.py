@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import shutil
 
-from almond_mcp.asset_repository import AssetRepository
+from almond_mcp.features.assets.asset_repository import AssetRepository
 
 ROOT = Path(__file__).resolve().parents[3]
 LIBRARY = ROOT / "asset" / "models" / "GeneratedAssetfiles"

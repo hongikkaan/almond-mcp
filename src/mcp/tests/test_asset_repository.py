@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import threading
 
-from almond_mcp.asset_repository import AssetRepository, create_server
+from almond_mcp.features.assets.asset_repository import AssetRepository, create_server
 
 REPO = Path(__file__).resolve().parents[3]
 

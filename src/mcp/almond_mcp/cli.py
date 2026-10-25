@@ -227,7 +227,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 
 def cmd_design_codes(args: argparse.Namespace) -> int:
-    from almond_mcp.design_codes import listing
+    from almond_mcp.features.structure.design_codes import listing
     data = listing()
     if args.json:
         print(json.dumps(data, indent=2))
@@ -243,14 +243,14 @@ def cmd_design_codes(args: argparse.Namespace) -> int:
 
 def cmd_solve(args: argparse.Namespace) -> int:
     import io
-    from almond_mcp.structure_study import main as solve
+    from almond_mcp.features.structure.structure_study import main as solve
     # utf-8-sig: .NET writes a byte-order mark to a child's stdin when the console encoding is UTF-8
     return solve(io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8-sig"),
                  io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8"))
 
 
 def cmd_library(args: argparse.Namespace) -> int:
-    from almond_mcp.asset_repository import serve_library
+    from almond_mcp.features.assets.asset_repository import serve_library
     return serve_library(args.port, args.open)
 
 

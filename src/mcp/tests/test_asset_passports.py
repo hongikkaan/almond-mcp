@@ -27,7 +27,7 @@ def test_all_shipped_assets_have_consistent_verified_passports():
 
 
 def test_audit_detects_tampering_and_contract_load_rejects_model_changes(asset, tmp_path):
-    from almond_mcp import exchange
+    from almond_mcp.features.exchange import exchange
     (tmp_path / "models").mkdir()
     (tmp_path / "previews").mkdir()
     (tmp_path / "manifest.json").write_text(json.dumps({"assets": [asset]}))

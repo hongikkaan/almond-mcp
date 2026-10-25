@@ -1,12 +1,12 @@
-"""EN 1993-1-1 member checks (src/mcp/almond_mcp/ec3.py), each expectation worked from the standard's text."""
+"""EN 1993-1-1 member checks (src/mcp/almond_mcp/features/structure/ec3.py), each expectation worked from the standard's text."""
 import math
 
 import numpy as np
 import pytest
 
-from almond_mcp import ec3
-from almond_mcp import frame_solver as fs
-from almond_mcp import native_structure as ns
+from almond_mcp.features.structure import ec3
+from almond_mcp.features.structure import frame_solver as fs
+from almond_mcp.features.structure import native_structure as ns
 from test_hand_calculations import model
 
 S235, S355 = fs.Material("S235", 210e6, 80.76e6, 78.5, 235e3, "steel"), fs.Material("S355", 210e6, 80.76e6, 78.5, 355e3, "steel")
@@ -186,7 +186,7 @@ def test_steel_verdicts_are_unchanged():
 
 
 def test_overlay_is_labelled_indicative_for_concrete():
-    from almond_mcp import structure_study as st
+    from almond_mcp.features.structure import structure_study as st
     sec = {"shape": "rect", "width": 0.30, "height": 0.60}
     m = model([[0, 0, 3], [6, 0, 3]], [[0, 0, 3], [6, 0, 3]], 6.0)
     m["members"][0]["section"] = sec

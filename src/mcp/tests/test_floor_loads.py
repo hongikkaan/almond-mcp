@@ -5,9 +5,9 @@ import math
 import numpy as np
 import pytest
 
-from almond_mcp import floor_loads as fl
-from almond_mcp import frame_solver as fs
-from almond_mcp import native_structure as ns
+from almond_mcp.features.structure import floor_loads as fl
+from almond_mcp.features.structure import frame_solver as fs
+from almond_mcp.features.structure import native_structure as ns
 from test_capsules import _load_server
 from test_native_structure import CASES, model as ref_model
 

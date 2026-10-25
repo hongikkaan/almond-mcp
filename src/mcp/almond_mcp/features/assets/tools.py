@@ -9,7 +9,8 @@ import uuid
 
 from fastmcp.resources import ResourceContent, ResourceResult
 
-from almond_mcp import asset_loads, asset_passport, paths
+from almond_mcp.features.structure import asset_loads
+from almond_mcp import asset_passport, paths
 from almond_mcp.features.assets import drawing_assets, drafting
 
 

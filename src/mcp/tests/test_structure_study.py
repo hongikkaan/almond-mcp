@@ -7,8 +7,8 @@ import sys
 
 import pytest
 
-from almond_mcp import native_structure as ns
-from almond_mcp import structure_study as st
+from almond_mcp.features.structure import native_structure as ns
+from almond_mcp.features.structure import structure_study as st
 from test_asset_load_tools import BEAM, TUB
 from test_stability import portal_model
 

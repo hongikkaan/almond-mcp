@@ -1,4 +1,4 @@
-"""Exercise the extracted asset factory, module aliases and shared-DB mixin."""
+"""Exercise the extracted asset factory, canonical dependencies and shared-DB mixin."""
 import asyncio
 import importlib
 import json
@@ -261,13 +261,23 @@ def test_extracted_store_rolls_back_manifest_fts_and_spatial_updates_together(tm
         assert connection.execute("SELECT count(*) FROM asset_fts").fetchone()[0] == 1
 
 
-@pytest.mark.parametrize("name", ["drawing_assets", "drafting", "asset_repository"])
-def test_legacy_module_aliases_preserve_monkeypatch_identity(name, monkeypatch):
-    legacy = importlib.import_module("almond_mcp." + name)
-    implementation = importlib.import_module("almond_mcp.features.assets." + name)
-    assert legacy is implementation
-    monkeypatch.setattr(legacy, "fixture_identity", object(), raising=False)
-    assert implementation.fixture_identity is legacy.fixture_identity
-    if name == "asset_repository":
-        assert implementation.UI_ROOT == Path(__file__).resolve().parents[2] / "rhp/Asset_Panel/web"
-        assert (implementation.UI_ROOT / "index.html").is_file()
+@pytest.mark.parametrize("consumer, dependency", [
+    ("tools", "drawing_assets"), ("tools", "drafting"), ("drawing_assets", "drafting"),
+])
+def test_asset_consumers_share_canonical_module_dependencies(consumer, dependency):
+    module = importlib.import_module("almond_mcp.features.assets." + consumer)
+    canonical = importlib.import_module("almond_mcp.features.assets." + dependency)
+    assert getattr(module, dependency) is canonical
+
+
+def test_repository_tool_resolves_patched_canonical_repository(tmp_path, monkeypatch):
+    from almond_mcp.features.assets import asset_repository
+
+    calls = []
+    repository = SimpleNamespace(search=lambda *args: calls.append(args) or {"total": 0})
+    monkeypatch.setattr(asset_repository, "AssetRepository", lambda: repository)
+    _, _, _, exports = make_feature(tmp_path)
+    assert exports["search_asset_repository"]("chair", "model", True, 5) == {"total": 0}
+    assert calls == [("chair", "model", True, 5)]
+    assert asset_repository.UI_ROOT == Path(__file__).resolve().parents[2] / "rhp/Asset_Panel/web"
+    assert (asset_repository.UI_ROOT / "index.html").is_file()

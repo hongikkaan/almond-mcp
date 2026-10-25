@@ -10,7 +10,6 @@ from types import SimpleNamespace
 import pytest
 from fastmcp import Client, FastMCP
 
-from almond_mcp import exchange as legacy_exchange
 from almond_mcp.feature_context import FeatureContext
 from almond_mcp.features.exchange import exchange
 from almond_mcp.features.exchange.tools import register
@@ -117,12 +116,13 @@ class NativeFake:
             yield self
 
 
-def test_old_module_is_static_alias_and_preserves_monkeypatch_identity(monkeypatch):
-    assert legacy_exchange is exchange
-    assert Path(exchange.__file__).parent.name == "exchange"
-    replacement = lambda *args, **kwargs: "replacement"
-    monkeypatch.setattr(legacy_exchange, "blender_export_script", replacement)
-    assert exchange.blender_export_script is replacement
+def test_registered_tool_resolves_patched_canonical_exchange(feature, monkeypatch):
+    assert feature.context.exchange is exchange
+    assert exchange.__name__ == "almond_mcp.features.exchange.exchange"
+    monkeypatch.setattr(exchange, "blender_export_script", lambda *args: "replacement")
+    result = json.loads(feature.exports["get_blender_helper_script"]("export", asset_id="fixture"))
+    assert result["status"] == "success"
+    assert result["script"] == "replacement"
 
 
 def test_factory_registers_exact_public_contract_and_no_helpers(feature):

@@ -5,8 +5,8 @@ import math
 import numpy as np
 import pytest
 
-from almond_mcp import frame_solver as fs
-from almond_mcp import native_structure as ns
+from almond_mcp.features.structure import frame_solver as fs
+from almond_mcp.features.structure import native_structure as ns
 from test_capsules import _load_server
 
 STEEL, SEC = fs.material("Steel"), fs.chs(114.3, 4.0)

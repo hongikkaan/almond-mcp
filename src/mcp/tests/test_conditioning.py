@@ -5,7 +5,7 @@ import os
 
 import pytest
 
-from almond_mcp import conditioning as c
+from almond_mcp.features.capture import conditioning as c
 
 
 def test_orbit_path_starts_and_ends_on_requested_angles():

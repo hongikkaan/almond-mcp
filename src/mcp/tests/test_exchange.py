@@ -11,7 +11,7 @@ PACKAGE_ROOT = PROJECT_ROOT / "src" / "mcp"
 if str(PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_ROOT))
 
-from almond_mcp import exchange  # noqa: E402
+from almond_mcp.features.exchange import exchange  # noqa: E402
 
 BOUNDS = {"min": [-900.0, -225.0, 0.0], "max": [900.0, 225.0, 450.0]}
 MATERIALS = [{"material_id": "wood-oak", "objects": ["slat_0", "slat_1"]}]

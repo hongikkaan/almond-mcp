@@ -122,17 +122,16 @@ def test_logic_tools_use_current_indexer_and_parse_ghx_before_gh(server, tmp_pat
     assert "not found" in json.loads(_call(server.get_logic_by_id, logic_id="missing"))["error"]
 
 
-def test_old_parser_path_is_same_module_and_keeps_manifest_lookup(tmp_path, monkeypatch):
-    from almond_mcp import ghx_parser as compatibility
-
-    assert compatibility is ghx_parser
+def test_canonical_parser_dependency_keeps_manifest_lookup(tmp_path, monkeypatch):
+    assert tools.GHParser is ghx_parser.GHParser
+    assert ghx_parser.GHParser.__module__ == "almond_mcp.features.grasshopper.ghx_parser"
     capsule_dir = tmp_path / "capsules"
     capsule_dir.mkdir()
     definition = tmp_path / "TestBeam.ghx"
     definition.write_bytes(b"<Archive>Karamba Assemble Model</Archive>")
     library_manifest = capsule_dir / "test_beam_v1.capsule.json"
     library_manifest.write_text(json.dumps(AUDITED_MANIFEST), encoding="utf-8")
-    monkeypatch.setattr(compatibility, "CAPSULES_DIR", str(capsule_dir))
+    monkeypatch.setattr(ghx_parser, "CAPSULES_DIR", str(capsule_dir))
     parsed = ghx_parser.GHParser(str(definition)).parse()
     assert parsed.metadata["capsule"]["capsule_id"] == "test_beam_v1"
     assert parsed.metadata["capsule_manifest_path"] == str(library_manifest)
@@ -187,14 +186,14 @@ def test_run_resolves_rebound_capsule_directory_and_timeout_response(server, mon
     assert "timed out" in response["message"]
 
 
-def test_legacy_parser_module_command_still_parses_a_definition(tmp_path):
+def test_canonical_parser_module_command_parses_a_definition(tmp_path):
     import subprocess
     import sys
 
     definition = tmp_path / "CommandBeam.ghx"
     definition.write_bytes(b"<Archive>Karamba Assemble Model</Archive>")
     run = subprocess.run(
-        [sys.executable, "-B", "-X", "utf8", "-m", "almond_mcp.ghx_parser", str(definition)],
+        [sys.executable, "-B", "-X", "utf8", "-m", "almond_mcp.features.grasshopper.ghx_parser", str(definition)],
         capture_output=True, text=True, encoding="utf-8", timeout=30, check=True,
     )
     parsed = json.loads(run.stdout)

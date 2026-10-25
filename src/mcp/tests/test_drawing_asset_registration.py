@@ -7,8 +7,8 @@ import ezdxf
 import numpy as np
 import pytest
 
-from almond_mcp import drawing_assets as assets, drafting
-from almond_mcp.asset_repository import AssetRepository
+from almond_mcp.features.assets import drawing_assets as assets, drafting
+from almond_mcp.features.assets.asset_repository import AssetRepository
 from almond_mcp.retrieval_store import AlmondStore
 from test_generated_assets import load_server_module
 

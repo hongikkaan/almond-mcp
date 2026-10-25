@@ -9,8 +9,6 @@ from types import SimpleNamespace
 import pytest
 from fastmcp import Client, FastMCP
 
-from almond_mcp import modeling_policy as legacy_policy
-from almond_mcp import modeling_setup as legacy_setup
 from almond_mcp.features.modeling import modeling_policy, modeling_setup
 from almond_mcp.features.modeling.library import MaterialLibrary
 from almond_mcp.features.modeling.tools import register
@@ -68,12 +66,13 @@ def test_factory_preserves_public_schema_and_policy_roundtrip(feature, original_
     asyncio.run(verify())
 
 
-def test_old_module_paths_are_monkeypatch_identical(monkeypatch):
-    assert legacy_policy is modeling_policy
-    assert legacy_setup is modeling_setup
+def test_server_and_recipe_use_canonical_modeling_dependencies(original_server, monkeypatch):
+    assert original_server.modeling_policy is modeling_policy
+    assert original_server.modeling_setup is modeling_setup
+    assert modeling_setup.modeling_policy is modeling_policy
     expected = json.loads((PACKAGE / "modeling_policy.json").read_text(encoding="utf-8"))
     assert modeling_policy.POLICY == expected
-    monkeypatch.setattr(legacy_policy, "validate_material", lambda material: {
+    monkeypatch.setattr(modeling_policy, "validate_material", lambda material: {
         "material_id": "patched", "name": "Patched", "base_color": [1, 2, 3],
         "metallic": 0, "roughness": 1, "opacity": 1,
     })
