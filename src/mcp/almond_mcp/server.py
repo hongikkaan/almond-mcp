@@ -33,6 +33,8 @@ from almond_mcp.retrieval_store import AlmondStore, ComponentReconciliationError
 from almond_mcp import modeling_policy, modeling_setup, drawing_assets
 from almond_mcp import asset_passport, asset_loads, conditioning, exchange, paths, drafting, native_structure, structure_study, design_codes
 
+from almond_mcp.features.guidance.library import ConstructionLibrary, HistoryLibrary
+
 # ── Constants ────────────────────────────────────────────────────────────────
 
 DELIMITER = b'\n<<EOF>>\n'
@@ -310,195 +312,8 @@ class MaterialLibrary:
         return results
 
 
-class ConstructionLibrary:
-    """Curated construction-system guidance (asset/constructions/Constructionfiles/manifest.json).
-
-    Parameters distilled from Ching, Building Construction Illustrated
-    (4th ed.): span ranges, depth rules of thumb, member spacing, and
-    assembly notes per construction system, keyed to validate_structure's
-    structure_type/material vocabulary and to asset/constructions/Materialfiles material_ids."""
-
-    REQUIRED = ("system_id", "name", "category", "structural_material",
-                "structure_types", "span_range_m")
-
-    # validate_structure accepts S355 as a steel grade; guidance treats it as Steel.
-    MATERIAL_ALIASES = {"s355": "Steel", "steel": "Steel", "concrete": "Concrete",
-                        "wood": "Wood", "timber": "Wood", "aluminium": "Aluminium",
-                        "aluminum": "Aluminium"}
-
-    def __init__(self, directory: str):
-        self.directory = Path(directory)
-        self.systems: dict[str, dict] = {}
-        self.reference: dict = {}
-        self.source = ""
-        manifest_path = self.directory / "manifest.json"
-        if not manifest_path.is_file():
-            print(f"Construction manifest missing: {manifest_path}", file=sys.stderr)
-            return
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            print(f"Construction manifest unreadable: {exc}", file=sys.stderr)
-            return
-        self.reference = manifest.get("reference", {})
-        self.source = manifest.get("source", "")
-        for system in manifest.get("systems", []):
-            if not all(key in system for key in self.REQUIRED):
-                continue
-            self.systems[system["system_id"]] = system
-        print(f"Indexed {len(self.systems)} construction systems.", file=sys.stderr)
-
-    def get(self, system_id: str) -> dict | None:
-        return self.systems.get(system_id)
-
-    def normalize_material(self, material: str) -> str:
-        return self.MATERIAL_ALIASES.get(material.strip().lower(), material.strip())
-
-    def list(self, category: str = "", query: str = "", material: str = "",
-             structure_type: str = "") -> list[dict]:
-        needle = query.strip().lower()
-        wanted_material = self.normalize_material(material) if material else ""
-        wanted_type = structure_type.strip().lower()
-        results = []
-        for system in self.systems.values():
-            if category and system["category"] != category:
-                continue
-            if wanted_material and system["structural_material"] != wanted_material:
-                continue
-            if wanted_type and wanted_type not in system["structure_types"]:
-                continue
-            if needle:
-                haystack = " ".join([
-                    system["system_id"], system["name"], system["category"],
-                    system.get("structural_material", ""),
-                    " ".join(system.get("tags", [])),
-                    " ".join(note for note in system.get("construction_notes", [])),
-                    " ".join(element.get("role", "") + " " + element.get("note", "")
-                             for element in system.get("elements", [])),
-                ]).lower()
-                if needle not in haystack:
-                    continue
-            results.append(system)
-        return results
-
-    def assess_span(self, structure_type: str, material: str,
-                    span_m: float | None) -> dict:
-        """Constructibility cross-check for a validate_structure run: which
-        curated systems cover this structure_type/material, does the span sit
-        inside a real system's range, and what member depth would it imply."""
-        wanted_material = self.normalize_material(material)
-        wanted_type = structure_type.strip().lower()
-        candidates = [s for s in self.systems.values()
-                      if wanted_type in s["structure_types"]
-                      and s["structural_material"] == wanted_material]
-        check: dict = {
-            "source": "Ching, Building Construction Illustrated (4th ed.) - preliminary sizing guidance",
-            "matching_systems": [],
-            "warnings": [],
-        }
-        if not candidates:
-            check["warnings"].append(
-                f"No curated construction system covers structure_type "
-                f"'{structure_type}' in {wanted_material}; span plausibility "
-                f"not assessed.")
-            return check
-        span_known = span_m is not None and span_m > 0
-        fitting = []
-        for system in candidates:
-            lo, hi = system["span_range_m"]
-            entry = {
-                "system_id": system["system_id"],
-                "name": system["name"],
-                "span_range_m": [lo, hi],
-                "bci_ref": system.get("bci_ref", []),
-            }
-            if span_known and hi > 0:
-                entry["fits_span"] = bool(lo <= span_m <= hi)
-                depths = []
-                for rule in system.get("depth_rules", []):
-                    ratio = rule.get("span_ratio", 0)
-                    if ratio:
-                        depths.append({
-                            "element": rule["element"],
-                            "suggested_depth_mm": round(span_m * 1000 / ratio),
-                            "rule": f"span/{ratio}",
-                        })
-                if depths:
-                    entry["depth_guidance"] = depths
-                if entry["fits_span"]:
-                    fitting.append(system)
-            check["matching_systems"].append(entry)
-        if span_known and not fitting:
-            spans = ", ".join(
-                f"{s['system_id']} ({s['span_range_m'][0]}-{s['span_range_m'][1]} m)"
-                for s in candidates if s["span_range_m"][1] > 0)
-            check["warnings"].append(
-                f"Span {span_m:g} m is outside the typical range of every "
-                f"curated {wanted_material} system for '{structure_type}': "
-                f"{spans}. The structure may still solve numerically, but as "
-                f"drawn it does not correspond to a standard construction "
-                f"system - consider a different system, material, or "
-                f"intermediate supports.")
-        return check
 
 
-class HistoryLibrary:
-    """Curated architectural typology narratives (asset/history/Historyfiles/manifest.json).
-
-    Distilled from Ching, Jarzombek & Prakash, A Global History of
-    Architecture. NARRATION ONLY: entries feed project storytelling and
-    typology context; they never drive geometry, sizing, or structural
-    decisions - those belong to the construction library."""
-
-    REQUIRED = ("typology_id", "name", "era", "narrative", "gha_ref")
-
-    def __init__(self, directory: str):
-        self.directory = Path(directory)
-        self.entries: dict[str, dict] = {}
-        self.source = ""
-        manifest_path = self.directory / "manifest.json"
-        if not manifest_path.is_file():
-            print(f"History manifest missing: {manifest_path}", file=sys.stderr)
-            return
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            print(f"History manifest unreadable: {exc}", file=sys.stderr)
-            return
-        self.source = manifest.get("source", "")
-        for entry in manifest.get("entries", []):
-            if not all(key in entry for key in self.REQUIRED):
-                continue
-            self.entries[entry["typology_id"]] = entry
-        print(f"Indexed {len(self.entries)} typology narratives.", file=sys.stderr)
-
-    def get(self, typology_id: str) -> dict | None:
-        return self.entries.get(typology_id)
-
-    def list(self, query: str = "", construction_system: str = "",
-             structure_type: str = "") -> list[dict]:
-        needle = query.strip().lower()
-        wanted_type = structure_type.strip().lower()
-        results = []
-        for entry in self.entries.values():
-            if construction_system and construction_system not in \
-                    entry.get("related_construction_systems", []):
-                continue
-            if wanted_type and wanted_type not in entry.get("structure_types", []):
-                continue
-            if needle:
-                haystack = " ".join([
-                    entry["typology_id"], entry["name"], entry["era"],
-                    entry.get("region", ""), entry["narrative"],
-                    entry.get("urban_role", ""),
-                    " ".join(entry.get("tags", [])),
-                    " ".join(p.get("name", "") + " " + p.get("place", "")
-                             for p in entry.get("precedents", [])),
-                ]).lower()
-                if needle not in haystack:
-                    continue
-            results.append(entry)
-        return results
 
 
 material_library = MaterialLibrary(MATERIAL_LIBRARY_DIR)
@@ -1006,22 +821,6 @@ def evaluate_generated_asset_fit(
         return {"status": "error", "message": str(exc)}
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
-def search_detail_sources(query: str = "") -> dict:
-    """Search six curated free architectural source directories offline.
-    Returns links, formats and rights notes; no external content is fetched.
-    Results are research candidates, not attributed inputs or certified details.
-    DETAIL subscription access is not required."""
-    data = json.loads((Path(DRAFTING_LIBRARY_DIR)/"sources.json").read_text(encoding="utf-8"))
-    terms = set(re.findall(r"[a-z0-9]+", query.lower()))
-    matches = []
-    for source in data["sources"]:
-        haystack = " ".join([source["title"], *source["tags"], *source["formats"]]).lower()
-        matched = sorted(t for t in terms if t in haystack)
-        if not terms or matched:
-            matches.append({**source, "matched_terms": matched})
-    matches.sort(key=lambda s: (-len(s["matched_terms"]), s["source_id"]))
-    return {"status": "success", "scope": data["scope"], "sources": matches}
 
 
 def get_generation_sources(asset_id: str) -> dict:
@@ -1236,19 +1035,6 @@ def get_drawing_recipe(recipe_id: str) -> str:
     })
 
 
-@mcp.tool()
-def get_retrieval_status() -> str:
-    """Returns compact diagnostics for the local structured retrieval system."""
-    return json.dumps({
-        "status": "ready",
-        "database": STATE_DB_PATH,
-        "asset_index": retrieval_store.asset_stats(),
-        "drawing_asset_index": retrieval_store.asset_stats("drawing_assets"),
-        "generated_asset_index": retrieval_store.asset_stats("generated_assets"),
-        "drawing_recipes": len(drawing_recipe_indexer.recipes),
-        "retrieval": ["sqlite", "fts5", "rtree"],
-        "embedding_adapter": "not_configured",
-    })
 
 
 @mcp.tool()
@@ -2031,118 +1817,8 @@ def list_materials(category: str = "", query: str = "") -> str:
     })
 
 
-@mcp.tool()
-def get_construction_guidance(
-    query: str = "",
-    category: str = "",
-    material: str = "",
-    structure_type: str = "",
-    span_m: float = 0.0,
-    include_reference_data: bool = False,
-) -> str:
-    """
-    Curated construction-system guidance for generating structures that are
-    built the way real buildings are built - not arbitrary members in space.
-    Parameters are distilled from Ching's Building Construction Illustrated
-    (4th ed.): per-system span ranges, depth rules of thumb (depth = span/N),
-    member spacing, element roles, and assembly notes.
-
-    Call this BEFORE generating structural geometry: pick a system, size and
-    space members from its rules, then generate and run validate_structure
-    (which cross-checks the result against this same library). Each system
-    names its structural_material (validate_structure vocabulary) and
-    render_material_ids (assign_material vocabulary), so the declared
-    construction material flows through analysis AND appears on the Rhino
-    objects.
-
-    Args:
-        query: Free-text filter (e.g. "glulam", "longspan", "bearing wall").
-        category: "floor", "wall", "roof", "foundation" (empty = all).
-        material: "Wood", "Steel", "Concrete" - validate_structure names.
-        structure_type: validate_structure type ("beam", "truss", "shell",
-            "frame", "canopy", "gridshell", "membrane", "highrise").
-        span_m: If > 0, each returned system reports fits_span and
-            suggested member depths from its span-ratio rules.
-        include_reference_data: Also return occupancy live loads (kPa) and
-            material densities (kg/m3) for choosing load_kn inputs.
-    Returns:
-        JSON: {total, systems: [...], reference?} - for wall systems
-        span_range_m is the unsupported height range (span_axis "vertical").
-    """
-    systems = construction_library.list(
-        category=category, query=query, material=material,
-        structure_type=structure_type)
-    payload: dict = {
-        "total": len(systems),
-        "source": construction_library.source,
-        "systems": [],
-    }
-    for system in systems:
-        card = dict(system)
-        card["construction_detail"] = system["name"]
-        card["construction_reference"] = {"kind": "construction_system", "id": system["system_id"]}
-        if span_m > 0:
-            lo, hi = system["span_range_m"]
-            if hi > 0:
-                card["fits_span"] = bool(lo <= span_m <= hi)
-                depths = [
-                    {"element": rule["element"],
-                     "suggested_depth_mm": round(span_m * 1000 / rule["span_ratio"]),
-                     "rule": f"span/{rule['span_ratio']}"}
-                    for rule in system.get("depth_rules", [])
-                    if rule.get("span_ratio")
-                ]
-                if depths:
-                    card["depth_guidance"] = depths
-        payload["systems"].append(card)
-    if include_reference_data:
-        payload["reference"] = construction_library.reference
-    if not systems:
-        payload["hint"] = ("No system matched. Loosen the filters, or call "
-                          "with no arguments to list all systems.")
-    return json.dumps(payload)
 
 
-@mcp.tool()
-def get_typology_narrative(
-    query: str = "",
-    construction_system: str = "",
-    structure_type: str = "",
-    limit: int = 5,
-) -> str:
-    """
-    Architectural typology narratives for project storytelling - precedents,
-    eras, and urban roles distilled from Ching, Jarzombek & Prakash's
-    A Global History of Architecture, with page references (gha_ref).
-
-    NARRATION ONLY: use these entries to caption, contextualize and narrate
-    a design (which tradition a courtyard block belongs to, what a truss
-    hall's civic ancestors are). They must NEVER drive geometry, member
-    sizing, or structural decisions - that is get_construction_guidance's
-    job. A natural pairing: after building with a construction system, call
-    this with construction_system=<that system_id> to fetch the lineage for
-    the project description.
-
-    Args:
-        query: Free text (e.g. "courtyard", "skyscraper", "timber hall").
-        construction_system: Filter to entries related to a construction
-            library system_id (e.g. "steel-column-frame").
-        structure_type: Filter by validate_structure type ("shell",
-            "truss", "frame", "membrane", ...).
-        limit: Maximum entries returned (default 5).
-    Returns:
-        JSON: {total, entries: [{typology_id, name, era, region, narrative,
-        precedents, related_construction_systems, urban_role, gha_ref,
-        tags}], source}.
-    """
-    entries = history_library.list(query=query,
-                                   construction_system=construction_system,
-                                   structure_type=structure_type)
-    return json.dumps({
-        "total": len(entries),
-        "entries": entries[:max(1, limit)],
-        "source": history_library.source,
-    })
 
 
 @mcp.tool()
@@ -2802,144 +2478,12 @@ def execute_rhino_script(script: str) -> str:
         return json.dumps({"status": "error", "message": f"Bridge error: {e}"})
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-def get_rhino_context(selection_limit: StrictInt = 50) -> str:
-    """Read the LIVE bound Rhino document, selection and current viewport on the UI thread.
-
-    Includes document identity/path, units/tolerances, object/layer counts, a bounded
-    selection summary and camera/display metadata. This query does not create layers,
-    geometry, dimensions or an Undo record. Unavailable values are null with warnings.
-    Counts and the current view are context, not a geometric or visibility validation.
-    Use this snapshot before focused object inspection or editing an existing model.
-
-    Args:
-        selection_limit: Maximum selected object summaries, from 0 to 200; total/truncated are still reported.
-    Returns:
-        JSON with status, document, selection, viewport and warnings, or an explicit error.
-    """
-    if type(selection_limit) is not int or not 0 <= selection_limit <= 200:
-        return json.dumps({"status": "error", "error_code": "invalid_arguments",
-                           "message": "selection_limit must be an integer from 0 to 200."})
-    payload = json.dumps({"type": "get_rhino_context", "selection_limit": selection_limit}).encode("utf-8")
-    try:
-        return _send_and_receive(payload)
-    except Exception as exc:
-        return json.dumps({"status": "error", "error_code": "bridge_error",
-                           "message": f"Could not read the live Rhino context: {exc}"})
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-def get_rhino_probe(probe: str, options: dict, expected_model_path: str) -> str:
-    """Read fixed geometry observations on the bound Rhino UI thread without modifying the document.
-
-    Does not execute supplied C#, create layers/Undo records, edit geometry, select objects,
-    change views or write files. Requires the Bridge fixed_probes capability. Requests and
-    responses are limited to 256 KiB of UTF-8 JSON. Unknown/omitted/truncated observations
-    do not mean zero, clearance, structural approval or design correctness.
-
-    Args:
-        probe: One of outline, resolve-block, sections, vertical-probe, joint-pairs.
-        options: Fixed helper options: outline uses scope/ids/path/depth; resolve-block uses
-            path (1..65 GUIDs); sections uses ids/axis/stations; vertical-probe uses ids/xy;
-            joint-pairs uses pairs and optional compare_operations. Coordinates are model units.
-        expected_model_path: Absolute normalized saved .3dm path from project_info; must match the active document.
-    Returns:
-        JSON with status, probe, document identity/units/tolerance and data, or an explicit error.
-    """
-    if (probe not in ("outline", "resolve-block", "sections", "vertical-probe", "joint-pairs")
-            or not isinstance(options, dict) or not isinstance(expected_model_path, str)
-            or not expected_model_path.strip()):
-        return json.dumps({"status": "error", "error_code": "invalid_arguments",
-                           "message": "A fixed probe, options object and expected_model_path are required."})
-    try:
-        payload = json.dumps({"type": "get_rhino_probe", "probe": probe, "options": options,
-                              "expected_model_path": expected_model_path}, allow_nan=False).encode("utf-8")
-        if len(payload) > 262144:
-            raise ValueError("Probe request exceeds 256 KiB; narrow the request.")
-    except (TypeError, ValueError) as exc:
-        return json.dumps({"status": "error", "error_code": "invalid_arguments", "message": str(exc)})
-    try:
-        # Older observation-capable Bridges route unknown request types into ScriptExecutor.
-        context_response = _send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}')
-        context = json.loads(context_response)
-        if not isinstance(context, dict) or context.get("status") not in ("success", "error"):
-            raise ValueError("Bridge returned an invalid context response.")
-        if context["status"] == "error":
-            return context_response
-        if context.get("capabilities", {}).get("fixed_probes") != 1:
-            return json.dumps({"status": "error", "error_code": "unsupported_probe",
-                               "message": "Load a Bridge with fixed_probes=1 before calling geometry probes."})
-        return _send_and_receive(payload)
-    except Exception as exc:
-        return json.dumps({"status": "error", "error_code": "bridge_error",
-                           "message": f"Could not read the live Rhino probe: {exc}"})
 
 
-def _viewport_result(metadata: dict, image_data: str | None = None) -> ToolResult:
-    content = [TextContent(type="text", text=json.dumps(metadata, ensure_ascii=False))]
-    if image_data is not None:
-        content.append(ImageContent(type="image", data=image_data, mimeType="image/jpeg"))
-    return ToolResult(content=content, structured_content=metadata,
-                      is_error=metadata.get("status") != "success")
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-def get_rhino_viewport_image(max_width: StrictInt = 1280, max_height: StrictInt = 960) -> ToolResult:
-    """Return the LIVE current Rhino viewport as a JPEG image with document/view metadata.
-
-    Captures the current view without changing its camera, projection, display mode,
-    clipping, selection or Undo history. The image preserves the viewport aspect ratio
-    within the requested bounds; it does not zoom to fit or prove geometric correctness.
-    A missing view, failed capture or oversized image is an explicit error, never a stale
-    file. Use capture_conditioning_pass for deliberate camera paths and multiple passes.
-
-    Args:
-        max_width: Maximum image width in pixels, from 64 to 2048.
-        max_height: Maximum image height in pixels, from 64 to 2048.
-    Returns:
-        An MCP image content block plus JSON metadata. JPEG data is limited to 4 MiB.
-    """
-    if any(type(value) is not int or not 64 <= value <= 2048 for value in (max_width, max_height)):
-        return _viewport_result({"status": "error", "error_code": "invalid_arguments",
-                                 "message": "max_width and max_height must be integers from 64 to 2048."})
-    payload = json.dumps({"type": "get_rhino_viewport_image", "max_width": max_width,
-                          "max_height": max_height}).encode("utf-8")
-    try:
-        response = json.loads(_send_and_receive(payload))
-    except Exception as exc:
-        return _viewport_result({"status": "error", "error_code": "bridge_error",
-                                 "message": f"Could not capture the live Rhino viewport: {exc}"})
-    if not isinstance(response, dict):
-        return _viewport_result({"status": "error", "error_code": "invalid_capture_response",
-                                 "message": "The viewport response must be a JSON object."})
-    if response.get("status") != "success":
-        response.pop("image", None)
-        return _viewport_result(response)
-    try:
-        captured = response["image"]
-        encoded = captured["data"]
-        byte_limit = 4 * 1024 * 1024
-        if captured["mime_type"] != "image/jpeg" or not isinstance(encoded, str):
-            raise ValueError("Expected base64 JPEG image data.")
-        if len(encoded) > 4 * ((byte_limit + 2) // 3):
-            raise ValueError("The captured JPEG exceeds 4 MiB.")
-        raw = base64.b64decode(encoded, validate=True)
-        if not raw or len(raw) > byte_limit:
-            raise ValueError("The captured JPEG is empty or exceeds 4 MiB.")
-        dimensions = (captured["width"], captured["height"])
-        if any(type(value) is not int or value < 1 or value > limit
-               for value, limit in zip(dimensions, (max_width, max_height))):
-            raise ValueError("Captured dimensions exceed the requested bounds.")
-        with PillowImage.open(io.BytesIO(raw)) as picture:
-            if picture.format != "JPEG" or picture.size != dimensions:
-                raise ValueError("JPEG dimensions or format do not match the capture metadata.")
-            picture.load()
-    except Exception as exc:
-        return _viewport_result({"status": "error", "error_code": "invalid_capture_response",
-                                 "message": f"Invalid viewport image: {exc}"})
-    response["image"] = {"mime_type": "image/jpeg", "width": dimensions[0],
-                         "height": dimensions[1], "byte_count": len(raw)}
-    return _viewport_result(response, encoded)
 
 
 @mcp.tool()
@@ -4580,6 +4124,18 @@ def repository_asset_resource(asset_id: str) -> str:
     record["local_files"] = {url: str(repository.files[url][1]) for url in urls if url in repository.files}
     return json.dumps(record)
 
+
+
+
+# Feature factories: explicit composition, no runtime directory discovery.
+from almond_mcp.feature_context import FeatureContext
+from almond_mcp.features.context.tools import register as _register_context
+from almond_mcp.features.guidance.tools import register as _register_guidance
+
+_feature_context = FeatureContext(globals())
+globals().update(_register_context(mcp, _feature_context))
+globals().update(_register_guidance(mcp, _feature_context))
+# End feature composition.
 
 if __name__ == "__main__":
     mcp.run()
