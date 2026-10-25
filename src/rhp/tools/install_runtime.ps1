@@ -50,13 +50,18 @@ if(-not $VerifyOnly) {
         }
     }
     foreach($entry in $entries) {
-        New-Item -Path $entry.Key -Force | Out-Null
+        # Registry New-Item -Force clears an existing key's values.
+        if(-not (Test-Path -LiteralPath $entry.Key)) {
+            New-Item -Path $entry.Key -Force | Out-Null
+        }
         Set-ItemProperty -LiteralPath $entry.Root -Name Name -Value $entry.Name
         New-ItemProperty -LiteralPath $entry.Root -Name LoadMode -PropertyType DWord -Value $entry.Mode -Force | Out-Null
         Set-ItemProperty -LiteralPath $entry.Key -Name FileName -Value $entry.File
         $changes=@(Get-CommandRegistrationChanges $entry)
         if($changes.Count) {
-            New-Item -Path $entry.CommandKey -Force | Out-Null
+            if(-not (Test-Path -LiteralPath $entry.CommandKey)) {
+                New-Item -Path $entry.CommandKey -Force | Out-Null
+            }
             foreach($change in $changes) {
                 if($change.Action -eq 'Set') {
                     New-ItemProperty -LiteralPath $entry.CommandKey -Name $change.Name -Value $change.Value -PropertyType String -Force | Out-Null

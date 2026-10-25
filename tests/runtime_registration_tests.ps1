@@ -10,7 +10,7 @@ $connectionRoot='HKCU:\Software\McNeel\Rhinoceros\8.0\Plug-ins\39eb74f6-8283-4e4
 function Initialize-Fixture {
     $global:RuntimeRegistrationFixture.Registry=@{
         $bridgeRoot=@{Name='RhinoAlmondBridge';LoadMode=1}
-        ($bridgeRoot+'\PlugIn')=@{FileName=(Join-Path $testRepo 'src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp')}
+        ($bridgeRoot+'\PlugIn')=@{FileName=(Join-Path $testRepo 'src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp');UnrelatedSetting='preserve'}
         ($bridgeRoot+'\CommandList')=@{Almond='2;Almond';AlmondMCPStart='2;AlmondMCPStart';AlmondMCPStop='2;AlmondMCPStop';AlmondMCPStatus='2;AlmondMCPStatus'}
         $connectionRoot=@{Name='AlmondCOS';LoadMode=2}
         ($connectionRoot+'\PlugIn')=@{FileName=(Join-Path $testRepo 'src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp')}
@@ -34,7 +34,10 @@ function Get-ItemProperty {
 function New-Item {
     param([string]$Path,[string]$ItemType,[switch]$Force)
     if($Path -like 'HKCU:*'){
-        if(-not $global:RuntimeRegistrationFixture.Registry.ContainsKey($Path)){$global:RuntimeRegistrationFixture.Registry[$Path]=@{}}
+        # Registry-provider New-Item -Force overwrites an existing key with an
+        # empty key (unlike the filesystem's directory behavior).
+        if($global:RuntimeRegistrationFixture.Registry.ContainsKey($Path) -and -not $Force){throw 'Registry key already exists'}
+        $global:RuntimeRegistrationFixture.Registry[$Path]=@{}
         return
     }
     Microsoft.PowerShell.Management\New-Item -Path $Path -ItemType $ItemType -Force:$Force
@@ -54,6 +57,7 @@ function New-ItemProperty {
 function Remove-ItemProperty {
     param([string]$LiteralPath,[string]$Name)
     if($global:RuntimeRegistrationFixture.Exports -ne 2){throw 'Command metadata removed before backup'}
+    if(-not $global:RuntimeRegistrationFixture.Registry[$LiteralPath].ContainsKey($Name)){throw 'Registry property no longer exists'}
     $global:RuntimeRegistrationFixture.CommandWrites++
     $global:RuntimeRegistrationFixture.Registry[$LiteralPath].Remove($Name)
 }
@@ -81,6 +85,7 @@ Run-Case 'Install refreshes commands, removes old names and preserves panel comm
     Check (-not $commands.ContainsKey('AlmondCOS') -and -not $commands.ContainsKey('AlmondCOSDisconnect')) 'Old connection command aliases remain'
     $commands=$global:RuntimeRegistrationFixture.Registry[$bridgeRoot+'\CommandList']
     Check ($commands.Count -eq 1 -and $commands['Almond'] -ceq '2;Almond') 'Legacy commands remain or an existing panel command changed'
+    Check ($global:RuntimeRegistrationFixture.Registry[$bridgeRoot+'\PlugIn']['UnrelatedSetting'] -ceq 'preserve') 'An unrelated plugin setting changed'
     & "$testRepo/src/rhp/tools/install_runtime.ps1" -VerifyOnly | Out-Null
     $writes=$global:RuntimeRegistrationFixture.CommandWrites
     $global:RuntimeRegistrationFixture.Exports=0
