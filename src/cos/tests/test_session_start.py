@@ -38,7 +38,6 @@ class RhinoStartTests(unittest.IsolatedAsyncioTestCase):
             launch = self.start()
         args, kwargs = self.spawn.call_args
         self.assertEqual(args[0], [str(self.executable), str(self.model), "/nosplash", "/runscript=_AlmondCOS"])
-        self.assertFalse(kwargs["shell"])
         self.assertEqual(kwargs["cwd"], str(self.root))
         self.assertEqual(kwargs["env"]["RHINO_MCP_LIBRARY_DIR"], "custom")
         for key in ("ALMOND_SESSION_TOKEN", "ALMOND_SESSION_FOLDER", "ALMONDCOS_SESSION_TOKEN"):

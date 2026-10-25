@@ -10,17 +10,17 @@ import asyncio
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
 
 from runtime import ENGINE
 from winpipe import process_identity, read_hosts
+from detached_process import launch_detached
 
 
 class RhinoStart:
     def __init__(self, model_path: str, data: Path, *,
                  settings_path: Path = ENGINE / "settings.json",
-                 process_factory=subprocess.Popen, identity_reader=process_identity,
+                 process_factory=launch_detached, identity_reader=process_identity,
                  host_reader=read_hosts, timeout: float = 300, poll_interval: float = 0.25):
         if not Path(model_path).is_absolute():
             raise ValueError("model_path must be an absolute path to an existing saved local .3dm.")
@@ -40,12 +40,11 @@ class RhinoStart:
         for key in ("ALMOND_SESSION_FOLDER", "ALMOND_SESSION_TOKEN", "ALMONDCOS_SESSION_TOKEN",
                     "ALMOND_ISOLATED_RUN", "ALMOND_V2_RUN", "ALMOND_V3_SESSION"):
             environment.pop(key, None)
-        # Rhino is an interactive user window. Its handles must not inherit this
-        # adapter's MCP stdio: output would corrupt JSON-RPC or keep it open.
+        # The launcher verifies complete job breakaway before Rhino can execute;
+        # ending a Terminal/client job must never terminate this separate Rhino.
         self.process = process_factory(
             [str(executable), project["model_path"], "/nosplash", "/runscript=_AlmondCOS"],
-            cwd=project["project_dir"], env=environment, shell=False,
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            cwd=project["project_dir"], env=environment,
         )
         try:
             self.identity = identity_reader(self.process.pid)

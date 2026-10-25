@@ -91,6 +91,11 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
 
 ## 동시 연결과 시작 지연
 
+- 클라이언트의 Windows 실행 환경이 독립 프로세스를 허용하지 않으면 새 Rhino 시작을
+  모델을 열기 전에 거절한다. 이 경우 Rhino를 평소처럼 직접 열고 `AlmondCOS` →
+  `list_connections` → `connect`로 연결한다. Terminal의 Off가 별도 Rhino를 닫지 않도록
+  실행 전에 확인하는 제한이며, 기존 Terminal의 자식 종료 규칙은 바꾸지 않는다.
+
 - 여러 CoS·Codex stdio adapter가 같은 설치를 사용할 수 있다. 각 Rhino는 한 연결의 소유권을
   유지한다. 서로 다른 클라이언트에 COS의 `connection_id`를 복사해 쓸 수 없다.
   다른 클라이언트가 사용하는 Rhino는 `in_use`로 표시한다. 그 연결을 유지하면서

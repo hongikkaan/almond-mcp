@@ -20,6 +20,7 @@ Rhino·모델 DB 연결이나 소유권 잠금을 준비하지 않는다. stdio 
 |---|---|
 | `cos_host.py`, `cos_worker.py` | 클라이언트별 지연 stdio adapter와 Rhino 연결마다 분리된 worker |
 | `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 COS 광고 확인 |
+| `detached_process.py` | 새 프로세스를 suspended 상태로 생성하고 모든 Windows Job 밖임을 확인한 뒤 실행 |
 | `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
 | `tool_catalog.json` | configure/build에서 선택적으로 만드는 개발용 export; 런타임은 읽지 않음 |
 | `binding_watch.py`, `winpipe.py` | 연결 변경 감시와 Windows 제어 채널 |
@@ -65,6 +66,10 @@ runtime의 모델 경로 검증을 재사용하고 새 Rhino에 `_AlmondCOS` 명
 그 PID·시작 시각의 광고만 기존 connect 경로에 연결한다. A–J 슬롯·DB·native 준비는
 기존 RHP Attach와 worker 계약을 사용하며 시작 로직에 복제하지 않는다. 모델을 저장하거나
 Rhino를 강제 종료하지 않는다. launch/advertise 실패 후 새 프로세스를 자동 실행하지 않는다.
+새 프로세스는 `CREATE_BREAKAWAY_FROM_JOB`으로 생성하고 실행 전 `IsProcessInJob`으로
+중첩 Job까지 벗어났는지 확인한다. 분리 불가 시 아직 한 줄도 실행하지 않은 suspended
+프로세스만 폐기하고 시작을 거절한다. Terminal의 자식 종료 규칙은 완화하지 않으며
+이미 열린 Rhino는 건드리지 않는다. 해당 환경에서는 Rhino를 직접 열고 connect한다.
 
 request ID는 한 adapter 수명 안에서 시작 시도 하나를 가리킨다. startup timeout 뒤 같은
 ID로 호출하면 이미 시작한 프로세스만 재조회한다. connect가 실패하면 같은 ID로 attach를
