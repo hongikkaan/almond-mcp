@@ -1,6 +1,12 @@
 # Scene, Component, planning and construction layers
 
-Scene은 공간 맥락, Component는 명시적으로 등록한 Rhino group이며 Phase·Plan·Step은 수동 계획 기록이다. Room과 asset instance는 기존 충돌·containment·하중 경로에 남는다.
+Scene은 공간 맥락, Component는 창문 한 개·출입문 한 개·계단 한 개처럼 건축적으로 의미 있는 개별 요소를 Rhino group으로 등록한 단위이며 Phase·Plan·Step은 수동 계획 기록이다. Room과 asset instance는 기존 충돌·containment·하중 경로에 남는다.
+
+## Component 구성 기준
+
+건축물에서의 기능·위치·사용 관계가 있는 실제 요소를 Component의 기본 단위로 삼는다. Rhino group은 등록 수단이며, group이나 재료·레이어 분류 자체가 건축 요소를 정의하지 않는다. 창문 하나의 프레임·창짝·유리는 원칙적으로 하나의 창문 Component 안의 객체다. `프레임 전체`·`문틀 전체`·`유리 전체`·`벽 전체`처럼 부품·형상 종류만으로 건물 전체를 나누거나 각 세부 형상을 기계적으로 별도 등록하지 않는다.
+
+부모·자식 계층은 건축 요소 사이의 의미 있는 구성 관계를 표현한다. 세부 부품에 별도 편집·검증·관리 목적이 분명할 때만 하위 Component로 구분하고 그 이유를 설명한다. 이 기준은 모델링·등록 지침이며, 아래의 group identity·소유권·계층 API 계약은 그대로 따른다.
 
 ## Native Component hierarchy
 

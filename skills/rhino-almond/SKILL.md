@@ -5,7 +5,7 @@ description: "Use Almond MCP to inspect, plan, model, register, and verify Rhino
 
 # Rhino Almond
 
-Almond MCP는 Rhino 실물 형상, 공간 Scene, 물리 Component, Phase·Plan·Step, 자산·Sheet, 검증을 연결한다. **스크립트 실행 도구로만 취급하지 말고 실제 연결에 노출된 도구와 Bridge capability를 확인한다.**
+Almond MCP는 Rhino 실물 형상, 공간 Scene, 건축 요소 Component, Phase·Plan·Step, 자산·Sheet, 검증을 연결한다. **스크립트 실행 도구로만 취급하지 말고 실제 연결에 노출된 도구와 Bridge capability를 확인한다.**
 
 ## 시작과 필수 Phase·Plan
 
@@ -20,7 +20,7 @@ Phase·Plan은 진행 조직/검증 기록이며 문서나 공간 자체가 아�
 ## 데이터 모델과 안전 경계
 
 - **Scene = 한 3DM 속 특정 공간·동선·활동·상황.** 문서 전체를 Scene 하나로 치환하지 않는다. 같은 문서에 여러 Scene이 있고 Component 하나가 여러 Scene에 참여할 수 있다.
-- **Component = 등록된 Rhino group의 물리 구성요소.** 직접 객체 소유자는 하나이고 부모의 선택·effective 객체 범위는 자손까지 포함한다. `object_ids`는 직접 소유 객체, `child_component_ids`는 직접 자식이다. 수동 group 변경 후 `get_design_component(live=True)`로 대조하고, 필요할 때만 `sync_design_component`로 정합한다.
+- **Component = 창문 한 개·출입문 한 개·계단 한 개처럼 건축적으로 의미 있는 개별 요소.** Rhino group으로 등록하되 group 자체가 건축적 단위를 정하지는 않는다. 창문의 프레임·창짝·유리는 원칙적으로 그 창문 Component의 내부 객체이며, 부품·형상 종류별 묶음이나 세부 형상별 분할을 기본 단위로 삼지 않는다. 하위 Component는 별도 관리 목적이 분명한 경우에만 구분한다. [구성 기준](references/components-and-plans.md#component를-나누는-기준)을 따른다. 직접 객체 소유자는 하나이고 부모의 선택·effective 객체 범위는 자손까지 포함한다. `object_ids`는 직접 소유 객체, `child_component_ids`는 직접 자식이다. 수동 group 변경 후 `get_design_component(live=True)`로 대조하고, 필요할 때만 `sync_design_component`로 정합한다.
 - 편집 대상은 **현재 사용자 승인된 Rhino 문서·해당 .almond 범위**다. Worksession의 **attached/reference 파일은 절대 수정하지 않는다**. 소유 파일·`IsReference`를 확인하고, 무관한 QA 객체·Layout·레이어를 새로 생성하지 않는다.
 - **Sheet API ≠ 기존 Layout 메타데이터 전체 목록.** `upsert_drawing_sheet`는 Rhino Layout·detail 생성/갱신용이며 `list_drawing_sheets`는 Almond 등록 Sheet만 반환한다. 기존 PageSpace 도면을 조사·카탈로그화할 때 새 Layout을 생성하지 않는다. [자산·Sheet](references/drawing-assets-and-sheets.md).
 - `get_component_intersections`의 `unknown`·`complete=false`·미지원·잘림은 무충돌이 아니다. 선택한 Component 사이만의 교차라고 가정하지 말고 실제 검사 pair를 확인한다. `validate_scene_layout`은 legacy asset-instance AABB 검사다.
