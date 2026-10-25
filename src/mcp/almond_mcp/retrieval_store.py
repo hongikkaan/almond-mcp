@@ -14,47 +14,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-# Assets dropped from their manifest but still placed in a recorded scene.
-RETIRED_LIBRARY_ID = "retired"
-
-
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-
-
-def _decode(value: str | None, default: Any) -> Any:
-    if not value:
-        return default
-    return json.loads(value)
-
-
-class ComponentReconciliationError(RuntimeError):
-    """Rhino may have changed although the ledger transaction did not finish."""
-
-    def __init__(self, component_id: str, model_path: str, message: str):
-        super().__init__(
-            f"{message} Inspect and reconcile component {component_id}; do not automatically retry."
-        )
-        self.component_id = component_id
-        self.model_path = model_path
-        self.requires_reconciliation = True
-
-
-class DrawingSheetReconciliationError(RuntimeError):
-    """A Layout operation may have succeeded while its ledger transaction failed."""
-
-    def __init__(self, sheet_id: str, model_path: str, message: str):
-        super().__init__(f"{message} Inspect and sync drawing sheet {sheet_id}; do not automatically retry.")
-        self.sheet_id = sheet_id
-        self.model_path = model_path
-
-
-class _NativeRejected(ValueError):
-    """A native response explicitly certifies no change or a verified rollback."""
+# Public compatibility exports retain one exception identity across features.
+from almond_mcp.store_common import (
+    RETIRED_LIBRARY_ID, _utc_now, _json, _decode, _NativeRejected,
+    ComponentReconciliationError, DrawingSheetReconciliationError,
+)
 
 
 class AlmondStore:
