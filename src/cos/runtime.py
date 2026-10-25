@@ -23,7 +23,7 @@ def digest(path: Path) -> str:
 
 
 def source_paths(engine: Path) -> dict[str, Path]:
-    return {
+    paths = {
         "project": engine / "project.py",
         "entry": engine / "mcp_server.py",
         "shared_store": engine / "shared_store.py",
@@ -39,6 +39,12 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "drafting": Path(almond_mcp.__file__).with_name("drafting.py"),
         "asset_repository": Path(almond_mcp.__file__).with_name("asset_repository.py"),
     }
+    package = Path(almond_mcp.__file__).parent
+    covered = set(paths.values())
+    for path in sorted(package.rglob("*.py")):
+        if path not in covered:
+            paths["package/" + path.relative_to(package).as_posix()] = path
+    return paths
 
 
 def load_catalog(path: Path = CATALOG) -> dict:
@@ -53,7 +59,10 @@ def check_contract(catalog: dict, engine: Path = ENGINE) -> None:
         actual = version(package)
         if actual != expected:
             raise RuntimeError(f"AlmondCOS expects {package} {expected}; installed: {actual}. Recheck compatibility.")
-    for name, path in source_paths(engine).items():
+    paths = source_paths(engine)
+    if set(paths) != set(catalog["sources"]):
+        raise RuntimeError("Almond source inventory changed after this COS build. Rebuild the catalog before connecting.")
+    for name, path in paths.items():
         if digest(path) != catalog["sources"][name]:
             raise RuntimeError(f"Almond {path.name} changed after this COS build. Recheck compatibility before connecting.")
 
