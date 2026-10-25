@@ -213,9 +213,11 @@ class Context:
 class RuntimeRequestTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
-        data = Path(__file__).resolve().parent / "data"
+        # Keep atomic operation filenames below Windows MAX_PATH even when a
+        # developer checkout is nested under Documents/Codex/<date>/<task>.
+        data = Path(__file__).resolve().parents[4] / "data"
         data.mkdir(parents=True, exist_ok=True)
-        cls.fixture_root = Path(tempfile.mkdtemp(prefix="_native_request_tests_", dir=data))
+        cls.fixture_root = Path(tempfile.mkdtemp(prefix="_native_", dir=data))
         print("Native request fixture retained for recoverable cleanup:", cls.fixture_root)
 
     def runtime(self, native):
@@ -356,7 +358,13 @@ class RuntimeRequestTests(unittest.IsolatedAsyncioTestCase):
                 await release.wait()
                 raise ValueError("Original function failed after cancellation.")
             task = asyncio.create_task(runtime.on_call_tool(Context(Message("execute_rhino_script")), failing))
-            await entered.wait()
+            try:
+                await asyncio.wait_for(entered.wait(), 3)
+            except TimeoutError:
+                if task.done():
+                    await task  # Surface setup failures instead of waiting forever.
+                task.cancel()
+                raise
             task.cancel()
             await asyncio.sleep(0.01)
             self.assertFalse(task.done())

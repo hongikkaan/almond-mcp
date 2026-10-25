@@ -1,10 +1,11 @@
 # User-made COS adapter
 
 Follow `../../AGENTS.md` and `../mcp/runtime/AGENTS.md`.
-One stdio host owns separate workers for each bound Rhino. Engine handles
+Each client's lazy stdio adapter owns separate workers for its bound Rhinos. Engine handles
 storage, native completion and helper compatibility. Do not duplicate these
-policies in COS. Preserve source/schema checks; regenerate the catalog without
-importing the DB-owning server. Register `../rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`
+policies in COS. Derive current schemas at client startup without importing the
+DB-owning server; no manual catalog export is required. Preserve lockfile version,
+session source fingerprint and worker schema checks. Register `../rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`
 with all dependencies beside it. Build/registration are not proof of live Rhino loading.
 
 This module owns the external host, `rhp/` source, tests and `runtime-manifest.json`.

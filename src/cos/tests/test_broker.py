@@ -1,9 +1,10 @@
 """Disposable workers only: exercise the actual broker's concurrency and teardown."""
 import asyncio
+from contextlib import ExitStack
 import unittest
 
 import mcp_types as types
-from cos_host import Broker, PREFIX
+from cos_host import Broker
 
 
 CATALOG = {"tools": [{
@@ -25,6 +26,7 @@ class Rig:
         self.broker = Broker(CATALOG, control_factory=self.control,
                              worker_factory=self.worker, host_reader=lambda _: self.records,
                              contract_check=lambda _: None, call_timeout=1,
+                             lease_factory=lambda *_: ExitStack(),
                              watcher_factory=lambda notify: FakeWatcher(self, notify))
 
     def control(self, record):
@@ -41,7 +43,7 @@ class Rig:
         return await self.broker.connect(name, name + ".3dm")
 
     async def call(self, connection):
-        return await self.broker.call(PREFIX + "execute",
+        return await self.broker.call("execute",
                                       {"connection_id": connection["connection_id"], "script": "fixture"})
 
     def invalidate(self, connection):
@@ -204,6 +206,23 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(first, second)
         self.assertEqual(worker.calls, 2)
         self.assertEqual(worker.maximum, 1)
+
+    async def test_queue_timeout_does_not_dispatch_or_poison_the_running_call(self):
+        one = await self.rig.connect()
+        worker = self.rig.workers[0]
+        self.rig.broker.queue_timeout = 0.02
+        first = asyncio.create_task(self.rig.call(one))
+        await worker.entered.wait()
+        try:
+            result = await asyncio.wait_for(self.rig.call(one), 0.3)
+            self.assertTrue(result.is_error)
+            self.assertIn("No operation", result.content[0].text)
+            self.assertEqual(worker.calls, 1)
+            self.assertEqual(self.rig.broker.connections[one["connection_id"]].state, "ready")
+            self.assertNotIn("fail", self.rig.controls["one"].actions)
+        finally:
+            worker.release.set()
+            await first
 
     async def test_stale_id_never_creates_a_worker_or_control(self):
         result = await self.rig.call({"connection_id": "expired"})

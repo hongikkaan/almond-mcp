@@ -2,11 +2,11 @@
 
 ## Almond MCP 도구 선택
 
-현재 연결에 노출된 도구 설명과 인자를 확인한 뒤 아래에서 목적에 맞는 기능을 골라라. 필요한 기능의 실제 지원 범위와 쓰기 대상을 확인하라. 도구를 많이 호출하는 것 자체를 목표로 삼지 마라. 아래는 MCP의 기능명이며 CLI의 서버 접두사는 별도다. COS에서는 `almond_project_info`가 `almond_cos_project_info`, 나머지 도구는 `almond_cos_<기능명>`으로 노출된다. `almond_cos_list_connections` → `almond_cos_connect`에서 얻은 `connection_id`를 연결별 호출에 전달하라.
+현재 연결에 노출된 도구 설명과 인자를 확인한 뒤 아래에서 목적에 맞는 기능을 골라라. 필요한 기능의 실제 지원 범위와 쓰기 대상을 확인하라. 도구를 많이 호출하는 것 자체를 목표로 삼지 마라. CLI와 COS 모두 아래 이름을 그대로 사용한다. 클라이언트 UI가 붙이는 서버 표시는 도구 이름과 별도다. COS에서는 `list_connections` → `connect` 또는 `start_session`에서 얻은 `connection_id`를 연결별 호출에 전달하라.
 
 | 현재 목적 | 우선 확인할 도구 | 활용·확인 사항 |
 |---|---|---|
-| 연결·자료 상태 파악 | `almond_project_info`, `get_retrieval_status` | 연결에 묶인 모델 경로와 실제 artifact_dir를 확인하라. `project_info`는 실제 활성 문서나 형상을 조회하지 않으며 `live_document_checked=false` 자체는 오류가 아니다. 검색 인덱스 상태와 실제 Rhino 형상 상태를 구분하라. |
+| 연결·자료 상태 파악 | `project_info`, `get_retrieval_status` | 연결에 묶인 모델 경로와 실제 artifact_dir를 확인하라. `project_info`는 실제 활성 문서나 형상을 조회하지 않으며 `live_document_checked=false` 자체는 오류가 아니다. 검색 인덱스 상태와 실제 Rhino 형상 상태를 구분하라. |
 | 실제 문서·선택·뷰 조회 | `get_rhino_context` | 편집 전 문서 identity·단위·공차·선택·현재 뷰를 조회하라. `selection_limit`은 정수 0–200, 기본 50이다. `selection.total/returned/truncated`, `warnings`와 `null`을 읽고 누락을 빈 상태로 간주하지 마라. 레이어·형상·Undo를 만들지 않는다. |
 | 블록·지형·접합부 고정 조회 | `get_rhino_probe` | `probe`, `options`, `expected_model_path`로 아래 다섯 helper를 호출한다. 문서 경로를 검사하고 Undo·레이어·선택·뷰를 변경하지 않는다. 요청·응답은 각각 256 KiB 한도다. [고정 probe 계약](probe-tools.md)을 확인하라. |
 | 현재 화면 확인 | `get_rhino_viewport_image` | JPEG ImageContent와 문서·뷰 metadata를 같은 응답에서 읽어라. `max_width/max_height`는 각각 정수 64–2048, 기본 1280/960이며 비율 유지·확대 없음·JPEG 4 MiB 한도다. 현재 카메라·Named View·display mode·clipping·선택을 바꾸지 않는다. |

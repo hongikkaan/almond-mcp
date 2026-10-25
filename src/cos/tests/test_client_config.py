@@ -19,7 +19,7 @@ class ClientConfigTests(unittest.TestCase):
         self.config = settings(self.root)
 
     def test_toml_preserves_windows_paths_and_required_client_settings(self):
-        parsed = tomllib.loads(codex_toml(self.config))["mcp_servers"]["almond_cos"]
+        parsed = tomllib.loads(codex_toml(self.config))["mcp_servers"]["rhino"]
         self.assertEqual(parsed, self.config)
         self.assertEqual(parsed["args"][-1], str(self.root / "src/cos/cos_host.py"))
         self.assertEqual(parsed["tool_timeout_sec"], 600)
@@ -30,7 +30,7 @@ class ClientConfigTests(unittest.TestCase):
         result = json.loads(generic_json(self.config, {
             "LOCALAPPDATA": "C:\\User Data", "RHINO_MCP_LIBRARY_DIR": "D:\\my library",
             "UNRELATED_SECRET": "never export", "ALMONDCOS_SESSION_TOKEN": "never export",
-        }))["mcpServers"]["almond_cos"]
+        }))["mcpServers"]["rhino"]
         self.assertEqual(result["env"]["RHINO_MCP_LIBRARY_DIR"], "D:\\my library")
         self.assertEqual(result["env"]["PYTHONUTF8"], "1")
         self.assertNotIn("UNRELATED_SECRET", result["env"])
@@ -64,7 +64,31 @@ class ClientConfigTests(unittest.TestCase):
     def test_new_config_and_missing_runtime(self):
         path = self.root / "new.toml"
         self.assertIsNone(install_codex(path, self.config))
-        self.assertEqual(tomllib.loads(path.read_text())["mcp_servers"]["almond_cos"], self.config)
+        self.assertEqual(tomllib.loads(path.read_text())["mcp_servers"]["rhino"], self.config)
         (self.root / "src/cos/cos_host.py").unlink()
         with self.assertRaisesRegex(ValueError, "Missing runtime"):
             settings(self.root)
+
+    def test_exact_owned_legacy_entry_is_migrated_without_duplicate_server(self):
+        path = self.root / "config.toml"
+        legacy = codex_toml(self.config).replace("mcp_servers.rhino", "mcp_servers.almond_cos")
+        original = '# preserve comment\nmodel = "gpt-6-astra"\n\n' + legacy
+        path.write_text(original, encoding="utf-8")
+        backup = install_codex(path, self.config)
+        self.assertIsNotNone(backup)
+        self.assertEqual(backup.read_text(encoding="utf-8"), original)
+        parsed = tomllib.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(parsed["mcp_servers"], {"rhino": self.config})
+        self.assertEqual(parsed["model"], "gpt-6-astra")
+        self.assertIn("# preserve comment", path.read_text(encoding="utf-8"))
+        self.assertIsNone(install_codex(path, self.config))
+
+    def test_modified_legacy_or_duplicate_entries_are_preserved_without_changes(self):
+        path = self.root / "config.toml"
+        both = codex_toml(self.config) + codex_toml(self.config).replace("mcp_servers.rhino", "mcp_servers.almond_cos")
+        for original in ('[mcp_servers.almond_cos]\ncommand="custom"\n', both):
+            path.write_text(original, encoding="utf-8")
+            with self.assertRaises(ValueError):
+                install_codex(path, self.config)
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
+        self.assertFalse(list(self.root.glob("*.almond-backup-*")))

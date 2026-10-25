@@ -6,7 +6,7 @@ import os
 import sys
 
 sys.dont_write_bytecode = True
-from runtime import ENGINE, WORKER_STATE_TOOL, check_contract, load_catalog, validate_worker_tools
+from runtime import ENGINE, WORKER_STATE_TOOL, catalog_identity, check_contract, load_catalog, validate_worker_tools
 from winpipe import process_identity
 
 
@@ -41,6 +41,8 @@ def main() -> int:
     args = parser.parse_args()
     token = os.environ.pop("ALMONDCOS_SESSION_TOKEN")
     catalog = load_catalog()
+    if os.environ.pop("ALMONDCOS_CATALOG_ID", None) != catalog_identity(catalog):
+        raise RuntimeError("Worker source/schema differs from its client snapshot. Start a new client session before connecting.")
     check_contract(catalog)
     sys.path.insert(0, str(ENGINE))
     import mcp_server as entry

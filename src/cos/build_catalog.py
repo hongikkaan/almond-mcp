@@ -9,9 +9,23 @@ import json
 from pathlib import Path
 import sys
 import types
+import tomllib
 
 sys.dont_write_bytecode = True
-from runtime import CATALOG, ENGINE, digest, source_paths
+from runtime import CATALOG, ENGINE, ROOT, digest, source_paths
+
+
+def checked_versions() -> dict[str, str]:
+    """Keep compatibility tied to the reviewed lock, not a generated tool count."""
+    lock = tomllib.loads((ROOT.parents[1] / "uv.lock").read_text(encoding="utf-8"))
+    result = {}
+    for name in ("almond-mcp", "fastmcp", "mcp"):
+        expected = {p["version"] for p in lock["package"] if p["name"] == name}
+        actual = version(name)
+        if expected != {actual}:
+            raise RuntimeError(f"Runtime expects {name} version {sorted(expected)} from uv.lock; installed: {actual}.")
+        result[name] = actual
+    return result
 
 
 def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
@@ -69,14 +83,17 @@ def collect_tool_functions(server_path: Path) -> list[ast.FunctionDef]:
 
 
 async def generate(engine: Path = ENGINE) -> dict:
+    packages = checked_versions()
+    server_loaded = "almond_mcp.server" in sys.modules
     from fastmcp import FastMCP
     from fastmcp.tools import ToolResult
     from pydantic import StrictInt, StrictFloat
     paths = source_paths(engine)
+    sources = {name: digest(path) for name, path in paths.items()}
     functions = collect_tool_functions(paths["server"])
     entry = ast.parse(paths["entry"].read_text(encoding="utf-8-sig"))
     project_info = next(n for n in ast.walk(entry)
-                        if isinstance(n, ast.FunctionDef) and n.name == "almond_project_info")
+                        if isinstance(n, ast.FunctionDef) and n.name == "project_info")
     functions.append(project_info)
     module = types.ModuleType("_almondcos_schema_stubs")
     module.mcp = FastMCP("AlmondCOS schema build")
@@ -88,14 +105,16 @@ async def generate(engine: Path = ENGINE) -> dict:
     exec(compile(ast.fix_missing_locations(tree), "<AlmondCOS schemas only>", "exec"), module.__dict__)
     tools = [t.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
              for t in await module.mcp.list_tools()]
-    if len(tools) != 77:
-        raise RuntimeError(f"Expected the inspected 77 tools; got {len(tools)}. Review the changed package.")
-    if "almond_mcp.server" in sys.modules:
+    if not tools:
+        raise RuntimeError("No common tools found in the current source.")
+    if not server_loaded and "almond_mcp.server" in sys.modules:
         raise RuntimeError("Catalog generation must not import the Almond server.")
+    if sources != {name: digest(path) for name, path in source_paths(engine).items()}:
+        raise RuntimeError("Tool sources changed during schema discovery. Start a new client session.")
     return {
         "format": 1,
-        "packages": {p: version(p) for p in ("almond-mcp", "fastmcp", "mcp")},
-        "sources": {name: digest(path) for name, path in paths.items()},
+        "packages": packages,
+        "sources": sources,
         "tools": sorted(tools, key=lambda t: t["name"]),
     }
 
