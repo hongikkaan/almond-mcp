@@ -9,8 +9,10 @@
 html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#151719;color:#e4e6e8;font:12px 'Segoe UI',sans-serif}
 body{display:flex;flex-direction:column}
 header{display:flex;gap:5px;padding:7px;flex-wrap:wrap;border-bottom:1px solid #393d42;background:#24272b}
+#almond-actions{display:flex;gap:5px;margin-left:auto}
 button{background:#343a40;color:#f0f1f2;border:1px solid #535b64;border-radius:3px;padding:5px 8px;cursor:pointer;font:inherit}
 button:focus-visible{outline:2px solid #8cb9df}button:hover{background:#454c54}
+button:disabled{opacity:.45;cursor:default}
 #meta{padding:5px 8px;line-height:1.4;border-bottom:1px solid #33373c}
 #cwd{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c3cbd4;user-select:text}
 #terminal{flex:1;min-height:0;padding:5px 7px;overflow:hidden}
@@ -23,6 +25,10 @@ footer{padding:4px 8px;color:#acb4be;border-top:1px solid #33373c;font-size:11px
 <button id="stop" title="이 터미널과 자식 프로그램만 종료">종료</button>
 <button id="copy" title="선택한 텍스트 복사 (Ctrl+Shift+C)">복사</button>
 <button id="paste" title="클립보드 텍스트 붙여넣기 (Ctrl+V)">붙여넣기</button>
+<span id="almond-actions">
+<button id="almond" disabled title="PowerShell에서 almond 입력 후 Enter">almond</button>
+<button id="resume" disabled title="PowerShell에서 almond resume 입력 후 Enter">resume</button>
+</span>
 </header>
 <div id="meta"><span id="status">화면 준비 중</span><span id="cwd"></span></div>
 <div id="terminal"></div>
@@ -73,6 +79,9 @@ footer{padding:4px 8px;color:#acb4be;border-top:1px solid #33373c;font-size:11px
   document.getElementById('stop').onclick=()=>send({type:'stop'});
   document.getElementById('copy').onclick=copy;
   document.getElementById('paste').onclick=paste;
+  const command = text => { send({type:'input',text:text+'\r'}); term.focus(); };
+  document.getElementById('almond').onclick=()=>command('almond');
+  document.getElementById('resume').onclick=()=>command('almond resume');
   window.RhinoTerminal={
     write:text=>term.write(text),
     focus:()=>term.focus(),
@@ -82,6 +91,8 @@ footer{padding:4px 8px;color:#acb4be;border-top:1px solid #33373c;font-size:11px
       document.getElementById('status').textContent=value.status;
       const cwd=document.getElementById('cwd');cwd.textContent=value.cwd;cwd.title=value.cwd;
       document.getElementById('stop').disabled=!value.running;
+      document.getElementById('almond').disabled=!value.running || !value.ready;
+      document.getElementById('resume').disabled=!value.running || !value.ready;
     }
   };
   refit();term.focus();send({type:'ready'});
