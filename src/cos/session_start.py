@@ -43,7 +43,7 @@ class RhinoStart:
         # The launcher verifies complete job breakaway before Rhino can execute;
         # ending a Terminal/client job must never terminate this separate Rhino.
         self.process = process_factory(
-            [str(executable), project["model_path"], "/nosplash", "/runscript=_AlmondCOS"],
+            [str(executable), project["model_path"], "/nosplash", "/runscript=_almondconnect"],
             cwd=project["project_dir"], env=environment,
         )
         try:
@@ -68,5 +68,5 @@ class RhinoStart:
             if matches:
                 return matches[0]
             if loop.time() >= deadline:
-                raise TimeoutError("Check the new Rhino window for startup dialogs and the AlmondCOS registration. Rhino remains open.")
+                raise TimeoutError("Check the new Rhino window for startup dialogs and the almondconnect command registration. Rhino remains open.")
             await asyncio.sleep(self.poll_interval)

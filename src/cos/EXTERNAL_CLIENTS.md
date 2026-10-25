@@ -29,6 +29,11 @@ Set-Location C:\TOOL\Rhino\mcp\almond-mcp
 MCP를 다시 로드하거나 재시작한다. `codex mcp get rhino --json`으로 등록 경로를
 확인할 수 있지만, 이 명령 자체는 MCP 연결 검증이 아니다.
 
+설정 후 **실제로 사용할 Codex 대화에서 등록된 `rhino` MCP의 `list_connections`를 직접
+호출**해 확인한다. 터미널에서 별도 MCP 클라이언트를 실행한 결과는 서버 검사일 뿐,
+그 대화에 도구가 전달된 증거가 아니다. 도구를 상속하지 않는 위임 실행 환경은 일반
+로컬 Codex 대화와 구분한다. 도구가 없을 때 CoS 터널 호출로 대신 성공 처리하지 않는다.
+
 다른 로컬 클라이언트는 다음 JSON의 `mcpServers.rhino`를 등록한다.
 도구 호출 제한은 클라이언트 설정에서 **600초**로 지정한다. JSON에는 클라이언트마다
 다른 timeout 키를 넣지 않는다. 경로와 필요한 라이브러리 환경 변수만 출력한다.
@@ -52,7 +57,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 
 1. 일반 Codex 대화에서 "`C:\작업\모델.3dm`을 Almond의 새 세션으로 열어 줘"라고 요청한다.
 2. Codex가 `start_session`에 절대 `model_path`와 새 `request_id`를 전달한다.
-   새 Rhino를 열고 `_AlmondCOS`를 자동 실행한 뒤 해당 프로세스에만 연결한다. CoS 앱이나
+   새 Rhino를 열고 `_almondconnect`를 자동 실행한 뒤 해당 프로세스에만 연결한다. CoS 앱이나
    별도 Codex 창을 열 필요는 없다. 원본 모델을 저장하거나 기존 Rhino를 종료하지 않는다.
 3. 반환된 `connection_id`로 `project_info`에서 문서와 `artifact_dir`를,
    `get_rhino_context`에서 실제 문서를 확인한 다음 작업한다.
@@ -64,7 +69,7 @@ CoS 연결과 함께 사용하며 사용 가능한 자리가 있어야 연결된
 
 이미 열린 일반 Rhino에 연결하려면:
 
-1. 해당 Rhino 8에서 `.3dm`을 열고 저장한 뒤 `AlmondCOS`를 실행한다.
+1. 해당 Rhino 8에서 `.3dm`을 열고 저장한 뒤 `almondconnect`를 실행한다.
 2. 등록된 Codex 앱이나 외부 Codex CLI에서 "Almond 연결 목록을 확인하고 이 문서에
    연결해 줘"라고 요청한다. 클라이언트가 `list_connections`를 호출한다.
 3. 목록의 정확한 `host_id`와 `model_path`로 `connect`를 호출한다.
@@ -73,7 +78,12 @@ CoS 연결과 함께 사용하며 사용 가능한 자리가 있어야 연결된
    실제 활성 문서를 확인한 다음 작업한다. 모델링에는 [Rhino Almond skill](../../skills/rhino-almond/SKILL.md)을 따른다.
 5. 끝나면 `disconnect`로 해당 연결을 해제한다. 문서 변경 후에는 재연결한다.
 
-`AlmondCOS`는 Rhino를 발견 가능하게 만드는 명령이다. Codex 프로그램을 자동 실행하거나
+Rhino에서 직접 해제하려면 `almonddisconnect`를 사용한다. 처리 중인 작업이나 worker의
+종료가 아직 확인되지 않으면 완료 안내를 기다린다. Rhino와 모델은 저장·종료하지 않는다.
+기존 `AlmondCOS`·`AlmondCOSDisconnect`와 `AlmondMCPStart`·`AlmondMCPStop`·
+`AlmondMCPStatus` 명령은 제거했다. PackageManager에서 다른 패키지를 삭제할 필요는 없다.
+
+`almondconnect`는 Rhino를 발견 가능하게 만드는 명령이다. Codex 프로그램을 자동 실행하거나
 새 채팅에 자동 연결하지는 않는다. 새 시작 도구는 이 명령을 새 Rhino에 자동 전달한다.
 Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고
 연결 가능한 문서 목록만 비어 있다. 기존 `Almond 시작.cmd`·`RhinoTerminal → almond`로
@@ -92,7 +102,7 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
 ## 동시 연결과 시작 지연
 
 - 클라이언트의 Windows 실행 환경이 독립 프로세스를 허용하지 않으면 새 Rhino 시작을
-  모델을 열기 전에 거절한다. 이 경우 Rhino를 평소처럼 직접 열고 `AlmondCOS` →
+  모델을 열기 전에 거절한다. 이 경우 Rhino를 평소처럼 직접 열고 `almondconnect` →
   `list_connections` → `connect`로 연결한다. Terminal의 Off가 별도 Rhino를 닫지 않도록
   실행 전에 확인하는 제한이며, 기존 Terminal의 자식 종료 규칙은 바꾸지 않는다.
 

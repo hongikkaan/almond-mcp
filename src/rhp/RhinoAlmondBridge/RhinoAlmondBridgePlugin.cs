@@ -5,8 +5,8 @@ namespace RhinoAlmondBridge
 {
     /// <summary>
     /// RhinoAlmondBridge Plugin - MCP Bridge for AI-driven C# RhinoCommon script execution.
-    /// Automatically starts a TCP listener on Rhino startup to receive and compile
-    /// C# scripts from the MCP server.
+    /// Registers panels and prepares native handlers. Only a bound Engine session
+    /// may open a transport and dispatch requests to those handlers.
     /// </summary>
     public class RhinoAlmondBridgePlugin : PlugIn
     {
@@ -19,9 +19,8 @@ namespace RhinoAlmondBridge
             Instance = this;
         }
 
-        // Load at startup so the TCP listener is available without the user
-        // running any command first (Rhino's default is load-when-needed,
-        // which would leave a fresh install silent until AlmondMCPStart).
+        // Panels and native helpers must exist before a Terminal/Codex/CoS
+        // session attaches. Loading this plugin does not start a server.
         public override PlugInLoadTime LoadTime => PlugInLoadTime.AtStartup;
 
         protected override LoadReturnCode OnLoad(ref string errorMessage)
@@ -32,11 +31,9 @@ namespace RhinoAlmondBridge
             Rhino.UI.Panels.RegisterPanel(this, typeof(RhinoTerminal.TerminalPanel), "Terminal",
                 System.Drawing.SystemIcons.Application, Rhino.UI.PanelType.System);
 
-            _server = new BridgeServer(port: 5000);
-            _server.Start();
-
-            RhinoApp.WriteLine("RhinoAlmondBridge: TCP listener started on port 5000.");
-            RhinoApp.WriteLine("RhinoAlmondBridge: Ready to receive C# scripts from MCP server.");
+            // Keep this field/type for the Engine's verified handler contract.
+            _server = new BridgeServer();
+            RhinoApp.WriteLine("Almond 준비됨. 외부 Codex·CoS 연결은 almondconnect, 터미널은 RhinoTerminal → On을 사용하세요.");
 
             return LoadReturnCode.Success;
         }
@@ -57,7 +54,6 @@ namespace RhinoAlmondBridge
             try { RhinoTerminal.TerminalPanel.StopAll(); }
             catch (System.Exception ex) { RhinoApp.WriteLine("RhinoTerminal shutdown failed: " + ex.Message); }
             AlmondLibraryCommand.StopArchive();
-            _server?.Stop();
             RhinoApp.WriteLine("RhinoAlmondBridge: Plugin shut down.");
             base.OnShutdown();
         }

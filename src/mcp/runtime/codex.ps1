@@ -30,7 +30,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-if ($Port -eq 5000) { throw 'Use an extra port, not the automatic port 5000.' }
+if ($Port -eq 5000) { throw 'Use a session slot port; legacy port 5000 is not supported.' }
 if ($Exec -and $Prompt) { throw 'With -Exec, provide the prompt on stdin; do not also use -Prompt.' }
 if ($Resume -and ($Exec -or $Prompt)) { throw 'Resume must be an interactive invocation without an initial prompt.' }
 if ($ResumeSessionId -and -not $Resume) { throw 'ResumeSessionId requires -Resume.' }

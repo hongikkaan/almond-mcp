@@ -1,10 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Rhino;
@@ -12,7 +8,7 @@ using Rhino;
 namespace RhinoAlmondBridge
 {
     /// <summary>
-    /// TCP Server that listens for incoming requests from the MCP server.
+    /// Native request handlers used by an authenticated, document-bound Engine session.
     /// Supported request types:
     ///   {"type": "execute", "script": "C# code..."}
     ///   {"type": "validate", "guids": [...], "structure_type": "beam", ...}
@@ -22,28 +18,17 @@ namespace RhinoAlmondBridge
     ///   {"type": "place_drawing_asset", "asset_id": "...", "file_path": "...", ...}
     ///   {"type": "import_hatch_patterns", "file_path": "..."}
     ///   {"type": "apply_drawing_style", "recipe_id": "...", "layers": [...]}
-    /// Runs on a background thread, marshals execution to Rhino UI thread.
+    /// The Engine owns transport, authentication, UI dispatch and completion tracking.
     /// </summary>
     public class BridgeServer
     {
-        private readonly int _port;
-        private Thread _listenerThread;
-        private volatile bool _running;
         private StructuralValidator _validator;
         private GhDefinitionRunner _definitionRunner;
         private FurnitureAssetManager _drawingAssetManager;
         private DrawingStyleManager _drawingStyleManager;
 
-        public BridgeServer(int port = 5000)
+        public BridgeServer()
         {
-            _port = port;
-        }
-
-        public void Start()
-        {
-            if (_running) return;
-            _running = true;
-
             // Resolve the Grasshopper library directory from environment or default
             string libDir = Environment.GetEnvironmentVariable("RHINO_MCP_LIBRARY_DIR")
                 ?? FindLibraryDirectory();
@@ -62,13 +47,6 @@ namespace RhinoAlmondBridge
                 new[] { ".skp", ".3dm", ".dwg", ".dxf", ".svg", ".png" }
             );
             _drawingStyleManager = new DrawingStyleManager();
-
-            _listenerThread = new Thread(ListenLoop)
-            {
-                IsBackground = true,
-                Name = "AlmondBridge_Listener"
-            };
-            _listenerThread.Start();
         }
 
         // Resolve a library dir the same way the Python server does:
@@ -115,105 +93,6 @@ namespace RhinoAlmondBridge
         private string FindCapsuleDirectory() => FindDataDirectory("capsules", "mcp-rhino-plugin");
 
         private string FindDrawingAssetDirectory() => FindDataDirectory("DrawingAssetfiles", "mcp-rhino-plugin");
-
-        public void Stop()
-        {
-            _running = false;
-        }
-
-        private void ListenLoop()
-        {
-            var listener = new TcpListener(IPAddress.Loopback, _port);
-
-            try
-            {
-                listener.Start();
-            }
-            catch (Exception ex)
-            {
-                RhinoApp.WriteLine($"RhinoAlmondBridge: Failed to bind port {_port}: {ex.Message}");
-                _running = false;
-                return;
-            }
-
-            listener.Server.ReceiveTimeout = 1000;
-
-            while (_running)
-            {
-                try
-                {
-                    if (!listener.Pending())
-                    {
-                        Thread.Sleep(100);
-                        continue;
-                    }
-
-                    using (var client = listener.AcceptTcpClient())
-                    using (var stream = client.GetStream())
-                    {
-                        // Read length-prefixed message: 4-byte big-endian length + payload
-                        var headerBytes = ReadExact(stream, 4);
-                        if (headerBytes == null) continue;
-
-                        int msgLength = (headerBytes[0] << 24) | (headerBytes[1] << 16) |
-                                        (headerBytes[2] << 8) | headerBytes[3];
-
-                        var payloadBytes = ReadExact(stream, msgLength);
-                        if (payloadBytes == null) continue;
-
-                        string json = Encoding.UTF8.GetString(payloadBytes);
-
-                        // Route based on request type
-                        string responseJson = null;
-                        var resetEvent = new ManualResetEventSlim(false);
-
-                        RhinoApp.InvokeOnUiThread(new Action(() =>
-                        {
-                            responseJson = HandleRequest(json);
-                            resetEvent.Set();
-                        }));
-
-                        // Wait up to 60 seconds (validation can take longer than
-                        // scripts); run_definition requests may declare a larger
-                        // timeout_s, honored here with a small grace margin.
-                        double waitSeconds = 60;
-                        try
-                        {
-                            var peek = JObject.Parse(json);
-                            double? requested = peek.Value<double?>("timeout_s");
-                            if (requested.HasValue && requested.Value > 0)
-                                waitSeconds = Math.Max(waitSeconds, requested.Value + 10);
-                        }
-                        catch { /* malformed JSON is reported by HandleRequest */ }
-
-                        if (!resetEvent.Wait(TimeSpan.FromSeconds(waitSeconds)))
-                        {
-                            var timeout = new { status = "error", message = $"Execution timed out ({waitSeconds:F0}s)." };
-                            responseJson = JsonConvert.SerializeObject(timeout);
-                        }
-
-                        // Send length-prefixed response
-                        byte[] respBytes = Encoding.UTF8.GetBytes(responseJson);
-                        byte[] respHeader = new byte[4];
-                        respHeader[0] = (byte)((respBytes.Length >> 24) & 0xFF);
-                        respHeader[1] = (byte)((respBytes.Length >> 16) & 0xFF);
-                        respHeader[2] = (byte)((respBytes.Length >> 8) & 0xFF);
-                        respHeader[3] = (byte)(respBytes.Length & 0xFF);
-
-                        stream.Write(respHeader, 0, 4);
-                        stream.Write(respBytes, 0, respBytes.Length);
-                        stream.Flush();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    if (_running)
-                        RhinoApp.WriteLine($"RhinoAlmondBridge: Connection error: {ex.Message}");
-                }
-            }
-
-            listener.Stop();
-        }
 
         /// <summary>
         /// Routes a JSON request to the appropriate handler based on the "type" field.
@@ -386,20 +265,5 @@ namespace RhinoAlmondBridge
                 runResult.Error);
         }
 
-        /// <summary>
-        /// Read exactly 'count' bytes from the stream, blocking until all bytes arrive.
-        /// </summary>
-        private byte[] ReadExact(NetworkStream stream, int count)
-        {
-            byte[] buffer = new byte[count];
-            int offset = 0;
-            while (offset < count)
-            {
-                int read = stream.Read(buffer, offset, count - offset);
-                if (read == 0) return null; // Connection closed
-                offset += read;
-            }
-            return buffer;
-        }
     }
 }

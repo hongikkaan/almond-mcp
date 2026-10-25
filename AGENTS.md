@@ -51,7 +51,7 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 - 외부 실행: `src/mcp/runtime/Almond 시작.cmd`에서 저장된 모델을 선택한다.
 - Rhino 내부: `RhinoTerminal` → `On`; 패널이 숨으면 `PanelToggle`로 표시한 뒤 `almond`를 입력하거나 우측 상단 버튼을 누른다. 재연결은 `almond resume` 또는 resume 버튼. `Off`는 패널 표시와 무관하게 터미널을 종료한다.
-- COS: 저장된 Rhino 문서에서 `AlmondCOS`를 실행하고 host/model을 선택한다.
+- 외부 Codex·CoS: 저장된 Rhino 문서에서 `almondconnect`를 실행하고 클라이언트에서 host/model을 선택한다. 연결 해제는 `almonddisconnect` 또는 클라이언트의 `disconnect`다.
 - 패널: `Almond`, `AlmondLibrary`, `AlmondStructure`, `AlmondResults`. 패널이 숨으면 Terminal/Layers와 같은 dock에 둔다.
 
 ## 개발·빌드·반영

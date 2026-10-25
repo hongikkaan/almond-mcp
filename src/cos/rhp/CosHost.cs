@@ -97,7 +97,7 @@ internal sealed class CosHost : IDisposable
         {
             if (binding != null && token == (string)binding["token"]!)
             {
-                Invalidate(busy ? "COS 연결이 실행 중 끊겨 결과 확인이 필요합니다." : "COS 연결 종료");
+                Invalidate(busy ? "MCP 연결이 실행 중 끊겨 결과 확인이 필요합니다." : "MCP 연결 종료");
                 Release();
             }
             return true;
@@ -107,8 +107,8 @@ internal sealed class CosHost : IDisposable
     string State => binding == null ? "available" : busy ? "unconfirmed_or_running" : invalid ? "cleanup_pending" : "connected";
 
     internal string StatusText() => binding == null
-        ? "AlmondCOS 준비됨. 저장된 현재 문서를 COS의 list_connections에서 선택하세요."
-        : "AlmondCOS " + binding["label"] + " · " + Path.GetFileName((string)binding["model_path"]!) +
+        ? "Almond 연결 준비됨. Codex 또는 CoS에서 list_connections → connect로 저장된 현재 문서를 선택하세요."
+        : "Almond " + binding["label"] + " · " + Path.GetFileName((string)binding["model_path"]!) +
           (busy ? " · 요청 처리 중 또는 결과 확인 필요" : invalid ? " · 연결 정리 대기" : " · 연결됨");
 
     object Describe()
@@ -125,7 +125,7 @@ internal sealed class CosHost : IDisposable
     void Own(JsonElement request)
     {
         if (binding == null || Text(request, "session_token") != (string)binding["token"]!)
-            throw new InvalidOperationException("다른 연결이거나 종료된 AlmondCOS 연결입니다.");
+            throw new InvalidOperationException("다른 연결이거나 종료된 Almond 연결입니다.");
     }
 
     object Handle(JsonElement request)
@@ -327,10 +327,10 @@ internal sealed class CosHost : IDisposable
             binding["valid"] = false;
             binding["status"] = reason;
             try { Save(readyPath, binding); }
-            catch (Exception ex) { RhinoApp.WriteLine("AlmondCOS 연결 무효화 기록 실패: " + ex.Message); }
+            catch (Exception ex) { RhinoApp.WriteLine("Almond 연결 무효화 기록 실패: " + ex.Message); }
         }
         try { bridge?.Stop(); }
-        catch (Exception ex) { RhinoApp.WriteLine("AlmondCOS 브리지 중단 확인 필요: " + ex.GetBaseException().Message); }
+        catch (Exception ex) { RhinoApp.WriteLine("Almond 브리지 중단 확인 필요: " + ex.GetBaseException().Message); }
     }
 
     void CheckDocument()
@@ -361,7 +361,7 @@ internal sealed class CosHost : IDisposable
     bool Release()
     {
         if (binding == null) return true;
-        Invalidate(string.IsNullOrEmpty(problem) ? "COS 연결 종료" : problem);
+        Invalidate(string.IsNullOrEmpty(problem) ? "MCP 연결 종료" : problem);
         if (worker != null && !worker.HasExited) return false;
         if (bridge != null)
         {
@@ -395,7 +395,7 @@ internal sealed class CosHost : IDisposable
         if (notifyDisconnect)
         {
             notifyDisconnect = false;
-            RhinoApp.WriteLine("AlmondCOS 연결 해제를 완료했습니다. Rhino와 작업 파일은 유지됩니다.");
+            RhinoApp.WriteLine("Almond 연결 해제를 완료했습니다. Rhino와 작업 파일은 유지됩니다.");
         }
         return true;
     }
@@ -411,14 +411,14 @@ internal sealed class CosHost : IDisposable
 
     internal string DisconnectFromRhino()
     {
-        if (binding == null) return "AlmondCOS 연결이 없습니다.";
+        if (binding == null) return "Almond 연결이 없습니다.";
         notifyDisconnect = false;
-        Invalidate("Rhino에서 COS 연결 해제 요청");
-        if (Release()) return "AlmondCOS 연결을 해제했습니다. Rhino와 작업 파일은 유지됩니다.";
+        Invalidate("Rhino에서 MCP 연결 해제 요청");
+        if (Release()) return "Almond 연결을 해제했습니다. Rhino와 작업 파일은 유지됩니다.";
         notifyDisconnect = true;
         return busy
-            ? "AlmondCOS 연결 해제를 요청했습니다. 처리 중인 작업의 완료를 확인한 뒤 자동으로 정리합니다. 완료 여부가 불확실하면 잠금을 유지합니다."
-            : "AlmondCOS 연결 해제를 요청했습니다. COS가 worker와 점유를 자동으로 정리합니다. 완료 안내를 기다리세요.";
+            ? "Almond 연결 해제를 요청했습니다. 처리 중인 작업의 완료를 확인한 뒤 자동으로 정리합니다. 완료 여부가 불확실하면 잠금을 유지합니다."
+            : "Almond 연결 해제를 요청했습니다. 연결한 클라이언트가 worker와 점유를 자동으로 정리합니다. 완료 안내를 기다리세요.";
     }
 
     public void Dispose()

@@ -19,9 +19,9 @@ public sealed class CosPlugin : PlugIn
     }
 }
 
-public sealed class EnableCosCommand : Command
+public sealed class ConnectCommand : Command
 {
-    public override string EnglishName => "AlmondCOS";
+    public override string EnglishName => "almondconnect";
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
     {
         try
@@ -30,17 +30,17 @@ public sealed class EnableCosCommand : Command
             RhinoApp.WriteLine(CosPlugin.Instance.Host.StatusText());
             return Result.Success;
         }
-        catch (Exception ex) { RhinoApp.WriteLine("AlmondCOS: " + ex.GetBaseException().Message); return Result.Failure; }
+        catch (Exception ex) { RhinoApp.WriteLine("Almond 연결: " + ex.GetBaseException().Message); return Result.Failure; }
     }
 }
 
-public sealed class DisconnectCosCommand : Command
+public sealed class DisconnectCommand : Command
 {
-    public override string EnglishName => "AlmondCOSDisconnect";
+    public override string EnglishName => "almonddisconnect";
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
     {
         var host = CosPlugin.Instance.Host;
-        if (host == null) { RhinoApp.WriteLine("AlmondCOS 연결이 없습니다."); return Result.Success; }
+        if (host == null) { RhinoApp.WriteLine("Almond 연결이 없습니다."); return Result.Success; }
         RhinoApp.WriteLine(host.DisconnectFromRhino());
         return Result.Success;
     }
