@@ -142,6 +142,8 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
     from mcp.client.session import ClientSession
     from mcp.client.stdio import StdioServerParameters, stdio_client
     from project import connection_paths, process_start_ticks, ExclusiveFile
+    from runtime import load_catalog, catalog_identity, WORKER_STATE_TOOL
+    catalog = await asyncio.to_thread(load_catalog)
 
     folder = base / (fixture_name or kind)
     folder.mkdir(exist_ok=True)
@@ -170,6 +172,7 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
         environment = cli_environment("terminal_almond.ps1", locations["temp"], environment)
     if mode == "cos":
         environment["ALMONDCOS_SESSION_TOKEN"] = binding["token"]
+        environment["ALMONDCOS_CATALOG_ID"] = catalog_identity(catalog)
         target_args = ["--session", str(ready), "--port", "5510", "--connection-id", kind]
     else:
         target_args = ["--session", str(ready), "--port", "5510", "--token", binding["token"],
@@ -193,8 +196,7 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
                     cursor = listing.next_cursor
                     if not cursor:
                         break
-                from runtime import load_catalog, WORKER_STATE_TOOL
-                expected_tools = {tool["name"] for tool in load_catalog()["tools"]}
+                expected_tools = {tool["name"] for tool in catalog["tools"]}
                 if mode == "cos":
                     expected_tools.add(WORKER_STATE_TOOL)
                 assert set(tools) == expected_tools and len(tools) == len(expected_tools), tools

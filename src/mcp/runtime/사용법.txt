@@ -6,7 +6,7 @@ RhinoTerminal은 src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp�
 AlmondCOS는 src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp를 사용합니다.
 새 RHP와 같은 폴더의 Almond.Engine.dll 등 의존 파일, 새 Python worker가 모두 필요합니다. 작업을 마친 뒤 정상 재시작해 적용합니다.
 
-Rhino 내부 패널에서 사용: 저장된 모델 열기 → RhinoTerminal → 검은 터미널에 almond 입력.
+Rhino 내부 패널에서 사용: 저장된 모델 열기 → RhinoTerminal On → PanelToggle로 패널 표시 → almond 입력 또는 우측 상단 almond 버튼.
 이 방식은 새 Rhino를 띄우지 않고 현재 문서에 연결합니다. Codex의 /exit로 연결 해제를 요청합니다.
 아래 「Almond 시작」은 별도 Rhino와 외부 터미널을 여는 기존 방식입니다. 같은 Rhino를 두 연결이 동시에 소유할 수는 없습니다.
 
