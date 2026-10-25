@@ -319,6 +319,43 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.operation_path = Path(self.paths["session_dir"]) / "operation.json"
         self.calls = []
 
+    async def test_plain_metadata_tools_do_not_wait_for_db_or_native_operation(self):
+        for name in ("project_info", "worker_state"):
+            def metadata() -> dict:
+                return {"pending": False}
+            self.mcp.tool(name=name)(metadata)
+        with StoreGate(self.paths["storage"]):
+            async with self.runtime.serial:
+                for name in ("project_info", "worker_state"):
+                    result = await asyncio.wait_for(self.mcp.call_tool(name, {}), 0.3)
+                    self.assertFalse(result_json(result)["pending"])
+        self.assertFalse(self.operation_path.exists())
+
+    async def test_queue_wait_timeout_never_starts_an_operation(self):
+        @self.mcp.tool()
+        def queued_write() -> str:
+            self.calls.append("unexpected")
+            return "unexpected"
+
+        self.runtime.queue_timeout = 0.02
+        before_dirs = set(Path(self.paths["call_root"]).iterdir())
+        async with self.runtime.serial:
+            with self.assertRaisesRegex(TimeoutError, "No operation"):
+                await asyncio.wait_for(self.mcp.call_tool("queued_write", {}), 0.3)
+            self.assertTrue(self.runtime.serial.locked())
+        self.assertFalse(self.calls)
+        self.assertFalse(self.operation_path.exists())
+        self.assertEqual(set(Path(self.paths["call_root"]).iterdir()), before_dirs)
+
+    async def test_shared_db_wait_defaults_to_ten_seconds_and_preserves_owner(self):
+        self.assertEqual(StoreGate(self.paths["storage"]).timeout, 10)
+        with StoreGate(self.paths["storage"]):
+            with self.assertRaisesRegex(TimeoutError, "No operation was started"):
+                async with StoreGate(self.paths["storage"], timeout=0.02):
+                    self.fail("Competing store gate acquired")
+            self.assert_locked(self.gate_path)
+        self.assert_free(self.gate_path)
+
     def assert_operation_completed(self):
         operation = read_json(self.operation_path)
         self.assertEqual(operation["token"], self.session.token)

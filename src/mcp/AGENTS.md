@@ -9,5 +9,7 @@ contract or dependency change.
 Run `run_tests.ps1` for this module. Shared schema/packaging/runtime integration
 checks belong to the root tests. Native modeling C# and modeling policy remain
 owned here and compiled by the Bridge; changing them requires a Bridge rebuild.
-Rebuild a COS catalog when changing a source covered by its fingerprint.
+Run COS schema integration checks when changing a fingerprinted source. Fresh
+clients derive schemas automatically; restart the relevant client/session to
+load Python changes. Do not remove source/version checks to allow mixed workers.
 Keep the stable interpreter location separate from source ownership.

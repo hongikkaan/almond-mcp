@@ -1,6 +1,6 @@
 # Scene·Component·계획
 
-현재 문서는 `get_rhino_context`, 연결의 모델 경로는 `almond_project_info`로 확인한다. 아래는 MCP 기능명이며 COS에서는 `almond_cos_<기능명>`과 해당 `connection_id`를 사용한다.
+현재 문서는 `get_rhino_context`, 연결의 모델 경로는 `project_info`로 확인한다. COS에서도 아래 이름을 그대로 사용하고 해당 `connection_id`를 함께 전달한다.
 
 ## 관리 단위와 소유권
 

@@ -142,6 +142,8 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
     from mcp.client.session import ClientSession
     from mcp.client.stdio import StdioServerParameters, stdio_client
     from project import connection_paths, process_start_ticks, ExclusiveFile
+    from runtime import load_catalog, catalog_identity, WORKER_STATE_TOOL
+    catalog = await asyncio.to_thread(load_catalog)
 
     folder = base / (fixture_name or kind)
     folder.mkdir(exist_ok=True)
@@ -170,6 +172,7 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
         environment = cli_environment("terminal_almond.ps1", locations["temp"], environment)
     if mode == "cos":
         environment["ALMONDCOS_SESSION_TOKEN"] = binding["token"]
+        environment["ALMONDCOS_CATALOG_ID"] = catalog_identity(catalog)
         target_args = ["--session", str(ready), "--port", "5510", "--connection-id", kind]
     else:
         target_args = ["--session", str(ready), "--port", "5510", "--token", binding["token"],
@@ -193,12 +196,11 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
                     cursor = listing.next_cursor
                     if not cursor:
                         break
-                from runtime import load_catalog, WORKER_STATE_TOOL
-                expected_tools = {tool["name"] for tool in load_catalog()["tools"]}
+                expected_tools = {tool["name"] for tool in catalog["tools"]}
                 if mode == "cos":
                     expected_tools.add(WORKER_STATE_TOOL)
                 assert set(tools) == expected_tools and len(tools) == len(expected_tools), tools
-                info = unpack(await session.call_tool("almond_project_info", {}))
+                info = unpack(await session.call_tool("project_info", {}))
                 status = unpack(await session.call_tool("get_retrieval_status", {}))
                 library = unpack(await session.call_tool("list_library", {}))
                 capsules = unpack(await session.call_tool("list_capsules", {}))
@@ -251,11 +253,11 @@ async def run():
     from runtime import check_contract, load_catalog
     from cos_host import exposed_tools
 
-    catalog = load_catalog()
+    catalog = await asyncio.to_thread(load_catalog)
     check_contract(catalog)
     public, mapping = exposed_tools(catalog)
     assert set(mapping.values()) == {tool["name"] for tool in catalog["tools"]}
-    management = {"almond_cos_list_connections", "almond_cos_connect", "almond_cos_disconnect"}
+    management = {"list_connections", "connect", "disconnect", "start_session"}
     assert {tool.name for tool in public} == set(mapping) | management
     assert len(public) == len(catalog["tools"]) + len(management)
     inherited = dict(os.environ)

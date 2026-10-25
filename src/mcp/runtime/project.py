@@ -6,7 +6,8 @@ neither a port nor a model name is a storage namespace for user data.
 from __future__ import annotations
 
 import argparse
-from contextlib import ExitStack
+import asyncio
+from contextlib import ExitStack, asynccontextmanager
 import ctypes
 from ctypes import wintypes
 import json
@@ -19,6 +20,20 @@ import uuid
 SLOTS = "ABCDEFGHIJ"
 STORAGE_PROTOCOL = 2
 LEGACY_LOCKS = ("launcher.lock", "rhino.lock", "mcp.lock")
+LOCK_WAIT_SECONDS = 10.0
+
+
+@asynccontextmanager
+async def serial_gate(lock: asyncio.Lock, timeout: float = LOCK_WAIT_SECONDS):
+    """Bound only queued-call waiting; an executing owner's lock is untouched."""
+    try:
+        await asyncio.wait_for(lock.acquire(), timeout)
+    except TimeoutError as exc:
+        raise TimeoutError(f"Serialization lock wait exceeded {timeout:g} seconds. No operation was started.") from exc
+    try:
+        yield
+    finally:
+        lock.release()
 
 
 def project_paths(model: str | Path, *, create: bool = False) -> dict[str, str]:

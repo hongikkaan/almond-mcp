@@ -16,7 +16,8 @@ internal static class Program
             ("invalid ready publication failure retains ownership and can retry", FailedInvalidation),
             ("foreign locator token is retained", ForeignLocator),
             ("MCP gate stays held through invalidation and native disposal", ReleaseGate),
-            ("detach waits for asynchronous listener drain", DetachDrain)
+            ("detach waits for asynchronous listener drain", DetachDrain),
+            ("retained native binding refuses a different client attach", RetainedBindingRejectsAttach)
         };
         foreach (var (name, run) in tests)
         {
@@ -78,6 +79,28 @@ internal static class Program
         Check(!fixture.Release(), "Listener exit was not required.");
         fixture.Native.KeepListener = false;
         Check(fixture.Release(), "Drained native work did not release.");
+        return Task.CompletedTask;
+    }
+
+    static Task RetainedBindingRejectsAttach()
+    {
+        using var workspace = new Workspace();
+        using var fixture = new HostFixture(workspace.Path, "A");
+        fixture.Native.Pending = 1;
+        Check(!fixture.Release(), "Unconfirmed native work lost its binding.");
+        var original = File.ReadAllText(fixture.Paths.ReadyPath);
+        using var request = JsonDocument.Parse(JsonSerializer.Serialize(new {
+            session_token = Guid.NewGuid().ToString("N")
+        }));
+        try
+        {
+            typeof(CosHost).GetMethod("Attach", Private)!.Invoke(fixture.Host, new object[] { request.RootElement });
+            throw new InvalidOperationException("Another client replaced a retained binding.");
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException is InvalidOperationException) { }
+        Check((string)fixture.Binding["token"]! == fixture.Token, "Retained token changed.");
+        Check(File.ReadAllText(fixture.Paths.ReadyPath) == original, "Rejected attach changed ready metadata.");
+        Check(IsLocked(fixture.Paths.RhinoLock), "Rejected attach released the original Rhino lease.");
         return Task.CompletedTask;
     }
 

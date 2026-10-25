@@ -1,10 +1,11 @@
-"""One COS stdio entry; independent Almond workers for connected Rhino documents."""
+"""Lazy per-client stdio adapters; independent workers for explicitly bound Rhino."""
 from __future__ import annotations
 
 import asyncio
-from contextlib import suppress
+from contextlib import ExitStack, suppress
 from dataclasses import dataclass, field
 import json
+import hashlib
 import os
 from pathlib import Path
 import sys
@@ -17,14 +18,18 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.server.lowlevel.server import Server
 from mcp.server.stdio import stdio_server
 
-from runtime import (ENGINE, PYTHON, PREFIX, ROOT, VERSION, WORKER_STATE_TOOL, check_contract,
+from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_contract, catalog_identity,
                      load_catalog, validate_worker_tools)
 from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
 
 GUIDANCE = (
-    "Use the explicit connection_id from almond_cos_connect for every call. "
-    "Call almond_cos_project_info before the first Rhino action and use its artifact_dir "
+    "Initialization only advertises tools; it does not start Rhino or a modeling worker. "
+    "To open a separate Rhino for a saved .3dm, explicitly call start_session "
+    "with a unique request_id. Reuse that request_id to check a delayed start; never "
+    "automatically repeat it with a new ID. Otherwise list and connect an advertised Rhino. "
+    "Use the explicit connection_id from connect for every call. "
+    "Call project_info before the first Rhino action and use its artifact_dir "
     "as an explicit absolute path for task files in Rhino C# and subsequent file reads. "
     "Rhino TEMP may differ. Document changes require disconnect/reconnect. "
     "A timeout is not a rollback; inspect Rhino before repeating a mutation."
@@ -51,18 +56,13 @@ def result_dict(result: types.CallToolResult) -> dict:
     return value
 
 
-def public_name(name: str) -> str:
-    return PREFIX + ("project_info" if name == "almond_project_info" else name)
-
-
 def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
     tools, mapping = [], {}
     for original in catalog["tools"]:
         tool = json.loads(json.dumps(original))
         name = original["name"]
-        tool["name"] = public_name(name)
         description = original.get("description", "")
-        if name == "almond_project_info":
+        if name == "project_info":
             description = "Read this connection's saved model, database and artifact_dir. This metadata does not execute Rhino code."
         tool["description"] = description + "\n\n" + GUIDANCE
         schema = tool["inputSchema"]
@@ -70,7 +70,7 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
             raise RuntimeError(f"Unsupported routing schema: {name}")
         schema.setdefault("properties", {})["connection_id"] = {
             "type": "string", "minLength": 1,
-            "description": "Exact live connection ID returned by almond_cos_connect."
+            "description": "Exact live connection ID returned by connect."
         }
         schema["required"] = [*schema.get("required", []), "connection_id"]
         tools.append(types.Tool.model_validate(tool))
@@ -81,17 +81,63 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         ("connect", "Connect one advertised Rhino/document. Uses an independent A-J slot and session; models in one folder share the existing database and artifact root.",
          {"host_id": {"type": "string"}, "model_path": {"type": "string", "description": "Exact saved model path shown in the listing."}},
          ["host_id", "model_path"]),
+        ("start_session", "Explicitly open a saved .3dm in a new visible Rhino, advertise it with AlmondCOS, and connect its own A-J slot/worker. Does not save or close Rhino. Reuse the same request_id after a startup timeout; a new ID deliberately opens another Rhino.",
+         {"model_path": {"type": "string", "description": "Absolute path of an existing saved local .3dm; opened without saving."},
+          "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
+                         "description": "Unique ID for this deliberate start; keep it unchanged when checking the same attempt."}},
+         ["model_path", "request_id"]),
         ("disconnect", "Disconnect this COS connection after its calls complete. Never closes or saves Rhino. An unconfirmed native operation can retain its Rhino-side locks.",
          {"connection_id": {"type": "string"}}, ["connection_id"]),
     ]
-    for short, description, properties, required in management:
-        name = PREFIX + short
+    for name, description, properties, required in management:
         if name in mapping:
             raise RuntimeError("Management tool name collides with Almond.")
         tools.append(types.Tool(name=name, description=description,
                                 input_schema={"type": "object", "properties": properties,
                                               "required": required, "additionalProperties": False}))
     return tools, mapping
+
+
+class HostInUse(RuntimeError):
+    pass
+
+
+def host_lease(data: Path, record: dict):
+    """Share the legacy barrier, exclusively own one Rhino control connection.
+
+    An old singleton host still excludes every new active client. New adapters
+    coexist while idle and new active clients share the barrier, but never the
+    same Rhino pipe. Existing model/slot/role leases remain owned by the RHP.
+    """
+    sys.path.insert(0, str(ENGINE))
+    from project import ExclusiveFile, FileLease
+    leases = ExitStack()
+    try:
+        directory = data / "clients"
+        directory.mkdir(parents=True, exist_ok=True)
+        try:
+            leases.enter_context(FileLease(data / "host.lock", shared=True))
+        except OSError as exc:
+            if exc.errno not in (32, 33):
+                raise
+            raise HostInUse("A legacy/previous Almond stdio host is active. Finish its work and restart that MCP client to load the updated adapter.") from exc
+        identity = f"{record['pid']}:{record['process_start_ticks']}"
+        key = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+        try:
+            leases.enter_context(ExclusiveFile(directory / (key + ".lock")))
+        except OSError as exc:
+            if exc.errno not in (32, 33):
+                raise
+            raise HostInUse("This Rhino is owned by another Almond client. Keep that connection, or explicitly start a separate Rhino with start_session.") from exc
+        return leases
+    except BaseException:
+        leases.close()
+        raise
+
+
+def start_rhino(model_path: str, data: Path):
+    from session_start import RhinoStart
+    return RhinoStart(model_path, data)
 
 
 class Worker:
@@ -115,7 +161,8 @@ class Worker:
             args=["-B", "-u", str(ROOT / "cos_worker.py"), "--session",
                   self.binding["ready_path"], "--port", str(self.binding["port"]),
                   "--connection-id", self.connection_id],
-            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1", ALMONDCOS_SESSION_TOKEN=self.binding["token"]),
+            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1", ALMONDCOS_SESSION_TOKEN=self.binding["token"],
+                     ALMONDCOS_CATALOG_ID=catalog_identity(self.catalog)),
             cwd=str(ROOT),
         )
         try:
@@ -200,6 +247,7 @@ class Connection:
     cleanup: dict | None = None
     watch_pending: bool = False
     watch_again: bool = False
+    lease: object = None
 
     def public(self):
         b = self.binding
@@ -208,15 +256,32 @@ class Connection:
                     pid=b.get("pid"), artifact_dir=b.get("call_root"), in_flight=self.in_flight)
 
 
+@dataclass
+class StartAttempt:
+    model_path: str
+    launch: object = None
+    task: asyncio.Task | None = None
+    state: str = "starting"
+    connection_id: str | None = None
+    reason: str = ""
+
+    def public(self, request_id):
+        return dict(request_id=request_id, model_path=self.model_path, state=self.state,
+                    connection_id=self.connection_id, reason=self.reason,
+                    **(self.launch.identity if self.launch is not None else {}))
+
+
 class Broker:
     def __init__(self, catalog: dict, data: Path = ROOT / "data", *,
                  control_factory=PipeControl, worker_factory=Worker, host_reader=read_hosts,
                  contract_check=check_contract, call_timeout: float = 300,
-                 watcher_factory=BindingWatcher):
+                 watcher_factory=BindingWatcher, lease_factory=host_lease,
+                 starter_factory=start_rhino, queue_timeout: float = 10.0):
         self.catalog, self.data = catalog, data
         self.control_factory, self.worker_factory = control_factory, worker_factory
         self.host_reader, self.contract_check = host_reader, contract_check
         self.call_timeout = call_timeout
+        self.queue_timeout = queue_timeout
         self.tools, self.mapping = exposed_tools(catalog)
         self.connections: dict[str, Connection] = {}
         self.host_connections: dict[str, str] = {}
@@ -224,6 +289,8 @@ class Broker:
         self.closing = False
         self.watcher_factory = watcher_factory
         self.watcher = None
+        self.lease_factory, self.starter_factory = lease_factory, starter_factory
+        self.starts: dict[str, StartAttempt] = {}
 
     def binding_changed(self, connection_id: str, error: str | None):
         conn = self.connections.get(connection_id)
@@ -293,16 +360,72 @@ class Broker:
             if existing:
                 targets.append(self.connections[existing].public())
                 continue
-            control = self.control_factory(record)
+            control = None
+            lease = None
             try:
+                lease = self.lease_factory(self.data, record)
+                control = self.control_factory(record)
                 target = await control.request("describe")
                 targets.append(dict(target, host_id=record["host_id"]))
+            except HostInUse as exc:
+                targets.append({"host_id": record["host_id"], "pid": record["pid"],
+                                "state": "in_use", "reason": str(exc)})
             except Exception as exc:
                 targets.append({"host_id": record["host_id"], "pid": record["pid"],
                                 "state": "unavailable", "reason": str(exc)})
             finally:
-                await control.close()
-        return {"targets": targets, "connections": [c.public() for c in self.connections.values()]}
+                try:
+                    if control is not None:
+                        await control.close()
+                finally:
+                    if lease is not None:
+                        lease.close()
+        return {"targets": targets, "connections": [c.public() for c in self.connections.values()],
+                "starts": [attempt.public(key) for key, attempt in self.starts.items()]}
+
+    async def start_session(self, model_path: str, request_id: str):
+        if self.closing:
+            raise RuntimeError("COS host is closing.")
+        if not isinstance(request_id, str) or not request_id.strip() or len(request_id) > 128:
+            raise ValueError("A nonempty request_id of at most 128 characters is required.")
+        attempt = self.starts.get(request_id)
+        if attempt is not None:
+            if os.path.normcase(attempt.model_path) != os.path.normcase(model_path):
+                raise RuntimeError("This request_id already names a different model. No new Rhino was started.")
+            if attempt.state == "ready":
+                conn = self.connections.get(attempt.connection_id)
+                if conn is None:
+                    raise RuntimeError("This start's connection has ended. No new Rhino was started; list existing Rhino documents before deliberately creating another session.")
+                return dict(conn.public(), request_id=request_id)
+        else:
+            self.contract_check(self.catalog)
+            attempt = self.starts[request_id] = StartAttempt(model_path)
+        if attempt.task is None or attempt.state == "waiting":
+            attempt.state = "starting"
+            attempt.task = self.spawn(self._start_session(attempt, request_id))
+        return await asyncio.shield(attempt.task)
+
+    async def _start_session(self, attempt: StartAttempt, request_id: str):
+        try:
+            if attempt.launch is None:
+                attempt.launch = self.starter_factory(attempt.model_path, self.data)
+            try:
+                record = await attempt.launch.discover()
+            except TimeoutError as exc:
+                attempt.state = "waiting"
+                attempt.reason = (f"Rhino startup not confirmed for request_id={request_id}, "
+                                  f"PID={attempt.launch.identity['pid']}. Reuse the same request_id to check this process; do not launch a replacement automatically. {exc}")
+                raise TimeoutError(attempt.reason) from exc
+            if self.closing:
+                raise RuntimeError("MCP client closed during startup. Rhino remains open; list its advertisement from the next client.")
+            attempt.state = "connecting"
+            result = await self.connect(record["host_id"], attempt.launch.model_path)
+            attempt.connection_id, attempt.state, attempt.reason = result["connection_id"], "ready", ""
+            return dict(result, request_id=request_id)
+        except BaseException as exc:
+            if attempt.state != "waiting":
+                attempt.state, attempt.reason = "failed", str(exc)
+            raise
 
     async def connect(self, host_id: str, model_path: str):
         if self.closing:
@@ -314,7 +437,12 @@ class Broker:
         if record is None:
             raise RuntimeError("Rhino advertisement is stale. Run AlmondCOS in the intended saved document.")
         connection_id = uuid4().hex
-        conn = Connection(connection_id, host_id, self.control_factory(record), uuid4().hex)
+        lease = self.lease_factory(self.data, record)
+        try:
+            conn = Connection(connection_id, host_id, self.control_factory(record), uuid4().hex, lease=lease)
+        except BaseException:
+            lease.close()
+            raise
         self.connections[connection_id] = conn
         self.host_connections[host_id] = connection_id
         def ensure_open():
@@ -363,7 +491,11 @@ class Broker:
             await conn.control.request("fail", session_token=conn.token, reason=reason[:300])
 
     async def invoke(self, conn: Connection, name: str, arguments: dict, invocation: Invocation):
-        async with conn.lock:
+        # Runtime owns the queue-wait contract. Import it only for an active
+        # call; cleanup/watch locks intentionally keep their drain semantics.
+        sys.path.insert(0, str(ENGINE))
+        from project import serial_gate
+        async with serial_gate(conn.lock, self.queue_timeout):
             if invocation.abandoned:
                 raise RuntimeError("Caller stopped while this request was queued. No Rhino request was sent.")
             if conn.closing or conn.state != "ready":
@@ -435,6 +567,9 @@ class Broker:
                 self.connections.pop(conn.connection_id, None)
                 if self.host_connections.get(conn.host_id) == conn.connection_id:
                     self.host_connections.pop(conn.host_id, None)
+                if conn.lease is not None:
+                    conn.lease.close()
+                    conn.lease = None
         conn.cleanup = {"connection_id": conn.connection_id, "worker_closed": worker_closed,
                         "rhino_closed": False, "released": released, "reason": "; ".join(errors)}
         return conn.cleanup
@@ -455,11 +590,13 @@ class Broker:
         conn = None
         invocation = None
         try:
-            if name == PREFIX + "list_connections":
+            if name == "list_connections":
                 return json_result(await self.list_connections())
-            if name == PREFIX + "connect":
+            if name == "connect":
                 return json_result(await asyncio.shield(self.spawn(self.connect(**arguments))))
-            if name == PREFIX + "disconnect":
+            if name == "start_session":
+                return json_result(await self.start_session(**arguments))
+            if name == "disconnect":
                 return json_result(await asyncio.shield(self.spawn(self.disconnect(**arguments))))
             if name not in self.mapping:
                 raise RuntimeError("Unknown AlmondCOS tool.")
@@ -483,6 +620,11 @@ class Broker:
 
     async def close(self):
         self.closing = True
+        # Discovery may take minutes. Cancel only its wait; never kill the
+        # launched Rhino, and let in-progress attach use normal cleanup.
+        for attempt in self.starts.values():
+            if attempt.state == "starting" and attempt.task is not None:
+                attempt.task.cancel()
         current = list(self.connections.values())
         for conn in current:
             conn.closing = True
@@ -495,8 +637,28 @@ class Broker:
             await asyncio.gather(*list(self.background), return_exceptions=True)
 
 
+class SessionAdapter:
+    """MCP registration owns a catalog only, until an explicit management call."""
+
+    def __init__(self, catalog, data=ROOT / "data", *, broker_factory=Broker):
+        self.catalog, self.data, self.broker_factory = catalog, data, broker_factory
+        self.tools, self.mapping = exposed_tools(catalog)
+        self.broker = None
+
+    async def call(self, name, arguments):
+        if self.broker is None:
+            if name not in {"list_connections", "connect", "start_session"}:
+                return error_result("Unknown or stale connection_id. No Rhino request was sent.")
+            self.broker = self.broker_factory(self.catalog, data=self.data)
+        return await self.broker.call(name, arguments)
+
+    async def close(self):
+        if self.broker is not None:
+            await self.broker.close()
+
+
 async def serve(catalog: dict, data: Path = ROOT / "data"):
-    broker = Broker(catalog, data=data)
+    broker = SessionAdapter(catalog, data=data)
     schemas = {t.name: t.input_schema for t in broker.tools}
 
     async def on_list_tools(ctx, params):
@@ -507,8 +669,8 @@ async def serve(catalog: dict, data: Path = ROOT / "data"):
 
     # The worker's initialize instructions do not reach this host's client.
     server = Server("AlmondCOS", version=VERSION, instructions=(GUIDANCE + " " +
-                    "Before inspecting or editing existing geometry, call almond_cos_get_rhino_context. "
-                    "Use almond_cos_get_rhino_viewport_image when the current view matters. "
+                    "Before inspecting or editing existing geometry, call get_rhino_context. "
+                    "Use get_rhino_viewport_image when the current view matters. "
                     "Inspect relevant objects and validate proposed geometry against the task before replacing originals. "
                     "Execution success and a viewport image do not establish geometric correctness."),
                     get_tool_input_schema=schemas.get,
@@ -522,12 +684,7 @@ async def serve(catalog: dict, data: Path = ROOT / "data"):
 
 def main(data: Path = ROOT / "data"):
     catalog = load_catalog()
-    check_contract(catalog)
-    data.mkdir(exist_ok=True)
-    sys.path.insert(0, str(ENGINE))
-    from project import ExclusiveFile
-    with ExclusiveFile(data / "host.lock"):
-        asyncio.run(serve(catalog, data=data))
+    asyncio.run(serve(catalog, data=data))
 
 
 if __name__ == "__main__":

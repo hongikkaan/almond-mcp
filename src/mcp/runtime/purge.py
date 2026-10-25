@@ -97,17 +97,23 @@ def direct_target(p, engine):
         for i, arg in enumerate(args[:-1]):
             if arg in ('-c', '--config'):
                 try:
-                    item = tomllib.loads(args[i+1]).get('mcp_servers', {}).get('almond_parallel_cli', {})
-                    overrides.update(item)
+                    servers = tomllib.loads(args[i+1]).get('mcp_servers', {})
+                    # Recognize already-running old clients without publishing
+                    # a legacy MCP name. Never combine two servers' fields.
+                    for key in ('rhino_session', 'almond_parallel_cli'):
+                        item = servers.get(key, {})
+                        if isinstance(item, dict):
+                            overrides.setdefault(key, {}).update(item)
                 except (tomllib.TOMLDecodeError, AttributeError, TypeError):
                     continue
-        child = overrides.get('args', [])
-        command = norm(overrides.get('command', ''))
         runtimes = {norm(engine / sub / 'Scripts' / 'python.exe') for sub in ('.venv', 'python')}
         runtimes.add(norm(engine.parent.parent / 'engine' / '.venv' / 'Scripts' / 'python.exe'))
-        if (command in runtimes and isinstance(child, list) and
-                any(norm(x) == server for x in child if isinstance(x, str))):
-            return Target(p, 'codex', slot_for_port(option(child, '--port')), 'Almond MCP 실행 설정 일치')
+        for config in overrides.values():
+            child = config.get('args', [])
+            command = norm(config.get('command', ''))
+            if (command in runtimes and isinstance(child, list) and
+                    any(norm(x) == server for x in child if isinstance(x, str))):
+                return Target(p, 'codex', slot_for_port(option(child, '--port')), 'Almond MCP 실행 설정 일치')
     elif name in ('powershell.exe', 'pwsh.exe'):
         path = option(args, '-File')
         if path and norm(path) in {norm(engine / 'launch.ps1'), norm(engine / 'codex.ps1')}:

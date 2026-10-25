@@ -29,6 +29,13 @@ MCP 소유 C# 모델링 코드와 재료 정책을 링크하므로 해당 변경
 Terminal과 COS는 고정 RHP 출력 위치에서 `../mcp/runtime`에 해당하는 실제 경로를
 계산해 사용한다. 개발 워크트리로 일상 Rhino 등록을 변경하지 않는다.
 
+Terminal의 shell·AlmondHost 수명은 패널과 독립적이다. Rhino 시작이나 패널 복원은
+실행을 시작하지 않는다. `RhinoTerminal`의 `On`/`Off`는 표시 상태와 무관하게
+실행을 제어하고 `PanelToggle`은 표시만 바꾼다. 패널 없는 실행도 출력 소비와
+문서 확인을 유지하며, 최근 128 Ki 문자 출력을 보관해 새 패널에 재생한다.
+패널 오른쪽 위 almond/resume 버튼은 기존 터미널 입력 경로로 명령과 Enter를 보낸다.
+자세한 절차는 [Terminal 사용법](RhinoTerminal/사용법.txt)을 따른다.
+
 ## 공유 자원과 출력
 
 웹 원본은 `Asset_Panel/web`, wheel 경로는 `almond_mcp/library_ui`, RHP 오프라인
@@ -43,6 +50,6 @@ Bridge 빌드는 `build.ps1`, COS 빌드는 해당 모듈의 스크립트를 사
 ## 검사
 
 각 구성요소의 `tests/`에 fixture를 둔다. 패널은 Node tests, Engine은 NativeFixture,
-Terminal은 TerminalSmoke·AlmondHostContracts, Bridge는 archive host와
+Terminal은 TerminalSmoke·AlmondHostContracts·TerminalControls와 Node 입력 검사, Bridge는 archive host와
 [Undo·관측 fixture](RhinoAlmondBridge/tests/script_executor_undo/README.md)를 사용한다.
 실제 Rhino가 필요한 검사는 일회용 문서에서 수행하며 offline 통과와 구분한다.

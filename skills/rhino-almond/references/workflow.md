@@ -2,7 +2,7 @@
 
 ## 편집 범위
 
-**편집 대상은 현재 열린 Rhino 문서와 해당 `.almond`뿐이다. Worksession attached/reference 문서는 절대 직접 수정하지 않는다.** `almond_project_info`로 연결에 묶인 모델 경로와 실제 artifact_dir를 얻고, `get_rhino_context`로 실제 문서 identity와 현재 상태를 대조하라. 연결 메타데이터만으로 활성 문서를 조회했다고 하지 마라. 문서가 바뀌면 기존 연결을 해제하고 다시 연결하라. 작업 스크립트·임시 파일·이미지·내보내기·보고서는 반환된 artifact_dir 아래 명시적 절대경로에 둔다. Rhino와 MCP 프로세스의 TEMP가 같다고 가정하지 마라.
+**편집 대상은 현재 열린 Rhino 문서와 해당 `.almond`뿐이다. Worksession attached/reference 문서는 절대 직접 수정하지 않는다.** `project_info`로 연결에 묶인 모델 경로와 실제 artifact_dir를 얻고, `get_rhino_context`로 실제 문서 identity와 현재 상태를 대조하라. 연결 메타데이터만으로 활성 문서를 조회했다고 하지 마라. 문서가 바뀌면 기존 연결을 해제하고 다시 연결하라. 작업 스크립트·임시 파일·이미지·내보내기·보고서는 반환된 artifact_dir 아래 명시적 절대경로에 둔다. Rhino와 MCP 프로세스의 TEMP가 같다고 가정하지 마라.
 
 **파일이 필요할 때만 만든다.** 재료 목록·레시피를 별도 `library.json`으로 다시 만들거나 작은 결과·전달 코드마다 중간 JSON/Python/C# 파일을 만들지 않는다. 공개 도구 응답과 메모리 변수를 재사용하고 작은 값은 `result`로 직접 받는다. 복구 백업·대량 비교·저장 검증·제출 이미지처럼 목적이 있는 파일은 위 artifact_dir에 두고 실행 시점과 완료 상태를 구별한다. 경로가 맞다는 이유만으로 불필요한 파일 생성이 정당화되지는 않는다.
 

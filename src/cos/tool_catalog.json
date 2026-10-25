@@ -6,9 +6,9 @@
     "mcp": "2.3.0"
   },
   "sources": {
-    "project": "477e3fba58515bbe6fbc1cc777cfe814b77a936f15bcecec712eda5221a90329",
-    "entry": "0e21319767f94bc721910efaea3436ef41a5d66a2f753c301b2bbf5e869a0aef",
-    "shared_store": "9b1c0ab8ee94d64bf3cc75ba6876bdf3a524a8b8cf930bb26d9df680e65c33bd",
+    "project": "faa33094ce02bb2816447e356c893dd6040e2b9bd25dab605b0a1f5a43f7ec10",
+    "entry": "f44fe0b91a174c78001b935b5d2ff31a82151dd0d69dd77bfa4672007a0a5af3",
+    "shared_store": "20304d1fef24f7290d431a6f25981b1ead30e8dd13d4de48720924c926c946de",
     "native_request": "a49132b8745d8c38ea4a1417c22771b2c8a6b3be88c19f950ae816a3157b29b9",
     "compat_almond": "a0184439c91104eb13661bf51f75d6a61844922768b9c8673bfee0b6ba0672e1",
     "library_paths": "68aa94e41941fa67dcbabc5d0d1313e5cf036bf4dfeb0e33e5fb9f5c25fd3ec0",
@@ -85,25 +85,6 @@
     "package/store_common.py": "2c7a5fe4013c1796543b43074819211189cdeaeab16b8586d6d566980a43262d"
   },
   "tools": [
-    {
-      "name": "almond_project_info",
-      "title": "Almond Project Info",
-      "description": "Read the bound model, DB and artifact_dir before the first Rhino action.\n\nUse artifact_dir as the explicit absolute base for task-local reports,\nscreenshots and temporary code, including C# executed inside Rhino and\nshell/image reads. mcp_temp/effective_temp belong to Python; Rhino's original\nTEMP (rhino_temp_at_attach) may differ and is not the project output path.\nThis is binding metadata, not a live active-document check. For a terminal\nconnection, use /exit, switch the saved document, then almond to reconnect.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      },
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      },
-      "_meta": {
-        "fastmcp": {
-          "tags": []
-        }
-      }
-    },
     {
       "name": "apply_drawing_style",
       "title": "Apply Drawing Style",
@@ -2221,6 +2202,25 @@
         ],
         "type": "object",
         "x-fastmcp-wrap-result": true
+      },
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      }
+    },
+    {
+      "name": "project_info",
+      "title": "Project Info",
+      "description": "Read the bound model, DB and artifact_dir before the first Rhino action.\n\nUse artifact_dir as the explicit absolute base for task-local reports,\nscreenshots and temporary code, including C# executed inside Rhino and\nshell/image reads. mcp_temp/effective_temp belong to Python; Rhino's original\nTEMP (rhino_temp_at_attach) may differ and is not the project output path.\nThis is binding metadata, not a live active-document check. For a terminal\nconnection, use /exit, switch the saved document, then almond to reconnect.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
       },
       "_meta": {
         "fastmcp": {

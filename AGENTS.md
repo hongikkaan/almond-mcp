@@ -50,7 +50,7 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 이후 업데이트는 **Rhino를 정상 종료 → 일상 폴더에서 `git pull --ff-only` → Rhino 시작** 순서다. pull은 fetch와 현재 브랜치·추적 파일의 fast-forward를 수행한다. fetch만으로 파일은 바뀌지 않고, 실행 중 Rhino는 이미 로드한 assembly를 계속 쓴다. 소스와 실행 파일을 함께 받으므로 매번 빌드·복사·등록할 필요가 없다.
 
 - 외부 실행: `src/mcp/runtime/Almond 시작.cmd`에서 저장된 모델을 선택한다.
-- Rhino 내부: `RhinoTerminal` → `almond`; 재연결은 `almond resume`.
+- Rhino 내부: `RhinoTerminal` → `On`; 패널이 숨으면 `PanelToggle`로 표시한 뒤 `almond`를 입력하거나 우측 상단 버튼을 누른다. 재연결은 `almond resume` 또는 resume 버튼. `Off`는 패널 표시와 무관하게 터미널을 종료한다.
 - COS: 저장된 Rhino 문서에서 `AlmondCOS`를 실행하고 host/model을 선택한다.
 - 패널: `Almond`, `AlmondLibrary`, `AlmondStructure`, `AlmondResults`. 패널이 숨으면 Terminal/Layers와 같은 dock에 둔다.
 
@@ -58,7 +58,7 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 기존 적합한 워크트리를 우선 사용한다. 새 작업은 최신 `main`에서 분기하고 환경은 각 체크아웃에서 새로 구성한다. venv를 복사·공유하지 않는다. 작업 폴더를 바꾸는 것만으로 모델 DB·슬롯·로드된 RHP가 격리되지는 않는다.
 
-일반 시작은 의존성을 동기화하지 않는다. Python 소스 변경 후에는 관련 host/worker를 다시 시작한다. COS 소스 경로·공개 도구 변경 시 `src/cos/build_catalog.py`로 카탈로그를 재생성하고 version·source fingerprint·schema 검사를 유지한다.
+일반 시작은 의존성을 동기화하지 않는다. Python 공통 도구 변경 후에는 관련 Codex/CoS MCP 또는 Terminal의 almond 세션을 정상 종료하고 새로 시작한다. 시작 시 현재 소스에서 도구 schema를 자동 추출하므로 카탈로그 수동 재생성은 필요 없다. `uv.lock` 버전·세션 source fingerprint·실제 worker schema 검사를 유지한다. 기존 프로세스에 대한 hot reload/restart 도구는 제공하지 않는다.
 
 C#/native 또는 실행용 UI 변경은 Rhino를 닫은 상태에서 영향받는 RHP를 빌드한다. .NET 8 SDK와 Windows Rhino 8 SDK를 사용하며 기본 빌드는 설치된 SDK를 참조한다. 선택 SDK 위치는 `src/rhp/RhinoTerminal/data/sdk`다.
 
@@ -81,7 +81,7 @@ Bridge와 COS 출력은 위의 각 `plugin-runtime` 폴더다. Engine을 변경�
 
 모델 폴더는 `.almond/scene.sqlite3`와 `.almond/tmp`를 공유하며, 연결은 자신의 token/session/call 디렉터리를 소유한다. 공유 잠금·역할 lease·A–J 슬롯·프로세스 identity·UI thread·native 완료 확인을 유지한다. 모델을 이동·이름 변경하기 전에 finish/detach한다.
 
-Rhino 작업 전 `almond_project_info`(COS는 `almond_cos_project_info`)의 연결과 `artifact_dir`를 확인한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [native-observation.md](docs/modeling/native-observation.md)를 따른다.
+Rhino 작업 전 `project_info`의 연결과 `artifact_dir`를 확인한다. COS에서는 `connection_id`도 전달한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [native-observation.md](docs/modeling/native-observation.md)를 따른다.
 
 임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. 오래된 인계·배포·검증 로그는 현재 기능 문서에 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
 

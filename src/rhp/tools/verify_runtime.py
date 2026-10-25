@@ -41,7 +41,7 @@ def is_source(relative, component):
     return relative.startswith(SOURCE_ROOTS[component]) and (
         path.suffix.lower() in {".cs", ".csproj", ".props", ".targets", ".ico", ".resx"}
         or path.name in {"NuGet.Config", "packages.lock.json"}
-        or relative.startswith("src/rhp/Asset_Panel/web/"))
+        or relative.startswith(("src/rhp/Asset_Panel/web/", "src/rhp/RhinoTerminal/src/web/")))
 
 
 def source_files(root, component):

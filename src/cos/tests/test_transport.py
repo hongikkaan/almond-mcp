@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
+from contextlib import AsyncExitStack
 from pathlib import Path
 
 from mcp.client.session import ClientSession
@@ -122,8 +123,7 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
         self.data.cleanup()
 
     async def test_real_host_handshake_catalog_and_stale_call_without_rhino(self):
-        # Exercise the same main(), contract check and singleton lock in an
-        # empty private data directory, including while the COS host is live.
+        # Exercise the lazy entry in a private directory without a live Rhino.
         entry = "from pathlib import Path; from cos_host import main; main(Path(" + repr(self.data.name) + "))"
         params = StdioServerParameters(command=sys.executable,
                                        args=["-B", "-u", "-c", entry],
@@ -133,24 +133,48 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(reader, writer, read_timeout_seconds=15.0) as session:
                 initialization = await session.initialize()
                 instructions = initialization.instructions or ""
-                for name in ("almond_cos_get_rhino_context", "almond_cos_get_rhino_viewport_image"):
+                for name in ("get_rhino_context", "get_rhino_viewport_image"):
                     self.assertIn(name, instructions)
                 self.assertIn("validate proposed geometry against the task before replacing originals", instructions)
                 self.assertIn("Execution success and a viewport image do not establish geometric correctness", instructions)
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 80)
-                self.assertEqual(len({t.name for t in listing.tools}), 80)
-                original = load_catalog()["tools"]
+                self.assertEqual(len(listing.tools), 81)
+                self.assertEqual(len({t.name for t in listing.tools}), 81)
+                original = (await asyncio.to_thread(load_catalog))["tools"]
                 public = {t.name: t for t in listing.tools}
-                self.assertIn("operation", public["almond_cos_setup_modeling"].input_schema["required"])
+                self.assertIn("operation", public["setup_modeling"].input_schema["required"])
                 for tool in original:
-                    name = "almond_cos_" + ("project_info" if tool["name"] == "almond_project_info" else tool["name"])
+                    name = tool["name"]
                     self.assertIn("connection_id", public[name].input_schema["required"])
                 wire = listing.model_dump(mode="json", by_alias=True, exclude_none=True)
                 size = len(json.dumps(wire, ensure_ascii=False).encode("utf-8"))
                 self.assertLess(size, 250000)
-                result = await session.call_tool("almond_cos_project_info", {"connection_id": "never-created"})
+                result = await session.call_tool("project_info", {"connection_id": "never-created"})
                 self.assertTrue(result.is_error)
                 self.assertIn("No Rhino request was sent", result.content[0].text)
                 print(json.dumps({"stdio_tool_count": len(listing.tools), "catalog_wire_bytes": size,
                                   "startup_and_check_seconds": round(time.monotonic() - started, 3)}))
+
+    async def test_two_clients_initialize_even_while_legacy_host_is_running(self):
+        from project import ExclusiveFile
+        data = Path(self.data.name)
+        # Poison eager behavior in each real stdio process. Merely listing tools
+        # may read source schemas but must not construct a broker/import the DB server.
+        entry = (
+            "from pathlib import Path; import cos_host; "
+            "cos_host.Broker.__init__ = lambda *a, **k: (_ for _ in ()).throw(RuntimeError('eager broker')); "
+            "cos_host.check_contract = lambda *a: (_ for _ in ()).throw(RuntimeError('eager check')); "
+            "cos_host.main(Path(" + repr(self.data.name) + "))"
+        )
+        params = StdioServerParameters(command=sys.executable,
+                                       args=["-B", "-X", "utf8", "-u", "-c", entry], cwd=str(ROOT),
+                                       env=dict(os.environ, RHINO_MCP_STATE_DB=str(data / "never.sqlite3")))
+        with ExclusiveFile(data / "host.lock"):
+            async with AsyncExitStack() as stack:
+                for _ in range(2):
+                    reader, writer = await stack.enter_async_context(stdio_client(params))
+                    client = await stack.enter_async_context(ClientSession(reader, writer, read_timeout_seconds=15))
+                    await client.initialize()
+                    listing = await client.list_tools()
+                    self.assertIn("start_session", {t.name for t in listing.tools})
+                self.assertEqual({p.name for p in data.iterdir()}, {"host.lock"})

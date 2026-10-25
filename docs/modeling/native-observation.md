@@ -1,10 +1,8 @@
 # 현재 문서·화면 조회와 C# 결과 반환
 
-기존 모델 작업에서는 먼저 `almond_project_info`로 연결을 확인하고,
+기존 모델 작업에서는 먼저 `project_info`로 연결을 확인하고,
 `get_rhino_context`로 실제 활성 문서를 조회한다. 현재 화면이 판단에 필요할 때
-`get_rhino_viewport_image`를 호출한다. COS의 공개 이름은 각각
-`almond_cos_project_info`, `almond_cos_get_rhino_context`,
-`almond_cos_get_rhino_viewport_image`이며 기존과 같이 `connection_id`를 전달한다.
+`get_rhino_viewport_image`를 호출한다. COS에서도 같은 이름을 사용하고 `connection_id`를 전달한다.
 
 두 조회는 기존 Engine의 문서 binding·UI thread·호출 identity·native 완료 확인을
 거친다. 파일 경로를 임의로 골라 다른 모델을 조회하는 기능은 없다.
@@ -62,7 +60,7 @@ JPEG 원본 한도는 4 MiB이다. 모델/viewport identity와 원본 화면 크
 
 ## 고정 geometry probe
 
-`get_rhino_probe` / COS `almond_cos_get_rhino_probe`는 컴파일된 `outline`,
+`get_rhino_probe` / COS `get_rhino_probe`는 컴파일된 `outline`,
 `resolve-block`, `sections`, `vertical-probe`, `joint-pairs` 중 하나를 실행한다.
 `probe`, 도구별 `options`, `project_info`에서 얻은 `expected_model_path`를 전달한다.
 COS에서는 동일하게 `connection_id`를 사용한다. 활성 문서 경로가 다르면 계산 전에

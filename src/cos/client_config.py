@@ -1,7 +1,7 @@
 """Reuse the COS stdio host from Codex or another local MCP client.
 
 Printing configuration is the default. --install-codex explicitly adds a new
-entry, preserves all other settings and refuses to replace a conflicting entry.
+entry or migrates its exact previous entry, and preserves all other settings.
 This module does not import Almond, start a host, or touch a Rhino document.
 """
 from __future__ import annotations
@@ -11,10 +11,12 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 import tomllib
 
-NAME = "almond_cos"
+NAME = "rhino"
+LEGACY_NAME = "almond_cos"
 ENV_VARS = (
     "LOCALAPPDATA", "TEMP", "TMP", "TMPDIR",
     "RHINO_MCP_LIBRARY_DIR", "RHINO_MCP_DRAWING_ASSET_DIR",
@@ -68,16 +70,30 @@ def install_codex(path: Path, config: dict) -> Path | None:
     original = path.read_bytes() if path.exists() else b""
     text = original.decode("utf-8-sig")
     parsed = tomllib.loads(text)
-    existing = parsed.get("mcp_servers", {}).get(NAME)
+    servers = parsed.get("mcp_servers", {})
+    existing = servers.get(NAME)
+    legacy = servers.get(LEGACY_NAME)
+    if legacy is not None:
+        if existing is not None or legacy != config:
+            raise ValueError(f"Conflicting or customized {LEGACY_NAME}/{NAME} settings in {path}; no changes made.")
+        # Only migrate our exact old generated configuration. Preserve the
+        # surrounding text/comments and validate its parsed meaning afterward.
+        updated = re.sub(r"(?m)^(\s*\[mcp_servers\.)almond_cos(?=(?:\.env)?\])",
+                         lambda match: match.group(1) + NAME, text)
+        expected_servers = dict(servers)
+        expected_servers.pop(LEGACY_NAME)
+        expected_servers[NAME] = config
+    else:
+        expected_servers = dict(servers, **{NAME: config})
+        updated = text.rstrip() + "\n\n" + codex_toml(config)
     if existing is not None:
         if existing == config:
             return None
         raise ValueError(f"{NAME} already exists with different settings in {path}; no changes made.")
-    updated = text.rstrip() + "\n\n" + codex_toml(config)
     expected = dict(parsed)
-    expected["mcp_servers"] = dict(parsed.get("mcp_servers", {}), **{NAME: config})
+    expected["mcp_servers"] = expected_servers
     if tomllib.loads(updated) != expected:
-        raise ValueError("Cannot append the MCP table without changing existing settings.")
+        raise ValueError("Cannot update the MCP table without changing existing settings.")
     if not path.parent.is_dir():
         raise ValueError(f"Config directory does not exist: {path.parent}")
     temporary = None
@@ -107,7 +123,7 @@ def main():
                         help="Daily installation checkout, never a development worktree.")
     parser.add_argument("--format", choices=("codex", "json"), default="codex")
     parser.add_argument("--install-codex", type=Path, metavar="CONFIG_TOML",
-                        help="Explicitly add almond_cos to this config (backup existing file).")
+                        help="Add rhino or migrate the exact legacy almond_cos entry (backup existing file).")
     args = parser.parse_args()
     if args.install_codex and args.format != "codex":
         parser.error("--install-codex requires --format codex")
@@ -118,7 +134,8 @@ def main():
             print(f"Codex configuration ready: {args.install_codex}")
             if backup:
                 print(f"Original configuration backup: {backup}")
-            print("Restart the MCP client. Only one COS/Codex stdio host may use this checkout at a time.")
+            print("Reload the MCP client to use the lazy adapter. Registration does not start Rhino or a modeling worker.")
+            print("Call start_session with a saved model path and a unique request_id to open an independent session.")
         else:
             print(codex_toml(config) if args.format == "codex" else generic_json(config, os.environ), end="")
     except (OSError, ValueError) as exc:

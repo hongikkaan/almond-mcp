@@ -14,12 +14,20 @@
 
 COS는 runtime의 binding 검증·구성 훅을 사용한다. MCP는 COS 구현을 참조하지 않는다.
 Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema를 보존한다.
+runtime 메타데이터 도구는 `project_info`, COS 내부 완료 조회는 `worker_state`다.
+공개 도구 이름에 제품·클라이언트 접두사를 붙이거나 이전 이름의 alias를 남기지 않는다.
+전용 CLI가 이 실행에만 주입하는 MCP 서버 키는 `rhino_session`이며 일반 Codex의 전역
+`rhino` 등록과 구분한다. 이전에 실행된 프로세스의 식별 호환성은 유지한다.
+공유 DB gate와 연결별 요청 직렬화 잠금은 획득을 최대 10초 기다린다. 대기 초과 호출은
+operation·native 요청 생성 전 종료하며 소유자의 작업·잠금은 유지한다. 실행 제한과
+cleanup·native 완료를 기다리는 시간은 이 10초와 구분한다.
 `almond_mcp/rhino`의 C# 모델링 코드와 재료 정책은 MCP 소유지만 Bridge에 컴파일되므로,
 변경 시 Bridge 빌드가 필요하다. Python package가 사용하는 웹 원본은
 [RHP Asset Panel](../rhp/SPEC.md)의 공유 자원이다.
 
-공개 API 내부 동작을 바꾸더라도 COS fingerprint 대상 파일이 바뀌면 COS catalog를
-재생성하고 루트 통합 검사를 수행한다. 공유 계약 변경을 임의로 우회하지 않는다.
+공개 API 내부 동작이나 schema를 바꾸면 루트 통합 검사를 수행한다. 새 COS/Codex
+클라이언트가 현재 소스에서 catalog를 자동 추출한다. 실행 중인 세션은 시작 시 소스
+fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하다. 공유 계약을 우회하지 않는다.
 
 ## 기능별 구현과 소유권
 
@@ -31,7 +39,7 @@ Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema�
 
 | 폴더 | 분류·성격 | 소유한 구현과 기능 |
 |---|---|---|
-| [`context`](almond_mcp/features/context) | 관찰·진단 | 모델·화면·프로브와 저장소 상태를 조회한다. runtime의 almond_project_info와 COS 연결관리 도구는 각 호스트에 남는다. |
+| [`context`](almond_mcp/features/context) | 관찰·진단 | 모델·화면·프로브와 저장소 상태를 조회한다. runtime의 project_info와 COS 연결관리 도구는 각 호스트에 남는다. |
 | [`planning`](almond_mcp/features/planning) | 작업계획 | Phase·Plan·Step, 참조 대상·의존 순서·evidence·immutable revision과 계획 SQL을 소유한다. |
 | [`scenes`](almond_mcp/features/scenes) | Scene | 설계 의도와 Scene 장부, 일반 객체의 Scene 참조를 관리한다. |
 | [`components`](almond_mcp/features/components) | Component | 등록 group의 소유권·계층·조회·동기화, focus·교차 관찰 및 native snapshot 정합과 SQL을 소유한다. |
@@ -50,7 +58,7 @@ Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema�
 
 ### 공개 도구 위치
 
-아래 76개는 package 공개 도구다. runtime의 `almond_project_info`를 포함한 COS 입력 catalog는 77개이며, COS의 연결관리 도구는 별도로 유지한다.
+아래 76개는 package 공개 도구다. runtime의 `project_info`를 포함한 COS 입력 catalog는 77개이며, COS의 연결관리 도구는 별도로 유지한다.
 
 | 기능 | 공개 함수 |
 |---|---|
@@ -105,7 +113,8 @@ GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper
 각 기능의 직접 검사는 `tests/test_<기능>_feature.py`에서 factory·store를 사용한다.
 전체 회귀는 `run_tests.ps1`, 호스트·catalog 검사는 COS runner, 모듈 경계·실제 전체
 schema·패키징은 루트 통합 검사를 사용한다. 새 기능 파일을 추가하거나 기존 구현을
-바꾸면 catalog를 재생성한다. COS는 server와 feature factory의 AST에서 schema를
+바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. COS는 새 클라이언트 시작 시
+server와 feature factory의 AST에서 schema를
 읽으며 서버/DB를 import하지 않는다. package의 모든 Python 파일 목록과 내용이
 fingerprint 대상이므로 이동·추가·삭제도 감지한다.
 
