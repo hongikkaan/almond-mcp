@@ -22,6 +22,10 @@ class FeatureContext:
         except KeyError:
             raise AttributeError(name) from None
 
+    def set_state(self, name, value):
+        """Update server-owned mutable state without caching it on this proxy."""
+        self._namespace[name] = value
+
     @contextmanager
     def override(self, **values):
         token = self._overrides.set({**(self._overrides.get() or {}), **values})
