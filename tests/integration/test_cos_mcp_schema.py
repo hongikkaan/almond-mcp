@@ -13,8 +13,7 @@ def test_catalog_matches_live_schema_and_retains_camera_examples(server):
             tools = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True)
                      for tool in await client.list_tools()}
             assert len(tools) == 76
-            for name in ("get_rhino_context", "get_rhino_viewport_image", "execute_rhino_script",
-                         "get_rhino_probe", "capture_conditioning_pass", "setup_modeling"):
+            for name in tools:
                 assert schema_identity(tools[name]) == schema_identity(catalog[name])
             description = tools["capture_conditioning_pass"]["description"]
             for retained in ('"type":"orbit"', '"type":"track"', '"type":"keyframes"', "camera.json"):

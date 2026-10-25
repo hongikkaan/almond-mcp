@@ -1,9 +1,11 @@
 """The reviewed image result type must not weaken inert schema generation."""
 import ast
 import sys
+import tempfile
+from pathlib import Path
 import unittest
 
-from build_catalog import checked_stub, generate
+from build_catalog import checked_stub, collect_tool_functions, generate
 from runtime import check_contract, load_catalog
 
 
@@ -28,3 +30,28 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.subTest(source=source), self.assertRaises((ValueError, TypeError)):
                 checked_stub(ast.parse(source).body[0])
+
+
+class FeatureSourceTests(unittest.TestCase):
+    def test_factory_sources_are_read_without_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            server = root / "server.py"
+            server.write_text("@mcp.tool()\ndef legacy() -> str:\n    return 'old'\n", encoding="utf-8")
+            feature = root / "features" / "sample"
+            feature.mkdir(parents=True)
+            tool = feature / "tools.py"
+            tool.write_text(
+                "raise RuntimeError('Never import a source to collect schemas')\n"
+                "def register(mcp, context):\n"
+                "    @mcp.tool(annotations={'readOnlyHint': True})\n"
+                "    def moved(value: str = '') -> str:\n"
+                "        return context.sender(value)\n"
+                "    return {'moved': moved}\n", encoding="utf-8")
+            nodes = collect_tool_functions(server)
+            self.assertEqual([n.name for n in nodes], ["legacy", "moved"])
+            for node in nodes:
+                checked_stub(node)
+            tool.write_text("def register(mcp, context):\n    @mcp.tool()\n    def legacy() -> str:\n        pass\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "Duplicate"):
+                collect_tool_functions(server)
