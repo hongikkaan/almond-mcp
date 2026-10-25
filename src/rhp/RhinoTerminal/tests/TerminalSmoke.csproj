@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="AlmondHostContracts\**\*.cs" />
+    <Compile Remove="TerminalControls\**\*.cs" />
     <Compile Include="../src/TerminalSession.cs" Link="TerminalSession.cs" />
     <Compile Include="../src/ProcessJob.cs" Link="ProcessJob.cs" />
     <PackageReference Include="Porta.Pty" Version="1.0.7" />
