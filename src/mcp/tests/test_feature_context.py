@@ -14,6 +14,9 @@ def test_current_binding_is_read_from_its_own_server():
     first["_send_and_receive"] = lambda: "after"
     assert a._send_and_receive() == "after"
     assert b._send_and_receive() == "other"
+    a.set_state("overlay", "native")
+    assert first["overlay"] == "native"
+    assert "overlay" not in second
     with pytest.raises(AttributeError):
         a.missing_service
 
