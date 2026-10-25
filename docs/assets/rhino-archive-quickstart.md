@@ -98,17 +98,12 @@ stated idealisation, not a substitute for an engineer's design and sign-off.
 
 ## Optional AI/MCP workflow
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/). Configure
-your MCP client with command `uvx` and these arguments:
-
-```json
-["--from", "almond-mcp==0.7.0rc2", "almond-mcp"]
-```
-
-The MCP client launches its own stdio server. It connects to the Rhino bridge
-on 127.0.0.1:5000; browsing the archive itself does not require this connection.
-Do not use the older developer-oriented `AlmondMCPStart` command to configure
-an AI client. See the repository README for client-specific setup.
+Use the daily installation's isolated MCP runtime as described in
+[Codex/CoS connection setup](../../src/cos/EXTERNAL_CLIENTS.md). In Rhino, run
+`almondconnect`, then select the saved document from the client's connection
+tools. `almonddisconnect` releases that connection without saving or closing Rhino.
+The old port-5000 listener and standalone server start/stop commands are removed
+from this fork. Browsing the archive itself does not require an MCP connection.
 
 ## Troubleshooting
 

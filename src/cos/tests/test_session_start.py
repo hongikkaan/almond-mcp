@@ -32,12 +32,12 @@ class RhinoStartTests(unittest.IsolatedAsyncioTestCase):
                           host_reader=lambda _: self.records, timeout=0.01, poll_interval=0,
                           **kwargs)
 
-    async def test_explicit_start_passes_model_as_one_argument_and_enables_cos(self):
+    async def test_explicit_start_passes_model_as_one_argument_and_enables_connection(self):
         with patch.dict("os.environ", {"ALMOND_SESSION_TOKEN": "old", "ALMOND_SESSION_FOLDER": "old",
                                        "ALMONDCOS_SESSION_TOKEN": "old", "RHINO_MCP_LIBRARY_DIR": "custom"}):
             launch = self.start()
         args, kwargs = self.spawn.call_args
-        self.assertEqual(args[0], [str(self.executable), str(self.model), "/nosplash", "/runscript=_AlmondCOS"])
+        self.assertEqual(args[0], [str(self.executable), str(self.model), "/nosplash", "/runscript=_almondconnect"])
         self.assertEqual(kwargs["cwd"], str(self.root))
         self.assertEqual(kwargs["env"]["RHINO_MCP_LIBRARY_DIR"], "custom")
         for key in ("ALMOND_SESSION_TOKEN", "ALMOND_SESSION_FOLDER", "ALMONDCOS_SESSION_TOKEN"):

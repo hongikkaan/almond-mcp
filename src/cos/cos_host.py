@@ -76,17 +76,17 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
-        ("list_connections", "List available Rhino documents and existing COS connections. Run AlmondCOS in a saved ordinary Rhino to advertise it.",
+        ("list_connections", "List available Rhino documents and this client's connections. Run almondconnect in a saved ordinary Rhino to advertise it to Codex or CoS.",
          {}, []),
         ("connect", "Connect one advertised Rhino/document. Uses an independent A-J slot and session; models in one folder share the existing database and artifact root.",
          {"host_id": {"type": "string"}, "model_path": {"type": "string", "description": "Exact saved model path shown in the listing."}},
          ["host_id", "model_path"]),
-        ("start_session", "Explicitly open a saved .3dm in a new visible Rhino, advertise it with AlmondCOS, and connect its own A-J slot/worker. Does not save or close Rhino. Reuse the same request_id after a startup timeout; a new ID deliberately opens another Rhino.",
+        ("start_session", "Explicitly open a saved .3dm in a new visible Rhino, advertise it with almondconnect, and connect its own A-J slot/worker. Does not save or close Rhino. Reuse the same request_id after a startup timeout; a new ID deliberately opens another Rhino.",
          {"model_path": {"type": "string", "description": "Absolute path of an existing saved local .3dm; opened without saving."},
           "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
                          "description": "Unique ID for this deliberate start; keep it unchanged when checking the same attempt."}},
          ["model_path", "request_id"]),
-        ("disconnect", "Disconnect this COS connection after its calls complete. Never closes or saves Rhino. An unconfirmed native operation can retain its Rhino-side locks.",
+        ("disconnect", "Disconnect this client's connection after its calls complete. Never closes or saves Rhino. An unconfirmed native operation can retain its Rhino-side locks.",
          {"connection_id": {"type": "string"}}, ["connection_id"]),
     ]
     for name, description, properties, required in management:
@@ -435,7 +435,7 @@ class Broker:
             raise RuntimeError(f"Rhino already has COS connection {self.host_connections[host_id]}.")
         record = next((r for r in self.host_reader(self.data) if r["host_id"] == host_id), None)
         if record is None:
-            raise RuntimeError("Rhino advertisement is stale. Run AlmondCOS in the intended saved document.")
+            raise RuntimeError("Rhino advertisement is stale. Run almondconnect in the intended saved document.")
         connection_id = uuid4().hex
         lease = self.lease_factory(self.data, record)
         try:

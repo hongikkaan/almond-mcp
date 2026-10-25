@@ -6,7 +6,7 @@
 
 ```
 validate_structure(guids, structure_type, load_kn, material)
-        │  MCP server → TCP bridge (port 5000)
+        │  MCP worker → document-bound Engine bridge (A–J: 5501–5510)
         ▼
 RhinoAlmondBridge.StructuralValidator
   1. resolve the Rhino objects, extract member axis segments (unit-scaled to meters)
@@ -75,7 +75,7 @@ Karamba는 build-time reference 없이 `KarambaAdapter.cs`가 reflection으로 �
 
 준비·빌드는 [AGENTS.md](../../AGENTS.md)를 따르고 일회용 문서에서 실행한다.
 
-- `AlmondMCPStatus`로 연결을 확인한다. 포트 충돌이면 해당 프로세스를 조사하고 강제 종료하지 않는다.
+- `project_info`와 `get_rhino_context`로 연결된 문서를 확인한다. 포트 충돌이면 해당 프로세스를 조사하고 강제 종료하지 않는다.
 - 단순 beam의 치수·단위·하중·지점을 명시해 해석하고 `analysis_method`, 변위, 반력 평형, 부재 utilization과 경고를 확인한다.
 - Karamba 미설치 조건에서도 명시적인 downgrade와 오류가 반환돼야 한다. capsule의 `audited` 상태는 실제 harness 검증 근거가 있어야 한다.
 - `run_gh_definition`의 미등록 capsule·필수 입력 누락·잘못된 타입은 native 실행 전에 거절되어야 한다.

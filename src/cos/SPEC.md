@@ -14,6 +14,11 @@ Rhino·모델 DB 연결이나 소유권 잠금을 준비하지 않는다. stdio 
 최소 Python 프로세스는 필요하다. 모델링 준비는 명시적 connect/start_session 호출에서 한다.
 사용 방법과 동시 연결 제한은 [외부 클라이언트 안내](EXTERNAL_CLIENTS.md)에 둔다.
 
+Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS`와
+`AlmondCOSDisconnect` 명령/별칭은 등록하지 않는다. RHP 파일명·GUID·등록 경로는 유지한다.
+연결 준비 및 상태 안내는 Codex와 CoS 모두에 적용된다. connect는 discovery host를 재사용하고
+disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해제한다. Rhino 문서는 유지한다.
+
 ## 구성
 
 | 위치 | 책임 |
@@ -24,7 +29,7 @@ Rhino·모델 DB 연결이나 소유권 잠금을 준비하지 않는다. stdio 
 | `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
 | `tool_catalog.json` | configure/build에서 선택적으로 만드는 개발용 export; 런타임은 읽지 않음 |
 | `binding_watch.py`, `winpipe.py` | 연결 변경 감시와 Windows 제어 채널 |
-| `rhp/` | Rhino 내부 AlmondCOS 명령·host 탐색·문서 binding |
+| `rhp/` | Rhino 내부 almondconnect·almonddisconnect 명령·host 탐색·문서 binding |
 | `tests/`, `run_tests.ps1` | Python·native relay·host 수명·pipe·stdio 검사 |
 | `build.ps1`, `runtime-manifest.json` | COS RHP 빌드와 소스·실행 파일 검증 기록 |
 
@@ -62,7 +67,7 @@ adapter lease 해제는 RHP의 native/slot/token 소유권 해제가 아니다. 
 기존 RHP binding은 계속 새 attach를 거절한다.
 
 `start_session`은 저장된 절대 `.3dm` 경로와 request ID를 받는다. 기존
-runtime의 모델 경로 검증을 재사용하고 새 Rhino에 `_AlmondCOS` 명령을 전달한다. 정확히
+runtime의 모델 경로 검증을 재사용하고 새 Rhino에 `_almondconnect` 명령을 전달한다. 정확히
 그 PID·시작 시각의 광고만 기존 connect 경로에 연결한다. A–J 슬롯·DB·native 준비는
 기존 RHP Attach와 worker 계약을 사용하며 시작 로직에 복제하지 않는다. 모델을 저장하거나
 Rhino를 강제 종료하지 않는다. launch/advertise 실패 후 새 프로세스를 자동 실행하지 않는다.

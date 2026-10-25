@@ -63,7 +63,7 @@ tmp 정리
   Windows 기본 TEMP도 종료/재부팅 때 전부 자동 삭제되는 폴더는 아닙니다. 앱과 Windows 정리 설정에 따라 다릅니다.
 
 이름을 바꿀 때
-  해당 연결의 작업을 마치고 패널은 /exit, COS는 AlmondCOSDisconnect로 해제를 완료하세요.
+  해당 연결의 작업을 마치고 패널은 /exit, 외부 Codex·CoS 연결은 almonddisconnect로 해제를 완료하세요.
   외부 실행기로 연 세션은 모델을 저장하고 Codex와 해당 Rhino를 정상 종료하세요.
   같은 폴더에서 UNIT.3dm을 HOUSE.3dm으로 바꿔도 .almond와 scene.sqlite3의 위치는 그대로입니다.
   HOUSE.3dm에서 새로 연결하면 기존 공통 DB와 tmp를 이어 씁니다. .almond 안에 모델명 폴더를 만들거나 이름을 맞추지 않습니다.

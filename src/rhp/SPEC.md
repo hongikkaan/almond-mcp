@@ -7,7 +7,7 @@
 
 | 위치 | 책임 |
 |---|---|
-| `RhinoAlmondBridge/` | Rhino 명령, TCP 요청, C# 실행·Undo, 고정 관찰과 plugin entry |
+| `RhinoAlmondBridge/` | Rhino 패널 명령, native 요청 handler, C# 실행·Undo, 고정 관찰과 plugin entry |
 | `Engine/` | 별도 `Almond.Engine.dll`; 연결 identity·공유 lease·native 완료 |
 | `RhinoTerminal/` | 터미널·MCP 실행기 연결. 별도 plugin entry 없이 Bridge에 컴파일 |
 | `Structural_Analysis/` | 구조해석·결과 패널과 solver 연결; Bridge에 컴파일 |
@@ -20,6 +20,11 @@ COS는 별도 assembly다. Engine은 호스트 프로젝트를 참조하지 않�
 MCP 소유 C# 모델링 코드와 재료 정책을 링크하므로 해당 변경도 빌드 입력이다.
 
 ## 실행·관찰
+
+Bridge 로드는 패널과 기존 native handler/helper만 준비한다. 구형 5000번 포트 listener와
+`AlmondMCPStart`·`AlmondMCPStop`·`AlmondMCPStatus` 명령은 제거했으며 별칭을 등록하지 않는다.
+모델 작업용 transport는 문서·token에 바인딩된 Engine 세션에서만 시작한다. Engine이 확인하는
+Bridge의 `_server` 필드·`HandleRequest`와 helper 계약은 유지한다.
 
 문서 identity, UI thread, 요청·완료 envelope, 공유 저장소 lease와 Undo/Redo 계약을
 보존한다. 고정 관찰은 geometry·layer·selection·camera·Undo를 바꾸지 않는다.
@@ -53,3 +58,6 @@ Bridge 빌드는 `build.ps1`, COS 빌드는 해당 모듈의 스크립트를 사
 Terminal은 TerminalSmoke·AlmondHostContracts·TerminalControls와 Node 입력 검사, Bridge는 archive host와
 [Undo·관측 fixture](RhinoAlmondBridge/tests/script_executor_undo/README.md)를 사용한다.
 실제 Rhino가 필요한 검사는 일회용 문서에서 수행하며 offline 통과와 구분한다.
+
+Bridge·연결 RHP의 시작 동작과 실제 배포 명령 목록은
+[native startup fixture](../../tests/native_startup/README.md)로 검사한다.
