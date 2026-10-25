@@ -33,6 +33,8 @@ from almond_mcp.retrieval_store import AlmondStore, ComponentReconciliationError
 from almond_mcp import modeling_policy, modeling_setup, drawing_assets
 from almond_mcp import asset_passport, asset_loads, conditioning, exchange, paths, drafting, native_structure, structure_study, design_codes
 
+from almond_mcp.features.guidance.library import ConstructionLibrary, HistoryLibrary
+
 # ── Constants ────────────────────────────────────────────────────────────────
 
 DELIMITER = b'\n<<EOF>>\n'
@@ -310,195 +312,8 @@ class MaterialLibrary:
         return results
 
 
-class ConstructionLibrary:
-    """Curated construction-system guidance (asset/constructions/Constructionfiles/manifest.json).
-
-    Parameters distilled from Ching, Building Construction Illustrated
-    (4th ed.): span ranges, depth rules of thumb, member spacing, and
-    assembly notes per construction system, keyed to validate_structure's
-    structure_type/material vocabulary and to asset/constructions/Materialfiles material_ids."""
-
-    REQUIRED = ("system_id", "name", "category", "structural_material",
-                "structure_types", "span_range_m")
-
-    # validate_structure accepts S355 as a steel grade; guidance treats it as Steel.
-    MATERIAL_ALIASES = {"s355": "Steel", "steel": "Steel", "concrete": "Concrete",
-                        "wood": "Wood", "timber": "Wood", "aluminium": "Aluminium",
-                        "aluminum": "Aluminium"}
-
-    def __init__(self, directory: str):
-        self.directory = Path(directory)
-        self.systems: dict[str, dict] = {}
-        self.reference: dict = {}
-        self.source = ""
-        manifest_path = self.directory / "manifest.json"
-        if not manifest_path.is_file():
-            print(f"Construction manifest missing: {manifest_path}", file=sys.stderr)
-            return
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            print(f"Construction manifest unreadable: {exc}", file=sys.stderr)
-            return
-        self.reference = manifest.get("reference", {})
-        self.source = manifest.get("source", "")
-        for system in manifest.get("systems", []):
-            if not all(key in system for key in self.REQUIRED):
-                continue
-            self.systems[system["system_id"]] = system
-        print(f"Indexed {len(self.systems)} construction systems.", file=sys.stderr)
-
-    def get(self, system_id: str) -> dict | None:
-        return self.systems.get(system_id)
-
-    def normalize_material(self, material: str) -> str:
-        return self.MATERIAL_ALIASES.get(material.strip().lower(), material.strip())
-
-    def list(self, category: str = "", query: str = "", material: str = "",
-             structure_type: str = "") -> list[dict]:
-        needle = query.strip().lower()
-        wanted_material = self.normalize_material(material) if material else ""
-        wanted_type = structure_type.strip().lower()
-        results = []
-        for system in self.systems.values():
-            if category and system["category"] != category:
-                continue
-            if wanted_material and system["structural_material"] != wanted_material:
-                continue
-            if wanted_type and wanted_type not in system["structure_types"]:
-                continue
-            if needle:
-                haystack = " ".join([
-                    system["system_id"], system["name"], system["category"],
-                    system.get("structural_material", ""),
-                    " ".join(system.get("tags", [])),
-                    " ".join(note for note in system.get("construction_notes", [])),
-                    " ".join(element.get("role", "") + " " + element.get("note", "")
-                             for element in system.get("elements", [])),
-                ]).lower()
-                if needle not in haystack:
-                    continue
-            results.append(system)
-        return results
-
-    def assess_span(self, structure_type: str, material: str,
-                    span_m: float | None) -> dict:
-        """Constructibility cross-check for a validate_structure run: which
-        curated systems cover this structure_type/material, does the span sit
-        inside a real system's range, and what member depth would it imply."""
-        wanted_material = self.normalize_material(material)
-        wanted_type = structure_type.strip().lower()
-        candidates = [s for s in self.systems.values()
-                      if wanted_type in s["structure_types"]
-                      and s["structural_material"] == wanted_material]
-        check: dict = {
-            "source": "Ching, Building Construction Illustrated (4th ed.) - preliminary sizing guidance",
-            "matching_systems": [],
-            "warnings": [],
-        }
-        if not candidates:
-            check["warnings"].append(
-                f"No curated construction system covers structure_type "
-                f"'{structure_type}' in {wanted_material}; span plausibility "
-                f"not assessed.")
-            return check
-        span_known = span_m is not None and span_m > 0
-        fitting = []
-        for system in candidates:
-            lo, hi = system["span_range_m"]
-            entry = {
-                "system_id": system["system_id"],
-                "name": system["name"],
-                "span_range_m": [lo, hi],
-                "bci_ref": system.get("bci_ref", []),
-            }
-            if span_known and hi > 0:
-                entry["fits_span"] = bool(lo <= span_m <= hi)
-                depths = []
-                for rule in system.get("depth_rules", []):
-                    ratio = rule.get("span_ratio", 0)
-                    if ratio:
-                        depths.append({
-                            "element": rule["element"],
-                            "suggested_depth_mm": round(span_m * 1000 / ratio),
-                            "rule": f"span/{ratio}",
-                        })
-                if depths:
-                    entry["depth_guidance"] = depths
-                if entry["fits_span"]:
-                    fitting.append(system)
-            check["matching_systems"].append(entry)
-        if span_known and not fitting:
-            spans = ", ".join(
-                f"{s['system_id']} ({s['span_range_m'][0]}-{s['span_range_m'][1]} m)"
-                for s in candidates if s["span_range_m"][1] > 0)
-            check["warnings"].append(
-                f"Span {span_m:g} m is outside the typical range of every "
-                f"curated {wanted_material} system for '{structure_type}': "
-                f"{spans}. The structure may still solve numerically, but as "
-                f"drawn it does not correspond to a standard construction "
-                f"system - consider a different system, material, or "
-                f"intermediate supports.")
-        return check
 
 
-class HistoryLibrary:
-    """Curated architectural typology narratives (asset/history/Historyfiles/manifest.json).
-
-    Distilled from Ching, Jarzombek & Prakash, A Global History of
-    Architecture. NARRATION ONLY: entries feed project storytelling and
-    typology context; they never drive geometry, sizing, or structural
-    decisions - those belong to the construction library."""
-
-    REQUIRED = ("typology_id", "name", "era", "narrative", "gha_ref")
-
-    def __init__(self, directory: str):
-        self.directory = Path(directory)
-        self.entries: dict[str, dict] = {}
-        self.source = ""
-        manifest_path = self.directory / "manifest.json"
-        if not manifest_path.is_file():
-            print(f"History manifest missing: {manifest_path}", file=sys.stderr)
-            return
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            print(f"History manifest unreadable: {exc}", file=sys.stderr)
-            return
-        self.source = manifest.get("source", "")
-        for entry in manifest.get("entries", []):
-            if not all(key in entry for key in self.REQUIRED):
-                continue
-            self.entries[entry["typology_id"]] = entry
-        print(f"Indexed {len(self.entries)} typology narratives.", file=sys.stderr)
-
-    def get(self, typology_id: str) -> dict | None:
-        return self.entries.get(typology_id)
-
-    def list(self, query: str = "", construction_system: str = "",
-             structure_type: str = "") -> list[dict]:
-        needle = query.strip().lower()
-        wanted_type = structure_type.strip().lower()
-        results = []
-        for entry in self.entries.values():
-            if construction_system and construction_system not in \
-                    entry.get("related_construction_systems", []):
-                continue
-            if wanted_type and wanted_type not in entry.get("structure_types", []):
-                continue
-            if needle:
-                haystack = " ".join([
-                    entry["typology_id"], entry["name"], entry["era"],
-                    entry.get("region", ""), entry["narrative"],
-                    entry.get("urban_role", ""),
-                    " ".join(entry.get("tags", [])),
-                    " ".join(p.get("name", "") + " " + p.get("place", "")
-                             for p in entry.get("precedents", [])),
-                ]).lower()
-                if needle not in haystack:
-                    continue
-            results.append(entry)
-        return results
 
 
 material_library = MaterialLibrary(MATERIAL_LIBRARY_DIR)
@@ -1006,22 +821,6 @@ def evaluate_generated_asset_fit(
         return {"status": "error", "message": str(exc)}
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
-def search_detail_sources(query: str = "") -> dict:
-    """Search six curated free architectural source directories offline.
-    Returns links, formats and rights notes; no external content is fetched.
-    Results are research candidates, not attributed inputs or certified details.
-    DETAIL subscription access is not required."""
-    data = json.loads((Path(DRAFTING_LIBRARY_DIR)/"sources.json").read_text(encoding="utf-8"))
-    terms = set(re.findall(r"[a-z0-9]+", query.lower()))
-    matches = []
-    for source in data["sources"]:
-        haystack = " ".join([source["title"], *source["tags"], *source["formats"]]).lower()
-        matched = sorted(t for t in terms if t in haystack)
-        if not terms or matched:
-            matches.append({**source, "matched_terms": matched})
-    matches.sort(key=lambda s: (-len(s["matched_terms"]), s["source_id"]))
-    return {"status": "success", "scope": data["scope"], "sources": matches}
 
 
 def get_generation_sources(asset_id: str) -> dict:
@@ -2018,118 +1817,8 @@ def list_materials(category: str = "", query: str = "") -> str:
     })
 
 
-@mcp.tool()
-def get_construction_guidance(
-    query: str = "",
-    category: str = "",
-    material: str = "",
-    structure_type: str = "",
-    span_m: float = 0.0,
-    include_reference_data: bool = False,
-) -> str:
-    """
-    Curated construction-system guidance for generating structures that are
-    built the way real buildings are built - not arbitrary members in space.
-    Parameters are distilled from Ching's Building Construction Illustrated
-    (4th ed.): per-system span ranges, depth rules of thumb (depth = span/N),
-    member spacing, element roles, and assembly notes.
-
-    Call this BEFORE generating structural geometry: pick a system, size and
-    space members from its rules, then generate and run validate_structure
-    (which cross-checks the result against this same library). Each system
-    names its structural_material (validate_structure vocabulary) and
-    render_material_ids (assign_material vocabulary), so the declared
-    construction material flows through analysis AND appears on the Rhino
-    objects.
-
-    Args:
-        query: Free-text filter (e.g. "glulam", "longspan", "bearing wall").
-        category: "floor", "wall", "roof", "foundation" (empty = all).
-        material: "Wood", "Steel", "Concrete" - validate_structure names.
-        structure_type: validate_structure type ("beam", "truss", "shell",
-            "frame", "canopy", "gridshell", "membrane", "highrise").
-        span_m: If > 0, each returned system reports fits_span and
-            suggested member depths from its span-ratio rules.
-        include_reference_data: Also return occupancy live loads (kPa) and
-            material densities (kg/m3) for choosing load_kn inputs.
-    Returns:
-        JSON: {total, systems: [...], reference?} - for wall systems
-        span_range_m is the unsupported height range (span_axis "vertical").
-    """
-    systems = construction_library.list(
-        category=category, query=query, material=material,
-        structure_type=structure_type)
-    payload: dict = {
-        "total": len(systems),
-        "source": construction_library.source,
-        "systems": [],
-    }
-    for system in systems:
-        card = dict(system)
-        card["construction_detail"] = system["name"]
-        card["construction_reference"] = {"kind": "construction_system", "id": system["system_id"]}
-        if span_m > 0:
-            lo, hi = system["span_range_m"]
-            if hi > 0:
-                card["fits_span"] = bool(lo <= span_m <= hi)
-                depths = [
-                    {"element": rule["element"],
-                     "suggested_depth_mm": round(span_m * 1000 / rule["span_ratio"]),
-                     "rule": f"span/{rule['span_ratio']}"}
-                    for rule in system.get("depth_rules", [])
-                    if rule.get("span_ratio")
-                ]
-                if depths:
-                    card["depth_guidance"] = depths
-        payload["systems"].append(card)
-    if include_reference_data:
-        payload["reference"] = construction_library.reference
-    if not systems:
-        payload["hint"] = ("No system matched. Loosen the filters, or call "
-                          "with no arguments to list all systems.")
-    return json.dumps(payload)
 
 
-@mcp.tool()
-def get_typology_narrative(
-    query: str = "",
-    construction_system: str = "",
-    structure_type: str = "",
-    limit: int = 5,
-) -> str:
-    """
-    Architectural typology narratives for project storytelling - precedents,
-    eras, and urban roles distilled from Ching, Jarzombek & Prakash's
-    A Global History of Architecture, with page references (gha_ref).
-
-    NARRATION ONLY: use these entries to caption, contextualize and narrate
-    a design (which tradition a courtyard block belongs to, what a truss
-    hall's civic ancestors are). They must NEVER drive geometry, member
-    sizing, or structural decisions - that is get_construction_guidance's
-    job. A natural pairing: after building with a construction system, call
-    this with construction_system=<that system_id> to fetch the lineage for
-    the project description.
-
-    Args:
-        query: Free text (e.g. "courtyard", "skyscraper", "timber hall").
-        construction_system: Filter to entries related to a construction
-            library system_id (e.g. "steel-column-frame").
-        structure_type: Filter by validate_structure type ("shell",
-            "truss", "frame", "membrane", ...).
-        limit: Maximum entries returned (default 5).
-    Returns:
-        JSON: {total, entries: [{typology_id, name, era, region, narrative,
-        precedents, related_construction_systems, urban_role, gha_ref,
-        tags}], source}.
-    """
-    entries = history_library.list(query=query,
-                                   construction_system=construction_system,
-                                   structure_type=structure_type)
-    return json.dumps({
-        "total": len(entries),
-        "entries": entries[:max(1, limit)],
-        "source": history_library.source,
-    })
 
 
 @mcp.tool()
@@ -4436,12 +4125,16 @@ def repository_asset_resource(asset_id: str) -> str:
     return json.dumps(record)
 
 
+
+
 # Feature factories: explicit composition, no runtime directory discovery.
 from almond_mcp.feature_context import FeatureContext
 from almond_mcp.features.context.tools import register as _register_context
+from almond_mcp.features.guidance.tools import register as _register_guidance
 
 _feature_context = FeatureContext(globals())
 globals().update(_register_context(mcp, _feature_context))
+globals().update(_register_guidance(mcp, _feature_context))
 # End feature composition.
 
 if __name__ == "__main__":
