@@ -17,7 +17,7 @@ for key in list(os.environ):
 os.environ["LOCALAPPDATA"] = str(Path(sys.prefix) / "fresh-data")
 
 import almond_mcp
-from almond_mcp.asset_repository import AssetRepository, create_server
+from almond_mcp.features.assets.asset_repository import AssetRepository, create_server
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 

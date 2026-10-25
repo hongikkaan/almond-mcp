@@ -25,10 +25,15 @@ from fastmcp.tools import ToolResult
 from mcp.types import ImageContent, TextContent
 from PIL import Image as PillowImage
 from pydantic import StrictFloat, StrictInt
-from almond_mcp.ghx_parser import GHParser, validate_capsule_manifest
+from almond_mcp.features.grasshopper.ghx_parser import GHParser, validate_capsule_manifest
 from almond_mcp.retrieval_store import AlmondStore, ComponentReconciliationError, DrawingSheetReconciliationError
-from almond_mcp import modeling_policy, modeling_setup, drawing_assets
-from almond_mcp import asset_passport, asset_loads, conditioning, exchange, paths, drafting, native_structure, structure_study, design_codes
+from almond_mcp.features.modeling import modeling_policy, modeling_setup
+from almond_mcp.features.assets import drawing_assets
+from almond_mcp import asset_passport, paths
+from almond_mcp.features.structure import asset_loads, native_structure, structure_study, design_codes
+from almond_mcp.features.capture import conditioning
+from almond_mcp.features.exchange import exchange
+from almond_mcp.features.assets import drafting
 
 from almond_mcp.features.guidance.library import ConstructionLibrary, HistoryLibrary
 

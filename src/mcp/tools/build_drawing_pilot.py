@@ -6,7 +6,8 @@ import sys
 
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "src" / "mcp"))
-from almond_mcp import __version__, drafting
+from almond_mcp import __version__
+from almond_mcp.features.assets import drafting
 
 IDS = ["gen-park-bench-1", "gen-office-chair-1", "gen-dining-table-rect-1",
        "gen-sofa-3-seat-1", "gen-bed-double-1", "gen-washbasin-pedestal-1",

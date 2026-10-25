@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pytest
 
-from almond_mcp import frame_solver as fs
+from almond_mcp.features.structure import frame_solver as fs
 
 STEEL = fs.material("Steel")
 SEC = fs.chs(114.3, 4.0)

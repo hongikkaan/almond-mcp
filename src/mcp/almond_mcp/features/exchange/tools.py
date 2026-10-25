@@ -5,7 +5,8 @@ import json
 from pathlib import Path
 import uuid
 
-from almond_mcp import modeling_setup, paths
+from almond_mcp.features.modeling import modeling_setup
+from almond_mcp import paths
 
 
 def register(mcp, context):

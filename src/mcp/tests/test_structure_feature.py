@@ -1,4 +1,4 @@
-"""Contracts for extracted structural tools, history and compatibility imports.
+"""Contracts for extracted structural tools, history and canonical dependencies.
 
 Bridge replies are test data; these tests never contact or modify Rhino.
 """
@@ -140,16 +140,26 @@ def test_native_validation_history_report_and_service_replacement(extracted_serv
         assert json.loads(overridden["_bridge_call"]({}, 1))["status"] == "overridden"
 
 
-@pytest.mark.parametrize("name", [
-    "native_structure", "frame_solver", "ec3", "floor_loads", "asset_loads", "design_codes", "structure_study",
+@pytest.mark.parametrize("consumer, attribute, dependency", [
+    ("asset_loads", "fs", "frame_solver"),
+    ("floor_loads", "fs", "frame_solver"),
+    ("native_structure", "al", "asset_loads"),
+    ("native_structure", "ec3", "ec3"),
+    ("native_structure", "dc", "design_codes"),
+    ("native_structure", "fl", "floor_loads"),
+    ("native_structure", "fs", "frame_solver"),
+    ("structure_study", "asset_loads", "asset_loads"),
+    ("structure_study", "design_codes", "design_codes"),
+    ("structure_study", "native_structure", "native_structure"),
+    ("tools", "asset_loads", "asset_loads"),
+    ("tools", "design_codes", "design_codes"),
+    ("tools", "native_structure", "native_structure"),
+    ("tools", "structure_study", "structure_study"),
 ])
-def test_old_imports_share_feature_module_identity(name, monkeypatch):
-    old = importlib.import_module(f"almond_mcp.{name}")
-    moved = importlib.import_module(f"almond_mcp.features.structure.{name}")
-    assert old is moved
-    marker = object()
-    monkeypatch.setattr(old, "_identity_probe", marker, raising=False)
-    assert moved._identity_probe is marker
+def test_structure_consumers_share_canonical_module_dependencies(consumer, attribute, dependency):
+    module = importlib.import_module(f"almond_mcp.features.structure.{consumer}")
+    canonical = importlib.import_module(f"almond_mcp.features.structure.{dependency}")
+    assert getattr(module, attribute) is canonical
 
 
 def test_builtin_design_code_resource_stays_at_package_path():

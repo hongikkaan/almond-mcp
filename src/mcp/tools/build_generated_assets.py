@@ -39,7 +39,8 @@ REPO = Path(__file__).resolve().parents[3]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO / "src" / "mcp"))
 
-from almond_mcp import __version__, exchange  # noqa: E402
+from almond_mcp import __version__  # noqa: E402
+from almond_mcp.features.exchange import exchange  # noqa: E402
 from almond_mcp.asset_passport import enrich_asset  # noqa: E402
 
 LIBRARY_DIR = REPO / "asset" / "models" / "GeneratedAssetfiles"

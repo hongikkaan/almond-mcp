@@ -9,7 +9,7 @@ import ezdxf
 import numpy as np
 import pytest
 
-from almond_mcp import drafting as d
+from almond_mcp.features.assets import drafting as d
 from test_generated_assets import load_server_module
 
 

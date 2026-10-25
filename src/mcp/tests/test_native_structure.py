@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from almond_mcp import frame_solver as fs
-from almond_mcp import native_structure as ns
+from almond_mcp.features.structure import frame_solver as fs
+from almond_mcp.features.structure import native_structure as ns
 
 REF = json.loads((Path(__file__).parent / "data" / "karamba_reference.json").read_text())
 CASES = {c["id"]: c for c in REF["cases"]}

@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from almond_mcp.asset_passport import read_glb_chunks
-from almond_mcp.drafting import load_triangles
+from almond_mcp.features.assets.drafting import load_triangles
 
 ROOT = Path(__file__).resolve().parents[2]
 HOST = os.environ.get("ALMOND_ARCHIVE_TEST_HOST")

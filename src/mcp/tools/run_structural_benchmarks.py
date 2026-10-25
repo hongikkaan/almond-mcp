@@ -14,8 +14,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src" / "mcp"))
 
-from almond_mcp import frame_solver as fs          # noqa: E402
-from almond_mcp import native_structure as ns      # noqa: E402
+from almond_mcp.features.structure import frame_solver as fs  # noqa: E402
+from almond_mcp.features.structure import native_structure as ns  # noqa: E402
 
 STEEL, SEC = fs.material("Steel"), fs.chs(114.3, 4.0)
 EI, EA = STEEL.E * SEC.Iy, STEEL.E * SEC.A
