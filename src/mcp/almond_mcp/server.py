@@ -1,11 +1,7 @@
-"""
-MCP Server for Rhino AI Plugin (v1.4)
+"""Assemble Almond feature factories, shared services, and the TCP entry point.
 
-Exposes tools for Claude to:
-  1. list_library          — discover available physics archetypes
-  2. get_logic_by_id       — retrieve parsed physics context for a specific archetype
-  3. execute_rhino_script  — send C# RhinoCommon code to the Rhino bridge
-  4. validate_structure    — run Karamba3D structural analysis on generated geometry
+Feature implementations live under features/. Public imports and helper exports
+remain available here for runtime rebinding and existing callers.
 """
 import os
 import base64
@@ -22,6 +18,7 @@ import uuid
 import urllib.error
 import urllib.request
 from pathlib import Path
+from almond_mcp.library_index import AssetLibraryIndexer
 from fastmcp import FastMCP
 from fastmcp.resources import ResourceContent, ResourceResult
 from fastmcp.tools import ToolResult
@@ -91,115 +88,6 @@ mcp = FastMCP("Almond", instructions=(
     "heuristics and clearances are design allowances, not certified code compliance."
 ))
 
-# ── Library Indexer ──────────────────────────────────────────────────────────
-
-
-
-class AssetLibraryIndexer:
-    """Indexes one controlled asset manifest and resolves safe local files."""
-
-    def __init__(self, directory: str, library_id: str, label: str):
-        self.directory = Path(directory).resolve()
-        self.manifest_path = self.directory / "manifest.json"
-        self.library_id = library_id
-        self.label = label
-        self.assets: dict[str, dict] = {}
-        self.catalogue_region = ""
-        self.catalogue_checked = ""
-        self._load()
-
-    def _load(self):
-        if not self.manifest_path.is_file():
-            print(f"{self.label} manifest not found: {self.manifest_path}", file=sys.stderr)
-            return
-
-        with self.manifest_path.open("r", encoding="utf-8") as manifest_file:
-            manifest = json.load(manifest_file)
-
-        self.catalogue_region = manifest.get("catalogue_region", "")
-        self.catalogue_checked = manifest.get("catalogue_checked", "")
-        manifest_library_id = manifest.get("library_id", self.library_id)
-        if manifest_library_id != self.library_id:
-            print(
-                f"Skipping {self.label}: expected library_id {self.library_id}, "
-                f"found {manifest_library_id}.",
-                file=sys.stderr,
-            )
-            return
-        # Treat each successful manifest read as a complete snapshot. Updating
-        # the old map in place would keep removed IDs searchable after reload.
-        assets: dict[str, dict] = {}
-        for asset in manifest.get("assets", []):
-            asset_id = str(asset.get("asset_id", "")).strip()
-            relative_file = str(asset.get("file", "")).strip()
-            if not asset_id or not relative_file:
-                continue
-            resolved_file = (self.directory / relative_file).resolve()
-            try:
-                resolved_file.relative_to(self.directory)
-            except ValueError:
-                print(f"Skipping {self.label} asset outside library root: {asset_id}", file=sys.stderr)
-                continue
-            record = dict(asset)
-            record["library_id"] = self.library_id
-            record["_resolved_file"] = str(resolved_file)
-            record["file_available"] = resolved_file.is_file()
-            assets[asset_id] = record
-
-        self.assets = assets
-        print(f"Indexed {len(self.assets)} {self.label} assets.", file=sys.stderr)
-
-    def public_record(self, asset: dict) -> dict:
-        return {key: value for key, value in asset.items() if not key.startswith("_")}
-
-    def get(self, asset_id: str) -> dict | None:
-        return self.assets.get(asset_id)
-
-    def search(
-        self,
-        query: str = "",
-        category: str = "",
-        max_width_mm: float = 0,
-        max_depth_mm: float = 0,
-        max_height_mm: float = 0,
-        exact_dimensions_only: bool = False,
-        limit: int = 10,
-    ) -> list[dict]:
-        query_tokens = set(re.findall(r"[a-z0-9]+", query.lower()))
-        category = category.lower().strip()
-        results = []
-
-        for asset in self.assets.values():
-            if category and asset.get("category", "").lower() != category:
-                continue
-            if exact_dimensions_only and asset.get("match_status") != "exact_dimensions":
-                continue
-
-            dimensions = asset.get("dimensions_mm", {})
-            if max_width_mm > 0 and dimensions.get("width", 0) > max_width_mm:
-                continue
-            if max_depth_mm > 0 and dimensions.get("depth", 0) > max_depth_mm:
-                continue
-            if max_height_mm > 0 and dimensions.get("height", 0) > max_height_mm:
-                continue
-
-            searchable = " ".join([
-                asset.get("series", ""),
-                asset.get("product", ""),
-                asset.get("variant", ""),
-                asset.get("category", ""),
-                " ".join(asset.get("tags", [])),
-            ]).lower()
-            score = sum(1 for token in query_tokens if token in searchable)
-            if query_tokens and score == 0:
-                continue
-            results.append((score, asset.get("series", ""), self.public_record(asset)))
-
-        results.sort(key=lambda item: (-item[0], item[1], item[2]["asset_id"]))
-        return [item[2] for item in results[:max(1, min(limit, 50))]]
-
-
-
 
 # Build index once on startup
 indexer = LibraryIndexer(LIBRARY_DIR)
@@ -221,12 +109,6 @@ generated_asset_indexer = AssetLibraryIndexer(
 drawing_recipe_indexer = DrawingRecipeIndexer(DRAWING_RECIPE_DIR)
 
 
-
-
-
-
-
-
 material_library = MaterialLibrary(MATERIAL_LIBRARY_DIR)
 construction_library = ConstructionLibrary(CONSTRUCTION_LIBRARY_DIR)
 history_library = HistoryLibrary(paths.resolve_dir("RHINO_MCP_HISTORY_DIR"))
@@ -246,8 +128,6 @@ retrieval_store.sync_assets(
     list(generated_asset_indexer.assets.values()),
     library_id="generated_assets",
 )
-
-
 
 
 capsule_sync_report = _sync_capsule_library(retrieval_store, CAPSULE_LIBRARY_DIR)
@@ -289,279 +169,7 @@ def _send_and_receive(payload_bytes: bytes, timeout: float = 60.0) -> str:
 
 
 
-
-
-
-
-
-# ── MCP Tools ────────────────────────────────────────────────────────────────
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Legacy generated-asset implementations remain for resources, load tables and
-# existing Python callers; the public modeling catalog uses drawing_assets.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 _VIEW_ENGINE: str | None = None   # which engine drew the current overlay ("native" | "api")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # Feature factories: explicit composition, no runtime directory discovery.
@@ -604,4 +212,3 @@ globals().update(_register_structure(mcp, _feature_context))
 
 if __name__ == "__main__":
     mcp.run()
-

@@ -312,7 +312,8 @@ class GHParser:
         return context
 
 
-if __name__ == "__main__":
+def main():
+    """Preserve the parser command-line entry point after the feature move."""
     import sys
     if len(sys.argv) > 1:
         parser = GHParser(sys.argv[1])
@@ -321,3 +322,7 @@ if __name__ == "__main__":
             print(res.model_dump_json(indent=2))
         except Exception as e:
             print(f"Error parsing: {e}")
+
+
+if __name__ == "__main__":
+    main()

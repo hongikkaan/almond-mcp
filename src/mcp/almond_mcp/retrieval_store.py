@@ -45,7 +45,10 @@ from almond_mcp.features.drawings.store import DrawingsStore
 from almond_mcp.features.assets.store import AssetsStore
 
 
-class AlmondStore(ScenesStore, ComponentsStore, PlacementStore, GrasshopperStore, StructureStore, PlanningStore, DrawingsStore, AssetsStore):
+class AlmondStore(
+    ScenesStore, ComponentsStore, PlacementStore, GrasshopperStore,
+    StructureStore, PlanningStore, DrawingsStore, AssetsStore,
+):
     """SQLite-backed asset retrieval, spatial state, and generation plans."""
 
     def __init__(self, database_path: str | Path):
@@ -339,29 +342,13 @@ class AlmondStore(ScenesStore, ComponentsStore, PlacementStore, GrasshopperStore
     # Asset registry -----------------------------------------------------
 
 
-
-
-
-
     # Capsule registry ---------------------------------------------------
-
-
-
 
 
     # Scene ledger -------------------------------------------------------
 
 
-
-
-
-
     # Structural validation history ---------------------------------------
-
-
-
-
-
 
 
     def _record_revision(
@@ -391,59 +378,3 @@ class AlmondStore(ScenesStore, ComponentsStore, PlacementStore, GrasshopperStore
             (scene_id, revision, operation, _json(patch), now),
         )
         return revision
-
-    # Explicit Rhino components -----------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # Dependency-aware generation plans --------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # Drawing sheets: authored modelspace regions and persistent Layouts --

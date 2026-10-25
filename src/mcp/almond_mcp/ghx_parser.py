@@ -3,4 +3,7 @@ import sys
 
 from almond_mcp.features.grasshopper import ghx_parser as implementation
 
-sys.modules[__name__] = implementation
+if __name__ == "__main__":
+    implementation.main()
+else:
+    sys.modules[__name__] = implementation
