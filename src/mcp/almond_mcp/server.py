@@ -1202,95 +1202,12 @@ def import_drawing_hatch_patterns(asset_id: str) -> str:
         })
 
 
-@mcp.tool()
-def list_diagram_assets(category: str = "", limit: int = 20, offset: int = 0) -> str:
-    """Lists available vector and CAD diagram assets (people, trees, symbols)."""
-    page = retrieval_store.search_assets(
-        library_id="diagram_assets",
-        category=category,
-        limit=limit,
-        offset=offset,
-    )
-    return json.dumps({
-        "library_id": "diagram_assets",
-        "purpose": "2D vector diagramming and line-art",
-        **page,
-    })
 
 
-@mcp.tool()
-def search_diagram_assets(
-    query: str = "",
-    category: str = "",
-    max_width_mm: float = 0,
-    max_depth_mm: float = 0,
-    max_height_mm: float = 0,
-    limit: int = 10,
-    offset: int = 0,
-) -> str:
-    """Searches the diagram asset library."""
-    return json.dumps(retrieval_store.search_assets(
-        query=query,
-        library_id="diagram_assets",
-        category=category,
-        max_width_mm=max_width_mm,
-        max_depth_mm=max_depth_mm,
-        max_height_mm=max_height_mm,
-        limit=limit,
-        offset=offset,
-    ))
 
 
-@mcp.tool()
-def get_diagram_asset(asset_id: str) -> str:
-    """Returns one diagram asset's metadata."""
-    asset = retrieval_store.get_asset(asset_id, library_id="diagram_assets")
-    if not asset:
-        return json.dumps({"status": "error", "message": f"Unknown diagram asset_id: {asset_id}"})
-    return json.dumps({"status": "success", "asset": asset})
 
 
-@mcp.tool()
-def place_diagram_asset(
-    asset_id: str,
-    x: float = 0,
-    y: float = 0,
-    z: float = 0,
-    rotation_degrees: float = 0,
-    scale: float = 1,
-) -> str:
-    """Places an indexed diagram asset (SVG, DWG, DXF)."""
-    asset = diagram_asset_indexer.get(asset_id)
-    if not asset:
-        return json.dumps({"status": "error", "message": f"Unknown diagram asset_id: {asset_id}"})
-    if not asset.get("file_available"):
-        return json.dumps({"status": "error", "message": f"Diagram asset file is missing for {asset_id}."})
-        
-    payload = json.dumps({
-        "type": "place_drawing_asset",
-        "asset_id": asset_id,
-        "file_path": asset["_resolved_file"],
-        "name": f"{asset.get('product', '')} {asset.get('variant', '')}".strip(),
-        "position": [x, y, z],
-        "rotation_degrees": rotation_degrees,
-        "scale": scale,
-        "metadata": {
-            "library_id": "diagram_assets",
-            "product": asset.get("product"),
-            "variant": asset.get("variant"),
-            "category": asset.get("category"),
-            "dimensions_mm": asset.get("dimensions_mm"),
-            "drawing_roles": asset.get("drawing_roles", []),
-            "lod": asset.get("lod"),
-        },
-    }).encode("utf-8")
-
-    try:
-        return _send_and_receive(payload, timeout=90.0)
-    except socket.timeout:
-        return json.dumps({"status": "error", "message": "Rhino diagram import timed out."})
-    except Exception as exc:
-        return json.dumps({"status": "error", "message": f"Diagram asset placement failed: {exc}"})
 
 
 
@@ -1893,11 +1810,14 @@ def repository_asset_resource(asset_id: str) -> str:
 
 
 
+
+
 # Feature factories: explicit composition, no runtime directory discovery.
 from almond_mcp.feature_context import FeatureContext
 from almond_mcp.features.capture.tools import register as _register_capture
 from almond_mcp.features.components.tools import register as _register_components
 from almond_mcp.features.context.tools import register as _register_context
+from almond_mcp.features.diagrams.tools import register as _register_diagrams
 from almond_mcp.features.egress.tools import register as _register_egress
 from almond_mcp.features.grasshopper.tools import register as _register_grasshopper
 from almond_mcp.features.guidance.tools import register as _register_guidance
@@ -1912,6 +1832,7 @@ _feature_context = FeatureContext(globals())
 globals().update(_register_capture(mcp, _feature_context))
 globals().update(_register_components(mcp, _feature_context))
 globals().update(_register_context(mcp, _feature_context))
+globals().update(_register_diagrams(mcp, _feature_context))
 globals().update(_register_egress(mcp, _feature_context))
 globals().update(_register_grasshopper(mcp, _feature_context))
 globals().update(_register_guidance(mcp, _feature_context))
