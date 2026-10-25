@@ -36,6 +36,15 @@ def call_scoped(original, server, folder: Path, allowed: set[str], args, kwargs)
         # Keep the current operation's binding checks and native completion tracking.
         return server._send_and_receive(json.dumps(request).encode("utf-8"), *positional, **keywords)
 
+    feature_context = getattr(server, "_feature_context", None)
+    if feature_context is not None:
+        with feature_context.override(
+            tempfile=SimpleNamespace(gettempdir=lambda: str(folder)),
+            _send_and_receive=scoped_sender,
+        ):
+            return original(*args, **kwargs)
+
+    # Keep the existing adapter for callers supplying module-level helpers.
     namespace = dict(original.__globals__)
     namespace.update(tempfile=SimpleNamespace(gettempdir=lambda: str(folder)),
                      _send_and_receive=scoped_sender)
