@@ -8,6 +8,8 @@ class Program
 {
     static void Main(string[] args)
     {
+        // Python integration probes read every mode, including validation errors, as UTF-8.
+        Console.OutputEncoding = new System.Text.UTF8Encoding(false);
         if (args[0] == "--settings")
         {
             try { Console.WriteLine(AnalysisSettings.Parse(File.ReadAllText(args[1])).ToJson().ToString(Formatting.None)); }

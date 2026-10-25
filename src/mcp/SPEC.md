@@ -21,6 +21,83 @@ Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema�
 공개 API 내부 동작을 바꾸더라도 COS fingerprint 대상 파일이 바뀌면 COS catalog를
 재생성하고 루트 통합 검사를 수행한다. 공유 계약 변경을 임의로 우회하지 않는다.
 
+## 기능별 구현과 소유권
+
+공개 MCP 도구의 실제 구현은 `almond_mcp/features/<기능>/tools.py`에 있다.
+기존 `src/mcp/tools/`는 자료 생성·검증 스크립트이므로 공개 도구의 위치와 구분한다.
+각 기능의 `register(mcp, context)`는 명시적으로 도구·resource를 등록하고 기존 이름의
+함수 dict를 반환한다. `server.py`는 공용 서비스 생성과 정적 factory 조립을 맡는다.
+폴더명을 입력받아 SQL이나 모듈을 동적으로 찾거나 실행하지 않는다.
+
+| 폴더 | 분류·성격 | 소유한 구현과 기능 |
+|---|---|---|
+| [`context`](almond_mcp/features/context) | 관찰·진단 | 모델·화면·프로브와 저장소 상태를 조회한다. runtime의 almond_project_info와 COS 연결관리 도구는 각 호스트에 남는다. |
+| [`planning`](almond_mcp/features/planning) | 작업계획 | Phase·Plan·Step, 참조 대상·의존 순서·evidence·immutable revision과 계획 SQL을 소유한다. |
+| [`scenes`](almond_mcp/features/scenes) | Scene | 설계 의도와 Scene 장부, 일반 객체의 Scene 참조를 관리한다. |
+| [`components`](almond_mcp/features/components) | Component | 등록 group의 소유권·계층·조회·동기화, focus·교차 관찰 및 native snapshot 정합과 SQL을 소유한다. |
+| [`placement`](almond_mcp/features/placement) | 배치 | Room·asset instance의 장부와 배치·containment·충돌·하중 검사를 소유한다. Component 전체 기하 검증을 대신하지 않는다. |
+| [`guidance`](almond_mcp/features/guidance) | 설계 참고자료 | 시공 지침·유형 서사·상세자료 후보 탐색과 ConstructionLibrary·HistoryLibrary를 소유한다. |
+| [`modeling`](almond_mcp/features/modeling) | 모델링·재료 | 실행 도구·모델링 정책·초기 재료 설정·재료 적용과 MaterialLibrary를 소유한다. 공용 native C#·정책 JSON 위치는 유지한다. |
+| [`grasshopper`](almond_mcp/features/grasshopper) | Grasshopper | GHX 해석·archetype·감사된 capsule 조회/실행, LibraryIndexer와 capsule 색인 SQL을 소유한다. |
+| [`assets`](almond_mcp/features/assets) | 자산 | 자산 탐색·등록·배치·파생 도면·repository, 공개 resource와 비공개 generated-asset helper, 자산 색인 SQL을 소유한다. |
+| [`diagrams`](almond_mcp/features/diagrams) | 다이어그램 | 사람·나무·기호 등 벡터/CAD 자산의 조회·검색·메타데이터·배치를 소유한다. 자산 DB와 manifest indexer는 공유한다. |
+| [`drawings`](almond_mcp/features/drawings) | 도면·Sheet | recipe 색인·표현 스타일·해치 import와 Sheet/Layout 장부·축척·native 정합 및 SQL을 소유한다. |
+| [`structure`](almond_mcp/features/structure) | 구조검토 | 설계 기준·구조검사·시각화·보고서, 관련 계산·하중·study 모듈과 검사 이력 SQL을 소유한다. |
+| [`egress`](almond_mcp/features/egress) | 피난검사 | 피난 조건 검사를 소유하고 공용 시공 라이브러리 데이터를 사용한다. |
+| [`exchange`](almond_mcp/features/exchange) | 외부교환 | GLB·almond.json 교환, 재료·metadata 복원·배치·실측 비교와 Blender helper를 소유한다. |
+| [`capture`](almond_mcp/features/capture) | 캡처 | conditioning pass 캡처와 이미지 처리를 소유한다. |
+| [`publishing`](almond_mcp/features/publishing) | 게시 | Chestnut 게시 payload·첨부와 객체 게시 처리를 소유한다. |
+
+### 공개 도구 위치
+
+아래 76개는 package 공개 도구다. runtime의 `almond_project_info`를 포함한 COS 입력 catalog는 77개이며, COS의 연결관리 도구는 별도로 유지한다.
+
+| 기능 | 공개 함수 |
+|---|---|
+| 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `get_rhino_probe`, `get_rhino_viewport_image` |
+| 작업계획 | `create_generation_phase`, `get_generation_phase`, `list_generation_phases`, `update_generation_phase`, `create_generation_plan`, `get_generation_plan`, `list_generation_plans`, `update_generation_plan`, `list_generation_plan_revisions`, `update_generation_step`, `resolve_generation_targets` |
+| Scene | `create_design_scene`, `get_design_scene`, `register_scene_objects`, `get_scene_objects` |
+| Component | `upsert_design_component`, `get_design_component`, `list_design_components`, `sync_design_component`, `remove_design_component`, `get_component_intersections`, `focus_components` |
+| 배치 | `upsert_design_room`, `register_scene_instance`, `remove_scene_instance`, `remove_design_room`, `validate_scene_layout` |
+| 설계 참고자료 | `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
+| 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `setup_modeling`, `list_materials`, `assign_material` |
+| Grasshopper | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` |
+| 자산 | `list_drawing_assets`, `search_drawing_assets`, `get_drawing_asset`, `register_drawing_asset`, `get_asset_drawing`, `generate_asset_drawing_views`, `audit_asset_drawing`, `place_drawing_asset`, `search_asset_repository` |
+| 다이어그램 | `list_diagram_assets`, `search_diagram_assets`, `get_diagram_asset`, `place_diagram_asset` |
+| 도면·Sheet | `list_drawing_recipes`, `get_drawing_recipe`, `apply_drawing_style`, `import_drawing_hatch_patterns`, `upsert_drawing_sheet`, `get_drawing_sheet`, `list_drawing_sheets`, `sync_drawing_sheet`, `remove_drawing_sheet` |
+| 구조검토 | `validate_structure`, `list_design_codes`, `visualize_structure`, `export_structural_report` |
+| 피난검사 | `check_egress` |
+| 외부교환 | `export_asset_contract`, `import_asset_contract`, `get_blender_helper_script` |
+| 캡처 | `capture_conditioning_pass` |
+| 게시 | `publish_objects_to_chestnut`, `publish_to_chestnut` |
+
+### 공용 서비스와 DB 연결
+
+- `feature_context.py`는 서버별 namespace를 조회한다. 도구가 sender·store를 호출할 때 현재 값을 읽으므로 runtime binding과 테스트 대체 주입이 반영된다. 서버 사이에 feature 전역 상태를 공유하지 않는다. `override`는 ContextVar로 호출별 보고서 경로와 sender를 한정하며 종료 시 복원한다.
+- `server.py`는 경로·라이브러리 인스턴스·색인 동기화·MCP 조립과 기존 TCP sender를 유지한다. 라이브러리 초기화의 시점·순서는 기존과 같다. `library_index.py`의 `AssetLibraryIndexer`는 drawing·diagram·generated manifest가 공유한다. `paths.py`, `asset_passport.py`와 native 모델링 자원도 공용이다.
+- `retrieval_store.AlmondStore`는 8개 feature store를 정적으로 합성하는 기존 진입점이다. `_connect`는 작업별 SQLite 연결을 열고 성공 시 commit, 예외 시 rollback, 끝에 close한다. 기초 schema·migration 호출 순서·공용 revision 기반은 여기에 남고 `store_common.py`는 직렬화·시각·공용 예외 identity를 제공한다.
+- `assets`, `grasshopper`, `scenes`, `components`, `placement`, `planning`, `drawings`, `structure`의 `store.py`가 각각 기능의 규칙과 SQL을 소유한다. DB를 기능별로 새로 만들거나 일반 UPSERT 엔진으로 바꾸지 않는다. 한 논리 작업의 검사와 기록은 이전과 같은 연결·transaction에서 실행된다.
+- `planning`은 Component reader를 사용한다. `drawings`는 planning 참조 helper와 component의 GUID·모델·native 검증을 사용한다. `scenes`도 component의 객체 소유·관측 helper를 사용한다. `placement`는 Scene·Assets 조회를 사용한다. 이 호출들은 같은 facade의 명시적 메서드이며 폴더를 파싱하지 않는다.
+- Component·Sheet는 DB 사전검사 → native 변경 → 완전한 snapshot 확인 → DB 기록의 기존 순서를 지킨다. native 실행 후 DB 오류를 Rhino rollback으로 취급하지 않는다.
+- `runtime/compat_almond.py`는 외부교환 helper의 보고서를 작업별 디렉터리로 제한한다. factory context override와 기존 module 함수 adapter를 지원하며 현재 sender의 binding·완료 receipt 검증을 유지한다.
+
+### 호환 경로와 검증
+
+기존 `almond_mcp` 바로 아래의 `modeling_policy`, `modeling_setup`, `ghx_parser`,
+`drawing_assets`, `drafting`, `asset_repository`, `conditioning`, `exchange`,
+`native_structure`, `frame_solver`, `ec3`, `floor_loads`, `asset_loads`, `design_codes`,
+`structure_study` import 경로는 새 구현 모듈의 정적 별칭이다. 같은 module identity를
+사용해 기존 monkeypatch·호출부를 보존하며 구현을 두 벌로 유지하지 않는다.
+서버의 기존 함수·클래스 이름도 조립 시 re-export한다. 비공개 generated-asset helper를
+새 공개 MCP 도구로 노출하지 않고 기존 resource URI·등록을 유지한다.
+
+각 기능의 직접 검사는 `tests/test_<기능>_feature.py`에서 factory·store를 사용한다.
+전체 회귀는 `run_tests.ps1`, 호스트·catalog 검사는 COS runner, 모듈 경계·실제 전체
+schema·패키징은 루트 통합 검사를 사용한다. 새 기능 파일을 추가하거나 기존 구현을
+바꾸면 catalog를 재생성한다. COS는 server와 feature factory의 AST에서 schema를
+읽으며 서버/DB를 import하지 않는다. package의 모든 Python 파일 목록과 내용이
+fingerprint 대상이므로 이동·추가·삭제도 감지한다.
+
 ## 실행·관측 계약
 
 연결마다 token·session·call 디렉터리와 프로세스 identity를 확인한다. 모델 폴더의

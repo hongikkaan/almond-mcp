@@ -50,6 +50,30 @@ COS의 `run_tests.ps1`은 필요한 .NET fixture를 준비하고 Python host/wor
 `ALMOND_ARCHIVE_TEST_HOST`에 그 실행 파일의 절대 경로를 지정한다. 해당 host가 없으면
 관련 검사는 건너뛰므로, 이를 native 검증 완료로 보고하지 않는다.
 
+## MCP 기능별 워크트리
+
+MCP 내부 기능 소유권과 공용 의존 관계는 [MCP SPEC](../../src/mcp/SPEC.md#기능별-구현과-소유권)을 따른다.
+기능 작업자는 `features/<기능>/`과 해당 기능 검사를 중심으로 작업한다.
+새 tool 등록, 공용 schema·서비스, `server.py` 조립, `retrieval_store.py` 합성,
+COS catalog와 호스트 계약은 통합 담당자와 조율한다. 기능 분리가 공용 계약의
+충돌이나 모델 DB 공유를 없애지는 않는다.
+
+현재 기능 분리의 통합 대상은 원격 `SPLIT`이다. 기능 브랜치는 `work/split-<기능>`처럼
+별도 이름을 쓰고 PR base를 `SPLIT`으로 지정한다. Windows에서는 `SPLIT`과
+`split/<기능>` ref가 경로 대소문자로 충돌하므로 `split/` 접두사를 사용하지 않는다.
+일상 폴더는 `main`을 유지하며 SPLIT 통합을 일상 설치 배포로 간주하지 않는다.
+SPLIT을 main에 반영하고 일상 설치를 갱신하는 작업은 별도 시작 지시를 따른다.
+
+```powershell
+git fetch origin
+# 새 작업 예시: 로컬 SPLIT 브랜치를 만들 필요가 없다.
+git worktree add -b work/split-example C:/TOOL/Almond-worktrees/split-example origin/SPLIT
+```
+
+`origin/SPLIT`은 fetch로 갱신하는 원격 추적 ref다. fetch는 현재 브랜치를 바꾸거나
+일상 폴더의 추적 파일을 갱신하지 않는다. 각 기능 checkout에서 자기 환경을 구성하고
+기능 검사 후 MCP 전체·COS catalog와 영향받는 통합 계약을 검증한다.
+
 ## 빌드 결과와 통합
 
 Bridge는 `src/rhp/build.ps1`, COS는 `src/cos/build.ps1`로 빌드한다. 각 빌드는 자기

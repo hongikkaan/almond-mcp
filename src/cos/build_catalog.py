@@ -49,16 +49,31 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
     return node
 
 
+def collect_tool_functions(server_path: Path) -> list[ast.FunctionDef]:
+    sources = [server_path, *sorted(server_path.parent.glob("features/*/tools.py"))]
+    functions = []
+    for path in sources:
+        tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+        candidates = list(tree.body)
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name == "register":
+                candidates.extend(node.body)
+        functions.extend(n for n in candidates if isinstance(n, ast.FunctionDef) and
+                         any(isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
+                             and isinstance(d.func.value, ast.Name) and d.func.value.id == "mcp"
+                             and d.func.attr == "tool" for d in n.decorator_list))
+    names = [node.name for node in functions]
+    if len(names) != len(set(names)):
+        raise RuntimeError("Duplicate public tool definitions across feature sources.")
+    return functions
+
+
 async def generate(engine: Path = ENGINE) -> dict:
     from fastmcp import FastMCP
     from fastmcp.tools import ToolResult
     from pydantic import StrictInt, StrictFloat
     paths = source_paths(engine)
-    server = ast.parse(paths["server"].read_text(encoding="utf-8-sig"))
-    functions = [n for n in server.body if isinstance(n, ast.FunctionDef) and
-                 any(isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
-                     and isinstance(d.func.value, ast.Name) and d.func.value.id == "mcp"
-                     and d.func.attr == "tool" for d in n.decorator_list)]
+    functions = collect_tool_functions(paths["server"])
     entry = ast.parse(paths["entry"].read_text(encoding="utf-8-sig"))
     project_info = next(n for n in ast.walk(entry)
                         if isinstance(n, ast.FunctionDef) and n.name == "almond_project_info")

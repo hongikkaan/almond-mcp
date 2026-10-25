@@ -1,5 +1,4 @@
 """Baseline compatibility with unchanged extracted helpers and operation receipts."""
-import ast
 import asyncio
 import hashlib
 import json
@@ -10,8 +9,10 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 import uuid
-import almond_mcp
 from almond_mcp import modeling_setup
+from almond_mcp.feature_context import FeatureContext
+from almond_mcp.features.exchange.tools import register
+from fastmcp import FastMCP
 from uuid import uuid4
 
 from compat_almond import install
@@ -44,14 +45,6 @@ class Context:
 
 
 class HelperTests(unittest.IsolatedAsyncioTestCase):
-    @classmethod
-    def setUpClass(cls):
-        source = Path(almond_mcp.__file__).with_name("server.py").read_text(encoding="utf-8-sig")
-        names = {"_material_groups", "_receive_contract", "_restore_and_place_script"}
-        functions = [n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name in names]
-        assert {n.name for n in functions} == names
-        cls.code = compile(ast.Module(body=functions, type_ignores=[]), "<unchanged Almond helper definitions>", "exec")
-
     def setUp(self):
         fixture_dir = TEST_DATA / "test-fixtures"
         fixture_dir.mkdir(parents=True, exist_ok=True)
@@ -85,8 +78,11 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
         namespace = dict(json=json, Path=Path, tempfile=tempfile, uuid=uuid, hashlib=hashlib,
                          material_library=SimpleNamespace(materials={}, get={}.get),
                          modeling_setup=modeling_setup, exchange=exchange, _send_and_receive=bound_sender)
-        exec(self.code, namespace)
         self.helpers = SimpleNamespace(**namespace)
+        self.helpers._feature_context = FeatureContext(self.helpers.__dict__)
+        exports = register(FastMCP("exchange report fixture"), self.helpers._feature_context)
+        self.helpers.__dict__.update(exports)
+        namespace.update(exports)
         install(self.helpers, self.runtime)
         self.assertIs(self.helpers._send_and_receive, bound_sender)
         self.assertIs(self.helpers._material_groups.__wrapped__, namespace["_material_groups"])
