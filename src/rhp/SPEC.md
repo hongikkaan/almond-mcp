@@ -61,3 +61,9 @@ Terminal은 TerminalSmoke·AlmondHostContracts·TerminalControls와 Node 입력 
 
 Bridge·연결 RHP의 시작 동작과 실제 배포 명령 목록은
 [native startup fixture](../../tests/native_startup/README.md)로 검사한다.
+
+Rhino의 지연 로드는 `CommandList` 등록에 의존한다. 연결 명령 변경 시 설치 스크립트가
+백업 후 새 이름을 등록하고 이 fork에서 제거한 명령 값만 삭제한다. 다른 패널 명령과
+플러그인 설정은 보존한다. `-VerifyOnly`는 파일 경로와 명령 캐시를 함께 검사하며
+`tests/runtime_registration_tests.ps1`은 실제 설치 스크립트를 가짜 레지스트리에서 실행해
+옛 캐시 거절·최초 등록·이전·반복 적용을 검증한다.

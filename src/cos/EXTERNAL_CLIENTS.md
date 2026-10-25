@@ -83,6 +83,12 @@ Rhino에서 직접 해제하려면 `almonddisconnect`를 사용한다. 처리 �
 기존 `AlmondCOS`·`AlmondCOSDisconnect`와 `AlmondMCPStart`·`AlmondMCPStop`·
 `AlmondMCPStatus` 명령은 제거했다. PackageManager에서 다른 패키지를 삭제할 필요는 없다.
 
+이 명령 이름 변경을 처음 적용할 때는 Rhino를 닫은 상태에서 일상 폴더의
+`src/rhp/tools/install_runtime.ps1`을 한 번 실행한다. 파일만 갱신하면 Rhino의
+지연 로드용 `CommandList`가 옛 이름을 계속 기억할 수 있다. 설치 스크립트는
+기존 등록을 백업하고 새 연결 명령 두 개와 제거된 명령 목록을 맞춘다.
+`-VerifyOnly`는 경로가 올바르더라도 명령 캐시가 옛 상태이면 실패한다.
+
 `almondconnect`는 Rhino를 발견 가능하게 만드는 명령이다. Codex 프로그램을 자동 실행하거나
 새 채팅에 자동 연결하지는 않는다. 새 시작 도구는 이 명령을 새 Rhino에 자동 전달한다.
 Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고
