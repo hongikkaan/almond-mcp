@@ -3,6 +3,7 @@
 The context supplies the current bridge sender, target URL and exported helper
 bindings at call time, preserving per-server runtime and monkeypatch behavior.
 """
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
@@ -73,18 +74,18 @@ def register(mcp, context):
         mass: float = 0.0,
     ) -> str:
         if not guids:
-            return json.dumps({"status": "error", "message": "At least one Rhino object GUID is required."})
+            return json.dumps(error_payload("At least one Rhino object GUID is required."))
         if not asset_name.strip():
-            return json.dumps({"status": "error", "message": "asset_name is required."})
+            return json.dumps(error_payload("asset_name is required."))
 
         body_type = body_type.lower()
         collider = collider.lower()
         if body_type not in {"static", "dynamic", "kinematic"}:
-            return json.dumps({"status": "error", "message": "body_type must be static, dynamic, or kinematic."})
+            return json.dumps(error_payload("body_type must be static, dynamic, or kinematic."))
         if collider not in {"box", "convex", "compound", "trimesh"}:
-            return json.dumps({"status": "error", "message": "collider must be box, convex, compound, or trimesh."})
+            return json.dumps(error_payload("collider must be box, convex, compound, or trimesh."))
         if mass < 0:
-            return json.dumps({"status": "error", "message": "mass cannot be negative."})
+            return json.dumps(error_payload("mass cannot be negative."))
 
         output_path = os.path.join(tempfile.gettempdir(), f"almond_{uuid.uuid4().hex}.glb")
         payload = json.dumps({
@@ -105,10 +106,7 @@ def register(mcp, context):
             source_hash = hashlib.sha256(source_key.encode("utf-8")).hexdigest()[:12]
             stable_id = asset_id.strip() or f"{context._slug(asset_name)}-{source_hash}"
             if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", stable_id):
-                return json.dumps({
-                    "status": "error",
-                    "message": "asset_id must contain only letters, numbers, dot, underscore, or hyphen (max 80).",
-                })
+                return json.dumps(error_payload("asset_id must contain only letters, numbers, dot, underscore, or hyphen (max 80)."))
 
             metadata = {
                 "assetId": stable_id,
@@ -134,16 +132,16 @@ def register(mcp, context):
                 output_path,
             )
             if not chestnut_result.get("success"):
-                return json.dumps({"status": "error", "message": chestnut_result.get("error", "Chestnut rejected asset.")})
+                return json.dumps(error_payload(chestnut_result.get("error", "Chestnut rejected asset.")))
             return json.dumps({
                 "status": "success",
                 "chestnut_url": context.CHESTNUT_URL,
                 **chestnut_result,
             })
         except ConnectionRefusedError:
-            return json.dumps({"status": "error", "message": read_instruction(__file__, 'response-847')})
+            return json.dumps(error_payload(read_instruction(__file__, 'response-847')))
         except socket.timeout:
-            return json.dumps({"status": "error", "message": "Rhino GLB export timed out."})
+            return json.dumps(error_payload("Rhino GLB export timed out."))
         except Exception as exc:
             return json.dumps({
                 "status": "error",
@@ -167,10 +165,7 @@ def register(mcp, context):
     ) -> str:
         behavior = behavior.lower().strip()
         if behavior not in {"auto", "architecture", "object", "animated"}:
-            return json.dumps({
-                "status": "error",
-                "message": "behavior must be auto, architecture, object, or animated.",
-            })
+            return json.dumps(error_payload("behavior must be auto, architecture, object, or animated."))
 
         if behavior == "auto":
             architecture_words = {

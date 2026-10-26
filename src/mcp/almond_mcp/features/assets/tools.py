@@ -1,4 +1,5 @@
 """Register asset tools and resources against the calling server's live context."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import json
@@ -66,10 +67,7 @@ def register(mcp, context):
     def get_drawing_asset(asset_id: str) -> str:
         asset = context.retrieval_store.get_asset(asset_id, library_id="drawing_assets")
         if not asset:
-            return json.dumps({
-                "status": "error",
-                "message": f"Unknown drawing asset_id: {asset_id}",
-            })
+            return json.dumps(error_payload(f"Unknown drawing asset_id: {asset_id}"))
         return json.dumps({"status": "success", "asset": asset})
 
 
@@ -176,7 +174,7 @@ def register(mcp, context):
                 list(context.generated_asset_indexer.assets.values()), query, category, room_type,
                 width_mm, depth_mm, height_mm, max_triangles, include_clearances, limit)
         except ValueError as exc:
-            return {"status": "error", "message": str(exc)}
+            return error_payload(str(exc))
 
 
     def get_generated_asset_passport(asset_id: str) -> dict:
@@ -184,9 +182,9 @@ def register(mcp, context):
     materials, spatial contract, usage suggestions, quality limits and rights."""
         asset = context.generated_asset_indexer.get(asset_id)
         if not asset:
-            return {"status": "error", "message": f"Unknown generated asset_id: {asset_id}"}
+            return error_payload(f"Unknown generated asset_id: {asset_id}")
         if not asset.get("passport"):
-            return {"status": "error", "message": read_instruction(__file__, 'response-403')}
+            return error_payload(read_instruction(__file__, 'response-403'))
         out = {"status": "success", "passport": asset["passport"],
                "file_available": asset.get("file_available", False),
                "preview_uri": f"almond://generated/{asset_id}/preview"}
@@ -209,12 +207,12 @@ def register(mcp, context):
     Mounting heights and actual scene positions are not evaluated."""
         asset = context.generated_asset_indexer.get(asset_id)
         if not asset:
-            return {"status": "error", "message": f"Unknown generated asset_id: {asset_id}"}
+            return error_payload(f"Unknown generated asset_id: {asset_id}")
         try:
             return {"status": "success", **asset_passport.evaluate_fit(
                 asset, width_mm, depth_mm, height_mm, rotation_degrees, include_clearances)}
         except ValueError as exc:
-            return {"status": "error", "message": str(exc)}
+            return error_payload(str(exc))
 
 
     def get_generation_sources(asset_id: str) -> dict:
@@ -223,14 +221,14 @@ def register(mcp, context):
     This is local evidence, not an independent provider/account verification."""
         path = Path(context.GENERATED_LIBRARY_DIR)/"source-register.json"
         if not path.exists():
-            return {"status": "error", "message": read_instruction(__file__, 'response-404')}
+            return error_payload(read_instruction(__file__, 'response-404'))
         data = json.loads(path.read_text(encoding="utf-8"))
         record = next((a for a in data["assets"] if a["asset_id"] == asset_id), None)
         if not record:
-            return {"status": "error", "message": "Unknown generated asset ID"}
+            return error_payload("Unknown generated asset ID")
         asset = context.generated_asset_indexer.get(asset_id)
         if not asset or record["model_sha256"] != asset["sha256"]:
-            return {"status": "error", "message": "Source register is stale for this asset"}
+            return error_payload("Source register is stale for this asset")
         return {"status": "success", "record": record}
 
 
@@ -250,7 +248,7 @@ def register(mcp, context):
         data = json.loads((root/"manifest.json").read_text(encoding="utf-8"))
         record = next((a for a in data["assets"] if a["asset_id"] == asset_id), None)
         if not record:
-            return {"status": "error", "message": read_instruction(__file__, 'response-406')}
+            return error_payload(read_instruction(__file__, 'response-406'))
         package = (root/record["package"]).resolve()
         package.relative_to(root.resolve())
         manifest = json.loads((package/"drawing.json").read_text(encoding="utf-8"))
@@ -295,7 +293,7 @@ def register(mcp, context):
                 units=units, up_axis=up, scales=[50, 100] if scales is None else scales,
                 references=source_references or [], source_record=source_record)
         except (OSError, ValueError, KeyError, IndexError, TypeError, struct.error) as exc:
-            return {"status": "error", "message": str(exc)}
+            return error_payload(str(exc))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
@@ -318,7 +316,7 @@ def register(mcp, context):
                     source.relative_to(root.resolve())
             return drafting.audit_package(package, source)
         except (OSError, ValueError, KeyError, IndexError, TypeError, struct.error) as exc:
-            return {"status": "error", "message": str(exc)}
+            return error_payload(str(exc))
 
 
     @mcp.resource("almond://generated/{asset_id}/sources", mime_type="application/json")
@@ -383,10 +381,7 @@ def register(mcp, context):
     material, generation provenance (Meshy task ids, prompt) and availability."""
         asset = context.retrieval_store.get_asset(asset_id, library_id="generated_assets")
         if not asset:
-            return json.dumps({
-                "status": "error",
-                "message": f"Unknown generated asset_id: {asset_id}",
-            })
+            return json.dumps(error_payload(f"Unknown generated asset_id: {asset_id}"))
         return json.dumps({"status": "success", "asset": asset})
 
 
@@ -473,15 +468,9 @@ public class Script
     ) -> str:
         asset = context.drawing_asset_indexer.get(asset_id)
         if not asset:
-            return json.dumps({
-                "status": "error",
-                "message": f"Unknown drawing asset_id: {asset_id}",
-            })
+            return json.dumps(error_payload(f"Unknown drawing asset_id: {asset_id}"))
         if not asset.get("file_available"):
-            return json.dumps({
-                "status": "error",
-                "message": f"Drawing asset file is missing for {asset_id}.",
-            })
+            return json.dumps(error_payload(f"Drawing asset file is missing for {asset_id}."))
         numeric_values = [x, y, z, rotation_degrees, scale]
         if not all(
             isinstance(value, (int, float))
@@ -489,15 +478,9 @@ public class Script
             and value == value
             for value in numeric_values
         ):
-            return json.dumps({
-                "status": "error",
-                "message": "Placement values must be finite numbers.",
-            })
+            return json.dumps(error_payload("Placement values must be finite numbers."))
         if scale <= 0 or scale > 100:
-            return json.dumps({
-                "status": "error",
-                "message": "scale must be greater than 0 and no more than 100.",
-            })
+            return json.dumps(error_payload("scale must be greater than 0 and no more than 100."))
 
         payload = json.dumps({
             "type": "place_drawing_asset",
@@ -527,15 +510,9 @@ public class Script
             return json.dumps({"status": "error", "requires_reconciliation": True,
                 "message": read_instruction(__file__, 'response-423')})
         except ConnectionRefusedError:
-            return json.dumps({
-                "status": "error",
-                "message": read_instruction(__file__, 'response-424'),
-            })
+            return json.dumps(error_payload(read_instruction(__file__, 'response-424')))
         except Exception as exc:
-            return json.dumps({
-                "status": "error",
-                "message": f"Drawing asset placement failed: {exc}",
-            })
+            return json.dumps(error_payload(f"Drawing asset placement failed: {exc}"))
 
 
     def place_generated_asset(
@@ -562,24 +539,22 @@ public class Script
     """
         asset = context.generated_asset_indexer.get(asset_id)
         if not asset:
-            return json.dumps({"status": "error",
-                               "message": f"Unknown generated asset_id: {asset_id}"})
+            return json.dumps(error_payload(f"Unknown generated asset_id: {asset_id}"))
         if not asset.get("file_available"):
-            return json.dumps({"status": "error",
-                               "message": read_instruction(__file__, 'response-417').format(asset_id)})
+            return json.dumps(error_payload(read_instruction(__file__, 'response-417').format(asset_id)))
         values = [x_mm, y_mm, z_mm, rotation_degrees]
         if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in values):
-            return json.dumps({"status": "error", "message": "Placement values must be finite numbers."})
+            return json.dumps(error_payload("Placement values must be finite numbers."))
         contract_rel = str(asset.get("contract_file") or "").strip()
         if not contract_rel:
-            return json.dumps({"status": "error", "message": f"{asset_id} has no contract_file."})
+            return json.dumps(error_payload(f"{asset_id} has no contract_file."))
         library_root = Path(context.GENERATED_LIBRARY_DIR).resolve()
         contract_path = (library_root / contract_rel).resolve()
         try:
             contract_path.relative_to(library_root)
             contract = context.exchange.load_contract(contract_path)
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
         result = context._receive_contract(contract, x_mm, y_mm, z_mm, rotation_degrees, layer)
         if result.get("status") == "success":
             result.update({
@@ -600,7 +575,7 @@ public class Script
         try:
             return AssetRepository().search(query, kind, drawing_ready, limit)
         except ValueError as exc:
-            return {"status": "error", "message": str(exc)}
+            return error_payload(str(exc))
 
 
     @mcp.resource("almond://repository/{asset_id}")

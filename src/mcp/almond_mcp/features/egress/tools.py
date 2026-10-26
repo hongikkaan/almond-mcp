@@ -1,4 +1,5 @@
 """Egress tool registration using the shared construction library."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 import json
 
@@ -19,13 +20,11 @@ def register(mcp, context):
     ) -> str:
         rules = context.construction_library.reference.get("egress_rules")
         if not rules:
-            return json.dumps({"status": "error",
-                               "message": "egress_rules missing from the construction manifest."})
+            return json.dumps(error_payload("egress_rules missing from the construction manifest."))
         if len(plate_bounds_mm) != 4:
-            return json.dumps({"status": "error",
-                               "message": "plate_bounds_mm must be [min_x, min_y, max_x, max_y]."})
+            return json.dumps(error_payload("plate_bounds_mm must be [min_x, min_y, max_x, max_y]."))
         if not exits:
-            return json.dumps({"status": "error", "message": "exits must not be empty."})
+            return json.dumps(error_payload("exits must not be empty."))
 
         import math as _math
         x0, y0, x1, y1 = plate_bounds_mm
@@ -36,9 +35,8 @@ def register(mcp, context):
 
         factors = rules["occupant_load_m2_per_person"]
         if occupancy not in factors:
-            return json.dumps({"status": "error",
-                               "message": f"Unknown occupancy '{occupancy}'. "
-                                          f"Known: {', '.join(sorted(factors))}"})
+            return json.dumps(error_payload(f"Unknown occupancy '{occupancy}'. "
+                                          f"Known: {', '.join(sorted(factors))}"))
         occupant_load = _math.ceil(area_m2 / factors[occupancy])
 
         checks, warnings = [], []

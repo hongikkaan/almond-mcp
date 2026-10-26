@@ -1,4 +1,5 @@
 """Live Rhino observations and local retrieval diagnostics."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import base64
@@ -32,14 +33,18 @@ def register(mcp, context):
     @tool_instruction(__file__, 'get_rhino_context')
     def get_rhino_context(selection_limit: StrictInt = 50) -> str:
         if type(selection_limit) is not int or not 0 <= selection_limit <= 200:
-            return json.dumps({"status": "error", "error_code": "invalid_arguments",
-                               "message": "selection_limit must be an integer from 0 to 200."})
+            return json.dumps(error_payload(
+                "selection_limit must be an integer from 0 to 200.",
+                error_code="invalid_arguments",
+            ))
         payload = json.dumps({"type": "get_rhino_context", "selection_limit": selection_limit}).encode("utf-8")
         try:
             return context._send_and_receive(payload)
         except Exception as exc:
-            return json.dumps({"status": "error", "error_code": "bridge_error",
-                               "message": f"Could not read the live Rhino context: {exc}"})
+            return json.dumps(error_payload(
+                f"Could not read the live Rhino context: {exc}",
+                error_code="bridge_error",
+            ))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
@@ -48,15 +53,20 @@ def register(mcp, context):
         if (probe not in ("outline", "resolve-block", "sections", "vertical-probe", "joint-pairs")
                 or not isinstance(options, dict) or not isinstance(expected_model_path, str)
                 or not expected_model_path.strip()):
-            return json.dumps({"status": "error", "error_code": "invalid_arguments",
-                               "message": "A fixed probe, options object and expected_model_path are required."})
+            return json.dumps(error_payload(
+                "A fixed probe, options object and expected_model_path are required.",
+                error_code="invalid_arguments",
+            ))
         try:
             payload = json.dumps({"type": "get_rhino_probe", "probe": probe, "options": options,
                                   "expected_model_path": expected_model_path}, allow_nan=False).encode("utf-8")
             if len(payload) > 262144:
                 raise ValueError("Probe request exceeds 256 KiB; narrow the request.")
         except (TypeError, ValueError) as exc:
-            return json.dumps({"status": "error", "error_code": "invalid_arguments", "message": str(exc)})
+            return json.dumps(error_payload(
+                str(exc),
+                error_code="invalid_arguments",
+            ))
         try:
             # Older observation-capable Bridges route unknown request types into ScriptExecutor.
             context_response = context._send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}')
@@ -66,12 +76,16 @@ def register(mcp, context):
             if snapshot["status"] == "error":
                 return context_response
             if snapshot.get("capabilities", {}).get("fixed_probes") != 1:
-                return json.dumps({"status": "error", "error_code": "unsupported_probe",
-                                   "message": read_instruction(__file__, 'response-585')})
+                return json.dumps(error_payload(
+                    read_instruction(__file__, 'response-585'),
+                    error_code="unsupported_probe",
+                ))
             return context._send_and_receive(payload)
         except Exception as exc:
-            return json.dumps({"status": "error", "error_code": "bridge_error",
-                               "message": f"Could not read the live Rhino probe: {exc}"})
+            return json.dumps(error_payload(
+                f"Could not read the live Rhino probe: {exc}",
+                error_code="bridge_error",
+            ))
 
 
     def _viewport_result(metadata: dict, image_data: str | None = None) -> ToolResult:
@@ -86,18 +100,24 @@ def register(mcp, context):
     @tool_instruction(__file__, 'get_rhino_viewport_image')
     def get_rhino_viewport_image(max_width: StrictInt = 1280, max_height: StrictInt = 960) -> ToolResult:
         if any(type(value) is not int or not 64 <= value <= 2048 for value in (max_width, max_height)):
-            return _viewport_result({"status": "error", "error_code": "invalid_arguments",
-                                     "message": "max_width and max_height must be integers from 64 to 2048."})
+            return _viewport_result(error_payload(
+                "max_width and max_height must be integers from 64 to 2048.",
+                error_code="invalid_arguments",
+            ))
         payload = json.dumps({"type": "get_rhino_viewport_image", "max_width": max_width,
                               "max_height": max_height}).encode("utf-8")
         try:
             response = json.loads(context._send_and_receive(payload))
         except Exception as exc:
-            return _viewport_result({"status": "error", "error_code": "bridge_error",
-                                     "message": f"Could not capture the live Rhino viewport: {exc}"})
+            return _viewport_result(error_payload(
+                f"Could not capture the live Rhino viewport: {exc}",
+                error_code="bridge_error",
+            ))
         if not isinstance(response, dict):
-            return _viewport_result({"status": "error", "error_code": "invalid_capture_response",
-                                     "message": "The viewport response must be a JSON object."})
+            return _viewport_result(error_payload(
+                "The viewport response must be a JSON object.",
+                error_code="invalid_capture_response",
+            ))
         if response.get("status") != "success":
             response.pop("image", None)
             return _viewport_result(response)
@@ -121,8 +141,10 @@ def register(mcp, context):
                     raise ValueError("JPEG dimensions or format do not match the capture metadata.")
                 picture.load()
         except Exception as exc:
-            return _viewport_result({"status": "error", "error_code": "invalid_capture_response",
-                                     "message": f"Invalid viewport image: {exc}"})
+            return _viewport_result(error_payload(
+                f"Invalid viewport image: {exc}",
+                error_code="invalid_capture_response",
+            ))
         response["image"] = {"mime_type": "image/jpeg", "width": dimensions[0],
                              "height": dimensions[1], "byte_count": len(raw)}
         return _viewport_result(response, encoded)

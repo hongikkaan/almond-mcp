@@ -1,4 +1,5 @@
 """MCP tools for cached legacy asset placement, registered per server."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction
 import json
 
@@ -21,7 +22,7 @@ def register(mcp, context):
             )
             return json.dumps({"status": "success", **result})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
@@ -55,7 +56,7 @@ def register(mcp, context):
             )
             return json.dumps({"status": "success", **result})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
@@ -65,7 +66,7 @@ def register(mcp, context):
             result = context.retrieval_store.remove_instance(scene_id, instance_id)
             return json.dumps({"status": "success", **result})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
@@ -75,7 +76,7 @@ def register(mcp, context):
             result = context.retrieval_store.remove_room(scene_id, room_id)
             return json.dumps({"status": "success", **result})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
@@ -87,7 +88,7 @@ def register(mcp, context):
                 **context.retrieval_store.validate_scene(scene_id, limit=detail_limit),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     return {

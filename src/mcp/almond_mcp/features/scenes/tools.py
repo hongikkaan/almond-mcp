@@ -1,4 +1,5 @@
 """Scene MCP tools registered against a per-server feature context."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction
 import json
 
@@ -13,7 +14,7 @@ def register(mcp, context):
                 "scene": context.retrieval_store.create_scene(name=name, units=units),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
@@ -21,7 +22,7 @@ def register(mcp, context):
     def get_design_scene(scene_id: str) -> str:
         scene = context.retrieval_store.get_scene(scene_id)
         if not scene:
-            return json.dumps({"status": "error", "message": f"Unknown scene_id: {scene_id}"})
+            return json.dumps(error_payload(f"Unknown scene_id: {scene_id}"))
         return json.dumps({"status": "success", "scene": scene})
 
 

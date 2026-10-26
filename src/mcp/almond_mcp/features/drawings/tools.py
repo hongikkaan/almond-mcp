@@ -1,4 +1,5 @@
 """Drawing recipes, presentation and persistent Layout tool registration."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 import json
 import socket
@@ -33,7 +34,7 @@ def register(mcp, context):
 
 
     def _drawing_sheet_error(exc: Exception) -> str:
-        result = {"status": "error", "message": str(exc)}
+        result = error_payload(str(exc))
         if isinstance(exc, DrawingSheetReconciliationError):
             result.update(error_code="drawing_sheet_reconciliation_required", requires_reconciliation=True,
                           sheet_id=exc.sheet_id, expected_model_path=exc.model_path)
@@ -60,10 +61,7 @@ def register(mcp, context):
     def get_drawing_recipe(recipe_id: str) -> str:
         recipe = context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
-            return json.dumps({
-                "status": "error",
-                "message": f"Unknown drawing recipe_id: {recipe_id}",
-            })
+            return json.dumps(error_payload(f"Unknown drawing recipe_id: {recipe_id}"))
         return json.dumps({
             "status": "success",
             "recipe": context.drawing_recipe_indexer.public_record(recipe),
@@ -75,10 +73,7 @@ def register(mcp, context):
     def apply_drawing_style(recipe_id: str = "technical_axon_v1") -> str:
         recipe = context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
-            return json.dumps({
-                "status": "error",
-                "message": f"Unknown drawing recipe_id: {recipe_id}",
-            })
+            return json.dumps(error_payload(f"Unknown drawing recipe_id: {recipe_id}"))
         payload = json.dumps({
             "type": "apply_drawing_style",
             "recipe_id": recipe_id,
@@ -87,17 +82,11 @@ def register(mcp, context):
         try:
             return context._send_and_receive(payload, timeout=60.0)
         except socket.timeout:
-            return json.dumps({"status": "error", "message": "Applying drawing style timed out."})
+            return json.dumps(error_payload("Applying drawing style timed out."))
         except ConnectionRefusedError:
-            return json.dumps({
-                "status": "error",
-                "message": read_instruction(__file__, 'response-642'),
-            })
+            return json.dumps(error_payload(read_instruction(__file__, 'response-642')))
         except Exception as exc:
-            return json.dumps({
-                "status": "error",
-                "message": f"Drawing style application failed: {exc}",
-            })
+            return json.dumps(error_payload(f"Drawing style application failed: {exc}"))
 
 
     @mcp.tool()
@@ -105,21 +94,12 @@ def register(mcp, context):
     def import_drawing_hatch_patterns(asset_id: str) -> str:
         asset = context.drawing_asset_indexer.get(asset_id)
         if not asset:
-            return json.dumps({
-                "status": "error",
-                "message": f"Unknown drawing asset_id: {asset_id}",
-            })
+            return json.dumps(error_payload(f"Unknown drawing asset_id: {asset_id}"))
         if not asset.get("file_available"):
-            return json.dumps({
-                "status": "error",
-                "message": f"Drawing asset file is missing for {asset_id}.",
-            })
+            return json.dumps(error_payload(f"Drawing asset file is missing for {asset_id}."))
         resolved = asset["_resolved_file"]
         if not resolved.lower().endswith(".pat"):
-            return json.dumps({
-                "status": "error",
-                "message": f"Asset {asset_id} is not a .pat hatch definition file.",
-            })
+            return json.dumps(error_payload(f"Asset {asset_id} is not a .pat hatch definition file."))
         payload = json.dumps({
             "type": "import_hatch_patterns",
             "file_path": resolved,
@@ -127,17 +107,11 @@ def register(mcp, context):
         try:
             return context._send_and_receive(payload, timeout=60.0)
         except socket.timeout:
-            return json.dumps({"status": "error", "message": "Hatch pattern import timed out."})
+            return json.dumps(error_payload("Hatch pattern import timed out."))
         except ConnectionRefusedError:
-            return json.dumps({
-                "status": "error",
-                "message": read_instruction(__file__, 'response-645'),
-            })
+            return json.dumps(error_payload(read_instruction(__file__, 'response-645')))
         except Exception as exc:
-            return json.dumps({
-                "status": "error",
-                "message": f"Hatch pattern import failed: {exc}",
-            })
+            return json.dumps(error_payload(f"Hatch pattern import failed: {exc}"))
 
 
     @mcp.tool(annotations={"destructiveHint": False})

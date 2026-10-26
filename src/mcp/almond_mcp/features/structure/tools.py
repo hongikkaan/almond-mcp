@@ -1,4 +1,5 @@
 """MCP tools and bridge helpers for structural validation and overlays."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 import json
 import math
@@ -39,7 +40,7 @@ def register(mcp, context):
     ) -> str:
         engine = (engine or "auto").lower()
         if engine not in ("auto", "native", "karamba"):
-            return json.dumps({"status": "error", "message": "engine must be 'auto', 'native' or 'karamba'."})
+            return json.dumps(error_payload("engine must be 'auto', 'native' or 'karamba'."))
         request = {
             "type": "validate",
             "guids": guids,
@@ -56,7 +57,7 @@ def register(mcp, context):
         spec = None
         floor, err = context._floor_spec(floor_load_kn_m2, floor_dead_kn_m2, engine)
         if err:
-            return json.dumps({"status": "error", "message": err})
+            return json.dumps(error_payload(err))
         try:
             native_structure.combinations(design_basis, uls_combination, design_code)
             if (connections or "rigid").lower() not in native_structure.CONNECTIONS:
@@ -64,13 +65,13 @@ def register(mcp, context):
             if (stability or "auto").lower() not in ("auto", "off"):
                 raise ValueError("stability must be 'auto' or 'off'.")
         except ValueError as e:
-            return json.dumps({"status": "error", "message": str(e)})
+            return json.dumps(error_payload(str(e)))
         if asset_loads:
             if engine == "karamba":
-                return json.dumps({"status": "error", "message": "asset_loads needs the native engine (engine='auto' or 'native')."})
+                return json.dumps(error_payload("asset_loads needs the native engine (engine='auto' or 'native')."))
             spec, err = context._asset_load_spec(scene_id)
             if err:
-                return json.dumps({"status": "error", "message": err})
+                return json.dumps(error_payload(err))
         if engine == "native" or (engine == "auto" and structure_type.lower() not in KARAMBA_ONLY_TYPES):
             result, note = context._native_validation(guids, structure_type, load_kn, material, fixed_supports,
                                               self_weight, span_m, required=engine == "native", asset_spec=spec,
@@ -83,11 +84,11 @@ def register(mcp, context):
             try:
                 response = context._send_and_receive(json.dumps(request).encode('utf-8'), timeout=60.0)
             except socket.timeout:
-                return json.dumps({"status": "error", "message": "Structural validation timed out (>60s)."})
+                return json.dumps(error_payload("Structural validation timed out (>60s)."))
             except ConnectionRefusedError:
-                return json.dumps({"status": "error", "message": "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"})
+                return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"))
             except Exception as e:
-                return json.dumps({"status": "error", "message": f"Bridge error: {e}"})
+                return json.dumps(error_payload(f"Bridge error: {e}"))
             try:
                 result = json.loads(response)
             except Exception:
@@ -176,7 +177,7 @@ def register(mcp, context):
         request that cannot run, or no bridge)."""
         def unavailable(msg):
             if required:
-                return json.dumps({"status": "error", "message": msg}), None
+                return json.dumps(error_payload(msg)), None
             return None, msg + " Fell back to the Karamba route."
         try:
             reply = json.loads(context._send_and_receive(
@@ -184,7 +185,7 @@ def register(mcp, context):
         except socket.timeout:
             return unavailable("Exporting the structural model timed out.")
         except ConnectionRefusedError:
-            return json.dumps({"status": "error", "message": "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"}), None
+            return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?")), None
         except Exception as e:
             return unavailable(f"The bridge could not export a structural model ({e}).")
         if not isinstance(reply, dict) or reply.get("status") != "ok" or "members" not in reply:
@@ -201,7 +202,7 @@ def register(mcp, context):
                                                stability=stability, design_code=design[2], detail=detail,
                                                fabrication=fabrication)
         except ValueError as e:
-            return json.dumps({"status": "error", "message": str(e)}), None
+            return json.dumps(error_payload(str(e))), None
         return result, None
 
 
@@ -245,17 +246,17 @@ def register(mcp, context):
         view: str = "deflection",
     ) -> str:
         if not clear and not guids:
-            return json.dumps({"status": "error", "message": "Provide the curve (and support point) GUIDs to analyse."})
+            return json.dumps(error_payload("Provide the curve (and support point) GUIDs to analyse."))
         if color_by not in ("displacement", "utilization"):
-            return json.dumps({"status": "error", "message": "color_by must be 'displacement' or 'utilization'."})
+            return json.dumps(error_payload("color_by must be 'displacement' or 'utilization'."))
         engine = (engine or "auto").lower()
         if engine not in ("auto", "native", "karamba"):
-            return json.dumps({"status": "error", "message": "engine must be 'auto', 'native' or 'karamba'."})
+            return json.dumps(error_payload("engine must be 'auto', 'native' or 'karamba'."))
         if deflection_limit_ratio is None:
             try:
                 deflection_limit_ratio = native_structure.design_profile(design_basis, design_code).deflection_limit_ratio
             except ValueError as e:
-                return json.dumps({"status": "error", "message": str(e)})
+                return json.dumps(error_payload(str(e)))
         request = {
             "type": "structure_view",
             "guids": guids or [],
@@ -287,7 +288,7 @@ def register(mcp, context):
         if not clear and reanalyze:
             floor, err = context._floor_spec(floor_load_kn_m2, floor_dead_kn_m2, engine)
             if err:
-                return json.dumps({"status": "error", "message": err})
+                return json.dumps(error_payload(err))
             try:
                 native_structure.combinations(design_basis, uls_combination, design_code)
                 if (connections or "rigid").lower() not in native_structure.CONNECTIONS:
@@ -299,13 +300,13 @@ def register(mcp, context):
                 if (view or "").lower() == "buckling" and engine == "karamba":
                     raise ValueError("view='buckling' needs the native engine.")
             except ValueError as e:
-                return json.dumps({"status": "error", "message": str(e)})
+                return json.dumps(error_payload(str(e)))
         if asset_loads and not clear and reanalyze:
             if engine == "karamba":
-                return json.dumps({"status": "error", "message": "asset_loads needs the native engine (engine='auto' or 'native')."})
+                return json.dumps(error_payload("asset_loads needs the native engine (engine='auto' or 'native')."))
             spec, err = context._asset_load_spec(scene_id)
             if err:
-                return json.dumps({"status": "error", "message": err})
+                return json.dumps(error_payload(err))
         if not clear and engine != "karamba" and not (not reanalyze and context._VIEW_ENGINE == "api"):
             if not reanalyze and context._VIEW_ENGINE == "native":
                 draw = {k: v for k, v in request.items() if k not in ("guids", "reanalyze", "clear")}
@@ -335,11 +336,11 @@ def register(mcp, context):
         try:
             return context._send_and_receive(json.dumps(message).encode('utf-8'), timeout=timeout)
         except socket.timeout:
-            return json.dumps({"status": "error", "message": f"Structure view timed out (>{timeout:.0f}s)."})
+            return json.dumps(error_payload(f"Structure view timed out (>{timeout:.0f}s)."))
         except ConnectionRefusedError:
-            return json.dumps({"status": "error", "message": "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"})
+            return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"))
         except Exception as e:
-            return json.dumps({"status": "error", "message": f"Bridge error: {e}"})
+            return json.dumps(error_payload(f"Bridge error: {e}"))
 
 
     def _native_view(request: dict, guids, required: bool, asset_spec=None, floor_spec=None, design=("en1990", None, "eurocode"),
@@ -350,13 +351,13 @@ def register(mcp, context):
 
         def unavailable(msg):
             if required:
-                return json.dumps({"status": "error", "message": msg}), None
+                return json.dumps(error_payload(msg)), None
             return None, msg + " Fell back to the Karamba route."
         try:
             model = json.loads(context._send_and_receive(
                 json.dumps({"type": "structure_model", "guids": guids}).encode('utf-8'), timeout=60.0))
         except ConnectionRefusedError:
-            return json.dumps({"status": "error", "message": "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"}), None
+            return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?")), None
         except Exception as e:
             return unavailable(f"The bridge could not export a structural model ({e}).")
         if not isinstance(model, dict) or model.get("status") != "ok" or "members" not in model:
@@ -364,7 +365,7 @@ def register(mcp, context):
         if model.get("shells"):
             return unavailable(f"The model contains {model['shells']} shell element(s), which the native frame solver does not analyse.")
         if not model["members"]:
-            return json.dumps({"status": "error", "message": "No curve members found for the given GUIDs."}), None
+            return json.dumps(error_payload("No curve members found for the given GUIDs.")), None
         try:
             result, span = native_structure.view_result(
                 model, request["load_kn"], request["material"], fixed_supports=request["fixed_rotations"],
@@ -379,7 +380,7 @@ def register(mcp, context):
             return json.dumps({"status": "fail", "analysis_method": "native", "message": str(e),
                                "mechanism_nodes": len(e.nodes)}), None
         except ValueError as e:
-            return json.dumps({"status": "error", "message": str(e)}), None
+            return json.dumps(error_payload(str(e))), None
         draw, reports = structure_study.draw_message(request, result, span)
         report, floor_report, combos = reports["asset_loads"], reports["floor_loads"], reports["combinations"]
         conn_report, stab_report, buckling = reports["connections"], reports["stability"], reports["buckling"]
@@ -500,10 +501,7 @@ def register(mcp, context):
         try:
             runs = context.retrieval_store.list_validation_runs(limit=limit)
             if not runs:
-                return json.dumps({
-                    "status": "error",
-                    "message": read_instruction(__file__, 'response-1026'),
-                })
+                return json.dumps(error_payload(read_instruction(__file__, 'response-1026')))
             target = Path(path) if path else (
                 paths.user_data_dir() / "reports" /
                 f"structural-validation-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.md"
@@ -517,7 +515,7 @@ def register(mcp, context):
                 "latest_method": runs[0]["analysis_method"],
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
     return {
         "validate_structure": validate_structure,

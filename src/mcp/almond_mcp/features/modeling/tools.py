@@ -1,4 +1,5 @@
 """Modeling policy, script execution, setup and material tools."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 import json
 import socket
@@ -25,22 +26,22 @@ def register(mcp, context):
         try:
             return context._send_and_receive(payload)
         except socket.timeout:
-            return json.dumps({"status": "error", "message": "Rhino bridge timed out (>60s)."})
+            return json.dumps(error_payload("Rhino bridge timed out (>60s)."))
         except ConnectionRefusedError:
-            return json.dumps({"status": "error", "message": "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"})
+            return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"))
         except Exception as e:
-            return json.dumps({"status": "error", "message": f"Bridge error: {e}"})
+            return json.dumps(error_payload(f"Bridge error: {e}"))
 
 
     @mcp.tool()
     @tool_instruction(__file__, 'setup_modeling')
     def setup_modeling(operation: str, overwrite: bool | None = None) -> str:
         if operation not in ("materials", "layers"):
-            return json.dumps({"status": "error", "message": "operation must be materials or layers"})
+            return json.dumps(error_payload("operation must be materials or layers"))
         if overwrite is not None and type(overwrite) is not bool:
-            return json.dumps({"status": "error", "message": "overwrite must be true, false or null"})
+            return json.dumps(error_payload("overwrite must be true, false or null"))
         if operation == "layers" and overwrite is not None:
-            return json.dumps({"status": "error", "message": "overwrite applies only to materials"})
+            return json.dumps(error_payload("overwrite applies only to materials"))
         try:
             code = modeling_setup.setup_script(operation, context.material_library, context.construction_library, overwrite)
         except (KeyError, ValueError, IndexError, TypeError) as exc:
@@ -78,10 +79,7 @@ def register(mcp, context):
         material = context.material_library.get(material_id)
         if not material:
             known = ", ".join(sorted(context.material_library.materials)) or "none loaded"
-            return json.dumps({
-                "status": "error",
-                "message": f"Unknown material_id: {material_id}. Known: {known}",
-            })
+            return json.dumps(error_payload(f"Unknown material_id: {material_id}. Known: {known}"))
         guid_list = []
         for value in guids:
             try:
@@ -89,28 +87,25 @@ def register(mcp, context):
                 if guid not in guid_list:
                     guid_list.append(guid)
             except ValueError:
-                return json.dumps({
-                    "status": "error",
-                    "message": f"Invalid Rhino object GUID: {value}",
-                })
+                return json.dumps(error_payload(f"Invalid Rhino object GUID: {value}"))
         if not guid_list:
-            return json.dumps({"status": "error", "message": "guids must not be empty."})
+            return json.dumps(error_payload("guids must not be empty."))
 
         warnings = []
         extra_strings: dict[str, str] = {}
         for name, value in (("floor", floor), ("construction_detail", construction_detail),
                             ("structural_role", structural_role), ("construction_system", construction_system)):
             if not isinstance(value, str):
-                return json.dumps({"status": "error", "message": f"{name} must be a string."})
+                return json.dumps(error_payload(f"{name} must be a string."))
         if construction_reference is not None:
             if (not isinstance(construction_reference, dict)
                     or set(construction_reference) != {"kind", "id"}
                     or construction_reference.get("kind") != "construction_system"
                     or not isinstance(construction_reference.get("id"), str)
                     or not construction_reference["id"].strip()):
-                return json.dumps({"status": "error", "message": "construction_reference requires kind=construction_system and a known id."})
+                return json.dumps(error_payload("construction_reference requires kind=construction_system and a known id."))
             if construction_system and construction_system != construction_reference["id"]:
-                return json.dumps({"status": "error", "message": "construction_system and construction_reference identify different sources."})
+                return json.dumps(error_payload("construction_system and construction_reference identify different sources."))
             construction_system = construction_reference["id"]
         if structural_role:
             extra_strings[modeling_policy.key("structural_role")] = structural_role
@@ -118,11 +113,8 @@ def register(mcp, context):
             system = context.construction_library.get(construction_system)
             if system is None:
                 known = ", ".join(sorted(context.construction_library.systems)) or "none loaded"
-                return json.dumps({
-                    "status": "error",
-                    "message": f"Unknown construction_system: {construction_system}. "
-                               f"Known: {known}",
-                })
+                return json.dumps(error_payload(f"Unknown construction_system: {construction_system}. "
+                               f"Known: {known}"))
             construction_reference = {"kind": "construction_system", "id": construction_system}
             construction_detail = construction_detail or system["name"]
             extra_strings[modeling_policy.key("construction_reference")] = json.dumps(construction_reference, ensure_ascii=True, separators=(",", ":"))

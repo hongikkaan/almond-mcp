@@ -1,4 +1,5 @@
 """Register diagram asset tools using the shared asset catalogue and bridge."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction
 
 import json
@@ -52,7 +53,7 @@ def register(mcp, context):
     def get_diagram_asset(asset_id: str) -> str:
         asset = context.retrieval_store.get_asset(asset_id, library_id="diagram_assets")
         if not asset:
-            return json.dumps({"status": "error", "message": f"Unknown diagram asset_id: {asset_id}"})
+            return json.dumps(error_payload(f"Unknown diagram asset_id: {asset_id}"))
         return json.dumps({"status": "success", "asset": asset})
 
 
@@ -68,9 +69,9 @@ def register(mcp, context):
     ) -> str:
         asset = context.diagram_asset_indexer.get(asset_id)
         if not asset:
-            return json.dumps({"status": "error", "message": f"Unknown diagram asset_id: {asset_id}"})
+            return json.dumps(error_payload(f"Unknown diagram asset_id: {asset_id}"))
         if not asset.get("file_available"):
-            return json.dumps({"status": "error", "message": f"Diagram asset file is missing for {asset_id}."})
+            return json.dumps(error_payload(f"Diagram asset file is missing for {asset_id}."))
 
         payload = json.dumps({
             "type": "place_drawing_asset",
@@ -94,9 +95,9 @@ def register(mcp, context):
         try:
             return context._send_and_receive(payload, timeout=90.0)
         except socket.timeout:
-            return json.dumps({"status": "error", "message": "Rhino diagram import timed out."})
+            return json.dumps(error_payload("Rhino diagram import timed out."))
         except Exception as exc:
-            return json.dumps({"status": "error", "message": f"Diagram asset placement failed: {exc}"})
+            return json.dumps(error_payload(f"Diagram asset placement failed: {exc}"))
 
     return {
         "list_diagram_assets": list_diagram_assets,

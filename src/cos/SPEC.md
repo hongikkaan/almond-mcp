@@ -27,7 +27,7 @@ disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해�
 | `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 COS 광고 확인 |
 | `detached_process.py` | 새 프로세스를 suspended 상태로 생성하고 모든 Windows Job 밖임을 확인한 뒤 실행 |
 | `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
-| `tool_catalog.json` | configure/build에서 선택적으로 만드는 개발용 export; 런타임은 읽지 않음 |
+| `data/tool_catalog.json` | configure/build에서 만드는 Git 추적 제외 개발용 export; 런타임은 읽지 않고 현재 소스에서 schema를 생성함 |
 | `binding_watch.py`, `winpipe.py` | 연결 변경 감시와 Windows 제어 채널 |
 | `rhp/` | Rhino 내부 almondconnect·almonddisconnect 명령·host 탐색·문서 binding |
 | `tests/`, `run_tests.ps1` | Python·native relay·host 수명·pipe·stdio 검사 |

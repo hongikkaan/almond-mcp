@@ -13,7 +13,7 @@ ENGINE = ROOT.parent / "mcp" / "runtime"
 PACKAGE = Path(almond_mcp.__file__).parent
 # Keep the interpreter path used by existing CoS registrations stable.
 PYTHON = ROOT.parent / "engine" / ".venv" / "Scripts" / "python.exe"
-CATALOG = ROOT / "tool_catalog.json"
+CATALOG = ROOT / "data" / "tool_catalog.json"
 WORKER_STATE_TOOL = "worker_state"
 VERSION = "0.2.0"
 

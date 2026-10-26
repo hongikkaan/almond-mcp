@@ -1,4 +1,5 @@
 """Register Phase, Plan and Step tools without owning server state."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction
 
 import json
@@ -15,7 +16,7 @@ def register(mcp, context):
         try:
             return json.dumps({"status": "success", "phase": context.retrieval_store.create_generation_phase(name, description)})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
@@ -24,10 +25,10 @@ def register(mcp, context):
         try:
             phase = context.retrieval_store.get_generation_phase(phase_id)
             if phase is None:
-                return json.dumps({"status": "error", "message": f"Unknown phase_id: {phase_id}"})
+                return json.dumps(error_payload(f"Unknown phase_id: {phase_id}"))
             return json.dumps({"status": "success", "phase": phase})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
@@ -36,7 +37,7 @@ def register(mcp, context):
         try:
             return json.dumps({"status": "success", **context.retrieval_store.list_generation_phases(limit)})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
@@ -49,7 +50,7 @@ def register(mcp, context):
                 "status": "success", "phase": context.retrieval_store.update_generation_phase(phase_id, name, description),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
@@ -75,7 +76,7 @@ def register(mcp, context):
                 ),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
@@ -86,10 +87,10 @@ def register(mcp, context):
             if plan is None:
                 message = (f"Unknown plan_id: {plan_id}" if revision is None else
                            f"Unknown saved revision {revision} for plan_id: {plan_id}")
-                return json.dumps({"status": "error", "message": message})
+                return json.dumps(error_payload(message))
             return json.dumps({"status": "success", "plan": plan})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
@@ -102,7 +103,7 @@ def register(mcp, context):
                 "status": "success", **context.retrieval_store.list_generation_plans(phase_id, scene_id, status, limit),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
@@ -123,7 +124,7 @@ def register(mcp, context):
                 ),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
@@ -132,7 +133,7 @@ def register(mcp, context):
         try:
             return json.dumps({"status": "success", **context.retrieval_store.list_generation_plan_revisions(plan_id, limit)})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
@@ -160,7 +161,7 @@ def register(mcp, context):
                 ),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
@@ -169,7 +170,7 @@ def register(mcp, context):
         try:
             return json.dumps({"status": "success", **context.retrieval_store.resolve_generation_targets(plan_id, step_id)})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
     return {
         "create_generation_phase": create_generation_phase,

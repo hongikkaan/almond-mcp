@@ -1,4 +1,5 @@
 """Component MCP tools; register explicitly with the current server context."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 import json
 
@@ -30,7 +31,7 @@ def register(mcp, context):
         return result
 
     def _component_error(exc: Exception) -> str:
-        result = {"status": "error", "message": str(exc)}
+        result = error_payload(str(exc))
         if isinstance(exc, ComponentReconciliationError):
             result.update(error_code="component_reconciliation_required", requires_reconciliation=True,
                           component_id=exc.component_id, expected_model_path=exc.model_path)

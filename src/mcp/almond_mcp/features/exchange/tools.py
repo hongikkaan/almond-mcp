@@ -1,4 +1,5 @@
 """Register portable asset exchange tools and their native report helpers."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
@@ -163,12 +164,12 @@ public class Script
         output_dir: str = "",
     ) -> str:
         if not guids:
-            return json.dumps({"status": "error", "message": "At least one GUID is required."})
+            return json.dumps(error_payload("At least one GUID is required."))
         try:
             target_dir = Path(output_dir) if output_dir else paths.user_data_dir() / "exchange"
             glb_path, contract_path = context.exchange.contract_paths(target_dir, asset_id)
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
         payload = json.dumps({
             "type": "export_glb",
@@ -178,15 +179,15 @@ public class Script
         try:
             result = json.loads(context._send_and_receive(payload, timeout=90.0))
         except ConnectionRefusedError:
-            return json.dumps({"status": "error", "message": "Rhino bridge is unavailable."})
+            return json.dumps(error_payload("Rhino bridge is unavailable."))
         except Exception as exc:
-            return json.dumps({"status": "error", "message": f"GLB export failed: {exc}"})
+            return json.dumps(error_payload(f"GLB export failed: {exc}"))
         if result.get("status") != "success":
             return json.dumps(result)
 
         bounds = result.get("bounds") or {}
         if not bounds:
-            return json.dumps({"status": "error", "message": "Export returned no bounds."})
+            return json.dumps(error_payload("Export returned no bounds."))
         # export_glb reports bounds in document units
         unit_scale = {"Millimeters": 1.0, "Centimeters": 10.0, "Meters": 1000.0,
                       "Inches": 25.4, "Feet": 304.8}.get(result.get("units", "Millimeters"), 1.0)
@@ -206,7 +207,7 @@ public class Script
                 object_count=len(result.get("object_guids", guids)),
             )
         except ValueError as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
         contract_path.write_text(json.dumps(contract, indent=2), encoding="utf-8")
         return json.dumps({
             "status": "success",
@@ -279,7 +280,7 @@ public class Script
         try:
             contract = context.exchange.load_contract(contract_path)
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
         return json.dumps(context._receive_contract(contract, x_mm, y_mm, z_mm, rotation_degrees, layer))
 
 
@@ -316,15 +317,14 @@ public class Script
                 json.dumps({"type": "execute", "script": import_script}).encode("utf-8"),
                 timeout=120.0))
         except ConnectionRefusedError:
-            return {"status": "error", "message": "Rhino bridge is unavailable."}
+            return error_payload("Rhino bridge is unavailable.")
         except Exception as exc:
-            return {"status": "error", "message": f"Import failed: {exc}"}
+            return error_payload(f"Import failed: {exc}")
         if result.get("status") != "success":
             return result
         imported = result.get("guids") or []
         if not imported:
-            return {"status": "error",
-                               "message": "Rhino imported no objects from the GLB."}
+            return error_payload("Rhino imported no objects from the GLB.")
 
         contract["_imported_guids"] = imported
         needed = {row["material_id"] for row in contract.get("materials", [])}
@@ -376,7 +376,7 @@ public class Script
         action = action.strip().lower()
         if action == "export":
             if not asset_id:
-                return json.dumps({"status": "error", "message": "asset_id is required for export."})
+                return json.dumps(error_payload("asset_id is required for export."))
             target = output_dir or str(paths.user_data_dir() / "exchange")
             return json.dumps({
                 "status": "success",
@@ -387,14 +387,13 @@ public class Script
         if action == "materials":
             material = context.material_library.get(material_id)
             if not material:
-                return json.dumps({"status": "error",
-                                   "message": read_instruction(__file__, 'response-679').format(material_id)})
+                return json.dumps(error_payload(read_instruction(__file__, 'response-679').format(material_id)))
             if not object_names:
-                return json.dumps({"status": "error", "message": "object_names is required."})
+                return json.dumps(error_payload("object_names is required."))
             script = context.exchange.blender_material_script(
                 [material], [{"material_id": material_id, "objects": object_names}])
             return json.dumps({"status": "success", "action": "materials", "script": script})
-        return json.dumps({"status": "error", "message": 'action must be "export" or "materials".'})
+        return json.dumps(error_payload('action must be "export" or "materials".'))
 
 
     return {

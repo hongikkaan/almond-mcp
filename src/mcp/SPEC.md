@@ -29,6 +29,10 @@ cleanup·native 완료를 기다리는 시간은 이 10초와 구분한다.
 클라이언트가 현재 소스에서 catalog를 자동 추출한다. 실행 중인 세션은 시작 시 소스
 fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하다. 공유 계약을 우회하지 않는다.
 
+공통 오류 반환 필드인 `status`, `message`, 선택적 `error_code`는 `tool_response.py`에서
+구성한다. 각 도구의 JSON 문자열·dict·이미지 반환 방식과 변경 적용·정합 필요 상태는
+각 호출부가 유지하며, 공통 오류 필드만으로 rollback 여부를 추정하지 않는다.
+
 ## 기능별 구현과 소유권
 
 공개 MCP 도구의 실제 구현은 `almond_mcp/features/<기능>/tools.py`에 있다.

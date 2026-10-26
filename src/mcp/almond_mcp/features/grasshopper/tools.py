@@ -1,4 +1,5 @@
 """Register Grasshopper tools against the owning server's current services."""
+from almond_mcp.tool_response import error_payload
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 import json
 import os
@@ -160,21 +161,13 @@ def register(mcp, context):
             })
 
         if not manifest.get("audited"):
-            return json.dumps({
-                "status": "error",
-                "message": (
-                    f"Capsule '{capsule_id}' is not audited: its definition has no verified "
+            return json.dumps(error_payload(f"Capsule '{capsule_id}' is not audited: its definition has no verified "
                     "ALMOND_IN_*/ALMOND_OUT_* harness params, so run_gh_definition refuses to "
                     "execute it. It remains available as retrieval context (get_logic_by_id). "
-                    "See asset/capsules/AUTHORING.md for how to harness and audit the definition."
-                ),
-            })
+                    "See asset/capsules/AUTHORING.md for how to harness and audit the definition."))
 
         if not isinstance(inputs, dict):
-            return json.dumps({
-                "status": "error",
-                "message": "inputs must be an object keyed by ALMOND_IN_* port names.",
-            })
+            return json.dumps(error_payload("inputs must be an object keyed by ALMOND_IN_* port names."))
 
         ports = {
             port["name"]: port
@@ -216,10 +209,7 @@ def register(mcp, context):
 
         if not (isinstance(timeout_s, (int, float)) and not isinstance(timeout_s, bool)
                 and timeout_s == timeout_s and 0 < timeout_s <= 600):
-            return json.dumps({
-                "status": "error",
-                "message": "timeout_s must be a number between 0 (exclusive) and 600 seconds.",
-            })
+            return json.dumps(error_payload("timeout_s must be a number between 0 (exclusive) and 600 seconds."))
 
         manifest_path = manifest.get("_manifest_path") or os.path.join(
             context.CAPSULE_LIBRARY_DIR, f"{capsule_id}.capsule.json"
@@ -239,17 +229,11 @@ def register(mcp, context):
             # own timeout as structured JSON instead of a dead connection.
             return context._send_and_receive(payload, timeout=float(timeout_s) + 15.0)
         except socket.timeout:
-            return json.dumps({
-                "status": "error",
-                "message": f"Capsule '{capsule_id}' timed out (>{timeout_s}s solver budget).",
-            })
+            return json.dumps(error_payload(f"Capsule '{capsule_id}' timed out (>{timeout_s}s solver budget)."))
         except ConnectionRefusedError:
-            return json.dumps({
-                "status": "error",
-                "message": "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?",
-            })
+            return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"))
         except Exception as e:
-            return json.dumps({"status": "error", "message": f"Bridge error: {e}"})
+            return json.dumps(error_payload(f"Bridge error: {e}"))
 
     return {
         "list_library": list_library,

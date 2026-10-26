@@ -141,5 +141,6 @@ async def generate(engine: Path = ENGINE) -> dict:
 
 if __name__ == "__main__":
     catalog = asyncio.run(generate())
+    CATALOG.parent.mkdir(parents=True, exist_ok=True)
     CATALOG.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Generated {len(catalog['tools'])} tool schemas without importing Almond.")
