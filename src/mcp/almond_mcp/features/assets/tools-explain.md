@@ -7,18 +7,21 @@ Lists representation-only entourage and graphic proxy assets.
 
 Drawing assets are representation elements and do
 not participate in room collision checks unless explicitly registered.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:list_drawing_assets -->
 
 ## search_drawing_assets
 
 <!-- instruction:search_drawing_assets -->
 Searches only the controlled architectural drawing-asset library.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:search_drawing_assets -->
 
 ## get_drawing_asset
 
 <!-- instruction:get_drawing_asset -->
 Returns one drawing asset's provenance, scale guidance, and availability.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:get_drawing_asset -->
 
 ## register_drawing_asset
@@ -43,6 +46,7 @@ snapshot; use MCP placement for newly registered local assets.
 
 <!-- instruction:get_asset_drawing -->
 Retrieve a registered 3DM's linked drawings and dimensions, or a legacy pilot package.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:get_asset_drawing -->
 
 ## generate_asset_drawing_views
@@ -66,17 +70,17 @@ Check exported files and whether source geometry changed. Custom packages
 need the current source_glb to check staleness; library assets resolve automatically.
 <!-- /instruction:audit_asset_drawing -->
 
-## generated_catalogue_resource
+## asset_catalogue_resource
 
-<!-- instruction:generated_catalogue_resource -->
+<!-- instruction:asset_catalogue_resource -->
 Compact catalogue; retrieve individual passports/previews on demand.
-<!-- /instruction:generated_catalogue_resource -->
+<!-- /instruction:asset_catalogue_resource -->
 
-## generated_preview_resource
+## asset_preview_resource
 
-<!-- instruction:generated_preview_resource -->
+<!-- instruction:asset_preview_resource -->
 Existing Blender preview for a known catalogue id.
-<!-- /instruction:generated_preview_resource -->
+<!-- /instruction:asset_preview_resource -->
 
 ## place_drawing_asset
 
@@ -97,6 +101,7 @@ Search the unified model/drawing archive. kind: all, model or element.
 
 Returns stable IDs, file availability, dimensions and MCP resource URIs.
 Drawing-ready means a derived projection package is linked to the object.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:search_asset_repository -->
 
 ## repository_asset_resource

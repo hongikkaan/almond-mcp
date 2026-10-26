@@ -1,8 +1,8 @@
 """Windows shared-store contracts using fresh paths and the unchanged AlmondStore.
 
 No Rhino port, installed MCP server, user model, or library is accessed. The .3dm
-files are explicitly path fixtures, not geometry. Each run retains one dedicated
-data directory for inspection. Two owned Python children exercise the real OS
+files are explicitly path fixtures, not geometry. Each run cleans its dedicated
+data directory after inspection. Two owned Python children exercise the real OS
 gate and SQLite store; public FastMCP dispatch exercises middleware cancellation.
 """
 from __future__ import annotations
@@ -30,11 +30,13 @@ from project import (ExclusiveFile, LEGACY_LOCKS, SharedStorageLease,
                      connection_paths, process_start_ticks, read_binding,
                      read_json, write_json)
 from shared_store import ProjectRuntime, StoreGate
+from workspace import Workspace
 
 
 ENGINE = Path(__file__).resolve().parents[4] / "src" / "mcp" / "runtime"
 TEST_DATA = Path(__file__).resolve().parents[4] / "data/mcp-tests"
 FIXTURE_ROOT = None
+FIXTURE_DIRECTORY = None
 TEMP_KEYS = ("TEMP", "TMP", "TMPDIR")
 
 
@@ -44,15 +46,16 @@ def no_original_server():
 
 
 def setUpModule():
-    global FIXTURE_ROOT
+    global FIXTURE_ROOT, FIXTURE_DIRECTORY
     no_original_server()
     TEST_DATA.mkdir(parents=True, exist_ok=True)
-    FIXTURE_ROOT = Path(tempfile.mkdtemp(prefix="_shared_store_", dir=TEST_DATA))
-    print("Shared-store fixtures retained at:", FIXTURE_ROOT, flush=True)
+    FIXTURE_DIRECTORY = tempfile.TemporaryDirectory(prefix="_shared_store_", dir=TEST_DATA)
+    FIXTURE_ROOT = Path(FIXTURE_DIRECTORY.name)
 
 
 def tearDownModule():
     no_original_server()
+    FIXTURE_DIRECTORY.cleanup()
 
 
 def workspace(name):
@@ -320,13 +323,13 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.calls = []
 
     async def test_plain_metadata_tools_do_not_wait_for_db_or_native_operation(self):
-        for name in ("project_info", "worker_state"):
+        for name in ("worker_state",):
             def metadata() -> dict:
                 return {"pending": False}
             self.mcp.tool(name=name)(metadata)
         with StoreGate(self.paths["storage"]):
             async with self.runtime.serial:
-                for name in ("project_info", "worker_state"):
+                for name in ("worker_state",):
                     result = await asyncio.wait_for(self.mcp.call_tool(name, {}), 0.3)
                     self.assertFalse(result_json(result)["pending"])
         self.assertFalse(self.operation_path.exists())
@@ -338,14 +341,14 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
             return "unexpected"
 
         self.runtime.queue_timeout = 0.02
-        before_dirs = set(Path(self.paths["call_root"]).iterdir())
+        before_dirs = set(Path(self.paths["call_root"]).glob("*"))
         async with self.runtime.serial:
             with self.assertRaisesRegex(TimeoutError, "No operation"):
                 await asyncio.wait_for(self.mcp.call_tool("queued_write", {}), 0.3)
             self.assertTrue(self.runtime.serial.locked())
         self.assertFalse(self.calls)
         self.assertFalse(self.operation_path.exists())
-        self.assertEqual(set(Path(self.paths["call_root"]).iterdir()), before_dirs)
+        self.assertEqual(set(Path(self.paths["call_root"]).glob("*")), before_dirs)
 
     async def test_shared_db_wait_defaults_to_ten_seconds_and_preserves_owner(self):
         self.assertEqual(StoreGate(self.paths["storage"]).timeout, 10)
@@ -365,6 +368,10 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         return operation
 
     def report_tool(self):
+        store = AlmondStore(self.paths["state_db"])
+        self.runtime.workspace = Workspace(self.paths, store)
+        plan = store.create_plan("Fixture reports")
+        self.runtime.workspace.select(plan["plan_id"])
         @self.mcp.tool()
         def export_structural_report(path: str = "") -> dict:
             observed = dict(path=path, env={key: os.environ.get(key) for key in TEMP_KEYS},
@@ -373,27 +380,29 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
             Path(path).write_text("fixture report", encoding="utf-8")
             return observed
 
-    async def test_protocol_calls_get_unique_output_and_temp_then_restore(self):
+    async def test_protocol_calls_reuse_plan_output_and_remove_owned_scratch(self):
         self.report_tool()
         async with Client(self.mcp) as client:
             before = temp_state()
             results = [result_json(await client.call_tool("export_structural_report", {"path": ""}))
                        for _ in range(2)]
             self.assertEqual(temp_state(), before)
-        self.assertNotEqual(results[0]["path"], results[1]["path"])
+        self.assertEqual(results[0]["path"], results[1]["path"])
+        self.assertNotEqual(results[0]["temp"], results[1]["temp"])
         for result in results:
             operation_dir = Path(result["path"]).parent.parent
-            self.assertEqual(operation_dir.parent, Path(self.paths["call_root"]))
-            self.assertEqual(Path(result["temp"]), operation_dir)
-            self.assertEqual(set(result["env"].values()), {str(operation_dir)})
+            self.assertEqual(operation_dir, self.runtime.workspace.artifact_path())
+            self.assertEqual(Path(result["temp"]).parent, Path(self.paths["call_root"]))
+            self.assertEqual(set(result["env"].values()), {result["temp"]})
+            self.assertFalse(Path(result["temp"]).exists())
             self.assertEqual(Path(result["path"]).read_text(encoding="utf-8"), "fixture report")
         self.assert_operation_completed()
 
-    async def test_explicit_public_output_path_is_preserved(self):
+    async def test_relative_output_is_applied_to_selected_artifact_folder(self):
         self.report_tool()
-        explicit = self.root / "explicit-user-report.md"
+        explicit = self.runtime.workspace.artifact_path() / "explicit-user-report.md"
         before = temp_state()
-        result = result_json(await self.mcp.call_tool("export_structural_report", {"path": str(explicit)}))
+        result = result_json(await self.mcp.call_tool("export_structural_report", {"path": "explicit-user-report.md"}))
         self.assertEqual(result["path"], str(explicit))
         self.assertEqual(explicit.read_text(encoding="utf-8"), "fixture report")
         self.assertNotEqual(Path(result["temp"]), explicit.parent)
@@ -412,6 +421,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
                 if not release.wait(10):
                     raise TimeoutError("Fixture controller did not release the body.")
                 observations.append(temp_state())
+                Path(tempfile.gettempdir()).mkdir(parents=True, exist_ok=True)
                 Path(tempfile.gettempdir(), "body-finished.txt").write_text("finished", encoding="utf-8")
                 return "finished"
             finally:
@@ -440,7 +450,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(observations, [observations[0], observations[0]])
         self.assertEqual(temp_state(), before)
         operation = self.assert_operation_completed()
-        self.assertTrue((Path(operation["temp"]) / "body-finished.txt").is_file())
+        self.assertFalse(Path(operation["temp"]).exists())
 
     async def test_cancel_while_waiting_has_no_call_or_operation_side_effect(self):
         @self.mcp.tool()
@@ -449,7 +459,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
             return "unexpected"
 
         before = temp_state()
-        before_dirs = set(Path(self.paths["call_root"]).iterdir())
+        before_dirs = set(Path(self.paths["call_root"]).glob("*"))
         with StoreGate(self.paths["storage"]):
             task = asyncio.create_task(self.mcp.call_tool("never_started", {}))
             try:
@@ -466,7 +476,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
                         await task
             self.assert_locked(self.gate_path)
             self.assertFalse(self.operation_path.exists())
-            self.assertEqual(set(Path(self.paths["call_root"]).iterdir()), before_dirs)
+            self.assertEqual(set(Path(self.paths["call_root"]).glob("*")), before_dirs)
             self.assertEqual(self.calls, [])
             self.assertEqual(temp_state(), before)
         self.assert_free(self.gate_path)

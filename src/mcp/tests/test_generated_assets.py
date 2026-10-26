@@ -102,7 +102,6 @@ def test_render_material_ids_exist_in_material_library():
 
 def load_server_module():
     os.environ["RHINO_MCP_GENERATED_ASSET_DIR"] = str(LIBRARY)
-    os.environ["RHINO_MCP_STATE_DB"] = tempfile.mktemp(suffix=".sqlite3")
     spec = importlib.util.spec_from_file_location("almond_server_generated_test", SERVER_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -115,30 +114,35 @@ def test_server_indexes_and_searches_generated_library():
     assert len(server.generated_asset_indexer.assets) == expected
     assert all(a["file_available"] for a in server.generated_asset_indexer.assets.values())
 
-    listing = json.loads(server.list_generated_assets(limit=50))
+    listing = json.loads(server.list_assets(limit=50))
     assert listing["library_id"] == "generated_assets"
     assert listing["total"] == expected
 
-    hits = json.loads(server.search_generated_assets(query="bench"))
+    hits = json.loads(server.search_assets(query="bench"))
     ids = [row["asset_id"] for row in hits["assets"]]
     assert "gen-park-bench-1" in ids
 
-    low = json.loads(server.search_generated_assets(max_height_mm=1200, limit=50))
+    low = json.loads(server.search_assets(max_height_mm=1200, limit=50))
     low_ids = {row["asset_id"] for row in low["assets"]}
     assert "gen-tree-conifer-1" not in low_ids
     assert "gen-litter-bin-1" in low_ids
 
-    one = json.loads(server.get_generated_asset("gen-toilet-1"))
+    one = json.loads(server.get_asset("gen-toilet-1"))
     assert one["status"] == "success"
     assert one["asset"]["dimensions_mm"]["height"] == 800
 
-    status = json.loads(server.get_retrieval_status())
+    status = json.loads(server.get_retrieval_status(include_ids=True))
     assert status["generated_asset_index"]["total"] == expected
 
 
 def test_place_generated_asset_rejects_bad_input_before_touching_rhino():
     server = load_server_module()
-    unknown = json.loads(server.place_generated_asset("gen-does-not-exist"))
+    unknown = json.loads(server.place_asset("gen-does-not-exist"))
     assert unknown["status"] == "error"
-    nan = json.loads(server.place_generated_asset("gen-park-bench-1", x_mm=float("nan")))
+    nan = json.loads(server.place_asset("gen-park-bench-1", x_mm=float("nan")))
     assert nan["status"] == "error"
+
+
+@pytest.fixture(autouse=True)
+def isolated_server_database(tmp_path, monkeypatch):
+    monkeypatch.setenv("RHINO_MCP_STATE_DB", str(tmp_path / "DB"))

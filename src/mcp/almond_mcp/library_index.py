@@ -74,6 +74,7 @@ class AssetLibraryIndexer:
         max_height_mm: float = 0,
         exact_dimensions_only: bool = False,
         limit: int = 10,
+        _all: bool = False,
     ) -> list[dict]:
         query_tokens = set(re.findall(r"[a-z0-9]+", query.lower()))
         category = category.lower().strip()
@@ -94,6 +95,8 @@ class AssetLibraryIndexer:
                 continue
 
             searchable = " ".join([
+                asset.get("name", ""),
+                asset.get("description", ""),
                 asset.get("series", ""),
                 asset.get("product", ""),
                 asset.get("variant", ""),
@@ -106,4 +109,13 @@ class AssetLibraryIndexer:
             results.append((score, asset.get("series", ""), self.public_record(asset)))
 
         results.sort(key=lambda item: (-item[0], item[1], item[2]["asset_id"]))
-        return [item[2] for item in results[:max(1, min(limit, 50))]]
+        return [item[2] for item in (results if _all else results[:max(1, min(limit, 50))])]
+
+    def search_page(self, *, limit: int = 20, offset: int = 0, **filters) -> dict:
+        """Manifest-only paging; no project DB registration or refresh is needed."""
+        if type(limit) is not int or not 1 <= limit <= 100 or type(offset) is not int or offset < 0:
+            raise ValueError("limit must be 1-100 and offset must be a nonnegative integer.")
+        matches = self.search(**filters, _all=True)
+        page = matches[offset:offset + limit]
+        return {"assets": page, "total": len(matches), "limit": limit, "offset": offset,
+                "truncated": offset + len(page) < len(matches)}

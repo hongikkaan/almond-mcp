@@ -97,9 +97,9 @@ def test_parent_with_no_direct_objects_inherits_child_geometry_and_scene_context
     assert store.get_scene(store.scene_b)["objects"] == 1
     assert store.scene_objects(store.scene_b)[0]["component_id"] == child["component_id"]
     assert store.get_scene(store.scene_a)["objects"] == 1
-    plan = store.create_generation_plan("Model facade", scope="component",
+    plan = store.create_plan("Model facade", scope="component",
                                         scene_ids=[store.scene_b], component_ids=[parent["component_id"]])
-    targets = store.resolve_generation_targets(plan["plan_id"])
+    targets = store.resolve_targets(plan["plan_id"])
     assert targets["component_ids"] == [parent["component_id"]]
     assert targets["components"][0]["child_component_ids"] == [child["component_id"]]
     assert targets["components"][0]["effective_object_ids"] == [A]
@@ -156,8 +156,8 @@ def test_child_update_propagates_recursive_objects_without_changing_direct_owner
     child = create(store, "Panel", [A])
     parent = create(store, "Assembly", [], scenes=[store.scene_b], children=[child["component_id"]])
     old_scene_revision = store.get_scene(store.scene_b)["revision"]
-    plan = store.create_generation_plan("Roof", scope="component", component_ids=[parent["component_id"]])
-    frozen = store.get_generation_plan(plan["plan_id"], revision=1)
+    plan = store.create_plan("Roof", scope="component", component_ids=[parent["component_id"]])
+    frozen = store.get_plan(plan["plan_id"], revision=1)
     changed = store.upsert_component(store.model, "Panel revised", [A, C],
                                      component_id=child["component_id"],
                                      native_apply=simulated_native(store))
@@ -166,8 +166,8 @@ def test_child_update_propagates_recursive_objects_without_changing_direct_owner
     assert store.get_scene(store.scene_b)["objects"] == 2
     assert store.get_scene(store.scene_b)["revision"] > old_scene_revision
     assert all(obj["component_id"] == child["component_id"] for obj in store.scene_objects(store.scene_b))
-    assert store.get_generation_plan(plan["plan_id"], revision=1) == frozen
-    assert store.get_generation_plan(plan["plan_id"]) == frozen
+    assert store.get_plan(plan["plan_id"], revision=1) == frozen
+    assert store.get_plan(plan["plan_id"]) == frozen
 
 
 def test_child_name_only_update_requires_no_unchanged_ancestor_proof(store):
@@ -222,9 +222,9 @@ def detached_ack(store, request):
 def test_root_parent_unregister_detaches_children_but_child_cannot_unregister_until_detached(store):
     child = create(store, "Panel", [A])
     parent = create(store, "Assembly", [], scenes=[store.scene_b], children=[child["component_id"]])
-    plan = store.create_generation_plan("Protect child", scope="component",
+    plan = store.create_plan("Protect child", scope="component",
                                         component_ids=[child["component_id"]])
-    immutable = store.get_generation_plan(plan["plan_id"], 1)
+    immutable = store.get_plan(plan["plan_id"], 1)
     calls = []
     with pytest.raises(ValueError, match="Detach"):
         store.unregister_component(child["component_id"],
@@ -244,7 +244,7 @@ def test_root_parent_unregister_detaches_children_but_child_cannot_unregister_un
     assert still_owned["scene_ids"] == [store.scene_a]
     assert store.get_scene(store.scene_b)["objects"] == 0
     assert store.get_scene(store.scene_a)["objects"] == 1
-    assert store.get_generation_plan(plan["plan_id"], 1) == immutable
+    assert store.get_plan(plan["plan_id"], 1) == immutable
 
 
 def test_unregistered_parent_inspection_recovers_lost_ack_without_native_retry(store):

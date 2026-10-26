@@ -9,6 +9,7 @@ calling get_logic_by_id.
 
 Returns:
     JSON list of logic IDs available (e.g., ["catenary", "bending", "01_simplebeam"]).
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:list_library -->
 
 ## get_logic_by_id
@@ -24,6 +25,7 @@ Args:
               Examples: catenary, bending, 01_simplebeam
 Returns:
     JSON string with detected physics components and context, or error.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:get_logic_by_id -->
 
 ## list_capsules
@@ -43,6 +45,7 @@ Args:
     audited_only: When true, list only capsules that run_gh_definition will accept.
 Returns:
     JSON with total and a list of compact capsule cards.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:list_capsules -->
 
 ## run_gh_definition

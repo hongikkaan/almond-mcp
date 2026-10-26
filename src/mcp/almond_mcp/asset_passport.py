@@ -280,8 +280,8 @@ def recommend(assets: list[dict], query: str = "", category: str = "",
                        "triangle_count": asset["triangle_count"],
                        "score": len(matched), "reasons": reasons,
                        "fit_options": fits, "quality_notes": passport["quality"]["warnings"],
-                       "passport_uri": f"almond://generated/{asset['asset_id']}/passport",
-                       "preview_uri": f"almond://generated/{asset['asset_id']}/preview"})
+                       "passport_uri": f"almond://assets/{asset['asset_id']}/passport",
+                       "preview_uri": f"almond://assets/{asset['asset_id']}/preview"})
     ranked.sort(key=lambda a: (-a["score"], a["asset_id"]))
     return {"status": "success", "total_matches": len(ranked), "assets": ranked[:limit],
             "ranking": "exact token overlap; explicit category, room, polygon and envelope filters",

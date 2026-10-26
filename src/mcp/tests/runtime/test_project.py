@@ -33,8 +33,8 @@ class ProjectTests(unittest.TestCase):
     def test_filename_layout(self):
         p = project_paths(self.model, create=True)
         self.assertEqual(Path(p['storage']), self.root / '.almond')
-        self.assertEqual(Path(p['state_db']), Path(p['storage'])/'scene.sqlite3')
-        self.assertTrue(Path(p['temp']).is_dir())
+        self.assertEqual(Path(p['state_db']), Path(p['storage'])/'DB')
+        self.assertFalse(Path(p['temp']).exists())
 
     def test_distinct_models_same_folder(self):
         other = self.root / '다른 모델.3dm'
@@ -75,6 +75,7 @@ class ProjectTests(unittest.TestCase):
             db.execute('INSERT INTO marker VALUES (?)', ('before move',))
             db.commit()
         before = hashlib.sha256(Path(p['state_db']).read_bytes()).hexdigest()
+        Path(p['temp']).mkdir()
         (Path(p['temp'])/'review.txt').write_text('keep this artifact', encoding='utf-8')
         self.binding(p)
         renamed = self.root/'이름 변경.3dm'

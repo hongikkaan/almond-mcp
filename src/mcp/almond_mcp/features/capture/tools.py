@@ -12,7 +12,7 @@ def register(mcp, context):
     @tool_instruction(__file__, 'capture_conditioning_pass')
     def capture_conditioning_pass(
         shot: str,
-        out_dir: str,
+        out_dir: str = "",
         width: int = 832,
         height: int = 480,
         passes: str = "rgb,edge,depth",

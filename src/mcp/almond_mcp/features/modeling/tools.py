@@ -1,6 +1,8 @@
 """Modeling policy, script execution, setup and material tools."""
 from almond_mcp.tool_response import error_payload
+from almond_mcp.query_output import query_output
 from almond_mcp.instruction_text import tool_instruction, read_instruction
+from pydantic import StrictBool
 import json
 import socket
 import uuid
@@ -54,7 +56,8 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'list_materials')
-    def list_materials(category: str = "", query: str = "") -> str:
+    @query_output
+    def list_materials(category: str = "", query: str = "", include_ids: StrictBool = False) -> str:
         materials = context.material_library.list(category=category, query=query)
         return json.dumps({
             "total": len(materials),

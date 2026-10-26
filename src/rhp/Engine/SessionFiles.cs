@@ -11,7 +11,7 @@ public sealed class SessionPaths
 {
     public string ModelPath { get; }
     public string Storage { get; }
-    public string StateDb => Path.Combine(Storage, "scene.sqlite3");
+    public string StateDb => Path.Combine(Storage, "DB");
     public string Temp => Path.Combine(Storage, "tmp");
     public string SessionDir { get; }
     public string CallRoot { get; }
@@ -30,7 +30,7 @@ public sealed class SessionPaths
         ModelPath = modelPath;
         Storage = Path.Combine(Path.GetDirectoryName(modelPath)!, ".almond");
         SessionDir = Path.Combine(Storage, ".sessions", token);
-        CallRoot = Path.Combine(Temp, "calls", token);
+        CallRoot = Path.Combine(Temp, "python", token);
     }
 }
 
@@ -58,12 +58,10 @@ public static class SessionFiles
         CheckPlainPath(paths.CallRoot);
         if (create)
         {
-            Directory.CreateDirectory(paths.Temp);
             Directory.CreateDirectory(Path.GetDirectoryName(paths.SessionDir)!);
             // CreateDirectoryW fails if this generation existed, even if it is empty.
             if (!CreateDirectoryW(paths.SessionDir, IntPtr.Zero))
                 throw new Win32Exception(Marshal.GetLastWin32Error(), "The session token must name a new directory.");
-            Directory.CreateDirectory(paths.CallRoot);
         }
         return paths;
     }

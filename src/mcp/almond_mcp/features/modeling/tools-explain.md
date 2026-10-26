@@ -88,6 +88,7 @@ Each entry carries metallic/roughness PBR channels, an Unreal material
 slot name (ue_material_slot) for deterministic remapping after import,
 and tags. Materials do not define object layers. setup_modeling creates
 M/category/system/role layers from the construction library separately.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:list_materials -->
 
 ## assign_material

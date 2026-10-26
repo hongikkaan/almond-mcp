@@ -122,6 +122,7 @@ Unverified values are allowed but flagged in every result that uses them.
 Returns JSON: default, profiles [{id, name, basis, origin, verified, unverified,
 uls_expression, uls_default, deflection_limit_ratio, imposed_floor_kn_m2}], problems
 (files that failed validation), user_dir.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:list_design_codes -->
 
 ## visualize_structure

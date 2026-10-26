@@ -1,7 +1,9 @@
 """Register asset tools and resources against the calling server's live context."""
 from almond_mcp.tool_response import error_payload
+from almond_mcp.query_output import query_output
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
+from pydantic import StrictBool
 import json
 import math
 from pathlib import Path
@@ -21,13 +23,12 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'list_drawing_assets')
+    @query_output
     def list_drawing_assets(
         category: str = "",
         limit: int = 20,
-        offset: int = 0,
-    ) -> str:
-        page = context.retrieval_store.search_assets(
-            library_id="drawing_assets",
+        offset: int = 0, include_ids: StrictBool = False) -> str:
+        page = context.drawing_asset_indexer.search_page(
             category=category,
             limit=limit,
             offset=offset,
@@ -41,6 +42,7 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'search_drawing_assets')
+    @query_output
     def search_drawing_assets(
         query: str = "",
         category: str = "",
@@ -48,11 +50,9 @@ def register(mcp, context):
         max_depth_mm: float = 0,
         max_height_mm: float = 0,
         limit: int = 10,
-        offset: int = 0,
-    ) -> str:
-        return json.dumps(context.retrieval_store.search_assets(
+        offset: int = 0, include_ids: StrictBool = False) -> str:
+        return json.dumps(context.drawing_asset_indexer.search_page(
             query=query,
-            library_id="drawing_assets",
             category=category,
             max_width_mm=max_width_mm,
             max_depth_mm=max_depth_mm,
@@ -64,11 +64,12 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_drawing_asset')
-    def get_drawing_asset(asset_id: str) -> str:
-        asset = context.retrieval_store.get_asset(asset_id, library_id="drawing_assets")
+    @query_output
+    def get_drawing_asset(asset_id: str, include_ids: StrictBool = False) -> str:
+        asset = context.drawing_asset_indexer.get(asset_id)
         if not asset:
             return json.dumps(error_payload(f"Unknown drawing asset_id: {asset_id}"))
-        return json.dumps({"status": "success", "asset": asset})
+        return json.dumps({"status": "success", "asset": context.drawing_asset_indexer.public_record(asset)})
 
 
     def _extract_drawing_asset(source_path: str, output_path: str) -> dict:
@@ -99,7 +100,6 @@ def register(mcp, context):
             return {"status": "error", "registration_applied": False, "message": str(exc)}
         try:
             context.drawing_asset_indexer._load()
-            context.retrieval_store.sync_assets(list(context.drawing_asset_indexer.assets.values()), library_id="drawing_assets")
         except Exception as exc:
             return {**result, "status": "error", "registration_applied": True,
                     "live_index_refreshed": False,
@@ -107,7 +107,7 @@ def register(mcp, context):
         return {**result, "registration_applied": True, "live_index_refreshed": True}
 
 
-    def list_generated_assets(
+    def list_assets(
         category: str = "",
         limit: int = 20,
         offset: int = 0,
@@ -119,7 +119,7 @@ def register(mcp, context):
     furniture placeholders. Every asset is a GLB normalised to real-world
     millimetres with a measured spatial contract and an Almond material_id,
     so placement, collision checks and material restore work without any
-    third-party download. Place with place_generated_asset.
+    third-party download. Place with place_asset.
     """
         page = context.retrieval_store.search_assets(
             library_id="generated_assets",
@@ -135,7 +135,7 @@ def register(mcp, context):
         })
 
 
-    def search_generated_assets(
+    def search_assets(
         query: str = "",
         category: str = "",
         max_width_mm: float = 0,
@@ -158,7 +158,7 @@ def register(mcp, context):
         ))
 
 
-    def recommend_generated_assets(
+    def recommend_assets(
         query: str = "", category: str = "", room_type: str = "",
         width_mm: float = 0, depth_mm: float = 0, height_mm: float = 0,
         max_triangles: int = 0, include_clearances: bool = True, limit: int = 5,
@@ -177,7 +177,7 @@ def register(mcp, context):
             return error_payload(str(exc))
 
 
-    def get_generated_asset_passport(asset_id: str) -> dict:
+    def get_asset_passport(asset_id: str) -> dict:
         """Read portable asset metadata: measured vs nominal dimensions, provenance,
     materials, spatial contract, usage suggestions, quality limits and rights."""
         asset = context.generated_asset_indexer.get(asset_id)
@@ -187,7 +187,7 @@ def register(mcp, context):
             return error_payload(read_instruction(__file__, 'response-403'))
         out = {"status": "success", "passport": asset["passport"],
                "file_available": asset.get("file_available", False),
-               "preview_uri": f"almond://generated/{asset_id}/preview"}
+               "preview_uri": f"almond://assets/{asset_id}/preview"}
         try:
             table = asset_loads.LoadTable(context._structural_loads_path())
             entry = table.lookup(asset_id, asset.get("category", ""))
@@ -198,7 +198,7 @@ def register(mcp, context):
         return out
 
 
-    def evaluate_generated_asset_fit(
+    def evaluate_asset_fit(
         asset_id: str, width_mm: float, depth_mm: float, height_mm: float = 0,
         rotation_degrees: float = 0, include_clearances: bool = True,
     ) -> dict:
@@ -215,7 +215,7 @@ def register(mcp, context):
             return error_payload(str(exc))
 
 
-    def get_generation_sources(asset_id: str) -> dict:
+    def get_asset_sources(asset_id: str) -> dict:
         """Get original recorded provider/task IDs, prompt, transformations and evidence gaps.
     Includes Higgsfield image job IDs where recorded before the Meshy stage.
     This is local evidence, not an independent provider/account verification."""
@@ -234,7 +234,8 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
     @tool_instruction(__file__, 'get_asset_drawing')
-    def get_asset_drawing(asset_id: str) -> dict:
+    @query_output
+    def get_asset_drawing(asset_id: str, include_ids: StrictBool = False) -> dict:
         asset = context.drawing_asset_indexer.get(asset_id)
         if asset and asset.get("drawing_package"):
             root = Path(context.DRAWING_LIBRARY_DIR).resolve()
@@ -253,7 +254,7 @@ def register(mcp, context):
         package.relative_to(root.resolve())
         manifest = json.loads((package/"drawing.json").read_text(encoding="utf-8"))
         return {"status": "success", "package_dir": str(package), "manifest": manifest,
-                "plan_svg_uri": f"almond://generated/{asset_id}/drawing/plan/50"}
+                "plan_svg_uri": f"almond://assets/{asset_id}/drawing/plan/50"}
 
 
     @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
@@ -274,7 +275,7 @@ def register(mcp, context):
                 model.relative_to(Path(context.GENERATED_LIBRARY_DIR).resolve())
                 if drafting.sha(model.read_bytes()) != asset["sha256"]:
                     raise ValueError("Source model checksum differs from catalogue")
-                record_result = get_generation_sources(asset_id)
+                record_result = get_asset_sources(asset_id)
                 if record_result["status"] != "success":
                     raise ValueError(record_result["message"])
                 source_record = record_result["record"]
@@ -319,12 +320,12 @@ def register(mcp, context):
             return error_payload(str(exc))
 
 
-    @mcp.resource("almond://generated/{asset_id}/sources", mime_type="application/json")
+    @mcp.resource("almond://assets/{asset_id}/sources", mime_type="application/json")
     def generation_sources_resource(asset_id: str) -> ResourceResult:
-        return ResourceResult([ResourceContent(get_generation_sources(asset_id), mime_type="application/json")])
+        return ResourceResult([ResourceContent(get_asset_sources(asset_id), mime_type="application/json")])
 
 
-    @mcp.resource("almond://generated/{asset_id}/drawing/{view}/{scale}", mime_type="image/svg+xml")
+    @mcp.resource("almond://assets/{asset_id}/drawing/{view}/{scale}", mime_type="image/svg+xml")
     def asset_drawing_resource(asset_id: str, view: str, scale: str) -> ResourceResult:
         if view not in {"plan", "front", "right"} or scale not in {"50", "100"}:
             raise ValueError("Unknown bundled view or scale")
@@ -349,25 +350,25 @@ def register(mcp, context):
         return asset_drawing_resource(asset_id, view, scale)
 
 
-    @mcp.resource("almond://generated/catalogue", mime_type="application/json")
-    @tool_instruction(__file__, 'generated_catalogue_resource')
-    def generated_catalogue_resource() -> ResourceResult:
+    @mcp.resource("almond://assets/catalogue", mime_type="application/json")
+    @tool_instruction(__file__, 'asset_catalogue_resource')
+    def asset_catalogue_resource() -> ResourceResult:
         return ResourceResult([ResourceContent({"library_id": "generated_assets", "assets": [
             {"asset_id": a["asset_id"], "product": a["product"], "category": a["category"],
              "dimensions_mm": a["dimensions_mm"],
-             "passport_uri": f"almond://generated/{a['asset_id']}/passport",
-             "preview_uri": f"almond://generated/{a['asset_id']}/preview"}
+             "passport_uri": f"almond://assets/{a['asset_id']}/passport",
+             "preview_uri": f"almond://assets/{a['asset_id']}/preview"}
             for a in context.generated_asset_indexer.assets.values()]}, mime_type="application/json")])
 
 
-    @mcp.resource("almond://generated/{asset_id}/passport", mime_type="application/json")
-    def generated_passport_resource(asset_id: str) -> ResourceResult:
-        return ResourceResult([ResourceContent(get_generated_asset_passport(asset_id), mime_type="application/json")])
+    @mcp.resource("almond://assets/{asset_id}/passport", mime_type="application/json")
+    def asset_passport_resource(asset_id: str) -> ResourceResult:
+        return ResourceResult([ResourceContent(get_asset_passport(asset_id), mime_type="application/json")])
 
 
-    @mcp.resource("almond://generated/{asset_id}/preview", mime_type="image/png")
-    @tool_instruction(__file__, 'generated_preview_resource')
-    def generated_preview_resource(asset_id: str) -> ResourceResult:
+    @mcp.resource("almond://assets/{asset_id}/preview", mime_type="image/png")
+    @tool_instruction(__file__, 'asset_preview_resource')
+    def asset_preview_resource(asset_id: str) -> ResourceResult:
         if asset_id not in context.generated_asset_indexer.assets:
             raise ValueError("Unknown generated asset id")
         root = Path(context.GENERATED_LIBRARY_DIR).resolve()
@@ -376,7 +377,7 @@ def register(mcp, context):
         return ResourceResult([ResourceContent(preview.read_bytes(), mime_type="image/png")])
 
 
-    def get_generated_asset(asset_id: str) -> str:
+    def get_asset(asset_id: str) -> str:
         """Returns one generated asset's measured dimensions, spatial contract,
     material, generation provenance (Meshy task ids, prompt) and availability."""
         asset = context.retrieval_store.get_asset(asset_id, library_id="generated_assets")
@@ -515,7 +516,7 @@ public class Script
             return json.dumps(error_payload(f"Drawing asset placement failed: {exc}"))
 
 
-    def place_generated_asset(
+    def place_asset(
         asset_id: str,
         x_mm: float = 0,
         y_mm: float = 0,
@@ -527,7 +528,7 @@ public class Script
     Imports a generated-library asset into the open Rhino document and places
     it at a point (contract anchor = bottom centre, mm), restoring its Almond
     material and almond:* metadata and verifying the landed size against the
-    contract. Use search_generated_assets to choose an asset_id; afterwards
+    contract. Use search_assets to choose an asset_id; afterwards
     call register_scene_instance so the scene ledger and layout validation
     know about it.
 
@@ -570,7 +571,8 @@ public class Script
 
     @mcp.tool()
     @tool_instruction(__file__, 'search_asset_repository')
-    def search_asset_repository(query: str = "", kind: str = "all", drawing_ready: bool = False, limit: int = 20) -> dict:
+    @query_output
+    def search_asset_repository(query: str = "", kind: str = "all", drawing_ready: bool = False, limit: int = 20, include_ids: StrictBool = False) -> dict:
         from almond_mcp.features.assets.asset_repository import AssetRepository
         try:
             return AssetRepository().search(query, kind, drawing_ready, limit)
@@ -604,26 +606,26 @@ public class Script
         "get_drawing_asset": get_drawing_asset,
         "_extract_drawing_asset": _extract_drawing_asset,
         "register_drawing_asset": register_drawing_asset,
-        "list_generated_assets": list_generated_assets,
-        "search_generated_assets": search_generated_assets,
-        "recommend_generated_assets": recommend_generated_assets,
-        "get_generated_asset_passport": get_generated_asset_passport,
-        "evaluate_generated_asset_fit": evaluate_generated_asset_fit,
-        "get_generation_sources": get_generation_sources,
+        "list_assets": list_assets,
+        "search_assets": search_assets,
+        "recommend_assets": recommend_assets,
+        "get_asset_passport": get_asset_passport,
+        "evaluate_asset_fit": evaluate_asset_fit,
+        "get_asset_sources": get_asset_sources,
         "get_asset_drawing": get_asset_drawing,
         "generate_asset_drawing_views": generate_asset_drawing_views,
         "audit_asset_drawing": audit_asset_drawing,
         "generation_sources_resource": generation_sources_resource,
         "asset_drawing_resource": asset_drawing_resource,
         "drawing_asset_view_resource": drawing_asset_view_resource,
-        "generated_catalogue_resource": generated_catalogue_resource,
-        "generated_passport_resource": generated_passport_resource,
-        "generated_preview_resource": generated_preview_resource,
-        "get_generated_asset": get_generated_asset,
+        "asset_catalogue_resource": asset_catalogue_resource,
+        "asset_passport_resource": asset_passport_resource,
+        "asset_preview_resource": asset_preview_resource,
+        "get_asset": get_asset,
         "_dimension_check": _dimension_check,
         "_apply_import_correction": _apply_import_correction,
         "place_drawing_asset": place_drawing_asset,
-        "place_generated_asset": place_generated_asset,
+        "place_asset": place_asset,
         "search_asset_repository": search_asset_repository,
         "repository_asset_resource": repository_asset_resource,
     }

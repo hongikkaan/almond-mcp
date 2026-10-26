@@ -120,7 +120,7 @@ def test_registered_tool_resolves_patched_canonical_exchange(feature, monkeypatc
     assert feature.context.exchange is exchange
     assert exchange.__name__ == "almond_mcp.features.exchange.exchange"
     monkeypatch.setattr(exchange, "blender_export_script", lambda *args: "replacement")
-    result = json.loads(feature.exports["get_blender_helper_script"]("export", asset_id="fixture"))
+    result = json.loads(feature.exports["get_blender_helper_script"]("export", asset_id="fixture", include_ids=True))
     assert result["status"] == "success"
     assert result["script"] == "replacement"
 
@@ -130,7 +130,7 @@ def test_factory_registers_exact_public_contract_and_no_helpers(feature):
     expected = {
         "export_asset_contract": {"guids", "asset_id", "name", "output_dir"},
         "import_asset_contract": {"contract_path", "x_mm", "y_mm", "z_mm", "rotation_degrees", "layer"},
-        "get_blender_helper_script": {"action", "asset_id", "name", "output_dir", "material_id", "object_names"},
+        "get_blender_helper_script": {"include_ids", "action", "asset_id", "name", "output_dir", "material_id", "object_names"},
     }
 
     async def run():

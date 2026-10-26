@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
@@ -26,16 +28,25 @@ namespace RhinoAlmondBridge
             int selectionLimit;
             if (!ReadInteger(request, "selection_limit", 50, 0, MaxSelectionLimit, out selectionLimit))
                 return Error("invalid_arguments", "selection_limit must be an integer from 0 through 200.").ToString(Formatting.None);
-            return GetContext(RhinoDoc.ActiveDoc, selectionLimit).ToString(Formatting.None);
+            string[] sections = null;
+            if (request["sections"] != null)
+            {
+                var requested = request["sections"] as JArray;
+                if (requested == null || requested.Any(item => item.Type != JTokenType.String))
+                    return Error("invalid_arguments", "sections must be an array of document, selection or viewport.").ToString(Formatting.None);
+                sections = requested.Values<string>().ToArray();
+            }
+            return GetContext(RhinoDoc.ActiveDoc, selectionLimit, sections).ToString(Formatting.None);
         }
 
         public static string HandleViewportImage(JObject request)
         {
-            int maxWidth, maxHeight;
-            if (!ReadInteger(request, "max_width", 1280, 64, 2048, out maxWidth) ||
-                !ReadInteger(request, "max_height", 960, 64, 2048, out maxHeight))
-                return Error("invalid_arguments", "max_width and max_height must be integers from 64 through 2048.").ToString(Formatting.None);
-            return GetViewportImage(RhinoDoc.ActiveDoc, maxWidth, maxHeight).ToString(Formatting.None);
+            int scalePercent;
+            if (!ReadInteger(request, "scale_percent", 50, 1, 100, out scalePercent) ||
+                (request["view"] != null && request["view"].Type != JTokenType.String) ||
+                request["max_width"] != null || request["max_height"] != null)
+                return Error("invalid_arguments", "Use view (empty, 'a', or a GUID) and integer scale_percent from 1 through 100.").ToString(Formatting.None);
+            return GetViewportImage(RhinoDoc.ActiveDoc, (string)request["view"] ?? "", scalePercent).ToString(Formatting.None);
         }
 
         /// <summary>
@@ -43,15 +54,25 @@ namespace RhinoAlmondBridge
         /// excludes deleted objects, instance-definition members and grips.
         /// Failed fields or sections are null and identified in warnings, never fake zeroes.
         /// </summary>
-        public static JObject GetContext(RhinoDoc doc, int selectionLimit = 50)
+        public static JObject GetContext(RhinoDoc doc, int selectionLimit = 50, string[] sections = null)
         {
+            var requested = new HashSet<string>(sections ?? new[] { "document" });
+            if (requested.Any(section => section != "document" && section != "selection" && section != "viewport"))
+                return Error("invalid_arguments", "sections must contain only document, selection or viewport.");
             if (selectionLimit < 0 || selectionLimit > MaxSelectionLimit)
                 return Error("invalid_arguments", "selection_limit must be from 0 through 200.");
             if (doc == null)
                 return Error("no_document", "No Rhino document is available.");
 
             var warnings = new JArray();
-            var document = new JObject
+            var result = new JObject
+            {
+                ["status"] = "success",
+                ["capabilities"] = new JObject { ["fixed_probes"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1,
+                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1, ["context_sections"] = 1 },
+                ["warnings"] = warnings
+            };
+            if (requested.Contains("document")) result["document"] = new JObject
             {
                 ["runtime_serial_number"] = Observe("document.runtime_serial_number", () => new JValue(doc.RuntimeSerialNumber), warnings),
                 ["path"] = Observe("document.path", () => new JValue(doc.Path), warnings),
@@ -63,8 +84,9 @@ namespace RhinoAlmondBridge
                 ["object_count"] = Observe("document.object_count", () => new JValue(CountObjects(doc)), warnings),
                 ["layer_count"] = Observe("document.layer_count", () => new JValue(doc.Layers.ActiveCount), warnings)
             };
-            var selection = Observe("selection", () => ReadSelection(doc, selectionLimit, warnings), warnings);
-            var viewport = Observe("viewport", () =>
+            if (requested.Contains("selection"))
+                result["selection"] = Observe("selection", () => ReadSelection(doc, selectionLimit, warnings), warnings);
+            if (requested.Contains("viewport")) result["viewport"] = Observe("viewport", () =>
             {
                 var view = doc.Views.ActiveView;
                 if (view == null)
@@ -75,108 +97,115 @@ namespace RhinoAlmondBridge
                 return ReadViewport(view.ActiveViewport);
             }, warnings);
 
-            return new JObject
-            {
-                ["status"] = "success",
-                ["capabilities"] = new JObject { ["fixed_probes"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["drawing_sheets"] = 1,
-                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1 },
-                ["document"] = document,
-                ["selection"] = selection,
-                ["viewport"] = viewport,
-                ["warnings"] = warnings
-            };
+            return result;
         }
 
         /// <summary>
-        /// Captures the current view window, at its existing aspect ratio, without
-        /// changing its camera, display mode, clipping, selection or document state.
-        /// In a page view the image and viewport metadata describe the whole page view;
-        /// active_viewport_id separately identifies an active child detail.
+        /// Lists or captures model viewports, saved named views and layout paper.
+        /// Named views render through a detached viewport; no view is activated/restored.
+        /// All bitmaps and encoded bytes stay in memory, without temporary files.
         /// </summary>
-        public static JObject GetViewportImage(RhinoDoc doc, int maxWidth = 1280, int maxHeight = 960)
+        public static JObject GetViewportImage(RhinoDoc doc, string selector = "", int scalePercent = 50)
         {
-            if (maxWidth < 64 || maxWidth > 2048 || maxHeight < 64 || maxHeight > 2048)
-                return Error("invalid_arguments", "max_width and max_height must be from 64 through 2048.");
+            selector = (selector ?? "").Trim().ToLowerInvariant();
+            Guid targetId = Guid.Empty;
+            if (scalePercent < 1 || scalePercent > 100 ||
+                (selector != "" && selector != "a" && !Guid.TryParse(selector, out targetId)))
+                return Error("invalid_arguments", "Use view (empty, 'a', or a GUID) and integer scale_percent from 1 through 100.");
             if (doc == null)
                 return Error("no_document", "No Rhino document is available.");
 
-            var warnings = new JArray();
             var stage = "observation_failed";
             try
             {
+                if (selector == "a")
+                    return ListImageViews(doc);
                 if (doc.IsHeadless)
                     return Error("no_viewport", "A headless document has no view to capture.");
-                var view = doc.Views.ActiveView;
-                if (view == null)
+                var activeView = doc.Views.ActiveView;
+                if (activeView == null)
                     return Error("no_viewport", "This document has no active view.");
-                // CaptureToBitmap captures a RhinoView window, not just an active
-                // layout detail. Use its main viewport for the image's camera/aspect.
-                var viewport = view.MainViewport;
-                if (viewport == null)
-                    return Error("no_viewport", "The active view has no main viewport.");
-                if (view.Document == null || view.Document.RuntimeSerialNumber != doc.RuntimeSerialNumber)
-                    return Error("document_changed", "The active view does not belong to the requested document.");
-
+                if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber)
+                    return Error("document_changed", "The requested document is not active.");
+                RhinoView view = selector == "" ? activeView : null;
+                ViewInfo namedView = null;
+                if (selector != "")
+                {
+                    foreach (var candidate in doc.Views.GetViewList(ViewTypeFilter.Model | ViewTypeFilter.Page))
+                        if (candidate.MainViewport.Id == targetId)
+                            view = candidate;
+                    if (view == null)
+                        foreach (var candidate in doc.NamedViews)
+                            if (candidate.NamedViewId == targetId)
+                                namedView = candidate;
+                    if (view == null && namedView == null)
+                        return Error("view_not_found", "This GUID is not an available viewport, named view or layout. Use view='a' to list them.");
+                }
                 var documentInfo = ReadIdentity(doc);
-                var viewportInfo = ReadViewport(viewport);
-                var activeViewportId = view.ActiveViewportID;
-                var sourceSize = viewport.Size;
+                var activeState = ImageViewState(activeView);
+                var targetState = view == null ? null : ImageViewState(view);
+                var page = view as RhinoPageView;
+                Size sourceSize;
+                if (page != null)
+                {
+                    // Paper dimensions at 96 dpi define 100%, independent of layout zoom.
+                    using (var settings = new ViewCaptureSettings(page, 96.0))
+                        sourceSize = settings.MediaSize;
+                }
+                else if (namedView != null)
+                {
+                    var port = namedView.Viewport.GetScreenPort();
+                    sourceSize = new Size(Math.Abs(port.Width), Math.Abs(port.Height));
+                    if (sourceSize.Width == 0 || sourceSize.Height == 0)
+                        sourceSize = activeView.ActiveViewport.Size;
+                }
+                else
+                    sourceSize = view.MainViewport.Size;
                 if (sourceSize.Width <= 0 || sourceSize.Height <= 0)
-                    return Error("invalid_viewport_size", "The active view has no positive pixel size.");
-                if (activeViewportId != viewport.Id)
-                    warnings.Add("The image captures the whole page view. viewport describes its main viewport; active_viewport_id identifies the active detail.");
-
-                double scale = Math.Min(1.0, Math.Min((double)maxWidth / sourceSize.Width, (double)maxHeight / sourceSize.Height));
-                var size = new Size(Math.Max(1, (int)Math.Floor(sourceSize.Width * scale)),
-                                    Math.Max(1, (int)Math.Floor(sourceSize.Height * scale)));
-                string capturedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+                    return Error("invalid_viewport_size", "The requested view has no positive pixel size.");
+                var size = new Size(Math.Max(1, (int)((long)sourceSize.Width * scalePercent / 100)),
+                                    Math.Max(1, (int)((long)sourceSize.Height * scalePercent / 100)));
+                if ((long)size.Width * size.Height > 16 * 1024 * 1024)
+                    return Error("image_too_large", "The requested image exceeds 16 megapixels. Use a lower scale_percent.");
                 stage = "capture_failed";
-                using (var bitmap = view.CaptureToBitmap(size))
+                using (var bitmap = CaptureImage(doc, view, namedView, size, sourceSize, scalePercent))
                 {
                     if (bitmap == null)
                         return Error("capture_failed", "Rhino did not produce a viewport bitmap.");
                     if (bitmap.Width != size.Width || bitmap.Height != size.Height)
                         return Error("unexpected_image_size", "The captured bitmap dimensions differ from the requested dimensions.");
 
-                    // Do not attach a different document/camera's metadata if a
-                    // display callback changed the view during the synchronous capture.
                     var activeDocument = RhinoDoc.ActiveDoc;
                     if (activeDocument == null || activeDocument.RuntimeSerialNumber != doc.RuntimeSerialNumber ||
                         !JToken.DeepEquals(documentInfo, ReadIdentity(doc)))
                         return Error("document_changed", "The active document or its identity changed during capture.");
                     var currentView = doc.Views.ActiveView;
-                    if (currentView == null || currentView.MainViewport == null ||
-                        currentView.MainViewport.Id != viewport.Id ||
-                        currentView.ActiveViewportID != activeViewportId ||
-                        !JToken.DeepEquals(viewportInfo, ReadViewport(viewport)))
+                    if (currentView == null || !JToken.DeepEquals(activeState, ImageViewState(currentView)) ||
+                        (view != null && !JToken.DeepEquals(targetState, ImageViewState(view))))
                         return Error("viewport_changed", "The viewport changed during capture; no image was returned.");
 
                     stage = "image_encode_failed";
                     using (var stream = new MemoryStream())
                     {
-                        bitmap.Save(stream, ImageFormat.Jpeg);
+                        bitmap.Save(stream, ImageFormat.Png);
                         if (stream.Length == 0)
-                            return Error("image_encode_failed", "JPEG encoding produced no bytes.");
+                            return Error("image_encode_failed", "PNG encoding produced no bytes.");
                         if (stream.Length > MaxImageBytes)
-                            return Error("image_too_large", "The JPEG exceeds the 4 MiB limit. Request smaller maximum dimensions.");
+                            return Error("image_too_large", "The PNG exceeds the 4 MiB limit. Use a lower scale_percent.");
                         byte[] bytes = stream.ToArray();
                         return new JObject
                         {
                             ["status"] = "success",
-                            ["document"] = documentInfo,
-                            ["viewport"] = viewportInfo,
-                            ["active_viewport_id"] = activeViewportId.ToString(),
-                            ["capture_scope"] = view is RhinoPageView ? "page_view" : "model_view",
-                            ["captured_at_utc"] = capturedAt,
-                            ["image_byte_count"] = bytes.Length,
                             ["image"] = new JObject
                             {
-                                ["mime_type"] = "image/jpeg",
+                                ["mime_type"] = "image/png",
                                 ["data"] = Convert.ToBase64String(bytes),
                                 ["width"] = bitmap.Width,
-                                ["height"] = bitmap.Height
+                                ["height"] = bitmap.Height,
+                                ["source_width"] = sourceSize.Width,
+                                ["source_height"] = sourceSize.Height
                             },
-                            ["warnings"] = warnings
+                            ["warnings"] = new JArray()
                         };
                     }
                 }
@@ -184,6 +213,70 @@ namespace RhinoAlmondBridge
             catch (Exception ex)
             {
                 return Error(stage, ex.Message);
+            }
+        }
+
+        private static JObject ListImageViews(RhinoDoc doc)
+        {
+            var viewports = new JArray();
+            var layouts = new JArray();
+            var namedViews = new JArray();
+            foreach (var view in doc.Views.GetViewList(ViewTypeFilter.Model | ViewTypeFilter.Page))
+                (view is RhinoPageView ? layouts : viewports).Add(new JObject
+                {
+                    ["name"] = view.MainViewport.Name,
+                    ["guid"] = view.MainViewport.Id.ToString()
+                });
+            foreach (var view in doc.NamedViews)
+                namedViews.Add(new JObject { ["name"] = view.Name, ["guid"] = view.NamedViewId.ToString() });
+            return new JObject
+            {
+                ["status"] = "success",
+                ["views"] = new JObject { ["viewports"] = viewports, ["named_views"] = namedViews, ["layouts"] = layouts },
+                ["warnings"] = new JArray()
+            };
+        }
+
+        private static JObject ImageViewState(RhinoView view)
+        {
+            return new JObject { ["main"] = ReadViewport(view.MainViewport), ["active"] = ReadViewport(view.ActiveViewport) };
+        }
+
+        private static Bitmap CaptureImage(RhinoDoc doc, RhinoView view, ViewInfo namedView,
+            Size size, Size sourceSize, int scalePercent)
+        {
+            var page = view as RhinoPageView;
+            if (page != null)
+            {
+                using (var settings = new ViewCaptureSettings(page, 96.0 * scalePercent / 100.0))
+                {
+                    settings.Document = doc;
+                    settings.RasterMode = true;
+                    settings.DrawBackground = true;
+                    settings.HeaderText = "";
+                    settings.FooterText = "";
+                    settings.SetLayout(size, new Rectangle(System.Drawing.Point.Empty, size));
+                    return ViewCapture.CaptureToBitmap(settings);
+                }
+            }
+            if (namedView == null)
+                return view.CaptureToBitmap(size);
+            using (var viewport = new RhinoViewport(doc.Views.ActiveView.ActiveViewport))
+            {
+                viewport.Size = sourceSize;
+                if (!viewport.SetViewProjection(namedView.Viewport, true))
+                    throw new InvalidOperationException("Could not apply the named view to a detached viewport.");
+                using (var settings = new ViewCaptureSettings(doc.Views.ActiveView, size, 96.0))
+                {
+                    settings.Document = doc;
+                    settings.SetViewport(viewport);
+                    settings.RasterMode = true;
+                    settings.DrawBackground = true;
+                    settings.HeaderText = "";
+                    settings.FooterText = "";
+                    settings.SetLayout(size, new Rectangle(System.Drawing.Point.Empty, size));
+                    return ViewCapture.CaptureToBitmap(settings);
+                }
             }
         }
 

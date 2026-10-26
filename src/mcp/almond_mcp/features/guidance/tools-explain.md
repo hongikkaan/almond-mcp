@@ -30,6 +30,7 @@ Args:
 Returns:
     JSON: {total, systems: [...], reference?} - for wall systems
     span_range_m is the unsupported height range (span_axis "vertical").
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:get_construction_guidance -->
 
 ## get_typology_narrative
@@ -58,6 +59,7 @@ Returns:
     JSON: {total, entries: [{typology_id, name, era, region, narrative,
     precedents, related_construction_systems, urban_role, gha_ref,
     tags}], source}.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:get_typology_narrative -->
 
 ## search_detail_sources
@@ -67,6 +69,7 @@ Search six curated free architectural source directories offline.
 Returns links, formats and rights notes; no external content is fetched.
 Results are research candidates, not attributed inputs or certified details.
 DETAIL subscription access is not required.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:search_detail_sources -->
 
 ## response-732

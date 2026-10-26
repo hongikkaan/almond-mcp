@@ -5,15 +5,15 @@ description: "Use Almond MCP to inspect, plan, model, register, and verify Rhino
 
 # Rhino Almond
 
-Almond MCP는 Rhino 실물 형상, 공간 Scene, 구축·역할·의미의 묶음인 Component, Phase·Plan·Step, 자산·Sheet, 검증을 연결한다. **스크립트 실행 도구로만 취급하지 말고 실제 연결에 노출된 도구와 Bridge capability를 확인한다.**
+Almond MCP는 Rhino 실물 형상, 공간 Scene, 구축·역할·의미의 묶음인 Component, Phase·Plan·Step, 자산·Layout, 검증을 연결한다. **스크립트 실행 도구로만 취급하지 말고 실제 연결에 노출된 도구와 Bridge capability를 확인한다.**
 
 ## 시작과 필수 Phase·Plan
 
-1. COS에서는 `list_connections` → 필요 시 `connect`로 `connection_id`를 얻는다. 저장된 모델을 별도 Rhino에서 시작하라는 요청이면 `start_session`을 사용한다. `project_info`로 모델 binding·`artifact_dir`를, `get_rhino_context`로 **실제 활성 저장 문서·단위·공차·뷰**를 따로 확인한다. COS 호출에는 해당 `connection_id`를 함께 전달한다.
-2. **Phase 최소 1개 필수:** `list_generation_phases`로 조회해 적합한 Phase를 재사용한다. 없다면 `create_generation_phase`로 생성한다. 모든 Plan에 해당 `phase_id`를 연결한다. API상 Phase 링크가 선택적이더라도 이 스킬에서는 필수다.
-3. **Plan 생성 및 사용 필수:** 새 독립 과업에는 `create_generation_plan(goal, scope, phase_id, ...)`으로 Plan을 만든다. 동일 과업의 연속 작업은 `list_generation_plans`/`get_generation_plan`으로 기존 Plan을 재사용한다. 과거 Plan에 `phase_id`가 없으면 `update_generation_plan`으로 연결한다. 계획만 생성하고 방치하지 않는다.
-4. 작업 전 `get_generation_plan`과 `resolve_generation_targets`로 Step·의존성·대상을 읽는다. 단계마다 `update_generation_step`에 실물 결과와 `input_refs`/`output_refs`, 검증 증거를 기록한다. `expected_revision`으로 충돌을 방지한다. Scope별 Step은 고정 템플릿이므로 수행하지 않은 단계를 완료로 꾸미지 않는다. Scene 참조만으로 객체 편집 범위를 늘리지 않는다.
-5. 허용된 변경만 수행하고 실제 Rhino·DB·저장·시각 결과를 비교한다. 타임아웃·불명확한 쓰기 응답을 자동 재실행하지 않는다.
+1. 프로젝트·현재 문서 정보가 필요할 때 `project_info`에서 필요한 sections만 조회한다. 기본 document 항목이 실제 열린 문서를 같은 호출에서 확인하므로 live 확인을 위해 `get_rhino_context`를 추가 호출하지 않는다. 매 과업마다 시작 확인 두 도구를 반복하는 절차는 없다. 선택·카메라 정보가 필요할 때만 `get_rhino_context(sections=["selection"] 또는 ["viewport"])`를 쓴다.
+2. **Phase 최소 1개 필수:** 기존 Phase를 재사용하거나 생성한다. ID가 필요하면 `list_phases(include_ids=True)`를 쓴다. Phase의 `file_name`은 미기입 시 빈 문자열인 기록값이며 파일을 이동하지 않는다.
+3. **Plan 생성 및 사용 필수:** 새 독립 과업은 `create_plan`으로, 재개는 `list_plans(include_ids=True)`/`get_plan`으로 기존 Plan을 재사용한다. `depends_on`에는 다른 Phase의 Plan이나 Phase ID도 배열로 자유롭게 기록한다. 관련성 기록이며 선행 완료·실행 순서 조건이 아니다.
+4. `set_working_plan(plan_id, step_id)`으로 작업자료 폴더를 선택·재사용한다. worker는 상대경로만 전달한다. Python은 `execute_project_python`, Rhino C#은 `RhinoAlmondBridge.ManagedFiles.Input/Output`을 쓴다. 폴더는 `tmp/YYMMDD_작업명`이며 `rename_artifact_folder`로 바꿀 수 있다. 유용한 자료는 Plan의 `artifact_refs`와 Step의 `input_refs`/`output_refs`에 기록한다.
+5. **작업 중단·전환·재개는 정상이다.** 필요하면 Plan·Step을 `paused`로 기록하고 다른 작업을 한다. 미수행 Step을 completed로 꾸미거나 모든 작업을 선형적으로 끝내려 하지 않는다. `expected_revision`으로 기록 충돌을 막고, 사용자 승인 범위의 실제 결과·검증 근거를 기록한다. Scene 참조만으로 편집 범위를 늘리거나 불명확한 쓰기를 자동 재시도하지 않는다.
 
 Phase·Plan은 진행 조직/검증 기록이며 문서나 공간 자체가 아니다. 상세: [Scene·Component·Phase·Plan](references/components-and-plans.md), [워크플로우](references/workflow.md).
 
@@ -22,12 +22,13 @@ Phase·Plan은 진행 조직/검증 기록이며 문서나 공간 자체가 아�
 - **Scene = 특정 공간에서 일어나는 행태·프로그램·장면·가치.** 문서 전체를 Scene 하나로 치환하지 않는다. 같은 문서에 여러 Scene이 있고 Component 하나가 여러 Scene에 참여할 수 있다.
 - **Component = 그 장면을 가능하게 하는 구축·역할·의미의 실물 묶음.** 기둥·보가 함께 지지하는 구조, 지지 콘크리트와 목재 마감이 만드는 걸터앉는 마루, 바둑 행위를 가능하게 하는 가구·도구 묶음, 배수관까지 포함하는 지붕처럼 구성한다. 창문·문·기둥 한 개라는 이유로 각각 자동 등록하지 않는다. 반복 형상은 block, 부재·시스템의 선택 묶음은 일반 Rhino group을 활용하고, 모든 하위 group을 Component로 승격하지 않는다. [구성 기준](references/components-and-plans.md#component를-나누는-기준)과 [사용자 설명·사진 원문](references/component-feedback.md)을 먼저 대조한다. 직접 객체 소유자는 하나이고 `object_ids`는 직접 소유 객체, `child_component_ids`는 별도 의미를 가진 직접 자식이다. 수동 group 변경 후 `get_design_component(live=True)`로 대조하고 필요할 때만 `sync_design_component`로 정합한다.
 - 편집 대상은 **현재 사용자 승인된 Rhino 문서·해당 .almond 범위**다. Worksession의 **attached/reference 파일은 절대 수정하지 않는다**. 소유 파일·`IsReference`를 확인하고, 무관한 QA 객체·Layout·레이어를 새로 생성하지 않는다.
-- **Sheet API ≠ 기존 Layout 메타데이터 전체 목록.** `upsert_drawing_sheet`는 Rhino Layout·detail 생성/갱신용이며 `list_drawing_sheets`는 Almond 등록 Sheet만 반환한다. 기존 PageSpace 도면을 조사·카탈로그화할 때 새 Layout을 생성하지 않는다. [자산·Sheet](references/drawing-assets-and-sheets.md).
+- **도면·Sheet DB 등록 기능은 제거됐다.** 기존 Layout과 도면 파일은 유지된다. 뷰 목록·캡처는 `get_rhino_viewport_image(view="a")`와 반환 GUID를 사용한다. 등록 장부를 만들기 위해 Layout을 생성하지 않는다.
+
 - **구축 관계와 실제 관입도 검수한다.** 마감/슬래브·후레싱/벽 등 Component 내부와 인접 요소의 쌓임·접합을 [시각 검수](references/visual-review.md#구축-관계와-중첩)에 따라 확인한다. `get_component_intersections`는 같은 Component 내부 쌍도 검사하지만 block·mesh·상한·`unknown`·`complete=false`·잘림은 무충돌이 아니다. `validate_scene_layout`은 legacy asset-instance AABB 검사다. CRC·ByLayer·소유권 일치만으로 의미 구성·시공성 검수를 완료하지 않는다.
 
 ## 참조 지도
 
-아래 도구 선택표는 순차 작업표가 아니다. 공통 연결·문서 확인과 Phase·Plan 기록을 갖춘 뒤, Scene·재료 등 필요한 조회와 이번 과업의 도구만 골라 사용한다.
+아래 도구 선택표는 순차 작업표가 아니다. 현재 과업의 Phase·Plan 기록을 재사용하면서, Scene·재료 등 필요한 조회와 이번 과업의 도구만 골라 사용한다.
 
 | 목적 | 참조 |
 |---|---|

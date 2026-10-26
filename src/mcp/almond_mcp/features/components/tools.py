@@ -1,6 +1,9 @@
 """Component MCP tools; register explicitly with the current server context."""
 from almond_mcp.tool_response import error_payload
+from almond_mcp.query_output import query_output
+from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.instruction_text import tool_instruction, read_instruction
+from pydantic import StrictBool
 import json
 
 from pydantic import StrictInt
@@ -40,9 +43,9 @@ def register(mcp, context):
     @mcp.tool()
     @tool_instruction(__file__, 'upsert_design_component')
     def upsert_design_component(
-        expected_model_path: str,
         name: str,
         object_ids: list[str],
+        expected_model_path: str = "",
         scene_ids: list[str] | None = None,
         component_id: str = "",
         rhino_group_id: str = "",
@@ -50,7 +53,7 @@ def register(mcp, context):
     ) -> str:
         try:
             component = context.retrieval_store.upsert_component(
-                model_path=expected_model_path, name=name, object_ids=object_ids,
+                model_path=bound_model_path(expected_model_path), name=name, object_ids=object_ids,
                 scene_ids=scene_ids, component_id=component_id, rhino_group_id=rhino_group_id,
                 native_apply=_component_bridge, child_component_ids=child_component_ids,
             )
@@ -60,7 +63,8 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_design_component')
-    def get_design_component(component_id: str, live: bool = False) -> str:
+    @query_output
+    def get_design_component(component_id: str, live: bool = False, include_ids: StrictBool = False) -> str:
         try:
             component = context.retrieval_store.get_component(
                 component_id, live=live, native_inspect=_component_bridge if live else None,
@@ -73,7 +77,8 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'list_design_components')
-    def list_design_components(expected_model_path: str = "") -> str:
+    @query_output
+    def list_design_components(expected_model_path: str = "", include_ids: StrictBool = False) -> str:
         try:
             components = context.retrieval_store.list_components(expected_model_path)
             return json.dumps({"status": "success", "components": components, "total": len(components),
@@ -83,10 +88,10 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'sync_design_component')
-    def sync_design_component(expected_model_path: str, component_id: str, rhino_group_id: str = "") -> str:
+    def sync_design_component(component_id: str, expected_model_path: str = "", rhino_group_id: str = "") -> str:
         try:
             component = context.retrieval_store.sync_component(
-                model_path=expected_model_path, component_id=component_id,
+                model_path=bound_model_path(expected_model_path), component_id=component_id,
                 rhino_group_id=rhino_group_id, native_inspect=_component_bridge,
             )
             return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
@@ -106,7 +111,7 @@ def register(mcp, context):
                                     component_ids: list[str], max_pairs: int = 64) -> str:
         """Verify the advertised native helper before dispatching one bounded request."""
         try:
-            model_path = context.retrieval_store._component_model_path(expected_model_path)
+            model_path = context.retrieval_store._component_model_path(bound_model_path(expected_model_path))
             if (not isinstance(component_ids, list) or not 1 <= len(component_ids) <= 32
                     or any(not isinstance(value, str) or not value.strip() for value in component_ids)
                     or len(set(component_ids)) != len(component_ids)):
@@ -149,13 +154,14 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_component_intersections')
-    def get_component_intersections(expected_model_path: str, component_ids: list[str],
-                                    max_pairs: StrictInt = 64) -> str:
+    @query_output
+    def get_component_intersections(component_ids: list[str], expected_model_path: str = "",
+                                    max_pairs: StrictInt = 64, include_ids: StrictBool = False) -> str:
         return _component_operation_bridge("intersections", expected_model_path, component_ids, max_pairs)
 
     @mcp.tool(annotations={"destructiveHint": False})
     @tool_instruction(__file__, 'focus_components')
-    def focus_components(expected_model_path: str, component_ids: list[str]) -> str:
+    def focus_components(component_ids: list[str], expected_model_path: str = "") -> str:
         return _component_operation_bridge("focus", expected_model_path, component_ids)
 
     return {

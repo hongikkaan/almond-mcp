@@ -42,7 +42,7 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         for part in ast.walk(annotation):
             if not isinstance(part, allowed):
                 raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
-            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "float", "bool", "list", "dict"}:
+            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict"}:
                 raise ValueError(f"Review annotation name {part.id} in {node.name}")
     for default in [*node.args.defaults, *node.args.kw_defaults]:
         if default is not None:
@@ -50,6 +50,8 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
     decorators = []
     external_doc = None
     for decorator in node.decorator_list:
+        if isinstance(decorator, ast.Name) and decorator.id == "query_output":
+            continue  # Known output projection; schemas are built from inert bodies.
         if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
                 and decorator.func.id == "tool_instruction"):
             if (len(decorator.args) != 2 or decorator.keywords
@@ -106,20 +108,25 @@ async def generate(engine: Path = ENGINE) -> dict:
     server_loaded = "almond_mcp.server" in sys.modules
     from fastmcp import FastMCP
     from fastmcp.tools import ToolResult
-    from pydantic import StrictInt, StrictFloat
+    from pydantic import StrictInt, StrictFloat, StrictBool
     paths = source_paths(engine)
     sources = {name: digest(path) for name, path in paths.items()}
     functions = collect_tool_functions(paths["server"])
     entry = ast.parse(paths["entry"].read_text(encoding="utf-8-sig"))
-    project_info = next(n for n in ast.walk(entry)
-                        if isinstance(n, ast.FunctionDef) and n.name == "project_info")
-    project_info._guidance_source = str(paths["entry"])
-    functions.append(project_info)
+    for node in ast.walk(entry):
+        if isinstance(node, ast.FunctionDef) and any(
+            isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
+            and isinstance(d.func.value, ast.Name) and d.func.value.id == "mcp"
+            and d.func.attr == "tool" for d in node.decorator_list
+        ):
+            node._guidance_source = str(paths["entry"])
+            functions.append(node)
     module = types.ModuleType("_almondcos_schema_stubs")
     module.mcp = FastMCP("AlmondCOS schema build")
     module.ToolResult = ToolResult
     module.StrictInt = StrictInt
     module.StrictFloat = StrictFloat
+    module.StrictBool = StrictBool
     sys.modules[module.__name__] = module
     tree = ast.Module(body=[checked_stub(n) for n in functions], type_ignores=[])
     exec(compile(ast.fix_missing_locations(tree), "<AlmondCOS schemas only>", "exec"), module.__dict__)

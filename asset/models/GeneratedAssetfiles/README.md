@@ -15,7 +15,7 @@ each user downloads), these files ship with the repository.
 - **Units / axes:** millimetres; glTF Y-up in the file (Rhino's importer maps
   it to Z-up); bottom-centre at the origin; width = X, depth = Y (Rhino).
 - **Materials:** one `ALMOND::<material_id>` material per asset so
-  `import_asset_contract` / `place_generated_asset` restore the canonical
+  `import_asset_contract` / `place_asset` restore the canonical
   Almond PBR values and `almond:*` metadata on import.
 - **Dimensions are measured**, not nominal: the manifest records the real
   bounds of the normalised GLB (height is scaled exactly to the catalogue
@@ -38,10 +38,10 @@ each user downloads), these files ship with the repository.
 ## Using the library
 
 ```text
-list_generated_assets(category="site_furniture")
-search_generated_assets(query="tree", max_height_mm=8000)
-get_generated_asset(asset_id="gen-street-lamp-1")
-place_generated_asset(asset_id="gen-street-lamp-1", x_mm=0, y_mm=0)
+list_assets(category="site_furniture")
+search_assets(query="tree", max_height_mm=8000)
+get_asset(asset_id="gen-street-lamp-1")
+place_asset(asset_id="gen-street-lamp-1", x_mm=0, y_mm=0)
 ```
 
 Version 0.6 bundles all 50 models, contracts and previews in the wheel.
@@ -59,12 +59,12 @@ materials, clearances, support plane, usage suggestions, quality caveats and
 attribution. Suggested rooms are category/label heuristics, not audited facts.
 
 ```text
-recommend_generated_assets(query="bench", width_mm=2400, depth_mm=1600)
-get_generated_asset_passport(asset_id="gen-park-bench-1")
-evaluate_generated_asset_fit(asset_id="gen-park-bench-1", width_mm=2400, depth_mm=1600)
+recommend_assets(query="bench", width_mm=2400, depth_mm=1600)
+get_asset_passport(asset_id="gen-park-bench-1")
+evaluate_asset_fit(asset_id="gen-park-bench-1", width_mm=2400, depth_mm=1600)
 ```
 
-Read `almond://generated/catalogue` and the per-asset `/passport` and `/preview`
+Read `almond://assets/catalogue` and the per-asset `/passport` and `/preview`
 resources from an MCP client. Clearances are authored design allowances;
 rectangular fit does not check actual room obstacles or certify accessibility.
 Existing geometry remains unchanged. These legacy GLBs contain numeric mm,

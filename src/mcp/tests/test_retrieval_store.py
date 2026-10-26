@@ -127,18 +127,13 @@ class RetrievalStoreTests(unittest.TestCase):
         self.assertTrue(valid["passed"])
         self.assertGreater(moved["revision"], first["revision"])
 
-    def test_generation_plan_enforces_dependencies(self):
-        plan = self.store.create_generation_plan(
+    def test_plan_records_dependencies_without_enforcing_order(self):
+        plan = self.store.create_plan(
             "Furnish a compact apartment",
             scope="interior",
         )
         plan_id = plan["plan_id"]
-        with self.assertRaises(ValueError):
-            self.store.update_plan_step(
-                plan_id,
-                "retrieve_assets",
-                "completed",
-            )
+        self.store.update_plan_step(plan_id, "retrieve_assets", "completed")
 
         self.store.update_plan_step(plan_id, "inspect_rooms", "completed")
         updated = self.store.update_plan_step(
@@ -154,7 +149,7 @@ class RetrievalStoreTests(unittest.TestCase):
             ["ikea-sg-klippan-s49010615"],
         )
 
-        drawing_plan = self.store.create_generation_plan(
+        drawing_plan = self.store.create_plan(
             "Produce a technical axonometric",
             scope="drawing",
         )

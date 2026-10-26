@@ -1,7 +1,7 @@
 # 현재 문서·화면 조회와 C# 결과 반환
 
-기존 모델 작업에서는 먼저 `project_info`로 연결을 확인하고,
-`get_rhino_context`로 실제 활성 문서를 조회한다. 현재 화면이 판단에 필요할 때
+프로젝트 정보가 필요하면 `project_info`를 조회한다. 기본 document 항목이 실제 활성 문서를
+함께 확인하므로 같은 live 확인을 위해 `get_rhino_context`를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때
 `get_rhino_viewport_image`를 호출한다. COS에서도 같은 이름을 사용하고 `connection_id`를 전달한다.
 
 두 조회는 기존 Engine의 문서 binding·UI thread·호출 identity·native 완료 확인을
@@ -13,15 +13,15 @@ MCP 서버와 COS host의 초기 안내 모두 현황 조회, 관련 객체 조�
 ## 현재 상태
 
 ```json
-{"selection_limit": 50}
+{"sections": ["selection"], "selection_limit": 50}
 ```
 
-`get_rhino_context`는 다음 구조의 JSON 문자열을 반환한다.
+`get_rhino_context`는 document/selection/viewport 중 요청한 항목만 수집한다. 기본은 document이며,
+여러 section을 조합할 수 있다. 일반 ID는 include_ids=true일 때만 반환한다.
 
 | 필드 | 내용 |
 |---|---|
 | `status` | `success` 또는 명시적 오류 |
-| `capabilities` | `fixed_probes: 1`이면 아래 고정 geometry probe를 지원 |
 | `document` | runtime serial, path, name, units, 절대/각도 공차, modified, 객체/레이어 수 |
 | `selection` | 전체 선택 수 `total`, 반환 수 `returned`, `truncated`, 객체별 id/name/layer/type |
 | `viewport` | 활성 viewport ID/이름, 원본 픽셀 크기, display mode, projection, camera/target/up/lens |
@@ -38,25 +38,38 @@ MCP 서버와 COS host의 초기 안내 모두 현황 조회, 관련 객체 조�
 ## 현재 화면
 
 ```json
-{"max_width": 1280, "max_height": 960}
+{"view": "a"}
 ```
 
-`get_rhino_viewport_image`는 **MCP image content** 한 개와 JSON metadata를 반환한다.
-두 입력은 각각 64–2048 정수이며, 원래 화면의 비율을 유지하고 확대하지 않는다.
-JPEG 원본 한도는 4 MiB이다. 모델/viewport identity와 원본 화면 크기를 metadata에
-기록하고, 실제 JPEG 크기는 `image.width`와 `image.height`에 기록한다.
-`structuredContent`에는 base64 데이터를 중복해서 넣지 않는다.
+`view="a"`는 `viewports`, `named_views`, `layouts`별로 이름(`name`)과 GUID(`guid`)만
+반환한다. 원하는 GUID를 `view`에 넣으면 그 이미지가 나온다. `view`를 생략하면
+현재 뷰를 캡처한다. 같은 이름이 있어도 GUID로 대상을 구분한다.
 
-화면을 얻기 위해 zoom, Named View, display mode, clipping, selection을 바꾸지 않는다.
-페이지 뷰에서는 전체 페이지를 캡처하므로 `viewport`는 MainViewport를 설명하며,
-활성 detail ID는 `active_viewport_id`에 따로 표시한다. `capture_scope`와 `warnings`로
-이 차이를 알 수 있다. 상태 도구의 `viewport`는 활성 detail 자체를 가리킬 수 있다.
+```json
+{"view": "목록에서 받은 GUID", "scale_percent": 50}
+```
 
-뷰가 없거나 bitmap/JPEG 생성이 실패하거나 캡처 중 문서·뷰가 바뀌면 이미지 없이
-`isError`와 오류 JSON을 반환한다. Python 측에서도 JPEG 형식·실제 크기·한도를
-검사한다. 기존 경로의 오래된 이미지로 대체하지 않는다. 의도적으로 카메라를
-움직이며 여러 패스를 얻으려면 기존 `capture_conditioning_pass`를 사용한다.
-이 도구의 카메라 복원은 best effort이다.
+기본 반환은 **PNG MCP image content 한 개**이며 경로·문서·GUID metadata를 반복하지 않는다.
+`scale_percent`는 1–100 정수, 기본 50이다. 100은 원본 픽셀 크기, 50은 가로·세로
+각각 절반이다. Named View는 저장된 화면 크기(없으면 현재 뷰 크기), Layout은
+용지를 96 dpi로 표현한 크기를 100%로 삼는다. Layout은 주변 작업창을 빼고 용지와
+그 안의 Detail을 캡처하며, 현재 Layout에서 Detail이 활성화돼 있어도 용지가 대상이다.
+
+Named View는 현재 display mode를 사용해 별도 viewport에서 저장된 카메라를 그린다.
+화면의 활성 뷰 전환·Named View 복원·zoom·selection·Undo 변경을 하지 않는다.
+PNG와 base64 모두 메모리에서 처리하므로 임시 이미지 파일을 만들지 않는다.
+특정 clipping이나 display mode를 새로 설정하는 기능은 아니다.
+
+`include_usage=true`일 때만 크기와 토큰 추정치를 덧붙인다. 추정식은
+`ceil(width/32) × ceil(height/32) × 1.2`를 올림한 예시이며 공급자의 추가 리사이즈를
+가정하지 않는다. 클라이언트의 모델·detail 설정을 MCP가 알 수 없으므로 실제 사용량이
+아니다. PNG 압축 바이트 수보다 픽셀 크기를 줄이는 것이 이 추정량을 줄인다.
+[공식 이미지 비용 안내](https://developers.openai.com/api/docs/guides/images-vision#calculating-costs)를 참고한다.
+
+16 메가픽셀 또는 PNG 4 MiB를 넘으면 축소율을 낮추라는 오류를 반환하며 몰래 추가
+축소하지 않는다. 없는 GUID·실패한 캡처·캡처 중 문서/뷰 변경도 이미지 없이 오류로
+반환한다. Python에서도 실제 PNG 형식과 크기를 검사한다. 캡처 성공은 형상의 정확성을
+증명하지 않는다. 의도적인 카메라 경로와 여러 패스는 `capture_conditioning_pass`를 사용한다.
 
 ## 고정 geometry probe
 

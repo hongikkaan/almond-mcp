@@ -3,7 +3,7 @@
 ## response-6
 
 <!-- instruction:response-6 -->
-Inspect passport/preview, then place_generated_asset; register placement and validate_scene_layout.
+Inspect passport/preview, then place_asset; register placement and validate_scene_layout.
 <!-- /instruction:response-6 -->
 
 ## response-16

@@ -224,7 +224,7 @@ internal sealed class AlmondHost : IDisposable
                 ["token"]=token, ["pid"]=process.Id, ["process_start_ticks"]=ticks, ["document_serial"]=serial,
                 ["model_path"]=Canonical(model), ["document_path"]=Canonical(doc.Path), ["storage"]=storage,
                 ["session_dir"]=sessionDirectory, ["ready_path"]=readyPath,
-                ["state_db"]=Path.Combine(storage,"scene.sqlite3"),
+                ["state_db"]=Path.Combine(storage,"DB"),
                 ["engine"]=Engine, ["temp"]=Path.Combine(storage,"tmp"), ["rhino_temp"]=Path.GetTempPath(),
                 ["model_units"]=doc.ModelUnitSystem.ToString(), ["valid"]=true, ["status"]="starting"
             };

@@ -74,10 +74,10 @@ def test_factory_registers_existing_public_signatures(server):
     assert set(registered) == {
         "list_library", "get_logic_by_id", "list_capsules", "run_gh_definition",
     }
-    assert registered["list_library"].parameters["properties"] == {}
+    assert registered["list_library"].parameters["properties"] == {"include_ids": {"type": "boolean", "default": False}}
     assert registered["get_logic_by_id"].parameters["required"] == ["logic_id"]
     assert set(registered["list_capsules"].parameters["properties"]) == {
-        "capability", "audited_only",
+        "capability", "audited_only", "include_ids",
     }
     run_schema = registered["run_gh_definition"].parameters
     assert set(run_schema["properties"]) == {"capsule_id", "inputs", "seed", "timeout_s"}
@@ -110,7 +110,7 @@ def test_logic_tools_use_current_indexer_and_parse_ghx_before_gh(server, tmp_pat
     (library / "notes.json").write_text(json.dumps({"title": "Only metadata"}), encoding="utf-8")
     monkeypatch.setattr(server, "LIBRARY_DIR", str(library))
     monkeypatch.setattr(server, "indexer", LibraryIndexer(str(library)))
-    listing = json.loads(_call(server.list_library))
+    listing = json.loads(_call(server.list_library, include_ids=True))
     assert listing == {
         "library_dir": str(library), "total_entries": 2, "logic_ids": ["beam", "notes"],
     }

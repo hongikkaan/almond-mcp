@@ -217,8 +217,9 @@ class RuntimeRequestTests(unittest.IsolatedAsyncioTestCase):
         # developer checkout is nested under Documents/Codex/<date>/<task>.
         data = Path(__file__).resolve().parents[4] / "data"
         data.mkdir(parents=True, exist_ok=True)
-        cls.fixture_root = Path(tempfile.mkdtemp(prefix="_native_", dir=data))
-        print("Native request fixture retained for recoverable cleanup:", cls.fixture_root)
+        directory = tempfile.TemporaryDirectory(prefix="_native_", dir=data)
+        cls.addClassCleanup(directory.cleanup)
+        cls.fixture_root = Path(directory.name)
 
     def runtime(self, native):
         from shared_store import ProjectRuntime

@@ -839,9 +839,8 @@ class ComponentsStore:
             raise ValueError(read_instruction(__file__, 'response-491'))
         if connection.execute(
             "SELECT 1 FROM generation_plan_components WHERE component_id = ? "
-            "UNION ALL SELECT 1 FROM generation_step_components WHERE component_id = ? "
-            "UNION ALL SELECT 1 FROM drawing_sheet_components WHERE component_id = ? LIMIT 1",
-            (component_id, component_id, component_id),
+            "UNION ALL SELECT 1 FROM generation_step_components WHERE component_id = ? LIMIT 1",
+            (component_id, component_id),
         ).fetchone():
             raise ValueError(
                 read_instruction(__file__, 'response-492')

@@ -56,7 +56,7 @@ block은 문서의 **top-level occurrence GUID**를 Component 멤버로 등록�
 
 `upsert_design_component`의 `object_ids`는 해당 Component가 **직접 소유할** top-level GUID 목록이다. `child_component_ids`는 직접 자식 목록이며 생략하면 유지, `[]`는 명시적 분리다. 자식이 존재하면 직접 객체는 없어도 된다. 부모 group의 물리 멤버는 직접 객체와 자손 객체의 합집합으로 정합된다. 일반 group을 채택하려면 정확한 직접·자손 멤버 구성이 맞아야 한다. 등록은 기하를 복제하지 않는다.
 
-새 Component에는 `scene_ids`를 하나 이상 지정한다. 기존 Component에서 생략하면 기존 Scene 연결을 유지하고, 명시적인 `[]`는 거부된다. 직접 Scene 연결의 `remove`·`replace`는 Component 소속을 바꾸지 않는다. 부모가 없는 root Component는 자식을 포함한 상태로 등록 해제할 수 있다. 자식들의 소유권과 group을 보존하고 자식은 root가 되며 기존 부모 group은 일반 group으로 남는다. 자식 Component 자체의 해제는 먼저 부모에서 분리해야 한다. Plan·Step·Sheet 참조는 해제 전에 정리한다.
+새 Component에는 `scene_ids`를 하나 이상 지정한다. 기존 Component에서 생략하면 기존 Scene 연결을 유지하고, 명시적인 `[]`는 거부된다. 직접 Scene 연결의 `remove`·`replace`는 Component 소속을 바꾸지 않는다. 부모가 없는 root Component는 자식을 포함한 상태로 등록 해제할 수 있다. 자식들의 소유권과 group을 보존하고 자식은 root가 되며 기존 부모 group은 일반 group으로 남는다. 자식 Component 자체의 해제는 먼저 부모에서 분리해야 한다. Plan·Step 참조는 해제 전에 정리한다.
 
 `get_design_component`, `list_design_components`, `get_scene_objects`는 저장된 관찰값이며 `live_verified=false`다. 등록·sync 성공 응답의 `live_verified=true`는 그 호출에서 확인한 snapshot을 뜻한다. 이후 Rhino의 수동 편집·Undo/Redo가 DB에 자동 반영되지는 않는다.
 
@@ -70,35 +70,37 @@ block은 문서의 **top-level occurrence GUID**를 Component 멤버로 등록�
 
 **Almond로 수행하는 모든 독립 과업은 Phase가 최소 1개 있는 상태에서 유효한 Phase에 속한 Plan을 생성하고 실제로 사용한다.**
 
-1. `list_generation_phases`로 조회한다. 적합한 기존 Phase가 있으면 ID를 재사용하고, 없으면 `create_generation_phase`를 호출한다. Phase는 문서나 Scene의 대체물이 아니므로 단순히 문서마다 별도 Phase를 늘리지 않는다.
-2. `list_generation_plans(phase_id=...)`로 같은 과업의 진행 중인 Plan을 확인한다. **새 독립 과업에는 `create_generation_plan(..., phase_id=...)`을 필수 실행**한다. 같은 과업의 연속 작업이면 그 Plan을 재사용한다. 기존 Plan의 `phase_id`가 없으면 `update_generation_plan(plan_id, phase_id=..., expected_revision=...)`으로 연결한다.
-3. 편집 대상과 선행 단계는 `get_generation_plan`·`resolve_generation_targets`로 확인하고, `update_generation_step`으로 실제 조사·설계·편집·검증의 상태 및 `input_refs`/`output_refs`를 기록한다. 결과가 누락되거나 미지원이면 `blocked` 또는 해당 미완료 상태로 남기며 완료로 위장하지 않는다. 단계 갱신 시 최신 `expected_revision`을 사용한다.
+1. `list_phases`로 조회한다. 적합한 기존 Phase가 있으면 ID를 재사용하고, 없으면 `create_phase`를 호출한다. Phase는 문서나 Scene의 대체물이 아니므로 단순히 문서마다 별도 Phase를 늘리지 않는다.
+2. `list_plans(phase_id=...)`로 같은 과업의 진행 중인 Plan을 확인한다. **새 독립 과업에는 `create_plan(..., phase_id=...)`을 필수 실행**한다. 같은 과업의 연속 작업이면 그 Plan을 재사용한다. 기존 Plan의 `phase_id`가 없으면 `update_plan(plan_id, phase_id=..., expected_revision=...)`으로 연결한다.
+3. 편집 대상과 현재 단계 기록은 `get_plan`·`resolve_targets`로 확인하고, `update_step`으로 실제 조사·설계·편집·검증의 상태 및 `input_refs`/`output_refs`를 기록한다. 결과가 누락되거나 미지원이면 `blocked` 또는 해당 미완료 상태로 남기며 완료로 위장하지 않는다. 단계 갱신 시 최신 `expected_revision`을 사용한다.
 4. Scope는 고정된 단계 집합을 만든다. 특히 `drawing` Plan에 `create_layout` Step이 있다고 하여 **기존 PageSpace Layout의 메타데이터 조사 요청에서 새 Layout을 만들지 않는다**. 해당 없음·지원 불가 근거를 기록하고 필요 시 Plan을 재조직할 과제를 분리해 보고한다.
 
-현재 서버 API에서는 `create_generation_plan`의 `phase_id`가 선택 인자지만, **이 스킬은 Phase 없는 Plan을 금지**한다. Plan 상태 기록은 사용자 편집 승인이나 Rhino 자동 실행을 의미하지 않는다.
+현재 서버 API에서는 `create_plan`의 `phase_id`가 선택 인자지만, **이 스킬은 Phase 없는 Plan을 금지**한다. Plan 상태 기록은 사용자 편집 승인이나 Rhino 자동 실행을 의미하지 않는다.
 
 | 목적 | 공개 API와 핵심 인자 |
 |---|---|
-| Phase | `create_generation_phase(name, description="")`, `get_generation_phase(phase_id)`, `list_generation_phases(limit=50)`, `update_generation_phase(phase_id, name=None, description=None)` |
-| Plan 생성 | `create_generation_plan(goal, scope="house", scene_id="", phase_id="", scene_ids=None, component_ids=None)` |
-| Plan 조회·검색 | `get_generation_plan(plan_id, revision=None)`, `list_generation_plans(phase_id="", scene_id="", status="", limit=50)` |
-| Plan 변경 | `update_generation_plan(plan_id, goal=None, phase_id=None, scene_ids=None, component_ids=None, expected_revision=None)` |
-| Step 갱신 | `update_generation_step(plan_id, step_id, status, input_refs=None, output_refs=None, component_ids=None, expected_revision=None)` |
-| 대상 해석 | `resolve_generation_targets(plan_id, step_id="")` |
-| revision 목록 | `list_generation_plan_revisions(plan_id, limit=50)` |
+| Phase | `create_phase(name, description="", file_name="")`, `get_phase(phase_id)`, `list_phases(limit=50)`, `update_phase(phase_id, name=None, description=None, file_name=None)` |
+| Plan 생성 | `create_plan(goal, scope="house", phase_id="", scene_ids=None, component_ids=None, depends_on=None)` |
+| Plan 조회·검색 | `get_plan(plan_id, revision=None)`, `list_plans(phase_id="", scene_id="", status="", limit=50)` |
+| Plan 변경 | `update_plan(plan_id, goal=None, phase_id=None, scene_ids=None, component_ids=None, expected_revision=None)` |
+| Step 갱신 | `update_step(plan_id, step_id, status, input_refs=None, output_refs=None, component_ids=None, expected_revision=None)` |
+| 대상 해석 | `resolve_targets(plan_id, step_id="")` |
+| revision 목록 | `list_plan_revisions(plan_id, limit=50)` |
 
-지원 scope는 `house`, `interior`, `structure`, `drawing`, `component`다. Component 과업에는 `scope="component"`로 `inspect_context → design → model → validate` 단계를 만든다. 처음 등록할 형상을 계획한다면 Component 참조 없이 시작한 뒤, 실제 등록된 ID를 `update_generation_plan`으로 연결할 수 있다.
+지원 scope는 `house`, `interior`, `structure`, `drawing`, `component`다. Component 과업에는 `scope="component"`로 `inspect_context → design → model → validate` 단계를 만든다. 처음 등록할 형상을 계획한다면 Component 참조 없이 시작한 뒤, 실제 등록된 ID를 `update_plan`으로 연결할 수 있다.
 
 Plan의 `scene_ids`는 맥락이고 `component_ids`는 명시적인 대상이다. 참조하는 Component가 Plan의 맥락 Scene에 속해야 하는 조건은 없다. Scene 참조만으로 그 안의 모든 객체를 편집 대상으로 삼지 않는다. 호환용 단일 `scene_id`를 함께 전달하면 `scene_ids`의 첫 항목과 일치해야 한다.
 
-대상은 `resolve_generation_targets`로 확인한다. **응답의** Step `component_ids=null`은 Plan 대상을 상속하고, 명시적인 `[]`는 대상 없음이며, 목록은 그 Step의 별도 대상이다. 변경 호출에서 `component_ids`를 생략하거나 `null`로 보내면 기존 설정을 유지한다. 현재 API에는 이미 지정한 Step override를 다시 상속 상태로 바꾸는 별도 인자가 없다. Plan/Step 대상 조회는 등록된 문서·group 핸들을 반환하며 `live_verified=false`다. 실제 문서와 현재 사용자 범위를 대조한 뒤 작업한다.
+대상은 `resolve_targets`로 확인한다. **응답의** Step `component_ids=null`은 Plan 대상을 상속하고, 명시적인 `[]`는 대상 없음이며, 목록은 그 Step의 별도 대상이다. 변경 호출에서 `component_ids`를 생략하거나 `null`로 보내면 기존 설정을 유지한다. 현재 API에는 이미 지정한 Step override를 다시 상속 상태로 바꾸는 별도 인자가 없다. Plan/Step 대상 조회는 등록된 문서·group 핸들을 반환하며 `live_verified=false`다. 실제 문서와 현재 사용자 범위를 대조한 뒤 작업한다.
 
-Step 상태는 `pending`, `running`, `completed`, `failed`, `blocked`다. `running`·`completed`는 모든 선행 단계가 완료돼야 한다. 후속 단계가 실행 중이거나 완료 상태이면 선행 단계를 뒤로 돌릴 수 없으므로 실제 재작업 순서에 맞춰 후속 상태부터 갱신한다. `input_refs`·`output_refs`에는 관련 핸들과 실제 검증 근거를 기록한다. 상태 변경 자체가 형상을 생성하거나 검증을 수행하지 않는다.
+Step 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`다. 미완료 상태에서 중단·전환·재개할 수 있으며 선행 완료나 후행 상태에 따른 실행 제한은 없다. Plan `depends_on`은 다른 Phase의 Plan·Phase ID도 자유롭게 담는 배열이다. `["plan_a", "phase_b"]`처럼 쓰고 CSV 문자열을 쓰지 않는다. 존재·순환·자기 참조·완료 상태를 조건으로 강제하지 않는다. `input_refs`·`output_refs`에는 실제 자료의 프로젝트 상대경로와 검증 근거를 기록한다. 상태 변경 자체가 형상 생성·검증 실행은 아니다.
+
+Phase·Scene의 `file_name`은 미기입 시에도 빈 문자열로 존재하며 생성·수정할 수 있다. Plan은 `set_working_plan`으로 선택한 `artifact_dir`와 `artifact_refs`를 보존한다. `rename_artifact_folder`는 폴더와 현재 참조를 함께 갱신한다. 조회에서 ID는 기본 생략되며 필요한 경우에만 `include_ids=True`를 쓴다. 선택 객체의 관련 Plan·Step·Component ID가 필요하면 `get_selection_references` 한 번으로 조회한다.
 
 ## revision과 변경 의미
 
 Plan metadata·참조·Step 상태에 실제 변경이 생기면 전체 계획 snapshot을 immutable revision으로 저장한다. 같은 값으로 갱신하면 revision이 늘지 않는다. 기존 DB의 현재 계획은 migration 시 revision 0 baseline으로 남고, 존재하지 않았던 과거 기록을 만들지 않는다.
 
-수정 전에 읽은 Plan의 `revision`을 `expected_revision`으로 전달해 다른 갱신을 덮어쓰지 않게 한다. 불일치하면 최신 Plan을 다시 읽고 변경 내용을 재검토한다. `get_generation_plan(plan_id, revision=N)`은 그 revision만 조회하며 없으면 오류다. 저장된 snapshot은 계획 metadata·Step 상태·참조 핸들이므로 Rhino 기하를 복원하는 백업으로 쓰지 않는다. Phase 이름·설명 편집은 Phase 조직 정보를 갱신한다.
+수정 전에 읽은 Plan의 `revision`을 `expected_revision`으로 전달해 다른 갱신을 덮어쓰지 않게 한다. 불일치하면 최신 Plan을 다시 읽고 변경 내용을 재검토한다. `get_plan(plan_id, revision=N)`은 그 revision만 조회하며 없으면 오류다. 저장된 snapshot은 계획 metadata·Step 상태·참조 핸들이므로 Rhino 기하를 복원하는 백업으로 쓰지 않는다. Phase 이름·설명 편집은 Phase 조직 정보를 갱신한다.
 
 변경 API의 생략값은 기존 값을 유지한다. Plan의 `scene_ids=[]`·`component_ids=[]`는 참조를 비우며, `phase_id=""`는 Phase에서 분리한다. 이는 **Component 자체에는 최소 한 Scene이 필요한 규칙**과 구분한다. 목록 API의 `limit`은 1–500이며 `total`·`truncated`를 확인한다.

@@ -113,9 +113,9 @@ def test_public_registration_update_and_cached_reads(server, store, scene, model
     assert changed["component"]["scene_ids"] == [scene]
     assert requests[-1]["expected_object_ids"] == [A, B]
     monkeypatch.setattr(server, "_send_and_receive", lambda *_: pytest.fail("Cached read called Rhino"))
-    cached = call(server, "get_design_component", component_id="panel-1")["component"]
+    cached = call(server, "get_design_component", component_id="panel-1", include_ids=True)["component"]
     assert cached["live_verified"] is False and cached["object_ids"] == [B]
-    listed = call(server, "list_design_components", expected_model_path=model)
+    listed = call(server, "list_design_components", expected_model_path=model, include_ids=True)
     assert listed["total"] == 1 and listed["live_verified"] is False
     assert listed["components"][0]["name"] == "Smaller panel"
     assert "objects" not in listed["components"][0]
@@ -205,7 +205,7 @@ def test_direct_scene_objects_deduplicate_and_survive_unregister(server, store, 
     assert linked["direct_objects"] == 2 and linked["live_verified"] is True
     assert [r.get("action") for r in requests] == [None, "objects"]
     assert requests[1]["object_ids"] == [A, B] and "scene_ids" not in requests[1]
-    rows = call(server, "get_scene_objects", scene_id=scene)
+    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True)
     assert rows["total"] == 2 and rows["live_verified"] is False
     assert all(row["direct"] for row in rows["objects"])
     def unregister(request):
@@ -216,7 +216,7 @@ def test_direct_scene_objects_deduplicate_and_survive_unregister(server, store, 
     assert removed["status"] == "success" and removed["component"]["status"] == "unregistered"
     assert [r.get("action") for r in requests] == [None, "unregister"]
     assert requests[1]["expected_object_ids"] == [A]
-    rows = call(server, "get_scene_objects", scene_id=scene)
+    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True)
     assert rows["total"] == 2 and all(row["component_id"] is None for row in rows["objects"])
     assert store.get_component(component["component_id"]) is None
 
@@ -225,7 +225,7 @@ def test_direct_scene_objects_deduplicate_and_survive_unregister(server, store, 
 def test_plan_references_block_public_unregister_before_bridge(server, store, scene, model, wire, reference_kind):
     wire()
     component = register(server, model, scene)["component"]
-    plan = store.create_generation_plan("Retain", scope="component",
+    plan = store.create_plan("Retain", scope="component",
         component_ids=[component["component_id"]] if reference_kind == "plan" else [])
     if reference_kind == "step":
         store.update_plan_step(plan["plan_id"], "inspect_context", "pending",
@@ -258,7 +258,8 @@ def test_actual_mcp_component_schema_and_roundtrip(server, store, scene, model, 
                      for tool in await client.list_tools()}
             assert COMPONENT_TOOLS <= tools.keys()
             schema = tools["upsert_design_component"]["inputSchema"]
-            assert {"expected_model_path", "name", "object_ids"} <= set(schema["required"])
+            assert {"name", "object_ids"} == set(schema["required"])
+            assert schema["properties"]["expected_model_path"]["default"] == ""
             assert {"scene_ids", "component_id", "rhino_group_id"} <= schema["properties"].keys()
             for name in ("get_design_component", "list_design_components", "get_scene_objects", "get_modeling_policy"):
                 assert tools[name]["annotations"]["readOnlyHint"] is True

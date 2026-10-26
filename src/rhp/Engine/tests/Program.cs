@@ -212,7 +212,8 @@ internal static class Program
         fixture.Start();
         string original = File.ReadAllText(fixture.Paths.NativePath);
         var start = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false, CreateNoWindow = true };
-        start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
+        if (string.Equals(Path.GetFileNameWithoutExtension(Environment.ProcessPath), "dotnet", StringComparison.OrdinalIgnoreCase))
+            start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
         start.ArgumentList.Add("--foreign-client");
         start.ArgumentList.Add(fixture.Port.ToString());
         start.ArgumentList.Add(fixture.Token);
@@ -220,7 +221,18 @@ internal static class Program
         using (var child = Process.Start(start)!)
         {
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            await child.WaitForExitAsync(deadline.Token);
+            try
+            {
+                await child.WaitForExitAsync(deadline.Token);
+            }
+            finally
+            {
+                if (!child.HasExited)
+                {
+                    child.Kill(entireProcessTree: true);
+                    await child.WaitForExitAsync();
+                }
+            }
             Check(child.ExitCode == 0, "A different process was not rejected.");
         }
         await Until(() => fixture.Bridge.Pending == 0, "Rejected peer did not drain.");

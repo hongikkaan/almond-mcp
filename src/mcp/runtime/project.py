@@ -56,9 +56,9 @@ def project_paths(model: str | Path, *, create: bool = False) -> dict[str, str]:
         if folder.exists() and not folder.is_dir():
             raise ValueError(f"Expected a folder: {folder}")
     if create:
-        (storage / "tmp").mkdir(parents=True, exist_ok=True)
+        storage.mkdir(parents=True, exist_ok=True)
     return dict(model_path=str(path), project_dir=str(path.parent), storage=str(storage),
-                state_db=str(storage / "scene.sqlite3"), temp=str(storage / "tmp"))
+                state_db=str(storage / "DB"), temp=str(storage / "tmp"))
 
 
 def connection_paths(model: str | Path, slot: str, token: str, *, create: bool = False) -> dict[str, str]:
@@ -70,7 +70,7 @@ def connection_paths(model: str | Path, slot: str, token: str, *, create: bool =
     locations = project_paths(model, create=create)
     storage = Path(locations["storage"])
     session = storage / ".sessions" / token
-    calls = Path(locations["temp"]) / "calls" / token
+    calls = Path(locations["temp"]) / "python" / token
     for folder in (session.parent, session, calls.parent, calls):
         if folder.is_symlink() or (hasattr(folder, "is_junction") and folder.is_junction()):
             raise ValueError("Connection directories must not be directory links.")
@@ -80,7 +80,6 @@ def connection_paths(model: str | Path, slot: str, token: str, *, create: bool =
         session.parent.mkdir(parents=True, exist_ok=True)
         # A generation is never reused, even when its old lock handles are gone.
         session.mkdir(exist_ok=False)
-        calls.mkdir(parents=True, exist_ok=False)
     return dict(locations, session_dir=str(session), ready_path=str(session / "ready.json"),
                 call_root=str(calls))
 

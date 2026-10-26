@@ -1,8 +1,10 @@
 """Register portable asset exchange tools and their native report helpers."""
 from almond_mcp.tool_response import error_payload
+from almond_mcp.query_output import query_output
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
+from pydantic import StrictBool
 import json
 from pathlib import Path
 import uuid
@@ -288,7 +290,7 @@ public class Script
                           rotation_degrees: float, layer: str) -> dict:
         """Import a loaded contract's GLB into Rhino, restore materials and
     metadata, place it per the contract anchor, and report the dimension
-    check. Shared by import_asset_contract and place_generated_asset."""
+    check. Shared by import_asset_contract and place_asset."""
         problem = modeling_setup.check_bridge(context._send_and_receive)
         if problem:
             return problem
@@ -370,9 +372,10 @@ public class Script
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_blender_helper_script')
+    @query_output
     def get_blender_helper_script(action: str, asset_id: str = "", name: str = "",
                                   output_dir: str = "", material_id: str = "",
-                                  object_names: list[str] | None = None) -> str:
+                                  object_names: list[str] | None = None, include_ids: StrictBool = False) -> str:
         action = action.strip().lower()
         if action == "export":
             if not asset_id:

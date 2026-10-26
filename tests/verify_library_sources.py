@@ -48,8 +48,8 @@ def child(mode, metadata, original_args):
     import mcp_server as entry
     original_configure = entry.configure_project_context
 
-    async def configure(mcp, args, binding, locations):
-        await original_configure(mcp, args, binding, locations)
+    async def configure(mcp, args, binding, locations, **kwargs):
+        await original_configure(mcp, args, binding, locations, **kwargs)
         from almond_mcp import server
         server._send_and_receive = forbid_native
         Path(metadata).write_text(json.dumps({
@@ -94,7 +94,7 @@ def cli_environment(script_name, task_temp, inherited):
     command = (
         "$ErrorActionPreference='Stop'\n$previous=@{}\n"
         "[Console]::OutputEncoding=New-Object Text.UTF8Encoding($false)\n"
-        "$project=[pscustomobject]@{temp=" + ps_quote(task_temp) + "}\n"
+        "$project=[pscustomobject]@{temp=" + ps_quote(task_temp) + ";project_dir=" + ps_quote(Path(task_temp).parent.parent) + "}\n"
         + runtime + "\n" + match.group(0)
         + "\n$captured=@{}\nforeach($name in $runtimeEnv){"
         "$value=[Environment]::GetEnvironmentVariable($name,'Process');"
@@ -200,23 +200,27 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
                 if mode == "cos":
                     expected_tools.add(WORKER_STATE_TOOL)
                 assert set(tools) == expected_tools and len(tools) == len(expected_tools), tools
-                info = unpack(await session.call_tool("project_info", {}))
+                info = unpack(await session.call_tool("project_info", {"sections": ["project", "artifacts"]}))
                 status = unpack(await session.call_tool("get_retrieval_status", {}))
                 library = unpack(await session.call_tool("list_library", {}))
-                capsules = unpack(await session.call_tool("list_capsules", {}))
+                capsules = unpack(await session.call_tool("list_capsules", {"include_ids": True}))
                 materials = unpack(await session.call_tool("list_materials", {}))
                 drawings = unpack(await session.call_tool("list_drawing_assets", {}))
-                assert info["state_db"] == locations["state_db"]
-                assert info["artifact_dir"] == locations["call_root"]
-                assert status["database"] == locations["state_db"]
-                assert library["library_dir"] == expected["RHINO_MCP_LIBRARY_DIR"]
-                assert capsules["capsule_library_dir"] == expected["RHINO_MCP_CAPSULE_DIR"]
-                assert materials["library_dir"] == expected["RHINO_MCP_MATERIAL_DIR"]
+                def relative(value):
+                    return os.path.relpath(value, locations["project_dir"]).replace("\\", "/")
+                assert info["project"]["project_root"] == locations["project_dir"]
+                assert info["project"]["root_variable_set"] is True
+                assert info["project"]["database"] == relative(locations["state_db"])
+                assert info["artifacts"]["artifact_dir"] == ""
+                assert status["database"] == relative(locations["state_db"])
+                assert library["library_dir"] == relative(expected["RHINO_MCP_LIBRARY_DIR"])
+                assert capsules["capsule_library_dir"] == relative(expected["RHINO_MCP_CAPSULE_DIR"])
+                assert materials["library_dir"] == relative(expected["RHINO_MCP_MATERIAL_DIR"])
                 if custom_id:
                     asset = unpack(await session.call_tool("get_drawing_asset", {"asset_id": custom_id}))["asset"]
                     assert asset["file_available"] is True, asset
                     assert drawings["total"] == 1, drawings
-                    assert drawings["assets"][0]["available"] is True, drawings
+                    assert drawings["assets"][0]["file_available"] is True, drawings
                 scene = None
                 if seed_scene:
                     scene = unpack(await session.call_tool("create_design_scene", {
@@ -226,10 +230,11 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
                     scene = unpack(await session.call_tool("get_design_scene", {
                         "scene_id": expected_scene["scene_id"]
                     }))["scene"]
-                    assert scene == expected_scene, (scene, expected_scene)
+                    assert scene == {k: v for k, v in expected_scene.items() if k != "scene_id"}, (scene, expected_scene)
     observed = json.loads(metadata.read_text(encoding="utf-8"))
     assert observed["sources"] == expected, (kind, observed["sources"], expected)
-    assert observed["temp"] == locations["temp"]
+    assert Path(observed["temp"]) != Path(locations["temp"])
+    assert not Path(locations["temp"]).exists(), "File-free queries created project scratch directories"
     assert observed["database"] == locations["state_db"]
     assert observed["native_attempts"] == 0
     with ExclusiveFile(storage / "mcp.lock"):
@@ -238,7 +243,7 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
         "mode": kind, "tool_count": len(tools), "database": locations["state_db"],
         "artifact_dir": locations["call_root"], "source_dirs": observed["sources"],
         "drawing_asset_count": drawings["total"],
-        "drawing_available": sum(bool(a["available"]) for a in drawings["assets"]),
+        "drawing_available": sum(bool(a["file_available"]) for a in drawings["assets"]),
         "capsule_count": len(capsules["capsules"]),
         "capsule_ids": [c["capsule_id"] for c in capsules["capsules"]],
         "fixture_scene": scene, "existing_scene_preserved": bool(expected_scene),

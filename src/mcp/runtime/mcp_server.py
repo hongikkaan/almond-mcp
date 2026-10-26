@@ -4,7 +4,7 @@ Example (Windows, outside Rhino):
   Normally started by the single top-level start button through codex.ps1.
 
 The loopback endpoint is selected ONLY in this Python process's memory.
-Models in one directory share scene.sqlite3 and tmp. Connection metadata is separate.
+Models in one directory share DB. Connection metadata and scratch are separate.
 The launcher uses internal module names, not an upstream-supported port option.
 The existing sender wrapper adds connection/request identity in this process only.
 """
@@ -13,11 +13,15 @@ from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 import tempfile
 from importlib.metadata import version
 from pathlib import Path
+from pydantic import StrictBool, StrictInt
+from almond_mcp.managed_paths import relative_output, relative_path
+from almond_mcp.query_output import project_query
 from project import (ExclusiveFile, SharedStorageLease, STORAGE_PROTOCOL,
                      process_start_ticks, read_binding, read_json, verify_process, write_json)
 
@@ -52,53 +56,124 @@ def main(argv: list[str] | None = None, *, validate_binding=None, configure=None
     db = Path(locations['state_db'])
     if args.state_db is not None and args.state_db.resolve() != db:
         raise RuntimeError(read_instruction(__file__, 'response-92'))
-    with SharedStorageLease(locations['storage']), ExclusiveFile(Path(locations['session_dir']) / 'mcp.lock'):
-        current, _ = read_binding(args.session, args.token)
-        if current != binding:
-            raise RuntimeError('Connection changed while the worker was starting.')
-        if validate_binding is not None:
-            validate_binding(args, binding, locations)
-        worker_path = Path(locations['session_dir']) / 'worker.json'
-        worker = dict(schema='almond-worker', storage_protocol=STORAGE_PROTOCOL, token=args.token,
-                      pid=os.getpid(), process_start_ticks=process_start_ticks(os.getpid()))
-        write_json(worker_path, worker)
-        return serve(args, binding, locations, db, configure=configure)
+    try:
+        with SharedStorageLease(locations['storage']), ExclusiveFile(Path(locations['session_dir']) / 'mcp.lock'):
+            current, _ = read_binding(args.session, args.token)
+            if current != binding:
+                raise RuntimeError('Connection changed while the worker was starting.')
+            if validate_binding is not None:
+                validate_binding(args, binding, locations)
+            worker_path = Path(locations['session_dir']) / 'worker.json'
+            worker = dict(schema='almond-worker', storage_protocol=STORAGE_PROTOCOL, token=args.token,
+                          pid=os.getpid(), process_start_ticks=process_start_ticks(os.getpid()))
+            write_json(worker_path, worker)
+            try:
+                return serve(args, binding, locations, db, configure=configure)
+            finally:
+                worker["closed"] = True
+                write_json(worker_path, worker)
+    finally:
+        from shared_store import StoreGate
+        from storage_cleanup import cleanup_retired_sessions
+        with StoreGate(locations["storage"]):
+            cleanup_retired_sessions(Path(locations["storage"]))
 
 
-async def configure_project_context(mcp, args, binding, locations):
+async def configure_project_context(mcp, args, binding, locations, *, sender=None, runtime=None):
     """Register bound model and output path metadata for the current connection."""
-    artifact_dir = locations['call_root']
-
     @mcp.tool()
     @tool_instruction(__file__, 'project_info')
-    def project_info() -> dict:
+    def project_info(sections: list[str] | None = None, include_ids: StrictBool = False) -> dict:
+        sections = ["project", "document", "artifacts"] if sections is None else sections
+        allowed = {"project", "document", "artifacts", "runtime", "instructions"}
+        if not isinstance(sections, list) or any(section not in allowed for section in sections):
+            raise ValueError("sections must contain project, document, artifacts, runtime or instructions.")
         current, _ = read_binding(args.session, args.token)
         if current != binding:
             raise RuntimeError(read_instruction(__file__, 'response-96'))
         verify_process(current)
-        actual_temp = tempfile.gettempdir()
-        import almond_mcp
-        instruction_dir = Path(almond_mcp.__file__).parent
-        instructions = '\n\n'.join(
-            (instruction_dir / name).read_text(encoding='utf-8').strip()
-            for name in ('FUNDAMENTAL-INSTRUCTIONS.md', 'MODEL-CONTEXT-INSTRUCTIONS.md')
-        )
-        return dict(**locations, slot=binding['label'], port=binding['port'], pid=binding['pid'],
-                    artifact_dir=artifact_dir, effective_temp=actual_temp, mcp_temp=actual_temp,
-                    instructions=instructions,
-                    rhino_temp_at_attach=binding.get('rhino_temp'),
-                    working_directory=os.getcwd(), python_executable=sys.executable,
-                    attachment=binding.get('attachment', 'external'), live_document_checked=False,
-                    storage_protocol=STORAGE_PROTOCOL, storage_scope='model_directory',
-                    output_rule=read_instruction(__file__, 'response-97'))
+        result = {"status": "success"}
+        root = locations["project_dir"]
+        if "project" in sections:
+            result["project"] = {"project_root": root, "root_variable": "ALMOND_PROJECT_ROOT",
+                "root_variable_set": os.environ.get("ALMOND_PROJECT_ROOT") == root,
+                "file_name": Path(locations["model_path"]).name,
+                "database": relative_path(locations["state_db"], root),
+                "path_rule": "Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths."}
+        if "document" in sections:
+            if sender is None:
+                raise RuntimeError("The live document observer is not connected.")
+            live = json.loads(sender(b'{"type":"get_rhino_context","sections":["document"],"selection_limit":0}'))
+            document = live.get("document")
+            if live.get("status") != "success" or not isinstance(document, dict):
+                result.update(status="error", live_document_checked=False,
+                              message=live.get("message", "The live document observation is incomplete."))
+                return result
+            path = document.get("path")
+            document["live_document_checked"] = True
+            document["is_bound_document"] = bool(path and Path(path).resolve() == Path(locations["model_path"]).resolve())
+            result["document"] = project_query(relative_output(document), include_ids=include_ids)
+            if live.get("warnings"):
+                result["warnings"] = live["warnings"]
+        if "artifacts" in sections:
+            result["artifacts"] = runtime.workspace.current() if runtime and runtime.workspace else {"artifact_dir": ""}
+            result["artifacts"] = project_query(result["artifacts"], include_ids=include_ids)
+            result["artifacts"]["path_rule"] = "Select a Plan with set_working_plan; managed outputs use its tmp/YYMMDD_name folder."
+        if "runtime" in sections:
+            result["runtime"] = relative_output({"slot": binding["label"], "port": binding["port"],
+                "session_dir": locations["session_dir"], "scratch_root": str(Path(locations["temp"]) / "python"),
+                "rhino_temp_at_attach": binding.get("rhino_temp"),
+                "rhino_temp_note": "Rhino process TEMP at attach, not the artifact folder.",
+                "python_executable": sys.executable, "attachment": binding.get("attachment", "external")})
+        if "instructions" in sections:
+            import almond_mcp
+            instruction_dir = Path(almond_mcp.__file__).parent
+            result["instructions"] = '\n\n'.join((instruction_dir / name).read_text(encoding='utf-8').strip()
+                for name in ('FUNDAMENTAL-INSTRUCTIONS.md', 'MODEL-CONTEXT-INSTRUCTIONS.md'))
+        return result
+
+    @mcp.tool()
+    @tool_instruction(__file__, 'set_working_plan')
+    def set_working_plan(plan_id: str, step_id: str = "", artifact_name: str = "") -> dict:
+        if runtime is None or runtime.workspace is None:
+            raise RuntimeError("The project workspace is not connected.")
+        return {"status": "success", **runtime.workspace.select(plan_id, step_id, artifact_name)}
+
+    @mcp.tool()
+    @tool_instruction(__file__, 'rename_artifact_folder')
+    def rename_artifact_folder(name: str, plan_id: str = "") -> dict:
+        if runtime is None or runtime.workspace is None:
+            raise RuntimeError("The project workspace is not connected.")
+        return {"status": "success", **runtime.workspace.rename(name, plan_id)}
+
+    @mcp.tool()
+    @tool_instruction(__file__, 'execute_project_python')
+    def execute_project_python(code: str, timeout_seconds: StrictInt = 60) -> dict:
+        if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 600:
+            raise ValueError("timeout_seconds must be 1-600.")
+        if runtime is None or runtime.workspace is None:
+            raise RuntimeError("The project workspace is not connected.")
+        directory = runtime.workspace.artifact_path()
+        directory.mkdir(parents=True, exist_ok=True)
+        try:
+            from python_runner import run_python
+            result = run_python(code, directory, timeout_seconds)
+            result["artifact_dir"] = relative_path(str(directory))
+            if result["timed_out"]:
+                result["message"] = "Python exceeded its time limit and was stopped. Existing artifacts were retained; do not automatically repeat writes."
+            return result
+        finally:
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
 
 
 def serve(args, binding, locations, db, *, configure=None):
     # No import-time SQLite access occurs before the project lease is acquired.
-    for variable in ('TEMP', 'TMP', 'TMPDIR'):
-        os.environ[variable] = locations['temp']
-    tempfile.tempdir = None
     os.chdir(locations['project_dir'])
+    os.environ["ALMOND_PROJECT_ROOT"] = locations["project_dir"]
+    os.environ["ALMOND_MODEL_PATH"] = locations["model_path"]
 
     # Must be set BEFORE server.py imports and creates its scene store.
     os.environ["RHINO_MCP_STATE_DB"] = str(db)
@@ -107,6 +182,9 @@ def serve(args, binding, locations, db, *, configure=None):
     # SQLite's initialization, reindex transactions and closing checkpoints must
     # not race a second worker. The original store and library resolver are used.
     with StoreGate(locations['storage']):
+        from storage_cleanup import migrate_database, cleanup_retired_sessions
+        migrate_database(locations, args.token)
+        cleanup_retired_sessions(Path(locations['storage']), exclude_token=args.token)
         from library_paths import configure_library_paths
         configure_library_paths()
         from almond_mcp import paths
@@ -132,6 +210,8 @@ def serve(args, binding, locations, db, *, configure=None):
     server.BRIDGE_HOST = "127.0.0.1"
     server.BRIDGE_PORT = args.port
     runtime = ProjectRuntime(args, binding, locations)
+    from workspace import Workspace
+    runtime.workspace = Workspace(locations, server.retrieval_store)
     original_sender = server._send_and_receive
 
     def bound_sender(payload_bytes, *positional, **keywords):
@@ -145,7 +225,7 @@ def serve(args, binding, locations, db, *, configure=None):
     server.mcp.add_middleware(runtime)
 
     async def prepare():
-        await configure_project_context(server.mcp, args, binding, locations)
+        await configure_project_context(server.mcp, args, binding, locations, sender=server._send_and_receive, runtime=runtime)
         if configure is not None:
             await configure(server.mcp, args, binding, locations, runtime)
 

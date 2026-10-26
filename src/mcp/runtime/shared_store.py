@@ -16,9 +16,13 @@ import sqlite3
 import tempfile
 import time
 import uuid
+from almond_mcp.managed_paths import project_path, relative_output
+from storage_cleanup import remove_owned_tree
 
 import anyio
 from fastmcp.server.middleware import Middleware
+from fastmcp.tools import ToolResult
+from mcp.types import TextContent
 
 from project import (ExclusiveFile, LOCK_WAIT_SECONDS, serial_gate, read_binding,
                      read_json, verify_process, write_json)
@@ -31,7 +35,12 @@ NATIVE_ONLY_TOOLS = frozenset({
     "execute_rhino_script", "capture_conditioning_pass",
     "get_rhino_context", "get_rhino_viewport_image", "get_rhino_probe",
 })
-BINDING_TOOLS = frozenset({"project_info", "worker_state"})
+BINDING_TOOLS = frozenset({"worker_state"})
+FILE_TOOLS = frozenset({"execute_rhino_script", "execute_project_python", "export_structural_report",
+    "export_asset_contract", "get_blender_helper_script", "capture_conditioning_pass",
+    "import_asset_contract", "rename_artifact_folder"})
+OUTPUT_TOOLS = frozenset({"execute_project_python", "export_structural_report", "export_asset_contract",
+                         "get_blender_helper_script", "capture_conditioning_pass"})
 
 
 class StoreGate:
@@ -102,7 +111,7 @@ def validate_shared_ids(name: str, arguments: dict, database: str | Path) -> Non
         raise ValueError(read_instruction(__file__, 'response-155').format(field, identifier.strip()))
 
 
-def output_arguments(name: str, arguments: dict, operation_dir: Path) -> dict:
+def output_arguments(name: str, arguments: dict, operation_dir: Path, *, relative_only=False) -> dict:
     """Fill reviewed public output arguments; explicit output paths retain priority."""
     arguments = dict(arguments)
     fields = {
@@ -116,16 +125,38 @@ def output_arguments(name: str, arguments: dict, operation_dir: Path) -> dict:
     if name == "get_blender_helper_script" and str(arguments.get("action", "")).strip().lower() != "export":
         return arguments
     field, target = fields[name]
-    # Conditioning's existing required argument remains required in the schema.
-    if name == "capture_conditioning_pass" and field not in arguments:
-        return arguments
-    if arguments.get(field) == "" or field not in arguments:
+    if arguments.get(field) and relative_only:
+        target = project_path(arguments[field], base=operation_dir)
+    if arguments.get(field) == "" or field not in arguments or relative_only:
         if name == "export_structural_report":
             target.parent.mkdir(parents=True, exist_ok=True)
         else:
             target.mkdir(parents=True, exist_ok=True)
         arguments[field] = str(target)
     return arguments
+
+
+def public_result(result, name):
+    if name == "project_info" or not os.environ.get("ALMOND_PROJECT_ROOT"):
+        return result
+
+    def convert(value):
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+            except (ValueError, TypeError):
+                return relative_output(value)
+            if isinstance(decoded, (dict, list)):
+                return json.dumps(relative_output(decoded), ensure_ascii=False)
+        if isinstance(value, dict):
+            return {key: convert(item) for key, item in value.items()}
+        return relative_output(value)
+
+    if isinstance(result, ToolResult):
+        content = [TextContent(type="text", text=convert(item.text)) if isinstance(item, TextContent) else item
+                   for item in result.content]
+        return ToolResult(content=content, structured_content=convert(result.structured_content), is_error=result.is_error)
+    return convert(result)
 
 
 class ProjectRuntime(Middleware):
@@ -143,6 +174,7 @@ class ProjectRuntime(Middleware):
         self.worker = read_json(Path(locations["session_dir"]) / "worker.json")
         self.last = {"pending": False, "uncertain": False, "operation_id": None}
         self.unconfirmed = False
+        self.workspace = None
 
     def validate(self):
         current, _ = read_binding(self.args.session, self.args.token)
@@ -158,6 +190,12 @@ class ProjectRuntime(Middleware):
         batch = self.scope.get()
         if batch is None:
             raise RuntimeError("No active operation; no native request was sent.")
+        request = json.loads(payload_bytes)
+        if request.get("type") == "execute" and self.workspace is not None:
+            work = self.workspace.current()
+            request["project_root"] = self.locations["project_dir"]
+            request["artifact_dir"] = work["artifact_dir"]
+            payload_bytes = json.dumps(request).encode("utf-8")
         return batch.call(sender, payload_bytes, *positional, **keywords)
 
     async def _completion(self, operation_id: str, batch):
@@ -258,51 +296,84 @@ class ProjectRuntime(Middleware):
                 self.validate()
                 await anyio.lowlevel.checkpoint()
                 validate_shared_ids(name, context.message.arguments or {}, self.locations["state_db"])
-                operation_id = uuid.uuid4().hex
-                operation_dir = Path(self.locations["call_root"]) / operation_id
-                operation_dir.mkdir(parents=True, exist_ok=False)
-                args = output_arguments(name, context.message.arguments or {}, operation_dir)
-                message = context.message.model_copy(update={"arguments": args})
-                operation_path = Path(self.locations["session_dir"]) / "operation.json"
-                operation = {
-                    "schema": "almond-operation", "storage_protocol": 2,
-                    "token": self.args.token, "operation_id": operation_id,
-                    "worker_pid": self.worker["pid"],
-                    "worker_start_ticks": self.worker["process_start_ticks"],
-                    "temp": str(operation_dir), "state": "running",
-                }
-                write_json(operation_path, operation)
-                self.last = {"pending": True, "uncertain": False, "operation_id": operation_id}
-                previous = {key: os.environ.get(key) for key in ("TEMP", "TMP", "TMPDIR")}
-                old_tempdir = tempfile.tempdir
-                batch = RequestBatch(self.args.token, operation_id)
-                self.batch = batch
-                scope_token = self.scope.set(batch)
-                # A cancelled caller must not release SQLite/TEMP ownership while
-                # an offloaded original function is still running.
-                with anyio.CancelScope(shield=True):
-                    try:
-                        for key in previous:
-                            os.environ[key] = str(operation_dir)
-                        tempfile.tempdir = str(operation_dir)
-                        return await self._run_to_completion(context.copy(message=message), call_next)
-                    finally:
-                        cleanup_cancellation = None
-                        try:
-                            _, cleanup_cancellation = await self._settle(
-                                self._finish_operation(operation_id, batch, operation_path, operation))
-                        except BaseException:
-                            self.unconfirmed = True
-                            self.last = {"pending": True, "uncertain": True, "operation_id": operation_id}
-                            batch.seal()
-                            raise
-                        finally:
-                            self.scope.reset(scope_token)
-                            tempfile.tempdir = old_tempdir
-                            for key, value in previous.items():
-                                if value is None:
-                                    os.environ.pop(key, None)
-                                else:
-                                    os.environ[key] = value
-                        if cleanup_cancellation is not None:
-                            raise cleanup_cancellation
+                artifact_gate = StoreGate(self.locations["storage"])
+                artifact_gate.path = Path(self.locations["storage"]) / ".sessions" / "artifacts.lock"
+                if name in FILE_TOOLS:
+                    await artifact_gate.__aenter__()
+                try:
+                    return await self._owned_call(context, call_next, name)
+                finally:
+                    artifact_gate.close()
+
+    async def _owned_call(self, context, call_next, name):
+        operation_id = uuid.uuid4().hex
+        operation_dir = Path(self.locations["call_root"]) / operation_id
+        # File-free observations have no scratch directory at all.
+        args = dict(context.message.arguments or {})
+        work = self.workspace.current() if self.workspace is not None else {"artifact_dir": ""}
+        if name in OUTPUT_TOOLS and (name != "get_blender_helper_script" or str(args.get("action", "")).lower() == "export"):
+            artifact_dir = self.workspace.artifact_path() if self.workspace is not None else operation_dir
+            args = output_arguments(name, args, artifact_dir, relative_only=self.workspace is not None)
+        if self.workspace is not None:
+            input_fields = {"register_drawing_asset": ("source_3dm",),
+                            "import_asset_contract": ("contract_path",),
+                            "audit_asset_drawing": ("package_dir", "source_glb"),
+                            "generate_asset_drawing_views": ("source_glb",)}
+            for field in input_fields.get(name, ()):
+                if args.get(field):
+                    args[field] = str(project_path(args[field], base=Path(self.locations["project_dir"])))
+        if name in {"execute_project_python", "publish_objects_to_chestnut"}:
+            operation_dir.mkdir(parents=True, exist_ok=False)
+        # Bound document expectations are supplied internally. Optional
+        # public arguments remain available to standalone consumers.
+        if self.workspace is not None and name in {"get_rhino_probe", "upsert_design_component", "sync_design_component",
+                    "register_scene_objects", "get_component_intersections", "focus_components",
+                    "list_design_components"} and not args.get("expected_model_path"):
+            args["expected_model_path"] = self.locations["model_path"]
+        message = context.message.model_copy(update={"arguments": args})
+        operation_path = Path(self.locations["session_dir"]) / "operation.json"
+        operation = {
+            "schema": "almond-operation", "storage_protocol": 2,
+            "token": self.args.token, "operation_id": operation_id,
+            "worker_pid": self.worker["pid"],
+            "worker_start_ticks": self.worker["process_start_ticks"],
+            "temp": str(operation_dir), "state": "running",
+        }
+        write_json(operation_path, operation)
+        self.last = {"pending": True, "uncertain": False, "operation_id": operation_id}
+        previous = {key: os.environ.get(key) for key in ("TEMP", "TMP", "TMPDIR", "ALMOND_ARTIFACT_DIR")}
+        old_tempdir = tempfile.tempdir
+        batch = RequestBatch(self.args.token, operation_id)
+        self.batch = batch
+        scope_token = self.scope.set(batch)
+        # A cancelled caller must not release SQLite/TEMP ownership while
+        # an offloaded original function is still running.
+        with anyio.CancelScope(shield=True):
+            try:
+                for key in ("TEMP", "TMP", "TMPDIR"):
+                    os.environ[key] = str(operation_dir)
+                os.environ["ALMOND_ARTIFACT_DIR"] = work["artifact_dir"]
+                tempfile.tempdir = str(operation_dir)
+                return public_result(await self._run_to_completion(context.copy(message=message), call_next), name)
+            finally:
+                cleanup_cancellation = None
+                try:
+                    _, cleanup_cancellation = await self._settle(
+                        self._finish_operation(operation_id, batch, operation_path, operation))
+                except BaseException:
+                    self.unconfirmed = True
+                    self.last = {"pending": True, "uncertain": True, "operation_id": operation_id}
+                    batch.seal()
+                    raise
+                finally:
+                    self.scope.reset(scope_token)
+                    tempfile.tempdir = old_tempdir
+                    for key, value in previous.items():
+                        if value is None:
+                            os.environ.pop(key, None)
+                        else:
+                            os.environ[key] = value
+                if not self.unconfirmed:
+                    remove_owned_tree(operation_dir, Path(self.locations["temp"]))
+                if cleanup_cancellation is not None:
+                    raise cleanup_cancellation

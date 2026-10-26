@@ -1,7 +1,9 @@
 """Register diagram asset tools using the shared asset catalogue and bridge."""
 from almond_mcp.tool_response import error_payload
+from almond_mcp.query_output import query_output
 from almond_mcp.instruction_text import tool_instruction
 
+from pydantic import StrictBool
 import json
 import socket
 
@@ -11,7 +13,8 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'list_diagram_assets')
-    def list_diagram_assets(category: str = "", limit: int = 20, offset: int = 0) -> str:
+    @query_output
+    def list_diagram_assets(category: str = "", limit: int = 20, offset: int = 0, include_ids: StrictBool = False) -> str:
         page = context.retrieval_store.search_assets(
             library_id="diagram_assets",
             category=category,
@@ -27,6 +30,7 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'search_diagram_assets')
+    @query_output
     def search_diagram_assets(
         query: str = "",
         category: str = "",
@@ -34,8 +38,7 @@ def register(mcp, context):
         max_depth_mm: float = 0,
         max_height_mm: float = 0,
         limit: int = 10,
-        offset: int = 0,
-    ) -> str:
+        offset: int = 0, include_ids: StrictBool = False) -> str:
         return json.dumps(context.retrieval_store.search_assets(
             query=query,
             library_id="diagram_assets",
@@ -50,7 +53,8 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_diagram_asset')
-    def get_diagram_asset(asset_id: str) -> str:
+    @query_output
+    def get_diagram_asset(asset_id: str, include_ids: StrictBool = False) -> str:
         asset = context.retrieval_store.get_asset(asset_id, library_id="diagram_assets")
         if not asset:
             return json.dumps(error_payload(f"Unknown diagram asset_id: {asset_id}"))

@@ -119,7 +119,8 @@ namespace RhinoAlmondBridge
                         return ComponentRegistry.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 
                     case "drawing_sheet":
-                        return DrawingSheetRegistry.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return JsonConvert.SerializeObject(new { status = "error", error_code = "retired_tool",
+                            message = "Sheet database registration has been removed. Existing Layouts are unchanged." });
 
                     case "component_operation":
                         return ComponentOperations.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
@@ -178,8 +179,8 @@ namespace RhinoAlmondBridge
                     case "execute":
                         string script = jobj.Value<string>("script") ?? "";
                         var executor = new ScriptExecutor();
-                        var execResult = executor.Execute(script);
-                        return JsonConvert.SerializeObject(execResult);
+                        using (ManagedFiles.Bind(RhinoDoc.ActiveDoc, jobj.Value<string>("project_root"), jobj.Value<string>("artifact_dir")))
+                            return JsonConvert.SerializeObject(executor.Execute(script));
 
                     default:
                         return JsonConvert.SerializeObject(new { status = "error", error_code = "unsupported_request",

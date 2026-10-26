@@ -1,6 +1,8 @@
 """Register Grasshopper tools against the owning server's current services."""
 from almond_mcp.tool_response import error_payload
+from almond_mcp.query_output import query_output
 from almond_mcp.instruction_text import tool_instruction, read_instruction
+from pydantic import StrictBool
 import json
 import os
 import socket
@@ -88,7 +90,8 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'list_library')
-    def list_library() -> str:
+    @query_output
+    def list_library(include_ids: StrictBool = False) -> str:
         return json.dumps({
             "library_dir": context.LIBRARY_DIR,
             "total_entries": len(context.indexer.index),
@@ -98,7 +101,8 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_logic_by_id')
-    def get_logic_by_id(logic_id: str) -> str:
+    @query_output
+    def get_logic_by_id(logic_id: str, include_ids: StrictBool = False) -> str:
         query_id = logic_id.lower()
         file_map = context.indexer.index.get(query_id)
 
@@ -129,7 +133,8 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'list_capsules')
-    def list_capsules(capability: str = "", audited_only: bool = False) -> str:
+    @query_output
+    def list_capsules(capability: str = "", audited_only: bool = False, include_ids: StrictBool = False) -> str:
         page = context.retrieval_store.search_capsules(
             capability=capability,
             audited_only=audited_only,

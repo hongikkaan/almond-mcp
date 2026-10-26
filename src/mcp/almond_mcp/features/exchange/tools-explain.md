@@ -65,6 +65,7 @@ Args:
     material_id, object_names: for "materials".
 Returns:
     JSON with a "script" field to pass to Blender's execute_code.
+IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:get_blender_helper_script -->
 
 ## response-672

@@ -17,7 +17,6 @@ if str(PACKAGE_ROOT) not in sys.path:
 
 def load_server():
     import os
-    os.environ["RHINO_MCP_STATE_DB"] = tempfile.mktemp(suffix=".sqlite3")
     spec = importlib.util.spec_from_file_location(
         f"almond_server_materials_{uuid.uuid4().hex}",
         PACKAGE_ROOT / "almond_mcp" / "server.py",
@@ -256,3 +255,8 @@ def test_material_setup_preserves_overwrite_choice(server, monkeypatch, overwrit
     monkeypatch.setattr(server, "_send_and_receive", send)
     result = call(server.setup_modeling, operation="materials", overwrite=overwrite)
     assert result["result"]["updated_materials"] == 27 and len(requests) == 2
+
+
+@pytest.fixture(autouse=True)
+def isolated_server_database(tmp_path, monkeypatch):
+    monkeypatch.setenv("RHINO_MCP_STATE_DB", str(tmp_path / "DB"))

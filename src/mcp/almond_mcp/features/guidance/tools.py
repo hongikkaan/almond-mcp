@@ -1,6 +1,8 @@
 """Register construction, typology and detail-source guidance tools."""
 from almond_mcp.instruction_text import tool_instruction, read_instruction
+from almond_mcp.query_output import query_output
 
+from pydantic import StrictBool
 import json
 import re
 from pathlib import Path
@@ -11,14 +13,14 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_construction_guidance')
+    @query_output
     def get_construction_guidance(
         query: str = "",
         category: str = "",
         material: str = "",
         structure_type: str = "",
         span_m: float = 0.0,
-        include_reference_data: bool = False,
-    ) -> str:
+        include_reference_data: bool = False, include_ids: StrictBool = False) -> str:
         systems = context.construction_library.list(
             category=category, query=query, material=material,
             structure_type=structure_type)
@@ -53,12 +55,12 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_typology_narrative')
+    @query_output
     def get_typology_narrative(
         query: str = "",
         construction_system: str = "",
         structure_type: str = "",
-        limit: int = 5,
-    ) -> str:
+        limit: int = 5, include_ids: StrictBool = False) -> str:
         entries = context.history_library.list(query=query,
                                        construction_system=construction_system,
                                        structure_type=structure_type)
@@ -70,7 +72,8 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
     @tool_instruction(__file__, 'search_detail_sources')
-    def search_detail_sources(query: str = "") -> dict:
+    @query_output
+    def search_detail_sources(query: str = "", include_ids: StrictBool = False) -> dict:
         data = json.loads((Path(context.DRAFTING_LIBRARY_DIR)/"sources.json").read_text(encoding="utf-8"))
         terms = set(re.findall(r"[a-z0-9]+", query.lower()))
         matches = []

@@ -17,7 +17,6 @@ REPORTS = {
 
 
 def call_scoped(original, server, folder: Path, allowed: set[str], args, kwargs):
-    folder.mkdir(parents=True, exist_ok=False)
     sent: set[str] = set()
 
     def scoped_sender(payload, *positional, **keywords):
@@ -31,6 +30,7 @@ def call_scoped(original, server, folder: Path, allowed: set[str], args, kwargs)
         if len(matches) != 1 or script.count(REPORTS[matches[0]]) != 1 or matches[0] in sent:
             raise RuntimeError("Almond asset helper report contract changed.")
         name = matches[0]
+        folder.mkdir(parents=True, exist_ok=True)
         literal = '@"' + str(folder / name).replace('"', '""') + '"'
         request["script"] = script.replace(REPORTS[name], literal, 1)
         sent.add(name)

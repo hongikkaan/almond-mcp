@@ -48,6 +48,7 @@ def test_factory_registers_only_guidance_tools_and_preserves_schema(context):
             tools = {tool.name: tool for tool in await client.list_tools()}
             assert set(tools) == set(exports) == set(expected)
             for name, fields in expected.items():
+                fields = {**fields, "include_ids": ("boolean", False)}
                 schema = tools[name].input_schema
                 assert set(schema["properties"]) == set(fields)
                 assert not schema.get("required")
@@ -57,10 +58,10 @@ def test_factory_registers_only_guidance_tools_and_preserves_schema(context):
                 assert tools[name].description.startswith(inspect.getdoc(exports[name]).split("\n\n")[0])
             assert tools["search_detail_sources"].annotations.read_only_hint is True
             assert tools["search_detail_sources"].annotations.open_world_hint is False
-            result = await client.call_tool("search_detail_sources", {"query": "timber"})
+            result = await client.call_tool("search_detail_sources", {"query": "timber", "include_ids": True})
             assert "dataholz" in {source["source_id"] for source in result.structured_content["sources"]}
             construction = await client.call_tool(
-                "get_construction_guidance", {"material": "S355", "structure_type": "beam", "span_m": 8.0})
+                "get_construction_guidance", {"material": "S355", "structure_type": "beam", "span_m": 8.0, "include_ids": True})
             assert "steel-wide-flange-floor" in {system["system_id"] for system in json.loads(construction.content[0].text)["systems"]}
             history = await client.call_tool("get_typology_narrative", {"query": "skyscraper", "limit": 2})
             assert json.loads(history.content[0].text)["total"] >= 1
@@ -71,7 +72,7 @@ def test_factory_registers_only_guidance_tools_and_preserves_schema(context):
 def test_construction_filters_depths_and_reference_data(context):
     tools = register(FastMCP("construction"), context)
     result = json.loads(tools["get_construction_guidance"](
-        material="S355", structure_type="beam", span_m=8.0, include_reference_data=True))
+        material="S355", structure_type="beam", span_m=8.0, include_reference_data=True, include_ids=True))
     assert result["total"] == len(result["systems"]) > 0
     assert all(system["structural_material"] == "Steel" for system in result["systems"])
     floor = next(system for system in result["systems"] if system["system_id"] == "steel-wide-flange-floor")
@@ -80,7 +81,7 @@ def test_construction_filters_depths_and_reference_data(context):
     assert floor["construction_detail"] == floor["name"]
     assert floor["construction_reference"] == {"kind": "construction_system", "id": floor["system_id"]}
     assert result["reference"]["live_loads_kpa"]["office"] > 0
-    empty = json.loads(tools["get_construction_guidance"](query="nonexistent-system"))
+    empty = json.loads(tools["get_construction_guidance"](query="nonexistent-system", include_ids=True))
     assert empty["total"] == 0 and empty["systems"] == [] and empty["hint"]
 
 
@@ -105,7 +106,7 @@ def test_typology_filters_keep_total_and_minimum_limit(context):
     assert towers and all("steel-column-frame" in entry["related_construction_systems"] for entry in towers)
     assert any(entry["typology_id"] == "nomadic-lattice-tent" for entry in library.list(structure_type="membrane"))
     tools = register(FastMCP("history"), context)
-    result = json.loads(tools["get_typology_narrative"](query="courtyard", limit=0))
+    result = json.loads(tools["get_typology_narrative"](query="courtyard", limit=0, include_ids=True))
     assert result["total"] >= 2 and len(result["entries"]) == 1
     assert "NARRATION ONLY" in result["source"]
     assert library.get(result["entries"][0]["typology_id"])
@@ -120,13 +121,13 @@ def test_factory_reads_replaced_libraries_and_paths_without_cross_server_leak(co
     context.history_library = SimpleNamespace(list=lambda **kwargs: [], source="replacement history")
     (tmp_path / "sources.json").write_text(json.dumps({"scope": "replacement scope", "sources": []}), encoding="utf-8")
     context.DRAFTING_LIBRARY_DIR = str(tmp_path)
-    assert json.loads(first["get_construction_guidance"](include_reference_data=True))["reference"] == {"test": True}
-    assert json.loads(first["get_construction_guidance"]())["source"] == "replacement"
-    assert json.loads(first["get_typology_narrative"]())["source"] == "replacement history"
-    assert first["search_detail_sources"]()["scope"] == "replacement scope"
-    assert json.loads(second["get_construction_guidance"]())["total"] >= 15
-    assert json.loads(second["get_typology_narrative"]())["total"] >= 12
-    assert second["search_detail_sources"]()["sources"]
+    assert json.loads(first["get_construction_guidance"](include_reference_data=True, include_ids=True))["reference"] == {"test": True}
+    assert json.loads(first["get_construction_guidance"](include_ids=True))["source"] == "replacement"
+    assert json.loads(first["get_typology_narrative"](include_ids=True))["source"] == "replacement history"
+    assert first["search_detail_sources"](include_ids=True)["scope"] == "replacement scope"
+    assert json.loads(second["get_construction_guidance"](include_ids=True))["total"] >= 15
+    assert json.loads(second["get_typology_narrative"](include_ids=True))["total"] >= 12
+    assert second["search_detail_sources"](include_ids=True)["sources"]
 
 
 def test_detail_source_search_ranks_matches_and_breaks_ties_by_id(context, tmp_path):
@@ -138,7 +139,7 @@ def test_detail_source_search_ranks_matches_and_breaks_ties_by_id(context, tmp_p
     (tmp_path / "sources.json").write_text(json.dumps(data), encoding="utf-8")
     context.DRAFTING_LIBRARY_DIR = str(tmp_path)
     search = register(FastMCP("sources"), context)["search_detail_sources"]
-    assert [source["source_id"] for source in search("PDF concrete")["sources"]] == ["a", "b", "z"]
+    assert [source["source_id"] for source in search("PDF concrete", include_ids=True)["sources"]] == ["a", "b", "z"]
     assert search("TIMBER pdf")["sources"][0]["matched_terms"] == ["pdf", "timber"]
     assert search("unmatched")["sources"] == []
     assert len(search()["sources"]) == 3

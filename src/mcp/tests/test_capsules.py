@@ -133,7 +133,7 @@ def test_sync_skips_invalid_manifests_and_lists_capsules(server):
     skipped_files = {entry["file"] for entry in report["skipped"]}
     assert skipped_files == {"broken.capsule.json", "notjson.capsule.json"}
 
-    payload = json.loads(_call(server.list_capsules))
+    payload = json.loads(_call(server.list_capsules, include_ids=True))
     assert payload["total"] == 2
     cards = {card["capsule_id"]: card for card in payload["capsules"]}
     assert set(cards) == {"test_beam_v1", "test_unaudited_v1"}
@@ -153,20 +153,20 @@ def test_sync_skips_invalid_manifests_and_lists_capsules(server):
 
 
 def test_list_capsules_filters(server):
-    audited = json.loads(_call(server.list_capsules, audited_only=True))
+    audited = json.loads(_call(server.list_capsules, include_ids=True, audited_only=True))
     assert [card["capsule_id"] for card in audited["capsules"]] == ["test_beam_v1"]
 
-    generate = json.loads(_call(server.list_capsules, capability="generate"))
+    generate = json.loads(_call(server.list_capsules, include_ids=True, capability="generate"))
     assert [card["capsule_id"] for card in generate["capsules"]] == ["test_unaudited_v1"]
 
-    none = json.loads(_call(server.list_capsules, capability="generate", audited_only=True))
+    none = json.loads(_call(server.list_capsules, include_ids=True, capability="generate", audited_only=True))
     assert none["total"] == 0
 
 
 def test_real_capsule_library_syncs_cleanly(monkeypatch, tmp_path):
     server = _load_server(monkeypatch, tmp_path, REAL_CAPSULE_DIR)
     assert server.capsule_sync_report["skipped"] == []
-    payload = json.loads(_call(server.list_capsules))
+    payload = json.loads(_call(server.list_capsules, include_ids=True))
     assert payload["total"] == 8
     assert all(card["capability"] == "analyze" for card in payload["capsules"])
 

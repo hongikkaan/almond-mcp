@@ -96,10 +96,6 @@ material_library = MaterialLibrary(MATERIAL_LIBRARY_DIR)
 construction_library = ConstructionLibrary(CONSTRUCTION_LIBRARY_DIR)
 history_library = HistoryLibrary(paths.resolve_dir("RHINO_MCP_HISTORY_DIR"))
 retrieval_store = AlmondStore(STATE_DB_PATH)
-retrieval_store.sync_assets(
-    list(drawing_asset_indexer.assets.values()),
-    library_id="drawing_assets",
-)
 # Retire the legacy supplier catalogue from searchable cache; local files and
 # scene history are retained.
 retrieval_store.sync_assets([], library_id="ikea")

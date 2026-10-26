@@ -135,7 +135,7 @@ try {
         }
     }
     $runtime=@{TERM='xterm-256color';PYTHONUTF8='1';PYTHONIOENCODING='utf-8';PYTHONDONTWRITEBYTECODE='1';
-        TEMP=$project.temp;TMP=$project.temp;TMPDIR=$project.temp}
+        ALMOND_PROJECT_ROOT=$project.project_dir}
     # Shared source libraries follow Almond's native resolver: explicit user
     # overrides, then its development checkout or per-user AppData library.
     # DB/tmp are shared by the model directory; wheel data remains only a seed.

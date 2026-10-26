@@ -121,9 +121,9 @@ def test_mcp_custom_mesh_sources_and_drawing_resources(tmp_path, monkeypatch):
         async with Client(server.mcp) as client:
             tools = {t.name:t for t in await client.list_tools()}
             assert not tools["generate_asset_drawing_views"].annotations.readOnlyHint
-            result = await client.call_tool("search_detail_sources", {"query":"timber"})
+            result = await client.call_tool("search_detail_sources", {"query":"timber", "include_ids": True})
             assert "dataholz" in [s["source_id"] for s in result.structured_content["sources"]]
-            sources = server.get_generation_sources("gen-stool-bent-birch-3leg-1")
+            sources = server.get_asset_sources("gen-stool-bent-birch-3leg-1")
             assert sources["record"]["image_generation"]["provider"] == "higgsfield"
             bad = await client.call_tool("generate_asset_drawing_views", {"source_glb":str(model)})
             assert bad.structured_content["status"] == "error"
@@ -131,6 +131,6 @@ def test_mcp_custom_mesh_sources_and_drawing_resources(tmp_path, monkeypatch):
             assert result.structured_content["status"] == "success", result
             audited = await client.call_tool("audit_asset_drawing", {"package_dir":result.structured_content["package_dir"],"source_glb":str(model)})
             assert audited.structured_content["source_geometry"] == "current"
-            svg = await client.read_resource("almond://generated/gen-park-bench-1/drawing/plan/50")
+            svg = await client.read_resource("almond://assets/gen-park-bench-1/drawing/plan/50")
             assert svg[0].mimeType == "image/svg+xml"
     asyncio.run(run())
