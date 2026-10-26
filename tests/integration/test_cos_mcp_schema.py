@@ -12,7 +12,7 @@ def test_catalog_matches_live_schema_and_retains_camera_examples(server):
         async with Client(server.mcp) as client:
             tools = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True)
                      for tool in await client.list_tools()}
-            assert len(tools) == 73
+            assert len(tools) == 74
             assert {"get_selection_references", "update_design_scene", "list_phases", "list_plans"} <= set(tools)
             assert not {"upsert_drawing_sheet", "get_drawing_sheet", "list_drawing_sheets",
                         "sync_drawing_sheet", "remove_drawing_sheet"} & set(tools)
@@ -24,4 +24,7 @@ def test_catalog_matches_live_schema_and_retains_camera_examples(server):
                 assert retained in description
                 assert retained in catalog["capture_conditioning_pass"]["description"]
             assert "result_error" in tools["execute_rhino_script"]["description"]
+            from almond_mcp.modeling_guidance import startup_instructions
+            assert client.instructions == startup_instructions()
+            assert 'get_modeling_guide(topic="blocks")' in tools["execute_rhino_script"]["description"]
     asyncio.run(verify())

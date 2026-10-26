@@ -3,6 +3,10 @@ from almond_mcp.instruction_text import tool_instruction, read_instruction
 from almond_mcp.query_output import query_output
 
 from pydantic import StrictBool
+from fastmcp.tools import ToolResult
+from mcp.types import ImageContent, TextContent
+from almond_mcp.modeling_guidance import read_guide
+import base64
 import json
 import re
 from pathlib import Path
@@ -10,6 +14,15 @@ from pathlib import Path
 
 def register(mcp, context):
     """Register guidance tools against the calling server's live context."""
+
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False})
+    @tool_instruction(__file__, 'get_modeling_guide')
+    def get_modeling_guide(topic: str = "index", include_images: StrictBool = False) -> ToolResult:
+        payload, images = read_guide(topic, include_images)
+        content = [TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))]
+        content.extend(ImageContent(type="image", data=base64.b64encode(raw).decode("ascii"), mimeType="image/png")
+                       for raw in images)
+        return ToolResult(content=content)
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_construction_guidance')
@@ -86,6 +99,7 @@ def register(mcp, context):
         return {"status": "success", "scope": data["scope"], "sources": matches}
 
     return {
+        "get_modeling_guide": get_modeling_guide,
         "get_construction_guidance": get_construction_guidance,
         "get_typology_narrative": get_typology_narrative,
         "search_detail_sources": search_detail_sources,

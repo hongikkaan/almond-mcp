@@ -133,10 +133,12 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(reader, writer, read_timeout_seconds=15.0) as session:
                 initialization = await session.initialize()
                 instructions = initialization.instructions or ""
-                self.assertFalse(instructions)
+                from almond_mcp.modeling_guidance import startup_instructions
+                self.assertEqual(instructions, startup_instructions())
+                self.assertIn('get_modeling_guide', instructions)
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 81)
-                self.assertEqual(len({t.name for t in listing.tools}), 81)
+                self.assertEqual(len(listing.tools), 82)
+                self.assertEqual(len({t.name for t in listing.tools}), 82)
                 original = (await asyncio.to_thread(load_catalog))["tools"]
                 public = {t.name: t for t in listing.tools}
                 self.assertNotIn("Use the explicit connection_id from connect for every call.",
