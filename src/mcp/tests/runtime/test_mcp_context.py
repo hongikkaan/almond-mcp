@@ -55,24 +55,23 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
         self.original_schema = (await self.mcp.get_tool('execute_rhino_script')).parameters
         await configure_project_context(self.mcp, args, self.binding, self.locations)
 
-    async def test_paths_visible_in_protocol_metadata_and_execution_tool(self):
+    async def test_project_info_preserves_executor_metadata(self):
         async with Client(self.mcp) as client:
-            instructions = client.instructions
-            self.assertIn('Keep upstream instructions.', instructions)
-            self.assertIn(self.locations['call_root'], instructions)
+            self.assertEqual(client.instructions, 'Keep upstream instructions.')
             tools = {tool.name: tool for tool in await client.list_tools()}
             self.assertEqual(set(tools), {'execute_rhino_script', 'unrelated', 'project_info'})
             tool = tools['execute_rhino_script']
-            self.assertIn('Original executor description.', tool.description)
-            self.assertIn(self.locations['call_root'], tool.description)
-            self.assertIn('System.IO.Path.Combine(@"', tool.description)
+            self.assertEqual(tool.description, 'Original executor description.')
             self.assertEqual(tool.input_schema, self.original_schema)
 
     async def test_metadata_distinguishes_project_and_rhino_temp(self):
         async with Client(self.mcp) as client:
             result = await client.call_tool('project_info', {})
             info = json.loads(result.content[0].text)
+            self.assertEqual(info['model_path'], self.locations['model_path'])
             self.assertEqual(info['artifact_dir'], self.locations['call_root'])
+            self.assertIn('Before the first Rhino action, call project_info', info['instructions'])
+            self.assertIn('Before inspecting or editing existing geometry', info['instructions'])
             self.assertEqual(info['state_db'], self.locations['state_db'])
             self.assertEqual(info['storage_protocol'], 2)
             self.assertEqual(info['session_dir'], self.locations['session_dir'])

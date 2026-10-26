@@ -65,37 +65,12 @@ def main(argv: list[str] | None = None, *, validate_binding=None, configure=None
 
 
 async def configure_project_context(mcp, args, binding, locations):
-    """Publish the bound output path before the model writes any Rhino script."""
-    from fastmcp.server.transforms.tool_transform import ToolTransform
-    from fastmcp.tools.tool_transform import ToolTransformConfig
-
-    script_tool = await mcp.get_tool('execute_rhino_script')
-    if script_tool is None:
-        raise RuntimeError('Almond execute_rhino_script is unavailable.')
+    """Register bound model and output path metadata for the current connection."""
     artifact_dir = locations['call_root']
-    csharp_dir = '@"' + artifact_dir.replace('"', '""') + '"'
-    guidance = (
-        'CURRENT ALMOND BINDING\n'
-        f"Saved model: {locations['model_path']}\n"
-        f'Artifact directory: {artifact_dir}\n'
-        'Before the first Rhino action, call project_info; use get_rhino_context to check '
-        'the live document before editing. Models in this directory share the Scene DB, '
-        'so use explicit scene IDs. Write task-local files beneath artifact_dir using '
-        'absolute paths in Rhino C# and later shell/image reads. Rhino TEMP may differ '
-        'from MCP TEMP; relative and temp paths do not select artifact_dir. '
-        f'C# example: System.IO.Path.Combine({csharp_dir}, "review.txt"). '
-        'Create a fresh task subdirectory when writing, and report a path error instead of falling back '
-        'elsewhere. Explicit user input/export paths take precedence. Do not move files '
-        'or save the Rhino model merely to set an output path.'
-    )
-    mcp.instructions = ((mcp.instructions or '') + '\n\n' + guidance).strip()
-    # Metadata only: preserve the original tool's signature and execution body.
-    mcp.add_transform(ToolTransform({'execute_rhino_script': ToolTransformConfig(
-        description=((script_tool.description or '') + '\n\n' + guidance).strip())}))
 
     @mcp.tool()
     def project_info() -> dict:
-        """Read the bound model, DB and artifact_dir before the first Rhino action.
+        """Read the bound model, DB, artifact_dir and Almond usage instructions before the first Rhino action.
 
         Use artifact_dir as the explicit absolute base for task-local reports,
         screenshots and temporary code, including C# executed inside Rhino and
@@ -109,8 +84,15 @@ async def configure_project_context(mcp, args, binding, locations):
             raise RuntimeError('Connection changed. Exit Codex and reconnect with almond.')
         verify_process(current)
         actual_temp = tempfile.gettempdir()
+        import almond_mcp
+        instruction_dir = Path(almond_mcp.__file__).parent
+        instructions = '\n\n'.join(
+            (instruction_dir / name).read_text(encoding='utf-8').strip()
+            for name in ('FUNDAMENTAL-INSTRUCTIONS.md', 'MODEL-CONTEXT-INSTRUCTIONS.md')
+        )
         return dict(**locations, slot=binding['label'], port=binding['port'], pid=binding['pid'],
                     artifact_dir=artifact_dir, effective_temp=actual_temp, mcp_temp=actual_temp,
+                    instructions=instructions,
                     rhino_temp_at_attach=binding.get('rhino_temp'),
                     working_directory=os.getcwd(), python_executable=sys.executable,
                     attachment=binding.get('attachment', 'external'), live_document_checked=False,

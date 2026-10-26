@@ -10,6 +10,7 @@ import almond_mcp
 
 ROOT = Path(__file__).resolve().parent
 ENGINE = ROOT.parent / "mcp" / "runtime"
+PACKAGE = Path(almond_mcp.__file__).parent
 # Keep the interpreter path used by existing CoS registrations stable.
 PYTHON = ROOT.parent / "engine" / ".venv" / "Scripts" / "python.exe"
 CATALOG = ROOT / "tool_catalog.json"
@@ -23,8 +24,10 @@ def digest(path: Path) -> str:
 
 
 def source_paths(engine: Path) -> dict[str, Path]:
-    package = Path(almond_mcp.__file__).parent
+    package = PACKAGE
     paths = {
+        "cos_connection_guidance": ROOT / "CONNECTION-INSTRUCTIONS.md",
+        "model_context_instructions": package / "MODEL-CONTEXT-INSTRUCTIONS.md",
         "project": engine / "project.py",
         "entry": engine / "mcp_server.py",
         "shared_store": engine / "shared_store.py",
@@ -32,6 +35,7 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "compat_almond": engine / "compat_almond.py",
         "library_paths": engine / "library_paths.py",
         "server": Path(almond_mcp.__file__).with_name("server.py"),
+        "mcp_instructions": package / "FUNDAMENTAL-INSTRUCTIONS.md",
         "retrieval_store": Path(almond_mcp.__file__).with_name("retrieval_store.py"),
         "modeling_policy": package / "features/modeling/modeling_policy.py",
         "modeling_setup": package / "features/modeling/modeling_setup.py",

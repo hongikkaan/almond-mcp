@@ -133,19 +133,22 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(reader, writer, read_timeout_seconds=15.0) as session:
                 initialization = await session.initialize()
                 instructions = initialization.instructions or ""
-                for name in ("get_rhino_context", "get_rhino_viewport_image"):
-                    self.assertIn(name, instructions)
-                self.assertIn("validate proposed geometry against the task before replacing originals", instructions)
-                self.assertIn("Execution success and a viewport image do not establish geometric correctness", instructions)
+                self.assertFalse(instructions)
                 listing = await session.list_tools()
                 self.assertEqual(len(listing.tools), 81)
                 self.assertEqual(len({t.name for t in listing.tools}), 81)
                 original = (await asyncio.to_thread(load_catalog))["tools"]
                 public = {t.name: t for t in listing.tools}
+                self.assertNotIn("Use the explicit connection_id from connect for every call.",
+                                 public["assign_material"].description)
                 self.assertIn("operation", public["setup_modeling"].input_schema["required"])
                 for tool in original:
                     name = tool["name"]
                     self.assertIn("connection_id", public[name].input_schema["required"])
+                connection_info = await session.call_tool("list_connections", {})
+                guidance = json.loads(connection_info.content[0].text)["instructions"]
+                self.assertIn("Use the explicit connection_id from connect for every call.", guidance)
+                self.assertIn("Select a Rhino by the verified model_filename and model_path", guidance)
                 wire = listing.model_dump(mode="json", by_alias=True, exclude_none=True)
                 size = len(json.dumps(wire, ensure_ascii=False).encode("utf-8"))
                 self.assertLess(size, 250000)

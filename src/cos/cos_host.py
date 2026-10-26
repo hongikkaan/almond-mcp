@@ -23,17 +23,7 @@ from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_con
 from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
 
-GUIDANCE = (
-    "Initialization only advertises tools; it does not start Rhino or a modeling worker. "
-    "To open a separate Rhino for a saved .3dm, explicitly call start_session "
-    "with a unique request_id. Reuse that request_id to check a delayed start; never "
-    "automatically repeat it with a new ID. Otherwise list and connect an advertised Rhino. "
-    "Use the explicit connection_id from connect for every call. "
-    "Call project_info before the first Rhino action and use its artifact_dir "
-    "as an explicit absolute path for task files in Rhino C# and subsequent file reads. "
-    "Rhino TEMP may differ. Document changes require disconnect/reconnect. "
-    "A timeout is not a rollback; inspect Rhino before repeating a mutation."
-)
+GUIDANCE = (ROOT / "CONNECTION-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
 
 
 def json_result(value: dict) -> types.CallToolResult:
@@ -63,8 +53,8 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         name = original["name"]
         description = original.get("description", "")
         if name == "project_info":
-            description = "Read this connection's saved model, database and artifact_dir. This metadata does not execute Rhino code."
-        tool["description"] = description + "\n\n" + GUIDANCE
+            description = "Read this connection's saved model, artifact_dir and Almond usage instructions before Rhino actions. This metadata does not execute Rhino code."
+        tool["description"] = description
         schema = tool["inputSchema"]
         if schema.get("type") != "object" or "connection_id" in schema.get("properties", {}):
             raise RuntimeError(f"Unsupported routing schema: {name}")
@@ -76,9 +66,9 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
-        ("list_connections", "List available Rhino documents and this client's connections. Run almondconnect in a saved ordinary Rhino to advertise it to Codex or CoS.",
+        ("list_connections", "List available Rhino documents, this client's connections and connection instructions. Run almondconnect in a saved ordinary Rhino to advertise it to Codex or CoS.",
          {}, []),
-        ("connect", "Connect one advertised Rhino/document. Uses an independent A-J slot and session; models in one folder share the existing database and artifact root.",
+        ("connect", "Connect one advertised Rhino/document. Call list_connections first for the verified model path and connection instructions. Uses an independent A-J slot and session; models in one folder share the existing database and artifact root.",
          {"host_id": {"type": "string"}, "model_path": {"type": "string", "description": "Exact saved model path shown in the listing."}},
          ["host_id", "model_path"]),
         ("start_session", "Explicitly open a saved .3dm in a new visible Rhino, advertise it with almondconnect, and connect its own A-J slot/worker. Does not save or close Rhino. Reuse the same request_id after a startup timeout; a new ID deliberately opens another Rhino.",
@@ -251,8 +241,10 @@ class Connection:
 
     def public(self):
         b = self.binding
+        model_path = b.get("model_path")
         return dict(connection_id=self.connection_id, host_id=self.host_id, state=self.state,
-                    reason=self.reason, model_path=b.get("model_path"), slot=b.get("label"),
+                    reason=self.reason, model_path=model_path,
+                    model_filename=Path(model_path).name if model_path else None, slot=b.get("label"),
                     pid=b.get("pid"), artifact_dir=b.get("call_root"), in_flight=self.in_flight)
 
 
@@ -267,6 +259,7 @@ class StartAttempt:
 
     def public(self, request_id):
         return dict(request_id=request_id, model_path=self.model_path, state=self.state,
+                    model_filename=Path(self.model_path).name,
                     connection_id=self.connection_id, reason=self.reason,
                     **(self.launch.identity if self.launch is not None else {}))
 
@@ -366,7 +359,9 @@ class Broker:
                 lease = self.lease_factory(self.data, record)
                 control = self.control_factory(record)
                 target = await control.request("describe")
-                targets.append(dict(target, host_id=record["host_id"]))
+                model_path = target.get("model_path")
+                targets.append(dict(target, host_id=record["host_id"],
+                                    model_filename=Path(model_path).name if model_path else None))
             except HostInUse as exc:
                 targets.append({"host_id": record["host_id"], "pid": record["pid"],
                                 "state": "in_use", "reason": str(exc)})
@@ -380,7 +375,7 @@ class Broker:
                 finally:
                     if lease is not None:
                         lease.close()
-        return {"targets": targets, "connections": [c.public() for c in self.connections.values()],
+        return {"instructions": GUIDANCE, "targets": targets, "connections": [c.public() for c in self.connections.values()],
                 "starts": [attempt.public(key) for key, attempt in self.starts.items()]}
 
     async def start_session(self, model_path: str, request_id: str):
@@ -668,11 +663,7 @@ async def serve(catalog: dict, data: Path = ROOT / "data"):
         return await broker.call(params.name, params.arguments or {})
 
     # The worker's initialize instructions do not reach this host's client.
-    server = Server("AlmondCOS", version=VERSION, instructions=(GUIDANCE + " " +
-                    "Before inspecting or editing existing geometry, call get_rhino_context. "
-                    "Use get_rhino_viewport_image when the current view matters. "
-                    "Inspect relevant objects and validate proposed geometry against the task before replacing originals. "
-                    "Execution success and a viewport image do not establish geometric correctness."),
+    server = Server("AlmondCOS", version=VERSION, instructions="",
                     get_tool_input_schema=schemas.get,
                     on_list_tools=on_list_tools, on_call_tool=on_call_tool)
     try:

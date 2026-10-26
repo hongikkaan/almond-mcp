@@ -1,0 +1,1 @@
+Before inspecting or editing existing geometry, call get_rhino_context. Use get_rhino_viewport_image when the current view matters. Inspect relevant objects and validate proposed geometry against the task before replacing originals. Execution success and a viewport image do not establish geometric correctness.
