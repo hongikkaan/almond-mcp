@@ -235,15 +235,20 @@ include_images=true: 해당 topic에 allowlist된 원본 PNG만 MCP image conten
 unknown topic: 명시적 입력 오류 + index 조회 안내 (전체 본문 fallback 없음)
 ```
 
-이 조회는 정적 package 자료를 읽고 Rhino 호출·DB 쓰기·Task 생성·파일 출력을 하지 않는다.
+reader 본문은 정적 package 자료만 읽고 모델링·관찰 sender 호출, DB 쓰기, Task 생성,
+사용자 산출물 출력을 하지 않는다. **연결 호출 전체의 관리 기록까지 없는 것은 아니다.**
 API 입력은 파일 경로·URL·임의 section 이름을 받지 않는다. ToolResult text 안에 JSON을
 넣는 등 실제 반환 형식은 기존 이미지 도구와 COS 전달 계약에 맞춰 구현 시 확정한다.
 모델 좌표·문서 경로를 안내 텍스트의 `source_refs`로 노출하지 않는다.
 
 첫 구현은 **기존 연결 라우팅을 그대로 사용**한다. 공통 worker 도구 하나로 등록하며 COS의
 연결별 호출은 현재처럼 `connection_id`가 필요하다. 따라서 연결 전에는 시작 요약까지만
-읽을 수 있다. “정적 본문 조회 자체가 모델을 수정하지 않음”과 “연결 생성 과정이 DB를
-열거나 worker를 시작함”은 구별한다. 연결 전 전체 안내까지 필요해지면 host의 static tool
+읽을 수 있다. 현재 [공통 runtime](../../src/mcp/runtime/shared_store.py)은 도구 호출마다
+연결의 `operation.json`과 완료 상태를 기록하고, [COS 호출 경로](../../src/cos/cos_host.py)는
+Rhino control `begin/end`와 worker 상태 확인을 수행한다. 이 관리 절차는 그대로 유지하며
+형상·속성·작업 DB의 내용·사용자 산출물이 바뀌지 않는지를 검사한다. 연결 생성 자체가
+DB를 열거나 worker를 시작하는 효과도 본문 조회와 구별한다. 연결 전 전체 안내까지
+필요하거나 control·receipt도 없는 조회가 필요하면 host의 static tool
 dispatch를 별도 변경으로 검토한다. 이 편의를 위해 현 연결·lease·worker 검사에 예외를
 몰래 만들지 않는다.
 
@@ -282,9 +287,10 @@ P1도 아직 구현하지 않았다. 이 문서의 권장은 C를 최종 방향�
    제외돼 있다. Phase 생성 강제·모든 과업에 사진 보고 등 삭제된 절차가 다시 들어오지 않는다.
    Scene 없는 의미 단위와 현재 등록 제한, Task/Plan, 일반 group과 ontological-component를
    구별한다. 이미지 바이트·원문 인용을 검토 없이 재작성하지 않는다.
-2. **동작·격리:** 시작/catalog/guide 조회를 fake sender와 격리된 자료로 검사한다. guide 조회가
-   native 요청·DB 변경·파일 출력 없이 완료되고, 잘못된 topic은 명시적으로 실패한다.
-   모델링 도구·오류 응답의 기존 schema와 side effect는 보존한다.
+2. **동작·격리:** 시작/catalog/guide 조회를 fake sender와 격리된 자료로 검사한다. guide reader가
+   모델링·관찰 sender를 호출하지 않고 형상·작업 DB 내용·사용자 산출물을 바꾸지 않는지 본다.
+   기존 연결 경로의 lock·control begin/end·operation receipt·완료 확인은 유지되는지 별도로
+   검사한다. 잘못된 topic은 명시적으로 실패하고, 기존 도구·오류 응답 schema는 보존한다.
 3. **배포:** fresh wheel과 editable 설치에서 사용자 스킬 폴더 없이 동일한 version·본문·사진을
    읽는다. 삭제된 topic·누락 이미지·해시 불일치·설명 누락은 packaging 또는 검사에서 드러난다.
    알려진 버전이 다른 host/worker를 연결해 fingerprint 거절을 확인한다.
