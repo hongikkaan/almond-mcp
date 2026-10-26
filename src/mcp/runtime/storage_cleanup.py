@@ -152,6 +152,12 @@ def cleanup_retired_sessions(storage: Path, *, exclude_token: str = "") -> list[
                 continue
             if native.get("pending", 0) and not rhino_gone:
                 continue
+            # Before Plan artifact folders, calls/<token> also held authored
+            # reports and model/DB backups. Process exit cannot make those files
+            # disposable. Retain their locator metadata until explicit migration.
+            legacy_calls = plain_descendant(storage / "tmp" / "calls" / folder.name, storage / "tmp")
+            if legacy_calls.exists() and any(path.is_file() for path in legacy_calls.rglob("*")):
+                continue
             with ExitStack() as held:
                 for name in ("launcher.lock", "rhino.lock", "mcp.lock"):
                     if (folder / name).exists():

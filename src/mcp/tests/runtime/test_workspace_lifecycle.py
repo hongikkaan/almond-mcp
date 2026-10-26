@@ -141,6 +141,28 @@ def test_db_conflict_or_live_worker_blocks_migration_without_touching_either_fil
     assert old.read_bytes() == b"old-marker" and not target.exists()
 
 
+def test_cleanup_preserves_legacy_artifacts_and_their_locator_until_migrated(work):
+    storage = Path(work.locations["storage"])
+    session = Path(work.locations["session_dir"])
+    token = session.name
+    write_json(session / "ready.json", {"valid": False})
+    write_json(session / "native.json", {"phase": "stopped", "pending": 0})
+    legacy = storage / "tmp" / "calls" / token / "review"
+    legacy.mkdir(parents=True)
+    report = legacy / "evidence.json"
+    report.write_text('{"keep":true}', encoding="utf-8")
+    assert cleanup_retired_sessions(storage) == []
+    assert report.read_text(encoding="utf-8") == '{"keep":true}'
+    assert (session / "ready.json").is_file()
+    artifact = work.root / "tmp" / "261026_review"
+    artifact.mkdir(parents=True)
+    report.rename(artifact / report.name)
+    assert cleanup_retired_sessions(storage) == [token]
+    assert not session.exists()
+    assert not legacy.exists()
+    assert (artifact / "evidence.json").read_text(encoding="utf-8") == '{"keep":true}'
+
+
 def test_cleanup_uses_connection_and_lock_lifetimes_not_work_status(work):
     storage = Path(work.locations["storage"])
     session = Path(work.locations["session_dir"])

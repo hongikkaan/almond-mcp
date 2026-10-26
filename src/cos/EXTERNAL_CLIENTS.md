@@ -59,8 +59,9 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 2. Codex가 `start_session`에 절대 `model_path`와 새 `request_id`를 전달한다.
    새 Rhino를 열고 `_almondconnect`를 자동 실행한 뒤 해당 프로세스에만 연결한다. CoS 앱이나
    별도 Codex 창을 열 필요는 없다. 원본 모델을 저장하거나 기존 Rhino를 종료하지 않는다.
-3. 반환된 `connection_id`로 `project_info`에서 문서와 `artifact_dir`를,
-   `get_rhino_context`에서 실제 문서를 확인한 다음 작업한다.
+3. 프로젝트·문서 정보가 필요하면 반환된 `connection_id`로 `project_info`의 필요한
+   sections를 조회한다. 기본 document 항목이 live 확인을 포함한다. 자료를 작성할 때는
+   `set_working_plan`으로 Plan의 `artifact_dir`를 선택한다.
 4. 끝나면 `disconnect`를 호출한다. Rhino 창은 남으며 저장·종료는 Rhino에서 한다.
 
 새 Rhino는 디스크에 저장된 파일을 연다. 다른 Rhino 창의 저장되지 않은 변경을 복제하지 않는다.
@@ -74,8 +75,9 @@ CoS 연결과 함께 사용하며 사용 가능한 자리가 있어야 연결된
    연결해 줘"라고 요청한다. 클라이언트가 `list_connections`를 호출한다.
 3. 목록의 정확한 `host_id`와 `model_path`로 `connect`를 호출한다.
    반환된 `connection_id`를 이후 모든 호출에 사용한다.
-4. `project_info`로 문서와 `artifact_dir`를, `get_rhino_context`로
-   실제 활성 문서를 확인한 다음 작업한다. 모델링에는 [Rhino Almond skill](../../skills/rhino-almond/SKILL.md)을 따른다.
+4. 필요할 때 `project_info`에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해
+   `get_rhino_context`를 반복 호출하지 않는다. 자료 작성 전 `set_working_plan`으로
+   폴더를 선택하고, 모델링에는 [Rhino Almond skill](../../skills/rhino-almond/SKILL.md)을 따른다.
 5. 끝나면 `disconnect`로 해당 연결을 해제한다. 문서 변경 후에는 재연결한다.
 
 Rhino에서 직접 해제하려면 `almonddisconnect`를 사용한다. 처리 중인 작업이나 worker의

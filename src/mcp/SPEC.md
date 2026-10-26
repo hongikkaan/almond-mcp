@@ -134,7 +134,8 @@ DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유�
 
 기존 CoS command를 유지하기 위해 Python 환경은 `../engine/.venv`에 둔다.
 구현 위치와 실행 파일 위치는 별개다. 이전 시작 버튼은 호환 스크립트를 거쳐
-`runtime/` 실행기를 호출한다. 사용자 모델·DB·라이브러리를 자동 이동하지 않는다.
+`runtime/` 실행기를 호출한다. 사용자 모델·라이브러리를 자동 이동하지 않는다.
+기존 `scene.sqlite3`는 아래의 DB 파일명 이전 조건을 충족할 때만 같은 폴더의 `DB`로 바꾼다.
 
 ## Scene·Component·계획
 
@@ -188,4 +189,18 @@ Phase와 Scene은 미입력 시에도 file_name=""를 보존한다.
 ALMOND_PROJECT_ROOT를 런타임이 설정하고 managed 도구가 상대경로를 적용한다.
 Plan별 tmp/YYMMDD_name 폴더는 재사용하며 rename_artifact_folder는 현재 참조도 갱신한다.
 Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서 실행하고 임시 스크립트 파일을
-만들지 않는다. DB 이름은 .almond/DB다. 종료된 .sessions 정리는 Plan/Step 상태와 무관하다.
+만들지 않는다. 산출물은 선택한 Plan 폴더, 호출 scratch는 `.almond/tmp/python/<token>/<operation>`이다.
+로컬 조회는 scratch 폴더를 만들지 않는다. Native 요청은 Bridge 소유권 검증에 필요한 폴더를
+전송 직전에 생성하고 완료 확인 후 회수한다. 결과가 불명확한 파일 쓰기는 별도 소유 기록으로
+다른 연결의 쓰기·폴더 이름 변경을 차단한다. Worker 재시작이나 Plan 완료로 이 기록을 지우지 않는다.
+
+공유 DB 파일명은 `.almond/DB`다. 기존 `scene.sqlite3`의 checkpoint·close 뒤 이름을 바꾸며,
+다른 worker가 사용 중이거나 두 이름·sidecar가 충돌하면 원본을 보존하고 이전을 중단한다.
+호출마다 DB 사본을 만들지 않는다. 종료된 `.sessions` 정리는 프로세스·잠금·native 완료를
+기준으로 하며 Plan/Step 상태와 무관하다. 고정 공유 잠금 파일은 삭제하지 않는다.
+
+구형 `.almond/tmp/calls/<token>`에는 작업 보고서·모델·DB 백업이 섞여 있을 수 있다.
+파일이 남은 구형 호출 폴더와 세션 locator는 자동 정리에서 제외한다. 기존 프로젝트를 정리할 때는
+파일과 DB의 현재 자료 참조를 대조해 보존 자료를 `tmp/YYMMDD_name`으로 옮기고 현재 참조도
+함께 갱신한다. 당시 경로를 포함한 과거 revision과 미완료 작업 상태는 유지한다. 이전 완료 후
+빈 구형 호출 폴더는 종료된 연결 정리에서 회수한다. 새 scratch와 구형 작업자료를 혼동하지 않는다.

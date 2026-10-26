@@ -1,6 +1,6 @@
 # Scene·Component·계획
 
-현재 문서는 `get_rhino_context`, 연결의 모델 경로는 `project_info`로 확인한다. COS에서도 아래 이름을 그대로 사용하고 해당 `connection_id`를 함께 전달한다.
+프로젝트·현재 문서 정보가 필요하면 `project_info`에서 필요한 sections만 조회한다. 기본 document 항목이 live 확인을 포함하므로 같은 문서를 확인하려고 `get_rhino_context`를 추가 호출하지 않는다. 선택·카메라 정보가 필요할 때만 해당 section을 조회한다. COS에서도 아래 이름을 그대로 사용하고 해당 `connection_id`를 함께 전달한다.
 
 ## 관리 단위와 소유권
 
@@ -46,13 +46,15 @@ block은 문서의 **top-level occurrence GUID**를 Component 멤버로 등록�
 
 | 목적 | 공개 API와 핵심 인자 |
 |---|---|
-| Scene 생성·조회 | `create_design_scene(name, units="mm")`, `get_design_scene(scene_id)` |
-| Component 등록·변경 | `upsert_design_component(expected_model_path, name, object_ids, scene_ids=None, component_id="", rhino_group_id="", child_component_ids=None)` |
-| 캐시·live 조회 | `get_design_component(component_id, live=False)`, `list_design_components(expected_model_path="")` |
-| live 관찰로 장부 갱신 | `sync_design_component(expected_model_path, component_id, rhino_group_id="")` |
+| Scene 생성·조회·파일명 기록 | `create_design_scene(name, units="mm", file_name="")`, `get_design_scene(scene_id)`, `update_design_scene(scene_id, file_name)` |
+| Component 등록·변경 | `upsert_design_component(name, object_ids, scene_ids=..., component_id=..., child_component_ids=...)` |
+| 캐시·live 조회 | `get_design_component(component_id, live=False)`, `list_design_components(include_ids=False)` |
+| live 관찰로 장부 갱신 | `sync_design_component(component_id, rhino_group_id="")` |
 | 등록 해제 | `remove_design_component(component_id)` |
-| 직접 Scene 연결 | `register_scene_objects(scene_id, expected_model_path, object_ids, mode="add")`; mode는 `add`, `remove`, `replace` |
+| 직접 Scene 연결 | `register_scene_objects(scene_id, object_ids, mode="add")`; mode는 `add`, `remove`, `replace` |
 | Scene 객체 합집합 조회 | `get_scene_objects(scene_id)` |
+
+연결된 runtime이 `expected_model_path`를 내부 공급하므로 위 호출에서 worker가 절대경로를 반복 입력하지 않는다. 위 표는 핵심 인자만 표시한다. 조회 결과의 GUID·Component ID가 필요할 때만 `include_ids=True`를 추가한다.
 
 `upsert_design_component`의 `object_ids`는 해당 Component가 **직접 소유할** top-level GUID 목록이다. `child_component_ids`는 직접 자식 목록이며 생략하면 유지, `[]`는 명시적 분리다. 자식이 존재하면 직접 객체는 없어도 된다. 부모 group의 물리 멤버는 직접 객체와 자손 객체의 합집합으로 정합된다. 일반 group을 채택하려면 정확한 직접·자손 멤버 구성이 맞아야 한다. 등록은 기하를 복제하지 않는다.
 
@@ -70,8 +72,8 @@ block은 문서의 **top-level occurrence GUID**를 Component 멤버로 등록�
 
 **Almond로 수행하는 모든 독립 과업은 Phase가 최소 1개 있는 상태에서 유효한 Phase에 속한 Plan을 생성하고 실제로 사용한다.**
 
-1. `list_phases`로 조회한다. 적합한 기존 Phase가 있으면 ID를 재사용하고, 없으면 `create_phase`를 호출한다. Phase는 문서나 Scene의 대체물이 아니므로 단순히 문서마다 별도 Phase를 늘리지 않는다.
-2. `list_plans(phase_id=...)`로 같은 과업의 진행 중인 Plan을 확인한다. **새 독립 과업에는 `create_plan(..., phase_id=...)`을 필수 실행**한다. 같은 과업의 연속 작업이면 그 Plan을 재사용한다. 기존 Plan의 `phase_id`가 없으면 `update_plan(plan_id, phase_id=..., expected_revision=...)`으로 연결한다.
+1. 기존 ID를 선택해야 하면 `list_phases(include_ids=True)`로 조회한다. 적합한 기존 Phase가 있으면 ID를 재사용하고, 없으면 `create_phase`를 호출한다. Phase는 문서나 Scene의 대체물이 아니므로 단순히 문서마다 별도 Phase를 늘리지 않는다.
+2. `list_plans(phase_id=..., include_ids=True)`로 같은 과업의 Plan을 확인한다. **새 독립 과업에는 `create_plan(..., phase_id=...)`을 필수 실행**한다. 같은 과업의 연속 작업이면 중단 상태를 포함해 그 Plan을 재사용한다. 기존 Plan의 `phase_id`가 없으면 `update_plan(plan_id, phase_id=..., expected_revision=...)`으로 연결한다.
 3. 편집 대상과 현재 단계 기록은 `get_plan`·`resolve_targets`로 확인하고, `update_step`으로 실제 조사·설계·편집·검증의 상태 및 `input_refs`/`output_refs`를 기록한다. 결과가 누락되거나 미지원이면 `blocked` 또는 해당 미완료 상태로 남기며 완료로 위장하지 않는다. 단계 갱신 시 최신 `expected_revision`을 사용한다.
 4. Scope는 고정된 단계 집합을 만든다. 특히 `drawing` Plan에 `create_layout` Step이 있다고 하여 **기존 PageSpace Layout의 메타데이터 조사 요청에서 새 Layout을 만들지 않는다**. 해당 없음·지원 불가 근거를 기록하고 필요 시 Plan을 재조직할 과제를 분리해 보고한다.
 

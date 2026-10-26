@@ -12,9 +12,11 @@ RhinoTerminal 내부에서 사용하는 Almond 도구의 중복 출력과 반복
 
 COS·외부 MCP의 새 사용 흐름 설계, 시간 포맷 변경, 사용자 모델의 임의 편집, 기존 사용자 자료의 일괄 삭제는 제외한다. 공용 Engine/스키마 변경에 따른 소비자 빌드·호환 검증은 필요하다. 일상 등록 경로와 plugin identity, UI thread, Undo/Redo, native 완료 확인, 프로세스 identity와 공유 잠금은 보존한다.
 
-## 구현 가능성 검토
+## 구현 전 가능성 검토 기록
 
-| 항목 | 확인한 현재 구현 | 판단·구현 방법 |
+이 표의 구현 상태는 변경 전 조사 기록이다. 현재 사용 계약은 아래 확정 기능 계약과 [MCP SPEC](../../src/mcp/SPEC.md)을 따른다.
+
+| 항목 | 검토 당시 구현 | 판단·구현 방법 |
 |---|---|---|
 | 프로젝트 정보와 live 검증 | `runtime/mcp_server.py`는 연결 당시 메타데이터를 반환하고 `live_document_checked=False`로 표시한다. 고정 native 관찰 경로가 이미 있다. | 가능. 한 `project_info` 호출 안에서 필요한 문서 관찰을 실행하고 선택 항목만 반환한다. worker의 별도 확인 호출은 없앤다. |
 | 선택 Context 조회 | `DocumentObservation.GetContext`는 문서·선택·뷰를 모두 수집한다. | 가능. native 수집 단계부터 sections를 적용한다. 단순히 반환 JSON만 잘라내지 않는다. |

@@ -75,7 +75,8 @@ PNG와 base64 모두 메모리에서 처리하므로 임시 이미지 파일을 
 
 `get_rhino_probe` / COS `get_rhino_probe`는 컴파일된 `outline`,
 `resolve-block`, `sections`, `vertical-probe`, `joint-pairs` 중 하나를 실행한다.
-`probe`, 도구별 `options`, `project_info`에서 얻은 `expected_model_path`를 전달한다.
+`probe`와 도구별 `options`를 전달한다. 연결된 runtime은 기대 문서 경로를 내부에서
+공급하므로 worker가 절대 `expected_model_path`를 기억해 반복 입력하지 않는다.
 COS에서는 동일하게 `connection_id`를 사용한다. 활성 문서 경로가 다르면 계산 전에
 거절하며 새 문서를 열거나 파일에 결과를 기록하지 않는다.
 

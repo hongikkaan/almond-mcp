@@ -16,3 +16,4 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, COS는 별도 RHP로 구성됩�
 
 최초 설치 후에는 Rhino를 닫고 이 일상 폴더에서 `git pull --ff-only`한 뒤 다시 시작합니다.
 Git에 포함된 `src/rhp/*/plugin-runtime`을 사용하므로 매번 빌드하거나 등록할 필요가 없습니다.
+기존 프로젝트의 DB 파일명 이전과 작업자료·임시자료 정리 기준은 [조회와 작업자료 계약](src/mcp/SPEC.md#조회와-작업자료-계약)을 따릅니다. 구형 `.almond/tmp/calls`에 남은 보고서·백업은 자동 삭제하지 않고 현재 자료 참조와 함께 이전합니다.

@@ -14,7 +14,7 @@
 
 1. 이미 확인한 문서를 다시 두 도구로 확인하지 않는다. 프로젝트 정보가 필요하면 `project_info` 한 번으로 live 문서 정보도 얻는다.
 2. 아래 인자로 `get_rhino_probe`를 호출하라. 런타임이 연결된 모델 경로를 자동 적용하므로 `expected_model_path`를 기억하거나 입력하지 않는다. 도구별 인자는 `options`에 넣는다.
-3. 같은 응답의 `status`, `probe`, `document.path`·단위·공차와 `data`를 확인하라. 이전 실행의 파일로 결과를 대신하지 마라. 기록이 필요하면 응답을 해당 연결의 `artifact_dir`에 저장하라.
+3. 같은 응답의 `status`, `probe`, `document.path`·단위·공차와 `data`를 확인하라. 이전 실행의 파일로 결과를 대신하지 마라. 기록이 필요하면 `set_working_plan`으로 선택한 Plan의 `artifact_dir`에 저장하라.
 
 ```json
 {
