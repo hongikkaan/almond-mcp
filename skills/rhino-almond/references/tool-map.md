@@ -2,32 +2,41 @@
 
 ## Almond MCP 도구 선택
 
-현재 연결에 노출된 도구 설명과 인자를 확인한 뒤 아래에서 목적에 맞는 기능을 골라라. 필요한 기능의 실제 지원 범위와 쓰기 대상을 확인하라. 도구를 많이 호출하는 것 자체를 목표로 삼지 마라. CLI와 COS 모두 아래 이름을 그대로 사용한다. 클라이언트 UI가 붙이는 서버 표시는 도구 이름과 별도다. COS에서는 `list_connections` → `connect` 또는 `start_session`에서 얻은 `connection_id`를 연결별 호출에 전달하라.
+현재 연결에 노출된 도구 설명과 인자를 확인해 **이번 과업에 필요한 도구만** 고른다. 아래 묶음은 순차 작업 절차가 아니다. Sheet 관리, 발행, 형상 편집 등은 각각 독립적으로 시작할 수 있다. CLI와 COS는 같은 도구 이름을 사용하며, COS 연결별 호출에는 `connection_id`를 전달한다.
 
-| 현재 목적 | 우선 확인할 도구 | 활용·확인 사항 |
+**영향 표기:** `조회`는 Rhino·Almond 기록을 바꾸지 않는다. `화면`은 Rhino의 선택·가시성·뷰 또는 일시적 표시를 바꾼다. `Rhino`는 활성 문서의 형상·속성·레이어·Layout 등을 바꾼다. `DB`는 `.almond` 기록을 바꾼다. `파일`은 산출물이나 자산 라이브러리에 쓴다. `외부`는 다른 서비스에 발행한다. 한 도구에 여러 효과가 있을 수 있으므로 실제 설명과 응답을 대조한다.
+
+## 공통 확인과 재사용 조회
+
+| 판단할 내용 | 도구 | 영향과 사용 기준 |
 |---|---|---|
-| 연결·자료 상태 파악 | `project_info`, `get_retrieval_status` | 연결에 묶인 모델 경로와 실제 artifact_dir를 확인하라. `project_info`는 실제 활성 문서나 형상을 조회하지 않으며 `live_document_checked=false` 자체는 오류가 아니다. 검색 인덱스 상태와 실제 Rhino 형상 상태를 구분하라. |
-| 실제 문서·선택·뷰 조회 | `get_rhino_context` | 편집 전 문서 identity·단위·공차·선택·현재 뷰를 조회하라. `selection_limit`은 정수 0–200, 기본 50이다. `selection.total/returned/truncated`, `warnings`와 `null`을 읽고 누락을 빈 상태로 간주하지 마라. 레이어·형상·Undo를 만들지 않는다. |
-| 블록·지형·접합부 고정 조회 | `get_rhino_probe` | `probe`, `options`, `expected_model_path`로 아래 다섯 helper를 호출한다. 문서 경로를 검사하고 Undo·레이어·선택·뷰를 변경하지 않는다. 요청·응답은 각각 256 KiB 한도다. [고정 probe 계약](probe-tools.md)을 확인하라. |
-| 현재 화면 확인 | `get_rhino_viewport_image` | JPEG ImageContent와 문서·뷰 metadata를 같은 응답에서 읽어라. `max_width/max_height`는 각각 정수 64–2048, 기본 1280/960이며 비율 유지·확대 없음·JPEG 4 MiB 한도다. 현재 카메라·Named View·display mode·clipping·선택을 바꾸지 않는다. |
-| 형상 편집·계산값 회수 | `execute_rhino_script` | 전용 도구가 다루지 않는 형상과 계산에 사용하라. 작은 JSON-safe 반환은 `result`로 직접 받고 `result_error`를 실행 실패와 구분하라. Undo 범위에서 실행하고 `List<Guid>` 반환은 자동 치수를 만들 수 있으므로 읽기 전용 조회로 간주하지 마라. 자동 재료 레이어 이동은 없다. [실행·결과 계약](probe-tools.md)을 확인하라. |
-| 과업·진행 상태 관리 | `list_generation_phases`, `create_generation_phase`, `list_generation_plans`, `create_generation_plan`, `get_generation_plan`, `update_generation_plan`, `update_generation_step`, `list_generation_plan_revisions` | **Phase ≥1·모든 Plan의 Phase 연결·새 독립 과업의 Plan 생성 및 사용 필수.** 기존 Phase/동일 작업 Plan은 재사용한다. `scope="component"`는 조사→설계→모델링→검증 단계다. revision과 의존성 확인 후 `expected_revision`으로 증거를 갱신하라. [계획 계약](components-and-plans.md). |
-| 계획의 편집 대상 확인 | `resolve_generation_targets` | Step에 명시한 Component, 없으면 Plan의 Component를 반환한다. 명시적인 `[]`는 대상 없음이며 Scene 참조가 편집 대상을 늘리지 않는다. 결과는 `live_verified=false`이므로 현재 문서·소속·사용자 범위를 대조하라. |
-| 검색·설계 근거 찾기 | `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources`, `search_asset_repository` | 필요한 항목을 검색하고 출처·적용 조건을 확인하라. 검색된 자료나 자동 추천을 곧바로 설계 판정으로 삼지 마라. |
-| 자산 선택·배치 | `list/search_drawing_assets`, `list/search_diagram_assets`, `get_drawing_asset`, `get_diagram_asset`, `place_drawing_asset`, `place_diagram_asset` | 목록 → 후보 상세 → 파일 가용성·단위·원점·배치 조건 → 배치 결과를 확인하라. 준비된 3DM과 파생 도면은 같은 asset ID를 사용한다. [자산·Sheet 계약](drawing-assets-and-sheets.md)을 확인하라. |
-| 준비된 3DM 등록·파생 도면 | `register_drawing_asset`, `get_asset_drawing`, `audit_asset_drawing` | 외부 converter에서 검토·정리한 mm/Z-up/바닥 중심 원점 3DM을 등록한다. 등록은 방향·재료의 시각적 적합성을 판정하지 않는다. 동일 ID 갱신은 `replace_existing=true`로 명시하며 이전 파일과 manifest 백업을 보존한다. |
-| Scene·Component 관리 | `create_design_scene`, `get_design_scene`, `upsert_design_component`, `get_design_component`, `list_design_components`, `sync_design_component`, `remove_design_component` | **Scene은 행태·프로그램·장면·가치, Component는 그것을 가능하게 하는 구축·역할·의미의 실물 묶음.** 창문·기둥 등 단품을 자동 등록하지 않고 일반 group·block과 [구성 기준](components-and-plans.md#component를-나누는-기준)을 구별한다. Component는 하나 이상의 Scene과 독립 Rhino group을 가지며 직접 객체 소유자는 하나다. `object_ids`는 직접 소유, `child_component_ids`는 의미 있는 직접 자식; 부모 group은 하위 객체도 선택한다. 수동 변경 후 live 검사·명시적 sync. [계약](components-and-plans.md). |
-| Scene 직접 객체·기존 배치 검사 | `register_scene_objects`, `get_scene_objects`, `upsert_design_room`, `register_scene_instance`, `validate_scene_layout` | 일반 객체를 Scene에 직접 연결할 수 있다. Room/asset instance는 선택적인 기존 배치·containment·하중 용도다. `validate_scene_layout`의 `passed_scope`·`coverage`를 읽고 legacy asset AABB 검사를 Component·일반 객체의 실제 충돌 검사로 확대하지 마라. |
-| Component 교차·대상 집중 | `get_component_intersections`, `focus_components` | effective 객체 합집합의 후보 쌍을 검사하거나 isolate·ZoomSelected한다. **같은 Component 내부 쌍도 검사한다.** 교차 검사는 1–32 Component·512 객체·최대64 후보쌍, 유효 closed top-level Brep/Extrusion 범위다. block·mesh·상한·`unknown`·`complete=false`는 무충돌이 아니다. 미검사 쌍은 명시적 [joint-pairs](joint-probes.md) 등으로 범위를 좁혀 확인한다. |
-| 신규 Layout·Sheet 등록 | `upsert_drawing_sheet`, `get_drawing_sheet`, `list_drawing_sheets`, `sync_drawing_sheet`, `remove_drawing_sheet` | **등록한 Sheet만 조회. 기존 PageSpace Layout 전체 메타데이터 인벤토리 아님.** `upsert`는 Layout+detail 생성/변경이므로 기존 도면 목록 요구에는 사용하지 않는다. 등록 해제는 Layout/도면 형상을 남긴다. [범위](drawing-assets-and-sheets.md). |
-| 구조 검토·시각화 | `list_design_codes`, `validate_structure`, `visualize_structure`, `export_structural_report` | 부재·지지점·단위·하중·접합 가정을 확인하라. 반환된 해석 방식과 신뢰도, 지원 범위와 누락 조건을 읽어라. 전체 모델의 검증 통과가 개별 접합부의 제작 가능성을 뜻하지는 않는다. |
-| GH 정의 실행 | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` | 먼저 실제 라이브러리·캡슐과 입출력 계약을 조회하라. 필요한 기능과 맞는 정의가 있으면 사용하고 출력 핸들을 확인하라. |
-| 재질 등록·구축 레이어 준비 | `setup_modeling`, `get_construction_guidance`, `get_modeling_policy` | `operation="materials"`로 라이브러리 재질을 일괄 등록한 뒤 등록된 재질을 사용한다. `operation="layers"`는 구축 시스템별 `M::category::system.name::element.role` 레이어를 준비한다. 재질과 레이어의 준비는 별도 작업이며 객체를 이동하지 않는다. 기존 재질 덮어쓰기 선택과 [계약](modeling-materials.md)을 확인하라. |
-| 재질·표현·내보내기 | `assign_material`, `list_materials`, `list/get_drawing_recipe`, `apply_drawing_style`, `capture_conditioning_pass`, `export/import_asset_contract` | MCP로 특정 객체에 적용할 때 `assign_material`을 사용하며 기존 레이어는 보존된다. `list_materials`는 ID·레시피 확인이 필요할 때만 조회한다. Bridge `modeling_materials=2`와 [재료·메타데이터 계약](modeling-materials.md)을 확인하라. 파일 생성·내보내기 뒤 실제 파일과 결과를 확인하라. |
+| 연결된 모델과 출력 위치 | `project_info` | 조회. 첫 Rhino 동작 전에 binding·`artifact_dir`를 확인한다. 이 응답만으로 활성 문서를 확인했다고 보지 않는다. |
+| 실제 문서·선택·현재 화면 | `get_rhino_context`, `get_rhino_viewport_image` | 조회. 문서 경로·단위·공차·선택과 현재 뷰를 대조한다. 화면 캡처는 카메라·clipping을 설정하거나 형상 적합성을 증명하지 않는다. |
+| Phase·Plan·Step 기록 | `list_generation_phases`, `get_generation_phase`, `create_generation_phase`, `update_generation_phase`, `list_generation_plans`, `get_generation_plan`, `create_generation_plan`, `update_generation_plan`, `update_generation_step`, `list_generation_plan_revisions`, `resolve_generation_targets` | 목록·상세·대상 해석은 조회, 생성·갱신은 DB. 독립 Almond 과업의 Phase·Plan 정책과 Step 증거는 [계획 계약](components-and-plans.md)을 따른다. Scene 참조만으로 편집 대상을 늘리지 않는다. |
+| 현재 의미 단위와 객체 연결 | `get_design_scene`, `list_design_components`, `get_design_component`, `get_scene_objects` | 조회. 저장된 결과와 `live=True` 관찰을 구분한다. 알고 있는 Scene ID의 상세 조회는 가능하지만 Scene 전체 목록 도구는 없다. |
+| 재료·구축 지침·검색 상태 | `list_materials`, `get_modeling_policy`, `get_construction_guidance`, `get_retrieval_status` | 조회. 재료 ID나 정책·구축 기준이 필요한 과업에서 사용한다. 목록을 Rhino 재료 등록이나 형상 검증으로 간주하지 않는다. |
+| 설계 근거와 자산 후보 | `get_typology_narrative`, `search_detail_sources`, `search_asset_repository` | 조회. typology는 서술용, 상세 출처 검색은 후보 디렉터리, 자산 검색은 사용 가능성 판단의 출발점이다. |
 
-`list/search_*`와 `get_*`는 위 표의 계열 표기다. 그대로 호출할 함수명이 아니므로 현재 노출된 정확한 이름과 schema를 사용하라.
+## 과업별로 선택하는 도구
 
-현재 화면 캡처는 Named View나 절단면을 준비하지 않는다. 필요한 검수 조건을 주 에이전트가 구성한 뒤 캡처하고 실제 이미지를 검토하라. 페이지 뷰의 이미지는 전체 페이지이며 `viewport`는 MainViewport를 설명한다. `capture_scope`, `active_viewport_id`, `warnings`로 활성 detail과 구분하라. 뷰 부재·캡처 실패는 이미지 없는 오류이며 이전 파일로 대신하지 않는다. 카메라 경로·복수 패스가 필요하면 기존 `capture_conditioning_pass`를 사용하되 카메라 복원은 best effort다.
+| 과업 | 도구 | 영향과 핵심 경계 |
+|---|---|---|
+| 실제 형상·블록·접합 관찰 | `get_rhino_probe`, `get_component_intersections` | 조회. 고정 probe의 문서 경로·단위·표본·`unknown`·잘림과 교차 검사의 `complete`를 확인한다. [Probe](probe-tools.md)·[접합](joint-probes.md). |
+| Rhino 대상에 집중 | `focus_components` | 화면. 선택·격리·확대가 바뀐다. 불명확한 실행을 자동 재시도하지 않는다. |
+| Scene·Component 등록 | `create_design_scene`, `upsert_design_component`, `sync_design_component`, `remove_design_component`, `register_scene_objects` | DB 및 일부 Rhino group·객체 속성. 의미 단위와 직접 소유 객체를 구분하고 live 소속을 확인한다. [구성 기준](components-and-plans.md). |
+| 기존 Room·asset instance 배치 | `upsert_design_room`, `remove_design_room`, `register_scene_instance`, `remove_scene_instance`, `validate_scene_layout` | 등록·해제는 DB, 검사는 조회. `validate_scene_layout`은 legacy asset-instance AABB 범위이며 Component 형상 충돌 검사가 아니다. |
+| 형상 생성·변경·계산 | `execute_rhino_script` | Rhino 변경 가능. 조회용 C#도 Undo 범위에서 실행되고 `List<Guid>` 반환은 자동 치수를 만들 수 있다. 작은 계산값은 `result`로 회수한다. [실행 계약](probe-tools.md). |
+| 재료·구축 레이어 준비 및 할당 | `setup_modeling`, `assign_material` | Rhino 재료·레이어 또는 객체 속성 변경. 두 `setup_modeling` operation을 구분하고, `assign_material`은 기존 객체 레이어를 보존한다. [재료 계약](modeling-materials.md). |
+| 구조·피난 검토 | `list_design_codes`, `validate_structure`, `visualize_structure`, `check_egress`, `export_structural_report` | 코드 목록·피난 계산은 조회, 구조 검증은 DB 이력, 시각화는 화면, 보고서는 파일. 해석 방법·신뢰도·하중과 입력 가정을 함께 읽는다. `rule_based/low`는 FEA가 아니다. |
+| Grasshopper 정의 확인·실행 | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` | 목록·원형 조회는 조회. 실행은 정의에 따라 Rhino에 bake할 수 있다. `audited=true`와 정확한 입출력 port 계약을 확인한다. |
+| 3DM·GLB 도면 자산 | `list_drawing_assets`, `search_drawing_assets`, `get_drawing_asset`, `register_drawing_asset`, `get_asset_drawing`, `generate_asset_drawing_views`, `audit_asset_drawing`, `place_drawing_asset` | 목록·상세·감사는 조회, 등록·도면 생성은 파일, 배치는 Rhino. 준비된 3DM과 custom GLB 경로·단위·축을 구분한다. [자산 계약](drawing-assets-and-sheets.md). |
+| 다이어그램 자산 | `list_diagram_assets`, `search_diagram_assets`, `get_diagram_asset`, `place_diagram_asset` | 탐색은 조회, 배치는 Rhino. 실제 파일 가용성과 크기·배치 조건을 확인한다. |
+| Rhino Sheet·Layout | `list_drawing_sheets`, `get_drawing_sheet`, `upsert_drawing_sheet`, `sync_drawing_sheet`, `remove_drawing_sheet` | 조회, Rhino Layout·DB 생성/변경, DB 정합/해제를 구분한다. 목록은 Almond 등록 Sheet만 포함한다. 기존 PageSpace 도면 인벤토리를 만들기 위해 `upsert`하지 않는다. [Sheet 계약](drawing-assets-and-sheets.md). |
+| 도면 표현 | `list_drawing_recipes`, `get_drawing_recipe`, `apply_drawing_style`, `import_drawing_hatch_patterns` | recipe 조회와 Rhino 레이어·해치 변경을 구분한다. |
+| 카메라 경로 산출물 | `capture_conditioning_pass` | 파일 및 일시적 화면 변경. 프레임·깊이·카메라 기록을 확인하고 카메라 복원은 best effort로 본다. |
+| 교환·외부 발행 | `export_asset_contract`, `import_asset_contract`, `get_blender_helper_script`, `publish_to_chestnut`, `publish_objects_to_chestnut` | helper script 조회, 파일 export, Rhino import, Chestnut 외부 발행을 구분한다. 발행·가져오기 대상과 결과를 명시적으로 확인한다. |
+
+현재 화면 캡처는 Named View나 절단면을 준비하지 않는다. 필요한 검수 조건을 준비한 뒤 실제 이미지를 검토한다. PageSpace 캡처와 ModelSpace/Detail을 반환 metadata로 구분한다. 뷰 부재·캡처 실패를 이전 파일로 대체하지 않는다.
 
 #### 등록과 검증의 대응 확인
 

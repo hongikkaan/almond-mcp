@@ -75,26 +75,18 @@ async def configure_project_context(mcp, args, binding, locations):
     artifact_dir = locations['call_root']
     csharp_dir = '@"' + artifact_dir.replace('"', '""') + '"'
     guidance = (
-        'CURRENT ALMOND PROJECT AND FILE OUTPUTS\n'
+        'CURRENT ALMOND BINDING\n'
         f"Saved model: {locations['model_path']}\n"
-        f"Working directory: {locations['project_dir']}\n"
-        f"Scene database: {locations['state_db']}\n"
-        'The DB is shared by saved models in this directory. Use explicit scene IDs.\n'
-        f'Project artifact directory: {artifact_dir}\n'
-        'Before the first Rhino action, call project_info to check this binding. '
-        'Save task-local inventories, screenshots, diagnostic reports and temporary code '
-        'under the returned artifact_dir, using an explicit absolute path in both the '
-        'Rhino script and subsequent shell/image reads. '
+        f'Artifact directory: {artifact_dir}\n'
+        'Before the first Rhino action, call project_info; use get_rhino_context to check '
+        'the live document before editing. Models in this directory share the Scene DB, '
+        'so use explicit scene IDs. Write task-local files beneath artifact_dir using '
+        'absolute paths in Rhino C# and later shell/image reads. Rhino TEMP may differ '
+        'from MCP TEMP; relative and temp paths do not select artifact_dir. '
         f'C# example: System.IO.Path.Combine({csharp_dir}, "review.txt"). '
-        'Create a unique task subdirectory there before writing. Public report, export '
-        'and conditioning output arguments use a fresh call subdirectory when empty. '
-        'C# executes inside Rhino, whose existing process TEMP is separate from the '
-        'Codex/Python MCP TEMP. Path.GetTempPath(), relative paths, and hardcoded '
-        'AppData/Windows Temp paths do not select this project artifact directory. '
-        'An existing global scratch folder is not a reason to reuse it; if the project '
-        'directory is not writable, report the error instead of falling back elsewhere. '
-        'Explicit user input/export locations take precedence. Do not relocate existing '
-        'files or save the Rhino model merely to set an output path.'
+        'Create a fresh task subdirectory when writing, and report a path error instead of falling back '
+        'elsewhere. Explicit user input/export paths take precedence. Do not move files '
+        'or save the Rhino model merely to set an output path.'
     )
     mcp.instructions = ((mcp.instructions or '') + '\n\n' + guidance).strip()
     # Metadata only: preserve the original tool's signature and execution body.
