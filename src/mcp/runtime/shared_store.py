@@ -17,7 +17,7 @@ import tempfile
 import time
 import uuid
 from almond_mcp.managed_paths import project_path, relative_output
-from storage_cleanup import process_identity_alive, remove_owned_tree
+from storage_cleanup import plain_descendant, process_identity_alive, remove_owned_tree
 
 import anyio
 from fastmcp.server.middleware import Middleware
@@ -231,7 +231,16 @@ class ProjectRuntime(Middleware):
             request["project_root"] = self.locations["project_dir"]
             request["artifact_dir"] = work["artifact_dir"]
             payload_bytes = json.dumps(request).encode("utf-8")
-        return batch.call(sender, payload_bytes, *positional, **keywords)
+        def owned_sender(payload, *args, **kwargs):
+            # BoundBridge validates the operation's existing scratch directory.
+            # Create it only after RequestBatch admits this frame, so an ended
+            # operation retained by a background task cannot recreate its files.
+            operation_dir = plain_descendant(Path(self.locations["call_root"]) / batch.operation_id,
+                                             Path(self.locations["temp"]))
+            operation_dir.mkdir(parents=True, exist_ok=True)
+            return sender(payload, *args, **kwargs)
+
+        return batch.call(owned_sender, payload_bytes, *positional, **keywords)
 
     async def _completion(self, operation_id: str, batch):
         state = batch.finish()
@@ -347,7 +356,8 @@ class ProjectRuntime(Middleware):
     async def _owned_call(self, context, call_next, name):
         operation_id = uuid.uuid4().hex
         operation_dir = Path(self.locations["call_root"]) / operation_id
-        # File-free observations have no scratch directory at all.
+        # Pure local queries need no scratch. Native ownership creates its
+        # directory lazily in send(), then reclaims it after confirmed completion.
         args = dict(context.message.arguments or {})
         work = self.workspace.current() if self.workspace is not None else {"artifact_dir": ""}
         if name in OUTPUT_TOOLS and (name != "get_blender_helper_script" or str(args.get("action", "")).lower() == "export"):

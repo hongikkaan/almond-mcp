@@ -25,7 +25,7 @@ COS·외부 MCP의 새 사용 흐름 설계, 시간 포맷 변경, 사용자 모
 | 작업자료 폴더 | 현재 `artifact_dir`는 연결별 `call_root`의 별칭이고 일부 출력 기본값만 적용된다. | 가능하지만 연결 임시폴더와 작업 폴더를 분리해야 한다. Plan의 상대경로 및 작업자료 참조를 공유 DB에 기록하고 재개 시 재사용한다. |
 | 상대경로 자동 적용 | Python worker의 cwd는 프로젝트 루트이나 Rhino C# 및 Codex 셸은 별도 프로세스다. | 관리되는 MCP 입출력, Python 실행, C# 파일 helper에서 자동 적용 가능. 임의 `System.IO`나 외부 셸의 상대경로까지 가로채는 전역 cwd 변경은 사용하지 않는다. worker는 관리 경로에 상대경로만 전달한다. |
 | DB 이름 변경 | Python project 경로, Engine `SessionFiles`, Terminal `AlmondHost`가 `scene.sqlite3`를 지정한다. | 가능. 모두 `DB`로 맞춘다. 기존 DB는 다른 worker가 사용하지 않는 상태에서 checkpoint·close 후 이름을 원자적으로 변경한다. 충돌·사용 중·checkpoint 실패 시 기존 DB를 보존하고 이전을 중단한다. |
-| 임시자료 정리 | 모든 도구 호출이 빈 operation 폴더를 만들며 테스트 4개 모듈이 `mktemp` DB를 남긴다. | 가능. 무파일 조회는 폴더를 만들지 않는다. 실행 scratch와 보존 산출물을 분리하고 소유한 scratch만 종료 후 정리한다. 테스트는 체크아웃 안에서 수명 관리한다. |
+| 임시자료 정리 | 모든 도구 호출이 빈 operation 폴더를 만들며 테스트 4개 모듈이 `mktemp` DB를 남긴다. | 가능. 로컬 조회는 폴더를 만들지 않는다. Native 전송에는 기존 Bridge 소유권 검증에 필요한 operation 폴더를 전송 직전에 생성하고 완료 확인 후 회수한다. 실행 scratch와 보존 산출물을 분리하고 소유한 scratch만 정리한다. 테스트는 체크아웃 안에서 수명 관리한다. |
 | `.sessions` 정리 | 연결·프로세스·lock·native 호출 완료 기록이다. Plan/Step 완료와 무관하다. | 가능. 정상 종료 또는 다음 시작 시 종료된 연결만 정리한다. 사용 중 handle·살아 있는 소유자·불명확한 실행은 건드리지 않고, 호출 재실행으로 해결하지 않는다. |
 | 도면·Sheet DB 등록 제거 | Sheet CRUD/sync와 도면 library DB 색인, Component 삭제 제한에 등록 관계가 연결돼 있다. | 가능. 공개 등록/sync 경로와 자동 색인을 제거하고 도면 자산 조회는 manifest 기반으로 전환한다. 기존 DB 행·Layout·도면 파일은 삭제하지 않는다. |
 | 뷰 이미지 | 기존 active-view JPEG 경로에 이어, 별도 fixture에서 문서 지정 capture 설정으로 Named View와 Layout PNG 생성에 성공했다. | 가능. 테스트 Rhino 8.34에서 headless 관찰 9개, 활성 뷰 검사 5개, 종류별 대상 검사 8개 통과. Named View는 화면을 전환하지 않으며 Layout은 A4 용지 픽셀 크기와 일치하고 실제 PNG도 열어 확인했다. |
@@ -68,7 +68,7 @@ COS·외부 MCP의 새 사용 흐름 설계, 시간 포맷 변경, 사용자 모
 ### 5. DB·scratch·세션
 
 - 공유 DB 파일명은 `DB`다. 작업·연결마다 DB를 복제하지 않는다. 기존 `scene.sqlite3`의 데이터는 이전 절차와 시험으로 보존한다.
-- Python scratch는 보존 산출물 밖의 `.almond/tmp/python`에 둔다. 파일이 필요한 작업만 생성하고 정상 종료 후 소유한 파일·빈 폴더를 정리한다. 보존 산출물을 scratch로 취급하지 않는다.
+- Python scratch는 보존 산출물 밖의 `.almond/tmp/python`에 둔다. 파일이 필요하거나 native 요청의 소유권 검증에 필요한 경우만 생성하고, 완료 확인 후 소유한 파일·빈 폴더를 정리한다. 로컬 조회에서는 생성하지 않으며 보존 산출물을 scratch로 취급하지 않는다.
 - `.sessions` 정리는 연결 수명과 OS 소유권을 기준으로 한다. Plan·Step 상태를 조회하거나 정리 조건에 사용하지 않는다. `unconfirmed`는 native 호출 응답 확인 문제이며 작업계획 미완료가 아니다.
 - 사용 중 세션 및 공용 lock을 강제로 지우지 않는다. 종료된 token 폴더만 검사하고 정상 종료와 다음 시작의 회수 경로를 마련한다.
 - 테스트 DB/임시폴더는 개발 체크아웃에 격리하고 성공한 테스트의 잔여물을 정리한다. 사용자 프로젝트를 테스트 임시 경로로 사용하지 않는다.
