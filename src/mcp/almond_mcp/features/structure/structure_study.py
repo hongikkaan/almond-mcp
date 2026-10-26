@@ -8,6 +8,7 @@ The MCP tools share :func:`draw_message`, so both routes draw identical overlays
 Imports only the numerical modules (no MCP server, no index build), so a solve starts quickly.
 """
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 import json
 import math
@@ -120,8 +121,7 @@ def run(request: dict) -> dict:
         if not isinstance(model, dict) or model.get("status") != "ok" or "members" not in model:
             raise ValueError("No exported structural model in the request.")
         if model.get("shells"):
-            raise ValueError(f"The selection contains {model['shells']} shell element(s). The native solver analyses "
-                             "line members; choose the Karamba engine for shells.")
+            raise ValueError(read_instruction(__file__, 'response-963').format(model['shells']))
         if not model["members"]:
             raise ValueError("No line members in the selection.")
         code = native_structure.design_profile(s["design_basis"], s["design_code"])
@@ -148,7 +148,7 @@ def run(request: dict) -> dict:
         result, span = native_structure.view_result(model, s["load_kn"], s["material"], span_m=span,
                                                     view=s["view"], **common)
     except native_structure.InstabilityError as e:
-        out["message"] = f"{e} Switch the view to Buckling mode to see the shape it buckles into."
+        out["message"] = read_instruction(__file__, 'response-955').format(e)
         return out
     except native_structure.fs.MechanismError as e:
         out["message"] = str(e)

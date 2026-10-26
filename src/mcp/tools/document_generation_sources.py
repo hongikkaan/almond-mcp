@@ -3,6 +3,9 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from almond_mcp.instruction_text import read_instruction
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -58,7 +61,7 @@ def build_register(library: Path) -> dict:
                 "id": image_id,
                 "id_type": "image_job_id" if history.get("image_job_id") else "image_task_id",
                 "source_image_url_recorded": bool(history.get("image_url")),
-                "source_image_url_policy": "Consult original provenance when needed; account-scoped URLs omitted here.",
+                "source_image_url_policy": read_instruction(__file__, 'response-218'),
             },
             "catalogue_recipe_override": brief.get("recipe_override"),
             "recipe_evidence": "catalogue.json#/generation_recipe; recipe intent, not a captured API request",

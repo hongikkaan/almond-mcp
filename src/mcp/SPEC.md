@@ -154,3 +154,18 @@ DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유�
 Drawing Sheet는 모델 공간 World XY의 작성 영역을 Rhino Layout의 Top detail로 지정 축척에 연결한다. 영역이 용지·축척에 맞지 않으면 생성 전에 거절한다. 도면 형상이나 단면 대상을 자동 추측하지 않으며 등록 해제는 geometry·Layout 삭제가 아니다.
 
 저장소 `asset/`, wheel `almond_mcp/data/`, AppData 라이브러리의 배치는 다르다. 명시적 `RHINO_MCP_*_DIR`이 우선하며 기존 사용자 파일·manifest 상대 경로·계약/모델 해시를 보존한다. 다운로드한 community model과 원시 생성 파일은 기본 패키지에 포함하지 않는다. 자산·도면 도구와 단위·출처 계약은 [자산 안내](../../docs/assets/assets-and-drawings.md)를 따른다.
+
+## 지침 Markdown 원본
+
+MCP 도구·리소스의 공개 설명과 응답에 덧붙이는 행동 지침은 원래 Python 파일과
+같은 폴더의 `<파일 stem>-explain.md`에 둔다. 예를 들어 `features/modeling/tools.py`는
+`features/modeling/tools-explain.md`를 읽는다. 각 항목은 `instruction:` HTML 주석으로
+경계를 표시하며, 본문과 동적 값의 공백을 보존한다. `almond_mcp/instruction_text.py`가
+지침을 읽고 등록 전에 함수 설명에 적용한다. 항목이 없거나 중복되면 명시적으로 실패한다.
+입력 검증 조건, 오류 상태·수치 결과, SQL과 실행할 C#/Blender 코드는 지침 원본이 아니다.
+기존 `FUNDAMENTAL-INSTRUCTIONS.md`와 `MODEL-CONTEXT-INSTRUCTIONS.md`의 전달 방식은 유지한다.
+
+COS는 모델 서버를 import하지 않고 같은 Markdown에서 도구 설명을 추출한다.
+package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는
+해당 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
+Python 지침만 변경했을 때 Rhino RHP 빌드·등록 변경은 필요하지 않다.

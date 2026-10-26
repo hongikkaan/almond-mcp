@@ -1,5 +1,6 @@
 """MCP-owned recipes and construction-layer setup, shared by the public tools."""
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 import json
 
@@ -90,7 +91,7 @@ def dispatch(code, send, timeout=60.0):
         return result
     except Exception as exc:
         return {"status": "error", "mutation_state": "unknown" if dispatched else "not_started",
-                "message": f"Could not confirm modeling operation: {exc}. Inspect Rhino before retrying."}
+                "message": read_instruction(__file__, 'response-744').format(exc)}
 
 
 def check_bridge(send):
@@ -102,7 +103,7 @@ def check_bridge(send):
             return context
         if context.get("capabilities", {}).get("modeling_materials") != 2:
             return {"status": "error", "error_code": "unsupported_materials", "mutation_state": "not_started",
-                    "message": "Load the updated Bridge (modeling_materials=2) before editing materials or layers."}
+                    "message": read_instruction(__file__, 'response-746')}
     except Exception as exc:
         return {"status": "error", "mutation_state": "not_started", "message": str(exc)}
     return None

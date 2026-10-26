@@ -20,6 +20,7 @@ Not covered: shells, second-order / P-delta, lateral-torsional buckling, dynamic
 connections, and national annexes. Results are a preliminary design check.
 """
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 import math
 from dataclasses import dataclass, field
@@ -57,7 +58,7 @@ _ALIASES = {"steel": "S235", "s235": "S235", "s355": "S355", "concrete": "C30/37
 def material(name: str) -> Material:
     key = _ALIASES.get((name or "steel").strip().lower())
     if key is None:
-        raise ValueError(f"Unknown material {name!r}; use one of {sorted(set(_ALIASES))}.")
+        raise ValueError(read_instruction(__file__, 'response-889').format(name, sorted(set(_ALIASES))))
     return MATERIALS[key]
 
 

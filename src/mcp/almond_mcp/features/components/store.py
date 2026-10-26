@@ -1,5 +1,6 @@
 """Component ledger rules mixed into the shared AlmondStore connection lifecycle."""
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 import math
 import ntpath
@@ -230,7 +231,7 @@ class ComponentsStore:
             ).fetchone():
                 raise ValueError("Child Component has no Scene registration.")
             if row["parent_component_id"] not in (None, component_id):
-                raise ValueError("Child already belongs to another parent; detach it before reparenting.")
+                raise ValueError(read_instruction(__file__, 'response-514'))
             if component_id in cls._component_descendant_ids(connection, child_id):
                 raise ValueError("Component hierarchy cannot contain cycles.")
         return sorted(children)
@@ -412,7 +413,7 @@ class ComponentsStore:
         if previous and native_parent != previous["parent_component_id"]:
             raise ValueError("Native Component parent differs from the registered tree; edit the parent explicitly.")
         if not previous and native_parent is not None:
-            raise ValueError("A new Component must be attached by editing its registered parent.")
+            raise ValueError(read_instruction(__file__, 'response-476'))
         objects = self._component_observed_objects(snapshot, expected_ids, component_id)
         if not objects and not children:
             raise ValueError("A Component requires a direct object or a child Component.")
@@ -835,7 +836,7 @@ class ComponentsStore:
             "SELECT parent_component_id FROM components WHERE component_id = ?", (component_id,)
         ).fetchone()
         if node and node["parent_component_id"] is not None:
-            raise ValueError("Detach this Component from its parent before unregistering.")
+            raise ValueError(read_instruction(__file__, 'response-491'))
         if connection.execute(
             "SELECT 1 FROM generation_plan_components WHERE component_id = ? "
             "UNION ALL SELECT 1 FROM generation_step_components WHERE component_id = ? "
@@ -843,8 +844,7 @@ class ComponentsStore:
             (component_id, component_id, component_id),
         ).fetchone():
             raise ValueError(
-                "Component is referenced by a generation plan, step, or drawing sheet; "
-                "remove those references explicitly before unregistering."
+                read_instruction(__file__, 'response-492')
             )
 
     def _component_check_detached_children(self, connection, existing, detached, snapshots):

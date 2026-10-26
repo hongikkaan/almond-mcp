@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 import types
 import tomllib
+from almond_mcp.instruction_text import read_instruction
 
 sys.dont_write_bytecode = True
 from runtime import CATALOG, ENGINE, ROOT, digest, source_paths
@@ -46,7 +47,20 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
     for default in [*node.args.defaults, *node.args.kw_defaults]:
         if default is not None:
             ast.literal_eval(default)
+    decorators = []
+    external_doc = None
     for decorator in node.decorator_list:
+        if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
+                and decorator.func.id == "tool_instruction"):
+            if (len(decorator.args) != 2 or decorator.keywords
+                    or not isinstance(decorator.args[0], ast.Name)
+                    or decorator.args[0].id != "__file__"
+                    or not isinstance(decorator.args[1], ast.Constant)
+                    or decorator.args[1].value != node.name
+                    or not hasattr(node, "_guidance_source")):
+                raise ValueError(f"Unexpected instruction decorator: {node.name}")
+            external_doc = read_instruction(node._guidance_source, node.name)
+            continue
         if not (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute)
                 and isinstance(decorator.func.value, ast.Name) and decorator.func.value.id == "mcp"
                 and decorator.func.attr == "tool" and not decorator.args):
@@ -55,7 +69,9 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
             if keyword.arg != "annotations":
                 raise ValueError(f"Review decorator option {keyword.arg} in {node.name}")
             ast.literal_eval(keyword.value)
-    doc = ast.get_docstring(node, clean=False)
+        decorators.append(decorator)
+    node.decorator_list = decorators
+    doc = external_doc if external_doc is not None else ast.get_docstring(node, clean=False)
     node.body = ([ast.Expr(ast.Constant(doc))] if doc else []) + [
         ast.Raise(ast.Call(ast.Name("RuntimeError", ast.Load()),
                           [ast.Constant("Catalog stub must never execute")], []), None)
@@ -68,6 +84,9 @@ def collect_tool_functions(server_path: Path) -> list[ast.FunctionDef]:
     functions = []
     for path in sources:
         tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                node._guidance_source = str(path)
         candidates = list(tree.body)
         for node in tree.body:
             if isinstance(node, ast.FunctionDef) and node.name == "register":
@@ -94,6 +113,7 @@ async def generate(engine: Path = ENGINE) -> dict:
     entry = ast.parse(paths["entry"].read_text(encoding="utf-8-sig"))
     project_info = next(n for n in ast.walk(entry)
                         if isinstance(n, ast.FunctionDef) and n.name == "project_info")
+    project_info._guidance_source = str(paths["entry"])
     functions.append(project_info)
     module = types.ModuleType("_almondcos_schema_stubs")
     module.mcp = FastMCP("AlmondCOS schema build")

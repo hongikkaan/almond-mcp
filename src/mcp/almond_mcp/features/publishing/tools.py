@@ -3,6 +3,7 @@
 The context supplies the current bridge sender, target URL and exported helper
 bindings at call time, preserving per-server runtime and monkeypatch behavior.
 """
+from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
 import json
@@ -61,6 +62,7 @@ def register(mcp, context):
             raise RuntimeError(f"Chestnut returned HTTP {exc.code}: {detail}") from exc
 
     @mcp.tool()
+    @tool_instruction(__file__, 'publish_objects_to_chestnut')
     def publish_objects_to_chestnut(
         guids: list[str],
         asset_name: str,
@@ -70,29 +72,6 @@ def register(mcp, context):
         preserve_scale: bool = True,
         mass: float = 0.0,
     ) -> str:
-        """
-        Exports specific Rhino objects as one GLB and publishes them to Chestnut.
-
-        Use this after execute_rhino_script (and optionally validate_structure), passing
-        the returned object GUIDs. Reusing asset_id updates the existing Chestnut asset
-        without changing placements that already reference it.
-
-        Args:
-            guids: Rhino object GUIDs to export. Unrelated document objects are excluded.
-            asset_name: Human-readable name shown in Chestnut.
-            asset_id: Stable optional ID for linked updates. Generated deterministically
-                      from the Rhino document and GUIDs when omitted.
-            body_type: "static" for architecture, "dynamic" for loose props, or
-                       "kinematic" for script-driven objects.
-            collider: Collider intent: "box", "convex", "compound", or "trimesh".
-                      Chestnut currently falls back to a box where needed.
-            preserve_scale: Keep Rhino's real-world dimensions instead of normalizing
-                            the model to a one-metre display prop.
-            mass: Physics mass in kilograms. Static bodies always use zero.
-        Returns:
-            JSON containing the stable Chestnut asset ID, URL, metadata, and whether
-            the operation created or updated the asset.
-        """
         if not guids:
             return json.dumps({"status": "error", "message": "At least one Rhino object GUID is required."})
         if not asset_name.strip():
@@ -162,7 +141,7 @@ def register(mcp, context):
                 **chestnut_result,
             })
         except ConnectionRefusedError:
-            return json.dumps({"status": "error", "message": "Rhino bridge is unavailable. Start RhinoAlmondBridge first."})
+            return json.dumps({"status": "error", "message": read_instruction(__file__, 'response-847')})
         except socket.timeout:
             return json.dumps({"status": "error", "message": "Rhino GLB export timed out."})
         except Exception as exc:
@@ -179,29 +158,13 @@ def register(mcp, context):
                 pass
 
     @mcp.tool()
+    @tool_instruction(__file__, 'publish_to_chestnut')
     def publish_to_chestnut(
         guids: list[str],
         asset_name: str,
         behavior: str = "auto",
         asset_id: str = "",
     ) -> str:
-        """
-        Publishes Rhino objects to Chestnut using safe semantic defaults.
-
-        This is the preferred publishing tool for normal use. It hides collider,
-        scale, mass, and rigid-body details. Call it when the user says things such
-        as "publish that to Chestnut".
-
-        Args:
-            guids: Rhino object GUIDs returned by execute_rhino_script.
-            asset_name: Human-readable asset name.
-            behavior: Optional semantic preset:
-                "auto"         — infer architecture versus movable object from name
-                "architecture" — fixed building, terrain, structure, or enclosure
-                "object"       — movable physical prop affected by gravity
-                "animated"     — script-driven door, lift, platform, or mechanism
-            asset_id: Optional stable link ID. Omit for a deterministic Rhino link.
-        """
         behavior = behavior.lower().strip()
         if behavior not in {"auto", "architecture", "object", "animated"}:
             return json.dumps({

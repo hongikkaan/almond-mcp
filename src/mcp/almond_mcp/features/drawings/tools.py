@@ -1,4 +1,5 @@
 """Drawing recipes, presentation and persistent Layout tool registration."""
+from almond_mcp.instruction_text import tool_instruction, read_instruction
 import json
 import socket
 
@@ -19,7 +20,7 @@ def register(mcp, context):
             if not isinstance(rhino_context, dict) or rhino_context.get("status") != "success":
                 raise ValueError("Could not inspect the bound Rhino document.")
             if rhino_context.get("capabilities", {}).get("drawing_sheets") != 1:
-                raise ValueError("Load a Bridge with drawing_sheets=1 before managing drawing sheets.")
+                raise ValueError(read_instruction(__file__, 'response-638'))
         except Exception as exc:
             return {"status": "error", "mutation_applied": False, "message": str(exc)}
         response = context._send_and_receive(payload)
@@ -40,8 +41,8 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'list_drawing_recipes')
     def list_drawing_recipes() -> str:
-        """Lists compact audited layer, lineweight, projection, and export recipes."""
         recipes = []
         for recipe_id, recipe in sorted(context.drawing_recipe_indexer.recipes.items()):
             recipes.append({
@@ -55,8 +56,8 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'get_drawing_recipe')
     def get_drawing_recipe(recipe_id: str) -> str:
-        """Returns one complete audited drawing recipe."""
         recipe = context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
             return json.dumps({
@@ -70,11 +71,8 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'apply_drawing_style')
     def apply_drawing_style(recipe_id: str = "technical_axon_v1") -> str:
-        """
-    Creates or updates the Rhino layer hierarchy, plot weights, colours, and
-    linetypes defined by an audited drawing recipe.
-    """
         recipe = context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
             return json.dumps({
@@ -93,7 +91,7 @@ def register(mcp, context):
         except ConnectionRefusedError:
             return json.dumps({
                 "status": "error",
-                "message": "Rhino bridge is unavailable. Start RhinoAlmondBridge first.",
+                "message": read_instruction(__file__, 'response-642'),
             })
         except Exception as exc:
             return json.dumps({
@@ -103,15 +101,8 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'import_drawing_hatch_patterns')
     def import_drawing_hatch_patterns(asset_id: str) -> str:
-        """
-    Imports the AutoCAD-style .pat hatch definitions of an indexed drawing
-    asset into the active Rhino document's hatch pattern table.
-
-    The tool accepts only .pat files resolved from the controlled
-    asset/drawing/DrawingAssetfiles manifest, mirroring the placement tools' security
-    boundary.
-    """
         asset = context.drawing_asset_indexer.get(asset_id)
         if not asset:
             return json.dumps({
@@ -140,7 +131,7 @@ def register(mcp, context):
         except ConnectionRefusedError:
             return json.dumps({
                 "status": "error",
-                "message": "Rhino bridge is unavailable. Start RhinoAlmondBridge first.",
+                "message": read_instruction(__file__, 'response-645'),
             })
         except Exception as exc:
             return json.dumps({
@@ -150,24 +141,13 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"destructiveHint": False})
+    @tool_instruction(__file__, 'upsert_drawing_sheet')
     def upsert_drawing_sheet(
         expected_model_path: str, title: str, drawing_type: str, scale_denominator: StrictFloat,
         paper_mm: list[StrictFloat], model_bounds_mm: list[StrictFloat],
         scene_ids: list[str] | None = None, component_ids: list[str] | None = None,
         plan_id: str | None = None, sheet_id: str = "", layout_id: str = "",
     ) -> str:
-        """Register one authored modelspace drawing region with one Rhino Layout tab.
-
-    Supply world-XY bounds [minX,minY,minZ,maxX,maxY,maxZ] in mm, positive XY
-    extents, paper [width,height] in mm, and a positive scale denominator (100 = 1:100).
-    The native Layout uses a parallel Top detail; the region must fit at that scale.
-    drawing_type is plan, section, elevation, detail, axonometric, perspective,
-    schedule or other. These are labels; this tool does not generate drawing geometry.
-    New sheets create a Layout when layout_id is empty. Existing identities cannot
-    change model or Layout. Omitted refs preserve existing values; [] clears refs,
-    plan_id='' unlinks a Plan. List sheets by Plan at wrapup to inspect duplicates.
-    After an uncertain result, sync_drawing_sheet; do not replay the mutation.
-    """
         try:
             sheet = context.retrieval_store.upsert_drawing_sheet(
                 model_path=expected_model_path, title=title, drawing_type=drawing_type,
@@ -181,8 +161,8 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @tool_instruction(__file__, 'get_drawing_sheet')
     def get_drawing_sheet(sheet_id: str) -> str:
-        """Read a cached sheet title, scale, paper, modelspace bounds, Layout and context refs."""
         try:
             sheet = context.retrieval_store.get_drawing_sheet(sheet_id)
             if sheet is None:
@@ -193,15 +173,11 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @tool_instruction(__file__, 'list_drawing_sheets')
     def list_drawing_sheets(
         plan_id: str = "", scene_id: str = "", component_id: str = "",
         expected_model_path: str = "", limit: StrictInt = 100,
     ) -> str:
-        """List named sheets for Plan wrapup or Scene/Component/model review; combine filters with AND.
-
-    Returns cached registration data, total and truncation. Review names and locations
-    before deciding whether drawings are unnecessary; listing never deletes geometry.
-    """
         try:
             return json.dumps({"status": "success", **context.retrieval_store.list_drawing_sheets(
                 plan_id=plan_id, scene_id=scene_id, component_id=component_id,
@@ -212,13 +188,8 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"destructiveHint": False})
+    @tool_instruction(__file__, 'sync_drawing_sheet')
     def sync_drawing_sheet(expected_model_path: str, sheet_id: str, layout_id: str = "") -> str:
-        """Reconcile a sheet from read-only native Layout inspection without replaying a mutation.
-
-    Use after a lost response, failed database commit or manual edits. Registered
-    snapshots can restore a missing ledger row. Verified unregistered retained
-    Layouts can release an existing ledger row; a missing Layout is not that proof.
-    """
         try:
             sheet = context.retrieval_store.sync_drawing_sheet(
                 model_path=expected_model_path, sheet_id=sheet_id, layout_id=layout_id,
@@ -230,8 +201,8 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"destructiveHint": False})
+    @tool_instruction(__file__, 'remove_drawing_sheet')
     def remove_drawing_sheet(sheet_id: str) -> str:
-        """Unregister a sheet while preserving its Rhino Layout, detail and modelspace drawing geometry."""
         try:
             sheet = context.retrieval_store.remove_drawing_sheet(sheet_id, native_apply=_drawing_sheet_bridge)
             return json.dumps({"status": "success", "sheet": sheet}, ensure_ascii=False)

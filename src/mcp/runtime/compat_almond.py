@@ -1,5 +1,6 @@
 """Scope the inspected asset helpers' reports to the current engine operation."""
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 from functools import wraps
 import json
@@ -86,7 +87,7 @@ def install(server, runtime) -> None:
             except (OSError, ValueError):
                 return {
                     "status": "error",
-                    "message": "Geometry was imported, but its report is unverified. Inspect the existing objects before any retry.",
+                    "message": read_instruction(__file__, 'response-84'),
                     "imported_guids": result.get("imported_guids", []),
                     "report_path": str(folder / "almond_import_report.json"),
                 }

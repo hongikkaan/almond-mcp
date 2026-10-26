@@ -1,4 +1,5 @@
 """Register diagram asset tools using the shared asset catalogue and bridge."""
+from almond_mcp.instruction_text import tool_instruction
 
 import json
 import socket
@@ -8,8 +9,8 @@ def register(mcp, context):
     """Register diagram tools against the calling server's live context."""
 
     @mcp.tool()
+    @tool_instruction(__file__, 'list_diagram_assets')
     def list_diagram_assets(category: str = "", limit: int = 20, offset: int = 0) -> str:
-        """Lists available vector and CAD diagram assets (people, trees, symbols)."""
         page = context.retrieval_store.search_assets(
             library_id="diagram_assets",
             category=category,
@@ -24,6 +25,7 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'search_diagram_assets')
     def search_diagram_assets(
         query: str = "",
         category: str = "",
@@ -33,7 +35,6 @@ def register(mcp, context):
         limit: int = 10,
         offset: int = 0,
     ) -> str:
-        """Searches the diagram asset library."""
         return json.dumps(context.retrieval_store.search_assets(
             query=query,
             library_id="diagram_assets",
@@ -47,8 +48,8 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'get_diagram_asset')
     def get_diagram_asset(asset_id: str) -> str:
-        """Returns one diagram asset's metadata."""
         asset = context.retrieval_store.get_asset(asset_id, library_id="diagram_assets")
         if not asset:
             return json.dumps({"status": "error", "message": f"Unknown diagram asset_id: {asset_id}"})
@@ -56,6 +57,7 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'place_diagram_asset')
     def place_diagram_asset(
         asset_id: str,
         x: float = 0,
@@ -64,7 +66,6 @@ def register(mcp, context):
         rotation_degrees: float = 0,
         scale: float = 1,
     ) -> str:
-        """Places an indexed diagram asset (SVG, DWG, DXF)."""
         asset = context.diagram_asset_indexer.get(asset_id)
         if not asset:
             return json.dumps({"status": "error", "message": f"Unknown diagram asset_id: {asset_id}"})

@@ -15,6 +15,7 @@ def test_catalog_matches_live_schema_and_retains_camera_examples(server):
             assert len(tools) == 76
             for name in tools:
                 assert schema_identity(tools[name]) == schema_identity(catalog[name])
+                assert tools[name]["description"] == catalog[name]["description"]
             description = tools["capture_conditioning_pass"]["description"]
             for retained in ('"type":"orbit"', '"type":"track"', '"type":"keyframes"', "camera.json"):
                 assert retained in description

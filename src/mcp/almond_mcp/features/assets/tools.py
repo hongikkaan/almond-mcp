@@ -1,4 +1,5 @@
 """Register asset tools and resources against the calling server's live context."""
+from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import json
 import math
@@ -18,17 +19,12 @@ def register(mcp, context):
     """Register the existing asset API without freezing mutable server services."""
 
     @mcp.tool()
+    @tool_instruction(__file__, 'list_drawing_assets')
     def list_drawing_assets(
         category: str = "",
         limit: int = 20,
         offset: int = 0,
     ) -> str:
-        """
-    Lists representation-only entourage and graphic proxy assets.
-
-    Drawing assets are representation elements and do
-    not participate in room collision checks unless explicitly registered.
-    """
         page = context.retrieval_store.search_assets(
             library_id="drawing_assets",
             category=category,
@@ -43,6 +39,7 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'search_drawing_assets')
     def search_drawing_assets(
         query: str = "",
         category: str = "",
@@ -52,7 +49,6 @@ def register(mcp, context):
         limit: int = 10,
         offset: int = 0,
     ) -> str:
-        """Searches only the controlled architectural drawing-asset library."""
         return json.dumps(context.retrieval_store.search_assets(
             query=query,
             library_id="drawing_assets",
@@ -66,8 +62,8 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'get_drawing_asset')
     def get_drawing_asset(asset_id: str) -> str:
-        """Returns one drawing asset's provenance, scale guidance, and availability."""
         asset = context.retrieval_store.get_asset(asset_id, library_id="drawing_assets")
         if not asset:
             return json.dumps({
@@ -80,7 +76,7 @@ def register(mcp, context):
     def _extract_drawing_asset(source_path: str, output_path: str) -> dict:
         rhino_context = json.loads(context._send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}'))
         if rhino_context.get("status") != "success" or rhino_context.get("capabilities", {}).get("drawing_asset_extract") != 1:
-            raise ValueError("Load a Bridge with drawing_asset_extract=1 before registering a 3DM asset")
+            raise ValueError(read_instruction(__file__, 'response-400'))
         response = context._send_and_receive(json.dumps({"type": "drawing_asset_extract",
             "source_path": source_path, "output_path": output_path}).encode("utf-8"), timeout=90.0)
         if len(response.encode("utf-8")) > 262144:
@@ -89,27 +85,14 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"destructiveHint": False, "openWorldHint": False})
+    @tool_instruction(__file__, 'register_drawing_asset')
     def register_drawing_asset(source_3dm: str, asset_id: str, name: str,
                                category: str = "other", tags: list[str] | None = None,
                                description: str = "", source_url: str = "",
                                replace_existing: bool = False) -> dict:
-        """Register a reviewed 3DM and automatically derive linked plan/front/right drawings.
-
-    Finish cleanup/orientation review with the asset-converter workflow first.
-    Supply an absolute prepared 3DM path: millimeters, Z up, bottom-center at origin.
-    Native geometry checks support meshes, Breps, extrusions, surfaces, SubD and nested
-    blocks, up to 100 MB/250k triangles. Unsupported objects reject the whole asset.
-    Copies the source, measures dimensions and writes DXF at full-size mm, SVG at
-    1:50/1:100 and A3 sheets where they fit. These are mesh silhouettes, not hidden
-    lines or construction details; visual classification/front are not verified.
-    Existing IDs require replace_existing=true. Prior files and manifest backups
-    are retained. Refreshes this MCP process's index after atomic publication;
-    other running processes must reconnect. The bundled Rhino panel is a release
-    snapshot; use MCP placement for newly registered local assets.
-    """
         try:
             if asset_id in context.generated_asset_indexer.assets or asset_id in context.diagram_asset_indexer.assets:
-                raise ValueError("Choose an asset_id that does not belong to another library")
+                raise ValueError(read_instruction(__file__, 'response-409'))
             result = drawing_assets.register_prepared_3dm(Path(context.DRAWING_LIBRARY_DIR),
                 source_3dm=source_3dm, asset_id=asset_id, name=name, category=category,
                 tags=tags, description=description, source_url=source_url,
@@ -122,7 +105,7 @@ def register(mcp, context):
         except Exception as exc:
             return {**result, "status": "error", "registration_applied": True,
                     "live_index_refreshed": False,
-                    "message": f"Asset files and manifest were published. Reconnect to refresh the index; do not repeat registration: {exc}"}
+                    "message": read_instruction(__file__, 'response-410').format(exc)}
         return {**result, "registration_applied": True, "live_index_refreshed": True}
 
 
@@ -203,7 +186,7 @@ def register(mcp, context):
         if not asset:
             return {"status": "error", "message": f"Unknown generated asset_id: {asset_id}"}
         if not asset.get("passport"):
-            return {"status": "error", "message": "Library has no passport; upgrade the asset pack."}
+            return {"status": "error", "message": read_instruction(__file__, 'response-403')}
         out = {"status": "success", "passport": asset["passport"],
                "file_available": asset.get("file_available", False),
                "preview_uri": f"almond://generated/{asset_id}/preview"}
@@ -240,7 +223,7 @@ def register(mcp, context):
     This is local evidence, not an independent provider/account verification."""
         path = Path(context.GENERATED_LIBRARY_DIR)/"source-register.json"
         if not path.exists():
-            return {"status": "error", "message": "Source register missing; update the asset pack"}
+            return {"status": "error", "message": read_instruction(__file__, 'response-404')}
         data = json.loads(path.read_text(encoding="utf-8"))
         record = next((a for a in data["assets"] if a["asset_id"] == asset_id), None)
         if not record:
@@ -252,8 +235,8 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
+    @tool_instruction(__file__, 'get_asset_drawing')
     def get_asset_drawing(asset_id: str) -> dict:
-        """Retrieve a registered 3DM's linked drawings and dimensions, or a legacy pilot package."""
         asset = context.drawing_asset_indexer.get(asset_id)
         if asset and asset.get("drawing_package"):
             root = Path(context.DRAWING_LIBRARY_DIR).resolve()
@@ -267,7 +250,7 @@ def register(mcp, context):
         data = json.loads((root/"manifest.json").read_text(encoding="utf-8"))
         record = next((a for a in data["assets"] if a["asset_id"] == asset_id), None)
         if not record:
-            return {"status": "error", "message": "No bundled drawing for this asset; generate views on demand"}
+            return {"status": "error", "message": read_instruction(__file__, 'response-406')}
         package = (root/record["package"]).resolve()
         package.relative_to(root.resolve())
         manifest = json.loads((package/"drawing.json").read_text(encoding="utf-8"))
@@ -276,22 +259,14 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
+    @tool_instruction(__file__, 'generate_asset_drawing_views')
     def generate_asset_drawing_views(asset_id: str = "", source_glb: str = "",
                                      input_units: str = "", up_axis: str = "y",
                                      scales: list[int] | None = None,
                                      source_references: list[dict] | None = None) -> dict:
-        """Generate plan/front/right mesh silhouettes with source metadata, full-size DXF,
-    scaled SVG and A3 SVG sheets where they fit. Writes a NEW local drawing-runs folder.
-    Choose a library asset_id OR an absolute custom source_glb path. Custom files
-    REQUIRE input_units mm or m; up_axis y or z. Scales default to [50,100].
-    Supports static, uncompressed triangle GLBs only (max 100 MB/250k triangles).
-    No hidden lines, inferred construction or product-front recognition.
-    Optional item-level source_references require source_id/title/url/publisher/
-    locator/accessed_on/relationship/used_for/terms_url. They describe references
-    attached to this drawing, never retroactive generation inputs."""
         try:
             if bool(asset_id) == bool(source_glb):
-                raise ValueError("Choose exactly one asset_id or source_glb")
+                raise ValueError(read_instruction(__file__, 'response-411'))
             source_record = None
             if asset_id:
                 asset = context.generated_asset_indexer.get(asset_id)
@@ -324,9 +299,8 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
+    @tool_instruction(__file__, 'audit_asset_drawing')
     def audit_asset_drawing(package_dir: str, source_glb: str = "") -> dict:
-        """Check exported files and whether source geometry changed. Custom packages
-    need the current source_glb to check staleness; library assets resolve automatically."""
         try:
             package = Path(package_dir)
             if not package.is_absolute():
@@ -378,8 +352,8 @@ def register(mcp, context):
 
 
     @mcp.resource("almond://generated/catalogue", mime_type="application/json")
+    @tool_instruction(__file__, 'generated_catalogue_resource')
     def generated_catalogue_resource() -> ResourceResult:
-        """Compact catalogue; retrieve individual passports/previews on demand."""
         return ResourceResult([ResourceContent({"library_id": "generated_assets", "assets": [
             {"asset_id": a["asset_id"], "product": a["product"], "category": a["category"],
              "dimensions_mm": a["dimensions_mm"],
@@ -394,8 +368,8 @@ def register(mcp, context):
 
 
     @mcp.resource("almond://generated/{asset_id}/preview", mime_type="image/png")
+    @tool_instruction(__file__, 'generated_preview_resource')
     def generated_preview_resource(asset_id: str) -> ResourceResult:
-        """Existing Blender preview for a known catalogue id."""
         if asset_id not in context.generated_asset_indexer.assets:
             raise ValueError("Unknown generated asset id")
         root = Path(context.GENERATED_LIBRARY_DIR).resolve()
@@ -445,8 +419,7 @@ def register(mcp, context):
             "expected_sorted_mm": [round(v, 1) for v in expected_sorted],
             "placed_sorted_mm": [round(v, 1) for v in placed],
             "tolerance": tolerance,
-            "note": "Placed geometry deviates from catalogue dimensions beyond "
-                    "tolerance; inspect the source model (see manifest match note).",
+            "note": read_instruction(__file__, 'response-399'),
         }
 
 
@@ -489,6 +462,7 @@ public class Script
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'place_drawing_asset')
     def place_drawing_asset(
         asset_id: str,
         x: float = 0,
@@ -497,15 +471,6 @@ public class Script
         rotation_degrees: float = 0,
         scale: float = 1,
     ) -> str:
-        """
-    Places an indexed representation asset as a reusable Rhino block.
-
-    x/y/z and returned bounds use the active document's units; scale is dimensionless.
-    Prepared 3DM geometry is converted from its stored millimeters by Rhino on import.
-    Drawing assets are placed on ALMOND-DRAW::ASSETS and remain distinct from
-    generated model blocks. The tool accepts only files resolved from the
-    controlled asset/drawing/DrawingAssetfiles manifest.
-    """
         asset = context.drawing_asset_indexer.get(asset_id)
         if not asset:
             return json.dumps({
@@ -560,11 +525,11 @@ public class Script
             return context._send_and_receive(payload, timeout=90.0)
         except socket.timeout:
             return json.dumps({"status": "error", "requires_reconciliation": True,
-                "message": "Rhino drawing-asset import timed out; inspect the model before retrying."})
+                "message": read_instruction(__file__, 'response-423')})
         except ConnectionRefusedError:
             return json.dumps({
                 "status": "error",
-                "message": "Rhino bridge is unavailable. Start RhinoAlmondBridge first.",
+                "message": read_instruction(__file__, 'response-424'),
             })
         except Exception as exc:
             return json.dumps({
@@ -601,8 +566,7 @@ public class Script
                                "message": f"Unknown generated asset_id: {asset_id}"})
         if not asset.get("file_available"):
             return json.dumps({"status": "error",
-                               "message": f"Model file missing for {asset_id}; run "
-                                          "almond-mcp fetch-assets to download it."})
+                               "message": read_instruction(__file__, 'response-417').format(asset_id)})
         values = [x_mm, y_mm, z_mm, rotation_degrees]
         if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in values):
             return json.dumps({"status": "error", "message": "Placement values must be finite numbers."})
@@ -624,19 +588,14 @@ public class Script
                 "dimensions_mm": asset.get("dimensions_mm"),
                 "clearance_mm": (asset.get("spatial") or {}).get("clearance_mm"),
                 "render_material_id": asset.get("render_material_id"),
-                "next_step": "register_scene_instance(scene_id, asset_id=..., x, y, rotation) "
-                             "so validate_scene_layout can see this placement.",
+                "next_step": read_instruction(__file__, 'response-419'),
             })
         return json.dumps(result)
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'search_asset_repository')
     def search_asset_repository(query: str = "", kind: str = "all", drawing_ready: bool = False, limit: int = 20) -> dict:
-        """Search the unified model/drawing archive. kind: all, model or element.
-
-    Returns stable IDs, file availability, dimensions and MCP resource URIs.
-    Drawing-ready means a derived projection package is linked to the object.
-    """
         from almond_mcp.features.assets.asset_repository import AssetRepository
         try:
             return AssetRepository().search(query, kind, drawing_ready, limit)
@@ -645,8 +604,8 @@ public class Script
 
 
     @mcp.resource("almond://repository/{asset_id}")
+    @tool_instruction(__file__, 'repository_asset_resource')
     def repository_asset_resource(asset_id: str) -> str:
-        """Unified object metadata, source evidence, representations and local files."""
         from almond_mcp.features.assets.asset_repository import AssetRepository
         repository = AssetRepository()
         record = repository.records.get(asset_id)

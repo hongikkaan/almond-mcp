@@ -4,6 +4,7 @@ The reviewed Rhino-only tools may run in parallel in different workers. Operatio
 initial indexing, hold one OS file lease through the connection close/checkpoint.
 """
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 import asyncio
 from contextlib import closing, nullcontext
@@ -98,8 +99,7 @@ def validate_shared_ids(name: str, arguments: dict, database: str | Path) -> Non
         row = connection.execute(f"SELECT scene_id FROM {table} WHERE {field} = ?",
                                  (identifier.strip(),)).fetchone()
     if row and row[0] != scene:
-        raise ValueError(f"{field} {identifier.strip()!r} already belongs to another scene. "
-                         "Use its existing scene or a new ID; no record was changed.")
+        raise ValueError(read_instruction(__file__, 'response-155').format(field, identifier.strip()))
 
 
 def output_arguments(name: str, arguments: dict, operation_dir: Path) -> dict:
@@ -147,11 +147,11 @@ class ProjectRuntime(Middleware):
     def validate(self):
         current, _ = read_binding(self.args.session, self.args.token)
         if current != self.binding:
-            raise RuntimeError("This connection changed. Reconnect before another operation.")
+            raise RuntimeError(read_instruction(__file__, 'response-156'))
         if self.check_owner:
             verify_process(current)
         if self.unconfirmed:
-            raise RuntimeError("The previous native result is unconfirmed. Disconnect and inspect that Rhino before reconnecting.")
+            raise RuntimeError(read_instruction(__file__, 'response-157'))
 
     def send(self, sender, payload_bytes: bytes, *positional, **keywords) -> str:
         self.validate()

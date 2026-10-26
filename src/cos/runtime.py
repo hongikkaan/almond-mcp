@@ -48,6 +48,10 @@ def source_paths(engine: Path) -> dict[str, Path]:
     for path in sorted(package.rglob("*.py")):
         if path not in covered:
             paths["package/" + path.relative_to(package).as_posix()] = path
+    for path in sorted(package.rglob("*-explain.md")):
+        paths["package/" + path.relative_to(package).as_posix()] = path
+    for path in sorted(engine.glob("*-explain.md")):
+        paths["engine/" + path.name] = path
     return paths
 
 

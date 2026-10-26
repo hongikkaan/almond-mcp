@@ -10,6 +10,9 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from almond_mcp.instruction_text import read_instruction
 import ssl
 from urllib.parse import urlparse
 
@@ -42,7 +45,7 @@ def main():
                         continue
                     record = json.loads(ledger.read_text())
                     if not record.get("task_id"):
-                        print(aid, stage, "submission uncertain; inspect provider before resubmitting", flush=True)
+                        print(aid, stage, read_instruction(__file__, 'response-289'), flush=True)
                         continue
                     response = client.get("https://api.meshy.ai/openapi/v1/" + endpoint + "/" + record["task_id"], headers={"Authorization": "Bearer " + key})
                     response.raise_for_status()

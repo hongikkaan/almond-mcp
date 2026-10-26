@@ -1,5 +1,6 @@
 """Scene persistence using the composed store connection and Component contracts."""
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 from typing import Any, Callable
 import uuid
@@ -118,7 +119,7 @@ class ScenesStore:
                     ).fetchone()
                     registered_owner = row["component_id"] if row else None
                     if (obj["component_id"] or None) != registered_owner:
-                        raise ValueError("Native object ownership differs from the ledger; reconcile its component first.")
+                        raise ValueError(read_instruction(__file__, 'response-862'))
                 self._component_cache_objects(connection, model_path, objects)
             connection.execute(
                 "DELETE FROM scene_objects WHERE scene_id = ? AND object_rowid IN "

@@ -30,6 +30,7 @@ The result dict has the same shape as the bridge's ``validate`` reply, with
 ``analysis_method`` "native".
 """
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 import math
 import time
@@ -45,17 +46,11 @@ from . import frame_solver as fs
 METHOD_PREFIX = "[ALMOND NATIVE FEA (LINEAR 3D FRAME), HIGH CONFIDENCE] "
 LINE_TYPES = ("beam", "frame", "truss", "canopy", "highrise")
 ASSUMPTIONS = [
-    "Linear-elastic 3D frame analysis (Almond native solver); second-order (P-Delta) where the stability "
-    "check calls for it (see Stability).",
-    "Joints as stated under Connections; supports as described in support_mode.",
-    "Imposed load shared equally by the free nodes, acting downward; self weight included when enabled.",
-    "Member checks per member (EN 1993-1-1): section class from Table 5.2 for the actual stresses "
-    "(Class 4 flagged as not covered); cross-section 6.2.1(7) with elastic moduli (plastic only for "
-    "Class 1/2 when plastic design is requested); flexural buckling about both axes (6.3.1, curves "
-    "from Table 6.2, L_cr = the member between its joints, 5.2.2(7)b); compression + bending by "
-    "6.3.3 (6.61)/(6.62) with Annex B factors and Table B.3 Cm. Not checked: lateral-torsional "
-    "buckling, shear (6.2.6), torsion, local bow imperfections.",
-    "Preliminary design check, not an engineer's sign-off.",
+    read_instruction(__file__, 'response-897'),
+    read_instruction(__file__, 'response-898'),
+    read_instruction(__file__, 'response-899'),
+    read_instruction(__file__, 'response-900'),
+    read_instruction(__file__, 'response-901'),
 ]
 
 
@@ -284,8 +279,7 @@ def _code_warnings(code: dc.Profile, uls, info: dict) -> list[str]:
     the member checks do not cover."""
     out = []
     if code.unverified:
-        out.append(f"Design code '{code.name}': {len(code.unverified)} value(s) not yet verified against the "
-                   f"published document ({', '.join(code.unverified)}). Treat the results as provisional.")
+        out.append(read_instruction(__file__, 'response-912').format(code.name, len(code.unverified), ', '.join(code.unverified)))
     if code.factored:
         note = code.uls(uls or None)[1]
         if note:
@@ -641,16 +635,14 @@ def validate(model: dict, structure_type: str = "beam", load_kn: float = 10.0, m
         result["verdict"] = METHOD_PREFIX + f"FAILED: {exc}"
         result["status"] = "fail"
         result["results"]["stability"] = exc.report
-        result["suggestions"] = ["Brace the frame, fix the column bases, or use stiffer columns: it buckles "
-                                 "before reaching the design loads."]
+        result["suggestions"] = [read_instruction(__file__, 'response-931')]
         return result
     except fs.MechanismError as exc:
         result["verdict"] = METHOD_PREFIX + f"FAILED: {exc}"
         result["status"] = "fail"
-        result["suggestions"] = ["Add supports or bracing so every part of the structure is restrained."]
+        result["suggestions"] = [read_instruction(__file__, 'response-932')]
         if (connections or "").lower() == "simple":
-            result["suggestions"].append("With simple (pinned) connections the frame needs bracing, fixed column "
-                                         "bases or rigid joints for stability.")
+            result["suggestions"].append(read_instruction(__file__, 'response-942'))
         result["results"]["mechanism_nodes_m"] = [list(frame.nodes[n]) for n in exc.nodes] if "frame" in locals() else []
         return result
     except ValueError as exc:
@@ -738,17 +730,17 @@ def validate(model: dict, structure_type: str = "beam", load_kn: float = 10.0, m
     failures, sug = [], []
     if dmax_mm > limit_mm:
         failures.append(f"Deflection {dmax_mm:.1f}mm ({SLS[0]}) exceeds L/{limit_ratio:g} limit ({limit_mm:.1f}mm)")
-        sug += ["Increase member depth or use a stiffer cross-section", "Add intermediate supports to reduce effective span"]
+        sug += [read_instruction(__file__, 'response-920'), read_instruction(__file__, 'response-921')]
     slender = sorted({tuple(frame.elements[i].tag or [str(i)]) for i, (_, _, er) in enumerate(envelope)
                       if er.util_detail.get("class") == 4})
     if slender:
         failures.append(f"{len(slender)} member(s) have Class 4 (slender) sections, which these checks do not "
                         "cover (EN 1993-1-5/-1-6 effective sections)")
-        sug.append("Use thicker walls: Class 4 starts at d/t = 90 x 235/fy for CHS (59.6 for S355)")
+        sug.append(read_instruction(__file__, 'response-923'))
     indicative = INDICATIVE_FAMILIES.get(mat.family)
     if umax > 1.0 and not indicative:
         failures.append(f"Utilization ratio {umax:.2f} ({governing}) exceeds 1.0")
-        sug.append("Use a larger cross-section or higher-grade material")
+        sug.append(read_instruction(__file__, 'response-925'))
     if indicative and not failures:
         # no capacity verdict without the material's own design code; deflection and stability still decide fail
         result["passed"] = None
@@ -757,8 +749,7 @@ def validate(model: dict, structure_type: str = "beam", load_kn: float = 10.0, m
             f"INDICATIVE ONLY ({mat.name}): forces, deflection and stability are computed, but member capacity "
             f"is not checked to {indicative}, so there is no pass/fail. Deflection {dmax_mm:.1f}mm ({SLS[0]}, "
             f"limit {limit_mm:.1f}mm); utilization {umax:.2f} against the characteristic strength, for comparison only.")
-        sug.append(f"Have the members designed to {indicative.split(' (')[0]} (an engineer); use the forces "
-                   "in the results as the starting point.")
+        sug.append(read_instruction(__file__, 'response-927').format(indicative.split(' (')[0]))
     else:
         result["passed"] = not failures
         result["status"] = "pass" if not failures else "fail"

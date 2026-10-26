@@ -1,4 +1,5 @@
 """Register portable asset exchange tools and their native report helpers."""
+from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
 import json
@@ -154,30 +155,13 @@ public class Script
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'export_asset_contract')
     def export_asset_contract(
         guids: list[str],
         asset_id: str,
         name: str = "",
         output_dir: str = "",
     ) -> str:
-        """
-    Exports Rhino objects as a portable Almond asset: a GLB plus an asset
-    contract (.almond.json) carrying what the file cannot.
-
-    The contract records real dimensions in mm, the anchor and support plane,
-    clearances, and the Almond material_id of every object - so another
-    application (Blender, Unreal, another Rhino) can restore full meaning
-    even though glTF drops per-object metadata. Pair with
-    import_asset_contract on the receiving side.
-
-    Args:
-        guids: Rhino object GUIDs to export (from execute_rhino_script).
-        asset_id: Stable id, e.g. "canopy-pavilion-01" (letters, digits, . _ -).
-        name: Human-readable name; defaults to asset_id.
-        output_dir: Destination folder. Default: <user data dir>/exchange.
-    Returns:
-        JSON with the glb path, contract path, and recorded dimensions.
-    """
         if not guids:
             return json.dumps({"status": "error", "message": "At least one GUID is required."})
         try:
@@ -231,8 +215,7 @@ public class Script
             "contract_path": str(contract_path),
             "dimensions_mm": contract["dimensions_mm"],
             "materials": material_groups,
-            "next_step": "Open this contract elsewhere with import_asset_contract, or "
-                     "run get_blender_helper_script('import') to load it in Blender.",
+            "next_step": read_instruction(__file__, 'response-672'),
         })
 
 
@@ -284,6 +267,7 @@ public class Script
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'import_asset_contract')
     def import_asset_contract(
         contract_path: str,
         x_mm: float = 0,
@@ -292,26 +276,6 @@ public class Script
         rotation_degrees: float = 0,
         layer: str = "ALMOND-EXCHANGE",
     ) -> str:
-        """
-    Imports an Almond asset contract (from Blender, Unreal, or another Rhino)
-    into the open Rhino document, restoring everything the file format drops.
-
-    Runs the full receive sequence: import the GLB, collapse the duplicate
-    materials glTF creates, restore canonical PBR values from the Almond
-    material library (glTF round trips shift base colours), re-attach the
-    almond:* metadata keyed off the surviving material name, place the asset
-    at the requested point using the contract's anchor, and verify the
-    measured size against the contract's recorded dimensions.
-
-    Args:
-        contract_path: Path to a .almond.json contract file.
-        x_mm, y_mm, z_mm: Placement point in millimetres (contract anchor).
-        rotation_degrees: Rotation about world Z.
-        layer: Destination layer, created if absent.
-    Returns:
-        JSON with counts restored/deduplicated and a dimension_check comparing
-        what landed against the contract.
-    """
         try:
             contract = context.exchange.load_contract(contract_path)
         except Exception as exc:
@@ -405,29 +369,10 @@ public class Script
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'get_blender_helper_script')
     def get_blender_helper_script(action: str, asset_id: str = "", name: str = "",
                                   output_dir: str = "", material_id: str = "",
                                   object_names: list[str] | None = None) -> str:
-        """
-    Returns Python to run inside Blender (via blender-mcp's execute_code) so
-    Blender participates in the Almond workflow without a dedicated bridge.
-
-    Actions:
-        "export"    - export the current Blender selection as an Almond asset
-                      contract + GLB (measured from evaluated mesh data,
-                      because Blender inflates curve bounding boxes).
-        "materials" - create Almond library materials in Blender (sRGB values
-                      converted to linear) and assign them to named objects,
-                      tagging both with almond:* properties.
-
-    Args:
-        action: "export" or "materials".
-        asset_id, name, output_dir: for "export" (output_dir defaults to the
-            Almond exchange folder).
-        material_id, object_names: for "materials".
-    Returns:
-        JSON with a "script" field to pass to Blender's execute_code.
-    """
         action = action.strip().lower()
         if action == "export":
             if not asset_id:
@@ -437,13 +382,13 @@ public class Script
                 "status": "success",
                 "action": "export",
                 "script": context.exchange.blender_export_script(asset_id, name or asset_id, target),
-                "note": "Run in Blender, then call import_asset_contract with the printed path.",
+                "note": read_instruction(__file__, 'response-677'),
             })
         if action == "materials":
             material = context.material_library.get(material_id)
             if not material:
                 return json.dumps({"status": "error",
-                                   "message": f"Unknown material_id: {material_id}. Call list_materials."})
+                                   "message": read_instruction(__file__, 'response-679').format(material_id)})
             if not object_names:
                 return json.dumps({"status": "error", "message": "object_names is required."})
             script = context.exchange.blender_material_script(

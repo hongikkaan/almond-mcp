@@ -9,6 +9,7 @@ The launcher uses internal module names, not an upstream-supported port option.
 The existing sender wrapper adds connection/request identity in this process only.
 """
 from __future__ import annotations
+from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import argparse
 import asyncio
@@ -44,13 +45,13 @@ def main(argv: list[str] | None = None, *, validate_binding=None, configure=None
             raise RuntimeError(f"Package version mismatch: expected {args.expected_version}, got {installed}.")
     binding, locations = read_binding(args.session, args.token)
     if binding.get('storage_protocol') != STORAGE_PROTOCOL:
-        raise RuntimeError('This Rhino uses the previous storage protocol. Load the new host and reconnect before sharing a DB.')
+        raise RuntimeError(read_instruction(__file__, 'response-90'))
     verify_process(binding)
     if binding['port'] != args.port:
         raise RuntimeError('Port and selected project disagree.')
     db = Path(locations['state_db'])
     if args.state_db is not None and args.state_db.resolve() != db:
-        raise RuntimeError('Do not connect this model to another project database.')
+        raise RuntimeError(read_instruction(__file__, 'response-92'))
     with SharedStorageLease(locations['storage']), ExclusiveFile(Path(locations['session_dir']) / 'mcp.lock'):
         current, _ = read_binding(args.session, args.token)
         if current != binding:
@@ -69,19 +70,11 @@ async def configure_project_context(mcp, args, binding, locations):
     artifact_dir = locations['call_root']
 
     @mcp.tool()
+    @tool_instruction(__file__, 'project_info')
     def project_info() -> dict:
-        """Read the bound model, DB, artifact_dir and Almond usage instructions before the first Rhino action.
-
-        Use artifact_dir as the explicit absolute base for task-local reports,
-        screenshots and temporary code, including C# executed inside Rhino and
-        shell/image reads. mcp_temp/effective_temp belong to Python; Rhino's original
-        TEMP (rhino_temp_at_attach) may differ and is not the project output path.
-        This is binding metadata, not a live active-document check. For a terminal
-        connection, use /exit, switch the saved document, then almond to reconnect.
-        """
         current, _ = read_binding(args.session, args.token)
         if current != binding:
-            raise RuntimeError('Connection changed. Exit Codex and reconnect with almond.')
+            raise RuntimeError(read_instruction(__file__, 'response-96'))
         verify_process(current)
         actual_temp = tempfile.gettempdir()
         import almond_mcp
@@ -97,8 +90,7 @@ async def configure_project_context(mcp, args, binding, locations):
                     working_directory=os.getcwd(), python_executable=sys.executable,
                     attachment=binding.get('attachment', 'external'), live_document_checked=False,
                     storage_protocol=STORAGE_PROTOCOL, storage_scope='model_directory',
-                    output_rule='Use artifact_dir explicitly in Rhino C# and shell file paths; '
-                                'do not infer it from Rhino TEMP or an old global scratch folder.')
+                    output_rule=read_instruction(__file__, 'response-97'))
 
 
 def serve(args, binding, locations, db, *, configure=None):

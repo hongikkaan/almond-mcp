@@ -1,22 +1,17 @@
 """MCP tools for cached legacy asset placement, registered per server."""
+from almond_mcp.instruction_text import tool_instruction
 import json
 
 
 def register(mcp, context):
     @mcp.tool()
+    @tool_instruction(__file__, 'upsert_design_room')
     def upsert_design_room(
         scene_id: str,
         name: str,
         bounds_mm: list[float],
         room_id: str = "",
     ) -> str:
-        """
-        Creates or updates a legacy room envelope for asset-placement containment checks.
-        Use upsert_design_component for physical architectural assemblies.
-        bounds_mm is [min_x, min_y, min_z, max_x, max_y, max_z]. When room_id is
-        omitted, an existing room with the same name in the scene is updated
-        instead of creating a duplicate.
-        """
         try:
             result = context.retrieval_store.upsert_room(
                 scene_id=scene_id,
@@ -30,6 +25,7 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'register_scene_instance')
     def register_scene_instance(
         scene_id: str,
         asset_id: str,
@@ -43,12 +39,6 @@ def register(mcp, context):
         locked: bool = False,
         rhino_guid: str = "",
     ) -> str:
-        """
-        Registers or moves an asset instance in millimetres without retransmitting
-        its full metadata. Returns a stable instance handle and scene revision.
-        When z_mm is omitted the instance stands on its room's floor (the room's
-        min_z), so rooms at storey elevation validate correctly.
-        """
         try:
             result = context.retrieval_store.upsert_instance(
                 scene_id=scene_id,
@@ -69,11 +59,8 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'remove_scene_instance')
     def remove_scene_instance(scene_id: str, instance_id: str) -> str:
-        """
-        Removes an instance from the scene ledger (recorded as a revision delta).
-        The Rhino geometry, if any, is not touched.
-        """
         try:
             result = context.retrieval_store.remove_instance(scene_id, instance_id)
             return json.dumps({"status": "success", **result})
@@ -82,11 +69,8 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'remove_design_room')
     def remove_design_room(scene_id: str, room_id: str) -> str:
-        """
-        Removes a room from the scene ledger. Instances that referenced it stay
-        in the scene, orphaned (re-home them with register_scene_instance).
-        """
         try:
             result = context.retrieval_store.remove_room(scene_id, room_id)
             return json.dumps({"status": "success", **result})
@@ -95,11 +79,8 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @tool_instruction(__file__, 'validate_scene_layout')
     def validate_scene_layout(scene_id: str, detail_limit: int = 50) -> str:
-        """
-        Runs cached legacy asset-instance AABB collisions and room-containment checks.
-        Component/raw-object geometry is reported as unvalidated; inspect it with native probes.
-        """
         try:
             return json.dumps({
                 "status": "success",

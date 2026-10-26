@@ -1,6 +1,7 @@
 """Feature-owned Phase/Plan/Step SQL for the composed AlmondStore facade."""
 
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 import sqlite3
 import uuid
@@ -120,8 +121,7 @@ class PlanningStore:
             raise ValueError("expected_revision must be a nonnegative integer.")
         if expected_revision != plan["revision"]:
             raise ValueError(
-                f"Plan revision conflict: expected {expected_revision}, current {plan['revision']}. "
-                "Read the current plan before updating; no change was made."
+                read_instruction(__file__, 'response-803').format(expected_revision, plan['revision'])
             )
 
     @staticmethod
