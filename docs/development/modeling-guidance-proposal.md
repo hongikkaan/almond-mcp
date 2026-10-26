@@ -347,8 +347,9 @@ COS 비용 비교에서는 동일한 catalog·문서·요청·이미지 크기�
   짧은 조건 문장을 본문 앞에 둔다. 기존 입력 schema는 유지하고 새 조회 도구 하나만 추가한다.
 - reader는 모델·DB·사용자 산출물을 수정하지 않는다. 연결된 호출은 기존 binding·lock·
   control begin/end·operation receipt 경로를 유지한다. 정적 조회라고 안전 경계를 우회하지 않는다.
-- 본문·manifest·원본 PNG와 시작 안내가 버전 및 세션 fingerprint에 포함된다. 내용을 바꾼
-  상태로 기존 세션을 계속 쓰는 것은 거부되며, 패키지 안에서 한 번 읽은 snapshot을 반환한다.
+- 본문·manifest·원본 PNG와 시작 안내가 버전 및 세션 fingerprint에 포함된다. 새 연결·worker
+  시작 시 source 불일치를 거부한다. 이미 실행 중인 세션은 기존 snapshot을 사용하므로
+  변경 후 정상 종료하고 새로 시작한다. 호출마다 디스크 변경을 검사하는 기능은 추가하지 않는다.
 - Named View 활용, 2D Join 판단, 의미에 따른 block/group 재구성, 등록 운반 객체 삭제 순서,
   computer use 없는 관찰 및 저장 상태 구분을 반영했다. 네이티브 등록·저장 버그 수정이나
   실제 과금 토큰 누수 해소를 이 안내 변경의 성과로 주장하지 않는다.

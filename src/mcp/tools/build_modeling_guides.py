@@ -17,6 +17,11 @@ def digest(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def read_source(path: Path) -> bytes:
+    raw = path.read_bytes()
+    return raw if path.suffix == ".png" else raw.decode("utf-8-sig").replace("\r\n", "\n").encode("utf-8")
+
+
 def section(text: str, heading: str, *, children: bool = True) -> str:
     lines = text.splitlines(keepends=True)
     matches = [i for i, line in enumerate(lines) if line.rstrip() == heading]
@@ -34,7 +39,15 @@ def section(text: str, heading: str, *, children: bool = True) -> str:
 
 
 def build() -> dict[str, bytes]:
-    mapping = json.loads((SKILL / "mcp-guide-map.json").read_text(encoding="utf-8"))
+    snapshot = {}
+
+    def source(path: Path) -> bytes:
+        path = path.resolve()
+        if path not in snapshot:
+            snapshot[path] = read_source(path)
+        return snapshot[path]
+
+    mapping = json.loads(source(SKILL / "mcp-guide-map.json"))
     output, sources, topics, hints = {}, {}, [], {}
     for item in mapping["topics"]:
         if not re.fullmatch(r"[a-z][a-z0-9-]*", item["id"]) or item["id"] == "index":
@@ -43,7 +56,7 @@ def build() -> dict[str, bytes]:
         for ref in item["sections"]:
             path = SKILL / ref["path"]
             path.resolve().relative_to(SKILL.resolve())
-            text = path.read_text(encoding="utf-8")
+            text = source(path).decode("utf-8")
             sources[ref["path"]] = digest(text.encode("utf-8"))
             texts.append(section(text, ref["heading"], children=ref.get("children", True)))
             refs.append({"path": "skills/rhino-almond/" + ref["path"], "heading": ref["heading"],
@@ -58,10 +71,10 @@ def build() -> dict[str, bytes]:
         output[filename] = text.encode("utf-8")
         images = []
         for image in item.get("images", []):
-            source = SKILL / image["path"]
-            source.resolve().relative_to(SKILL.resolve())
-            raw = source.read_bytes()
-            target = "assets/" + source.name
+            image_path = SKILL / image["path"]
+            image_path.resolve().relative_to(SKILL.resolve())
+            raw = source(image_path)
+            target = "assets/" + image_path.name
             output[target] = raw
             images.append({"file": target, "alt": image["alt"], "sha256": digest(raw)})
         topics.append({key: item[key] for key in ("id", "title", "when_to_read", "related_tools")} |
@@ -71,12 +84,15 @@ def build() -> dict[str, bytes]:
             hints[name] = (hints.get(name, "") + "\n" + sentence).strip()
     manifest = {"format": 1, "topics": topics, "tool_hints": hints,
                 "files": {name: digest(raw) for name, raw in sorted(output.items())},
-                "startup_sha256": digest((PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md").read_text(encoding="utf-8").encode("utf-8")),
+                "startup_sha256": digest(source(PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md")),
                 "source_files": sources,
                 "excluded_sections": mapping["excluded_sections"]}
     encoded = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     manifest["guide_version"] = digest(encoded)
     output["manifest.json"] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    for path, original in snapshot.items():
+        if read_source(path) != original:
+            raise RuntimeError(f"Guide source changed during generation: {path.name}. Rebuild before publishing.")
     return output
 
 

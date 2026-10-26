@@ -367,7 +367,7 @@
     "setup_modeling": "When preparing materials or construction layers, read get_modeling_guide(topic=\"materials\").",
     "get_rhino_context": "When locating or inspecting the target geometry, read get_modeling_guide(topic=\"observation\").",
     "get_rhino_probe": "When locating or inspecting the target geometry, read get_modeling_guide(topic=\"observation\").\nWhen editing blocks or replacing registered objects, read get_modeling_guide(topic=\"blocks\").",
-    "get_rhino_viewport_image": "When locating or inspecting the target geometry, read get_modeling_guide(topic=\"observation\").\nWhen editing or reviewing drawings and layouts, read get_modeling_guide(topic=\"drafting\").",
+    "get_rhino_viewport_image": "When locating or inspecting the target geometry, read get_modeling_guide(topic=\"observation\").\nWhen reviewing geometry and reporting unverified scope, read get_modeling_guide(topic=\"model-review\").\nWhen editing or reviewing drawings and layouts, read get_modeling_guide(topic=\"drafting\").",
     "execute_rhino_script": "When editing blocks or replacing registered objects, read get_modeling_guide(topic=\"blocks\").\nWhen editing construction geometry or material assignments, read get_modeling_guide(topic=\"modeling\").",
     "assign_material": "When editing construction geometry or material assignments, read get_modeling_guide(topic=\"modeling\").",
     "get_construction_guidance": "When editing construction geometry or material assignments, read get_modeling_guide(topic=\"modeling\").",
@@ -435,5 +435,5 @@
       "reason": "본문에서 참조한 원본 사진 2장만 포함한다. 미참조 floorplan·custom-material 이미지 등은 주입하지 않는다."
     }
   ],
-  "guide_version": "f7bc940b1bd54ca9f4357104d34d1216385557fb377a7937af89f0e64c2a9198"
+  "guide_version": "b354e16ff5216c25a3026aa65ee1cea878306704a056593e2e8e4e2b6725c6ed"
 }

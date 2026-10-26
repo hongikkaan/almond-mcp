@@ -3,6 +3,7 @@ import asyncio
 import json
 from pathlib import Path
 import re
+import runpy
 import subprocess
 import sys
 
@@ -79,3 +80,30 @@ def test_text_image_and_manifest_changes_invalidate_existing_host(name, tmp_path
     source.write_bytes(source.read_bytes() + b' ')
     with pytest.raises(RuntimeError, match='changed'):
         runtime.check_contract(catalog)
+
+
+@pytest.mark.parametrize('relative', [
+    'skills/rhino-almond/mcp-guide-map.json',
+    'skills/rhino-almond/SKILL.md',
+    'skills/rhino-almond/references/assets/roof-drainage.png',
+    'src/mcp/almond_mcp/FUNDAMENTAL-INSTRUCTIONS.md',
+])
+def test_generation_rejects_changed_inputs_before_returning_publishable_files(relative, monkeypatch):
+    builder = runpy.run_path(str(ROOT / 'src/mcp/tools/build_modeling_guides.py'))
+    original_read = Path.read_bytes
+    target = (ROOT / relative).resolve()
+    reads = 0
+
+    def changing_read(path):
+        nonlocal reads
+        raw = original_read(path)
+        if path.resolve() == target:
+            reads += 1
+            if reads > 1:
+                return raw + b' '
+        return raw
+
+    monkeypatch.setattr(Path, 'read_bytes', changing_read)
+    with pytest.raises(RuntimeError, match='source changed during generation'):
+        builder['build']()
+    assert reads == 2

@@ -232,7 +232,8 @@
         "check_egress"
       ],
       "hint_tools": [
-        "get_component_intersections"
+        "get_component_intersections",
+        "get_rhino_viewport_image"
       ],
       "trigger": "reviewing geometry and reporting unverified scope",
       "images": []

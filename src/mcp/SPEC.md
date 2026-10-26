@@ -218,7 +218,8 @@ sdist에는 원본과 생성기도 포함된다. 실행 중 개인 스킬 경로
 공통 server와 외부 host는 같은 짧은 시작 안내를 사용한다. 함수 decorator와 inert catalog가
 같은 조합기로 도구별 조건 문장을 붙이므로 tool schema나 실행 코드를 바꾸지 않고 안내를
 개선할 수 있다. COS의 project_info 설명도 공통 설명을 유지한다. 일반 응답에 전체 스킬을
-반복해서 덧붙이지 않는다. source fingerprint는 안내 본문·manifest·PNG 변경도 감지한다.
+반복해서 덧붙이지 않는다. source fingerprint는 새 연결·worker 시작 시 안내 본문·manifest·PNG
+변경도 감지한다. 이미 실행 중인 세션은 읽어 둔 snapshot을 사용한다.
 
 통합·배포 뒤 관련 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
 `get_modeling_guide()`의 version·목록을 확인하고 필요한 주제·사진을 조회한다. Python 안내만
