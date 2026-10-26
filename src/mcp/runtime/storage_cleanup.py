@@ -118,7 +118,7 @@ def cleanup_retired_sessions(storage: Path, *, exclude_token: str = "") -> list[
         return []
     removed = []
     allowed = {"ready.json", "launch.json", "worker.json", "native.json", "operation.json",
-               "last-error.json", "launcher.lock", "rhino.lock", "mcp.lock", "work.json"}
+               "last-error.json", "launcher.lock", "rhino.lock", "mcp.lock", "work.json", "artifact-write.json"}
     for folder in list(sessions.iterdir()):
         if not re.fullmatch(r"[0-9a-f]{32}", folder.name) or folder.name == exclude_token:
             continue

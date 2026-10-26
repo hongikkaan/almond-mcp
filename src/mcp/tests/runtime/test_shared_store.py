@@ -397,6 +397,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
             self.assertFalse(Path(result["temp"]).exists())
             self.assertEqual(Path(result["path"]).read_text(encoding="utf-8"), "fixture report")
         self.assert_operation_completed()
+        self.assertFalse(self.operation_path.with_name("artifact-write.json").exists())
 
     async def test_relative_output_is_applied_to_selected_artifact_folder(self):
         self.report_tool()
@@ -454,6 +455,14 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         # Worker exit releases its OS handles; the durable operation must still
         # exclude peers until the separate Rhino owner has actually drained.
         write_json(Path(self.paths["session_dir"]) / "worker.json", {"closed": True})
+        # A replacement worker may make read-only calls in the same connection.
+        # Its latest operation.json must not erase the older file-write barrier.
+        write_json(Path(self.paths["session_dir"]) / "worker.json", self.runtime.worker)
+        restarted = ProjectRuntime(self.session.args, self.session.binding, self.paths)
+        restarted_mcp = FastMCP("Replacement worker fixture")
+        restarted_mcp.add_middleware(restarted)
+        restarted_mcp.tool(name="get_plan")(get_plan)
+        await restarted_mcp.call_tool("get_plan", {})
         for changes in ({}, {"pending": 0, "completion_status": "completed"},
                         {"phase": "stopped", "token": uuid.uuid4().hex}):
             receipt.update(changes)

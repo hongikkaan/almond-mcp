@@ -151,6 +151,7 @@ def test_cleanup_uses_connection_and_lock_lifetimes_not_work_status(work):
     write_json(session / "worker.json", {**identity, "closed": True})
     write_json(session / "launch.json", identity)
     write_json(session / "operation.json", {"state": "unconfirmed"})
+    write_json(session / "artifact-write.json", {"state": "unconfirmed", "artifact_write": True})
     plan = work.store.create_plan("Never completed")
     scratch = Path(work.locations["call_root"]) / uuid.uuid4().hex
     scratch.mkdir(parents=True)

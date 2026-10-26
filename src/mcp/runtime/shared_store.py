@@ -94,7 +94,9 @@ def validate_artifact_writers(storage: str | Path) -> None:
     alone is therefore insufficient: require native stop/drain or Rhino exit.
     This is an operation-lifetime barrier, independent of Plan/Step status.
     """
-    for path in (Path(storage) / ".sessions").glob("*/operation.json"):
+    # operation.json is the latest call, including read-only calls made by a
+    # replacement worker. Keep unresolved file ownership in a separate record.
+    for path in (Path(storage) / ".sessions").glob("*/artifact-write.json"):
         operation = read_json(path)
         if not operation.get("artifact_write") or operation.get("state") == "completed":
             continue
@@ -315,6 +317,8 @@ class ProjectRuntime(Middleware):
         self.unconfirmed = self.last["uncertain"]
         operation["state"] = "unconfirmed" if self.unconfirmed else "completed"
         write_json(operation_path, operation)
+        if operation["artifact_write"]:
+            write_json(operation_path.with_name("artifact-write.json"), operation)
 
     async def on_call_tool(self, context, call_next):
         name = context.message.name
@@ -376,6 +380,8 @@ class ProjectRuntime(Middleware):
             "artifact_write": name in FILE_TOOLS,
         }
         write_json(operation_path, operation)
+        if operation["artifact_write"]:
+            write_json(operation_path.with_name("artifact-write.json"), operation)
         self.last = {"pending": True, "uncertain": False, "operation_id": operation_id}
         previous = {key: os.environ.get(key) for key in ("TEMP", "TMP", "TMPDIR", "ALMOND_ARTIFACT_DIR")}
         old_tempdir = tempfile.tempdir
@@ -410,6 +416,8 @@ class ProjectRuntime(Middleware):
                         else:
                             os.environ[key] = value
                 if not self.unconfirmed:
+                    if operation["artifact_write"]:
+                        operation_path.with_name("artifact-write.json").unlink(missing_ok=True)
                     remove_owned_tree(operation_dir, Path(self.locations["temp"]))
                 if cleanup_cancellation is not None:
                     raise cleanup_cancellation
