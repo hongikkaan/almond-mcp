@@ -1,4 +1,4 @@
-"""Reuse the COS stdio host from Codex or another local MCP client.
+"""Configure the direct stdio entry for Codex or another local MCP client.
 
 Printing configuration is the default. --install-codex explicitly adds a new
 entry or migrates its exact previous entry, and preserves all other settings.
@@ -30,7 +30,7 @@ ENV_VARS = (
 def settings(root: Path) -> dict:
     root = root.resolve()
     python = root / "src/engine/.venv/Scripts/python.exe"
-    host = root / "src/cos/cos_host.py"
+    host = root / "src/cos/codex_host.py"
     for path in (python, host):
         if not path.is_file():
             raise ValueError(f"Missing runtime file: {path}. Set up this installation first.")
@@ -73,8 +73,11 @@ def install_codex(path: Path, config: dict) -> Path | None:
     servers = parsed.get("mcp_servers", {})
     existing = servers.get(NAME)
     legacy = servers.get(LEGACY_NAME)
+    old_config = dict(config, args=[*config["args"][:-1],
+                                  str(Path(config["args"][-1]).with_name("cos_host.py"))])
+    supported = (config, old_config)
     if legacy is not None:
-        if existing is not None or legacy != config:
+        if existing is not None or legacy not in supported:
             raise ValueError(f"Conflicting or customized {LEGACY_NAME}/{NAME} settings in {path}; no changes made.")
         # Only migrate our exact old generated configuration. Preserve the
         # surrounding text/comments and validate its parsed meaning afterward.
@@ -89,7 +92,23 @@ def install_codex(path: Path, config: dict) -> Path | None:
     if existing is not None:
         if existing == config:
             return None
-        raise ValueError(f"{NAME} already exists with different settings in {path}; no changes made.")
+        if existing != old_config:
+            raise ValueError(f"{NAME} already exists with different settings in {path}; no changes made.")
+        updated = text
+    if (legacy if legacy is not None else existing) == old_config:
+        # Only the generated one-line args assignment is replaced. Reject any
+        # unfamiliar syntax rather than rewriting unrelated tables or comments.
+        header = re.search(r"(?m)^\[mcp_servers\.rhino\][ \t]*\r?$", updated)
+        if header is None:
+            raise ValueError("Cannot locate the owned rhino table; no changes made.")
+        end = re.search(r"(?m)^\s*\[", updated[header.end():])
+        stop = header.end() + end.start() if end else len(updated)
+        body, count = re.subn(r"(?m)^args[ \t]*=[^\r\n]*",
+                             lambda _: "args = " + json.dumps(config["args"], ensure_ascii=False),
+                             updated[header.end():stop])
+        if count != 1:
+            raise ValueError("Cannot safely migrate the owned host arguments; no changes made.")
+        updated = updated[:header.end()] + body + updated[stop:]
     expected = dict(parsed)
     expected["mcp_servers"] = expected_servers
     if tomllib.loads(updated) != expected:

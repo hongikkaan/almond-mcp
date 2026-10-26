@@ -5,6 +5,7 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, COS는 별도 RHP로 구성됩�
 
 - [작업 지침·설치·실행·빌드·검증](AGENTS.md)
 - [저장소 구조와 데이터 계약](SPEC.md)
+- [용어](GLOSSARY.md) · [CoS·Codex 직접·RhinoTerminal 연결 경로](docs/development/connection-paths.md)
 - [모듈별 개발·테스트와 워크트리 병렬 작업](docs/development/module-boundaries.md)
 - [Codex·CoS·외부 MCP 클라이언트 연결](src/cos/EXTERNAL_CLIENTS.md)
 - [Rhino 패널 사용법](docs/assets/rhino-archive-quickstart.md)

@@ -124,7 +124,7 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_real_host_handshake_catalog_and_stale_call_without_rhino(self):
         # Exercise the lazy entry in a private directory without a live Rhino.
-        entry = "from pathlib import Path; from cos_host import main; main(Path(" + repr(self.data.name) + "))"
+        entry = "from pathlib import Path; from external_host import main; main(Path(" + repr(self.data.name) + "))"
         params = StdioServerParameters(command=sys.executable,
                                        args=["-B", "-u", "-c", entry],
                                        env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"), cwd=str(ROOT))
@@ -164,10 +164,10 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
         # Poison eager behavior in each real stdio process. Merely listing tools
         # may read source schemas but must not construct a broker/import the DB server.
         entry = (
-            "from pathlib import Path; import cos_host; "
-            "cos_host.Broker.__init__ = lambda *a, **k: (_ for _ in ()).throw(RuntimeError('eager broker')); "
-            "cos_host.check_contract = lambda *a: (_ for _ in ()).throw(RuntimeError('eager check')); "
-            "cos_host.main(Path(" + repr(self.data.name) + "))"
+            "from pathlib import Path; import external_host; "
+            "external_host.Broker.__init__ = lambda *a, **k: (_ for _ in ()).throw(RuntimeError('eager broker')); "
+            "external_host.check_contract = lambda *a: (_ for _ in ()).throw(RuntimeError('eager check')); "
+            "external_host.main(Path(" + repr(self.data.name) + "))"
         )
         params = StdioServerParameters(command=sys.executable,
                                        args=["-B", "-X", "utf8", "-u", "-c", entry], cwd=str(ROOT),

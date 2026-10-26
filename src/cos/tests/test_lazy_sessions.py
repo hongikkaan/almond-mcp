@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import AsyncMock, patch
 
-import cos_host
+import external_host
 from test_broker import CATALOG, Rig
 
 
@@ -13,18 +13,18 @@ class LazyStartupTests(unittest.TestCase):
     def test_main_only_reads_catalog_without_owning_runtime_or_creating_data(self):
         with tempfile.TemporaryDirectory() as directory:
             data = Path(directory) / "not-created"
-            with patch.object(cos_host, "load_catalog", return_value=CATALOG), \
-                    patch.object(cos_host, "check_contract", side_effect=AssertionError("eager source scan")), \
-                    patch.object(cos_host, "serve", new_callable=AsyncMock) as serve:
-                cos_host.main(data)
-            serve.assert_awaited_once_with(CATALOG, data=data)
+            with patch.object(external_host, "load_catalog", return_value=CATALOG), \
+                    patch.object(external_host, "check_contract", side_effect=AssertionError("eager source scan")), \
+                    patch.object(external_host, "serve", new_callable=AsyncMock) as serve:
+                external_host.main(data)
+            serve.assert_awaited_once_with(CATALOG, data=data, client="cos")
             self.assertFalse(data.exists())
 
 
 class LazyAdapterTests(unittest.IsolatedAsyncioTestCase):
     async def test_catalog_and_stale_call_do_not_create_a_broker(self):
         factory = unittest.mock.Mock(side_effect=AssertionError("eager broker"))
-        adapter = cos_host.SessionAdapter(CATALOG, broker_factory=factory)
+        adapter = external_host.SessionAdapter(CATALOG, broker_factory=factory)
         self.assertTrue(adapter.tools)
         result = await adapter.call("execute", {"connection_id": "stale", "script": "x"})
         self.assertTrue(result.is_error)
@@ -39,7 +39,7 @@ class ClientIsolationTests(unittest.IsolatedAsyncioTestCase):
         self.one, self.two = Rig(), Rig()
         for rig in (self.one, self.two):
             rig.broker.data = Path(self.directory.name)
-            rig.broker.lease_factory = cos_host.host_lease
+            rig.broker.lease_factory = external_host.host_lease
             self.addAsyncCleanup(rig.broker.close)
 
     async def test_two_clients_can_own_different_rhinos_but_not_the_same_rhino(self):

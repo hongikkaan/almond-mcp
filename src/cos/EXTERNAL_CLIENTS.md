@@ -1,8 +1,9 @@
 # Codex·외부 MCP 클라이언트 연결
 
-기존 `cos_host.py`는 표준 **stdio MCP 서버**다. COS 앱 없이 Codex CLI·Codex 앱 또는
-로컬 stdio MCP 클라이언트가 같은 Python 명령을 직접 실행할 수 있다. 기존 CoS 명령과
-터널 설정은 그대로 사용한다. 새 RHP나 HTTP 서버를 추가하지 않는다.
+Codex 직접 연결은 `codex_host.py`, CoS 경유 연결은 기존 `cos_host.py`를 실행한다.
+두 진입점은 표준 **stdio MCP 서버**인 `external_host.py`를 공유한다. Codex 직접 연결에는
+CoS 앱이나 터널이 필요하지 않다. 기존 CoS 명령·터널과 native 등록은 유지한다.
+RhinoTerminal을 포함한 세 경로의 구분은 [연결 경로 안내](../../docs/development/connection-paths.md)를 따른다.
 
 MCP 등록과 클라이언트 시작 시에는 **도구 목록을 제공하는 최소 stdio 프로세스**만 실행된다.
 모델링 worker·Rhino·모델 DB 연결은 시작하지 않는다. 사용하는 대화에서 연결 또는 시작
@@ -22,12 +23,16 @@ Set-Location C:\TOOL\Rhino\mcp\almond-mcp
 ```
 
 다른 `CODEX_HOME`을 쓰는 CLI라면 그 디렉터리의 `config.toml` 경로를 명시한다.
-이미 동일한 `rhino` 등록이 있으면 그대로 둔다. 이전 `almond_cos` 항목이 이 도구로 생성한
-설정과 정확히 같으면 백업 후 `rhino`로 이름을 이전하여 두 host가 중복 시작되지 않게 한다.
+이미 동일한 `rhino` 등록이 있으면 그대로 둔다. 이 도구가 이전에 생성한 `cos_host.py` 등록은
+백업 후 `codex_host.py` 직접 진입점으로 이전한다. 이전 `almond_cos` 항목도 생성 설정과
+정확히 같을 때만 `rhino`로 이름을 이전하여 두 host가 중복 시작되지 않게 한다.
 수정된 이전 설정이나 `rhino` 항목과 충돌하면 아무것도 변경하지 않고 중단한다.
 기존 모델·reasoning·다른 MCP·승인 설정은 유지한다. 실행 중인 클라이언트는
 MCP를 다시 로드하거나 재시작한다. `codex mcp get rhino --json`으로 등록 경로를
 확인할 수 있지만, 이 명령 자체는 MCP 연결 검증이 아니다.
+
+새 MCP 초기화의 서버 이름은 직접 연결에서 `Almond Codex`, CoS 경유에서 `Almond CoS`다.
+클라이언트가 붙이는 `rhino` 등의 namespace와는 별개의 식별 정보다.
 
 설정 후 **실제로 사용할 Codex 대화에서 등록된 `rhino` MCP의 `list_connections`를 직접
 호출**해 확인한다. 터미널에서 별도 MCP 클라이언트를 실행한 결과는 서버 검사일 뿐,
@@ -99,7 +104,7 @@ Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고
 
 ## 공통 도구를 수정했을 때
 
-RhinoTerminal·Codex·CoS는 같은 공통 도구 소스를 사용한다. COS는 연결 관리 도구를
+RhinoTerminal·Codex·CoS는 같은 공통 도구 소스를 사용한다. 외부 연결기는 연결 관리 도구를
 추가하고 공통 도구 입력에 `connection_id`를 붙인다. 카탈로그를 따로 갱신할 필요는 없다.
 Python 도구 변경 후 해당 Codex/CoS MCP를 정상 종료하고 새로 시작하면 현재 소스의
 구현·목록·입력 schema를 읽는다. Terminal은 almond 세션을 정상 종료·재시작한다.
