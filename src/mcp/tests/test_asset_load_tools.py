@@ -81,6 +81,6 @@ def test_visualize_with_asset_loads_draws_load_points(server, monkeypatch):
 
 
 def test_passport_includes_structural_loads(server):
-    out = server.get_generated_asset_passport("gen-bathtub-1")
+    out = server.get_asset_passport("gen-bathtub-1")
     loads = out["structural_loads"]
     assert loads["self_kg"] == 45 and loads["use_kg"] == 260 and "estimate" in loads["basis"]

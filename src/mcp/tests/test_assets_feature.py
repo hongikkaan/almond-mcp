@@ -15,6 +15,7 @@ from almond_mcp.features.assets import drafting
 from almond_mcp.features.assets.store import AssetsStore
 from almond_mcp.features.assets.tools import register
 from almond_mcp.retrieval_store import AlmondStore
+from almond_mcp.library_index import AssetLibraryIndexer
 from test_drafting import box_glb
 from test_drawing_asset_registration import extract_box
 
@@ -35,14 +36,7 @@ def asset_record(asset_id, **updates):
 
 
 def fixture_index(root):
-    records = {}
-    def load():
-        records.clear()
-        for record in json.loads((root / "manifest.json").read_text(encoding="utf-8"))["assets"]:
-            resolved = root / record["file"]
-            records[record["asset_id"]] = {**record, "file_available": resolved.is_file(),
-                                          "_resolved_file": str(resolved)}
-    return SimpleNamespace(assets=records, get=records.get, _load=load)
+    return AssetLibraryIndexer(str(root), "drawing_assets", "fixture")
 
 
 def make_feature(tmp_path):
@@ -84,16 +78,16 @@ def test_factory_registers_only_existing_tools_and_all_resource_uris(tmp_path):
             uris = {str(resource.uri) for resource in await client.list_resources()}
             uris.update(resource.uri_template for resource in await client.list_resource_templates())
             assert uris == {
-                "almond://generated/{asset_id}/sources", "almond://generated/{asset_id}/drawing/{view}/{scale}",
-                "almond://drawing/{asset_id}/drawing/{view}/{scale}", "almond://generated/catalogue",
-                "almond://generated/{asset_id}/passport", "almond://generated/{asset_id}/preview",
+                "almond://assets/{asset_id}/sources", "almond://assets/{asset_id}/drawing/{view}/{scale}",
+                "almond://drawing/{asset_id}/drawing/{view}/{scale}", "almond://assets/catalogue",
+                "almond://assets/{asset_id}/passport", "almond://assets/{asset_id}/preview",
                 "almond://repository/{asset_id}",
             }
     asyncio.run(check())
     assert {"_extract_drawing_asset", "_dimension_check", "_apply_import_correction",
-            "list_generated_assets", "search_generated_assets", "recommend_generated_assets",
-            "get_generated_asset_passport", "evaluate_generated_asset_fit", "get_generation_sources",
-            "get_generated_asset", "place_generated_asset"} <= exports.keys()
+            "list_assets", "search_assets", "recommend_assets",
+            "get_asset_passport", "evaluate_asset_fit", "get_asset_sources",
+            "get_asset", "place_asset"} <= exports.keys()
 
 
 def test_registration_resources_repository_and_placement_share_one_asset(tmp_path, monkeypatch):
@@ -123,13 +117,14 @@ def test_registration_resources_repository_and_placement_share_one_asset(tmp_pat
             result = await client.call_tool("register_drawing_asset", {
                 "source_3dm": str(source), "asset_id": "drawing-fixture", "name": "Fixture"})
             assert result.structured_content["live_index_refreshed"]
-            assert json.loads(exports["get_drawing_asset"]("drawing-fixture"))["asset"]["asset_id"] == "drawing-fixture"
-            drawing = exports["get_asset_drawing"]("drawing-fixture")
-            assert drawing["manifest"]["source"]["asset_id"] == "drawing-fixture"
+            record = json.loads(exports["get_drawing_asset"]("drawing-fixture", include_ids=True))["asset"]
+            assert "asset_id" not in record and record["product"] == "Fixture"
+            drawing = exports["get_asset_drawing"]("drawing-fixture", include_ids=True)
+            assert "asset_id" not in drawing["manifest"]["source"]
             svg = await client.read_resource("almond://drawing/drawing-fixture/drawing/plan/50")
             assert svg[0].mime_type == "image/svg+xml"
             assert json.loads(exports["place_drawing_asset"]("drawing-fixture", x=1, y=2, z=3))["status"] == "success"
-            found = exports["search_asset_repository"]("Fixture", drawing_ready=True)
+            found = exports["search_asset_repository"]("Fixture", drawing_ready=True, include_ids=True)
             assert found["total"] == 1
             record = json.loads(exports["repository_asset_resource"]("drawing-fixture"))
             assert record["id"] == "drawing-fixture" and record["drawing"]
@@ -139,7 +134,7 @@ def test_registration_resources_repository_and_placement_share_one_asset(tmp_pat
     assert calls == ["get_rhino_context", "drawing_asset_extract", "place_drawing_asset"]
     def fail_refresh(*args, **kwargs):
         raise RuntimeError("fixture index unavailable")
-    monkeypatch.setattr(namespace["retrieval_store"], "sync_assets", fail_refresh)
+    monkeypatch.setattr(namespace["drawing_asset_indexer"], "_load", fail_refresh)
     failed = exports["register_drawing_asset"](str(source), "drawing-second", "Second")
     assert failed["registration_applied"] and not failed["live_index_refreshed"]
     assert Path(failed["model_path"]).is_file() and Path(registered["model_path"]).is_file()
@@ -152,11 +147,10 @@ def test_factory_uses_rebound_store_sender_and_call_local_overrides(tmp_path):
     record = asset_record("drawing-one", _resolved_file="fixture.3dm")
     namespace["drawing_asset_indexer"].assets[record["asset_id"]] = record
     other["drawing_asset_indexer"].assets[record["asset_id"]] = record
-    namespace["retrieval_store"].sync_assets([record], library_id="drawing_assets")
-    other["retrieval_store"].sync_assets([asset_record("drawing-two")], library_id="drawing_assets")
-    assert json.loads(exports["list_drawing_assets"]())["assets"][0]["asset_id"] == "drawing-one"
-    namespace["retrieval_store"] = other["retrieval_store"]
-    assert json.loads(exports["list_drawing_assets"]())["assets"][0]["asset_id"] == "drawing-two"
+    other["drawing_asset_indexer"].assets["drawing-two"] = asset_record("drawing-two")
+    assert json.loads(exports["list_drawing_assets"](include_ids=True))["assets"][0]["asset_id"] == "drawing-one"
+    namespace["drawing_asset_indexer"] = other["drawing_asset_indexer"]
+    assert {item["asset_id"] for item in json.loads(exports["list_drawing_assets"](include_ids=True))["assets"]} == {"drawing-one", "drawing-two"}
     namespace["_send_and_receive"] = lambda *a, **kw: '{"connection":"rebound"}'
     other["_send_and_receive"] = lambda *a, **kw: '{"connection":"other"}'
     with context.override(_send_and_receive=lambda *a, **kw: '{"connection":"scoped"}'):
@@ -189,26 +183,26 @@ def test_generated_resources_and_cross_feature_helpers_use_current_context(tmp_p
     table = generated / "loads.json"
     table.write_text('{"basis":"fixture","assets":{"gen-fixture":{"self_kg":5}}}', encoding="utf-8")
     namespace["_structural_loads_path"] = lambda: table
-    assert exports["get_generated_asset_passport"]("gen-fixture")["structural_loads"]["self_kg"] == 5
+    assert exports["get_asset_passport"]("gen-fixture")["structural_loads"]["self_kg"] == 5
     namespace["_structural_loads_path"] = lambda: generated / "missing.json"
-    assert "structural_loads" not in exports["get_generated_asset_passport"]("gen-fixture")
+    assert "structural_loads" not in exports["get_asset_passport"]("gen-fixture")
     async def check():
         async with Client(mcp) as client:
             for uri, mime in (("sources", "application/json"), ("passport", "application/json"),
                               ("preview", "image/png"), ("drawing/plan/50", "image/svg+xml")):
-                content = await client.read_resource("almond://generated/gen-fixture/" + uri)
+                content = await client.read_resource("almond://assets/gen-fixture/" + uri)
                 assert content[0].mime_type == mime
-            catalogue = await client.read_resource("almond://generated/catalogue")
+            catalogue = await client.read_resource("almond://assets/catalogue")
             assert "gen-fixture" in catalogue[0].text
     asyncio.run(check())
     namespace["exchange"] = SimpleNamespace(load_contract=lambda path: {"path": str(path)})
     namespace["_receive_contract"] = lambda contract, *a: {"status": "success", "connection": "first"}
-    assert json.loads(exports["place_generated_asset"]("gen-fixture"))["connection"] == "first"
+    assert json.loads(exports["place_asset"]("gen-fixture"))["connection"] == "first"
     namespace["_receive_contract"] = lambda contract, *a: {"status": "success", "connection": "second"}
-    assert json.loads(exports["place_generated_asset"]("gen-fixture"))["connection"] == "second"
+    assert json.loads(exports["place_asset"]("gen-fixture"))["connection"] == "second"
     namespace["exchange"] = SimpleNamespace(load_contract=lambda path: {"changed": True})
     namespace["_receive_contract"] = lambda contract, *a: {"status": "success", "received": contract}
-    assert json.loads(exports["place_generated_asset"]("gen-fixture"))["received"] == {"changed": True}
+    assert json.loads(exports["place_asset"]("gen-fixture"))["received"] == {"changed": True}
 
 
 def test_custom_projection_generation_and_staleness_use_extracted_tools(tmp_path, monkeypatch):
@@ -277,7 +271,7 @@ def test_repository_tool_resolves_patched_canonical_repository(tmp_path, monkeyp
     repository = SimpleNamespace(search=lambda *args: calls.append(args) or {"total": 0})
     monkeypatch.setattr(asset_repository, "AssetRepository", lambda: repository)
     _, _, _, exports = make_feature(tmp_path)
-    assert exports["search_asset_repository"]("chair", "model", True, 5) == {"total": 0}
+    assert exports["search_asset_repository"]("chair", "model", True, 5, include_ids=True) == {"total": 0}
     assert calls == [("chair", "model", True, 5)]
     assert asset_repository.UI_ROOT == Path(__file__).resolve().parents[2] / "rhp/Asset_Panel/web"
     assert (asset_repository.UI_ROOT / "index.html").is_file()

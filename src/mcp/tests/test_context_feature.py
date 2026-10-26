@@ -17,6 +17,9 @@ from test_rhino_observation import (
     test_invalid_capture_never_emits_an_image,
     test_native_error_keeps_error_flag_and_drops_any_image,
     test_bridge_exception_is_an_explicit_capture_error,
+    test_percent_and_optional_usage,
+    test_view_list_protocol_has_only_grouped_names_and_guids,
+    test_malformed_view_list_is_an_error,
     test_fixed_probe_checks_capability_then_uses_native_query,
     test_bad_probe_requests_never_reach_the_bridge,
     test_probe_preserves_context_error_without_sending_geometry_query,
@@ -75,17 +78,18 @@ def test_retrieval_status_uses_current_store_paths_and_recipe_indexer(server):
     server.STATE_DB_PATH = "first.sqlite3"
     server.retrieval_store = SimpleNamespace(asset_stats=lambda *_: {"total": 0})
     server.drawing_recipe_indexer = SimpleNamespace(recipes={})
+    server.drawing_asset_indexer = SimpleNamespace(assets={"a": {}})
     assert json.loads(server.get_retrieval_status())["drawing_recipes"] == 0
     server.STATE_DB_PATH = "rebound.sqlite3"
     server.retrieval_store = SimpleNamespace(asset_stats=stats)
     server.drawing_recipe_indexer = SimpleNamespace(recipes={"a": {}, "b": {}})
-    result = json.loads(server.get_retrieval_status())
+    result = json.loads(server.get_retrieval_status(include_ids=True))
     assert result == {
         "status": "ready", "database": "rebound.sqlite3",
         "asset_index": {"total": 7, "library_id": None},
-        "drawing_asset_index": {"total": 7, "library_id": "drawing_assets"},
-        "generated_asset_index": {"total": 7, "library_id": "generated_assets"},
+        "drawing_asset_index": {"total": 1, "source": "manifest"},
+        "model_asset_index": {"total": 7, "library_id": "generated_assets"},
         "drawing_recipes": 2, "retrieval": ["sqlite", "fts5", "rtree"],
         "embedding_adapter": "not_configured",
     }
-    assert calls == [None, "drawing_assets", "generated_assets"]
+    assert calls == [None, "generated_assets"]

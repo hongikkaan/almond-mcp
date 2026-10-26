@@ -1,4 +1,5 @@
 """Import reviewed organic batch derivatives and exact, sanitized request evidence."""
+from almond_mcp.instruction_text import read_instruction
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -32,7 +33,7 @@ def main():
         assert hashlib.sha256((raw/(aid+'.glb')).read_bytes()).hexdigest()==mesh['output_sha256']==q['source_sha256']
         assert hashlib.sha256((raw/(aid+'.png')).read_bytes()).hexdigest()==image['output_sha256']
         if q['quality']['nonmanifold_edges_excluding_boundary']:
-            raise ValueError('Review nonmanifold geometry before import: '+aid)
+            raise ValueError(read_instruction(__file__, 'response-237')+aid)
         shutil.copyfile(raw/(aid+'.png'),evidence_dir/(aid+'.png'))
         evidence={'batch_id':batch['batch_id'],'image':image,'mesh':mesh,'derivation':q,
                   'input_image_file':'batches/'+batch['batch_id']+'/'+aid+'.png',

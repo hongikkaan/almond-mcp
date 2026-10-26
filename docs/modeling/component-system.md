@@ -91,7 +91,7 @@ effective membership, all former direct objects are unowned, the former
 Component record is absent, and each former child remains registered as a
 root with intact ownership. Missing or modified groups are not success proof.
 
-Plan/Step/Sheet references must be removed before unregistering; the Python
+Plan/Step references must be removed before unregistering; the Python
 store checks them before native mutation. A parent-only Component with exactly
 one child cannot detach the child while remaining a nonempty Component.
 When removing that container is intended, unregister the root parent instead.
@@ -124,7 +124,7 @@ Preserve `AssetPlacementExport.Handle` (including old/new asset-ID tags),
 `retrieval_store.scene_instances`, `asset_loads.placements_from_scene`,
 `LoadTable.lookup`, `asset_loads.apply`, `structure_study.asset_catalogue`,
 `server._structural_loads_path`, `_asset_load_spec`,
-`get_generated_asset_passport`, `structural-loads.json`, and generated manifest
+`get_asset_passport`, `structural-loads.json`, and generated manifest
 `category`, `spatial.support_plane`, `nominal_dimensions_mm`, and stable asset
 IDs. This existing path assigns estimated G/Q product/occupancy loads to
 frame members while reporting skipped ground-only, wall-mounted and
@@ -164,38 +164,29 @@ Plans receive a clearly labeled migration baseline; earlier history is not
 invented. `expected_revision` permits stale-client rejection. These snapshots
 archive plan metadata, dependencies, statuses and handles, not Rhino geometry.
 
-```mermaid
-stateDiagram-v2
-    [*] --> pending
-    pending --> running: prerequisites completed
-    running --> completed: evidence recorded
-    running --> failed: execution failed
-    pending --> blocked: blocked explicitly
-    blocked --> running: prerequisites completed
-    failed --> running: explicit retry after inspection
-```
+Step states include `pending`, `running`, `paused`, `completed`, `failed` and
+`blocked`. Work can pause, switch and resume without prerequisite completion or
+invalidating later work. Plan `depends_on` is a JSON array of freely related
+Plan/Phase IDs, including references across phases. It is not a scheduling gate;
+self references, cycles and not-yet-created IDs are allowed. Revision checks and
+archival snapshots still share the update transaction.
 
-A completed prerequisite cannot regress while a dependent remains running or
-completed. The caller must explicitly invalidate dependent work first. Updates,
-dependency checks, revision checks and archival snapshots share one transaction.
+Phase and Scene always expose `file_name` (empty when unspecified). A selected
+Plan owns `artifact_dir` under project `tmp/YYMMDD_name`; `artifact_refs` and Step
+input/output references use project-relative paths. `set_working_plan` reuses
+that folder. `rename_artifact_folder` updates current references and preserves
+historical revisions. `get_selection_references` maps selected objects to their
+registered Component ancestors and direct/inherited Plan/Step references.
+General queries omit IDs unless `include_ids=true`; get queries omit the supplied
+target ID even then.
 
-## Drawing Sheets
+## Retired drawing registration
 
-A Sheet is one named record bound to one real Rhino Layout and a registered
-detail viewport. Its drawing remains authored geometry in a world-XY region of
-model space. `model_bounds_mm` records six bounds, `paper_mm` records physical
-paper width/height and `scale_denominator` records the paper ratio (100 means
-1:100). The native path uses a parallel Top detail with a 10 mm inset and checks
-that the region fits at the requested scale, including when model and page units
-differ. A section/elevation/axonometric `drawing_type` is a label for the authored
-region; registration itself does not project 3D geometry.
-
-Scene, Component and Plan references support `list_drawing_sheets` at Plan
-wrapup. Listing is read-only; `remove_drawing_sheet` releases registration while
-preserving the Layout, detail and model geometry. Uncertain native completion
-requires `sync_drawing_sheet` to inspect the existing Layout, not a second create.
-Layout view changes do not reliably participate in Rhino Undo; responses expose
-`layout_undo_supported=false`, and failed updates attempt explicit compensation.
+Sheet DB create/update/read/sync/remove tools and native registration dispatch
+are retired. Existing Sheet rows and Rhino Layouts are preserved. Legacy Sheet
+references no longer prevent Component unregister. Drawing asset registration
+writes the controlled library manifest and files, not the project DB. Viewports,
+Named Views and Layout paper can be listed/captured with `get_rhino_viewport_image`.
 
 ## Prepared drawing assets
 

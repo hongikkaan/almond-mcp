@@ -178,15 +178,15 @@ def test_public_registration_query_resource_and_placement_share_one_id(library, 
         async with Client(server.mcp) as client:
             names = {t.name for t in await client.list_tools()}
             assert {"register_drawing_asset", "place_drawing_asset", "validate_structure", "generate_asset_drawing_views"} <= names
-            assert not {"list_generated_assets", "place_generated_asset", "get_generation_sources"} & names
+            assert not {"list_assets", "place_asset", "get_asset_sources"} & names
             result = await client.call_tool("register_drawing_asset", {
                 "source_3dm": str(source), "asset_id": "drawing-fixture", "name": "Fixture"})
             registered = result.structured_content
             assert registered["status"] == "success" and registered["live_index_refreshed"], registered.get("message", registered)
-            record = json.loads(server.get_drawing_asset("drawing-fixture"))
-            assert record["status"] == "success" and record["asset"]["asset_id"] == "drawing-fixture"
+            record = json.loads(server.get_drawing_asset("drawing-fixture", include_ids=True))
+            assert record["status"] == "success" and "asset_id" not in record["asset"] and record["asset"]["product"] == "Fixture"
             drawing = await client.call_tool("get_asset_drawing", {"asset_id": "drawing-fixture"})
-            assert drawing.structured_content["manifest"]["source"]["asset_id"] == "drawing-fixture"
+            assert "asset_id" not in drawing.structured_content["manifest"]["source"]
             svg = await client.read_resource("almond://drawing/drawing-fixture/drawing/plan/50")
             assert svg[0].mime_type == "image/svg+xml"
             assert json.loads(server.place_drawing_asset("drawing-fixture", x=1, y=2, z=3))["status"] == "success"
@@ -195,7 +195,7 @@ def test_public_registration_query_resource_and_placement_share_one_id(library, 
     assert [c["type"] for c in calls] == ["get_rhino_context", "drawing_asset_extract", "place_drawing_asset"]
     def unavailable(*args, **kwargs):
         raise RuntimeError("index unavailable")
-    monkeypatch.setattr(server.retrieval_store, "sync_assets", unavailable)
+    monkeypatch.setattr(server.drawing_asset_indexer, "_load", unavailable)
     result = server.register_drawing_asset(str(source), "drawing-another", "Another")
     assert result["status"] == "error" and result["registration_applied"] and not result["live_index_refreshed"]
     assert Path(result["model_path"]).is_file() and Path(registered["model_path"]).is_file()

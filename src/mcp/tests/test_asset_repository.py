@@ -87,7 +87,7 @@ def test_http_downloads_and_file_boundary():
 def test_mcp_repository_resource_uses_the_same_catalogue():
     from test_generated_assets import load_server_module
     server = load_server_module()
-    result = server.search_asset_repository("office chair", drawing_ready=True)
+    result = server.search_asset_repository("office chair", drawing_ready=True, include_ids=True)
     assert result["total"] == 1
     record = json.loads(server.repository_asset_resource(result["assets"][0]["id"]))
     assert record["provenance"]["asset_id"] == record["id"]

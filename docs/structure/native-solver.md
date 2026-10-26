@@ -266,7 +266,7 @@ frame:
   assets an estimated self weight (dead) and in-use load (imposed: occupants at 80 kg,
   water in a filled bath, books on shelves), with category defaults for other libraries.
   These are typical-product estimates, not measured or manufacturer data. The entry is
-  also returned by `get_generated_asset_passport` as `structural_loads`.
+  also returned by `get_asset_passport` as `structural_loads`.
 - **Placements:** Rhino objects tagged with an Almond asset id (`Almond.AssetId`,
   `almond:asset_id`) via the bridge's `asset_placements` message, or the scene ledger
   when `scene_id` is given.

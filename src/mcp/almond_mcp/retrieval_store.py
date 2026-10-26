@@ -337,7 +337,7 @@ class AlmondStore(
                     END
                 """)
             self._initialize_generation_plans(connection)
-            self._initialize_drawing_sheets(connection)
+            self._retire_drawing_sheet_constraints(connection)
 
     # Asset registry -----------------------------------------------------
 

@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import pytest
 import tempfile
 from pathlib import Path
 
@@ -20,7 +21,6 @@ def load_server_module():
     os.environ["RHINO_MCP_FURNITURE_DIR"] = str(
         Path(__file__).resolve().parents[3] / "asset" / "models" / "IkeaFurniturefiles"
     )
-    os.environ["RHINO_MCP_STATE_DB"] = tempfile.mktemp(suffix=".sqlite3")
     spec = importlib.util.spec_from_file_location("almond_server_test", SERVER_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -63,7 +63,7 @@ def test_search_filters_by_category_dimensions_and_match_quality():
 
 def test_public_tool_output_does_not_expose_resolved_paths():
     server = load_server_module()
-    payload = json.loads(server.search_generated_assets(query="chair"))
+    payload = json.loads(server.search_assets(query="chair"))
     # The hit count drifts as the catalogue grows; what matters here is that
     # matches exist and none of them leak local paths or supplier URLs.
     assert payload["total"] >= 1
@@ -76,3 +76,8 @@ def test_retired_supplier_has_no_public_tools_or_active_catalogue():
     for name in ("list_ikea_furniture", "search_ikea_furniture", "get_ikea_furniture", "place_ikea_furniture"):
         assert not hasattr(server, name)
     assert server.retrieval_store.asset_stats("ikea")["total"] == 0
+
+
+@pytest.fixture(autouse=True)
+def isolated_server_database(tmp_path, monkeypatch):
+    monkeypatch.setenv("RHINO_MCP_STATE_DB", str(tmp_path / "DB"))

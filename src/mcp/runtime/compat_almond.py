@@ -1,5 +1,6 @@
 """Scope the inspected asset helpers' reports to the current engine operation."""
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 from functools import wraps
 import json
@@ -16,7 +17,6 @@ REPORTS = {
 
 
 def call_scoped(original, server, folder: Path, allowed: set[str], args, kwargs):
-    folder.mkdir(parents=True, exist_ok=False)
     sent: set[str] = set()
 
     def scoped_sender(payload, *positional, **keywords):
@@ -30,6 +30,7 @@ def call_scoped(original, server, folder: Path, allowed: set[str], args, kwargs)
         if len(matches) != 1 or script.count(REPORTS[matches[0]]) != 1 or matches[0] in sent:
             raise RuntimeError("Almond asset helper report contract changed.")
         name = matches[0]
+        folder.mkdir(parents=True, exist_ok=True)
         literal = '@"' + str(folder / name).replace('"', '""') + '"'
         request["script"] = script.replace(REPORTS[name], literal, 1)
         sent.add(name)
@@ -86,7 +87,7 @@ def install(server, runtime) -> None:
             except (OSError, ValueError):
                 return {
                     "status": "error",
-                    "message": "Geometry was imported, but its report is unverified. Inspect the existing objects before any retry.",
+                    "message": read_instruction(__file__, 'response-84'),
                     "imported_guids": result.get("imported_guids", []),
                     "report_path": str(folder / "almond_import_report.json"),
                 }

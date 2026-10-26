@@ -71,6 +71,8 @@ Push-Location -LiteralPath $WorkDir
 $previousInput = [Console]::InputEncoding
 $previousOutput = [Console]::OutputEncoding
 $previousPipe = $OutputEncoding
+$previousProjectRoot = $env:ALMOND_PROJECT_ROOT
+$env:ALMOND_PROJECT_ROOT = [IO.Path]::GetFullPath($WorkDir)
 try {
     [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
     [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
@@ -132,7 +134,7 @@ try {
     $overrides += @('-c', "mcp_servers.$serverName.env.PYTHONIOENCODING='utf-8'")
     # Codex filters inherited variables. Keep the native Windows user-data root
     # and optional explicit library overrides; do not manufacture source paths.
-    $runtimeEnv = @('TEMP', 'TMP', 'TMPDIR', 'PYTHONDONTWRITEBYTECODE', 'LOCALAPPDATA',
+    $runtimeEnv = @('TEMP', 'TMP', 'TMPDIR', 'PYTHONDONTWRITEBYTECODE', 'LOCALAPPDATA', 'ALMOND_PROJECT_ROOT',
         'RHINO_MCP_LIBRARY_DIR', 'RHINO_MCP_DRAWING_ASSET_DIR', 'RHINO_MCP_DIAGRAM_ASSET_DIR',
         'RHINO_MCP_GENERATED_ASSET_DIR', 'RHINO_MCP_DRAWING_RECIPE_DIR', 'RHINO_MCP_DRAFTING_DIR',
         'RHINO_MCP_CAPSULE_DIR', 'RHINO_MCP_MATERIAL_DIR', 'RHINO_MCP_CONSTRUCTION_DIR', 'RHINO_MCP_HISTORY_DIR')
@@ -176,6 +178,7 @@ try {
     }
 }
 finally {
+    $env:ALMOND_PROJECT_ROOT = $previousProjectRoot
     [Console]::InputEncoding = $previousInput
     [Console]::OutputEncoding = $previousOutput
     $OutputEncoding = $previousPipe

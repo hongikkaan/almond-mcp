@@ -46,6 +46,31 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
 
 
 class FeatureSourceTests(unittest.TestCase):
+    def test_external_description_is_inert_and_markdown_is_fingerprinted(self):
+        from runtime import digest, source_paths
+        paths = source_paths(Path(__file__).resolve().parents[2] / "mcp/runtime")
+        markdown = {path for path in paths.values() if path.name.endswith("-explain.md")}
+        self.assertIn(paths["entry"].with_name("mcp_server-explain.md"), markdown)
+        self.assertTrue(any(path.name == "tools-explain.md" for path in markdown))
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "tools.py"
+            note = source.with_name("tools-explain.md")
+            note.write_text("<!-- instruction:sample -->\nCall sample first.\n<!-- /instruction:sample -->", encoding="utf-8")
+            node = ast.parse("@mcp.tool()\n@tool_instruction(__file__, 'sample')\ndef sample() -> str:\n    dangerous()\n").body[0]
+            node._guidance_source = str(source)
+            stub = checked_stub(node)
+            self.assertEqual(ast.get_docstring(stub), "Call sample first.")
+            self.assertEqual(len(stub.decorator_list), 1)
+            catalog = {"packages": {}, "sources": {"guidance": digest(note)}}
+            with patch("runtime.source_paths", return_value={"guidance": note}):
+                check_contract(catalog)
+                note.write_text(note.read_text(encoding="utf-8").replace("first", "last"), encoding="utf-8")
+                with self.assertRaisesRegex(RuntimeError, "changed"):
+                    check_contract(catalog)
+            node.decorator_list[1].args[1] = ast.Call(ast.Name("dangerous", ast.Load()), [], [])
+            with self.assertRaises(ValueError):
+                checked_stub(node)
+
     def test_fresh_start_reads_changed_tools_without_a_catalog_export(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

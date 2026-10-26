@@ -28,16 +28,16 @@ Rhino에서는 `Almond` 또는 `AlmondLibraryBrowser`를 연다. Python만으로
 ## 선택·치수 확인·배치
 
 ```python
-recommend_generated_assets(query="bench", width_mm=2400, depth_mm=1600,
+recommend_assets(query="bench", width_mm=2400, depth_mm=1600,
                            max_triangles=10000)
-get_generated_asset_passport(asset_id="gen-park-bench-1")
-evaluate_generated_asset_fit(asset_id="gen-park-bench-1",
+get_asset_passport(asset_id="gen-park-bench-1")
+evaluate_asset_fit(asset_id="gen-park-bench-1",
                              width_mm=2400, depth_mm=1600)
 ```
 
 추천은 태그·단어·크기·triangle budget과 명시한 조건을 사용한다. suggested room은 휴리스틱이다. fit은 회전과 여유 공간을 포함한 직사각형 envelope 검사이며 실제 장애물·설치 높이·피난·접근성 검증이 아니다.
 
-preview와 치수를 확인한 뒤 `place_generated_asset`으로 배치한다. asset instance가 필요한 경우 `register_scene_instance`와 `validate_scene_layout`을 사용한다. 일반 Rhino geometry의 Scene·Component 등록에는 가짜 asset instance가 필요 없다.
+preview와 치수를 확인한 뒤 `place_asset`으로 배치한다. asset instance가 필요한 경우 `register_scene_instance`와 `validate_scene_layout`을 사용한다. 일반 Rhino geometry의 Scene·Component 등록에는 가짜 asset instance가 필요 없다.
 
 passport는 GLB의 `asset.extras.almond.passport`, `.almond.json` sidecar와 manifest에 있다. 실제 크기·polygon count, 목표 크기와 편차, anchor·footprint·clearance, 재료, 생성 기록과 미확인 사항을 구분한다. GLB importer가 extras를 잃을 수 있으므로 sidecar와 모델의 checksum을 함께 보존한다.
 
@@ -72,7 +72,7 @@ Y-up 입력은 `(X,-Z,Y)`로 Z-up에 변환하고 front는 +Y 방향, right는 -
 
 ## 출처와 파생 관계
 
-`get_generation_sources(asset_id)`는 기록된 생성 근거와 빈틈을 반환한다. `search_detail_sources`는 dataholz·Lignumdata·ARCAT·CADdetails·WikiHouse·LibreCAD 같은 참조 목록을 검색하며 도면 파일을 내려받지는 않는다. 이후 찾은 자료를 기존 모델의 생성 입력이라고 소급 기록하지 않는다.
+`get_asset_sources(asset_id)`는 기록된 생성 근거와 빈틈을 반환한다. `search_detail_sources`는 dataholz·Lignumdata·ARCAT·CADdetails·WikiHouse·LibreCAD 같은 참조 목록을 검색하며 도면 파일을 내려받지는 않는다. 이후 찾은 자료를 기존 모델의 생성 입력이라고 소급 기록하지 않는다.
 
 새 입력·참조에는 제목, 저자/설계자, 발행자, canonical URL, 항목·page·figure, 접근일, revision, 사용 관계와 영향을 받은 asset ID를 기록한다. 보유한 파일은 checksum을 남긴다. `source_references`가 요구하는 terms URL 등 기존 schema 필드는 유지한다. 자료가 없으면 `unknown`·`not_supplied`로 남기며 추측하지 않는다.
 

@@ -14,7 +14,7 @@ construction layers, hidden edges or sections. Front orientation requires review
 Print individual A3 SVGs at actual size and check the 50 mm calibration line.
 
 MCP tools: `get_asset_drawing`, `generate_asset_drawing_views`,
-`audit_asset_drawing`, `get_generation_sources`, `search_detail_sources`.
+`audit_asset_drawing`, `get_asset_sources`, `search_detail_sources`.
 Custom GLBs require explicit mm/m units; no original model file is overwritten.
 Source references supplied to generation describe the drawing's references and
 do not retroactively become original Meshy inputs. User-provided history and

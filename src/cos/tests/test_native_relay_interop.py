@@ -7,14 +7,18 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 import almond_mcp
+from fastmcp import Client, FastMCP
 
 from runtime import ENGINE
 
 sys.path.insert(0, str(ENGINE))
 from native_request import RequestBatch
-from project import process_start_ticks, read_json
+from project import connection_paths, process_start_ticks, read_json
+from shared_store import ProjectRuntime
 
 
 REPO = Path(__file__).resolve().parents[3]
@@ -77,6 +81,7 @@ class NativeRequestInteropTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(receipt["pending"], 0)
             self.assertGreaterEqual(receipt["sequence"], state["native_sequence"])
             self.assertEqual(receipt["completion_status"], "completed")
+            await self.check_runtime_operations(binding, sender)
         finally:
             if batch is not None:
                 batch.finish()
@@ -87,3 +92,52 @@ class NativeRequestInteropTests(unittest.IsolatedAsyncioTestCase):
                 _, errors = await asyncio.to_thread(host.communicate, timeout=5)
                 self.fail("The temporary native fixture did not drain: " + errors)
             self.assertEqual(host.returncode, 0, errors)
+
+    async def check_runtime_operations(self, host, sender):
+        binding = read_json(host["ready_path"])
+        locations = connection_paths(binding["model_path"], binding["label"], binding["token"])
+        args = SimpleNamespace(session=host["ready_path"], token=host["token"])
+        runtime = ProjectRuntime(args, binding, locations)
+        server = FastMCP("native-operation-directory-contract")
+        server.add_middleware(runtime)
+        operation_path = Path(host["session_dir"]) / "operation.json"
+
+        async def observe():
+            operation = read_json(operation_path)
+            scratch = Path(operation["temp"])
+            self.assertFalse(scratch.exists(), "Do not allocate scratch before a native request.")
+            # Both frames must pass the real BoundBridge.ReadOperation check.
+            for _ in range(2):
+                response = await asyncio.to_thread(runtime.send, sender, b'{"type":"execute","script":"// fixture"}', 5.0)
+                self.assertEqual(response, ORIGINAL_RESPONSE)
+                self.assertTrue(scratch.is_dir())
+            return json.loads(response)
+
+        names = ("get_rhino_context", "get_rhino_viewport_image", "execute_rhino_script")
+        for name in names:
+            server.tool(name=name)(observe)
+        # The disposable native fixture deliberately listens on an ephemeral
+        # port, outside production A-J slots. Adapt only that locator check;
+        # worker/host PID checks, TCP sender, operation files, native ownership
+        # validation and completion receipts all use production implementations.
+        with patch("shared_store.read_binding", side_effect=lambda *_: (read_json(host["ready_path"]), locations)):
+            async with Client(server) as client:
+                for name in names:
+                    with self.subTest(tool=name):
+                        result = await client.call_tool(name, {})
+                        self.assertEqual(json.loads(result.content[0].text)["status"], "success")
+                        self.assertFalse(runtime.completion()["uncertain"])
+                        operation = read_json(operation_path)
+                        self.assertEqual(operation["state"], "completed")
+                        self.assertFalse(Path(operation["temp"]).exists())
+                        self.assertTrue(all(item["completion_status"] == "completed"
+                                            for item in runtime.last["transport"]["requests"]))
+                        # A background task retaining an ended operation must
+                        # not recreate its scratch directory before rejection.
+                        scope = runtime.scope.set(runtime.batch)
+                        try:
+                            with self.assertRaisesRegex(RuntimeError, "operation has ended"):
+                                runtime.send(sender, b'{"type":"execute"}', 5.0)
+                        finally:
+                            runtime.scope.reset(scope)
+                        self.assertFalse(Path(operation["temp"]).exists())

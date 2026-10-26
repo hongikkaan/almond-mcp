@@ -29,7 +29,7 @@ namespace AlmondScriptUndoTests
                 Check(doc.Layers.FindName("A-WALL") == null && doc.Layers.FindName("A-STRC") == null &&
                     doc.Layers.FindName("A-GLAZ") == null, "The fresh fixture already has executor-created layers.");
                 var before = DocumentState(doc);
-                var reply = Wire(DocumentObservation.GetContext(doc));
+                var reply = Wire(DocumentObservation.GetContext(doc, 50, new[] { "document", "selection", "viewport" }));
                 Success(reply);
                 ContextMetadata(reply, doc, 0);
                 Check(reply["viewport"] != null && reply["viewport"].Type == JTokenType.Null,
@@ -67,7 +67,7 @@ namespace AlmondScriptUndoTests
                 var before = DocumentState(doc);
                 foreach (int limit in new[] { 0, 1, 3, 200 })
                 {
-                    var reply = Wire(DocumentObservation.GetContext(doc, limit));
+                    var reply = Wire(DocumentObservation.GetContext(doc, limit, new[] { "document", "selection" }));
                     Success(reply);
                     ContextMetadata(reply, doc, 3);
                     SelectionMetadata(reply, doc, 3, Math.Min(limit, 3));
@@ -77,6 +77,22 @@ namespace AlmondScriptUndoTests
                 Check(ids.All(id => !IsLive(doc, id)), "Fixture Undo no longer removes the original points.");
                 FixtureUndoOrRedo(doc, true);
                 Check(ids.All(id => IsLive(doc, id)), "Fixture Redo no longer restores the original points.");
+            });
+
+            Run(lines, "context collects only requested sections", doc =>
+            {
+                var before = DocumentState(doc);
+                var defaults = Wire(DocumentObservation.GetContext(doc));
+                Success(defaults);
+                Check(defaults["document"] != null && defaults["selection"] == null && defaults["viewport"] == null,
+                    "Default context must contain only document data.");
+                Check(!Warnings(defaults).HasValues, "Unrequested headless viewport was still observed.");
+                var selection = Wire(DocumentObservation.GetContext(doc, 0, new[] { "selection" }));
+                Success(selection);
+                Check(selection["selection"] != null && selection["document"] == null && selection["viewport"] == null,
+                    "Selection-only context collected another section.");
+                Error(Wire(DocumentObservation.GetContext(doc, 0, new[] { "invalid" })), "invalid_arguments");
+                Unchanged(before, DocumentState(doc), "Selective context");
             });
 
             Run(lines, "context query works without enabling disabled Undo recording", doc =>
@@ -122,9 +138,9 @@ namespace AlmondScriptUndoTests
                     Error(JObject.Parse(DocumentObservation.HandleContext(
                         new JObject { ["selection_limit"] = invalid.DeepClone() })), "invalid_arguments");
                     Error(JObject.Parse(DocumentObservation.HandleViewportImage(
-                        new JObject { ["max_width"] = invalid.DeepClone() })), "invalid_arguments");
+                        new JObject { ["scale_percent"] = invalid.DeepClone() })), "invalid_arguments");
                     Error(JObject.Parse(DocumentObservation.HandleViewportImage(
-                        new JObject { ["max_height"] = invalid.DeepClone() })), "invalid_arguments");
+                        new JObject { ["view"] = invalid.DeepClone() })), "invalid_arguments");
                 }
                 Unchanged(before, DocumentState(doc), "Invalid dispatch arguments");
             });
@@ -133,14 +149,18 @@ namespace AlmondScriptUndoTests
             {
                 Check(doc.Views.ActiveView == null, "The headless fixture unexpectedly has an active view.");
                 var before = DocumentState(doc);
-                Error(Wire(DocumentObservation.GetViewportImage(doc, 640, 480)), "no_viewport");
+                Error(Wire(DocumentObservation.GetViewportImage(doc)), "no_viewport");
+                var listed = Wire(DocumentObservation.GetViewportImage(doc, "a"));
+                Success(listed);
+                Check(!listed["views"]["viewports"].HasValues && !listed["views"]["layouts"].HasValues,
+                    "A headless document listed visible viewports.");
                 Unchanged(before, DocumentState(doc), "Headless viewport capture");
             });
 
             var noDocument = Wire(DocumentObservation.GetContext(null));
             Error(noDocument, "no_document");
             lines.Add("PASS context without a document returns a structured error");
-            var noImage = Wire(DocumentObservation.GetViewportImage(null, 640, 480));
+            var noImage = Wire(DocumentObservation.GetViewportImage(null));
             Error(noImage, "no_document");
             lines.Add("PASS capture without a document returns a structured error");
 
@@ -160,46 +180,30 @@ namespace AlmondScriptUndoTests
             var before = DocumentState(doc);
             var lines = new List<string>();
 
-            var context = Wire(DocumentObservation.GetContext(doc, 0));
+            var context = Wire(DocumentObservation.GetContext(doc, 0, new[] { "document", "viewport" }));
             Success(context);
             IdentityMetadata(context, doc);
             ViewportMetadata(context["viewport"] as JObject, view.ActiveViewport);
             Unchanged(before, DocumentState(doc), "Real-view context");
             lines.Add("PASS real-view context describes the active viewport without changes");
 
-            foreach (var bound in new[] { new Size(640, 480), new Size(64, 64) })
+            foreach (var percent in new[] { 1, 50, 100 })
             {
-                DateTime startedAt = DateTime.UtcNow;
-                var reply = Wire(DocumentObservation.GetViewportImage(doc, bound.Width, bound.Height));
-                DateTime finishedAt = DateTime.UtcNow;
-                Unchanged(before, DocumentState(doc), "Viewport capture " + bound);
+                var reply = Wire(DocumentObservation.GetViewportImage(doc, "", percent));
+                Unchanged(before, DocumentState(doc), "Viewport capture " + percent);
                 Success(reply);
-                IdentityMetadata(reply, doc);
-                ViewportMetadata(reply["viewport"] as JObject, view.MainViewport);
-                Check((string)reply["active_viewport_id"] == view.ActiveViewportID.ToString(),
-                    "Capture lost the identity of the active viewport or layout detail.");
-                Check((string)reply["capture_scope"] == (view is RhinoPageView ? "page_view" : "model_view"),
-                    "Capture scope does not identify the captured view window.");
-                if (view.ActiveViewportID != view.MainViewport.Id)
-                    Check(Warnings(reply).Values<string>().Any(value => value.Contains("page view")),
-                        "A capture of the whole page omitted its active-detail warning.");
-                DateTime capturedAt;
-                Check(DateTime.TryParse((string)reply["captured_at_utc"], CultureInfo.InvariantCulture,
-                    DateTimeStyles.RoundtripKind, out capturedAt) && capturedAt.Kind == DateTimeKind.Utc &&
-                    capturedAt >= startedAt && capturedAt <= finishedAt,
-                    "Capture timestamp is missing, stale or not UTC.");
-                DecodeJpeg(reply, view.MainViewport.Size, bound);
-                lines.Add("PASS " + bound.Width + "x" + bound.Height +
-                    " capture metadata and JPEG decode; document/view state preserved");
+                DecodePng(reply, percent);
+                lines.Add("PASS " + percent + "% PNG capture; document/view state preserved");
             }
 
-            foreach (var bound in new[] { new Size(63, 480), new Size(640, 63),
-                new Size(2049, 480), new Size(640, 2049) })
+            foreach (var percent in new[] { 0, 101 })
             {
-                Error(Wire(DocumentObservation.GetViewportImage(doc, bound.Width, bound.Height)), "invalid_arguments");
-                Unchanged(before, DocumentState(doc), "Invalid capture dimensions " + bound);
+                Error(Wire(DocumentObservation.GetViewportImage(doc, "", percent)), "invalid_arguments");
+                Unchanged(before, DocumentState(doc), "Invalid capture percentage " + percent);
             }
-            lines.Add("PASS capture dimension errors preserve the real document and view");
+            Error(Wire(DocumentObservation.GetViewportImage(doc, Guid.NewGuid().ToString())), "view_not_found");
+            Unchanged(before, DocumentState(doc), "Unknown view GUID");
+            lines.Add("PASS capture argument errors preserve the real document and view");
             return Report(lines, "caller-supplied viewport observation");
         }
 
@@ -210,6 +214,104 @@ namespace AlmondScriptUndoTests
             Check((uint)document["runtime_serial_number"] == doc.RuntimeSerialNumber &&
                 (string)document["path"] == doc.Path && (string)document["name"] == doc.Name,
                 "Observation identifies a different document.");
+        }
+
+        // Only in a separate Rhino process with an empty, unmodified startup document.
+        public static string RunImageTargets(string directory)
+        {
+            var startup = RhinoDoc.ActiveDoc;
+            Check(startup == null || (!startup.Modified && string.IsNullOrEmpty(startup.Path) &&
+                !startup.Objects.GetObjectList(ObjectType.AnyObject).Any()), "Use an isolated empty Rhino process.");
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "view-images.3dm");
+            using (var seed = RhinoDoc.CreateHeadless(null))
+            {
+                seed.PageUnitSystem = UnitSystem.Millimeters;
+                seed.Objects.AddBox(new Box(new BoundingBox(new Point3d(-10, -20, 0), new Point3d(20, 10, 50))));
+                Check(seed.WriteFile(path, new Rhino.FileIO.FileWriteOptions { SuppressDialogBoxes = true }), "Fixture save failed.");
+            }
+            bool alreadyOpen;
+            using (var doc = RhinoDoc.Open(path, out alreadyOpen))
+            {
+                Check(doc != null && !alreadyOpen && !doc.IsHeadless, "A fresh visible fixture document is required.");
+                try
+                {
+                    var model = doc.Views.GetStandardRhinoViews()[0];
+                    doc.Views.ActiveView = model;
+                    model.MainViewport.ZoomExtents();
+                    int namedIndex = doc.NamedViews.Add("saved model", model.MainViewport.Id);
+                    Check(namedIndex >= 0, "Could not save the named-view fixture.");
+                    model.MainViewport.ZoomBoundingBox(new BoundingBox(new Point3d(1000, 1000, 1000), new Point3d(1020, 1040, 1080)));
+                    var page = doc.Views.AddPageView("A4 paper", 210, 297);
+                    Check(page != null, "Could not create a layout fixture.");
+                    var attributes = new ObjectAttributes { Space = ActiveSpace.PageSpace, ViewportId = page.MainViewport.Id };
+                    doc.Objects.AddRectangle(new Rectangle3d(Plane.WorldXY, new Interval(10, 200), new Interval(10, 287)), attributes);
+                    doc.Views.ActiveView = model;
+                    doc.Views.Redraw();
+                    doc.Modified = false;
+                    var before = DocumentState(doc);
+                    var listed = Wire(DocumentObservation.GetViewportImage(doc, "a"));
+                    Success(listed);
+                    Unchanged(before, DocumentState(doc), "List image targets");
+                    var groups = (JObject)listed["views"];
+                    Check(((JArray)groups["named_views"]).Count == 1 && ((JArray)groups["layouts"]).Count == 1,
+                        "List omitted the saved view or layout.");
+                    var lines = new List<string> { RunViewport(doc) };
+                    using (ManagedFiles.Bind(doc, directory, "tmp/261026_native"))
+                    {
+                        Check(ManagedFiles.Input("view-images.3dm") == path, "Managed input root differs.");
+                        string output = ManagedFiles.Output("nested/result.txt");
+                        Check(output == Path.Combine(directory, "tmp", "261026_native", "nested", "result.txt"),
+                            "Managed output did not use the selected artifact folder.");
+                        File.WriteAllText(output, "fixture");
+                        foreach (var invalid in new[] { "../escape.txt", path, "C:escape.txt" })
+                        {
+                            bool rejected = false;
+                            try { ManagedFiles.Output(invalid); } catch (ArgumentException) { rejected = true; }
+                            Check(rejected, "Managed path escape was accepted: " + invalid);
+                        }
+                    }
+                    bool scopeClosed = false;
+                    try { ManagedFiles.Input("view-images.3dm"); } catch (InvalidOperationException) { scopeClosed = true; }
+                    Check(scopeClosed, "Managed file scope leaked beyond its call.");
+                    lines.Add("PASS managed relative paths and call-scope restoration");
+                    foreach (var group in groups.Properties())
+                    {
+                        foreach (JObject entry in (JArray)group.Value)
+                        {
+                            Check(entry.Properties().Count() == 2 && entry["name"] != null && entry["guid"] != null,
+                                "View list exposes fields beyond name and GUID.");
+                            int activations = 0;
+                            EventHandler<ViewEventArgs> activated = (sender, args) => activations++;
+                            JObject reply;
+                            RhinoView.SetActive += activated;
+                            try { reply = Wire(DocumentObservation.GetViewportImage(doc, (string)entry["guid"], 50)); }
+                            finally { RhinoView.SetActive -= activated; }
+                            Check(activations == 0, "Capturing a target activated a view before restoring it.");
+                            Success(reply);
+                            DecodePng(reply, 50);
+                            Unchanged(before, DocumentState(doc), "Capture " + group.Name);
+                            if (group.Name == "layouts")
+                            {
+                                Check(Math.Abs((int)reply["image"]["source_width"] - 210 * 96.0 / 25.4) <= 1 &&
+                                    Math.Abs((int)reply["image"]["source_height"] - 297 * 96.0 / 25.4) <= 1,
+                                    "Layout capture includes the workspace instead of the A4 paper.");
+                            }
+                            File.WriteAllBytes(Path.Combine(directory, group.Name + "-" + entry["guid"] + ".png"),
+                                Convert.FromBase64String((string)reply["image"]["data"]));
+                            lines.Add("PASS " + group.Name + " " + entry["name"] + ": PNG, percentage and unchanged document/view");
+                        }
+                    }
+                    var named = DocumentObservation.GetViewportImage(doc, doc.NamedViews[namedIndex].NamedViewId.ToString());
+                    var active = DocumentObservation.GetViewportImage(doc);
+                    Check((string)named["image"]["data"] != (string)active["image"]["data"],
+                        "Named-view capture returned the active camera instead of the saved view.");
+                    Unchanged(before, DocumentState(doc), "Named view versus active camera");
+                    lines.Add("PASS saved camera differs from active camera without restoring it");
+                    return Report(lines, "view image targets");
+                }
+                finally { doc.Modified = false; }
+            }
         }
 
         private static void ContextMetadata(JObject reply, RhinoDoc doc, int objectCount)
@@ -262,28 +364,21 @@ namespace AlmondScriptUndoTests
                 JToken.DeepEquals(metadata["up"], Vector(viewport.CameraUp)), "Camera metadata does not match the captured viewport.");
         }
 
-        private static void DecodeJpeg(JObject reply, Size source, Size limit)
+        private static void DecodePng(JObject reply, int percent)
         {
             var payload = reply["image"] as JObject;
-            Check(payload != null && (string)payload["mime_type"] == "image/jpeg", "Capture omitted its JPEG payload or MIME type.");
+            Check(payload != null && (string)payload["mime_type"] == "image/png", "Capture omitted its PNG payload or MIME type.");
             byte[] bytes = Convert.FromBase64String((string)payload["data"]);
-            Check(bytes.Length > 0 && bytes.Length <= 4 * 1024 * 1024 && (int)reply["image_byte_count"] == bytes.Length,
-                "Image byte count is incorrect or exceeds the 4 MiB limit.");
+            Check(bytes.Length > 0 && bytes.Length <= 4 * 1024 * 1024, "Image exceeds the 4 MiB limit.");
             using (var stream = new MemoryStream(bytes, false))
             using (var decoded = Image.FromStream(stream, true, true))
             {
-                Check(decoded.RawFormat.Guid == ImageFormat.Jpeg.Guid, "Capture bytes are not a decodable JPEG.");
+                Check(decoded.RawFormat.Guid == ImageFormat.Png.Guid, "Capture bytes are not a decodable PNG.");
                 int width = decoded.Width, height = decoded.Height;
                 Check(width == (int)payload["width"] && height == (int)payload["height"],
-                    "Decoded JPEG dimensions differ from image metadata.");
-                Check(width > 0 && height > 0 && width <= limit.Width && height <= limit.Height &&
-                    width <= source.Width && height <= source.Height, "Capture exceeded its bounds or upscaled the original view.");
-                Check(Math.Abs((long)width * source.Height - (long)height * source.Width) <= Math.Max(source.Width, source.Height),
-                    "Capture changed the view's aspect ratio beyond pixel rounding.");
-                if (source.Width <= limit.Width && source.Height <= limit.Height)
-                    Check(width == source.Width && height == source.Height, "An already fitting viewport was unnecessarily resized.");
-                else
-                    Check(limit.Width - width <= 1 || limit.Height - height <= 1, "Capture did not use the requested image bounds.");
+                    "Decoded PNG dimensions differ from image metadata.");
+                Check(width == Math.Max(1, (int)payload["source_width"] * percent / 100) &&
+                    height == Math.Max(1, (int)payload["source_height"] * percent / 100), "Capture ignored the requested percentage.");
             }
         }
 

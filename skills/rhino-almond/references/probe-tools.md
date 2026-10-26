@@ -12,14 +12,13 @@
 
 제공 probe는 `get_rhino_probe`로 호출하라. COS에서는 `get_rhino_probe`에 `connection_id`를 함께 전달한다. Bridge에 컴파일된 다섯 함수만 UI thread에서 실행하며 C# 소스·출력 파일 경로를 받지 않는다. Undo 기록·레이어·기하·선택·뷰·문서의 modified 상태를 변경하지 않는다.
 
-1. `project_info`에서 실제 `model_path`를 얻고 `get_rhino_context`로 열린 문서와 대조하라. COS에서는 같은 이름에 `connection_id`를 함께 전달한다.
-2. 아래 인자로 `get_rhino_probe`를 호출하라. `expected_model_path`에는 조회한 절대경로를 넣고 도구별 인자는 `options`에 넣어라.
+1. 이미 확인한 문서를 다시 두 도구로 확인하지 않는다. 프로젝트 정보가 필요하면 `project_info` 한 번으로 live 문서 정보도 얻는다.
+2. 아래 인자로 `get_rhino_probe`를 호출하라. 런타임이 연결된 모델 경로를 자동 적용하므로 `expected_model_path`를 기억하거나 입력하지 않는다. 도구별 인자는 `options`에 넣는다.
 3. 같은 응답의 `status`, `probe`, `document.path`·단위·공차와 `data`를 확인하라. 이전 실행의 파일로 결과를 대신하지 마라. 기록이 필요하면 응답을 해당 연결의 `artifact_dir`에 저장하라.
 
 ```json
 {
   "probe": "outline",
-  "expected_model_path": "<project_info에서 확인한 저장된 .3dm 절대경로>",
   "options": {"scope": "selected", "depth": 2, "include_geometry": true}
 }
 ```

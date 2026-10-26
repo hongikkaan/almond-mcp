@@ -8,6 +8,8 @@ import json
 import math
 from pathlib import Path
 import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from almond_mcp.instruction_text import read_instruction
 
 import bmesh
 import bpy
@@ -120,7 +122,7 @@ for asset in batch['assets']:
                     'source_triangles':source_triangles,'target_triangles':asset['target_triangles'],
                     'prepared_sha256':hashlib.sha256(target.read_bytes()).hexdigest(),
                     'software':'Blender '+bpy.app.version_string,
-                    'method':'Validate mesh; weld coincident vertices; dissolve degenerates; recalculate normals; collapse decimation only when above target with validation between passes; triangulate and validate before measuring. Never subdivide to inflate counts.',
+                    'method':read_instruction(__file__, 'response-283'),
                     'weld_tolerance_source_units':weld_tolerance,'quality':quality})
     print('PREPARED', aid, source_triangles, '->', quality['triangles'], quality, flush=True)
 

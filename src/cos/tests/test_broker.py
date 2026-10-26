@@ -178,6 +178,19 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await asyncio.wait_for(self.rig.broker.close(), 3)
 
+    async def test_selection_and_connection_return_the_model_filename(self):
+        listing = await self.rig.broker.list_connections()
+        self.assertIn("Use the explicit connection_id from connect", listing["instructions"])
+        target = next(t for t in listing["targets"] if t["host_id"] == "one")
+        self.assertEqual(target["model_path"], "one.3dm")
+        self.assertEqual(target["model_filename"], "one.3dm")
+
+        connection = await self.rig.connect()
+        self.assertEqual(connection["model_path"], target["model_path"])
+        self.assertEqual(connection["model_filename"], target["model_filename"])
+        active = await self.rig.broker.list_connections()
+        self.assertEqual(active["connections"][0]["model_filename"], "one.3dm")
+
     async def test_different_connections_execute_in_parallel_and_preserve_results(self):
         one, two = await self.rig.connect(), await self.rig.connect("two")
         self.assertNotEqual(one["artifact_dir"], two["artifact_dir"])

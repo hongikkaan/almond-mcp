@@ -1,5 +1,6 @@
 """Publish a prepared 3DM and its derived drawings as one versioned library entry."""
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -79,7 +80,7 @@ def _native_triangles(source: Path, output: Path, extract):
                 actual.shape != (6,) or not np.allclose(actual, bounds, rtol=1e-10, atol=1e-6)):
             raise ValueError("Native dimensions or triangle count disagree with the artifact")
     if abs(low[2]) > .01 or np.abs((low[:2] + high[:2]) / 2).max() > .01:
-        raise ValueError("Prepare the 3DM bottom-center origin before registration")
+        raise ValueError(read_instruction(__file__, 'response-360'))
     if np.any(high - low <= 0) or drafting.sha(source.read_bytes()) != expected:
         raise ValueError("The source is flat, degenerate or changed during extraction")
     return triangles, expected, bounds.tolist()
@@ -118,9 +119,9 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
         entries = manifest["assets"]
         matches = [i for i, a in enumerate(entries) if a.get("asset_id") == asset_id]
         if len(matches) > 1:
-            raise ValueError("The manifest contains duplicate asset IDs; reconcile it first")
+            raise ValueError(read_instruction(__file__, 'response-372'))
         if matches and not replace_existing:
-            raise ValueError("Asset ID already exists; use replace_existing=true for an explicit new revision")
+            raise ValueError(read_instruction(__file__, 'response-373'))
         version = uuid4().hex
         stage = Path(tempfile.mkdtemp(prefix=".register-", dir=root))
         final = root / "registered" / f"{asset_id}-{version}"

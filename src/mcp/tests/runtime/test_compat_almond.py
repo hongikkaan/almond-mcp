@@ -217,7 +217,7 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
         self.missing_material = True
         with self.assertRaisesRegex(RuntimeError, "material report was not received"):
             await self.invoke("fixture_material", lambda: self.helpers._material_groups([G1]))
-        self.assertTrue(self.paths[0].exists())
+        self.assertFalse(self.paths[0].exists())
         self.assertFalse(self.paths[1].exists())
         self.assertNotEqual(self.paths[0].parent, self.paths[1].parent)
         self.assert_completion(1)
@@ -238,7 +238,7 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
             await self.invoke("export_asset_contract", followup_files)
         self.assertFalse(glb.exists())
         self.assertFalse(contract.exists())
-        self.assertTrue(self.paths[0].is_file())
+        self.assertFalse(self.paths[0].exists())
         self.assertFalse(self.paths[1].exists())
         self.assert_completion(1)
 
@@ -265,7 +265,7 @@ class HelperTests(unittest.IsolatedAsyncioTestCase):
                 self.assertNotEqual(old_report.parent, self.paths[-1].parent)
                 self.assert_completion(3)
         self.assertEqual(len({path.parent for path in self.paths}), 4)
-        self.assertEqual(json.loads(old_report.read_text(encoding="utf-8")), REPORT)
+        self.assertFalse(old_report.exists())
 
     async def test_caught_native_failure_still_blocks_the_next_operation(self):
         self.native_reply = '{"status":"error","message":"Execution timed out (60s)."}'

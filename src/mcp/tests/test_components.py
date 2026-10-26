@@ -165,7 +165,7 @@ def test_sqlite_write_lock_is_held_while_native_runs_and_uncommitted_rows_are_in
         with sqlite3.connect(store.database_path, timeout=0) as peer:
             assert peer.execute("SELECT COUNT(*) FROM components").fetchone()[0] == 0
             with pytest.raises(sqlite3.OperationalError, match="locked"):
-                peer.execute("INSERT INTO scenes VALUES ('peer','peer','mm',0,'now','now')")
+                peer.execute("INSERT INTO scenes(scene_id,name,units,revision,created_at,updated_at) VALUES ('peer','peer','mm',0,'now','now')")
         return native_component(request)
     result = store.upsert_component(model, "Atomic", [A], [store.fixture_scene_id], native_apply=native)
     assert result["object_ids"] == [A]
@@ -405,7 +405,7 @@ def test_planar_object_bounds_are_valid_without_inventing_volume(store, model):
 @pytest.mark.parametrize("reference_kind", ["plan", "step"])
 def test_plan_references_block_unregister_before_any_native_mutation(store, model, reference_kind):
     comp = registered(store, model, [A])
-    plan = store.create_generation_plan(
+    plan = store.create_plan(
         "Retain target", scope="component",
         component_ids=[comp["component_id"]] if reference_kind == "plan" else [],
     )
@@ -525,7 +525,7 @@ def test_sync_recovers_lost_unregister_with_read_only_proof(store, model):
 @pytest.mark.parametrize("reference_kind", ["plan", "step"])
 def test_unregistered_sync_proof_cannot_release_referenced_component(store, model, reference_kind):
     comp = registered(store, model, [A])
-    plan = store.create_generation_plan("Retain", scope="component",
+    plan = store.create_plan("Retain", scope="component",
         component_ids=[comp["component_id"]] if reference_kind == "plan" else [])
     if reference_kind == "step":
         store.update_plan_step(plan["plan_id"], "inspect_context", "pending", component_ids=[comp["component_id"]])

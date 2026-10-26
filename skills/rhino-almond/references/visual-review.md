@@ -12,7 +12,7 @@
 
 평·단면의 주 모드는 **AGENT_Section_Glass**로 하고 Ghost_Xray·Dark·ALMOND 계열 등 현재 설치된 모드를 함께 사용하라. 이름은 실제 목록에서 확인한다. 요구한 모드가 없으면 누락과 사용한 대체 표현을 밝히고 해당 모드로 검수했다고 하지 마라.
 
-뷰·모드·clipping을 준비한 뒤 현재 화면 한 장은 `get_rhino_viewport_image`의 실제 ImageContent로 바로 검토할 수 있다. 이 도구가 Named View 전환·절단·모드 적용까지 수행한다고 가정하지 마라. 반환 metadata로 문서·뷰·시점을 대조하고, 이미지가 직접 전달됐다면 검토만을 위해 파일을 다시 만들 필요는 없다. 기록·제출용 파일이 필요하면 artifact_dir에 별도로 저장하라.
+뷰·모드·clipping을 준비한 뒤 `get_rhino_viewport_image()`로 현재 화면을 바로 검토한다. 다른 대상은 `view="a"`로 viewport·Named View·Layout의 이름과 GUID를 조회한 다음 `view=GUID`로 캡처한다. Named View는 화면을 전환하지 않고 저장된 카메라를 그리며 Layout은 용지 영역을 반환한다. 절단이나 display mode를 새로 적용하는 도구는 아니다. 기본 PNG 크기는 50%이며 더 선명한 이미지가 필요하면 `scale_percent=100` 등으로 지정한다. 기본 결과는 이미지 한 개이므로 반환 metadata에 문서·뷰 정보가 있다고 가정하지 마라. 검토만을 위해 파일을 다시 만들 필요는 없다. 기록·제출용 파일이 필요하면 artifact_dir에 별도로 저장하라.
 
 ## 종횡단면 전면검수 지시 시
 

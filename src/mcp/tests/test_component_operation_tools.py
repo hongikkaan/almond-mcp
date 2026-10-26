@@ -48,7 +48,7 @@ def wire(server, monkeypatch, capable=True, native=None):
 def test_public_intersection_resolves_native_request_and_preserves_unknowns(server, monkeypatch):
     calls = wire(server, monkeypatch)
     result = call(server, "get_component_intersections", expected_model_path=r"C:\Models\test.3dm",
-                  component_ids=["facade", "roof"], max_pairs=4)
+                  component_ids=["facade", "roof"], max_pairs=4, include_ids=True)
     assert result["status"] == "success"
     assert result["complete"] is False and result["has_positive_overlap"] is None
     assert [call_["type"] for call_ in calls] == ["get_rhino_context", "component_operation"]
@@ -87,7 +87,7 @@ def test_old_bridge_does_not_receive_unknown_native_component_operations(server,
 def test_invalid_arguments_do_not_reach_native(server, monkeypatch, component_ids, max_pairs):
     calls = wire(server, monkeypatch)
     result = call(server, "get_component_intersections", expected_model_path=r"C:\Models\test.3dm",
-                  component_ids=component_ids, max_pairs=max_pairs)
+                  component_ids=component_ids, max_pairs=max_pairs, include_ids=True)
     assert result["status"] == "error" and result["error_code"] == "invalid_arguments"
     assert calls == []
 
@@ -111,7 +111,8 @@ def test_protocol_schemas_expose_readonly_only_for_intersections(server):
             assert read["annotations"]["readOnlyHint"] is True
             assert focus["annotations"].get("readOnlyHint") is not True
             assert read["inputSchema"]["properties"]["max_pairs"]["default"] == 64
-            assert {"component_ids", "expected_model_path"} <= set(focus["inputSchema"]["required"])
+            assert {"component_ids"} == set(focus["inputSchema"]["required"])
+            assert focus["inputSchema"]["properties"]["expected_model_path"]["default"] == ""
             for bad in (True, "5", 5.0):
                 result = await client.call_tool("get_component_intersections", {
                     "expected_model_path": r"C:\Models\test.3dm", "component_ids": ["panel"],

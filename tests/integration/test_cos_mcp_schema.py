@@ -12,9 +12,13 @@ def test_catalog_matches_live_schema_and_retains_camera_examples(server):
         async with Client(server.mcp) as client:
             tools = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True)
                      for tool in await client.list_tools()}
-            assert len(tools) == 76
+            assert len(tools) == 73
+            assert {"get_selection_references", "update_design_scene", "list_phases", "list_plans"} <= set(tools)
+            assert not {"upsert_drawing_sheet", "get_drawing_sheet", "list_drawing_sheets",
+                        "sync_drawing_sheet", "remove_drawing_sheet"} & set(tools)
             for name in tools:
                 assert schema_identity(tools[name]) == schema_identity(catalog[name])
+                assert tools[name]["description"] == catalog[name]["description"]
             description = tools["capture_conditioning_pass"]["description"]
             for retained in ('"type":"orbit"', '"type":"track"', '"type":"keyframes"', "camera.json"):
                 assert retained in description

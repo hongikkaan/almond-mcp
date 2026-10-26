@@ -96,13 +96,20 @@ callback for nine headless cases. These include a first query on a fresh documen
 selection limits and unavailable-view warnings, disabled/caller-owned Undo,
 invalid arguments and unchanged document state.
 
-For the four real-view checks, explicitly choose the intended document and call
+For the real-view checks, explicitly choose the intended disposable document and call
 `ObservationTests.RunViewport(doc)` from a modeless UI callback. It decodes actual
-640x480 and 64x64 bounded JPEGs, checks metadata and aspect ratio, and compares
+1%, 50% and 100% PNGs, checks percentage sizing, and compares
 geometry CRC, serialized object attributes, layers, views, clipping, selection,
 Modified and Undo state before/after. Arrange any desired page/detail/clipping
 fixture explicitly before calling it; the tests do not change the current view
 to prepare a capture.
+
+`ObservationTests.RunImageTargets(directory)` requires a separate Rhino process
+with an empty, unmodified startup document. It creates its own disposable 3DM,
+Named View and A4 Layout, captures every listed GUID, verifies paper dimensions,
+and checks that the saved camera differs from the active camera without changing
+the document, selection, views or Undo state. PNG evidence goes in the supplied
+ignored test directory; production captures do not write image files.
 
 Use a unique output directory and `-p:AssemblyName=...` for a changed fixture if
 an earlier test assembly is already loaded. Do not overwrite loaded assemblies.

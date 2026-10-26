@@ -1,157 +1,158 @@
 """Register Phase, Plan and Step tools without owning server state."""
+from almond_mcp.tool_response import error_payload
+from almond_mcp.query_output import query_output
+from almond_mcp.instruction_text import tool_instruction
 
 import json
 
-from pydantic import StrictInt
+from pydantic import StrictBool, StrictInt
 
 
 def register(mcp, context):
     """Register planning tools against the calling server's live context."""
 
     @mcp.tool()
-    def create_generation_phase(name: str, description: str = "") -> str:
-        """Create an organizational Phase for Plans; this does not edit Rhino geometry."""
+    @tool_instruction(__file__, 'create_phase')
+    def create_phase(name: str, description: str = "", file_name: str = "") -> str:
         try:
-            return json.dumps({"status": "success", "phase": context.retrieval_store.create_generation_phase(name, description)})
+            return json.dumps({"status": "success", "phase": context.retrieval_store.create_phase(name, description, file_name)})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    def get_generation_phase(phase_id: str) -> str:
-        """Read a Phase's name, description and Plan count."""
+    @tool_instruction(__file__, 'get_phase')
+    @query_output
+    def get_phase(phase_id: str, include_ids: StrictBool = False) -> str:
         try:
-            phase = context.retrieval_store.get_generation_phase(phase_id)
+            phase = context.retrieval_store.get_phase(phase_id)
             if phase is None:
-                return json.dumps({"status": "error", "message": f"Unknown phase_id: {phase_id}"})
+                return json.dumps(error_payload(f"Unknown phase_id: {phase_id}"))
             return json.dumps({"status": "success", "phase": phase})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    def list_generation_phases(limit: StrictInt = 50) -> str:
-        """List organizational Phases with totals and an explicit truncation flag; limit is 1-500."""
+    @tool_instruction(__file__, 'list_phases')
+    @query_output
+    def list_phases(limit: StrictInt = 50, include_ids: StrictBool = False) -> str:
         try:
-            return json.dumps({"status": "success", **context.retrieval_store.list_generation_phases(limit)})
+            return json.dumps({"status": "success", **context.retrieval_store.list_phases(limit)})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
-    def update_generation_phase(
+    @tool_instruction(__file__, 'update_phase')
+    def update_phase(
         phase_id: str, name: str | None = None, description: str | None = None,
+        file_name: str | None = None,
     ) -> str:
-        """Update Phase organization; omitted fields retain their values."""
         try:
             return json.dumps({
-                "status": "success", "phase": context.retrieval_store.update_generation_phase(phase_id, name, description),
+                "status": "success", "phase": context.retrieval_store.update_phase(phase_id, name, description, file_name),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
-    def create_generation_plan(
+    @tool_instruction(__file__, 'create_plan')
+    def create_plan(
         goal: str,
         scope: str = "house",
         scene_id: str = "",
         phase_id: str = "",
         scene_ids: list[str] | None = None,
         component_ids: list[str] | None = None,
+        depends_on: list[str] | None = None,
     ) -> str:
-        """
-        Create a dependency-ordered Plan in an optional organizational Phase.
-        scope is house, interior, structure, drawing, or component; component uses
-        inspect_context, design, model, validate. scene_ids are context; component_ids
-        explicitly bind targets without requiring membership in those Scenes.
-        Legacy scene_id must match the first scene_ids entry when both are supplied.
-        Plans record state and evidence, do not execute steps, and do not authorize edits.
-        """
         try:
             return json.dumps({
                 "status": "success",
-                "plan": context.retrieval_store.create_generation_plan(
+                "plan": context.retrieval_store.create_plan(
                     goal=goal,
                     scope=scope,
                     scene_id=scene_id,
                     phase_id=phase_id,
                     scene_ids=scene_ids,
                     component_ids=component_ids,
+                    depends_on=depends_on,
                 ),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    def get_generation_plan(plan_id: str, revision: StrictInt | None = None) -> str:
-        """Read the current Plan or an immutable saved revision, including legacy baseline 0.
-
-        Snapshots contain Plan metadata, step state and handles; they are not Rhino
-        geometry backups. A missing requested revision never falls back to current state.
-        """
+    @tool_instruction(__file__, 'get_plan')
+    @query_output
+    def get_plan(plan_id: str, revision: StrictInt | None = None, include_ids: StrictBool = False) -> str:
         try:
-            plan = context.retrieval_store.get_generation_plan(plan_id, revision)
+            plan = context.retrieval_store.get_plan(plan_id, revision)
             if plan is None:
                 message = (f"Unknown plan_id: {plan_id}" if revision is None else
                            f"Unknown saved revision {revision} for plan_id: {plan_id}")
-                return json.dumps({"status": "error", "message": message})
+                return json.dumps(error_payload(message))
             return json.dumps({"status": "success", "plan": plan})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    def list_generation_plans(
+    @tool_instruction(__file__, 'list_plans')
+    @query_output
+    def list_plans(
         phase_id: str = "", scene_id: str = "", status: str = "", limit: StrictInt = 50,
+        include_ids: StrictBool = False,
     ) -> str:
-        """List compact Plan summaries, optionally filtered by Phase, contextual Scene or status."""
         try:
             return json.dumps({
-                "status": "success", **context.retrieval_store.list_generation_plans(phase_id, scene_id, status, limit),
+                "status": "success", **context.retrieval_store.list_plans(phase_id, scene_id, status, limit),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
-    def update_generation_plan(
+    @tool_instruction(__file__, 'update_plan')
+    def update_plan(
         plan_id: str,
         goal: str | None = None,
         phase_id: str | None = None,
         scene_ids: list[str] | None = None,
         component_ids: list[str] | None = None,
         expected_revision: StrictInt | None = None,
+        depends_on: list[str] | None = None,
+        status: str | None = None,
+        artifact_refs: list[str] | None = None,
     ) -> str:
-        """Update Plan metadata and bindings atomically, recording a new saved revision.
-
-        Omitted fields retain prior values; [] clears refs, and phase_id='' detaches
-        the Phase. expected_revision rejects stale updates without changing the Plan.
-        References provide context and explicit targets, not permission to edit geometry.
-        """
         try:
             return json.dumps({
-                "status": "success", "plan": context.retrieval_store.update_generation_plan(
+                "status": "success", "plan": context.retrieval_store.update_plan(
                     plan_id, goal=goal, phase_id=phase_id, scene_ids=scene_ids,
                     component_ids=component_ids, expected_revision=expected_revision,
+                    depends_on=depends_on, status=status, artifact_refs=artifact_refs,
                 ),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    def list_generation_plan_revisions(plan_id: str, limit: StrictInt = 50) -> str:
-        """List saved Plan revisions newest first, with operation labels and truncation metadata."""
+    @tool_instruction(__file__, 'list_plan_revisions')
+    @query_output
+    def list_plan_revisions(plan_id: str, limit: StrictInt = 50, include_ids: StrictBool = False) -> str:
         try:
-            return json.dumps({"status": "success", **context.retrieval_store.list_generation_plan_revisions(plan_id, limit)})
+            return json.dumps({"status": "success", **context.retrieval_store.list_plan_revisions(plan_id, limit)})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
-    def update_generation_step(
+    @tool_instruction(__file__, 'update_step')
+    def update_step(
         plan_id: str,
         step_id: str,
         status: str,
@@ -160,14 +161,6 @@ def register(mcp, context):
         component_ids: list[str] | None = None,
         expected_revision: StrictInt | None = None,
     ) -> str:
-        """
-        Record a Step's status, evidence and optional explicit Component targets.
-        Omitted refs retain prior values; [] clears them. Step component_ids=null in a
-        returned Plan inherits Plan targets; explicit [] selects none. Scene refs never
-        expand the selection. running/completed require completed prerequisites, and a
-        prerequisite cannot regress while descendants run or remain completed.
-        expected_revision rejects stale updates. No Rhino operation is executed here.
-        """
         try:
             return json.dumps({
                 "status": "success",
@@ -182,32 +175,54 @@ def register(mcp, context):
                 ),
             })
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    def resolve_generation_targets(plan_id: str, step_id: str = "") -> str:
-        """Resolve registered Step targets, or Plan targets when the Step has no override.
-
-        An explicit empty Step selection stays empty. Contextual Scenes never expand
-        targets. Returned group/document identities have live_verified=false; inspect
-        current Rhino state and user intent before editing. This does not grant authority.
-        """
+    @tool_instruction(__file__, 'resolve_targets')
+    @query_output
+    def resolve_targets(plan_id: str, step_id: str = "", include_ids: StrictBool = False) -> str:
         try:
-            return json.dumps({"status": "success", **context.retrieval_store.resolve_generation_targets(plan_id, step_id)})
+            return json.dumps({"status": "success", **context.retrieval_store.resolve_targets(plan_id, step_id)})
         except Exception as exc:
-            return json.dumps({"status": "error", "message": str(exc)})
+            return json.dumps(error_payload(str(exc)))
+
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @tool_instruction(__file__, 'get_selection_references')
+    def get_selection_references(selection_limit: StrictInt = 50, limit: StrictInt = 50) -> str:
+        try:
+            if type(selection_limit) is not int or not 1 <= selection_limit <= 200:
+                raise ValueError("selection_limit must be an integer from 1 to 200.")
+            context.retrieval_store._generation_limit(limit)
+            live = json.loads(context._send_and_receive(json.dumps({
+                "type": "get_rhino_context", "sections": ["document", "selection"],
+                "selection_limit": selection_limit,
+            }).encode("utf-8")))
+            if live.get("status") != "success":
+                return json.dumps(live)
+            document, selection = live.get("document"), live.get("selection")
+            if not isinstance(document, dict) or not isinstance(selection, dict):
+                raise ValueError("Live document/selection observation is incomplete.")
+            result = context.retrieval_store.selection_references(
+                document["path"], [obj["id"] for obj in selection["objects"]], limit,
+            )
+            result["selection_total"] = selection["total"]
+            result["selection_truncated"] = selection["truncated"]
+            return json.dumps({"status": "success", **result}, ensure_ascii=False)
+        except Exception as exc:
+            return json.dumps(error_payload(str(exc)))
 
     return {
-        "create_generation_phase": create_generation_phase,
-        "get_generation_phase": get_generation_phase,
-        "list_generation_phases": list_generation_phases,
-        "update_generation_phase": update_generation_phase,
-        "create_generation_plan": create_generation_plan,
-        "get_generation_plan": get_generation_plan,
-        "list_generation_plans": list_generation_plans,
-        "update_generation_plan": update_generation_plan,
-        "list_generation_plan_revisions": list_generation_plan_revisions,
-        "update_generation_step": update_generation_step,
-        "resolve_generation_targets": resolve_generation_targets,
+        "create_phase": create_phase,
+        "get_phase": get_phase,
+        "list_phases": list_phases,
+        "update_phase": update_phase,
+        "create_plan": create_plan,
+        "get_plan": get_plan,
+        "list_plans": list_plans,
+        "update_plan": update_plan,
+        "list_plan_revisions": list_plan_revisions,
+        "update_step": update_step,
+        "resolve_targets": resolve_targets,
+        "get_selection_references": get_selection_references,
     }

@@ -77,7 +77,7 @@ try {
     if($ready.pid -ne $info.pid -or $ready.process_start_ticks -ne $info.process_start_ticks){throw 'Rhino 프로세스가 바뀌었습니다.'}
     if($ready.ready_path -ine $project.ready_path -or $ready.session_dir -ine $project.session_dir){throw '연결 세대의 저장 경로가 다릅니다.'}
     $runtime=@{TERM='xterm-256color';PYTHONUTF8='1';PYTHONIOENCODING='utf-8';PYTHONDONTWRITEBYTECODE='1';
-        TEMP=$project.temp;TMP=$project.temp;TMPDIR=$project.temp}
+        ALMOND_PROJECT_ROOT=$project.project_dir}
     # Keep shared library selection native. Never replace user AppData/custom
     # sources with the manifests bundled inside this Python environment.
     foreach($key in $runtime.Keys){
@@ -86,7 +86,7 @@ try {
     }
     Write-Host "Almond 연결: $($project.model_path)"
     Write-Host "DB: $($project.state_db)"
-    Write-Host "작업용 출력/TEMP: $($project.temp)"
+    Write-Host '산출물: 선택한 Plan의 tmp/날짜_이름 폴더. 도구에는 상대경로를 사용하세요.'
     Write-Host '연결 중에는 다른 문서를 열거나 이름을 바꾸지 마세요. 끝낼 때 Codex에서 /exit.'
     Write-Host '이전 대화는 /exit 후 PowerShell에서 almond resume. Codex 안의 /resume은 MCP 잠금과 충돌합니다.'
     & (Join-Path $PSScriptRoot 'codex.ps1') -Port $port -AlmondVersion $config.almond_version `
@@ -119,4 +119,8 @@ try {
     if($slot){$slot.Mutex.ReleaseMutex();$slot.Mutex.Dispose()}
     if($lease){$lease.Dispose()}
     foreach($sharedLease in $sharedLeases){$sharedLease.Dispose()}
+    if($attached -and $detached){
+        & $python -B -X utf8 (Join-Path $PSScriptRoot 'storage_cleanup.py') --storage $project.storage
+        if($LASTEXITCODE){Write-Warning '종료된 연결 기록 정리는 다음 시작 때 다시 확인합니다.'}
+    }
 }

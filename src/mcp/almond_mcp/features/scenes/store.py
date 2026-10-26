@@ -1,5 +1,6 @@
 """Scene persistence using the composed store connection and Component contracts."""
 from __future__ import annotations
+from almond_mcp.instruction_text import read_instruction
 
 from typing import Any, Callable
 import uuid
@@ -10,7 +11,9 @@ from almond_mcp.store_common import _utc_now
 class ScenesStore:
     """Scene metadata, recursive object reads, and direct membership transactions."""
 
-    def create_scene(self, name: str, units: str = "mm") -> dict[str, Any]:
+    def create_scene(self, name: str, units: str = "mm", file_name: str = "") -> dict[str, Any]:
+        if not isinstance(file_name, str):
+            raise ValueError("file_name must be a string.")
         units = units.lower().strip()
         if units not in {"mm", "cm", "m", "in", "ft"}:
             raise ValueError("units must be mm, cm, m, in, or ft.")
@@ -19,11 +22,24 @@ class ScenesStore:
         with self._connect() as connection:
             connection.execute(
                 """
-                INSERT INTO scenes(scene_id, name, units, revision, created_at, updated_at)
-                VALUES (?, ?, ?, 0, ?, ?)
+                INSERT INTO scenes(scene_id, name, units, revision, created_at, updated_at, file_name)
+                VALUES (?, ?, ?, 0, ?, ?, ?)
                 """,
-                (scene_id, name.strip() or "Untitled scene", units, now, now),
+                (scene_id, name.strip() or "Untitled scene", units, now, now, file_name),
             )
+        return self.get_scene(scene_id)
+
+    def update_scene(self, scene_id: str, file_name: str) -> dict[str, Any]:
+        if not isinstance(file_name, str):
+            raise ValueError("file_name must be a string.")
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute("SELECT file_name FROM scenes WHERE scene_id = ?", (scene_id,)).fetchone()
+            if row is None:
+                raise KeyError(f"Unknown scene_id: {scene_id}")
+            if row["file_name"] != file_name:
+                connection.execute("UPDATE scenes SET file_name = ? WHERE scene_id = ?", (file_name, scene_id))
+                self._record_revision(connection, scene_id, "update_scene", {"file_name": file_name})
         return self.get_scene(scene_id)
 
 
@@ -65,6 +81,7 @@ class ScenesStore:
         return {
             "scene_id": scene["scene_id"],
             "name": scene["name"],
+            "file_name": scene["file_name"],
             "units": scene["units"],
             "revision": int(scene["revision"]),
             "rooms": room_count,
@@ -118,7 +135,7 @@ class ScenesStore:
                     ).fetchone()
                     registered_owner = row["component_id"] if row else None
                     if (obj["component_id"] or None) != registered_owner:
-                        raise ValueError("Native object ownership differs from the ledger; reconcile its component first.")
+                        raise ValueError(read_instruction(__file__, 'response-862'))
                 self._component_cache_objects(connection, model_path, objects)
             connection.execute(
                 "DELETE FROM scene_objects WHERE scene_id = ? AND object_rowid IN "

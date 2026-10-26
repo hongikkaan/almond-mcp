@@ -31,16 +31,17 @@ Rhino 내부 패널에서 이전 대화 이어가기
 
 저장 위치
   프로젝트\UNIT.3dm
-  프로젝트\.almond\scene.sqlite3                    ← 같은 모델 폴더의 공통 DB
-  프로젝트\.almond\tmp\                            ← 기존 임시 파일과 작업 자료
-  프로젝트\.almond\.sessions\<token>\               ← 연결 기록과 launcher/rhino/mcp 역할 잠금
-  프로젝트\.almond\.sessions\store.lock             ← 공통 DB 작업 잠금
-  프로젝트\.almond\tmp\calls\<token>\<operation>\    ← 호출별 작업 파일
-모델 이름·슬롯을 바꿔도 같은 폴더의 DB 위치는 같습니다. .almond에는 Python이나 원본 라이브러리를 복사하지 않습니다.
-Codex 작업 폴더는 .3dm이 있는 프로젝트 폴더입니다. 설정·대화 기록은 기존 Codex 저장소를 사용합니다.
-project_info의 artifact_dir는 tmp\calls\<token>입니다. 임의 C#/shell 출력은 그 아래 고유 작업 폴더의 절대 경로를 지정하세요.
-기존 report/exchange/conditioning의 공개 출력 인자가 비었을 때만 작업 폴더를 기본으로 사용하며, 사용자가 명시한 경로가 우선합니다.
-원본 drawing 도구의 AppData drawing-runs와 이미 열린 Rhino의 TEMP는 바꾸지 않습니다. 모든 파일 쓰기를 강제 격리하는 기능은 아닙니다.
+  프로젝트\.almond\DB                              ← 모델 폴더의 공통 DB
+  프로젝트\tmp\261026_적절한이름\                 ← Plan이 소유하는 산출물
+  프로젝트\.almond\.sessions\<token>\             ← 연결 기록과 역할 잠금
+  프로젝트\.almond\.sessions\store.lock           ← 공통 DB 잠금
+  프로젝트\.almond\tmp\python\<token>\<operation>\ ← 필요할 때만 만드는 임시자료
+모델 이름·슬롯을 바꿔도 같은 폴더의 DB 위치는 같습니다. 이전 scene.sqlite3는 다른 worker가 사용하지 않을 때 checkpoint 후 DB로 이름을 바꾸며, 충돌 시 양쪽 파일을 보존합니다.
+Codex 작업 폴더와 ALMOND_PROJECT_ROOT는 .3dm이 있는 프로젝트 폴더입니다.
+project_info는 project/document/artifacts를 기본으로 조회하며 document에 live 확인 결과가 포함됩니다. sections로 필요한 항목만 고릅니다.
+set_working_plan으로 작업을 선택하면 Plan의 산출물 폴더를 재사용합니다. execute_project_python은 그 폴더에서 상대경로로 실행합니다. Rhino C#은 ManagedFiles.Input/Output에 상대경로를 전달합니다.
+rename_artifact_folder로 폴더명을 바꾸면 현재 Plan/Step 자료 참조도 갱신합니다. 과거 revision은 그대로 남습니다.
+작업은 paused 등 미완료 상태에서 중단·전환·재개할 수 있습니다. Plan 완료는 임시자료 정리 조건이 아닙니다.
 
 공용 원본 라이브러리
   에셋·GH·캡슐·재료·구축 자료는 기본적으로 %LOCALAPPDATA%\Almond 아래에서 읽습니다.
@@ -52,22 +53,22 @@ project_info의 artifact_dir는 tmp\calls\<token>입니다. 임의 C#/shell 출�
   라이브러리 변경은 MCP를 새로 시작해 반영합니다. protocol 2 적용에는 새 RHP/Almond.Engine.dll도 함께 필요합니다.
   Rhino 내부 패널: Codex에서 /exit → PowerShell에서 almond 또는 almond resume.
   외부 실행기: 작업을 저장하고 기존 전용 세션을 종료한 뒤 「Almond 시작」을 다시 실행합니다.
-  .almond 폴더·scene.sqlite3·잠금 파일을 임의로 삭제하지 마세요. 시작 색인은 공통 store.lock 아래에서 기존 DB에 갱신합니다.
+  .almond 폴더·DB·잠금 파일을 임의로 삭제하지 마세요. 시작 색인은 공통 store.lock 아래에서 기존 DB에 갱신합니다.
   다운로드하지 않은 외부 모델은 경로가 올바르더라도 계속 사용 불가로 표시됩니다.
 
 tmp 정리
-  작업 종료 때 자동 삭제하지 않습니다. 이 폴더에는 최종 PDF·이미지·작업 전 .3dm 복사본도 있을 수 있습니다.
-  보관할 결과물은 내용과 참조 경로를 확인한 뒤 프로젝트의 검토/산출물 폴더에 보관하세요.
-  node-compile-cache는 재생성 가능한 실행 캐시입니다. 관련 Codex/Node 종료 후 필요하면 정리할 수 있습니다.
-  그 밖의 파일은 이름이 tmp라는 이유만으로 일괄 삭제하지 마세요. 현재 작업에서 사용하는 파일은 유지하세요.
-  Windows 기본 TEMP도 종료/재부팅 때 전부 자동 삭제되는 폴더는 아닙니다. 앱과 Windows 정리 설정에 따라 다릅니다.
+  프로젝트 tmp/YYMMDD_name 산출물은 작업 완료만으로 자동 삭제하지 않습니다.
+  .almond/tmp/python의 호출 임시자료는 코드/native 완료 확인 후 회수하고 빈 상위 폴더도 제거합니다.
+  .sessions의 종료된 token 기록은 worker 종료 또는 다음 시작 시 프로세스 identity·잠금을 확인해 회수합니다. 사용 중이거나 native 완료가 확인되지 않은 연결 자료는 보존합니다. 이는 Plan/Step 완료 여부와 무관합니다.
+  기존 .almond/tmp에는 과거 산출물도 있으므로 일괄 삭제하지 않습니다.
+  관리형 Python 실행의 자식 프로세스는 실행 종료 시 함께 종료합니다. 원래 Rhino 프로세스 TEMP와 사용자 라이브러리는 유지합니다.
 
 이름을 바꿀 때
-  해당 연결의 작업을 마치고 패널은 /exit, 외부 Codex·CoS 연결은 almonddisconnect로 해제를 완료하세요.
+  해당 연결의 실행을 중지하고 패널은 /exit, 외부 Codex·CoS 연결은 almonddisconnect로 해제를 완료하세요.
   외부 실행기로 연 세션은 모델을 저장하고 Codex와 해당 Rhino를 정상 종료하세요.
-  같은 폴더에서 UNIT.3dm을 HOUSE.3dm으로 바꿔도 .almond와 scene.sqlite3의 위치는 그대로입니다.
+  같은 폴더에서 UNIT.3dm을 HOUSE.3dm으로 바꿔도 .almond와 DB의 위치는 그대로입니다.
   HOUSE.3dm에서 새로 연결하면 기존 공통 DB와 tmp를 이어 씁니다. .almond 안에 모델명 폴더를 만들거나 이름을 맞추지 않습니다.
-다른 위치로 옮길 때: 그 .almond를 공유하는 모든 작업 완료 → 모델들 저장과 모든 연결·해당 창 정상 종료 → 모델들과 .almond 전체를 같은 새 로컬 폴더로 이동합니다.
+다른 위치로 옮길 때: 그 .almond를 공유하는 모든 실행 중지 → 모델들 저장과 모든 연결·해당 창 정상 종료 → 모델들과 .almond 전체를 같은 새 로컬 폴더로 이동합니다.
 새 위치의 .3dm을 열고 RhinoTerminal → almond 또는 almond resume로 시작하면 현재 경로로 다시 연결합니다.
 이름도 바꾸더라도 공통 .almond 폴더와 DB 이름은 유지합니다. 기존 기록을 자동 병합하거나 초기화하지 않습니다.
 .almond를 함께 옮기지 않으면 기존 DB를 이어 쓸 수 없습니다. 파일명/경로가 적힌 과거 코드·기록은 자동 수정되지 않습니다.

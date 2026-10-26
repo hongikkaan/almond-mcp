@@ -22,7 +22,7 @@ else:
 
 
 A, B = component_contracts.A, component_contracts.B
-SCENE_TOOLS = {"create_design_scene", "get_design_scene", "register_scene_objects", "get_scene_objects"}
+SCENE_TOOLS = {"update_design_scene", "create_design_scene", "get_design_scene", "register_scene_objects", "get_scene_objects"}
 
 
 @pytest.fixture
@@ -84,12 +84,12 @@ def test_scene_metadata_normalization_errors_and_cached_reads(feature, store):
     assert scene["name"] == "Facade" and scene["units"] == "cm"
     assert scene["revision"] == 0 and scene["objects"] == 0
     assert scene["live_verified"] is False
-    read = call(feature, "get_design_scene", scene_id=scene["scene_id"])
-    assert read["scene"] == store.get_scene(scene["scene_id"])
+    read = call(feature, "get_design_scene", scene_id=scene["scene_id"], include_ids=True)
+    assert read["scene"] == {k: v for k, v in store.get_scene(scene["scene_id"]).items() if k != "scene_id"}
     assert call(feature, "create_design_scene", name=" ")["scene"]["name"] == "Untitled scene"
     invalid = call(feature, "create_design_scene", name="invalid", units="yards")
     assert invalid["status"] == "error" and "units" in invalid["message"]
-    missing = call(feature, "get_design_scene", scene_id="missing")
+    missing = call(feature, "get_design_scene", scene_id="missing", include_ids=True)
     assert missing == {"status": "error", "message": "Unknown scene_id: missing"}
 
 
@@ -105,13 +105,13 @@ def test_factory_reads_store_sender_and_cross_feature_helpers_at_call_time(featu
 
     other_store = ExtractedScenesStore(tmp_path / "other.sqlite3")
     feature.namespace["retrieval_store"] = other_store
-    assert call(feature, "get_design_scene", scene_id=scene_id)["status"] == "error"
+    assert call(feature, "get_design_scene", scene_id=scene_id, include_ids=True)["status"] == "error"
     other_scene = call(feature, "create_design_scene", name="Isolated")["scene"]
     assert store.get_scene(other_scene["scene_id"]) is None
     assert other_store.get_scene(other_scene["scene_id"]) is not None
 
     feature.namespace["_component_error"] = lambda exc: json.dumps({"new_error_handler": str(exc)})
-    missing = call(feature, "get_scene_objects", scene_id=scene_id)
+    missing = call(feature, "get_scene_objects", scene_id=scene_id, include_ids=True)
     assert "new_error_handler" in missing
     feature.namespace["retrieval_store"] = store
     feature.namespace["_component_bridge"] = lambda request: (_ for _ in ()).throw(ValueError("new bridge"))
@@ -126,8 +126,8 @@ def test_factory_contexts_keep_separate_ledgers(feature, tmp_path):
         "retrieval_store": other_store,
     })))
     created = call(other, "create_design_scene", name="Other server")["scene"]
-    assert call(feature, "get_design_scene", scene_id=created["scene_id"])["status"] == "error"
-    assert call(other, "get_design_scene", scene_id=created["scene_id"])["scene"] == created
+    assert call(feature, "get_design_scene", scene_id=created["scene_id"], include_ids=True)["status"] == "error"
+    assert call(other, "get_design_scene", scene_id=created["scene_id"], include_ids=True)["scene"] == {k: v for k, v in created.items() if k != "scene_id"}
 
 
 @pytest.mark.parametrize("mode,object_ids", [("remove", [A]), ("replace", [])])
@@ -145,7 +145,7 @@ def test_unlink_last_object_needs_no_native_observation(feature, store, model, m
                    expected_model_path=model, object_ids=object_ids, mode=mode)
     assert removed["direct_objects"] == 0
     assert removed["scene_revisions"][store.fixture_scene_id] == 2
-    cached = call(feature, "get_scene_objects", scene_id=store.fixture_scene_id)
+    cached = call(feature, "get_scene_objects", scene_id=store.fixture_scene_id, include_ids=True)
     assert cached["objects"] == [] and cached["live_verified"] is False
 
 
@@ -207,7 +207,7 @@ def test_actual_mcp_scene_schema_and_roundtrip(feature, store, model):
                      for tool in await client.list_tools()}
             assert set(tools) == SCENE_TOOLS
             schema = tools["register_scene_objects"]["inputSchema"]
-            assert set(schema["required"]) == {"scene_id", "expected_model_path", "object_ids"}
+            assert set(schema["required"]) == {"scene_id", "object_ids"}
             assert schema["properties"]["mode"]["default"] == "add"
             assert tools["get_scene_objects"]["annotations"]["readOnlyHint"] is True
             assert tools["register_scene_objects"]["annotations"]["destructiveHint"] is False
@@ -217,7 +217,7 @@ def test_actual_mcp_scene_schema_and_roundtrip(feature, store, model):
                 "scene_id": scene["scene_id"], "expected_model_path": model, "object_ids": [A],
             })
             assert json.loads(linked.structured_content["result"])["status"] == "success"
-            read = await client.call_tool("get_scene_objects", {"scene_id": scene["scene_id"]})
+            read = await client.call_tool("get_scene_objects", {"scene_id": scene["scene_id"], "include_ids": True})
             objects = json.loads(read.structured_content["result"])
             assert objects["total"] == 1 and objects["live_verified"] is False
             assert objects["objects"][0]["rhino_guid"] == A

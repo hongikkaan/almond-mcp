@@ -140,6 +140,7 @@ class StartSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.launches), 1)
         self.assertEqual(len(self.rig.workers), 1)
         self.assertEqual(first["host_id"], "one")
+        self.assertEqual(first["model_filename"], "one.3dm")
         with self.assertRaisesRegex(RuntimeError, "different model"):
             await self.rig.broker.start_session("two.3dm", "request-one")
 

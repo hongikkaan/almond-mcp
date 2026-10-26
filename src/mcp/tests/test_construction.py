@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import sys
+import pytest
 import tempfile
 import uuid
 from pathlib import Path
@@ -22,7 +23,6 @@ VALID_STRUCTURAL_MATERIALS = {"Steel", "Concrete", "Wood", "Aluminium"}
 
 def load_server():
     import os
-    os.environ["RHINO_MCP_STATE_DB"] = tempfile.mktemp(suffix=".sqlite3")
     spec = importlib.util.spec_from_file_location(
         f"almond_server_construction_{uuid.uuid4().hex}",
         PACKAGE_ROOT / "almond_mcp" / "server.py",
@@ -264,3 +264,8 @@ def test_history_library_filters():
     result = json.loads(fn(query="skyscraper", limit=2))
     assert result["total"] >= 1 and len(result["entries"]) <= 2
     assert "NARRATION ONLY" in result["source"]
+
+
+@pytest.fixture(autouse=True)
+def isolated_server_database(tmp_path, monkeypatch):
+    monkeypatch.setenv("RHINO_MCP_STATE_DB", str(tmp_path / "DB"))

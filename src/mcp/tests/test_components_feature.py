@@ -130,14 +130,14 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
                 assert tools[name]["annotations"]["destructiveHint"] is False
             assert tools["get_component_intersections"]["inputSchema"]["properties"]["max_pairs"]["default"] == 64
             schema = tools["upsert_design_component"]["inputSchema"]
-            assert set(schema["required"]) == {"expected_model_path", "name", "object_ids"}
+            assert set(schema["required"]) == {"name", "object_ids"}
             assert schema["properties"]["child_component_ids"]["default"] is None
             created = await client.call_tool("upsert_design_component", {
                 "expected_model_path": model_path, "name": "Panel", "object_ids": [object_id],
                 "scene_ids": [scene_id], "component_id": "panel-1",
             })
             assert json.loads(created.structured_content["result"])["component"]["live_verified"] is True
-            read = await client.call_tool("get_design_component", {"component_id": "panel-1"})
+            read = await client.call_tool("get_design_component", {"component_id": "panel-1", "include_ids": True})
             assert json.loads(read.structured_content["result"])["component"]["object_ids"] == [object_id]
 
     asyncio.run(verify())
@@ -174,7 +174,7 @@ def test_factories_keep_runtime_sender_and_store_rebinding_isolated(tmp_path):
             return [{"component_id": "rebound"}]
 
     first.retrieval_store = ReboundStore()
-    assert _call(first, "list_design_components")["components"] == [{"component_id": "rebound"}]
+    assert _call(first, "list_design_components", include_ids=True)["components"] == [{"component_id": "rebound"}]
     assert _call(second, "list_design_components")["components"] == []
     assert events == [""]
     first.retrieval_store = FeatureStore(tmp_path / "replacement.sqlite3")

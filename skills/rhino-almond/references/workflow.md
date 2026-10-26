@@ -2,11 +2,11 @@
 
 ## 편집 범위
 
-**편집 대상은 현재 열린 Rhino 문서와 해당 `.almond`뿐이다. Worksession attached/reference 문서는 절대 직접 수정하지 않는다.** `project_info`로 연결에 묶인 모델 경로와 실제 artifact_dir를 얻고, `get_rhino_context`로 실제 문서 identity와 현재 상태를 대조하라. 연결 메타데이터만으로 활성 문서를 조회했다고 하지 마라. 문서가 바뀌면 기존 연결을 해제하고 다시 연결하라. 작업 스크립트·임시 파일·이미지·내보내기·보고서는 반환된 artifact_dir 아래 명시적 절대경로에 둔다. Rhino와 MCP 프로세스의 TEMP가 같다고 가정하지 마라.
+**편집 대상은 사용자 승인된 현재 Rhino 문서와 프로젝트 자료다. Worksession attached/reference 문서는 직접 수정하지 않는다.** 프로젝트 정보가 필요하면 `project_info`의 해당 sections만 조회한다. document 항목은 같은 호출에서 live 문서를 확인한다. 이를 다시 검증하려고 `get_rhino_context`를 호출하지 않는다. 상대경로의 기준은 실제 설정된 `ALMOND_PROJECT_ROOT`이며, 작업 산출물은 `set_working_plan`으로 선택한 `tmp/YYMMDD_작업명`이다. Python은 관리 실행 도구의 cwd, C#은 ManagedFiles helper를 사용한다. Rhino 전체 cwd나 TEMP를 산출물 기준으로 삼지 않는다.
 
 **파일이 필요할 때만 만든다.** 재료 목록·레시피를 별도 `library.json`으로 다시 만들거나 작은 결과·전달 코드마다 중간 JSON/Python/C# 파일을 만들지 않는다. 공개 도구 응답과 메모리 변수를 재사용하고 작은 값은 `result`로 직접 받는다. 복구 백업·대량 비교·저장 검증·제출 이미지처럼 목적이 있는 파일은 위 artifact_dir에 두고 실행 시점과 완료 상태를 구별한다. 경로가 맞다는 이유만으로 불필요한 파일 생성이 정당화되지는 않는다.
 
-등록·해제·정합은 공개 Component/Scene API로 수행한다. 공유 `scene.sqlite3`의 직접 UPDATE/DELETE, 소유권·`component_record` UserString 일괄 삭제로 오류를 우회하지 않는다. private reflection·임의 Idle 후속 변경·저장된 native 응답을 주입한 DB 갱신으로 공식 완료 확인을 우회하지 않는다. 작업 예약 성공은 그 작업의 완료가 아니다. read-only 조회와 직접 DB 변경은 구별한다. 현재 API로 안전하게 복구할 수 없으면 정확한 대상·오류·실제 반영 상태·남은 범위를 기록해 개발 문제로 분리한다. 다른 세션의 변경을 시작 snapshot으로 되돌리지 않는다.
+등록·해제·정합은 공개 Component/Scene API로 수행한다. 공유 `DB`의 직접 UPDATE/DELETE, 소유권·`component_record` UserString 일괄 삭제로 오류를 우회하지 않는다. private reflection·임의 Idle 후속 변경·저장된 native 응답을 주입한 DB 갱신으로 공식 완료 확인을 우회하지 않는다. 작업 예약 성공은 그 작업의 완료가 아니다. read-only 조회와 직접 DB 변경은 구별한다. 현재 API로 안전하게 복구할 수 없으면 정확한 대상·오류·실제 반영 상태·남은 범위를 기록해 개발 문제로 분리한다. 다른 세션의 변경을 시작 snapshot으로 되돌리지 않는다.
 
 ## 작업 기준과 설계 검토
 
@@ -36,11 +36,11 @@
 
 ## 계획과 실제 완료 연결
 
-**Phase 최소 1개 + Plan 생성·실제 사용은 필수다.** `list_generation_phases`로 적합한 Phase를 선택하고 없으면 `create_generation_phase`로 만든다. 새 독립 과업에는 `create_generation_plan(..., phase_id=...)`을 호출하고, 같은 과업의 연속 작업에서는 기존 Plan을 조회·재사용한다. Phase 없는 기존 Plan은 `update_generation_plan`으로 연결한다. API에서 Phase가 선택형이더라도 이 스킬에서는 누락하지 않는다.
+**Phase 최소 1개 + Plan 생성·실제 사용은 필수다.** `list_phases`로 적합한 Phase를 선택하고 없으면 `create_phase`로 만든다. 새 독립 과업에는 `create_plan(..., phase_id=...)`을 호출하고, 같은 과업의 연속 작업에서는 기존 Plan을 조회·재사용한다. Phase 없는 기존 Plan은 `update_plan`으로 연결한다. API에서 Phase가 선택형이더라도 이 스킬에서는 누락하지 않는다.
 
-작업 시작·진행·완료마다 `get_generation_plan`·`resolve_generation_targets`·`update_generation_step`을 실제로 사용한다. Plan에 대상 Rhino 문서와 관련 Scene을 식별하고, Room/instance 등록 범위는 현재 요구에 맞춰라. 결과·대상 핸들·검증 근거가 확보된 단계만 갱신한다. 사소한 수정은 관련 단계에 묶고, 독립 탐색·검토가 필요하면 상위 계획과의 관계·반영 조건을 기록하여 별도 Plan을 생성한다. 의존 단계와 revision을 확인한다.
+필요한 Plan·대상만 조회하고 의미 있는 진행·중단·재개 시 `update_step`에 기록한다. 이미 읽은 정보의 반복 조회를 의무화하지 않는다. Plan에 대상 Rhino 문서와 관련 Scene을 식별하고, Room/instance 등록 범위는 현재 요구에 맞춰라. 결과·대상 핸들·검증 근거가 확보된 단계만 갱신한다. 사소한 수정은 관련 단계에 묶고, 독립 탐색·검토가 필요하면 상위 계획과의 관계·반영 조건을 기록하여 별도 Plan을 생성한다. 의존 단계와 revision을 확인한다.
 
-기본 단계 이름이나 도구의 고정 scope가 과업과 다르면 실제 과업에 대응하는 목적·기준·해당 없음의 이유를 기록하라. 의존성 오류를 없애려고 미수행 단계를 완료로 꾸미지 마라. 도구가 지원하지 않는 과업은 남은 상태와 장애를 보존하라. 계획 완료는 모델·등록·검증의 증거가 모였다는 기록이다.
+기본 단계 이름이나 도구의 고정 scope가 과업과 다르면 실제 과업에 대응하는 목적·기준·해당 없음의 이유를 기록하라. 중단·전환·재개를 정상 상태로 다루고 `paused`를 사용하라. `depends_on`은 자유로운 관련 Plan/Phase ID 배열이며 완료나 순서를 강제하지 않는다. 미수행 단계를 완료로 꾸미지 마라. 도구가 지원하지 않는 과업은 남은 상태와 장애를 보존하라. 계획 완료는 모델·등록·검증의 증거가 모였다는 기록이다.
 
 완료 판단에는 다음 중 요청 범위에 필요한 근거를 함께 사용하라.
 
