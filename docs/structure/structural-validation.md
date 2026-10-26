@@ -2,6 +2,12 @@
 
 `validate_structure`의 Karamba 경로(`engine="karamba"`)와 입력·반환 계약이다. 선형 frame은 기본 `engine="auto"`에서 [native solver](native-solver.md)를 사용한다.
 
+## 해석 대상과 자산 하중
+
+`validate_structure(guids, ...)` and `visualize_structure(guids, ...)` take explicit Rhino GUIDs, not Component IDs. `StructureModelExport.Handle` runs `ModelConditioner.Condition`: Points become support anchors, Curves become member axes, slender Extrusions and prismatic Breps can heuristically become members, and Mesh/surface/plate-like geometry becomes shells; other solids can be skipped with warnings. The native frame solver requires line members and rejects shells. The Karamba fallback is not automatically equivalent EN 1990 / Eurocode verification. Passing all architectural Component geometry directly as structural members would overstate both coverage and analysis validity.
+
+Generated-asset gravity loads are **loads**, not automatically members. Preserve `AssetPlacementExport.Handle` (including old/new asset-ID tags), `retrieval_store.scene_instances`, `asset_loads.placements_from_scene`, `LoadTable.lookup`, `asset_loads.apply`, `structure_study.asset_catalogue`, `server._structural_loads_path`, `_asset_load_spec`, `get_asset_passport`, `structural-loads.json`, and generated manifest `category`, `spatial.support_plane`, `nominal_dimensions_mm`, and stable asset IDs. This existing path assigns estimated G/Q product/occupancy loads to frame members while reporting skipped ground-only, wall-mounted and structural elements. `test_asset_load_tools.py` and `test_asset_loads.py` cover these consumers. Asset conversion must not drop those identities/loads.
+
 ## Process
 
 ```
@@ -35,10 +41,7 @@ RhinoAlmondBridge.StructuralValidator
   5. record the run in the state DB → export_structural_report renders Markdown
 ```
 
-The response always names the pathway that actually ran
-(`results.analysis_method`) and prefixes the verdict, e.g.
-`[KARAMBA 3.1 API, HIGH CONFIDENCE]` vs `[RULE-BASED ESTIMATE, LOW CONFIDENCE]`.
-A rule-based answer is an estimate, not FEA — the label is the contract.
+The response always names the pathway that actually ran (`results.analysis_method`) and prefixes the verdict, e.g. `[KARAMBA 3.1 API, HIGH CONFIDENCE]` vs `[RULE-BASED ESTIMATE, LOW CONFIDENCE]`. A rule-based answer is an estimate, not FEA — the label is the contract.
 
 ## Inputs
 
@@ -49,16 +52,13 @@ A rule-based answer is an estimate, not FEA — the label is the contract.
 | `load_kn` | `10.0` | applied load in kN (also drives the rule-based UDL `w = load/span`) |
 | `material` | `"Steel"` | Steel (S235), S355, Concrete, Wood, Aluminium |
 
-Supports: when no anchors are declared, the bridge pins the lowest-Z node(s)
-automatically and says so in `warnings`.
+Supports: when no anchors are declared, the bridge pins the lowest-Z node(s) automatically and says so in `warnings`.
 
 ## Pass criteria
 
-- **Deflection:** `max_deflection_mm ≤ span_mm / 250` (e.g. 24 mm for a 6 m
-  span, 48 mm for 12 m).
+- **Deflection:** `max_deflection_mm ≤ span_mm / 250` (e.g. 24 mm for a 6 m span, 48 mm for 12 m).
 - **Strength:** utilization < 1.0 against yield (S235: fy = 235 MPa).
-- Rule-based pathway: mid-span UDL deflection `5wL⁴/384EI`, moment `wL²/8`,
-  with load sharing across members.
+- Rule-based pathway: mid-span UDL deflection `5wL⁴/384EI`, moment `wL²/8`, with load sharing across members.
 
 ## Karamba 로드와 확인
 
@@ -84,20 +84,7 @@ Karamba는 build-time reference 없이 `KarambaAdapter.cs`가 reflection으로 �
 
 ## Live structure view
 
-`visualize_structure(guids=[...])` solves the frame (native solver by default,
-`engine="karamba"` for the Karamba route; see [native-solver.md](native-solver.md))
-and draws it in every viewport through a display conduit (nothing is baked): ghosted
-undeformed axes, the exaggerated deformed shape coloured blue → red by
-displacement or utilization, supports, load arrows and a legend with
-max δ, the L/limit check and PASS/FAIL. `reanalyze=False` updates only the
-display (`scale`, `color_by`, `reveal`, `title`), so a staged construction
-sequence can be played back with `reveal` from 0 to 1, and `physics=False`
-draws the same members as plain geometry (physics off) for comparisons.
-`span_m` sets the reference span for the L/limit check when members are
-split at every node, `fixed_supports=False` pins the supports. `clear=True`
-removes the overlay. A 20-member frame solves in ~1.5 s (verified live on
-the Atelier-07 mezzanine: CHS 114.3x4 fails at 183 mm / utilization 3.59;
-CHS 193.7x8 passes at 20.9 mm / 0.66 against L/250 = 24.8 mm).
+`visualize_structure(guids=[...])` solves the frame (native solver by default, `engine="karamba"` for the Karamba route; see [native-solver.md](native-solver.md)) and draws it in every viewport through a display conduit (nothing is baked): ghosted undeformed axes, the exaggerated deformed shape coloured blue → red by displacement or utilization, supports, load arrows and a legend with max δ, the L/limit check and PASS/FAIL. `reanalyze=False` updates only the display (`scale`, `color_by`, `reveal`, `title`), so a staged construction sequence can be played back with `reveal` from 0 to 1, and `physics=False` draws the same members as plain geometry (physics off) for comparisons. `span_m` sets the reference span for the L/limit check when members are split at every node, `fixed_supports=False` pins the supports. `clear=True` removes the overlay. A 20-member frame solves in ~1.5 s (verified live on the Atelier-07 mezzanine: CHS 114.3x4 fails at 183 mm / utilization 3.59; CHS 193.7x8 passes at 20.9 mm / 0.66 against L/250 = 24.8 mm).
 
 ## Getting a report
 
@@ -109,6 +96,4 @@ export_structural_report()            # → %LOCALAPPDATA%\Almond\reports\struct
 export_structural_report(path="C:\\project\\checks.md", limit=10)
 ```
 
-The report contains the pathway explanation, a run table (span, deflection
-vs limit, utilization, reactions, member count, PASS/FAIL), per-run verdicts
-and warnings, and the interpretation notes above.
+The report contains the pathway explanation, a run table (span, deflection vs limit, utilization, reactions, member count, PASS/FAIL), per-run verdicts and warnings, and the interpretation notes above.

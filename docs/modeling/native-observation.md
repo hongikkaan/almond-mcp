@@ -91,7 +91,7 @@ Python은 기존 문서 조회의 `capabilities.fixed_probes`를 먼저 확인�
 이 capability가 없는 이전 관찰용 Bridge에는 알 수 없는 probe 요청을 보내지 않고
 `unsupported_probe`를 반환한다. 새 Bridge의 알 수 없는 request type도 실행 없이
 `unsupported_request`로 거절한다. `execute`와 type 생략의 기존 스크립트 동작은 유지한다.
-옵션별 계약은 [스킬 probe 안내](../../skills/rhino-almond/references/probe-tools.md)에 있다.
+입력·출력 요약은 [스킬의 조회·화면 도구](../../skills/rhino-almond/SKILL.md#조회화면-도구)에 있다.
 
 ## C#에서 계산값 반환
 

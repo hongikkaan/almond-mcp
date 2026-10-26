@@ -16,7 +16,7 @@ function Get-AlmondCodexVersion([string]$Path) {
         $info.RedirectStandardError = $true
         $process = [System.Diagnostics.Process]::Start($info)
         $stdout = $process.StandardOutput.ReadToEndAsync()
-        $stderr = $process.StandardError.ReadToEndAsync()
+        $null = $process.StandardError.ReadToEndAsync()
         if (-not $process.WaitForExit(5000)) {
             $process.Kill() # Only this version-probe child.
             return $null

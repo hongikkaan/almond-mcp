@@ -9,7 +9,7 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, COS는 별도 RHP로 구성됩�
 - [Codex·CoS·외부 MCP 클라이언트 연결](src/cos/EXTERNAL_CLIENTS.md)
 - [Rhino 패널 사용법](docs/assets/rhino-archive-quickstart.md)
 - [자산 검색·배치·도면·출처 관리](docs/assets/assets-and-drawings.md)
-- [Scene·Component·계획](docs/modeling/component-system.md)
+- [Rhino 작업 스킬](skills/rhino-almond/SKILL.md) · [Component 등록·계층·동기화](docs/modeling/component-system.md) · [Phase·Plan·Step 저장·참조](docs/modeling/planning.md)
 - [현재 문서·화면·고정 probe·C# 반환값](docs/modeling/native-observation.md)
 - [구조해석 사용법](docs/structure/structural-tutorial.md) · [native solver](docs/structure/native-solver.md) · [Karamba 경로](docs/structure/structural-validation.md) · [설계 코드](docs/structure/design-codes.md)
 - [구법 안내](docs/construction/construction-guidance.md) · [구법 참조표](docs/construction/construction-spec-register.md)
