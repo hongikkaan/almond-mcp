@@ -63,6 +63,43 @@ def test_failed_ref_update_rolls_back_folder_move_and_metadata(work, monkeypatch
     assert work.current() == selected
 
 
+@pytest.mark.parametrize("reference", [
+    "./tmp/261026_original/result.txt", "TMP/261026_ORIGINAL/result.txt",
+    r".\tmp\261026_original\result.txt", "tmp/261026_original/sub/../result.txt",
+])
+def test_rename_normalizes_windows_file_refs_and_preserves_nonfile_refs(work, reference):
+    plan = work.store.create_plan("Grid", scope="component")
+    work.select(plan["plan_id"], "model", "261026_original")
+    original = work.artifact_path()
+    original.mkdir(parents=True)
+    (original / "result.txt").write_text("keep")
+    unchanged = ["https://example.com/tmp/261026_original/result.txt",
+                 "almond://tmp/261026_original/result.txt", "component:part",
+                 "tmp/261026_original-extra/result.txt"]
+    absolute = str(original / "result.txt").upper()
+    work.store.update_plan(plan["plan_id"], artifact_refs=[reference, absolute, *unchanged])
+    work.store.update_plan_step(plan["plan_id"], "model", "paused",
+                               input_refs=[reference], output_refs=[reference])
+    work.rename("261026_renamed")
+    updated = work.store.get_plan(plan["plan_id"])
+    assert updated["artifact_refs"] == ["tmp/261026_renamed/result.txt",
+                                        "tmp/261026_renamed/RESULT.TXT", *unchanged]
+    step = next(item for item in updated["steps"] if item["step_id"] == "model")
+    assert step["input_refs"] == step["output_refs"] == ["tmp/261026_renamed/result.txt"]
+
+
+def test_rename_does_not_equate_different_windows_unicode_names(work):
+    plan = work.store.create_plan("Unicode folder")
+    work.select(plan["plan_id"], artifact_name="261026_straße")
+    directory = work.artifact_path()
+    directory.mkdir(parents=True)
+    assert not (directory.parent / "261026_strasse").exists()
+    distinct = "tmp/261026_strasse/result.txt"
+    work.store.update_plan(plan["plan_id"], artifact_refs=[distinct])
+    work.rename("261026_renamed")
+    assert work.store.get_plan(plan["plan_id"])["artifact_refs"] == [distinct]
+
+
 @pytest.mark.parametrize("name", ["../escape", "C:/escape", "foo/bar", "bad:name", ".."])
 def test_folder_names_cannot_escape_project(work, name):
     plan = work.store.create_plan("Grid")

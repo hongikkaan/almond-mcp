@@ -1,6 +1,7 @@
 """Plan-owned artifact folders and their current references in the shared store."""
 from datetime import datetime
 import json
+import ntpath
 from pathlib import Path
 import re
 
@@ -87,8 +88,15 @@ class Workspace:
                 raise ValueError("Only a directly owned project tmp folder can be renamed.")
 
             def rewrite(ref):
-                value = relative_path(ref, str(self.root)).replace("\\", "/")
-                return destination + value[len(original):] if value == original or value.startswith(original + "/") else ref
+                # URI/opaque references are not filesystem paths. A Windows
+                # absolute drive path is the exception to the scheme prefix.
+                if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", ref) and not re.match(r"^[A-Za-z]:[/\\]", ref):
+                    return ref
+                value = ntpath.normpath(relative_path(ref, str(self.root))).replace("\\", "/")
+                prefix = ntpath.normpath(original).replace("\\", "/")
+                key, prefix_key = ntpath.normcase(value), ntpath.normcase(prefix)
+                matches = key == prefix_key or key.startswith(prefix_key + "\\")
+                return destination + value[len(prefix):] if matches else ref
 
             try:
                 if source.exists():

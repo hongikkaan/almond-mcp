@@ -17,7 +17,7 @@ import tempfile
 import time
 import uuid
 from almond_mcp.managed_paths import project_path, relative_output
-from storage_cleanup import remove_owned_tree
+from storage_cleanup import process_identity_alive, remove_owned_tree
 
 import anyio
 from fastmcp.server.middleware import Middleware
@@ -85,6 +85,39 @@ class StoreGate:
 
     async def __aexit__(self, *args):
         self.close()
+
+
+def validate_artifact_writers(storage: str | Path) -> None:
+    """Call under artifacts.lock; persist exclusion even after a worker exits.
+
+    A timed-out transport can deliver a delayed native frame. An idle receipt
+    alone is therefore insufficient: require native stop/drain or Rhino exit.
+    This is an operation-lifetime barrier, independent of Plan/Step status.
+    """
+    for path in (Path(storage) / ".sessions").glob("*/operation.json"):
+        operation = read_json(path)
+        if not operation.get("artifact_write") or operation.get("state") == "completed":
+            continue
+        session = path.parent
+
+        def snapshot(name):
+            try:
+                return read_json(session / name)
+            except (OSError, ValueError):
+                return {}
+
+        ready, native = snapshot("ready.json"), snapshot("native.json")
+        token = operation.get("token")
+        if token == session.name:
+            if ready.get("token") == token and process_identity_alive(ready) is False:
+                continue
+            if (native.get("schema") == "almond-native" and native.get("token") == token
+                    and native.get("phase") in {"stopped", "faulted"}
+                    and native.get("pending") == 0):
+                continue
+        raise RuntimeError("An earlier artifact write has not confirmed native drain. "
+                           "End that connection normally before writing or renaming artifacts; "
+                           "no new file operation was started.")
 
 
 def validate_shared_ids(name: str, arguments: dict, database: str | Path) -> None:
@@ -301,6 +334,8 @@ class ProjectRuntime(Middleware):
                 if name in FILE_TOOLS:
                     await artifact_gate.__aenter__()
                 try:
+                    if name in FILE_TOOLS:
+                        validate_artifact_writers(self.locations["storage"])
                     return await self._owned_call(context, call_next, name)
                 finally:
                     artifact_gate.close()
@@ -338,6 +373,7 @@ class ProjectRuntime(Middleware):
             "worker_pid": self.worker["pid"],
             "worker_start_ticks": self.worker["process_start_ticks"],
             "temp": str(operation_dir), "state": "running",
+            "artifact_write": name in FILE_TOOLS,
         }
         write_json(operation_path, operation)
         self.last = {"pending": True, "uncertain": False, "operation_id": operation_id}

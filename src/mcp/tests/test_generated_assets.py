@@ -132,7 +132,7 @@ def test_server_indexes_and_searches_generated_library():
     assert one["asset"]["dimensions_mm"]["height"] == 800
 
     status = json.loads(server.get_retrieval_status(include_ids=True))
-    assert status["generated_asset_index"]["total"] == expected
+    assert status["model_asset_index"]["total"] == expected
 
 
 def test_place_generated_asset_rejects_bad_input_before_touching_rhino():

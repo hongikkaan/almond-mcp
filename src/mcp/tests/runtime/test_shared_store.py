@@ -409,6 +409,68 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(temp_state(), before)
         self.assert_operation_completed()
 
+    async def test_unconfirmed_native_writer_blocks_peer_rename_until_native_drain(self):
+        store = AlmondStore(self.paths["state_db"])
+        plan = store.create_plan("Shared artifact")
+        self.runtime.workspace = Workspace(self.paths, store)
+        self.runtime.workspace.select(plan["plan_id"], artifact_name="261026_original")
+        directory = self.runtime.workspace.artifact_path()
+        directory.mkdir(parents=True)
+        native_path = Path(self.paths["session_dir"]) / "native.json"
+        receipt = {}
+
+        def timed_out_sender(payload):
+            request = json.loads(payload)
+            receipt.update(schema="almond-native", token=request["token"],
+                           operation_id=request["operation_id"], sequence=1,
+                           phase="listening", pending=1, completion_status="running")
+            write_json(native_path, receipt)
+            raise TimeoutError("Native write is still running")
+
+        @self.mcp.tool()
+        def execute_rhino_script() -> dict:
+            try:
+                self.runtime.send(timed_out_sender, b'{"type":"execute","script":"fixture"}')
+            except TimeoutError:
+                return {"status": "error"}
+
+        peer = connection(self.root, "peer", "B")
+        peer_runtime = ProjectRuntime(peer.args, peer.binding, peer.locations)
+        peer_runtime.workspace = Workspace(peer.locations, store)
+        peer_runtime.workspace.select(plan["plan_id"])
+        peer_mcp = FastMCP("Peer artifact fixture")
+        peer_mcp.add_middleware(peer_runtime)
+
+        @peer_mcp.tool()
+        def rename_artifact_folder(name: str) -> dict:
+            return peer_runtime.workspace.rename(name)
+
+        @peer_mcp.tool()
+        def get_plan() -> dict:
+            return store.get_plan(plan["plan_id"])
+
+        await self.mcp.call_tool("execute_rhino_script", {})
+        self.assertTrue(self.runtime.unconfirmed)
+        # Worker exit releases its OS handles; the durable operation must still
+        # exclude peers until the separate Rhino owner has actually drained.
+        write_json(Path(self.paths["session_dir"]) / "worker.json", {"closed": True})
+        for changes in ({}, {"pending": 0, "completion_status": "completed"},
+                        {"phase": "stopped", "token": uuid.uuid4().hex}):
+            receipt.update(changes)
+            write_json(native_path, receipt)
+            with self.assertRaisesRegex(RuntimeError, "artifact.*drain"):
+                await peer_mcp.call_tool("rename_artifact_folder", {"name": "261026_renamed"})
+            self.assertTrue(directory.is_dir())
+            self.assertEqual(result_json(await peer_mcp.call_tool("get_plan", {}))["artifact_dir"],
+                             "tmp/261026_original")
+        (directory / "late-result.txt").write_text("completed native artifact")
+        receipt.update(token=self.session.token, phase="stopped", pending=0)
+        write_json(native_path, receipt)
+        await peer_mcp.call_tool("rename_artifact_folder", {"name": "261026_renamed"})
+        self.assertFalse(directory.exists())
+        self.assertEqual((peer_runtime.workspace.artifact_path() / "late-result.txt").read_text(),
+                         "completed native artifact")
+
     async def test_raw_repeated_cancel_keeps_gate_until_sync_body_and_cleanup_end(self):
         started, release, finished = threading.Event(), threading.Event(), threading.Event()
         observations = []
