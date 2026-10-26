@@ -72,7 +72,7 @@ def check_contract(catalog: dict, engine: Path = ENGINE) -> None:
     for package, expected in catalog["packages"].items():
         actual = version(package)
         if actual != expected:
-            raise RuntimeError(f"AlmondCOS expects {package} {expected}; installed: {actual}. Recheck compatibility.")
+            raise RuntimeError(f"Almond external MCP expects {package} {expected}; installed: {actual}. Recheck compatibility.")
     paths = source_paths(engine)
     if set(paths) != set(catalog["sources"]):
         raise RuntimeError("Tool source inventory changed after this client started. Start a new client session before connecting.")

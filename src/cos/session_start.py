@@ -57,14 +57,14 @@ class RhinoStart:
         deadline = loop.time() + self.timeout
         while True:
             if self.process.poll() is not None:
-                raise RuntimeError(f"Rhino PID {self.identity['pid']} exited before its COS advertisement was confirmed. No replacement was started.")
+                raise RuntimeError(f"Rhino PID {self.identity['pid']} exited before its external advertisement was confirmed. No replacement was started.")
             if self.identity_reader(self.process.pid) != self.identity:
                 raise RuntimeError("Rhino process identity changed. No other Rhino was adopted.")
             matches = [record for record in self.host_reader(self.data)
                        if record.get("pid") == self.identity["pid"]
                        and str(record.get("process_start_ticks")) == self.identity["process_start_ticks"]]
             if len(matches) > 1:
-                raise RuntimeError("Multiple COS advertisements identify the new Rhino; inspect its plugin registration.")
+                raise RuntimeError("Multiple external advertisements identify the new Rhino; inspect its plugin registration.")
             if matches:
                 return matches[0]
             if loop.time() >= deadline:

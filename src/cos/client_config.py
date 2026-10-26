@@ -103,8 +103,10 @@ def install_codex(path: Path, config: dict) -> Path | None:
             raise ValueError("Cannot locate the owned rhino table; no changes made.")
         end = re.search(r"(?m)^\s*\[", updated[header.end():])
         stop = header.end() + end.start() if end else len(updated)
-        body, count = re.subn(r"(?m)^args[ \t]*=[^\r\n]*",
-                             lambda _: "args = " + json.dumps(config["args"], ensure_ascii=False),
+        old_args = json.dumps(old_config["args"], ensure_ascii=False)
+        pattern = r"(?m)^(args[ \t]*=[ \t]*)" + re.escape(old_args) + r"([ \t]*(?:#[^\r\n]*)?)(\r?)$"
+        body, count = re.subn(pattern,
+                             lambda match: match[1] + json.dumps(config["args"], ensure_ascii=False) + match[2] + match[3],
                              updated[header.end():stop])
         if count != 1:
             raise ValueError("Cannot safely migrate the owned host arguments; no changes made.")

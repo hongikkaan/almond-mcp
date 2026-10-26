@@ -1,6 +1,6 @@
-# COS 계약
+# 외부 연결기·COS 계약
 
-이 모듈은 Chat on Steroids와 Rhino 사이의 COS 통합을 소유한다.
+이 모듈은 Codex 직접·CoS 경유 연결의 공용 외부 연결기와 기존 Rhino COS 플러그인을 소유한다.
 [작업 지침](AGENTS.md)과 [공통 경계](../../SPEC.md)를 함께 따른다.
 
 CoS는 `cos_host.py`, Codex·외부 로컬 MCP 클라이언트는 `codex_host.py`를 진입점으로 사용한다.
@@ -26,7 +26,7 @@ disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해�
 |---|---|
 | `external_host.py`, `cos_worker.py` | 공용 외부 stdio adapter와 Rhino 연결마다 분리된 worker |
 | `cos_host.py`, `codex_host.py` | CoS 경유·Codex 직접 연결의 명시적인 진입점과 MCP 서버 식별 |
-| `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 COS 광고 확인 |
+| `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 외부 연결 광고 확인 |
 | `detached_process.py` | 새 프로세스를 suspended 상태로 생성하고 모든 Windows Job 밖임을 확인한 뒤 실행 |
 | `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
 | `data/tool_catalog.json` | configure/build에서 만드는 Git 추적 제외 개발용 export; 런타임은 읽지 않고 현재 소스에서 schema를 생성함 |

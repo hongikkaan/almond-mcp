@@ -14,8 +14,8 @@
 
 ## 공통 구현과 유지하는 계약
 
-`external_host.py`는 클라이언트별 지연 시작, 연결별 worker, 공유 gate, lease,
-native 완료 확인의 유일한 소유자다. 두 외부 진입점은 MCP 서버 식별을 각각
+`external_host.py`는 클라이언트별 지연 시작과 연결별 worker 생명주기를 조정한다.
+공유 gate·lease·native 완료 정책은 기존 runtime/Engine 계약을 사용한다. 두 외부 진입점은 MCP 서버 식별을 각각
 `Almond CoS`, `Almond Codex`로 지정한다. 공통 도구 이름과 입력 schema는 같다.
 CoS 등록 command와 출력 디렉터리를 보존하기 위해 파일은 `src/cos`에 유지한다.
 이 디렉터리 이름이 CoS 앱 실행 의존성을 뜻하지 않는다.

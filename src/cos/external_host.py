@@ -307,7 +307,7 @@ class Broker:
         status = await conn.control.request("status", session_token=conn.token)
         reason = status.get("reason")
         if reason or status.get("state") not in ("connected", "unconfirmed_or_running"):
-            raise RuntimeError(str(reason or "Rhino disconnected this COS binding."))
+            raise RuntimeError(str(reason or "Rhino disconnected this external binding."))
 
     async def _check_binding(self, conn: Connection):
         try:
@@ -431,7 +431,7 @@ class Broker:
             raise RuntimeError("Almond external host is closing.")
         self.contract_check(self.catalog)
         if host_id in self.host_connections:
-            raise RuntimeError(f"Rhino already has COS connection {self.host_connections[host_id]}.")
+            raise RuntimeError(f"Rhino already has external connection {self.host_connections[host_id]}.")
         record = next((r for r in self.host_reader(self.data) if r["host_id"] == host_id), None)
         if record is None:
             raise RuntimeError("Rhino advertisement is stale. Run almondconnect in the intended saved document.")

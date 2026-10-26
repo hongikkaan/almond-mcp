@@ -106,3 +106,25 @@ class ClientConfigTests(unittest.TestCase):
                 self.assertEqual(parsed["mcp_servers"], {"rhino": self.config})
                 self.assertEqual(parsed["model"], "gpt-6-astra")
                 self.assertIsNone(install_codex(path, self.config))
+
+    def test_shared_host_migration_preserves_inline_comments(self):
+        old = dict(self.config, args=[*self.config["args"][:-1], str(self.root / "src/cos/cos_host.py")])
+        original = codex_toml(old).replace(json.dumps(old["args"], ensure_ascii=False),
+                                          json.dumps(old["args"], ensure_ascii=False) + "  # user note")
+        path = self.root / "comment.toml"
+        path.write_text(original, encoding="utf-8")
+        backup = install_codex(path, self.config)
+        self.assertEqual(backup.read_text(encoding="utf-8"), original)
+        self.assertIn("  # user note", path.read_text(encoding="utf-8"))
+        self.assertEqual(tomllib.loads(path.read_text(encoding="utf-8"))["mcp_servers"]["rhino"], self.config)
+
+    def test_unfamiliar_equivalent_args_syntax_is_preserved_without_changes(self):
+        old = dict(self.config, args=[*self.config["args"][:-1], str(self.root / "src/cos/cos_host.py")])
+        original = codex_toml(old).replace(json.dumps(old["args"], ensure_ascii=False),
+                                          json.dumps(old["args"], ensure_ascii=False, indent=2))
+        path = self.root / "multiline.toml"
+        path.write_text(original, encoding="utf-8")
+        with self.assertRaises(ValueError):
+            install_codex(path, self.config)
+        self.assertEqual(path.read_text(encoding="utf-8"), original)
+        self.assertFalse(list(self.root.glob("*.almond-backup-*")))
