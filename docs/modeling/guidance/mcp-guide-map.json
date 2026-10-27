@@ -2,9 +2,9 @@
   "topics": [
     {
       "id": "project",
-      "summary": "문서·프로젝트 경계와 작업자료 경로",
+      "summary": "문서·프로젝트 경계, 비대화식 저장과 작업자료 경로",
       "title": "프로젝트·문서·작업자료",
-      "when_to_read": "프로젝트 경계, 활성 문서 또는 산출물 위치를 정할 때",
+      "when_to_read": "프로젝트 경계·활성 문서·저장·산출물 위치를 정할 때",
       "sections": [
         {
           "path": "modeling-guide.md",
@@ -17,6 +17,7 @@
       ],
       "related_tools": [
         "project_info",
+        "save_rhino_document",
         "set_working_plan",
         "rename_artifact_folder",
         "execute_project_python"
@@ -62,7 +63,7 @@
     },
     {
       "id": "ontological-component",
-      "summary": "Scene 맥락의 의미 단위 등록·정합과 물리적 묶음 구별",
+      "summary": "Scene 목록·맥락과 의미 단위 등록·범위 정합·물리적 묶음 구별",
       "title": "Scene·ontological_component",
       "when_to_read": "의미 단위를 정의하거나 등록·정합할 때",
       "sections": [
@@ -72,6 +73,7 @@
         }
       ],
       "related_tools": [
+        "list_design_scenes",
         "get_design_scene",
         "create_design_scene",
         "update_design_scene",
@@ -143,7 +145,7 @@
     },
     {
       "id": "observation",
-      "summary": "필요한 선택·편집 상태·시점·형상만 관찰",
+      "summary": "선택·편집 상태·시점·라벨 캡처·형상의 필요한 범위 관찰",
       "title": "관찰·화면·Named View",
       "when_to_read": "위치·선택·형상·작업 시점을 확인할 때",
       "sections": [
@@ -237,6 +239,7 @@
       ],
       "related_tools": [
         "get_rhino_viewport_image",
+        "save_rhino_document",
         "get_component_intersections",
         "check_egress"
       ],

@@ -62,7 +62,7 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 
 ### 공개 도구 위치
 
-아래 75개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`을 포함한 COS 입력 catalog는 79개이며, COS의 연결관리 도구는 별도로 유지한다.
+아래 76개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`을 포함한 COS 입력 catalog는 80개다. 외부 host는 연결관리 도구 4개를 추가해 실제 클라이언트에 84개를 노출한다.
 
 | 기능 | 공개 함수 |
 |---|---|
@@ -141,6 +141,10 @@ DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유�
 
 Scene·Component의 의미와 작업 방식은 [Rhino 모델링 지침](../../docs/modeling/guidance/modeling-guide.md#sceneontological-componentinstance)을 따른다. 구현 계약은 [Component 등록·계층·동기화](../../docs/modeling/component-system.md)와 [Phase·Plan·Step 저장·참조](../../docs/modeling/planning.md)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](../../docs/assets/assets-and-drawings.md#기존-glbscene-배치-장부)에 둔다.
 
+`list_design_scenes`는 Plan이나 live 문서 조회 없이 프로젝트 전체 Scene 이름의 제한된 페이지를 제공한다. Component 목록은 `scene_id`로 범위를 정하고 기본 root/선택적 recursive를 지원한다. `sync_design_component`는 기존 단건 호출과 함께 component_ids·Scene·bound 문서 범위를 지원하며 대상 형식을 혼합하지 않는다.
+
+Component는 `component_registry=2`의 문서 private registry를 사용하며 객체에 관리 속성을 새로 기록하지 않는다. 실제 group 이름·멤버가 기준이고 upsert는 기존 group rename·membership 복구를 수행하지 않는다. semantic Undo와 group-table 생성·이름·삭제의 경계는 Component 계약을 따른다.
+
 ## 재료·도면·자산
 
 재료 등록·구축 레이어 준비·객체 재료 적용은 MCP가 recipe를 해석하고 공통 native 구현을 호출한다. `assign_material`은 객체 레이어를 유지한다. 세부 recipe·레이어·메타데이터 계약은 [구법 안내](../../docs/construction/construction-guidance.md#재료구축-레이어-구현), 종료된 Sheet 등록과 기존 Layout 보존은 [자산 안내](../../docs/assets/assets-and-drawings.md#layoutsheet-호환)를 따른다.
@@ -166,8 +170,19 @@ Python 지침만 변경했을 때 Rhino RHP 빌드·등록 변경은 필요하�
 
 `project_info`는 project/document/artifacts를 기본 조회하며 document에서 live 확인을 함께 한다.
 `sections`로 runtime/instructions를 포함해 필요한 정보만 고른다. `get_rhino_context`도
-문서·선택·viewport 중 요청한 section만 수집한다. 일반 조회는 include_ids=false이며
-입력으로 확정된 get 대상 ID는 반복 출력하지 않는다.
+document/selection/viewport/editor/display_modes에서 필요한 section을 수집한다. 일반 context에는
+compact editor mode·target·stable을 함께 제공하고 명시 editor는 evidence를 추가한다.
+선택은 recursive=false·depth=1이 기본이며 include_image=true일 때만 같은 native 호출의
+JSON text+현재 PNG를 반환한다. 캡처는 표시모드·transient labels·깊이·view/group/block 대상을
+선택하고 Named View는 active view와 별개로 렌더링한다. 상세 한도·오류는 관측 계약을 따른다.
+일반 조회는 include_ids=false이고 입력으로 확정된 get 대상 ID는 반복 출력하지 않는다.
+필드군을 지원하는 조회는 기본 summary에 필요한 field_groups만 추가하며 IDs와 audit는 독립이다.
+오류·불완전·native 완료/proof는 요약으로 숨기지 않는다.
+
+`save_rhino_document()`는 인자 없이 연결된 기존 `.3dm` 전체를 같은 경로에 비대화식 저장한다.
+저장되지 않은 문서·readonly·binding 불일치·활성/불명 editor는 쓰기 전에 거절한다.
+확인 결과는 saved=true와 실제 modified boolean이고, 결과 불명은 saved=null 및
+requires_reconciliation=true다. SaveAs·명령/Enter·자동 재시도·완료 보호 해제는 제공하지 않는다.
 
 Plan depends_on은 다른 Phase의 Plan/Phase ID도 자유롭게 담는 배열이다. 실행 순서·존재·순환
 검사를 강제하지 않는다. Step은 paused 상태를 포함하고 중단·전환·재개가 정상 흐름이다.
@@ -227,7 +242,7 @@ sdist에는 원본과 생성기도 포함된다. 실행 중 개인 스킬 경로
 반환하므로, 세션 도중 파일을 바꿔도 주제 조회와 안내 버전이 섞이지 않는다.
 
 통합·배포 뒤 관련 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
-`get_modeling_guide()`의 version·목록을 확인하고 필요한 주제·사진을 조회한다. Python 안내만
+시작 안내의 guide_version·토픽 요약을 확인하고 필요한 주제·사진을 직접 조회한다. Python 안내만
 변경했다면 RHP 재빌드·재등록은 필요하지 않다. 실제 모델링 판단과 실행 중 프로세스의 반영은
 오프라인 테스트와 별도로 확인한다. 대안 비교는 [설계 기록](../../docs/development/modeling-guidance-proposal.md)에 둔다.
 

@@ -15,6 +15,9 @@ Almond MCP로 Rhino 건축 모델을 조회·편집하고 도면을 작성한다
 | 도구 | 입력 | 할 수 있는 일 |
 | ------- | ----- | ----- |
 | `project_info` | 필요한 `sections`: project, document, artifacts, runtime, instructions | 프로젝트 루트·파일명·공유 DB·현재 문서·작업자료 위치 조회. document에 live 확인이 포함된다. |
+| `save_rhino_document` | 없음 | 연결된 기존 `.3dm` 전체를 같은 경로에 비대화식 저장. |
 | `set_working_plan` | `plan_id`, 선택적 `step_id`, `artifact_name` | Task의 작업자료 폴더 선택·재사용. |
 | `rename_artifact_folder` | `name`, 선택적 `plan_id` | 작업자료 폴더와 관련 참조를 함께 변경. |
 | `execute_project_python` | `code`, 선택적 `timeout_seconds` | 선택한 작업자료 폴더에서 Python 실행. Rhino 형상 편집용 도구는 아니다. |
+
+저장이 필요한 편집 묶음 뒤에는 `save_rhino_document()`를 사용한다. 저장되지 않은 문서·읽기 전용 파일·연결과 다른 문서·활성 또는 불명확한 group/block 편집은 쓰기 전에 거절된다. 확인된 결과는 `saved=true`와 실제 `modified` 값이며, `saved=null, requires_reconciliation=true`는 완료 불명이다. Save/SaveAs/Enter를 명령 스크립트로 실행하거나 파일 수정 시각으로 요청 완료를 추정하지 않는다. 완료 불명은 자동 재시도하거나 연결의 완료 보호를 지우지 말고 실제 결과를 확인한다.

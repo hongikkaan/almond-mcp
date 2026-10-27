@@ -40,9 +40,12 @@ Almond MCP로 Rhino 건축 모델을 조회·편집하고 도면을 작성한다
 | 도구 | 입력 | 할 수 있는 일 |
 | ------- | ----- | ----- |
 | `project_info` | 필요한 `sections`: project, document, artifacts, runtime, instructions | 프로젝트 루트·파일명·공유 DB·현재 문서·작업자료 위치 조회. document에 live 확인이 포함된다. |
+| `save_rhino_document` | 없음 | 연결된 기존 `.3dm` 전체를 같은 경로에 비대화식 저장. |
 | `set_working_plan` | `plan_id`, 선택적 `step_id`, `artifact_name` | Task의 작업자료 폴더 선택·재사용. |
 | `rename_artifact_folder` | `name`, 선택적 `plan_id` | 작업자료 폴더와 관련 참조를 함께 변경. |
 | `execute_project_python` | `code`, 선택적 `timeout_seconds` | 선택한 작업자료 폴더에서 Python 실행. Rhino 형상 편집용 도구는 아니다. |
+
+저장이 필요한 편집 묶음 뒤에는 `save_rhino_document()`를 사용한다. 저장되지 않은 문서·읽기 전용 파일·연결과 다른 문서·활성 또는 불명확한 group/block 편집은 쓰기 전에 거절된다. 확인된 결과는 `saved=true`와 실제 `modified` 값이며, `saved=null, requires_reconciliation=true`는 완료 불명이다. Save/SaveAs/Enter를 명령 스크립트로 실행하거나 파일 수정 시각으로 요청 완료를 추정하지 않는다. 완료 불명은 자동 재시도하거나 연결의 완료 보호를 지우지 말고 실제 결과를 확인한다.
 
 ### Phase → Task → Step
 
@@ -77,6 +80,8 @@ Task의 상위 Phase는 `phase_id`로 지정한다. 관련성은 **Phase에는 P
 
 Task의 `scene_ids`는 맥락, `component_ids`는 편집 대상이다. Step의 대상이 `null`이면 Task 대상을 상속하고 `[]`이면 대상이 없다. 수정에는 조회한 `revision`을 `expected_revision`으로 전달한다. 상태·참조 기록은 형상 실행과 별개다.
 
+목록은 status·Phase·Scene과 작은 limit으로 좁힌다. 기본 조회는 요약이며, 실제 Step이 필요하면 `get_plan(..., field_groups=["steps"])`, 관계가 필요하면 `["references"]`, 산출물 위치가 필요하면 `["artifacts"]`를 추가한다. 지원 group은 도구별로 확인한다. 쓰기 응답의 handle·revision·개수·경고로 다음 행동을 정하고, 전체 기록을 즉시 다시 읽는 절차를 만들지 않는다.
+
 ### Scene·ontological_component
 
 <a name="sceneontological-componentinstance"></a>
@@ -89,13 +94,14 @@ Scene은 특정 공간에서 일어나는 **행태·프로그램·장면·가치
 
 | 도구 | 입력 | 할 수 있는 일 |
 | -- | ----- | --- |
-| `get_design_scene` | `scene_id` | Scene의 이름·파일명·연결 정보 조회. |
+| `list_design_scenes` | 선택적 `name`, `file_name`, `limit=50`, `offset=0`, `field_groups`, `include_ids` | 프로젝트 전체 Scene 이름의 제한된 페이지 조회. |
+| `get_design_scene` | `scene_id`, 선택적 `field_groups`, `include_ids` | Scene 요약·개수와 필요한 상세 조회. |
 | `create_design_scene` | `name`, 선택적 `units`, `file_name` | Scene 생성. |
 | `update_design_scene` | `scene_id`, `file_name` | 기존 Scene의 파일명 기록. |
 | `register_scene_objects` | `scene_id`, 최상위 `object_ids`, `mode`: add/remove/replace | ontological_component 없이 객체를 Scene에 직접 연결·해제.|
-| `get_scene_objects`| `scene_id` | 직접 연결 객체와 하위 ontological_component 객체의 합집합 조회. |
+| `get_scene_objects`| `scene_id`, 선택적 `limit=50`, `offset=0`, `field_groups`, `include_ids` | 직접 연결 객체와 하위 ontological_component 객체의 합집합을 페이지로 조회. |
 
-현재 전체 Scene 목록·삭제 도구는 없다. 기존 Scene ID는 작업 맥락과 연결 기록에서 찾는다. 등록 정보 변경에는 공개 도구를 사용한다.
+Scene 이름만 필요하면 `list_design_scenes()`를 사용한다. Plan·live 문서·SQLite 직접 조회 없이 여러 파일과 빈 Scene까지 포함한다. `name`은 대소문자를 구분하지 않는 부분검색이고 `file_name`은 정확한 필터다. 기본 행은 이름만 반환하며 선택용 handle은 `include_ids=true`, 파일명·단위는 `field_groups=["scope"]`, revision은 `["state"]`로 추가한다. 목록과 객체 페이지의 limit은 1–200이며 total·truncated를 확인한다. Scene 삭제 도구는 없고 등록 변경에는 공개 도구를 사용한다.
 
 #### ontological_component
 
@@ -121,15 +127,23 @@ ontological_component는 **건축 요소와, 그 요소들이 함께 가능하�
 
 | 도구 | 입력 | 할 수 있는 일 |
 | --- | ----- | -- |
-| `list_design_components`  | 선택적 `include_ids` | 연결 문서의 등록 ontological_component 목록 조회. |
-| `get_design_component` | `component_id`, 선택적 `live=True` | 저장 정보 또는 실제 group·멤버·미등록 후보 조회. |
-| `upsert_design_component` | `name`, 직접 소유 `object_ids`, `scene_ids`, 선택적 기존 ID·group GUID·`child_component_ids` | ontological_component 생성·구성 변경·기존 group 채택. |
-| `sync_design_component`| `component_id`, 선택적 `rhino_group_id` | 실제 group에 맞춰 멤버십·등록 정보를 정합.  |
+| `list_design_components`  | 선택적 `scene_id`, `recursive=false`, `field_groups`, `include_ids` | 지정 Scene 또는 연결 문서의 등록 root 목록 조회. |
+| `get_design_component` | `component_id`, 선택적 `live=false`, `recursive=false`, `field_groups`, `include_ids` | 저장 요약 또는 현재 group 관찰. 상세와 자손 형상은 명시 요청. |
+| `upsert_design_component` | `name`, 직접 소유 `object_ids`, `scene_ids`, 선택적 기존 ID·group GUID·`child_component_ids` | 의미 등록·Scene/자식 관계 변경·일치하는 기존 group 채택. |
+| `sync_design_component`| `component_id` 또는 `component_ids` 또는 `scene_id`; 생략은 연결 문서 | 안정된 Rhino 기준으로 선택 범위를 한 번 정합. |
 | `remove_design_component` | `component_id` | ontological_component 등록 해제. 형상과 group은 유지. |
 
 등록하려는 사용·행태·역할을 설명하는 Scene을 먼저 선택한다. `scene_ids`에는 기존 Scene을 한 개 이상 지정한다. 이 Scene 귀속은 단순한 API 우회용 값이 아니며, 파일 전체를 의미 없이 Scene으로 만들지 않는다.
 
+등록은 객체 속성 대신 **문서 private registry**에 의미 handle·영속 group GUID·Scene·명시한 semantic 자식 관계를 저장한다. 현재 group의 이름·멤버가 기준이며 객체의 직접 소유 관계는 이 구조에서 계산한다. 기존 group은 현재 이름과 실제 멤버가 일치해야 하고, 같은 구성이 여러 개면 group GUID를 지정한다. upsert는 형상 교체·멤버 복구·기존 group rename 도구가 아니다. 일반 Rhino group 이름을 바꾼 뒤 query/정합으로 반영한다.
+
+등록·Scene 관계 변경·해제의 semantic Undo와 Rhino group-table 동작을 구별한다. 명시 생성한 group의 등록을 Undo하면 원래 객체 membership은 복원되고 의미 등록은 비활성화되며 빈 group-table 항목이 남을 수 있다. 같은 이름의 live group이 있으면 새 생성은 suffix를 붙이지 않고 거절한다. 기존 group rename/delete의 일반 Undo 복구를 약속하거나 등록을 자동 재실행·멤버 복구하지 않는다.
+
 일반 조회는 DB snapshot이다. 수동 편집·Undo/Redo 또는 멤버 교체가 있었으면 한 편집 묶음이 끝난 뒤 영향받은/dirty 등록 범위를 한 번 정합한다. 목록 전체에 `get(live=True) → sync → get`을 반복하지 말고 현재 schema가 제공하는 범위 정합 도구를 사용한다. 이름·색 변경만으로 멤버십 정합을 반복하지 않는다. 기존 정보 수정 시 생략한 인자는 유지되며 `child_component_ids=[]`는 자식 분리다.
+
+목록은 기본적으로 범위의 root만 반환하고 `recursive=true`로 등록 자손을 포함한다. parent가 다른 Scene에 있어도 해당 Scene에 직접 속한 child는 조회 범위에 남는다. 실제 형상이 필요할 때만 `field_groups=["geometry"]`, 관계는 `["references"]`를 요청하며 자손 형상은 recursive도 함께 선택한다. 경로는 연결이 공급하므로 Scene 조회를 위해 model_path를 기억해 반복 입력하지 않는다.
+
+정합 대상 형식은 서로 섞지 않는다. 명시한 parent/Scene 범위는 등록 자손을 포함하고 최대 64개·native 응답 2 MiB를 넘으면 좁힌다. compact 결과의 checked·changed·unavailable·problems를 읽는다. 완전한 범위가 부족하다는 오류는 제시된 parent/required handle로 다음 범위를 명시하며, 불확실한 수정을 재실행하는 근거로 쓰지 않는다. 누락 group은 참조·history를 유지하고, 개별 오류는 관련 없는 정상 등록의 관찰을 막지 않는다.
 
 정합의 형상 기준은 **현재 안정된 Rhino 문서의 group·멤버·block 배치**다. DB와 다르다는 이유로 형상을 재생성하거나 일반 group을 해체하지 않는다. GroupEdit·BlockEdit 등 편집 격리가 활성 또는 불명확하면 모드·대상을 확인하고 안정된 문서 상태가 될 때까지 삭제 판단·정합을 보류한다. 불완전한 관찰은 삭제의 증거가 아니다. 타임아웃·결과 불명확은 rollback이 아니므로 실제 완료 결과를 먼저 확인하며 자동 재시도하지 않는다.
 
@@ -150,37 +164,47 @@ Almond Instance와 Room은 기존 자산 배치 검사에 남아 있는 기능�
 | 도구 | 입력 | 할 수 있는 일 |
 |---|---|---|
 | `setup_modeling` | `operation="materials"` 또는 `"layers"`; materials에만 선택적 `overwrite` | PBR 재료 일괄 등록 또는 `M::category::system.name::element.role` 레이어·기본 재료·색 준비. |
-| `list_materials` | 선택적 `category`, `query` | 재료 ID·이름·PBR 레시피 조회.|
+| `list_materials` | 선택적 `category`, `query`, `field_groups`, `include_ids` | 재료 후보 요약과 필요한 display/physical 등의 레시피 상세 조회. |
 
 ### 조회·화면 도구
 
-ID가 필요한 조회에는 `include_ids=True`를 사용한다. 이미 프로젝트 정보에서 확인한 문서를 같은 목적으로 다시 조회할 필요는 없다.
+기본 조회는 필요한 요약부터 읽고, 도구가 지원하는 `field_groups`로 다음 판단에 필요한 상세만 추가한다. 일반 필드군 조회의 None/[]는 요약이고 `all`은 전체 상세다. ID는 `include_ids=True`, 기술 timestamp는 audit/all로 각각 선택한다. 오류·불완전·완료 불명·native proof는 표시 옵션으로 숨기지 않는다. 이미 프로젝트 정보에서 확인한 문서를 같은 목적으로 다시 조회할 필요는 없다.
 
 도면·유닛의 위치나 작업 시점이 불명확하면 질문 전에 `get_rhino_viewport_image(view="a")`로 기존 Named View·Layout을 먼저 찾는다. 선택한 GUID를 캡처해 표제와 실제 대상·주변 관계를 대조한다. 이름만으로 범위를 확정하거나 조회를 위해 새 Named View를 만들지는 않는다.
 
 | 도구 | 입력 | 할 수 있는 일 |
 | ---- | ---- | --- |
-| `get_rhino_context`  | `sections=["selection"]` 또는 `["viewport"]`, 선택적 `selection_limit` | 현재 선택 객체 또는 카메라·화면 정보 조회.|
-| `get_selection_references` | 선택적 `selection_limit`, `limit` | 선택 객체에 연결된 ontological_component·Task·Step 역조회. |
+| `get_rhino_context`  | 필요한 `sections`: document/selection/viewport/editor/display_modes; 선택적 `selection_limit`, `recursive=false`, `depth=1`, `include_image=false` | 선택·편집 모드/대상·카메라·설치 mode를 관찰하고 필요 시 같은 호출의 PNG 수신. |
+| `get_selection_references` | 선택적 `selection_limit`, `limit`, `field_groups`, `include_ids` | 선택 객체에 연결된 ontological_component·Task·Step 역조회. |
 | `get_rhino_probe` | 아래의 `probe`와 `options` | 형상·블록을 읽기 전용으로 관찰·측정.  |
-| `get_rhino_viewport_image` | 현재 화면은 생략, 목록은 `view="a"`, 지정 뷰는 `view=GUID`; 선택적 `scale_percent` | viewport·Named View·Layout 목록 또는 PNG 캡처. 기본 크기 50%. |
+| `get_rhino_viewport_image` | 현재 화면은 생략, 목록은 `view="a"`, 지정 뷰는 `view=GUID`; 선택적 `display_mode`, `labels=true`, `depth=1`, `scale_percent=50`, `target_kind`, `target_id` | 뷰 목록 또는 선택한 시점·group·block의 PNG 캡처. |
 | `focus_components`| `component_ids` | 해당 ontological_component 선택·격리·확대. 화면 상태가 바뀐다. |
+
+document/selection/viewport 조회에는 compact editor mode·target·stable도 포함된다. `sections=["editor"]`는 provider evidence와 경고를 더 읽고, 모드·대상 unknown은 미확인으로 남긴다. 선택은 기본 nonrecursive이며 필요할 때만 recursive와 depth(1–8)를 늘린다. `include_image=true`는 같은 native 호출의 JSON text 다음에 현재 PNG를 반환하고, 실패한 이미지는 image_error로 남겨 가능한 context를 보존한다.
+
+표시 모드는 `get_rhino_context(sections=["display_modes"], include_ids=true)`의 실제 설치 이름/GUID에서 고른다. Shaded·Dark·CadWhite를 설치 확인 없이 가정하지 않는다. 캡처의 빈 display_mode는 현재 viewport에서 현재 mode를 유지하고 Named View/group/block에서는 Shaded를 사용한다. Named View는 저장 카메라를 별도 viewport에서 렌더링하므로 작업 중 active view를 바꾸지 않는다.
+
+group/block을 볼 때는 `target_kind="group"` 또는 `"block"`과 영속 group GUID/최상위 block instance GUID를 target_id로 지정하고 view는 비운다. 별도 카메라가 대상 bounds를 잡고 주변 형상은 유지한다. 조회 목적의 캡처와 선택·격리·확대를 수행하는 focus_components는 구별한다. Layout은 Detail mode를 유지해 mode override를 거절하며 Detail 라벨 미지원 경고를 반환한다.
+
+labels는 기본 true이고 최상위 group 이름+GUID, block instance GUID, 독립 객체 GUID를 transient pixels로 표시한다. TextDot·객체·속성을 만들지 않으며 JSON의 include_ids와 독립적으로 labels가 제어한다. depth는 1–8, 라벨은 최대 200개다. 잘림 경고가 있으면 대상·깊이를 좁힌다. PNG는 16 메가픽셀·4 MiB 이내이며 초과하면 scale_percent(1–100)를 명시적으로 낮춘다.
 
 `get_rhino_probe`의 옵션은 아래와 같다. 좌표·길이·공차는 현재 문서 단위다. 반환의 `unknown`·미지원·`truncated`는 미확인 범위이며 0이나 통과를 뜻하지 않는다. 범위가 잘리면 대상·표본을 나눠 조회한다.
 
 | probe 값  | options에 넣을 입력  | 알 수 있는 것|
 | ----- | ----- | ----- |
-| `outline` | `ids` 또는 `path`; 생략 시 `scope`: selected/viewport/document. 선택적 `depth`, `include_geometry`, `annotations` | 객체·중첩 블록 경로·누적 변환·TextDot 주석과 동명 대상. |
+| `outline` | `ids` 또는 `path`; 생략 시 `scope`: selected/viewport/document. 선택적 `depth`, `field_groups`, `include_geometry`, `annotations` | 기본 개수·이름 요약. objects/annotations/transforms를 선택해 필요한 상세만 조회. |
 | `resolve-block`  | `path=[최상위 GUID, 내부 멤버 GUID, ...]` | 현재 편집 단계에서 선택 가능한 블록 후보. |
 | `sections` | `ids`, `axis`: X/Y/Z, `stations`; 선택적 `sample_points` | 지정 좌표의 절단 곡선 수·길이·bbox·표본점. Brep·Mesh·Extrusion 지원.|
 | `vertical-probe` | `ids`, `xy=[[x,y],...]`; 선택적 `z_min`, `z_max`는 함께 지정 | 표본 수직선의 교차 Z와 닫힌 형상의 채움·중복 구간. 열린 형상은 교차점만 반환. |
 | `joint-pairs` | `pairs=[[GUID_A,GUID_B],...]`; 선택적 `tolerance`, `compare_operations`, `max_pairs` | 유효 닫힌 최상위 Brep·Extrusion 쌍의 교차체적과 선택적 Join/Union 결과. |
 
+outline의 field_groups는 options 안에 두며 summary/objects/annotations/transforms의 비어 있지 않은 배열이다. 일반 조회와 달리 명시 []나 all은 지원하지 않는다. 기존 include_geometry/annotations의 명시 상세 요청도 유지되며, max_items/방문 budget과 truncation을 확인해 IDs·branch path·depth를 좁힌다.
+
 #### Block·주석
 
 Rhino block instance는 하나의 형상 정의를 위치·회전·축척별로 배치한 객체다. 정의를 수정하면 이를 사용하는 모든 배치에 반영된다. ontological_component에 블록을 포함할 때는 정의 내부 객체 대신 최상위 배치 GUID를 등록한다.
 
-중첩 구조는 `get_rhino_probe(probe="outline", options={"ids":[최상위_GUID], "depth":깊이})`로 재귀 조회한다. 경로는 최상위 배치에서 내부 멤버로 이어지며, 누적 변환으로 문서 좌표를 읽는다. 내부 GUID와 현재 선택 가능한 객체 ID는 다를 수 있다.
+중첩 구조의 편집 경로가 필요하면 `get_rhino_probe(probe="outline", options={"ids":[최상위_GUID], "depth":깊이, "field_groups":["objects","transforms"]}, include_ids=True)`로 상세 조회한다. 경로는 최상위 배치에서 내부 멤버로 이어지며 누적 변환으로 문서 좌표를 읽는다. TextDot 관계는 필요한 annotations 필드군을 추가한다. 내부 GUID와 현재 선택 가능한 객체 ID는 다를 수 있다.
 
 BlockEditNew에서는 부모를 연 뒤 `resolve-block`에 `path`를 한 단계씩 늘려 편집 후보를 확인한다. 정의 저장·멤버 교체 뒤에는 경로를 다시 조회한다. TextDot의 동명 대상은 같은 정의 안에서 찾고 주변 관계와 함께 읽는다.
 
@@ -188,7 +212,7 @@ BlockEditNew에서는 부모를 연 뒤 `resolve-block`에 `path`를 한 단계�
 
 반복되는 가구·문 실물은 기존 정의의 형상·규격·표현 목적을 비교한 뒤 같은 block 정의를 재사용한다. 배치마다 새 정의와 전역 번호를 만들지 않는다. 이름은 `책상 1200`, `폴딩도어 4짝`처럼 재사용에 필요한 차이만 남기고, 위치·층·UNIT는 구별이 필요한 배치나 group 이름에만 둔다.
 
-등록된 객체를 block으로 교체하거나 해체하기 전에는 현재 직접 소유 객체·영속 group GUID와 관련 등록을 확인한다. 등록 정보를 담은 원본 객체를 먼저 삭제한 뒤 sync만 하면 복구된다고 가정하지 않는다. 현재 공개 API가 지원하는 전환 순서와 교체 후 live 정합을 확인하고, 안전한 전환이 지원되지 않으면 도구 개선 대상으로 남긴다. DB나 소유권 UserString 직접 삭제로 오류를 우회하지 않는다.
+등록된 객체를 block으로 교체하거나 해체하기 전에는 현재 멤버·영속 group GUID·관련 의미 등록을 확인한다. 의도한 물리적 편집 뒤 안정된 문서에서 영향 범위를 한 번 정합한다. 문서 registry와 DB는 삭제된 형상·멤버십을 복원하지 않으며 upsert로 실제 group을 수리하지 않는다. 안전한 전환이 지원되지 않으면 미해결로 남기고 DB·기존 UserString 직접 삭제로 우회하지 않는다.
 
 #### Group
 
@@ -198,17 +222,17 @@ BlockEditNew에서는 부모를 연 뒤 `resolve-block`에 `path`를 한 단계�
 
 같은 멤버의 group을 중복 생성해 편집 오류를 우회하지 말고 기존 묶음을 재사용한다. GroupEdit·BlockEdit에서는 확인된 현재 편집 단계의 대상을 다루며, 중첩 group의 외부 선택·표시 상태를 임의로 재설정하지 않는다. 선택 오류가 남으면 모드·대상·멤버 증거를 확인하고 미해결로 보고한다.
 
-등록 ontological_component의 부모 group에는 자손 객체도 포함되지만 직접 소유권은 자식에 남는다. 자식을 해제하려면 부모에서 먼저 분리하고, 부모를 해제하면 자식은 root로 남는다. 객체는 저장된 모델 경로+GUID, group은 영속 group GUID로 식별한다.
+semantic parent를 등록하려면 실제 parent group에 선언한 자손의 현재 멤버가 이미 포함돼 있어야 한다. 등록은 이 조건을 검사하며 일반 group이나 멤버 순서를 재구성하지 않는다. 직접 소유 관계는 자식에 남는다. 자식을 등록 해제하려면 semantic parent에서 먼저 분리하고, parent를 해제하면 자식은 자기 Scene 맥락을 가진 root로 남는다. 객체는 저장된 모델 경로+GUID, group은 영속 group GUID로 식별한다.
 
 ## 모델링
 
 ### 형상 편집·설계 자료
 
-구축 시스템의 구성 요소·재료는 `get_construction_guidance`로 확인한다. 시스템을 하나의 단순 형상으로 표현하면 해당 시스템 레이어에 두고, 실제 부재·마감을 따로 모델링하면 `M::분류::시스템명::요소역할`의 대응 하위 레이어에 둔다. 예를 들어 따로 만든 마감 객체와 구조 객체는 각자의 역할 레이어로 구분한다. 재료명·해시마다 별도 Custom 레이어를 만들지 않는다.
+구축 시스템 후보는 `get_construction_guidance`의 기본 요약으로 좁히고, 실제 span·부재·구성 요소·권장 재료를 판단할 때 `field_groups=["rules"]`를 요청한다. 유형 서술 본문은 `get_typology_narrative(..., field_groups=["narrative"])`, 참고 출처는 필요한 source 필드군으로 읽는다. 시스템을 하나의 단순 형상으로 표현하면 해당 시스템 레이어에 두고, 실제 부재·마감을 따로 모델링하면 `M::분류::시스템명::요소역할`의 대응 하위 레이어에 둔다. 재료명·해시마다 별도 Custom 레이어를 만들지 않는다.
 
 ontological_component마다 별도 레이어를 만들지 않는다. 의미 등록과 Scene 관계는 등록 정보로 다루고, 레이어는 실제 구축 요소·재료·도면 표현에 필요한 분류에 사용한다.
 
-`assign_material`은 지정한 객체의 재료를 바꾸며 레이어는 이동하지 않는다. ByLayer로 표현하려면 객체의 재료·색 source를 ByLayer로 설정하고 해당 레이어의 재료·색을 맞춘다. 개별 재료를 직접 지정하는 방식과 구분해 적용한다. 재료 적용에 관리 UserStrings 기록을 자동으로 덧붙이지 않는다. 사용자가 명시적으로 요청한 메타데이터 작업은 현재 도구 schema·정책을 별도로 확인한다.
+`assign_material`은 지정한 객체의 재료를 바꾸며 레이어는 이동하지 않는다. ByLayer로 표현하려면 객체의 재료·색 source를 ByLayer로 설정하고 해당 레이어의 재료·색을 맞춘다. 개별 재료 직접 지정과 구분한다. `attach_metadata=false`가 기본이므로 관리 UserStrings를 자동 부가하지 않는다. 사용자가 명시적으로 요청한 메타데이터 작업은 현재 도구 schema·정책을 별도로 확인한다.
 
 | 도구 | 입력 | 할 수 있는 일 |
 | ------- | ------- | ----- |
@@ -223,7 +247,7 @@ ontological_component마다 별도 레이어를 만들지 않는다. 의미 등�
 
 요청 범위의 실제 이미지를 열어 사용 관계와 구축을 확인한다. 필요한 눈높이 Perspective·평면·종횡단면을 선택하고, 재사용할 시점은 Named View로 남긴다. 절단은 실제 clipping plane으로 준비하며 평·단면은 설치된 `AGENT_Section_Glass` 등 적합한 모드를 사용한다. 표시 모드는 현재 도구 schema와 설치된 모드에 맞춰 선택한다.
 
-검증에는 MCP의 관찰·캡처를 사용하며 computer use를 검증의 우회 수단으로 호출하지 않는다. 저장 명령 성공, 저장 후 `modified` 표시, 실제 저장본 확인은 구별한다. 표시가 남으면 저장 이후 변경·확인하지 못한 상태를 보고하며, 표시를 강제로 지워 검증 성공으로 만들지 않는다.
+검증에는 MCP의 관찰·캡처를 사용하며 computer use를 검증의 우회 수단으로 호출하지 않는다. 필요한 파일 저장은 `save_rhino_document`를 사용하고 확인된 saved·실제 modified 값과 저장본 검증을 구별한다. modified가 남으면 저장 이후 변경·확인하지 못한 상태를 보고하며 표시를 강제로 지워 성공으로 만들지 않는다.
 
 ontological_component의 의미와 함께 내부·인접 요소의 지지·연결·두께·높이·마감·배수를 본다. 특히 마감/슬래브, 후레싱/벽, 지붕/우수관의 의도하지 않은 중첩을 단면·확대와 수치로 대조한다. 수정한 곳은 같은 조건에서 다시 확인하고 미검사 범위는 구분해 보고한다.
 
@@ -280,6 +304,8 @@ ontological_component의 의미와 함께 내부·인접 요소의 지지·연�
 ### 자산 목록·검색
 
 Drawing 자산은 준비된 3DM, Diagram 자산은 도식용 자료다. [등록·생성·배치·교환·외부 발행·카메라 경로 작업](references/asset-workflows.md)은 해당 작업을 할 때만 읽는다.
+
+이름·종류로 후보를 좁힌 뒤 치수는 dimensions, 실제 파일은 paths, 출처·라이선스는 source 등 해당 도구가 지원하는 field_groups로 추가한다. include_ids만 켜서 모든 상세를 받은 것으로 해석하지 않는다. 기존 자산 provenance·라이선스는 보존한다.
 
 | 도구| 입력  | 할 수 있는 일  |
 | --- | -- | -- |

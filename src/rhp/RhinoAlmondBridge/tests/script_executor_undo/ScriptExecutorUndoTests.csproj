@@ -25,7 +25,6 @@
     <Compile Include="../../../../mcp/almond_mcp/rhino/ModelingMetadata.cs" Link="ModelingMetadata.cs" />
     <Compile Include="../../ComponentRegistry.cs" Link="ComponentRegistry.cs" />
     <Compile Include="../../ComponentSemanticRegistry.cs" Link="ComponentSemanticRegistry.cs" />
-    <Compile Include="../../EditingContext.cs" Link="EditingContext.cs" />
     <Compile Include="../../DrawingSheetRegistry.cs" Link="DrawingSheetRegistry.cs" />
     <Compile Include="../../ComponentOperations.cs" Link="ComponentOperations.cs" />
     <Compile Include="../../DrawingAssetGeometry.cs" Link="DrawingAssetGeometry.cs" />

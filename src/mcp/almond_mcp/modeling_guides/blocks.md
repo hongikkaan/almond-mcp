@@ -2,7 +2,7 @@
 
 Rhino block instance는 하나의 형상 정의를 위치·회전·축척별로 배치한 객체다. 정의를 수정하면 이를 사용하는 모든 배치에 반영된다. ontological_component에 블록을 포함할 때는 정의 내부 객체 대신 최상위 배치 GUID를 등록한다.
 
-중첩 구조는 `get_rhino_probe(probe="outline", options={"ids":[최상위_GUID], "depth":깊이})`로 재귀 조회한다. 경로는 최상위 배치에서 내부 멤버로 이어지며, 누적 변환으로 문서 좌표를 읽는다. 내부 GUID와 현재 선택 가능한 객체 ID는 다를 수 있다.
+중첩 구조의 편집 경로가 필요하면 `get_rhino_probe(probe="outline", options={"ids":[최상위_GUID], "depth":깊이, "field_groups":["objects","transforms"]}, include_ids=True)`로 상세 조회한다. 경로는 최상위 배치에서 내부 멤버로 이어지며 누적 변환으로 문서 좌표를 읽는다. TextDot 관계는 필요한 annotations 필드군을 추가한다. 내부 GUID와 현재 선택 가능한 객체 ID는 다를 수 있다.
 
 BlockEditNew에서는 부모를 연 뒤 `resolve-block`에 `path`를 한 단계씩 늘려 편집 후보를 확인한다. 정의 저장·멤버 교체 뒤에는 경로를 다시 조회한다. TextDot의 동명 대상은 같은 정의 안에서 찾고 주변 관계와 함께 읽는다.
 
@@ -10,7 +10,7 @@ BlockEditNew에서는 부모를 연 뒤 `resolve-block`에 `path`를 한 단계�
 
 반복되는 가구·문 실물은 기존 정의의 형상·규격·표현 목적을 비교한 뒤 같은 block 정의를 재사용한다. 배치마다 새 정의와 전역 번호를 만들지 않는다. 이름은 `책상 1200`, `폴딩도어 4짝`처럼 재사용에 필요한 차이만 남기고, 위치·층·UNIT는 구별이 필요한 배치나 group 이름에만 둔다.
 
-등록된 객체를 block으로 교체하거나 해체하기 전에는 현재 직접 소유 객체·영속 group GUID와 관련 등록을 확인한다. 등록 정보를 담은 원본 객체를 먼저 삭제한 뒤 sync만 하면 복구된다고 가정하지 않는다. 현재 공개 API가 지원하는 전환 순서와 교체 후 live 정합을 확인하고, 안전한 전환이 지원되지 않으면 도구 개선 대상으로 남긴다. DB나 소유권 UserString 직접 삭제로 오류를 우회하지 않는다.
+등록된 객체를 block으로 교체하거나 해체하기 전에는 현재 멤버·영속 group GUID·관련 의미 등록을 확인한다. 의도한 물리적 편집 뒤 안정된 문서에서 영향 범위를 한 번 정합한다. 문서 registry와 DB는 삭제된 형상·멤버십을 복원하지 않으며 upsert로 실제 group을 수리하지 않는다. 안전한 전환이 지원되지 않으면 미해결로 남기고 DB·기존 UserString 직접 삭제로 우회하지 않는다.
 
 #### Group
 
@@ -20,4 +20,4 @@ BlockEditNew에서는 부모를 연 뒤 `resolve-block`에 `path`를 한 단계�
 
 같은 멤버의 group을 중복 생성해 편집 오류를 우회하지 말고 기존 묶음을 재사용한다. GroupEdit·BlockEdit에서는 확인된 현재 편집 단계의 대상을 다루며, 중첩 group의 외부 선택·표시 상태를 임의로 재설정하지 않는다. 선택 오류가 남으면 모드·대상·멤버 증거를 확인하고 미해결로 보고한다.
 
-등록 ontological_component의 부모 group에는 자손 객체도 포함되지만 직접 소유권은 자식에 남는다. 자식을 해제하려면 부모에서 먼저 분리하고, 부모를 해제하면 자식은 root로 남는다. 객체는 저장된 모델 경로+GUID, group은 영속 group GUID로 식별한다.
+semantic parent를 등록하려면 실제 parent group에 선언한 자손의 현재 멤버가 이미 포함돼 있어야 한다. 등록은 이 조건을 검사하며 일반 group이나 멤버 순서를 재구성하지 않는다. 직접 소유 관계는 자식에 남는다. 자식을 등록 해제하려면 semantic parent에서 먼저 분리하고, parent를 해제하면 자식은 자기 Scene 맥락을 가진 root로 남는다. 객체는 저장된 모델 경로+GUID, group은 영속 group GUID로 식별한다.

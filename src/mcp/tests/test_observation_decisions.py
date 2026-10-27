@@ -228,7 +228,7 @@ def test_given_full_group_selected_when_references_requested_then_member_objects
         server = SimpleNamespace(mcp=FastMCP("selection-reference-decision"),
             retrieval_store=case.store, _send_and_receive=native)
         exports = planning_tools(server.mcp, server)
-        result = json.loads(exports["get_selection_references"]())
+        result = json.loads(exports["get_selection_references"](include_ids=True))
         assert result["status"] == "success"
         assert result["objects"][0]["component_id"] == case.component_a
         assert result["plans"][0]["plan_id"] == plan["plan_id"]

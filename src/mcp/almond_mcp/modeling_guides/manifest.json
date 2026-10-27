@@ -4,10 +4,11 @@
     {
       "id": "project",
       "title": "프로젝트·문서·작업자료",
-      "summary": "문서·프로젝트 경계와 작업자료 경로",
-      "when_to_read": "프로젝트 경계, 활성 문서 또는 산출물 위치를 정할 때",
+      "summary": "문서·프로젝트 경계, 비대화식 저장과 작업자료 경로",
+      "when_to_read": "프로젝트 경계·활성 문서·저장·산출물 위치를 정할 때",
       "related_tools": [
         "project_info",
+        "save_rhino_document",
         "set_working_plan",
         "rename_artifact_folder",
         "execute_project_python"
@@ -17,12 +18,12 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "## Rhino 편집",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         },
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 프로젝트·문서·파일",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -50,7 +51,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### Phase → Task → Step",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -58,9 +59,10 @@
     {
       "id": "ontological-component",
       "title": "Scene·ontological_component",
-      "summary": "Scene 맥락의 의미 단위 등록·정합과 물리적 묶음 구별",
+      "summary": "Scene 목록·맥락과 의미 단위 등록·범위 정합·물리적 묶음 구별",
       "when_to_read": "의미 단위를 정의하거나 등록·정합할 때",
       "related_tools": [
+        "list_design_scenes",
         "get_design_scene",
         "create_design_scene",
         "update_design_scene",
@@ -77,7 +79,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### Scene·ontological_component",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -127,7 +129,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 템플릿·재료·구축 레이어",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -135,7 +137,7 @@
     {
       "id": "observation",
       "title": "관찰·화면·Named View",
-      "summary": "필요한 선택·편집 상태·시점·형상만 관찰",
+      "summary": "선택·편집 상태·시점·라벨 캡처·형상의 필요한 범위 관찰",
       "when_to_read": "위치·선택·형상·작업 시점을 확인할 때",
       "related_tools": [
         "get_rhino_context",
@@ -149,7 +151,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 조회·화면 도구",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -171,12 +173,12 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "#### Block·주석",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         },
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "#### Group",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -199,7 +201,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 형상 편집·설계 자료",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -211,6 +213,7 @@
       "when_to_read": "수정한 모델의 사용 관계·구축·관입을 확인할 때",
       "related_tools": [
         "get_rhino_viewport_image",
+        "save_rhino_document",
         "get_component_intersections",
         "check_egress"
       ],
@@ -219,7 +222,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 모델링 검수",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -240,7 +243,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 구조 검토",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -263,12 +266,12 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 도면 표현",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         },
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 도면 검수",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -289,7 +292,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### Grasshopper",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         }
       ],
       "images": []
@@ -320,7 +323,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 자산 목록·검색",
-          "sha256": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68"
+          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
         },
         {
           "path": "docs/modeling/guidance/references/asset-workflows.md",
@@ -398,27 +401,27 @@
     "capture_conditioning_pass": "When exchanging assets, publishing or producing camera-path artifacts, read get_modeling_guide(topic=\"exchange-capture\") if not already read for the current guide_version or the rule is unclear."
   },
   "files": {
-    "assets.md": "7b7ac8a027611c510940ac1bf663c599b44b26c50c31b67d7fa05883c408c2cd",
+    "assets.md": "7cc1e76ab210684a5c6be10eea61e01f3afc5bfe8069b88fdb70a3358536410b",
     "assets/resident-porch.png": "8551aef446eb012425c548bc157449e4033a0cdf09c0a893640cf98beb2695aa",
     "assets/roof-drainage.png": "a81c2fb364aa96ff481b709ce6c53cc0d9e1cb9d6a33021df8fbd6329540913d",
-    "blocks.md": "153b54bff489f95ec9cec93b8f626f669d658a717d3ca504f3b775fdffec0aee",
+    "blocks.md": "8319af6fa18c1660769868c4c1b6361a73b558af272c09d45f29f7eafd92cb74",
     "drafting.md": "74c698e2121494e42cbbc48203202f3d34b34c72b4b907158bbaef24a604f247",
     "exchange-capture.md": "26a493b7494332f630b6a018cd6887931836fb0e0f9318b597be51fc8b8c48d6",
     "grasshopper.md": "30b969ef4bf9a66bb08b6310ecdc511dc79a258d3c78d848ef7e0deeb739bee0",
-    "materials.md": "6be7b04447df93acb130eb4c8a2cc712df747c4bf3c6d985042f08650a78fb1c",
-    "model-review.md": "7aa2f4a9fe6b231727aabf778d558a564e5e252d739195fe6130fb2092376b76",
-    "modeling.md": "d5915bd1592639b15b8c50c652d0fc3e33ea1d31c62cea15e3642c7e639968ae",
-    "observation.md": "f2526abae923ed70a716b30443608cd762118e09c24f2b4fec83e66e28a5e176",
+    "materials.md": "241f42a15d949a845350f0474811d8a0b32112c48463b3108b232bfc12b9c068",
+    "model-review.md": "1a51ed3026d33bc1e2a370c75f610efccd8d71bc6a32cf03eeb4571836efb090",
+    "modeling.md": "df6cbadeedba4100fc5dba2e2ab6c8d05a4a37d1ebab1eb202fc9d9ae4ccb6fa",
+    "observation.md": "73f105fcf9d730ac6c33069a215b310ebafaa1b0a2acca4efa012b659a2d5816",
     "ontological-component-evidence.md": "d819ad0d524ba88126269cd62f01acec6499a7d4323c02b74022ddadd7e67ac3",
-    "ontological-component.md": "749555cfb82eaf6c4780719e92122c133942327925821fb9f4d489693c8308a7",
-    "planning.md": "2dc7b9591ffd91be23bec38ca036604805a2af326b6cceecc97e1062d28e4eee",
-    "project.md": "e78b49a834ea67a89be8d3bc7dd179d3f9a5f51ebc09603e416570da399c011d",
+    "ontological-component.md": "b983c039eac1a9777d31371c5aea40f7fccd331bfb5fc60d9e584ba53aebc4f1",
+    "planning.md": "106bde4a390c66895f4d8d6e7bf39bf669a855e1f6ab266e9a4cb0b0705de561",
+    "project.md": "4586152115b3cf467586347233819284c7fed9c5645b0341e36675544521b29a",
     "structure.md": "e3609c402696f93e250d48e059e3e14e8545044111192d68f7b5dfc73767f611"
   },
   "startup_sha256": "e16167cd19165c7e45593710538784b462e705692f5a50bd76621dcbcb1badd1",
   "model_context_sha256": "bcc0bbc9fe299fbc3b78e407f7cfce55bda5a928fe5575aa268831fad2779860",
   "source_files": {
-    "modeling-guide.md": "0feb43844895802e732e78bfb2f620592c12e26c8bada4e102cbef9852513c68",
+    "modeling-guide.md": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7",
     "references/component-feedback.md": "8862e15d3862cdc1999c501594d5937f6def8b7a4e8a9cf436bc78d2ce1324c6",
     "references/asset-workflows.md": "0dd4c2c72b8fdc38554f875f4789841e75c41da8c18dddfcdb021529c3a5c0f4"
   },
@@ -449,5 +452,5 @@
       "reason": "보존된 작성 참고 이미지. 확정 본문에서 참조하지 않아 주입하지 않는다."
     }
   ],
-  "guide_version": "573a048a350b7460dd9cba64e84a8321f9f162d6ea063ca9dcb851e19395ec25"
+  "guide_version": "df5a438cbb0d748097b273ee3de84b9d3bab6ed1b150e26ba6c00f65a29af673"
 }

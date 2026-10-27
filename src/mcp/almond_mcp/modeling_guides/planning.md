@@ -30,3 +30,5 @@ Task의 상위 Phase는 `phase_id`로 지정한다. 관련성은 **Phase에는 P
 | `list_plan_revisions` | `plan_id`, 선택적 `limit` | Task의 저장된 변경 이력 조회. |
 
 Task의 `scene_ids`는 맥락, `component_ids`는 편집 대상이다. Step의 대상이 `null`이면 Task 대상을 상속하고 `[]`이면 대상이 없다. 수정에는 조회한 `revision`을 `expected_revision`으로 전달한다. 상태·참조 기록은 형상 실행과 별개다.
+
+목록은 status·Phase·Scene과 작은 limit으로 좁힌다. 기본 조회는 요약이며, 실제 Step이 필요하면 `get_plan(..., field_groups=["steps"])`, 관계가 필요하면 `["references"]`, 산출물 위치가 필요하면 `["artifacts"]`를 추가한다. 지원 group은 도구별로 확인한다. 쓰기 응답의 handle·revision·개수·경고로 다음 행동을 정하고, 전체 기록을 즉시 다시 읽는 절차를 만들지 않는다.

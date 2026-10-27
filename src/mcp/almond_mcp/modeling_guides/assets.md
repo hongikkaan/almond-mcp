@@ -2,6 +2,8 @@
 
 Drawing 자산은 준비된 3DM, Diagram 자산은 도식용 자료다. `assets` 및 `exchange-capture` 주제(`get_modeling_guide`로 조회)은 해당 작업을 할 때만 읽는다.
 
+이름·종류로 후보를 좁힌 뒤 치수는 dimensions, 실제 파일은 paths, 출처·라이선스는 source 등 해당 도구가 지원하는 field_groups로 추가한다. include_ids만 켜서 모든 상세를 받은 것으로 해석하지 않는다. 기존 자산 provenance·라이선스는 보존한다.
+
 | 도구| 입력  | 할 수 있는 일  |
 | --- | -- | -- |
 | `search_asset_repository` | `query`, 선택적 `kind`, `drawing_ready`, `limit` | 통합 자산 후보 검색. |
