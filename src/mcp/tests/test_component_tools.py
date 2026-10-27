@@ -1,5 +1,6 @@
 """Public Component tools against real temporary ledgers and a bounded fake Bridge."""
 import asyncio
+from copy import deepcopy
 import importlib.util
 import json
 from pathlib import Path
@@ -97,6 +98,80 @@ def register(server, model, scene, **extra):
     arguments = dict(expected_model_path=model, name="Panel", object_ids=[A, B], scene_ids=[scene])
     arguments.update(extra)
     return call(server, "upsert_design_component", **arguments)
+
+
+@pytest.mark.parametrize("change", ["name", "type", "direct_count", "effective_count", "legacy_type", "unchanged"])
+def test_live_default_summary_uses_observed_objects_without_writing_cache(server, store, scene, model, wire, change):
+    from test_components import snapshot
+
+    def initial(request):
+        reply = native_component(request)
+        for index, obj in enumerate(reply["component"]["objects"]):
+            obj["name"] = ["Old A", "Old B"][index]
+        return reply
+    wire(initial)
+    register(server, model, scene, component_id="live-summary", rhino_group_id=GROUP)
+    cached = store.get_component("live-summary")
+    observed = {key: deepcopy(cached[key]) for key in (
+        "component_id", "model_path", "rhino_group_id", "name", "scene_ids", "child_component_ids",
+        "parent_component_id", "objects", "effective_objects", "effective_object_ids")}
+    observed.update(complete=True, pending_objects=[], requires_sync=False)
+    expected_names, expected_types, counts = ["Old A", "Old B"], {"Brep": 2}, (2, 2)
+    if change == "name":
+        observed["objects"][0]["name"] = observed["effective_objects"][0]["name"] = "New A"
+        expected_names = ["New A", "Old B"]
+    elif change in {"type", "legacy_type"}:
+        observed["objects"][0]["object_type"] = observed["effective_objects"][0]["object_type"] = "Extrusion"
+        expected_types = {"Brep": 1, "Extrusion": 1}
+        if change == "legacy_type":
+            observed.pop("effective_objects")
+            observed.pop("effective_object_ids")
+    elif change == "direct_count":
+        observed["objects"] = observed["objects"][1:]
+        observed["effective_objects"] = observed["effective_objects"][1:]
+        observed["effective_object_ids"] = [B]
+        expected_names, expected_types, counts = ["Old B"], {"Brep": 1}, (1, 1)
+    elif change == "effective_count":
+        descendant = dict(object_row(str(uuid.UUID(int=3)), "native-child"), name="Child")
+        observed["effective_objects"].append(descendant)
+        observed["effective_object_ids"].append(descendant["rhino_guid"])
+        observed["child_component_ids"] = ["native-child"]
+        counts = (2, 3)
+    requests = wire(lambda request: dict(status="success", component=deepcopy(observed)))
+    before = snapshot(store)
+    summary = call(server, "get_design_component", component_id="live-summary", live=True)["component"]
+    detailed = call(server, "get_design_component", component_id="live-summary", live=True,
+                    recursive=True, include_ids=True, field_groups=["geometry"])["component"]
+    assert summary["live_verified"] is True and summary["requires_sync"] is (change != "unchanged")
+    assert summary["object_names"] == detailed["object_names"] == expected_names
+    assert summary["object_types"] == detailed["object_types"] == expected_types
+    assert (summary["object_count"], summary["effective_object_count"]) == counts
+    assert summary["object_count"] == len(detailed["objects"]) == len(detailed["object_ids"])
+    assert summary["effective_object_count"] == len(detailed["effective_objects"]) == len(detailed["effective_object_ids"])
+    assert "objects" not in summary and "effective_objects" not in summary
+    assert all(request.get("action") in {None, "inspect"} for request in requests)
+    assert snapshot(store) == before and store.get_component("live-summary") == cached
+
+
+def test_live_parent_reports_descendant_name_drift_without_changing_cache(server, store, scene, model, wire):
+    from test_component_hierarchy import create
+    from test_components import snapshot
+
+    store.scene_a, store.model = scene, model
+    child = create(store, "Leaf", [A])
+    parent = create(store, "Assembly", [B], children=[child["component_id"]])
+    cached = store.get_component(parent["component_id"])
+    observed = dict(deepcopy(cached), complete=True)
+    next(obj for obj in observed["effective_objects"] if obj["rhino_guid"] == A)["name"] = "Renamed leaf"
+    wire(lambda request: dict(status="success", component=deepcopy(observed)))
+    before = snapshot(store)
+    summary = call(server, "get_design_component", component_id=parent["component_id"], live=True)["component"]
+    detailed = call(server, "get_design_component", component_id=parent["component_id"], live=True,
+                    recursive=True, include_ids=True, field_groups=["geometry"])["component"]
+    assert summary["requires_sync"] is True and summary["object_names"] == []
+    assert (summary["object_count"], summary["effective_object_count"]) == (1, 2)
+    assert next(obj for obj in detailed["effective_objects"] if obj["rhino_guid"] == A)["name"] == "Renamed leaf"
+    assert snapshot(store) == before and store.get_component(parent["component_id"]) == cached
 
 
 def test_public_registration_update_and_cached_reads(server, store, scene, model, wire, monkeypatch):

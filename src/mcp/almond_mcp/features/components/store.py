@@ -365,6 +365,7 @@ class ComponentsStore:
                 raise ValueError("Native Component children and pending objects must be lists.")
             native_scenes = self._component_scene_ids(connection, observed.get("scene_ids"))
             effective_changed = False
+            effective_ids = cached["effective_object_ids"]
             if "effective_objects" in observed:
                 effective = self._component_observed_objects(
                     {"complete": observed.get("complete"), "truncated": observed.get("truncated"),
@@ -375,25 +376,30 @@ class ComponentsStore:
                         self._component_object_ids(observed["effective_object_ids"]) != effective_ids):
                     raise ValueError("Native effective object identities and details disagree.")
                 effective_changed = [
-                    (obj["rhino_guid"], obj["object_type"], obj.get("component_id"), obj["bounds_mm"])
+                    (obj["rhino_guid"], obj["object_type"], obj.get("component_id"), obj.get("name", ""), obj["bounds_mm"])
                     for obj in effective
                 ] != [
-                    (obj["rhino_guid"], obj["object_type"], obj["component_id"], obj["bounds_mm"])
+                    (obj["rhino_guid"], obj["object_type"], obj["component_id"], obj.get("name", ""), obj["bounds_mm"])
                     for obj in cached["effective_objects"]
                 ]
             elif "effective_object_ids" in observed:
-                effective_changed = (self._component_object_ids(observed["effective_object_ids"])
-                                     != cached["effective_object_ids"])
+                effective_ids = self._component_object_ids(observed["effective_object_ids"])
+                effective_changed = effective_ids != cached["effective_object_ids"]
             changed = (direct_ids != cached["object_ids"] or children != cached["child_component_ids"]
                        or native_scenes != cached["scene_ids"] or observed.get("name") != cached["name"]
                        or effective_changed
                        or ("parent_component_id" in observed and
                            observed["parent_component_id"] != cached["parent_component_id"])
-                       or any(cached["objects"][i]["bounds_mm"] != obj["bounds_mm"]
-                              for i, obj in enumerate(objects) if i < len(cached["objects"])))
+                       or any((prior["object_type"], prior.get("name", ""), prior["bounds_mm"]) !=
+                              (obj["object_type"], obj.get("name", ""), obj["bounds_mm"])
+                              for prior, obj in zip(cached["objects"], objects)))
             result = dict(cached)
             result.update(observed)
             result.update(object_ids=direct_ids, direct_object_ids=direct_ids, objects=objects,
+                          object_count=len(objects), effective_object_count=len(effective_ids),
+                          object_names=list(dict.fromkeys(obj["name"] for obj in objects if obj.get("name"))),
+                          object_types={kind: sum(obj["object_type"] == kind for obj in objects)
+                                        for kind in sorted({obj["object_type"] for obj in objects})},
                           scene_ids=native_scenes, child_component_ids=children,
                           pending_objects=pending, live_verified=True,
                           requires_sync=bool(changed or pending or observed.get("requires_sync")))
