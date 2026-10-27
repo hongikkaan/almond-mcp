@@ -61,6 +61,8 @@ Args:
         annotations and transforms. Explicit legacy include_geometry/annotations flags
         retain detailed behavior. max_items/max_bytes remain bounded; use explicit IDs,
         a branch path or lower depth after truncation, never assume omitted data is absent.
+        Detailed traversal also stops after max_items eligible visits (reason=max_visits),
+        including annotations-only queries whose repeated definitions emit few rows.
     expected_model_path: Usually omitted; the runtime supplies the bound document automatically.
 Returns:
     JSON with status, probe, document identity/units/tolerance and data, or an explicit error.
@@ -96,6 +98,8 @@ Args:
     display_mode: Installed display mode name or GUID. Empty preserves the current
         model viewport mode; Named View/group/block captures default to Shaded. List
         available modes with get_rhino_context(sections=["display_modes"], include_ids=true).
+        Realtime rendering modes such as Raytraced are rejected; this tool does not
+        wait for asynchronous rendering to finish.
     labels: True by default. Transient pixels show top-level group name/GUID, block
         instance name/GUID and ungrouped object GUID, without creating document objects.
         At most 200 labels; explicit smaller targets/depth narrow a truncated overlay.

@@ -35,6 +35,8 @@ editor 요약(mode/target/stable)이 함께 표시된다. 상세 provider 근거
 전체 선택 수는 조회한다. 선택은 recursive=false, depth=1이 기본이며 완전히 선택된 최상위
 group과 block instance를 요약한다. 일부만 선택한 group은 개별 객체로 남는다. recursive=true일
 때만 depth(1–8)까지 내부를 펼친다. selected_object_count와 요약 entity total을 구분한다.
+이 요약은 공개 Python 도구가 native 요청의 selection_entities=true를 명시해 받는다.
+기존 native 내부 호출은 기본 raw 객체 GUID 목록을 유지하므로 선택의 Component/Plan 역조회를 깨지 않는다.
 객체 수는 정상·숨김·잠금·reference·light를 포함하며
 삭제 객체·블록 정의의 내부 객체·grip은 제외한다. 레이어 수는 삭제 레이어를 제외한다.
 조회 실패 값을 0이나 빈 문서로 바꾸지 않고 `null`과 경고로 표시한다.
@@ -80,6 +82,8 @@ PNG와 base64 모두 메모리에서 처리하므로 임시 이미지 파일을 
 display_mode에 실제 설치된 이름/GUID를 지정할 수 있고, 빈 값이면 현재 model viewport는
 원래 mode, Named View/group/block은 Shaded를 쓴다. 작업 화면 카메라 이동만으로 독립 Named View
 캡처를 버리지 않는다. Shaded/Dark/CadWhite가 설치돼 있다고 가정하지 말고 display_modes를 조회한다.
+독립 캡처는 표시하지 않는 공식 SDK viewport control에서 raster mode를 그리며 원본 뷰를 추가·활성화하지 않는다.
+Raytraced 등 RealtimeDisplayId가 있는 비동기 렌더 모드는 명시적으로 거절한다. 렌더 완료를 기다리는 기능은 없다.
 
 labels=true/depth=1이 기본이다. 최대 200개 entity의 이름/GUID를 transient 픽셀로 그리며 문서
 TextDot이나 속성을 만들지 않는다. top group은 group GUID, block은 definition GUID가 아닌
@@ -115,7 +119,8 @@ UTF-8 JSON 262,144 bytes 이내이며 한도 초과는 명시적 오류다. help
 `unknown`, `truncated`, 미지원 객체·미평가 표본을 0이나 설계 통과로 해석하지 않는다.
 outline의 기본은 작은 summary다. field_groups로 summary/objects/annotations/transforms를 선택한다.
 기존 include_geometry/annotations 명시 호출은 상세 조회 의미를 유지한다. budget은 확대하지 않으며
-잘린 응답은 대상 IDs, branch path 또는 depth를 좁혀 후속 조회한다.
+요약을 기존 상세 row 예산에 강제로 삽입하지 않는다. 상세 방문 수도 max_items 이내로 제한하고
+visited/max_visits와 max_visits 잘림 사유를 표시한다. 잘린 응답은 대상 IDs, branch path 또는 depth를 좁혀 후속 조회한다.
 
 Python은 기존 문서 조회의 `capabilities.fixed_probes`를 먼저 확인한다.
 이 capability가 없는 이전 관찰용 Bridge에는 알 수 없는 probe 요청을 보내지 않고

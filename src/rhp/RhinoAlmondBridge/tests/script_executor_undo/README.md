@@ -123,6 +123,18 @@ selection, bounded UTF-8 summaries, editor baseline/transient rejection and an
 unsupported provider loaded after startup. It never opens a user model or loads the
 candidate RHP. This host cannot prove actual viewport rendering.
 
+`run_editor_context_fixture.start(fixture_dll, new_output_directory, scheme)` runs
+the installed `GroupEdit`, `BlockEditNew` and `BlockCancel` commands through the
+public command API. Invoke it from an IronPython launcher in a separate, empty
+Rhino CLI process started with `/scheme=AlmondObservationBDD` (the default scheme).
+Supply an absolute source-linked fixture DLL and a new ignored output directory;
+the script creates and closes only its own disposable document, then exits its
+dedicated process normally. Each editor entry and cancellation is observed in a
+later modeless callback. The test checks mode/stability and original group label/
+count or block instance/definition identity. It requires the installed supported
+editor versions; it does not install, patch or invoke private editor methods.
+Save rejection belongs to the separate save fixture.
+
 In the separate empty Rhino CLI process, `ObservationTests.RunImageTargets(directory)`
 also checks detached Shaded/default and explicit Wireframe captures, transient label
 pixels, group/block framing, and a controlled active-camera move during a Named View

@@ -57,6 +57,20 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(source=source), self.assertRaises((ValueError, TypeError)):
                 checked_stub(ast.parse(source).body[0])
 
+    def test_context_result_schema_is_literal_and_never_executed(self):
+        safe = ast.parse('@mcp.tool(output_schema={"type":"object","properties":{"result":{"type":"string"}},'
+                         '"required":["result"],"x-fastmcp-wrap-result":True})\n'
+                         'def get_rhino_context() -> str | ToolResult:\n    pass').body[0]
+        checked_stub(safe)
+        unsafe = ast.parse('@mcp.tool(output_schema=dangerous())\n'
+                           'def get_rhino_context() -> str | ToolResult:\n    pass').body[0]
+        with self.assertRaises((ValueError, TypeError)):
+            checked_stub(unsafe)
+        other_schema = ast.parse('@mcp.tool(output_schema={"type":"object"})\n'
+                                 'def get_rhino_context() -> str | ToolResult:\n    pass').body[0]
+        with self.assertRaises(ValueError):
+            checked_stub(other_schema)
+
 
 class FeatureSourceTests(unittest.TestCase):
     def test_external_description_is_inert_and_markdown_is_fingerprinted(self):

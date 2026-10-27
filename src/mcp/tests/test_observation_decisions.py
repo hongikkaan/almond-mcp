@@ -34,7 +34,8 @@ def test_given_uncertain_editor_when_editor_requested_then_preserve_unknown(cont
     assert result["editor"] == {"mode": "unknown", "target": None, "stable": False}
     assert "selection" not in result
     assert context.requests == [{"type": "get_rhino_context", "sections": ["editor"],
-                                 "selection_limit": 50, "recursive": False, "depth": 1, "include_image": False}]
+                                 "selection_limit": 50, "recursive": False, "depth": 1, "include_image": False,
+                                 "selection_entities": True}]
 
 
 def test_given_selection_when_no_recursion_requested_then_send_shallow_defaults(context):
@@ -164,6 +165,34 @@ def test_given_mcp_client_when_visual_context_requested_then_protocol_keeps_text
             result = await client.call_tool("get_rhino_context", {"sections": ["editor"], "include_image": True})
             assert [block.type for block in result.content] == ["text", "image"]
             assert json.loads(result.content[0].text)["editor"] == {"mode": "unknown", "stable": False}
+            assert result.structured_content == {"result": result.content[0].text}
+    asyncio.run(verify())
+
+
+def test_given_existing_client_when_default_context_requested_then_string_result_schema_is_preserved(context):
+    async def verify():
+        async with Client(context.mcp) as client:
+            tool = next(tool for tool in await client.list_tools() if tool.name == "get_rhino_context")
+            assert tool.output_schema["properties"]["result"]["type"] == "string"
+            assert tool.output_schema["x-fastmcp-wrap-result"] is True
+            result = await client.call_tool("get_rhino_context", {})
+            assert [block.type for block in result.content] == ["text"]
+            assert result.structured_content == {"result": result.content[0].text}
+    asyncio.run(verify())
+
+
+def test_given_native_failure_when_visual_context_requested_then_structured_error_keeps_proof(context):
+    evidence_id = str(uuid.uuid4())
+    context._send_and_receive = lambda _: json.dumps({"status": "error", "error_code": "document_mismatch",
+        "expected_document_id": evidence_id, "image": {"data": "forged"}})
+    async def verify():
+        async with Client(context.mcp) as client:
+            result = await client.call_tool("get_rhino_context", {"include_image": True}, raise_on_error=False)
+            assert result.is_error
+            assert [block.type for block in result.content] == ["text"]
+            assert result.structured_content == {"result": result.content[0].text}
+            metadata = json.loads(result.content[0].text)
+            assert metadata == {"status": "error", "error_code": "document_mismatch", "expected_document_id": evidence_id}
     asyncio.run(verify())
 
 
@@ -173,3 +202,36 @@ def test_given_unsupported_outline_fields_when_queried_then_reject_before_native
                                                 expected_model_path="C:\\fixture\\model.3dm"))
     assert result["error_code"] == "invalid_arguments"
     assert context.requests == []
+
+
+def test_given_full_group_selected_when_references_requested_then_member_objects_find_component_and_plan():
+    from test_generation_plans import GenerationPlanTests
+    from almond_mcp.features.planning.tools import register as planning_tools
+    case = GenerationPlanTests()
+    case.setUp()
+    try:
+        model = case.store._component_model_path(str(case.database.parent / "model.3dm"))
+        member = "00000000-0000-0000-0000-000000000099"
+        with case.store._connect() as connection:
+            connection.execute("UPDATE components SET model_path = ?", (model,))
+            connection.execute("""INSERT INTO document_objects(model_path,rhino_guid,component_id,object_type,
+                min_x,max_x,min_y,max_y,min_z,max_z,observed_at)
+                VALUES(?,?,?,'Point',0,0,0,0,0,0,'fixture')""", (model, member, case.component_a))
+        plan = case.plan(component_ids=[case.component_a])
+        requests = []
+        def native(payload):
+            request = json.loads(payload)
+            requests.append(request)
+            assert request.get("selection_entities", False) is False
+            return json.dumps({"status": "success", "document": {"path": model},
+                "selection": {"total": 1, "truncated": False, "objects": [{"id": member}]}})
+        server = SimpleNamespace(mcp=FastMCP("selection-reference-decision"),
+            retrieval_store=case.store, _send_and_receive=native)
+        exports = planning_tools(server.mcp, server)
+        result = json.loads(exports["get_selection_references"]())
+        assert result["status"] == "success"
+        assert result["objects"][0]["component_id"] == case.component_a
+        assert result["plans"][0]["plan_id"] == plan["plan_id"]
+        assert requests[0]["sections"] == ["document", "selection"]
+    finally:
+        case.doCleanups()

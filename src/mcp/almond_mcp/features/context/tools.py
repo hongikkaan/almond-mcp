@@ -34,7 +34,9 @@ def register(mcp, context):
         })
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False}, output_schema={
+        "type": "object", "properties": {"result": {"type": "string"}},
+        "required": ["result"], "x-fastmcp-wrap-result": True})
     @tool_instruction(__file__, 'get_rhino_context')
     @query_output
     def get_rhino_context(selection_limit: StrictInt = 50, sections: list[str] | None = None,
@@ -53,7 +55,7 @@ def register(mcp, context):
             return json.dumps(error_payload("recursive/include_image must be booleans and depth an integer from 1 to 8.", error_code="invalid_arguments"))
         payload = json.dumps({"type": "get_rhino_context", "selection_limit": selection_limit,
                               "sections": sections, "recursive": recursive, "depth": depth,
-                              "include_image": include_image}).encode("utf-8")
+                              "include_image": include_image, "selection_entities": True}).encode("utf-8")
         try:
             result = json.loads(context._send_and_receive(payload))
             compact_editor = any(section in ("document", "selection", "viewport") for section in sections)
@@ -69,16 +71,18 @@ def register(mcp, context):
             captured = result.pop("image", None)
             if include_image:
                 images = []
-                if captured is not None:
+                if captured is not None and result.get("status") == "success":
                     capture = _capture_result({"status": "success", "image": captured}, "", 50, False)
                     if capture.is_error:
                         result["image_error"] = capture.structured_content
                     else:
                         images = capture.content
-                elif "image_error" not in result:
+                elif result.get("status") == "success" and "image_error" not in result:
                     result["image_error"] = error_payload("The Bridge did not provide the requested image.", error_code="unsupported_capture")
-                metadata = relative_output(project_query(result, include_ids=include_ids))
-                return ToolResult(content=[TextContent(type="text", text=json.dumps(metadata, ensure_ascii=False)), *images],
+                metadata = relative_output(result if result.get("status") == "error" else project_query(result, include_ids=include_ids))
+                serialized = json.dumps(metadata, ensure_ascii=False)
+                return ToolResult(content=[TextContent(type="text", text=serialized), *images],
+                                  structured_content={"result": serialized},
                                   is_error=result.get("status") != "success")
             return json.dumps(result, ensure_ascii=False)
         except Exception as exc:

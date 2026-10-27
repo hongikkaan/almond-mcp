@@ -75,6 +75,12 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
                 and decorator.func.attr == "tool" and not decorator.args):
             raise ValueError(f"Unexpected tool decorator: {node.name}")
         for keyword in decorator.keywords:
+            if keyword.arg == "output_schema":
+                expected = {"type": "object", "properties": {"result": {"type": "string"}},
+                            "required": ["result"], "x-fastmcp-wrap-result": True}
+                if node.name != "get_rhino_context" or ast.literal_eval(keyword.value) != expected:
+                    raise ValueError(f"Review output schema in {node.name}")
+                continue
             if keyword.arg != "annotations":
                 raise ValueError(f"Review decorator option {keyword.arg} in {node.name}")
             ast.literal_eval(keyword.value)

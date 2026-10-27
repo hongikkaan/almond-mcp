@@ -31,7 +31,8 @@ namespace RhinoAlmondBridge
             {
                 NormalObjects = true, HiddenObjects = false, LockedObjects = true,
                 ReferenceObjects = true, DeletedObjects = false, IdefObjects = false, VisibleFilter = true
-            }).Where(o => o != null && !o.IsDeleted && !o.IsInstanceDefinitionGeometry).ToArray();
+            }).Where(o => o != null && !o.IsDeleted && !o.IsInstanceDefinitionGeometry &&
+                o.Attributes.Space != ActiveSpace.PageSpace).ToArray();
         }
 
         public static Entity ObjectEntity(RhinoDoc doc, RhinoObject obj, Transform parent, Guid[] prefix)
@@ -116,9 +117,22 @@ namespace RhinoAlmondBridge
             return rows;
         }
 
-        public static JObject Selection(RhinoDoc doc, int limit, bool recursive, int depth)
+        public static JObject Selection(RhinoDoc doc, int limit, bool recursive, int depth, bool entitySummaries = true)
         {
             var selected = doc.Objects.GetSelectedObjects(true, false).ToArray();
+            // Internal reverse-reference consumers require the original selected object GUIDs.
+            // Preserve their old shape without evaluating geometry bounds or block contents.
+            if (!entitySummaries) return new JObject
+            {
+                ["total"] = selected.Length, ["returned"] = Math.Min(limit, selected.Length),
+                ["truncated"] = selected.Length > limit,
+                ["objects"] = new JArray(selected.Take(limit).Select(obj => new JObject
+                {
+                    ["id"] = obj.Id.ToString(), ["name"] = obj.Name ?? "",
+                    ["layer"] = doc.Layers.FindIndex(obj.Attributes.LayerIndex)?.FullPath,
+                    ["type"] = obj.ObjectType.ToString()
+                }))
+            };
             var roots = Roots(doc, selected);
             bool truncated, depthLimited;
             var rows = Expand(doc, roots, recursive ? depth : 1, limit, out truncated, out depthLimited);

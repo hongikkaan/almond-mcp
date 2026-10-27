@@ -25,10 +25,11 @@ namespace RhinoAlmondBridge
         public static string HandleContext(JObject request)
         {
             int selectionLimit, depth;
-            bool recursive, includeImage;
+            bool recursive, includeImage, selectionEntities;
             if (!ReadInteger(request, "selection_limit", 50, 0, MaxSelectionLimit, out selectionLimit) ||
                 !ReadInteger(request, "depth", 1, 1, 8, out depth) ||
                 !ReadBoolean(request, "recursive", false, out recursive) ||
+                !ReadBoolean(request, "selection_entities", false, out selectionEntities) ||
                 !ReadBoolean(request, "include_image", false, out includeImage))
                 return Error("invalid_arguments", "Use selection_limit 0..200, depth 1..8 and boolean recursive/include_image.").ToString(Formatting.None);
             string[] sections = null;
@@ -39,7 +40,7 @@ namespace RhinoAlmondBridge
                     return Error("invalid_arguments", "sections must be an array of document, selection or viewport.").ToString(Formatting.None);
                 sections = requested.Values<string>().ToArray();
             }
-            return GetContext(RhinoDoc.ActiveDoc, selectionLimit, sections, recursive, depth, includeImage).ToString(Formatting.None);
+            return GetContext(RhinoDoc.ActiveDoc, selectionLimit, sections, recursive, depth, includeImage, selectionEntities).ToString(Formatting.None);
         }
 
         public static string HandleViewportImage(JObject request)
@@ -64,7 +65,7 @@ namespace RhinoAlmondBridge
         /// Failed fields or sections are null and identified in warnings, never fake zeroes.
         /// </summary>
         public static JObject GetContext(RhinoDoc doc, int selectionLimit = 50, string[] sections = null,
-            bool recursive = false, int depth = 1, bool includeImage = false)
+            bool recursive = false, int depth = 1, bool includeImage = false, bool selectionEntities = false)
         {
             var requested = new HashSet<string>(sections ?? new[] { "document" });
             if (requested.Except(new[] { "document", "selection", "viewport", "editor", "display_modes" }).Any())
@@ -96,7 +97,7 @@ namespace RhinoAlmondBridge
                 ["layer_count"] = Observe("document.layer_count", () => new JValue(doc.Layers.ActiveCount), warnings)
             };
             if (requested.Contains("selection"))
-                result["selection"] = Observe("selection", () => ObservationEntities.Selection(doc, selectionLimit, recursive, depth), warnings);
+                result["selection"] = Observe("selection", () => ObservationEntities.Selection(doc, selectionLimit, recursive, depth, selectionEntities), warnings);
             if (requested.Overlaps(new[] { "document", "selection", "viewport", "editor" }))
             {
                 var editor = EditingContext.Observe(doc);
@@ -199,6 +200,10 @@ namespace RhinoAlmondBridge
                         return error;
                     }
                 }
+                // A mode override or independent capture requests a new render. A current-view
+                // capture without an override can still copy its existing realtime frame.
+                if (mode != null && mode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
+                    return Error("unsupported_display_mode", "Realtime display modes require an asynchronous render; choose an installed raster display mode such as Shaded.");
                 Size sourceSize;
                 if (page != null)
                 {
@@ -318,18 +323,30 @@ namespace RhinoAlmondBridge
                     return ViewCapture.CaptureToBitmap(settings);
                 }
             }
-            if (namedView == null && mode == null && entities == null)
+            if (namedView == null && entities == null)
             {
-                var bitmap = view.CaptureToBitmap(size);
+                var bitmap = mode == null ? view.CaptureToBitmap(size) : view.CaptureToBitmap(size, mode);
                 if (bitmap != null && labels) ObservationEntities.DrawLabels(doc, bitmap, view.MainViewport,
                     ObservationEntities.Roots(doc, ObservationEntities.ModelObjects(doc)), depth, warnings);
                 return bitmap;
             }
-            using (var viewport = new RhinoViewport(view == null ? doc.Views.ActiveView.ActiveViewport : view.MainViewport))
+            if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber)
+                throw new InvalidOperationException("The capture document is no longer active.");
+            // A never-shown SDK control initializes its own display pipeline. Printing settings
+            // accept a detached camera but silently render Wireframe on the supported Rhino SDK.
+            using (var control = new CaptureViewportControl { Visible = false, Size = size })
             {
-                viewport.Size = sourceSize;
-                if (namedView != null && !viewport.SetViewProjection(namedView.Viewport, true))
-                    throw new InvalidOperationException("Could not apply the named view to a detached viewport.");
+                var handle = control.Handle;
+                var viewport = control.Viewport;
+                if (namedView != null)
+                {
+                    if (!viewport.SetViewProjection(namedView.Viewport, true))
+                        throw new InvalidOperationException("Could not apply the named view to a detached viewport.");
+                }
+                else
+                    using (var projection = new ViewportInfo(view == null ? doc.Views.ActiveView.ActiveViewport : view.MainViewport))
+                        if (!viewport.SetViewProjection(projection, true))
+                            throw new InvalidOperationException("Could not copy the capture projection.");
                 if (mode != null) viewport.DisplayMode = mode;
                 if (entities != null)
                 {
@@ -338,20 +355,33 @@ namespace RhinoAlmondBridge
                     if (!bounds.IsValid || !viewport.ZoomBoundingBox(bounds))
                         throw new InvalidOperationException("The capture target has no frameable bounds.");
                 }
-                using (var settings = new ViewCaptureSettings(doc.Views.ActiveView, size, 96.0))
+                DisplayPipeline pipeline = null;
+                try
                 {
-                    settings.Document = doc;
-                    settings.SetViewport(viewport);
-                    settings.RasterMode = true;
-                    settings.DrawBackground = true;
-                    settings.HeaderText = "";
-                    settings.FooterText = "";
-                    settings.SetLayout(size, new Rectangle(System.Drawing.Point.Empty, size));
-                    var bitmap = ViewCapture.CaptureToBitmap(settings);
+                    control.InitializeCapturePipeline();
+                    pipeline = control.Display;
+                    if (pipeline == null || (!pipeline.IsOpen && !pipeline.Open()))
+                        throw new InvalidOperationException("Could not initialize the independent capture pipeline.");
+                    var bitmap = DisplayPipeline.DrawToBitmap(viewport, size.Width, size.Height);
                     if (bitmap != null && labels) ObservationEntities.DrawLabels(doc, bitmap, viewport,
                         entities ?? ObservationEntities.Roots(doc, ObservationEntities.ModelObjects(doc)), depth, warnings);
                     return bitmap;
                 }
+                finally { if (pipeline != null) pipeline.Close(); }
+            }
+        }
+
+        private sealed class CaptureViewportControl : RhinoWindows.Forms.Controls.ViewportControl
+        {
+            internal void InitializeCapturePipeline()
+            {
+                // Use the supported protected painting extension point to initialize OpenGL.
+                // No Form, Show, view activation, registered display-mode edits or screen capture.
+                for (int attempt = 0; attempt < 2; attempt++)
+                    using (var bitmap = new Bitmap(ClientSize.Width, ClientSize.Height))
+                    using (var graphics = Graphics.FromImage(bitmap))
+                    using (var args = new System.Windows.Forms.PaintEventArgs(graphics, ClientRectangle))
+                        base.OnPaint(args);
             }
         }
 

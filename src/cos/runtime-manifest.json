@@ -17,11 +17,11 @@
     "src/rhp/Engine/WindowsPeerIdentity.cs": "27276b76eec4a5c9c32d7560406a6f067ac16810d045be30a18eef856019d16e"
   },
   "files": {
-    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.dll": "fe99602122ed00ece68a74a4dac4e0c9cd4ffd120ee06efb4c753a3553ceed70",
-    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.pdb": "8d6d80da6a2abbd1aa468e760844cbbfbb128b8023053b34f931e33c9b9f18c0",
+    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.dll": "f44037168940924ee17ffddc739fe2191871d036d963a9d04f30bbeecbd4c3c1",
+    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.pdb": "28fba373b43652ae937645beacb89d5a4f10ebae4d4180a4866f368cb7b9bb9e",
     "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.deps.json": "bebb0622990ae3e4a944e247d8fe0cd2cf528601a717901602f9e2eb44f37f43",
-    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.pdb": "3edc8d8989954da6bbc994ece37a1288ae91fd1b549eec6e27070fd7f4458509",
-    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp": "4a696128f37a945a4921591733c08bbac68063a9538cf366b7fe1c4f9ec2a0bb",
+    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.pdb": "fbaa3a5a3fd076b025d33824450cdd4260c33c93f2427d647c6086b4b4875c74",
+    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp": "163413b9e7845a7ef89853a1a2baba919a784aff002ce9a5ba03c1e2c6f4bcb5",
     "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.runtimeconfig.json": "2fa0b19e9ba0d01bf6fc57c18cbd4b03f808c229ac05316e321b62824c1aea9c"
   }
 }

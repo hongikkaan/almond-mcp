@@ -84,6 +84,7 @@ public static class AlmondSpatial
         public readonly JObject Result;
         public readonly JArray Records = new JArray();
         readonly int maxItems, maxBytes;
+        int visited;
         public bool Stopped { get; private set; }
         public Budget(int items, int bytes)
         {
@@ -93,7 +94,7 @@ public static class AlmondSpatial
             Result = new JObject {
                 ["records"] = Records, ["items"] = 0, ["truncated"] = false,
                 ["reason"] = null, ["depth_limited"] = false,
-                ["max_items"] = items, ["max_bytes"] = bytes
+                ["max_items"] = items, ["max_bytes"] = bytes, ["visited"] = 0, ["max_visits"] = items
             };
         }
         public bool Add(JObject row)
@@ -108,6 +109,13 @@ public static class AlmondSpatial
                 Result["items"] = Records.Count;
                 return Stop("max_bytes");
             }
+            return true;
+        }
+        public bool Visit()
+        {
+            if (Stopped) return false;
+            if (visited >= maxItems) return Stop("max_visits");
+            Result["visited"] = ++visited;
             return true;
         }
         bool Stop(string reason)
@@ -181,6 +189,7 @@ public static class AlmondSpatial
             if (budget.Stopped) return;
             var block = obj as InstanceObject;
             if (block == null && (!geometry || obj.Geometry is TextDot)) return;
+            if (!budget.Visit()) return;
             var path = new List<Guid>(prefix); path.Add(obj.Id);
             var world = block == null ? parent : parent * block.InstanceXform;
             var row = Row(doc, obj);
@@ -216,9 +225,10 @@ public static class AlmondSpatial
         var supplied = q["field_groups"] as JArray;
         if (q["field_groups"] != null && (supplied == null || supplied.Count == 0 || supplied.Any(t => t.Type != JTokenType.String)))
             throw new ArgumentException("field_groups must be a nonempty array of summary, objects, annotations or transforms.");
-        // Explicit legacy detail flags retain their meaning; new default observations are summaries.
+        // Explicit legacy detail flags retain their exact row/budget and geometry defaults.
+        bool legacy = supplied == null && (q["include_geometry"] != null || q["annotations"] != null);
         var fields = new HashSet<string>(supplied == null ?
-            (q["include_geometry"] != null || q["annotations"] != null ? new[] { "summary", "objects", "annotations", "transforms" } : new[] { "summary" }) :
+            (legacy ? new[] { "objects", "annotations", "transforms" } : new[] { "summary" }) :
             supplied.Values<string>());
         if (fields.Except(new[] { "summary", "objects", "annotations", "transforms" }).Any())
             throw new ArgumentException("Unknown outline field group.");
@@ -227,7 +237,7 @@ public static class AlmondSpatial
         var b = new Budget((int?)q["max_items"] ?? 200, (int?)q["max_bytes"] ?? 48000);
         var detail = (JObject)q.DeepClone();
         detail["annotations"] = fields.Contains("annotations") && ((bool?)q["annotations"] ?? true);
-        detail["include_geometry"] = (bool?)q["include_geometry"] ?? (fields.Contains("objects") || fields.Contains("transforms"));
+        detail["include_geometry"] = (bool?)q["include_geometry"] ?? (!legacy && (fields.Contains("objects") || fields.Contains("transforms")));
         var index = new Index(doc, detail, b, fields);
         var branch = ReadIds(q["path"]);
         if (q["path"] != null) {

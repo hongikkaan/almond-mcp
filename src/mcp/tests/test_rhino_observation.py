@@ -59,7 +59,7 @@ def test_context_sends_only_a_fixed_live_query(server, monkeypatch):
     monkeypatch.setattr(server, "_send_and_receive", send)
     assert json.loads(call(server.get_rhino_context, selection_limit=2, sections=["document", "selection", "viewport"])) == response
     assert requests == [{"type": "get_rhino_context", "selection_limit": 2, "sections": ["document", "selection", "viewport"],
-                         "recursive": False, "depth": 1, "include_image": False}]
+                         "recursive": False, "depth": 1, "include_image": False, "selection_entities": True}]
 
 
 @pytest.mark.parametrize("limit", [-1, 201, True, "5", 2.5])
