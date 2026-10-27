@@ -275,9 +275,7 @@ class ComponentsStore:
                 ancestor, seen, redundant = parents[handle], set(), False
                 while ancestor is not None and ancestor not in seen:
                     seen.add(ancestor)
-                    if availability.get(ancestor) != "present":
-                        break
-                    if scene in contexts.get(ancestor, []):
+                    if availability.get(ancestor) == "present" and scene in contexts.get(ancestor, []):
                         redundant = True
                         break
                     ancestor = parents.get(ancestor)
@@ -302,9 +300,10 @@ class ComponentsStore:
             WITH RECURSIVE subtree(component_id) AS (
                 SELECT component_id FROM components WHERE component_id = ? AND availability = 'present'
                 UNION SELECT c.component_id FROM components c
-                    JOIN subtree parent ON c.parent_component_id = parent.component_id WHERE c.availability = 'present'
+                    JOIN subtree parent ON c.parent_component_id = parent.component_id
             )
             SELECT o.* FROM document_objects o JOIN subtree s ON o.component_id = s.component_id
+                JOIN components c ON c.component_id = o.component_id AND c.availability = 'present'
             ORDER BY o.model_path, o.rhino_guid
         """, (component_id,))]
         children = [item["component_id"] for item in connection.execute(

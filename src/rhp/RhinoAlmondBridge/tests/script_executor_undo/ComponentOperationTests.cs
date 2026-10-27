@@ -12,6 +12,72 @@ namespace AlmondScriptUndoTests
 {
     public static class ComponentOperationTests
     {
+        public static string RunMissingMiddleCases(string directory)
+        {
+            var lines = new List<string>();
+            RunMissingMiddleCases(lines, directory);
+            string report = String.Join("\n", lines);
+            if (lines.Any(line => line.StartsWith("FAIL "))) throw new InvalidOperationException(report);
+            return report + "\nPASS: " + lines.Count + "/" + lines.Count + " missing-middle hierarchy cases.";
+        }
+
+        private static void RunMissingMiddleCases(List<string> lines, string directory)
+        {
+            RunView(lines, directory, doc =>
+            {
+                Guid leaf = Box(doc, 0), middle = Box(doc, 30), root = Box(doc, 60), other = Box(doc, 90);
+                int leafGroup = doc.Groups.Add("Leaf", new[] { leaf });
+                int middleGroup = doc.Groups.Add("Middle", new[] { leaf, middle });
+                int rootGroup = doc.Groups.Add("Root", new[] { leaf, middle, root });
+                foreach (var item in new[] { new { Id = "leaf", Group = leafGroup, Object = leaf, Child = "" },
+                    new { Id = "middle", Group = middleGroup, Object = middle, Child = "leaf" },
+                    new { Id = "root", Group = rootGroup, Object = root, Child = "middle" } })
+                    Success(ComponentRegistry.Handle(doc, new JObject {
+                        ["action"] = "upsert", ["expected_model_path"] = doc.Path,
+                        ["component_id"] = item.Id, ["name"] = doc.Groups[item.Group].Name,
+                        ["rhino_group_id"] = doc.Groups[item.Group].Id.ToString("D"),
+                        ["scene_ids"] = new JArray("scene"), ["object_ids"] = new JArray(item.Object.ToString("D")),
+                        ["child_component_ids"] = item.Child == "" ? new JArray() : new JArray(item.Child)
+                    }));
+                Check(doc.Groups.Delete(middleGroup), "Middle group deletion failed.");
+                var before = State(doc);
+                var child = Success(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "inspect", ["expected_model_path"] = doc.Path, ["component_id"] = "leaf"
+                }))["component"];
+                Check((string)child["availability"] == "present" && (string)child["effective_objects"][0]["component_id"] == "leaf",
+                    "A missing middle group hid the live leaf owner: " + child);
+                var batch = Success(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "inspect_many", ["expected_model_path"] = doc.Path, ["component_ids"] = new JArray("root")
+                }));
+                Check(((JArray)batch["problems"]).Count == 0 && ((JArray)batch["components"]).Count == 3, "Hierarchy alignment snapshot is incomplete: " + batch);
+                var top = batch["components"].Single(item => (string)item["component_id"] == "root");
+                Check(new HashSet<string>(top["object_ids"].Values<string>()).SetEquals(new[] { middle.ToString("D"), root.ToString("D") }),
+                    "Root direct members duplicated a live deeper descendant: " + top);
+                var observation = Success(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "objects", ["expected_model_path"] = doc.Path, ["object_ids"] = new JArray(leaf.ToString("D"))
+                }));
+                Check((string)observation["objects"][0]["component_id"] == "leaf", "Direct Scene observation lost the deepest owner.");
+                var overlap = Success(ComponentOperations.Handle(doc, new JObject {
+                    ["action"] = "intersections", ["expected_model_path"] = doc.Path, ["component_ids"] = new JArray("root", "leaf")
+                }));
+                Check((int)overlap["object_count"] == 3 && (bool)overlap["complete"], "Live root/leaf operation scope changed: " + overlap);
+                Unchanged(before, doc);
+                int unrelated = doc.Groups.Add("Unrelated", new[] { other });
+                Success(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "upsert", ["expected_model_path"] = doc.Path, ["component_id"] = "unrelated",
+                    ["name"] = "Unrelated", ["rhino_group_id"] = doc.Groups[unrelated].Id.ToString("D"),
+                    ["scene_ids"] = new JArray("scene"), ["object_ids"] = new JArray(other.ToString("D"))
+                }));
+                var attrs = doc.Objects.FindId(leaf).Attributes.Duplicate(); attrs.AddToGroup(unrelated);
+                Check(doc.Objects.ModifyAttributes(leaf, attrs, true), "Unrelated overlap fixture failed.");
+                before = State(doc);
+                Rejected(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "inspect", ["expected_model_path"] = doc.Path, ["component_id"] = "leaf"
+                }));
+                Unchanged(before, doc);
+            }, "Missing middle group preserves live descendant ownership and rejects unrelated overlap");
+        }
+
         public static string RunUnavailableCases(string directory)
         {
             var lines = new List<string>();
@@ -66,6 +132,7 @@ namespace AlmondScriptUndoTests
         {
             var lines = new List<string>();
             RunUnavailableCases(lines, directory);
+            RunMissingMiddleCases(lines, directory);
             Run(lines, "Intersection broadphase and volume preserve the document", doc =>
             {
                 Guid a = Box(doc, 0), b = Box(doc, 5), far = Box(doc, 100);

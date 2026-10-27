@@ -63,6 +63,9 @@ Close the isolated test process normally before rebuilding the same assembly.
 For the unavailable-target regression alone, invoke
 `ComponentOperationTests.RunUnavailableCases(string directory)`; it checks both
 intersections and focus with missing-group and unregistered mixed targets.
+`ComponentOperationTests.RunMissingMiddleCases(string directory)` checks live
+descendant ownership, direct membership and observations across a missing middle
+group, including continued rejection of unrelated overlapping semantic groups.
 
 Real Component archive roundtrips additionally require the test-only
 `SemanticRegistryFixturePlugin` (GUID `fcf793c0-6937-4c4f-9d2b-c3c65f4df8e1`).

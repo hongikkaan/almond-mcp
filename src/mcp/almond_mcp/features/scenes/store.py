@@ -72,11 +72,12 @@ class ScenesStore:
                         WHERE sc.scene_id = ? AND c.availability = 'present'
                     UNION
                     SELECT c.component_id FROM components c
-                        JOIN linked_components parent ON c.parent_component_id = parent.component_id WHERE c.availability = 'present'
+                        JOIN linked_components parent ON c.parent_component_id = parent.component_id
                 )
                 SELECT COUNT(*) FROM document_objects o
                 WHERE EXISTS(SELECT 1 FROM scene_objects so WHERE so.scene_id = ? AND so.object_rowid = o.id)
-                   OR EXISTS(SELECT 1 FROM linked_components lc WHERE lc.component_id = o.component_id)
+                   OR EXISTS(SELECT 1 FROM linked_components lc JOIN components c ON c.component_id = lc.component_id
+                             WHERE lc.component_id = o.component_id AND c.availability = 'present')
                 """, (scene_id, scene_id),
             ).fetchone()[0]
         return {
@@ -166,13 +167,14 @@ class ScenesStore:
                         WHERE sc.scene_id = ? AND c.availability = 'present'
                     UNION
                     SELECT child.component_id FROM components child
-                        JOIN linked_components parent ON child.parent_component_id = parent.component_id WHERE child.availability = 'present'
+                        JOIN linked_components parent ON child.parent_component_id = parent.component_id
                 )
                 SELECT o.*, EXISTS(
                     SELECT 1 FROM scene_objects so WHERE so.object_rowid = o.id AND so.scene_id = ?
                 ) AS direct FROM document_objects o
                 WHERE EXISTS(SELECT 1 FROM scene_objects so WHERE so.object_rowid = o.id AND so.scene_id = ?)
-                   OR EXISTS(SELECT 1 FROM linked_components lc WHERE lc.component_id = o.component_id)
+                   OR EXISTS(SELECT 1 FROM linked_components lc JOIN components c ON c.component_id = lc.component_id
+                             WHERE lc.component_id = o.component_id AND c.availability = 'present')
                 ORDER BY o.model_path, o.rhino_guid
                 """, (scene_id, scene_id, scene_id),
             ).fetchall()

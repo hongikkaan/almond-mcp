@@ -184,12 +184,12 @@ namespace RhinoAlmondBridge
         private static JObject Snapshot(RhinoDoc doc, JObject records, string id)
         {
             var record = records[id] as JObject ?? throw new ArgumentException("Unknown semantic registration: " + id);
-            Tree(records, id, new HashSet<string>());
+            var descendants = Descendants(records, id);
             var group = doc.Groups.FindId(Guid.Parse((string)record["rhino_group_id"]));
             bool available = Active(record) && group != null && !group.IsDeleted;
             var members = available ? Members(doc, record) : new RhinoObject[0];
             var children = Active(record) ? Children(record) : new string[0];
-            var nested = new HashSet<Guid>(children.SelectMany(child => Members(doc, records[child] as JObject)).Select(o => o.Id));
+            var nested = new HashSet<Guid>(descendants.SelectMany(child => Members(doc, records[child] as JObject)).Select(o => o.Id));
             if (available && !nested.IsSubsetOf(members.Select(o => o.Id))) throw new ArgumentException("A semantic child is outside the actual parent group.");
             var direct = members.Where(o => !nested.Contains(o.Id)).ToArray();
             return new JObject { ["complete"] = true, ["live_verified"] = true, ["component_id"] = id, ["model_path"] = doc.Path,
@@ -216,10 +216,16 @@ namespace RhinoAlmondBridge
             var parents = Registered(records).Where(r => Children(r).Contains(id)).Select(r => (string)r["component_id"]).ToArray();
             if (parents.Length > 1) throw new ArgumentException("A Component has more than one semantic parent."); return parents.FirstOrDefault();
         }
-        private static void Tree(JObject records, string id, HashSet<string> path)
+        private static HashSet<string> Descendants(JObject records, string id)
+        {
+            var result = new HashSet<string>();
+            Tree(records, id, new HashSet<string>(), result);
+            return result;
+        }
+        private static void Tree(JObject records, string id, HashSet<string> path, HashSet<string> descendants = null)
         {
             if (!path.Add(id) || path.Count > 64 || !(records[id] is JObject record)) throw new ArgumentException("Invalid or cyclic semantic hierarchy.");
-            foreach (string child in Children(record)) Tree(records, child, path); path.Remove(id);
+            foreach (string child in Children(record)) { descendants?.Add(child); Tree(records, child, path, descendants); } path.Remove(id);
         }
         private static string Owner(RhinoDoc doc, JObject records, Guid id)
         {
@@ -227,7 +233,8 @@ namespace RhinoAlmondBridge
                 var g = doc.Groups.FindId(Guid.Parse((string)r["rhino_group_id"]));
                 return g != null && !g.IsDeleted && doc.Objects.FindId(id)?.Attributes.IsInGroup(g.Index) == true;
             }).ToArray();
-            var deepest = containing.Where(r => !Children(r).Any(child => containing.Any(c => (string)c["component_id"] == child))).ToArray();
+            var deepest = containing.Where(r => !Descendants(records, (string)r["component_id"])
+                .Overlaps(containing.Select(c => (string)c["component_id"]))).ToArray();
             if (deepest.Length > 1) throw new ArgumentException("An object is in unrelated semantic groups: " + id);
             return deepest.Length == 0 ? null : (string)deepest[0]["component_id"];
         }

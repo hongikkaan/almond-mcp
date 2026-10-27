@@ -120,11 +120,34 @@ def test_given_unavailable_ancestor_when_aligning_then_present_child_keeps_its_s
         ids = [] if component["component_id"] == missing["component_id"] else component["object_ids"]
         snapshots.append(live(component, ids, availability=(
             availability if component["component_id"] == missing["component_id"] else "present")))
+        if gap_at == "middle" and component["component_id"] == parent["component_id"]:
+            snapshots[-1]["effective_objects"] = [object_row(A, child["component_id"]), object_row(C, parent["component_id"])]
+            snapshots[-1]["effective_object_ids"] = [A, C]
     store.align_components(model, native_inspect=bridge(snapshots))
 
     expected_ids = {A, C} if gap_at == "middle" else {A}
     assert {row["rhino_guid"] for row in store.scene_objects(store.scene_a)} == expected_ids
     assert store.get_scene(store.scene_a)["objects"] == len(expected_ids)
+    assert store.get_component(child["component_id"])["scene_ids"] == [store.scene_a]
+
+
+def test_given_missing_middle_group_when_aligning_then_root_and_scene_keep_live_descendant_geometry(store, model):
+    from test_component_hierarchy import create
+    store.scene_a, store.scene_b, store.model = store.fixture_scene_id, store.create_scene("Assembly context")["scene_id"], model
+    child = create(store, "Panel", [A])
+    middle = create(store, "Frame", [B], scenes=[store.scene_b], children=[child["component_id"]])
+    parent = create(store, "Assembly", [C], scenes=[store.scene_b], children=[middle["component_id"]])
+    child = store.get_component(child["component_id"])
+    middle = store.get_component(middle["component_id"])
+    root = live(parent, [B, C], name="Assembly")
+    root["effective_objects"] = [object_row(A, child["component_id"]), object_row(B, parent["component_id"]), object_row(C, parent["component_id"])]
+    root["effective_object_ids"] = [A, B, C]
+    store.align_components(model, native_inspect=bridge([
+        root, live(middle, [], availability="missing_group"), live(child, [A], name="Panel")]))
+    assert store.get_component(parent["component_id"])["effective_object_ids"] == [A, B, C]
+    assert store.get_component(middle["component_id"])["effective_object_ids"] == []
+    assert {row["rhino_guid"] for row in store.scene_objects(store.scene_b)} == {A, B, C}
+    assert store.get_scene(store.scene_b)["objects"] == 3
     assert store.get_component(child["component_id"])["scene_ids"] == [store.scene_a]
 
 
