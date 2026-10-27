@@ -195,11 +195,13 @@ Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서
 ## 모델링 안내 전달
 
 개인 `rhino-almond` 스킬 설치 없이 시작 안내와 도구 설명에서 필요한 주제를 찾는다.
-`get_modeling_guide()`는 14개 주제의 ID·제목·읽을 조건만 돌려준다. 필요한 주제 ID로
-`get_modeling_guide(topic="blocks")`처럼 조회한다. `ontological-component-evidence`는
+시작 안내는 `guide_version`과 14개 주제의 ID·한 줄 기능 요약을 제공한다.
+`get_modeling_guide()`의 선택적 index 조회는 ID·제목·기능 요약(`summary`)·읽을 조건을 돌려준다.
+이미 아는 주제는 index 없이 `get_modeling_guide(topic="blocks")`처럼 직접 조회하고,
+같은 `guide_version`에서 읽은 주제는 재사용한다. `ontological-component-evidence`는
 사용자 사례 원문이며, `include_images=true`일 때만 원본 PNG 2장을 함께 반환한다.
 API/DB의 기존 `component_id`, `Plan`, `plan_id`는 유지하며 표시 의미는
-`ontological-component`, Task로 설명한다.
+`ontological_component`, Task로 설명한다. 기존 `ontological-component` topic ID는 유지한다.
 
 조회 응답은 JSON TextContent 1개와 선택한 ImageContent다. `guide_version`은 manifest의
 SHA-256이며 본문·사진·시작 안내·프로젝트 안내·배분 정보를 식별한다. index나 다른 주제에는 사진이 붙지
