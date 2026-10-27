@@ -29,7 +29,7 @@ Almond MCP로 Rhino 건축 모델을 조회·편집하고 도면을 작성한다
 
 ### 프로젝트·문서·파일
 
-같은 폴더의 여러 `.3dm`이 하나의 프로젝트이며 `.almond/DB`를 공유한다. **Rhino 편집 대상은 활성 문서만**이다. Worksession의 attached/reference 문서는 조회만 한다.
+같은 폴더의 여러 `.3dm`이 하나의 프로젝트이며 `.almond/scene.sqlite3`를 공유한다. **Rhino 편집 대상은 활성 문서만**이다. Worksession의 attached/reference 문서는 조회만 한다.
 
 프로젝트·현재 파일은 `project_info`로 확인한다. DB 기록은 도구가 저장하고, 작업자료는 Task를 선택하면 `tmp/YYMMDD_작업명`에 관리된다. 관리 도구에는 프로젝트 상대경로를 전달하면 되므로 TEMP나 절대경로를 따로 조립하지 않는다. Rhino 모델의 `.3dm` 저장은 DB 기록과 별개다.
 

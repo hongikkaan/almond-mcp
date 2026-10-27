@@ -12,16 +12,16 @@
     "src/rhp/Engine/NativeLibraryRoots.cs": "7ca31fc4252cd636d0e281504a262313aa5fb6364439211cf75c695ff0a580fa",
     "src/rhp/Engine/NuGet.Config": "2142cfb2dfa2c7feefbe40fabcc68b0dfecadafa99a1db9b70239d977cf2a7ef",
     "src/rhp/Engine/RhinoBridgeTarget.cs": "9bc2d5ccdc082f4672bd3e8bf13e5a9f92dad9e0ca50a248dcc01518024819d4",
-    "src/rhp/Engine/SessionFiles.cs": "acfa8d63818845b5ce9a50605152ab5fb044da62869b0f7e5c32315a9b0ac8c5",
+    "src/rhp/Engine/SessionFiles.cs": "e8f82f5dc505253c5f19ad95a9eb3cb95c9e91a37cda1af4db030834283de229",
     "src/rhp/Engine/SharedStorageLease.cs": "7fb13a108d0518dbccf84b5fa0d23219f9b12b86b5f8a6641437c14b7e8b5749",
     "src/rhp/Engine/WindowsPeerIdentity.cs": "27276b76eec4a5c9c32d7560406a6f067ac16810d045be30a18eef856019d16e"
   },
   "files": {
-    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.dll": "c051713d10de0d4f559d7eaf5e655301e47e94668085ff9900d3ad127afe7f88",
-    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.pdb": "a1f2a0d8193a6472da00a3b831793e7db0e35d4c2fce8d6c5bdb4cb575cc8b74",
+    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.dll": "02edd0f070dbf260037690319c975bad771df797f60fe714de3dc9aa74ad1256",
+    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.pdb": "6e3580c763f1b28732c158bf6f031ea4c148dedfb0db3d684209e89b4d81bf9f",
     "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.deps.json": "bebb0622990ae3e4a944e247d8fe0cd2cf528601a717901602f9e2eb44f37f43",
-    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.pdb": "5b2236509e0332a762605120073693f6cc145fbb9cc8ce04487ebf8609991089",
-    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp": "ed1027cdccbc96f3beffb1407b125b8823042ee48ae0731a12ba81ef1294e4e7",
+    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.pdb": "261a5f647381562428773c0b8c78d1d01b191b74b30927ecf0348510b05682a4",
+    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp": "94d9b91848ad7fb5ba0ef5a45402e774ac86efa72c58c45cf046bf3364adef56",
     "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.runtimeconfig.json": "2fa0b19e9ba0d01bf6fc57c18cbd4b03f808c229ac05316e321b62824c1aea9c"
   }
 }

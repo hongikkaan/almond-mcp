@@ -115,7 +115,7 @@ def main():
                      document_serial=str(doc.RuntimeSerialNumber), model_path=model,
                      document_path=text_type(doc.Path), storage=storage,
                      session_dir=folder, ready_path=ready_path,
-                     state_db=os.path.join(storage, 'DB'),
+                     state_db=os.path.join(storage, 'scene.sqlite3'),
                      temp=os.path.join(storage, 'tmp'), rhino_temp=text_type(System.IO.Path.GetTempPath()),
                      model_units=str(doc.ModelUnitSystem))
         write(ready_path, ready)

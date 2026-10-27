@@ -135,7 +135,7 @@ DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유�
 기존 CoS command를 유지하기 위해 Python 환경은 `../engine/.venv`에 둔다.
 구현 위치와 실행 파일 위치는 별개다. 이전 시작 버튼은 호환 스크립트를 거쳐
 `runtime/` 실행기를 호출한다. 사용자 모델·라이브러리를 자동 이동하지 않는다.
-기존 `scene.sqlite3`는 아래의 DB 파일명 이전 조건을 충족할 때만 같은 폴더의 `DB`로 바꾼다.
+기존 확장자 없는 `DB`는 아래의 DB 파일명 이전 조건을 충족할 때만 같은 폴더의 `scene.sqlite3`로 바꾼다.
 
 ## Scene·Component·계획
 
@@ -196,7 +196,7 @@ Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서
 전송 직전에 생성하고 완료 확인 후 회수한다. 결과가 불명확한 파일 쓰기는 별도 소유 기록으로
 다른 연결의 쓰기·폴더 이름 변경을 차단한다. Worker 재시작이나 Plan 완료로 이 기록을 지우지 않는다.
 
-공유 DB 파일명은 `.almond/DB`다. 기존 `scene.sqlite3`의 checkpoint·close 뒤 이름을 바꾸며,
+공유 DB 파일명은 `.almond/scene.sqlite3`다. 기존 확장자 없는 `DB`의 checkpoint·close 뒤 이름을 바꾸며,
 다른 worker가 사용 중이거나 두 이름·sidecar가 충돌하면 원본을 보존하고 이전을 중단한다.
 호출마다 DB 사본을 만들지 않는다. 종료된 `.sessions` 정리는 프로세스·잠금·native 완료를
 기준으로 하며 Plan/Step 상태와 무관하다. 고정 공유 잠금 파일은 삭제하지 않는다.

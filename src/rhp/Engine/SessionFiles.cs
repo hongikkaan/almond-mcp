@@ -11,7 +11,7 @@ public sealed class SessionPaths
 {
     public string ModelPath { get; }
     public string Storage { get; }
-    public string StateDb => Path.Combine(Storage, "DB");
+    public string StateDb => Path.Combine(Storage, "scene.sqlite3");
     public string Temp => Path.Combine(Storage, "tmp");
     public string SessionDir { get; }
     public string CallRoot { get; }

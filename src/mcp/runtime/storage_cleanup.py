@@ -79,7 +79,7 @@ def remove_owned_tree(path: Path, root: Path) -> None:
 def migrate_database(locations: dict, own_token: str) -> bool:
     """Call under StoreGate before importing the server or opening its store."""
     storage = Path(locations["storage"])
-    old, target = storage / "scene.sqlite3", storage / "DB"
+    old, target = storage / "DB", storage / "scene.sqlite3"
     if not old.exists():
         return False
     plain_descendant(old, storage)
@@ -90,7 +90,7 @@ def migrate_database(locations: dict, own_token: str) -> bool:
         plain_descendant(storage / (old.name + suffix), storage)
         destination = plain_descendant(storage / (target.name + suffix), storage)
         if destination.exists():
-            raise RuntimeError("DB sidecar files already exist. Neither database was changed; resolve the conflict before starting.")
+            raise RuntimeError("scene.sqlite3 sidecar files already exist. Neither database was changed; resolve the conflict before starting.")
     for folder in (storage / ".sessions").iterdir():
         if not folder.is_dir() or folder.name == own_token:
             continue
@@ -98,7 +98,7 @@ def migrate_database(locations: dict, own_token: str) -> bool:
         if worker.exists():
             record = read_json(worker)
             if not record.get("closed") and process_identity_alive(record) is not False:
-                raise RuntimeError("Another worker may still use scene.sqlite3. Stop that worker before the DB filename migration.")
+                raise RuntimeError("Another worker may still use DB. Stop that worker before the DB filename migration.")
     with closing(sqlite3.connect(old, timeout=0)) as connection:
         checkpoint = connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
         if checkpoint and checkpoint[0] != 0:

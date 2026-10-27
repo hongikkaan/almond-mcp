@@ -84,7 +84,7 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
             info = json.loads(result.content[0].text)
             self.assertEqual(info['project']['project_root'], self.locations['project_dir'])
             self.assertTrue(info['project']['root_variable_set'])
-            self.assertEqual(info['project']['database'], '.almond/DB')
+            self.assertEqual(info['project']['database'], '.almond/scene.sqlite3')
             self.assertEqual(info['artifacts']['artifact_dir'], '')
             self.assertTrue(info['document']['live_document_checked'])
             self.assertTrue(info['document']['is_bound_document'])

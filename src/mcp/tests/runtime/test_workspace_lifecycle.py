@@ -3,6 +3,8 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import subprocess
+import sys
 from contextlib import closing
 import uuid
 
@@ -111,15 +113,21 @@ def test_folder_names_cannot_escape_project(work, name):
 def test_db_rename_preserves_wal_data_without_creating_copies(tmp_path):
     storage = tmp_path / ".almond"
     (storage / ".sessions").mkdir(parents=True)
-    old = storage / "scene.sqlite3"
-    with closing(sqlite3.connect(old)) as db:
-        db.execute("PRAGMA journal_mode=WAL")
-        db.execute("CREATE TABLE evidence(value TEXT)")
-        db.execute("INSERT INTO evidence VALUES('retain')")
-        db.commit()
+    old = storage / "DB"
+    # A crashed fixture process leaves committed data in WAL, not just the main file.
+    subprocess.run([sys.executable, "-B", "-c", "\n".join([
+        "import os,sqlite3,sys",
+        "db=sqlite3.connect(sys.argv[1])",
+        "db.execute('PRAGMA journal_mode=WAL')",
+        "db.execute('CREATE TABLE evidence(value TEXT)')",
+        "db.execute(\"INSERT INTO evidence VALUES('retain')\")",
+        "db.commit()",
+        "os._exit(0)",
+    ]), str(old)], check=True)
+    assert (storage / "DB-wal").stat().st_size > 0
     assert migrate_database({"storage": str(storage)}, "own")
     assert not old.exists()
-    with closing(sqlite3.connect(storage / "DB")) as db:
+    with closing(sqlite3.connect(storage / "scene.sqlite3")) as db:
         assert db.execute("SELECT value FROM evidence").fetchone()[0] == "retain"
     assert not migrate_database({"storage": str(storage)}, "own")
 
@@ -128,7 +136,7 @@ def test_db_conflict_or_live_worker_blocks_migration_without_touching_either_fil
     storage = tmp_path / ".almond"
     session = storage / ".sessions" / uuid.uuid4().hex
     session.mkdir(parents=True)
-    old, target = storage / "scene.sqlite3", storage / "DB"
+    old, target = storage / "DB", storage / "scene.sqlite3"
     old.write_bytes(b"old-marker")
     target.write_bytes(b"new-marker")
     with pytest.raises(RuntimeError, match="Both"):
@@ -202,9 +210,40 @@ def test_active_owner_and_unknown_files_are_retained(work):
 def test_orphan_destination_sidecars_block_database_migration(tmp_path):
     storage = tmp_path / ".almond"
     storage.mkdir()
-    (storage / "scene.sqlite3").write_bytes(b"preserve old")
-    (storage / "DB-wal").write_bytes(b"preserve journal")
+    (storage / "DB").write_bytes(b"preserve old")
+    (storage / "scene.sqlite3-wal").write_bytes(b"preserve journal")
     with pytest.raises(RuntimeError, match="sidecar"):
         migrate_database({"storage": str(storage)}, "own")
-    assert (storage / "scene.sqlite3").read_bytes() == b"preserve old"
-    assert (storage / "DB-wal").read_bytes() == b"preserve journal"
+    assert (storage / "DB").read_bytes() == b"preserve old"
+    assert (storage / "scene.sqlite3-wal").read_bytes() == b"preserve journal"
+
+
+def test_unknown_worker_identity_blocks_database_migration(tmp_path, monkeypatch):
+    storage = tmp_path / ".almond"
+    session = storage / ".sessions" / uuid.uuid4().hex
+    session.mkdir(parents=True)
+    old = storage / "DB"
+    old.write_bytes(b"keep original")
+    write_json(session / "worker.json", {"pid": 123, "process_start_ticks": "unknown"})
+    monkeypatch.setattr("storage_cleanup.process_identity_alive", lambda record: None)
+    with pytest.raises(RuntimeError, match="Another worker"):
+        migrate_database({"storage": str(storage)}, "own")
+    assert old.read_bytes() == b"keep original" and not (storage / "scene.sqlite3").exists()
+
+
+def test_busy_legacy_database_does_not_publish_canonical_target(tmp_path):
+    storage = tmp_path / ".almond"
+    (storage / ".sessions").mkdir(parents=True)
+    old = storage / "DB"
+    with closing(sqlite3.connect(old)) as writer:
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("CREATE TABLE evidence(value TEXT)")
+        writer.execute("INSERT INTO evidence VALUES('keep')")
+        writer.commit()
+        writer.execute("BEGIN IMMEDIATE")
+        writer.execute("INSERT INTO evidence VALUES('uncommitted')")
+        with pytest.raises((RuntimeError, sqlite3.OperationalError)):
+            migrate_database({"storage": str(storage)}, "own")
+        assert old.exists() and not (storage / "scene.sqlite3").exists()
+        writer.rollback()
+        assert writer.execute("SELECT value FROM evidence").fetchall() == [("keep",)]

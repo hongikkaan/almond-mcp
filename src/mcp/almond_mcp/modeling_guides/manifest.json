@@ -18,12 +18,12 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "## Rhino 편집",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         },
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 프로젝트·문서·파일",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -51,7 +51,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### Phase → Task → Step",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -79,7 +79,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### Scene·ontological_component",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -129,7 +129,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 템플릿·재료·구축 레이어",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -151,7 +151,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 조회·화면 도구",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -173,12 +173,12 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "#### Block·주석",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         },
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "#### Group",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -201,7 +201,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 형상 편집·설계 자료",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -222,7 +222,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 모델링 검수",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -243,7 +243,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 구조 검토",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -266,12 +266,12 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 도면 표현",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         },
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 도면 검수",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -292,7 +292,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### Grasshopper",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         }
       ],
       "images": []
@@ -323,7 +323,7 @@
         {
           "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 자산 목록·검색",
-          "sha256": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7"
+          "sha256": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c"
         },
         {
           "path": "docs/modeling/guidance/references/asset-workflows.md",
@@ -415,13 +415,13 @@
     "ontological-component-evidence.md": "d819ad0d524ba88126269cd62f01acec6499a7d4323c02b74022ddadd7e67ac3",
     "ontological-component.md": "b983c039eac1a9777d31371c5aea40f7fccd331bfb5fc60d9e584ba53aebc4f1",
     "planning.md": "106bde4a390c66895f4d8d6e7bf39bf669a855e1f6ab266e9a4cb0b0705de561",
-    "project.md": "4586152115b3cf467586347233819284c7fed9c5645b0341e36675544521b29a",
+    "project.md": "b65a2beff77aeefe8ff973f11f102d9314d4fbd99900dacb9a367354c7b617a8",
     "structure.md": "e3609c402696f93e250d48e059e3e14e8545044111192d68f7b5dfc73767f611"
   },
   "startup_sha256": "e16167cd19165c7e45593710538784b462e705692f5a50bd76621dcbcb1badd1",
   "model_context_sha256": "bcc0bbc9fe299fbc3b78e407f7cfce55bda5a928fe5575aa268831fad2779860",
   "source_files": {
-    "modeling-guide.md": "0d8d81c86f625efb56d45535ad725027786f8f2e0c5ccc724bd3aeb7c0a82cf7",
+    "modeling-guide.md": "f7633df013d5412f6388a973137d4769dcfdac76746c7a2562416a3dc2e7414c",
     "references/component-feedback.md": "8862e15d3862cdc1999c501594d5937f6def8b7a4e8a9cf436bc78d2ce1324c6",
     "references/asset-workflows.md": "0dd4c2c72b8fdc38554f875f4789841e75c41da8c18dddfcdb021529c3a5c0f4"
   },
@@ -452,5 +452,5 @@
       "reason": "보존된 작성 참고 이미지. 확정 본문에서 참조하지 않아 주입하지 않는다."
     }
   ],
-  "guide_version": "df5a438cbb0d748097b273ee3de84b9d3bab6ed1b150e26ba6c00f65a29af673"
+  "guide_version": "2709831f4251a8e2aa4b6817d4d3abb1140dec4ab237fd5069bf2100600064f2"
 }
