@@ -288,18 +288,23 @@ internal static class Program
         await using var fixture = new Fixture();
         fixture.Start();
         var (one, first) = await Send(fixture);
+        // Independent TCP clients need not reach the UI queue in send order.
+        await Until(() => fixture.Ui.Count == 1, "First request was not queued.");
         var (two, second) = await Send(fixture);
         using (one)
         using (two)
         {
             await Until(() => fixture.Ui.Count == 2, "Both requests were not queued.");
             var firstAction = fixture.Ui.Take();
-            fixture.Ui.RunOne();
-            Check(await second == OriginalResponse, "Second response failed.");
-            await Until(() => fixture.Bridge.Pending == 1, "Second request did not finish.");
-            Check(fixture.Receipt().GetProperty("pending").GetInt32() == 1 &&
-                fixture.Receipt().GetProperty("completion_status").GetString() == "running", "Early completion hid outstanding native work.");
-            firstAction();
+            try
+            {
+                fixture.Ui.RunOne();
+                Check(await second == OriginalResponse, "Second response failed.");
+                await Until(() => fixture.Bridge.Pending == 1, "Second request did not finish.");
+                Check(fixture.Receipt().GetProperty("pending").GetInt32() == 1 &&
+                    fixture.Receipt().GetProperty("completion_status").GetString() == "running", "Early completion hid outstanding native work.");
+            }
+            finally { firstAction(); }
             Check(await first == OriginalResponse, "First response failed.");
             await Until(() => fixture.Bridge.Pending == 0, "First request did not finish.");
             Check(fixture.Target.Calls == 2, "Requests did not execute exactly once.");

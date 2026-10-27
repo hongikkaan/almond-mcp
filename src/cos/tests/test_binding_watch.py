@@ -4,7 +4,9 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 import unittest
+from unittest.mock import patch
 from uuid import uuid4
 
 from binding_watch import BindingWatcher
@@ -16,7 +18,20 @@ def replace_ready(directory, **content):
     path = Path(directory) / "ready.json"
     temporary = path.with_name(uuid4().hex + ".tmp")
     temporary.write_text(json.dumps(content), encoding="utf-8")
-    os.replace(temporary, path)
+    # Match the real RHP publisher (SessionFiles.WriteJson): Windows can briefly
+    # block replacement even without a watcher. A held destination still fails.
+    deadline = time.monotonic() + 0.2
+    try:
+        while True:
+            try:
+                os.replace(temporary, path)
+                return
+            except OSError as exc:
+                if exc.winerror not in (5, 32, 33) or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.01)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 @unittest.skipUnless(os.name == "nt", "Windows notification integration")
@@ -59,6 +74,31 @@ class BindingNotificationTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.watcher.thread.is_alive())
         await self.watcher.close()
         self.assertTrue(self.events.empty())
+
+    async def test_publisher_recovers_after_transient_destination_lock(self):
+        replace_ready(self.temp.name, valid=True)
+        path = Path(self.temp.name) / "ready.json"
+        original_replace = os.replace
+        with path.open(encoding="utf-8") as held:
+            def release_after_blocked_attempt(source, destination):
+                try:
+                    return original_replace(source, destination)
+                except PermissionError:
+                    held.close()
+                    raise
+
+            with patch.object(os, "replace", side_effect=release_after_blocked_attempt):
+                replace_ready(self.temp.name, valid=False)
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"valid": False})
+
+    async def test_publisher_does_not_hide_persistent_destination_lock(self):
+        replace_ready(self.temp.name, valid=True)
+        path = Path(self.temp.name) / "ready.json"
+        with path.open(encoding="utf-8"):
+            with self.assertRaises(PermissionError):
+                replace_ready(self.temp.name, valid=False)
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"valid": True})
+        self.assertEqual(list(Path(self.temp.name).glob("*.tmp")), [])
 
     async def test_removed_generation_does_not_receive_new_generation_events(self):
         await self.watcher.add("old", {"session_dir": self.temp.name})
