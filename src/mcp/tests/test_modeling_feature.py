@@ -87,7 +87,7 @@ def test_current_library_and_sender_are_resolved_for_each_call(feature):
         list=lambda **kwargs: [],
     )
     feature.material_library = replacement
-    assert call(feature.list_materials) == {
+    assert call(feature.list_materials, field_groups=["paths"]) == {
         "total": 0, "materials": [], "library_dir": str(replacement.directory),
     }
     sent = []

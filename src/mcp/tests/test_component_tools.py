@@ -113,7 +113,7 @@ def test_public_registration_update_and_cached_reads(server, store, scene, model
     assert changed["component"]["scene_ids"] == [scene]
     assert requests[-1]["expected_object_ids"] == [A, B]
     monkeypatch.setattr(server, "_send_and_receive", lambda *_: pytest.fail("Cached read called Rhino"))
-    cached = call(server, "get_design_component", component_id="panel-1", include_ids=True)["component"]
+    cached = call(server, "get_design_component", component_id="panel-1", include_ids=True, field_groups=["geometry"])["component"]
     assert cached["live_verified"] is False and cached["object_ids"] == [B]
     listed = call(server, "list_design_components", expected_model_path=model, include_ids=True)
     assert listed["total"] == 1 and listed["live_verified"] is False
@@ -201,11 +201,11 @@ def test_direct_scene_objects_deduplicate_and_survive_unregister(server, store, 
     requests = wire(observe)
     linked = call(server, "register_scene_objects", scene_id=scene, expected_model_path=model,
                   object_ids=[A, B], mode="replace")
-    assert linked["status"] == "success" and linked["object_ids"] == [A, B]
+    assert linked["status"] == "success" and "object_ids" not in linked
     assert linked["direct_objects"] == 2 and linked["live_verified"] is True
     assert [r.get("action") for r in requests] == [None, "objects"]
     assert requests[1]["object_ids"] == [A, B] and "scene_ids" not in requests[1]
-    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True)
+    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True, field_groups=["geometry"])
     assert rows["total"] == 2 and rows["live_verified"] is False
     assert all(row["direct"] for row in rows["objects"])
     def unregister(request):
@@ -216,7 +216,7 @@ def test_direct_scene_objects_deduplicate_and_survive_unregister(server, store, 
     assert removed["status"] == "success" and removed["component"]["status"] == "unregistered"
     assert [r.get("action") for r in requests] == [None, "unregister"]
     assert requests[1]["expected_object_ids"] == [A]
-    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True)
+    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True, field_groups=["geometry"])
     assert rows["total"] == 2 and all(row["component_id"] is None for row in rows["objects"])
     assert store.get_component(component["component_id"]) is None
 

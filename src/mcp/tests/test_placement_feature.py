@@ -118,7 +118,8 @@ def test_factory_reads_rebound_store_and_preserves_all_five_tool_responses(store
     assert room["status"] == "success"
     instance = call(exports, "register_scene_instance", scene_id=scene, asset_id="cube",
                     x_mm=500, y_mm=500, room_id=room["room_id"])
-    assert instance["status"] == "success" and instance["world_aabb_mm"]["min"][2] == 18000
+    assert instance["status"] == "success" and "world_aabb_mm" not in instance
+    assert replacement.scene_instances(scene)[0]["min_z"] == 18000
     report = call(exports, "validate_scene_layout", scene_id=scene, detail_limit=1)
     assert report["status"] == "success" and report["passed"] is True
     removed = call(exports, "remove_scene_instance", scene_id=scene, instance_id=instance["instance_id"])

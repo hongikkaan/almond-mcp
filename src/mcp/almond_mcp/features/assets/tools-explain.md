@@ -8,6 +8,8 @@ Lists representation-only entourage and graphic proxy assets.
 Drawing assets are representation elements and do
 not participate in room collision checks unless explicitly registered.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_drawing_assets -->
 
 ## search_drawing_assets
@@ -15,6 +17,8 @@ IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied
 <!-- instruction:search_drawing_assets -->
 Searches only the controlled architectural drawing-asset library.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:search_drawing_assets -->
 
 ## get_drawing_asset
@@ -22,6 +26,8 @@ IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied
 <!-- instruction:get_drawing_asset -->
 Returns one drawing asset's provenance, scale guidance, and availability.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_drawing_asset -->
 
 ## register_drawing_asset
@@ -47,6 +53,8 @@ snapshot; use MCP placement for newly registered local assets.
 <!-- instruction:get_asset_drawing -->
 Retrieve a registered 3DM's linked drawings and dimensions, or a legacy pilot package.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; the requested manifest/parsed logic/script remains in the default payload.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_asset_drawing -->
 
 ## generate_asset_drawing_views
@@ -102,6 +110,8 @@ Search the unified model/drawing archive. kind: all, model or element.
 Returns stable IDs, file availability, dimensions and MCP resource URIs.
 Drawing-ready means a derived projection package is linked to the object.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:search_asset_repository -->
 
 ## repository_asset_resource

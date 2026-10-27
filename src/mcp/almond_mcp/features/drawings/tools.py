@@ -1,6 +1,7 @@
 """Drawing recipes and presentation tools without a Sheet database registry."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.drawings.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
@@ -14,7 +15,8 @@ def register(mcp, context):
     @mcp.tool()
     @tool_instruction(__file__, 'list_drawing_recipes')
     @query_output
-    def list_drawing_recipes(include_ids: StrictBool = False) -> str:
+    def list_drawing_recipes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         recipes = []
         for recipe_id, recipe in sorted(context.drawing_recipe_indexer.recipes.items()):
             recipes.append({
@@ -24,20 +26,21 @@ def register(mcp, context):
                 "projection": recipe.get("projection", {}).get("type"),
                 "recommended_scales": recipe.get("recommended_scales", []),
             })
-        return json.dumps({"total": len(recipes), "recipes": recipes})
+        return json.dumps(project({"total": len(recipes), "recipes": recipes}, field_groups))
 
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_drawing_recipe')
     @query_output
-    def get_drawing_recipe(recipe_id: str, include_ids: StrictBool = False) -> str:
+    def get_drawing_recipe(recipe_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         recipe = context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
-            return json.dumps(error_payload(f"Unknown drawing recipe_id: {recipe_id}"))
-        return json.dumps({
+            return json.dumps(project(error_payload(f"Unknown drawing recipe_id: {recipe_id}"), field_groups))
+        return json.dumps(project({
             "status": "success",
             "recipe": context.drawing_recipe_indexer.public_record(recipe),
-        })
+        }, field_groups))
 
 
     @mcp.tool()

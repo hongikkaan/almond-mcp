@@ -24,6 +24,8 @@ Read cached direct/nested Component members or inspect live Rhino group membersh
 live=True reads the actual group, including unowned group-added TextDots as
 pending_objects requiring explicit sync; it never changes Rhino or the ledger.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds references, geometry, scope, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_design_component -->
 
 ## list_design_components
@@ -31,6 +33,8 @@ IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied
 <!-- instruction:list_design_components -->
 List compact cached Components, optionally restricted to one saved model path.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds references, geometry, scope, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_design_components -->
 
 ## sync_design_component
@@ -67,6 +71,8 @@ tests bounded candidate pairs, and reports unsupported/truncated/unknown work.
 A successful call is not proof of no collision unless complete is true.
 This helper does not modify Rhino objects or the local Scene ledger.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds references, geometry, scope, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_component_intersections -->
 
 ## focus_components

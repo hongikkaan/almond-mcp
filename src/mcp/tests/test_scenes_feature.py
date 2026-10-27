@@ -22,7 +22,7 @@ else:
 
 
 A, B = component_contracts.A, component_contracts.B
-SCENE_TOOLS = {"update_design_scene", "create_design_scene", "get_design_scene", "register_scene_objects", "get_scene_objects"}
+SCENE_TOOLS = {"list_design_scenes", "update_design_scene", "create_design_scene", "get_design_scene", "register_scene_objects", "get_scene_objects"}
 
 
 @pytest.fixture
@@ -39,6 +39,25 @@ def model(store, tmp_path):
 
 def unexpected_native(*_):
     pytest.fail("A cached read or rejected request called native IO")
+
+
+def test_agent_can_list_project_scene_names_without_plan_or_document_lookup(feature, store):
+    """Given scenes in several files, one names query returns a bounded project page."""
+    store.create_scene("Courtyard", file_name="site.3dm")
+    store.create_scene("Kitchen", file_name="house.3dm")
+    result = call(feature, "list_design_scenes", limit=2)
+    assert result["total"] == 3 and result["truncated"] is True
+    assert [item["name"] for item in result["scenes"]] == ["Courtyard", "Kitchen"]
+    assert all(set(item) == {"name"} for item in result["scenes"])
+    filtered = call(feature, "list_design_scenes", name="court", file_name="site.3dm",
+                    field_groups=["scope"], include_ids=True)
+    assert filtered["total"] == 1
+    assert filtered["scenes"][0]["file_name"] == "site.3dm"
+    assert filtered["scenes"][0]["scene_id"]
+    exhausted = call(feature, "list_design_scenes", offset=99)
+    assert exhausted["total"] == 3 and exhausted["scenes"] == [] and exhausted["truncated"] is False
+    rejected = call(feature, "list_design_scenes", field_groups=["unknown"])
+    assert rejected["status"] == "error" and rejected["error_code"] == "invalid_arguments"
 
 
 @pytest.fixture
@@ -81,12 +100,14 @@ def install_sender(feature, handler=component_contracts.observe):
 
 def test_scene_metadata_normalization_errors_and_cached_reads(feature, store):
     scene = call(feature, "create_design_scene", name="  Facade  ", units=" CM ")["scene"]
-    assert scene["name"] == "Facade" and scene["units"] == "cm"
-    assert scene["revision"] == 0 and scene["objects"] == 0
+    summary = call(feature, "get_design_scene", scene_id=scene["scene_id"])["scene"]
+    assert summary["name"] == "Facade" and summary["units"] == "cm"
+    assert scene["revision"] == 0 and summary["objects"] == 0
     assert scene["live_verified"] is False
-    read = call(feature, "get_design_scene", scene_id=scene["scene_id"], include_ids=True)
+    read = call(feature, "get_design_scene", scene_id=scene["scene_id"], include_ids=True, field_groups=["all"])
     assert read["scene"] == {k: v for k, v in store.get_scene(scene["scene_id"]).items() if k != "scene_id"}
-    assert call(feature, "create_design_scene", name=" ")["scene"]["name"] == "Untitled scene"
+    unnamed = call(feature, "create_design_scene", name=" ")["scene"]
+    assert call(feature, "get_design_scene", scene_id=unnamed["scene_id"])["scene"]["name"] == "Untitled scene"
     invalid = call(feature, "create_design_scene", name="invalid", units="yards")
     assert invalid["status"] == "error" and "units" in invalid["message"]
     missing = call(feature, "get_design_scene", scene_id="missing", include_ids=True)
@@ -100,7 +121,8 @@ def test_factory_reads_store_sender_and_cross_feature_helpers_at_call_time(featu
                 expected_model_path=model, object_ids=[A])["status"] == "success"
     second_requests = install_sender(feature)
     assert call(feature, "register_scene_objects", scene_id=scene_id,
-                expected_model_path=model, object_ids=[B])["object_ids"] == [A, B]
+                expected_model_path=model, object_ids=[B])["direct_objects"] == 2
+    assert [obj["rhino_guid"] for obj in store.scene_objects(scene_id)] == [A, B]
     assert len(first_requests) == len(second_requests) == 1
 
     other_store = ExtractedScenesStore(tmp_path / "other.sqlite3")
@@ -127,7 +149,7 @@ def test_factory_contexts_keep_separate_ledgers(feature, tmp_path):
     })))
     created = call(other, "create_design_scene", name="Other server")["scene"]
     assert call(feature, "get_design_scene", scene_id=created["scene_id"], include_ids=True)["status"] == "error"
-    assert call(other, "get_design_scene", scene_id=created["scene_id"], include_ids=True)["scene"] == {k: v for k, v in created.items() if k != "scene_id"}
+    assert call(other, "get_design_scene", scene_id=created["scene_id"], include_ids=True)["scene"]["name"] == "Other server"
 
 
 @pytest.mark.parametrize("mode,object_ids", [("remove", [A]), ("replace", [])])
@@ -138,7 +160,8 @@ def test_unlink_last_object_needs_no_native_observation(feature, store, model, m
     assert duplicate["status"] == "error" and requests == []
     linked = call(feature, "register_scene_objects", scene_id=store.fixture_scene_id,
                   expected_model_path=model, object_ids=[A])
-    assert linked["object_ids"] == [A] and linked["live_verified"] is True
+    assert linked["direct_objects"] == 1 and linked["live_verified"] is True
+    assert "object_ids" not in linked
     assert requests[0]["action"] == "objects" and requests[0]["object_ids"] == [A]
     feature.namespace["_send_and_receive"] = unexpected_native
     removed = call(feature, "register_scene_objects", scene_id=store.fixture_scene_id,

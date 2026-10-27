@@ -228,3 +228,7 @@ sdist에는 원본과 생성기도 포함된다. 실행 중 개인 스킬 경로
 `get_modeling_guide()`의 version·목록을 확인하고 필요한 주제·사진을 조회한다. Python 안내만
 변경했다면 RHP 재빌드·재등록은 필요하지 않다. 실제 모델링 판단과 실행 중 프로세스의 반영은
 오프라인 테스트와 별도로 확인한다. 대안 비교는 [설계 기록](../../docs/development/modeling-guidance-proposal.md)에 둔다.
+
+## Public query and write responses
+
+See [QUERY_OUTPUT.md](QUERY_OUTPUT.md) for summary defaults, explicit field groups, independent ID/audit selection, compact write acknowledgements and project-wide Scene discovery.

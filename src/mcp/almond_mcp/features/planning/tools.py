@@ -1,11 +1,19 @@
 """Register Phase, Plan and Step tools without owning server state."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import compact_ack
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.planning.output import (
+    GROUPS, PHASE_GROUPS, PLAN_GROUPS, PLAN_LIST_GROUPS, REVISION_GROUPS, TARGET_GROUPS, project,
+)
 from almond_mcp.instruction_text import tool_instruction
 
 import json
 
 from pydantic import StrictBool, StrictInt
+
+
+PHASE_ACK_FIELDS = {"phase_id"}
+PLAN_ACK_FIELDS = {"plan_id", "revision"}
 
 
 def register(mcp, context):
@@ -15,7 +23,7 @@ def register(mcp, context):
     @tool_instruction(__file__, 'create_phase')
     def create_phase(name: str, description: str = "", file_name: str = "") -> str:
         try:
-            return json.dumps({"status": "success", "phase": context.retrieval_store.create_phase(name, description, file_name)})
+            return json.dumps({"status": "success", "phase": compact_ack(context.retrieval_store.create_phase(name, description, file_name), PHASE_ACK_FIELDS)})
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
@@ -23,24 +31,26 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_phase')
     @query_output
-    def get_phase(phase_id: str, include_ids: StrictBool = False) -> str:
+    def get_phase(phase_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, PHASE_GROUPS)
         try:
             phase = context.retrieval_store.get_phase(phase_id)
             if phase is None:
-                return json.dumps(error_payload(f"Unknown phase_id: {phase_id}"))
-            return json.dumps({"status": "success", "phase": phase})
+                return json.dumps(project(error_payload(f"Unknown phase_id: {phase_id}"), field_groups))
+            return json.dumps(project({"status": "success", "phase": phase}, field_groups))
         except Exception as exc:
-            return json.dumps(error_payload(str(exc)))
+            return json.dumps(project(error_payload(str(exc)), field_groups))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'list_phases')
     @query_output
-    def list_phases(limit: StrictInt = 50, include_ids: StrictBool = False) -> str:
+    def list_phases(limit: StrictInt = 50, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, PHASE_GROUPS)
         try:
-            return json.dumps({"status": "success", **context.retrieval_store.list_phases(limit)})
+            return json.dumps(project({"status": "success", **context.retrieval_store.list_phases(limit)}, field_groups))
         except Exception as exc:
-            return json.dumps(error_payload(str(exc)))
+            return json.dumps(project(error_payload(str(exc)), field_groups))
 
 
     @mcp.tool()
@@ -51,7 +61,7 @@ def register(mcp, context):
     ) -> str:
         try:
             return json.dumps({
-                "status": "success", "phase": context.retrieval_store.update_phase(phase_id, name, description, file_name),
+                "status": "success", "phase": compact_ack(context.retrieval_store.update_phase(phase_id, name, description, file_name), PHASE_ACK_FIELDS),
             })
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
@@ -71,7 +81,7 @@ def register(mcp, context):
         try:
             return json.dumps({
                 "status": "success",
-                "plan": context.retrieval_store.create_plan(
+                "plan": compact_ack(context.retrieval_store.create_plan(
                     goal=goal,
                     scope=scope,
                     scene_id=scene_id,
@@ -79,7 +89,7 @@ def register(mcp, context):
                     scene_ids=scene_ids,
                     component_ids=component_ids,
                     depends_on=depends_on,
-                ),
+                ), PLAN_ACK_FIELDS),
             })
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
@@ -88,16 +98,17 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_plan')
     @query_output
-    def get_plan(plan_id: str, revision: StrictInt | None = None, include_ids: StrictBool = False) -> str:
+    def get_plan(plan_id: str, revision: StrictInt | None = None, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, PLAN_GROUPS)
         try:
             plan = context.retrieval_store.get_plan(plan_id, revision)
             if plan is None:
                 message = (f"Unknown plan_id: {plan_id}" if revision is None else
                            f"Unknown saved revision {revision} for plan_id: {plan_id}")
-                return json.dumps(error_payload(message))
-            return json.dumps({"status": "success", "plan": plan})
+                return json.dumps(project(error_payload(message), field_groups))
+            return json.dumps(project({"status": "success", "plan": plan}, field_groups))
         except Exception as exc:
-            return json.dumps(error_payload(str(exc)))
+            return json.dumps(project(error_payload(str(exc)), field_groups))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
@@ -105,14 +116,15 @@ def register(mcp, context):
     @query_output
     def list_plans(
         phase_id: str = "", scene_id: str = "", status: str = "", limit: StrictInt = 50,
-        include_ids: StrictBool = False,
+        include_ids: StrictBool = False, field_groups: list[str] | None = None,
     ) -> str:
+        validate_field_groups(field_groups, PLAN_LIST_GROUPS)
         try:
-            return json.dumps({
+            return json.dumps(project({
                 "status": "success", **context.retrieval_store.list_plans(phase_id, scene_id, status, limit),
-            })
+            }, field_groups))
         except Exception as exc:
-            return json.dumps(error_payload(str(exc)))
+            return json.dumps(project(error_payload(str(exc)), field_groups))
 
 
     @mcp.tool()
@@ -130,11 +142,11 @@ def register(mcp, context):
     ) -> str:
         try:
             return json.dumps({
-                "status": "success", "plan": context.retrieval_store.update_plan(
+                "status": "success", "plan": compact_ack(context.retrieval_store.update_plan(
                     plan_id, goal=goal, phase_id=phase_id, scene_ids=scene_ids,
                     component_ids=component_ids, expected_revision=expected_revision,
                     depends_on=depends_on, status=status, artifact_refs=artifact_refs,
-                ),
+                ), PLAN_ACK_FIELDS),
             })
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
@@ -143,11 +155,12 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'list_plan_revisions')
     @query_output
-    def list_plan_revisions(plan_id: str, limit: StrictInt = 50, include_ids: StrictBool = False) -> str:
+    def list_plan_revisions(plan_id: str, limit: StrictInt = 50, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, REVISION_GROUPS)
         try:
-            return json.dumps({"status": "success", **context.retrieval_store.list_plan_revisions(plan_id, limit)})
+            return json.dumps(project({"status": "success", **context.retrieval_store.list_plan_revisions(plan_id, limit)}, field_groups))
         except Exception as exc:
-            return json.dumps(error_payload(str(exc)))
+            return json.dumps(project(error_payload(str(exc)), field_groups))
 
 
     @mcp.tool()
@@ -164,7 +177,7 @@ def register(mcp, context):
         try:
             return json.dumps({
                 "status": "success",
-                "plan": context.retrieval_store.update_plan_step(
+                "plan": compact_ack(context.retrieval_store.update_plan_step(
                     plan_id=plan_id,
                     step_id=step_id,
                     status=status,
@@ -172,7 +185,7 @@ def register(mcp, context):
                     output_refs=output_refs,
                     component_ids=component_ids,
                     expected_revision=expected_revision,
-                ),
+                ), PLAN_ACK_FIELDS),
             })
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
@@ -181,15 +194,19 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'resolve_targets')
     @query_output
-    def resolve_targets(plan_id: str, step_id: str = "", include_ids: StrictBool = False) -> str:
+    def resolve_targets(plan_id: str, step_id: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, TARGET_GROUPS)
         try:
-            return json.dumps({"status": "success", **context.retrieval_store.resolve_targets(plan_id, step_id)})
+            return json.dumps(project({"status": "success", **context.retrieval_store.resolve_targets(plan_id, step_id)}, field_groups))
         except Exception as exc:
-            return json.dumps(error_payload(str(exc)))
+            return json.dumps(project(error_payload(str(exc)), field_groups))
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_selection_references')
-    def get_selection_references(selection_limit: StrictInt = 50, limit: StrictInt = 50) -> str:
+    @query_output
+    def get_selection_references(selection_limit: StrictInt = 50, limit: StrictInt = 50,
+                                 include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         try:
             if type(selection_limit) is not int or not 1 <= selection_limit <= 200:
                 raise ValueError("selection_limit must be an integer from 1 to 200.")
@@ -208,7 +225,7 @@ def register(mcp, context):
             )
             result["selection_total"] = selection["total"]
             result["selection_truncated"] = selection["truncated"]
-            return json.dumps({"status": "success", **result}, ensure_ascii=False)
+            return json.dumps(project({"status": "success", **result}, field_groups), ensure_ascii=False)
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 

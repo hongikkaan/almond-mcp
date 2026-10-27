@@ -137,7 +137,7 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
                 "scene_ids": [scene_id], "component_id": "panel-1",
             })
             assert json.loads(created.structured_content["result"])["component"]["live_verified"] is True
-            read = await client.call_tool("get_design_component", {"component_id": "panel-1", "include_ids": True})
+            read = await client.call_tool("get_design_component", {"component_id": "panel-1", "include_ids": True, "field_groups": ["geometry"]})
             assert json.loads(read.structured_content["result"])["component"]["object_ids"] == [object_id]
 
     asyncio.run(verify())

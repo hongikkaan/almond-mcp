@@ -61,7 +61,9 @@ def test_factory_keeps_presentation_tools_and_removes_sheet_registration(server)
             }
             for name, (fields, required) in expected.items():
                 schema = tools[name].input_schema
-                assert set(schema["properties"]) == set(fields)
+                assert set(schema["properties"]) == set(fields) | ({"field_groups"} if "include_ids" in fields else set())
+                if "include_ids" in fields:
+                    assert schema["properties"]["field_groups"] == {"anyOf": [{"items": {"type": "string"}, "type": "array"}, {"type": "null"}], "default": None}
                 assert set(schema.get("required", [])) == required
                 for field, kind in fields.items():
                     assert schema["properties"][field]["type"] == kind
@@ -82,19 +84,19 @@ def test_factory_uses_replaced_indexes_store_and_sender_without_cross_server_lea
     server.drawing_recipe_indexer = recipe_index(tmp_path / "first")
     other = make_server()
     other.drawing_recipe_indexer = server.drawing_recipe_indexer
-    assert call(other, "get_drawing_recipe", recipe_id="technical_axon_v1", include_ids=True)["recipe"]["name"] == "First"
+    assert call(other, "get_drawing_recipe", recipe_id="technical_axon_v1", include_ids=True, field_groups=["all"])["recipe"]["name"] == "First"
     server.drawing_recipe_indexer = recipe_index(tmp_path / "replacement", label="Replacement")
     sent = []
     def sender(payload, timeout=None):
         sent.append((json.loads(payload), timeout))
         return json.dumps({"status": "success", "source": "replacement"})
     server._send_and_receive = sender
-    assert call(server, "list_drawing_recipes", include_ids=True)["recipes"][0]["name"] == "Replacement"
-    record = call(server, "get_drawing_recipe", recipe_id="technical_axon_v1", include_ids=True)["recipe"]
+    assert call(server, "list_drawing_recipes", include_ids=True, field_groups=["all"])["recipes"][0]["name"] == "Replacement"
+    record = call(server, "get_drawing_recipe", recipe_id="technical_axon_v1", include_ids=True, field_groups=["all"])["recipe"]
     assert record["name"] == "Replacement" and "_source_file" not in record
     assert call(server, "apply_drawing_style")["source"] == "replacement"
     assert sent[-1] == ({"type": "apply_drawing_style", "recipe_id": "technical_axon_v1", "layers": [{"name": "Replacement"}]}, 60.0)
-    assert call(other, "get_drawing_recipe", recipe_id="technical_axon_v1", include_ids=True)["recipe"]["name"] == "First"
+    assert call(other, "get_drawing_recipe", recipe_id="technical_axon_v1", include_ids=True, field_groups=["all"])["recipe"]["name"] == "First"
     server.drawing_asset_indexer = SimpleNamespace(get=lambda _: {"file_available": True, "_resolved_file": "controlled/pattern.pat"})
     assert call(server, "import_drawing_hatch_patterns", asset_id="pattern")["source"] == "replacement"
     assert sent[-1] == ({"type": "import_hatch_patterns", "file_path": "controlled/pattern.pat"}, 60.0)

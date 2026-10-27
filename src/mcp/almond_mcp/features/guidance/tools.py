@@ -1,6 +1,7 @@
 """Register construction, typology and detail-source guidance tools."""
 from almond_mcp.instruction_text import tool_instruction, read_instruction
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.guidance.output import GROUPS, project
 
 from pydantic import StrictBool
 from fastmcp.tools import ToolResult
@@ -33,7 +34,8 @@ def register(mcp, context):
         material: str = "",
         structure_type: str = "",
         span_m: float = 0.0,
-        include_reference_data: bool = False, include_ids: StrictBool = False) -> str:
+        include_reference_data: bool = False, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         systems = context.construction_library.list(
             category=category, query=query, material=material,
             structure_type=structure_type)
@@ -64,7 +66,7 @@ def register(mcp, context):
             payload["reference"] = context.construction_library.reference
         if not systems:
             payload["hint"] = (read_instruction(__file__, 'response-732'))
-        return json.dumps(payload)
+        return json.dumps(project(payload, field_groups))
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_typology_narrative')
@@ -73,20 +75,22 @@ def register(mcp, context):
         query: str = "",
         construction_system: str = "",
         structure_type: str = "",
-        limit: int = 5, include_ids: StrictBool = False) -> str:
+        limit: int = 5, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         entries = context.history_library.list(query=query,
                                        construction_system=construction_system,
                                        structure_type=structure_type)
-        return json.dumps({
+        return json.dumps(project({
             "total": len(entries),
             "entries": entries[:max(1, limit)],
             "source": context.history_library.source,
-        })
+        }, field_groups))
 
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
     @tool_instruction(__file__, 'search_detail_sources')
     @query_output
-    def search_detail_sources(query: str = "", include_ids: StrictBool = False) -> dict:
+    def search_detail_sources(query: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:
+        validate_field_groups(field_groups, GROUPS)
         data = json.loads((Path(context.DRAFTING_LIBRARY_DIR)/"sources.json").read_text(encoding="utf-8"))
         terms = set(re.findall(r"[a-z0-9]+", query.lower()))
         matches = []
@@ -96,7 +100,7 @@ def register(mcp, context):
             if not terms or matched:
                 matches.append({**source, "matched_terms": matched})
         matches.sort(key=lambda s: (-len(s["matched_terms"]), s["source_id"]))
-        return {"status": "success", "scope": data["scope"], "sources": matches}
+        return project({"status": "success", "scope": data["scope"], "sources": matches}, field_groups)
 
     return {
         "get_modeling_guide": get_modeling_guide,

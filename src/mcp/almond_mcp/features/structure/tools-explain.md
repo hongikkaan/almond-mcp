@@ -123,6 +123,8 @@ Returns JSON: default, profiles [{id, name, basis, origin, verified, unverified,
 uls_expression, uls_default, deflection_limit_ratio, imposed_floor_kn_m2}], problems
 (files that failed validation), user_dir.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds parameters, source, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_design_codes -->
 
 ## visualize_structure

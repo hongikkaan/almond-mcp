@@ -1,7 +1,12 @@
 """MCP tools for cached legacy asset placement, registered per server."""
 from almond_mcp.tool_response import error_payload
+from almond_mcp.query_output import compact_ack, query_output, select_fields, validate_field_groups
+from pydantic import StrictBool
 from almond_mcp.instruction_text import tool_instruction
 import json
+
+
+ACK_FIELDS = {"scene_id", "room_id", "instance_id", "revision", "orphaned_instances"}
 
 
 def register(mcp, context):
@@ -20,7 +25,7 @@ def register(mcp, context):
                 bounds_mm=bounds_mm,
                 room_id=room_id,
             )
-            return json.dumps({"status": "success", **result})
+            return json.dumps({"status": "success", **compact_ack(result, ACK_FIELDS)})
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
@@ -54,7 +59,7 @@ def register(mcp, context):
                 locked=locked,
                 rhino_guid=rhino_guid,
             )
-            return json.dumps({"status": "success", **result})
+            return json.dumps({"status": "success", **compact_ack(result, ACK_FIELDS)})
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
@@ -64,7 +69,7 @@ def register(mcp, context):
     def remove_scene_instance(scene_id: str, instance_id: str) -> str:
         try:
             result = context.retrieval_store.remove_instance(scene_id, instance_id)
-            return json.dumps({"status": "success", **result})
+            return json.dumps({"status": "success", **compact_ack(result, ACK_FIELDS)})
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
@@ -74,19 +79,24 @@ def register(mcp, context):
     def remove_design_room(scene_id: str, room_id: str) -> str:
         try:
             result = context.retrieval_store.remove_room(scene_id, room_id)
-            return json.dumps({"status": "success", **result})
+            return json.dumps({"status": "success", **compact_ack(result, ACK_FIELDS)})
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
 
     @mcp.tool()
     @tool_instruction(__file__, 'validate_scene_layout')
-    def validate_scene_layout(scene_id: str, detail_limit: int = 50) -> str:
+    @query_output
+    def validate_scene_layout(scene_id: str, detail_limit: int = 50, include_ids: StrictBool = False,
+                              field_groups: list[str] | None = None) -> str:
+        groups = {"details": {"collisions", "outside_room"}}
+        validate_field_groups(field_groups, groups)
         try:
-            return json.dumps({
+            return json.dumps(select_fields({
                 "status": "success",
                 **context.retrieval_store.validate_scene(scene_id, limit=detail_limit),
-            })
+            }, field_groups, {"scene_id", "passed", "collision_count", "outside_room_count",
+                              "method", "passed_scope", "coverage"}, groups))
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
