@@ -139,7 +139,7 @@ DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유�
 
 ## Scene·Component·계획
 
-Scene·Component의 의미와 작업 방식은 [Rhino 작업 스킬](../../skills/rhino-almond/SKILL.md#scenecomponentinstance)을 따른다. 구현 계약은 [Component 등록·계층·동기화](../../docs/modeling/component-system.md)와 [Phase·Plan·Step 저장·참조](../../docs/modeling/planning.md)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](../../docs/assets/assets-and-drawings.md#기존-glbscene-배치-장부)에 둔다.
+Scene·Component의 의미와 작업 방식은 [Rhino 모델링 지침](../../docs/modeling/guidance/modeling-guide.md#sceneontological-componentinstance)을 따른다. 구현 계약은 [Component 등록·계층·동기화](../../docs/modeling/component-system.md)와 [Phase·Plan·Step 저장·참조](../../docs/modeling/planning.md)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](../../docs/assets/assets-and-drawings.md#기존-glbscene-배치-장부)에 둔다.
 
 ## 재료·도면·자산
 
@@ -208,11 +208,12 @@ reader는 모델·작업 DB·사용자 산출물을 수정하지 않지만 연�
 native control·operation receipt는 기존 경로를 따른다. 외부 클라이언트는 연결 후
 `connection_id`를 전달한다. 시작 안내는 연결 전 초기화에서도 읽을 수 있다.
 
-편집 원본은 `skills/rhino-almond/SKILL.md` 및 연결 참조, 배분은
-`skills/rhino-almond/mcp-guide-map.json`이다. `src/mcp/tools/build_modeling_guides.py`로
+편집 원본은 `docs/modeling/guidance/modeling-guide.md` 및 연결 참조, 배분은
+`docs/modeling/guidance/mcp-guide-map.json`이다. `src/mcp/tools/build_modeling_guides.py`로
 `almond_mcp/modeling_guides`의 본문·manifest·원본 사진을 재생성하고 `--check`로 일치를
-검사한다. 누락 절·없는 도구·stale bundle은 통합 검사에서 확인한다. 목차·작성 초안·검사 코드·
-본문에서 사용하지 않는 이미지는 제외 사유를 manifest에 기록한다. wheel에는 생성 번들이,
+검사한다. 누락 절·없는 도구·stale bundle은 통합 검사에서 확인한다. 목차·작성 초안·
+본문에서 사용하지 않는 이미지는 제외 사유를 manifest에 기록한다. 기존 native 관찰 검사는
+Bridge의 `tests/probe_observation`에 둔다. wheel에는 생성 번들이,
 sdist에는 원본과 생성기도 포함된다. 실행 중 개인 스킬 경로나 네트워크를 조회하지 않는다.
 
 공통 server와 외부 host는 같은 짧은 시작 안내를 사용한다. 함수 decorator와 inert catalog가

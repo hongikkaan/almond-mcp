@@ -1,6 +1,6 @@
 # Phase·Plan·Step의 저장·참조 계약
 
-작업 단위의 의미·운영과 도구 입력은 [Rhino Almond 스킬](../../skills/rhino-almond/SKILL.md#phase--task--step)을 따른다. 현재 API의 Plan은 스킬에서 부르는 Task다.
+작업 단위의 의미·운영과 도구 입력은 [Rhino 모델링 지침](guidance/modeling-guide.md#phase--task--step)을 따른다. 현재 API의 Plan은 모델링 지침에서 부르는 Task다.
 
 ## 대상과 관계
 

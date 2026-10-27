@@ -1,6 +1,6 @@
 # 자산 검색·배치·도면·출처
 
-Rhino 패널 조작은 [패널 사용법](rhino-archive-quickstart.md), MCP 도구 입력은 [스킬의 자산 작업](../../skills/rhino-almond/references/asset-workflows.md)을 따른다. 아래는 라이브러리·등록·배치·파생 도면·출처의 계약이다.
+Rhino 패널 조작은 [패널 사용법](rhino-archive-quickstart.md), MCP 도구 입력은 [자산 작업 지침](../modeling/guidance/references/asset-workflows.md)을 따른다. 아래는 라이브러리·등록·배치·파생 도면·출처의 계약이다.
 
 ## 라이브러리 탐색
 

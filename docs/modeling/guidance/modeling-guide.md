@@ -1,9 +1,4 @@
----
-name: rhino-almond
-description: "Inspect and edit Rhino architecture with Almond MCP: project context, Phase/Task/Step, Scene/ontological-component, modeling, drafting, and verification."
----
-
-# Rhino Almond
+# Rhino 모델링 지침
 
 ## Rhino 편집
 

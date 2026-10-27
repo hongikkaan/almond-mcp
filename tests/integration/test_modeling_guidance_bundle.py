@@ -12,22 +12,19 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_bundle_is_current_and_all_substantive_skill_sections_are_mapped():
+def test_bundle_is_current_and_all_substantive_guide_sections_are_mapped():
     subprocess.run([sys.executable, '-B', str(ROOT / 'src/mcp/tools/build_modeling_guides.py'), '--check'],
                    check=True, capture_output=True, text=True, encoding='utf-8')
-    skill = ROOT / 'skills/rhino-almond'
-    mapping = json.loads((skill / 'mcp-guide-map.json').read_text(encoding='utf-8'))
+    sources = ROOT / 'docs/modeling/guidance'
+    mapping = json.loads((sources / 'mcp-guide-map.json').read_text(encoding='utf-8'))
     references = [ref for topic in mapping['topics'] for ref in topic['sections']]
     for path in {ref['path'] for ref in references}:
         # Every body paragraph must be inside a mapped section; navigation and empty
-        # grouping headings are the only omissions allowed in the canonical skill.
-        lines = (skill / path).read_text(encoding='utf-8').splitlines()
+        # grouping headings are the only omissions allowed in the canonical guide.
+        lines = (sources / path).read_text(encoding='utf-8').splitlines()
         active = []
-        frontmatter = False
         for line in lines:
-            if line == '---' and path == 'SKILL.md':
-                frontmatter = not frontmatter
-            if frontmatter or line == '---':
+            if line == '---':
                 continue
             match = re.match(r'^(#{1,6}) ', line)
             if match:
@@ -83,9 +80,9 @@ def test_text_image_and_manifest_changes_invalidate_existing_host(name, tmp_path
 
 
 @pytest.mark.parametrize('relative', [
-    'skills/rhino-almond/mcp-guide-map.json',
-    'skills/rhino-almond/SKILL.md',
-    'skills/rhino-almond/references/assets/roof-drainage.png',
+    'docs/modeling/guidance/mcp-guide-map.json',
+    'docs/modeling/guidance/modeling-guide.md',
+    'docs/modeling/guidance/references/assets/roof-drainage.png',
     'src/mcp/almond_mcp/FUNDAMENTAL-INSTRUCTIONS.md',
     'src/mcp/almond_mcp/MODEL-CONTEXT-INSTRUCTIONS.md',
 ])
