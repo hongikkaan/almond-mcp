@@ -1,5 +1,5 @@
 """Capsule discovery is compact; a requested parsed logic remains usable."""
-from almond_mcp.query_output import select_fields
+from almond_mcp.query_output import select_fields, requires_full_evidence
 
 GROUPS = {
     "ports": {"inputs", "outputs", "input_ports", "output_ports"},
@@ -10,6 +10,8 @@ GROUPS = {
 }
 
 def project(payload: dict, groups: list[str] | None) -> dict:
+    if requires_full_evidence(payload):
+        return payload
     # Parsed logic is the requested payload, rather than a discovery list.
     core = {"status", "logic_id", "total_entries", "logic_names", "logic_ids", "total", "limit", "offset", "next_offset",
             "capsules", "components", "all_descriptions", "metadata", "file_name"}

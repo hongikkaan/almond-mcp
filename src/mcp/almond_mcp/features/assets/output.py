@@ -1,5 +1,5 @@
 """Drawing/repository shortlist fields and explicit detail groups."""
-from almond_mcp.query_output import select_fields, select_records
+from almond_mcp.query_output import select_fields, select_records, requires_full_evidence
 
 
 CORE = {"asset_id", "id", "name", "product", "variant", "category", "kind", "file_available",
@@ -16,6 +16,8 @@ GROUPS = {
 
 
 def project(payload: dict, groups: list[str] | None) -> dict:
+    if requires_full_evidence(payload):
+        return payload
     result = dict(payload)
     for key in ("asset", "assets"):
         if key in result:

@@ -25,7 +25,8 @@ EVIDENCE_FIELDS = frozenset({
 })
 
 
-def _unconfirmed(record: dict) -> bool:
+def requires_full_evidence(record: dict) -> bool:
+    """Errors, incomplete observations and uncertain mutations cannot be summarized."""
     return (record.get("status") in ("error", "unknown", "uncertain") or bool(record.get("error"))
             or record.get("mutation_state") in ("unknown", "pending", "uncertain")
             or record.get("complete") is False
@@ -63,8 +64,8 @@ def validate_field_groups(field_groups: list[str] | None, group_keys: dict) -> N
 
 def select_fields(record: dict, field_groups: list[str] | None, core_keys, group_keys: dict) -> dict:
     """Select a feature's declared fields without changing stored records or evidence."""
-    if _unconfirmed(record):
-        return record
+    if requires_full_evidence(record):
+        return dict(record)
     if "all" in (field_groups or []):
         return dict(record)
     selected = set(core_keys)
@@ -83,7 +84,7 @@ def select_records(records, field_groups: list[str] | None, core_keys, group_key
 
 def compact_ack(record: dict, core_keys) -> dict:
     """Keep write handles, revisions and evidence without echoing whole snapshots."""
-    if _unconfirmed(record):
+    if requires_full_evidence(record):
         return record
     selected = select_fields(record, None, core_keys, {})
     return {key: value for key, value in selected.items()
@@ -96,7 +97,7 @@ def project_query(value: Any, *, include_ids: bool = False, supplied: dict | Non
         return [project_query(item, include_ids=include_ids, supplied=supplied, include_audit=include_audit) for item in value]
     if not isinstance(value, dict):
         return value
-    if _unconfirmed(value):
+    if requires_full_evidence(value):
         return value
     result = {}
     for key, item in value.items():
@@ -135,7 +136,7 @@ def query_output(function):
             return json.dumps(value) if parameters.return_annotation in (str, "str") else value
         is_text = isinstance(result, str)
         value = json.loads(result) if is_text else result
-        if isinstance(value, dict) and _unconfirmed(value):
+        if isinstance(value, dict) and requires_full_evidence(value):
             return result
         groups = arguments.arguments.get("field_groups") or []
         include_audit = "field_groups" not in parameters.parameters or bool({"audit", "all"} & set(groups))

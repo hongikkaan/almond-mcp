@@ -1,7 +1,7 @@
 """Ontological-component projections; no registration or alignment semantics."""
-from almond_mcp.query_output import select_fields
+from almond_mcp.query_output import select_fields, requires_full_evidence
 
-CORE = {"component_id", "name", "status", "availability", "object_count", "effective_object_count",
+CORE = {"component_id", "name", "status", "registration_status", "availability", "object_count", "effective_object_count",
         "direct_object_count", "object_names", "object_types", "revision", "scene_revisions"}
 GROUPS = {
     "references": {"parent_component_id", "child_component_ids", "scene_ids", "rhino_group_id"},
@@ -12,10 +12,14 @@ GROUPS = {
 }
 
 def project(payload: dict, groups: list[str] | None) -> dict:
+    if requires_full_evidence(payload):
+        return payload
     result = dict(payload)
     for key in ("component", "components"):
         if key in result:
             def item(record):
+                if requires_full_evidence(record):
+                    return record
                 selected = select_fields(record, groups, CORE, GROUPS)
                 for objects in ("objects", "effective_objects", "pending_objects"):
                     if objects in selected:

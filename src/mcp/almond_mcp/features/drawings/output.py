@@ -1,5 +1,5 @@
 """Recipe purpose is enough for discovery; execution details are opt-in."""
-from almond_mcp.query_output import select_records
+from almond_mcp.query_output import select_records, requires_full_evidence
 
 GROUPS = {
     "scales": {"recommended_scales", "scales"},
@@ -10,6 +10,8 @@ GROUPS = {
 }
 
 def project(payload: dict, groups: list[str] | None) -> dict:
+    if requires_full_evidence(payload):
+        return payload
     result = dict(payload)
     core = {"recipe_id", "name", "description", "projection"}
     for key in ("recipe", "recipes"):

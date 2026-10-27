@@ -1,5 +1,5 @@
 """Public planning summaries; persistence and revision snapshots remain complete."""
-from almond_mcp.query_output import select_fields
+from almond_mcp.query_output import select_fields, requires_full_evidence
 
 
 PLAN_CORE = {"plan_id", "goal", "scope", "status", "revision"}
@@ -23,7 +23,7 @@ TARGET_GROUPS = {key: GROUPS[key] for key in ("references", "geometry", "scope",
 
 
 def project(payload: dict, groups: list[str] | None) -> dict:
-    if payload.get("status") == "error":
+    if requires_full_evidence(payload):
         return payload
     result = dict(payload)
     for key, core in (("plan", PLAN_CORE), ("plans", PLAN_CORE), ("phase", PHASE_CORE),
@@ -33,6 +33,8 @@ def project(payload: dict, groups: list[str] | None) -> dict:
         if key not in result:
             continue
         def item(record):
+            if requires_full_evidence(record):
+                return record
             selected = select_fields(record, groups, core, GROUPS)
             if "steps" in selected and "all" not in (groups or []):
                 selected["steps"] = [select_fields(step, groups,

@@ -1,6 +1,8 @@
 """MCP tools for cached legacy asset placement, registered per server."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import compact_ack, query_output, select_fields, validate_field_groups
+from almond_mcp.query_output import (
+    compact_ack, query_output, select_fields, validate_field_groups, requires_full_evidence,
+)
 from pydantic import StrictBool
 from almond_mcp.instruction_text import tool_instruction
 import json
@@ -92,11 +94,23 @@ def register(mcp, context):
         groups = {"details": {"collisions", "outside_room"}}
         validate_field_groups(field_groups, groups)
         try:
-            return json.dumps(select_fields({
+            report = select_fields({
                 "status": "success",
                 **context.retrieval_store.validate_scene(scene_id, limit=detail_limit),
             }, field_groups, {"scene_id", "passed", "collision_count", "outside_room_count",
-                              "method", "passed_scope", "coverage"}, groups))
+                              "method", "passed_scope", "coverage"}, groups)
+            if not include_ids and not requires_full_evidence(report) and "collisions" in report:
+                collisions = []
+                for collision in report["collisions"]:
+                    entry = dict(collision)
+                    if not requires_full_evidence(entry):
+                        # These legacy aliases contain handles, rather than nested records.
+                        for alias, count_key in (("instances", "instance_count"), ("assets", "asset_count")):
+                            if alias in entry:
+                                entry[count_key] = len(entry.pop(alias))
+                    collisions.append(entry)
+                report["collisions"] = collisions
+            return json.dumps(report)
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 

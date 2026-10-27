@@ -1,5 +1,5 @@
 """Construction candidates, typology narratives and source discovery projections."""
-from almond_mcp.query_output import select_fields
+from almond_mcp.query_output import select_fields, requires_full_evidence
 
 GROUPS = {
     "rules": {"span_range_m", "span_axis", "typical_spacing_m", "depth_rules", "depth_guidance", "elements",
@@ -11,6 +11,8 @@ GROUPS = {
 }
 
 def project(payload: dict, groups: list[str] | None) -> dict:
+    if requires_full_evidence(payload):
+        return payload
     result = dict(payload)
     for key, core in (("systems", {"system_id", "name", "category", "structural_material", "fits_span"}),
                       ("entries", {"typology_id", "name", "era", "region"}),

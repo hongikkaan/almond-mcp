@@ -1,5 +1,5 @@
 """Diagram names/readiness by default; measured and source detail on request."""
-from almond_mcp.query_output import select_records
+from almond_mcp.query_output import select_records, requires_full_evidence
 
 
 CORE = {"asset_id", "name", "product", "variant", "category", "kind", "file_available"}
@@ -14,6 +14,8 @@ GROUPS = {
 
 
 def project(payload: dict, groups: list[str] | None) -> dict:
+    if requires_full_evidence(payload):
+        return payload
     result = dict(payload)
     for key in ("asset", "assets"):
         if key in result:
