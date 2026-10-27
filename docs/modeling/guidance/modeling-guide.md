@@ -10,7 +10,7 @@ Almond MCP로 Rhino 건축 모델을 조회·편집하고 도면을 작성한다
 - [프로젝트 기본 구조](#프로젝트-기본-구조)
   - [프로젝트·문서·파일](#프로젝트문서파일)
   - [Phase → Task → Step](#phase--task--step)
-  - [Scene·ontological-component·Instance](#sceneontological-componentinstance)
+  - [Scene·ontological_component](#sceneontological_component)
 - [기본 작업](#기본-작업)
   - [템플릿·재료·구축 레이어](#템플릿재료구축-레이어)
   - [조회·화면 도구](#조회화면-도구)
@@ -33,6 +33,10 @@ Almond MCP로 Rhino 건축 모델을 조회·편집하고 도면을 작성한다
 
 프로젝트·현재 파일은 `project_info`로 확인한다. DB 기록은 도구가 저장하고, 작업자료는 Task를 선택하면 `tmp/YYMMDD_작업명`에 관리된다. 관리 도구에는 프로젝트 상대경로를 전달하면 되므로 TEMP나 절대경로를 따로 조립하지 않는다. Rhino 모델의 `.3dm` 저장은 DB 기록과 별개다.
 
+같은 문서의 연속 지시는 알고 있는 맥락을 재사용한다. `project_info` 재조회는 첫 연결·재연결, 사용자나 도구가 알려 준 문서 변경, 새 프로젝트·경로 정보 부족, 명시적 조회 요청이 있을 때 필요한 sections로 한정한다. 새 메시지가 왔다는 사실만으로 재조회하지 않는다. `document`가 live 문서를 함께 확인하므로 같은 확인을 위해 `get_rhino_context`를 이어 호출하지 않는다.
+
+일상 편집마다 모델 전체나 DB의 별도 백업을 만들지 않는다. 명시적 요청이나 정해진 마이그레이션 계약이 있을 때만 별도 사본을 만든다. 기존 모델·DB·백업과 관련 없는 사용자 속성은 보존한다.
+
 | 도구 | 입력 | 할 수 있는 일 |
 | ------- | ----- | ----- |
 | `project_info` | 필요한 `sections`: project, document, artifacts, runtime, instructions | 프로젝트 루트·파일명·공유 DB·현재 문서·작업자료 위치 조회. document에 live 확인이 포함된다. |
@@ -43,6 +47,17 @@ Almond MCP로 Rhino 건축 모델을 조회·편집하고 도면을 작성한다
 ### Phase → Task → Step
 
 **Phase는 작업 묶음, Task는 수행할 과업, Step은 과업 내부 단계**다. 현재 API에서 Task의 이름은 `Plan`이고 ID는 `plan_id`다. 진행 중이거나 중단된 작업을 조회해 이어서 사용할 수 있다. 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`다.
+
+새 지시의 **도구 선택 전에** 현재 Task와의 관계를 판단한다. 알고 있는 Phase·Task·문서부터 사용하고, 빠진 정보만 작은 범위로 조회한다.
+
+| Given: 지시의 맥락 | When: 판단·도구 선택 | Then: 필요한 행동·기록 |
+| --- | --- | --- |
+| 진행 중 Task의 보완 | 기존 목표·대상과 이어진다 | 같은 Task·Phase를 유지하고 필요한 실행을 한다. Step은 의미 있는 상태·대상·결과가 바뀔 때 기록한다. |
+| 다른 과업으로 전환 | 기존 Task의 목표·대상이 달라진다 | 진행 중 Task는 필요하면 paused로 남기고 관련 Phase의 Task를 선택·재개하거나 만든다. 완료한 Task에 새 과업을 조용히 누적하지 않는다. |
+| 맥락이 부족 | 현재 Task·대상·문서 중 무엇이 부족한지 먼저 정한다 | 알고 있는 ID는 단건 조회하고 모르면 status·Phase·Scene으로 목록을 좁힌다. 문서·경로 정보가 부족할 때만 project_info의 해당 sections를 읽고, 그래도 모호한 작업 대상은 사용자에게 확인한다. |
+| 일회성 조회 | 이름·개수·상태만 묻는다 | 해당 요약 조회만 수행한다. 새 Phase·Task·Step을 만들거나 전체 계획을 다시 읽지 않는다. |
+
+작업자료를 작성할 때는 선택한 Task에 `set_working_plan`을 적용한다. 실행·검수·중단·재개·완료의 의미 있는 상태를 해당 Step에 남기고, 도구 호출마다 기록을 늘리지 않는다. Task 완료는 요청한 실행과 필요한 검수가 끝난 뒤 판단한다.
 
 Task의 상위 Phase는 `phase_id`로 지정한다. 관련성은 **Phase에는 Phase, Task에는 Task**를 기록하며, 같은 프로젝트의 다른 파일에 속한 항목도 참조할 수 있다. Task 간 참조는 `depends_on` 배열에 기록한다. Phase에는 전용 관계 필드가 없으므로 `description`에 관련 Phase ID를 적는다. 관계 기록은 참고용이며 실행 순서나 자동 완료를 강제하지 않는다.
 
@@ -57,14 +72,14 @@ Task의 상위 Phase는 `phase_id`로 지정한다. 관련성은 **Phase에는 P
 | `create_plan`| `goal`, `scope`, 선택적 `phase_id`, `scene_ids`, `component_ids`, `depends_on` | Task와 기본 Step 생성. scope는 house, interior, structure, drawing, component. |
 | `update_plan`| `plan_id`, 바꿀 목표·참조·상태·`artifact_refs`, `expected_revision` | Task 정보와 진행 기록 수정. |
 | `update_step`| `plan_id`, `step_id`, `status`, 선택적 입출력 참조·대상, `expected_revision` | Step의 진행·중단·결과 기록. | 
-| `resolve_targets`  | `plan_id`, 선택적 `step_id` | Task 또는 Step이 가리키는 ontological-component·문서·group 확인. |
+| `resolve_targets`  | `plan_id`, 선택적 `step_id` | Task 또는 Step이 가리키는 ontological_component·문서·group 확인. |
 | `list_plan_revisions` | `plan_id`, 선택적 `limit` | Task의 저장된 변경 이력 조회. |
 
 Task의 `scene_ids`는 맥락, `component_ids`는 편집 대상이다. Step의 대상이 `null`이면 Task 대상을 상속하고 `[]`이면 대상이 없다. 수정에는 조회한 `revision`을 `expected_revision`으로 전달한다. 상태·참조 기록은 형상 실행과 별개다.
 
-### Scene·ontological-component·Instance
+### Scene·ontological_component
 
-Scene은 행태·프로그램·장면의 맥락이고, ontological-component는 그 장면을 가능하게 하는 건축 요소와 의미의 묶음이다. ontological-component는 특정 Scene에 종속되지 않으며 여러 Scene에 참여하거나 아직 연결되지 않은 상태도 가능하다. Scene에는 ontological-component 밖의 객체도 직접 연결할 수 있다. Almond Instance는 별도의 자산 배치 기록으로, 이 셋이 필수적인 부모·자식 위계를 이루는 것은 아니다.
+Scene은 행태·프로그램·장면의 맥락이고, ontological_component는 그 장면을 가능하게 하는 건축 요소와 의미의 묶음이다. 등록할 때는 해당 Scene 맥락을 반드시 지정하며 여러 Scene에 참여할 수 있다. Scene에는 의미 단위 밖의 객체도 직접 연결할 수 있다. 기본 모델링은 Scene·ontological_component와 실제 Rhino group/block을 사용한다. 자산 배치용 Almond Instance 대장은 기본 작업에 추가하지 않는다.
 
 #### Scene
 
@@ -75,22 +90,22 @@ Scene은 특정 공간에서 일어나는 **행태·프로그램·장면·가치
 | `get_design_scene` | `scene_id` | Scene의 이름·파일명·연결 정보 조회. |
 | `create_design_scene` | `name`, 선택적 `units`, `file_name` | Scene 생성. |
 | `update_design_scene` | `scene_id`, `file_name` | 기존 Scene의 파일명 기록. |
-| `register_scene_objects` | `scene_id`, 최상위 `object_ids`, `mode`: add/remove/replace | ontological-component 없이 객체를 Scene에 직접 연결·해제.|
-| `get_scene_objects`| `scene_id` | 직접 연결 객체와 하위 ontological-component 객체의 합집합 조회. |
+| `register_scene_objects` | `scene_id`, 최상위 `object_ids`, `mode`: add/remove/replace | ontological_component 없이 객체를 Scene에 직접 연결·해제.|
+| `get_scene_objects`| `scene_id` | 직접 연결 객체와 하위 ontological_component 객체의 합집합 조회. |
 
 현재 전체 Scene 목록·삭제 도구는 없다. 기존 Scene ID는 작업 맥락과 연결 기록에서 찾는다. 등록 정보 변경에는 공개 도구를 사용한다.
 
-#### ontological-component
+#### ontological_component
 
-ontological-component는 **건축 요소와, 그 요소들이 함께 가능하게 하는 사용·행태·구조적 역할을 묶은 의미 단위**다. 무엇을 만들었는지와 그 묶음이 무엇을 가능하게 하는지를 함께 설명할 수 있어야 한다. 객체 종류·재료·거리만으로 경계를 정하지 않는다. 예를 들어 창문 하나를 일률적으로 ontological-component로 등록하는 대신, 바깥 풍경을 보며 머무르는 장소를 만드는 벽·창문 등의 관계를 보고 묶는다.
+ontological_component는 **건축 요소와, 그 요소들이 함께 가능하게 하는 사용·행태·구조적 역할을 묶은 의미 단위**다. 무엇을 만들었는지와 그 묶음이 무엇을 가능하게 하는지를 함께 설명할 수 있어야 한다. 객체 종류·재료·거리만으로 경계를 정하지 않는다. 예를 들어 창문 하나를 일률적으로 ontological_component로 등록하는 대신, 바깥 풍경을 보며 머무르는 장소를 만드는 벽·창문 등의 관계를 보고 묶는다.
 
-이렇게 정한 객체들을 한 `.3dm` 안에서 Rhino group으로 정의하고 ontological-component로 등록한다. **일반 group이 자동으로 ontological-component가 되는 것은 아니다.** 그 의미 단위를 구현하는 내부 구축 시스템·부재·element는 일반 group이나 block으로 정리한다. 이 내부 묶음은 조립·반복·선택·편집을 위한 것으로, 그 자체를 별도 ontological-component로 등록할 이유가 되지는 않는다. **ontological-component는 건축 요소와 의미를 함께 정의하고, 내부 group/block은 그 실물의 구축·모델링 구성을 정리한다.**
+이렇게 정한 객체들을 한 `.3dm` 안에서 Rhino group으로 정의하고 ontological_component로 등록한다. **일반 group이 자동으로 ontological_component가 되는 것은 아니다.** 그 의미 단위를 구현하는 내부 구축 시스템·부재·element는 일반 group이나 block으로 정리한다. 이 내부 묶음은 조립·반복·선택·편집을 위한 것으로, 그 자체를 별도 ontological_component로 등록할 이유가 되지는 않는다. **ontological_component는 건축 요소와 의미를 함께 정의하고, 내부 group/block은 그 실물의 구축·모델링 구성을 정리한다.**
 
 ![마루·계단참·지지 구조·가구의 공간 관계](references/assets/resident-porch.png)
 
-작은 계단참과 마루에서 사람들이 머물고 교류하는 행태가 Scene이다. 그 Scene을 이루는 ontological-component는 다음처럼 **실물 구성과 그것이 가능하게 하는 것**을 함께 갖는다.
+작은 계단참과 마루에서 사람들이 머물고 교류하는 행태가 Scene이다. 그 Scene을 이루는 ontological_component는 다음처럼 **실물 구성과 그것이 가능하게 하는 것**을 함께 갖는다.
 
-| ontological-component | 함께 구성하는 요소와 의미 |
+| ontological_component | 함께 구성하는 요소와 의미 |
 |---|---|
 | 마루 위 공간을 지지하는 구조 | 기둥·보 여러 개가 함께 위에서 오는 하중을 지지한다. 기둥마다 따로 등록하지 않는다. |
 | 사람들이 걸터앉는 마루·계단참 | 지지 콘크리트와 마루 마감이 함께 단차와 앉을 자리를 만든다. 마루라는 실물이면서 걸터앉을 수 있게 하는 장치다. 공유 바닥슬래브 전체를 포함할 필요는 없다. |
@@ -98,19 +113,23 @@ ontological-component는 **건축 요소와, 그 요소들이 함께 가능하�
 
 ![지붕과 우수관](references/assets/roof-drainage.png)
 
-지붕의 의미에는 덮는 역할과 함께 집수·배수가 이어진다. 우수관이 여러 층을 지나거나 기둥 속 콘크리트에 매립돼 있어도 그 역할이 이어지므로 지붕 ontological-component에 포함한다. 지붕 안의 구축 시스템과 우수관 element들은 일반 group으로 나눠 관리할 수 있다. **물리적으로 떨어져 있어도 하나의 역할을 이루면 같은 ontological-component가 될 수 있다.** 두 사례의 [사용자 설명 원문과 사진](references/component-feedback.md)은 별도로 보존한다.
+지붕의 의미에는 덮는 역할과 함께 집수·배수가 이어진다. 우수관이 여러 층을 지나거나 기둥 속 콘크리트에 매립돼 있어도 그 역할이 이어지므로 지붕 ontological_component에 포함한다. 지붕 안의 구축 시스템과 우수관 element들은 일반 group으로 나눠 관리할 수 있다. **물리적으로 떨어져 있어도 하나의 역할을 이루면 같은 ontological_component가 될 수 있다.** 두 사례의 [사용자 설명 원문과 사진](references/component-feedback.md)은 별도로 보존한다.
 
 | 도구 | 입력 | 할 수 있는 일 |
 | --- | ----- | -- |
-| `list_design_components`  | 선택적 `include_ids` | 연결 문서의 등록 ontological-component 목록 조회. |
+| `list_design_components`  | 선택적 `include_ids` | 연결 문서의 등록 ontological_component 목록 조회. |
 | `get_design_component` | `component_id`, 선택적 `live=True` | 저장 정보 또는 실제 group·멤버·미등록 후보 조회. |
-| `upsert_design_component` | `name`, 직접 소유 `object_ids`, `scene_ids`, 선택적 기존 ID·group GUID·`child_component_ids` | ontological-component 생성·구성 변경·기존 group 채택. |
+| `upsert_design_component` | `name`, 직접 소유 `object_ids`, `scene_ids`, 선택적 기존 ID·group GUID·`child_component_ids` | ontological_component 생성·구성 변경·기존 group 채택. |
 | `sync_design_component`| `component_id`, 선택적 `rhino_group_id` | 실제 group에 맞춰 멤버십·등록 정보를 정합.  |
-| `remove_design_component` | `component_id` | ontological-component 등록 해제. 형상과 group은 유지. |
+| `remove_design_component` | `component_id` | ontological_component 등록 해제. 형상과 group은 유지. |
 
-현재 등록 API는 빈 `scene_ids`를 거부한다. 이는 위의 의미 정의와 별개의 구현 제약으로, Scene 미연결 ontological-component 등록은 아직 지원하지 않는다.
+등록하려는 사용·행태·역할을 설명하는 Scene을 먼저 선택한다. `scene_ids`에는 기존 Scene을 한 개 이상 지정한다. 이 Scene 귀속은 단순한 API 우회용 값이 아니며, 파일 전체를 의미 없이 Scene으로 만들지 않는다.
 
-일반 조회는 DB snapshot이다. 수동 편집·Undo/Redo 후에는 필요한 ontological-component를 `live=True`로 확인하고 sync한다. 기존 정보 수정 시 생략한 인자는 유지되며 `child_component_ids=[]`는 자식 분리다.
+일반 조회는 DB snapshot이다. 수동 편집·Undo/Redo 또는 멤버 교체가 있었으면 한 편집 묶음이 끝난 뒤 영향받은/dirty 등록 범위를 한 번 정합한다. 목록 전체에 `get(live=True) → sync → get`을 반복하지 말고 현재 schema가 제공하는 범위 정합 도구를 사용한다. 이름·색 변경만으로 멤버십 정합을 반복하지 않는다. 기존 정보 수정 시 생략한 인자는 유지되며 `child_component_ids=[]`는 자식 분리다.
+
+정합의 형상 기준은 **현재 안정된 Rhino 문서의 group·멤버·block 배치**다. DB와 다르다는 이유로 형상을 재생성하거나 일반 group을 해체하지 않는다. GroupEdit·BlockEdit 등 편집 격리가 활성 또는 불명확하면 모드·대상을 확인하고 안정된 문서 상태가 될 때까지 삭제 판단·정합을 보류한다. 불완전한 관찰은 삭제의 증거가 아니다. 타임아웃·결과 불명확은 rollback이 아니므로 실제 완료 결과를 먼저 확인하며 자동 재시도하지 않는다.
+
+component·Scene·Plan·Phase·재료 key 등 Almond 관리 UserStrings를 개별 객체에 신규 자동 기록하지 않는다. 기존 사용자 속성을 보존하고, 작업에 필요한 일반 layer·Name·재료 속성 편집과 구별한다. 등록 해제는 의미 등록의 제거이고 물리적 group/block 해체와 별개 결정이다.
 
 #### Instance
 
@@ -138,10 +157,10 @@ ID가 필요한 조회에는 `include_ids=True`를 사용한다. 이미 프로�
 | 도구 | 입력 | 할 수 있는 일 |
 | ---- | ---- | --- |
 | `get_rhino_context`  | `sections=["selection"]` 또는 `["viewport"]`, 선택적 `selection_limit` | 현재 선택 객체 또는 카메라·화면 정보 조회.|
-| `get_selection_references` | 선택적 `selection_limit`, `limit` | 선택 객체에 연결된 ontological-component·Task·Step 역조회. |
+| `get_selection_references` | 선택적 `selection_limit`, `limit` | 선택 객체에 연결된 ontological_component·Task·Step 역조회. |
 | `get_rhino_probe` | 아래의 `probe`와 `options` | 형상·블록을 읽기 전용으로 관찰·측정.  |
 | `get_rhino_viewport_image` | 현재 화면은 생략, 목록은 `view="a"`, 지정 뷰는 `view=GUID`; 선택적 `scale_percent` | viewport·Named View·Layout 목록 또는 PNG 캡처. 기본 크기 50%. |
-| `focus_components`| `component_ids` | 해당 ontological-component 선택·격리·확대. 화면 상태가 바뀐다. |
+| `focus_components`| `component_ids` | 해당 ontological_component 선택·격리·확대. 화면 상태가 바뀐다. |
 
 `get_rhino_probe`의 옵션은 아래와 같다. 좌표·길이·공차는 현재 문서 단위다. 반환의 `unknown`·미지원·`truncated`는 미확인 범위이며 0이나 통과를 뜻하지 않는다. 범위가 잘리면 대상·표본을 나눠 조회한다.
 
@@ -155,7 +174,7 @@ ID가 필요한 조회에는 `include_ids=True`를 사용한다. 이미 프로�
 
 #### Block·주석
 
-Rhino block instance는 하나의 형상 정의를 위치·회전·축척별로 배치한 객체다. 정의를 수정하면 이를 사용하는 모든 배치에 반영된다. ontological-component에 블록을 포함할 때는 정의 내부 객체 대신 최상위 배치 GUID를 등록한다.
+Rhino block instance는 하나의 형상 정의를 위치·회전·축척별로 배치한 객체다. 정의를 수정하면 이를 사용하는 모든 배치에 반영된다. ontological_component에 블록을 포함할 때는 정의 내부 객체 대신 최상위 배치 GUID를 등록한다.
 
 중첩 구조는 `get_rhino_probe(probe="outline", options={"ids":[최상위_GUID], "depth":깊이})`로 재귀 조회한다. 경로는 최상위 배치에서 내부 멤버로 이어지며, 누적 변환으로 문서 좌표를 읽는다. 내부 GUID와 현재 선택 가능한 객체 ID는 다를 수 있다.
 
@@ -163,13 +182,19 @@ BlockEditNew에서는 부모를 연 뒤 `resolve-block`에 `path`를 한 단계�
 
 의미와 편집 목적에 맞춰 block을 생성·재사용하거나 Explode할 수 있다. block/group이라는 이유만으로 항상 보존하거나 항상 해체하지 않는다. 반복 실물의 블록 이름은 `UNIT A`처럼 특정 배치에 고정하지 않는다. 폴딩도어 실물과 개폐 궤적은 구별하며, 문짝·프레임은 재사용 block으로, 함께 설명할 사용 관계는 일반 group으로 구성할 수 있다.
 
+반복되는 가구·문 실물은 기존 정의의 형상·규격·표현 목적을 비교한 뒤 같은 block 정의를 재사용한다. 배치마다 새 정의와 전역 번호를 만들지 않는다. 이름은 `책상 1200`, `폴딩도어 4짝`처럼 재사용에 필요한 차이만 남기고, 위치·층·UNIT는 구별이 필요한 배치나 group 이름에만 둔다.
+
 등록된 객체를 block으로 교체하거나 해체하기 전에는 현재 직접 소유 객체·영속 group GUID와 관련 등록을 확인한다. 등록 정보를 담은 원본 객체를 먼저 삭제한 뒤 sync만 하면 복구된다고 가정하지 않는다. 현재 공개 API가 지원하는 전환 순서와 교체 후 live 정합을 확인하고, 안전한 전환이 지원되지 않으면 도구 개선 대상으로 남긴다. DB나 소유권 UserString 직접 삭제로 오류를 우회하지 않는다.
 
 #### Group
 
 일반 group은 선택·편집 편의를 위한 객체 묶음이다. 내부에 일반 group·block을 둘 수 있고, 멤버십이 겹칠 수도 있다. group의 겹치는 멤버십과 block 정의의 중첩은 다르다. 블록 내부 중첩은 위의 `outline` 재귀 조회와 `resolve-block` 경로 조회를 사용한다.
 
-등록 ontological-component의 부모 group에는 자손 객체도 포함되지만 직접 소유권은 자식에 남는다. 자식을 해제하려면 부모에서 먼저 분리하고, 부모를 해제하면 자식은 root로 남는다. 객체는 저장된 모델 경로+GUID, group은 영속 group GUID로 식별한다. ontological-component group은 의미 있는 이름을 쓰고 객체 Name은 필요할 때만 채운다.
+객체 하나를 감싸기 위해 단일 객체 group을 만들지 않는다. 묶음은 함께 선택·편집할 필요가 있을 때만 만들고 `철골 보`, `창호`처럼 짧은 종류·기능 이름을 쓴다. 부모 이름·레이어·GUID·번호를 모든 내부 객체 Name에 반복하지 않는다. 의미 단위의 이름은 `풍경을 보며 머무는 자리`처럼 가능한 역할을 짧게 쓴다. 기존 이름·멤버·용도를 확인한 뒤 중복을 정리하고, 의미 등록이 아니라는 이유만으로 유용한 일반 group/block을 해체하지 않는다.
+
+같은 멤버의 group을 중복 생성해 편집 오류를 우회하지 말고 기존 묶음을 재사용한다. GroupEdit·BlockEdit에서는 확인된 현재 편집 단계의 대상을 다루며, 중첩 group의 외부 선택·표시 상태를 임의로 재설정하지 않는다. 선택 오류가 남으면 모드·대상·멤버 증거를 확인하고 미해결로 보고한다.
+
+등록 ontological_component의 부모 group에는 자손 객체도 포함되지만 직접 소유권은 자식에 남는다. 자식을 해제하려면 부모에서 먼저 분리하고, 부모를 해제하면 자식은 root로 남는다. 객체는 저장된 모델 경로+GUID, group은 영속 group GUID로 식별한다.
 
 ## 모델링
 
@@ -177,7 +202,9 @@ BlockEditNew에서는 부모를 연 뒤 `resolve-block`에 `path`를 한 단계�
 
 구축 시스템의 구성 요소·재료는 `get_construction_guidance`로 확인한다. 시스템을 하나의 단순 형상으로 표현하면 해당 시스템 레이어에 두고, 실제 부재·마감을 따로 모델링하면 `M::분류::시스템명::요소역할`의 대응 하위 레이어에 둔다. 예를 들어 따로 만든 마감 객체와 구조 객체는 각자의 역할 레이어로 구분한다. 재료명·해시마다 별도 Custom 레이어를 만들지 않는다.
 
-`assign_material`은 지정한 객체의 재료를 바꾸며 레이어는 이동하지 않는다. ByLayer로 표현하려면 객체의 재료·색 source를 ByLayer로 설정하고 해당 레이어의 재료·색을 맞춘다. 개별 재료를 직접 지정하는 방식과 구분해 적용한다. 층 정보는 실제 프로젝트 레벨을 확인해 `floor`에 전달하며 자동 추정되지 않는다. 지원 메타데이터 키는 `get_modeling_policy`에서 확인한다.
+ontological_component마다 별도 레이어를 만들지 않는다. 의미 등록과 Scene 관계는 등록 정보로 다루고, 레이어는 실제 구축 요소·재료·도면 표현에 필요한 분류에 사용한다.
+
+`assign_material`은 지정한 객체의 재료를 바꾸며 레이어는 이동하지 않는다. ByLayer로 표현하려면 객체의 재료·색 source를 ByLayer로 설정하고 해당 레이어의 재료·색을 맞춘다. 개별 재료를 직접 지정하는 방식과 구분해 적용한다. 재료 적용에 관리 UserStrings 기록을 자동으로 덧붙이지 않는다. 사용자가 명시적으로 요청한 메타데이터 작업은 현재 도구 schema·정책을 별도로 확인한다.
 
 | 도구 | 입력 | 할 수 있는 일 |
 | ------- | ------- | ----- |
@@ -190,18 +217,20 @@ BlockEditNew에서는 부모를 연 뒤 `resolve-block`에 `path`를 한 단계�
 
 ### 모델링 검수
 
-요청 범위의 실제 이미지를 열어 사용 관계와 구축을 확인한다. 필요한 눈높이 Perspective·평면·종횡단면을 선택하고, 재사용할 시점은 Named View로 남긴다. 절단은 실제 clipping plane으로 준비하며 평·단면은 설치된 `AGENT_Section_Glass` 등 적합한 모드를 사용한다. 캡처 도구 자체는 절단·모드를 설정하지 않는다.
+요청 범위의 실제 이미지를 열어 사용 관계와 구축을 확인한다. 필요한 눈높이 Perspective·평면·종횡단면을 선택하고, 재사용할 시점은 Named View로 남긴다. 절단은 실제 clipping plane으로 준비하며 평·단면은 설치된 `AGENT_Section_Glass` 등 적합한 모드를 사용한다. 표시 모드는 현재 도구 schema와 설치된 모드에 맞춰 선택한다.
 
 검증에는 MCP의 관찰·캡처를 사용하며 computer use를 검증의 우회 수단으로 호출하지 않는다. 저장 명령 성공, 저장 후 `modified` 표시, 실제 저장본 확인은 구별한다. 표시가 남으면 저장 이후 변경·확인하지 못한 상태를 보고하며, 표시를 강제로 지워 검증 성공으로 만들지 않는다.
 
-ontological-component의 의미와 함께 내부·인접 요소의 지지·연결·두께·높이·마감·배수를 본다. 특히 마감/슬래브, 후레싱/벽, 지붕/우수관의 의도하지 않은 중첩을 단면·확대와 수치로 대조한다. 수정한 곳은 같은 조건에서 다시 확인하고 미검사 범위는 구분해 보고한다.
+ontological_component의 의미와 함께 내부·인접 요소의 지지·연결·두께·높이·마감·배수를 본다. 특히 마감/슬래브, 후레싱/벽, 지붕/우수관의 의도하지 않은 중첩을 단면·확대와 수치로 대조한다. 수정한 곳은 같은 조건에서 다시 확인하고 미검사 범위는 구분해 보고한다.
+
+완료 판단은 요청한 변경 범위와 남은 불확실성의 영향에 맞춘다. 먼저 변경부와 주변의 관련 시점을 검수하고, 안전·접합·사용 관계에 큰 결과를 줄 수 있는 불확실성에는 수치·단면 확인을 더한다. 판단을 바꾸지 않을 같은 캡처·전체 목록·정합은 반복하지 않는다. 필요한 근거를 확보하면 완료하고 미검사 범위·잔존 문제를 짧게 보고한다. 실행 성공·객체 수·DB sync만으로 시각적 적합성을 판정하거나, 지침 수정만으로 재현하지 않은 오류를 해결했다고 보고하지 않는다.
 
 | 도구 | 입력 | 할 수 있는 일 |
 | - |  | -- |
-| `get_component_intersections` | `component_ids`, 선택적 `max_pairs` | ontological-component 내부·인접 객체 쌍의 교차 검사. 유효 닫힌 최상위 Brep·Extrusion 지원. |
+| `get_component_intersections` | `component_ids`, 선택적 `max_pairs` | ontological_component 내부·인접 객체 쌍의 교차 검사. 유효 닫힌 최상위 Brep·Extrusion 지원. |
 | `check_egress` | `plate_bounds_mm`, `exits`, 용도·층수·피난 조건  | 출구 수·분리·폭·이동거리 검토. |
 
-교차 검사는 한 번에 1–32 ontological-component·최대 512 객체·64 후보쌍이다. `complete`·미지원 객체·미평가 쌍을 확인한다. 블록·Mesh·열린 형상은 이 검사로 검증되지 않는다. bbox 겹침은 실제 관입이 아니며, 교차체적 0도 접합 적합성을 보장하지 않는다.
+교차 검사는 한 번에 1–32 ontological_component·최대 512 객체·64 후보쌍이다. `complete`·미지원 객체·미평가 쌍을 확인한다. 블록·Mesh·열린 형상은 이 검사로 검증되지 않는다. bbox 겹침은 실제 관입이 아니며, 교차체적 0도 접합 적합성을 보장하지 않는다.
 
 ### 구조 검토
 

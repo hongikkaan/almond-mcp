@@ -9,7 +9,9 @@ the currently open live document in this same call; do not call get_rhino_contex
 again merely to verify it. Project root is the one absolute path and is actually
 set as ALMOND_PROJECT_ROOT. Other paths are relative to it. Managed tools apply
 the root and selected artifact folder automatically; workers supply relative paths.
-This is not a mandatory repeated startup ritual before each independent task.
+Reuse known context. Refresh only for first connection/reconnection, evidence of
+a document change, missing project/path information, or the user's request.
+A new instruction alone is not a refresh trigger.
 <!-- /instruction:project_info -->
 
 <!-- instruction:set_working_plan -->
