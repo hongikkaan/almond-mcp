@@ -103,6 +103,31 @@ def test_given_parent_and_child_when_referenced_then_only_requested_ancestor_is_
     assert store.get_scene(store.scene_b)["components"] == 1
 
 
+@pytest.mark.parametrize("gap_at", ["parent", "middle"])
+@pytest.mark.parametrize("availability", ["missing_group", "unregistered"])
+def test_given_unavailable_ancestor_when_aligning_then_present_child_keeps_its_scene_route(store, model, gap_at, availability):
+    from test_component_hierarchy import create
+    store.scene_a, store.model = store.fixture_scene_id, model
+    child = create(store, "Panel", [A])
+    middle = create(store, "Frame", [B], children=[child["component_id"]])
+    parent = create(store, "Assembly", [C], children=[middle["component_id"]]) if gap_at == "middle" else middle
+    missing = middle if gap_at == "middle" else parent
+    assert store.get_scene(store.scene_a)["objects"] == (3 if gap_at == "middle" else 2)
+
+    snapshots = []
+    for component in (child, middle, parent) if gap_at == "middle" else (child, parent):
+        component = store.get_component(component["component_id"])
+        ids = [] if component["component_id"] == missing["component_id"] else component["object_ids"]
+        snapshots.append(live(component, ids, availability=(
+            availability if component["component_id"] == missing["component_id"] else "present")))
+    store.align_components(model, native_inspect=bridge(snapshots))
+
+    expected_ids = {A, C} if gap_at == "middle" else {A}
+    assert {row["rhino_guid"] for row in store.scene_objects(store.scene_a)} == expected_ids
+    assert store.get_scene(store.scene_a)["objects"] == len(expected_ids)
+    assert store.get_component(child["component_id"])["scene_ids"] == [store.scene_a]
+
+
 def test_given_scene_parent_when_aligning_then_descendant_geometry_updates_without_context_inheritance(store, model):
     from test_component_hierarchy import create
     store.scene_a, store.scene_b, store.model = store.fixture_scene_id, store.create_scene("Assembly context")["scene_id"], model

@@ -267,6 +267,7 @@ class ComponentsStore:
         rows = connection.execute("SELECT component_id, parent_component_id, scene_ids_json, availability FROM components WHERE model_path = ?",
                                   (model_path,)).fetchall()
         parents = {row[0]: row[1] for row in rows}
+        availability = {row[0]: row[3] for row in rows}
         contexts = {row[0]: json.loads(row[2]) if row[3] != "unregistered" else [] for row in rows}
         for handle, scenes in contexts.items():
             connection.execute("DELETE FROM scene_components WHERE component_id = ?", (handle,))
@@ -274,6 +275,8 @@ class ComponentsStore:
                 ancestor, seen, redundant = parents[handle], set(), False
                 while ancestor is not None and ancestor not in seen:
                     seen.add(ancestor)
+                    if availability.get(ancestor) != "present":
+                        break
                     if scene in contexts.get(ancestor, []):
                         redundant = True
                         break
