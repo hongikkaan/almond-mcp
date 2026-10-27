@@ -119,6 +119,15 @@ internal static class Program
             var second = SessionFiles.Paths(secondModel, "B", Guid.NewGuid().ToString("N"), true);
             Check(first.Storage == second.Storage && first.StateDb == second.StateDb && first.Temp == second.Temp,
                 "Models in one folder must share DB and tmp.");
+            Check(first.StateDb == Path.Combine(root, ".almond", "scene.sqlite3"),
+                "A saved model must use its own project's SQLite database filename.");
+            var otherProject = Path.Combine(root, "OtherProject");
+            Directory.CreateDirectory(otherProject);
+            var otherModel = Path.Combine(otherProject, "New.3dm");
+            File.WriteAllText(otherModel, "fixture");
+            var other = SessionFiles.Paths(otherModel, "C", Guid.NewGuid().ToString("N"), true);
+            Check(other.StateDb == Path.Combine(otherProject, ".almond", "scene.sqlite3") && other.StateDb != first.StateDb,
+                "An unrelated new project must not reuse another project's database.");
             Check(first.SessionDir != second.SessionDir && first.CallRoot != second.CallRoot, "Connection metadata must be isolated.");
             Throws<System.ComponentModel.Win32Exception>(() => SessionFiles.Paths(firstModel, "A", token, true));
             File.WriteAllText(Path.Combine(first.Storage, "launcher.lock"), "preserve");

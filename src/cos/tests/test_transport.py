@@ -137,10 +137,11 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(instructions, startup_instructions())
                 self.assertIn('get_modeling_guide', instructions)
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 82)
-                self.assertEqual(len({t.name for t in listing.tools}), 82)
+                self.assertEqual(len(listing.tools), 84)
+                self.assertEqual(len({t.name for t in listing.tools}), 84)
                 original = (await asyncio.to_thread(load_catalog))["tools"]
                 public = {t.name: t for t in listing.tools}
+                self.assertTrue({'save_rhino_document', 'list_design_scenes'} <= public.keys())
                 self.assertNotIn("Use the explicit connection_id from connect for every call.",
                                  public["assign_material"].description)
                 self.assertIn("operation", public["setup_modeling"].input_schema["required"])

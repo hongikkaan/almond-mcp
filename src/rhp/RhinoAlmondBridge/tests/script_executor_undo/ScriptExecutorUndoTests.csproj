@@ -7,18 +7,24 @@
     <RhinoSystem Condition="'$(RhinoSystem)' == ''">C:\Program Files\Rhino 8\System</RhinoSystem>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="ObservationFixtureHost.cs" />
     <Reference Include="RhinoCommon"><HintPath>$(RhinoSystem)\RhinoCommon.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RhinoWindows"><HintPath>$(RhinoSystem)\RhinoWindows.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Eto"><HintPath>$(RhinoSystem)\Eto.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Rhino.UI"><HintPath>$(RhinoSystem)\Rhino.UI.dll</HintPath><Private>false</Private></Reference>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="../../ScriptExecutor.cs" Link="ScriptExecutor.cs" />
     <Compile Include="../../DocumentObservation.cs" Link="DocumentObservation.cs" />
+    <Compile Include="../../DocumentSave.cs" Link="DocumentSave.cs" />
+    <Compile Include="../../EditingContext.cs" Link="EditingContext.cs" />
+    <Compile Include="../../ObservationEntities.cs" Link="ObservationEntities.cs" />
     <Compile Include="../../ManagedFiles.cs" Link="ManagedFiles.cs" />
     <Compile Include="../../DocumentLayers.cs" Link="DocumentLayers.cs" />
     <Compile Include="../../../../mcp/almond_mcp/rhino/ModelingMaterials.cs" Link="ModelingMaterials.cs" />
     <Compile Include="../../../../mcp/almond_mcp/rhino/ModelingMetadata.cs" Link="ModelingMetadata.cs" />
     <Compile Include="../../ComponentRegistry.cs" Link="ComponentRegistry.cs" />
+    <Compile Include="../../ComponentSemanticRegistry.cs" Link="ComponentSemanticRegistry.cs" />
     <Compile Include="../../DrawingSheetRegistry.cs" Link="DrawingSheetRegistry.cs" />
     <Compile Include="../../ComponentOperations.cs" Link="ComponentOperations.cs" />
     <Compile Include="../../DrawingAssetGeometry.cs" Link="DrawingAssetGeometry.cs" />

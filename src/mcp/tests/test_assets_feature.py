@@ -60,6 +60,21 @@ def make_feature(tmp_path):
     return mcp, context, namespace, exports
 
 
+def test_agent_shortlists_assets_then_requests_dimensions_without_source_paths(tmp_path):
+    """Given a shortlist, only a deliberate fit check asks for measured dimensions."""
+    _, _, namespace, tools = make_feature(tmp_path)
+    namespace["drawing_asset_indexer"].assets["fixture"] = asset_record(
+        "fixture", model_path="private.3dm", source_url="https://example.test/source", created_at="yesterday")
+    plain = json.loads(tools["list_drawing_assets"]())["assets"][0]
+    assert plain["product"] == "Fixture chair" and "dimensions_mm" not in plain
+    assert "source_url" not in plain and "model_path" not in plain and "created_at" not in plain
+    detail = json.loads(tools["list_drawing_assets"](field_groups=["dimensions"], include_ids=True))["assets"][0]
+    assert detail["asset_id"] == "fixture" and detail["dimensions_mm"] == {"width": 2, "depth": 4, "height": 3}
+    assert "source_url" not in detail and "created_at" not in detail
+    rejected = json.loads(tools["list_drawing_assets"](field_groups=["no_such_group"]))
+    assert rejected["error_code"] == "invalid_arguments"
+
+
 def test_factory_registers_only_existing_tools_and_all_resource_uris(tmp_path):
     mcp, _, _, exports = make_feature(tmp_path)
     async def check():

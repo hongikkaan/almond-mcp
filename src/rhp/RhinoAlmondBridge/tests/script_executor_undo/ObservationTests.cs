@@ -24,6 +24,134 @@ namespace AlmondScriptUndoTests
         {
             var lines = new List<string>();
 
+            Run(lines, "Given a headless model, editor observation confirms a stable model without mutation", doc =>
+            {
+                var before = DocumentState(doc);
+                var reply = EditingContext.Observe(doc);
+                Check((string)reply["mode"] == "model" && (bool)reply["stable"] && reply["target"].Type == JTokenType.Null,
+                    "A stable model was not established from actual editor-provider state: " + reply);
+                Unchanged(before, DocumentState(doc), "Editor baseline");
+                uint record = doc.BeginUndoRecord("transient editor observation fixture");
+                try
+                {
+                    reply = EditingContext.Observe(doc);
+                    Check((string)reply["mode"] == "unknown" && !(bool)reply["stable"],
+                        "An active document edit was mistaken for a stable model: " + reply);
+                }
+                finally { doc.EndUndoRecord(record); }
+            });
+
+            Run(lines, "Given nested groups, default selection returns the top group and explicit depth expands only that branch", doc =>
+            {
+                var ids = Enumerable.Range(0, 3).Select(i => doc.Objects.AddPoint(new Point3d(i, 0, 0))).ToArray();
+                int child = doc.Groups.Add("nested child", ids.Take(2));
+                int parent = doc.Groups.Add("top group", ids);
+                Check(child >= 0 && parent >= 0, "Could not create nested group fixture.");
+                foreach (var id in ids) doc.Objects.Select(id, true);
+                var before = DocumentState(doc);
+                var raw = DocumentObservation.GetContext(doc, 50, new[] { "selection" });
+                Check((int)raw["selection"]["total"] == 3 &&
+                    new HashSet<string>(raw["selection"]["objects"].Select(row => (string)row["id"])).SetEquals(ids.Select(id => id.ToString())),
+                    "Internal selection references lost the member object GUIDs of a fully selected group.");
+                var summary = DocumentObservation.GetContext(doc, 50, new[] { "selection" }, selectionEntities: true);
+                Check((int)summary["selection"]["total"] == 1 && (int)summary["selection"]["selected_object_count"] == 3,
+                    "Group selection was expanded into leaf objects by default.");
+                var rows = (JArray)summary["selection"]["objects"];
+                Check(rows.Count == 1 && (string)rows[0]["id"] == doc.Groups[parent].Id.ToString() &&
+                    (string)rows[0]["type"] == "Group", "The top group's persistent identity is missing.");
+                var details = DocumentObservation.GetContext(doc, 50, new[] { "selection" }, true, 2, selectionEntities: true);
+                rows = (JArray)details["selection"]["objects"];
+                Check(rows.Count == 3 && rows.Count(row => (string)row["type"] == "Group") == 2 &&
+                    (bool)details["selection"]["depth_limited"], "Explicit group depth expanded the wrong scope.");
+                Unchanged(before, DocumentState(doc), "Grouped selection observation");
+                doc.Objects.UnselectAll();
+                doc.Objects.Select(ids[0], true); doc.Objects.Select(ids[2], true);
+                before = DocumentState(doc);
+                var partial = DocumentObservation.GetContext(doc, 50, new[] { "selection" }, selectionEntities: true);
+                Check((int)partial["selection"]["total"] == 2 &&
+                    ((JArray)partial["selection"]["objects"]).All(row => (string)row["type"] != "Group"),
+                    "A partial group selection was fabricated into a complete group.");
+                Unchanged(before, DocumentState(doc), "Partial grouped selection observation");
+                int definition = doc.InstanceDefinitions.Add("selected block", "", Point3d.Origin,
+                    new GeometryBase[] { new Rhino.Geometry.Point(Point3d.Origin) }, new[] { new ObjectAttributes() });
+                var instance = doc.Objects.AddInstanceObject(definition, Transform.Identity);
+                doc.Objects.UnselectAll(); doc.Objects.Select(instance, true);
+                before = DocumentState(doc);
+                var block = DocumentObservation.GetContext(doc, 50, new[] { "selection" }, selectionEntities: true);
+                Check((string)block["selection"]["objects"][0]["type"] == "InstanceReference" &&
+                    (string)block["selection"]["objects"][0]["name"] == "selected block",
+                    "Block summaries changed the existing Rhino object type or lost the definition name.");
+                Unchanged(before, DocumentState(doc), "Shallow block selection observation");
+            });
+
+            Run(lines, "Given large named geometry, default outline is bounded summary and explicit fields retain detailed probes", doc =>
+            {
+                var ids = Enumerable.Range(0, 100).Select(i => doc.Objects.AddPoint(new Point3d(i, 0, 0),
+                    new ObjectAttributes { Name = new String('가', 400) + i })).ToArray();
+                var before = DocumentState(doc);
+                var request = new JObject { ["ids"] = new JArray(ids.Select(id => id.ToString())), ["max_bytes"] = 2048 };
+                var summary = AlmondSpatial.Outline(doc, request);
+                Check((string)summary["records"][0]["kind"] == "summary" &&
+                    (int)summary["records"][0]["root_count"] == 100 &&
+                    System.Text.Encoding.UTF8.GetByteCount(summary.ToString(Formatting.None)) < 2048 && (bool)summary["records"][0]["names_truncated"],
+                    "Large default outline did not return a compact, honest summary.");
+                request["ids"] = new JArray(ids[0].ToString());
+                request["field_groups"] = new JArray("objects");
+                var detailed = AlmondSpatial.Outline(doc, request);
+                Check((string)detailed["records"][0]["kind"] == "occurrence" &&
+                    detailed["records"][0]["geometry_to_world"] == null,
+                    "Explicit object observations unexpectedly include transforms or omit the requested object.");
+                Unchanged(before, DocumentState(doc), "Bounded geometry observation");
+            });
+
+            Run(lines, "Given explicit legacy details, summaries cannot replace occurrence or add unrequested geometry", doc =>
+            {
+                var point = doc.Objects.AddPoint(Point3d.Origin);
+                var legacy = AlmondSpatial.Outline(doc, new JObject { ["ids"] = new JArray(point.ToString()),
+                    ["include_geometry"] = true, ["annotations"] = false, ["max_items"] = 1 });
+                Check(((JArray)legacy["records"]).Count == 1 && (string)legacy["records"][0]["kind"] == "occurrence",
+                    "A new summary consumed the only slot in an explicit legacy detail query.");
+            });
+
+            Run(lines, "Given only a legacy annotations flag, leaf geometry remains excluded by default", doc =>
+            {
+                var point = doc.Objects.AddPoint(Point3d.Origin);
+                var notesOnly = AlmondSpatial.Outline(doc, new JObject { ["ids"] = new JArray(point.ToString()), ["annotations"] = false });
+                Check(!notesOnly["records"].HasValues, "Omitting include_geometry no longer preserves the legacy false default.");
+            });
+
+            Run(lines, "Given reused nested blocks, annotations-only work is bounded even when output definitions repeat", doc =>
+            {
+                int definition = doc.InstanceDefinitions.Add("notes leaf", "", Point3d.Origin,
+                    new GeometryBase[] { new TextDot("leaf note", Point3d.Origin) }, new[] { new ObjectAttributes() });
+                for (int i = 0; i < 12; i++)
+                {
+                    var child = doc.InstanceDefinitions[definition];
+                    definition = doc.InstanceDefinitions.Add("notes level " + i, "", Point3d.Origin,
+                        new GeometryBase[] { new InstanceReferenceGeometry(child.Id, Transform.Identity),
+                            new InstanceReferenceGeometry(child.Id, Transform.Translation(1, 0, 0)) },
+                        new[] { new ObjectAttributes(), new ObjectAttributes() });
+                }
+                var id = doc.Objects.AddInstanceObject(definition, Transform.Identity);
+                var notes = AlmondSpatial.Outline(doc, new JObject { ["ids"] = new JArray(id.ToString()),
+                    ["field_groups"] = new JArray("annotations"), ["max_items"] = 200 });
+                Check((bool)notes["truncated"] && (int?)notes["visited"] <= 200 && (string)notes["reason"] == "max_visits",
+                    "Annotations-only traversal performed unbounded repeated occurrence work.");
+            });
+
+            Run(lines, "Given offscreen entities, they cannot consume the visible label budget", doc =>
+            {
+                var outside = Enumerable.Range(0, 250).Select(i => doc.Objects.AddPoint(new Point3d(1000 + i, 0, 0))).ToList();
+                var visible = doc.Objects.AddPoint(Point3d.Origin);
+                outside.Add(visible);
+                var roots = outside.Select(id => ObservationEntities.ObjectEntity(doc, doc.Objects.FindId(id), Transform.Identity, null));
+                bool truncated, limited;
+                var rows = ObservationEntities.Expand(doc, roots, 1, 200, out truncated, out limited,
+                    entity => entity.Bounds.Center.X < 10);
+                Check(rows.Count == 1 && rows[0].Id == visible && !truncated,
+                    "Offscreen roots exhausted the label budget before the visible target was considered.");
+            });
+
             Run(lines, "first context query preserves a fresh headless document", doc =>
             {
                 Check(doc.Layers.FindName("A-WALL") == null && doc.Layers.FindName("A-STRC") == null &&
@@ -227,7 +355,15 @@ namespace AlmondScriptUndoTests
             using (var seed = RhinoDoc.CreateHeadless(null))
             {
                 seed.PageUnitSystem = UnitSystem.Millimeters;
-                seed.Objects.AddBox(new Box(new BoundingBox(new Point3d(-10, -20, 0), new Point3d(20, 10, 50))));
+                var boxId = seed.Objects.AddBox(new Box(new BoundingBox(new Point3d(-10, -20, 0), new Point3d(20, 10, 50))));
+                var pointId = seed.Objects.AddPoint(new Point3d(0, 0, 50));
+                seed.Groups.Add("capture group", new[] { boxId, pointId });
+                using (var geometry = Brep.CreateFromBox(new BoundingBox(new Point3d(0, 0, 0), new Point3d(10, 10, 10))))
+                {
+                    int definition = seed.InstanceDefinitions.Add("capture block", "", Point3d.Origin,
+                        new GeometryBase[] { geometry }, new[] { new ObjectAttributes() });
+                    seed.Objects.AddInstanceObject(definition, Transform.Translation(40, 0, 0));
+                }
                 Check(seed.WriteFile(path, new Rhino.FileIO.FileWriteOptions { SuppressDialogBoxes = true }), "Fixture save failed.");
             }
             bool alreadyOpen;
@@ -238,6 +374,7 @@ namespace AlmondScriptUndoTests
                 {
                     var model = doc.Views.GetStandardRhinoViews()[0];
                     doc.Views.ActiveView = model;
+                    model.MainViewport.DisplayMode = DisplayModeDescription.GetDisplayMode(DisplayModeDescription.WireframeId);
                     model.MainViewport.ZoomExtents();
                     int namedIndex = doc.NamedViews.Add("saved model", model.MainViewport.Id);
                     Check(namedIndex >= 0, "Could not save the named-view fixture.");
@@ -250,6 +387,8 @@ namespace AlmondScriptUndoTests
                     doc.Views.Redraw();
                     doc.Modified = false;
                     var before = DocumentState(doc);
+                    Check(ObservationEntities.ModelObjects(doc).All(obj => obj.Attributes.Space != ActiveSpace.PageSpace),
+                        "Paper-space geometry leaked into model viewport label candidates.");
                     var listed = Wire(DocumentObservation.GetViewportImage(doc, "a"));
                     Success(listed);
                     Unchanged(before, DocumentState(doc), "List image targets");
@@ -308,6 +447,91 @@ namespace AlmondScriptUndoTests
                         "Named-view capture returned the active camera instead of the saved view.");
                     Unchanged(before, DocumentState(doc), "Named view versus active camera");
                     lines.Add("PASS saved camera differs from active camera without restoring it");
+                    var namedId = doc.NamedViews[namedIndex].NamedViewId.ToString();
+                    var explicitShaded = DocumentObservation.GetViewportImage(doc, namedId, 50, "Shaded");
+                    var noLabels = DocumentObservation.GetViewportImage(doc, namedId, 50, "Shaded", false);
+                    var wireframe = DocumentObservation.GetViewportImage(doc, namedId, 50, "Wireframe", false);
+                    Success(explicitShaded); Success(noLabels); Success(wireframe);
+                    Check((string)named["image"]["data"] == (string)explicitShaded["image"]["data"], "Named View did not default to Shaded.");
+                    Check((string)named["image"]["data"] != (string)noLabels["image"]["data"], "Default transient labels were not drawn.");
+                    Check((string)noLabels["image"]["data"] != (string)wireframe["image"]["data"], "Explicit display mode had no effect.");
+                    var installedModes = DisplayModeDescription.GetDisplayModes();
+                    var alternateMode = installedModes.FirstOrDefault(candidate =>
+                        String.Equals(candidate.EnglishName, "Dark", StringComparison.OrdinalIgnoreCase) ||
+                        String.Equals(candidate.EnglishName, "CadWhite", StringComparison.OrdinalIgnoreCase)) ??
+                        installedModes.FirstOrDefault(candidate => candidate.Id == DisplayModeDescription.GhostedId);
+                    Check(alternateMode != null, "No installed alternate display mode is available for the capture fixture.");
+                    var alternate = DocumentObservation.GetViewportImage(doc, namedId, 50, alternateMode.Id.ToString(), false);
+                    Success(alternate); DecodePng(alternate, 50);
+                    Check((string)alternate["image"]["data"] != (string)noLabels["image"]["data"],
+                        "The installed " + alternateMode.EnglishName + " mode was silently rendered as Shaded.");
+                    lines.Add("PASS installed " + alternateMode.EnglishName + " display mode is applied without registering or editing modes");
+                    var realtimeMode = installedModes.FirstOrDefault(candidate => candidate.DisplayAttributes.RealtimeDisplayId != Guid.Empty);
+                    if (realtimeMode != null)
+                    {
+                        Error(DocumentObservation.GetViewportImage(doc, namedId, 50, realtimeMode.Id.ToString(), false), "unsupported_display_mode");
+                        lines.Add("PASS installed " + realtimeMode.EnglishName + " realtime mode is rejected before asynchronous rendering");
+                    }
+                    Unchanged(before, DocumentState(doc), "Capture modes and pixel labels");
+                    lines.Add("PASS detached Shaded default, explicit Wireframe and transient labels preserve the user's mode");
+                    // A distant object must not make a focused target's visible label disappear.
+                    doc.Objects.AddBox(new Box(new BoundingBox(new Point3d(10000, 10000, 0), new Point3d(10020, 10040, 80))));
+                    doc.Modified = false;
+                    before = DocumentState(doc);
+                    var captureGroup = doc.Groups.FindName("capture group");
+                    var captureBlock = doc.Objects.GetObjectList(ObjectType.InstanceReference).OfType<InstanceObject>().Single();
+                    foreach (var target in new[] { new[] { "group", captureGroup.Id.ToString() }, new[] { "block", captureBlock.Id.ToString() } })
+                    {
+                        var focused = DocumentObservation.GetViewportImage(doc, "", 50, "", true, 1, target[0], target[1]);
+                        var withoutLabels = DocumentObservation.GetViewportImage(doc, "", 50, "", false, 1, target[0], target[1]);
+                        Success(focused); DecodePng(focused, 50);
+                        Success(withoutLabels);
+                        Check((string)focused["image"]["data"] != (string)withoutLabels["image"]["data"],
+                            "A visible focused " + target[0] + " target lost its label with distant model geometry.");
+                        Unchanged(before, DocumentState(doc), "Framed " + target[0]);
+                        File.WriteAllBytes(Path.Combine(directory, "target-" + target[0] + ".png"), Convert.FromBase64String((string)focused["image"]["data"]));
+                    }
+                    lines.Add("PASS group/block GUID captures frame independently without selecting or hiding objects");
+                    using (var saved = new ViewportInfo(model.MainViewport))
+                    {
+                        var savedTarget = model.MainViewport.CameraTarget;
+                        var cameraDiagnostics = new JObject { ["original"] = ViewportState(model.MainViewport) };
+                        JObject movedState = null;
+                        JObject capturedState = null;
+                        bool moved = false;
+                        EventHandler<DrawEventArgs> moveActive = (sender, args) =>
+                        {
+                            if (moved) return;
+                            moved = true;
+                            model.MainViewport.ZoomBoundingBox(new BoundingBox(new Point3d(2000, 2000, 0), new Point3d(2040, 2050, 100)));
+                            movedState = DocumentState(doc);
+                            cameraDiagnostics["fixture_moved"] = ViewportState(model.MainViewport);
+                        };
+                        JObject independent;
+                        DisplayPipeline.DrawForeground += moveActive;
+                        try
+                        {
+                            independent = DocumentObservation.GetViewportImage(doc, namedId, 50);
+                            capturedState = DocumentState(doc);
+                        }
+                        finally
+                        {
+                            DisplayPipeline.DrawForeground -= moveActive;
+                            cameraDiagnostics["after_capture"] = ViewportState(model.MainViewport);
+                            Check(model.MainViewport.SetViewProjection(saved, true), "Could not restore the fixture camera projection.");
+                            cameraDiagnostics["after_projection_restore"] = ViewportState(model.MainViewport);
+                            // SetViewProjection(..., true) recalculates the target rather than
+                            // restoring its original value. This is fixture cleanup, not capture.
+                            model.MainViewport.SetCameraTarget(savedTarget, false);
+                            cameraDiagnostics["after_target_restore"] = ViewportState(model.MainViewport);
+                            File.WriteAllText(Path.Combine(directory, "independent-camera-diagnostics.json"), cameraDiagnostics.ToString(Formatting.Indented));
+                        }
+                        Success(independent);
+                        Check(moved, "Independent-capture fixture did not move the active camera during capture.");
+                        Unchanged(movedState, capturedState, "Independent named capture after fixture camera movement");
+                    }
+                    UnchangedAfterFixtureCameraRestore(before, DocumentState(doc), "Independent named capture with controlled active-camera movement");
+                    lines.Add("PASS moving the active camera alone does not invalidate a detached Named View capture");
                     return Report(lines, "view image targets");
                 }
                 finally { doc.Modified = false; }
@@ -508,6 +732,8 @@ namespace AlmondScriptUndoTests
 
         private static JObject ViewportState(RhinoViewport viewport)
         {
+            double left, right, bottom, top, near, far;
+            bool frustum = viewport.GetFrustum(out left, out right, out bottom, out top, out near, out far);
             return new JObject
             {
                 ["id"] = viewport.Id.ToString(),
@@ -522,7 +748,9 @@ namespace AlmondScriptUndoTests
                 ["two_point"] = viewport.IsTwoPointPerspectiveProjection,
                 ["display_mode"] = viewport.DisplayMode == null ? null : viewport.DisplayMode.Id.ToString(),
                 ["width"] = viewport.Size.Width,
-                ["height"] = viewport.Size.Height
+                ["height"] = viewport.Size.Height,
+                ["frustum_available"] = frustum,
+                ["frustum"] = new JArray(left, right, bottom, top, near, far)
             };
         }
 
@@ -567,6 +795,31 @@ namespace AlmondScriptUndoTests
             Check(JToken.DeepEquals(before, after),
                 label + " changed document/view state. Before: " + before.ToString(Formatting.None) +
                 " After: " + after.ToString(Formatting.None));
+        }
+
+        private static void UnchangedAfterFixtureCameraRestore(JObject before, JObject after, string label)
+        {
+            // Only the fixture intentionally restores its own camera through SetViewProjection.
+            // Compare the resulting floating-point roundoff separately; all product captures above
+            // retain exact document/view comparisons and every identity/attribute/Undo field stays exact.
+            var normalized = (JObject)after.DeepClone();
+            for (int i = 0; i < ((JArray)before["views"]).Count; i++)
+            {
+                foreach (var part in new[] { "main", "active" })
+                foreach (var field in new[] { "location", "target", "direction", "up", "lens_mm", "frustum" })
+                {
+                    var expected = before["views"][i][part][field];
+                    var actual = normalized["views"][i][part][field];
+                    var expectedValues = expected is JArray ? expected.Values<double>().ToArray() : new[] { (double)expected };
+                    var actualValues = actual is JArray ? actual.Values<double>().ToArray() : new[] { (double)actual };
+                    Check(expectedValues.Length == actualValues.Length && expectedValues.Zip(actualValues,
+                        (x, y) => Math.Abs(x - y) <= 1e-9 * Math.Max(1.0, Math.Max(Math.Abs(x), Math.Abs(y)))).All(equal => equal),
+                        label + " changed the original viewport " + field + ". Expected: " + expected.ToString(Formatting.None) +
+                        " Actual: " + actual.ToString(Formatting.None));
+                    normalized["views"][i][part][field] = expected.DeepClone();
+                }
+            }
+            Unchanged(before, normalized, label);
         }
 
         private static string Report(List<string> lines, string suite)

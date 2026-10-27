@@ -39,6 +39,13 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         # ToolResult is the reviewed image tool's return envelope, never an input type.
         if annotation is node.returns and isinstance(annotation, ast.Name) and annotation.id == "ToolResult":
             continue
+        # The context tool optionally appends an image to its existing text response.
+        # Admit this exact return shape, never nested/input ToolResult annotations.
+        if (annotation is node.returns and isinstance(annotation, ast.BinOp)
+                and isinstance(annotation.op, ast.BitOr)
+                and isinstance(annotation.left, ast.Name) and annotation.left.id == "str"
+                and isinstance(annotation.right, ast.Name) and annotation.right.id == "ToolResult"):
+            continue
         for part in ast.walk(annotation):
             if not isinstance(part, allowed):
                 raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
@@ -68,6 +75,12 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
                 and decorator.func.attr == "tool" and not decorator.args):
             raise ValueError(f"Unexpected tool decorator: {node.name}")
         for keyword in decorator.keywords:
+            if keyword.arg == "output_schema":
+                expected = {"type": "object", "properties": {"result": {"type": "string"}},
+                            "required": ["result"], "x-fastmcp-wrap-result": True}
+                if node.name != "get_rhino_context" or ast.literal_eval(keyword.value) != expected:
+                    raise ValueError(f"Review output schema in {node.name}")
+                continue
             if keyword.arg != "annotations":
                 raise ValueError(f"Review decorator option {keyword.arg} in {node.name}")
             ast.literal_eval(keyword.value)

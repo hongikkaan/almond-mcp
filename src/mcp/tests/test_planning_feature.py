@@ -48,6 +48,37 @@ def server(tmp_path):
     return SimpleNamespace(mcp=mcp, tools=exports, namespace=namespace)
 
 
+def test_agent_reads_plan_summary_then_requests_steps_without_audit_or_ids(server):
+    """Given a known Task, summary is enough until the agent chooses step details."""
+    plan = server.namespace["retrieval_store"].create_plan("Inspect courtyard")
+    read = lambda **kwargs: json.loads(server.tools["get_plan"](plan["plan_id"], **kwargs))
+    summary = read()["plan"]
+    assert summary == {"goal": "Inspect courtyard", "scope": "house", "status": "pending", "revision": 1}
+    detail = read(field_groups=["steps"])["plan"]
+    assert detail["steps"][0]["name"] == "programme"
+    assert "step_id" not in detail["steps"][0] and "created_at" not in detail
+    identified = read(include_ids=True)["plan"]
+    assert "steps" not in identified and "created_at" not in identified
+    full = read(field_groups=["all"], include_ids=True)["plan"]
+    assert full["created_at"] and full["steps"][0]["step_id"]
+    rejected = read(field_groups=["unexpected"])
+    assert rejected["error_code"] == "invalid_arguments"
+
+
+def test_agent_can_continue_writing_with_compact_revision_ack_and_visible_conflict(server):
+    """Given a completed write, its handle/revision is sufficient for the next guarded write."""
+    created = json.loads(server.tools["create_plan"]("Inspect courtyard"))
+    assert set(created["plan"]) == {"plan_id", "revision", "status"}
+    plan = created["plan"]
+    updated = json.loads(server.tools["update_plan"](plan["plan_id"], goal="Refine courtyard",
+                                                   expected_revision=plan["revision"]))
+    assert updated["plan"] == {"plan_id": plan["plan_id"], "revision": 2, "status": "pending"}
+    stale = json.loads(server.tools["update_plan"](plan["plan_id"], goal="Stale",
+                                                 expected_revision=1))
+    assert stale["status"] == "error" and "revision conflict" in stale["message"]
+    assert server.namespace["retrieval_store"].get_plan(plan["plan_id"])["goal"] == "Refine courtyard"
+
+
 def test_tool_registration_and_full_plan_lifecycle_over_mcp(server):
     async def verify():
         async with Client(server.mcp) as client:
@@ -73,14 +104,16 @@ def test_tool_registration_and_full_plan_lifecycle_over_mcp(server):
 
             phase = (await call("create_phase", name="Envelope", description="Scheme"))["phase"]
             phase_id = phase["phase_id"]
-            assert (await call("get_phase", phase_id=phase_id))["phase"] == {k: v for k, v in phase.items() if k != "phase_id"}
+            assert (await call("get_phase", phase_id=phase_id))["phase"] == {"name": "Envelope", "plan_count": 0}
             renamed = await call("update_phase", phase_id=phase_id, name="Detail")
-            assert renamed["phase"]["description"] == "Scheme"
+            assert renamed["phase"] == {"phase_id": phase_id}
+            assert (await call("get_phase", phase_id=phase_id, field_groups=["description"]))["phase"]["description"] == "Scheme"
             assert (await call("list_phases", limit=1))["total"] == 1
             original = (await call("create_plan", goal="Inspect facade", scope="component",
                                    phase_id=phase_id))["plan"]
             plan_id = original["plan_id"]
             assert original["revision"] == 1
+            saved_original = server.namespace["retrieval_store"].get_plan(plan_id)
             assert (await call("list_plans", phase_id=phase_id))["total"] == 1
             changed = (await call("update_plan", plan_id=plan_id, goal="Refine facade",
                                   expected_revision=1))["plan"]
@@ -88,8 +121,9 @@ def test_tool_registration_and_full_plan_lifecycle_over_mcp(server):
                                     status="completed", output_refs=["observation"],
                                     expected_revision=changed["revision"]))["plan"]
             assert completed["revision"] == 3
-            assert completed["steps"][0]["output_refs"] == ["observation"]
-            assert (await call("get_plan", plan_id=plan_id, revision=1, include_ids=True))["plan"] == {k: v for k, v in original.items() if k != "plan_id"}
+            saved_completed = server.namespace["retrieval_store"].get_plan(plan_id)
+            assert saved_completed["steps"][0]["output_refs"] == ["observation"]
+            assert (await call("get_plan", plan_id=plan_id, revision=1, include_ids=True, field_groups=["all"]))["plan"] == {k: v for k, v in saved_original.items() if k != "plan_id"}
             history = await call("list_plan_revisions", plan_id=plan_id, limit=2)
             assert history["total"] == 3 and history["truncated"]
             assert [item["operation"] for item in history["revisions"]] == [
@@ -103,7 +137,7 @@ def test_tool_registration_and_full_plan_lifecycle_over_mcp(server):
                 "plan_id": plan_id, "goal": "Stale writer", "expected_revision": 1,
             })
             assert "revision conflict" in json.loads(stale.content[0].text)["message"]
-            assert (await call("get_plan", plan_id=plan_id, include_ids=True))["plan"] == {k: v for k, v in completed.items() if k != "plan_id"}
+            assert (await call("get_plan", plan_id=plan_id, include_ids=True, field_groups=["all"]))["plan"] == {k: v for k, v in saved_completed.items() if k != "plan_id"}
             missing = await client.call_tool("get_plan", {"plan_id": plan_id, "revision": 100})
             assert "Unknown saved revision 100" in json.loads(missing.content[0].text)["message"]
             for name, arguments in (
@@ -130,7 +164,7 @@ def test_factories_keep_current_store_bindings_and_server_instances_isolated(ser
     server.namespace["retrieval_store"] = rebound
     assert json.loads(server.tools["list_phases"]())["total"] == 0
     rebound_phase = json.loads(server.tools["create_phase"]("Rebound"))["phase"]
-    assert rebound.get_phase(rebound_phase["phase_id"]) == rebound_phase
+    assert rebound.get_phase(rebound_phase["phase_id"])["name"] == "Rebound"
     assert rebound.get_phase(first["phase_id"]) is None
-    assert json.loads(other["get_phase"](other_phase["phase_id"]))["phase"] == {k: v for k, v in other_phase.items() if k != "phase_id"}
+    assert json.loads(other["get_phase"](other_phase["phase_id"]))["phase"] == {"name": "Other", "plan_count": 0}
     assert json.loads(other["list_phases"]())["total"] == 1

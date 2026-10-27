@@ -77,10 +77,11 @@ def build() -> dict[str, bytes]:
             target = "assets/" + image_path.name
             output[target] = raw
             images.append({"file": target, "alt": image["alt"], "sha256": digest(raw)})
-        topics.append({key: item[key] for key in ("id", "title", "when_to_read", "related_tools")} |
+        topics.append({key: item[key] for key in ("id", "title", "summary", "when_to_read", "related_tools")} |
                       {"file": filename, "source_refs": refs, "images": images})
         for name in item.get("hint_tools", []):
-            sentence = f"When {item['trigger']}, read get_modeling_guide(topic=\"{item['id']}\")."
+            sentence = (f"When {item['trigger']}, read get_modeling_guide(topic=\"{item['id']}\") "
+                        "if not already read for the current guide_version or the rule is unclear.")
             hints[name] = (hints.get(name, "") + "\n" + sentence).strip()
     manifest = {"format": 1, "topics": topics, "tool_hints": hints,
                 "files": {name: digest(raw) for name, raw in sorted(output.items())},

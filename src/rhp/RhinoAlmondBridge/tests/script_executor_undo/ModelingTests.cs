@@ -48,7 +48,7 @@ namespace AlmondScriptUndoTests
                         Math.Abs(simulation.PhysicallyBased.BaseColor.B - expected.BaseColor.B) < 0.00001,
                         "Shared rendering PBR channels differ from the material recipe.");
                 }
-                Check(all.All(o => o.Attributes.GetUserStrings().Count == 1), "Duplicated material metadata was stamped.");
+                Check(all.All(o => o.Attributes.GetUserStrings().Count == 0), "Routine material assignment stamped object metadata.");
                 var repeated = new ScriptExecutor().ExecuteAction(doc, () =>
                     ModelingMaterials.Apply(doc, Recipe("wood-oak"), all.Select(o => o.Id)));
                 Success(repeated);
@@ -137,7 +137,7 @@ namespace AlmondScriptUndoTests
             {
                 Guid id = Guid.Empty;
                 Success(new ScriptExecutor().ExecuteAction(doc, () => {
-                    id = doc.Objects.AddPoint(Point3d.Origin, ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak")));
+                    id = doc.Objects.AddPoint(Point3d.Origin, ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"), attachMetadata: true));
                     return null;
                 }));
                 var before = doc.Objects.FindId(id).Attributes.Duplicate();
@@ -191,12 +191,12 @@ namespace AlmondScriptUndoTests
                 };
                 Guid id = Guid.Empty;
                 Success(new ScriptExecutor().ExecuteAction(doc, () => {
-                    var attrs = ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"), metadata, source);
+                    var attrs = ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"), metadata, source, attachMetadata: true);
                     id = doc.Objects.AddPoint(Point3d.Origin, attrs);
                     return null;
                 }));
                 Success(new ScriptExecutor().ExecuteAction(doc, () =>
-                    ModelingMaterials.Apply(doc, Recipe("steel-galvanized"), new[] { id }, metadata)));
+                    ModelingMaterials.Apply(doc, Recipe("steel-galvanized"), new[] { id }, metadata, attachMetadata: true)));
                 var after = doc.Objects.FindId(id).Attributes;
                 Check(after.Name == source.Name && after.GetUserString("almond:component_id") == "owner-1" &&
                     after.GetUserString("almond:passport") == "existing provenance" &&
@@ -248,7 +248,7 @@ namespace AlmondScriptUndoTests
                 Check(result.Status == "runtime_error" && result.Message.Contains("protect other work"), "Lost ownership not reported.");
                 Check(Layer(doc, id) == "Default" && doc.Layers.Count == 1, "Postprocess ran outside owned record.");
             }, foreground: true);
-            Run(lines, directory, "component group metadata persists through update Undo Redo and reopen", doc =>
+            Run(lines, directory, "rename rejects without mutation and Scene metadata survives Undo Redo and reopen", doc =>
             {
                 Guid a = doc.Objects.AddPoint(Point3d.Origin), b = doc.Objects.AddPoint(new Point3d(10,20,30));
                 var created = ComponentRegistry.Handle(doc, Request(doc, "upsert", "c1", new[] {a,b}));
@@ -257,15 +257,21 @@ namespace AlmondScriptUndoTests
                 var update = Request(doc, "upsert", "c1", new[] {a,b}, groupId);
                 update["name"] = "Renamed facade"; update["scene_ids"] = new JArray("inside", "outside");
                 update["expected_object_ids"] = new JArray(a.ToString(), b.ToString());
+                string before=ComponentSemanticRegistry.Export(doc); uint next=doc.NextUndoRecordSerialNumber; bool modified=doc.Modified;
+                var rejected=ComponentRegistry.Handle(doc,update); Rejected(rejected);
+                Check((bool?)rejected["mutation_applied"]==false&&ComponentSemanticRegistry.Export(doc)==before&&
+                    doc.Groups.FindId(groupId).Name=="Facade"&&doc.NextUndoRecordSerialNumber==next&&doc.Modified==modified,
+                    "Unsupported group rename changed native or semantic state.");
+                update["name"]="Facade";
                 NativeSuccess(ComponentRegistry.Handle(doc, update));
-                Check((string)ComponentRegistry.Handle(doc, Request(doc, "inspect", "c1", null, groupId))["component"]["name"] == "Renamed facade", "Name update missing.");
+                Check(((JArray)ComponentRegistry.Handle(doc, Request(doc, "inspect", "c1", null, groupId))["component"]["scene_ids"]).Count==2,"Scene update missing.");
                 Undo(doc);
                 var old = ComponentRegistry.Handle(doc, Request(doc, "inspect", "c1", null, groupId));
                 NativeSuccess(old);
                 Check((string)old["component"]["name"] == "Facade" && ((JArray)old["component"]["scene_ids"]).Count == 1, "Group metadata was not undone.");
                 Redo(doc);
                 NativeSuccess(ComponentRegistry.Handle(doc, Request(doc, "inspect", "c1", null, groupId)));
-                Check((string)ComponentRegistry.Handle(doc, Request(doc, "inspect", "c1", null, groupId))["component"]["name"] == "Renamed facade", "Group metadata was not redone.");
+                Check(((JArray)ComponentRegistry.Handle(doc, Request(doc, "inspect", "c1", null, groupId))["component"]["scene_ids"]).Count==2,"Scene metadata was not redone.");
                 Check(doc.WriteFile(doc.Path, new Rhino.FileIO.FileWriteOptions { SuppressDialogBoxes = true }), "Save failed.");
                 using (var reopened = RhinoDoc.OpenHeadless(doc.Path))
                     NativeSuccess(ComponentRegistry.Handle(reopened, Request(reopened, "inspect", "c1", null, groupId)));
@@ -274,7 +280,7 @@ namespace AlmondScriptUndoTests
             {
                 Guid a = doc.Objects.AddPoint(Point3d.Origin);
                 int ordinary = doc.Groups.Add("Ordinary", new[] { a });
-                var request = Request(doc, "upsert", "c1", new[] {a}, doc.Groups[ordinary].Id);
+                var request = Request(doc, "upsert", "c1", new[] {a}, doc.Groups[ordinary].Id); request["name"]="Ordinary";
                 NativeSuccess(ComponentRegistry.Handle(doc, request));
                 var second = ComponentRegistry.Handle(doc, Request(doc, "upsert", "c2", new[] {a}));
                 Rejected(second);
@@ -301,7 +307,7 @@ namespace AlmondScriptUndoTests
                 NativeSuccess(proof);
                 Check((string)proof["component"]["registration_status"] == "unregistered", "Unregistration cannot be reconciled by inspection.");
             });
-            Run(lines, directory, "changed membership and stale detached stamps require explicit repair", doc =>
+            Run(lines, directory, "manual group changes are observable without ownership stamps", doc =>
             {
                 var a = doc.Objects.AddPoint(Point3d.Origin);
                 var b = doc.Objects.AddPoint(new Point3d(1,0,0));
@@ -313,9 +319,12 @@ namespace AlmondScriptUndoTests
                 doc.Objects.ModifyAttributes(a, attrs, true);
                 var remove = Request(doc, "unregister", "c1", new[] {a,b}, gid);
                 remove["expected_object_ids"] = new JArray(a.ToString(), b.ToString());
-                Rejected(ComponentRegistry.Handle(doc, remove));
-                Rejected(ComponentRegistry.Handle(doc, Request(doc, "inspect", "c1", null, gid)));
-                Check(doc.Objects.FindId(b).Attributes.GetUserString("almond:component_id") == "c1", "Rejected reconciliation cleared ownership.");
+                var observed = ComponentRegistry.Handle(doc, Request(doc, "inspect", "c1", null, gid));
+                NativeSuccess(observed);
+                Check(observed["component"]["object_ids"].Values<string>().SequenceEqual(new[] { b.ToString("D") }),
+                    "Read-only inspection restored a manually removed member.");
+                Check(doc.Objects.FindId(b).Attributes.GetUserString("almond:component_id") == null,
+                    "Inspection wrote a management ownership stamp.");
             });
             Run(lines, directory, "nested block occurrence bounds are world millimetres without tagging definitions", doc =>
             {

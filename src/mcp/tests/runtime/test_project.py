@@ -33,7 +33,7 @@ class ProjectTests(unittest.TestCase):
     def test_filename_layout(self):
         p = project_paths(self.model, create=True)
         self.assertEqual(Path(p['storage']), self.root / '.almond')
-        self.assertEqual(Path(p['state_db']), Path(p['storage'])/'DB')
+        self.assertEqual(Path(p['state_db']), Path(p['storage'])/'scene.sqlite3')
         self.assertFalse(Path(p['temp']).exists())
 
     def test_distinct_models_same_folder(self):

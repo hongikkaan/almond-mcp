@@ -19,7 +19,8 @@ dotnet run --project src/rhp/RhinoTerminal/tests/AlmondHostContracts/AlmondHostC
 - TerminalSmoke starts disposable real ConPTY PowerShell shells and checks
   Unicode, resize, child containment, exit output and early stop.
 - AlmondHostContracts uses production host and lease code with simulated Rhino
-  and native work; it checks ownership and native drain behavior.
+  and native work; it checks ownership and native drain behavior, attachment for
+  a newly saved project without a temp folder, and rejection of foreign storage.
 
 These are separate from a Bridge build and live Rhino validation. After building
 the Bridge with Rhino closed, use a disposable document to verify that a restored

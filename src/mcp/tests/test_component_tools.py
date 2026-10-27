@@ -1,5 +1,6 @@
 """Public Component tools against real temporary ledgers and a bounded fake Bridge."""
 import asyncio
+from copy import deepcopy
 import importlib.util
 import json
 from pathlib import Path
@@ -75,7 +76,7 @@ def wire(server, monkeypatch):
             request = json.loads(payload)
             requests.append(request)
             if request["type"] == "get_rhino_context":
-                response = (dict(status="success", capabilities={"design_components": 1})
+                response = (dict(status="success", capabilities={"design_components": 1, "component_registry": 2})
                             if context is None else context)
             else:
                 response = handler(request)
@@ -99,21 +100,96 @@ def register(server, model, scene, **extra):
     return call(server, "upsert_design_component", **arguments)
 
 
+@pytest.mark.parametrize("change", ["name", "type", "direct_count", "effective_count", "legacy_type", "unchanged"])
+def test_live_default_summary_uses_observed_objects_without_writing_cache(server, store, scene, model, wire, change):
+    from test_components import snapshot
+
+    def initial(request):
+        reply = native_component(request)
+        for index, obj in enumerate(reply["component"]["objects"]):
+            obj["name"] = ["Old A", "Old B"][index]
+        return reply
+    wire(initial)
+    register(server, model, scene, component_id="live-summary", rhino_group_id=GROUP)
+    cached = store.get_component("live-summary")
+    observed = {key: deepcopy(cached[key]) for key in (
+        "component_id", "model_path", "rhino_group_id", "name", "scene_ids", "child_component_ids",
+        "parent_component_id", "objects", "effective_objects", "effective_object_ids")}
+    observed.update(complete=True, pending_objects=[], requires_sync=False)
+    expected_names, expected_types, counts = ["Old A", "Old B"], {"Brep": 2}, (2, 2)
+    if change == "name":
+        observed["objects"][0]["name"] = observed["effective_objects"][0]["name"] = "New A"
+        expected_names = ["New A", "Old B"]
+    elif change in {"type", "legacy_type"}:
+        observed["objects"][0]["object_type"] = observed["effective_objects"][0]["object_type"] = "Extrusion"
+        expected_types = {"Brep": 1, "Extrusion": 1}
+        if change == "legacy_type":
+            observed.pop("effective_objects")
+            observed.pop("effective_object_ids")
+    elif change == "direct_count":
+        observed["objects"] = observed["objects"][1:]
+        observed["effective_objects"] = observed["effective_objects"][1:]
+        observed["effective_object_ids"] = [B]
+        expected_names, expected_types, counts = ["Old B"], {"Brep": 1}, (1, 1)
+    elif change == "effective_count":
+        descendant = dict(object_row(str(uuid.UUID(int=3)), "native-child"), name="Child")
+        observed["effective_objects"].append(descendant)
+        observed["effective_object_ids"].append(descendant["rhino_guid"])
+        observed["child_component_ids"] = ["native-child"]
+        counts = (2, 3)
+    requests = wire(lambda request: dict(status="success", component=deepcopy(observed)))
+    before = snapshot(store)
+    summary = call(server, "get_design_component", component_id="live-summary", live=True)["component"]
+    detailed = call(server, "get_design_component", component_id="live-summary", live=True,
+                    recursive=True, include_ids=True, field_groups=["geometry"])["component"]
+    assert summary["live_verified"] is True and summary["requires_sync"] is (change != "unchanged")
+    assert summary["object_names"] == detailed["object_names"] == expected_names
+    assert summary["object_types"] == detailed["object_types"] == expected_types
+    assert (summary["object_count"], summary["effective_object_count"]) == counts
+    assert summary["object_count"] == len(detailed["objects"]) == len(detailed["object_ids"])
+    assert summary["effective_object_count"] == len(detailed["effective_objects"]) == len(detailed["effective_object_ids"])
+    assert "objects" not in summary and "effective_objects" not in summary
+    assert all(request.get("action") in {None, "inspect"} for request in requests)
+    assert snapshot(store) == before and store.get_component("live-summary") == cached
+
+
+def test_live_parent_reports_descendant_name_drift_without_changing_cache(server, store, scene, model, wire):
+    from test_component_hierarchy import create
+    from test_components import snapshot
+
+    store.scene_a, store.model = scene, model
+    child = create(store, "Leaf", [A])
+    parent = create(store, "Assembly", [B], children=[child["component_id"]])
+    cached = store.get_component(parent["component_id"])
+    observed = dict(deepcopy(cached), complete=True)
+    next(obj for obj in observed["effective_objects"] if obj["rhino_guid"] == A)["name"] = "Renamed leaf"
+    wire(lambda request: dict(status="success", component=deepcopy(observed)))
+    before = snapshot(store)
+    summary = call(server, "get_design_component", component_id=parent["component_id"], live=True)["component"]
+    detailed = call(server, "get_design_component", component_id=parent["component_id"], live=True,
+                    recursive=True, include_ids=True, field_groups=["geometry"])["component"]
+    assert summary["requires_sync"] is True and summary["object_names"] == []
+    assert (summary["object_count"], summary["effective_object_count"]) == (1, 2)
+    assert next(obj for obj in detailed["effective_objects"] if obj["rhino_guid"] == A)["name"] == "Renamed leaf"
+    assert snapshot(store) == before and store.get_component(parent["component_id"]) == cached
+
+
 def test_public_registration_update_and_cached_reads(server, store, scene, model, wire, monkeypatch):
     requests = wire()
     created = register(server, model, scene, component_id="panel-1", rhino_group_id=GROUP)
     component = created["component"]
     assert created["status"] == "success" and component["live_verified"] is True
     assert component["component_id"] == "panel-1" and component["rhino_group_id"] == GROUP
-    assert component["scene_ids"] == [scene] and component["object_ids"] == [A, B]
+    assert "scene_ids" not in component and "object_ids" not in component
+    assert store.get_component("panel-1")["scene_ids"] == [scene] and store.get_component("panel-1")["object_ids"] == [A, B]
     assert [request["type"] for request in requests] == ["get_rhino_context", "design_component"]
     assert requests[1]["expected_model_path"] == model and requests[1]["action"] == "upsert"
     changed = call(server, "upsert_design_component", expected_model_path=model, component_id="panel-1",
                    name="Smaller panel", object_ids=[B])
-    assert changed["component"]["scene_ids"] == [scene]
+    assert store.get_component("panel-1")["scene_ids"] == [scene]
     assert requests[-1]["expected_object_ids"] == [A, B]
     monkeypatch.setattr(server, "_send_and_receive", lambda *_: pytest.fail("Cached read called Rhino"))
-    cached = call(server, "get_design_component", component_id="panel-1", include_ids=True)["component"]
+    cached = call(server, "get_design_component", component_id="panel-1", include_ids=True, field_groups=["geometry"])["component"]
     assert cached["live_verified"] is False and cached["object_ids"] == [B]
     listed = call(server, "list_design_components", expected_model_path=model, include_ids=True)
     assert listed["total"] == 1 and listed["live_verified"] is False
@@ -164,14 +240,16 @@ def test_timeout_is_one_mutation_and_explicit_inspect_recovers(server, store, sc
     assert [r.get("action") for r in requests] == [None, "upsert"]
     assert len(native_success) == 1 and store.list_components() == []
     assert store.get_scene(scene) == before
-    inspections = wire(lambda request: native_success[0])
+    inspections = wire(lambda request: dict(status="success", complete=True, model_path=model,
+        editing=dict(mode="model", stable=True), components=[native_success[0]["component"]], problems=[]),
+        context=dict(status="success", capabilities=dict(design_components=1, component_registry=2)))
     recovered = call(server, "sync_design_component", expected_model_path=model,
                      component_id=response["component_id"], rhino_group_id=GROUP)
     assert recovered["status"] == "success" and recovered["component"]["live_verified"] is True
-    assert recovered["component"]["object_ids"] == [A, B]
+    assert "object_ids" not in recovered["component"]
     assert store.get_component(response["component_id"])["scene_ids"] == [scene]
-    assert [r.get("action") for r in inspections] == [None, "inspect"]
-    assert inspections[1]["rhino_group_id"] == GROUP
+    assert [r.get("action") for r in inspections] == [None, "inspect_many"]
+    assert inspections[1]["component_ids"] == [response["component_id"]]
 
 
 @pytest.mark.parametrize("reply,requires_reconciliation", [
@@ -201,11 +279,11 @@ def test_direct_scene_objects_deduplicate_and_survive_unregister(server, store, 
     requests = wire(observe)
     linked = call(server, "register_scene_objects", scene_id=scene, expected_model_path=model,
                   object_ids=[A, B], mode="replace")
-    assert linked["status"] == "success" and linked["object_ids"] == [A, B]
+    assert linked["status"] == "success" and "object_ids" not in linked
     assert linked["direct_objects"] == 2 and linked["live_verified"] is True
     assert [r.get("action") for r in requests] == [None, "objects"]
     assert requests[1]["object_ids"] == [A, B] and "scene_ids" not in requests[1]
-    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True)
+    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True, field_groups=["geometry"])
     assert rows["total"] == 2 and rows["live_verified"] is False
     assert all(row["direct"] for row in rows["objects"])
     def unregister(request):
@@ -216,7 +294,7 @@ def test_direct_scene_objects_deduplicate_and_survive_unregister(server, store, 
     assert removed["status"] == "success" and removed["component"]["status"] == "unregistered"
     assert [r.get("action") for r in requests] == [None, "unregister"]
     assert requests[1]["expected_object_ids"] == [A]
-    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True)
+    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True, field_groups=["geometry"])
     assert rows["total"] == 2 and all(row["component_id"] is None for row in rows["objects"])
     assert store.get_component(component["component_id"]) is None
 

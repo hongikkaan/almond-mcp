@@ -10,6 +10,8 @@ calling get_logic_by_id.
 Returns:
     JSON list of logic IDs available (e.g., ["catenary", "bending", "01_simplebeam"]).
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds ports, definition, source, paths, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_library -->
 
 ## get_logic_by_id
@@ -26,6 +28,8 @@ Args:
 Returns:
     JSON string with detected physics components and context, or error.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds ports, definition, source, paths, audit, or all; the requested manifest/parsed logic/script remains in the default payload.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_logic_by_id -->
 
 ## list_capsules
@@ -46,6 +50,8 @@ Args:
 Returns:
     JSON with total and a list of compact capsule cards.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds ports, definition, source, paths, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_capsules -->
 
 ## run_gh_definition

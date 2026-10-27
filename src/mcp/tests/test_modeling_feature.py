@@ -17,7 +17,7 @@ import test_materials as material_contracts
 
 TOOL_NAMES = {
     "get_modeling_policy", "execute_rhino_script", "setup_modeling",
-    "list_materials", "assign_material",
+    "list_materials", "assign_material", "save_rhino_document",
 }
 PACKAGE = Path(__file__).resolve().parents[1] / "almond_mcp"
 
@@ -87,7 +87,7 @@ def test_current_library_and_sender_are_resolved_for_each_call(feature):
         list=lambda **kwargs: [],
     )
     feature.material_library = replacement
-    assert call(feature.list_materials) == {
+    assert call(feature.list_materials, field_groups=["paths"]) == {
         "total": 0, "materials": [], "library_dir": str(replacement.directory),
     }
     sent = []

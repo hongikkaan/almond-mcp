@@ -63,10 +63,11 @@ def call(server, tool_name, **arguments):
 def test_public_phase_and_plan_metadata_arguments(server, store):
     phase = call(server, "create_phase", name="Scheme", description="Envelope")["phase"]
     renamed = call(server, "update_phase", phase_id=phase["phase_id"], name="Detail")["phase"]
-    assert renamed["description"] == "Envelope"
+    assert call(server, "get_phase", phase_id=renamed["phase_id"], field_groups=["description"])["phase"]["description"] == "Envelope"
     scene_a, scene_b = (store.create_scene(name)["scene_id"] for name in ("A", "B"))
     plan = call(server, "create_plan", goal="Facade", scope="component", phase_id=phase["phase_id"],
                 scene_id=scene_a, scene_ids=[scene_a, scene_b], component_ids=["component_a"])["plan"]
+    plan = store.get_plan(plan["plan_id"])
     assert plan["phase_id"] == phase["phase_id"]
     assert plan["scene_ids"] == [scene_a, scene_b]
     assert plan["component_ids"] == ["component_a"]
@@ -75,6 +76,7 @@ def test_public_phase_and_plan_metadata_arguments(server, store):
     assert call(server, "list_plans", phase_id=phase["phase_id"], scene_id=scene_b, status="pending")["total"] == 1
     changed = call(server, "update_plan", plan_id=plan["plan_id"], goal="Roof", phase_id="",
                    scene_ids=[scene_b], component_ids=["component_b"], expected_revision=plan["revision"])["plan"]
+    changed = store.get_plan(changed["plan_id"])
     assert changed["goal"] == "Roof"
     assert changed["phase_id"] is None
     assert changed["scene_id"] == scene_b
@@ -89,6 +91,7 @@ def test_public_step_refs_cas_and_explicit_empty_target(server, store):
                    expected_revision=plan["revision"])["plan"]
     completed = call(server, "update_step", plan_id=plan_id, step_id="inspect_context",
                      status="completed", expected_revision=changed["revision"])["plan"]
+    completed = store.get_plan(completed["plan_id"])
     assert completed["steps"][0]["input_refs"] == ["observation"]
     assert completed["steps"][0]["output_refs"] == ["evidence"]
     assert completed["steps"][0]["component_ids"] == ["component_b"]
@@ -109,8 +112,10 @@ def test_public_historical_get_never_falls_back_to_current(server, store):
     old = call(server, "create_plan", goal="Original", scope="component")["plan"]
     plan_id = old["plan_id"]
     current = call(server, "update_plan", plan_id=plan_id, goal="Current", expected_revision=1)["plan"]
-    assert call(server, "get_plan", plan_id=plan_id, include_ids=True)["plan"] == {k: v for k, v in current.items() if k != "plan_id"}
-    assert call(server, "get_plan", plan_id=plan_id, revision=1, include_ids=True)["plan"] == {k: v for k, v in old.items() if k != "plan_id"}
+    assert call(server, "get_plan", plan_id=plan_id)["plan"] == {
+        "goal": "Current", "scope": "component", "status": "pending", "revision": 2}
+    assert call(server, "get_plan", plan_id=plan_id, revision=1)["plan"] == {
+        "goal": "Original", "scope": "component", "status": "pending", "revision": 1}
     history = call(server, "list_plan_revisions", plan_id=plan_id, limit=1)
     assert history["total"] == 2 and history["truncated"] is True
     assert history["revisions"][0]["revision"] == 2
@@ -168,7 +173,8 @@ def test_actual_mcp_schema_and_plan_roundtrip(server, store):
             payload = json.loads(created.structured_content["result"])
             plan_id = payload["plan"]["plan_id"]
             read = await client.call_tool("get_plan", {"plan_id": plan_id, "revision": 1, "include_ids": True})
-            assert json.loads(read.structured_content["result"])["plan"] == {k: v for k, v in payload["plan"].items() if k != "plan_id"}
+            assert json.loads(read.structured_content["result"])["plan"] == {
+                "goal": "Protocol fixture", "scope": "component", "status": "pending", "revision": 1}
             assert store.get_plan(plan_id)["scope"] == "component"
     asyncio.run(verify())
 

@@ -42,7 +42,10 @@ namespace RhinoAlmondBridge
                         ["component_id"] = id
                     });
                     if ((string)observed["status"] != "success") return observed;
-                    foreach (string guid in observed["component"]["effective_object_ids"].Values<string>())
+                    var component = observed["component"] as JObject;
+                    if ((string)component?["availability"] != "present")
+                        throw new ArgumentException("Every requested Component must be present before intersections or focus: " + id);
+                    foreach (string guid in component["effective_object_ids"].Values<string>())
                         objects.Add(Guid.Parse(guid));
                 }
                 JObject result;

@@ -48,6 +48,10 @@ schema만 읽고 DB를 소유하는 MCP server를 import하지 않는다. 같은
 파일 목록·내용을 포함하여 feature 파일의 추가·삭제·이동도 감지한다. 패키지 버전은
 `uv.lock`과 대조한다. 추출 중 소스 변경, 시작한 클라이언트와 worker의 snapshot 불일치,
 실제 worker schema 불일치를 검사하며 불일치하면 모델링 요청을 보내지 않는다.
+관측 이미지의 직접 `ToolResult`와 context의 정확한 `str | ToolResult` 반환형만 별도로
+허용한다. ToolResult 입력형·중첩형·임의 annotation 실행은 허용하지 않는다. context 기본
+JSON과 선택한 PNG의 MCP content 계약을 schema 생성 때문에 바꾸지 않는다. context에 한해
+기존 `{result: string}` output schema literal을 허용하고 text/structuredContent를 함께 보존한다.
 공통 도구 변경 후 수동 catalog 재생성 없이 관련 Codex/CoS MCP를 정상 종료·재시작하면
 새 구현과 schema를 읽는다. Terminal은 almond 세션을 새로 시작한다. 이미 시작한
 프로세스를 자동 교체하거나 restart 도구를 제공하지 않는다. RHP/DLL 변경은 빌드와

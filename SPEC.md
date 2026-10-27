@@ -14,7 +14,7 @@
 
 - COS는 MCP runtime의 확장 훅과 공용 native Engine을 사용한다. MCP는 COS 구현을 import하지 않고 native Engine은 개별 호스트를 참조하지 않는다.
 - Bridge는 MCP 소유의 C# 모델링 코드·재료 정책을 컴파일한다. Python 패키지는 RHP 소유의 공용 패널 웹 원본을 포함한다. 공유 원본을 복제하지 않는다.
-- 모델 폴더의 `.almond/DB`를 공유한다. Plan 산출물은 프로젝트 `tmp/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 연결별 token·session·call과 프로세스 identity를 구분하며 잠금·lease·native 완료 확인을 유지한다.
+- 모델 폴더의 `.almond/scene.sqlite3`를 공유한다. Plan 산출물은 프로젝트 `tmp/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 연결별 token·session·call과 프로세스 identity를 구분하며 잠금·lease·native 완료 확인을 유지한다.
 - 객체 identity는 정규화한 모델 경로와 Rhino GUID의 조합이다. timeout은 rollback이나 자동 재실행 허가가 아니다.
 - 기존 사용자 변경·모델·DB·라이브러리, 공개 tool schema, plugin identity와 Undo/Redo 계약을 보존한다.
 - 모듈 전용 테스트와 검증 기록은 모듈이 소유한다. 루트 `tests/`는 여러 모듈의 계약을 확인한다. 워크트리는 실행 중 Rhino와 모델 DB를 자동 격리하지 않는다.

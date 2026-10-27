@@ -32,11 +32,11 @@ from native_request import RequestBatch
 # These reviewed tools use the native bridge and files, without opening SQLite.
 # All other upstream tools conservatively share the DB gate.
 NATIVE_ONLY_TOOLS = frozenset({
-    "execute_rhino_script", "capture_conditioning_pass",
+    "execute_rhino_script", "capture_conditioning_pass", "save_rhino_document",
     "get_rhino_context", "get_rhino_viewport_image", "get_rhino_probe",
 })
 BINDING_TOOLS = frozenset({"worker_state"})
-FILE_TOOLS = frozenset({"execute_rhino_script", "execute_project_python", "export_structural_report",
+FILE_TOOLS = frozenset({"execute_rhino_script", "save_rhino_document", "execute_project_python", "export_structural_report",
     "export_asset_contract", "get_blender_helper_script", "capture_conditioning_pass",
     "import_asset_contract", "rename_artifact_folder"})
 OUTPUT_TOOLS = frozenset({"execute_project_python", "export_structural_report", "export_asset_contract",

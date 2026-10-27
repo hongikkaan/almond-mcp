@@ -1,6 +1,7 @@
 """Register asset tools and resources against the calling server's live context."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.assets.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 from pydantic import StrictBool
@@ -27,17 +28,18 @@ def register(mcp, context):
     def list_drawing_assets(
         category: str = "",
         limit: int = 20,
-        offset: int = 0, include_ids: StrictBool = False) -> str:
+        offset: int = 0, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         page = context.drawing_asset_indexer.search_page(
             category=category,
             limit=limit,
             offset=offset,
         )
-        return json.dumps({
+        return json.dumps(project({
             "library_id": "drawing_assets",
             "purpose": "architectural representation and entourage",
             **page,
-        })
+        }, field_groups))
 
 
     @mcp.tool()
@@ -50,8 +52,9 @@ def register(mcp, context):
         max_depth_mm: float = 0,
         max_height_mm: float = 0,
         limit: int = 10,
-        offset: int = 0, include_ids: StrictBool = False) -> str:
-        return json.dumps(context.drawing_asset_indexer.search_page(
+        offset: int = 0, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
+        return json.dumps(project(context.drawing_asset_indexer.search_page(
             query=query,
             category=category,
             max_width_mm=max_width_mm,
@@ -59,17 +62,18 @@ def register(mcp, context):
             max_height_mm=max_height_mm,
             limit=limit,
             offset=offset,
-        ))
+        ), field_groups))
 
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_drawing_asset')
     @query_output
-    def get_drawing_asset(asset_id: str, include_ids: StrictBool = False) -> str:
+    def get_drawing_asset(asset_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         asset = context.drawing_asset_indexer.get(asset_id)
         if not asset:
-            return json.dumps(error_payload(f"Unknown drawing asset_id: {asset_id}"))
-        return json.dumps({"status": "success", "asset": context.drawing_asset_indexer.public_record(asset)})
+            return json.dumps(project(error_payload(f"Unknown drawing asset_id: {asset_id}"), field_groups))
+        return json.dumps(project({"status": "success", "asset": context.drawing_asset_indexer.public_record(asset)}, field_groups))
 
 
     def _extract_drawing_asset(source_path: str, output_path: str) -> dict:
@@ -235,26 +239,27 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
     @tool_instruction(__file__, 'get_asset_drawing')
     @query_output
-    def get_asset_drawing(asset_id: str, include_ids: StrictBool = False) -> dict:
+    def get_asset_drawing(asset_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:
+        validate_field_groups(field_groups, GROUPS)
         asset = context.drawing_asset_indexer.get(asset_id)
         if asset and asset.get("drawing_package"):
             root = Path(context.DRAWING_LIBRARY_DIR).resolve()
             package = (root / asset["drawing_package"]).resolve()
             package.relative_to(root)
             manifest = json.loads((package / "drawing.json").read_text(encoding="utf-8"))
-            return {"status": "success", "asset_id": asset_id, "package_dir": str(package), "manifest": manifest,
+            return project({"status": "success", "asset_id": asset_id, "package_dir": str(package), "manifest": manifest,
                     "dimensions_path": str(package / "dimensions.json"),
-                    "plan_svg_uri": f"almond://drawing/{asset_id}/drawing/plan/50"}
+                    "plan_svg_uri": f"almond://drawing/{asset_id}/drawing/plan/50"}, field_groups)
         root = Path(context.DRAFTING_LIBRARY_DIR)
         data = json.loads((root/"manifest.json").read_text(encoding="utf-8"))
         record = next((a for a in data["assets"] if a["asset_id"] == asset_id), None)
         if not record:
-            return error_payload(read_instruction(__file__, 'response-406'))
+            return project(error_payload(read_instruction(__file__, 'response-406')), field_groups)
         package = (root/record["package"]).resolve()
         package.relative_to(root.resolve())
         manifest = json.loads((package/"drawing.json").read_text(encoding="utf-8"))
-        return {"status": "success", "package_dir": str(package), "manifest": manifest,
-                "plan_svg_uri": f"almond://assets/{asset_id}/drawing/plan/50"}
+        return project({"status": "success", "package_dir": str(package), "manifest": manifest,
+                "plan_svg_uri": f"almond://assets/{asset_id}/drawing/plan/50"}, field_groups)
 
 
     @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
@@ -329,7 +334,7 @@ def register(mcp, context):
     def asset_drawing_resource(asset_id: str, view: str, scale: str) -> ResourceResult:
         if view not in {"plan", "front", "right"} or scale not in {"50", "100"}:
             raise ValueError("Unknown bundled view or scale")
-        result = get_asset_drawing(asset_id)
+        result = get_asset_drawing(asset_id, field_groups=["all"])
         if result["status"] != "success":
             raise ValueError(result["message"])
         filename = f"{view}-1-{scale}.svg"
@@ -572,12 +577,13 @@ public class Script
     @mcp.tool()
     @tool_instruction(__file__, 'search_asset_repository')
     @query_output
-    def search_asset_repository(query: str = "", kind: str = "all", drawing_ready: bool = False, limit: int = 20, include_ids: StrictBool = False) -> dict:
+    def search_asset_repository(query: str = "", kind: str = "all", drawing_ready: bool = False, limit: int = 20, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:
+        validate_field_groups(field_groups, GROUPS)
         from almond_mcp.features.assets.asset_repository import AssetRepository
         try:
-            return AssetRepository().search(query, kind, drawing_ready, limit)
+            return project(AssetRepository().search(query, kind, drawing_ready, limit), field_groups)
         except ValueError as exc:
-            return error_payload(str(exc))
+            return project(error_payload(str(exc)), field_groups)
 
 
     @mcp.resource("almond://repository/{asset_id}")

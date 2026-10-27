@@ -112,6 +112,26 @@ try
     }
     Console.WriteLine("PASS: Engine/data external process ownership rejects a second panel attachment");
 
+    using (var fixture = new HostFixture(suite, "fresh-project", bind: false))
+    {
+        // Given a saved model in a new project, the launcher prepares storage but
+        // leaves operation temp folders lazy. Attach must reach native startup.
+        Directory.Delete(Path.Combine(fixture.Storage, "tmp"));
+        BoundBridge.FailStart = true;
+        BoundBridge.PendingOnStart = 0;
+        Check.Throws<IOException>(() => fixture.Attach(), "fixture native start failure");
+        Check.That(!Directory.Exists(Path.Combine(fixture.Storage, "tmp")), "Attach eagerly created an unused temp folder.");
+        Check.That(!fixture.Host.HasBinding, "Fresh project startup failure leaked ownership.");
+    }
+    Console.WriteLine("PASS: a new project's lazy temp directory does not block Terminal attachment");
+
+    using (var fixture = new HostFixture(suite, "wrong-project", bind: false))
+    {
+        Check.Throws<InvalidOperationException>(() => fixture.Attach(storage: Path.Combine(suite, "foreign", ".almond")), "공유 프로젝트 저장소 경로가 다릅니다.");
+        Check.That(!Directory.Exists(fixture.Session), "A foreign project created connection state.");
+    }
+    Console.WriteLine("PASS: a genuinely different project storage is still rejected before ownership changes");
+
     using (var fixture = new HostFixture(suite, "failed-start", bind: false))
     using (var retry = new HostFixture(suite, "retry", bind: false))
     {
@@ -133,7 +153,7 @@ try
         Check.That(!retry.Host.HasBinding, "Retry retained a fully drained binding.");
     }
     Console.WriteLine("PASS: failed startup retains pending ownership, blocks another panel and then recovers");
-    Console.WriteLine("All eight host contract checks passed. Rhino UI/native execution were fixture doubles; no native listener was opened.");
+    Console.WriteLine("All ten host contract checks passed. Rhino UI/native execution were fixture doubles; no native listener was opened.");
 }
 finally
 {
@@ -220,12 +240,12 @@ sealed class HostFixture : IDisposable
         }
     }
 
-    public object? Attach(int protocol = 2)
+    public object? Attach(int protocol = 2, string? storage = null)
     {
         Rhino.RhinoDoc.ActiveDoc = new Rhino.RhinoDoc { Path=Model, RuntimeSerialNumber=7 };
         using var request = JsonDocument.Parse(JsonSerializer.Serialize(new {
             storage_protocol=protocol, model_path=Model, document_serial="7", session_token=Token,
-            storage=Storage, session_dir=Session, slot, port
+            storage=storage ?? Storage, session_dir=Session, slot, port
         }));
         try { return typeof(AlmondHost).GetMethod("Attach", Private)!.Invoke(Host, new object[] { request.RootElement }); }
         catch (TargetInvocationException error) when (error.InnerException != null) { throw error.InnerException; }

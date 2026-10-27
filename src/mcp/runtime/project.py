@@ -58,7 +58,7 @@ def project_paths(model: str | Path, *, create: bool = False) -> dict[str, str]:
     if create:
         storage.mkdir(parents=True, exist_ok=True)
     return dict(model_path=str(path), project_dir=str(path.parent), storage=str(storage),
-                state_db=str(storage / "DB"), temp=str(storage / "tmp"))
+                state_db=str(storage / "scene.sqlite3"), temp=str(storage / "tmp"))
 
 
 def connection_paths(model: str | Path, slot: str, token: str, *, create: bool = False) -> dict[str, str]:

@@ -11,6 +11,8 @@ Create an organizational Phase for Plans; this does not edit Rhino geometry.
 <!-- instruction:get_phase -->
 Read a Phase's name, description and Plan count.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds description, scope, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_phase -->
 
 ## list_phases
@@ -18,6 +20,8 @@ IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied
 <!-- instruction:list_phases -->
 List organizational Phases with totals and an explicit truncation flag; limit is 1-500.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds description, scope, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_phases -->
 
 ## update_phase
@@ -51,6 +55,8 @@ The supplied plan_id is not repeated. artifact_dir and artifact_refs locate work
 Snapshots contain Plan metadata, step state and handles; they are not Rhino
 geometry backups. A missing requested revision never falls back to current state.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds steps, references, artifacts, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_plan -->
 
 ## list_plans
@@ -58,6 +64,8 @@ IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied
 <!-- instruction:list_plans -->
 List compact Plan summaries, optionally filtered by Phase, contextual Scene or status.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds references, artifacts, audit, or all; default is summary. For Step detail use get_plan(field_groups=["steps"]).
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_plans -->
 
 ## update_plan
@@ -78,6 +86,8 @@ no completion requirement on related work. artifact_refs records work files.
 <!-- instruction:list_plan_revisions -->
 List saved Plan revisions newest first, with operation labels and truncation metadata.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_plan_revisions -->
 
 ## update_step
@@ -101,6 +111,8 @@ An explicit empty Step selection stays empty. Contextual Scenes never expand
 targets. Returned group/document identities have live_verified=false; inspect
 current Rhino state and user intent before editing. This does not grant authority.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds references, geometry, scope, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:resolve_targets -->
 
 <!-- instruction:get_selection_references -->
@@ -110,4 +122,6 @@ Distinguishes direct Step targets from inherited Plan targets and includes ances
 Components. Scene context never invents targets. Selection is live; relationships
 are registered metadata, not a fresh native ownership reconciliation. Unregistered
 objects and truncated selection/Plan results are reported explicitly.
+field_groups adds steps, references, geometry, artifacts, description, scope, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_selection_references -->

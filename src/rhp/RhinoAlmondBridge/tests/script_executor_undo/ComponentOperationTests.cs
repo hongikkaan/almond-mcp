@@ -12,9 +12,127 @@ namespace AlmondScriptUndoTests
 {
     public static class ComponentOperationTests
     {
+        public static string RunMissingMiddleCases(string directory)
+        {
+            var lines = new List<string>();
+            RunMissingMiddleCases(lines, directory);
+            string report = String.Join("\n", lines);
+            if (lines.Any(line => line.StartsWith("FAIL "))) throw new InvalidOperationException(report);
+            return report + "\nPASS: " + lines.Count + "/" + lines.Count + " missing-middle hierarchy cases.";
+        }
+
+        private static void RunMissingMiddleCases(List<string> lines, string directory)
+        {
+            RunView(lines, directory, doc =>
+            {
+                Guid leaf = Box(doc, 0), middle = Box(doc, 30), root = Box(doc, 60), other = Box(doc, 90);
+                int leafGroup = doc.Groups.Add("Leaf", new[] { leaf });
+                int middleGroup = doc.Groups.Add("Middle", new[] { leaf, middle });
+                int rootGroup = doc.Groups.Add("Root", new[] { leaf, middle, root });
+                foreach (var item in new[] { new { Id = "leaf", Group = leafGroup, Object = leaf, Child = "" },
+                    new { Id = "middle", Group = middleGroup, Object = middle, Child = "leaf" },
+                    new { Id = "root", Group = rootGroup, Object = root, Child = "middle" } })
+                    Success(ComponentRegistry.Handle(doc, new JObject {
+                        ["action"] = "upsert", ["expected_model_path"] = doc.Path,
+                        ["component_id"] = item.Id, ["name"] = doc.Groups[item.Group].Name,
+                        ["rhino_group_id"] = doc.Groups[item.Group].Id.ToString("D"),
+                        ["scene_ids"] = new JArray("scene"), ["object_ids"] = new JArray(item.Object.ToString("D")),
+                        ["child_component_ids"] = item.Child == "" ? new JArray() : new JArray(item.Child)
+                    }));
+                Check(doc.Groups.Delete(middleGroup), "Middle group deletion failed.");
+                var before = State(doc);
+                var child = Success(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "inspect", ["expected_model_path"] = doc.Path, ["component_id"] = "leaf"
+                }))["component"];
+                Check((string)child["availability"] == "present" && (string)child["effective_objects"][0]["component_id"] == "leaf",
+                    "A missing middle group hid the live leaf owner: " + child);
+                var batch = Success(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "inspect_many", ["expected_model_path"] = doc.Path, ["component_ids"] = new JArray("root")
+                }));
+                Check(((JArray)batch["problems"]).Count == 0 && ((JArray)batch["components"]).Count == 3, "Hierarchy alignment snapshot is incomplete: " + batch);
+                var top = batch["components"].Single(item => (string)item["component_id"] == "root");
+                Check(new HashSet<string>(top["object_ids"].Values<string>()).SetEquals(new[] { middle.ToString("D"), root.ToString("D") }),
+                    "Root direct members duplicated a live deeper descendant: " + top);
+                var observation = Success(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "objects", ["expected_model_path"] = doc.Path, ["object_ids"] = new JArray(leaf.ToString("D"))
+                }));
+                Check((string)observation["objects"][0]["component_id"] == "leaf", "Direct Scene observation lost the deepest owner.");
+                var overlap = Success(ComponentOperations.Handle(doc, new JObject {
+                    ["action"] = "intersections", ["expected_model_path"] = doc.Path, ["component_ids"] = new JArray("root", "leaf")
+                }));
+                Check((int)overlap["object_count"] == 3 && (bool)overlap["complete"], "Live root/leaf operation scope changed: " + overlap);
+                Unchanged(before, doc);
+                int unrelated = doc.Groups.Add("Unrelated", new[] { other });
+                Success(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "upsert", ["expected_model_path"] = doc.Path, ["component_id"] = "unrelated",
+                    ["name"] = "Unrelated", ["rhino_group_id"] = doc.Groups[unrelated].Id.ToString("D"),
+                    ["scene_ids"] = new JArray("scene"), ["object_ids"] = new JArray(other.ToString("D"))
+                }));
+                var attrs = doc.Objects.FindId(leaf).Attributes.Duplicate(); attrs.AddToGroup(unrelated);
+                Check(doc.Objects.ModifyAttributes(leaf, attrs, true), "Unrelated overlap fixture failed.");
+                before = State(doc);
+                Rejected(ComponentRegistry.Handle(doc, new JObject {
+                    ["action"] = "inspect", ["expected_model_path"] = doc.Path, ["component_id"] = "leaf"
+                }));
+                Unchanged(before, doc);
+            }, "Missing middle group preserves live descendant ownership and rejects unrelated overlap");
+        }
+
+        public static string RunUnavailableCases(string directory)
+        {
+            var lines = new List<string>();
+            RunUnavailableCases(lines, directory);
+            string report = String.Join("\n", lines);
+            if (lines.Any(line => line.StartsWith("FAIL "))) throw new InvalidOperationException(report);
+            return report + "\nPASS: " + lines.Count + "/" + lines.Count + " unavailable Component operation cases.";
+        }
+
+        private static void RunUnavailableCases(List<string> lines, string directory)
+        {
+            foreach (bool unregister in new[] { false, true })
+                RunView(lines, directory, doc =>
+                {
+                    Guid valid = Box(doc, 0), unavailable = Box(doc, 5);
+                    int validGroup = doc.Groups.Add("Available", new[] { valid });
+                    int unavailableGroup = doc.Groups.Add("Unavailable", new[] { unavailable });
+                    foreach (var item in new[] { new { Id = "valid", Group = validGroup, Object = valid },
+                                                 new { Id = "unavailable", Group = unavailableGroup, Object = unavailable } })
+                        Success(ComponentRegistry.Handle(doc, new JObject {
+                            ["action"] = "upsert", ["expected_model_path"] = doc.Path,
+                            ["component_id"] = item.Id, ["name"] = doc.Groups[item.Group].Name,
+                            ["rhino_group_id"] = doc.Groups[item.Group].Id.ToString("D"),
+                            ["scene_ids"] = new JArray("scene"), ["object_ids"] = new JArray(item.Object.ToString("D"))
+                        }));
+                    if (unregister)
+                        Success(ComponentRegistry.Handle(doc, new JObject {
+                            ["action"] = "unregister", ["expected_model_path"] = doc.Path, ["component_id"] = "unavailable"
+                        }));
+                    else Check(doc.Groups.Delete(unavailableGroup), "Group deletion fixture failed.");
+                    var inspection = Success(ComponentRegistry.Handle(doc, new JObject {
+                        ["action"] = "inspect", ["expected_model_path"] = doc.Path, ["component_id"] = "unavailable"
+                    }));
+                    Check((string)inspection["component"]["availability"] == (unregister ? "unregistered" : "missing_group"),
+                        "Unavailable observation must remain usable for alignment: " + inspection);
+                    Check(doc.Objects.FindId(unavailable) != null && !doc.Objects.FindId(unavailable).IsDeleted,
+                        "The unavailable group's overlapping geometry must still exist.");
+                    var before = State(doc);
+                    foreach (string action in new[] { "intersections", "focus" })
+                    {
+                        var result = ComponentOperations.Handle(doc, new JObject {
+                            ["action"] = action, ["expected_model_path"] = doc.Path,
+                            ["component_ids"] = new JArray("valid", "unavailable")
+                        });
+                        Rejected(result);
+                        Unchanged(before, doc);
+                    }
+                }, (unregister ? "Unregistered" : "Missing-group") + " mixed targets reject intersections and focus without mutation");
+        }
+
         public static string RunAll(string directory)
         {
             var lines = new List<string>();
+            RunUnavailableCases(lines, directory);
+            RunMissingMiddleCases(lines, directory);
             Run(lines, "Intersection broadphase and volume preserve the document", doc =>
             {
                 Guid a = Box(doc, 0), b = Box(doc, 5), far = Box(doc, 100);
@@ -110,10 +228,13 @@ namespace AlmondScriptUndoTests
                     ["component_id"] = "focus-leaf", ["name"] = "Leaf", ["scene_ids"] = new JArray("scene"),
                     ["object_ids"] = new JArray(target.ToString("D"))
                 }));
+                Guid rootDirect = Box(doc, 2000);
+                int rootGroup = doc.Groups.Add("Assembly", new[] { target, rootDirect });
                 Success(ComponentRegistry.Handle(doc, new JObject {
                     ["action"] = "upsert", ["expected_model_path"] = doc.Path,
                     ["component_id"] = "focus-root", ["name"] = "Assembly", ["scene_ids"] = new JArray("scene"),
-                    ["object_ids"] = new JArray(), ["child_component_ids"] = new JArray("focus-leaf")
+                    ["object_ids"] = new JArray(rootDirect.ToString("D")), ["child_component_ids"] = new JArray("focus-leaf"),
+                    ["rhino_group_id"] = doc.Groups[rootGroup].Id.ToString("D")
                 }));
                 var request = new JObject { ["action"] = "intersections", ["expected_model_path"] = doc.Path,
                     ["component_ids"] = new JArray("focus-root", "focus-leaf") };
@@ -126,7 +247,7 @@ namespace AlmondScriptUndoTests
                 Rejected(ComponentOperations.IsolateAndZoomSelected(doc, new[] { locked }));
                 Rejected(ComponentOperations.IsolateAndZoomSelected(doc, new[] { Guid.NewGuid() }));
                 var overlap = Success(ComponentOperations.Handle(doc, request));
-                Check((int)overlap["object_count"] == 1 && (bool)overlap["complete"] && !(bool)overlap["has_positive_overlap"],
+                Check((int)overlap["object_count"] == 2 && (bool)overlap["complete"] && !(bool)overlap["has_positive_overlap"],
                     "Component dispatch did not resolve and deduplicate the live descendant set.");
                 request["expected_model_path"] = doc.Path + ".other";
                 Rejected(ComponentOperations.Handle(doc, request));
@@ -136,13 +257,20 @@ namespace AlmondScriptUndoTests
                 request.Remove("max_pairs");
                 Unchanged(before, doc);
                 var geometries = doc.Objects.GetObjectList(ObjectType.AnyObject).ToDictionary(o => o.Id, o => o.Geometry.DataCRC(0));
+                Point3d cameraBefore=doc.Views.ActiveView.ActiveViewport.CameraLocation;
+                Point3d targetBefore=doc.Views.ActiveView.ActiveViewport.CameraTarget;
                 request["action"] = "focus";
                 var result = Success(ComponentOperations.Handle(doc, request));
-                Check((bool)result["isolated"] && (bool)result["zoom_selected"] && ((JArray)result["selected_ids"]).Count == 1, "Incomplete focus acknowledgement.");
+                Check((bool)result["isolated"] && (bool)result["zoom_selected"] && ((JArray)result["selected_ids"]).Count == 2, "Incomplete focus acknowledgement.");
+                Check(doc.Objects.FindId(rootDirect).IsSelected(false) != 0, "Parent direct member was not focused.");
                 Check(doc.Objects.FindId(target).IsSelected(false) != 0 && !doc.Objects.FindId(target).IsHidden &&
                     doc.Objects.FindId(other).IsHidden && doc.Objects.FindId(hidden).IsHidden &&
                     doc.Objects.FindId(locked).IsLocked && !doc.Objects.FindId(locked).IsHidden, "Isolate did not preserve Rhino's locked/previously hidden behavior.");
-                Check(doc.Views.ActiveView.ActiveViewport.IsVisible(doc.Objects.FindId(target).Geometry.GetBoundingBox(true)), "Target is not framed in the active view.");
+                var focused=doc.Views.ActiveView;
+                Check(cameraBefore.DistanceTo(focused.ActiveViewport.CameraLocation)>1e-6||targetBefore.DistanceTo(focused.ActiveViewport.CameraTarget)>1e-6,
+                    "Focus did not move the camera or its target.");
+                CheckFramed(focused,doc.Objects.FindId(target).Geometry.GetBoundingBox(true));
+                CheckFramed(focused,doc.Objects.FindId(rootDirect).Geometry.GetBoundingBox(true));
                 Check(geometries.All(pair => doc.Objects.FindId(pair.Key)?.Geometry.DataCRC(0) == pair.Value), "Focus changed geometry.");
                 Check(RhinoApp.RunScript("_Unisolate", false), "Native Unisolate failed.");
                 Check(!doc.Objects.FindId(other).IsHidden && doc.Objects.FindId(hidden).IsHidden && doc.Objects.FindId(locked).IsLocked,
@@ -154,6 +282,23 @@ namespace AlmondScriptUndoTests
         }
 
         private static Guid Box(RhinoDoc doc, double x) => doc.Objects.AddBrep(new BoundingBox(x, 0, 0, x + 10, 10, 10).ToBrep());
+        private static void CheckFramed(Rhino.Display.RhinoView view,BoundingBox bounds)
+        {
+            // IsVisible returned false in the disposable hidden process even when
+            // native Zoom Selected and captured pixels showed both targets. Check
+            // every actual box corner in clip and client coordinates instead.
+            var rectangle=view.ClientRectangle;var viewport=view.ActiveViewport;
+            Check(rectangle.Width>0&&rectangle.Height>0,"Focus viewport has no drawable area.");
+            var worldToClip=viewport.GetTransform(CoordinateSystem.World,CoordinateSystem.Clip);
+            foreach(Point3d corner in bounds.GetCorners())
+            {
+                var clip=corner;clip.Transform(worldToClip);var client=viewport.WorldToClient(corner);
+                Check(clip.IsValid&&Math.Abs(clip.X)<=1.000001&&Math.Abs(clip.Y)<=1.000001&&Math.Abs(clip.Z)<=1.000001,
+                    "Target corner is outside the active view frustum: "+clip);
+                Check(client.X>=-1e-6&&client.X<=rectangle.Width+1e-6&&client.Y>=-1e-6&&client.Y<=rectangle.Height+1e-6,
+                    "Target corner is outside the active viewport pixels: "+client);
+            }
+        }
         private static void Run(List<string> lines, string name, Action<RhinoDoc> test)
         {
             using (var doc = RhinoDoc.CreateHeadless(null))
@@ -166,9 +311,9 @@ namespace AlmondScriptUndoTests
             }
         }
 
-        private static void RunView(List<string> lines, string directory, Action<RhinoDoc> test)
+        private static void RunView(List<string> lines, string directory, Action<RhinoDoc> test,
+            string name = "Isolate and ZoomSelected preflight, native restore and geometry preservation")
         {
-            const string name = "Isolate and ZoomSelected preflight, native restore and geometry preservation";
             string path = Path.Combine(directory, "component-focus-" + Guid.NewGuid().ToString("N") + ".3dm");
             try
             {

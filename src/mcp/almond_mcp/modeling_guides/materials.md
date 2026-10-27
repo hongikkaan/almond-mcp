@@ -5,4 +5,4 @@
 | 도구 | 입력 | 할 수 있는 일 |
 |---|---|---|
 | `setup_modeling` | `operation="materials"` 또는 `"layers"`; materials에만 선택적 `overwrite` | PBR 재료 일괄 등록 또는 `M::category::system.name::element.role` 레이어·기본 재료·색 준비. |
-| `list_materials` | 선택적 `category`, `query` | 재료 ID·이름·PBR 레시피 조회.|
+| `list_materials` | 선택적 `category`, `query`, `field_groups`, `include_ids` | 재료 후보 요약과 필요한 display/physical 등의 레시피 상세 조회. |

@@ -1,6 +1,6 @@
 # ontological-component: 사용자 설명 원문과 사진
 
-두 사례의 사용자 설명과 사진을 보존한다. 적용할 의미 기준과 요약은 ontological-component 주제(`get_modeling_guide(topic="ontological-component")`)에 있다. 아래 원문 구간은 기존 조회본을 그대로 옮겼다.
+두 사례의 사용자 설명과 사진을 보존한다. 적용할 의미 기준과 요약은 ontological_component 주제(`get_modeling_guide(topic="ontological-component")`)에 있다. 아래 원문 구간은 기존 조회본을 그대로 옮겼다.
 
 ## 지붕과 우수관
 

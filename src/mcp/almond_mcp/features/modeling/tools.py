@@ -1,7 +1,9 @@
 """Modeling policy, script execution, setup and material tools."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.modeling.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
+from almond_mcp.managed_paths import bound_model_path
 from pydantic import StrictBool
 import json
 import socket
@@ -35,6 +37,37 @@ def register(mcp, context):
             return json.dumps(error_payload(f"Bridge error: {e}"))
 
 
+    @mcp.tool(annotations={"destructiveHint": False})
+    @tool_instruction(__file__, 'save_rhino_document')
+    def save_rhino_document() -> str:
+        try:
+            model_path = bound_model_path()
+            snapshot = json.loads(context._send_and_receive(json.dumps({
+                "type": "get_rhino_context", "sections": [], "selection_limit": 0,
+            }).encode("utf-8")))
+            if not isinstance(snapshot, dict) or snapshot.get("status") != "success":
+                raise ValueError("Could not verify the document-save capability.")
+            if snapshot.get("capabilities", {}).get("document_save") != 1:
+                return json.dumps({**error_payload(
+                    "This Bridge does not support noninteractive document saving.",
+                    error_code="unsupported_document_save"), "saved": False})
+        except Exception as exc:
+            return json.dumps({**error_payload(str(exc), error_code="save_not_started"), "saved": False})
+        try:
+            result = json.loads(context._send_and_receive(json.dumps({
+                "type": "save_rhino_document", "expected_model_path": model_path,
+            }).encode("utf-8")))
+            if isinstance(result, dict) and result.get("status") == "error":
+                return json.dumps(result, ensure_ascii=False)
+            if (not isinstance(result, dict) or result.get("status") != "success"
+                    or result.get("saved") is not True or type(result.get("modified")) is not bool):
+                raise ValueError("The Bridge did not return a confirmed save result.")
+            return json.dumps(result, ensure_ascii=False)
+        except Exception as exc:
+            return json.dumps({**error_payload(str(exc), error_code="save_result_unconfirmed"),
+                               "saved": None, "requires_reconciliation": True})
+
+
     @mcp.tool()
     @tool_instruction(__file__, 'setup_modeling')
     def setup_modeling(operation: str, overwrite: bool | None = None) -> str:
@@ -57,13 +90,14 @@ def register(mcp, context):
     @mcp.tool()
     @tool_instruction(__file__, 'list_materials')
     @query_output
-    def list_materials(category: str = "", query: str = "", include_ids: StrictBool = False) -> str:
+    def list_materials(category: str = "", query: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         materials = context.material_library.list(category=category, query=query)
-        return json.dumps({
+        return json.dumps(project({
             "total": len(materials),
             "materials": materials,
             "library_dir": str(context.material_library.directory),
-        })
+        }, field_groups))
 
 
     @mcp.tool()
@@ -72,7 +106,7 @@ def register(mcp, context):
         guids: list[str],
         material_id: str,
         apply_render_material: bool = True,
-        attach_metadata: bool = True,
+        attach_metadata: bool = False,
         structural_role: str = "",
         construction_system: str = "",
         floor: str = "",
@@ -182,6 +216,7 @@ def register(mcp, context):
     return {
         "get_modeling_policy": get_modeling_policy,
         "execute_rhino_script": execute_rhino_script,
+        "save_rhino_document": save_rhino_document,
         "setup_modeling": setup_modeling,
         "list_materials": list_materials,
         "assign_material": assign_material,

@@ -28,7 +28,10 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
         generated = await generate()
         self.assertNotIn("almond_mcp.server", sys.modules)
         self.assertEqual(generated, await asyncio.to_thread(load_catalog))
-        self.assertEqual(len(generated["tools"]), 78)
+        self.assertEqual(len(generated["tools"]), 80)
+        scene = next(tool for tool in generated["tools"] if tool["name"] == "list_design_scenes")
+        self.assertEqual(scene["inputSchema"]["properties"]["field_groups"]["default"], None)
+        self.assertEqual(scene["inputSchema"]["properties"]["limit"]["default"], 50)
         check_contract(generated)
 
     def test_only_a_direct_toolresult_return_is_allowed(self):
@@ -43,6 +46,33 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.subTest(source=source), self.assertRaises((ValueError, TypeError)):
                 checked_stub(ast.parse(source).body[0])
+
+    def test_visual_context_allows_only_the_reviewed_text_or_toolresult_return(self):
+        safe = ast.parse("def context() -> str | ToolResult:\n    pass").body[0]
+        checked_stub(safe)
+        for source in (
+            "def bad(value: str | ToolResult) -> str:\n    pass",
+            "def bad() -> list[str | ToolResult]:\n    pass",
+            "def bad() -> str | list[ToolResult]:\n    pass",
+            "def bad() -> ToolResult | int:\n    pass",
+            "def bad() -> str | ToolResult | None:\n    pass",
+        ):
+            with self.subTest(source=source), self.assertRaises((ValueError, TypeError)):
+                checked_stub(ast.parse(source).body[0])
+
+    def test_context_result_schema_is_literal_and_never_executed(self):
+        safe = ast.parse('@mcp.tool(output_schema={"type":"object","properties":{"result":{"type":"string"}},'
+                         '"required":["result"],"x-fastmcp-wrap-result":True})\n'
+                         'def get_rhino_context() -> str | ToolResult:\n    pass').body[0]
+        checked_stub(safe)
+        unsafe = ast.parse('@mcp.tool(output_schema=dangerous())\n'
+                           'def get_rhino_context() -> str | ToolResult:\n    pass').body[0]
+        with self.assertRaises((ValueError, TypeError)):
+            checked_stub(unsafe)
+        other_schema = ast.parse('@mcp.tool(output_schema={"type":"object"})\n'
+                                 'def get_rhino_context() -> str | ToolResult:\n    pass').body[0]
+        with self.assertRaises(ValueError):
+            checked_stub(other_schema)
 
 
 class FeatureSourceTests(unittest.TestCase):

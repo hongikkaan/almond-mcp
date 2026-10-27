@@ -2,7 +2,8 @@
 
 <!-- instruction:get_modeling_guide -->
 Read a versioned topic from the packaged Rhino Almond modeling guide.
-Use topic="index" to choose only the guidance needed for this task. For semantic
+Use the startup topic summaries to read a known topic directly; topic="index"
+is optional discovery. Reuse topics read for the same guide_version. For semantic
 grouping examples, read topic="ontological-component-evidence" with include_images=true.
 Images are original reference PNGs, not captures of the current Rhino document.
 This reader does not edit the model, task database or user artifacts. Existing
@@ -41,6 +42,8 @@ Returns:
     JSON: {total, systems: [...], reference?} - for wall systems
     span_range_m is the unsupported height range (span_axis "vertical").
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds rules, narrative, source, metadata, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_construction_guidance -->
 
 ## get_typology_narrative
@@ -70,6 +73,8 @@ Returns:
     precedents, related_construction_systems, urban_role, gha_ref,
     tags}], source}.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds rules, narrative, source, metadata, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_typology_narrative -->
 
 ## search_detail_sources
@@ -80,6 +85,8 @@ Returns links, formats and rights notes; no external content is fetched.
 Results are research candidates, not attributed inputs or certified details.
 DETAIL subscription access is not required.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds rules, narrative, source, metadata, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:search_detail_sources -->
 
 ## response-732

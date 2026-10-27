@@ -182,7 +182,9 @@ internal sealed class AlmondHost : IDisposable
             throw new InvalidOperationException("요청한 모델·문서·연결 번호가 현재 Rhino와 다릅니다.");
         var paths = SessionFiles.Paths(model, slot, token);
         var storage = paths.Storage;
-        if (!Same(storage, Text(request, "storage")) || !Directory.Exists(Path.Combine(storage, "tmp")))
+        // Operation temp directories are created on demand, including for a
+        // saved model in a project that has never run Almond before.
+        if (!Same(storage, Text(request, "storage")))
             throw new InvalidOperationException("공유 프로젝트 저장소 경로가 다릅니다.");
         var session = paths.SessionDir;
         if (request.TryGetProperty("session_dir", out var requestedSession) &&
@@ -224,7 +226,7 @@ internal sealed class AlmondHost : IDisposable
                 ["token"]=token, ["pid"]=process.Id, ["process_start_ticks"]=ticks, ["document_serial"]=serial,
                 ["model_path"]=Canonical(model), ["document_path"]=Canonical(doc.Path), ["storage"]=storage,
                 ["session_dir"]=sessionDirectory, ["ready_path"]=readyPath,
-                ["state_db"]=Path.Combine(storage,"DB"),
+                ["state_db"]=paths.StateDb,
                 ["engine"]=Engine, ["temp"]=Path.Combine(storage,"tmp"), ["rhino_temp"]=Path.GetTempPath(),
                 ["model_units"]=doc.ModelUnitSystem.ToString(), ["valid"]=true, ["status"]="starting"
             };

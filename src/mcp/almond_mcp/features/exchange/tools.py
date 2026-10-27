@@ -1,6 +1,7 @@
 """Register portable asset exchange tools and their native report helpers."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.exchange.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
@@ -375,28 +376,29 @@ public class Script
     @query_output
     def get_blender_helper_script(action: str, asset_id: str = "", name: str = "",
                                   output_dir: str = "", material_id: str = "",
-                                  object_names: list[str] | None = None, include_ids: StrictBool = False) -> str:
+                                  object_names: list[str] | None = None, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         action = action.strip().lower()
         if action == "export":
             if not asset_id:
-                return json.dumps(error_payload("asset_id is required for export."))
+                return json.dumps(project(error_payload("asset_id is required for export."), field_groups))
             target = output_dir or str(paths.user_data_dir() / "exchange")
-            return json.dumps({
+            return json.dumps(project({
                 "status": "success",
                 "action": "export",
                 "script": context.exchange.blender_export_script(asset_id, name or asset_id, target),
                 "note": read_instruction(__file__, 'response-677'),
-            })
+            }, field_groups))
         if action == "materials":
             material = context.material_library.get(material_id)
             if not material:
-                return json.dumps(error_payload(read_instruction(__file__, 'response-679').format(material_id)))
+                return json.dumps(project(error_payload(read_instruction(__file__, 'response-679').format(material_id)), field_groups))
             if not object_names:
-                return json.dumps(error_payload("object_names is required."))
+                return json.dumps(project(error_payload("object_names is required."), field_groups))
             script = context.exchange.blender_material_script(
                 [material], [{"material_id": material_id, "objects": object_names}])
-            return json.dumps({"status": "success", "action": "materials", "script": script})
-        return json.dumps(error_payload('action must be "export" or "materials".'))
+            return json.dumps(project({"status": "success", "action": "materials", "script": script}, field_groups))
+        return json.dumps(project(error_payload('action must be "export" or "materials".'), field_groups))
 
 
     return {

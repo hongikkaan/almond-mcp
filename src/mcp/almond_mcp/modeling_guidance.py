@@ -54,12 +54,14 @@ def _snapshot() -> dict:
 
 
 def startup_instructions() -> str:
-    return _snapshot()["startup"]
+    snapshot = _snapshot()
+    topics = "\n".join(f"- {item['id']}: {item['summary']}" for item in snapshot["topics"])
+    return (snapshot["startup"] + f"\n\nGuide topics (guide_version={snapshot['guide_version']}):\n" + topics)
 
 
 def project_instructions() -> str:
     snapshot = _snapshot()
-    return snapshot["startup"] + "\n\n" + snapshot["model_context"]
+    return startup_instructions() + "\n\n" + snapshot["model_context"]
 
 
 def tool_guidance(name: str) -> str:
@@ -71,7 +73,7 @@ def read_guide(topic: str = "index", include_images: bool = False) -> tuple[dict
     snapshot = _snapshot()
     result = {"status": "success", "guide_version": snapshot["guide_version"], "topic_id": topic}
     if topic == "index":
-        result["topics"] = [{key: item[key] for key in ("id", "title", "when_to_read")}
+        result["topics"] = [{key: item[key] for key in ("id", "title", "summary", "when_to_read")}
                             for item in snapshot["topics"]]
         return result, []
     entry = next((item for item in snapshot["topics"] if item["id"] == topic), None)

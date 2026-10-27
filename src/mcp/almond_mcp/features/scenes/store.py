@@ -11,6 +11,30 @@ from almond_mcp.store_common import _utc_now
 class ScenesStore:
     """Scene metadata, recursive object reads, and direct membership transactions."""
 
+    def list_scenes(self, name: str = "", file_name: str = "", limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List project metadata in one query, without recursive geometry reads."""
+        if not isinstance(name, str) or not isinstance(file_name, str):
+            raise ValueError("name and file_name must be strings.")
+        if type(limit) is not int or not 1 <= limit <= 200:
+            raise ValueError("limit must be an integer from 1 to 200.")
+        if type(offset) is not int or offset < 0:
+            raise ValueError("offset must be a non-negative integer.")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "WITH matched AS (SELECT scene_id, name, file_name, units, revision, created_at, updated_at FROM scenes "
+                "WHERE (? = '' OR instr(lower(name), lower(?)) > 0) "
+                "AND (? = '' OR file_name = ?)), "
+                "page AS (SELECT * FROM matched ORDER BY name COLLATE NOCASE, scene_id LIMIT ? OFFSET ?) "
+                "SELECT page.*, stats.total FROM (SELECT COUNT(*) AS total FROM matched) stats "
+                "LEFT JOIN page ON 1 = 1 ORDER BY page.name COLLATE NOCASE, page.scene_id",
+                (name, name, file_name, file_name, limit, offset),
+            ).fetchall()
+        total = int(rows[0]["total"]) if rows else 0
+        scenes = [{key: row[key] for key in row.keys() if key != "total"}
+                  for row in rows if row["scene_id"] is not None]
+        return {"scenes": scenes, "total": total, "limit": limit, "offset": offset,
+                "truncated": offset + len(scenes) < total}
+
     def create_scene(self, name: str, units: str = "mm", file_name: str = "") -> dict[str, Any]:
         if not isinstance(file_name, str):
             raise ValueError("file_name must be a string.")
@@ -68,14 +92,16 @@ class ScenesStore:
             object_count = connection.execute(
                 """
                 WITH RECURSIVE linked_components(component_id) AS (
-                    SELECT component_id FROM scene_components WHERE scene_id = ?
+                    SELECT sc.component_id FROM scene_components sc JOIN components c ON c.component_id = sc.component_id
+                        WHERE sc.scene_id = ? AND c.availability = 'present'
                     UNION
                     SELECT c.component_id FROM components c
                         JOIN linked_components parent ON c.parent_component_id = parent.component_id
                 )
                 SELECT COUNT(*) FROM document_objects o
                 WHERE EXISTS(SELECT 1 FROM scene_objects so WHERE so.scene_id = ? AND so.object_rowid = o.id)
-                   OR EXISTS(SELECT 1 FROM linked_components lc WHERE lc.component_id = o.component_id)
+                   OR EXISTS(SELECT 1 FROM linked_components lc JOIN components c ON c.component_id = lc.component_id
+                             WHERE lc.component_id = o.component_id AND c.availability = 'present')
                 """, (scene_id, scene_id),
             ).fetchone()[0]
         return {
@@ -161,7 +187,8 @@ class ScenesStore:
             rows = connection.execute(
                 """
                 WITH RECURSIVE linked_components(component_id) AS (
-                    SELECT component_id FROM scene_components WHERE scene_id = ?
+                    SELECT sc.component_id FROM scene_components sc JOIN components c ON c.component_id = sc.component_id
+                        WHERE sc.scene_id = ? AND c.availability = 'present'
                     UNION
                     SELECT child.component_id FROM components child
                         JOIN linked_components parent ON child.parent_component_id = parent.component_id
@@ -170,13 +197,15 @@ class ScenesStore:
                     SELECT 1 FROM scene_objects so WHERE so.object_rowid = o.id AND so.scene_id = ?
                 ) AS direct FROM document_objects o
                 WHERE EXISTS(SELECT 1 FROM scene_objects so WHERE so.object_rowid = o.id AND so.scene_id = ?)
-                   OR EXISTS(SELECT 1 FROM linked_components lc WHERE lc.component_id = o.component_id)
+                   OR EXISTS(SELECT 1 FROM linked_components lc JOIN components c ON c.component_id = lc.component_id
+                             WHERE lc.component_id = o.component_id AND c.availability = 'present')
                 ORDER BY o.model_path, o.rhino_guid
                 """, (scene_id, scene_id, scene_id),
             ).fetchall()
         return [
             {"model_path": row["model_path"], "rhino_guid": row["rhino_guid"],
              "component_id": row["component_id"], "object_type": row["object_type"],
+              "name": row["name"],
              "bounds_mm": [row["min_x"], row["min_y"], row["min_z"],
                            row["max_x"], row["max_y"], row["max_z"]],
              "direct": bool(row["direct"]), "observed_at": row["observed_at"], "live_verified": False}

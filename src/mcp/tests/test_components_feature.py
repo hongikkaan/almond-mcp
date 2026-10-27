@@ -98,7 +98,7 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
         request = json.loads(payload)
         calls.append(request)
         if request["type"] == "get_rhino_context":
-            result = {"status": "success", "capabilities": {"design_components": 1}}
+            result = {"status": "success", "capabilities": {"design_components": 1, "component_registry": 2}}
         elif request["action"] == "upsert":
             result = {"status": "success", "component": {
                 "complete": True, "component_id": request["component_id"],
@@ -111,6 +111,10 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
         elif request["action"] == "inspect":
             result = {"status": "success", "component": dict(
                 server.retrieval_store.get_component(request["component_id"]), complete=True)}
+        elif request["action"] == "inspect_many":
+            result = dict(status="success", complete=True, model_path=model_path,
+                editing=dict(mode="model", stable=True), problems=[], components=[dict(
+                    server.retrieval_store.get_component(handle), complete=True) for handle in request["component_ids"]])
         else:
             assert request["action"] == "unregister"
             result = {"status": "success", "component_id": request["component_id"],
@@ -137,7 +141,7 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
                 "scene_ids": [scene_id], "component_id": "panel-1",
             })
             assert json.loads(created.structured_content["result"])["component"]["live_verified"] is True
-            read = await client.call_tool("get_design_component", {"component_id": "panel-1", "include_ids": True})
+            read = await client.call_tool("get_design_component", {"component_id": "panel-1", "include_ids": True, "field_groups": ["geometry"]})
             assert json.loads(read.structured_content["result"])["component"]["object_ids"] == [object_id]
 
     asyncio.run(verify())
@@ -147,7 +151,7 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
     assert "objects" not in listed["components"][0]
     updated = _call(server, "upsert_design_component", expected_model_path=model_path,
                     name="Renamed panel", object_ids=[object_id], component_id="panel-1")
-    assert updated["component"]["scene_ids"] == [scene_id]
+    assert server.retrieval_store.get_component("panel-1")["scene_ids"] == [scene_id]
     revision = server.retrieval_store.get_scene(scene_id)["revision"]
     synced = _call(server, "sync_design_component", expected_model_path=model_path, component_id="panel-1")
     assert synced["component"]["live_verified"] is True
@@ -169,7 +173,7 @@ def test_factories_keep_runtime_sender_and_store_rebinding_isolated(tmp_path):
     events = []
 
     class ReboundStore:
-        def list_components(self, model_path):
+        def list_components(self, model_path, **kwargs):
             events.append(model_path)
             return [{"component_id": "rebound"}]
 
