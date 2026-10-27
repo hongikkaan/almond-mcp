@@ -17,7 +17,7 @@ import test_materials as material_contracts
 
 TOOL_NAMES = {
     "get_modeling_policy", "execute_rhino_script", "setup_modeling",
-    "list_materials", "assign_material",
+    "list_materials", "assign_material", "save_rhino_document",
 }
 PACKAGE = Path(__file__).resolve().parents[1] / "almond_mcp"
 

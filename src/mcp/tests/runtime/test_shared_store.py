@@ -438,6 +438,12 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.assert_operation_completed()
 
     async def test_unconfirmed_native_writer_blocks_peer_rename_until_native_drain(self):
+        await self._check_unconfirmed_native_writer("execute_rhino_script", b'{"type":"execute","script":"fixture"}')
+
+    async def test_unconfirmed_save_blocks_peer_files_until_native_drain(self):
+        await self._check_unconfirmed_native_writer("save_rhino_document", b'{"type":"save_rhino_document"}')
+
+    async def _check_unconfirmed_native_writer(self, tool_name, payload):
         store = AlmondStore(self.paths["state_db"])
         plan = store.create_plan("Shared artifact")
         self.runtime.workspace = Workspace(self.paths, store)
@@ -455,10 +461,10 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
             write_json(native_path, receipt)
             raise TimeoutError("Native write is still running")
 
-        @self.mcp.tool()
-        def execute_rhino_script() -> dict:
+        @self.mcp.tool(name=tool_name)
+        def native_write() -> dict:
             try:
-                self.runtime.send(timed_out_sender, b'{"type":"execute","script":"fixture"}')
+                self.runtime.send(timed_out_sender, payload)
             except TimeoutError:
                 return {"status": "error"}
 
@@ -477,7 +483,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         def get_plan() -> dict:
             return store.get_plan(plan["plan_id"])
 
-        await self.mcp.call_tool("execute_rhino_script", {})
+        await self.mcp.call_tool(tool_name, {})
         self.assertTrue(self.runtime.unconfirmed)
         # Worker exit releases its OS handles; the durable operation must still
         # exclude peers until the separate Rhino owner has actually drained.

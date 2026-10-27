@@ -69,7 +69,7 @@ namespace RhinoAlmondBridge
             {
                 ["status"] = "success",
                 ["capabilities"] = new JObject { ["fixed_probes"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1,
-                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1, ["context_sections"] = 1 },
+                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1, ["context_sections"] = 1, ["document_save"] = 1 },
                 ["warnings"] = warnings
             };
             if (requested.Contains("document")) result["document"] = new JObject

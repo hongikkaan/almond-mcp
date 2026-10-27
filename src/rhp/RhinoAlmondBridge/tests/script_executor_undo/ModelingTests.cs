@@ -48,7 +48,7 @@ namespace AlmondScriptUndoTests
                         Math.Abs(simulation.PhysicallyBased.BaseColor.B - expected.BaseColor.B) < 0.00001,
                         "Shared rendering PBR channels differ from the material recipe.");
                 }
-                Check(all.All(o => o.Attributes.GetUserStrings().Count == 1), "Duplicated material metadata was stamped.");
+                Check(all.All(o => o.Attributes.GetUserStrings().Count == 0), "Routine material assignment stamped object metadata.");
                 var repeated = new ScriptExecutor().ExecuteAction(doc, () =>
                     ModelingMaterials.Apply(doc, Recipe("wood-oak"), all.Select(o => o.Id)));
                 Success(repeated);
@@ -137,7 +137,7 @@ namespace AlmondScriptUndoTests
             {
                 Guid id = Guid.Empty;
                 Success(new ScriptExecutor().ExecuteAction(doc, () => {
-                    id = doc.Objects.AddPoint(Point3d.Origin, ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak")));
+                    id = doc.Objects.AddPoint(Point3d.Origin, ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"), attachMetadata: true));
                     return null;
                 }));
                 var before = doc.Objects.FindId(id).Attributes.Duplicate();
@@ -191,12 +191,12 @@ namespace AlmondScriptUndoTests
                 };
                 Guid id = Guid.Empty;
                 Success(new ScriptExecutor().ExecuteAction(doc, () => {
-                    var attrs = ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"), metadata, source);
+                    var attrs = ModelingMaterials.CreateAttributes(doc, Recipe("wood-oak"), metadata, source, attachMetadata: true);
                     id = doc.Objects.AddPoint(Point3d.Origin, attrs);
                     return null;
                 }));
                 Success(new ScriptExecutor().ExecuteAction(doc, () =>
-                    ModelingMaterials.Apply(doc, Recipe("steel-galvanized"), new[] { id }, metadata)));
+                    ModelingMaterials.Apply(doc, Recipe("steel-galvanized"), new[] { id }, metadata, attachMetadata: true)));
                 var after = doc.Objects.FindId(id).Attributes;
                 Check(after.Name == source.Name && after.GetUserString("almond:component_id") == "owner-1" &&
                     after.GetUserString("almond:passport") == "existing provenance" &&

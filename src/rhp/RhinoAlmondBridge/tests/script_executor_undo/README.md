@@ -54,6 +54,7 @@ regular-document fixtures from a working Rhino session.
 | `ComponentHierarchyTests` | Exclusive direct ownership, nested aggregate groups, manual TextDot additions, cycles and competing parents, root removal and reconciliation |
 | `DrawingSheetTests` | Real Layout/detail identities, updates, physical scale in mixed model/page units, unregister preservation |
 | `ComponentOperationTests` | Exact overlap evidence, incomplete coverage, nested target resolution, Isolate/Unisolate and ZoomSelected |
+| `DocumentSaveTests` | Bound-path and read-only rejection, noninteractive whole-document save, on-disk geometry and actual modified state |
 | `DrawingAssetGeometryTests` | Prepared 3DM extraction, nested block transforms, source/artifact hashes, units/origin/unsupported-geometry rejection |
 | `DrawingAssetPlacementTests` | Millimeter and meter documents, source revisions, definition reuse, prevalidation and placement Undo |
 

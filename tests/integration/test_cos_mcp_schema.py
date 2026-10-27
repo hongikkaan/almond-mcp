@@ -12,8 +12,8 @@ def test_catalog_matches_live_schema_and_retains_camera_examples(server):
         async with Client(server.mcp) as client:
             tools = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True)
                      for tool in await client.list_tools()}
-            assert len(tools) == 75
-            assert {"list_design_scenes", "get_selection_references", "update_design_scene", "list_phases", "list_plans"} <= set(tools)
+            assert len(tools) == 76
+            assert {"save_rhino_document", "list_design_scenes", "get_selection_references", "update_design_scene", "list_phases", "list_plans"} <= set(tools)
             for name in ("list_design_scenes", "list_plans", "get_plan", "get_design_component",
                          "list_drawing_assets", "validate_scene_layout", "get_selection_references"):
                 assert tools[name]["inputSchema"]["properties"]["field_groups"] == {

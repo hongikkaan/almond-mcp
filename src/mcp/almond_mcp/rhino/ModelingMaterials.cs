@@ -60,7 +60,7 @@ namespace RhinoAlmondBridge
 
         public static ObjectAttributes CreateAttributes(RhinoDoc doc, string recipeJson,
             IDictionary<string, string> metadata = null, ObjectAttributes source = null,
-            bool applyRenderMaterial = true, bool attachMetadata = true, bool reuseLegacyMaterial = true)
+            bool applyRenderMaterial = true, bool attachMetadata = false, bool reuseLegacyMaterial = true)
         {
             if (doc == null) throw new ArgumentNullException(nameof(doc));
             ValidateMetadata(metadata);
@@ -127,7 +127,7 @@ namespace RhinoAlmondBridge
         }
 
         public static object Apply(RhinoDoc doc, string recipeJson, IEnumerable<Guid> ids,
-            IDictionary<string, string> metadata = null, bool applyRenderMaterial = true, bool attachMetadata = true)
+            IDictionary<string, string> metadata = null, bool applyRenderMaterial = true, bool attachMetadata = false)
         {
             if (doc == null) throw new ArgumentNullException(nameof(doc));
             var requested = ids?.Distinct().ToArray() ?? throw new ArgumentNullException(nameof(ids));
