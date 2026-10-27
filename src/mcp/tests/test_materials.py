@@ -123,7 +123,7 @@ def test_assignment_checks_capability_and_returns_actual_guids_and_metadata(serv
 
     monkeypatch.setattr(server, "_send_and_receive", send)
     result = call(server.assign_material, guids=[guid.upper(), guid], material_id="steel-painted-sage", floor="2F",
-                  construction_system="steel-wide-flange-floor")
+                  construction_system="steel-wide-flange-floor", attach_metadata=True)
     assert result["status"] == "success"
     assert result["requested_count"] == result["applied_count"] == 1
     assert result["applied_guids"] == [guid]
@@ -193,7 +193,7 @@ def test_metadata_only_assignment_does_not_claim_native_material_change(server, 
                            "applied_guids": [guid], "changed_guids": [], "layer_path": None}})
 
     monkeypatch.setattr(server, "_send_and_receive", send)
-    result = call(server.assign_material, guids=[guid], material_id="steel-painted-sage", floor="1F", apply_render_material=False)
+    result = call(server.assign_material, guids=[guid], material_id="steel-painted-sage", floor="1F", apply_render_material=False, attach_metadata=True)
     assert result["render_material_applied"] is False
     assert result["material_metadata_attached"] is False
     assert result["layer_path"] is None and result["changed_count"] == 0
@@ -212,6 +212,24 @@ def test_assignment_timeout_is_unknown_and_never_retried(server, monkeypatch):
     monkeypatch.setattr(server, "_send_and_receive", send)
     result = call(server.assign_material, guids=[str(uuid.uuid4())], material_id="steel-painted-sage")
     assert result["mutation_state"] == "unknown" and len(requests) == 2
+
+
+def test_given_routine_material_assignment_then_no_management_userstrings_by_default(server, monkeypatch):
+    guid = str(uuid.uuid4())
+    def send(payload, **kwargs):
+        request = json.loads(payload)
+        if request["type"] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {"modeling_materials": 2}})
+        assert "true, false)" in request["script"]
+        return json.dumps({"status": "success", "result": {
+            "material_id": "steel-painted-sage", "applied_guids": [guid],
+            "metadata_attached": False, "layer_path": None}})
+    monkeypatch.setattr(server, "_send_and_receive", send)
+    result = call(server.assign_material, guids=[guid], material_id="steel-painted-sage")
+    assert result["status"] == "success"
+    assert result["render_material_applied"] is True
+    assert result["metadata_attached"] is False
+    assert result["material_metadata_attached"] is False
 
 
 def test_construction_setup_resolves_layers_and_role_materials(server):

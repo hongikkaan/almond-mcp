@@ -5,9 +5,10 @@
 <!-- instruction:get_modeling_policy -->
 Return JSON-defined object/group metadata keys and material-layer naming rules.
 
-Names are free. New modeling normally needs only component_id (registration),
-optional floor and construction_detail, plus material identity and a typed source
-reference when used. Internal compatibility keys are not a checklist to fill.
+Names are free. Do not automatically write Almond management UserStrings on objects.
+Existing keys describe compatibility data, not a checklist to fill. Preserve existing
+user metadata and asset provenance; ordinary naming, layer and material properties
+are independent of management UserStrings.
 <!-- /instruction:get_modeling_policy -->
 
 ## execute_rhino_script
@@ -56,6 +57,18 @@ Args:
 Returns:
     JSON with status, declared guids, error_trace and optional result or result_error.
 <!-- /instruction:execute_rhino_script -->
+
+## save_rhino_document
+
+<!-- instruction:save_rhino_document -->
+Save the current connection's existing .3dm file without a command, prompt or Enter.
+Use after an authorized editing batch when the file should be saved. It saves the
+whole bound document to its existing path; there is no SaveAs or arbitrary path input.
+Active or uncertain group/block editing, a mismatched document and a read-only file
+are rejected before writing. A confirmed response returns saved=true and the actual
+modified flag. An unconfirmed response is not failure proof: never automatically
+repeat the save or clear the connection's native-completion protection.
+<!-- /instruction:save_rhino_document -->
 
 ## setup_modeling
 
@@ -119,7 +132,9 @@ Two effects, independently switchable:
   export (publish_to_chestnut) and Datasmith carry real PBR channels. The
   object's layer is always preserved. If false, no native material is
   changed or created.
-- attach_metadata: writes only material_id when a native material is
+- attach_metadata: defaults to false; ordinary material application writes no
+  object management UserStrings. Set true only for an explicit request to attach
+  metadata. It writes only material_id when a native material is
   applied, plus supplied floor/detail/reference metadata. PBR channels
   remain on the native material. A metadata-only call preserves the
   current material identity and writes only the supplied metadata.
@@ -128,8 +143,8 @@ Unspecified metadata and asset provenance are preserved. Requires a Bridge
 with modeling_materials=2; older Bridges are rejected before any mutation.
 Works on breps, meshes, and block instances (an instance's material
 applies to definition geometry set to 'by parent'; the metadata is
-always attached to the instance itself). Call list_materials first to
-discover material_ids.
+attached to the instance itself only when explicitly enabled). Query list_materials
+when the required material ID is not already known.
 <!-- /instruction:assign_material -->
 
 ## response-750
