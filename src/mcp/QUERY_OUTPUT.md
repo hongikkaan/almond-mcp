@@ -35,11 +35,11 @@ lists the supported groups; `all` is available for every field-group query.
 
 | Feature | Group | Added fields |
 |---|---|---|
-| assets | `dimensions` | `bounds_mm`, `clearance_mm`, `dimensions_mm`, `spatial` |
+| assets | `dimensions` | `bounds_mm`, `clearance_mm`, `dimension_basis`, `dimensions_mm`, `spatial` |
 | assets | `source` | `license`, `provenance`, `sha256`, `source`, `source_url`, `warehouse_url` |
 | assets | `paths` | `contract`, `dimensions_path`, `file`, `generation_image`, `library_dir`, `model`, `model_path`, `package_dir`, `preview`, `preview_uri` |
 | assets | `drawing` | `drawing`, `drawing_manifest`, `drawing_package`, `drawing_roles`, `lod` |
-| assets | `metadata` | `description`, `material_id`, `passport`, `render_material_id`, `series`, `tags` |
+| assets | `metadata` | `description`, `material_id`, `metadata`, `passport`, `render_material_id`, `series`, `tags` |
 | assets | `audit` | `created_at`, `generated_at`, `updated_at` |
 | components | `references` | `child_component_ids`, `parent_component_id`, `rhino_group_id`, `scene_ids` |
 | components | `geometry` | `bounds_mm`, `direct_object_ids`, `effective_object_ids`, `effective_objects`, `intersections`, `object_ids`, `objects`, `pairs`, `pending_objects` |
@@ -74,7 +74,8 @@ lists the supported groups; `all` is available for every field-group query.
 | modeling | `paths` | `file`, `library_dir` |
 | modeling | `audit` | `created_at`, `updated_at` |
 | planning | `steps` | `steps` |
-| planning | `references` | `component_ids`, `components`, `depends_on`, `input_refs`, `matched_step_ids`, `objects`, `output_refs`, `phase_id`, `scene_ids` |
+| planning | `references` | `child_component_ids`, `component_id`, `component_ids`, `depends_on`, `input_refs`, `matched_step_ids`, `output_refs`, `parent_component_id`, `phase_id`, `related_component_ids`, `scene_ids` |
+| planning | `geometry` | `direct_object_ids`, `effective_object_ids` |
 | planning | `artifacts` | `artifact_dir`, `artifact_refs` |
 | planning | `description` | `description` |
 | planning | `scope` | `file_name`, `model_path`, `rhino_group_id` |

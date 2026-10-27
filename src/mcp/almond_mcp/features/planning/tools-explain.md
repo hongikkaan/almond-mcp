@@ -122,6 +122,6 @@ Distinguishes direct Step targets from inherited Plan targets and includes ances
 Components. Scene context never invents targets. Selection is live; relationships
 are registered metadata, not a fresh native ownership reconciliation. Unregistered
 objects and truncated selection/Plan results are reported explicitly.
-field_groups adds steps, references, artifacts, description, scope, audit, or all; default is summary.
+field_groups adds steps, references, geometry, artifacts, description, scope, audit, or all; default is summary.
 include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_selection_references -->
