@@ -124,13 +124,15 @@ public static class AlmondSpatial
         readonly Budget budget;
         readonly HashSet<Guid> owners = new HashSet<Guid>();
         readonly Dictionary<Guid, RhinoObject[]> members = new Dictionary<Guid, RhinoObject[]>();
-        readonly bool geometry, annotations;
+        readonly bool geometry, annotations, objects, transforms;
         readonly int depth;
-        public Index(RhinoDoc d, JObject request, Budget b)
+        public Index(RhinoDoc d, JObject request, Budget b, HashSet<string> fields)
         {
             doc = d; q = request; budget = b;
             geometry = (bool?)q["include_geometry"] ?? false;
             annotations = (bool?)q["annotations"] ?? true;
+            objects = fields.Contains("objects") || fields.Contains("transforms");
+            transforms = fields.Contains("transforms");
             depth = (int?)q["depth"] ?? 64;
             if (depth < 0 || depth > 64) throw new ArgumentException("depth: 0..64.");
         }
@@ -184,8 +186,9 @@ public static class AlmondSpatial
             var row = Row(doc, obj);
             row["kind"] = "occurrence";
             row["path"] = new JArray(path.Select(x => x.ToString()));
-            row[block == null ? "geometry_to_world" : "definition_to_world"] = Matrix(world);
-            if (!budget.Add(row) || block == null) return;
+            if (transforms) row[block == null ? "geometry_to_world" : "definition_to_world"] = Matrix(world);
+            if (this.objects && !budget.Add(row)) return;
+            if (block == null) return;
             var definition = block.InstanceDefinition;
             if (ancestors.Contains(definition.Id)) {
                 row["cycle"] = true; budget.Result["truncated"] = true;
@@ -209,17 +212,31 @@ public static class AlmondSpatial
     public static JObject Outline(RhinoDoc doc, JObject q)
     {
         CheckOptions(q, "scope", "ids", "path", "depth", "include_geometry",
-            "annotations", "annotation_layer", "max_items", "max_bytes");
+            "annotations", "annotation_layer", "max_items", "max_bytes", "field_groups");
+        var supplied = q["field_groups"] as JArray;
+        if (q["field_groups"] != null && (supplied == null || supplied.Count == 0 || supplied.Any(t => t.Type != JTokenType.String)))
+            throw new ArgumentException("field_groups must be a nonempty array of summary, objects, annotations or transforms.");
+        // Explicit legacy detail flags retain their meaning; new default observations are summaries.
+        var fields = new HashSet<string>(supplied == null ?
+            (q["include_geometry"] != null || q["annotations"] != null ? new[] { "summary", "objects", "annotations", "transforms" } : new[] { "summary" }) :
+            supplied.Values<string>());
+        if (fields.Except(new[] { "summary", "objects", "annotations", "transforms" }).Any())
+            throw new ArgumentException("Unknown outline field group.");
         if (q["path"] != null && q["ids"] != null)
             throw new ArgumentException("Choose path for one branch or ids for roots.");
         var b = new Budget((int?)q["max_items"] ?? 200, (int?)q["max_bytes"] ?? 48000);
-        var index = new Index(doc, q, b);
+        var detail = (JObject)q.DeepClone();
+        detail["annotations"] = fields.Contains("annotations") && ((bool?)q["annotations"] ?? true);
+        detail["include_geometry"] = (bool?)q["include_geometry"] ?? (fields.Contains("objects") || fields.Contains("transforms"));
+        var index = new Index(doc, detail, b, fields);
         var branch = ReadIds(q["path"]);
         if (q["path"] != null) {
             if (branch.Length == 0) throw new ArgumentException("path must contain 1..65 IDs.");
             Transform parent;
             var obj = PathObject(doc, branch, out parent);
-            index.Visit(obj, parent, branch.Take(branch.Length - 1).ToList(), new HashSet<Guid>(), 0);
+            if (fields.Contains("summary")) AddSummary(b, new[] { obj }, (int?)q["max_bytes"] ?? 48000);
+            if (fields.Any(field => field != "summary"))
+                index.Visit(obj, parent, branch.Take(branch.Length - 1).ToList(), new HashSet<Guid>(), 0);
             return b.Result;
         }
         var top = TopObjects(doc);
@@ -234,6 +251,8 @@ public static class AlmondSpatial
         else if (scope == "document") roots = top;
         else if (scope == "viewport") roots = VisibleRoots(doc);
         else throw new ArgumentException("scope: selected, viewport, document.");
+        if (fields.Contains("summary")) AddSummary(b, roots, (int?)q["max_bytes"] ?? 48000);
+        if (!fields.Any(field => field != "summary")) return b.Result;
         bool temporary = top.Any(o => !String.IsNullOrEmpty(o.Attributes.GetUserString("$TempBlockEditUserData$")));
         index.Owner(Guid.Empty, temporary ? "CURRENT_EDITOR_HINT" : "DOCUMENT",
             temporary ? top.Where(Editable).ToArray() : top, new HashSet<Guid>(roots.Select(o => o.Id)));
@@ -242,6 +261,21 @@ public static class AlmondSpatial
             if (b.Stopped) break;
         }
         return b.Result;
+    }
+
+    static void AddSummary(Budget budget, RhinoObject[] roots, int maxBytes)
+    {
+        var names = new JArray(roots.Select(o => Short(String.IsNullOrWhiteSpace(o.Name) && o is InstanceObject
+            ? ((InstanceObject)o).InstanceDefinition.Name : o.Name)).Where(name => !String.IsNullOrWhiteSpace(name)).Take(20));
+        var summary = new JObject { ["kind"] = "summary", ["root_count"] = roots.Length,
+            ["types"] = Types(roots), ["names"] = names, ["names_truncated"] = roots.Length > names.Count };
+        while (names.Count > 0 && Encoding.UTF8.GetByteCount(summary.ToString(Formatting.None)) > maxBytes - 512)
+        {
+            names.RemoveAt(names.Count - 1);
+            summary["names_truncated"] = true;
+        }
+        summary["detail_hint"] = "Request field_groups objects/annotations/transforms and narrow ids/path/depth when more detail is needed.";
+        budget.Add(summary);
     }
 
     static RhinoObject[] VisibleRoots(RhinoDoc doc)

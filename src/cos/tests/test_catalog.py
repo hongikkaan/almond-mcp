@@ -44,6 +44,19 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(source=source), self.assertRaises((ValueError, TypeError)):
                 checked_stub(ast.parse(source).body[0])
 
+    def test_visual_context_allows_only_the_reviewed_text_or_toolresult_return(self):
+        safe = ast.parse("def context() -> str | ToolResult:\n    pass").body[0]
+        checked_stub(safe)
+        for source in (
+            "def bad(value: str | ToolResult) -> str:\n    pass",
+            "def bad() -> list[str | ToolResult]:\n    pass",
+            "def bad() -> str | list[ToolResult]:\n    pass",
+            "def bad() -> ToolResult | int:\n    pass",
+            "def bad() -> str | ToolResult | None:\n    pass",
+        ):
+            with self.subTest(source=source), self.assertRaises((ValueError, TypeError)):
+                checked_stub(ast.parse(source).body[0])
+
 
 class FeatureSourceTests(unittest.TestCase):
     def test_external_description_is_inert_and_markdown_is_fingerprinted(self):

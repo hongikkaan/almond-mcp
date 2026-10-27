@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Globalization;
 using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -25,9 +24,13 @@ namespace RhinoAlmondBridge
 
         public static string HandleContext(JObject request)
         {
-            int selectionLimit;
-            if (!ReadInteger(request, "selection_limit", 50, 0, MaxSelectionLimit, out selectionLimit))
-                return Error("invalid_arguments", "selection_limit must be an integer from 0 through 200.").ToString(Formatting.None);
+            int selectionLimit, depth;
+            bool recursive, includeImage;
+            if (!ReadInteger(request, "selection_limit", 50, 0, MaxSelectionLimit, out selectionLimit) ||
+                !ReadInteger(request, "depth", 1, 1, 8, out depth) ||
+                !ReadBoolean(request, "recursive", false, out recursive) ||
+                !ReadBoolean(request, "include_image", false, out includeImage))
+                return Error("invalid_arguments", "Use selection_limit 0..200, depth 1..8 and boolean recursive/include_image.").ToString(Formatting.None);
             string[] sections = null;
             if (request["sections"] != null)
             {
@@ -36,17 +39,23 @@ namespace RhinoAlmondBridge
                     return Error("invalid_arguments", "sections must be an array of document, selection or viewport.").ToString(Formatting.None);
                 sections = requested.Values<string>().ToArray();
             }
-            return GetContext(RhinoDoc.ActiveDoc, selectionLimit, sections).ToString(Formatting.None);
+            return GetContext(RhinoDoc.ActiveDoc, selectionLimit, sections, recursive, depth, includeImage).ToString(Formatting.None);
         }
 
         public static string HandleViewportImage(JObject request)
         {
-            int scalePercent;
+            int scalePercent, depth;
+            bool labels;
             if (!ReadInteger(request, "scale_percent", 50, 1, 100, out scalePercent) ||
+                !ReadInteger(request, "depth", 1, 1, 8, out depth) ||
+                !ReadBoolean(request, "labels", true, out labels) ||
                 (request["view"] != null && request["view"].Type != JTokenType.String) ||
+                new[] { "display_mode", "target_kind", "target_id" }.Any(key => request[key] != null && request[key].Type != JTokenType.String) ||
                 request["max_width"] != null || request["max_height"] != null)
                 return Error("invalid_arguments", "Use view (empty, 'a', or a GUID) and integer scale_percent from 1 through 100.").ToString(Formatting.None);
-            return GetViewportImage(RhinoDoc.ActiveDoc, (string)request["view"] ?? "", scalePercent).ToString(Formatting.None);
+            return GetViewportImage(RhinoDoc.ActiveDoc, (string)request["view"] ?? "", scalePercent,
+                (string)request["display_mode"] ?? "", labels, depth,
+                (string)request["target_kind"] ?? "view", (string)request["target_id"] ?? "").ToString(Formatting.None);
         }
 
         /// <summary>
@@ -54,13 +63,14 @@ namespace RhinoAlmondBridge
         /// excludes deleted objects, instance-definition members and grips.
         /// Failed fields or sections are null and identified in warnings, never fake zeroes.
         /// </summary>
-        public static JObject GetContext(RhinoDoc doc, int selectionLimit = 50, string[] sections = null)
+        public static JObject GetContext(RhinoDoc doc, int selectionLimit = 50, string[] sections = null,
+            bool recursive = false, int depth = 1, bool includeImage = false)
         {
             var requested = new HashSet<string>(sections ?? new[] { "document" });
-            if (requested.Any(section => section != "document" && section != "selection" && section != "viewport"))
-                return Error("invalid_arguments", "sections must contain only document, selection or viewport.");
-            if (selectionLimit < 0 || selectionLimit > MaxSelectionLimit)
-                return Error("invalid_arguments", "selection_limit must be from 0 through 200.");
+            if (requested.Except(new[] { "document", "selection", "viewport", "editor", "display_modes" }).Any())
+                return Error("invalid_arguments", "sections must contain document, selection, viewport, editor or display_modes.");
+            if (selectionLimit < 0 || selectionLimit > MaxSelectionLimit || depth < 1 || depth > 8)
+                return Error("invalid_arguments", "selection_limit must be 0..200 and depth 1..8.");
             if (doc == null)
                 return Error("no_document", "No Rhino document is available.");
 
@@ -69,7 +79,8 @@ namespace RhinoAlmondBridge
             {
                 ["status"] = "success",
                 ["capabilities"] = new JObject { ["fixed_probes"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1,
-                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1, ["context_sections"] = 1 },
+                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1, ["context_sections"] = 1,
+                    ["editing_context"] = 1, ["capture_options"] = 1 },
                 ["warnings"] = warnings
             };
             if (requested.Contains("document")) result["document"] = new JObject
@@ -85,7 +96,18 @@ namespace RhinoAlmondBridge
                 ["layer_count"] = Observe("document.layer_count", () => new JValue(doc.Layers.ActiveCount), warnings)
             };
             if (requested.Contains("selection"))
-                result["selection"] = Observe("selection", () => ReadSelection(doc, selectionLimit, warnings), warnings);
+                result["selection"] = Observe("selection", () => ObservationEntities.Selection(doc, selectionLimit, recursive, depth), warnings);
+            if (requested.Overlaps(new[] { "document", "selection", "viewport", "editor" }))
+            {
+                var editor = EditingContext.Observe(doc);
+                if (!requested.Contains("editor"))
+                {
+                    editor.Remove("evidence");
+                    editor.Remove("warnings");
+                }
+                result["editor"] = editor;
+            }
+            if (requested.Contains("display_modes")) result["display_modes"] = DisplayModes(warnings);
             if (requested.Contains("viewport")) result["viewport"] = Observe("viewport", () =>
             {
                 var view = doc.Views.ActiveView;
@@ -97,6 +119,17 @@ namespace RhinoAlmondBridge
                 return ReadViewport(view.ActiveViewport);
             }, warnings);
 
+            if (includeImage)
+            {
+                var capture = GetViewportImage(doc);
+                if ((string)capture["status"] == "success")
+                {
+                    result["image"] = capture["image"];
+                    foreach (var warning in (JArray)capture["warnings"]) warnings.Add(warning.DeepClone());
+                }
+                else result["image_error"] = capture;
+            }
+
             return result;
         }
 
@@ -105,11 +138,17 @@ namespace RhinoAlmondBridge
         /// Named views render through a detached viewport; no view is activated/restored.
         /// All bitmaps and encoded bytes stay in memory, without temporary files.
         /// </summary>
-        public static JObject GetViewportImage(RhinoDoc doc, string selector = "", int scalePercent = 50)
+        public static JObject GetViewportImage(RhinoDoc doc, string selector = "", int scalePercent = 50,
+            string displayMode = "", bool labels = true, int depth = 1,
+            string targetKind = "view", string target = "")
         {
             selector = (selector ?? "").Trim().ToLowerInvariant();
             Guid targetId = Guid.Empty;
-            if (scalePercent < 1 || scalePercent > 100 ||
+            Guid entityId;
+            if (scalePercent < 1 || scalePercent > 100 || depth < 1 || depth > 8 ||
+                displayMode == null || displayMode.Length > 512 ||
+                (targetKind != "view" && targetKind != "group" && targetKind != "block") ||
+                (targetKind == "view" ? !String.IsNullOrEmpty(target) : selector != "" || !Guid.TryParse(target, out entityId)) ||
                 (selector != "" && selector != "a" && !Guid.TryParse(selector, out targetId)))
                 return Error("invalid_arguments", "Use view (empty, 'a', or a GUID) and integer scale_percent from 1 through 100.");
             if (doc == null)
@@ -127,8 +166,10 @@ namespace RhinoAlmondBridge
                     return Error("no_viewport", "This document has no active view.");
                 if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber)
                     return Error("document_changed", "The requested document is not active.");
-                RhinoView view = selector == "" ? activeView : null;
+                RhinoView view = selector == "" && targetKind == "view" ? activeView : null;
                 ViewInfo namedView = null;
+                List<ObservationEntities.Entity> entities = null;
+                if (targetKind != "view") entities = ObservationEntities.CaptureRoots(doc, targetKind, Guid.Parse(target));
                 if (selector != "")
                 {
                     foreach (var candidate in doc.Views.GetViewList(ViewTypeFilter.Model | ViewTypeFilter.Page))
@@ -145,6 +186,19 @@ namespace RhinoAlmondBridge
                 var activeState = ImageViewState(activeView);
                 var targetState = view == null ? null : ImageViewState(view);
                 var page = view as RhinoPageView;
+                if (page != null && displayMode != "")
+                    return Error("unsupported_display_mode", "Layout captures preserve each detail's display mode; capture a model viewport or Named View to override it.");
+                DisplayModeDescription mode = null;
+                if (displayMode != "" || namedView != null || targetKind != "view")
+                {
+                    mode = ResolveDisplayMode(displayMode == "" ? "Shaded" : displayMode);
+                    if (mode == null)
+                    {
+                        var error = Error("display_mode_not_found", "The display mode is missing or ambiguous. Use context sections=['display_modes'] for installed names/GUIDs.");
+                        error["display_modes"] = DisplayModes((JArray)error["warnings"]);
+                        return error;
+                    }
+                }
                 Size sourceSize;
                 if (page != null)
                 {
@@ -160,7 +214,7 @@ namespace RhinoAlmondBridge
                         sourceSize = activeView.ActiveViewport.Size;
                 }
                 else
-                    sourceSize = view.MainViewport.Size;
+                    sourceSize = view == null ? activeView.ActiveViewport.Size : view.MainViewport.Size;
                 if (sourceSize.Width <= 0 || sourceSize.Height <= 0)
                     return Error("invalid_viewport_size", "The requested view has no positive pixel size.");
                 var size = new Size(Math.Max(1, (int)((long)sourceSize.Width * scalePercent / 100)),
@@ -168,7 +222,9 @@ namespace RhinoAlmondBridge
                 if ((long)size.Width * size.Height > 16 * 1024 * 1024)
                     return Error("image_too_large", "The requested image exceeds 16 megapixels. Use a lower scale_percent.");
                 stage = "capture_failed";
-                using (var bitmap = CaptureImage(doc, view, namedView, size, sourceSize, scalePercent))
+                var warnings = new JArray();
+                using (var bitmap = CaptureImage(doc, view, namedView, size, sourceSize, scalePercent,
+                    mode, labels, depth, entities, warnings))
                 {
                     if (bitmap == null)
                         return Error("capture_failed", "Rhino did not produce a viewport bitmap.");
@@ -180,8 +236,9 @@ namespace RhinoAlmondBridge
                         !JToken.DeepEquals(documentInfo, ReadIdentity(doc)))
                         return Error("document_changed", "The active document or its identity changed during capture.");
                     var currentView = doc.Views.ActiveView;
-                    if (currentView == null || !JToken.DeepEquals(activeState, ImageViewState(currentView)) ||
-                        (view != null && !JToken.DeepEquals(targetState, ImageViewState(view))))
+                    if (namedView == null && targetKind == "view" && (currentView == null ||
+                        !JToken.DeepEquals(activeState, ImageViewState(currentView)) ||
+                        (view != null && !JToken.DeepEquals(targetState, ImageViewState(view)))))
                         return Error("viewport_changed", "The viewport changed during capture; no image was returned.");
 
                     stage = "image_encode_failed";
@@ -205,7 +262,7 @@ namespace RhinoAlmondBridge
                                 ["source_width"] = sourceSize.Width,
                                 ["source_height"] = sourceSize.Height
                             },
-                            ["warnings"] = new JArray()
+                            ["warnings"] = warnings
                         };
                     }
                 }
@@ -243,11 +300,13 @@ namespace RhinoAlmondBridge
         }
 
         private static Bitmap CaptureImage(RhinoDoc doc, RhinoView view, ViewInfo namedView,
-            Size size, Size sourceSize, int scalePercent)
+            Size size, Size sourceSize, int scalePercent, DisplayModeDescription mode,
+            bool labels, int depth, List<ObservationEntities.Entity> entities, JArray warnings)
         {
             var page = view as RhinoPageView;
             if (page != null)
             {
+                if (labels) warnings.Add("labels: Layout detail overlays are unavailable; capture its model viewport or a Named View for entity labels.");
                 using (var settings = new ViewCaptureSettings(page, 96.0 * scalePercent / 100.0))
                 {
                     settings.Document = doc;
@@ -259,13 +318,26 @@ namespace RhinoAlmondBridge
                     return ViewCapture.CaptureToBitmap(settings);
                 }
             }
-            if (namedView == null)
-                return view.CaptureToBitmap(size);
-            using (var viewport = new RhinoViewport(doc.Views.ActiveView.ActiveViewport))
+            if (namedView == null && mode == null && entities == null)
+            {
+                var bitmap = view.CaptureToBitmap(size);
+                if (bitmap != null && labels) ObservationEntities.DrawLabels(doc, bitmap, view.MainViewport,
+                    ObservationEntities.Roots(doc, ObservationEntities.ModelObjects(doc)), depth, warnings);
+                return bitmap;
+            }
+            using (var viewport = new RhinoViewport(view == null ? doc.Views.ActiveView.ActiveViewport : view.MainViewport))
             {
                 viewport.Size = sourceSize;
-                if (!viewport.SetViewProjection(namedView.Viewport, true))
+                if (namedView != null && !viewport.SetViewProjection(namedView.Viewport, true))
                     throw new InvalidOperationException("Could not apply the named view to a detached viewport.");
+                if (mode != null) viewport.DisplayMode = mode;
+                if (entities != null)
+                {
+                    var bounds = BoundingBox.Empty;
+                    foreach (var entity in entities) bounds.Union(entity.Bounds);
+                    if (!bounds.IsValid || !viewport.ZoomBoundingBox(bounds))
+                        throw new InvalidOperationException("The capture target has no frameable bounds.");
+                }
                 using (var settings = new ViewCaptureSettings(doc.Views.ActiveView, size, 96.0))
                 {
                     settings.Document = doc;
@@ -275,9 +347,39 @@ namespace RhinoAlmondBridge
                     settings.HeaderText = "";
                     settings.FooterText = "";
                     settings.SetLayout(size, new Rectangle(System.Drawing.Point.Empty, size));
-                    return ViewCapture.CaptureToBitmap(settings);
+                    var bitmap = ViewCapture.CaptureToBitmap(settings);
+                    if (bitmap != null && labels) ObservationEntities.DrawLabels(doc, bitmap, viewport,
+                        entities ?? ObservationEntities.Roots(doc, ObservationEntities.ModelObjects(doc)), depth, warnings);
+                    return bitmap;
                 }
             }
+        }
+
+        private static DisplayModeDescription ResolveDisplayMode(string value)
+        {
+            Guid id;
+            if (Guid.TryParse(value, out id)) return DisplayModeDescription.GetDisplayMode(id);
+            var matches = DisplayModeDescription.GetDisplayModes().Where(mode =>
+                String.Equals(mode.EnglishName, value, StringComparison.OrdinalIgnoreCase) ||
+                String.Equals(mode.LocalName, value, StringComparison.OrdinalIgnoreCase)).ToArray();
+            return matches.Length == 1 ? matches[0] : null;
+        }
+
+        private static JArray DisplayModes(JArray warnings)
+        {
+            var modes = DisplayModeDescription.GetDisplayModes();
+            if (modes.Length > 128) warnings.Add("display_modes: first 128 installed modes returned.");
+            return new JArray(modes.Take(128).Select(mode => new JObject
+                { ["name"] = mode.EnglishName, ["id"] = mode.Id.ToString() }));
+        }
+
+        private static bool ReadBoolean(JObject request, string name, bool fallback, out bool value)
+        {
+            value = fallback;
+            if (request[name] == null) return true;
+            if (request[name].Type != JTokenType.Boolean) return false;
+            value = (bool)request[name];
+            return true;
         }
 
         private static JObject ReadIdentity(RhinoDoc doc)
@@ -302,46 +404,6 @@ namespace RhinoAlmondBridge
             foreach (var obj in doc.Objects.GetObjectList(settings))
                 count = checked(count + 1);
             return count;
-        }
-
-        private static JObject ReadSelection(RhinoDoc doc, int limit, JArray warnings)
-        {
-            var objects = new JArray();
-            long total = 0;
-            foreach (var obj in doc.Objects.GetSelectedObjects(true, false))
-            {
-                if (obj == null)
-                    throw new InvalidOperationException("Selection enumeration returned a missing object.");
-                total = checked(total + 1);
-                if (objects.Count >= limit)
-                    continue;
-                string label = "selection.objects[" + objects.Count.ToString(CultureInfo.InvariantCulture) + "]";
-                objects.Add(new JObject
-                {
-                    ["id"] = Observe(label + ".id", () => new JValue(obj.Id.ToString()), warnings),
-                    ["name"] = Observe(label + ".name", () => new JValue(obj.Name ?? ""), warnings),
-                    ["layer"] = Observe(label + ".layer", () => new JValue(LayerPath(doc, obj)), warnings),
-                    ["type"] = Observe(label + ".type", () => new JValue(obj.ObjectType.ToString()), warnings)
-                });
-            }
-            return new JObject
-            {
-                ["total"] = total,
-                ["returned"] = objects.Count,
-                ["truncated"] = total > objects.Count,
-                ["objects"] = objects
-            };
-        }
-
-        private static string LayerPath(RhinoDoc doc, RhinoObject obj)
-        {
-            int index = obj.Attributes.LayerIndex;
-            if (index < 0 || index >= doc.Layers.Count)
-                throw new InvalidOperationException("Object layer index is outside the layer table.");
-            var layer = doc.Layers[index];
-            if (layer == null || layer.IsDeleted)
-                throw new InvalidOperationException("Object layer is unavailable or deleted.");
-            return layer.FullPath;
         }
 
         private static JObject ReadViewport(RhinoViewport viewport)

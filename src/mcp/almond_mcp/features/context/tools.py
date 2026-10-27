@@ -1,7 +1,7 @@
 """Live Rhino observations and local retrieval diagnostics."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
-from almond_mcp.managed_paths import bound_model_path
+from almond_mcp.query_output import query_output, project_query
+from almond_mcp.managed_paths import bound_model_path, relative_output
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import base64
@@ -38,23 +38,48 @@ def register(mcp, context):
     @tool_instruction(__file__, 'get_rhino_context')
     @query_output
     def get_rhino_context(selection_limit: StrictInt = 50, sections: list[str] | None = None,
-                          include_ids: StrictBool = False) -> str:
+                          include_ids: StrictBool = False, recursive: StrictBool = False,
+                          depth: StrictInt = 1, include_image: StrictBool = False) -> str | ToolResult:
         sections = ["document"] if sections is None else sections
-        if not isinstance(sections, list) or any(section not in ("document", "selection", "viewport") for section in sections):
-            return json.dumps(error_payload("sections must be an array of document, selection or viewport.", error_code="invalid_arguments"))
+        allowed = ("document", "selection", "viewport", "editor", "display_modes")
+        if not isinstance(sections, list) or any(section not in allowed for section in sections):
+            return json.dumps(error_payload("sections must contain document, selection, viewport, editor or display_modes.", error_code="invalid_arguments"))
         if type(selection_limit) is not int or not 0 <= selection_limit <= 200:
             return json.dumps(error_payload(
                 "selection_limit must be an integer from 0 to 200.",
                 error_code="invalid_arguments",
             ))
-        payload = json.dumps({"type": "get_rhino_context", "selection_limit": selection_limit, "sections": sections}).encode("utf-8")
+        if type(recursive) is not bool or type(depth) is not int or not 1 <= depth <= 8 or type(include_image) is not bool:
+            return json.dumps(error_payload("recursive/include_image must be booleans and depth an integer from 1 to 8.", error_code="invalid_arguments"))
+        payload = json.dumps({"type": "get_rhino_context", "selection_limit": selection_limit,
+                              "sections": sections, "recursive": recursive, "depth": depth,
+                              "include_image": include_image}).encode("utf-8")
         try:
             result = json.loads(context._send_and_receive(payload))
+            compact_editor = any(section in ("document", "selection", "viewport") for section in sections)
             # An older Bridge may collect extra sections; never expose them as requested data.
-            for section in ("document", "selection", "viewport"):
-                if section not in sections:
+            for section in allowed:
+                if section not in sections and not (section == "editor" and compact_editor):
                     result.pop(section, None)
+            if (compact_editor or "editor" in sections) and result.get("status") == "success":
+                editor = result.setdefault("editor", {"mode": "unknown", "target": None, "stable": False})
+                if "editor" not in sections:
+                    result["editor"] = {key: editor.get(key) for key in ("mode", "target", "stable")}
             result.pop("capabilities", None)
+            captured = result.pop("image", None)
+            if include_image:
+                images = []
+                if captured is not None:
+                    capture = _capture_result({"status": "success", "image": captured}, "", 50, False)
+                    if capture.is_error:
+                        result["image_error"] = capture.structured_content
+                    else:
+                        images = capture.content
+                elif "image_error" not in result:
+                    result["image_error"] = error_payload("The Bridge did not provide the requested image.", error_code="unsupported_capture")
+                metadata = relative_output(project_query(result, include_ids=include_ids))
+                return ToolResult(content=[TextContent(type="text", text=json.dumps(metadata, ensure_ascii=False)), *images],
+                                  is_error=result.get("status") != "success")
             return json.dumps(result, ensure_ascii=False)
         except Exception as exc:
             return json.dumps(error_payload(
@@ -78,6 +103,13 @@ def register(mcp, context):
                 "A fixed probe, options object and expected_model_path are required.",
                 error_code="invalid_arguments",
             ))
+        fields = options.get("field_groups")
+        if probe == "outline" and "field_groups" in options and (
+                not isinstance(fields, list) or not fields or
+                any(not isinstance(group, str) or group not in ("summary", "objects", "annotations", "transforms") for group in fields)):
+            return json.dumps(error_payload(
+                "outline field_groups must be a nonempty array of summary, objects, annotations or transforms.",
+                error_code="invalid_arguments"))
         try:
             payload = json.dumps({"type": "get_rhino_probe", "probe": probe, "options": options,
                                   "expected_model_path": expected_model_path}, allow_nan=False).encode("utf-8")
@@ -118,13 +150,32 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_rhino_viewport_image')
     def get_rhino_viewport_image(view: str = "", scale_percent: StrictInt = 50,
-                                 include_usage: StrictBool = False) -> ToolResult:
+                                 include_usage: StrictBool = False, display_mode: str = "",
+                                 labels: StrictBool = True, depth: StrictInt = 1,
+                                 target_kind: str = "view", target_id: str = "") -> ToolResult:
         if (not isinstance(view, str) or type(scale_percent) is not int or
                 not 1 <= scale_percent <= 100 or type(include_usage) is not bool):
             return _viewport_result(error_payload(
                 "view must be a string, scale_percent an integer from 1 to 100, and include_usage a boolean.",
                 error_code="invalid_arguments",
             ))
+        if (not isinstance(display_mode, str) or len(display_mode) > 512 or type(labels) is not bool
+                or type(depth) is not int or not 1 <= depth <= 8
+                or target_kind not in ("view", "group", "block") or not isinstance(target_id, str)):
+            return _viewport_result(error_payload(
+                "Use a display mode name/GUID, boolean labels, depth 1..8 and target_kind view/group/block.",
+                error_code="invalid_arguments"))
+        if target_kind == "view":
+            if target_id:
+                return _viewport_result(error_payload("Use view for a viewport/Named View/Layout GUID.", error_code="invalid_arguments"))
+        else:
+            try:
+                uuid.UUID(target_id)
+                if view:
+                    raise ValueError("view cannot be combined with a group/block target.")
+            except (ValueError, TypeError, AttributeError):
+                return _viewport_result(error_payload(
+                    "Group/block captures require target_id as a GUID and an empty view.", error_code="invalid_arguments"))
         view = view.strip().lower()
         if view not in ("", "a"):
             try:
@@ -135,7 +186,9 @@ def register(mcp, context):
                     error_code="invalid_arguments",
                 ))
         payload = json.dumps({"type": "get_rhino_viewport_image", "view": view,
-                              "scale_percent": scale_percent}).encode("utf-8")
+                              "scale_percent": scale_percent, "display_mode": display_mode,
+                              "labels": labels, "depth": depth, "target_kind": target_kind,
+                              "target_id": target_id}).encode("utf-8")
         try:
             response = json.loads(context._send_and_receive(payload))
         except Exception as exc:
@@ -148,6 +201,9 @@ def register(mcp, context):
                 "The viewport response must be a JSON object.",
                 error_code="invalid_capture_response",
             ))
+        return _capture_result(response, view, scale_percent, include_usage)
+
+    def _capture_result(response: dict, view: str, scale_percent: int, include_usage: bool) -> ToolResult:
         if response.get("status") != "success":
             response.pop("image", None)
             return _viewport_result(response)
@@ -192,6 +248,8 @@ def register(mcp, context):
                 error_code="invalid_capture_response",
             ))
         content = [ImageContent(type="image", data=encoded, mimeType="image/png")]
+        if response.get("warnings"):
+            content.append(TextContent(type="text", text=json.dumps({"warnings": response["warnings"]}, ensure_ascii=False)))
         if include_usage:
             # Pixel patches, not compressed PNG bytes, drive this example estimate.
             # The client model/detail is not supplied by MCP; never call it actual usage.

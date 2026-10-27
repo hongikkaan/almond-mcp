@@ -115,3 +115,16 @@ Use a unique output directory and `-p:AssemblyName=...` for a changed fixture if
 an earlier test assembly is already loaded. Do not overwrite loaded assemblies.
 These linked-source tests and a successful product build are separate from
 loading the candidate RHP and receiving an actual image through the MCP client.
+
+The observation suite also has a CLI-only NoWindow host for its disposable headless
+cases. Build `ObservationFixtureHost.csproj`, then pass its executable one new report
+path under the checkout's ignored `data` directory. It verifies grouped/partial
+selection, bounded UTF-8 summaries, editor baseline/transient rejection and an
+unsupported provider loaded after startup. It never opens a user model or loads the
+candidate RHP. This host cannot prove actual viewport rendering.
+
+In the separate empty Rhino CLI process, `ObservationTests.RunImageTargets(directory)`
+also checks detached Shaded/default and explicit Wireframe captures, transient label
+pixels, group/block framing, and a controlled active-camera move during a Named View
+capture. Production code must preserve selection, geometry, attributes, layers and
+Undo; only the disposable fixture arranges/restores its own view for these cases.
