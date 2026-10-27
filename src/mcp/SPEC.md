@@ -202,7 +202,7 @@ API/DB의 기존 `component_id`, `Plan`, `plan_id`는 유지하며 표시 의미
 `ontological-component`, Task로 설명한다.
 
 조회 응답은 JSON TextContent 1개와 선택한 ImageContent다. `guide_version`은 manifest의
-SHA-256이며 본문·사진·시작 안내·배분 정보를 식별한다. index나 다른 주제에는 사진이 붙지
+SHA-256이며 본문·사진·시작 안내·프로젝트 안내·배분 정보를 식별한다. index나 다른 주제에는 사진이 붙지
 않는다. 알 수 없는 ID·경로·URL은 오류이고, 이미지 스위치는 실제 boolean만 받는다.
 reader는 모델·작업 DB·사용자 산출물을 수정하지 않지만 연결된 호출의 binding 검사·잠금·
 native control·operation receipt는 기존 경로를 따른다. 외부 클라이언트는 연결 후
@@ -220,6 +220,8 @@ sdist에는 원본과 생성기도 포함된다. 실행 중 개인 스킬 경로
 개선할 수 있다. COS의 project_info 설명도 공통 설명을 유지한다. 일반 응답에 전체 스킬을
 반복해서 덧붙이지 않는다. source fingerprint는 새 연결·worker 시작 시 안내 본문·manifest·PNG
 변경도 감지한다. 이미 실행 중인 세션은 읽어 둔 snapshot을 사용한다.
+`project_info(sections=["instructions"])`도 시작 안내와 프로젝트 안내를 같은 snapshot에서
+반환하므로, 세션 도중 파일을 바꿔도 주제 조회와 안내 버전이 섞이지 않는다.
 
 통합·배포 뒤 관련 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
 `get_modeling_guide()`의 version·목록을 확인하고 필요한 주제·사진을 조회한다. Python 안내만

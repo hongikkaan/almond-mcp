@@ -10,6 +10,7 @@ The existing sender wrapper adds connection/request identity in this process onl
 """
 from __future__ import annotations
 from almond_mcp.instruction_text import tool_instruction, read_instruction
+from almond_mcp.modeling_guidance import project_instructions
 
 import argparse
 import asyncio
@@ -126,10 +127,7 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
                 "rhino_temp_note": "Rhino process TEMP at attach, not the artifact folder.",
                 "python_executable": sys.executable, "attachment": binding.get("attachment", "external")})
         if "instructions" in sections:
-            import almond_mcp
-            instruction_dir = Path(almond_mcp.__file__).parent
-            result["instructions"] = '\n\n'.join((instruction_dir / name).read_text(encoding='utf-8').strip()
-                for name in ('FUNDAMENTAL-INSTRUCTIONS.md', 'MODEL-CONTEXT-INSTRUCTIONS.md'))
+            result["instructions"] = project_instructions()
         return result
 
     @mcp.tool()

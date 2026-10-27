@@ -85,6 +85,7 @@ def build() -> dict[str, bytes]:
     manifest = {"format": 1, "topics": topics, "tool_hints": hints,
                 "files": {name: digest(raw) for name, raw in sorted(output.items())},
                 "startup_sha256": digest(source(PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md")),
+                "model_context_sha256": digest(source(PACKAGE / "MODEL-CONTEXT-INSTRUCTIONS.md")),
                 "source_files": sources,
                 "excluded_sections": mapping["excluded_sections"]}
     encoded = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")

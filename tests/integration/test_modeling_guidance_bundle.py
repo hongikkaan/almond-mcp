@@ -87,6 +87,7 @@ def test_text_image_and_manifest_changes_invalidate_existing_host(name, tmp_path
     'skills/rhino-almond/SKILL.md',
     'skills/rhino-almond/references/assets/roof-drainage.png',
     'src/mcp/almond_mcp/FUNDAMENTAL-INSTRUCTIONS.md',
+    'src/mcp/almond_mcp/MODEL-CONTEXT-INSTRUCTIONS.md',
 ])
 def test_generation_rejects_changed_inputs_before_returning_publishable_files(relative, monkeypatch):
     builder = runpy.run_path(str(ROOT / 'src/mcp/tools/build_modeling_guides.py'))
@@ -107,3 +108,20 @@ def test_generation_rejects_changed_inputs_before_returning_publishable_files(re
     with pytest.raises(RuntimeError, match='source changed during generation'):
         builder['build']()
     assert reads == 2
+
+
+def test_model_context_content_participates_in_guide_version(monkeypatch):
+    builder = runpy.run_path(str(ROOT / 'src/mcp/tools/build_modeling_guides.py'))
+    before = json.loads(builder['build']()['manifest.json'])
+    original_read = Path.read_bytes
+    target = (ROOT / 'src/mcp/almond_mcp/MODEL-CONTEXT-INSTRUCTIONS.md').resolve()
+
+    def changed_read(path):
+        raw = original_read(path)
+        return raw + b'\nNew project guidance.\n' if path.resolve() == target else raw
+
+    monkeypatch.setattr(Path, 'read_bytes', changed_read)
+    after = json.loads(builder['build']()['manifest.json'])
+    assert after['model_context_sha256'] != before['model_context_sha256']
+    assert after['guide_version'] != before['guide_version']
+    assert after['files'] == before['files']
