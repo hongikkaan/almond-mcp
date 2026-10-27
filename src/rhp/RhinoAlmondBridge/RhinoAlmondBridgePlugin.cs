@@ -23,6 +23,20 @@ namespace RhinoAlmondBridge
         // session attaches. Loading this plugin does not start a server.
         public override PlugInLoadTime LoadTime => PlugInLoadTime.AtStartup;
 
+        protected override bool ShouldCallWriteDocument(Rhino.FileIO.FileWriteOptions options) => true;
+
+        protected override void WriteDocument(RhinoDoc doc, Rhino.FileIO.BinaryArchiveWriter archive,
+            Rhino.FileIO.FileWriteOptions options)
+        {
+            ComponentSemanticRegistry.Write(doc, archive);
+        }
+
+        protected override void ReadDocument(RhinoDoc doc, Rhino.FileIO.BinaryArchiveReader archive,
+            Rhino.FileIO.FileReadOptions options)
+        {
+            ComponentSemanticRegistry.Read(doc, archive, options);
+        }
+
         protected override LoadReturnCode OnLoad(ref string errorMessage)
         {
             RhinoApp.WriteLine("RhinoAlmondBridge: Loading MCP Bridge plugin...");
