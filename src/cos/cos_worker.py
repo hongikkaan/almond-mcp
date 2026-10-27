@@ -1,4 +1,7 @@
-"""One bound Almond process, launched only by the AlmondCOS stdio host."""
+"""One bound Almond process, launched only by the shared external MCP host.
+
+The filename, environment keys and attachment=cos are native compatibility IDs.
+"""
 from __future__ import annotations
 
 import argparse
@@ -15,13 +18,13 @@ def validate_cos_binding(entry, args, binding, locations):
     current, _ = entry.read_binding(args.session, args.token)
     if (current != binding or current.get("attachment") != "cos"
             or current.get("storage_protocol") != 2):
-        raise RuntimeError("COS binding changed while the worker was acquiring its lease.")
+        raise RuntimeError("External binding changed while the worker was acquiring its lease.")
 
 
 async def configure_cos(mcp, args, binding, locations, runtime, catalog):
     """Use engine extension hooks and the public runtime's completion receipt."""
     if binding.get("attachment") != "cos" or binding.get("storage_protocol") != 2:
-        raise RuntimeError("This entry point requires a protocol-2 COS-owned binding.")
+        raise RuntimeError("This entry point requires a protocol-2 external binding (attachment=cos).")
     before = [t.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
               for t in await mcp.list_tools()]
     validate_worker_tools(catalog, before)
@@ -64,5 +67,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         raise SystemExit(130)
     except Exception as exc:
-        print(f"[AlmondCOS worker] {exc}", file=sys.stderr)
+        print(f"[Almond external worker] {exc}", file=sys.stderr)
         raise SystemExit(1)

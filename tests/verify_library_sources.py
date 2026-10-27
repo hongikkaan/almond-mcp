@@ -256,7 +256,7 @@ async def run():
     sys.path.insert(0, str(COS))
     from almond_mcp import paths, __version__
     from runtime import check_contract, load_catalog
-    from cos_host import exposed_tools
+    from external_host import exposed_tools
 
     catalog = await asyncio.to_thread(load_catalog)
     check_contract(catalog)

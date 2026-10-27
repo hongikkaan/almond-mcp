@@ -6,7 +6,7 @@
 | 모듈 | 책임 | 상세 계약·작업 지침 |
 |---|---|---|
 | MCP | 모델링 도구·계산·자산 API, CLI와 Python 실행기 | [SPEC](src/mcp/SPEC.md) · [AGENTS](src/mcp/AGENTS.md) |
-| COS | Chat on Steroids host/worker와 Rhino COS 플러그인 | [SPEC](src/cos/SPEC.md) · [AGENTS](src/cos/AGENTS.md) |
+| 외부 연결기·COS | Codex 직접/CoS 경유 진입점, 공용 외부 host/worker와 기존 Rhino COS 플러그인 | [SPEC](src/cos/SPEC.md) · [AGENTS](src/cos/AGENTS.md) |
 | RHP | Rhino Bridge·패널·Terminal과 공용 native Engine | [SPEC](src/rhp/SPEC.md) · [AGENTS](src/rhp/AGENTS.md) |
 | 호환 진입점 | 기존 시작 버튼과 Python 환경 위치 보존 | [설명](src/engine/README.md) |
 

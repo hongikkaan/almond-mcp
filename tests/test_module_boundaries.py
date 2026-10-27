@@ -23,7 +23,7 @@ def test_mcp_implementation_and_tests_do_not_import_cos():
 
 def test_native_project_references_exist_and_have_no_cycles():
     projects = [p for p in (ROOT / 'src').rglob('*.csproj')
-                if not any(part in {'data', 'bin', 'obj', 'plugin-runtime'} for part in p.parts)]
+                if not any(part in {'data', 'bin', 'obj', 'plugin-runtime'} for part in p.relative_to(ROOT).parts)]
     edges = {}
     for project in projects:
         references = []

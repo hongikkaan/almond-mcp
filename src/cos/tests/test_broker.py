@@ -4,7 +4,7 @@ from contextlib import ExitStack
 import unittest
 
 import mcp_types as types
-from cos_host import Broker
+from external_host import Broker
 
 
 CATALOG = {"tools": [{

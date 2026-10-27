@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from build_catalog import checked_stub, collect_tool_functions, generate
 from runtime import check_contract, load_catalog
-from cos_host import exposed_tools
+from external_host import exposed_tools
 
 
 class CatalogTests(unittest.IsolatedAsyncioTestCase):

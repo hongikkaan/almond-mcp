@@ -12,7 +12,7 @@ class ClientConfigTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory(prefix="almond client ' ")
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        for relative in ("src/engine/.venv/Scripts/python.exe", "src/cos/cos_host.py"):
+        for relative in ("src/engine/.venv/Scripts/python.exe", "src/cos/codex_host.py"):
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()
@@ -21,7 +21,7 @@ class ClientConfigTests(unittest.TestCase):
     def test_toml_preserves_windows_paths_and_required_client_settings(self):
         parsed = tomllib.loads(codex_toml(self.config))["mcp_servers"]["rhino"]
         self.assertEqual(parsed, self.config)
-        self.assertEqual(parsed["args"][-1], str(self.root / "src/cos/cos_host.py"))
+        self.assertEqual(parsed["args"][-1], str(self.root / "src/cos/codex_host.py"))
         self.assertEqual(parsed["tool_timeout_sec"], 600)
         self.assertIn("LOCALAPPDATA", parsed["env_vars"])
         self.assertNotIn("ALMONDCOS_SESSION_TOKEN", parsed["env_vars"])
@@ -65,7 +65,7 @@ class ClientConfigTests(unittest.TestCase):
         path = self.root / "new.toml"
         self.assertIsNone(install_codex(path, self.config))
         self.assertEqual(tomllib.loads(path.read_text())["mcp_servers"]["rhino"], self.config)
-        (self.root / "src/cos/cos_host.py").unlink()
+        (self.root / "src/cos/codex_host.py").unlink()
         with self.assertRaisesRegex(ValueError, "Missing runtime"):
             settings(self.root)
 
@@ -91,4 +91,40 @@ class ClientConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 install_codex(path, self.config)
             self.assertEqual(path.read_text(encoding="utf-8"), original)
+        self.assertFalse(list(self.root.glob("*.almond-backup-*")))
+
+    def test_owned_shared_host_is_migrated_to_the_direct_entry(self):
+        old = dict(self.config, args=[*self.config["args"][:-1], str(self.root / "src/cos/cos_host.py")])
+        for name in ("rhino", "almond_cos"):
+            with self.subTest(name=name):
+                path = self.root / (name + ".toml")
+                original = '# user comment\nmodel="gpt-6-astra"\n' + codex_toml(old).replace("mcp_servers.rhino", "mcp_servers." + name)
+                path.write_text(original, encoding="utf-8")
+                backup = install_codex(path, self.config)
+                self.assertEqual(backup.read_text(encoding="utf-8"), original)
+                parsed = tomllib.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(parsed["mcp_servers"], {"rhino": self.config})
+                self.assertEqual(parsed["model"], "gpt-6-astra")
+                self.assertIsNone(install_codex(path, self.config))
+
+    def test_shared_host_migration_preserves_inline_comments(self):
+        old = dict(self.config, args=[*self.config["args"][:-1], str(self.root / "src/cos/cos_host.py")])
+        original = codex_toml(old).replace(json.dumps(old["args"], ensure_ascii=False),
+                                          json.dumps(old["args"], ensure_ascii=False) + "  # user note")
+        path = self.root / "comment.toml"
+        path.write_text(original, encoding="utf-8")
+        backup = install_codex(path, self.config)
+        self.assertEqual(backup.read_text(encoding="utf-8"), original)
+        self.assertIn("  # user note", path.read_text(encoding="utf-8"))
+        self.assertEqual(tomllib.loads(path.read_text(encoding="utf-8"))["mcp_servers"]["rhino"], self.config)
+
+    def test_unfamiliar_equivalent_args_syntax_is_preserved_without_changes(self):
+        old = dict(self.config, args=[*self.config["args"][:-1], str(self.root / "src/cos/cos_host.py")])
+        original = codex_toml(old).replace(json.dumps(old["args"], ensure_ascii=False),
+                                          json.dumps(old["args"], ensure_ascii=False, indent=2))
+        path = self.root / "multiline.toml"
+        path.write_text(original, encoding="utf-8")
+        with self.assertRaises(ValueError):
+            install_codex(path, self.config)
+        self.assertEqual(path.read_text(encoding="utf-8"), original)
         self.assertFalse(list(self.root.glob("*.almond-backup-*")))
