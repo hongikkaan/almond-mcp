@@ -27,7 +27,7 @@ namespace RhinoAlmondBridge
                     return Reject("document_mismatch", "The active document differs from the bound model.");
                 if (!String.Equals(Path.GetExtension(path), ".3dm", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
                     return Reject("unsaved_document", "Save the document to a .3dm file before connecting.");
-                if ((File.GetAttributes(path) & FileAttributes.ReadOnly) != 0)
+                if (doc.IsReadOnly || (File.GetAttributes(path) & FileAttributes.ReadOnly) != 0)
                     return Reject("read_only_file", "The bound model file is read-only.");
                 JObject editing = EditingContext.Observe(doc);
                 if (editing["stable"]?.Type != JTokenType.Boolean || (bool)editing["stable"] != true)

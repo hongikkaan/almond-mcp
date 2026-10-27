@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using Rhino;
+using Rhino.DocObjects;
 using Rhino.FileIO;
 using Rhino.Geometry;
 using RhinoAlmondBridge;
@@ -46,8 +47,26 @@ namespace AlmondScriptUndoTests
                     finally { File.SetAttributes(path, attributes); }
                     lines.Add("PASS Given a read-only model, saving rejects without prompting");
 
-                    Guid id = doc.Objects.AddLine(Point3d.Origin, new Point3d(10, 20, 30));
+                    uint record = doc.BeginUndoRecord("Unstable save fixture");
+                    Check(record != 0, "Could not open the fixture Undo record.");
+                    try
+                    {
+                        var unstable = DocumentSave.Handle(doc, request);
+                        Check((string)unstable["error_code"] == "editing_context_unstable" && (bool)unstable["saved"] == false,
+                            "An unconfirmed editing context was not rejected: " + unstable);
+                        Check(original.SequenceEqual(File.ReadAllBytes(path)), "An unstable save changed the file.");
+                    }
+                    finally { doc.EndUndoRecord(record); }
+                    lines.Add("PASS Given an unstable editing context, saving rejects without changing the file");
+
+                    int layer = doc.Layers.Add(new Layer { Name = "Saved layer" });
+                    var objectAttributes = new ObjectAttributes { Name = "Saved object", LayerIndex = layer };
+                    objectAttributes.SetUserString("user-note", "preserve this");
+                    Guid id = doc.Objects.AddLine(Point3d.Origin, new Point3d(10, 20, 30), objectAttributes);
                     Check(id != Guid.Empty, "Could not add the fixture object.");
+                    var view = doc.Views.ActiveView;
+                    Check(view != null, "Expected a foreground viewport.");
+                    Check(doc.NamedViews.Add("Saved view", view.MainViewport.Id) >= 0, "Could not add a named view.");
                     var editing = EditingContext.Observe(doc);
                     Check((bool?)editing["stable"] == true, "Disposable fixture has no confirmed stable model context: " + editing);
                     var saved = DocumentSave.Handle(doc, request);
@@ -55,13 +74,20 @@ namespace AlmondScriptUndoTests
                         "Noninteractive save was not confirmed: " + saved);
                     Check(String.Equals(doc.Path, path, StringComparison.OrdinalIgnoreCase), "Save changed the document path.");
                     using (var disk = File3dm.Read(path))
-                        Check(disk != null && disk.Objects.Any(item => item.Attributes.ObjectId == id), "Saved geometry is absent from disk.");
+                    {
+                        var item = disk == null ? null : disk.Objects.FirstOrDefault(value => value.Attributes.ObjectId == id);
+                        Check(item != null, "Saved geometry is absent from disk.");
+                        Check(item.Attributes.Name == "Saved object" && item.Attributes.GetUserString("user-note") == "preserve this",
+                            "Save lost user object attributes.");
+                        Check(disk.AllLayers.Any(value => value.Name == "Saved layer") &&
+                            disk.NamedViews.Any(value => value.Name == "Saved view"), "Save lost document layers or named views.");
+                    }
                     Check(!doc.UndoRecordingIsActive && !doc.UndoActive && !doc.RedoActive, "Save left an Undo operation active.");
-                    lines.Add("PASS Given a stable bound model, saving writes all geometry and reports actual modified state");
+                    lines.Add("PASS Given a stable bound model, saving preserves geometry, user attributes, layers and named views and reports actual modified state");
                 }
                 finally { doc.Modified = false; }
             }
-            return String.Join(Environment.NewLine, lines);
+            return String.Join(System.Environment.NewLine, lines);
         }
 
         private static void Check(bool value, string message)
