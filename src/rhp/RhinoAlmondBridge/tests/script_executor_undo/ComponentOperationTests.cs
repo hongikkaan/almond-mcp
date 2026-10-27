@@ -12,9 +12,60 @@ namespace AlmondScriptUndoTests
 {
     public static class ComponentOperationTests
     {
+        public static string RunUnavailableCases(string directory)
+        {
+            var lines = new List<string>();
+            RunUnavailableCases(lines, directory);
+            string report = String.Join("\n", lines);
+            if (lines.Any(line => line.StartsWith("FAIL "))) throw new InvalidOperationException(report);
+            return report + "\nPASS: " + lines.Count + "/" + lines.Count + " unavailable Component operation cases.";
+        }
+
+        private static void RunUnavailableCases(List<string> lines, string directory)
+        {
+            foreach (bool unregister in new[] { false, true })
+                RunView(lines, directory, doc =>
+                {
+                    Guid valid = Box(doc, 0), unavailable = Box(doc, 5);
+                    int validGroup = doc.Groups.Add("Available", new[] { valid });
+                    int unavailableGroup = doc.Groups.Add("Unavailable", new[] { unavailable });
+                    foreach (var item in new[] { new { Id = "valid", Group = validGroup, Object = valid },
+                                                 new { Id = "unavailable", Group = unavailableGroup, Object = unavailable } })
+                        Success(ComponentRegistry.Handle(doc, new JObject {
+                            ["action"] = "upsert", ["expected_model_path"] = doc.Path,
+                            ["component_id"] = item.Id, ["name"] = doc.Groups[item.Group].Name,
+                            ["rhino_group_id"] = doc.Groups[item.Group].Id.ToString("D"),
+                            ["scene_ids"] = new JArray("scene"), ["object_ids"] = new JArray(item.Object.ToString("D"))
+                        }));
+                    if (unregister)
+                        Success(ComponentRegistry.Handle(doc, new JObject {
+                            ["action"] = "unregister", ["expected_model_path"] = doc.Path, ["component_id"] = "unavailable"
+                        }));
+                    else Check(doc.Groups.Delete(unavailableGroup), "Group deletion fixture failed.");
+                    var inspection = Success(ComponentRegistry.Handle(doc, new JObject {
+                        ["action"] = "inspect", ["expected_model_path"] = doc.Path, ["component_id"] = "unavailable"
+                    }));
+                    Check((string)inspection["component"]["availability"] == (unregister ? "unregistered" : "missing_group"),
+                        "Unavailable observation must remain usable for alignment: " + inspection);
+                    Check(doc.Objects.FindId(unavailable) != null && !doc.Objects.FindId(unavailable).IsDeleted,
+                        "The unavailable group's overlapping geometry must still exist.");
+                    var before = State(doc);
+                    foreach (string action in new[] { "intersections", "focus" })
+                    {
+                        var result = ComponentOperations.Handle(doc, new JObject {
+                            ["action"] = action, ["expected_model_path"] = doc.Path,
+                            ["component_ids"] = new JArray("valid", "unavailable")
+                        });
+                        Rejected(result);
+                        Unchanged(before, doc);
+                    }
+                }, (unregister ? "Unregistered" : "Missing-group") + " mixed targets reject intersections and focus without mutation");
+        }
+
         public static string RunAll(string directory)
         {
             var lines = new List<string>();
+            RunUnavailableCases(lines, directory);
             Run(lines, "Intersection broadphase and volume preserve the document", doc =>
             {
                 Guid a = Box(doc, 0), b = Box(doc, 5), far = Box(doc, 100);
@@ -193,9 +244,9 @@ namespace AlmondScriptUndoTests
             }
         }
 
-        private static void RunView(List<string> lines, string directory, Action<RhinoDoc> test)
+        private static void RunView(List<string> lines, string directory, Action<RhinoDoc> test,
+            string name = "Isolate and ZoomSelected preflight, native restore and geometry preservation")
         {
-            const string name = "Isolate and ZoomSelected preflight, native restore and geometry preservation";
             string path = Path.Combine(directory, "component-focus-" + Guid.NewGuid().ToString("N") + ".3dm");
             try
             {

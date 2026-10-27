@@ -53,13 +53,16 @@ regular-document fixtures from a working Rhino session.
 | `ModelingTests` | 101-object shared render material, explicit construction layers, material changes preserving object layers, metadata validation, Undo/Redo |
 | `ComponentHierarchyTests` | Existing-group registration without stamps, manual group truth, isolated legacy migration, semantic hierarchy, Scene scope, Undo/Redo, presence proof and archive recovery |
 | `DrawingSheetTests` | Real Layout/detail identities, updates, physical scale in mixed model/page units, unregister preservation |
-| `ComponentOperationTests` | Exact overlap evidence, incomplete coverage, nested target resolution, Isolate/Unisolate and ZoomSelected |
+| `ComponentOperationTests` | Exact overlap evidence, incomplete coverage, unavailable mixed-target rejection, nested target resolution, Isolate/Unisolate and ZoomSelected |
 | `DrawingAssetGeometryTests` | Prepared 3DM extraction, nested block transforms, source/artifact hashes, units/origin/unsupported-geometry rejection |
 | `DrawingAssetPlacementTests` | Millimeter and meter documents, source revisions, definition reuse, prevalidation and placement Undo |
 
 Read the full reflected inner exception on failure. Each regular-document
 fixture marks only its own disposable document unmodified before closing it.
 Close the isolated test process normally before rebuilding the same assembly.
+For the unavailable-target regression alone, invoke
+`ComponentOperationTests.RunUnavailableCases(string directory)`; it checks both
+intersections and focus with missing-group and unregistered mixed targets.
 
 Real Component archive roundtrips additionally require the test-only
 `SemanticRegistryFixturePlugin` (GUID `fcf793c0-6937-4c4f-9d2b-c3c65f4df8e1`).
