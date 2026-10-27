@@ -97,3 +97,12 @@ ID로 호출하면 이미 시작한 프로세스만 재조회한다. connect가 
 COS 전용 C# 변경은 COS manifest만 갱신한다. Engine을 변경하면 두 소비자 RHP를
 빌드하고 루트 통합 검사로 DLL 일치까지 확인한다. MCP 공개 도구 변경에 따른
 자동 schema 추출과 실제 worker의 일치도 통합 검사 대상이다.
+
+## 공통 모델링 안내
+
+외부 host의 초기화는 MCP package의 짧은 시작 안내를 제공한다. `project_info`도 원본 도구
+설명을 유지하므로 document의 live 조회와 선택 instructions 항목이 정확히 안내된다.
+`get_modeling_guide`는 기존 worker 도구 전달 경로를 사용한다. 연결 후 connection_id가
+필요하며 control·binding·receipt 예외를 추가하지 않는다. 텍스트·선택 이미지 content를
+그대로 전달한다. bundle Markdown·manifest·PNG도 session source fingerprint에 포함한다.
+주제 계약과 갱신 절차는 [MCP SPEC](../mcp/SPEC.md#모델링-안내-전달)을 따른다.

@@ -28,7 +28,7 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
         generated = await generate()
         self.assertNotIn("almond_mcp.server", sys.modules)
         self.assertEqual(generated, await asyncio.to_thread(load_catalog))
-        self.assertEqual(len(generated["tools"]), 77)
+        self.assertEqual(len(generated["tools"]), 78)
         check_contract(generated)
 
     def test_only_a_direct_toolresult_return_is_allowed(self):

@@ -31,6 +31,7 @@ def test_factory_registers_only_guidance_tools_and_preserves_schema(context):
     mcp = FastMCP("guidance-contract")
     exports = register(mcp, context)
     expected = {
+        "get_modeling_guide": {"topic": ("string", "index"), "include_images": ("boolean", False)},
         "get_construction_guidance": {
             "query": ("string", ""), "category": ("string", ""),
             "material": ("string", ""), "structure_type": ("string", ""),
@@ -48,7 +49,8 @@ def test_factory_registers_only_guidance_tools_and_preserves_schema(context):
             tools = {tool.name: tool for tool in await client.list_tools()}
             assert set(tools) == set(exports) == set(expected)
             for name, fields in expected.items():
-                fields = {**fields, "include_ids": ("boolean", False)}
+                if name != "get_modeling_guide":
+                    fields = {**fields, "include_ids": ("boolean", False)}
                 schema = tools[name].input_schema
                 assert set(schema["properties"]) == set(fields)
                 assert not schema.get("required")

@@ -21,6 +21,7 @@ from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.server.lowlevel.server import Server
 from mcp.server.stdio import stdio_server
+from almond_mcp.modeling_guidance import startup_instructions
 
 from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_contract, catalog_identity,
                      load_catalog, validate_worker_tools)
@@ -56,8 +57,6 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         tool = json.loads(json.dumps(original))
         name = original["name"]
         description = original.get("description", "")
-        if name == "project_info":
-            description = "Read this connection's saved model, artifact_dir and Almond usage instructions before Rhino actions. This metadata does not execute Rhino code."
         tool["description"] = description
         schema = tool["inputSchema"]
         if schema.get("type") != "object" or "connection_id" in schema.get("properties", {}):
@@ -670,7 +669,7 @@ async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos
         return await broker.call(params.name, params.arguments or {})
 
     # The worker's initialize instructions do not reach this host's client.
-    server = Server(CLIENT_NAMES[client], version=VERSION, instructions="",
+    server = Server(CLIENT_NAMES[client], version=VERSION, instructions=startup_instructions(),
                     get_tool_input_schema=schemas.get,
                     on_list_tools=on_list_tools, on_call_tool=on_call_tool)
     try:

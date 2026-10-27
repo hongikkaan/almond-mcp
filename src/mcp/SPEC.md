@@ -62,7 +62,7 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 
 ### 공개 도구 위치
 
-아래 73개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`을 포함한 COS 입력 catalog는 77개이며, COS의 연결관리 도구는 별도로 유지한다.
+아래 74개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`을 포함한 COS 입력 catalog는 78개이며, COS의 연결관리 도구는 별도로 유지한다.
 
 | 기능 | 공개 함수 |
 |---|---|
@@ -71,7 +71,7 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 | Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `register_scene_objects`, `get_scene_objects` |
 | Component | `upsert_design_component`, `get_design_component`, `list_design_components`, `sync_design_component`, `remove_design_component`, `get_component_intersections`, `focus_components` |
 | 배치 | `upsert_design_room`, `register_scene_instance`, `remove_scene_instance`, `remove_design_room`, `validate_scene_layout` |
-| 설계 참고자료 | `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
+| 설계 참고자료 | `get_modeling_guide`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
 | 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `setup_modeling`, `list_materials`, `assign_material` |
 | Grasshopper | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` |
 | 자산 | `list_drawing_assets`, `search_drawing_assets`, `get_drawing_asset`, `register_drawing_asset`, `get_asset_drawing`, `generate_asset_drawing_views`, `audit_asset_drawing`, `place_drawing_asset`, `search_asset_repository` |
@@ -191,3 +191,37 @@ Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서
 파일과 DB의 현재 자료 참조를 대조해 보존 자료를 `tmp/YYMMDD_name`으로 옮기고 현재 참조도
 함께 갱신한다. 당시 경로를 포함한 과거 revision과 미완료 작업 상태는 유지한다. 이전 완료 후
 빈 구형 호출 폴더는 종료된 연결 정리에서 회수한다. 새 scratch와 구형 작업자료를 혼동하지 않는다.
+
+## 모델링 안내 전달
+
+개인 `rhino-almond` 스킬 설치 없이 시작 안내와 도구 설명에서 필요한 주제를 찾는다.
+`get_modeling_guide()`는 14개 주제의 ID·제목·읽을 조건만 돌려준다. 필요한 주제 ID로
+`get_modeling_guide(topic="blocks")`처럼 조회한다. `ontological-component-evidence`는
+사용자 사례 원문이며, `include_images=true`일 때만 원본 PNG 2장을 함께 반환한다.
+API/DB의 기존 `component_id`, `Plan`, `plan_id`는 유지하며 표시 의미는
+`ontological-component`, Task로 설명한다.
+
+조회 응답은 JSON TextContent 1개와 선택한 ImageContent다. `guide_version`은 manifest의
+SHA-256이며 본문·사진·시작 안내·배분 정보를 식별한다. index나 다른 주제에는 사진이 붙지
+않는다. 알 수 없는 ID·경로·URL은 오류이고, 이미지 스위치는 실제 boolean만 받는다.
+reader는 모델·작업 DB·사용자 산출물을 수정하지 않지만 연결된 호출의 binding 검사·잠금·
+native control·operation receipt는 기존 경로를 따른다. 외부 클라이언트는 연결 후
+`connection_id`를 전달한다. 시작 안내는 연결 전 초기화에서도 읽을 수 있다.
+
+편집 원본은 `skills/rhino-almond/SKILL.md` 및 연결 참조, 배분은
+`skills/rhino-almond/mcp-guide-map.json`이다. `src/mcp/tools/build_modeling_guides.py`로
+`almond_mcp/modeling_guides`의 본문·manifest·원본 사진을 재생성하고 `--check`로 일치를
+검사한다. 누락 절·없는 도구·stale bundle은 통합 검사에서 확인한다. 목차·작성 초안·검사 코드·
+본문에서 사용하지 않는 이미지는 제외 사유를 manifest에 기록한다. wheel에는 생성 번들이,
+sdist에는 원본과 생성기도 포함된다. 실행 중 개인 스킬 경로나 네트워크를 조회하지 않는다.
+
+공통 server와 외부 host는 같은 짧은 시작 안내를 사용한다. 함수 decorator와 inert catalog가
+같은 조합기로 도구별 조건 문장을 붙이므로 tool schema나 실행 코드를 바꾸지 않고 안내를
+개선할 수 있다. COS의 project_info 설명도 공통 설명을 유지한다. 일반 응답에 전체 스킬을
+반복해서 덧붙이지 않는다. source fingerprint는 새 연결·worker 시작 시 안내 본문·manifest·PNG
+변경도 감지한다. 이미 실행 중인 세션은 읽어 둔 snapshot을 사용한다.
+
+통합·배포 뒤 관련 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
+`get_modeling_guide()`의 version·목록을 확인하고 필요한 주제·사진을 조회한다. Python 안내만
+변경했다면 RHP 재빌드·재등록은 필요하지 않다. 실제 모델링 판단과 실행 중 프로세스의 반영은
+오프라인 테스트와 별도로 확인한다. 대안 비교는 [설계 기록](../../docs/development/modeling-guidance-proposal.md)에 둔다.

@@ -69,7 +69,9 @@ print(f"Chestnut publish target: {CHESTNUT_URL}", file=sys.stderr)
 
 # ── MCP Server ───────────────────────────────────────────────────────────────
 
-mcp = FastMCP("Almond")
+from almond_mcp.modeling_guidance import startup_instructions
+
+mcp = FastMCP("Almond", instructions=startup_instructions())
 
 
 # Build index once on startup

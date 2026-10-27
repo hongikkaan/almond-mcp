@@ -1,5 +1,15 @@
 # tools.py explain
 
+<!-- instruction:get_modeling_guide -->
+Read a versioned topic from the packaged Rhino Almond modeling guide.
+Use topic="index" to choose only the guidance needed for this task. For semantic
+grouping examples, read topic="ontological-component-evidence" with include_images=true.
+Images are original reference PNGs, not captures of the current Rhino document.
+This reader does not edit the model, task database or user artifacts. Existing
+connection control and operation receipts still apply. Unknown topics fail explicitly.
+No personal skill installation, filesystem path or external URL is needed.
+<!-- /instruction:get_modeling_guide -->
+
 ## get_construction_guidance
 
 <!-- instruction:get_construction_guidance -->

@@ -9,6 +9,7 @@ import unittest
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from runtime import ROOT
+from almond_mcp.modeling_guidance import startup_instructions
 
 
 class ClientRouteTests(unittest.IsolatedAsyncioTestCase):
@@ -28,7 +29,11 @@ class ClientRouteTests(unittest.IsolatedAsyncioTestCase):
                     async with ClientSession(reader, writer, read_timeout_seconds=30) as session:
                         initialized = await session.initialize()
                         self.assertEqual(initialized.server_info.name, identity)
+                        self.assertEqual(initialized.instructions, startup_instructions())
                         tools = await session.list_tools()
+                        descriptions = {tool.name: tool.description for tool in tools.tools}
+                        self.assertIn("get_modeling_guide", descriptions)
+                        self.assertIn('get_modeling_guide(topic="project")', descriptions["project_info"])
                         inventories.append([tool.model_dump() for tool in tools.tools])
                         listing = await session.call_tool("list_connections", {})
                         self.assertFalse(listing.is_error)
