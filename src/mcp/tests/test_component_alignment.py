@@ -129,6 +129,42 @@ def test_given_unavailable_ancestor_when_aligning_then_present_child_keeps_its_s
     assert {row["rhino_guid"] for row in store.scene_objects(store.scene_a)} == expected_ids
     assert store.get_scene(store.scene_a)["objects"] == len(expected_ids)
     assert store.get_component(child["component_id"])["scene_ids"] == [store.scene_a]
+    expected_roots = ({parent["component_id"]} if gap_at == "middle" else
+                      {child["component_id"]} | ({parent["component_id"]} if availability == "missing_group" else set()))
+    assert {row["component_id"] for row in store.list_components(scene_id=store.scene_a)} == expected_roots
+    assert child["component_id"] in {row["component_id"] for row in store.list_components(scene_id=store.scene_a, recursive=True)}
+
+
+@pytest.mark.parametrize("entry", ["create_plan", "update_plan", "explicit_step", "inherited_step"])
+@pytest.mark.parametrize("has_selected_root", [False, True])
+def test_given_missing_selected_ancestor_when_resolving_targets_then_only_available_selected_ancestors_cover_child(store, model, entry, has_selected_root):
+    from test_component_hierarchy import create
+    store.scene_a, store.model = store.fixture_scene_id, model
+    child = create(store, "Panel", [A])
+    middle = create(store, "Frame", [B], children=[child["component_id"]])
+    root = create(store, "Assembly", [C], children=[middle["component_id"]])
+    child, middle = store.get_component(child["component_id"]), store.get_component(middle["component_id"])
+    observed_root = live(root, [B, C], name="Assembly")
+    observed_root["effective_objects"] = [object_row(A, child["component_id"]), object_row(B, root["component_id"]), object_row(C, root["component_id"])]
+    observed_root["effective_object_ids"] = [A, B, C]
+    store.align_components(model, native_inspect=bridge([
+        observed_root, live(middle, [], availability="missing_group"), live(child, [A], name="Panel")]))
+    requested = [child["component_id"], middle["component_id"]] + ([root["component_id"]] if has_selected_root else [])
+    expected = [root["component_id"]] if has_selected_root else requested
+    plan = store.create_plan("Inspect available geometry", scope="component", component_ids=(
+        requested if entry in {"create_plan", "inherited_step"} else [child["component_id"]]))
+    if entry == "update_plan":
+        plan = store.update_plan(plan["plan_id"], component_ids=requested)
+    step_id = "inspect_context" if entry in {"explicit_step", "inherited_step"} else ""
+    if entry == "explicit_step":
+        plan = store.update_plan_step(plan["plan_id"], step_id, "running", component_ids=requested)
+        assert plan["steps"][0]["component_ids"] == expected
+    else:
+        assert plan["component_ids"] == expected
+    resolved = store.resolve_targets(plan["plan_id"], step_id)
+    assert resolved["component_ids"] == expected
+    assert {guid for component in resolved["components"] for guid in component["effective_object_ids"]} == (
+        {A, B, C} if has_selected_root else {A})
 
 
 def test_given_missing_middle_group_when_aligning_then_root_and_scene_keep_live_descendant_geometry(store, model):

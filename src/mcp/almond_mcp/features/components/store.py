@@ -251,7 +251,9 @@ class ComponentsStore:
     def _canonical_component_refs(connection, values):
         """Retain a requested child only when none of its requested ancestors is present."""
         selected = set(values)
-        parents = {row[0]: row[1] for row in connection.execute("SELECT component_id, parent_component_id FROM components")}
+        rows = connection.execute("SELECT component_id, parent_component_id, availability FROM components").fetchall()
+        parents = {row[0]: row[1] for row in rows}
+        selected.intersection_update(row[0] for row in rows if row[2] == "present")
         result = []
         for value in values:
             ancestor, seen = parents.get(value), set()
@@ -412,10 +414,9 @@ class ComponentsStore:
                 "SELECT component_id FROM components "
                 "WHERE (? = '' OR model_path = ?) "
                 "AND (? = '' OR component_id IN (SELECT component_id FROM scoped)) "
-                "AND (? OR parent_component_id IS NULL OR (? != '' AND NOT EXISTS ("
-                "SELECT 1 FROM scene_components p WHERE p.component_id = components.parent_component_id AND p.scene_id = ?))) "
+                "AND (? OR ? != '' OR parent_component_id IS NULL) "
                 "ORDER BY model_path, name, component_id",
-                (scene_id, recursive, model_path, model_path, scene_id, recursive, scene_id, scene_id),
+                (scene_id, recursive, model_path, model_path, scene_id, recursive, scene_id),
             ).fetchall()
             results = [self._component_read(connection, row["component_id"]) for row in rows]
         return [{key: value for key, value in item.items()
