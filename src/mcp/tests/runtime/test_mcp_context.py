@@ -97,6 +97,35 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(self.observations), 1)
             self.assertEqual(self.calls, [])
 
+    async def test_instructions_and_topics_keep_one_snapshot_after_disk_changes(self):
+        from almond_mcp.features.guidance.tools import register
+        from almond_mcp.modeling_guidance import PACKAGE, startup_instructions
+        startup = startup_instructions()
+        context_path = PACKAGE / 'MODEL-CONTEXT-INSTRUCTIONS.md'
+        expected = startup + '\n\n' + context_path.read_text(encoding='utf-8').strip()
+        register(self.mcp, object())
+        changed_paths = {PACKAGE / 'FUNDAMENTAL-INSTRUCTIONS.md', context_path}
+        original_text, original_bytes = Path.read_text, Path.read_bytes
+
+        def changed_text(path, *args, **kwargs):
+            return 'NEW_GUIDANCE_SENTINEL' if path in changed_paths else original_text(path, *args, **kwargs)
+
+        def changed_bytes(path):
+            return b'NEW_GUIDANCE_SENTINEL' if path in changed_paths else original_bytes(path)
+
+        async with Client(self.mcp) as client:
+            before = json.loads((await client.call_tool('get_modeling_guide', {})).content[0].text)
+            # The first project_info instructions call is after the simulated update.
+            with patch.object(Path, 'read_text', changed_text), patch.object(Path, 'read_bytes', changed_bytes):
+                result = await client.call_tool('project_info', {'sections': ['instructions']})
+                instructions = json.loads(result.content[0].text)['instructions']
+                after = json.loads((await client.call_tool('get_modeling_guide', {})).content[0].text)
+                self.assertEqual(instructions, expected)
+                self.assertEqual(startup_instructions(), startup)
+                self.assertEqual(before, after)
+        self.assertEqual(self.observations, [])
+        self.assertEqual(self.calls, [])
+
     async def test_description_change_preserves_script_and_other_tools(self):
         script = 'UNEXECUTED fixture text with quotes, \\paths and 한글'
         async with Client(self.mcp) as client:

@@ -7,6 +7,7 @@ from importlib.metadata import version
 import json
 from pathlib import Path
 import almond_mcp
+from almond_mcp.modeling_guidance import content_digest, source_files as guide_files
 
 ROOT = Path(__file__).resolve().parent
 ENGINE = ROOT.parent / "mcp" / "runtime"
@@ -19,8 +20,7 @@ VERSION = "0.2.0"
 
 
 def digest(path: Path) -> str:
-    text = path.read_text(encoding="utf-8-sig").replace("\r\n", "\n")
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return content_digest(path)
 
 
 def source_paths(engine: Path) -> dict[str, Path]:
@@ -55,6 +55,8 @@ def source_paths(engine: Path) -> dict[str, Path]:
         paths["package/" + path.relative_to(package).as_posix()] = path
     for path in sorted(engine.glob("*-explain.md")):
         paths["engine/" + path.name] = path
+    for path in guide_files():
+        paths["package/" + path.relative_to(package).as_posix()] = path
     return paths
 
 
@@ -72,7 +74,7 @@ def check_contract(catalog: dict, engine: Path = ENGINE) -> None:
     for package, expected in catalog["packages"].items():
         actual = version(package)
         if actual != expected:
-            raise RuntimeError(f"AlmondCOS expects {package} {expected}; installed: {actual}. Recheck compatibility.")
+            raise RuntimeError(f"Almond external MCP expects {package} {expected}; installed: {actual}. Recheck compatibility.")
     paths = source_paths(engine)
     if set(paths) != set(catalog["sources"]):
         raise RuntimeError("Tool source inventory changed after this client started. Start a new client session before connecting.")

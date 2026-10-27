@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 import types
 import tomllib
-from almond_mcp.instruction_text import read_instruction
+from almond_mcp.instruction_text import read_tool_instruction
 
 sys.dont_write_bytecode = True
 from runtime import CATALOG, ENGINE, ROOT, digest, source_paths
@@ -61,7 +61,7 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
                     or decorator.args[1].value != node.name
                     or not hasattr(node, "_guidance_source")):
                 raise ValueError(f"Unexpected instruction decorator: {node.name}")
-            external_doc = read_instruction(node._guidance_source, node.name)
+            external_doc = read_tool_instruction(node._guidance_source, node.name)
             continue
         if not (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute)
                 and isinstance(decorator.func.value, ast.Name) and decorator.func.value.id == "mcp"

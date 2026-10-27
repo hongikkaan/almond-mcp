@@ -1,0 +1,440 @@
+{
+  "format": 1,
+  "topics": [
+    {
+      "id": "project",
+      "title": "프로젝트·문서·작업자료",
+      "when_to_read": "프로젝트 경계, 활성 문서 또는 산출물 위치를 정할 때",
+      "related_tools": [
+        "project_info",
+        "set_working_plan",
+        "rename_artifact_folder",
+        "execute_project_python"
+      ],
+      "file": "project.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "## Rhino 편집",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        },
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### 프로젝트·문서·파일",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "planning",
+      "title": "Phase·Task·Step",
+      "when_to_read": "작업을 기록·전환·재개하거나 관련성을 연결할 때",
+      "related_tools": [
+        "list_phases",
+        "get_phase",
+        "create_phase",
+        "update_phase",
+        "list_plans",
+        "get_plan",
+        "create_plan",
+        "update_plan",
+        "update_step",
+        "resolve_targets",
+        "list_plan_revisions"
+      ],
+      "file": "planning.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### Phase → Task → Step",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "ontological-component",
+      "title": "Scene·ontological-component·Instance",
+      "when_to_read": "의미 단위를 정의하거나 등록·정합할 때",
+      "related_tools": [
+        "get_design_scene",
+        "create_design_scene",
+        "update_design_scene",
+        "register_scene_objects",
+        "get_scene_objects",
+        "list_design_components",
+        "get_design_component",
+        "upsert_design_component",
+        "sync_design_component",
+        "remove_design_component"
+      ],
+      "file": "ontological-component.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### Scene·ontological-component·Instance",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "ontological-component-evidence",
+      "title": "의미 단위 사례 원문·사진",
+      "when_to_read": "지붕·배수 또는 마루·구조·가구 사례를 구체적으로 비교할 때",
+      "related_tools": [
+        "upsert_design_component"
+      ],
+      "file": "ontological-component-evidence.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/references/component-feedback.md",
+          "heading": "# ontological-component: 사용자 설명 원문과 사진",
+          "sha256": "b4306c5be84fab91bbd31b6288d073a2348d190e4a08cd11eed1146a840f54fa"
+        }
+      ],
+      "images": [
+        {
+          "file": "assets/roof-drainage.png",
+          "alt": "지붕과 우수관",
+          "sha256": "a81c2fb364aa96ff481b709ce6c53cc0d9e1cb9d6a33021df8fbd6329540913d"
+        },
+        {
+          "file": "assets/resident-porch.png",
+          "alt": "마루·계단참·지지 구조·가구의 공간 관계",
+          "sha256": "8551aef446eb012425c548bc157449e4033a0cdf09c0a893640cf98beb2695aa"
+        }
+      ]
+    },
+    {
+      "id": "materials",
+      "title": "템플릿·재료·구축 레이어",
+      "when_to_read": "재료·구축 레이어를 준비할 때",
+      "related_tools": [
+        "setup_modeling",
+        "list_materials",
+        "assign_material",
+        "get_modeling_policy"
+      ],
+      "file": "materials.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### 템플릿·재료·구축 레이어",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "observation",
+      "title": "관찰·화면·Named View",
+      "when_to_read": "위치·선택·형상·작업 시점을 확인할 때",
+      "related_tools": [
+        "get_rhino_context",
+        "get_selection_references",
+        "get_rhino_probe",
+        "get_rhino_viewport_image",
+        "focus_components"
+      ],
+      "file": "observation.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### 조회·화면 도구",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "blocks",
+      "title": "Block·Group·등록된 객체의 전환",
+      "when_to_read": "중첩 블록을 편집하거나 등록 객체를 교체·해체할 때",
+      "related_tools": [
+        "get_rhino_probe",
+        "execute_rhino_script",
+        "upsert_design_component",
+        "sync_design_component",
+        "remove_design_component"
+      ],
+      "file": "blocks.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "#### Block·주석",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        },
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "#### Group",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "modeling",
+      "title": "형상 편집·설계 자료",
+      "when_to_read": "형상·재료를 편집하고 구축 근거를 찾을 때",
+      "related_tools": [
+        "execute_rhino_script",
+        "get_typology_narrative",
+        "search_detail_sources",
+        "get_construction_guidance",
+        "get_modeling_policy",
+        "assign_material"
+      ],
+      "file": "modeling.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### 형상 편집·설계 자료",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "model-review",
+      "title": "모델링 검수",
+      "when_to_read": "수정한 모델의 사용 관계·구축·관입을 확인할 때",
+      "related_tools": [
+        "get_rhino_viewport_image",
+        "get_component_intersections",
+        "check_egress"
+      ],
+      "file": "model-review.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### 모델링 검수",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "structure",
+      "title": "구조 검토",
+      "when_to_read": "구조 해석 수준과 결과를 검토할 때",
+      "related_tools": [
+        "list_design_codes",
+        "validate_structure",
+        "visualize_structure",
+        "export_structural_report"
+      ],
+      "file": "structure.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### 구조 검토",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "drafting",
+      "title": "도면 표현·검수",
+      "when_to_read": "2D 선·도면 속성·Layout을 편집하거나 확인할 때",
+      "related_tools": [
+        "list_drawing_recipes",
+        "get_drawing_recipe",
+        "apply_drawing_style",
+        "import_drawing_hatch_patterns",
+        "get_rhino_viewport_image",
+        "execute_rhino_script"
+      ],
+      "file": "drafting.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### 도면 표현",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        },
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### 도면 검수",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "grasshopper",
+      "title": "Grasshopper",
+      "when_to_read": "audited capsule을 선택·실행할 때",
+      "related_tools": [
+        "list_library",
+        "get_logic_by_id",
+        "list_capsules",
+        "run_gh_definition"
+      ],
+      "file": "grasshopper.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### Grasshopper",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "assets",
+      "title": "자산 검색·등록·배치·파생 도면",
+      "when_to_read": "재사용 자산을 찾고 준비된 3DM을 등록·배치할 때",
+      "related_tools": [
+        "search_asset_repository",
+        "list_drawing_assets",
+        "search_drawing_assets",
+        "get_drawing_asset",
+        "get_asset_drawing",
+        "list_diagram_assets",
+        "search_diagram_assets",
+        "get_diagram_asset",
+        "get_retrieval_status",
+        "register_drawing_asset",
+        "place_drawing_asset",
+        "place_diagram_asset",
+        "generate_asset_drawing_views",
+        "audit_asset_drawing"
+      ],
+      "file": "assets.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/SKILL.md",
+          "heading": "### 자산 목록·검색",
+          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+        },
+        {
+          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "heading": "# 자산 작업",
+          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+        },
+        {
+          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "heading": "## 3DM 등록·배치",
+          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+        },
+        {
+          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "heading": "## 파생 도면 생성·확인",
+          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": "exchange-capture",
+      "title": "교환·외부 발행·카메라 경로",
+      "when_to_read": "교환 패키지·외부 발행·연속 캡처가 필요할 때",
+      "related_tools": [
+        "export_asset_contract",
+        "import_asset_contract",
+        "get_blender_helper_script",
+        "publish_to_chestnut",
+        "publish_objects_to_chestnut",
+        "capture_conditioning_pass"
+      ],
+      "file": "exchange-capture.md",
+      "source_refs": [
+        {
+          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "heading": "## 교환·외부 발행",
+          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+        },
+        {
+          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "heading": "## 카메라 경로 산출물",
+          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+        }
+      ],
+      "images": []
+    }
+  ],
+  "tool_hints": {
+    "project_info": "When resolving document scope or artifact paths, read get_modeling_guide(topic=\"project\").",
+    "set_working_plan": "When resolving document scope or artifact paths, read get_modeling_guide(topic=\"project\").",
+    "create_plan": "When organizing or resuming work, read get_modeling_guide(topic=\"planning\").",
+    "update_plan": "When organizing or resuming work, read get_modeling_guide(topic=\"planning\").",
+    "update_step": "When organizing or resuming work, read get_modeling_guide(topic=\"planning\").",
+    "create_design_scene": "When defining or registering semantic assemblies, read get_modeling_guide(topic=\"ontological-component\").",
+    "upsert_design_component": "When defining or registering semantic assemblies, read get_modeling_guide(topic=\"ontological-component\").",
+    "sync_design_component": "When defining or registering semantic assemblies, read get_modeling_guide(topic=\"ontological-component\").",
+    "setup_modeling": "When preparing materials or construction layers, read get_modeling_guide(topic=\"materials\").",
+    "get_rhino_context": "When locating or inspecting the target geometry, read get_modeling_guide(topic=\"observation\").",
+    "get_rhino_probe": "When locating or inspecting the target geometry, read get_modeling_guide(topic=\"observation\").\nWhen editing blocks or replacing registered objects, read get_modeling_guide(topic=\"blocks\").",
+    "get_rhino_viewport_image": "When locating or inspecting the target geometry, read get_modeling_guide(topic=\"observation\").\nWhen reviewing geometry and reporting unverified scope, read get_modeling_guide(topic=\"model-review\").\nWhen editing or reviewing drawings and layouts, read get_modeling_guide(topic=\"drafting\").",
+    "execute_rhino_script": "When editing blocks or replacing registered objects, read get_modeling_guide(topic=\"blocks\").\nWhen editing construction geometry or material assignments, read get_modeling_guide(topic=\"modeling\").",
+    "assign_material": "When editing construction geometry or material assignments, read get_modeling_guide(topic=\"modeling\").",
+    "get_construction_guidance": "When editing construction geometry or material assignments, read get_modeling_guide(topic=\"modeling\").",
+    "get_component_intersections": "When reviewing geometry and reporting unverified scope, read get_modeling_guide(topic=\"model-review\").",
+    "validate_structure": "When checking structural assumptions and analysis scope, read get_modeling_guide(topic=\"structure\").",
+    "apply_drawing_style": "When editing or reviewing drawings and layouts, read get_modeling_guide(topic=\"drafting\").",
+    "run_gh_definition": "When choosing capsule inputs and execution scope, read get_modeling_guide(topic=\"grasshopper\").",
+    "register_drawing_asset": "When registering, placing or deriving reusable assets, read get_modeling_guide(topic=\"assets\").",
+    "place_drawing_asset": "When registering, placing or deriving reusable assets, read get_modeling_guide(topic=\"assets\").",
+    "generate_asset_drawing_views": "When registering, placing or deriving reusable assets, read get_modeling_guide(topic=\"assets\").",
+    "import_asset_contract": "When exchanging assets, publishing or producing camera-path artifacts, read get_modeling_guide(topic=\"exchange-capture\").",
+    "publish_to_chestnut": "When exchanging assets, publishing or producing camera-path artifacts, read get_modeling_guide(topic=\"exchange-capture\").",
+    "publish_objects_to_chestnut": "When exchanging assets, publishing or producing camera-path artifacts, read get_modeling_guide(topic=\"exchange-capture\").",
+    "capture_conditioning_pass": "When exchanging assets, publishing or producing camera-path artifacts, read get_modeling_guide(topic=\"exchange-capture\")."
+  },
+  "files": {
+    "assets.md": "4c3813abb03b09ffa47c586328c6bd11fc4731269e87bc56454b8a4adc593b18",
+    "assets/resident-porch.png": "8551aef446eb012425c548bc157449e4033a0cdf09c0a893640cf98beb2695aa",
+    "assets/roof-drainage.png": "a81c2fb364aa96ff481b709ce6c53cc0d9e1cb9d6a33021df8fbd6329540913d",
+    "blocks.md": "6ee5d0124bad7d959bc5f1ab45ab67facab9d44d51bc5451d5846e6a6b0f4df0",
+    "drafting.md": "74c698e2121494e42cbbc48203202f3d34b34c72b4b907158bbaef24a604f247",
+    "exchange-capture.md": "26a493b7494332f630b6a018cd6887931836fb0e0f9318b597be51fc8b8c48d6",
+    "grasshopper.md": "30b969ef4bf9a66bb08b6310ecdc511dc79a258d3c78d848ef7e0deeb739bee0",
+    "materials.md": "6be7b04447df93acb130eb4c8a2cc712df747c4bf3c6d985042f08650a78fb1c",
+    "model-review.md": "3a520be9f8c25a95646cf077397d6060f6bef41936a444c8fb1141b39f0dcecc",
+    "modeling.md": "358364d5652135165472e806177274776a6b97924fec04e42f08317bd5d2a57d",
+    "observation.md": "69599c6dce086cc1e20fb4820bbd14482671b847350e2ed29936d9bf6ce126b3",
+    "ontological-component-evidence.md": "4317045795f1eec0b4a1e4945bed3128a2ac129ce590273a844c63b6dff75dc9",
+    "ontological-component.md": "c80a968d033dc37cbf51211bdbdd0ffe646a99f57a29bef12a1ddb3ee1df61af",
+    "planning.md": "d9b35e41a8faf8cc645a7873b03f9f15dfe580986a240c6e346b15e44c59091a",
+    "project.md": "db0041399ea83d55e22b81c9a0da4eccf0bf3110050a61262e61bc118640f326",
+    "structure.md": "e3609c402696f93e250d48e059e3e14e8545044111192d68f7b5dfc73767f611"
+  },
+  "startup_sha256": "33e51e312096fcf4da0721fdac528a4936bd309343980f1e223b219c69082266",
+  "model_context_sha256": "0c84161873c0f484f6b79bb4168c865a3edb0271114ef652dce64fdd1729a27d",
+  "source_files": {
+    "SKILL.md": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a",
+    "references/component-feedback.md": "b4306c5be84fab91bbd31b6288d073a2348d190e4a08cd11eed1146a840f54fa",
+    "references/asset-workflows.md": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+  },
+  "excluded_sections": [
+    {
+      "path": "SKILL.md",
+      "sections": [
+        "frontmatter",
+        "# Rhino Almond",
+        "## 목차",
+        "## 프로젝트 기본 구조",
+        "## 기본 작업",
+        "## 모델링",
+        "## Drafting",
+        "## 거의 사용하지 않는 기능"
+      ],
+      "reason": "스킬 검색 메타데이터·목차·본문 없는 묶음 제목. MCP index로 대체한다."
+    },
+    {
+      "path": "skill초안.md",
+      "reason": "작성 지시의 역사 자료. 확정된 SKILL.md로 반영하며 실행 지침으로 중복 전달하지 않는다."
+    },
+    {
+      "path": "tests/",
+      "reason": "스킬 검증용 코드. 런타임 안내가 아니다."
+    },
+    {
+      "path": "references/assets/",
+      "reason": "본문에서 참조한 원본 사진 2장만 포함한다. 미참조 floorplan·custom-material 이미지 등은 주입하지 않는다."
+    }
+  ],
+  "guide_version": "3580358d1632f67998a9fffd6dc18631aa96afdb0e964e3b84a8fca60fae973a"
+}

@@ -322,6 +322,33 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.operation_path = Path(self.paths["session_dir"]) / "operation.json"
         self.calls = []
 
+    async def test_guide_keeps_receipt_and_binding_checks_without_model_or_db_edits(self):
+        from almond_mcp.features.guidance.tools import register
+        class NoModelContext:
+            def __getattr__(self, name):
+                raise AssertionError(f"Guide accessed model context: {name}")
+        register(self.mcp, NoModelContext())
+        store = AlmondStore(self.paths["state_db"])
+        self.runtime.workspace = Workspace(self.paths, store)
+        store.create_plan("Existing work must be preserved")
+        def snapshot():
+            with closing(sqlite3.connect(self.paths["state_db"])) as db:
+                return list(db.iterdump())
+        before = snapshot()
+        async with Client(self.mcp) as client:
+            result = await client.call_tool("get_modeling_guide", {"topic": "blocks"})
+            self.assertEqual(result_json(result)["topic_id"], "blocks")
+            self.assertEqual(snapshot(), before)
+            self.assertFalse((self.root / "tmp").exists())
+            self.assert_operation_completed()
+            write_json(self.session.ready, dict(self.session.binding, valid=False))
+            receipt = self.operation_path.read_bytes()
+            from mcp.shared.exceptions import MCPError
+            with self.assertRaises(MCPError):
+                await client.call_tool("get_modeling_guide", {"topic": "planning"})
+            self.assertEqual(self.operation_path.read_bytes(), receipt)
+        self.assertEqual(snapshot(), before)
+
     async def test_plain_metadata_tools_do_not_wait_for_db_or_native_operation(self):
         for name in ("worker_state",):
             def metadata() -> dict:

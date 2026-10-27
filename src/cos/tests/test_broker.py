@@ -4,7 +4,7 @@ from contextlib import ExitStack
 import unittest
 
 import mcp_types as types
-from cos_host import Broker
+from external_host import Broker
 
 
 CATALOG = {"tools": [{
@@ -15,7 +15,7 @@ CATALOG = {"tools": [{
 
 
 class Rig:
-    def __init__(self):
+    def __init__(self, catalog=CATALOG):
         self.records = [{"host_id": name, "pid": index, "process_start_ticks": str(index)}
                         for index, name in enumerate(("one", "two"), 1)]
         self.controls = {}
@@ -23,7 +23,7 @@ class Rig:
         self.control_gates = {}
         self.start_gate = None
         self.invalidate_on_watch = False
-        self.broker = Broker(CATALOG, control_factory=self.control,
+        self.broker = Broker(catalog, control_factory=self.control,
                              worker_factory=self.worker, host_reader=lambda _: self.records,
                              contract_check=lambda _: None, call_timeout=1,
                              lease_factory=lambda *_: ExitStack(),
@@ -177,6 +177,34 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await asyncio.wait_for(self.rig.broker.close(), 3)
+
+    async def test_guide_text_and_original_images_cross_broker_once_with_control_receipt(self):
+        import json
+        from fastmcp import Client, FastMCP
+        from almond_mcp.features.guidance.tools import register
+        from build_catalog import generate
+        guide_server = FastMCP("Guide worker fixture")
+        register(guide_server, object())
+        catalog = await generate()
+        await self.rig.broker.close()
+        self.rig = Rig(catalog)
+        connection = await self.rig.connect()
+        async with Client(guide_server) as client:
+            direct = await client.call_tool("get_modeling_guide", {
+                "topic": "ontological-component-evidence", "include_images": True})
+        worker = self.rig.workers[0]
+        worker.result = types.CallToolResult(content=direct.content)
+        worker.release.set()
+        result = await self.rig.broker.call("get_modeling_guide", {
+            "connection_id": connection["connection_id"],
+            "topic": "ontological-component-evidence", "include_images": True})
+        self.assertIs(result, worker.result)
+        self.assertEqual(worker.calls, 1)
+        self.assertEqual(len(result.content), 3)
+        self.assertIsNone(result.structured_content)
+        self.assertEqual(json.loads(result.content[0].text)["images_included"], 2)
+        self.assertEqual(self.rig.controls["one"].actions.count("begin"), 1)
+        self.assertEqual(self.rig.controls["one"].actions.count("end"), 1)
 
     async def test_selection_and_connection_return_the_model_filename(self):
         listing = await self.rig.broker.list_connections()
