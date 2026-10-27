@@ -1,6 +1,7 @@
 """MCP tools and bridge helpers for structural validation and overlays."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.structure.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
@@ -211,8 +212,9 @@ def register(mcp, context):
     @mcp.tool()
     @tool_instruction(__file__, 'list_design_codes')
     @query_output
-    def list_design_codes(include_ids: StrictBool = False) -> str:
-        return json.dumps(design_codes.listing())
+    def list_design_codes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
+        return json.dumps(project(design_codes.listing(), field_groups))
 
 
     @mcp.tool()

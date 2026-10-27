@@ -1,6 +1,7 @@
 """Register diagram asset tools using the shared asset catalogue and bridge."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.diagrams.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction
 
 from pydantic import StrictBool
@@ -14,18 +15,19 @@ def register(mcp, context):
     @mcp.tool()
     @tool_instruction(__file__, 'list_diagram_assets')
     @query_output
-    def list_diagram_assets(category: str = "", limit: int = 20, offset: int = 0, include_ids: StrictBool = False) -> str:
+    def list_diagram_assets(category: str = "", limit: int = 20, offset: int = 0, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         page = context.retrieval_store.search_assets(
             library_id="diagram_assets",
             category=category,
             limit=limit,
             offset=offset,
         )
-        return json.dumps({
+        return json.dumps(project({
             "library_id": "diagram_assets",
             "purpose": "2D vector diagramming and line-art",
             **page,
-        })
+        }, field_groups))
 
 
     @mcp.tool()
@@ -38,8 +40,9 @@ def register(mcp, context):
         max_depth_mm: float = 0,
         max_height_mm: float = 0,
         limit: int = 10,
-        offset: int = 0, include_ids: StrictBool = False) -> str:
-        return json.dumps(context.retrieval_store.search_assets(
+        offset: int = 0, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
+        return json.dumps(project(context.retrieval_store.search_assets(
             query=query,
             library_id="diagram_assets",
             category=category,
@@ -48,17 +51,18 @@ def register(mcp, context):
             max_height_mm=max_height_mm,
             limit=limit,
             offset=offset,
-        ))
+        ), field_groups))
 
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_diagram_asset')
     @query_output
-    def get_diagram_asset(asset_id: str, include_ids: StrictBool = False) -> str:
+    def get_diagram_asset(asset_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         asset = context.retrieval_store.get_asset(asset_id, library_id="diagram_assets")
         if not asset:
-            return json.dumps(error_payload(f"Unknown diagram asset_id: {asset_id}"))
-        return json.dumps({"status": "success", "asset": asset})
+            return json.dumps(project(error_payload(f"Unknown diagram asset_id: {asset_id}"), field_groups))
+        return json.dumps(project({"status": "success", "asset": asset}, field_groups))
 
 
     @mcp.tool()

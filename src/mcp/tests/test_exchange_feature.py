@@ -130,7 +130,7 @@ def test_factory_registers_exact_public_contract_and_no_helpers(feature):
     expected = {
         "export_asset_contract": {"guids", "asset_id", "name", "output_dir"},
         "import_asset_contract": {"contract_path", "x_mm", "y_mm", "z_mm", "rotation_degrees", "layer"},
-        "get_blender_helper_script": {"include_ids", "action", "asset_id", "name", "output_dir", "material_id", "object_names"},
+        "get_blender_helper_script": {"field_groups", "include_ids", "action", "asset_id", "name", "output_dir", "material_id", "object_names"},
     }
 
     async def run():

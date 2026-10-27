@@ -1,6 +1,7 @@
 """Component MCP tools; register explicitly with the current server context."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.components.output import GROUPS, project
 from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
@@ -64,27 +65,29 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_design_component')
     @query_output
-    def get_design_component(component_id: str, live: bool = False, include_ids: StrictBool = False) -> str:
+    def get_design_component(component_id: str, live: bool = False, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         try:
             component = context.retrieval_store.get_component(
                 component_id, live=live, native_inspect=_component_bridge if live else None,
             )
             if component is None:
                 raise KeyError(f"Unknown component_id: {component_id}")
-            return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
+            return json.dumps(project({"status": "success", "component": component}, field_groups), ensure_ascii=False)
         except Exception as exc:
-            return _component_error(exc)
+            return json.dumps(project(json.loads(_component_error(exc)), field_groups))
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'list_design_components')
     @query_output
-    def list_design_components(expected_model_path: str = "", include_ids: StrictBool = False) -> str:
+    def list_design_components(expected_model_path: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         try:
             components = context.retrieval_store.list_components(expected_model_path)
-            return json.dumps({"status": "success", "components": components, "total": len(components),
-                               "live_verified": False}, ensure_ascii=False)
+            return json.dumps(project({"status": "success", "components": components, "total": len(components),
+                               "live_verified": False}, field_groups), ensure_ascii=False)
         except Exception as exc:
-            return _component_error(exc)
+            return json.dumps(project(json.loads(_component_error(exc)), field_groups))
 
     @mcp.tool()
     @tool_instruction(__file__, 'sync_design_component')
@@ -156,8 +159,9 @@ def register(mcp, context):
     @tool_instruction(__file__, 'get_component_intersections')
     @query_output
     def get_component_intersections(component_ids: list[str], expected_model_path: str = "",
-                                    max_pairs: StrictInt = 64, include_ids: StrictBool = False) -> str:
-        return _component_operation_bridge("intersections", expected_model_path, component_ids, max_pairs)
+                                    max_pairs: StrictInt = 64, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
+        return json.dumps(project(json.loads(_component_operation_bridge("intersections", expected_model_path, component_ids, max_pairs)), field_groups))
 
     @mcp.tool(annotations={"destructiveHint": False})
     @tool_instruction(__file__, 'focus_components')

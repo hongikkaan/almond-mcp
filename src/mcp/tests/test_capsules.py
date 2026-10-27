@@ -133,7 +133,7 @@ def test_sync_skips_invalid_manifests_and_lists_capsules(server):
     skipped_files = {entry["file"] for entry in report["skipped"]}
     assert skipped_files == {"broken.capsule.json", "notjson.capsule.json"}
 
-    payload = json.loads(_call(server.list_capsules, include_ids=True))
+    payload = json.loads(_call(server.list_capsules, include_ids=True, field_groups=["definition", "ports"]))
     assert payload["total"] == 2
     cards = {card["capsule_id"]: card for card in payload["capsules"]}
     assert set(cards) == {"test_beam_v1", "test_unaudited_v1"}

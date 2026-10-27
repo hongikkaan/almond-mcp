@@ -38,4 +38,5 @@ in the scene, orphaned (re-home them with register_scene_instance).
 <!-- instruction:validate_scene_layout -->
 Runs cached legacy asset-instance AABB collisions and room-containment checks.
 Component/raw-object geometry is reported as unvalidated; inspect it with native probes.
+The default reports counts, pass scope and coverage. field_groups=["details"] adds the bounded collision/containment records; all restores the full report. include_ids independently enables handles. With IDs hidden, collision instances/assets arrays become instance_count/asset_count.
 <!-- /instruction:validate_scene_layout -->

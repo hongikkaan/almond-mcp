@@ -78,7 +78,9 @@ def test_factory_registers_exact_diagram_schema_and_descriptions(diagrams):
                 if name != "place_diagram_asset":
                     fields = {**fields, "include_ids": ("boolean", False)}
                 schema = tool.input_schema
-                assert set(schema["properties"]) == set(fields)
+                assert set(schema["properties"]) == set(fields) | ({"field_groups"} if "include_ids" in fields else set())
+                if "include_ids" in fields:
+                    assert schema["properties"]["field_groups"] == {"anyOf": [{"items": {"type": "string"}, "type": "array"}, {"type": "null"}], "default": None}
                 assert schema.get("required", []) == required
                 for field, (kind, default) in fields.items():
                     assert schema["properties"][field]["type"] == kind
@@ -94,25 +96,25 @@ def test_factory_registers_exact_diagram_schema_and_descriptions(diagrams):
 
 def test_catalogue_listing_search_and_metadata_stay_scoped_to_diagrams(diagrams):
     tools, _, bridge = diagrams
-    listing = json.loads(tools["list_diagram_assets"](category="people", limit=1, include_ids=True))
+    listing = json.loads(tools["list_diagram_assets"](category="people", limit=1, include_ids=True, field_groups=["all"]))
     assert listing["library_id"] == "diagram_assets"
     assert listing["purpose"] == "2D vector diagramming and line-art"
     assert listing["total"] == 2 and listing["next_offset"] == 1
-    next_page = json.loads(tools["list_diagram_assets"](category="people", limit=1, offset=1, include_ids=True))
+    next_page = json.loads(tools["list_diagram_assets"](category="people", limit=1, offset=1, include_ids=True, field_groups=["all"]))
     assert next_page["assets"][0]["asset_id"] != listing["assets"][0]["asset_id"]
     assert next_page["next_offset"] is None
-    hits = json.loads(tools["search_diagram_assets"](query="standing", category="people", include_ids=True))
+    hits = json.loads(tools["search_diagram_assets"](query="standing", category="people", include_ids=True, field_groups=["all"]))
     assert {a["asset_id"] for a in hits["assets"]} == {"small", "large"}
-    assert json.loads(tools["search_diagram_assets"](query="unknown", include_ids=True))["total"] == 0
-    assert json.loads(tools["list_diagram_assets"](category="unknown", include_ids=True))["assets"] == []
-    record = json.loads(tools["get_diagram_asset"]("small", include_ids=True))
+    assert json.loads(tools["search_diagram_assets"](query="unknown", include_ids=True, field_groups=["all"]))["total"] == 0
+    assert json.loads(tools["list_diagram_assets"](category="unknown", include_ids=True, field_groups=["all"]))["assets"] == []
+    record = json.loads(tools["get_diagram_asset"]("small", include_ids=True, field_groups=["all"]))
     assert record["status"] == "success"
     assert record["asset"]["dimensions_mm"]["height"] == 1700
     assert "_resolved_file" not in record["asset"]
-    missing = json.loads(tools["get_diagram_asset"]("missing", include_ids=True))
+    missing = json.loads(tools["get_diagram_asset"]("missing", include_ids=True, field_groups=["all"]))
     assert missing["asset"]["file_available"] is False
     for asset_id in ("unknown", "drawing-only"):
-        assert json.loads(tools["get_diagram_asset"](asset_id, include_ids=True)) == {
+        assert json.loads(tools["get_diagram_asset"](asset_id, include_ids=True, field_groups=["all"])) == {
             "status": "error", "message": f"Unknown diagram asset_id: {asset_id}"}
     assert bridge.calls == []
 
@@ -121,10 +123,10 @@ def test_catalogue_listing_search_and_metadata_stay_scoped_to_diagrams(diagrams)
 def test_search_dimension_filters_are_applied_by_shared_store(diagrams, dimension, maximum):
     tools, _, _ = diagrams
     result = json.loads(tools["search_diagram_assets"](
-        category="people", **{f"max_{dimension}_mm": maximum}, include_ids=True))
+        category="people", **{f"max_{dimension}_mm": maximum}, include_ids=True, field_groups=["all"]))
     assert [a["asset_id"] for a in result["assets"]] == ["small"]
     unbounded = json.loads(tools["search_diagram_assets"](
-        category="people", **{f"max_{dimension}_mm": 0}, include_ids=True))
+        category="people", **{f"max_{dimension}_mm": 0}, include_ids=True, field_groups=["all"]))
     assert unbounded["total"] == 2
 
 
@@ -168,13 +170,13 @@ def test_registered_factories_read_current_store_indexer_sender_and_keep_server_
     namespace["retrieval_store"] = replacement
     namespace["diagram_asset_indexer"] = {"replacement": asset("replacement", category="symbols")}
     namespace["_send_and_receive"] = FakeBridge(response="replacement response")
-    assert json.loads(tools["list_diagram_assets"](include_ids=True))["total"] == 1
-    assert json.loads(tools["search_diagram_assets"](query="replacement", include_ids=True))["total"] == 1
-    assert json.loads(tools["get_diagram_asset"]("replacement", include_ids=True))["status"] == "success"
+    assert json.loads(tools["list_diagram_assets"](include_ids=True, field_groups=["all"]))["total"] == 1
+    assert json.loads(tools["search_diagram_assets"](query="replacement", include_ids=True, field_groups=["all"]))["total"] == 1
+    assert json.loads(tools["get_diagram_asset"]("replacement", include_ids=True, field_groups=["all"]))["status"] == "success"
     assert tools["place_diagram_asset"]("replacement") == "replacement response"
     assert json.loads(tools["place_diagram_asset"]("small"))["status"] == "error"
-    assert json.loads(isolated["list_diagram_assets"](include_ids=True))["total"] == 4
-    assert json.loads(isolated["get_diagram_asset"]("replacement", include_ids=True))["status"] == "error"
+    assert json.loads(isolated["list_diagram_assets"](include_ids=True, field_groups=["all"]))["total"] == 4
+    assert json.loads(isolated["get_diagram_asset"]("replacement", include_ids=True, field_groups=["all"]))["status"] == "error"
     assert isolated["place_diagram_asset"]("small") == original_bridge.response
     assert len(original_bridge.calls) == 1
     assert len(namespace["_send_and_receive"].calls) == 1

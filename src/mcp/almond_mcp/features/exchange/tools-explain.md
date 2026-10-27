@@ -66,6 +66,8 @@ Args:
 Returns:
     JSON with a "script" field to pass to Blender's execute_code.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds notes, audit, or all; the requested manifest/parsed logic/script remains in the default payload.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_blender_helper_script -->
 
 ## response-672

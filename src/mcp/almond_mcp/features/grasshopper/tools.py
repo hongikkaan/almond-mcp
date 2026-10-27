@@ -1,6 +1,7 @@
 """Register Grasshopper tools against the owning server's current services."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.grasshopper.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
@@ -91,23 +92,26 @@ def register(mcp, context):
     @mcp.tool()
     @tool_instruction(__file__, 'list_library')
     @query_output
-    def list_library(include_ids: StrictBool = False) -> str:
-        return json.dumps({
+    def list_library(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
+        return json.dumps(project({
             "library_dir": context.LIBRARY_DIR,
             "total_entries": len(context.indexer.index),
+            "logic_names": context.indexer.list_ids(),
             "logic_ids": context.indexer.list_ids(),
-        })
+        }, field_groups))
 
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_logic_by_id')
     @query_output
-    def get_logic_by_id(logic_id: str, include_ids: StrictBool = False) -> str:
+    def get_logic_by_id(logic_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         query_id = logic_id.lower()
         file_map = context.indexer.index.get(query_id)
 
         if not file_map:
-            return json.dumps({"error": read_instruction(__file__, 'response-713').format(logic_id)})
+            return json.dumps(project({"error": read_instruction(__file__, 'response-713').format(logic_id)}, field_groups))
 
         # Prioritize GHX > GH > JSON-only
         target_file = file_map.get('ghx') or file_map.get('gh')
@@ -118,32 +122,33 @@ def register(mcp, context):
             try:
                 with open(target_json, 'r') as f:
                     data = json.load(f)
-                return json.dumps({"logic_id": logic_id, "source": target_json, "metadata": data})
+                return json.dumps(project({"logic_id": logic_id, "source": target_json, "metadata": data}, field_groups))
             except Exception as e:
-                return json.dumps({"error": f"Failed to read JSON sidecar: {e}"})
+                return json.dumps(project({"error": f"Failed to read JSON sidecar: {e}"}, field_groups))
 
         # Parse via the binary string extractor
         try:
             parser = GHParser(target_file)
             physics_context = parser.parse()
-            return physics_context.model_dump_json()
+            return json.dumps(project(json.loads(physics_context.model_dump_json()), field_groups))
         except Exception as e:
-            return json.dumps({"error": f"Failed to parse '{target_file}': {str(e)}"})
+            return json.dumps(project({"error": f"Failed to parse '{target_file}': {str(e)}"}, field_groups))
 
 
     @mcp.tool()
     @tool_instruction(__file__, 'list_capsules')
     @query_output
-    def list_capsules(capability: str = "", audited_only: bool = False, include_ids: StrictBool = False) -> str:
+    def list_capsules(capability: str = "", audited_only: bool = False, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         page = context.retrieval_store.search_capsules(
             capability=capability,
             audited_only=audited_only,
             limit=50,
         )
-        return json.dumps({
+        return json.dumps(project({
             "capsule_library_dir": context.CAPSULE_LIBRARY_DIR,
             **page,
-        })
+        }, field_groups))
 
 
     @mcp.tool()

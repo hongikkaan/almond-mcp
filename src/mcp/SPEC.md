@@ -62,13 +62,13 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 
 ### 공개 도구 위치
 
-아래 74개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`을 포함한 COS 입력 catalog는 78개이며, COS의 연결관리 도구는 별도로 유지한다.
+아래 75개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`을 포함한 COS 입력 catalog는 79개이며, COS의 연결관리 도구는 별도로 유지한다.
 
 | 기능 | 공개 함수 |
 |---|---|
 | 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `get_rhino_probe`, `get_rhino_viewport_image` |
 | 작업계획 | `create_phase`, `get_phase`, `list_phases`, `update_phase`, `create_plan`, `get_plan`, `list_plans`, `update_plan`, `list_plan_revisions`, `update_step`, `resolve_targets`, `get_selection_references` |
-| Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `register_scene_objects`, `get_scene_objects` |
+| Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `list_design_scenes`, `register_scene_objects`, `get_scene_objects` |
 | Component | `upsert_design_component`, `get_design_component`, `list_design_components`, `sync_design_component`, `remove_design_component`, `get_component_intersections`, `focus_components` |
 | 배치 | `upsert_design_room`, `register_scene_instance`, `remove_scene_instance`, `remove_design_room`, `validate_scene_layout` |
 | 설계 참고자료 | `get_modeling_guide`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
@@ -230,3 +230,7 @@ sdist에는 원본과 생성기도 포함된다. 실행 중 개인 스킬 경로
 `get_modeling_guide()`의 version·목록을 확인하고 필요한 주제·사진을 조회한다. Python 안내만
 변경했다면 RHP 재빌드·재등록은 필요하지 않다. 실제 모델링 판단과 실행 중 프로세스의 반영은
 오프라인 테스트와 별도로 확인한다. 대안 비교는 [설계 기록](../../docs/development/modeling-guidance-proposal.md)에 둔다.
+
+## Public query and write responses
+
+See [QUERY_OUTPUT.md](QUERY_OUTPUT.md) for summary defaults, explicit field groups, independent ID/audit selection, compact write acknowledgements and project-wide Scene discovery.

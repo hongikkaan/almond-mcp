@@ -1,6 +1,7 @@
 """Modeling policy, script execution, setup and material tools."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output
+from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.features.modeling.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
@@ -57,13 +58,14 @@ def register(mcp, context):
     @mcp.tool()
     @tool_instruction(__file__, 'list_materials')
     @query_output
-    def list_materials(category: str = "", query: str = "", include_ids: StrictBool = False) -> str:
+    def list_materials(category: str = "", query: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+        validate_field_groups(field_groups, GROUPS)
         materials = context.material_library.list(category=category, query=query)
-        return json.dumps({
+        return json.dumps(project({
             "total": len(materials),
             "materials": materials,
             "library_dir": str(context.material_library.directory),
-        })
+        }, field_groups))
 
 
     @mcp.tool()

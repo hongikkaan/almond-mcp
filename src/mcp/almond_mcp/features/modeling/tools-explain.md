@@ -89,6 +89,8 @@ slot name (ue_material_slot) for deterministic remapping after import,
 and tags. Materials do not define object layers. setup_modeling creates
 M/category/system/role layers from the construction library separately.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+field_groups adds display, physical, metadata, source, paths, audit, or all; default is summary.
+include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_materials -->
 
 ## assign_material

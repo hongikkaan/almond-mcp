@@ -103,6 +103,23 @@ def call(exports, tool_name, **arguments):
     return json.loads(getattr(function, "fn", function)(**arguments))
 
 
+def test_agent_requests_collision_details_without_enabling_instance_or_asset_ids(store):
+    """Given a layout collision, choosing detail is independent from choosing its handles."""
+    scene = store.create_scene("Collision choice")["scene_id"]
+    first = store.upsert_instance(scene, "cube", 0, 0)["instance_id"]
+    second = store.upsert_instance(scene, "cube", 0, 0)["instance_id"]
+    exports = register(FastMCP("collision-choice"), FeatureContext({"retrieval_store": store}))
+    summary = call(exports, "validate_scene_layout", scene_id=scene, field_groups=["details"])
+    collision = summary["collisions"][0]
+    assert summary["passed"] is False and summary["collision_count"] == 1
+    assert "instances" not in collision and "assets" not in collision
+    assert collision["instance_count"] == collision["asset_count"] == 2
+    explicit = call(exports, "validate_scene_layout", scene_id=scene, field_groups=["details"], include_ids=True)
+    assert set(explicit["collisions"][0]["instances"]) == {first, second}
+    assert explicit["collisions"][0]["assets"] == ["cube", "cube"]
+    assert store.validate_scene(scene)["collisions"][0] == explicit["collisions"][0]
+
+
 def test_factory_reads_rebound_store_and_preserves_all_five_tool_responses(store, tmp_path):
     original = store.create_scene("Original")["scene_id"]
     namespace = {"retrieval_store": store}
@@ -118,7 +135,8 @@ def test_factory_reads_rebound_store_and_preserves_all_five_tool_responses(store
     assert room["status"] == "success"
     instance = call(exports, "register_scene_instance", scene_id=scene, asset_id="cube",
                     x_mm=500, y_mm=500, room_id=room["room_id"])
-    assert instance["status"] == "success" and instance["world_aabb_mm"]["min"][2] == 18000
+    assert instance["status"] == "success" and "world_aabb_mm" not in instance
+    assert replacement.scene_instances(scene)[0]["min_z"] == 18000
     report = call(exports, "validate_scene_layout", scene_id=scene, detail_limit=1)
     assert report["status"] == "success" and report["passed"] is True
     removed = call(exports, "remove_scene_instance", scene_id=scene, instance_id=instance["instance_id"])
