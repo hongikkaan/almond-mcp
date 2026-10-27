@@ -110,10 +110,13 @@ namespace AlmondScriptUndoTests
                     ["component_id"] = "focus-leaf", ["name"] = "Leaf", ["scene_ids"] = new JArray("scene"),
                     ["object_ids"] = new JArray(target.ToString("D"))
                 }));
+                Guid rootDirect = Box(doc, 2000);
+                int rootGroup = doc.Groups.Add("Assembly", new[] { target, rootDirect });
                 Success(ComponentRegistry.Handle(doc, new JObject {
                     ["action"] = "upsert", ["expected_model_path"] = doc.Path,
                     ["component_id"] = "focus-root", ["name"] = "Assembly", ["scene_ids"] = new JArray("scene"),
-                    ["object_ids"] = new JArray(), ["child_component_ids"] = new JArray("focus-leaf")
+                    ["object_ids"] = new JArray(rootDirect.ToString("D")), ["child_component_ids"] = new JArray("focus-leaf"),
+                    ["rhino_group_id"] = doc.Groups[rootGroup].Id.ToString("D")
                 }));
                 var request = new JObject { ["action"] = "intersections", ["expected_model_path"] = doc.Path,
                     ["component_ids"] = new JArray("focus-root", "focus-leaf") };
@@ -126,7 +129,7 @@ namespace AlmondScriptUndoTests
                 Rejected(ComponentOperations.IsolateAndZoomSelected(doc, new[] { locked }));
                 Rejected(ComponentOperations.IsolateAndZoomSelected(doc, new[] { Guid.NewGuid() }));
                 var overlap = Success(ComponentOperations.Handle(doc, request));
-                Check((int)overlap["object_count"] == 1 && (bool)overlap["complete"] && !(bool)overlap["has_positive_overlap"],
+                Check((int)overlap["object_count"] == 2 && (bool)overlap["complete"] && !(bool)overlap["has_positive_overlap"],
                     "Component dispatch did not resolve and deduplicate the live descendant set.");
                 request["expected_model_path"] = doc.Path + ".other";
                 Rejected(ComponentOperations.Handle(doc, request));
@@ -136,13 +139,20 @@ namespace AlmondScriptUndoTests
                 request.Remove("max_pairs");
                 Unchanged(before, doc);
                 var geometries = doc.Objects.GetObjectList(ObjectType.AnyObject).ToDictionary(o => o.Id, o => o.Geometry.DataCRC(0));
+                Point3d cameraBefore=doc.Views.ActiveView.ActiveViewport.CameraLocation;
+                Point3d targetBefore=doc.Views.ActiveView.ActiveViewport.CameraTarget;
                 request["action"] = "focus";
                 var result = Success(ComponentOperations.Handle(doc, request));
-                Check((bool)result["isolated"] && (bool)result["zoom_selected"] && ((JArray)result["selected_ids"]).Count == 1, "Incomplete focus acknowledgement.");
+                Check((bool)result["isolated"] && (bool)result["zoom_selected"] && ((JArray)result["selected_ids"]).Count == 2, "Incomplete focus acknowledgement.");
+                Check(doc.Objects.FindId(rootDirect).IsSelected(false) != 0, "Parent direct member was not focused.");
                 Check(doc.Objects.FindId(target).IsSelected(false) != 0 && !doc.Objects.FindId(target).IsHidden &&
                     doc.Objects.FindId(other).IsHidden && doc.Objects.FindId(hidden).IsHidden &&
                     doc.Objects.FindId(locked).IsLocked && !doc.Objects.FindId(locked).IsHidden, "Isolate did not preserve Rhino's locked/previously hidden behavior.");
-                Check(doc.Views.ActiveView.ActiveViewport.IsVisible(doc.Objects.FindId(target).Geometry.GetBoundingBox(true)), "Target is not framed in the active view.");
+                var focused=doc.Views.ActiveView;
+                Check(cameraBefore.DistanceTo(focused.ActiveViewport.CameraLocation)>1e-6||targetBefore.DistanceTo(focused.ActiveViewport.CameraTarget)>1e-6,
+                    "Focus did not move the camera or its target.");
+                CheckFramed(focused,doc.Objects.FindId(target).Geometry.GetBoundingBox(true));
+                CheckFramed(focused,doc.Objects.FindId(rootDirect).Geometry.GetBoundingBox(true));
                 Check(geometries.All(pair => doc.Objects.FindId(pair.Key)?.Geometry.DataCRC(0) == pair.Value), "Focus changed geometry.");
                 Check(RhinoApp.RunScript("_Unisolate", false), "Native Unisolate failed.");
                 Check(!doc.Objects.FindId(other).IsHidden && doc.Objects.FindId(hidden).IsHidden && doc.Objects.FindId(locked).IsLocked,
@@ -154,6 +164,23 @@ namespace AlmondScriptUndoTests
         }
 
         private static Guid Box(RhinoDoc doc, double x) => doc.Objects.AddBrep(new BoundingBox(x, 0, 0, x + 10, 10, 10).ToBrep());
+        private static void CheckFramed(Rhino.Display.RhinoView view,BoundingBox bounds)
+        {
+            // IsVisible returned false in the disposable hidden process even when
+            // native Zoom Selected and captured pixels showed both targets. Check
+            // every actual box corner in clip and client coordinates instead.
+            var rectangle=view.ClientRectangle;var viewport=view.ActiveViewport;
+            Check(rectangle.Width>0&&rectangle.Height>0,"Focus viewport has no drawable area.");
+            var worldToClip=viewport.GetTransform(CoordinateSystem.World,CoordinateSystem.Clip);
+            foreach(Point3d corner in bounds.GetCorners())
+            {
+                var clip=corner;clip.Transform(worldToClip);var client=viewport.WorldToClient(corner);
+                Check(clip.IsValid&&Math.Abs(clip.X)<=1.000001&&Math.Abs(clip.Y)<=1.000001&&Math.Abs(clip.Z)<=1.000001,
+                    "Target corner is outside the active view frustum: "+clip);
+                Check(client.X>=-1e-6&&client.X<=rectangle.Width+1e-6&&client.Y>=-1e-6&&client.Y<=rectangle.Height+1e-6,
+                    "Target corner is outside the active viewport pixels: "+client);
+            }
+        }
         private static void Run(List<string> lines, string name, Action<RhinoDoc> test)
         {
             using (var doc = RhinoDoc.CreateHeadless(null))

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Rhino;
 using Rhino.DocObjects;
@@ -11,321 +10,285 @@ using RhinoAlmondBridge;
 
 namespace AlmondScriptUndoTests
 {
-    // Separate from the existing single-level modeling tests; root owns runner wiring.
+    // The public native boundary observes real disposable groups, never a simulated attribute ledger.
     public static class ComponentHierarchyTests
     {
         public static string RunAll(string directory)
         {
+            Directory.CreateDirectory(directory);
             var results = new List<string>();
-            Run(results, directory, "parent group selects two child Components without owning child objects", doc =>
-            {
-                Guid a = doc.Objects.AddPoint(Point3d.Origin);
-                Guid b = doc.Objects.AddPoint(new Point3d(10, 20, 30));
-                Guid g1 = Register(doc, "wall", new[] { a });
-                Guid g2 = Register(doc, "door", new[] { b });
-                var parent = Success(ComponentRegistry.Handle(doc,
-                    Request(doc, "upsert", "facade", new Guid[0], new[] { "wall", "door" })));
-                Guid parentGroup = Guid.Parse((string)parent["rhino_group_id"]);
-                Check(parentGroup != g1 && parentGroup != g2, "Parent lacks its own group.");
-                Check(((JArray)parent["objects"]).Count == 0 && ((JArray)parent["object_ids"]).Count == 0,
-                    "Aggregate parent falsely owns child geometry.");
-                Check(new HashSet<string>(parent["effective_object_ids"].Values<string>())
-                    .SetEquals(new[] { a.ToString("D"), b.ToString("D") }), "Parent effective union differs.");
-                Check(doc.Groups.GroupMembers(doc.Groups.FindId(parentGroup).Index).Select(o => o.Id).ToHashSet()
-                    .SetEquals(new[] { a, b }), "Parent physical Rhino group must select descendant members.");
-                Check(doc.Objects.FindId(a).Attributes.GetUserString("almond:component_id") == "wall" &&
-                    doc.Objects.FindId(b).Attributes.GetUserString("almond:component_id") == "door",
-                    "Parent stole a descendant's direct owner.");
-                var wall = Inspect(doc, "wall", g1);
-                Check((string)wall["parent_component_id"] == "facade", "Derived parent link is absent.");
-                Check(((JArray)wall["child_component_ids"]).Count == 0, "Leaf gained unexpected descendants.");
-                Check(new[] { a, b }.Any(id => JObject.Parse(
-                    doc.Objects.FindId(id).Attributes.GetUserString("almond:component_record"))
-                    .Properties().Count() >= 2),
-                    "An existing member must host both child and parent group records.");
+            Run(results, directory, "existing group registration never stamps or duplicates architectural objects", doc => {
+                Guid a = doc.Objects.AddPoint(Point3d.Origin), b = doc.Objects.AddPoint(new Point3d(10,0,0));
+                var attrs = doc.Objects.FindId(a).Attributes.Duplicate(); attrs.SetUserString("user:note", "keep");
+                doc.Objects.ModifyAttributes(a, attrs, true);
+                int ordinary = doc.Groups.Add("Panel", new[] {a,b});
+                var groups = doc.Objects.FindId(a).Attributes.GetGroupList();
+                var created = Success(ComponentRegistry.Handle(doc, Request(doc, "upsert", "panel", new[] {a,b}, doc.Groups[ordinary].Id)));
+                Check((string)created["rhino_group_id"] == doc.Groups[ordinary].Id.ToString("D"), "Registration duplicated the supplied group.");
+                Check(doc.Groups.Count(g => !g.IsDeleted) == 1 && doc.Objects.FindId(a).Attributes.GetUserStrings().Count == 1 &&
+                    doc.Objects.FindId(a).Attributes.GetUserString("user:note") == "keep" && doc.Objects.FindId(b).Attributes.GetUserStrings().Count == 0,
+                    "Registration wrote management attributes or changed unrelated attributes.");
+                Check(doc.Objects.FindId(a).Attributes.GetGroupList().SequenceEqual(groups), "Registration changed group order.");
             });
-            Run(results, directory, "leaf changes propagate ancestor group selection and affected snapshots", doc =>
-            {
-                Guid a = doc.Objects.AddPoint(Point3d.Origin);
-                Guid b = doc.Objects.AddPoint(new Point3d(10, 0, 0));
-                Guid extra = doc.Objects.AddPoint(new Point3d(20, 0, 0));
-                Guid leaf = Register(doc, "wall", new[] { a });
-                Register(doc, "door", new[] { b });
-                Guid parent = Register(doc, "facade", new Guid[0], new[] { "wall", "door" });
-                var update = Request(doc, "upsert", "wall", new[] { a, extra });
-                update["rhino_group_id"] = leaf.ToString("D");
-                update["expected_object_ids"] = new JArray(a.ToString("D"));
-                var reply = ComponentRegistry.Handle(doc, update);
-                var wall = Success(reply);
-                var affected = (JArray)reply["affected_components"];
-                Check(affected.Any(item => (string)item["component_id"] == "facade"), "Ancestor change was omitted from affected_components.");
-                Check(((JArray)wall["objects"]).Count == 2, "Leaf direct owner set did not update.");
-                Check(doc.Groups.GroupMembers(doc.Groups.FindId(parent).Index).Select(o => o.Id).ToHashSet()
-                    .SetEquals(new[] { a, extra, b }), "Parent group missed newly added leaf object.");
-                Undo(doc);
-                Check(!doc.Groups.GroupMembers(doc.Groups.FindId(parent).Index).Any(o => o.Id == extra) &&
-                    doc.Objects.FindId(extra).Attributes.GetUserString("almond:component_id") == null,
-                    "Undo did not restore the original ancestor membership and direct owner.");
-                Redo(doc);
-                Check(doc.Groups.GroupMembers(doc.Groups.FindId(parent).Index).Any(o => o.Id == extra),
-                    "Redo did not restore the updated parent group.");
+            Run(results, directory, "manual membership and group names are truth and inspect is read-only", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin), b=doc.Objects.AddPoint(new Point3d(5,0,0));
+                int group=doc.Groups.Add("Panel", new[]{a});
+                Success(ComponentRegistry.Handle(doc, Request(doc,"upsert","panel",new[]{a},doc.Groups[group].Id)));
+                var attrs=doc.Objects.FindId(b).Attributes.Duplicate(); attrs.AddToGroup(group); doc.Objects.ModifyAttributes(b,attrs,true);
+                attrs=doc.Objects.FindId(a).Attributes.Duplicate(); attrs.RemoveFromGroup(group); doc.Objects.ModifyAttributes(a,attrs,true);
+                doc.Groups.ChangeGroupName(group,"User edited name");
+                uint next=doc.NextUndoRecordSerialNumber; bool modified=doc.Modified;
+                var snapshot=Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,doc.Groups[group].Id)));
+                Check(snapshot["object_ids"].Values<string>().SequenceEqual(new[]{b.ToString("D")}) && (string)snapshot["name"]=="User edited name", "Inspection restored stale membership or name.");
+                Check(next==doc.NextUndoRecordSerialNumber && modified==doc.Modified && doc.Objects.FindId(b).Attributes.GetUserStrings().Count==0,
+                    "Inspection changed native document state.");
             });
-            Run(results, directory, "inspect discovers manually added TextDots and sync adopts at deepest group", doc =>
-            {
-                Guid a = doc.Objects.AddPoint(Point3d.Origin);
-                Guid leaf = Register(doc, "panel", new[] { a });
-                Guid parent = Register(doc, "facade", new Guid[0], new[] { "panel" });
-                Guid note = doc.Objects.AddTextDot("fastener @ grid C", new Point3d(12, 34, 56));
-                ManuallyAdd(doc, note, leaf);
-                var observed = Inspect(doc, "facade", parent);
-                Check((bool)observed["requires_sync"], "Read-only inspection hid a newly grouped note.");
-                var pending = (JArray)observed["pending_objects"];
-                Check(pending.Any(p => (string)p["rhino_guid"] == note.ToString("D") &&
-                    (string)p["text"] == "fastener @ grid C" &&
-                    Math.Abs((double)p["point_mm"][0] - 12) < 1e-8), "Pending TextDot text and world location were lost.");
-                Check(observed["effective_object_ids"].Values<string>().Contains(note.ToString("D")),
-                    "Pending TextDot absent from the effective IDs needed by outline.");
-                Check(doc.Objects.FindId(note).Attributes.GetUserString("almond:component_id") == null,
-                    "Read-only inspect silently adopted the note.");
-                var syncRequest = Request(doc, "sync", "panel", null, null, leaf);
-                syncRequest["expected_object_ids"] = new JArray(a.ToString("D"));
-                syncRequest["expected_child_component_ids"] = new JArray();
-                syncRequest["expected_effective_object_ids"] = new JArray(a.ToString("D"));
-                var syncReply = ComponentRegistry.Handle(doc, syncRequest);
-                Success(syncReply);
-                Check(doc.Objects.FindId(note).Attributes.GetUserString("almond:component_id") == "panel",
-                    "Explicit sync did not adopt an unambiguous pending TextDot.");
-                Check(doc.Groups.GroupMembers(doc.Groups.FindId(parent).Index).Any(o => o.Id == note),
-                    "Sync failed to normalize ancestor Rhino group membership.");
-                Check(!(bool)Inspect(doc, "panel", leaf)["requires_sync"] &&
-                    !(bool)Inspect(doc, "facade", parent)["requires_sync"], "Dirty flags remain after successful sync.");
-                uint next = doc.NextUndoRecordSerialNumber;
-                var unchanged = ComponentRegistry.Handle(doc, Request(doc, "sync", "panel", null, null, leaf));
-                Success(unchanged);
-                Check(doc.NextUndoRecordSerialNumber == next, "Unchanged sync created an Undo record.");
-                Undo(doc);
-                Check(doc.Objects.FindId(note).Attributes.GetUserString("almond:component_id") == null &&
-                    !doc.Groups.GroupMembers(doc.Groups.FindId(parent).Index).Any(o => o.Id == note),
-                    "Sync Undo did not restore pending ownership and parent membership.");
-                Redo(doc);
-                Check(doc.Objects.FindId(note).Attributes.GetUserString("almond:component_id") == "panel",
-                    "Sync Redo failed.");
+            Run(results, directory, "one invalid legacy host never blocks an unrelated semantic group", doc => {
+                Guid bad=doc.Objects.AddPoint(Point3d.Origin), valid=doc.Objects.AddPoint(new Point3d(20,0,0));
+                var attrs=doc.Objects.FindId(bad).Attributes.Duplicate(); attrs.SetUserString("almond:component_record","invalid JSON");
+                attrs.SetUserString("almond:component_id","stale"); doc.Objects.ModifyAttributes(bad,attrs,true);
+                int group=doc.Groups.Add("Panel",new[]{valid});
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","panel",new[]{valid},doc.Groups[group].Id)));
+                var request=new JObject{["action"]="inspect_many",["expected_model_path"]=doc.Path,["component_ids"]=new JArray("panel")};
+                var result=ComponentRegistry.Handle(doc,request);
+                Check((string)result["status"]=="success" && ((JArray)result["components"]).Count==1 && ((JArray)result["problems"]).Count==1,
+                    "An invalid legacy record blocked unrelated observation.");
+                Check(doc.Objects.FindId(bad).Attributes.GetUserString("almond:component_record")=="invalid JSON", "Legacy attributes were silently deleted.");
+            }, legacyArchive: true);
+            Run(results, directory, "nested meaning uses actual groups without rewriting direct ownership or group order", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin), b=doc.Objects.AddPoint(new Point3d(30,0,0));
+                int leaf=doc.Groups.Add("Leaf",new[]{a}), root=doc.Groups.Add("Root",new[]{a,b});
+                var order=doc.Objects.FindId(a).Attributes.GetGroupList();
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","leaf",new[]{a},doc.Groups[leaf].Id,"Leaf")));
+                var parent=Request(doc,"upsert","root",new[]{b},doc.Groups[root].Id,"Root"); parent["child_component_ids"]=new JArray("leaf");
+                var snapshot=Success(ComponentRegistry.Handle(doc,parent));
+                Check(((JArray)snapshot["objects"]).Count==1 && ((JArray)snapshot["effective_objects"]).Count==2,
+                    "Nested snapshot confused direct and effective group members.");
+                Check(snapshot["effective_objects"].Any(o=>(string)o["rhino_guid"]==a.ToString("D")&&(string)o["component_id"]=="leaf"), "Derived child ownership was lost.");
+                Check(doc.Objects.FindId(a).Attributes.GetGroupList().SequenceEqual(order) && doc.Objects.FindId(a).Attributes.GetUserStrings().Count==0,
+                    "Semantic hierarchy altered ordinary groups or stamped members.");
             });
-            Run(results, directory, "parent-only TextDot adopts without stealing descendant owners", doc =>
-            {
-                Guid a = doc.Objects.AddPoint(Point3d.Origin);
-                Register(doc, "leaf", new[] { a });
-                Guid root = Register(doc, "root", new Guid[0], new[] { "leaf" });
-                Guid note = doc.Objects.AddTextDot("facade assembly note", new Point3d(1, 2, 3));
-                ManuallyAdd(doc, note, root);
-                var pending = Inspect(doc, "root", root);
-                Check((bool)pending["requires_sync"] && ((JArray)pending["pending_objects"]).Count == 1,
-                    "Parent-level annotation was not discovered.");
-                Success(ComponentRegistry.Handle(doc, Request(doc, "sync", "root", null, null, root)));
-                Check(doc.Objects.FindId(note).Attributes.GetUserString("almond:component_id") == "root" &&
-                    doc.Objects.FindId(a).Attributes.GetUserString("almond:component_id") == "leaf",
-                    "Parent sync changed descendant ownership.");
+            Run(results, directory, "explicit Scene root scope includes descendants without inheriting another Scene", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin), b=doc.Objects.AddPoint(new Point3d(30,0,0));
+                int leaf=doc.Groups.Add("Leaf",new[]{a}), root=doc.Groups.Add("Root",new[]{a,b});
+                var child=Request(doc,"upsert","leaf",new[]{a},doc.Groups[leaf].Id,"Leaf"); child["scene_ids"]=new JArray("scene-a");
+                Success(ComponentRegistry.Handle(doc,child));
+                var parent=Request(doc,"upsert","root",new[]{b},doc.Groups[root].Id,"Root");
+                parent["scene_ids"]=new JArray("scene-b"); parent["child_component_ids"]=new JArray("leaf");
+                Success(ComponentRegistry.Handle(doc,parent));
+                var response=ComponentRegistry.Handle(doc,new JObject{["action"]="inspect_many",["expected_model_path"]=doc.Path,
+                    ["component_ids"]=new JArray("root","leaf"),["scene_id"]="scene-b"});
+                Check((string)response["status"]=="success"&&((JArray)response["components"]).Count==2,
+                    "Native Scene filtering discarded an explicitly requested descendant.");
+                var observed=response["components"].Single(item=>(string)item["component_id"]=="leaf");
+                Check(observed["scene_ids"].Values<string>().SequenceEqual(new[]{"scene-a"}),"Parent Scene context was inherited by the child.");
+                response=ComponentRegistry.Handle(doc,new JObject{["action"]="inspect_many",["expected_model_path"]=doc.Path,
+                    ["component_ids"]=new JArray(),["scene_id"]="scene-b",["discover_scene"]=true});
+                Check((string)response["status"]=="success"&&((JArray)response["components"]).Count==2,
+                    "Native-only Scene discovery omitted a new root or its differently scoped child.");
+                response=ComponentRegistry.Handle(doc,new JObject{["action"]="inspect_many",["expected_model_path"]=doc.Path,
+                    ["component_ids"]=new JArray("leaf"),["scene_id"]="scene-b"});
+                Check((string)response["status"]=="success"&&((JArray)response["components"]).Count==1&&
+                    (string)response["components"][0]["component_id"]=="leaf","An explicit ID scope broadened into another Scene root.");
             });
-            Run(results, directory, "multi-parent and cyclic relations reject; explicit detach enables reparent", doc =>
-            {
-                Guid a = doc.Objects.AddPoint(Point3d.Origin);
-                Guid b = doc.Objects.AddPoint(new Point3d(3, 0, 0));
-                Guid c = doc.Objects.AddPoint(new Point3d(6, 0, 0));
-                Guid leaf = Register(doc, "leaf", new[] { a });
-                Register(doc, "other", new[] { b });
-                Guid first = Register(doc, "parent1", new Guid[0], new[] { "leaf", "other" });
-                Guid second = Register(doc, "parent2", new[] { c });
-                var attach = Request(doc, "upsert", "parent2", new[] { c }, new[] { "leaf" }, second);
-                Rejected(ComponentRegistry.Handle(doc, attach));
-                Rejected(ComponentRegistry.Handle(doc, Request(doc, "upsert", "leaf", new[] { a }, new[] { "parent1" }, leaf)));
-                Check((string)Inspect(doc, "leaf", leaf)["parent_component_id"] == "parent1",
-                    "Rejected topology mutation changed the parent.");
-                Success(ComponentRegistry.Handle(doc, Request(doc, "upsert", "parent1", new Guid[0],
-                    new[] { "other" }, first)));
-                Check(Inspect(doc, "leaf", leaf)["parent_component_id"].Type == JTokenType.Null,
-                    "Explicit detach did not release the child.");
-                Success(ComponentRegistry.Handle(doc, attach));
-                Check((string)Inspect(doc, "leaf", leaf)["parent_component_id"] == "parent2",
-                    "Explicit reparent did not update the child's derived parent.");
-                Check(doc.Groups.GroupMembers(doc.Groups.FindId(first).Index).Select(o => o.Id)
-                    .ToHashSet().SetEquals(new[] { b }), "Old parent retained detached child geometry.");
-                Check(doc.Groups.GroupMembers(doc.Groups.FindId(second).Index).Select(o => o.Id)
-                    .ToHashSet().SetEquals(new[] { a, c }), "New parent did not select direct and child geometry.");
+            Run(results, directory, "unregister Undo Redo preserves the ordinary group and all geometry", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin); int group=doc.Groups.Add("Panel",new[]{a}); Guid gid=doc.Groups[group].Id;
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","panel",new[]{a},gid)));
+                var removed=ComponentRegistry.Handle(doc,Request(doc,"unregister","panel",null,gid)); Check((string)removed["status"]=="success",removed.ToString());
+                Check((string)Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,gid)))["registration_status"]=="unregistered","Unregister remained active.");
+                UndoRedo(doc,false);
+                Check((string)Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,gid)))["registration_status"]=="registered","Undo did not restore meaning binding.");
+                UndoRedo(doc,true);
+                Check((string)Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,gid)))["registration_status"]=="unregistered","Redo did not remove meaning binding.");
+                Check(doc.Objects.FindId(a)!=null && doc.Groups.GroupMembers(group).Length==1 && doc.Objects.FindId(a).Attributes.GetUserStrings().Count==0,
+                    "Unregistration changed the ordinary group or geometry.");
             });
-            Run(results, directory, "stale copied owner and component record cannot be silently synced", doc =>
-            {
-                Guid a = doc.Objects.AddPoint(Point3d.Origin);
-                Guid b = doc.Objects.AddPoint(new Point3d(3, 0, 0));
-                Guid leaf = Register(doc, "leaf", new[] { a });
-                var attrs = doc.Objects.FindId(b).Attributes.Duplicate();
-                attrs.SetUserString("almond:component_id", "leaf");
-                Check(doc.Objects.ModifyAttributes(b, attrs, true), "Fixture owner stamp copy failed.");
-                Rejected(ComponentRegistry.Handle(doc, Request(doc, "inspect", "leaf", null, null, leaf)));
-                Rejected(ComponentRegistry.Handle(doc, Request(doc, "sync", "leaf", null, null, leaf)));
+            Run(results, directory, "non-Undo group-table deletion stays missing and explicit Undelete restores the same binding", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin); int group=doc.Groups.Add("Panel",new[]{a}); Guid gid=doc.Groups[group].Id;
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","panel",new[]{a},gid)));
+                var deleted=new ScriptExecutor().ExecuteAction(doc,()=>{Check(doc.Groups.Delete(group),"Group delete failed.");return null;});
+                Check(deleted.Status=="success",deleted.Message);
+                var missing=Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,gid)));
+                Check((string)missing["availability"]=="missing_group"&&((JArray)missing["objects"]).Count==0,"Inspection recreated a missing group.");
+                Check(doc.Groups.Undelete(group),"Explicit fixture Undelete failed.");
+                Check((string)Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,gid)))["availability"]=="present","Explicit Undelete lost the persistent group binding.");
             });
-            Run(results, directory, "legacy single-record metadata remains readable and migrates on edit", doc =>
-            {
-                Guid a = doc.Objects.AddPoint(Point3d.Origin);
-                Guid leaf = Register(doc, "legacy", new[] { a });
-                var attrs = doc.Objects.FindId(a).Attributes.Duplicate();
-                var map = JObject.Parse(attrs.GetUserString("almond:component_record"));
-                var previous = (JObject)map[leaf.ToString("D")].DeepClone();
-                previous.Remove("child_component_ids");
-                Check(attrs.SetUserString("almond:component_record", previous.ToString(Formatting.None)) &&
-                    doc.Objects.ModifyAttributes(a, attrs, true), "Could not simulate the old singleton record.");
-                var read = Inspect(doc, "legacy", leaf);
-                Check(((JArray)read["child_component_ids"]).Count == 0, "Old singleton failed read-only migration.");
-                var request = Request(doc, "upsert", "legacy", new[] { a }, null, leaf);
-                request["name"] = "Updated legacy";
-                Success(ComponentRegistry.Handle(doc, request));
-                var rewritten = JObject.Parse(doc.Objects.FindId(a).Attributes.GetUserString("almond:component_record"));
-                Check(rewritten[leaf.ToString("D")] is JObject &&
-                    (string)Inspect(doc, "legacy", leaf)["name"] == "Updated legacy",
-                    "Legacy record was not migrated to undoable group-keyed map.");
-                Undo(doc);
-                Check((string)Inspect(doc, "legacy", leaf)["name"] == "Facade",
-                    "Legacy-format record was not restored by Undo.");
+            Run(results, directory, "actual member deletion and native Undo restore the same semantic binding", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin); int group=doc.Groups.Add("Panel",new[]{a}); Guid gid=doc.Groups[group].Id;
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","panel",new[]{a},gid)));
+                var deleted=new ScriptExecutor().ExecuteAction(doc,()=>{Check(doc.Objects.Delete(a,true),"Object deletion failed.");return null;});
+                Check(deleted.Status=="success",deleted.Message);
+                Check(((JArray)Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,gid)))["objects"]).Count==0,
+                    "Inspection recreated a deleted member.");
+                UndoRedo(doc,false);
+                Check(Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,gid)))["object_ids"].Values<string>().SequenceEqual(new[]{a.ToString("D")}),
+                    "Object Undo lost membership or semantic identity.");
             });
-            Run(results, directory, "linked parent/child unregister requires explicit separation", doc =>
-            {
-                Guid a = doc.Objects.AddPoint(Point3d.Origin);
-                Guid b = doc.Objects.AddPoint(new Point3d(2, 0, 0));
-                Guid leaf = Register(doc, "leaf", new[] { a });
-                Register(doc, "other", new[] { b });
-                Guid parent = Register(doc, "parent", new Guid[0], new[] { "leaf", "other" });
-                Rejected(ComponentRegistry.Handle(doc, Request(doc, "unregister", "leaf", null, null, leaf)));
-                var detach = Request(doc, "upsert", "parent", new Guid[0], new[] { "other" }, parent);
-                Success(ComponentRegistry.Handle(doc, detach));
-                var removed = ComponentRegistry.Handle(doc, Request(doc, "unregister", "leaf", null, null, leaf));
-                Check((string)removed["status"] == "success", "Leaf unregistration after explicit detach failed.");
-                Check(doc.Objects.FindId(a) != null && doc.Groups.FindId(leaf) != null &&
-                    doc.Objects.FindId(a).Attributes.GetUserString("almond:component_id") == null &&
-                    doc.Groups.GroupMembers(doc.Groups.FindId(parent).Index).Select(o => o.Id)
-                        .ToHashSet().SetEquals(new[] { b }),
-                    "Unregister removed Rhino geometry or an unrelated child.");
+            Run(results, directory, "registration Undo restores original membership and name collisions refuse before mutation", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin);
+                var serialization=new Rhino.FileIO.SerializationOptions{WriteUserData=true};
+                string originalAttrs=doc.Objects.FindId(a).Attributes.ToJSON(serialization);uint originalCrc=doc.Objects.FindId(a).Geometry.DataCRC(0);
+                var request=Request(doc,"upsert","panel",new[]{a},Guid.Empty); request.Remove("rhino_group_id");
+                var created=Success(ComponentRegistry.Handle(doc,request)); Guid gid=Guid.Parse((string)created["rhino_group_id"]);
+                UndoRedo(doc,false);
+                var inactive=Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,gid)));
+                var group=doc.Groups.FindId(gid);
+                Check((string)inactive["registration_status"]=="unregistered"&&group!=null&&!doc.Groups.IsDeleted(group.Index)&&
+                    doc.Groups.GroupMembers(group.Index).Length==0&&doc.Objects.FindId(a).Attributes.ToJSON(serialization)==originalAttrs&&
+                    doc.Objects.FindId(a).Geometry.DataCRC(0)==originalCrc,
+                    "Registration Undo did not restore original object attributes while retaining the empty native group-table entry.");
+                string registry=ComponentSemanticRegistry.Export(doc);uint next=doc.NextUndoRecordSerialNumber;int count=doc.Groups.Count;bool modified=doc.Modified;
+                var collision=(JObject)request.DeepClone();collision["component_id"]="other-panel";
+                var rejected=ComponentRegistry.Handle(doc,collision);
+                Check((string)rejected["status"]=="error"&&(string)rejected["error_code"]=="component_name_collision"&&(bool?)rejected["mutation_applied"]==false&&
+                    ComponentSemanticRegistry.Export(doc)==registry&&doc.NextUndoRecordSerialNumber==next&&doc.Groups.Count==count&&doc.Modified==modified&&
+                    doc.Objects.FindId(a).Attributes.ToJSON(serialization)==originalAttrs,"Name collision mutated the document or silently suffixed a duplicate group.");
+                UndoRedo(doc,true);
+                Check((string)Success(ComponentRegistry.Handle(doc,Request(doc,"inspect","panel",null,gid)))["registration_status"]=="registered",
+                    "Registration Redo failed over the retained ordinary group.");
+                Check(doc.Groups.GroupMembers(group.Index).Select(o=>o.Id).SequenceEqual(new[]{a})&&doc.Objects.FindId(a).Geometry.DataCRC(0)==originalCrc,
+                    "Registration Redo did not restore group membership and meaning together.");
             });
-            Run(results, directory, "root aggregate unregister preserves child ownership and proves recovery", doc =>
-            {
-                Guid a = doc.Objects.AddPoint(Point3d.Origin);
-                Guid leaf = Register(doc, "leaf", new[] { a });
-                Guid root = Register(doc, "root", new Guid[0], new[] { "leaf" });
-                var remove = Request(doc, "unregister", "root", null, null, root);
-                remove["expected_object_ids"] = new JArray();
-                remove["expected_child_component_ids"] = new JArray("leaf");
-                remove["expected_effective_object_ids"] = new JArray(a.ToString("D"));
-                var result = ComponentRegistry.Handle(doc, remove);
-                Check((string)result["status"] == "success" &&
-                    ((JArray)result["detached_child_component_ids"]).Values<string>().SequenceEqual(new[] { "leaf" }) &&
-                    ((JArray)result["affected_components"]).Any(item =>
-                        (string)item["component_id"] == "leaf" &&
-                        item["parent_component_id"].Type == JTokenType.Null),
-                    "Root unregister response lacks detached-child snapshots: " + result);
-                Check(doc.Groups.FindId(root) != null &&
-                    doc.Groups.GroupMembers(doc.Groups.FindId(root).Index).Select(o => o.Id).ToHashSet()
-                        .SetEquals(new[] { a }) &&
-                    doc.Objects.FindId(a).Attributes.GetUserString("almond:component_id") == "leaf",
-                    "Root removal changed the former ordinary group or descendant ownership.");
-                Check(Inspect(doc, "leaf", leaf)["parent_component_id"].Type == JTokenType.Null,
-                    "Removed root did not detach the child's derived parent.");
-                var inspect = Request(doc, "inspect", "root", null, null, root);
-                inspect["expected_object_ids"] = new JArray();
-                inspect["expected_child_component_ids"] = new JArray("leaf");
-                inspect["expected_effective_object_ids"] = new JArray(a.ToString("D"));
-                var proof = ComponentRegistry.Handle(doc, inspect);
-                Check((string)proof["status"] == "success" &&
-                    (string)proof["component"]["registration_status"] == "unregistered" &&
-                    (bool)proof["component"]["complete"] &&
-                    proof["component"]["effective_object_ids"].Values<string>().SequenceEqual(new[] { a.ToString("D") }) &&
-                    ((JArray)proof["affected_components"]).Any(item =>
-                        (string)item["component_id"] == "leaf"),
-                    "Explicit inspect failed to prove unregister after an uncertain DB commit: " + proof);
-                Undo(doc);
-                Check((string)Inspect(doc, "leaf", leaf)["parent_component_id"] == "root" &&
-                    (string)Inspect(doc, "root", root)["component_id"] == "root",
-                    "Root unregister Undo did not restore the hierarchy.");
-                Redo(doc);
-                Check((string)ComponentRegistry.Handle(doc, inspect)["component"]["registration_status"] == "unregistered",
-                    "Root unregister Redo lost reconciliation proof.");
+            Run(results, directory, "semantic map serializes without changing object attributes", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin); int group=doc.Groups.Add("Panel",new[]{a});
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","panel",new[]{a},doc.Groups[group].Id)));
+                string exported=ComponentSemanticRegistry.Export(doc);
+                ComponentSemanticRegistry.Import(doc,exported);
+                Check(ComponentSemanticRegistry.Export(doc)==exported && doc.Objects.FindId(a).Attributes.GetUserStrings().Count==0,
+                    "Registry serialization changed semantic identity or wrote an object attribute.");
+                Check(doc.WriteFile(doc.Path,new Rhino.FileIO.FileWriteOptions{SuppressDialogBoxes=true}),"Save failed.");
+                using(var reopened=RhinoDoc.OpenHeadless(doc.Path))
+                    Success(ComponentRegistry.Handle(reopened,Request(reopened,"inspect","panel",null,doc.Groups[group].Id)));
+            });
+            Run(results, directory, "empty archived registry accepts missing DB identities but never resurrects a tombstone", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin); int group=doc.Groups.Add("Panel",new[]{a}); Guid gid=doc.Groups[group].Id;
+                ComponentSemanticRegistry.Import(doc,"{\"version\":1,\"records\":{}}");
+                var seed=Request(doc,"inspect","panel",null,gid);
+                seed["registrations"]=new JArray(new JObject{["component_id"]="panel",["rhino_group_id"]=gid.ToString("D"),
+                    ["name"]="Panel",["scene_ids"]=new JArray("inside"),["child_component_ids"]=new JArray()});
+                Check((string)Success(ComponentRegistry.Handle(doc,seed))["availability"]=="present","Archived empty registry blocked DB identity recovery.");
+                SuccessStatus(ComponentRegistry.Handle(doc,Request(doc,"unregister","panel",null,gid)));
+                string archive=ComponentSemanticRegistry.Export(doc); ComponentSemanticRegistry.Import(doc,archive);
+                Check((string)Success(ComponentRegistry.Handle(doc,seed))["registration_status"]=="unregistered","A cached DB seed resurrected explicit unregister.");
+                Check(doc.Objects.FindId(a).Attributes.GetUserStrings().Count==0,"DB identity recovery wrote object attributes.");
+            });
+            Run(results, directory, "archive export defers legacy object observation until a stable registry request", doc => {
+                Guid bad=doc.Objects.AddPoint(Point3d.Origin),valid=doc.Objects.AddPoint(new Point3d(20,0,0));
+                var attrs=doc.Objects.FindId(bad).Attributes.Duplicate(); attrs.SetUserString("almond:component_record","invalid JSON");
+                doc.Objects.ModifyAttributes(bad,attrs,true);
+                int group=doc.Groups.Add("Panel",new[]{valid}); Guid gid=doc.Groups[group].Id;
+                uint next=doc.NextUndoRecordSerialNumber; bool modified=doc.Modified;
+                string pending=ComponentSemanticRegistry.Export(doc); ComponentSemanticRegistry.Import(doc,pending);
+                Check(next==doc.NextUndoRecordSerialNumber&&modified==doc.Modified,"Archive helper changed the native document.");
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","panel",new[]{valid},gid)));
+                var reply=ComponentRegistry.Handle(doc,new JObject{["action"]="inspect_many",["expected_model_path"]=doc.Path,["component_ids"]=new JArray("panel")});
+                SuccessStatus(reply);
+                Check(((JArray)reply["problems"]).Count==1&&(string)reply["problems"][0]["code"]=="invalid_legacy_record",
+                    "Save-time export consumed legacy observation outside the stable request boundary.");
+                Check(doc.Objects.FindId(bad).Attributes.GetUserString("almond:component_record")=="invalid JSON","Archive helper changed legacy metadata.");
+            },legacyArchive:true);
+            Run(results, directory, "archive import insert template reference and unknown modes preserve current meaning", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin);int group=doc.Groups.Add("Panel",new[]{a});Guid gid=doc.Groups[group].Id;
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","panel",new[]{a},gid)));
+                SuccessStatus(ComponentRegistry.Handle(doc,Request(doc,"unregister","panel",null,gid)));
+                string before=ComponentSemanticRegistry.Export(doc);
+                var excluded=new Rhino.FileIO.FileReadOptions[]{null,new Rhino.FileIO.FileReadOptions{OpenMode=false},
+                    new Rhino.FileIO.FileReadOptions{OpenMode=true,ImportMode=true},new Rhino.FileIO.FileReadOptions{OpenMode=true,InsertMode=true},
+                    new Rhino.FileIO.FileReadOptions{OpenMode=true,NewMode=true},new Rhino.FileIO.FileReadOptions{OpenMode=true,ImportReferenceMode=true}};
+                foreach(var options in excluded)
+                {
+                    ComponentSemanticRegistry.Read(doc,null,options);
+                    Check(ComponentSemanticRegistry.Export(doc)==before,"A non-Open archive changed this document's registry/tombstone.");
+                }
+                bool needsArchive=false;
+                try{ComponentSemanticRegistry.Read(doc,null,new Rhino.FileIO.FileReadOptions{OpenMode=true});}
+                catch(ArgumentNullException){needsArchive=true;}
+                Check(needsArchive,"Normal Open did not reach the archive reader.");
+            });
+            Run(results, directory, "oversized observed registration cannot poison the next document save", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin);int group=doc.Groups.Add("Panel",new[]{a});Guid gid=doc.Groups[group].Id;
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","panel",new[]{a},gid)));
+                string before=null;
+                for(int index=0;index<3;index++)
+                {
+                    Guid member=doc.Objects.AddPoint(new Point3d(20+index,0,0));int seedGroup=doc.Groups.Add("Seed "+index,new[]{member});
+                    var seed=new JObject{["component_id"]="seed-"+index,["rhino_group_id"]=doc.Groups[seedGroup].Id.ToString("D"),
+                        ["name"]=new string('x',1500000),["scene_ids"]=new JArray("inside"),["child_component_ids"]=new JArray()};
+                    before=ComponentSemanticRegistry.Export(doc);
+                    var reply=ComponentRegistry.Handle(doc,new JObject{["action"]="inspect_many",["expected_model_path"]=doc.Path,
+                        ["component_ids"]=new JArray("panel"),["registrations"]=new JArray(seed)});
+                    SuccessStatus(reply);
+                    string after=ComponentSemanticRegistry.Export(doc);
+                    if(index<2)Check(after.Length>before.Length,"Valid bounded seed was discarded.");
+                    else Check(after==before&&reply["problems"].Any(problem=>(string)problem["code"]=="registry_budget_exceeded"),
+                        "Oversized read-only seed changed the saveable document registry.");
+                }
+                Check(doc.WriteFile(doc.Path,new Rhino.FileIO.FileWriteOptions{SuppressDialogBoxes=true}),"A rejected oversized seed poisoned the next save.");
+            });
+            Run(results, directory, "DB recovery of a conflicted legacy handle retains explicit uncertainty", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin),b=doc.Objects.AddPoint(new Point3d(20,0,0));
+                int first=doc.Groups.Add("Panel",new[]{a}),second=doc.Groups.Add("Other",new[]{b});
+                var seed=new JObject{["component_id"]="panel",["rhino_group_id"]=doc.Groups[first].Id.ToString("D"),
+                    ["name"]="Panel",["scene_ids"]=new JArray("inside"),["child_component_ids"]=new JArray()};
+                var conflicting=(JObject)seed.DeepClone();conflicting["rhino_group_id"]=doc.Groups[second].Id.ToString("D");
+                var attrs=doc.Objects.FindId(a).Attributes.Duplicate();attrs.SetUserString("almond:component_record",seed.ToString());doc.Objects.ModifyAttributes(a,attrs,true);
+                attrs=doc.Objects.FindId(b).Attributes.Duplicate();attrs.SetUserString("almond:component_record",conflicting.ToString());doc.Objects.ModifyAttributes(b,attrs,true);
+                var reply=ComponentRegistry.Handle(doc,new JObject{["action"]="inspect_many",["expected_model_path"]=doc.Path,
+                    ["component_ids"]=new JArray("panel"),["registrations"]=new JArray(seed)});
+                SuccessStatus(reply);
+                Check(((JArray)reply["components"]).Count==1&&reply["problems"].Any(problem=>(string)problem["component_id"]=="panel"&&
+                    (string)problem["code"]=="legacy_record_conflict"),"Recovered legacy identity silently discarded its conflict evidence.");
+                Check(doc.Objects.FindId(a).Attributes.GetUserString("almond:component_record")==seed.ToString()&&
+                    doc.Objects.FindId(b).Attributes.GetUserString("almond:component_record")==conflicting.ToString(),"Conflict recovery rewrote legacy attributes.");
+            },legacyArchive:true);
+            Run(results, directory, "presence proof separates deleted objects from live detached Scene candidates", doc => {
+                Guid a=doc.Objects.AddPoint(Point3d.Origin),b=doc.Objects.AddPoint(new Point3d(10,0,0)),c=doc.Objects.AddPoint(new Point3d(20,0,0));
+                int group=doc.Groups.Add("Panel",new[]{a,b,c}); Guid gid=doc.Groups[group].Id;
+                Success(ComponentRegistry.Handle(doc,Request(doc,"upsert","panel",new[]{a,b,c},gid)));
+                Check(doc.Objects.Delete(a,true),"Fixture object deletion failed.");
+                var attrs=doc.Objects.FindId(b).Attributes.Duplicate(); attrs.RemoveFromGroup(group); attrs.Name="Detached but alive";
+                Check(doc.Objects.ModifyAttributes(b,attrs,true),"Fixture detach failed.");
+                uint next=doc.NextUndoRecordSerialNumber; bool modified=doc.Modified;
+                var reply=ComponentRegistry.Handle(doc,new JObject{["action"]="inspect_many",["expected_model_path"]=doc.Path,
+                    ["component_ids"]=new JArray("panel"),["prior_object_ids"]=new JArray(a.ToString("D"),b.ToString("D"),c.ToString("D"))});
+                SuccessStatus(reply);
+                Check((bool)reply["presence_complete"]&&reply["absent_object_ids"].Values<string>().SequenceEqual(new[]{a.ToString("D")}),"Deletion proof is incomplete or claims a living object.");
+                Check(((JArray)reply["detached_objects"]).Count==1&&(string)reply["detached_objects"][0]["rhino_guid"]==b.ToString("D")&&
+                    (string)reply["detached_objects"][0]["name"]=="Detached but alive","Live detached object observation was omitted.");
+                Check(next==doc.NextUndoRecordSerialNumber&&modified==doc.Modified&&doc.Objects.FindId(b).Attributes.GetUserStrings().Count==0,
+                    "Presence observation mutated geometry, attributes or Undo.");
             });
             string report = String.Join("\n", results);
-            if (results.Any(row => row.StartsWith("FAIL "))) throw new InvalidOperationException(report);
+            if (results.Any(line => line.StartsWith("FAIL "))) throw new InvalidOperationException(report);
             return report + "\nPASS: " + results.Count + "/" + results.Count + " Component hierarchy cases.";
         }
-
-        private static Guid Register(RhinoDoc doc, string id, Guid[] owned, string[] children = null)
-        {
-            JObject response = ComponentRegistry.Handle(doc, Request(doc, "upsert", id, owned, children));
-            JObject component = Success(response);
-            return Guid.Parse((string)component["rhino_group_id"]);
-        }
-
-        private static JObject Request(RhinoDoc doc, string action, string id, Guid[] owned, string[] children = null,
-            Guid group = default(Guid))
-        {
-            var request = new JObject {
-                ["type"] = "design_component", ["action"] = action, ["expected_model_path"] = doc.Path,
-                ["component_id"] = id, ["rhino_group_id"] = group == Guid.Empty ? "" : group.ToString("D"),
-                ["name"] = "Facade", ["scene_ids"] = new JArray("inside"),
-                ["object_ids"] = new JArray((owned ?? new Guid[0]).Select(v => v.ToString("D")))
-            };
-            if (children != null) request["child_component_ids"] = new JArray(children);
-            return request;
-        }
-
-        private static JObject Inspect(RhinoDoc doc, string id, Guid group) =>
-            Success(ComponentRegistry.Handle(doc, Request(doc, "inspect", id, null, null, group)));
-
+        private static JObject Request(RhinoDoc doc,string action,string id,Guid[] objects,Guid group,string name="Panel") =>
+            new JObject{["action"]=action,["expected_model_path"]=doc.Path,["component_id"]=id,["rhino_group_id"]=group.ToString("D"),
+                ["name"]=name,["scene_ids"]=new JArray("inside"),["object_ids"]=new JArray((objects??new Guid[0]).Select(x=>x.ToString("D")))};
         private static JObject Success(JObject result)
+        {Check((string)result["status"]=="success",result.ToString());return (JObject)result["component"];}
+        private static void SuccessStatus(JObject result){Check((string)result["status"]=="success",result.ToString());}
+        private static void Check(bool condition,string message){if(!condition)throw new InvalidOperationException(message);}
+        private static void UndoRedo(RhinoDoc doc,bool redo)
         {
-            Check((string)result["status"] == "success", result.ToString(Formatting.None));
-            return (JObject)result["component"];
+            Check(!doc.UndoRecordingIsActive,"Undo already active."); uint next=doc.NextUndoRecordSerialNumber;
+            try{Check(redo?doc.Redo():doc.Undo(),"Undo/Redo failed.");}
+            finally{if(doc.UndoRecordingIsActive&&doc.CurrentUndoRecordSerialNumber==next)Check(doc.EndUndoRecord(next),"Undo close failed.");}
         }
-        private static void Rejected(JObject response) =>
-            Check((string)response["status"] == "error" && (bool?)response["mutation_applied"] == false, response.ToString(Formatting.None));
-        private static void ManuallyAdd(RhinoDoc doc, Guid id, Guid group)
+        private static void Run(List<string> results,string directory,string name,Action<RhinoDoc> test,bool legacyArchive=false)
         {
-            var attrs = doc.Objects.FindId(id).Attributes.Duplicate();
-            attrs.AddToGroup(doc.Groups.FindId(group).Index);
-            Check(doc.Objects.ModifyAttributes(id, attrs, true), "Could not simulate manual group addition.");
-        }
-        private static void Check(bool condition, string message)
-        {
-            if (!condition) throw new InvalidOperationException(message);
-        }
-        private static void Undo(RhinoDoc doc) => UndoRedo(doc, false);
-        private static void Redo(RhinoDoc doc) => UndoRedo(doc, true);
-        private static void UndoRedo(RhinoDoc doc, bool redo)
-        {
-            Check(!doc.UndoRecordingIsActive, "Undo record already active.");
-            uint next = doc.NextUndoRecordSerialNumber;
-            try { Check(redo ? doc.Redo() : doc.Undo(), "Undo/Redo failed."); }
-            finally
+            string path=Path.Combine(directory,"semantic-"+Guid.NewGuid().ToString("N")+".3dm");
+            if(legacyArchive)
             {
-                if (doc.UndoRecordingIsActive && doc.CurrentUndoRecordSerialNumber == next)
-                    Check(doc.EndUndoRecord(next), "Could not finish Undo/Redo record.");
+                using(var legacy=new Rhino.FileIO.File3dm()) Check(legacy.Write(path,8),"Legacy-format fixture save failed.");
             }
-        }
-        private static void Run(List<string> results, string directory, string name, Action<RhinoDoc> test)
-        {
-            string file = Path.Combine(directory, "hierarchy-" + Guid.NewGuid().ToString("N") + ".3dm");
-            using (var original = RhinoDoc.CreateHeadless(null))
+            else using(var original=RhinoDoc.CreateHeadless(null))
+                Check(original.WriteFile(path,new Rhino.FileIO.FileWriteOptions{SuppressDialogBoxes=true}),"Fixture save failed.");
+            using(var doc=RhinoDoc.OpenHeadless(path))
             {
-                original.AdjustModelUnitSystem(UnitSystem.Millimeters, false);
-                Check(original.WriteFile(file, new Rhino.FileIO.FileWriteOptions { SuppressDialogBoxes = true }),
-                    "Failed to save disposable hierarchy fixture.");
-            }
-            using (var doc = RhinoDoc.OpenHeadless(file))
-            {
-                try
-                {
-                    Check(doc != null && !String.IsNullOrWhiteSpace(doc.Path), "Could not open disposable hierarchy fixture.");
-                    doc.UndoRecordingEnabled = true;
-                    test(doc);
-                    Check(!doc.UndoRecordingIsActive && !doc.UndoActive && !doc.RedoActive,
-                        "Component hierarchy test leaked an Undo record.");
-                    results.Add("PASS " + name);
-                }
-                catch (Exception error) { results.Add("FAIL " + name + ": " + error); }
+                try{doc.UndoRecordingEnabled=true;test(doc);Check(!doc.UndoRecordingIsActive&&!doc.UndoActive&&!doc.RedoActive,"Leaked Undo state.");results.Add("PASS "+name);}
+                catch(Exception error){results.Add("FAIL "+name+": "+error);}
+                finally{if(doc!=null)doc.Modified=false;}
             }
         }
     }

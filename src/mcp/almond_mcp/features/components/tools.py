@@ -23,6 +23,8 @@ def register(mcp, context):
                 raise ValueError("Could not inspect the bound Rhino document.")
             if rhino_context.get("capabilities", {}).get("design_components") != 1:
                 raise ValueError(read_instruction(__file__, 'response-566'))
+            if rhino_context.get("capabilities", {}).get("component_registry") != 2:
+                raise ValueError("Load a Bridge with component_registry=2 before using object-free Component registration.")
         except Exception as exc:
             return {"status": "error", "mutation_applied": False, "message": str(exc)}
         response = context._send_and_receive(payload)
@@ -35,10 +37,16 @@ def register(mcp, context):
 
     def _component_error(exc: Exception) -> str:
         result = error_payload(str(exc))
+        result.update(getattr(exc, "native_result", {}))
         if isinstance(exc, ComponentReconciliationError):
             result.update(error_code="component_reconciliation_required", requires_reconciliation=True,
                           component_id=exc.component_id, expected_model_path=exc.model_path)
         return json.dumps(result, ensure_ascii=False)
+
+    def _component_ack(component: dict) -> dict:
+        return {key: component[key] for key in (
+            "component_id", "rhino_group_id", "status", "availability", "object_count", "live_verified",
+        ) if key in component}
 
     @mcp.tool()
     @tool_instruction(__file__, 'upsert_design_component')
@@ -57,20 +65,24 @@ def register(mcp, context):
                 scene_ids=scene_ids, component_id=component_id, rhino_group_id=rhino_group_id,
                 native_apply=_component_bridge, child_component_ids=child_component_ids,
             )
-            return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
+            return json.dumps({"status": "success", "component": _component_ack(component)}, ensure_ascii=False)
         except Exception as exc:
             return _component_error(exc)
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_design_component')
     @query_output
-    def get_design_component(component_id: str, live: bool = False, include_ids: StrictBool = False) -> str:
+    def get_design_component(component_id: str, live: bool = False, include_ids: StrictBool = False,
+                             recursive: StrictBool = False) -> str:
         try:
             component = context.retrieval_store.get_component(
                 component_id, live=live, native_inspect=_component_bridge if live else None,
             )
             if component is None:
                 raise KeyError(f"Unknown component_id: {component_id}")
+            if not recursive:
+                component = {key: value for key, value in component.items()
+                             if key not in {"effective_objects", "effective_object_ids"}}
             return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
         except Exception as exc:
             return _component_error(exc)
@@ -78,9 +90,10 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'list_design_components')
     @query_output
-    def list_design_components(expected_model_path: str = "", include_ids: StrictBool = False) -> str:
+    def list_design_components(expected_model_path: str = "", include_ids: StrictBool = False,
+                               scene_id: str = "", recursive: StrictBool = False) -> str:
         try:
-            components = context.retrieval_store.list_components(expected_model_path)
+            components = context.retrieval_store.list_components(expected_model_path, scene_id=scene_id, recursive=recursive)
             return json.dumps({"status": "success", "components": components, "total": len(components),
                                "live_verified": False}, ensure_ascii=False)
         except Exception as exc:
@@ -88,13 +101,30 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'sync_design_component')
-    def sync_design_component(component_id: str, expected_model_path: str = "", rhino_group_id: str = "") -> str:
+    def sync_design_component(component_id: str = "", expected_model_path: str = "", rhino_group_id: str = "",
+                              component_ids: list[str] | None = None, scene_id: str = "") -> str:
         try:
-            component = context.retrieval_store.sync_component(
-                model_path=bound_model_path(expected_model_path), component_id=component_id,
-                rhino_group_id=rhino_group_id, native_inspect=_component_bridge,
-            )
-            return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
+            if component_id and component_ids is not None:
+                raise ValueError("Use component_id or component_ids, not both.")
+            if scene_id and (component_id or component_ids is not None):
+                raise ValueError("Use a Component target or a Scene scope, not both.")
+            if rhino_group_id:
+                rhino_group_id = context.retrieval_store._component_guid(rhino_group_id)
+                existing = context.retrieval_store.get_component(component_id)
+                if not component_id or (existing and existing["rhino_group_id"] != rhino_group_id):
+                    raise ValueError("The supplied group GUID does not match the existing Component binding.")
+            result = context.retrieval_store.align_components(
+                model_path=bound_model_path(expected_model_path),
+                component_ids=[component_id] if component_id else component_ids,
+                scene_id=scene_id, native_inspect=_component_bridge,
+                expected_groups={component_id: rhino_group_id} if rhino_group_id else None)
+            if component_id:
+                component = context.retrieval_store.get_component(component_id)
+                failed = any(isinstance(problem, dict) and problem.get("component_id") == component_id
+                             for problem in result["problems"])
+                if component and not failed:
+                    result["component"] = _component_ack(dict(component, live_verified=True))
+            return json.dumps(result, ensure_ascii=False)
         except Exception as exc:
             return _component_error(exc)
 
@@ -103,7 +133,7 @@ def register(mcp, context):
     def remove_design_component(component_id: str) -> str:
         try:
             component = context.retrieval_store.unregister_component(component_id, native_apply=_component_bridge)
-            return json.dumps({"status": "success", "component": component}, ensure_ascii=False)
+            return json.dumps({"status": "success", "component": _component_ack(component)}, ensure_ascii=False)
         except Exception as exc:
             return _component_error(exc)
 

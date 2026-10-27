@@ -75,7 +75,7 @@ def wire(server, monkeypatch):
             request = json.loads(payload)
             requests.append(request)
             if request["type"] == "get_rhino_context":
-                response = (dict(status="success", capabilities={"design_components": 1})
+                response = (dict(status="success", capabilities={"design_components": 1, "component_registry": 2})
                             if context is None else context)
             else:
                 response = handler(request)
@@ -105,12 +105,13 @@ def test_public_registration_update_and_cached_reads(server, store, scene, model
     component = created["component"]
     assert created["status"] == "success" and component["live_verified"] is True
     assert component["component_id"] == "panel-1" and component["rhino_group_id"] == GROUP
-    assert component["scene_ids"] == [scene] and component["object_ids"] == [A, B]
+    assert "scene_ids" not in component and "object_ids" not in component
+    assert store.get_component("panel-1")["scene_ids"] == [scene] and store.get_component("panel-1")["object_ids"] == [A, B]
     assert [request["type"] for request in requests] == ["get_rhino_context", "design_component"]
     assert requests[1]["expected_model_path"] == model and requests[1]["action"] == "upsert"
     changed = call(server, "upsert_design_component", expected_model_path=model, component_id="panel-1",
                    name="Smaller panel", object_ids=[B])
-    assert changed["component"]["scene_ids"] == [scene]
+    assert store.get_component("panel-1")["scene_ids"] == [scene]
     assert requests[-1]["expected_object_ids"] == [A, B]
     monkeypatch.setattr(server, "_send_and_receive", lambda *_: pytest.fail("Cached read called Rhino"))
     cached = call(server, "get_design_component", component_id="panel-1", include_ids=True)["component"]
@@ -164,14 +165,16 @@ def test_timeout_is_one_mutation_and_explicit_inspect_recovers(server, store, sc
     assert [r.get("action") for r in requests] == [None, "upsert"]
     assert len(native_success) == 1 and store.list_components() == []
     assert store.get_scene(scene) == before
-    inspections = wire(lambda request: native_success[0])
+    inspections = wire(lambda request: dict(status="success", complete=True, model_path=model,
+        editing=dict(mode="model", stable=True), components=[native_success[0]["component"]], problems=[]),
+        context=dict(status="success", capabilities=dict(design_components=1, component_registry=2)))
     recovered = call(server, "sync_design_component", expected_model_path=model,
                      component_id=response["component_id"], rhino_group_id=GROUP)
     assert recovered["status"] == "success" and recovered["component"]["live_verified"] is True
-    assert recovered["component"]["object_ids"] == [A, B]
+    assert "object_ids" not in recovered["component"]
     assert store.get_component(response["component_id"])["scene_ids"] == [scene]
-    assert [r.get("action") for r in inspections] == [None, "inspect"]
-    assert inspections[1]["rhino_group_id"] == GROUP
+    assert [r.get("action") for r in inspections] == [None, "inspect_many"]
+    assert inspections[1]["component_ids"] == [response["component_id"]]
 
 
 @pytest.mark.parametrize("reply,requires_reconciliation", [

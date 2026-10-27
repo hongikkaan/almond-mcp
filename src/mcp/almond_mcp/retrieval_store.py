@@ -305,6 +305,18 @@ class AlmondStore(
                 "DELETE FROM instance_rtree WHERE instance_rowid NOT IN (SELECT id FROM instances)"
             )
             component_columns = {row["name"] for row in connection.execute("PRAGMA table_info(components)")}
+            if "availability" not in component_columns:
+                connection.execute("ALTER TABLE components ADD COLUMN availability TEXT NOT NULL DEFAULT 'present'")
+            if "scene_ids_json" not in component_columns:
+                connection.execute("ALTER TABLE components ADD COLUMN scene_ids_json TEXT NOT NULL DEFAULT '[]'")
+                for component in connection.execute("SELECT component_id FROM components").fetchall():
+                    scenes = [row[0] for row in connection.execute(
+                        "SELECT scene_id FROM scene_components WHERE component_id = ? ORDER BY scene_id", (component[0],))]
+                    connection.execute("UPDATE components SET scene_ids_json = ? WHERE component_id = ?",
+                                       (json.dumps(scenes), component[0]))
+            object_columns = {row["name"] for row in connection.execute("PRAGMA table_info(document_objects)")}
+            if "name" not in object_columns:
+                connection.execute("ALTER TABLE document_objects ADD COLUMN name TEXT NOT NULL DEFAULT ''")
             if "parent_component_id" not in component_columns:
                 connection.execute(
                     "ALTER TABLE components ADD COLUMN parent_component_id TEXT "

@@ -155,8 +155,8 @@ class PlanningStore:
         ).fetchone():
             raise KeyError(f"Unknown phase_id: {phase_id}")
 
-    @staticmethod
-    def _write_generation_refs(connection, plan_id, scene_ids, component_ids) -> None:
+    def _write_generation_refs(self, connection, plan_id, scene_ids, component_ids) -> None:
+        component_ids = self._canonical_component_refs(connection, component_ids)
         for table, field, values in (
             ("generation_plan_scenes", "scene_id", scene_ids),
             ("generation_plan_components", "component_id", component_ids),
@@ -517,6 +517,8 @@ class PlanningStore:
             outputs = step["output_refs"] if output_refs is None else self._generation_refs(output_refs, "output_refs")
             components = step["component_ids"] if component_ids is None else self._generation_refs(component_ids, "component_ids")
             self._validate_generation_refs(connection, [], components or [])
+            if components is not None:
+                components = self._canonical_component_refs(connection, components)
             if (status, inputs, outputs, components) == (
                 step["status"], step["input_refs"], step["output_refs"], step["component_ids"]
             ):

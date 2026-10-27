@@ -68,10 +68,11 @@ class ScenesStore:
             object_count = connection.execute(
                 """
                 WITH RECURSIVE linked_components(component_id) AS (
-                    SELECT component_id FROM scene_components WHERE scene_id = ?
+                    SELECT sc.component_id FROM scene_components sc JOIN components c ON c.component_id = sc.component_id
+                        WHERE sc.scene_id = ? AND c.availability = 'present'
                     UNION
                     SELECT c.component_id FROM components c
-                        JOIN linked_components parent ON c.parent_component_id = parent.component_id
+                        JOIN linked_components parent ON c.parent_component_id = parent.component_id WHERE c.availability = 'present'
                 )
                 SELECT COUNT(*) FROM document_objects o
                 WHERE EXISTS(SELECT 1 FROM scene_objects so WHERE so.scene_id = ? AND so.object_rowid = o.id)
@@ -161,10 +162,11 @@ class ScenesStore:
             rows = connection.execute(
                 """
                 WITH RECURSIVE linked_components(component_id) AS (
-                    SELECT component_id FROM scene_components WHERE scene_id = ?
+                    SELECT sc.component_id FROM scene_components sc JOIN components c ON c.component_id = sc.component_id
+                        WHERE sc.scene_id = ? AND c.availability = 'present'
                     UNION
                     SELECT child.component_id FROM components child
-                        JOIN linked_components parent ON child.parent_component_id = parent.component_id
+                        JOIN linked_components parent ON child.parent_component_id = parent.component_id WHERE child.availability = 'present'
                 )
                 SELECT o.*, EXISTS(
                     SELECT 1 FROM scene_objects so WHERE so.object_rowid = o.id AND so.scene_id = ?
@@ -177,6 +179,7 @@ class ScenesStore:
         return [
             {"model_path": row["model_path"], "rhino_guid": row["rhino_guid"],
              "component_id": row["component_id"], "object_type": row["object_type"],
+              "name": row["name"],
              "bounds_mm": [row["min_x"], row["min_y"], row["min_z"],
                            row["max_x"], row["max_y"], row["max_z"]],
              "direct": bool(row["direct"]), "observed_at": row["observed_at"], "live_verified": False}

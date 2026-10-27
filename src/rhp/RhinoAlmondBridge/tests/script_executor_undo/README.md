@@ -1,6 +1,6 @@
 # Native modeling and Undo regression tests
 
-These tests link production sources; they do not install or register a plugin.
+These tests link production sources; loading the fixture assembly through reflection does not install a plugin.
 `NativeUndoTests` and `ObservationTests` use disposable headless documents.
 The modeling, Component, Sheet and asset suites also save and open disposable
 regular documents in the supplied test directory. Run those suites in a separate
@@ -51,7 +51,7 @@ regular-document fixtures from a working Rhino session.
 | Suite | Main behavior checked |
 | --- | --- |
 | `ModelingTests` | 101-object shared render material, explicit construction layers, material changes preserving object layers, metadata validation, Undo/Redo |
-| `ComponentHierarchyTests` | Exclusive direct ownership, nested aggregate groups, manual TextDot additions, cycles and competing parents, root removal and reconciliation |
+| `ComponentHierarchyTests` | Existing-group registration without stamps, manual group truth, isolated legacy migration, semantic hierarchy, Scene scope, Undo/Redo, presence proof and archive recovery |
 | `DrawingSheetTests` | Real Layout/detail identities, updates, physical scale in mixed model/page units, unregister preservation |
 | `ComponentOperationTests` | Exact overlap evidence, incomplete coverage, nested target resolution, Isolate/Unisolate and ZoomSelected |
 | `DrawingAssetGeometryTests` | Prepared 3DM extraction, nested block transforms, source/artifact hashes, units/origin/unsupported-geometry rejection |
@@ -60,6 +60,18 @@ regular-document fixtures from a working Rhino session.
 Read the full reflected inner exception on failure. Each regular-document
 fixture marks only its own disposable document unmodified before closing it.
 Close the isolated test process normally before rebuilding the same assembly.
+
+Real Component archive roundtrips additionally require the test-only
+`SemanticRegistryFixturePlugin` (GUID `fcf793c0-6937-4c4f-9d2b-c3c65f4df8e1`).
+Its `ReadDocument`/`WriteDocument` overrides call the same archive helpers as
+production. Rhino's path-based plugin loader remembers registrations, so run
+this optional check only in the coordinated disposable process: snapshot
+registrations first, register only this separate test identity, and restore its
+prior registration after normal shutdown. Never point the everyday Bridge or
+COS registration at a development checkout. A shared-helper roundtrip proves
+serialization behavior; it does not prove that the candidate production RHP
+was registered or loaded. Legacy migration fixtures use a raw `File3dm` archive
+without an already-imported semantic registry.
 
 The suite checks successful Undo/Redo, partial creation/deletion/attribute
 rollback, both exception paths, empty failures with previous Undo and Redo

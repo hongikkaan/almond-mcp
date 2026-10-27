@@ -3,6 +3,7 @@ from __future__ import annotations
 from almond_mcp.instruction_text import read_instruction
 
 import math
+import json
 import ntpath
 import os
 import re
@@ -83,9 +84,12 @@ class ComponentsStore:
             raise ValueError("Native component response must be a JSON object.")
         if reply.get("status") != "success":
             message = str(reply.get("message") or "Native component operation failed.")
-            if reply.get("mutation_applied") is False or reply.get("rolled_back") is True:
-                raise _NativeRejected(message)
-            raise ValueError(message)
+            failure = (_NativeRejected(message) if reply.get("mutation_applied") is False or reply.get("rolled_back") is True
+                       else ValueError(message))
+            failure.native_result = {key: reply[key] for key in (
+                "error_code", "editing", "mutation_applied", "requires_reconciliation", "rolled_back",
+            ) if key in reply}
+            raise failure
         return reply
 
     @classmethod
@@ -146,17 +150,17 @@ class ComponentsStore:
             connection.execute(
                 """
                 INSERT INTO document_objects(
-                    model_path, rhino_guid, object_type,
+                    model_path, rhino_guid, object_type, name,
                     min_x, max_x, min_y, max_y, min_z, max_z, observed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(model_path, rhino_guid) DO UPDATE SET
-                    object_type = excluded.object_type,
+                    object_type = excluded.object_type, name = excluded.name,
                     min_x = excluded.min_x, max_x = excluded.max_x,
                     min_y = excluded.min_y, max_y = excluded.max_y,
                     min_z = excluded.min_z, max_z = excluded.max_z,
                     observed_at = excluded.observed_at
                 """,
-                (model_path, obj["rhino_guid"], obj["object_type"],
+                (model_path, obj["rhino_guid"], obj["object_type"], obj.get("name", ""),
                  low_x, high_x, low_y, high_y, low_z, high_z, now),
             )
 
@@ -220,15 +224,13 @@ class ComponentsStore:
             if child_id == component_id:
                 raise ValueError("A Component cannot be its own child.")
             row = connection.execute(
-                "SELECT model_path, parent_component_id FROM components WHERE component_id = ?", (child_id,)
+                "SELECT model_path, parent_component_id, scene_ids_json FROM components WHERE component_id = ?", (child_id,)
             ).fetchone()
             if row is None:
                 raise KeyError(f"Unknown child component_id: {child_id}")
             if row["model_path"] != model_path:
                 raise ValueError("Child Component must belong to the same model_path.")
-            if not connection.execute(
-                "SELECT 1 FROM scene_components WHERE component_id = ? LIMIT 1", (child_id,)
-            ).fetchone():
+            if not json.loads(row["scene_ids_json"]):
                 raise ValueError("Child Component has no Scene registration.")
             if row["parent_component_id"] not in (None, component_id):
                 raise ValueError(read_instruction(__file__, 'response-514'))
@@ -239,10 +241,45 @@ class ComponentsStore:
     @staticmethod
     def _component_object_row(item):
         return {"rhino_guid": item["rhino_guid"], "object_type": item["object_type"],
+                "name": item["name"] if "name" in item.keys() else "",
                 "component_id": item["component_id"],
                 "bounds_mm": [item["min_x"], item["min_y"], item["min_z"],
                               item["max_x"], item["max_y"], item["max_z"]],
                 "observed_at": item["observed_at"]}
+
+    @staticmethod
+    def _canonical_component_refs(connection, values):
+        """Retain a requested child only when none of its requested ancestors is present."""
+        selected = set(values)
+        parents = {row[0]: row[1] for row in connection.execute("SELECT component_id, parent_component_id FROM components")}
+        result = []
+        for value in values:
+            ancestor, seen = parents.get(value), set()
+            while ancestor is not None and ancestor not in seen and ancestor not in selected:
+                seen.add(ancestor)
+                ancestor = parents.get(ancestor)
+            if ancestor not in selected:
+                result.append(value)
+        return result
+
+    @staticmethod
+    def _component_canonical_scene_links(connection, model_path):
+        rows = connection.execute("SELECT component_id, parent_component_id, scene_ids_json, availability FROM components WHERE model_path = ?",
+                                  (model_path,)).fetchall()
+        parents = {row[0]: row[1] for row in rows}
+        contexts = {row[0]: json.loads(row[2]) if row[3] != "unregistered" else [] for row in rows}
+        for handle, scenes in contexts.items():
+            connection.execute("DELETE FROM scene_components WHERE component_id = ?", (handle,))
+            for scene in scenes:
+                ancestor, seen, redundant = parents[handle], set(), False
+                while ancestor is not None and ancestor not in seen:
+                    seen.add(ancestor)
+                    if scene in contexts.get(ancestor, []):
+                        redundant = True
+                        break
+                    ancestor = parents.get(ancestor)
+                if not redundant:
+                    connection.execute("INSERT INTO scene_components(scene_id, component_id) VALUES (?, ?)", (scene, handle))
 
     @staticmethod
     def _component_read(connection, component_id):
@@ -260,9 +297,9 @@ class ComponentsStore:
         ]
         effective_objects = [ComponentsStore._component_object_row(item) for item in connection.execute("""
             WITH RECURSIVE subtree(component_id) AS (
-                SELECT component_id FROM components WHERE component_id = ?
+                SELECT component_id FROM components WHERE component_id = ? AND availability = 'present'
                 UNION SELECT c.component_id FROM components c
-                    JOIN subtree parent ON c.parent_component_id = parent.component_id
+                    JOIN subtree parent ON c.parent_component_id = parent.component_id WHERE c.availability = 'present'
             )
             SELECT o.* FROM document_objects o JOIN subtree s ON o.component_id = s.component_id
             ORDER BY o.model_path, o.rhino_guid
@@ -272,11 +309,9 @@ class ComponentsStore:
             (component_id,),
         )]
         return {
-            **dict(row), "status": "registered", "live_verified": False,
-            "scene_ids": [item["scene_id"] for item in connection.execute(
-                "SELECT scene_id FROM scene_components WHERE component_id = ? ORDER BY scene_id",
-                (component_id,),
-            )],
+            **{key: value for key, value in dict(row).items() if key != "scene_ids_json"},
+            "status": "unregistered" if row["availability"] == "unregistered" else "registered", "live_verified": False,
+            "scene_ids": json.loads(row["scene_ids_json"]),
             "object_ids": [item["rhino_guid"] for item in objects],
             "object_count": len(objects), "objects": objects,
             "direct_object_ids": [item["rhino_guid"] for item in objects],
@@ -285,6 +320,9 @@ class ComponentsStore:
             "effective_object_ids": [item["rhino_guid"] for item in effective_objects],
             "effective_object_count": len(effective_objects),
             "pending_objects": [], "requires_sync": False,
+            "object_names": list(dict.fromkeys(obj["name"] for obj in objects if obj.get("name"))),
+            "object_types": {kind: sum(obj["object_type"] == kind for obj in objects)
+                             for kind in sorted({obj["object_type"] for obj in objects})},
         }
 
     def get_component(
@@ -357,13 +395,25 @@ class ComponentsStore:
                           requires_sync=bool(changed or pending or observed.get("requires_sync")))
             return result
 
-    def list_components(self, model_path: str = "") -> list[dict[str, Any]]:
+    def list_components(self, model_path: str = "", scene_id: str = "", recursive: bool = False) -> list[dict[str, Any]]:
         model_path = self._component_model_path(model_path) if model_path else ""
+        if type(recursive) is not bool:
+            raise ValueError("recursive must be a boolean.")
         with self._connect() as connection:
+            if scene_id:
+                self._component_scene_ids(connection, [scene_id])
             rows = connection.execute(
+                "WITH RECURSIVE scoped(component_id) AS ("
+                "SELECT component_id FROM scene_components WHERE scene_id = ? UNION "
+                "SELECT child.component_id FROM components child JOIN scoped parent "
+                "ON child.parent_component_id = parent.component_id WHERE ?) "
                 "SELECT component_id FROM components "
-                "WHERE (? = '' OR model_path = ?) ORDER BY model_path, name, component_id",
-                (model_path, model_path),
+                "WHERE (? = '' OR model_path = ?) "
+                "AND (? = '' OR component_id IN (SELECT component_id FROM scoped)) "
+                "AND (? OR parent_component_id IS NULL OR (? != '' AND NOT EXISTS ("
+                "SELECT 1 FROM scene_components p WHERE p.component_id = components.parent_component_id AND p.scene_id = ?))) "
+                "ORDER BY model_path, name, component_id",
+                (scene_id, recursive, model_path, model_path, scene_id, recursive, scene_id, scene_id),
             ).fetchall()
             results = [self._component_read(connection, row["component_id"]) for row in rows]
         return [{key: value for key, value in item.items()
@@ -451,10 +501,11 @@ class ComponentsStore:
         now = _utc_now()
         connection.execute(
             """
-            INSERT INTO components(component_id, model_path, rhino_group_id, name, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(component_id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at
-            """, (component_id, model_path, group_id, name, now, now),
+            INSERT INTO components(component_id, model_path, rhino_group_id, name, created_at, updated_at, scene_ids_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(component_id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at,
+                scene_ids_json = excluded.scene_ids_json, availability = 'present'
+            """, (component_id, model_path, group_id, name, now, now, json.dumps(scenes)),
         )
         self._component_cache_objects(connection, model_path, objects)
         connection.execute("UPDATE document_objects SET component_id = NULL WHERE component_id = ?",
@@ -476,6 +527,7 @@ class ComponentsStore:
             "UPDATE components SET parent_component_id = ? WHERE component_id = ?",
             [(component_id, child_id) for child_id in children],
         )
+        self._component_canonical_scene_links(connection, model_path)
         current = self._component_read(connection, component_id)
         self._component_check_native_effective(snapshot, current, require=bool(children))
         if cache_effective and "effective_objects" in snapshot:
@@ -830,6 +882,256 @@ class ComponentsStore:
                 ) if not attempted_sync else result
         return result
 
+    def align_components(self, model_path: str, component_ids: list[str] | None = None,
+                         scene_id: str = "", native_inspect: Callable | None = None,
+                         expected_groups: dict[str, str] | None = None) -> dict[str, Any]:
+        """Import a complete, stable group observation; never request a native edit."""
+        model_path = self._component_model_path(model_path)
+        if not callable(native_inspect):
+            raise ValueError("A native read-only Component observation is required.")
+        if scene_id and component_ids is not None:
+            raise ValueError("Use a Component target or a Scene scope, not both.")
+        discover_scene = bool(scene_id)
+        if component_ids is not None:
+            if not isinstance(component_ids, list) or not component_ids or len(component_ids) > 64:
+                raise ValueError("component_ids must contain 1 to 64 distinct Component handles.")
+            ids = [self._component_handle(value) for value in component_ids]
+            if len(set(ids)) != len(ids):
+                raise ValueError("component_ids must not contain duplicates.")
+        else:
+            ids = None
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            cached = {row["component_id"]: self._component_read(connection, row["component_id"])
+                      for row in connection.execute("SELECT component_id FROM components WHERE model_path = ?", (model_path,))}
+            if scene_id:
+                self._component_scene_ids(connection, [scene_id])
+                scoped = {row[0] for row in connection.execute(
+                    "SELECT component_id FROM scene_components WHERE scene_id = ?", (scene_id,))}
+                ids = [value for value in (ids if ids is not None else cached) if value in scoped]
+            if ids is not None:
+                ids = list(dict.fromkeys(child for handle in ids for child in (
+                    self._component_descendant_ids(connection, handle) if handle in cached else [handle])))
+                if len(ids) > 64:
+                    raise ValueError("Narrow alignment to at most 64 Component registrations including descendants.")
+            seeds = [{key: value[key] for key in ("component_id", "rhino_group_id", "name", "scene_ids", "child_component_ids")}
+                     for handle, value in cached.items() if ids is None or handle in ids]
+            prior_rows = connection.execute("SELECT * FROM document_objects WHERE model_path = ?", (model_path,)).fetchall()
+            if ids is not None:
+                direct_scene_ids = {row[0] for row in connection.execute(
+                    "SELECT object_rowid FROM scene_objects WHERE scene_id = ?", (scene_id,))} if scene_id else set()
+                prior_rows = [row for row in prior_rows if row["component_id"] in ids or row["id"] in direct_scene_ids]
+            prior_objects = {row["rhino_guid"]: self._component_object_row(row) for row in prior_rows}
+            reply = self._component_native(native_inspect, dict(
+                type="design_component", action="inspect_many", expected_model_path=model_path,
+                component_ids=ids, scene_id=scene_id, discover_scene=discover_scene, registrations=seeds,
+                prior_object_ids=sorted(prior_objects)))
+            if (reply.get("complete") is not True or reply.get("truncated")
+                    or self._component_model_path(reply.get("model_path")) != model_path):
+                raise ValueError("Alignment needs a complete snapshot of the requested document scope.")
+            if not isinstance(reply.get("editing"), dict) or reply["editing"].get("stable") is not True:
+                raise ValueError("Finish group/block editing before aligning Component records; editing scope is not stable.")
+            snapshots, problems = reply.get("components"), reply.get("problems", [])
+            if not isinstance(snapshots, list) or not isinstance(problems, list):
+                raise ValueError("Alignment must report Component snapshots and item-specific problems.")
+            prepared, inactive = {}, set()
+            for item in snapshots:
+                if not isinstance(item, dict) or item.get("complete") is not True or item.get("truncated"):
+                    raise ValueError("Alignment contains an incomplete Component snapshot.")
+                handle = self._component_handle(item.get("component_id"))
+                if handle in prepared:
+                    raise ValueError("Alignment contains a duplicate or out-of-scope Component.")
+                if self._component_model_path(item.get("model_path")) != model_path:
+                    raise ValueError("Alignment contains a different document.")
+                group = self._component_guid(item.get("rhino_group_id"))
+                if expected_groups and handle in expected_groups and group != self._component_guid(expected_groups[handle]):
+                    raise ValueError("Native observation does not match the supplied persistent group GUID.")
+                prior = cached.get(handle)
+                if prior is None:
+                    other = connection.execute("SELECT model_path FROM components WHERE component_id = ?", (handle,)).fetchone()
+                    if other is not None and other["model_path"] != model_path:
+                        raise ValueError("Alignment contains a Component registered to another model.")
+                if prior and prior["rhino_group_id"] != group:
+                    raise ValueError("Alignment cannot rebind a Component to another Rhino group.")
+                scenes = self._component_scene_ids(connection, item.get("scene_ids"))
+                if not scenes or not isinstance(item.get("name"), str):
+                    raise ValueError("A Component needs its current group name and existing Scene context.")
+                availability = item.get("availability", "present")
+                if availability not in {"present", "missing_group", "unregistered"}:
+                    raise ValueError("Unknown Component availability.")
+                if availability == "unregistered" and prior is None:
+                    inactive.add(handle)
+                    continue
+                objects = self._component_observed_objects(item, owner=handle)
+                effective = self._component_observed_objects(dict(
+                    complete=True, objects=item.get("effective_objects", item["objects"])))
+                if "effective_object_ids" in item and self._component_object_ids(item["effective_object_ids"]) != [obj["rhino_guid"] for obj in effective]:
+                    raise ValueError("Alignment effective geometry and object identities disagree.")
+                if availability != "present" and objects:
+                    raise ValueError("An unavailable group cannot supply geometry.")
+                children = item.get("child_component_ids", [])
+                if not isinstance(children, list) or len(set(children)) != len(children):
+                    raise ValueError("Invalid Component children.")
+                for child in children:
+                    self._component_handle(child)
+                parent = item.get("parent_component_id", prior["parent_component_id"] if prior else None)
+                if parent is not None:
+                    self._component_handle(parent)
+                    if parent == handle:
+                        raise ValueError("A Component cannot parent itself.")
+                prepared[handle] = dict(item, rhino_group_id=group, scene_ids=scenes,
+                                        objects=objects, effective_objects=effective,
+                                        availability=availability, child_component_ids=children, parent_component_id=parent)
+            if len(prepared) > 64:
+                raise ValueError("Narrow alignment to at most 64 Component registrations including descendants.")
+            if ids is not None:
+                scoped_members = set(ids)
+                if discover_scene:
+                    scoped_members.update(handle for handle, item in prepared.items() if scene_id in item["scene_ids"])
+                pending = list(scoped_members)
+                while pending:
+                    handle = pending.pop()
+                    if handle not in prepared:
+                        continue
+                    for child in prepared[handle]["child_component_ids"]:
+                        if child in prepared and child not in scoped_members:
+                            scoped_members.add(child)
+                            pending.append(child)
+                if not set(prepared).issubset(scoped_members):
+                    raise ValueError("Native observation contains an out-of-scope Component.")
+            missing_parents = {item["parent_component_id"] for item in prepared.values()
+                               if item["parent_component_id"] is not None
+                               and item["parent_component_id"] not in prepared
+                               and item["parent_component_id"] not in cached}
+            if missing_parents:
+                failure = ValueError("The observed hierarchy needs an uncached parent; align its explicit ID scope or its Scene first.")
+                failure.native_result = dict(error_code="component_scope_incomplete", mutation_applied=False,
+                    missing_parent_component_ids=sorted(missing_parents),
+                    next_action="Align the listed parent Component IDs explicitly, or align their Scene, then retry this Scene.")
+                raise failure
+            missing_presence = {handle for handle in prepared if handle in cached
+                                and any(guid not in prior_objects for guid in cached[handle]["object_ids"])}
+            if missing_presence:
+                failure = ValueError("Expand the Component presence scope to include the listed IDs.")
+                failure.native_result = dict(error_code="component_scope_incomplete", mutation_applied=False,
+                    required_component_ids=sorted(set(ids or []) | set(prepared)),
+                    next_action="Align the listed Component IDs together to observe prior object presence before updating DB records.")
+                raise failure
+            # Missing/incomplete results never silently erase omitted ledger rows.
+            reported = set(prepared) | inactive | {item.get("component_id") for item in problems if isinstance(item, dict)}
+            required = set(ids if ids is not None else cached)
+            if not required.issubset(reported):
+                raise ValueError("Alignment omitted requested Component identities.")
+            absent = self._component_object_ids(reply.get("absent_object_ids", []))
+            detached = self._component_observed_objects(dict(complete=True, objects=reply.get("detached_objects", [])))
+            if (absent or detached) and reply.get("presence_complete") is not True:
+                raise ValueError("Cached-object presence needs complete stable native proof.")
+            observed_ids = {obj["rhino_guid"] for item in prepared.values() for obj in item["effective_objects"]}
+            detached_ids = {obj["rhino_guid"] for obj in detached}
+            if (not (set(absent) | detached_ids).issubset(prior_objects)
+                    or set(absent) & (observed_ids | detached_ids) or detached_ids & observed_ids):
+                raise ValueError("Cached-object presence proof is contradictory or outside the requested scope.")
+            # Invalid registrations keep their previous snapshot. Never use an
+            # unrelated missing-object report to erase another owner's rows.
+            absent = [guid for guid in absent if prior_objects[guid]["component_id"] is None
+                      or prior_objects[guid]["component_id"] in prepared]
+            def object_signature(obj):
+                return (obj["object_type"], obj["bounds_mm"], obj.get("name", ""))
+            detached_changes = [obj for obj in detached
+                                if object_signature(obj) != object_signature(prior_objects[obj["rhino_guid"]])]
+            direct = {}
+            for handle, item in prepared.items():
+                for obj in item["objects"]:
+                    guid = obj["rhino_guid"]
+                    if guid in direct:
+                        raise ValueError("Alignment gives one object to unrelated Components.")
+                    direct[guid] = handle
+            # An unaffected/invalid Component's objects must not be stolen by this batch.
+            for guid, owner in direct.items():
+                row = connection.execute("SELECT component_id FROM document_objects WHERE model_path = ? AND rhino_guid = ?",
+                                         (model_path, guid)).fetchone()
+                if row and row[0] and row[0] != owner and row[0] not in prepared:
+                    raise ValueError("Alignment conflicts with an unobserved Component owner.")
+            changed = []
+            for handle, item in prepared.items():
+                prior = cached.get(handle)
+                def signature(value):
+                    return (value["name"], value["rhino_group_id"], value["scene_ids"],
+                            value["child_component_ids"], value.get("parent_component_id"), value.get("availability", "present"),
+                            [(o["rhino_guid"], o["object_type"], o["bounds_mm"], o.get("name", "")) for o in value["objects"]],
+                            [(o["rhino_guid"], o.get("component_id"), o["object_type"], o["bounds_mm"], o.get("name", ""))
+                             for o in value["effective_objects"]])
+                if prior is None or signature(prior) != signature(item):
+                    changed.append(handle)
+            if not changed and not absent and not detached_changes:
+                return dict(status="success", checked=len(prepared), changed=0,
+                            unavailable=sum(item["availability"] != "present" for item in prepared.values()),
+                            removed_objects=0, refreshed_objects=0, problems=problems,
+                            scene_revisions={}, live_verified=not problems)
+            now = _utc_now()
+            affected_scenes = self._component_affected_scenes(connection, model_path,
+                absent + [obj["rhino_guid"] for obj in detached_changes])
+            changed_objects = set()
+            for handle in changed:
+                item = prepared[handle]
+                prior = cached.get(handle)
+                affected_scenes.update(item["scene_ids"])
+                affected_scenes.update(prior["scene_ids"] if prior else [])
+                changed_objects.update(obj["rhino_guid"] for obj in item["effective_objects"])
+                changed_objects.update(prior["effective_object_ids"] if prior else [])
+            affected_scenes.update(self._component_affected_scenes(connection, model_path, changed_objects))
+            for handle in changed:
+                item = prepared[handle]
+                connection.execute("""INSERT INTO components(component_id, model_path, rhino_group_id, name, created_at, updated_at, availability, scene_ids_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(component_id) DO UPDATE SET
+                    name=excluded.name, updated_at=excluded.updated_at, availability=excluded.availability,
+                    scene_ids_json=excluded.scene_ids_json""",
+                    (handle, model_path, item["rhino_group_id"], item["name"], now, now, item["availability"], json.dumps(item["scene_ids"])))
+            for handle in prepared:
+                connection.execute("UPDATE document_objects SET component_id = NULL WHERE model_path = ? AND component_id = ?",
+                                   (model_path, handle))
+            for handle, item in prepared.items():
+                if handle in changed:
+                    self._component_cache_objects(connection, model_path, item["objects"])
+                    connection.execute("DELETE FROM scene_components WHERE component_id = ?", (handle,))
+                    connection.executemany("INSERT INTO scene_components(scene_id, component_id) VALUES (?, ?)",
+                                           [(scene, handle) for scene in item["scene_ids"]])
+                connection.executemany("UPDATE document_objects SET component_id = ? WHERE model_path = ? AND rhino_guid = ?",
+                                       [(handle, model_path, obj["rhino_guid"]) for obj in item["objects"]])
+            # Only relations explicitly observed in this scope can change.
+            for handle in prepared:
+                connection.execute("UPDATE components SET parent_component_id = NULL WHERE parent_component_id = ?", (handle,))
+            for handle, item in prepared.items():
+                for child in item["child_component_ids"]:
+                    row = connection.execute("SELECT model_path FROM components WHERE component_id = ?", (child,)).fetchone()
+                    if row is None or row[0] != model_path:
+                        raise ValueError("Alignment references an unobserved child Component.")
+                    connection.execute("UPDATE components SET parent_component_id = ? WHERE component_id = ?", (handle, child))
+            for handle, item in prepared.items():
+                parent = item["parent_component_id"]
+                if parent is not None:
+                    row = connection.execute("SELECT model_path FROM components WHERE component_id = ?", (parent,)).fetchone()
+                    if row is None or row[0] != model_path:
+                        raise ValueError("Include the new semantic parent in the alignment scope.")
+                connection.execute("UPDATE components SET parent_component_id = ? WHERE component_id = ?", (parent, handle))
+            for handle, item in prepared.items():
+                current = self._component_read(connection, handle)
+                if current["child_component_ids"] != sorted(item["child_component_ids"]):
+                    raise ValueError("Alignment parent and child relationship proofs disagree.")
+            self._component_canonical_scene_links(connection, model_path)
+            affected_scenes.update(self._component_affected_scenes(connection, model_path, changed_objects))
+            for handle, item in prepared.items():
+                self._component_check_native_effective(item, self._component_read(connection, handle), require=True)
+            self._component_cache_objects(connection, model_path, detached_changes)
+            connection.executemany("DELETE FROM document_objects WHERE model_path = ? AND rhino_guid = ?",
+                                   [(model_path, guid) for guid in absent])
+            revisions = {scene: self._record_revision(connection, scene, "align_components", {"component_ids": changed})
+                         for scene in sorted(affected_scenes)}
+        return dict(status="success", checked=len(prepared), changed=len(changed),
+                    unavailable=sum(item["availability"] != "present" for item in prepared.values()),
+                    removed_objects=len(absent), refreshed_objects=len(detached_changes),
+                    problems=problems, scene_revisions=revisions, live_verified=not problems)
+
     @staticmethod
     def _component_require_unreferenced(connection, component_id):
         node = connection.execute(
@@ -907,6 +1209,7 @@ class ComponentsStore:
         self._component_cache_objects(connection, model_path, objects)
         connection.execute("UPDATE document_objects SET component_id = NULL WHERE component_id = ?", (component_id,))
         connection.execute("DELETE FROM components WHERE component_id = ?", (component_id,))
+        self._component_canonical_scene_links(connection, model_path)
         revisions = {scene_id: self._record_revision(
             connection, scene_id, "sync_component_unregistered", {"component_id": component_id},
         ) for scene_id in sorted(affected)}
@@ -959,6 +1262,7 @@ class ComponentsStore:
                     (component_id,),
                 )
                 connection.execute("DELETE FROM components WHERE component_id = ?", (component_id,))
+                self._component_canonical_scene_links(connection, model_path)
                 revisions = {scene_id: self._record_revision(
                     connection, scene_id, "unregister_component", {"component_id": component_id},
                 ) for scene_id in sorted(affected)}
