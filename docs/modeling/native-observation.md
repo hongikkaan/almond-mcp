@@ -16,8 +16,10 @@ MCP 서버와 COS host의 초기 안내 모두 현황 조회, 관련 객체 조�
 {"sections": ["selection"], "selection_limit": 50}
 ```
 
-`get_rhino_context`는 document/selection/viewport 중 요청한 항목만 수집한다. 기본은 document이며,
-여러 section을 조합할 수 있다. 일반 ID는 include_ids=true일 때만 반환한다.
+`get_rhino_context`는 document/selection/viewport/editor/display_modes 중 요청한 항목을 수집한다.
+기본은 document이며 여러 section을 조합할 수 있다. document/selection/viewport에는 작은
+editor 요약(mode/target/stable)이 함께 표시된다. 상세 provider 근거·경고는 editor section을
+명시할 때만 반환하며 `sections=[]`는 editor를 조사하지 않는다. 일반 ID는 include_ids=true일 때만 반환한다.
 
 | 필드 | 내용 |
 |---|---|
@@ -26,11 +28,30 @@ MCP 서버와 COS host의 초기 안내 모두 현황 조회, 관련 객체 조�
 | `selection` | 전체 선택 수 `total`, 반환 수 `returned`, `truncated`, 객체별 id/name/layer/type |
 | `viewport` | 활성 viewport ID/이름, 원본 픽셀 크기, display mode, projection, camera/target/up/lens |
 | `warnings` | 확인하지 못한 값이나 viewport 부재에 관한 설명 |
+| `editor` | model/group/block/unknown 모드, 확인된 편집 대상, 전체 문서 저장·정합을 허용하는 stable |
+| `display_modes` | 실제 설치된 display mode 이름/GUID, 최대 128개 |
 
 `selection_limit`의 기본값은 50이고 범위는 0–200이다. 0이면 목록을 생략하면서
-전체 선택 수는 조회한다. 객체 수는 정상·숨김·잠금·reference·light를 포함하며
+전체 선택 수는 조회한다. 선택은 recursive=false, depth=1이 기본이며 완전히 선택된 최상위
+group과 block instance를 요약한다. 일부만 선택한 group은 개별 객체로 남는다. recursive=true일
+때만 depth(1–8)까지 내부를 펼친다. selected_object_count와 요약 entity total을 구분한다.
+이 요약은 공개 Python 도구가 native 요청의 selection_entities=true를 명시해 받는다.
+기존 native 내부 호출은 기본 raw 객체 GUID 목록을 유지하므로 선택의 Component/Plan 역조회를 깨지 않는다.
+객체 수는 정상·숨김·잠금·reference·light를 포함하며
 삭제 객체·블록 정의의 내부 객체·grip은 제외한다. 레이어 수는 삭제 레이어를 제외한다.
 조회 실패 값을 0이나 빈 문서로 바꾸지 않고 `null`과 경고로 표시한다.
+
+`include_image=true`를 명시하면 같은 native UI 호출에서 현재 화면을 함께 수집하고,
+public MCP 응답은 JSON text 다음 PNG가 된다. 기본 false와 document-only 조회는 JSON만 반환한다.
+캡처 실패는 image_error로 남기며 이미 얻은 context를 지우지 않는다.
+
+편집 대상은 명령 수나 선택에서 추측하지 않는다. 공용 `EditingContext.Observe`는 공식 plug-in
+로드 상태와 실제 편집 provider 상태를 확인한다. 지원 adapter는 정확한 assembly identity/MVID/hash에
+제한되며, 다른 버전·전환·대상 불명·UV/block 전용 공간은 unknown 또는 stable=false다.
+현재 adapter 범위는 기본 BlockEdit 8.34.26223.11001과 BlockEditNew package 2.1.7이다.
+미설치/미로드 provider는 강제로 로드하지 않는다. GroupEdit provider가 원본 영속 GUID를 보관하지
+않으면 group_id는 null이고 원본 index/label/count만 표시한다. 새 Rhino/plugin 버전은 검증 없이
+normal로 통과하지 않는다. native 명령·Undo/Redo 진행 중에도 전체 문서 저장·정합을 보류한다.
 
 이 경로는 레이어·치수·geometry·Undo record를 생성하지 않는다. 현재 viewport가
 보는 모든 객체를 계산하거나 단면·접합·치수의 정확성을 판정하지는 않는다.
@@ -55,10 +76,20 @@ MCP 서버와 COS host의 초기 안내 모두 현황 조회, 관련 객체 조�
 용지를 96 dpi로 표현한 크기를 100%로 삼는다. Layout은 주변 작업창을 빼고 용지와
 그 안의 Detail을 캡처하며, 현재 Layout에서 Detail이 활성화돼 있어도 용지가 대상이다.
 
-Named View는 현재 display mode를 사용해 별도 viewport에서 저장된 카메라를 그린다.
+Named View는 별도 viewport에서 저장된 카메라를 그리며 기본 mode는 Shaded다.
 화면의 활성 뷰 전환·Named View 복원·zoom·selection·Undo 변경을 하지 않는다.
 PNG와 base64 모두 메모리에서 처리하므로 임시 이미지 파일을 만들지 않는다.
-특정 clipping이나 display mode를 새로 설정하는 기능은 아니다.
+display_mode에 실제 설치된 이름/GUID를 지정할 수 있고, 빈 값이면 현재 model viewport는
+원래 mode, Named View/group/block은 Shaded를 쓴다. 작업 화면 카메라 이동만으로 독립 Named View
+캡처를 버리지 않는다. Shaded/Dark/CadWhite가 설치돼 있다고 가정하지 말고 display_modes를 조회한다.
+독립 캡처는 표시하지 않는 공식 SDK viewport control에서 raster mode를 그리며 원본 뷰를 추가·활성화하지 않는다.
+Raytraced 등 RealtimeDisplayId가 있는 비동기 렌더 모드는 명시적으로 거절한다. 렌더 완료를 기다리는 기능은 없다.
+
+labels=true/depth=1이 기본이다. 최대 200개 entity의 이름/GUID를 transient 픽셀로 그리며 문서
+TextDot이나 속성을 만들지 않는다. top group은 group GUID, block은 definition GUID가 아닌
+instance GUID로 구분한다. target_kind=group|block과 target_id로 해당 대상을 detached 카메라에서
+프레이밍할 수 있으며 주변 형상을 숨기지는 않는다. Layout은 각 Detail의 mode를 유지하므로 mode
+override를 거절하고, Detail 라벨 미지원은 경고한다. 라벨이 필요하면 model viewport/Named View를 캡처한다.
 
 `include_usage=true`일 때만 크기와 토큰 추정치를 덧붙인다. 추정식은
 `ceil(width/32) × ceil(height/32) × 1.2`를 올림한 예시이며 공급자의 추가 리사이즈를
@@ -86,6 +117,10 @@ Bridge UI thread의 고정 handler가 스킬의 C# helper를 직접 호출한다
 `document` identity·units·tolerance와 `data`를 함께 읽는다. 요청과 응답은 각각
 UTF-8 JSON 262,144 bytes 이내이며 한도 초과는 명시적 오류다. helper의
 `unknown`, `truncated`, 미지원 객체·미평가 표본을 0이나 설계 통과로 해석하지 않는다.
+outline의 기본은 작은 summary다. field_groups로 summary/objects/annotations/transforms를 선택한다.
+기존 include_geometry/annotations 명시 호출은 상세 조회 의미를 유지한다. budget은 확대하지 않으며
+요약을 기존 상세 row 예산에 강제로 삽입하지 않는다. 상세 방문 수도 max_items 이내로 제한하고
+visited/max_visits와 max_visits 잘림 사유를 표시한다. 잘린 응답은 대상 IDs, branch path 또는 depth를 좁혀 후속 조회한다.
 
 Python은 기존 문서 조회의 `capabilities.fixed_probes`를 먼저 확인한다.
 이 capability가 없는 이전 관찰용 Bridge에는 알 수 없는 probe 요청을 보내지 않고

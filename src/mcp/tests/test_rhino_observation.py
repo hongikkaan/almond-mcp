@@ -48,6 +48,7 @@ def capture_response(scale_percent=50):
 def test_context_sends_only_a_fixed_live_query(server, monkeypatch):
     requests = []
     response = {"status": "success", "document": {"runtime_serial_number": 42},
+                "editor": {"mode": "unknown", "target": None, "stable": False},
                 "selection": {"total": 5, "returned": 2, "truncated": True},
                 "viewport": None, "warnings": ["No active view."]}
 
@@ -57,7 +58,8 @@ def test_context_sends_only_a_fixed_live_query(server, monkeypatch):
 
     monkeypatch.setattr(server, "_send_and_receive", send)
     assert json.loads(call(server.get_rhino_context, selection_limit=2, sections=["document", "selection", "viewport"])) == response
-    assert requests == [{"type": "get_rhino_context", "selection_limit": 2, "sections": ["document", "selection", "viewport"]}]
+    assert requests == [{"type": "get_rhino_context", "selection_limit": 2, "sections": ["document", "selection", "viewport"],
+                         "recursive": False, "depth": 1, "include_image": False, "selection_entities": True}]
 
 
 @pytest.mark.parametrize("limit", [-1, 201, True, "5", 2.5])
@@ -117,7 +119,8 @@ def test_real_mcp_image_and_metadata_survive_protocol(server, monkeypatch):
             assert result.content[0].mime_type == "image/png"
             assert result.structured_content is None
     asyncio.run(verify())
-    assert requests == [{"type": "get_rhino_viewport_image", "view": "", "scale_percent": 50}]
+    assert requests == [{"type": "get_rhino_viewport_image", "view": "", "scale_percent": 50,
+                         "display_mode": "", "labels": True, "depth": 1, "target_kind": "view", "target_id": ""}]
 
 
 @pytest.mark.parametrize("fault", ["base64", "format", "mismatched_size", "too_wide", "not_image",
@@ -189,7 +192,8 @@ def test_percent_and_optional_usage(server, monkeypatch, percent):
     assert (usage["width"], usage["height"]) == (max(1, 160 * percent // 100), max(1, 80 * percent // 100))
     assert usage["estimated_image_tokens"] == {1: 2, 50: 8, 100: 18}[percent]
     assert "actual model/detail may differ" in usage["assumption"]
-    assert requests == [{"type": "get_rhino_viewport_image", "view": guid, "scale_percent": percent}]
+    assert requests == [{"type": "get_rhino_viewport_image", "view": guid, "scale_percent": percent,
+                         "display_mode": "", "labels": True, "depth": 1, "target_kind": "view", "target_id": ""}]
 
 
 def test_view_list_protocol_has_only_grouped_names_and_guids(server, monkeypatch):
