@@ -7,10 +7,10 @@ ID가 필요한 조회에는 `include_ids=True`를 사용한다. 이미 프로�
 | 도구 | 입력 | 할 수 있는 일 |
 | ---- | ---- | --- |
 | `get_rhino_context`  | `sections=["selection"]` 또는 `["viewport"]`, 선택적 `selection_limit` | 현재 선택 객체 또는 카메라·화면 정보 조회.|
-| `get_selection_references` | 선택적 `selection_limit`, `limit` | 선택 객체에 연결된 ontological-component·Task·Step 역조회. |
+| `get_selection_references` | 선택적 `selection_limit`, `limit` | 선택 객체에 연결된 ontological_component·Task·Step 역조회. |
 | `get_rhino_probe` | 아래의 `probe`와 `options` | 형상·블록을 읽기 전용으로 관찰·측정.  |
 | `get_rhino_viewport_image` | 현재 화면은 생략, 목록은 `view="a"`, 지정 뷰는 `view=GUID`; 선택적 `scale_percent` | viewport·Named View·Layout 목록 또는 PNG 캡처. 기본 크기 50%. |
-| `focus_components`| `component_ids` | 해당 ontological-component 선택·격리·확대. 화면 상태가 바뀐다. |
+| `focus_components`| `component_ids` | 해당 ontological_component 선택·격리·확대. 화면 상태가 바뀐다. |
 
 `get_rhino_probe`의 옵션은 아래와 같다. 좌표·길이·공차는 현재 문서 단위다. 반환의 `unknown`·미지원·`truncated`는 미확인 범위이며 0이나 통과를 뜻하지 않는다. 범위가 잘리면 대상·표본을 나눠 조회한다.
 

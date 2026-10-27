@@ -54,6 +54,70 @@ def test_agent_can_discover_topics_without_reading_a_model():
     asyncio.run(run())
 
 
+def test_startup_gives_topic_summaries_for_direct_access_without_an_index_call():
+    from almond_mcp.modeling_guidance import project_instructions, startup_instructions
+
+    startup = startup_instructions()
+    assert 'call get_modeling_guide(topic="index") and select' not in startup
+    assert 'same guide_version' in startup
+    mcp = FastMCP("direct-guide", instructions=startup)
+    register(mcp, NoModelContext())
+
+    async def run():
+        async with Client(mcp) as client:
+            # Given a known topic, When startup supplies its purpose, Then its
+            # first request can be the topic itself without a model/index query.
+            result = await client.call_tool("get_modeling_guide", {"topic": "planning"})
+            assert json.loads(result.content[0].text)["topic_id"] == "planning"
+            index = await client.call_tool("get_modeling_guide", {})
+            for topic in json.loads(index.content[0].text)["topics"]:
+                assert topic["summary"]
+                assert f'{topic["id"]}: {topic["summary"]}' in startup
+
+    asyncio.run(run())
+    assert project_instructions().startswith(startup)
+
+
+def test_planning_topic_delivers_instruction_routing_before_tool_selection():
+    mcp = FastMCP("task-routing")
+    register(mcp, NoModelContext())
+
+    async def run():
+        async with Client(mcp) as client:
+            result = await client.call_tool("get_modeling_guide", {"topic": "planning"})
+            text = json.loads(result.content[0].text)["text"]
+            for scenario in ("진행 중 Task의 보완", "다른 과업으로 전환", "맥락이 부족", "일회성 조회"):
+                assert scenario in text
+            assert text.index("도구 선택 전에") < text.index("| 도구 |")
+            assert "완료한 Task" in text and "의미 있는 상태" in text
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("topic, required, obsolete", [
+    ("project", ("첫 연결·재연결", "새 메시지", "별도 백업"), ()),
+    ("ontological-component", ("Scene 맥락을 반드시 지정", "여러 Scene에 참여", "Almond 관리 UserStrings",
+                                "한 번 정합", "물리적 group/block 해체와 별개"),
+     ("특정 Scene에 종속되지 않", "아직 연결되지 않은 상태")),
+    ("blocks", ("같은 block 정의를 재사용", "단일 객체 group", "짧은 종류·기능 이름"), ()),
+    ("modeling", ("ontological_component마다 별도 레이어를 만들지",), ()),
+    ("model-review", ("남은 불확실성의 영향", "미검사 범위", "재현하지 않은 오류"), ()),
+])
+def test_published_topics_retain_authorized_behavior_boundaries(topic, required, obsolete):
+    """Content contracts guard delivery; they do not prove an agent followed it."""
+    mcp = FastMCP("behavior-guidance")
+    register(mcp, NoModelContext())
+
+    async def run():
+        async with Client(mcp) as client:
+            result = await client.call_tool("get_modeling_guide", {"topic": topic})
+            text = json.loads(result.content[0].text)["text"]
+            assert all(fragment in text for fragment in required)
+            assert not any(fragment in text for fragment in obsolete)
+
+    asyncio.run(run())
+
+
 def test_topic_and_opt_in_original_images_have_one_version_and_no_model_access():
     mcp = FastMCP("static-guide")
     register(mcp, NoModelContext())
