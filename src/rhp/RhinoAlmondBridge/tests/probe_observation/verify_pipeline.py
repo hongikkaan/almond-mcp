@@ -5,7 +5,7 @@ import subprocess
 import uuid
 
 BASE = Path(__file__).resolve().parent
-EXE = BASE / "bin" / "Release" / "net48" / "NativeSkillCheck.exe"
+EXE = BASE / "bin" / "Release" / "net48" / "ProbeObservationFixture.exe"
 RUN = BASE / ".artifacts" / ("pipeline-" + uuid.uuid4().hex)
 RUN.mkdir(parents=True)
 

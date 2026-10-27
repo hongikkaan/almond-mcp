@@ -1,6 +1,6 @@
 # Component 등록·계층·동기화
 
-Scene·Component의 의미와 내부 group/block 구성 기준은 [Rhino Almond 스킬](../../skills/rhino-almond/SKILL.md#scenecomponentinstance)을 따른다. 이 문서는 등록 Component의 식별·소유권·계층·동기화·등록 해제와 Undo/DB 정합 계약을 설명한다.
+Scene·Component의 의미와 내부 group/block 구성 기준은 [Rhino 모델링 지침](guidance/modeling-guide.md#sceneontological-componentinstance)을 따른다. 이 문서는 등록 Component의 식별·소유권·계층·동기화·등록 해제와 Undo/DB 정합 계약을 설명한다.
 
 ## Identity and structure
 

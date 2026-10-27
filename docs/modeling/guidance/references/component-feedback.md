@@ -1,6 +1,6 @@
 # ontological-component: 사용자 설명 원문과 사진
 
-두 사례의 사용자 설명과 사진을 보존한다. 적용할 의미 기준과 요약은 [SKILL.md의 ontological-component](../SKILL.md#ontological-component)에 있다. 아래 원문 구간은 기존 조회본을 그대로 옮겼다.
+두 사례의 사용자 설명과 사진을 보존한다. 적용할 의미 기준과 요약은 [모델링 지침의 ontological-component](../modeling-guide.md#ontological-component)에 있다. 아래 원문 구간은 기존 조회본을 그대로 옮겼다.
 
 ## 지붕과 우수관
 

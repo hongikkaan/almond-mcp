@@ -77,11 +77,7 @@ packages = ["src/mcp/almond_mcp"]
 include = [
     "/src/mcp/almond_mcp", "/src/rhp/Asset_Panel/web", "/src/mcp/tests", "/docs", "/asset/capsules", "/asset/drawing/DrawingRecipes",
     "/asset/drawing/Draftingfiles", "/src/mcp/tools/build_drawing_pilot.py",
-    "/src/mcp/tools/build_modeling_guides.py", "/skills/rhino-almond/SKILL.md",
-    "/skills/rhino-almond/mcp-guide-map.json", "/skills/rhino-almond/references/component-feedback.md",
-    "/skills/rhino-almond/references/asset-workflows.md",
-    "/skills/rhino-almond/references/assets/roof-drainage.png",
-    "/skills/rhino-almond/references/assets/resident-porch.png",
+    "/src/mcp/tools/build_modeling_guides.py",
     "/asset/models/GeneratedAssetfiles/manifest.json", "/asset/models/GeneratedAssetfiles/catalogue.json",
     "/asset/models/GeneratedAssetfiles/provenance.json", "/asset/models/GeneratedAssetfiles/passport.schema.json",
     "/asset/models/GeneratedAssetfiles/structural-loads.json",

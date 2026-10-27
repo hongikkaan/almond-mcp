@@ -62,7 +62,7 @@ validate_structure(guids, "beam", load_kn, "Wood")
 
 ## 재료·구축 레이어 구현
 
-도구 입력과 적용 기준은 [스킬의 템플릿](../../skills/rhino-almond/SKILL.md#템플릿재료구축-레이어)과 [모델링](../../skills/rhino-almond/SKILL.md#형상-편집설계-자료)을 따른다.
+도구 입력과 적용 기준은 [템플릿 지침](../modeling/guidance/modeling-guide.md#템플릿재료구축-레이어)과 [모델링 지침](../modeling/guidance/modeling-guide.md#형상-편집설계-자료)을 따른다.
 
 MCP owns catalog loading, material choices, construction-layer specifications and metadata policy. `modeling_setup.py` supplies resolved recipes to the shared C# implementation in `src/mcp/almond_mcp/rhino/`. The Bridge compiles those files to execute Rhino API operations on its UI thread; it does not independently read the material or construction manifests. Native document access, Undo recovery, panels and geometry services remain in RHP. `DocumentLayers.Ensure` is the common native layer-path adapter used by drawing styles, asset placement and setup.
 

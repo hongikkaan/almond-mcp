@@ -69,7 +69,7 @@ def test_topic_and_opt_in_original_images_have_one_version_and_no_model_access()
             shown = json.loads(illustrated.content[0].text)
             assert shown["guide_version"] == payload["guide_version"]
             assert shown["images_included"] == 2
-            original = Path(__file__).resolve().parents[3] / "skills/rhino-almond/references/assets"
+            original = Path(__file__).resolve().parents[3] / "docs/modeling/guidance/references/assets"
             for content, description in zip(illustrated.content[1:], shown["images_available"], strict=True):
                 raw = base64.b64decode(content.data)
                 assert content.type == "image" and content.mime_type == "image/png"

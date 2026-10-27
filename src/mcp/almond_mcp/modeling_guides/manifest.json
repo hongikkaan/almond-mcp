@@ -14,14 +14,14 @@
       "file": "project.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "## Rhino 편집",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         },
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 프로젝트·문서·파일",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -46,9 +46,9 @@
       "file": "planning.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### Phase → Task → Step",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -72,9 +72,9 @@
       "file": "ontological-component.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### Scene·ontological-component·Instance",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -89,9 +89,9 @@
       "file": "ontological-component-evidence.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/references/component-feedback.md",
+          "path": "docs/modeling/guidance/references/component-feedback.md",
           "heading": "# ontological-component: 사용자 설명 원문과 사진",
-          "sha256": "b4306c5be84fab91bbd31b6288d073a2348d190e4a08cd11eed1146a840f54fa"
+          "sha256": "8862e15d3862cdc1999c501594d5937f6def8b7a4e8a9cf436bc78d2ce1324c6"
         }
       ],
       "images": [
@@ -120,9 +120,9 @@
       "file": "materials.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 템플릿·재료·구축 레이어",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -141,9 +141,9 @@
       "file": "observation.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 조회·화면 도구",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -162,14 +162,14 @@
       "file": "blocks.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "#### Block·주석",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         },
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "#### Group",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -189,9 +189,9 @@
       "file": "modeling.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 형상 편집·설계 자료",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -208,9 +208,9 @@
       "file": "model-review.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 모델링 검수",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -228,9 +228,9 @@
       "file": "structure.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 구조 검토",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -250,14 +250,14 @@
       "file": "drafting.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 도면 표현",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         },
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 도면 검수",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -275,9 +275,9 @@
       "file": "grasshopper.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### Grasshopper",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         }
       ],
       "images": []
@@ -305,24 +305,24 @@
       "file": "assets.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/SKILL.md",
+          "path": "docs/modeling/guidance/modeling-guide.md",
           "heading": "### 자산 목록·검색",
-          "sha256": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a"
+          "sha256": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320"
         },
         {
-          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "path": "docs/modeling/guidance/references/asset-workflows.md",
           "heading": "# 자산 작업",
-          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+          "sha256": "0dd4c2c72b8fdc38554f875f4789841e75c41da8c18dddfcdb021529c3a5c0f4"
         },
         {
-          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "path": "docs/modeling/guidance/references/asset-workflows.md",
           "heading": "## 3DM 등록·배치",
-          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+          "sha256": "0dd4c2c72b8fdc38554f875f4789841e75c41da8c18dddfcdb021529c3a5c0f4"
         },
         {
-          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "path": "docs/modeling/guidance/references/asset-workflows.md",
           "heading": "## 파생 도면 생성·확인",
-          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+          "sha256": "0dd4c2c72b8fdc38554f875f4789841e75c41da8c18dddfcdb021529c3a5c0f4"
         }
       ],
       "images": []
@@ -342,14 +342,14 @@
       "file": "exchange-capture.md",
       "source_refs": [
         {
-          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "path": "docs/modeling/guidance/references/asset-workflows.md",
           "heading": "## 교환·외부 발행",
-          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+          "sha256": "0dd4c2c72b8fdc38554f875f4789841e75c41da8c18dddfcdb021529c3a5c0f4"
         },
         {
-          "path": "skills/rhino-almond/references/asset-workflows.md",
+          "path": "docs/modeling/guidance/references/asset-workflows.md",
           "heading": "## 카메라 경로 산출물",
-          "sha256": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+          "sha256": "0dd4c2c72b8fdc38554f875f4789841e75c41da8c18dddfcdb021529c3a5c0f4"
         }
       ],
       "images": []
@@ -384,7 +384,7 @@
     "capture_conditioning_pass": "When exchanging assets, publishing or producing camera-path artifacts, read get_modeling_guide(topic=\"exchange-capture\")."
   },
   "files": {
-    "assets.md": "4c3813abb03b09ffa47c586328c6bd11fc4731269e87bc56454b8a4adc593b18",
+    "assets.md": "7b7ac8a027611c510940ac1bf663c599b44b26c50c31b67d7fa05883c408c2cd",
     "assets/resident-porch.png": "8551aef446eb012425c548bc157449e4033a0cdf09c0a893640cf98beb2695aa",
     "assets/roof-drainage.png": "a81c2fb364aa96ff481b709ce6c53cc0d9e1cb9d6a33021df8fbd6329540913d",
     "blocks.md": "6ee5d0124bad7d959bc5f1ab45ab67facab9d44d51bc5451d5846e6a6b0f4df0",
@@ -404,16 +404,15 @@
   "startup_sha256": "33e51e312096fcf4da0721fdac528a4936bd309343980f1e223b219c69082266",
   "model_context_sha256": "0c84161873c0f484f6b79bb4168c865a3edb0271114ef652dce64fdd1729a27d",
   "source_files": {
-    "SKILL.md": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a",
-    "references/component-feedback.md": "b4306c5be84fab91bbd31b6288d073a2348d190e4a08cd11eed1146a840f54fa",
-    "references/asset-workflows.md": "c0750789d0e6ed60b26f6b912705cc96459fd10ed29b27b24ac7a9a1366552b0"
+    "modeling-guide.md": "2274dabbe83833def2a168c33329d11f8ddd98e8e3e7a2b8a68d1035c2122320",
+    "references/component-feedback.md": "8862e15d3862cdc1999c501594d5937f6def8b7a4e8a9cf436bc78d2ce1324c6",
+    "references/asset-workflows.md": "0dd4c2c72b8fdc38554f875f4789841e75c41da8c18dddfcdb021529c3a5c0f4"
   },
   "excluded_sections": [
     {
-      "path": "SKILL.md",
+      "path": "modeling-guide.md",
       "sections": [
-        "frontmatter",
-        "# Rhino Almond",
+        "# Rhino 모델링 지침",
         "## 목차",
         "## 프로젝트 기본 구조",
         "## 기본 작업",
@@ -421,20 +420,20 @@
         "## Drafting",
         "## 거의 사용하지 않는 기능"
       ],
-      "reason": "스킬 검색 메타데이터·목차·본문 없는 묶음 제목. MCP index로 대체한다."
+      "reason": "목차·본문 없는 묶음 제목. MCP index로 대체한다."
     },
     {
-      "path": "skill초안.md",
-      "reason": "작성 지시의 역사 자료. 확정된 SKILL.md로 반영하며 실행 지침으로 중복 전달하지 않는다."
-    },
-    {
-      "path": "tests/",
-      "reason": "스킬 검증용 코드. 런타임 안내가 아니다."
+      "path": "authoring-request.md",
+      "reason": "작성 지시의 역사 자료. 확정된 modeling-guide.md로 반영하며 실행 지침으로 중복 전달하지 않는다."
     },
     {
       "path": "references/assets/",
       "reason": "본문에서 참조한 원본 사진 2장만 포함한다. 미참조 floorplan·custom-material 이미지 등은 주입하지 않는다."
+    },
+    {
+      "path": "FloorPlan_made_using_Bonsai.png",
+      "reason": "보존된 작성 참고 이미지. 확정 본문에서 참조하지 않아 주입하지 않는다."
     }
   ],
-  "guide_version": "3580358d1632f67998a9fffd6dc18631aa96afdb0e964e3b84a8fca60fae973a"
+  "guide_version": "993ddef0b6e646d02fb09271ddca0a15e2fa99d8068fe22be0d39215a325631d"
 }

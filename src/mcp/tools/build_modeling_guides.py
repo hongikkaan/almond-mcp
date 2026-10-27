@@ -1,4 +1,4 @@
-"""Build/check the reviewed skill's static MCP bundle without importing the server."""
+"""Build/check the modeling guidance bundle without importing the server."""
 from __future__ import annotations
 import argparse
 import hashlib
@@ -8,7 +8,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-SKILL = ROOT / "skills/rhino-almond"
+SOURCES = ROOT / "docs/modeling/guidance"
 PACKAGE = ROOT / "src/mcp/almond_mcp"
 BUNDLE = PACKAGE / "modeling_guides"
 
@@ -26,7 +26,7 @@ def section(text: str, heading: str, *, children: bool = True) -> str:
     lines = text.splitlines(keepends=True)
     matches = [i for i, line in enumerate(lines) if line.rstrip() == heading]
     if len(matches) != 1:
-        raise ValueError(f"Missing or duplicate skill heading: {heading}")
+        raise ValueError(f"Missing or duplicate guide heading: {heading}")
     start = matches[0]
     level = len(heading) - len(heading.lstrip("#"))
     end = len(lines)
@@ -47,22 +47,22 @@ def build() -> dict[str, bytes]:
             snapshot[path] = read_source(path)
         return snapshot[path]
 
-    mapping = json.loads(source(SKILL / "mcp-guide-map.json"))
+    mapping = json.loads(source(SOURCES / "mcp-guide-map.json"))
     output, sources, topics, hints = {}, {}, [], {}
     for item in mapping["topics"]:
         if not re.fullmatch(r"[a-z][a-z0-9-]*", item["id"]) or item["id"] == "index":
             raise ValueError("Invalid/reserved guide topic ID")
         texts, refs = [], []
         for ref in item["sections"]:
-            path = SKILL / ref["path"]
-            path.resolve().relative_to(SKILL.resolve())
+            path = SOURCES / ref["path"]
+            path.resolve().relative_to(SOURCES.resolve())
             text = source(path).decode("utf-8")
             sources[ref["path"]] = digest(text.encode("utf-8"))
             texts.append(section(text, ref["heading"], children=ref.get("children", True)))
-            refs.append({"path": "skills/rhino-almond/" + ref["path"], "heading": ref["heading"],
+            refs.append({"path": path.relative_to(ROOT).as_posix(), "heading": ref["heading"],
                          "sha256": sources[ref["path"]]})
         text = "\n\n".join(texts) + "\n"
-        # Local skill links/images are not accessible through an installed MCP client.
+        # Repository links/images are not accessible through an installed MCP client.
         for before, after in mapping["link_replacements"].items():
             text = text.replace(before, after)
         filename = item["id"] + ".md"
@@ -71,8 +71,8 @@ def build() -> dict[str, bytes]:
         output[filename] = text.encode("utf-8")
         images = []
         for image in item.get("images", []):
-            image_path = SKILL / image["path"]
-            image_path.resolve().relative_to(SKILL.resolve())
+            image_path = SOURCES / image["path"]
+            image_path.resolve().relative_to(SOURCES.resolve())
             raw = source(image_path)
             target = "assets/" + image_path.name
             output[target] = raw
