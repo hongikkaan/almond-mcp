@@ -43,16 +43,23 @@ def _snapshot() -> dict:
         if hashlib.sha256(raw).hexdigest() != expected:
             raise ValueError(f"Modeling guide {name} changed; install a matching package and start a new session.")
         files[name] = raw if name.endswith(".png") else raw.decode("utf-8")
-    startup = PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md"
-    startup_text = _read_content(startup)
-    if hashlib.sha256(startup_text).hexdigest() != manifest["startup_sha256"]:
-        raise ValueError("Modeling startup guidance changed; rebuild the guide bundle and start a new session.")
-    return {**manifest, "guide_version": version, "content": files,
-            "startup": startup_text.decode("utf-8").strip()}
+    instructions = {}
+    for key, filename in (("startup", "FUNDAMENTAL-INSTRUCTIONS.md"),
+                          ("model_context", "MODEL-CONTEXT-INSTRUCTIONS.md")):
+        raw = _read_content(PACKAGE / filename)
+        if hashlib.sha256(raw).hexdigest() != manifest[f"{key}_sha256"]:
+            raise ValueError(f"Modeling {key} guidance changed; rebuild the guide bundle and start a new session.")
+        instructions[key] = raw.decode("utf-8").strip()
+    return {**manifest, "guide_version": version, "content": files, **instructions}
 
 
 def startup_instructions() -> str:
     return _snapshot()["startup"]
+
+
+def project_instructions() -> str:
+    snapshot = _snapshot()
+    return snapshot["startup"] + "\n\n" + snapshot["model_context"]
 
 
 def tool_guidance(name: str) -> str:

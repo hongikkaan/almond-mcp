@@ -3,6 +3,7 @@ import asyncio
 import json
 import base64
 import hashlib
+import runpy
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,22 @@ from almond_mcp.features.guidance.tools import register
 class NoModelContext:
     def __getattr__(self, name):
         raise AssertionError(f"Static guidance accessed model context: {name}")
+
+
+@pytest.mark.parametrize('filename', ['FUNDAMENTAL-INSTRUCTIONS.md', 'MODEL-CONTEXT-INSTRUCTIONS.md'])
+def test_new_reader_rejects_instructions_from_another_bundle_version(filename, monkeypatch):
+    from almond_mcp.modeling_guidance import PACKAGE
+    reader = runpy.run_path(str(PACKAGE / 'modeling_guidance.py'))
+    original_read = Path.read_bytes
+    target = PACKAGE / filename
+
+    def changed_read(path):
+        raw = original_read(path)
+        return raw + b'\nChanged guidance.\n' if path == target else raw
+
+    monkeypatch.setattr(Path, 'read_bytes', changed_read)
+    with pytest.raises(ValueError, match='guidance changed'):
+        reader['read_guide']()
 
 
 def test_agent_can_discover_topics_without_reading_a_model():

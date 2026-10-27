@@ -402,6 +402,7 @@
     "structure.md": "e3609c402696f93e250d48e059e3e14e8545044111192d68f7b5dfc73767f611"
   },
   "startup_sha256": "33e51e312096fcf4da0721fdac528a4936bd309343980f1e223b219c69082266",
+  "model_context_sha256": "0c84161873c0f484f6b79bb4168c865a3edb0271114ef652dce64fdd1729a27d",
   "source_files": {
     "SKILL.md": "1706c80d32a684dd8a444f15703d730f64673ee616b9df348e00712a3d62d03a",
     "references/component-feedback.md": "b4306c5be84fab91bbd31b6288d073a2348d190e4a08cd11eed1146a840f54fa",
@@ -435,5 +436,5 @@
       "reason": "본문에서 참조한 원본 사진 2장만 포함한다. 미참조 floorplan·custom-material 이미지 등은 주입하지 않는다."
     }
   ],
-  "guide_version": "b354e16ff5216c25a3026aa65ee1cea878306704a056593e2e8e4e2b6725c6ed"
+  "guide_version": "3580358d1632f67998a9fffd6dc18631aa96afdb0e964e3b84a8fca60fae973a"
 }
