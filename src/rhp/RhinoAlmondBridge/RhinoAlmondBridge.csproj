@@ -32,7 +32,7 @@
 
   <ItemGroup>
     <Compile Remove="tests/**/*.cs" />
-    <Compile Include="../../mcp/almond_mcp/rhino/*.cs" Link="Modeling\%(Filename)%(Extension)" />
+    <Compile Include="../../mcp/rhino/*.cs" Link="Modeling\%(Filename)%(Extension)" />
     <Compile Include="../Structural_Analysis/*.cs" />
     <Compile Include="../Asset_Panel/*.cs" />
     <Compile Include="../RhinoTerminal/src/*.cs" />
@@ -40,7 +40,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="../../mcp/almond_mcp/modeling_policy.json" LogicalName="RhinoAlmondBridge.modeling_policy.json" />
+    <EmbeddedResource Include="../../mcp/modeling_policy.json" LogicalName="RhinoAlmondBridge.modeling_policy.json" />
     <!-- Panel tab icons: Almond and Almond Results -->
     <EmbeddedResource Include="Resources\*.ico" />
     <EmbeddedResource Include="../RhinoTerminal/src/web/terminal.html" LogicalName="RhinoTerminal.terminal.html" />

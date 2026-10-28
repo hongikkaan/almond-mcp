@@ -99,8 +99,8 @@ Y-up 입력은 `(X,-Z,Y)`로 Z-up에 변환하고 front는 +Y 방향, right는 -
 `source-register.json`은 `provenance.json`·catalogue·manifest·passport에서 만든 색인이다. 직접 고치지 말고 원본을 수정한 뒤 재생성한다.
 
 ```powershell
-& ./src/engine/.venv/Scripts/python.exe -B src/mcp/tools/document_generation_sources.py
-& ./src/engine/.venv/Scripts/python.exe -B src/mcp/tools/document_generation_sources.py --check
+& ./src/engine/.venv/Scripts/python.exe -B src/mcp/features/assets/generation/document_generation_sources.py
+& ./src/engine/.venv/Scripts/python.exe -B src/mcp/features/assets/generation/document_generation_sources.py --check
 ```
 
 `drawing.json`은 source file/geometry hash와 파생 파일 hash를 연결한다. 모델 metadata만 바뀐 경우와 형상이 바뀐 경우를 구분한다. SVG는 출처·축척·방법을 포함하지만 DXF와 교환할 때는 인접 JSON도 보존한다.

@@ -166,7 +166,7 @@ def test_unknown_topics_and_non_boolean_image_switch_fail_explicitly(arguments):
 
 def test_modeling_tool_has_conditional_topic_hint():
     from almond_mcp.instruction_text import tool_instruction
-    source = Path(__file__).resolve().parents[1] / "almond_mcp/features/guidance/tools.py"
+    source = Path(__file__).resolve().parents[1] / "features/guidance/tools.py"
 
     @tool_instruction(str(source), "get_construction_guidance")
     def tool():

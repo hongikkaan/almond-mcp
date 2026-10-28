@@ -6,19 +6,12 @@ import pytest
 from fastmcp import Client, FastMCP
 
 from almond_mcp.feature_context import FeatureContext
-from almond_mcp.features.placement.store import PlacementStore
 from almond_mcp.features.placement.tools import register
 from almond_mcp.retrieval_store import AlmondStore
 import test_components as component_regressions
-import test_retrieval_store as ledger_regressions
 
 
-# Before facade cutover, the extracted methods must win over the old definitions.
-if issubclass(AlmondStore, PlacementStore):
-    ExtractedPlacementStore = AlmondStore
-else:
-    class ExtractedPlacementStore(PlacementStore, AlmondStore):
-        pass
+ExtractedPlacementStore = AlmondStore
 
 
 @pytest.fixture
@@ -29,31 +22,6 @@ def store(tmp_path):
         {"asset_id": "rectangle", "dimensions_mm": {"width": 200, "depth": 100, "height": 50}},
     ], library_id="fixture")
     return result
-
-
-@pytest.mark.parametrize("regression", [
-    "test_scene_revisions_and_rtree_collisions",
-    "test_upsert_room_by_name_updates_instead_of_duplicating",
-    "test_instance_z_defaults_to_room_floor",
-    "test_remove_instance_and_room",
-])
-def test_existing_placement_regressions_use_extracted_methods(monkeypatch, regression):
-    monkeypatch.setattr(ledger_regressions, "AlmondStore", ExtractedPlacementStore)
-    case = ledger_regressions.SceneLedgerFixesTests(regression)
-    case.setUp()
-    try:
-        getattr(case, regression)()
-    finally:
-        case.tearDown()
-
-
-@pytest.mark.parametrize("regression", [
-    "test_additive_component_schema_preserves_legacy_rooms_instances_and_revisions",
-    "test_direct_store_legacy_ids_cannot_cross_scenes_and_instance_delete_cleans_rtree",
-])
-def test_existing_scene_boundaries_use_extracted_methods(store, monkeypatch, regression):
-    monkeypatch.setattr(component_regressions, "AlmondStore", ExtractedPlacementStore)
-    getattr(component_regressions, regression)(store)
 
 
 def test_touching_faces_rotation_and_containment_use_cached_world_bounds(store):

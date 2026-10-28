@@ -8,11 +8,11 @@
 저장소 루트에서 아래 명령으로 배포 번들을 갱신하고 확인한다.
 
 ```powershell
-& ./src/engine/.venv/Scripts/python.exe -B src/mcp/tools/build_modeling_guides.py
-& ./src/engine/.venv/Scripts/python.exe -B src/mcp/tools/build_modeling_guides.py --check
+& ./src/engine/.venv/Scripts/python.exe -B src/mcp/guide_build/build_modeling_guides.py
+& ./src/engine/.venv/Scripts/python.exe -B src/mcp/guide_build/build_modeling_guides.py --check
 ```
 
-번들은 `src/mcp/almond_mcp/modeling_guides`에 포함된다. 실행 중에는 이 문서
+번들은 `src/mcp/modeling_guides`에 포함된다. 실행 중에는 이 문서
 폴더나 개인 스킬 경로를 읽지 않는다. 새 번들은 관련 MCP 세션을 정상 종료하고
 다시 시작한 뒤 사용한다.
 

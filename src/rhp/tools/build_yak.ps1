@@ -19,7 +19,7 @@ New-Item -ItemType Directory -Path $stage -Force | Out-Null
 if (-not (Test-Path -LiteralPath $YakExecutable)) { throw "Yak executable not found: $YakExecutable" }
 Push-Location $repo
 try {
-    & $PythonExecutable src/mcp/tools/document_generation_sources.py --check
+    & $PythonExecutable src/mcp/features/assets/generation/document_generation_sources.py --check
     if ($LASTEXITCODE -ne 0) { throw "Source documentation check failed." }
     & $DotnetExecutable build src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj -c Release -o $bin -p:RestoreLockedMode=true "-p:RhinoSystem=$RhinoSystem"
     if ($LASTEXITCODE -ne 0) { throw "Bridge build failed." }

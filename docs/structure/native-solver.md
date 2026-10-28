@@ -30,7 +30,7 @@ selection**. Step 02 adds the native options (floor imposed and build-up loads,
 loads from placed models, connections, load combinations, stability, deflection
 span, and the viewport overlay: deflected shape or first buckling mode).
 **Run native analysis** exports the conditioned line model, runs
-`almond-mcp solve` out of process (JSON in, JSON out: `src/mcp/almond_mcp/features/structure/structure_study.py`),
+`almond-mcp solve` out of process (JSON in, JSON out: `src/mcp/features/structure/structure_study.py`),
 draws the result through the same `structure_draw` overlay the MCP tools use,
 and fills step 04 with deflection, utilization, the governing combination,
 αcr and the load facts. **Clear viewport overlay** removes the drawing.
@@ -70,7 +70,7 @@ warning saying why.
 ## Method
 
 - Direct stiffness method, Euler-Bernoulli beams, 6 DOF per node, rigid joints
-  (`src/mcp/almond_mcp/features/structure/frame_solver.py`, numpy only, written from the textbook method).
+  (`src/mcp/features/structure/frame_solver.py`, numpy only, written from the textbook method).
 - Uniform and linearly varying member loads (self weight, floor-load triangles and
   trapezoids) are exact within each member: consistent fixed-end forces, Hermite
   interpolation of the end displacements plus the fixed-fixed particular solution
@@ -86,7 +86,7 @@ warning saying why.
 
 The bridge's `structure_model` message exports the conditioned geometry used by the
 Karamba path: welded nodes, members split at intersections, inferred sections, curved
-axes polygonized identically. `src/mcp/almond_mcp/features/structure/native_structure.py` then applies:
+axes polygonized identically. `src/mcp/features/structure/native_structure.py` then applies:
 
 - **Supports:** declared Rhino points (snapped to the nearest node within 50 mm), else
   every lowest-Z node. `fixed_supports=False` pins them (translations only).
@@ -95,7 +95,7 @@ axes polygonized identically. `src/mcp/almond_mcp/features/structure/native_stru
 - **Deflection limit:** span/250. Span = longest member for beam/frame, else overall
   extent; `span_m` overrides it when members are split at every node (a 6.2 m joist
   drawn as two 3.1 m segments).
-- **Member checks (EN 1993-1-1, `src/mcp/almond_mcp/features/structure/ec3.py`), per member** (the member between its
+- **Member checks (EN 1993-1-1, `src/mcp/features/structure/ec3.py`), per member** (the member between its
   joints, whatever the analysis split it into), for every ULS combination:
   - **Section class** from Table 5.2 for the actual stresses, with ε = √(235/f_y):
     CHS d/t against 50/70/90 ε² (Class 4 above 59.6 in S355); RHS walls (c = h − 3t) and
@@ -120,7 +120,7 @@ axes polygonized identically. `src/mcp/almond_mcp/features/structure/native_stru
 - `src/mcp/tests/test_hand_calculations.py` and `src/mcp/tests/test_ec3.py`: closed forms worked from first
   principles and from the standard's text (beam, cantilever, column buckling on curves a and
   c, Table 5.2 classes by grade, Table B.3 C_m, an Annex B case where k = 1.3).
-- `src/mcp/tools/mutation_check.py` plants known engineering errors one at a time (wrong factors,
+- `src/mcp/features/structure/validation/mutation_check.py` plants known engineering errors one at a time (wrong factors,
   wrong curve, unscaled class limits, buckling length of one analysis element, ...) and
   reports whether the tests catch each.
 - Before October 2026 the member check combined compression and bending with k = 1 (up to
@@ -298,7 +298,7 @@ CHS 114.3×4 under furniture and self weight only: 17.2 mm, utilization 0.30.
 Asserted in `src/mcp/tests/test_frame_solver.py` (20 closed-form cases including equilibrium,
 superposition, orientation invariance, mechanisms, section properties and EN 1993
 buckling) and `src/mcp/tests/test_native_structure.py` (Karamba cross-check). Regenerate the
-tables with `uv run python src/mcp/tools/run_structural_benchmarks.py`.
+tables with `uv run python src/mcp/features/structure/validation/run_structural_benchmarks.py`.
 
 ### Closed form (CHS 114.3×4, S235)
 

@@ -7,18 +7,12 @@ import pytest
 from fastmcp import Client, FastMCP
 
 from almond_mcp.feature_context import FeatureContext
-from almond_mcp.features.scenes.store import ScenesStore
 from almond_mcp.features.scenes.tools import register
 from almond_mcp.retrieval_store import AlmondStore
-import test_component_hierarchy as hierarchy_contracts
 import test_components as component_contracts
 
 
-if issubclass(AlmondStore, ScenesStore):
-    ExtractedScenesStore = AlmondStore
-else:
-    class ExtractedScenesStore(ScenesStore, AlmondStore):
-        """Exercise extracted methods before the coordinator removes facade originals."""
+ExtractedScenesStore = AlmondStore
 
 
 A, B = component_contracts.A, component_contracts.B
@@ -197,28 +191,6 @@ def test_failed_observation_preserves_membership_and_revisions(feature, store, m
     assert result["status"] == "error" and result["message"]
     assert len(requests) == 1
     assert component_contracts.snapshot(store) == before
-
-
-@pytest.mark.parametrize("contract", [
-    component_contracts.test_shared_component_and_direct_membership_form_a_set,
-    component_contracts.test_replace_scene_membership_observes_only_retained_objects,
-    component_contracts.test_unregister_releases_owner_but_retains_direct_scene_object,
-])
-def test_extracted_store_component_membership_contracts(store, model, contract):
-    contract(store, model)
-
-
-def test_extracted_store_document_scoped_membership(store, model, tmp_path):
-    component_contracts.test_direct_scene_membership_is_document_scoped_and_native_read_only(
-        store, model, tmp_path,
-    )
-
-
-def test_extracted_store_recursive_component_membership(store, model):
-    store.model = model
-    store.scene_a = store.create_scene("Facade")["scene_id"]
-    store.scene_b = store.create_scene("Interior")["scene_id"]
-    hierarchy_contracts.test_parent_with_no_direct_objects_inherits_child_geometry_and_scene_context(store)
 
 
 def test_actual_mcp_scene_schema_and_roundtrip(feature, store, model):

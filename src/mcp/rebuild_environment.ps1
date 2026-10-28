@@ -1,27 +1,30 @@
 # Developer maintenance only. Never runs automatically at application startup.
-# Run only after closing all Almond Codex/Rhino processes.
+# -Development owns a separate environment and does not stop everyday hosts.
 [CmdletBinding()]
-param()
+param([switch]$Development)
 $ErrorActionPreference='Stop'
-$runtime=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../engine/.venv'))
+$environmentPath = if ($Development) { '../../data/development/.venv' } else { '../engine/.venv' }
+$runtime=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot $environmentPath))
 $python=Join-Path $runtime 'Scripts\python.exe'
 $uv=(Get-Command uv -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 $repo=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 foreach($process in Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'") {
     if($process.ExecutablePath -and [IO.Path]::GetFullPath($process.ExecutablePath) -ieq [IO.Path]::GetFullPath($python)) {
-        throw 'Close the COS host and all workers using this environment before maintenance.'
+        throw 'This environment is in use. Use -Development for offline work, or close its hosts before maintenance.'
     }
 }
 # Read both layouts during migration; never move/delete existing connection data.
-foreach($stateRoot in 'runtime\data','..\engine\data') {
-    foreach($slot in 'A','B','C','D','E','F','G','H','I','J'){
-        foreach($name in 'active.json','ready.json'){
-            $path=Join-Path $PSScriptRoot "$stateRoot\$slot\$name"
-            if(Test-Path -LiteralPath $path){
-                $record=Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
-                $p=Get-Process -Id $record.pid -ErrorAction SilentlyContinue
-                if($p -and $p.StartTime.ToUniversalTime().Ticks.ToString() -eq $record.process_start_ticks){
-                    throw 'Close all managed Rhino instances before environment maintenance.'
+if (-not $Development) {
+    foreach($stateRoot in 'runtime\data','..\engine\data') {
+        foreach($slot in 'A','B','C','D','E','F','G','H','I','J'){
+            foreach($name in 'active.json','ready.json'){
+                $path=Join-Path $PSScriptRoot "$stateRoot\$slot\$name"
+                if(Test-Path -LiteralPath $path){
+                    $record=Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+                    $p=Get-Process -Id $record.pid -ErrorAction SilentlyContinue
+                    if($p -and $p.StartTime.ToUniversalTime().Ticks.ToString() -eq $record.process_start_ticks){
+                        throw 'Close all managed Rhino instances before environment maintenance.'
+                    }
                 }
             }
         }
@@ -39,4 +42,9 @@ try {
 if($LASTEXITCODE){throw 'Dependency check failed.'}
 & $python -B (Join-Path $repo 'src\mcp\tests\runtime\test_library_paths.py')
 if($LASTEXITCODE){throw 'Editable source/library path check failed.'}
-Write-Output 'MCP environment ready. Run src/cos/configure.ps1 when setting up COS.'
+Write-Output "MCP environment ready: $runtime"
+if ($Development) {
+    Write-Output 'Offline development only. Use run_tests.ps1 -Development; everyday hosts and registration were not changed.'
+} else {
+    Write-Output 'Run src/cos/configure.ps1 when setting up COS.'
+}

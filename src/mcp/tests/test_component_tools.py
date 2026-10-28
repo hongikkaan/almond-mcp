@@ -24,7 +24,7 @@ COMPONENT_TOOLS = {
 @pytest.fixture(scope="module")
 def server(tmp_path_factory):
     root = tmp_path_factory.mktemp("component-tools")
-    source = Path(__file__).resolve().parents[3] / "src/mcp/almond_mcp/server.py"
+    source = Path(__file__).resolve().parents[3] / "src/mcp/server.py"
     with pytest.MonkeyPatch.context() as patch:
         patch.setenv("RHINO_MCP_STATE_DB", str(root / "state.sqlite3"))
         for suffix in ("LIBRARY", "DRAWING_ASSET", "DIAGRAM_ASSET", "GENERATED_ASSET",

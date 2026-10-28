@@ -44,7 +44,7 @@ def test_missing_runtime_file_is_rejected(tmp_path):
 
 
 def test_runtime_record_rejects_missing_dependency_notices(tmp_path, monkeypatch):
-    for bundle, name in zip(runtime.BUNDLES, ("RhinoAlmondBridge.rhp", "AlmondCOS.rhp")):
+    for bundle, name in zip(runtime.BUNDLES, ("RhinoAlmondBridge.rhp", "AlmondRhino.rhp")):
         directory = tmp_path / bundle
         directory.mkdir(parents=True)
         (directory / name).write_bytes(b"fixture")
@@ -55,7 +55,7 @@ def test_runtime_record_rejects_missing_dependency_notices(tmp_path, monkeypatch
 
 
 def test_module_change_invalidates_only_its_owner_but_engine_invalidates_both(tmp_path, monkeypatch):
-    sources = ["src/cos/rhp/CosHost.cs", "src/rhp/RhinoTerminal/src/AlmondHost.cs",
+    sources = ["src/cos/rhp/RhinoHost.cs", "src/rhp/RhinoTerminal/src/AlmondHost.cs",
                "src/rhp/Engine/SessionFiles.cs", "src/rhp/Engine/tests/Program.cs"]
     for relative in sources:
         path = tmp_path / relative

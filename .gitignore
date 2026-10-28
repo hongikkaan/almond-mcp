@@ -54,5 +54,5 @@ obj/
 # Shipped Rhino runtime: committed together with its C# source.
 !src/rhp/RhinoAlmondBridge/plugin-runtime/
 !src/rhp/RhinoAlmondBridge/plugin-runtime/**
-!src/rhp/AlmondCOS/plugin-runtime/
-!src/rhp/AlmondCOS/plugin-runtime/**
+!src/rhp/AlmondRhino/plugin-runtime/
+!src/rhp/AlmondRhino/plugin-runtime/**

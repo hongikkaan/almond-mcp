@@ -135,14 +135,14 @@ async def generate(engine: Path = ENGINE) -> dict:
             node._guidance_source = str(paths["entry"])
             functions.append(node)
     module = types.ModuleType("_almondcos_schema_stubs")
-    module.mcp = FastMCP("AlmondCOS schema build")
+    module.mcp = FastMCP("Almond external schema build")
     module.ToolResult = ToolResult
     module.StrictInt = StrictInt
     module.StrictFloat = StrictFloat
     module.StrictBool = StrictBool
     sys.modules[module.__name__] = module
     tree = ast.Module(body=[checked_stub(n) for n in functions], type_ignores=[])
-    exec(compile(ast.fix_missing_locations(tree), "<AlmondCOS schemas only>", "exec"), module.__dict__)
+    exec(compile(ast.fix_missing_locations(tree), "<Almond external schemas only>", "exec"), module.__dict__)
     tools = [t.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
              for t in await module.mcp.list_tools()]
     if not tools:

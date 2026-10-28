@@ -8,11 +8,20 @@ import unittest
 from unittest.mock import patch
 
 from build_catalog import checked_stub, collect_tool_functions, generate
-from runtime import check_contract, load_catalog
+from runtime import check_contract, load_catalog, source_paths, ENGINE, PACKAGE
 from external_host import exposed_tools
 
 
 class CatalogTests(unittest.IsolatedAsyncioTestCase):
+    def test_flat_package_inventory_excludes_tests_and_runtime_artifacts(self):
+        paths = set(source_paths(ENGINE).values())
+        self.assertIn(PACKAGE / "almond_mcp.py", paths)
+        self.assertIn(PACKAGE / "features/assets/tools.py", paths)
+        self.assertIn(ENGINE / "mcp_server.py", paths)
+        self.assertNotIn(PACKAGE / "tests/test_modeling_guide.py", paths)
+        self.assertFalse(any("data" in p.relative_to(PACKAGE).parts
+                             for p in paths if p.is_relative_to(PACKAGE)))
+
     def test_tool_names_are_plain_and_have_no_legacy_aliases(self):
         catalog = load_catalog()
         public, mapping = exposed_tools(catalog)
@@ -128,17 +137,17 @@ class FeatureSourceTests(unittest.TestCase):
 
     def test_worker_rejects_source_change_even_when_schema_is_identical(self):
         import os
-        import cos_worker
+        import external_worker
         original = {"sources": {"server": "old"}, "packages": {}, "tools": []}
         changed = dict(original, sources={"server": "new"})
         from runtime import catalog_identity
-        with patch.dict(os.environ, {"ALMONDCOS_SESSION_TOKEN": "fixture",
-                                    "ALMONDCOS_CATALOG_ID": catalog_identity(original)}), \
+        with patch.dict(os.environ, {"ALMONDRHINO_SESSION_TOKEN": "fixture",
+                                    "ALMONDRHINO_CATALOG_ID": catalog_identity(original)}), \
                 patch.object(sys, "argv", ["worker", "--session", "fixture", "--port", "5501", "--connection-id", "fixture"]), \
-                patch.object(cos_worker, "load_catalog", return_value=changed), \
-                patch.object(cos_worker, "check_contract"):
+                patch.object(external_worker, "load_catalog", return_value=changed), \
+                patch.object(external_worker, "check_contract"):
             with self.assertRaisesRegex(RuntimeError, "client.*source|source.*client"):
-                cos_worker.main()
+                external_worker.main()
 
     def test_factory_sources_are_read_without_execution(self):
         with tempfile.TemporaryDirectory() as directory:

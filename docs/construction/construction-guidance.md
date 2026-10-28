@@ -32,7 +32,7 @@ Each system entry:
 
 The manifest also ships `reference` tables: occupancy live loads (kPa) and material densities (kg/m³) from BCI appendix A.06–A.07, for choosing `load_kn` inputs honestly.
 
-Every parameter is itemized with its exact BCI section title and page in the generated **[construction spec register](construction-spec-register.md)** (`src/mcp/tools/build_spec_register.py` regenerates it from the manifest).
+Every parameter is itemized with its exact BCI section title and page in the generated **[construction spec register](construction-spec-register.md)** (`src/mcp/features/guidance/build_spec_register.py` regenerates it from the manifest).
 
 ## The workflow
 
@@ -64,7 +64,7 @@ validate_structure(guids, "beam", load_kn, "Wood")
 
 도구 입력과 적용 기준은 [템플릿 지침](../modeling/guidance/modeling-guide.md#템플릿재료구축-레이어)과 [모델링 지침](../modeling/guidance/modeling-guide.md#형상-편집설계-자료)을 따른다.
 
-MCP owns catalog loading, material choices, construction-layer specifications and metadata policy. `modeling_setup.py` supplies resolved recipes to the shared C# implementation in `src/mcp/almond_mcp/rhino/`. The Bridge compiles those files to execute Rhino API operations on its UI thread; it does not independently read the material or construction manifests. Native document access, Undo recovery, panels and geometry services remain in RHP. `DocumentLayers.Ensure` is the common native layer-path adapter used by drawing styles, asset placement and setup.
+MCP owns catalog loading, material choices, construction-layer specifications and metadata policy. `modeling_setup.py` supplies resolved recipes to the shared C# implementation in `src/mcp/rhino/`. The Bridge compiles those files to execute Rhino API operations on its UI thread; it does not independently read the material or construction manifests. Native document access, Undo recovery, panels and geometry services remain in RHP. `DocumentLayers.Ensure` is the common native layer-path adapter used by drawing styles, asset placement and setup.
 
 `setup_modeling(operation="materials")` registers the library under its readable names. Omit `overwrite` for one Yes/No choice in Rhino; true updates matching materials, false leaves them as they are. Existing `ALMOND::<id>` names are accepted for migration, but new materials use the manifest's `name`.
 

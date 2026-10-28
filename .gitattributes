@@ -10,5 +10,5 @@ src/rhp/Asset_Panel/web/vendor/** -text whitespace=cr-at-eol linguist-vendored=t
 src/rhp/Asset_Panel/web/vendor/model-viewer.min.js -diff
 # Preserve every shipped runtime byte, including archive manifests.
 src/rhp/RhinoAlmondBridge/plugin-runtime/** binary linguist-generated=true
-src/rhp/AlmondCOS/plugin-runtime/** binary linguist-generated=true
+src/rhp/AlmondRhino/plugin-runtime/** binary linguist-generated=true
 src/rhp/runtime-manifest.json text eol=lf

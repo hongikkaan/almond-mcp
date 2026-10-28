@@ -111,9 +111,9 @@ flowchart LR
 
 | 채널 | 현재 구현·근거 | 설계에 주는 제약 |
 |---|---|---|
-| 공통 서버 초기화 | [server.py](../../src/mcp/almond_mcp/server.py)의 `FastMCP("Almond")`에는 `instructions` 인자가 없음 | 파일명이 FUNDAMENTAL이어도 시작 시 자동 주입되는 것은 아님 |
+| 공통 서버 초기화 | [server.py](../../src/mcp/server.py)의 `FastMCP("Almond")`에는 `instructions` 인자가 없음 | 파일명이 FUNDAMENTAL이어도 시작 시 자동 주입되는 것은 아님 |
 | 모델 안내 조회 | [configure_project_context](../../src/mcp/runtime/mcp_server.py)의 `project_info`가 `sections`에 `instructions`가 있을 때 두 Markdown을 합침 | 기본 project/document/artifacts 응답에는 지침이 없음. instructions만 조회해도 binding·프로세스는 확인함 |
-| 도구 설명 | [instruction_text.py](../../src/mcp/almond_mcp/instruction_text.py)가 인접 `*-explain.md`의 지정 절을 `__doc__`로 설정 | 단순하고 이미 검증되는 확장 지점. 각 도구의 인자·효과 설명과 바로 붙일 수 있음 |
+| 도구 설명 | [instruction_text.py](../../src/mcp/instruction_text.py)가 인접 `*-explain.md`의 지정 절을 `__doc__`로 설정 | 단순하고 이미 검증되는 확장 지점. 각 도구의 인자·효과 설명과 바로 붙일 수 있음 |
 | COS 도구 목록 | [build_catalog.py](../../src/cos/build_catalog.py)가 실제 도구를 실행하지 않고 AST·같은 설명 파일로 schema를 만듦 | 이 단계에 스킬 검색·DB import·Rhino 시작을 추가하지 않아야 함 |
 | COS 초기화·연결 안내 | [cos_host.py](../../src/cos/cos_host.py)는 `instructions=""`; `list_connections`가 [연결 안내](../../src/cos/CONNECTION-INSTRUCTIONS.md)를 반환 | worker의 초기화 지침은 host 클라이언트에 자동 전달되지 않음. 변경하면 host 전송 경로도 검증 필요 |
 | COS `project_info` 설명 | 같은 파일의 `exposed_tools`가 원래 설명을 짧은 고정 문구로 대체 | “before Rhino actions”를 의무 절차로 오해할 수 있고 “does not execute Rhino code”는 기본 document의 live 관찰과 불일치 |

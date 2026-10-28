@@ -1,6 +1,7 @@
 """Shared external MCP adapter, independent of either client application.
 
-The historical src/cos location and native COS protocol identifiers stay stable.
+Both routes use AlmondRhino. The historical src/cos location and stored
+attachment=cos tag remain compatibility identifiers.
 CoS and direct Codex use separate entry points over this one lifecycle owner.
 """
 from __future__ import annotations
@@ -152,11 +153,11 @@ class Worker:
     async def _own(self):
         params = StdioServerParameters(
             command=str(PYTHON),
-            args=["-B", "-u", str(ROOT / "cos_worker.py"), "--session",
+            args=["-B", "-u", str(ROOT / "external_worker.py"), "--session",
                   self.binding["ready_path"], "--port", str(self.binding["port"]),
                   "--connection-id", self.connection_id],
-            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1", ALMONDCOS_SESSION_TOKEN=self.binding["token"],
-                     ALMONDCOS_CATALOG_ID=catalog_identity(self.catalog)),
+            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1", ALMONDRHINO_SESSION_TOKEN=self.binding["token"],
+                     ALMONDRHINO_CATALOG_ID=catalog_identity(self.catalog)),
             cwd=str(ROOT),
         )
         try:
@@ -461,7 +462,7 @@ class Broker:
                 if (conn.binding.get("storage_protocol") != 2 or
                         not conn.binding.get("session_dir") or not conn.binding.get("ready_path")
                         or not conn.binding.get("call_root")):
-                    raise RuntimeError("This Rhino plugin does not support shared storage sessions. Load the updated AlmondCOS build.")
+                    raise RuntimeError("This Rhino plugin does not support shared storage sessions. Load the updated AlmondRhino build.")
                 if self.watcher is None:
                     self.watcher = self.watcher_factory(self.binding_changed)
                 await self.watcher.add(connection_id, conn.binding)
@@ -656,7 +657,12 @@ class SessionAdapter:
             await self.broker.close()
 
 
-CLIENT_NAMES = {"codex": "beyond", "cos": "beyond"}
+CLIENT_SERVER_NAMES = {"codex": "beyond", "cos": "CoS"}
+
+
+def server_description(client: str) -> str:
+    """Name the selected client route without changing shared tool descriptions."""
+    return DESCRIPTION.replace("{server_name}", CLIENT_SERVER_NAMES[client])
 
 
 async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos"):
@@ -671,8 +677,9 @@ async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos
 
     # Send the shared introduction before any tool call. Keep it in instructions
     # too for clients that do not display serverInfo.description.
-    server = Server(CLIENT_NAMES[client], version=VERSION, description=DESCRIPTION,
-                    instructions=DESCRIPTION + "\n\n" + startup_instructions(),
+    description = server_description(client)
+    server = Server(CLIENT_SERVER_NAMES[client], version=VERSION, description=description,
+                    instructions=description + "\n\n" + startup_instructions(),
                     get_tool_input_schema=schemas.get,
                     on_list_tools=on_list_tools, on_call_tool=on_call_tool)
     try:
@@ -683,7 +690,7 @@ async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos
 
 
 def main(data: Path = ROOT / "data", *, client: str = "cos"):
-    if client not in CLIENT_NAMES:
+    if client not in CLIENT_SERVER_NAMES:
         raise ValueError(f"Unknown external MCP client: {client}")
     catalog = load_catalog()
     asyncio.run(serve(catalog, data=data, client=client))

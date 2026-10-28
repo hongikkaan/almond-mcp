@@ -1,7 +1,7 @@
-"""Explicitly open a new Rhino, then reuse its existing COS attach protocol.
+"""Explicitly open a new Rhino, then reuse its shared external attach protocol.
 
 No model save, kill, worker, DB, slot allocator, or native policy lives here.
-The existing AlmondCOS RHP owns those leases and allocates its A-J slot when
+The existing AlmondRhino RHP owns those leases and allocates its A-J slot when
 the broker connects. This module is imported only for a start_session call.
 """
 from __future__ import annotations
@@ -37,7 +37,8 @@ class RhinoStart:
         self.data, self.host_reader, self.identity_reader = data, host_reader, identity_reader
         self.timeout, self.poll_interval = timeout, poll_interval
         environment = dict(os.environ)
-        for key in ("ALMOND_SESSION_FOLDER", "ALMOND_SESSION_TOKEN", "ALMONDCOS_SESSION_TOKEN",
+        for key in ("ALMOND_SESSION_FOLDER", "ALMOND_SESSION_TOKEN", "ALMONDRHINO_SESSION_TOKEN",
+                    "ALMONDCOS_SESSION_TOKEN",  # Strip pre-rename credentials inherited from an old client too.
                     "ALMOND_ISOLATED_RUN", "ALMOND_V2_RUN", "ALMOND_V3_SESSION"):
             environment.pop(key, None)
         # The launcher verifies complete job breakaway before Rhino can execute;

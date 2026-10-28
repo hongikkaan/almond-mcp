@@ -1,11 +1,12 @@
 # Run explicitly in a development shell; changes only this process's environment.
 [CmdletBinding()]
-param()
+param([switch]$Development)
 $ErrorActionPreference = 'Stop'
 $offlineRepo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
-$offlinePython = Join-Path $offlineRepo 'src\engine\.venv\Scripts\python.exe'
+$environmentPath = if ($Development) { 'data\development\.venv\Scripts\python.exe' } else { 'src\engine\.venv\Scripts\python.exe' }
+$offlinePython = Join-Path $offlineRepo $environmentPath
 if (-not (Test-Path -LiteralPath $offlinePython)) {
-    throw 'Run src/mcp/rebuild_environment.ps1 in this worktree first.'
+    throw 'Run src/mcp/rebuild_environment.ps1 with the same -Development selection first.'
 }
 $offlineJson = @'
 import json
@@ -15,7 +16,7 @@ import almond_mcp
 from almond_mcp import paths
 
 repo = Path(sys.argv[1]).resolve()
-if Path(almond_mcp.__file__).resolve() != repo / "src/mcp/almond_mcp/__init__.py":
+if Path(almond_mcp.__file__).resolve() != repo / "src/mcp/__init__.py":
     raise RuntimeError("The editable environment belongs to another checkout.")
 data = repo / "data/offline"
 temporary = data / "tmp"

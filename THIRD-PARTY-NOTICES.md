@@ -27,7 +27,7 @@ missing and verifies checksums after download.
 The models in `asset/models/GeneratedAssetfiles/models/` (people, trees, vehicles, site
 furniture, columns, balustrades, sanitary fixtures, generic
 furniture) were generated with [Meshy](https://www.meshy.ai) from prompts
-written for this project and normalised by `src/mcp/tools/build_generated_assets.py`.
+written for this project and normalised by `src/mcp/features/assets/generation/build_generated_assets.py`.
 Output generated on a paid Meshy plan belongs to the generating account, and
 these files are released under the
 [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/)

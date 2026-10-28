@@ -26,7 +26,7 @@ def digest(path: Path) -> str:
 def source_paths(engine: Path) -> dict[str, Path]:
     package = PACKAGE
     paths = {
-        "cos_connection_guidance": ROOT / "CONNECTION-INSTRUCTIONS.md",
+        "external_connection_guidance": ROOT / "CONNECTION-INSTRUCTIONS.md",
         "server_description": ROOT / "SERVER-DESCRIPTION.md",
         "model_context_instructions": package / "MODEL-CONTEXT-INSTRUCTIONS.md",
         "project": engine / "project.py",
@@ -49,10 +49,14 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "asset_repository": package / "features/assets/asset_repository.py",
     }
     covered = set(paths.values())
-    for path in sorted(package.rglob("*.py")):
+    # The flat source root also contains tests, launchers and build scripts.
+    # Fingerprint executable package sources, not transient runtime data/tests.
+    package_sources = [*package.glob("*.py"), *(package / "features").rglob("*.py")]
+    for path in sorted(package_sources):
         if path not in covered:
             paths["package/" + path.relative_to(package).as_posix()] = path
-    for path in sorted(package.rglob("*-explain.md")):
+    notes = [*package.glob("*-explain.md"), *(package / "features").rglob("*-explain.md")]
+    for path in sorted(notes):
         paths["package/" + path.relative_to(package).as_posix()] = path
     for path in sorted(engine.glob("*-explain.md")):
         paths["engine/" + path.name] = path

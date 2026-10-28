@@ -2,13 +2,13 @@
 
 프로젝트 정보가 필요하면 `project_info`를 조회한다. 기본 document 항목이 실제 활성 문서를
 함께 확인하므로 같은 live 확인을 위해 `get_rhino_context`를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때
-`get_rhino_viewport_image`를 호출한다. COS에서도 같은 이름을 사용하고 `connection_id`를 전달한다.
+`get_rhino_viewport_image`를 호출한다. beyond·CoS에서도 같은 이름을 사용하고 `connection_id`를 전달한다.
 
 두 조회는 기존 Engine의 문서 binding·UI thread·호출 identity·native 완료 확인을
 거친다. 파일 경로를 임의로 골라 다른 모델을 조회하는 기능은 없다.
 
-MCP 서버와 COS host의 초기 안내 모두 현황 조회, 관련 객체 조사, 수정 후보 검증 후
-원본 교체 순서를 전달한다. COS host의 외부 클라이언트도 이 안내를 받는다.
+문서 전용 MCP 서버와 외부 host의 초기 안내 모두 현황 조회, 관련 객체 조사, 수정 후보 검증 후
+원본 교체 순서를 전달한다. beyond·CoS 클라이언트도 이 안내를 받는다.
 
 ## 현재 상태
 
@@ -104,11 +104,11 @@ override를 거절하고, Detail 라벨 미지원은 경고한다. 라벨이 필
 
 ## 고정 geometry probe
 
-`get_rhino_probe` / COS `get_rhino_probe`는 컴파일된 `outline`,
+`get_rhino_probe` / 외부 연결기 `get_rhino_probe`는 컴파일된 `outline`,
 `resolve-block`, `sections`, `vertical-probe`, `joint-pairs` 중 하나를 실행한다.
 `probe`와 도구별 `options`를 전달한다. 연결된 runtime은 기대 문서 경로를 내부에서
 공급하므로 worker가 절대 `expected_model_path`를 기억해 반복 입력하지 않는다.
-COS에서는 동일하게 `connection_id`를 사용한다. 활성 문서 경로가 다르면 계산 전에
+beyond·CoS에서는 동일하게 `connection_id`를 사용한다. 활성 문서 경로가 다르면 계산 전에
 거절하며 새 문서를 열거나 파일에 결과를 기록하지 않는다.
 
 Bridge UI thread의 고정 handler가 스킬의 C# helper를 직접 호출한다.

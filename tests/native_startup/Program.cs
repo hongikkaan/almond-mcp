@@ -1,5 +1,5 @@
 using System.Reflection;
-using AlmondCOS;
+using AlmondRhino;
 using Rhino.Commands;
 using RhinoAlmondBridge;
 
@@ -18,7 +18,7 @@ var tests = new (string Name, Action Run)[] {
         Check(names.SequenceEqual(new[] {"almondconnect", "almonddisconnect"}), "Unexpected commands: " + string.Join(", ", names));
     }),
     ("connect is repeatable and only prepares one discovery host", () => {
-        var plugin = new CosPlugin();
+        var plugin = new RhinoPlugin();
         var command = Commands().Single(c => c.EnglishName == "almondconnect");
         Check(command.RunForTest() == Result.Success, "Connect failed.");
         var host = plugin.Host;
@@ -27,10 +27,10 @@ var tests = new (string Name, Action Run)[] {
         Check(host.Disconnects == 0, "Connect disconnected a live session.");
     }),
     ("disconnect without a host stays idle and with a host uses its safe cleanup", () => {
-        var plugin = new CosPlugin();
+        var plugin = new RhinoPlugin();
         var command = Commands().Single(c => c.EnglishName == "almonddisconnect");
         Check(command.RunForTest() == Result.Success && plugin.Host == null, "Idle disconnect started a host.");
-        plugin.Host = new CosHost();
+        plugin.Host = new RhinoHost();
         Check(command.RunForTest() == Result.Success && plugin.Host.Disconnects == 1,
             "Disconnect bypassed the existing drain and ownership cleanup.");
     })

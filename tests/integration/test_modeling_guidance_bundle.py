@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_bundle_is_current_and_all_substantive_guide_sections_are_mapped():
-    subprocess.run([sys.executable, '-B', str(ROOT / 'src/mcp/tools/build_modeling_guides.py'), '--check'],
+    subprocess.run([sys.executable, '-B', str(ROOT / 'src/mcp/guide_build/build_modeling_guides.py'), '--check'],
                    check=True, capture_output=True, text=True, encoding='utf-8')
     sources = ROOT / 'docs/modeling/guidance'
     mapping = json.loads((sources / 'mcp-guide-map.json').read_text(encoding='utf-8'))
@@ -45,7 +45,7 @@ def test_topic_references_and_conditional_hints_match_current_exposed_tools():
     from almond_mcp.modeling_guidance import read_guide, tool_guidance
     catalog = asyncio.run(generate())
     tools = {tool['name']: tool for tool in catalog['tools']}
-    manifest = json.loads((ROOT / 'src/mcp/almond_mcp/modeling_guides/manifest.json').read_text(encoding='utf-8'))
+    manifest = json.loads((ROOT / 'src/mcp/modeling_guides/manifest.json').read_text(encoding='utf-8'))
     assert set(manifest['tool_hints']) <= tools.keys()
     index, _ = read_guide()
     topic_ids = {item['id'] for item in index['topics']}
@@ -83,11 +83,11 @@ def test_text_image_and_manifest_changes_invalidate_existing_host(name, tmp_path
     'docs/modeling/guidance/mcp-guide-map.json',
     'docs/modeling/guidance/modeling-guide.md',
     'docs/modeling/guidance/references/assets/roof-drainage.png',
-    'src/mcp/almond_mcp/FUNDAMENTAL-INSTRUCTIONS.md',
-    'src/mcp/almond_mcp/MODEL-CONTEXT-INSTRUCTIONS.md',
+    'src/mcp/FUNDAMENTAL-INSTRUCTIONS.md',
+    'src/mcp/MODEL-CONTEXT-INSTRUCTIONS.md',
 ])
 def test_generation_rejects_changed_inputs_before_returning_publishable_files(relative, monkeypatch):
-    builder = runpy.run_path(str(ROOT / 'src/mcp/tools/build_modeling_guides.py'))
+    builder = runpy.run_path(str(ROOT / 'src/mcp/guide_build/build_modeling_guides.py'))
     original_read = Path.read_bytes
     target = (ROOT / relative).resolve()
     reads = 0
@@ -108,10 +108,10 @@ def test_generation_rejects_changed_inputs_before_returning_publishable_files(re
 
 
 def test_model_context_content_participates_in_guide_version(monkeypatch):
-    builder = runpy.run_path(str(ROOT / 'src/mcp/tools/build_modeling_guides.py'))
+    builder = runpy.run_path(str(ROOT / 'src/mcp/guide_build/build_modeling_guides.py'))
     before = json.loads(builder['build']()['manifest.json'])
     original_read = Path.read_bytes
-    target = (ROOT / 'src/mcp/almond_mcp/MODEL-CONTEXT-INSTRUCTIONS.md').resolve()
+    target = (ROOT / 'src/mcp/MODEL-CONTEXT-INSTRUCTIONS.md').resolve()
 
     def changed_read(path):
         raw = original_read(path)

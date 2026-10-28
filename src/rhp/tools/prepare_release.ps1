@@ -28,13 +28,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "MCP module tests failed." }
     & $python -m pytest -q --junitxml (Join-Path $output "tests.xml")
     if ($LASTEXITCODE -ne 0) { throw "Tests failed." }
-    & $python src/mcp/tools/document_generation_sources.py --check
+    & $python src/mcp/features/assets/generation/document_generation_sources.py --check
     if ($LASTEXITCODE -ne 0) { throw "Source check failed." }
     & uv build --out-dir $output
     if ($LASTEXITCODE -ne 0) { throw "Python build failed." }
     $wheel = @(Get-ChildItem -LiteralPath $output -Filter *.whl)
     if ($wheel.Count -ne 1) { throw "Expected one wheel in release directory." }
-    & $python src/mcp/tools/verify_release.py $wheel[0].FullName
+    & $python src/mcp/release_validation/verify_release.py $wheel[0].FullName
     if ($LASTEXITCODE -ne 0) { throw "Python package verification failed." }
     $install = Join-Path $scratch "install-env"
     & uv venv $install
@@ -44,7 +44,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Clean wheel install failed." }
     Push-Location $scratch
     try {
-        & $installedPython (Join-Path $repo "src/mcp/tools/verify_object_archive_install.py") (Join-Path $output "clean-install.json")
+        & $installedPython (Join-Path $repo "src/mcp/release_validation/verify_object_archive_install.py") (Join-Path $output "clean-install.json")
         if ($LASTEXITCODE -ne 0) { throw "Installed package smoke test failed." }
     } finally { Pop-Location }
     $yakOutput = Join-Path $scratch "yak"

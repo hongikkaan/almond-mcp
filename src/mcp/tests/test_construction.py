@@ -25,7 +25,7 @@ def load_server():
     import os
     spec = importlib.util.spec_from_file_location(
         f"almond_server_construction_{uuid.uuid4().hex}",
-        PACKAGE_ROOT / "almond_mcp" / "server.py",
+        PACKAGE_ROOT / "server.py",
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

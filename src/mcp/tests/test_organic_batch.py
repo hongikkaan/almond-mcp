@@ -9,7 +9,7 @@ from almond_mcp.features.assets.asset_repository import AssetRepository
 
 ROOT = Path(__file__).resolve().parents[3]
 LIBRARY = ROOT / "asset" / "models" / "GeneratedAssetfiles"
-spec = importlib.util.spec_from_file_location("organic_sources", ROOT / "src/mcp/tools/document_generation_sources.py")
+spec = importlib.util.spec_from_file_location("organic_sources", ROOT / "src/mcp/features/assets/generation/document_generation_sources.py")
 source_doc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(source_doc)
 

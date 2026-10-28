@@ -14,7 +14,7 @@ legacy transport, and initialization of every helper field used by Engine.
 From the repository root, using an installed .NET 8 SDK:
 
 ```powershell
-dotnet run --project tests/native_startup/NativeStartup.csproj -c Release -- src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp
+dotnet run --project tests/native_startup/NativeStartup.csproj -c Release -- src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp
 ```
 
 Host drain, worker ownership and independent sessions remain covered by

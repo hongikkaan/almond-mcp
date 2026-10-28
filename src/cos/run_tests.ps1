@@ -1,6 +1,6 @@
 # Offline fixtures only. Does not register/load an RHP or inspect Rhino documents.
 [CmdletBinding()]
-param()
+param([switch]$Development)
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
 $src=Split-Path $root -Parent
@@ -23,12 +23,17 @@ if($LASTEXITCODE) { throw 'Native fixture build failed.' }
 & $sdk (Join-Path $engineTests 'bin\Release\net8.0-windows\Almond.NativeFixture.dll')
 if($LASTEXITCODE) { throw 'Native fixture verification failed.' }
 & $sdk build (Join-Path $cosTests 'HostLifecycle\HostLifecycle.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
-if($LASTEXITCODE) { throw 'COS lifecycle fixture build failed.' }
+if($LASTEXITCODE) { throw 'AlmondRhino lifecycle fixture build failed.' }
 & $sdk (Join-Path $cosTests 'HostLifecycle\bin\Release\net8.0-windows\HostLifecycle.dll')
-if($LASTEXITCODE) { throw 'COS lifecycle verification failed.' }
+if($LASTEXITCODE) { throw 'AlmondRhino lifecycle verification failed.' }
 & $sdk build (Join-Path $cosTests 'PipeFixture.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
 if($LASTEXITCODE) { throw 'Pipe fixture build failed.' }
-$env:ALMONDCOS_TEST_DOTNET=$sdk
-$python=Join-Path $src 'engine\.venv\Scripts\python.exe'
+$env:ALMONDRHINO_TEST_DOTNET=$sdk
+$python=if ($Development) {
+    Join-Path $repo 'data\development\.venv\Scripts\python.exe'
+} else {
+    Join-Path $src 'engine\.venv\Scripts\python.exe'
+}
+if (-not (Test-Path -LiteralPath $python)) { throw 'Run src/mcp/rebuild_environment.ps1 with the same -Development selection first.' }
 & $python -B (Join-Path $cosTests 'verify.py')
-if($LASTEXITCODE) { throw 'AlmondCOS verification failed.' }
+if($LASTEXITCODE) { throw 'AlmondRhino verification failed.' }

@@ -31,10 +31,10 @@ Set-Location C:\TOOL\Rhino\mcp\almond-mcp
 MCP를 다시 로드하거나 재시작한다. `codex mcp get rhino --json`으로 등록 경로를
 확인할 수 있지만, 이 명령 자체는 MCP 연결 검증이 아니다.
 
-외부 연결기 이름은 `beyond`다. 두 경로 모두 MCP 초기화의 서버 이름은 `beyond`이며,
-CoS 앱 등록용 `cos-plugin.json`의 표시 이름도 `beyond`다.
+Codex 직접 연결의 MCP 서버 이름은 `beyond`, CoS 경유 연결은 `CoS`다.
+CoS 앱 등록용 `cos-plugin.json`의 표시 이름도 `CoS`다. 두 경로는 `AlmondRhino` 플러그인을 사용한다.
 Codex의 기존 등록 키 `rhino`와 클라이언트가 붙이는 namespace는 별도로 유지한다.
-공통 소개는 `SERVER-DESCRIPTION.md`에서 수정하며, 초기화 응답의 서버 설명과 첫 안내에 전달된다.
+공통 소개는 `SERVER-DESCRIPTION.md`에서 수정하며, `{server_name}`을 각 경로의 이름으로 치환해 초기화 응답의 서버 설명과 첫 안내에 전달한다.
 
 설정 후 **실제로 사용할 Codex 대화에서 등록된 `rhino` MCP의 `list_connections`를 직접
 호출**해 확인한다. 터미널에서 별도 MCP 클라이언트를 실행한 결과는 서버 검사일 뿐,
@@ -122,7 +122,7 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
   실행 전에 확인하는 제한이며, 기존 Terminal의 자식 종료 규칙은 바꾸지 않는다.
 
 - 여러 CoS·Codex stdio adapter가 같은 설치를 사용할 수 있다. 각 Rhino는 한 연결의 소유권을
-  유지한다. 서로 다른 클라이언트에 COS의 `connection_id`를 복사해 쓸 수 없다.
+  유지한다. 서로 다른 클라이언트에 외부 연결기의 `connection_id`를 복사해 쓸 수 없다.
   다른 클라이언트가 사용하는 Rhino는 `in_use`로 표시한다. 그 연결을 유지하면서
   `start_session`으로 별도 Rhino를 열 수 있다.
 - 업데이트 전에 시작한 singleton host가 살아 있으면 새 활성 연결은 차단한다. 기존 작업을
@@ -140,3 +140,11 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
 - Windows 사용자 세션의 named pipe를 사용한다. 이 진입점은 stdio만 지원하며 원격 URL,
   SSE/HTTP 서버를 제공하지 않는다. 기존 CoS가 제공하는 터널 경로는 변경하지 않는다.
 - timeout은 rollback이 아니다. 결과 불명인 수정은 자동 반복하지 않는다.
+
+## AlmondRhino 이름 이전
+
+기존 AlmondCOS 플러그인은 같은 GUID를 유지한 AlmondRhino로 이름과 출력 위치를 이전했다.
+Rhino가 종료된 상태에서 `src/rhp/tools/install_runtime.ps1`을 실행하면 이전 등록을 백업하고
+새 `src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp` 경로와 표시 이름을 등록한다.
+Python host/worker도 정상 종료 후 새로 시작해야 새 제어 pipe와 환경 변수 이름을 사용한다.
+등록 확인은 `-VerifyOnly`로 수행하며, 실제 Rhino 로드 확인과는 별개다.

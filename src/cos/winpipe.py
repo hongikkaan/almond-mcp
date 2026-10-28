@@ -14,7 +14,7 @@ FILETIME_TO_TICKS = 504911232000000000
 
 def process_identity(pid: int) -> dict:
     if os.name != "nt":
-        raise RuntimeError("AlmondCOS requires Windows.")
+        raise RuntimeError("AlmondRhino requires Windows.")
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     kernel.OpenProcess.restype = wintypes.HANDLE
@@ -54,9 +54,9 @@ class PipeControl:
         if identity["process_start_ticks"] != str(self.record["process_start_ticks"]):
             raise ControlError("The advertised Rhino process has changed.")
         pipe = self.record["pipe"]
-        expected = f"AlmondCOS-{identity['pid']}-"
+        expected = f"AlmondRhino-{identity['pid']}-"
         if not isinstance(pipe, str) or not pipe.startswith(expected) or any(c in pipe for c in "\\/"):
-            raise ControlError("Invalid AlmondCOS pipe address.")
+            raise ControlError("Invalid AlmondRhino pipe address.")
         deadline = time.monotonic() + min(self.timeout, 3.0)
         while True:
             try:
@@ -129,7 +129,7 @@ def read_hosts(data: Path) -> list[dict]:
     for path in sorted((data / "hosts").glob("*.json")):
         try:
             record = json.loads(path.read_text(encoding="utf-8-sig"))
-            if record.get("schema") != "almond-cos-host" or record.get("protocol") != 1:
+            if record.get("schema") != "almond-rhino-host" or record.get("protocol") != 1:
                 continue
             if path.stem != record.get("host_id"):
                 continue

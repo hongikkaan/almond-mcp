@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-SERVER_PATH = PROJECT_ROOT / "src" / "mcp" / "almond_mcp" / "server.py"
+SERVER_PATH = PROJECT_ROOT / "src" / "mcp" / "server.py"
 REAL_CAPSULE_DIR = PROJECT_ROOT / "asset" / "capsules"
 
 if str(PROJECT_ROOT / "src" / "mcp") not in sys.path:

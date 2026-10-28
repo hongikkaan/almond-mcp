@@ -5,15 +5,18 @@
 
 ## 구성과 의존 관계
 
-- `almond_mcp/`: 배포되는 Python package와 공개 도구·계산·라이브러리 API.
+- `./`: Python package의 소스와 공개 도구·계산·라이브러리 API.
 - `runtime/`: CLI 시작·재연결, 모델 binding, A–J 슬롯, 공유 저장소와 native 완료 확인.
-- `tools/`: MCP 자산·모델링 자료의 생성·검증 도구.
+- `guide_build/`, `release_validation/`: 실행용 지침 묶음 생성과 배포 검증.
 - `tests/`, `pytest.ini`, `run_tests.ps1`: 모듈 검사. COS import 없이 실행한다.
 - `rebuild_environment.ps1`: 이 체크아웃의 환경을 구성하며 COS catalog는 수정하지 않는다.
 - `use_offline_environment.ps1`: 현재 셸과 자식에만 로컬 검사 경로를 설정한다.
 
 COS는 runtime의 binding 검증·구성 훅을 사용한다. MCP는 COS 구현을 참조하지 않는다.
 Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema를 보존한다.
+소스는 이 폴더에 직접 둔다. editable 설치는 `almond_mcp.py`가 이곳의
+`__init__.py`를 package로 로드하며, wheel은 빌드 경로 매핑으로 `almond_mcp/`에 담는다.
+이 진입 파일은 wheel에 포함하지 않는다.
 runtime 메타데이터 도구는 `project_info`, COS 내부 완료 조회는 `worker_state`다.
 공개 도구 이름에 제품·클라이언트 접두사를 붙이거나 이전 이름의 alias를 남기지 않는다.
 전용 CLI가 이 실행에만 주입하는 MCP 서버 키는 `rhino_session`이며 일반 Codex의 전역
@@ -21,7 +24,7 @@ runtime 메타데이터 도구는 `project_info`, COS 내부 완료 조회는 `w
 공유 DB gate와 연결별 요청 직렬화 잠금은 획득을 최대 10초 기다린다. 대기 초과 호출은
 operation·native 요청 생성 전 종료하며 소유자의 작업·잠금은 유지한다. 실행 제한과
 cleanup·native 완료를 기다리는 시간은 이 10초와 구분한다.
-`almond_mcp/rhino`의 C# 모델링 코드와 재료 정책은 MCP 소유지만 Bridge에 컴파일되므로,
+`rhino`의 C# 모델링 코드와 재료 정책은 MCP 소유지만 Bridge에 컴파일되므로,
 변경 시 Bridge 빌드가 필요하다. Python package가 사용하는 웹 원본은
 [RHP Asset Panel](../rhp/SPEC.md)의 공유 자원이다.
 
@@ -35,30 +38,33 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 
 ## 기능별 구현과 소유권
 
-공개 MCP 도구의 실제 구현은 `almond_mcp/features/<기능>/tools.py`에 있다.
-기존 `src/mcp/tools/`는 자료 생성·검증 스크립트이므로 공개 도구의 위치와 구분한다.
+공개 MCP 도구의 실제 구현은 `features/<기능>/tools.py`에 있다.
+배포 검증은 `release_validation/`, 모델링 지침 묶음 생성은 `guide_build/`에 둔다.
+자산 생성·변환·출처 기록은 `features/assets/generation/`, 구조해석 검증은
+`features/structure/validation/`, 시공 기준 문서 생성은 `features/guidance/`가 소유한다.
+이 개발 스크립트들은 공개 MCP 도구 등록 코드와 구분한다.
 각 기능의 `register(mcp, context)`는 명시적으로 도구·resource를 등록하고 기존 이름의
 함수 dict를 반환한다. `server.py`는 공용 서비스 생성과 정적 factory 조립을 맡는다.
 폴더명을 입력받아 SQL이나 모듈을 동적으로 찾거나 실행하지 않는다.
 
 | 폴더 | 분류·성격 | 소유한 구현과 기능 |
 |---|---|---|
-| [`context`](almond_mcp/features/context) | 관찰·진단 | 모델·화면·프로브와 저장소 상태를 조회한다. runtime의 project_info와 COS 연결관리 도구는 각 호스트에 남는다. |
-| [`planning`](almond_mcp/features/planning) | 작업계획 | Phase·Plan·Step, 참조 대상·자유 관계·evidence·immutable revision과 계획 SQL을 소유한다. |
-| [`scenes`](almond_mcp/features/scenes) | Scene | 설계 의도와 Scene 장부, 일반 객체의 Scene 참조를 관리한다. |
-| [`components`](almond_mcp/features/components) | Component | 등록 group의 소유권·계층·조회·동기화, focus·교차 관찰 및 native snapshot 정합과 SQL을 소유한다. |
-| [`placement`](almond_mcp/features/placement) | 배치 | Room·asset instance의 장부와 배치·containment·충돌·하중 검사를 소유한다. Component 전체 기하 검증을 대신하지 않는다. |
-| [`guidance`](almond_mcp/features/guidance) | 설계 참고자료 | 시공 지침·유형 서사·상세자료 후보 탐색과 ConstructionLibrary·HistoryLibrary를 소유한다. |
-| [`modeling`](almond_mcp/features/modeling) | 모델링·재료 | 실행 도구·모델링 정책·초기 재료 설정·재료 적용과 MaterialLibrary를 소유한다. 공용 native C#·정책 JSON 위치는 유지한다. |
-| [`grasshopper`](almond_mcp/features/grasshopper) | Grasshopper | GHX 해석·archetype·감사된 capsule 조회/실행, LibraryIndexer와 capsule 색인 SQL을 소유한다. |
-| [`assets`](almond_mcp/features/assets) | 자산 | 자산 탐색·등록·배치·파생 도면·repository, 공개 resource와 비공개 generated-asset helper, 자산 색인 SQL을 소유한다. |
-| [`diagrams`](almond_mcp/features/diagrams) | 다이어그램 | 사람·나무·기호 등 벡터/CAD 자산의 조회·검색·메타데이터·배치를 소유한다. 자산 DB와 manifest indexer는 공유한다. |
-| [`drawings`](almond_mcp/features/drawings) | 도면·Sheet | recipe 색인·표현 스타일·해치 import와 기존 Sheet 자료 보존용 migration을 소유한다. 새 Sheet DB 등록은 제공하지 않는다. |
-| [`structure`](almond_mcp/features/structure) | 구조검토 | 설계 기준·구조검사·시각화·보고서, 관련 계산·하중·study 모듈과 검사 이력 SQL을 소유한다. |
-| [`egress`](almond_mcp/features/egress) | 피난검사 | 피난 조건 검사를 소유하고 공용 시공 라이브러리 데이터를 사용한다. |
-| [`exchange`](almond_mcp/features/exchange) | 외부교환 | GLB·almond.json 교환, 재료·metadata 복원·배치·실측 비교와 Blender helper를 소유한다. |
-| [`capture`](almond_mcp/features/capture) | 캡처 | conditioning pass 캡처와 이미지 처리를 소유한다. |
-| [`publishing`](almond_mcp/features/publishing) | 게시 | Chestnut 게시 payload·첨부와 객체 게시 처리를 소유한다. |
+| [`context`](features/context) | 관찰·진단 | 모델·화면·프로브와 저장소 상태를 조회한다. runtime의 project_info와 COS 연결관리 도구는 각 호스트에 남는다. |
+| [`planning`](features/planning) | 작업계획 | Phase·Plan·Step, 참조 대상·자유 관계·evidence·immutable revision과 계획 SQL을 소유한다. |
+| [`scenes`](features/scenes) | Scene | 설계 의도와 Scene 장부, 일반 객체의 Scene 참조를 관리한다. |
+| [`components`](features/components) | Component | 등록 group의 소유권·계층·조회·동기화, focus·교차 관찰 및 native snapshot 정합과 SQL을 소유한다. |
+| [`placement`](features/placement) | 배치 | Room·asset instance의 장부와 배치·containment·충돌·하중 검사를 소유한다. Component 전체 기하 검증을 대신하지 않는다. |
+| [`guidance`](features/guidance) | 설계 참고자료 | 시공 지침·유형 서사·상세자료 후보 탐색과 ConstructionLibrary·HistoryLibrary를 소유한다. |
+| [`modeling`](features/modeling) | 모델링·재료 | 실행 도구·모델링 정책·초기 재료 설정·재료 적용과 MaterialLibrary를 소유한다. 공용 native C#·정책 JSON 위치는 유지한다. |
+| [`grasshopper`](features/grasshopper) | Grasshopper | GHX 해석·archetype·감사된 capsule 조회/실행, LibraryIndexer와 capsule 색인 SQL을 소유한다. |
+| [`assets`](features/assets) | 자산 | 자산 탐색·등록·배치·파생 도면·repository, 공개 resource와 비공개 generated-asset helper, 자산 색인 SQL을 소유한다. |
+| [`diagrams`](features/diagrams) | 다이어그램 | 사람·나무·기호 등 벡터/CAD 자산의 조회·검색·메타데이터·배치를 소유한다. 자산 DB와 manifest indexer는 공유한다. |
+| [`drawings`](features/drawings) | 도면·Sheet | recipe 색인·표현 스타일·해치 import와 기존 Sheet 자료 보존용 migration을 소유한다. 새 Sheet DB 등록은 제공하지 않는다. |
+| [`structure`](features/structure) | 구조검토 | 설계 기준·구조검사·시각화·보고서, 관련 계산·하중·study 모듈과 검사 이력 SQL을 소유한다. |
+| [`egress`](features/egress) | 피난검사 | 피난 조건 검사를 소유하고 공용 시공 라이브러리 데이터를 사용한다. |
+| [`exchange`](features/exchange) | 외부교환 | GLB·almond.json 교환, 재료·metadata 복원·배치·실측 비교와 Blender helper를 소유한다. |
+| [`capture`](features/capture) | 캡처 | conditioning pass 캡처와 이미지 처리를 소유한다. |
+| [`publishing`](features/publishing) | 게시 | Chestnut 게시 payload·첨부와 객체 게시 처리를 소유한다. |
 
 ### 공개 도구 위치
 
@@ -156,7 +162,7 @@ Component는 `component_registry=2`의 문서 private registry를 사용하며 �
 MCP 도구·리소스의 공개 설명과 응답에 덧붙이는 행동 지침은 원래 Python 파일과
 같은 폴더의 `<파일 stem>-explain.md`에 둔다. 예를 들어 `features/modeling/tools.py`는
 `features/modeling/tools-explain.md`를 읽는다. 각 항목은 `instruction:` HTML 주석으로
-경계를 표시하며, 본문과 동적 값의 공백을 보존한다. `almond_mcp/instruction_text.py`가
+경계를 표시하며, 본문과 동적 값의 공백을 보존한다. `instruction_text.py`가
 지침을 읽고 등록 전에 함수 설명에 적용한다. 항목이 없거나 중복되면 명시적으로 실패한다.
 입력 검증 조건, 오류 상태·수치 결과, SQL과 실행할 C#/Blender 코드는 지침 원본이 아니다.
 기존 `FUNDAMENTAL-INSTRUCTIONS.md`와 `MODEL-CONTEXT-INSTRUCTIONS.md`의 전달 방식은 유지한다.
@@ -226,8 +232,8 @@ native control·operation receipt는 기존 경로를 따른다. 외부 클라�
 `connection_id`를 전달한다. 시작 안내는 연결 전 초기화에서도 읽을 수 있다.
 
 편집 원본은 `docs/modeling/guidance/modeling-guide.md` 및 연결 참조, 배분은
-`docs/modeling/guidance/mcp-guide-map.json`이다. `src/mcp/tools/build_modeling_guides.py`로
-`almond_mcp/modeling_guides`의 본문·manifest·원본 사진을 재생성하고 `--check`로 일치를
+`docs/modeling/guidance/mcp-guide-map.json`이다. `src/mcp/guide_build/build_modeling_guides.py`로
+`modeling_guides`의 본문·manifest·원본 사진을 재생성하고 `--check`로 일치를
 검사한다. 누락 절·없는 도구·stale bundle은 통합 검사에서 확인한다. 목차·작성 초안·
 본문에서 사용하지 않는 이미지는 제외 사유를 manifest에 기록한다. 기존 native 관찰 검사는
 Bridge의 `tests/probe_observation`에 둔다. wheel에는 생성 번들이,

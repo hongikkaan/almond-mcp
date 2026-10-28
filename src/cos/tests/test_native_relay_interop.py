@@ -28,7 +28,7 @@ ORIGINAL_RESPONSE = '{"status":"success","objects":["one","two"],"extra":{"kept"
 
 class NativeRequestInteropTests(unittest.IsolatedAsyncioTestCase):
     async def test_original_sender_and_native_bridge_share_bound_acknowledgements(self):
-        dotnet = os.environ.get("ALMONDCOS_TEST_DOTNET",
+        dotnet = os.environ.get("ALMONDRHINO_TEST_DOTNET",
                                 str(REPO / "src/rhp/RhinoTerminal/data/sdk/dotnet.exe"))
         self.assertTrue(NATIVE_FIXTURE.is_file(), "Build the native fixture with run_tests.ps1.")
         identity = dict(pid=os.getpid(), process_start_ticks=process_start_ticks(os.getpid()))

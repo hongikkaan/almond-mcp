@@ -8,24 +8,6 @@ import pytest
 from fastmcp import Client, FastMCP
 
 from almond_mcp.features.context.tools import register
-from test_rhino_observation import (
-    test_context_sends_only_a_fixed_live_query,
-    test_context_rejects_bad_limits_before_bridge,
-    test_capture_rejects_bad_limits_before_bridge,
-    test_mcp_protocol_rejects_coercible_non_integer_types,
-    test_real_mcp_image_and_metadata_survive_protocol,
-    test_invalid_capture_never_emits_an_image,
-    test_native_error_keeps_error_flag_and_drops_any_image,
-    test_bridge_exception_is_an_explicit_capture_error,
-    test_percent_and_optional_usage,
-    test_view_list_protocol_has_only_grouped_names_and_guids,
-    test_malformed_view_list_is_an_error,
-    test_fixed_probe_checks_capability_then_uses_native_query,
-    test_bad_probe_requests_never_reach_the_bridge,
-    test_probe_preserves_context_error_without_sending_geometry_query,
-    test_malformed_context_is_a_bridge_error_without_sending_probe,
-    test_old_bridge_never_receives_an_unknown_probe_type,
-)
 
 
 @pytest.fixture

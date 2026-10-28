@@ -15,9 +15,9 @@ LIBRARY = REPO / "asset" / "models" / "GeneratedAssetfiles"
 MANIFEST = LIBRARY / "manifest.json"
 CATALOGUE = LIBRARY / "catalogue.json"
 PACKAGE_ROOT = REPO / "src" / "mcp"
-SERVER_PATH = PACKAGE_ROOT / "almond_mcp" / "server.py"
+SERVER_PATH = PACKAGE_ROOT / "server.py"
 
-for extra in (PACKAGE_ROOT, REPO / "src/mcp/tools"):
+for extra in (PACKAGE_ROOT, REPO / "src/mcp/features/assets/generation"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
 

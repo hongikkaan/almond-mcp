@@ -1,4 +1,4 @@
-"""EN 1993-1-1 member checks (src/mcp/almond_mcp/features/structure/ec3.py), each expectation worked from the standard's text."""
+"""EN 1993-1-1 member checks (src/mcp/features/structure/ec3.py), each expectation worked from the standard's text."""
 import math
 
 import numpy as np
