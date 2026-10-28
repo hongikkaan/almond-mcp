@@ -29,8 +29,7 @@ MCP가 소유한 native 모델링 코드는 Bridge에 컴파일되고, 패널 �
 ./src/mcp/rebuild_environment.ps1 -Development
 ./src/mcp/run_tests.ps1 -Development
 ./src/cos/run_tests.ps1 -Development
-./src/mcp/use_offline_environment.ps1 -Development
-& ./data/development/.venv/Scripts/python.exe -B -X utf8 -m pytest
+./tests/run_tests.ps1 -Development
 ```
 
 `-Development`는 해당 체크아웃의 `data/development/.venv`에 잠긴 의존성을 설치한다.
@@ -53,9 +52,17 @@ MCP가 소유한 native 모델링 코드는 Bridge에 컴파일되고, 패널 �
 실제 RHP를 교체할 때만 Rhino가 닫혀 있는지 확인한다. 실제 Rhino 검증은 별도 요청 시
 일회용 문서로 수행한다. 모듈 검사는 각 모듈의 `tests/`, 공유 계약은 루트 `tests/`에 둔다.
 
-루트 archive 통합 검사는 `src/rhp/RhinoAlmondBridge/tests/archive_host/ArchiveHost.csproj`를
-빌드하고 `ALMOND_ARCHIVE_TEST_HOST`에 실행 파일의 절대 경로를 지정하면 활성화된다.
-그 host 없이 건너뛴 검사를 실행 검증 완료로 보고하지 않는다.
+루트 `tests/run_tests.ps1 -Development`는 오프라인 환경을 설정하고
+`src/rhp/RhinoAlmondBridge/tests/archive_host/ArchiveHost.csproj`를 빌드한 뒤
+`ALMOND_ARCHIVE_TEST_HOST`에 그 실행 파일의 절대 경로를 지정하고 pytest를 실행한다.
+빌드 실패나 출력 누락은 검사 실행 전에 오류로 중단한다. Rhino SDK·실제 문서 없이
+실행되는 독립 net48 콘솔 fixture이며 RHP 출력이나 등록을 변경하지 않는다.
+SDK는 이 체크아웃의 `src/rhp/RhinoTerminal/data/sdk/dotnet.exe`, PATH 순서로 찾는다.
+별도 SDK는 `-DotNet <SDK/dotnet.exe>`, pytest 옵션은 `-TestArgs @('-q', '-k', 'archive')`로 지정한다.
+
+직접 pytest를 실행할 때도 선택된 검사에 `archive_host` marker가 있으면 유효한 host 경로가
+필수다. host가 없거나 경로가 잘못되면 조용히 제외하지 않고 실행기 사용법을 안내하며 중단한다.
+ArchiveHost가 필요 없는 검사만 선택한 경우에는 이 준비 조건을 요구하지 않는다.
 
 ## MCP 기능별 워크트리
 

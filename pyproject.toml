@@ -124,3 +124,4 @@ exclude = [
 # Root pytest owns integration checks. Modules have their own test entry points.
 testpaths = ["tests"]
 pythonpath = ["src/mcp", "src/mcp/runtime", "src/cos", "src/mcp/tests"]
+markers = ["archive_host: requires the standalone ArchiveHost fixture prepared by tests/run_tests.ps1"]

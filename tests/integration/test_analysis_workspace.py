@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HOST = os.environ.get("ALMOND_ARCHIVE_TEST_HOST")
 
 
-@pytest.mark.skipif(not HOST, reason="Build the standalone .NET archive host")
+@pytest.mark.archive_host
 @pytest.mark.parametrize("settings,valid", [
     ({}, True),
     ({"load_kn": 0, "self_weight": False, "fixed_rotations": False}, True),
@@ -76,7 +76,7 @@ def _host_solve(tmp_path, request, command):
     return json.loads(run.stdout.decode("utf-8"))
 
 
-@pytest.mark.skipif(not HOST, reason="Build the standalone .NET archive host")
+@pytest.mark.archive_host
 def test_panel_solver_process_boundary(tmp_path):
     """The bridge's NativeSolver runs `almond-mcp solve` out of process, UTF-8 both ways."""
     import sys
@@ -95,7 +95,7 @@ def test_panel_solver_process_boundary(tmp_path):
     assert missing["status"] == "error" and "Could not start the native solver" in missing["message"]
 
 
-@pytest.mark.skipif(not HOST, reason="Build the standalone .NET archive host")
+@pytest.mark.archive_host
 @pytest.mark.parametrize("version, package", [
     ("0.7.0", "almond-mcp@0.7.0"),
     ("0.7.0-rc.1", "almond-mcp@0.7.0rc1"),             # Yak prerelease -> its PyPI twin, never an older stable
@@ -108,7 +108,7 @@ def test_panel_solver_package_pin(version, package):
     assert run.stdout.strip() == package, run.stdout + run.stderr
 
 
-@pytest.mark.skipif(not HOST, reason="Build the standalone .NET archive host")
+@pytest.mark.archive_host
 @pytest.mark.parametrize("user_value, expected", [(None, "1"), ("0", "0")])
 def test_panel_solver_uses_system_certificates(tmp_path, user_value, expected):
     """uv must use the Windows certificate store (UV_NATIVE_TLS=1), or a TLS-inspecting proxy breaks the first-run

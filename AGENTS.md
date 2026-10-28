@@ -97,9 +97,9 @@ Rhino와 사용 중인 MCP 서버를 실행·종료하지 않고 개발·테스�
 ```powershell
 ./src/mcp/run_tests.ps1 -Development
 ./src/cos/run_tests.ps1 -Development
-& ./data/development/.venv/Scripts/python.exe -B -X utf8 -m pytest
+./tests/run_tests.ps1 -Development
 & ./data/development/.venv/Scripts/python.exe -B tests/verify_library_sources.py
 node --test (Get-ChildItem src/rhp/Asset_Panel/tests -Filter *.test.mjs | ForEach-Object FullName)
 ```
 
-루트의 기본 pytest는 통합 검사다. MCP는 자체 `pytest.ini`를 쓰는 `run_tests.ps1`, 외부 연결기 검사는 .NET fixture를 준비하는 자체 `run_tests.ps1`로 검사한다. native fixture는 `src/rhp/Engine/tests`, Terminal host는 `src/rhp/RhinoTerminal/tests/AlmondHostContracts`, Undo·관측은 [fixture README](src/rhp/RhinoAlmondBridge/tests/script_executor_undo/README.md)를 따른다. 기본 테스트는 Rhino 없이 실행 가능한 단위·통합 검사와 일회용 fixture로 수행한다. 테스트를 위해 사용자에게 Rhino 종료·실행을 요구하거나 실제 모델에 연결하지 않는다. C# fixture의 빌드는 RHP 빌드와 구분하며 Rhino 종료가 필요하지 않다. 실제 Rhino 검증은 사용자가 별도로 요청한 경우에만 일회용 문서에서 수행하고 빌드·오프라인 검사와 별도로 보고한다. 기존 실패를 숨기거나 기준을 낮추지 않는다.
+루트 통합 검사는 `tests/run_tests.ps1`이 독립 ArchiveHost를 빌드·지정한 뒤 실행한다. SDK 자동 탐색이 안 되면 `-DotNet <SDK/dotnet.exe>`를 전달한다. 필요한 host 없이 pytest를 직접 실행하면 제외하지 않고 오류로 중단한다. MCP는 자체 `pytest.ini`를 쓰는 `run_tests.ps1`, 외부 연결기 검사는 .NET fixture를 준비하는 자체 `run_tests.ps1`로 검사한다. native fixture는 `src/rhp/Engine/tests`, Terminal host는 `src/rhp/RhinoTerminal/tests/AlmondHostContracts`, Undo·관측은 [fixture README](src/rhp/RhinoAlmondBridge/tests/script_executor_undo/README.md)를 따른다. 기본 테스트는 Rhino 없이 실행 가능한 단위·통합 검사와 일회용 fixture로 수행한다. 테스트를 위해 사용자에게 Rhino 종료·실행을 요구하거나 실제 모델에 연결하지 않는다. C# fixture의 빌드는 RHP 빌드와 구분하며 Rhino 종료가 필요하지 않다. 실제 Rhino 검증은 사용자가 별도로 요청한 경우에만 일회용 문서에서 수행하고 빌드·오프라인 검사와 별도로 보고한다. 기존 실패를 숨기거나 기준을 낮추지 않는다.

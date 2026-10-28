@@ -13,7 +13,7 @@ from almond_mcp.features.assets.drafting import load_triangles
 
 ROOT = Path(__file__).resolve().parents[2]
 HOST = os.environ.get("ALMOND_ARCHIVE_TEST_HOST")
-pytestmark = pytest.mark.skipif(not HOST, reason="Build ArchiveHost and set ALMOND_ARCHIVE_TEST_HOST")
+pytestmark = pytest.mark.archive_host
 
 
 @pytest.mark.parametrize("path", sorted((ROOT / "asset/models/GeneratedAssetfiles/models").glob("*.glb")), ids=lambda p: p.stem)
