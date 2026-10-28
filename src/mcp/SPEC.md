@@ -217,7 +217,7 @@ Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서
 
 MCP 기본 설명은 최초 실행할 `get_modeling_guide(topic="fundamental")`을 안내한다. 이 호출은 FUNDAMENTAL-INSTRUCTIONS.md 전문을 반환한다. 모델 작업에서는 `topic="model-context"`로 MODEL-CONTEXT-INSTRUCTIONS.md를 읽는다. project_info의 instructions section도 두 지침을 반환한다. 이 조회는 모델이나 DB를 수정하지 않는다.
 
-MODEL-CONTEXT-INSTRUCTIONS.md의 기존 관측 내용은 `features/context/MODEL-CONTEXT-GUIDE.md`로 전부 이전했고 observation 주제에 포함했다. 비워진 파일에는 삭제 전 최신 `skills/rhino-almond/SKILL.md`(e6bc17e, 910ab5f 직전)의 본문을 복원했다. 이후 사용자가 요청한 공개 도구 이름 변경을 반영한다. 현재 확장된 모델링·2D 가이드도 별도 주제의 원본으로 보존한다.
+MODEL-CONTEXT-INSTRUCTIONS.md는 기존 관측 내용으로 유지하고 observation 주제에서도 읽는다. 삭제 전 최신 `skills/rhino-almond/SKILL.md`(e6bc17e, 910ab5f 직전)의 내용은 같은 폴더의 `skill.md`에 별도 보존하며 wheel에 포함한다. 이 별도 파일에는 요청된 공개 도구 이름과 문서 경로 변경을 반영했다. 현재 확장된 모델링·2D 가이드는 기능 폴더의 주제별 원본으로 유지한다.
 
 문서·도구 설명 변경은 해당 Python/MCP 세션을 새로 시작해야 적용된다. RHP 재빌드나 등록 변경은 이 Python 변경의 적용 조건이 아니다.
 

@@ -8,7 +8,7 @@ import re
 
 PACKAGE = Path(__file__).resolve().parent
 BUNDLE = PACKAGE / "features/guidance/guides"
-CONTEXT_GUIDE = PACKAGE / "features/context/MODEL-CONTEXT-GUIDE.md"
+CONTEXT_GUIDE = PACKAGE / "MODEL-CONTEXT-INSTRUCTIONS.md"
 
 
 def _read_content(path: Path) -> bytes:
@@ -22,7 +22,7 @@ def content_digest(path: Path) -> str:
 
 def source_files() -> list[Path]:
     return sorted([*(p for p in BUNDLE.rglob("*") if p.is_file()), CONTEXT_GUIDE,
-                   PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md", PACKAGE / "MODEL-CONTEXT-INSTRUCTIONS.md"])
+                   PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md"])
 
 
 def _section(text: str, heading: str, children: bool = True) -> str:
