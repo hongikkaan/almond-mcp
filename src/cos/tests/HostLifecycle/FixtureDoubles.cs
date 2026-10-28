@@ -29,7 +29,7 @@ namespace Eto.Forms
         public void AsyncInvoke(Action action) => action();
     }
 }
-namespace AlmondCOS
+namespace AlmondRhino
 {
     internal sealed class ControlPipe : IDisposable
     {

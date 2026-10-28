@@ -15,7 +15,7 @@ from almond_mcp.features.assets import drafting
 from almond_mcp.features.assets.store import AssetsStore
 from almond_mcp.features.assets.tools import register
 from almond_mcp.retrieval_store import AlmondStore
-from almond_mcp.library_index import AssetLibraryIndexer
+from almond_mcp.features.assets.library_index import AssetLibraryIndexer
 from test_drafting import box_glb
 from test_drawing_asset_registration import extract_box
 
@@ -243,14 +243,16 @@ def test_extracted_store_preserves_library_scoping_search_and_retired_references
     assert store.search_assets(query="seating", library_id="generated_assets")["total"] == 2
     assert "_resolved_file" not in store.get_asset("drawing-kept")
     scene = store.create_scene("Asset references")
-    store.upsert_instance(scene["scene_id"], "generated-placed", 1, 2)
+    from test_retired_placement import seed_legacy_placement
+    seed_legacy_placement(store, scene["scene_id"], "generated-placed")
     store.sync_assets([], library_id="generated_assets")
     assert store.get_asset("generated-stale") is None
     assert store.get_asset("generated-placed") is not None
     assert store.asset_stats("retired")["total"] == 1
     assert store.asset_stats("drawing_assets")["total"] == 1
     assert store.search_assets(query="Fixture")["total"] == 1
-    assert len(store.scene_instances(scene["scene_id"])) == 1
+    with store._connect() as connection:
+        assert connection.execute("SELECT count(*) FROM instances").fetchone()[0] == 1
     with store._connect() as connection:
         assert connection.execute("SELECT count(*) FROM asset_rtree").fetchone()[0] == 1
         assert connection.execute("SELECT count(*) FROM asset_fts").fetchone()[0] == 1

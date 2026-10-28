@@ -8,34 +8,11 @@ import pytest
 from fastmcp import Client, FastMCP
 
 from almond_mcp.feature_context import FeatureContext
-from almond_mcp.features.planning.store import PlanningStore
 from almond_mcp.features.planning.tools import register
 from almond_mcp.retrieval_store import AlmondStore
-import test_generation_plans as _plans
 
 
-# Before cutover, put extracted methods ahead of the unchanged facade. After
-# cutover, use the facade directly so this suite never creates a duplicate MRO.
-if issubclass(AlmondStore, PlanningStore):
-    PlanningAlmondStore = AlmondStore
-else:
-    class PlanningAlmondStore(PlanningStore, AlmondStore):
-        pass
-
-
-@pytest.fixture(autouse=True)
-def use_extracted_plan_store(monkeypatch):
-    # The established cases also construct stores for concurrent writers and
-    # migration reopen checks; those must exercise the extracted mixin too.
-    monkeypatch.setattr(_plans, "AlmondStore", PlanningAlmondStore)
-
-
-class TestPlanningStore(_plans.GenerationPlanTests):
-    """Run existing revision, target, dependency and rollback regressions."""
-
-
-class TestPlanningStoreMigration(_plans.GenerationPlanMigrationTests):
-    """Run the published legacy-schema migration through the moved initializer."""
+PlanningAlmondStore = AlmondStore
 
 
 @pytest.fixture

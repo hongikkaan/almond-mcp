@@ -1,4 +1,4 @@
-"""COS consumes engine hooks and native receipts without replacing original functions."""
+"""External workers consume engine hooks and native receipts without replacing original functions."""
 import asyncio
 import os
 import sys
@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-import cos_worker
+import external_worker
 from runtime import WORKER_STATE_TOOL
 
 
@@ -34,8 +34,8 @@ class CompletionTests(unittest.IsolatedAsyncioTestCase):
                  "native": {"pending": 1, "phase": "running"}}
         runtime = SimpleNamespace(completion=lambda: dict(state))
         mcp = FixtureMcp()
-        with patch.object(cos_worker, "process_identity", return_value={"pid": 123, "process_start_ticks": "456"}):
-            await cos_worker.configure_cos(mcp, None, {"attachment": "cos", "storage_protocol": 2},
+        with patch.object(external_worker, "process_identity", return_value={"pid": 123, "process_start_ticks": "456"}):
+            await external_worker.configure_external_worker(mcp, None, {"attachment": "cos", "storage_protocol": 2},
                                            {}, runtime, CATALOG)
         actual = mcp.registered[WORKER_STATE_TOOL]()
         self.assertEqual(actual, dict(state, pid=123, process_start_ticks="456"))
@@ -45,16 +45,16 @@ class CompletionTests(unittest.IsolatedAsyncioTestCase):
     async def test_configure_rejects_legacy_and_foreign_bindings(self):
         for binding in ({"attachment": "cos"}, {"attachment": "terminal", "storage_protocol": 2}):
             with self.assertRaisesRegex(RuntimeError, "protocol-2"):
-                await cos_worker.configure_cos(FixtureMcp(), None, binding, {}, None, CATALOG)
+                await external_worker.configure_external_worker(FixtureMcp(), None, binding, {}, None, CATALOG)
 
     def test_post_lease_validation_rejects_a_changed_generation(self):
         binding = {"attachment": "cos", "storage_protocol": 2, "token": "first"}
         args = SimpleNamespace(session="owned/ready.json", token="first")
         entry = SimpleNamespace(read_binding=lambda *_: (dict(binding), {}))
-        cos_worker.validate_cos_binding(entry, args, binding, {})
+        external_worker.validate_external_binding(entry, args, binding, {})
         entry.read_binding = lambda *_: (dict(binding, token="second"), {})
         with self.assertRaisesRegex(RuntimeError, "changed"):
-            cos_worker.validate_cos_binding(entry, args, binding, {})
+            external_worker.validate_external_binding(entry, args, binding, {})
 
     def test_main_passes_hooks_without_replacing_entry_functions(self):
         binding = {"attachment": "cos", "storage_protocol": 2}
@@ -69,12 +69,12 @@ class CompletionTests(unittest.IsolatedAsyncioTestCase):
         original_path = list(sys.path)
         try:
             with patch.dict(sys.modules, {"mcp_server": entry}), \
-                    patch.dict(os.environ, {"ALMONDCOS_SESSION_TOKEN": "token", "ALMONDCOS_CATALOG_ID": cos_worker.catalog_identity(CATALOG)}), \
-                    patch.object(sys, "argv", ["cos_worker", "--session", "owned/ready.json",
+                    patch.dict(os.environ, {"ALMONDRHINO_SESSION_TOKEN": "token", "ALMONDRHINO_CATALOG_ID": external_worker.catalog_identity(CATALOG)}), \
+                    patch.object(sys, "argv", ["external_worker", "--session", "owned/ready.json",
                                                "--port", "5501", "--connection-id", "connection"]), \
-                    patch.object(cos_worker, "load_catalog", return_value=CATALOG), \
-                    patch.object(cos_worker, "check_contract"):
-                self.assertEqual(cos_worker.main(), 17)
+                    patch.object(external_worker, "load_catalog", return_value=CATALOG), \
+                    patch.object(external_worker, "check_contract"):
+                self.assertEqual(external_worker.main(), 17)
         finally:
             sys.path[:] = original_path
         self.assertIs(entry.serve, serve)

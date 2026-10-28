@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using AlmondCOS;
+using AlmondRhino;
 using AlmondEngine;
 
 internal static class Program
@@ -24,7 +24,7 @@ internal static class Program
             try { await run(); Console.WriteLine("PASS " + name); }
             catch (Exception ex) { Console.Error.WriteLine("FAIL " + name + "\n" + ex); return 1; }
         }
-        Console.WriteLine("PASS " + tests.Length + " COS lifecycle fixtures; Rhino/native are simulated.");
+        Console.WriteLine("PASS " + tests.Length + " AlmondRhino lifecycle fixtures; Rhino/native are simulated.");
         return 0;
     }
 
@@ -94,7 +94,7 @@ internal static class Program
         }));
         try
         {
-            typeof(CosHost).GetMethod("Attach", Private)!.Invoke(fixture.Host, new object[] { request.RootElement });
+            typeof(RhinoHost).GetMethod("Attach", Private)!.Invoke(fixture.Host, new object[] { request.RootElement });
             throw new InvalidOperationException("Another client replaced a retained binding.");
         }
         catch (TargetInvocationException ex) when (ex.InnerException is InvalidOperationException) { }
@@ -155,7 +155,7 @@ internal static class Program
         using var fixture = new HostFixture(workspace.Path, "A");
         fixture.Native.KeepListener = true;
         using var request = JsonDocument.Parse(JsonSerializer.Serialize(new { action = "detach", session_token = fixture.Token }));
-        var method = typeof(CosHost).GetMethod("Dispatch", Private)!;
+        var method = typeof(RhinoHost).GetMethod("Dispatch", Private)!;
         var completion = (Task<object>)method.Invoke(fixture.Host, new object[] { request.RootElement, CancellationToken.None })!;
         await Task.Delay(50);
         Check(!completion.IsCompleted && IsLocked(fixture.Paths.RhinoLock), "Detach released before the listener drained.");
@@ -173,7 +173,7 @@ internal static class Program
 
     sealed class HostFixture : IDisposable
     {
-        internal readonly CosHost Host;
+        internal readonly RhinoHost Host;
         internal readonly SessionPaths Paths;
         internal readonly string Token = Guid.NewGuid().ToString("N"), ActivePath;
         internal readonly BoundBridge Native;
@@ -197,7 +197,7 @@ internal static class Program
             SessionFiles.WriteJson(ActivePath, Binding);
             Native = new BoundBridge(5501, Paths.ReadyPath, Token, model, 1);
             // Only the release/dispatch paths are under test; skip advertising a host or starting UI/pipes.
-            Host = (CosHost)RuntimeHelpers.GetUninitializedObject(typeof(CosHost));
+            Host = (RhinoHost)RuntimeHelpers.GetUninitializedObject(typeof(RhinoHost));
             Set("binding", Binding);
             Set("readyPath", Paths.ReadyPath);
             Set("activePath", ActivePath);
@@ -211,8 +211,8 @@ internal static class Program
             Set("busy", true);
         }
 
-        void Set(string name, object? value) => typeof(CosHost).GetField(name, Private)!.SetValue(Host, value);
-        internal bool Release() => (bool)typeof(CosHost).GetMethod("Release", Private)!.Invoke(Host, null)!;
+        void Set(string name, object? value) => typeof(RhinoHost).GetField(name, Private)!.SetValue(Host, value);
+        internal bool Release() => (bool)typeof(RhinoHost).GetMethod("Release", Private)!.Invoke(Host, null)!;
         public void Dispose()
         {
             Native.Pending = 0;

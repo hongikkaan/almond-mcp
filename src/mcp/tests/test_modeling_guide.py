@@ -20,7 +20,7 @@ class NoModelContext:
 
 
 @pytest.mark.parametrize('filename', ['FUNDAMENTAL-INSTRUCTIONS.md', 'MODEL-CONTEXT-INSTRUCTIONS.md'])
-def test_new_reader_rejects_instructions_from_another_bundle_version(filename, monkeypatch):
+def test_new_reader_versions_instruction_edits_without_a_build(filename, monkeypatch):
     from almond_mcp.modeling_guidance import PACKAGE
     reader = runpy.run_path(str(PACKAGE / 'modeling_guidance.py'))
     original_read = Path.read_bytes
@@ -30,9 +30,10 @@ def test_new_reader_rejects_instructions_from_another_bundle_version(filename, m
         raw = original_read(path)
         return raw + b'\nChanged guidance.\n' if path == target else raw
 
+    before = reader['read_guide']()[0]['guide_version']
+    reader['_snapshot'].cache_clear()
     monkeypatch.setattr(Path, 'read_bytes', changed_read)
-    with pytest.raises(ValueError, match='guidance changed'):
-        reader['read_guide']()
+    assert reader['read_guide']()[0]['guide_version'] != before
 
 
 def test_agent_can_discover_topics_without_reading_a_model():
@@ -54,7 +55,7 @@ def test_agent_can_discover_topics_without_reading_a_model():
     asyncio.run(run())
 
 
-def test_startup_gives_topic_summaries_for_direct_access_without_an_index_call():
+def test_startup_points_to_explicit_fundamental_and_model_instruction_loads():
     from almond_mcp.modeling_guidance import project_instructions, startup_instructions
 
     startup = startup_instructions()
@@ -72,10 +73,16 @@ def test_startup_gives_topic_summaries_for_direct_access_without_an_index_call()
             index = await client.call_tool("get_modeling_guide", {})
             for topic in json.loads(index.content[0].text)["topics"]:
                 assert topic["summary"]
-                assert f'{topic["id"]}: {topic["summary"]}' in startup
+                assert topic["when_to_read"]
 
     asyncio.run(run())
-    assert project_instructions().startswith(startup)
+    from almond_mcp.modeling_guidance import read_guide, PACKAGE
+    assert 'get_modeling_guide(topic="fundamental")' in startup
+    fundamental = (PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
+    assert fundamental not in startup
+    assert read_guide("fundamental")[0]["text"] == fundamental
+    assert project_instructions().startswith(fundamental)
+    assert read_guide("model-context")[0]["text"] == (PACKAGE / "MODEL-CONTEXT-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
 
 
 def test_planning_topic_delivers_instruction_routing_before_tool_selection():
@@ -133,7 +140,7 @@ def test_topic_and_opt_in_original_images_have_one_version_and_no_model_access()
             shown = json.loads(illustrated.content[0].text)
             assert shown["guide_version"] == payload["guide_version"]
             assert shown["images_included"] == 2
-            original = Path(__file__).resolve().parents[3] / "docs/modeling/guidance/references/assets"
+            original = Path(__file__).resolve().parents[3] / "src/mcp/features/guidance/guides/references/assets"
             for content, description in zip(illustrated.content[1:], shown["images_available"], strict=True):
                 raw = base64.b64decode(content.data)
                 assert content.type == "image" and content.mime_type == "image/png"
@@ -142,7 +149,7 @@ def test_topic_and_opt_in_original_images_have_one_version_and_no_model_access()
             selected = await client.call_tool("get_modeling_guide", {"topic": "drafting"})
             draft = json.loads(selected.content[0].text)
             assert draft["guide_version"] == shown["guide_version"]
-            assert "Join" in draft["text"] and "## 교환·외부 발행" not in draft["text"]
+            assert "도면을 공간과 의미로 읽기" in draft["text"] and "설계와 도면의 발전" in draft["text"] and "## 교환·외부 발행" not in draft["text"]
             assert len(selected.content) == 1
 
     asyncio.run(run())
@@ -164,13 +171,15 @@ def test_unknown_topics_and_non_boolean_image_switch_fail_explicitly(arguments):
     asyncio.run(run())
 
 
-def test_modeling_tool_has_conditional_topic_hint():
-    from almond_mcp.instruction_text import tool_instruction
-    source = Path(__file__).resolve().parents[1] / "almond_mcp/features/guidance/tools.py"
+def test_modeling_tool_keeps_full_explanation_without_injected_topic_hint():
+    from almond_mcp.instruction_text import tool_instruction, read_instruction
+    source = Path(__file__).resolve().parents[1] / "features/guidance/tools.py"
 
     @tool_instruction(str(source), "get_construction_guidance")
     def tool():
         pass
 
-    assert 'When editing construction geometry' in tool.__doc__
-    assert 'get_modeling_guide(topic="modeling")' in tool.__doc__
+    assert 'When editing construction geometry' not in tool.__doc__
+    assert 'get_modeling_guide(topic="modeling")' not in tool.__doc__
+    assert 'Call this BEFORE generating structural geometry' in read_instruction(
+        str(source), 'get_construction_guidance')

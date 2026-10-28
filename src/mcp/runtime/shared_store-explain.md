@@ -1,11 +1,5 @@
 # shared_store.py explain
 
-## response-155
-
-<!-- instruction:response-155 -->
-{0} {1!r} already belongs to another scene. Use its existing scene or a new ID; no record was changed.
-<!-- /instruction:response-155 -->
-
 ## response-156
 
 <!-- instruction:response-156 -->

@@ -24,17 +24,17 @@ class ClientConfigTests(unittest.TestCase):
         self.assertEqual(parsed["args"][-1], str(self.root / "src/cos/codex_host.py"))
         self.assertEqual(parsed["tool_timeout_sec"], 600)
         self.assertIn("LOCALAPPDATA", parsed["env_vars"])
-        self.assertNotIn("ALMONDCOS_SESSION_TOKEN", parsed["env_vars"])
+        self.assertNotIn("ALMONDRHINO_SESSION_TOKEN", parsed["env_vars"])
 
     def test_generic_client_preserves_only_library_environment(self):
         result = json.loads(generic_json(self.config, {
             "LOCALAPPDATA": "C:\\User Data", "RHINO_MCP_LIBRARY_DIR": "D:\\my library",
-            "UNRELATED_SECRET": "never export", "ALMONDCOS_SESSION_TOKEN": "never export",
+            "UNRELATED_SECRET": "never export", "ALMONDRHINO_SESSION_TOKEN": "never export",
         }))["mcpServers"]["rhino"]
         self.assertEqual(result["env"]["RHINO_MCP_LIBRARY_DIR"], "D:\\my library")
         self.assertEqual(result["env"]["PYTHONUTF8"], "1")
         self.assertNotIn("UNRELATED_SECRET", result["env"])
-        self.assertNotIn("ALMONDCOS_SESSION_TOKEN", result["env"])
+        self.assertNotIn("ALMONDRHINO_SESSION_TOKEN", result["env"])
         self.assertNotIn("env_vars", result)
 
     def test_install_preserves_settings_comments_and_original_backup(self):

@@ -30,7 +30,7 @@ class LibraryPathTests(unittest.TestCase):
             self.assertNotIn("almond_mcp.server", sys.modules)
 
     def test_package_comes_from_this_checkout(self):
-        expected = Path(__file__).resolve().parents[4] / "src/mcp/almond_mcp/__init__.py"
+        expected = Path(__file__).resolve().parents[4] / "src/mcp/__init__.py"
         self.assertEqual(Path(almond_mcp.__file__).resolve(), expected)
 
 

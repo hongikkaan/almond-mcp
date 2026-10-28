@@ -2,10 +2,10 @@
   "format": 1,
   "component": "cos",
   "sources": {
-    "src/cos/rhp/AlmondCOS.csproj": "59fd8c6a026ae95d9777bd99eb6ed0cd9f55b1f763aa8d4b384389a5d59855a6",
-    "src/cos/rhp/ControlPipe.cs": "603342fe8a1f1eff2a72fdc2c90517df626c2d0e2e540d7ebc75d9556d4d057d",
-    "src/cos/rhp/CosHost.cs": "a50f2a1ab1ef6bc2dee8ef93013d5bf2677d9f21dcdcda0b73a34aafe2172c2d",
-    "src/cos/rhp/Plugin.cs": "e7b64f2c719485cea1c3ed49201b78cd2a2d7ec6a01d0c5a29258ced1f2e1008",
+    "src/cos/rhp/AlmondRhino.csproj": "637433b1537574c18236d4a8fe1c8a27bd091af6be82aece5b7022f85b3ff64a",
+    "src/cos/rhp/ControlPipe.cs": "f30b66d3fe84adee585acd716d69f24b5019ae9836202989012cd8ac78df2ad5",
+    "src/cos/rhp/Plugin.cs": "c8f1fe314ce85ef7eac1dba955d2364fcb3f47c73ea5a738601a421af0a7c158",
+    "src/cos/rhp/RhinoHost.cs": "fd0b925348521b327cc560f4900cf13512b6fd03d012bc9395ad152029f613e6",
     "src/rhp/Engine/Almond.Engine.csproj": "c841bbcfa8455a5269be91ae8a1a96f5c232c445ffc8892daddbac5879e1b5cb",
     "src/rhp/Engine/AssemblyInfo.cs": "d79686f397969ef3681e1037b226a9527c476c377a6c1042ca1bf4f0ef7ce2f6",
     "src/rhp/Engine/BoundBridge.cs": "527ba4b38e090a50b571d72fbe32fb8afb6e294db574779d49c7d73b35dbd137",
@@ -17,11 +17,11 @@
     "src/rhp/Engine/WindowsPeerIdentity.cs": "27276b76eec4a5c9c32d7560406a6f067ac16810d045be30a18eef856019d16e"
   },
   "files": {
-    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.dll": "02edd0f070dbf260037690319c975bad771df797f60fe714de3dc9aa74ad1256",
-    "src/rhp/AlmondCOS/plugin-runtime/Almond.Engine.pdb": "6e3580c763f1b28732c158bf6f031ea4c148dedfb0db3d684209e89b4d81bf9f",
-    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.deps.json": "bebb0622990ae3e4a944e247d8fe0cd2cf528601a717901602f9e2eb44f37f43",
-    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.pdb": "261a5f647381562428773c0b8c78d1d01b191b74b30927ecf0348510b05682a4",
-    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp": "94d9b91848ad7fb5ba0ef5a45402e774ac86efa72c58c45cf046bf3364adef56",
-    "src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.runtimeconfig.json": "2fa0b19e9ba0d01bf6fc57c18cbd4b03f808c229ac05316e321b62824c1aea9c"
+    "src/rhp/AlmondRhino/plugin-runtime/Almond.Engine.dll": "704231b035331780ec543ef3dd40f47c9c04fb2ccbe1bc239cceba153a763190",
+    "src/rhp/AlmondRhino/plugin-runtime/Almond.Engine.pdb": "80abc244b44fb01caeafa12bcf762d621753664ef9dca9b903edd1b85a99fb8e",
+    "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.deps.json": "8b7bdae6f2f9bd2cc3dfffda5de3945674b656d3adf9f88d065013f7b92f2260",
+    "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.pdb": "cbecf5fc5d36de866a4b6f3795e2f904c371086c24e9a39eb9fbb619b25b300c",
+    "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp": "c1ee5e2dfac3a78d0ee479dadeb0eddcc5676a27a32e6a04c0f5e23d2c3091e3",
+    "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.runtimeconfig.json": "2fa0b19e9ba0d01bf6fc57c18cbd4b03f808c229ac05316e321b62824c1aea9c"
   }
 }

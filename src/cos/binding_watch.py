@@ -50,7 +50,7 @@ class BindingWatcher:
         self.lock = threading.Lock()
         self.closed = False
         self.failure = None
-        self.thread = threading.Thread(target=self._run, name="AlmondCOS binding notifications", daemon=True)
+        self.thread = threading.Thread(target=self._run, name="AlmondRhino binding notifications", daemon=True)
         try:
             self.thread.start()
         except BaseException:
@@ -60,7 +60,7 @@ class BindingWatcher:
     def _submit(self, action, key=None, binding=None, done=None):
         with self.lock:
             if self.closed or self.failure is not None:
-                raise RuntimeError("AlmondCOS binding watcher is unavailable.")
+                raise RuntimeError("AlmondRhino binding watcher is unavailable.")
             self.commands.put((action, key, binding, done))
             self.kernel.SetEvent(self.wake)
 
@@ -107,7 +107,7 @@ class BindingWatcher:
                         continue
                     try:
                         if key in active or len(active) >= 10:
-                            raise RuntimeError("Invalid AlmondCOS binding watch registration.")
+                            raise RuntimeError("Invalid AlmondRhino binding watch registration.")
                         # RHP Save() atomically renames a temporary file onto
                         # ready.json. Watch only file-name changes in its parent.
                         path = _windows_path(Path(binding["session_dir"]))
@@ -148,7 +148,7 @@ class BindingWatcher:
                     except queue.Empty:
                         break
                     if done is not None:
-                        self._finish(done, RuntimeError("AlmondCOS binding notification stopped."))
+                        self._finish(done, RuntimeError("AlmondRhino binding notification stopped."))
             for key in active:
                 self.loop.call_soon_threadsafe(self.notify, key, "Binding notification stopped; inspect Rhino.")
         finally:

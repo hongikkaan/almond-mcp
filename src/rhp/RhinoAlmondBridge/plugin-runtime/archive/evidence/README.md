@@ -71,13 +71,13 @@ Existing geometry remains unchanged. These legacy GLBs contain numeric mm,
 so a generic metre-based glTF viewer needs a 0.001 scale conversion; Almond's
 existing Rhino placement uses its millimetre contract.
 
-Run `python src/mcp/tools/enrich_generated_assets.py` to refresh passports on existing
+Run `python src/mcp/features/assets/generation/enrich_generated_assets.py` to refresh passports on existing
 normalised models. The normalisation builder also embeds passports for new
 models. `almond-mcp audit-assets` verifies the result.
 
 ## Assets
 
-Contact sheets: [entourage](previews/sheet-1-entourage.png) · [site furniture](previews/sheet-2-site-furniture.png) · [components](previews/sheet-3-components.png) · [fixtures](previews/sheet-4-fixtures.png) · [furniture](previews/sheet-5-furniture.png) · [lighting](previews/sheet-6-lighting.png). Regenerate with `blender -b --python src/mcp/tools/render_generated_previews.py -- asset/models/GeneratedAssetfiles/models asset/models/GeneratedAssetfiles/previews`.
+Contact sheets: [entourage](previews/sheet-1-entourage.png) · [site furniture](previews/sheet-2-site-furniture.png) · [components](previews/sheet-3-components.png) · [fixtures](previews/sheet-4-fixtures.png) · [furniture](previews/sheet-5-furniture.png) · [lighting](previews/sheet-6-lighting.png). Regenerate with `blender -b --python src/mcp/features/assets/generation/render_generated_previews.py -- asset/models/GeneratedAssetfiles/models asset/models/GeneratedAssetfiles/previews`.
 
 | Preview | asset_id | Product | Category | W x D x H (mm) | Material | Triangles |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -150,14 +150,14 @@ Meshy 7 ultra and decimated to about 80k triangles.
    About 8 credits per asset.
 3. Save the GLB as `raw/<asset_id>.glb` and record both task ids in
    `provenance.json`.
-4. Run `python src/mcp/tools/build_generated_assets.py` (optionally `--only <id>`),
+4. Run `python src/mcp/features/assets/generation/build_generated_assets.py` (optionally `--only <id>`),
    then `pytest tests/test_generated_assets.py`.
 5. Note the change in `docs/licensing-audit.md` if the recipe or licence
    position changes.
 
 Quality notes: most meshes are untextured smart-topology output at roughly 4k
 triangles; the two trees are meshy-7 ultra output decimated to 80k triangles (see
-`src/mcp/tools/decimate_glb.py`) - right for entourage, plans, sections and massing, not for
+`src/mcp/features/assets/generation/decimate_glb.py`) - right for entourage, plans, sections and massing, not for
 close-up renders. Plan-dimension deviations above 25% are flagged in the
 build log; the measured values are what the manifest stores.
 
@@ -169,7 +169,7 @@ studies, not photographic textures or full PBR renders. Model geometry,
 materials, embedded passports and derived drawings are unchanged. Existing
 contact sheets are legacy renders.
 
-Regenerate with `blender --factory-startup -b --python src/mcp/tools/render_generated_previews.py -- asset/models/GeneratedAssetfiles/models asset/models/GeneratedAssetfiles/previews --archive`.
+Regenerate with `blender --factory-startup -b --python src/mcp/features/assets/generation/render_generated_previews.py -- asset/models/GeneratedAssetfiles/models asset/models/GeneratedAssetfiles/previews --archive`.
 `--clay` is an optional neutral study; `--asset <asset_id>` renders a single
 inspection sample into a separate output folder. The full archive needs all
 50 records. `previews/render-record.json` records Blender/version/settings,

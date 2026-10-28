@@ -41,7 +41,10 @@ def test_factory_keeps_registration_and_public_signature():
         832, 480, "rgb,edge,depth", 16, 16, "Rendered", "Technical", False,
     ]
     assert signature.return_annotation is str
-    assert "building0.camera/0.1" in tool.__doc__
+    from almond_mcp.instruction_text import read_instruction
+    assert "building0.camera/0.1" not in tool.__doc__
+    assert "building0.camera/0.1" in read_instruction(
+        inspect.getsourcefile(tool), 'capture_conditioning_pass')
 
 
 def test_canonical_module_patch_and_live_sender_binding_are_preserved(monkeypatch):

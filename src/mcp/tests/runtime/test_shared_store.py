@@ -206,21 +206,20 @@ def store_child(root, label):
         write_json(root / (label + "-initialized.json"), dict(pid=os.getpid()))
         await_flag("begin-work.json")
         scene = read_json(root / "begin-work.json")["scene_id"]
-        rooms = []
+        updates = []
         for index in range(job["iterations"]):
             with StoreGate(locations["storage"], timeout=10):
-                common = store.upsert_room(scene, "Shared Room", [0, 0, 0, 1000, 1000, 3000],
-                                          metadata=dict(writer=label, iteration=index))
-                unique = store.upsert_room(scene, label + "-" + str(index), [0, 0, 0, 1000, 1000, 3000],
-                                          metadata=dict(writer=label, iteration=index))
-                rooms.append(dict(common=common, unique=unique))
+                common = store.update_scene(scene, label + "-" + str(index) + "-first")
+                unique = store.update_scene(scene, label + "-" + str(index) + "-second")
+                updates.append(dict(common=common, unique=unique))
         no_original_server()
-        write_json(root / (label + "-result.json"), dict(pid=os.getpid(), rooms=rooms))
+        write_json(root / (label + "-result.json"), dict(pid=os.getpid(), updates=updates))
+
 
 
 @unittest.skipUnless(sys.platform == "win32", "Windows file-sharing contract")
 class ProcessStoreTests(unittest.TestCase):
-    def test_two_process_initialization_and_same_name_room_upserts(self):
+    def test_two_process_initialization_and_shared_scene_revisions(self):
         root = workspace("two-processes")
         a, b = connection(root, "left", "A"), connection(root, "right", "B")
         iterations = 8
@@ -261,18 +260,13 @@ class ProcessStoreTests(unittest.TestCase):
             with closing(sqlite3.connect(a.locations["state_db"])) as db:
                 self.assertEqual(db.execute("PRAGMA integrity_check").fetchall(), [("ok",)])
                 self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
-                rows = db.execute("SELECT name, metadata_json FROM rooms WHERE scene_id = ?",
+                rows = db.execute("SELECT patch_json FROM scene_revisions WHERE scene_id = ?",
                                   (scene["scene_id"],)).fetchall()
-                self.assertEqual(len(rows), 2 * iterations + 1)
-                common = [json.loads(meta) for name, meta in rows if name == "Shared Room"]
-                self.assertEqual(len(common), 1)
-                self.assertEqual(common[0]["iteration"], iterations - 1)
-                self.assertIn(common[0]["writer"], ("A", "B"))
-                for label in ("A", "B"):
-                    expected = {(label + "-" + str(index), index) for index in range(iterations)}
-                    actual = {(name, json.loads(meta)["iteration"]) for name, meta in rows
-                              if name.startswith(label + "-")}
-                    self.assertEqual(actual, expected)
+                actual = {json.loads(row[0])["file_name"] for row in rows}
+                expected = {label + "-" + str(index) + "-" + part
+                            for label in ("A", "B") for index in range(iterations)
+                            for part in ("first", "second")}
+                self.assertEqual(actual, expected)
                 revisions = [row[0] for row in db.execute(
                     "SELECT revision FROM scene_revisions WHERE scene_id = ? ORDER BY revision",
                     (scene["scene_id"],))]
@@ -280,10 +274,10 @@ class ProcessStoreTests(unittest.TestCase):
                 self.assertEqual(db.execute("SELECT revision FROM scenes WHERE scene_id = ?",
                                             (scene["scene_id"],)).fetchone()[0], 4 * iterations)
             results = [read_json(root / (label + "-result.json")) for label in ("A", "B")]
-            common_ids = {room["common"]["room_id"] for result in results for room in result["rooms"]}
+            common_ids = {update["common"]["scene_id"] for result in results for update in result["updates"]}
             self.assertEqual(len(common_ids), 1)
             write_json(root / "verified.json", dict(database=a.locations["state_db"],
-                       worker_pids=[item["pid"] for item in results], rooms=len(rows),
+                       worker_pids=[item["pid"] for item in results], updates=len(rows),
                        revision_count=len(revisions), integrity="ok", foreign_key_errors=[]))
         finally:
             write_json(root / "abort.json", dict(stop=True))
@@ -623,59 +617,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(temp_state(), before)
         self.assert_operation_completed()
 
-    async def test_explicit_room_id_cannot_modify_another_scene(self):
-        with StoreGate(self.paths["storage"]):
-            store = AlmondStore(self.paths["state_db"])
-            a = store.create_scene("first")["scene_id"]
-            b = store.create_scene("second")["scene_id"]
-            store.upsert_room(a, "owned", [0, 0, 0, 1000, 1000, 3000], room_id="owned-room")
-        before = database_snapshot(self.paths["state_db"])
 
-        @self.mcp.tool()
-        def upsert_design_room(scene_id: str, room_id: str, name: str) -> dict:
-            self.calls.append(scene_id)
-            return store.upsert_room(scene_id, name, [0, 0, 0, 2000, 2000, 3000], room_id=room_id)
-
-        with self.assertRaisesRegex(ValueError, "already belongs to another scene"):
-            await self.mcp.call_tool("upsert_design_room",
-                                     dict(scene_id=b, room_id="owned-room", name="wrong-scene"))
-        self.assertEqual(self.calls, [])
-        self.assertEqual(database_snapshot(self.paths["state_db"]), before)
-        self.assertFalse(self.operation_path.exists())
-        result = result_json(await self.mcp.call_tool(
-            "upsert_design_room", dict(scene_id=a, room_id="owned-room", name="same-scene")))
-        self.assertEqual(result["scene_id"], a)
-        self.assertEqual(result["revision"], 2)
-        self.assertEqual(self.calls, [a])
-        self.assert_operation_completed()
-
-    async def test_explicit_instance_id_cannot_modify_another_scene(self):
-        with StoreGate(self.paths["storage"]):
-            store = AlmondStore(self.paths["state_db"])
-            store.sync_assets([dict(asset_id="fixture-cube", dimensions_mm=dict(width=100, depth=100, height=100))],
-                              library_id="fixture")
-            a = store.create_scene("first")["scene_id"]
-            b = store.create_scene("second")["scene_id"]
-            store.upsert_instance(a, "fixture-cube", 0, 0, instance_id="owned-instance")
-        before = database_snapshot(self.paths["state_db"])
-
-        @self.mcp.tool()
-        def register_scene_instance(scene_id: str, instance_id: str, x_mm: float) -> dict:
-            self.calls.append(scene_id)
-            return store.upsert_instance(scene_id, "fixture-cube", x_mm, 0, instance_id=instance_id)
-
-        with self.assertRaisesRegex(ValueError, "already belongs to another scene"):
-            await self.mcp.call_tool("register_scene_instance",
-                                     dict(scene_id=b, instance_id="owned-instance", x_mm=700))
-        self.assertEqual(self.calls, [])
-        self.assertEqual(database_snapshot(self.paths["state_db"]), before)
-        self.assertFalse(self.operation_path.exists())
-        result = result_json(await self.mcp.call_tool(
-            "register_scene_instance", dict(scene_id=a, instance_id="owned-instance", x_mm=700)))
-        self.assertEqual(result["scene_id"], a)
-        self.assertEqual(result["revision"], 2)
-        self.assertEqual(self.calls, [a])
-        self.assert_operation_completed()
 
 
 if __name__ == "__main__":

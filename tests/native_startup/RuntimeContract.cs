@@ -11,6 +11,12 @@ internal static class RuntimeContract
         using var bridge = new PEReader(bridgeFile);
         using var connectionFile = File.OpenRead(connectionPath);
         using var connection = new PEReader(connectionFile);
+        var connectionMetadata = connection.GetMetadataReader();
+        if (connectionMetadata.GetString(connectionMetadata.GetAssemblyDefinition().Name) != "AlmondRhino")
+            throw new Exception("Connection RHP assembly identity is not AlmondRhino.");
+        if (!connectionMetadata.TypeDefinitions.Select(connectionMetadata.GetTypeDefinition).Any(t =>
+                connectionMetadata.GetString(t.Namespace) == "AlmondRhino" && connectionMetadata.GetString(t.Name) == "RhinoPlugin"))
+            throw new Exception("Connection RHP does not contain the AlmondRhino plugin.");
         var names = CommandNames(bridge).Concat(CommandNames(connection)).ToArray();
         foreach (string old in new[] { "AlmondCOS", "AlmondCOSDisconnect", "AlmondMCPStart", "AlmondMCPStop", "AlmondMCPStatus" })
             if (names.Contains(old, StringComparer.OrdinalIgnoreCase)) throw new Exception("Legacy command still shipped: " + old);

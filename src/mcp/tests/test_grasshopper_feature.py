@@ -10,32 +10,13 @@ from fastmcp import FastMCP
 from almond_mcp.feature_context import FeatureContext
 from almond_mcp.features.grasshopper import ghx_parser, tools
 from almond_mcp.features.grasshopper.library import LibraryIndexer, _sync_capsule_library
-from almond_mcp.features.grasshopper.store import GrasshopperStore
 from almond_mcp.retrieval_store import AlmondStore
 
-# Reuse the behavioral capsule contracts against the extracted factory below.
-from test_capsules import (
-    AUDITED_MANIFEST, REAL_CAPSULE_DIR, BridgeMock, _call, capsule_dir,
-    test_sync_skips_invalid_manifests_and_lists_capsules,
-    test_list_capsules_filters,
-    test_run_rejects_unknown_capsule,
-    test_run_refuses_unaudited_capsule,
-    test_run_rejects_missing_required_input,
-    test_run_rejects_wrong_typed_inputs,
-    test_run_rejects_unknown_input_name,
-    test_run_happy_path_sends_contract_payload_verbatim_response,
-    test_run_omitted_seed_is_sent_as_null,
-    test_run_returns_error_json_when_bridge_down,
-)
+# Shared fixture helpers; behavioral capsule tests remain in test_capsules.py.
+from test_capsules import AUDITED_MANIFEST, REAL_CAPSULE_DIR, BridgeMock, _call, capsule_dir
 
 
-# The mixin comes first so these tests execute extracted SQL before facade cutover.
-# After cutover AlmondStore itself already supplies the same mixin.
-if issubclass(AlmondStore, GrasshopperStore):
-    CapsuleStore = AlmondStore
-else:
-    class CapsuleStore(GrasshopperStore, AlmondStore):
-        pass
+CapsuleStore = AlmondStore
 
 
 def _load_feature(tmp_path, capsule_dir):

@@ -7,7 +7,7 @@ $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $entries=@(
     @{Name='RhinoAlmondBridge';Guid='c337dbb8-394a-4593-9c2b-a3d7cfc91893';Mode=1;
       Commands=@{};Retired=@('AlmondMCPStart','AlmondMCPStop','AlmondMCPStatus')},
-    @{Name='AlmondCOS';Guid='39eb74f6-8283-4e43-bf26-f0106d891b75';Mode=2;
+    @{Name='AlmondRhino';Guid='39eb74f6-8283-4e43-bf26-f0106d891b75';Mode=2;
       Commands=@{almondconnect='2;almondconnect';almonddisconnect='2;almonddisconnect'};
       Retired=@('AlmondCOS','AlmondCOSDisconnect')}
 )
@@ -36,9 +36,9 @@ foreach($entry in $entries) {
     $entry.CommandKey=$entry.Root+'\CommandList'
 }
 $bridgeEngine=Join-Path (Split-Path $entries[0].File -Parent) 'Almond.Engine.dll'
-$cosEngine=Join-Path (Split-Path $entries[1].File -Parent) 'Almond.Engine.dll'
-if((Get-FileHash -LiteralPath $bridgeEngine).Hash -cne (Get-FileHash -LiteralPath $cosEngine).Hash) {
-    throw 'Bridge and COS Engine binaries differ. Pull a complete runtime bundle.'
+$rhinoEngine=Join-Path (Split-Path $entries[1].File -Parent) 'Almond.Engine.dll'
+if((Get-FileHash -LiteralPath $bridgeEngine).Hash -cne (Get-FileHash -LiteralPath $rhinoEngine).Hash) {
+    throw 'Bridge and AlmondRhino Engine binaries differ. Pull a complete runtime bundle.'
 }
 if(-not $VerifyOnly) {
     $backup=Join-Path $repo ('data\runtime-install\'+[DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfff'))
@@ -75,6 +75,7 @@ if(-not $VerifyOnly) {
 }
 foreach($entry in $entries) {
     if((Get-ItemProperty -LiteralPath $entry.Key -Name FileName).FileName -ine $entry.File) { throw 'Runtime registration differs.' }
+    if((Get-ItemProperty -LiteralPath $entry.Root -Name Name).Name -cne $entry.Name) { throw 'Runtime registration name differs.' }
     $changes=@(Get-CommandRegistrationChanges $entry)
     if($changes.Count) {
         throw ('Runtime command registration differs: '+$entry.Name+' ('+(($changes | ForEach-Object Name) -join ', ')+'). Close Rhino normally and run install_runtime.ps1 without -VerifyOnly.')

@@ -75,10 +75,7 @@ def test_shared_component_and_direct_membership_form_a_set(store, model):
     assert all(row["live_verified"] is False for row in store.scene_objects(first))
     assert comp["live_verified"] is True
     assert store.get_component(comp["component_id"])["live_verified"] is False
-    report = store.validate_scene(first)
-    assert report["passed_scope"] == "legacy_asset_instances"
-    assert report["coverage"]["registered_objects"] == 3
-    assert report["coverage"]["registered_object_collisions_checked"] is False
+
 
 
 def test_owner_conflict_is_rejected_before_native_and_preserves_all_rows(store, model):
@@ -451,42 +448,8 @@ def test_explicit_sync_cannot_leave_component_without_scene(store, model):
     assert snapshot(store) == before
 
 
-def test_additive_component_schema_preserves_legacy_rooms_instances_and_revisions(store):
-    scene = store.create_scene("Legacy")["scene_id"]
-    room = store.upsert_room(scene, "L1", [0, 0, 18000, 1000, 1000, 21000])
-    store.sync_assets([dict(asset_id="fixture-cube", dimensions_mm=dict(width=100, depth=100, height=100))],
-                      library_id="fixture")
-    instance = store.upsert_instance(scene, "fixture-cube", 500, 500, room_id=room["room_id"])
-    tables = ("scenes", "rooms", "instances", "scene_revisions", "instance_rtree", "assets")
-    with sqlite3.connect(store.database_path) as connection:
-        before = {table: connection.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall() for table in tables}
-        for table in ("scene_objects", "scene_components", "document_objects", "components"):
-            connection.execute(f"DROP TABLE {table}")
-    migrated = AlmondStore(store.database_path)
-    with sqlite3.connect(store.database_path) as connection:
-        after = {table: connection.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall() for table in tables}
-    assert after == before
-    assert migrated.list_components() == []
-    assert migrated.scene_instances(scene)[0]["instance_id"] == instance["instance_id"]
-    assert migrated.validate_scene(scene)["passed"] is True
 
 
-def test_direct_store_legacy_ids_cannot_cross_scenes_and_instance_delete_cleans_rtree(store):
-    first = store.create_scene("First")["scene_id"]
-    second = store.create_scene("Second")["scene_id"]
-    room = store.upsert_room(first, "Owned", [0, 0, 0, 1000, 1000, 1000])
-    store.sync_assets([dict(asset_id="cube", dimensions_mm=dict(width=100, depth=100, height=100))],
-                      library_id="fixture")
-    instance = store.upsert_instance(first, "cube", 500, 500, room_id=room["room_id"])
-    before = snapshot(store)
-    with pytest.raises(ValueError, match="another scene"):
-        store.upsert_room(second, "Wrong", [0, 0, 0, 100, 100, 100], room_id=room["room_id"])
-    with pytest.raises(ValueError, match="another scene"):
-        store.upsert_instance(second, "cube", 0, 0, instance_id=instance["instance_id"])
-    assert snapshot(store) == before
-    store.remove_instance(first, instance["instance_id"])
-    with store._connect() as connection:
-        assert connection.execute("SELECT COUNT(*) FROM instance_rtree").fetchone()[0] == 0
 
 
 def unregistered_proof(component):

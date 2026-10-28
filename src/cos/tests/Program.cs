@@ -1,12 +1,12 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using AlmondCOS;
+using AlmondRhino;
 
 // A disposable console process, with no Rhino references, slots, ports or models.
 Console.OutputEncoding = new UTF8Encoding(false);
 using var process = Process.GetCurrentProcess();
-string name = "AlmondCOS-" + process.Id + "-fixture-" + Guid.NewGuid().ToString("N");
+string name = "AlmondRhino-" + process.Id + "-fixture-" + Guid.NewGuid().ToString("N");
 string access = Guid.NewGuid().ToString("N");
 var released = new List<string>();
 string attached = "";

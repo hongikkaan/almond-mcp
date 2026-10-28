@@ -2,7 +2,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 
-namespace AlmondCOS;
+namespace AlmondRhino;
 
 // Message-mode framing matches CPython multiprocessing.connection.send_bytes,
 // not its pickle send()/recv() APIs. No Rhino or executable code travels here.
@@ -57,7 +57,7 @@ internal sealed class ControlPipe : IDisposable
                         var request = json.RootElement.Clone();
                         id = request.GetProperty("id").GetInt64();
                         if (request.GetProperty("access_token").GetString() != token)
-                            throw new InvalidOperationException("Invalid AlmondCOS control token.");
+                            throw new InvalidOperationException("Invalid AlmondRhino control token.");
                         // Mark a possible owner before Attach: its reply can be lost.
                         var action = request.GetProperty("action").GetString();
                         if (action == "attach")

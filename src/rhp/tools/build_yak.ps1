@@ -19,7 +19,7 @@ New-Item -ItemType Directory -Path $stage -Force | Out-Null
 if (-not (Test-Path -LiteralPath $YakExecutable)) { throw "Yak executable not found: $YakExecutable" }
 Push-Location $repo
 try {
-    & $PythonExecutable src/mcp/tools/document_generation_sources.py --check
+    & $PythonExecutable src/mcp/features/assets/generation/document_generation_sources.py --check
     if ($LASTEXITCODE -ne 0) { throw "Source documentation check failed." }
     & $DotnetExecutable build src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj -c Release -o $bin -p:RestoreLockedMode=true "-p:RhinoSystem=$RhinoSystem"
     if ($LASTEXITCODE -ne 0) { throw "Bridge build failed." }
@@ -36,7 +36,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Archive bundle build failed." }
     Copy-Item -LiteralPath (Join-Path $repo "src/rhp/RhinoAlmondBridge/yak/manifest.yml") -Destination $stage
     foreach ($file in @("LICENSE", "THIRD-PARTY-NOTICES.md")) { Copy-Item -LiteralPath (Join-Path $repo $file) -Destination $stage }
-    Copy-Item -LiteralPath (Join-Path $repo "docs/assets/rhino-archive-quickstart.md") -Destination (Join-Path $stage "GETTING-STARTED.md")
+    Copy-Item -LiteralPath (Join-Path $repo "src/mcp/features/assets/guides/rhino-archive-quickstart.md") -Destination (Join-Path $stage "GETTING-STARTED.md")
     Push-Location $stage
     try {
         & $YakExecutable build --platform win

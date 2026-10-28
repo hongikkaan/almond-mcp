@@ -12,7 +12,6 @@ from contextvars import ContextVar
 import json
 import os
 from pathlib import Path
-import sqlite3
 import tempfile
 import time
 import uuid
@@ -120,30 +119,6 @@ def validate_artifact_writers(storage: str | Path) -> None:
         raise RuntimeError("An earlier artifact write has not confirmed native drain. "
                            "End that connection normally before writing or renaming artifacts; "
                            "no new file operation was started.")
-
-
-def validate_shared_ids(name: str, arguments: dict, database: str | Path) -> None:
-    """Keep a supplied global ledger ID from silently modifying another scene.
-
-    Call only while holding StoreGate. The original schema and transaction body
-    remain unchanged; the read-only connection is closed before the tool starts.
-    """
-    fields = {
-        "upsert_design_room": ("rooms", "room_id"),
-        "register_scene_instance": ("instances", "instance_id"),
-    }
-    if name not in fields:
-        return
-    table, field = fields[name]
-    identifier, scene = arguments.get(field), arguments.get("scene_id")
-    if not isinstance(identifier, str) or not identifier.strip() or not isinstance(scene, str):
-        return  # Preserve the upstream argument validator for all other inputs.
-    uri = Path(database).resolve().as_uri() + "?mode=ro"
-    with closing(sqlite3.connect(uri, uri=True, timeout=15)) as connection:
-        row = connection.execute(f"SELECT scene_id FROM {table} WHERE {field} = ?",
-                                 (identifier.strip(),)).fetchone()
-    if row and row[0] != scene:
-        raise ValueError(read_instruction(__file__, 'response-155').format(field, identifier.strip()))
 
 
 def output_arguments(name: str, arguments: dict, operation_dir: Path, *, relative_only=False) -> dict:
@@ -341,7 +316,6 @@ class ProjectRuntime(Middleware):
             async with gate:
                 self.validate()
                 await anyio.lowlevel.checkpoint()
-                validate_shared_ids(name, context.message.arguments or {}, self.locations["state_db"])
                 artifact_gate = StoreGate(self.locations["storage"])
                 artifact_gate.path = Path(self.locations["storage"]) / ".sessions" / "artifacts.lock"
                 if name in FILE_TOOLS:
@@ -375,9 +349,9 @@ class ProjectRuntime(Middleware):
             operation_dir.mkdir(parents=True, exist_ok=False)
         # Bound document expectations are supplied internally. Optional
         # public arguments remain available to standalone consumers.
-        if self.workspace is not None and name in {"get_rhino_probe", "upsert_design_component", "sync_design_component",
+        if self.workspace is not None and name in {"get_rhino_probe", "upsert_ontological_component", "sync_ontological_component",
                     "register_scene_objects", "get_component_intersections", "focus_components",
-                    "list_design_components"} and not args.get("expected_model_path"):
+                    "list_ontological_components"} and not args.get("expected_model_path"):
             args["expected_model_path"] = self.locations["model_path"]
         message = context.message.model_copy(update={"arguments": args})
         operation_path = Path(self.locations["session_dir"]) / "operation.json"

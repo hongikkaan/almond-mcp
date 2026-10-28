@@ -99,10 +99,10 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_instructions_and_topics_keep_one_snapshot_after_disk_changes(self):
         from almond_mcp.features.guidance.tools import register
-        from almond_mcp.modeling_guidance import PACKAGE, startup_instructions
+        from almond_mcp.modeling_guidance import PACKAGE, startup_instructions, project_instructions
         startup = startup_instructions()
         context_path = PACKAGE / 'MODEL-CONTEXT-INSTRUCTIONS.md'
-        expected = startup + '\n\n' + context_path.read_text(encoding='utf-8').strip()
+        expected = project_instructions()
         register(self.mcp, object())
         changed_paths = {PACKAGE / 'FUNDAMENTAL-INSTRUCTIONS.md', context_path}
         original_text, original_bytes = Path.read_text, Path.read_bytes

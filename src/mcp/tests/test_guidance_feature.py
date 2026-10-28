@@ -13,7 +13,7 @@ from almond_mcp.features.guidance.tools import register
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-CONSTRUCTION_DIR = PROJECT_ROOT / "asset/constructions/Constructionfiles"
+CONSTRUCTION_DIR = PROJECT_ROOT / "src/mcp/profiles/construction_system"
 HISTORY_DIR = PROJECT_ROOT / "asset/history/Historyfiles"
 DRAFTING_DIR = PROJECT_ROOT / "asset/drawing/Draftingfiles"
 

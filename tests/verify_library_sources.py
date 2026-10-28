@@ -61,9 +61,9 @@ def child(mode, metadata, original_args):
     entry.configure_project_context = configure
     try:
         if mode == "cos":
-            import cos_worker
-            sys.argv = [str(COS / "cos_worker.py"), *original_args]
-            result = cos_worker.main()
+            import external_worker
+            sys.argv = [str(COS / "external_worker.py"), *original_args]
+            result = external_worker.main()
         else:
             result = entry.main(original_args)
     finally:
@@ -137,7 +137,16 @@ def snapshot(roots):
     return result
 
 
-async def probe(kind, base, inherited, expected, custom_id=None, *,
+async def probe(kind, base, *args, **kwargs):
+    try:
+        return await _probe(kind, base, *args, **kwargs)
+    except Exception as error:
+        log = base / (kwargs.get("fixture_name") or kind) / "stderr.txt"
+        error.add_note(f"Probe: {kind}\n" + (log.read_text(encoding="utf-8") if log.exists() else "No child log"))
+        raise
+
+
+async def _probe(kind, base, inherited, expected, custom_id=None, *,
                 fixture_name=None, seed_scene=False, expected_scene=None):
     from mcp.client.session import ClientSession
     from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -171,8 +180,8 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
     elif kind.startswith("terminal"):
         environment = cli_environment("terminal_almond.ps1", locations["temp"], environment)
     if mode == "cos":
-        environment["ALMONDCOS_SESSION_TOKEN"] = binding["token"]
-        environment["ALMONDCOS_CATALOG_ID"] = catalog_identity(catalog)
+        environment["ALMONDRHINO_SESSION_TOKEN"] = binding["token"]
+        environment["ALMONDRHINO_CATALOG_ID"] = catalog_identity(catalog)
         target_args = ["--session", str(ready), "--port", "5510", "--connection-id", kind]
     else:
         target_args = ["--session", str(ready), "--port", "5510", "--token", binding["token"],
@@ -202,9 +211,9 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
                 assert set(tools) == expected_tools and len(tools) == len(expected_tools), tools
                 info = unpack(await session.call_tool("project_info", {"sections": ["project", "artifacts"]}))
                 status = unpack(await session.call_tool("get_retrieval_status", {}))
-                library = unpack(await session.call_tool("list_library", {}))
-                capsules = unpack(await session.call_tool("list_capsules", {"include_ids": True}))
-                materials = unpack(await session.call_tool("list_materials", {}))
+                library = unpack(await session.call_tool("list_library", {"field_groups": ["paths"]}))
+                capsules = unpack(await session.call_tool("list_capsules", {"include_ids": True, "field_groups": ["paths"]}))
+                materials = unpack(await session.call_tool("list_materials", {"field_groups": ["paths"]}))
                 drawings = unpack(await session.call_tool("list_drawing_assets", {}))
                 def relative(value):
                     return os.path.relpath(value, locations["project_dir"]).replace("\\", "/")
@@ -223,12 +232,17 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
                     assert drawings["assets"][0]["file_available"] is True, drawings
                 scene = None
                 if seed_scene:
-                    scene = unpack(await session.call_tool("create_design_scene", {
+                    created = unpack(await session.call_tool("create_design_scene", {
                         "name": "Existing fixture scene must survive source reindex", "units": "mm"
                     }))["scene"]
+                    # Compare full snapshots, not the compact creation receipt.
+                    scene = unpack(await session.call_tool("get_design_scene", {
+                        "scene_id": created["scene_id"], "include_ids": True, "field_groups": ["all"]
+                    }))["scene"]
+                    scene["scene_id"] = created["scene_id"]
                 elif expected_scene:
                     scene = unpack(await session.call_tool("get_design_scene", {
-                        "scene_id": expected_scene["scene_id"]
+                        "scene_id": expected_scene["scene_id"], "include_ids": True, "field_groups": ["all"]
                     }))["scene"]
                     assert scene == {k: v for k, v in expected_scene.items() if k != "scene_id"}, (scene, expected_scene)
     observed = json.loads(metadata.read_text(encoding="utf-8"))
@@ -280,9 +294,9 @@ async def run():
         results = await asyncio.gather(*[
             probe(kind, base, inherited, expected) for kind in ("external", "terminal", "cos")
         ], return_exceptions=True)
-        failures = [str(r) for r in results if isinstance(r, BaseException)]
+        failures = [r for r in results if isinstance(r, Exception)]
         if failures:
-            raise RuntimeError("Default path probes failed: " + repr(failures))
+            raise ExceptionGroup("Default path probes failed", failures)
         custom_root = base / "custom-drawing-library"
         (custom_root / "models").mkdir(parents=True)
         bundle_manifest = REPO / "asset/drawing/DrawingAssetfiles/manifest.json"
@@ -297,9 +311,9 @@ async def run():
             probe(kind + "-override", base, overrides, expected_override, "library-routing-fixture")
             for kind in ("external", "terminal", "cos")
         ], return_exceptions=True)
-        failures = [str(r) for r in custom_results if isinstance(r, BaseException)]
+        failures = [r for r in custom_results if isinstance(r, Exception)]
         if failures:
-            raise RuntimeError("Explicit override probes failed: " + repr(failures))
+            raise ExceptionGroup("Explicit override probes failed", failures)
         results.extend(custom_results)
         bundle = REPO
         old_sources = {variable: str(bundle / paths.REPO_LIBRARY_PATHS.get(name, name))

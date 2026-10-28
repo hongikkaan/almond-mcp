@@ -15,9 +15,9 @@ LIBRARY = REPO / "asset" / "models" / "GeneratedAssetfiles"
 MANIFEST = LIBRARY / "manifest.json"
 CATALOGUE = LIBRARY / "catalogue.json"
 PACKAGE_ROOT = REPO / "src" / "mcp"
-SERVER_PATH = PACKAGE_ROOT / "almond_mcp" / "server.py"
+SERVER_PATH = PACKAGE_ROOT / "server.py"
 
-for extra in (PACKAGE_ROOT, REPO / "src/mcp/tools"):
+for extra in (PACKAGE_ROOT, REPO / "src/mcp/features/assets/generation"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
 
@@ -94,7 +94,7 @@ def test_glb_materials_carry_the_almond_identity():
 
 
 def test_render_material_ids_exist_in_material_library():
-    materials = json.loads((REPO / "asset" / "constructions" / "Materialfiles" / "manifest.json").read_text(encoding="utf-8"))
+    materials = json.loads((REPO / "src" / "mcp" / "profiles" / "material" / "manifest.json").read_text(encoding="utf-8"))
     known = {m["material_id"] for m in materials["materials"]}
     for asset in manifest()["assets"]:
         assert asset["render_material_id"] in known, asset["asset_id"]

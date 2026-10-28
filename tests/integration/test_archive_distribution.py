@@ -42,7 +42,7 @@ def test_distributed_archive_excludes_community_files_and_keeps_evidence(bundle)
         build_bundle(bundle)
 
 
-@pytest.mark.skipif(not os.environ.get("ALMOND_ARCHIVE_TEST_HOST"),reason="Build the .NET archive host and set ALMOND_ARCHIVE_TEST_HOST")
+@pytest.mark.archive_host
 def test_real_dotnet_host_http_and_integrity(bundle):
     process=subprocess.Popen([os.environ["ALMOND_ARCHIVE_TEST_HOST"],str(bundle)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     try:

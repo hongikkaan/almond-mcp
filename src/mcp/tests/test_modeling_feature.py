@@ -12,14 +12,13 @@ from fastmcp import Client, FastMCP
 from almond_mcp.features.modeling import modeling_policy, modeling_setup
 from almond_mcp.features.modeling.library import MaterialLibrary
 from almond_mcp.features.modeling.tools import register
-import test_materials as material_contracts
 
 
 TOOL_NAMES = {
     "get_modeling_policy", "execute_rhino_script", "setup_modeling",
     "list_materials", "assign_material", "save_rhino_document",
 }
-PACKAGE = Path(__file__).resolve().parents[1] / "almond_mcp"
+PACKAGE = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(scope="module")
@@ -123,23 +122,3 @@ def test_executor_preserves_errors_without_retry(feature, exception, message):
     feature._send_and_receive = send
     assert call(feature.execute_rhino_script, script="test") == {"status": "error", "message": message}
     assert len(requests) == 1
-
-
-@pytest.mark.parametrize("contract", [
-    material_contracts.test_assignment_checks_capability_and_returns_actual_guids_and_metadata,
-    material_contracts.test_older_bridge_is_rejected_before_assignment,
-    material_contracts.test_metadata_only_assignment_does_not_claim_native_material_change,
-    material_contracts.test_assignment_timeout_is_unknown_and_never_retried,
-    material_contracts.test_setup_rejects_unsafe_bridge_without_dispatch,
-], ids=lambda contract: contract.__name__)
-def test_existing_material_safety_contracts_use_extracted_factory(feature, monkeypatch, contract):
-    contract(feature, monkeypatch)
-
-
-@pytest.mark.parametrize("overwrite, encoded", [(None, "null"), (True, "true"), (False, "false")])
-def test_extracted_setup_preserves_overwrite_choice(feature, monkeypatch, overwrite, encoded):
-    material_contracts.test_material_setup_preserves_overwrite_choice(feature, monkeypatch, overwrite, encoded)
-
-
-def test_extracted_library_keeps_legacy_manifest_read_only(feature, tmp_path, monkeypatch):
-    material_contracts.test_policy_keys_and_legacy_manifest_fallback(feature, tmp_path, monkeypatch)

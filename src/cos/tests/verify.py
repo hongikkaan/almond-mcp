@@ -7,16 +7,16 @@ import time
 import unittest
 
 REPO = Path(__file__).resolve().parents[3]
-COS = REPO / "src" / "cos"
+EXTERNAL = REPO / "src" / "cos"
 ENGINE = REPO / "src" / "mcp" / "runtime"
 TESTS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(REPO / "src" / "mcp"))
 sys.path.insert(0, str(ENGINE))
-sys.path.insert(0, str(COS))
+sys.path.insert(0, str(EXTERNAL))
 sys.path.insert(0, str(TESTS))
-cos_data = COS / "data"
-cos_data.mkdir(parents=True, exist_ok=True)
+test_data = EXTERNAL / "data"
+test_data.mkdir(parents=True, exist_ok=True)
 started = time.monotonic()
 suite = unittest.defaultTestLoader.discover(str(TESTS), pattern="test_*.py")
 result = unittest.TextTestRunner(verbosity=2).run(suite)
@@ -29,6 +29,6 @@ report = {
     "scope": "Disposable Python/C# transport and lifecycle fixtures, extracted helpers, Windows message pipes and directory notifications, broker cleanup, and isolated stdio. No live Rhino geometry or model/DB verification.",
     "live_rhino_integration_tested": False, "original_almond_server_imported": False,
 }
-(cos_data / "verification.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+(test_data / "verification.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",
                                            encoding="utf-8")
 raise SystemExit(0 if result.wasSuccessful() else 1)

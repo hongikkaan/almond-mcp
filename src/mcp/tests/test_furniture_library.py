@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 
-SERVER_PATH = Path(__file__).resolve().parents[3] / "src" / "mcp" / "almond_mcp" / "server.py"
+SERVER_PATH = Path(__file__).resolve().parents[3] / "src" / "mcp" / "server.py"
 FURNITURE_MANIFEST_PATH = (
     Path(__file__).resolve().parents[3] / "asset" / "models" / "IkeaFurniturefiles" / "manifest.json"
 )

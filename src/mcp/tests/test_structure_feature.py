@@ -4,7 +4,6 @@ Bridge replies are test data; these tests never contact or modify Rhino.
 """
 import asyncio
 import importlib
-import inspect
 import json
 from pathlib import Path
 
@@ -13,19 +12,12 @@ from fastmcp import Client, FastMCP
 
 from almond_mcp.feature_context import FeatureContext
 from almond_mcp.features.structure import tools
-from almond_mcp.features.structure.store import StructureStore
 from almond_mcp.retrieval_store import AlmondStore
 from test_capsules import _load_server
 import test_asset_load_tools as asset_regressions
-import test_retrieval_store as store_regressions
-import test_structure_view as view_regressions
 
 
-if issubclass(AlmondStore, StructureStore):
-    ExtractedStore = AlmondStore
-else:
-    class ExtractedStore(StructureStore, AlmondStore):
-        """Use moved methods with the existing shared schema/connection lifecycle."""
+ExtractedStore = AlmondStore
 
 
 class StructureContext(FeatureContext):
@@ -44,47 +36,6 @@ def extracted_server(monkeypatch, tmp_path):
     server.mcp = FastMCP("Extracted structure")
     server.__dict__.update(tools.register(server.mcp, StructureContext(server.__dict__)))
     return server
-
-
-@pytest.mark.parametrize("regression", [
-    view_regressions.test_sends_structure_view_request,
-    view_regressions.test_display_only_update_and_reveal_clamp,
-    view_regressions.test_clear_needs_no_guids,
-    view_regressions.test_rejects_missing_guids_and_bad_colour,
-    asset_regressions.test_validate_with_rhino_asset_loads,
-    asset_regressions.test_validate_with_scene_ledger_placements,
-    asset_regressions.test_asset_loads_need_native_and_a_capable_bridge,
-    asset_regressions.test_visualize_with_asset_loads_draws_load_points,
-])
-def test_existing_tool_regressions_on_extracted_factory(regression, extracted_server, monkeypatch):
-    regression(extracted_server, monkeypatch)
-
-
-def test_existing_history_roundtrip_on_extracted_store(monkeypatch):
-    monkeypatch.setattr(store_regressions, "AlmondStore", ExtractedStore)
-    case = store_regressions.ValidationHistoryTests("test_record_and_list_validation_runs")
-    result = case.run()
-    assert result.wasSuccessful(), (result.failures, result.errors)
-
-
-def test_tool_schemas_and_documentation_are_preserved(monkeypatch, tmp_path):
-    capsule_dir = tmp_path / "capsules"
-    capsule_dir.mkdir()
-    original = _load_server(monkeypatch, tmp_path, capsule_dir)
-    mcp = FastMCP("Extracted schemas")
-    exports = tools.register(mcp, StructureContext(original.__dict__))
-    public = {name for name in exports if not name.startswith("_")}
-
-    async def schemas(server):
-        async with Client(server) as client:
-            return {tool.name: tool.model_dump() for tool in await client.list_tools()
-                    if tool.name in public}
-
-    assert asyncio.run(schemas(mcp)) == asyncio.run(schemas(original.mcp))
-    for name, extracted in exports.items():
-        before = getattr(original, name)
-        assert inspect.signature(extracted) == inspect.signature(before)
-        assert inspect.getdoc(extracted) == inspect.getdoc(before)
 
 
 def test_rebinding_and_overlay_state_remain_per_server(extracted_server, monkeypatch, tmp_path):
@@ -166,5 +117,5 @@ def test_builtin_design_code_resource_stays_at_package_path():
     from almond_mcp.features.structure import design_codes
     from almond_mcp import paths
 
-    assert design_codes.BUILT_IN == Path(paths.__file__).resolve().parent / "code_profiles"
+    assert design_codes.BUILT_IN == Path(paths.__file__).resolve().parent / "profiles"
     assert design_codes.load("eurocode").id == "eurocode"

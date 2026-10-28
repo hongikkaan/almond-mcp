@@ -10,12 +10,12 @@ MANIFESTS = {
     "bridge": "src/rhp/RhinoAlmondBridge/runtime-manifest.json",
     "cos": "src/cos/runtime-manifest.json",
 }
-BUNDLES = ("src/rhp/RhinoAlmondBridge/plugin-runtime", "src/rhp/AlmondCOS/plugin-runtime")
+BUNDLES = ("src/rhp/RhinoAlmondBridge/plugin-runtime", "src/rhp/AlmondRhino/plugin-runtime")
 COMPONENT_BUNDLES = dict(zip(MANIFESTS, BUNDLES))
 SOURCE_ROOTS = {
     "bridge": ("src/rhp/RhinoAlmondBridge/", "src/rhp/Structural_Analysis/",
                "src/rhp/Asset_Panel/", "src/rhp/RhinoTerminal/", "src/rhp/Engine/",
-               "src/mcp/almond_mcp/rhino/"),
+               "src/mcp/rhino/"),
     "cos": ("src/cos/rhp/", "src/rhp/Engine/"),
 }
 
@@ -36,7 +36,7 @@ def is_source(relative, component):
     if any(part in {"tests", "data", "bin", "obj"} or part.startswith("plugin-")
            for part in path.parts):
         return False
-    if component == "bridge" and relative == "src/mcp/almond_mcp/modeling_policy.json":
+    if component == "bridge" and relative == "src/mcp/modeling_policy.json":
         return True
     return relative.startswith(SOURCE_ROOTS[component]) and (
         path.suffix.lower() in {".cs", ".csproj", ".props", ".targets", ".ico", ".resx"}
@@ -65,7 +65,7 @@ def verify(root, manifest):
 def record(root, component):
     bundle = COMPONENT_BUNDLES[component]
     files = sorted(p.relative_to(root).as_posix() for p in (root / bundle).rglob("*") if p.is_file())
-    entry = "RhinoAlmondBridge.rhp" if component == "bridge" else "AlmondCOS.rhp"
+    entry = "RhinoAlmondBridge.rhp" if component == "bridge" else "AlmondRhino.rhp"
     required = [f"{bundle}/{entry}", f"{bundle}/Almond.Engine.dll"]
     if component == "bridge":
         required += [f"{bundle}/{name}" for name in (
@@ -82,7 +82,7 @@ def record(root, component):
 
 def verify_engine_pair(root):
     if digest(root / BUNDLES[0] / "Almond.Engine.dll") != digest(root / BUNDLES[1] / "Almond.Engine.dll"):
-        raise RuntimeError("Bridge and COS must ship the same Engine binary. Build both after an Engine change.")
+        raise RuntimeError("Bridge and AlmondRhino must ship the same Engine binary. Build both after an Engine change.")
 
 
 def main():

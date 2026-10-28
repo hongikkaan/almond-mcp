@@ -1,6 +1,7 @@
 """Shared external MCP adapter, independent of either client application.
 
-The historical src/cos location and native COS protocol identifiers stay stable.
+Both routes use AlmondRhino. The historical src/cos location and stored
+attachment=cos tag remain compatibility identifiers.
 CoS and direct Codex use separate entry points over this one lifecycle owner.
 """
 from __future__ import annotations
@@ -29,6 +30,7 @@ from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
 
 GUIDANCE = (ROOT / "CONNECTION-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
+DESCRIPTION = (ROOT / "SERVER-DESCRIPTION.md").read_text(encoding="utf-8").strip()
 
 
 def json_result(value: dict) -> types.CallToolResult:
@@ -69,7 +71,7 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
-        ("list_connections", "List available Rhino documents, this client's connections and connection instructions. Run almondconnect in a saved ordinary Rhino to advertise it to Codex or CoS.",
+        ("list_connections", "List available Rhino documents, this client's connections and connection instructions. Run almondconnect in a saved ordinary Rhino to make it available for connection.",
          {}, []),
         ("connect", "Connect one advertised Rhino/document. Call list_connections first for the verified model path and connection instructions. Uses an independent A-J slot and session; models in one folder share the existing database and artifact root.",
          {"host_id": {"type": "string"}, "model_path": {"type": "string", "description": "Exact saved model path shown in the listing."}},
@@ -151,11 +153,11 @@ class Worker:
     async def _own(self):
         params = StdioServerParameters(
             command=str(PYTHON),
-            args=["-B", "-u", str(ROOT / "cos_worker.py"), "--session",
+            args=["-B", "-u", str(ROOT / "external_worker.py"), "--session",
                   self.binding["ready_path"], "--port", str(self.binding["port"]),
                   "--connection-id", self.connection_id],
-            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1", ALMONDCOS_SESSION_TOKEN=self.binding["token"],
-                     ALMONDCOS_CATALOG_ID=catalog_identity(self.catalog)),
+            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1", ALMONDRHINO_SESSION_TOKEN=self.binding["token"],
+                     ALMONDRHINO_CATALOG_ID=catalog_identity(self.catalog)),
             cwd=str(ROOT),
         )
         try:
@@ -460,7 +462,7 @@ class Broker:
                 if (conn.binding.get("storage_protocol") != 2 or
                         not conn.binding.get("session_dir") or not conn.binding.get("ready_path")
                         or not conn.binding.get("call_root")):
-                    raise RuntimeError("This Rhino plugin does not support shared storage sessions. Load the updated AlmondCOS build.")
+                    raise RuntimeError("This Rhino plugin does not support shared storage sessions. Load the updated AlmondRhino build.")
                 if self.watcher is None:
                     self.watcher = self.watcher_factory(self.binding_changed)
                 await self.watcher.add(connection_id, conn.binding)
@@ -655,7 +657,12 @@ class SessionAdapter:
             await self.broker.close()
 
 
-CLIENT_NAMES = {"codex": "Almond Codex", "cos": "Almond CoS"}
+CLIENT_SERVER_NAMES = {"codex": "beyond", "cos": "CoS"}
+
+
+def server_description(client: str) -> str:
+    """Name the selected client route without changing shared tool descriptions."""
+    return DESCRIPTION.replace("{server_name}", CLIENT_SERVER_NAMES[client])
 
 
 async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos"):
@@ -668,8 +675,11 @@ async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos
     async def on_call_tool(ctx, params):
         return await broker.call(params.name, params.arguments or {})
 
-    # The worker's initialize instructions do not reach this host's client.
-    server = Server(CLIENT_NAMES[client], version=VERSION, instructions=startup_instructions(),
+    # Send the shared introduction before any tool call. Keep it in instructions
+    # too for clients that do not display serverInfo.description.
+    description = server_description(client)
+    server = Server(CLIENT_SERVER_NAMES[client], version=VERSION, description=description,
+                    instructions=description + "\n\n" + startup_instructions(),
                     get_tool_input_schema=schemas.get,
                     on_list_tools=on_list_tools, on_call_tool=on_call_tool)
     try:
@@ -680,7 +690,7 @@ async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos
 
 
 def main(data: Path = ROOT / "data", *, client: str = "cos"):
-    if client not in CLIENT_NAMES:
+    if client not in CLIENT_SERVER_NAMES:
         raise ValueError(f"Unknown external MCP client: {client}")
     catalog = load_catalog()
     asyncio.run(serve(catalog, data=data, client=client))

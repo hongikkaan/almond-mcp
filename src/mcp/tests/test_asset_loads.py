@@ -132,10 +132,3 @@ def test_validate_reports_asset_loads():
     assert out["asset_loads"]["applied"] == 1 and out["asset_loads"]["total_kn"] > 2.9
     assert out["results"]["max_deflection_mm"] > base["results"]["max_deflection_mm"]
     assert any("Asset loads" in a for a in out["assumptions"])
-
-
-def test_placements_from_scene_ledger_rows():
-    rows = [{"instance_id": "i1", "asset_id": "gen-desk-1", "min_x": 0, "max_x": 1400, "min_y": 0, "max_y": 700,
-             "min_z": 3100, "max_z": 3850, "scale": 1}]
-    p = al.placements_from_scene(rows)[0]
-    assert p["min"] == [0, 0, 3.1] and p["max"] == [1.4, 0.7, 3.85] and p["source"] == "scene"

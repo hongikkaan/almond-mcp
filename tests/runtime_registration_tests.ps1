@@ -12,8 +12,8 @@ function Initialize-Fixture {
         $bridgeRoot=@{Name='RhinoAlmondBridge';LoadMode=1}
         ($bridgeRoot+'\PlugIn')=@{FileName=(Join-Path $testRepo 'src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp');UnrelatedSetting='preserve'}
         ($bridgeRoot+'\CommandList')=@{Almond='2;Almond';AlmondMCPStart='2;AlmondMCPStart';AlmondMCPStop='2;AlmondMCPStop';AlmondMCPStatus='2;AlmondMCPStatus'}
-        $connectionRoot=@{Name='AlmondCOS';LoadMode=2}
-        ($connectionRoot+'\PlugIn')=@{FileName=(Join-Path $testRepo 'src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp')}
+        $connectionRoot=@{Name='AlmondRhino';LoadMode=2}
+        ($connectionRoot+'\PlugIn')=@{FileName=(Join-Path $testRepo 'src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp')}
         ($connectionRoot+'\CommandList')=@{AlmondCOS='2;AlmondCOS';AlmondCOSDisconnect='2;AlmondCOSDisconnect'}
     }
     $global:RuntimeRegistrationFixture.Exports=0
@@ -78,7 +78,12 @@ Run-Case 'VerifyOnly rejects a correct file path with stale command metadata wit
     Check ($global:RuntimeRegistrationFixture.CommandWrites -eq 0 -and $global:RuntimeRegistrationFixture.Exports -eq 0) 'VerifyOnly mutated registration'
 }
 Run-Case 'Install refreshes commands, removes old names and preserves panel commands' {
+    # Exercise the actual old-to-new plugin migration, including a stale path.
+    $global:RuntimeRegistrationFixture.Registry[$connectionRoot]['Name']='AlmondCOS'
+    $global:RuntimeRegistrationFixture.Registry[$connectionRoot+'\PlugIn']['FileName']=Join-Path $testRepo 'src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp'
     & "$testRepo/src/rhp/tools/install_runtime.ps1" | Out-Null
+    Check ($global:RuntimeRegistrationFixture.Registry[$connectionRoot]['Name'] -ceq 'AlmondRhino') 'Plugin display name was not migrated'
+    Check ($global:RuntimeRegistrationFixture.Registry[$connectionRoot+'\PlugIn']['FileName'] -ceq (Join-Path $testRepo 'src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp')) 'Plugin path was not migrated'
     $commands=$global:RuntimeRegistrationFixture.Registry[$connectionRoot+'\CommandList']
     Check ($commands['almondconnect'] -ceq '2;almondconnect') 'New connect command was not registered'
     Check ($commands['almonddisconnect'] -ceq '2;almonddisconnect') 'New disconnect command was not registered'
@@ -91,6 +96,18 @@ Run-Case 'Install refreshes commands, removes old names and preserves panel comm
     $global:RuntimeRegistrationFixture.Exports=0
     & "$testRepo/src/rhp/tools/install_runtime.ps1" | Out-Null
     Check ($global:RuntimeRegistrationFixture.CommandWrites -eq $writes) 'Repeated installation rewrote command metadata'
+}
+Run-Case 'VerifyOnly rejects a stale plugin name even with current path and commands' {
+    & "$testRepo/src/rhp/tools/install_runtime.ps1" | Out-Null
+    $global:RuntimeRegistrationFixture.Registry[$connectionRoot]['Name']='AlmondCOS'
+    $global:RuntimeRegistrationFixture.Exports=0
+    $rejected=$false
+    try{& "$testRepo/src/rhp/tools/install_runtime.ps1" -VerifyOnly | Out-Null}catch{
+        if($_.Exception.Message -cne 'Runtime registration name differs.'){throw}
+        $rejected=$true
+    }
+    Check $rejected 'Installer accepted the old plugin name'
+    Check ($global:RuntimeRegistrationFixture.Exports -eq 0) 'VerifyOnly changed registration'
 }
 Run-Case 'First installation publishes discovery names even without an existing command cache' {
     $global:RuntimeRegistrationFixture.Registry.Remove($bridgeRoot+'\CommandList')

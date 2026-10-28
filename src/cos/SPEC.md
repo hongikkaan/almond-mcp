@@ -1,6 +1,6 @@
-# 외부 연결기·COS 계약
+# 외부 연결기와 AlmondRhino 계약
 
-이 모듈은 Codex 직접·CoS 경유 연결의 공용 외부 연결기와 기존 Rhino COS 플러그인을 소유한다.
+Codex 직접 연결의 이름은 beyond, CoS 경유 연결의 이름은 CoS다. 이 모듈은 두 경로의 공용 외부 연결기와 AlmondRhino 플러그인을 소유한다.
 [작업 지침](AGENTS.md)과 [공통 경계](../../SPEC.md)를 함께 따른다.
 
 CoS는 `cos_host.py`, Codex·외부 로컬 MCP 클라이언트는 `codex_host.py`를 진입점으로 사용한다.
@@ -16,7 +16,8 @@ Rhino·모델 DB 연결이나 소유권 잠금을 준비하지 않는다. stdio 
 사용 방법과 동시 연결 제한은 [외부 클라이언트 안내](EXTERNAL_CLIENTS.md)에 둔다.
 
 Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS`와
-`AlmondCOSDisconnect` 명령/별칭은 등록하지 않는다. RHP 파일명·GUID·등록 경로는 유지한다.
+`AlmondCOSDisconnect` 명령/별칭은 등록하지 않는다. 플러그인 GUID는 유지하고,
+이전 AlmondCOS의 이름과 파일 경로는 AlmondRhino로 이전한다.
 연결 준비 및 상태 안내는 Codex와 CoS 모두에 적용된다. connect는 discovery host를 재사용하고
 disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해제한다. Rhino 문서는 유지한다.
 
@@ -24,8 +25,9 @@ disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해�
 
 | 위치 | 책임 |
 |---|---|
-| `external_host.py`, `cos_worker.py` | 공용 외부 stdio adapter와 Rhino 연결마다 분리된 worker |
+| `external_host.py`, `external_worker.py` | 공용 외부 stdio adapter와 Rhino 연결마다 분리된 worker |
 | `cos_host.py`, `codex_host.py` | CoS 경유·Codex 직접 연결의 명시적인 진입점과 MCP 서버 식별 |
+| `SERVER-DESCRIPTION.md` | 건축설계 용도·연결 관리 도구 4개·연결 및 해제 방법을 담은 공통 소개 |
 | `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 외부 연결 광고 확인 |
 | `detached_process.py` | 새 프로세스를 suspended 상태로 생성하고 모든 Windows Job 밖임을 확인한 뒤 실행 |
 | `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
@@ -33,14 +35,14 @@ disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해�
 | `binding_watch.py`, `winpipe.py` | 연결 변경 감시와 Windows 제어 채널 |
 | `rhp/` | Rhino 내부 almondconnect·almonddisconnect 명령·host 탐색·문서 binding |
 | `tests/`, `run_tests.ps1` | Python·native relay·host 수명·pipe·stdio 검사 |
-| `build.ps1`, `runtime-manifest.json` | COS RHP 빌드와 소스·실행 파일 검증 기록 |
+| `build.ps1`, `runtime-manifest.json` | AlmondRhino RHP 빌드와 소스·실행 파일 검증 기록 |
 
 ## 의존·연결 계약
 
 Python worker는 MCP runtime의 기존 `main`, binding 검증·구성 훅과 완료 receipt를
-사용한다. 저장소 잠금·native 완료·자산 helper 정책을 COS에 복제하지 않는다.
+사용한다. 저장소 잠금·native 완료·자산 helper 정책을 외부 연결기에 복제하지 않는다.
 RHP는 [공용 Engine](../rhp/Engine/AGENTS.md)을 참조한다. Bridge·Terminal의 구현
-소스를 COS에 링크하지 않는다.
+소스를 AlmondRhino에 링크하지 않는다.
 
 새 클라이언트의 catalog 생성은 MCP server와 `features/*/tools.py`의 `register` 내부 도구 AST에서
 schema만 읽고 DB를 소유하는 MCP server를 import하지 않는다. 같은 이름의 중복
@@ -94,17 +96,22 @@ ID로 호출하면 이미 시작한 프로세스만 재조회한다. connect가 
 등록은 하지 않는다. 기존 command는 `../engine/.venv/Scripts/python.exe`와 이 폴더의
 `cos_host.py`를 사용하므로 소스 재편 뒤에도 그대로 유지된다.
 
-`build.ps1`은 `rhp/AlmondCOS.csproj`를 staging에서 빌드한 뒤 기존 등록 위치인
-`../rhp/AlmondCOS/plugin-runtime`에 배치한다. 로드된 파일을 덮어쓰지 않으며
+`build.ps1`은 `rhp/AlmondRhino.csproj`를 staging에서 빌드한 뒤 출력 위치인
+`../rhp/AlmondRhino/plugin-runtime`에 배치한다. 로드된 파일을 덮어쓰지 않으며
 빌드가 Rhino 등록·실제 로드를 의미하지 않는다. plugin GUID·assembly identity는 유지한다.
 
-COS 전용 C# 변경은 COS manifest만 갱신한다. Engine을 변경하면 두 소비자 RHP를
+AlmondRhino 전용 C# 변경은 이 모듈의 runtime-manifest.json만 갱신한다. Engine을 변경하면 두 소비자 RHP를
 빌드하고 루트 통합 검사로 DLL 일치까지 확인한다. MCP 공개 도구 변경에 따른
 자동 schema 추출과 실제 worker의 일치도 통합 검사 대상이다.
 
 ## 공통 모델링 안내
 
-외부 host의 초기화는 MCP package의 짧은 시작 안내를 제공한다. `project_info`도 원본 도구
+외부 host는 `SERVER-DESCRIPTION.md`를 초기화 응답의 `serverInfo.description`과
+`instructions` 앞부분에 제공한다. 소개 템플릿의 `{server_name}`은 Codex 경로에서 `beyond`, CoS 경로에서 `CoS`로 치환한다.
+CoS 앱 등록용 생성 설정 이름은 `CoS`다. 등록된 `src/cos` 진입점과 플러그인 GUID는 유지한다.
+ChatGPT의 `Chat On Steroids Plugins` 공통 소개는 클라이언트가 관리하므로, 서버 소개를
+수정한 것만으로 해당 화면에 표시되었다고 판단하지 않는다.
+이어서 MCP package의 시작 안내를 제공한다. `project_info`도 원본 도구
 설명을 유지하므로 document의 live 조회와 선택 instructions 항목이 정확히 안내된다.
 `get_modeling_guide`는 기존 worker 도구 전달 경로를 사용한다. 연결 후 connection_id가
 필요하며 control·binding·receipt 예외를 추가하지 않는다. 텍스트·선택 이미지 content를

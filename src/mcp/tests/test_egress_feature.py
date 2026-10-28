@@ -10,8 +10,8 @@ from fastmcp import FastMCP
 from almond_mcp.features.egress.tools import register
 
 
-MANIFEST = (Path(__file__).resolve().parents[3] / "asset" / "constructions"
-            / "Constructionfiles" / "manifest.json")
+MANIFEST = (Path(__file__).resolve().parents[3] / "src" / "mcp" / "profiles"
+            / "construction_system" / "manifest.json")
 
 
 @pytest.fixture

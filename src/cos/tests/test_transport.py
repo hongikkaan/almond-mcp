@@ -20,7 +20,7 @@ TESTS = Path(__file__).resolve().parent
 class PipeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.process = subprocess.Popen(
-            [os.environ["ALMONDCOS_TEST_DOTNET"],
+            [os.environ["ALMONDRHINO_TEST_DOTNET"],
              str(TESTS / "bin/Release/net8.0-windows/PipeFixture.dll")],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", creationflags=subprocess.CREATE_NO_WINDOW,
@@ -133,12 +133,16 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(reader, writer, read_timeout_seconds=15.0) as session:
                 initialization = await session.initialize()
                 instructions = initialization.instructions or ""
+                from external_host import server_description
                 from almond_mcp.modeling_guidance import startup_instructions
-                self.assertEqual(instructions, startup_instructions())
+                description = server_description("cos")
+                self.assertEqual(initialization.server_info.name, "CoS")
+                self.assertEqual(initialization.server_info.description, description)
+                self.assertEqual(instructions, description + "\n\n" + startup_instructions())
                 self.assertIn('get_modeling_guide', instructions)
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 84)
-                self.assertEqual(len({t.name for t in listing.tools}), 84)
+                self.assertEqual(len(listing.tools), 79)
+                self.assertEqual(len({t.name for t in listing.tools}), 79)
                 original = (await asyncio.to_thread(load_catalog))["tools"]
                 public = {t.name: t for t in listing.tools}
                 self.assertTrue({'save_rhino_document', 'list_design_scenes'} <= public.keys())
