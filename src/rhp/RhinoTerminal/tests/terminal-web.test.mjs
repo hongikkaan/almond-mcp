@@ -47,3 +47,12 @@ test('shortcuts wait until the starting shell can accept input', () => {
   assert.equal(elements.almond.disabled, true);
   assert.equal(elements.resume.disabled, true);
 });
+test('Rhino PID remains visible beside controls across shell and Almond status changes', () => {
+  const {elements, window} = load();
+  assert.ok(html.indexOf('id="rhino-pid"') < html.indexOf('</header>'), 'Rhino identity is outside the persistent controls');
+  for (const status of ['PowerShell · PID 123', 'Almond connected', '종료됨']) {
+    window.RhinoTerminal.meta({status,cwd:'C:\\fixture',running:status!=='종료됨',ready:true,rhino_pid:4312});
+    assert.equal(elements['rhino-pid'].textContent, 'Rhino PID 4312');
+    assert.equal(elements.status.textContent, status);
+  }
+});

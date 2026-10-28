@@ -141,8 +141,8 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(instructions, description + "\n\n" + startup_instructions())
                 self.assertIn('get_modeling_guide', instructions)
                 listing = await session.list_tools()
-                self.assertEqual(len(listing.tools), 79)
-                self.assertEqual(len({t.name for t in listing.tools}), 79)
+                self.assertEqual(len(listing.tools), 81)
+                self.assertEqual(len({t.name for t in listing.tools}), 81)
                 original = (await asyncio.to_thread(load_catalog))["tools"]
                 public = {t.name: t for t in listing.tools}
                 self.assertTrue({'save_rhino_document', 'list_design_scenes'} <= public.keys())
@@ -151,7 +151,15 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("operation", public["setup_modeling"].input_schema["required"])
                 for tool in original:
                     name = tool["name"]
-                    self.assertIn("connection_id", public[name].input_schema["required"])
+                    schema = public[name].input_schema
+                    if name == "get_rhino_execution":
+                        self.assertEqual(schema["anyOf"], [
+                            {"required": ["connection_id"]},
+                            {"required": ["request_id"], "properties": {
+                                "request_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}},
+                        ])
+                    else:
+                        self.assertIn("connection_id", schema["required"])
                 connection_info = await session.call_tool("list_connections", {})
                 guidance = json.loads(connection_info.content[0].text)["instructions"]
                 self.assertIn("Use the explicit connection_id from connect for every call.", guidance)

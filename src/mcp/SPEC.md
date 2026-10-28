@@ -67,7 +67,7 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 
 ### 공개 도구 위치
 
-아래 76개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`을 포함한 COS 입력 catalog는 80개다. 외부 host는 연결관리 도구 4개를 추가해 실제 클라이언트에 84개를 노출한다.
+아래 72개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`, `get_rhino_execution`을 포함한 입력 catalog는 77개다. 외부 host는 연결관리 도구 4개를 추가해 실제 클라이언트에 81개를 노출한다. 수치는 현재 소스에서 생성한 catalog를 기준으로 한다.
 
 | 기능 | 공개 함수 |
 |---|---|
@@ -78,7 +78,7 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 | 설계 참고자료 | `get_modeling_guide`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
 | 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `save_rhino_document`, `setup_modeling`, `list_materials`, `assign_material` |
 | Grasshopper | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` |
-| 자산 | `list_drawing_assets`, `search_drawing_assets`, `get_drawing_asset`, `register_drawing_asset`, `get_asset_drawing`, `generate_asset_drawing_views`, `audit_asset_drawing`, `place_drawing_asset`, `search_asset_repository` |
+| 자산 | `list_drawing_assets`, `search_drawing_assets`, `get_drawing_asset`, `prepare_drawing_asset`, `register_drawing_asset`, `get_asset_drawing`, `generate_asset_drawing_views`, `audit_asset_drawing`, `place_drawing_asset`, `search_asset_repository` |
 | 다이어그램 | `list_diagram_assets`, `search_diagram_assets`, `get_diagram_asset`, `place_diagram_asset` |
 | 도면·Sheet | `list_drawing_recipes`, `get_drawing_recipe`, `apply_drawing_style`, `import_drawing_hatch_patterns` |
 | 구조검토 | `validate_structure`, `list_design_codes`, `visualize_structure`, `export_structural_report` |

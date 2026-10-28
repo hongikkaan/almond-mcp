@@ -77,7 +77,7 @@ def test_given_bad_selection_options_when_queried_then_never_send_native(context
 def test_given_capture_when_options_omitted_then_transient_labels_depth_one(context):
     result = context.get_rhino_viewport_image()
     assert not result.is_error
-    assert context.requests == [{"type": "get_rhino_viewport_image", "view": "", "scale_percent": 50,
+    assert context.requests == [{"type": "get_rhino_viewport_image", "view": "", "scale_percent": 75,
                                  "display_mode": "", "labels": True, "depth": 1,
                                  "target_kind": "view", "target_id": ""}]
 

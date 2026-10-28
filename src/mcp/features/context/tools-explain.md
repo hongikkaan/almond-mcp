@@ -81,7 +81,7 @@ Shaded by default; they never replace the visible viewport. Layouts capture the
 paper area, including its details, not the surrounding workspace. A current Layout
 also captures its paper, even when a detail is active.
 
-scale_percent=100 means the original pixel dimensions; 50 (default) halves both
+scale_percent=100 means the original pixel dimensions; 75 (default) retains 75% of both
 dimensions and uses roughly one quarter of the pixels. Named Views use their saved
 pixel size (current viewport size if unavailable); Layout 100% means paper at 96 dpi.
 No temporary image file is created. Capture does not change camera, selection or
@@ -90,7 +90,7 @@ lower scale_percent explicitly instead of receiving a silently resized image.
 
 Args:
     view: Empty for current view, "a" for the grouped list, or a listed GUID.
-    scale_percent: Integer from 1 to 100; default 50. Applies to every capture type.
+    scale_percent: Integer from 1 to 100; default 75. Use 100 for visual drawing review. Controls pixels, not a Layout Detail's drawing scale.
     include_usage: False returns only an image. True also returns dimensions and an
         illustrative token estimate (32px patches x 1.2, without provider resizing).
         Actual usage depends on the client's model and detail setting, which MCP

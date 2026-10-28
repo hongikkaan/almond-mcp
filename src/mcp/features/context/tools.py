@@ -72,7 +72,7 @@ def register(mcp, context):
             if include_image:
                 images = []
                 if captured is not None and result.get("status") == "success":
-                    capture = _capture_result({"status": "success", "image": captured}, "", 50, False)
+                    capture = _capture_result({"status": "success", "image": captured}, "", 75, False)
                     if capture.is_error:
                         result["image_error"] = capture.structured_content
                     else:
@@ -153,7 +153,7 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_rhino_viewport_image')
-    def get_rhino_viewport_image(view: str = "", scale_percent: StrictInt = 50,
+    def get_rhino_viewport_image(view: str = "", scale_percent: StrictInt = 75,
                                  include_usage: StrictBool = False, display_mode: str = "",
                                  labels: StrictBool = True, depth: StrictInt = 1,
                                  target_kind: str = "view", target_id: str = "") -> ToolResult:

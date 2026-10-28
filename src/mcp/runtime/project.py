@@ -37,9 +37,23 @@ async def serial_gate(lock: asyncio.Lock, timeout: float = LOCK_WAIT_SECONDS):
         lock.release()
 
 
-def project_paths(model: str | Path, *, create: bool = False) -> dict[str, str]:
-    path = Path(model).expanduser().resolve(strict=True)
-    if not path.is_file() or path.suffix.lower() != ".3dm":
+def project_paths(model: str | Path, *, create: bool = False, recovery: bool = False) -> dict[str, str]:
+    """Resolve storage; recovery may read an old locator but can never create it."""
+    if recovery and create:
+        raise ValueError("Execution recovery is read only; create cannot be enabled.")
+    candidate = Path(model).expanduser()
+    if recovery:
+        if not candidate.is_absolute():
+            raise ValueError("Execution recovery requires the original absolute model path.")
+        if sys.platform == "win32" and (str(candidate).startswith("\\\\")
+                or ctypes.windll.kernel32.GetDriveTypeW(str(candidate.anchor)) == 4):
+            raise ValueError(read_instruction(__file__, 'response-111'))
+        for part in (candidate, *candidate.parents):
+            if part.is_symlink() or (hasattr(part, "is_junction") and part.is_junction()):
+                raise ValueError("Execution recovery paths must not contain filesystem links.")
+    path = candidate.resolve(strict=not recovery)
+    if (path.suffix.lower() != ".3dm" or (path.exists() and not path.is_file())
+            or (not recovery and not path.is_file())):
         raise ValueError("Select an existing saved .3dm file.")
     if path.stem.endswith(('.', ' ')):
         raise ValueError('The model name before .3dm must not end with a dot or a space.')
@@ -61,13 +75,14 @@ def project_paths(model: str | Path, *, create: bool = False) -> dict[str, str]:
                 state_db=str(storage / "scene.sqlite3"), temp=str(storage / "tmp"))
 
 
-def connection_paths(model: str | Path, slot: str, token: str, *, create: bool = False) -> dict[str, str]:
+def connection_paths(model: str | Path, slot: str, token: str, *, create: bool = False,
+                     recovery: bool = False) -> dict[str, str]:
     """Return the one shared DB/tmp and metadata owned by a single generation."""
     if not isinstance(slot, str) or len(slot) != 1 or slot not in SLOTS:
         raise ValueError("Invalid Almond slot.")
     if not isinstance(token, str) or not re.fullmatch(r"[0-9a-f]{32}", token):
         raise ValueError("A connection needs a fresh 32-character lowercase UUID token.")
-    locations = project_paths(model, create=create)
+    locations = project_paths(model, create=create, recovery=recovery)
     storage = Path(locations["storage"])
     session = storage / ".sessions" / token
     calls = Path(locations["temp"]) / "python" / token

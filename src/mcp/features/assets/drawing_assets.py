@@ -15,7 +15,7 @@ from uuid import uuid4
 
 import numpy as np
 
-from almond_mcp.features.assets import drafting
+from almond_mcp.features.assets import drafting, preparation
 
 
 @contextmanager
@@ -88,7 +88,8 @@ def _native_triangles(source: Path, output: Path, extract):
 
 def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: str,
                           category: str, tags: list[str] | None, description: str,
-                          source_url: str, replace_existing: bool, extract) -> dict:
+                          source_url: str, replace_existing: bool, extract,
+                          preparation_job: str = "") -> dict:
     """Stage all files, then atomically publish one manifest revision under an OS lock."""
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", asset_id) or asset_id in {".", ".."}:
         raise ValueError("asset_id must be a stable 1-100 character identifier")
@@ -129,11 +130,22 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
         try:
             model = stage / "model.3dm"
             model.write_bytes(source_data)
+            evidence = preparation.copy_registration_evidence(preparation_job, source, stage / "preparation") if preparation_job else None
+            if evidence and (evidence["reviewed_asset_id"] != asset_id or evidence["reviewed_name"] != name):
+                raise ValueError("Registration identity must match the reviewed preparation")
+            if evidence and preparation.sha(model) != preparation.sha(source):
+                raise ValueError("Prepared source changed before publication")
+            source_record = {"evidence_status": "prepared_3dm", "original_path": str(source.resolve()),
+                             "visual_review": "not_verified_by_registration"}
+            if evidence:
+                source_record.update(evidence_status="reviewed_preparation", visual_review=evidence["review"],
+                    original_path=evidence["original_path"], original_sha256=evidence["original_sha256"],
+                    preparation_record="../preparation/job.json", command=evidence["command"],
+                    command_applied=evidence["command_applied"])
             triangles, source_hash, bounds = _native_triangles(model, stage / "triangles.json", extract)
             package = drafting.create_package(model, stage / "drawing", asset_id=asset_id, name=name,
                 units="mm", up_axis="z", triangles_mm=triangles,
-                source_record={"evidence_status": "prepared_3dm", "original_path": str(source.resolve()),
-                               "visual_review": "not_verified_by_registration"})
+                source_record=source_record)
             check = drafting.audit_package(stage / "drawing", model)
             if check["status"] != "success":
                 raise ValueError(f"Derived drawing package did not verify: {check}")
@@ -147,10 +159,17 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
                 match_status="measured_geometry", schema="almond-drawing-asset/v1",
                 source={"path": str(source.resolve()), "sha256": source_hash,
                         "registered_at": datetime.now(timezone.utc).isoformat(),
-                        "visual_review": "not_verified_by_registration"},
+                        "visual_review": source_record["visual_review"]},
                 spatial={"bounds_source": "measured_native_mesh", "bounds_mm": bounds,
                          "local_aabb": {"min": bounds[:3], "max": bounds[3:]},
                          "units": "mm", "up_axis": "z", "origin": "bottom_center"})
+            if evidence:
+                record["preparation"] = {**evidence, "directory": prefix + "/preparation"}
+                record["source"].update(original_path=evidence["original_path"],
+                    original_file=prefix + "/preparation/" + evidence["original_file"],
+                    original_sha256=evidence["original_sha256"])
+            else:
+                record.pop("preparation", None)
             record["tags"] = list(dict.fromkeys(t.strip() for t in tags)) if tags is not None else record.get("tags", [])
             if source_url:
                 record["warehouse_url"] = source_url

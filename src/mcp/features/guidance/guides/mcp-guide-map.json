@@ -227,6 +227,19 @@
       "images": []
     },
     {
+      "id": "rhino-scripting",
+      "summary": "공식 Rhino CLI의 Python·명령 실행, 결과 선택과 실행 상태 회수",
+      "title": "Rhino 코드·명령 실행",
+      "when_to_read": "임의 계산·수정 코드를 작성하거나 실행 결과를 회수할 때",
+      "sections": [
+        {"path": "references/rhino-scripting.md", "heading": "# Rhino code and command execution"}
+      ],
+      "related_tools": ["execute_rhino_script", "get_rhino_execution", "get_rhino_probe", "project_info"],
+      "hint_tools": [],
+      "trigger": "",
+      "images": []
+    },
+    {
       "id": "model-review",
       "summary": "변경 범위의 사용 관계·구축·관입 검수와 완료 판단",
       "title": "모델링 검수",
@@ -356,6 +369,7 @@
         "search_diagram_assets",
         "get_diagram_asset",
         "get_retrieval_status",
+        "prepare_drawing_asset",
         "register_drawing_asset",
         "place_drawing_asset",
         "place_diagram_asset",

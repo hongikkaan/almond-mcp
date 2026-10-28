@@ -71,8 +71,8 @@ normal로 통과하지 않는다. native 명령·Undo/Redo 진행 중에도 전�
 ```
 
 기본 반환은 **PNG MCP image content 한 개**이며 경로·문서·GUID metadata를 반복하지 않는다.
-`scale_percent`는 1–100 정수, 기본 50이다. 100은 원본 픽셀 크기, 50은 가로·세로
-각각 절반이다. Named View는 저장된 화면 크기(없으면 현재 뷰 크기), Layout은
+`scale_percent`는 1–100 정수, 기본 75다. 100은 원본 픽셀 크기이고 도면 검수에 사용한다.
+75는 가로·세로 각각 75%다. Named View는 저장된 화면 크기(없으면 현재 뷰 크기), Layout은
 용지를 96 dpi로 표현한 크기를 100%로 삼는다. Layout은 주변 작업창을 빼고 용지와
 그 안의 Detail을 캡처하며, 현재 Layout에서 Detail이 활성화돼 있어도 용지가 대상이다.
 
@@ -112,7 +112,7 @@ beyond·CoS에서는 동일하게 `connection_id`를 사용한다. 활성 문서
 거절하며 새 문서를 열거나 파일에 결과를 기록하지 않는다.
 
 Bridge UI thread의 고정 handler가 스킬의 C# helper를 직접 호출한다.
-일반 스크립트 실행기·Roslyn·BeginUndoRecord·EnsureAiaLayers를 거치지 않으며
+일반 스크립트 실행기·Roslyn·BeginUndoRecord를 거치지 않으며
 기하·속성·레이어·선택·뷰·modified·Undo 상태를 보존한다. 응답의 `status`, `probe`,
 `document` identity·units·tolerance와 `data`를 함께 읽는다. 요청과 응답은 각각
 UTF-8 JSON 262,144 bytes 이내이며 한도 초과는 명시적 오류다. helper의
@@ -130,8 +130,10 @@ Python은 기존 문서 조회의 `capabilities.fixed_probes`를 먼저 확인�
 
 ## C#에서 계산값 반환
 
-`execute_rhino_script`의 입력은 기존 `script` 하나다. `public static Run(RhinoDoc doc)`
-진입점에서 JSON으로 표현 가능한 값을 반환하면 응답의 `result`에 들어간다.
+`execute_rhino_script(script, language="csharp", timeout_seconds=60)`의 기본 C# 경로는
+`public static Run(RhinoDoc doc)` 진입점을 유지한다. JSON으로 표현 가능한 값을 반환하면
+응답의 `result`에 들어간다. 아래 반환값 규칙은 이 기존 C# 경로에 해당한다.
+공식 ScriptEditor 언어와 보존 결과 조회는 [Rhino 스크립트 실행 지침](../features/guidance/guides/references/rhino-scripting.md)을 따른다.
 
 ```csharp
 public class Script
@@ -166,8 +168,8 @@ property getter, lazy enumerable, 사용자 JSON converter는 자동 실행하�
 
 `List<Guid>` 반환은 기존 `guids` 및 자동 치수 동작을 유지하며 `result`를 추가하지
 않는다. `void`와 `null`도 새 결과 필드를 만들지 않는다. `guids`는 스크립트가 선언한
-ID이며 전체 변경 내역을 보장하지 않는다. 일반 실행기는 기존 자동 레이어와 Undo
-동작을 유지하므로, 계산값만 돌려주는 코드여도 read-only 도구로 간주하지 않는다.
+ID이며 전체 변경 내역을 보장하지 않는다. 일반 실행기는 Undo 범위 안에서 임의 코드를
+실행하므로, 계산값만 돌려주는 코드여도 read-only 도구로 간주하지 않는다.
 
 ## 수정의 판정과 검증
 

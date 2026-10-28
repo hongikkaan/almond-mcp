@@ -101,6 +101,49 @@ class RequestTests(unittest.TestCase):
     def batch(self):
         return RequestBatch(uuid4().hex, uuid4().hex)
 
+    def test_external_completion_is_dynamic_without_a_native_acknowledgement(self):
+        batch = self.batch()
+        value = dict(request_id=uuid4().hex, pending=True, uncertain=True, completed=False)
+        handle = SimpleNamespace(request_id=value["request_id"], snapshot=lambda: dict(value))
+        batch.register_external(handle)
+        state = batch.finish()
+        self.assertTrue(state["uncertain"])
+        self.assertFalse(state["native_uncertain"])
+        self.assertEqual(state["native_sequence"], 0)
+        self.assertEqual(state["requests"], [])
+        value.update(pending=False, uncertain=False, completed=True)
+        self.assertFalse(batch.snapshot()["uncertain"])
+        self.assertTrue(batch.snapshot()["retain_files"])
+        with self.assertRaisesRegex(RuntimeError, "ended"):
+            batch.register_external(handle)
+
+    def test_external_recovery_cannot_clear_native_acknowledgement_loss(self):
+        batch = self.batch()
+        handle = SimpleNamespace(snapshot=lambda: dict(pending=False, uncertain=False, completed=True))
+        batch.register_external(handle)
+        with self.assertRaises(ConnectionError):
+            batch.call(lambda *_: (_ for _ in ()).throw(ConnectionError("lost")), payload())
+        state = batch.finish()
+        self.assertTrue(state["native_uncertain"])
+        self.assertTrue(state["uncertain"])
+        self.assertFalse(state["external_uncertain"])
+
+    def test_pending_external_execution_blocks_followup_native_and_external_dispatch(self):
+        with NativeFixture() as native:
+            batch = self.batch()
+            value = dict(pending=True, uncertain=True, completed=False)
+            handle = SimpleNamespace(snapshot=lambda: dict(value))
+            batch.register_external(handle)
+            with self.assertRaisesRegex(RuntimeError, "RhinoCode.*not complete"):
+                batch.call(original_sender(native.port), payload("too early"))
+            with self.assertRaisesRegex(RuntimeError, "RhinoCode.*not complete"):
+                batch.register_external(handle)
+            self.assertEqual(native.calls, [])
+            self.assertFalse(batch.snapshot()["native_uncertain"])
+            value.update(pending=False, uncertain=False, completed=True)
+            batch.call(original_sender(native.port), payload("after completion"))
+            self.assertEqual(len(native.calls), 1)
+
     def test_original_framing_and_two_distinct_owned_requests(self):
         with NativeFixture() as native:
             batch, sender = self.batch(), original_sender(native.port)

@@ -31,7 +31,7 @@ def call(tool, **arguments):
     return getattr(tool, "fn", tool)(**arguments)
 
 
-def capture_response(scale_percent=50):
+def capture_response(scale_percent=75):
     output = io.BytesIO()
     size = (max(1, 160 * scale_percent // 100), max(1, 80 * scale_percent // 100))
     Image.new("RGB", size, (40, 80, 120)).save(output, format="PNG")
@@ -119,7 +119,7 @@ def test_real_mcp_image_and_metadata_survive_protocol(server, monkeypatch):
             assert result.content[0].mime_type == "image/png"
             assert result.structured_content is None
     asyncio.run(verify())
-    assert requests == [{"type": "get_rhino_viewport_image", "view": "", "scale_percent": 50,
+    assert requests == [{"type": "get_rhino_viewport_image", "view": "", "scale_percent": 75,
                          "display_mode": "", "labels": True, "depth": 1, "target_kind": "view", "target_id": ""}]
 
 

@@ -29,12 +29,27 @@ field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; d
 include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_drawing_asset -->
 
+## prepare_drawing_asset
+
+<!-- instruction:prepare_drawing_asset -->
+Currently disabled: every call returns acceptance_pending before any file or Rhino operation. Actual Rhino BDD verification of the complete asset preparation and linked 3D/2D result is required before enabling this checkpoint. The following describes the planned stage contract, not an accepted workflow.
+
+Prepare one imported or Rhino-created asset through inspect, normalize, merge, verify, then registration. Files and durable reports stay in the current working Plan's artifact directory; source files are copied and hashed. Managed inputs use project-relative paths.
+
+inspect requires source_file; unitless OBJ/STL/PLY/OFF also require input_units (mm/cm/m/in/ft). It expands nested blocks in a headless document, preserves part provenance, and returns measured geometry plus before images. Limit: 100 MB input, 10,000 expanded objects and 32 block levels.
+Read the images before normalize. review requires vision_reviewed=true, inspected_sha256 from review_targets, name, asset_id, filename (clean basename without extension), orientation_reason, explicit rotation_degrees_xyz, and optional remove=[{object_id,reason}]. Normalization applies only those decisions, uses millimeters/Z up/bottom-center origin, assigns ASSETS::drawing::Fur and names, and reopens the result for after images.
+Read the after images before merge. review requires vision_reviewed=true and exact normalized_sha256. Merge invokes the actual _MergeAllCoplanarFaces command through the bound Rhino's ScriptRunner, exports only the imported geometry, removes temporary objects/layers/materials and checks original geometry/attributes/selection. This stage requires StartScriptServer and a saved millimeter model; it can mark the live document modified and is covered by runtime Undo. It never saves the user's model.
+verify reopens the final 3DM and returns final images. A second verify with review={vision_reviewed:true,final_sha256:...} records actual final-image review and permits register_drawing_asset(source_3dm=...,preparation_job=job_dir,...).
+status with job_dir reads reports without repeating native work. field_groups adds parts, previews, provenance or all; default returns summary/review hashes/previews. Parts use offset/limit (1-200), and include_ids=true exposes removal handles. Use status for pagination. Failed or unconfirmed stages are not automatically replayed; inspect their execution receipt and reconcile runtime state first.
+Image review is a caller attestation tied to each revision, never automatic recognition. Grayscale previews prove shape only and sample dense meshes; material/PBR/texture portability and actual front require separate visual judgment.
+<!-- /instruction:prepare_drawing_asset -->
+
 ## register_drawing_asset
 
 <!-- instruction:register_drawing_asset -->
 Register a reviewed 3DM and automatically derive linked plan/front/right drawings.
 
-Finish cleanup/orientation review with the asset-converter workflow first.
+preparation_job is currently disabled and returns acceptance_pending before any file or Rhino operation. Its implementation is retained pending actual Rhino BDD verification. Continue with an independently reviewed prepared 3DM and omit preparation_job; this existing registration path records visual review as unverified. The planned preparation integration will validate final/review/command hashes and archive the original source, reviews, stage scripts, reports and previews in the same atomic version, with name and asset_id matching the review.
 Supply an absolute prepared 3DM path: millimeters, Z up, bottom-center at origin.
 Native geometry checks support meshes, Breps, extrusions, surfaces, SubD and nested blocks, up to 100 MB/250k triangles. Unsupported objects reject the whole asset.
 Copies the source, measures dimensions and writes DXF at full-size mm, SVG at 1:50/1:100 and A3 sheets where they fit. These are mesh silhouettes, not hidden lines or construction details; visual classification/front are not verified.

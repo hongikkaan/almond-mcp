@@ -177,7 +177,7 @@ Almond Instance와 Room은 기존 자산 배치 검사에 남아 있는 기능�
 | `get_rhino_context`  | 필요한 `sections`: document/selection/viewport/editor/display_modes; 선택적 `selection_limit`, `recursive=false`, `depth=1`, `include_image=false` | 선택·편집 모드/대상·카메라·설치 mode를 관찰하고 필요 시 같은 호출의 PNG 수신. |
 | `get_selection_references` | 선택적 `selection_limit`, `limit`, `field_groups`, `include_ids` | 선택 객체에 연결된 ontological_component·Task·Step 역조회. |
 | `get_rhino_probe` | 아래의 `probe`와 `options` | 형상·블록을 읽기 전용으로 관찰·측정.  |
-| `get_rhino_viewport_image` | 현재 화면은 생략, 목록은 `view="a"`, 지정 뷰는 `view=GUID`; 선택적 `display_mode`, `labels=true`, `depth=1`, `scale_percent=50`, `target_kind`, `target_id` | 뷰 목록 또는 선택한 시점·group·block의 PNG 캡처. |
+| `get_rhino_viewport_image` | 현재 화면은 생략, 목록은 `view="a"`, 지정 뷰는 `view=GUID`; 선택적 `display_mode`, `labels=true`, `depth=1`, `scale_percent=75`, `target_kind`, `target_id` | 뷰 목록 또는 선택한 시점·group·block의 PNG 캡처. 도면 검수는 100%. |
 | `focus_components`| `component_ids` | 해당 ontological_component 선택·격리·확대. 화면 상태가 바뀐다. |
 
 document/selection/viewport 조회에는 compact editor mode·target·stable도 포함된다. `sections=["editor"]`는 provider evidence와 경고를 더 읽고, 모드·대상 unknown은 미확인으로 남긴다. 선택은 기본 nonrecursive이며 필요할 때만 recursive와 depth(1–8)를 늘린다. `include_image=true`는 같은 native 호출의 JSON text 다음에 현재 PNG를 반환하고, 실패한 이미지는 image_error로 남겨 가능한 context를 보존한다.
@@ -236,12 +236,14 @@ ontological_component마다 별도 레이어를 만들지 않는다. 의미 등�
 
 | 도구 | 입력 | 할 수 있는 일 |
 | ------- | ------- | ----- |
-| `execute_rhino_script`| `script` | Rhino 형상·속성을 편집하는 C# 실행. 조회는 앞의 전용 도구를 사용. |
+| `execute_rhino_script`| `script`, 선택적 `language`, `timeout_seconds` | 검증된 언어로 Rhino 형상·속성을 편집하거나 설계에 필요한 측정값을 한 번에 계산. 기본 C#은 기존 Run 계약이며 `language="python"`은 공식 Python 3 실행. |
 | `get_typology_narrative` | 검색어, 선택적 construction_system·structure_type | 유형·설계 근거의 서술 자료 조회. |
 | `search_detail_sources`  | `query` | 구축 상세의 참고 출처 검색. |
 | `get_construction_guidance` | 검색어, 선택적 category·material·structure_type·span_m | 구축 시스템·요소·권장 재료와 예비 설계 지침 조회. |
 | `get_modeling_policy` | 없음 | 현재 재료·레이어·메타데이터 규칙 조회. |
 | `assign_material`  | 객체 `guids`, `material_id`, 선택적 floor·구축 참조·적용 플래그 | 기존 객체에 재료·선택한 메타데이터 적용. 객체 레이어는 유지. |
+
+한 설계 판단에 함께 필요한 면적·유효 폭·부재 간격은 `execute_rhino_script(..., language="python")` 한 번에서 계산할 수 있다. 연결 문서는 `doc`로 사용하고 `result={"areas_m2": ..., "clearances_mm": ...}`처럼 질문별 수치·단위·대상만 묶어 반환한다. 이어서 필요한 상세는 같은 `request_id`의 `get_rhino_execution(result_fields=["clearances_mm"], include_ids=False)`로 보존된 결과에서 읽는다. 많은 행은 offset/limit으로 이어 읽으며 전체 객체 속성을 반복 출력하지 않는다. 정형 단면·교차·블록 관찰에는 해당 fixed probe를 선택한다.
 
 ### 모델링 검수
 

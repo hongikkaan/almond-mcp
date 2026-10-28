@@ -122,3 +122,49 @@ def test_executor_preserves_errors_without_retry(feature, exception, message):
     feature._send_and_receive = send
     assert call(feature.execute_rhino_script, script="test") == {"status": "error", "message": message}
     assert len(requests) == 1
+
+
+def test_official_execution_is_bound_and_never_falls_back_to_legacy(feature):
+    requests = []
+    feature._execute_rhinocode = lambda source, language, timeout: requests.append(
+        (source, language, timeout)) or {"status": "running", "request_id": "owned-request"}
+    result = call(feature.execute_rhino_script, script="result = 42", language="python", timeout_seconds=5)
+    assert result == {"status": "running", "request_id": "owned-request"}
+    assert requests == [("result = 42", "python", 5)]
+
+
+def test_missing_official_runtime_is_not_started(feature):
+    result = call(feature.execute_rhino_script, script="result = 42", language="python")
+    assert result["error_code"] == "rhinocode_unavailable"
+    assert result["mutation_state"] == "not_started"
+
+
+def test_official_failure_is_not_replayed(feature):
+    requests = []
+    def execute(*args):
+        requests.append(args)
+        raise RuntimeError("receipt unavailable after dispatch")
+    feature._execute_rhinocode = execute
+    with pytest.raises(RuntimeError, match="receipt unavailable"):
+        call(feature.execute_rhino_script, script="result = 42", language="python")
+    assert len(requests) == 1
+
+
+@pytest.mark.parametrize("arguments", [
+    {"script": " "}, {"script": "result = 1", "language": "vbscript"},
+    {"script": "result = 1", "language": []},
+    {"script": "result = 1", "timeout_seconds": True},
+    {"script": "result = 1", "timeout_seconds": 601},
+])
+def test_execution_validation_precedes_any_dispatch(feature, arguments):
+    feature._execute_rhinocode = lambda *args: pytest.fail("Unexpected official execution")
+    assert call(feature.execute_rhino_script, **arguments)["error_code"] == "invalid_arguments"
+
+
+def test_script_timeout_schema_does_not_coerce_boolean(feature):
+    async def verify():
+        async with Client(feature.mcp) as client:
+            result = await client.call_tool("execute_rhino_script", {
+                "script": "result = 1", "language": "python", "timeout_seconds": True}, raise_on_error=False)
+            assert result.is_error
+    asyncio.run(verify())

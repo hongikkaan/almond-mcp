@@ -3,6 +3,7 @@ using Rhino.Commands;
 using Rhino.Input.Custom;
 using Rhino.UI;
 using RhinoTerminal;
+using System.Text.Json;
 
 static void Check(bool value, string message)
 {
@@ -15,8 +16,10 @@ static Result Run(string option)
 }
 static WebView View(TerminalPanel panel) => (WebView)panel.Content!;
 var failures = 0;
+var total = 0;
 void Test(string name, Action action)
 {
+    total++;
     try { action(); Console.WriteLine("PASS: " + name); }
     catch (Exception ex) { failures++; Console.WriteLine("FAIL: " + name + " — " + ex.Message); }
     finally
@@ -112,5 +115,28 @@ Test("canceling the command has no lifecycle or panel effect", () =>
     Check(Run("cancel") == Result.Cancel, "Canceled command did not return Cancel.");
     Check(Panels.OpenCalls == 0 && TerminalSession.Created.Count == 0, "Canceled command changed state.");
 });
-Console.WriteLine($"Terminal control contracts: {7 - failures}/7 passed.");
+Test("panel reports the Rhino PID independently of shell and Almond status", () =>
+{
+    using var panel = new TerminalPanel();
+    var web = View(panel);
+    web.Receive("{\"type\":\"ready\"}");
+    void CheckPid(string expectedStatus = "")
+    {
+        UITimer.TickAll();
+        const string prefix = "window.RhinoTerminal.meta(";
+        var script = web.Scripts.Last(value => value.StartsWith(prefix));
+        using var json = JsonDocument.Parse(script.Substring(prefix.Length, script.Length - prefix.Length - 1));
+        Check(json.RootElement.GetProperty("rhino_pid").GetInt32() == Environment.ProcessId,
+            "The panel omitted its Rhino process identity or substituted the child shell PID.");
+        if (expectedStatus != "")
+            Check(json.RootElement.GetProperty("status").GetString() == expectedStatus, "Fixture status update did not reach the panel.");
+    }
+    CheckPid();
+    Run("On");
+    AlmondHost.Created.Single().Report("Almond connected");
+    CheckPid("Almond connected");
+    Run("Off");
+    CheckPid();
+});
+Console.WriteLine($"Terminal control contracts: {total - failures}/{total} passed.");
 return failures == 0 ? 0 : 1;

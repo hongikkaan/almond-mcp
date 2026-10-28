@@ -1,0 +1,357 @@
+// Adapted from the user's almond-asset-converter headless_asset.cs (2026-10-19).
+// Executable template resource, intentionally not a production C# compilation unit.
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using Rhino;
+using Rhino.Geometry;
+using Rhino.DocObjects;
+using Rhino.FileIO;
+using SD = System.Drawing;
+
+public class Script
+{
+    public class Config { public string stage, source, source_sha256, job_dir, layer, expected_model_path, input_units, operation_id, inspected_sha256, normalized_sha256, final_sha256, review_sha256; }
+    public class Removal { public string object_id, reason; }
+    public class Review
+    {
+        public string name, asset_id, filename, category, description, orientation_reason;
+        public bool vision_reviewed, after_vision_reviewed;
+        public double[] rotation_degrees_xyz;
+        public Removal[] remove;
+    }
+    class DrawFace { public Point3d[] p; public double depth; public SD.Color color; }
+    static Type JsonType()
+    {
+        return AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "Newtonsoft.Json")
+            .GetType("Newtonsoft.Json.JsonConvert");
+    }
+    static T Read<T>(string path)
+    {
+        return (T)JsonType().GetMethod("DeserializeObject", new[] { typeof(string), typeof(Type) })
+            .Invoke(null, new object[] { File.ReadAllText(path), typeof(T) });
+    }
+    static void Write(string path, object value)
+    {
+        var json = (string)JsonType().GetMethod("SerializeObject", new[] { typeof(object) })
+            .Invoke(null, new[] { value });
+        string pending = path + ".pending-" + Guid.NewGuid().ToString("N");
+        File.WriteAllText(pending, json);
+        File.Move(pending, path, true);
+    }
+    static string Hash(string path)
+    {
+        using (var s = File.OpenRead(path)) using (var h = SHA256.Create())
+            return BitConverter.ToString(h.ComputeHash(s)).Replace("-", "");
+    }
+    static RhinoObject[] Top(RhinoDoc d)
+    {
+        return d.Objects.Where(o => o != null && !o.IsDeleted && !o.IsInstanceDefinitionGeometry).ToArray();
+    }
+    static List<RhinoObject> All(RhinoDoc d)
+    {
+        var result = Top(d).ToDictionary(o => o.Id);
+        foreach (var def in d.InstanceDefinitions.Where(x => x != null && !x.IsDeleted))
+            foreach (var o in def.GetObjects()) if (o != null) result[o.Id] = o;
+        return result.Values.ToList();
+    }
+    static double[] Point(Point3d p) { return new[] { p.X, p.Y, p.Z }; }
+    static BoundingBox Bounds(RhinoDoc d)
+    {
+        var b = BoundingBox.Empty;
+        foreach (var o in Top(d)) b.Union(o.Geometry.GetBoundingBox(true));
+        if (!b.IsValid) throw new Exception("No valid geometry bounds");
+        return b;
+    }
+    static void Flatten(RhinoDoc d, RhinoObject obj, Transform parent, int parentMaterial, SD.Color parentColor, string path, List<Guid> added, int depth = 0, HashSet<Guid> ancestors = null)
+    {
+        if (depth > 32 || added.Count >= 10000) throw new Exception("Block expansion exceeds 32 levels or 10,000 objects");
+        var attr = obj.Attributes.Duplicate();
+        int effectiveMaterial = attr.MaterialSource == ObjectMaterialSource.MaterialFromParent
+            ? parentMaterial : attr.MaterialSource == ObjectMaterialSource.MaterialFromLayer
+                ? d.Layers[attr.LayerIndex].RenderMaterialIndex : attr.MaterialIndex;
+        var effectiveColor = attr.ColorSource == ObjectColorSource.ColorFromParent ? parentColor
+            : attr.ColorSource == ObjectColorSource.ColorFromLayer ? d.Layers[attr.LayerIndex].Color : attr.ObjectColor;
+        var instance = obj as InstanceObject;
+        if (instance != null)
+        {
+            var branch = ancestors == null ? new HashSet<Guid>() : new HashSet<Guid>(ancestors);
+            if (!branch.Add(instance.InstanceDefinition.Id)) throw new Exception("Recursive block definition");
+            foreach (var child in instance.InstanceDefinition.GetObjects())
+                Flatten(d, child, parent * instance.InstanceXform, effectiveMaterial, effectiveColor,
+                    path + "/" + instance.InstanceDefinition.Name, added, depth + 1, branch);
+            return;
+        }
+        var g = obj.Geometry.Duplicate();
+        if (!g.Transform(parent)) throw new Exception("Instance transform failed");
+        if (attr.MaterialSource == ObjectMaterialSource.MaterialFromParent || attr.MaterialSource == ObjectMaterialSource.MaterialFromLayer)
+        {
+            attr.MaterialSource = ObjectMaterialSource.MaterialFromObject;
+            attr.MaterialIndex = effectiveMaterial;
+        }
+        if (attr.ColorSource == ObjectColorSource.ColorFromParent || attr.ColorSource == ObjectColorSource.ColorFromLayer)
+        { attr.ColorSource = ObjectColorSource.ColorFromObject; attr.ObjectColor = effectiveColor; }
+        attr.Name = string.IsNullOrWhiteSpace(obj.Name)
+            ? path + "__" + obj.ObjectType + "_" + (added.Count + 1).ToString("D4") : obj.Name;
+        attr.SetUserString("almond:source_component_path", path);
+        var id = d.Objects.Add(g, attr);
+        if (id == Guid.Empty) throw new Exception("Could not expand component");
+        added.Add(id);
+    }
+    static void SetLayer(RhinoDoc d, string path)
+    {
+        Guid parent = Guid.Empty;
+        string full = "";
+        var keep = new HashSet<int>();
+        foreach (string name in path.Split(new[] { "::" }, StringSplitOptions.None))
+        {
+            full = full.Length == 0 ? name : full + "::" + name;
+            int index = d.Layers.FindByFullPath(full, -1);
+            if (index < 0) index = d.Layers.Add(new Layer { Name = name, ParentLayerId = parent });
+            if (index < 0) throw new Exception("Could not create layer " + full);
+            keep.Add(index); parent = d.Layers[index].Id;
+        }
+        int leaf = d.Layers.FindByFullPath(path, -1);
+        d.Layers.SetCurrentLayerIndex(leaf, true);
+        foreach (var o in All(d))
+        {
+            var a = o.Attributes.Duplicate(); a.LayerIndex = leaf;
+            if (!d.Objects.ModifyAttributes(o.Id, a, true)) throw new Exception("Relayer failed");
+        }
+        foreach (var l in d.Layers.Where(l => l != null && !l.IsDeleted && !keep.Contains(l.Index))
+            .OrderByDescending(l => l.FullPath.Split(new[] { "::" }, StringSplitOptions.None).Length).ToArray())
+            if (!d.Layers.Delete(l.Index, true)) throw new Exception("Unused layer could not be removed: " + l.FullPath);
+    }
+    static void Save(RhinoDoc d, string path)
+    {
+        d.Objects.UnselectAll();
+        foreach (var o in Top(d)) d.Objects.Select(o.Id, true);
+        var options = new FileWriteOptions {
+            FileVersion = 8, WriteSelectedObjectsOnly = true, SuppressDialogBoxes = true,
+            SuppressAllInput = true, UpdateDocumentPath = false, IncludeBitmapTable = true,
+            IncludeRenderMeshes = true, WriteUserData = true
+        };
+        if (!d.WriteFile(path, options)) throw new Exception("3dm save failed");
+    }
+    static object Summary(RhinoDoc d, string file)
+    {
+        var objects = Top(d); var b = Bounds(d);
+        var meshes = objects.Where(o => o.Geometry is Mesh).Select(o => (Mesh)o.Geometry).ToArray();
+        var parts = objects.Select(o => {
+            var box = o.Geometry.GetBoundingBox(true); var mesh = o.Geometry as Mesh;
+            return new {
+                object_id = o.Id.ToString(), name = o.Name, type = o.ObjectType.ToString(),
+                component_path = o.Attributes.GetUserString("almond:source_component_path"),
+                layer = d.Layers[o.Attributes.LayerIndex].FullPath,
+                min = Point(box.Min), max = Point(box.Max),
+                mesh_faces = mesh == null ? (int?)null : mesh.Faces.Count,
+                brep_faces = o.Geometry is Brep ? (int?)((Brep)o.Geometry).Faces.Count : null
+            };
+        }).ToArray();
+        return new {
+            status = "success", file = Path.GetFullPath(file), sha256 = Hash(file),
+            units = d.ModelUnitSystem.ToString(), basepoint = Point(d.ModelBasepoint),
+            dimensions_mm = new { width = b.Max.X-b.Min.X, depth = b.Max.Y-b.Min.Y, height = b.Max.Z-b.Min.Z },
+            local_aabb = new { min = Point(b.Min), max = Point(b.Max) },
+            object_count = objects.Length, names = objects.Select(o => o.Name).ToArray(),
+            layers = objects.Select(o => d.Layers[o.Attributes.LayerIndex].FullPath).Distinct().ToArray(),
+            mesh_face_count = meshes.Sum(m => (long)m.Faces.Count),
+            triangle_count = meshes.Sum(m => m.Faces.Sum(f => f.IsTriangle ? 1L : 2L)),
+            ngon_count = meshes.Sum(m => m.Ngons.Count), parts = parts,
+            count_basis = "Stored expanded Mesh faces; Brep faces are reported per part, not counted as Mesh triangles.",
+            limitations = new[] { "Shape-only grayscale previews; no material-render proof.", "Large mesh previews sample faces and may omit small features; inspect ambiguous parts separately." },
+            materials = objects.Select(o => o.Attributes.MaterialIndex).Distinct()
+                .Where(i => i >= 0 && i < d.Materials.Count).Select(i => new {
+                    name = d.Materials[i].Name, color = d.Materials[i].DiffuseColor.ToArgb(),
+                    material_index = i
+                }).ToArray()
+        };
+    }
+    static List<Mesh> DisplayMeshes(RhinoDoc d)
+    {
+        var result = new List<Mesh>();
+        foreach (var o in Top(d))
+        {
+            var m = o.Geometry as Mesh;
+            if (m != null) { result.Add(m.DuplicateMesh()); continue; }
+            var b = o.Geometry as Brep;
+            var e = o.Geometry as Extrusion;
+            if (b == null && e != null) b = e.ToBrep();
+            if (b != null) { result.AddRange(Mesh.CreateFromBrep(b, MeshingParameters.FastRenderMesh)); continue; }
+            var rendered = o.GetMeshes(MeshType.Render);
+            if (rendered != null) result.AddRange(rendered.Where(x => x != null).Select(x => x.DuplicateMesh()));
+        }
+        if (result.Count == 0) throw new Exception("No previewable meshes; inspect this geometry through another Rhino method before proceeding");
+        return result;
+    }
+    static void Preview(RhinoDoc d, string job, string prefix)
+    {
+        var meshes = DisplayMeshes(d);
+        long totalFaces = meshes.Sum(m => (long)m.Faces.Count);
+        foreach (string mode in new[] { "iso", "front", "back", "plan", "right" })
+        {
+            Func<Point3d,double> u = p => mode == "iso" ? (p.X-p.Y)*.8660254 : mode == "right" ? -p.Y : mode == "back" ? -p.X : p.X;
+            Func<Point3d,double> v = p => mode == "iso" ? p.Z-(p.X+p.Y)*.5 : mode == "plan" ? p.Y : p.Z;
+            Func<Point3d,double> depth = p => mode == "iso" ? p.X+p.Y+p.Z : mode == "plan" ? p.Z : mode == "right" ? p.X : mode == "front" ? -p.Y : p.Y;
+            var faces = new List<DrawFace>();
+            foreach (var mesh in meshes)
+            {
+                int step = Math.Max(1, (int)Math.Ceiling(totalFaces / 120000.0));
+                for (int i=0; i<mesh.Faces.Count; i+=step)
+                {
+                    var f = mesh.Faces[i]; var ids = f.IsTriangle ? new[] { f.A,f.B,f.C } : new[] { f.A,f.B,f.C,f.D };
+                    var p = ids.Select(j => new Point3d(mesh.Vertices[j])).ToArray();
+                    var n = Vector3d.CrossProduct(p[1]-p[0],p[2]-p[0]); n.Unitize();
+                    int c = (int)(130+100*Math.Abs(n.X*.3+n.Y*.4+n.Z*.85));
+                    c = Math.Min(255,c);
+                    faces.Add(new DrawFace { p=p, depth=p.Average(depth), color=SD.Color.FromArgb(c-12,c-5,c) });
+                }
+            }
+            double minU=faces.Min(f=>f.p.Min(u)), maxU=faces.Max(f=>f.p.Max(u));
+            double minV=faces.Min(f=>f.p.Min(v)), maxV=faces.Max(f=>f.p.Max(v));
+            double scale=Math.Min(850/Math.Max(.001,maxU-minU),650/Math.Max(.001,maxV-minV));
+            using(var bmp=new SD.Bitmap(960,760)) using(var g=SD.Graphics.FromImage(bmp))
+            {
+                g.Clear(SD.Color.White); g.SmoothingMode=SD.Drawing2D.SmoothingMode.AntiAlias;
+                foreach(var f in faces.OrderBy(f=>f.depth))
+                {
+                    var pts=f.p.Select(p=>new SD.PointF((float)(480+(u(p)-(minU+maxU)/2)*scale),(float)(380-(v(p)-(minV+maxV)/2)*scale))).ToArray();
+                    using(var brush=new SD.SolidBrush(f.color))g.FillPolygon(brush,pts);
+                }
+                // Numbered part centres correspond to parts[] order in the JSON report.
+                using(var font=new SD.Font("Arial",10)) using(var brush=new SD.SolidBrush(SD.Color.DarkRed))
+                {
+                    int index=0;foreach(var o in Top(d)){index++;var p=o.Geometry.GetBoundingBox(true).Center;
+                        g.DrawString(index.ToString(),font,brush,(float)(480+(u(p)-(minU+maxU)/2)*scale),(float)(380-(v(p)-(minV+maxV)/2)*scale));}
+                }
+                bmp.Save(Path.Combine(job,prefix+"-"+mode+".png"),SD.Imaging.ImageFormat.Png);
+            }
+        }
+        foreach(var m in meshes)m.Dispose();
+    }
+    static UnitSystem InputUnits(string units)
+    {
+        switch (units) {
+            case "cm": return UnitSystem.Centimeters;
+            case "m": return UnitSystem.Meters;
+            case "in": return UnitSystem.Inches;
+            case "ft": return UnitSystem.Feet;
+            case "": case "mm": return UnitSystem.Millimeters;
+            default: throw new Exception("Unsupported explicit input units");
+        }
+    }
+    static void Receipt(Config config, object summary, string prefix)
+    {
+        var previews = new[] { "iso", "front", "back", "plan", "right" }
+            .Select(view => prefix + "-" + view + ".png")
+            .Select(name => new { file = name, sha256 = Hash(Path.Combine(config.job_dir, name)) }).ToArray();
+        Write(Path.Combine(config.job_dir, config.stage + ".json"), new {
+            schema = "almond-asset-preparation/v1", status = "success", stage = config.stage,
+            operation_id = config.operation_id, source_sha256 = config.source_sha256,
+            summary = summary, previews = previews
+        });
+    }
+    public static List<Guid> Run(RhinoDoc doc)
+    {
+        var config = Read<Config>(@"__JOB_JSON__");
+        if (config.layer != "ASSETS::drawing::Fur") throw new Exception("Unexpected target layer");
+        if (String.IsNullOrWhiteSpace(config.operation_id)) throw new Exception("Missing operation identity");
+        if (Hash(config.source) != config.source_sha256) throw new Exception("Preserved source changed");
+        var active = Top(doc).Select(o => o.Id).OrderBy(x => x).ToArray();
+        string job = config.job_dir;
+        if (config.stage == "inspect")
+        {
+            using (var h = RhinoDoc.CreateHeadless(null))
+            {
+                h.AdjustModelUnitSystem(InputUnits(config.input_units ?? ""), false);
+                if (!h.Import(config.source)) throw new Exception("Rhino importer rejected the source file");
+                if (h.ModelUnitSystem != UnitSystem.Millimeters) h.AdjustModelUnitSystem(UnitSystem.Millimeters, true);
+                var original = Top(h);
+                if (original.Length > 10000) throw new Exception("Source exceeds 10,000 top-level objects");
+                var ids = new List<Guid>();
+                foreach (var o in original) Flatten(h, o, Transform.Identity, -1, SD.Color.Black, Path.GetFileNameWithoutExtension(config.source), ids);
+                foreach (var o in original) if (!h.Objects.Delete(o.Id, true)) throw new Exception("Old occurrence could not be removed");
+                SetLayer(h, config.layer);
+                string output = Path.Combine(job, "inspected.3dm");
+                Save(h, output);
+                Preview(h, job, "before");
+                Receipt(config, Summary(h, output), "before");
+            }
+        }
+        else if (config.stage == "normalize")
+        {
+            string inspected = Path.Combine(job, "inspected.3dm");
+            if (Hash(inspected) != config.inspected_sha256 || Hash(Path.Combine(job, "review.json")) != config.review_sha256)
+                throw new Exception("Inspected geometry or its review changed");
+            var review = Read<Review>(Path.Combine(job, "review.json"));
+            if (!review.vision_reviewed || String.IsNullOrWhiteSpace(review.orientation_reason))
+                throw new Exception("Actual image and orientation review required");
+            if (review.rotation_degrees_xyz == null || review.rotation_degrees_xyz.Length != 3 ||
+                review.rotation_degrees_xyz.Any(x => Double.IsNaN(x) || Double.IsInfinity(x)))
+                throw new Exception("Explicit finite XYZ rotation required");
+            using (var h = RhinoDoc.OpenHeadless(inspected))
+            {
+                if (h == null) throw new Exception("Could not reopen inspected geometry");
+                foreach (var removal in review.remove ?? new Removal[0])
+                    if (String.IsNullOrWhiteSpace(removal.reason) || !h.Objects.Delete(new Guid(removal.object_id), true))
+                        throw new Exception("Removal requires an existing inspected part and evidence");
+                var a = review.rotation_degrees_xyz;
+                var rotation = Transform.Rotation(RhinoMath.ToRadians(a[2]), Vector3d.ZAxis, Point3d.Origin)
+                    * Transform.Rotation(RhinoMath.ToRadians(a[1]), Vector3d.YAxis, Point3d.Origin)
+                    * Transform.Rotation(RhinoMath.ToRadians(a[0]), Vector3d.XAxis, Point3d.Origin);
+                foreach (var o in Top(h)) if (h.Objects.Transform(o.Id, rotation, true) == Guid.Empty) throw new Exception("Rotation failed");
+                var bounds = Bounds(h);
+                var move = Transform.Translation(-(bounds.Min.X + bounds.Max.X) / 2, -(bounds.Min.Y + bounds.Max.Y) / 2, -bounds.Min.Z);
+                int index = 0;
+                foreach (var o in Top(h))
+                {
+                    var id = h.Objects.Transform(o.Id, move, true);
+                    if (id == Guid.Empty) throw new Exception("Origin alignment failed");
+                    var attr = h.Objects.FindId(id).Attributes.Duplicate();
+                    attr.Name = review.filename + "__part_" + (++index).ToString("D4");
+                    attr.SetUserString("almond:asset_id", review.asset_id);
+                    if (!h.Objects.ModifyAttributes(id, attr, true)) throw new Exception("Naming prepared object failed");
+                }
+                h.ModelBasepoint = Point3d.Origin;
+                SetLayer(h, config.layer);
+                Save(h, Path.Combine(job, "normalized.3dm"));
+            }
+            using (var check = RhinoDoc.OpenHeadless(Path.Combine(job, "normalized.3dm")))
+            {
+                if (check == null) throw new Exception("Could not reopen normalized geometry");
+                var b = Bounds(check);
+                if (check.ModelUnitSystem != UnitSystem.Millimeters || Math.Abs(b.Min.Z) > .01 ||
+                    Math.Abs(b.Min.X + b.Max.X) > .01 || Math.Abs(b.Min.Y + b.Max.Y) > .01)
+                    throw new Exception("Normalized units/origin verification failed");
+                if (Top(check).Any(o => String.IsNullOrWhiteSpace(o.Name) || check.Layers[o.Attributes.LayerIndex].FullPath != config.layer))
+                    throw new Exception("Name or layer verification failed");
+                Preview(check, job, "after");
+                Receipt(config, Summary(check, Path.Combine(job, "normalized.3dm")), "after");
+            }
+        }
+        else if (config.stage == "verify")
+        {
+            string output = Path.Combine(job, "final.3dm");
+            if (Hash(output) != config.final_sha256) throw new Exception("Merged geometry changed");
+            using (var check = RhinoDoc.OpenHeadless(output))
+            {
+                if (check == null) throw new Exception("Could not reopen final geometry");
+                if (Top(check).Any(o => o.ObjectType == ObjectType.InstanceReference)) throw new Exception("Unexpected remaining block occurrences");
+                var b = Bounds(check);
+                if (check.ModelUnitSystem != UnitSystem.Millimeters || Math.Abs(b.Min.Z) > .01 ||
+                    Math.Abs(b.Min.X + b.Max.X) > .01 || Math.Abs(b.Min.Y + b.Max.Y) > .01)
+                    throw new Exception("Final units/origin verification failed");
+                if (Top(check).Any(o => String.IsNullOrWhiteSpace(o.Name) || check.Layers[o.Attributes.LayerIndex].FullPath != config.layer))
+                    throw new Exception("Final name/layer verification failed");
+                Preview(check, job, "final");
+                Receipt(config, Summary(check, output), "final");
+            }
+        }
+        else throw new Exception("Unknown native preparation stage");
+        if (!active.SequenceEqual(Top(doc).Select(o => o.Id).OrderBy(x => x))) throw new Exception("Active document object set changed");
+        return new List<Guid>();
+    }
+}
+

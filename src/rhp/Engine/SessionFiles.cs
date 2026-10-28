@@ -21,6 +21,7 @@ public sealed class SessionPaths
     public string WorkerPath => Path.Combine(SessionDir, "worker.json");
     public string OperationPath => Path.Combine(SessionDir, "operation.json");
     public string NativePath => Path.Combine(SessionDir, "native.json");
+    public string RhinocodePath => Path.Combine(SessionDir, "rhinocode.json");
     public string LauncherLock => Path.Combine(SessionDir, "launcher.lock");
     public string RhinoLock => Path.Combine(SessionDir, "rhino.lock");
     public string McpLock => Path.Combine(SessionDir, "mcp.lock");

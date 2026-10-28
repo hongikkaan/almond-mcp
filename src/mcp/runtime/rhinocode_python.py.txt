@@ -1,0 +1,262 @@
+#! python __PYTHON__
+# -*- coding: utf-8 -*-
+# async: false
+"""Generated Almond synchronous execution wrapper. Trusted source, not a sandbox."""
+import base64
+import hashlib
+import io
+import json
+import os
+import sys
+import traceback
+
+_payload = json.loads(base64.b64decode("__PAYLOAD__").decode("utf-8"))
+
+
+def _error_text(error, limit):
+    try:
+        try:
+            text_type = unicode
+        except NameError:
+            text_type = str
+        return text_type(error)[:limit]
+    except BaseException:
+        return "Exception text could not be converted (" + type(error).__name__ + ")."
+
+
+def _error_trace():
+    try:
+        return traceback.format_exc()[-8000:]
+    except BaseException:
+        return "Exception traceback could not be formatted."
+
+
+def _atomic_json(path, value, maximum):
+    temporary = path + ".new"
+    length = 0
+    digest = hashlib.sha256()
+    created = False
+    try:
+        descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        created = True
+        with os.fdopen(descriptor, "wb") as stream:
+            encoder = json.JSONEncoder(ensure_ascii=True, allow_nan=False, separators=(",", ":"))
+            for piece in encoder.iterencode(value):
+                data = piece.encode("ascii")
+                length += len(data)
+                if length > maximum:
+                    raise ValueError("JSON exceeds the retained result limit.")
+                stream.write(data)
+                digest.update(data)
+            stream.flush()
+        # Request files are owned and published once. rename works
+        # on Python 2 and never replaces a receipt from another execution.
+        os.rename(temporary, path)
+    finally:
+        if created and os.path.exists(temporary):
+            os.remove(temporary)
+    return length, digest.hexdigest()
+
+
+class _Log(object):
+    encoding = "utf-8"
+    errors = "replace"
+
+    def __init__(self, path):
+        self.stream = io.open(path, "wb")
+        self.retained = 0
+        self.total = 0
+
+    def write(self, value):
+        try:
+            text = value if isinstance(value, type(u"")) else value.decode("utf-8", "replace")
+        except AttributeError:
+            text = str(value)
+        data = text.encode("utf-8", "replace")
+        available = max(0, 1048576 - self.retained)
+        self.stream.write(data[:available])
+        self.stream.flush()
+        self.retained += min(available, len(data))
+        self.total += len(data)
+        return len(value)
+
+    def flush(self):
+        self.stream.flush()
+
+    def isatty(self):
+        return False
+
+    def close(self):
+        self.stream.close()
+
+
+def _main():
+    request = _payload["request"]
+    directory = _payload["directory"]
+    final = dict((key, request[key]) for key in
+                 ("token", "operation_id", "request_id", "nonce", "source_hash", "target"))
+    if "layout" in request:
+        final["layout"] = request["layout"]
+    final.update(schema="almond-rhinocode-completion", version=1, execution_complete=True,
+                 status="rejected", mutation_state="not_started", user_code_started=False,
+                 user_code_completed=False, result_available=False, cleanup_errors=[])
+    stage = "initialization"
+    doc = context = previous_doc = previous_directory = previous_redraw = None
+    undo = 0
+    namespace = None
+    original_stdout, original_stderr = sys.stdout, sys.stderr
+    logs = []
+    try:
+        import Rhino
+        import System
+        import scriptcontext
+
+        context = scriptcontext
+        stage = "identity"
+        target = request["target"]
+        process = System.Diagnostics.Process.GetCurrentProcess()
+        actual_ticks = str(process.StartTime.ToUniversalTime().Ticks)
+        doc = Rhino.RhinoDoc.ActiveDoc
+        if (int(process.Id) != target["pid"] or actual_ticks != target["process_start_ticks"]
+                or doc is None or int(doc.RuntimeSerialNumber) != target["document_serial"]
+                or os.path.normcase(os.path.abspath(str(doc.Path))) !=
+                os.path.normcase(os.path.abspath(target["model_path"]))):
+            raise RuntimeError("The active Rhino document or process no longer matches this request.")
+        if not Rhino.RhinoApp.IsOnMainThread:
+            raise RuntimeError("Synchronous document execution requires the Rhino UI thread.")
+        _atomic_json(os.path.join(directory, "started.json"),
+                     dict(final, schema="almond-rhinocode-started", execution_complete=False), 65536)
+        stage = "compile"
+        if request["language"] in ("command", "csharp-script"):
+            if not Rhino.Commands.Command.InScriptRunnerCommand():
+                raise RuntimeError("Command execution requires a verified script-runner command context.")
+            compiled = None
+        else:
+            compiled = compile(_payload["source"], os.path.join(directory, "source.py"), "exec")
+        stage = "prepare"
+        previous_doc = context.doc
+        previous_directory = os.getcwd()
+        previous_redraw = bool(doc.Views.RedrawEnabled)
+        context.doc = doc
+        os.chdir(_payload["project_root"])
+        if request["language"] != "csharp-script":
+            logs = [_Log(os.path.join(directory, "stdout.txt")),
+                    _Log(os.path.join(directory, "stderr.txt"))]
+            sys.stdout, sys.stderr = logs
+        final["undo"] = dict(before=int(doc.CurrentUndoRecordSerialNumber), owned=0, ended=False)
+        undo = int(doc.BeginUndoRecord("Almond RhinoCode"))
+        final["undo"]["owned"] = undo
+        doc.Views.RedrawEnabled = False
+        namespace = dict(__name__="__main__", __file__=os.path.join(directory, "source.py"),
+                         doc=doc, result=None, artifact_dir=_payload["artifact_dir"],
+                         project_root=_payload["project_root"])
+        stage = "user_code"
+        if request["language"] == "csharp-script":
+            # This parent runs inside ScriptEditor, so the document-targeted
+            # nested ScriptEditor command returns only after the C# script.
+            namespace = None
+            stage = "compile"
+            macro = '_-ScriptEditor _Run "' + _payload["child_path"] + '"'
+            accepted = Rhino.RhinoApp.RunScript(doc.RuntimeSerialNumber, macro, False)
+            final["compiler_command_accepted"] = bool(accepted)
+            child_path = os.path.join(directory, "child-complete.json")
+            started_path = os.path.join(directory, "child-started.json")
+            if not os.path.exists(child_path):
+                if os.path.exists(started_path):
+                    stage = "child_completion"
+                    final.update(user_code_started=True, mutation_state="unknown")
+                    raise RuntimeError("The synchronous C# command returned without its inner completion.")
+                raise RuntimeError("ScriptEditor did not begin the C# script; compilation or loading failed.")
+            stage = "child_completion"
+            final.update(user_code_started=os.path.exists(started_path), mutation_state="unknown")
+            if os.path.getsize(child_path) > 65536:
+                raise RuntimeError("The C# completion exceeds its retained limit.")
+            with io.open(child_path, "r", encoding="utf-8-sig") as stream:
+                child = json.load(stream)
+            if (not isinstance(child, dict)
+                    or child.get("schema") != "almond-rhinocode-completion"
+                    or type(child.get("version")) is not int or child["version"] != 1
+                    or child.get("execution_complete") is not True
+                    or child.get("status") not in ("success", "error", "rejected")
+                    or child.get("mutation_state") not in ("completed", "partial", "not_started", "unknown")
+                    or ("layout" in child) != ("layout" in request)
+                    or child.get("layout") != request.get("layout")
+                    or any(child.get(key) != request[key] for key in
+                           ("token", "operation_id", "request_id", "nonce", "source_hash", "target"))):
+                final.update(user_code_started=True, mutation_state="unknown")
+                raise RuntimeError("The C# completion does not match the exact nested request.")
+            for key in ("status", "mutation_state", "user_code_started", "user_code_completed",
+                        "result_available", "result_bytes", "result_sha256", "result_error",
+                        "error", "stdout_capture", "stderr_capture"):
+                if key in child:
+                    final[key] = child[key]
+            final["cleanup_errors"].extend(child.get("cleanup_errors", []))
+            final["child_undo"] = child.get("undo", {})
+            if not accepted and final["status"] == "success":
+                final["status"] = "error"
+                final["error"] = dict(stage="child_completion", type="RuntimeError",
+                                     message="ScriptEditor returned false despite an inner success receipt.")
+        else:
+            final["user_code_started"] = True
+            final["mutation_state"] = "partial"
+        if request["language"] == "command":
+            ok = Rhino.RhinoApp.RunScript(doc.RuntimeSerialNumber, _payload["source"], False)
+            import rhinoscriptsyntax as rs
+            namespace["result"] = dict(command_accepted=bool(ok), last_command=rs.LastCommandName(),
+                                       last_command_result=rs.LastCommandResult())
+            if not ok or namespace["result"]["last_command_result"] not in (0, 2):
+                raise RuntimeError("Rhino command did not complete successfully.")
+        elif request["language"] != "csharp-script":
+            __EXEC_SOURCE__
+        if request["language"] != "csharp-script":
+            final.update(user_code_completed=True, status="success", mutation_state="completed")
+    except BaseException as exc:
+        final["status"] = "rejected" if stage in ("initialization", "identity") else "error"
+        final["error"] = dict(stage=stage, type=type(exc).__name__,
+                             message=_error_text(exc, 4000), traceback=_error_trace())
+    finally:
+        sys.stdout, sys.stderr = original_stdout, original_stderr
+        for index, log in enumerate(logs):
+            try:
+                log.close()
+                final[("stdout_capture", "stderr_capture")[index]] = dict(
+                    retained_bytes=log.retained, total_bytes=log.total,
+                    truncated=log.total > log.retained)
+            except BaseException as exc:
+                final["cleanup_errors"].append("log close: " + _error_text(exc, 1000))
+        if doc is not None and undo:
+            try:
+                if not doc.EndUndoRecord(undo):
+                    raise RuntimeError("EndUndoRecord returned false.")
+                final["undo"]["ended"] = True
+            except BaseException as exc:
+                final["cleanup_errors"].append("Undo: " + _error_text(exc, 1000))
+        if previous_redraw is not None:
+            try:
+                doc.Views.RedrawEnabled = previous_redraw
+                if previous_redraw:
+                    doc.Views.Redraw()
+            except BaseException as exc:
+                final["cleanup_errors"].append("redraw: " + _error_text(exc, 1000))
+        if context is not None and previous_directory is not None:
+            try:
+                context.doc = previous_doc
+            except BaseException as exc:
+                final["cleanup_errors"].append("scriptcontext: " + _error_text(exc, 1000))
+            try:
+                os.chdir(previous_directory)
+            except BaseException as exc:
+                final["cleanup_errors"].append("working directory: " + _error_text(exc, 1000))
+        if final["user_code_completed"] and namespace is not None:
+            try:
+                size, digest = _atomic_json(os.path.join(directory, "result.json"),
+                                           namespace.get("result"), _payload["result_limit"])
+                final.update(result_available=True, result_bytes=size, result_sha256=digest)
+            except BaseException as exc:
+                final["result_error"] = dict(type=type(exc).__name__, message=_error_text(exc, 2000))
+        if final["cleanup_errors"]:
+            final["status"] = "error"
+        _atomic_json(os.path.join(directory, "complete.json"), final, 65536)
+
+
+_main()

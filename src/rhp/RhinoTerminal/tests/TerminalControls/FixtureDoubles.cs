@@ -138,7 +138,8 @@ namespace RhinoTerminal
     internal sealed class AlmondHost : IDisposable
     {
         public static readonly List<AlmondHost> Created = new();
-        public AlmondHost(Action<string> report) => Created.Add(this);
+        public AlmondHost(Action<string> report) { Report = report; Created.Add(this); }
+        public Action<string> Report { get; }
         public string Engine => Path.GetTempPath();
         public string PipeName => "fixture";
         public string AccessToken => "fixture";

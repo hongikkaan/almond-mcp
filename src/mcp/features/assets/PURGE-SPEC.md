@@ -84,10 +84,10 @@ COS·외부 MCP의 새 사용 흐름 설계, 시간 포맷 변경, 사용자 모
 
 ### 7. 뷰 이미지
 
-- `get_rhino_viewport_image(view="", scale_percent=50, include_usage=False)`.
+- `get_rhino_viewport_image(view="", scale_percent=75, include_usage=False)`.
 - 빈 view는 현재 뷰, `a`는 viewport/named view/layout별 name·guid만 반환한다. GUID는 해당 대상을 캡처한다.
 - 기본 결과는 PNG 이미지 하나다. 문서·경로·GUID JSON을 반복하지 않는다. `include_usage`에서만 크기와 명확히 표시한 추정량을 추가한다.
-- 100%는 원본 크기다. Named View는 저장된 화면 크기(없으면 현재 뷰 크기), Layout은 용지를 96 dpi로 표현한 크기를 기준으로 한다. 기본 50%는 두 축을 각각 절반으로 줄인다.
+- 100%는 원본 크기이며 도면 검수에 사용한다. Named View는 저장된 화면 크기(없으면 현재 뷰 크기), Layout은 용지를 96 dpi로 표현한 크기를 기준으로 한다. 기본 75%는 두 축을 각각 75%로 줄인다.
 - Named View는 현재 display mode와 저장된 카메라를 별도 viewport에서 그린다. 화면의 뷰를 활성화했다가 복원하는 방식은 사용하지 않는다.
 - Layout은 용지와 Detail을 캡처한다. 현재 Layout의 Detail이 활성화돼 있어도 대상은 용지다.
 - 메모리에서 처리하고 임시 이미지 파일을 만들지 않는다. 크기 한도를 넘으면 명시적으로 더 낮은 퍼센트를 요청하며 몰래 다른 크기로 바꾸지 않는다.

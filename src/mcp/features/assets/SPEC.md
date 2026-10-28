@@ -27,7 +27,17 @@ Rhino에서는 `Almond` 또는 `AlmondLibraryBrowser`를 연다. Python만으로
 
 ## 준비한 3DM 등록·배치
 
-새 Drawing 자산의 원본은 검토·정리한 3DM이다. 정리·방향 판단·시각 검토는 외부 Almond Asset Converter가 담당한다. 등록은 mm·Z-up·바닥 중심 원점을 확인하며 원본 파일을 회전하거나 실제 정면의 적절성을 판정하지 않는다.
+현재 milestone에서 `prepare_drawing_asset`와 `register_drawing_asset(preparation_job=...)`는 실제 Rhino BDD 검증 대기로 비활성화되어 있다. 호출은 파일·native 작업 전에 `error_code=acceptance_pending`을 반환한다. 아래 준비 단계 구현은 다음 BDD 검증을 위한 source checkpoint이며 동작 검증이 완료된 기능으로 안내하지 않는다. `preparation_job`을 생략한 기존 준비 3DM 등록은 계속 사용할 수 있다.
+
+새 Drawing 자산의 원본은 검토·정리한 3DM이다. `prepare_drawing_asset`은 사용자의 Almond Asset Converter 흐름을 MCP의 작업 artifact 디렉터리 안에서 실행한다. `inspect`는 원본 사본과 SHA256을 보존하고 headless 문서에서 중첩 block을 풀어 part별 출처·bounds·형상 통계와 다섯 방향의 before 이미지를 만든다. OBJ/STL/PLY/OFF에는 명시적 단위를 요구한다. 입력은 100 MB, block 깊이는 32, 확장 객체는 10,000개로 제한하며 순환 참조를 거절한다.
+
+실제 before 이미지를 본 뒤 `normalize`에 inspected SHA256, 시각 검토 사실, 이름·ID·파일명, 명시적 XYZ 회전과 방향 근거, 필요시 삭제할 part ID와 이유를 전달한다. mm·Z-up·바닥 중심 원점·`ASSETS::drawing::Fur` layer·객체 이름을 맞추고 저장 파일을 다시 열어 after 이미지를 만든다. 이름·회전·삭제·정면은 도구가 추측하지 않는다.
+
+after 이미지의 normalized SHA256에 연결된 검토 후 `merge`는 공식 RhinoCode ScriptRunner에서 실제 `_MergeAllCoplanarFaces`를 실행한다. 저장된 mm 문서에 준비한 객체만 임시 import·선택하며 결과만 export한다. `finally`에서 임시 객체·layer·material을 정리하고 원래 형상·속성·선택을 확인한다. 원본 작업 파일을 저장하지 않으며 문서 Modified는 true가 될 수 있다. runtime Undo와 완료 receipt가 명령 범위를 감싼다. 이어 `verify`는 최종 3DM을 다시 열어 단위·원점·이름·layer와 final 이미지를 확인한다. 그 이미지에 대응하는 final SHA256 검토를 두 번째 `verify`에 기록해야 등록 가능하다.
+
+각 단계는 입력·출력·실행 script·report·preview SHA256을 기록한다. `status`와 part pagination은 이미 완료된 보고서를 읽으며 native 작업을 반복하지 않는다. 완료가 불확실하면 상태를 노출하고 재실행을 막는다. 시각 검토는 hash에 연결된 호출자 진술로 보관하며 자동 시각 판정으로 표시하지 않는다. 회색 preview는 형상 검토용이고 큰 mesh는 face를 sampling하므로 작은 부품은 별도 확대가 필요하다. classic material metadata는 유지하지만 PBR·외부 texture의 완전한 이식성을 보증하지 않는다.
+
+`register_drawing_asset(preparation_job=...)`은 최종 파일·검토·실제 명령의 hash와 이름/ID를 확인하고 원본 source·review·stage script·report·preview를 같은 version의 preparation 디렉터리에 묶는다. 기존 외부 준비 3DM은 preparation_job 없이 계속 등록할 수 있으며 이 경로의 시각 검토는 명시적으로 미확인이다. 등록은 mm·Z-up·바닥 중심 원점을 확인하며 원본 파일을 회전하거나 실제 정면의 적절성을 판정하지 않는다.
 
 `register_drawing_asset`의 native extractor는 복사한 File3dm에서 중첩 블록 변환을 해석하고 지원 형상을 mesh로 추출해 hash·측정 bounds를 확인한다. 미지원 형상이나 불완전한 추출은 발행을 막는다. 같은 asset ID 아래 복사한 3DM, plan/front/right DXF·SVG, `dimensions.json`을 준비하며 기존 GLB 투영 구현을 재사용한다.
 

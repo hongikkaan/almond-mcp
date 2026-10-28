@@ -1,8 +1,39 @@
 # RhinoCode execution integration
 
-This contract is the reviewed implementation direction for the official Rhino 8
-ScriptServer integration. Implementation and live verification are in progress;
-the acceptance evidence below must be recorded before claiming deployment.
+This milestone adds the official Rhino 8 ScriptServer route to the existing MCP.
+The next development stage evaluates it by doing design work through the public
+tools: whether the necessary guidance arrives at the right moment, whether that
+guidance improves design decisions, and which tool inputs/outputs obstruct work.
+Passing transport tests alone is not evidence of good design behavior.
+
+## Design behavior
+
+A design question can collect related areas, clearances and geometric relationships
+in one Python/C# execution and return named fields. Fixed probes are available
+when their particular observation fits the question; they are not a mandatory
+sequence before every design action. Normal execution replies put the design
+answer first. Result fields and pages can be read without recomputing the model.
+
+Preserve the approved 1028-UNIT Drafting guidance. Future BDD cases are discovered
+while using the actual tools on the connected Rhino documents, then expressed as
+Given/When/Then behaviors before the relevant correction. Basic drafting judgment
+should remain autonomous; material design intentions must not be invented.
+
+## Current acceptance state
+
+- Actual Rhino 8.34: Python 3, Python 2, C# statement bodies and command macros
+  created geometry and passed one-step Undo/Redo in a disposable saved document.
+  C# compilation and partial-runtime-error cases were also exercised. All four
+  official modes are enabled; the existing default C# Run contract is retained.
+- Source-linked Terminal controls passed the PID-display fixtures. A real Layout
+  capture used the new default 75% pixel size; drawing review can request 100%.
+- Layout print appearance is an open BDD failure: raster capture still used display
+  red despite print black. Do not claim the print-color/width/scale scenario passed.
+- Asset preparation source is retained for subsequent BDD work. Its public prepare
+  and preparation-job publication paths are disabled with acceptance_pending until
+  the import/review/normalize/merge/register behavior is verified end to end.
+- Full public-tool design practice, guidance timing and quality are the next stage
+  after the user reopens and connects the two Rhino documents.
 
 ## Execution boundary
 
@@ -14,7 +45,7 @@ first available Rhino or infer a pipe solely from a PID.
 
 The existing `execute_rhino_script(script)` C# `Run(RhinoDoc doc)` contract stays
 compatible. Explicit language choices add official Python, Python 2, C# statement
-body and command execution only after each path passes its live acceptance gate.
+body and command execution after the live gates described above.
 The package receives a runtime callback; it does not import the external
 connector. The subprocess runs in the external Python worker, never in a Rhino
 UI-thread handler. Argument vectors are used without a shell.
@@ -71,15 +102,16 @@ questions may use a single targeted Python/C# query. Preserve useful field-group
 ID and pagination controls; output evidence and execution status must survive
 projection. Large result data is retrievable without repeating the Rhino work.
 
-Preserve the user-approved Drafting prose from commit 7ba3687. Layout captures
-use print colors and print widths while preserving each Detail's actual scale
-and the user's document/view state. Image scale_percent controls pixels, defaults
+Preserve the user-approved Drafting prose from commit 7ba3687. The Layout acceptance
+target is print colors and print widths with each Detail's actual scale and the
+user's document/view state preserved; the print-color case remains open above.
+Image scale_percent controls pixels, defaults
 to 75, and may be explicitly 100 for visual review. Terminal shows Rhino PID
 persistently next to controls, independently of the changing shell status.
 
 ## Asset preparation
 
-Expose a concrete MCP preparation workflow based on the reviewed installed
+The deferred preparation implementation follows the reviewed installed
 almond-asset-converter: preserve/import source, inspect parts and previews,
 record actual visual decisions, normalize explicit units/orientation/origin,
 verify the reopened result and record the actual coplanar-merge command outcome.
