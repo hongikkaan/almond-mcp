@@ -1,6 +1,6 @@
-# 외부 연결기·COS 계약
+# beyond 외부 연결기 계약
 
-이 모듈은 Codex 직접·CoS 경유 연결의 공용 외부 연결기와 기존 Rhino COS 플러그인을 소유한다.
+beyond는 Codex 직접·CoS 경유 연결의 공용 외부 연결기다. 이 모듈은 기존 Rhino 연결 플러그인도 소유한다.
 [작업 지침](AGENTS.md)과 [공통 경계](../../SPEC.md)를 함께 따른다.
 
 CoS는 `cos_host.py`, Codex·외부 로컬 MCP 클라이언트는 `codex_host.py`를 진입점으로 사용한다.
@@ -26,6 +26,7 @@ disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해�
 |---|---|
 | `external_host.py`, `cos_worker.py` | 공용 외부 stdio adapter와 Rhino 연결마다 분리된 worker |
 | `cos_host.py`, `codex_host.py` | CoS 경유·Codex 직접 연결의 명시적인 진입점과 MCP 서버 식별 |
+| `SERVER-DESCRIPTION.md` | 건축설계 용도·연결 관리 도구 4개·연결 및 해제 방법을 담은 공통 소개 |
 | `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 외부 연결 광고 확인 |
 | `detached_process.py` | 새 프로세스를 suspended 상태로 생성하고 모든 Windows Job 밖임을 확인한 뒤 실행 |
 | `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
@@ -104,7 +105,12 @@ COS 전용 C# 변경은 COS manifest만 갱신한다. Engine을 변경하면 두
 
 ## 공통 모델링 안내
 
-외부 host의 초기화는 MCP package의 짧은 시작 안내를 제공한다. `project_info`도 원본 도구
+외부 host는 `SERVER-DESCRIPTION.md`를 초기화 응답의 `serverInfo.description`과
+`instructions` 앞부분에 제공한다. 두 연결 경로의 MCP 표시 이름과 앱 등록용 생성 설정 이름은
+`beyond`이며, 기존 `src/cos` 경로·실행 파일·native 식별자는 유지한다.
+ChatGPT의 `Chat On Steroids Plugins` 공통 소개는 클라이언트가 관리하므로, 서버 소개를
+수정한 것만으로 해당 화면에 표시되었다고 판단하지 않는다.
+이어서 MCP package의 시작 안내를 제공한다. `project_info`도 원본 도구
 설명을 유지하므로 document의 live 조회와 선택 instructions 항목이 정확히 안내된다.
 `get_modeling_guide`는 기존 worker 도구 전달 경로를 사용한다. 연결 후 connection_id가
 필요하며 control·binding·receipt 예외를 추가하지 않는다. 텍스트·선택 이미지 content를

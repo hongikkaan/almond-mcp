@@ -133,8 +133,10 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(reader, writer, read_timeout_seconds=15.0) as session:
                 initialization = await session.initialize()
                 instructions = initialization.instructions or ""
+                from external_host import DESCRIPTION
                 from almond_mcp.modeling_guidance import startup_instructions
-                self.assertEqual(instructions, startup_instructions())
+                self.assertEqual(initialization.server_info.description, DESCRIPTION)
+                self.assertEqual(instructions, DESCRIPTION + "\n\n" + startup_instructions())
                 self.assertIn('get_modeling_guide', instructions)
                 listing = await session.list_tools()
                 self.assertEqual(len(listing.tools), 84)

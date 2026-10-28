@@ -27,6 +27,7 @@ def source_paths(engine: Path) -> dict[str, Path]:
     package = PACKAGE
     paths = {
         "cos_connection_guidance": ROOT / "CONNECTION-INSTRUCTIONS.md",
+        "server_description": ROOT / "SERVER-DESCRIPTION.md",
         "model_context_instructions": package / "MODEL-CONTEXT-INSTRUCTIONS.md",
         "project": engine / "project.py",
         "entry": engine / "mcp_server.py",

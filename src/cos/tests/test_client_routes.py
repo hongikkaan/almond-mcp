@@ -9,14 +9,15 @@ import unittest
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from runtime import ROOT
+from external_host import DESCRIPTION
 from almond_mcp.modeling_guidance import startup_instructions
 
 
 class ClientRouteTests(unittest.IsolatedAsyncioTestCase):
-    async def test_direct_codex_and_cos_keep_equal_tools_and_distinct_identity(self):
+    async def test_direct_codex_and_cos_keep_equal_tools_and_beyond_name(self):
         inventories = []
         with tempfile.TemporaryDirectory() as directory:
-            for module, identity in (("codex_host", "Almond Codex"), ("cos_host", "Almond CoS")):
+            for module, identity in (("codex_host", "beyond"), ("cos_host", "beyond")):
                 data = Path(directory) / module
                 entry = "import sys; "
                 if module == "codex_host":
@@ -29,7 +30,8 @@ class ClientRouteTests(unittest.IsolatedAsyncioTestCase):
                     async with ClientSession(reader, writer, read_timeout_seconds=30) as session:
                         initialized = await session.initialize()
                         self.assertEqual(initialized.server_info.name, identity)
-                        self.assertEqual(initialized.instructions, startup_instructions())
+                        self.assertEqual(initialized.server_info.description, DESCRIPTION)
+                        self.assertEqual(initialized.instructions, DESCRIPTION + "\n\n" + startup_instructions())
                         tools = await session.list_tools()
                         descriptions = {tool.name: tool.description for tool in tools.tools}
                         self.assertIn("get_modeling_guide", descriptions)

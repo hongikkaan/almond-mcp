@@ -202,9 +202,9 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
                 assert set(tools) == expected_tools and len(tools) == len(expected_tools), tools
                 info = unpack(await session.call_tool("project_info", {"sections": ["project", "artifacts"]}))
                 status = unpack(await session.call_tool("get_retrieval_status", {}))
-                library = unpack(await session.call_tool("list_library", {}))
-                capsules = unpack(await session.call_tool("list_capsules", {"include_ids": True}))
-                materials = unpack(await session.call_tool("list_materials", {}))
+                library = unpack(await session.call_tool("list_library", {"field_groups": ["paths"]}))
+                capsules = unpack(await session.call_tool("list_capsules", {"include_ids": True, "field_groups": ["paths"]}))
+                materials = unpack(await session.call_tool("list_materials", {"field_groups": ["paths"]}))
                 drawings = unpack(await session.call_tool("list_drawing_assets", {}))
                 def relative(value):
                     return os.path.relpath(value, locations["project_dir"]).replace("\\", "/")
@@ -223,12 +223,17 @@ async def probe(kind, base, inherited, expected, custom_id=None, *,
                     assert drawings["assets"][0]["file_available"] is True, drawings
                 scene = None
                 if seed_scene:
-                    scene = unpack(await session.call_tool("create_design_scene", {
+                    created = unpack(await session.call_tool("create_design_scene", {
                         "name": "Existing fixture scene must survive source reindex", "units": "mm"
                     }))["scene"]
+                    # Compare full snapshots, not the compact creation receipt.
+                    scene = unpack(await session.call_tool("get_design_scene", {
+                        "scene_id": created["scene_id"], "include_ids": True, "field_groups": ["all"]
+                    }))["scene"]
+                    scene["scene_id"] = created["scene_id"]
                 elif expected_scene:
                     scene = unpack(await session.call_tool("get_design_scene", {
-                        "scene_id": expected_scene["scene_id"]
+                        "scene_id": expected_scene["scene_id"], "include_ids": True, "field_groups": ["all"]
                     }))["scene"]
                     assert scene == {k: v for k, v in expected_scene.items() if k != "scene_id"}, (scene, expected_scene)
     observed = json.loads(metadata.read_text(encoding="utf-8"))

@@ -29,6 +29,7 @@ from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
 
 GUIDANCE = (ROOT / "CONNECTION-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
+DESCRIPTION = (ROOT / "SERVER-DESCRIPTION.md").read_text(encoding="utf-8").strip()
 
 
 def json_result(value: dict) -> types.CallToolResult:
@@ -69,7 +70,7 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
-        ("list_connections", "List available Rhino documents, this client's connections and connection instructions. Run almondconnect in a saved ordinary Rhino to advertise it to Codex or CoS.",
+        ("list_connections", "List available Rhino documents, this client's connections and connection instructions. Run almondconnect in a saved ordinary Rhino to make it available for connection.",
          {}, []),
         ("connect", "Connect one advertised Rhino/document. Call list_connections first for the verified model path and connection instructions. Uses an independent A-J slot and session; models in one folder share the existing database and artifact root.",
          {"host_id": {"type": "string"}, "model_path": {"type": "string", "description": "Exact saved model path shown in the listing."}},
@@ -655,7 +656,7 @@ class SessionAdapter:
             await self.broker.close()
 
 
-CLIENT_NAMES = {"codex": "Almond Codex", "cos": "Almond CoS"}
+CLIENT_NAMES = {"codex": "beyond", "cos": "beyond"}
 
 
 async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos"):
@@ -668,8 +669,10 @@ async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos
     async def on_call_tool(ctx, params):
         return await broker.call(params.name, params.arguments or {})
 
-    # The worker's initialize instructions do not reach this host's client.
-    server = Server(CLIENT_NAMES[client], version=VERSION, instructions=startup_instructions(),
+    # Send the shared introduction before any tool call. Keep it in instructions
+    # too for clients that do not display serverInfo.description.
+    server = Server(CLIENT_NAMES[client], version=VERSION, description=DESCRIPTION,
+                    instructions=DESCRIPTION + "\n\n" + startup_instructions(),
                     get_tool_input_schema=schemas.get,
                     on_list_tools=on_list_tools, on_call_tool=on_call_tool)
     try:

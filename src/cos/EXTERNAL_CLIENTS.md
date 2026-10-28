@@ -31,8 +31,10 @@ Set-Location C:\TOOL\Rhino\mcp\almond-mcp
 MCP를 다시 로드하거나 재시작한다. `codex mcp get rhino --json`으로 등록 경로를
 확인할 수 있지만, 이 명령 자체는 MCP 연결 검증이 아니다.
 
-새 MCP 초기화의 서버 이름은 직접 연결에서 `Almond Codex`, CoS 경유에서 `Almond CoS`다.
-클라이언트가 붙이는 `rhino` 등의 namespace와는 별개의 식별 정보다.
+외부 연결기 이름은 `beyond`다. 두 경로 모두 MCP 초기화의 서버 이름은 `beyond`이며,
+CoS 앱 등록용 `cos-plugin.json`의 표시 이름도 `beyond`다.
+Codex의 기존 등록 키 `rhino`와 클라이언트가 붙이는 namespace는 별도로 유지한다.
+공통 소개는 `SERVER-DESCRIPTION.md`에서 수정하며, 초기화 응답의 서버 설명과 첫 안내에 전달된다.
 
 설정 후 **실제로 사용할 Codex 대화에서 등록된 `rhino` MCP의 `list_connections`를 직접
 호출**해 확인한다. 터미널에서 별도 MCP 클라이언트를 실행한 결과는 서버 검사일 뿐,

@@ -5,8 +5,7 @@
 <!-- instruction:list_drawing_assets -->
 Lists representation-only entourage and graphic proxy assets.
 
-Drawing assets are representation elements and do
-not participate in room collision checks unless explicitly registered.
+Drawing assets are representation elements and do not participate in room collision checks unless explicitly registered.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; default is summary.
 include_ids independently enables handles; audit enables timestamps.
@@ -37,15 +36,9 @@ Register a reviewed 3DM and automatically derive linked plan/front/right drawing
 
 Finish cleanup/orientation review with the asset-converter workflow first.
 Supply an absolute prepared 3DM path: millimeters, Z up, bottom-center at origin.
-Native geometry checks support meshes, Breps, extrusions, surfaces, SubD and nested
-blocks, up to 100 MB/250k triangles. Unsupported objects reject the whole asset.
-Copies the source, measures dimensions and writes DXF at full-size mm, SVG at
-1:50/1:100 and A3 sheets where they fit. These are mesh silhouettes, not hidden
-lines or construction details; visual classification/front are not verified.
-Existing IDs require replace_existing=true. Prior files and manifest backups
-are retained. Refreshes this MCP process's index after atomic publication;
-other running processes must reconnect. The bundled Rhino panel is a release
-snapshot; use MCP placement for newly registered local assets.
+Native geometry checks support meshes, Breps, extrusions, surfaces, SubD and nested blocks, up to 100 MB/250k triangles. Unsupported objects reject the whole asset.
+Copies the source, measures dimensions and writes DXF at full-size mm, SVG at 1:50/1:100 and A3 sheets where they fit. These are mesh silhouettes, not hidden lines or construction details; visual classification/front are not verified.
+Existing IDs require replace_existing=true. Prior files and manifest backups are retained. Refreshes this MCP process's index after atomic publication; other running processes must reconnect. The bundled Rhino panel is a release snapshot; use MCP placement for newly registered local assets.
 <!-- /instruction:register_drawing_asset -->
 
 ## get_asset_drawing
@@ -60,22 +53,17 @@ include_ids independently enables handles; audit enables timestamps.
 ## generate_asset_drawing_views
 
 <!-- instruction:generate_asset_drawing_views -->
-Generate plan/front/right mesh silhouettes with source metadata, full-size DXF,
-scaled SVG and A3 SVG sheets where they fit. Writes a NEW local drawing-runs folder.
-Choose a library asset_id OR an absolute custom source_glb path. Custom files
-REQUIRE input_units mm or m; up_axis y or z. Scales default to [50,100].
+Generate plan/front/right mesh silhouettes with source metadata, full-size DXF, scaled SVG and A3 SVG sheets where they fit. Writes a NEW local drawing-runs folder.
+Choose a library asset_id OR an absolute custom source_glb path. Custom files REQUIRE input_units mm or m; up_axis y or z. Scales default to [50,100].
 Supports static, uncompressed triangle GLBs only (max 100 MB/250k triangles).
 No hidden lines, inferred construction or product-front recognition.
-Optional item-level source_references require source_id/title/url/publisher/
-locator/accessed_on/relationship/used_for/terms_url. They describe references
-attached to this drawing, never retroactive generation inputs.
+Optional item-level source_references require source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url. They describe references attached to this drawing, never retroactive generation inputs.
 <!-- /instruction:generate_asset_drawing_views -->
 
 ## audit_asset_drawing
 
 <!-- instruction:audit_asset_drawing -->
-Check exported files and whether source geometry changed. Custom packages
-need the current source_glb to check staleness; library assets resolve automatically.
+Check exported files and whether source geometry changed. Custom packages need the current source_glb to check staleness; library assets resolve automatically.
 <!-- /instruction:audit_asset_drawing -->
 
 ## asset_catalogue_resource
@@ -97,9 +85,7 @@ Places an indexed representation asset as a reusable Rhino block.
 
 x/y/z and returned bounds use the active document's units; scale is dimensionless.
 Prepared 3DM geometry is converted from its stored millimeters by Rhino on import.
-Drawing assets are placed on ALMOND-DRAW::ASSETS and remain distinct from
-generated model blocks. The tool accepts only files resolved from the
-controlled asset/drawing/DrawingAssetfiles manifest.
+Drawing assets are placed on ALMOND-DRAW::ASSETS and remain distinct from generated model blocks. The tool accepts only files resolved from the controlled asset/drawing/DrawingAssetfiles manifest.
 <!-- /instruction:place_drawing_asset -->
 
 ## search_asset_repository
