@@ -15,6 +15,19 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, AlmondRhino는 별도 RHP로 구
 - [구조해석 사용법](src/mcp/features/structure/guides/tutorial.md) · [native solver](src/mcp/features/structure/SPEC.md) · [Karamba 경로](src/mcp/features/structure/validation/SPEC.md) · [설계 코드](src/mcp/features/structure/PROFILES-SPEC.md)
 - [구법 안내](src/mcp/features/guidance/construction-guide.md) · [구법 참조표](src/mcp/profiles/construction_system/SPEC.md)
 
-최초 설치 후에는 Rhino를 닫고 이 일상 폴더에서 `git pull --ff-only`한 뒤 다시 시작합니다.
-Git에 포함된 `src/rhp/*/plugin-runtime`을 사용하므로 매번 빌드하거나 등록할 필요가 없습니다.
+기존 AlmondCOS 설치에서 이번 버전으로 업데이트할 때는 등록 경로가 AlmondRhino로 바뀌므로 **한 번 재등록해야 합니다**.
+Rhino와 해당 MCP 연결을 정상 종료한 뒤 일상 폴더 `C:\TOOL\Rhino\mcp\almond-mcp`에서 다음 순서로 실행하고 Rhino를 다시 시작합니다.
+
+```powershell
+git pull --ff-only
+./src/rhp/tools/install_runtime.ps1
+./src/rhp/tools/install_runtime.ps1 -VerifyOnly
+```
+
+설치 스크립트는 기존 등록을 `data/runtime-install`에 백업하고 동일 GUID의 경로를
+`src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`에서
+`src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp`로 전환하며 명령 캐시도 갱신합니다.
+`-VerifyOnly`는 확인만 하므로 최초 전환에는 그 앞의 설치 명령이 필요합니다.
+이미 새 경로로 등록된 환경과 이후 업데이트는 Rhino 종료 → `git pull --ff-only` → Rhino 시작 순서입니다.
+Git에 실행 파일이 포함되어 있어 일반 업데이트마다 빌드하거나 재등록할 필요는 없습니다.
 프로젝트 DB는 `.almond/scene.sqlite3`를 사용합니다. 기존 확장자 없는 `DB`의 파일명 이전과 작업자료·임시자료 정리 기준은 [조회와 작업자료 계약](src/mcp/SPEC.md#조회와-작업자료-계약)을 따릅니다. 구형 `.almond/tmp/calls`에 남은 보고서·백업은 자동 삭제하지 않고 현재 자료 참조와 함께 이전합니다.

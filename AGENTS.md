@@ -47,7 +47,9 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 등록 확인은 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`다. RHP 경로와 Rhino의 연결 명령 캐시를 함께 검사한다. 명령 이름을 바꾸는 업데이트에서는 Rhino를 닫고 이 스크립트를 `-VerifyOnly` 없이 한 번 실행하여 기존 등록을 백업하고 새 명령 캐시를 반영한다. 실제 로드 경로 확인은 사용자가 별도로 요청한 경우 새 Rhino에서 수행하며, 등록 검증과 구분한다. 예전 standalone Terminal GUID `27D4B9A1-8FAD-421C-B64A-7A213D3B4079`가 남았다면 백업 후 중복 등록을 제거한다.
 
-이후 업데이트는 **Rhino를 정상 종료 → 일상 폴더에서 `git pull --ff-only` → Rhino 시작** 순서다. pull은 fetch와 현재 브랜치·추적 파일의 fast-forward를 수행한다. fetch만으로 파일은 바뀌지 않고, 실행 중 Rhino는 이미 로드한 assembly를 계속 쓴다. 소스와 실행 파일을 함께 받으므로 매번 빌드·복사·등록할 필요가 없다.
+**기존 AlmondCOS 등록에서 이번 AlmondRhino 경로로 전환하는 업데이트는 일회성 재등록이 필요하다.** Rhino와 해당 MCP 연결을 정상 종료하고 일상 폴더에서 pull한 뒤 `./src/rhp/tools/install_runtime.ps1`, 이어서 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`를 실행한 다음 Rhino를 시작한다. 설치 명령은 기존 등록을 백업하고 동일 GUID의 `PlugIn\FileName`을 `src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`에서 위의 AlmondRhino 경로로 변경하며 명령 캐시도 이전한다. `-VerifyOnly`만으로는 이전되지 않는다. 개발 워크트리를 등록하지 않는다.
+
+전환을 마친 이후 업데이트는 **Rhino를 정상 종료 → 일상 폴더에서 `git pull --ff-only` → Rhino 시작** 순서다. pull은 fetch와 현재 브랜치·추적 파일의 fast-forward를 수행한다. fetch만으로 파일은 바뀌지 않고, 실행 중 Rhino는 이미 로드한 assembly를 계속 쓴다. 소스와 실행 파일을 함께 받으므로 매번 빌드·복사·등록할 필요가 없다.
 
 - 외부 실행: `src/mcp/runtime/Almond 시작.cmd`에서 저장된 모델을 선택한다.
 - Rhino 내부: `RhinoTerminal` → `On`; 패널이 숨으면 `PanelToggle`로 표시한 뒤 `almond`를 입력하거나 우측 상단 버튼을 누른다. 재연결은 `almond resume` 또는 resume 버튼. `Off`는 패널 표시와 무관하게 터미널을 종료한다.

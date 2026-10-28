@@ -5,7 +5,10 @@ Follow `../../AGENTS.md`. Keep native responsibilities and validation details in
 
 Preserve plugin/assembly/command identities, Undo/Redo and observation contracts.
 Shared Engine code belongs to `Engine`; AlmondRhino plugin source belongs to `../cos/rhp`.
-Keep existing installation output paths. Never overwrite a loaded runtime or
+Keep installation output paths stable after migration. The explicit AlmondCOS to
+AlmondRhino migration requires the one-time backed-up registration step in the
+root README/AGENTS after pull and before restarting Rhino; pull alone does not
+update an old PlugIn\\FileName. Never overwrite a loaded runtime or
 change everyday registration while developing another worktree.
 
 Keep module tests out of production compile globs. Build with the actual Rhino 8

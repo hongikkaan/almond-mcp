@@ -123,7 +123,10 @@ Bridge manifest는 외부 연결기 소스를 포함하지 않고, 외부 연결
 Bridge 출력은 `src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp`다.
 공용 외부 연결 플러그인은 AlmondCOS에서 AlmondRhino로 이름을 이전했으며, 출력은
 `src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp`다. 기존 GUID를 유지하고
-`install_runtime.ps1`으로 등록 이름과 경로를 이전한다.
+`install_runtime.ps1`으로 등록 이름과 경로를 이전한다. 기존 AlmondCOS 설치는
+Rhino·해당 MCP 연결 종료 → 일상 폴더 pull → `./src/rhp/tools/install_runtime.ps1`
+→ `./src/rhp/tools/install_runtime.ps1 -VerifyOnly` → Rhino 시작 순서로 한 번 전환한다.
+설치 명령은 기존 등록을 백업하며, pull이나 `-VerifyOnly`만으로 옛 경로가 갱신되지는 않는다.
 
 기존 CoS의 Python command를 보존하기 위해 `.venv`는 `src/engine/.venv`에 유지한다.
 `src/engine`의 예전 시작 버튼·설치 스크립트는 새 소유 모듈로 전달하는 호환 진입점이다.
