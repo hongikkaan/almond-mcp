@@ -50,15 +50,6 @@ def test_validate_with_rhino_asset_loads(server, monkeypatch):
     assert out["results"]["max_deflection_mm"] > plain["results"]["max_deflection_mm"]
 
 
-def test_validate_with_scene_ledger_placements(server, monkeypatch):
-    sent = bridge(server, monkeypatch)
-    scene = json.loads(server.create_design_scene(name="loads"))["scene"]["scene_id"]
-    server.register_scene_instance(scene_id=scene, asset_id="gen-bathtub-1", x_mm=3000, y_mm=0, z_mm=3100)
-    out = json.loads(server.validate_structure(guids=["beam"], load_kn=0.001, asset_loads=True, scene_id=scene))
-    assert out["asset_loads"]["applied"] == 1 and out["asset_loads"]["placements"][0]["source"] == "scene"
-    assert "asset_placements" not in [m["type"] for m in sent]
-    bad = json.loads(server.validate_structure(guids=["beam"], asset_loads=True, scene_id="nope"))
-    assert bad["status"] == "error" and "nope" in bad["message"]
 
 
 def test_asset_loads_need_native_and_a_capable_bridge(server, monkeypatch):

@@ -44,8 +44,8 @@ REPO_LIBRARY_PATHS = {
     "DrawingRecipes": "asset/drawing/DrawingRecipes",
     "Draftingfiles": "asset/drawing/Draftingfiles",
     "capsules": "asset/capsules",
-    "Materialfiles": "asset/constructions/Materialfiles",
-    "Constructionfiles": "asset/constructions/Constructionfiles",
+    "Materialfiles": "src/mcp/profiles/material",
+    "Constructionfiles": "src/mcp/profiles/construction_system",
     "Historyfiles": "asset/history/Historyfiles",
 }
 
@@ -69,9 +69,11 @@ def _repo_dir(name: str) -> Path | None:
 
 
 def _bundled_data(name: str):
-    """Return the wheel-bundled data directory for *name*, or None in a
-    development checkout (where data/ is assembled only at build time)."""
-    candidate = resources.files("almond_mcp").joinpath("data", name)
+    """Return packaged profiles or wheel-bundled assets for initial user data."""
+    profiles = {"Materialfiles": "material", "Constructionfiles": "construction_system"}
+    package = resources.files("almond_mcp")
+    candidate = (package.joinpath("profiles", profiles[name]) if name in profiles
+                 else package.joinpath("data", name))
     return candidate if candidate.is_dir() else None
 
 

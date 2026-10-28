@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src" / "mcp"))
 from almond_mcp import __version__
 from almond_mcp.features.assets.asset_repository import AssetRepository, UI_ROOT
-from almond_mcp.asset_passport import audit_library
+from almond_mcp.features.assets.asset_passport import audit_library
 from almond_mcp.features.assets.drafting import audit_package
 from almond_mcp.features.assets.generation.document_generation_sources import build_register
 
@@ -59,7 +59,7 @@ def build_bundle(destination: Path):
             mime = {".html":"text/html; charset=utf-8", ".css":"text/css; charset=utf-8", ".js":"text/javascript; charset=utf-8", ".mjs":"text/javascript; charset=utf-8", ".json":"application/json", ".svg":"image/svg+xml"}.get(path.suffix,"text/plain; charset=utf-8")
             write("/"+relative, "ui/"+relative, path.read_bytes(), mime)
     routes["/"] = routes["/index.html"]
-    write("/api/materials", "api/materials.json", (ROOT/"asset/constructions/Materialfiles/manifest.json").read_bytes(), "application/json")
+    write("/api/materials", "api/materials.json", (ROOT/"src/mcp/profiles/material/manifest.json").read_bytes(), "application/json")
     catalogue = repo.catalogue()
     catalogue["distribution"] = "rhino"
     catalogue["indexed_at"] = "release-build"

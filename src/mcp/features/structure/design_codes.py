@@ -7,7 +7,7 @@ value has been checked against the published document:
      "parameters": {"gamma_G": {"value": 1.35, "source": "NA to SS EN 1990 Table NA.A1.2(B)",
                                 "verified": false}, ...}}
 
-Profiles load from the built-in ``almond_mcp/code_profiles`` folder and the user's folder
+Profiles load from the built-in ``almond_mcp/profiles`` folder and the user's folder
 (``%LOCALAPPDATA%\\Almond\\design-codes``, or ``ALMOND_DESIGN_CODE_DIR``), so a practice can add a
 National Annex without touching the solver. Unverified values are allowed but reported with every
 result. ``off`` is the built-in "no code" choice: unfactored G + Q, material factors 1.0, an L/250
@@ -23,8 +23,8 @@ from pathlib import Path
 
 from almond_mcp import paths
 
-# Profiles remain at the package resource path used by existing installations.
-BUILT_IN = Path(__file__).resolve().parents[2] / "code_profiles"
+# Only root JSON files are design codes; material/system manifests live below it.
+BUILT_IN = Path(__file__).resolve().parents[2] / "profiles"
 DEFAULT = "eurocode"
 OFF = "off"
 ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")

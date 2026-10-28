@@ -8,8 +8,8 @@ import uuid
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-MANIFEST = PROJECT_ROOT / "asset" / "constructions" / "Constructionfiles" / "manifest.json"
-MATERIAL_MANIFEST = PROJECT_ROOT / "asset" / "constructions" / "Materialfiles" / "manifest.json"
+MANIFEST = PROJECT_ROOT / "src" / "mcp" / "profiles" / "construction_system" / "manifest.json"
+MATERIAL_MANIFEST = PROJECT_ROOT / "src" / "mcp" / "profiles" / "material" / "manifest.json"
 
 PACKAGE_ROOT = PROJECT_ROOT / "src" / "mcp"
 if str(PACKAGE_ROOT) not in sys.path:

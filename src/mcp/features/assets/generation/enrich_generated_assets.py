@@ -6,7 +6,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(REPO / "src" / "mcp"))
 from almond_mcp import __version__
-from almond_mcp.asset_passport import AssetPassport, enrich_asset
+from almond_mcp.features.assets.asset_passport import AssetPassport, enrich_asset
 
 
 def main():

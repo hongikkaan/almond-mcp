@@ -50,7 +50,6 @@ Args:
         Rhino objects tagged with an Almond asset id, or from the scene ledger when
         scene_id is given. Native engine only; the result's "asset_loads" lists every
         placement with its load and carrying members, or why it was not applied.
-    scene_id: scene ledger to read placements from (default: tagged Rhino objects).
     floor_load_kn_m2: imposed floor load in kN/m2 (e.g. 2.0 for homes, EN 1991-1-1
         category A) on every bay enclosed by beams on a level; the beams take it by the
         45-degree rule (two-way, one-way above 2:1). Native engine only. A code floor load
@@ -116,7 +115,7 @@ A profile holds the numbers a design code or National Annex sets (load factors g
 gamma_Q, psi_0, xi; the ULS expression; material factors gamma_M0, gamma_M1; the deflection
 limit; suggested imposed floor loads), each with its source clause and a verified flag.
 "eurocode" (EN recommended values) is built in and the default; "off" is unfactored mechanics.
-Practices add National Annex profiles as JSON files in user_dir (see docs/structure/design-codes.md).
+Practices add National Annex profiles as JSON files in user_dir (see src/mcp/features/structure/PROFILES-SPEC.md).
 Unverified values are allowed but flagged in every result that uses them.
 
 Returns JSON: default, profiles [{id, name, basis, origin, verified, unverified,
@@ -169,7 +168,7 @@ Args:
     engine: "auto" (default: Almond's native frame solver, no Karamba needed; Karamba
         when the selection has shells or the bridge cannot export a model),
         "native" or "karamba".
-    asset_loads, scene_id: add the loads of placed library assets (native engine), as in
+    asset_loads: add the loads of placed library assets (native engine), as in
         validate_structure; loaded points are drawn with load arrows.
     floor_load_kn_m2, floor_dead_kn_m2: floor area loads on every enclosed bay, as in
         validate_structure.

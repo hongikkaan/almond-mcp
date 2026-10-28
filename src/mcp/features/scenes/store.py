@@ -75,14 +75,6 @@ class ScenesStore:
             ).fetchone()
             if not scene:
                 return None
-            room_count = int(connection.execute(
-                "SELECT COUNT(*) AS count FROM rooms WHERE scene_id = ?",
-                (scene_id,),
-            ).fetchone()["count"])
-            instance_count = int(connection.execute(
-                "SELECT COUNT(*) AS count FROM instances WHERE scene_id = ?",
-                (scene_id,),
-            ).fetchone()["count"])
             component_count = connection.execute(
                 "SELECT COUNT(*) FROM scene_components WHERE scene_id = ?", (scene_id,)
             ).fetchone()[0]
@@ -110,8 +102,6 @@ class ScenesStore:
             "file_name": scene["file_name"],
             "units": scene["units"],
             "revision": int(scene["revision"]),
-            "rooms": room_count,
-            "instances": instance_count,
             "components": component_count,
             "direct_objects": direct_object_count,
             "objects": object_count,

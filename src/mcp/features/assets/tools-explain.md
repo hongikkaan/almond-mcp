@@ -163,7 +163,7 @@ Model file missing for {0}; run almond-mcp fetch-assets to download it.
 ## response-419
 
 <!-- instruction:response-419 -->
-register_scene_instance(scene_id, asset_id=..., x, y, rotation) so validate_scene_layout can see this placement.
+Inspect the placed geometry and relevant Rhino views before concluding the placement is correct.
 <!-- /instruction:response-419 -->
 
 ## response-423

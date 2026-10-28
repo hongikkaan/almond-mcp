@@ -2,7 +2,7 @@
   "library_id": "typology_narratives",
   "library_name": "Almond architectural typology narratives",
   "schema_version": 1,
-  "source": "Narratives distilled and paraphrased from Ching, Jarzombek & Prakash, A Global History of Architecture (Wiley); gha_ref gives PDF page numbers in that volume (see docs/construction/reference/gha_toc.txt). NARRATION ONLY: this library feeds project storytelling and typology context. It never drives geometry, sizing, or structural decisions - those come from the construction library.",
+  "source": "Narratives distilled and paraphrased from Ching, Jarzombek & Prakash, A Global History of Architecture (Wiley); gha_ref gives PDF page numbers in that volume (see src/mcp/profiles/construction_system/references/gha_toc.txt). NARRATION ONLY: this library feeds project storytelling and typology context. It never drives geometry, sizing, or structural decisions - those come from the construction library.",
   "entries": [
     {
       "typology_id": "dense-roof-access-settlement",

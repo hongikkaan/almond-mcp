@@ -123,7 +123,7 @@ def load_contract(path: str | Path) -> dict[str, Any]:
         if actual != contract["model_sha256"].upper():
             raise ValueError("Model checksum does not match the asset contract")
     if contract.get("passport"):
-        from almond_mcp.asset_passport import AssetPassport
+        from almond_mcp.features.assets.asset_passport import AssetPassport
         passport = AssetPassport.model_validate(contract["passport"]).model_dump()
         if passport["asset_id"] != contract["asset_id"] or passport["dimensions_mm"] != contract["dimensions_mm"]:
             raise ValueError("Passport does not match contract identity/dimensions")

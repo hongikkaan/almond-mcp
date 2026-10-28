@@ -15,7 +15,7 @@ import numpy as np
 import shapely
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
-from almond_mcp.asset_passport import read_glb_chunks
+from almond_mcp.features.assets.asset_passport import read_glb_chunks
 
 ENGINE_VERSION = 2
 MAX_TRIANGLES = 250_000

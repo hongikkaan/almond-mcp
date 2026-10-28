@@ -20,10 +20,6 @@ _Avoid_: 자동 등록된 ontological_component
 하나의 실물 형상 정의를 여러 위치·회전·축척으로 재사용하는 구성.
 _Avoid_: 자산 배치 대장의 Instance
 
-**Almond Instance**:
-기존 자산의 Scene 내 배치를 나타내는 별도 기록. 실제 Rhino block instance와 구별한다.
-_Avoid_: 모든 모델 객체의 필수 대장
-
 ## 제품과 연결 경로
 
 **Almond**:

@@ -89,43 +89,6 @@ class RetrievalStoreTests(unittest.TestCase):
             self.drawing_asset_count,
         )
 
-    def test_scene_revisions_and_rtree_collisions(self):
-        scene = self.store.create_scene("Collision test")
-        scene_id = scene["scene_id"]
-        room = self.store.upsert_room(
-            scene_id,
-            "Living room",
-            [0, 0, 0, 5000, 5000, 3000],
-        )
-        first = self.store.upsert_instance(
-            scene_id,
-            "ikea-sg-kallax-70351886",
-            1000,
-            1000,
-            room_id=room["room_id"],
-        )
-        second = self.store.upsert_instance(
-            scene_id,
-            "ikea-sg-poang-s19240788",
-            1000,
-            1000,
-            room_id=room["room_id"],
-        )
-        invalid = self.store.validate_scene(scene_id)
-        self.assertFalse(invalid["passed"])
-        self.assertEqual(invalid["collision_count"], 1)
-
-        moved = self.store.upsert_instance(
-            scene_id,
-            "ikea-sg-poang-s19240788",
-            3000,
-            1000,
-            room_id=room["room_id"],
-            instance_id=second["instance_id"],
-        )
-        valid = self.store.validate_scene(scene_id)
-        self.assertTrue(valid["passed"])
-        self.assertGreater(moved["revision"], first["revision"])
 
     def test_plan_records_dependencies_without_enforcing_order(self):
         plan = self.store.create_plan(
@@ -166,95 +129,9 @@ class RetrievalStoreTests(unittest.TestCase):
 class SceneLedgerFixesTests(RetrievalStoreTests):
     """Regressions from the 2026-07-14 stress test (issues #3 and #4)."""
 
-    def test_upsert_room_by_name_updates_instead_of_duplicating(self):
-        scene = self.store.create_scene("Upsert test")
-        first = self.store.upsert_room(
-            scene["scene_id"], "L1 Office", [0, 0, 18000, 6000, 4000, 21000]
-        )
-        second = self.store.upsert_room(
-            scene["scene_id"], "L1 Office", [0, 0, 0, 6000, 4000, 3000]
-        )
-        self.assertEqual(first["room_id"], second["room_id"])
-        self.assertEqual(self.store.get_scene(scene["scene_id"])["rooms"], 1)
 
-    def test_instance_z_defaults_to_room_floor(self):
-        scene = self.store.create_scene("Storey test")
-        room = self.store.upsert_room(
-            scene["scene_id"], "L1", [0, 0, 18000, 10000, 6000, 21000]
-        )
-        instance = self.store.upsert_instance(
-            scene["scene_id"],
-            "ikea-sg-klippan-s49010615",
-            x_mm=3000,
-            y_mm=2000,
-            room_id=room["room_id"],
-        )
-        report = self.store.validate_scene(scene["scene_id"])
-        self.assertEqual(report["outside_room_count"], 0, report)
-        # explicit z still wins
-        grounded = self.store.upsert_instance(
-            scene["scene_id"],
-            "ikea-sg-klippan-s49010615",
-            x_mm=3000,
-            y_mm=2000,
-            z_mm=0,
-            room_id=room["room_id"],
-            instance_id=instance["instance_id"],
-        )
-        report = self.store.validate_scene(scene["scene_id"])
-        self.assertEqual(report["outside_room_count"], 1)
-        self.assertEqual(report["outside_room"][0]["failing_axes"], ["z"])
 
-    def test_remove_instance_and_room(self):
-        scene = self.store.create_scene("Removal test")
-        room = self.store.upsert_room(
-            scene["scene_id"], "L1", [0, 0, 0, 10000, 6000, 3000]
-        )
-        instance = self.store.upsert_instance(
-            scene["scene_id"],
-            "ikea-sg-klippan-s49010615",
-            x_mm=3000,
-            y_mm=2000,
-            room_id=room["room_id"],
-        )
-        keep = self.store.upsert_instance(
-            scene["scene_id"],
-            "ikea-sg-kallax-70351886",
-            x_mm=6000,
-            y_mm=2000,
-            room_id=room["room_id"],
-        )
-        removed = self.store.remove_instance(scene["scene_id"], instance["instance_id"])
-        self.assertGreater(removed["revision"], 0)
-        self.assertEqual(self.store.get_scene(scene["scene_id"])["instances"], 1)
-        with self.assertRaises(KeyError):
-            self.store.remove_instance(scene["scene_id"], instance["instance_id"])
 
-        room_removed = self.store.remove_room(scene["scene_id"], room["room_id"])
-        self.assertEqual(room_removed["orphaned_instances"], 1)
-        self.assertEqual(self.store.get_scene(scene["scene_id"])["rooms"], 0)
-        # orphaned instance survives
-        self.assertEqual(self.store.get_scene(scene["scene_id"])["instances"], 1)
-        self.assertTrue(keep["instance_id"])
-
-    def test_retiring_a_library_keeps_assets_placed_in_scenes(self):
-        # 0.6 retired the IKEA catalogue by syncing it empty; state databases
-        # with IKEA scene instances must still open (FK instances -> assets).
-        scene = self.store.create_scene("Retired library")
-        placed = "ikea-sg-klippan-s49010615"
-        self.store.upsert_instance(scene["scene_id"], placed, x_mm=1000, y_mm=1000)
-
-        self.store.sync_assets([], library_id="ikea")
-
-        self.assertEqual(self.store.asset_stats("ikea")["total"], 0)
-        self.assertEqual(self.store.asset_stats("retired")["total"], 1)
-        self.assertIsNotNone(self.store.get_asset(placed))
-        self.assertNotIn(
-            placed,
-            [a["asset_id"] for a in self.store.search_assets(query="klippan")["assets"]],
-        )
-        self.assertEqual(self.store.search_assets(limit=50)["total"], self.drawing_asset_count)
-        self.assertEqual(self.store.get_scene(scene["scene_id"])["instances"], 1)
 
 
 class ValidationHistoryTests(unittest.TestCase):

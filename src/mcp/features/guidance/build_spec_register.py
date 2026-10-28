@@ -1,8 +1,8 @@
-"""Generate docs/construction/construction-spec-register.md from the construction manifest.
+"""Generate src/mcp/profiles/construction_system/SPEC.md from the construction manifest.
 
 Itemizes every parameter Almond's construction knowledge layer uses and
 resolves each system's bci_ref section numbers against the page-indexed
-table of contents (docs/construction/reference/bci_toc.txt) of the source volume:
+table of contents (src/mcp/profiles/construction_system/references/bci_toc.txt) of the source volume:
 
     Francis D.K. Ching, Building Construction Illustrated, 4th ed.
     (Wiley, 2014)
@@ -22,9 +22,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from almond_mcp.instruction_text import read_instruction
 
 ROOT = Path(__file__).resolve().parents[4]
-MANIFEST = ROOT / "asset" / "constructions" / "Constructionfiles" / "manifest.json"
-TOC = ROOT / "docs" / "construction" / "reference" / "bci_toc.txt"
-OUT = ROOT / "docs" / "construction" / "construction-spec-register.md"
+MANIFEST = ROOT / "src" / "mcp" / "profiles" / "construction_system" / "manifest.json"
+TOC = ROOT / "src/mcp/profiles/construction_system/references/bci_toc.txt"
+OUT = ROOT / "src/mcp/profiles/construction_system/SPEC.md"
 
 # Reference tables live in the appendix; their sections are fixed.
 REFERENCE_SOURCES = {

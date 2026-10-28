@@ -50,8 +50,8 @@ def register(mcp, context):
         ) if key in component}
 
     @mcp.tool()
-    @tool_instruction(__file__, 'upsert_design_component')
-    def upsert_design_component(
+    @tool_instruction(__file__, 'upsert_ontological_component')
+    def upsert_ontological_component(
         name: str,
         object_ids: list[str],
         expected_model_path: str = "",
@@ -71,9 +71,9 @@ def register(mcp, context):
             return _component_error(exc)
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @tool_instruction(__file__, 'get_design_component')
+    @tool_instruction(__file__, 'get_ontological_component')
     @query_output
-    def get_design_component(component_id: str, live: bool = False, include_ids: StrictBool = False,
+    def get_ontological_component(component_id: str, live: bool = False, include_ids: StrictBool = False,
                              recursive: StrictBool = False, field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
         try:
@@ -90,9 +90,9 @@ def register(mcp, context):
             return json.dumps(project(json.loads(_component_error(exc)), field_groups))
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @tool_instruction(__file__, 'list_design_components')
+    @tool_instruction(__file__, 'list_ontological_components')
     @query_output
-    def list_design_components(expected_model_path: str = "", include_ids: StrictBool = False,
+    def list_ontological_components(expected_model_path: str = "", include_ids: StrictBool = False,
                                scene_id: str = "", recursive: StrictBool = False,
                                field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
@@ -104,8 +104,8 @@ def register(mcp, context):
             return json.dumps(project(json.loads(_component_error(exc)), field_groups))
 
     @mcp.tool()
-    @tool_instruction(__file__, 'sync_design_component')
-    def sync_design_component(component_id: str = "", expected_model_path: str = "", rhino_group_id: str = "",
+    @tool_instruction(__file__, 'sync_ontological_component')
+    def sync_ontological_component(component_id: str = "", expected_model_path: str = "", rhino_group_id: str = "",
                               component_ids: list[str] | None = None, scene_id: str = "") -> str:
         try:
             if component_id and component_ids is not None:
@@ -133,8 +133,8 @@ def register(mcp, context):
             return _component_error(exc)
 
     @mcp.tool(annotations={"destructiveHint": False})
-    @tool_instruction(__file__, 'remove_design_component')
-    def remove_design_component(component_id: str) -> str:
+    @tool_instruction(__file__, 'remove_ontological_component')
+    def remove_ontological_component(component_id: str) -> str:
         try:
             component = context.retrieval_store.unregister_component(component_id, native_apply=_component_bridge)
             return json.dumps({"status": "success", "component": _component_ack(component)}, ensure_ascii=False)
@@ -202,11 +202,11 @@ def register(mcp, context):
     return {
         "_component_bridge": _component_bridge,
         "_component_error": _component_error,
-        "upsert_design_component": upsert_design_component,
-        "get_design_component": get_design_component,
-        "list_design_components": list_design_components,
-        "sync_design_component": sync_design_component,
-        "remove_design_component": remove_design_component,
+        "upsert_ontological_component": upsert_ontological_component,
+        "get_ontological_component": get_ontological_component,
+        "list_ontological_components": list_ontological_components,
+        "sync_ontological_component": sync_ontological_component,
+        "remove_ontological_component": remove_ontological_component,
         "_component_operation_bridge": _component_operation_bridge,
         "get_component_intersections": get_component_intersections,
         "focus_components": focus_components,

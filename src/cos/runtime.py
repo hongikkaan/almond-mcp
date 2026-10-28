@@ -62,6 +62,8 @@ def source_paths(engine: Path) -> dict[str, Path]:
         paths["engine/" + path.name] = path
     for path in guide_files():
         paths["package/" + path.relative_to(package).as_posix()] = path
+    for path in sorted((package / "profiles").rglob("*.json")):
+        paths["package/" + path.relative_to(package).as_posix()] = path
     return paths
 
 

@@ -54,7 +54,7 @@ def register(mcp, context):
         if not scene:
             return json.dumps(error_payload(f"Unknown scene_id: {scene_id}"))
         return json.dumps({"status": "success", "scene": select_fields(scene, field_groups,
-            {"scene_id", "name", "units", "revision", "rooms", "instances", "components", "direct_objects", "objects"}, SCENE_GROUPS)})
+            {"scene_id", "name", "units", "revision", "components", "direct_objects", "objects"}, SCENE_GROUPS)})
 
     @mcp.tool()
     @tool_instruction(__file__, 'update_design_scene')

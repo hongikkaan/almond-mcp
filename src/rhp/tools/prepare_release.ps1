@@ -57,7 +57,7 @@ try {
     Copy-Item -LiteralPath $yakPackages[0].FullName -Destination $output
     & $python src/rhp/tools/verify_yak.py (Join-Path $output $yakName) --report (Join-Path $output "yak-verification.json")
     if ($LASTEXITCODE -ne 0) { throw "Final Yak check failed." }
-    Copy-Item -LiteralPath (Join-Path $repo "docs/assets/rhino-archive-quickstart.md") -Destination $output
+    Copy-Item -LiteralPath (Join-Path $repo "src/mcp/features/assets/guides/rhino-archive-quickstart.md") -Destination $output
     $zip = Join-Path $output "almondbridge-$bridgeVersion-food4rhino.zip"
     Compress-Archive -LiteralPath @((Join-Path $output $yakName), (Join-Path $output "rhino-archive-quickstart.md")) -DestinationPath $zip -Force
     $checksums = Get-ChildItem -LiteralPath $output -File | Where-Object { $_.Name -ne "SHA256SUMS.txt" -and $_.Name -notlike ".*" } | Sort-Object Name | ForEach-Object {

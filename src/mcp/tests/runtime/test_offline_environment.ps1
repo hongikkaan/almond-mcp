@@ -16,7 +16,7 @@ try {
     $expected = @{
         RHINO_MCP_STATE_DB = Join-Path $testRepo 'data\offline\state.sqlite3'
         RHINO_MCP_DRAWING_ASSET_DIR = Join-Path $testRepo 'asset\drawing\DrawingAssetfiles'
-        RHINO_MCP_MATERIAL_DIR = Join-Path $testRepo 'asset\constructions\Materialfiles'
+        RHINO_MCP_MATERIAL_DIR = Join-Path $testRepo 'src\mcp\profiles\material'
         RHINO_MCP_LIBRARY_DIR = $library
         TEMP = Join-Path $testRepo 'data\offline\tmp'
         TMP = Join-Path $testRepo 'data\offline\tmp'

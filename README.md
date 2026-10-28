@@ -5,15 +5,15 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, AlmondRhino는 별도 RHP로 구
 
 - [작업 지침·설치·실행·빌드·검증](AGENTS.md)
 - [저장소 구조와 데이터 계약](SPEC.md)
-- [용어](GLOSSARY.md) · [RhinoTerminal·beyond·CoS 연결 경로](docs/development/connection-paths.md)
-- [모듈별 개발·테스트와 워크트리 병렬 작업](docs/development/module-boundaries.md)
+- [용어](GLOSSARY.md) · [RhinoTerminal·beyond·CoS 연결 경로](src/mcp/runtime/CONNECTION-SPEC.md)
+- [모듈별 개발·테스트와 워크트리 병렬 작업](MODULE-SPEC.md)
 - [Codex·CoS·외부 MCP 클라이언트 연결](src/cos/EXTERNAL_CLIENTS.md)
-- [Rhino 패널 사용법](docs/assets/rhino-archive-quickstart.md)
-- [자산 검색·배치·도면·출처 관리](docs/assets/assets-and-drawings.md)
-- [Rhino 모델링 지침](docs/modeling/guidance/modeling-guide.md) · [Component 등록·계층·동기화](docs/modeling/component-system.md) · [Phase·Plan·Step 저장·참조](docs/modeling/planning.md)
-- [현재 문서·화면·고정 probe·C# 반환값](docs/modeling/native-observation.md)
-- [구조해석 사용법](docs/structure/structural-tutorial.md) · [native solver](docs/structure/native-solver.md) · [Karamba 경로](docs/structure/structural-validation.md) · [설계 코드](docs/structure/design-codes.md)
-- [구법 안내](docs/construction/construction-guidance.md) · [구법 참조표](docs/construction/construction-spec-register.md)
+- [Rhino 패널 사용법](src/mcp/features/assets/guides/rhino-archive-quickstart.md)
+- [자산 검색·배치·도면·출처 관리](src/mcp/features/assets/SPEC.md)
+- [Rhino 모델링 지침](src/mcp/features/guidance/guides/modeling-guide.md) · [Component 등록·계층·동기화](src/mcp/features/components/SPEC.md) · [Phase·Plan·Step 저장·참조](src/mcp/features/planning/SPEC.md)
+- [현재 문서·화면·고정 probe·C# 반환값](src/mcp/rhino/OBSERVATION-SPEC.md)
+- [구조해석 사용법](src/mcp/features/structure/guides/tutorial.md) · [native solver](src/mcp/features/structure/SPEC.md) · [Karamba 경로](src/mcp/features/structure/validation/SPEC.md) · [설계 코드](src/mcp/features/structure/PROFILES-SPEC.md)
+- [구법 안내](src/mcp/features/guidance/construction-guide.md) · [구법 참조표](src/mcp/profiles/construction_system/SPEC.md)
 
 최초 설치 후에는 Rhino를 닫고 이 일상 폴더에서 `git pull --ff-only`한 뒤 다시 시작합니다.
 Git에 포함된 `src/rhp/*/plugin-runtime`을 사용하므로 매번 빌드하거나 등록할 필요가 없습니다.

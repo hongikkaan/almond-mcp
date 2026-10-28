@@ -1,4 +1,4 @@
-"""Versioned, package-local modeling guidance; no server, model or store imports."""
+"""Read canonical package guidance directly; no generated copy or model imports."""
 from copy import deepcopy
 from functools import lru_cache
 import hashlib
@@ -6,16 +6,14 @@ import json
 from pathlib import Path
 import re
 
-
 PACKAGE = Path(__file__).resolve().parent
-BUNDLE = PACKAGE / "modeling_guides"
+BUNDLE = PACKAGE / "features/guidance/guides"
+CONTEXT_GUIDE = PACKAGE / "features/context/MODEL-CONTEXT-GUIDE.md"
 
 
 def _read_content(path: Path) -> bytes:
     raw = path.read_bytes()
-    if path.suffix != ".png":
-        raw = raw.decode("utf-8-sig").replace("\r\n", "\n").encode("utf-8")
-    return raw
+    return raw if path.suffix == ".png" else raw.decode("utf-8-sig").replace("\r\n", "\n").encode("utf-8")
 
 
 def content_digest(path: Path) -> str:
@@ -23,45 +21,98 @@ def content_digest(path: Path) -> str:
 
 
 def source_files() -> list[Path]:
-    """All shipped guide files, including additions, participate in session identity."""
-    return sorted(path for path in BUNDLE.rglob("*") if path.is_file())
+    return sorted([*(p for p in BUNDLE.rglob("*") if p.is_file()), CONTEXT_GUIDE,
+                   PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md", PACKAGE / "MODEL-CONTEXT-INSTRUCTIONS.md"])
+
+
+def _section(text: str, heading: str, children: bool = True) -> str:
+    lines = text.splitlines(keepends=True)
+    matches = [i for i, line in enumerate(lines) if line.rstrip() == heading]
+    if len(matches) != 1:
+        raise ValueError(f"Missing or duplicate guide heading: {heading}")
+    start = matches[0]
+    level = len(heading) - len(heading.lstrip("#"))
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        match = re.match(r"^(#{1,6}) ", lines[i])
+        if match and (not children or len(match[1]) <= level):
+            end = i
+            break
+    return "".join(lines[start:end]).strip()
 
 
 @lru_cache(maxsize=1)
 def _snapshot() -> dict:
-    manifest = json.loads((BUNDLE / "manifest.json").read_text(encoding="utf-8"))
-    version = manifest.pop("guide_version")
-    encoded = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    if manifest.get("format") != 1 or hashlib.sha256(encoded).hexdigest() != version:
-        raise ValueError("Modeling guide manifest is inconsistent; install a matching package.")
-    files = {}
-    for name, expected in manifest["files"].items():
-        if not re.fullmatch(r"(?:[a-z][a-z0-9-]*\.md|assets/[a-z][a-z0-9-]*\.png)", name):
-            raise ValueError("Invalid modeling guide package path.")
-        path = BUNDLE / name
-        raw = _read_content(path)
-        if hashlib.sha256(raw).hexdigest() != expected:
-            raise ValueError(f"Modeling guide {name} changed; install a matching package and start a new session.")
-        files[name] = raw if name.endswith(".png") else raw.decode("utf-8")
-    instructions = {}
-    for key, filename in (("startup", "FUNDAMENTAL-INSTRUCTIONS.md"),
-                          ("model_context", "MODEL-CONTEXT-INSTRUCTIONS.md")):
-        raw = _read_content(PACKAGE / filename)
-        if hashlib.sha256(raw).hexdigest() != manifest[f"{key}_sha256"]:
-            raise ValueError(f"Modeling {key} guidance changed; rebuild the guide bundle and start a new session.")
-        instructions[key] = raw.decode("utf-8").strip()
-    return {**manifest, "guide_version": version, "content": files, **instructions}
+    inventory = source_files()
+    raw = {p: _read_content(p) for p in inventory}
+    mapping = json.loads(raw[BUNDLE / "mcp-guide-map.json"])
+    topics, content, hints = [], {}, {}
+
+    def source(path: Path) -> str:
+        return raw[path].decode("utf-8")
+
+    def reference(path: Path, heading: str = "") -> dict:
+        return {"path": "src/mcp/" + path.relative_to(PACKAGE).as_posix(),
+                "heading": heading, "sha256": hashlib.sha256(raw[path]).hexdigest()}
+
+    for item in mapping["topics"]:
+        if not re.fullmatch(r"[a-z][a-z0-9-]*", item["id"]) or item["id"] == "index":
+            raise ValueError("Invalid/reserved guide topic ID")
+        texts, refs, images = [], [], []
+        for ref in item["sections"]:
+            path = (BUNDLE / ref["path"]).resolve()
+            path.relative_to(BUNDLE)
+            texts.append(_section(source(path), ref["heading"], ref.get("children", True)))
+            refs.append(reference(path, ref["heading"]))
+        text = "\n\n".join(texts) + "\n"
+        for before, after in mapping["link_replacements"].items():
+            text = text.replace(before, after)
+        if item["id"] == "observation":
+            text += "\n" + source(CONTEXT_GUIDE)
+            refs.append(reference(CONTEXT_GUIDE))
+        for image in item.get("images", []):
+            path = (BUNDLE / image["path"]).resolve()
+            path.relative_to(BUNDLE)
+            name = path.relative_to(BUNDLE).as_posix()
+            content[name] = raw[path]
+            images.append({"file": name, "alt": image["alt"], "sha256": hashlib.sha256(raw[path]).hexdigest()})
+        filename = item["id"] + ".md"
+        if filename in content:
+            raise ValueError("Duplicate guide topic")
+        content[filename] = text
+        topics.append({key: item[key] for key in ("id", "title", "summary", "when_to_read", "related_tools")} |
+                      {"file": filename, "source_refs": refs, "images": images})
+        for name in item.get("hint_tools", []):
+            hints[name] = (hints.get(name, "") + f'\nWhen {item["trigger"]}, read get_modeling_guide(topic="{item["id"]}") '
+                           "if not already read for the current guide_version or the rule is unclear.").strip()
+    for topic, filename, title in (("fundamental", "FUNDAMENTAL-INSTRUCTIONS.md", "Fundamental instructions"),
+                                   ("model-context", "MODEL-CONTEXT-INSTRUCTIONS.md", "Model context instructions")):
+        path = PACKAGE / filename
+        content[filename] = source(path).strip()
+        topics.append({"id": topic, "title": title, "summary": title,
+                       "when_to_read": "At first use" if topic == "fundamental" else "Before modeling work",
+                       "related_tools": ["get_modeling_guide"], "file": filename,
+                       "source_refs": [reference(path)], "images": []})
+    if inventory != source_files() or any(_read_content(p) != value for p, value in raw.items()):
+        raise RuntimeError("Guide source changed while reading; start a new session.")
+    identity = {p.relative_to(PACKAGE).as_posix(): hashlib.sha256(value).hexdigest() for p, value in raw.items()}
+    version = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+    return {"topics": topics, "content": content, "tool_hints": hints, "guide_version": version,
+            "startup": content["FUNDAMENTAL-INSTRUCTIONS.md"], "model_context": content["MODEL-CONTEXT-INSTRUCTIONS.md"]}
 
 
 def startup_instructions() -> str:
     snapshot = _snapshot()
-    topics = "\n".join(f"- {item['id']}: {item['summary']}" for item in snapshot["topics"])
-    return (snapshot["startup"] + f"\n\nGuide topics (guide_version={snapshot['guide_version']}):\n" + topics)
+    return ('Almond inspects and edits Rhino architecture and drawings. On first use, call '
+            'get_modeling_guide(topic="fundamental") to load FUNDAMENTAL-INSTRUCTIONS.md. '
+            'Before modeling work, read get_modeling_guide(topic="model-context"). '
+            'Use get_modeling_guide(topic="index") for other topics; reuse guidance for the same guide_version. '
+            f'guide_version={snapshot["guide_version"]}')
 
 
 def project_instructions() -> str:
     snapshot = _snapshot()
-    return startup_instructions() + "\n\n" + snapshot["model_context"]
+    return snapshot["startup"] + "\n\n" + snapshot["model_context"]
 
 
 def tool_guidance(name: str) -> str:
@@ -69,7 +120,6 @@ def tool_guidance(name: str) -> str:
 
 
 def read_guide(topic: str = "index", include_images: bool = False) -> tuple[dict, list[bytes]]:
-    """Return a bounded allowlisted topic and optional original images from one snapshot."""
     snapshot = _snapshot()
     result = {"status": "success", "guide_version": snapshot["guide_version"], "topic_id": topic}
     if topic == "index":

@@ -22,7 +22,7 @@
 ## 공통 안내
 
 - [작업 원칙·설치·배포](AGENTS.md)
-- [모듈별 개발·병렬 작업·이전 경로 대응](docs/development/module-boundaries.md)
+- [모듈별 개발·병렬 작업·이전 경로 대응](MODULE-SPEC.md)
 - [기능별 사용 문서](README.md)
 
 모듈 내부만 변경되는 작업은 이 문서를 수정할 필요가 없다. 공통 의존 방향이나

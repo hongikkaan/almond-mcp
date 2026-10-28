@@ -27,7 +27,6 @@ from almond_mcp.features.scenes.store import ScenesStore
 from almond_mcp.features.components.store import ComponentsStore
 
 
-from almond_mcp.features.placement.store import PlacementStore
 
 
 from almond_mcp.features.grasshopper.store import GrasshopperStore
@@ -46,7 +45,7 @@ from almond_mcp.features.assets.store import AssetsStore
 
 
 class AlmondStore(
-    ScenesStore, ComponentsStore, PlacementStore, GrasshopperStore,
+    ScenesStore, ComponentsStore, GrasshopperStore,
     StructureStore, PlanningStore, DrawingsStore, AssetsStore,
 ):
     """SQLite-backed asset retrieval, spatial state, and generation plans."""

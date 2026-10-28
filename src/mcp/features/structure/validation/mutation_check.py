@@ -18,9 +18,9 @@ TESTS = ["src/mcp/tests/test_frame_solver.py", "src/mcp/tests/test_native_struct
          "src/mcp/tests/test_validate_engines.py", "src/mcp/tests/test_visualize_native.py", "src/mcp/tests/test_hand_calculations.py", "src/mcp/tests/test_ec3.py"]
 
 MUTANTS = [
-    ("load factor gamma_G 1.35 -> 1.30", "src/mcp/code_profiles/eurocode.json", '"gamma_G": {"value": 1.35', '"gamma_G": {"value": 1.30'),
-    ("6.10b reduction xi 0.85 -> 0.925", "src/mcp/code_profiles/eurocode.json", '"xi": {"value": 0.85', '"xi": {"value": 0.925'),
-    ("psi_0 0.7 -> 0.5", "src/mcp/code_profiles/eurocode.json", '"psi_0": {"value": 0.7', '"psi_0": {"value": 0.5'),
+    ("load factor gamma_G 1.35 -> 1.30", "src/mcp/profiles/eurocode.json", '"gamma_G": {"value": 1.35', '"gamma_G": {"value": 1.30'),
+    ("6.10b reduction xi 0.85 -> 0.925", "src/mcp/profiles/eurocode.json", '"xi": {"value": 0.85', '"xi": {"value": 0.925'),
+    ("psi_0 0.7 -> 0.5", "src/mcp/profiles/eurocode.json", '"psi_0": {"value": 0.7', '"psi_0": {"value": 0.5'),
     ("buckling curve a imperfection 0.21 -> 0.34", "src/mcp/features/structure/frame_solver.py", '"a": 0.21', '"a": 0.34'),
     ("gamma_M1 ignored in member buckling", "src/mcp/features/structure/frame_solver.py",
      "buck = ncomp / (chi * s.A * fy / gamma_m1)", "buck = ncomp / (chi * s.A * fy)"),

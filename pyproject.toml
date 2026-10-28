@@ -50,14 +50,14 @@ build-backend = "hatchling.build"
 only-include = ["src/mcp"]
 include = [
     "src/mcp/*.py", "src/mcp/*-explain.md", "src/mcp/*-INSTRUCTIONS.md",
-    "src/mcp/modeling_policy.json", "src/mcp/code_profiles/**",
-    "src/mcp/features/**", "src/mcp/modeling_guides/**", "src/mcp/rhino/**",
+    "src/mcp/modeling_policy.json", "src/mcp/profiles/**",
+    "src/mcp/features/**", "src/mcp/rhino/**",
 ]
 sources = {"src/mcp" = "almond_mcp"}
 # Keep the public import name while the checkout source lives directly in src/mcp.
 dev-mode-dirs = ["src/mcp"]
 exclude = [
-    "src/mcp/runtime", "src/mcp/tests", "src/mcp/release_validation", "src/mcp/guide_build",
+    "src/mcp/runtime", "src/mcp/tests", "src/mcp/release_validation",
     "src/mcp/*.ps1", "src/mcp/pytest.ini", "src/mcp/AGENTS.md", "src/mcp/SPEC.md",
     "src/mcp/almond_mcp.py", "src/mcp/rhino_bridge.py",
 ]
@@ -82,28 +82,25 @@ exclude = [
 "asset/drawing/DrawingRecipes" = "almond_mcp/data/DrawingRecipes"
 "asset/drawing/Draftingfiles" = "almond_mcp/data/Draftingfiles"
 "asset/capsules" = "almond_mcp/data/capsules"
-"asset/constructions/Materialfiles/manifest.json" = "almond_mcp/data/Materialfiles/manifest.json"
-"asset/constructions/Constructionfiles/manifest.json" = "almond_mcp/data/Constructionfiles/manifest.json"
 "asset/history/Historyfiles/manifest.json" = "almond_mcp/data/Historyfiles/manifest.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/src/mcp", "/src/rhp/Asset_Panel/web", "/src/mcp/tests", "/docs", "/asset/capsules", "/asset/drawing/DrawingRecipes",
+    "/src/mcp", "/src/rhp/Asset_Panel/web", "/src/mcp/tests", "/asset/capsules", "/asset/drawing/DrawingRecipes",
     "/asset/drawing/Draftingfiles", "/src/mcp/features/assets/generation/build_drawing_pilot.py",
-    "/src/mcp/guide_build/build_modeling_guides.py",
     "/asset/models/GeneratedAssetfiles/manifest.json", "/asset/models/GeneratedAssetfiles/catalogue.json",
     "/asset/models/GeneratedAssetfiles/provenance.json", "/asset/models/GeneratedAssetfiles/passport.schema.json",
     "/asset/models/GeneratedAssetfiles/structural-loads.json",
     "/asset/models/GeneratedAssetfiles/source-register.json",
     "/asset/models/GeneratedAssetfiles/README.md", "/asset/models/GeneratedAssetfiles/models", "/asset/models/GeneratedAssetfiles/previews",
     "/asset/drawing/DrawingAssetfiles/manifest.json", "/asset/diagram/DiagramAssetfiles/manifest.json",
-    "/asset/constructions/Materialfiles/manifest.json", "/asset/constructions/Constructionfiles/manifest.json", "/asset/history/Historyfiles/manifest.json",
+    "/src/mcp/profiles/material/manifest.json", "/src/mcp/profiles/construction_system/manifest.json", "/asset/history/Historyfiles/manifest.json",
     "/src/mcp/features/assets/generation/build_generated_assets.py", "/src/mcp/features/assets/generation/enrich_generated_assets.py",
     "/src/mcp/features/assets/generation/document_generation_sources.py",
     "/src/mcp/features/assets/generation/run_meshy_batch.py", "/src/mcp/features/assets/generation/prepare_organic_meshes.py", "/src/mcp/features/assets/generation/import_organic_batch.py", "/asset/models/GeneratedAssetfiles/batches",
     "/src/rhp/tools/build_archive_bundle.py", "/src/mcp/release_validation/verify_object_archive_install.py",
     "/src/mcp/features/assets/generation/render_generated_previews.py", "/src/mcp/release_validation/verify_release.py",
-    "/README.md", "/AGENTS.md", "/SPEC.md", "/LICENSE", "/THIRD-PARTY-NOTICES.md",
+    "/README.md", "/AGENTS.md", "/SPEC.md", "/MODULE-SPEC.md", "/LICENSE", "/THIRD-PARTY-NOTICES.md",
     "/src/mcp/SPEC.md", "/src/mcp/AGENTS.md", "/src/mcp/QUERY_OUTPUT.md", "/src/mcp/pytest.ini",
     "/src/cos/SPEC.md", "/src/cos/AGENTS.md", "/src/rhp/SPEC.md", "/src/rhp/AGENTS.md",
     "/src/engine/README.md",

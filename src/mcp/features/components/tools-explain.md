@@ -1,8 +1,8 @@
 # tools.py explain
 
-## upsert_design_component
+## upsert_ontological_component
 
-<!-- instruction:upsert_design_component -->
+<!-- instruction:upsert_ontological_component -->
 Register an ontological_component meaning unit in a current Rhino group.
 
 object_ids names DIRECT top-level owners (possibly [] when child_component_ids
@@ -22,12 +22,12 @@ entry may remain. A new group name collision refuses before mutation rather
 than creating an automatically suffixed group. Never repair membership or replay
 an undone registration automatically; review the intended Rhino structure first.
 expected_model_path must match the active saved document. After an uncertain
-native result, inspect and sync_design_component; do not replay the mutation.
-<!-- /instruction:upsert_design_component -->
+native result, inspect and sync_ontological_component; do not replay the mutation.
+<!-- /instruction:upsert_ontological_component -->
 
-## get_design_component
+## get_ontological_component
 
-<!-- instruction:get_design_component -->
+<!-- instruction:get_ontological_component -->
 Read an ontological_component summary or inspect its actual Rhino group.
 
 live=True observes current members/name without changing Rhino or the ledger.
@@ -35,21 +35,21 @@ recursive=false is the default; request true only for effective nested geometry.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds references, geometry, scope, audit, or all; default is summary.
 include_ids independently enables handles; audit enables timestamps.
-<!-- /instruction:get_design_component -->
+<!-- /instruction:get_ontological_component -->
 
-## list_design_components
+## list_ontological_components
 
-<!-- instruction:list_design_components -->
+<!-- instruction:list_ontological_components -->
 List compact cached ontological_components, optionally scoped by scene_id.
 recursive=false lists roots in that scope; true also includes registered children.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds references, geometry, scope, audit, or all; default is summary.
 include_ids independently enables handles; audit enables timestamps.
-<!-- /instruction:list_design_components -->
+<!-- /instruction:list_ontological_components -->
 
-## sync_design_component
+## sync_ontological_component
 
-<!-- instruction:sync_design_component -->
+<!-- instruction:sync_ontological_component -->
 Align DB records with actual groups in the current stable Rhino document once.
 
 Use one component_id, component_ids, one scene_id, or omit targets for the bound
@@ -60,11 +60,11 @@ for Rhino Undo without recreating geometry. Unrelated invalid bindings are
 reported individually. The compact reply gives checked/changed/unavailable counts
 and actionable problems; complete native snapshots remain internal. Repeated
 unchanged alignment creates no revision. Never replay an uncertain mutation.
-<!-- /instruction:sync_design_component -->
+<!-- /instruction:sync_ontological_component -->
 
-## remove_design_component
+## remove_ontological_component
 
-<!-- instruction:remove_design_component -->
+<!-- instruction:remove_ontological_component -->
 Unregister ontological_component meaning while preserving Rhino geometry,
 ordinary groups and all existing object attributes. Rhino Undo/Redo restores or
 removes the document-private semantic binding.
@@ -73,7 +73,7 @@ A root Component may have children; they become roots and keep their object
 ownership, registered Rhino groups and Scene links. A Component that still has
 its own parent must first be detached. Plan/Step/Sheet references to the
 removed Component must be cleared first. No geometry is deleted or copied.
-<!-- /instruction:remove_design_component -->
+<!-- /instruction:remove_ontological_component -->
 
 ## get_component_intersections
 

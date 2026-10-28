@@ -30,7 +30,6 @@ def register(mcp, context):
         self_weight: bool = True,
         span_m: float | None = None,
         asset_loads: bool = False,
-        scene_id: str = "",
         floor_load_kn_m2: float = 0.0,
         floor_dead_kn_m2: float = 0.0,
         design_basis: str = "en1990",
@@ -72,7 +71,7 @@ def register(mcp, context):
         if asset_loads:
             if engine == "karamba":
                 return json.dumps(error_payload("asset_loads needs the native engine (engine='auto' or 'native')."))
-            spec, err = context._asset_load_spec(scene_id)
+            spec, err = context._asset_load_spec()
             if err:
                 return json.dumps(error_payload(err))
         if engine == "native" or (engine == "auto" and structure_type.lower() not in KARAMBA_ONLY_TYPES):
@@ -133,27 +132,21 @@ def register(mcp, context):
         return Path(context.GENERATED_LIBRARY_DIR) / "structural-loads.json"
 
 
-    def _asset_load_spec(scene_id: str = ""):
+    def _asset_load_spec():
         """Placements + load table + catalogue facts for asset loads: (spec, None) or (None, error)."""
         try:
             table = asset_loads.LoadTable(context._structural_loads_path())
         except Exception as e:
             return None, f"The asset load table is unavailable ({e})."
-        if scene_id:
-            try:
-                placements = asset_loads.placements_from_scene(context.retrieval_store.scene_instances(scene_id))
-            except KeyError as e:
-                return None, str(e).strip("'")
-        else:
-            try:
-                reply = json.loads(context._send_and_receive(json.dumps({"type": "asset_placements"}).encode('utf-8'), timeout=60.0))
-            except ConnectionRefusedError:
-                return None, "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"
-            except Exception as e:
-                return None, f"Could not read asset placements from Rhino ({e})."
-            if not isinstance(reply, dict) or reply.get("status") != "ok":
-                return None, "This bridge version cannot export asset placements (update almondbridge)."
-            placements = reply.get("placements") or []
+        try:
+            reply = json.loads(context._send_and_receive(json.dumps({"type": "asset_placements"}).encode('utf-8'), timeout=60.0))
+        except ConnectionRefusedError:
+            return None, "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"
+        except Exception as e:
+            return None, f"Could not read asset placements from Rhino ({e})."
+        if not isinstance(reply, dict) or reply.get("status") != "ok":
+            return None, "This bridge version cannot export asset placements (update almondbridge)."
+        placements = reply.get("placements") or []
         catalogue = structure_study.asset_catalogue(placements, context.generated_asset_indexer.get)
         return {"placements": placements, "table": table, "catalogue": catalogue}, None
 
@@ -239,7 +232,6 @@ def register(mcp, context):
         clear: bool = False,
         engine: str = "auto",
         asset_loads: bool = False,
-        scene_id: str = "",
         floor_load_kn_m2: float = 0.0,
         floor_dead_kn_m2: float = 0.0,
         design_basis: str = "en1990",
@@ -309,7 +301,7 @@ def register(mcp, context):
         if asset_loads and not clear and reanalyze:
             if engine == "karamba":
                 return json.dumps(error_payload("asset_loads needs the native engine (engine='auto' or 'native')."))
-            spec, err = context._asset_load_spec(scene_id)
+            spec, err = context._asset_load_spec()
             if err:
                 return json.dumps(error_payload(err))
         if not clear and engine != "karamba" and not (not reanalyze and context._VIEW_ENGINE == "api"):

@@ -7,7 +7,7 @@ from almond_mcp.features.modeling import modeling_policy
 
 
 class MaterialLibrary:
-    """Curated PBR material definitions (asset/constructions/Materialfiles/manifest.json)."""
+    """Curated PBR material definitions (src/mcp/profiles/material/manifest.json)."""
 
     REQUIRED = ("material_id", "name", "category", "base_color",
                 "metallic", "roughness", "opacity", "ue_material_slot")

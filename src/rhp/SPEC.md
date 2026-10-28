@@ -29,7 +29,7 @@ Bridge의 `_server` 필드·`HandleRequest`와 helper 계약은 유지한다.
 문서 identity, UI thread, 요청·완료 envelope, 공유 저장소 lease와 Undo/Redo 계약을
 보존한다. 고정 관찰은 geometry·layer·selection·camera·Undo를 바꾸지 않는다.
 수정 실행의 반환 오류와 실제 rollback은 구분한다. 입력·출력 한계와 viewport·probe
-계약은 [관측 문서](../../docs/modeling/native-observation.md)를 따른다.
+계약은 [관측 문서](../mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
 
 Terminal과 AlmondRhino는 고정 RHP 출력 위치에서 `../mcp/runtime`에 해당하는 실제 경로를
 계산해 사용한다. 개발 워크트리로 일상 Rhino 등록을 변경하지 않는다.

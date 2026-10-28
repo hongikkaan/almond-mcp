@@ -18,7 +18,7 @@ import uuid
 import urllib.error
 import urllib.request
 from pathlib import Path
-from almond_mcp.library_index import AssetLibraryIndexer
+from almond_mcp.features.assets.library_index import AssetLibraryIndexer
 from fastmcp import FastMCP
 from fastmcp.resources import ResourceContent, ResourceResult
 from fastmcp.tools import ToolResult
@@ -29,7 +29,8 @@ from almond_mcp.features.grasshopper.ghx_parser import GHParser, validate_capsul
 from almond_mcp.retrieval_store import AlmondStore, ComponentReconciliationError, DrawingSheetReconciliationError
 from almond_mcp.features.modeling import modeling_policy, modeling_setup
 from almond_mcp.features.assets import drawing_assets
-from almond_mcp import asset_passport, paths
+from almond_mcp import paths
+from almond_mcp.features.assets import asset_passport
 from almond_mcp.features.structure import asset_loads, native_structure, structure_study, design_codes
 from almond_mcp.features.capture import conditioning
 from almond_mcp.features.exchange import exchange
@@ -166,7 +167,6 @@ from almond_mcp.features.exchange.tools import register as _register_exchange
 from almond_mcp.features.grasshopper.tools import register as _register_grasshopper
 from almond_mcp.features.guidance.tools import register as _register_guidance
 from almond_mcp.features.modeling.tools import register as _register_modeling
-from almond_mcp.features.placement.tools import register as _register_placement
 from almond_mcp.features.planning.tools import register as _register_planning
 from almond_mcp.features.publishing.tools import register as _register_publishing
 from almond_mcp.features.scenes.tools import register as _register_scenes
@@ -184,7 +184,6 @@ globals().update(_register_exchange(mcp, _feature_context))
 globals().update(_register_grasshopper(mcp, _feature_context))
 globals().update(_register_guidance(mcp, _feature_context))
 globals().update(_register_modeling(mcp, _feature_context))
-globals().update(_register_placement(mcp, _feature_context))
 globals().update(_register_planning(mcp, _feature_context))
 globals().update(_register_publishing(mcp, _feature_context))
 globals().update(_register_scenes(mcp, _feature_context))

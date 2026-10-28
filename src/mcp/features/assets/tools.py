@@ -15,7 +15,8 @@ import uuid
 from fastmcp.resources import ResourceContent, ResourceResult
 
 from almond_mcp.features.structure import asset_loads
-from almond_mcp import asset_passport, paths
+from almond_mcp import paths
+from almond_mcp.features.assets import asset_passport
 from almond_mcp.features.assets import drawing_assets, drafting
 
 
@@ -533,9 +534,8 @@ public class Script
     Imports a generated-library asset into the open Rhino document and places
     it at a point (contract anchor = bottom centre, mm), restoring its Almond
     material and almond:* metadata and verifying the landed size against the
-    contract. Use search_assets to choose an asset_id; afterwards
-    call register_scene_instance so the scene ledger and layout validation
-    know about it.
+    contract. Use search_assets to choose an asset_id; afterwards inspect
+    the resulting geometry and relevant Rhino views.
 
     Args:
         asset_id: e.g. "gen-park-bench-1".

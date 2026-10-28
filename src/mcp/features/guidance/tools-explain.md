@@ -2,8 +2,8 @@
 
 <!-- instruction:get_modeling_guide -->
 Read a versioned topic from the packaged Rhino Almond modeling guide.
-Use the startup topic summaries to read a known topic directly; topic="index"
-is optional discovery. Reuse topics read for the same guide_version. For semantic
+Read topic="fundamental" at first use and topic="model-context" before modeling.
+Use topic="index" to discover other topics or read a known topic directly. Reuse topics read for the same guide_version. For semantic
 grouping examples, read topic="ontological-component-evidence" with include_images=true.
 Images are original reference PNGs, not captures of the current Rhino document.
 This reader does not edit the model, task database or user artifacts. Existing

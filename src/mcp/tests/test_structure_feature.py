@@ -117,5 +117,5 @@ def test_builtin_design_code_resource_stays_at_package_path():
     from almond_mcp.features.structure import design_codes
     from almond_mcp import paths
 
-    assert design_codes.BUILT_IN == Path(paths.__file__).resolve().parent / "code_profiles"
+    assert design_codes.BUILT_IN == Path(paths.__file__).resolve().parent / "profiles"
     assert design_codes.load("eurocode").id == "eurocode"

@@ -3,7 +3,7 @@
 Codex 직접 연결은 `codex_host.py`, CoS 경유 연결은 기존 `cos_host.py`를 실행한다.
 두 진입점은 표준 **stdio MCP 서버**인 `external_host.py`를 공유한다. Codex 직접 연결에는
 CoS 앱이나 터널이 필요하지 않다. 기존 CoS 명령·터널과 native 등록은 유지한다.
-RhinoTerminal을 포함한 세 경로의 구분은 [연결 경로 안내](../../docs/development/connection-paths.md)를 따른다.
+RhinoTerminal을 포함한 세 경로의 구분은 [연결 경로 안내](../mcp/runtime/CONNECTION-SPEC.md)를 따른다.
 
 MCP 등록과 클라이언트 시작 시에는 **도구 목록을 제공하는 최소 stdio 프로세스**만 실행된다.
 모델링 worker·Rhino·모델 DB 연결은 시작하지 않는다. 사용하는 대화에서 연결 또는 시작
@@ -84,7 +84,7 @@ CoS 연결과 함께 사용하며 사용 가능한 자리가 있어야 연결된
    반환된 `connection_id`를 이후 모든 호출에 사용한다.
 4. 필요할 때 `project_info`에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해
    `get_rhino_context`를 반복 호출하지 않는다. 자료 작성 전 `set_working_plan`으로
-   폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../../docs/modeling/guidance/modeling-guide.md)을 따른다.
+   폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../mcp/features/guidance/guides/modeling-guide.md)을 따른다.
 5. 끝나면 `disconnect`로 해당 연결을 해제한다. 문서 변경 후에는 재연결한다.
 
 Rhino에서 직접 해제하려면 `almonddisconnect`를 사용한다. 처리 중인 작업이나 worker의

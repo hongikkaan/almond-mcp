@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from almond_mcp.instruction_text import read_instruction, tool_instruction
+from almond_mcp.instruction_text import read_instruction, read_tool_instruction, tool_instruction
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,7 +44,7 @@ def test_all_public_descriptions_and_responses_use_adjacent_markdown():
                 sections.add(section)
         if sections:
             referenced[path.with_name(path.stem + '-explain.md')] = sections
-    assert public_count >= 80
+    assert public_count >= 75
     markdown = set(ROOT.rglob('*-explain.md'))
     assert set(referenced) == markdown
     for path, sections in referenced.items():
@@ -70,3 +70,26 @@ def test_missing_or_duplicate_instruction_fails_closed(tmp_path):
     markdown.write_text(markdown.read_text(encoding='utf-8') * 2, encoding='utf-8')
     with pytest.raises(ValueError):
         read_instruction(str(source), 'sample')
+
+
+def test_summary_hides_details_while_preserving_tool_schema(tmp_path):
+    from fastmcp.tools import FunctionTool
+
+    source = tmp_path / 'sample.py'
+    full = ('Read an item.\nDetailed workflow stays in the explanation.\n\n'
+            'Args:\n    item: Verified item identifier.\n'
+            'Returns:\n    The selected record.\n')
+    source.with_name('sample-explain.md').write_text(
+        '<!-- instruction:sample -->\n' + full + '<!-- /instruction:sample -->', encoding='utf-8')
+
+    def sample(item: str) -> dict:
+        return {'item': item}
+
+    sample.__doc__ = full
+    original = FunctionTool.from_function(sample)
+    sample.__doc__ = read_tool_instruction(str(source), 'sample')
+    compact = FunctionTool.from_function(sample)
+    assert compact.description == 'Read an item.'
+    assert compact.parameters == original.parameters
+    assert compact.output_schema == original.output_schema
+    assert 'Detailed workflow' in read_instruction(str(source), 'sample')

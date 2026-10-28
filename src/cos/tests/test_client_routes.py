@@ -38,7 +38,7 @@ class ClientRouteTests(unittest.IsolatedAsyncioTestCase):
                         tools = await session.list_tools()
                         descriptions = {tool.name: tool.description for tool in tools.tools}
                         self.assertIn("get_modeling_guide", descriptions)
-                        self.assertIn('get_modeling_guide(topic="project")', descriptions["project_info"])
+                        self.assertEqual(descriptions["project_info"], 'Read selected project information.')
                         inventories.append([tool.model_dump() for tool in tools.tools])
                         listing = await session.call_tool("list_connections", {})
                         self.assertFalse(listing.is_error)

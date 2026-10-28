@@ -16,7 +16,7 @@ def test_given_manual_group_change_when_agent_aligns_then_one_compact_ack(server
         return dict(status="success", complete=True, model_path=model, editing=dict(mode="model", stable=True),
                     components=[live(prior, [B])], problems=[])
     requests = wire(document, context=dict(status="success", capabilities=dict(design_components=1, component_registry=2)))
-    result = call(server, "sync_design_component", expected_model_path=model)
+    result = call(server, "sync_ontological_component", expected_model_path=model)
     assert result["status"] == "success" and result["changed"] == 1
     assert not {"components", "objects", "effective_objects"}.intersection(result)
     assert A not in json.dumps(result) and B not in json.dumps(result)
@@ -28,7 +28,7 @@ def test_given_old_bridge_when_agent_aligns_then_no_observation_or_write(server,
     wire()
     register(server, model, scene, component_id="meaning", rhino_group_id=GROUP)
     requests = wire(context=dict(status="success", capabilities=dict(design_components=1)))
-    result = call(server, "sync_design_component", component_id="meaning", expected_model_path=model)
+    result = call(server, "sync_ontological_component", component_id="meaning", expected_model_path=model)
     assert result["status"] == "error" and "component_registry=2" in result["message"]
     assert len(requests) == 1
     assert store.get_component("meaning")["object_ids"] == [A, B]
@@ -40,7 +40,7 @@ def test_given_active_group_editor_when_agent_aligns_then_mode_evidence_is_prese
     wire(lambda request: dict(status="error", error_code="unstable_editing_scope", mutation_applied=False,
          message="Finish group editing.", editing=dict(mode="group", stable=False, target=dict(name="Panel"))),
          context=dict(status="success", capabilities=dict(design_components=1, component_registry=2)))
-    result = call(server, "sync_design_component", expected_model_path=model)
+    result = call(server, "sync_ontological_component", expected_model_path=model)
     assert result["status"] == "error" and result["editing"]["mode"] == "group"
     assert result["mutation_applied"] is False
     assert store.get_component("meaning")["object_ids"] == [A, B]
@@ -53,7 +53,7 @@ def test_given_target_binding_failure_when_agent_aligns_then_cached_data_is_not_
          editing=dict(mode="model", stable=True), components=[],
          problems=[dict(component_id="meaning", code="invalid_binding")]),
          context=dict(status="success", capabilities=dict(design_components=1, component_registry=2)))
-    result = call(server, "sync_design_component", expected_model_path=model, component_id="meaning")
+    result = call(server, "sync_ontological_component", expected_model_path=model, component_id="meaning")
     assert result["checked"] == 0 and result["problems"][0]["component_id"] == "meaning"
     assert "component" not in result and result["live_verified"] is False
     assert store.get_component("meaning")["object_ids"] == [A, B]
@@ -65,7 +65,7 @@ def test_given_native_group_rename_refusal_when_agent_updates_then_db_and_scene_
     before, scene_before = store.get_component("meaning"), store.get_scene(scene)
     wire(lambda request: dict(status="error", error_code="component_error", mutation_applied=False,
          message="Use the current Rhino group name; group-table renames are not Undo-tracked."))
-    result = call(server, "upsert_design_component", expected_model_path=model, component_id="meaning",
+    result = call(server, "upsert_ontological_component", expected_model_path=model, component_id="meaning",
                   name="Different group name", object_ids=[A, B], scene_ids=[scene])
     assert result["status"] == "error" and result["mutation_applied"] is False
     assert store.get_component("meaning") == before and store.get_scene(scene) == scene_before
@@ -76,7 +76,7 @@ def test_given_conflicting_scene_and_target_when_agent_aligns_then_no_false_live
     register(server, model, scene, component_id="meaning", rhino_group_id=GROUP)
     other = store.create_scene("Other Scene")["scene_id"]
     requests = wire()
-    result = call(server, "sync_design_component", component_id="meaning", scene_id=other, expected_model_path=model)
+    result = call(server, "sync_ontological_component", component_id="meaning", scene_id=other, expected_model_path=model)
     assert result["status"] == "error" and "component" not in result and requests == []
 
 
@@ -87,7 +87,7 @@ def test_given_native_child_without_cached_parent_when_aligning_scene_then_actio
     from test_component_alignment import bridge
     wire(bridge([live(child, [A])]))
     before = snapshot(store)
-    result = call(server, "sync_design_component", scene_id=scene, expected_model_path=model)
+    result = call(server, "sync_ontological_component", scene_id=scene, expected_model_path=model)
     assert result["status"] == "error" and result["error_code"] == "component_scope_incomplete"
     assert result["missing_parent_component_ids"] == ["native-parent"] and result["next_action"]
     assert result["mutation_applied"] is False and "component" not in result

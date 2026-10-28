@@ -15,8 +15,8 @@ from almond_mcp.retrieval_store import AlmondStore
 A, B = [str(uuid.UUID(int=value)) for value in (1, 2)]
 GROUP = str(uuid.UUID(int=100))
 COMPONENT_TOOLS = {
-    "upsert_design_component", "get_design_component", "list_design_components",
-    "sync_design_component", "remove_design_component", "register_scene_objects",
+    "upsert_ontological_component", "get_ontological_component", "list_ontological_components",
+    "sync_ontological_component", "remove_ontological_component", "register_scene_objects",
     "get_scene_objects", "get_modeling_policy",
 }
 
@@ -97,7 +97,7 @@ def call(server, tool_name, **arguments):
 def register(server, model, scene, **extra):
     arguments = dict(expected_model_path=model, name="Panel", object_ids=[A, B], scene_ids=[scene])
     arguments.update(extra)
-    return call(server, "upsert_design_component", **arguments)
+    return call(server, "upsert_ontological_component", **arguments)
 
 
 @pytest.mark.parametrize("change", ["name", "type", "direct_count", "effective_count", "legacy_type", "unchanged"])
@@ -139,8 +139,8 @@ def test_live_default_summary_uses_observed_objects_without_writing_cache(server
         counts = (2, 3)
     requests = wire(lambda request: dict(status="success", component=deepcopy(observed)))
     before = snapshot(store)
-    summary = call(server, "get_design_component", component_id="live-summary", live=True)["component"]
-    detailed = call(server, "get_design_component", component_id="live-summary", live=True,
+    summary = call(server, "get_ontological_component", component_id="live-summary", live=True)["component"]
+    detailed = call(server, "get_ontological_component", component_id="live-summary", live=True,
                     recursive=True, include_ids=True, field_groups=["geometry"])["component"]
     assert summary["live_verified"] is True and summary["requires_sync"] is (change != "unchanged")
     assert summary["object_names"] == detailed["object_names"] == expected_names
@@ -165,8 +165,8 @@ def test_live_parent_reports_descendant_name_drift_without_changing_cache(server
     next(obj for obj in observed["effective_objects"] if obj["rhino_guid"] == A)["name"] = "Renamed leaf"
     wire(lambda request: dict(status="success", component=deepcopy(observed)))
     before = snapshot(store)
-    summary = call(server, "get_design_component", component_id=parent["component_id"], live=True)["component"]
-    detailed = call(server, "get_design_component", component_id=parent["component_id"], live=True,
+    summary = call(server, "get_ontological_component", component_id=parent["component_id"], live=True)["component"]
+    detailed = call(server, "get_ontological_component", component_id=parent["component_id"], live=True,
                     recursive=True, include_ids=True, field_groups=["geometry"])["component"]
     assert summary["requires_sync"] is True and summary["object_names"] == []
     assert (summary["object_count"], summary["effective_object_count"]) == (1, 2)
@@ -184,14 +184,14 @@ def test_public_registration_update_and_cached_reads(server, store, scene, model
     assert store.get_component("panel-1")["scene_ids"] == [scene] and store.get_component("panel-1")["object_ids"] == [A, B]
     assert [request["type"] for request in requests] == ["get_rhino_context", "design_component"]
     assert requests[1]["expected_model_path"] == model and requests[1]["action"] == "upsert"
-    changed = call(server, "upsert_design_component", expected_model_path=model, component_id="panel-1",
+    changed = call(server, "upsert_ontological_component", expected_model_path=model, component_id="panel-1",
                    name="Smaller panel", object_ids=[B])
     assert store.get_component("panel-1")["scene_ids"] == [scene]
     assert requests[-1]["expected_object_ids"] == [A, B]
     monkeypatch.setattr(server, "_send_and_receive", lambda *_: pytest.fail("Cached read called Rhino"))
-    cached = call(server, "get_design_component", component_id="panel-1", include_ids=True, field_groups=["geometry"])["component"]
+    cached = call(server, "get_ontological_component", component_id="panel-1", include_ids=True, field_groups=["geometry"])["component"]
     assert cached["live_verified"] is False and cached["object_ids"] == [B]
-    listed = call(server, "list_design_components", expected_model_path=model, include_ids=True)
+    listed = call(server, "list_ontological_components", expected_model_path=model, include_ids=True)
     assert listed["total"] == 1 and listed["live_verified"] is False
     assert listed["components"][0]["name"] == "Smaller panel"
     assert "objects" not in listed["components"][0]
@@ -243,7 +243,7 @@ def test_timeout_is_one_mutation_and_explicit_inspect_recovers(server, store, sc
     inspections = wire(lambda request: dict(status="success", complete=True, model_path=model,
         editing=dict(mode="model", stable=True), components=[native_success[0]["component"]], problems=[]),
         context=dict(status="success", capabilities=dict(design_components=1, component_registry=2)))
-    recovered = call(server, "sync_design_component", expected_model_path=model,
+    recovered = call(server, "sync_ontological_component", expected_model_path=model,
                      component_id=response["component_id"], rhino_group_id=GROUP)
     assert recovered["status"] == "success" and recovered["component"]["live_verified"] is True
     assert "object_ids" not in recovered["component"]
@@ -290,7 +290,7 @@ def test_direct_scene_objects_deduplicate_and_survive_unregister(server, store, 
         return dict(status="success", component_id=request["component_id"],
                     model_path=request["expected_model_path"], rhino_group_id=request["rhino_group_id"])
     requests = wire(unregister)
-    removed = call(server, "remove_design_component", component_id=component["component_id"])
+    removed = call(server, "remove_ontological_component", component_id=component["component_id"])
     assert removed["status"] == "success" and removed["component"]["status"] == "unregistered"
     assert [r.get("action") for r in requests] == [None, "unregister"]
     assert requests[1]["expected_object_ids"] == [A]
@@ -309,16 +309,16 @@ def test_plan_references_block_public_unregister_before_bridge(server, store, sc
         store.update_plan_step(plan["plan_id"], "inspect_context", "pending",
                                component_ids=[component["component_id"]])
     requests = wire()
-    response = call(server, "remove_design_component", component_id=component["component_id"])
+    response = call(server, "remove_ontological_component", component_id=component["component_id"])
     assert response["status"] == "error" and "referenced" in response["message"]
     assert requests == [] and store.get_component(component["component_id"]) is not None
 
 
 @pytest.mark.parametrize("tool_name,arguments", [
-    ("get_design_component", {"component_id": "missing"}),
-    ("list_design_components", {"expected_model_path": "relative.3dm"}),
-    ("sync_design_component", {"expected_model_path": "relative.3dm", "component_id": "missing"}),
-    ("remove_design_component", {"component_id": "missing"}),
+    ("get_ontological_component", {"component_id": "missing"}),
+    ("list_ontological_components", {"expected_model_path": "relative.3dm"}),
+    ("sync_ontological_component", {"expected_model_path": "relative.3dm", "component_id": "missing"}),
+    ("remove_ontological_component", {"component_id": "missing"}),
     ("get_scene_objects", {"scene_id": "missing"}),
 ])
 def test_public_component_errors_are_json_without_native_calls(server, store, wire, tool_name, arguments):
@@ -335,21 +335,21 @@ def test_actual_mcp_component_schema_and_roundtrip(server, store, scene, model, 
             tools = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True)
                      for tool in await client.list_tools()}
             assert COMPONENT_TOOLS <= tools.keys()
-            schema = tools["upsert_design_component"]["inputSchema"]
+            schema = tools["upsert_ontological_component"]["inputSchema"]
             assert {"name", "object_ids"} == set(schema["required"])
             assert schema["properties"]["expected_model_path"]["default"] == ""
             assert {"scene_ids", "component_id", "rhino_group_id"} <= schema["properties"].keys()
-            for name in ("get_design_component", "list_design_components", "get_scene_objects", "get_modeling_policy"):
+            for name in ("get_ontological_component", "list_ontological_components", "get_scene_objects", "get_modeling_policy"):
                 assert tools[name]["annotations"]["readOnlyHint"] is True
-            for name in ("remove_design_component", "register_scene_objects"):
+            for name in ("remove_ontological_component", "register_scene_objects"):
                 assert tools[name]["annotations"]["destructiveHint"] is False
             policy = await client.call_tool("get_modeling_policy", {})
             assert policy.structured_content["policy"] == server.modeling_policy.POLICY
-            created = await client.call_tool("upsert_design_component", dict(
+            created = await client.call_tool("upsert_ontological_component", dict(
                 expected_model_path=model, name="Protocol panel", object_ids=[A], scene_ids=[scene],
             ))
             component = json.loads(created.structured_content["result"])["component"]
-            read = await client.call_tool("get_design_component", {"component_id": component["component_id"]})
+            read = await client.call_tool("get_ontological_component", {"component_id": component["component_id"]})
             assert json.loads(read.structured_content["result"])["component"]["live_verified"] is False
             assert store.get_component(component["component_id"])["object_ids"] == [A]
     asyncio.run(verify())

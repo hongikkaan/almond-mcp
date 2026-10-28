@@ -7,12 +7,12 @@ from pathlib import Path
 
 
 class ConstructionLibrary:
-    """Curated construction-system guidance (asset/constructions/Constructionfiles/manifest.json).
+    """Curated construction-system guidance (src/mcp/profiles/construction_system/manifest.json).
 
     Parameters distilled from Ching, Building Construction Illustrated
     (4th ed.): span ranges, depth rules of thumb, member spacing, and
     assembly notes per construction system, keyed to validate_structure's
-    structure_type/material vocabulary and to asset/constructions/Materialfiles material_ids."""
+    structure_type/material vocabulary and to src/mcp/profiles/material material_ids."""
 
     REQUIRED = ("system_id", "name", "category", "structural_material",
                 "structure_types", "span_range_m")

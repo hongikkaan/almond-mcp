@@ -94,7 +94,7 @@ def test_glb_materials_carry_the_almond_identity():
 
 
 def test_render_material_ids_exist_in_material_library():
-    materials = json.loads((REPO / "asset" / "constructions" / "Materialfiles" / "manifest.json").read_text(encoding="utf-8"))
+    materials = json.loads((REPO / "src" / "mcp" / "profiles" / "material" / "manifest.json").read_text(encoding="utf-8"))
     known = {m["material_id"] for m in materials["materials"]}
     for asset in manifest()["assets"]:
         assert asset["render_material_id"] in known, asset["asset_id"]

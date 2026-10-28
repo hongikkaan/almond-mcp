@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from almond_mcp import __version__, asset_passport as ap, paths
+from almond_mcp import __version__, paths
+from almond_mcp.features.assets import asset_passport as ap
 from test_generated_assets import load_server_module
 
 LIBRARY = Path(__file__).resolve().parents[3] / "asset" / "models" / "GeneratedAssetfiles"

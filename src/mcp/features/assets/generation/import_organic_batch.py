@@ -8,7 +8,7 @@ import shutil
 import sys
 
 from build_generated_assets import normalise, load_material_colours, REPO
-from almond_mcp.asset_passport import enrich_asset
+from almond_mcp.features.assets.asset_passport import enrich_asset
 
 
 def write(path, value):

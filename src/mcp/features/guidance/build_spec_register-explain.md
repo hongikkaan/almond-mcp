@@ -3,7 +3,7 @@
 ## response-174
 
 <!-- instruction:response-174 -->
-Itemized source register for every parameter in `asset/constructions/Constructionfiles/manifest.json`. Each value is traced to its section in **Francis D.K. Ching, *Building Construction Illustrated*, 4th ed. (Wiley, 2014)** ('BCI'); page numbers are PDF pages of that volume, matching [reference/bci_toc.txt](reference/bci_toc.txt). Values BCI defers to the building code are labeled *IBC-typical* and must be verified against the governing code.
+Itemized source register for every parameter in `src/mcp/profiles/construction_system/manifest.json`. Each value is traced to its section in **Francis D.K. Ching, *Building Construction Illustrated*, 4th ed. (Wiley, 2014)** ('BCI'); page numbers are PDF pages of that volume, matching [reference/bci_toc.txt](reference/bci_toc.txt). Values BCI defers to the building code are labeled *IBC-typical* and must be verified against the governing code.
 <!-- /instruction:response-174 -->
 
 ## response-175

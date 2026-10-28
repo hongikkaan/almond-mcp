@@ -35,7 +35,7 @@ _MODEL_LIBRARIES = (
 
 def cmd_audit_assets(args: argparse.Namespace) -> int:
     """Verify the bundled generated pack, including embedded/sidecar agreement."""
-    from almond_mcp.asset_passport import audit_library
+    from almond_mcp.features.assets.asset_passport import audit_library
     try:
         result = audit_library(Path(paths.resolve_dir("RHINO_MCP_GENERATED_ASSET_DIR")))
     except (OSError, ValueError, KeyError) as exc:

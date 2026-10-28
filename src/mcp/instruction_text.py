@@ -1,6 +1,6 @@
 """Read adjacent Markdown instructions without importing a model runtime."""
 from pathlib import Path
-from almond_mcp.modeling_guidance import tool_guidance
+import re
 
 
 def read_instruction(source_file: str, section: str) -> str:
@@ -15,10 +15,12 @@ def read_instruction(source_file: str, section: str) -> str:
 
 def read_tool_instruction(source_file: str, section: str) -> str:
     description = read_instruction(source_file, section)
-    hint = tool_guidance(section)
-    # FastMCP parses Google-style Args/Returns sections. A trailing hint can be
-    # swallowed into one of those sections; a prose preface survives tools/list.
-    return (hint + "\n\n" if hint else "") + description
+    # Keep the full explanation in its adjacent Markdown. FastMCP still needs
+    # Args/Returns metadata to preserve parameter and output schemas.
+    metadata = re.search(r"^(?:Args|Arguments|Returns|Raises|Yields):\s*$", description, re.M)
+    prose = description[:metadata.start()] if metadata else description
+    summary = re.split(r"(?<=[.!?])\s+", " ".join(prose.split()), maxsplit=1)[0]
+    return summary + ("\n\n" + description[metadata.start():] if metadata else "")
 
 
 def tool_instruction(source_file: str, section: str):

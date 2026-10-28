@@ -41,10 +41,10 @@ if str(REPO) not in sys.path:
 
 from almond_mcp import __version__  # noqa: E402
 from almond_mcp.features.exchange import exchange  # noqa: E402
-from almond_mcp.asset_passport import enrich_asset  # noqa: E402
+from almond_mcp.features.assets.asset_passport import enrich_asset  # noqa: E402
 
 LIBRARY_DIR = REPO / "asset" / "models" / "GeneratedAssetfiles"
-MATERIAL_MANIFEST = REPO / "asset" / "constructions" / "Materialfiles" / "manifest.json"
+MATERIAL_MANIFEST = REPO / "src" / "mcp" / "profiles" / "material" / "manifest.json"
 
 GLB_MAGIC = 0x46546C67
 CHUNK_JSON = 0x4E4F534A

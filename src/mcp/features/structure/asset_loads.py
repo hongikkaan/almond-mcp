@@ -51,18 +51,6 @@ class LoadTable:
         return None
 
 
-def placements_from_scene(instances: list[dict]) -> list[dict]:
-    """Scene-ledger instances (bounding boxes in mm) -> placements in meters."""
-    out = []
-    for inst in instances:
-        try:
-            out.append({"id": inst.get("instance_id") or inst.get("rhino_guid") or "", "asset_id": inst["asset_id"],
-                        "min": [inst["min_x"] / 1000, inst["min_y"] / 1000, inst["min_z"] / 1000],
-                        "max": [inst["max_x"] / 1000, inst["max_y"] / 1000, inst["max_z"] / 1000],
-                        "scale": float(inst.get("scale") or 1.0), "source": "scene"})
-        except (KeyError, TypeError):
-            continue
-    return out
 
 
 def _horizontal_levels(frame: fs.Frame, tol: float = 0.05) -> dict:

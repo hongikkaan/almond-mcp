@@ -3,7 +3,7 @@
     uv run python src/mcp/features/structure/validation/run_structural_benchmarks.py
 
 The same cases are asserted in src/mcp/tests/test_frame_solver.py and src/mcp/tests/test_native_structure.py;
-this script only renders the numbers for docs/structure/native-solver.md."""
+this script only renders the numbers for src/mcp/features/structure/SPEC.md."""
 from __future__ import annotations
 
 import json

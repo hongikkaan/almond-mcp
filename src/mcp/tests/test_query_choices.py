@@ -52,11 +52,11 @@ def test_agent_never_loses_uncertainty_or_completion_evidence_to_a_summary():
     context = SimpleNamespace(retrieval_store=SimpleNamespace(
         get_component=lambda *args, **kwargs: calls.append(args) or component))
     tools = importlib.import_module("almond_mcp.features.components.tools").register(FastMCP("evidence"), context)
-    unknown = json.loads(tools["get_design_component"]("facade"))
+    unknown = json.loads(tools["get_ontological_component"]("facade"))
     assert unknown["component"] == expected
     assert component == expected
     calls.clear()
-    rejected = json.loads(tools["get_design_component"]("facade", live=True, field_groups=["unexpected"]))
+    rejected = json.loads(tools["get_ontological_component"]("facade", live=True, field_groups=["unexpected"]))
     assert rejected["error_code"] == "invalid_arguments" and calls == []
 
 
@@ -67,7 +67,7 @@ def test_agent_sees_native_registration_status_when_cached_registration_is_stale
                  "object_count": 0, "objects": []}
     context = SimpleNamespace(retrieval_store=SimpleNamespace(get_component=lambda *args, **kwargs: component))
     tools = importlib.import_module("almond_mcp.features.components.tools").register(FastMCP("stale-status"), context)
-    summary = json.loads(tools["get_design_component"]("facade", live=True))["component"]
+    summary = json.loads(tools["get_ontological_component"]("facade", live=True))["component"]
     assert summary["registration_status"] == "unregistered" and summary["requires_sync"] is True
     assert summary["live_verified"] is True
 
