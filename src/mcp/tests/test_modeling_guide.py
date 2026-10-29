@@ -19,7 +19,7 @@ class NoModelContext:
         raise AssertionError(f"Static guidance accessed model context: {name}")
 
 
-@pytest.mark.parametrize('filename', ['FUNDAMENTAL-INSTRUCTIONS.md', 'MODEL-CONTEXT-INSTRUCTIONS.md'])
+@pytest.mark.parametrize('filename', ['BASIC-INSTRUCTIONS.md'])
 def test_new_reader_versions_instruction_edits_without_a_build(filename, monkeypatch):
     from almond_mcp.modeling_guidance import PACKAGE
     reader = runpy.run_path(str(PACKAGE / 'modeling_guidance.py'))
@@ -55,12 +55,12 @@ def test_agent_can_discover_topics_without_reading_a_model():
     asyncio.run(run())
 
 
-def test_startup_points_to_explicit_fundamental_and_model_instruction_loads():
+def test_startup_points_to_basic_instruction_load():
     from almond_mcp.modeling_guidance import project_instructions, startup_instructions
 
     startup = startup_instructions()
     assert 'call get_modeling_guide(topic="index") and select' not in startup
-    assert 'same guide_version' in startup
+    assert 'get_modeling_guide(topic="basic")' in startup
     mcp = FastMCP("direct-guide", instructions=startup)
     register(mcp, NoModelContext())
 
@@ -77,12 +77,10 @@ def test_startup_points_to_explicit_fundamental_and_model_instruction_loads():
 
     asyncio.run(run())
     from almond_mcp.modeling_guidance import read_guide, PACKAGE
-    assert 'get_modeling_guide(topic="fundamental")' in startup
-    fundamental = (PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
-    assert fundamental not in startup
-    assert read_guide("fundamental")[0]["text"] == fundamental
-    assert project_instructions().startswith(fundamental)
-    assert read_guide("model-context")[0]["text"] == (PACKAGE / "MODEL-CONTEXT-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
+    basic = (PACKAGE / "BASIC-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
+    assert basic not in startup
+    assert read_guide("basic")[0]["text"] == basic
+    assert project_instructions() == basic
 
 
 def test_planning_topic_delivers_instruction_routing_before_tool_selection():
@@ -93,22 +91,23 @@ def test_planning_topic_delivers_instruction_routing_before_tool_selection():
         async with Client(mcp) as client:
             result = await client.call_tool("get_modeling_guide", {"topic": "planning"})
             text = json.loads(result.content[0].text)["text"]
-            for scenario in ("진행 중 Task의 보완", "다른 과업으로 전환", "맥락이 부족", "일회성 조회"):
+            for scenario in ("기존 Task의 연속", "다른 과업이면", "부족한 맥락만", "일회성 조회"):
                 assert scenario in text
-            assert text.index("도구 선택 전에") < text.index("| 도구 |")
-            assert "완료한 Task" in text and "의미 있는 상태" in text
+            assert text.index("해당 Task를 재사용") < text.index("| 도구 |")
+            assert "요청한 실행과 필요한 검수가 끝나면 완료" in text
 
     asyncio.run(run())
 
 
 @pytest.mark.parametrize("topic, required, obsolete", [
-    ("project", ("첫 연결·재연결", "새 메시지", "별도 백업"), ()),
-    ("ontological-component", ("Scene 맥락을 반드시 지정", "여러 Scene에 참여", "Almond 관리 UserStrings",
-                                "한 번 정합", "물리적 group/block 해체와 별개"),
+    ("project", ("최초 연결·재연결", "이미 확인한 문서 상태는 재사용", "백업을 만들지"), ()),
+    ("ontological-component", ("기존 Scene을 한 개 이상 지정", "여러 Scene에 참여",
+                                "편집 묶음을 마치고", "물리적 group/block 해체는 별개"),
      ("특정 Scene에 종속되지 않", "아직 연결되지 않은 상태")),
-    ("blocks", ("같은 block 정의를 재사용", "단일 객체 group", "짧은 종류·기능 이름"), ()),
-    ("modeling", ("ontological_component마다 별도 레이어를 만들지",), ()),
-    ("model-review", ("남은 불확실성의 영향", "미검사 범위", "재현하지 않은 오류"), ()),
+    ("blocks", ("같은 정의를 재사용", "단일 객체만 감싸는 group은 만들지", "짧은 종류·기능 이름",
+                 "Almond 관리용 UserStrings를 자동 생성하지"), ()),
+    ("modeling", ("시스템의 텍토닉", "요소역할 하위 레이어", "초기 설계 참고값"), ()),
+    ("model-review", ("불확실성은 필요한 수치·단면으로 확인", "미검사 범위", "잔존 문제"), ()),
 ])
 def test_published_topics_retain_authorized_behavior_boundaries(topic, required, obsolete):
     """Content contracts guard delivery; they do not prove an agent followed it."""

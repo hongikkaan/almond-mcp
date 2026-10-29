@@ -163,7 +163,7 @@ MCP 도구·리소스의 공개 설명과 응답에 덧붙이는 행동 지침�
 경계를 표시하며, 본문과 동적 값의 공백을 보존한다. `instruction_text.py`가
 지침을 읽고 등록 전에 함수 설명에 적용한다. 항목이 없거나 중복되면 명시적으로 실패한다.
 입력 검증 조건, 오류 상태·수치 결과, SQL과 실행할 C#/Blender 코드는 지침 원본이 아니다.
-기존 `FUNDAMENTAL-INSTRUCTIONS.md`와 `MODEL-CONTEXT-INSTRUCTIONS.md`의 전달 방식은 유지한다.
+기본 작업 지침은 `BASIC-INSTRUCTIONS.md`에 둔다.
 
 COS는 모델 서버를 import하지 않고 같은 Markdown에서 도구 설명을 추출한다.
 package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는
@@ -215,9 +215,7 @@ Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서
 
 `get_modeling_guide`는 `features/guidance/guides`의 원본·주제 맵·이미지를 직접 읽는다. 생성 빌더와 `modeling_guides` 복사본은 제거했다. 모든 원본의 정규화 SHA-256으로 guide_version을 계산하고, 한 snapshot을 읽는 동안 변경이 감지되면 실패한다. 외부 연결기의 source fingerprint와 실제 worker schema 확인은 유지한다.
 
-MCP 기본 설명은 최초 실행할 `get_modeling_guide(topic="fundamental")`을 안내한다. 이 호출은 FUNDAMENTAL-INSTRUCTIONS.md 전문을 반환한다. 모델 작업에서는 `topic="model-context"`로 MODEL-CONTEXT-INSTRUCTIONS.md를 읽는다. project_info의 instructions section도 두 지침을 반환한다. 이 조회는 모델이나 DB를 수정하지 않는다.
-
-MODEL-CONTEXT-INSTRUCTIONS.md는 기존 관측 내용으로 유지하고 observation 주제에서도 읽는다. 삭제 전 최신 `skills/rhino-almond/SKILL.md`(e6bc17e, 910ab5f 직전)의 내용은 같은 폴더의 `skill.md`에 별도 보존하며 wheel에 포함한다. 이 별도 파일에는 요청된 공개 도구 이름과 문서 경로 변경을 반영했다. 현재 확장된 모델링·2D 가이드는 기능 폴더의 주제별 원본으로 유지한다.
+MCP 기본 설명은 최초 사용 시 `get_modeling_guide(topic="basic")` 호출을 안내한다. 이 호출과 `project_info`의 instructions section은 `BASIC-INSTRUCTIONS.md` 전문을 반환한다. 기본 지침은 wheel에 포함되고 guide_version 계산에도 포함된다. 주제별 안내는 `topic="index"`에서 찾는다. 이 조회는 모델이나 DB를 수정하지 않는다.
 
 문서·도구 설명 변경은 해당 Python/MCP 세션을 새로 시작해야 적용된다. RHP 재빌드나 등록 변경은 이 Python 변경의 적용 조건이 아니다.
 

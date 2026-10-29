@@ -49,7 +49,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 only-include = ["src/mcp"]
 include = [
-    "src/mcp/*.py", "src/mcp/*-explain.md", "src/mcp/*-INSTRUCTIONS.md", "src/mcp/skill.md",
+    "src/mcp/*.py", "src/mcp/*-explain.md", "src/mcp/*-INSTRUCTIONS.md",
     "src/mcp/modeling_policy.json", "src/mcp/profiles/**",
     "src/mcp/features/**", "src/mcp/rhino/**",
 ]

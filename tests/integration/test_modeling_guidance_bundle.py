@@ -12,15 +12,22 @@ def test_all_substantive_guide_sections_are_mapped():
     mapping = json.loads((BUNDLE / 'mcp-guide-map.json').read_text(encoding='utf-8'))
     references = [ref for topic in mapping['topics'] for ref in topic['sections']]
     for path in {ref['path'] for ref in references}:
+        source = BUNDLE / path
+        if path == 'BASIC-INSTRUCTIONS.md':
+            source = PACKAGE / path
+            assert read_guide('basic')[0]['text'] == source.read_text(encoding='utf-8').strip()
         active = []
-        for line in (BUNDLE / path).read_text(encoding='utf-8').splitlines():
+        for line in source.read_text(encoding='utf-8').splitlines():
             if line == '---':
                 continue
             match = re.match(r'^(#{1,6}) ', line)
             if match:
                 level = len(match[1])
                 active = [(depth, heading) for depth, heading in active if depth < level]
-                active.append((level, line))
+                active.append((level, re.sub(r'%%.*?%%', '', line).rstrip()))
+                continue
+            # Front matter and the introduction are delivered in full by basic.
+            if path == 'BASIC-INSTRUCTIONS.md' and not any(depth >= 2 for depth, _ in active):
                 continue
             if not line.strip() or any(heading == '## 목차' for _, heading in active):
                 continue
@@ -60,9 +67,9 @@ def test_guidance_and_profiles_participate_in_external_source_identity():
     assert set((PACKAGE / 'profiles').rglob('*.json')) <= paths
 
 
-@pytest.mark.parametrize('relative', ['features/guidance/guides/modeling-guide.md',
+@pytest.mark.parametrize('relative', ['features/guidance/guides/mcp-guide-map.json',
                                      'features/guidance/guides/references/assets/roof-drainage.png',
-                                     'FUNDAMENTAL-INSTRUCTIONS.md', 'MODEL-CONTEXT-INSTRUCTIONS.md'])
+                                     'BASIC-INSTRUCTIONS.md'])
 def test_reader_rejects_sources_changed_during_snapshot(relative, monkeypatch):
     reader = runpy.run_path(str(PACKAGE / 'modeling_guidance.py'))
     original = Path.read_bytes

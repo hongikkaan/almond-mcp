@@ -8,7 +8,7 @@ import re
 
 PACKAGE = Path(__file__).resolve().parent
 BUNDLE = PACKAGE / "features/guidance/guides"
-CONTEXT_GUIDE = PACKAGE / "MODEL-CONTEXT-INSTRUCTIONS.md"
+BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
 
 
 def _read_content(path: Path) -> bytes:
@@ -21,13 +21,13 @@ def content_digest(path: Path) -> str:
 
 
 def source_files() -> list[Path]:
-    return sorted([*(p for p in BUNDLE.rglob("*") if p.is_file()), CONTEXT_GUIDE,
-                   PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md"])
+    return sorted([*(p for p in BUNDLE.rglob("*") if p.is_file()), BASIC_GUIDE])
 
 
 def _section(text: str, heading: str, children: bool = True) -> str:
     lines = text.splitlines(keepends=True)
-    matches = [i for i, line in enumerate(lines) if line.rstrip() == heading]
+    matches = [i for i, line in enumerate(lines)
+               if re.sub(r"%%.*?%%", "", line).rstrip() == heading]
     if len(matches) != 1:
         raise ValueError(f"Missing or duplicate guide heading: {heading}")
     start = matches[0]
@@ -56,20 +56,18 @@ def _snapshot() -> dict:
                 "heading": heading, "sha256": hashlib.sha256(raw[path]).hexdigest()}
 
     for item in mapping["topics"]:
-        if not re.fullmatch(r"[a-z][a-z0-9-]*", item["id"]) or item["id"] == "index":
+        if not re.fullmatch(r"[a-z][a-z0-9-]*", item["id"]) or item["id"] in ("index", "basic"):
             raise ValueError("Invalid/reserved guide topic ID")
         texts, refs, images = [], [], []
         for ref in item["sections"]:
-            path = (BUNDLE / ref["path"]).resolve()
-            path.relative_to(BUNDLE)
+            path = BASIC_GUIDE if ref["path"] == BASIC_GUIDE.name else (BUNDLE / ref["path"]).resolve()
+            if path != BASIC_GUIDE:
+                path.relative_to(BUNDLE)
             texts.append(_section(source(path), ref["heading"], ref.get("children", True)))
             refs.append(reference(path, ref["heading"]))
         text = "\n\n".join(texts) + "\n"
         for before, after in mapping["link_replacements"].items():
             text = text.replace(before, after)
-        if item["id"] == "observation":
-            text += "\n" + source(CONTEXT_GUIDE)
-            refs.append(reference(CONTEXT_GUIDE))
         for image in item.get("images", []):
             path = (BUNDLE / image["path"]).resolve()
             path.relative_to(BUNDLE)
@@ -85,34 +83,28 @@ def _snapshot() -> dict:
         for name in item.get("hint_tools", []):
             hints[name] = (hints.get(name, "") + f'\nWhen {item["trigger"]}, read get_modeling_guide(topic="{item["id"]}") '
                            "if not already read for the current guide_version or the rule is unclear.").strip()
-    for topic, filename, title in (("fundamental", "FUNDAMENTAL-INSTRUCTIONS.md", "Fundamental instructions"),
-                                   ("model-context", "MODEL-CONTEXT-INSTRUCTIONS.md", "Model context instructions")):
-        path = PACKAGE / filename
-        content[filename] = source(path).strip()
-        topics.append({"id": topic, "title": title, "summary": title,
-                       "when_to_read": "At first use" if topic == "fundamental" else "Before modeling work",
-                       "related_tools": ["get_modeling_guide"], "file": filename,
-                       "source_refs": [reference(path)], "images": []})
+    content[BASIC_GUIDE.name] = source(BASIC_GUIDE).strip()
+    topics.append({"id": "basic", "title": "Basic instructions", "summary": "Basic Rhino Almond guidance",
+                   "when_to_read": "At first use", "related_tools": ["get_modeling_guide"],
+                   "file": BASIC_GUIDE.name, "source_refs": [reference(BASIC_GUIDE)], "images": []})
     if inventory != source_files() or any(_read_content(p) != value for p, value in raw.items()):
         raise RuntimeError("Guide source changed while reading; start a new session.")
     identity = {p.relative_to(PACKAGE).as_posix(): hashlib.sha256(value).hexdigest() for p, value in raw.items()}
     version = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     return {"topics": topics, "content": content, "tool_hints": hints, "guide_version": version,
-            "startup": content["FUNDAMENTAL-INSTRUCTIONS.md"], "model_context": content["MODEL-CONTEXT-INSTRUCTIONS.md"]}
+            "basic": content[BASIC_GUIDE.name]}
 
 
 def startup_instructions() -> str:
     snapshot = _snapshot()
     return ('Almond inspects and edits Rhino architecture and drawings. On first use, call '
-            'get_modeling_guide(topic="fundamental") to load FUNDAMENTAL-INSTRUCTIONS.md. '
-            'Before modeling work, read get_modeling_guide(topic="model-context"). '
-            'Use get_modeling_guide(topic="index") for other topics; reuse guidance for the same guide_version. '
+            'get_modeling_guide(topic="basic") to read BASIC-INSTRUCTIONS.md. '
             f'guide_version={snapshot["guide_version"]}')
 
 
 def project_instructions() -> str:
     snapshot = _snapshot()
-    return snapshot["startup"] + "\n\n" + snapshot["model_context"]
+    return snapshot["basic"]
 
 
 def tool_guidance(name: str) -> str:

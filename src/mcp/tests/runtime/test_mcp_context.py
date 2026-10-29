@@ -112,10 +112,9 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
         from almond_mcp.features.guidance.tools import register
         from almond_mcp.modeling_guidance import PACKAGE, startup_instructions, project_instructions
         startup = startup_instructions()
-        context_path = PACKAGE / 'MODEL-CONTEXT-INSTRUCTIONS.md'
         expected = project_instructions()
         register(self.mcp, object())
-        changed_paths = {PACKAGE / 'FUNDAMENTAL-INSTRUCTIONS.md', context_path}
+        changed_paths = {PACKAGE / 'BASIC-INSTRUCTIONS.md'}
         original_text, original_bytes = Path.read_text, Path.read_bytes
 
         def changed_text(path, *args, **kwargs):

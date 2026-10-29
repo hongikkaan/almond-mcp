@@ -2,7 +2,7 @@
 
 <!-- instruction:get_modeling_guide -->
 Read a versioned topic from the packaged Rhino Almond modeling guide.
-Read topic="fundamental" at first use and topic="model-context" before modeling.
+Read topic="basic" at first use for BASIC-INSTRUCTIONS.md.
 Use topic="index" to discover other topics or read a known topic directly. Reuse topics read for the same guide_version. For semantic
 grouping examples, read topic="ontological-component-evidence" with include_images=true.
 Images are original reference PNGs, not captures of the current Rhino document.
