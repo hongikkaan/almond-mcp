@@ -106,10 +106,10 @@ namespace RhinoAlmondBridge
                     }
                 }
 
-                var audit = pairs.Count == 0 ? null : AlmondJoints.AuditPairs(doc, new JObject
+                var audit = pairs.Count == 0 ? null : SolidIntersections.AuditPairs(doc, new JObject
                 {
                     ["pairs"] = pairs, ["max_pairs"] = maxPairs, ["max_bytes"] = 196608,
-                    ["tolerance"] = tolerance, ["compare_operations"] = false
+                    ["tolerance"] = tolerance
                 });
                 var observed = audit?["pairs"] as JArray ?? new JArray();
                 int positives = observed.Count(p => (string)p["overlap"]?["status"] == "positive_volume");

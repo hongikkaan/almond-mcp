@@ -16,14 +16,14 @@ import tempfile
 import time
 import uuid
 from almond_mcp.managed_paths import project_path, relative_output
-from storage_cleanup import plain_descendant, process_identity_alive, remove_owned_tree
+from storage_cleanup import plain_descendant, process_identity_alive, remove_owned_tree, rhinocode_settled
 
 import anyio
 from fastmcp.server.middleware import Middleware
 from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 
-from project import (ExclusiveFile, LOCK_WAIT_SECONDS, serial_gate, read_binding,
+from project import (ExclusiveFile, LOCK_WAIT_SECONDS, STORAGE_PROTOCOL, serial_gate, read_binding,
                      read_json, verify_process, write_json)
 from native_request import RequestBatch
 
@@ -32,12 +32,13 @@ from native_request import RequestBatch
 # All other upstream tools conservatively share the DB gate.
 NATIVE_ONLY_TOOLS = frozenset({
     "execute_rhino_script", "capture_conditioning_pass", "save_rhino_document",
-    "get_rhino_context", "get_rhino_viewport_image", "get_rhino_probe",
+    "get_rhino_context", "get_rhino_viewport_image", "analyze_block_reculviely",
+    "prepare_drawing_asset",
 })
-BINDING_TOOLS = frozenset({"worker_state"})
+BINDING_TOOLS = frozenset({"worker_state", "get_rhino_execution"})
 FILE_TOOLS = frozenset({"execute_rhino_script", "save_rhino_document", "execute_project_python", "export_structural_report",
     "export_asset_contract", "get_blender_helper_script", "capture_conditioning_pass",
-    "import_asset_contract", "rename_artifact_folder"})
+    "import_asset_contract", "rename_artifact_folder", "prepare_drawing_asset"})
 OUTPUT_TOOLS = frozenset({"execute_project_python", "export_structural_report", "export_asset_contract",
                          "get_blender_helper_script", "capture_conditioning_pass"})
 
@@ -112,6 +113,9 @@ def validate_artifact_writers(storage: str | Path) -> None:
         if token == session.name:
             if ready.get("token") == token and process_identity_alive(ready) is False:
                 continue
+            if not rhinocode_settled(session):
+                raise RuntimeError("An earlier RhinoCode execution has no confirmed completion. "
+                                   "Use get_rhino_execution to retrieve its outcome before writing artifacts.")
             if (native.get("schema") == "almond-native" and native.get("token") == token
                     and native.get("phase") in {"stopped", "faulted"}
                     and native.get("pending") == 0):
@@ -185,6 +189,82 @@ class ProjectRuntime(Middleware):
         self.last = {"pending": False, "uncertain": False, "operation_id": None}
         self.unconfirmed = False
         self.workspace = None
+        self.operation_active = False
+        self.rhinocode = None
+
+    def _official_cli(self):
+        if self.rhinocode is None:
+            from rhinocode import RhinocodeExecution
+            self.rhinocode = RhinocodeExecution(self.binding, self.locations)
+        return self.rhinocode
+
+    def rhinocode_availability(self):
+        try:
+            self._require_rhinocode_fence()
+        except (OSError, ValueError, RuntimeError) as exc:
+            return {"available": False, "languages": [], "message": str(exc)}
+        return self._official_cli().availability()
+
+    def _require_rhinocode_fence(self):
+        message = ("This native session does not support the RhinoCode completion fence. "
+                   "Load the updated Almond native plug-in and reconnect before using official execution.")
+        try:
+            native = read_json(Path(self.locations["session_dir"]) / "native.json")
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(message) from exc
+        capabilities = native.get("capabilities")
+        capability = capabilities.get("rhinocode_fence") if isinstance(capabilities, dict) else None
+        if (native.get("schema") != "almond-native" or native.get("storage_protocol") != STORAGE_PROTOCOL
+                or native.get("token") != self.args.token or type(capability) is not int or capability != 1
+                or native.get("phase") not in {"listening", "receiving", "queued", "running", "sending"}):
+            raise RuntimeError(message)
+
+    def execute_rhinocode(self, script, language, timeout_seconds=60):
+        self.validate()
+        batch = self.scope.get()
+        if batch is None:
+            raise RuntimeError("No active operation; no RhinoCode request was sent.")
+        self._require_rhinocode_fence()
+        native = batch.snapshot()
+        if native["native_pending"] or native["native_uncertain"]:
+            raise RuntimeError("A native request is not complete; no RhinoCode request was sent.")
+        operation_dir = plain_descendant(Path(self.locations["call_root"]) / batch.operation_id,
+                                         Path(self.locations["temp"]))
+        operation_dir.mkdir(parents=True, exist_ok=True)
+        work = self.workspace.current() if self.workspace is not None else {"artifact_dir": ""}
+        return self._official_cli().execute(
+            script=script, language=language, timeout_seconds=timeout_seconds,
+            operation_id=batch.operation_id, operation_dir=operation_dir,
+            register=batch.register_external, artifact_dir=work["artifact_dir"])
+
+    def get_rhino_execution(self, request_id="", offset=0, limit=100, include_result=True,
+                            include_stdout=False, result_fields=None, include_ids=True):
+        result = self._official_cli().get_execution(
+            request_id=request_id, offset=offset, limit=limit, include_result=include_result,
+            include_stdout=include_stdout, result_fields=result_fields, include_ids=include_ids)
+        state = self.completion()
+        if (not self.operation_active and self.unconfirmed and self.batch is not None
+                and state.get("external_requests") and not state.get("pending")
+                and not state.get("uncertain")):
+            # Only exact external completion may reconcile external uncertainty.
+            # Native acknowledgement loss remains latched in RequestBatch.
+            operation_path = Path(self.locations["session_dir"]) / "operation.json"
+            operation = read_json(operation_path)
+            if (operation.get("token") == self.args.token
+                    and operation.get("operation_id") == state.get("operation_id")):
+                operation["state"] = "completed"
+                write_json(operation_path, operation)
+                if operation.get("artifact_write"):
+                    operation_path.with_name("artifact-write.json").unlink(missing_ok=True)
+            else:
+                raise RuntimeError("Execution recovery does not match the owned operation.")
+            self.unconfirmed = False
+            self.last = state
+        if isinstance(result, dict):
+            result["runtime_completion"] = {key: state.get(key) for key in (
+                "operation_id", "pending", "uncertain", "native_pending", "native_uncertain",
+                "external_pending", "external_uncertain")}
+        return result
 
     def validate(self):
         current, _ = read_binding(self.args.session, self.args.token)
@@ -238,19 +318,24 @@ class ProjectRuntime(Middleware):
             if minimum_sequence == 0 or time.monotonic() >= deadline:
                 break
             await asyncio.sleep(0.02)
-        pending = bool(state["pending"] or (receipt and receipt.get("pending", 0)))
+        native_pending = bool(state["native_pending"] or (receipt and receipt.get("pending", 0)))
         # Every forwarded frame must have its own matching native acknowledgement.
         # A prior frame's idle receipt cannot certify a delayed later frame.
-        uncertain = (state["uncertain"] or pending or (minimum_sequence > 0 and not receipt)
+        native_uncertain = (state["native_uncertain"] or native_pending or (minimum_sequence > 0 and not receipt)
                      or bool(receipt and receipt.get("completion_status") not in ("completed", "rejected", "failed")))
+        pending = native_pending or state["external_pending"]
+        uncertain = native_uncertain or state["external_uncertain"]
         return {"pending": pending, "uncertain": uncertain, "operation_id": operation_id,
-                "native": receipt, "transport": state}
+                "native_pending": native_pending, "native_uncertain": native_uncertain,
+                "external_pending": state["external_pending"], "external_uncertain": state["external_uncertain"],
+                "external_requests": state["external_requests"], "native": receipt, "transport": state}
 
     def completion(self) -> dict:
         value = dict(self.last)
-        if self.batch is not None and value.get("uncertain"):
+        if self.batch is not None and (value.get("uncertain") or self.operation_active):
             state = self.batch.snapshot()
-            pending = bool(value.get("pending") or state["pending"])
+            native_pending = bool(value.get("native_pending") or state["native_pending"])
+            native_uncertain = bool(value.get("native_uncertain") or state["native_uncertain"])
             try:
                 native = read_json(Path(self.locations["session_dir"]) / "native.json")
                 if (native.get("schema") == "almond-native" and native.get("token") == self.args.token
@@ -261,11 +346,16 @@ class ProjectRuntime(Middleware):
                     # command. Missing acknowledgements require native stop/drain.
                     native_pending = bool(native.get("pending")) or (
                         unacknowledged and native.get("phase") not in ("stopped", "faulted"))
-                    pending = bool(state["pending"] or native_pending)
+                    native_pending = bool(state["native_pending"] or native_pending)
                     value["native"] = native
             except (OSError, ValueError, TypeError):
                 pass  # Preserve the last known pending state when it cannot be refreshed.
-            value.update(pending=pending, transport=state)
+            value.update(pending=bool(self.operation_active or native_pending or state["external_pending"]),
+                         uncertain=bool(native_uncertain or state["external_uncertain"]),
+                         native_pending=native_pending, native_uncertain=native_uncertain,
+                         external_pending=state["external_pending"], external_uncertain=state["external_uncertain"],
+                         external_requests=state["external_requests"], operation_active=self.operation_active,
+                         transport=state)
         return value
 
     @staticmethod
@@ -306,6 +396,9 @@ class ProjectRuntime(Middleware):
 
     async def on_call_tool(self, context, call_next):
         name = context.message.name
+        if name == "get_rhino_execution":
+            async with serial_gate(self.serial, self.queue_timeout):
+                return await call_next(context)
         if name in BINDING_TOOLS:
             return await call_next(context)
         async with serial_gate(self.serial, self.queue_timeout):
@@ -338,7 +431,8 @@ class ProjectRuntime(Middleware):
             artifact_dir = self.workspace.artifact_path() if self.workspace is not None else operation_dir
             args = output_arguments(name, args, artifact_dir, relative_only=self.workspace is not None)
         if self.workspace is not None:
-            input_fields = {"register_drawing_asset": ("source_3dm",),
+            input_fields = {"register_drawing_asset": ("source_3dm", "preparation_job"),
+                            "prepare_drawing_asset": ("source_file", "job_dir"),
                             "import_asset_contract": ("contract_path",),
                             "audit_asset_drawing": ("package_dir", "source_glb"),
                             "generate_asset_drawing_views": ("source_glb",)}
@@ -349,7 +443,7 @@ class ProjectRuntime(Middleware):
             operation_dir.mkdir(parents=True, exist_ok=False)
         # Bound document expectations are supplied internally. Optional
         # public arguments remain available to standalone consumers.
-        if self.workspace is not None and name in {"get_rhino_probe", "upsert_ontological_component", "sync_ontological_component",
+        if self.workspace is not None and name in {"analyze_block_reculviely", "upsert_ontological_component", "sync_ontological_component",
                     "register_scene_objects", "get_component_intersections", "focus_components",
                     "list_ontological_components"} and not args.get("expected_model_path"):
             args["expected_model_path"] = self.locations["model_path"]
@@ -367,6 +461,7 @@ class ProjectRuntime(Middleware):
         if operation["artifact_write"]:
             write_json(operation_path.with_name("artifact-write.json"), operation)
         self.last = {"pending": True, "uncertain": False, "operation_id": operation_id}
+        self.operation_active = True
         previous = {key: os.environ.get(key) for key in ("TEMP", "TMP", "TMPDIR", "ALMOND_ARTIFACT_DIR")}
         old_tempdir = tempfile.tempdir
         batch = RequestBatch(self.args.token, operation_id)
@@ -392,6 +487,7 @@ class ProjectRuntime(Middleware):
                     batch.seal()
                     raise
                 finally:
+                    self.operation_active = False
                     self.scope.reset(scope_token)
                     tempfile.tempdir = old_tempdir
                     for key, value in previous.items():
@@ -402,6 +498,7 @@ class ProjectRuntime(Middleware):
                 if not self.unconfirmed:
                     if operation["artifact_write"]:
                         operation_path.with_name("artifact-write.json").unlink(missing_ok=True)
-                    remove_owned_tree(operation_dir, Path(self.locations["temp"]))
+                    if not batch.snapshot()["retain_files"]:
+                        remove_owned_tree(operation_dir, Path(self.locations["temp"]))
                 if cleanup_cancellation is not None:
                     raise cleanup_cancellation

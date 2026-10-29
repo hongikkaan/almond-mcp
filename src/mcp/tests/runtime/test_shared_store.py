@@ -330,8 +330,8 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
                 return list(db.iterdump())
         before = snapshot()
         async with Client(self.mcp) as client:
-            result = await client.call_tool("get_modeling_guide", {"topic": "blocks"})
-            self.assertEqual(result_json(result)["topic_id"], "blocks")
+            result = await client.call_tool("get_modeling_guide", {"tool": "assign_material"})
+            self.assertEqual(result_json(result)["tool_name"], "assign_material")
             self.assertEqual(snapshot(), before)
             self.assertFalse((self.root / "tmp").exists())
             self.assert_operation_completed()
@@ -339,7 +339,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
             receipt = self.operation_path.read_bytes()
             from mcp.shared.exceptions import MCPError
             with self.assertRaises(MCPError):
-                await client.call_tool("get_modeling_guide", {"topic": "planning"})
+                await client.call_tool("get_modeling_guide", {})
             self.assertEqual(self.operation_path.read_bytes(), receipt)
         self.assertEqual(snapshot(), before)
 
@@ -581,7 +581,7 @@ class MiddlewareTests(LeaseAssertions, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.calls, [])
 
     async def test_live_observations_keep_binding_and_operation_guards_without_db_gate(self):
-        names = ("get_rhino_context", "get_rhino_viewport_image", "get_rhino_probe")
+        names = ("get_rhino_context", "get_rhino_viewport_image", "analyze_block_reculviely")
         for name in names:
             def observe() -> dict:
                 self.calls.append("observed")

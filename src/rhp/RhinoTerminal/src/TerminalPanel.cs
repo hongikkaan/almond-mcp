@@ -137,7 +137,8 @@ public sealed class TerminalPanel : Panel
             }
             var meta = JsonSerializer.Serialize(new {
                 status = notice ?? runtime.Status, cwd = runtime.WorkingDirectory,
-                running = runtime.Running, ready = runtime.Ready
+                running = runtime.Running, ready = runtime.Ready,
+                rhino_pid = Environment.ProcessId
             });
             if (meta != previousMeta)
             {

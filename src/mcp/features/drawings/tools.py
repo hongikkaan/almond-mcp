@@ -8,6 +8,35 @@ import json
 import socket
 
 
+_A4_RECIPE_ID = "architectural_plan_section_a4_v1"
+_PRINT_DISPLAY_REVIEW_MACRO = (
+    "_PrintDisplay _Scope=_Document _Viewport=_Model _State=_On _Color=_Print "
+    "_Viewport=_Layout _State=_On _Color=_Print _DetailBorder=_UsePrintWidth _Enter"
+)
+
+
+def _add_print_review_preparation(response: str) -> str:
+    try:
+        result = json.loads(response)
+    except (TypeError, ValueError):
+        return response
+    if not isinstance(result, dict) or result.get("status") != "success":
+        return response
+    result["review_preparation"] = {
+        "status": "not_executed",
+        "message": (
+            "PrintDisplay was not inspected or changed. Reuse a discovered pipe matching "
+            "this connection's Rhino PID and saved document path; discover it only if unconfirmed. "
+            "Skip this step if Document-scoped Model/Layout PrintDisplay On with Print colors "
+            "is already confirmed."
+        ),
+        "cli": {
+            "program": "rhinocode",
+            "discovery_arguments": ["list", "--json"],
+            "arguments_template": ["--rhino", "{matched_pipeId}", "command", _PRINT_DISPLAY_REVIEW_MACRO],
+        },
+    }
+    return json.dumps(result)
 
 
 def register(mcp, context):
@@ -49,13 +78,17 @@ def register(mcp, context):
         recipe = context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
             return json.dumps(error_payload(f"Unknown drawing recipe_id: {recipe_id}"))
+        preparation = recipe.get("review_preparation")
+        prepare_review = (recipe_id == _A4_RECIPE_ID and isinstance(preparation, dict)
+                          and preparation.get("print_display") is True)
         payload = json.dumps({
             "type": "apply_drawing_style",
             "recipe_id": recipe_id,
             "layers": recipe.get("layers", []),
         }).encode("utf-8")
         try:
-            return context._send_and_receive(payload, timeout=60.0)
+            response = context._send_and_receive(payload, timeout=60.0)
+            return _add_print_review_preparation(response) if prepare_review else response
         except socket.timeout:
             return json.dumps(error_payload("Applying drawing style timed out."))
         except ConnectionRefusedError:

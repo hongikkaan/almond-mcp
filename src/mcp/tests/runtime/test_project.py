@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from contextlib import closing
 
-from project import project_paths, ExclusiveFile, read_binding
+from project import project_paths, connection_paths, ExclusiveFile, read_binding
 
 
 class ProjectTests(unittest.TestCase):
@@ -110,6 +110,28 @@ class ProjectTests(unittest.TestCase):
 
     def test_missing_model_rejected(self):
         with self.assertRaises(FileNotFoundError): project_paths(self.root/'missing.3dm')
+
+    def test_recovery_locator_allows_absent_model_without_creating_storage(self):
+        missing = self.root / 'missing.3dm'
+        paths = connection_paths(missing, 'A', 'a' * 32, recovery=True)
+        self.assertEqual(paths['model_path'], str(missing))
+        self.assertEqual(Path(paths['session_dir']), self.root / '.almond' / '.sessions' / ('a' * 32))
+        self.assertFalse(Path(paths['storage']).exists())
+        self.assertFalse(missing.exists())
+        with self.assertRaises(FileNotFoundError):
+            connection_paths(missing, 'A', 'a' * 32)
+
+    def test_recovery_cannot_create_or_accept_relative_or_nonmodel_locators(self):
+        missing = self.root / 'missing.3dm'
+        with self.assertRaisesRegex(ValueError, 'read only'):
+            project_paths(missing, create=True, recovery=True)
+        with self.assertRaisesRegex(ValueError, 'read only'):
+            connection_paths(missing, 'A', 'a' * 32, create=True, recovery=True)
+        with self.assertRaisesRegex(ValueError, 'absolute'):
+            project_paths('relative.3dm', recovery=True)
+        with self.assertRaises(ValueError):
+            project_paths(self.root / 'missing.txt', recovery=True)
+        self.assertFalse((self.root / '.almond').exists())
 
     def test_non_model_rejected(self):
         path=self.root/'file.txt'; path.write_text('x')

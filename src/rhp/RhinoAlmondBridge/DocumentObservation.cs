@@ -47,7 +47,7 @@ namespace RhinoAlmondBridge
         {
             int scalePercent, depth;
             bool labels;
-            if (!ReadInteger(request, "scale_percent", 50, 1, 100, out scalePercent) ||
+            if (!ReadInteger(request, "scale_percent", 75, 1, 100, out scalePercent) ||
                 !ReadInteger(request, "depth", 1, 1, 8, out depth) ||
                 !ReadBoolean(request, "labels", true, out labels) ||
                 (request["view"] != null && request["view"].Type != JTokenType.String) ||
@@ -79,7 +79,7 @@ namespace RhinoAlmondBridge
             var result = new JObject
             {
                 ["status"] = "success",
-                ["capabilities"] = new JObject { ["fixed_probes"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2,
+                ["capabilities"] = new JObject { ["block_analysis"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2,
                     ["component_operations"] = 1, ["drawing_asset_extract"] = 1, ["context_sections"] = 1, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1 },
                 ["warnings"] = warnings
             };
@@ -138,7 +138,7 @@ namespace RhinoAlmondBridge
         /// Named views render through a detached viewport; no view is activated/restored.
         /// All bitmaps and encoded bytes stay in memory, without temporary files.
         /// </summary>
-        public static JObject GetViewportImage(RhinoDoc doc, string selector = "", int scalePercent = 50,
+        public static JObject GetViewportImage(RhinoDoc doc, string selector = "", int scalePercent = 75,
             string displayMode = "", bool labels = true, int depth = 1,
             string targetKind = "view", string target = "")
         {
@@ -315,6 +315,10 @@ namespace RhinoAlmondBridge
                 {
                     settings.Document = doc;
                     settings.RasterMode = true;
+                    // Capture the paper's print appearance without changing PrintDisplay
+                    // or the individual details' physical model-to-paper scales.
+                    settings.OutputColor = ViewCaptureSettings.ColorMode.PrintColor;
+                    settings.UsePrintWidths = true;
                     settings.DrawBackground = true;
                     settings.HeaderText = "";
                     settings.FooterText = "";

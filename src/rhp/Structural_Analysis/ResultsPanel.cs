@@ -81,7 +81,7 @@ namespace RhinoAlmondBridge
             Content = _body;
             AnalysisResults.Changed += Push;
             RhinoApp.AppSettingsChanged += ThemeChanged;
-            Load();
+            InitializeResultsView();
         }
 
         protected override void Dispose(bool disposing)
@@ -109,7 +109,7 @@ namespace RhinoAlmondBridge
             });
         }
 
-        private void Load()
+        private void InitializeResultsView()
         {
             try
             {

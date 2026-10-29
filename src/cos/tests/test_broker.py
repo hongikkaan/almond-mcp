@@ -1,6 +1,7 @@
 """Disposable workers only: exercise the actual broker's concurrency and teardown."""
 import asyncio
 from contextlib import ExitStack
+from types import SimpleNamespace
 import unittest
 
 import mcp_types as types
@@ -20,12 +21,14 @@ class Rig:
                         for index, name in enumerate(("one", "two"), 1)]
         self.controls = {}
         self.workers = []
+        self.worker_created = asyncio.Event()
         self.control_gates = {}
         self.start_gate = None
         self.invalidate_on_watch = False
         self.broker = Broker(catalog, control_factory=self.control,
                              worker_factory=self.worker, host_reader=lambda _: self.records,
                              contract_check=lambda _: None, call_timeout=1,
+                             recovery_store_factory=lambda _: SimpleNamespace(remember=lambda binding: None),
                              lease_factory=lambda *_: ExitStack(),
                              watcher_factory=lambda notify: FakeWatcher(self, notify))
 
@@ -37,6 +40,7 @@ class Rig:
     def worker(self, binding, connection_id, catalog):
         worker = FakeWorker(self)
         self.workers.append(worker)
+        self.worker_created.set()
         return worker
 
     async def connect(self, name="one"):
@@ -76,6 +80,7 @@ class FakeControl:
     def __init__(self, rig, host):
         self.rig, self.host = rig, host
         self.actions = []
+        self.fields = []
         self.seen = {}
         self.closed = 0
         self.busy = False
@@ -83,6 +88,7 @@ class FakeControl:
 
     async def request(self, action, **fields):
         self.actions.append(action)
+        self.fields.append((action, dict(fields)))
         self.seen.setdefault(action, asyncio.Event()).set()
         if action == "begin":
             if self.invalid:
@@ -126,6 +132,8 @@ class FakeWorker:
         self.started = asyncio.Event()
         self.active = self.maximum = self.calls = self.closed = 0
         self.uncertain = False
+        self.external_state = None
+        self.recovery_calls = 0
         self.result = types.CallToolResult.model_validate({
             "content": [
                 {"type": "text", "text": "fixture"},
@@ -142,6 +150,11 @@ class FakeWorker:
             raise RuntimeError("Fixture stopped during startup.")
 
     async def call(self, name, arguments):
+        if name == "get_rhino_execution":
+            from external_host import json_result
+            self.recovery_calls += 1
+            return json_result({"status": "completed" if self.external_state and not self.external_state["uncertain"] else "pending",
+                                "request_id": "cli-fixture", "result": {"count": 1}})
         self.active += 1
         self.calls += 1
         self.maximum = max(self.maximum, self.active)
@@ -160,8 +173,11 @@ class FakeWorker:
             self.active -= 1
 
     async def state(self):
-        return {"pending": self.active > 0, "uncertain": self.uncertain,
-                "pid": 123, "process_start_ticks": "123"}
+        value = {"pending": self.active > 0, "uncertain": self.uncertain,
+                 "pid": 123, "process_start_ticks": "123"}
+        if self.external_state is not None:
+            value.update(self.external_state)
+        return value
 
     def request_stop(self):
         self.stop.set()
@@ -178,7 +194,7 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await asyncio.wait_for(self.rig.broker.close(), 3)
 
-    async def test_guide_text_and_original_images_cross_broker_once_with_control_receipt(self):
+    async def test_tool_guide_crosses_broker_once_with_control_receipt(self):
         import json
         from fastmcp import Client, FastMCP
         from almond_mcp.features.guidance.tools import register
@@ -191,18 +207,18 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
         connection = await self.rig.connect()
         async with Client(guide_server) as client:
             direct = await client.call_tool("get_modeling_guide", {
-                "topic": "ontological-component-evidence", "include_images": True})
+                "tool": "assign_material"})
         worker = self.rig.workers[0]
         worker.result = types.CallToolResult(content=direct.content)
         worker.release.set()
         result = await self.rig.broker.call("get_modeling_guide", {
             "connection_id": connection["connection_id"],
-            "topic": "ontological-component-evidence", "include_images": True})
+            "tool": "assign_material"})
         self.assertIs(result, worker.result)
         self.assertEqual(worker.calls, 1)
-        self.assertEqual(len(result.content), 3)
+        self.assertEqual(len(result.content), 1)
         self.assertIsNone(result.structured_content)
-        self.assertEqual(json.loads(result.content[0].text)["images_included"], 2)
+        self.assertEqual(json.loads(result.content[0].text)["tool_name"], "assign_material")
         self.assertEqual(self.rig.controls["one"].actions.count("begin"), 1)
         self.assertEqual(self.rig.controls["one"].actions.count("end"), 1)
 
@@ -357,7 +373,7 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
     async def test_close_during_worker_start_cannot_leave_orphan_worker(self):
         self.rig.start_gate = True
         connecting = asyncio.create_task(self.rig.connect())
-        await asyncio.sleep(0)
+        await asyncio.wait_for(self.rig.worker_created.wait(), 2)
         worker = self.rig.workers[0]
         await worker.started.wait()
         closing = asyncio.create_task(self.rig.broker.close())

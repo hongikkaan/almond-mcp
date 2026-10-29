@@ -4,7 +4,7 @@ from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.assets.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
-from pydantic import StrictBool
+from pydantic import StrictBool, StrictInt
 import json
 import math
 from pathlib import Path
@@ -15,9 +15,9 @@ import uuid
 from fastmcp.resources import ResourceContent, ResourceResult
 
 from almond_mcp.features.structure import asset_loads
-from almond_mcp import paths
+from almond_mcp import paths, managed_paths
 from almond_mcp.features.assets import asset_passport
-from almond_mcp.features.assets import drawing_assets, drafting
+from almond_mcp.features.assets import drawing_assets, drafting, preparation
 
 
 def register(mcp, context):
@@ -89,18 +89,41 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"destructiveHint": False, "openWorldHint": False})
+    @tool_instruction(__file__, 'prepare_drawing_asset')
+    def prepare_drawing_asset(stage: str, source_file: str = "", job_dir: str = "",
+                              input_units: str = "", review: dict | None = None,
+                              field_groups: list[str] | None = None,
+                              include_ids: StrictBool = False, offset: StrictInt = 0,
+                              limit: StrictInt = 50) -> dict:
+        return {"status": "error", "error_code": "acceptance_pending", "preparation_applied": False,
+                "message": "Asset preparation is disabled pending actual Rhino BDD verification of inspect, normalize, merge and linked 3D/2D registration. The implementation is retained as a development checkpoint."}
+        try:
+            return preparation.prepare(stage=stage, source_file=source_file, job_dir=job_dir,
+                input_units=input_units, review=review, field_groups=field_groups,
+                include_ids=include_ids, offset=offset, limit=limit,
+                sender=context._send_and_receive, execute=getattr(context, "_execute_rhinocode", None),
+                expected_model_path=managed_paths.bound_model_path() if stage == "merge" else "")
+        except Exception as exc:
+            return error_payload(str(exc))
+
+
+    @mcp.tool(annotations={"destructiveHint": False, "openWorldHint": False})
     @tool_instruction(__file__, 'register_drawing_asset')
     def register_drawing_asset(source_3dm: str, asset_id: str, name: str,
                                category: str = "other", tags: list[str] | None = None,
                                description: str = "", source_url: str = "",
-                               replace_existing: bool = False) -> dict:
+                               replace_existing: bool = False, preparation_job: str = "") -> dict:
+        if preparation_job:
+            return {"status": "error", "error_code": "acceptance_pending", "registration_applied": False,
+                    "message": "Registration with preparation_job is disabled pending actual Rhino BDD verification. Existing prepared-3DM registration without preparation_job remains available."}
         try:
             if asset_id in context.generated_asset_indexer.assets or asset_id in context.diagram_asset_indexer.assets:
                 raise ValueError(read_instruction(__file__, 'response-409'))
             result = drawing_assets.register_prepared_3dm(Path(context.DRAWING_LIBRARY_DIR),
                 source_3dm=source_3dm, asset_id=asset_id, name=name, category=category,
                 tags=tags, description=description, source_url=source_url,
-                replace_existing=replace_existing, extract=_extract_drawing_asset)
+                replace_existing=replace_existing, preparation_job=preparation_job,
+                extract=_extract_drawing_asset)
         except Exception as exc:
             return {"status": "error", "registration_applied": False, "message": str(exc)}
         try:
@@ -611,6 +634,7 @@ public class Script
         "search_drawing_assets": search_drawing_assets,
         "get_drawing_asset": get_drawing_asset,
         "_extract_drawing_asset": _extract_drawing_asset,
+        "prepare_drawing_asset": prepare_drawing_asset,
         "register_drawing_asset": register_drawing_asset,
         "list_assets": list_assets,
         "search_assets": search_assets,

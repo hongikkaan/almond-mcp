@@ -41,7 +41,7 @@ disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해�
 
 Python worker는 MCP runtime의 기존 `main`, binding 검증·구성 훅과 완료 receipt를
 사용한다. 저장소 잠금·native 완료·자산 helper 정책을 외부 연결기에 복제하지 않는다.
-RHP는 [공용 Engine](../rhp/Engine/AGENTS.md)을 참조한다. Bridge·Terminal의 구현
+RHP는 [공용 Engine](../rhp/AGENTS.md#shared-engine)을 참조한다. Bridge·Terminal의 구현
 소스를 AlmondRhino에 링크하지 않는다.
 
 새 클라이언트의 catalog 생성은 MCP server와 `features/*/tools.py`의 `register` 내부 도구 AST에서
@@ -90,6 +90,12 @@ ID로 호출하면 이미 시작한 프로세스만 재조회한다. connect가 
 기존 연결 정리를 수행한다. 열린 Rhino는 남는다. adapter를 재시작한 뒤에는 연결 목록으로
 남은 Rhino를 확인해야 한다.
 
+완료 결과 재조회는 공통 runtime이 원본 실행 근거를 읽고 조정한 다음 공개 응답만
+축약한다. 정상 완료의 결과·페이지·요청한 로그·복구 대상 정보는 남기며
+`include_diagnostics=true`로 전체 근거를 조회한다. 실패·불확실·부분 변경·0이 아닌
+CLI 종료 코드·결과 표시 오류는 기본 응답에서도 유지한다. 보관 파일 복구 경로도
+같은 projection을 사용하며 journal, worker schema 검사와 완료 판단을 바꾸지 않는다.
+
 ## 빌드·검증·설치
 
 `configure.ps1`은 이 체크아웃의 catalog와 `cos-plugin.json`을 생성한다. CoS 앱
@@ -114,6 +120,6 @@ ChatGPT의 `Chat On Steroids Plugins` 공통 소개는 클라이언트가 관리
 이어서 MCP package의 시작 안내를 제공한다. `project_info`도 원본 도구
 설명을 유지하므로 document의 live 조회와 선택 instructions 항목이 정확히 안내된다.
 `get_modeling_guide`는 기존 worker 도구 전달 경로를 사용한다. 연결 후 connection_id가
-필요하며 control·binding·receipt 예외를 추가하지 않는다. 텍스트·선택 이미지 content를
-그대로 전달한다. bundle Markdown·manifest·PNG도 session source fingerprint에 포함한다.
-주제 계약과 갱신 절차는 [MCP SPEC](../mcp/SPEC.md#모델링-안내-전달)을 따른다.
+필요하며 control·binding·receipt 예외를 추가하지 않는다. BASIC·도구별 설명의 JSON text content를
+그대로 전달한다. BASIC·도구 소스·설명 Markdown도 session source fingerprint에 포함한다.
+안내 조회 계약과 갱신 절차는 [MCP SPEC](../mcp/SPEC.md#모델링-안내-전달)을 따른다.

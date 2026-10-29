@@ -154,7 +154,7 @@ def test_older_bridge_is_rejected_before_assignment(server, monkeypatch):
 
     def send(payload, **kwargs):
         requests.append(json.loads(payload))
-        return json.dumps({"status": "success", "capabilities": {"fixed_probes": 1, "modeling_materials": 1}})
+        return json.dumps({"status": "success", "capabilities": {"block_analysis": 1, "modeling_materials": 1}})
 
     monkeypatch.setattr(server, "_send_and_receive", send)
     result = call(server.assign_material, guids=[str(uuid.uuid4())], material_id="steel-painted-sage")

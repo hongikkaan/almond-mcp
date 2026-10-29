@@ -74,9 +74,10 @@ public sealed class BoundBridge : IDisposable
     }
 
     public bool IsRunning { get { lock (sync) return started && !stopping && !listenerExited && fault.Length == 0; } }
-    public bool IsAlive { get { lock (sync) return !listenerExited || pending != 0; } }
-    public int Pending { get { lock (sync) return pending; } }
-    public bool IsDrained { get { lock (sync) return stopping && listenerExited && pending == 0; } }
+    bool ExternalPending => ExternalExecutionFence.IsPending(paths, token, Environment.ProcessId, startTicks, documentSerial);
+    public bool IsAlive { get { lock (sync) return !listenerExited || pending != 0 || ExternalPending; } }
+    public int Pending { get { lock (sync) return pending + (ExternalPending ? 1 : 0); } }
+    public bool IsDrained { get { lock (sync) return stopping && listenerExited && pending == 0 && !ExternalPending; } }
 
     public void Start()
     {
@@ -421,6 +422,7 @@ public sealed class BoundBridge : IDisposable
         {
             SessionFiles.WriteJson(paths.NativePath, new {
                 schema = "almond-native", storage_protocol = SessionFiles.StorageProtocol, token,
+                capabilities = new { rhinocode_fence = 1 },
                 operation_id = operationId, request_id = lastRequestId, pending = authorized.Count, phase, sequence = ++sequence,
                 completion_status = authorized.Count != 0 ? "running" : completedStatus,
                 error = lastError.Length == 0 ? null : lastError

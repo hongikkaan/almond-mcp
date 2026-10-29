@@ -1,14 +1,14 @@
-"""Read canonical package guidance directly; no generated copy or model imports."""
+"""Read BASIC and public tool explanations without importing a model runtime."""
 from copy import deepcopy
 from functools import lru_cache
+import ast
 import hashlib
 import json
 from pathlib import Path
-import re
+from almond_mcp.instruction_text import parse_instruction
 
 PACKAGE = Path(__file__).resolve().parent
-BUNDLE = PACKAGE / "features/guidance/guides"
-CONTEXT_GUIDE = PACKAGE / "MODEL-CONTEXT-INSTRUCTIONS.md"
+BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
 
 
 def _read_content(path: Path) -> bytes:
@@ -20,118 +20,70 @@ def content_digest(path: Path) -> str:
     return hashlib.sha256(_read_content(path)).hexdigest()
 
 
+def _tool_sources() -> list[Path]:
+    sources = list((PACKAGE / "features").glob("*/tools.py"))
+    runtime = PACKAGE / "runtime/mcp_server.py"
+    # The standalone wheel excludes the checkout's execution runtime.
+    if runtime.is_file():
+        sources.append(runtime)
+    return sorted(sources)
+
+
 def source_files() -> list[Path]:
-    return sorted([*(p for p in BUNDLE.rglob("*") if p.is_file()), CONTEXT_GUIDE,
-                   PACKAGE / "FUNDAMENTAL-INSTRUCTIONS.md"])
-
-
-def _section(text: str, heading: str, children: bool = True) -> str:
-    lines = text.splitlines(keepends=True)
-    matches = [i for i, line in enumerate(lines) if line.rstrip() == heading]
-    if len(matches) != 1:
-        raise ValueError(f"Missing or duplicate guide heading: {heading}")
-    start = matches[0]
-    level = len(heading) - len(heading.lstrip("#"))
-    end = len(lines)
-    for i in range(start + 1, len(lines)):
-        match = re.match(r"^(#{1,6}) ", lines[i])
-        if match and (not children or len(match[1]) <= level):
-            end = i
-            break
-    return "".join(lines[start:end]).strip()
+    tools = _tool_sources()
+    return sorted([BASIC_GUIDE, *tools, *(p.with_name(p.stem + "-explain.md") for p in tools)])
 
 
 @lru_cache(maxsize=1)
 def _snapshot() -> dict:
     inventory = source_files()
     raw = {p: _read_content(p) for p in inventory}
-    mapping = json.loads(raw[BUNDLE / "mcp-guide-map.json"])
-    topics, content, hints = [], {}, {}
 
-    def source(path: Path) -> str:
-        return raw[path].decode("utf-8")
-
-    def reference(path: Path, heading: str = "") -> dict:
+    def reference(path: Path) -> dict:
         return {"path": "src/mcp/" + path.relative_to(PACKAGE).as_posix(),
-                "heading": heading, "sha256": hashlib.sha256(raw[path]).hexdigest()}
+                "sha256": hashlib.sha256(raw[path]).hexdigest()}
 
-    for item in mapping["topics"]:
-        if not re.fullmatch(r"[a-z][a-z0-9-]*", item["id"]) or item["id"] == "index":
-            raise ValueError("Invalid/reserved guide topic ID")
-        texts, refs, images = [], [], []
-        for ref in item["sections"]:
-            path = (BUNDLE / ref["path"]).resolve()
-            path.relative_to(BUNDLE)
-            texts.append(_section(source(path), ref["heading"], ref.get("children", True)))
-            refs.append(reference(path, ref["heading"]))
-        text = "\n\n".join(texts) + "\n"
-        for before, after in mapping["link_replacements"].items():
-            text = text.replace(before, after)
-        if item["id"] == "observation":
-            text += "\n" + source(CONTEXT_GUIDE)
-            refs.append(reference(CONTEXT_GUIDE))
-        for image in item.get("images", []):
-            path = (BUNDLE / image["path"]).resolve()
-            path.relative_to(BUNDLE)
-            name = path.relative_to(BUNDLE).as_posix()
-            content[name] = raw[path]
-            images.append({"file": name, "alt": image["alt"], "sha256": hashlib.sha256(raw[path]).hexdigest()})
-        filename = item["id"] + ".md"
-        if filename in content:
-            raise ValueError("Duplicate guide topic")
-        content[filename] = text
-        topics.append({key: item[key] for key in ("id", "title", "summary", "when_to_read", "related_tools")} |
-                      {"file": filename, "source_refs": refs, "images": images})
-        for name in item.get("hint_tools", []):
-            hints[name] = (hints.get(name, "") + f'\nWhen {item["trigger"]}, read get_modeling_guide(topic="{item["id"]}") '
-                           "if not already read for the current guide_version or the rule is unclear.").strip()
-    for topic, filename, title in (("fundamental", "FUNDAMENTAL-INSTRUCTIONS.md", "Fundamental instructions"),
-                                   ("model-context", "MODEL-CONTEXT-INSTRUCTIONS.md", "Model context instructions")):
-        path = PACKAGE / filename
-        content[filename] = source(path).strip()
-        topics.append({"id": topic, "title": title, "summary": title,
-                       "when_to_read": "At first use" if topic == "fundamental" else "Before modeling work",
-                       "related_tools": ["get_modeling_guide"], "file": filename,
-                       "source_refs": [reference(path)], "images": []})
+    tools = {}
+    for path in _tool_sources():
+        note = path.with_name(path.stem + "-explain.md")
+        for node in ast.walk(ast.parse(raw[path].decode("utf-8"))):
+            if not isinstance(node, ast.FunctionDef) or not any(
+                isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
+                and isinstance(d.func.value, ast.Name) and d.func.value.id == "mcp"
+                and d.func.attr == "tool" for d in node.decorator_list
+            ):
+                continue
+            if node.name in tools:
+                raise ValueError(f"Duplicate public tool instruction: {node.name}")
+            tools[node.name] = {
+                "text": parse_instruction(raw[note].decode("utf-8"), node.name, note),
+                "source_refs": [reference(note)],
+            }
     if inventory != source_files() or any(_read_content(p) != value for p, value in raw.items()):
         raise RuntimeError("Guide source changed while reading; start a new session.")
     identity = {p.relative_to(PACKAGE).as_posix(): hashlib.sha256(value).hexdigest() for p, value in raw.items()}
     version = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
-    return {"topics": topics, "content": content, "tool_hints": hints, "guide_version": version,
-            "startup": content["FUNDAMENTAL-INSTRUCTIONS.md"], "model_context": content["MODEL-CONTEXT-INSTRUCTIONS.md"]}
+    return {"tools": tools, "guide_version": version,
+            "basic": raw[BASIC_GUIDE].decode("utf-8").strip(), "basic_refs": [reference(BASIC_GUIDE)]}
 
 
 def startup_instructions() -> str:
     snapshot = _snapshot()
     return ('Almond inspects and edits Rhino architecture and drawings. On first use, call '
-            'get_modeling_guide(topic="fundamental") to load FUNDAMENTAL-INSTRUCTIONS.md. '
-            'Before modeling work, read get_modeling_guide(topic="model-context"). '
-            'Use get_modeling_guide(topic="index") for other topics; reuse guidance for the same guide_version. '
+            'get_modeling_guide() to read BASIC-INSTRUCTIONS.md. '
             f'guide_version={snapshot["guide_version"]}')
 
 
 def project_instructions() -> str:
+    return _snapshot()["basic"]
+
+
+def read_guide(tool: str = "") -> dict:
     snapshot = _snapshot()
-    return snapshot["startup"] + "\n\n" + snapshot["model_context"]
-
-
-def tool_guidance(name: str) -> str:
-    return _snapshot()["tool_hints"].get(name, "")
-
-
-def read_guide(topic: str = "index", include_images: bool = False) -> tuple[dict, list[bytes]]:
-    snapshot = _snapshot()
-    result = {"status": "success", "guide_version": snapshot["guide_version"], "topic_id": topic}
-    if topic == "index":
-        result["topics"] = [{key: item[key] for key in ("id", "title", "summary", "when_to_read")}
-                            for item in snapshot["topics"]]
-        return result, []
-    entry = next((item for item in snapshot["topics"] if item["id"] == topic), None)
-    if entry is None:
-        raise ValueError("Unknown modeling guide topic. Call get_modeling_guide(topic='index') for available topics.")
-    result.update({key: deepcopy(entry[key]) for key in ("title", "related_tools", "source_refs")})
-    result["text"] = snapshot["content"][entry["file"]]
-    result["images_available"] = deepcopy(entry["images"])
-    images = [snapshot["content"][item["file"]] for item in entry["images"]] if include_images else []
-    result["images_included"] = len(images)
-    return result, images
+    result = {"status": "success", "guide_version": snapshot["guide_version"]}
+    if tool:
+        if tool not in snapshot["tools"]:
+            raise ValueError("Unknown Almond tool. Call get_modeling_guide() for available tools.")
+        return {**result, "tool_name": tool, **deepcopy(snapshot["tools"][tool])}
+    return {**result, "text": snapshot["basic"], "source_refs": deepcopy(snapshot["basic_refs"]),
+            "tools": sorted(snapshot["tools"])}

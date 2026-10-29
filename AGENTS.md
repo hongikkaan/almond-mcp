@@ -7,6 +7,7 @@
 - 개발 워크트리, GitHub main, 일상 폴더, 디스크의 RHP·의존 파일, Rhino 등록, 실행 중 로드된 assembly를 구분한다. 소스 수정은 설정 변경이라고 축소하지 않는다.
 - 빌드 성공·파일 배치·등록·실제 로드·모델링 검증은 각각 별도 증거다. 구현과 현재 상태를 확인하지 않고 재빌드·재시작을 단정하지 않는다.
 - 기존 사용자 변경·모델·DB를 보존한다. Rhino를 강제 종료하거나 로드된 RHP를 덮어쓰지 않는다.
+- 기능 테스트는 작업 시 사용자가 연결해 준 Rhino 파일에서 수행하고, 테스트만을 위한 별도 Rhino 문서 생성·실행은 지양한다. 실제 모델의 설계·도면 맥락에서 기능과 결과를 확인한다.
 - PowerShell·UTF-8을 사용하고 `rg` 패턴은 작은따옴표로 감싼다. 재귀 삭제·이동 전 절대 경로가 작업 범위 안인지 확인한다.
 - 설정 완료 후 답변하라는 요청에는 일상적인 설명을 줄이고, 중요한 차단과 직접 질문에만 즉시 답한다.
 
@@ -21,7 +22,7 @@
 - `src/rhp/RhinoAlmondBridge`: Bridge RHP. `Structural_Analysis`, `Asset_Panel`, `RhinoTerminal` 소스도 여기에 컴파일한다. Terminal에는 별도 PlugIn entry가 없다.
 - `src/rhp/AlmondRhino`: 공용 외부 연결용 Rhino 플러그인의 출력 폴더. 구현은 `src/cos/rhp`에 둔다. 패널의 공용 웹 원본은 `src/rhp/Asset_Panel/web`이다.
 - `src/engine`: 예전 시작 버튼·설치 명령의 전달 스크립트와 기존 CoS command가 가리키는 `.venv`만 유지한다. 구현을 추가하지 않는다.
-- 모듈 전용 테스트는 각 모듈의 `tests/`, 여러 모듈의 계약 검사는 루트 `tests/`에 둔다. 의존 방향·변경 범위는 [모듈 개발 안내](MODULE-SPEC.md)를 따른다.
+- 모듈 전용 테스트는 각 모듈의 `tests/`, 여러 모듈의 계약 검사는 루트 `tests/`에 둔다. 의존 방향·변경 범위는 [소유권과 의존 방향](SPEC.md#소유권과-의존-방향)를 따른다.
 
 Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 보존한다. 경로 정리 때문에 기능을 리팩터링하지 않는다. Engine DLL을 Bridge RHP나 상위 리포의 `mcp/native`와 혼동하지 말고 설치된 패키지를 패치하지 않는다.
 이 저장소는 상위 Rhino 리포의 `mcp/almond-mcp` 서브모듈이다. 이 리포의 commit/push 이후 상위 gitlink를 갱신하며, 상위의 다른 작업과 섞지 않는다. 개인 통합은 `main`, upstream `codex/undo-recovery`는 기존 `release/0.7.0rc2` Undo 수정 범위를 유지한다.
@@ -47,7 +48,7 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 등록 확인은 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`다. RHP 경로와 Rhino의 연결 명령 캐시를 함께 검사한다. 명령 이름을 바꾸는 업데이트에서는 Rhino를 닫고 이 스크립트를 `-VerifyOnly` 없이 한 번 실행하여 기존 등록을 백업하고 새 명령 캐시를 반영한다. 실제 로드 경로 확인은 사용자가 별도로 요청한 경우 새 Rhino에서 수행하며, 등록 검증과 구분한다. 예전 standalone Terminal GUID `27D4B9A1-8FAD-421C-B64A-7A213D3B4079`가 남았다면 백업 후 중복 등록을 제거한다.
 
-**기존 AlmondCOS 등록에서 이번 AlmondRhino 경로로 전환하는 업데이트는 일회성 재등록이 필요하다.** Rhino와 해당 MCP 연결을 정상 종료하고 일상 폴더에서 pull한 뒤 `./src/rhp/tools/install_runtime.ps1`, 이어서 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`를 실행한 다음 Rhino를 시작한다. 설치 명령은 기존 등록을 백업하고 동일 GUID의 `PlugIn\FileName`을 `src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`에서 위의 AlmondRhino 경로로 변경하며 명령 캐시도 이전한다. `-VerifyOnly`만으로는 이전되지 않는다. 개발 워크트리를 등록하지 않는다.
+**등록이 구형 AlmondCOS 경로를 가리키면 일회성 재등록이 필요하다.** Rhino와 해당 MCP 연결을 정상 종료하고 일상 폴더에서 pull한 뒤 `./src/rhp/tools/install_runtime.ps1`, 이어서 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`를 실행한 다음 Rhino를 시작한다. 설치 명령은 기존 등록을 백업하고 동일 GUID의 `PlugIn\FileName`을 `src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`에서 위의 AlmondRhino 경로로 변경하며 명령 캐시도 이전한다. `-VerifyOnly`만으로는 이전되지 않는다. 개발 워크트리를 등록하지 않는다.
 
 전환을 마친 이후 업데이트는 **Rhino를 정상 종료 → 일상 폴더에서 `git pull --ff-only` → Rhino 시작** 순서다. pull은 fetch와 현재 브랜치·추적 파일의 fast-forward를 수행한다. fetch만으로 파일은 바뀌지 않고, 실행 중 Rhino는 이미 로드한 assembly를 계속 쓴다. 소스와 실행 파일을 함께 받으므로 매번 빌드·복사·등록할 필요가 없다.
 
@@ -83,13 +84,13 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 
 모델 폴더는 `.almond/scene.sqlite3`를 공유한다. Plan 산출물은 프로젝트 `tmp/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 종료된 연결의 소유 임시자료와 `.sessions` 기록은 프로세스·잠금·native 완료로 회수하며 Plan·Step 완료 여부와 연결하지 않는다. 공유 잠금·역할 lease·A–J 슬롯·프로세스 identity·UI thread·native 완료 확인을 유지한다. 모델을 이동·이름 변경하기 전에 연결을 정상 종료한다.
 
-프로젝트 정보가 필요하면 `project_info`에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `set_working_plan`으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond·CoS 외부 연결에서는 `connection_id`도 전달한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [native-observation.md](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
+프로젝트 정보가 필요하면 `project_info`에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `set_working_plan`으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond·CoS 외부 연결에서는 `connection_id`도 전달한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [관측 SPEC](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
 
-임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. 오래된 인계·배포·검증 로그는 현재 기능 문서에 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
+임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. SPEC·AGENTS에는 현재 구조·계약·작업 규칙만 유지한다. 과거 설계안·진행 보고·커밋별 변경 내역·검증 실측은 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
 
 ## 검증
 
-Rhino와 사용 중인 MCP 서버를 실행·종료하지 않고 개발·테스트할 수 있게 구현한다. 개발 검사는 `rebuild_environment.ps1 -Development`로 `data/development/.venv`를 구성하고 MCP·외부 연결기의 `run_tests.ps1 -Development`를 사용한다. 일상 `src/engine/.venv`나 연결 등록을 바꾸지 않는다. 실행 중 호스트의 소스까지 보호해야 하면 별도 워크트리에서 작업한다. 테스트는 일회용 저장소와 대역을 사용하며 실제 모델·DB에 연결하지 않는다. RHP 교체 시의 Rhino 종료 조건은 그대로 유지한다.
+Rhino와 사용 중인 MCP 서버를 실행·종료하지 않고 오프라인 개발 검사를 수행할 수 있게 구현한다. 개발 검사는 `rebuild_environment.ps1 -Development`로 `data/development/.venv`를 구성하고 MCP·외부 연결기의 `run_tests.ps1 -Development`를 사용한다. 일상 `src/engine/.venv`나 연결 등록을 바꾸지 않는다. 실행 중 호스트의 소스까지 보호해야 하면 별도 워크트리에서 작업한다. 오프라인 단위·통합 검사는 일회용 저장소와 대역을 사용하며 실제 모델·DB에 연결하지 않는다. 실제 기능 테스트는 위 작업 원칙에 따라 사용자가 연결해 준 Rhino 파일에서 수행한다. RHP 교체 시의 Rhino 종료 조건은 그대로 유지한다.
 
 
 오프라인 개발 셸에서 먼저 `./src/mcp/use_offline_environment.ps1`을 실행하면 라이브러리와 DB/tmp가 해당 체크아웃의 `asset/`·`data/offline`을 사용한다. 현재 셸과 자식에만 적용되며 네트워크 차단이나 실제 Rhino 격리는 아니다. 일반 실행으로 돌아갈 때는 새 셸을 연다.
@@ -104,4 +105,4 @@ Rhino와 사용 중인 MCP 서버를 실행·종료하지 않고 개발·테스�
 node --test (Get-ChildItem src/rhp/Asset_Panel/tests -Filter *.test.mjs | ForEach-Object FullName)
 ```
 
-루트 통합 검사는 `tests/run_tests.ps1`이 독립 ArchiveHost를 빌드·지정한 뒤 실행한다. SDK 자동 탐색이 안 되면 `-DotNet <SDK/dotnet.exe>`를 전달한다. 필요한 host 없이 pytest를 직접 실행하면 제외하지 않고 오류로 중단한다. MCP는 자체 `pytest.ini`를 쓰는 `run_tests.ps1`, 외부 연결기 검사는 .NET fixture를 준비하는 자체 `run_tests.ps1`로 검사한다. native fixture는 `src/rhp/Engine/tests`, Terminal host는 `src/rhp/RhinoTerminal/tests/AlmondHostContracts`, Undo·관측은 [fixture README](src/rhp/RhinoAlmondBridge/tests/script_executor_undo/README.md)를 따른다. 기본 테스트는 Rhino 없이 실행 가능한 단위·통합 검사와 일회용 fixture로 수행한다. 테스트를 위해 사용자에게 Rhino 종료·실행을 요구하거나 실제 모델에 연결하지 않는다. C# fixture의 빌드는 RHP 빌드와 구분하며 Rhino 종료가 필요하지 않다. 실제 Rhino 검증은 사용자가 별도로 요청한 경우에만 일회용 문서에서 수행하고 빌드·오프라인 검사와 별도로 보고한다. 기존 실패를 숨기거나 기준을 낮추지 않는다.
+루트 통합 검사는 `tests/run_tests.ps1`이 독립 ArchiveHost를 빌드·지정한 뒤 실행한다. SDK 자동 탐색이 안 되면 `-DotNet <SDK/dotnet.exe>`를 전달한다. 필요한 host 없이 pytest를 직접 실행하면 제외하지 않고 오류로 중단한다. MCP는 자체 `pytest.ini`를 쓰는 `run_tests.ps1`, 외부 연결기 검사는 .NET fixture를 준비하는 자체 `run_tests.ps1`로 검사한다. native fixture는 `src/rhp/Engine/tests`, Terminal host는 `src/rhp/RhinoTerminal/tests/AlmondHostContracts`, Undo·관측 fixture의 실행 조건은 [fixture README](src/rhp/RhinoAlmondBridge/tests/script_executor_undo/README.md)를 따른다. 오프라인 검사는 Rhino 없이 실행 가능한 단위·통합 검사와 대역을 사용한다. C# fixture의 빌드는 RHP 빌드와 구분하며 Rhino 종료가 필요하지 않다. 실제 기능 테스트는 사용자가 작업에 연결한 파일의 기존 형상·뷰·Layout을 활용하고, 빌드·오프라인 검사와 별도로 보고한다. 빈 문서나 일회용 문서를 전제로 내용을 생성·교체하는 fixture를 실제 사용자 문서에 실행하지 않으며, 그 전제나 보호 검사를 해제하지 않는다. 해당 fixture를 실행하려고 별도 Rhino 문서를 자동으로 만들거나 실행하지 않는다. 기존 실패를 숨기거나 기준을 낮추지 않는다.

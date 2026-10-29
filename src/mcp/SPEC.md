@@ -7,7 +7,7 @@
 
 - `./`: Python package의 소스와 공개 도구·계산·라이브러리 API.
 - `runtime/`: CLI 시작·재연결, 모델 binding, A–J 슬롯, 공유 저장소와 native 완료 확인.
-- `features/guidance/guides/`, `release_validation/`: 실행용 지침 묶음 생성과 배포 검증.
+- `BASIC-INSTRUCTIONS.md`, `*-explain.md`: 기본 작업 지침과 도구별 설명 원본. `features/guidance/guides/`는 연결된 참고자료, `release_validation/`은 배포 검증을 소유한다.
 - `tests/`, `pytest.ini`, `run_tests.ps1`: 모듈 검사. COS import 없이 실행한다.
 - `rebuild_environment.ps1`: 이 체크아웃의 환경을 구성하며 COS catalog는 수정하지 않는다.
 - `use_offline_environment.ps1`: 현재 셸과 자식에만 로컬 검사 경로를 설정한다.
@@ -39,7 +39,7 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 ## 기능별 구현과 소유권
 
 공개 MCP 도구의 실제 구현은 `features/<기능>/tools.py`에 있다.
-배포 검증은 `release_validation/`, 모델링 지침 묶음 생성은 `features/guidance/guides/`에 둔다.
+배포 검증은 `release_validation/`, 기본·도구별 안내 조회는 `modeling_guidance.py`에 둔다.
 자산 생성·변환·출처 기록은 `features/assets/generation/`, 구조해석 검증은
 `features/structure/validation/`, 시공 기준 문서 생성은 `features/guidance/`가 소유한다.
 이 개발 스크립트들은 공개 MCP 도구 등록 코드와 구분한다.
@@ -67,18 +67,18 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 
 ### 공개 도구 위치
 
-아래 76개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`을 포함한 COS 입력 catalog는 80개다. 외부 host는 연결관리 도구 4개를 추가해 실제 클라이언트에 84개를 노출한다.
+아래 72개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`, `get_rhino_execution`을 포함한 입력 catalog는 77개다. 외부 host는 연결관리 도구 4개를 추가해 실제 클라이언트에 81개를 노출한다. 수치는 현재 소스에서 생성한 catalog를 기준으로 한다.
 
 | 기능 | 공개 함수 |
 |---|---|
-| 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `get_rhino_probe`, `get_rhino_viewport_image` |
+| 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `analyze_block_reculviely`, `get_rhino_viewport_image` |
 | 작업계획 | `create_phase`, `get_phase`, `list_phases`, `update_phase`, `create_plan`, `get_plan`, `list_plans`, `update_plan`, `list_plan_revisions`, `update_step`, `resolve_targets`, `get_selection_references` |
 | Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `list_design_scenes`, `register_scene_objects`, `get_scene_objects` |
 | Component | `upsert_ontological_component`, `get_ontological_component`, `list_ontological_components`, `sync_ontological_component`, `remove_ontological_component`, `get_component_intersections`, `focus_components` |
 | 설계 참고자료 | `get_modeling_guide`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
 | 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `save_rhino_document`, `setup_modeling`, `list_materials`, `assign_material` |
 | Grasshopper | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` |
-| 자산 | `list_drawing_assets`, `search_drawing_assets`, `get_drawing_asset`, `register_drawing_asset`, `get_asset_drawing`, `generate_asset_drawing_views`, `audit_asset_drawing`, `place_drawing_asset`, `search_asset_repository` |
+| 자산 | `list_drawing_assets`, `search_drawing_assets`, `get_drawing_asset`, `prepare_drawing_asset`, `register_drawing_asset`, `get_asset_drawing`, `generate_asset_drawing_views`, `audit_asset_drawing`, `place_drawing_asset`, `search_asset_repository` |
 | 다이어그램 | `list_diagram_assets`, `search_diagram_assets`, `get_diagram_asset`, `place_diagram_asset` |
 | 도면·Sheet | `list_drawing_recipes`, `get_drawing_recipe`, `apply_drawing_style`, `import_drawing_hatch_patterns` |
 | 구조검토 | `validate_structure`, `list_design_codes`, `visualize_structure`, `export_structural_report` |
@@ -131,7 +131,7 @@ fingerprint 대상이므로 이동·추가·삭제도 감지한다.
 연결마다 token·session·call 디렉터리와 프로세스 identity를 확인한다. 모델 폴더의
 DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유지한다.
 
-`get_rhino_context`, `get_rhino_viewport_image`, `get_rhino_probe`는 고정 관찰 경로다.
+`get_rhino_context`, `get_rhino_viewport_image`, `analyze_block_reculviely`는 고정 관찰 경로다.
 조회가 geometry·layer·selection·camera·Undo를 바꾸면 안 된다.
 `execute_rhino_script`의 `result_error`는 이미 끝난 수정을 취소하지 않는다.
 요청·반환 제한과 미확인 값의 의미는 [관측 계약](rhino/OBSERVATION-SPEC.md)을 따른다.
@@ -143,11 +143,31 @@ DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유�
 
 ## Scene·Component·계획
 
-Scene·Component의 의미와 작업 방식은 [Rhino 모델링 지침](features/guidance/guides/modeling-guide.md#sceneontological-componentinstance)을 따른다. 구현 계약은 [Component 등록·계층·동기화](features/components/SPEC.md)와 [Phase·Plan·Step 저장·참조](features/planning/SPEC.md)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](features/assets/SPEC.md#기존-glbscene-배치-장부)에 둔다.
+Scene·Component의 의미와 작업 방식은 [Rhino 모델링 지침](BASIC-INSTRUCTIONS.md#sceneontological-component)을 따른다. 구현 계약은 [Component 등록·계층·동기화](features/components/SPEC.md)와 [계획 저장·참조](#계획-저장참조)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](features/assets/SPEC.md#기존-glbscene-배치-장부)에 둔다.
 
 `list_design_scenes`는 Plan이나 live 문서 조회 없이 프로젝트 전체 Scene 이름의 제한된 페이지를 제공한다. Component 목록은 `scene_id`로 범위를 정하고 기본 root/선택적 recursive를 지원한다. `sync_ontological_component`는 기존 단건 호출과 함께 component_ids·Scene·bound 문서 범위를 지원하며 대상 형식을 혼합하지 않는다.
 
 Component는 `component_registry=2`의 문서 private registry를 사용하며 객체에 관리 속성을 새로 기록하지 않는다. 실제 group 이름·멤버가 기준이고 upsert는 기존 group rename·membership 복구를 수행하지 않는다. semantic Undo와 group-table 생성·이름·삭제의 경계는 Component 계약을 따른다.
+
+### 계획 저장·참조
+
+Phase는 Plan의 상위 묶음이고 Plan 안에 Step을 둔다. Plan의 Scene 참조는 맥락, Component 참조는 작업 대상이다. Step도 Component를 지정할 수 있으며, 대상이 Plan의 맥락 Scene에 연결돼 있어야 한다는 제약은 없다.
+
+참조 인자를 생략하면 기존 값을 유지한다. Step의 대상이 `null`이면 Plan 대상을 상속하고, 명시적인 `[]`는 대상 없음이다. 빈 대상을 Plan 전체나 Scene 전체로 확장하지 않는다. `resolve_targets`는 등록 대상을 해석하며 실제 형상 실행과 별개다.
+
+`depends_on`은 참고 관계를 저장하는 JSON 배열이다. 현재 저장소는 자기 참조·순환·미생성 ID를 허용하고 실행 순서나 선행 완료를 강제하지 않는다. 사용자 작업 단위와 도구 사용 기준은 BASIC-INSTRUCTIONS.md를 따른다. 기존 `scene_id`는 `scene_ids`의 첫 항목과 호환된다.
+
+#### 상태와 revision
+
+Plan·Step 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`다. 작업을 중단·전환·재개할 수 있으며 선행 작업 완료나 뒤 단계 무효화를 강제하지 않는다.
+
+Plan 변경을 commit할 때마다 전체 Plan 상태를 immutable revision으로 저장한다. `expected_revision`으로 오래된 상태의 수정을 거절하며, 관계·상태·참조 변경과 revision 보관은 같은 DB transaction에서 처리한다. revision은 설계 시도 횟수가 아니며 Rhino 형상을 백업하지 않는다. 기존 Plan에는 migration baseline을 남기되 과거 이력을 만들어내지 않는다.
+
+#### 파일·작업자료·역조회
+
+Phase와 Scene은 `file_name`을 항상 반환하고 미지정이면 빈 문자열이다. 선택한 Plan의 `artifact_dir`은 프로젝트 `tmp/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `set_working_plan`은 폴더를 재사용하고 `rename_artifact_folder`는 현재 참조를 갱신하며 과거 revision을 보존한다.
+
+`get_selection_references`는 선택 객체에서 등록 Component의 조상과 직접·상속된 Plan/Step 참조를 찾는다. 일반 조회는 `include_ids=true`일 때 ID를 포함하며 get 조회는 이미 입력한 대상 ID를 반복하지 않는다.
 
 ## 재료·도면·자산
 
@@ -163,7 +183,7 @@ MCP 도구·리소스의 공개 설명과 응답에 덧붙이는 행동 지침�
 경계를 표시하며, 본문과 동적 값의 공백을 보존한다. `instruction_text.py`가
 지침을 읽고 등록 전에 함수 설명에 적용한다. 항목이 없거나 중복되면 명시적으로 실패한다.
 입력 검증 조건, 오류 상태·수치 결과, SQL과 실행할 C#/Blender 코드는 지침 원본이 아니다.
-기존 `FUNDAMENTAL-INSTRUCTIONS.md`와 `MODEL-CONTEXT-INSTRUCTIONS.md`의 전달 방식은 유지한다.
+기본 작업 지침은 `BASIC-INSTRUCTIONS.md`에 둔다.
 
 COS는 모델 서버를 import하지 않고 같은 Markdown에서 도구 설명을 추출한다.
 package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는
@@ -213,13 +233,13 @@ Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서
 
 ## 모델링 안내 전달
 
-`get_modeling_guide`는 `features/guidance/guides`의 원본·주제 맵·이미지를 직접 읽는다. 생성 빌더와 `modeling_guides` 복사본은 제거했다. 모든 원본의 정규화 SHA-256으로 guide_version을 계산하고, 한 snapshot을 읽는 동안 변경이 감지되면 실패한다. 외부 연결기의 source fingerprint와 실제 worker schema 확인은 유지한다.
+최초 `get_modeling_guide()`는 `BASIC-INSTRUCTIONS.md` 전문과 공통 도구명 목록을 반환한다. `get_modeling_guide(tool="assign_material")`은 해당 공개 도구의 `*-explain.md` 원문을 반환하며 그 도구를 실행하지 않는다. `project_info`의 instructions section도 같은 BASIC을 반환한다.
 
-MCP 기본 설명은 최초 실행할 `get_modeling_guide(topic="fundamental")`을 안내한다. 이 호출은 FUNDAMENTAL-INSTRUCTIONS.md 전문을 반환한다. 모델 작업에서는 `topic="model-context"`로 MODEL-CONTEXT-INSTRUCTIONS.md를 읽는다. project_info의 instructions section도 두 지침을 반환한다. 이 조회는 모델이나 DB를 수정하지 않는다.
+reader는 BASIC·등록 도구 소스·설명 원문의 정규화 SHA-256으로 `guide_version`을 계산한다. snapshot 수집 중 변경은 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 토픽 맵·토픽별 조회·이미지 첨부 인자는 제공하지 않는다. 조회 인자는 정확한 공개 도구명인 tool 하나다. 알 수 없는 이름·파일 경로·URL은 거절하며 조회가 해당 도구를 실행하지 않는다. 공개 도구명은 features/*/tools.py와 runtime/mcp_server.py의 등록 정의에서 정적으로 수집하고 내부 helper는 제외한다. 응답은 status·guide_version·text·source_refs를 가진 JSON text 한 개이며 기본 응답에는 tools, 도구 응답에는 tool_name을 추가한다. source_refs는 패키지 상대 경로와 정규화 SHA-256이다.
 
-MODEL-CONTEXT-INSTRUCTIONS.md는 기존 관측 내용으로 유지하고 observation 주제에서도 읽는다. 삭제 전 최신 `skills/rhino-almond/SKILL.md`(e6bc17e, 910ab5f 직전)의 내용은 같은 폴더의 `skill.md`에 별도 보존하며 wheel에 포함한다. 이 별도 파일에는 요청된 공개 도구 이름과 문서 경로 변경을 반영했다. 현재 확장된 모델링·2D 가이드는 기능 폴더의 주제별 원본으로 유지한다.
+reader는 모델·작업 DB·사용자 산출물을 읽거나 수정하지 않는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기에서는 connection_id가 필요하다. BASIC의 참고자료는 직접 링크로 읽고 별도 가이드 payload를 생성하지 않는다. runtime을 포함한 체크아웃은 runtime 도구 설명도 수집하며, runtime이 제외된 standalone wheel은 설치된 공통 도구만 수집한다. 안내 검사는 원문 일치·이름 목록·버전·변경 감지와 cold stdio 초기화, runtime 없는 배포 레이아웃의 서버 초기화를 확인한다.
 
-문서·도구 설명 변경은 해당 Python/MCP 세션을 새로 시작해야 적용된다. RHP 재빌드나 등록 변경은 이 Python 변경의 적용 조건이 아니다.
+문서·도구 설명 변경은 해당 Python/MCP 세션을 정상 종료하고 새로 시작해야 적용된다. Python 안내 변경만으로 RHP 빌드나 Rhino 재시작을 요구하지 않는다.
 
 ## Public query and write responses
 
@@ -231,11 +251,11 @@ See [QUERY_OUTPUT.md](QUERY_OUTPUT.md) for summary defaults, explicit field grou
 - 내장 원본은 `profiles/eurocode.json`, `profiles/construction_system/manifest.json`, `profiles/material/manifest.json`이다. 재료·구조 시스템 로더는 각 폴더의 `manifest.json`을 읽는다. 설계 기준 검색은 `profiles` 바로 아래 JSON만 읽으므로 하위 manifest와 섞이지 않는다.
 - 명시적인 `RHINO_MCP_*_DIR`, `ALMOND_DESIGN_CODE_DIR` 및 일상 실행의 AppData 경로와 기존 파일은 보존한다. 개발 체크아웃과 오프라인 환경만 새 원본 위치를 사용한다. wheel은 `profiles`의 원본을 포함하고 최초 배치 시 기존 AppData `Materialfiles`, `Constructionfiles` 폴더로 누락된 파일만 복사한다.
 - `features/assets/asset_passport.py`와 `library_index.py`는 자산 전용 구현이다. 서버·CLI·생성기·배포 도구는 이 위치를 직접 가져온다.
-- MCP 도구 목록에는 설명의 첫 문장만 표시한다. 상세 사용법은 인접한 `*-explain.md`에 유지하며, Args/Returns 메타데이터는 기존 입력·출력 스키마를 보존하기 위해 계속 읽는다. 주제별 가이드 힌트는 도구 설명 앞에 자동 삽입하지 않는다.
+- MCP 도구 목록에는 설명의 첫 문장만 표시한다. 상세 사용법은 인접한 `*-explain.md`에 유지하고 명시적으로 조회한다. Args의 인자별 의미는 입력 schema에 반영하며 입출력 형식은 함수 타입·등록 schema를 따른다. 전체 작업 지침은 도구 설명에 자동 삽입하지 않는다.
 - 외부 연결기는 프로필 JSON도 source fingerprint에 포함한다. 프로필이나 설명을 바꾼 뒤에는 해당 클라이언트/세션을 정상 종료하고 새로 시작한다.
 
-## 제거된 배치 장부와 공개 component 이름
+## 공개 component 이름과 기존 데이터 호환
 
-room·scene instance 관리 및 AABB 충돌 검사인 validate_scene_layout을 제거한다. Scene 조회도 rooms/instances 항목을 반환하지 않는다. 구조 하중은 실제 Rhino 자산 배치만 사용하며 scene_id 장부 인자는 제거한다. 기존 DB의 rooms/instances 및 revision 기록은 삭제하거나 변환하지 않고 보존한다.
+room·scene instance 관리 및 AABB 충돌 검사인 validate_scene_layout은 공개 API로 제공하지 않는다. Scene 조회도 rooms/instances 항목을 반환하지 않는다. 구조 하중은 실제 Rhino 자산 배치만 사용하며 scene_id 장부 인자는 제거한다. 기존 DB의 rooms/instances 및 revision 기록은 삭제하거나 변환하지 않고 보존한다.
 
 공개 API는 upsert/get/list/sync/remove_ontological_component(s) 이름을 사용하며 design_component 도구 별칭은 제공하지 않는다. 기존 Bridge와 통신하는 내부 design_component request/capability 태그는 호환을 위해 유지한다. 이는 공개 도구 이름이 아니며 DB·Undo·native 계약을 변경하지 않는다.

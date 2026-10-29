@@ -14,6 +14,33 @@ a document change, missing project/path information, or the user's request.
 A new instruction alone is not a refresh trigger.
 <!-- /instruction:project_info -->
 
+<!-- instruction:get_rhino_execution -->
+Read an official RhinoCode execution without rerunning it. Omit request_id for
+the latest execution in this connection, or supply the exact returned request ID.
+Completed successful reads return the requested result/logs, page information,
+request ID and outcome by default. Set include_diagnostics=true for operation
+identity, native/CLI details, Undo, file/hash and runtime-completion evidence.
+Pending, uncertain, failed, partial, nonzero CLI exit and result-display-error
+responses retain their detailed evidence even when include_diagnostics is false.
+Pending and finishing work retains its ownership. Completion requires the exact
+final Rhino receipt and the CLI process to have exited; timeout and process exit
+alone do not prove completion. native_completed can expose a verified Rhino result
+while completed remains false because the CLI lifecycle is still unconfirmed.
+A late exact result can reconcile CLI-only
+uncertainty. Unrelated native uncertainty remains blocked. include_result controls
+result retrieval, result_fields selects top-level fields, and offset/limit page
+retained result rows without another Rhino call. include_stdout is false by
+default. include_ids defaults true for explicitly authored code results; request
+identity always remains, and operation identity is available with diagnostics.
+Page information remains on the final page too. Execution files remain available until this
+connection is cleaned up. In an external client, connection_id reconciles the
+live tracked connection. After the client process restarts, omit connection_id
+and provide the exact request_id to read its retained evidence from the recorded
+session. This recovery-only path does not reconnect or execute Rhino work.
+Retained evidence can still be read after the original model file is renamed or
+deleted, while its recorded session storage remains at the original location.
+<!-- /instruction:get_rhino_execution -->
+
 <!-- instruction:set_working_plan -->
 Select or resume a Plan and optional Step for this connection. Reuse its existing
 artifact folder. On first use, artifact_name (one folder name) or the Plan goal

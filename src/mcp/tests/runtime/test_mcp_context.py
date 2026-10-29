@@ -50,7 +50,9 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
         self.calls = []
         self.observations = []
         self.enterContext(patch.dict(os.environ, {"ALMOND_PROJECT_ROOT": self.locations["project_dir"]}))
-        runtime = SimpleNamespace(workspace=Workspace(self.locations, AlmondStore(self.locations["state_db"])))
+        runtime = SimpleNamespace(workspace=Workspace(self.locations, AlmondStore(self.locations["state_db"])),
+                                  rhinocode_availability=lambda: {"available": False, "reason": "fixture"},
+                                  get_rhino_execution=lambda *args: {"status": "pending", "request_id": "fixture"})
         def sender(payload):
             self.observations.append(json.loads(payload))
             return json.dumps({"status": "success", "document": {"path": str(model), "name": model.name}, "warnings": []})
@@ -73,7 +75,7 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
         async with Client(self.mcp) as client:
             self.assertEqual(client.instructions, 'Keep upstream instructions.')
             tools = {tool.name: tool for tool in await client.list_tools()}
-            self.assertEqual(set(tools), {'execute_rhino_script', 'unrelated', 'project_info', 'set_working_plan', 'rename_artifact_folder', 'execute_project_python'})
+            self.assertEqual(set(tools), {'execute_rhino_script', 'unrelated', 'project_info', 'set_working_plan', 'rename_artifact_folder', 'execute_project_python', 'get_rhino_execution'})
             tool = tools['execute_rhino_script']
             self.assertEqual(tool.description, 'Original executor description.')
             self.assertEqual(tool.input_schema, self.original_schema)
@@ -97,14 +99,22 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(self.observations), 1)
             self.assertEqual(self.calls, [])
 
+    async def test_execution_recovery_remains_read_only_after_binding_invalidation(self):
+        self.binding['valid'] = False
+        write_json(self.ready, self.binding)
+        async with Client(self.mcp) as client:
+            value = json.loads((await client.call_tool('get_rhino_execution', {})).content[0].text)
+            self.assertEqual(value['request_id'], 'fixture')
+            self.assertEqual(self.calls, [])
+            self.assertEqual(self.observations, [])
+
     async def test_instructions_and_topics_keep_one_snapshot_after_disk_changes(self):
         from almond_mcp.features.guidance.tools import register
         from almond_mcp.modeling_guidance import PACKAGE, startup_instructions, project_instructions
         startup = startup_instructions()
-        context_path = PACKAGE / 'MODEL-CONTEXT-INSTRUCTIONS.md'
         expected = project_instructions()
         register(self.mcp, object())
-        changed_paths = {PACKAGE / 'FUNDAMENTAL-INSTRUCTIONS.md', context_path}
+        changed_paths = {PACKAGE / 'BASIC-INSTRUCTIONS.md'}
         original_text, original_bytes = Path.read_text, Path.read_bytes
 
         def changed_text(path, *args, **kwargs):

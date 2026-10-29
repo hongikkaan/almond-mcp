@@ -11,8 +11,8 @@
     <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="Program.cs" />
-    <Compile Include="NativeTests.cs" />
-    <Compile Include="../../Probes/*.cs" Link="Helpers\%(Filename)%(Extension)" />
-    <Compile Include="../../ProbeObservation.cs" Link="ProbeObservation.cs" />
+    <Compile Include="IntersectionTests.cs" />
+    <Compile Include="../../../../mcp/features/context/native/*.cs" Link="Context\%(Filename)%(Extension)" />
+    <Compile Include="../../../../mcp/features/components/native/*.cs" Link="Components\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

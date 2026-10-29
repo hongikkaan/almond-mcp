@@ -28,6 +28,7 @@ from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_con
                      load_catalog, validate_worker_tools)
 from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
+from execution_recovery import ExecutionRecoveryStore, read_bound_execution
 
 GUIDANCE = (ROOT / "CONNECTION-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
 DESCRIPTION = (ROOT / "SERVER-DESCRIPTION.md").read_text(encoding="utf-8").strip()
@@ -67,7 +68,13 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
             "type": "string", "minLength": 1,
             "description": "Exact live connection ID returned by connect."
         }
-        schema["required"] = [*schema.get("required", []), "connection_id"]
+        if name == "get_rhino_execution":
+            schema["properties"]["connection_id"]["description"] = (
+                "Live connection for tracked recovery; omit with exact request_id to read a retained result after client restart.")
+            schema["anyOf"] = [{"required": ["connection_id"]}, {
+                "required": ["request_id"], "properties": {"request_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}}]
+        else:
+            schema["required"] = [*schema.get("required", []), "connection_id"]
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
@@ -243,6 +250,7 @@ class Connection:
     watch_pending: bool = False
     watch_again: bool = False
     lease: object = None
+    recovery_request_id: str = ""
 
     def public(self):
         b = self.binding
@@ -274,7 +282,8 @@ class Broker:
                  control_factory=PipeControl, worker_factory=Worker, host_reader=read_hosts,
                  contract_check=check_contract, call_timeout: float = 300,
                  watcher_factory=BindingWatcher, lease_factory=host_lease,
-                 starter_factory=start_rhino, queue_timeout: float = 10.0):
+                 starter_factory=start_rhino, queue_timeout: float = 10.0,
+                 recovery_store_factory=ExecutionRecoveryStore):
         self.catalog, self.data = catalog, data
         self.control_factory, self.worker_factory = control_factory, worker_factory
         self.host_reader, self.contract_check = host_reader, contract_check
@@ -289,6 +298,8 @@ class Broker:
         self.watcher = None
         self.lease_factory, self.starter_factory = lease_factory, starter_factory
         self.starts: dict[str, StartAttempt] = {}
+        self.recovery_bindings: dict[str, dict] = {}
+        self.recovery_store = recovery_store_factory(data)
 
     def binding_changed(self, connection_id: str, error: str | None):
         conn = self.connections.get(connection_id)
@@ -469,6 +480,8 @@ class Broker:
                 ensure_open()
                 await self._binding_status(conn)
                 ensure_open()
+                await asyncio.to_thread(self.recovery_store.remember, conn.binding)
+                ensure_open()
                 conn.worker = self.worker_factory(conn.binding, connection_id, self.catalog)
                 await conn.worker.start()
                 ensure_open()
@@ -490,12 +503,59 @@ class Broker:
         with suppress(Exception):
             await conn.control.request("fail", session_token=conn.token, reason=reason[:300])
 
+    @staticmethod
+    def _cli_only(state):
+        return bool(state.get("external_requests")) and state.get("native_uncertain") is False
+
+    def _retain_cli(self, conn, request_id, state):
+        conn.state = "recovering"
+        conn.reason = "RhinoCode outcome is being tracked. Read get_rhino_execution; do not repeat the work."
+        conn.recovery_request_id = request_id
+        conn.in_flight = True
+        self.recovery_bindings[conn.connection_id] = dict(conn.binding)
+
+    def _read_execution_files(self, binding, arguments):
+        return read_bound_execution(binding, arguments)
+
+    async def recover_execution(self, conn, arguments):
+        try:
+            result = await conn.worker.call("get_rhino_execution", arguments)
+            value = result_dict(result)
+            state = await conn.worker.state()
+        except Exception:
+            # A crashed worker cannot erase a final receipt or authorize replay.
+            value = await asyncio.to_thread(self._read_execution_files, conn.binding, arguments)
+            value.update(connection_state=conn.state, requires_reconnect=True)
+            return json_result(value)
+        if (conn.state == "recovering" and not state.get("pending") and not state.get("uncertain")
+                and state.get("native_uncertain") is False):
+            try:
+                await self._binding_status(conn)
+                await conn.control.request("end", session_token=conn.token,
+                                           request_id=conn.recovery_request_id)
+                conn.state, conn.reason = "ready", ""
+                conn.recovery_request_id = ""
+                conn.in_flight = False
+            except Exception as exc:
+                await self._fail(conn, str(exc))
+                value["requires_reconnect"] = True
+        value["connection_state"] = conn.state
+        if state.get("native_uncertain"):
+            value["requires_reconnect"] = True
+        return json_result(value)
+
     async def invoke(self, conn: Connection, name: str, arguments: dict, invocation: Invocation):
         # Runtime owns the queue-wait contract. Import it only for an active
         # call; cleanup/watch locks intentionally keep their drain semantics.
         sys.path.insert(0, str(ENGINE))
         from project import serial_gate
         async with serial_gate(conn.lock, self.queue_timeout):
+            if name == "get_rhino_execution":
+                if conn.closing:
+                    value = await asyncio.to_thread(self._read_execution_files, conn.binding, arguments)
+                    value.update(connection_state=conn.state, requires_reconnect=True)
+                    return json_result(value)
+                return await self.recover_execution(conn, arguments)
             if invocation.abandoned:
                 raise RuntimeError("Caller stopped while this request was queued. No Rhino request was sent.")
             if conn.closing or conn.state != "ready":
@@ -503,6 +563,7 @@ class Broker:
             request_id = uuid4().hex
             invocation.started = True
             conn.in_flight = True
+            worker_dispatched = False
             try:
                 await conn.control.request("begin", session_token=conn.token, request_id=request_id)
                 if invocation.abandoned or conn.closing or conn.state != "ready":
@@ -520,14 +581,28 @@ class Broker:
                         await conn.control.request("end", session_token=conn.token, request_id=request_id)
                         conn.in_flight = False
                         raise
+                worker_dispatched = True
                 result = await asyncio.wait_for(conn.worker.call(name, arguments), self.call_timeout)
                 state = await conn.worker.state()
                 if state.get("pending") or state.get("uncertain"):
+                    if self._cli_only(state) and not conn.closing:
+                        self._retain_cli(conn, request_id, state)
+                        return result
                     raise RuntimeError("Rhino execution outcome is unconfirmed. Do not repeat the operation automatically.")
+                if invocation.abandoned and self._cli_only(state) and not conn.closing:
+                    self._retain_cli(conn, request_id, state)
+                    return result
                 await conn.control.request("end", session_token=conn.token, request_id=request_id)
                 conn.in_flight = False
                 return result
             except BaseException as exc:
+                state = None
+                if worker_dispatched and not conn.closing:
+                    with suppress(Exception):
+                        state = await conn.worker.state()
+                if state is not None and self._cli_only(state):
+                    self._retain_cli(conn, request_id, state)
+                    raise RuntimeError(conn.reason) from exc
                 await self._fail(conn, str(exc) or "Caller canceled while Rhino might still be executing.")
                 raise
 
@@ -541,6 +616,8 @@ class Broker:
             return conn.cleanup
         conn.closing = True
         conn.state = "closing"
+        if conn.binding and (Path(conn.binding["session_dir"]) / "rhinocode.json").is_file():
+            self.recovery_bindings[conn.connection_id] = dict(conn.binding)
         if self.watcher is not None:
             self.watcher.remove(conn.connection_id)
         worker_closed = conn.worker is None
@@ -604,6 +681,13 @@ class Broker:
             connection_id = arguments.pop("connection_id", None)
             conn = self.connections.get(connection_id)
             if conn is None:
+                if self.mapping[name] == "get_rhino_execution" and connection_id in self.recovery_bindings:
+                    value = await asyncio.to_thread(self._read_execution_files,
+                                                   self.recovery_bindings[connection_id], arguments)
+                    value.update(connection_state="disconnected", requires_reconnect=True)
+                    return json_result(value)
+                if self.mapping[name] == "get_rhino_execution" and arguments.get("request_id"):
+                    return json_result(await asyncio.to_thread(self.recovery_store.recover, arguments))
                 raise RuntimeError("Unknown or stale connection_id. No Rhino request was sent.")
             invocation = Invocation()
             return await asyncio.shield(self.spawn(self.invoke(conn, self.mapping[name], arguments, invocation)))
@@ -647,7 +731,7 @@ class SessionAdapter:
 
     async def call(self, name, arguments):
         if self.broker is None:
-            if name not in {"list_connections", "connect", "start_session"}:
+            if name not in {"list_connections", "connect", "start_session", "get_rhino_execution"}:
                 return error_result("Unknown or stale connection_id. No Rhino request was sent.")
             self.broker = self.broker_factory(self.catalog, data=self.data)
         return await self.broker.call(name, arguments)

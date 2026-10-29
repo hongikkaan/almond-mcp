@@ -18,7 +18,7 @@ namespace AlmondScriptUndoTests
     // Linked-source native tests. Invoke from a modeless Rhino UI callback.
     // RunAll owns only disposable headless documents; RunViewport uses a document
     // supplied by the caller and must be coordinated with its owner.
-    public static class ObservationTests
+    public static partial class ObservationTests
     {
         public static string RunAll()
         {
@@ -448,9 +448,9 @@ namespace AlmondScriptUndoTests
                     Unchanged(before, DocumentState(doc), "Named view versus active camera");
                     lines.Add("PASS saved camera differs from active camera without restoring it");
                     var namedId = doc.NamedViews[namedIndex].NamedViewId.ToString();
-                    var explicitShaded = DocumentObservation.GetViewportImage(doc, namedId, 50, "Shaded");
-                    var noLabels = DocumentObservation.GetViewportImage(doc, namedId, 50, "Shaded", false);
-                    var wireframe = DocumentObservation.GetViewportImage(doc, namedId, 50, "Wireframe", false);
+                    var explicitShaded = DocumentObservation.GetViewportImage(doc, namedId, 75, "Shaded");
+                    var noLabels = DocumentObservation.GetViewportImage(doc, namedId, 75, "Shaded", false);
+                    var wireframe = DocumentObservation.GetViewportImage(doc, namedId, 75, "Wireframe", false);
                     Success(explicitShaded); Success(noLabels); Success(wireframe);
                     Check((string)named["image"]["data"] == (string)explicitShaded["image"]["data"], "Named View did not default to Shaded.");
                     Check((string)named["image"]["data"] != (string)noLabels["image"]["data"], "Default transient labels were not drawn.");
@@ -461,8 +461,8 @@ namespace AlmondScriptUndoTests
                         String.Equals(candidate.EnglishName, "CadWhite", StringComparison.OrdinalIgnoreCase)) ??
                         installedModes.FirstOrDefault(candidate => candidate.Id == DisplayModeDescription.GhostedId);
                     Check(alternateMode != null, "No installed alternate display mode is available for the capture fixture.");
-                    var alternate = DocumentObservation.GetViewportImage(doc, namedId, 50, alternateMode.Id.ToString(), false);
-                    Success(alternate); DecodePng(alternate, 50);
+                    var alternate = DocumentObservation.GetViewportImage(doc, namedId, 75, alternateMode.Id.ToString(), false);
+                    Success(alternate); DecodePng(alternate, 75);
                     Check((string)alternate["image"]["data"] != (string)noLabels["image"]["data"],
                         "The installed " + alternateMode.EnglishName + " mode was silently rendered as Shaded.");
                     lines.Add("PASS installed " + alternateMode.EnglishName + " display mode is applied without registering or editing modes");

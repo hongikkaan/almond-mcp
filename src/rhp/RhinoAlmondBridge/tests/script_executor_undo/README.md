@@ -1,5 +1,11 @@
 # Native modeling and Undo regression tests
 
+Live functionality is tested in the working Rhino files the user connected for
+the task. Avoid creating or launching separate Rhino documents solely for tests.
+The fixture requirements below describe isolated regression suites; they are not
+the default workflow for live feature acceptance. Never run a suite that creates
+or replaces document contents in a user model, or remove its document guards.
+
 These tests link production sources; loading the fixture assembly through reflection does not install a plugin.
 `NativeUndoTests` and `ObservationTests` use disposable headless documents.
 The modeling, Component, Sheet and asset suites also save and open disposable

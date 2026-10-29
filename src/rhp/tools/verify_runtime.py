@@ -15,7 +15,8 @@ COMPONENT_BUNDLES = dict(zip(MANIFESTS, BUNDLES))
 SOURCE_ROOTS = {
     "bridge": ("src/rhp/RhinoAlmondBridge/", "src/rhp/Structural_Analysis/",
                "src/rhp/Asset_Panel/", "src/rhp/RhinoTerminal/", "src/rhp/Engine/",
-               "src/mcp/rhino/"),
+               "src/mcp/rhino/", "src/mcp/features/context/native/",
+               "src/mcp/features/components/native/"),
     "cos": ("src/cos/rhp/", "src/rhp/Engine/"),
 }
 

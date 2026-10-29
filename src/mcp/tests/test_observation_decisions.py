@@ -77,7 +77,7 @@ def test_given_bad_selection_options_when_queried_then_never_send_native(context
 def test_given_capture_when_options_omitted_then_transient_labels_depth_one(context):
     result = context.get_rhino_viewport_image()
     assert not result.is_error
-    assert context.requests == [{"type": "get_rhino_viewport_image", "view": "", "scale_percent": 50,
+    assert context.requests == [{"type": "get_rhino_viewport_image", "view": "", "scale_percent": 75,
                                  "display_mode": "", "labels": True, "depth": 1,
                                  "target_kind": "view", "target_id": ""}]
 
@@ -198,7 +198,7 @@ def test_given_native_failure_when_visual_context_requested_then_structured_erro
 
 @pytest.mark.parametrize("groups", [None, [], ["everything"], "summary", ["summary", "invalid"]])
 def test_given_unsupported_outline_fields_when_queried_then_reject_before_native(context, groups):
-    result = json.loads(context.get_rhino_probe(probe="outline", options={"field_groups": groups},
+    result = json.loads(context.analyze_block_reculviely(mode="outline", options={"field_groups": groups},
                                                 expected_model_path="C:\\fixture\\model.3dm"))
     assert result["error_code"] == "invalid_arguments"
     assert context.requests == []

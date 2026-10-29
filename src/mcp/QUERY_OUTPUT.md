@@ -103,7 +103,7 @@ default and optional geometry, scope or audit.
 
 - `project_info`: explicit project/document/artifacts/runtime/instructions sections.
 - `get_rhino_context`: explicit document/selection/viewport sections and selection_limit.
-- `get_rhino_probe`: named probe and validated options/limits.
+- `analyze_block_reculviely`: outline/resolve-block mode and bounded traversal options.
 - `get_rhino_viewport_image`: one bounded image/result for the selected view.
 - `get_retrieval_status`: bounded readiness/count diagnostics.
 - `get_modeling_policy`: one fixed policy document.

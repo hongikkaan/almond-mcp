@@ -2,7 +2,7 @@
 
 This tutorial shows how to check a structure inside Rhino 8 with Almond. You draw the frame, set the loads, run the analysis, and read where it bends, how hard each member works and whether it could buckle. Change a size and check again in seconds.
 
-It covers the Rhino panel. Every step can also be driven by Claude or another MCP client (see [Use it from Claude](#use-it-from-claude)).
+It covers the Rhino panel. Every step can also be driven by Claude or another MCP client (see [Use it from Claude](#8-use-it-from-claude)).
 
 **Time for a first check:** about five minutes.
 **Engine:** built in. Karamba3D is optional and needs its own licence.

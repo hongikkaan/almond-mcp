@@ -14,6 +14,8 @@ internal static class Program
 
     static async Task<int> Main(string[] args)
     {
+        if (args.Length == 1 && args[0] == "--execution-child")
+        { Console.ReadLine(); return 0; }
         if (args.Length == 3 && args[0] == "--relay-host")
             return await RelayHost(int.Parse(args[1]), args[2]);
         if (args.Length == 4 && args[0] == "--foreign-client")
@@ -40,7 +42,8 @@ internal static class Program
             ("one OS owner per Rhino process survives until Dispose", ProcessOwnership),
             ("receipt publication failure stops dispatch before mutation", ReceiptFailure),
             ("a UI-finally publication failure cannot borrow a prior acknowledgement", FinallyReceiptFailure),
-            ("ambiguous UI dispatch failure retains pending work", AmbiguousDispatch)
+            ("ambiguous UI dispatch failure retains pending work", AmbiguousDispatch),
+            ("official CLI fence survives worker loss and requires final receipt plus child exit", ExternalFence)
         };
         int passed = 0;
         foreach (var (name, run) in tests)
@@ -79,6 +82,111 @@ internal static class Program
     static void Check(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException(message);
+    }
+
+    static async Task ExternalFence()
+    {
+        var start = new ProcessStartInfo(Environment.ProcessPath!) {
+            UseShellExecute = false, RedirectStandardInput = true, CreateNoWindow = true
+        };
+        if (Path.GetFileNameWithoutExtension(Environment.ProcessPath!).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+            start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
+        start.ArgumentList.Add("--execution-child");
+        using var child = Process.Start(start) ?? throw new IOException("Cannot start disposable CLI child.");
+        var childIdentity = new { pid = child.Id, process_start_ticks = child.StartTime.ToUniversalTime().Ticks.ToString() };
+        await using var fixture = new Fixture();
+        fixture.Start();
+        Check(fixture.Receipt().GetProperty("capabilities").GetProperty("rhinocode_fence").GetInt32() == 1,
+            "The loaded shared Engine did not publish its official-execution guard capability.");
+        using var current = Process.GetCurrentProcess();
+        var request = Guid.NewGuid().ToString("N");
+        var nonce = Guid.NewGuid().ToString("N");
+        var target = new { pid = Environment.ProcessId, process_start_ticks = current.StartTime.ToUniversalTime().Ticks.ToString(),
+            document_serial = 1, model_path = fixture.Paths.ModelPath, pipe_id = "fixture-pipe" };
+        var journal = new Dictionary<string, object?> {
+            ["schema"] = "almond-rhinocode-execution", ["version"] = 1, ["token"] = fixture.Token,
+            ["operation_id"] = fixture.Operation, ["request_id"] = request, ["nonce"] = nonce,
+            ["source_hash"] = new string('a', 64), ["language"] = "python", ["target"] = target, ["child"] = null
+        };
+        var folder = Path.Combine(fixture.Paths.CallRoot, fixture.Operation, "rhinocode", request);
+        Directory.CreateDirectory(folder);
+        var finalPath = Path.Combine(folder, "complete.json");
+        try
+        {
+            SessionFiles.WriteJson(fixture.Paths.RhinocodePath, journal);
+            fixture.Bridge.Stop();
+            await Until(() => fixture.Receipt().GetProperty("phase").GetString() == "stopped", "Legacy listener did not stop.");
+            Check(fixture.Bridge.IsAlive && fixture.Bridge.Pending == 1 && !fixture.Bridge.IsDrained,
+                "A prepared CLI execution was discarded with its legacy listener.");
+            Throws<InvalidOperationException>(() => fixture.Bridge.Dispose());
+            journal["child"] = childIdentity;
+            SessionFiles.WriteJson(fixture.Paths.RhinocodePath, journal);
+            var final = new Dictionary<string, object?>(journal) {
+                ["schema"] = "almond-rhinocode-completion", ["execution_complete"] = true,
+                ["status"] = "success", ["mutation_state"] = "completed"
+            };
+            SessionFiles.WriteJson(finalPath, final);
+            Check(!fixture.Bridge.IsDrained, "A final receipt cannot release a still-live CLI child.");
+            final["nonce"] = Guid.NewGuid().ToString("N");
+            SessionFiles.WriteJson(finalPath, final);
+            await child.StandardInput.WriteLineAsync("finish");
+            await child.StandardInput.FlushAsync();
+            await child.WaitForExitAsync();
+            Check(!fixture.Bridge.IsDrained, "A stale final receipt released a dead child's unknown Rhino work.");
+            final["nonce"] = nonce;
+            SessionFiles.WriteJson(finalPath, final);
+            Check(fixture.Bridge.IsDrained && !fixture.Bridge.IsAlive && fixture.Bridge.Pending == 0,
+                "Exact late completion did not release the CLI fence.");
+            journal["child"] = null;
+            SessionFiles.WriteJson(fixture.Paths.RhinocodePath, journal);
+            Check(!fixture.Bridge.IsDrained, "A matching final cannot replace the missing CLI identity after a launch crash.");
+            journal["child"] = childIdentity;
+            File.WriteAllText(fixture.Paths.RhinocodePath, "{");
+            Check(!fixture.Bridge.IsDrained, "Malformed durable state was treated as completed.");
+            SessionFiles.WriteJson(fixture.Paths.RhinocodePath, journal);
+            File.Delete(finalPath);
+            Check(!fixture.Bridge.IsDrained, "Child exit alone was treated as Rhino completion.");
+            SessionFiles.WriteJson(finalPath, final);
+            Check(fixture.Bridge.IsDrained, "Restored exact proof failed to settle.");
+            final["status"] = "unconfirmed";
+            SessionFiles.WriteJson(finalPath, final);
+            Check(!fixture.Bridge.IsDrained, "An invalid completion status released the fence.");
+            journal["child"] = null;
+            journal["not_dispatched"] = true;
+            SessionFiles.WriteJson(fixture.Paths.RhinocodePath, journal);
+            Check(!fixture.Bridge.IsDrained, "A launch failure without evidence released the fence.");
+            journal["dispatch_error"] = "Fixture CreateProcess failure before dispatch";
+            SessionFiles.WriteJson(fixture.Paths.RhinocodePath, journal);
+            Check(fixture.Bridge.IsDrained, "A proved failure before dispatch did not release the fence.");
+            journal["layout"] = "unknown";
+            SessionFiles.WriteJson(fixture.Paths.RhinocodePath, journal);
+            Check(!fixture.Bridge.IsDrained, "A failed launch with an unknown layout released the fence.");
+            journal.Remove("layout");
+            journal.Remove("not_dispatched");
+            journal.Remove("dispatch_error");
+            journal["child"] = childIdentity;
+            journal["layout"] = "compact-v1";
+            SessionFiles.WriteJson(fixture.Paths.RhinocodePath, journal);
+            Check(!fixture.Bridge.IsDrained, "A legacy receipt was mistaken for compact completion.");
+            var compact = Path.Combine(fixture.Paths.CallRoot, fixture.Operation, "rc-" + request[..12]);
+            Directory.CreateDirectory(compact);
+            final["status"] = "success";
+            SessionFiles.WriteJson(Path.Combine(compact, "complete.json"), final);
+            Check(!fixture.Bridge.IsDrained, "A compact receipt without its matching layout was accepted.");
+            final["layout"] = "compact-v1";
+            SessionFiles.WriteJson(Path.Combine(compact, "complete.json"), final);
+            Check(fixture.Bridge.IsDrained, "Exact compact completion did not release the fence.");
+        }
+        finally
+        {
+            if (!child.HasExited) {
+                await child.StandardInput.WriteLineAsync("finish");
+                await child.StandardInput.FlushAsync();
+                await child.WaitForExitAsync();
+            }
+            // Disposable fixture cleanup only; no real Rhino or user file exists.
+            File.Delete(fixture.Paths.RhinocodePath);
+        }
     }
 
     static void Throws<T>(Action action) where T : Exception
