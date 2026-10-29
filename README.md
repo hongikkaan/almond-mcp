@@ -9,6 +9,7 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, AlmondRhino는 별도 RHP로 구
 - [모듈 소유권과 의존 방향](SPEC.md#소유권과-의존-방향)
 - [Codex·CoS·외부 MCP 클라이언트 연결](src/cos/EXTERNAL_CLIENTS.md)
 - [Rhino 패널 사용법](src/mcp/features/assets/guides/rhino-archive-quickstart.md)
+- [DB Dashboard — SQLite 자료·구조 자동 탐색](src/mcp/runtime/dashboard/README.md)
 - [자산 검색·배치·도면·출처 관리](src/mcp/features/assets/SPEC.md)
 - [Rhino 모델링 지침](src/mcp/BASIC-INSTRUCTIONS.md) · [Component 등록·계층·동기화](src/mcp/features/components/SPEC.md) · [Phase·Plan·Step 저장·참조](src/mcp/SPEC.md#계획-저장참조)
 - [현재 문서·화면·고정 probe·C# 반환값](src/mcp/rhino/OBSERVATION-SPEC.md)

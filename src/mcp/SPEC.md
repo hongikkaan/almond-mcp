@@ -38,6 +38,20 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 
 ## 기능별 구현과 소유권
 
+### 로컬 DB Dashboard
+
+`runtime/dashboard.ps1`과 `runtime/dashboard/`는 SQLite 파일을 선택해 보는 별도 로컬
+브라우저 화면이다. [사용법](runtime/dashboard/README.md)을 따른다. MCP 도구를 추가하거나
+Rhino에 연결하지 않는다. SQLite metadata에서 테이블·열·외래키를 요청마다 읽으며 특정
+Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초기화나 migration도 호출하지 않는다.
+`mode=ro`·`query_only`·요청별 짧은 읽기 트랜잭션을 사용하며 WAL의 커밋된 자료를 포함한다.
+전체 건수를 자동 집계하지 않고 표는 페이지별, 차트는 최대 300행의 표본으로 읽는다.
+독점 잠금·시간 초과는 조회 오류로 표시하며 잠금이나 다른 연결을 정리하지 않는다.
+외부 업로드 없이 loopback HTTP와 실행별 token/Host/Origin 검사로 화면에 자료를 제공한다.
+기존 RHP 패널 웹 자원·MCP 공개 schema·외부 실행기의 fingerprint 범위에는 포함하지 않는다.
+
+### 기능별 Python 모듈
+
 공개 MCP 도구의 실제 구현은 `features/<기능>/tools.py`에 있다.
 배포 검증은 `release_validation/`, 기본·도구별 안내 조회는 `modeling_guidance.py`에 둔다.
 자산 생성·변환·출처 기록은 `features/assets/generation/`, 구조해석 검증은

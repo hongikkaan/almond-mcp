@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Almond · DB Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">a</span><div>almond<span class="brand-sub">DATABASE EXPLORER</span></div></div>
+    <div class="sidebar-heading">데이터 탐색 <span id="table-count">0</span></div>
+    <input id="table-filter" aria-label="테이블 찾기" placeholder="테이블 찾기…" type="search">
+    <label class="internal-toggle"><input id="show-internal" type="checkbox"> SQLite 내부 테이블 포함</label>
+    <nav id="tables" aria-label="테이블 목록"><p class="sidebar-empty">DB를 열면 테이블이 표시됩니다.</p></nav>
+    <div class="sidebar-footer"><span class="status-dot"></span> 이 컴퓨터에서만 열림<br><span>원본 데이터는 읽기 전용입니다.</span></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>작업공간 <span class="slash">/</span> DB Dashboard</span><span class="readonly">● 읽기 전용</span></header>
+    <section class="workspace">
+      <div class="intro"><div><div class="eyebrow">EXPLORE YOUR DATA</div><h1>DB 안의 자료를 한눈에.</h1><p>테이블과 열, 연결 관계를 현재 파일의 구조대로 살펴보세요.</p></div><button id="refresh" class="secondary" disabled>↻ 구조 새로고침</button></div>
+      <form id="open-form" class="file-bar"><label for="db-path">DB 파일</label><input id="db-path" placeholder="C:\프로젝트\.almond\scene.sqlite3" autocomplete="off" spellcheck="false" required><button type="submit" id="open-button">파일 열기 <span>↗</span></button></form>
+      <div id="message" role="status" aria-live="polite" hidden></div>
+      <div class="database-line"><strong id="database-name">아직 선택된 파일이 없습니다</strong><span id="database-meta">SQLite · .db / .sqlite / .sqlite3 / 확장자 없는 DB</span></div>
+      <section class="metrics" aria-label="DB 요약">
+        <div class="metric"><span>테이블 · 뷰</span><strong id="metric-tables">—</strong><small>현재 표시 대상</small></div>
+        <div class="metric"><span>데이터 열</span><strong id="metric-columns">—</strong><small>자동으로 읽은 필드</small></div>
+        <div class="metric"><span>연결 관계</span><strong id="metric-relations">—</strong><small>DB에 선언된 외래키</small></div>
+      </section>
+      <section id="empty" class="empty-state"><div class="empty-icon">▦</div><h2>파일을 열면 탐색이 시작됩니다</h2><p>위에 이 컴퓨터의 SQLite 파일 경로를 입력하세요.<br>테이블 이름이나 열이 바뀌어도 별도 설정이 필요하지 않습니다.</p><p class="hint">잠긴 DB는 기다렸다 다시 조회하며, 다른 작업의 잠금을 해제하지 않습니다.</p></section>
+      <section id="explorer" hidden>
+        <div class="table-heading"><div><div class="eyebrow" id="table-kind">TABLE</div><h2 id="table-name"></h2></div><span id="column-count" class="pill"></span></div>
+        <div class="tabbar" role="tablist" aria-label="탐색 방식"><button id="tab-rows" role="tab" aria-selected="true" aria-controls="panel-rows" data-tab="rows">자료 보기</button><button id="tab-charts" role="tab" aria-selected="false" aria-controls="panel-charts" data-tab="charts">자동 차트</button><button id="tab-schema" role="tab" aria-selected="false" aria-controls="panel-schema" data-tab="schema">구조와 관계</button></div>
+        <section id="panel-rows" role="tabpanel" aria-labelledby="tab-rows">
+          <form id="search-form" class="data-toolbar"><input id="row-search" type="search" aria-label="현재 테이블 검색" placeholder="이 테이블의 값 검색…" maxlength="200"><button class="secondary" type="submit">검색</button><span>행을 선택하면 상세를 볼 수 있습니다.</span></form>
+          <div id="row-note" class="hint"></div><div class="table-scroll"><table id="data-table"></table></div>
+          <div class="pagination"><span id="page-info"></span><div><button id="previous" class="secondary">← 이전</button><button id="next" class="secondary">다음 →</button></div></div>
+        </section>
+        <section id="panel-charts" role="tabpanel" aria-labelledby="tab-charts" hidden><p id="sample-note" class="section-note"></p><div id="charts" class="chart-grid"></div></section>
+        <section id="panel-schema" role="tabpanel" aria-labelledby="tab-schema" hidden><h3>연결 지도</h3><p class="section-note">실제로 선언된 외래키만 표시합니다. 이름이 비슷한 열을 임의로 연결하지 않습니다.</p><div id="relations" class="relation-list"></div><h3>열 구조</h3><div class="table-scroll"><table id="schema-table"></table></div><details class="sql-details"><summary>테이블 정의 SQL</summary><pre id="table-sql"></pre></details></section>
+      </section>
+      <footer class="workspace-footer">ALMOND <span>구조를 따라 읽고, 데이터는 그대로.</span></footer>
+    </section>
+  </main>
+  <dialog id="detail"><div class="detail-heading"><div><div class="eyebrow">RECORD DETAIL</div><h2>행 상세</h2></div><button id="close-detail" class="secondary" aria-label="상세 닫기">닫기 ×</button></div><div id="detail-fields"></div></dialog>
+</body>
+</html>
