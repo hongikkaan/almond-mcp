@@ -17,6 +17,11 @@ A new instruction alone is not a refresh trigger.
 <!-- instruction:get_rhino_execution -->
 Read an official RhinoCode execution without rerunning it. Omit request_id for
 the latest execution in this connection, or supply the exact returned request ID.
+Completed successful reads return the requested result/logs, page information,
+request ID and outcome by default. Set include_diagnostics=true for operation
+identity, native/CLI details, Undo, file/hash and runtime-completion evidence.
+Pending, uncertain, failed, partial, nonzero CLI exit and result-display-error
+responses retain their detailed evidence even when include_diagnostics is false.
 Pending and finishing work retains its ownership. Completion requires the exact
 final Rhino receipt and the CLI process to have exited; timeout and process exit
 alone do not prove completion. native_completed can expose a verified Rhino result
@@ -26,7 +31,8 @@ uncertainty. Unrelated native uncertainty remains blocked. include_result contro
 result retrieval, result_fields selects top-level fields, and offset/limit page
 retained result rows without another Rhino call. include_stdout is false by
 default. include_ids defaults true for explicitly authored code results; request
-and operation identity always remain. Execution files remain available until this
+identity always remains, and operation identity is available with diagnostics.
+Page information remains on the final page too. Execution files remain available until this
 connection is cleaned up. In an external client, connection_id reconciles the
 live tracked connection. After the client process restarts, omit connection_id
 and provide the exact request_id to read its retained evidence from the recorded

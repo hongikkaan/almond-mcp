@@ -4,7 +4,7 @@ from almond_mcp.query_output import select_records, requires_full_evidence
 GROUPS = {
     "scales": {"recommended_scales", "scales"},
     "parameters": {"projection", "layers", "linework", "hatches", "style", "parameters", "views",
-                   "layout", "annotations", "output", "display", "units"},
+                   "layout", "annotations", "output", "display", "units", "review_preparation"},
     "source": {"source", "references", "license"},
     "audit": {"created_at", "updated_at"},
 }

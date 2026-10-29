@@ -480,6 +480,34 @@ def _execution_summary(value):
     return summary
 
 
+def execution_output(value, *, include_diagnostics=False):
+    """Project a public result read without changing retained/lifecycle evidence."""
+    if type(include_diagnostics) is not bool:
+        raise ValueError("include_diagnostics must be a boolean.")
+    if (include_diagnostics or not isinstance(value, dict)
+            or value.get("completed") is not True or value.get("status") != "success"
+            or value.get("exit_code") not in (None, 0)
+            or value.get("mutation_state") in {"partial", "unknown"}):
+        return value
+    flags = ("pending", "uncertain", "native_pending", "native_uncertain",
+             "external_pending", "external_uncertain")
+    runtime = value.get("runtime_completion", {})
+    if (not isinstance(runtime, dict)
+            or any(value.get(key) or runtime.get(key) for key in flags)
+            or any(value.get(key) for key in ("error", "result_error", "result_display_error", "cleanup_errors"))
+            or value.get("result_page", {}).get("metadata_truncated")):
+        return value
+    keys = {"request_id", "completed", "status", "mutation_state", "result", "result_page",
+            "message", "warnings", "connection_state", "requires_reconnect", "recovery_only",
+            "target_identity", "rhino_process_alive", "log_capture"}
+    # Preserve explicitly requested log chunks and their byte paging/capture notes.
+    for stream in ("stdout", "stderr", "cli_stdout", "cli_stderr"):
+        keys.update((stream, stream + "_page", stream + "_capture", stream + "_display_error"))
+    if "result" not in value:
+        keys.add("result_available")
+    return {key: item for key, item in value.items() if key in keys}
+
+
 class RhinocodeExecution:
     def __init__(self, binding: dict, locations: dict, *, binary=None,
                  enabled_languages=None, command_enabled=None):

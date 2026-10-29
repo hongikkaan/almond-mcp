@@ -41,6 +41,14 @@ Terminal의 shell·AlmondHost 수명은 패널과 독립적이다. Rhino 시작�
 패널 오른쪽 위 almond/resume 버튼은 기존 터미널 입력 경로로 명령과 Enter를 보낸다.
 자세한 절차는 [Terminal 사용법](RhinoTerminal/사용법.txt)을 따른다.
 
+## 도면 스타일
+
+`DrawingStyleManager`는 요청한 선종류의 이름까지 확인한다. 없는 이름에 대한
+Rhino의 Continuous 반환을 해당 선종류가 존재한다는 근거로 사용하지 않는다.
+레시피의 선택적 `linetype_segments`는 유한한 양수 길이와 명시적인 실선/공백으로
+정의한다. 요청 내 상충하는 정의와 기존 동일명 패턴 충돌은 Undo·레이어 변경 전에
+거절한다. 일치하는 패턴은 재사용하고, 명시 정의가 없는 기존 레시피는 기존 동작을 유지한다.
+
 ## 공유 자원과 출력
 
 웹 원본은 `Asset_Panel/web`, wheel 경로는 `almond_mcp/library_ui`, RHP 오프라인
@@ -57,7 +65,10 @@ Bridge 빌드는 `build.ps1`, AlmondRhino 빌드는 해당 모듈의 스크립�
 각 구성요소의 `tests/`에 fixture를 둔다. 패널은 Node tests, Engine은 NativeFixture,
 Terminal은 TerminalSmoke·AlmondHostContracts·TerminalControls와 Node 입력 검사, Bridge는 archive host와
 [Undo·관측 fixture](RhinoAlmondBridge/tests/script_executor_undo/README.md)를 사용한다.
-기본 검사는 Rhino 없이 수행한다. 실제 Rhino 검증은 별도 요청이 있을 때 일회용 문서에서 수행하며 offline 통과와 구분한다.
+기본 검사는 Rhino 없이 수행한다. 기능 검증은 사용자가 작업에 연결한 Rhino 파일의
+실제 모델·도면에서 수행하며, 테스트만을 위한 별도 Rhino 문서 생성·실행은 지양한다.
+기존 fixture의 문서 교체 guard는 유지하고 사용자 작업 파일에 그런 fixture를 실행하지 않는다.
+오프라인 통과와 실제 작업 문서의 기능 검증은 구분한다.
 
 Bridge·연결 RHP의 시작 동작과 실제 배포 명령 목록은
 [native startup fixture](../../tests/native_startup/README.md)로 검사한다.

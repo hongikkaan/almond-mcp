@@ -90,6 +90,12 @@ ID로 호출하면 이미 시작한 프로세스만 재조회한다. connect가 
 기존 연결 정리를 수행한다. 열린 Rhino는 남는다. adapter를 재시작한 뒤에는 연결 목록으로
 남은 Rhino를 확인해야 한다.
 
+완료 결과 재조회는 공통 runtime이 원본 실행 근거를 읽고 조정한 다음 공개 응답만
+축약한다. 정상 완료의 결과·페이지·요청한 로그·복구 대상 정보는 남기며
+`include_diagnostics=true`로 전체 근거를 조회한다. 실패·불확실·부분 변경·0이 아닌
+CLI 종료 코드·결과 표시 오류는 기본 응답에서도 유지한다. 보관 파일 복구 경로도
+같은 projection을 사용하며 journal, worker schema 검사와 완료 판단을 바꾸지 않는다.
+
 ## 빌드·검증·설치
 
 `configure.ps1`은 이 체크아웃의 catalog와 `cos-plugin.json`을 생성한다. CoS 앱

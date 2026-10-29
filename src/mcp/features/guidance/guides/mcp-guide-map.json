@@ -310,7 +310,12 @@
         "get_rhino_viewport_image"
       ],
       "trigger": "editing or reviewing drawings and layouts",
-      "images": []
+      "images": [
+        {
+          "path": "Bonsai-FloorPlan-overview.png",
+          "alt": "과거 Bonsai 설계 과정에서 벽·문·가구·동선·프로그램 관계를 촘촘히 검토한 평면의 축소 개요. 최신 공간 결정이나 완성 도면 원본으로 사용하지 않는다."
+        }
+      ]
     },
     {
       "id": "grasshopper",
@@ -450,7 +455,7 @@
     },
     {
       "path": "FloorPlan_made_using_Bonsai.png",
-      "reason": "보존된 작성 참고 이미지. 확정 본문에서 참조하지 않아 주입하지 않는다."
+      "reason": "고해상도 원본은 보존하며 전달하지 않는다. drafting에서 include_images=true로 요청할 때만 과거 설계 과정 참고용 Bonsai-FloorPlan-overview.png 축소본을 전달한다."
     }
   ]
 }

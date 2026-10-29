@@ -136,15 +136,20 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
     @tool_instruction(__file__, 'get_rhino_execution')
     def get_rhino_execution(request_id: str = "", include_result: StrictBool = True,
                             include_stdout: StrictBool = False, result_fields: list[str] | None = None,
-                            offset: StrictInt = 0, limit: StrictInt = 100, include_ids: StrictBool = True) -> dict:
+                            offset: StrictInt = 0, limit: StrictInt = 100, include_ids: StrictBool = True,
+                            include_diagnostics: StrictBool = False) -> dict:
         if runtime is None:
             raise RuntimeError("Managed RhinoCode execution is unavailable in this server.")
+        if type(include_diagnostics) is not bool:
+            raise ValueError("include_diagnostics must be a boolean.")
         if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("offset must be nonnegative and limit must be 1-1000 rows.")
         if result_fields is not None and (not isinstance(result_fields, list)
                 or any(not isinstance(field, str) or not field for field in result_fields)):
             raise ValueError("result_fields must contain nonempty top-level result keys.")
-        return runtime.get_rhino_execution(request_id, offset, limit, include_result, include_stdout, result_fields, include_ids)
+        from rhinocode import execution_output
+        result = runtime.get_rhino_execution(request_id, offset, limit, include_result, include_stdout, result_fields, include_ids)
+        return execution_output(result, include_diagnostics=include_diagnostics)
 
     @mcp.tool()
     @tool_instruction(__file__, 'set_working_plan')

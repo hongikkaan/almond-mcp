@@ -36,9 +36,13 @@ def _locations(binding):
 
 def read_bound_execution(binding, arguments):
     """Validate the old generation, including invalidated ready state, read only."""
+    arguments = dict(arguments)
+    include_diagnostics = arguments.pop('include_diagnostics', False)
+    if type(include_diagnostics) is not bool:
+        raise ValueError('include_diagnostics must be a boolean.')
     locations = _locations(binding)
     from project import read_json, STORAGE_PROTOCOL
-    from rhinocode import RhinocodeExecution
+    from rhinocode import RhinocodeExecution, execution_output
     from storage_cleanup import process_identity_alive
     current = read_json(locations['ready_path'])
     if (current.get('schema') != 'almond-project' or current.get('storage_protocol') != STORAGE_PROTOCOL
@@ -53,7 +57,7 @@ def read_bound_execution(binding, arguments):
     result['target_identity'] = {key: binding[key] for key in
                                  ('pid', 'process_start_ticks', 'document_serial', 'model_path')}
     result['rhino_process_alive'] = process_identity_alive(binding)
-    return result
+    return execution_output(result, include_diagnostics=include_diagnostics)
 
 
 class ExecutionRecoveryStore:

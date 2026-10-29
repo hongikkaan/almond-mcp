@@ -29,6 +29,7 @@
     <Compile Include="../../ComponentOperations.cs" Link="ComponentOperations.cs" />
     <Compile Include="../../DrawingAssetGeometry.cs" Link="DrawingAssetGeometry.cs" />
     <Compile Include="../../../Asset_Panel/FurnitureAssetManager.cs" Link="FurnitureAssetManager.cs" />
+    <Compile Include="../../../Asset_Panel/DrawingStyleManager.cs" Link="DrawingStyleManager.cs" />
     <Compile Include="../../Probes/*.cs" Link="Probes/%(Filename)%(Extension)" />
     <EmbeddedResource Include="../../../../mcp/modeling_policy.json" LogicalName="RhinoAlmondBridge.modeling_policy.json" />
   </ItemGroup>

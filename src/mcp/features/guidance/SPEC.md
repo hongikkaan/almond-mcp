@@ -2,6 +2,11 @@
 
 현재 구현은 [MCP SPEC](../../SPEC.md#모델링-안내-전달)을 따른다. guide 원본 직접 조회, 최초 fundamental 호출, model-context 복원, 짧은 도구 설명 및 source fingerprint가 현재 계약이다. 아래는 문서 이전 시 보존한 설계 검토이며 생성 bundle·긴 설명 주입에 관한 기존 선택은 현재 계약으로 대체됐다.
 
+Drafting의 Bonsai 참고 평면은 `get_modeling_guide(topic="drafting", include_images=true)`로
+명시적으로 요청할 때만 `Bonsai-FloorPlan-overview.png`(1315×1800) 축소본을 전달한다.
+벽·문·가구·동선·프로그램 관계를 촘촘히 검토한 과거 과정의 참고이며, 최신 공간 결정이나
+완성 도면 원본의 근거로 사용하지 않는다. 기본 조회·index·다른 topic에는 이 이미지를 붙이지 않는다.
+
 ---
 
 # rhino-almond 지침의 MCP 전달 설계안
@@ -155,7 +160,7 @@ A도 전체 스킬을 각 도구 설명에 중복하지 않는다. B를 최종�
 
 ## 5. 권장 배분표
 
-아래는 **사용자가 선택한 C안의 배분 설계**다. 현재 구현은 14개 주제를 제공한다. 시작 안내에는
+아래는 **사용자가 선택한 C안의 배분 설계**다. 현재 구현은 주제별 조회를 제공한다. 시작 안내에는
 공통 사실과 주제를 찾는 방법만, 도구 설명에는 실행 전에 필요한 조건과 해당 주제의
 호출 조건만 둔다. 호출이 끝난 뒤에만 주의사항을 알려 주는 방식에 의존하지 않는다.
 
@@ -179,9 +184,11 @@ A도 전체 스킬을 각 도구 설명에 중복하지 않는다. B를 최종�
 | 사용자 편집 초안, 테스트 C#·검사 스크립트 | 없음 | 없음 | 개발 근거로 보존; 모델링 지침 payload에서 제외 |
 
 표는 전체 운영 텍스트의 목적지를 제시한다. 미래 배포 시 원문의 각 절이 어디에 대응하는지
-manifest로 검사한다. 미연결 자료인 `FloorPlan_made_using_Bonsai.png`(4.9MB)와 최신 본문이
-더는 연결하지 않는 `custom-material-layers.png`를 폴더 glob만으로 배포하지 않는다. 삭제도
-하지 않는다. 현재 연결된 마루·지붕 사진은 원본 바이트·출처를 보존해 선택 전달한다.
+manifest로 검사한다. 초기 배포에서 본문과 연결되지 않아 제외했던
+`FloorPlan_made_using_Bonsai.png`(6732×9213, 약 4.9MB)는 수정 없이 보존한다. 실제 사용 검토를
+거쳐 Drafting에 위 축소본만 선택 연결했으며 고해상도 원본을 전달하지 않는다. 최신 본문이
+더는 연결하지 않는 `custom-material-layers.png`도 보존하되 폴더 glob만으로 배포하지 않는다.
+현재 연결된 마루·지붕 사진은 원본 바이트·출처를 보존해 선택 전달한다.
 
 ### 실제 문구의 예
 
@@ -235,7 +242,7 @@ get_modeling_guide(topic="index", include_images=false) -> ToolResult
 
 index: guide_version + topics[{id, title, when_to_read}] (본문·사진 없음)
 topic: guide_version + topic_id + text + related_tools + source_refs + images_available
-include_images=true: 해당 topic에 allowlist된 원본 PNG만 MCP image content로 추가
+include_images=true: 해당 topic에 allowlist된 PNG만 MCP image content로 추가 (원본 사진 또는 명시된 검토용 축소본)
 unknown topic: 명시적 입력 오류 + index 조회 안내 (전체 본문 fallback 없음)
 ```
 
@@ -347,15 +354,15 @@ COS 비용 비교에서는 동일한 catalog·문서·요청·이미지 크기�
 ## 9. 구현 범위와 증거의 한계
 
 - `src/mcp/features/guidance/guides/modeling-guide.md`와 연결 참조가 편집 원본이다. 명시적 `mcp-guide-map.json`이
-  절·조건·관련 도구·원본 사진을 배분한다. 생성기는 숨은 사용자 디렉터리를 읽지 않는다.
-- `get_modeling_guide`는 index/선택 주제의 JSON 텍스트 한 개와 요청한 원본 PNG만 반환한다.
+  절·조건·관련 도구·선택 이미지를 배분한다. 생성기는 숨은 사용자 디렉터리를 읽지 않는다.
+- `get_modeling_guide`는 index/선택 주제의 JSON 텍스트 한 개와 해당 주제에서 요청한 PNG만 반환한다.
   사례 원문·사진은 보존하며 임의 파일 경로·URL 조회는 제공하지 않는다.
 - 공통 FastMCP와 외부 stdio host가 같은 시작 안내를 사용한다. catalog와 실제 도구는
   같은 설명 조합기를 쓴다. Google-style Args/Returns 뒤에 붙이면 파서가 안내를 생략하므로
   짧은 조건 문장을 본문 앞에 둔다. 기존 입력 schema는 유지하고 새 조회 도구 하나만 추가한다.
 - reader는 모델·DB·사용자 산출물을 수정하지 않는다. 연결된 호출은 기존 binding·lock·
   control begin/end·operation receipt 경로를 유지한다. 정적 조회라고 안전 경계를 우회하지 않는다.
-- 본문·manifest·원본 PNG와 시작·프로젝트 안내(`FUNDAMENTAL-INSTRUCTIONS.md`,
+- 본문·manifest·PNG(원본과 축소본)와 시작·프로젝트 안내(`FUNDAMENTAL-INSTRUCTIONS.md`,
   `MODEL-CONTEXT-INSTRUCTIONS.md`)가 버전 및 세션 fingerprint에 포함된다. 초기 안내와
   도구별 조건, 주제 조회, `project_info(sections=["instructions"])`는 같은 검증된 snapshot을 쓴다.
   새 연결·worker 시작 시 source 불일치를 거부한다. 이미 실행 중인 세션은 기존 snapshot을 사용하므로

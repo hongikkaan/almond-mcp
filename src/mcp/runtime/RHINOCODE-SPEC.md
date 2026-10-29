@@ -102,9 +102,35 @@ questions may use a single targeted Python/C# query. Preserve useful field-group
 ID and pagination controls; output evidence and execution status must survive
 projection. Large result data is retrievable without repeating the Rhino work.
 
+`get_rhino_execution` defaults to a compact public response for confirmed successful
+reads. It preserves the requested result, page information (including the final
+page), explicitly requested logs and their byte paging, and recovery target/status
+information. `include_diagnostics=true` returns the full evidence. Pending,
+uncertain, failed or partial outcomes, nonzero CLI exit codes and result-display
+errors retain details by default. This projection applies after the runtime has
+read and reconciled its original evidence, including on retained-file recovery;
+it does not alter journal storage, completion/fence decisions, worker checks or
+the internal result reader.
+
 Preserve the user-approved Drafting prose from commit 7ba3687. The Layout acceptance
 target is print colors and print widths with each Detail's actual scale and the
 user's document/view state preserved; the print-color case remains open above.
+Live review on 2026-10-29 used the user's connected housing and resident-facility
+documents. In the existing A4 resident section Layout (144 PageSpace objects,
+no Details), a known line changed from display gray 120 to plot gray 90 after
+Document-scoped PrintDisplay On with Print colors. Raster capture therefore
+still depends on preview state; this does not pass the independent print-color
+acceptance case. RasterMode=false produced blank PNGs in that document. SVG
+capture produced data, but Rhino's SVG-to-bitmap conversion returned null.
+Do not describe either as a completed raster fix.
+
+The housing document now also contains an actual A4 frame-review Layout with
+three model Details at 1:50, 1:1 and 1:2. Stored ratios were checked separately
+from image legibility. PrintDisplay DetailBorder=UsePrintWidth suppressed its
+No Print borders. Paper-space text bounds must use the view-dependent annotation
+scale: this document's parent style scale is 300, while the page scale is 1.
+These are working-document observations, not permission to create blank test models.
+
 Image scale_percent controls pixels, defaults
 to 75, and may be explicitly 100 for visual review. Terminal shows Rhino PID
 persistently next to controls, independently of the changing shell status.
@@ -124,11 +150,12 @@ introduce the older skill's competing manifest writer.
 - Offline: exact target selection, stale identities, timeout/late completion,
   worker death, malformed/stale receipt, native release/cleanup fences, result
   selection and real worker/catalog schema agreement.
-- Disposable Rhino: explicit two-instance routing; Python/C# and command paths;
+- User-connected working Rhino files: explicit two-instance routing; Python/C# and command paths;
   syntax/runtime/result failures; grouped Undo/Redo; delayed completion recovery;
   print-color/width/detail-scale captures; imported/generated asset preparation,
   registration and derived drawing audit.
-- Exercise public MCP tools with disposable models/libraries; distinguish live
+- Exercise public MCP tools in the connected working files; avoid creating or
+  launching separate Rhino documents solely for functionality tests. Distinguish live
   native calls from offline/validation-only or unavailable external services.
 - Preserve original user models, DBs, skills and unrelated working-tree changes.
   Do not force-close Rhino or replace loaded RHPs. Fixture builds and source tests
