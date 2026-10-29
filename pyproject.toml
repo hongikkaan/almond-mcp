@@ -60,6 +60,8 @@ exclude = [
     "src/mcp/runtime", "src/mcp/tests", "src/mcp/release_validation",
     "src/mcp/*.ps1", "src/mcp/pytest.ini", "src/mcp/AGENTS.md", "src/mcp/SPEC.md",
     "src/mcp/almond_mcp.py", "src/mcp/rhino_bridge.py",
+    "src/mcp/features/modeling/PlanSection/TEST.3dm",
+    "src/mcp/features/modeling/PlanSection/tests",
 ]
 
 # Manifests and audited JSON ship inside the wheel as almond_mcp/data/ so a
