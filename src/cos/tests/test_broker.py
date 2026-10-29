@@ -194,7 +194,7 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await asyncio.wait_for(self.rig.broker.close(), 3)
 
-    async def test_guide_text_and_original_images_cross_broker_once_with_control_receipt(self):
+    async def test_tool_guide_crosses_broker_once_with_control_receipt(self):
         import json
         from fastmcp import Client, FastMCP
         from almond_mcp.features.guidance.tools import register
@@ -207,18 +207,18 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
         connection = await self.rig.connect()
         async with Client(guide_server) as client:
             direct = await client.call_tool("get_modeling_guide", {
-                "topic": "ontological-component-evidence", "include_images": True})
+                "tool": "assign_material"})
         worker = self.rig.workers[0]
         worker.result = types.CallToolResult(content=direct.content)
         worker.release.set()
         result = await self.rig.broker.call("get_modeling_guide", {
             "connection_id": connection["connection_id"],
-            "topic": "ontological-component-evidence", "include_images": True})
+            "tool": "assign_material"})
         self.assertIs(result, worker.result)
         self.assertEqual(worker.calls, 1)
-        self.assertEqual(len(result.content), 3)
+        self.assertEqual(len(result.content), 1)
         self.assertIsNone(result.structured_content)
-        self.assertEqual(json.loads(result.content[0].text)["images_included"], 2)
+        self.assertEqual(json.loads(result.content[0].text)["tool_name"], "assign_material")
         self.assertEqual(self.rig.controls["one"].actions.count("begin"), 1)
         self.assertEqual(self.rig.controls["one"].actions.count("end"), 1)
 

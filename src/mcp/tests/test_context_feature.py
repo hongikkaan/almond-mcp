@@ -18,7 +18,7 @@ def server():
     context = SimpleNamespace(mcp=FastMCP("context-feature"), _send_and_receive=unexpected_send)
     exports = register(context.mcp, context)
     assert set(exports) == {
-        "get_retrieval_status", "get_rhino_context", "get_rhino_probe",
+        "get_retrieval_status", "get_rhino_context", "analyze_block_reculviely",
         "get_rhino_viewport_image", "_viewport_result",
     }
     context.__dict__.update(exports)
@@ -38,9 +38,9 @@ def test_registration_keeps_tools_and_runtime_sender_scoped(server):
         async with Client(server.mcp) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             assert set(tools) == {
-                "get_retrieval_status", "get_rhino_context", "get_rhino_probe", "get_rhino_viewport_image",
+                "get_retrieval_status", "get_rhino_context", "analyze_block_reculviely", "get_rhino_viewport_image",
             }
-            for name in ("get_rhino_context", "get_rhino_probe", "get_rhino_viewport_image"):
+            for name in ("get_rhino_context", "analyze_block_reculviely", "get_rhino_viewport_image"):
                 assert tools[name].annotations.read_only_hint is True
                 assert tools[name].annotations.destructive_hint is False
             result = await client.call_tool("get_rhino_context", {})

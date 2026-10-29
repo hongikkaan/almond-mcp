@@ -13,20 +13,41 @@ import traceback
 _payload = json.loads(base64.b64decode("__PAYLOAD__").decode("utf-8"))
 
 
+def _diagnostic_text(text, maximum, tail=False):
+    def size(value):
+        return len(json.dumps(value, ensure_ascii=True).encode("ascii"))
+    if size(text) <= maximum:
+        return text
+    marker = "... [truncated] ..."
+    def clipped(count):
+        if tail:
+            return marker + (text[-count:] if count else "")
+        return text[:count] + marker
+    low, high = 0, len(text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if size(clipped(middle)) <= maximum:
+            low = middle
+        else:
+            high = middle - 1
+    return clipped(low)
+
+
 def _error_text(error, limit):
     try:
         try:
             text_type = unicode
         except NameError:
             text_type = str
-        return text_type(error)[:limit]
+        return _diagnostic_text(text_type(error)[:limit], limit)
     except BaseException:
-        return "Exception text could not be converted (" + type(error).__name__ + ")."
+        return _diagnostic_text("Exception text could not be converted (" +
+                                type(error).__name__[:128] + ").", limit)
 
 
 def _error_trace():
     try:
-        return traceback.format_exc()[-8000:]
+        return _diagnostic_text(traceback.format_exc()[-8000:], 8000, tail=True)
     except BaseException:
         return "Exception traceback could not be formatted."
 
@@ -56,6 +77,29 @@ def _atomic_json(path, value, maximum):
         if created and os.path.exists(temporary):
             os.remove(temporary)
     return length, digest.hexdigest()
+
+
+def _publish_completion(directory, final):
+    path = os.path.join(directory, "complete.json")
+    try:
+        _atomic_json(path, final, 65536)
+    except ValueError:
+        # A valid nested UTF-8 receipt can grow when re-encoded as ASCII JSON.
+        # Keep identity, execution/mutation state, Undo and result proofs intact.
+        final["diagnostics_truncated"] = True
+        for field in ("error", "result_error"):
+            if field not in final:
+                continue
+            previous = final[field]
+            final[field] = dict(message="Diagnostic details omitted to fit the completion receipt.")
+            if isinstance(previous, dict):
+                for key in ("stage", "type"):
+                    if key in previous:
+                        final[field][key] = _error_text(previous[key], 128)
+        if final["cleanup_errors"]:
+            final["cleanup_errors"] = ["Cleanup diagnostics omitted to fit the completion receipt."]
+        final.pop("child_undo", None)
+        _atomic_json(path, final, 65536)
 
 
 class _Log(object):
@@ -187,7 +231,7 @@ def _main():
                 raise RuntimeError("The C# completion does not match the exact nested request.")
             for key in ("status", "mutation_state", "user_code_started", "user_code_completed",
                         "result_available", "result_bytes", "result_sha256", "result_error",
-                        "error", "stdout_capture", "stderr_capture"):
+                        "error", "stdout_capture", "stderr_capture", "diagnostics_truncated"):
                 if key in child:
                     final[key] = child[key]
             final["cleanup_errors"].extend(child.get("cleanup_errors", []))
@@ -212,7 +256,7 @@ def _main():
             final.update(user_code_completed=True, status="success", mutation_state="completed")
     except BaseException as exc:
         final["status"] = "rejected" if stage in ("initialization", "identity") else "error"
-        final["error"] = dict(stage=stage, type=type(exc).__name__,
+        final["error"] = dict(stage=stage, type=_error_text(type(exc).__name__, 128),
                              message=_error_text(exc, 4000), traceback=_error_trace())
     finally:
         sys.stdout, sys.stderr = original_stdout, original_stderr
@@ -253,10 +297,10 @@ def _main():
                                            namespace.get("result"), _payload["result_limit"])
                 final.update(result_available=True, result_bytes=size, result_sha256=digest)
             except BaseException as exc:
-                final["result_error"] = dict(type=type(exc).__name__, message=_error_text(exc, 2000))
+                final["result_error"] = dict(type=_error_text(type(exc).__name__, 128), message=_error_text(exc, 2000))
         if final["cleanup_errors"]:
             final["status"] = "error"
-        _atomic_json(os.path.join(directory, "complete.json"), final, 65536)
+        _publish_completion(directory, final)
 
 
 _main()

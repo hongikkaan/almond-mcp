@@ -33,7 +33,7 @@ def test_factory_registers_only_guidance_tools_and_preserves_schema(context):
     mcp = FastMCP("guidance-contract")
     exports = register(mcp, context)
     expected = {
-        "get_modeling_guide": {"topic": ("string", "index"), "include_images": ("boolean", False)},
+        "get_modeling_guide": {"tool": ("string", "")},
         "get_construction_guidance": {
             "query": ("string", ""), "category": ("string", ""),
             "material": ("string", ""), "structure_type": ("string", ""),
@@ -73,46 +73,6 @@ def test_factory_registers_only_guidance_tools_and_preserves_schema(context):
             assert json.loads(history.content[0].text)["total"] >= 1
 
     asyncio.run(run())
-
-
-def test_drafting_reference_is_discoverable_but_images_require_an_explicit_request(context):
-    """A drawing review can request the historical reference without default image delivery."""
-    guide = register(FastMCP("drafting-reference"), context)["get_modeling_guide"]
-    default = guide(topic="drafting")
-    payload = json.loads(default.content[0].text)
-    assert [part.type for part in default.content] == ["text"]
-    assert payload["images_included"] == 0
-    assert [item["file"] for item in payload["images_available"]] == ["Bonsai-FloorPlan-overview.png"]
-    description = payload["images_available"][0]["alt"]
-    assert "과거" in description and "축소" in description
-    assert "최신 공간 결정이나 완성 도면 원본으로 사용하지 않는다" in description
-    assert 'get_modeling_guide(topic="drafting", include_images=true)' in payload["text"]
-
-    requested = guide(topic="drafting", include_images=True)
-    requested_payload = json.loads(requested.content[0].text)
-    assert [part.type for part in requested.content] == ["text", "image"]
-    assert requested_payload["images_included"] == 1
-    assert requested_payload["text"] == payload["text"]
-    image = requested.content[1]
-    assert image.mimeType == "image/png"
-    raw = base64.b64decode(image.data, validate=True)
-    assert raw.startswith(b"\x89PNG\r\n\x1a\n")
-    assert struct.unpack(">II", raw[16:24]) == (1315, 1800)
-    preview = PROJECT_ROOT / "src/mcp/features/guidance/guides/Bonsai-FloorPlan-overview.png"
-    assert raw == preview.read_bytes()
-
-
-def test_bonsai_preview_is_not_delivered_with_the_index_or_other_topics(context):
-    guide = register(FastMCP("reference-topic-scope"), context)["get_modeling_guide"]
-    index = guide(topic="index", include_images=True)
-    assert [part.type for part in index.content] == ["text"]
-    topics = json.loads(index.content[0].text)["topics"]
-    for topic in topics:
-        if topic["id"] == "drafting":
-            continue
-        response = guide(topic=topic["id"], include_images=True)
-        payload = json.loads(response.content[0].text)
-        assert not any("Bonsai" in item["file"] for item in payload["images_available"])
 
 
 def test_construction_filters_depths_and_reference_data(context):

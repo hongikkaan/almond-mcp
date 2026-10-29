@@ -198,7 +198,7 @@ def test_given_native_failure_when_visual_context_requested_then_structured_erro
 
 @pytest.mark.parametrize("groups", [None, [], ["everything"], "summary", ["summary", "invalid"]])
 def test_given_unsupported_outline_fields_when_queried_then_reject_before_native(context, groups):
-    result = json.loads(context.get_rhino_probe(probe="outline", options={"field_groups": groups},
+    result = json.loads(context.analyze_block_reculviely(mode="outline", options={"field_groups": groups},
                                                 expected_model_path="C:\\fixture\\model.3dm"))
     assert result["error_code"] == "invalid_arguments"
     assert context.requests == []

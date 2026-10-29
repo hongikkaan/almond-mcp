@@ -7,7 +7,7 @@
 두 조회는 기존 Engine의 문서 binding·UI thread·호출 identity·native 완료 확인을
 거친다. 파일 경로를 임의로 골라 다른 모델을 조회하는 기능은 없다.
 
-문서 전용 MCP 서버와 외부 host의 초기 안내 모두 현황 조회, 관련 객체 조사, 수정 후보 검증 후
+문서 전용 MCP 서버와 외부 host가 안내하는 BASIC은 필요한 현황 조회, 관련 객체 조사, 수정 후보 검증 후
 원본 교체 순서를 전달한다. beyond·CoS 클라이언트도 이 안내를 받는다.
 
 ## 현재 상태
@@ -102,31 +102,25 @@ override를 거절하고, Detail 라벨 미지원은 경고한다. 라벨이 필
 반환한다. Python에서도 실제 PNG 형식과 크기를 검사한다. 캡처 성공은 형상의 정확성을
 증명하지 않는다. 의도적인 카메라 경로와 여러 패스는 `capture_conditioning_pass`를 사용한다.
 
-## 고정 geometry probe
+## 중첩 블록 분석
 
-`get_rhino_probe` / 외부 연결기 `get_rhino_probe`는 컴파일된 `outline`,
-`resolve-block`, `sections`, `vertical-probe`, `joint-pairs` 중 하나를 실행한다.
-`probe`와 도구별 `options`를 전달한다. 연결된 runtime은 기대 문서 경로를 내부에서
-공급하므로 worker가 절대 `expected_model_path`를 기억해 반복 입력하지 않는다.
-beyond·CoS에서는 동일하게 `connection_id`를 사용한다. 활성 문서 경로가 다르면 계산 전에
-거절하며 새 문서를 열거나 파일에 결과를 기록하지 않는다.
+`analyze_block_reculviely(mode, options)`는 `outline`, `resolve-block` 두 모드만 제공한다.
+입력·옵션 의미는 [조회·화면 지침](../BASIC-INSTRUCTIONS.md#analyze_block_reculviely)을 따른다.
+runtime은 연결된 문서의 expected_model_path를 공급하고 외부 연결기는 connection_id를 요구한다.
+경로가 현재 문서와 다르면 계산 전에 거절한다.
 
-Bridge UI thread의 고정 handler가 스킬의 C# helper를 직접 호출한다.
-일반 스크립트 실행기·Roslyn·BeginUndoRecord를 거치지 않으며
-기하·속성·레이어·선택·뷰·modified·Undo 상태를 보존한다. 응답의 `status`, `probe`,
-`document` identity·units·tolerance와 `data`를 함께 읽는다. 요청과 응답은 각각
-UTF-8 JSON 262,144 bytes 이내이며 한도 초과는 명시적 오류다. helper의
-`unknown`, `truncated`, 미지원 객체·미평가 표본을 0이나 설계 통과로 해석하지 않는다.
-outline의 기본은 작은 summary다. field_groups로 summary/objects/annotations/transforms를 선택한다.
-기존 include_geometry/annotations 명시 호출은 상세 조회 의미를 유지한다. budget은 확대하지 않으며
-요약을 기존 상세 row 예산에 강제로 삽입하지 않는다. 상세 방문 수도 max_items 이내로 제한하고
-visited/max_visits와 max_visits 잘림 사유를 표시한다. 잘린 응답은 대상 IDs, branch path 또는 depth를 좁혀 후속 조회한다.
+Python API와 설명은 `features/context`, 컴파일되는 C# handler와 탐색 helper는
+그 안의 `native/`가 소유한다. Bridge의 UI thread가 handler를 직접 호출하며
+일반 스크립트 실행기·Roslyn·BeginUndoRecord를 거치지 않는다. 형상·속성·레이어·선택·뷰·modified·Undo를 보존한다.
+응답은 status, mode, document identity·units·tolerance, data를 담으며 요청·반환은 각각 UTF-8 JSON 262,144 bytes 이내다.
 
-Python은 기존 문서 조회의 `capabilities.fixed_probes`를 먼저 확인한다.
-이 capability가 없는 이전 관찰용 Bridge에는 알 수 없는 probe 요청을 보내지 않고
-`unsupported_probe`를 반환한다. 새 Bridge의 알 수 없는 request type도 실행 없이
-`unsupported_request`로 거절한다. `execute`와 type 생략의 기존 스크립트 동작은 유지한다.
-입력·출력 요약은 [조회·화면 지침](../features/guidance/guides/modeling-guide.md#조회화면-도구)에 있다.
+outline은 summary를 기본으로 하며 field_groups로 objects/annotations/transforms를 선택한다.
+명시적 include_geometry/annotations 옵션은 상세 조회를 유지한다. 상세 방문도 max_items로
+제한하고 visited/max_visits와 잘림 사유를 표시한다. unknown·미지원·잘림을 0이나 통과로 해석하지 않는다.
+
+Python은 `capabilities.block_analysis=1`을 먼저 확인한다. 지원하지 않는 Bridge에는 분석 요청을 보내지 않는다.
+Bridge의 알 수 없는 request type도 실행 없이 unsupported_request로 거절한다.
+Component 교차체적 계산은 별도 `get_component_intersections` 계약이며 components/native가 소유한다.
 
 ## C#에서 계산값 반환
 

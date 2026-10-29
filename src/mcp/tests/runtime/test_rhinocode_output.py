@@ -159,6 +159,7 @@ class ExecutionOutputTests(unittest.IsolatedAsyncioTestCase):
             {"result_display_error": "Retained result no longer matches its completion receipt"},
             {"result_error": "Could not serialize the script result"},
             {"cleanup_errors": ["Could not close Undo record"]},
+            {"diagnostics_truncated": True},
         ):
             with self.subTest(changes=changes):
                 self.raw = dict(completed_page(), **changes)

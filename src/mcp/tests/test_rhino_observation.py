@@ -225,37 +225,37 @@ def test_malformed_view_list_is_an_error(server, monkeypatch, groups):
 
 
 
-@pytest.mark.parametrize("probe", ["outline", "resolve-block", "sections", "vertical-probe", "joint-pairs"])
-def test_fixed_probe_checks_capability_then_uses_native_query(server, monkeypatch, probe):
+@pytest.mark.parametrize("mode", ["outline", "resolve-block"])
+def test_fixed_mode_checks_capability_then_uses_native_query(server, monkeypatch, mode):
     requests = []
     model = "C:\\fixture\\model.3dm"
-    response = {"status": "success", "probe": probe, "document": {"path": model}, "data": {"measured": 12}}
+    response = {"status": "success", "mode": mode, "document": {"path": model}, "data": {"measured": 12}}
 
     def send(payload):
         request = json.loads(payload)
         requests.append(request)
         if request["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"fixed_probes": 1}})
+            return json.dumps({"status": "success", "capabilities": {"block_analysis": 1}})
         return json.dumps(response)
 
     monkeypatch.setattr(server, "_send_and_receive", send)
-    assert json.loads(call(server.get_rhino_probe, probe=probe, options={}, expected_model_path=model)) == response
+    assert json.loads(call(server.analyze_block_reculviely, mode=mode, options={}, expected_model_path=model)) == response
     assert requests == [{"type": "get_rhino_context", "selection_limit": 0},
-                        {"type": "get_rhino_probe", "probe": probe, "options": {}, "expected_model_path": model}]
+                        {"type": "analyze_block_reculviely", "mode": mode, "options": {}, "expected_model_path": model}]
 
 
 @pytest.mark.parametrize("arguments", [
-    {"probe": "execute"}, {"options": []}, {"expected_model_path": ""},
+    {"mode": "execute"}, {"mode": "sections"}, {"mode": "vertical-probe"}, {"mode": "joint-pairs"}, {"options": []}, {"expected_model_path": ""},
     {"options": {"sample": float("nan")}}, {"options": {"value": "x" * 262144}},
 ])
-def test_bad_probe_requests_never_reach_the_bridge(server, monkeypatch, arguments):
+def test_bad_mode_requests_never_reach_the_bridge(server, monkeypatch, arguments):
     monkeypatch.setattr(server, "_send_and_receive", lambda *_: pytest.fail("Unexpected bridge call"))
-    request = dict(probe="outline", options={}, expected_model_path="C:\\fixture\\model.3dm")
+    request = dict(mode="outline", options={}, expected_model_path="C:\\fixture\\model.3dm")
     request.update(arguments)
-    assert json.loads(call(server.get_rhino_probe, **request))["error_code"] == "invalid_arguments"
+    assert json.loads(call(server.analyze_block_reculviely, **request))["error_code"] == "invalid_arguments"
 
 
-def test_probe_preserves_context_error_without_sending_geometry_query(server, monkeypatch):
+def test_mode_preserves_context_error_without_sending_geometry_query(server, monkeypatch):
     requests = []
     response = json.dumps({"status": "error", "error_code": "no_document",
                            "message": "No active Rhino document.", "warnings": []}, indent=2)
@@ -265,13 +265,13 @@ def test_probe_preserves_context_error_without_sending_geometry_query(server, mo
         return response
 
     monkeypatch.setattr(server, "_send_and_receive", send)
-    assert call(server.get_rhino_probe, probe="outline", options={},
+    assert call(server.analyze_block_reculviely, mode="outline", options={},
                 expected_model_path="C:\\fixture\\model.3dm") == response
     assert requests == [{"type": "get_rhino_context", "selection_limit": 0}]
 
 
 @pytest.mark.parametrize("context", [None, [], {}, {"status": "pending"}])
-def test_malformed_context_is_a_bridge_error_without_sending_probe(server, monkeypatch, context):
+def test_malformed_context_is_a_bridge_error_without_sending_mode(server, monkeypatch, context):
     requests = []
 
     def send(payload):
@@ -279,12 +279,12 @@ def test_malformed_context_is_a_bridge_error_without_sending_probe(server, monke
         return json.dumps(context)
 
     monkeypatch.setattr(server, "_send_and_receive", send)
-    result = call(server.get_rhino_probe, probe="outline", options={}, expected_model_path="C:\\fixture\\model.3dm")
+    result = call(server.analyze_block_reculviely, mode="outline", options={}, expected_model_path="C:\\fixture\\model.3dm")
     assert json.loads(result)["error_code"] == "bridge_error"
     assert requests == [{"type": "get_rhino_context", "selection_limit": 0}]
 
 
-def test_old_bridge_never_receives_an_unknown_probe_type(server, monkeypatch):
+def test_old_bridge_never_receives_an_unknown_mode_type(server, monkeypatch):
     requests = []
 
     def send(payload):
@@ -292,6 +292,6 @@ def test_old_bridge_never_receives_an_unknown_probe_type(server, monkeypatch):
         return json.dumps({"status": "success", "document": {"path": "C:\\fixture\\model.3dm"}})
 
     monkeypatch.setattr(server, "_send_and_receive", send)
-    result = call(server.get_rhino_probe, probe="outline", options={}, expected_model_path="C:\\fixture\\model.3dm")
-    assert json.loads(result)["error_code"] == "unsupported_probe"
+    result = call(server.analyze_block_reculviely, mode="outline", options={}, expected_model_path="C:\\fixture\\model.3dm")
+    assert json.loads(result)["error_code"] == "unsupported_block_analysis"
     assert requests == [{"type": "get_rhino_context", "selection_limit": 0}]

@@ -32,7 +32,7 @@ from native_request import RequestBatch
 # All other upstream tools conservatively share the DB gate.
 NATIVE_ONLY_TOOLS = frozenset({
     "execute_rhino_script", "capture_conditioning_pass", "save_rhino_document",
-    "get_rhino_context", "get_rhino_viewport_image", "get_rhino_probe",
+    "get_rhino_context", "get_rhino_viewport_image", "analyze_block_reculviely",
     "prepare_drawing_asset",
 })
 BINDING_TOOLS = frozenset({"worker_state", "get_rhino_execution"})
@@ -443,7 +443,7 @@ class ProjectRuntime(Middleware):
             operation_dir.mkdir(parents=True, exist_ok=False)
         # Bound document expectations are supplied internally. Optional
         # public arguments remain available to standalone consumers.
-        if self.workspace is not None and name in {"get_rhino_probe", "upsert_ontological_component", "sync_ontological_component",
+        if self.workspace is not None and name in {"analyze_block_reculviely", "upsert_ontological_component", "sync_ontological_component",
                     "register_scene_objects", "get_component_intersections", "focus_components",
                     "list_ontological_components"} and not args.get("expected_model_path"):
             args["expected_model_path"] = self.locations["model_path"]

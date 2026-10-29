@@ -2,7 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, project_query
 from almond_mcp.managed_paths import bound_model_path, relative_output
-from almond_mcp.instruction_text import tool_instruction, read_instruction
+from almond_mcp.instruction_text import tool_instruction
 
 import base64
 import io
@@ -93,32 +93,32 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @tool_instruction(__file__, 'get_rhino_probe')
+    @tool_instruction(__file__, 'analyze_block_reculviely')
     @query_output
-    def get_rhino_probe(probe: str, options: dict, expected_model_path: str = "", include_ids: StrictBool = False) -> str:
+    def analyze_block_reculviely(mode: str, options: dict, expected_model_path: str = "", include_ids: StrictBool = False) -> str:
         try:
             expected_model_path = bound_model_path(expected_model_path)
         except ValueError as exc:
             return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
-        if (probe not in ("outline", "resolve-block", "sections", "vertical-probe", "joint-pairs")
+        if (mode not in ("outline", "resolve-block")
                 or not isinstance(options, dict) or not isinstance(expected_model_path, str)
                 or not expected_model_path.strip()):
             return json.dumps(error_payload(
-                "A fixed probe, options object and expected_model_path are required.",
+                "outline or resolve-block, an options object and expected_model_path are required.",
                 error_code="invalid_arguments",
             ))
         fields = options.get("field_groups")
-        if probe == "outline" and "field_groups" in options and (
+        if mode == "outline" and "field_groups" in options and (
                 not isinstance(fields, list) or not fields or
                 any(not isinstance(group, str) or group not in ("summary", "objects", "annotations", "transforms") for group in fields)):
             return json.dumps(error_payload(
                 "outline field_groups must be a nonempty array of summary, objects, annotations or transforms.",
                 error_code="invalid_arguments"))
         try:
-            payload = json.dumps({"type": "get_rhino_probe", "probe": probe, "options": options,
+            payload = json.dumps({"type": "analyze_block_reculviely", "mode": mode, "options": options,
                                   "expected_model_path": expected_model_path}, allow_nan=False).encode("utf-8")
             if len(payload) > 262144:
-                raise ValueError("Probe request exceeds 256 KiB; narrow the request.")
+                raise ValueError("Block analysis request exceeds 256 KiB; narrow the request.")
         except (TypeError, ValueError) as exc:
             return json.dumps(error_payload(
                 str(exc),
@@ -132,15 +132,15 @@ def register(mcp, context):
                 raise ValueError("Bridge returned an invalid context response.")
             if snapshot["status"] == "error":
                 return context_response
-            if snapshot.get("capabilities", {}).get("fixed_probes") != 1:
+            if snapshot.get("capabilities", {}).get("block_analysis") != 1:
                 return json.dumps(error_payload(
-                    read_instruction(__file__, 'response-585'),
-                    error_code="unsupported_probe",
+                    'Load a Bridge with block_analysis=1 before analyzing blocks.',
+                    error_code="unsupported_block_analysis",
                 ))
             return context._send_and_receive(payload)
         except Exception as exc:
             return json.dumps(error_payload(
-                f"Could not read the live Rhino probe: {exc}",
+                f"Could not analyze the live Rhino block: {exc}",
                 error_code="bridge_error",
             ))
 
@@ -268,7 +268,7 @@ def register(mcp, context):
     return {
         "get_retrieval_status": get_retrieval_status,
         "get_rhino_context": get_rhino_context,
-        "get_rhino_probe": get_rhino_probe,
+        "analyze_block_reculviely": analyze_block_reculviely,
         "_viewport_result": _viewport_result,
         "get_rhino_viewport_image": get_rhino_viewport_image,
     }

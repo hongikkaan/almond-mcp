@@ -7,7 +7,9 @@ description: "Inspect and edit Rhino architecture with Almond MCP: project conte
 
 Almond MCP를 사용해 Rhino 건축 모델과 도면을 조사·편집한다. 아래 도구명은 공통 이름이며 연결 방식에 따라 필요한 인자가 다를 수 있다. 실제 호출은 현재 연결의 schema를 따른다.
 
-`get_modeling_guide(topic="index")`는 주제별 용도를 요약한다. 필요한 topic은 직접 읽을 수 있으며 index 조회는 선택 사항이다. 같은 `guide_version`에서 이미 읽은 topic은 재사용하고, 처음 필요하거나 불확실할 때 상세 내용을 읽는다. 참조 사진은 `topic="ontological-component-evidence"`, `include_images=true`로 요청한다.
+최초 사용 시 `get_modeling_guide()`로 이 문서 전문과 조회 가능한 도구명을 읽는다. 같은 `guide_version`에서 이미 읽은 지침은 재사용한다.
+
+개별 도구의 사용법이 불확실하면 `get_modeling_guide(tool="assign_material")`처럼 정확한 도구명으로 설명을 조회한다. 이 조회는 해당 도구를 실행하지 않는다. 입력 형식과 기본값은 현재 연결의 schema를 따르고, 작업 순서와 공통 판단 기준은 이 문서를 따른다.
 
 ## Rhino 편집
 
@@ -188,24 +190,19 @@ document·selection·viewport 조회에도 간략한 편집 모드·대상·안�
 
 `labels=true`가 기본이다. 최상위 group 이름·GUID, block instance 이름·GUID와 group에 속하지 않은 객체 GUID를 이미지에 표시하며 Rhino 객체를 만들지 않는다. 최대 200개이며 `depth=1–8`로 중첩 라벨 범위를 조절한다. 라벨이 잘리면 대상이나 깊이를 좁힌다. `include_usage=true`는 이미지 크기와 참고용 토큰 추정치를 추가하며 실제 사용량은 클라이언트에 따라 다르다.
 
+### analyze_block_reculviely
 
+중첩 블록 구조와 현재 편집 단계의 블록 후보를 읽기 전용으로 조회한다. `mode="outline"`은 `options`의 `ids` 또는 `path`로 대상을 지정하고, 생략 시 `scope`(selected/viewport/document)로 범위를 고른다. `depth`로 펼칠 깊이를 제한한다. 기본 반환은 작은 요약이며 `field_groups=["objects","transforms"]`, `include_ids=true`로 내부 경로·누적 변환·ID를 추가한다. TextDot 관계는 `annotations` 필드군을 요청한다. `field_groups`는 summary/objects/annotations/transforms 중 비어 있지 않은 배열이며 `[]`·`all`은 지원하지 않는다.
 
+`mode="resolve-block"`은 `options={"path":[최상위_GUID, 내부_멤버_GUID, ...]}`만 받는다. BlockEditNew에서는 부모를 연 뒤 경로를 한 단계씩 늘려 현재 선택 가능한 후보를 확인한다. 내부 GUID와 지금 선택 가능한 ID를 구분하고, 정의 저장·멤버 교체 후에는 다시 조회한다. 반환의 `unknown`·미지원·`truncated`는 미확인 범위다. 잘리면 IDs·path·depth를 좁힌다. 좌표·길이·공차는 현재 문서 단위다.
 
-### Block·주석 %% 아래 여러 항목 내용을 하나의 문단으로 압축해라%%
+### Block·주석
 
-**정의·재사용:** Rhino block instance는 하나의 형상 정의를 위치·회전·축척별로 배치한 객체다. 정의 수정은 모든 배치에 반영된다. 반복되는 가구·문은 형상·규격·표현 목적을 비교해 같은 정의를 재사용한다. block/group은 의미와 편집 목적에 따라 유지하거나 해체한다. 이름은 `책상 1200`, `폴딩도어 4짝`처럼 실물의 차이를 나타내고 위치·층·UNIT는 필요한 배치나 group 이름에 둔다. 폴딩도어의 문짝·프레임과 개폐 궤적은 구별한다.
+Rhino block instance는 하나의 형상 정의를 위치·회전·축척별로 배치한 객체다. 정의 수정은 모든 배치에 반영된다. 반복되는 가구·문은 형상·규격·표현 목적을 비교해 같은 정의를 재사용한다. block/group은 의미와 편집 목적에 따라 유지하거나 해체한다. 이름은 `책상 1200`, `폴딩도어 4짝`처럼 실물의 차이를 나타내고 위치·층·UNIT는 필요한 배치나 group 이름에 둔다. 폴딩도어의 문짝·프레임과 개폐 궤적은 구별한다. 위의 `analyze_block_reculviely`로 내부 경로와 편집 후보를 확인한다. TextDot의 동명 대상은 같은 정의 안에서 주변 관계와 함께 읽는다. ontological-component에 block을 포함할 때는 정의 내부 객체가 아닌 최상위 배치 GUID를 등록한다. 등록 객체를 block으로 교체·해체하기 전에 직접 소유 객체·영속 group GUID·관련 등록과 공개 API의 전환 순서를 확인한다. 교체 후 live 정합을 확인하며, 지원되지 않는 전환은 도구 개선 대상으로 남긴다. 원본 삭제 후 sync가 형상이나 멤버십을 복구한다고 가정하거나 DB·소유권 UserString 직접 삭제로 우회하지 않는다.
 
-**중첩 관찰·편집:** `get_rhino_probe(probe="outline", options={"ids":[최상위_GUID], "depth":깊이})`로 최상위 배치부터 내부 멤버까지 조회한다. 상세 경로·누적 변환은 options의 `field_groups=["objects","transforms"]`와 별도 인자 `include_ids=true`로 요청하고, TextDot 관계는 `annotations`를 추가한다. 내부 GUID와 현재 선택 가능한 ID는 다를 수 있다. BlockEditNew에서는 부모를 연 뒤 `resolve-block`의 `path`를 한 단계씩 늘려 편집 후보를 확인하고, 정의 저장·멤버 교체 후 경로를 다시 조회한다. TextDot의 동명 대상은 같은 정의 안에서 주변 관계와 함께 읽는다.
+### Group
 
-**등록 객체의 전환:** ontological-component에 block을 포함할 때는 정의 내부 객체가 아닌 최상위 배치 GUID를 등록한다. 등록 객체를 block으로 교체·해체하기 전에 직접 소유 객체·영속 group GUID·관련 등록과 공개 API의 전환 순서를 확인한다. 교체 후 live 정합을 확인하며, 지원되지 않는 전환은 도구 개선 대상으로 남긴다. 원본 삭제 후 sync가 형상이나 멤버십을 복구한다고 가정하거나 DB·소유권 UserString 직접 삭제로 우회하지 않는다.
-
-### Group %% 아래 여러 항목 내용을 하나의 문단으로 압축해라%%
-
-**구성·이름:** 일반 group은 함께 선택·편집할 객체의 묶음이다. 내부에 group·block을 둘 수 있고 멤버십이 겹칠 수 있다. 단일 객체만 감싸는 group은 만들지 않는다. 일반 group은 `철골 보`, `창호`처럼 짧은 종류·기능 이름을, ontological-component group은 `풍경을 보며 머무는 자리`처럼 역할을 나타내는 이름을 쓴다. 객체 Name은 필요할 때만 채우고 부모 이름·레이어·GUID·번호를 반복하지 않는다.
-
-**등록 관계:** ontological-component의 부모 group에는 자손 객체가 포함돼야 하며 직접 소유권은 자식에 남는다. 자식 해제 전 부모에서 분리하고, 부모를 해제하면 자식은 root로 남는다. 객체는 저장된 모델 경로와 GUID, group은 영속 group GUID로 식별한다. component를 표현하는 별도 layer나 Almond 관리용 UserStrings를 자동 생성하지 않으며 기존 사용자 속성은 보존한다.
-
-**편집:** 기존 이름·멤버·용도를 확인하고 같은 멤버의 group은 재사용한다. GroupEdit·BlockEdit에서는 현재 편집 단계의 대상을 확인하며, 중첩 group의 외부 선택·표시 상태를 임의로 재설정하지 않는다. 선택 오류가 남으면 모드·대상·멤버를 확인하고 미해결로 보고한다. group의 겹치는 멤버십은 block 정의의 중첩과 다르며, block 내부는 위의 `outline`과 `resolve-block`으로 조회한다.
+일반 group은 함께 선택·편집할 객체의 묶음이다. 내부에 group·block을 둘 수 있고 멤버십이 겹칠 수 있다. 단일 객체만 감싸는 group은 만들지 않는다. 일반 group은 `철골 보`, `창호`처럼 짧은 종류·기능 이름을, ontological-component group은 `풍경을 보며 머무는 자리`처럼 역할을 나타내는 이름을 쓴다. 객체 Name은 필요할 때만 채우고 부모 이름·레이어·GUID·번호를 반복하지 않는다. ontological-component의 부모 group에는 자손 객체가 포함돼야 하며 직접 소유권은 자식에 남는다. 자식 해제 전 부모에서 분리하고, 부모를 해제하면 자식은 root로 남는다. 객체는 저장된 모델 경로와 GUID, group은 영속 group GUID로 식별한다. component를 표현하는 별도 layer나 Almond 관리용 UserStrings를 자동 생성하지 않으며 기존 사용자 속성은 보존한다. 기존 이름·멤버·용도를 확인하고 같은 멤버의 group은 재사용한다. GroupEdit·BlockEdit에서는 현재 편집 단계의 대상을 확인하며, 중첩 group의 외부 선택·표시 상태를 임의로 재설정하지 않는다. 선택 오류가 남으면 모드·대상·멤버를 확인하고 미해결로 보고한다. group의 겹치는 멤버십은 block 정의의 중첩과 다르며, block 내부는 위의 `outline`과 `resolve-block`으로 조회한다.
 
 ## 모델링
 ### 편집 환경
@@ -217,7 +214,6 @@ document·selection·viewport 조회에도 간략한 편집 모드·대상·안�
 Rhino의 기존 Isolate/Unisolate 이력을 사용하며 선택·가시성·화면 상태를 변경한다. 이미 숨겨지거나 잠긴 객체와 기존 문서 상태는 Rhino의 격리 기능 조건에 영향을 받는다. 실행 결과가 불확실하면 현재 상태를 확인하고 자동으로 재시도하지 않는다.
 
 ### 설계 자료
-
 
 `setup_modeling(operation="layers")`는 구축 라이브러리를 바탕으로 `M::분류::시스템명::요소역할` 레이어를 생성하거나 재사용한다. 분류는 `floor`, `wall`, `roof`, `foundation` 등이며, 시스템명은 라이브러리의 이름, 요소역할은 시스템의 `elements[].role`이다. 이 작업은 기존 객체를 레이어로 이동하지 않는다.
 
@@ -233,7 +229,6 @@ Rhino의 기존 Isolate/Unisolate 이력을 사용하며 선택·가시성·화�
 
 구축 지침의 치수는 초기 설계 참고값이다. 구조적 적합성은 별도로 검토한다.
 
-
 | 도구 | 입력 | 할 수 있는 일 |
 | ------- | ------- | ----- |
 | `search_detail_sources`  | `query` | 구축 상세의 참고 출처 검색. |
@@ -246,8 +241,6 @@ Rhino의 기존 Isolate/Unisolate 이력을 사용하며 선택·가시성·화�
 **저장 확인:** MCP의 관찰·캡처로 검증하며 computer use를 검증의 우회 수단으로 호출하지 않는다. 저장 명령 성공, 저장 후 `modified` 표시, 실제 저장본 확인은 구별한다. 표시가 남으면 저장 이후 변경·미확인 상태를 보고하고 표시를 강제로 지우지 않는다.
 
 **구축·완료 판단:** ontological-component의 의미와 내부·인접 요소의 지지·연결·두께·높이·마감·배수를 함께 본다. 마감/슬래브, 후레싱/벽, 지붕/우수관의 의도하지 않은 중첩을 단면·확대와 수치로 대조한다. 수정한 곳은 같은 조건에서 다시 확인한다. 안전·접합·사용 관계에 영향을 줄 수 있는 불확실성은 필요한 수치·단면으로 확인하고, 미검사 범위와 잔존 문제를 보고한다. 실행 성공·객체 수·DB sync는 시각적 적합성의 증거가 아니다.
-
-
 
 ### 구조 검토
 
@@ -284,7 +277,7 @@ Layout 캡처는 기존 Detail 축척과 PrintDisplay를 변경하지 않는다.
 
 도면은 건축 요소의 표현이자 공간의 구성과 사용을 구상하고 전달하는 설계 도구다. 도면을 읽을 때는 그려진 형상과 표현을 파악하는 동시에, 그 구성이 만들어 내는 공간과 경험, 사람들이 그 안에서 맺는 관계를 이해한다.
 
-벽·문·가구·동선·프로그램 관계를 촘촘히 검토한 과거 과정의 참고 이미지가 필요하면 `get_modeling_guide(topic="drafting", include_images=true)`로 Bonsai 평면 개요를 확인하되, 이를 최신 공간 결정이나 완성 도면 원본으로 사용하지 않는다.
+벽·문·가구·동선·프로그램 관계를 촘촘히 검토한 과거 과정의 참고 이미지가 필요하면 [Bonsai 평면 개요](features/guidance/guides/Bonsai-FloorPlan-overview.png)를 확인하되, 이를 최신 공간 결정이나 완성 도면 원본으로 사용하지 않는다.
 
 ### 도면을 공간과 의미로 읽기
 
@@ -352,14 +345,3 @@ Drawing 자산은 준비된 3DM, Diagram 자산은 도식용 자료다. [등록�
 | `get_logic_by_id`| `logic_id` | 로직 원형·설명 조회. |
 | `list_capsules`  | 선택적 `capability`, `audited_only=True`  | 실행 가능한 audited capsule과 입출력 port 확인.  |
 | `run_gh_definition` | `capsule_id`, port 계약에 맞는 `inputs`, 선택적 `seed`, `timeout_s` | audited capsule 실행. 정의에 따라 Rhino에 bake할 수 있다. |
-
-###
-`get_rhino_probe`는 형상·블록을 읽기 전용으로 관찰·측정하는 툴이며, 옵션은 아래와 같다. 좌표·길이·공차는 현재 문서 단위다. 반환의 `unknown`·미지원·`truncated`는 미확인 범위이며 0이나 통과를 뜻하지 않는다. 범위가 잘리면 대상·표본을 나눠 조회한다.
-
-| probe 값  | options에 넣을 입력  | 알 수 있는 것|
-| ----- | ----- | ----- |
-| `outline` | `ids` 또는 `path`; 생략 시 `scope`: selected/viewport/document. 선택적 `depth`, `field_groups`, `include_geometry`, `annotations` | 객체·중첩 블록 경로·누적 변환·TextDot 주석 관찰. `options`의 `field_groups`는 summary/objects/annotations/transforms 중 비어 있지 않은 배열이며 `[]`·`all`은 지원하지 않는다. 잘리면 IDs·path·depth를 좁힌다. |
-| `resolve-block`  | `path=[최상위 GUID, 내부 멤버 GUID, ...]` | 현재 편집 단계에서 선택 가능한 블록 후보. |
-| `sections` | `ids`, `axis`: X/Y/Z, `stations`; 선택적 `sample_points` | 지정 좌표의 절단 곡선 수·길이·bbox·표본점. Brep·Mesh·Extrusion 지원.|
-| `vertical-probe` | `ids`, `xy=[[x,y],...]`; 선택적 `z_min`, `z_max`는 함께 지정 | 표본 수직선의 교차 Z와 닫힌 형상의 채움·중복 구간. 열린 형상은 교차점만 반환. |
-| `joint-pairs` | `pairs=[[GUID_A,GUID_B],...]`; 선택적 `tolerance`, `compare_operations`, `max_pairs` | 유효 닫힌 최상위 Brep·Extrusion 쌍의 교차체적과 선택적 Join/Union 결과. |

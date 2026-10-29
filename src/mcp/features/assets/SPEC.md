@@ -27,7 +27,7 @@ Rhino에서는 `Almond` 또는 `AlmondLibraryBrowser`를 연다. Python만으로
 
 ## 준비한 3DM 등록·배치
 
-현재 milestone에서 `prepare_drawing_asset`와 `register_drawing_asset(preparation_job=...)`는 실제 Rhino BDD 검증 대기로 비활성화되어 있다. 호출은 파일·native 작업 전에 `error_code=acceptance_pending`을 반환한다. 아래 준비 단계 구현은 다음 BDD 검증을 위한 source checkpoint이며 동작 검증이 완료된 기능으로 안내하지 않는다. `preparation_job`을 생략한 기존 준비 3DM 등록은 계속 사용할 수 있다.
+`prepare_drawing_asset`와 `register_drawing_asset(preparation_job=...)`는 현재 비활성 경로이며 파일·native 작업 전에 `error_code=acceptance_pending`을 반환한다. 아래 내부 준비 구현은 공개 지원 기능으로 간주하지 않는다. `preparation_job`을 생략한 준비 3DM 등록은 사용할 수 있다.
 
 새 Drawing 자산의 원본은 검토·정리한 3DM이다. `prepare_drawing_asset`은 사용자의 Almond Asset Converter 흐름을 MCP의 작업 artifact 디렉터리 안에서 실행한다. `inspect`는 원본 사본과 SHA256을 보존하고 headless 문서에서 중첩 block을 풀어 part별 출처·bounds·형상 통계와 다섯 방향의 before 이미지를 만든다. OBJ/STL/PLY/OFF에는 명시적 단위를 요구한다. 입력은 100 MB, block 깊이는 32, 확장 객체는 10,000개로 제한하며 순환 참조를 거절한다.
 

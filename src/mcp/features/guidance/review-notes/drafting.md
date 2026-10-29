@@ -1,12 +1,12 @@
 # 도면 검수 지침 검토 기록
 
-당시 관찰과 수정 제안을 보존한 기록이다. 현재 실행 지침은 [modeling-guide.md](../guides/modeling-guide.md)를 따른다.
+당시 관찰과 수정 제안을 보존한 기록이다. 현재 실행 지침은 [BASIC-INSTRUCTIONS.md](../../../BASIC-INSTRUCTIONS.md)를 따른다.
 
 설명상의 핵심 문제는 ‘도면 검수’를 출력·표현 품질 중심으로 구체화하고, 건축적 해석은 일반적인 지시로 남겨둔 점입니다.
 
-- 검수 항목의 편향: drafting은 축척·선두께·선종류·해치·문자 등의 가독성을 확인하도록 합니다. 해치가 나타내는 바닥 마감과 인접 영역을 해석해, 필요한 경계선의 부재를 판정하는 기준은 없습니다. 당시 문구 위치: modeling-guide.md 291행. 현재 지침: [modeling-guide.md](../guides/modeling-guide.md)
-- 의미 해석과 도면 검수의 연결 부족: model-review는 사용 관계·구축·마감을 보라고 하지만, 구체적인 예시는 주로 3D 요소의 중첩입니다. 이를 평면의 선·해치 해석에 적용하는 설명이 약합니다. 당시 문구 위치: modeling-guide.md 248행. 현재 지침: [modeling-guide.md](../guides/modeling-guide.md)
-- 변경 부위 중심의 완료 판단: “먼저 변경부와 주변”을 검수하는 지시는, 전반적인 이상을 찾는 과업에서도 기존 수정 목록을 재확인하는 방식으로 좁게 적용되기 쉽습니다. 실제 작업도 그 흐름을 보였습니다. 당시 문구 위치: modeling-guide.md 254행. 현재 지침: [modeling-guide.md](../guides/modeling-guide.md)
+- 검수 항목의 편향: drafting은 축척·선두께·선종류·해치·문자 등의 가독성을 확인하도록 합니다. 해치가 나타내는 바닥 마감과 인접 영역을 해석해, 필요한 경계선의 부재를 판정하는 기준은 없습니다. 당시 문구 위치: modeling-guide.md 291행. 현재 지침: [BASIC-INSTRUCTIONS.md](../../../BASIC-INSTRUCTIONS.md)
+- 의미 해석과 도면 검수의 연결 부족: model-review는 사용 관계·구축·마감을 보라고 하지만, 구체적인 예시는 주로 3D 요소의 중첩입니다. 이를 평면의 선·해치 해석에 적용하는 설명이 약합니다. 당시 문구 위치: modeling-guide.md 248행. 현재 지침: [BASIC-INSTRUCTIONS.md](../../../BASIC-INSTRUCTIONS.md)
+- 변경 부위 중심의 완료 판단: “먼저 변경부와 주변”을 검수하는 지시는, 전반적인 이상을 찾는 과업에서도 기존 수정 목록을 재확인하는 방식으로 좁게 적용되기 쉽습니다. 실제 작업도 그 흐름을 보였습니다. 당시 문구 위치: modeling-guide.md 254행. 현재 지침: [BASIC-INSTRUCTIONS.md](../../../BASIC-INSTRUCTIONS.md)
 
 다만 같은 설명은 사용 관계와 구축을 확인하고, 객체 수·DB 정합으로 적합성을 판정하지 말라고도 명시합니다. 따라서 도구가 단순 관찰을 강제했다고 단정할 수는 없습니다. 확인되는 유도 요인은 표현 검사는 구체적이고, 건축적 해석의 실행 기준은 추상적이라는 불균형입니다.
 

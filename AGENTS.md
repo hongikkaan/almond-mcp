@@ -22,7 +22,7 @@
 - `src/rhp/RhinoAlmondBridge`: Bridge RHP. `Structural_Analysis`, `Asset_Panel`, `RhinoTerminal` 소스도 여기에 컴파일한다. Terminal에는 별도 PlugIn entry가 없다.
 - `src/rhp/AlmondRhino`: 공용 외부 연결용 Rhino 플러그인의 출력 폴더. 구현은 `src/cos/rhp`에 둔다. 패널의 공용 웹 원본은 `src/rhp/Asset_Panel/web`이다.
 - `src/engine`: 예전 시작 버튼·설치 명령의 전달 스크립트와 기존 CoS command가 가리키는 `.venv`만 유지한다. 구현을 추가하지 않는다.
-- 모듈 전용 테스트는 각 모듈의 `tests/`, 여러 모듈의 계약 검사는 루트 `tests/`에 둔다. 의존 방향·변경 범위는 [모듈 개발 안내](MODULE-SPEC.md)를 따른다.
+- 모듈 전용 테스트는 각 모듈의 `tests/`, 여러 모듈의 계약 검사는 루트 `tests/`에 둔다. 의존 방향·변경 범위는 [소유권과 의존 방향](SPEC.md#소유권과-의존-방향)를 따른다.
 
 Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 보존한다. 경로 정리 때문에 기능을 리팩터링하지 않는다. Engine DLL을 Bridge RHP나 상위 리포의 `mcp/native`와 혼동하지 말고 설치된 패키지를 패치하지 않는다.
 이 저장소는 상위 Rhino 리포의 `mcp/almond-mcp` 서브모듈이다. 이 리포의 commit/push 이후 상위 gitlink를 갱신하며, 상위의 다른 작업과 섞지 않는다. 개인 통합은 `main`, upstream `codex/undo-recovery`는 기존 `release/0.7.0rc2` Undo 수정 범위를 유지한다.
@@ -48,7 +48,7 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 등록 확인은 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`다. RHP 경로와 Rhino의 연결 명령 캐시를 함께 검사한다. 명령 이름을 바꾸는 업데이트에서는 Rhino를 닫고 이 스크립트를 `-VerifyOnly` 없이 한 번 실행하여 기존 등록을 백업하고 새 명령 캐시를 반영한다. 실제 로드 경로 확인은 사용자가 별도로 요청한 경우 새 Rhino에서 수행하며, 등록 검증과 구분한다. 예전 standalone Terminal GUID `27D4B9A1-8FAD-421C-B64A-7A213D3B4079`가 남았다면 백업 후 중복 등록을 제거한다.
 
-**기존 AlmondCOS 등록에서 이번 AlmondRhino 경로로 전환하는 업데이트는 일회성 재등록이 필요하다.** Rhino와 해당 MCP 연결을 정상 종료하고 일상 폴더에서 pull한 뒤 `./src/rhp/tools/install_runtime.ps1`, 이어서 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`를 실행한 다음 Rhino를 시작한다. 설치 명령은 기존 등록을 백업하고 동일 GUID의 `PlugIn\FileName`을 `src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`에서 위의 AlmondRhino 경로로 변경하며 명령 캐시도 이전한다. `-VerifyOnly`만으로는 이전되지 않는다. 개발 워크트리를 등록하지 않는다.
+**등록이 구형 AlmondCOS 경로를 가리키면 일회성 재등록이 필요하다.** Rhino와 해당 MCP 연결을 정상 종료하고 일상 폴더에서 pull한 뒤 `./src/rhp/tools/install_runtime.ps1`, 이어서 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`를 실행한 다음 Rhino를 시작한다. 설치 명령은 기존 등록을 백업하고 동일 GUID의 `PlugIn\FileName`을 `src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`에서 위의 AlmondRhino 경로로 변경하며 명령 캐시도 이전한다. `-VerifyOnly`만으로는 이전되지 않는다. 개발 워크트리를 등록하지 않는다.
 
 전환을 마친 이후 업데이트는 **Rhino를 정상 종료 → 일상 폴더에서 `git pull --ff-only` → Rhino 시작** 순서다. pull은 fetch와 현재 브랜치·추적 파일의 fast-forward를 수행한다. fetch만으로 파일은 바뀌지 않고, 실행 중 Rhino는 이미 로드한 assembly를 계속 쓴다. 소스와 실행 파일을 함께 받으므로 매번 빌드·복사·등록할 필요가 없다.
 
@@ -84,9 +84,9 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 
 모델 폴더는 `.almond/scene.sqlite3`를 공유한다. Plan 산출물은 프로젝트 `tmp/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 종료된 연결의 소유 임시자료와 `.sessions` 기록은 프로세스·잠금·native 완료로 회수하며 Plan·Step 완료 여부와 연결하지 않는다. 공유 잠금·역할 lease·A–J 슬롯·프로세스 identity·UI thread·native 완료 확인을 유지한다. 모델을 이동·이름 변경하기 전에 연결을 정상 종료한다.
 
-프로젝트 정보가 필요하면 `project_info`에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `set_working_plan`으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond·CoS 외부 연결에서는 `connection_id`도 전달한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [native-observation.md](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
+프로젝트 정보가 필요하면 `project_info`에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `set_working_plan`으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond·CoS 외부 연결에서는 `connection_id`도 전달한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [관측 SPEC](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
 
-임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. 오래된 인계·배포·검증 로그는 현재 기능 문서에 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
+임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. SPEC·AGENTS에는 현재 구조·계약·작업 규칙만 유지한다. 과거 설계안·진행 보고·커밋별 변경 내역·검증 실측은 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
 
 ## 검증
 

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -95,7 +94,7 @@ def main() -> None:
     w("")
     w(read_instruction(__file__, 'response-174'))
     w("")
-    w(read_instruction(__file__, 'response-175').format(date.today().isoformat()))
+    w(read_instruction(__file__, 'response-175'))
     w("")
     w(read_instruction(__file__, 'response-176'))
     w("")
@@ -132,7 +131,7 @@ def main() -> None:
             lo, hi = s["span_range_m"]
             if hi > 0:
                 w(f"| {axis} range | {lo:g}-{hi:g} m | BCI {', '.join(s.get('bci_ref', []))} |")
-            w(f"| structural material (Karamba) | {s['structural_material']} | "
+            w(f"| structural material | {s['structural_material']} | "
               f"validate_structure vocabulary |")
             if s.get("structure_types"):
                 w(f"| analysis templates | {', '.join(s['structure_types'])} | "

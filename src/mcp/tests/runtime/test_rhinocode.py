@@ -289,6 +289,41 @@ def test_runtime_failure_reports_partial_change_and_retains_completion(execution
     assert final["undo"]["ended"] and inspect(execution)["completed"]
 
 
+@pytest.mark.parametrize("codepoint", [0x1F600, 0xD55C])
+def test_non_ascii_failure_preserves_completion_with_bounded_diagnostics(execution, monkeypatch, codepoint):
+    source = "doc.marker = 8\nraise RuntimeError(chr(%d) * 4000)" % codepoint
+    doc, final = _run_python_wrapper(execution, source, monkeypatch)
+    assert doc.marker == 8 and final["mutation_state"] == "partial"
+    assert final["status"] == "error" and final["error"]["type"] == "RuntimeError"
+    assert final["undo"]["ended"] and inspect(execution)["completed"]
+    assert (execution.directory / "complete.json").stat().st_size <= rc.RECEIPT_LIMIT
+    for key, maximum in (("message", 4000), ("traceback", 8000)):
+        assert len(json.dumps(final["error"][key], ensure_ascii=True).encode("ascii")) <= maximum
+
+
+def test_large_nested_diagnostics_keep_a_minimal_matching_completion(execution, monkeypatch):
+    execution.journal["language"] = "csharp-script"
+    (execution.root / "Newtonsoft.Json.dll").write_bytes(b"FIXTURE")
+    def nested(serial, macro, echo):
+        value = completion(execution.journal, status="error", mutation_state="partial",
+            user_code_started=True, user_code_completed=False,
+            error={"stage": "user_code", "type": "RuntimeError", "message": chr(0x1F600) * 9000},
+            cleanup_errors=["cleanup incomplete"])
+        raw = json.dumps(value, ensure_ascii=False).encode("utf-8")
+        assert len(raw) < rc.RECEIPT_LIMIT
+        (execution.directory / "child-complete.json").write_bytes(raw)
+        return True
+    _, final = _run_python_wrapper(execution, 'throw new Exception("error");',
+                                   monkeypatch, run_script=nested)
+    assert final["diagnostics_truncated"] is True
+    assert final["status"] == "error" and final["mutation_state"] == "partial"
+    assert final["error"]["stage"] == "user_code" and final["cleanup_errors"]
+    assert final["undo"]["ended"] and inspect(execution)["completed"]
+    assert (execution.directory / "complete.json").stat().st_size <= rc.RECEIPT_LIMIT
+    recovered = rc.RhinocodeExecution(execution.binding, execution.locations).get_execution()
+    assert recovered["completed"] and recovered["diagnostics_truncated"] is True
+
+
 def test_exception_formatting_cannot_erase_execution_final(execution, monkeypatch):
     source = ("class BrokenMessage(Exception):\n"
               "    def __str__(self):\n"
@@ -340,13 +375,14 @@ def test_csharp_runtime_error_is_adopted_after_outer_cleanup(execution, monkeypa
                    completion(execution.journal, status="error", mutation_state="partial",
                               user_code_started=True, user_code_completed=False,
                               error={"stage": "user_code", "message": "actual C# error"},
-                              cleanup_errors=[], stdout_capture={"retained_bytes": 9}))
+                              cleanup_errors=[], stdout_capture={"retained_bytes": 9}, diagnostics_truncated=True))
         return True
     _, final = _run_python_wrapper(execution, 'throw new Exception("actual C# error");',
                                    monkeypatch, run_script=nested)
     assert final["status"] == "error" and final["error"]["message"] == "actual C# error"
     assert final["mutation_state"] == "partial" and final["undo"]["ended"]
     assert final["stdout_capture"] == {"retained_bytes": 9}
+    assert final["diagnostics_truncated"] is True
     assert inspect(execution)["completed"]
 
 

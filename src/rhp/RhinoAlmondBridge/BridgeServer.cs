@@ -115,8 +115,8 @@ namespace RhinoAlmondBridge
                     case "save_rhino_document":
                         return DocumentSave.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 
-                    case "get_rhino_probe":
-                        return ProbeObservation.Handle(jobj);
+                    case "analyze_block_reculviely":
+                        return BlockAnalysis.Handle(jobj);
 
                     case "design_component":
                         return ComponentRegistry.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);

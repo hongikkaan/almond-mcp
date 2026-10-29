@@ -467,7 +467,7 @@ def _execution_summary(value):
     if value.get("completed") is not True or value.get("status") != "success":
         return value
     keys = {"status", "completed", "request_id", "mutation_state", "result",
-            "result_error", "result_display_error"}
+            "result_error", "result_display_error", "diagnostics_truncated"}
     summary = {key: item for key, item in value.items() if key in keys}
     page = value.get("result_page", {})
     has_more = any(item.get("next_offset") is not None for item in page.get("pages", {}).values())
@@ -494,7 +494,7 @@ def execution_output(value, *, include_diagnostics=False):
     runtime = value.get("runtime_completion", {})
     if (not isinstance(runtime, dict)
             or any(value.get(key) or runtime.get(key) for key in flags)
-            or any(value.get(key) for key in ("error", "result_error", "result_display_error", "cleanup_errors"))
+            or any(value.get(key) for key in ("error", "result_error", "result_display_error", "cleanup_errors", "diagnostics_truncated"))
             or value.get("result_page", {}).get("metadata_truncated")):
         return value
     keys = {"request_id", "completed", "status", "mutation_state", "result", "result_page",
@@ -640,7 +640,7 @@ class RhinocodeExecution:
         final = result.pop("completion", None)
         if final:
             for key in ("execution_complete", "mutation_state", "error", "result_error",
-                        "cleanup_errors", "undo", "user_code_started", "user_code_completed"):
+                        "cleanup_errors", "undo", "user_code_started", "user_code_completed", "diagnostics_truncated"):
                 if key in final:
                     result[key] = final[key]
             result["result_available"] = final.get("result_available") is True

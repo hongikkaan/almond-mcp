@@ -5,9 +5,8 @@ from almond_mcp.features.guidance.output import GROUPS, project
 
 from pydantic import StrictBool
 from fastmcp.tools import ToolResult
-from mcp.types import ImageContent, TextContent
+from mcp.types import TextContent
 from almond_mcp.modeling_guidance import read_guide
-import base64
 import json
 import re
 from pathlib import Path
@@ -18,12 +17,8 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False})
     @tool_instruction(__file__, 'get_modeling_guide')
-    def get_modeling_guide(topic: str = "index", include_images: StrictBool = False) -> ToolResult:
-        payload, images = read_guide(topic, include_images)
-        content = [TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))]
-        content.extend(ImageContent(type="image", data=base64.b64encode(raw).decode("ascii"), mimeType="image/png")
-                       for raw in images)
-        return ToolResult(content=content)
+    def get_modeling_guide(tool: str = "") -> ToolResult:
+        return ToolResult(content=[TextContent(type="text", text=json.dumps(read_guide(tool), ensure_ascii=False))])
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_construction_guidance')

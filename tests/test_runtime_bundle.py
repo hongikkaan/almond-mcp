@@ -26,8 +26,12 @@ def test_changed_source_requires_new_runtime_record(tmp_path):
     assert runtime.verify(tmp_path, manifest) == ["probe.cs"]
 
 
-def test_terminal_web_change_invalidates_bridge_runtime(tmp_path, monkeypatch):
-    relative = "src/rhp/RhinoTerminal/src/web/terminal.html"
+@pytest.mark.parametrize("relative", [
+    "src/rhp/RhinoTerminal/src/web/terminal.html",
+    "src/mcp/features/context/native/BlockAnalysis.cs",
+    "src/mcp/features/components/native/SolidIntersections.cs",
+])
+def test_bridge_source_change_invalidates_runtime(tmp_path, monkeypatch, relative):
     source = tmp_path / relative
     source.parent.mkdir(parents=True)
     source.write_text("<button>before</button>", encoding="utf-8")

@@ -15,11 +15,6 @@ Choose the profile under **Design code** in the panel (step 02), or pass `design
 `validate_structure` / `visualize_structure` (`list_design_codes` lists them). Every result states
 the profile, the values it used and any value that is not yet verified.
 
-The same frame (A07 mezzanine, CHS 219.1x8, 2.0 + 1.0 kN/m2 floor load, rigid joints) under three
-profiles: Eurocode passes (18.46 mm against span/250, 85.6 %); an illustrative annex with span/360,
-gamma_M1 = 1.1 and 6.10a/b fails on deflection (limit 17.22 mm) at 91.6 %, its unverified values
-flagged; Off gives 59.5 % unfactored.
-
 ## What a profile sets
 
 | Parameter | Meaning | Eurocode recommended value | Clause |
@@ -72,8 +67,8 @@ Singapore's values. Replace each one from the annex before relying on the profil
 
 Check a profile with:
 
-```bash
-uvx almond-mcp design-codes
+```powershell
+& ./src/engine/.venv/Scripts/python.exe -B -m almond_mcp.cli design-codes
 ```
 
 It lists every profile and explains any file it rejected (unknown parameter, value out of range,
