@@ -13,6 +13,10 @@ change everyday registration while developing another worktree.
 
 Keep module tests out of production compile globs. Build with the actual Rhino 8
 SDK. Source edits, output placement, registration and live loading are separate
-evidence. Follow the Bridge native fixture README for disposable Rhino testing.
+evidence. Test live functionality in the Rhino files the user connected for the
+task; avoid creating or launching separate Rhino documents solely for tests.
+The Bridge native fixture README describes fixture-specific prerequisites, not
+a default instruction to start another Rhino. Never remove a fixture's document
+guards or run a fixture that replaces document contents in a user model.
 
-Source edits and offline tests can run while Rhino is open. Only an RHP build/output replacement requires Rhino to be closed: check immediately before that step and ask the user to save and close normally if needed. Never force-close Rhino. Default tests use fixtures without starting or connecting to Rhino; fixture builds are not RHP builds. Live Rhino verification requires a separate user request.
+Source edits and offline tests can run while Rhino is open. Only an RHP build/output replacement requires Rhino to be closed: check immediately before that step and ask the user to save and close normally if needed. Never force-close Rhino. Offline unit and integration tests run without starting or connecting to Rhino; fixture builds are not RHP builds. When live verification is part of the user's task, use their connected working files and preserve their model and document state.
