@@ -219,7 +219,7 @@ class ProjectRuntime(Middleware):
                 or native.get("phase") not in {"listening", "receiving", "queued", "running", "sending"}):
             raise RuntimeError(message)
 
-    def execute_rhinocode(self, script, language, timeout_seconds=60, *, working_directory=None):
+    def execute_rhinocode(self, script, language, timeout_seconds=60):
         self.validate()
         batch = self.scope.get()
         if batch is None:
@@ -232,11 +232,10 @@ class ProjectRuntime(Middleware):
                                          Path(self.locations["temp"]))
         operation_dir.mkdir(parents=True, exist_ok=True)
         work = self.workspace.current() if self.workspace is not None else {"artifact_dir": ""}
-        options = {} if working_directory is None else {"working_directory": working_directory}
         return self._official_cli().execute(
             script=script, language=language, timeout_seconds=timeout_seconds,
             operation_id=batch.operation_id, operation_dir=operation_dir,
-            register=batch.register_external, artifact_dir=work["artifact_dir"], **options)
+            register=batch.register_external, artifact_dir=work["artifact_dir"])
 
     def get_rhino_execution(self, request_id="", offset=0, limit=100, include_result=True,
                             include_stdout=False, result_fields=None, include_ids=True):

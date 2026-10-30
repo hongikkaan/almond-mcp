@@ -316,10 +316,10 @@ def _child_identity(process) -> dict:
 
 
 def build_wrapper(request: dict, source: str, directory: Path, *, project_root: str,
-                  artifact_dir: str, executable: Path, working_directory=None) -> tuple[str, str]:
+                  artifact_dir: str, executable: Path) -> tuple[str, str]:
     payload = dict(request=request, source=source, directory=str(directory),
                    project_root=project_root, artifact_dir=artifact_dir,
-                   result_limit=RESULT_LIMIT, working_directory=working_directory or project_root)
+                   result_limit=RESULT_LIMIT)
     language = request["language"]
     if language == "csharp-script":
         template = Path(__file__).with_name("rhinocode_csharp.cs.txt").read_text(encoding="utf-8")
@@ -530,7 +530,7 @@ class RhinocodeExecution:
             return dict(available=False, languages=[], message=str(exc))
 
     def execute(self, script, language, timeout_seconds, *, operation_id, operation_dir,
-                register, artifact_dir="", working_directory=None):
+                register, artifact_dir=""):
         if language not in LANGUAGES or language not in self.enabled_languages:
             raise ValueError("This RhinoCode language has not passed its live acceptance gate.")
         if language == "command" and not self.command_enabled:
@@ -543,14 +543,6 @@ class RhinocodeExecution:
             raise ValueError("timeout_seconds must be an integer from 1 to 600.")
         if not isinstance(operation_id, str) or not _UUID.fullmatch(operation_id):
             raise ValueError("Invalid operation identity.")
-        if working_directory is not None:
-            if language != "python" or not artifact_dir:
-                raise ValueError("Project Python requires the selected Plan artifact directory.")
-            expected = _owned(Path(self.locations["project_dir"]) / artifact_dir,
-                              Path(self.locations["project_dir"]))
-            if Path(working_directory).resolve() != expected:
-                raise ValueError("Project Python cwd must match the selected Plan artifact directory.")
-            working_directory = str(expected)
         prior = inspect_session(self.locations["session_dir"])
         if prior["completed"] is not True:
             raise RuntimeError("A previous RhinoCode execution still needs exact completion recovery.")
@@ -580,8 +572,7 @@ class RhinocodeExecution:
                        language=language, target=target, child=None)
         _validate_journal(journal)
         suffix, wrapper_text = build_wrapper(journal, script, directory,
-            project_root=self.locations["project_dir"], artifact_dir=str(artifact_dir), executable=executable,
-            working_directory=working_directory)
+            project_root=self.locations["project_dir"], artifact_dir=str(artifact_dir), executable=executable)
         wrapper = directory / ("wrapper" + suffix)
         wrapper.write_text(wrapper_text, encoding="utf-8", newline="\n")
         source_suffix = ".cs" if language == "csharp-script" else suffix

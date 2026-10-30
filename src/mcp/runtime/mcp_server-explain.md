@@ -47,7 +47,7 @@ artifact folder. On first use, artifact_name (one folder name) or the Plan goal
 creates a recorded relative path tmp/YYMMDD_name; the directory is created only
 when files are needed. Plan/Step status need not be completed or linear. Other
 workers discover the same path and refs from the Plan. Use rename_artifact_folder
-to change an existing folder name. RhinoCode project Python uses this directory as cwd;
+to change an existing folder name. Managed Python uses this directory as cwd;
 Rhino C# uses RhinoAlmondBridge.ManagedFiles.Output("relative-name").
 <!-- /instruction:set_working_plan -->
 
@@ -59,26 +59,13 @@ history is retained. Existing destinations are never overwritten.
 <!-- /instruction:rename_artifact_folder -->
 
 <!-- instruction:execute_project_python -->
-Execute Python 3 inside the bound Rhino through official RhinoCode, using the selected Plan artifact folder as cwd.
-
-Read get_modeling_guide(tool="execute_project_python") for the bundled rhino3d-scripts
-skill and references. Select a Plan with set_working_plan first. Relative file writes
-land in its artifact folder. doc and scriptcontext.doc are the bound RhinoDoc;
-assign a JSON value to result. project_root is absolute and artifact_dir is relative
-to it. The wrapper applies project/artifact environment variables temporarily and
-restores cwd, scriptcontext, Undo and redraw. Record useful outputs in Plan/Step refs.
-
-This replaces the external worker-venv Python process. Rhino's embedded packages
-may differ; missing dependencies are not automatically installed. RhinoCommon is
-available. Do not start detached/background writers or switch documents.
-Timeout limits waiting and never kills Rhino. Read get_rhino_execution(request_id)
-after pending results; never repeat writes just because the CLI returned or timed out.
-
-Args:
-    code: Synchronous Python 3 source; assign a JSON-safe value to result.
-    timeout_seconds: Integer 1-600, default 60; waiting limit, not execution cancellation.
-Returns:
-    RhinoCode outcome, request_id and selected artifact_dir, with late-result recovery.
+Execute Python in the selected Plan artifact folder using relative paths. The
+runtime applies project/artifact environment variables and a separate owned scratch
+directory. No script file is created. Empty folders and owned scratch are removed
+after execution; output artifacts are kept. Record useful outputs in Plan/Step refs.
+This does not execute RhinoCommon code or change Rhino's process cwd. Do not start
+detached/background writers; they cannot outlive the managed execution scope.
+timeout_seconds defaults to 60 (1-600). Partial writes are not automatically retried.
 <!-- /instruction:execute_project_python -->
 
 ## response-90

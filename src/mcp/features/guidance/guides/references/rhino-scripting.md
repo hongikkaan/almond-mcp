@@ -11,18 +11,16 @@ Undo information and returned data are separate from architectural correctness.
 |---|---|---|
 | A supported document, selection or geometric observation | context/probe tools | Tested nonmutating observation, selectable fields |
 | A custom query or ordinary geometry script | execute_rhino_script, language="python" | Python 3; set result to JSON data |
-| C# source | execute_rhino_script, language="csharp" | Official C# statement body; doc and result_json, no Run class |
-| Python with the selected Plan folder as cwd | execute_project_python | Official Rhino Python 3; same execution receipt and recovery |
+| Existing C# Run(RhinoDoc doc) code | execute_rhino_script, default language="csharp" | Existing Bridge compilation, result projection and Undo behavior |
 | A verified official C# statement body | language="csharp-script" | doc and result_json; explicit JSON text, no Run class |
 | Existing Python 2 code | language="python2" | Only when this runtime reports the language verified |
 | A complete Rhino command | language="command" | Only when a synchronous script-runner context is verified |
 | A previously dispatched operation | get_rhino_execution | State/result lookup; never dispatches the code again |
 
 Capabilities and actual installed versions decide which official modes are ready.
-An unavailable mode is rejected before execution. Python 3 is the default;
-csharp and csharp-script select the same official statement-body mode.
-Private native recipes retain their Bridge path; public code has no fallback.
-A general script is not automatically read-only.
+An unavailable mode is rejected before execution. The current legacy C# default
+preserves callers written before this integration; new Python code needs an
+explicit language value. A general script is not automatically read-only.
 
 ## Python
 
@@ -80,11 +78,9 @@ separate LoadScript/RunScript surface; it is not a claimed native ScriptEditor
 language. External CLI script arguments are file paths, not a general script-argv
 protocol. Use explicit data files or values in the submitted source.
 
-The rhino3d-scripts skill and its four references are bundled with the tools.
-get_modeling_guide(tool="execute_rhino_script") returns this pinned material and
-INTEGRATION.md, whose automated execution rules take precedence over interactive
-examples, VB/ScriptEditor claims, forced-cancel macros and manual Undo scaffolds.
-Its personal installed files are not a dependency of the MCP server.
+The upstream rhino3d-scripts skill informs this guidance, with its VB/ScriptEditor,
+rs.Command prefix and unconditional Undo examples corrected against McNeel docs.
+Its local installed files are not a dependency of the MCP server.
 
 ## Results, errors and Undo
 

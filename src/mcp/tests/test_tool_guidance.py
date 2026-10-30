@@ -41,12 +41,6 @@ def test_tool_lookup_delivers_original_explanation_without_execution(name, sourc
             assert payload["source_refs"][0]["path"] == "src/mcp/" + source.replace(".py", "-explain.md")
             assert [part.type for part in result.content] == ["text"]
             assert name in index["tools"]
-            if name in {"execute_rhino_script", "execute_project_python"}:
-                bundled = payload["scripting_skill"]
-                assert bundled["name"] == "rhino3d-scripts"
-                assert len(bundled["sources"]) == 6
-                assert any("ModelAbsoluteTolerance" in source["text"] for source in bundled["sources"])
-                assert any("rhinocode" in source["text"] for source in bundled["sources"])
             assert not any(name.startswith("response-") or name.startswith("_") for name in index["tools"])
 
     asyncio.run(run())
@@ -69,8 +63,7 @@ def test_unknown_tools_and_combined_selectors_fail_explicitly(arguments):
     asyncio.run(run())
 
 
-@pytest.mark.parametrize("relative", ["features/modeling/tools-explain.md", "features/modeling/tools.py",
-                                      "features/modeling/rhino3d-scripts/SKILL.md"])
+@pytest.mark.parametrize("relative", ["features/modeling/tools-explain.md", "features/modeling/tools.py"])
 def test_tool_sources_participate_in_guide_version(relative, monkeypatch):
     reader = runpy.run_path(str(PACKAGE / "modeling_guidance.py"))
     original = Path.read_bytes

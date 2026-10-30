@@ -134,9 +134,6 @@ DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유�
 `get_rhino_context`, `get_rhino_viewport_image`, `analyze_block_reculviely`는 고정 관찰 경로다.
 조회가 geometry·layer·selection·camera·Undo를 바꾸면 안 된다.
 `execute_rhino_script`의 `result_error`는 이미 끝난 수정을 취소하지 않는다.
-공개 코드 실행은 `execute_rhino_script`와 `execute_project_python` 모두 공식 RhinoCode를
-사용한다. Python 3이 기본이며 private Bridge recipe와는 별도 경로다.
-내장 스킬·언어·산출물 폴더·완료 조회는 [RhinoCode 실행 계약](runtime/RHINOCODE-SPEC.md)을 따른다.
 요청·반환 제한과 미확인 값의 의미는 [관측 계약](rhino/OBSERVATION-SPEC.md)을 따른다.
 
 기존 CoS command를 유지하기 위해 Python 환경은 `../engine/.venv`에 둔다.

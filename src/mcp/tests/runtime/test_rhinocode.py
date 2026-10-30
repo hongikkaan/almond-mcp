@@ -2,7 +2,6 @@
 import hashlib
 import io
 import json
-import os
 from pathlib import Path
 import sys
 import threading
@@ -274,31 +273,6 @@ def test_wrapper_captures_print_and_persists_result_before_exact_final(execution
     assert "한글 output" in (execution.directory / "stdout.txt").read_text(encoding="utf-8")
     assert json.loads((execution.directory / "result.json").read_text()) == {"value": 27}
     assert inspect(execution)["completed"]
-
-
-@pytest.mark.parametrize("fail", [False, True])
-def test_project_python_writes_in_plan_folder_and_restores_rhino_process(execution, monkeypatch, fail):
-    doc, context, old_doc = _fake_rhino(execution, monkeypatch)
-    directory = execution.root / "tmp" / "계획 O'Brien"
-    monkeypatch.setenv("ALMOND_PROJECT_ROOT", "previous-project")
-    monkeypatch.delenv("ALMOND_ARTIFACT_DIR", raising=False)
-    previous = dict(os.environ)
-    cwd = Path.cwd()
-    source = "import os\nimport scriptcontext\nassert doc is scriptcontext.doc\n" + (
-        "with open('artifact.txt', 'w') as f: f.write(os.environ['ALMOND_MODEL_PATH'])\n"
-        "result = {'cwd': os.getcwd(), 'artifact': os.environ['ALMOND_ARTIFACT_DIR']}\n")
-    if fail:
-        source += "raise RuntimeError('after file write')\n"
-    _, wrapper = rc.build_wrapper(execution.journal, source, execution.directory,
-        project_root=str(execution.root), artifact_dir=str(directory.relative_to(execution.root)),
-        executable=execution.root / "rhinocode.exe", working_directory=str(directory))
-    exec(compile(wrapper, "project_wrapper.py", "exec"), {})
-    assert (directory / 'artifact.txt').read_text() == str(execution.model)
-    assert dict(os.environ) == previous and Path.cwd() == cwd
-    assert context.doc is old_doc and doc.Views.RedrawEnabled
-    final = json.loads((execution.directory / 'complete.json').read_text())
-    assert final['status'] == ('error' if fail else 'success')
-    assert final['undo']['ended'] and inspect(execution)['completed']
 
 
 def test_source_syntax_failure_is_known_without_starting_mutations(execution, monkeypatch):

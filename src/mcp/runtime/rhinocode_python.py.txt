@@ -148,7 +148,6 @@ def _main():
     doc = context = previous_doc = previous_directory = previous_redraw = None
     undo = 0
     namespace = None
-    previous_environment = None
     original_stdout, original_stderr = sys.stdout, sys.stderr
     logs = []
     try:
@@ -183,16 +182,7 @@ def _main():
         previous_directory = os.getcwd()
         previous_redraw = bool(doc.Views.RedrawEnabled)
         context.doc = doc
-        working_directory = _payload["working_directory"]
-        if not os.path.isdir(working_directory):
-            os.makedirs(working_directory)
-        os.chdir(working_directory)
-        artifact_path = (os.path.join(_payload["project_root"], _payload["artifact_dir"])
-                         if _payload["artifact_dir"] else "")
-        environment = dict(ALMOND_PROJECT_ROOT=_payload["project_root"],
-                           ALMOND_MODEL_PATH=target["model_path"], ALMOND_ARTIFACT_DIR=artifact_path)
-        previous_environment = dict((key, os.environ.get(key)) for key in environment)
-        os.environ.update(environment)
+        os.chdir(_payload["project_root"])
         if request["language"] != "csharp-script":
             logs = [_Log(os.path.join(directory, "stdout.txt")),
                     _Log(os.path.join(directory, "stderr.txt"))]
@@ -270,12 +260,6 @@ def _main():
                              message=_error_text(exc, 4000), traceback=_error_trace())
     finally:
         sys.stdout, sys.stderr = original_stdout, original_stderr
-        if previous_environment is not None:
-            for key, value in previous_environment.items():
-                if value is None:
-                    os.environ.pop(key, None)
-                else:
-                    os.environ[key] = value
         for index, log in enumerate(logs):
             try:
                 log.close()

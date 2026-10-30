@@ -14,38 +14,69 @@ are independent of management UserStrings.
 ## execute_rhino_script
 
 <!-- instruction:execute_rhino_script -->
-Execute source or a complete macro in the bound Rhino through official RhinoCode.
+Execute code or a command in the bound Rhino, using an explicit language and tracked completion.
 
-Python 3 is the default. Read get_modeling_guide(tool="execute_rhino_script") for
-this contract and the bundled rhino3d-scripts skill, API maps and loading guidance.
-No separate skill installation is required. The wrapper binds doc/scriptcontext,
-owns Undo and redraw, and restores cwd/environment even after an exception.
-Use document tolerance, explicit object IDs and validated geometry before replacing
-or deleting originals. Batch loops belong in synchronous source with per-item results.
+For new general queries and scripts use language="python" with the official RhinoCode
+runtime. The synchronous Python body receives doc, result and artifact_dir; assign a
+JSON value to result. Return only the information needed for the decision, grouping
+related measurements in one call. Fixed probes remain useful for their guaranteed
+nonmutating observations; they are not a prerequisite for every custom query.
 
-python/python2 assign a JSON value to result. csharp/csharp-script are C# statement
-bodies with doc and result_json, not the former class/Run format. command accepts
-one fully specified macro without adding !, Pause or dialogs. All modes require
-StartScriptServer in the bound Rhino; there is no legacy Bridge executor fallback.
-Fixed queries and audited internal recipes keep their existing native paths.
+Official modes are python, python2, csharp-script and command. They require the bound
+runtime's current RhinoCode capability and StartScriptServer in that Rhino. Unverified
+language modes are rejected before dispatch. csharp-script is a C# statement body with
+doc and result_json, not a Run class; use explicit JSON result text. command runs a fully
+specified Rhino macro only in a verified script-runner context, without adding ! or prompts.
 
-project_root is absolute; artifact_dir is relative to it. General scripts run with
-project root as cwd. Use execute_project_python for the selected Plan folder as cwd.
-Do not assume worker-venv packages exist in Rhino's embedded Python. Return only
-measurements needed for the decision, collecting related work in one script.
+Completion and result display are independent. A waiting response includes request_id;
+get_rhino_execution reads that same execution's state/result, selects fields or pages,
+and recovers late completion without re-executing code. stdout is a log, not proof of
+execution. A completed exception may have partial changes. Do not automatically retry,
+open another document, schedule background document edits, or undo unrelated work.
 
-A waiting response includes request_id. Use get_rhino_execution to retrieve that
-same execution, page its results or read captured stdout. CLI exit, print output
-and a timeout are not completion evidence. A completed exception may have partial
-changes; result_error does not roll them back. Never automatically retry uncertain
-work, open a different document or schedule detached document edits.
+The default language="csharp" preserves the existing Bridge/Roslyn contract below.
+
+The script MUST define a class with a public static Run(RhinoDoc doc) method.
+The existing modelling form returns a List<Guid>:
+
+    public class Script
+    {
+        public static List<Guid> Run(RhinoDoc doc)
+        {
+            var guids = new List<Guid>();
+            // Use doc.Objects.AddSphere(), doc.Objects.AddBrep(), etc.
+            // Append each GUID: guids.Add(guid);
+            return guids;
+        }
+    }
+
+For numeric or inspection results, Run may instead return a JSON-safe object, for example:
+
+    public static object Run(RhinoDoc doc)
+    {
+        return new { object_count = doc.Objects.Count };
+    }
+
+Supported results are finite scalars, anonymous objects, arrays/lists and string-keyed
+dictionaries of supported values, limited to 16 container levels and 64 KiB of compact
+UTF-8 JSON. Void/null and List<Guid> retain their existing behaviour. A result_error
+means the result could not be represented; already executed model changes are not
+rolled back for that reason. Inspect the current state and do not automatically retry.
+The guids field contains the script's declared IDs, not a complete change history.
+This legacy executor starts an Undo record and List<Guid> results can create dimensions;
+use get_rhino_context for a fixed read-only document snapshot. Execution success does
+not validate the geometry's design intent. Check meaningful invariants before Replace/Delete.
+
+Available namespaces (auto-imported if not present):
+    System, System.Collections.Generic, System.Linq,
+    Rhino, Rhino.Geometry, Rhino.DocObjects
 
 Args:
-    script: Synchronous Python source, C# statement body or complete command macro.
-    language: python (default Python 3), python2, csharp, csharp-script or command; every mode uses official RhinoCode.
-    timeout_seconds: Integer 1-600, default 60; waiting limit only. Retrieve the same request after timeout.
+    script: Source for the chosen language, or a complete command macro. Default C# requires a class with public static Run(RhinoDoc doc).
+    language: csharp (legacy default), python, python2, csharp-script or command. Official modes require a verified bound runtime.
+    timeout_seconds: Integer from 1 to 600, default 60. In official modes this limits waiting, not Rhino execution; use get_rhino_execution after a waiting response.
 Returns:
-    JSON execution outcome and result with a recoverable request_id; pending or failed calls preserve completion evidence.
+    JSON execution status and result; official modes include a recoverable request_id. Legacy C# retains guids, error_trace and optional result/result_error.
 <!-- /instruction:execute_rhino_script -->
 
 ## save_rhino_document

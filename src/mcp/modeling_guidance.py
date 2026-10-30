@@ -9,8 +9,6 @@ from almond_mcp.instruction_text import parse_instruction
 
 PACKAGE = Path(__file__).resolve().parent
 BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
-SCRIPTING_SKILL = PACKAGE / "features/modeling/rhino3d-scripts"
-SCRIPTING_TOOLS = {"execute_rhino_script", "execute_project_python"}
 
 
 def _read_content(path: Path) -> bytes:
@@ -33,8 +31,7 @@ def _tool_sources() -> list[Path]:
 
 def source_files() -> list[Path]:
     tools = _tool_sources()
-    return sorted([BASIC_GUIDE, *tools, *(p.with_name(p.stem + "-explain.md") for p in tools),
-                   *(p for p in SCRIPTING_SKILL.rglob("*") if p.is_file())])
+    return sorted([BASIC_GUIDE, *tools, *(p.with_name(p.stem + "-explain.md") for p in tools)])
 
 
 @lru_cache(maxsize=1)
@@ -62,16 +59,6 @@ def _snapshot() -> dict:
                 "text": parse_instruction(raw[note].decode("utf-8"), node.name, note),
                 "source_refs": [reference(note)],
             }
-            if node.name in SCRIPTING_TOOLS:
-                # Same pinned sources as reading the installed skill, available
-                # in every client without an external personal skill directory.
-                skill_files = [SCRIPTING_SKILL / "INTEGRATION.md", SCRIPTING_SKILL / "SKILL.md",
-                               *sorted((SCRIPTING_SKILL / "references").glob("*.md"))]
-                tools[node.name]["scripting_skill"] = {
-                    "name": "rhino3d-scripts",
-                    "sources": [{**reference(p), "text": raw[p].decode("utf-8")} for p in skill_files],
-                }
-                tools[node.name]["source_refs"].extend(reference(p) for p in skill_files)
     if inventory != source_files() or any(_read_content(p) != value for p, value in raw.items()):
         raise RuntimeError("Guide source changed while reading; start a new session.")
     identity = {p.relative_to(PACKAGE).as_posix(): hashlib.sha256(value).hexdigest() for p, value in raw.items()}
