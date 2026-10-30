@@ -1536,7 +1536,9 @@ def run_selected(doc, planes, options, folder=None, targets=None):
         print('Update: regenerate existing drawings at saved placement; PickPlacement is not used.')
     if mode == 'PDF':
         print('PDF: clipping origin at paper center; outside paper is cropped; PickPlacement is not used.')
-    serial = doc.BeginUndoRecord('PlanSection') if mode != 'PDF' else 0
+    # RhinoCode (or the interactive script runner) may already own this record.
+    serial = (doc.BeginUndoRecord('PlanSection')
+              if mode != 'PDF' and not doc.CurrentUndoRecordSerialNumber else 0)
     done = 0
     cancelled = [False]
     def cancel(sender, event): cancelled[0] = True

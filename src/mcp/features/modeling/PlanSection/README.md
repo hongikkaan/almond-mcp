@@ -28,6 +28,8 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 기존 `execute_rhino_script(language="python")` 경로에서 아래처럼 스크립트를 읽고 `run`을 호출한다. 런타임이 검증해 제공한 `doc`를 전달하며 다른 문서를 자동으로 열지 않는다. 이 함수는 목록·점·폴더 입력 창을 열지 않는다. 일반 `main()`의 Agent 선택은 GUID를 직접 타이핑하는 사용자용 진입이며, 무인 실행은 `run()`이다.
 
+공개 실행 도구는 RhinoCode를 사용하며 연결 문서의 `StartScriptServer`가 필요하다. `get_modeling_guide(tool="execute_rhino_script")`로 현재 실행 계약을 확인한다. MCP에서 대화형 `main()`이나 `runpy.run_path(..., run_name="__main__")`을 호출하지 않는다. 아래처럼 기본 `run_path`로 함수를 읽고 `result`에 JSON 결과를 대입한다. 실행기가 이미 연 Undo는 재사용하며 PlanSection이 종료하지 않는다.
+
 ```python
 import json
 import runpy
@@ -50,6 +52,8 @@ result = ps["run"](doc, "PDF", ids, folder=r"프로젝트 Plan 산출물의 기�
 GUID 전체를 먼저 검증하며 중복 GUID는 한 번만 처리한다. Move는 모든 GUID의 좌표가 필요하다. Update·PDF에 이동 좌표를 주면 오류다. Create의 좌표 생략은 기존 draft_plane 또는 원점 배치다. 여러 clipping의 기본 원점이 같으면 출력이 겹치므로 필요한 위치를 각각 전달한다.
 
 결과의 `status`는 `completed` / `partial` / `cancelled`, `results`에는 GUID별 완료·건너뜀·실패·취소와 생성 객체 ID 또는 파일 경로·보고서가 들어간다. 한 도면 실패가 이미 완료한 다른 도면을 되돌리지 않는다. MCP 실행이 timeout이면 재실행하지 말고 `get_rhino_execution`으로 완료를 회수한다. 파일 출력 전에 `set_working_plan`으로 프로젝트 산출물 폴더를 정한다.
+
+`execute_rhino_script`의 현재 폴더는 프로젝트 루트다. 같은 코드를 `execute_project_python`으로 실행하면 선택한 Plan 폴더가 현재 폴더이므로 PDF/Files의 `folder="."`를 사용할 수 있다. 두 도구 모두 동일한 RhinoCode 완료·결과 회수 계약을 사용한다. 바깥 실행 응답이 성공해도 내부 `result.status="partial"`이면 GUID별 실패 내용을 확인한다. 결과가 크면 `get_rhino_execution`의 `result_fields`·offset/limit를 사용하며 도면 생성을 반복하지 않는다.
 
 ## 개발 검사
 

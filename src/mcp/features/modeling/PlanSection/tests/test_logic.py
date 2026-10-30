@@ -379,6 +379,7 @@ class Workflow(unittest.TestCase):
         options = dict(mode=mode,hatch=True,elevation=True,pick=pick,small_details=False,
                        near_width=.09,far_width=.04,near_dark=80,far_dark=45)
         doc = Mock()
+        doc.CurrentUndoRecordSerialNumber = 0
         doc.BeginUndoRecord.return_value = 7
         rhino = NS(RhinoApp=NS(Wait=lambda:None,EscapeKeyPressed=MagicMock()))
         selected = [cp,other] if mode=='Update' else [cp]
