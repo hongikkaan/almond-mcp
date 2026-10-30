@@ -9,7 +9,7 @@ using Rhino.Geometry;
 
 // Read-only observations of explicit document-level member pairs.
 // This helper does not approve a connection or modify a Rhino document.
-public static class AlmondJoints
+public static class SolidIntersections
 {
     public static JObject AuditPairs(RhinoDoc doc, JObject q)
     {
@@ -22,7 +22,6 @@ public static class AlmondJoints
         if (!Finite(tolerance) || tolerance <= 0) throw new ArgumentException("tolerance must be finite and positive, in document units.");
         int maxPairs = Limit(q, "max_pairs", 16, 1, 64);
         int maxBytes = Limit(q, "max_bytes", 48000, 4096, 262144);
-        bool compare = q["compare_operations"] != null && q["compare_operations"].Value<bool>();
         // Validate every requested handle before doing potentially expensive kernel work.
         var handles = new List<Guid[]>();
         foreach (JToken token in pairs)
@@ -36,12 +35,11 @@ public static class AlmondJoints
         }
         var rows = new JArray();
         var report = new JObject {
-            ["schema"] = "almond-joint-probes/v1",
+            ["schema"] = "almond-solid-intersections/v1",
             ["document_units"] = doc.ModelUnitSystem.ToString(),
             ["tolerance_model_units"] = tolerance,
             ["requested_pairs"] = handles.Count,
             ["evaluated_pairs"] = 0,
-            ["compare_operations"] = compare,
             ["pairs"] = rows,
             ["truncated"] = false,
             ["truncation_reason"] = JValue.CreateNull(),
@@ -49,12 +47,12 @@ public static class AlmondJoints
                 "Geometry observations only; no structural, fabrication, or waterproofing approval.",
                 "Only explicit document-level Breps and Extrusions are supported; block members require resolved world-space geometry.",
                 "bbox_distance_lower_bound is a lower bound, not the measured surface gap.",
-                "A successful Join or BooleanUnion does not prove a suitable connection; unknown intersection results are not zero.")
+                "Unknown intersection results are not zero.")
         };
         int count = Math.Min(handles.Count, maxPairs);
         for (int i = 0; i < count; i++)
         {
-            JObject row = AuditPair(doc, handles[i][0], handles[i][1], tolerance, compare);
+            JObject row = AuditPair(doc, handles[i][0], handles[i][1], tolerance);
             row["pair_index"] = i;
             rows.Add(row);
             report["evaluated_pairs"] = rows.Count;
@@ -76,7 +74,7 @@ public static class AlmondJoints
         return report;
     }
 
-    private static JObject AuditPair(RhinoDoc doc, Guid aId, Guid bId, double tolerance, bool compare)
+    private static JObject AuditPair(RhinoDoc doc, Guid aId, Guid bId, double tolerance)
     {
         Brep a = null, b = null;
         var row = new JObject { ["a_id"] = aId.ToString(), ["b_id"] = bId.ToString() };
@@ -110,18 +108,13 @@ public static class AlmondJoints
                     ["method"] = "disjoint_bounding_boxes", ["boolean_intersection_performed"] = false }
                 : Intersect(a, b, tolerance);
             row["status"] = "observed";
-            if (compare)
-            {
-                row["join"] = Operation(a, b, tolerance, false);
-                row["boolean_union"] = Operation(a, b, tolerance, true);
-            }
             return row;
         }
         catch (Exception ex)
         {
             row["status"] = "unknown";
             row["error"] = Short(ex.GetType().Name + ": " + ex.Message, 320);
-            if (row["overlap"] == null) row["overlap"] = Unknown("Probe failed before an intersection observation was available.");
+            if (row["overlap"] == null) row["overlap"] = Unknown("Intersection observation failed before an intersection observation was available.");
             return row;
         }
         finally
@@ -290,40 +283,6 @@ public static class AlmondJoints
                 throw new InvalidOperationException("A finite positive solid volume and nonnegative volume uncertainty are required.");
             volume = mass.Volume;
             error = mass.VolumeError;
-        }
-    }
-
-    private static JObject Operation(Brep a, Brep b, double tolerance, bool union)
-    {
-        Brep ac = null, bc = null;
-        Brep[] result = null;
-        try
-        {
-            ac = a.DuplicateBrep(); bc = b.DuplicateBrep();
-            var inputs = new[] { ac, bc };
-            result = union ? Brep.CreateBooleanUnion(inputs, tolerance) : Brep.JoinBreps(inputs, tolerance);
-            if (result == null) return new JObject { ["status"] = "unknown", ["result_count"] = JValue.CreateNull(), ["reason"] = "Kernel returned null." };
-            bool allValid = result.Length > 0, allSolid = result.Length > 0;
-            var details = new JArray();
-            for (int i = 0; i < result.Length; i++)
-            {
-                bool valid = result[i] != null && result[i].IsValid;
-                bool solid = result[i] != null && result[i].IsSolid;
-                allValid &= valid; allSolid &= solid;
-                if (i < 8) details.Add(new JObject { ["is_valid"] = valid, ["is_solid"] = solid });
-            }
-            return new JObject {
-                ["status"] = "observed", ["result_count"] = result.Length,
-                ["all_valid"] = allValid, ["all_solid"] = allSolid,
-                ["result_details"] = details, ["result_details_truncated"] = result.Length > details.Count
-            };
-        }
-        catch (Exception ex) { return new JObject { ["status"] = "unknown", ["result_count"] = JValue.CreateNull(), ["reason"] = Short(ex.GetType().Name + ": " + ex.Message, 320) }; }
-        finally
-        {
-            Dispose(result);
-            if (ac != null) ac.Dispose();
-            if (bc != null) bc.Dispose();
         }
     }
 

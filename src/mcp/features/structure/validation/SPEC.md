@@ -28,7 +28,7 @@ RhinoAlmondBridge.StructuralValidator
        api        → Karamba 3.1 solve via KarambaAdapter (real FEA)   confidence: high
        template   → audited capsule .ghx (karamba_*_v1)               confidence: medium
                     karamba_frame_v1 and karamba_truss_v1 are harnessed and
-                    audited (2026-08-29; the truss capsule runs
+                    audited (the truss capsule runs
                     01_InputCurvesAsTruss.ghx, which node-merges input lines):
                     frames that make the native solver throw now get a real
                     Karamba solve through the template instead of falling to
@@ -73,7 +73,7 @@ Karamba는 build-time reference 없이 `KarambaAdapter.cs`가 reflection으로 �
 
 ## Rhino에서 검증
 
-준비·빌드는 [AGENTS.md](../../../../../AGENTS.md)를 따르고 일회용 문서에서 실행한다.
+준비·빌드는 [AGENTS.md](../../../../../AGENTS.md)를 따른다. 실제 기능 검증은 사용자가 연결한 작업 문서의 기존 구조 형상에서 수행하며 테스트만을 위한 문서를 자동 생성하지 않는다.
 
 - 문서·단위·공차 정보가 필요하면 `project_info`의 document 항목에서 live 문서를 확인한다. 같은 확인을 위해 `get_rhino_context`를 추가 호출하지 않는다. 포트 충돌이면 해당 프로세스를 조사하고 강제 종료하지 않는다.
 - 단순 beam의 치수·단위·하중·지점을 명시해 해석하고 `analysis_method`, 변위, 반력 평형, 부재 utilization과 경고를 확인한다.
@@ -84,7 +84,7 @@ Karamba는 build-time reference 없이 `KarambaAdapter.cs`가 reflection으로 �
 
 ## Live structure view
 
-`visualize_structure(guids=[...])` solves the frame (native solver by default, `engine="karamba"` for the Karamba route; see [native-solver.md](../SPEC.md)) and draws it in every viewport through a display conduit (nothing is baked): ghosted undeformed axes, the exaggerated deformed shape coloured blue → red by displacement or utilization, supports, load arrows and a legend with max δ, the L/limit check and PASS/FAIL. `reanalyze=False` updates only the display (`scale`, `color_by`, `reveal`, `title`), so a staged construction sequence can be played back with `reveal` from 0 to 1, and `physics=False` draws the same members as plain geometry (physics off) for comparisons. `span_m` sets the reference span for the L/limit check when members are split at every node, `fixed_supports=False` pins the supports. `clear=True` removes the overlay. A 20-member frame solves in ~1.5 s (verified live on the Atelier-07 mezzanine: CHS 114.3x4 fails at 183 mm / utilization 3.59; CHS 193.7x8 passes at 20.9 mm / 0.66 against L/250 = 24.8 mm).
+`visualize_structure(guids=[...])` solves the frame (native solver by default, `engine="karamba"` for the Karamba route; see [native-solver.md](../SPEC.md)) and draws it in every viewport through a display conduit (nothing is baked): ghosted undeformed axes, the exaggerated deformed shape coloured blue → red by displacement or utilization, supports, load arrows and a legend with max δ, the L/limit check and PASS/FAIL. `reanalyze=False` updates only the display (`scale`, `color_by`, `reveal`, `title`), so a staged construction sequence can be played back with `reveal` from 0 to 1, and `physics=False` draws the same members as plain geometry (physics off) for comparisons. `span_m` sets the reference span for the L/limit check when members are split at every node, `fixed_supports=False` pins the supports. `clear=True` removes the overlay.
 
 ## Getting a report
 

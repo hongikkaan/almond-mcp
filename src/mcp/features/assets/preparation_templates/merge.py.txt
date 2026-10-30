@@ -1,0 +1,157 @@
+# Adapted from the user's almond-asset-converter active-command workflow.
+# The managed RhinoCode wrapper supplies the bound doc and an owned Undo record.
+import hashlib as _hashlib
+import json as _json
+import os as _os
+import uuid as _uuid
+import Rhino as _Rhino
+
+
+def _asset_hash(path):
+    with open(path, "rb") as handle:
+        return _hashlib.sha256(handle.read()).hexdigest().upper()
+
+
+def _asset_json(path):
+    with open(path, encoding="utf-8-sig") as handle:
+        return _json.load(handle)
+
+
+def _asset_write(path, value):
+    pending = path + ".pending-" + _uuid.uuid4().hex
+    with open(pending, "w", encoding="utf-8") as handle:
+        _json.dump(value, handle, ensure_ascii=False, indent=2, allow_nan=False)
+    _os.replace(pending, path)
+
+
+def _asset_merge(bound_doc):
+    config = _asset_json(__JOB_JSON__)
+    job = config["job_dir"]
+    normalized = _os.path.join(job, "normalized.3dm")
+    report = {"schema": "almond-asset-preparation/v1", "stage": "merge", "status": "error",
+              "operation_id": config["operation_id"], "source_sha256": config["source_sha256"],
+              "command": "_MergeAllCoplanarFaces", "command_applied": False,
+              "mutation_started": False, "document_file_saved": False, "previews": []}
+    # These checks precede any change to the document or its selection.
+    if not _Rhino.Commands.Command.InScriptRunnerCommand():
+        raise RuntimeError("Coplanar merge requires the verified ScriptRunner execution path")
+    if (bound_doc is None or bound_doc.IsHeadless or _Rhino.RhinoDoc.ActiveDoc is None or
+            _Rhino.RhinoDoc.ActiveDoc.RuntimeSerialNumber != bound_doc.RuntimeSerialNumber or
+            not config.get("expected_model_path") or
+            _os.path.normcase(_os.path.abspath(bound_doc.Path)) != _os.path.normcase(_os.path.abspath(config["expected_model_path"]))):
+        raise RuntimeError("The active saved document differs from the bound preparation target")
+    if bound_doc.ModelUnitSystem != _Rhino.UnitSystem.Millimeters:
+        raise RuntimeError("The actual coplanar-merge stage currently requires a millimeter document")
+    for filename, key in (("source" + _os.path.splitext(config["source"])[1], "source_sha256"),
+                          ("normalized.3dm", "normalized_sha256"), ("review.json", "review_sha256"),
+                          ("after-review.json", "after_review_sha256")):
+        if _asset_hash(_os.path.join(job, filename)) != config[key]:
+            raise RuntimeError("Preparation input or image-review evidence changed: " + filename)
+    review = _asset_json(_os.path.join(job, "review.json"))
+    after_review = _asset_json(_os.path.join(job, "after-review.json"))
+    if after_review.get("vision_reviewed") is not True or after_review.get("normalized_sha256") != config["normalized_sha256"]:
+        raise RuntimeError("After-image review is not bound to this normalized model")
+    objects = lambda: [obj for obj in bound_doc.Objects if obj is not None and not obj.IsDeleted and not obj.IsInstanceDefinitionGeometry]
+    serial_options = _Rhino.FileIO.SerializationOptions()
+    serial_options.WriteUserData = True
+    before = {str(obj.Id): (obj.Geometry.DataCRC(0), obj.Attributes.ToJSON(serial_options)) for obj in objects()}
+    selected = [obj.Id for obj in bound_doc.Objects.GetSelectedObjects(False, False)]
+    old_layers = {str(layer.Id): layer.DataCRC(0) for layer in bound_doc.Layers if layer is not None and not layer.IsDeleted}
+    old_materials = {str(bound_doc.Materials[i].Id): bound_doc.Materials[i].DataCRC(0)
+                     for i in range(bound_doc.Materials.Count) if bound_doc.Materials[i] is not None}
+    original_layer = bound_doc.Layers.CurrentLayerIndex
+    report["document_modified_before"] = bool(bound_doc.Modified)
+    targets = lambda: [obj for obj in objects() if str(obj.Id) not in before]
+    def bounds(items):
+        box = _Rhino.Geometry.BoundingBox.Empty
+        for obj in items:
+            box.Union(obj.Geometry.GetBoundingBox(True))
+        return box
+    try:
+        report["mutation_started"] = True
+        bound_doc.Objects.UnselectAll()
+        if not bound_doc.Import(normalized):
+            raise RuntimeError("Normalized 3DM import failed")
+        imported = targets()
+        if not imported or any(obj.ObjectType == _Rhino.DocObjects.ObjectType.InstanceReference for obj in imported):
+            raise RuntimeError("Coplanar merge needs expanded prepared geometry")
+        original_bounds = bounds(imported)
+        report["before_objects"] = len(imported)
+        for obj in imported:
+            bound_doc.Objects.Select(obj.Id, True)
+        applied = _Rhino.RhinoApp.RunScript(bound_doc.RuntimeSerialNumber, "_MergeAllCoplanarFaces _Enter", False)
+        report["command_result"] = str(_Rhino.Commands.Command.LastCommandResult)
+        if not applied or _Rhino.Commands.Command.LastCommandResult != _Rhino.Commands.Result.Success:
+            raise RuntimeError("Actual MergeAllCoplanarFaces did not report success")
+        report["command_applied"] = True
+        changed_bounds = bounds(targets())
+        if (not changed_bounds.IsValid or original_bounds.Min.DistanceTo(changed_bounds.Min) > 0.01 or
+                original_bounds.Max.DistanceTo(changed_bounds.Max) > 0.01):
+            raise RuntimeError("Coplanar command changed bounds beyond 0.01 mm")
+        for index, obj in enumerate(targets()):
+            attrs = obj.Attributes.Duplicate()
+            if not attrs.Name:
+                attrs.Name = review["filename"] + "__part_" + str(index + 1).zfill(4)
+            attrs.SetUserString("almond:asset_id", review["asset_id"])
+            if not bound_doc.Objects.ModifyAttributes(obj.Id, attrs, True):
+                raise RuntimeError("Could not preserve prepared object metadata")
+            if bound_doc.Layers[attrs.LayerIndex].FullPath != config["layer"]:
+                raise RuntimeError("Coplanar command changed the prepared object layer")
+        bound_doc.Objects.UnselectAll()
+        for obj in targets():
+            bound_doc.Objects.Select(obj.Id, True)
+        output = _os.path.join(job, "final.3dm")
+        options = _Rhino.FileIO.FileWriteOptions()
+        options.FileVersion = 8
+        options.WriteSelectedObjectsOnly = True
+        options.SuppressDialogBoxes = True
+        options.SuppressAllInput = True
+        options.UpdateDocumentPath = False
+        options.IncludeBitmapTable = True
+        options.IncludeRenderMeshes = True
+        options.WriteUserData = True
+        if not bound_doc.WriteFile(output, options):
+            raise RuntimeError("Could not export only the prepared asset")
+        report.update(status="success", bounds_preserved=True, after_objects=len(targets()),
+                      summary={"file": output, "sha256": _asset_hash(output), "object_count": len(targets())})
+    except Exception as exc:
+        report["error"] = str(exc)
+    finally:
+        notes = []
+        for obj in targets():
+            if not bound_doc.Objects.Delete(obj.Id, True):
+                notes.append("Could not remove temporary object " + str(obj.Id))
+        if not bound_doc.Layers.SetCurrentLayerIndex(original_layer, True):
+            notes.append("Could not restore original current layer")
+        imported_layers = [layer for layer in bound_doc.Layers if layer is not None and not layer.IsDeleted and str(layer.Id) not in old_layers]
+        for layer in sorted(imported_layers, key=lambda item: len(item.FullPath.split("::")), reverse=True):
+            if not bound_doc.Layers.Delete(layer.Index, True):
+                notes.append("Unused imported layer remains: " + layer.FullPath)
+        for index in range(bound_doc.Materials.Count - 1, -1, -1):
+            material = bound_doc.Materials[index]
+            if material is not None and str(material.Id) not in old_materials and not bound_doc.Materials.DeleteAt(index):
+                notes.append("Unused imported material remains at index " + str(index))
+        bound_doc.Objects.UnselectAll()
+        for identifier in selected:
+            bound_doc.Objects.Select(identifier, True)
+        current = {str(obj.Id): (obj.Geometry.DataCRC(0), obj.Attributes.ToJSON(serial_options)) for obj in objects()}
+        preserved = all(current.get(identifier) == state for identifier, state in before.items())
+        layers = {str(layer.Id): layer.DataCRC(0) for layer in bound_doc.Layers if layer is not None and not layer.IsDeleted}
+        materials = {str(bound_doc.Materials[i].Id): bound_doc.Materials[i].DataCRC(0)
+                     for i in range(bound_doc.Materials.Count) if bound_doc.Materials[i] is not None}
+        preserved = preserved and all(layers.get(key) == value for key, value in old_layers.items())
+        preserved = preserved and all(materials.get(key) == value for key, value in old_materials.items())
+        selection_preserved = {str(obj.Id) for obj in bound_doc.Objects.GetSelectedObjects(False, False)} == {str(x) for x in selected}
+        report.update(original_geometry_and_attributes_preserved=bool(preserved),
+                      original_selection_preserved=bool(selection_preserved), temporary_objects_removed=not targets(),
+                      cleanup_notes=notes, document_modified_after=bool(bound_doc.Modified))
+        if not preserved or not selection_preserved or targets() or notes:
+            report["status"] = "error"
+            report.setdefault("error", "Temporary command cleanup or original-document preservation failed")
+        _asset_write(_os.path.join(job, "merge.json"), report)
+    if report["status"] != "success":
+        raise RuntimeError("Asset merge failed; inspect merge.json before any retry: " + report.get("error", ""))
+    return {"stage": "merge", "receipt": _os.path.join(job, "merge.json"), "final_sha256": report["summary"]["sha256"]}
+
+
+result = _asset_merge(doc)

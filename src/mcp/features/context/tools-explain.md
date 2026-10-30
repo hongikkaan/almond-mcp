@@ -42,32 +42,28 @@ Returns:
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 <!-- /instruction:get_rhino_context -->
 
-## get_rhino_probe
+## analyze_block_reculviely
 
-<!-- instruction:get_rhino_probe -->
-Read fixed geometry observations on the bound Rhino UI thread without modifying the document.
+<!-- instruction:analyze_block_reculviely -->
+Read nested block structure or resolve a block occurrence without modifying the document.
 
-Does not execute supplied C#, create layers/Undo records, edit geometry, select objects,
-change views or write files. Requires the Bridge fixed_probes capability. Requests and
-responses are limited to 256 KiB of UTF-8 JSON. Unknown/omitted/truncated observations
-do not mean zero, clearance, structural approval or design correctness.
+Requests and responses are bounded to 256 KiB of UTF-8 JSON. Unknown, unsupported
+and truncated observations remain unverified. Requires Bridge block_analysis=1.
 
 Args:
-    probe: One of outline, resolve-block, sections, vertical-probe, joint-pairs.
-    options: Fixed helper options: outline uses scope/ids/path/depth; resolve-block uses
-        path (1..65 GUIDs); sections uses ids/axis/stations; vertical-probe uses ids/xy;
-        joint-pairs uses pairs and optional compare_operations. Coordinates are model units.
-        outline defaults to a compact summary; field_groups selects summary, objects,
-        annotations and transforms. Explicit legacy include_geometry/annotations flags
-        retain detailed behavior. max_items/max_bytes remain bounded; use explicit IDs,
-        a branch path or lower depth after truncation, never assume omitted data is absent.
-        Detailed traversal also stops after max_items eligible visits (reason=max_visits),
-        including annotations-only queries whose repeated definitions emit few rows.
-    expected_model_path: Usually omitted; the runtime supplies the bound document automatically.
+    mode: outline traverses objects and nested definitions; resolve-block finds
+        candidates for the current editing context along an explicit occurrence path.
+    options: outline accepts ids or path, otherwise scope (selected/viewport/document),
+        depth and output budgets. field_groups is a nonempty list of summary, objects,
+        annotations and transforms; the default is a compact summary. include_geometry
+        and annotations explicitly request their details. Narrow IDs/path/depth after
+        truncation; max_items also bounds eligible visits (reason=max_visits).
+        resolve-block accepts only path: 1..65 GUIDs from the top-level instance inward.
+    expected_model_path: Usually omitted; the runtime supplies the bound document path.
+    include_ids: Include IDs when needed; supplied target IDs are not repeated.
 Returns:
-    JSON with status, probe, document identity/units/tolerance and data, or an explicit error.
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
-<!-- /instruction:get_rhino_probe -->
+    JSON with status, mode, document identity/units/tolerance and data, or an explicit error.
+<!-- /instruction:analyze_block_reculviely -->
 
 ## get_rhino_viewport_image
 
@@ -81,8 +77,8 @@ Shaded by default; they never replace the visible viewport. Layouts capture the
 paper area, including its details, not the surrounding workspace. A current Layout
 also captures its paper, even when a detail is active.
 
-scale_percent=100 means the original pixel dimensions; 50 (default) halves both
-dimensions and uses roughly one quarter of the pixels. Named Views use their saved
+scale_percent=100 means the original pixel dimensions; 75 (default) retains 75% of both
+dimensions and uses 56.25% of the pixels. Named Views use their saved
 pixel size (current viewport size if unavailable); Layout 100% means paper at 96 dpi.
 No temporary image file is created. Capture does not change camera, selection or
 Undo state, or prove geometric correctness. A failed or oversized image is an error;
@@ -90,7 +86,7 @@ lower scale_percent explicitly instead of receiving a silently resized image.
 
 Args:
     view: Empty for current view, "a" for the grouped list, or a listed GUID.
-    scale_percent: Integer from 1 to 100; default 50. Applies to every capture type.
+    scale_percent: Integer from 1 to 100; default 75. Use 100 for visual drawing review. Controls pixels, not a Layout Detail's drawing scale.
     include_usage: False returns only an image. True also returns dimensions and an
         illustrative token estimate (32px patches x 1.2, without provider resizing).
         Actual usage depends on the client's model and detail setting, which MCP
@@ -114,9 +110,3 @@ Returns:
     One MCP PNG image by default, with text only for explicit warnings/usage, or the grouped name/GUID list for view="a".
     Images are limited to 16 megapixels and 4 MiB. No repeated path or GUID metadata.
 <!-- /instruction:get_rhino_viewport_image -->
-
-## response-585
-
-<!-- instruction:response-585 -->
-Load a Bridge with fixed_probes=1 before calling geometry probes.
-<!-- /instruction:response-585 -->

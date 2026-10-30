@@ -1,0 +1,247 @@
+// #! csharp
+// async: false
+#r "__JSON_ASSEMBLY__"
+using System;
+using System.IO;
+using System.Text;
+using System.Diagnostics;
+using System.Globalization;
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Rhino;
+
+// Generated statement-body wrapper. User code is trusted and synchronous.
+var __payload = JObject.Parse(Encoding.UTF8.GetString(Convert.FromBase64String("__PAYLOAD__")));
+var __request = (JObject)__payload["request"];
+var __directory = (string)__payload["directory"];
+var __final = new JObject();
+foreach (var __key in new[] { "token", "operation_id", "request_id", "nonce", "source_hash", "target" })
+    __final[__key] = __request[__key].DeepClone();
+if (__request.Property("layout") != null) __final["layout"] = __request["layout"].DeepClone();
+__final["schema"] = "almond-rhinocode-completion";
+__final["version"] = 1;
+__final["execution_complete"] = true;
+__final["status"] = "rejected";
+__final["mutation_state"] = "not_started";
+__final["user_code_started"] = false;
+__final["user_code_completed"] = false;
+__final["result_available"] = false;
+var __cleanup = new JArray();
+__final["cleanup_errors"] = __cleanup;
+RhinoDoc doc = null;
+string result_json = "null";
+string artifact_dir = (string)__payload["artifact_dir"];
+string project_root = (string)__payload["project_root"];
+string __oldDirectory = null;
+bool? __oldRedraw = null;
+uint __undo = 0;
+string __stage = "identity";
+var __oldOut = Console.Out;
+var __oldError = Console.Error;
+AlmondRhinoCodeLog __stdout = null;
+AlmondRhinoCodeLog __stderr = null;
+
+string __Clip(string value, int maximum)
+{
+    value = value ?? "";
+    bool truncated = value.Length > maximum;
+    if (truncated) value = value.Substring(0, maximum);
+    if (!truncated && __Bytes(new JValue(value)).Length <= maximum) return value;
+    const string marker = "... [truncated] ...";
+    int low = 0, high = value.Length;
+    while (low < high)
+    {
+        int middle = low + (high - low + 1) / 2;
+        if (__Bytes(new JValue(value.Substring(0, middle) + marker)).Length <= maximum) low = middle;
+        else high = middle - 1;
+    }
+    if (low > 0 && low < value.Length && Char.IsHighSurrogate(value[low - 1]) && Char.IsLowSurrogate(value[low])) low--;
+    return value.Substring(0, low) + marker;
+}
+string __ErrorText(Exception error, int maximum, bool trace = false)
+{
+    try { return __Clip(trace ? error.ToString() : error.Message, maximum); }
+    catch (Exception) { return "Exception diagnostics could not be formatted."; }
+}
+byte[] __Bytes(JToken value)
+{
+    using (var text = new StringWriter(CultureInfo.InvariantCulture))
+    {
+        using (var writer = new JsonTextWriter(text) {
+            Formatting = Formatting.None, StringEscapeHandling = StringEscapeHandling.EscapeNonAscii })
+            value.WriteTo(writer);
+        return Encoding.UTF8.GetBytes(text.ToString());
+    }
+}
+void __Publish(string filename, byte[] bytes, int maximum)
+{
+    if (bytes.Length > maximum) throw new InvalidOperationException("JSON exceeds the retained result limit.");
+    string path = Path.Combine(__directory, filename);
+    string temporary = path + ".new";
+    bool created = false;
+    try
+    {
+        using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.Read))
+        { created = true; stream.Write(bytes, 0, bytes.Length); stream.Flush(true); }
+        File.Move(temporary, path);
+    }
+    finally { if (created && File.Exists(temporary)) File.Delete(temporary); }
+}
+void __PublishCompletion()
+{
+    byte[] bytes = __Bytes(__final);
+    if (bytes.Length > 65536)
+    {
+        __final["diagnostics_truncated"] = true;
+        foreach (string field in new[] { "error", "result_error" })
+        {
+            if (__final[field] == null) continue;
+            var previous = __final[field] as JObject;
+            var diagnostic = new JObject { ["message"] = "Diagnostic details omitted to fit the completion receipt." };
+            if (previous != null)
+                foreach (string key in new[] { "stage", "type" })
+                    if (previous[key] != null) diagnostic[key] = __Clip((string)previous[key], 128);
+            __final[field] = diagnostic;
+        }
+        if (__cleanup.Count > 0)
+        {
+            __cleanup.Clear();
+            __cleanup.Add("Cleanup diagnostics omitted to fit the completion receipt.");
+        }
+        bytes = __Bytes(__final);
+    }
+    __Publish("child-complete.json", bytes, 65536);
+}
+try
+{
+    var __target = (JObject)__request["target"];
+    using (var __process = Process.GetCurrentProcess())
+    {
+        doc = RhinoDoc.ActiveDoc;
+        if (__process.Id != (int)__target["pid"] ||
+            __process.StartTime.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture) !=
+                (string)__target["process_start_ticks"] ||
+            doc == null || doc.RuntimeSerialNumber != (uint)__target["document_serial"] ||
+            !String.Equals(Path.GetFullPath(doc.Path), Path.GetFullPath((string)__target["model_path"]),
+                           StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The active Rhino document or process no longer matches this request.");
+    }
+    if (!RhinoApp.IsOnMainThread)
+        throw new InvalidOperationException("Synchronous document execution requires the Rhino UI thread.");
+    var __started = (JObject)__final.DeepClone();
+    __started["schema"] = "almond-rhinocode-started";
+    __started["execution_complete"] = false;
+    __Publish("child-started.json", __Bytes(__started), 65536);
+    __stage = "prepare";
+    __oldDirectory = Environment.CurrentDirectory;
+    __oldRedraw = doc.Views.RedrawEnabled;
+    Environment.CurrentDirectory = project_root;
+    __stdout = new AlmondRhinoCodeLog(Path.Combine(__directory, "stdout.txt"));
+    __stderr = new AlmondRhinoCodeLog(Path.Combine(__directory, "stderr.txt"));
+    Console.SetOut(__stdout);
+    Console.SetError(__stderr);
+    __final["undo"] = new JObject { ["before"] = doc.CurrentUndoRecordSerialNumber,
+                                    ["owned"] = 0, ["ended"] = false };
+    __undo = doc.BeginUndoRecord("Almond RhinoCode");
+    __final["undo"]["owned"] = __undo;
+    doc.Views.RedrawEnabled = false;
+    __stage = "user_code";
+    __final["user_code_started"] = true;
+    __final["mutation_state"] = "partial";
+    Action __run = () => {
+__USER_BODY__
+    };
+    __run();
+    __final["user_code_completed"] = true;
+    __final["status"] = "success";
+    __final["mutation_state"] = "completed";
+}
+catch (Exception __exception)
+{
+    __final["status"] = __stage == "identity" ? "rejected" : "error";
+    __final["error"] = new JObject {
+        ["stage"] = __stage, ["type"] = __Clip(__exception.GetType().Name, 128),
+        ["message"] = __ErrorText(__exception, 4000),
+        ["traceback"] = __ErrorText(__exception, 8000, true)
+    };
+}
+finally
+{
+    Console.SetOut(__oldOut);
+    Console.SetError(__oldError);
+    foreach (var __log in new[] { __stdout, __stderr })
+    {
+        if (__log == null) continue;
+        try { __log.Dispose(); }
+        catch (Exception __error) { __cleanup.Add("log close: " + __ErrorText(__error, 1000)); }
+    }
+    if (__stdout != null) __final["stdout_capture"] = __stdout.Summary();
+    if (__stderr != null) __final["stderr_capture"] = __stderr.Summary();
+    if (doc != null && __undo != 0)
+    {
+        try
+        {
+            if (!doc.EndUndoRecord(__undo)) throw new InvalidOperationException("EndUndoRecord returned false.");
+            __final["undo"]["ended"] = true;
+        }
+        catch (Exception __error) { __cleanup.Add("Undo: " + __ErrorText(__error, 1000)); }
+    }
+    if (__oldRedraw.HasValue)
+    {
+        try { doc.Views.RedrawEnabled = __oldRedraw.Value; if (__oldRedraw.Value) doc.Views.Redraw(); }
+        catch (Exception __error) { __cleanup.Add("redraw: " + __ErrorText(__error, 1000)); }
+    }
+    if (__oldDirectory != null)
+    {
+        try { Environment.CurrentDirectory = __oldDirectory; }
+        catch (Exception __error) { __cleanup.Add("working directory: " + __ErrorText(__error, 1000)); }
+    }
+    if ((bool)__final["user_code_completed"])
+    {
+        try
+        {
+            // Parsing explicit JSON does not invoke user object getters/enumerators.
+            var __result = JToken.Parse(result_json ?? "null");
+            byte[] __resultBytes = __Bytes(__result);
+            __Publish("result.json", __resultBytes, (int)__payload["result_limit"]);
+            __final["result_available"] = true;
+            __final["result_bytes"] = __resultBytes.Length;
+            using (var __hash = SHA256.Create())
+                __final["result_sha256"] = BitConverter.ToString(__hash.ComputeHash(__resultBytes))
+                    .Replace("-", "").ToLowerInvariant();
+        }
+        catch (Exception __error) {
+            __final["result_error"] = new JObject {
+                ["type"] = __Clip(__error.GetType().Name, 128), ["message"] = __ErrorText(__error, 2000) };
+        }
+    }
+    if (__cleanup.Count > 0) __final["status"] = "error";
+    __PublishCompletion();
+}
+
+sealed class AlmondRhinoCodeLog : TextWriter
+{
+    private readonly FileStream stream;
+    private long total;
+    private int retained;
+    public override Encoding Encoding => Encoding.UTF8;
+    public AlmondRhinoCodeLog(string path)
+    { stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read); }
+    public override void Write(char value) { Write(value.ToString()); }
+    public override void Write(string value)
+    {
+        if (value == null) return;
+        byte[] bytes = Encoding.UTF8.GetBytes(value);
+        int count = Math.Min(bytes.Length, Math.Max(0, 1048576 - retained));
+        stream.Write(bytes, 0, count);
+        stream.Flush();
+        retained += count;
+        total += bytes.Length;
+    }
+    public override void Flush() { stream.Flush(); }
+    protected override void Dispose(bool disposing) { if (disposing) stream.Dispose(); base.Dispose(disposing); }
+    public JObject Summary() => new JObject {
+        ["retained_bytes"] = retained, ["total_bytes"] = total, ["truncated"] = total > retained };
+}

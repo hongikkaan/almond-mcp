@@ -84,7 +84,7 @@ CoS 연결과 함께 사용하며 사용 가능한 자리가 있어야 연결된
    반환된 `connection_id`를 이후 모든 호출에 사용한다.
 4. 필요할 때 `project_info`에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해
    `get_rhino_context`를 반복 호출하지 않는다. 자료 작성 전 `set_working_plan`으로
-   폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../mcp/features/guidance/guides/modeling-guide.md)을 따른다.
+   폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../mcp/BASIC-INSTRUCTIONS.md)을 따른다.
 5. 끝나면 `disconnect`로 해당 연결을 해제한다. 문서 변경 후에는 재연결한다.
 
 Rhino에서 직접 해제하려면 `almonddisconnect`를 사용한다. 처리 중인 작업이나 worker의

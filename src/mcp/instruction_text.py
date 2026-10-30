@@ -5,7 +5,11 @@ import re
 
 def read_instruction(source_file: str, section: str) -> str:
     path = Path(source_file).with_name(Path(source_file).stem + "-explain.md")
-    text = path.read_text(encoding="utf-8")
+    return parse_instruction(path.read_text(encoding="utf-8"), section, path)
+
+
+def parse_instruction(text: str, section: str, path: Path) -> str:
+    """Extract one instruction from an already captured source snapshot."""
     start = f"<!-- instruction:{section} -->\n"
     end = f"<!-- /instruction:{section} -->"
     if text.count(start) != 1 or text.count(end) != 1:

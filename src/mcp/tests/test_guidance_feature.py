@@ -1,7 +1,9 @@
 """Guidance factories use isolated live context and retain offline library behavior."""
 import asyncio
+import base64
 import inspect
 import json
+import struct
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -31,7 +33,7 @@ def test_factory_registers_only_guidance_tools_and_preserves_schema(context):
     mcp = FastMCP("guidance-contract")
     exports = register(mcp, context)
     expected = {
-        "get_modeling_guide": {"topic": ("string", "index"), "include_images": ("boolean", False)},
+        "get_modeling_guide": {"tool": ("string", "")},
         "get_construction_guidance": {
             "query": ("string", ""), "category": ("string", ""),
             "material": ("string", ""), "structure_type": ("string", ""),

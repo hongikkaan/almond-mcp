@@ -4,7 +4,7 @@ from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.modeling.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from almond_mcp.managed_paths import bound_model_path
-from pydantic import StrictBool
+from pydantic import StrictBool, StrictInt
 import json
 import socket
 import uuid
@@ -24,13 +24,35 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'execute_rhino_script')
-    def execute_rhino_script(script: str) -> str:
+    def execute_rhino_script(script: str, language: str = "csharp",
+                             timeout_seconds: StrictInt = 60) -> str:
+        if not isinstance(script, str) or not script.strip():
+            return json.dumps(error_payload("script must be nonempty source or a command.",
+                                            error_code="invalid_arguments"))
+        if not isinstance(language, str) or language not in {"csharp", "python", "python2", "csharp-script", "command"}:
+            return json.dumps(error_payload(
+                "language must be csharp, python, python2, csharp-script or command.",
+                error_code="invalid_arguments"))
+        if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 600:
+            return json.dumps(error_payload("timeout_seconds must be an integer from 1 to 600.",
+                                            error_code="invalid_arguments"))
+        if language != "csharp":
+            execute = getattr(context, "_execute_rhinocode", None)
+            if execute is None:
+                return json.dumps({**error_payload(
+                    "Official RhinoCode execution requires a bound Almond runtime and StartScriptServer in its Rhino.",
+                    error_code="rhinocode_unavailable"), "mutation_state": "not_started"})
+            # The runtime owns process/document identity, the durable execution
+            # fence and late-result recovery. Never fall back after dispatch.
+            return json.dumps(execute(script, language, timeout_seconds), ensure_ascii=False)
         payload = json.dumps({"type": "execute", "script": script}).encode('utf-8')
 
         try:
-            return context._send_and_receive(payload)
+            if timeout_seconds == 60:
+                return context._send_and_receive(payload)
+            return context._send_and_receive(payload, timeout=float(timeout_seconds))
         except socket.timeout:
-            return json.dumps(error_payload("Rhino bridge timed out (>60s)."))
+            return json.dumps(error_payload(f"Rhino bridge timed out (>{timeout_seconds}s)."))
         except ConnectionRefusedError:
             return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"))
         except Exception as e:

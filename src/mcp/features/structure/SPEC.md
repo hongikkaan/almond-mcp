@@ -6,15 +6,9 @@ Karamba remains available for shells and as a cross-check.
 
 | | Native (`engine="auto"` / `"native"`) | Karamba (`engine="karamba"`) |
 | --- | --- | --- |
-| Install | nothing beyond almond-mcp + almondbridge | Karamba3D 3.1 licence (trial: 20 members) |
+| Install | nothing beyond almond-mcp + RhinoAlmondBridge | Karamba3D 3.1 licence (trial: 20 members) |
 | Elements | straight beams (axial, torsion, biaxial bending), truss bars | beams, shells |
-| Solve time, 20-member frame | ~13 ms (+ ~160 ms model export) | ~1.5 s |
-| `visualize_structure` round trip | ~0.4–0.6 s (export, solve, draw) | ~1.2 s |
 | `analysis_method` | `"native"` | `"api"` / `"template"` / `"rule_based"` |
-
-*Rhino 8 with Grasshopper/Karamba never loaded (command line: "Karamba assemblies
-loaded: 0"); the Atelier-07 mezzanine frame solved by the native engine and drawn by
-the bridge's overlay.*
 
 ## Design codes
 
@@ -43,10 +37,7 @@ combination, the combinations and stability, the loads and settings, and all not
 to select it in Rhino; **Save CSV** writes the member table. The same tables are available to the
 MCP tools with `validate_structure(..., detail=True)`.
 
-The panel and `visualize_structure` give identical numbers (both call
-`native_structure` and share `structure_study.draw_message`): on the A07
-mezzanine 219.1x8 rigid 18.46 mm / 85.6 %, simple 25.93 mm (limit 24.8) /
-97.8 %, 244.5x10 simple 15.67 mm / 65.8 %, αcr 126.08.
+The panel and `visualize_structure` share `native_structure` and `structure_study.draw_message`.
 
 The plugin finds the solver as `uvx almond-mcp@<plugin version> solve` (a
 development build without a release version takes the latest), or the
@@ -123,12 +114,6 @@ axes polygonized identically. `src/mcp/features/structure/native_structure.py` t
 - `src/mcp/features/structure/validation/mutation_check.py` plants known engineering errors one at a time (wrong factors,
   wrong curve, unscaled class limits, buckling length of one analysis element, ...) and
   reports whether the tests catch each.
-- Before October 2026 the member check combined compression and bending with k = 1 (up to
-  ~15 % unconservative against Annex B), used curve a for every hollow section (cold-formed
-  sections ~23 % unconservative at λ̄ = 1), did not scale class limits by f_y, and — with the
-  stability check on — buckled members over one quarter of their length (the stability
-  check's subdivision). All four are fixed and covered by tests.
-
 ## Stability (EN 1993-1-1 5.2)
 
 With `stability="auto"` (the default), every ULS combination gets:
@@ -158,11 +143,6 @@ Euler load, the textbook value; eight: within 0.003 %), cantilever (2L effective
 sway of a fixed-base portal with a stiff beam (π²EI/L² per column, within 0.04 %), and the
 exact second-order cantilever deflection H/(Pk)·(tan kL − kL) and base moment (within
 1e-5).
-
-Live, Atelier-07 mezzanine (2026-10-01), simple connections, floor 2.0 Q + 1.0 G kN/m²:
-held by the concrete walls, the CHS 244.5×10 frame is STABLE (α_cr = 126, first-order). The
-same frame in slender CHS 114.3×4 is sway-sensitive (α_cr = 5.97): the pin-ended mid column
-buckles first, and the ULS check switches to second-order (3 iterations).
 
 ## Connections (end releases)
 
@@ -199,11 +179,6 @@ a translation or carries load is a real mechanism and is reported as one (for ex
 of pin-ended pieces with nothing under the shared node). The overlay draws pinned ends as
 small circles.
 
-Live, Atelier-07 mezzanine (2026-10-01), floor 2.0 Q + 1.0 G kN/m², EN 1990: with rigid
-joints CHS 219.1×8 passes (18.5 mm, u 0.86); with simple connections (14 pinned ends) it
-fails (25.9 mm > 24.8 mm, u 0.98); the next size tried, CHS 244.5×10, passes (15.7 mm,
-u 0.66).
-
 ## Load combinations (EN 1990)
 
 Every load carries a case: **G** (permanent — self weight, `floor_dead_kn_m2`, the weight
@@ -226,11 +201,6 @@ every combination's maxima and reactions, and the overlay draws the SLS shape co
 the ULS envelope. `design_basis="unfactored"` checks both at G + Q, which is the Karamba
 route's basis.
 
-Live, Atelier-07 mezzanine (2026-10-01), floor 2.0 kN/m² (Q) + 1.0 kN/m² (G): CHS 193.7×8
-looked adequate for strength unfactored (u 0.76) but fails at ULS (u 1.10; 1.04 with
-6.10a/b) as well as on deflection (26.8 mm > 24.8 mm). CHS 219.1×8 passes both (18.5 mm,
-ULS u 0.86 — up from 0.59 unfactored).
-
 ## Floor area loads
 
 `validate_structure(..., floor_load_kn_m2=2.0, floor_dead_kn_m2=1.0)` (and the same on
@@ -250,12 +220,6 @@ ULS u 0.86 — up from 0.59 unfactored).
   homes (EN 1991-1-1 category A) — and `floor_dead_kn_m2` the superimposed dead load
   (build-up, finishes). Set `load_kn=0` so the generic node load does not double count.
 
-Live, Atelier-07 mezzanine (2026-10-01): 8 bays, 62 m², 4 bearing-wall edges on the
-east wall; 2.0 + 1.0 kN/m² gives 186 kN (18.75 kN straight into the wall), reactions
-192.2 kN with self weight. CHS 193.7×8 — which passed the earlier simplified 150 kN node
-load — now fails at 26.8 mm against L/250 = 24.8 mm; the lightest passing tube is
-CHS 219.1×8 (18.5 mm, utilization 0.59).
-
 ## Loads from placed assets
 
 `validate_structure(..., asset_loads=True)` and `visualize_structure(..., asset_loads=True)`
@@ -265,11 +229,9 @@ frame:
 - **Load data:** `asset/models/GeneratedAssetfiles/structural-loads.json` gives each of the 50 library
   assets an estimated self weight (dead) and in-use load (imposed: occupants at 80 kg,
   water in a filled bath, books on shelves), with category defaults for other libraries.
-  These are typical-product estimates, not measured or manufacturer data. The entry is
-  also returned by `get_asset_passport` as `structural_loads`.
+  These are typical-product estimates, not measured or manufacturer data. The internal asset passport reader also retains `structural_loads`.
 - **Placements:** Rhino objects tagged with an Almond asset id (`Almond.AssetId`,
-  `almond:asset_id`) via the bridge's `asset_placements` message, or the scene ledger
-  when `scene_id` is given.
+  `almond:asset_id`) via the bridge's `asset_placements` message. Scene ledger IDs are not public load inputs.
 - **Load path:** floor items load the highest frame level up to 1.6 m below their base (a
   lamp on a desk still loads the floor); ceiling items hang from the lowest level up to
   1.5 m above their top. The load goes to the nearest member, or is shared by the lever
@@ -288,51 +250,8 @@ asset loads to check heavy, specific items (a filled bath, full bookshelves, a k
 island) on top of the floor load — accepting some double counting as conservative — or
 on their own with the superimposed dead load as a furniture check.
 
-Live, Atelier-07 mezzanine (2026-10-01): 7 placed assets on the frame — bathtub
-(45 kg + 260 kg water and bather), bed (90 + 160 kg), toilet, a throw and three pendants
-hung beneath — total 6.6 kN; 15 placements reported as skipped (ground floor, study wing).
-CHS 114.3×4 under furniture and self weight only: 17.2 mm, utilization 0.30.
+## Verification
 
-## Benchmarks
+`src/mcp/tests/test_frame_solver.py`, `test_hand_calculations.py` and `test_ec3.py` compare closed-form beam/column results, equilibrium, superposition, orientation invariance, mechanisms, section properties and member checks. `test_native_structure.py` compares the reference cases in `src/mcp/tests/data/karamba_reference.json`; `features/structure/validation/mutation_check.py` checks whether known calculation faults are detected.
 
-Asserted in `src/mcp/tests/test_frame_solver.py` (20 closed-form cases including equilibrium,
-superposition, orientation invariance, mechanisms, section properties and EN 1993
-buckling) and `src/mcp/tests/test_native_structure.py` (Karamba cross-check). Regenerate the
-tables with `uv run python src/mcp/features/structure/validation/run_structural_benchmarks.py`.
-
-### Closed form (CHS 114.3×4, S235)
-
-| Case | Closed form | Exact (mm) | Native (mm) | Error |
-| --- | --- | ---: | ---: | ---: |
-| Cantilever, tip load 10 kN, 3 m | PL³/3EI | 203.0514 | 203.0514 | 0.0e+00 |
-| Cantilever, UDL 5 kN/m, 4 m (1 element) | wL⁴/8EI | 360.9803 | 360.9803 | 1.1e-16 |
-| Simply supported, UDL 8 kN/m, 6 m | 5wL⁴/384EI | 304.5771 | 304.5771 | 6.7e-16 |
-| Simply supported, midspan 12 kN, 5 m | PL³/48EI | 70.5040 | 70.5040 | 7.8e-16 |
-| Fixed-fixed, UDL 6 kN/m, 5 m | wL⁴/384EI | 22.0325 | 22.0325 | 1.1e-16 |
-| Two-bar truss, apex 20 kN | PL/2EA·sin²α | 0.2386 | 0.2386 | 2.2e-16 |
-
-### Karamba3D cross-check
-
-Reference runs: Karamba3D 3.1 (karambaCommon 3.1.60921) in Rhino 8, 2026-09-30, on the
-same geometry and conventions (`src/mcp/tests/data/karamba_reference.json`).
-
-| Model | Section | Load (kN) | Karamba δ (mm) | Native δ (mm) | Δ | Karamba u | Native u | Δ |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| portal_cantilever | CHS 114.3×4 | 10 | 110.45 | 110.15 | -0.3% | 1.209 | 1.209 | +0.0% |
-| mezzanine | CHS 114.3×4 | 150 | 183.01 | 182.32 | -0.4% | 3.588 | 3.501 | -2.4% |
-| mezzanine | CHS 139.7×5 | 150 | 82.05 | 81.59 | -0.6% | 1.910 | 1.911 | +0.1% |
-| mezzanine | CHS 168.3×6.3 | 150 | 38.56 | 38.25 | -0.8% | 1.072 | 1.076 | +0.4% |
-| mezzanine | CHS 193.7×8 | 150 | 20.92 | 20.71 | -1.0% | 0.664 | 0.668 | +0.5% |
-| mezzanine | CHS 219.1×8 | 150 | 14.52 | 14.33 | -1.3% | 0.519 | 0.522 | +0.5% |
-| mezzanine | CHS 114.3×4 | 0.001 | 6.20 | 6.19 | -0.2% | 0.106 | 0.107 | +0.7% |
-| mezzanine | CHS 114.3×4 | 50 | 65.11 | 64.87 | -0.4% | 1.235 | 1.238 | +0.3% |
-| mezzanine | CHS 114.3×4 | 100 | 124.06 | 123.59 | -0.4% | 2.375 | 2.370 | -0.2% |
-
-The deflection gap grows slightly with stockier sections: Karamba uses Timoshenko
-beams (shear deformation), the native solver Euler-Bernoulli. Bending-governed members
-match Karamba's utilization within 1 %; compression members can differ by up to ~11 %
-(EN 1993 6.3 linear interaction here, Karamba's own interaction factors there).
-
-Live check (2026-10-01): the mezzanine exported from Rhino through `structure_model`
-gave native 182.31 mm / u 3.50 vs Karamba `validate` 182.53 mm / u 3.59 (CHS 114.3×4),
-and 20.70 mm / 0.668 vs 20.85 mm / 0.664 (CHS 193.7×8), same verdicts.
+The native solver uses Euler-Bernoulli beams while Karamba may include Timoshenko shear deformation, so differences must be interpreted against the actual analysis method and assumptions. Benchmark outputs belong under ignored `data/`, not in this contract. Live functionality is verified in the working Rhino files the user connected, preserving existing model state.

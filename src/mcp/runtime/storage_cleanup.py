@@ -15,8 +15,12 @@ from project import ExclusiveFile, read_json
 def process_identity_alive(record: dict) -> bool | None:
     """False proves exit/PID reuse; inaccessible identities remain unknown."""
     try:
-        pid = int(record["pid"])
+        pid = record["pid"]
         expected = str(record["process_start_ticks"])
+        if (type(pid) is not int or not 0 < pid <= 0xFFFFFFFF or not expected.isascii()
+                or not expected.isdecimal() or not 0 < int(expected) <= 0x7FFFFFFFFFFFFFFF
+                or str(int(expected)) != expected):
+            return None
     except (KeyError, ValueError, TypeError):
         return None
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -41,6 +45,22 @@ def process_identity_alive(record: dict) -> bool | None:
         return str(ticks) == expected
     finally:
         kernel.CloseHandle(handle)
+
+
+def rhinocode_settled(session: Path) -> bool:
+    """A legacy native idle receipt cannot certify official CLI completion."""
+    try:
+        read_json(Path(session) / "rhinocode.json")
+    except FileNotFoundError:
+        return True
+    except (OSError, ValueError, RuntimeError):
+        return False
+    try:
+        from rhinocode import inspect_session
+        state = inspect_session(Path(session), process_inspector=process_identity_alive)
+        return isinstance(state, dict) and state.get("completed") is True
+    except Exception:
+        return False
 
 
 def plain_descendant(path: Path, root: Path) -> Path:
@@ -118,7 +138,8 @@ def cleanup_retired_sessions(storage: Path, *, exclude_token: str = "") -> list[
         return []
     removed = []
     allowed = {"ready.json", "launch.json", "worker.json", "native.json", "operation.json",
-               "last-error.json", "launcher.lock", "rhino.lock", "mcp.lock", "work.json", "artifact-write.json"}
+               "last-error.json", "launcher.lock", "rhino.lock", "mcp.lock", "work.json", "artifact-write.json",
+               "rhinocode.json"}
     for folder in list(sessions.iterdir()):
         if not re.fullmatch(r"[0-9a-f]{32}", folder.name) or folder.name == exclude_token:
             continue
@@ -136,6 +157,8 @@ def cleanup_retired_sessions(storage: Path, *, exclude_token: str = "") -> list[
             ready, native = records.get("ready", {}), records.get("native", {})
             retired = ready.get("valid") is False or native.get("phase") in {"stopped", "faulted"}
             rhino_gone = process_identity_alive(ready) is False if ready else False
+            if not rhino_gone and not rhinocode_settled(folder):
+                continue
             if not retired and not rhino_gone:
                 # A creation crash can leave only lock files; allow a day before
                 # reclaiming an unpublished generation, after exclusive probes.

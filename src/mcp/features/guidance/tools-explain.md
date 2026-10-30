@@ -1,14 +1,16 @@
 # tools.py explain
 
 <!-- instruction:get_modeling_guide -->
-Read a versioned topic from the packaged Rhino Almond modeling guide.
-Read topic="fundamental" at first use and topic="model-context" before modeling.
-Use topic="index" to discover other topics or read a known topic directly. Reuse topics read for the same guide_version. For semantic
-grouping examples, read topic="ontological-component-evidence" with include_images=true.
-Images are original reference PNGs, not captures of the current Rhino document.
-This reader does not edit the model, task database or user artifacts. Existing
-connection control and operation receipts still apply. Unknown topics fail explicitly.
-No personal skill installation, filesystem path or external URL is needed.
+Read BASIC instructions or one tool's usage instructions.
+
+Omit tool to read BASIC-INSTRUCTIONS.md and available public tool names at first use.
+Pass an exact tool name, for example tool="assign_material", for its full explanation.
+This reads static instructions without executing the named tool. Reuse instructions
+already read for the same guide_version. External connector management tools use
+connection instructions. BASIC links reference material directly.
+
+Args:
+    tool: Exact public Almond tool name; empty returns BASIC and available tool names.
 <!-- /instruction:get_modeling_guide -->
 
 ## get_construction_guidance

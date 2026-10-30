@@ -45,11 +45,11 @@ internal static class Program
                         throw new Exception("Native box volume is incorrect.");
                     doc.AdjustModelUnitSystem(Rhino.UnitSystem.Millimeters, false);
                     doc.ModelAbsoluteTolerance = 0.001;
-                    var id = doc.Objects.AddBrep(box, new Rhino.DocObjects.ObjectAttributes { Name = "probe cube" });
+                    var id = doc.Objects.AddBrep(box, new Rhino.DocObjects.ObjectAttributes { Name = "analysis cube" });
                     Guid otherId;
                     using (var other = new Rhino.Geometry.BoundingBox(5, 0, 0, 15, 10, 10).ToBrep())
                         otherId = doc.Objects.AddBrep(other, new Rhino.DocObjects.ObjectAttributes { Name = "overlap cube" });
-                    int definition = doc.InstanceDefinitions.Add("probe-block", "isolated fixture", Rhino.Geometry.Point3d.Origin,
+                    int definition = doc.InstanceDefinitions.Add("analysis-block", "isolated fixture", Rhino.Geometry.Point3d.Origin,
                         new Rhino.Geometry.GeometryBase[] { box }, new[] { new Rhino.DocObjects.ObjectAttributes { Name = "block cube" } });
                     if (definition < 0) throw new Exception("Could not create fixture block.");
                     var blockId = doc.Objects.AddInstanceObject(definition, Rhino.Geometry.Transform.Translation(30, 0, 0));
@@ -63,10 +63,10 @@ internal static class Program
                 }
             }
             if (mode == "tests") {
-                var type = typeof(Program).Assembly.GetType("NativeTests", true);
+                var type = typeof(Program).Assembly.GetType("IntersectionTests", true);
                 return (string)type.GetMethod("RunAll", BindingFlags.Public | BindingFlags.Static).Invoke(null, null);
             }
-            if (mode == "probe") {
+            if (mode == "analysis") {
                 var request = JObject.Parse(File.ReadAllText(requestPath));
                 using (var doc = Rhino.RhinoDoc.OpenHeadless((string)request["expected_model_path"])) {
                     if (doc == null) throw new Exception("Could not open isolated fixture.");
@@ -75,20 +75,20 @@ internal static class Program
                     doc.UndoRecordingEnabled = true;
                     doc.Modified = false;
                     var before = Snapshot(doc);
-                    var result = RhinoAlmondBridge.ProbeObservation.GetProbe(doc, request);
-                    if (!JToken.DeepEquals(before, Snapshot(doc))) throw new Exception("Probe changed document state.");
+                    var result = RhinoAlmondBridge.BlockAnalysis.Analyze(doc, request);
+                    if (!JToken.DeepEquals(before, Snapshot(doc))) throw new Exception("Analysis changed document state.");
                     var wrongDocument = (JObject)request.DeepClone();
                     wrongDocument["expected_model_path"] = Path.Combine(Path.GetDirectoryName(doc.Path), "wrong.3dm");
-                    if ((string)RhinoAlmondBridge.ProbeObservation.GetProbe(doc, wrongDocument)["error_code"] != "document_mismatch")
-                        throw new Exception("Probe accepted a different document.");
+                    if ((string)RhinoAlmondBridge.BlockAnalysis.Analyze(doc, wrongDocument)["error_code"] != "document_mismatch")
+                        throw new Exception("Analysis accepted a different document.");
                     var invalid = (JObject)request.DeepClone();
-                    invalid["probe"] = "execute";
+                    invalid["mode"] = "execute";
                     invalid["script"] = "doc.Objects.Clear();";
-                    if ((string)RhinoAlmondBridge.ProbeObservation.GetProbe(doc, invalid)["error_code"] != "invalid_arguments")
-                        throw new Exception("Probe accepted an arbitrary execution request.");
-                    if (!JToken.DeepEquals(before, Snapshot(doc))) throw new Exception("Rejected probe changed document state.");
+                    if ((string)RhinoAlmondBridge.BlockAnalysis.Analyze(doc, invalid)["error_code"] != "invalid_arguments")
+                        throw new Exception("Analysis accepted an arbitrary execution request.");
+                    if (!JToken.DeepEquals(before, Snapshot(doc))) throw new Exception("Rejected analysis changed document state.");
                     return new JObject { ["status"] = "ok", ["document_unchanged"] = true,
-                        ["invalid_requests_rejected"] = true, ["probe_result"] = result }.ToString();
+                        ["invalid_requests_rejected"] = true, ["analysis_result"] = result }.ToString();
                 }
             }
             throw new ArgumentException("Unknown mode.");

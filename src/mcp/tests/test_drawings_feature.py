@@ -102,6 +102,43 @@ def test_factory_uses_replaced_indexes_store_and_sender_without_cross_server_lea
     assert sent[-1] == ({"type": "import_hatch_patterns", "file_path": "controlled/pattern.pat"}, 60.0)
 
 
+def test_a4_recipe_keeps_explicit_linetype_segments_through_discovery_and_native_apply(server, tmp_path):
+    recipe = {
+        "recipe_id": "architectural_plan_section_a4_v1",
+        "name": "Architectural Plan and Section A4",
+        "projection": {"type": "parallel"},
+        "recommended_scales": ["1:50", "1:100", "1:200"],
+        "output": {"paper": "A4", "orientation": "landscape"},
+        "layers": [{
+            "path": "ALMOND-DRAW::HIDDEN", "role": "hidden",
+            "color": [120, 120, 120], "plot_color": [90, 90, 90],
+            "plot_weight_mm": 0.1, "linetype": "ALMOND A4 Hidden",
+            "linetype_segments": [
+                {"length": 3.0, "is_solid": True},
+                {"length": 1.5, "is_solid": False},
+            ],
+        }],
+    }
+    (tmp_path / "a4.json").write_text(json.dumps(recipe), encoding="utf-8")
+    server.drawing_recipe_indexer = DrawingRecipeIndexer(str(tmp_path))
+    sent = []
+
+    def sender(payload, timeout=None):
+        sent.append(json.loads(payload))
+        return json.dumps({"status": "success"})
+
+    server._send_and_receive = sender
+    discovered = call(server, "get_drawing_recipe", recipe_id=recipe["recipe_id"],
+                      field_groups=["parameters", "scales"])["recipe"]
+    assert discovered["layers"] == recipe["layers"]
+    assert discovered["recommended_scales"] == recipe["recommended_scales"]
+    assert discovered["output"] == recipe["output"]
+    assert call(server, "apply_drawing_style", recipe_id=recipe["recipe_id"])["status"] == "success"
+    assert len(sent) == 1
+    assert sent[0]["recipe_id"] == recipe["recipe_id"]
+    assert sent[0]["layers"] == recipe["layers"]
+
+
 @pytest.mark.parametrize("asset, message", [
     (None, "Unknown drawing asset_id"),
     ({"file_available": False}, "file is missing"),
@@ -132,3 +169,84 @@ def test_recipe_indexer_skips_invalid_records_and_keeps_controlled_source_privat
     assert "_source_file" not in index.public_record(record)
     assert index.get("missing") is None
     assert "Skipping drawing recipe" in capsys.readouterr().err
+
+
+def test_a4_style_success_suggests_print_review_without_executing_it(server, tmp_path):
+    """After layer application, review preparation is a next call, not a mutation."""
+    recipe_id = "architectural_plan_section_a4_v1"
+    server.drawing_recipe_indexer = recipe_index(tmp_path, recipe_id=recipe_id)
+    recipe = server.drawing_recipe_indexer.get(recipe_id)
+    recipe["review_preparation"] = {"print_display": True}
+    native_result = {"status": "success", "layers": [{"path": "ALMOND-DRAW::HIDDEN"}]}
+    sent = []
+
+    def sender(payload, timeout=None):
+        sent.append((json.loads(payload), timeout))
+        return json.dumps(native_result)
+
+    server._send_and_receive = sender
+    response = call(server, "apply_drawing_style", recipe_id=recipe_id)
+    preparation = response.pop("review_preparation")
+    assert response == native_result
+    assert preparation["status"] == "not_executed"
+    assert preparation["cli"] == {
+        "program": "rhinocode",
+        "discovery_arguments": ["list", "--json"],
+        "arguments_template": [
+            "--rhino", "{matched_pipeId}", "command", (
+                "_PrintDisplay _Scope=_Document _Viewport=_Model _State=_On _Color=_Print "
+                "_Viewport=_Layout _State=_On _Color=_Print _DetailBorder=_UsePrintWidth _Enter"
+            ),
+        ],
+    }
+    assert sent == [({"type": "apply_drawing_style", "recipe_id": recipe_id,
+                     "layers": recipe["layers"]}, 60.0)]
+
+
+@pytest.mark.parametrize("native_response", [
+    '{"status":"error","layers":[{"path":"already-applied"}],"message":"Layer update failed"}',
+    '{"status":"partial","message":"Layer application incomplete"}',
+    'Unconfirmed native response',
+])
+def test_a4_style_does_not_suggest_review_after_unconfirmed_application(server, tmp_path, native_response):
+    recipe_id = "architectural_plan_section_a4_v1"
+    server.drawing_recipe_indexer = recipe_index(tmp_path, recipe_id=recipe_id)
+    server.drawing_recipe_indexer.get(recipe_id)["review_preparation"] = {"print_display": True}
+    server._send_and_receive = lambda *_args, **_kwargs: native_response
+    assert server.exports["apply_drawing_style"](recipe_id=recipe_id) == native_response
+
+
+@pytest.mark.parametrize("recipe_id, preparation", [
+    ("technical_axon_v1", None),
+    ("technical_axon_v1", {"print_display": True}),
+    ("architectural_plan_section_a4_v1", None),
+    ("architectural_plan_section_a4_v1", {"script": "_Delete"}),
+])
+def test_existing_and_nonopted_in_styles_keep_native_response_and_payload(server, tmp_path, recipe_id, preparation):
+    server.drawing_recipe_indexer = recipe_index(tmp_path, recipe_id=recipe_id)
+    recipe = server.drawing_recipe_indexer.get(recipe_id)
+    if preparation is not None:
+        recipe["review_preparation"] = preparation
+    native_response = '{ "status": "success", "layers": [] }\n'
+    sent = []
+
+    def sender(payload, timeout=None):
+        sent.append((json.loads(payload), timeout))
+        return native_response
+
+    server._send_and_receive = sender
+    assert server.exports["apply_drawing_style"](recipe_id=recipe_id) == native_response
+    assert sent == [({"type": "apply_drawing_style", "recipe_id": recipe_id,
+                     "layers": recipe["layers"]}, 60.0)]
+
+
+def test_a4_review_preparation_is_available_in_parameters_without_expanding_summary(server, tmp_path):
+    recipe_id = "architectural_plan_section_a4_v1"
+    server.drawing_recipe_indexer = recipe_index(tmp_path, recipe_id=recipe_id)
+    preparation = {"print_display": True}
+    server.drawing_recipe_indexer.get(recipe_id)["review_preparation"] = preparation
+    summary = call(server, "get_drawing_recipe", recipe_id=recipe_id)["recipe"]
+    parameters = call(server, "get_drawing_recipe", recipe_id=recipe_id,
+                      field_groups=["parameters"])["recipe"]
+    assert "review_preparation" not in summary
+    assert parameters["review_preparation"] == preparation

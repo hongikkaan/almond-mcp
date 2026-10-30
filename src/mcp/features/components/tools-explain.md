@@ -92,12 +92,7 @@ include_ids independently enables handles; audit enables timestamps.
 ## focus_components
 
 <!-- instruction:focus_components -->
-Select, isolate and zoom to current recursive members of 1-32 Components.
-
-Uses Rhino's existing Isolate/Unisolate history; other hidden/locked context
-and any existing document state are subject to the native helper's guards.
-The operation changes the live selection/visibility/view. An uncertain native
-result must be inspected; it is never automatically retried.
+Select, isolate and zoom to Components. See BASIC-INSTRUCTIONS.md for usage and behavior.
 <!-- /instruction:focus_components -->
 
 ## response-566
