@@ -650,7 +650,8 @@ def elevations(doc, records, plane, depth, near_width, far_width, near_dark, far
             if not parameters.AddGeometry(record['geometry'], i):
                 raise ValueError('HLD rejected geometry: '+record['source'])
         watch = System.Diagnostics.Stopwatch.StartNew() if profile is not None else None
-        hld = G.HiddenLineDrawing.Compute(parameters, True)
+        # Parallel HLD can change visible segments between identical runs.
+        hld = G.HiddenLineDrawing.Compute(parameters, False)
         if watch is not None:
             profile['hld_compute_seconds'] = watch.Elapsed.TotalSeconds
         if hld is None:

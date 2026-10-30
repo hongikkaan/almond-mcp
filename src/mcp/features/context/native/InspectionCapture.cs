@@ -129,7 +129,8 @@ namespace RhinoAlmondBridge
                     }
                     ObjectObservation.ValidateDocument(doc, request);
                     if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber ||
-                        doc.Views.ActiveView != source || !JToken.DeepEquals(beforeView, ViewState(source.ActiveViewport)) ||
+                        doc.Views.ActiveView?.RuntimeSerialNumber != source.RuntimeSerialNumber ||
+                        !JToken.DeepEquals(beforeView, ViewState(source.ActiveViewport)) ||
                         !beforeSelection.SetEquals(Selected(doc)) || doc.Modified != beforeModified ||
                         !baselineIds.SetEquals(ObjectObservation.VisibleObjects(doc).Select(o => o.Id)))
                         return Error("observation_state_changed", "Document, camera, selection or visibility changed during capture; no image was returned.", tiles);

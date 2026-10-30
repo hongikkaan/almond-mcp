@@ -312,9 +312,9 @@ Rhino의 기존 Isolate/Unisolate 이력을 사용하며 선택·가시성·화�
 
 ### 도면 생성 툴
 
-[PlanSection](features/modeling/PlanSection/README.md#에이전트에서-사용)은 clipping plane GUID를 받아 평면·단면의 단면선·해치·가시 입면선을 추출한다. `execute_rhino_script`에서 해당 스크립트의 `run()`을 호출하며, 입력 형식과 호출 예시는 링크를 따른다. 단면선과 해치는 별도의 도면 레이어에 놓이고, 원본 객체·레이어·부모 블록에서 해석한 속성과 SectionStyle을 적용한다.
+[PlanSection](features/modeling/PlanSection/README.md#에이전트에서-사용)은 clipping plane GUID를 받아 평면·단면의 단면선·해치·가시 입면선을 추출한다. `execute_rhino_script`에서 해당 스크립트의 `run()`을 호출하며, 입력 형식과 호출 예시는 링크를 따른다. 출력은 별도의 도면 레이어에 놓이고 원본 객체·레이어·부모 블록에서 해석한 속성을 적용한다. 해치는 SectionStyle에 채움이 있을 때 생성되며, 입면선의 인쇄 굵기·명암은 깊이에 따라 계산한다.
 
-도면은 WorldXY(Z=0)에 놓이며, 배치 기준점은 clipping plane의 원점에 대응하는 점이다. `Create`의 `points={GUID: [x, y]}`로 그 기준점의 도면상 절대 위치를 문서 단위로 지정할 수 있다. 이미 생성한 도면은 `Update`로 저장된 기준점 위치를 유지하면서 다시 추출한다. 이때 출력에 직접 가한 형상·속성 수정은 재생성 결과로 교체된다.
+도면은 clipping plane의 축을 기준으로 WorldXY(Z=0)에 놓이며, 배치 기준점은 clipping plane의 원점에 대응하는 점이다. `Create`의 `points={GUID: [x, y]}`로 그 기준점의 도면상 절대 위치를 문서 단위로 지정한다. `Move`는 기존 도면을 그대로 옮기고, `Update`는 저장된 위치에서 다시 추출하므로 출력에 직접 가한 형상·속성 수정은 교체된다. `PDF`는 clipping의 `Paper`·`Scale`과 원점으로 용지 크기·축척·중심을 정하며, 용지 밖은 잘라낸다.
 
 ### Layout 생성 및 관리
 

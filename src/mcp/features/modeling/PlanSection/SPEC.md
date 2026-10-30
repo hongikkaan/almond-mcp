@@ -124,7 +124,7 @@ flowchart TD
 
 Clipping plane의 signed distance를 `s`라 하면 입면 범위는 depth 비활성일 때 `s >= 0`, 활성일 때 `0 <= s <= depth`다. 카메라는 원본 plane 법선 방향을 본다. HLD에 전달할 때는 clipping 부호가 반대이므로 시작 plane을 뒤집고 유한 depth에는 끝 plane을 추가한다.
 
-`elevations`는 HLD의 Visible segment만 사용한다. Tangent edge는 포함하고 hidden curve·tangent seam·인공 SectionCut edge는 제외한다. 화면의 활성 clipping 상태와 무관하게 계산한다. RejoinCompatibleVisible로 같은 FullCurve의 연속 가시 구간을 먼저 재결합한다.
+`elevations`는 HLD의 Visible segment만 사용한다. Tangent edge는 포함하고 hidden curve·tangent seam·인공 SectionCut edge는 제외한다. 화면의 활성 clipping 상태와 무관하게 계산한다. 동일 입력의 반복 계산에서 가시 구간이 달라지는 병렬 경로를 피하도록 HLD는 단일 스레드로 실행한다. RejoinCompatibleVisible로 같은 FullCurve의 연속 가시 구간을 먼저 재결합한다.
 
 거리값은 원본 객체 bbox 중심의 signed distance를 0 이상으로 제한한 값이며 가시선을 낸 원본마다 한 번 계산한다. 실제 가시 출력의 최소·최대 깊이로 정규화한 `t`를 써서 `width = near + (far - near) * t`와 darkness를 선형 보간한다. 완전히 가려진 후보는 이 최소·최대값에 포함하지 않는다. 한 깊이만 있으면 near 값을 쓴다. 최종 속성 템플릿도 원본마다 한 번 만들고 각 곡선에는 독립 복사본을 준다. 입면 plot width와 print grayscale은 이 계산값이 우선하며 display color·linetype은 원본에서 상속한다. 긴 한 객체의 segment마다 다른 깊이를 주지는 않는다.
 

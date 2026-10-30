@@ -2,20 +2,20 @@
 
 ## 해야 했던 일
 
-- DB 통합을 마친 main 위로 rebase하고 PlanSection의 사용자/에이전트 실행을 검사한다. PR 리뷰를 통과한 뒤 커밋을 하나로 정리해 병합하고 일상 체크아웃에 반영한다.
+- 사용자가 연 `군대 초소.3dm`에서 PlanSection을 사용하고, 필요한 기능·지침만 실사용 체크아웃에서 수정한다.
 
 ## 작업 방법
 
-- main 1104ccde 위에 충돌 없이 rebase했다. 기존 형상 계산과 공개 실행기의 문서 binding·Undo·결과 receipt·작업 폴더 계약을 대조했다.
-- 저장소 규칙과 사용자 요구사항을 각각 독립 검수하고 기존 PR의 미해결 리뷰도 확인했다.
-- Python 3에서 custom SectionStyle 또는 linetype이 없는 값과 있는 값의 정렬 오류를 재현했다. 정렬 시에만 값 유무를 태그로 구분하여 그룹 키·저장 메타데이터·속성별 union 경계는 유지했다.
-- 두 회귀검사에서 None·CRC 0·양수 CRC의 구분과 같은 스타일의 그룹화를 확인했다. 실제 형상 계산은 대역이며 native 품질 검증과 구분한다.
-- 자동 리뷰에서 입면 Join의 IronPython 전용 out 참조를 확인했다. Python.NET에서는 4인자 overload의 반환 tuple을 받고 기존 IronPython에서는 참조 값을 읽도록 분기했다. 매핑 검증과 출처 병합 계약을 양쪽 경로에서 검사한다.
+- 공식 RhinoCode로 AlmondConnect를 실행한 뒤 공개 MCP 실행기로 기존 지하 평면·장단면 clipping을 사용했다. Create·Move·Update와 벡터 PDF를 확인하고 원본 3dm은 저장하지 않았다.
+- 같은 원본·형상 CRC·속성·입력 순서로 반복 생성했다. 병렬 HLD 경로는 후처리 전 입면 수와 길이가 달랐고, 단일 스레드 진단 사본은 두 회차의 원시·최종 형상 서명이 같았다. 이 실행 옵션만 생산 코드에 반영했다.
+- 별도 검수 캡처에서 같은 Rhino 뷰의 새 managed wrapper를 다른 뷰로 오판하는 문제를 재현했다. 뷰 비교를 RuntimeSerialNumber로 바꾸고 나머지 상태 검사는 유지했다.
+- BASIC의 PlanSection 안내에 해치 생성 조건, 입면 인쇄 속성, Move·Update 차이와 PDF 기준을 보완했다. 특정 모델의 층·시점·작업 순서는 추가하지 않았다.
 
 ## 결과
 
-- 혼합 스타일의 None/int 비교 TypeError와 Python.NET에 없는 clr.Reference 접근을 수정 전에 재현했다. 수정 후 PlanSection 자체 검사 49개 모두 통과했다.
-- 최신 main의 RhinoCode·공개 모델링 실행·MCP 문서 연결·도구 안내 검사: 117 passed, 37 subtests passed.
-- 외부 연결기 검사 108개는 실패/오류 0, 기존 실행 환경 조건의 skip 1. 별도 native 대역 19개와 생명주기 대역 7개도 통과했다.
-- 현재 공식 로컬 MCP list_connections의 targets가 비어 있어 live Rhino·사용자 모달·PDF 품질은 재검증하지 않았다. 새 문서 생성이나 원본 모델 변경·저장은 수행하지 않았다.
-- RHP 소스·바이너리·등록이나 DB migration은 변경하지 않는다. Git 병합과 일상 체크아웃 반영 상태는 PR 기록으로 확인한다.
+- Move는 출력 GUID와 수동 색상을 유지했다. Update는 기존 출력과 수동 편집을 교체하고 저장된 배치점을 유지했다.
+- 단일 스레드로 지하 평면 324개, 장단면 610개 곡선을 생성했다. 모두 유효하고 Z=0이며 장단면 반복 생성 개수도 일치했다. 입력 SectionStyle이 모두 비어 있어 해치 0개는 계약에 맞으며, 실제 해치 생성은 이번 문서에서 검증하지 않았다.
+- 평면·단면 PDF는 각각 A3 420×297mm 한 페이지, raster image 0개인 벡터 출력이었다. 렌더링해 전체 도면과 선 표현을 확인했다. 장단면의 방향은 기존 clipping의 X축=WorldZ, Y축=WorldX를 따른다.
+- 테스트 도면 934개와 Layout을 제거했다. 원본 6,293개 객체의 GUID·형상은 보존됐고 추가 객체와 레이어는 없다. 두 clipping의 속성·사용자 데이터 내용은 원본과 일치한다. 직렬화 해시 차이는 내부 UserData 복제 카운터와 해당 CRC에만 있다. 원본 모델 파일은 저장하지 않았으며 Rhino의 modified 표시는 유지했다.
+- 오프라인 PlanSection 49개, 관련 MCP 27개 통과. 외부 연결기 108개 검사에서 실패·오류 0, 기존 skip 1; native 대역 19개와 lifecycle 대역 7개 통과. Rhino 종료 확인 후 Bridge·AlmondRhino를 경고·오류 없이 빌드·배치했고 manifest·공용 Engine 일치·일상 등록을 검증했다. 사용자가 원본 모델을 다시 연 뒤 일상 경로의 새 RHP 실제 로드·해시를 확인했다. 수정된 생산 코드의 두 평면 계산은 모두 324개와 같은 형상 서명을 냈다. 전체 문서와 전층 기둥 141개를 각각 두 시점으로 캡처해 이미지 반환과 범위 제외를 확인했고, 객체·속성·가시성·선택·카메라·modified 상태는 전후 동일했다.
+- 재현 자료는 프로젝트 `tmp/261031_PlanSection_live`의 `hld-repeat.json`, `hld-serial.json`, `section-pdf-checks.json`, `cleanup-checks.json`, `attribute-diff.json`과 두 PDF에 있다. 재시작 이후 검증은 `postbuild-verification.json`, `capture-state-checks.json`, `capture-document.png`, `capture-columns.png`에 보관했다. 재시작 전후 CRC 차이는 clipping 23개에만 있으며 원점·법선은 같고, 나머지 원본 형상의 CRC는 동일하다. 원시 HLD 통계는 RejoinCompatibleVisible 이후 측정으로, Compute와 Rejoin 중 최초 차이 지점을 분리한 결과는 아니다.
