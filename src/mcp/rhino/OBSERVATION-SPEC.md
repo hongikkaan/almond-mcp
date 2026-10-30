@@ -122,12 +122,13 @@ Python은 `capabilities.block_analysis=1`을 먼저 확인한다. 지원하지 �
 Bridge의 알 수 없는 request type도 실행 없이 unsupported_request로 거절한다.
 Component 교차체적 계산은 별도 `get_component_intersections` 계약이며 components/native가 소유한다.
 
-## C#에서 계산값 반환
+## Private Bridge C# recipe에서 계산값 반환
 
-`execute_rhino_script(script, language="csharp", timeout_seconds=60)`의 기본 C# 경로는
-`public static Run(RhinoDoc doc)` 진입점을 유지한다. JSON으로 표현 가능한 값을 반환하면
-응답의 `result`에 들어간다. 아래 반환값 규칙은 이 기존 C# 경로에 해당한다.
-공식 ScriptEditor 언어와 보존 결과 조회는 [Rhino 스크립트 실행 지침](../features/guidance/guides/references/rhino-scripting.md)을 따른다.
+재료·자산·교환·capture의 내부 Bridge recipe는 `public static Run(RhinoDoc doc)`
+진입점을 유지한다. JSON으로 표현 가능한 값을 반환하면 응답의 `result`에 들어간다.
+아래 반환값 규칙은 이 private 전송에 해당한다. 공개 `execute_rhino_script`의 C#은
+RhinoCode statement body이며 `result_json`을 지정한다. 공개 언어·완료·결과 한도는
+[RhinoCode 실행 계약](../runtime/RHINOCODE-SPEC.md)을 따른다.
 
 ```csharp
 public class Script

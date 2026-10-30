@@ -53,6 +53,7 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
         runtime = SimpleNamespace(workspace=Workspace(self.locations, AlmondStore(self.locations["state_db"])),
                                   rhinocode_availability=lambda: {"available": False, "reason": "fixture"},
                                   get_rhino_execution=lambda *args: {"status": "pending", "request_id": "fixture"})
+        self.runtime = runtime
         def sender(payload):
             self.observations.append(json.loads(payload))
             return json.dumps({"status": "success", "document": {"path": str(model), "name": model.name}, "warnings": []})
@@ -79,6 +80,20 @@ class McpContextTests(unittest.IsolatedAsyncioTestCase):
             tool = tools['execute_rhino_script']
             self.assertEqual(tool.description, 'Original executor description.')
             self.assertEqual(tool.input_schema, self.original_schema)
+
+    async def test_project_python_uses_bound_rhinocode_and_retains_pending_request(self):
+        directory = self.root / "tmp" / "project-python"
+        self.runtime.workspace = SimpleNamespace(artifact_path=lambda: directory)
+        calls = []
+        self.runtime.execute_rhinocode = lambda *args, **kwargs: calls.append((args, kwargs)) or {
+            "status": "pending", "completed": False, "request_id": "same-execution"}
+        async with Client(self.mcp) as client:
+            result = await client.call_tool('execute_project_python', {'code': 'result = doc.Name', 'timeout_seconds': 1})
+            value = json.loads(result.content[0].text)
+            self.assertEqual(value['request_id'], 'same-execution')
+            self.assertFalse(value['completed'])
+            self.assertEqual(calls, [(('result = doc.Name', 'python', 1), {'working_directory': str(directory)})])
+            self.assertFalse(directory.exists())  # Rhino creates it after target validation.
 
     async def test_metadata_distinguishes_project_and_rhino_temp(self):
         async with Client(self.mcp) as client:
