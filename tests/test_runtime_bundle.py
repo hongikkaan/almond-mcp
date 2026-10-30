@@ -26,6 +26,18 @@ def test_changed_source_requires_new_runtime_record(tmp_path):
     assert runtime.verify(tmp_path, manifest) == ["probe.cs"]
 
 
+def test_sdk_selection_is_a_shared_runtime_build_input(tmp_path, monkeypatch):
+    source = tmp_path / "global.json"
+    source.write_text('{"sdk":{"version":"8.0.100","rollForward":"latestFeature"}}', encoding="utf-8")
+    monkeypatch.setattr(runtime.subprocess, "check_output", lambda *a, **k: b"global.json\0")
+    for component in runtime.MANIFESTS:
+        assert runtime.source_files(tmp_path, component) == ["global.json"]
+        manifest = {"sources": {"global.json": runtime.source_digest(source)}, "files": {}}
+        source.write_text('{"sdk":{"version":"8.0.100","rollForward":"latestMajor"}}', encoding="utf-8")
+        assert runtime.verify(tmp_path, manifest) == ["global.json"]
+        source.write_text('{"sdk":{"version":"8.0.100","rollForward":"latestFeature"}}', encoding="utf-8")
+
+
 @pytest.mark.parametrize("relative", [
     "src/rhp/RhinoTerminal/src/web/terminal.html",
     "src/mcp/features/context/native/BlockAnalysis.cs",

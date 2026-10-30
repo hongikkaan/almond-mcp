@@ -29,15 +29,11 @@ namespace RhinoAlmondBridge
 
         public BridgeServer()
         {
-            // Resolve the Grasshopper library directory from environment or default
-            string libDir = Environment.GetEnvironmentVariable("RHINO_MCP_LIBRARY_DIR")
-                ?? FindLibraryDirectory();
-            string capsuleDir = Environment.GetEnvironmentVariable("RHINO_MCP_CAPSULE_DIR")
-                ?? FindCapsuleDirectory();
+            string libDir = ResolveLibraryDirectory("RHINO_MCP_LIBRARY_DIR", "Grasshopperfiles");
+            string capsuleDir = ResolveLibraryDirectory("RHINO_MCP_CAPSULE_DIR", "capsules");
             _validator = new StructuralValidator(libDir, capsuleDir);
             _definitionRunner = new GhDefinitionRunner(libDir, capsuleDir);
-            string drawingAssetDir = Environment.GetEnvironmentVariable("RHINO_MCP_DRAWING_ASSET_DIR")
-                ?? FindDrawingAssetDirectory();
+            string drawingAssetDir = ResolveLibraryDirectory("RHINO_MCP_DRAWING_ASSET_DIR", "DrawingAssetfiles");
             _drawingAssetManager = new FurnitureAssetManager(
                 drawingAssetDir,
                 "ALMOND-DRAW::ASSETS",
@@ -49,50 +45,19 @@ namespace RhinoAlmondBridge
             _drawingStyleManager = new DrawingStyleManager();
         }
 
-        // Resolve a library dir the same way the Python server does:
-        // env var (handled by callers) -> dev checkout near the assembly ->
-        // per-user data dir (%LOCALAPPDATA%\Almond\<name>, scaffolded by
-        // `almond-mcp` on first run) -> legacy pre-0.2 location.
-        private string FindDataDirectory(string name, string legacySubdir)
+        // Match runtime/library_paths.py, used by every real worker launcher.
+        // Installing an editable checkout must not redirect personal libraries
+        // into the source tree. Offline tests select checkout assets explicitly.
+        internal static string ResolveLibraryDirectory(string variable, string name)
         {
-            string assetPath = name == "capsules" ? Path.Combine("asset", "capsules")
-                : name == "DrawingAssetfiles" ? Path.Combine("asset", "drawing", "DrawingAssetfiles")
-                : name == "Grasshopperfiles" ? Path.Combine("asset", "grasshopper", "Grasshopperfiles") : null;
-            string directory = Path.GetDirectoryName(typeof(BridgeServer).Assembly.Location);
-            // Include the checkout root from src/rhp/<project>/bin/Release/<tfm>.
-            for (int i = 0; i < 7 && directory != null; i++)
-            {
-                if (assetPath != null)
-                {
-                    string assetCandidate = Path.Combine(directory, assetPath);
-                    if (Directory.Exists(assetCandidate)) return assetCandidate;
-                }
-                string candidate = Path.Combine(directory, name);
-                if (Directory.Exists(candidate)) return candidate;
-                directory = Path.GetDirectoryName(directory);
-            }
-
-            string userData = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Almond",
-                name
-            );
-            if (Directory.Exists(userData)) return userData;
-
+            string selected = Environment.GetEnvironmentVariable(variable);
+            if (!string.IsNullOrEmpty(selected)) return selected;
             return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "Almond",
-                legacySubdir,
-                name
+                Environment.GetEnvironmentVariable("LOCALAPPDATA")
+                    ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Almond", name
             );
         }
-
-        private string FindLibraryDirectory() => FindDataDirectory("Grasshopperfiles", "");
-
-
-        private string FindCapsuleDirectory() => FindDataDirectory("capsules", "mcp-rhino-plugin");
-
-        private string FindDrawingAssetDirectory() => FindDataDirectory("DrawingAssetfiles", "mcp-rhino-plugin");
 
         /// <summary>
         /// Routes a JSON request to the appropriate handler based on the "type" field.

@@ -1,6 +1,7 @@
 """Compile the actual C# wrapper with an offline Rhino API stub; never load Rhino."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -13,11 +14,13 @@ ROOT = Path(__file__).resolve().parents[4]
 
 @pytest.fixture(scope="module")
 def csharp_wrapper(tmp_path_factory):
-    sdk = ROOT / "src/rhp/RhinoTerminal/data/sdk/dotnet.exe"
-    if not sdk.is_file():
+    sdk = os.environ.get("ALMOND_TEST_DOTNET") or ROOT / "src/rhp/RhinoTerminal/data/sdk/dotnet.exe"
+    if not Path(sdk).is_file():
         sdk = shutil.which("dotnet")
     assert sdk, "The offline C# wrapper fixture requires the .NET 8 SDK."
     directory = tmp_path_factory.mktemp("csharp-wrapper")
+    # dotnet chooses global.json from cwd; this fixture builds outside the checkout.
+    shutil.copyfile(ROOT / "global.json", directory / "global.json")
     assembly = ROOT / "src/rhp/RhinoAlmondBridge/plugin-runtime/Newtonsoft.Json.dll"
     assert assembly.is_file(), "The shipped Newtonsoft.Json dependency is required."
     (directory / "Fixture.csproj").write_text('''<Project Sdk="Microsoft.NET.Sdk">

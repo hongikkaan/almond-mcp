@@ -32,22 +32,7 @@ namespace RhinoAlmondBridge
 
         private static string FindCapsuleDirectory()
         {
-            string env = Environment.GetEnvironmentVariable("RHINO_MCP_CAPSULE_DIR");
-            if (!string.IsNullOrEmpty(env)) return env;
-
-            string directory = Path.GetDirectoryName(typeof(StructuralValidator).Assembly.Location);
-            // Include the checkout root from src/rhp/<project>/bin/Release/<tfm>.
-            for (int i = 0; i < 7 && directory != null; i++)
-            {
-                string assetCandidate = Path.Combine(directory, "asset", "capsules");
-                if (Directory.Exists(assetCandidate)) return assetCandidate;
-                string candidate = Path.Combine(directory, "capsules");
-                if (Directory.Exists(candidate)) return candidate;
-                directory = Path.GetDirectoryName(directory);
-            }
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "Almond", "mcp-rhino-plugin", "capsules");
+            return BridgeServer.ResolveLibraryDirectory("RHINO_MCP_CAPSULE_DIR", "capsules");
         }
 
         /// <summary>

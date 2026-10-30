@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
+import pytest
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -52,8 +53,12 @@ class FakeCli:
 
 
 class RuntimeCliTests(unittest.IsolatedAsyncioTestCase):
+    @pytest.fixture(autouse=True)
+    def receipt_root(self, tmp_path_factory):
+        self.receipt_base = tmp_path_factory.mktemp("rc")
+
     def setUp(self):
-        base = Path(__file__).resolve().parents[4] / 'data'
+        base = self.receipt_base
         base.mkdir(exist_ok=True)
         self.directory = tempfile.TemporaryDirectory(prefix='_rc_', dir=base)
         self.addCleanup(self.directory.cleanup)

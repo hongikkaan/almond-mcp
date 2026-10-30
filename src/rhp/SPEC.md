@@ -72,6 +72,9 @@ Terminal은 TerminalSmoke·AlmondHostContracts·TerminalControls와 Node 입력 
 
 Bridge·연결 RHP의 시작 동작과 실제 배포 명령 목록은
 [native startup fixture](../../tests/native_startup/README.md)로 검사한다.
+일상 worker와 실제 배포 RHP의 라이브러리 캐시는
+[library startup fixture](RhinoAlmondBridge/tests/library_paths/README.md)로 비교한다.
+managed helper 생성과 Engine 경로 검사만 사용하며 Rhino 프로세스나 문서는 시작하지 않는다.
 
 Rhino의 지연 로드는 `CommandList` 등록에 의존한다. 연결 명령 변경 시 설치 스크립트가
 백업 후 새 이름을 등록하고 이 fork에서 제거한 명령 값만 삭제한다. 다른 패널 명령과

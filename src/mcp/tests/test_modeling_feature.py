@@ -2,7 +2,6 @@
 import asyncio
 import importlib.util
 import json
-import socket
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -90,47 +89,36 @@ def test_current_library_and_sender_are_resolved_for_each_call(feature):
         "total": 0, "materials": [], "library_dir": str(replacement.directory),
     }
     sent = []
-    feature._send_and_receive = lambda payload, **kwargs: sent.append(json.loads(payload)) or '{"status":"success","result":1}'
+    feature._execute_rhinocode = lambda *args: sent.append(args) or {"status":"success","result":1}
     assert call(feature.execute_rhino_script, script="first")["result"] == 1
-    feature._send_and_receive = lambda payload, **kwargs: '{"status":"success","result":2}'
+    feature._execute_rhinocode = lambda *args: {"status":"success","result":2}
     assert call(feature.execute_rhino_script, script="second")["result"] == 2
-    assert sent == [{"type": "execute", "script": "first"}]
+    assert sent == [("first", "python", 60)]
 
 
 def test_separate_registration_has_separate_context(feature, original_server):
     second = SimpleNamespace(
         material_library=MaterialLibrary(original_server.MATERIAL_LIBRARY_DIR),
         construction_library=original_server.construction_library,
-        _send_and_receive=lambda payload, **kwargs: '{"status":"success","result":"second"}',
+        _execute_rhinocode=lambda *args: {"status":"success","result":"second"},
     )
     second.__dict__.update(register(FastMCP("second modeling context"), second))
-    feature._send_and_receive = lambda payload, **kwargs: '{"status":"success","result":"first"}'
+    feature._execute_rhinocode = lambda *args: {"status":"success","result":"first"}
     assert call(feature.execute_rhino_script, script="test")["result"] == "first"
     assert call(second.execute_rhino_script, script="test")["result"] == "second"
 
 
-@pytest.mark.parametrize("exception, message", [
-    (socket.timeout(), "Rhino bridge timed out (>60s)."),
-    (ConnectionRefusedError(), "Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"),
-    (RuntimeError("wire failed"), "Bridge error: wire failed"),
+@pytest.mark.parametrize("language, dispatched", [
+    ("python", "python"), ("python2", "python2"), ("csharp", "csharp-script"),
+    ("csharp-script", "csharp-script"), ("command", "command"),
 ])
-def test_executor_preserves_errors_without_retry(feature, exception, message):
-    requests = []
-    def send(payload, **kwargs):
-        requests.append(payload)
-        raise exception
-    feature._send_and_receive = send
-    assert call(feature.execute_rhino_script, script="test") == {"status": "error", "message": message}
-    assert len(requests) == 1
-
-
-def test_official_execution_is_bound_and_never_falls_back_to_legacy(feature):
+def test_official_execution_is_bound_and_never_falls_back_to_legacy(feature, language, dispatched):
     requests = []
     feature._execute_rhinocode = lambda source, language, timeout: requests.append(
         (source, language, timeout)) or {"status": "running", "request_id": "owned-request"}
-    result = call(feature.execute_rhino_script, script="result = 42", language="python", timeout_seconds=5)
+    result = call(feature.execute_rhino_script, script="source", language=language, timeout_seconds=5)
     assert result == {"status": "running", "request_id": "owned-request"}
-    assert requests == [("result = 42", "python", 5)]
+    assert requests == [("source", dispatched, 5)]
 
 
 def test_missing_official_runtime_is_not_started(feature):

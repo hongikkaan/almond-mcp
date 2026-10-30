@@ -52,8 +52,8 @@ beyond·CoS에서는 연결별 `connection_id`를 전달한다. 명시적 요청
 | `project_info` | 필요한 `sections`: project, document, artifacts, runtime, instructions | 프로젝트 루트·파일명·공유 DB·현재 문서·작업자료 위치 조회. document에 live 확인이 포함된다. |
 | `save_rhino_document` | 없음 | 연결된 기존 `.3dm`을 같은 경로에 비대화식 저장. `saved=null`이면 완료 불명이므로 재시도 전에 실제 결과를 확인한다. |
 | `rename_artifact_folder` | `name`, 선택적 `plan_id` | 작업자료 폴더와 관련 참조를 함께 변경. |
-| `execute_project_python` | `code`, 선택적 `timeout_seconds` | 선택한 작업자료 폴더에서 Python 실행. Rhino 형상 편집용 도구는 아니다. |
-| `execute_rhino_script`| `script`, 선택적 `language`, `timeout_seconds` | Rhino 형상·속성 편집 또는 계산. C#, Python, Python 2, C# script, command 지원. `language="python"`은 Python 3이며 기본 C#은 Run 계약을 따른다. |
+| `execute_project_python` | `code`, 선택적 `timeout_seconds` | 선택한 작업자료 폴더를 cwd로 하여 RhinoCode Python 3 실행. RhinoCommon과 연결된 doc 사용 가능. |
+| `execute_rhino_script`| `script`, 선택적 `language`, `timeout_seconds` | RhinoCode로 형상·속성 편집 또는 계산. 기본 Python 3, Python 2, C# statement body, command 지원. 도구 설명에 내장 rhino3d-scripts 자료가 포함된다. |
 
 ### Phase → Task → Step
 

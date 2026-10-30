@@ -168,24 +168,20 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
     @mcp.tool()
     @tool_instruction(__file__, 'execute_project_python')
     def execute_project_python(code: str, timeout_seconds: StrictInt = 60) -> dict:
+        if not isinstance(code, str) or not code.strip():
+            raise ValueError("code must be nonempty Python source.")
         if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 600:
             raise ValueError("timeout_seconds must be 1-600.")
         if runtime is None or runtime.workspace is None:
             raise RuntimeError("The project workspace is not connected.")
         directory = runtime.workspace.artifact_path()
-        directory.mkdir(parents=True, exist_ok=True)
-        try:
-            from python_runner import run_python
-            result = run_python(code, directory, timeout_seconds)
-            result["artifact_dir"] = relative_path(str(directory))
-            if result["timed_out"]:
-                result["message"] = "Python exceeded its time limit and was stopped. Existing artifacts were retained; do not automatically repeat writes."
-            return result
-        finally:
-            try:
-                directory.rmdir()
-            except OSError:
-                pass
+        # Same process/document fence and late-result recovery as Rhino scripts.
+        # Rhino runs asynchronously after CLI acknowledgement, so this tool must
+        # never kill a Python child or remove its cwd when waiting expires.
+        result = runtime.execute_rhinocode(code, "python", timeout_seconds,
+                                          working_directory=str(directory))
+        result["artifact_dir"] = relative_path(str(directory))
+        return result
 
 
 def serve(args, binding, locations, db, *, configure=None):

@@ -37,6 +37,8 @@ def is_source(relative, component):
     if any(part in {"tests", "data", "bin", "obj"} or part.startswith("plugin-")
            for part in path.parts):
         return False
+    if relative == "global.json":
+        return True
     if component == "bridge" and relative == "src/mcp/modeling_policy.json":
         return True
     return relative.startswith(SOURCE_ROOTS[component]) and (

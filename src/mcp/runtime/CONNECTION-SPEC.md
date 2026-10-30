@@ -34,6 +34,12 @@ Rhino 플러그인의 assembly·namespace·출력 폴더는 `AlmondRhino`, 클�
 RhinoTerminal의 Bridge 전송과 생명주기는 그대로 둔다. 다른 연결의 ID를 재사용하거나
 잠금을 제거하지 않는다. timeout은 rollback이 아니다.
 
+일상 worker와 Bridge의 라이브러리 기본 위치는 `%LOCALAPPDATA%\Almond\<라이브러리명>`이다.
+`RHINO_MCP_*_DIR`에 명시한 경로가 우선하며, RHP가 있는 저장소의 `asset/` 존재 여부로
+일상 라이브러리를 바꾸지 않는다. 오프라인 개발 셸은 저장소 자산을 명시적으로 선택한다.
+Bridge는 시작할 때 이 경로를 캐시하므로 worker와 실제 캐시가 다르면 native 요청을 거부한다.
+기존 라이브러리를 옮기거나 캐시를 호출 중에 바꾸지 않고, 같은 설정으로 시작한 두 쪽을 비교한다.
+
 설계 용어는 `ontological-component`다. 기존 도구의 `get_ontological_component` 등 이름과
 `component_id`, 저장 메타데이터·DB 키는 API 호환 식별자로 유지한다.
 표현 변경을 데이터 이전이나 전체 도구 rename으로 취급하지 않는다.

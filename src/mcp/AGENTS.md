@@ -17,7 +17,7 @@ load Python changes. Do not remove source/version checks to allow mixed workers.
 Keep the stable interpreter location separate from source ownership.
 
 The offline C# RhinoCode wrapper tests compile the actual template with Rhino API
-stubs using the .NET 8 SDK (checkout SDK first, then PATH). They must not load Rhino
+stubs using the .NET 8 SDK (`-DotNet` first, then checkout SDK and SDK-bearing PATH entries). They must not load Rhino
 or real documents; a missing SDK is an explicit prerequisite error, not a skip.
 
 Keep BASIC-INSTRUCTIONS.md as the shared work guidance. get_modeling_guide() returns BASIC; tool selects an adjacent public-tool explanation. Keep the reader static and preserve source fingerprints; do not add topic routing or per-tool help switches.

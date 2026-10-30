@@ -1,13 +1,13 @@
 # RhinoCode 실행 계약
 
-`execute_rhino_script`는 기존 Bridge C# Run 실행과 공식 Rhino ScriptServer 실행을 제공한다. 런타임은 연결된 Rhino·저장 문서를 확인하고 호출별 완료 근거를 관리한다. 입력 사용법은 `get_modeling_guide(tool="execute_rhino_script")`, 작업 판단은 [BASIC](../BASIC-INSTRUCTIONS.md), 고정 관찰과 캡처는 [관측 계약](../rhino/OBSERVATION-SPEC.md)을 따른다.
+`execute_rhino_script`와 `execute_project_python`은 공식 RhinoCode → Rhino ScriptEditor에서 실행한다. 런타임은 연결된 Rhino·저장 문서를 확인하고 호출별 완료 근거를 관리한다. 입력 사용법과 내장 rhino3d-scripts 자료는 `get_modeling_guide(tool="execute_rhino_script")` 또는 해당 Python 도구명으로 조회한다. 작업 판단은 [BASIC](../BASIC-INSTRUCTIONS.md), 고정 관찰과 캡처는 [관측 계약](../rhino/OBSERVATION-SPEC.md)을 따른다.
 
 ## 실행 경로와 언어
 
 | language | 실행 계약 |
 |---|---|
-| `csharp` | 기본값. Bridge/Roslyn의 `public static Run(RhinoDoc doc)` 유지 |
-| `python` | 공식 RhinoCode Python 3. 동기 본문에 `doc`, `result`, `artifact_dir` 제공 |
+| `csharp` | `csharp-script`와 같은 공식 C# statement body. 이전 공개 Run 클래스 형식은 지원하지 않음 |
+| `python` | 기본값. 공식 RhinoCode Python 3. 동기 본문에 `doc`, `result`, `artifact_dir`, `project_root` 제공 |
 | `python2` | 해당 Rhino에서 확인된 공식 Python 2 실행 |
 | `csharp-script` | 공식 C# statement body. Run 클래스를 감싸지 않고 `doc`, `result_json` 사용 |
 | `command` | 확인된 ScriptRunner 문맥에서 완전한 Rhino command macro 실행 |
@@ -15,6 +15,16 @@
 공식 모드는 해당 Rhino의 `StartScriptServer`와 현재 runtime capability를 요구한다. `rhinocode list --json`의 정확한 pipeId·프로세스 identity·문서를 확인하고 그 pipe를 `--rhino`로 지정한다. pipe와 Almond A–J 슬롯은 서로 다른 식별자다. 첫 Rhino나 PID 추정으로 대상을 선택하지 않는다.
 
 패키지는 연결 runtime의 callback을 사용하며 외부 연결기 구현을 import하지 않는다. CLI는 Python worker의 자식 프로세스로, shell 없는 인자 배열로 실행한다. Rhino UI-thread handler 안에서 외부 CLI를 기다리지 않는다.
+
+프로젝트 Python은 선택한 Plan의 산출물 폴더를 cwd로 사용한다. 일반 스크립트는 프로젝트
+루트를 사용한다. Rhino wrapper는 cwd와 프로젝트·모델·산출물 환경을 일시 적용하고 복구한다.
+외부 worker venv 실행기는 제거했으며, 그 패키지를 Rhino Python에 자동 설치하지 않는다.
+timeout은 두 공개 도구 모두 실행 종료가 아닌 대기 한도다.
+
+스킬 본문·네 참고자료·라이선스는 `features/modeling/rhino3d-scripts`에 포함한다.
+정적 도구 가이드 snapshot과 source fingerprint가 이 파일들도 포함하므로 연결 도중
+개인 설치본이나 네트워크 내용으로 지침이 바뀌지 않는다. 자동화 적용 차이는 그 폴더의
+`INTEGRATION.md`에 명시한다. 대화형 선택·macro의 강제 취소를 자동 도입하지 않는다.
 
 ## 문서 identity와 실행 범위
 
@@ -38,7 +48,10 @@ ProjectRuntime, native release/drain과 종료 세션 회수는 durable external
 
 wrapper는 자신이 소유한 0이 아닌 Undo record만 종료한다. 사용자 코드 실패는 앞선 작업의 자동 Undo를 뜻하지 않는다. 부분 적용·실행 오류·결과 표시 오류는 서로 다른 상태다. command 모드는 bound 문서에서 동기 완료가 확인되는 실행 문맥에 한정하며 event pumping으로 완료를 추정하지 않는다.
 
-기존 `csharp` 경로의 반환 한도와 rollback 동작은 관측 계약의 C# 결과 반환 절을 따른다. `result_error`만으로 실제 변경이 취소됐다고 해석하지 않는다.
+재료·레이어·자산·교환·capture의 내부 recipe는 공개 실행 도구의 호출부가 아니다.
+그 private Bridge/Roslyn 전송과 `ManagedFiles`, `guids`, 반환 한도는 기존 계약을 유지한다.
+공개 소스 실행은 그 전송으로 fallback하지 않는다. `result_error`만으로 실제 변경이
+취소됐다고 해석하지 않는다.
 
 ## 완료 결과 조회
 
