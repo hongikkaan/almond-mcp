@@ -19,6 +19,8 @@ def csharp_wrapper(tmp_path_factory):
         sdk = shutil.which("dotnet")
     assert sdk, "The offline C# wrapper fixture requires the .NET 8 SDK."
     directory = tmp_path_factory.mktemp("csharp-wrapper")
+    # dotnet chooses global.json from cwd; this fixture builds outside the checkout.
+    shutil.copyfile(ROOT / "global.json", directory / "global.json")
     assembly = ROOT / "src/rhp/RhinoAlmondBridge/plugin-runtime/Newtonsoft.Json.dll"
     assert assembly.is_file(), "The shipped Newtonsoft.Json dependency is required."
     (directory / "Fixture.csproj").write_text('''<Project Sdk="Microsoft.NET.Sdk">

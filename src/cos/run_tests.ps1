@@ -14,16 +14,19 @@ $env:DOTNET_CLI_HOME=Join-Path $root 'data\dotnet-home'
 $sdk=$env:ALMOND_TEST_DOTNET
 $engineTests=Join-Path $src 'rhp\Engine\tests'
 $cosTests=Join-Path $repo 'src\cos\tests'
-& $sdk build (Join-Path $engineTests 'NativeFixture.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
-if($LASTEXITCODE) { throw 'Native fixture build failed.' }
-& $sdk (Join-Path $engineTests 'bin\Release\net8.0-windows\Almond.NativeFixture.dll')
-if($LASTEXITCODE) { throw 'Native fixture verification failed.' }
-& $sdk build (Join-Path $cosTests 'HostLifecycle\HostLifecycle.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
-if($LASTEXITCODE) { throw 'AlmondRhino lifecycle fixture build failed.' }
-& $sdk (Join-Path $cosTests 'HostLifecycle\bin\Release\net8.0-windows\HostLifecycle.dll')
-if($LASTEXITCODE) { throw 'AlmondRhino lifecycle verification failed.' }
-& $sdk build (Join-Path $cosTests 'PipeFixture.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
-if($LASTEXITCODE) { throw 'Pipe fixture build failed.' }
+Push-Location $repo
+try {
+    & $sdk build (Join-Path $engineTests 'NativeFixture.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
+    if($LASTEXITCODE) { throw 'Native fixture build failed.' }
+    & $sdk (Join-Path $engineTests 'bin\Release\net8.0-windows\Almond.NativeFixture.dll')
+    if($LASTEXITCODE) { throw 'Native fixture verification failed.' }
+    & $sdk build (Join-Path $cosTests 'HostLifecycle\HostLifecycle.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
+    if($LASTEXITCODE) { throw 'AlmondRhino lifecycle fixture build failed.' }
+    & $sdk (Join-Path $cosTests 'HostLifecycle\bin\Release\net8.0-windows\HostLifecycle.dll')
+    if($LASTEXITCODE) { throw 'AlmondRhino lifecycle verification failed.' }
+    & $sdk build (Join-Path $cosTests 'PipeFixture.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
+    if($LASTEXITCODE) { throw 'Pipe fixture build failed.' }
+} finally { Pop-Location }
 $env:ALMONDRHINO_TEST_DOTNET=$sdk
 $python=if ($Development) {
     Join-Path $repo 'data\development\.venv\Scripts\python.exe'

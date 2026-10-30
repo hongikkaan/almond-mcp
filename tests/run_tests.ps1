@@ -16,8 +16,11 @@ $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
 $env:DOTNET_NOLOGO = '1'
 $env:DOTNET_CLI_HOME = Join-Path $repo 'data/dotnet-home'
 $archive = Join-Path $repo 'src/rhp/RhinoAlmondBridge/tests/archive_host'
-& $DotNet build (Join-Path $archive 'ArchiveHost.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
-if ($LASTEXITCODE) { throw 'ArchiveHost fixture build failed; integration tests did not run.' }
+Push-Location $repo
+try {
+    & $DotNet build (Join-Path $archive 'ArchiveHost.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
+    if ($LASTEXITCODE) { throw 'ArchiveHost fixture build failed; integration tests did not run.' }
+} finally { Pop-Location }
 $env:ALMOND_ARCHIVE_TEST_HOST = Join-Path $archive 'bin/Release/net48/ArchiveHost.exe'
 if (-not (Test-Path -LiteralPath $env:ALMOND_ARCHIVE_TEST_HOST -PathType Leaf)) {
     throw 'ArchiveHost executable is missing; integration tests did not run.'

@@ -20,8 +20,11 @@ if ($RequireDotNet -or $DotNet) {
     }
     foreach ($candidate in $candidates | Select-Object -Unique) {
         if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
-        $sdks = & $candidate --list-sdks
-        if ($LASTEXITCODE -eq 0 -and @($sdks | Where-Object { $_ -match '^8\.' }).Count) {
+        # --list-sdks is only inventory; global.json must govern the actual selection.
+        Push-Location $offlineRepo
+        try { $selectedVersion = & $candidate --version 2>$null }
+        finally { Pop-Location }
+        if ($LASTEXITCODE -eq 0 -and $selectedVersion -match '^8\.0\.\d+$') {
             $offlineSdk = [IO.Path]::GetFullPath($candidate)
             break
         }
@@ -69,7 +72,7 @@ if ($offlineSdk) {
     $sdkDirectory = Split-Path $offlineSdk -Parent
     $otherPaths = @($env:PATH -split ';' | Where-Object { $_ -and $_ -ne $sdkDirectory })
     $env:PATH = (@($sdkDirectory) + $otherPaths) -join ';'
-    Write-Output "Offline test SDK: $offlineSdk"
+    Write-Output "Offline test SDK: $offlineSdk ($selectedVersion)"
 }
 Write-Output "Offline test data: $(Join-Path $offlineRepo 'data\offline')"
 Write-Output "Offline temporary files: $($offlineValues.TEMP)"
