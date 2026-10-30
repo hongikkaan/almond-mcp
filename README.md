@@ -11,6 +11,7 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, AlmondRhino는 별도 RHP로 구
 - [Rhino 패널 사용법](src/mcp/features/assets/guides/rhino-archive-quickstart.md)
 - [자산 검색·배치·도면·출처 관리](src/mcp/features/assets/SPEC.md)
 - [Rhino 모델링 지침](src/mcp/BASIC-INSTRUCTIONS.md) · [Component 등록·계층·동기화](src/mcp/features/components/SPEC.md) · [Phase·Plan·Step 저장·참조](src/mcp/SPEC.md#계획-저장참조)
+- [PlanSection: 단면 생성·업데이트·배치점 이동·PDF](src/mcp/features/modeling/PlanSection/README.md)
 - [현재 문서·화면·고정 probe·C# 반환값](src/mcp/rhino/OBSERVATION-SPEC.md)
 - [공식 Rhino CLI·Python/C# 실행 지침](src/mcp/features/guidance/guides/references/rhino-scripting.md) · [구현 범위·현재 검증 상태](src/mcp/runtime/RHINOCODE-SPEC.md)
 - [구조해석 사용법](src/mcp/features/structure/guides/tutorial.md) · [native solver](src/mcp/features/structure/SPEC.md) · [Karamba 경로](src/mcp/features/structure/validation/SPEC.md) · [설계 코드](src/mcp/features/structure/PROFILES-SPEC.md)
