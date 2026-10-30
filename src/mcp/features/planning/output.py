@@ -3,7 +3,7 @@ from almond_mcp.query_output import select_fields, requires_full_evidence
 
 
 PLAN_CORE = {"plan_id", "goal", "scope", "status", "revision"}
-PHASE_CORE = {"phase_id", "name", "plan_count"}
+PHASE_CORE = {"phase_id", "name", "status", "plan_count"}
 GROUPS = {
     "steps": {"steps"},
     "references": {"phase_id", "scene_ids", "component_id", "component_ids", "depends_on",
@@ -12,7 +12,7 @@ GROUPS = {
     "geometry": {"direct_object_ids", "effective_object_ids"},
     "artifacts": {"artifact_dir", "artifact_refs"},
     "description": {"description"},
-    "scope": {"file_name", "model_path", "rhino_group_id"},
+    "scope": {"file_name", "project_file_id", "model_path", "rhino_group_id"},
     "audit": {"created_at", "updated_at"},
 }
 PHASE_GROUPS = {key: GROUPS[key] for key in ("description", "scope", "audit")}

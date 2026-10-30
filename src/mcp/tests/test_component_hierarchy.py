@@ -1,508 +1,220 @@
-"""Single-parent Component hierarchy, recursive Scene context and native contracts."""
+"""Semantic hierarchy persistence with geometry owned by an independent native fake."""
+import copy
 import sqlite3
 import uuid
-from contextlib import closing
 
 import pytest
 
 from almond_mcp.retrieval_store import AlmondStore, ComponentReconciliationError
 
-
 A, B, C = [str(uuid.UUID(int=value)) for value in (101, 102, 103)]
+
+
+def object_row(guid, component_id, kind="Brep"):
+    return dict(rhino_guid=guid,object_type=kind,component_id=component_id,bounds_mm=[0,0,0,100,200,300])
+
+
+class NativeGroups:
+    """External document state: never reconstruct geometry from the SQLite store."""
+    def __init__(self):
+        self.records={}
+        self.calls=[]
+
+    def read(self, handle):
+        row=copy.deepcopy(self.records[handle])
+        available=row.get('availability','present')=='present'
+        direct=row['objects'] if available else []
+        effective={o['rhino_guid']:o for o in direct}
+        if available:
+            for child in row['child_component_ids']:
+                effective.update({o['rhino_guid']:o for o in self.read(child)['effective_objects']})
+        row.update(objects=direct,object_ids=sorted(o['rhino_guid'] for o in direct),
+            effective_objects=[effective[g] for g in sorted(effective)],effective_object_ids=sorted(effective))
+        return row
+
+    def __call__(self, request):
+        self.calls.append(copy.deepcopy(request))
+        action=request['action']
+        if action=='inspect_many':
+            ids=request.get('component_ids')
+            ids=set(ids if ids is not None else [h for h,r in self.records.items() if r['model_path']==request['expected_model_path']])
+            if request.get('discover_scene'):
+                ids.update(h for h,r in self.records.items() if request['scene_id'] in r['scene_ids'] and r['model_path']==request['expected_model_path'])
+            pending=list(ids)
+            while pending:
+                for child in self.records[pending.pop()]['child_component_ids']:
+                    if child not in ids:
+                        ids.add(child); pending.append(child)
+            return dict(status='success',complete=True,model_path=request['expected_model_path'],editing={'stable':True},
+                components=[self.read(h) for h in sorted(ids)],problems=[])
+        handle=request['component_id']
+        if action=='inspect':
+            return dict(status='success',component=self.read(handle))
+        if action=='unregister':
+            old=self.records[handle]
+            children=old['child_component_ids'][:]
+            for child in children:
+                self.records[child]['parent_component_id']=None
+            old['availability']='unregistered'
+            old['child_component_ids']=[]
+            return dict(status='success',component_id=handle,model_path=old['model_path'],rhino_group_id=old['rhino_group_id'],
+                detached_child_component_ids=children,affected_components=[self.read(h) for h in children])
+        assert action=='upsert'
+        for h,row in self.records.items():
+            if h!=handle and row['model_path']==request['expected_model_path'] and row.get('availability','present')=='present':
+                if set(request['object_ids']) & {o['rhino_guid'] for o in row['objects']}:
+                    return dict(status='error',message='Object is directly owned by another meaning unit.',mutation_applied=False)
+        previous=self.records.get(handle)
+        old_children=set(previous['child_component_ids']) if previous else set()
+        children=request.get('child_component_ids',[])
+        row=dict(complete=True,component_id=handle,model_path=request['expected_model_path'],
+            rhino_group_id=request.get('rhino_group_id') or str(uuid.uuid5(uuid.NAMESPACE_URL,handle)),
+            name=request['name'],scene_ids=request['scene_ids'],child_component_ids=children,
+            parent_component_id=previous['parent_component_id'] if previous else None,availability='present',
+            objects=[object_row(g,handle) for g in request['object_ids']])
+        self.records[handle]=row
+        related=set(children)|old_children
+        for child in related:
+            self.records[child]['parent_component_id']=handle if child in children else None
+        parent=row['parent_component_id']
+        while parent:
+            related.add(parent)
+            parent=self.records[parent]['parent_component_id']
+        return dict(status='success',component=self.read(handle),affected_components=[self.read(h) for h in sorted(related)])
 
 
 @pytest.fixture
 def store(tmp_path):
-    result = AlmondStore(tmp_path / "hierarchy.sqlite3")
-    result.scene_a = result.create_scene("Facade")["scene_id"]
-    result.scene_b = result.create_scene("Interior")["scene_id"]
-    result.model = result._component_model_path(str(tmp_path / "model.3dm"))
+    result=AlmondStore(tmp_path/'hierarchy.sqlite3')
+    result.scene_a=result.create_scene('Facade')['scene_id']
+    result.scene_b=result.create_scene('Interior')['scene_id']
+    result.model=result._component_model_path(str(tmp_path/'model.3dm'))
+    result.fixture_bridge=NativeGroups()
     return result
 
 
-def object_row(guid, component_id, kind="Brep"):
-    return dict(rhino_guid=guid, object_type=kind, component_id=component_id,
-                bounds_mm=[0, 0, 0, 100, 200, 300])
-
-
-def simulated_native(store, calls=None):
-    """Return complete direct/recursive snapshots as a hierarchy-aware Rhino Bridge would."""
+def simulated_native(store,calls=None):
+    if not hasattr(store,'fixture_bridge'):
+        store.fixture_bridge=NativeGroups()
     def emit(request):
         if calls is not None:
             calls.append(request)
-        component_id = request["component_id"]
-        existing = store.get_component(component_id)
-        direct_ids = request["object_ids"]
-        child_ids = request.get("child_component_ids", [])
-        child_objects = [obj for child_id in child_ids
-                         for obj in store.get_component(child_id)["effective_objects"]]
-        direct_objects = [object_row(guid, component_id) for guid in direct_ids]
-        effective = {obj["rhino_guid"]: obj for obj in child_objects + direct_objects}
-        native = dict(
-            complete=True, component_id=component_id, model_path=request["expected_model_path"],
-            rhino_group_id=request["rhino_group_id"] or str(uuid.uuid5(uuid.NAMESPACE_URL, component_id)),
-            name=request["name"], scene_ids=request["scene_ids"],
-            child_component_ids=child_ids, parent_component_id=(
-                existing["parent_component_id"] if existing else None),
-            objects=direct_objects, effective_objects=[effective[guid] for guid in sorted(effective)],
-            effective_object_ids=sorted(effective), pending_objects=[], requires_sync=False,
-        )
-        prior_branch = set(existing["effective_object_ids"]) if existing else set()
-        new_branch = set(effective)
-        related = []
-        with store._connect() as connection:
-            ancestors = store._component_ancestor_ids(connection, component_id)
-        for ancestor_id in ancestors:
-            ancestor = store.get_component(ancestor_id)
-            ancestor_objects = {obj["rhino_guid"]: obj for obj in ancestor["effective_objects"]
-                                if obj["rhino_guid"] not in prior_branch}
-            ancestor_objects.update(effective)
-            related.append(dict(
-                complete=True, component_id=ancestor_id, model_path=ancestor["model_path"],
-                rhino_group_id=ancestor["rhino_group_id"], name=ancestor["name"],
-                scene_ids=ancestor["scene_ids"], parent_component_id=ancestor["parent_component_id"],
-                child_component_ids=ancestor["child_component_ids"], objects=[
-                    {k: obj[k] for k in ("rhino_guid", "object_type", "component_id", "bounds_mm")}
-                    for obj in ancestor["objects"]],
-                effective_objects=[ancestor_objects[guid] for guid in sorted(ancestor_objects)],
-                effective_object_ids=sorted(ancestor_objects),
-            ))
-        old_children = set(existing["child_component_ids"]) if existing else set()
-        for child_id in old_children ^ set(child_ids):
-            child = store.get_component(child_id)
-            related.append(dict(child, complete=True,
-                                parent_component_id=component_id if child_id in child_ids else None))
-        return dict(status="success", component=native, affected_components=related)
+        return store.fixture_bridge(request)
     return emit
 
 
-def create(store, name, direct, scenes=None, children=None, **extra):
-    return store.upsert_component(
-        store.model, name, direct, scene_ids=scenes or [store.scene_a],
-        child_component_ids=children, native_apply=simulated_native(store), **extra,
-    )
+def create(store,name,direct,scenes=None,children=None,**extra):
+    return store.upsert_component(store.model,name,direct,scene_ids=scenes or [store.scene_a],
+        child_component_ids=children,native_apply=simulated_native(store),**extra)
 
 
 def test_parent_with_no_direct_objects_inherits_child_geometry_and_scene_context(store):
-    child = create(store, "Facade panel", [A])
-    parent = create(store, "Facade assembly", [], scenes=[store.scene_b],
-                    children=[child["component_id"]])
-    assert parent["object_ids"] == []
-    assert parent["direct_object_ids"] == []
-    assert parent["child_component_ids"] == [child["component_id"]]
-    assert parent["effective_object_ids"] == [A]
-    updated_child = store.get_component(child["component_id"])
-    assert updated_child["parent_component_id"] == parent["component_id"]
-    assert updated_child["scene_ids"] == [store.scene_a]
-    assert store.get_scene(store.scene_b)["objects"] == 1
-    assert store.scene_objects(store.scene_b)[0]["component_id"] == child["component_id"]
-    assert store.get_scene(store.scene_a)["objects"] == 1
-    plan = store.create_plan("Model facade", scope="component",
-                                        scene_ids=[store.scene_b], component_ids=[parent["component_id"]])
-    targets = store.resolve_targets(plan["plan_id"])
-    assert targets["component_ids"] == [parent["component_id"]]
-    assert targets["components"][0]["child_component_ids"] == [child["component_id"]]
-    assert targets["components"][0]["effective_object_ids"] == [A]
-    assert targets["live_verified"] is False
+    child=create(store,'Panel',[A])
+    parent=create(store,'Assembly',[],scenes=[store.scene_b],children=[child['component_id']])
+    assert parent['object_ids']==[] and parent['effective_object_ids']==[A]
+    cached=store.get_component(child['component_id'])
+    assert cached['parent_component_id']==parent['component_id'] and cached['scene_ids']==[store.scene_a]
+    assert store.get_scene(store.scene_b)['objects']==1
+    rows=store.scene_objects(store.scene_b,store.model,store.fixture_bridge)
+    assert [r['rhino_guid'] for r in rows]==[A]
+    plan=store.create_plan('Facade',component_ids=[parent['component_id']])
+    assert store.resolve_targets(plan['plan_id'])['components'][0]['child_component_ids']==[child['component_id']]
+
+
+def test_child_only_alignment_hides_stale_parent_summary_until_parent_observed(store):
+    child=create(store,'Panel',[A]); parent=create(store,'Assembly',[B],children=[child['component_id']])
+    store.fixture_bridge.records[child['component_id']]['objects'].append(object_row(C,child['component_id']))
+    store.align_components(store.model,[child['component_id']],native_inspect=store.fixture_bridge)
+    stale=store.get_component(parent['component_id'])
+    assert stale['requires_sync'] is True
+    assert stale['effective_object_count'] is None and stale['bounds_mm'] is None
+    assert stale['object_count']==1
+    live=store.get_component(parent['component_id'],live=True,native_inspect=store.fixture_bridge)
+    assert live['effective_object_count']==3 and live['requires_sync'] is True
+    assert store.get_component(parent['component_id'])['effective_object_count'] is None
+    store.align_components(store.model,[parent['component_id']],native_inspect=store.fixture_bridge)
+    assert store.get_component(parent['component_id'])['effective_object_count']==3
+    assert not store.get_component(parent['component_id']).get('requires_sync')
+    assert store.align_components(store.model,[parent['component_id']],native_inspect=store.fixture_bridge)['changed']==0
 
 
 def test_explicit_reparent_requires_detach_and_cycle_is_rejected_before_native(store):
-    child = create(store, "Panel", [A])
-    parent = create(store, "Parent", [], children=[child["component_id"]])
-    calls = []
-    with pytest.raises(ValueError, match="cycle"):
-        store.upsert_component(store.model, "Loop", [A], component_id=child["component_id"],
-                               child_component_ids=[parent["component_id"]],
-                               native_apply=lambda request: calls.append(request))
-    with pytest.raises(ValueError, match="direct object or"):
-        store.upsert_component(store.model, "Orphan", [], scene_ids=[store.scene_a],
-                               native_apply=lambda request: calls.append(request))
-    with pytest.raises(ValueError, match="direct object or"):
-        store.upsert_component(store.model, "Empty parent", [], component_id=parent["component_id"],
-                               child_component_ids=[], native_apply=lambda request: calls.append(request))
-    # A second owner must detach the child from the first parent explicitly.
-    with pytest.raises(ValueError, match="detach"):
-        store.upsert_component(store.model, "Second parent", [], scene_ids=[store.scene_a],
-                               child_component_ids=[child["component_id"]],
-                               native_apply=lambda request: calls.append(request))
-    assert calls == []
-    assert store.get_component(child["component_id"])["parent_component_id"] == parent["component_id"]
+    child=create(store,'Panel',[A]); parent=create(store,'Assembly',[B],children=[child['component_id']])
+    before=len(store.fixture_bridge.calls)
+    with pytest.raises(ValueError,match='detach'):
+        create(store,'Other',[C],children=[child['component_id']])
+    with pytest.raises(ValueError,match='cycle'):
+        create(store,'Panel',[A],component_id=child['component_id'],children=[parent['component_id']])
+    assert len(store.fixture_bridge.calls)==before
 
 
-def test_direct_sql_cannot_add_cross_document_parent_or_cycle(store, tmp_path):
-    leaf = create(store, "Leaf", [A])
-    parent = create(store, "Parent", [], children=[leaf["component_id"]])
-    other = store.upsert_component(
-        str(tmp_path / "other.3dm"), "Other", [B], [store.scene_a],
-        native_apply=lambda request: dict(status="success", component=dict(
-            complete=True, component_id=request["component_id"],
-            model_path=request["expected_model_path"],
-            rhino_group_id=str(uuid.uuid5(uuid.NAMESPACE_URL, request["component_id"])),
-            name=request["name"], scene_ids=request["scene_ids"],
-            objects=[object_row(B, request["component_id"])],
-        )),
-    )
-    with pytest.raises(sqlite3.IntegrityError), store._connect() as connection:
-        connection.execute("UPDATE components SET parent_component_id = ? WHERE component_id = ?",
-                           (leaf["component_id"], parent["component_id"]))
-    with pytest.raises(sqlite3.IntegrityError), store._connect() as connection:
-        connection.execute("UPDATE components SET parent_component_id = ? WHERE component_id = ?",
-                           (other["component_id"], parent["component_id"]))
-    with store._connect() as connection:
-        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+def test_direct_sql_cannot_add_cross_document_parent_or_cycle(store,tmp_path):
+    child=create(store,'Panel',[A]); parent=create(store,'Assembly',[B],children=[child['component_id']])
+    other=store.upsert_component(str(tmp_path/'other.3dm'),'Other',[C],scene_ids=[store.scene_a],native_apply=store.fixture_bridge)
+    for node,ancestor in [(parent['component_id'],child['component_id']),(child['component_id'],other['component_id'])]:
+        with pytest.raises(sqlite3.IntegrityError):
+            with store._connect() as db:
+                db.execute('UPDATE ontological_components SET parent_ontological_id=? WHERE ontological_id=?',(ancestor,node))
 
 
-def test_child_update_propagates_recursive_objects_without_changing_direct_ownership(store):
-    child = create(store, "Panel", [A])
-    parent = create(store, "Assembly", [], scenes=[store.scene_b], children=[child["component_id"]])
-    old_scene_revision = store.get_scene(store.scene_b)["revision"]
-    plan = store.create_plan("Roof", scope="component", component_ids=[parent["component_id"]])
-    frozen = store.get_plan(plan["plan_id"], revision=1)
-    changed = store.upsert_component(store.model, "Panel revised", [A, C],
-                                     component_id=child["component_id"],
-                                     native_apply=simulated_native(store))
-    assert changed["object_ids"] == [A, C]
-    assert store.get_component(parent["component_id"])["effective_object_ids"] == [A, C]
-    assert store.get_scene(store.scene_b)["objects"] == 2
-    assert store.get_scene(store.scene_b)["revision"] > old_scene_revision
-    assert all(obj["component_id"] == child["component_id"] for obj in store.scene_objects(store.scene_b))
-    assert store.get_plan(plan["plan_id"], revision=1) == frozen
-    assert store.get_plan(plan["plan_id"]) == frozen
-
-
-def test_child_name_only_update_requires_no_unchanged_ancestor_proof(store):
-    child = create(store, "Panel", [A])
-    parent = create(store, "Assembly", [], children=[child["component_id"]])
-    def native(request):
-        response = simulated_native(store)(request)
-        response["affected_components"] = []
-        return response
-    result = store.upsert_component(store.model, "Renamed panel", [A],
-                                    component_id=child["component_id"], native_apply=native)
-    assert result["name"] == "Renamed panel"
-    assert store.get_component(parent["component_id"])["effective_object_ids"] == [A]
-
-
-def test_child_recovery_inspects_ancestor_before_committing_live_change(store):
-    child = create(store, "Panel", [A])
-    parent = create(store, "Assembly", [], scenes=[store.scene_b], children=[child["component_id"]])
-    calls = []
-    def inspect(request):
-        assert request["action"] == "inspect"
-        calls.append(request["component_id"])
-        if request["component_id"] == child["component_id"]:
-            return simulated_native(store)(dict(request, object_ids=[A, C], child_component_ids=[],
-                                                name=child["name"], scene_ids=child["scene_ids"]))
-        response = simulated_native(store)(dict(request, object_ids=[],
-                                                child_component_ids=[child["component_id"]],
-                                                name=parent["name"], scene_ids=parent["scene_ids"]))
-        response["component"]["effective_objects"] = [
-            object_row(A, child["component_id"]), object_row(C, child["component_id"])]
-        response["component"]["effective_object_ids"] = [A, C]
-        return response
-    updated = store.sync_component(store.model, child["component_id"], native_inspect=inspect)
-    assert calls == [child["component_id"], parent["component_id"]]
-    assert updated["object_ids"] == [A, C]
-    assert store.get_component(parent["component_id"])["effective_object_ids"] == [A, C]
-    assert store.get_scene(store.scene_b)["objects"] == 2
-
-
-def detached_ack(store, request):
-    children = store.get_component(request["component_id"])["child_component_ids"]
-    affected = []
-    for child_id in children:
-        row = store.get_component(child_id)
-        observed = dict(row, complete=True, parent_component_id=None)
-        affected.append(observed)
-    return dict(status="success", component_id=request["component_id"],
-                model_path=request["expected_model_path"], rhino_group_id=request["rhino_group_id"],
-                detached_child_component_ids=children, affected_components=affected)
+def test_child_update_propagates_group_summaries_without_persisting_members(store):
+    child=create(store,'Panel',[A]); parent=create(store,'Assembly',[B],children=[child['component_id']])
+    create(store,'Panel',[A,C],component_id=child['component_id'])
+    assert store.get_component(parent['component_id'])['effective_object_count']==3
+    assert 'objects' not in store.get_component(child['component_id'])
+    observed=store.get_component(parent['component_id'],True,store.fixture_bridge)
+    assert observed['effective_object_ids']==[A,B,C]
 
 
 def test_root_parent_unregister_detaches_children_but_child_cannot_unregister_until_detached(store):
-    child = create(store, "Panel", [A])
-    parent = create(store, "Assembly", [], scenes=[store.scene_b], children=[child["component_id"]])
-    plan = store.create_plan("Protect child", scope="component",
-                                        component_ids=[child["component_id"]])
-    immutable = store.get_plan(plan["plan_id"], 1)
-    calls = []
-    with pytest.raises(ValueError, match="Detach"):
-        store.unregister_component(child["component_id"],
-                                   native_apply=lambda request: calls.append(request))
-    assert calls == []
-    def native(request):
-        calls.append(request)
-        return detached_ack(store, request)
-    removed = store.unregister_component(parent["component_id"], native_apply=native)
-    assert removed["status"] == "unregistered" and len(calls) == 1
-    assert calls[0]["expected_effective_object_ids"] == [A]
-    assert calls[0]["expected_child_component_ids"] == [child["component_id"]]
-    assert store.get_component(parent["component_id"]) is None
-    still_owned = store.get_component(child["component_id"])
-    assert still_owned["parent_component_id"] is None
-    assert still_owned["object_ids"] == [A]
-    assert still_owned["scene_ids"] == [store.scene_a]
-    assert store.get_scene(store.scene_b)["objects"] == 0
-    assert store.get_scene(store.scene_a)["objects"] == 1
-    assert store.get_plan(plan["plan_id"], 1) == immutable
+    child=create(store,'Panel',[A]); parent=create(store,'Assembly',[B],children=[child['component_id']])
+    with pytest.raises(ValueError,match='Detach'):
+        store.unregister_component(child['component_id'],store.fixture_bridge)
+    store.unregister_component(parent['component_id'],store.fixture_bridge)
+    assert store.get_component(parent['component_id']) is None
+    assert store.get_component(child['component_id'])['parent_component_id'] is None
+    assert store.get_component(child['component_id'])['object_count']==1
 
 
-def test_unregistered_parent_inspection_recovers_lost_ack_without_native_retry(store):
-    child = create(store, "Panel", [A])
-    parent = create(store, "Assembly", [], children=[child["component_id"]])
-    calls = []
-    def lose_response(request):
-        calls.append(request["action"])
-        raise TimeoutError("Native group unlink reply lost")
-    with pytest.raises(Exception, match="reply lost"):
-        store.unregister_component(parent["component_id"], native_apply=lose_response)
-    assert calls == ["unregister"]
-    assert store.get_component(child["component_id"])["parent_component_id"] == parent["component_id"]
-    def inspect(request):
-        calls.append(request["action"])
-        assert request["action"] == "inspect"
-        assert request["expected_object_ids"] == []
-        assert request["expected_effective_object_ids"] == [A]
-        response = detached_ack(store, request)
-        proof = dict(complete=True, registration_status="unregistered",
-                     component_id=parent["component_id"], model_path=store.model,
-                     rhino_group_id=parent["rhino_group_id"], scene_ids=[], objects=[],
-                     effective_object_ids=[A],
-                     detached_child_component_ids=[child["component_id"]])
-        return dict(status="success", component=proof,
-                    affected_components=response["affected_components"])
-    recovered = store.sync_component(store.model, parent["component_id"], native_inspect=inspect)
-    assert calls == ["unregister", "inspect"]
-    assert recovered["status"] == "unregistered"
-    assert store.get_component(parent["component_id"]) is None
-    assert store.get_component(child["component_id"])["parent_component_id"] is None
-    assert store.get_component(child["component_id"])["object_ids"] == [A]
+@pytest.mark.parametrize('change',['bounds','object_type','name','identity'])
+def test_live_parent_reports_descendant_drift_without_changing_saved_summary(store,change):
+    child=create(store,'Panel',[A]); parent=create(store,'Assembly',[B],children=[child['component_id']])
+    before=store.get_component(parent['component_id'])
+    obj=store.fixture_bridge.records[child['component_id']]['objects'][0]
+    if change=='bounds': obj['bounds_mm']=[5,0,0,105,200,300]
+    if change=='object_type': obj['object_type']='TextDot'
+    if change=='name': obj['name']='Changed annotation'
+    if change=='identity': obj['rhino_guid']=C
+    observed=store.get_component(parent['component_id'],True,store.fixture_bridge)
+    assert observed['requires_sync'] and observed['live_verified']
+    assert store.get_component(parent['component_id'])==before
 
 
-def test_group_added_textdot_is_visible_before_sync_and_adopted_once(store):
-    child = create(store, "Notes", [A])
-    id_ = child["component_id"]
-    calls = []
-    def native(request):
-        calls.append(request["action"])
-        original = simulated_native(store)(dict(
-            request, name=child["name"], scene_ids=child["scene_ids"],
-            object_ids=[A], child_component_ids=[],
-        ))
-        if request["action"] == "inspect":
-            original["component"].update(
-                pending_objects=[object_row(B, None, "TextDot")], requires_sync=True,
-            )
-        elif request["action"] == "sync":
-            original["component"].update(
-                objects=[object_row(A, id_), object_row(B, id_, "TextDot")],
-                effective_objects=[object_row(A, id_), object_row(B, id_, "TextDot")],
-                effective_object_ids=[A, B], pending_objects=[], requires_sync=False,
-            )
-        return original
-    live = store.get_component(id_, live=True, native_inspect=native)
-    assert live["requires_sync"] is True and live["pending_objects"][0]["object_type"] == "TextDot"
-    assert store.get_component(id_)["object_ids"] == [A]
-    assert calls == ["inspect"]
-    synced = store.sync_component(store.model, id_, native_inspect=native)
-    assert calls == ["inspect", "inspect", "sync"]
-    assert synced["object_ids"] == [A, B]
-    assert [row["object_type"] for row in store.scene_objects(store.scene_a)] == ["Brep", "TextDot"]
+def test_parent_alignment_rejects_contradictory_child_geometry_atomically(store):
+    child=create(store,'Panel',[A]); parent=create(store,'Assembly',[B],children=[child['component_id']])
+    before=store.get_component(parent['component_id'])
+    def bad(request):
+        response=store.fixture_bridge(request)
+        root=next(r for r in response['components'] if r['component_id']==parent['component_id'])
+        root['effective_objects'][0]['bounds_mm']=[10,0,0,110,200,300]
+        return response
+    with pytest.raises(ValueError,match='geometry|membership'):
+        store.align_components(store.model,[parent['component_id']],native_inspect=bad)
+    assert store.get_component(parent['component_id'])==before
 
 
-def test_root_sync_adopts_manual_textdot_owned_by_nested_leaf(store):
-    leaf = create(store, "Leaf notes", [A])
-    middle = create(store, "Assembly", [], scenes=[store.scene_b],
-                    children=[leaf["component_id"]])
-    root = create(store, "Building", [], scenes=[store.scene_b],
-                  children=[middle["component_id"]])
-    leaf_id = leaf["component_id"]
-    calls = []
-
-    def snapshot(component_id, *, pending=False, adopted=False):
-        cached = store.get_component(component_id)
-        effective = {row["rhino_guid"]: row for row in cached["effective_objects"]}
-        if pending:
-            effective[B] = object_row(B, None, "TextDot")
-        elif adopted:
-            effective[B] = object_row(B, leaf_id, "TextDot")
-        direct = list(cached["objects"])
-        if adopted and component_id == leaf_id:
-            direct.append(object_row(B, leaf_id, "TextDot"))
-        return dict(cached, complete=True, objects=direct,
-                    effective_objects=[effective[guid] for guid in sorted(effective)],
-                    effective_object_ids=sorted(effective),
-                    pending_objects=[object_row(B, None, "TextDot")] if pending else [],
-                    requires_sync=pending)
-
-    def native(request):
-        calls.append(request["action"])
-        if request["action"] == "inspect":
-            return dict(status="success", component=snapshot(root["component_id"], pending=True))
-        assert request["action"] == "sync" and request["pending_object_ids"] == [B]
-        return dict(status="success", component=snapshot(root["component_id"], adopted=True),
-                    affected_components=[snapshot(middle["component_id"], adopted=True),
-                                         snapshot(leaf_id, adopted=True)])
-
-    revised = store.sync_component(store.model, root["component_id"], native_inspect=native)
-    assert calls == ["inspect", "sync"]
-    assert revised["effective_object_ids"] == [A, B]
-    assert store.get_component(leaf_id)["object_ids"] == [A, B]
-    assert store.get_component(middle["component_id"])["effective_object_ids"] == [A, B]
-    assert [obj["component_id"] for obj in store.scene_objects(store.scene_b)] == [leaf_id, leaf_id]
+def test_existing_unchanged_alignment_does_not_create_spurious_scene_revisions(store):
+    child=create(store,'Panel',[A]); parent=create(store,'Assembly',[B],children=[child['component_id']])
+    before=store.get_scene(store.scene_a)['revision']
+    assert store.align_components(store.model,[parent['component_id']],native_inspect=store.fixture_bridge)['changed']==0
+    assert store.get_scene(store.scene_a)['revision']==before
 
 
-def test_parent_sync_rejects_unobserved_descendant_ownership_without_db_commit(store):
-    child = create(store, "Leaf", [A])
-    parent = create(store, "Parent", [], children=[child["component_id"]])
-    original_revision = store.get_scene(store.scene_a)["revision"]
-
-    def native(request):
-        parent_row = dict(store.get_component(parent["component_id"]), complete=True)
-        if request["action"] == "inspect":
-            parent_row.update(pending_objects=[object_row(B, None, "TextDot")],
-                              effective_objects=[object_row(A, child["component_id"]),
-                                                 object_row(B, None, "TextDot")],
-                              effective_object_ids=[A, B], requires_sync=True)
-            return dict(status="success", component=parent_row)
-        assert request["pending_object_ids"] == [B]
-        new_objects = [object_row(A, child["component_id"]),
-                       object_row(B, child["component_id"], "TextDot"),
-                       object_row(C, child["component_id"])]
-        parent_row.update(effective_objects=new_objects, effective_object_ids=[A, B, C])
-        child_row = dict(store.get_component(child["component_id"]), complete=True,
-                         objects=new_objects, effective_objects=new_objects,
-                         effective_object_ids=[A, B, C])
-        return dict(status="success", component=parent_row, affected_components=[child_row])
-
-    with pytest.raises(ComponentReconciliationError, match="unobserved"):
-        store.sync_component(store.model, parent["component_id"], native_inspect=native)
-    assert store.get_component(child["component_id"])["object_ids"] == [A]
-    assert store.get_component(parent["component_id"])["effective_object_ids"] == [A]
-    assert store.get_scene(store.scene_a)["revision"] == original_revision
-
-
-def test_parent_read_only_sync_refreshes_descendant_geometry_bounds(store):
-    leaf = create(store, "Leaf", [A])
-    root = create(store, "Root", [], scenes=[store.scene_b], children=[leaf["component_id"]])
-    before = store.get_scene(store.scene_b)["revision"]
-    observed = dict(store.get_component(root["component_id"]), complete=True,
-                    effective_objects=[dict(object_row(A, leaf["component_id"]),
-                                            bounds_mm=[50, 0, 0, 150, 200, 300])],
-                    pending_objects=[], requires_sync=False)
-    calls = []
-    def native(request):
-        calls.append(request["action"])
-        return dict(status="success", component=observed)
-
-    synced = store.sync_component(store.model, root["component_id"], native_inspect=native)
-    assert calls == ["inspect"]  # Geometry observation must not mutate Rhino.
-    assert synced["effective_objects"][0]["bounds_mm"] == [50, 0, 0, 150, 200, 300]
-    assert store.get_component(leaf["component_id"])["objects"][0]["bounds_mm"] == [50, 0, 0, 150, 200, 300]
-    assert store.scene_objects(store.scene_b)[0]["bounds_mm"] == [50, 0, 0, 150, 200, 300]
-    assert store.get_scene(store.scene_b)["revision"] > before
-
-
-@pytest.mark.parametrize("change", ["bounds", "object_type", "owner", "identity"])
-def test_live_parent_reports_descendant_drift_before_sync(store, change):
-    leaf = create(store, "Leaf", [A])
-    root = create(store, "Root", [], scenes=[store.scene_b], children=[leaf["component_id"]])
-    root_id, leaf_id = root["component_id"], leaf["component_id"]
-    cached = store.get_component(root_id)
-    moved = object_row(A, leaf_id)
-    if change == "bounds":
-        moved["bounds_mm"] = [50, 0, 0, 150, 200, 300]
-    elif change == "object_type":
-        moved["object_type"] = "TextDot"
-    elif change == "owner":
-        moved["component_id"] = "other-component"
-    else:
-        moved["rhino_guid"] = C
-    observed = dict(cached, complete=True, effective_objects=[moved],
-                    effective_object_ids=[moved["rhino_guid"]],
-                    pending_objects=[], requires_sync=False)
-    live = store.get_component(root_id, live=True,
-                               native_inspect=lambda request: dict(status="success", component=observed))
-    assert live["live_verified"] is True and live["requires_sync"] is True
-    assert live["effective_objects"][0] == moved
-    assert store.get_component(root_id)["effective_objects"] == cached["effective_objects"]
-
-
-def test_undo_detaches_child_only_after_parent_relationship_is_reconciled(store):
-    child = create(store, "Child", [A])
-    parent = create(store, "Parent", [B], children=[child["component_id"]])
-    child_id, parent_id = child["component_id"], parent["component_id"]
-    child_native = dict(store.get_component(child_id), complete=True,
-                        parent_component_id=None, pending_objects=[], requires_sync=False)
-    parent_native = dict(store.get_component(parent_id), complete=True,
-                         child_component_ids=[], effective_objects=[object_row(B, parent_id)],
-                         effective_object_ids=[B], pending_objects=[], requires_sync=False)
-
-    def inspect(request):
-        if request["component_id"] == child_id:
-            return dict(status="success", component=child_native,
-                        affected_components=[parent_native])
-        assert request["component_id"] == parent_id
-        return dict(status="success", component=parent_native,
-                    affected_components=[child_native])
-
-    live = store.get_component(child_id, live=True, native_inspect=inspect)
-    assert live["requires_sync"] is True
-    with pytest.raises(ValueError, match="parent"):
-        store.sync_component(store.model, child_id, native_inspect=inspect)
-    assert store.get_component(child_id)["parent_component_id"] == parent_id
-    synced = store.sync_component(store.model, parent_id, native_inspect=inspect)
-    assert synced["child_component_ids"] == []
-    assert synced["effective_object_ids"] == [B]
-    assert store.get_component(child_id)["parent_component_id"] is None
-
-
-def test_existing_unchanged_sync_does_not_create_spurious_scene_revisions(store):
-    child = create(store, "Panel", [A])
-    before = store.get_scene(store.scene_a)["revision"]
-    calls = []
-    def native(request):
-        calls.append(request["action"])
-        return simulated_native(store)(dict(request, name=child["name"],
-            object_ids=[A], scene_ids=child["scene_ids"], child_component_ids=[]))
-    observed = store.sync_component(store.model, child["component_id"], native_inspect=native)
-    assert observed["live_verified"] is True
-    assert store.get_scene(store.scene_a)["revision"] == before
-    assert calls == ["inspect"]
-
-
-def test_legacy_flat_component_migration_defaults_to_root_without_changing_owner(store):
-    child = create(store, "Original", [A])
-    with store._connect() as connection:
-        connection.execute("UPDATE components SET parent_component_id = NULL WHERE component_id = ?",
-                           (child["component_id"],))
-    reopened = AlmondStore(store.database_path)
-    cached = reopened.get_component(child["component_id"])
-    assert cached["parent_component_id"] is None
-    assert cached["child_component_ids"] == []
-    assert cached["object_ids"] == cached["effective_object_ids"] == [A]
-
-
-def test_old_component_table_adds_parent_column_without_rewriting_rows(tmp_path):
-    database = tmp_path / "legacy-before-parent.sqlite3"
-    old_model = str(tmp_path / "legacy.3dm")
-    with closing(sqlite3.connect(database)) as connection:
-        connection.execute("""
-            CREATE TABLE components(
-                component_id TEXT PRIMARY KEY, model_path TEXT NOT NULL,
-                rhino_group_id TEXT NOT NULL, name TEXT NOT NULL,
-                created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-                UNIQUE(component_id, model_path), UNIQUE(model_path, rhino_group_id)
-            )
-        """)
-        connection.execute("INSERT INTO components VALUES (?, ?, ?, ?, ?, ?)",
-                           ("legacy", old_model, str(uuid.UUID(int=90)), "Existing group", "old", "old"))
-        connection.commit()
-    store = AlmondStore(database)
-    with store._connect() as connection:
-        columns = [row["name"] for row in connection.execute("PRAGMA table_info(components)")]
-        row = connection.execute("SELECT * FROM components WHERE component_id = 'legacy'").fetchone()
-        assert "parent_component_id" in columns
-        assert row["parent_component_id"] is None
-        assert row["name"] == "Existing group" and row["created_at"] == "old"
-        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+def test_old_component_table_adds_parent_column_without_rewriting_identity(tmp_path):
+    path=tmp_path/'legacy.sqlite3'
+    with sqlite3.connect(path) as db:
+        db.execute('CREATE TABLE components(component_id TEXT PRIMARY KEY,model_path TEXT NOT NULL,rhino_group_id TEXT NOT NULL,name TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,UNIQUE(component_id,model_path),UNIQUE(model_path,rhino_group_id))')
+        db.execute('INSERT INTO components VALUES(?,?,?,?,?,?)',('legacy',str(tmp_path/'model.3dm'),str(uuid.UUID(int=88)),'Old','old','old'))
+    migrated=AlmondStore(path).get_component('legacy')
+    assert migrated['name']=='Old' and migrated['parent_component_id'] is None
+    assert migrated['created_at']=='old' and 'objects' not in migrated

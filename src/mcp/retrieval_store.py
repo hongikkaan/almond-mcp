@@ -36,6 +36,7 @@ from almond_mcp.features.structure.store import StructureStore
 
 
 from almond_mcp.features.planning.store import PlanningStore
+from almond_mcp.features.planning.files import ProjectFilesStore
 
 
 from almond_mcp.features.drawings.store import DrawingsStore
@@ -46,7 +47,7 @@ from almond_mcp.features.assets.store import AssetsStore
 
 class AlmondStore(
     ScenesStore, ComponentsStore, GrasshopperStore,
-    StructureStore, PlanningStore, DrawingsStore, AssetsStore,
+    StructureStore, PlanningStore, ProjectFilesStore, DrawingsStore, AssetsStore,
 ):
     """SQLite-backed asset retrieval, spatial state, and generation plans."""
 
@@ -72,6 +73,7 @@ class AlmondStore(
 
     def _initialize(self) -> None:
         with self._connect() as connection:
+            connection.execute("PRAGMA foreign_keys = OFF")
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS assets (
@@ -234,52 +236,6 @@ class AlmondStore(
                 CREATE INDEX IF NOT EXISTS idx_rooms_scene
                     ON rooms(scene_id);
 
-                CREATE TABLE IF NOT EXISTS components (
-                    component_id TEXT PRIMARY KEY,
-                    model_path TEXT NOT NULL,
-                    rhino_group_id TEXT NOT NULL,
-                    name TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    parent_component_id TEXT REFERENCES components(component_id) ON DELETE RESTRICT,
-                    UNIQUE(component_id, model_path),
-                    UNIQUE(model_path, rhino_group_id)
-                );
-
-                CREATE TABLE IF NOT EXISTS document_objects (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    model_path TEXT NOT NULL,
-                    rhino_guid TEXT NOT NULL,
-                    component_id TEXT,
-                    object_type TEXT NOT NULL,
-                    min_x REAL NOT NULL, max_x REAL NOT NULL,
-                    min_y REAL NOT NULL, max_y REAL NOT NULL,
-                    min_z REAL NOT NULL, max_z REAL NOT NULL,
-                    observed_at TEXT NOT NULL,
-                    UNIQUE(model_path, rhino_guid),
-                    FOREIGN KEY(component_id, model_path)
-                        REFERENCES components(component_id, model_path)
-                );
-
-                CREATE TABLE IF NOT EXISTS scene_components (
-                    scene_id TEXT NOT NULL REFERENCES scenes(scene_id) ON DELETE CASCADE,
-                    component_id TEXT NOT NULL REFERENCES components(component_id) ON DELETE CASCADE,
-                    PRIMARY KEY(scene_id, component_id)
-                );
-
-                CREATE TABLE IF NOT EXISTS scene_objects (
-                    scene_id TEXT NOT NULL REFERENCES scenes(scene_id) ON DELETE CASCADE,
-                    object_rowid INTEGER NOT NULL REFERENCES document_objects(id) ON DELETE CASCADE,
-                    PRIMARY KEY(scene_id, object_rowid)
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_document_objects_component
-                    ON document_objects(component_id);
-                CREATE INDEX IF NOT EXISTS idx_scene_components_component
-                    ON scene_components(component_id, scene_id);
-                CREATE INDEX IF NOT EXISTS idx_scene_objects_object
-                    ON scene_objects(object_rowid, scene_id);
-
                 CREATE TRIGGER IF NOT EXISTS instances_delete_rtree
                 AFTER DELETE ON instances BEGIN
                     DELETE FROM instance_rtree WHERE instance_rowid = OLD.id;
@@ -303,52 +259,12 @@ class AlmondStore(
             connection.execute(
                 "DELETE FROM instance_rtree WHERE instance_rowid NOT IN (SELECT id FROM instances)"
             )
-            component_columns = {row["name"] for row in connection.execute("PRAGMA table_info(components)")}
-            if "availability" not in component_columns:
-                connection.execute("ALTER TABLE components ADD COLUMN availability TEXT NOT NULL DEFAULT 'present'")
-            if "scene_ids_json" not in component_columns:
-                connection.execute("ALTER TABLE components ADD COLUMN scene_ids_json TEXT NOT NULL DEFAULT '[]'")
-                for component in connection.execute("SELECT component_id FROM components").fetchall():
-                    scenes = [row[0] for row in connection.execute(
-                        "SELECT scene_id FROM scene_components WHERE component_id = ? ORDER BY scene_id", (component[0],))]
-                    connection.execute("UPDATE components SET scene_ids_json = ? WHERE component_id = ?",
-                                       (json.dumps(scenes), component[0]))
-            object_columns = {row["name"] for row in connection.execute("PRAGMA table_info(document_objects)")}
-            if "name" not in object_columns:
-                connection.execute("ALTER TABLE document_objects ADD COLUMN name TEXT NOT NULL DEFAULT ''")
-            if "parent_component_id" not in component_columns:
-                connection.execute(
-                    "ALTER TABLE components ADD COLUMN parent_component_id TEXT "
-                    "REFERENCES components(component_id) ON DELETE RESTRICT"
-                )
-            connection.execute(
-                "CREATE INDEX IF NOT EXISTS idx_components_parent ON components(parent_component_id)"
-            )
-            for action in ("INSERT", "UPDATE OF parent_component_id, model_path"):
-                trigger_name = "components_parent_check_" + ("insert" if action == "INSERT" else "update")
-                connection.execute(f"""
-                    CREATE TRIGGER IF NOT EXISTS {trigger_name} BEFORE {action} ON components
-                    WHEN NEW.parent_component_id IS NOT NULL
-                    BEGIN
-                        SELECT CASE WHEN NEW.parent_component_id = NEW.component_id OR
-                            NOT EXISTS (SELECT 1 FROM components p
-                                WHERE p.component_id = NEW.parent_component_id
-                                  AND p.model_path = NEW.model_path)
-                            THEN RAISE(ABORT, 'Component parent must exist in the same model and differ from child') END;
-                        SELECT CASE WHEN EXISTS (
-                            WITH RECURSIVE ancestors(component_id, parent_component_id) AS (
-                                SELECT component_id, parent_component_id FROM components
-                                    WHERE component_id = NEW.parent_component_id
-                                UNION
-                                SELECT c.component_id, c.parent_component_id FROM components c
-                                    JOIN ancestors a ON c.component_id = a.parent_component_id
-                            )
-                            SELECT 1 FROM ancestors WHERE component_id = NEW.component_id
-                        ) THEN RAISE(ABORT, 'Component hierarchy contains a cycle') END;
-                    END
-                """)
+            from almond_mcp.features.components.semantic_schema import initialize_semantics
+            initialize_semantics(self, connection)
             self._initialize_generation_plans(connection)
             self._retire_drawing_sheet_constraints(connection)
+            if connection.execute("PRAGMA foreign_key_check").fetchone():
+                raise ValueError("DB migration found invalid relationships; all migration changes were rolled back.")
 
     # Asset registry -----------------------------------------------------
 

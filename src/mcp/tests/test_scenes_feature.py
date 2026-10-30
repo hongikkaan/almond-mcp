@@ -16,7 +16,7 @@ ExtractedScenesStore = AlmondStore
 
 
 A, B = component_contracts.A, component_contracts.B
-SCENE_TOOLS = {"list_design_scenes", "update_design_scene", "create_design_scene", "get_design_scene", "register_scene_objects", "get_scene_objects"}
+SCENE_TOOLS = {"list_design_scenes", "update_design_scene", "create_design_scene", "get_design_scene", "get_scene_objects"}
 
 
 @pytest.fixture
@@ -108,115 +108,62 @@ def test_scene_metadata_normalization_errors_and_cached_reads(feature, store):
     assert missing == {"status": "error", "message": "Unknown scene_id: missing"}
 
 
-def test_factory_reads_store_sender_and_cross_feature_helpers_at_call_time(feature, store, model, tmp_path):
-    scene_id = store.fixture_scene_id
-    first_requests = install_sender(feature)
-    assert call(feature, "register_scene_objects", scene_id=scene_id,
-                expected_model_path=model, object_ids=[A])["status"] == "success"
-    second_requests = install_sender(feature)
-    assert call(feature, "register_scene_objects", scene_id=scene_id,
-                expected_model_path=model, object_ids=[B])["direct_objects"] == 2
-    assert [obj["rhino_guid"] for obj in store.scene_objects(scene_id)] == [A, B]
-    assert len(first_requests) == len(second_requests) == 1
-
-    other_store = ExtractedScenesStore(tmp_path / "other.sqlite3")
-    feature.namespace["retrieval_store"] = other_store
-    assert call(feature, "get_design_scene", scene_id=scene_id, include_ids=True)["status"] == "error"
-    other_scene = call(feature, "create_design_scene", name="Isolated")["scene"]
-    assert store.get_scene(other_scene["scene_id"]) is None
-    assert other_store.get_scene(other_scene["scene_id"]) is not None
-
-    feature.namespace["_component_error"] = lambda exc: json.dumps({"new_error_handler": str(exc)})
-    missing = call(feature, "get_scene_objects", scene_id=scene_id, include_ids=True)
-    assert "new_error_handler" in missing
-    feature.namespace["retrieval_store"] = store
-    feature.namespace["_component_bridge"] = lambda request: (_ for _ in ()).throw(ValueError("new bridge"))
-    rejected = call(feature, "register_scene_objects", scene_id=scene_id,
-                    expected_model_path=model, object_ids=[A])
-    assert rejected == {"new_error_handler": "new bridge"}
+def test_factory_reads_store_sender_and_cross_feature_helpers_at_call_time(feature,store,model,tmp_path):
+    scene_id=store.fixture_scene_id
+    component=component_contracts.registered(store,model,[A])
+    def observed(request):
+        return dict(status='success',complete=True,model_path=model,editing={'stable':True},problems=[],
+            components=[dict(component,complete=True)])
+    first=install_sender(feature,observed)
+    assert call(feature,'get_scene_objects',scene_id=scene_id,expected_model_path=model)['total']==1
+    second=install_sender(feature,observed)
+    assert call(feature,'get_scene_objects',scene_id=scene_id,expected_model_path=model)['total']==1
+    assert len(first)==len(second)==1 and first[0]['action']=='inspect_many'
+    assert 'register_scene_objects' not in feature.tools
+    replacement=ExtractedScenesStore(tmp_path/'replacement.sqlite3')
+    feature.namespace['retrieval_store']=replacement
+    assert call(feature,'get_scene_objects',scene_id=scene_id,expected_model_path=model)['status']=='error'
+    feature.namespace['_component_error']=lambda exc:json.dumps({'status':'error','marker':'replacement'})
+    assert call(feature,'get_scene_objects',scene_id=scene_id,expected_model_path=model)['marker']=='replacement'
 
 
-def test_factory_contexts_keep_separate_ledgers(feature, tmp_path):
-    other_store = ExtractedScenesStore(tmp_path / "isolated.sqlite3")
-    other = SimpleNamespace(tools=register(FastMCP("Other Scene fixture"), FeatureContext({
-        "retrieval_store": other_store,
-    })))
-    created = call(other, "create_design_scene", name="Other server")["scene"]
-    assert call(feature, "get_design_scene", scene_id=created["scene_id"], include_ids=True)["status"] == "error"
-    assert call(other, "get_design_scene", scene_id=created["scene_id"], include_ids=True)["scene"]["name"] == "Other server"
+@pytest.mark.parametrize('failure',['incomplete','wrong_document','ownership','timeout'])
+def test_failed_live_scene_observation_preserves_registration_and_revisions(feature,store,model,failure):
+    component=component_contracts.registered(store,model,[A])
+    before=component_contracts.snapshot(store)
+    def observed(request):
+        if failure=='timeout': raise TimeoutError('Read timed out')
+        reply=dict(status='success',complete=True,model_path=model,editing={'stable':True},problems=[],
+            components=[dict(component,complete=True)])
+        if failure=='incomplete': reply['complete']=False
+        if failure=='wrong_document': reply['model_path']=model+'.other.3dm'
+        if failure=='ownership': reply['components'][0]['objects'][0]['component_id']='unrelated'
+        return reply
+    install_sender(feature,observed)
+    result=call(feature,'get_scene_objects',scene_id=store.fixture_scene_id,expected_model_path=model)
+    assert result['status']=='error'
+    assert component_contracts.snapshot(store)==before
 
 
-@pytest.mark.parametrize("mode,object_ids", [("remove", [A]), ("replace", [])])
-def test_unlink_last_object_needs_no_native_observation(feature, store, model, mode, object_ids):
-    requests = install_sender(feature)
-    duplicate = call(feature, "register_scene_objects", scene_id=store.fixture_scene_id,
-                     expected_model_path=model, object_ids=[A, A])
-    assert duplicate["status"] == "error" and requests == []
-    linked = call(feature, "register_scene_objects", scene_id=store.fixture_scene_id,
-                  expected_model_path=model, object_ids=[A])
-    assert linked["direct_objects"] == 1 and linked["live_verified"] is True
-    assert "object_ids" not in linked
-    assert requests[0]["action"] == "objects" and requests[0]["object_ids"] == [A]
-    feature.namespace["_send_and_receive"] = unexpected_native
-    removed = call(feature, "register_scene_objects", scene_id=store.fixture_scene_id,
-                   expected_model_path=model, object_ids=object_ids, mode=mode)
-    assert removed["direct_objects"] == 0
-    assert removed["scene_revisions"][store.fixture_scene_id] == 2
-    cached = call(feature, "get_scene_objects", scene_id=store.fixture_scene_id, include_ids=True)
-    assert cached["objects"] == [] and cached["live_verified"] is False
-
-
-@pytest.mark.parametrize("failure", ["incomplete", "wrong_document", "ownership", "timeout"])
-def test_failed_observation_preserves_membership_and_revisions(feature, store, model, failure):
-    install_sender(feature)
-    call(feature, "register_scene_objects", scene_id=store.fixture_scene_id,
-         expected_model_path=model, object_ids=[A])
-    before = component_contracts.snapshot(store)
-
-    def fail(request):
-        if failure == "timeout":
-            return TimeoutError("Native read timed out")
-        result = component_contracts.observe(request)
-        if failure == "incomplete":
-            result["complete"] = False
-        elif failure == "wrong_document":
-            result["model_path"] = model + ".other.3dm"
-        else:
-            result["objects"][0]["component_id"] = "unregistered-owner"
-        return result
-
-    requests = install_sender(feature, fail)
-    result = call(feature, "register_scene_objects", scene_id=store.fixture_scene_id,
-                  expected_model_path=model, object_ids=[B], mode="replace")
-    assert result["status"] == "error" and result["message"]
-    assert len(requests) == 1
-    assert component_contracts.snapshot(store) == before
-
-
-def test_actual_mcp_scene_schema_and_roundtrip(feature, store, model):
-    requests = install_sender(feature)
-
+def test_actual_mcp_scene_schema_and_roundtrip(feature,store,model):
+    snapshots=[]
+    requests=install_sender(feature,lambda request:dict(status='success',complete=True,model_path=model,
+        editing={'stable':True},components=snapshots,problems=[]))
     async def verify():
         async with Client(feature.mcp) as client:
-            tools = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True)
-                     for tool in await client.list_tools()}
-            assert set(tools) == SCENE_TOOLS
-            schema = tools["register_scene_objects"]["inputSchema"]
-            assert set(schema["required"]) == {"scene_id", "object_ids"}
-            assert schema["properties"]["mode"]["default"] == "add"
-            assert tools["get_scene_objects"]["annotations"]["readOnlyHint"] is True
-            assert tools["register_scene_objects"]["annotations"]["destructiveHint"] is False
-            created = await client.call_tool("create_design_scene", {"name": "Protocol scene"})
-            scene = json.loads(created.structured_content["result"])["scene"]
-            linked = await client.call_tool("register_scene_objects", {
-                "scene_id": scene["scene_id"], "expected_model_path": model, "object_ids": [A],
-            })
-            assert json.loads(linked.structured_content["result"])["status"] == "success"
-            read = await client.call_tool("get_scene_objects", {"scene_id": scene["scene_id"], "include_ids": True})
-            objects = json.loads(read.structured_content["result"])
-            assert objects["total"] == 1 and objects["live_verified"] is False
-            assert objects["objects"][0]["rhino_guid"] == A
-            assert store.get_scene(scene["scene_id"])["direct_objects"] == 1
-
+            tools={tool.name:tool.model_dump(mode='json',by_alias=True,exclude_none=True) for tool in await client.list_tools()}
+            assert set(tools)==SCENE_TOOLS and 'register_scene_objects' not in tools
+            schema=tools['get_scene_objects']['inputSchema']
+            assert set(schema['required'])=={'scene_id'}
+            assert tools['get_scene_objects']['annotations']['readOnlyHint'] is True
+            created=await client.call_tool('create_design_scene',{'name':'Protocol scene'})
+            scene=json.loads(created.structured_content['result'])['scene']
+            component=component_contracts.registered(store,model,[A],scenes=[scene['scene_id']])
+            snapshots.append(dict(component,complete=True))
+            read=await client.call_tool('get_scene_objects',{'scene_id':scene['scene_id'],'expected_model_path':model,'include_ids':True})
+            result=json.loads(read.structured_content['result'])
+            assert result['total']==1 and result['live_verified'] is True
+            assert result['objects'][0]['rhino_guid']==A
+            assert 'direct_objects' not in store.get_scene(scene['scene_id'])
     asyncio.run(verify())
-    assert [request["action"] for request in requests] == ["objects"]
+    assert [r['action'] for r in requests]==['inspect_many']

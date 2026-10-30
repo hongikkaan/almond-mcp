@@ -16,7 +16,7 @@ A, B = [str(uuid.UUID(int=value)) for value in (1, 2)]
 GROUP = str(uuid.UUID(int=100))
 COMPONENT_TOOLS = {
     "upsert_ontological_component", "get_ontological_component", "list_ontological_components",
-    "sync_ontological_component", "remove_ontological_component", "register_scene_objects",
+    "sync_ontological_component", "remove_ontological_component",
     "get_scene_objects", "get_modeling_policy",
 }
 
@@ -114,7 +114,10 @@ def test_live_default_summary_uses_observed_objects_without_writing_cache(server
     cached = store.get_component("live-summary")
     observed = {key: deepcopy(cached[key]) for key in (
         "component_id", "model_path", "rhino_group_id", "name", "scene_ids", "child_component_ids",
-        "parent_component_id", "objects", "effective_objects", "effective_object_ids")}
+        "parent_component_id")}
+    observed["objects"] = [dict(object_row(guid, "live-summary"), name=name) for guid,name in [(A,"Old A"),(B,"Old B")]]
+    observed["effective_objects"] = deepcopy(observed["objects"])
+    observed["effective_object_ids"] = [A,B]
     observed.update(complete=True, pending_objects=[], requires_sync=False)
     expected_names, expected_types, counts = ["Old A", "Old B"], {"Brep": 2}, (2, 2)
     if change == "name":
@@ -161,7 +164,7 @@ def test_live_parent_reports_descendant_name_drift_without_changing_cache(server
     child = create(store, "Leaf", [A])
     parent = create(store, "Assembly", [B], children=[child["component_id"]])
     cached = store.get_component(parent["component_id"])
-    observed = dict(deepcopy(cached), complete=True)
+    observed = dict(deepcopy(parent), complete=True)
     next(obj for obj in observed["effective_objects"] if obj["rhino_guid"] == A)["name"] = "Renamed leaf"
     wire(lambda request: dict(status="success", component=deepcopy(observed)))
     before = snapshot(store)
@@ -181,16 +184,16 @@ def test_public_registration_update_and_cached_reads(server, store, scene, model
     assert created["status"] == "success" and component["live_verified"] is True
     assert component["component_id"] == "panel-1" and component["rhino_group_id"] == GROUP
     assert "scene_ids" not in component and "object_ids" not in component
-    assert store.get_component("panel-1")["scene_ids"] == [scene] and store.get_component("panel-1")["object_ids"] == [A, B]
+    assert store.get_component("panel-1")["scene_ids"] == [scene] and store.get_component("panel-1")["object_count"] == 2
     assert [request["type"] for request in requests] == ["get_rhino_context", "design_component"]
     assert requests[1]["expected_model_path"] == model and requests[1]["action"] == "upsert"
     changed = call(server, "upsert_ontological_component", expected_model_path=model, component_id="panel-1",
                    name="Smaller panel", object_ids=[B])
     assert store.get_component("panel-1")["scene_ids"] == [scene]
-    assert requests[-1]["expected_object_ids"] == [A, B]
+    assert "expected_object_ids" not in requests[-1]
     monkeypatch.setattr(server, "_send_and_receive", lambda *_: pytest.fail("Cached read called Rhino"))
     cached = call(server, "get_ontological_component", component_id="panel-1", include_ids=True, field_groups=["geometry"])["component"]
-    assert cached["live_verified"] is False and cached["object_ids"] == [B]
+    assert cached["live_verified"] is False and cached["object_count"] == 1 and "object_ids" not in cached
     listed = call(server, "list_ontological_components", expected_model_path=model, include_ids=True)
     assert listed["total"] == 1 and listed["live_verified"] is False
     assert listed["components"][0]["name"] == "Smaller panel"
@@ -269,34 +272,20 @@ def test_native_rejection_and_uncertain_success_have_distinct_errors(
     assert store.list_components() == []
 
 
-def test_direct_scene_objects_deduplicate_and_survive_unregister(server, store, scene, model, wire):
+def test_scene_geometry_requires_semantic_registration_and_direct_registration_is_absent(server,store,scene,model,wire):
     wire()
-    component = register(server, model, scene, object_ids=[A])["component"]
-    def observe(request):
-        return dict(status="success", complete=True, model_path=request["expected_model_path"],
-                    objects=[object_row(guid, component["component_id"] if guid == A else None)
-                             for guid in request["object_ids"]])
-    requests = wire(observe)
-    linked = call(server, "register_scene_objects", scene_id=scene, expected_model_path=model,
-                  object_ids=[A, B], mode="replace")
-    assert linked["status"] == "success" and "object_ids" not in linked
-    assert linked["direct_objects"] == 2 and linked["live_verified"] is True
-    assert [r.get("action") for r in requests] == [None, "objects"]
-    assert requests[1]["object_ids"] == [A, B] and "scene_ids" not in requests[1]
-    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True, field_groups=["geometry"])
-    assert rows["total"] == 2 and rows["live_verified"] is False
-    assert all(row["direct"] for row in rows["objects"])
-    def unregister(request):
-        return dict(status="success", component_id=request["component_id"],
-                    model_path=request["expected_model_path"], rhino_group_id=request["rhino_group_id"])
-    requests = wire(unregister)
-    removed = call(server, "remove_ontological_component", component_id=component["component_id"])
-    assert removed["status"] == "success" and removed["component"]["status"] == "unregistered"
-    assert [r.get("action") for r in requests] == [None, "unregister"]
-    assert requests[1]["expected_object_ids"] == [A]
-    rows = call(server, "get_scene_objects", scene_id=scene, include_ids=True, field_groups=["geometry"])
-    assert rows["total"] == 2 and all(row["component_id"] is None for row in rows["objects"])
-    assert store.get_component(component["component_id"]) is None
+    component=register(server,model,scene,object_ids=[A])["component"]
+    assert not hasattr(server,"register_scene_objects")
+    native=dict(store.get_component(component['component_id']),complete=True,objects=[object_row(A,component['component_id'])])
+    requests=wire(lambda request:dict(status='success',complete=True,model_path=model,editing={'stable':True},components=[native],problems=[]))
+    rows=call(server,'get_scene_objects',scene_id=scene,expected_model_path=model,include_ids=True,field_groups=['geometry'])
+    assert rows['total']==1 and rows['live_verified'] is True
+    assert rows['objects'][0]['rhino_guid']==A
+    assert [r.get('action') for r in requests]==[None,'inspect_many']
+    wire(lambda request:dict(status='success',component_id=component['component_id'],model_path=model,rhino_group_id=GROUP))
+    assert call(server,'remove_ontological_component',component_id=component['component_id'])['status']=='success'
+    assert store.get_scene(scene)['objects']==0
+
 
 
 @pytest.mark.parametrize("reference_kind", ["plan", "step"])
@@ -341,7 +330,7 @@ def test_actual_mcp_component_schema_and_roundtrip(server, store, scene, model, 
             assert {"scene_ids", "component_id", "rhino_group_id"} <= schema["properties"].keys()
             for name in ("get_ontological_component", "list_ontological_components", "get_scene_objects", "get_modeling_policy"):
                 assert tools[name]["annotations"]["readOnlyHint"] is True
-            for name in ("remove_ontological_component", "register_scene_objects"):
+            for name in ("remove_ontological_component",):
                 assert tools[name]["annotations"]["destructiveHint"] is False
             policy = await client.call_tool("get_modeling_policy", {})
             assert policy.structured_content["policy"] == server.modeling_policy.POLICY
@@ -351,6 +340,6 @@ def test_actual_mcp_component_schema_and_roundtrip(server, store, scene, model, 
             component = json.loads(created.structured_content["result"])["component"]
             read = await client.call_tool("get_ontological_component", {"component_id": component["component_id"]})
             assert json.loads(read.structured_content["result"])["component"]["live_verified"] is False
-            assert store.get_component(component["component_id"])["object_ids"] == [A]
+            assert store.get_component(component["component_id"])["object_count"] == 1
     asyncio.run(verify())
     assert [r.get("action") for r in requests] == [None, "upsert"]

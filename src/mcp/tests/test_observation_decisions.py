@@ -213,10 +213,7 @@ def test_given_full_group_selected_when_references_requested_then_member_objects
         model = case.store._component_model_path(str(case.database.parent / "model.3dm"))
         member = "00000000-0000-0000-0000-000000000099"
         with case.store._connect() as connection:
-            connection.execute("UPDATE components SET model_path = ?", (model,))
-            connection.execute("""INSERT INTO document_objects(model_path,rhino_guid,component_id,object_type,
-                min_x,max_x,min_y,max_y,min_z,max_z,observed_at)
-                VALUES(?,?,?,'Point',0,0,0,0,0,0,'fixture')""", (model, member, case.component_a))
+            connection.execute("UPDATE _project_file_locations SET model_path = ?", (model,))
         plan = case.plan(component_ids=[case.component_a])
         requests = []
         def native(payload):
@@ -225,13 +222,18 @@ def test_given_full_group_selected_when_references_requested_then_member_objects
             assert request.get("selection_entities", False) is False
             return json.dumps({"status": "success", "document": {"path": model},
                 "selection": {"total": 1, "truncated": False, "objects": [{"id": member}]}})
+        def ownership(request):
+            requests.append(request)
+            return dict(status='success',complete=True,model_path=model,objects=[dict(
+                rhino_guid=member,object_type='Point',bounds_mm=[0,0,0,0,0,0],component_id=case.component_a)])
         server = SimpleNamespace(mcp=FastMCP("selection-reference-decision"),
-            retrieval_store=case.store, _send_and_receive=native)
+            retrieval_store=case.store, _send_and_receive=native, _component_bridge=ownership)
         exports = planning_tools(server.mcp, server)
         result = json.loads(exports["get_selection_references"](include_ids=True))
         assert result["status"] == "success"
         assert result["objects"][0]["component_id"] == case.component_a
         assert result["plans"][0]["plan_id"] == plan["plan_id"]
         assert requests[0]["sections"] == ["document", "selection"]
+        assert requests[1]["action"] == "objects"
     finally:
         case.doCleanups()

@@ -20,7 +20,7 @@ def test_given_manual_group_change_when_agent_aligns_then_one_compact_ack(server
     assert result["status"] == "success" and result["changed"] == 1
     assert not {"components", "objects", "effective_objects"}.intersection(result)
     assert A not in json.dumps(result) and B not in json.dumps(result)
-    assert store.get_component("meaning")["object_ids"] == [B]
+    assert store.get_component("meaning")["object_count"] == 1
     assert [request.get("action") for request in requests] == [None, "inspect_many"]
 
 
@@ -31,7 +31,7 @@ def test_given_old_bridge_when_agent_aligns_then_no_observation_or_write(server,
     result = call(server, "sync_ontological_component", component_id="meaning", expected_model_path=model)
     assert result["status"] == "error" and "component_registry=2" in result["message"]
     assert len(requests) == 1
-    assert store.get_component("meaning")["object_ids"] == [A, B]
+    assert store.get_component("meaning")["object_count"] == 2
 
 
 def test_given_active_group_editor_when_agent_aligns_then_mode_evidence_is_preserved(server, store, scene, model, wire):
@@ -43,7 +43,7 @@ def test_given_active_group_editor_when_agent_aligns_then_mode_evidence_is_prese
     result = call(server, "sync_ontological_component", expected_model_path=model)
     assert result["status"] == "error" and result["editing"]["mode"] == "group"
     assert result["mutation_applied"] is False
-    assert store.get_component("meaning")["object_ids"] == [A, B]
+    assert store.get_component("meaning")["object_count"] == 2
 
 
 def test_given_target_binding_failure_when_agent_aligns_then_cached_data_is_not_live_proof(server, store, scene, model, wire):
@@ -56,7 +56,7 @@ def test_given_target_binding_failure_when_agent_aligns_then_cached_data_is_not_
     result = call(server, "sync_ontological_component", expected_model_path=model, component_id="meaning")
     assert result["checked"] == 0 and result["problems"][0]["component_id"] == "meaning"
     assert "component" not in result and result["live_verified"] is False
-    assert store.get_component("meaning")["object_ids"] == [A, B]
+    assert store.get_component("meaning")["object_count"] == 2
 
 
 def test_given_native_group_rename_refusal_when_agent_updates_then_db_and_scene_are_untouched(server, store, scene, model, wire):

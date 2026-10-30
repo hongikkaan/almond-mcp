@@ -1,15 +1,24 @@
 # tools.py explain
 
+<!-- instruction:list_project_files -->
+List project filenames and stable file references without reading Rhino.
+limit is 1–500; offset is nonnegative. Set include_ids=true to choose a project_file_id
+for Scene or Phase when several saved models have the same filename.
+<!-- /instruction:list_project_files -->
+
 ## create_phase
 
 <!-- instruction:create_phase -->
 Create an organizational Phase for Plans; this does not edit Rhino geometry.
+file_name accepts only a filename and resolves a project_files reference. Use
+project_file_id for duplicate names. status is pending, running, completed,
+failed, blocked or paused, shared with Plan and Step statuses.
 <!-- /instruction:create_phase -->
 
 ## get_phase
 
 <!-- instruction:get_phase -->
-Read a Phase's name, description and Plan count.
+Read a Phase's name, status, description and Plan count.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds description, scope, audit, or all; default is summary.
 include_ids independently enables handles; audit enables timestamps.
@@ -28,6 +37,8 @@ include_ids independently enables handles; audit enables timestamps.
 
 <!-- instruction:update_phase -->
 Update Phase organization; omitted fields retain their values.
+status uses the same choices as Plans. file_name='' clears the file reference;
+project_file_id chooses an existing file, without renaming or moving a model.
 <!-- /instruction:update_phase -->
 
 ## create_plan
@@ -35,7 +46,9 @@ Update Phase organization; omitted fields retain their values.
 <!-- instruction:create_plan -->
 Create a Plan in an optional organizational Phase. Work may pause, switch and
 resume in any order; a Plan does not require linear completion.
-scope is house, interior, structure, drawing, or component; component uses
+scope is selected from planning_scopes; built-ins are house, interior, structure,
+drawing and component. A custom row selects one of these template_scope values.
+The component template uses
 inspect_context, design, model, validate. scene_ids are context; component_ids
 explicitly bind targets without requiring membership in those Scenes.
 Legacy scene_id must match the first scene_ids entry when both are supplied.

@@ -40,16 +40,17 @@ def store(server, tmp_path, monkeypatch):
     monkeypatch.setattr(server, "_send_and_receive", lambda *_: pytest.fail("Plan tools must not call Rhino"))
     component_scene = store.create_scene("Registered component context")["scene_id"]
     with store._connect() as connection:
+        file_id = store._project_file_reference(connection,model_path=str(tmp_path / "fixture.3dm"))
         connection.executemany("""
-            INSERT INTO components(component_id, model_path, rhino_group_id, name, created_at, updated_at)
+            INSERT INTO ontological_components(ontological_id, project_file_id, rhino_group_id, name, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
         """, [
-            (component, store._component_model_path(str(tmp_path / "fixture.3dm")), str(uuid.uuid4()),
+            (component, file_id, str(uuid.uuid4()),
              component, "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00")
             for component in ("component_a", "component_b")
         ])
         connection.executemany(
-            "INSERT INTO scene_components(scene_id, component_id) VALUES (?, ?)",
+            "INSERT INTO scene_ontological(scene_id, ontological_id) VALUES (?, ?)",
             [(component_scene, component) for component in ("component_a", "component_b")],
         )
     return store

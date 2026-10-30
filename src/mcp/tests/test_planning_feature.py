@@ -64,7 +64,7 @@ def test_tool_registration_and_full_plan_lifecycle_over_mcp(server):
                 "create_phase", "get_phase", "list_phases",
                 "update_phase", "create_plan", "get_plan",
                 "list_plans", "update_plan", "list_plan_revisions",
-                "update_step", "resolve_targets", "get_selection_references",
+                "update_step", "resolve_targets", "get_selection_references", "list_project_files",
             }
             for name, tool in tools.items():
                 assert "context" not in tool.input_schema["properties"]
@@ -81,9 +81,9 @@ def test_tool_registration_and_full_plan_lifecycle_over_mcp(server):
 
             phase = (await call("create_phase", name="Envelope", description="Scheme"))["phase"]
             phase_id = phase["phase_id"]
-            assert (await call("get_phase", phase_id=phase_id))["phase"] == {"name": "Envelope", "plan_count": 0}
+            assert (await call("get_phase", phase_id=phase_id))["phase"] == {"name": "Envelope", "status": "pending", "plan_count": 0}
             renamed = await call("update_phase", phase_id=phase_id, name="Detail")
-            assert renamed["phase"] == {"phase_id": phase_id}
+            assert renamed["phase"] == {"phase_id": phase_id, "status": "pending"}
             assert (await call("get_phase", phase_id=phase_id, field_groups=["description"]))["phase"]["description"] == "Scheme"
             assert (await call("list_phases", limit=1))["total"] == 1
             original = (await call("create_plan", goal="Inspect facade", scope="component",
@@ -143,5 +143,5 @@ def test_factories_keep_current_store_bindings_and_server_instances_isolated(ser
     rebound_phase = json.loads(server.tools["create_phase"]("Rebound"))["phase"]
     assert rebound.get_phase(rebound_phase["phase_id"])["name"] == "Rebound"
     assert rebound.get_phase(first["phase_id"]) is None
-    assert json.loads(other["get_phase"](other_phase["phase_id"]))["phase"] == {"name": "Other", "plan_count": 0}
+    assert json.loads(other["get_phase"](other_phase["phase_id"]))["phase"] == {"name": "Other", "status": "pending", "plan_count": 0}
     assert json.loads(other["list_phases"]())["total"] == 1

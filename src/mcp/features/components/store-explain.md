@@ -1,11 +1,5 @@
 # store.py explain
 
-## response-476
-
-<!-- instruction:response-476 -->
-A new Component must be attached by editing its registered parent.
-<!-- /instruction:response-476 -->
-
 ## response-491
 
 <!-- instruction:response-491 -->
@@ -15,7 +9,7 @@ Detach this Component from its parent before unregistering.
 ## response-492
 
 <!-- instruction:response-492 -->
-Component is referenced by a generation plan, step, or drawing sheet; remove those references explicitly before unregistering.
+Component is referenced by a generation plan or step; remove those references explicitly before unregistering.
 <!-- /instruction:response-492 -->
 
 ## response-514

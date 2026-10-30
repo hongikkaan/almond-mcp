@@ -78,13 +78,13 @@ lists the supported groups; `all` is available for every field-group query.
 | planning | `geometry` | `direct_object_ids`, `effective_object_ids` |
 | planning | `artifacts` | `artifact_dir`, `artifact_refs` |
 | planning | `description` | `description` |
-| planning | `scope` | `file_name`, `model_path`, `rhino_group_id` |
+| planning | `scope` | `file_name`, `project_file_id`, `model_path`, `rhino_group_id` |
 | planning | `audit` | `created_at`, `updated_at` |
 | structure | `parameters` | `deflection_limit_ratio`, `imposed_floor_kn_m2`, `uls_default`, `uls_expression`, `values` |
 | structure | `source` | `origin`, `source`, `sources` |
 | structure | `audit` | `created_at`, `updated_at` |
 
-| scenes | `scope`, `state`, `geometry`, `audit` | file_name/units/model_path; revision; bounds_mm/component_id; timestamps |
+| scenes | `scope`, `state`, `geometry`, `audit` | file_name/project_file_id/units/model_path; revision; bounds_mm/component_id; timestamps |
 | placement validation | `details` | collisions, outside_room (bounded by detail_limit) |
 
 ## Project Scene discovery
@@ -96,8 +96,11 @@ are names only. `include_ids=true` adds Scene handles, `scope` adds file_name an
 units, `state` adds revision and `audit` adds timestamps. One SELECT returns the
 bounded page and total, including an offset beyond the final row. `limit` is
 1–200; offset is non-negative. `get_scene_objects` also returns a bounded page
-(limit 1–200, offset, total and truncated), with cached object type/directness by
-default and optional geometry, scope or audit.
+(limit 1–200, offset, total and truncated), with current semantic-group members'
+names/types by default and optional geometry/scope. It requires a complete stable
+native observation and stores no individual objects. Cached component queries
+return only group summaries with geometry_available=false. A child-only sync
+invalidates unobserved ancestors' effective count/bounds and sets requires_sync.
 
 ## Other bounded/query-specific contracts
 

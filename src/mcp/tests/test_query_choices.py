@@ -89,11 +89,12 @@ def test_scene_write_ack_keeps_proof_and_new_handle_without_echoing_the_snapshot
     """Given a confirmed write, its handle/count/proof supports continuation without rereading."""
     proof = {"request_id": "request-8", "object_ids": ["member-1"], "observed_at": "verified-time"}
     scene = {"scene_id": "new-scene", "name": "Courtyard", "revision": 2, "objects": 1,
-             "direct_objects": 1, "created_at": "yesterday", "native_proof": proof,
+             "components": 1, "created_at": "yesterday", "native_proof": proof,
              "live_verified": True, "warnings": ["Limited to requested scope"]}
     context = SimpleNamespace(retrieval_store=SimpleNamespace(create_scene=lambda **_: scene))
     tools = importlib.import_module("almond_mcp.features.scenes.tools").register(FastMCP("ack"), context)
     ack = json.loads(tools["create_design_scene"]("Courtyard"))["scene"]
-    assert ack["scene_id"] == "new-scene" and ack["revision"] == 2 and ack["direct_objects"] == 1
+    assert ack["scene_id"] == "new-scene" and ack["revision"] == 2
+    assert "direct_objects" not in ack
     assert ack["native_proof"] == proof and ack["warnings"] == ["Limited to requested scope"]
     assert "name" not in ack and "created_at" not in ack

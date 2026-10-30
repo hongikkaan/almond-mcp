@@ -12,6 +12,7 @@ The default is names only; field_groups adds scope (file_name, units), audit
 
 <!-- instruction:create_design_scene -->
 Creates a persistent scene handle for a house or interior generation.
+file_name resolves a project_files reference; project_file_id selects an existing entry.
 Scene metadata remains local and is retrieved by ID instead of being
 repeated in the model context.
 <!-- /instruction:create_design_scene -->
@@ -26,25 +27,18 @@ field_groups adds scope (file_name/units/model_path), state (revision), geometry
 <!-- /instruction:get_design_scene -->
 
 <!-- instruction:update_design_scene -->
-Record a Scene's file_name, including an empty string to clear it. This changes
+Set the Scene’s project_files reference by file_name or project_file_id; file_name='' clears it.
+A filename must have no folders. Duplicate names require project_file_id from list_project_files. This changes
 metadata only; it does not rename or move the Rhino document.
 <!-- /instruction:update_design_scene -->
-
-## register_scene_objects
-
-<!-- instruction:register_scene_objects -->
-Link top-level objects directly to a Scene without an asset instance or Component.
-
-mode is add, remove or replace for this document's direct links. Other model
-links and Component membership are retained. Observe current GUIDs/bounds live;
-this updates the local ledger and does not edit Rhino geometry or object names.
-<!-- /instruction:register_scene_objects -->
 
 ## get_scene_objects
 
 <!-- instruction:get_scene_objects -->
-Read cached direct Scene objects and all descendant Component members as one set.
+Read current Rhino members of the Scene’s registered semantic groups as one set.
+Requires a live saved document, stable editing state and at most 64 registered groups.
+expected_model_path optionally verifies the bound model. Individual objects are never registered in the DB.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds scope (file_name/units/model_path), state (revision), geometry (bounds/component), audit (timestamps), or all.
-limit (1–200), offset and truncated bound the cached object page.
+limit (1–200), offset and truncated bound the live object page.
 <!-- /instruction:get_scene_objects -->
