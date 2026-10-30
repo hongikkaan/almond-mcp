@@ -67,8 +67,8 @@ Task의 상위 Phase는 `phase_id`로 지정한다. 관련 Task는 `depends_on` 
 | ----- | ----- | ----- |
 | `list_phases` | 선택적 `limit` | 프로젝트의 Phase 목록 조회. |
 | `get_phase` | `phase_id`, 선택적 `field_groups`, `include_ids` | Phase 이름·소속 Task 수 조회. 설명은 `description`, 파일명은 `scope` 필드 그룹으로 요청. |
-| `create_phase`  | `name`, 선택적 `description`, `file_name` | Phase 생성. |
-| `update_phase`  | `phase_id`, 바꿀 `name`, `description`, `file_name` | Phase 정보 수정. |
+| `create_phase`  | `name`, 선택적 `description`, `file_name`, `project_file_id`, `status` | Phase 생성. |
+| `update_phase`  | `phase_id`, 바꿀 `name`, `description`, `file_name`, `project_file_id`, `status` | Phase 정보 수정. |
 | `list_plans` | 선택적 `phase_id`, `scene_id`, `status`, `limit` | Phase·Scene·상태로 범위를 좁혀 Task 요약 조회. ID는 `include_ids=true`로 요청한다. |
 | `get_plan`| `plan_id`, 선택적 `revision`, `field_groups`, `include_ids` | Task 요약 또는 저장 revision 조회. Step은 `field_groups=["steps"]`, 대상 관계는 `["references"]`, 작업자료는 `["artifacts"]`로 요청한다. 일반 조회의 `field_groups` 생략·`[]`은 요약, `all`은 전체 상세, `audit`은 기술 timestamp다. |
 | `set_working_plan` | 선택할 Task의 `plan_id`, 선택적 `step_id`, 최초 폴더 이름 `artifact_name` | 연결에서 Task·Step과 작업자료 폴더를 선택·재사용한다. 이름을 생략하면 Task 목표로 폴더를 정한다. |
@@ -78,9 +78,13 @@ Task의 상위 Phase는 `phase_id`로 지정한다. 관련 Task는 `depends_on` 
 | `resolve_targets`  | `plan_id`, 선택적 `step_id` | Task 또는 Step이 가리키는 ontological-component·문서·group 확인. |
 | `list_plan_revisions` | `plan_id`, 선택적 `limit` | Task의 저장된 변경 이력 조회. |
 
+파일 관계는 `project_files`의 파일명과 UUID를 사용한다. `list_project_files(include_ids=true)`에서 파일 ID를 조회하고 Scene·Phase의 `project_file_id`에 넣는다. 같은 이름이 여러 개면 ID를 지정한다. `file_name`에는 폴더 없이 `ddd.3dm`처럼 파일명만 넣으며 빈 문자열로 관계를 해제한다. 실제 파일 이동·이름 변경은 수행하지 않는다.
+
+Phase·Task·Step의 상태는 pending, running, completed, failed, blocked, paused 중 선택한다. DB의 `workflow_statuses` 관계로 같은 선택지를 제한한다. scope는 `planning_scopes` 관계이며 기본값 외에 새 이름을 추가할 때 `template_scope`를 house/interior/structure/drawing/component 중 하나로 지정한다. 예: scope=facade, template_scope=component. 이름을 추가해도 실행 권한이나 새로운 모델링 도구가 생기지는 않는다. 장부 시간은 UTC 분 단위이며 revision으로 같은 분 안의 변경 순서를 구분한다.
+
 ### Scene·ontological-component
 
-Scene은 행태·프로그램·장면의 맥락이고, ontological-component는 그 장면을 가능하게 하는 건축 요소와 의미의 묶음이다. ontological-component는 여러 Scene에 참여할 수 있다. Scene에는 ontological-component 밖의 객체도 직접 연결할 수 있다.
+Scene은 행태·프로그램·장면의 맥락이고, ontological-component는 그 장면을 가능하게 하는 건축 요소와 의미의 묶음이다. ontological-component는 여러 Scene에 참여할 수 있다. 개별 객체는 DB에 등록하지 않는다. Scene은 ontological-component를 통해 현재 Rhino 객체를 조회한다.
 
 #### Scene
 
@@ -90,10 +94,9 @@ Scene은 특정 공간에서 일어나는 **행태·프로그램·장면·가치
 | -- | ----- | --- |
 | `list_design_scenes` | 선택적 `name` 부분검색, `file_name` 정확한 파일명, `limit`, `offset`, `field_groups`, `include_ids` | 프로젝트 전체 Scene 목록. 기본은 이름만 반환하며 `include_ids=true`로 ID, `field_groups=["scope"]`로 파일명·단위를 추가한다. |
 | `get_design_scene` | `scene_id`, 선택적 `field_groups`, `include_ids` | Scene 요약 조회. 파일명·단위는 `scope`, revision은 `state` 필드 그룹으로 요청. |
-| `create_design_scene` | `name`, 선택적 `units`, `file_name` | Scene 생성. |
-| `update_design_scene` | `scene_id`, `file_name` | 기존 Scene의 파일명 기록. |
-| `register_scene_objects` | `scene_id`, 최상위 `object_ids`, `mode`: add/remove/replace | ontological-component 없이 객체를 Scene에 직접 연결·해제.|
-| `get_scene_objects`| `scene_id`, 선택적 `limit`, `offset`, `field_groups`, `include_ids` | 직접 연결 객체와 하위 ontological-component 객체의 합집합을 페이지로 조회. |
+| `create_design_scene` | `name`, 선택적 `units`, `file_name`, `project_file_id` | Scene 생성. |
+| `update_design_scene` | `scene_id`, `file_name` 또는 `project_file_id` | 기존 Scene의 파일 관계 변경. |
+| `get_scene_objects`| `scene_id`, 선택적 `limit`, `offset`, `field_groups`, `include_ids`, `expected_model_path` | 현재 Rhino에서 Scene의 ontological-component 멤버를 읽기 전용으로 조회. 개별 객체는 DB에 저장하지 않는다. |
 
 목록과 객체 페이지의 limit은 1–200이다. Scene 삭제 도구는 없으며 등록 정보 변경에는 공개 도구를 사용한다.
 
@@ -135,7 +138,7 @@ ontological-component는 **건축 요소와, 그 요소들이 함께 가능하�
 
 **등록·변경:** 신규 등록에는 기존 Scene을 한 개 이상 지정한다. 기존 등록에서 `scene_ids`를 생략하면 관계를 유지하고, `child_component_ids=[]`는 자식을 분리한다. 문서 private registry는 의미 ID·영속 group GUID·Scene·명시한 자식 관계를 저장하며, 현재 group의 이름과 멤버가 기준이다. 기존 group을 채택할 때는 이름과 멤버가 일치해야 하며 동일 구성이 여럿이면 group GUID를 지정한다. `upsert`는 형상 교체·멤버 복구·group 이름 변경 도구가 아니다. 등록 해제와 물리적 group/block 해체는 별개다.
 
-**조회:** 일반 조회는 DB snapshot이다. 실제 group은 `live=true`, 형상은 `field_groups=["geometry"]`, 관계는 `["references"]`로 조회한다. 목록은 기본적으로 root를 반환하며 `recursive=true`로 자손을 포함한다. 부모가 다른 Scene에 있더라도 해당 Scene에 직접 속한 자식은 결과에 남는다.
+**조회:** 일반 조회는 의미 그룹의 DB 요약이며 객체 ID·개별 형상은 저장하지 않는다. 실제 group은 `live=true`, 형상은 `field_groups=["geometry"]`, 관계는 `["references"]`로 조회한다. 목록은 기본적으로 root를 반환하며 `recursive=true`로 자손을 포함한다. 부모가 다른 Scene에 있더라도 해당 Scene에 직접 속한 자식은 결과에 남는다.
 
 **정합:** 수동 편집·Undo/Redo·멤버 교체 뒤 편집 묶음을 마치고 문서가 안정되면 영향받은 등록 범위를 한 번 sync한다. 기준은 현재 Rhino의 group·멤버·block 배치다. GroupEdit·BlockEdit가 활성 또는 불명확하면 대상과 상태를 확인한 뒤 정합한다. 이름·색 변경만으로 멤버십 정합을 반복하지 않는다. 지정한 parent·Scene 범위는 등록 자손을 포함하며 최대 64개·native 응답 2 MiB를 넘으면 범위를 좁힌다. 결과의 checked·changed·unavailable·problems를 확인한다. 타임아웃이나 결과 불명은 rollback이 아니므로 실제 결과를 확인한 뒤 판단한다.
 

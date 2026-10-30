@@ -75,7 +75,7 @@ TestExtractedPublicComponents = _regression_suite(
         # These cases also require separately owned Scene/modeling factories.
         # The Component-only lifecycle and actual protocol are covered below.
         "test_public_registration_update_and_cached_reads",
-        "test_direct_scene_objects_deduplicate_and_survive_unregister",
+        "test_scene_geometry_requires_semantic_registration_and_direct_registration_is_absent",
         "test_public_component_errors_are_json_without_native_calls",
         "test_actual_mcp_component_schema_and_roundtrip",
     },
@@ -93,6 +93,7 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
     object_id = "00000000-0000-0000-0000-000000000001"
     group_id = "00000000-0000-0000-0000-000000000064"
     calls = []
+    native_records = {}
 
     def native(payload):
         request = json.loads(payload)
@@ -108,13 +109,14 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
                              "component_id": request["component_id"],
                              "bounds_mm": [0, 0, 0, 100, 200, 300]}],
             }}
+            native_records[request["component_id"]] = result["component"]
         elif request["action"] == "inspect":
             result = {"status": "success", "component": dict(
-                server.retrieval_store.get_component(request["component_id"]), complete=True)}
+                native_records[request["component_id"]], complete=True)}
         elif request["action"] == "inspect_many":
             result = dict(status="success", complete=True, model_path=model_path,
                 editing=dict(mode="model", stable=True), problems=[], components=[dict(
-                    server.retrieval_store.get_component(handle), complete=True) for handle in request["component_ids"]])
+                    native_records[handle], complete=True) for handle in request["component_ids"]])
         else:
             assert request["action"] == "unregister"
             result = {"status": "success", "component_id": request["component_id"],
@@ -142,7 +144,8 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
             })
             assert json.loads(created.structured_content["result"])["component"]["live_verified"] is True
             read = await client.call_tool("get_ontological_component", {"component_id": "panel-1", "include_ids": True, "field_groups": ["geometry"]})
-            assert json.loads(read.structured_content["result"])["component"]["object_ids"] == [object_id]
+            assert json.loads(read.structured_content["result"])["component"]["object_count"] == 1
+            assert "object_ids" not in json.loads(read.structured_content["result"])["component"]
 
     asyncio.run(verify())
     assert [request.get("action") for request in calls] == [None, "upsert"]
@@ -160,8 +163,7 @@ def test_extracted_factory_protocol_and_complete_component_lifecycle(server, tmp
     assert removed["component"]["status"] == "unregistered"
     assert server.retrieval_store.get_component("panel-1") is None
     with server.retrieval_store._connect() as connection:
-        row = connection.execute("SELECT rhino_guid, component_id FROM document_objects").fetchone()
-        assert tuple(row) == (object_id, None)
+        assert connection.execute("SELECT name FROM sqlite_master WHERE name = 'document_objects'").fetchone() is None
     assert _call(server, "get_ontological_component", component_id="panel-1")["status"] == "error"
 
 

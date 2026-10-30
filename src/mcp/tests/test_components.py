@@ -56,61 +56,50 @@ def registered(store, model, objects=None, scenes=None, **kwargs):
 def snapshot(store):
     with store._connect() as connection:
         return {table: [tuple(row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY 1")]
-                for table in ("scenes", "scene_revisions", "components", "document_objects",
-                              "scene_components", "scene_objects", "rooms", "instances", "instance_rtree")}
+                for table in ("scenes", "scene_revisions", "ontological_components", "project_files", "_project_file_locations",
+                              "scene_ontological", "ontological_scene_context", "rooms", "instances", "instance_rtree")}
 
 
-def test_shared_component_and_direct_membership_form_a_set(store, model):
-    first = store.create_scene("Facade")["scene_id"]
-    second = store.create_scene("Structure")["scene_id"]
-    comp = registered(store, model, scenes=[first, second])
-    store.register_scene_objects(first, model, [A, C], native_observe=lambda request: observe(
-        request, {A: comp["component_id"]},
-    ))
-    assert store.get_scene(first)["objects"] == 3
-    assert store.get_scene(first)["direct_objects"] == 2
-    assert store.get_scene(second)["objects"] == 2
-    assert store.get_scene(second)["components"] == 1
-    assert {row["rhino_guid"] for row in store.scene_objects(first)} == {A, B, C}
-    assert all(row["live_verified"] is False for row in store.scene_objects(first))
-    assert comp["live_verified"] is True
-    assert store.get_component(comp["component_id"])["live_verified"] is False
+def test_shared_component_routes_to_scenes_without_individual_registration(store, model):
+    first=store.create_scene('Facade')['scene_id']; second=store.create_scene('Structure')['scene_id']
+    comp=registered(store,model,scenes=[first,second])
+    assert store.get_scene(first)['objects']==2 and store.get_scene(second)['objects']==2
+    assert not hasattr(store,'register_scene_objects')
+    assert store.get_component(comp['component_id'])['geometry_available'] is False
 
 
 
-def test_owner_conflict_is_rejected_before_native_and_preserves_all_rows(store, model):
-    registered(store, model, [A])
-    before = snapshot(store)
-    calls = []
-    with pytest.raises(ValueError, match="already belongs"):
-        store.upsert_component(model, "Other", [A], [store.fixture_scene_id],
-                               native_apply=lambda request: calls.append(request))
-    assert calls == []
-    assert snapshot(store) == before
+
+def test_live_owner_conflict_rejects_registration_and_preserves_all_rows(store, model):
+    registered(store,model,[A]); before=snapshot(store); calls=[]
+    def conflict(request):
+        calls.append(request)
+        return dict(status='error',message='Object already belongs to another meaning unit',mutation_applied=False)
+    with pytest.raises(ValueError,match='already belongs') as failure:
+        store.upsert_component(model,'Other',[A],[store.fixture_scene_id],native_apply=conflict)
+    assert not isinstance(failure.value,ComponentReconciliationError)
+    assert len(calls)==1 and snapshot(store)==before
 
 
-def test_copied_guids_in_different_documents_are_distinct_and_fk_prevents_cross_document_owner(store, model, tmp_path):
-    other_model = str(tmp_path / "copy.3dm")
-    one = registered(store, model, [A], rhino_group_id=GROUP)
-    two = registered(store, other_model, [A], rhino_group_id=GROUP)
-    assert one["component_id"] != two["component_id"]
-    assert len(store.list_components()) == 2
-    assert len(store.list_components(model)) == 1
-    before = snapshot(store)
-    with pytest.raises(sqlite3.IntegrityError):
-        with store._connect() as connection:
-            connection.execute("UPDATE document_objects SET component_id = ? WHERE component_id = ?",
-                               (two["component_id"], one["component_id"]))
-    assert snapshot(store) == before
+
+def test_copied_groups_in_different_documents_keep_distinct_semantic_identity(store,model,tmp_path):
+    one=registered(store,model,[A],rhino_group_id=GROUP)
+    two=registered(store,str(tmp_path/'copy.3dm'),[A],rhino_group_id=GROUP)
+    assert one['component_id']!=two['component_id'] and len(store.list_components())==2
+    assert len(store.list_components(model))==1
+    with sqlite3.connect(store.database_path) as db:
+        assert A not in '\n'.join(db.iterdump())
 
 
-def test_windows_path_spelling_does_not_create_a_second_owner(store):
-    registered(store, r"C:\Models\Shared.3dm", [A])
-    calls = []
-    with pytest.raises(ValueError, match="already belongs"):
-        store.upsert_component("c:/models/shared.3dm", "Duplicate", [A], [store.fixture_scene_id],
-                               native_apply=lambda request: calls.append(request))
+
+def test_windows_path_spelling_does_not_create_a_second_group_binding(store):
+    registered(store,r'C:\Models\Shared.3dm',[A],rhino_group_id=GROUP)
+    calls=[]
+    with pytest.raises(ValueError,match='already registered'):
+        store.upsert_component('c:/models/shared.3dm','Duplicate',[A],[store.fixture_scene_id],
+            rhino_group_id=GROUP,native_apply=lambda request:calls.append(request))
     assert not calls
+
 
 
 def test_group_and_component_identity_cannot_be_rebound(store, model, tmp_path):
@@ -160,7 +149,7 @@ def test_unknown_scene_and_bad_input_never_call_native(store, model):
 def test_sqlite_write_lock_is_held_while_native_runs_and_uncommitted_rows_are_invisible(store, model):
     def native(request):
         with sqlite3.connect(store.database_path, timeout=0) as peer:
-            assert peer.execute("SELECT COUNT(*) FROM components").fetchone()[0] == 0
+            assert peer.execute("SELECT COUNT(*) FROM ontological_components").fetchone()[0] == 0
             with pytest.raises(sqlite3.OperationalError, match="locked"):
                 peer.execute("INSERT INTO scenes(scene_id,name,units,revision,created_at,updated_at) VALUES ('peer','peer','mm',0,'now','now')")
         return native_component(request)
@@ -210,25 +199,23 @@ def test_bad_native_success_requires_reconciliation_without_partial_commit(store
     assert snapshot(store) == before
 
 
-def test_timeout_can_be_reconciled_by_inspection_without_replaying_mutation(store, model):
-    applied = {}
-    calls = []
+def test_timeout_can_be_reconciled_by_observation_without_replaying_mutation(store,model):
+    applied={}; calls=[]
     def loses_response(request):
-        calls.append(request)
-        applied.update(native_component(request))
-        raise TimeoutError("Native result was lost")
+        calls.append(request['action']); applied.update(native_component(request))
+        raise TimeoutError('Native result was lost')
     with pytest.raises(ComponentReconciliationError) as failure:
-        store.upsert_component(model, "Applied in Rhino", [A], [store.fixture_scene_id],
-                               native_apply=loses_response)
-    component_id = failure.value.component_id
-    assert store.get_component(component_id) is None
+        store.upsert_component(model,'Applied in Rhino',[A],[store.fixture_scene_id],native_apply=loses_response)
+    handle=failure.value.component_id
+    assert store.get_component(handle) is None
     def inspect(request):
-        calls.append(request)
-        assert request["action"] == "inspect"
-        return copy.deepcopy(applied)
-    recovered = store.sync_component(model, component_id, native_inspect=inspect)
-    assert recovered["object_ids"] == [A]
-    assert [call["action"] for call in calls] == ["upsert", "inspect"]
+        calls.append(request['action'])
+        return dict(status='success',complete=True,model_path=model,editing={'stable':True},
+            components=[copy.deepcopy(applied['component'])],problems=[])
+    store.align_components(model,[handle],native_inspect=inspect)
+    assert store.get_component(handle)['object_count']==1
+    assert calls==['upsert','inspect_many']
+
 
 
 def test_verified_native_rejection_does_not_claim_ambiguity(store, model):
@@ -261,133 +248,50 @@ def test_failure_at_commit_after_native_does_not_retry_or_leak_rows(store, model
     assert snapshot(store) == before
 
 
-def test_sync_commit_failure_reports_reconciliation_after_native_mutation(store, model, monkeypatch):
-    registered_component = registered(store, model, [A])
-    component_id = registered_component["component_id"]
-    native_group = registered_component["rhino_group_id"]
-    initial = snapshot(store)
-    calls = []
-    original_connect = store._connect
-
+def test_alignment_commit_failure_rolls_back_without_claiming_native_mutation(store,model,monkeypatch):
+    comp=registered(store,model,[A]); before=snapshot(store); calls=[]; original=store._connect
     @contextmanager
     def failed_commit():
-        with original_connect() as connection:
+        with original() as connection:
             yield connection
-            raise sqlite3.OperationalError("fixture sync commit failure")
-
-    def native(request):
-        calls.append(request["action"])
-        observed = dict(complete=True, component_id=component_id, model_path=registered_component["model_path"],
-                        rhino_group_id=native_group, name=registered_component["name"],
-                        scene_ids=registered_component["scene_ids"], child_component_ids=[],
-                        parent_component_id=None)
-        if request["action"] == "inspect":
-            return dict(status="success", component=dict(observed,
-                objects=[object_row(A, component_id)],
-                effective_objects=[object_row(A, component_id), object_row(B)],
-                effective_object_ids=[A, B], pending_objects=[object_row(B)], requires_sync=True))
-        assert request["action"] == "sync" and request["pending_object_ids"] == [B]
-        owned = [object_row(A, component_id), object_row(B, component_id)]
-        return dict(status="success", component=dict(observed, objects=owned,
-            effective_objects=owned, effective_object_ids=[A, B], pending_objects=[], requires_sync=False),
-            affected_components=[])
-
+            raise sqlite3.OperationalError('fixture commit failure')
+    changed=dict(comp,complete=True,name='Edited')
+    def inspect(request):
+        calls.append(request['action'])
+        return dict(status='success',complete=True,model_path=model,editing={'stable':True},components=[changed],problems=[])
     with monkeypatch.context() as patch:
-        patch.setattr(store, "_connect", failed_commit)
-        with pytest.raises(ComponentReconciliationError, match="commit failure") as failure:
-            store.sync_component(model, component_id, native_inspect=native)
-    assert calls == ["inspect", "sync"]
-    assert failure.value.component_id == component_id
-    assert failure.value.requires_reconciliation is True
-    assert snapshot(store) == initial
+        patch.setattr(store,'_connect',failed_commit)
+        with pytest.raises(sqlite3.OperationalError,match='commit failure'):
+            store.align_components(model,native_inspect=inspect)
+    assert calls==['inspect_many'] and snapshot(store)==before
 
 
-def test_explicit_sync_refuses_native_overlap_and_preserves_previous_registration(store, model):
-    one = registered(store, model, [A])
-    two = registered(store, model, [B])
-    before = snapshot(store)
-    conflicting = dict(status="success", component=dict(
-        complete=True, component_id=two["component_id"], model_path=model,
-        rhino_group_id=two["rhino_group_id"], name="Changed", scene_ids=two["scene_ids"],
-        objects=[object_row(A, two["component_id"])],
-    ))
-    with pytest.raises(ValueError, match="already belongs"):
-        store.sync_component(model, two["component_id"], native_inspect=lambda request: conflicting)
-    assert snapshot(store) == before
-    assert store.get_component(one["component_id"])["object_ids"] == [A]
+
+def test_alignment_refuses_contradictory_live_ownership_and_preserves_registration(store,model):
+    one=registered(store,model,[A]); two=registered(store,model,[B]); before=snapshot(store)
+    changed=dict(two,complete=True,objects=[object_row(A,two['component_id'])],object_ids=[A],
+        effective_objects=[object_row(A,two['component_id'])],effective_object_ids=[A])
+    reply=dict(status='success',complete=True,model_path=model,editing={'stable':True},
+        components=[dict(one,complete=True),changed],problems=[])
+    with pytest.raises(ValueError,match='unrelated'):
+        store.align_components(model,native_inspect=lambda _:reply)
+    assert snapshot(store)==before
 
 
-def test_direct_scene_membership_is_document_scoped_and_native_read_only(store, model, tmp_path):
-    scene = store.create_scene("Multi-document")["scene_id"]
-    other_model = str(tmp_path / "other.3dm")
-    requests = []
-    def read(request):
-        requests.append(request)
-        assert request["action"] == "objects"
-        assert "scene_ids_by_object" not in request
-        return observe(request)
-    store.register_scene_objects(scene, model, [A, B], native_observe=read)
-    store.register_scene_objects(scene, other_model, [A], native_observe=read)
-    store.register_scene_objects(scene, model, [C], mode="replace", native_observe=read)
-    rows = store.scene_objects(scene)
-    assert len(rows) == 2
-    assert {row["rhino_guid"] for row in rows} == {A, C}
-    assert requests[-1]["object_ids"] == [C]
-    store.register_scene_objects(scene, model, [C], mode="remove", native_observe=read)
-    assert len(store.scene_objects(scene)) == 1
-    assert store.get_scene(scene)["direct_objects"] == 1
 
 
-@pytest.mark.parametrize("mode,ids", [("remove", [A]), ("replace", [])])
-def test_deleted_direct_scene_object_can_be_unlinked_without_native_observation(store, model, mode, ids):
-    scene = store.fixture_scene_id
-    store.register_scene_objects(scene, model, [A], native_observe=observe)
-    def deleted_object(request):
-        pytest.fail("A deleted object must not be sent to Rhino for observation")
-    result = store.register_scene_objects(scene, model, ids, mode=mode,
-                                          native_observe=deleted_object)
-    assert result["object_ids"] == []
-    assert store.scene_objects(scene) == []
 
 
-def test_replace_scene_membership_observes_only_retained_objects(store, model):
-    scene = store.fixture_scene_id
-    store.register_scene_objects(scene, model, [A], native_observe=observe)
-    observed = []
-    def read(request):
-        observed.extend(request["object_ids"])
-        return observe(request)
-    result = store.register_scene_objects(scene, model, [B], mode="replace", native_observe=read)
-    assert observed == [B]
-    assert result["object_ids"] == [B]
-    assert [row["rhino_guid"] for row in store.scene_objects(scene)] == [B]
 
 
-def test_incomplete_direct_observation_rolls_back_membership(store, model):
-    scene = store.create_scene("Raw")["scene_id"]
-    before = snapshot(store)
-    with pytest.raises(ValueError, match="complete"):
-        store.register_scene_objects(scene, model, [A], native_observe=lambda request: dict(
-            status="success", complete=False, model_path=model, objects=[object_row(A)],
-        ))
-    assert snapshot(store) == before
 
 
-def test_unregister_releases_owner_but_retains_direct_scene_object(store, model):
-    scene = store.create_scene("Direct survives")["scene_id"]
-    comp = registered(store, model, [A], [scene])
-    store.register_scene_objects(scene, model, [A],
-                                 native_observe=lambda request: observe(request, {A: comp["component_id"]}))
-    def unregister(request):
-        assert request["action"] == "unregister"
-        return dict(status="success", component_id=request["component_id"],
-                    model_path=request["expected_model_path"], rhino_group_id=request["rhino_group_id"])
-    removed = store.unregister_component(comp["component_id"], native_apply=unregister)
-    assert removed["status"] == "unregistered"
-    assert store.get_component(comp["component_id"]) is None
-    rows = store.scene_objects(scene)
-    assert len(rows) == 1 and rows[0]["rhino_guid"] == A and rows[0]["component_id"] is None
-    registered(store, model, [A])
+
+
+
+
+
+
 
 
 def test_planar_object_bounds_are_valid_without_inventing_volume(store, model):
@@ -417,14 +321,14 @@ def test_plan_references_block_unregister_before_any_native_mutation(store, mode
     assert snapshot(store) == before
 
 
-def test_existing_registration_passes_previous_members_to_native_preflight(store, model):
-    comp = registered(store, model, [A, B])
-    requests = []
+def test_existing_registration_passes_group_identity_without_cached_member_preconditions(store,model):
+    comp=registered(store,model,[A,B]); requests=[]
     def native(request):
-        requests.append(request)
-        return native_component(request)
-    store.upsert_component(model, "Changed", [B], component_id=comp["component_id"], native_apply=native)
-    assert requests[0]["expected_object_ids"] == [A, B]
+        requests.append(request); return native_component(request)
+    store.upsert_component(model,'Changed',[B],component_id=comp['component_id'],native_apply=native)
+    assert requests[0]['rhino_group_id']==comp['rhino_group_id']
+    assert 'expected_object_ids' not in requests[0]
+
 
 
 @pytest.mark.parametrize("scene_ids", [None, []])
@@ -438,104 +342,39 @@ def test_new_component_requires_a_scene_before_calling_native(store, model, scen
     assert snapshot(store) == before
 
 
-def test_explicit_sync_cannot_leave_component_without_scene(store, model):
-    comp = registered(store, model, [A])
-    before = snapshot(store)
-    observed = dict(comp, complete=True, scene_ids=[])
-    with pytest.raises(ValueError, match="at least one scene"):
-        store.sync_component(model, comp["component_id"],
-                             native_inspect=lambda request: dict(status="success", component=observed))
-    assert snapshot(store) == before
+def test_alignment_cannot_leave_component_without_scene(store,model):
+    comp=registered(store,model,[A]); before=snapshot(store)
+    reply=dict(status='success',complete=True,model_path=model,editing={'stable':True},
+        components=[dict(comp,complete=True,scene_ids=[])],problems=[])
+    with pytest.raises(ValueError,match='at least one scene'):
+        store.align_components(model,native_inspect=lambda _:reply)
+    assert snapshot(store)==before
 
 
 
 
 
 
-def unregistered_proof(component):
-    return dict(status="success", component=dict(
-        complete=True, registration_status="unregistered", component_id=component["component_id"],
-        model_path=component["model_path"], rhino_group_id=component["rhino_group_id"], scene_ids=[],
-        objects=[object_row(guid) for guid in component["object_ids"]],
-    ))
 
 
-def test_sync_recovers_lost_unregister_with_read_only_proof(store, model):
-    comp = registered(store, model, [A, B])
-    scene = comp["scene_ids"][0]
-    store.register_scene_objects(scene, model, [A],
-        native_observe=lambda request: observe(request, {A: comp["component_id"]}))
-    before = snapshot(store)
-    calls = []
-    def lost_reply(request):
-        calls.append(request["action"])
-        raise TimeoutError("Unregistration succeeded but its reply was lost")
-    with pytest.raises(ComponentReconciliationError):
-        store.unregister_component(comp["component_id"], native_apply=lost_reply)
-    assert snapshot(store) == before and calls == ["unregister"]
-    def inspect(request):
-        calls.append(request["action"])
-        assert request["expected_object_ids"] == [A, B]
-        return unregistered_proof(comp)
-    recovered = store.sync_component(model, comp["component_id"], native_inspect=inspect)
-    assert recovered["status"] == "unregistered" and recovered["live_verified"] is True
-    assert calls == ["unregister", "inspect"]
-    assert store.get_component(comp["component_id"]) is None
-    rows = store.scene_objects(scene)
-    assert len(rows) == 1 and rows[0]["rhino_guid"] == A and rows[0]["component_id"] is None
 
 
-@pytest.mark.parametrize("reference_kind", ["plan", "step"])
-def test_unregistered_sync_proof_cannot_release_referenced_component(store, model, reference_kind):
-    comp = registered(store, model, [A])
-    plan = store.create_plan("Retain", scope="component",
-        component_ids=[comp["component_id"]] if reference_kind == "plan" else [])
-    if reference_kind == "step":
-        store.update_plan_step(plan["plan_id"], "inspect_context", "pending", component_ids=[comp["component_id"]])
-    before = snapshot(store)
-    with pytest.raises(ValueError, match="referenced"):
-        store.sync_component(model, comp["component_id"], native_inspect=lambda request: unregistered_proof(comp))
-    assert snapshot(store) == before
 
 
-@pytest.mark.parametrize("failure", ["incomplete", "members", "owned", "missing_owner", "scenes", "group", "identity"])
-def test_unregistered_sync_requires_exact_complete_unowned_snapshot(store, model, failure):
-    comp = registered(store, model, [A, B])
-    proof = unregistered_proof(comp)
-    observed = proof["component"]
-    if failure == "incomplete":
-        observed["complete"] = False
-    elif failure == "members":
-        observed["objects"].pop()
-    elif failure == "owned":
-        observed["objects"][0]["component_id"] = comp["component_id"]
-    elif failure == "missing_owner":
-        observed["objects"][0].pop("component_id")
-    elif failure == "scenes":
-        observed["scene_ids"] = comp["scene_ids"]
-    elif failure == "group":
-        observed["rhino_group_id"] = str(uuid.uuid4())
-    else:
-        observed["component_id"] = "other"
-    before = snapshot(store)
-    with pytest.raises(ValueError):
-        store.sync_component(model, comp["component_id"], native_inspect=lambda request: proof)
-    assert snapshot(store) == before
 
 
-def test_unregistered_sync_requires_an_existing_registration(store, model):
-    proof = dict(status="success", component=dict(complete=True, registration_status="unregistered"))
-    with pytest.raises(ValueError, match="existing"):
-        store.sync_component(model, "missing", native_inspect=lambda request: proof)
 
 
-def test_registered_sync_can_accept_changed_consistent_membership(store, model):
-    comp = registered(store, model, [A, B])
-    def inspect(request):
-        assert request["expected_object_ids"] == [A, B]
-        return dict(status="success", component=dict(comp, complete=True,
-            objects=[object_row(A, comp["component_id"])], object_ids=[A],
-            direct_object_ids=[A], effective_objects=[object_row(A, comp["component_id"])],
-            effective_object_ids=[A]))
-    result = store.sync_component(model, comp["component_id"], native_inspect=inspect)
-    assert result["object_ids"] == [A]
+
+
+
+
+
+
+def test_alignment_updates_summary_after_consistent_native_membership_change(store,model):
+    comp=registered(store,model,[A,B])
+    observed=dict(comp,complete=True,objects=[object_row(A,comp['component_id'])],object_ids=[A],
+        effective_objects=[object_row(A,comp['component_id'])],effective_object_ids=[A])
+    reply=dict(status='success',complete=True,model_path=model,editing={'stable':True},components=[observed],problems=[])
+    store.align_components(model,native_inspect=lambda _:reply)
+    assert store.get_component(comp['component_id'])['object_count']==1

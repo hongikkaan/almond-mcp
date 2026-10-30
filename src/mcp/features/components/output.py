@@ -2,12 +2,12 @@
 from almond_mcp.query_output import select_fields, requires_full_evidence
 
 CORE = {"component_id", "name", "status", "registration_status", "availability", "object_count", "effective_object_count",
-        "direct_object_count", "object_names", "object_types", "revision", "scene_revisions"}
+        "direct_object_count", "object_names", "object_types", "revision", "scene_revisions", "geometry_available"}
 GROUPS = {
     "references": {"parent_component_id", "child_component_ids", "scene_ids", "rhino_group_id"},
     "geometry": {"object_ids", "direct_object_ids", "effective_object_ids", "objects", "effective_objects",
                  "pending_objects", "bounds_mm", "intersections", "pairs"},
-    "scope": {"model_path", "expected_model_path"},
+    "scope": {"model_path", "expected_model_path", "project_file_id", "file_name"},
     "audit": {"created_at", "updated_at", "observed_at"},
 }
 

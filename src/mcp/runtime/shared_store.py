@@ -445,7 +445,7 @@ class ProjectRuntime(Middleware):
         # Bound document expectations are supplied internally. Optional
         # public arguments remain available to standalone consumers.
         if self.workspace is not None and name in {"analyze_block_reculviely", "upsert_ontological_component", "sync_ontological_component",
-                    "register_scene_objects", "get_component_intersections", "focus_components",
+                    "get_component_intersections", "focus_components",
                     "list_ontological_components"} and not args.get("expected_model_path"):
             args["expected_model_path"] = self.locations["model_path"]
         message = context.message.model_copy(update={"arguments": args})

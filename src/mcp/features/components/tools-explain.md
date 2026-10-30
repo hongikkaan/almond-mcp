@@ -31,6 +31,7 @@ native result, inspect and sync_ontological_component; do not replay the mutatio
 Read an ontological_component summary or inspect its actual Rhino group.
 
 live=True observes current members/name without changing Rhino or the ledger.
+Cached reads contain group summaries only (geometry_available=false), never member IDs or per-object geometry.
 recursive=false is the default; request true only for effective nested geometry.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds references, geometry, scope, audit, or all; default is summary.
@@ -71,7 +72,7 @@ removes the document-private semantic binding.
 
 A root Component may have children; they become roots and keep their object
 ownership, registered Rhino groups and Scene links. A Component that still has
-its own parent must first be detached. Plan/Step/Sheet references to the
+its own parent must first be detached. Plan/Step references to the
 removed Component must be cleared first. No geometry is deleted or copied.
 <!-- /instruction:remove_ontological_component -->
 

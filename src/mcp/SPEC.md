@@ -73,7 +73,7 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 |---|---|
 | 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `analyze_block_reculviely`, `get_rhino_viewport_image` |
 | 작업계획 | `create_phase`, `get_phase`, `list_phases`, `update_phase`, `create_plan`, `get_plan`, `list_plans`, `update_plan`, `list_plan_revisions`, `update_step`, `resolve_targets`, `get_selection_references` |
-| Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `list_design_scenes`, `register_scene_objects`, `get_scene_objects` |
+| Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `list_design_scenes`, `get_scene_objects` |
 | Component | `upsert_ontological_component`, `get_ontological_component`, `list_ontological_components`, `sync_ontological_component`, `remove_ontological_component`, `get_component_intersections`, `focus_components` |
 | 설계 참고자료 | `get_modeling_guide`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
 | 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `save_rhino_document`, `setup_modeling`, `list_materials`, `assign_material` |
@@ -162,13 +162,15 @@ Phase는 Plan의 상위 묶음이고 Plan 안에 Step을 둔다. Plan의 Scene �
 
 #### 상태와 revision
 
-Plan·Step 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`다. 작업을 중단·전환·재개할 수 있으며 선행 작업 완료나 뒤 단계 무효화를 강제하지 않는다.
+Phase·Plan·Step 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`다. 작업을 중단·전환·재개할 수 있으며 선행 작업 완료나 뒤 단계 무효화를 강제하지 않는다.
 
 Plan 변경을 commit할 때마다 전체 Plan 상태를 immutable revision으로 저장한다. `expected_revision`으로 오래된 상태의 수정을 거절하며, 관계·상태·참조 변경과 revision 보관은 같은 DB transaction에서 처리한다. revision은 설계 시도 횟수가 아니며 Rhino 형상을 백업하지 않는다. 기존 Plan에는 migration baseline을 남기되 과거 이력을 만들어내지 않는다.
 
+상태는 `workflow_statuses`를 참조하는 외래 키로 제한한다. scope는 `planning_scopes(scope, template_scope)`를 참조하며 사용자가 추가한 scope는 기존 템플릿 하나를 선택한다. 관계없는 문자열은 SQL에서도 거부한다. 타임스탬프는 UTC 분 단위로 기록하고 revision은 정수로 순서를 보존한다.
+
 #### 파일·작업자료·역조회
 
-Phase와 Scene은 `file_name`을 항상 반환하고 미지정이면 빈 문자열이다. 선택한 Plan의 `artifact_dir`은 프로젝트 `tmp/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `set_working_plan`은 폴더를 재사용하고 `rename_artifact_folder`는 현재 참조를 갱신하며 과거 revision을 보존한다.
+Phase와 Scene의 `project_file_id`는 `project_files(file_id, file_name)`을 참조한다. `file_name`은 파일 관계에서 읽어 반환하며 미지정이면 빈 문자열이다. `list_project_files`로 파일명과 선택 가능한 ID를 조회한다. 선택한 Plan의 `artifact_dir`은 프로젝트 `tmp/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `set_working_plan`은 폴더를 재사용하고 `rename_artifact_folder`는 현재 참조를 갱신하며 과거 revision을 보존한다.
 
 `get_selection_references`는 선택 객체에서 등록 Component의 조상과 직접·상속된 Plan/Step 참조를 찾는다. 일반 조회는 `include_ids=true`일 때 ID를 포함하며 get 조회는 이미 입력한 대상 ID를 반복하지 않는다.
 

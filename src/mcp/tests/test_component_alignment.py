@@ -33,7 +33,7 @@ def test_given_manual_group_edits_when_aligned_once_then_ledger_uses_live_member
     result = store.align_components(model, native_inspect=bridge([live(component, [B, C])]))
     actual = store.get_component(component["component_id"])
     assert result["changed"] == 1 and result["problems"] == []
-    assert actual["name"] == "Edited group" and actual["object_ids"] == [B, C]
+    assert actual["name"] == "Edited group" and actual["object_count"] == 2
     revision = store.get_scene(component["scene_ids"][0])["revision"]
     unchanged = store.align_components(model, native_inspect=bridge([live(component, [B, C])]))
     assert unchanged["changed"] == 0
@@ -43,15 +43,13 @@ def test_given_manual_group_edits_when_aligned_once_then_ledger_uses_live_member
 def test_given_missing_group_when_aligning_then_binding_and_other_scene_links_survive(store, model):
     missing = registered(store, model, [A], rhino_group_id=GROUP)
     other = registered(store, model, [B], rhino_group_id=str(uuid.UUID(int=101)))
-    store.register_scene_objects(store.fixture_scene_id, model, [B], native_observe=lambda request: dict(
-        status="success", complete=True, model_path=request["expected_model_path"], objects=[object_row(B, other["component_id"])]))
     before = store.get_component(other["component_id"])
     store.align_components(model, native_inspect=bridge([
         live(missing, [], availability="missing_group"), live(other, [B], name=before["name"])]))
     unavailable = store.get_component(missing["component_id"])
-    assert unavailable["availability"] == "missing_group" and unavailable["object_ids"] == []
-    assert store.get_component(other["component_id"])["object_ids"] == [B]
-    assert any(row["rhino_guid"] == B and row["direct"] for row in store.scene_objects(store.fixture_scene_id))
+    assert unavailable["availability"] == "missing_group" and unavailable["object_count"] == 0
+    assert store.get_component(other["component_id"])["object_count"] == 1
+    assert store.get_scene(store.fixture_scene_id)["objects"] == 1
     store.align_components(model, native_inspect=bridge([live(missing, [A]), live(other, [B], name=before["name"])]))
     assert store.get_component(missing["component_id"])["availability"] == "present"
 
@@ -60,7 +58,7 @@ def test_given_group_editor_when_aligning_then_existing_records_are_untouched(st
     component = registered(store, model, [A], rhino_group_id=GROUP)
     with pytest.raises(ValueError, match="editing"):
         store.align_components(model, native_inspect=bridge([live(component, [])], stable=False))
-    assert store.get_component(component["component_id"])["object_ids"] == [A]
+    assert store.get_component(component["component_id"])["object_count"] == 1
 
 
 def test_given_one_invalid_registration_when_aligning_then_valid_registration_is_observable(store, model):
@@ -69,15 +67,15 @@ def test_given_one_invalid_registration_when_aligning_then_valid_registration_is
     result = store.align_components(model, native_inspect=bridge([live(valid, [B, C])], [
         dict(component_id=invalid["component_id"], code="invalid_binding")]))
     assert len(result["problems"]) == 1
-    assert store.get_component(valid["component_id"])["object_ids"] == [B, C]
-    assert store.get_component(invalid["component_id"])["object_ids"] == [A]
+    assert store.get_component(valid["component_id"])["object_count"] == 2
+    assert store.get_component(invalid["component_id"])["object_count"] == 1
 
 
 def test_given_incomplete_observation_when_aligning_then_ledger_is_not_erased(store, model):
     component = registered(store, model, [A], rhino_group_id=GROUP)
     with pytest.raises(ValueError, match="omitted"):
         store.align_components(model, native_inspect=bridge([]))
-    assert store.get_component(component["component_id"])["object_ids"] == [A]
+    assert store.get_component(component["component_id"])["object_count"] == 1
 
 
 def test_given_agent_needs_one_scene_when_listing_then_scope_is_not_document_wide(store, model):
@@ -116,7 +114,7 @@ def test_given_unavailable_ancestor_when_aligning_then_present_child_keeps_its_s
 
     snapshots = []
     for component in (child, middle, parent) if gap_at == "middle" else (child, parent):
-        component = store.get_component(component["component_id"])
+        component = store.fixture_bridge.read(component["component_id"])
         ids = [] if component["component_id"] == missing["component_id"] else component["object_ids"]
         snapshots.append(live(component, ids, availability=(
             availability if component["component_id"] == missing["component_id"] else "present")))
@@ -126,7 +124,6 @@ def test_given_unavailable_ancestor_when_aligning_then_present_child_keeps_its_s
     store.align_components(model, native_inspect=bridge(snapshots))
 
     expected_ids = {A, C} if gap_at == "middle" else {A}
-    assert {row["rhino_guid"] for row in store.scene_objects(store.scene_a)} == expected_ids
     assert store.get_scene(store.scene_a)["objects"] == len(expected_ids)
     assert store.get_component(child["component_id"])["scene_ids"] == [store.scene_a]
     expected_roots = ({parent["component_id"]} if gap_at == "middle" else
@@ -163,8 +160,8 @@ def test_given_missing_selected_ancestor_when_resolving_targets_then_only_availa
         assert plan["component_ids"] == expected
     resolved = store.resolve_targets(plan["plan_id"], step_id)
     assert resolved["component_ids"] == expected
-    assert {guid for component in resolved["components"] for guid in component["effective_object_ids"]} == (
-        {A, B, C} if has_selected_root else {A})
+    assert all("effective_object_ids" not in component for component in resolved["components"])
+    assert all(component["rhino_group_id"] for component in resolved["components"])
 
 
 def test_given_missing_middle_group_when_aligning_then_root_and_scene_keep_live_descendant_geometry(store, model):
@@ -180,9 +177,8 @@ def test_given_missing_middle_group_when_aligning_then_root_and_scene_keep_live_
     root["effective_object_ids"] = [A, B, C]
     store.align_components(model, native_inspect=bridge([
         root, live(middle, [], availability="missing_group"), live(child, [A], name="Panel")]))
-    assert store.get_component(parent["component_id"])["effective_object_ids"] == [A, B, C]
-    assert store.get_component(middle["component_id"])["effective_object_ids"] == []
-    assert {row["rhino_guid"] for row in store.scene_objects(store.scene_b)} == {A, B, C}
+    assert store.get_component(parent["component_id"])["effective_object_count"] == 3
+    assert store.get_component(middle["component_id"])["effective_object_count"] == 0
     assert store.get_scene(store.scene_b)["objects"] == 3
     assert store.get_component(child["component_id"])["scene_ids"] == [store.scene_a]
 
@@ -201,9 +197,9 @@ def test_given_scene_parent_when_aligning_then_descendant_geometry_updates_witho
         selected = [item for item in snapshots if item["component_id"] in request["component_ids"]]
         return bridge(selected)(request)
     store.align_components(model, scene_id=store.scene_b, native_inspect=observed_scope)
-    assert store.get_component(child["component_id"])["object_ids"] == [C]
+    assert store.get_component(child["component_id"])["object_count"] == 1
     assert store.get_component(child["component_id"])["scene_ids"] == [store.scene_a]
-    assert {item["rhino_guid"] for item in store.scene_objects(store.scene_b)} == {B, C}
+    assert store.get_scene(store.scene_b)["objects"] == 2
 
 
 def test_given_semantic_undo_when_aligning_then_references_and_history_survive(store, model):
@@ -226,51 +222,10 @@ def test_given_explicit_unregister_when_aligning_tombstone_then_registration_is_
     assert store.get_component(component["component_id"]) is None
 
 
-def test_given_deleted_member_with_direct_scene_link_when_aligned_then_only_proven_missing_guid_is_removed(store, model):
-    component = registered(store, model, [A, B], rhino_group_id=GROUP)
-    store.register_scene_objects(store.fixture_scene_id, model, [A, B], native_observe=lambda request: dict(
-        status="success", complete=True, model_path=request["expected_model_path"],
-        objects=[object_row(A, component["component_id"]), object_row(B, component["component_id"])]))
-    def observed(request):
-        result = bridge([live(component, [B])])(request)
-        result["presence_complete"] = True
-        result["absent_object_ids"] = [A]
-        return result
-    store.align_components(model, native_inspect=observed)
-    rows = store.scene_objects(store.fixture_scene_id)
-    assert [row["rhino_guid"] for row in rows] == [B] and rows[0]["direct"] is True
 
 
-def test_given_live_detached_member_when_aligned_then_direct_scene_link_and_geometry_survive(store, model):
-    component = registered(store, model, [A, B], rhino_group_id=GROUP)
-    store.register_scene_objects(store.fixture_scene_id, model, [A], native_observe=lambda request: dict(
-        status="success", complete=True, model_path=request["expected_model_path"],
-        objects=[object_row(A, component["component_id"])]))
-    moved = object_row(A, None)
-    moved["name"] = "User moved item"
-    moved["bounds_mm"] = [20, 20, 20, 30, 30, 30]
-    def observed(request):
-        assert A in request["prior_object_ids"]
-        result = bridge([live(component, [B])])(request)
-        result.update(presence_complete=True, absent_object_ids=[], detached_objects=[moved])
-        return result
-    result = store.align_components(model, native_inspect=observed)
-    row = next(item for item in store.scene_objects(store.fixture_scene_id) if item["rhino_guid"] == A)
-    assert row["direct"] and row["name"] == moved["name"] and row["component_id"] is None
-    assert result["removed_objects"] == 0 and result["refreshed_objects"] == 1
 
 
-@pytest.mark.parametrize("proof", [dict(absent_object_ids=[C]), dict(absent_object_ids=[A], presence_complete=False),
-                                    dict(absent_object_ids=[B], presence_complete=True)])
-def test_given_incomplete_or_contradictory_presence_when_aligned_then_cache_is_untouched(store, model, proof):
-    component = registered(store, model, [A, B], rhino_group_id=GROUP)
-    def observed(request):
-        result = bridge([live(component, [B])])(request)
-        result.update(proof)
-        return result
-    with pytest.raises(ValueError, match="presence"):
-        store.align_components(model, native_inspect=observed)
-    assert store.get_component(component["component_id"])["object_ids"] == [A, B]
 
 
 def test_given_archived_handle_from_another_model_when_aligned_then_existing_binding_is_untouched(store, model):
@@ -280,7 +235,7 @@ def test_given_archived_handle_from_another_model_when_aligned_then_existing_bin
     snapshot = live(component, [], availability="missing_group")
     second_model = model + ".copy.3dm"
     snapshot["model_path"] = second_model
-    with pytest.raises(ValueError, match="another model"):
+    with pytest.raises(ValueError, match="another document"):
         store.align_components(second_model, native_inspect=bridge([snapshot]))
     assert store.get_component(component["component_id"]) == component
 
@@ -300,7 +255,7 @@ def test_given_native_only_scene_registration_when_aligning_scene_then_it_is_dis
         assert request["discover_scene"] is True
         return bridge([live(component, [A]), live(native_only, [B])])(request)
     result = store.align_components(model, scene_id=store.fixture_scene_id, native_inspect=observed)
-    assert result["checked"] == 2 and store.get_component("native-only")["object_ids"] == [B]
+    assert result["checked"] == 2 and store.get_component("native-only")["object_count"] == 1
 
 
 def test_given_scene_root_when_listing_recursively_then_children_keep_their_own_context(store, model):
@@ -339,28 +294,23 @@ def test_given_native_only_parent_scope_when_recovering_then_its_descendant_and_
     assert store.get_component("native-child")["parent_component_id"] == "native-parent"
 
 
-@pytest.mark.parametrize("cached_parent",[True,False])
-def test_given_new_native_child_with_old_cached_members_when_aligning_parent_then_missing_presence_scope_is_explicit(store, model,cached_parent):
-    from test_components import snapshot
-    child=registered(store,model,[A],rhino_group_id=GROUP)
-    parent_scene=store.create_scene("Parent context")["scene_id"]
-    parent=registered(store,model,[B],scenes=[parent_scene],rhino_group_id=str(uuid.UUID(int=101))) if cached_parent else dict(
-        component_id="native-parent",model_path=model,rhino_group_id=str(uuid.UUID(int=101)),scene_ids=[parent_scene],
-        child_component_ids=[],parent_component_id=None)
-    store.register_scene_objects(store.fixture_scene_id,model,[A],native_observe=lambda request:dict(
-        status="success",complete=True,model_path=request["expected_model_path"],objects=[object_row(A,child["component_id"])]))
-    root=live(parent,[B]);root["child_component_ids"]=[child["component_id"]]
-    leaf=live(child,[]);leaf["parent_component_id"]=parent["component_id"]
-    before=snapshot(store)
-    with pytest.raises(ValueError,match="presence scope") as error:
-        store.align_components(model,native_inspect=bridge([root,leaf]),**(
-            dict(component_ids=[parent["component_id"]]) if cached_parent else dict(scene_id=parent_scene)))
-    assert error.value.native_result["error_code"]=="component_scope_incomplete"
-    assert error.value.native_result["required_component_ids"]==sorted([parent["component_id"],child["component_id"]])
-    assert snapshot(store)==before
-    def expanded(request):
-        assert A in request["prior_object_ids"]
-        result=bridge([root,leaf])(request);result.update(presence_complete=True,absent_object_ids=[A])
-        return result
-    store.align_components(model,component_ids=[parent["component_id"],child["component_id"]],native_inspect=expanded)
-    assert store.scene_objects(store.fixture_scene_id)==[]
+
+
+def test_given_detached_member_when_aligned_then_only_group_summary_is_retained(store,model):
+    component=registered(store,model,[A,B],rhino_group_id=GROUP)
+    result=store.align_components(model,native_inspect=bridge([live(component,[B])]))
+    assert result['changed']==1
+    cached=store.get_component(component['component_id'])
+    assert cached['object_count']==1 and 'object_ids' not in cached
+    assert not hasattr(store,'register_scene_objects')
+    with store._connect() as db:
+        assert A not in '\n'.join(db.iterdump()) and B not in '\n'.join(db.iterdump())
+
+
+def test_given_uncached_parent_when_discovering_scene_then_missing_scope_is_explicit(store,model):
+    child=dict(component_id='new-child',model_path=model,rhino_group_id=GROUP,scene_ids=[store.fixture_scene_id],
+        parent_component_id='missing-parent',child_component_ids=[])
+    with pytest.raises(ValueError,match='unobserved') as failure:
+        store.align_components(model,scene_id=store.fixture_scene_id,native_inspect=bridge([live(child,[A])]))
+    assert failure.value.native_result['error_code']=='component_scope_incomplete'
+    assert store.get_component('new-child') is None

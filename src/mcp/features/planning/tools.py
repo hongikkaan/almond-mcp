@@ -19,11 +19,20 @@ PLAN_ACK_FIELDS = {"plan_id", "revision"}
 def register(mcp, context):
     """Register planning tools against the calling server's live context."""
 
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @tool_instruction(__file__, 'list_project_files')
+    @query_output
+    def list_project_files(limit: StrictInt = 50, offset: StrictInt = 0, include_ids: StrictBool = False) -> str:
+        try:
+            return json.dumps({"status": "success", **context.retrieval_store.list_project_files(limit, offset)})
+        except Exception as exc:
+            return json.dumps(error_payload(str(exc)))
+
     @mcp.tool()
     @tool_instruction(__file__, 'create_phase')
-    def create_phase(name: str, description: str = "", file_name: str = "") -> str:
+    def create_phase(name: str, description: str = "", file_name: str = "", project_file_id: str | None = None, status: str = "pending") -> str:
         try:
-            return json.dumps({"status": "success", "phase": compact_ack(context.retrieval_store.create_phase(name, description, file_name), PHASE_ACK_FIELDS)})
+            return json.dumps({"status": "success", "phase": compact_ack(context.retrieval_store.create_phase(name, description, file_name, project_file_id, status), PHASE_ACK_FIELDS)})
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
@@ -57,11 +66,11 @@ def register(mcp, context):
     @tool_instruction(__file__, 'update_phase')
     def update_phase(
         phase_id: str, name: str | None = None, description: str | None = None,
-        file_name: str | None = None,
+        file_name: str | None = None, project_file_id: str | None = None, status: str | None = None,
     ) -> str:
         try:
             return json.dumps({
-                "status": "success", "phase": compact_ack(context.retrieval_store.update_phase(phase_id, name, description, file_name), PHASE_ACK_FIELDS),
+                "status": "success", "phase": compact_ack(context.retrieval_store.update_phase(phase_id, name, description, file_name, project_file_id, status), PHASE_ACK_FIELDS),
             })
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
@@ -221,7 +230,7 @@ def register(mcp, context):
             if not isinstance(document, dict) or not isinstance(selection, dict):
                 raise ValueError("Live document/selection observation is incomplete.")
             result = context.retrieval_store.selection_references(
-                document["path"], [obj["id"] for obj in selection["objects"]], limit,
+                document["path"], [obj["id"] for obj in selection["objects"]], limit, native_observe=context._component_bridge,
             )
             result["selection_total"] = selection["total"]
             result["selection_truncated"] = selection["truncated"]
@@ -230,6 +239,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
     return {
+        "list_project_files": list_project_files,
         "create_phase": create_phase,
         "get_phase": get_phase,
         "list_phases": list_phases,

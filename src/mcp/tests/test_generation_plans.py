@@ -21,17 +21,18 @@ class GenerationPlanTests(unittest.TestCase):
         self.component_a, self.component_b = "component_fixture_a", "component_fixture_b"
         # Registered identities are the boundary of this suite; no native registration occurs.
         with self.store._connect() as connection:
+            file_id = self.store._project_file_reference(connection, model_path=str(Path(self.temp.name) / "model.3dm"))
             connection.executemany("""
-                INSERT INTO components(component_id, model_path, rhino_group_id, name, created_at, updated_at)
+                INSERT INTO ontological_components(ontological_id, project_file_id, rhino_group_id, name, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?)
             """, [
-                (component, str(Path(self.temp.name) / "model.3dm"),
+                (component, file_id,
                  f"00000000-0000-0000-0000-{index:012d}", component,
                  "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00")
                 for index, component in enumerate((self.component_a, self.component_b), 1)
             ])
             connection.executemany(
-                "INSERT INTO scene_components(scene_id, component_id) VALUES (?, ?)",
+                "INSERT INTO scene_ontological(scene_id, ontological_id) VALUES (?, ?)",
                 [(self.scene_a, self.component_a), (self.scene_b, self.component_b)],
             )
 
@@ -42,17 +43,17 @@ class GenerationPlanTests(unittest.TestCase):
         model = self.store._component_model_path(str(Path(self.temp.name) / "model.3dm"))
         guid = "00000000-0000-0000-0000-000000000099"
         with self.store._connect() as connection:
-            connection.execute("UPDATE components SET model_path = ?", (model,))
-            connection.execute("UPDATE components SET parent_component_id = ? WHERE component_id = ?",
+            connection.execute("UPDATE _project_file_locations SET model_path = ?", (model,))
+            connection.execute("UPDATE ontological_components SET parent_ontological_id = ? WHERE ontological_id = ?",
                                (self.component_a, self.component_b))
-            connection.execute("""INSERT INTO document_objects(model_path,rhino_guid,component_id,object_type,
-                               min_x,max_x,min_y,max_y,min_z,max_z,observed_at)
-                               VALUES(?,?,?,'Point',0,0,0,0,0,0,'fixture')""",
-                               (model, guid, self.component_b))
         plan = self.plan(component_ids=[self.component_a])
         self.store.update_plan_step(plan["plan_id"], "model", "paused", component_ids=[self.component_b])
         self.store.update_plan_step(plan["plan_id"], "validate", "pending", component_ids=[])
-        result = self.store.selection_references(model, [guid])
+        def native(request):
+            return dict(status='success',complete=True,model_path=request['expected_model_path'],objects=[dict(
+                rhino_guid=guid,object_type='Point',bounds_mm=[0,0,0,0,0,0],
+                component_id=self.component_b if request['expected_model_path']==model else None)])
+        result = self.store.selection_references(model, [guid], native_observe=native)
         self.assertEqual(result["objects"][0]["component_id"], self.component_b)
         self.assertEqual(set(result["objects"][0]["related_component_ids"]), {self.component_a, self.component_b})
         steps = {step["step_id"]: step for step in result["plans"][0]["steps"]}
@@ -60,7 +61,7 @@ class GenerationPlanTests(unittest.TestCase):
         self.assertEqual(steps["inspect_context"]["source"], "plan_inherited")
         self.assertNotIn("validate", steps)
         self.assertEqual(self.store.selection_references(model, [])["plans"], [])
-        self.assertEqual(self.store.selection_references(model + ".other.3dm", [guid])["plans"], [])
+        self.assertEqual(self.store.selection_references(model + ".other.3dm", [guid], native_observe=native)["plans"], [])
 
     def test_phase_and_multiple_scene_references_remain_organizational(self):
         phase = self.store.create_phase("Scheme design", "Envelope work")
@@ -206,8 +207,8 @@ class GenerationPlanTests(unittest.TestCase):
         self.store.update_plan_step(plan["plan_id"], "inspect_context", "pending", component_ids=[self.component_b])
         for table, column, value in (
             ("scenes", "scene_id", self.scene_a),
-            ("components", "component_id", self.component_a),
-            ("components", "component_id", self.component_b),
+            ("ontological_components", "ontological_id", self.component_a),
+            ("ontological_components", "ontological_id", self.component_b),
         ):
             with self.assertRaises(sqlite3.IntegrityError), self.store._connect() as connection:
                 connection.execute(f"DELETE FROM {table} WHERE {column} = ?", (value,))
