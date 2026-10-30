@@ -40,7 +40,6 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "library_paths": engine / "library_paths.py",
         "workspace": engine / "workspace.py",
         "storage_cleanup": engine / "storage_cleanup.py",
-        "python_runner": engine / "python_runner.py",
         "server": Path(almond_mcp.__file__).with_name("server.py"),
         "retrieval_store": Path(almond_mcp.__file__).with_name("retrieval_store.py"),
         "modeling_policy": package / "features/modeling/modeling_policy.py",

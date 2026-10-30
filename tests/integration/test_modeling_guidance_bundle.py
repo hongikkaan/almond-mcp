@@ -18,7 +18,14 @@ def test_tool_guides_cover_the_live_catalog_and_preserve_parameter_help():
     schema = tools['get_modeling_guide']['inputSchema']['properties']
     assert set(schema) == {'tool'} and schema['tool']['default'] == ''
     assert 'help' not in tools['assign_material']['inputSchema']['properties']
-    assert 'public static Run' in tools['execute_rhino_script']['inputSchema']['properties']['script']['description']
+    execution = tools['execute_rhino_script']['inputSchema']['properties']
+    assert execution['language']['default'] == 'python'
+    assert 'C# statement body' in execution['script']['description']
+    assert 'RhinoCode' in tools['execute_project_python']['description']
+    for name in ('execute_rhino_script', 'execute_project_python'):
+        skill = read_guide(tool=name)['scripting_skill']
+        assert len(skill['sources']) == 6
+        assert all(Path(PACKAGE.parent.parent / item['path']).is_file() for item in skill['sources'])
     for name in basic['tools']:
         guide = read_guide(tool=name)
         assert guide['guide_version'] == basic['guide_version']
@@ -38,7 +45,8 @@ def test_guidance_and_profiles_participate_in_external_source_identity():
     assert set((PACKAGE / 'profiles').rglob('*.json')) <= paths
 
 
-@pytest.mark.parametrize('relative', ['BASIC-INSTRUCTIONS.md', 'features/modeling/tools-explain.md', 'features/modeling/tools.py'])
+@pytest.mark.parametrize('relative', ['BASIC-INSTRUCTIONS.md', 'features/modeling/tools-explain.md', 'features/modeling/tools.py',
+                                    'features/modeling/rhino3d-scripts/SKILL.md'])
 def test_reader_rejects_sources_changed_during_snapshot(relative, monkeypatch):
     reader = runpy.run_path(str(PACKAGE / 'modeling_guidance.py'))
     original = Path.read_bytes
