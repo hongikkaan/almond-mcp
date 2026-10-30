@@ -110,3 +110,32 @@ Returns:
     One MCP PNG image by default, with text only for explicit warnings/usage, or the grouped name/GUID list for view="a".
     Images are limited to 16 megapixels and 4 MiB. No repeated path or GUID metadata.
 <!-- /instruction:get_rhino_viewport_image -->
+<!-- instruction:get_rhino_objects -->
+
+읽기 전용으로 일반 모델 객체의 범위·속성·그룹·형상을 조회한다. `scope`는 현재 문서 가시 객체 `visible`(기본값), `selected`, 명시 GUID `ids`, 숨긴 객체를 포함한 `document` 중 선택한다. `object_ids`는 `ids`에서만 1..4096개를 받는다. 그룹이나 블록 내부로 자동 확장하지 않는다. `include_ids=true`면 후속 작업에 쓸 GUID도 반환한다.
+
+`filters` 조건은 AND로 결합한다. `layer_paths`는 전체 레이어 경로 1..64개의 정확한 일치(대소문자 무시), `name_contains`는 이름 부분 문자열(대소문자 무시)이다. `user_dictionary`는 `{source: "attributes" 또는 "geometry", key: 키, any_of: [값들]}` 조건 배열이다. scalar 또는 배열의 원소와 정확히 비교하며 문자열을 임의로 분할하거나 층 정보를 추론하지 않는다. 메타데이터 필터를 건축 요소의 정체성과 동일시하지 않는다.
+
+각 객체에 문서 가시성·선택 여부·bbox·원본 `geometry_crc`·두 UserDictionary·그룹을 반환한다. 그룹의 `members_outside_match_count`와 문서의 `visible_outside_match_count`는 조회 범위 밖의 관계를 드러낸다. `visible`은 Rhino의 문서/레이어 가시성으로, 화면의 픽셀·가림·clipping 결과를 보증하지 않는다.
+
+`include_geometry=true`면 Brep의 유효성·solid·manifold·체적과 최대 128개 면의 index·평면·방향을 추가한다. 면 편집에는 같은 응답의 원본 CRC를 쓴다. `face_edit_supported`는 형상 종류와 기본 조건의 사전 판별이며 실제 편집 성공 보장은 아니다. `offset`/`limit`(1..200), `next_offset`, 각 `truncated` 표시를 확인한다. 응답은 256 KiB, 문서 스캔은 100000개로 제한하며 초과하면 범위를 줄여 조회한다.
+
+<!-- /instruction:get_rhino_objects -->
+
+<!-- instruction:get_object_intersections -->
+
+일반 모델 객체의 명시 GUID 1..512개에 대해 닫힌 Brep/Extrusion의 체적 교차를 읽기 전용으로 검사한다. Component 등록은 필요 없다. `max_pairs`(1..64)는 bbox 후보 중 실제 기하 커널에 전달할 쌍 수다. `include_ids=true`면 원인 객체와 쌍의 GUID를 반환한다.
+
+`complete`, `truncated`, `unsupported_objects`, `unknown_pair_count`를 함께 읽는다. `has_positive_overlap=false`는 전체 대상 검사가 끝나고 양의 체적 교차가 없을 때만 반환하며, 불완전한 무교차 결과는 null이다. 체적 교차가 없다는 결과는 접합·연속성·설계 적합성 판단을 대신하지 않는다. 블록은 펼치지 않고 그룹은 대상에 추가하지 않는다.
+
+<!-- /instruction:get_object_intersections -->
+
+<!-- instruction:capture_rhino_inspection -->
+
+지정한 여러 시점과 객체집합을 하나의 PNG에 담는 읽기 전용 캡처다. `views`는 1..16개 tile로, 각 항목은 `object_ids`(생략하면 현재 문서 가시 범위), `direction`, `display_mode`, `label`을 받는다. 필요하면 `get_rhino_objects`의 필터 결과 GUID를 tile마다 전달한다. 현재 선택·카메라·숨김 상태를 바꾸지 않는다.
+
+`direction`은 `current`, `top`, `bottom`, `front`, `back`, `left`, `right`, `iso_ne`, `iso_nw`, `iso_se`, `iso_sw`, `below_ne`, `below_nw`, `below_se`, `below_sw` 중 선택한다. 필요한 시점만 요청한다. `display_mode` 생략 시 현재 모드를 쓰며, 이름이 중복되면 `get_rhino_context(sections=["display_modes"])`에서 확인한 GUID를 사용한다. 각 tile의 메타데이터와 오류를 읽고 이미지의 실제 범위를 확인한다.
+
+`width`/`height`는 tile 픽셀 크기, `columns`는 배치 열 수다. 합계 16M 픽셀과 PNG 4 MiB를 넘으면 크기나 tile 수를 줄인다. 문서 가시성 기준의 대상 목록은 픽셀에 실제 보이는 모든 객체의 증명이 아니다. 명시 필터에서 블록 인스턴스·블록 내부 객체는 지원하지 않으며 해당 tile 오류로 보고한다. 필터를 생략한 전체 범위에서는 블록을 원래대로 표시한다.
+
+<!-- /instruction:capture_rhino_inspection -->

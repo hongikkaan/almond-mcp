@@ -12,7 +12,8 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="Program.cs" />
     <Compile Include="IntersectionTests.cs" />
-    <Compile Include="../../../../mcp/features/context/native/*.cs" Link="Context\%(Filename)%(Extension)" />
+    <Compile Include="../../../../mcp/features/context/native/BlockAnalysis.cs" Link="Context\BlockAnalysis.cs" />
+    <Compile Include="../../../../mcp/features/context/native/AlmondSpatial.cs" Link="Context\AlmondSpatial.cs" />
     <Compile Include="../../../../mcp/features/components/native/*.cs" Link="Components\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

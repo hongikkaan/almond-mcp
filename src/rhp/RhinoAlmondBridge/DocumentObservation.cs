@@ -80,7 +80,8 @@ namespace RhinoAlmondBridge
             {
                 ["status"] = "success",
                 ["capabilities"] = new JObject { ["block_analysis"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2,
-                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1, ["context_sections"] = 1, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1 },
+                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1, ["context_sections"] = 1, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
+                    ["object_observation"] = 1, ["inspection_capture"] = 1, ["face_edit"] = 1 },
                 ["warnings"] = warnings
             };
             if (requested.Contains("document")) result["document"] = new JObject
@@ -374,7 +375,7 @@ namespace RhinoAlmondBridge
             }
         }
 
-        private sealed class CaptureViewportControl : RhinoWindows.Forms.Controls.ViewportControl
+        internal sealed class CaptureViewportControl : RhinoWindows.Forms.Controls.ViewportControl
         {
             internal void InitializeCapturePipeline()
             {
@@ -388,7 +389,7 @@ namespace RhinoAlmondBridge
             }
         }
 
-        private static DisplayModeDescription ResolveDisplayMode(string value)
+        internal static DisplayModeDescription ResolveDisplayMode(string value)
         {
             Guid id;
             if (Guid.TryParse(value, out id)) return DisplayModeDescription.GetDisplayMode(id);

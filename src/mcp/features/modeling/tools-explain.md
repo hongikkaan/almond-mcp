@@ -23,7 +23,11 @@ owns Undo and redraw, and restores cwd/environment even after an exception.
 Use document tolerance, explicit object IDs and validated geometry before replacing
 or deleting originals. Batch loops belong in synchronous source with per-item results.
 
-python/python2 assign a JSON value to result. csharp/csharp-script are C# statement
+python/python2 assign JSON-compatible values directly, for example result = {"changed": 2}.
+Use dict/list for structured results; json.dumps returns text instead. The first
+response includes up to 20 items per array or top-level list field, or 4096 characters
+for a top-level string; remaining data is paged.
+csharp/csharp-script are C# statement
 bodies with doc and result_json, not the former class/Run format. command accepts
 one fully specified macro without adding !, Pause or dialogs. All modes require
 StartScriptServer in the bound Rhino; there is no legacy Bridge executor fallback.
@@ -34,8 +38,9 @@ project root as cwd. Use execute_project_python for the selected Plan folder as 
 Do not assume worker-venv packages exist in Rhino's embedded Python. Return only
 measurements needed for the decision, collecting related work in one script.
 
-A waiting response includes request_id. Use get_rhino_execution to retrieve that
-same execution, page its results or read captured stdout. CLI exit, print output
+A waiting response includes request_id. Use get_rhino_execution when that execution
+is still pending, more result pages are needed, or output/diagnostics remain to be checked.
+A completed response with the needed result requires no follow-up read. CLI exit, print output
 and a timeout are not completion evidence. A completed exception may have partial
 changes; result_error does not roll them back. Never automatically retry uncertain
 work, open a different document or schedule detached document edits.
@@ -47,6 +52,32 @@ Args:
 Returns:
     JSON execution outcome and result with a recoverable request_id; pending or failed calls preserve completion evidence.
 <!-- /instruction:execute_rhino_script -->
+
+## edit_planar_face
+
+<!-- instruction:edit_planar_face -->
+Translate one planar face of an existing closed Brep with Rhino's PushPull Extend.
+Use when extending or retracting that face preserves the intended element and its
+connections. The selected face and every adjacent face must be planar. This tool
+supports unlocked top-level model-space Breps, not extrusion conversions or block interiors;
+finish group/block editing first. It requires Bridge face_edit=1 and Rhino 8.16+.
+
+Pass object_id, face_index and expected_geometry_crc from the same current geometry
+observation. A changed CRC rejects the edit before replacement. translation is an
+XYZ vector in document units; its component normal to the face must exceed document
+tolerance. The helper prepares a duplicate and checks valid closed manifold geometry,
+orientation and finite positive volume before replacing the original under its same
+GUID. Object attributes, groups, geometry UserStrings and the geometry UserDictionary
+are preserved. Other custom geometry user data is rejected before editing because
+its preservation cannot be verified by this operation.
+
+The existing native executor owns Undo and completion. A confirmed result returns
+edited=true, the new geometry_crc, before/after volumes and face counts. Face indices
+may change; observe faces again before another edit. This reports the geometric edit,
+not construction suitability, clearance from neighbours or a saved document. Choose
+the observations needed to assess the intended change. An unconfirmed result must be
+inspected before retrying; timeout and result_error do not prove the edit was undone.
+<!-- /instruction:edit_planar_face -->
 
 ## save_rhino_document
 

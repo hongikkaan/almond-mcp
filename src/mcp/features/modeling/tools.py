@@ -4,11 +4,11 @@ from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.modeling.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from almond_mcp.managed_paths import bound_model_path
-from pydantic import StrictBool, StrictInt
+from pydantic import StrictBool, StrictFloat, StrictInt
 import json
 import uuid
 
-from almond_mcp.features.modeling import modeling_policy, modeling_setup
+from almond_mcp.features.modeling import face_edit, modeling_policy, modeling_setup
 
 
 def register(mcp, context):
@@ -44,6 +44,19 @@ def register(mcp, context):
         # their own sender and are not callers of this public tool.
         return json.dumps(execute(script, "csharp-script" if language == "csharp" else language,
                                   timeout_seconds), ensure_ascii=False)
+
+
+    @mcp.tool()
+    @tool_instruction(__file__, 'edit_planar_face')
+    def edit_planar_face(object_id: str, face_index: StrictInt, expected_geometry_crc: StrictInt,
+                         translation: list[StrictFloat | StrictInt], expected_model_path: str = "") -> str:
+        try:
+            payload = face_edit.request(object_id, face_index, expected_geometry_crc, translation,
+                                        bound_model_path(expected_model_path))
+        except (ValueError, TypeError, OverflowError) as exc:
+            return json.dumps({**error_payload(str(exc), error_code="invalid_arguments"),
+                               "mutation_state": "not_started"})
+        return json.dumps(face_edit.dispatch(payload, context._send_and_receive), ensure_ascii=False)
 
 
     @mcp.tool(annotations={"destructiveHint": False})
@@ -225,6 +238,7 @@ def register(mcp, context):
     return {
         "get_modeling_policy": get_modeling_policy,
         "execute_rhino_script": execute_rhino_script,
+        "edit_planar_face": edit_planar_face,
         "save_rhino_document": save_rhino_document,
         "setup_modeling": setup_modeling,
         "list_materials": list_materials,

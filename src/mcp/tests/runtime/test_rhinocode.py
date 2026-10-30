@@ -614,3 +614,27 @@ def test_large_design_schedule_still_exposes_remaining_rows_without_rerun(execut
     assert answer["result_page"]["pages"]["result"]["next_offset"] == 20
     continuation = owner.get_execution(answer["request_id"], offset=20, limit=20)
     assert continuation["result"] == schedule[20:] and len(calls) == 1
+
+
+@pytest.mark.parametrize("value", [
+    json.dumps({"extended": 24, "cut_objects": 6}),
+    "벽체 24개를 연장하고 절단 객체 6개를 정리했습니다.",
+    "🧱" * 4096,
+], ids=["serialized-json", "korean", "unicode-boundary"])
+def test_small_text_result_is_complete_in_initial_response(execution, monkeypatch, value):
+    owner, answer, calls = _complete_design_query(execution, monkeypatch, value)
+    assert answer["completed"] and answer["result"] == value
+    assert "result_page" not in answer and "result_display_error" not in answer
+    # Explicit reads retain their documented character offset/limit contract.
+    page = owner.get_execution(answer["request_id"], offset=3, limit=7)
+    assert page["result"] == value[3:10] and len(calls) == 1
+
+
+def test_large_text_initial_page_has_character_continuation(execution, monkeypatch):
+    value = "측정" * 2500
+    owner, answer, calls = _complete_design_query(execution, monkeypatch, value)
+    assert answer["result"] == value[:4096]
+    assert answer["result_page"]["unit"] == "characters"
+    assert answer["result_page"]["pages"]["result"]["next_offset"] == 4096
+    page = owner.get_execution(answer["request_id"], offset=4096, limit=1000)
+    assert page["result"] == value[4096:] and len(calls) == 1
