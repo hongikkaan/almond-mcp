@@ -67,16 +67,16 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 
 ### 공개 도구 위치
 
-아래 72개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`, `get_rhino_execution`을 포함한 입력 catalog는 77개다. 외부 host는 연결관리 도구 4개를 추가해 실제 클라이언트에 81개를 노출한다. 수치는 현재 소스에서 생성한 catalog를 기준으로 한다.
+아래 76개는 package 공개 도구다. runtime의 `project_info`, `set_working_plan`, `rename_artifact_folder`, `execute_project_python`, `get_rhino_execution`을 포함한 입력 catalog는 81개다. 외부 host는 연결관리 도구 4개를 추가해 실제 클라이언트에 85개를 노출한다. 수치는 현재 소스에서 생성한 catalog를 기준으로 한다.
 
 | 기능 | 공개 함수 |
 |---|---|
-| 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `analyze_block_reculviely`, `get_rhino_viewport_image` |
+| 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `analyze_block_reculviely`, `get_rhino_viewport_image`, `get_rhino_objects`, `get_object_intersections`, `capture_rhino_inspection` |
 | 작업계획 | `create_phase`, `get_phase`, `list_phases`, `update_phase`, `create_plan`, `get_plan`, `list_plans`, `update_plan`, `list_plan_revisions`, `update_step`, `resolve_targets`, `get_selection_references` |
 | Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `list_design_scenes`, `get_scene_objects` |
 | Component | `upsert_ontological_component`, `get_ontological_component`, `list_ontological_components`, `sync_ontological_component`, `remove_ontological_component`, `get_component_intersections`, `focus_components` |
 | 설계 참고자료 | `get_modeling_guide`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
-| 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `save_rhino_document`, `setup_modeling`, `list_materials`, `assign_material` |
+| 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `save_rhino_document`, `edit_planar_face`, `setup_modeling`, `list_materials`, `assign_material` |
 | Grasshopper | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` |
 | 자산 | `list_drawing_assets`, `search_drawing_assets`, `get_drawing_asset`, `prepare_drawing_asset`, `register_drawing_asset`, `get_asset_drawing`, `generate_asset_drawing_views`, `audit_asset_drawing`, `place_drawing_asset`, `search_asset_repository` |
 | 다이어그램 | `list_diagram_assets`, `search_diagram_assets`, `get_diagram_asset`, `place_diagram_asset` |
@@ -131,7 +131,7 @@ fingerprint 대상이므로 이동·추가·삭제도 감지한다.
 연결마다 token·session·call 디렉터리와 프로세스 identity를 확인한다. 모델 폴더의
 DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유지한다.
 
-`get_rhino_context`, `get_rhino_viewport_image`, `analyze_block_reculviely`는 고정 관찰 경로다.
+`get_rhino_context`, `get_rhino_viewport_image`, `analyze_block_reculviely`, `get_rhino_objects`, `get_object_intersections`, `capture_rhino_inspection`은 고정 관찰 경로다.
 조회가 geometry·layer·selection·camera·Undo를 바꾸면 안 된다.
 `execute_rhino_script`의 `result_error`는 이미 끝난 수정을 취소하지 않는다.
 공개 코드 실행은 `execute_rhino_script`와 `execute_project_python` 모두 공식 RhinoCode를

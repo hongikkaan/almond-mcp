@@ -102,6 +102,37 @@ override를 거절하고, Detail 라벨 미지원은 경고한다. 라벨이 필
 반환한다. Python에서도 실제 PNG 형식과 크기를 검사한다. 캡처 성공은 형상의 정확성을
 증명하지 않는다. 의도적인 카메라 경로와 여러 패스는 `capture_conditioning_pass`를 사용한다.
 
+## 일반 객체 범위·형상과 묶음 캡처
+
+`get_rhino_objects`와 `get_object_intersections`는 `object_observation=1`로 확인한 고정 native 경로다.
+조회는 visible/selected/명시 GUID/document 중 정한 top-level 모델 객체를 대상으로 한다.
+필터·페이지·기하 상세의 입력은 [도구 설명](../features/context/tools-explain.md)에 둔다.
+그룹·블록으로 연산 범위를 자동 확대하지 않고, 그룹의 범위 밖 멤버와 현재 문서 가시 범위를 보고한다.
+문서 가시성은 화면 픽셀·frustum·clipping·occlusion 판정과 구분한다.
+UserDictionary는 기존 SharedUserDictionary만 읽으며, 사전을 생성하는 원본 getter를 호출하지 않는다.
+다중 값 필터는 출력 잘림과 별개로 판정하고 필터 검사 예산 초과는 오류로 보고한다.
+응답은 256 KiB를 넘지 않으며 기하 상세의 면·그룹·메타데이터 생략과 페이지를 명시한다.
+
+GUID 교차 검사는 기존 ComponentOperations/SolidIntersections 구현을 재사용한다.
+Component 등록 없이 닫힌 Brep/Extrusion에 대해 최대 512객체·64후보쌍을 검사하고,
+미지원·미확정·잘린 결과를 무교차로 간주하지 않는다. 접합의 설계 적합성은 별도 판단이다.
+
+`capture_rhino_inspection`은 `inspection_capture=1`을 확인한 뒤 최대 16개 타일을 합성한다.
+별도 viewport와 범위 제한 display conduit를 사용하며 live 카메라·선택·가시 상태를 수정하지 않는다.
+필터의 culling 실행을 확인하지 못하면 이미지를 반환하지 않는다. 타일별 범위·모드·카메라·오류를
+돌려주며 일부 실패는 `complete=false`로 표시한다. 전체 이미지는 16M 픽셀·PNG 4 MiB 이내다.
+명시 블록 인스턴스 필터와 group/block 편집 중 캡처는 지원하지 않는다.
+
+## 제한된 평면 면 편집
+
+`edit_planar_face`는 `face_edit=1`과 저장된 대상 문서를 확인하는 고정 native 편집 경로다.
+공개 임의 코드 실행의 대체 경로가 아니라, 닫힌 manifold Brep의 평면 면과 인접 평면을
+`Brep.PushPullExtend`로 연장하는 고정 연산이다. 대상 GUID·면 index·원본 geometry CRC를 받아
+오래된 면 참조를 거절하고, 복제본에서 검사한 뒤 같은 GUID로 교체한다. 속성·그룹과 기존
+geometry UserDictionary/UserStrings를 보존하며, 기타 custom geometry UserData는 편집 전에 거절한다.
+상자 재생성으로 대신하지 않는다. Undo·완료·불확실한 수정의
+재시도 금지는 기존 ScriptExecutor/native receipt 계약을 따른다. 형상 연산 성공이 설계 적합성을 뜻하지 않는다.
+
 ## 중첩 블록 분석
 
 `analyze_block_reculviely(mode, options)`는 `outline`, `resolve-block` 두 모드만 제공한다.

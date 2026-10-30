@@ -20,6 +20,7 @@ def server():
     assert set(exports) == {
         "get_retrieval_status", "get_rhino_context", "analyze_block_reculviely",
         "get_rhino_viewport_image", "_viewport_result",
+        "get_rhino_objects", "get_object_intersections", "capture_rhino_inspection",
     }
     context.__dict__.update(exports)
     return context
@@ -39,6 +40,7 @@ def test_registration_keeps_tools_and_runtime_sender_scoped(server):
             tools = {tool.name: tool for tool in await client.list_tools()}
             assert set(tools) == {
                 "get_retrieval_status", "get_rhino_context", "analyze_block_reculviely", "get_rhino_viewport_image",
+                "get_rhino_objects", "get_object_intersections", "capture_rhino_inspection",
             }
             for name in ("get_rhino_context", "analyze_block_reculviely", "get_rhino_viewport_image"):
                 assert tools[name].annotations.read_only_hint is True

@@ -29,7 +29,9 @@ while completed remains false because the CLI lifecycle is still unconfirmed.
 A late exact result can reconcile CLI-only
 uncertainty. Unrelated native uncertainty remains blocked. include_result controls
 result retrieval, result_fields selects top-level fields, and offset/limit page
-retained result rows without another Rhino call. include_stdout is false by
+retained result rows (or characters for a string) without another Rhino call.
+Read again when completion, needed result data, logs, or diagnostics remain to be checked;
+a completed response containing the needed result is sufficient. include_stdout is false by
 default. include_ids defaults true for explicitly authored code results; request
 identity always remains, and operation identity is available with diagnostics.
 Page information remains on the final page too. Execution files remain available until this

@@ -46,7 +46,7 @@ class CatalogTests(unittest.IsolatedAsyncioTestCase):
         generated = await generate()
         self.assertNotIn("almond_mcp.server", sys.modules)
         self.assertEqual(generated, await asyncio.to_thread(load_catalog))
-        self.assertEqual(len(generated["tools"]), 77)
+        self.assertEqual(len(generated["tools"]), 81)
         scene = next(tool for tool in generated["tools"] if tool["name"] == "list_design_scenes")
         self.assertEqual(scene["inputSchema"]["properties"]["field_groups"]["default"], None)
         self.assertEqual(scene["inputSchema"]["properties"]["limit"]["default"], 50)

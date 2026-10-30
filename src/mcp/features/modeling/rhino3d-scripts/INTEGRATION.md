@@ -12,8 +12,10 @@
 ## 이 도구에 적용하는 실행 방식
 
 - 새 코드는 Python 3이 기본이다. `doc`은 연결된 실제 RhinoDoc이며 `scriptcontext.doc`도
-  같은 문서다. Python은 JSON 값 `result`, C# statement body는 JSON 문자열 `result_json`에
-  결과를 넣는다. `csharp`와 `csharp-script`는 같은 ScriptEditor C# 경로다.
+  같은 문서다. Python은 `result = {"changed": 2}`처럼 JSON 호환 값을 직접 할당한다.
+  구조화 결과는 dict/list로 반환하고, C# statement body는 JSON 문자열 `result_json`에
+  결과를 넣는다. 첫 결과의 행·문자 예산과 후속 조회 조건은 위 실행 도구 설명을 따른다.
+  `csharp`와 `csharp-script`는 같은 ScriptEditor C# 경로다.
   이전 `class Script { public static ... Run(RhinoDoc doc) }` 공개 실행 형식은 사용하지 않는다.
 - 두 공개 도구 모두 공식 RhinoCode → ScriptEditor에서 실행한다. 프로젝트 Python의
   cwd는 선택한 Plan 산출물 폴더, 일반 Rhino 스크립트의 cwd는 프로젝트 루트다.
@@ -27,8 +29,9 @@
 - 실행 전과 Rhino UI thread 진입 후에 대상 문서를 확인한다. Undo record와 redraw는
   실행기가 관리하고 `finally`에서 cwd·환경·scriptcontext·redraw를 복구한다.
   코드가 추가 Undo record를 만들거나 별도 thread에서 문서를 수정하지 않는다.
-- CLI 프로세스 종료는 Rhino 실행 완료가 아니다. `request_id`로 `get_rhino_execution`을
-  조회한다. timeout은 대기 한도이며 코드를 종료하거나 반복하지 않는다.
+- 반환의 `completed`와 결과를 확인한다. 대기 중이거나 필요한 결과 페이지·로그가 남으면
+  같은 `request_id`를 조회한다. CLI 프로세스 종료만으로 완료를 판정하지 않으며,
+  timeout은 대기 한도이므로 코드를 종료하거나 반복하지 않는다.
 - 스킬의 대화형 선택 예제는 명시 GUID 입력으로 바꿔 사용한다. `rs.GetObject`, `Pause`,
   dialog는 자동 실행에 넣지 않는다. macro에 `!`를 자동 추가하지 않는다. 스킬의 일반
   매크로 권고보다 기존 사용자 명령 보존과 이 연결의 완료 계약을 우선한다.

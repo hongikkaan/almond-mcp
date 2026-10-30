@@ -427,7 +427,7 @@ class _Execution:
             self.dispatching = False
 
 
-def _result_page(value, fields, offset, limit):
+def _result_page(value, fields, offset, limit, *, initial=False):
     if fields is not None and (not isinstance(fields, list) or any(not isinstance(x, str) for x in fields)):
         raise ValueError("result_fields must be an array of top-level field names.")
     pages = {}
@@ -454,6 +454,11 @@ def _result_page(value, fields, offset, limit):
     elif isinstance(value, str):
         if fields:
             raise ValueError("String results have no result_fields.")
+        # The first response has a separate text budget. Twenty rows is useful
+        # for arrays, but twenty characters hides even a small scalar result.
+        # Explicit follow-up offset/limit values retain their character units.
+        if initial:
+            limit = 4096
         result, info = page(value, "result"), dict(type="string", unit="characters", pages=pages)
     else:
         if fields:
@@ -602,7 +607,7 @@ class RhinocodeExecution:
             if state["completed"]:
                 break
             time.sleep(min(0.05, max(0, deadline - time.monotonic())))
-        result = self.get_execution(request_id=request_id, limit=20, include_ids=True)
+        result = self.get_execution(request_id=request_id, limit=20, include_ids=True, _initial_result=True)
         if not result["completed"]:
             result["timed_out"] = True
             result["message"] = ("Execution is retained. Retrieve this request with get_rhino_execution; "
@@ -634,7 +639,7 @@ class RhinocodeExecution:
         return True
 
     def get_execution(self, request_id="", *, include_result=True, include_stdout=False,
-                      result_fields=None, offset=0, limit=100, include_ids=True):
+                      result_fields=None, offset=0, limit=100, include_ids=True, _initial_result=False):
         if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("offset must be nonnegative and limit must be 1-1000.")
         if any(type(flag) is not bool for flag in (include_result, include_stdout, include_ids)):
@@ -671,7 +676,7 @@ class RhinocodeExecution:
                             or hashlib.sha256(raw).hexdigest() != final.get("result_sha256")):
                         raise ValueError("Retained result no longer matches its completion receipt.")
                     value = json.loads(raw.decode("utf-8-sig"))
-                    selected, info = _result_page(value, result_fields, offset, limit)
+                    selected, info = _result_page(value, result_fields, offset, limit, initial=_initial_result)
                     if not include_ids:
                         from almond_mcp.query_output import project_query
                         selected = project_query(selected, include_ids=False)

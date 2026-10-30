@@ -3,6 +3,7 @@ from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, project_query
 from almond_mcp.managed_paths import bound_model_path, relative_output
 from almond_mcp.instruction_text import tool_instruction
+from almond_mcp.features.context import object_queries
 
 import base64
 import io
@@ -145,6 +146,44 @@ def register(mcp, context):
             ))
 
 
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @tool_instruction(__file__, 'get_rhino_objects')
+    @query_output
+    def get_rhino_objects(scope: str = "visible", object_ids: list[str] | None = None,
+                          filters: dict | None = None, include_geometry: StrictBool = False,
+                          offset: StrictInt = 0, limit: StrictInt = 50,
+                          expected_model_path: str = "", include_ids: StrictBool = False) -> str:
+        return object_queries.query(context._send_and_receive, scope=scope,
+                                    ids=[] if object_ids is None else object_ids,
+                                    filters={} if filters is None else filters,
+                                    include_geometry=include_geometry, offset=offset, limit=limit,
+                                    expected_model_path=expected_model_path)
+
+
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @tool_instruction(__file__, 'get_object_intersections')
+    @query_output
+    def get_object_intersections(object_ids: list[str], max_pairs: StrictInt = 64,
+                                 expected_model_path: str = "", include_ids: StrictBool = False) -> str:
+        return object_queries.intersections(context._send_and_receive, ids=object_ids, max_pairs=max_pairs,
+                                            expected_model_path=expected_model_path)
+
+
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @tool_instruction(__file__, 'capture_rhino_inspection')
+    def capture_rhino_inspection(views: list[dict], width: StrictInt = 640, height: StrictInt = 480,
+                                 columns: StrictInt | None = None, expected_model_path: str = "") -> ToolResult:
+        from almond_mcp.features.context.inspection_capture import execute
+        try:
+            path = bound_model_path(expected_model_path)
+        except ValueError as exc:
+            return _viewport_result(error_payload(str(exc), error_code="invalid_arguments"))
+        payload = {"views": views, "width": width, "height": height}
+        if columns is not None:
+            payload["columns"] = columns
+        return execute(context._send_and_receive, payload, path)
+
+
     def _viewport_result(metadata: dict) -> ToolResult:
         content = [TextContent(type="text", text=json.dumps(metadata, ensure_ascii=False))]
         return ToolResult(content=content, structured_content=metadata,
@@ -271,4 +310,7 @@ def register(mcp, context):
         "analyze_block_reculviely": analyze_block_reculviely,
         "_viewport_result": _viewport_result,
         "get_rhino_viewport_image": get_rhino_viewport_image,
+        "get_rhino_objects": get_rhino_objects,
+        "get_object_intersections": get_object_intersections,
+        "capture_rhino_inspection": capture_rhino_inspection,
     }

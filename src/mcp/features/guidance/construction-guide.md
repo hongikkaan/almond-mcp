@@ -62,7 +62,7 @@ validate_structure(guids, "beam", load_kn, "Wood")
 
 ## 재료·구축 레이어 구현
 
-도구 입력과 적용 기준은 [템플릿 지침](../../BASIC-INSTRUCTIONS.md#템플릿재료구축-레이어)과 [설계 자료](../../BASIC-INSTRUCTIONS.md#설계-자료)를 따른다.
+도구 입력과 적용 기준은 [템플릿 지침](../../BASIC-INSTRUCTIONS.md#템플릿재료구축-레이어)과 [구축 시스템과 표현 단계](../../BASIC-INSTRUCTIONS.md#구축-시스템과-표현-단계)를 따른다.
 
 MCP owns catalog loading, material choices, construction-layer specifications and metadata policy. `modeling_setup.py` supplies resolved recipes to the shared C# implementation in `src/mcp/rhino/`. The Bridge compiles those files to execute Rhino API operations on its UI thread; it does not independently read the material or construction manifests. Native document access, Undo recovery, panels and geometry services remain in RHP. `DocumentLayers.Ensure` is the common native layer-path adapter used by drawing styles, asset placement and setup.
 

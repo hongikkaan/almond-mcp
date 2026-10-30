@@ -77,6 +77,16 @@ namespace RhinoAlmondBridge
                     case "get_rhino_viewport_image":
                         return DocumentObservation.HandleViewportImage(jobj);
 
+                    case "get_rhino_objects":
+                    case "get_object_intersections":
+                        return ObjectObservation.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
+                    case "capture_rhino_inspection":
+                        return InspectionCapture.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
+                    case "edit_planar_face":
+                        return PlanarFaceEditing.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
                     case "save_rhino_document":
                         return DocumentSave.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 
