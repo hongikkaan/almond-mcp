@@ -54,7 +54,7 @@
 
 기본 반환은 **PNG MCP image content 한 개**이며 경로·문서·GUID metadata를 반복하지 않는다.
 `scale_percent`는 1–100 정수, 기본 75다. 100은 원본 픽셀 크기이고 도면 검수에 사용한다.
-75는 가로·세로 각각 75%다. Named View는 저장된 화면 크기(없으면 현재 뷰 크기), Layout은 용지를 96 dpi로 표현한 크기를 100%로 삼는다. Layout은 주변 작업창을 빼고 용지와 그 안의 Detail을 캡처하며, 현재 Layout에서 Detail이 활성화돼 있어도 용지가 대상이다.
+75는 가로·세로 각각 75%다. Named View는 저장된 화면 크기(없으면 현재 뷰 크기), Layout은 용지를 144 dpi로 표현한 크기를 100%로 삼는다. Layout 검수에는 100을 사용하며 낮은 비율은 해상도도 비례해 낮춘다. Layout은 주변 작업창을 빼고 용지와 그 안의 Detail을 인쇄 색상·선 두께로 캡처하며, 현재 Layout에서 Detail이 활성화돼 있어도 용지가 대상이다. 문서의 PrintDisplay와 Detail 축척은 변경하지 않는다.
 
 Named View는 별도 viewport에서 저장된 카메라를 그리며 기본 mode는 Shaded다.
 화면의 활성 뷰 전환·Named View 복원·zoom·selection·Undo 변경을 하지 않는다.

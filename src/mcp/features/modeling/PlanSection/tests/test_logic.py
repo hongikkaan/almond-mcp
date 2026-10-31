@@ -67,6 +67,27 @@ class OptionsAndMetadata(unittest.TestCase):
         self.assertEqual(ps.output_attributes(source).values,{'ps:source_layer':'Model','ps:placement':'local'})
         self.assertEqual(source.values,values)
 
+    def test_output_uses_layer_print_properties_and_hatch_layer_style(self):
+        color_source, plot_color_source, plot_weight_source = object(), object(), object()
+        api = NS(ObjectColorSource=NS(ColorFromLayer=color_source),
+                 ObjectPlotColorSource=NS(PlotColorFromLayer=plot_color_source),
+                 ObjectPlotWeightSource=NS(PlotWeightFromLayer=plot_weight_source))
+        with patch.object(ps, 'D', api):
+            for role in ('section', 'elevation', 'hatch'):
+                attrs = ps.output_attributes(Attributes(), role)
+                self.assertIs(attrs.PlotColorSource, plot_color_source)
+                self.assertIs(attrs.PlotWeightSource, plot_weight_source)
+                if role == 'hatch': self.assertIs(attrs.ColorSource, color_source)
+        color = object()
+        layer = NS()
+        with patch.object(ps, 'Color', NS(FromArgb=Mock(return_value=color))) as colors:
+            ps.configure_hatch_layer(layer)
+        colors.FromArgb.assert_called_once_with(26, 26, 26)
+        self.assertIs(layer.Color, color)
+        self.assertIs(layer.PlotColor, color)
+        self.assertEqual(layer.PlotWeight, -1.0)
+        self.assertEqual(ps.output_layer('hatch'), 'Drawing::Hatch')
+
     def test_read_clip_shared_default_and_explicit_update_target(self):
         shared, moved = NS(IsValid=True), NS(IsValid=True)
         doc = NS(Objects=NS(FindId=Mock(return_value=None)),Layers=NS(Count=0))

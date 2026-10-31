@@ -21,6 +21,7 @@ namespace RhinoAlmondBridge
     {
         public const int MaxSelectionLimit = 200;
         public const int MaxImageBytes = 4 * 1024 * 1024;
+        private const double LayoutDpi = 144.0;
 
         public static string HandleContext(JObject request)
         {
@@ -209,8 +210,8 @@ namespace RhinoAlmondBridge
                 Size sourceSize;
                 if (page != null)
                 {
-                    // Paper dimensions at 96 dpi define 100%, independent of layout zoom.
-                    using (var settings = new ViewCaptureSettings(page, 96.0))
+                    // Paper dimensions at the default Layout DPI define 100%, independent of layout zoom.
+                    using (var settings = new ViewCaptureSettings(page, LayoutDpi))
                         sourceSize = settings.MediaSize;
                 }
                 else if (namedView != null)
@@ -251,6 +252,11 @@ namespace RhinoAlmondBridge
                     stage = "image_encode_failed";
                     using (var stream = new MemoryStream())
                     {
+                        if (page != null)
+                        {
+                            var dpi = (float)(LayoutDpi * scalePercent / 100.0);
+                            bitmap.SetResolution(dpi, dpi);
+                        }
                         bitmap.Save(stream, ImageFormat.Png);
                         if (stream.Length == 0)
                             return Error("image_encode_failed", "PNG encoding produced no bytes.");
@@ -314,7 +320,7 @@ namespace RhinoAlmondBridge
             if (page != null)
             {
                 if (labels) warnings.Add("labels: Layout detail overlays are unavailable; capture its model viewport or a Named View for entity labels.");
-                using (var settings = new ViewCaptureSettings(page, 96.0 * scalePercent / 100.0))
+                using (var settings = new ViewCaptureSettings(page, LayoutDpi * scalePercent / 100.0))
                 {
                     settings.Document = doc;
                     settings.RasterMode = true;
@@ -326,7 +332,15 @@ namespace RhinoAlmondBridge
                     settings.HeaderText = "";
                     settings.FooterText = "";
                     settings.SetLayout(size, new Rectangle(System.Drawing.Point.Empty, size));
-                    return ViewCapture.CaptureToBitmap(settings);
+                    // RhinoCommon's public overload hard-codes forPrinting=false, so
+                    // Layout details ignore OutputColor and UsePrintWidths. Use its
+                    // Rhino 8 printing overload without changing document PrintDisplay.
+                    var printCapture = typeof(ViewCapture).GetMethod("CaptureToBitmap",
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic,
+                        null, new[] { typeof(ViewCaptureSettings), typeof(bool), typeof(bool) }, null);
+                    if (printCapture == null)
+                        throw new NotSupportedException("This RhinoCommon version does not support Layout capture with print colors and widths.");
+                    return (Bitmap)printCapture.Invoke(null, new object[] { settings, true, false });
                 }
             }
             if (namedView == null && entities == null)

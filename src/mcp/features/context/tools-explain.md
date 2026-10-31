@@ -63,7 +63,7 @@ Return a Rhino viewport, Named View or Layout as a PNG image, without activating
 Omit view to capture the current view. Pass view="a" to list viewports, named_views, and layouts, with only name and guid for each entry. Then pass the desired GUID as view.
 Names need not be unique. Named Views render the saved camera off screen using Shaded by default; they never replace the visible viewport. Layouts capture the paper area, including its details, not the surrounding workspace. A current Layout also captures its paper, even when a detail is active.
 
-scale_percent=100 means the original pixel dimensions; 75 (default) retains 75% of both dimensions and uses 56.25% of the pixels. Named Views use their saved pixel size (current viewport size if unavailable); Layout 100% means paper at 96 dpi.
+For capture resolution and Layout print appearance, follow [BASIC-INSTRUCTIONS.md](../../BASIC-INSTRUCTIONS.md#get_rhino_viewport_image-화면으로-관찰하기).
 No temporary image file is created. Capture does not change camera, selection or Undo state, or prove geometric correctness. A failed or oversized image is an error; lower scale_percent explicitly instead of receiving a silently resized image.
 
 Args:
