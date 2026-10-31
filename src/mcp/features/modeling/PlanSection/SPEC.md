@@ -18,10 +18,10 @@ Create·Update·PDF는 선택 후 Enter로 표시된 설정을 사용하고 `Cha
 
 | Output | 하는 일 | 도면 원점 | 기존 도면과 객체 ID |
 | --- | --- | --- | --- |
-| Document | 활성 문서에 생성·교체 | clipping의 `draft_plane` 또는 WorldXY; PickPlacement=True이면 클릭점 XY | 해당 clipping의 이전 로컬 도면만 교체하며 새 ID를 만든다 |
+| Document | 활성 문서에 생성·교체 | clipping의 `draft_plane` 또는 WorldXY; PickPlacement=True이면 클릭점 XYZ | 해당 clipping의 이전 로컬 도면만 교체하며 새 ID를 만든다 |
 | Files | 도면별 Rhino 8 `.3dm` 저장 | Document와 동일 | 활성 문서에 bake하지 않는다 |
 | Update | 기존 로컬 도면을 현재 옵션으로 재계산 | 기존 도면의 `ps:placement` 우선 | 새 ID로 교체한다. 수동 형상·속성 편집은 재생성 결과로 바뀐다 |
-| Placement | 기존 로컬 도면을 XY 평행이동 | 클릭한 새 clipping 원점 | 계산을 반복하지 않으며 ID와 수동 형상·시각 속성 편집을 유지한다 |
+| Placement | 기존 로컬 도면을 XYZ 평행이동 | 클릭한 새 clipping 원점 | 계산을 반복하지 않으며 ID와 수동 형상·시각 속성 편집을 유지한다 |
 | PDF | 도면별 단일 페이지 벡터 PDF 저장 | clipping 원점을 종이 중심에 배치 | 활성 문서와 `draft_plane`을 변경하지 않는다 |
 
 Update는 기존 도면이 없으면 건너뛰고 Document로 먼저 생성하도록 안내한다. Placement는 기존 도면이 없으면 실패한다. 둘 다 Files로만 내보낸 도면은 대상으로 삼지 않는다. Update/PDF는 PickPlacement를 무시한다.
@@ -30,7 +30,7 @@ Update는 기존 도면이 없으면 건너뛰고 Document로 먼저 생성하�
 
 ## 2. 전체 처리 흐름과 코드 위치
 
-`main`은 Project/CurrentDocument, 작업과 옵션 선택을 담당한다. `run(doc, operation, clipping_ids, points=None, folder=None, ...)`은 입력 창 없는 에이전트 진입점이다. Move는 GUID마다 유한한 XY 배치점이 필수이고 Create는 선택적이다. Update/PDF에는 배치점을 받지 않는다. Files/PDF에는 기존 출력 폴더가 필요하다. `run_selected`는 두 진입점이 공유하는 취소·Undo·일괄 반복이며, `process_clipping`은 도면 하나를 처리한다. 결과에는 완료·건너뜀·실패·취소, 생성 ID나 출력 경로가 구분된다. 배치 중 일부 실패가 앞선 완료를 되돌리지는 않는다. 호출 예시는 [README.md](README.md)를 따른다. 실제 형상 계산은 문서에 출력하지 않는 `generate`에 모여 있다. 모델 파일명·건물 용도·clipping 이름에 따른 생산 계산 분기는 없다.
+`main`은 Project/CurrentDocument, 작업과 옵션 선택을 담당한다. `run(doc, operation, clipping_ids, points=None, folder=None, ...)`은 입력 창 없는 에이전트 진입점이다. Move는 GUID마다 유한한 `[x,y]`(Z=0) 또는 `[x,y,z]` 배치점이 필수이고 Create는 선택적이다. Update/PDF에는 배치점을 받지 않는다. Files/PDF에는 기존 출력 폴더가 필요하다. `run_selected`는 두 진입점이 공유하는 취소·Undo·일괄 반복이며, `process_clipping`은 도면 하나를 처리한다. 결과에는 완료·건너뜀·실패·취소, 생성 ID나 출력 경로가 구분된다. 배치 중 일부 실패가 앞선 완료를 되돌리지는 않는다. 호출 예시는 [README.md](README.md)를 따른다. 실제 형상 계산은 문서에 출력하지 않는 `generate`에 모여 있다. 모델 파일명·건물 용도·clipping 이름에 따른 생산 계산 분기는 없다.
 
 ```mermaid
 flowchart TD
@@ -38,7 +38,7 @@ flowchart TD
     A --> C["elevations: 가시 입면선"]
     B --> D["deduplicate / cleanup_elevations"]
     C --> D
-    D --> E["move_drawing: XY 배치·유효성"]
+    D --> E["move_drawing: 수평 XYZ 배치·유효성"]
     E --> F["bake / export_drawing / export_pdf"]
 ```
 
@@ -49,7 +49,7 @@ flowchart TD
 | 단면 | record 목록 → section/hatch 항목 | `sections`, `intersect`, `clean_closed_curve`, `planar_union`, `region_boundaries` |
 | 입면 | record 목록·깊이 → 가시 elevation 항목 | `elevations`; HLD와 거리별 인쇄 표현 |
 | 선 정리 | 단면·입면 → 중복 정리·입면 Join·Keep/Omit | `deduplicate`, `cleanup_elevations`, `split_crossings` |
-| 배치 | clipping 좌표의 도면 → XY 도면 | `drawing_transform`, `move_drawing`; 최종 Z=0 |
+| 배치 | clipping 좌표의 도면 → 지정 높이의 수평 도면 | `drawing_transform`, `move_drawing`; 최종 Z=배치점 Z |
 | 출력 | 검증된 도면 → 문서 또는 파일 | `bake`, `export_drawing`, `export_pdf` |
 | 기존 도면 이동 | 로컬 출력 → 같은 ID의 이동 결과 | `drawing_objects`, `saved_placement`, `reposition_drawing` |
 
@@ -155,15 +155,15 @@ Clipping plane의 signed distance를 `s`라 하면 입면 범위는 depth 비활
 
 도면 원점은 **clipping plane의 Origin에 대응하는 점**이다. 도면 bbox 중심이나 좌하단이 아니다.
 
-Clipping의 world plane을 `(O, X, Y)`, 배치점을 `T=(Tx,Ty,0)`라 하면 plane상의 점 `p`는 다음 위치로 간다.
+Clipping의 world plane을 `(O, X, Y)`, 배치점을 `T=(Tx,Ty,Tz)`라 하면 plane상의 점 `p`는 다음 위치로 간다.
 
 ```text
 u = (p - O) · X
 v = (p - O) · Y
-drawing(p) = (Tx + u, Ty - v, 0)
+drawing(p) = (Tx + u, Ty - v, Tz)
 ```
 
-`drawing_transform`은 PlaneToPlane → 배치점을 지나는 World XZ 평면에 대한 반전 → WorldXY 투영 순서다. 축척은 바꾸지 않고 최종 Z=0을 고정한다. 원본 절단 좌표의 Z를 먼저 없애지 않는다. `move_drawing`은 투영 후 무효 polyline에도 `repair_invalid_polyline`을 적용하고 유효성을 확인한다.
+`drawing_transform`은 PlaneToPlane → 배치점을 지나는 World XZ 평면에 대한 반전 → 배치점을 지나는 수평 평면 투영 순서다. 축척과 지정 높이를 유지한다. 원본 절단 좌표의 Z를 먼저 없애지 않는다. `move_drawing`은 투영 후 무효 polyline에도 `repair_invalid_polyline`을 적용하고 유효성을 확인한다.
 
 기본 배치는 clipping ObjectAttributes user text의 `draft_plane`에서 읽는다.
 
@@ -171,14 +171,14 @@ drawing(p) = (Tx + u, Ty - v, 0)
 {"origin":[10000,20000,0],"xaxis":[1,0,0],"yaxis":[0,1,0]}
 ```
 
-세 벡터와 plane은 유효해야 하지만 최종 배치는 origin의 X/Y만 사용한다. 저장된 축이나 Z로 도면을 기울이지 않는다. 값이 없으면 WorldXY 원점이다.
+세 벡터와 plane은 유효해야 하지만 최종 배치는 origin의 XYZ를 사용한다. 저장된 축으로 도면을 기울이지 않고 WorldXY와 평행하게 배치한다. 값이 없으면 WorldXY 원점이다.
 
 | 상황 | 위치 선택·저장 |
 | --- | --- |
 | 새 Document/Files, PickPlacement=False | 공용 clipping의 draft_plane/WorldXY. 기존 로컬 도면의 ps:placement는 기본값에 영향을 주지 않는다 |
-| Document/Files, PickPlacement=True | 계산 후 도면별 클릭점 XY. 파란 Clipping origin 표식과 bbox preview가 같은 변환을 쓴다 |
-| Update | 기존 ps:placement, 없으면 clipping draft_plane/WorldXY. 클릭하지 않고 clipping metadata도 바꾸지 않는다 |
-| Placement | 저장된 기존 원점에서 새 클릭점까지 평행이동만 한다. 반전·HLD를 반복하지 않는다 |
+| Document/Files, PickPlacement=True | 계산 후 도면별 클릭점 XYZ. 파란 Clipping origin 표식과 bbox preview가 같은 변환을 쓴다 |
+| Update | 기존 ps:placement의 XYZ, 없으면 clipping draft_plane/WorldXY. 클릭하지 않고 clipping metadata도 바꾸지 않는다 |
+| Placement | 저장된 기존 원점 XYZ에서 새 클릭점 XYZ까지 평행이동만 한다. 반전·HLD를 반복하지 않는다 |
 | 로컬 clipping에서 점 지정 성공 | 정규화한 target plane을 로컬 draft_plane에 저장한다 |
 | 참조 clipping에서 점 지정 성공 | 참조 clipping은 변경하지 않는다. 선택 위치는 로컬 출력/출력 파일의 ps:placement에만 남긴다 |
 

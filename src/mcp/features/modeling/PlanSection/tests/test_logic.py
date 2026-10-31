@@ -96,6 +96,77 @@ class OptionsAndMetadata(unittest.TestCase):
             ps.read_clip(NS(),cp,NS(IsValid=False))
 
 
+class PlacementHeight(unittest.TestCase):
+    def test_output_projection_uses_horizontal_plane_at_target_height(self):
+        for height in (0, 100, -3900):
+            with self.subTest(height=height):
+                target = NS(Origin=NS(X=10,Y=20,Z=height))
+                transforms = NS(PlanarProjection=MagicMock(), Mirror=MagicMock(),
+                                PlaneToPlane=MagicMock())
+                class Plane:
+                    WorldXY = NS(Origin=NS(X=0,Y=0,Z=0))
+                    def __init__(self, source): self.Origin = None
+                geometry = NS(Plane=Plane, Transform=transforms,
+                              Point3d=lambda x,y,z:NS(X=x,Y=y,Z=z),
+                              Vector3d=NS(YAxis=object()))
+                with patch.object(ps, 'G', geometry):
+                    ps.drawing_transform('cut', target)
+                projected = transforms.PlanarProjection.call_args.args[0]
+                self.assertEqual(projected.Origin.Z,height)
+
+    def test_move_preview_starts_at_saved_height(self):
+        origin = NS(X=10, Y=20, Z=100)
+        frame = NS(Origin=origin)
+        cp = clipping()
+        obj = NS(Geometry=object(), Attributes=Attributes())
+        geometry = NS(Plane=NS(WorldXY=object()))
+        with patch.object(ps, 'G', geometry), \
+             patch.object(ps, 'drawing_objects', return_value=[obj]), \
+             patch.object(ps, 'saved_placement', return_value=NS(Origin=origin)), \
+             patch.object(ps, 'placement_plane', return_value=frame) as plane, \
+             patch.object(ps, 'pick_placement', return_value=None) as pick:
+            self.assertFalse(ps.reposition_drawing(NS(), cp))
+        plane.assert_called_once_with(geometry.Plane.WorldXY, origin)
+        self.assertIs(pick.call_args.args[1], frame)
+        self.assertIs(pick.call_args.args[3], origin)
+
+    def test_move_between_nonzero_heights_keeps_ids_and_reference_clipping(self):
+        class Point(NS):
+            def __sub__(self, other): return self.X-other.X,self.Y-other.Y,self.Z-other.Z
+        for reference in (False, True):
+            with self.subTest(reference=reference):
+                cp = clipping(reference, {'draft_plane':'original'})
+                before,after = Mock(),Mock(IsValid=True)
+                after.Transform.return_value = True
+                geo = Mock()
+                geo.Duplicate.side_effect = [before,after]
+                attrs = Attributes({'ps:placement':'old','ps:source_layer':'Model'})
+                obj = NS(Id='drawing',Geometry=geo,Attributes=attrs)
+                doc = NS(Objects=NS(Replace=Mock(return_value=True),
+                    FindId=Mock(return_value=obj),ModifyAttributes=Mock(return_value=True)))
+                target = NS(Origin=Point(X=30,Y=50,Z=-3900))
+                geometry = NS(Plane=NS(WorldXY=object()),Point3d=lambda x,y,z:Point(X=x,Y=y,Z=z),
+                              Transform=NS(Translation=lambda vector:vector))
+                with patch.object(ps,'G',geometry), \
+                     patch.object(ps,'drawing_objects',return_value=[obj]), \
+                     patch.object(ps,'saved_placement',return_value=NS(Origin=Point(X=10,Y=20,Z=100))), \
+                     patch.object(ps,'placement_plane',return_value=target), \
+                     patch.object(ps,'plane_json',return_value='new-height'), \
+                     patch.object(ps,'save_drawing_registry') as registry:
+                    self.assertTrue(ps.reposition_drawing(doc,cp,target))
+                after.Transform.assert_called_once_with((20,30,-4000))
+                doc.Objects.Replace.assert_called_once_with('drawing',after,True)
+                changes = doc.Objects.ModifyAttributes.call_args_list
+                self.assertEqual([call.args[0] for call in changes],
+                                 ['drawing'] if reference else ['drawing','clip'])
+                self.assertEqual(changes[0].args[1].GetUserString('ps:placement'),'new-height')
+                self.assertEqual(changes[0].args[1].GetUserString('ps:source_layer'),'Model')
+                self.assertEqual(cp.Attributes.GetUserString('draft_plane'),'original')
+                registry.assert_called_once()
+                before.Dispose.assert_called_once()
+                after.Dispose.assert_called_once()
+
+
 class SourceScope(unittest.TestCase):
     def test_enumerator_includes_hidden_locked_reference_but_not_definitions(self):
         settings = NS()
@@ -465,7 +536,7 @@ class Workflow(unittest.TestCase):
         cp,other = clipping(reference),clipping()
         other.Id = 'other'
         drawing = dict(objects=[{'geometry':Mock()}],report={})
-        saved,picked,world = object(),object(),object()
+        saved,picked,world = NS(OriginZ=100),object(),NS(OriginZ=0)
         options = dict(mode=mode,hatch=True,elevation=True,pick=pick,small_details=False,
                        near_width=.09,far_width=.04,near_dark=80,far_dark=45)
         doc = Mock()
@@ -512,6 +583,7 @@ class Workflow(unittest.TestCase):
         run = self.run_mode('Update',pick=True)
         run.generate.assert_called_once()
         self.assertIs(run.generate.call_args.args[4],run.saved)
+        self.assertEqual(run.generate.call_args.args[4].OriginZ,100)
         run.pick_placement.assert_not_called()
         run.bake.assert_called_once()
         run.doc.EndUndoRecord.assert_called_once_with(7)
@@ -574,6 +646,7 @@ class Workflow(unittest.TestCase):
     def test_pdf_uses_world_origin_without_bake_or_undo(self):
         run = self.run_mode('PDF',pick=True)
         self.assertIs(run.generate.call_args.args[4],run.world)
+        self.assertEqual(run.generate.call_args.args[4].OriginZ,0)
         run.export_pdf.assert_called_once()
         run.bake.assert_not_called()
         run.pick_placement.assert_not_called()

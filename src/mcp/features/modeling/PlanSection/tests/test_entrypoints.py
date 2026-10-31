@@ -87,12 +87,29 @@ class EntryPoints(unittest.TestCase):
                 self.assertFalse(execute.call_args.args[2]['pick'])
                 if points: self.assertEqual(execute.call_args.args[4], {A:'target', B:'target'})
 
-    def test_move_requires_all_points_and_finite_xy_before_dispatch(self):
-        for points in ({A:[1,2]}, {A:[1,2],B:[3,float('nan')]}, {A:[1,2],B:[3,4,5]}):
+    def test_move_requires_all_points_and_finite_xyz_before_dispatch(self):
+        for points in ({A:[1,2]}, {A:[1,2],B:[3,float('nan')]}, {A:[1,2],B:[3,4,float('nan')]}):
             with self.subTest(points=points), patch.object(ps, 'clipping_planes', return_value=self.planes), \
                  patch.object(ps, 'run_selected') as execute, self.assertRaises(ValueError):
                 ps.run(object(), 'Move', [A,B], points=points)
             execute.assert_not_called()
+
+    def test_public_create_and_move_preserve_xyz_and_legacy_xy(self):
+        class Plane:
+            WorldXY = object()
+            def __init__(self, source): self.Origin = NS(X=0, Y=0, Z=0)
+        geometry = NS(Plane=Plane, Point3d=lambda x,y,z:NS(X=x,Y=y,Z=z))
+        for operation in ('Create', 'Move'):
+            for height in (100, -3900):
+                with self.subTest(operation=operation, height=height), \
+                     patch.object(ps, 'G', geometry), \
+                     patch.object(ps, 'clipping_planes', return_value=self.planes), \
+                     patch.object(ps, 'run_selected', return_value='batch') as execute:
+                    self.assertEqual(ps.run(object(), operation, [A,B],
+                                            points={A:[10,20,height], B:[30,40]}), 'batch')
+                    targets = execute.call_args.args[4]
+                    self.assertEqual(vars(targets[A].Origin), dict(X=10,Y=20,Z=height))
+                    self.assertEqual(vars(targets[B].Origin), dict(X=30,Y=40,Z=0))
 
     def test_update_rejects_points_and_pdf_requires_explicit_folder(self):
         with patch.object(ps, 'clipping_planes', return_value=self.planes), \
