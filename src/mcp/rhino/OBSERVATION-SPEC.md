@@ -156,6 +156,5 @@ public class Script
 
 실행 성공, `IsValid`/`IsSolid`, 현재 화면은 각각 다른 근거다. 예를 들어 Boolean 수정에서는 결과 배열이 비어 있지 않은지, 기대 제거량·접합 범위·기준면이 맞는지, 원본의 비대상 부분이 보존되는지 확인한 뒤 Replace/Delete를 적용한다. 검사값을 반환하면 후속 판단을 쉽게 할 수 있지만 검사 조건 자체의 정확성을 보장하지는 않는다.
 
-Python 검증은 실제 MCP content/schema와 위조·누락 이미지/크기 오류를 다룬다.
-`src/rhp/RhinoAlmondBridge/tests/script_executor_undo`의 native suite는 기존 Undo 회귀, 반환 제한과 headless 조회를 검사하고, `ObservationTests.RunViewport(doc)`는 호출자가 지정한 실제 문서의 geometry/attributes/layer/view/selection/Undo 상태를 전후 비교한다.
+현재 오프라인 검사는 실제 MCP content/schema와 읽기 전용 응답 계약을 다룬다. 실제 Rhino의 Undo/Redo, viewport와 geometry/attributes/layer/view/selection 보존에 대한 native 자동 검증은 아직 구성되어 있지 않다. 검증 범위와 실제 문서 보존 원칙은 `src/rhp/RhinoAlmondBridge/tests/script_executor_undo/README.md`를 따른다. 오프라인 통과를 이 항목의 실사용 검증으로 취급하지 않는다.
 후보 RHP 빌드, 실제 로드 경로, 실제 클라이언트 수신은 각각 별도로 확인해야 한다.

@@ -70,9 +70,10 @@ print(f"Chestnut publish target: {CHESTNUT_URL}", file=sys.stderr)
 
 # ── MCP Server ───────────────────────────────────────────────────────────────
 
-from almond_mcp.modeling_guidance import startup_instructions
-
-mcp = FastMCP("Almond", instructions=startup_instructions())
+# Codex Code Mode appends initialize.instructions to every tool description.
+# Keep the first-use entry point on get_modeling_guide itself; detailed guidance
+# and its source version are returned only by an explicit guide request.
+mcp = FastMCP("Almond")
 
 
 # Build index once on startup

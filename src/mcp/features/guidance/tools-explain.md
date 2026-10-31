@@ -1,7 +1,7 @@
 # tools.py explain
 
 <!-- instruction:get_modeling_guide -->
-Read BASIC instructions or one tool's usage instructions.
+Read BASIC before modeling, or fetch one tool's detailed usage instructions.
 
 Omit tool to read BASIC-INSTRUCTIONS.md and available public tool names at first use.
 Pass an exact tool name, for example tool="assign_material", for its full explanation.

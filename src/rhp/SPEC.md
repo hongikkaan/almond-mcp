@@ -46,13 +46,11 @@ Bridge 빌드는 `build.ps1`, AlmondRhino 빌드는 해당 모듈의 스크립�
 
 ## 검사
 
-각 구성요소의 `tests/`에 fixture를 둔다. 패널은 Node tests, Engine은 NativeFixture, Terminal은 TerminalSmoke·AlmondHostContracts·TerminalControls와 Node 입력 검사, Bridge는 archive host와 [Undo·관측 fixture](RhinoAlmondBridge/tests/script_executor_undo/README.md)를 사용한다.
+각 구성요소의 `tests/`에 fixture를 둔다. 패널의 Node 검사는 자산 배치와 결과 선택을, Engine의 NativeFixture는 세션 identity·공유 잠금·완료 확인을, Terminal의 AlmondHostContracts는 소유권 해제를 검사한다. Bridge의 archive host는 오프라인 GLB 디코더 검사를 지원한다. 실행 방법과 범위는 [native 검사 안내](tests/README.md), Undo·관측의 현재 상태는 [별도 안내](RhinoAlmondBridge/tests/script_executor_undo/README.md)를 따른다.
 기본 검사는 Rhino 없이 수행한다. 기능 검증은 사용자가 작업에 연결한 Rhino 파일의 실제 모델·도면에서 수행하며, 테스트만을 위한 별도 Rhino 문서 생성·실행은 지양한다.
-기존 fixture의 문서 교체 guard는 유지하고 사용자 작업 파일에 그런 fixture를 실행하지 않는다.
+문서의 내용을 교체하는 fixture를 사용자 작업 파일에 실행하지 않는다.
 오프라인 통과와 실제 작업 문서의 기능 검증은 구분한다.
 
-Bridge·연결 RHP의 시작 동작과 실제 배포 명령 목록은 [native startup fixture](../../tests/native_startup/README.md)로 검사한다.
-일상 worker와 실제 배포 RHP의 라이브러리 캐시는 [library startup fixture](RhinoAlmondBridge/tests/library_paths/README.md)로 비교한다.
-managed helper 생성과 Engine 경로 검사만 사용하며 Rhino 프로세스나 문서는 시작하지 않는다.
+현재 오프라인 fixture는 Bridge·연결 RHP의 실제 시작, 배포 명령 목록, 일상 worker와 배포 RHP의 라이브러리 캐시 일치를 검증하지 않는다. managed helper 검사는 Rhino 프로세스를 실행하거나 연결하지 않는다.
 
-Rhino의 지연 로드는 `CommandList` 등록에 의존한다. 연결 명령 변경 시 설치 스크립트가 백업 후 새 이름을 등록하고 이 fork에서 제거한 명령 값만 삭제한다. 다른 패널 명령과 플러그인 설정은 보존한다. `-VerifyOnly`는 파일 경로와 명령 캐시를 함께 검사하며 `tests/runtime_registration_tests.ps1`은 실제 설치 스크립트를 가짜 레지스트리에서 실행해 옛 캐시 거절·최초 등록·이전·반복 적용을 검증한다.
+Rhino의 지연 로드는 `CommandList` 등록에 의존한다. 연결 명령 변경 시 설치 스크립트가 백업 후 새 이름을 등록하고 이 fork에서 제거한 명령 값만 삭제한다. 다른 패널 명령과 플러그인 설정은 보존한다. `-VerifyOnly`는 파일 경로와 명령 캐시를 함께 검사한다. 등록 이전·반복 적용의 가짜 레지스트리 자동 검사는 현재 없다.

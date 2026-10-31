@@ -26,7 +26,7 @@ Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS
 | `data/tool_catalog.json` | configure/build에서 만드는 Git 추적 제외 개발용 export; 런타임은 읽지 않고 현재 소스에서 schema를 생성함 |
 | `binding_watch.py`, `winpipe.py` | 연결 변경 감시와 Windows 제어 채널 |
 | `rhp/` | Rhino 내부 almondconnect·almonddisconnect 명령·host 탐색·문서 binding |
-| `tests/`, `run_tests.ps1` | Python·native relay·host 수명·pipe·stdio 검사 |
+| `tests/`, `run_tests.ps1` | Python 계약과 오프라인 Engine·Terminal 수명·제어 pipe 검사. 실제 AlmondRhino host 전체 수명주기는 별도 검증 필요 |
 | `build.ps1`, `runtime-manifest.json` | AlmondRhino RHP 빌드와 소스·실행 파일 검증 기록 |
 
 ## 의존·연결 계약

@@ -1,37 +1,27 @@
-# Offline fixtures only. Does not register/load an RHP or inspect Rhino documents.
 [CmdletBinding()]
-param([switch]$Development, [string]$DotNet = '')
-$ErrorActionPreference='Stop'
-$root=$PSScriptRoot
-$src=Split-Path $root -Parent
-$repo=Split-Path $src -Parent
-& (Join-Path $src 'mcp\use_offline_environment.ps1') -Development:$Development -DotNet $DotNet -RequireDotNet
-$env:DOTNET_CLI_TELEMETRY_OPTOUT='1'
-$env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE='1'
-$env:DOTNET_GENERATE_ASPNET_CERTIFICATE='false'
-$env:DOTNET_NOLOGO='1'
-$env:DOTNET_CLI_HOME=Join-Path $root 'data\dotnet-home'
-$sdk=$env:ALMOND_TEST_DOTNET
-$engineTests=Join-Path $src 'rhp\Engine\tests'
-$cosTests=Join-Path $repo 'src\cos\tests'
+param([string[]]$TestArgs = @(), [switch]$Development, [string]$DotNet = '')
+$ErrorActionPreference = 'Stop'
+$repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+& (Join-Path $repo 'src/mcp/use_offline_environment.ps1') -Development:$Development -DotNet $DotNet -RequireDotNet
+$sdk = $env:ALMOND_TEST_DOTNET
+$env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+$env:DOTNET_NOLOGO = '1'
+$env:DOTNET_CLI_HOME = Join-Path $repo 'data/dotnet-home'
+$fixtures = @(
+    @{ Project = 'src/rhp/Engine/tests/NativeFixture.csproj'; Output = 'src/rhp/Engine/tests/bin/Release/net8.0-windows/NativeFixture.dll' },
+    @{ Project = 'src/rhp/RhinoTerminal/tests/AlmondHostContracts/AlmondHostContracts.csproj'; Output = 'src/rhp/RhinoTerminal/tests/AlmondHostContracts/bin/Release/net8.0-windows/AlmondHostContracts.dll' },
+    @{ Project = 'src/cos/tests/PipeFixture.csproj'; Output = 'src/cos/tests/bin/Release/net8.0-windows/PipeFixture.dll' }
+)
 Push-Location $repo
 try {
-    & $sdk build (Join-Path $engineTests 'NativeFixture.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
-    if($LASTEXITCODE) { throw 'Native fixture build failed.' }
-    & $sdk (Join-Path $engineTests 'bin\Release\net8.0-windows\Almond.NativeFixture.dll')
-    if($LASTEXITCODE) { throw 'Native fixture verification failed.' }
-    & $sdk build (Join-Path $cosTests 'HostLifecycle\HostLifecycle.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
-    if($LASTEXITCODE) { throw 'AlmondRhino lifecycle fixture build failed.' }
-    & $sdk (Join-Path $cosTests 'HostLifecycle\bin\Release\net8.0-windows\HostLifecycle.dll')
-    if($LASTEXITCODE) { throw 'AlmondRhino lifecycle verification failed.' }
-    & $sdk build (Join-Path $cosTests 'PipeFixture.csproj') -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
-    if($LASTEXITCODE) { throw 'Pipe fixture build failed.' }
+    foreach ($fixture in $fixtures) {
+        & $sdk build $fixture.Project -c Release --nologo -p:UseSharedCompilation=false -p:NuGetAudit=false -nodeReuse:false
+        if ($LASTEXITCODE) { throw "Fixture build failed: $($fixture.Project)" }
+        & $sdk $fixture.Output
+        if ($LASTEXITCODE) { throw "Fixture verification failed: $($fixture.Output)" }
+    }
 } finally { Pop-Location }
-$env:ALMONDRHINO_TEST_DOTNET=$sdk
-$python=if ($Development) {
-    Join-Path $repo 'data\development\.venv\Scripts\python.exe'
-} else {
-    Join-Path $src 'engine\.venv\Scripts\python.exe'
-}
-& $python -B (Join-Path $cosTests 'verify.py')
-if($LASTEXITCODE) { throw 'AlmondRhino verification failed.' }
+$python = if ($Development) { Join-Path $repo 'data/development/.venv/Scripts/python.exe' } else { Join-Path $repo 'src/engine/.venv/Scripts/python.exe' }
+$temp = Join-Path $env:TEMP ('cos-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+& $python -B -X utf8 -m pytest -c (Join-Path $repo 'pyproject.toml') (Join-Path $PSScriptRoot 'tests') --basetemp $temp @TestArgs
+if ($LASTEXITCODE) { throw 'External connector tests failed.' }

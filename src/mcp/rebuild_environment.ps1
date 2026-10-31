@@ -40,8 +40,17 @@ try {
 }
 & $uv pip check --python $python
 if($LASTEXITCODE){throw 'Dependency check failed.'}
-& $python -B (Join-Path $repo 'src\mcp\tests\runtime\test_library_paths.py')
-if($LASTEXITCODE){throw 'Editable source/library path check failed.'}
+# Bootstrap must work before the test suite is installed or collected.
+@'
+from pathlib import Path
+import sys
+import almond_mcp
+
+expected = Path(sys.argv[1]).resolve() / "src/mcp/__init__.py"
+actual = Path(almond_mcp.__file__).resolve()
+assert actual == expected, f"Editable source mismatch: {actual} != {expected}"
+'@ | & $python -B - $repo
+if($LASTEXITCODE){throw 'Editable source check failed.'}
 Write-Output "MCP environment ready: $runtime"
 if ($Development) {
     Write-Output 'Offline development only. Use run_tests.ps1 -Development; everyday hosts and registration were not changed.'
