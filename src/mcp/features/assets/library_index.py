@@ -76,7 +76,7 @@ class AssetLibraryIndexer:
         limit: int = 10,
         _all: bool = False,
     ) -> list[dict]:
-        query_tokens = set(re.findall(r"[a-z0-9]+", query.lower()))
+        query_tokens = set(re.findall(r"[^\W_]+", query.casefold(), re.UNICODE))
         category = category.lower().strip()
         results = []
 

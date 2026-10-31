@@ -2,7 +2,8 @@
   "id": "diagram-tree-deciduous-1",
   "name": "Deciduous Tree",
   "kind": "element",
-  "library": "drawing",
+  "library": "model_assets",
+  "source_library": "drawing",
   "category": "vegetation",
   "variant": "line_art",
   "format": "svg",
@@ -129,5 +130,11 @@
   },
   "drawing": null,
   "uri": "almond://repository/diagram-tree-deciduous-1",
-  "record_url": "/api/assets/diagram-tree-deciduous-1.json"
+  "record_url": "/api/assets/diagram-tree-deciduous-1.json",
+  "source_available": false,
+  "source_only": false,
+  "model_status": "not_installed",
+  "drawing_status": "not_installed",
+  "drawing_ready": false,
+  "source_file": null
 }

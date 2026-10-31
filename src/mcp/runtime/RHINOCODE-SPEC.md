@@ -16,15 +16,12 @@
 
 패키지는 연결 runtime의 callback을 사용하며 외부 연결기 구현을 import하지 않는다. CLI는 Python worker의 자식 프로세스로, shell 없는 인자 배열로 실행한다. Rhino UI-thread handler 안에서 외부 CLI를 기다리지 않는다.
 
-프로젝트 Python은 선택한 Plan의 산출물 폴더를 cwd로 사용한다. 일반 스크립트는 프로젝트
-루트를 사용한다. Rhino wrapper는 cwd와 프로젝트·모델·산출물 환경을 일시 적용하고 복구한다.
+프로젝트 Python은 선택한 Plan의 산출물 폴더를 cwd로 사용한다. 일반 스크립트는 프로젝트 루트를 사용한다. Rhino wrapper는 cwd와 프로젝트·모델·산출물 환경을 일시 적용하고 복구한다.
 외부 worker venv 실행기는 제거했으며, 그 패키지를 Rhino Python에 자동 설치하지 않는다.
 timeout은 두 공개 도구 모두 실행 종료가 아닌 대기 한도다.
 
 스킬 본문·네 참고자료·라이선스는 `features/modeling/rhino3d-scripts`에 포함한다.
-정적 도구 가이드 snapshot과 source fingerprint가 이 파일들도 포함하므로 연결 도중
-개인 설치본이나 네트워크 내용으로 지침이 바뀌지 않는다. 자동화 적용 차이는 그 폴더의
-`INTEGRATION.md`에 명시한다. 대화형 선택·macro의 강제 취소를 자동 도입하지 않는다.
+정적 도구 가이드 snapshot과 source fingerprint가 이 파일들도 포함하므로 연결 도중 개인 설치본이나 네트워크 내용으로 지침이 바뀌지 않는다. 자동화 적용 차이는 그 폴더의 `INTEGRATION.md`에 명시한다. 대화형 선택·macro의 강제 취소를 자동 도입하지 않는다.
 
 ## 문서 identity와 실행 범위
 
@@ -50,16 +47,14 @@ wrapper는 자신이 소유한 0이 아닌 Undo record만 종료한다. 사용�
 
 재료·레이어·자산·교환·capture의 내부 recipe는 공개 실행 도구의 호출부가 아니다.
 그 private Bridge/Roslyn 전송과 `ManagedFiles`, `guids`, 반환 한도는 기존 계약을 유지한다.
-공개 소스 실행은 그 전송으로 fallback하지 않는다. `result_error`만으로 실제 변경이
-취소됐다고 해석하지 않는다.
+공개 소스 실행은 그 전송으로 fallback하지 않는다. `result_error`만으로 실제 변경이 취소됐다고 해석하지 않는다.
 
 ## 완료 결과 조회
 
 `get_rhino_execution`은 같은 실행의 상태·결과를 재실행 없이 조회한다. request_id를 생략하면 현재 연결의 최근 실행을, 지정하면 정확한 요청을 읽는다. `result_fields`, offset/limit와 결과·stdout 선택을 통해 필요한 부분만 조회한다.
 
 최초 실행 응답은 배열 또는 최상위 list 필드마다 20항목, 최상위 문자열은 4096문자까지 반환한다.
-명시적 후속 조회의 offset/limit는 배열에는 항목, 문자열에는 문자 단위다. 문자열을 JSON으로 추정해
-다시 파싱하지 않는다. Python의 구조화 결과는 `result`에 dict/list를 직접 대입한다.
+명시적 후속 조회의 offset/limit는 배열에는 항목, 문자열에는 문자 단위다. 문자열을 JSON으로 추정해 다시 파싱하지 않는다. Python의 구조화 결과는 `result`에 dict/list를 직접 대입한다.
 
 확인된 정상 완료 응답은 결과·페이지·요청한 로그·복구 대상 상태를 기본으로 보존한다. `include_diagnostics=true`는 전체 근거를 반환한다. pending·불확실·실패·부분 적용·0이 아닌 CLI exit·결과 표시 오류는 기본 응답에서도 상세 근거를 유지한다.
 
@@ -69,7 +64,7 @@ wrapper는 자신이 소유한 0이 아닌 Undo record만 종료한다. 사용�
 
 캡처의 scale_percent는 픽셀 크기이며 기본 75, 명시적 100은 원본 크기다. Layout raster는 print color·width 설정을 요청하지만 출력은 Rhino의 실제 PrintDisplay·뷰 상태에 영향을 받을 수 있다. 성공한 PNG를 독립적인 인쇄 색·선폭·Detail 축척 검증으로 취급하지 않는다.
 
-`prepare_drawing_asset` 및 preparation_job을 사용하는 등록은 현재 `acceptance_pending`으로 거절된다. 준비한 3DM의 일반 등록은 [자산 계약](../features/assets/SPEC.md)을 따른다. 비활성 준비 구현이나 preview 존재를 발행 기능의 성공으로 안내하지 않는다.
+자산 준비의 사본 관찰·명시 편집·검증과 3DM·2D 발행은 [자산 계약](../features/assets/SPEC.md)을 따른다. 준비 단계의 이미지·실행 완료와 라이브러리 등록 완료는 각각 확인한다.
 
 ## 검증과 전달
 

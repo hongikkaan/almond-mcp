@@ -1,7 +1,9 @@
 using System;
 using System.Threading;
 using System.IO;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RhinoAlmondBridge;
 
 class Program
@@ -39,7 +41,10 @@ class Program
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); Environment.ExitCode = 1; }
             return;
         }
-        using (var server = new ArchiveHttpServer(args[0]))
+        Func<Task<JObject>> snapshot = null;
+        if (args.Length > 2 && args[1] == "--snapshot")
+            snapshot = () => Task.FromResult(JObject.Parse(File.ReadAllText(args[2])));
+        using (var server = new ArchiveHttpServer(args[0], snapshot))
         {
             server.Start();
             Console.WriteLine(server.Url);

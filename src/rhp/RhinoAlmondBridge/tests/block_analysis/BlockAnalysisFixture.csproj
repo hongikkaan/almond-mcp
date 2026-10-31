@@ -14,6 +14,6 @@
     <Compile Include="IntersectionTests.cs" />
     <Compile Include="../../../../mcp/features/context/native/BlockAnalysis.cs" Link="Context\BlockAnalysis.cs" />
     <Compile Include="../../../../mcp/features/context/native/AlmondSpatial.cs" Link="Context\AlmondSpatial.cs" />
-    <Compile Include="../../../../mcp/features/components/native/*.cs" Link="Components\%(Filename)%(Extension)" />
+    <Compile Include="../../../../mcp/features/components/native/SolidIntersections.cs" Link="Components\SolidIntersections.cs" />
   </ItemGroup>
 </Project>

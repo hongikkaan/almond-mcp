@@ -16,7 +16,10 @@ SOURCE_ROOTS = {
     "bridge": ("src/rhp/RhinoAlmondBridge/", "src/rhp/Structural_Analysis/",
                "src/rhp/Asset_Panel/", "src/rhp/RhinoTerminal/", "src/rhp/Engine/",
                "src/mcp/rhino/", "src/mcp/features/context/native/",
-               "src/mcp/features/components/native/"),
+               "src/mcp/features/components/native/", "src/mcp/features/modeling/native/",
+               "src/mcp/features/assets/native/", "src/mcp/features/drawings/native/",
+               "src/mcp/features/grasshopper/native/", "src/mcp/features/exchange/native/",
+               "src/mcp/features/structure/native/"),
     "cos": ("src/cos/rhp/", "src/rhp/Engine/"),
 }
 

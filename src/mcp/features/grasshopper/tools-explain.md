@@ -4,8 +4,7 @@
 
 <!-- instruction:list_library -->
 Lists all available physics logic archetypes in the Grasshopper library.
-Use this tool first to discover what logic IDs are available before
-calling get_logic_by_id.
+Use this tool first to discover what logic IDs are available before calling get_logic_by_id.
 
 Returns:
     JSON list of logic IDs available (e.g., ["catenary", "bending", "01_simplebeam"]).
@@ -18,8 +17,7 @@ include_ids independently enables handles; audit enables timestamps.
 
 <!-- instruction:get_logic_by_id -->
 Retrieves parsed physics context for a specific Kangaroo2 or Karamba3D archetype.
-Returns detected components, descriptions, and metadata extracted from the
-Grasshopper binary file.
+Returns detected components, descriptions, and metadata extracted from the Grasshopper binary file.
 
 Args:
     logic_id: The filename (without extension) of the Grasshopper file.
@@ -35,14 +33,10 @@ include_ids independently enables handles; audit enables timestamps.
 ## list_capsules
 
 <!-- instruction:list_capsules -->
-Lists Grasshopper capsules: GH definitions with a typed, audited input/output
-contract that can be executed via run_gh_definition.
+Lists Grasshopper capsules: GH definitions with a typed, audited input/output contract that can be executed via run_gh_definition.
 
 Call this FIRST to discover what capsules exist before calling run_gh_definition.
-Each entry is a compact card with capsule_id, capability, structure_type,
-audited flag, and the reserved ALMOND_IN_* / ALMOND_OUT_* port names. Only
-capsules with audited=true can actually run; audited=false capsules are
-retrieval context only (read them via get_logic_by_id instead).
+Each entry is a compact card with capsule_id, capability, structure_type, audited flag, and the reserved ALMOND_IN_* / ALMOND_OUT_* port names. Only capsules with audited=true can actually run; audited=false capsules are retrieval context only (read them via get_logic_by_id instead).
 
 Args:
     capability: Optional filter: "analyze", "generate", "form_find", or "aggregate".
@@ -57,35 +51,20 @@ include_ids independently enables handles; audit enables timestamps.
 ## run_gh_definition
 
 <!-- instruction:run_gh_definition -->
-Runs an audited Grasshopper capsule (GH definition + typed contract) through
-the Rhino bridge and returns its declared outputs.
+Runs an audited Grasshopper capsule (GH definition + typed contract) through the Rhino bridge and returns its declared outputs.
 
-Workflow: call list_capsules() first to pick a capsule_id and see its input/
-output port names. Create any geometry with execute_rhino_script, then pass
-the returned GUIDs here. Inputs are validated client-side against the capsule
-manifest before anything is sent to Rhino, so errors from this tool name the
-exact port at fault.
+Workflow: call list_capsules() first to pick a capsule_id and see its input/ output port names. Create any geometry with execute_rhino_script, then pass the returned GUIDs here. Inputs are validated client-side against the capsule manifest before anything is sent to Rhino, so errors from this tool name the exact port at fault.
 
 Input value forms (keyed by the exact ALMOND_IN_* port name):
   - Geometry ports (point/curve/mesh/brep and their [] list forms):
-    {"guids": ["<rhino-object-guid>", ...]} referencing objects already in
-    the Rhino document.
+    {"guids": ["<rhino-object-guid>", ...]} referencing objects already in the Rhino document.
   - number / integer / string / bool ports: the raw JSON value.
   - number[] / integer[] / string[] ports: a flat JSON list.
-Units are declared per port in the manifest — supply values in those units;
-nothing is guessed or auto-converted client-side. Optional inputs may be
-omitted; the capsule's declared defaults then apply inside the definition.
+Units are declared per port in the manifest — supply values in those units; nothing is guessed or auto-converted client-side. Optional inputs may be omitted; the capsule's declared defaults then apply inside the definition.
 
-Only audited capsules run. audited=false means the GHX has no verified
-ALMOND_IN_*/ALMOND_OUT_* harness params yet; this tool refuses it
-(see asset/capsules/AUTHORING.md for how to harness one).
+Only audited capsules run. audited=false means the GHX has no verified ALMOND_IN_*/ALMOND_OUT_* harness params yet; this tool refuses it (see asset/capsules/AUTHORING.md for how to harness one).
 
-The response's "outputs" object is keyed by ALMOND_OUT_* names; interpret
-each value using the manifest's semantics field (e.g. max_nodal_displacement,
-per_element_utilization) and declared units. The response also carries
-analysis_method (api|template|rule_based), confidence (high|medium|low),
-warnings, and baked_guids — report method and confidence honestly;
-rule_based/low means an estimate, not FEA.
+The response's "outputs" object is keyed by ALMOND_OUT_* names; interpret each value using the manifest's semantics field (e.g. max_nodal_displacement, per_element_utilization) and declared units. The response also carries analysis_method (api|template|rule_based), confidence (high|medium|low), warnings, and baked_guids — report method and confidence honestly; rule_based/low means an estimate, not FEA.
 
 Args:
     capsule_id: Stable capsule identifier from list_capsules (e.g. "karamba_beam_v1").

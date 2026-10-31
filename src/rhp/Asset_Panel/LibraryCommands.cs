@@ -23,7 +23,7 @@ namespace RhinoAlmondBridge
                 if (_archive == null)
                 {
                     string directory = Path.Combine(Path.GetDirectoryName(typeof(AlmondLibraryCommand).Assembly.Location), "archive");
-                    var server = new ArchiveHttpServer(directory);
+                    var server = new ArchiveHttpServer(directory, NativeLibraryCatalogue.ReadSnapshotAsync);
                     try { server.Start(); } catch { server.Dispose(); throw; }
                     _archive = server;
                 }

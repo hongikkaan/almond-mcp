@@ -33,8 +33,7 @@
   <ItemGroup>
     <Compile Remove="tests/**/*.cs" />
     <Compile Include="../../mcp/rhino/*.cs" Link="Modeling\%(Filename)%(Extension)" />
-    <Compile Include="../../mcp/features/context/native/*.cs" Link="Context\%(Filename)%(Extension)" />
-    <Compile Include="../../mcp/features/components/native/*.cs" Link="Components\%(Filename)%(Extension)" />
+    <Compile Include="../../mcp/features/*/native/*.cs" Link="Features\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="../Structural_Analysis/*.cs" />
     <Compile Include="../Asset_Panel/*.cs" />
     <Compile Include="../RhinoTerminal/src/*.cs" />

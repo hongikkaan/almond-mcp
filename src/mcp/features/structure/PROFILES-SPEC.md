@@ -1,19 +1,13 @@
 # Design code profiles
 
-Almond's native structural engine follows the Eurocode method: EN 1990 load combinations and the
-EN 1993-1-1 stability and member checks. Where the Eurocodes leave a number to each country
-(a *Nationally Determined Parameter*, set in that country's National Annex), Almond reads it from a
-**design code profile** instead of from its source code.
+Almond's native structural engine follows the Eurocode method: EN 1990 load combinations and the EN 1993-1-1 stability and member checks. Where the Eurocodes leave a number to each country (a *Nationally Determined Parameter*, set in that country's National Annex), Almond reads it from a **design code profile** instead of from its source code.
 
 - **`eurocode`** (built in, the default): the values the Eurocodes recommend, with no National Annex.
 - **`off`** (built in): no design code. Characteristic G + Q, no partial factors, a span/250 screen.
   Useful for comparisons (it matches the Karamba route's basis), not for design.
-- **Your own profiles**: one JSON file per National Annex (or office standard) in
-  `%LOCALAPPDATA%\Almond\design-codes\` (or the folder named by `ALMOND_DESIGN_CODE_DIR`).
+- **Your own profiles**: one JSON file per National Annex (or office standard) in `%LOCALAPPDATA%\Almond\design-codes\` (or the folder named by `ALMOND_DESIGN_CODE_DIR`).
 
-Choose the profile under **Design code** in the panel (step 02), or pass `design_code` to
-`validate_structure` / `visualize_structure` (`list_design_codes` lists them). Every result states
-the profile, the values it used and any value that is not yet verified.
+Choose the profile under **Design code** in the panel (step 02), or pass `design_code` to `validate_structure` / `visualize_structure` (`list_design_codes` lists them). Every result states the profile, the values it used and any value that is not yet verified.
 
 ## What a profile sets
 
@@ -30,16 +24,11 @@ the profile, the values it used and any value that is not yet verified.
 | `gamma_M1` | Resistance of members to instability | 1.0 | EN 1993-1-1 6.1 |
 | `imposed_floor_kn_m2` | Suggested imposed floor loads by use (shown in the panel; optional) | A 2.0, B 3.0 | EN 1991-1-1 Table 6.2 |
 
-Fixed by the Eurocode itself, the same in every country and therefore not in a profile: the
-1/200 basic sway imperfection (EN 1993-1-1 5.3.2), the α_cr ≥ 10 first-order threshold (5.2.1),
-the buckling curves (Table 6.2) and material densities.
+Fixed by the Eurocode itself, the same in every country and therefore not in a profile: the 1/200 basic sway imperfection (EN 1993-1-1 5.3.2), the α_cr ≥ 10 first-order threshold (5.2.1), the buckling curves (Table 6.2) and material densities.
 
 ## Writing a profile
 
-Copy this template, give it your own `id`, and fill in every value **from the published National
-Annex**. Every parameter needs a `source` (document and clause). Set `"verified": true` only after
-someone has checked the value against the document; unverified values work, but every result that
-uses them says so.
+Copy this template, give it your own `id`, and fill in every value **from the published National Annex**. Every parameter needs a `source` (document and clause). Set `"verified": true` only after someone has checked the value against the document; unverified values work, but every result that uses them says so.
 
 ```json
 {
@@ -62,8 +51,7 @@ uses them says so.
 }
 ```
 
-The numbers in this template are **placeholders copied from the Eurocode defaults**: they are not
-Singapore's values. Replace each one from the annex before relying on the profile.
+The numbers in this template are **placeholders copied from the Eurocode defaults**: they are not Singapore's values. Replace each one from the annex before relying on the profile.
 
 Check a profile with:
 
@@ -71,13 +59,9 @@ Check a profile with:
 & ./src/engine/.venv/Scripts/python.exe -B -m almond_mcp.cli design-codes
 ```
 
-It lists every profile and explains any file it rejected (unknown parameter, value out of range,
-missing source, duplicate id). Built-in ids (`eurocode`, `off`) cannot be replaced.
+It lists every profile and explains any file it rejected (unknown parameter, value out of range, missing source, duplicate id). Built-in ids (`eurocode`, `off`) cannot be replaced.
 
 ## Limits
 
-A profile changes numbers, not methods. It cannot turn the Eurocode checks into another code
-family's (AISC/ASCE 7, AS 4100): those use different formulas and would need their own check
-module. Loads Almond does not calculate yet (wind, snow, seismic) are not covered by any profile.
-Timber, concrete and aluminium results stay indicative whatever the profile: their own Eurocodes
-(EN 1995, EN 1992, EN 1999) are not applied.
+A profile changes numbers, not methods. It cannot turn the Eurocode checks into another code family's (AISC/ASCE 7, AS 4100): those use different formulas and would need their own check module. Loads Almond does not calculate yet (wind, snow, seismic) are not covered by any profile.
+Timber, concrete and aluminium results stay indicative whatever the profile: their own Eurocodes (EN 1995, EN 1992, EN 1999) are not applied.

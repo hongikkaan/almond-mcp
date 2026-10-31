@@ -288,6 +288,10 @@ def main(argv: list[str] | None = None) -> int:
     library.add_argument("--open", action="store_true", help="open the archive in your browser")
 
     args = parser.parse_args(argv)
+    # The desktop runtime belongs to the checkout, not the portable wheel.
+    if argv is None and args.command != "solve" and (Path(__file__).parent / "runtime/desktop_runtime.py").is_file():
+        from almond_mcp.runtime.desktop_runtime import ensure_desktop_runtime
+        ensure_desktop_runtime(["-m", "almond_mcp", *sys.argv[1:]])
     handlers = {
         None: cmd_serve,
         "serve": cmd_serve,

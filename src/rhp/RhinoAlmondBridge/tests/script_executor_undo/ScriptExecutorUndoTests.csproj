@@ -15,23 +15,14 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="../../ScriptExecutor.cs" Link="ScriptExecutor.cs" />
-    <Compile Include="../../DocumentObservation.cs" Link="DocumentObservation.cs" />
-    <Compile Include="../../DocumentSave.cs" Link="DocumentSave.cs" />
-    <Compile Include="../../EditingContext.cs" Link="EditingContext.cs" />
-    <Compile Include="../../ObservationEntities.cs" Link="ObservationEntities.cs" />
     <Compile Include="../../ManagedFiles.cs" Link="ManagedFiles.cs" />
-    <Compile Include="../../DocumentLayers.cs" Link="DocumentLayers.cs" />
     <Compile Include="../../../../mcp/rhino/ModelingMaterials.cs" Link="ModelingMaterials.cs" />
     <Compile Include="../../../../mcp/rhino/ModelingMetadata.cs" Link="ModelingMetadata.cs" />
-    <Compile Include="../../ComponentRegistry.cs" Link="ComponentRegistry.cs" />
-    <Compile Include="../../ComponentSemanticRegistry.cs" Link="ComponentSemanticRegistry.cs" />
-    <Compile Include="../../DrawingSheetRegistry.cs" Link="DrawingSheetRegistry.cs" />
-    <Compile Include="../../ComponentOperations.cs" Link="ComponentOperations.cs" />
-    <Compile Include="../../DrawingAssetGeometry.cs" Link="DrawingAssetGeometry.cs" />
-    <Compile Include="../../../Asset_Panel/FurnitureAssetManager.cs" Link="FurnitureAssetManager.cs" />
-    <Compile Include="../../../Asset_Panel/DrawingStyleManager.cs" Link="DrawingStyleManager.cs" />
     <Compile Include="../../../../mcp/features/context/native/*.cs" Link="Context/%(Filename)%(Extension)" />
     <Compile Include="../../../../mcp/features/components/native/*.cs" Link="Components/%(Filename)%(Extension)" />
+    <Compile Include="../../../../mcp/features/modeling/native/*.cs" Link="Modeling/%(Filename)%(Extension)" />
+    <Compile Include="../../../../mcp/features/drawings/native/*.cs" Link="Drawings/%(Filename)%(Extension)" />
+    <Compile Include="../../../../mcp/features/assets/native/*.cs" Link="Assets/%(Filename)%(Extension)" />
     <EmbeddedResource Include="../../../../mcp/modeling_policy.json" LogicalName="RhinoAlmondBridge.modeling_policy.json" />
   </ItemGroup>
 </Project>

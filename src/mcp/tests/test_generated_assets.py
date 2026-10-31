@@ -132,7 +132,9 @@ def test_server_indexes_and_searches_generated_library():
     assert one["asset"]["dimensions_mm"]["height"] == 800
 
     status = json.loads(server.get_retrieval_status(include_ids=True))
-    assert status["model_asset_index"]["total"] == expected
+    assert status["model_asset_index"]["total"] == len(set(server.generated_asset_indexer.assets) | set(server.drawing_asset_indexer.assets))
+    drawing_models = sum(Path(asset["file"]).suffix.lower() == ".skp" for asset in server.drawing_asset_indexer.assets.values())
+    assert status["model_asset_index"]["states"]["needs_conversion"] == expected + drawing_models
 
 
 def test_place_generated_asset_rejects_bad_input_before_touching_rhino():

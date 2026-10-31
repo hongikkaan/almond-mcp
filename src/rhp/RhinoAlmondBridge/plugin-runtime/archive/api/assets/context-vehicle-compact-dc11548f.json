@@ -1,8 +1,9 @@
 {
   "id": "context-vehicle-compact-dc11548f",
   "name": "Compact car",
-  "kind": "element",
-  "library": "drawing",
+  "kind": "model",
+  "library": "model_assets",
+  "source_library": "drawing",
   "category": "vehicle",
   "variant": "simple low-detail model",
   "format": "skp",
@@ -135,5 +136,13 @@
   },
   "drawing": null,
   "uri": "almond://repository/context-vehicle-compact-dc11548f",
-  "record_url": "/api/assets/context-vehicle-compact-dc11548f.json"
+  "record_url": "/api/assets/context-vehicle-compact-dc11548f.json",
+  "source_available": false,
+  "source_only": true,
+  "model_status": "not_installed",
+  "drawing_status": "not_installed",
+  "drawing_ready": false,
+  "source_file": null,
+  "next_tool": "prepare_drawing_asset",
+  "conversion_target": "3dm"
 }

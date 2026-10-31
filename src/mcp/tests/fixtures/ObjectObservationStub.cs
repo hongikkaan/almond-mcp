@@ -63,6 +63,33 @@ else switch (scenario)
         doc.Objects.Items.Add(new RhinoObject { Id = Guid.NewGuid(), IsInstanceDefinitionGeometry = true });
         doc.Objects.Items.Add(new RhinoObject { Id = Guid.NewGuid(), Attributes = new ObjectAttributes { Space = ActiveSpace.PageSpace } });
         break;
+    case "summary":
+    case "summary_page":
+        request["result_mode"] = "summary";
+        second.Attributes.LayerIndex = 1; second.Kind = ObjectType.Mesh; second.Visible = false;
+        GeometryBase.FailHeavy = true; GroupTable.FailReads = true;
+        if (scenario == "summary_page") { request["offset"] = 1; request["limit"] = 1; }
+        break;
+    case "ids_only":
+        request["fields"] = new JArray("id"); GeometryBase.FailHeavy = true; GroupTable.FailReads = true; break;
+    case "named_fields":
+        request["fields"] = new JArray("id", "name", "layer_path"); GeometryBase.FailHeavy = true; GroupTable.FailReads = true; break;
+    case "type_filter":
+        second.Kind = ObjectType.Mesh;
+        request["filters"] = new JObject { ["object_types"] = new JArray("mesh") }; break;
+    case "faces_first":
+    case "faces_next":
+    case "faces_stale":
+    case "faces_missing_crc":
+        first.Geometry = new Brep { Crc = 123, Faces = Enumerable.Range(0, 130).Select(i => new Face { FaceIndex = i }).ToList() };
+        request["scope"] = "ids"; request["object_ids"] = new JArray(first.Id.ToString());
+        request["fields"] = new JArray("faces");
+        if (scenario != "faces_first") request["face_offset"] = 128;
+        if (scenario == "faces_next" || scenario == "faces_stale")
+            request["expected_geometry_crcs"] = new JObject { [first.Id.ToString()] = scenario == "faces_stale" ? 122 : 123 };
+        break;
+    case "invalid_fields": request["fields"] = new JArray("secret"); break;
+    case "invalid_type": request["filters"] = new JObject { ["object_types"] = new JArray("Brep,Mesh") }; break;
     default: throw new ArgumentException("Unknown scenario: " + scenario);
 }
 var dictionaries = doc.Objects.Items.SelectMany(o => new[] { o.Attributes.UserData.Value, o.Geometry.UserData.Value }).ToArray();
@@ -89,7 +116,7 @@ namespace RhinoAlmondBridge
 {
     public static class ComponentOperations
     {
-        public static JObject CheckIntersectVolumes(RhinoDoc doc, Guid[] ids, int maxPairs) =>
+        public static JObject CheckIntersectVolumes(RhinoDoc doc, Guid[] ids, int maxPairs, bool includeBlocks = false, string cursor = "") =>
             throw new InvalidOperationException("An object query unexpectedly invoked intersections.");
     }
 }
@@ -136,19 +163,20 @@ namespace Rhino
         public IEnumerable<RhinoObject> GetObjectList(ObjectEnumeratorSettings settings) => Items;
     }
     public sealed class Layer { public string FullPath = "M::wall::test"; }
-    public sealed class LayerTable { public Layer FindIndex(int index) => new Layer(); }
+    public sealed class LayerTable { public Layer FindIndex(int index) => new Layer { FullPath = index == 1 ? "M::floor::test" : "M::wall::test" }; }
     public sealed class Group { public Guid Id = new Guid("20000000-0000-0000-0000-000000000001"); public string Name = "shared"; }
     public sealed class GroupTable
     {
+        public static bool FailReads;
         public RhinoObject[] Members;
         public Group this[int index] => new Group();
-        public RhinoObject[] GroupMembers(int index) => Members;
+        public RhinoObject[] GroupMembers(int index) => FailReads ? throw new InvalidOperationException("Unrequested group expansion") : Members;
     }
 }
 namespace Rhino.DocObjects
 {
     public enum ActiveSpace { ModelSpace, PageSpace }
-    public enum ObjectType { Brep }
+    public enum ObjectType { Brep, Mesh }
     public sealed class ObjectEnumeratorSettings
     {
         public bool NormalObjects, HiddenObjects, LockedObjects, ReferenceObjects, DeletedObjects, IdefObjects;
@@ -168,7 +196,8 @@ namespace Rhino.DocObjects
         public GeometryBase Geometry = new GeometryBase();
         public ObjectAttributes Attributes = new ObjectAttributes();
         public string Name => Attributes.Name;
-        public ObjectType ObjectType => ObjectType.Brep;
+        public ObjectType Kind = ObjectType.Brep;
+        public ObjectType ObjectType => Kind;
         public bool IsDeleted, IsInstanceDefinitionGeometry, IsLocked, IsReference, IsHidden, Selected;
         public bool Visible = true;
         public int IsSelected(bool checkSubObjects) => Selected ? 1 : 0;
@@ -178,10 +207,11 @@ namespace Rhino.Geometry
 {
     public class GeometryBase : CommonObject
     {
+        public static bool FailHeavy;
         public uint Crc;
         public bool IsValid = true;
-        public uint DataCRC(uint initial) => Crc;
-        public BoundingBox GetBoundingBox(bool accurate) => new BoundingBox { IsValid = true };
+        public uint DataCRC(uint initial) => FailHeavy ? throw new InvalidOperationException("Unrequested CRC") : Crc;
+        public BoundingBox GetBoundingBox(bool accurate) => FailHeavy ? throw new InvalidOperationException("Unrequested bounds") : new BoundingBox { IsValid = true };
     }
     public struct Point3d { public double X, Y, Z; }
     public struct BoundingBox { public bool IsValid; public Point3d Min, Max; }

@@ -30,12 +30,17 @@ def build_bundle(destination: Path):
     # Never index installed community files into a redistributable payload.
     repo = AssetRepository({"generated":generated, "drawing":ROOT/"asset/drawing/DrawingAssetfiles", "drafting":ROOT/"asset/drawing/Draftingfiles"})
     for record in repo.records.values():
-        if record["library"] == "drawing":
-            record.update(available=False, model=None, preview=None, contract=None, drawing=None)
+        if record.get("source_library", record["library"]) == "drawing":
+            record.update(available=False, source_available=False, model=None, source_file=None,
+                          preview=None, contract=None, drawing=None, drawing_ready=False,
+                          drawing_status="not_installed", model_status="not_installed")
         if record["drawing"]:
             package = repo.files[record["drawing"]["record"]][1].parent
             repo.file("drafting", (package / "views.json").relative_to(repo.roots["drafting"]).as_posix())
-            result = audit_package(package, repo.files[record["model"]][1])
+            source_route = record["model"] or record.get("source_file")
+            if source_route not in repo.files:
+                raise ValueError(f"Drawing source is unavailable: {record['id']}")
+            result = audit_package(package, repo.files[source_route][1])
             if result["status"] != "success":
                 raise ValueError(f"Drawing audit failed: {result}")
     destination.mkdir(parents=True, exist_ok=True)
@@ -51,7 +56,7 @@ def build_bundle(destination: Path):
         if route.startswith("/files/drawing/"):
             continue
         suffix = path.suffix
-        mime = {".glb":"model/gltf-binary", ".png":"image/png", ".json":"application/json", ".svg":"image/svg+xml", ".dxf":"application/dxf"}[suffix]
+        mime = {".glb":"model/gltf-binary", ".3dm":"application/octet-stream", ".png":"image/png", ".json":"application/json", ".svg":"image/svg+xml", ".dxf":"application/dxf"}[suffix]
         write(route, unquote(route.lstrip("/")), path.read_bytes(), mime)
     for path in sorted(UI_ROOT.rglob("*")):
         if path.is_file():

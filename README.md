@@ -26,14 +26,9 @@ git pull --ff-only
 ./src/rhp/tools/install_runtime.ps1 -VerifyOnly
 ```
 
-설치 스크립트는 기존 등록을 `data/runtime-install`에 백업하고 동일 GUID의 경로를
-`src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`에서
-`src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp`로 전환하며 명령 캐시도 갱신합니다.
+설치 스크립트는 기존 등록을 `data/runtime-install`에 백업하고 동일 GUID의 경로를 `src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`에서 `src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp`로 전환하며 명령 캐시도 갱신합니다.
 `-VerifyOnly`는 확인만 하므로 최초 전환에는 그 앞의 설치 명령이 필요합니다.
-`almondconnect`가 없으면 이 등록 경로부터 확인합니다. 올바른 RHP가 아직 로드되지 않은
-프로세스에서는 공식 `Rhino.PlugIns.PlugIn.LoadPlugIn(fullPath)`로 기존 파일을 직접 로드할 수
-있습니다. Python에서는 반환값이 `(LoadPlugInResult, Guid)`이며, 로드 후 명령 존재와 실제
-assembly 경로를 확인합니다. 이 방식은 로드된 구형 assembly를 교체하는 기능이 아닙니다.
+`almondconnect`가 없으면 이 등록 경로부터 확인합니다. 올바른 RHP가 아직 로드되지 않은 프로세스에서는 공식 `Rhino.PlugIns.PlugIn.LoadPlugIn(fullPath)`로 기존 파일을 직접 로드할 수 있습니다. Python에서는 반환값이 `(LoadPlugInResult, Guid)`이며, 로드 후 명령 존재와 실제 assembly 경로를 확인합니다. 이 방식은 로드된 구형 assembly를 교체하는 기능이 아닙니다.
 이미 새 경로로 등록된 환경과 이후 업데이트는 Rhino 종료 → `git pull --ff-only` → Rhino 시작 순서입니다.
 Git에 실행 파일이 포함되어 있어 일반 업데이트마다 빌드하거나 재등록할 필요는 없습니다.
 프로젝트 DB는 `.almond/scene.sqlite3`를 사용합니다. 기존 확장자 없는 `DB`의 파일명 이전과 작업자료·임시자료 정리 기준은 [조회와 작업자료 계약](src/mcp/SPEC.md#조회와-작업자료-계약)을 따릅니다. 구형 `.almond/tmp/calls`에 남은 보고서·백업은 자동 삭제하지 않고 현재 자료 참조와 함께 이전합니다.

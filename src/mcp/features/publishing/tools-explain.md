@@ -5,9 +5,7 @@
 <!-- instruction:publish_objects_to_chestnut -->
 Exports specific Rhino objects as one GLB and publishes them to Chestnut.
 
-Use this after execute_rhino_script (and optionally validate_structure), passing
-the returned object GUIDs. Reusing asset_id updates the existing Chestnut asset
-without changing placements that already reference it.
+Use this after execute_rhino_script (and optionally validate_structure), passing the returned object GUIDs. Reusing asset_id updates the existing Chestnut asset without changing placements that already reference it.
 
 Args:
     guids: Rhino object GUIDs to export. Unrelated document objects are excluded.
@@ -31,9 +29,7 @@ Returns:
 <!-- instruction:publish_to_chestnut -->
 Publishes Rhino objects to Chestnut using safe semantic defaults.
 
-This is the preferred publishing tool for normal use. It hides collider,
-scale, mass, and rigid-body details. Call it when the user says things such
-as "publish that to Chestnut".
+This is the preferred publishing tool for normal use. It hides collider, scale, mass, and rigid-body details. Call it when the user says things such as "publish that to Chestnut".
 
 Args:
     guids: Rhino object GUIDs returned by execute_rhino_script.

@@ -2,7 +2,8 @@
   "id": "gen-folded-throw-1",
   "name": "Loosely folded throw",
   "kind": "model",
-  "library": "generated",
+  "library": "model_assets",
+  "source_library": "generated",
   "category": "textile",
   "variant": "Organic form; detailed geometry edition",
   "format": "glb",
@@ -24,8 +25,8 @@
     "height": 180.0
   },
   "dimension_basis": "measured_from_normalised_glb",
-  "available": true,
-  "model": "/files/generated/models/gen-folded-throw-1.glb",
+  "available": false,
+  "model": null,
   "preview": "/files/generated/previews/gen-folded-throw-1.png",
   "contract": "/files/generated/models/gen-folded-throw-1.almond.json",
   "license": "CC-BY-4.0",
@@ -52,7 +53,6 @@
         "batch_id": "organic-2026-09",
         "image": {
           "asset_id": "gen-folded-throw-1",
-          "endpoint": "/openapi/v1/text-to-image",
           "submitted_at": "2026-09-19T16:21:33.066538+00:00",
           "request": {
             "ai_model": "nano-banana-pro",
@@ -72,7 +72,6 @@
         },
         "mesh": {
           "asset_id": "gen-folded-throw-1",
-          "endpoint": "/openapi/v1/image-to-3d",
           "submitted_at": "2026-09-19T16:22:57.057894+00:00",
           "request": {
             "ai_model": "meshy-7.1",
@@ -229,7 +228,6 @@
           "batch_id": "organic-2026-09",
           "image": {
             "asset_id": "gen-folded-throw-1",
-            "endpoint": "/openapi/v1/text-to-image",
             "submitted_at": "2026-09-19T16:21:33.066538+00:00",
             "request": {
               "ai_model": "nano-banana-pro",
@@ -249,7 +247,6 @@
           },
           "mesh": {
             "asset_id": "gen-folded-throw-1",
-            "endpoint": "/openapi/v1/image-to-3d",
             "submitted_at": "2026-09-19T16:22:57.057894+00:00",
             "request": {
               "ai_model": "meshy-7.1",
@@ -457,7 +454,6 @@
             "batch_id": "organic-2026-09",
             "image": {
               "asset_id": "gen-folded-throw-1",
-              "endpoint": "/openapi/v1/text-to-image",
               "submitted_at": "2026-09-19T16:21:33.066538+00:00",
               "request": {
                 "ai_model": "nano-banana-pro",
@@ -477,7 +473,6 @@
             },
             "mesh": {
               "asset_id": "gen-folded-throw-1",
-              "endpoint": "/openapi/v1/image-to-3d",
               "submitted_at": "2026-09-19T16:22:57.057894+00:00",
               "request": {
                 "ai_model": "meshy-7.1",
@@ -574,5 +569,13 @@
   "drawing": null,
   "uri": "almond://repository/gen-folded-throw-1",
   "record_url": "/api/assets/gen-folded-throw-1.json",
+  "source_available": true,
+  "source_only": true,
+  "model_status": "needs_conversion",
+  "drawing_status": "missing",
+  "drawing_ready": false,
+  "source_file": "/files/generated/models/gen-folded-throw-1.glb",
+  "next_tool": "prepare_drawing_asset",
+  "conversion_target": "3dm",
   "generation_image": "/files/generated/batches/organic-2026-09/gen-folded-throw-1.png"
 }

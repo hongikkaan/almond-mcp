@@ -74,6 +74,8 @@
 .placement-tools select{font-size:10px;padding:4px}
 .place-model{font:inherit;font-size:11px;background:transparent;border:1px solid var(--line);padding:6px 9px;text-align:left;cursor:pointer;color:var(--ink)}
 .card>.place-model{width:100%;margin-top:6px}
+.placement-notice{display:block;font:10px/1.5 var(--mono);color:var(--muted);margin-top:6px}
+.rhino-panel #library-status{grid-column:1/-1;color:var(--red)}
 .place-model:hover,.place-model:focus-visible{background:var(--ink);color:var(--paper)}
 .rhino-placement [data-drag]{cursor:grab;touch-action:none;user-select:none}
 .rhino-placement [data-drag]:active{cursor:grabbing}

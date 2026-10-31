@@ -3,8 +3,8 @@
   "version": "0.7.0rc2",
   "counts": {
     "assets": 57,
-    "models": 50,
-    "elements": 7,
+    "models": 54,
+    "elements": 3,
     "drawing_packages": 10,
     "views": 60
   },
@@ -1581,7 +1581,7 @@
     },
     "/app.js": {
       "path": "ui/app.js",
-      "sha256": "5e7bcd95009081baadc75fce38698a8a55ba830545468236714d0bbdd4b55603",
+      "sha256": "63086ba14fbeea89e226432e7ccdd451e59f4e59c5d214c34b139f8728a671dd",
       "mime": "text/javascript; charset=utf-8"
     },
     "/favicon.svg": {
@@ -1591,7 +1591,7 @@
     },
     "/index.html": {
       "path": "ui/index.html",
-      "sha256": "e34928e98501726b5e317fd4dbe82f768d32cf51767f68fe5a7ad36137f70228",
+      "sha256": "e50a77f560ebce6cbd80e49121a033ee9534f79e8ab9ae75ec97a836b046635c",
       "mime": "text/html; charset=utf-8"
     },
     "/karamba-help.js": {
@@ -1613,6 +1613,11 @@
       "path": "ui/panel.css",
       "sha256": "40287d27b449e077458cb46c9c4f5568d6c06b7223e82ab6894558e07330d627",
       "mime": "text/css; charset=utf-8"
+    },
+    "/placement-state.mjs": {
+      "path": "ui/placement-state.mjs",
+      "sha256": "ef5d8ad07900d0aed022f60b52d54572de80711b2332bb40cd8ddb178e10547d",
+      "mime": "text/javascript; charset=utf-8"
     },
     "/preview-display.js": {
       "path": "ui/preview-display.js",
@@ -1646,7 +1651,7 @@
     },
     "/style.css": {
       "path": "ui/style.css",
-      "sha256": "9e4197794eead117a0688e226036b1b3031f30ac7fda677cda862338093a28e7",
+      "sha256": "d2039d511ea2fd1fdc9d00c4cd24efe7f966c878d751420f9d097e6de9ba1884",
       "mime": "text/css; charset=utf-8"
     },
     "/vendor/LICENSE": {
@@ -1671,7 +1676,7 @@
     },
     "/": {
       "path": "ui/index.html",
-      "sha256": "e34928e98501726b5e317fd4dbe82f768d32cf51767f68fe5a7ad36137f70228",
+      "sha256": "e50a77f560ebce6cbd80e49121a033ee9534f79e8ab9ae75ec97a836b046635c",
       "mime": "text/html; charset=utf-8"
     },
     "/api/materials": {
@@ -1681,292 +1686,292 @@
     },
     "/api/catalogue": {
       "path": "api/catalogue.json",
-      "sha256": "ed7be75d13a3bf704a837bc167c6d152c904fc81068af0bc6c52f4373a836a0b",
+      "sha256": "840369976017547babf10203982d80d7814e22ce8ea41f1969660ca6455e0e46",
       "mime": "application/json"
     },
     "/api/assets/gen-person-standing-1.json": {
       "path": "api/assets/gen-person-standing-1.json",
-      "sha256": "fdc6fca857dbf4aa7654177f1848ff4cb8e462646ef62ddec49dbea702b8cebe",
+      "sha256": "61ea17ac33bbcf0fd16626dcb01596b5cbf155ea204bf8acbee17e55a788d989",
       "mime": "application/json"
     },
     "/api/assets/gen-person-walking-1.json": {
       "path": "api/assets/gen-person-walking-1.json",
-      "sha256": "d000e9919a1d8a8c4fc409180de77d06ca783703fe066043b82305e9eb819077",
+      "sha256": "9fcac7033268ef82543ba6c45d2f4437eda8f808a352f6dcf57ce71e6aa2b1f0",
       "mime": "application/json"
     },
     "/api/assets/gen-person-sitting-1.json": {
       "path": "api/assets/gen-person-sitting-1.json",
-      "sha256": "11bd70e988ea8a71487b4a46e60686fe04f81572f1dea01011a770230d2a27b1",
+      "sha256": "27bdb869f7ee2494c3ba53f684c28780e1f0e0e34b6b4dbd867c8cc8d03a1b8a",
       "mime": "application/json"
     },
     "/api/assets/gen-tree-deciduous-medium-1.json": {
       "path": "api/assets/gen-tree-deciduous-medium-1.json",
-      "sha256": "0d8dce462a66b053af106b647439aa99d5ce2b7ab6495408590b83d7a1535c7d",
+      "sha256": "da5d7f767787951dc2754c1c85e8621b5d56652fefd24912becac2b55826b26b",
       "mime": "application/json"
     },
     "/api/assets/gen-tree-conifer-1.json": {
       "path": "api/assets/gen-tree-conifer-1.json",
-      "sha256": "9580900a21cde2eb28687b206fb6581dec525b4ed76a7a3dd34a584c1f0b6dfa",
+      "sha256": "bead3eb7f0db72c59c86caf0f2683afaf420da84638194fc12fd347dd9c91ac6",
       "mime": "application/json"
     },
     "/api/assets/gen-car-sedan-1.json": {
       "path": "api/assets/gen-car-sedan-1.json",
-      "sha256": "fbf251c6401fd43bfa43f6e5c8e39a4e54b6b05d1dcefe310851e0fd11be9c7d",
+      "sha256": "4fd133d81a67523c577d3a0afdad324f2bbd18dbbd0c7097eef3365cceeb585c",
       "mime": "application/json"
     },
     "/api/assets/gen-bicycle-1.json": {
       "path": "api/assets/gen-bicycle-1.json",
-      "sha256": "ec440b2432de40b9bd77a04c870c481d959f57758e73613b37965783830feea5",
+      "sha256": "d71f3b7d62f9c0c30581dc90107970ede9e408e9485b483bcc9606c77ed033f2",
       "mime": "application/json"
     },
     "/api/assets/gen-park-bench-1.json": {
       "path": "api/assets/gen-park-bench-1.json",
-      "sha256": "a481625565ae5d308a55c10107df5b963d0871b9432f022f034cfd49251da97d",
+      "sha256": "45a211b5f3e45b1f28c37b21c5b502e6f936a140592ac90b87b6fbbb1649f48a",
       "mime": "application/json"
     },
     "/api/assets/gen-street-lamp-1.json": {
       "path": "api/assets/gen-street-lamp-1.json",
-      "sha256": "6e1c94947e960625776cdfdcb060abba35d1ed73ad120b03cfb66f6172458fbf",
+      "sha256": "730e88a837320aa2ae6396f2f4b4d4ce89a6694b988676c4e269d4460e954fe7",
       "mime": "application/json"
     },
     "/api/assets/gen-bollard-1.json": {
       "path": "api/assets/gen-bollard-1.json",
-      "sha256": "0f18f8b9765c2b56c09f6ed5d68b367cab87a19ec4d891cd732762ef3ded1cb9",
+      "sha256": "4d0a1dc75d4244a7ca11052bceacc0334b6f52ad36676ac86d34092ed0666ea0",
       "mime": "application/json"
     },
     "/api/assets/gen-bike-rack-1.json": {
       "path": "api/assets/gen-bike-rack-1.json",
-      "sha256": "79b39df230b006e988899df4ba2bbcee8e823ea7420dc291da3761c5b46f6cb2",
+      "sha256": "d08d0247d60b31f391c88b9ed848d8bf6514d63c0bfc64e94d0137666c9ae4b8",
       "mime": "application/json"
     },
     "/api/assets/gen-litter-bin-1.json": {
       "path": "api/assets/gen-litter-bin-1.json",
-      "sha256": "092220a7cfcb73c67e33f341725b358f008b6b83197e899e48f38a559b921f8d",
+      "sha256": "d3faf0a1c7f5f9bcae847aa44bff6ca3008f825cf92b52772626c58b7a6eb04c",
       "mime": "application/json"
     },
     "/api/assets/gen-column-round-1.json": {
       "path": "api/assets/gen-column-round-1.json",
-      "sha256": "d067250fefc3cf2b91a1021621f99ffca82d50158af41e6f56aa5011064fd25a",
+      "sha256": "4d5bc86cdce075c72c8e35ec4a6effecdd2b585d7d473b2e8294cea7d0910983",
       "mime": "application/json"
     },
     "/api/assets/gen-column-square-1.json": {
       "path": "api/assets/gen-column-square-1.json",
-      "sha256": "4592759963ca7806616e3ea81133070c1286c0013d291ee96a9f960fcc38df48",
+      "sha256": "cf7a4cf5b2b2b376ea81c29a4e6fc0e72930ae6dfe8b51616992a503e73d6c91",
       "mime": "application/json"
     },
     "/api/assets/gen-balustrade-glass-1.json": {
       "path": "api/assets/gen-balustrade-glass-1.json",
-      "sha256": "d008f3c9c913ec231a07e4c961f993fb615999c72bbe31182bcfc9998b9c7653",
+      "sha256": "2184ae308ea2fa892a1e3a41ab6730a58c064f22b80f3c7cb37b434e2972528f",
       "mime": "application/json"
     },
     "/api/assets/gen-toilet-1.json": {
       "path": "api/assets/gen-toilet-1.json",
-      "sha256": "27b00dfb7b9395b644c088987d061db1df60dbced5ddce5d54c1937dfbcb58bf",
+      "sha256": "7ea9d4064dc3afc57db964bd1dc800f10e175bae447fe66d858e1dae5d147a4b",
       "mime": "application/json"
     },
     "/api/assets/gen-washbasin-pedestal-1.json": {
       "path": "api/assets/gen-washbasin-pedestal-1.json",
-      "sha256": "41f3c77b84c647bac1ca25f5c5eabb8f5e168f679e3a50d38786707528b82e22",
+      "sha256": "d4d307dd2245abc438756da8fe359553022baf8299b71cf75a258272b5f3e50a",
       "mime": "application/json"
     },
     "/api/assets/gen-bathtub-1.json": {
       "path": "api/assets/gen-bathtub-1.json",
-      "sha256": "61a0dc3b0928dfa17dd75bfd0895ddb928ee8189bc53eab3175dfc30cc486558",
+      "sha256": "d9648d7b2e62557a6c79808657b6ea3efc873e1eeb39471bbb1d02c93ec0aff9",
       "mime": "application/json"
     },
     "/api/assets/gen-shower-enclosure-1.json": {
       "path": "api/assets/gen-shower-enclosure-1.json",
-      "sha256": "5327b3338ebacd4abaad0f31ef0764bbfa550192d5f53d84e6a643efee289abe",
+      "sha256": "312461adeae0df5a95aed1dc66da7fb7c1b7ee1057ce2a54ff8f6224efc7fb59",
       "mime": "application/json"
     },
     "/api/assets/gen-kitchen-range-1.json": {
       "path": "api/assets/gen-kitchen-range-1.json",
-      "sha256": "020090cb48efdd0871c91dc033ba52e1860940e4195c43ab81deadd0f86e64bf",
+      "sha256": "7f3a63982174cfe9e040513725a76f1b9bed958b75d07779b9219e9c814791e3",
       "mime": "application/json"
     },
     "/api/assets/gen-refrigerator-1.json": {
       "path": "api/assets/gen-refrigerator-1.json",
-      "sha256": "adf829b17d89c18b06bc8ac6db39c11f55356735c8296f08c1107df82024bad8",
+      "sha256": "9a07ac9b9e9a0a444e2db764982d96667a363e87b676b8ecd08504a1d0ca6da7",
       "mime": "application/json"
     },
     "/api/assets/gen-sofa-3-seat-1.json": {
       "path": "api/assets/gen-sofa-3-seat-1.json",
-      "sha256": "db516839306e862eff17b5e8d967b8fe1dd24df36787376de41dff9c43dec939",
+      "sha256": "7cb7a116b50051d1c47db9b5f6c79ce03071a43ca44c75f5ba8241ecf567ed19",
       "mime": "application/json"
     },
     "/api/assets/gen-dining-table-rect-1.json": {
       "path": "api/assets/gen-dining-table-rect-1.json",
-      "sha256": "85d18228b6bd24f6d244653f8a451ad807f13431e5493ae655d00b1140a5c1bd",
+      "sha256": "57e184d4d7a9d56e81c793afad82fb92ef528c5664d2d98ebc5c3331df698328",
       "mime": "application/json"
     },
     "/api/assets/gen-dining-chair-1.json": {
       "path": "api/assets/gen-dining-chair-1.json",
-      "sha256": "7eb6e3455302ceb8fe36711f6c4c16aa2f1b07baef854f8d8c2225f80f61be26",
+      "sha256": "b49ab3827b8e1f7ccd9eb7eb9185b2322b8f76b3c430da8b129b874aabecaa6a",
       "mime": "application/json"
     },
     "/api/assets/gen-bed-double-1.json": {
       "path": "api/assets/gen-bed-double-1.json",
-      "sha256": "c33fade2520de542e995e5c494f329976b59eeecfc5be2948551eefba85f5c16",
+      "sha256": "8d39b951de34d8e4d846d8ba73ada53e74db3004a8f242cadfe15bf4e283f3fb",
       "mime": "application/json"
     },
     "/api/assets/gen-desk-1.json": {
       "path": "api/assets/gen-desk-1.json",
-      "sha256": "9dfac375b03be0372e826b736b3c7d97f2e13884fefa9ecafa3e64a8c7454c0a",
+      "sha256": "ae9100bc097bea466141a257f5a9ef385c37eede52582cccdb6b5b3a87871459",
       "mime": "application/json"
     },
     "/api/assets/gen-office-chair-1.json": {
       "path": "api/assets/gen-office-chair-1.json",
-      "sha256": "44e7c75f5e3971fdd1fd037dfa06b66a6dbe72020d11faad3b2665ff9c8657fd",
+      "sha256": "ff68bdae1bba3f8cffce9f6f52d48883f53beca0d31b916128255472f52361bd",
       "mime": "application/json"
     },
     "/api/assets/gen-stool-bent-birch-3leg-1.json": {
       "path": "api/assets/gen-stool-bent-birch-3leg-1.json",
-      "sha256": "c66600e281aadcd684b8241b9a5e7dad2cab81ae3e09787aa60b1fdd249a27ff",
+      "sha256": "9ddbd564232fe2975fcd183a34a9c4e71f34314feb6d47a645945e00bb79adcb",
       "mime": "application/json"
     },
     "/api/assets/gen-lounge-chair-bent-plywood-1.json": {
       "path": "api/assets/gen-lounge-chair-bent-plywood-1.json",
-      "sha256": "b30eb75fd0a0bad682f5985bfcc89662132332a04e865172a690fc9387f295c3",
+      "sha256": "d7a26b6c1b6a2462401fef1c4dc39e38d6617574d6329d6b79a4295ce7e24353",
       "mime": "application/json"
     },
     "/api/assets/gen-tea-trolley-bent-birch-1.json": {
       "path": "api/assets/gen-tea-trolley-bent-birch-1.json",
-      "sha256": "b52386065c46d36443e0011ef54ca4e2d23bc2a28c66380242b84ec4be4c31a7",
+      "sha256": "3cca5e8c1efba466fa55a8c726c8ad8edad6c419e57cdb931ce794ef659b57a7",
       "mime": "application/json"
     },
     "/api/assets/gen-dining-table-round-birch-1.json": {
       "path": "api/assets/gen-dining-table-round-birch-1.json",
-      "sha256": "e34d31389c23bb0bf117e9794e434fb18db46459e4daa894eb2ec6a711511c04",
+      "sha256": "b6f614db0fab6192f94fab7d0e6db736b27e3b56514302a39c4bcf3f6c295f8a",
       "mime": "application/json"
     },
     "/api/assets/gen-armchair-bent-birch-webbed-1.json": {
       "path": "api/assets/gen-armchair-bent-birch-webbed-1.json",
-      "sha256": "5fe0852f219e92f6d0c476268ba8e45938561bc57521c70c13c2c075a3e45df7",
+      "sha256": "75a598ab2118eb9cb220c2081236a377a6f4a5236774a17531eed48758eff41a",
       "mime": "application/json"
     },
     "/api/assets/gen-lounge-chair-molded-plywood-1.json": {
       "path": "api/assets/gen-lounge-chair-molded-plywood-1.json",
-      "sha256": "768ece4cbb216fee4adae55f73a33d71a896c6c2f284bc4e36d6d45edca1b07e",
+      "sha256": "1aa17bed3bc6348d95a918e2bf7807ed7f2b11894bb79b0672c5cff53d2619a1",
       "mime": "application/json"
     },
     "/api/assets/gen-side-chair-shell-wire-base-1.json": {
       "path": "api/assets/gen-side-chair-shell-wire-base-1.json",
-      "sha256": "7ed7a3b3c9f34e03abec8bef89d8c7a4365182dc21a9d8fc52e271700f97fedd",
+      "sha256": "f629879ef34babff4b86dd8af36458b64edebfe66879da75cab545c2e5753a0c",
       "mime": "application/json"
     },
     "/api/assets/gen-lounge-chair-leather-plywood-1.json": {
       "path": "api/assets/gen-lounge-chair-leather-plywood-1.json",
-      "sha256": "64f75ee3b891d09235b73e5827aa67bc8e3235072d7e847b756d924871712918",
+      "sha256": "ff470da898436a2d2946d12b1f06acb3613cc02c1dddf1b2e6b68e30a7861d68",
       "mime": "application/json"
     },
     "/api/assets/gen-ottoman-leather-plywood-1.json": {
       "path": "api/assets/gen-ottoman-leather-plywood-1.json",
-      "sha256": "3cbf74765fdbf622eb2dc44ee5c5684f2a917cbab628bd516a70b6ffa796927d",
+      "sha256": "2784ac533444a3b10891957f8dffb25f4330a1f90de216cc40630401402276c0",
       "mime": "application/json"
     },
     "/api/assets/gen-coffee-table-freeform-glass-1.json": {
       "path": "api/assets/gen-coffee-table-freeform-glass-1.json",
-      "sha256": "22e68699a3142a5009069c66d155a7a2823b0ae4db43cb1ec4184fa216907c49",
+      "sha256": "fea51631c0f81edc56d47c555777270072749e0cb5f4661d381a54f934fed4fb",
       "mime": "application/json"
     },
     "/api/assets/gen-bench-slatted-platform-1.json": {
       "path": "api/assets/gen-bench-slatted-platform-1.json",
-      "sha256": "c1978d5f12838cd74f2a081fd5d67767ffdd747c21ac7935fece5255d7a21693",
+      "sha256": "34a268effa6e24be1c5f1279cdcb840f44c7806000cb0cb26d0597d2cd96e28f",
       "mime": "application/json"
     },
     "/api/assets/gen-pendant-lamp-sphere-1.json": {
       "path": "api/assets/gen-pendant-lamp-sphere-1.json",
-      "sha256": "9e8d9b8e341af6b3f35e8229b50805ad6eafdd25b39231ba0661cd82dcaf5605",
+      "sha256": "0cfd91127a94ecbb0464bdcb23749e105b2fd8f328331f42216d6740d1095d2d",
       "mime": "application/json"
     },
     "/api/assets/gen-task-chair-mesh-ergonomic-1.json": {
       "path": "api/assets/gen-task-chair-mesh-ergonomic-1.json",
-      "sha256": "4eba6f77f85fd5b886de541592fe1df2a385ca0f993be935f95cae30ded33acc",
+      "sha256": "8695ac836cebbdda7506c6ef20d986a60e9364289b92921b273e125b03668613",
       "mime": "application/json"
     },
     "/api/assets/gen-armchair-cantilever-bentwood-1.json": {
       "path": "api/assets/gen-armchair-cantilever-bentwood-1.json",
-      "sha256": "939467b566afedf5d1c74934ce134c5a05655eacdb2098923754b9eecfd2e7c2",
+      "sha256": "801fdd2c4c64130df753c1404c5b7a285dfc3794c71d8db9f4e59a4dfcefaa22",
       "mime": "application/json"
     },
     "/api/assets/gen-sofa-2-seat-loose-cover-1.json": {
       "path": "api/assets/gen-sofa-2-seat-loose-cover-1.json",
-      "sha256": "9df088ad37131e06ab1b0c918141a70d8632919294cde9e0de769e58f50a336c",
+      "sha256": "efc281abdc6600a7c9eb088120dd10e0ffe6c0d9c820de6e5b3d5e06e8fdd2e1",
       "mime": "application/json"
     },
     "/api/assets/gen-shelving-cube-2x4-1.json": {
       "path": "api/assets/gen-shelving-cube-2x4-1.json",
-      "sha256": "e479125d75c42d929d335dc37648d72fcda3e71168c83fa182bdc6570d1d5f00",
+      "sha256": "29936531d63726592303ffc1c48838ea448524da9a80ca7b0ea740ebfa2dd240",
       "mime": "application/json"
     },
     "/api/assets/gen-shelving-modular-track-1.json": {
       "path": "api/assets/gen-shelving-modular-track-1.json",
-      "sha256": "794d36bc85cabc298030d06e1ea88fc7ca61798f50ed29960d6b6d567fc6588a",
+      "sha256": "b89ab09bd12dc77a2ec4343d3720f7eef1edf1d3438bae20a8c8449bf1438cdc",
       "mime": "application/json"
     },
     "/api/assets/gen-floor-lamp-arc-1.json": {
       "path": "api/assets/gen-floor-lamp-arc-1.json",
-      "sha256": "af6b50ab6a3de33e407aea1c2f1a51534392500dfd0caf875fc39a8a92050ad9",
+      "sha256": "f76c12ed76ff48b60dffe7d9101b69fbfbd5622d417eff6c8db44503db14abf8",
       "mime": "application/json"
     },
     "/api/assets/gen-task-lamp-balanced-arm-1.json": {
       "path": "api/assets/gen-task-lamp-balanced-arm-1.json",
-      "sha256": "831fa16cce925f7672afb68ba41c1078bae2c5421ed2569fcc98187d98c847be",
+      "sha256": "28f15aa06c38ea2eafef7735806a25c0acd7b143ebf455392ea049679d4526fe",
       "mime": "application/json"
     },
     "/api/assets/gen-side-table-wire-1.json": {
       "path": "api/assets/gen-side-table-wire-1.json",
-      "sha256": "7a3c780c6688172bcbb8bdc28147efbee9e752cfbdfc9df26d05f08ad436336d",
+      "sha256": "717dee8a57efa45fa6d9ed879056016888face7cbeaf79dabc83bc3d16be2842",
       "mime": "application/json"
     },
     "/api/assets/gen-weathered-boulder-1.json": {
       "path": "api/assets/gen-weathered-boulder-1.json",
-      "sha256": "90c2daec4f8867b521097c4427ec1e0c4d66496a4af6fa61259e50ed0bbd89d8",
+      "sha256": "5108eb401817c73e3cb6cace610ab299ddf8d87c469141c8fcbf9f2e90e00218",
       "mime": "application/json"
     },
     "/api/assets/gen-driftwood-1.json": {
       "path": "api/assets/gen-driftwood-1.json",
-      "sha256": "855ac9c3271466632b5069be5fb8b9aba7e2c8ed8e38b75030783af4b54230cd",
+      "sha256": "b4f53b5ef37599aa6cb8f16931880c0fcc42bf3d560d1ce952734d43cc9b2d4c",
       "mime": "application/json"
     },
     "/api/assets/gen-folded-throw-1.json": {
       "path": "api/assets/gen-folded-throw-1.json",
-      "sha256": "ad3c57053ca3f37696b81c08312ec79f30e72a61f86a1aafa99f6d31f3d4a275",
+      "sha256": "ef9278b15b45a21807c7db3861e8815cf20227e1e273826e25a6f51332a8f5dc",
       "mime": "application/json"
     },
     "/api/assets/context-workstation-computer-f453f88a.json": {
       "path": "api/assets/context-workstation-computer-f453f88a.json",
-      "sha256": "3237b6fdaa1a03e85cbe18fa0fe2841ebf33729d785140e4544e2a0597f097b4",
+      "sha256": "a51fef20383c34ddcb6db244a0d30b5b1b4e4d0fdc2f52f059c4213ecf37bd4e",
       "mime": "application/json"
     },
     "/api/assets/context-tree-chinese-elm-a708cff4.json": {
       "path": "api/assets/context-tree-chinese-elm-a708cff4.json",
-      "sha256": "360938d48997031a15f66f4c3deb8dfea8fae4db04868f35e55439bae4d27bca",
+      "sha256": "7a59f7ec2f8fe710876a1740e47bd34d905db7add73e201c865725f0c0d69815",
       "mime": "application/json"
     },
     "/api/assets/context-vehicle-compact-dc11548f.json": {
       "path": "api/assets/context-vehicle-compact-dc11548f.json",
-      "sha256": "4d45f77e841d516b5754b9f071114cfa8add82c4a1c76d9f7c8f934bf37e9cbe",
+      "sha256": "ee2a559584872c5e5ea72789c9db233dfa718ddd5e1b3ed48bcf56339023a7a0",
       "mime": "application/json"
     },
     "/api/assets/context-planter-1b011d3a.json": {
       "path": "api/assets/context-planter-1b011d3a.json",
-      "sha256": "070c614c4f3dcb45feb41544f33d64e6f0300496f1e490680ecc603523f7a594",
+      "sha256": "142d30936887a8b2aa47ab4b1a38219047c775547a6240c47455a807a6cbc799",
       "mime": "application/json"
     },
     "/api/assets/diagram-person-standing-1.json": {
       "path": "api/assets/diagram-person-standing-1.json",
-      "sha256": "bde2935dcd14705b298f22b9397efe64b31f8d72378e3d2d5eeb4427ae9925a6",
+      "sha256": "881c780f15443840bd41a5637a42ce37fd15c4ec224c01bfb459318fef6ffe32",
       "mime": "application/json"
     },
     "/api/assets/diagram-tree-deciduous-1.json": {
       "path": "api/assets/diagram-tree-deciduous-1.json",
-      "sha256": "7da551659ac9b33af6ff869c67e6c23df9356090a5889e909ea514a433c6e21f",
+      "sha256": "e45a865b8c2febfe55fbf88e6ecd74ed885714c6fc89e1ff28c8c3b9d4ac604f",
       "mime": "application/json"
     },
     "/api/assets/diagram-texture-brick-1.json": {
       "path": "api/assets/diagram-texture-brick-1.json",
-      "sha256": "010ab01eeb9417276138e3715dd0e3cb21777dbd1ed85d04f9d53a032b55c6d2",
+      "sha256": "d65228e1e2db1a3cb9ac7a0d8fe2f0b296e3fa650e889fd7b11d8030f31e78bd",
       "mime": "application/json"
     }
   }

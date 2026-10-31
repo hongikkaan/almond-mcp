@@ -44,6 +44,12 @@ When a child-only observation changes geometry or hierarchy, unobserved old/new 
 
 ## Verification
 
+Intersection observations resolve current document-level objects or optional nested block occurrences without changing their definitions. Brep/Extrusion pairs use the Brep kernel; Mesh pairs use the installed Rhino mesh Boolean API, preserving disconnected shells as one operand. Mixed pairs report temporary Brep meshing as an approximation. Invalid/open or unoriented geometry and unconfirmed kernel results remain unsupported or unknown.
+The continuation cursor binds the ordered candidate set to document identity, geometry, occurrence transforms and tolerance. Returned pair handles/state connect directly to the viewport preview and explicit keep/trim subtraction.
+
+`show_object_intersection` uses a document-and-viewport-scoped transient conduit which clears when geometry/attributes/definitions change. `resolve_object_intersection` performs one validated document-object replacement through the existing executor/Undo boundary.
+It retains the trim GUID and attributes, keeps disjoint Mesh results in one object, and rejects stale references, block/source-file edits, mixed-representation subtraction, unpreservable per-geometry attributes and whole-target deletion. No native preview or subtraction automatically registers semantic Components or changes the source asset.
+
 Store/public-tool BDD uses disposable SQLite and the existing external native callback seam. Native fixtures use actual disposable Rhino documents to compare geometry, ordinary groups, group order, attributes, Modified and Undo state, plus registration/unregister Undo/Redo and group-delete/Undo behavior.
 
 The test-only SemanticRegistryFixturePlugin has its own GUID and forwards to the same production archive helpers. It can verify real 3dm plugin-hook roundtrips in a separate empty Rhino UI process without replacing the everyday Bridge registration. That verifies shared serialization behavior, not that the everyday production RHP was registered or loaded. Build, output placement, registration, actual load and modeling verification remain separate evidence.

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Rhino;
@@ -53,13 +54,33 @@ switch (scenario)
     case "no_dictionary_nochange": original.Outcome = "nochange"; break;
     default: original.Outcome = scenario; break;
 }
+if (scenario.StartsWith("batch_"))
+{
+    original.Outcome = "success";
+    var secondId = new Guid("2fc35662-7448-48a9-ab20-27d3e774734f");
+    var thirdId = new Guid("2fc35662-7448-48a9-ab20-27d3e7747350");
+    doc.Objects.Others[secondId] = new RhinoObject { Id = secondId, Geometry = original.DuplicateBrep(), Attributes = attributes };
+    doc.Objects.Others[thirdId] = new RhinoObject { Id = thirdId, Geometry = original.DuplicateBrep(), Attributes = attributes };
+    JObject Edit(Guid id) => new JObject { ["object_id"] = id.ToString(), ["face_index"] = 0,
+        ["expected_geometry_crc"] = 123, ["translation"] = new JArray(0, 0, 10) };
+    request = new JObject { ["expected_model_path"] = doc.Path,
+        ["edits"] = new JArray(Edit(objectId), Edit(secondId), Edit(thirdId)) };
+    if (scenario == "batch_stale") request["edits"][1]["expected_geometry_crc"] = 122;
+    if (scenario == "batch_invalid_result") ((Brep)doc.Objects.Others[secondId].Geometry).Outcome = "open";
+    if (scenario == "batch_duplicate") request["edits"][1]["object_id"] = objectId.ToString();
+    if (scenario == "batch_replace_failure") doc.Objects.FailReplaceAt = 2;
+    if (scenario == "batch_throw_after_replace") doc.Objects.ThrowAfterReplaceAt = 2;
+    if (scenario == "batch_throw_after_last_replace") doc.Objects.ThrowAfterReplaceAt = 3;
+    if (scenario == "batch_unknown_replace") { doc.Objects.ThrowAfterReplaceAt = 2; doc.Objects.UnknownAfterReplace = true; }
+}
 JObject result = null;
 string error = null;
 JObject response = null;
 int originalUserDataCount = original.UserData.Count;
 try
 {
-    response = RhinoAlmondBridge.PlanarFaceEditing.Handle(doc, request);
+    response = scenario.StartsWith("batch_") ? RhinoAlmondBridge.PlanarFaceEditing.HandleBatch(doc, request)
+        : RhinoAlmondBridge.PlanarFaceEditing.Handle(doc, request);
     result = response["result"] as JObject;
     if ((string)response["status"] != "success") error = (string)response["message"];
 }
@@ -68,6 +89,8 @@ Console.WriteLine(new JObject {
     ["result"] = result, ["error"] = error, ["replace_calls"] = doc.Objects.ReplaceCalls,
     ["response"] = response, ["result_error"] = response?["result_error"],
     ["executor_calls"] = RhinoAlmondBridge.ScriptExecutor.Calls, ["mutation_state"] = response?["mutation_state"],
+    ["document_crcs"] = new JArray(new[] { objectId, new Guid("2fc35662-7448-48a9-ab20-27d3e774734f"),
+        new Guid("2fc35662-7448-48a9-ab20-27d3e7747350") }.Select(id => doc.Objects.FindId(id)?.Geometry.DataCRC(0))),
     ["push_calls"] = Brep.PushCalls, ["original_untouched"] = !original.Touched && original.Crc == 123 &&
         original.DictionaryGetterCalls == originalDictionaryReads && original.UserData.Count == originalUserDataCount,
     ["attributes_preserved"] = ReferenceEquals(doc.Objects.Current?.Attributes, attributes) && attributes.Groups.Length == 2,
@@ -126,14 +149,24 @@ namespace Rhino
     public sealed class ObjectTable
     {
         public RhinoObject Current;
+        public Dictionary<Guid, RhinoObject> Others = new Dictionary<Guid, RhinoObject>();
         public bool ReplaceSucceeds = true;
         public int ReplaceCalls;
-        public RhinoObject FindId(Guid id) => Current?.Id == id ? Current : null;
+        public int FailReplaceAt, ThrowAfterReplaceAt;
+        public bool UnknownAfterReplace;
+        public RhinoObject FindId(Guid id) => Current?.Id == id ? Current : Others.TryGetValue(id, out var value) ? value : null;
         public bool Replace(Guid id, Brep brep)
         {
             ReplaceCalls++;
-            if (!ReplaceSucceeds) return false;
-            Current = new RhinoObject { Id = id, Attributes = Current.Attributes, Geometry = brep.DuplicateBrep() };
+            if (!ReplaceSucceeds || ReplaceCalls == FailReplaceAt) return false;
+            var original = FindId(id);
+            var updated = new RhinoObject { Id = id, Attributes = original.Attributes, Geometry = brep.DuplicateBrep() };
+            if (Current?.Id == id) Current = updated; else Others[id] = updated;
+            if (ReplaceCalls == ThrowAfterReplaceAt)
+            {
+                if (UnknownAfterReplace) updated.Geometry.Crc = 789;
+                throw new InvalidOperationException("An event failed after replacement.");
+            }
             return true;
         }
     }

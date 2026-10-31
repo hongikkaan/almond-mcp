@@ -2,13 +2,13 @@
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.guidance.output import GROUPS, project
+from almond_mcp.features.guidance.source_search import search_sources
 
 from pydantic import StrictBool
 from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 from almond_mcp.modeling_guidance import read_guide
 import json
-import re
 from pathlib import Path
 
 
@@ -87,15 +87,7 @@ def register(mcp, context):
     def search_detail_sources(query: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:
         validate_field_groups(field_groups, GROUPS)
         data = json.loads((Path(context.DRAFTING_LIBRARY_DIR)/"sources.json").read_text(encoding="utf-8"))
-        terms = set(re.findall(r"[a-z0-9]+", query.lower()))
-        matches = []
-        for source in data["sources"]:
-            haystack = " ".join([source["title"], *source["tags"], *source["formats"]]).lower()
-            matched = sorted(t for t in terms if t in haystack)
-            if not terms or matched:
-                matches.append({**source, "matched_terms": matched})
-        matches.sort(key=lambda s: (-len(s["matched_terms"]), s["source_id"]))
-        return project({"status": "success", "scope": data["scope"], "sources": matches}, field_groups)
+        return project({"scope": data["scope"], **search_sources(data["sources"], query)}, field_groups)
 
     return {
         "get_modeling_guide": get_modeling_guide,

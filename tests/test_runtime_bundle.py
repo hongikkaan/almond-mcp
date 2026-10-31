@@ -42,6 +42,12 @@ def test_sdk_selection_is_a_shared_runtime_build_input(tmp_path, monkeypatch):
     "src/rhp/RhinoTerminal/src/web/terminal.html",
     "src/mcp/features/context/native/BlockAnalysis.cs",
     "src/mcp/features/components/native/SolidIntersections.cs",
+    "src/mcp/features/modeling/native/PlanarFaceEditing.cs",
+    "src/mcp/features/assets/native/FurnitureAssetManager.cs",
+    "src/mcp/features/drawings/native/DrawingStyleManager.cs",
+    "src/mcp/features/grasshopper/native/GhDefinitionRunner.cs",
+    "src/mcp/features/exchange/native/GlbExporter.cs",
+    "src/mcp/features/structure/native/NativeSolver.cs",
 ])
 def test_bridge_source_change_invalidates_runtime(tmp_path, monkeypatch, relative):
     source = tmp_path / relative

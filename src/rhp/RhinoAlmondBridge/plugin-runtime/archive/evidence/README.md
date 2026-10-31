@@ -1,27 +1,13 @@
 # Almond generated asset library
 
 Open, redistributable 3D architectural assets for [Almond MCP](../../../README.md):
-entourage, site furniture, fixtures and unbranded
-furniture placeholders. **50 assets**, all generated with
-[Meshy](https://www.meshy.ai) from prompts written for this project and
-normalised to real-world millimetres with an authored Almond spatial
-contract. Unlike the IKEA / drawing libraries (3D Warehouse content that
-each user downloads), these files ship with the repository.
+entourage, site furniture, fixtures and unbranded furniture placeholders. **50 assets**, all generated with [Meshy](https://www.meshy.ai) from prompts written for this project and normalised to real-world millimetres with an authored Almond spatial contract. Unlike the IKEA / drawing libraries (3D Warehouse content that each user downloads), these files ship with the repository.
 
-- **License:** models are released under
-  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) - attribute as
-  "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)".
+- **License:** models are released under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) - attribute as "Almond generated asset library (github.com/liangjunglj-cpu/almond-mcp)".
   Contracts, manifest, catalogue and tooling are MIT with the rest of the repo.
-- **Units / axes:** millimetres; glTF Y-up in the file (Rhino's importer maps
-  it to Z-up); bottom-centre at the origin; width = X, depth = Y (Rhino).
-- **Materials:** one `ALMOND::<material_id>` material per asset so
-  `import_asset_contract` / `place_asset` restore the canonical
-  Almond PBR values and `almond:*` metadata on import.
-- **Dimensions are measured**, not nominal: the manifest records the real
-  bounds of the normalised GLB (height is scaled exactly to the catalogue
-  height; plan dimensions are whatever the generator produced, with the
-  nominal target kept in `nominal_dimensions_mm` and the deviation in
-  `plan_dimension_deviation`).
+- **Units / axes:** millimetres; glTF Y-up in the file (Rhino's importer maps it to Z-up); bottom-centre at the origin; width = X, depth = Y (Rhino).
+- **Materials:** one `ALMOND::<material_id>` material per asset so `import_asset_contract` / `place_asset` restore the canonical Almond PBR values and `almond:*` metadata on import.
+- **Dimensions are measured**, not nominal: the manifest records the real bounds of the normalised GLB (height is scaled exactly to the catalogue height; plan dimensions are whatever the generator produced, with the nominal target kept in `nominal_dimensions_mm` and the deviation in `plan_dimension_deviation`).
 
 ## Files
 
@@ -45,18 +31,11 @@ place_asset(asset_id="gen-street-lamp-1", x_mm=0, y_mm=0)
 ```
 
 Version 0.6 bundles all 50 models, contracts and previews in the wheel.
-Run `almond-mcp audit-assets` to check checksums and agreement between embedded,
-sidecar and manifest passports. Wheel installs use a versioned user-data pack;
-explicit library directory overrides continue to take precedence.
+Run `almond-mcp audit-assets` to check checksums and agreement between embedded, sidecar and manifest passports. Wheel installs use a versioned user-data pack; explicit library directory overrides continue to take precedence.
 
 ## Embedded passports and reasoning tools
 
-Each GLB contains `asset.extras.almond.passport`; nodes carry stable Almond
-identity references. The same passport lives in the `.almond.json` contract
-and the manifest, validated against `passport.schema.json`. It records
-measured and nominal dimensions separately, source prompts and Meshy task ids,
-materials, clearances, support plane, usage suggestions, quality caveats and
-attribution. Suggested rooms are category/label heuristics, not audited facts.
+Each GLB contains `asset.extras.almond.passport`; nodes carry stable Almond identity references. The same passport lives in the `.almond.json` contract and the manifest, validated against `passport.schema.json`. It records measured and nominal dimensions separately, source prompts and Meshy task ids, materials, clearances, support plane, usage suggestions, quality caveats and attribution. Suggested rooms are category/label heuristics, not audited facts.
 
 ```text
 recommend_assets(query="bench", width_mm=2400, depth_mm=1600)
@@ -64,16 +43,10 @@ get_asset_passport(asset_id="gen-park-bench-1")
 evaluate_asset_fit(asset_id="gen-park-bench-1", width_mm=2400, depth_mm=1600)
 ```
 
-Read `almond://assets/catalogue` and the per-asset `/passport` and `/preview`
-resources from an MCP client. Clearances are authored design allowances;
-rectangular fit does not check actual room obstacles or certify accessibility.
-Existing geometry remains unchanged. These legacy GLBs contain numeric mm,
-so a generic metre-based glTF viewer needs a 0.001 scale conversion; Almond's
-existing Rhino placement uses its millimetre contract.
+Read `almond://assets/catalogue` and the per-asset `/passport` and `/preview` resources from an MCP client. Clearances are authored design allowances; rectangular fit does not check actual room obstacles or certify accessibility.
+Existing geometry remains unchanged. These legacy GLBs contain numeric mm, so a generic metre-based glTF viewer needs a 0.001 scale conversion; Almond's existing Rhino placement uses its millimetre contract.
 
-Run `python src/mcp/features/assets/generation/enrich_generated_assets.py` to refresh passports on existing
-normalised models. The normalisation builder also embeds passports for new
-models. `almond-mcp audit-assets` verifies the result.
+Run `python src/mcp/features/assets/generation/enrich_generated_assets.py` to refresh passports on existing normalised models. The normalisation builder also embeds passports for new models. `almond-mcp audit-assets` verifies the result.
 
 ## Assets
 
@@ -131,77 +104,38 @@ Contact sheets: [entourage](previews/sheet-1-entourage.png) · [site furniture](
 
 ## Batch 2: design-idiom furniture and lighting
 
-The second batch (ids with `batch: 2` in the catalogue) describes design language
-rather than products: Scandinavian bent birch, American mid-century moulded
-plywood and shell seating, democratic-design staples, Italian lighting. Prompts
-never name a brand or product and ids stay generic, so the CC BY 4.0 release is
-clean; treat them as placeholders in the idiom, not replicas. Concept images came
-from Higgsfield (nano_banana); meshes from Meshy, with the complex pieces on
-Meshy 7 ultra and decimated to about 80k triangles.
+The second batch (ids with `batch: 2` in the catalogue) describes design language rather than products: Scandinavian bent birch, American mid-century moulded plywood and shell seating, democratic-design staples, Italian lighting. Prompts never name a brand or product and ids stay generic, so the CC BY 4.0 release is clean; treat them as placeholders in the idiom, not replicas. Concept images came from Higgsfield (nano_banana); meshes from Meshy, with the complex pieces on Meshy 7 ultra and decimated to about 80k triangles.
 
 ## Regenerating or extending
 
-1. Add or edit an entry in `catalogue.json` (keep `asset_id` stable; bump the
-   trailing number for a new variant).
+1. Add or edit an entry in `catalogue.json` (keep `asset_id` stable; bump the trailing number for a new variant).
 2. Generate with Meshy following `generation_recipe` in the catalogue:
-   `meshy_text_to_image` (nano-banana, prompt + `prompt_suffix`) then
-   `meshy_image_to_3d` chained on that task (`meshy-t2`, `smart-topology`,
-   `should_texture=false`, `target_formats=["glb"]`, `auto_size`, `origin_at=bottom`).
+   `meshy_text_to_image` (nano-banana, prompt + `prompt_suffix`) then `meshy_image_to_3d` chained on that task (`meshy-t2`, `smart-topology`, `should_texture=false`, `target_formats=["glb"]`, `auto_size`, `origin_at=bottom`).
    About 8 credits per asset.
-3. Save the GLB as `raw/<asset_id>.glb` and record both task ids in
-   `provenance.json`.
-4. Run `python src/mcp/features/assets/generation/build_generated_assets.py` (optionally `--only <id>`),
-   then `pytest tests/test_generated_assets.py`.
-5. Note the change in `docs/licensing-audit.md` if the recipe or licence
-   position changes.
+3. Save the GLB as `raw/<asset_id>.glb` and record both task ids in `provenance.json`.
+4. Run `python src/mcp/features/assets/generation/build_generated_assets.py` (optionally `--only <id>`), then `pytest tests/test_generated_assets.py`.
+5. Note the change in `docs/licensing-audit.md` if the recipe or licence position changes.
 
-Quality notes: most meshes are untextured smart-topology output at roughly 4k
-triangles; the two trees are meshy-7 ultra output decimated to 80k triangles (see
-`src/mcp/features/assets/generation/decimate_glb.py`) - right for entourage, plans, sections and massing, not for
-close-up renders. Plan-dimension deviations above 25% are flagged in the
-build log; the measured values are what the manifest stores.
+Quality notes: most meshes are untextured smart-topology output at roughly 4k triangles; the two trees are meshy-7 ultra output decimated to 80k triangles (see `src/mcp/features/assets/generation/decimate_glb.py`) - right for entourage, plans, sections and massing, not for close-up renders. Plan-dimension deviations above 25% are flagged in the build log; the measured values are what the manifest stores.
 
 ### Coloured archive previews (rc.8)
 
-The 47 individual thumbnails now use the embedded GLB material base colours,
-with paint.sl studio lighting and a transparent background. They are material
-studies, not photographic textures or full PBR renders. Model geometry,
-materials, embedded passports and derived drawings are unchanged. Existing
-contact sheets are legacy renders.
+The 47 individual thumbnails now use the embedded GLB material base colours, with paint.sl studio lighting and a transparent background. They are material studies, not photographic textures or full PBR renders. Model geometry, materials, embedded passports and derived drawings are unchanged. Existing contact sheets are legacy renders.
 
 Regenerate with `blender --factory-startup -b --python src/mcp/features/assets/generation/render_generated_previews.py -- asset/models/GeneratedAssetfiles/models asset/models/GeneratedAssetfiles/previews --archive`.
-`--clay` is an optional neutral study; `--asset <asset_id>` renders a single
-inspection sample into a separate output folder. The full archive needs all
-50 records. `previews/render-record.json` records Blender/version/settings,
-script checksum (LF-normalized), and each source GLB and rendered PNG checksum.
+`--clay` is an optional neutral study; `--asset <asset_id>` renders a single inspection sample into a separate output folder. The full archive needs all 50 records. `previews/render-record.json` records Blender/version/settings, script checksum (LF-normalized), and each source GLB and rendered PNG checksum.
 This is a post-generation preview derivation, not a change to Meshy history.
 
 ## Organic detail batch (rc.12)
 
-Three approved neutral assets cover forms that are inconvenient to build from
-primitives: a weathered boulder, driftwood and a loosely folded throw. The public collection contains geometry
-editions with Almond material colours, not photographic texture atlases.
+Three approved neutral assets cover forms that are inconvenient to build from primitives: a weathered boulder, driftwood and a loosely folded throw. The public collection contains geometry editions with Almond material colours, not photographic texture atlases.
 
-The batch uses Meshy's nano-banana-pro reference images and Meshy 7.1 standard
-generation at 4k geometry resolution, with provider remeshing disabled. Dense
-source GLBs remain in the local, gitignored `raw/organic-2026-09/` directory.
-Blender derives library versions targeting 80k–120k triangles without
-subdivision. Select **Original** in Rhino to place that full library mesh;
-**Light** remains an optional 20k placement target.
+The batch uses Meshy's nano-banana-pro reference images and Meshy 7.1 standard generation at 4k geometry resolution, with provider remeshing disabled. Dense source GLBs remain in the local, gitignored `raw/organic-2026-09/` directory.
+Blender derives library versions targeting 80k–120k triangles without subdivision. Select **Original** in Rhino to place that full library mesh; **Light** remains an optional 20k placement target.
 
-`batches/organic-2026-09.json` preserves the original prompts and requested
-settings. Per-asset records and retained generated input images live under
-`batches/organic-2026-09/`. Embedded passports retain task IDs, timestamps,
-input/output hashes, actual triangle counts and derivation/topology checks.
-Unknown seeds remain null. No external design images were submitted. Heights
-are authored study sizes; dimensions are not product specifications. Foliage
-is generic entourage, not a certified botanical reconstruction.
+`batches/organic-2026-09.json` preserves the original prompts and requested settings. Per-asset records and retained generated input images live under `batches/organic-2026-09/`. Embedded passports retain task IDs, timestamps, input/output hashes, actual triangle counts and derivation/topology checks.
+Unknown seeds remain null. No external design images were submitted. Heights are authored study sizes; dimensions are not product specifications. Foliage is generic entourage, not a certified botanical reconstruction.
 
-Quality records report boundary and non-manifold edges, zero-area faces,
-connected components and bounds changes. Visual inspection complements these
-checks; self-intersections and fabrication suitability are not certified.
+Quality records report boundary and non-manifold edges, zero-area faces, connected components and bounds changes. Visual inspection complements these checks; self-intersections and fabrication suitability are not certified.
 
-Five concepts were attempted in this batch. Only the three reviewed assets above
-are included. The broad-frond plant failed the mesh/visual quality review; the
-grass task was still processing at selection cutoff. Their trial files remain
-in the local raw directory and are not part of the public pack.
+Five concepts were attempted in this batch. Only the three reviewed assets above are included. The broad-frond plant failed the mesh/visual quality review; the grass task was still processing at selection cutoff. Their trial files remain in the local raw directory and are not part of the public pack.

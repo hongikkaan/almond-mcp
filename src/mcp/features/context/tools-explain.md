@@ -11,23 +11,14 @@ IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied
 ## get_rhino_context
 
 <!-- instruction:get_rhino_context -->
-Read selected LIVE Rhino context on the UI thread. sections accepts document,
-selection, viewport, editor and display_modes; default is ["document"]. Unrequested sections are not collected.
-Document/selection/viewport responses also contain compact editor mode/target/stable
-so isolation is immediately visible. Request editor for provider evidence and warnings;
-sections=[] skips editor observation for capability-only calls.
-editor reports mode (model/group/block/unknown), the known target and stable. Only a
-verified normal model is stable; active isolation, transitions and unsupported editor
-versions are unstable. Unknown target identity remains null, never inferred from selection.
-display_modes lists at most 128 installed mode names/GUIDs. Shaded, Dark and CadWhite
-are choices only if actually installed; do not invent aliases for custom modes.
+Read selected LIVE Rhino context on the UI thread. sections accepts document, selection, viewport, editor and display_modes; default is ["document"]. Unrequested sections are not collected.
+Document/selection/viewport responses also contain compact editor mode/target/stable so isolation is immediately visible. Request editor for provider evidence and warnings; sections=[] skips editor observation for capability-only calls.
+editor reports mode (model/group/block/unknown), the known target and stable. Only a verified normal model is stable; active isolation, transitions and unsupported editor versions are unstable. Unknown target identity remains null, never inferred from selection.
+display_modes lists at most 128 installed mode names/GUIDs. Shaded, Dark and CadWhite are choices only if actually installed; do not invent aliases for custom modes.
 
-Includes document identity/path, units/tolerances, object/layer counts, a bounded
-selection summary and camera/display metadata. This query does not create layers,
-geometry, dimensions or an Undo record. Unavailable values are null with warnings.
+Includes document identity/path, units/tolerances, object/layer counts, a bounded selection summary and camera/display metadata. This query does not create layers, geometry, dimensions or an Undo record. Unavailable values are null with warnings.
 Counts and the current view are context, not a geometric or visibility validation.
-Request only the context needed for the task. project_info already verifies the live
-document; do not repeat this call merely to check whether that document is live.
+Request only the context needed for the task. project_info already verifies the live document; do not repeat this call merely to check whether that document is live.
 
 Args:
     selection_limit: Maximum selected object summaries, from 0 to 200; total/truncated are still reported.
@@ -47,8 +38,7 @@ IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied
 <!-- instruction:analyze_block_reculviely -->
 Read nested block structure or resolve a block occurrence without modifying the document.
 
-Requests and responses are bounded to 256 KiB of UTF-8 JSON. Unknown, unsupported
-and truncated observations remain unverified. Requires Bridge block_analysis=1.
+Requests and responses are bounded to 256 KiB of UTF-8 JSON. Unknown, unsupported and truncated observations remain unverified. Requires Bridge block_analysis=1.
 
 Args:
     mode: outline traverses objects and nested definitions; resolve-block finds
@@ -70,19 +60,11 @@ Returns:
 <!-- instruction:get_rhino_viewport_image -->
 Return a Rhino viewport, Named View or Layout as a PNG image, without activating it.
 
-Omit view to capture the current view. Pass view="a" to list viewports, named_views,
-and layouts, with only name and guid for each entry. Then pass the desired GUID as view.
-Names need not be unique. Named Views render the saved camera off screen using
-Shaded by default; they never replace the visible viewport. Layouts capture the
-paper area, including its details, not the surrounding workspace. A current Layout
-also captures its paper, even when a detail is active.
+Omit view to capture the current view. Pass view="a" to list viewports, named_views, and layouts, with only name and guid for each entry. Then pass the desired GUID as view.
+Names need not be unique. Named Views render the saved camera off screen using Shaded by default; they never replace the visible viewport. Layouts capture the paper area, including its details, not the surrounding workspace. A current Layout also captures its paper, even when a detail is active.
 
-scale_percent=100 means the original pixel dimensions; 75 (default) retains 75% of both
-dimensions and uses 56.25% of the pixels. Named Views use their saved
-pixel size (current viewport size if unavailable); Layout 100% means paper at 96 dpi.
-No temporary image file is created. Capture does not change camera, selection or
-Undo state, or prove geometric correctness. A failed or oversized image is an error;
-lower scale_percent explicitly instead of receiving a silently resized image.
+scale_percent=100 means the original pixel dimensions; 75 (default) retains 75% of both dimensions and uses 56.25% of the pixels. Named Views use their saved pixel size (current viewport size if unavailable); Layout 100% means paper at 96 dpi.
+No temporary image file is created. Capture does not change camera, selection or Undo state, or prove geometric correctness. A failed or oversized image is an error; lower scale_percent explicitly instead of receiving a silently resized image.
 
 Args:
     view: Empty for current view, "a" for the grouped list, or a listed GUID.
@@ -112,21 +94,25 @@ Returns:
 <!-- /instruction:get_rhino_viewport_image -->
 <!-- instruction:get_rhino_objects -->
 
-읽기 전용으로 일반 모델 객체의 범위·속성·그룹·형상을 조회한다. `scope`는 현재 문서 가시 객체 `visible`(기본값), `selected`, 명시 GUID `ids`, 숨긴 객체를 포함한 `document` 중 선택한다. `object_ids`는 `ids`에서만 1..4096개를 받는다. 그룹이나 블록 내부로 자동 확장하지 않는다. `include_ids=true`면 후속 작업에 쓸 GUID도 반환한다.
+읽기 전용으로 일반 모델 객체의 범위·속성·그룹·형상을 조회한다. `scope`는 현재 문서 가시 객체 `visible`(기본값), `selected`, 명시 GUID `ids`, 숨긴 객체를 포함한 `document` 중 선택한다. `object_ids`는 `ids`에서만 1..4096개를 받는다. 그룹이나 블록 내부로 자동 확장하지 않는다.
 
-`filters` 조건은 AND로 결합한다. `layer_paths`는 전체 레이어 경로 1..64개의 정확한 일치(대소문자 무시), `name_contains`는 이름 부분 문자열(대소문자 무시)이다. `user_dictionary`는 `{source: "attributes" 또는 "geometry", key: 키, any_of: [값들]}` 조건 배열이다. scalar 또는 배열의 원소와 정확히 비교하며 문자열을 임의로 분할하거나 층 정보를 추론하지 않는다. 메타데이터 필터를 건축 요소의 정체성과 동일시하지 않는다.
+`result_mode="summary"`는 필터된 집합에서 실제 객체가 있는 레이어·객체 유형·형상 종류별 개수와 가시 수만 반환한다. `objects`(기본값)는 개별 객체를 반환한다. 필요한 정보가 정해져 있으면 `fields`로 골라 받는다. `fields=["id"]`는 별도의 `include_ids` 설정 없이 GUID만 반환하며, `id`, `name`, `layer_path`, `object_type`, `geometry_kind`, `geometry_crc`, `visible`, `selected`, `hidden`, `locked`, `bounds`, `groups`, `user_dictionary`를 조합할 수 있다. 생략하면 기존 기본 정보를 반환하고 GUID는 `include_ids=true`일 때 포함한다. 요약·필드 선택·면 페이지와 유형 필터는 Bridge `object_observation>=2`가 필요하다.
 
-각 객체에 문서 가시성·선택 여부·bbox·원본 `geometry_crc`·두 UserDictionary·그룹을 반환한다. 그룹의 `members_outside_match_count`와 문서의 `visible_outside_match_count`는 조회 범위 밖의 관계를 드러낸다. `visible`은 Rhino의 문서/레이어 가시성으로, 화면의 픽셀·가림·clipping 결과를 보증하지 않는다.
+`filters` 조건은 AND로 결합한다. `layer_paths`는 전체 레이어 경로 1..64개의 정확한 일치, `object_types`는 조회된 `object_type` 이름 1..32개, `name_contains`는 이름 부분 문자열이며 대소문자를 구분하지 않는다. `user_dictionary`는 `{source: "attributes" 또는 "geometry", key: 키, any_of: [값들]}` 조건 배열이다. scalar 또는 배열의 원소와 정확히 비교하며 문자열을 임의로 분할하거나 층 정보를 추론하지 않는다. 메타데이터 필터를 건축 요소의 정체성과 동일시하지 않는다.
 
-`include_geometry=true`면 Brep의 유효성·solid·manifold·체적과 최대 128개 면의 index·평면·방향을 추가한다. 면 편집에는 같은 응답의 원본 CRC를 쓴다. `face_edit_supported`는 형상 종류와 기본 조건의 사전 판별이며 실제 편집 성공 보장은 아니다. `offset`/`limit`(1..200), `next_offset`, 각 `truncated` 표시를 확인한다. 응답은 256 KiB, 문서 스캔은 100000개로 제한하며 초과하면 범위를 줄여 조회한다.
+기본 객체 응답은 문서 가시성·선택 여부·bbox·원본 `geometry_crc`·두 UserDictionary·그룹을 포함한다. 그룹의 `members_outside_match_count`와 문서의 `visible_outside_match_count`는 조회 범위 밖의 관계를 드러낸다. `visible`은 Rhino의 문서/레이어 가시성으로, 화면의 픽셀·가림·clipping 결과를 보증하지 않는다.
+
+`include_geometry=true`면 Brep의 유효성·solid·manifold·체적과 면 정보를 추가한다. 기하 정보도 `fields`의 `geometry_valid`, `solid`, `manifold`, `volume`, `face_count`, `faces`로 선택할 수 있으며 명시한 fields가 우선한다. `faces`에는 원본 ID·CRC와 `face_page`를 함께 반환한다. `face_limit`은 1..128, `face_offset`은 면 시작 위치다. 다음 면 페이지는 `scope="ids"`, 대상 ID들과 이전 `geometry_crc`를 담은 `expected_geometry_crcs={GUID: CRC}`로 요청하며 형상이 바뀌면 거절한다. 면의 `face_edit_supported`는 사전 판별이며 실제 편집 성공 보장은 아니다.
+
+바깥 `offset`/`limit`(1..200), `next_offset`, `complete`는 객체 또는 요약행의 페이지이고, 각 객체의 `face_page`는 그 객체의 면 페이지다. 응답은 256 KiB, 문서 스캔은 100000개로 제한하며 초과하면 범위·필드·페이지 크기를 줄여 조회한다. 가시 범위와 그룹의 범위 밖 관계는 실제로 반환된 필드에 근거해 읽는다.
 
 <!-- /instruction:get_rhino_objects -->
 
 <!-- instruction:get_object_intersections -->
 
-일반 모델 객체의 명시 GUID 1..512개에 대해 닫힌 Brep/Extrusion의 체적 교차를 읽기 전용으로 검사한다. Component 등록은 필요 없다. `max_pairs`(1..64)는 bbox 후보 중 실제 기하 커널에 전달할 쌍 수다. `include_ids=true`면 원인 객체와 쌍의 GUID를 반환한다.
+명시 GUID 1..512개의 닫힌 Brep·Extrusion·방향이 정해진 manifold Mesh의 체적 교차를 읽기 전용으로 검사한다. Component 등록은 필요 없다. `max_pairs`(1..64)는 한 페이지의 후보쌍 계산 수다. `include_blocks=true`면 중첩 블록의 배치 변환을 적용한 구성원도 검사하며 정의는 수정하지 않는다. Disjoint Mesh는 문서에서 분해·재결합할 필요가 없다. Brep/Mesh 혼합 쌍은 임시 메싱에 의한 근사임을 결과에 표시한다.
 
-`complete`, `truncated`, `unsupported_objects`, `unknown_pair_count`를 함께 읽는다. `has_positive_overlap=false`는 전체 대상 검사가 끝나고 양의 체적 교차가 없을 때만 반환하며, 불완전한 무교차 결과는 null이다. 체적 교차가 없다는 결과는 접합·연속성·설계 적합성 판단을 대신하지 않는다. 블록은 펼치지 않고 그룹은 대상에 추가하지 않는다.
+`next_cursor`를 같은 대상과 함께 전달하면 나머지 후보를 이어 검사한다. 형상·범위가 바뀌면 cursor가 거절된다. 페이지 결과를 합쳐 읽고, `pagination_complete`는 후보 열거의 끝, `complete`는 이번 응답만으로 전체 범위가 확인됐는지를 뜻한다. 미지원·판정 불명·미검사는 무교차가 아니다. 각 쌍의 `a.handle`, `b.handle`, `pair_state`는 ID 표시 옵션과 무관하게 반환되며 `show_object_intersection`·`resolve_object_intersection`의 입력으로 쓴다. 그룹은 대상을 자동 추가하지 않는다.
 
 <!-- /instruction:get_object_intersections -->
 

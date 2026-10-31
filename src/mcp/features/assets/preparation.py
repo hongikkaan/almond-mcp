@@ -1,8 +1,8 @@
 """Reviewed, revision-bound asset preparation; publication stays in drawing_assets.
 
-Adapted from the user's almond-asset-converter installation (2026-10-19).
-The helpers execute through the bound runtime. Status and pagination only read
-durable reports and never repeat an import, command or native operation.
+The helpers preserve the source assembly, layers and origin. Status and pagination
+read durable reports without repeating native work. Edits are explicit choices;
+coplanar merging and block expansion are not registration prerequisites.
 """
 from __future__ import annotations
 
@@ -18,16 +18,15 @@ import shutil
 from uuid import uuid4
 
 
-SCHEMA = "almond-asset-preparation/v1"
+SCHEMA = "almond-asset-preparation/v2"
 GROUPS = {"summary", "parts", "previews", "provenance", "all"}
-STAGES = {"inspect", "normalize", "merge", "verify", "status"}
+STAGES = {"inspect", "normalize", "verify", "status"}
 UNITS = {"", "mm", "cm", "m", "in", "ft"}
-UNITLESS = {".obj", ".stl", ".ply", ".off"}
+UNITLESS = {".obj", ".stl", ".ply", ".off", ".glb", ".gltf"}
 MAX_BYTES = 100_000_000
 TEMPLATES = Path(__file__).with_name("preparation_templates")
-OUTPUTS = {"inspect": "inspected.3dm", "normalize": "normalized.3dm", "merge": "final.3dm", "verify": "final.3dm"}
-STATES = {"inspect": "inspected", "normalize": "normalized", "merge": "merged", "verify": "verified"}
-PREREQUISITES = {"normalize": "inspected", "merge": "normalized", "verify": "merged"}
+OUTPUTS = {"inspect": "inspected.3dm", "normalize": "normalized.3dm", "verify": "final.3dm"}
+STATES = {"inspect": "inspected", "normalize": "normalized", "verify": "verified"}
 
 
 def sha(path: Path) -> str:
@@ -114,7 +113,7 @@ def _report(job: Path, record: dict, stage: str) -> dict:
         raise ValueError("Missing completed " + stage + " stage")
     path = _inside(job, job / (stage + ".json"))
     _match(path, saved.get("report_sha256", ""), stage + " report")
-    script = _inside(job, job / (stage + (".py" if stage == "merge" else ".cs")))
+    script = _inside(job, job / (stage + ".cs"))
     _match(script, saved.get("script_sha256", ""), stage + " command")
     report = _read(path)
     _check_report(job, record, stage, saved["operation_id"], report)
@@ -136,12 +135,6 @@ def _check_report(job: Path, record: dict, stage: str, operation: str, report: d
     for preview in report.get("previews", []):
         path = _inside(job, job / preview["file"])
         _match(path, preview.get("sha256", ""), "Preview")
-    if stage == "merge" and (report.get("command") != "_MergeAllCoplanarFaces" or
-            report.get("command_applied") is not True or
-            report.get("original_geometry_and_attributes_preserved") is not True or
-            report.get("original_selection_preserved") is not True or report.get("cleanup_notes") or
-            report.get("temporary_objects_removed") is not True):
-        raise ValueError("Actual coplanar-merge command and document preservation were not verified")
 
 
 def _review_normalize(job: Path, record: dict, review: dict) -> None:
@@ -149,15 +142,11 @@ def _review_normalize(job: Path, record: dict, review: dict) -> None:
     digest = report["summary"]["sha256"]
     if review.get("vision_reviewed") is not True or review.get("inspected_sha256") != digest:
         raise ValueError("Record actual before-image review tied to inspected_sha256")
-    for key in ("name", "asset_id", "filename", "orientation_reason"):
-        if not isinstance(review.get(key), str) or not review[key].strip() or len(review[key]) > 2000:
-            raise ValueError("Review requires " + key)
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}", review["filename"]):
-        raise ValueError("Review filename must be a clean basename without an extension")
-    angles = review.get("rotation_degrees_xyz")
-    if (not isinstance(angles, list) or len(angles) != 3 or
-            any(type(x) not in {int, float} or not math.isfinite(x) for x in angles)):
-        raise ValueError("Supply explicit finite rotation_degrees_xyz")
+    for key in ("rotation_degrees_xyz", "translation"):
+        values = review.get(key, [0, 0, 0])
+        if (not isinstance(values, list) or len(values) != 3 or
+                any(type(x) not in {int, float} or not math.isfinite(x) for x in values)):
+            raise ValueError(key + " requires three finite numbers")
     ids = {part["object_id"] for part in report["summary"].get("parts", [])}
     removals = review.get("remove", [])
     if not isinstance(removals, list) or len(removals) > len(ids):
@@ -169,6 +158,8 @@ def _review_normalize(job: Path, record: dict, review: dict) -> None:
                 not removal["reason"].strip() or len(removal["reason"]) > 2000):
             raise ValueError("Each removal needs one existing inspected part ID and a reason")
         seen.add(removal["object_id"])
+    if not removals and not any(review.get("rotation_degrees_xyz", [])) and not any(review.get("translation", [])):
+        raise ValueError("No edits requested; verify the inspected 3DM directly")
     _write(job / "review.json", review)
     record["review_sha256"] = sha(job / "review.json")
     record["inspected_sha256"] = digest
@@ -179,6 +170,10 @@ def _review_after(job: Path, record: dict, review: dict, final: bool = False) ->
     digest = _report(job, record, stage)["summary"]["sha256"]
     if review.get("vision_reviewed") is not True or review.get(key) != digest:
         raise ValueError("Record actual image review tied to " + key)
+    if final:
+        for field in ("name", "asset_id"):
+            if not isinstance(review.get(field), str) or not review[field].strip() or len(review[field]) > 300:
+                raise ValueError("Final review requires " + field)
     path = job / ("final-review.json" if final else "after-review.json")
     _write(path, review)
     record["final_review_sha256" if final else "after_review_sha256"] = sha(path)
@@ -186,29 +181,23 @@ def _review_after(job: Path, record: dict, review: dict, final: bool = False) ->
 
 
 def _dispatch(job: Path, record: dict, stage: str, sender, execute) -> None:
-    if stage == "merge" and execute is None:
-        raise ValueError("Official RhinoCode execution is unavailable; enable StartScriptServer.")
-    template = "merge.py.txt" if stage == "merge" else "headless.cs.txt"
-    script = (TEMPLATES / template).read_text(encoding="utf-8")
-    replacement = json.dumps(str(job / "job.json")) if stage == "merge" else str(job / "job.json").replace('"', '""')
+    script = (TEMPLATES / "headless.cs.txt").read_text(encoding="utf-8")
+    replacement = str(job / "job.json").replace('"', '""')
     script = script.replace("__JOB_JSON__", replacement)
     operation = uuid4().hex
     record.update(stage=stage, state="running", operation_id=operation, error="")
     record.pop("requires_reconciliation", None)
     _write(job / "job.json", record)
-    script_path = job / (stage + (".py" if stage == "merge" else ".cs"))
+    script_path = job / (stage + ".cs")
     script_path.write_text(script, encoding="utf-8")
     record["script_sha256"] = sha(script_path)
     _write(job / "job.json", record)
     try:
-        if stage == "merge":
-            response = execute(script, "python", 120)
-        else:
-            response = sender(json.dumps({"type": "execute", "script": script}).encode("utf-8"), timeout=120.0)
+        response = sender(json.dumps({"type": "execute", "script": script}).encode("utf-8"), timeout=120.0)
         if isinstance(response, str):
             response = json.loads(response)
         record["execution"] = response
-        if not isinstance(response, dict) or response.get("status") != "success":
+        if not isinstance(response, dict) or response.get("status") != "success" or response.get("result_error"):
             uncertain = not isinstance(response, dict) or response.get("requires_reconciliation") or response.get("mutation_state") in {"running", "pending", "unknown", "unconfirmed"}
             record.update(state="unconfirmed" if uncertain else "failed",
                           error="Preparation execution did not complete successfully; inspect execution evidence before retrying.")
@@ -219,7 +208,7 @@ def _dispatch(job: Path, record: dict, stage: str, sender, execute) -> None:
             "operation_id": operation, "report_sha256": sha(job / (stage + ".json")),
             "output_sha256": report["summary"]["sha256"], "script_sha256": record["script_sha256"]}
         record.update(state=STATES[stage], error="")
-        if stage == "merge":
+        if stage == "verify":
             record["final_sha256"] = report["summary"]["sha256"]
     except Exception as exc:
         record.update(state="unconfirmed", error=str(exc), requires_reconciliation=True)
@@ -233,7 +222,7 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
             sender=None, execute=None, artifact_dir: str | Path | None = None,
             expected_model_path: str = "") -> dict:
     if stage not in STAGES or input_units not in UNITS:
-        raise ValueError("Use inspect/normalize/merge/verify/status and input_units mm/cm/m/in/ft")
+        raise ValueError("Use inspect/normalize/verify/status and input_units mm/cm/m/in/ft")
     if (field_groups is not None and (not isinstance(field_groups, list) or any(group not in GROUPS for group in field_groups)) or
             type(include_ids) is not bool or type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 200):
         raise ValueError("Invalid field_groups, include_ids, offset or limit")
@@ -250,17 +239,23 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
         if not source.is_absolute() or not source.is_file() or source.stat().st_size > MAX_BYTES:
             raise ValueError("Supply an existing source file up to 100 MB")
         if source.suffix.lower() in UNITLESS and not input_units:
-            raise ValueError("Unitless OBJ/STL/PLY/OFF sources require explicit input_units")
+            raise ValueError("Mesh interchange sources require explicit input_units")
         content = source.read_bytes()
         if len(content) > MAX_BYTES:
             raise ValueError("Source exceeds 100 MB")
+        expected_bounds = None
+        if source.suffix.lower() == ".glb":
+            from almond_mcp.features.assets import drafting
+            triangles = drafting.load_triangles(source, "mm", "y", data=content)
+            factor = {"mm": 1, "cm": 10, "m": 1000, "in": 25.4, "ft": 304.8}[input_units]
+            expected_bounds = [*(triangles.min(axis=(0, 1)) * factor).tolist(), *(triangles.max(axis=(0, 1)) * factor).tolist()]
         job = root / ("asset-preparation-" + uuid4().hex)
         job.mkdir()
         copied = job / ("source" + source.suffix.lower())
         copied.write_bytes(content)
         record = {"schema": SCHEMA, "job_dir": str(job), "source": str(copied),
                   "original_path": str(source.resolve()), "source_sha256": sha(copied),
-                  "input_units": input_units, "layer": "ASSETS::drawing::Fur",
+                  "input_units": input_units, "expected_bounds_mm": expected_bounds,
                   "created_at": datetime.now(timezone.utc).isoformat(), "state": "new", "stages": {}}
         _write(job / "job.json", record)
         with _lock(job):
@@ -280,17 +275,18 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
                 elif record["state"] in {STATES[stage], "ready"} and review is None:
                     pass  # Completed stages are inspected without repeating native work.
                 else:
-                    if record["state"] != PREREQUISITES[stage]:
-                        raise ValueError("Stage requires " + PREREQUISITES[stage] + "; current state is " + record["state"] + ". Do not replay unconfirmed work.")
+                    permitted = {"inspected"} if stage == "normalize" else {"inspected", "normalized"}
+                    if record["state"] not in permitted:
+                        raise ValueError("Stage requires a completed inspected/edited copy; current state is " + record["state"] + ". Do not replay unconfirmed work.")
                     if stage == "normalize":
                         _review_normalize(job, record, review or {})
-                    elif stage == "merge":
-                        _review_after(job, record, review or {})
-                        if not expected_model_path:
-                            raise ValueError("Actual command requires the bound saved model path")
-                        record["expected_model_path"] = expected_model_path
                     elif review is not None:
                         raise ValueError("First verify produces final images; review their exact final_sha256 in a second verify call")
+                    if stage == "verify":
+                        latest = "normalize" if record["state"] == "normalized" else "inspect"
+                        _report(job, record, latest)
+                        shutil.copyfile(job / OUTPUTS[latest], job / "final.3dm")
+                        record["final_sha256"] = sha(job / "final.3dm")
                     _dispatch(job, record, stage, sender, execute)
     return present(job, record, field_groups=field_groups, include_ids=include_ids, offset=offset, limit=limit)
 
@@ -303,12 +299,12 @@ def present(job: Path, record: dict, *, field_groups=None, include_ids=False, of
     result = {"status": "error" if state in {"running", "unconfirmed", "failed"} or record.get("error") else "success",
               "job_dir": str(job), "state": state, "ready_for_registration": state == "ready",
               "review_evidence": "caller attestations tied to file hashes; no automatic vision verification",
-              "next_stage": {"inspected": "normalize", "normalized": "merge", "merged": "verify",
+              "next_stage": {"inspected": "verify, or normalize for explicit edits", "normalized": "verify",
                              "verified": "verify with final image review", "ready": "register_drawing_asset"}.get(state)}
     if record.get("error"):
         result.update(message=record["error"], execution=record.get("execution"),
                       requires_reconciliation=state in {"running", "unconfirmed"})
-    completed = next((name for name in ("verify", "merge", "normalize", "inspect") if name in record.get("stages", {})), None)
+    completed = next((name for name in ("verify", "normalize", "inspect") if name in record.get("stages", {})), None)
     if completed:
         report = _report(job, record, completed)
         summary = report["summary"]
@@ -340,18 +336,19 @@ def copy_registration_evidence(job_dir: str, source: Path, destination: Path) ->
     if source.resolve() != (job / "final.3dm").resolve():
         raise ValueError("source_3dm differs from the reviewed preparation result")
     _match(_inside(job, Path(record["source"])), record["source_sha256"], "Preserved source")
-    reports = {stage: _report(job, record, stage) for stage in OUTPUTS}
-    for name, key in (("review.json", "review_sha256"), ("after-review.json", "after_review_sha256"), ("final-review.json", "final_review_sha256")):
+    reports = {stage: _report(job, record, stage) for stage in record["stages"]}
+    evidence_reviews = [("final-review.json", "final_review_sha256")]
+    if "normalize" in record["stages"]:
+        evidence_reviews.append(("review.json", "review_sha256"))
+    for name, key in evidence_reviews:
         _match(_inside(job, job / name), record.get(key, ""), name)
-    before, after, final = (_read(job / name) for name in ("review.json", "after-review.json", "final-review.json"))
-    if (before.get("vision_reviewed") is not True or before.get("inspected_sha256") != reports["inspect"]["summary"]["sha256"] or
-            after.get("vision_reviewed") is not True or after.get("normalized_sha256") != reports["normalize"]["summary"]["sha256"] or
-            final.get("vision_reviewed") is not True or final.get("final_sha256") != reports["verify"]["summary"]["sha256"]):
+    final = _read(job / "final-review.json")
+    if final.get("vision_reviewed") is not True or final.get("final_sha256") != reports["verify"]["summary"]["sha256"]:
         raise ValueError("Image review does not identify the actual stage files")
-    files = {"job.json", "review.json", "after-review.json", "final-review.json", Path(record["source"]).name}
+    files = {"job.json", "final-review.json", Path(record["source"]).name, *(name for name, _ in evidence_reviews)}
     for stage, report in reports.items():
         files.add(stage + ".json")
-        files.add(stage + (".py" if stage == "merge" else ".cs"))
+        files.add(stage + ".cs")
         files.update(item["file"] for item in report.get("previews", []))
     destination.mkdir()
     hashes = {}
@@ -365,7 +362,7 @@ def copy_registration_evidence(job_dir: str, source: Path, destination: Path) ->
             raise ValueError("Preparation evidence changed while copying")
     return {"schema": SCHEMA, "original_path": record["original_path"], "original_file": Path(record["source"]).name,
             "original_sha256": record["source_sha256"], "input_units": record["input_units"],
-            "review": "caller_attested_before_after_and_final", "command": "_MergeAllCoplanarFaces",
-            "command_applied": True, "reviewed_name": before["name"], "reviewed_asset_id": before["asset_id"],
+            "review": "caller_attested_final_images", "command": None,
+            "command_applied": False, "reviewed_name": final["name"], "reviewed_asset_id": final["asset_id"],
             "stages": record["stages"], "files": hashes,
             "limitations": "Shape previews and classic material metadata; full PBR/texture portability is not verified."}

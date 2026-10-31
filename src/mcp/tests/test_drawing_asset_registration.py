@@ -83,8 +83,9 @@ def test_explicit_revision_retains_previous_source_and_publishes_new_file(librar
         register(library)
     library[1].write_bytes(b"prepared-source-v2")
     second = register(library, replace_existing=True)
-    assert second["previous_files_retained"] and second["model_path"] != first["model_path"]
-    assert previous.read_bytes() == b"prepared-source-v1"
+    assert second["previous_files_retained"] and second["model_path"] == first["model_path"]
+    assert second["source_path_preserved"] and second["linked_instances_may_update"]
+    assert (library[0] / second["asset"]["previous_source"]["file"]).read_bytes() == b"prepared-source-v1"
     assert Path(second["model_path"]).read_bytes() == b"prepared-source-v2"
     assert second["asset"]["sha256"] != first["asset"]["sha256"]
     Path(second["model_path"]).write_bytes(b"tampered")
@@ -166,7 +167,7 @@ def test_public_registration_query_resource_and_placement_share_one_id(library, 
         request = json.loads(payload)
         calls.append(request)
         if request["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"drawing_asset_extract": 1}})
+            return json.dumps({"status": "success", "capabilities": {"drawing_asset_extract": 2, "drawing_asset_linked": 1}})
         if request["type"] == "drawing_asset_extract":
             return json.dumps(extract_box(request["source_path"], request["output_path"]))
         assert request["type"] == "place_drawing_asset"
@@ -192,7 +193,7 @@ def test_public_registration_query_resource_and_placement_share_one_id(library, 
             assert json.loads(server.place_drawing_asset("drawing-fixture", x=1, y=2, z=3))["status"] == "success"
             return registered
     registered = asyncio.run(run())
-    assert [c["type"] for c in calls] == ["get_rhino_context", "drawing_asset_extract", "place_drawing_asset"]
+    assert [c["type"] for c in calls] == ["get_rhino_context", "drawing_asset_extract", "get_rhino_context", "place_drawing_asset"]
     def unavailable(*args, **kwargs):
         raise RuntimeError("index unavailable")
     monkeypatch.setattr(server.drawing_asset_indexer, "_load", unavailable)

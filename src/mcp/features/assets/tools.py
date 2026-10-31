@@ -10,6 +10,7 @@ import math
 from pathlib import Path
 import socket
 import struct
+import tempfile
 import uuid
 
 from fastmcp.resources import ResourceContent, ResourceResult
@@ -17,7 +18,7 @@ from fastmcp.resources import ResourceContent, ResourceResult
 from almond_mcp.features.structure import asset_loads
 from almond_mcp import paths, managed_paths
 from almond_mcp.features.assets import asset_passport
-from almond_mcp.features.assets import drawing_assets, drafting, preparation
+from almond_mcp.features.assets import drawing_assets, drafting, preparation, model_index
 
 
 def register(mcp, context):
@@ -31,14 +32,14 @@ def register(mcp, context):
         limit: int = 20,
         offset: int = 0, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
-        page = context.drawing_asset_indexer.search_page(
+        page = model_index.for_context(context).search_page(
             category=category,
             limit=limit,
             offset=offset,
         )
         return json.dumps(project({
-            "library_id": "drawing_assets",
-            "purpose": "architectural representation and entourage",
+            "library_id": "model_assets",
+            "purpose": "3DM models and 2D representations; legacy sources require explicit conversion",
             **page,
         }, field_groups))
 
@@ -55,7 +56,7 @@ def register(mcp, context):
         limit: int = 10,
         offset: int = 0, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
-        return json.dumps(project(context.drawing_asset_indexer.search_page(
+        return json.dumps(project(model_index.for_context(context).search_page(
             query=query,
             category=category,
             max_width_mm=max_width_mm,
@@ -71,15 +72,16 @@ def register(mcp, context):
     @query_output
     def get_drawing_asset(asset_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
-        asset = context.drawing_asset_indexer.get(asset_id)
+        index = model_index.for_context(context)
+        asset = index.get(asset_id)
         if not asset:
             return json.dumps(project(error_payload(f"Unknown drawing asset_id: {asset_id}"), field_groups))
-        return json.dumps(project({"status": "success", "asset": context.drawing_asset_indexer.public_record(asset)}, field_groups))
+        return json.dumps(project({"status": "success", "asset": index.public_record(asset)}, field_groups))
 
 
     def _extract_drawing_asset(source_path: str, output_path: str) -> dict:
         rhino_context = json.loads(context._send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}'))
-        if rhino_context.get("status") != "success" or rhino_context.get("capabilities", {}).get("drawing_asset_extract") != 1:
+        if rhino_context.get("status") != "success" or rhino_context.get("capabilities", {}).get("drawing_asset_extract", 0) < 2:
             raise ValueError(read_instruction(__file__, 'response-400'))
         response = context._send_and_receive(json.dumps({"type": "drawing_asset_extract",
             "source_path": source_path, "output_path": output_path}).encode("utf-8"), timeout=90.0)
@@ -95,14 +97,12 @@ def register(mcp, context):
                               field_groups: list[str] | None = None,
                               include_ids: StrictBool = False, offset: StrictInt = 0,
                               limit: StrictInt = 50) -> dict:
-        return {"status": "error", "error_code": "acceptance_pending", "preparation_applied": False,
-                "message": "Asset preparation is disabled pending actual Rhino BDD verification of inspect, normalize, merge and linked 3D/2D registration. The implementation is retained as a development checkpoint."}
         try:
             return preparation.prepare(stage=stage, source_file=source_file, job_dir=job_dir,
                 input_units=input_units, review=review, field_groups=field_groups,
                 include_ids=include_ids, offset=offset, limit=limit,
                 sender=context._send_and_receive, execute=getattr(context, "_execute_rhinocode", None),
-                expected_model_path=managed_paths.bound_model_path() if stage == "merge" else "")
+                expected_model_path="")
         except Exception as exc:
             return error_payload(str(exc))
 
@@ -113,17 +113,21 @@ def register(mcp, context):
                                category: str = "other", tags: list[str] | None = None,
                                description: str = "", source_url: str = "",
                                replace_existing: bool = False, preparation_job: str = "") -> dict:
-        if preparation_job:
-            return {"status": "error", "error_code": "acceptance_pending", "registration_applied": False,
-                    "message": "Registration with preparation_job is disabled pending actual Rhino BDD verification. Existing prepared-3DM registration without preparation_job remains available."}
         try:
-            if asset_id in context.generated_asset_indexer.assets or asset_id in context.diagram_asset_indexer.assets:
+            if asset_id in context.diagram_asset_indexer.assets:
                 raise ValueError(read_instruction(__file__, 'response-409'))
+            legacy = context.generated_asset_indexer.get(asset_id)
+            previous = context.drawing_asset_indexer.get(asset_id)
+            if previous and model_index.is_model_source(previous) and Path(previous.get("file", "")).suffix.lower() != ".3dm":
+                legacy = previous
             result = drawing_assets.register_prepared_3dm(Path(context.DRAWING_LIBRARY_DIR),
                 source_3dm=source_3dm, asset_id=asset_id, name=name, category=category,
                 tags=tags, description=description, source_url=source_url,
                 replace_existing=replace_existing, preparation_job=preparation_job,
-                extract=_extract_drawing_asset)
+                extract=_extract_drawing_asset, legacy_source=legacy)
+        except drawing_assets.PublicationUnconfirmed as exc:
+            return {"status": "error", "registration_applied": None, "requires_reconciliation": True,
+                    "error_code": "asset_publication_unconfirmed", "message": str(exc)}
         except Exception as exc:
             return {"status": "error", "registration_applied": False, "message": str(exc)}
         try:
@@ -133,6 +137,22 @@ def register(mcp, context):
                     "live_index_refreshed": False,
                     "message": read_instruction(__file__, 'response-410').format(exc)}
         return {**result, "registration_applied": True, "live_index_refreshed": True}
+
+
+    @mcp.tool(annotations={"destructiveHint": False, "openWorldHint": False})
+    @tool_instruction(__file__, 'refresh_asset')
+    def refresh_asset(asset_id: str) -> dict:
+        try:
+            result = drawing_assets.refresh_registered_asset(Path(context.DRAWING_LIBRARY_DIR),
+                asset_id, extract=_extract_drawing_asset)
+        except Exception as exc:
+            return {"status": "error", "registration_applied": False, "message": str(exc)}
+        try:
+            context.drawing_asset_indexer._load()
+        except Exception as exc:
+            return {**result, "status": "error", "live_index_refreshed": False,
+                    "message": read_instruction(__file__, 'response-410').format(exc)}
+        return {**result, "live_index_refreshed": True}
 
 
     def list_assets(
@@ -297,18 +317,18 @@ def register(mcp, context):
                 raise ValueError(read_instruction(__file__, 'response-411'))
             source_record = None
             if asset_id:
-                asset = context.generated_asset_indexer.get(asset_id)
+                asset = model_index.for_context(context).get(asset_id)
                 if not asset:
-                    raise ValueError("Unknown generated asset ID")
-                model = (Path(context.GENERATED_LIBRARY_DIR)/asset["file"]).resolve()
-                model.relative_to(Path(context.GENERATED_LIBRARY_DIR).resolve())
+                    raise ValueError("Unknown model asset ID")
+                if asset.get("source_only"):
+                    raise ValueError("Prepare and register this legacy source as a 3DM before generating model views")
+                model = Path(asset["_resolved_file"])
+                if model.suffix.lower() != ".3dm":
+                    raise ValueError("Projection generation requires a 3DM model asset")
                 if drafting.sha(model.read_bytes()) != asset["sha256"]:
-                    raise ValueError("Source model checksum differs from catalogue")
-                record_result = get_asset_sources(asset_id)
-                if record_result["status"] != "success":
-                    raise ValueError(record_result["message"])
-                source_record = record_result["record"]
-                name, units, up = asset["product"], "mm", "y"
+                    raise ValueError("Source model changed; refresh_asset updates its registered measurements and drawings")
+                source_record = asset.get("source", {})
+                name, units, up = asset["product"], "mm", "z"
             else:
                 model = Path(source_glb)
                 if not model.is_absolute() or model.suffix.lower() != ".glb":
@@ -319,6 +339,14 @@ def register(mcp, context):
                 asset_id = "custom-" + drafting.sha(model.read_bytes())[:16].lower()
                 source_record = {"evidence_status": "user_supplied_mesh", "generation_history": "not_supplied"}
             output = paths.user_data_dir()/"drawing-runs"/str(uuid.uuid4())
+            if model.suffix.lower() == ".3dm":
+                output.parent.mkdir(parents=True, exist_ok=True)
+                with tempfile.TemporaryDirectory(prefix=".extract-", dir=output.parent) as temporary:
+                    triangles, _, _ = drawing_assets._native_triangles(model, Path(temporary) / "triangles.json", _extract_drawing_asset)
+                    return drafting.create_package(model, output, asset_id=asset_id, name=name,
+                        units="mm", up_axis="z", triangles_mm=triangles,
+                        scales=[50, 100] if scales is None else scales,
+                        references=source_references or [], source_record=source_record)
             return drafting.create_package(model, output, asset_id=asset_id, name=name,
                 units=units, up_axis=up, scales=[50, 100] if scales is None else scales,
                 references=source_references or [], source_record=source_record)
@@ -382,12 +410,12 @@ def register(mcp, context):
     @mcp.resource("almond://assets/catalogue", mime_type="application/json")
     @tool_instruction(__file__, 'asset_catalogue_resource')
     def asset_catalogue_resource() -> ResourceResult:
-        return ResourceResult([ResourceContent({"library_id": "generated_assets", "assets": [
+        return ResourceResult([ResourceContent({"library_id": "model_assets", "assets": [
             {"asset_id": a["asset_id"], "product": a["product"], "category": a["category"],
-             "dimensions_mm": a["dimensions_mm"],
-             "passport_uri": f"almond://assets/{a['asset_id']}/passport",
-             "preview_uri": f"almond://assets/{a['asset_id']}/preview"}
-            for a in context.generated_asset_indexer.assets.values()]}, mime_type="application/json")])
+             "dimensions_mm": a.get("dimensions_mm"), "file_available": a.get("file_available"),
+             "model_status": a["model_status"], "source_only": a.get("source_only", False),
+             "record_uri": f"almond://repository/{a['asset_id']}"}
+            for a in model_index.for_context(context).assets.values()]}, mime_type="application/json")])
 
 
     @mcp.resource("almond://assets/{asset_id}/passport", mime_type="application/json")
@@ -496,9 +524,13 @@ public class Script
         rotation_degrees: float = 0,
         scale: float = 1,
     ) -> str:
-        asset = context.drawing_asset_indexer.get(asset_id)
+        asset = model_index.for_context(context).get(asset_id)
         if not asset:
             return json.dumps(error_payload(f"Unknown drawing asset_id: {asset_id}"))
+        if asset.get("source_only"):
+            return json.dumps({"status": "error", "error_code": "asset_needs_conversion",
+                "mutation_state": "not_started", "next_tool": "prepare_drawing_asset",
+                "message": "Prepare and register this source as a 3DM before placement; preserve its asset_id."})
         if not asset.get("file_available"):
             return json.dumps(error_payload(f"Drawing asset file is missing for {asset_id}."))
         numeric_values = [x, y, z, rotation_degrees, scale]
@@ -511,6 +543,14 @@ public class Script
             return json.dumps(error_payload("Placement values must be finite numbers."))
         if scale <= 0 or scale > 100:
             return json.dumps(error_payload("scale must be greater than 0 and no more than 100."))
+        if Path(asset["_resolved_file"]).suffix.lower() == ".3dm":
+            try:
+                observed = json.loads(context._send_and_receive(b'{"type":"get_rhino_context","sections":[],"selection_limit":0}'))
+                if observed.get("status") != "success" or observed.get("capabilities", {}).get("drawing_asset_linked", 0) < 1:
+                    return json.dumps({"status": "error", "error_code": "linked_asset_unsupported", "mutation_state": "not_started",
+                        "message": "Load a Bridge with drawing_asset_linked=1 before placing a 3DM model asset."})
+            except Exception as exc:
+                return json.dumps({"status": "error", "error_code": "linked_asset_not_started", "mutation_state": "not_started", "message": str(exc)})
 
         payload = json.dumps({
             "type": "place_drawing_asset",
@@ -521,7 +561,7 @@ public class Script
             "rotation_degrees": rotation_degrees,
             "scale": scale,
             "metadata": {
-                "library_id": "drawing_assets",
+                "library_id": "model_assets",
                 "product": asset.get("product"),
                 "variant": asset.get("variant"),
                 "category": asset.get("category"),
@@ -617,9 +657,10 @@ public class Script
         record = repository.records.get(asset_id)
         if not record:
             raise ValueError("Unknown repository asset ID")
+        record = repository.verify_record(record)
         # HTTP URLs are relative to `almond-mcp library`; provide resolved locations
         # for MCP clients that do not have a browser server running.
-        urls = {record["model"], record["preview"], record["contract"], record.get("generation_image")}
+        urls = {record["model"], record["preview"], record["contract"], record.get("generation_image"), record.get("source_file")}
         if record["drawing"]:
             urls.add(record["drawing"]["record"])
             for view in record["drawing"]["views"]:
@@ -636,6 +677,7 @@ public class Script
         "_extract_drawing_asset": _extract_drawing_asset,
         "prepare_drawing_asset": prepare_drawing_asset,
         "register_drawing_asset": register_drawing_asset,
+        "refresh_asset": refresh_asset,
         "list_assets": list_assets,
         "search_assets": search_assets,
         "recommend_assets": recommend_assets,

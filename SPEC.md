@@ -28,17 +28,15 @@
 | Native Engine | `src/rhp/Engine`, 그 안의 `tests` | Rhino·플랫폼 API. 개별 호스트 프로젝트를 참조하지 않는다. |
 | Bridge | `src/rhp/RhinoAlmondBridge` 및 자체 `tests` | Engine, MCP 소유 C# 모델링·조회 코드와 재료 정책, 아래 패널·Terminal 소스. |
 | RhinoTerminal | `src/rhp/RhinoTerminal/src`, `tests` | Engine과 MCP 실행기. 기존처럼 Bridge RHP에 컴파일된다. |
-| 패널·구조해석 | `src/rhp/Asset_Panel`, `Structural_Analysis` | 기존 Bridge 계약. 패널 웹 원본은 Python wheel과 RHP archive가 함께 사용한다. |
+| 패널·구조해석 UI | `src/rhp/Asset_Panel`, `Structural_Analysis` | 기존 Bridge 계약과 MCP 소유 기능 코드. 패널 웹 원본은 Python wheel과 RHP archive가 함께 사용한다. |
 | 통합 | 루트 `tests`, `src/rhp/tools`의 설치·배포 검사 | 모듈 간 schema·패키징·native 실행 파일의 일치 여부를 검사한다. |
 
-MCP가 소유한 native 모델링 코드는 Bridge에 컴파일되고, 패널 웹 자원은 Python
-패키지에 포함된다. 이 공유 자원을 바꾸면 소비자 검사·빌드도 필요하다. 소유권을
-나눈다고 모든 기능을 독립 assembly나 독립 배포로 바꾸지는 않는다.
+MCP 도구의 native 구현은 `src/mcp/features/<기능>/native`에 두고 Bridge에 컴파일한다.
+연결·실행 호스트와 패널 UI는 RHP에 둔다. 패널 웹 자원은 Python 패키지에 포함된다. 이 공유 자원을 바꾸면 소비자 검사·빌드도 필요하다. 소유권을 나눈다고 모든 기능을 독립 assembly나 독립 배포로 바꾸지는 않는다.
 
 ## 공통 안내
 
 - [작업 원칙·설치·배포](AGENTS.md)
 - [기능별 사용 문서](README.md)
 
-모듈 내부만 변경되는 작업은 이 문서를 수정할 필요가 없다. 공통 의존 방향이나
-설치·저장소 계약이 실제로 바뀔 때만 함께 갱신한다.
+모듈 내부만 변경되는 작업은 이 문서를 수정할 필요가 없다. 공통 의존 방향이나 설치·저장소 계약이 실제로 바뀔 때만 함께 갱신한다.

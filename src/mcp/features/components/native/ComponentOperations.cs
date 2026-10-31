@@ -12,18 +12,12 @@ using Rhino.Geometry;
 namespace RhinoAlmondBridge
 {
     // The caller resolves Component descendants in the same native UI callback.
-    // These operations consume the resulting current top-level object identities.
+    // These operations consume current object identities; native helpers remain MCP-owned.
     public static class ComponentOperations
     {
         private const int MaxBytes = 262144;
         private const int MaxIntersectionObjects = 512;
         private const int MaxFocusObjects = 4096;
-
-        private sealed class Solid
-        {
-            internal Guid Id;
-            internal BoundingBox Bounds;
-        }
 
         public static JObject Handle(RhinoDoc doc, JObject request)
         {
@@ -55,7 +49,12 @@ namespace RhinoAlmondBridge
                     var budget = request["max_pairs"];
                     if (budget != null && budget.Type != JTokenType.Integer)
                         throw new ArgumentException("max_pairs must be an integer.");
-                    result = CheckIntersectVolumes(doc, objects.ToArray(), budget == null ? 64 : (int)budget);
+                    if (request["include_blocks"] != null && request["include_blocks"].Type != JTokenType.Boolean)
+                        throw new ArgumentException("include_blocks must be a boolean.");
+                    if (request["cursor"] != null && request["cursor"].Type != JTokenType.String)
+                        throw new ArgumentException("cursor must be a string.");
+                    result = CheckIntersectVolumes(doc, objects.ToArray(), budget == null ? 64 : (int)budget,
+                        (bool?)request["include_blocks"] ?? false, (string)request["cursor"] ?? "");
                 }
                 result["component_ids"] = new JArray(ids.Values<string>().Distinct(StringComparer.Ordinal));
                 return result;
@@ -63,85 +62,10 @@ namespace RhinoAlmondBridge
             catch (Exception error) { return Error("component_operation_error", error, false); }
         }
 
-        public static JObject CheckIntersectVolumes(RhinoDoc doc, Guid[] objectIds, int maxPairs = 64)
+        public static JObject CheckIntersectVolumes(RhinoDoc doc, Guid[] objectIds, int maxPairs = 64,
+            bool includeBlocks = false, string cursor = "")
         {
-            try
-            {
-                var objects = Objects(doc, objectIds, MaxIntersectionObjects);
-                if (maxPairs < 1 || maxPairs > 64) throw new ArgumentException("max_pairs must be between 1 and 64.");
-                double tolerance = doc.ModelAbsoluteTolerance;
-                if (!Double.IsFinite(tolerance) || tolerance <= 0)
-                    throw new ArgumentException("The document must have a finite positive absolute tolerance.");
-                var unsupported = new JArray();
-                var solids = new List<Solid>();
-                foreach (var obj in objects)
-                {
-                    string reason = Unsupported(obj);
-                    if (reason != null)
-                    {
-                        unsupported.Add(new JObject { ["rhino_guid"] = obj.Id.ToString("D"), ["reason"] = reason });
-                        continue;
-                    }
-                    var bounds = obj.Geometry.GetBoundingBox(true);
-                    if (!bounds.IsValid) throw new ArgumentException("An object has invalid world bounds: " + obj.Id);
-                    solids.Add(new Solid { Id = obj.Id, Bounds = bounds });
-                }
-
-                // Bounded sweep-and-prune. Count every candidate, but send at most
-                // the requested kernel budget to the existing pair observer.
-                var ordered = solids.OrderBy(s => s.Bounds.Min.X).ThenBy(s => s.Id).ToArray();
-                var pairs = new JArray();
-                int candidates = 0;
-                for (int i = 0; i < ordered.Length; i++)
-                {
-                    var a = ordered[i];
-                    for (int j = i + 1; j < ordered.Length; j++)
-                    {
-                        var b = ordered[j];
-                        if (b.Bounds.Min.X - a.Bounds.Max.X > tolerance) break;
-                        if (b.Bounds.Min.Y - a.Bounds.Max.Y > tolerance || a.Bounds.Min.Y - b.Bounds.Max.Y > tolerance ||
-                            b.Bounds.Min.Z - a.Bounds.Max.Z > tolerance || a.Bounds.Min.Z - b.Bounds.Max.Z > tolerance) continue;
-                        candidates++;
-                        if (pairs.Count < maxPairs) pairs.Add(new JArray(a.Id.ToString("D"), b.Id.ToString("D")));
-                    }
-                }
-
-                var audit = pairs.Count == 0 ? null : SolidIntersections.AuditPairs(doc, new JObject
-                {
-                    ["pairs"] = pairs, ["max_pairs"] = maxPairs, ["max_bytes"] = 196608,
-                    ["tolerance"] = tolerance
-                });
-                var observed = audit?["pairs"] as JArray ?? new JArray();
-                int positives = observed.Count(p => (string)p["overlap"]?["status"] == "positive_volume");
-                int unknown = observed.Count(p => (string)p["overlap"]?["status"] != "positive_volume" &&
-                    (string)p["overlap"]?["status"] != "zero_volume");
-                bool auditTruncated = audit != null && (bool?)audit["truncated"] == true;
-                bool truncated = candidates > observed.Count || auditTruncated;
-                bool complete = !truncated && unsupported.Count == 0 && unknown == 0;
-                string truncationReason = auditTruncated ? (string)audit["truncation_reason"] :
-                    candidates > observed.Count ? "max_pairs" : null;
-                return Bounded(new JObject
-                {
-                    ["status"] = "success", ["schema"] = "almond-component-intersections/v1",
-                    ["model_path"] = doc.Path, ["document_units"] = doc.ModelUnitSystem.ToString(),
-                    ["tolerance_model_units"] = tolerance,
-                    ["object_ids"] = new JArray(objects.Select(o => o.Id.ToString("D"))),
-                    ["object_count"] = objects.Length, ["supported_object_count"] = solids.Count,
-                    ["unsupported_objects"] = unsupported,
-                    ["candidate_pair_count"] = candidates,
-                    ["bbox_pruned_pair_count"] = solids.Count * (solids.Count - 1) / 2 - candidates,
-                    ["evaluated_pairs"] = observed.Count, ["max_pairs"] = maxPairs, ["pairs"] = observed,
-                    ["positive_pair_count"] = positives, ["unknown_pair_count"] = unknown,
-                    ["truncated"] = truncated, ["truncation_reason"] = truncationReason,
-                    ["complete"] = complete,
-                    ["has_positive_overlap"] = positives > 0 ? new JValue(true) : complete ? new JValue(false) : JValue.CreateNull(),
-                    ["limitations"] = new JArray(
-                        "All distinct pairs within the resolved object set are considered, including pairs inside one Component.",
-                        "Only valid closed document-level Breps and Extrusions are supported; blocks are not exploded or changed.",
-                        "Unsupported objects, truncated work and unknown kernel results prevent a complete no-overlap conclusion.",
-                        "Pair volumes are not summed because their overlapping regions may overlap each other.")
-                });
-            }
+            try { return IntersectionAnalysis.Query(doc, objectIds, maxPairs, includeBlocks, cursor); }
             catch (Exception error) { return Error("component_intersection_error", error, false); }
         }
 
@@ -206,22 +130,6 @@ namespace RhinoAlmondBridge
             if (objects.Any(o => o == null || o.IsDeleted || o.IsInstanceDefinitionGeometry || o.Attributes.Space != ActiveSpace.ModelSpace))
                 throw new ArgumentException("Every resolved GUID must identify a current top-level model-space object.");
             return objects;
-        }
-
-        private static string Unsupported(RhinoObject obj)
-        {
-            var geometry = obj.Geometry;
-            if (obj is InstanceObject) return "block_requires_world_space_geometry";
-            if (!(geometry is Brep) && !(geometry is Extrusion)) return "only_brep_or_extrusion_supported";
-            if (!geometry.IsValid) return "invalid_geometry";
-            if (geometry is Brep brep)
-            {
-                if (!brep.IsSolid) return "valid_closed_solid_required";
-                if (brep.SolidOrientation != BrepSolidOrientation.Outward && brep.SolidOrientation != BrepSolidOrientation.Inward)
-                    return "unresolved_solid_orientation";
-            }
-            else if (!((Extrusion)geometry).IsSolid) return "valid_closed_solid_required";
-            return null;
         }
 
         private static JObject Bounded(JObject value)

@@ -3,9 +3,9 @@
 ## list_drawing_assets
 
 <!-- instruction:list_drawing_assets -->
-Lists representation-only entourage and graphic proxy assets.
+Lists the common 3DM model and 2D collection, including legacy sources awaiting conversion.
 
-Drawing assets are representation elements and do not participate in room collision checks unless explicitly registered.
+The historical drawing tool names cover imported and generated models. Diagram assets remain separate. source_only/needs_conversion entries require prepare_drawing_asset and 3DM registration before placement; retain their asset_id.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; default is summary.
 include_ids independently enables handles; audit enables timestamps.
@@ -14,7 +14,7 @@ include_ids independently enables handles; audit enables timestamps.
 ## search_drawing_assets
 
 <!-- instruction:search_drawing_assets -->
-Searches only the controlled architectural drawing-asset library.
+Searches the common model/2D collection by text, category and measured dimensions.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; default is summary.
 include_ids independently enables handles; audit enables timestamps.
@@ -23,7 +23,7 @@ include_ids independently enables handles; audit enables timestamps.
 ## get_drawing_asset
 
 <!-- instruction:get_drawing_asset -->
-Returns one drawing asset's provenance, scale guidance, and availability.
+Returns one model/2D asset's provenance, representations, availability and conversion or refresh status.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; default is summary.
 include_ids independently enables handles; audit enables timestamps.
@@ -32,28 +32,23 @@ include_ids independently enables handles; audit enables timestamps.
 ## prepare_drawing_asset
 
 <!-- instruction:prepare_drawing_asset -->
-Currently disabled: every call returns acceptance_pending before any file or Rhino operation. Actual Rhino BDD verification of the complete asset preparation and linked 3D/2D result is required before enabling this checkpoint. The following describes the planned stage contract, not an accepted workflow.
+Prepare a source copy as a 3DM while preserving its assembly, layers, materials and origin.
 
-Prepare one imported or Rhino-created asset through inspect, normalize, merge, verify, then registration. Files and durable reports stay in the current working Plan's artifact directory; source files are copied and hashed. Managed inputs use project-relative paths.
-
-inspect requires source_file; unitless OBJ/STL/PLY/OFF also require input_units (mm/cm/m/in/ft). It expands nested blocks in a headless document, preserves part provenance, and returns measured geometry plus before images. Limit: 100 MB input, 10,000 expanded objects and 32 block levels.
-Read the images before normalize. review requires vision_reviewed=true, inspected_sha256 from review_targets, name, asset_id, filename (clean basename without extension), orientation_reason, explicit rotation_degrees_xyz, and optional remove=[{object_id,reason}]. Normalization applies only those decisions, uses millimeters/Z up/bottom-center origin, assigns ASSETS::drawing::Fur and names, and reopens the result for after images.
-Read the after images before merge. review requires vision_reviewed=true and exact normalized_sha256. Merge invokes the actual _MergeAllCoplanarFaces command through the bound Rhino's ScriptRunner, exports only the imported geometry, removes temporary objects/layers/materials and checks original geometry/attributes/selection. This stage requires StartScriptServer and a saved millimeter model; it can mark the live document modified and is covered by runtime Undo. It never saves the user's model.
-verify reopens the final 3DM and returns final images. A second verify with review={vision_reviewed:true,final_sha256:...} records actual final-image review and permits register_drawing_asset(source_3dm=...,preparation_job=job_dir,...).
-status with job_dir reads reports without repeating native work. field_groups adds parts, previews, provenance or all; default returns summary/review hashes/previews. Parts use offset/limit (1-200), and include_ids=true exposes removal handles. Use status for pagination. Failed or unconfirmed stages are not automatically replayed; inspect their execution receipt and reconcile runtime state first.
-Image review is a caller attestation tied to each revision, never automatic recognition. Grayscale previews prove shape only and sample dense meshes; material/PBR/texture portability and actual front require separate visual judgment.
+inspect requires source_file and returns measured top-level parts and images in the working Plan's artifact directory. Mesh interchange files (OBJ/STL/PLY/OFF/GLB/glTF) require input_units. 3DM units are preserved. Limits: 100 MB input, 10,000 top-level objects, 32 preview block levels. Managed paths are project-relative.
+normalize is optional: after viewing the images, supply review={vision_reviewed:true,inspected_sha256:...,rotation_degrees_xyz:[...],translation:[...],remove:[{object_id,reason}]}. Omitted transforms are identity; translation uses source document units. Only named top-level objects are removed. Block definitions, layers and object names remain intact.
+verify reopens the current prepared 3DM and returns final images. A second verify with review={vision_reviewed:true,final_sha256:...,name:...,asset_id:...} records review of that revision; register_drawing_asset then publishes source_3dm with preparation_job=job_dir. An independently prepared 3DM can be registered directly.
+status rereads reports without executing Rhino. field_groups adds parts, previews, provenance or all; offset/limit pages parts, include_ids=true exposes edit handles. Unconfirmed operations require reconciliation rather than replay. Previews describe shape and sample dense meshes; they do not verify textures, PBR channels or the object's intended front.
 <!-- /instruction:prepare_drawing_asset -->
 
 ## register_drawing_asset
 
 <!-- instruction:register_drawing_asset -->
-Register a reviewed 3DM and automatically derive linked plan/front/right drawings.
+Register a 3DM model and derive plan/front/right drawings in one versioned publication.
 
-preparation_job is currently disabled and returns acceptance_pending before any file or Rhino operation. Its implementation is retained pending actual Rhino BDD verification. Continue with an independently reviewed prepared 3DM and omit preparation_job; this existing registration path records visual review as unverified. The planned preparation integration will validate final/review/command hashes and archive the original source, reviews, stage scripts, reports and previews in the same atomic version, with name and asset_id matching the review.
-Supply an absolute prepared 3DM path: millimeters, Z up, bottom-center at origin.
-Native geometry checks support meshes, Breps, extrusions, surfaces, SubD and nested blocks, up to 100 MB/250k triangles. Unsupported objects reject the whole asset.
-Copies the source, measures dimensions and writes DXF at full-size mm, SVG at 1:50/1:100 and A3 sheets where they fit. These are mesh silhouettes, not hidden lines or construction details; visual classification/front are not verified.
-Existing IDs require replace_existing=true. Prior files and manifest backups are retained. Refreshes this MCP process's index after atomic publication; other running processes must reconnect. The bundled Rhino panel is a release snapshot; use MCP placement for newly registered local assets.
+Supply an absolute 3DM path with standard Rhino units. Units, origin, block structure and layers are preserved; dimensions are measured in mm without AABB input. preparation_job optionally attaches hash-bound image review and the original source. Without it, registration does not attest visual review.
+Native extraction supports meshes, Breps, extrusions, surfaces, SubD and embedded nested blocks up to 100 MB/250k triangles. External block dependencies require separate verification and are not silently embedded or published.
+Copies the source and writes full-size mm DXF, SVG at 1:50/1:100 and A3 sheets where they fit. These are mesh silhouettes, not hidden lines or construction details. Retain existing model IDs when converting sources such as SKP or GLB to 3DM; Diagram IDs remain separate.
+Existing registered IDs require replace_existing=true. A replacement retains the canonical source path and can affect linked instances sharing it; prior source bytes, drawings and manifest backups are retained. Source edits to an existing linked asset use refresh_asset. Publication refreshes this MCP's index; other clients reload on reconnect.
 <!-- /instruction:register_drawing_asset -->
 
 ## get_asset_drawing
@@ -69,8 +64,8 @@ include_ids independently enables handles; audit enables timestamps.
 
 <!-- instruction:generate_asset_drawing_views -->
 Generate plan/front/right mesh silhouettes with source metadata, full-size DXF, scaled SVG and A3 SVG sheets where they fit. Writes a NEW local drawing-runs folder.
-Choose a library asset_id OR an absolute custom source_glb path. Custom files REQUIRE input_units mm or m; up_axis y or z. Scales default to [50,100].
-Supports static, uncompressed triangle GLBs only (max 100 MB/250k triangles).
+Choose a registered 3DM asset_id OR an absolute custom source_glb path. Custom interchange files REQUIRE input_units mm or m; up_axis y or z. Scales default to [50,100].
+Registered 3DMs use native geometry extraction; custom GLBs require static, uncompressed triangles (max 100 MB/250k triangles). Legacy generated IDs require 3DM conversion first. Use refresh_asset when an edited registered source needs its stored drawings and measurements updated.
 No hidden lines, inferred construction or product-front recognition.
 Optional item-level source_references require source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url. They describe references attached to this drawing, never retroactive generation inputs.
 <!-- /instruction:generate_asset_drawing_views -->
@@ -96,11 +91,9 @@ Existing Blender preview for a known catalogue id.
 ## place_drawing_asset
 
 <!-- instruction:place_drawing_asset -->
-Places an indexed representation asset as a reusable Rhino block.
+Places a common model/2D asset; 3DM models use a linked block with active document layers.
 
-x/y/z and returned bounds use the active document's units; scale is dimensionless.
-Prepared 3DM geometry is converted from its stored millimeters by Rhino on import.
-Drawing assets are placed on ALMOND-DRAW::ASSETS and remain distinct from generated model blocks. The tool accepts only files resolved from the controlled asset/drawing/DrawingAssetfiles manifest.
+x/y/z and returned bounds use active document units; scale is dimensionless. Rhino converts source 3DM units to document units. The source origin is the placement anchor. Edit the library 3DM, then refresh_asset after saving; a changed source with stale metadata returns needs_refresh. Ordinary document blocks are not converted to assets. Legacy non-3DM sources require preparation and registration before placement. Files resolve from the controlled model library.
 <!-- /instruction:place_drawing_asset -->
 
 ## search_asset_repository
@@ -109,7 +102,7 @@ Drawing assets are placed on ALMOND-DRAW::ASSETS and remain distinct from genera
 Search the unified model/drawing archive. kind: all, model or element.
 
 Returns stable IDs, file availability, dimensions and MCP resource URIs.
-Drawing-ready means a derived projection package is linked to the object.
+Drawing-ready means the package files verify against the current 3DM. drawing_status distinguishes missing, stale, invalid and source_requires_conversion. Non-3DM models such as SKP and GLB remain source-only until explicitly converted to 3DM; existing 2D files remain usable.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds dimensions, source, paths, drawing, metadata, audit, or all; default is summary.
 include_ids independently enables handles; audit enables timestamps.
@@ -130,7 +123,7 @@ Placed geometry deviates from catalogue dimensions beyond tolerance; inspect the
 ## response-400
 
 <!-- instruction:response-400 -->
-Load a Bridge with drawing_asset_extract=1 before registering a 3DM asset
+Load a Bridge with drawing_asset_extract=2 before registering or refreshing a 3DM asset
 <!-- /instruction:response-400 -->
 
 ## response-403
@@ -154,7 +147,7 @@ No bundled drawing for this asset; generate views on demand
 ## response-409
 
 <!-- instruction:response-409 -->
-Choose an asset_id that does not belong to another library
+This asset ID belongs to the separate Diagram collection
 <!-- /instruction:response-409 -->
 
 ## response-410
@@ -192,3 +185,11 @@ Rhino drawing-asset import timed out; inspect the model before retrying.
 <!-- instruction:response-424 -->
 Rhino bridge is unavailable. Start RhinoAlmondBridge first.
 <!-- /instruction:response-424 -->
+
+## refresh_asset
+
+<!-- instruction:refresh_asset -->
+Remeasure an edited registered 3DM and regenerate its 2D representations while retaining the linked source path.
+
+Supply asset_id after saving edits to its library 3DM. Publishes dimensions, source hash and a drawing package together; preserves prior packages, manifest backups and a source revision copy. Source units, origin, layers and blocks remain unchanged. The tool does not save or reload Rhino instances; their linked source can then be updated in Rhino. If publication succeeded but index refresh failed, the revision is already applied.
+<!-- /instruction:refresh_asset -->

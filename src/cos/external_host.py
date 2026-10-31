@@ -782,6 +782,8 @@ def main(data: Path = ROOT / "data", *, client: str = "cos"):
 
 def run(client: str):
     try:
+        from almond_mcp.runtime.desktop_runtime import ensure_desktop_runtime
+        ensure_desktop_runtime()
         main(client=client)
     except KeyboardInterrupt:
         pass

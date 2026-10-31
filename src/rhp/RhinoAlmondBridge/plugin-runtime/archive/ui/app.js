@@ -1,4 +1,5 @@
 import './preview-display.js';
+import {modelPlacementAction, placementNotice} from './placement-state.mjs';
 const $ = (id) => document.getElementById(id);
 // The Rhino panel uses the same catalogue and viewer in a compact workspace.
 const panelMode = new URLSearchParams(location.search).get('panel') === '1';
@@ -13,17 +14,17 @@ if (panelMode) {
 const bridge = new URLSearchParams(location.search).get('bridge') || '';
 const nativePlacement = panelMode && /^[a-f0-9]{32}$/.test(bridge);
 if (nativePlacement) document.documentElement.classList.add('rhino-placement');
-const canPlace = a => nativePlacement && a.kind === 'model' && a.format === 'glb' && a.available;
+const canPlace = a => nativePlacement && Boolean(modelPlacementAction(a));
 function placementButton(a) {
-  return canPlace(a) ? '<button class="place-model" data-place="' + esc(a.id) + '" aria-label="Place ' + esc(a.name) + ' in Rhino">Place ↗</button>' : '';
+  return canPlace(a) ? '<button class="place-model" data-place="' + esc(a.id) + '" aria-label="' + esc(modelPlacementAction(a) + ' ' + a.name + ' in Rhino') + '">' + esc(modelPlacementAction(a)) + '</button>' :
+    placementNotice(a) ? '<span class="placement-notice">' + esc(placementNotice(a)) + '</span>' : '';
 }
 function placeModel(id, drag = false) {
   const a = data?.assets.find(a => a.id === id);
   if (!a || !canPlace(a)) return;
   if ($('object-dialog').open) $('object-dialog').close();
-  const quality = $('placement-detail').value === 'original' ? 'original' : 'light';
   // Only the dock panel intercepts this navigation; no HTTP write API.
-  location.href = '/almond-action/' + bridge + '/' + (drag ? 'drag' : 'place') + '/' + quality + '/' + encodeURIComponent(id);
+  location.href = '/almond-action/' + bridge + '/' + (drag ? 'drag' : 'place') + '/original/' + encodeURIComponent(id);
 }
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -63,7 +64,7 @@ function render() {
   $('grid').innerHTML = assets.map(a => `<article class="card">
     <button class="card-save" data-save="${esc(a.id)}" aria-label="${saved.has(a.id) ? 'Unsave' : 'Save'} ${esc(a.name)}" aria-pressed="${saved.has(a.id)}">${saved.has(a.id) ? '−' : '+'}</button>
     <button class="card-open" data-open="${esc(a.id)}" aria-label="Explore ${esc(a.name)}">
-      <div class="card-stage" ${a.kind === 'model' ? `data-asset-id="${esc(a.id)}"` : ''} ${canPlace(a) ? `data-drag="${esc(a.id)}" title="Drag into a Rhino viewport; Esc cancels"` : ''}><span class="card-index">${String(data.assets.indexOf(a)+1).padStart(3,'0')}</span>${a.preview ? `<img src="${esc(a.preview)}" alt="${esc(a.name)}" loading="lazy" draggable="false">` : `<div class="placeholder">${esc(a.format.toUpperCase())}<small>${a.available ? 'LOCAL FILE' : 'FILE NOT INSTALLED'}</small></div>`}<span class="card-format">${esc(a.format.toUpperCase())}</span>${a.drawing ? '<span class="card-status">DRAWING-READY</span>' : ''}</div>
+      <div class="card-stage" ${a.kind === 'model' ? `data-asset-id="${esc(a.id)}"` : ''} ${canPlace(a) ? `data-drag="${esc(a.id)}" title="Drag into a Rhino viewport; Esc cancels"` : ''}><span class="card-index">${String(data.assets.indexOf(a)+1).padStart(3,'0')}</span>${a.preview ? `<img src="${esc(a.preview)}" alt="${esc(a.name)}" loading="lazy" draggable="false">` : `<div class="placeholder">${esc(a.format.toUpperCase())}<small>${a.available ? 'LOCAL FILE' : 'FILE NOT INSTALLED'}</small></div>`}<span class="card-format">${esc(a.format.toUpperCase())}</span>${a.drawing ? '<span class="card-status">' + (a.drawing_ready ? 'DRAWING-READY' : 'DRAWING PACKAGE') + '</span>' : ''}</div>
       <div class="card-name"><span>${esc(a.name)}</span><span aria-hidden="true">↗</span></div><div class="card-sub"><span>${esc(human(a.category))}</span><span>${a.kind === 'model' ? '3D MODEL' : 'DRAWING ELEMENT'}</span></div>
     </button>${placementButton(a)}</article>`).join('');
   $('grid').querySelectorAll('img').forEach(img => img.addEventListener('error', () => {
@@ -77,7 +78,7 @@ function meshEvidence(a) {
   if (!captured) return '';
   const d = captured.derivation, q = d.quality;
   const count = n => Number(n).toLocaleString('en');
-  return `<details open><summary>Mesh detail</summary><dl><dt>Library triangles</dt><dd>${count(q.triangles)}</dd><dt>Source triangles</dt><dd>${count(d.source_triangles)}</dd><dt>Connected parts</dt><dd>${count(q.connected_components)}</dd><dt>Open boundary edges</dt><dd>${count(q.boundary_edges)}</dd><dt>Other non-manifold edges</dt><dd>${count(q.nonmanifold_edges_excluding_boundary)}</dd></dl><p>Choose Original for the full library mesh. Light creates a smaller placement copy.</p><p>Geometry edition with Almond material colours. Fine woven, bark or leaf textures are not included. Self-intersections have not been tested.</p><p>${esc(captured.reference_review)}</p>${link(a.generation_image,'Generated reference image')}</details>`;
+  return `<details open><summary>Mesh detail</summary><dl><dt>Library triangles</dt><dd>${count(q.triangles)}</dd><dt>Source triangles</dt><dd>${count(d.source_triangles)}</dd><dt>Connected parts</dt><dd>${count(q.connected_components)}</dd><dt>Open boundary edges</dt><dd>${count(q.boundary_edges)}</dd><dt>Other non-manifold edges</dt><dd>${count(q.nonmanifold_edges_excluding_boundary)}</dd></dl><p>This original source mesh is available for conversion to a registered 3DM asset.</p><p>Geometry edition with Almond material colours. Fine woven, bark or leaf textures are not included. Self-intersections have not been tested.</p><p>${esc(captured.reference_review)}</p>${link(a.generation_image,'Generated reference image')}</details>`;
 }
 function evidence(a) {
   const p = a.provenance;
@@ -86,16 +87,16 @@ function evidence(a) {
   const dl = (label, value) => value ? `<dt>${esc(label)}</dt><dd>${esc(value)}</dd>` : '';
   return `<details open><summary>Source & attribution</summary><p>${esc(a.publisher)}<br>${esc(a.license)}</p>${origin ? `<p><a href="${esc(origin)}" target="_blank" rel="noopener noreferrer">${a.kind === 'model' ? 'Generation provider' : 'Original source'} ↗</a></p>` : '<p>No external source link recorded.</p>'}${p ? `<dl>${dl('Generated', g.generated_at)}${dl('Mesh model',g.mesh_model)}${dl('Mesh task ID', g.mesh_task_id)}${dl('Image provider',p.image_generation?.provider)}${dl('Image task / job ID',p.image_generation?.id)}</dl><p>${esc(p.rights_evidence)}</p>` : '<p>Representation-only element. Check the original source terms for project use. Downloaded community files are local to this installation and are excluded from the distributable plugin.</p>'}</details>
     ${p ? `<details><summary>Generation prompt & evidence gaps</summary><p>${esc(g.prompt || 'Prompt not recorded.')}</p><ul>${p.evidence_gaps.map(gap => `<li>${esc(gap)}</li>`).join('')}</ul><p>Reference directories are research leads; they are not evidence of inputs used for this model.</p></details>` : ''}
-    ${a.drawing ? `<details><summary>Drawing method & limitations</summary><p>Plan, front and right silhouettes at 1:50 and 1:100. SVGs and A3 sheets carry paper scale; DXF geometry uses real-world millimetres. On-screen previews are fitted to the viewer.</p><ul>${a.drawing.source.limitations.map(s => `<li>${esc(s)}</li>`).join('')}</ul><p>Geometry fingerprint: ${esc(a.drawing.source.geometry_sha256)}</p>${link(a.drawing.record,'Drawing record')}</details>` : '<details><summary>Drawing availability</summary><p>No derived drawing package is attached to this object. For a supported GLB, the Almond MCP drawing tool can generate a new projection package.</p></details>'}
+    ${a.drawing ? `<details><summary>Drawing method & limitations</summary><p>Plan, front and right silhouettes at 1:50 and 1:100. SVGs and A3 sheets carry paper scale; DXF geometry uses real-world millimetres. On-screen previews are fitted to the viewer.</p><ul>${a.drawing.source.limitations.map(s => `<li>${esc(s)}</li>`).join('')}</ul><p>Geometry fingerprint: ${esc(a.drawing.source.geometry_sha256)}</p>${link(a.drawing.record,'Drawing record')}</details>` : '<details><summary>Drawing availability</summary><p>No derived drawing package is attached to this object. Register or refresh the source 3DM to generate its projection package.</p></details>'}
     <details><summary>Object record</summary><dl>${dl('Object ID',a.id)}${dl('MCP resource',a.uri)}${dl('Drawing roles',a.roles.map(human).join(', '))}${dl('Model SHA-256',a.metadata.sha256)}</dl><p>The record connects this object’s files, dimensions and source history.</p>${link(a.record_url,'Complete record JSON')}${link(a.contract,'Spatial contract')}</details>`;
 }
 function openObject(id) {
   const a = data.assets.find(a => a.id === id);
   if (!a) return;
   selected = a;
-  currentView = a.format === 'glb' && a.available ? '3d' : 'preview';
+  currentView = a.format === 'glb' && (a.model || a.source_file) ? '3d' : 'preview';
   $('object-number').textContent = `OBJECT / ${String(data.assets.indexOf(a)+1).padStart(3,'0')}`;
-  $('object-kind').textContent = `${a.format === '3dm' ? 'DRAWING ASSET / 3D' : a.kind === 'model' ? 'GLB MODEL' : 'DRAWING ELEMENT'} / ${human(a.category).toUpperCase()}`;
+  $('object-kind').textContent = `${a.format === '3dm' ? 'MODEL ASSET / 3D' : a.kind === 'model' ? 'GLB MODEL' : 'DRAWING ELEMENT'} / ${human(a.category).toUpperCase()}`;
   $('object-title').textContent = a.name;
   $('object-variant').textContent = a.variant;
   $('object-tags').innerHTML = a.tags.map(t => `<span>${esc(t)}</span>`).join('');
@@ -120,7 +121,7 @@ function renderViewer() {
   $('view-tabs').querySelectorAll('button').forEach(b => { b.classList.toggle('active', b.dataset.view === currentView); b.setAttribute('aria-pressed', b.dataset.view === currentView); });
   if (currentView === '3d') {
     const model = document.createElement('model-viewer');
-    model.setAttribute('src',a.model); model.setAttribute('alt',`Interactive 3D model of ${a.name}`);
+    model.setAttribute('src',a.model || a.source_file); model.setAttribute('alt',`Interactive 3D model of ${a.name}`);
     model.setAttribute('camera-controls',''); model.setAttribute('touch-action','pan-y');
     model.setAttribute('shadow-intensity','0.5'); model.setAttribute('exposure','1.1');
     model.setAttribute('scale','0.001 0.001 0.001'); model.setAttribute('interaction-prompt','none');
@@ -138,7 +139,7 @@ function renderViewer() {
     $('viewer-caption').textContent = isDrawing ? `${currentView.toUpperCase()} / 1:${scale} · FITTED PREVIEW${rep?.method === 'raster_projection' ? ' · APPROXIMATED' : ''}` : a.preview ? 'DRAWING ELEMENT · FITTED PREVIEW' : 'No browser preview for this file.';
   }
   const drawingLinks = isDrawing ? (currentView === 'sheet' ? link(sheet?.svg,`A3 sheet 1:${scale}`,'primary') : link(rep?.svg,`${human(currentView)} SVG`,'primary')+link(rep?.dxf,`${human(currentView)} DXF`)) : '';
-  $('downloads').innerHTML = placementButton(a) + drawingLinks + link(a.model,`Download ${a.format.toUpperCase()}`,isDrawing ? '' : 'primary') + link(a.record_url,'Record JSON') + (!a.available ? '<p class="small-note">Model file is not installed. See the original source below.</p>' : '');
+  $('downloads').innerHTML = placementButton(a) + drawingLinks + link(a.model || a.source_file, (a.source_only ? 'Download source ' : 'Download ') + a.format.toUpperCase(), isDrawing ? '' : 'primary') + link(a.record_url,'Record JSON') + (!a.available && !a.source_available ? '<p class="small-note">Source file is not installed. See the original source below.</p>' : '');
 }
 
 function renderSources() {
@@ -158,7 +159,9 @@ async function load() {
     const response = await fetch('/api/catalogue');
     if(!response.ok) throw new Error(`Archive responded with ${response.status}.`);
     data = await response.json();
-    if(data.distribution === 'rhino') document.querySelector('.technical').textContent = 'Run AlmondLibrary in Rhino to open the dockable panel, or AlmondLibraryBrowser for the browser view. Browsing the included models needs no Python or AI client. Keep Rhino open while using the archive. Saved selections are local to this browser address; the address changes when Rhino restarts.';
+    $('library-status').hidden = data.library_status?.status !== 'error';
+    $('library-status').textContent = data.library_status?.message || '';
+    if(data.distribution === 'rhino') document.querySelector('.technical').textContent = 'Run AlmondLibrary in Rhino to open the dockable panel. Reload reads registered assets on this computer and keeps the included source files available. Keep Rhino open while browsing.';
     $('asset-count').textContent=String(data.counts.assets).padStart(3,'0');
     $('all-total').textContent=data.counts.assets;
     $('model-count').textContent=String(data.counts.models).padStart(2,'0');

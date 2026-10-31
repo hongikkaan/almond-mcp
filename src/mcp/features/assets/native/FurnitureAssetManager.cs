@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Rhino;
 using Rhino.DocObjects;
+using Rhino.FileIO;
 using Rhino.Geometry;
 
 namespace RhinoAlmondBridge
@@ -43,7 +45,15 @@ namespace RhinoAlmondBridge
             );
         }
 
-        public FurniturePlacementResult Place(FurniturePlacementRequest request)
+        public FurniturePlacementResult Place(FurniturePlacementRequest request) =>
+            PlaceCore(RhinoDoc.ActiveDoc, request, false);
+
+        // The native panel command owns its command Undo record. This is deliberately
+        // not a request field: MCP callers cannot opt out of the fixed mutation guard.
+        internal FurniturePlacementResult PlaceInCommand(RhinoDoc doc, FurniturePlacementRequest request) =>
+            PlaceCore(doc, request, true);
+
+        private FurniturePlacementResult PlaceCore(RhinoDoc doc, FurniturePlacementRequest request, bool commandUndo)
         {
             var result = new FurniturePlacementResult
             {
@@ -65,7 +75,6 @@ namespace RhinoAlmondBridge
                 return result;
             }
 
-            var doc = RhinoDoc.ActiveDoc;
             if (doc == null)
             {
                 result.Message = "No active Rhino document.";
@@ -73,45 +82,98 @@ namespace RhinoAlmondBridge
             }
 
             uint undoRecord = 0;
+            bool mutationStarted = false;
             try
             {
+                if (doc.IsReadOnly || (!commandUndo && doc.UndoRecordingIsActive) || doc.UndoActive || doc.RedoActive)
+                    throw new InvalidOperationException("Finish the current edit or Undo/Redo before placing an asset in an editable document.");
+                if (commandUndo && (doc.InCommand(false) == 0 || RhinoDoc.ActiveDoc?.RuntimeSerialNumber != doc.RuntimeSerialNumber))
+                    throw new InvalidOperationException("Panel placement requires its active Rhino command and document.");
                 Point3d position = ReadPosition(request.Position);
                 if (!Double.IsFinite(request.Scale) || request.Scale <= 0 || !Double.IsFinite(request.RotationDegrees))
                     throw new ArgumentException("Placement scale must be finite and positive; rotation must be finite.");
                 string definitionName = BuildDefinitionName(request.AssetId);
-                if (String.Equals(Path.GetExtension(fullPath), ".3dm", StringComparison.OrdinalIgnoreCase))
+                bool linkedModel = String.Equals(Path.GetExtension(fullPath), ".3dm", StringComparison.OrdinalIgnoreCase);
+                string sourceHash = null;
+                UnitSystem sourceUnits = doc.ModelUnitSystem;
+                if (linkedModel)
                 {
                     if (doc.ModelUnitSystem == UnitSystem.None || doc.ModelUnitSystem == UnitSystem.CustomUnits)
                         throw new ArgumentException("Set standard model units before placing a 3DM drawing asset.");
-                    using (var stream = File.OpenRead(fullPath))
-                    using (var algorithm = SHA256.Create())
+                    if (String.IsNullOrWhiteSpace(request.AssetId))
+                        throw new ArgumentException("A registered asset ID is required for linked 3DM placement.");
+                    sourceHash = FileHash(fullPath);
+                    string expected = (string)request.Metadata?["sha256"];
+                    if (!String.Equals(expected, sourceHash, StringComparison.OrdinalIgnoreCase))
                     {
-                        string hash = BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-", "");
-                        string expected = (string)request.Metadata?["sha256"];
-                        if (!String.IsNullOrEmpty(expected) && !String.Equals(expected, hash, StringComparison.OrdinalIgnoreCase))
-                            throw new InvalidDataException("The 3DM source changed since its asset record was created.");
-                        definitionName += "::" + hash.Substring(0, 16) + "::" + doc.ModelUnitSystem;
+                        result.ErrorCode = "asset_needs_refresh";
+                        result.NeedsRefresh = true;
+                        result.Message = "The 3DM differs from its registered measurements. Call refresh_asset(asset_id) before placement.";
+                        return result;
                     }
+                    using (var source = File3dm.Read(fullPath))
+                    {
+                        if (source == null) throw new InvalidDataException("Rhino could not read the source 3DM.");
+                        DrawingAssetGeometry.RequireSelfContainedDefinitions(source);
+                        sourceUnits = source.Settings.ModelUnitSystem;
+                    }
+                    if (sourceUnits == UnitSystem.None || sourceUnits == UnitSystem.CustomUnits)
+                        throw new ArgumentException("The source 3DM needs standard model units.");
+                    definitionName += "::LINK::" + PathIdentity(fullPath) + "::" + doc.ModelUnitSystem;
                 }
-                undoRecord = doc.BeginUndoRecord($"Place {_displayName}");
                 var definition = FindDefinition(doc, definitionName);
+                if (linkedModel && definition != null)
+                    RequireLinkedDefinition(definition, fullPath, sourceUnits);
+                if (!commandUndo)
+                {
+                    undoRecord = doc.BeginUndoRecord($"Place {_displayName}");
+                    if (undoRecord == 0)
+                        throw new InvalidOperationException("Rhino could not begin the asset-placement Undo record; nothing was placed.");
+                }
+                mutationStarted = true;
                 bool definitionCreated = false;
 
                 if (definition == null)
                 {
-                    definition = RasterExtensions.Contains(Path.GetExtension(fullPath))
+                    definition = linkedModel
+                        ? BuildLinkedDefinition(doc, fullPath, definitionName, request.Name, sourceUnits)
+                        : RasterExtensions.Contains(Path.GetExtension(fullPath))
                         ? BuildRasterDefinition(doc, fullPath, definitionName, request.Name, request.Metadata)
                         : ImportAsDefinition(doc, fullPath, definitionName, request.Name);
                     definitionCreated = true;
+                }
+                else if (linkedModel && definition.ArchiveFileStatus != InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate)
+                {
+                    result.AffectedExistingInstances = definition.GetReferences(1).Length;
+                    if (!doc.InstanceDefinitions.UpdateLinkedInstanceDefinition(definition.Index, fullPath, true, true))
+                        throw new InvalidOperationException("Rhino could not refresh the linked asset definition.");
+                    definition = doc.InstanceDefinitions[definition.Index];
+                    RequireLinkedDefinition(definition, fullPath, sourceUnits);
+                    result.DefinitionRefreshed = true;
+                }
+                double unitScale = 1.0;
+                if (linkedModel)
+                {
+                    RequireLinkedDefinition(definition, fullPath, sourceUnits);
+                    if (!String.Equals(sourceHash, FileHash(fullPath), StringComparison.OrdinalIgnoreCase))
+                        throw new IOException("The source 3DM changed during linked placement; inspect the definition before retrying.");
+                    unitScale = RhinoMath.UnitScale(definition.UnitSystem, doc.ModelUnitSystem);
+                    if (!Double.IsFinite(unitScale) || unitScale <= 0)
+                        throw new InvalidOperationException("The linked definition has an invalid unit conversion.");
                 }
 
                 double angleRadians = RhinoMath.ToRadians(request.RotationDegrees);
                 Transform transform =
                     Transform.Translation(position.X, position.Y, position.Z) *
                     Transform.Rotation(angleRadians, Vector3d.ZAxis, Point3d.Origin) *
-                    Transform.Scale(Point3d.Origin, request.Scale);
+                    Transform.Scale(Point3d.Origin, request.Scale * unitScale);
 
                 var attributes = BuildInstanceAttributes(doc, request);
+                if (linkedModel)
+                {
+                    attributes.SetUserString("almond.asset_source", fullPath);
+                    attributes.SetUserString("almond.metadata_scope", "source_at_placement");
+                }
                 Guid objectId = doc.Objects.AddInstanceObject(definition.Index, transform, attributes);
                 if (objectId == Guid.Empty)
                     throw new InvalidOperationException($"Rhino failed to create the {_displayName} block instance.");
@@ -128,18 +190,91 @@ namespace RhinoAlmondBridge
                 result.BlockDefinition = definition.Name;
                 result.DefinitionCreated = definitionCreated;
                 result.Bounds = BoundsPayload.FromBoundingBox(bounds);
+                if (linkedModel)
+                {
+                    result.LinkType = "linked";
+                    result.LayerStyle = "active";
+                    result.SourcePath = fullPath;
+                    result.SourceSha256 = sourceHash;
+                    result.MetadataScope = "source_at_placement";
+                }
+                result.MutationState = "completed";
                 return result;
             }
             catch (Exception ex)
             {
                 result.Message = ex.Message;
                 result.ErrorTrace = ex.ToString();
+                if (ex is DrawingAssetGeometry.AssetDependencyException)
+                    result.ErrorCode = "asset_dependencies_unverified";
+                result.MutationState = mutationStarted ? "unknown" : "not_started";
+                result.RequiresReconciliation = mutationStarted;
                 return result;
             }
             finally
             {
                 if (undoRecord != 0)
                     doc.EndUndoRecord(undoRecord);
+            }
+        }
+
+        private static string FileHash(string path)
+        {
+            using (var stream = File.OpenRead(path))
+            using (var algorithm = SHA256.Create())
+                return BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-", "");
+        }
+
+        private static string PathIdentity(string path)
+        {
+            using (var algorithm = SHA256.Create())
+                return BitConverter.ToString(algorithm.ComputeHash(Encoding.UTF8.GetBytes(Path.GetFullPath(path).ToUpperInvariant())))
+                    .Replace("-", "").Substring(0, 16);
+        }
+
+        private static void RequireLinkedDefinition(InstanceDefinition definition, string source, UnitSystem sourceUnits)
+        {
+            if (definition.UpdateType != InstanceDefinitionUpdateType.Linked ||
+                definition.LayerStyle != InstanceDefinitionLayerStyle.Active ||
+                String.IsNullOrWhiteSpace(definition.SourceArchive) ||
+                !String.Equals(Path.GetFullPath(definition.SourceArchive), Path.GetFullPath(source), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The asset definition name belongs to a different or embedded block; it was not reused or changed.");
+            if (definition.UnitSystem != sourceUnits)
+                throw new InvalidOperationException("The linked source unit system changed. Reconcile existing instance scales before reusing this definition.");
+        }
+
+        private static InstanceDefinition BuildLinkedDefinition(RhinoDoc doc, string filePath,
+            string definitionName, string description, UnitSystem sourceUnits)
+        {
+            // Rhino 8 has no AddFromFile. A definition-local seed enables its supported
+            // source/archive loader without importing temporary objects into model space.
+            int index;
+            using (var seed = new Rhino.Geometry.Point(Point3d.Origin))
+                index = doc.InstanceDefinitions.Add(definitionName, description ?? "Linked model asset",
+                    Point3d.Origin, seed, new ObjectAttributes());
+            if (index < 0) throw new InvalidOperationException("Rhino could not create the linked asset definition.");
+            try
+            {
+                var definition = doc.InstanceDefinitions[index];
+                definition.UnitSystem = sourceUnits;
+                using (var reference = FileReference.CreateFromFullPath(filePath))
+                    if (!doc.InstanceDefinitions.ModifySourceArchive(index, reference, InstanceDefinitionUpdateType.Linked, true))
+                        throw new InvalidOperationException("Rhino could not link the asset source 3DM.");
+                definition = doc.InstanceDefinitions[index];
+                definition.LayerStyle = InstanceDefinitionLayerStyle.Active;
+                if (!doc.InstanceDefinitions.UpdateLinkedInstanceDefinition(index, filePath, true, true))
+                    throw new InvalidOperationException("Rhino could not read the linked asset source 3DM.");
+                definition = doc.InstanceDefinitions[index];
+                RequireLinkedDefinition(definition, filePath, sourceUnits);
+                if (definition.ObjectCount == 0)
+                    throw new InvalidOperationException("The linked asset source contains no definition geometry.");
+                return definition;
+            }
+            catch
+            {
+                // Only our new, unreferenced definition is eligible for cleanup.
+                doc.InstanceDefinitions.Delete(index, false, true);
+                throw;
             }
         }
 
@@ -516,6 +651,39 @@ namespace RhinoAlmondBridge
 
         [JsonProperty("error_trace")]
         public string ErrorTrace { get; set; }
+
+        [JsonProperty("error_code", NullValueHandling = NullValueHandling.Ignore)]
+        public string ErrorCode { get; set; }
+
+        [JsonProperty("needs_refresh", DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool NeedsRefresh { get; set; }
+
+        [JsonProperty("mutation_state")]
+        public string MutationState { get; set; } = "not_started";
+
+        [JsonProperty("requires_reconciliation", DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool RequiresReconciliation { get; set; }
+
+        [JsonProperty("link_type", NullValueHandling = NullValueHandling.Ignore)]
+        public string LinkType { get; set; }
+
+        [JsonProperty("layer_style", NullValueHandling = NullValueHandling.Ignore)]
+        public string LayerStyle { get; set; }
+
+        [JsonProperty("source_path", NullValueHandling = NullValueHandling.Ignore)]
+        public string SourcePath { get; set; }
+
+        [JsonProperty("source_sha256", NullValueHandling = NullValueHandling.Ignore)]
+        public string SourceSha256 { get; set; }
+
+        [JsonProperty("metadata_scope", NullValueHandling = NullValueHandling.Ignore)]
+        public string MetadataScope { get; set; }
+
+        [JsonProperty("definition_refreshed", DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool DefinitionRefreshed { get; set; }
+
+        [JsonProperty("affected_existing_instances", DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public int AffectedExistingInstances { get; set; }
     }
 
     public class BoundsPayload

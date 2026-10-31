@@ -2,7 +2,8 @@
   "id": "diagram-texture-brick-1",
   "name": "Brick Texture",
   "kind": "element",
-  "library": "drawing",
+  "library": "model_assets",
+  "source_library": "drawing",
   "category": "texture",
   "variant": "line_art",
   "format": "svg",
@@ -126,5 +127,11 @@
   },
   "drawing": null,
   "uri": "almond://repository/diagram-texture-brick-1",
-  "record_url": "/api/assets/diagram-texture-brick-1.json"
+  "record_url": "/api/assets/diagram-texture-brick-1.json",
+  "source_available": false,
+  "source_only": false,
+  "model_status": "not_installed",
+  "drawing_status": "not_installed",
+  "drawing_ready": false,
+  "source_file": null
 }

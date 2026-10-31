@@ -258,6 +258,8 @@ def serve(args, binding, locations, db, *, configure=None):
 
 if __name__ == "__main__":
     try:
+        from desktop_runtime import ensure_desktop_runtime
+        ensure_desktop_runtime()
         raise SystemExit(main())
     except KeyboardInterrupt:
         raise SystemExit(130)

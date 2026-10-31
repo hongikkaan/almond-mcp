@@ -80,8 +80,10 @@ namespace RhinoAlmondBridge
             {
                 ["status"] = "success",
                 ["capabilities"] = new JObject { ["block_analysis"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2,
-                    ["component_operations"] = 1, ["drawing_asset_extract"] = 1, ["context_sections"] = 1, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
-                    ["object_observation"] = 1, ["inspection_capture"] = 1, ["face_edit"] = 1 },
+                    ["component_operations"] = 1, ["drawing_asset_extract"] = 2, ["context_sections"] = 1, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
+                    ["object_observation"] = 2, ["inspection_capture"] = 1, ["face_edit"] = 1,
+                    ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
+                    ["drawing_asset_linked"] = 1 },
                 ["warnings"] = warnings
             };
             if (requested.Contains("document")) result["document"] = new JObject

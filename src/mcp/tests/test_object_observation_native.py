@@ -127,3 +127,51 @@ def test_query_excludes_pages_deleted_and_definition_objects(observation_native)
     result = native_case(observation_native, "non_model_objects")
     assert result["status"] == "success" and result["source_count"] == 2
     assert [row["id"] for row in result["objects"]] == [FIRST, SECOND]
+
+
+def test_summary_counts_occupied_layer_types_without_describing_geometry_or_groups(observation_native):
+    result = native_case(observation_native, "summary")
+    assert result["status"] == "success" and result["matched_count"] == 2 and result["summary_count"] == 2
+    assert "objects" not in result and result["complete"]
+    assert result["summary"] == [
+        {"layer_path": "M::floor::test", "object_type": "Mesh", "geometry_kind": "GeometryBase", "object_count": 1, "visible_count": 0},
+        {"layer_path": "M::wall::test", "object_type": "Brep", "geometry_kind": "GeometryBase", "object_count": 1, "visible_count": 1},
+    ]
+
+
+def test_summary_pagination_counts_summary_rows_not_model_objects(observation_native):
+    result = native_case(observation_native, "summary_page")
+    assert result["status"] == "success" and result["summary_count"] == 2
+    assert len(result["summary"]) == 1 and result["summary"][0]["layer_path"] == "M::wall::test"
+    assert result["next_offset"] is None and not result["complete"]
+
+
+@pytest.mark.parametrize("scenario,fields", [("ids_only", {"id"}), ("named_fields", {"id", "name", "layer_path"})])
+def test_selected_fields_skip_unrequested_geometry_and_group_reads(observation_native, scenario, fields):
+    result = native_case(observation_native, scenario)
+    assert result["status"] == "success"
+    assert all(set(row) == fields for row in result["objects"])
+    assert [row["id"] for row in result["objects"]] == [FIRST, SECOND]
+
+
+def test_observed_object_type_can_narrow_query(observation_native):
+    result = native_case(observation_native, "type_filter")
+    assert [row["id"] for row in result["objects"]] == [SECOND]
+
+
+def test_face_pages_retain_identity_crc_and_the_unreturned_faces(observation_native):
+    first = native_case(observation_native, "faces_first")["objects"][0]
+    last = native_case(observation_native, "faces_next")["objects"][0]
+    assert first["id"] == last["id"] == FIRST and first["geometry_crc"] == last["geometry_crc"] == 123
+    assert first["face_count"] == last["face_count"] == 130
+    assert first["face_page"]["next_offset"] == 128
+    assert last["face_page"] == {"offset": 128, "limit": 128, "returned": 2, "next_offset": None, "complete": False}
+    assert [face["face_index"] for face in first["faces"] + last["faces"]] == list(range(130))
+
+
+@pytest.mark.parametrize("scenario,code", [("faces_stale", "stale_geometry"), ("faces_missing_crc", "invalid_arguments"),
+                                          ("invalid_fields", "invalid_arguments"), ("invalid_type", "invalid_arguments")])
+def test_invalid_or_stale_face_observation_returns_no_partial_rows(observation_native, scenario, code):
+    result = native_case(observation_native, scenario)
+    assert result["status"] == "error" and result["error_code"] == code
+    assert "objects" not in result

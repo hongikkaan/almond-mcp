@@ -46,6 +46,11 @@ def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest().upper()
 
 
+def file_sha(path: Path) -> str:
+    with path.open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest().upper()
+
+
 def _matrix(node: dict) -> np.ndarray:
     if "matrix" in node:
         matrix = np.asarray(node["matrix"], dtype=float).reshape(4, 4, order="F")
@@ -354,7 +359,7 @@ def create_package(model: Path, output: Path, *, asset_id: str, name: str,
     return {"status": "success", "package_dir": str(output.resolve()), "manifest": manifest}
 
 
-def audit_package(package: Path, source_model: Path | None = None) -> dict:
+def audit_package(package: Path, source_model: Path | None = None, *, source_sha256: str | None = None) -> dict:
     manifest = json.loads((package/"drawing.json").read_text(encoding="utf-8"))
     failures = []
     for filename, checksum in manifest["files"].items():
@@ -369,7 +374,7 @@ def audit_package(package: Path, source_model: Path | None = None) -> dict:
     if source_model is not None:
         meta = manifest["source"]
         if meta.get("source_format") == "3dm":
-            source_state = "source_file_current" if sha(source_model.read_bytes()) == meta["model_sha256"] else "stale"
+            source_state = "source_file_current" if (source_sha256 or file_sha(source_model)) == meta["model_sha256"] else "stale"
         else:
             triangles = load_triangles(source_model, meta["input_units"], meta["input_up_axis"])
             source_state = "current" if geometry_hash(triangles) == meta["geometry_sha256"] else "stale"

@@ -2,8 +2,7 @@ Almond — 시작과 정리
 
 현재 연결은 storage_protocol=2와 기존 A–J 슬롯(5501–5510)을 사용합니다.
 protocol 번호는 실행기와 호스트가 자동으로 처리하며 사용자가 설정하거나 별도 승인할 필요가 없습니다. 이미 정상 연결된 세션은 그대로 계속 사용합니다.
-RhinoTerminal은 src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp에 포함되고,
-AlmondRhino는 src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp를 사용합니다.
+RhinoTerminal은 src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp에 포함되고, AlmondRhino는 src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp를 사용합니다.
 새 RHP와 같은 폴더의 Almond.Engine.dll 등 의존 파일, 새 Python worker가 모두 필요합니다. 작업을 마친 뒤 정상 재시작해 적용합니다.
 
 Rhino 내부 패널에서 사용: 저장된 모델 열기 → RhinoTerminal On → PanelToggle로 패널 표시 → almond 입력 또는 우측 상단 almond 버튼.

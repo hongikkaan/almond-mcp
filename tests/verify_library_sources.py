@@ -301,7 +301,8 @@ async def run():
         (custom_root / "models").mkdir(parents=True)
         bundle_manifest = REPO / "asset/drawing/DrawingAssetfiles/manifest.json"
         manifest = json.loads(bundle_manifest.read_text(encoding="utf-8"))
-        asset = dict(manifest["assets"][0], asset_id="library-routing-fixture", file="models/probe.svg")
+        template = next(asset for asset in manifest["assets"] if Path(asset["file"]).suffix.lower() == ".svg")
+        asset = dict(template, asset_id="library-routing-fixture", file="models/probe.svg")
         manifest["assets"] = [asset]
         (custom_root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         (custom_root / "models/probe.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>', encoding="utf-8")
