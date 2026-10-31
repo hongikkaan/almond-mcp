@@ -19,10 +19,10 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 |---|---|
 | Create | 단면을 생성한다. 같은 clipping의 기존 로컬 도면은 교체한다. PickPlacement=True이면 도면별 원점을 찍고, 기본값 False는 clipping의 draft_plane 또는 WorldXY 원점을 사용한다. |
 | Update | 기존 도면의 저장된 위치를 유지해 재계산한다. 도면이 없으면 건너뛴다. |
-| Move | 기존 도면의 원점만 XY로 옮긴다. 재계산하지 않으며 객체 GUID와 수동 형상·시각 속성 편집을 유지한다. |
+| Move | 기존 도면의 원점만 XYZ로 옮긴다. 재계산하지 않으며 객체 GUID와 수동 형상·시각 속성 편집을 유지한다. |
 | PDF | clipping의 Paper·Scale로 재계산한 벡터 PDF를 만든다. 수동 편집한 출력의 그대로 인쇄 기능은 아니다. 활성 모델과 배치점을 바꾸지 않는다. |
 
-대상은 현재 문서의 모든 레이어에 있는 clipping이며 Worksession 참조 clipping도 포함한다. 이름·GUID·레이어를 함께 표시하고 원본 레이어를 옮기지 않는다. 모든 도면은 Z=0이다. 저장되지 않은 원본 모델을 자동 저장하지 않는다. 도면 변경은 실행 단위 Undo이며 외부 PDF/3dm 파일은 Undo로 지워지지 않는다. 상세 속성·형상 계약은 [SPEC.md](SPEC.md)에 있다.
+대상은 현재 문서의 모든 레이어에 있는 clipping이며 Worksession 참조 clipping도 포함한다. 이름·GUID·레이어를 함께 표시하고 원본 레이어를 옮기지 않는다. 도면은 WorldXY와 평행하며 지정 배치점의 Z를 유지한다. 기본 원점과 PDF는 Z=0이다. 저장되지 않은 원본 모델을 자동 저장하지 않는다. 도면 변경은 실행 단위 Undo이며 외부 PDF/3dm 파일은 Undo로 지워지지 않는다. 상세 속성·형상 계약은 [SPEC.md](SPEC.md)에 있다.
 
 ## 에이전트에서 사용
 
@@ -41,7 +41,7 @@ result = ps["run"](doc, "Create", ids,
 print(json.dumps(result, ensure_ascii=False))
 ```
 
-작업별 호출은 다음과 같다. 좌표는 현재 문서 단위이며 clipping 원점의 **새 절대 위치**다. 배치점은 GUID별 `[x,y]` 또는 `[x,y,0]`으로 전달한다.
+작업별 호출은 다음과 같다. 좌표는 현재 문서 단위이며 clipping 원점의 **새 절대 위치**다. 배치점은 GUID별 `[x,y]`(Z=0) 또는 `[x,y,z]`로 전달한다. Update는 저장된 높이를 유지한다.
 
 ```python
 result = ps["run"](doc, "Update", ids)

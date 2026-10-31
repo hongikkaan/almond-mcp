@@ -1064,14 +1064,14 @@ def bake(doc, cp, drawing, target=None):
 
 def placement_plane(cut, point):
     target = G.Plane(G.Plane.WorldXY)
-    target.Origin = G.Point3d(point.X, point.Y, 0)
+    target.Origin = G.Point3d(point.X, point.Y, point.Z)
     return target
 
 
 def drawing_transform(source, target):
     target = placement_plane(source, target.Origin)
-    # Applied right to left: align, mirror, then clear residual output Z.
-    return (G.Transform.PlanarProjection(G.Plane.WorldXY)
+    # Applied right to left: align, mirror, then project at the target height.
+    return (G.Transform.PlanarProjection(target)
             * G.Transform.Mirror(target.Origin, G.Vector3d.YAxis)
             * G.Transform.PlaneToPlane(source, target))
 
@@ -1119,13 +1119,14 @@ def move_drawing(drawing, source, target):
 
 
 def reposition_drawing(doc, cp, target=None):
-    """Translate existing XY output in place; retain IDs and user edits."""
+    """Translate existing horizontal output in XYZ; retain IDs and user edits."""
     existing = drawing_objects(doc, cp)
     if not existing: raise ValueError('No generated drawing to move')
     origin = saved_placement(cp, existing).Origin
-    origin = G.Point3d(origin.X, origin.Y, 0)
     drawing = dict(objects=[output(o.Geometry, o.Attributes, o.Attributes.GetUserString('ps:role')) for o in existing])
-    if target is None: target = pick_placement(drawing, G.Plane.WorldXY, cp.Name or str(cp.Id), origin)
+    if target is None:
+        frame_plane = placement_plane(G.Plane.WorldXY, origin)
+        target = pick_placement(drawing, frame_plane, cp.Name or str(cp.Id), origin)
     if target is None: return False
     target = placement_plane(G.Plane.WorldXY, target.Origin)
     transform = G.Transform.Translation(target.Origin-origin)
@@ -1604,9 +1605,9 @@ def run_selected(doc, planes, options, folder=None, targets=None):
 def run(doc, operation, clipping_ids, points=None, folder=None, output='Document',
         hatch=True, elevation=True, small_details=True,
         near_width=.09, far_width=.04, near_dark=80., far_dark=45.):
-    """Agent entry: explicit document/GUIDs/XY points; never opens an input dialog.
+    """Agent entry: explicit document/GUIDs/XYZ points; never opens an input dialog.
 
-    points maps clipping GUIDs to [x, y] or [x, y, 0] in document units.
+    points maps clipping GUIDs to [x, y] (Z=0) or [x, y, z] in document units.
     Move requires a point for every clipping. Create can use draft_plane defaults.
     """
     if doc is None: raise ValueError('A bound Rhino document is required')
@@ -1625,10 +1626,9 @@ def run(doc, operation, clipping_ids, points=None, folder=None, output='Document
     for key, value in (points or {}).items():
         cp = resolve_clippings(planes, [key])[0]
         if len(value) not in (2, 3) or not all(finite(float(n)) for n in value):
-            raise ValueError('Placement requires finite [x, y] or [x, y, 0]')
-        if len(value) == 3 and float(value[2]) != 0:
-            raise ValueError('Drawing placement Z must be zero')
-        targets[str(cp.Id).lower()] = placement_plane(G.Plane.WorldXY, G.Point3d(float(value[0]), float(value[1]), 0))
+            raise ValueError('Placement requires finite [x, y] (Z=0) or [x, y, z]')
+        point = G.Point3d(float(value[0]), float(value[1]), float(value[2]) if len(value) == 3 else 0)
+        targets[str(cp.Id).lower()] = placement_plane(G.Plane.WorldXY, point)
     if operation == 'Move' and len(targets) != len(planes):
         raise ValueError('Move requires a placement point for every clipping GUID')
     if options['mode'] in ('Files', 'PDF') and (not folder or not os.path.isdir(folder)):
