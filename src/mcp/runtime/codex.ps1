@@ -19,6 +19,7 @@ param(
     [string]$WorkDir = (Get-Location).Path,
     [string]$Prompt,
     [switch]$CheckOnly,
+    [switch]$RhinoTerminal,
     [switch]$Exec,
     [switch]$Resume,
     [string]$ResumeSessionId,
@@ -90,8 +91,14 @@ try {
     }
 
     $serverName = 'rhino_session'
-    $baseServers = @(Get-CodexMcpList -CodexPath $codexPath -Overrides @())
     $overrides = @()
+    if ($RhinoTerminal) {
+        # Hosted Apps (including CoS) and plugin MCPs are added at runtime and
+        # need not appear in `mcp list`. Disable their sources for this process.
+        # Ordinary user skills remain available; no config/auth files are edited.
+        $overrides += @('-c', 'features.apps=false', '-c', 'features.plugins=false')
+    }
+    $baseServers = @(Get-CodexMcpList -CodexPath $codexPath -Overrides $overrides)
     foreach ($entry in $baseServers) {
         if ($null -eq $entry) { continue }
         $name = [string]$entry.name
@@ -152,7 +159,7 @@ try {
 
     if ($CheckOnly) {
         $effective | Select-Object name, enabled | ConvertTo-Json -Depth 3
-        Write-Host 'CHECK ONLY: OS port/PID and merged CLI config checked. Almond was NOT initialized; package availability was NOT checked.'
+        Write-Host 'CHECK ONLY: OS port/PID and configured MCP roster checked. Runtime-injected tools and MCP handshakes were NOT checked; Almond was NOT initialized.'
     }
     else {
         if ($Exec) {

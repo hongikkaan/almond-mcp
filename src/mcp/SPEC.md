@@ -19,6 +19,8 @@ Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema�
 runtime 메타데이터 도구는 `project_info`, COS 내부 완료 조회는 `worker_state`다.
 공개 도구 이름에 제품·클라이언트 접두사를 붙이거나 이전 이름의 alias를 남기지 않는다.
 전용 CLI가 이 실행에만 주입하는 MCP 서버 키는 `rhino_session`이며 일반 Codex의 전역 `rhino` 등록과 구분한다. 이전에 실행된 프로세스의 식별 호환성은 유지한다.
+RhinoTerminal은 `codex.ps1 -RhinoTerminal`로 시작하며 새 대화·resume·exec에 실행별 `features.apps=false`, `features.plugins=false`를 전달한다. `mcp list`에 나타나지 않고 실행 중 추가되는 Apps(CoS 포함)와 플러그인 MCP의 등록 경로를 끈다. 일반 개인 스킬은 유지되며 플러그인 소속 스킬은 제외된다. 이 옵션은 별도 창의 전용 시작기나 일반 Codex에는 적용하지 않고, 전역·프로젝트 설정과 인증 파일도 수정하지 않는다.
+설정 목록 검사는 MCP 연결·도구 탐색·실제 호출 검증과 별개다. Codex TUI 자체가 추가하는 도구는 Apps·플러그인과 별도 경로이므로 설정 목록만으로 `rhino_session` 외 모든 도구의 부재를 보장하지 않는다. 실행기 회귀 검사는 `tests/runtime/test_terminal_launch.ps1`에서 실제 설치 CLI의 설정 해석을 사용하고 Rhino 관측만 대역으로 수행한다. 이 스크립트 변경만으로 RHP 빌드·등록은 필요하지 않으며, 배포된 변경은 RhinoTerminal의 기존 Codex를 `/exit`한 뒤 `almond` 또는 `almond resume`으로 다시 시작할 때 적용된다.
 공유 DB gate와 연결별 요청 직렬화 잠금은 획득을 최대 10초 기다린다. 대기 초과 호출은 operation·native 요청 생성 전 종료하며 소유자의 작업·잠금은 유지한다. 실행 제한과 cleanup·native 완료를 기다리는 시간은 이 10초와 구분한다.
 `features/<기능>/native`의 C# 도구 구현과 `rhino`의 공통 모델링 코드·재료 정책은 MCP 소유지만 Bridge에 컴파일되므로, 변경 시 Bridge 빌드가 필요하다. Python package가 사용하는 웹 원본은 [RHP Asset Panel](../rhp/SPEC.md)의 공유 자원이다.
 
@@ -102,7 +104,7 @@ Python 호출부는 기능별 실제 구현을 직접 import한다. `almond_mcp`
 GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper.ghx_parser` 명령을 사용한다. 정책 JSON과 native C#·웹 원본의 공용 자원 위치는 유지한다.
 서버의 기존 함수·클래스 이름도 조립 시 re-export한다. 비공개 generated-asset helper를 새 공개 MCP 도구로 노출하지 않고 기존 resource URI·등록을 유지한다.
 
-각 기능의 직접 검사는 `tests/test_<기능>_feature.py`에서 factory·store를 사용한다.
+모듈 검사는 `tests/test_readonly_contracts.py`와 `tests/runtime/`에서 읽기 전용 응답·공유 저장소·환경 분리를 확인한다. 실제 stdio와 외부 연결기 사이의 도구 설명·schema 계약은 루트 `tests/integration/test_stdio_contract.py`가 검사한다. 이 범위는 모든 모델링·계산 기능 또는 실제 Rhino의 Undo/Redo 검증을 대신하지 않는다.
 전체 회귀는 `run_tests.ps1`, 호스트·catalog 검사는 COS runner, 모듈 경계·실제 전체 schema·패키징은 루트 통합 검사를 사용한다. 새 기능 파일을 추가하거나 기존 구현을 바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. COS는 새 클라이언트 시작 시 server와 feature factory의 AST에서 schema를 읽으며 서버/DB를 import하지 않는다. package의 모든 Python 파일 목록과 내용이 fingerprint 대상이므로 이동·추가·삭제도 감지한다.
 
 ## 실행·관측 계약
@@ -196,6 +198,7 @@ Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서
 ## 모델링 안내 전달
 
 최초 `get_modeling_guide()`는 `BASIC-INSTRUCTIONS.md` 전문과 공통 도구명 목록을 반환한다. `get_modeling_guide(tool="assign_material")`은 해당 공개 도구의 `*-explain.md` 원문을 반환하며 그 도구를 실행하지 않는다. `project_info`의 instructions section도 같은 BASIC을 반환한다.
+문서 전용 MCP는 initialize.instructions에 공통 안내를 넣지 않는다. Codex Code Mode가 이 필드를 모든 도구 설명에 반복해서 붙이므로, 최초 BASIC 조회 안내는 `get_modeling_guide`의 짧은 설명에만 둔다. tools/list에는 각 도구의 첫 문장과 호출에 필요한 입력·출력 schema를 제공하고, 상세 절차와 guide_version은 명시적인 안내 조회 응답으로 전달한다. 외부 연결기의 연결 안내와는 별도 계약이다.
 
 reader는 BASIC·등록 도구 소스·설명 원문의 정규화 SHA-256으로 `guide_version`을 계산한다. snapshot 수집 중 변경은 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 토픽 맵·토픽별 조회·이미지 첨부 인자는 제공하지 않는다. 조회 인자는 정확한 공개 도구명인 tool 하나다. 알 수 없는 이름·파일 경로·URL은 거절하며 조회가 해당 도구를 실행하지 않는다. 공개 도구명은 features/*/tools.py와 runtime/mcp_server.py의 등록 정의에서 정적으로 수집하고 내부 helper는 제외한다. 응답은 status·guide_version·text·source_refs를 가진 JSON text 한 개이며 기본 응답에는 tools, 도구 응답에는 tool_name을 추가한다. source_refs는 패키지 상대 경로와 정규화 SHA-256이다.
 

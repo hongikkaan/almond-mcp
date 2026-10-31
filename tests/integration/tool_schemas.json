@@ -1,0 +1,4612 @@
+{
+  "analyze_block_reculviely": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_model_path": {
+          "default": "",
+          "description": "Usually omitted; the runtime supplies the bound document path.",
+          "type": "string"
+        },
+        "include_ids": {
+          "default": false,
+          "description": "Include IDs when needed; supplied target IDs are not repeated.",
+          "type": "boolean"
+        },
+        "mode": {
+          "description": "outline traverses objects and nested definitions; resolve-block finds\ncandidates for the current editing context along an explicit occurrence path.",
+          "type": "string"
+        },
+        "options": {
+          "additionalProperties": true,
+          "description": "outline accepts ids or path, otherwise scope (selected/viewport/document),\ndepth and output budgets. field_groups is a nonempty list of summary, objects,\nannotations and transforms; the default is a compact summary. include_geometry\nand annotations explicitly request their details. Narrow IDs/path/depth after\ntruncation; max_items also bounds eligible visits (reason=max_visits).\nresolve-block accepts only path: 1..65 GUIDs from the top-level instance inward.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "mode",
+        "options"
+      ],
+      "type": "object"
+    },
+    "name": "analyze_block_reculviely",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "apply_drawing_style": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "recipe_id": {
+          "default": "technical_axon_v1",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "apply_drawing_style",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "assign_material": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "apply_render_material": {
+          "default": true,
+          "type": "boolean"
+        },
+        "attach_metadata": {
+          "default": false,
+          "type": "boolean"
+        },
+        "construction_detail": {
+          "default": "",
+          "type": "string"
+        },
+        "construction_reference": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "construction_system": {
+          "default": "",
+          "type": "string"
+        },
+        "floor": {
+          "default": "",
+          "type": "string"
+        },
+        "guids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "material_id": {
+          "type": "string"
+        },
+        "structural_role": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "guids",
+        "material_id"
+      ],
+      "type": "object"
+    },
+    "name": "assign_material",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "audit_asset_drawing": {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "package_dir": {
+          "type": "string"
+        },
+        "source_glb": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package_dir"
+      ],
+      "type": "object"
+    },
+    "name": "audit_asset_drawing",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "capture_conditioning_pass": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk": {
+          "default": 16,
+          "type": "integer"
+        },
+        "edge_mode": {
+          "default": "Technical",
+          "type": "string"
+        },
+        "fps": {
+          "default": 16,
+          "type": "integer"
+        },
+        "height": {
+          "default": 480,
+          "type": "integer"
+        },
+        "invert_depth": {
+          "default": false,
+          "type": "boolean"
+        },
+        "out_dir": {
+          "default": "",
+          "type": "string"
+        },
+        "passes": {
+          "default": "rgb,edge,depth",
+          "type": "string"
+        },
+        "rgb_mode": {
+          "default": "Rendered",
+          "type": "string"
+        },
+        "shot": {
+          "type": "string"
+        },
+        "width": {
+          "default": 832,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "shot"
+      ],
+      "type": "object"
+    },
+    "name": "capture_conditioning_pass",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "capture_rhino_inspection": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "height": {
+          "default": 480,
+          "type": "integer"
+        },
+        "views": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "width": {
+          "default": 640,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "views"
+      ],
+      "type": "object"
+    },
+    "name": "capture_rhino_inspection",
+    "outputSchema": null
+  },
+  "check_egress": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "dead_end_m": {
+          "default": 0.0,
+          "description": "Longest dead-end corridor in metres; 0 skips the check.",
+          "type": "number"
+        },
+        "exits": {
+          "description": "One entry per exit (stair door or exterior exit door):\n{\"name\": str, \"x_mm\": float, \"y_mm\": float, \"width_mm\": float}.\nPositions are the door centers; width is the clear egress width.",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "net_area_m2": {
+          "default": 0.0,
+          "description": "Override the occupied area; 0 uses the gross plate area.",
+          "type": "number"
+        },
+        "occupancy": {
+          "default": "business",
+          "description": "Occupant-load key: business, mercantile, assembly_\nunconcentrated, classroom, residential, storage.",
+          "type": "string"
+        },
+        "plate_bounds_mm": {
+          "description": "Floor plate [min_x, min_y, max_x, max_y] in mm\n(sets gross area and the diagonal used for exit separation).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "sprinklered": {
+          "default": true,
+          "description": "Sprinklered throughout (affects separation fraction,\ntravel-distance and dead-end limits).",
+          "type": "boolean"
+        },
+        "stories": {
+          "default": 1,
+          "description": "Stories served. Above 1, at least two exits are required\nand exit width demand uses the stair factor (7.6 mm/occupant)\ninstead of the door factor (5.1).",
+          "type": "integer"
+        },
+        "travel_distances_m": {
+          "default": [],
+          "description": "Measured worst-case travel distances (e.g. from\ndrawn egress paths); empty skips the travel check.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "plate_bounds_mm",
+        "exits"
+      ],
+      "type": "object"
+    },
+    "name": "check_egress",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "create_design_scene": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "file_name": {
+          "default": "",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "project_file_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "units": {
+          "default": "mm",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "create_design_scene",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "create_phase": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "type": "string"
+        },
+        "file_name": {
+          "default": "",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "project_file_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "default": "pending",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "create_phase",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "create_plan": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "component_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goal": {
+          "type": "string"
+        },
+        "phase_id": {
+          "default": "",
+          "type": "string"
+        },
+        "scene_id": {
+          "default": "",
+          "type": "string"
+        },
+        "scene_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "scope": {
+          "default": "house",
+          "type": "string"
+        }
+      },
+      "required": [
+        "goal"
+      ],
+      "type": "object"
+    },
+    "name": "create_plan",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "edit_planar_face": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_geometry_crc": {
+          "type": "integer"
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "face_index": {
+          "type": "integer"
+        },
+        "object_id": {
+          "type": "string"
+        },
+        "translation": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "object_id",
+        "face_index",
+        "expected_geometry_crc",
+        "translation"
+      ],
+      "type": "object"
+    },
+    "name": "edit_planar_face",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "edit_planar_faces": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "edits": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "edits"
+      ],
+      "type": "object"
+    },
+    "name": "edit_planar_faces",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "execute_project_python": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "description": "Synchronous Python 3 source; assign a JSON-safe value to result.",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 60,
+          "description": "Integer 1-600, default 60; waiting limit, not execution cancellation.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "type": "object"
+    },
+    "name": "execute_project_python",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "execute_rhino_script": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "default": "python",
+          "description": "python (default Python 3), python2, csharp, csharp-script or command; every mode uses official RhinoCode.",
+          "type": "string"
+        },
+        "script": {
+          "description": "Synchronous Python source, C# statement body or complete command macro.",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 60,
+          "description": "Integer 1-600, default 60; waiting limit only. Retrieve the same request after timeout.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "script"
+      ],
+      "type": "object"
+    },
+    "name": "execute_rhino_script",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "export_asset_contract": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "description": "Stable id, e.g. \"canopy-pavilion-01\" (letters, digits, . _ -).",
+          "type": "string"
+        },
+        "guids": {
+          "description": "Rhino object GUIDs to export (from execute_rhino_script).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "default": "",
+          "description": "Human-readable name; defaults to asset_id.",
+          "type": "string"
+        },
+        "output_dir": {
+          "default": "",
+          "description": "Destination folder. Default: <user data dir>/exchange.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "guids",
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "name": "export_asset_contract",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "export_structural_report": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "default": 50,
+          "description": "Maximum number of runs to include (default 50, max 500).",
+          "type": "integer"
+        },
+        "path": {
+          "default": "",
+          "description": "Output file path. Default:\n<user data dir>/reports/structural-validation-<timestamp>.md",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "export_structural_report",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "focus_components": {
+    "annotations": {
+      "destructiveHint": false
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "component_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component_ids"
+      ],
+      "type": "object"
+    },
+    "name": "focus_components",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "generate_asset_drawing_views": {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "default": "",
+          "type": "string"
+        },
+        "input_units": {
+          "default": "",
+          "type": "string"
+        },
+        "scales": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source_glb": {
+          "default": "",
+          "type": "string"
+        },
+        "source_references": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "up_axis": {
+          "default": "y",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "generate_asset_drawing_views",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "get_asset_drawing": {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_asset_drawing",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "get_blender_helper_script": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "description": "\"export\" or \"materials\".",
+          "type": "string"
+        },
+        "asset_id": {
+          "default": "",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "material_id": {
+          "default": "",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "type": "string"
+        },
+        "object_names": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_dir": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
+    "name": "get_blender_helper_script",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_component_intersections": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "component_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cursor": {
+          "default": "",
+          "type": "string"
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_blocks": {
+          "default": false,
+          "type": "boolean"
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "max_pairs": {
+          "default": 64,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "component_ids"
+      ],
+      "type": "object"
+    },
+    "name": "get_component_intersections",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_construction_guidance": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "default": "",
+          "description": "\"floor\", \"wall\", \"roof\", \"foundation\" (empty = all).",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "include_reference_data": {
+          "default": false,
+          "description": "Also return occupancy live loads (kPa) and\nmaterial densities (kg/m3) for choosing load_kn inputs.",
+          "type": "boolean"
+        },
+        "material": {
+          "default": "",
+          "description": "\"Wood\", \"Steel\", \"Concrete\" - validate_structure names.",
+          "type": "string"
+        },
+        "query": {
+          "default": "",
+          "description": "Free-text filter (e.g. \"glulam\", \"longspan\", \"bearing wall\").",
+          "type": "string"
+        },
+        "span_m": {
+          "default": 0.0,
+          "description": "If > 0, each returned system reports fits_span and\nsuggested member depths from its span-ratio rules.",
+          "type": "number"
+        },
+        "structure_type": {
+          "default": "",
+          "description": "validate_structure type (\"beam\", \"truss\", \"shell\",\n\"frame\", \"canopy\", \"gridshell\", \"membrane\", \"highrise\").",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_construction_guidance",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_design_scene": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "scene_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_design_scene",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_diagram_asset": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_diagram_asset",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_drawing_asset": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_drawing_asset",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_drawing_recipe": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "recipe_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "recipe_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_drawing_recipe",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_logic_by_id": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "logic_id": {
+          "description": "The filename (without extension) of the Grasshopper file.\n      Use list_library() first to see available IDs.\n      Examples: catenary, bending, 01_simplebeam",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logic_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_logic_by_id",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_modeling_guide": {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "default": "",
+          "description": "Exact public Almond tool name; empty returns BASIC and available tool names.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_modeling_guide",
+    "outputSchema": null
+  },
+  "get_modeling_policy": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_modeling_policy",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "get_object_intersections": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "default": "",
+          "type": "string"
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "include_blocks": {
+          "default": false,
+          "type": "boolean"
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "max_pairs": {
+          "default": 64,
+          "type": "integer"
+        },
+        "object_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "object_ids"
+      ],
+      "type": "object"
+    },
+    "name": "get_object_intersections",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_ontological_component": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "component_id": {
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "live": {
+          "default": false,
+          "type": "boolean"
+        },
+        "recursive": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "component_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_ontological_component",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_phase": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "phase_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_phase",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_plan": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "plan_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_plan",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_retrieval_status": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_retrieval_status",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_rhino_context": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "depth": {
+          "default": 1,
+          "description": "1..8, default 1. IDs are omitted unless include_ids=true.",
+          "type": "integer"
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "include_image": {
+          "default": false,
+          "description": "False keeps the JSON-only response. True returns JSON text first and\nthe current PNG from the same native UI call. An image_error preserves available\ncontext when capture fails. Use this when the current viewport is needed visually.",
+          "type": "boolean"
+        },
+        "recursive": {
+          "default": false,
+          "description": "False by default: summarize complete top-level groups and block instances.\nTrue expands nested members only to depth; partial groups remain object selections.",
+          "type": "boolean"
+        },
+        "sections": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "selection_limit": {
+          "default": 50,
+          "description": "Maximum selected object summaries, from 0 to 200; total/truncated are still reported.",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_rhino_context",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_rhino_execution": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "include_diagnostics": {
+          "default": false,
+          "type": "boolean"
+        },
+        "include_ids": {
+          "default": true,
+          "type": "boolean"
+        },
+        "include_result": {
+          "default": true,
+          "type": "boolean"
+        },
+        "include_stdout": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 100,
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        },
+        "request_id": {
+          "default": "",
+          "type": "string"
+        },
+        "result_fields": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_rhino_execution",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "get_rhino_objects": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_geometry_crcs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "face_limit": {
+          "default": 128,
+          "type": "integer"
+        },
+        "face_offset": {
+          "default": 0,
+          "type": "integer"
+        },
+        "fields": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "filters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_geometry": {
+          "default": false,
+          "type": "boolean"
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer"
+        },
+        "object_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        },
+        "result_mode": {
+          "default": "objects",
+          "type": "string"
+        },
+        "scope": {
+          "default": "visible",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_rhino_objects",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_rhino_viewport_image": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "depth": {
+          "default": 1,
+          "description": "1..8, default 1; higher values expose nested entity labels.",
+          "type": "integer"
+        },
+        "display_mode": {
+          "default": "",
+          "description": "Installed display mode name or GUID. Empty preserves the current\nmodel viewport mode; Named View/group/block captures default to Shaded. List\navailable modes with get_rhino_context(sections=[\"display_modes\"], include_ids=true).\nRealtime rendering modes such as Raytraced are rejected; this tool does not\nwait for asynchronous rendering to finish.",
+          "type": "string"
+        },
+        "include_usage": {
+          "default": false,
+          "description": "False returns only an image. True also returns dimensions and an\nillustrative token estimate (32px patches x 1.2, without provider resizing).\nActual usage depends on the client's model and detail setting, which MCP\ndoes not supply. PNG compression reduces bytes, not pixel-token counts.",
+          "type": "boolean"
+        },
+        "labels": {
+          "default": true,
+          "description": "True by default. Transient pixels show top-level group name/GUID, block\ninstance name/GUID and ungrouped object GUID, without creating document objects.\nAt most 200 labels; explicit smaller targets/depth narrow a truncated overlay.",
+          "type": "boolean"
+        },
+        "scale_percent": {
+          "default": 75,
+          "description": "Integer from 1 to 100; default 75. Use 100 for visual drawing review. Controls pixels, not a Layout Detail's drawing scale.",
+          "type": "integer"
+        },
+        "target_id": {
+          "default": "",
+          "description": "Persistent group GUID or block instance GUID for group/block; leave view\nempty. Definition GUIDs are not block instance targets.",
+          "type": "string"
+        },
+        "target_kind": {
+          "default": "view",
+          "description": "view (default), group or block. group/block frame target bounds in a\ndetached viewport and label that target; surrounding geometry stays visible.",
+          "type": "string"
+        },
+        "view": {
+          "default": "",
+          "description": "Empty for current view, \"a\" for the grouped list, or a listed GUID.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_rhino_viewport_image",
+    "outputSchema": null
+  },
+  "get_scene_objects": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        },
+        "scene_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_scene_objects",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_selection_references": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer"
+        },
+        "selection_limit": {
+          "default": 50,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_selection_references",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_typology_narrative": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "construction_system": {
+          "default": "",
+          "description": "Filter to entries related to a construction\nlibrary system_id (e.g. \"steel-column-frame\").",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 5,
+          "description": "Maximum entries returned (default 5).",
+          "type": "integer"
+        },
+        "query": {
+          "default": "",
+          "description": "Free text (e.g. \"courtyard\", \"skyscraper\", \"timber hall\").",
+          "type": "string"
+        },
+        "structure_type": {
+          "default": "",
+          "description": "Filter by validate_structure type (\"shell\",\n\"truss\", \"frame\", \"membrane\", ...).",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_typology_narrative",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "import_asset_contract": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_path": {
+          "description": "Path to a .almond.json contract file.",
+          "type": "string"
+        },
+        "layer": {
+          "default": "ALMOND-EXCHANGE",
+          "description": "Destination layer, created if absent.",
+          "type": "string"
+        },
+        "rotation_degrees": {
+          "default": 0,
+          "description": "Rotation about world Z.",
+          "type": "number"
+        },
+        "x_mm": {
+          "default": 0,
+          "type": "number"
+        },
+        "y_mm": {
+          "default": 0,
+          "type": "number"
+        },
+        "z_mm": {
+          "default": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "contract_path"
+      ],
+      "type": "object"
+    },
+    "name": "import_asset_contract",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "import_drawing_hatch_patterns": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "name": "import_drawing_hatch_patterns",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_capsules": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "audited_only": {
+          "default": false,
+          "description": "When true, list only capsules that run_gh_definition will accept.",
+          "type": "boolean"
+        },
+        "capability": {
+          "default": "",
+          "description": "Optional filter: \"analyze\", \"generate\", \"form_find\", or \"aggregate\".",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_capsules",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_design_codes": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_design_codes",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_design_scenes": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "file_name": {
+          "default": "",
+          "type": "string"
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer"
+        },
+        "name": {
+          "default": "",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_design_scenes",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_diagram_assets": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "default": "",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 20,
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_diagram_assets",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_drawing_assets": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "default": "",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 20,
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_drawing_assets",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_drawing_recipes": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_drawing_recipes",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_library": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_library",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_materials": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "default": "",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "query": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_materials",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_ontological_components": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "recursive": {
+          "default": false,
+          "type": "boolean"
+        },
+        "scene_id": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_ontological_components",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_phases": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_phases",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_plan_revisions": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer"
+        },
+        "plan_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_id"
+      ],
+      "type": "object"
+    },
+    "name": "list_plan_revisions",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_plans": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer"
+        },
+        "phase_id": {
+          "default": "",
+          "type": "string"
+        },
+        "scene_id": {
+          "default": "",
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_plans",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "list_project_files": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_project_files",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "place_diagram_asset": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        },
+        "rotation_degrees": {
+          "default": 0,
+          "type": "number"
+        },
+        "scale": {
+          "default": 1,
+          "type": "number"
+        },
+        "x": {
+          "default": 0,
+          "type": "number"
+        },
+        "y": {
+          "default": 0,
+          "type": "number"
+        },
+        "z": {
+          "default": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "name": "place_diagram_asset",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "place_drawing_asset": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        },
+        "rotation_degrees": {
+          "default": 0,
+          "type": "number"
+        },
+        "scale": {
+          "default": 1,
+          "type": "number"
+        },
+        "x": {
+          "default": 0,
+          "type": "number"
+        },
+        "y": {
+          "default": 0,
+          "type": "number"
+        },
+        "z": {
+          "default": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "name": "place_drawing_asset",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "prepare_drawing_asset": {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "input_units": {
+          "default": "",
+          "type": "string"
+        },
+        "job_dir": {
+          "default": "",
+          "type": "string"
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        },
+        "review": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source_file": {
+          "default": "",
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage"
+      ],
+      "type": "object"
+    },
+    "name": "prepare_drawing_asset",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "project_info": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "sections": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "type": "object"
+    },
+    "name": "project_info",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "publish_objects_to_chestnut": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "default": "",
+          "description": "Stable optional ID for linked updates. Generated deterministically\n      from the Rhino document and GUIDs when omitted.",
+          "type": "string"
+        },
+        "asset_name": {
+          "description": "Human-readable name shown in Chestnut.",
+          "type": "string"
+        },
+        "body_type": {
+          "default": "static",
+          "description": "\"static\" for architecture, \"dynamic\" for loose props, or\n       \"kinematic\" for script-driven objects.",
+          "type": "string"
+        },
+        "collider": {
+          "default": "box",
+          "description": "Collider intent: \"box\", \"convex\", \"compound\", or \"trimesh\".\n      Chestnut currently falls back to a box where needed.",
+          "type": "string"
+        },
+        "guids": {
+          "description": "Rhino object GUIDs to export. Unrelated document objects are excluded.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mass": {
+          "default": 0.0,
+          "description": "Physics mass in kilograms. Static bodies always use zero.",
+          "type": "number"
+        },
+        "preserve_scale": {
+          "default": true,
+          "description": "Keep Rhino's real-world dimensions instead of normalizing\n            the model to a one-metre display prop.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "guids",
+        "asset_name"
+      ],
+      "type": "object"
+    },
+    "name": "publish_objects_to_chestnut",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "publish_to_chestnut": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "default": "",
+          "description": "Optional stable link ID. Omit for a deterministic Rhino link.",
+          "type": "string"
+        },
+        "asset_name": {
+          "description": "Human-readable asset name.",
+          "type": "string"
+        },
+        "behavior": {
+          "default": "auto",
+          "description": "Optional semantic preset:\n\"auto\"         — infer architecture versus movable object from name\n\"architecture\" — fixed building, terrain, structure, or enclosure\n\"object\"       — movable physical prop affected by gravity\n\"animated\"     — script-driven door, lift, platform, or mechanism",
+          "type": "string"
+        },
+        "guids": {
+          "description": "Rhino object GUIDs returned by execute_rhino_script.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "guids",
+        "asset_name"
+      ],
+      "type": "object"
+    },
+    "name": "publish_to_chestnut",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "refresh_asset": {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "name": "refresh_asset",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "register_drawing_asset": {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        },
+        "category": {
+          "default": "other",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "preparation_job": {
+          "default": "",
+          "type": "string"
+        },
+        "replace_existing": {
+          "default": false,
+          "type": "boolean"
+        },
+        "source_3dm": {
+          "type": "string"
+        },
+        "source_url": {
+          "default": "",
+          "type": "string"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "source_3dm",
+        "asset_id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "register_drawing_asset",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "remove_ontological_component": {
+    "annotations": {
+      "destructiveHint": false
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "component_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "component_id"
+      ],
+      "type": "object"
+    },
+    "name": "remove_ontological_component",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "rename_artifact_folder": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "plan_id": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "rename_artifact_folder",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "resolve_object_intersection": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "keep": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "pair_state": {
+          "type": "string"
+        },
+        "trim": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": [
+        "keep",
+        "trim",
+        "pair_state"
+      ],
+      "type": "object"
+    },
+    "name": "resolve_object_intersection",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "resolve_targets": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "step_id": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_id"
+      ],
+      "type": "object"
+    },
+    "name": "resolve_targets",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "run_gh_definition": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "capsule_id": {
+          "description": "Stable capsule identifier from list_capsules (e.g. \"karamba_beam_v1\").",
+          "type": "string"
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "description": "Object mapping ALMOND_IN_* port names to values (forms above).",
+          "type": "object"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional integer seed for stochastic definitions; omit for deterministic ones."
+        },
+        "timeout_s": {
+          "default": 60.0,
+          "description": "Solver budget in seconds (default 60, max 600).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "capsule_id",
+        "inputs"
+      ],
+      "type": "object"
+    },
+    "name": "run_gh_definition",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "save_rhino_document": {
+    "annotations": {
+      "destructiveHint": false
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "save_rhino_document",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "search_asset_repository": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "drawing_ready": {
+          "default": false,
+          "type": "boolean"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "kind": {
+          "default": "all",
+          "type": "string"
+        },
+        "limit": {
+          "default": 20,
+          "type": "integer"
+        },
+        "query": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "search_asset_repository",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "search_detail_sources": {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "query": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "search_detail_sources",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "search_diagram_assets": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "default": "",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 10,
+          "type": "integer"
+        },
+        "max_depth_mm": {
+          "default": 0,
+          "type": "number"
+        },
+        "max_height_mm": {
+          "default": 0,
+          "type": "number"
+        },
+        "max_width_mm": {
+          "default": 0,
+          "type": "number"
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        },
+        "query": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "search_diagram_assets",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "search_drawing_assets": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "default": "",
+          "type": "string"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 10,
+          "type": "integer"
+        },
+        "max_depth_mm": {
+          "default": 0,
+          "type": "number"
+        },
+        "max_height_mm": {
+          "default": 0,
+          "type": "number"
+        },
+        "max_width_mm": {
+          "default": 0,
+          "type": "number"
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer"
+        },
+        "query": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "search_drawing_assets",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "set_working_plan": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_name": {
+          "default": "",
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "step_id": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_id"
+      ],
+      "type": "object"
+    },
+    "name": "set_working_plan",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "setup_modeling": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "type": "string"
+        },
+        "overwrite": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "type": "object"
+    },
+    "name": "setup_modeling",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "show_object_intersection": {
+    "annotations": {
+      "destructiveHint": false
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "a": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "b": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "clear": {
+          "default": false,
+          "type": "boolean"
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "pair_state": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "show_object_intersection",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "sync_ontological_component": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "component_id": {
+          "default": "",
+          "type": "string"
+        },
+        "component_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "rhino_group_id": {
+          "default": "",
+          "type": "string"
+        },
+        "scene_id": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "sync_ontological_component",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "update_design_scene": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "file_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "project_file_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "scene_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_id"
+      ],
+      "type": "object"
+    },
+    "name": "update_design_scene",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "update_phase": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "file_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "phase_id": {
+          "type": "string"
+        },
+        "project_file_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "phase_id"
+      ],
+      "type": "object"
+    },
+    "name": "update_phase",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "update_plan": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_refs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "component_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expected_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "phase_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "scene_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "plan_id"
+      ],
+      "type": "object"
+    },
+    "name": "update_plan",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "update_step": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "component_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expected_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "input_refs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_refs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "step_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_id",
+        "step_id",
+        "status"
+      ],
+      "type": "object"
+    },
+    "name": "update_step",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "upsert_ontological_component": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "child_component_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "component_id": {
+          "default": "",
+          "type": "string"
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "object_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rhino_group_id": {
+          "default": "",
+          "type": "string"
+        },
+        "scene_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name",
+        "object_ids"
+      ],
+      "type": "object"
+    },
+    "name": "upsert_ontological_component",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "validate_structure": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_loads": {
+          "default": false,
+          "description": "add the gravity loads of placed library assets (estimated self weight\nplus in-use contents/occupants from each asset's load entry, e.g. a filled\nbathtub) where they stand on (or hang from) the frame. Placements come from\nRhino objects tagged with an Almond asset id, or from the scene ledger when\nscene_id is given. Native engine only; the result's \"asset_loads\" lists every\nplacement with its load and carrying members, or why it was not applied.",
+          "type": "boolean"
+        },
+        "connections": {
+          "default": "rigid",
+          "description": "\"rigid\" (default: every joint transmits moment) or \"simple\": beams are\npinned (major-axis bending released) and braces pinned in both axes where they\nstop - not where another member carries on in line - while columns stay\ncontinuous. Typical bolted steel and timber framing is closer to \"simple\"; rigid\njoints can flatter beam deflection. A curve's user text almond:release = \"pinned\" |\n\"pinned_start\" | \"pinned_end\" | \"rigid\" overrides either mode. Native engine.",
+          "type": "string"
+        },
+        "design_basis": {
+          "default": "en1990",
+          "description": "\"en1990\" (default): deflection at SLS characteristic (G + Q), member\nchecks at ULS 1.35 G + 1.5 Q. G = self weight, floor build-up and the weight of\nplaced items; Q = load_kn, the occupancy floor load, contents and occupants.\n\"unfactored\" checks both at G + Q (the Karamba route's basis). Native engine.",
+          "type": "string"
+        },
+        "design_code": {
+          "default": "eurocode",
+          "description": "design code profile for the numbers a code or National Annex sets\n(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, deflection limit): \"eurocode\"\n(default, EN recommended values), any profile from list_design_codes, or \"off\"\n(unfactored G + Q, no partial factors; same as design_basis=\"unfactored\").\nResults carry \"design_code\" with the values used and any unverified ones.",
+          "type": "string"
+        },
+        "detail": {
+          "default": false,
+          "description": "native engine only. Adds \"members\" (per member: role, length, section, ULS design\nforces N/V/M/T, governing combination and check, slenderness, chi, stress,\nutilization, SLS deflection and span/deflection ratio, pinned ends) and \"supports\"\n(reactions Fx..Mz at SLS and each ULS combination). Off by default to keep replies short.",
+          "type": "boolean"
+        },
+        "engine": {
+          "default": "auto",
+          "description": "\"auto\" | \"native\" | \"karamba\" (see above).",
+          "type": "string"
+        },
+        "fabrication": {
+          "default": "cold_formed",
+          "description": "hollow steel sections (CHS/RHS) are \"cold_formed\" (default, EN 10219,\nbuckling curve c) or \"hot_finished\" (EN 10210, curve a; a0 for S460). The difference\nis up to about 23 % in buckling resistance; use hot_finished only when specified.",
+          "type": "string"
+        },
+        "fixed_supports": {
+          "default": true,
+          "description": "True = fully fixed supports, False = pinned (rotations free).",
+          "type": "boolean"
+        },
+        "floor_dead_kn_m2": {
+          "default": 0.0,
+          "description": "superimposed dead load in kN/m2 (floor build-up, finishes) on the\nsame bays.",
+          "type": "number"
+        },
+        "floor_load_kn_m2": {
+          "default": 0.0,
+          "description": "imposed floor load in kN/m2 (e.g. 2.0 for homes, EN 1991-1-1\ncategory A) on every bay enclosed by beams on a level; the beams take it by the\n45-degree rule (two-way, one-way above 2:1). Native engine only. A code floor load\nalready covers movable furniture and people: combine it with asset_loads only for\nheavy specific items, and set load_kn to 0 to avoid double counting.",
+          "type": "number"
+        },
+        "guids": {
+          "description": "Current Rhino object GUID strings in the analysis scope.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "load_kn": {
+          "default": 10.0,
+          "description": "Applied load in kN (default 10.0).",
+          "type": "number"
+        },
+        "material": {
+          "default": "Steel",
+          "description": "Material type: \"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\" (default \"Steel\").",
+          "type": "string"
+        },
+        "self_weight": {
+          "default": true,
+          "description": "include member self weight.",
+          "type": "boolean"
+        },
+        "span_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "structural span in meters for the L/250 limit when members are split at\nevery node (e.g. a 6.2 m joist drawn as two 3.1 m segments). Native engine only."
+        },
+        "stability": {
+          "default": "auto",
+          "description": "\"auto\" (default): elastic critical load factor alpha_cr for every ULS\ncombination (EN 1993-1-1 5.2.1) and sway imperfections phi = 1/200 x alpha_h x alpha_m\n(5.3.2) in +/-x and +/-y; alpha_cr < 10 runs a second-order (P-Delta) ULS analysis,\nalpha_cr <= 1 fails as unstable. \"off\": first-order without imperfections.",
+          "type": "string"
+        },
+        "structure_type": {
+          "default": "beam",
+          "description": "Analysis template to use. Options:\n\"beam\"       — simple beam bending/deflection\n\"truss\"      — axial force/buckling analysis\n\"shell\"      — shell stress/displacement\n\"frame\"      — moment/shear frame analysis\n\"canopy\"     — cantilevered canopy\n\"gridshell\"  — large deformation gridshell\n\"membrane\"   — form-finding membrane\n\"highrise\"   — high-rise structural systems",
+          "type": "string"
+        },
+        "uls_combination": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "\"6.10\" or \"6.10ab\" (the worse of 6.10a and 6.10b per member). Default:\nthe design code's choice (Eurocode profile: 6.10). A profile that prescribes one\nexpression overrides the request (with a warning)."
+        }
+      },
+      "required": [
+        "guids"
+      ],
+      "type": "object"
+    },
+    "name": "validate_structure",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "visualize_structure": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_loads": {
+          "default": false,
+          "description": "add the loads of placed library assets (native engine), as in\nvalidate_structure; loaded points are drawn with load arrows.",
+          "type": "boolean"
+        },
+        "beam_diameter_mm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "beam_wall_mm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "clear": {
+          "default": false,
+          "description": "remove the overlay.",
+          "type": "boolean"
+        },
+        "color_by": {
+          "default": "displacement",
+          "description": "\"displacement\" or \"utilization\".",
+          "type": "string"
+        },
+        "connections": {
+          "default": "rigid",
+          "description": "\"rigid\" or \"simple\", as in validate_structure; pinned ends are drawn\nas small circles.",
+          "type": "string"
+        },
+        "deflection_limit_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "span/ratio limit, e.g. 250 for L/250. Default: the design code's\nlimit (Eurocode profile: 250)."
+        },
+        "design_basis": {
+          "default": "en1990",
+          "type": "string"
+        },
+        "design_code": {
+          "default": "eurocode",
+          "type": "string"
+        },
+        "display_guids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "draw only these members (e.g. one frame line for a section\nview); the analysis still covers every member in guids."
+        },
+        "engine": {
+          "default": "auto",
+          "description": "\"auto\" (default: Almond's native frame solver, no Karamba needed; Karamba\nwhen the selection has shells or the bridge cannot export a model),\n\"native\" or \"karamba\".",
+          "type": "string"
+        },
+        "fabrication": {
+          "default": "cold_formed",
+          "type": "string"
+        },
+        "fixed_supports": {
+          "default": true,
+          "description": "True = fully fixed supports, False = pinned (rotations free).",
+          "type": "boolean"
+        },
+        "floor_dead_kn_m2": {
+          "default": 0.0,
+          "type": "number"
+        },
+        "floor_load_kn_m2": {
+          "default": 0.0,
+          "type": "number"
+        },
+        "guids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Curve GUIDs of the structural axes plus point GUIDs marking supports\n(see fixed_supports). Without points, the lowest nodes are supported."
+        },
+        "load_kn": {
+          "default": 10.0,
+          "description": "Total imposed load in kN, shared equally by the free nodes (-Z).",
+          "type": "number"
+        },
+        "material": {
+          "default": "Steel",
+          "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\".",
+          "type": "string"
+        },
+        "physics": {
+          "default": true,
+          "description": "False draws the same members as plain geometry with no analysis\noverlay (\"physics off\"), for before/after comparisons.",
+          "type": "boolean"
+        },
+        "reanalyze": {
+          "default": true,
+          "description": "False re-uses the last solve and only changes the display\n(scale / color_by / reveal / physics / title) - cheap enough to animate.",
+          "type": "boolean"
+        },
+        "reveal": {
+          "default": 1.0,
+          "description": "0..1 fraction of members drawn (for staged construction playback).",
+          "type": "number"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "deformation exaggeration; omit for automatic (~6% of span)."
+        },
+        "self_weight": {
+          "default": true,
+          "description": "include gravity.",
+          "type": "boolean"
+        },
+        "span_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "reference span in meters for the limit (default: longest member).\nSet it when members are split at every node, e.g. a 6.2 m joist drawn\nas two 3.1 m segments."
+        },
+        "stability": {
+          "default": "auto",
+          "description": "\"auto\" or \"off\", as in validate_structure.",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "description": "legend title.",
+          "type": "string"
+        },
+        "uls_combination": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "view": {
+          "default": "deflection",
+          "description": "\"deflection\" (default) or \"buckling\": draw the first buckling mode of the\ngoverning ULS combination with its alpha_cr (STABLE >= 10, SWAY-SENSITIVE 1-10,\nUNSTABLE <= 1) instead of the deflected shape.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "visualize_structure",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  }
+}

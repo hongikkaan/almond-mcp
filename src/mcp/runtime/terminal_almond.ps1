@@ -93,7 +93,7 @@ try {
         -RhinoPid $ready.pid -RhinoStartTicks $ready.process_start_ticks -CodexPath $codex `
         -StateDb $project.state_db -WorkDir $project.project_dir `
         -SessionPath $project.ready_path -SessionToken $sessionToken -CheckOnly:$CheckOnly `
-        -Resume:$resume -ResumeSessionId $SessionId
+        -RhinoTerminal -Resume:$resume -ResumeSessionId $SessionId
     if (-not $CheckOnly) {
         Write-Host '이 패널에서 이어가기: almond resume 또는 almond resume 세션UUID'
     }

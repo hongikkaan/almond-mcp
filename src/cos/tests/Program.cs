@@ -1,52 +1,29 @@
-using System.Diagnostics;
-using System.Text;
+using System.IO.Pipes;
 using System.Text.Json;
 using AlmondRhino;
 
-// A disposable console process, with no Rhino references, slots, ports or models.
-Console.OutputEncoding = new UTF8Encoding(false);
-using var process = Process.GetCurrentProcess();
-string name = "AlmondRhino-" + process.Id + "-fixture-" + Guid.NewGuid().ToString("N");
-string access = Guid.NewGuid().ToString("N");
-var released = new List<string>();
-string attached = "";
-var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-using var pipe = new ControlPipe(name, access, async (request, cancellation) =>
+var released = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+string name = "Almond-test-" + Guid.NewGuid().ToString("N"), token = Guid.NewGuid().ToString("N"), owner = Guid.NewGuid().ToString("N");
+using var server = new ControlPipe(name, token, (request, _) => Task.FromResult<object>(new { accepted = true }), session => { released.TrySetResult(session); return Task.CompletedTask; });
+using (var client = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous))
 {
-    switch (request.GetProperty("action").GetString())
+    await client.ConnectAsync(5000);
+    client.ReadMode = PipeTransmissionMode.Message;
+    async Task<JsonDocument> Send(object request)
     {
-        case "describe": return new { attached, released = released.ToArray() };
-        case "echo": return new { text = request.GetProperty("text").GetString() };
-        case "large": return new { text = new string('한', 10000) };
-        case "attach":
-            attached = request.GetProperty("session_token").GetString()!;
-            if (request.TryGetProperty("hold", out var hold) && hold.GetBoolean())
-            {
-                Console.WriteLine("ATTACHED");
-                await resume.Task.WaitAsync(cancellation);
-            }
-            return new { attached = true };
-        case "detach":
-            if (attached != request.GetProperty("session_token").GetString())
-                throw new InvalidOperationException("Fixture owner mismatch");
-            attached = "";
-            return new { detached = true };
-        default: throw new InvalidOperationException("Fixture action mismatch");
+        await client.WriteAsync(JsonSerializer.SerializeToUtf8Bytes(request));
+        byte[] data = new byte[65536]; int count = 0;
+        do { count += await client.ReadAsync(data.AsMemory(count)); } while (!client.IsMessageComplete);
+        return JsonDocument.Parse(data.AsMemory(0, count));
     }
-}, owner =>
-{
-    released.Add(owner);
-    if (owner == attached) attached = "";
-    return Task.CompletedTask;
-});
-Console.WriteLine(JsonSerializer.Serialize(new {
-    host_id = "fixture", pid = process.Id, process_start_ticks = process.StartTime.ToUniversalTime().Ticks.ToString(),
-    pipe = name, access_token = access
-}));
-while (await Console.In.ReadLineAsync() is string line)
-{
-    if (line == "go") resume.TrySetResult();
-    if (line == "stop") break;
+    using (var rejected = await Send(new { id = 1, access_token = "wrong", action = "attach", session_token = owner }))
+        if (rejected.RootElement.GetProperty("ok").GetBoolean()) throw new Exception("Wrong access token accepted");
+    using (var accepted = await Send(new { id = 2, access_token = token, action = "attach", session_token = owner }))
+        if (!accepted.RootElement.GetProperty("ok").GetBoolean()) throw new Exception("Valid owner rejected");
+    using (var changed = await Send(new { id = 3, access_token = token, action = "attach", session_token = "other" }))
+        if (changed.RootElement.GetProperty("ok").GetBoolean()) throw new Exception("Pipe changed owner");
 }
-pipe.Dispose();
-await pipe.Completion.WaitAsync(TimeSpan.FromSeconds(3));
+if (await released.Task.WaitAsync(TimeSpan.FromSeconds(5)) != owner) throw new Exception("Disconnected owner not released");
+server.Dispose();
+await server.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+Console.WriteLine("PASS: control token, owner isolation and disconnect cleanup");

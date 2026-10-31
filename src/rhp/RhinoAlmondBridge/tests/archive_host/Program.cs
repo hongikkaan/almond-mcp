@@ -1,56 +1,18 @@
 using System;
-using System.Threading;
 using System.IO;
-using System.Threading.Tasks;
+using System.Text;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using RhinoAlmondBridge;
 
-class Program
+Console.OutputEncoding = new UTF8Encoding(false);
+if (args.Length != 3 || args[0] != "--mesh")
 {
-    static void Main(string[] args)
-    {
-        // Python integration probes read every mode, including validation errors, as UTF-8.
-        Console.OutputEncoding = new System.Text.UTF8Encoding(false);
-        if (args[0] == "--settings")
-        {
-            try { Console.WriteLine(AnalysisSettings.Parse(File.ReadAllText(args[1])).ToJson().ToString(Formatting.None)); }
-            catch(Exception ex) { Console.Error.WriteLine(ex.Message); Environment.ExitCode=1; }
-            return;
-        }
-        if (args[0] == "--package")
-        {
-            Console.WriteLine(NativeSolver.PackageFor(args[1]));
-            return;
-        }
-        if (args[0] == "--solve")
-        {
-            // the panel's process boundary: request file -> almond-mcp solve -> reply on stdout
-            var reply = NativeSolver.RunAsync(Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(args[1])), 120000).GetAwaiter().GetResult();
-            Console.OutputEncoding = new System.Text.UTF8Encoding(false);
-            Console.WriteLine(reply.ToString(Formatting.None));
-            return;
-        }
-        if (args[0] == "--mesh")
-        {
-            try
-            {
-                var mesh = ArchiveMeshData.Decode(File.ReadAllBytes(args[1]), args[2]);
-                Console.WriteLine(JsonConvert.SerializeObject(mesh));
-            }
-            catch (Exception ex) { Console.Error.WriteLine(ex.Message); Environment.ExitCode = 1; }
-            return;
-        }
-        Func<Task<JObject>> snapshot = null;
-        if (args.Length > 2 && args[1] == "--snapshot")
-            snapshot = () => Task.FromResult(JObject.Parse(File.ReadAllText(args[2])));
-        using (var server = new ArchiveHttpServer(args[0], snapshot))
-        {
-            server.Start();
-            Console.WriteLine(server.Url);
-            Console.Out.Flush();
-            if (args.Length > 1 && args[1] == "--serve") new ManualResetEvent(false).WaitOne();
-            else Console.ReadLine();
-        }
-    }
+    Console.Error.WriteLine("Usage: ArchiveHost --mesh <glb> <asset-id>");
+    return 2;
 }
+try
+{
+    Console.WriteLine(JsonConvert.SerializeObject(ArchiveMeshData.Decode(File.ReadAllBytes(args[1]), args[2])));
+    return 0;
+}
+catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }

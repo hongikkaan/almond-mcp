@@ -1,8 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net48</TargetFramework><LangVersion>latest</LangVersion></PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><Nullable>disable</Nullable></PropertyGroup>
   <ItemGroup><PackageReference Include="Newtonsoft.Json" Version="13.0.3" /></ItemGroup>
-  <ItemGroup><Compile Include="../../../Asset_Panel/ArchiveHttpServer.cs" Link="ArchiveHttpServer.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../../Asset_Panel/ArchiveMeshData.cs" Link="ArchiveMeshData.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="../../../Structural_Analysis/AnalysisSettings.cs" Link="AnalysisSettings.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="../../../../mcp/features/structure/native/NativeSolver.cs" Link="NativeSolver.cs" /></ItemGroup>
 </Project>
