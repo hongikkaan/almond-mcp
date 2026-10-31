@@ -6,6 +6,8 @@
 
 ## 작업 방법
 
+- 해치를 Drawing::Hatch의 90% 검정·No Print로 출력하고 단면·입면 곡선 인쇄 속성을 ByLayer로 변경했다.
+
 - Project/CurrentDocument 선택과 Project의 단일 번호·All·List 입력을 반영하고 쉼표 구분 숫자 입력을 제거했다.
 
 - 공식 RhinoCode로 AlmondConnect를 실행한 뒤 공개 MCP 실행기로 기존 지하 평면·장단면 clipping을 사용했다. Create·Move·Update와 벡터 PDF를 확인하고 원본 3dm은 저장하지 않았다.

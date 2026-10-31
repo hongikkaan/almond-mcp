@@ -14,7 +14,7 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 첫 단계에서 Project/CurrentDocument 사용 방식을 선택한 뒤 Create·Update·Move·PDF 네 작업 중 하나를 선택한다. Project는 번호와 이름을 출력하며 번호 하나, `All`, 또는 `List`를 입력받는다. `List`는 이름 내림차순 clipping 목록 창을 연다. 쉼표로 구분한 숫자는 받지 않는다. CurrentDocument는 GUID를 쉼표·공백으로 입력한다. 목록은 동명을 GUID로 구분하며 Ctrl/Shift 다중 선택과 Enter 확정을 지원한다. 여러 GUID는 요청 순서를 유지하고 중복은 제거하며, 없는 GUID가 하나라도 있으면 전체 요청을 실행 전에 거절한다.
 
-Create·Update·PDF는 선택 후 Enter로 표시된 설정을 사용하고 `Change`로 옵션을 수정한다. Move는 표현 옵션을 묻지 않는다. 초기값은 Hatch=True, Elevation=True, PickPlacement=False, SmallDetails=Keep, Near/Far Width=0.09/0.04mm, Near/Far Dark=80/45%다. Darkness 100%는 검정이다. 최근 표현 옵션은 같은 Rhino 세션에서 재사용하되 작업은 매번 명시적으로 선택한다. Output=Document/Files와 PickPlacement는 Create에만 있다. Update·Move·PDF는 생성 옵션에 들어가지 않는다. 아래 표의 Placement는 Move 작업의 내부 모드명이다.
+Create·Update·PDF는 선택 후 Enter로 표시된 설정을 사용하고 `Change`로 옵션을 수정한다. Move는 표현 옵션을 묻지 않는다. 초기값은 Hatch=True, Elevation=True, PickPlacement=False, SmallDetails=Keep, Near/Far Width=0.09/0.04mm, Near/Far Dark=80/45%다. 이 거리별 값은 내부 스타일 구분에 사용하며 최종 곡선 인쇄색·두께는 ByLayer다. Darkness 100%는 검정이다. 최근 표현 옵션은 같은 Rhino 세션에서 재사용하되 작업은 매번 명시적으로 선택한다. Output=Document/Files와 PickPlacement는 Create에만 있다. Update·Move·PDF는 생성 옵션에 들어가지 않는다. 아래 표의 Placement는 Move 작업의 내부 모드명이다.
 
 | Output | 하는 일 | 도면 원점 | 기존 도면과 객체 ID |
 | --- | --- | --- | --- |
@@ -209,11 +209,11 @@ drawing(p) = (Tx + u, Ty - v, Tz)
 
 | 출력 | 로컬 레이어 | 표현 |
 | --- | --- | --- |
-| 단면선 | `Drawing::Section` | 해석한 원본 표현에 SectionStyle boundary color/print color/custom linetype 적용 |
-| 해치 | `D::Hatch::Pattern` | SectionStyle 패턴·화면색; print color는 ByLayer |
-| 입면선 | `Drawing::Elevation` | 원본 display/linetype + 거리별 plot width/grayscale |
+| 단면선 | `Drawing::Section` | 원본 화면 표현과 SectionStyle 경계 색·선종류; 인쇄색·인쇄 두께는 ByLayer |
+| 해치 | `Drawing::Hatch` | SectionStyle 패턴·스케일; 화면색·인쇄색은 레이어의 90% 검정, 인쇄 두께는 No Print |
+| 입면선 | `Drawing::Elevation` | 원본 화면색·선종류; 인쇄색·인쇄 두께는 ByLayer |
 
-원본의 숨김·잠금·그룹·참조 소유권·재질은 출력 속성으로 복사하지 않는다. 목적 레이어나 부모가 참조·숨김·잠금이면 Document 출력은 명시적으로 실패한다. SectionAttributesSource.FromSectioner는 지원하지 않는다. BoundaryVisible/화면용 BoundaryWidthScale, 재질, viewport별 override를 일반 도면 속성으로 변환하지 않는다.
+원본의 숨김·잠금·그룹·참조 소유권·재질은 출력 속성으로 복사하지 않는다. 목적 레이어나 부모가 참조·숨김·잠금이면 Document 출력은 명시적으로 실패한다. Document 출력은 기존 Drawing::Hatch 레이어도 지정 색과 No Print로 갱신하며, Files/PDF에는 동일한 레이어 속성을 적용한다. SectionAttributesSource.FromSectioner는 지원하지 않는다. BoundaryVisible/화면용 BoundaryWidthScale, 재질, viewport별 override를 일반 도면 속성으로 변환하지 않는다.
 
 모든 출력 객체의 Name은 clipping 이름이다. 저장되는 user text는 `ps:source_layer`와 `ps:placement` 두 개다. 계산 중의 `ps:sources`·`ps:role`·`ps:style`·`ps:depth` 등은 출력 시 제거한다. Placement도 이 두 key로 정리하므로 임의로 추가한 출력 user text 보존을 보장하지 않는다.
 

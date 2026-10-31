@@ -15,7 +15,7 @@ G = R.Geometry
 D = R.DocObjects
 CLIP_LAYER = 'setting::clipping::Section'
 SECTION_LAYER = 'Drawing::Section'
-HATCH_LAYER = 'D::Hatch::Pattern'
+HATCH_LAYER = 'Drawing::Hatch'
 ELEVATION_LAYER = 'Drawing::Elevation'
 OWNER = 'PlanSection/2'
 try:
@@ -970,10 +970,17 @@ def saved_placement(cp, existing):
     return draft_plane((next(iter(saved)) if saved else None) or cp.Attributes.GetUserString('draft_plane'))
 
 
-def output_attributes(original):
+def output_attributes(original, role=None):
     attrs = original.Duplicate()
     values = [(key, attrs.GetUserString(key)) for key in ('ps:source_layer', 'ps:placement')]
     attrs.DeleteAllUserStrings()
+    if role in ('section', 'elevation'):
+        attrs.PlotColorSource = D.ObjectPlotColorSource.PlotColorFromLayer
+        attrs.PlotWeightSource = D.ObjectPlotWeightSource.PlotWeightFromLayer
+    elif role == 'hatch':
+        attrs.ColorSource = D.ObjectColorSource.ColorFromLayer
+        attrs.PlotColorSource = D.ObjectPlotColorSource.PlotColorFromLayer
+        attrs.PlotWeightSource = D.ObjectPlotWeightSource.PlotWeightFromLayer
     for key, value in values:
         if value is not None: attrs.SetUserString(key, value)
     return attrs
@@ -1008,17 +1015,29 @@ def local_output_layer(doc, path):
     return index
 
 
+def configure_hatch_layer(layer):
+    layer.Color = layer.PlotColor = Color.FromArgb(26, 26, 26)
+    layer.PlotWeight = -1.0  # Rhino No Print
+
+
 def bake(doc, cp, drawing, target=None):
     old = drawing_objects(doc, cp)
     layers = {role: local_output_layer(doc, output_layer(role))
               for role in set(i['role'] for i in drawing['objects'])}
+    if 'hatch' in layers:
+        index = layers['hatch']
+        layer = doc.Layers[index]
+        layer.EnsurePrivateCopy()
+        configure_hatch_layer(layer)
+        if not doc.Layers.Modify(layer, index, True):
+            raise ValueError('Cannot configure hatch output layer')
     added, removed = [], []
     original = cp.Attributes.Duplicate()
     original_registry = None
     registry_changed = False
     try:
         for item in drawing['objects']:
-            attrs = output_attributes(item['attributes'])
+            attrs = output_attributes(item['attributes'], item['role'])
             attrs.LayerIndex = layers[item['role']]
             style = attrs.GetCustomSectionStyle()
             geometry = item['geometry']
@@ -1214,13 +1233,15 @@ def export_drawing(doc, drawing, folder, name):
                     if index >= 0 and not doc.Layers[index].IsReference:
                         original = doc.Layers[index]
                         copied.Color, copied.PlotColor, copied.PlotWeight = original.Color, original.PlotColor, original.PlotWeight
+                    if '::'.join(path.split('::')[:end]) == HATCH_LAYER:
+                        configure_hatch_layer(copied)
                     model.Layers.Add(copied)
                     found = model.Layers.FindName(part, parent)
                 parent = found.Id
             layers[path] = found.Index
             return found.Index
         for item in drawing['objects']:
-            attrs = output_attributes(item['attributes'])
+            attrs = output_attributes(item['attributes'], item['role'])
             attrs.LayerIndex = layer(output_layer(item['role']))
             attrs.LinetypeIndex = linetype(attrs.LinetypeIndex)
             style = attrs.GetCustomSectionStyle()
