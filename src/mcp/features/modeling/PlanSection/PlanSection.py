@@ -1399,14 +1399,28 @@ def resolve_clippings(planes, clipping_ids):
     return selected
 
 
-def select_clippings(planes, caller='User'):
+def select_clippings(planes, caller='Project'):
     import rhinoscriptsyntax as rs
     labels = ['{0}: {1} [{2}] | {3}'.format(i+1, cp.Name or 'Unnamed', cp.Id,
               cp.Document.Layers[cp.Attributes.LayerIndex].FullPath)
               for i, cp in enumerate(planes)]
-    if caller == 'User':
-        selected = select_clipping_list(labels)
-        return [cp for label, cp in zip(labels, planes) if label in (selected or [])]
+    if caller == 'Project':
+        for label in labels: print(label)
+        while True:
+            answer = rs.GetString('Section number, All, or List to open the selection window',
+                                  None, ['All', 'List'])
+            if answer is None: return []
+            answer = answer.strip().lower()
+            if answer == 'all': return planes
+            if answer == 'list':
+                selected = select_clipping_list(labels)
+                return [cp for label, cp in zip(labels, planes) if label in (selected or [])]
+            try:
+                number = int(answer)
+                if number < 1 or number > len(planes): raise ValueError()
+                return [planes[number-1]]
+            except ValueError:
+                print('Enter one number 1-{0}, All, or List.'.format(len(planes)))
     while True:
         answer = rs.GetString('Clipping plane GUIDs (comma or space separated)')
         if answer is None: return []
@@ -1626,7 +1640,7 @@ def main(doc=None):
     import rhinoscriptsyntax as rs
     doc = doc or R.RhinoDoc.ActiveDoc
     if doc is None: raise ValueError('Open a Rhino document first')
-    caller = rs.GetString('Clipping selection: User opens list; Agent enters GUIDs', 'User', ['User', 'Agent'])
+    caller = rs.GetString('Choose Project or CurrentDocument', 'Project', ['Project', 'CurrentDocument'])
     if caller is None: return
     operation = rs.GetString('PlanSection operation', 'Create', ['Create', 'Update', 'Move', 'PDF'])
     if operation is None: return

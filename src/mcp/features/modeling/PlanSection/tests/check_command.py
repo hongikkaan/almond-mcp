@@ -44,7 +44,7 @@ try:
     ps.select_clippings = lambda planes,caller:[p for p in planes if p.Id==clip_id]
     ps.get_options = lambda operation:dict(options)
     rs.GetString = lambda prompt,default,choices: (dict(Document='Create',Files='Create',Placement='Move').get(options['mode'],options['mode'])
-                                                  if choices[0]=='Create' else 'User')
+                                                  if choices[0]=='Create' else 'Project')
     ps.pick_placement = lambda *args:picked[0]
     rs.BrowseForFolder = lambda **kwargs:work
     def existing(): return ps.drawing_objects(doc,doc.Objects.FindId(clip_id))

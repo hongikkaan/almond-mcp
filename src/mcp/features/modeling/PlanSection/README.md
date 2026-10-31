@@ -10,8 +10,8 @@ Clipping plane에서 단면선·해치·입면선을 추출한다. 재료·구�
 _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSection\PlanSection.py"
 ```
 
-1. 먼저 **User / Agent** 중 사용 방식을 고른다. User는 기존 clipping 목록 UI, Agent는 GUID 입력 방식이다.
-2. **Create / Update / Move / PDF** 중 작업을 고른다. User는 목록 창에서 Ctrl/Shift로 여러 개를 선택한다. Agent는 clipping GUID를 쉼표나 공백으로 구분해 입력한다.
+1. 먼저 **Project / CurrentDocument** 중 사용 방식을 고른다. 둘 다 현재 연결된 문서를 대상으로 한다.
+2. **Create / Update / Move / PDF** 중 작업을 고른다. Project는 출력된 clipping 번호 하나, `All`, 또는 `List`를 입력한다. `List`는 Ctrl/Shift 다중 선택 창을 연다. 쉼표로 구분한 숫자는 받지 않는다. CurrentDocument는 clipping GUID를 쉼표나 공백으로 구분해 입력한다.
 3. Create·Update·PDF는 Enter로 현재 표현 옵션을 사용하거나 Change로 수정한다. Move는 표현 옵션 없이 각 도면의 새 원점을 찍는다.
 4. Create는 기본 Document로 현재 문서에 출력한다. Change의 Output=Files는 도면별 3dm을 만든다. PDF와 Files는 저장 폴더를 고른다.
 
@@ -26,7 +26,7 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 ## 에이전트에서 사용
 
-기존 `execute_rhino_script(language="python")` 경로에서 아래처럼 스크립트를 읽고 `run`을 호출한다. 런타임이 검증해 제공한 `doc`를 전달하며 다른 문서를 자동으로 열지 않는다. 이 함수는 목록·점·폴더 입력 창을 열지 않는다. 일반 `main()`의 Agent 선택은 GUID를 직접 타이핑하는 사용자용 진입이며, 무인 실행은 `run()`이다.
+기존 `execute_rhino_script(language="python")` 경로에서 아래처럼 스크립트를 읽고 `run`을 호출한다. 런타임이 검증해 제공한 `doc`를 전달하며 다른 문서를 자동으로 열지 않는다. 이 함수는 목록·점·폴더 입력 창을 열지 않는다. 일반 `main()`의 Project는 번호·목록 선택이고 CurrentDocument는 GUID 직접 입력이다. 무인 실행은 `run()`이다.
 
 공개 실행 도구는 RhinoCode를 사용하며 연결 문서의 `StartScriptServer`가 필요하다. `get_modeling_guide(tool="execute_rhino_script")`로 현재 실행 계약을 확인한다. MCP에서 대화형 `main()`이나 `runpy.run_path(..., run_name="__main__")`을 호출하지 않는다. 아래처럼 기본 `run_path`로 함수를 읽고 `result`에 JSON 결과를 대입한다. 실행기가 이미 연 Undo는 재사용하며 PlanSection이 종료하지 않는다.
 

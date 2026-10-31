@@ -12,7 +12,7 @@ Rhino 명령행에서 실행한다.
 _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSection\PlanSection.py"
 ```
 
-첫 단계에서 User/Agent 사용 방식을 선택한 뒤 Create·Update·Move·PDF 네 작업 중 하나를 선택한다. User는 이름 내림차순 clipping 목록 창을 바로 열고, Agent는 GUID를 쉼표·공백으로 입력한다. 목록은 동명을 GUID로 구분하며 Ctrl/Shift 다중 선택과 Enter 확정을 지원한다. 여러 GUID는 요청 순서를 유지하고 중복은 제거하며, 없는 GUID가 하나라도 있으면 전체 요청을 실행 전에 거절한다.
+첫 단계에서 Project/CurrentDocument 사용 방식을 선택한 뒤 Create·Update·Move·PDF 네 작업 중 하나를 선택한다. Project는 번호와 이름을 출력하며 번호 하나, `All`, 또는 `List`를 입력받는다. `List`는 이름 내림차순 clipping 목록 창을 연다. 쉼표로 구분한 숫자는 받지 않는다. CurrentDocument는 GUID를 쉼표·공백으로 입력한다. 목록은 동명을 GUID로 구분하며 Ctrl/Shift 다중 선택과 Enter 확정을 지원한다. 여러 GUID는 요청 순서를 유지하고 중복은 제거하며, 없는 GUID가 하나라도 있으면 전체 요청을 실행 전에 거절한다.
 
 Create·Update·PDF는 선택 후 Enter로 표시된 설정을 사용하고 `Change`로 옵션을 수정한다. Move는 표현 옵션을 묻지 않는다. 초기값은 Hatch=True, Elevation=True, PickPlacement=False, SmallDetails=Keep, Near/Far Width=0.09/0.04mm, Near/Far Dark=80/45%다. Darkness 100%는 검정이다. 최근 표현 옵션은 같은 Rhino 세션에서 재사용하되 작업은 매번 명시적으로 선택한다. Output=Document/Files와 PickPlacement는 Create에만 있다. Update·Move·PDF는 생성 옵션에 들어가지 않는다. 아래 표의 Placement는 Move 작업의 내부 모드명이다.
 
@@ -30,7 +30,7 @@ Update는 기존 도면이 없으면 건너뛰고 Document로 먼저 생성하�
 
 ## 2. 전체 처리 흐름과 코드 위치
 
-`main`은 작업·사용자/에이전트 선택과 옵션을 담당한다. `run(doc, operation, clipping_ids, points=None, folder=None, ...)`은 입력 창 없는 에이전트 진입점이다. Move는 GUID마다 유한한 XY 배치점이 필수이고 Create는 선택적이다. Update/PDF에는 배치점을 받지 않는다. Files/PDF에는 기존 출력 폴더가 필요하다. `run_selected`는 두 진입점이 공유하는 취소·Undo·일괄 반복이며, `process_clipping`은 도면 하나를 처리한다. 결과에는 완료·건너뜀·실패·취소, 생성 ID나 출력 경로가 구분된다. 배치 중 일부 실패가 앞선 완료를 되돌리지는 않는다. 호출 예시는 [README.md](README.md)를 따른다. 실제 형상 계산은 문서에 출력하지 않는 `generate`에 모여 있다. 모델 파일명·건물 용도·clipping 이름에 따른 생산 계산 분기는 없다.
+`main`은 Project/CurrentDocument, 작업과 옵션 선택을 담당한다. `run(doc, operation, clipping_ids, points=None, folder=None, ...)`은 입력 창 없는 에이전트 진입점이다. Move는 GUID마다 유한한 XY 배치점이 필수이고 Create는 선택적이다. Update/PDF에는 배치점을 받지 않는다. Files/PDF에는 기존 출력 폴더가 필요하다. `run_selected`는 두 진입점이 공유하는 취소·Undo·일괄 반복이며, `process_clipping`은 도면 하나를 처리한다. 결과에는 완료·건너뜀·실패·취소, 생성 ID나 출력 경로가 구분된다. 배치 중 일부 실패가 앞선 완료를 되돌리지는 않는다. 호출 예시는 [README.md](README.md)를 따른다. 실제 형상 계산은 문서에 출력하지 않는 `generate`에 모여 있다. 모델 파일명·건물 용도·clipping 이름에 따른 생산 계산 분기는 없다.
 
 ```mermaid
 flowchart TD

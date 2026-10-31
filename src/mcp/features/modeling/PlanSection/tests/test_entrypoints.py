@@ -35,23 +35,34 @@ class EntryPoints(unittest.TestCase):
                 ps.run(object(), 'Create', ids)
             execute.assert_not_called()
 
-    def test_user_goes_directly_to_multiselect_list(self):
-        rs = NS(GetString=Mock(side_effect=AssertionError('Unexpected prompt')))
+    def test_project_list_opens_dialog(self):
+        rs = NS(GetString=Mock(return_value='List'))
         with patch.dict(sys.modules, {'rhinoscriptsyntax':rs}), \
              patch.object(ps, 'select_clipping_list', side_effect=lambda labels: labels) as dialog:
             self.assertEqual(ps.select_clippings(self.planes), self.planes)
         dialog.assert_called_once()
-        rs.GetString.assert_not_called()
 
-    def test_agent_guid_selection_does_not_open_list(self):
+    def test_project_single_number_all_and_reject_comma(self):
+        rs = NS(GetString=Mock(side_effect=['1,2', '2']))
+        with patch.dict(sys.modules, {'rhinoscriptsyntax':rs}), \
+             patch.object(ps, 'select_clipping_list') as dialog:
+            self.assertEqual(ps.select_clippings(self.planes), [self.planes[1]])
+            self.assertEqual(rs.GetString.call_count, 2)
+            rs.GetString = Mock(return_value='All')
+            self.assertEqual(ps.select_clippings(self.planes), self.planes)
+            rs.GetString = Mock(return_value=None)
+            self.assertEqual(ps.select_clippings(self.planes), [])
+        dialog.assert_not_called()
+
+    def test_current_document_guid_selection_does_not_open_list(self):
         rs = NS(GetString=Mock(return_value=A + ',' + B))
         with patch.dict(sys.modules, {'rhinoscriptsyntax':rs}), \
              patch.object(ps, 'select_clipping_list') as dialog:
-            self.assertEqual(ps.select_clippings(self.planes, 'Agent'), self.planes)
+            self.assertEqual(ps.select_clippings(self.planes, 'CurrentDocument'), self.planes)
         dialog.assert_not_called()
 
-    def test_script_offers_user_agent_choice_before_operation(self):
-        for caller in ('User', 'Agent'):
+    def test_script_offers_project_current_document_choice_before_operation(self):
+        for caller in ('Project', 'CurrentDocument'):
             rs = NS(GetString=Mock(side_effect=[caller, 'Create']))
             with self.subTest(caller=caller), patch.dict(sys.modules, {'rhinoscriptsyntax':rs}), \
                  patch.object(ps, 'clipping_planes', return_value=self.planes), \
@@ -59,7 +70,7 @@ class EntryPoints(unittest.TestCase):
                  patch.object(ps, 'get_options', return_value=ps.default_options()) as options, \
                  patch.object(ps, 'run_selected', return_value='complete'):
                 self.assertEqual(ps.main(object()), 'complete')
-            self.assertEqual(rs.GetString.call_args_list[0].args[2], ['User', 'Agent'])
+            self.assertEqual(rs.GetString.call_args_list[0].args[2], ['Project', 'CurrentDocument'])
             select.assert_called_once_with(self.planes, caller)
             options.assert_called_once_with('Create')
 

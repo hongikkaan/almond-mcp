@@ -491,7 +491,7 @@ class Workflow(unittest.TestCase):
         with patch.multiple(ps,**replacements),patch.object(ps,'R',rhino), \
              patch.object(ps,'G',NS(Plane=NS(WorldXY=world))), \
              patch.dict(sys.modules,{'rhinoscriptsyntax':NS(BrowseForFolder=lambda **kw:'output',
-                 GetString=Mock(side_effect=['User',{'Document':'Create','Files':'Create','Placement':'Move'}.get(mode,mode)]))}), \
+                 GetString=Mock(side_effect=['Project',{'Document':'Create','Files':'Create','Placement':'Move'}.get(mode,mode)]))}), \
              contextlib.redirect_stdout(io.StringIO()):
             ps.main(doc)
         return NS(**replacements,doc=doc,cp=cp,saved=saved,picked=picked,world=world,drawing=drawing,events=events)

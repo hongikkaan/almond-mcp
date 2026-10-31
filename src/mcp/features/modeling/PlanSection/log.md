@@ -6,6 +6,8 @@
 
 ## 작업 방법
 
+- Project/CurrentDocument 선택과 Project의 단일 번호·All·List 입력을 반영하고 쉼표 구분 숫자 입력을 제거했다.
+
 - 공식 RhinoCode로 AlmondConnect를 실행한 뒤 공개 MCP 실행기로 기존 지하 평면·장단면 clipping을 사용했다. Create·Move·Update와 벡터 PDF를 확인하고 원본 3dm은 저장하지 않았다.
 - 같은 원본·형상 CRC·속성·입력 순서로 반복 생성했다. 병렬 HLD 경로는 후처리 전 입면 수와 길이가 달랐고, 단일 스레드 진단 사본은 두 회차의 원시·최종 형상 서명이 같았다. 이 실행 옵션만 생산 코드에 반영했다.
 - 별도 검수 캡처에서 같은 Rhino 뷰의 새 managed wrapper를 다른 뷰로 오판하는 문제를 재현했다. 뷰 비교를 RuntimeSerialNumber로 바꾸고 나머지 상태 검사는 유지했다.

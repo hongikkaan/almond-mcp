@@ -8,7 +8,7 @@ Rhino 8 Windows에서 clipping plane으로 단면선·해치·입면선을 생�
 _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSection\PlanSection.py"
 ```
 
-먼저 User/Agent 사용 방식, 이어서 Create·Update·Move·PDF 중 하나를 고른다. User는 현재 문서 clipping을 레이어가 표시된 목록 창에서 다중 선택하고 Agent는 GUID를 쉼표·공백으로 입력한다. 무인 실행은 `run(doc, operation, clipping_ids, points=..., folder=...)`이다. Worksession 참조 clipping도 포함한다. Create의 Document/Files는 생성 위치를, PickPlacement는 생성 후 도면별 배치점 지정을 선택한다. Update는 기존 저장 위치에서 재계산하며 기존 도면이 없으면 건너뛴다. Move는 재계산 없이 배치점만 옮긴다. PDF는 clipping의 Paper/Scale을 사용한다. 실행 예시는 [README.md](README.md)를 따른다.
+먼저 Project/CurrentDocument 사용 방식, 이어서 Create·Update·Move·PDF 중 하나를 고른다. Project는 출력된 번호 하나 또는 `All`로 선택하거나 `List`로 목록 창에서 다중 선택한다. 쉼표로 구분한 숫자는 받지 않는다. CurrentDocument는 GUID를 쉼표·공백으로 입력한다. 무인 실행은 `run(doc, operation, clipping_ids, points=..., folder=...)`이다. Worksession 참조 clipping도 포함한다. Create의 Document/Files는 생성 위치를, PickPlacement는 생성 후 도면별 배치점 지정을 선택한다. Update는 기존 저장 위치에서 재계산하며 기존 도면이 없으면 건너뛴다. Move는 재계산 없이 배치점만 옮긴다. PDF는 clipping의 Paper/Scale을 사용한다. 실행 예시는 [README.md](README.md)를 따른다.
 
 출력 객체의 user text는 `ps:source_layer`, `ps:placement`만 저장한다. 재생성 소유 정보는 로컬 Drawing 루트 레이어에 보관하며 참조 clipping의 속성은 수정하지 않는다.
 
