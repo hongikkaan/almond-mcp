@@ -32,8 +32,15 @@ def test_distributed_archive_excludes_community_files_and_keeps_evidence(bundle)
     assert len(list(bundle.rglob("*.glb")))==50
     assert not list(bundle.rglob("*.skp"))
     assert all(not a["available"] for a in catalogue["assets"] if a["kind"]=="element")
+    for asset in catalogue["assets"]:
+        if asset["source_library"] == "drawing":
+            assert asset["model"] is None and asset["source_file"] is None
+            assert not asset["source_available"] and not asset["drawing_ready"]
+        elif asset["format"] == "glb":
+            assert asset["source_only"] and asset["model"] is None
+            assert asset["source_file"].startswith("/files/generated/")
     for a in catalogue["assets"]:
-        if a["kind"]=="model":
+        if a["source_library"]=="generated":
             assert a["provenance"]["asset_id"]==a["id"]
     manifest=json.loads((bundle/"bundle.json").read_text())
     for route,entry in manifest["routes"].items():
@@ -57,7 +64,7 @@ def test_real_dotnet_host_http_and_integrity(bundle):
             connection.close()
             return result
         status,headers,body=request("/api/catalogue")
-        assert status==200 and json.loads(body)["counts"]["models"]==50
+        assert status==200 and json.loads(body)["counts"]["models"]==54
         assert "wasm-unsafe-eval" in headers["Content-Security-Policy"]
         for route in ["/", "/app.js", "/preview-display.js", "/preview-style.mjs", "/karamba.js", "/analysis-view.mjs", "/vendor/model-viewer.min.js", "/files/generated/models/gen-office-chair-1.glb", "/files/drafting/pilot/gen-office-chair-1/plan-1-50.dxf"]:
             assert request(route)[0]==200

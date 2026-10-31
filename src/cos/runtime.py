@@ -38,6 +38,7 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "rhinocode_csharp_wrapper": engine / "rhinocode_csharp.cs.txt",
         "compat_almond": engine / "compat_almond.py",
         "library_paths": engine / "library_paths.py",
+        "desktop_runtime": engine / "desktop_runtime.py",
         "workspace": engine / "workspace.py",
         "storage_cleanup": engine / "storage_cleanup.py",
         "server": Path(almond_mcp.__file__).with_name("server.py"),

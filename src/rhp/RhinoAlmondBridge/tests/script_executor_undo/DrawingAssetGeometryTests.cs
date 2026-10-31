@@ -53,13 +53,33 @@ namespace AlmondScriptUndoTests
                 foreach (var point in triangles.SelectMany(t => t.Children()))
                     Check((double)point[0] <= -10 || (double)point[0] >= 10, "Definition geometry was emitted at its unplaced origin.");
             });
-            Run(results, directory, "wrong units and non-normalized origins are rejected before artifact publication", doc =>
+            Run(results, directory, "source units remain unchanged while extracted coordinates use millimetres", doc =>
             {
                 doc.AdjustModelUnitSystem(UnitSystem.Meters, false);
                 doc.Objects.AddBrep(new BoundingBox(-5, -5, 0, 5, 5, 10).ToBrep());
-            }, (source, output) => Rejected(source, output));
-            Run(results, directory, "non-normalized origin is not silently recentered", doc =>
+            }, (source, output) =>
+            {
+                string before = Hash(source);
+                var reply = Success(Extract(source, output));
+                Check((string)reply["source_units"] == "Meters" && (string)reply["units"] == "mm", "Source and measurement units were conflated.");
+                Check(JToken.DeepEquals(reply["bounds_mm"], new JArray(-5000.0, -5000.0, 0.0, 5000.0, 5000.0, 10000.0)), "Source unit scale was lost.");
+                Check(Hash(source) == before, "Measuring in mm changed the source file.");
+            });
+            Run(results, directory, "source origin is preserved without recentering", doc =>
                 doc.Objects.AddBrep(new BoundingBox(0, 0, 1, 10, 10, 11).ToBrep()),
+                (source, output) =>
+                {
+                    string before = Hash(source);
+                    var reply = Success(Extract(source, output));
+                    Check((string)reply["origin"] == "preserved" &&
+                        JToken.DeepEquals(reply["bounds_mm"], new JArray(0.0, 0.0, 1.0, 10.0, 10.0, 11.0)), "Origin was reinterpreted.");
+                    Check(Hash(source) == before, "Source origin changed.");
+                });
+            Run(results, directory, "unmeasurable unit system is rejected", doc =>
+            {
+                doc.AdjustModelUnitSystem(UnitSystem.None, false);
+                doc.Objects.AddBrep(new BoundingBox(-5, -5, 0, 5, 5, 10).ToBrep());
+            },
                 (source, output) => Rejected(source, output));
             Run(results, directory, "unsupported source geometry does not publish a partial asset", doc =>
             {
@@ -71,6 +91,20 @@ namespace AlmondScriptUndoTests
             {
                 File.WriteAllText(output, "keep");
                 Check((string)Extract(source, output)["status"] == "error" && File.ReadAllText(output) == "keep", "Existing output was overwritten.");
+            });
+            Run(results, directory, "nested external dependencies are reported without partial publication", doc =>
+                doc.Objects.AddBrep(new BoundingBox(-5, -5, 0, 5, 5, 10).ToBrep()), (source, output) =>
+            {
+                string linkedSource = Path.ChangeExtension(source, ".linked.3dm");
+                using (var model = Rhino.FileIO.File3dm.Read(source))
+                {
+                    int nested = model.AllInstanceDefinitions.AddLinked(source, "external dependency", "");
+                    Check(nested >= 0 && model.Objects.AddInstanceObject(nested, Transform.Identity) != Guid.Empty, "Dependency fixture creation failed.");
+                    Check(model.Write(linkedSource, 8), "Dependency fixture save failed.");
+                }
+                var reply = Extract(linkedSource, output);
+                Check((string)reply["status"] == "error" && (bool?)reply["needs_dependency_support"] == true && !File.Exists(output),
+                    "A source-dependent block was published as self-contained geometry.");
             });
             string report = String.Join("\n", results);
             if (results.Any(line => line.StartsWith("FAIL "))) throw new InvalidOperationException(report);

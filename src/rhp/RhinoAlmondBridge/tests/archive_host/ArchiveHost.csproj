@@ -4,5 +4,5 @@
   <ItemGroup><Compile Include="../../../Asset_Panel/ArchiveHttpServer.cs" Link="ArchiveHttpServer.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../../Asset_Panel/ArchiveMeshData.cs" Link="ArchiveMeshData.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../../Structural_Analysis/AnalysisSettings.cs" Link="AnalysisSettings.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="../../../Structural_Analysis/NativeSolver.cs" Link="NativeSolver.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../../../mcp/features/structure/native/NativeSolver.cs" Link="NativeSolver.cs" /></ItemGroup>
 </Project>

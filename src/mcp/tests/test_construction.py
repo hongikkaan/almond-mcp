@@ -245,7 +245,7 @@ def test_history_manifest_is_valid():
         for sid in entry.get("related_construction_systems", []):
             assert sid in system_ids, f"{entry['typology_id']} -> {sid}"
         assert set(entry.get("structure_types", [])) <= VALID_STRUCTURE_TYPES
-    assert "NARRATION ONLY" in manifest["source"]
+    assert "A Global History of Architecture" in manifest["source"]
 
 
 def test_history_library_filters():
@@ -263,7 +263,7 @@ def test_history_library_filters():
     fn = getattr(tool, "fn", tool)
     result = json.loads(fn(query="skyscraper", limit=2))
     assert result["total"] >= 1 and len(result["entries"]) <= 2
-    assert "NARRATION ONLY" in result["source"]
+    assert result["source"] == lib.source
 
 
 @pytest.fixture(autouse=True)

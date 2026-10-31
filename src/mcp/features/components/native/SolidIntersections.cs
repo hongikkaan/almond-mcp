@@ -173,6 +173,15 @@ public static class SolidIntersections
 
     private static JObject Intersect(Brep a, Brep b, double tolerance)
     {
+        Brep[] regions = null;
+        try { return IntersectDetached(a, b, tolerance, out regions); }
+        finally { Dispose(regions); }
+    }
+
+    // Caller owns the detached result geometry. Shared by observation and preview.
+    public static JObject IntersectDetached(Brep a, Brep b, double tolerance, out Brep[] regions)
+    {
+        regions = null;
         Brep ac = null, bc = null;
         Brep[] result = null;
         try
@@ -195,12 +204,14 @@ public static class SolidIntersections
                     if (!Finite(volume)) return Unknown("Intersection volume is not finite.", result.Length);
                 }
             }
+            regions = result;
+            result = null;
             return new JObject {
                 ["status"] = volume > 0.0 ? "positive_volume" : "zero_volume",
                 ["volume_model_units3"] = volume,
                 ["method"] = "boolean_intersection",
                 ["boolean_intersection_performed"] = true,
-                ["result_count"] = result.Length
+                ["result_count"] = regions.Length
             };
         }
         catch (Exception ex) { return Unknown(Short(ex.GetType().Name + ": " + ex.Message, 320)); }

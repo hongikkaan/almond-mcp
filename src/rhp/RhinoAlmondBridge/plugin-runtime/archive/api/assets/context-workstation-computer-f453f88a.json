@@ -1,8 +1,9 @@
 {
   "id": "context-workstation-computer-f453f88a",
   "name": "Computer monitor, keyboard and mouse",
-  "kind": "element",
-  "library": "drawing",
+  "kind": "model",
+  "library": "model_assets",
+  "source_library": "drawing",
   "category": "workstation_equipment",
   "variant": "desktop set",
   "format": "skp",
@@ -134,5 +135,13 @@
   },
   "drawing": null,
   "uri": "almond://repository/context-workstation-computer-f453f88a",
-  "record_url": "/api/assets/context-workstation-computer-f453f88a.json"
+  "record_url": "/api/assets/context-workstation-computer-f453f88a.json",
+  "source_available": false,
+  "source_only": true,
+  "model_status": "not_installed",
+  "drawing_status": "not_installed",
+  "drawing_ready": false,
+  "source_file": null,
+  "next_tool": "prepare_drawing_asset",
+  "conversion_target": "3dm"
 }

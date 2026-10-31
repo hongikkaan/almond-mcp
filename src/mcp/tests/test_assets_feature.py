@@ -83,7 +83,7 @@ def test_factory_registers_only_existing_tools_and_all_resource_uris(tmp_path):
             assert set(tools) == {
                 "list_drawing_assets", "search_drawing_assets", "get_drawing_asset",
                 "place_drawing_asset", "register_drawing_asset", "prepare_drawing_asset", "get_asset_drawing",
-                "generate_asset_drawing_views", "audit_asset_drawing", "search_asset_repository",
+                "generate_asset_drawing_views", "audit_asset_drawing", "search_asset_repository", "refresh_asset",
             }
             assert set(tools["place_drawing_asset"].input_schema["properties"]) == {
                 "asset_id", "x", "y", "z", "rotation_degrees", "scale"}
@@ -105,20 +105,19 @@ def test_factory_registers_only_existing_tools_and_all_resource_uris(tmp_path):
             "get_asset", "place_asset"} <= exports.keys()
 
 
-def test_unverified_preparation_is_disabled_before_native_or_file_work(tmp_path):
+def test_invalid_preparation_rejects_before_native_or_library_work(tmp_path):
     _, _, namespace, exports = make_feature(tmp_path)
     root = Path(namespace["DRAWING_LIBRARY_DIR"])
     before = (root / "manifest.json").read_bytes()
     def forbidden(*args, **kwargs):
-        raise AssertionError("Acceptance-pending preparation must not reach Rhino")
+        raise AssertionError("Invalid preparation must not reach Rhino")
     namespace["_send_and_receive"] = forbidden
     namespace["_execute_rhinocode"] = forbidden
     result = exports["prepare_drawing_asset"]("inspect", source_file=str(tmp_path / "missing.3dm"))
-    assert result["status"] == "error" and result["error_code"] == "acceptance_pending"
-    assert result["preparation_applied"] is False
+    assert result["status"] == "error"
     result = exports["register_drawing_asset"](str(tmp_path / "missing.3dm"), "fixture", "Fixture",
         preparation_job=str(tmp_path / "missing-job"))
-    assert result["status"] == "error" and result["error_code"] == "acceptance_pending"
+    assert result["status"] == "error"
     assert result["registration_applied"] is False
     assert (root / "manifest.json").read_bytes() == before
     assert not list(root.glob(".register-*")) and not (root / "registered").exists()
@@ -135,7 +134,7 @@ def test_registration_resources_repository_and_placement_share_one_asset(tmp_pat
         request = json.loads(payload)
         calls.append(request["type"])
         if request["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"drawing_asset_extract": 1}})
+            return json.dumps({"status": "success", "capabilities": {"drawing_asset_extract": 2, "drawing_asset_linked": 1}})
         if request["type"] == "drawing_asset_extract":
             return json.dumps(extract_box(request["source_path"], request["output_path"]))
         assert request["type"] == "place_drawing_asset"
@@ -166,7 +165,7 @@ def test_registration_resources_repository_and_placement_share_one_asset(tmp_pat
             assert all(Path(path).is_file() for path in record["local_files"].values())
             return result.structured_content
     registered = asyncio.run(check())
-    assert calls == ["get_rhino_context", "drawing_asset_extract", "place_drawing_asset"]
+    assert calls == ["get_rhino_context", "drawing_asset_extract", "get_rhino_context", "place_drawing_asset"]
     def fail_refresh(*args, **kwargs):
         raise RuntimeError("fixture index unavailable")
     monkeypatch.setattr(namespace["drawing_asset_indexer"], "_load", fail_refresh)
@@ -179,7 +178,7 @@ def test_registration_resources_repository_and_placement_share_one_asset(tmp_pat
 def test_factory_uses_rebound_store_sender_and_call_local_overrides(tmp_path):
     _, context, namespace, exports = make_feature(tmp_path / "one")
     _, _, other, other_exports = make_feature(tmp_path / "two")
-    record = asset_record("drawing-one", _resolved_file="fixture.3dm")
+    record = asset_record("drawing-one", _resolved_file="fixture.svg")
     namespace["drawing_asset_indexer"].assets[record["asset_id"]] = record
     other["drawing_asset_indexer"].assets[record["asset_id"]] = record
     other["drawing_asset_indexer"].assets["drawing-two"] = asset_record("drawing-two")

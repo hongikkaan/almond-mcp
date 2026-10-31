@@ -33,7 +33,8 @@ from native_request import RequestBatch
 NATIVE_ONLY_TOOLS = frozenset({
     "execute_rhino_script", "capture_conditioning_pass", "save_rhino_document",
     "get_rhino_context", "get_rhino_viewport_image", "analyze_block_reculviely",
-    "get_rhino_objects", "get_object_intersections", "capture_rhino_inspection", "edit_planar_face",
+    "get_rhino_objects", "get_object_intersections", "capture_rhino_inspection", "edit_planar_face", "edit_planar_faces",
+    "show_object_intersection", "resolve_object_intersection",
     "prepare_drawing_asset",
 })
 BINDING_TOOLS = frozenset({"worker_state", "get_rhino_execution"})

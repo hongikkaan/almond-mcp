@@ -1,8 +1,9 @@
 {
   "id": "context-tree-chinese-elm-a708cff4",
   "name": "Low-poly Chinese elm",
-  "kind": "element",
-  "library": "drawing",
+  "kind": "model",
+  "library": "model_assets",
+  "source_library": "drawing",
   "category": "tree",
   "variant": "exterior deciduous tree",
   "format": "skp",
@@ -134,5 +135,13 @@
   },
   "drawing": null,
   "uri": "almond://repository/context-tree-chinese-elm-a708cff4",
-  "record_url": "/api/assets/context-tree-chinese-elm-a708cff4.json"
+  "record_url": "/api/assets/context-tree-chinese-elm-a708cff4.json",
+  "source_available": false,
+  "source_only": true,
+  "model_status": "not_installed",
+  "drawing_status": "not_installed",
+  "drawing_ready": false,
+  "source_file": null,
+  "next_tool": "prepare_drawing_asset",
+  "conversion_target": "3dm"
 }

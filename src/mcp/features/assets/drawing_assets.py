@@ -18,6 +18,23 @@ import numpy as np
 from almond_mcp.features.assets import drafting, preparation
 
 
+class PublicationUnconfirmed(RuntimeError):
+    """Preserve revision evidence when a concurrent source edit prevents rollback."""
+
+
+def _replace_bytes(path: Path, contents: bytes) -> None:
+    pending = path.with_name(".asset-replace-" + uuid4().hex + path.suffix)
+    try:
+        with pending.open("wb") as handle:
+            handle.write(contents)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(pending, path)
+    finally:
+        if pending.exists():
+            pending.unlink()
+
+
 @contextmanager
 def _manifest_lock(root: Path):
     # An OS lock is released after a crash; a stale marker must not block the library.
@@ -64,7 +81,7 @@ def _native_triangles(source: Path, output: Path, extract):
     artifact = json.loads(data)
     for record in (result, artifact):
         if (record.get("schema") != "almond-triangles/v1" or record.get("units") != "mm" or
-                record.get("up_axis") != "z" or record.get("origin") != "bottom_center" or
+                record.get("up_axis") != "z" or record.get("origin") not in {"bottom_center", "preserved"} or
                 str(record.get("source_sha256", "")).upper() != expected):
             raise ValueError("Native extraction identity, units or source checksum is invalid")
     triangles = np.asarray(artifact.get("triangles_mm"), dtype=float)
@@ -79,8 +96,6 @@ def _native_triangles(source: Path, output: Path, extract):
         if (type(record.get("triangle_count")) is not int or record["triangle_count"] != len(triangles) or
                 actual.shape != (6,) or not np.allclose(actual, bounds, rtol=1e-10, atol=1e-6)):
             raise ValueError("Native dimensions or triangle count disagree with the artifact")
-    if abs(low[2]) > .01 or np.abs((low[:2] + high[:2]) / 2).max() > .01:
-        raise ValueError(read_instruction(__file__, 'response-360'))
     if np.any(high - low <= 0) or drafting.sha(source.read_bytes()) != expected:
         raise ValueError("The source is flat, degenerate or changed during extraction")
     return triangles, expected, bounds.tolist()
@@ -89,7 +104,7 @@ def _native_triangles(source: Path, output: Path, extract):
 def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: str,
                           category: str, tags: list[str] | None, description: str,
                           source_url: str, replace_existing: bool, extract,
-                          preparation_job: str = "") -> dict:
+                          preparation_job: str = "", legacy_source: dict | None = None) -> dict:
     """Stage all files, then atomically publish one manifest revision under an OS lock."""
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", asset_id) or asset_id in {".", ".."}:
         raise ValueError("asset_id must be a stable 1-100 character identifier")
@@ -123,13 +138,31 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
             raise ValueError(read_instruction(__file__, 'response-372'))
         if matches and not replace_existing:
             raise ValueError(read_instruction(__file__, 'response-373'))
+        canonical = None
+        previous_source = None
+        previous_hash = None
+        if matches and Path(entries[matches[0]].get("file", "")).suffix.lower() == ".3dm":
+            canonical = (root / entries[matches[0]]["file"]).resolve()
+            if not canonical.is_relative_to(root) or not canonical.is_file():
+                raise ValueError("Existing linked source is missing or outside the library")
+            previous_source = canonical.read_bytes()
+            previous_hash = drafting.sha(previous_source)
+            if previous_hash != entries[matches[0]].get("sha256"):
+                raise ValueError("The linked source has unrefreshed edits; refresh_asset before replacing it")
         version = uuid4().hex
         stage = Path(tempfile.mkdtemp(prefix=".register-", dir=root))
         final = root / "registered" / f"{asset_id}-{version}"
         committed = False
+        source_replaced = False
+        preserve_revision = False
         try:
             model = stage / "model.3dm"
             model.write_bytes(source_data)
+            # Linked sources are intentionally editable. Keep the first published
+            # bytes separately so direct editing never erases the initial revision.
+            (stage / "published-source.3dm").write_bytes(source_data)
+            if previous_source is not None:
+                (stage / "previous-source.3dm").write_bytes(previous_source)
             evidence = preparation.copy_registration_evidence(preparation_job, source, stage / "preparation") if preparation_job else None
             if evidence and (evidence["reviewed_asset_id"] != asset_id or evidence["reviewed_name"] != name):
                 raise ValueError("Registration identity must match the reviewed preparation")
@@ -153,7 +186,7 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
             record = dict(entries[matches[0]]) if matches else {}
             prefix = final.relative_to(root).as_posix()
             record.update(asset_id=asset_id, product=name, category=category, description=description,
-                file=prefix + "/model.3dm", sha256=source_hash, format="3dm",
+                file=canonical.relative_to(root).as_posix() if canonical else prefix + "/model.3dm", sha256=source_hash, format="3dm",
                 dimensions_mm=package["manifest"]["source"]["dimensions_mm"],
                 drawing_package=prefix + "/drawing", drawing_roles=["plan", "elevation"],
                 match_status="measured_geometry", schema="almond-drawing-asset/v1",
@@ -162,7 +195,12 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
                         "visual_review": source_record["visual_review"]},
                 spatial={"bounds_source": "measured_native_mesh", "bounds_mm": bounds,
                          "local_aabb": {"min": bounds[:3], "max": bounds[3:]},
-                         "units": "mm", "up_axis": "z", "origin": "bottom_center"})
+                         "units": "mm", "up_axis": "z", "origin": "preserved"},
+                published_source=prefix + "/published-source.3dm")
+            if legacy_source:
+                record["legacy_source"] = {k: v for k, v in legacy_source.items() if not k.startswith("_")}
+            if canonical:
+                record["previous_source"] = {"file": prefix + "/previous-source.3dm", "sha256": previous_hash}
             if evidence:
                 record["preparation"] = {**evidence, "directory": prefix + "/preparation"}
                 record["source"].update(original_path=evidence["original_path"],
@@ -190,11 +228,111 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
                 (backups / f"{version}.json").write_bytes(original)
             final.parent.mkdir(exist_ok=True)
             stage.rename(final)
+            if canonical:
+                if drafting.sha(canonical.read_bytes()) != previous_hash:
+                    raise ValueError("The linked source changed during replacement; no source was overwritten")
+                if manifest_path.read_bytes() != original:
+                    raise ValueError("The manifest changed during replacement")
+                _replace_bytes(canonical, source_data)
+                source_replaced = True
+                if drafting.sha(canonical.read_bytes()) != source_hash:
+                    raise PublicationUnconfirmed("The linked source was edited during publication; preserve this revision and reconcile it")
             os.replace(final / "manifest.pending.json", manifest_path)
             committed = True
             return {"status": "success", "asset": record, "library_dir": str(root),
-                    "model_path": str(final / "model.3dm"), "package_dir": str(final / "drawing"),
-                    "manifest_path": str(manifest_path), "previous_files_retained": bool(matches)}
+                    "model_path": str(canonical or final / "model.3dm"), "package_dir": str(final / "drawing"),
+                    "manifest_path": str(manifest_path), "previous_files_retained": bool(matches),
+                    "source_path_preserved": bool(canonical), "previous_source_sha256": previous_hash,
+                    "linked_instances_may_update": bool(canonical)}
+        except Exception as exc:
+            if source_replaced and not committed:
+                try:
+                    if drafting.sha(canonical.read_bytes()) != drafting.sha(source_data):
+                        preserve_revision = True
+                        raise PublicationUnconfirmed("Concurrent source edit preserved; publication requires reconciliation at " + str(final)) from exc
+                    if manifest_path.read_bytes() != original:
+                        preserve_revision = True
+                        raise PublicationUnconfirmed("Manifest changed after source replacement; reconcile " + str(final)) from exc
+                    _replace_bytes(canonical, previous_source)
+                except PublicationUnconfirmed:
+                    raise
+                except Exception as restore_error:
+                    preserve_revision = True
+                    raise PublicationUnconfirmed("Source rollback could not be confirmed; reconcile " + str(final)) from restore_error
+            raise
+        finally:
+            if stage.exists():
+                shutil.rmtree(stage)
+            if not committed and not preserve_revision and final.exists():
+                shutil.rmtree(final)
+
+
+def refresh_registered_asset(root: Path, asset_id: str, *, extract) -> dict:
+    """Remeasure an edited linked source; atomically advance drawings at the same 3DM path."""
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", asset_id) or asset_id in {".", ".."}:
+        raise ValueError("asset_id must be a stable 1-100 character identifier")
+    root = Path(root).resolve()
+    manifest_path = root / "manifest.json"
+    with _manifest_lock(root):
+        original = manifest_path.read_bytes()
+        manifest = json.loads(original.decode("utf-8-sig"))
+        matches = [a for a in manifest.get("assets", []) if a.get("asset_id") == asset_id]
+        if len(matches) != 1:
+            raise ValueError("Refresh requires one registered model asset ID")
+        record = matches[0]
+        source = (root / record["file"]).resolve()
+        if not source.is_relative_to(root) or source.suffix.lower() != ".3dm" or not source.is_file():
+            raise ValueError("Refresh requires the registered 3DM inside its model library")
+        if source.stat().st_size > 100_000_000:
+            raise ValueError("3DM exceeds 100 MB limit")
+        source_bytes = source.read_bytes()
+        if len(source_bytes) > 100_000_000:
+            raise ValueError("3DM exceeds 100 MB limit")
+        current_hash = drafting.sha(source_bytes)
+        version = uuid4().hex
+        stage = Path(tempfile.mkdtemp(prefix=".refresh-", dir=root))
+        final = root / "revisions" / f"{asset_id}-{version}"
+        committed = False
+        try:
+            snapshot = stage / "source.3dm"
+            snapshot.write_bytes(source_bytes)
+            triangles, measured_hash, bounds = _native_triangles(snapshot, stage / "triangles.json", extract)
+            package = drafting.create_package(snapshot, stage / "drawing", asset_id=asset_id,
+                name=record.get("product", asset_id), units="mm", up_axis="z", triangles_mm=triangles,
+                source_record={"evidence_status": "edited_linked_source", "original_path": str(source),
+                               "previous_sha256": record.get("sha256"), "visual_review": "not_verified_by_refresh"})
+            check = drafting.audit_package(stage / "drawing", snapshot)
+            if check["status"] != "success" or measured_hash != current_hash:
+                raise ValueError("Refreshed drawing package did not verify")
+            (stage / "triangles.json").unlink()
+            prefix = final.relative_to(root).as_posix()
+            record.update(sha256=current_hash, dimensions_mm=package["manifest"]["source"]["dimensions_mm"],
+                          drawing_package=prefix + "/drawing", drawing_roles=["plan", "elevation"],
+                          revision_source=prefix + "/source.3dm", match_status="measured_geometry",
+                          spatial={"bounds_source": "measured_native_mesh", "bounds_mm": bounds,
+                                   "local_aabb": {"min": bounds[:3], "max": bounds[3:]},
+                                   "units": "mm", "up_axis": "z", "origin": "preserved"},
+                          refreshed_at=datetime.now(timezone.utc).isoformat())
+            pending = stage / "manifest.pending.json"
+            with pending.open("w", encoding="utf-8", newline="\n") as handle:
+                json.dump(manifest, handle, ensure_ascii=False, indent=2, allow_nan=False)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            # Hash the live editable source again immediately before publication.
+            if drafting.sha(source.read_bytes()) != current_hash:
+                raise ValueError("The linked source changed while refresh was running; no revision was published")
+            backups = root / "manifest-backups"
+            backups.mkdir(exist_ok=True)
+            (backups / f"{version}.json").write_bytes(original)
+            final.parent.mkdir(exist_ok=True)
+            stage.rename(final)
+            os.replace(final / "manifest.pending.json", manifest_path)
+            committed = True
+            return {"status": "success", "registration_applied": True, "asset": record,
+                    "model_path": str(source), "package_dir": str(final / "drawing"),
+                    "source_path_preserved": True, "previous_files_retained": True,
+                    "rhino_linked_instances_updated": False}
         finally:
             if stage.exists():
                 shutil.rmtree(stage)

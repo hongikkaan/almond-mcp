@@ -23,12 +23,16 @@ def register(mcp, context):
     @tool_instruction(__file__, 'get_retrieval_status')
     @query_output
     def get_retrieval_status(include_ids: StrictBool = False) -> str:
+        from almond_mcp.features.assets.model_index import for_context
+        from collections import Counter
+        models = for_context(context)
         return json.dumps({
             "status": "ready",
             "database": context.STATE_DB_PATH,
-            "asset_index": context.retrieval_store.asset_stats(),
+            "asset_index": {"source": "sqlite_cache", **context.retrieval_store.asset_stats()},
             "drawing_asset_index": {"source": "manifest", "total": len(context.drawing_asset_indexer.assets)},
-            "model_asset_index": context.retrieval_store.asset_stats("generated_assets"),
+            "model_asset_index": {"source": "current_manifests", "total": len(models.assets),
+                                  "states": dict(Counter(a["model_status"] for a in models.assets.values()))},
             "drawing_recipes": len(context.drawing_recipe_indexer.recipes),
             "retrieval": ["sqlite", "fts5", "rtree"],
             "embedding_adapter": "not_configured",
@@ -148,25 +152,30 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_rhino_objects')
-    @query_output
     def get_rhino_objects(scope: str = "visible", object_ids: list[str] | None = None,
                           filters: dict | None = None, include_geometry: StrictBool = False,
                           offset: StrictInt = 0, limit: StrictInt = 50,
-                          expected_model_path: str = "", include_ids: StrictBool = False) -> str:
+                          expected_model_path: str = "", include_ids: StrictBool = False,
+                          result_mode: str = "objects", fields: list[str] | None = None,
+                          face_offset: StrictInt = 0, face_limit: StrictInt = 128,
+                          expected_geometry_crcs: dict[str, StrictInt] | None = None) -> str:
         return object_queries.query(context._send_and_receive, scope=scope,
                                     ids=[] if object_ids is None else object_ids,
                                     filters={} if filters is None else filters,
                                     include_geometry=include_geometry, offset=offset, limit=limit,
-                                    expected_model_path=expected_model_path)
+                                    expected_model_path=expected_model_path, result_mode=result_mode,
+                                    fields=fields, face_offset=face_offset, face_limit=face_limit,
+                                    expected_geometry_crcs=expected_geometry_crcs, include_ids=include_ids)
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_object_intersections')
-    @query_output
     def get_object_intersections(object_ids: list[str], max_pairs: StrictInt = 64,
-                                 expected_model_path: str = "", include_ids: StrictBool = False) -> str:
+                                 expected_model_path: str = "", include_ids: StrictBool = False,
+                                 include_blocks: StrictBool = False, cursor: str = "") -> str:
         return object_queries.intersections(context._send_and_receive, ids=object_ids, max_pairs=max_pairs,
-                                            expected_model_path=expected_model_path)
+                                            expected_model_path=expected_model_path, include_blocks=include_blocks,
+                                            cursor=cursor, include_ids=include_ids)
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})

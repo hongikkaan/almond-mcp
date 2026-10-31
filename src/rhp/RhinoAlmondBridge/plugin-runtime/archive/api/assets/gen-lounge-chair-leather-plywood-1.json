@@ -2,7 +2,8 @@
   "id": "gen-lounge-chair-leather-plywood-1",
   "name": "Lounge chair",
   "kind": "model",
-  "library": "generated",
+  "library": "model_assets",
+  "source_library": "generated",
   "category": "seating",
   "variant": "leather lounge chair, three bent plywood shells, swivel base",
   "format": "glb",
@@ -25,8 +26,8 @@
     "height": 840.0
   },
   "dimension_basis": "measured_from_normalised_glb",
-  "available": true,
-  "model": "/files/generated/models/gen-lounge-chair-leather-plywood-1.glb",
+  "available": false,
+  "model": null,
   "preview": "/files/generated/previews/gen-lounge-chair-leather-plywood-1.png",
   "contract": "/files/generated/models/gen-lounge-chair-leather-plywood-1.almond.json",
   "license": "CC-BY-4.0",
@@ -325,5 +326,13 @@
   },
   "drawing": null,
   "uri": "almond://repository/gen-lounge-chair-leather-plywood-1",
-  "record_url": "/api/assets/gen-lounge-chair-leather-plywood-1.json"
+  "record_url": "/api/assets/gen-lounge-chair-leather-plywood-1.json",
+  "source_available": true,
+  "source_only": true,
+  "model_status": "needs_conversion",
+  "drawing_status": "missing",
+  "drawing_ready": false,
+  "source_file": "/files/generated/models/gen-lounge-chair-leather-plywood-1.glb",
+  "next_tool": "prepare_drawing_asset",
+  "conversion_target": "3dm"
 }

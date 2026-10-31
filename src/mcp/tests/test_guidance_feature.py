@@ -114,7 +114,7 @@ def test_typology_filters_keep_total_and_minimum_limit(context):
     tools = register(FastMCP("history"), context)
     result = json.loads(tools["get_typology_narrative"](query="courtyard", limit=0, include_ids=True, field_groups=["all"]))
     assert result["total"] >= 2 and len(result["entries"]) == 1
-    assert "NARRATION ONLY" in result["source"]
+    assert result["source"] == library.source
     assert library.get(result["entries"][0]["typology_id"])
     assert library.get("nonexistent-typology") is None
 
@@ -149,6 +149,50 @@ def test_detail_source_search_ranks_matches_and_breaks_ties_by_id(context, tmp_p
     assert search("TIMBER pdf", field_groups=["metadata"])["sources"][0]["matched_terms"] == ["pdf", "timber"]
     assert search("unmatched")["sources"] == []
     assert len(search()["sources"]) == 3
+
+
+def test_korean_catalogue_query_returns_matching_sources_and_search_evidence(context):
+    search = register(FastMCP("korean-sources"), context)["search_detail_sources"]
+    result = search("목재 접합", include_ids=True)
+    assert result["status"] == "success"
+    assert result["query"] == "목재 접합"
+    assert set(result["query_terms"]) == {"목재", "접합"}
+    assert {"timber", "wood", "junction"} <= set(result["expanded_terms"])
+    by_id = {source["source_id"]: source for source in result["sources"]}
+    assert "junction" in by_id["dataholz"]["matched_terms"]
+    assert "arcat" not in by_id
+    assert all(source["matched_terms"] for source in result["sources"])
+
+
+def test_unicode_source_query_preserves_unmapped_korean_and_mixed_input(context, tmp_path):
+    data = {"scope": "source directories", "sources": [
+        {"source_id": "korean", "title": "한옥 접합 자료", "tags": [], "formats": ["PDF"]},
+        {"source_id": "wood", "title": "Timber junctions", "tags": [], "formats": ["DXF"]},
+        {"source_id": "other", "title": "Concrete", "tags": [], "formats": ["DWG"]},
+    ]}
+    (tmp_path / "sources.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    context.DRAFTING_LIBRARY_DIR = str(tmp_path)
+    search = register(FastMCP("unicode-sources"), context)["search_detail_sources"]
+    result = search("한옥", include_ids=True)
+    assert [source["source_id"] for source in result["sources"]] == ["korean"]
+    assert result["sources"][0]["matched_terms"] == ["한옥"]
+    assert result["expanded_terms"] == []
+    mixed = search("목재 ＤＷＧ", include_ids=True)
+    assert {source["source_id"] for source in mixed["sources"]} == {"wood", "other"}
+    assert "dwg" in mixed["query_terms"]
+
+
+@pytest.mark.parametrize("query", ["존재하지않는자료", "🧱!?", "___"])
+def test_nonempty_unmatched_or_unsearchable_query_never_returns_all_sources(context, query):
+    search = register(FastMCP("query-state"), context)["search_detail_sources"]
+    result = search(query)
+    assert result["query"] == query
+    assert result["sources"] == []
+    if query == "존재하지않는자료":
+        assert result["status"] == "success" and result["query_terms"]
+    else:
+        assert result["status"] == "error" and result["error_code"] == "invalid_query"
+    assert len(search("  ")["sources"]) == 6
 
 
 @pytest.mark.parametrize("library_class, collection", [(ConstructionLibrary, "systems"), (HistoryLibrary, "entries")])

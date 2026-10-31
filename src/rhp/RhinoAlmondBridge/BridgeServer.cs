@@ -40,7 +40,7 @@ namespace RhinoAlmondBridge
                 "DRAWING",
                 "drawing_asset",
                 "drawing asset",
-                new[] { ".skp", ".3dm", ".dwg", ".dxf", ".svg", ".png" }
+                new[] { ".3dm", ".dwg", ".dxf", ".svg", ".png" }
             );
             _drawingStyleManager = new DrawingStyleManager();
         }
@@ -86,6 +86,15 @@ namespace RhinoAlmondBridge
 
                     case "edit_planar_face":
                         return PlanarFaceEditing.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
+                    case "edit_planar_faces":
+                        return PlanarFaceEditing.HandleBatch(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
+                    case "intersection_preview":
+                        return IntersectionTools.PreviewHandle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
+                    case "intersection_resolve":
+                        return IntersectionTools.ResolveHandle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 
                     case "save_rhino_document":
                         return DocumentSave.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);

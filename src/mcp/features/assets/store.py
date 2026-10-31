@@ -324,10 +324,12 @@ class AssetsStore:
             libraries = [
                 {"library_id": row["library_id"], "count": int(row["count"])}
                 for row in connection.execute(
-                    """
+                    f"""
                     SELECT library_id, COUNT(*) AS count FROM assets
+                    {where}
                     GROUP BY library_id ORDER BY library_id
-                    """
+                    """,
+                    parameters,
                 )
             ]
         return {"total": total, "libraries": libraries, "categories": categories}

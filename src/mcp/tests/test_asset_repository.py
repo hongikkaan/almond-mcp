@@ -17,17 +17,21 @@ def repository():
 
 def test_catalogue_joins_models_drawings_and_evidence():
     repo = repository()
-    assert repo.catalogue()["counts"] == {"assets":57, "models":50, "elements":7, "drawing_packages":10, "views":60}
+    assert repo.catalogue()["counts"] == {"assets":57, "models":54, "elements":3, "drawing_packages":10, "views":60}
     record = repo.records["gen-office-chair-1"]
-    assert record["available"] and record["provenance"]["recorded_generation"]["mesh_task_id"]
+    assert not record["available"] and record["source_available"] and record["source_only"]
+    assert record["model"] is None and record["source_file"] in repo.files
+    assert record["model_status"] == "needs_conversion" and record["next_tool"] == "prepare_drawing_asset"
+    assert record["provenance"]["recorded_generation"]["mesh_task_id"]
     assert record["drawing"]["source"]["asset_id"] == record["id"]
     assert len(record["drawing"]["views"]) == 6
     assert len(record["drawing"]["sheets"]) == 2
     for view in record["drawing"]["views"]:
         assert repo.files[view["svg"]][1].is_file()
         assert repo.files[view["dxf"]][1].is_file()
-    assert repo.search("office chair", drawing_ready=True)["total"] == 1
-    assert repo.search(kind="element")["total"] == 7
+    assert repo.search("office chair", drawing_ready=True)["total"] == 0
+    assert record["drawing_status"] == "source_requires_conversion"
+    assert repo.search(kind="element")["total"] == 3
     assert repo.search("no such object")["total"] == 0
     assert len(repo.search(limit=2)["assets"]) == 2
     assert all(source["generation_use"] == "candidate_only" for source in repo.sources)
@@ -67,7 +71,7 @@ def test_http_downloads_and_file_boundary():
         assert status == 200 and json.loads(content)["counts"]["assets"] == 57
         assert "attachment" in headers["Content-Disposition"]
         record = repo.records["gen-office-chair-1"]
-        for route in [record["model"], record["record_url"], record["drawing"]["views"][0]["dxf"], "/vendor/model-viewer.min.js"]:
+        for route in [record["source_file"], record["record_url"], record["drawing"]["views"][0]["dxf"], "/vendor/model-viewer.min.js"]:
             status, headers, content = request(route+"?download=1")
             assert status == 200 and content
             assert "attachment" in headers["Content-Disposition"]
@@ -75,7 +79,7 @@ def test_http_downloads_and_file_boundary():
             assert request(route)[0] == 404
         assert request("/api/catalogue", headers={"Host":"attacker.example"})[0] == 403
         assert request("/api/catalogue", method="POST")[0] == 501
-        status, headers, body = request(record["model"], method="HEAD")
+        status, headers, body = request(record["source_file"], method="HEAD")
         assert status == 200 and not body and int(headers["Content-Length"]) > 0
     finally:
         connection.close()
@@ -87,8 +91,9 @@ def test_http_downloads_and_file_boundary():
 def test_mcp_repository_resource_uses_the_same_catalogue():
     from test_generated_assets import load_server_module
     server = load_server_module()
-    result = server.search_asset_repository("office chair", drawing_ready=True, include_ids=True)
+    result = server.search_asset_repository("gen-office-chair-1", include_ids=True)
     assert result["total"] == 1
+    assert result["assets"][0]["model_status"] == "needs_conversion"
     record = json.loads(server.repository_asset_resource(result["assets"][0]["id"]))
     assert record["provenance"]["asset_id"] == record["id"]
     assert len(record["local_files"]) == 18

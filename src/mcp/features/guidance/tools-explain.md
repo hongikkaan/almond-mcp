@@ -5,9 +5,7 @@ Read BASIC instructions or one tool's usage instructions.
 
 Omit tool to read BASIC-INSTRUCTIONS.md and available public tool names at first use.
 Pass an exact tool name, for example tool="assign_material", for its full explanation.
-This reads static instructions without executing the named tool. Reuse instructions
-already read for the same guide_version. External connector management tools use
-connection instructions. BASIC links reference material directly.
+This reads static instructions without executing the named tool. Reuse instructions already read for the same guide_version. External connector management tools use connection instructions. BASIC links reference material directly.
 
 Args:
     tool: Exact public Almond tool name; empty returns BASIC and available tool names.
@@ -16,19 +14,10 @@ Args:
 ## get_construction_guidance
 
 <!-- instruction:get_construction_guidance -->
-Curated construction-system guidance for generating structures that are
-built the way real buildings are built - not arbitrary members in space.
-Parameters are distilled from Ching's Building Construction Illustrated
-(4th ed.): per-system span ranges, depth rules of thumb (depth = span/N),
-member spacing, element roles, and assembly notes.
+Look up construction systems, their constituent elements and assembly guidance.
+Parameters are distilled from Ching's Building Construction Illustrated (4th ed.): per-system span ranges, depth rules of thumb (depth = span/N), member spacing, element roles, and assembly notes.
 
-Call this BEFORE generating structural geometry: pick a system, size and
-space members from its rules, then generate and run validate_structure
-(which cross-checks the result against this same library). Each system
-names its structural_material (validate_structure vocabulary) and
-render_material_ids (assign_material vocabulary), so the declared
-construction material flows through analysis AND appears on the Rhino
-objects.
+Span/depth rules support preliminary sizing; they do not establish a project's structural adequacy. Each system names its structural_material (validate_structure vocabulary) and render_material_ids (assign_material vocabulary).
 
 Args:
     query: Free-text filter (e.g. "glulam", "longspan", "bearing wall").
@@ -51,17 +40,9 @@ include_ids independently enables handles; audit enables timestamps.
 ## get_typology_narrative
 
 <!-- instruction:get_typology_narrative -->
-Architectural typology narratives for project storytelling - precedents,
-eras, and urban roles distilled from Ching, Jarzombek & Prakash's
-A Global History of Architecture, with page references (gha_ref).
+Architectural typology narratives for project storytelling - precedents, eras, and urban roles distilled from Ching, Jarzombek & Prakash's A Global History of Architecture, with page references (gha_ref).
 
-NARRATION ONLY: use these entries to caption, contextualize and narrate
-a design (which tradition a courtyard block belongs to, what a truss
-hall's civic ancestors are). They must NEVER drive geometry, member
-sizing, or structural decisions - that is get_construction_guidance's
-job. A natural pairing: after building with a construction system, call
-this with construction_system=<that system_id> to fetch the lineage for
-the project description.
+Entries provide historical context and precedent relationships. They contain no project-specific basis for member sizing, loads or structural capacity.
 
 Args:
     query: Free text (e.g. "courtyard", "skyscraper", "timber hall").
@@ -83,6 +64,8 @@ include_ids independently enables handles; audit enables timestamps.
 
 <!-- instruction:search_detail_sources -->
 Search six curated free architectural source directories offline.
+Matches titles, tags and formats; an empty query lists all sources. Korean terms are preserved and selected catalogue terms expand to English. Results include query_terms, expanded_terms and each source's matched_terms.
+Prefer English search terms unless Korean sources are needed.
 Returns links, formats and rights notes; no external content is fetched.
 Results are research candidates, not attributed inputs or certified details.
 DETAIL subscription access is not required.

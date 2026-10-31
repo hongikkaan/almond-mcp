@@ -17,6 +17,11 @@ namespace RhinoAlmondBridge
     public static class ObjectObservation
     {
         const int MaxBytes = 262144;
+        static readonly HashSet<string> ObjectFields = new HashSet<string>(new[] {
+            "id", "name", "layer_path", "object_type", "geometry_kind", "geometry_crc",
+            "visible", "selected", "hidden", "locked", "bounds", "groups", "user_dictionary",
+            "geometry_valid", "solid", "manifold", "volume", "faces", "face_count"
+        }, StringComparer.Ordinal);
         static readonly Type SharedDictionaryType = typeof(Rhino.DocObjects.Custom.UserDictionary).Assembly
             .GetType("Rhino.DocObjects.Custom.SharedUserDictionary", throwOnError: true);
         // CommonObject.UserDictionary would attach a new dictionary even on a read.
@@ -58,11 +63,17 @@ namespace RhinoAlmondBridge
                 {
                     var ids = ReadIds(request["object_ids"], 512, true);
                     int maxPairs = Integer(request, "max_pairs", 64, 1, 64);
-                    var result = ComponentOperations.CheckIntersectVolumes(doc, ids, maxPairs);
+                    if (request["include_blocks"] != null && request["include_blocks"].Type != JTokenType.Boolean)
+                        throw new ArgumentException("include_blocks must be boolean.");
+                    if (request["cursor"] != null && (request["cursor"].Type != JTokenType.String || ((string)request["cursor"]).Length > 256))
+                        throw new ArgumentException("cursor must be a string of at most 256 characters.");
+                    bool includeBlocks = (bool?)request["include_blocks"] ?? false;
+                    string cursor = (string)request["cursor"] ?? "";
+                    var result = ComponentOperations.CheckIntersectVolumes(doc, ids, maxPairs, includeBlocks, cursor);
                     if ((string)result["status"] == "success")
                     {
                         result["schema"] = "almond-object-intersections/v1";
-                        result["limitations"][0] = "All distinct pairs within the explicit object set are considered; groups do not expand it.";
+                        result["limitations"][0] = "All distinct pairs within the explicit object set are considered; groups do not expand it. include_blocks controls block occurrence traversal.";
                     }
                     return result;
                 }
@@ -104,6 +115,41 @@ namespace RhinoAlmondBridge
             if (request["include_geometry"] != null && request["include_geometry"].Type != JTokenType.Boolean)
                 throw new ArgumentException("include_geometry must be a boolean.");
             bool geometry = (bool?)request["include_geometry"] ?? false;
+            string mode = (string)request["result_mode"] ?? "objects";
+            if (mode != "objects" && mode != "summary") throw new ArgumentException("result_mode must be objects or summary.");
+            HashSet<string> fields = null;
+            if (request["fields"] != null && request["fields"].Type != JTokenType.Null)
+            {
+                if (!(request["fields"] is JArray names) || names.Count == 0 ||
+                    names.Any(v => v.Type != JTokenType.String || !ObjectFields.Contains((string)v)))
+                    throw new ArgumentException("fields contains an unsupported object field.");
+                fields = new HashSet<string>(names.Values<string>(), StringComparer.Ordinal);
+                if (fields.Count != names.Count) throw new ArgumentException("fields must be distinct.");
+            }
+            int faceOffset = Integer(request, "face_offset", 0, 0, 100000);
+            int faceLimit = Integer(request, "face_limit", 128, 1, 128);
+            bool wantsFaces = fields == null ? geometry : fields.Contains("faces");
+            if ((faceOffset != 0 || faceLimit != 128) && !wantsFaces)
+                throw new ArgumentException("Face pagination requires include_geometry=true or fields containing faces.");
+            var expected = new Dictionary<Guid, uint>();
+            if (request["expected_geometry_crcs"] != null)
+            {
+                if (!(request["expected_geometry_crcs"] is JObject crcs) || crcs.Count > 4096)
+                    throw new ArgumentException("expected_geometry_crcs must map at most 4096 object GUIDs to uint32 CRCs.");
+                foreach (var entry in crcs.Properties())
+                {
+                    if (!Guid.TryParse(entry.Name, out var id) || id == Guid.Empty || expected.ContainsKey(id) ||
+                        entry.Value.Type != JTokenType.Integer || (long)entry.Value < 0 || (long)entry.Value > UInt32.MaxValue)
+                        throw new ArgumentException("expected_geometry_crcs requires distinct object GUIDs and uint32 CRCs.");
+                    expected.Add(id, (uint)entry.Value);
+                }
+            }
+            if (expected.Count != 0 && (scope != "ids" || expected.Keys.Any(id => !ids.Contains(id))))
+                throw new ArgumentException("expected_geometry_crcs keys must belong to the explicit scope=ids object set.");
+            if (faceOffset != 0 && (scope != "ids" || expected.Count != ids.Length))
+                throw new ArgumentException("A subsequent face page requires scope=ids and an observed CRC for every object.");
+            if (mode == "summary" && (fields != null || geometry || expected.Count != 0 || faceOffset != 0 || faceLimit != 128))
+                throw new ArgumentException("Summary returns layer/type counts; object fields and face options require result_mode=objects.");
             var filters = request["filters"] as JObject ?? new JObject();
             if (request["filters"] != null && !(request["filters"] is JObject)) throw new ArgumentException("filters must be an object.");
             ValidateFilters(filters);
@@ -124,13 +170,32 @@ namespace RhinoAlmondBridge
             }
             var candidates = source.ToArray();
             var matched = candidates.Where(o => Matches(doc, o, filters)).OrderBy(o => o.Id).ToArray();
+            foreach (var obj in candidates)
+                if (expected.TryGetValue(obj.Id, out var crc) && obj.Geometry.DataCRC(0) != crc)
+                    return Error("stale_geometry", "An object's geometry changed; observe its faces from the beginning: " + obj.Id);
             var set = new HashSet<Guid>(matched.Select(o => o.Id));
             var rows = new JArray();
             var budget = new ValueBudget();
             int rowBytes = 0;
-            foreach (var obj in matched.Skip(offset).Take(limit))
+            int rowCount = matched.Length;
+            IEnumerable<JObject> page;
+            if (mode == "summary")
             {
-                var row = Describe(doc, obj, set, visible, geometry, budget);
+                var groups = matched.GroupBy(o => new {
+                    Layer = doc.Layers.FindIndex(o.Attributes.LayerIndex)?.FullPath,
+                    Type = o.ObjectType.ToString(), Kind = o.Geometry.GetType().Name
+                }).OrderBy(g => g.Key.Layer, StringComparer.Ordinal).ThenBy(g => g.Key.Type, StringComparer.Ordinal)
+                    .ThenBy(g => g.Key.Kind, StringComparer.Ordinal).ToArray();
+                rowCount = groups.Length;
+                page = groups.Skip(offset).Take(limit).Select(g => new JObject {
+                    ["layer_path"] = g.Key.Layer, ["object_type"] = g.Key.Type, ["geometry_kind"] = g.Key.Kind,
+                    ["object_count"] = g.Count(), ["visible_count"] = g.Count(o => visible.Contains(o.Id))
+                });
+            }
+            else page = matched.Skip(offset).Take(limit).Select(obj =>
+                Describe(doc, obj, set, visible, geometry, budget, fields, faceOffset, faceLimit));
+            foreach (var row in page)
+            {
                 rowBytes += Encoding.UTF8.GetByteCount(row.ToString(Formatting.None));
                 if (rowBytes > MaxBytes - 4096) return Error("observation_too_large", "Response exceeds 256 KiB; reduce limit, scope or geometry detail.");
                 rows.Add(row);
@@ -142,13 +207,14 @@ namespace RhinoAlmondBridge
                 ["source_count"] = candidates.Length, ["matched_count"] = matched.Length,
                 ["document_visible_count"] = visible.Count, ["matched_visible_count"] = matched.Count(o => visible.Contains(o.Id)),
                 ["visible_outside_match_count"] = visible.Count(id => !set.Contains(id)),
-                ["objects"] = rows, ["offset"] = offset, ["limit"] = limit,
-                ["next_offset"] = offset + rows.Count < matched.Length ? new JValue(offset + rows.Count) : JValue.CreateNull(),
-                ["complete"] = offset == 0 && rows.Count == matched.Length,
+                [mode == "summary" ? "summary" : "objects"] = rows, ["offset"] = offset, ["limit"] = limit,
+                ["next_offset"] = offset + rows.Count < rowCount ? new JValue(offset + rows.Count) : JValue.CreateNull(),
+                ["complete"] = offset == 0 && rows.Count == rowCount,
                 ["visibility_basis"] = "Rhino document visibility, including object/layer hiding; not pixel, frustum, clipping or occlusion proof.",
                 ["limitations"] = new JArray("Top-level model objects only; groups do not expand the set, block contents are not traversed.",
                     "Filters describe metadata, not architectural element identity. Scalar dictionary strings are not split into inferred lists.")
             };
+            if (mode == "summary") { answer["result_mode"] = mode; answer["summary_count"] = rowCount; }
             if (Encoding.UTF8.GetByteCount(answer.ToString(Formatting.None)) > MaxBytes)
                 return Error("observation_too_large", "Response exceeds 256 KiB; reduce limit, scope or geometry detail.");
             return answer;
@@ -156,13 +222,16 @@ namespace RhinoAlmondBridge
 
         static void ValidateFilters(JObject filters)
         {
-            if (filters.Properties().Any(p => p.Name != "layer_paths" && p.Name != "name_contains" && p.Name != "user_dictionary"))
-                throw new ArgumentException("Filters support layer_paths, name_contains and user_dictionary only.");
+            if (filters.Properties().Any(p => p.Name != "layer_paths" && p.Name != "object_types" && p.Name != "name_contains" && p.Name != "user_dictionary"))
+                throw new ArgumentException("Filters support layer_paths, object_types, name_contains and user_dictionary only.");
             if (filters["layer_paths"] != null && (!(filters["layer_paths"] is JArray layers) || layers.Count == 0 || layers.Count > 64 ||
                 layers.Any(v => v.Type != JTokenType.String || String.IsNullOrEmpty((string)v))))
                 throw new ArgumentException("layer_paths must contain 1..64 exact full layer paths.");
             if (filters["name_contains"] != null && (filters["name_contains"].Type != JTokenType.String || ((string)filters["name_contains"]).Length > 256))
                 throw new ArgumentException("name_contains must be a string of at most 256 characters.");
+            if (filters["object_types"] != null && (!(filters["object_types"] is JArray types) || types.Count == 0 || types.Count > 32 ||
+                types.Any(v => v.Type != JTokenType.String || !Enum.GetNames(typeof(ObjectType)).Contains((string)v, StringComparer.OrdinalIgnoreCase))))
+                throw new ArgumentException("object_types must contain 1..32 Rhino object_type names from an observation.");
             if (filters["user_dictionary"] == null) return;
             if (!(filters["user_dictionary"] is JArray conditions) || conditions.Count > 16) throw new ArgumentException("user_dictionary must contain at most 16 conditions.");
             foreach (var item in conditions)
@@ -181,6 +250,7 @@ namespace RhinoAlmondBridge
         static bool Matches(RhinoDoc doc, RhinoObject obj, JObject filters)
         {
             if (filters["layer_paths"] is JArray layers && !layers.Values<string>().Contains(doc.Layers.FindIndex(obj.Attributes.LayerIndex)?.FullPath, StringComparer.OrdinalIgnoreCase)) return false;
+            if (filters["object_types"] is JArray types && !types.Values<string>().Contains(obj.ObjectType.ToString(), StringComparer.OrdinalIgnoreCase)) return false;
             if (filters["name_contains"] != null && (obj.Name ?? "").IndexOf((string)filters["name_contains"], StringComparison.OrdinalIgnoreCase) < 0) return false;
             foreach (var c in filters["user_dictionary"] as JArray ?? new JArray())
             {
@@ -242,54 +312,77 @@ namespace RhinoAlmondBridge
         }
         static JArray Point(Point3d p) => new JArray(p.X, p.Y, p.Z);
         static JObject Bounds(BoundingBox b) => b.IsValid ? new JObject { ["min"] = Point(b.Min), ["max"] = Point(b.Max) } : null;
-        static JObject Describe(RhinoDoc doc, RhinoObject obj, HashSet<Guid> matched, HashSet<Guid> visible, bool includeGeometry, ValueBudget budget)
+        static JObject Describe(RhinoDoc doc, RhinoObject obj, HashSet<Guid> matched, HashSet<Guid> visible,
+            bool includeGeometry, ValueBudget budget, HashSet<string> fields, int faceOffset, int faceLimit)
         {
-            var groups = new JArray();
-            foreach (int index in (obj.Attributes.GetGroupList() ?? Array.Empty<int>()).Take(64))
-            {
-                var group = doc.Groups[index];
-                var members = doc.Groups.GroupMembers(index) ?? Array.Empty<RhinoObject>();
-                groups.Add(new JObject { ["id"] = group.Id.ToString(), ["name"] = group.Name,
-                    ["member_count"] = members.Length, ["members_outside_match_count"] = members.Count(o => !matched.Contains(o.Id)),
-                    ["visible_member_count"] = members.Count(o => visible.Contains(o.Id)),
-                    ["member_ids"] = new JArray(members.Take(64).Select(o => o.Id.ToString())), ["members_truncated"] = members.Length > 64 });
-            }
+            bool Want(string field, bool detail = false) => fields == null ? !detail || includeGeometry : fields.Contains(field);
             var geometry = obj.Geometry;
-            var row = new JObject { ["id"] = obj.Id.ToString(), ["name"] = obj.Name ?? "",
-                ["layer_path"] = doc.Layers.FindIndex(obj.Attributes.LayerIndex)?.FullPath,
-                ["object_type"] = obj.ObjectType.ToString(), ["geometry_kind"] = geometry.GetType().Name,
-                ["geometry_crc"] = geometry.DataCRC(0), ["visible"] = visible.Contains(obj.Id),
-                ["selected"] = obj.IsSelected(false) != 0, ["hidden"] = obj.IsHidden, ["locked"] = obj.IsLocked,
-                ["bounds"] = Bounds(geometry.GetBoundingBox(true)), ["groups"] = groups,
-                ["groups_truncated"] = obj.Attributes.GroupCount > 64,
-                ["user_dictionary"] = new JObject { ["attributes"] = Dictionary(ExistingDictionary(obj.Attributes), budget), ["geometry"] = Dictionary(ExistingDictionary(geometry), budget) } };
-            if (!includeGeometry) return row;
-            row["geometry_valid"] = geometry.IsValid;
+            var row = new JObject();
+            if (Want("id")) row["id"] = obj.Id.ToString();
+            if (Want("name")) row["name"] = obj.Name ?? "";
+            if (Want("layer_path")) row["layer_path"] = doc.Layers.FindIndex(obj.Attributes.LayerIndex)?.FullPath;
+            if (Want("object_type")) row["object_type"] = obj.ObjectType.ToString();
+            if (Want("geometry_kind")) row["geometry_kind"] = geometry.GetType().Name;
+            if (Want("geometry_crc")) row["geometry_crc"] = geometry.DataCRC(0);
+            if (Want("visible")) row["visible"] = visible.Contains(obj.Id);
+            if (Want("selected")) row["selected"] = obj.IsSelected(false) != 0;
+            if (Want("hidden")) row["hidden"] = obj.IsHidden;
+            if (Want("locked")) row["locked"] = obj.IsLocked;
+            if (Want("bounds")) row["bounds"] = Bounds(geometry.GetBoundingBox(true));
+            if (Want("groups"))
+            {
+                var groups = new JArray();
+                foreach (int index in (obj.Attributes.GetGroupList() ?? Array.Empty<int>()).Take(64))
+                {
+                    var group = doc.Groups[index];
+                    var members = doc.Groups.GroupMembers(index) ?? Array.Empty<RhinoObject>();
+                    groups.Add(new JObject { ["id"] = group.Id.ToString(), ["name"] = group.Name,
+                        ["member_count"] = members.Length, ["members_outside_match_count"] = members.Count(o => !matched.Contains(o.Id)),
+                        ["visible_member_count"] = members.Count(o => visible.Contains(o.Id)),
+                        ["member_ids"] = new JArray(members.Take(64).Select(o => o.Id.ToString())), ["members_truncated"] = members.Length > 64 });
+                }
+                row["groups"] = groups;
+                row["groups_truncated"] = obj.Attributes.GroupCount > 64;
+            }
+            if (Want("user_dictionary")) row["user_dictionary"] = new JObject {
+                ["attributes"] = Dictionary(ExistingDictionary(obj.Attributes), budget), ["geometry"] = Dictionary(ExistingDictionary(geometry), budget) };
+            if (Want("geometry_valid", true)) row["geometry_valid"] = geometry.IsValid;
             if (geometry is Brep brep)
             {
-                bool valid = geometry.IsValid, solid = brep.IsSolid, manifold = brep.IsManifold;
-                row["solid"] = solid;
-                row["manifold"] = manifold;
-                row["face_count"] = brep.Faces.Count;
-                row["faces_truncated"] = brep.Faces.Count > 128;
-                var faces = new JArray();
-                foreach (var face in brep.Faces.Take(128))
+                if (Want("solid", true)) row["solid"] = brep.IsSolid;
+                if (Want("manifold", true)) row["manifold"] = brep.IsManifold;
+                if (Want("face_count", true)) row["face_count"] = brep.Faces.Count;
+                if (Want("faces", true))
                 {
-                    bool planar = face.TryGetPlane(out var plane, doc.ModelAbsoluteTolerance);
-                    var normal = face.OrientationIsReversed ? -plane.Normal : plane.Normal;
-                    bool adjacentPlanar = planar && face.AdjacentEdges().SelectMany(i => brep.Edges[i].AdjacentFaces()).Distinct()
-                        .All(i => brep.Faces[i].IsPlanar(doc.ModelAbsoluteTolerance));
-                    faces.Add(new JObject { ["face_index"] = face.FaceIndex, ["planar"] = planar,
-                        ["plane_origin"] = planar ? Point(plane.Origin) : null,
-                        ["normal"] = planar ? new JArray(normal.X, normal.Y, normal.Z) : null,
-                        ["bounds"] = Bounds(face.GetBoundingBox(true)),
-                        ["face_edit_supported"] = valid && solid && manifold && adjacentPlanar && !obj.IsLocked && !obj.IsReference });
+                    bool editable = geometry.IsValid && brep.IsSolid && brep.IsManifold && !obj.IsLocked && !obj.IsReference;
+                    var faces = new JArray();
+                    foreach (var face in brep.Faces.Skip(faceOffset).Take(faceLimit))
+                    {
+                        bool planar = face.TryGetPlane(out var plane, doc.ModelAbsoluteTolerance);
+                        var normal = face.OrientationIsReversed ? -plane.Normal : plane.Normal;
+                        bool adjacentPlanar = planar && face.AdjacentEdges().SelectMany(i => brep.Edges[i].AdjacentFaces()).Distinct()
+                            .All(i => brep.Faces[i].IsPlanar(doc.ModelAbsoluteTolerance));
+                        faces.Add(new JObject { ["face_index"] = face.FaceIndex, ["planar"] = planar,
+                            ["plane_origin"] = planar ? Point(plane.Origin) : null,
+                            ["normal"] = planar ? new JArray(normal.X, normal.Y, normal.Z) : null,
+                            ["bounds"] = Bounds(face.GetBoundingBox(true)),
+                            ["face_edit_supported"] = editable && adjacentPlanar });
+                    }
+                    // A face page always carries its source identity and version, even under field selection.
+                    row["id"] = obj.Id.ToString();
+                    row["geometry_crc"] = geometry.DataCRC(0);
+                    row["face_count"] = brep.Faces.Count;
+                    row["faces_truncated"] = faceOffset != 0 || faces.Count < brep.Faces.Count;
+                    row["face_page"] = new JObject { ["offset"] = faceOffset, ["limit"] = faceLimit,
+                        ["returned"] = faces.Count, ["next_offset"] = faceOffset + faces.Count < brep.Faces.Count
+                            ? new JValue(faceOffset + faces.Count) : JValue.CreateNull(),
+                        ["complete"] = faceOffset == 0 && faces.Count == brep.Faces.Count };
+                    row["faces"] = faces;
                 }
-                row["faces"] = faces;
-                if (valid && solid)
+                if (Want("volume", true) && geometry.IsValid && brep.IsSolid)
                     using (var mass = VolumeMassProperties.Compute(brep)) row["volume"] = mass == null ? JValue.CreateNull() : new JValue(mass.Volume);
             }
-            else row["face_edit_supported"] = false;
+            else if ((fields == null && includeGeometry) || Want("faces", true)) row["face_edit_supported"] = false;
             return row;
         }
         static JObject Error(string code, string message) => new JObject { ["status"] = "error", ["error_code"] = code, ["message"] = message };

@@ -1,37 +1,19 @@
 # Public query and write responses
 
-The public MCP query API returns feature summaries by default. `field_groups` is
-an explicit optional array: omitted, null and [] mean summary; selected groups
-add fields, and `all` restores the complete existing payload. Unknown groups fail
-with `invalid_arguments` before store or native work. Group selection never
-changes persisted records or the Python store API.
+The public MCP query API returns feature summaries by default. `field_groups` is an explicit optional array: omitted, null and [] mean summary; selected groups add fields, and `all` restores the complete existing payload. Unknown groups fail with `invalid_arguments` before store or native work. Group selection never changes persisted records or the Python store API.
 
-`include_ids` remains an independent strict boolean, default false. It enables
-handles in the selected records, without enabling geometry, references, steps or
-timestamps. Supplied target IDs are not repeated. Technical timestamps
-(`created_at`, `updated_at`, `observed_at`, `generated_at`) require `audit` or `all`.
+`include_ids` remains an independent strict boolean, default false. It enables handles in the selected records, without enabling geometry, references, steps or timestamps. Supplied target IDs are not repeated. Technical timestamps (`created_at`, `updated_at`, `observed_at`, `generated_at`) require `audit` or `all`.
 Pagination, status, availability, counts and required revisions remain useful.
-Errors, warnings, incomplete/unsupported work, mutation uncertainty, conflicts,
-reconciliation requirements and native completion/proof are never hidden by
-projection, ID display or timestamp preferences. Uncertain outcomes retain their
-full evidence and must not be retried automatically.
+Errors, warnings, incomplete/unsupported work, mutation uncertainty, conflicts, reconciliation requirements and native completion/proof are never hidden by projection, ID display or timestamp preferences. Uncertain outcomes retain their full evidence and must not be retried automatically.
 
-Feature tools project their own records. Collections keep their original
-envelopes, totals and pagination. A requested asset drawing manifest, parsed
-Grasshopper logic or helper script is intrinsically the useful payload and stays
-available by default. `list_library` also returns logic_names so discovery remains
-useful with IDs hidden. Field groups are additive: a selected optional field can
-be absent when the source record does not contain it.
+Feature tools project their own records. Collections keep their original envelopes, totals and pagination. A requested asset drawing manifest, parsed Grasshopper logic or helper script is intrinsically the useful payload and stays available by default. `list_library` also returns logic_names so discovery remains useful with IDs hidden. Field groups are additive: a selected optional field can be absent when the source record does not contain it.
 
-Successful Plan/Phase/Scene and legacy placement writes acknowledge their needed
-handle, revision and counts, rather than echoing whole records, geometry or input
-metadata. Existing envelope names remain. Use the matching get query for details.
+Successful Plan/Phase/Scene and legacy placement writes acknowledge their needed handle, revision and counts, rather than echoing whole records, geometry or input metadata. Existing envelope names remain. Use the matching get query for details.
 Component mutation acknowledgements are owned by the Component feature.
 
 ## Declared field groups
 
-Each row names fields added to the feature's normal summary. The tool description
-lists the supported groups; `all` is available for every field-group query.
+Each row names fields added to the feature's normal summary. The tool description lists the supported groups; `all` is available for every field-group query.
 
 | Feature | Group | Added fields |
 |---|---|---|
@@ -84,23 +66,11 @@ lists the supported groups; `all` is available for every field-group query.
 | structure | `source` | `origin`, `source`, `sources` |
 | structure | `audit` | `created_at`, `updated_at` |
 
-| scenes | `scope`, `state`, `geometry`, `audit` | file_name/project_file_id/units/model_path; revision; bounds_mm/component_id; timestamps |
-| placement validation | `details` | collisions, outside_room (bounded by detail_limit) |
+| scenes | `scope`, `state`, `geometry`, `audit` | file_name/project_file_id/units/model_path; revision; bounds_mm/component_id; timestamps | | placement validation | `details` | collisions, outside_room (bounded by detail_limit) |
 
 ## Project Scene discovery
 
-`list_design_scenes(name="", file_name="", limit=50, offset=0)` lists the entire
-project DB without Plan, live document or per-Scene geometry queries. `name` is a
-case-insensitive substring; `file_name` is an exact optional match. Default rows
-are names only. `include_ids=true` adds Scene handles, `scope` adds file_name and
-units, `state` adds revision and `audit` adds timestamps. One SELECT returns the
-bounded page and total, including an offset beyond the final row. `limit` is
-1–200; offset is non-negative. `get_scene_objects` also returns a bounded page
-(limit 1–200, offset, total and truncated), with current semantic-group members'
-names/types by default and optional geometry/scope. It requires a complete stable
-native observation and stores no individual objects. Cached component queries
-return only group summaries with geometry_available=false. A child-only sync
-invalidates unobserved ancestors' effective count/bounds and sets requires_sync.
+`list_design_scenes(name="", file_name="", limit=50, offset=0)` lists the entire project DB without Plan, live document or per-Scene geometry queries. `name` is a case-insensitive substring; `file_name` is an exact optional match. Default rows are names only. `include_ids=true` adds Scene handles, `scope` adds file_name and units, `state` adds revision and `audit` adds timestamps. One SELECT returns the bounded page and total, including an offset beyond the final row. `limit` is 1–200; offset is non-negative. `get_scene_objects` also returns a bounded page (limit 1–200, offset, total and truncated), with current semantic-group members' names/types by default and optional geometry/scope. It requires a complete stable native observation and stores no individual objects. Cached component queries return only group summaries with geometry_available=false. A child-only sync invalidates unobserved ancestors' effective count/bounds and sets requires_sync.
 
 ## Other bounded/query-specific contracts
 
@@ -114,7 +84,4 @@ invalidates unobserved ancestors' effective count/bounds and sets requires_sync.
 - `audit_asset_drawing`: one requested package's validation/proof result.
 - `validate_structure`: its existing detail=false summary/detail=true contract.
 
-Fresh clients derive the explicit signatures through both FastMCP and inert COS
-catalog generation. Existing client/worker processes need a normal session restart
-to load changed Python; no catalog export, Rhino rebuild or plugin registration
-is implied by these Python API changes.
+Fresh clients derive the explicit signatures through both FastMCP and inert COS catalog generation. Existing client/worker processes need a normal session restart to load changed Python; no catalog export, Rhino rebuild or plugin registration is implied by these Python API changes.

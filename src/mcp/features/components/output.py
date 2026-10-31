@@ -33,5 +33,7 @@ def project(payload: dict, groups: list[str] | None) -> dict:
         result = select_fields(result, groups,
             {"status", "action", "schema", "has_positive_overlap", "object_count", "supported_object_count",
              "candidate_pair_count", "bbox_pruned_pair_count", "evaluated_pairs", "max_pairs",
-             "positive_pair_count", "unknown_pair_count", "document_units", "tolerance_model_units"}, GROUPS)
+             "positive_pair_count", "unknown_pair_count", "document_units", "tolerance_model_units",
+             "occurrence_count", "supported_occurrence_count", "include_blocks", "offset",
+             "scope_state", "next_cursor", "pagination_complete", "remaining_candidate_pairs"}, GROUPS)
     return result

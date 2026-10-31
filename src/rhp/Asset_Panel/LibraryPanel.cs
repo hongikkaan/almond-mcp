@@ -137,7 +137,7 @@ namespace RhinoAlmondBridge
                         e.Cancel = true;
                         // The capability exists only in this panel's URL; the HTTP host
                         // has no placement endpoint and continues to accept GET/HEAD only.
-                        var action = Regex.Match(e.Uri.AbsolutePath, "^/almond-action/" + _session + "/(drag|place)/(light|original)/(gen-[a-z0-9-]{1,100})$");
+                        var action = Regex.Match(e.Uri.AbsolutePath, "^/almond-action/" + _session + "/(drag|place)/(light|original)/([A-Za-z0-9._-]{1,100})$");
                         if (_ready && action.Success)
                             LibraryPlacement.Request(action.Groups[3].Value, action.Groups[1].Value == "drag", action.Groups[2].Value == "light");
                         var analysis = Regex.Match(e.Uri.AbsolutePath,"^/almond-action/"+_session+"/karamba/(status|capture|analyze|highlight|export|clear_view|results)$");

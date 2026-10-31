@@ -26,7 +26,7 @@ else:
 TOOL_NAMES = {
     "list_ontological_components", "get_ontological_component", "upsert_ontological_component",
     "sync_ontological_component", "remove_ontological_component", "focus_components",
-    "get_component_intersections",
+    "get_component_intersections", "show_object_intersection", "resolve_object_intersection",
 }
 HELPER_NAMES = {"_component_bridge", "_component_error", "_component_operation_bridge"}
 

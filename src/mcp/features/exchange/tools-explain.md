@@ -3,14 +3,9 @@
 ## export_asset_contract
 
 <!-- instruction:export_asset_contract -->
-Exports Rhino objects as a portable Almond asset: a GLB plus an asset
-contract (.almond.json) carrying what the file cannot.
+Exports Rhino objects as a portable Almond asset: a GLB plus an asset contract (.almond.json) carrying what the file cannot.
 
-The contract records real dimensions in mm, the anchor and support plane,
-clearances, and the Almond material_id of every object - so another
-application (Blender, Unreal, another Rhino) can restore full meaning
-even though glTF drops per-object metadata. Pair with
-import_asset_contract on the receiving side.
+The contract records real dimensions in mm, the anchor and support plane, clearances, and the Almond material_id of every object - so another application (Blender, Unreal, another Rhino) can restore full meaning even though glTF drops per-object metadata. Pair with import_asset_contract on the receiving side.
 
 Args:
     guids: Rhino object GUIDs to export (from execute_rhino_script).
@@ -24,15 +19,9 @@ Returns:
 ## import_asset_contract
 
 <!-- instruction:import_asset_contract -->
-Imports an Almond asset contract (from Blender, Unreal, or another Rhino)
-into the open Rhino document, restoring everything the file format drops.
+Imports an Almond asset contract (from Blender, Unreal, or another Rhino) into the open Rhino document, restoring everything the file format drops.
 
-Runs the full receive sequence: import the GLB, collapse the duplicate
-materials glTF creates, restore canonical PBR values from the Almond
-material library (glTF round trips shift base colours), re-attach the
-almond:* metadata keyed off the surviving material name, place the asset
-at the requested point using the contract's anchor, and verify the
-measured size against the contract's recorded dimensions.
+Runs the full receive sequence: import the GLB, collapse the duplicate materials glTF creates, restore canonical PBR values from the Almond material library (glTF round trips shift base colours), re-attach the almond:* metadata keyed off the surviving material name, place the asset at the requested point using the contract's anchor, and verify the measured size against the contract's recorded dimensions.
 
 Args:
     contract_path: Path to a .almond.json contract file.
@@ -47,16 +36,11 @@ Returns:
 ## get_blender_helper_script
 
 <!-- instruction:get_blender_helper_script -->
-Returns Python to run inside Blender (via blender-mcp's execute_code) so
-Blender participates in the Almond workflow without a dedicated bridge.
+Returns Python to run inside Blender (via blender-mcp's execute_code) so Blender participates in the Almond workflow without a dedicated bridge.
 
 Actions:
-    "export"    - export the current Blender selection as an Almond asset
-                  contract + GLB (measured from evaluated mesh data,
-                  because Blender inflates curve bounding boxes).
-    "materials" - create Almond library materials in Blender (sRGB values
-                  converted to linear) and assign them to named objects,
-                  tagging both with almond:* properties.
+    "export"    - export the current Blender selection as an Almond asset contract + GLB (measured from evaluated mesh data, because Blender inflates curve bounding boxes).
+    "materials" - create Almond library materials in Blender (sRGB values converted to linear) and assign them to named objects, tagging both with almond:* properties.
 
 Args:
     action: "export" or "materials".

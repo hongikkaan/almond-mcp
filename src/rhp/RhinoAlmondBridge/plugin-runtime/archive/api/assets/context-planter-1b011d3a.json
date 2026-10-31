@@ -1,8 +1,9 @@
 {
   "id": "context-planter-1b011d3a",
   "name": "Plant pot",
-  "kind": "element",
-  "library": "drawing",
+  "kind": "model",
+  "library": "model_assets",
+  "source_library": "drawing",
   "category": "planter",
   "variant": "decorative planter",
   "format": "skp",
@@ -134,5 +135,13 @@
   },
   "drawing": null,
   "uri": "almond://repository/context-planter-1b011d3a",
-  "record_url": "/api/assets/context-planter-1b011d3a.json"
+  "record_url": "/api/assets/context-planter-1b011d3a.json",
+  "source_available": false,
+  "source_only": true,
+  "model_status": "not_installed",
+  "drawing_status": "not_installed",
+  "drawing_ready": false,
+  "source_file": null,
+  "next_tool": "prepare_drawing_asset",
+  "conversion_target": "3dm"
 }

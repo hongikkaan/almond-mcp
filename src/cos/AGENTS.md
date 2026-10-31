@@ -6,7 +6,4 @@ Each client's lazy stdio adapter owns separate workers for its bound Rhinos. Eng
 This module owns the external host, `rhp/` source, tests and `runtime-manifest.json`.
 The RHP is AlmondRhino; the CoS app and beyond share it. Follow the root glossary for product and route names.
 Maintain external connector and AlmondRhino contracts in `SPEC.md`, without duplicating them in the root SPEC.
-Use `run_tests.ps1 -Development` with the MCP development environment for
-offline fixtures while everyday hosts stay running. `build.ps1` and `configure.ps1`
-are deployment steps, not prerequisites for a running Rhino/MCP server during tests. Module-only changes
-must not require changes to MCP implementation or the Bridge manifest.
+Use `run_tests.ps1 -Development` with the MCP development environment for offline fixtures while everyday hosts stay running. `build.ps1` and `configure.ps1` are deployment steps, not prerequisites for a running Rhino/MCP server during tests. Module-only changes must not require changes to MCP implementation or the Bridge manifest.

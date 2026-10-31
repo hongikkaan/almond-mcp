@@ -1,11 +1,5 @@
 # drawing_assets.py explain
 
-## response-360
-
-<!-- instruction:response-360 -->
-Prepare the 3DM bottom-center origin before registration
-<!-- /instruction:response-360 -->
-
 ## response-372
 
 <!-- instruction:response-372 -->

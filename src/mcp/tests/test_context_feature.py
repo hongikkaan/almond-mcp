@@ -63,6 +63,7 @@ def test_retrieval_status_uses_current_store_paths_and_recipe_indexer(server):
     server.retrieval_store = SimpleNamespace(asset_stats=lambda *_: {"total": 0})
     server.drawing_recipe_indexer = SimpleNamespace(recipes={})
     server.drawing_asset_indexer = SimpleNamespace(assets={"a": {}})
+    server.generated_asset_indexer = SimpleNamespace(assets={})
     assert json.loads(server.get_retrieval_status())["drawing_recipes"] == 0
     server.STATE_DB_PATH = "rebound.sqlite3"
     server.retrieval_store = SimpleNamespace(asset_stats=stats)
@@ -70,10 +71,10 @@ def test_retrieval_status_uses_current_store_paths_and_recipe_indexer(server):
     result = json.loads(server.get_retrieval_status(include_ids=True))
     assert result == {
         "status": "ready", "database": "rebound.sqlite3",
-        "asset_index": {"total": 7, "library_id": None},
+        "asset_index": {"total": 7, "library_id": None, "source": "sqlite_cache"},
         "drawing_asset_index": {"total": 1, "source": "manifest"},
-        "model_asset_index": {"total": 7, "library_id": "generated_assets"},
+        "model_asset_index": {"total": 1, "source": "current_manifests", "states": {"missing": 1}},
         "drawing_recipes": 2, "retrieval": ["sqlite", "fts5", "rtree"],
         "embedding_adapter": "not_configured",
     }
-    assert calls == [None, "generated_assets"]
+    assert calls == [None]

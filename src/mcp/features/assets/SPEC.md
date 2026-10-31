@@ -19,37 +19,31 @@ Rhino에서는 `Almond` 또는 `AlmondLibraryBrowser`를 연다. Python만으로
 | 파생 투영 도면 | `asset/drawing/Draftingfiles` |
 | 도면 표현 규칙 | `asset/drawing/DrawingRecipes` |
 
-실행 환경의 `RHINO_MCP_*_DIR`이 저장소 경로보다 우선한다. 파일이나 manifest를 변경한 뒤 archive를 다시 시작한다. 검색은 이름·ID·분류·태그·drawing role을 사용하며 즐겨찾기는 브라우저 localStorage에 남는다. HTTP 서버는 loopback에 바인딩하고 Host 검사와 파일 allowlist를 사용한다. 업로드나 임의 파일 탐색 기능은 없다.
+실행 환경의 `RHINO_MCP_*_DIR`이 저장소 경로보다 우선한다. 파일이나 manifest를 변경한 뒤 Rhino 패널은 Reload로 현재 목록을 다시 읽고 Python standalone archive는 재시작한다. 현재 등록 목록 조회에는 설치된 Almond Python 환경이 필요하며 MCP 연결은 필요 없다. 검색은 이름·ID·분류·태그·drawing role을 사용하며 즐겨찾기는 브라우저 localStorage에 남는다. HTTP 서버는 loopback에 바인딩하고 Host 검사와 파일 allowlist를 사용한다. 업로드나 임의 파일 탐색 기능은 없다.
 
 - `search_asset_repository(query, kind, drawing_ready, limit)`: 통합 검색.
 - `almond://repository/{asset_id}`: 출처·표현·로컬 경로를 포함한 MCP record.
-- `/api/catalogue`, `/api/assets/{asset_id}.json`: HTTP 목록과 개별 record. 내보낸 목록은 모델 파일 묶음이 아니다.
+- `/api/catalogue`, `/api/assets/{asset_id}.json`: HTTP 목록과 개별 record. 공개 provenance·metadata에서 절대 로컬 경로를 제외하며, 명시적 MCP file handle과 native 내부 snapshot allowlist에서만 제공한다. 내보낸 목록은 모델 파일 묶음이 아니다.
 
-## 준비한 3DM 등록·배치
+## 모델 에셋 준비·등록·배치
 
-`prepare_drawing_asset`와 `register_drawing_asset(preparation_job=...)`는 현재 비활성 경로이며 파일·native 작업 전에 `error_code=acceptance_pending`을 반환한다. 아래 내부 준비 구현은 공개 지원 기능으로 간주하지 않는다. `preparation_job`을 생략한 준비 3DM 등록은 사용할 수 있다.
+Imported와 Generated 모델은 같은 ID 공간에서 조회·등록·배치한다. 공개 `*_drawing_asset*` 이름은 호환을 유지하며 공통 모델/2D 도구를 뜻한다. Diagram은 별도다. 기존 Drawing manifest·경로 설정을 canonical 저장소로 사용하고, Generated manifest와 원본·출처는 보존한다. 같은 ID의 등록 3DM이 우선한다. 소속 라이브러리와 관계없이 SKP·GLB 등 아직 전환하지 않은 3D 파일은 `source_only=true`, `model_status=needs_conversion`이며 배치를 막는다. 2D SVG·DXF·DWG·PNG는 유지하고, DWG/DXF가 명시적으로 3D인 경우 모델로 분류한다. 전환은 명시적으로 준비·검토·등록하며 서버 시작이나 조회가 파일을 이전하지 않는다.
 
-새 Drawing 자산의 원본은 검토·정리한 3DM이다. `prepare_drawing_asset`은 사용자의 Almond Asset Converter 흐름을 MCP의 작업 artifact 디렉터리 안에서 실행한다. `inspect`는 원본 사본과 SHA256을 보존하고 headless 문서에서 중첩 block을 풀어 part별 출처·bounds·형상 통계와 다섯 방향의 before 이미지를 만든다. OBJ/STL/PLY/OFF에는 명시적 단위를 요구한다. 입력은 100 MB, block 깊이는 32, 확장 객체는 10,000개로 제한하며 순환 참조를 거절한다.
+`prepare_drawing_asset`의 inspect는 원본 사본·SHA256을 보존하고 Rhino의 headless 가져오기로 3DM과 관찰 이미지를 만든다. 기존 3DM의 단위·원점·레이어·이름·블록 구조를 보존한다. Mesh interchange 입력은 명시적 단위를 요구하며 importer의 실제 치수·방향은 반환된 측정과 이미지로 확인한다. 100 MB 입력, 10,000 top-level 객체, 32 preview block 깊이로 제한한다. normalize는 선택 단계로, 관찰한 hash에 연결된 호출자 판단에 따라 top-level 객체 제거와 명시 XYZ 회전·이동만 적용한다. 면 병합·블록 해체·단일 레이어화·바닥 중심 원점은 강제하지 않는다.
 
-실제 before 이미지를 본 뒤 `normalize`에 inspected SHA256, 시각 검토 사실, 이름·ID·파일명, 명시적 XYZ 회전과 방향 근거, 필요시 삭제할 part ID와 이유를 전달한다. mm·Z-up·바닥 중심 원점·`ASSETS::drawing::Fur` layer·객체 이름을 맞추고 저장 파일을 다시 열어 after 이미지를 만든다. 이름·회전·삭제·정면은 도구가 추측하지 않는다.
+verify는 준비한 3DM을 다시 열어 최종 이미지와 측정값을 반환한다. 같은 단계에 최종 hash·이름·ID와 실제 이미지 검토를 기록하면 `register_drawing_asset(preparation_job=...)`에 연결할 수 있다. status·pagination은 기존 보고서를 읽어 native 실행을 반복하지 않는다. 미완료 실행은 상태를 노출하고 자동 재실행하지 않는다. 이미지 검토는 호출자 진술이며 자동 시각 인식이 아니다. Preview는 grayscale 형상 확인용이며 PBR·texture 이식성을 증명하지 않는다.
 
-after 이미지의 normalized SHA256에 연결된 검토 후 `merge`는 공식 RhinoCode ScriptRunner에서 실제 `_MergeAllCoplanarFaces`를 실행한다. 저장된 mm 문서에 준비한 객체만 임시 import·선택하며 결과만 export한다. `finally`에서 임시 객체·layer·material을 정리하고 원래 형상·속성·선택을 확인한다. 원본 작업 파일을 저장하지 않으며 문서 Modified는 true가 될 수 있다. runtime Undo와 완료 receipt가 명령 범위를 감싼다. 이어 `verify`는 최종 3DM을 다시 열어 단위·원점·이름·layer와 final 이미지를 확인한다. 그 이미지에 대응하는 final SHA256 검토를 두 번째 `verify`에 기록해야 등록 가능하다.
+`register_drawing_asset`는 표준 단위의 3DM을 복사하고, File3dm에서 형상·중첩 변환을 읽어 mm 단위 triangle/bounds를 측정한다. AABB 입력은 받지 않는다. source 파일의 단위·좌표·원점은 바꾸지 않는다. 미지원 형상·불완전 추출·미확인 외부 block 의존성은 발행을 막는다. 측정값과 같은 source에서 plan/front/right DXF·SVG 및 dimensions.json을 작성한다. 2D는 mesh silhouette이며 내부 visible/hidden edge나 단면을 대체하지 않는다. 준비 job 없이 검토한 외부 3DM도 등록할 수 있으며 이 경로는 이미지 검토를 보증하지 않는다.
 
-각 단계는 입력·출력·실행 script·report·preview SHA256을 기록한다. `status`와 part pagination은 이미 완료된 보고서를 읽으며 native 작업을 반복하지 않는다. 완료가 불확실하면 상태를 노출하고 재실행을 막는다. 시각 검토는 hash에 연결된 호출자 진술로 보관하며 자동 시각 판정으로 표시하지 않는다. 회색 preview는 형상 검토용이고 큰 mesh는 face를 sampling하므로 작은 부품은 별도 확대가 필요하다. classic material metadata는 유지하지만 PBR·외부 texture의 완전한 이식성을 보증하지 않는다.
+발행은 OS lock으로 직렬화한다. 파일 검증 후 manifest를 atomic하게 갱신하고 이전 파일·manifest와 최초 발행 source bytes를 보존한다. 같은 ID를 명시적으로 교체할 때에도 기존 3DM 경로를 유지하여 linked source가 계속 같은 파일을 가리킨다. 교체 전후 source hash를 확인한다. manifest 발행 실패 시 자신의 source bytes가 그대로 남아 있을 때만 이전 bytes를 복구하며, 외부 수정이나 복구 미확인은 evidence를 남기고 `requires_reconciliation`을 반환한다. 같은 ID의 원본 교체는 그 source를 공유하는 linked 배치에 반영될 수 있다.
 
-`register_drawing_asset(preparation_job=...)`은 최종 파일·검토·실제 명령의 hash와 이름/ID를 확인하고 원본 source·review·stage script·report·preview를 같은 version의 preparation 디렉터리에 묶는다. 기존 외부 준비 3DM은 preparation_job 없이 계속 등록할 수 있으며 이 경로의 시각 검토는 명시적으로 미확인이다. 등록은 mm·Z-up·바닥 중심 원점을 확인하며 원본 파일을 회전하거나 실제 정면의 적절성을 판정하지 않는다.
+3DM 배치는 Linked block과 Active layer style을 사용한다. 일반 문서 block은 에셋으로 전환하지 않는다. 배치 metadata는 배치 당시 source snapshot이며, 현재 source와 일치하는지는 실제 파일·manifest hash로 확인한다. 원본 3DM을 저장한 뒤 `refresh_asset(asset_id)`를 호출하면 같은 source 경로에서 측정·hash·2D package를 새 revision으로 발행한다. 기존 2D와 source revision은 보존하고 source 변환이나 Rhino 문서 저장·linked instance 갱신은 하지 않는다. source와 manifest가 다르면 새 배치는 `needs_refresh`를 반환한다.
 
-`register_drawing_asset`의 native extractor는 복사한 File3dm에서 중첩 블록 변환을 해석하고 지원 형상을 mesh로 추출해 hash·측정 bounds를 확인한다. 미지원 형상이나 불완전한 추출은 발행을 막는다. 같은 asset ID 아래 복사한 3DM, plan/front/right DXF·SVG, `dimensions.json`을 준비하며 기존 GLB 투영 구현을 재사용한다.
-
-라이브러리 쓰기는 OS lock으로 직렬화하고 파일을 확인한 뒤 manifest를 atomic하게 교체한다. 명시적 교체는 이전 version과 manifest backup을 보존한다. 발행 전 실패는 이전 항목을 유지하며, 발행 후 색인 갱신 실패는 `registration_applied=true`로 알린다. 이때 재등록 대신 연결을 새로 해 색인을 읽는다.
-
-`get_asset_drawing`, drawing resource, audit, `place_drawing_asset`은 같은 manifest 항목을 해석한다. 배치는 3DM hash와 문서 단위를 확인하고 원본 revision·단위별 block definition을 재사용한다. 새 원본을 등록해도 기존 배치는 보존한다. 완료 응답 누락만으로 배치를 반복하지 않는다.
-
-등록 결과는 현재 MCP 프로세스와 repository UI에서 보인다. native Asset Panel은 설치된 archive snapshot을 읽으므로 즉시 갱신되지 않는다. 다른 실행 중 MCP 프로세스도 재연결해 라이브러리를 다시 읽어야 한다.
+조회는 현재 manifest 기준 공통 목록과 SQLite cache 통계를 구분한다. 단일 조회·페이지는 반환 대상만 검증하고, 내용 hash 검증 결과는 파일별 size/mtime/ctime이 같은 동안 최대 5초 재사용한다. 하나의 파일 읽기 실패는 해당 항목의 unverified로 표시한다. `drawing_ready`는 현재 3DM과 package 검사를 통과한 경우만 true이며 missing/stale/invalid/source_requires_conversion을 구분한다. paths 그룹은 준비·원본 편집에 필요한 source_path/model_path를 반환한다. 등록·refresh는 현재 MCP index를 갱신하며 다른 실행 중 MCP는 재연결해 읽는다. 발행 후 index 갱신 실패는 이미 적용된 발행을 재실행할 이유가 아니다.
 
 ## 기존 GLB·Scene 배치 장부
 
-공개 Generated/Meshy 목록·검색·추천·fit·배치 도구는 종료됐다. 기존 생성 manifest·resource reader·하중 소비자와 GLB 파생 package는 호환을 유지한다. Diagram 자산은 계속 제공한다.
+별도 Generated/Meshy 도구는 종료됐고 공통 모델/2D 조회가 legacy source를 함께 보여준다. 기존 생성 manifest·resource reader·하중 소비자와 GLB 파생 package는 출처·이력 호환을 유지한다. Diagram 자산은 계속 제공한다.
 
 기존 GLB의 passport는 `asset.extras.almond.passport`, `.almond.json` sidecar와 manifest에 있다. 실제 치수·polygon count와 목표값·편차, anchor·footprint·clearance, 재료·생성 기록·미확인 사항을 구분한다. importer가 extras를 잃을 수 있으므로 sidecar와 checksum을 보존한다.
 

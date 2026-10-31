@@ -15,7 +15,7 @@ from almond_mcp.features.modeling.tools import register
 
 TOOL_NAMES = {
     "get_modeling_policy", "execute_rhino_script", "setup_modeling",
-    "list_materials", "assign_material", "save_rhino_document", "edit_planar_face",
+    "list_materials", "assign_material", "save_rhino_document", "edit_planar_face", "edit_planar_faces",
 }
 PACKAGE = Path(__file__).resolve().parents[1]
 

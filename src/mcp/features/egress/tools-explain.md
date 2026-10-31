@@ -3,14 +3,9 @@
 ## check_egress
 
 <!-- instruction:check_egress -->
-Checks a floor plate's means of egress against the construction library's
-egress rules (BCI A.10-A.13 framework + IBC-typical numeric factors -
-always verify against the governing code; the response repeats this).
+Checks a floor plate's means of egress against the construction library's egress rules (BCI A.10-A.13 framework + IBC-typical numeric factors - always verify against the governing code; the response repeats this).
 
-Call AFTER laying out cores/exits and BEFORE detailing: it verifies exit
-count, exit separation, egress width, travel distances and dead ends in
-one pass, and names the failing requirement so the layout can be fixed
-(add an exit, move a core, widen a stair) instead of guessed at.
+Call AFTER laying out cores/exits and BEFORE detailing: it verifies exit count, exit separation, egress width, travel distances and dead ends in one pass, and names the failing requirement so the layout can be fixed (add an exit, move a core, widen a stair) instead of guessed at.
 
 Args:
     plate_bounds_mm: Floor plate [min_x, min_y, max_x, max_y] in mm

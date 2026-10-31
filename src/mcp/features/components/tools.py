@@ -1,8 +1,8 @@
 """Component MCP tools; register explicitly with the current server context."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output, validate_field_groups
+from almond_mcp.query_output import query_output, validate_field_groups, project_query
 from almond_mcp.features.components.output import GROUPS, project
-from almond_mcp.managed_paths import bound_model_path
+from almond_mcp.managed_paths import bound_model_path, relative_output
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
@@ -10,6 +10,7 @@ import json
 from pydantic import StrictInt
 
 from almond_mcp.store_common import ComponentReconciliationError
+from almond_mcp.features.components import intersection_queries
 
 
 def register(mcp, context):
@@ -142,7 +143,8 @@ def register(mcp, context):
             return _component_error(exc)
 
     def _component_operation_bridge(action: str, expected_model_path: str,
-                                    component_ids: list[str], max_pairs: int = 64) -> str:
+                                    component_ids: list[str], max_pairs: int = 64,
+                                    include_blocks: bool = False, cursor: str = "") -> str:
         """Verify the advertised native helper before dispatching one bounded request."""
         try:
             model_path = context.retrieval_store._component_model_path(bound_model_path(expected_model_path))
@@ -152,10 +154,16 @@ def register(mcp, context):
                 raise ValueError("component_ids must contain 1 to 32 distinct Component handles.")
             if type(max_pairs) is not int or not 1 <= max_pairs <= 64:
                 raise ValueError("max_pairs must be an integer between 1 and 64.")
+            if type(include_blocks) is not bool or not isinstance(cursor, str) or len(cursor) > 256:
+                raise ValueError("include_blocks must be boolean and cursor a string of at most 256 characters.")
             request = {"type": "component_operation", "action": action,
                        "expected_model_path": model_path, "component_ids": component_ids}
             if action == "intersections":
                 request["max_pairs"] = max_pairs
+                if include_blocks:
+                    request["include_blocks"] = True
+                if cursor:
+                    request["cursor"] = cursor
             payload = json.dumps(request, allow_nan=False).encode("utf-8")
             if len(payload) > 262144:
                 raise ValueError("Component operation request exceeds 256 KiB.")
@@ -168,6 +176,8 @@ def register(mcp, context):
                 raise ValueError("Could not inspect the bound Rhino document.")
             if rhino_context.get("capabilities", {}).get("component_operations") != 1:
                 raise ValueError(read_instruction(__file__, 'response-571'))
+            if action == "intersections" and rhino_context.get("capabilities", {}).get("intersection_queries") != 1:
+                raise ValueError("Load a Bridge with intersection_queries=1 before inspecting Meshes or block occurrences.")
         except Exception as exc:
             return json.dumps({"status": "error", "error_code": "unsupported_component_operations",
                                "mutation_applied": False, "message": str(exc)})
@@ -188,11 +198,36 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'get_component_intersections')
-    @query_output
     def get_component_intersections(component_ids: list[str], expected_model_path: str = "",
-                                    max_pairs: StrictInt = 64, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
+                                    max_pairs: StrictInt = 64, include_ids: StrictBool = False, field_groups: list[str] | None = None,
+                                    include_blocks: StrictBool = False, cursor: str = "") -> str:
         validate_field_groups(field_groups, GROUPS)
-        return json.dumps(project(json.loads(_component_operation_bridge("intersections", expected_model_path, component_ids, max_pairs)), field_groups))
+        if type(include_ids) is not bool:
+            raise ValueError("include_ids must be a boolean.")
+        payload = json.loads(_component_operation_bridge("intersections", expected_model_path,
+            component_ids, max_pairs, include_blocks, cursor))
+        result = project_query(project(payload, field_groups), include_ids=include_ids,
+                               supplied={"component_ids": component_ids})
+        # Pair handles and state are execution inputs for the observation just computed.
+        # Preserve them even for a complete/default-summary response to avoid a repeat query.
+        if "pairs" in payload:
+            result["pairs"] = payload["pairs"]
+        return json.dumps(relative_output(result), ensure_ascii=False)
+
+    @mcp.tool(annotations={"destructiveHint": False})
+    @tool_instruction(__file__, 'show_object_intersection')
+    def show_object_intersection(a: dict | None = None, b: dict | None = None,
+                                 pair_state: str = "", clear: StrictBool = False,
+                                 expected_model_path: str = "") -> str:
+        return intersection_queries.request(context._send_and_receive, operation="preview", first=a, second=b,
+            pair_state=pair_state, clear=clear, expected_model_path=expected_model_path)
+
+    @mcp.tool()
+    @tool_instruction(__file__, 'resolve_object_intersection')
+    def resolve_object_intersection(keep: dict, trim: dict, pair_state: str,
+                                    expected_model_path: str = "") -> str:
+        return intersection_queries.request(context._send_and_receive, operation="resolve", first=keep, second=trim,
+            pair_state=pair_state, expected_model_path=expected_model_path)
 
     @mcp.tool(annotations={"destructiveHint": False})
     @tool_instruction(__file__, 'focus_components')
@@ -209,5 +244,7 @@ def register(mcp, context):
         "remove_ontological_component": remove_ontological_component,
         "_component_operation_bridge": _component_operation_bridge,
         "get_component_intersections": get_component_intersections,
+        "show_object_intersection": show_object_intersection,
+        "resolve_object_intersection": resolve_object_intersection,
         "focus_components": focus_components,
     }

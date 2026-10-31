@@ -59,6 +59,17 @@ def register(mcp, context):
         return json.dumps(face_edit.dispatch(payload, context._send_and_receive), ensure_ascii=False)
 
 
+    @mcp.tool()
+    @tool_instruction(__file__, 'edit_planar_faces')
+    def edit_planar_faces(edits: list[dict], expected_model_path: str = "") -> str:
+        try:
+            payload = face_edit.batch_request(edits, bound_model_path(expected_model_path))
+        except (ValueError, TypeError, OverflowError) as exc:
+            return json.dumps({**error_payload(str(exc), error_code="invalid_arguments"),
+                               "mutation_state": "not_started"})
+        return json.dumps(face_edit.dispatch(payload, context._send_and_receive, batch=True), ensure_ascii=False)
+
+
     @mcp.tool(annotations={"destructiveHint": False})
     @tool_instruction(__file__, 'save_rhino_document')
     def save_rhino_document() -> str:
@@ -239,6 +250,7 @@ def register(mcp, context):
         "get_modeling_policy": get_modeling_policy,
         "execute_rhino_script": execute_rhino_script,
         "edit_planar_face": edit_planar_face,
+        "edit_planar_faces": edit_planar_faces,
         "save_rhino_document": save_rhino_document,
         "setup_modeling": setup_modeling,
         "list_materials": list_materials,

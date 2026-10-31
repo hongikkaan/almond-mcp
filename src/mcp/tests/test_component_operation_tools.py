@@ -35,7 +35,8 @@ def wire(server, monkeypatch, capable=True, native=None):
         request = json.loads(payload)
         calls.append(request)
         if request["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"component_operations": 1} if capable else {}})
+            return json.dumps({"status": "success", "capabilities": {"component_operations": 1, "intersection_queries": 1,
+                                                                      "intersection_tools": 1} if capable else {}})
         if isinstance(native, Exception):
             raise native
         response = native if native is not None else {"status": "success", "complete": False,
@@ -99,6 +100,31 @@ def test_focus_timeout_never_auto_retries_ambiguous_change(server, monkeypatch):
     assert result["status"] == "error"
     assert result["requires_reconciliation"] is True and result["mutation_applied"] is None
     assert [request["type"] for request in calls] == ["get_rhino_context", "component_operation"]
+
+
+@pytest.mark.parametrize("complete", [True, False])
+def test_computed_pair_handles_survive_default_summary_for_preview_and_resolution(server, monkeypatch, complete):
+    a = {"object_id": str(uuid.UUID(int=1)), "path": []}
+    b = {"object_id": str(uuid.UUID(int=2)), "path": [str(uuid.UUID(int=3))]}
+    pair = {"a": {"handle": a}, "b": {"handle": b}, "pair_state": "a" * 64}
+    native = {"status": "success", "complete": complete, "pairs": [pair],
+              "next_cursor": None, "pagination_complete": True, "has_positive_overlap": True}
+    wire(server, monkeypatch, native=native)
+    result = call(server, "get_component_intersections", expected_model_path=r"C:\Models\test.3dm",
+                  component_ids=["panel"])
+    assert result["pairs"] == [pair]
+    calls = wire(server, monkeypatch, native={"status": "success", "displayed": True})
+    call(server, "show_object_intersection", expected_model_path=r"C:\Models\test.3dm",
+         a=result["pairs"][0]["a"]["handle"], b=result["pairs"][0]["b"]["handle"],
+         pair_state=result["pairs"][0]["pair_state"])
+    assert calls[1]["a"] == a and calls[1]["b"] == b
+
+
+def test_component_cursor_and_block_choice_are_forwarded(server, monkeypatch):
+    calls = wire(server, monkeypatch)
+    call(server, "get_component_intersections", expected_model_path=r"C:\Models\test.3dm",
+         component_ids=["assembly"], include_blocks=True, cursor="a" * 64 + ":64")
+    assert calls[1]["include_blocks"] is True and calls[1]["cursor"].endswith(":64")
 
 
 def test_protocol_schemas_expose_readonly_only_for_intersections(server):

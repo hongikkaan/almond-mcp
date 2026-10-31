@@ -2,7 +2,8 @@
   "id": "gen-shelving-modular-track-1",
   "name": "Shelving system",
   "kind": "model",
-  "library": "generated",
+  "library": "model_assets",
+  "source_library": "generated",
   "category": "storage",
   "variant": "wall-mounted modular shelving on aluminium tracks",
   "format": "glb",
@@ -25,8 +26,8 @@
     "height": 2000.0
   },
   "dimension_basis": "measured_from_normalised_glb",
-  "available": true,
-  "model": "/files/generated/models/gen-shelving-modular-track-1.glb",
+  "available": false,
+  "model": null,
   "preview": "/files/generated/previews/gen-shelving-modular-track-1.png",
   "contract": "/files/generated/models/gen-shelving-modular-track-1.almond.json",
   "license": "CC-BY-4.0",
@@ -329,5 +330,13 @@
   },
   "drawing": null,
   "uri": "almond://repository/gen-shelving-modular-track-1",
-  "record_url": "/api/assets/gen-shelving-modular-track-1.json"
+  "record_url": "/api/assets/gen-shelving-modular-track-1.json",
+  "source_available": true,
+  "source_only": true,
+  "model_status": "needs_conversion",
+  "drawing_status": "missing",
+  "drawing_ready": false,
+  "source_file": "/files/generated/models/gen-shelving-modular-track-1.glb",
+  "next_tool": "prepare_drawing_asset",
+  "conversion_target": "3dm"
 }

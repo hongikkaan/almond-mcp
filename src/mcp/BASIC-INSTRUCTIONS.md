@@ -49,6 +49,8 @@ Almond MCP를 사용해 Rhino 건축 모델과 도면을 조사·편집한다. �
 
 MCP의 관찰·캡처로 필요한 정보를 확인하며 computer use를 검증의 우회 수단으로 호출하지 않는다. 형상과 속성, 화면, 현재 편집 상태는 서로 다른 정보를 주므로 이번 판단에 필요한 관찰을 선택한다.
 
+객체 집합은 `get_rhino_objects`로 조회한다. 레이어·형상 유형별 요약으로 범위를 파악하고, `fields`로 ID나 필요한 속성만 받을 수 있다. 면 정보와 교차검사 결과가 나뉘어 반환되면 응답의 후속 조회 정보를 사용한다.
+
 ### get_rhino_context: 문서·선택·화면·편집 상태
 필요한 `sections`를 함께 요청한다. 기본값은 `["document"]`이며, `project_info`에서 이미 현재 문서를 확인했다면 같은 확인을 반복하지 않는다. 이 조회는 모델을 변경하지 않는다.
 
@@ -310,17 +312,19 @@ Rhino의 기존 Isolate/Unisolate 이력을 사용하며 선택·가시성·화�
 
 벽·문·가구·동선·프로그램 관계를 촘촘히 검토한 과거 과정의 참고 이미지가 필요하면 [Bonsai 평면 개요](features/guidance/guides/Bonsai-FloorPlan-overview.png)를 확인하되, 이를 최신 공간 결정이나 완성 도면 원본으로 사용하지 않는다.
 
-### 도면 생성 툴
+### 도면의 작성과 관리
+
+#### Layout 생성 및 관리
+
+도면 Layout을 구성할 때는 현재 Rhino 문서에 실제 존재하는 Layout·PageSpace·Detail을 조회해 목적·용지·축척에 맞게 재사용하거나 조정할 수 있는지 살핀다. 필요하면 새 Layout과 Detail 뷰를 추가해 작업하고, 불필요해진 Layout은 필요한 도면·주석이 남아 있지 않은지 확인한 뒤 제거한다.
+
+#### 도면 생성 툴
 
 [PlanSection](features/modeling/PlanSection/README.md#에이전트에서-사용)은 clipping plane GUID를 받아 평면·단면의 단면선·해치·가시 입면선을 추출한다. `execute_rhino_script`에서 해당 스크립트의 `run()`을 호출하며, 입력 형식과 호출 예시는 링크를 따른다. 출력은 별도의 도면 레이어에 놓이고 원본 객체·레이어·부모 블록에서 해석한 속성을 적용한다. 해치는 SectionStyle에 채움이 있을 때 생성되며, 입면선의 인쇄 굵기·명암은 깊이에 따라 계산한다.
 
 도면은 clipping plane의 축을 기준으로 WorldXY(Z=0)에 놓이며, 배치 기준점은 clipping plane의 원점에 대응하는 점이다. `Create`의 `points={GUID: [x, y]}`로 그 기준점의 도면상 절대 위치를 문서 단위로 지정한다. `Move`는 기존 도면을 그대로 옮기고, `Update`는 저장된 위치에서 다시 추출하므로 출력에 직접 가한 형상·속성 수정은 교체된다. `PDF`는 clipping의 `Paper`·`Scale`과 원점으로 용지 크기·축척·중심을 정하며, 용지 밖은 잘라낸다.
 
-### Layout 생성 및 관리
-
-도면 Layout을 구성할 때는 현재 Rhino 문서에 실제 존재하는 Layout·PageSpace·Detail을 조회해 목적·용지·축척에 맞게 재사용하거나 조정할 수 있는지 살핀다. 필요하면 새 Layout과 Detail 뷰를 추가해 작업하고, 불필요해진 Layout은 필요한 도면·주석이 남아 있지 않은지 확인한 뒤 제거한다.
-
-### 도면 표현·출력 검수
+#### 도면 표현·출력 검수
 
 도면의 용도와 축척에 맞춰 선두께·선종류·해치·문자와 치수의 가독성·잘림을 확인한다. Layout 도면을 검토할 때는 뷰 목록에서 해당 Layout GUID를 골라 용지와 Detail을 캡처하고, 용지 크기와 Detail 축척을 확인한다. 정적 도면의 축척은 이름으로 추정하지 않는다. 파일을 출력했다면 출력본도 열어 확인하고 수정한 부분을 다시 검수한다.
 
@@ -342,13 +346,13 @@ Rhino의 기존 Isolate/Unisolate 이력을 사용하며 선택·가시성·화�
 
 ### 자산 목록·검색
 
-Drawing 자산은 준비된 3DM, Diagram 자산은 도식용 자료다. [등록·생성·배치·교환·외부 발행·카메라 경로 작업](features/guidance/guides/references/asset-workflows.md)은 해당 작업을 할 때만 읽는다.
+모델·2D 자산은 공통 목록에서 다루며, 3D 대표 파일은 3DM이다. 생성·입수 경위는 출처 정보로 보존하고 Diagram은 도식용 자료로 구분한다. [준비·등록·배치·교환·외부 발행·카메라 경로 작업](features/guidance/guides/references/asset-workflows.md)은 해당 작업을 할 때 읽는다.
 
 | 도구| 입력  | 할 수 있는 일  |
 | --- | --- | --- |
 | `search_asset_repository` | `query`, 선택적 `kind`, `drawing_ready`, `limit` | 통합 자산 후보 검색. |
-| `list_drawing_assets`  | 선택적 `category`, `limit`, `offset`| Drawing 자산 목록 조회. |
-| `search_drawing_assets`| 검색어·분류·최대 치수 조건  | 크기와 용도에 맞는 Drawing 자산 검색.  |
+| `list_drawing_assets`  | 선택적 `category`, `limit`, `offset`| 모델·2D 자산 목록 조회. |
+| `search_drawing_assets`| 검색어·분류·최대 치수 조건  | 크기와 용도에 맞는 모델·2D 자산 검색.  |
 | `get_drawing_asset` | `asset_id`| 3DM 가용성·측정 치수·메타데이터 조회.|
 | `get_asset_drawing` | `asset_id`| 자산의 평면·정면·측면 도면 파일 목록 조회. |
 | `list_diagram_assets`  | 선택적 `category`, `limit`, `offset`| Diagram 자산 목록 조회. |

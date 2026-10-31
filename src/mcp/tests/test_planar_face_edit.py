@@ -138,7 +138,7 @@ def planar_face_native(tmp_path_factory):
     directory = tmp_path_factory.mktemp("planar-face-native")
     shutil.copyfile(ROOT / "global.json", directory / "global.json")
     assembly = ROOT / "src/rhp/RhinoAlmondBridge/plugin-runtime/Newtonsoft.Json.dll"
-    source = ROOT / "src/mcp/rhino/PlanarFaceEditing.cs"
+    source = ROOT / "src/mcp/features/modeling/native/PlanarFaceEditing.cs"
     assert assembly.is_file()
     (directory / "Fixture.csproj").write_text('''<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup>
@@ -235,3 +235,91 @@ def test_planar_face_native_absent_dictionary_is_not_attached_to_source(planar_f
     assert result["replace_calls"] == edits and result["push_calls"] == 1
     assert result["original_untouched"] and result["dictionary_preserved"]
     assert result["user_strings_preserved"]
+
+
+@pytest.fixture
+def batch_tool(monkeypatch):
+    monkeypatch.setenv("ALMOND_MODEL_PATH", MODEL)
+    context = SimpleNamespace(_send_and_receive=lambda *a, **k: pytest.fail("Unexpected Rhino request"))
+    mcp = FastMCP("offline batch face editing")
+    exported = register(mcp, context)
+    return context, exported["edit_planar_faces"]
+
+
+@pytest.mark.parametrize("edits", [[], [arguments()] * 2, [arguments()] * 33,
+                                  [{**arguments(), "unexpected": 1}], [{**arguments(), "face_index": True}]])
+def test_batch_input_is_checked_before_any_native_call(batch_tool, edits):
+    _, tool = batch_tool
+    result = json.loads(tool(edits))
+    assert result["error_code"] == "invalid_arguments" and result["mutation_state"] == "not_started"
+
+
+def test_batch_has_its_own_capability_and_never_falls_back_to_repeated_single_calls(batch_tool):
+    context, tool = batch_tool
+    calls = []
+    def send(raw, **kwargs):
+        calls.append(json.loads(raw))
+        return '{"status":"success","capabilities":{"face_edit":1}}'
+    context._send_and_receive = send
+    result = json.loads(tool([arguments()]))
+    assert result["error_code"] == "unsupported_face_edit" and len(calls) == 1
+
+
+def test_batch_success_crosses_real_native_projector_and_public_boundary(planar_face_native, batch_tool):
+    native = native_case(planar_face_native, "batch_success")
+    assert native["error"] is None and native["result_error"] is None
+    assert native["replace_calls"] == 3 and native["executor_calls"] == 1
+    assert native["document_crcs"] == [456, 456, 456]
+    result = native["result"]
+    assert result["complete"] and result["applied_count"] == 3
+    context, tool = batch_tool
+    calls = []
+    def send(raw, **kwargs):
+        calls.append(json.loads(raw))
+        return json.dumps({"status": "success", "capabilities": {"face_edit_batch": 1}}
+                          if calls[-1]["type"] == "get_rhino_context" else native["response"])
+    context._send_and_receive = send
+    edits = [{**arguments(), "object_id": item["object_id"]} for item in result["items"]]
+    public = json.loads(tool(edits))
+    assert public["status"] == "success" and public["result"] == result
+    assert [call["type"] for call in calls] == ["get_rhino_context", "edit_planar_faces"]
+
+
+@pytest.mark.parametrize("scenario", ["batch_stale", "batch_invalid_result", "batch_duplicate"])
+def test_batch_preparation_or_identity_failure_preserves_all_originals(planar_face_native, scenario):
+    native = native_case(planar_face_native, scenario)
+    assert native["response"]["status"] == "error" and native["replace_calls"] == 0
+    assert native["document_crcs"] == [123, 123, 123]
+    assert native["mutation_state"] == "not_started"
+    if scenario != "batch_duplicate":
+        assert native["result"]["applied_count"] == 0
+        assert [item["status"] for item in native["result"]["items"]] == ["not_attempted", "rejected", "not_attempted"]
+
+
+@pytest.mark.parametrize("scenario,crcs,statuses,state,count", [
+    ("batch_replace_failure", [456, 123, 123], ["applied", "failed", "not_attempted"], "partial", 1),
+    ("batch_throw_after_replace", [456, 456, 123], ["applied", "applied", "not_attempted"], "partial", 2),
+    ("batch_throw_after_last_replace", [456, 456, 456], ["applied", "applied", "applied"], "applied", 3),
+    ("batch_unknown_replace", [456, 789, 123], ["applied", "unknown", "not_attempted"], "unknown", 1),
+])
+def test_batch_stops_and_reports_actual_partial_replacement_in_one_undo_scope(planar_face_native, scenario, crcs, statuses, state, count):
+    native = native_case(planar_face_native, scenario)
+    assert native["response"]["status"] == "error"
+    assert native["replace_calls"] == (3 if scenario == "batch_throw_after_last_replace" else 2) and native["executor_calls"] == 1
+    assert native["document_crcs"] == crcs
+    result = native["result"]
+    assert not result["complete"] and result["mutation_state"] == state and result["applied_count"] == count
+    assert [item["status"] for item in result["items"]] == statuses
+    assert result["requires_reconciliation"] == (state == "unknown")
+
+
+def test_batch_unconfirmed_success_is_not_replayed(batch_tool):
+    context, tool = batch_tool
+    calls = []
+    def send(raw, **kwargs):
+        calls.append(json.loads(raw))
+        return '{"status":"success","capabilities":{"face_edit_batch":1}}' if len(calls) == 1 else '{"status":"success","result":{}}'
+    context._send_and_receive = send
+    result = json.loads(tool([arguments()]))
+    assert result["mutation_state"] == "unknown" and result["requires_reconciliation"]
+    assert len(calls) == 2

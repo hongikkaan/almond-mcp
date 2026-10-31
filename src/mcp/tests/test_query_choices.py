@@ -72,13 +72,15 @@ def test_agent_sees_native_registration_status_when_cached_registration_is_stale
     assert summary["live_verified"] is True
 
 
-def test_agent_keeps_incomplete_shortlist_evidence_without_changing_source_records():
+def test_agent_keeps_incomplete_shortlist_evidence_without_changing_source_records(monkeypatch):
     """Given incomplete retrieval, nested diagnosis stays available even with IDs/audit off."""
     page = {"status": "success", "complete": False, "assets": [{"asset_id": "candidate",
             "product": "Candidate", "observed_at": "proof-time", "diagnosis": {"missing": "geometry"}}],
             "total": 1, "truncation_reason": "source_unavailable"}
     expected = deepcopy(page)
     context = SimpleNamespace(drawing_asset_indexer=SimpleNamespace(search_page=lambda **_: page))
+    from almond_mcp.features.assets import model_index
+    monkeypatch.setattr(model_index, "for_context", lambda _: context.drawing_asset_indexer)
     tools = importlib.import_module("almond_mcp.features.assets.tools").register(FastMCP("incomplete-page"), context)
     result = json.loads(tools["list_drawing_assets"]())
     assert result["assets"] == expected["assets"] and result["complete"] is False

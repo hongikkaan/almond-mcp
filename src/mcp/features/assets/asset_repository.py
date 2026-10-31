@@ -7,12 +7,15 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from urllib.parse import quote, urlsplit
 
 from almond_mcp import __version__, paths
+from almond_mcp.features.assets import drafting
+from almond_mcp.features.assets.model_index import is_model_source, verify_model
 
 UI_ROOT = Path(__file__).resolve().parents[2] / "library_ui"
 if not UI_ROOT.is_dir():
@@ -23,6 +26,17 @@ def read_json(path: Path, default=None):
     if not path.is_file():
         return {} if default is None else default
     return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def _public_metadata(value):
+    """Keep portable provenance; local paths belong to explicit MCP file handles."""
+    def private(item):
+        return isinstance(item, str) and (PureWindowsPath(item).is_absolute() or item.startswith(("/", "file://")))
+    if isinstance(value, dict):
+        return {key: _public_metadata(item) for key, item in value.items() if not private(item)}
+    if isinstance(value, list):
+        return [_public_metadata(item) for item in value if not private(item)]
+    return value
 
 
 class AssetRepository:
@@ -60,10 +74,11 @@ class AssetRepository:
                 aid = asset["asset_id"]
                 model = self.file(library, asset.get("file"))
                 fmt = Path(asset.get("file", "")).suffix.lstrip(".").lower()
+                model_source = is_model_source(asset, generated=library == "generated")
                 record = {
                     "id": aid, "name": asset.get("product", aid),
-                    "kind": "model" if library == "generated" or fmt == "3dm" else "element",
-                    "library": library, "category": asset.get("category", "other"),
+                    "kind": "model" if model_source else "element",
+                    "library": "model_assets", "source_library": library, "category": asset.get("category", "other"),
                     "variant": asset.get("variant", ""), "format": fmt,
                     "tags": asset.get("tags", []), "roles": asset.get("drawing_roles", []),
                     "dimensions_mm": asset.get("dimensions_mm", {}),
@@ -74,10 +89,17 @@ class AssetRepository:
                     "license": asset.get("license", "Source terms apply; not cleared for redistribution"),
                     "source_url": (asset.get("warehouse_url") or "https://www.meshy.ai/") if library == "generated" else asset.get("warehouse_url", ""),
                     "publisher": asset.get("warehouse_publisher") or ("Almond generated asset library" if library == "generated" else "Not recorded"),
-                    "provenance": sources.get(aid), "metadata": asset,
+                    "provenance": _public_metadata(sources.get(aid)), "metadata": _public_metadata(asset),
                     "drawing": None, "uri": f"almond://repository/{aid}",
                     "record_url": "/api/assets/" + quote(aid, safe="") + ".json",
                 }
+                conversion = model_source and fmt != "3dm"
+                record.update(source_available=bool(model), source_only=conversion,
+                              model_status="needs_conversion" if conversion else "unverified" if fmt == "3dm" and model else "ready" if model else "missing",
+                              drawing_status="missing", drawing_ready=False)
+                if conversion:
+                    record.update(source_file=model, model=None, available=False,
+                                  next_tool="prepare_drawing_asset", conversion_target="3dm")
                 captured = ((asset.get("geometry_source") or {}).get("parameters") or {}).get("captured_generation")
                 if captured and library == "generated":
                     record["generation_image"] = self.file(library, captured.get("input_image_file"))
@@ -97,15 +119,26 @@ class AssetRepository:
                             "record": drawing_url, "views": views,
                             "sheets": [{"scale": s, "svg": self.file(package_library, f"{package}/sheet-A3-1-{s}.svg")} for s in drawing.get("scales", [])],
                             "dimensions": self.file(package_library, package + "/dimensions.json"),
-                            "source": drawing.get("source", {}),
+                            "source": _public_metadata(drawing.get("source", {})),
                         }
                         if fmt == "3dm":
                             record["preview"] = next((v["svg"] for v in views if v["view"] == "plan"), None)
+                        record["drawing_status"] = "source_requires_conversion" if conversion else "unverified"
                 self.records[aid] = record
-        self.sources = read_json(self.roots["drafting"] / "sources.json").get("sources", [])
+        self.sources = _public_metadata(read_json(self.roots["drafting"] / "sources.json").get("sources", []))
 
-    def catalogue(self) -> dict:
-        assets = list(self.records.values())
+    def verify_record(self, asset: dict) -> dict:
+        record = dict(asset)
+        if record["format"] == "3dm" and record.get("model"):
+            source = self.files[record["model"]][1]
+            package = self.files[record["drawing"]["record"]][1].parent if record.get("drawing") else None
+            record.update(verify_model(source, record["metadata"].get("sha256"), package))
+            if record["model_status"] == "needs_refresh":
+                record["next_tool"] = "refresh_asset"
+        return record
+
+    def catalogue(self, *, verify=True) -> dict:
+        assets = [self.verify_record(a) if verify else dict(a) for a in self.records.values()]
         return {"schema_version": 1, "version": __version__,
                 "title": "Almond Object Archive", "indexed_at": datetime.now(timezone.utc).isoformat(),
                 "counts": {"assets": len(assets), "models": sum(a["kind"] == "model" for a in assets),
@@ -118,14 +151,22 @@ class AssetRepository:
         if kind not in {"all", "model", "element"}:
             raise ValueError("kind must be all, model or element")
         terms = query.casefold().split()
-        results = []
+        matches = []
         for asset in self.records.values():
             text = " ".join([asset["name"], asset["id"], asset["category"], asset["variant"], asset["metadata"].get("render_material_id", ""), *asset["tags"], *asset["roles"]]).casefold()
-            if kind != "all" and asset["kind"] != kind or drawing_ready and not asset["drawing"]:
+            if kind != "all" and asset["kind"] != kind:
                 continue
             if all(term in text for term in terms):
-                results.append({k: asset[k] for k in ("id", "name", "kind", "category", "format", "available", "dimensions_mm", "license", "uri") } | {"drawing_ready": bool(asset["drawing"])})
-        return {"total": len(results), "assets": results[:max(1, min(limit, 100))]}
+                if drawing_ready:
+                    asset = self.verify_record(asset)
+                    if not asset["drawing_ready"]:
+                        continue
+                matches.append(asset)
+        page = [self.verify_record(a) for a in matches[:max(1, min(limit, 100))]]
+        results = [{k: asset[k] for k in ("id", "name", "kind", "category", "format", "available", "dimensions_mm", "license", "uri",
+                    "drawing_ready", "drawing_status", "model_status", "source_only", "source_available")} |
+                    {k: asset[k] for k in ("next_tool", "conversion_target", "verification_issue") if k in asset} for asset in page]
+        return {"total": len(matches), "assets": results}
 
 
 def create_server(port=8767, repository: AssetRepository | None = None):
@@ -197,7 +238,46 @@ def serve_library(port=8767, open_browser=False):
         if open_browser:
             webbrowser.open(url)
         try:
-            server.serve_forever()
+            if os.environ.get("ALMOND_DESKTOP_STOP_EVENT"):
+                from almond_mcp.runtime.desktop_runtime import serve_until_desktop_exit
+                serve_until_desktop_exit(server)
+            else:
+                server.serve_forever()
         except KeyboardInterrupt:
             pass
     return 0
+
+
+def snapshot(repository=None) -> dict:
+    """Private native-host snapshot; the files table is never an HTTP response."""
+    repository = repository or AssetRepository()
+    files = {}
+    for url, (root, path) in repository.files.items():
+        try:
+            resolved = path.resolve()
+            if not resolved.is_relative_to(root) or any(p.is_symlink() or (hasattr(p, "is_junction") and p.is_junction())
+                    for p in (path, *path.parents) if p != root and root in p.parents):
+                continue
+            stat = path.stat()
+            files[url] = {"path": str(resolved), "root": str(root), "size": stat.st_size,
+                          "mtime_ns": stat.st_mtime_ns, "mime": mimetypes.guess_type(path.name)[0] or "application/octet-stream"}
+        except OSError:
+            continue
+    return {"schema_version": 1, "catalogue": repository.catalogue(verify=False), "files": files}
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+    from almond_mcp.runtime.library_paths import configure_library_paths
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--snapshot", action="store_true", required=True)
+    parser.parse_args()
+    try:
+        from almond_mcp.runtime.desktop_runtime import ensure_desktop_runtime
+        ensure_desktop_runtime()
+        configure_library_paths()
+        print(json.dumps(snapshot(), ensure_ascii=False, allow_nan=False))
+    except Exception as error:
+        print(str(error), file=sys.stderr)
+        raise SystemExit(1)

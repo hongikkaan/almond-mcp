@@ -137,9 +137,8 @@ class HistoryLibrary:
     """Curated architectural typology narratives (asset/history/Historyfiles/manifest.json).
 
     Distilled from Ching, Jarzombek & Prakash, A Global History of
-    Architecture. NARRATION ONLY: entries feed project storytelling and
-    typology context; they never drive geometry, sizing, or structural
-    decisions - those belong to the construction library."""
+    Architecture. Entries provide historical and typological context,
+    not project-specific dimensions, loads or structural capacity."""
 
     REQUIRED = ("typology_id", "name", "era", "narrative", "gha_ref")
 

@@ -34,11 +34,19 @@ namespace RhinoAlmondBridge
                 string sourceHash = Hash(source);
                 var triangles = new List<Point3d[]>();
                 BoundingBox bounds = BoundingBox.Empty;
+                string sourceUnits;
                 using (var model = File3dm.Read(source))
                 {
                     if (model == null) throw new ArgumentException("Rhino could not read the 3DM.");
-                    if (model.Settings.ModelUnitSystem != UnitSystem.Millimeters)
-                        throw new ArgumentException("Prepare the drawing asset in millimetres before registration.");
+                    RequireSelfContainedDefinitions(model);
+                    var units = model.Settings.ModelUnitSystem;
+                    if (units == UnitSystem.None || units == UnitSystem.CustomUnits)
+                        throw new ArgumentException("The source 3DM needs standard model units for measured registration.");
+                    double scaleToMm = RhinoMath.UnitScale(units, UnitSystem.Millimeters);
+                    if (!Double.IsFinite(scaleToMm) || scaleToMm <= 0)
+                        throw new ArgumentException("The source unit scale is invalid.");
+                    sourceUnits = units.ToString();
+                    var measuredWorld = Transform.Scale(Point3d.Origin, scaleToMm);
                     var objects = model.Objects.ToDictionary(obj => obj.Id);
                     var definitions = model.AllInstanceDefinitions.ToDictionary(definition => definition.Id);
                     int occurrences = 0;
@@ -125,17 +133,15 @@ namespace RhinoAlmondBridge
                     }
 
                     foreach (var item in model.Objects.Where(item => !item.Attributes.IsInstanceDefinitionObject))
-                        Visit(item, Transform.Identity, new HashSet<Guid>());
+                        Visit(item, measuredWorld, new HashSet<Guid>());
                 }
                 if (triangles.Count == 0 || !bounds.IsValid)
                     throw new ArgumentException("The asset contains no model-space triangle geometry.");
-                if (Math.Abs((bounds.Min.X + bounds.Max.X) / 2) > 0.01 ||
-                    Math.Abs((bounds.Min.Y + bounds.Max.Y) / 2) > 0.01 || Math.Abs(bounds.Min.Z) > 0.01)
-                    throw new ArgumentException("Prepare the asset with its bounding-box bottom centre at the origin before registration.");
                 if (Hash(source) != sourceHash)
                     throw new IOException("The source 3DM changed during extraction; registration was not published.");
                 var metadata = new JObject {
-                    ["schema"] = "almond-triangles/v1", ["units"] = "mm", ["up_axis"] = "z", ["origin"] = "bottom_center",
+                    ["schema"] = "almond-triangles/v1", ["units"] = "mm", ["up_axis"] = "z", ["origin"] = "preserved",
+                    ["source_units"] = sourceUnits,
                     ["source_sha256"] = sourceHash, ["triangle_count"] = triangles.Count,
                     ["bounds_mm"] = new JArray(bounds.Min.X, bounds.Min.Y, bounds.Min.Z, bounds.Max.X, bounds.Max.Y, bounds.Max.Z)
                 };
@@ -172,9 +178,44 @@ namespace RhinoAlmondBridge
             catch (Exception error)
             {
                 if (created && output != null && File.Exists(output)) File.Delete(output);
-                return new JObject { ["status"] = "error", ["error_code"] = "drawing_asset_extract_error",
-                    ["message"] = error.Message, ["mutation_applied"] = false };
+                return new JObject { ["status"] = "error", ["error_code"] = error is AssetDependencyException ? "asset_dependencies_unverified" : "drawing_asset_extract_error",
+                    ["message"] = error.Message, ["mutation_applied"] = false,
+                    ["needs_dependency_support"] = error is AssetDependencyException };
             }
+        }
+
+        internal sealed class AssetDependencyException : Exception
+        {
+            internal AssetDependencyException(string message) : base(message) { }
+        }
+
+        internal static void RequireSelfContainedDefinitions(File3dm model)
+        {
+            var objects = model.Objects.ToDictionary(item => item.Id);
+            var definitions = model.AllInstanceDefinitions.ToDictionary(item => item.Id);
+            var seen = new HashSet<Guid>();
+            void Visit(GeometryBase geometry, int depth)
+            {
+                if (!(geometry is InstanceReferenceGeometry instance)) return;
+                if (depth > 64 || !definitions.TryGetValue(instance.ParentIdefId, out var definition))
+                    throw new ArgumentException("Asset has an unresolved or excessively nested block definition.");
+                if (!seen.Add(definition.Id)) return;
+                // File3dm in Rhino 8 exposes SourceArchive but not the definition's
+                // update type. A source-bearing definition cannot be certified as
+                // self-contained without reading its dependency contract.
+                if (!String.IsNullOrWhiteSpace(definition.SourceArchive))
+                    throw new AssetDependencyException("Nested block '" + definition.Name +
+                        "' records an external source archive. Its dependencies are not verified; ordinary embedded blocks are supported. " +
+                        "Preserve the source and resolve its linked dependencies before registration or placement.");
+                foreach (var id in definition.GetObjectIds())
+                {
+                    if (!objects.TryGetValue(id, out var child))
+                        throw new ArgumentException("Nested asset block geometry is missing: " + id);
+                    Visit(child.Geometry, depth + 1);
+                }
+            }
+            foreach (var item in model.Objects.Where(item => !item.Attributes.IsInstanceDefinitionObject && item.Attributes.Space == ActiveSpace.ModelSpace))
+                Visit(item.Geometry, 0);
         }
 
         private static string AbsoluteFile(JObject request, string field, string extension)

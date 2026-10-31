@@ -14,37 +14,25 @@
 
 COS는 runtime의 binding 검증·구성 훅을 사용한다. MCP는 COS 구현을 참조하지 않는다.
 Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema를 보존한다.
-소스는 이 폴더에 직접 둔다. editable 설치는 `almond_mcp.py`가 이곳의
-`__init__.py`를 package로 로드하며, wheel은 빌드 경로 매핑으로 `almond_mcp/`에 담는다.
+소스는 이 폴더에 직접 둔다. editable 설치는 `almond_mcp.py`가 이곳의 `__init__.py`를 package로 로드하며, wheel은 빌드 경로 매핑으로 `almond_mcp/`에 담는다.
 이 진입 파일은 wheel에 포함하지 않는다.
 runtime 메타데이터 도구는 `project_info`, COS 내부 완료 조회는 `worker_state`다.
 공개 도구 이름에 제품·클라이언트 접두사를 붙이거나 이전 이름의 alias를 남기지 않는다.
-전용 CLI가 이 실행에만 주입하는 MCP 서버 키는 `rhino_session`이며 일반 Codex의 전역
-`rhino` 등록과 구분한다. 이전에 실행된 프로세스의 식별 호환성은 유지한다.
-공유 DB gate와 연결별 요청 직렬화 잠금은 획득을 최대 10초 기다린다. 대기 초과 호출은
-operation·native 요청 생성 전 종료하며 소유자의 작업·잠금은 유지한다. 실행 제한과
-cleanup·native 완료를 기다리는 시간은 이 10초와 구분한다.
-`rhino`의 C# 모델링 코드와 재료 정책은 MCP 소유지만 Bridge에 컴파일되므로,
-변경 시 Bridge 빌드가 필요하다. Python package가 사용하는 웹 원본은
-[RHP Asset Panel](../rhp/SPEC.md)의 공유 자원이다.
+전용 CLI가 이 실행에만 주입하는 MCP 서버 키는 `rhino_session`이며 일반 Codex의 전역 `rhino` 등록과 구분한다. 이전에 실행된 프로세스의 식별 호환성은 유지한다.
+공유 DB gate와 연결별 요청 직렬화 잠금은 획득을 최대 10초 기다린다. 대기 초과 호출은 operation·native 요청 생성 전 종료하며 소유자의 작업·잠금은 유지한다. 실행 제한과 cleanup·native 완료를 기다리는 시간은 이 10초와 구분한다.
+`features/<기능>/native`의 C# 도구 구현과 `rhino`의 공통 모델링 코드·재료 정책은 MCP 소유지만 Bridge에 컴파일되므로, 변경 시 Bridge 빌드가 필요하다. Python package가 사용하는 웹 원본은 [RHP Asset Panel](../rhp/SPEC.md)의 공유 자원이다.
 
-공개 API 내부 동작이나 schema를 바꾸면 루트 통합 검사를 수행한다. 새 COS/Codex
-클라이언트가 현재 소스에서 catalog를 자동 추출한다. 실행 중인 세션은 시작 시 소스
-fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하다. 공유 계약을 우회하지 않는다.
+공개 API 내부 동작이나 schema를 바꾸면 루트 통합 검사를 수행한다. 새 COS/Codex 클라이언트가 현재 소스에서 catalog를 자동 추출한다. 실행 중인 세션은 시작 시 소스 fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하다. 공유 계약을 우회하지 않는다.
 
-공통 오류 반환 필드인 `status`, `message`, 선택적 `error_code`는 `tool_response.py`에서
-구성한다. 각 도구의 JSON 문자열·dict·이미지 반환 방식과 변경 적용·정합 필요 상태는
-각 호출부가 유지하며, 공통 오류 필드만으로 rollback 여부를 추정하지 않는다.
+공통 오류 반환 필드인 `status`, `message`, 선택적 `error_code`는 `tool_response.py`에서 구성한다. 각 도구의 JSON 문자열·dict·이미지 반환 방식과 변경 적용·정합 필요 상태는 각 호출부가 유지하며, 공통 오류 필드만으로 rollback 여부를 추정하지 않는다.
 
 ## 기능별 구현과 소유권
 
 공개 MCP 도구의 실제 구현은 `features/<기능>/tools.py`에 있다.
 배포 검증은 `release_validation/`, 기본·도구별 안내 조회는 `modeling_guidance.py`에 둔다.
-자산 생성·변환·출처 기록은 `features/assets/generation/`, 구조해석 검증은
-`features/structure/validation/`, 시공 기준 문서 생성은 `features/guidance/`가 소유한다.
+자산 생성·변환·출처 기록은 `features/assets/generation/`, 구조해석 검증은 `features/structure/validation/`, 시공 기준 문서 생성은 `features/guidance/`가 소유한다.
 이 개발 스크립트들은 공개 MCP 도구 등록 코드와 구분한다.
-각 기능의 `register(mcp, context)`는 명시적으로 도구·resource를 등록하고 기존 이름의
-함수 dict를 반환한다. `server.py`는 공용 서비스 생성과 정적 factory 조립을 맡는다.
+각 기능의 `register(mcp, context)`는 명시적으로 도구·resource를 등록하고 기존 이름의 함수 dict를 반환한다. `server.py`는 공용 서비스 생성과 정적 factory 조립을 맡는다.
 폴더명을 입력받아 SQL이나 모듈을 동적으로 찾거나 실행하지 않는다.
 
 | 폴더 | 분류·성격 | 소유한 구현과 기능 |
@@ -99,9 +87,7 @@ fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하
 
 ### Python 구현 경로와 검증
 
-Python 호출부는 기능별 실제 구현을 직접 import한다. `almond_mcp` 바로 아래에서
-다른 모듈을 연결하던 15개 Python 호환 파일은 제공하지 않는다. 외부 Python 소비자도
-아래 기능 경로를 사용해야 하며, MCP 도구 이름·schema·resource URI는 그대로다.
+Python 호출부는 기능별 실제 구현을 직접 import한다. `almond_mcp` 바로 아래에서 다른 모듈을 연결하던 15개 Python 호환 파일은 제공하지 않는다. 외부 Python 소비자도 아래 기능 경로를 사용해야 하며, MCP 도구 이름·schema·resource URI는 그대로다.
 
 | 실제 Python 경로 | 모듈 |
 |---|---|
@@ -113,35 +99,25 @@ Python 호출부는 기능별 실제 구현을 직접 import한다. `almond_mcp`
 | `almond_mcp.features.structure` | `native_structure`, `frame_solver`, `ec3`, `floor_loads`, `asset_loads`, `design_codes`, `structure_study` |
 
 예를 들어 `from almond_mcp.features.assets.drafting import load_triangles`로 가져온다.
-GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper.ghx_parser`
-명령을 사용한다. 정책 JSON과 native C#·웹 원본의 공용 자원 위치는 유지한다.
-서버의 기존 함수·클래스 이름도 조립 시 re-export한다. 비공개 generated-asset helper를
-새 공개 MCP 도구로 노출하지 않고 기존 resource URI·등록을 유지한다.
+GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper.ghx_parser` 명령을 사용한다. 정책 JSON과 native C#·웹 원본의 공용 자원 위치는 유지한다.
+서버의 기존 함수·클래스 이름도 조립 시 re-export한다. 비공개 generated-asset helper를 새 공개 MCP 도구로 노출하지 않고 기존 resource URI·등록을 유지한다.
 
 각 기능의 직접 검사는 `tests/test_<기능>_feature.py`에서 factory·store를 사용한다.
-전체 회귀는 `run_tests.ps1`, 호스트·catalog 검사는 COS runner, 모듈 경계·실제 전체
-schema·패키징은 루트 통합 검사를 사용한다. 새 기능 파일을 추가하거나 기존 구현을
-바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. COS는 새 클라이언트 시작 시
-server와 feature factory의 AST에서 schema를
-읽으며 서버/DB를 import하지 않는다. package의 모든 Python 파일 목록과 내용이
-fingerprint 대상이므로 이동·추가·삭제도 감지한다.
+전체 회귀는 `run_tests.ps1`, 호스트·catalog 검사는 COS runner, 모듈 경계·실제 전체 schema·패키징은 루트 통합 검사를 사용한다. 새 기능 파일을 추가하거나 기존 구현을 바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. COS는 새 클라이언트 시작 시 server와 feature factory의 AST에서 schema를 읽으며 서버/DB를 import하지 않는다. package의 모든 Python 파일 목록과 내용이 fingerprint 대상이므로 이동·추가·삭제도 감지한다.
 
 ## 실행·관측 계약
 
-연결마다 token·session·call 디렉터리와 프로세스 identity를 확인한다. 모델 폴더의
-DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유지한다.
+연결마다 token·session·call 디렉터리와 프로세스 identity를 확인한다. 모델 폴더의 DB/tmp는 공유하며 저장소 lease·DB 잠금·native 완료 확인을 유지한다.
 
 `get_rhino_context`, `get_rhino_viewport_image`, `analyze_block_reculviely`, `get_rhino_objects`, `get_object_intersections`, `capture_rhino_inspection`은 고정 관찰 경로다.
 조회가 geometry·layer·selection·camera·Undo를 바꾸면 안 된다.
 `execute_rhino_script`의 `result_error`는 이미 끝난 수정을 취소하지 않는다.
-공개 코드 실행은 `execute_rhino_script`와 `execute_project_python` 모두 공식 RhinoCode를
-사용한다. Python 3이 기본이며 private Bridge recipe와는 별도 경로다.
+공개 코드 실행은 `execute_rhino_script`와 `execute_project_python` 모두 공식 RhinoCode를 사용한다. Python 3이 기본이며 private Bridge recipe와는 별도 경로다.
 내장 스킬·언어·산출물 폴더·완료 조회는 [RhinoCode 실행 계약](runtime/RHINOCODE-SPEC.md)을 따른다.
 요청·반환 제한과 미확인 값의 의미는 [관측 계약](rhino/OBSERVATION-SPEC.md)을 따른다.
 
 기존 CoS command를 유지하기 위해 Python 환경은 `../engine/.venv`에 둔다.
-구현 위치와 실행 파일 위치는 별개다. 이전 시작 버튼은 호환 스크립트를 거쳐
-`runtime/` 실행기를 호출한다. 사용자 모델·라이브러리를 자동 이동하지 않는다.
+구현 위치와 실행 파일 위치는 별개다. 이전 시작 버튼은 호환 스크립트를 거쳐 `runtime/` 실행기를 호출한다. 사용자 모델·라이브러리를 자동 이동하지 않는다.
 기존 확장자 없는 `DB`는 아래의 DB 파일명 이전 조건을 충족할 때만 같은 폴더의 `scene.sqlite3`로 바꾼다.
 
 ## Scene·Component·계획
@@ -182,59 +158,40 @@ Phase와 Scene의 `project_file_id`는 `project_files(file_id, file_name)`을 �
 
 ## 지침 Markdown 원본
 
-MCP 도구·리소스의 공개 설명과 응답에 덧붙이는 행동 지침은 원래 Python 파일과
-같은 폴더의 `<파일 stem>-explain.md`에 둔다. 예를 들어 `features/modeling/tools.py`는
-`features/modeling/tools-explain.md`를 읽는다. 각 항목은 `instruction:` HTML 주석으로
-경계를 표시하며, 본문과 동적 값의 공백을 보존한다. `instruction_text.py`가
-지침을 읽고 등록 전에 함수 설명에 적용한다. 항목이 없거나 중복되면 명시적으로 실패한다.
+MCP 도구·리소스의 공개 설명과 응답에 덧붙이는 행동 지침은 원래 Python 파일과 같은 폴더의 `<파일 stem>-explain.md`에 둔다. 예를 들어 `features/modeling/tools.py`는 `features/modeling/tools-explain.md`를 읽는다. 각 항목은 `instruction:` HTML 주석으로 경계를 표시하며, 본문과 동적 값의 공백을 보존한다. `instruction_text.py`가 지침을 읽고 등록 전에 함수 설명에 적용한다. 항목이 없거나 중복되면 명시적으로 실패한다.
 입력 검증 조건, 오류 상태·수치 결과, SQL과 실행할 C#/Blender 코드는 지침 원본이 아니다.
 기본 작업 지침은 `BASIC-INSTRUCTIONS.md`에 둔다.
 
 COS는 모델 서버를 import하지 않고 같은 Markdown에서 도구 설명을 추출한다.
-package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는
-해당 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
+package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는 해당 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
 Python 지침만 변경했을 때 Rhino RHP 빌드·등록 변경은 필요하지 않다.
 
 ## 조회와 작업자료 계약
 
 `project_info`는 project/document/artifacts를 기본 조회하며 document에서 live 확인을 함께 한다.
-`sections`로 runtime/instructions를 포함해 필요한 정보만 고른다. `get_rhino_context`도
-document/selection/viewport/editor/display_modes에서 필요한 section을 수집한다. 일반 context에는
-compact editor mode·target·stable을 함께 제공하고 명시 editor는 evidence를 추가한다.
-선택은 recursive=false·depth=1이 기본이며 include_image=true일 때만 같은 native 호출의
-JSON text+현재 PNG를 반환한다. 캡처는 표시모드·transient labels·깊이·view/group/block 대상을
-선택하고 Named View는 active view와 별개로 렌더링한다. 상세 한도·오류는 관측 계약을 따른다.
+`sections`로 runtime/instructions를 포함해 필요한 정보만 고른다. `get_rhino_context`도 document/selection/viewport/editor/display_modes에서 필요한 section을 수집한다. 일반 context에는 compact editor mode·target·stable을 함께 제공하고 명시 editor는 evidence를 추가한다.
+선택은 recursive=false·depth=1이 기본이며 include_image=true일 때만 같은 native 호출의 JSON text+현재 PNG를 반환한다. 캡처는 표시모드·transient labels·깊이·view/group/block 대상을 선택하고 Named View는 active view와 별개로 렌더링한다. 상세 한도·오류는 관측 계약을 따른다.
 일반 조회는 include_ids=false이고 입력으로 확정된 get 대상 ID는 반복 출력하지 않는다.
 필드군을 지원하는 조회는 기본 summary에 필요한 field_groups만 추가하며 IDs와 audit는 독립이다.
 오류·불완전·native 완료/proof는 요약으로 숨기지 않는다.
 
 `save_rhino_document()`는 인자 없이 연결된 기존 `.3dm` 전체를 같은 경로에 비대화식 저장한다.
 저장되지 않은 문서·readonly·binding 불일치·활성/불명 editor는 쓰기 전에 거절한다.
-확인 결과는 saved=true와 실제 modified boolean이고, 결과 불명은 saved=null 및
-requires_reconciliation=true다. SaveAs·명령/Enter·자동 재시도·완료 보호 해제는 제공하지 않는다.
+확인 결과는 saved=true와 실제 modified boolean이고, 결과 불명은 saved=null 및 requires_reconciliation=true다. SaveAs·명령/Enter·자동 재시도·완료 보호 해제는 제공하지 않는다.
 
-Plan depends_on은 다른 Phase의 Plan/Phase ID도 자유롭게 담는 배열이다. 실행 순서·존재·순환
-검사를 강제하지 않는다. Step은 paused 상태를 포함하고 중단·전환·재개가 정상 흐름이다.
+Plan depends_on은 다른 Phase의 Plan/Phase ID도 자유롭게 담는 배열이다. 실행 순서·존재·순환 검사를 강제하지 않는다. Step은 paused 상태를 포함하고 중단·전환·재개가 정상 흐름이다.
 Phase와 Scene은 미입력 시에도 file_name=""를 보존한다.
 
 ALMOND_PROJECT_ROOT를 런타임이 설정하고 managed 도구가 상대경로를 적용한다.
 Plan별 tmp/YYMMDD_name 폴더는 재사용하며 rename_artifact_folder는 현재 참조도 갱신한다.
-Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서 실행하고 임시 스크립트 파일을
-만들지 않는다. 산출물은 선택한 Plan 폴더, 호출 scratch는 `.almond/tmp/python/<token>/<operation>`이다.
-로컬 조회는 scratch 폴더를 만들지 않는다. Native 요청은 Bridge 소유권 검증에 필요한 폴더를
-전송 직전에 생성하고 완료 확인 후 회수한다. 결과가 불명확한 파일 쓰기는 별도 소유 기록으로
-다른 연결의 쓰기·폴더 이름 변경을 차단한다. Worker 재시작이나 Plan 완료로 이 기록을 지우지 않는다.
+Python은 별도 호출 scratch와 수명이 제한된 프로세스 트리에서 실행하고 임시 스크립트 파일을 만들지 않는다. 산출물은 선택한 Plan 폴더, 호출 scratch는 `.almond/tmp/python/<token>/<operation>`이다.
+로컬 조회는 scratch 폴더를 만들지 않는다. Native 요청은 Bridge 소유권 검증에 필요한 폴더를 전송 직전에 생성하고 완료 확인 후 회수한다. 결과가 불명확한 파일 쓰기는 별도 소유 기록으로 다른 연결의 쓰기·폴더 이름 변경을 차단한다. Worker 재시작이나 Plan 완료로 이 기록을 지우지 않는다.
 
-공유 DB 파일명은 `.almond/scene.sqlite3`다. 기존 확장자 없는 `DB`의 checkpoint·close 뒤 이름을 바꾸며,
-다른 worker가 사용 중이거나 두 이름·sidecar가 충돌하면 원본을 보존하고 이전을 중단한다.
-호출마다 DB 사본을 만들지 않는다. 종료된 `.sessions` 정리는 프로세스·잠금·native 완료를
-기준으로 하며 Plan/Step 상태와 무관하다. 고정 공유 잠금 파일은 삭제하지 않는다.
+공유 DB 파일명은 `.almond/scene.sqlite3`다. 기존 확장자 없는 `DB`의 checkpoint·close 뒤 이름을 바꾸며, 다른 worker가 사용 중이거나 두 이름·sidecar가 충돌하면 원본을 보존하고 이전을 중단한다.
+호출마다 DB 사본을 만들지 않는다. 종료된 `.sessions` 정리는 프로세스·잠금·native 완료를 기준으로 하며 Plan/Step 상태와 무관하다. 고정 공유 잠금 파일은 삭제하지 않는다.
 
 구형 `.almond/tmp/calls/<token>`에는 작업 보고서·모델·DB 백업이 섞여 있을 수 있다.
-파일이 남은 구형 호출 폴더와 세션 locator는 자동 정리에서 제외한다. 기존 프로젝트를 정리할 때는
-파일과 DB의 현재 자료 참조를 대조해 보존 자료를 `tmp/YYMMDD_name`으로 옮기고 현재 참조도
-함께 갱신한다. 당시 경로를 포함한 과거 revision과 미완료 작업 상태는 유지한다. 이전 완료 후
-빈 구형 호출 폴더는 종료된 연결 정리에서 회수한다. 새 scratch와 구형 작업자료를 혼동하지 않는다.
+파일이 남은 구형 호출 폴더와 세션 locator는 자동 정리에서 제외한다. 기존 프로젝트를 정리할 때는 파일과 DB의 현재 자료 참조를 대조해 보존 자료를 `tmp/YYMMDD_name`으로 옮기고 현재 참조도 함께 갱신한다. 당시 경로를 포함한 과거 revision과 미완료 작업 상태는 유지한다. 이전 완료 후 빈 구형 호출 폴더는 종료된 연결 정리에서 회수한다. 새 scratch와 구형 작업자료를 혼동하지 않는다.
 
 ## 모델링 안내 전달
 

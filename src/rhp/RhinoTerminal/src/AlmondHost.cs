@@ -25,8 +25,9 @@ internal sealed class AlmondHost : IDisposable
     static readonly HashSet<AlmondHost> pendingCleanup = new(); // UI-thread only; retain failed stops.
     public string PipeName { get; } = "RhinoTerminal-" + Environment.ProcessId + "-" + Guid.NewGuid().ToString("N");
     public string AccessToken { get; } = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
-    public string Engine { get; } = Path.GetFullPath(Path.Combine(
+    internal static string RuntimeDirectory => Path.GetFullPath(Path.Combine(
         Path.GetDirectoryName(typeof(AlmondHost).Assembly.Location)!, "..", "..", "..", "mcp", "runtime"));
+    public string Engine => RuntimeDirectory;
     readonly CancellationTokenSource shutdown = new();
     readonly Action<string> report;
     Dictionary<string, object?>? binding;

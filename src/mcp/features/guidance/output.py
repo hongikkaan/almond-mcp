@@ -6,7 +6,7 @@ GROUPS = {
               "construction_notes", "render_material_ids", "construction_detail", "construction_reference"},
     "narrative": {"narrative", "urban_role", "precedents", "related_construction_systems"},
     "source": {"source", "bci_ref", "gha_ref", "url", "urls", "license", "access", "formats", "reference"},
-    "metadata": {"tags", "structure_types", "matched_terms", "notes", "description"},
+    "metadata": {"tags", "structure_types", "notes", "description"},
     "audit": {"created_at", "updated_at"},
 }
 
@@ -16,7 +16,7 @@ def project(payload: dict, groups: list[str] | None) -> dict:
     result = dict(payload)
     for key, core in (("systems", {"system_id", "name", "category", "structural_material", "fits_span"}),
                       ("entries", {"typology_id", "name", "era", "region"}),
-                      ("sources", {"source_id", "title", "scope"})):
+                      ("sources", {"source_id", "title", "scope", "matched_terms"})):
         if key in result:
             result[key] = [select_fields(item, groups, core, GROUPS) for item in result[key]]
     # Library-level source includes the preliminary-sizing/narration-only limitation.

@@ -1,9 +1,6 @@
 # Rhino code and command execution
 
-Almond can use Rhino's official ScriptServer from an external process. Rhino 8.11+
-ships rhinocode; StartScriptServer enables it. The integrated runtime still binds
-each operation to a particular process and saved document. Its execution status,
-Undo information and returned data are separate from architectural correctness.
+Almond can use Rhino's official ScriptServer from an external process. Rhino 8.11+ ships rhinocode; StartScriptServer enables it. The integrated runtime still binds each operation to a particular process and saved document. Its execution status, Undo information and returned data are separate from architectural correctness.
 
 ## Choosing a path
 
@@ -19,16 +16,14 @@ Undo information and returned data are separate from architectural correctness.
 | A previously dispatched operation | get_rhino_execution | State/result lookup; never dispatches the code again |
 
 Capabilities and actual installed versions decide which official modes are ready.
-An unavailable mode is rejected before execution. Python 3 is the default;
-csharp and csharp-script select the same official statement-body mode.
+An unavailable mode is rejected before execution. Python 3 is the default; csharp and csharp-script select the same official statement-body mode.
 Private native recipes retain their Bridge path; public code has no fallback.
 A general script is not automatically read-only.
 
 ## Python
 
 The runtime provides doc (the verified bound RhinoDoc), result and artifact_dir.
-Use that document throughout the operation. Use the document's units and tolerance,
-and convert GUID strings to System.Guid when calling RhinoCommon APIs.
+Use that document throughout the operation. Use the document's units and tolerance, and convert GUID strings to System.Guid when calling RhinoCommon APIs.
 
 ```python
 import Rhino
@@ -52,54 +47,30 @@ result = {"units": str(doc.ModelUnitSystem),
 
 Return dimensions, relationships or selected attributes needed for the decision.
 Do not serialize Rhino geometry objects or return every object property by default.
-For large results, retrieve selected fields/pages from get_rhino_execution instead
-of rerunning the query. include_ids controls data handles; request/operation IDs
-remain visible because they identify the execution being inspected.
+For large results, retrieve selected fields/pages from get_rhino_execution instead of rerunning the query. include_ids controls data handles; request/operation IDs remain visible because they identify the execution being inspected.
 
-Build and validate replacement geometry before deleting originals. Check operation
-results for empty/invalid geometry and document-unit mistakes. Use try/finally to
-restore redraw or other temporary state changed by your code. User input prompts,
-background tasks, async:true and delayed document changes are outside this
-synchronous execution contract.
+Build and validate replacement geometry before deleting originals. Check operation results for empty/invalid geometry and document-unit mistakes. Use try/finally to restore redraw or other temporary state changed by your code. User input prompts, background tasks, async:true and delayed document changes are outside this synchronous execution contract.
 
 ## Commands and languages
 
-A command macro is input for Rhino's command interpreter. Supply every required
-argument and use English-prefixed command/option names. Do not add a leading !:
-it can cancel a different operation. RhinoScriptSyntax rs.Command accepts one
-command per call and does not support the !-space combination. A macro with loops
-or conditions should become a Python script.
+A command macro is input for Rhino's command interpreter. Supply every required argument and use English-prefixed command/option names. Do not add a leading !:
+it can cancel a different operation. RhinoScriptSyntax rs.Command accepts one command per call and does not support the !-space combination. A macro with loops or conditions should become a Python script.
 
-RhinoApp.RunScript called from a modeless callback may return before its command
-runs. Only use command mode, or command calls inside a runtime-verified script-runner
-context, when command completion is part of the operation. An accepted CLI request
-or process exit is not sufficient evidence. Do not add event pumps to wait.
+RhinoApp.RunScript called from a modeless callback may return before its command runs. Only use command mode, or command calls inside a runtime-verified script-runner context, when command completion is part of the operation. An accepted CLI request or process exit is not sufficient evidence. Do not add event pumps to wait.
 
-Rhino's unified ScriptEditor supports Python and C#. Legacy VBScript uses the
-separate LoadScript/RunScript surface; it is not a claimed native ScriptEditor
-language. External CLI script arguments are file paths, not a general script-argv
-protocol. Use explicit data files or values in the submitted source.
+Rhino's unified ScriptEditor supports Python and C#. Legacy VBScript uses the separate LoadScript/RunScript surface; it is not a claimed native ScriptEditor language. External CLI script arguments are file paths, not a general script-argv protocol. Use explicit data files or values in the submitted source.
 
 The rhino3d-scripts skill and its four references are bundled with the tools.
-get_modeling_guide(tool="execute_rhino_script") returns this pinned material and
-INTEGRATION.md, whose automated execution rules take precedence over interactive
-examples, VB/ScriptEditor claims, forced-cancel macros and manual Undo scaffolds.
+get_modeling_guide(tool="execute_rhino_script") returns this pinned material and INTEGRATION.md, whose automated execution rules take precedence over interactive examples, VB/ScriptEditor claims, forced-cancel macros and manual Undo scaffolds.
 Its personal installed files are not a dependency of the MCP server.
 
 ## Results, errors and Undo
 
-An execution receipt records the exact request and document identity independently
-of stdout and result size. A result serialization error can occur after code ran;
-that does not reverse edits. A user exception may leave partial edits. The runtime
-only ends an Undo record it owns; it must not automatically undo preceding work.
+An execution receipt records the exact request and document identity independently of stdout and result size. A result serialization error can occur after code ran; that does not reverse edits. A user exception may leave partial edits. The runtime only ends an Undo record it owns; it must not automatically undo preceding work.
 Read the returned execution and Undo fields before deciding the next action.
 
-A timeout ends waiting, not the Rhino operation. Keep the request_id and query
-get_rhino_execution. A matching final receipt and stopped CLI process allow late
-results to be recovered; a missing or invalid receipt remains explicitly unresolved.
-Do not resend the script, switch transport, or delete its temporary files to make
-the connection appear idle. Existing native-transport uncertainty is not cleared
-by an unrelated successful CLI result.
+A timeout ends waiting, not the Rhino operation. Keep the request_id and query get_rhino_execution. A matching final receipt and stopped CLI process allow late results to be recovered; a missing or invalid receipt remains explicitly unresolved.
+Do not resend the script, switch transport, or delete its temporary files to make the connection appear idle. Existing native-transport uncertainty is not cleared by an unrelated successful CLI result.
 
 ## Sources
 
