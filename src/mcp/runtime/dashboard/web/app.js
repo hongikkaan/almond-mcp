@@ -10,7 +10,8 @@ const node = (tag, text, className) => {
 let token = location.hash.slice(1) || sessionStorage.getItem("dashboard-token") || "";
 if (token) sessionStorage.setItem("dashboard-token", token);
 history.replaceState(null, "", location.pathname);
-const state = {schema: null, table: null, tab: "rows", offset: 0, search: "", sort: "", descending: false, epoch: 0, request: 0, loadingSchema: false};
+const state = {schema: null, table: null, tab: "rows", offset: 0, search: "", sort: "", descending: false, epoch: 0, request: 0, loadingSchema: false,
+  filters: Object.create(null), filterOptions: null, focusColumns: [], folded: new Set()};
 const format = n => Number(n).toLocaleString("ko-KR", {maximumFractionDigits: 2});
 
 function message(text = "", error = false) {
@@ -42,25 +43,49 @@ function renderNavigation() {
   $("metric-columns").textContent = format(tables.reduce((n, t) => n + t.columns.length, 0));
   $("metric-relations").textContent = format(tables.reduce((n, t) => n + new Set(t.relations.map(r => r.id)).size, 0));
   $("tables").replaceChildren();
+  $("folded-list").replaceChildren();
+  $("fold-count").textContent = tables.filter(t => state.folded.has(t.name)).length;
   for (const table of tables.filter(t => t.name.toLocaleLowerCase().includes(search))) {
+    const folded = state.folded.has(table.name), item = node("div", undefined, "table-nav-item");
+    item.draggable = true;
+    item.dataset.table = table.name;
+    item.addEventListener("dragstart", event => { event.dataTransfer.setData("text/plain", table.name); event.dataTransfer.effectAllowed = "move"; });
     const button = node("button", undefined, "table-nav" + (table.name === state.table?.name ? " active" : ""));
     button.title = table.name;
     button.setAttribute("aria-current", table.name === state.table?.name ? "true" : "false");
     button.append(node("span", table.type === "view" ? "◈" : "▦"), node("span", table.name, "nav-name"), node("span", table.columns.length, "nav-count"));
     button.addEventListener("click", () => activateTable(table));
-    $("tables").append(button);
+    const toggle = node("button", folded ? "↥" : "↧", "fold-toggle");
+    toggle.title = `${table.name} ${folded ? "펼치기" : "접기"}`;
+    toggle.setAttribute("aria-label", toggle.title);
+    toggle.addEventListener("click", () => foldTable(table.name, !folded));
+    item.append(button, toggle);
+    $(folded ? "folded-list" : "tables").append(item);
   }
   if (!$("tables").childElementCount) $("tables").append(node("p", "표시할 테이블이 없습니다.", "sidebar-empty"));
+}
+
+function foldTable(name, folded) {
+  if (!state.schema?.tables.some(t => t.name === name)) return;
+  if (folded) state.folded.add(name); else state.folded.delete(name);
+  try { localStorage.setItem("dashboard-folded:" + state.schema.path, JSON.stringify([...state.folded])); } catch {}
+  renderNavigation();
 }
 
 function applySchema(schema) {
   const previous = state.table?.name;
   state.schema = schema;
+  try { state.folded = new Set(JSON.parse(localStorage.getItem("dashboard-folded:" + schema.path) || "[]")); }
+  catch { state.folded = new Set(); }
   state.epoch++;
   $("refresh").disabled = !schema.name;
-  $("database-name").textContent = schema.name || "아직 선택된 파일이 없습니다";
-  $("database-meta").textContent = schema.name ? `${format(schema.bytes / 1024)} KB · 구조 v${schema.schema_version} · ${schema.path}` : "SQLite · .db / .sqlite / .sqlite3 / 확장자 없는 DB";
-  if (schema.path) $("db-path").value = schema.path;
+  $("database-name").textContent = schema.name || "DB Dashboard";
+  $("brand-database").textContent = schema.name || "DB Dashboard";
+  $("brand-project").textContent = schema.project || "";
+  $("brand-project").hidden = !schema.project;
+  $("brand-project").title = schema.project || "";
+  $("brand-database").title = schema.path || "";
+  $("database-meta").textContent = schema.name ? `${format(schema.bytes / 1024)} KB · ${schema.path}` : "";
   renderNavigation();
   const tables = visibleTables();
   activateTable(tables.find(t => t.name === previous) || tables[0] || null);
@@ -75,10 +100,11 @@ async function loadSchema(body) {
   $("refresh").disabled = true;
   message("파일 구조를 읽고 있습니다…");
   try {
-    const schema = await api(body ? "/api/open" : "/api/schema", body);
+    const schema = await api(body ? "/api/pick" : "/api/schema", body);
     if (epoch !== state.epoch) return;
     message();
     state.loadingSchema = false;
+    if (schema.cancelled) { showTab(state.tab); return; }
     applySchema(schema);
   } catch (error) {
     if (epoch === state.epoch) message(error.message, true);
@@ -89,7 +115,7 @@ async function loadSchema(body) {
   }
 }
 
-function activateTable(table) {
+function activateTable(table, focusColumns = []) {
   if (state.loadingSchema) return;
   state.epoch++;
   state.table = table;
@@ -97,6 +123,10 @@ function activateTable(table) {
   state.search = "";
   state.sort = "";
   state.descending = false;
+  state.filters = Object.create(null);
+  state.filterOptions = null;
+  state.focusColumns = focusColumns;
+  if (focusColumns.length) state.tab = "rows";
   $("row-search").value = "";
   $("detail").close();
   $("empty").hidden = !!table;
@@ -147,20 +177,28 @@ async function loadRows() {
   $("previous").disabled = true;
   $("next").disabled = true;
   try {
-    const data = await api(queryPath("rows", {offset: state.offset, search: state.search, sort: state.sort, descending: state.descending}));
+    const [data, filterResult] = await Promise.all([
+      api(queryPath("rows", {offset: state.offset, search: state.search, sort: state.sort, descending: state.descending, filters: JSON.stringify(state.filters)})),
+      state.filterOptions ? {options: state.filterOptions} : api(queryPath("filters")).then(options => ({options})).catch(error => ({error: error.message}))
+    ]);
     if (epoch !== state.epoch || request !== state.request) return;
-    message();
+    if (filterResult.error) message(`열 필터를 불러오지 못했습니다. ${filterResult.error}`, true);
+    else { state.filterOptions = filterResult.options; message(); }
+    $("clear-filters").hidden = !Object.keys(state.filters).length;
     $("row-note").textContent = data.omitted_columns ? `처음 128개 열만 표시합니다. 나머지 ${data.omitted_columns}개 열의 정의는 구조와 관계에서 확인하세요.` : "";
     const head = node("thead"), header = node("tr"), body = node("tbody");
     header.append(node("th", "#"));
     for (const col of data.columns) {
       const th = node("th"), button = node("button", col.name + (state.sort === col.name ? (state.descending ? " ↓" : " ↑") : ""));
+      th.dataset.column = col.name;
+      th.classList.toggle("related-key", state.focusColumns.includes(col.name));
       button.title = `${col.name} 정렬`;
       button.addEventListener("click", () => {
         state.descending = state.sort === col.name ? !state.descending : false;
         state.sort = col.name; state.offset = 0; loadRows();
       });
       th.append(button, node("span", `${col.pk ? "PK · " : ""}${col.type || "ANY"}`, "column-type"));
+      if (state.filterOptions && Object.hasOwn(state.filterOptions, col.name)) th.append(columnFilter(col.name));
       header.append(th);
     }
     head.append(header);
@@ -169,25 +207,63 @@ async function loadRows() {
       tr.tabIndex = 0;
       tr.setAttribute("aria-label", `${data.offset + i + 1}번째 행 상세`);
       tr.append(node("td", format(data.offset + i + 1), "null"));
-      for (const cell of row) {
+      for (const [index, cell] of row.entries()) {
         const text = cellText(cell), td = node("td", text.length > 150 ? text.slice(0, 150) + "…" : text);
         if (cell === null) td.className = "null";
         if (jsonValue(cell) !== null) td.className = "json-value";
+        td.classList.toggle("related-key", state.focusColumns.includes(data.columns[index].name));
         tr.append(td);
       }
       const open = () => showDetail(data.columns, row, data.offset + i + 1);
       tr.addEventListener("click", open);
-      tr.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } });
+      tr.addEventListener("keydown", event => { if (event.target === tr && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); open(); } });
       body.append(tr);
     });
     $("data-table").append(head, body);
-    if (!data.rows.length) $("row-note").textContent = state.search ? "검색 결과가 없습니다. 검색어를 지우고 다시 검색해 보세요." : "이 테이블에는 아직 자료가 없습니다.";
+    if (!data.rows.length) $("row-note").textContent = state.search || Object.keys(state.filters).length ? "조건에 맞는 자료가 없습니다. 검색어 또는 열 필터를 변경해 주세요." : "이 테이블에는 아직 자료가 없습니다.";
+    const target = $("data-table").querySelector("th.related-key");
+    if (target) { target.scrollIntoView({block: "nearest", inline: "center"}); target.querySelector("button").focus({preventScroll: true}); }
     $("page-info").textContent = data.rows.length ? `${format(data.offset + 1)}–${format(data.offset + data.rows.length)}행 표시 · 페이지당 50행${data.has_more ? " · 다음 자료 있음" : " · 마지막 페이지"}` : "0행 표시";
     $("previous").disabled = state.offset === 0;
     $("next").disabled = !data.has_more;
   } catch (error) {
     if (epoch === state.epoch && request === state.request) { $("row-note").textContent = "자료를 불러오지 못했습니다."; message(error.message, true); }
   }
+}
+
+function columnFilter(column) {
+  const select = node("select", undefined, "column-filter");
+  select.setAttribute("aria-label", `${column} 값 필터`);
+  const key = value => JSON.stringify(value);
+  const populate = () => {
+    select.replaceChildren(new Option("모든 값", ""));
+    const options = state.filterOptions[column];
+    for (const value of options.values) select.add(new Option(value.type === "null" ? "(NULL)" : (value.value === "" ? "(빈 문자열)" : value.value), key(value)));
+    const selected = state.filters[column];
+    if (selected && ![...select.options].some(option => option.value === key(selected))) select.add(new Option(selected.value ?? "(NULL)", key(selected)));
+    if (options.has_more) select.add(new Option("값 100개 더 보기…", "more"));
+    select.value = selected ? key(selected) : "";
+    select.classList.toggle("filtered", !!selected);
+  };
+  populate();
+  select.addEventListener("change", async () => {
+    if (select.value === "more") {
+      const epoch = state.epoch, options = state.filterOptions[column];
+      select.disabled = true;
+      try {
+        const more = await api(queryPath("values", {column, offset: options.offset + 100}));
+        if (epoch !== state.epoch) return;
+        if (!more) { state.filterOptions = null; loadRows(); return; }
+        options.values.push(...more.values); options.offset = more.offset; options.has_more = more.has_more;
+        populate();
+      } catch (error) { if (epoch === state.epoch) { message(error.message, true); populate(); } }
+      finally { select.disabled = false; }
+      return;
+    }
+    if (select.value) state.filters[column] = JSON.parse(select.value); else delete state.filters[column];
+    state.offset = 0; loadRows();
+  });
+  return select;
 }
 
 function showDetail(columns, row, index) {
@@ -281,7 +357,9 @@ function renderStructure() {
         button.title = `${name} · ${group.map(r => index ? (r.to || "PRIMARY KEY") : r.from).join(", ")}`;
         const target = state.schema.tables.find(t => t.name === name);
         button.disabled = !target;
-        button.addEventListener("click", () => activateTable(target));
+        const primary = target?.columns.filter(c => c.pk).sort((a, b) => a.pk - b.pk) || [];
+        const keys = group.map((r, i) => index ? (r.to || primary[i]?.name) : r.from).filter(Boolean);
+        button.addEventListener("click", () => activateTable(target, keys));
         card.append(button);
       }
       $("relations").append(card);
@@ -300,7 +378,7 @@ function renderStructure() {
   $("table-sql").textContent = table.sql || "정의 SQL 없음";
 }
 
-$("open-form").addEventListener("submit", event => { event.preventDefault(); loadSchema({path: $("db-path").value}); });
+$("open-button").addEventListener("click", () => loadSchema({}));
 $("refresh").addEventListener("click", () => loadSchema());
 $("table-filter").addEventListener("input", renderNavigation);
 $("show-internal").addEventListener("change", () => {
@@ -310,6 +388,14 @@ $("show-internal").addEventListener("change", () => {
 $("search-form").addEventListener("submit", event => { event.preventDefault(); state.search = $("row-search").value; state.offset = 0; loadRows(); });
 $("previous").addEventListener("click", () => { state.offset = Math.max(0, state.offset - 50); loadRows(); });
 $("next").addEventListener("click", () => { state.offset += 50; loadRows(); });
+$("clear-filters").addEventListener("click", () => { state.filters = Object.create(null); state.offset = 0; loadRows(); });
 $("close-detail").addEventListener("click", () => $("detail").close());
+for (const [id, folded] of [["tables", false], ["folded-tables", true]]) {
+  const area = $(id);
+  area.addEventListener("dragover", event => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; area.classList.add("drop-target"); });
+  area.addEventListener("dragleave", event => { if (!area.contains(event.relatedTarget)) area.classList.remove("drop-target"); });
+  area.addEventListener("drop", event => { event.preventDefault(); area.classList.remove("drop-target"); foldTable(event.dataTransfer.getData("text/plain"), folded); });
+}
+
 document.querySelectorAll("[data-tab]").forEach(button => button.addEventListener("click", () => showTab(button.dataset.tab)));
 loadSchema();

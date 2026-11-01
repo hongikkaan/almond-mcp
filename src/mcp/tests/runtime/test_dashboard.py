@@ -53,6 +53,8 @@ def test_reads_do_not_change_database_and_writes_are_refused(database):
     database.schema()
     database.rows("items", search="부재", sort="amount", descending=True)
     database.profile("items")
+    database.filter_options("items")
+    database.rows("items", filters={"group_id": {"type": "integer", "value": "1"}})
     with database.connect() as db:
         assert db.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         assert db.execute("PRAGMA query_only").fetchone()[0] == 1
@@ -162,12 +164,16 @@ def test_internal_fts_tables_marked_and_actual_almond_schema_supported(tmp_path)
     database = Database(path)
     schema = database.schema()
     tables = {t["name"]: t for t in schema["tables"]}
-    assert "generation_plans" in tables and "components" in tables
+    assert "generation_plans" in tables and "ontological_components" in tables
+    assert tables["ontological_components"]["type"] == "table"
+    assert tables["_component_records"]["type"] == "view"
+    assert any(r["target"] == "project_files" for r in tables["ontological_components"]["relations"])
     assert tables["asset_fts_data"]["internal"]
     assert not tables["asset_fts"]["internal"]
     for table in schema["tables"]:
         database.rows(table["name"])
         database.profile(table["name"])
+        database.filter_options(table["name"])
 
 
 def test_expensive_view_is_interrupted(database):
@@ -200,7 +206,7 @@ def request(server, path, *, body=None, headers=None, authenticated=True):
 
 def test_http_assets_and_authenticated_api(server):
     status, content, headers = request(server, "/", authenticated=False)
-    assert status == 200 and "DB 안의 자료" in content.decode()
+    assert status == 200 and 'id="open-button"' in content.decode()
     assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
     for asset in ("/app.js", "/style.css"):
         assert request(server, asset)[0] == 200
@@ -209,6 +215,7 @@ def test_http_assets_and_authenticated_api(server):
     query = urlencode({"database": str(server.database.path), "table": "items"})
     assert request(server, "/api/rows?" + query)[0] == 200
     assert request(server, "/api/profile?" + query)[0] == 200
+    assert request(server, "/api/filters?" + query)[0] == 200
 
 
 def test_http_rejects_external_origins_host_and_missing_token(server):
@@ -229,3 +236,66 @@ def test_http_open_invalid_file_keeps_current_and_reports_bad_parameters(server,
     assert request(server, "/api/rows?" + query)[0] == 400
     status, content, _ = request(server, "/api/open", body=json.dumps({"path": str(original)}))
     assert status == 200 and json.loads(content)["name"] == original.name
+
+
+def test_multiple_exact_filters_compose_with_search_sort_and_pages(database):
+    selected = {"group_id": {"type": "integer", "value": "1"},
+                "label": {"type": "text", "value": "100%_"}}
+    assert [r[0] for r in database.rows("items", filters=selected, search="%_", sort="id", descending=True)["rows"]] == [1]
+    assert not database.rows("items", filters={"group_id": {"type": "integer", "value": "2"}}, search="부재")["rows"]
+    page = database.rows("items", filters={"group_id": selected["group_id"]}, offset=100, sort="id", descending=True)
+    assert [r[0] for r in page["rows"]] == list(range(23, 0, -1))
+    for invalid in ([], {"missing": selected["group_id"]}, {"id": {"type": "blob", "value": "1"}},
+                    {"id": {"type": "integer", "value": 1}}):
+        with pytest.raises(ValueError):
+            database.rows("items", filters=invalid)
+
+
+def test_filter_options_check_all_rows_and_preserve_types_unicode_and_quotes(database):
+    with closing(sqlite3.connect(database.path)) as writer:
+        writer.executescript('CREATE TABLE "filter test" ("a""b", boundary TEXT, long_text TEXT, error TEXT);')
+        writer.executemany('INSERT INTO "filter test" VALUES (?,?,?,?)', [
+            (None, "가" * 100, "short", "safe"), ("", "가" * 100, "short", "safe"),
+            (1, "가" * 100, "short", "safe"), ("1", "가" * 100, "x" * 101, "safe"),
+            (2**62, "가" * 100, "short", "safe"), ("' OR 1=1 --", "가" * 100, "short", "safe")])
+        writer.execute("UPDATE items SET metadata=? WHERE id=123", ("x" * 101,))
+        writer.commit()
+    options = database.filter_options("filter test")
+    assert "boundary" in options and "long_text" not in options and "error" in options
+    assert {"type": "integer", "value": str(2**62)} in options['a"b']["values"]
+    assert {"type": "null", "value": None} in options['a"b']["values"]
+    assert "metadata" not in database.filter_options("items")
+    assert "payload" not in database.filter_options("items")
+    for value in options['a"b']["values"]:
+        rows = database.rows("filter test", filters={'a"b': value})["rows"]
+        assert len(rows) == 1
+    first = database.filter_options("items", column="id")
+    second = database.filter_options("items", column="id", offset=100)
+    assert len(first["values"]) == 100 and first["has_more"]
+    assert len(second["values"]) == 23 and not second["has_more"]
+    assert len({json.dumps(v) for v in first["values"] + second["values"]}) == 123
+
+
+def test_http_filters_and_picker_cancel_failure_and_success(server, tmp_path, monkeypatch):
+    import dashboard.server as module
+
+    original = server.database.path
+    monkeypatch.setattr(module, "pick_database_file", lambda: None)
+    assert request(server, "/api/pick", body="{}", authenticated=False)[0] == 403
+    status, content, _ = request(server, "/api/pick", body="{}")
+    assert status == 200 and json.loads(content) == {"cancelled": True}
+    assert server.database.path == original
+    monkeypatch.setattr(module, "pick_database_file", lambda: str(tmp_path / "missing.db"))
+    assert request(server, "/api/pick", body="{}")[0] == 400
+    assert server.database.path == original
+    selected = tmp_path / "selected.sqlite3"
+    with closing(sqlite3.connect(selected)) as db:
+        db.executescript("CREATE TABLE chosen(id); INSERT INTO chosen VALUES (7);")
+    monkeypatch.setattr(module, "pick_database_file", lambda: str(selected))
+    status, content, _ = request(server, "/api/pick", body="{}")
+    assert status == 200 and json.loads(content)["name"] == selected.name
+    query = urlencode({"database": str(selected), "table": "chosen", "filters": json.dumps({"id": {"type": "integer", "value": "7"}})})
+    assert json.loads(request(server, "/api/rows?" + query)[1])["rows"] == [[7]]
+    for invalid in ("[]", "null", "{"):
+        query = urlencode({"database": str(selected), "table": "chosen", "filters": invalid})
+        assert request(server, "/api/rows?" + query)[0] == 400

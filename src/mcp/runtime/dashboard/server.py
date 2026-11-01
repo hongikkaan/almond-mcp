@@ -6,6 +6,8 @@ import argparse
 import json
 import secrets
 import sqlite3
+import subprocess
+import sys
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,6 +17,29 @@ from urllib.parse import parse_qs, urlsplit
 from .database import Database
 
 WEB = Path(__file__).with_name("web")
+
+
+def pick_database_file():
+    """Use the desktop file picker; no file is uploaded or copied by the browser."""
+    if sys.platform != "win32":
+        raise ValueError("파일 선택 창은 Windows에서 사용할 수 있습니다.")
+    script = r'''
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+Add-Type -AssemblyName System.Windows.Forms
+$picker = New-Object System.Windows.Forms.OpenFileDialog
+$picker.Title = 'Almond - Select SQLite DB'
+$picker.Filter = 'SQLite (*.sqlite3;*.sqlite;*.db)|*.sqlite3;*.sqlite;*.db|All files (*.*)|*.*'
+try {
+    if ($picker.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        ConvertTo-Json -Compress -InputObject $picker.FileName
+    } else { 'null' }
+} finally { $picker.Dispose() }
+'''
+    result = subprocess.run(["powershell.exe", "-NoProfile", "-STA", "-Command", script],
+                            capture_output=True, encoding="utf-8", creationflags=subprocess.CREATE_NO_WINDOW)
+    if result.returncode:
+        raise ValueError("파일 선택 창을 열지 못했습니다. 다시 시도해 주세요.")
+    return json.loads(result.stdout.lstrip("\ufeff").strip())
 
 
 class DashboardServer(ThreadingHTTPServer):
@@ -99,7 +124,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             database = self.server.database
             if request.path == "/api/schema":
                 self._reply(200, database.schema() if database else {"tables": [], "name": None})
-            elif request.path in ("/api/rows", "/api/profile"):
+            elif request.path in ("/api/rows", "/api/profile", "/api/filters", "/api/values"):
                 if database is None:
                     raise ValueError("먼저 DB 파일을 선택해 주세요.")
                 # Stale requests cannot accidentally display rows from a newly selected file.
@@ -107,9 +132,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     self._reply(409, {"error": "선택한 DB가 바뀌었습니다. 구조 새로고침을 눌러 주세요."})
                     return
                 if request.path.endswith("/rows"):
+                    filters = json.loads(get("filters", "{}"))
+                    if not isinstance(filters, dict):
+                        raise ValueError("열 필터가 올바르지 않습니다.")
                     result = database.rows(get("table"), offset=int(get("offset", "0")),
                                            limit=int(get("limit", "50")), search=get("search"),
-                                           sort=get("sort"), descending=get("descending") == "true")
+                                           sort=get("sort"), descending=get("descending") == "true",
+                                           filters=filters)
+                elif request.path.endswith("/filters"):
+                    result = database.filter_options(get("table"))
+                elif request.path.endswith("/values"):
+                    result = database.filter_options(get("table"), column=get("column"), offset=int(get("offset", "0")))
                 else:
                     result = database.profile(get("table"))
                 self._reply(200, result)
@@ -121,7 +154,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._allowed(True):
             return
-        if self.path != "/api/open":
+        if self.path not in ("/api/open", "/api/pick"):
             self._reply(404, {"error": "페이지가 없습니다."})
             return
         try:
@@ -129,10 +162,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if not 0 < size <= 16_384:
                 raise ValueError("DB 파일 경로가 너무 길거나 비어 있습니다.")
             body = json.loads(self.rfile.read(size))
-            if not isinstance(body, dict) or not isinstance(body.get("path"), str) or not body["path"].strip():
-                raise ValueError("DB 파일 경로를 입력해 주세요.")
+            if not isinstance(body, dict):
+                raise ValueError("파일 선택 요청이 올바르지 않습니다.")
             with self.server.open_lock:
-                candidate = Database(body["path"].strip().strip('"'))
+                path = pick_database_file() if self.path == "/api/pick" else body.get("path")
+                if self.path == "/api/pick" and path is None:
+                    self._reply(200, {"cancelled": True})
+                    return
+                if not isinstance(path, str) or not path.strip():
+                    raise ValueError("DB 파일을 선택해 주세요.")
+                candidate = Database(path.strip().strip('"'))
                 schema = candidate.schema()
                 self.server.database = candidate
             self._reply(200, schema)

@@ -13,6 +13,7 @@ from pathlib import Path
 MAX_COLUMNS = 128
 CELL_LIMIT = 8192
 SAMPLE_LIMIT = 300
+FILTER_PAGE = 100
 
 
 def identifier(name: str) -> str:
@@ -68,7 +69,8 @@ class Database:
                 table["kind"] = kinds.get(name, table["type"])
                 table["internal"] = name.startswith("sqlite_") or table["kind"] == "shadow"
                 tables.append(table)
-            return {"path": str(self.path), "name": self.path.name, "bytes": self.path.stat().st_size,
+            parent = self.path.parent.parent if self.path.parent.name == ".almond" else self.path.parent
+            return {"path": str(self.path), "name": self.path.name, "project": parent.name, "bytes": self.path.stat().st_size,
                     "schema_version": db.execute("PRAGMA schema_version").fetchone()[0],
                     "tables": tables, "read_only": True}
 
@@ -101,7 +103,53 @@ class Database:
                 cells.append(value)
         return cells
 
-    def rows(self, name, *, offset=0, limit=50, search="", sort="", descending=False):
+    @staticmethod
+    def _filter_where(names, filters):
+        if not isinstance(filters, dict) or len(filters) > MAX_COLUMNS:
+            raise ValueError("열 필터가 올바르지 않습니다.")
+        clauses, params = [], []
+        for name, selected in filters.items():
+            if name not in names or not isinstance(selected, dict):
+                raise ValueError("필터할 열이 없습니다. 구조 새로고침을 눌러 주세요.")
+            kind, value = selected.get("type"), selected.get("value")
+            if kind not in ("null", "text", "integer", "real"):
+                raise ValueError("필터 값의 자료형이 올바르지 않습니다.")
+            if kind == "null":
+                clauses.append(f"{identifier(name)} IS NULL")
+            elif isinstance(value, str) and len(value) <= CELL_LIMIT:
+                clauses.append(f"(typeof({identifier(name)})=? AND CAST({identifier(name)} AS TEXT) COLLATE BINARY=?)")
+                params.extend((kind, value))
+            else:
+                raise ValueError("필터 값이 너무 길거나 올바르지 않습니다.")
+        return clauses, params
+
+    @staticmethod
+    def _values(db, name, column, offset=0):
+        quoted = identifier(column)
+        too_long = db.execute(
+            f"SELECT 1 FROM {identifier(name)} WHERE typeof({quoted})='blob' "
+            f"OR length(CAST({quoted} AS TEXT))>100 LIMIT 1").fetchone()
+        if too_long:
+            return None
+        records = db.execute(
+            f"SELECT DISTINCT typeof({quoted}), CAST({quoted} AS TEXT) COLLATE BINARY AS value "
+            f"FROM {identifier(name)} ORDER BY 1,2 LIMIT ? OFFSET ?", (FILTER_PAGE + 1, offset)).fetchall()
+        return {"values": [{"type": kind, "value": value} for kind, value in records[:FILTER_PAGE]],
+                "has_more": len(records) > FILTER_PAGE, "offset": offset}
+
+    def filter_options(self, name, *, column=None, offset=0):
+        if not 0 <= offset <= 1_000_000:
+            raise ValueError("조회 범위를 초과했습니다.")
+        with self.connect() as db:
+            columns = [c["name"] for c in self._table(db, name)["columns"] if c["hidden"] != 1][:MAX_COLUMNS]
+            if column is not None:
+                if column not in columns:
+                    raise ValueError("필터할 열이 없습니다.")
+                return self._values(db, name, column, offset)
+            # Check the whole column, including values outside the visible page/sample.
+            return {col: options for col in columns if (options := self._values(db, name, col)) is not None}
+
+    def rows(self, name, *, offset=0, limit=50, search="", sort="", descending=False, filters=None):
         if not 0 <= offset <= 1_000_000 or not 1 <= limit <= 100 or len(search) > 200:
             raise ValueError("조회 범위를 초과했습니다.")
         with self.connect() as db:
@@ -112,13 +160,13 @@ class Database:
             names = [c["name"] for c in columns]
             if sort and sort not in names:
                 raise ValueError("정렬할 열이 없습니다. 구조 새로고침을 눌러 주세요.")
-            params = []
-            where = ""
+            clauses, params = self._filter_where(names, {} if filters is None else filters)
             if search:
                 escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-                where = " WHERE " + " OR ".join(
-                    f"(typeof({identifier(c)}) != 'blob' AND CAST({identifier(c)} AS TEXT) LIKE ? ESCAPE '\\')" for c in names)
-                params = ["%" + escaped + "%"] * len(names)
+                clauses.append("(" + " OR ".join(
+                    f"(typeof({identifier(c)}) != 'blob' AND CAST({identifier(c)} AS TEXT) LIKE ? ESCAPE '\\')" for c in names) + ")")
+                params.extend(["%" + escaped + "%"] * len(names))
+            where = " WHERE " + " AND ".join(clauses) if clauses else ""
             order = ""
             if sort:
                 order = f" ORDER BY {identifier(sort)} {'DESC' if descending else 'ASC'}"
