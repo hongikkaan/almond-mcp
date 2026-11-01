@@ -29,6 +29,22 @@ Do not assume worker-venv packages exist in Rhino's embedded Python. Return only
 A waiting response includes request_id. Use get_rhino_execution when that execution is still pending, more result pages are needed, or output/diagnostics remain to be checked.
 A completed response with the needed result requires no follow-up read. CLI exit, print output and a timeout are not completion evidence. A completed exception may have partial changes; result_error does not roll them back. Never automatically retry uncertain work, open a different document or schedule detached document edits.
 
+When Floor metadata is requested, use the object's actual level labels, not the Scene's full level range. For multiple levels, write a typed string array; for one level, a string. This Python example uses an already identified `object_id` and nonempty `floor_names` list, preserving unrelated attributes:
+
+```python
+import System
+obj = doc.Objects.FindId(System.Guid(object_id))
+if obj is None or obj.IsReference or obj.IsLocked:
+    raise ValueError("Floor target must be an editable local object")
+attrs = obj.Attributes.Duplicate()
+value = floor_names[0] if len(floor_names) == 1 else System.Array[System.String](floor_names)
+attrs.UserDictionary.Set("Floor", value)
+if not doc.Objects.ModifyAttributes(obj.Id, attrs, True):
+    raise RuntimeError("Floor update failed")
+stored = doc.Objects.FindId(obj.Id).Attributes.UserDictionary["Floor"]
+result = {"object_id": str(obj.Id), "Floor": str(stored) if len(floor_names) == 1 else list(stored)}
+```
+
 Args:
     script: Synchronous Python source, C# statement body or complete command macro.
     language: python (default Python 3), python2, csharp, csharp-script or command; every mode uses official RhinoCode.

@@ -7,9 +7,12 @@ description: "Inspect and edit Rhino architecture with Almond MCP: project conte
 
 Almond MCP를 사용해 Rhino 건축 모델과 도면을 조사·편집한다. 아래 도구명은 공통 이름이며 연결 방식에 따라 필요한 인자가 다를 수 있다. 실제 호출은 현재 연결의 schema를 따른다.
 
-최초 사용 시 `get_modeling_guide()`로 이 문서 전문과 조회 가능한 도구명을 읽는다. 같은 `guide_version`에서 이미 읽은 지침은 재사용한다.
+1. 최초 사용 시
+- `get_modeling_guide()`로 이 문서 전문과 조회 가능한 도구명을 읽는다. 
+- 같은 `guide_version`에서 이미 읽은 지침은 재사용한다.
 
-개별 도구의 사용법이 불확실하면 `get_modeling_guide(tool="assign_material")`처럼 정확한 도구명으로 설명을 조회한다. 이 조회는 해당 도구를 실행하지 않는다. 입력 형식과 기본값은 현재 연결의 schema를 따르고, 작업의 판단 기준과 도구를 사용하는 맥락은 이 문서를 따른다.
+2. 툴 정보 추가 조회
+- 개별 도구의 사용법이 불확실하면 `get_modeling_guide(tool="assign_material")`처럼 정확한 도구명으로 설명을 조회한다. 
 
 **Attitude**
 이 툴을 사용하는 작업은 건축설계이며, 모델링 파일이 설계내용이기도 할 뿐만 아니라 작업 도구 역시 develop 중이다. 따라서 기존의 것들은 각각의 역할과 형성 맥락을 살피되, 존재한다는 이유만으로 유지하거나 어느 한쪽이 항상 옳다고 전제하지 않는다. 전반적인 작업 뿐만 아니라 설계 내용의 충돌은, 현재 설계 의도와 작업 목적을 기준으로 하여 주체적으로 추론·고찰하여 필요한 부분을 정합한다. 판단한 작업의 방향성이 사용자의 지시/방향성과 충돌하면 자신의 고찰/추론/결정을 폐기하는 대신, 사용자에게 논의를 요청하여 그 내용과 제안을 설명하고 서로간의 어긋난 방향성을 사용자 주도 하에 align한다.
@@ -19,6 +22,7 @@ Almond MCP를 사용해 Rhino 건축 모델과 도면을 조사·편집한다. �
 - [기본 세팅](#기본-세팅)
   - [템플릿·재료·구축 레이어](#템플릿재료구축-레이어)
 - [조회 도구](#조회-도구)
+  - [편집 범위의 격리와 내부 조회](#편집-범위의-격리와-내부-조회)
 - [프로젝트 기본 구조](#프로젝트-기본-구조)
   - [프로젝트·문서·파일](#프로젝트문서파일)
   - [Phase → Task → Step](#phase--task--step)
@@ -30,11 +34,10 @@ Almond MCP를 사용해 Rhino 건축 모델과 도면을 조사·편집한다. �
   - [구성의 발전과 형상 편집](#구성의-발전과-형상-편집)
   - [객체들의 묶음 단위 유형](#객체들의-묶음-단위-유형)
   - [모델링 검수](#모델링-검수)
-- [편집 범위의 격리와 내부 조회](#편집-범위의-격리와-내부-조회)
 - [Drafting](#drafting)
   - [도면을 공간과 의미로 읽기](#도면을-공간과-의미로-읽기)
   - [설계와 도면의 발전](#설계와-도면의-발전)
-  - [도면 생성 툴](#도면-생성-툴)
+  - [도면 생성 툴: PlanSection](#도면-생성-툴-plansection)
   - [Layout 생성 및 관리](#layout-생성-및-관리)
   - [도면 표현·출력 검수](#도면-표현출력-검수)
 - [구조 검토](#구조-검토)
@@ -52,7 +55,20 @@ Almond MCP를 사용해 Rhino 건축 모델과 도면을 조사·편집한다. �
 
 MCP의 관찰·캡처로 필요한 정보를 확인하며 computer use를 검증의 우회 수단으로 호출하지 않는다. 형상과 속성, 화면, 현재 편집 상태는 서로 다른 정보를 주므로 이번 판단에 필요한 관찰을 선택한다.
 
-객체 집합은 `get_rhino_objects`로 조회한다. 레이어·형상 유형별 요약으로 범위를 파악하고, `fields`로 ID나 필요한 속성만 받을 수 있다. 면 정보와 교차검사 결과가 나뉘어 반환되면 응답의 후속 조회 정보를 사용한다.
+### get_rhino_objects: 객체·속성·형상 조회
+
+객체 집합을 조회한다.
+- 레이어·형상 유형별 요약으로 범위를 파악한다.
+- `fields`로 ID나 필요한 속성만 요청한다.
+- 객체·면 정보가 나뉘어 반환되면 응답의 후속 조회 정보를 사용한다.
+
+### capture_rhino_inspection: 격리·다중 시점 이미지
+
+필터한 객체 집합을 지정한 여러 시점에서 캡처해 하나의 PNG로 반환한다.
+
+### get_object_intersections: 체적 교차 검사
+
+지정한 객체 사이의 체적 교차를 읽기 전용으로 검사한다. 결과가 나뉘어 반환되면 `next_cursor`로 나머지 후보쌍을 이어 검사한다.
 
 ### get_rhino_context: 문서·선택·화면·편집 상태
 필요한 `sections`를 함께 요청한다. 기본값은 `["document"]`이며, `project_info`에서 이미 현재 문서를 확인했다면 같은 확인을 반복하지 않는다. 이 조회는 모델을 변경하지 않는다.
@@ -87,9 +103,24 @@ document·selection·viewport 조회에도 간략한 편집 모드·대상·안�
 
 절단면으로 내부를 확인하려면 실제 clipping plane을 설정한다. 캡처의 `display_mode`는 표시 모드만 바꾸며 모델을 절단하지 않는다.
 
-**공통 옵션:** `display_mode`는 `get_rhino_context(sections=["display_modes"], include_ids=true)`로 설치된 이름 또는 GUID를 확인해 지정한다. Raytraced 같은 실시간 렌더링 모드는 지원하지 않는다. `scale_percent`는 1–100이며 기본 75, 도면 검수에는 100을 사용한다. 픽셀 크기만 조절하며 Layout Detail의 도면 축척은 바꾸지 않는다. 16메가픽셀·4 MiB 제한을 초과하면 자동 축소하지 않고 오류를 반환하므로 비율을 낮춰 다시 요청한다.
+**공통 옵션:** `display_mode`는 `get_rhino_context(sections=["display_modes"], include_ids=true)`로 설치된 이름 또는 GUID를 확인해 지정한다. Raytraced 같은 실시간 렌더링 모드는 지원하지 않는다. `scale_percent`는 1–100이며 기본 75, 판독에 필요한 해상도에 맞춰 선택한다. 픽셀 크기만 조절하며 Layout Detail의 도면 축척은 바꾸지 않는다. 16메가픽셀·4 MiB 제한을 초과하면 자동 축소하지 않고 오류를 반환하므로 비율을 낮춰 다시 요청한다.
 
 `labels=true`가 기본이다. 최상위 group 이름·GUID, block instance 이름·GUID와 group에 속하지 않은 객체 GUID를 이미지에 표시하며 Rhino 객체를 만들지 않는다. 최대 200개이며 `depth=1–8`로 중첩 라벨 범위를 조절한다. 라벨이 잘리면 대상이나 깊이를 좁힌다. `include_usage=true`는 이미지 크기와 참고용 토큰 추정치를 추가하며 실제 사용량은 클라이언트에 따라 다르다.
+
+### 편집 범위의 격리와 내부 조회
+
+#### focus_components
+
+`component_ids`에 서로 다른 ontological-component ID를 1–32개 지정하면, 각 component의 현재 멤버와 등록된 자손의 멤버를 선택·격리하고 확대한다. `expected_model_path`는 보통 생략하며 연결된 문서가 자동으로 지정된다.
+
+Rhino의 기존 Isolate/Unisolate 이력을 사용하며 선택·가시성·화면 상태를 변경한다. 이미 숨겨지거나 잠긴 객체와 기존 문서 상태는 Rhino의 격리 기능 조건에 영향을 받는다. 실행 결과가 불확실하면 현재 상태를 확인하고 자동으로 재시도하지 않는다.
+
+
+#### analyze_block_reculviely
+
+중첩 블록 구조와 현재 편집 단계의 블록 후보를 읽기 전용으로 조회한다. `mode="outline"`은 `options`의 `ids` 또는 `path`로 대상을 지정하고, 생략 시 `scope`(selected/viewport/document)로 범위를 고른다. `depth`로 펼칠 깊이를 제한한다. 기본 반환은 작은 요약이며 `field_groups=["objects","transforms"]`, `include_ids=true`로 내부 경로·누적 변환·ID를 추가한다. TextDot 관계는 `annotations` 필드군을 요청한다. `field_groups`는 summary/objects/annotations/transforms 중 비어 있지 않은 배열이며 `[]`·`all`은 지원하지 않는다.
+
+`mode="resolve-block"`은 `options={"path":[최상위_GUID, 내부_멤버_GUID, ...]}`만 받는다. BlockEditNew에서는 부모를 연 뒤 경로를 한 단계씩 늘려 현재 선택 가능한 후보를 확인한다. 내부 GUID와 지금 선택 가능한 ID를 구분하고, 정의 저장·멤버 교체 후에는 다시 조회한다. 반환의 `unknown`·미지원·`truncated`는 미확인 범위다. 잘리면 IDs·path·depth를 좁힌다. 좌표·길이·공차는 현재 문서 단위다.
 
 ## 프로젝트 기본 구조
 
@@ -124,7 +155,7 @@ Task의 상위 Phase는 `phase_id`로 지정한다. 관련 Task는 `depends_on` 
 | `create_phase`  | `name`, 선택적 `description`, `file_name`, `project_file_id`, `status` | Phase 생성. |
 | `update_phase`  | `phase_id`, 바꿀 `name`, `description`, `file_name`, `project_file_id`, `status` | Phase 정보 수정. |
 | `list_plans` | 선택적 `phase_id`, `scene_id`, `status`, `limit` | Phase·Scene·상태로 범위를 좁혀 Task 요약 조회. ID는 `include_ids=true`로 요청한다. |
-| `get_plan`| `plan_id`, 선택적 `revision`, `field_groups`, `include_ids` | Task 요약 또는 저장 revision 조회. Step은 `field_groups=["steps"]`, 대상 관계는 `["references"]`, 작업자료는 `["artifacts"]`로 요청한다. 일반 조회의 `field_groups` 생략·`[]`은 요약, `all`은 전체 상세, `audit`은 기술 timestamp다. |
+| `get_plan`| `plan_id`, 선택적 `revision`, `field_groups`, `include_ids` | Task 요약 또는 저장 revision 조회. Step과 입출력·대상 참조를 함께 읽으려면 `field_groups=["steps","references"]`, 작업자료도 필요하면 `"artifacts"`를 추가한다. `"steps"`만 요청하면 참조는 빠진다. 일반 조회의 `field_groups` 생략·`[]`은 요약, `all`은 전체 상세, `audit`은 기술 timestamp다. |
 | `set_working_plan` | 선택할 Task의 `plan_id`, 선택적 `step_id`, 최초 폴더 이름 `artifact_name` | 연결에서 Task·Step과 작업자료 폴더를 선택·재사용한다. 이름을 생략하면 Task 목표로 폴더를 정한다. |
 | `create_plan`| Task 목표 `goal`, 선택적 `scope`, `phase_id`, 맥락 `scene_id` 또는 `scene_ids`, 편집 대상 `component_ids`, 관련 `depends_on` | Task와 기본 Step 생성. scope는 house, interior, structure, drawing, component. |
 | `update_plan`| `plan_id`, 바꿀 목표·참조·상태·`artifact_refs`, `expected_revision` | Task 정보와 상태 수정. 조회한 revision을 전달해 오래된 수정의 충돌을 막는다. |
@@ -224,7 +255,7 @@ Rhino 객체는 이 건축을 표현하는 편집 단위다. 하나의 실물 �
 
 ### 구성의 발전과 형상 편집
 
-사용자의 목표와 기존 모델·도면·피드백을 함께 읽고, 이어 가야 할 설계 의도와 바꿀 수 있는 조건을 파악한다. 지적된 현상을 개별 객체의 수정으로만 환원하지 않고, 그 현상이 공간과 구축의 관계에서 어떤 문제를 만드는지 이해한다. 기존 구성의 역할을 해석해 보완할 지점을 찾고, 유사한 구성을 참고할 때도 현재 목적과 주변 관계에 맞는지 판단한다.
+사용자의 목표와 기존 모델·도면·피드백을 함께 읽고, 이어 가야 할 설계 의도와 바꿀 수 있는 조건을 파악한다. 기반자료는 맥락의 근거이며, 이후 합의로 발전한 설계를 과거 문구에 맞춰 되돌리는 명령이 아니다. 지적된 현상을 개별 객체의 수정으로만 환원하지 않고, 그 현상이 공간과 구축의 관계에서 어떤 문제를 만드는지 이해한다. 기존 구성의 역할을 해석해 보완할 지점을 찾고, 유사한 구성을 참고할 때도 현재 목적과 주변 관계에 맞는지 판단한다.
 
 수정할 객체의 범위는 판단하려는 건축 요소와 변경의 영향에서 정한다. 한 요소가 여러 객체에 걸쳐 있으면 그 전체의 형상과 연결을 이해하고, 주변 요소와의 관계가 문제라면 그 관계를 함께 살핀다. 관련 범위에 같은 문제가 반복되는지도 살펴 필요한 조치를 판단한다. 격리나 분류는 이 판단을 돕는 관찰 방법이다. 과업이 달라졌을 때는 앞서 사용한 작업 구획을 이어 쓰기 전에 이번 판단에 필요한 관계가 그 안에 드러나는지 살핀다.
 
@@ -246,6 +277,8 @@ BlockEditNew에서는 뷰포트에서 선택한 group이나 block instance를 �
 
 ### 모델링 검수
 
+관찰·검수용 이미지를 만들기 위해 원본 모델을 별도 위치에 복사하거나, 실제 모델의 수정·검수 대신 이미지에 형상을 덧그리지 않는다.
+
 검수는 바뀐 모델이 해결하려던 설계 문제를 해결했는지, 의도한 공간과 구축을 성립시키는지 판단하는 과정이다. 수정한 형상에서 출발해 그 요소의 역할, 접합과 연속, 영향을 받은 공간과 다른 요소로 판단을 이어 간다. 국소적인 형상 개선이 주변의 사용이나 구성에 새로운 문제를 만들었는지도 살핀다.
 
 무엇을 판단할지에 따라 관찰 방법을 정한다. 전체 배치와 공간 관계, 부재의 연결, 가려진 내부 구성은 필요한 관찰 범위와 시점이 다르다. 판단에 필요한 요소들이 함께 드러나도록 화면을 구성하고 실제 이미지를 읽는다. 격리한 화면이 보여 주는 관계와 제외한 관계를 구분하며, 잘린 요소나 빠진 주변 구성 때문에 판단 근거가 달라지지 않는지 확인한다.
@@ -255,21 +288,6 @@ BlockEditNew에서는 뷰포트에서 선택한 group이나 block instance를 �
 의미 있는 편집 묶음이 끝나면 결과를 사용자의 목표와 보존 조건에 대조하고, 그 결과를 바탕으로 다음 개입을 정한다. 변경으로 판단 범위나 구성에 대한 이해가 달라졌다면 관찰과 설계를 다시 이어 간다.
 
 확인한 사실, 설계 의도에 대한 해석, 가정과 미확인 사항을 구분한다. 실행 성공과 형상의 유효성, 공간·구축의 적합성, 사용자 요청의 완료는 각각의 근거로 판단하며 미검사 범위와 남은 문제를 보고한다.
-
-## 편집 범위의 격리와 내부 조회
-
-### focus_components
-
-`component_ids`에 서로 다른 ontological-component ID를 1–32개 지정하면, 각 component의 현재 멤버와 등록된 자손의 멤버를 선택·격리하고 확대한다. `expected_model_path`는 보통 생략하며 연결된 문서가 자동으로 지정된다.
-
-Rhino의 기존 Isolate/Unisolate 이력을 사용하며 선택·가시성·화면 상태를 변경한다. 이미 숨겨지거나 잠긴 객체와 기존 문서 상태는 Rhino의 격리 기능 조건에 영향을 받는다. 실행 결과가 불확실하면 현재 상태를 확인하고 자동으로 재시도하지 않는다.
-
-
-### analyze_block_reculviely
-
-중첩 블록 구조와 현재 편집 단계의 블록 후보를 읽기 전용으로 조회한다. `mode="outline"`은 `options`의 `ids` 또는 `path`로 대상을 지정하고, 생략 시 `scope`(selected/viewport/document)로 범위를 고른다. `depth`로 펼칠 깊이를 제한한다. 기본 반환은 작은 요약이며 `field_groups=["objects","transforms"]`, `include_ids=true`로 내부 경로·누적 변환·ID를 추가한다. TextDot 관계는 `annotations` 필드군을 요청한다. `field_groups`는 summary/objects/annotations/transforms 중 비어 있지 않은 배열이며 `[]`·`all`은 지원하지 않는다.
-
-`mode="resolve-block"`은 `options={"path":[최상위_GUID, 내부_멤버_GUID, ...]}`만 받는다. BlockEditNew에서는 부모를 연 뒤 경로를 한 단계씩 늘려 현재 선택 가능한 후보를 확인한다. 내부 GUID와 지금 선택 가능한 ID를 구분하고, 정의 저장·멤버 교체 후에는 다시 조회한다. 반환의 `unknown`·미지원·`truncated`는 미확인 범위다. 잘리면 IDs·path·depth를 좁힌다. 좌표·길이·공차는 현재 문서 단위다.
 
 ## Drafting
 
@@ -320,21 +338,28 @@ Rhino의 기존 Isolate/Unisolate 이력을 사용하며 선택·가시성·화�
 
 #### Layout 생성 및 관리
 
-Layout은 현재 파일에서 사용하는 도면을 모은 도면집이다. 도면 Layout을 구성할 때는 현재 Rhino 문서에 실제 존재하는 Layout·PageSpace·Detail을 조회해 목적·용지·축척에 맞게 재사용하거나 조정할 수 있는지 살핀다. 필요하면 새 Layout과 Detail 뷰를 추가해 작업하고, 불필요해진 Layout은 필요한 도면·주석이 남아 있지 않은지 확인한 뒤 제거한다.
+Layout은 현재 파일에서 사용하는 도면을 모은 도면집이다.
 
-#### 도면 생성 툴
+- 도면 Layout을 구성할 때는 현재 Rhino 문서에 실제 존재하는 Layout·PageSpace·Detail을 조회해 목적·용지·축척에 맞게 재사용하거나 조정할 수 있는지 살핀다.
+- 필요하면 새 Layout과 Detail 뷰를 추가한다.
+- 채택·폐기로 불필요해진 Layout·대안 복사본은 원본과 필요한 도면·주석·비교 근거를 보존하며 정리한다.
+- 본 도면을 갱신할 때는 검토 대안이 추출 범위에 섞이지 않았는지 확인한다.
 
-[PlanSection](features/modeling/PlanSection/README.md#에이전트에서-사용)은 clipping plane GUID를 받아 평면·단면의 단면선·해치·가시 입면선을 추출한다. `execute_rhino_script`에서 해당 스크립트의 `run()`을 호출하며, 입력 형식과 호출 예시는 링크를 따른다. 출력은 별도의 도면 레이어에 놓이고 원본 객체의 속성 중 PrintColor와 PrintWidth를 제외한 나머지를 상속받는다.  해치는 SectionStyle에 채움이 있을 때 생성되며, 입면선의 인쇄 굵기·명암은 깊이에 따라 적용된다.
+#### 도면 생성 툴: [PlanSection](features/modeling/PlanSection/README.md#에이전트에서-사용)
+
+Clipping plane GUID를 받아 평면·단면의 단면선·해치·가시 입면선을 추출한다. `execute_rhino_script`에서 해당 스크립트의 `run()`을 호출하며, 입력 형식과 호출 예시는 링크를 따른다. 출력은 별도의 도면 레이어에 놓이며 원본 객체의 색·선종류·SectionStyle을 상속한다. 출력 Name은 clipping 이름이고 임의 사용자 속성·UserDictionary는 자동 상속하지 않는다. 단면·입면선의 인쇄색·두께는 출력 레이어를 따르며, 해치는 SectionStyle에 채움이 있을 때 생성된다.
 
 도면은 clipping plane의 축을 기준으로 WorldXY와 평행하게 놓이며, 배치 기준점은 clipping plane의 원점에 대응하는 점이다. `Create`·`Move`의 `points={GUID: [x, y, z]}`로 그 기준점의 절대 위치를 문서 단위로 지정한다. `[x, y]`는 Z=0이고 `Update`는 저장된 높이를 유지한다. `PDF`는 Z=0에서 출력한다. `Move`는 기존 도면을 그대로 옮기고, `Update`는 저장된 위치에서 다시 추출하므로 출력에 직접 가한 형상·속성 수정은 교체된다. `PDF`는 clipping의 `Paper`·`Scale`과 원점으로 용지 크기·축척·중심을 정하며, 용지 밖은 잘라낸다.
 
 #### 도면 표현·출력 검수
 
+관찰·검수용 이미지를 만들기 위해 원본 모델·도면을 별도 위치에 복사하거나, 실제 도면의 수정·검수 대신 이미지에 형상을 덧그리지 않는다.
+
 도면의 용도와 축척에 맞춰 선두께·선종류·해치·문자와 치수의 가독성·잘림을 확인한다. Layout 도면을 검토할 때는 뷰 목록에서 해당 Layout GUID를 골라 용지와 Detail을 캡처하고, 용지 크기와 Detail 축척을 확인한다. 정적 도면의 축척은 이름으로 추정하지 않는다. 파일을 출력했다면 출력본도 열어 확인하고 수정한 부분을 다시 검수한다.
 
-도면을 확인할 때 해당 문서의 PrintDisplay와 Model·Layout의 Print colors 적용 상태를 확인하고, 필요한 설정을 적용한 뒤 Layout 화면을 이미지로 읽는다. 캡처가 실제 화면과 다른 표현을 보이면 그 차이를 확인하고 신뢰할 수 있는 화면 캡처를 사용한다. PrintDisplay는 세밀한 선두께·회색 농도·출력색을 정확히 재현하지 않을 수 있으므로 표현의 대략적인 확인에 사용하고, 세밀한 출력 판단이 필요하면 실제 출력본을 열어 확인한다. Layout 캡처 자체는 기존 Detail 축척과 PrintDisplay를 변경하지 않는다. Detail이 없는 정적 PageSpace 도면만으로는 Detail 축척을 입증할 수 없다.
+도면을 확인할 때 해당 문서의 PrintDisplay와 Model·Layout의 Print colors 적용 상태를 확인하고, 필요한 설정을 적용한 뒤 Layout 화면을 이미지로 읽는다. 캡처가 실제 화면과 다른 표현을 보이면 그 차이를 확인하고 신뢰할 수 있는 화면 캡처를 사용한다. PrintDisplay는 세밀한 선두께·회색 농도·출력색을 정확히 재현하지 않을 수 있으므로 표현의 대략적인 확인에 사용하고, 세밀한 출력 판단이 필요하면 실제 출력본을 열어 확인한다. Layout 캡처 자체는 기존 Detail 축척과 PrintDisplay를 변경하지 않는다. Detail이 없는 정적 PageSpace 도면만으로는 Detail 축척을 입증할 수 없고, Detail의 존재·축척만으로 출력 객체의 Space·ViewportId와 실제 표시까지 보증되지는 않는다.
 
-도면 확인 시 `-PrintDisplay State On`으로 PrintDisplay를 켜고 CADWhite로 본다. 모델뷰에서는 `-PrintDisplay Scale <축척 숫자>`로 검토 축척을 지정한다. Layout에서는 Detail 축척이 적용된다. 끄거나 전환할 때는 `-PrintDisplay State Off` 또는 `-PrintDisplay State Toggle`을 사용한다. Scale은 모델뷰의 선두께 표시 배율이며, 선 색은 `Color=Print` 설정과 객체·레이어의 Print Color에 따른다.
+PrintDisplay는 `-PrintDisplay State On`으로 켜며, 표시 모드는 검토할 표현에 맞는 설치된 모드를 선택한다. 모델뷰에서는 `-PrintDisplay Scale <축척 숫자>`로 검토 축척을 지정한다. Layout에서는 Detail 축척이 적용된다. 끄거나 전환할 때는 `-PrintDisplay State Off` 또는 `-PrintDisplay State Toggle`을 사용한다. Scale은 모델뷰의 선두께 표시 배율이며, 선 색은 `Color=Print` 설정과 객체·레이어의 Print Color에 따른다.
 
 ## 구조 검토
 

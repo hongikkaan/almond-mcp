@@ -68,7 +68,7 @@ No temporary image file is created. Capture does not change camera, selection or
 
 Args:
     view: Empty for current view, "a" for the grouped list, or a listed GUID.
-    scale_percent: Integer from 1 to 100; default 75. Use 100 for visual drawing review. Controls pixels, not a Layout Detail's drawing scale.
+    scale_percent: Integer from 1 to 100; default 75. Choose sufficient resolution for the intended reading. Controls pixels, not a Layout Detail's drawing scale.
     include_usage: False returns only an image. True also returns dimensions and an
         illustrative token estimate (32px patches x 1.2, without provider resizing).
         Actual usage depends on the client's model and detail setting, which MCP
@@ -100,6 +100,8 @@ Returns:
 
 `filters` 조건은 AND로 결합한다. `layer_paths`는 전체 레이어 경로 1..64개의 정확한 일치, `object_types`는 조회된 `object_type` 이름 1..32개, `name_contains`는 이름 부분 문자열이며 대소문자를 구분하지 않는다. `user_dictionary`는 `{source: "attributes" 또는 "geometry", key: 키, any_of: [값들]}` 조건 배열이다. scalar 또는 배열의 원소와 정확히 비교하며 문자열을 임의로 분할하거나 층 정보를 추론하지 않는다. 메타데이터 필터를 건축 요소의 정체성과 동일시하지 않는다.
 
+예: `get_rhino_objects(scope="document", filters={"user_dictionary":[{"source":"attributes","key":"Floor","any_of":["층A"]}]}, fields=["id","user_dictionary"])`는 Floor의 scalar 값 또는 배열 원소가 `"층A"`인 객체를 조회한다. 층 이름은 실제 값으로 바꾼다. 키의 존재나 필터 일치는 실제 층 소속의 정확성을 보증하지 않는다. 배열 쓰기는 `get_modeling_guide(tool="execute_rhino_script")`의 예를 따른다.
+
 기본 객체 응답은 문서 가시성·선택 여부·bbox·원본 `geometry_crc`·두 UserDictionary·그룹을 포함한다. 그룹의 `members_outside_match_count`와 문서의 `visible_outside_match_count`는 조회 범위 밖의 관계를 드러낸다. `visible`은 Rhino의 문서/레이어 가시성으로, 화면의 픽셀·가림·clipping 결과를 보증하지 않는다.
 
 `include_geometry=true`면 Brep의 유효성·solid·manifold·체적과 면 정보를 추가한다. 기하 정보도 `fields`의 `geometry_valid`, `solid`, `manifold`, `volume`, `face_count`, `faces`로 선택할 수 있으며 명시한 fields가 우선한다. `faces`에는 원본 ID·CRC와 `face_page`를 함께 반환한다. `face_limit`은 1..128, `face_offset`은 면 시작 위치다. 다음 면 페이지는 `scope="ids"`, 대상 ID들과 이전 `geometry_crc`를 담은 `expected_geometry_crcs={GUID: CRC}`로 요청하며 형상이 바뀌면 거절한다. 면의 `face_edit_supported`는 사전 판별이며 실제 편집 성공 보장은 아니다.
@@ -118,10 +120,14 @@ Returns:
 
 <!-- instruction:capture_rhino_inspection -->
 
-지정한 여러 시점과 객체집합을 하나의 PNG에 담는 읽기 전용 캡처다. `views`는 1..16개 tile로, 각 항목은 `object_ids`(생략하면 현재 문서 가시 범위), `direction`, `display_mode`, `label`을 받는다. 필요하면 `get_rhino_objects`의 필터 결과 GUID를 tile마다 전달한다. 현재 선택·카메라·숨김 상태를 바꾸지 않는다.
+지정한 여러 시점과 객체집합을 하나의 PNG에 담는 읽기 전용 캡처다. `views`는 1..16개 tile로, 각 항목은 `object_ids`, `direction`, `display_mode`, `label`을 받는다. 명시 `object_ids`는 tile당 서로 다른 최상위 GUID 1..512개이며, 생략 또는 `[]`는 빈 집합이 아니라 현재 문서 가시 범위다. 필요하면 `get_rhino_objects`의 필터 결과 GUID를 tile마다 전달한다. 현재 선택·카메라·숨김 상태를 바꾸지 않는다.
 
-`direction`은 `current`, `top`, `bottom`, `front`, `back`, `left`, `right`, `iso_ne`, `iso_nw`, `iso_se`, `iso_sw`, `below_ne`, `below_nw`, `below_se`, `below_sw` 중 선택한다. 필요한 시점만 요청한다. `display_mode` 생략 시 현재 모드를 쓰며, 이름이 중복되면 `get_rhino_context(sections=["display_modes"])`에서 확인한 GUID를 사용한다. 각 tile의 메타데이터와 오류를 읽고 이미지의 실제 범위를 확인한다.
+현재 구현은 연결 문서의 활성 일반 모델뷰와 `editor.mode="model"`, `stable=true`가 필요하다. 활성 Layout은 `layout_not_supported`, group/block 편집이나 미확인 상태는 `editing_context_unverified`다. Layout 용지는 `get_rhino_viewport_image(view=Layout_GUID)`로 캡처한다.
 
-`width`/`height`는 tile 픽셀 크기, `columns`는 배치 열 수다. 합계 16M 픽셀과 PNG 4 MiB를 넘으면 크기나 tile 수를 줄인다. 문서 가시성 기준의 대상 목록은 픽셀에 실제 보이는 모든 객체의 증명이 아니다. 명시 필터에서 블록 인스턴스·블록 내부 객체는 지원하지 않으며 해당 tile 오류로 보고한다. 필터를 생략한 전체 범위에서는 블록을 원래대로 표시한다.
+`direction`은 `current`, `top`, `bottom`, `front`, `back`, `left`, `right`, `iso_ne`, `iso_nw`, `iso_se`, `iso_sw`, `below_ne`, `below_nw`, `below_se`, `below_sw` 중 선택한다. 필요한 시점만 요청한다. `display_mode` 생략 시 현재 모드를 쓰며, 이름이 중복되면 `get_rhino_context(sections=["display_modes"], include_ids=true)`에서 확인한 GUID를 사용한다. 각 tile의 메타데이터와 오류를 읽고 이미지의 실제 범위를 확인한다.
+
+`width`/`height`는 tile 픽셀 크기(128..2048, 기본 640×480), `columns`는 배치 열 수다. 합계 16M 픽셀과 PNG 4 MiB를 넘으면 크기나 tile 수를 줄인다. 명시 필터에서 블록 인스턴스·블록 내부 객체는 지원하지 않으며 해당 tile 오류로 보고한다. 필터를 생략한 전체 범위에서는 블록을 원래대로 표시한다.
+
+최상위 `complete`는 요청한 tile의 캡처 성공 여부, `scope.complete`는 요청 GUID가 문서 가시 범위에 포함됐는지를 뜻한다. 실제 픽셀 노출이나 설계 적합성을 보증하지 않는다. 부분 성공이면 정상 이미지와 tile별 오류를 함께 읽고, 조회 preview나 일부 GUID만 캡처한 결과를 전체 범위로 해석하지 않는다.
 
 <!-- /instruction:capture_rhino_inspection -->

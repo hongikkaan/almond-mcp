@@ -12,7 +12,9 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 출력 객체의 user text는 `ps:source_layer`, `ps:placement`만 저장한다. 재생성 소유 정보는 로컬 Drawing 루트 레이어에 보관하며 참조 clipping의 속성은 수정하지 않는다.
 
-단면선은 로컬 Drawing::Section, 해치는 Drawing::Hatch, 입면선은 Drawing::Elevation에 생성한다. 필요한 원본 객체/레이어/부모 속성을 상속하며 해치는 적용 Section Style의 패턴·스케일을 따른다. 기본/None에는 해치를 만들지 않는다. 해치 레이어의 화면색·인쇄색은 90% 검정, 인쇄 두께는 No Print다. 단면·입면 곡선의 인쇄색과 인쇄 두께는 ByLayer다. 출력은 WorldXY에 정렬·상하 반전되고 Z=0, 객체 이름은 clipping 이름이다. PDF는 clipping 원점을 종이 중심에 두며 종이 밖은 잘라낸다. 원본 문서와 draft_plane을 변경하지 않는다.
+단면선은 로컬 Drawing::Section, 해치는 Drawing::Hatch, 입면선은 Drawing::Elevation에 생성한다. 원본 객체의 색·선종류·SectionStyle을 상속하며 임의 사용자 속성·UserDictionary는 자동 상속하지 않는다. 해치는 원본 객체의 SectionStyle에 지정된 패턴·스케일을 따르며 기본/None에는 만들지 않는다. 해치 레이어의 화면색·인쇄색은 90% 검정, 인쇄 두께는 No Print다. 단면·입면 곡선의 인쇄색과 인쇄 두께는 ByLayer다.
+
+Clipping plane의 CPlane을 설정할 때 Z축이 World 좌표계의 Z축과 평행하지 않으면, CPlane을 180° 회전시켜 Y축이 실제 방향의 반대가 되도록 한다. 출력은 지정 배치점의 Z를 유지한다. 기본 원점과 PDF는 Z=0이고 Update는 저장 높이를 유지한다. 객체 이름은 clipping 이름이다. PDF는 clipping 원점을 종이 중심에 두며 종이 밖은 잘라내고, 원본 문서와 draft_plane을 변경하지 않는다.
 
 ## 작업 지침
 

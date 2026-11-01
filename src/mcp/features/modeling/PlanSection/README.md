@@ -28,7 +28,7 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 ## 에이전트에서 사용
 
-기존 `execute_rhino_script(language="python")` 경로에서 아래처럼 스크립트를 읽고 `run`을 호출한다. 런타임이 검증해 제공한 `doc`를 전달하며 다른 문서를 자동으로 열지 않는다. 이 함수는 목록·점·폴더 입력 창을 열지 않는다. 일반 `main()`의 Project는 번호·목록 선택이고 CurrentDocument는 GUID 직접 입력이다. 무인 실행은 `run()`이다.
+기존 `execute_rhino_script(language="python")` 경로에서 아래처럼 스크립트를 읽고 `run`을 호출한다. 런타임이 검증해 제공한 `doc`를 전달하며 다른 문서를 자동으로 열지 않는다. 이 함수는 목록·점·폴더 입력 창을 열지 않는다. 일반 `main()`의 Project는 번호·목록 선택이고 CurrentDocument는 GUID 직접 입력이다. `Document`는 Create의 출력 위치이며 `CurrentDocument` 선택 방식과 다른 옵션이다. 무인 실행은 `run()`의 인자로 출력·표현 옵션을 지정한다.
 
 공개 실행 도구는 RhinoCode를 사용하며 연결 문서의 `StartScriptServer`가 필요하다. `get_modeling_guide(tool="execute_rhino_script")`로 현재 실행 계약을 확인한다. MCP에서 대화형 `main()`이나 `runpy.run_path(..., run_name="__main__")`을 호출하지 않는다. 아래처럼 기본 `run_path`로 함수를 읽고 `result`에 JSON 결과를 대입한다. 실행기가 이미 연 Undo는 재사용하며 PlanSection이 종료하지 않는다.
 
@@ -43,7 +43,7 @@ result = ps["run"](doc, "Create", ids,
 print(json.dumps(result, ensure_ascii=False))
 ```
 
-작업별 호출은 다음과 같다. 좌표는 현재 문서 단위이며 clipping 원점의 **새 절대 위치**다. 배치점은 GUID별 `[x,y]`(Z=0) 또는 `[x,y,z]`로 전달한다. Update는 저장된 높이를 유지한다.
+작업별 호출은 다음과 같다. 좌표는 현재 문서 단위이며 clipping 원점의 **새 절대 위치**다. 배치점은 GUID별 `[x,y]`(Z=0) 또는 `[x,y,z]`로 전달한다. Update는 저장된 높이를 유지한다. clipping 평면의 로컬 `(u,v)`는 배치점 `(Tx,Ty,Tz)`에 대해 `(Tx+u,Ty-v,Tz)`로 옮겨진다. 비수평 단면의 출력 상하는 clipping의 로컬 Y 방향에 달려 있으며 World Y 방향과 구분한다.
 
 ```python
 result = ps["run"](doc, "Update", ids)
