@@ -14,7 +14,7 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 첫 단계에서 Project/CurrentDocument 사용 방식을 선택한 뒤 Create·Update·Move·PDF 네 작업 중 하나를 선택한다. Project는 번호와 이름을 출력하며 번호 하나, `All`, 또는 `List`를 입력받는다. `List`는 이름 내림차순 clipping 목록 창을 연다. 쉼표로 구분한 숫자는 받지 않는다. CurrentDocument는 GUID를 쉼표·공백으로 입력한다. 목록은 동명을 GUID로 구분하며 Ctrl/Shift 다중 선택과 Enter 확정을 지원한다. 여러 GUID는 요청 순서를 유지하고 중복은 제거하며, 없는 GUID가 하나라도 있으면 전체 요청을 실행 전에 거절한다.
 
-Create·Update·PDF는 선택 후 Enter로 표시된 설정을 사용하고 `Change`로 옵션을 수정한다. Move는 표현 옵션을 묻지 않는다. 초기값은 Hatch=True, Elevation=True, PickPlacement=False, SmallDetails=Keep, Near/Far Width=0.09/0.04mm, Near/Far Dark=80/45%다. 이 거리별 값은 내부 스타일 구분에 사용하며 최종 곡선 인쇄색·두께는 ByLayer다. Darkness 100%는 검정이다. 최근 표현 옵션은 같은 Rhino 세션에서 재사용하되 작업은 매번 명시적으로 선택한다. Output=Document/Files와 PickPlacement는 Create에만 있다. Update·Move·PDF는 생성 옵션에 들어가지 않는다. 아래 표의 Placement는 Move 작업의 내부 모드명이다.
+Create·Update·PDF는 최초 옵션 프롬프트에서 Toggle·숫자 설정을 바로 변경하거나 Enter로 확정한다. Esc는 sticky 옵션을 변경하지 않는다. Move는 표현 옵션을 묻지 않는다. 초기값은 Hatch=True, Elevation=True, PickPlacement=False, SmallDetails=Keep, Near/Far Width=0.09/0.04mm, Near/Far Dark=80/45%다. 이 거리별 값은 내부 스타일 구분에 사용하며 최종 곡선 인쇄색·두께는 ByLayer다. Darkness 100%는 검정이다. 최근 표현 옵션은 같은 Rhino 세션에서 재사용하되 작업은 매번 명시적으로 선택한다. Output=Document/Files와 PickPlacement는 Create에만 있다. Update·Move·PDF는 생성 옵션에 들어가지 않는다. 아래 표의 Placement는 Move 작업의 내부 모드명이다.
 
 | Output | 하는 일 | 도면 원점 | 기존 도면과 객체 ID |
 | --- | --- | --- | --- |
@@ -55,8 +55,8 @@ flowchart TD
 
 `generate(doc, cp, ..., place=True, small_details=True, profile=None, model_cache=None)`는 `{objects, report}`를 반환한다. `small_details=True`가 Keep, False가 Omit이다. `place=False`는 배치 전 좌표로 돌려주며, main의 점 지정 경로가 나중에 `move_drawing`을 호출한다.
 
-- 모델 record: `geometry`는 복제·변환한 world geometry, `attributes`는 원본 속성 복사본, `resolved`는 상속을 해석한 출력용 속성, `source`는 `instance GUID/.../member GUID` 경로다. `record_bounds`는 정확한 world bbox를 한 번 계산해 단면 후보 검사와 입면 깊이 표현에 재사용한다.
-- 출력 항목: `{geometry, attributes, role}`이며 role은 `section` / `hatch` / `elevation`이다.
+- 모델 record: `geometry`는 복제·변환한 world geometry, `attributes`는 원본 속성 복사본, `resolved`는 상속을 해석한 출력용 속성, `source`는 `instance GUID/.../member GUID` 경로다. `source_metadata`는 원본 Name·일반 user text·허용 UserDictionary 값의 스냅샷이다. `record_bounds`는 정확한 world bbox를 한 번 계산해 단면 후보 검사와 입면 깊이 표현에 재사용한다.
+- 출력 항목: `{geometry, attributes, role, contributors}`이며 role은 `section` / `hatch` / `elevation`이다. contributors의 원본 경로별 메타데이터는 계산 중에만 쓰고 도면 객체로 저장하지 않는다.
 - report: 실제 입력 수 `sources`, 제외·경고 `skipped`, 입면 정리 통계 `cleanup`, 역할별 출력 수다. `cleanup`에는 모드, Join·복구·분할·제거·보호 개수가 들어간다.
 - 단독 `generate`는 복제한 입력 형상을 finally에서 해제한다. 여러 clipping을 선택한 main/독립 PDF 명령은 `ModelCache`가 필요한 world geometry와 bbox를 지연 준비해 공유하고, 명령의 finally에서 해제한다. 키는 source 경로·RhinoObject RuntimeSerialNumber·누적 변환 행렬이며 캐시는 명령을 넘어 유지하지 않는다. 참여 목록과 블록 경로는 clipping마다 탐색하고 원본/상속 속성은 매번 새로 해석한다. Placement와 단일 clipping은 이 캐시를 만들지 않는다.
 - `generate`는 이미 반환받은 단면·입면 결과를 소유한다. 중복 제거·입면 정리가 새 결과를 반환하면 `dispose_drawing_items`로 다음 단계에서 사용하지 않는 이전 형상을 해제한다. 같은 객체를 그대로 넘긴 단면·해치·무수정 곡선은 보존하고 동일 객체를 두 번 해제하지 않는다. 이후 취소·배치·속성 처리에서 실패하면 마지막 완성 단계의 출력을 해제한다. 단계 함수가 반환 전에 내부에서 실패한 미반환 임시 형상까지 이 경계가 추적하는 것은 아니다.
@@ -165,13 +165,13 @@ drawing(p) = (Tx + u, Ty - v, Tz)
 
 `drawing_transform`은 PlaneToPlane → 배치점을 지나는 World XZ 평면에 대한 반전 → 배치점을 지나는 수평 평면 투영 순서다. 축척과 지정 높이를 유지한다. 원본 절단 좌표의 Z를 먼저 없애지 않는다. `move_drawing`은 투영 후 무효 polyline에도 `repair_invalid_polyline`을 적용하고 유효성을 확인한다.
 
-기본 배치는 clipping ObjectAttributes user text의 `draft_plane`에서 읽는다.
+기본 배치는 clipping ObjectAttributes UserDictionary의 typed `draft_plane`(RhinoCommon Plane)에서 먼저 읽는다. 이전 문서처럼 user text에만 JSON이 있으면 그것을 읽는다. 출력의 UserDictionary `ps:placement`는 Point3d이며 예전의 동일 user text JSON과 대응한다.
 
 ```json
 {"origin":[10000,20000,0],"xaxis":[1,0,0],"yaxis":[0,1,0]}
 ```
 
-세 벡터와 plane은 유효해야 하지만 최종 배치는 origin의 XYZ를 사용한다. 저장된 축으로 도면을 기울이지 않고 WorldXY와 평행하게 배치한다. 값이 없으면 WorldXY 원점이다.
+새 저장은 typed 값과 이 JSON을 함께 기록한다. 둘 다 존재하면 clipping Plane의 Origin/XAxis/YAxis 또는 출력 Point3d의 XYZ가 일치해야 하며 불일치·잘못된 타입은 명시적 오류다. typed 값을 임의로 JSON으로 덮어쓰지 않는다. 세 벡터와 plane은 유효해야 하지만 최종 배치는 origin의 XYZ를 사용한다. 저장된 축으로 도면을 기울이지 않고 WorldXY와 평행하게 배치한다. 값이 없으면 WorldXY 원점이다.
 
 | 상황 | 위치 선택·저장 |
 | --- | --- |
@@ -185,6 +185,8 @@ drawing(p) = (Tx + u, Ty - v, Tz)
 같은 좌표계에서 동일한 attached clipping을 사용하는 A/B 모델은 신규 생성 원점이 같다. A에서 도면을 옮겨도 B의 신규 생성 기본값은 변하지 않는다. A의 Update는 A 도면에 저장한 이동 위치를 유지한다.
 
 기존 도면 안의 ps:placement 값이 서로 다르면 Update/Placement는 오류로 보고한다. Document로 다시 생성하여 일관된 배치 정보를 만들 수 있다.
+
+Clipping plane의 CPlane Z가 World Z와 평행하지 않을 때 CPlane을 180° 회전하여 Y가 실제 방향 반대가 되도록 설정한다는 안내는 **clipping 설정에 관한 것**이다. 이 지침만으로 `drawing_transform`이 clipping을 조건부 자동 회전하지 않는다.
 
 모든 clipping에 draft_plane이 없으면 원점이 겹친다. 자동 간격 배치는 없다. Rhino Move로 도면을 옮기면 ps:placement가 갱신되지 않으므로 이후 Placement/Update의 기준도 자동 추적하지 않는다.
 
@@ -215,18 +217,22 @@ drawing(p) = (Tx + u, Ty - v, Tz)
 
 원본의 숨김·잠금·그룹·참조 소유권·재질은 출력 속성으로 복사하지 않는다. 목적 레이어나 부모가 참조·숨김·잠금이면 Document 출력은 명시적으로 실패한다. Document 출력은 기존 Drawing::Hatch 레이어도 지정 색과 No Print로 갱신하며, Files/PDF에는 동일한 레이어 속성을 적용한다. SectionAttributesSource.FromSectioner는 지원하지 않는다. BoundaryVisible/화면용 BoundaryWidthScale, 재질, viewport별 override를 일반 도면 속성으로 변환하지 않는다.
 
-모든 출력 객체의 Name은 clipping 이름이다. 저장되는 user text는 `ps:source_layer`와 `ps:placement` 두 개다. 계산 중의 `ps:sources`·`ps:role`·`ps:style`·`ps:depth` 등은 출력 시 제거한다. Placement도 이 두 key로 정리하므로 임의로 추가한 출력 user text 보존을 보장하지 않는다.
+출력 Name은 모든 기여 원본의 이름이 동일하고 비어 있지 않을 때 그 이름을 보존한다. 하나라도 무명이거나 다른 이름이면 빈 Name으로 둔다. 일반 user text와 UserDictionary는 **기여자 전체에 동일한 key/type/value가 존재하고 안전하게 저장할 수 있는 경우만** 상속한다. 예약 `ps:*`·`draft_plane`·원본 `Floor`와 소유권·그룹·잠금·참조·재질·geometry UserData는 복사하지 않는다. UserDictionary에서 지원하는 값은 유한한 scalar, 문자열 배열, Point3d·Plane·Vector3d·Guid·Color 등 명시적으로 비교 가능한 RhinoCommon 값이며, 그 외의 타입은 자동 보존하지 않는다. 충돌·누락·미지원 값은 `report.metadata_conflicts`에 필드·원본 경로·사유를 남긴다. `metadata_conflict_count`는 전체 고유 충돌 수이고 상세 목록은 앞의 64개까지 반환한다.
+
+SectionStyle이 같은 단면 원본은 기존처럼 union하며, 입면은 동일 적용 속성끼리 join한다. 열린 단면선은 해당 입력 원본만 기여자로 기록한다. 닫힌 단면 union의 각 결과 영역은 원본 영역과의 실제 planar intersection에서 양의 면적이 확인되는 원본만 기여자로 연결하며, bbox/RTree는 후보를 줄이는 용도로만 사용한다. 해치는 채움이 허용된 원본 영역과 별도로 대응시켜 채움에서 제외된 원본을 기여자로 섞지 않는다. 기여자 판정이 실패하면 새 출력을 적용하지 않고 오류를 반환한다. 겹침 제거·Join에서는 합쳐진 원본을 추가로 기록한다. 결과 곡선만 보고 어느 단일 객체에서 왔다고 임의 추정하지 않는다.
+
+새 출력은 모든 역할의 UserDictionary `Floor`를 **clipping 이름**으로 기록한다. 원본 단일·다층 Floor는 수정하지 않는다. 로컬 clipping의 `draft_plane`은 typed Plane, 출력의 `ps:placement`는 typed Point3d로 UserDictionary에 저장하며, 기존 호출부용 JSON user text도 함께 동기화한다. 생성 출력의 user text는 `ps:source_layer`, `ps:placement`, 모든 기여자에 공통인 일반 user text만 남긴다. 내부 `ps:sources`·`ps:role`·`ps:style`·`ps:depth`·`ps:inherited_keys`는 출력에서 제거한다. Move는 이미 출력된 Name/Floor·일반 user text·수동 편집을 보존하고 배치 Point3d와 JSON만 갱신한다. 오래된 도면에 빠진 속성을 자동 보충하지 않는다.
 
 소유 정보는 로컬 `Drawing` 루트 레이어의 `ps:clip:<clipping GUID>`에 출력 GUID 목록으로 저장한다. `drawing_objects`는 이 목록과 이전 버전 generator/clip 태그로 **해당 clipping의 로컬 출력만** 찾는다. 참조 도면은 이동·교체하지 않는다.
 
 `bake`의 교체 순서는 다음과 같다.
 
-1. 형상 계산·배치 검증을 완료하고 새 객체를 추가한다.
+1. 기존 모델뷰가 없으면 문서 출력을 시작하기 전에 실패한다. 형상 계산·배치 검증 후 기존 모델뷰를 임시 활성화하고 새 객체에 ModelSpace·ViewportId=Guid.Empty를 강제한다. Add 직후 실제 귀속을 검사하고 원래 Layout·Detail을 복원한다. 복원 실패도 이전 객체를 삭제하기 전에 처리한다.
 2. 필요한 로컬 draft_plane과 Drawing 레이어의 소유 목록을 갱신한다.
 3. 이전 출력 객체를 삭제한다.
-4. 중간 실패는 삭제한 이전 객체를 Undelete하고 새 객체를 제거하며 metadata를 복원한다.
+4. 중간 실패는 삭제한 이전 객체를 Undelete하고 새 객체를 제거하며 metadata를 복원한다. 복구가 불완전하면 오류에 그 사실과 Undo 필요를 명시한다.
 
-Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 Undo 필요 오류를 보고한다. Drawing 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다.
+Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 기존 ObjectAttributes 전체를 보존하면서 배치 정보만 갱신한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 Undo 필요 오류를 보고한다. Drawing 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다.
 
 PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. RhinoCode wrapper나 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 빈 정상 계산 결과는 Document/Update에서 기존 해당 도면을 빈 결과로 교체할 수 있으며 빈 결과 자체가 항상 오류인 것은 아니다.
 
@@ -239,6 +245,8 @@ PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 �
 | 잘못된 clipping/participation/draft_plane/옵션 | 해당 도면 오류 |
 | 설명되지 않은 빈 Boolean, union/해치/HLD/최종 형상 오류 | 해당 도면을 출력 단계로 넘기지 않음 |
 | 문서 추가·교체·이동 실패 | 해당 동작의 복구 경로 실행, 오류 표시 |
+| typed Point3d/Plane과 JSON 불일치, 메타데이터 저장 실패 | 해당 도면을 실패로 보고하며 미완료 출력은 교체하지 않음 |
+| 모델뷰 없음·ModelSpace 귀속/활성 Layout·Detail 복원 실패 | 새 출력 제거, 이전 출력 및 소유 registry 보존 |
 | 여러 clipping 중 하나 실패 | `FAILED <clipping>: <원인>`을 표시하고 다음 도면 계속 처리 |
 | Esc 또는 배치점 취소 | 현재 미출력 도면과 남은 도면 중단, 이미 완료된 도면 유지 |
 

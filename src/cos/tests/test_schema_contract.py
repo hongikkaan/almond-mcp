@@ -1,4 +1,5 @@
 """The external adapter must reject stale worker schemas and source snapshots."""
+import ast
 import copy
 from pathlib import Path
 import sys
@@ -8,6 +9,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src/cos"))
 from runtime import check_contract, schema_identity, validate_worker_tools
+from build_catalog import checked_stub
 
 
 def test_worker_schema_and_name_mismatch_are_rejected():
@@ -38,3 +40,18 @@ def test_stale_fingerprint_and_package_version_are_rejected(monkeypatch, tmp_pat
     catalog["packages"]["sdk"] = "2"
     with pytest.raises(RuntimeError, match="expects"):
         check_contract(catalog)
+
+
+@pytest.mark.parametrize("name", ["get_rhino_context", "get_rhino_objects", "get_object_intersections"])
+def test_fixed_observations_keep_the_reviewed_wrapped_string_schema(name):
+    source = '''
+@mcp.tool(output_schema={"type": "object", "properties": {"result": {"type": "string"}},
+                        "required": ["result"], "x-fastmcp-wrap-result": True})
+def TOOL() -> str | ToolResult:
+    return "not executed"
+'''.replace("TOOL", name)
+    node = checked_stub(ast.parse(source).body[0])
+    assert isinstance(node.body[-1], ast.Raise)
+    for changed in (source.replace(name, "unreviewed_tool"), source.replace('"type": "string"', '"type": "integer"')):
+        with pytest.raises(ValueError, match="output schema"):
+            checked_stub(ast.parse(changed).body[0])

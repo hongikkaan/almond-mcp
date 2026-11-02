@@ -1,5 +1,7 @@
 """Selection and noninteractive routing only; native geometry is checked in Rhino."""
 import importlib.util
+import contextlib
+import io
 from pathlib import Path
 import sys
 from types import SimpleNamespace as NS
@@ -135,6 +137,87 @@ class EntryPoints(unittest.TestCase):
                                                 None, None, lambda:False, target='point'), 'completed')
         self.assertEqual(move.call_args.args[2], 'point')
         generate.assert_not_called()
+
+    def test_batch_reports_partial_without_erasing_prior_completed_output(self):
+        doc = Mock(CurrentUndoRecordSerialNumber=41)
+        app = NS(RhinoApp=NS(Wait=lambda:None, EscapeKeyPressed=MagicMock()))
+        def process(doc, cp, options, folder, progress, cancelled, cache, target, result):
+            if cp.Id == B: raise ValueError('second clipping failed')
+            result['object_ids'] = ['new-output']
+            result['report'] = {'section':1}
+            return 'completed'
+        with patch.object(ps,'R',app), patch.object(ps,'process_clipping',side_effect=process), \
+             patch.object(ps,'ModelCache',return_value=NS(Dispose=Mock())), \
+             contextlib.redirect_stdout(io.StringIO()):
+            outcome = ps.run_selected(doc,self.planes,ps.default_options())
+        self.assertEqual((outcome['status'],outcome['completed'],outcome['requested']),('partial',1,2))
+        self.assertEqual([i['status'] for i in outcome['results']],['completed','failed'])
+        self.assertEqual(outcome['results'][0]['object_ids'],['new-output'])
+        self.assertIn('second clipping failed',outcome['results'][1]['error'])
+        doc.BeginUndoRecord.assert_not_called()
+        doc.EndUndoRecord.assert_not_called()
+
+
+class InitialOptions(unittest.TestCase):
+    def setup_getter(self, results, change=False):
+        class Getter:
+            def __init__(self):
+                self.get_results = list(results)
+                self.options_at_first_get = None
+                self.options = []
+                self.output = NS(CurrentListOptionIndex=1 if change else 0)
+                self.toggles = {}
+                self.disposed = False
+                self.OptionIndex = lambda: 1
+                self.Option = lambda: self.output
+            def SetCommandPrompt(self, value): self.prompt = value
+            def AcceptNothing(self, value): pass
+            def ClearCommandOptions(self): self.options = []
+            def AddOption(self, name): self.options.append(name)
+            def AddOptionList(self, name, choices, index):
+                self.options.append(name)
+                return 1
+            def AddOptionToggle(self, name, value):
+                self.options.append(name)
+                self.toggles[name] = value
+            def AddOptionDouble(self, name, value): self.options.append(name)
+            def Get(self):
+                if self.options_at_first_get is None:
+                    self.options_at_first_get = list(self.options)
+                if change and len(self.get_results) == 2:
+                    self.toggles['Hatch'].CurrentValue = False
+                return self.get_results.pop(0)
+            def Dispose(self): self.disposed = True
+
+        getter = Getter()
+        sticky = {'PlanSection:style_defaults':[.09,.04,80.,45.]}
+        def Toggle(value, *_): return NS(CurrentValue=value)
+        def Double(value, *_): return NS(CurrentValue=value)
+        rhino = NS(Input=NS(GetResult=NS(Option='option', Nothing='enter'),
+            Custom=NS(GetOption=lambda:getter, OptionToggle=Toggle, OptionDouble=Double)))
+        return getter, sticky, rhino
+
+    def test_options_are_directly_present_without_change_gate(self):
+        getter, sticky, rhino = self.setup_getter(['option','enter'], change=True)
+        with patch.object(ps,'R',rhino), patch.object(ps,'System',NS(Double=NS(MaxValue=1e9))), \
+             patch.dict(sys.modules,{'scriptcontext':NS(sticky=sticky)}):
+            result = ps.get_options('Create')
+        self.assertIn('Output',getter.options_at_first_get)
+        self.assertIn('Hatch',getter.options_at_first_get)
+        self.assertIn('PickPlacement',getter.options_at_first_get)
+        self.assertNotIn('Change',getter.options_at_first_get)
+        self.assertEqual((result['mode'],result['hatch']),('Files',False))
+        self.assertEqual(sticky['PlanSection:options']['mode'],'Files')
+        self.assertTrue(getter.disposed)
+
+    def test_escape_discards_option_changes_without_touching_sticky(self):
+        getter, sticky, rhino = self.setup_getter(['option','cancel'], change=True)
+        previous = dict(sticky)
+        with patch.object(ps,'R',rhino), patch.object(ps,'System',NS(Double=NS(MaxValue=1e9))), \
+             patch.dict(sys.modules,{'scriptcontext':NS(sticky=sticky)}):
+            self.assertIsNone(ps.get_options('Create'))
+        self.assertEqual(sticky,previous)
+        self.assertTrue(getter.disposed)
 
 
 if __name__ == '__main__': unittest.main()

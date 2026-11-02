@@ -27,7 +27,8 @@ Args:
     depth: 1..8, default 1. IDs are omitted unless include_ids=true.
     include_image: False keeps the JSON-only response. True returns JSON text first and
         the current PNG from the same native UI call. An image_error preserves available
-        context when capture fails. Use this when the current viewport is needed visually.
+        context when capture fails. image_file reports the same PNG's managed file, or a
+        separate storage error without removing a successful image.
 Returns:
     JSON with status, document, selection, viewport and warnings, or an explicit error.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
@@ -64,12 +65,15 @@ Omit view to capture the current view. Pass view="a" to list viewports, named_vi
 Names need not be unique. Named Views render the saved camera off screen using Shaded by default; they never replace the visible viewport. Layouts capture the paper area, including its details, not the surrounding workspace. A current Layout also captures its paper, even when a detail is active.
 
 For capture resolution and Layout print appearance, follow [BASIC-INSTRUCTIONS.md](../../BASIC-INSTRUCTIONS.md#get_rhino_viewport_image-화면으로-관찰하기).
-No temporary image file is created. Capture does not change camera, selection or Undo state, or prove geometric correctness. A failed or oversized image is an error; lower scale_percent explicitly instead of receiving a silently resized image.
+The validated PNG is saved under the selected Plan's artifacts/captures, or connection-owned scratch when no Plan is selected. image_file reports a project-relative path, bytes, SHA256 and lifetime; storage failure leaves the image available. Capture does not change camera, selection or Undo state, or prove geometric correctness. A failed or oversized image is an error, never a silently resized image.
 
 Args:
     view: Empty for current view, "a" for the grouped list, or a listed GUID.
     scale_percent: Integer from 1 to 100; default 75. Choose sufficient resolution for the intended reading. Controls pixels, not a Layout Detail's drawing scale.
-    include_usage: False returns only an image. True also returns dimensions and an
+    width, height: Optional explicit output pixels, both 128..2048 with scale_percent=100.
+        Supported for model view/Named View/group/block with capture_output_size=1;
+        the live window is not resized. Layouts reject these options and retain 144 dpi.
+    include_usage: False returns the image and file metadata. True also returns dimensions and an
         illustrative token estimate (32px patches x 1.2, without provider resizing).
         Actual usage depends on the client's model and detail setting, which MCP
         does not supply. PNG compression reduces bytes, not pixel-token counts.
@@ -89,8 +93,8 @@ Args:
     Layouts retain each detail's mode, reject a mode override, and explicitly warn that
         detail labels are unavailable; capture a Named View/model viewport for labels.
 Returns:
-    One MCP PNG image by default, with text only for explicit warnings/usage, or the grouped name/GUID list for view="a".
-    Images are limited to 16 megapixels and 4 MiB. No repeated path or GUID metadata.
+    One MCP PNG image and image_file metadata, optional warnings/usage, or the grouped name/GUID list for view="a".
+    Images are limited to 16 megapixels and 4 MiB. PNG files are additive writes, so capture-capable tools do not advertise MCP readOnlyHint; the Rhino document remains unchanged.
 <!-- /instruction:get_rhino_viewport_image -->
 <!-- instruction:get_rhino_objects -->
 
@@ -108,6 +112,8 @@ Returns:
 
 바깥 `offset`/`limit`(1..200), `next_offset`, `complete`는 객체 또는 요약행의 페이지이고, 각 객체의 `face_page`는 그 객체의 면 페이지다. 응답은 256 KiB, 문서 스캔은 100000개로 제한하며 초과하면 범위·필드·페이지 크기를 줄여 조회한다. 가시 범위와 그룹의 범위 밖 관계는 실제로 반환된 필드에 근거해 읽는다.
 
+명시적 `status="error"`는 같은 상세 JSON을 유지하면서 MCP `isError=true`로 반환한다. 미완료 페이지를 오류나 전체 검증 완료로 바꾸지 않는다.
+
 <!-- /instruction:get_rhino_objects -->
 
 <!-- instruction:get_object_intersections -->
@@ -116,18 +122,22 @@ Returns:
 
 `next_cursor`를 같은 대상과 함께 전달하면 나머지 후보를 이어 검사한다. 형상·범위가 바뀌면 cursor가 거절된다. 페이지 결과를 합쳐 읽고, `pagination_complete`는 후보 열거의 끝, `complete`는 이번 응답만으로 전체 범위가 확인됐는지를 뜻한다. 미지원·판정 불명·미검사는 무교차가 아니다. 각 쌍의 `a.handle`, `b.handle`, `pair_state`는 ID 표시 옵션과 무관하게 반환되며 `show_object_intersection`·`resolve_object_intersection`의 입력으로 쓴다. 그룹은 대상을 자동 추가하지 않는다.
 
+명시적 `status="error"`는 MCP `isError=true`와 일치시킨다. 정상 페이지의 `unknown`·`complete=false`·`next_cursor`는 그대로 보존한다.
+
 <!-- /instruction:get_object_intersections -->
 
 <!-- instruction:capture_rhino_inspection -->
 
-지정한 여러 시점과 객체집합을 하나의 PNG에 담는 읽기 전용 캡처다. `views`는 1..16개 tile로, 각 항목은 `object_ids`, `direction`, `display_mode`, `label`을 받는다. 명시 `object_ids`는 tile당 서로 다른 최상위 GUID 1..512개이며, 생략 또는 `[]`는 빈 집합이 아니라 현재 문서 가시 범위다. 필요하면 `get_rhino_objects`의 필터 결과 GUID를 tile마다 전달한다. 현재 선택·카메라·숨김 상태를 바꾸지 않는다.
+지정한 여러 시점과 객체집합을 하나의 PNG에 담으며 Rhino 문서를 바꾸지 않는 캡처다. `views`는 1..16개 tile로, 각 항목은 `object_ids`, `direction`, `display_mode`, `label`을 받는다. tile별 명시 `object_ids`는 서로 다른 최상위 GUID 1..512개이며, 생략 또는 `[]`는 기존 문서 가시 범위다. 모든 tile에 같은 집합을 쓰면 최상위 `object_ids`(1..4096개)를 한 번 전달한다. 이 공통 집합의 `[]`는 오류이며 문서 전체로 확대하지 않는다. 공통 집합과 비어 있지 않은 tile별 집합은 혼용하지 않는다. 공통 집합에는 `inspection_shared_scope=1`이 필요하며 응답 `shared_scope`의 전체 GUID·총수와 tile의 `scope.shared_scope_ref`가 대응한다. 현재 선택·카메라·숨김 상태를 바꾸지 않는다.
 
-현재 구현은 연결 문서의 활성 일반 모델뷰와 `editor.mode="model"`, `stable=true`가 필요하다. 활성 Layout은 `layout_not_supported`, group/block 편집이나 미확인 상태는 `editing_context_unverified`다. Layout 용지는 `get_rhino_viewport_image(view=Layout_GUID)`로 캡처한다.
+기본 카메라는 연결 문서의 활성 모델뷰다. `model_view_id`에 기존 모델 viewport GUID를 지정하면 활성 Layout·Detail을 유지한 채 그 모델뷰를 복사한다(`inspection_model_view=1` 필요). Layout이 활성인데 모델뷰를 지정하지 않으면 `layout_not_supported`다. `editor.mode="model"`, `stable=true`가 필요하며 group/block 편집이나 미확인 상태는 `editing_context_unverified`다. Layout 용지는 `get_rhino_viewport_image(view=Layout_GUID)`로 캡처한다.
 
 `direction`은 `current`, `top`, `bottom`, `front`, `back`, `left`, `right`, `iso_ne`, `iso_nw`, `iso_se`, `iso_sw`, `below_ne`, `below_nw`, `below_se`, `below_sw` 중 선택한다. 필요한 시점만 요청한다. `display_mode` 생략 시 현재 모드를 쓰며, 이름이 중복되면 `get_rhino_context(sections=["display_modes"], include_ids=true)`에서 확인한 GUID를 사용한다. 각 tile의 메타데이터와 오류를 읽고 이미지의 실제 범위를 확인한다.
 
 `width`/`height`는 tile 픽셀 크기(128..2048, 기본 640×480), `columns`는 배치 열 수다. 합계 16M 픽셀과 PNG 4 MiB를 넘으면 크기나 tile 수를 줄인다. 명시 필터에서 블록 인스턴스·블록 내부 객체는 지원하지 않으며 해당 tile 오류로 보고한다. 필터를 생략한 전체 범위에서는 블록을 원래대로 표시한다.
 
 최상위 `complete`는 요청한 tile의 캡처 성공 여부, `scope.complete`는 요청 GUID가 문서 가시 범위에 포함됐는지를 뜻한다. 실제 픽셀 노출이나 설계 적합성을 보증하지 않는다. 부분 성공이면 정상 이미지와 tile별 오류를 함께 읽고, 조회 preview나 일부 GUID만 캡처한 결과를 전체 범위로 해석하지 않는다.
+
+PNG는 이미지 content를 유지하면서 관리된 파일로도 저장한다. `image_file`은 상대 경로·bytes·SHA256·plan/connection 보존 수명 또는 저장 실패를 별도로 반환한다. 요청은 256 KiB, 이미지 외 메타데이터는 512 KiB 이내이며 상한 초과를 조용히 잘라내지 않는다.
 
 <!-- /instruction:capture_rhino_inspection -->

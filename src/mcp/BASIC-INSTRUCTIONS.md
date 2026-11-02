@@ -64,7 +64,7 @@ MCP의 관찰·캡처로 필요한 정보를 확인하며 computer use를 검증
 
 ### capture_rhino_inspection: 격리·다중 시점 이미지
 
-필터한 객체 집합을 지정한 여러 시점에서 캡처해 하나의 PNG로 반환한다.
+필터한 객체 집합을 지정한 여러 시점에서 캡처해 하나의 PNG로 반환한다. 여러 시점에 공통인 전체 GUID 집합은 최상위 `object_ids`로 한 번만 전달할 수 있다. 활성 Layout을 유지한 모델 검수에는 기존 모델뷰 GUID를 `model_view_id`로 지정한다.
 
 ### get_object_intersections: 체적 교차 검사
 
@@ -103,9 +103,11 @@ document·selection·viewport 조회에도 간략한 편집 모드·대상·안�
 
 절단면으로 내부를 확인하려면 실제 clipping plane을 설정한다. 캡처의 `display_mode`는 표시 모드만 바꾸며 모델을 절단하지 않는다.
 
-**공통 옵션:** `display_mode`는 `get_rhino_context(sections=["display_modes"], include_ids=true)`로 설치된 이름 또는 GUID를 확인해 지정한다. Raytraced 같은 실시간 렌더링 모드는 지원하지 않는다. `scale_percent`는 1–100이며 기본 75, 판독에 필요한 해상도에 맞춰 선택한다. 픽셀 크기만 조절하며 Layout Detail의 도면 축척은 바꾸지 않는다. 16메가픽셀·4 MiB 제한을 초과하면 자동 축소하지 않고 오류를 반환하므로 비율을 낮춰 다시 요청한다.
+**공통 옵션:** `display_mode`는 `get_rhino_context(sections=["display_modes"], include_ids=true)`로 설치된 이름 또는 GUID를 확인해 지정한다. Raytraced 같은 실시간 렌더링 모드는 지원하지 않는다. `scale_percent`는 1–100이며 기본 75, 판독에 필요한 해상도에 맞춰 선택한다. Layout 이외의 캡처는 `width`·`height`(각 128–2048)와 `scale_percent=100`을 함께 지정해 실제 창 크기와 무관한 출력 픽셀을 선택할 수 있다. Layout의 144 dpi 기준과 Detail 축척은 바꾸지 않는다. 16메가픽셀·4 MiB 제한을 초과하면 자동 축소하지 않고 오류를 반환한다.
 
 `labels=true`가 기본이다. 최상위 group 이름·GUID, block instance 이름·GUID와 group에 속하지 않은 객체 GUID를 이미지에 표시하며 Rhino 객체를 만들지 않는다. 최대 200개이며 `depth=1–8`로 중첩 라벨 범위를 조절한다. 라벨이 잘리면 대상이나 깊이를 좁힌다. `include_usage=true`는 이미지 크기와 참고용 토큰 추정치를 추가하며 실제 사용량은 클라이언트에 따라 다르다.
+
+캡처 PNG는 이미지 응답과 함께 관리되는 작업자료 폴더에 저장되며 `image_file`로 경로·크기·해시·보존 수명을 반환한다. 선택한 Plan이 없으면 연결 소유 임시자료에 저장한다. 파일 저장 실패와 이미지 캡처 실패는 구분한다.
 
 ### 편집 범위의 격리와 내부 조회
 
@@ -155,7 +157,7 @@ Task의 상위 Phase는 `phase_id`로 지정한다. 관련 Task는 `depends_on` 
 | `create_phase`  | `name`, 선택적 `description`, `file_name`, `project_file_id`, `status` | Phase 생성. |
 | `update_phase`  | `phase_id`, 바꿀 `name`, `description`, `file_name`, `project_file_id`, `status` | Phase 정보 수정. |
 | `list_plans` | 선택적 `phase_id`, `scene_id`, `status`, `limit` | Phase·Scene·상태로 범위를 좁혀 Task 요약 조회. ID는 `include_ids=true`로 요청한다. |
-| `get_plan`| `plan_id`, 선택적 `revision`, `field_groups`, `include_ids` | Task 요약 또는 저장 revision 조회. Step과 입출력·대상 참조를 함께 읽으려면 `field_groups=["steps","references"]`, 작업자료도 필요하면 `"artifacts"`를 추가한다. `"steps"`만 요청하면 참조는 빠진다. 일반 조회의 `field_groups` 생략·`[]`은 요약, `all`은 전체 상세, `audit`은 기술 timestamp다. |
+| `get_plan`| `plan_id`, 선택적 `revision`, `field_groups`, `include_ids` | Task 요약 또는 저장 revision 조회. `field_groups=["steps"]`는 Step과 입출력 참조를 함께 반환한다. 대상·맥락 관계도 필요하면 `"references"`, Plan 작업자료도 필요하면 `"artifacts"`를 추가한다. 일반 조회의 `field_groups` 생략·`[]`은 요약, `all`은 전체 상세, `audit`은 기술 timestamp다. |
 | `set_working_plan` | 선택할 Task의 `plan_id`, 선택적 `step_id`, 최초 폴더 이름 `artifact_name` | 연결에서 Task·Step과 작업자료 폴더를 선택·재사용한다. 이름을 생략하면 Task 목표로 폴더를 정한다. |
 | `create_plan`| Task 목표 `goal`, 선택적 `scope`, `phase_id`, 맥락 `scene_id` 또는 `scene_ids`, 편집 대상 `component_ids`, 관련 `depends_on` | Task와 기본 Step 생성. scope는 house, interior, structure, drawing, component. |
 | `update_plan`| `plan_id`, 바꿀 목표·참조·상태·`artifact_refs`, `expected_revision` | Task 정보와 상태 수정. 조회한 revision을 전달해 오래된 수정의 충돌을 막는다. |
@@ -217,7 +219,7 @@ ontological-component는 **건축 요소와, 그 요소들이 함께 가능하�
 | --- | --- | --- |
 | `list_ontological_components`  | 선택적 `scene_id`, `recursive`, `field_groups`, `include_ids` | 지정 Scene 또는 연결 문서의 등록 root 목록 조회. `recursive=true`로 등록 자손도 포함한다. |
 | `get_ontological_component` | `component_id`, 선택적 `live`, `recursive`, `field_groups`, `include_ids` | 저장 요약 조회. 실제 group은 `live=true`, 형상은 `field_groups=["geometry"]`로 요청한다. |
-| `upsert_ontological_component` | `name`, 직접 소유 `object_ids`, 선택적 `scene_ids`·기존 ID·group GUID·`child_component_ids` | ontological-component 생성·구성 변경·기존 group 채택. 신규 등록에는 Scene이 필요하다. |
+| `upsert_ontological_component` | `name`, 선택적 `object_ids`·`scene_ids`·기존 ID·group GUID·`child_component_ids` | ontological-component 생성·구성 변경·기존 group 채택. GUID 또는 기존 등록 group이 있으면 `object_ids` 생략/null로 실제 멤버를 해석한다. 명시 `[]`는 직접 소유 0개다. 신규 등록에는 Scene이 필요하다. |
 | `sync_ontological_component`| `component_id`, `component_ids`, `scene_id` 중 선택; `component_id` 지정 시 선택적 `rhino_group_id`; 대상 생략 시 연결 문서 | 실제 group에 맞춰 선택 범위의 멤버십·등록 정보를 정합. |
 | `remove_ontological_component` | `component_id` | ontological-component 등록 해제. 형상과 group은 유지. |
 
@@ -347,7 +349,7 @@ Layout은 현재 파일에서 사용하는 도면을 모은 도면집이다.
 
 #### 도면 생성 툴: [PlanSection](features/modeling/PlanSection/README.md#에이전트에서-사용)
 
-Clipping plane GUID를 받아 평면·단면의 단면선·해치·가시 입면선을 추출한다. `execute_rhino_script`에서 해당 스크립트의 `run()`을 호출하며, 입력 형식과 호출 예시는 링크를 따른다. 출력은 별도의 도면 레이어에 놓이며 원본 객체의 색·선종류·SectionStyle을 상속한다. 출력 Name은 clipping 이름이고 임의 사용자 속성·UserDictionary는 자동 상속하지 않는다. 단면·입면선의 인쇄색·두께는 출력 레이어를 따르며, 해치는 SectionStyle에 채움이 있을 때 생성된다.
+Clipping plane GUID를 받아 평면·단면의 단면선·해치·가시 입면선을 추출한다. `execute_rhino_script`에서 해당 스크립트의 `run()`을 호출하며, 입력 형식과 호출 예시는 링크를 따른다. 출력은 별도의 도면 레이어에 놓이며 원본 객체의 색·선종류·SectionStyle을 상속한다. Name·일반 사용자 속성은 실제 기여 원본의 값이 모두 같을 때만 상속하고 충돌·미지원 값은 보고한다. 출력 UserDictionary의 `Floor`는 clipping 이름이다. 단면·입면선의 인쇄색·두께는 출력 레이어를 따르며, 해치는 SectionStyle에 채움이 있을 때 생성된다.
 
 도면은 clipping plane의 축을 기준으로 WorldXY와 평행하게 놓이며, 배치 기준점은 clipping plane의 원점에 대응하는 점이다. `Create`·`Move`의 `points={GUID: [x, y, z]}`로 그 기준점의 절대 위치를 문서 단위로 지정한다. `[x, y]`는 Z=0이고 `Update`는 저장된 높이를 유지한다. `PDF`는 Z=0에서 출력한다. `Move`는 기존 도면을 그대로 옮기고, `Update`는 저장된 위치에서 다시 추출하므로 출력에 직접 가한 형상·속성 수정은 교체된다. `PDF`는 clipping의 `Paper`·`Scale`과 원점으로 용지 크기·축척·중심을 정하며, 용지 밖은 잘라낸다.
 

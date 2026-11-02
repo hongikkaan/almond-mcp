@@ -10,11 +10,11 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 먼저 Project/CurrentDocument 사용 방식, 이어서 Create·Update·Move·PDF 중 하나를 고른다. Project는 출력된 번호 하나 또는 `All`로 선택하거나 `List`로 목록 창에서 다중 선택한다. 쉼표로 구분한 숫자는 받지 않는다. CurrentDocument는 GUID를 쉼표·공백으로 입력한다. 무인 실행은 `run(doc, operation, clipping_ids, points=..., folder=...)`이다. Worksession 참조 clipping도 포함한다. Create의 Document/Files는 생성 위치를, PickPlacement는 생성 후 도면별 배치점 지정을 선택한다. Update는 기존 저장 위치에서 재계산하며 기존 도면이 없으면 건너뛴다. Move는 재계산 없이 배치점만 옮긴다. PDF는 clipping의 Paper/Scale을 사용한다. 실행 예시는 [README.md](README.md)를 따른다.
 
-출력 객체의 user text는 `ps:source_layer`, `ps:placement`만 저장한다. 재생성 소유 정보는 로컬 Drawing 루트 레이어에 보관하며 참조 clipping의 속성은 수정하지 않는다.
+출력 객체의 user text에는 `ps:source_layer`, `ps:placement` 및 모든 기여 원본에서 값이 같은 일반 user text만 저장한다. 재생성 소유 정보는 로컬 Drawing 루트 레이어에 보관한다. 새 출력의 UserDictionary `Floor`는 clipping 이름이고, 원본의 단일·다층 Floor와 참조 clipping의 속성은 수정하지 않는다.
 
-단면선은 로컬 Drawing::Section, 해치는 Drawing::Hatch, 입면선은 Drawing::Elevation에 생성한다. 원본 객체의 색·선종류·SectionStyle을 상속하며 임의 사용자 속성·UserDictionary는 자동 상속하지 않는다. 해치는 원본 객체의 SectionStyle에 지정된 패턴·스케일을 따르며 기본/None에는 만들지 않는다. 해치 레이어의 화면색·인쇄색은 90% 검정, 인쇄 두께는 No Print다. 단면·입면 곡선의 인쇄색과 인쇄 두께는 ByLayer다.
+단면선은 로컬 Drawing::Section, 해치는 Drawing::Hatch, 입면선은 Drawing::Elevation에 생성한다. 원본 객체의 색·선종류·SectionStyle을 상속한다. Name은 기여 원본의 이름이 모두 같고 비어 있지 않을 때만 보존하고 무명·충돌이면 비운다. 일반 user text·지원되는 UserDictionary 값도 기여자 전체가 같을 때만 상속하고, 충돌·미지원 값은 보고한다. 소유권·그룹·예약키는 복제하지 않는다. 해치는 원본 객체의 SectionStyle에 지정된 패턴·스케일을 따르며 기본/None에는 만들지 않는다. 해치 레이어의 화면색·인쇄색은 90% 검정, 인쇄 두께는 No Print다. 단면·입면 곡선의 인쇄색과 인쇄 두께는 ByLayer다.
 
-Clipping plane의 CPlane을 설정할 때 Z축이 World 좌표계의 Z축과 평행하지 않으면, CPlane을 180° 회전시켜 Y축이 실제 방향의 반대가 되도록 한다. 출력은 지정 배치점의 Z를 유지한다. 기본 원점과 PDF는 Z=0이고 Update는 저장 높이를 유지한다. 객체 이름은 clipping 이름이다. PDF는 clipping 원점을 종이 중심에 두며 종이 밖은 잘라내고, 원본 문서와 draft_plane을 변경하지 않는다.
+Clipping plane의 CPlane을 설정할 때 Z축이 World 좌표계의 Z축과 평행하지 않으면, CPlane을 180° 회전시켜 Y축이 실제 방향의 반대가 되도록 한다. 이 문장은 clipping의 CPlane 설정 안내이며 PlanSection 변환 코드의 조건부 자동 회전을 뜻하지 않는다. 출력은 지정 배치점의 Z를 유지한다. 기본 원점과 PDF는 Z=0이고 Update는 저장 높이를 유지한다. 로컬 clipping의 `draft_plane`은 UserDictionary Plane, 출력 `ps:placement`는 UserDictionary Point3d이며 기존 JSON user text와 함께 동기화한다. PDF는 clipping 원점을 종이 중심에 두며 종이 밖은 잘라내고, 원본 문서와 draft_plane을 변경하지 않는다.
 
 ## 작업 지침
 

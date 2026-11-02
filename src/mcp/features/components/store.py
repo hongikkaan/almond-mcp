@@ -464,11 +464,11 @@ class ComponentsStore:
                 (scene_id,recursive,model_path,model_path,scene_id,recursive,scene_id)).fetchall()
             return [{k:v for k,v in self._component_read(connection,r[0]).items() if k != 'geometry_digest'} for r in rows]
 
-    def upsert_component(self, model_path, name, object_ids, scene_ids=None, component_id='', rhino_group_id='',
+    def upsert_component(self, model_path, name, object_ids=None, scene_ids=None, component_id='', rhino_group_id='',
                          native_apply=None, child_component_ids=None):
         model_path = self._component_model_path(model_path)
         handle = self._component_handle(component_id or f'component_{uuid.uuid4().hex[:12]}')
-        ids = self._component_object_ids(object_ids)
+        ids = None if object_ids is None else self._component_object_ids(object_ids)
         if not isinstance(name, str) or not name.strip():
             raise ValueError('A Component needs a name.')
         name = name.strip()
@@ -484,6 +484,8 @@ class ComponentsStore:
                     if prior['model_path'] != model_path or (group and group != prior['rhino_group_id']):
                         raise ValueError('The Component belongs to a different model_path or Rhino group.')
                     group = prior['rhino_group_id']
+                if ids is None and not group:
+                    raise ValueError('Omitting object_ids requires an existing Rhino group binding.')
                 if group:
                     owner = connection.execute('SELECT component_id FROM _component_records WHERE model_path=? AND rhino_group_id=?', (model_path,group)).fetchone()
                     if owner and owner[0] != handle:
@@ -493,14 +495,18 @@ class ComponentsStore:
                     child_component_ids if child_component_ids is not None else (prior['child_component_ids'] if prior else []))
                 if not scenes:
                     raise ValueError('A component must belong to at least one scene.')
-                if not ids and not children:
+                if ids is not None and not ids and not children:
                     raise ValueError('A Component needs a direct object or existing child Component.')
                 attempted = True
                 reply = self._component_native(native_apply,dict(type='design_component',action='upsert',
                     expected_model_path=model_path,component_id=handle,rhino_group_id=group,name=name,
                     object_ids=ids,scene_ids=scenes,child_component_ids=children))
                 item = self._component_snapshot(connection,reply.get('component'),model_path)
-                if (item['component_id'] != handle or item['name'] != name or item['object_ids'] != ids
+                if ids is None and (item['availability'] != 'present'
+                                    or not 1 <= len(item['effective_object_ids']) <= 4096):
+                    raise ValueError('Group inference needs a present group with 1 to 4096 current members.')
+                if (item['component_id'] != handle or item['name'] != name
+                        or (ids is not None and item['object_ids'] != ids)
                         or item['scene_ids'] != scenes or item['child_component_ids'] != children
                         or (group and item['rhino_group_id'] != group)
                         or item['parent_component_id'] != (prior['parent_component_id'] if prior else None)):

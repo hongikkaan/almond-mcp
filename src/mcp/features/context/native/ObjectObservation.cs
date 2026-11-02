@@ -290,6 +290,23 @@ namespace RhinoAlmondBridge
             var scalar = ScalarValue(value);
             if (scalar != null) return scalar;
             if (value is Guid guid) return new JValue(guid.ToString());
+            if (value is Point3d point)
+            {
+                if ((budget.Nodes -= 3) < 0)
+                    return new JObject { ["value_omitted"] = true, ["reason"] = "metadata_budget" };
+                return new JObject { ["type"] = "Point3d", ["coordinates"] = Point(point) };
+            }
+            if (value is Plane plane)
+            {
+                if ((budget.Nodes -= 9) < 0)
+                    return new JObject { ["value_omitted"] = true, ["reason"] = "metadata_budget" };
+                return new JObject {
+                    ["type"] = "Plane",
+                    ["origin"] = Point(plane.Origin),
+                    ["xaxis"] = new JArray(plane.XAxis.X, plane.XAxis.Y, plane.XAxis.Z),
+                    ["yaxis"] = new JArray(plane.YAxis.X, plane.YAxis.Y, plane.YAxis.Z)
+                };
+            }
             if (depth < 4 && value is ArchivableDictionary dictionary) return Dictionary(dictionary, budget, depth + 1);
             if (depth < 4 && value is IEnumerable sequence)
             {

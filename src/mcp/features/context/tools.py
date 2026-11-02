@@ -4,6 +4,7 @@ from almond_mcp.query_output import query_output, project_query
 from almond_mcp.managed_paths import bound_model_path, relative_output
 from almond_mcp.instruction_text import tool_instruction
 from almond_mcp.features.context import object_queries
+from almond_mcp.features.context.capture_artifacts import save_png
 
 import base64
 import io
@@ -15,6 +16,15 @@ from fastmcp.tools import ToolResult
 from mcp.types import ImageContent, TextContent
 from PIL import Image as PillowImage
 from pydantic import StrictBool, StrictInt
+
+
+def _observation_result(serialized: str) -> str | ToolResult:
+    """Keep the wrapped-string schema while marking explicit observation errors."""
+    value = json.loads(serialized)
+    if isinstance(value, dict) and value.get("status") == "error":
+        return ToolResult(content=[TextContent(type="text", text=serialized)],
+                          structured_content={"result": serialized}, is_error=True)
+    return serialized
 
 
 def register(mcp, context):
@@ -39,7 +49,7 @@ def register(mcp, context):
         })
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False}, output_schema={
+    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False}, output_schema={
         "type": "object", "properties": {"result": {"type": "string"}},
         "required": ["result"], "x-fastmcp-wrap-result": True})
     @tool_instruction(__file__, 'get_rhino_context')
@@ -77,11 +87,13 @@ def register(mcp, context):
             if include_image:
                 images = []
                 if captured is not None and result.get("status") == "success":
-                    capture = _capture_result({"status": "success", "image": captured}, "", 75, False)
+                    capture = _capture_result({"status": "success", "image": captured}, "", 75, False,
+                                              kind="context")
                     if capture.is_error:
                         result["image_error"] = capture.structured_content
                     else:
-                        images = capture.content
+                        result["image_file"] = capture.structured_content["image_file"]
+                        images = [item for item in capture.content if isinstance(item, ImageContent)]
                 elif result.get("status") == "success" and "image_error" not in result:
                     result["image_error"] = error_payload("The Bridge did not provide the requested image.", error_code="unsupported_capture")
                 metadata = relative_output(result if result.get("status") == "error" else project_query(result, include_ids=include_ids))
@@ -150,7 +162,9 @@ def register(mcp, context):
             ))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False}, output_schema={
+        "type": "object", "properties": {"result": {"type": "string"}},
+        "required": ["result"], "x-fastmcp-wrap-result": True})
     @tool_instruction(__file__, 'get_rhino_objects')
     def get_rhino_objects(scope: str = "visible", object_ids: list[str] | None = None,
                           filters: dict | None = None, include_geometry: StrictBool = False,
@@ -158,30 +172,33 @@ def register(mcp, context):
                           expected_model_path: str = "", include_ids: StrictBool = False,
                           result_mode: str = "objects", fields: list[str] | None = None,
                           face_offset: StrictInt = 0, face_limit: StrictInt = 128,
-                          expected_geometry_crcs: dict[str, StrictInt] | None = None) -> str:
-        return object_queries.query(context._send_and_receive, scope=scope,
+                          expected_geometry_crcs: dict[str, StrictInt] | None = None) -> str | ToolResult:
+        return _observation_result(object_queries.query(context._send_and_receive, scope=scope,
                                     ids=[] if object_ids is None else object_ids,
                                     filters={} if filters is None else filters,
                                     include_geometry=include_geometry, offset=offset, limit=limit,
                                     expected_model_path=expected_model_path, result_mode=result_mode,
                                     fields=fields, face_offset=face_offset, face_limit=face_limit,
-                                    expected_geometry_crcs=expected_geometry_crcs, include_ids=include_ids)
+                                    expected_geometry_crcs=expected_geometry_crcs, include_ids=include_ids))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False}, output_schema={
+        "type": "object", "properties": {"result": {"type": "string"}},
+        "required": ["result"], "x-fastmcp-wrap-result": True})
     @tool_instruction(__file__, 'get_object_intersections')
     def get_object_intersections(object_ids: list[str], max_pairs: StrictInt = 64,
                                  expected_model_path: str = "", include_ids: StrictBool = False,
-                                 include_blocks: StrictBool = False, cursor: str = "") -> str:
-        return object_queries.intersections(context._send_and_receive, ids=object_ids, max_pairs=max_pairs,
+                                 include_blocks: StrictBool = False, cursor: str = "") -> str | ToolResult:
+        return _observation_result(object_queries.intersections(context._send_and_receive, ids=object_ids, max_pairs=max_pairs,
                                             expected_model_path=expected_model_path, include_blocks=include_blocks,
-                                            cursor=cursor, include_ids=include_ids)
+                                            cursor=cursor, include_ids=include_ids))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})
     @tool_instruction(__file__, 'capture_rhino_inspection')
     def capture_rhino_inspection(views: list[dict], width: StrictInt = 640, height: StrictInt = 480,
-                                 columns: StrictInt | None = None, expected_model_path: str = "") -> ToolResult:
+                                 columns: StrictInt | None = None, expected_model_path: str = "",
+                                 model_view_id: str = "", object_ids: list[str] | None = None) -> ToolResult:
         from almond_mcp.features.context.inspection_capture import execute
         try:
             path = bound_model_path(expected_model_path)
@@ -190,6 +207,10 @@ def register(mcp, context):
         payload = {"views": views, "width": width, "height": height}
         if columns is not None:
             payload["columns"] = columns
+        if model_view_id != "":
+            payload["model_view_id"] = model_view_id
+        if object_ids is not None:
+            payload["object_ids"] = object_ids
         return execute(context._send_and_receive, payload, path)
 
 
@@ -199,12 +220,13 @@ def register(mcp, context):
                           is_error=metadata.get("status") != "success")
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})
     @tool_instruction(__file__, 'get_rhino_viewport_image')
     def get_rhino_viewport_image(view: str = "", scale_percent: StrictInt = 75,
                                  include_usage: StrictBool = False, display_mode: str = "",
                                  labels: StrictBool = True, depth: StrictInt = 1,
-                                 target_kind: str = "view", target_id: str = "") -> ToolResult:
+                                 target_kind: str = "view", target_id: str = "",
+                                 width: StrictInt | None = None, height: StrictInt | None = None) -> ToolResult:
         if (not isinstance(view, str) or type(scale_percent) is not int or
                 not 1 <= scale_percent <= 100 or type(include_usage) is not bool):
             return _viewport_result(error_payload(
@@ -229,6 +251,13 @@ def register(mcp, context):
                 return _viewport_result(error_payload(
                     "Group/block captures require target_id as a GUID and an empty view.", error_code="invalid_arguments"))
         view = view.strip().lower()
+        explicit_size = width is not None or height is not None
+        if explicit_size and (type(width) is not int or type(height) is not int
+                              or not 128 <= width <= 2048 or not 128 <= height <= 2048
+                              or scale_percent != 100 or view == "a"):
+            return _viewport_result(error_payload(
+                "Explicit width and height must both be 128..2048 pixels with scale_percent=100; they cannot list views.",
+                error_code="invalid_arguments"))
         if view not in ("", "a"):
             try:
                 view = str(uuid.UUID(view))
@@ -237,12 +266,22 @@ def register(mcp, context):
                     "Omit view for the active viewport, use 'a' to list views, or pass a listed GUID.",
                     error_code="invalid_arguments",
                 ))
-        payload = json.dumps({"type": "get_rhino_viewport_image", "view": view,
+        request = {"type": "get_rhino_viewport_image", "view": view,
                               "scale_percent": scale_percent, "display_mode": display_mode,
                               "labels": labels, "depth": depth, "target_kind": target_kind,
-                              "target_id": target_id}).encode("utf-8")
+                              "target_id": target_id}
+        if explicit_size:
+            request.update(width=width, height=height)
         try:
-            response = json.loads(context._send_and_receive(payload))
+            if explicit_size:
+                observed = json.loads(context._send_and_receive(
+                    b'{"type":"get_rhino_context","sections":[],"selection_limit":0}'))
+                if (not isinstance(observed, dict) or observed.get("status") != "success"
+                        or observed.get("capabilities", {}).get("capture_output_size") != 1):
+                    return _viewport_result(error_payload(
+                        "Load a Bridge with capture_output_size=1 before requesting explicit pixels.",
+                        error_code="unsupported_capture_size"))
+            response = json.loads(context._send_and_receive(json.dumps(request).encode("utf-8")))
         except Exception as exc:
             return _viewport_result(error_payload(
                 f"Could not capture the live Rhino viewport: {exc}",
@@ -253,9 +292,11 @@ def register(mcp, context):
                 "The viewport response must be a JSON object.",
                 error_code="invalid_capture_response",
             ))
-        return _capture_result(response, view, scale_percent, include_usage)
+        return _capture_result(response, view, scale_percent, include_usage,
+                               requested_size=(width, height) if explicit_size else None)
 
-    def _capture_result(response: dict, view: str, scale_percent: int, include_usage: bool) -> ToolResult:
+    def _capture_result(response: dict, view: str, scale_percent: int, include_usage: bool,
+                        *, kind: str = "viewport", requested_size: tuple[int, int] | None = None) -> ToolResult:
         if response.get("status") != "success":
             response.pop("image", None)
             return _viewport_result(response)
@@ -286,6 +327,8 @@ def register(mcp, context):
                 raise ValueError("The captured PNG is empty or exceeds 4 MiB.")
             dimensions = (captured["width"], captured["height"])
             source = (captured["source_width"], captured["source_height"])
+            if requested_size is not None and (dimensions != requested_size or source != requested_size):
+                raise ValueError("Captured dimensions do not match the explicit requested pixels.")
             if (any(type(value) is not int or value < 1 for value in (*dimensions, *source)) or
                     dimensions[0] * dimensions[1] > 16 * 1024 * 1024 or
                     dimensions != tuple(max(1, value * scale_percent // 100) for value in source)):
@@ -299,7 +342,9 @@ def register(mcp, context):
                 f"Invalid viewport image: {exc}",
                 error_code="invalid_capture_response",
             ))
-        content = [ImageContent(type="image", data=encoded, mimeType="image/png")]
+        image_file = save_png(raw, kind)
+        content = [ImageContent(type="image", data=encoded, mimeType="image/png"),
+                   TextContent(type="text", text=json.dumps({"image_file": image_file}, ensure_ascii=False))]
         if response.get("warnings"):
             content.append(TextContent(type="text", text=json.dumps({"warnings": response["warnings"]}, ensure_ascii=False)))
         if include_usage:
@@ -310,7 +355,7 @@ def register(mcp, context):
                      "patches_32px": patches, "estimated_image_tokens": math.ceil(patches * 1.2),
                      "assumption": "32px patches x 1.2, no provider resizing; actual model/detail may differ"}
             content.append(TextContent(type="text", text=json.dumps(usage)))
-        return ToolResult(content=content)
+        return ToolResult(content=content, structured_content={"image_file": image_file})
 
 
     return {

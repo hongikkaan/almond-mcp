@@ -58,6 +58,7 @@ The supplied plan_id is not repeated. artifact_dir and artifact_refs locate work
 Snapshots contain Plan metadata, step state and handles; they are not Rhino geometry backups. A missing requested revision never falls back to current state.
 IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds steps, references, artifacts, audit, or all; default is summary.
+steps includes each Step's input_refs and output_refs; references adds target/context relationships, and artifacts adds Plan work files.
 include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_plan -->
 
@@ -96,6 +97,7 @@ include_ids independently enables handles; audit enables timestamps.
 Record a Step's status, evidence and optional explicit Component targets.
 Omitted refs retain prior values; [] clears them. Step component_ids=null in a returned Plan inherits Plan targets; explicit [] selects none. Scene refs never expand the selection. Status may be pending, running, paused, completed, failed or blocked. Dependencies are references, not execution gates. Any Step can be paused or resumed regardless of other Steps; no forced completion is required.
 expected_revision rejects stale updates. No Rhino operation is executed here.
+Changing refs or targets while resending the same Step status preserves the Plan status, including paused/completed. Only an actual Step status change recalculates it.
 <!-- /instruction:update_step -->
 
 ## resolve_targets

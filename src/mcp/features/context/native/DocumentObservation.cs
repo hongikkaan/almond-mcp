@@ -46,18 +46,22 @@ namespace RhinoAlmondBridge
 
         public static string HandleViewportImage(JObject request)
         {
-            int scalePercent, depth;
+            int scalePercent, depth, width, height;
             bool labels;
             if (!ReadInteger(request, "scale_percent", 75, 1, 100, out scalePercent) ||
                 !ReadInteger(request, "depth", 1, 1, 8, out depth) ||
+                !ReadInteger(request, "width", 0, 128, 2048, out width) ||
+                !ReadInteger(request, "height", 0, 128, 2048, out height) ||
                 !ReadBoolean(request, "labels", true, out labels) ||
                 (request["view"] != null && request["view"].Type != JTokenType.String) ||
                 new[] { "display_mode", "target_kind", "target_id" }.Any(key => request[key] != null && request[key].Type != JTokenType.String) ||
                 request["max_width"] != null || request["max_height"] != null)
                 return Error("invalid_arguments", "Use view (empty, 'a', or a GUID) and integer scale_percent from 1 through 100.").ToString(Formatting.None);
+            if ((width == 0) != (height == 0) || (width != 0 && scalePercent != 100))
+                return Error("invalid_arguments", "Explicit width and height require both dimensions and scale_percent=100.").ToString(Formatting.None);
             return GetViewportImage(RhinoDoc.ActiveDoc, (string)request["view"] ?? "", scalePercent,
                 (string)request["display_mode"] ?? "", labels, depth,
-                (string)request["target_kind"] ?? "view", (string)request["target_id"] ?? "").ToString(Formatting.None);
+                (string)request["target_kind"] ?? "view", (string)request["target_id"] ?? "", width, height).ToString(Formatting.None);
         }
 
         /// <summary>
@@ -80,9 +84,10 @@ namespace RhinoAlmondBridge
             var result = new JObject
             {
                 ["status"] = "success",
-                ["capabilities"] = new JObject { ["block_analysis"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2,
+                ["capabilities"] = new JObject { ["block_analysis"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2, ["component_group_inference"] = 1,
                     ["component_operations"] = 1, ["drawing_asset_extract"] = 2, ["context_sections"] = 1, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
-                    ["object_observation"] = 2, ["inspection_capture"] = 1, ["face_edit"] = 1,
+                    ["object_observation"] = 2, ["inspection_capture"] = 1, ["inspection_model_view"] = 1,
+                    ["inspection_shared_scope"] = 1, ["capture_output_size"] = 1, ["face_edit"] = 1,
                     ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
                     ["drawing_asset_linked"] = 1 },
                 ["warnings"] = warnings
@@ -144,7 +149,7 @@ namespace RhinoAlmondBridge
         /// </summary>
         public static JObject GetViewportImage(RhinoDoc doc, string selector = "", int scalePercent = 75,
             string displayMode = "", bool labels = true, int depth = 1,
-            string targetKind = "view", string target = "")
+            string targetKind = "view", string target = "", int width = 0, int height = 0)
         {
             selector = (selector ?? "").Trim().ToLowerInvariant();
             Guid targetId = Guid.Empty;
@@ -157,6 +162,9 @@ namespace RhinoAlmondBridge
                 return Error("invalid_arguments", "Use view (empty, 'a', or a GUID) and integer scale_percent from 1 through 100.");
             if (doc == null)
                 return Error("no_document", "No Rhino document is available.");
+            bool explicitSize = width != 0 || height != 0;
+            if (explicitSize && (width < 128 || width > 2048 || height < 128 || height > 2048 || scalePercent != 100 || selector == "a"))
+                return Error("invalid_arguments", "Explicit width/height must both be 128..2048 with scale_percent=100, and cannot list views.");
 
             var stage = "observation_failed";
             try
@@ -190,6 +198,8 @@ namespace RhinoAlmondBridge
                 var activeState = ImageViewState(activeView);
                 var targetState = view == null ? null : ImageViewState(view);
                 var page = view as RhinoPageView;
+                if (page != null && explicitSize)
+                    return Error("unsupported_capture_size", "Layout output preserves its 144 dpi paper contract; use scale_percent instead of explicit pixels.");
                 if (page != null && displayMode != "")
                     return Error("unsupported_display_mode", "Layout captures preserve each detail's display mode; capture a model viewport or Named View to override it.");
                 DisplayModeDescription mode = null;
@@ -208,7 +218,9 @@ namespace RhinoAlmondBridge
                 if (mode != null && mode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
                     return Error("unsupported_display_mode", "Realtime display modes require an asynchronous render; choose an installed raster display mode such as Shaded.");
                 Size sourceSize;
-                if (page != null)
+                if (explicitSize)
+                    sourceSize = new Size(width, height);
+                else if (page != null)
                 {
                     // Paper dimensions at the default Layout DPI define 100%, independent of layout zoom.
                     using (var settings = new ViewCaptureSettings(page, LayoutDpi))

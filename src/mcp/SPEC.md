@@ -159,6 +159,7 @@ Phase는 Plan의 상위 묶음이고 Plan 안에 Step을 둔다. Plan의 Scene �
 #### 상태와 revision
 
 Phase·Plan·Step 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`다. 작업을 중단·전환·재개할 수 있으며 선행 작업 완료나 뒤 단계 무효화를 강제하지 않는다.
+Step 상태값이 실제로 바뀔 때만 Plan 상태를 재집계한다. 같은 상태로 입출력 참조·대상만 수정하면 명시적인 `paused`·`completed`를 포함한 기존 Plan 상태를 보존한다. `get_plan`의 `steps` 상세는 입출력 참조를 함께 반환하며 대상·맥락 관계와 Plan 산출물은 각각 `references`·`artifacts`로 선택한다.
 
 Plan 변경을 commit할 때마다 전체 Plan 상태를 immutable revision으로 저장한다. `expected_revision`으로 오래된 상태의 수정을 거절하며, 관계·상태·참조 변경과 revision 보관은 같은 DB transaction에서 처리한다. revision은 설계 시도 횟수가 아니며 Rhino 형상을 백업하지 않는다. 기존 Plan에는 migration baseline을 남기되 과거 이력을 만들어내지 않는다.
 
