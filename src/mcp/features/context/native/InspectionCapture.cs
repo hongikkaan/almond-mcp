@@ -31,7 +31,7 @@ namespace RhinoAlmondBridge
                 if (request == null) throw new ArgumentException("A capture request is required.");
                 ObjectObservation.ValidateDocument(doc, request);
                 if ((string)request["type"] != "capture_rhino_inspection" ||
-                    request.Properties().Any(p => !new[] { "type", "expected_model_path", "views", "width", "height", "columns" }.Contains(p.Name)))
+                    request.Properties().Any(p => !new[] { "type", "expected_model_path", "views", "width", "height", "columns", "model_view_id", "object_ids" }.Contains(p.Name)))
                     throw new ArgumentException("Unsupported inspection capture fields.");
                 var views = request["views"] as JArray;
                 if (views == null || views.Count < 1 || views.Count > 16)
@@ -42,12 +42,18 @@ namespace RhinoAlmondBridge
                 int rows = (views.Count + columns - 1) / columns;
                 if ((long)width * columns * height * rows > MaxPixels)
                     throw new ArgumentException("The contact sheet exceeds 16 megapixels; reduce tile dimensions.");
+                bool sharedScope = request["object_ids"] != null;
+                // Reuse the ordinary object query's 4096-object bound, sending the set once.
+                // An explicitly empty shared set is never the legacy visible-document fallback.
+                var sharedIds = sharedScope ? ObjectObservation.ReadIds(request["object_ids"], 4096, true) : Array.Empty<Guid>();
                 foreach (var token in views)
                 {
                     var tile = token as JObject;
                     if (tile == null || tile.Properties().Any(p => !new[] { "object_ids", "direction", "display_mode", "label" }.Contains(p.Name)))
                         throw new ArgumentException("Each tile accepts object_ids, direction, display_mode and label.");
-                    ObjectObservation.ReadIds(tile["object_ids"], 512, false);
+                    var tileIds = ObjectObservation.ReadIds(tile["object_ids"], 512, false);
+                    if (sharedScope && tileIds.Length != 0)
+                        throw new ArgumentException("Use either shared object_ids or per-tile object_ids, not both.");
                     if (!Directions.Contains(Text(tile, "direction", "current", 32)))
                         throw new ArgumentException("Unknown capture direction.");
                     Text(tile, "display_mode", "", 512);
@@ -57,15 +63,29 @@ namespace RhinoAlmondBridge
                     return Error("no_viewport", "A live model viewport is required.");
                 if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber)
                     return Error("document_mismatch", "The requested document is not active.");
-                var source = doc.Views.ActiveView;
+                var activeView = doc.Views.ActiveView;
+                var source = activeView;
+                string modelView = Text(request, "model_view_id", "", 36);
+                if (modelView.Length != 0)
+                {
+                    if (!Guid.TryParse(modelView, out var modelViewId) || modelViewId == Guid.Empty)
+                        throw new ArgumentException("model_view_id must be a nonempty model viewport GUID.");
+                    source = doc.Views.GetViewList(ViewTypeFilter.Model)
+                        .FirstOrDefault(view => !(view is RhinoPageView) && view.MainViewport.Id == modelViewId);
+                    if (source == null)
+                        return Error("model_view_not_found", "model_view_id is not an existing model viewport in this document.");
+                }
                 if (source is RhinoPageView)
-                    return Error("layout_not_supported", "Inspection sheets use the active model viewport; use the Layout capture tool for paper.");
+                    return Error("layout_not_supported", "Specify model_view_id to inspect the model without leaving the active Layout; use the Layout capture tool for paper.");
                 var editor = EditingContext.Observe(doc);
                 if ((string)editor["mode"] != "model" || (bool?)editor["stable"] != true)
                     return Error("editing_context_unverified", "Detached inspection requires a verified model editing context; group/block editing is unsupported.");
                 var baseline = ObjectObservation.VisibleObjects(doc);
                 var baselineIds = new HashSet<Guid>(baseline.Select(o => o.Id));
                 var beforeView = ViewState(source.ActiveViewport);
+                var beforeActiveMain = ViewState(activeView.MainViewport);
+                var beforeActiveViewport = ViewState(activeView.ActiveViewport);
+                var beforeSpace = doc.ActiveSpace;
                 var beforeSelection = Selected(doc);
                 bool beforeModified = doc.Modified;
                 var tiles = new JArray();
@@ -83,7 +103,7 @@ namespace RhinoAlmondBridge
                         tiles.Add(tile);
                         try
                         {
-                            var requested = ObjectObservation.ReadIds(tileRequest["object_ids"], 512, false);
+                            var requested = sharedScope ? sharedIds : ObjectObservation.ReadIds(tileRequest["object_ids"], 512, false);
                             bool explicitFilter = requested.Length != 0;
                             var filter = new HashSet<Guid>(requested);
                             var objects = explicitFilter ? baseline.Where(o => filter.Contains(o.Id)).ToArray() : baseline;
@@ -100,6 +120,16 @@ namespace RhinoAlmondBridge
                                 ["visibility_evidence"] = "document visibility eligibility, not frustum, occlusion or pixel visibility",
                                 ["complete"] = excluded.Length == 0
                             };
+                            if (sharedScope)
+                            {
+                                // Every complete tile refers to the one full set in the response.
+                                // Do not repeat thousands of GUIDs for every camera.
+                                var scope = (JObject)tile["scope"];
+                                scope.Remove("filter_ids");
+                                scope.Remove("eligible_object_ids");
+                                scope.Remove("eligible_ids_truncated");
+                                scope["shared_scope_ref"] = "shared_scope.object_ids";
+                            }
                             if (excluded.Length != 0)
                                 throw new CaptureException("scope_unavailable", "Some requested IDs are hidden, missing, or not top-level model objects; the tile was not rendered.");
                             if (objects.Length == 0)
@@ -129,7 +159,10 @@ namespace RhinoAlmondBridge
                     }
                     ObjectObservation.ValidateDocument(doc, request);
                     if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber ||
-                        doc.Views.ActiveView?.RuntimeSerialNumber != source.RuntimeSerialNumber ||
+                        doc.Views.ActiveView?.RuntimeSerialNumber != activeView.RuntimeSerialNumber ||
+                        doc.ActiveSpace != beforeSpace ||
+                        !JToken.DeepEquals(beforeActiveMain, ViewState(activeView.MainViewport)) ||
+                        !JToken.DeepEquals(beforeActiveViewport, ViewState(activeView.ActiveViewport)) ||
                         !JToken.DeepEquals(beforeView, ViewState(source.ActiveViewport)) ||
                         !beforeSelection.SetEquals(Selected(doc)) || doc.Modified != beforeModified ||
                         !baselineIds.SetEquals(ObjectObservation.VisibleObjects(doc).Select(o => o.Id)))
@@ -145,12 +178,20 @@ namespace RhinoAlmondBridge
                             ["status"] = "success", ["schema"] = "almond-inspection-capture/v1", ["complete"] = captured == views.Count,
                             ["columns"] = columns, ["rows"] = rows, ["tiles"] = tiles,
                             ["baseline"] = new JObject { ["document_path"] = doc.Path, ["viewport_id"] = source.ActiveViewport.Id.ToString(),
+                                ["active_viewport_id"] = activeView.ActiveViewport.Id.ToString(),
+                                ["active_main_viewport_id"] = activeView.MainViewport.Id.ToString(),
+                                ["active_space"] = beforeSpace.ToString(),
                                 ["document_visible_count"] = baseline.Length, ["live_state_preserved"] = true },
                             ["limitations"] = new JArray("Scopes describe document-visible eligible objects, not proof that every object produced visible pixels.",
                                 "Groups never expand the supplied object IDs. Explicit block occurrence/definition filtering is unsupported.",
                                 "Existing non-object display conduits may draw overlays; clipping participation belongs to the detached viewport.",
                                 "Captures do not establish geometric or architectural correctness.")
                         };
+                        if (sharedScope)
+                            result["shared_scope"] = new JObject {
+                                ["object_count"] = sharedIds.Length,
+                                ["object_ids"] = new JArray(sharedIds.Select(id => id.ToString()))
+                            };
                         if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None)) > 512 * 1024)
                             return Error("metadata_too_large", "Capture metadata exceeds 512 KiB; narrow the scopes.");
                         result["image"] = new JObject { ["mime_type"] = "image/png", ["data"] = Convert.ToBase64String(stream.ToArray()),

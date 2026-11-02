@@ -39,7 +39,8 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         # ToolResult is the reviewed image tool's return envelope, never an input type.
         if annotation is node.returns and isinstance(annotation, ast.Name) and annotation.id == "ToolResult":
             continue
-        # The context tool optionally appends an image to its existing text response.
+        # Fixed observations may append an image or mark an explicit error while
+        # preserving their existing wrapped-string output schema.
         # Admit this exact return shape, never nested/input ToolResult annotations.
         if (annotation is node.returns and isinstance(annotation, ast.BinOp)
                 and isinstance(annotation.op, ast.BitOr)
@@ -78,7 +79,8 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
             if keyword.arg == "output_schema":
                 expected = {"type": "object", "properties": {"result": {"type": "string"}},
                             "required": ["result"], "x-fastmcp-wrap-result": True}
-                if node.name != "get_rhino_context" or ast.literal_eval(keyword.value) != expected:
+                if (node.name not in {"get_rhino_context", "get_rhino_objects", "get_object_intersections"}
+                        or ast.literal_eval(keyword.value) != expected):
                     raise ValueError(f"Review output schema in {node.name}")
                 continue
             if keyword.arg != "annotations":

@@ -32,7 +32,7 @@
 조회 실패 값을 0이나 빈 문서로 바꾸지 않고 `null`과 경고로 표시한다.
 
 `include_image=true`를 명시하면 같은 native UI 호출에서 현재 화면을 함께 수집하고, public MCP 응답은 JSON text 다음 PNG가 된다. 기본 false와 document-only 조회는 JSON만 반환한다.
-캡처 실패는 image_error로 남기며 이미 얻은 context를 지우지 않는다.
+캡처 실패는 image_error로 남기며 이미 얻은 context를 지우지 않는다. 성공한 PNG는 관리되는 산출물에 저장하고 `image_file`에 경로·bytes·SHA256·보존 수명을 반환한다. 파일 저장 실패는 이미지 실패와 구분한다.
 
 편집 대상은 명령 수나 선택에서 추측하지 않는다. 공용 `EditingContext.Observe`는 공식 plug-in 로드 상태와 실제 편집 provider 상태를 확인한다. 지원 adapter는 정확한 assembly identity/MVID/hash에 제한되며, 다른 버전·전환·대상 불명·UV/block 전용 공간은 unknown 또는 stable=false다.
 현재 adapter 범위는 기본 BlockEdit 8.34.26223.11001과 BlockEditNew package 2.1.7이다.
@@ -52,16 +52,18 @@
 {"view": "목록에서 받은 GUID", "scale_percent": 50}
 ```
 
-기본 반환은 **PNG MCP image content 한 개**이며 경로·문서·GUID metadata를 반복하지 않는다.
+기본 반환은 **PNG MCP image content 한 개와 image_file metadata**다. 문서·GUID metadata를 불필요하게 반복하지 않는다.
 `scale_percent`는 1–100 정수, 기본 75다. 100은 원본 픽셀 크기이고 도면 검수에 사용한다.
 75는 가로·세로 각각 75%다. Named View는 저장된 화면 크기(없으면 현재 뷰 크기), Layout은 용지를 144 dpi로 표현한 크기를 100%로 삼는다. Layout 검수에는 100을 사용하며 낮은 비율은 해상도도 비례해 낮춘다. Layout은 주변 작업창을 빼고 용지와 그 안의 Detail을 인쇄 색상·선 두께로 캡처하며, 현재 Layout에서 Detail이 활성화돼 있어도 용지가 대상이다. 문서의 PrintDisplay와 Detail 축척은 변경하지 않는다.
 
 Named View는 별도 viewport에서 저장된 카메라를 그리며 기본 mode는 Shaded다.
 화면의 활성 뷰 전환·Named View 복원·zoom·selection·Undo 변경을 하지 않는다.
-PNG와 base64 모두 메모리에서 처리하므로 임시 이미지 파일을 만들지 않는다.
+검증된 동일 PNG 바이트를 선택한 Plan의 `artifact_dir/captures` 또는 연결 소유 `.almond/tmp/python/<token>/captures`에 원자적으로 저장한다. 파일 경로는 프로젝트 상대 경로이며 Plan 산출물과 연결 종료 시 회수되는 임시자료의 수명을 구분한다. 파일 잠금·쓰기 실패 시 PNG 응답은 유지하고 `image_file.status=error`로 보고한다. 이미지 파일을 추가로 쓰는 세 캡처 도구는 보수적으로 MCP `readOnlyHint=false`, `destructiveHint=false`이며, 이것이 Rhino 모델·카메라·Undo를 수정한다는 뜻은 아니다.
 display_mode에 실제 설치된 이름/GUID를 지정할 수 있고, 빈 값이면 현재 model viewport는 원래 mode, Named View/group/block은 Shaded를 쓴다. 작업 화면 카메라 이동만으로 독립 Named View 캡처를 버리지 않는다. Shaded/Dark/CadWhite가 설치돼 있다고 가정하지 말고 display_modes를 조회한다.
 독립 캡처는 표시하지 않는 공식 SDK viewport control에서 raster mode를 그리며 원본 뷰를 추가·활성화하지 않는다.
 Raytraced 등 RealtimeDisplayId가 있는 비동기 렌더 모드는 명시적으로 거절한다. 렌더 완료를 기다리는 기능은 없다.
+
+`capture_output_size=1`이 있으면 model viewport·Named View·group·block 캡처에 `width`·`height`(각 128..2048)와 `scale_percent=100`으로 독립 출력 픽셀을 지정한다. 실제 창 Size/Bounds/Maximized를 변경하지 않는다. Layout은 이 인자를 거절하고 기존 용지 144 dpi·인쇄색·Detail 축척 계약을 유지한다. Python은 요청 픽셀과 native PNG의 실제 크기를 대조한다.
 
 labels=true/depth=1이 기본이다. 최대 200개 entity의 이름/GUID를 transient 픽셀로 그리며 문서 TextDot이나 속성을 만들지 않는다. top group은 group GUID, block은 definition GUID가 아닌 instance GUID로 구분한다. target_kind=group|block과 target_id로 해당 대상을 detached 카메라에서 프레이밍할 수 있으며 주변 형상을 숨기지는 않는다. Layout은 각 Detail의 mode를 유지하므로 mode override를 거절하고, Detail 라벨 미지원은 경고한다. 라벨이 필요하면 model viewport/Named View를 캡처한다.
 
@@ -87,10 +89,13 @@ UserDictionary는 기존 SharedUserDictionary만 읽으며, 사전을 생성하�
 GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 components/native의 공통 분석기를 사용한다. 512개 top-level 객체에서 닫힌 Brep·Extrusion·Mesh를 검사하고, 명시된 include_blocks에 따라 중첩 배치를 world-space 복사본으로 해석한다. 최대 2048개 occurrence· 20000개 후보를 허용하며 페이지당 최대 64쌍을 계산한다. Cursor는 문서·형상·범위·공차에 묶인다.
 pair handle과 pair_state는 표시·수정의 실행 입력이므로 요약·ID 표시 옵션과 무관하게 보존한다.
 미지원·미확정·미검사는 무교차가 아니다. Mesh/Brep 혼합 관찰의 메싱 근사와 페이지별 범위를 명시한다.
+두 고정 객체 조회의 명시적 `status=error`는 기존 `{result: JSON 문자열}` schema와 오류 상세를 보존하며 MCP `isError=true`로 반환한다. 정상 페이지의 `unknown`, `complete=false`, cursor는 오류로 대체하지 않는다.
 
 `capture_rhino_inspection`은 `inspection_capture=1`을 확인한 뒤 최대 16개 타일을 합성한다.
 별도 viewport와 범위 제한 display conduit를 사용하며 live 카메라·선택·가시 상태를 수정하지 않는다.
 필터의 culling 실행을 확인하지 못하면 이미지를 반환하지 않는다. 타일별 범위·모드·카메라·오류를 돌려주며 일부 실패는 `complete=false`로 표시한다. 전체 이미지는 16M 픽셀·PNG 4 MiB 이내다.
+기본은 활성 모델뷰를 사용한다. `inspection_model_view=1`에서는 `model_view_id`로 기존 모델뷰를 지정해 활성 Layout·Detail을 바꾸지 않고 모델을 관찰한다. 문서·선택·가시성·Modified와 원본/활성 viewport·ActiveSpace가 전후 일치하지 않으면 이미지를 내보내지 않는다.
+기존 tile별 GUID는 512개 한도를 유지한다. `inspection_shared_scope=1`에서는 최상위 `object_ids`에 기존 객체 조회와 같은 상한인 1..4096개를 한 번 전달해 모든 tile에 재사용한다. 공통 `[]`와 공통/개별 집합 혼용은 오류다. 전체 GUID·총수는 `shared_scope`에 한 번 반환하며, 성공 tile의 참조·개수와 요청 집합을 Python에서 대조한다. 요청 256 KiB·메타데이터 512 KiB 한도를 유지한다. 전체/부분 성공 표시는 실제 tile 상태와 일치해야 하며 정상 부분 이미지는 보존한다.
 명시 블록 인스턴스 필터와 group/block 편집 중 캡처는 지원하지 않는다.
 
 ## 제한된 평면 면 편집

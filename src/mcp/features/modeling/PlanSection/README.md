@@ -12,8 +12,8 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 1. 먼저 **Project / CurrentDocument** 중 사용 방식을 고른다. 둘 다 현재 연결된 문서를 대상으로 한다.
 2. **Create / Update / Move / PDF** 중 작업을 고른다. Project는 출력된 clipping 번호 하나, `All`, 또는 `List`를 입력한다. `List`는 Ctrl/Shift 다중 선택 창을 연다. 쉼표로 구분한 숫자는 받지 않는다. CurrentDocument는 clipping GUID를 쉼표나 공백으로 구분해 입력한다.
-3. Create·Update·PDF는 Enter로 현재 표현 옵션을 사용하거나 Change로 수정한다. Move는 표현 옵션 없이 각 도면의 새 원점을 찍는다.
-4. Create는 기본 Document로 현재 문서에 출력한다. Change의 Output=Files는 도면별 3dm을 만든다. PDF와 Files는 저장 폴더를 고른다.
+3. Create·Update·PDF는 처음 열린 옵션 프롬프트에서 바로 Hatch·Elevation·SmallDetails·선 표현을 바꾸거나 Enter로 확정한다. Esc로 취소하면 옵션 기본값을 저장하지 않는다. Move는 표현 옵션 없이 각 도면의 새 원점을 찍는다.
+4. Create는 기본 Document로 현재 문서에 출력한다. 같은 옵션 프롬프트의 Output=Files는 도면별 3dm을 만든다. PDF와 Files는 저장 폴더를 고른다.
 
 | 작업 | 동작 |
 |---|---|
@@ -22,9 +22,11 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 | Move | 기존 도면의 원점만 XYZ로 옮긴다. 재계산하지 않으며 객체 GUID와 수동 형상·시각 속성 편집을 유지한다. |
 | PDF | clipping의 Paper·Scale로 재계산한 벡터 PDF를 만든다. 수동 편집한 출력의 그대로 인쇄 기능은 아니다. 활성 모델과 배치점을 바꾸지 않는다. |
 
-해치는 `Drawing::Hatch`에 생성하며 해당 레이어의 화면색·인쇄색은 90% 검정, 인쇄 두께는 No Print다. 단면·입면 곡선의 인쇄색과 인쇄 두께는 각 출력 레이어를 따른다. 기존 `Drawing::Hatch` 레이어도 이 설정으로 갱신한다.
+해치는 `Drawing::Hatch`에 생성하며 해당 레이어의 화면색·인쇄색은 90% 검정, 인쇄 두께는 No Print다. 단면·입면 곡선의 인쇄색과 인쇄 두께는 각 출력 레이어를 따른다. 기존 `Drawing::Hatch` 레이어도 이 설정으로 갱신한다. 모든 Document 출력은 ModelSpace에 생성하고 ViewportId를 비우며, 생성 후 원래 Layout·Detail을 활성 상태로 복원한다.
 
 대상은 현재 문서의 모든 레이어에 있는 clipping이며 Worksession 참조 clipping도 포함한다. 이름·GUID·레이어를 함께 표시하고 원본 레이어를 옮기지 않는다. 도면은 WorldXY와 평행하며 지정 배치점의 Z를 유지한다. 기본 원점과 PDF는 Z=0이다. 저장되지 않은 원본 모델을 자동 저장하지 않는다. 도면 변경은 실행 단위 Undo이며 외부 PDF/3dm 파일은 Undo로 지워지지 않는다. 상세 속성·형상 계약은 [SPEC.md](SPEC.md)에 있다.
+
+원본의 SectionStyle과 표시 속성을 해석하고, 기여 원본의 Name이 모두 같을 때만 출력 Name으로 보존한다. 기여자 중 무명이 있거나 이름이 충돌하면 출력 Name은 빈 값이다. 같은 값으로 합의된 일반 user text·지원되는 UserDictionary 값만 복사하며 충돌 항목과 원본 경로는 `report.metadata_conflicts`에서 확인한다. 생성 출력의 UserDictionary `Floor`는 clipping 이름으로 정하고 원본의 단일·다층 Floor는 건드리지 않는다. Move는 기존 도면의 이름·Floor·기타 수동 속성을 변경하지 않는다.
 
 ## 에이전트에서 사용
 
@@ -53,6 +55,8 @@ result = ps["run"](doc, "PDF", ids, folder=r"프로젝트 Plan 산출물의 기�
 
 GUID 전체를 먼저 검증하며 중복 GUID는 한 번만 처리한다. Move는 모든 GUID의 좌표가 필요하다. Update·PDF에 이동 좌표를 주면 오류다. Create의 좌표 생략은 기존 draft_plane 또는 원점 배치다. 여러 clipping의 기본 원점이 같으면 출력이 겹치므로 필요한 위치를 각각 전달한다.
 
+로컬 clipping의 `draft_plane`은 UserDictionary의 RhinoCommon `Plane`, 출력의 `ps:placement`는 UserDictionary의 `Point3d`로 저장한다. 기존 user text JSON도 호환을 위해 함께 기록한다. 두 값이 모두 있으면 좌표·(Plane의 경우) 축을 검증하며 불일치는 오류다. typed 값이 없는 구 도면은 기존 JSON으로 읽을 수 있다. 비수평 clipping은 실제 CPlane의 방향을 확인하고 설정 지침에 따라 축을 지정해야 하며, 스크립트가 CPlane을 자동 회전시키지 않는다.
+
 결과의 `status`는 `completed` / `partial` / `cancelled`, `results`에는 GUID별 완료·건너뜀·실패·취소와 생성 객체 ID 또는 파일 경로·보고서가 들어간다. 한 도면 실패가 이미 완료한 다른 도면을 되돌리지 않는다. MCP 실행이 timeout이면 재실행하지 말고 `get_rhino_execution`으로 완료를 회수한다. 파일 출력 전에 `set_working_plan`으로 프로젝트 산출물 폴더를 정한다.
 
 `execute_rhino_script`의 현재 폴더는 프로젝트 루트다. 같은 코드를 `execute_project_python`으로 실행하면 선택한 Plan 폴더가 현재 폴더이므로 PDF/Files의 `folder="."`를 사용할 수 있다. 두 도구 모두 동일한 RhinoCode 완료·결과 회수 계약을 사용한다. 바깥 실행 응답이 성공해도 내부 `result.status="partial"`이면 GUID별 실패 내용을 확인한다. 결과가 크면 `get_rhino_execution`의 `result_fields`·offset/limit를 사용하며 도면 생성을 반복하지 않는다.
@@ -66,4 +70,4 @@ GUID 전체를 먼저 검증하며 중복 GUID는 한 번만 처리한다. Move�
 & ./data/development/.venv/Scripts/python.exe -B -X utf8 -m unittest discover -s src/mcp/features/modeling/PlanSection/tests -p 'test_*.py'
 ```
 
-기존 `TEST.3dm`과 native 검사 도구도 함께 보관하지만, 실제 사용 검증은 사용자가 지정한 연결 문서에서 별도로 수행한다. 모의 API 검사 통과를 실제 단면·UI·PDF 품질 검증으로 간주하지 않는다. 이 Python 스크립트 변경은 RHP 빌드나 플러그인 등록을 요구하지 않는다.
+기존 `TEST.3dm`과 native 검사 도구도 함께 보관하지만, 실제 사용 검증은 사용자가 지정한 연결 문서에서 별도로 수행한다. 모의 API 검사 통과를 실제 단면·UI·PDF 품질 검증으로 간주하지 않는다. Python 스크립트 변경은 RHP 빌드를 요구하지 않지만, typed Point3d·Plane 조회를 지원하도록 변경한 `features/context/native/ObjectObservation.cs`는 Bridge RHP 반영 단계에서 별도 빌드·로드 검증이 필요하다.

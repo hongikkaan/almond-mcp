@@ -40,9 +40,21 @@ NATIVE_ONLY_TOOLS = frozenset({
 BINDING_TOOLS = frozenset({"worker_state", "get_rhino_execution"})
 FILE_TOOLS = frozenset({"execute_rhino_script", "save_rhino_document", "execute_project_python", "export_structural_report",
     "export_asset_contract", "get_blender_helper_script", "capture_conditioning_pass",
-    "import_asset_contract", "rename_artifact_folder", "prepare_drawing_asset"})
+    "import_asset_contract", "rename_artifact_folder", "prepare_drawing_asset",
+    "capture_rhino_inspection"})
 OUTPUT_TOOLS = frozenset({"execute_project_python", "export_structural_report", "export_asset_contract",
                          "get_blender_helper_script", "capture_conditioning_pass"})
+
+
+def writes_artifacts(name, arguments):
+    return (name in FILE_TOOLS
+            or (name == "get_rhino_context" and arguments.get("include_image") is True)
+            or (name == "get_rhino_viewport_image" and str(arguments.get("view") or "").strip().lower() != "a"))
+
+
+def capture_file_write(name, arguments):
+    return name in {"capture_rhino_inspection", "get_rhino_viewport_image"} or (
+        name == "get_rhino_context" and arguments.get("include_image") is True)
 
 
 class StoreGate:
@@ -406,6 +418,7 @@ class ProjectRuntime(Middleware):
             return await call_next(context)
         async with serial_gate(self.serial, self.queue_timeout):
             self.validate()
+            artifact_write = writes_artifacts(name, context.message.arguments or {})
             gate = (nullcontext() if name in NATIVE_ONLY_TOOLS
                     else StoreGate(self.locations["storage"]))
             # Waiting has no side effects and remains cancellable.
@@ -414,16 +427,24 @@ class ProjectRuntime(Middleware):
                 await anyio.lowlevel.checkpoint()
                 artifact_gate = StoreGate(self.locations["storage"])
                 artifact_gate.path = Path(self.locations["storage"]) / ".sessions" / "artifacts.lock"
-                if name in FILE_TOOLS:
-                    await artifact_gate.__aenter__()
+                save_error = ""
                 try:
-                    if name in FILE_TOOLS:
-                        validate_artifact_writers(self.locations["storage"])
-                    return await self._owned_call(context, call_next, name)
+                    if artifact_write:
+                        try:
+                            await artifact_gate.__aenter__()
+                            validate_artifact_writers(self.locations["storage"])
+                        except (OSError, RuntimeError, TimeoutError) as exc:
+                            if not capture_file_write(name, context.message.arguments or {}):
+                                raise
+                            # File persistence is optional to a successful image observation.
+                            # Leave unsafe artifact ownership untouched and return the PNG.
+                            save_error = str(exc)
+                            artifact_write = False
+                    return await self._owned_call(context, call_next, name, artifact_write, save_error)
                 finally:
                     artifact_gate.close()
 
-    async def _owned_call(self, context, call_next, name):
+    async def _owned_call(self, context, call_next, name, artifact_write, capture_save_error):
         operation_id = uuid.uuid4().hex
         operation_dir = Path(self.locations["call_root"]) / operation_id
         # Pure local queries need no scratch. Native ownership creates its
@@ -458,14 +479,16 @@ class ProjectRuntime(Middleware):
             "worker_pid": self.worker["pid"],
             "worker_start_ticks": self.worker["process_start_ticks"],
             "temp": str(operation_dir), "state": "running",
-            "artifact_write": name in FILE_TOOLS,
+            "artifact_write": artifact_write,
         }
         write_json(operation_path, operation)
         if operation["artifact_write"]:
             write_json(operation_path.with_name("artifact-write.json"), operation)
         self.last = {"pending": True, "uncertain": False, "operation_id": operation_id}
         self.operation_active = True
-        previous = {key: os.environ.get(key) for key in ("TEMP", "TMP", "TMPDIR", "ALMOND_ARTIFACT_DIR")}
+        previous = {key: os.environ.get(key) for key in (
+            "TEMP", "TMP", "TMPDIR", "ALMOND_ARTIFACT_DIR", "ALMOND_CAPTURE_ROOT",
+            "ALMOND_CAPTURE_SAVE_ERROR")}
         old_tempdir = tempfile.tempdir
         batch = RequestBatch(self.args.token, operation_id)
         self.batch = batch
@@ -477,6 +500,8 @@ class ProjectRuntime(Middleware):
                 for key in ("TEMP", "TMP", "TMPDIR"):
                     os.environ[key] = str(operation_dir)
                 os.environ["ALMOND_ARTIFACT_DIR"] = work["artifact_dir"]
+                os.environ["ALMOND_CAPTURE_ROOT"] = str(Path(self.locations["call_root"]) / "captures")
+                os.environ["ALMOND_CAPTURE_SAVE_ERROR"] = capture_save_error
                 tempfile.tempdir = str(operation_dir)
                 return public_result(await self._run_to_completion(context.copy(message=message), call_next), name)
             finally:

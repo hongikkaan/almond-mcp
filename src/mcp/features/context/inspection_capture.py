@@ -9,6 +9,7 @@ import uuid
 from fastmcp.tools import ToolResult
 from mcp.types import ImageContent, TextContent
 from PIL import Image
+from almond_mcp.features.context.capture_artifacts import save_png
 
 
 MAX_TILES = 16
@@ -34,13 +35,25 @@ def _result(metadata, image=None):
 
 
 def _request(payload, path):
-    if not isinstance(payload, dict) or set(payload) - {"views", "width", "height", "columns"}:
-        raise ValueError("Use views, width, height and optional columns.")
+    if not isinstance(payload, dict) or set(payload) - {"views", "width", "height", "columns", "model_view_id", "object_ids"}:
+        raise ValueError("Use views, width, height, optional columns, model_view_id and shared object_ids.")
     if not isinstance(path, str) or not path.strip() or not ntpath.isabs(path):
         raise ValueError("The bound document must have an absolute saved model path.")
     views = payload.get("views")
     if not isinstance(views, list) or not 1 <= len(views) <= MAX_TILES:
         raise ValueError("views must contain 1..16 explicitly chosen tiles.")
+    shared_ids = None
+    if "object_ids" in payload:
+        supplied = payload["object_ids"]
+        if not isinstance(supplied, list) or not 1 <= len(supplied) <= 4096 or any(not isinstance(value, str) for value in supplied):
+            count = len(supplied) if isinstance(supplied, list) else "not an array"
+            raise ValueError(f"Shared object_ids must contain 1..4096 GUIDs; received {count}. An empty set never means the whole document.")
+        try:
+            shared_ids = [str(uuid.UUID(value)) for value in supplied]
+        except (ValueError, AttributeError):
+            raise ValueError("Shared object_ids must contain valid object GUIDs.") from None
+        if len(set(shared_ids)) != len(shared_ids) or str(uuid.UUID(int=0)) in shared_ids:
+            raise ValueError("Shared object_ids must contain distinct, nonempty GUIDs.")
     normalized = []
     for view in views:
         if not isinstance(view, dict) or set(view) - {"object_ids", "direction", "display_mode", "label"}:
@@ -57,6 +70,8 @@ def _request(payload, path):
             raise ValueError("object_ids must contain valid object GUIDs.") from None
         if len(set(ids)) != len(ids) or str(uuid.UUID(int=0)) in ids:
             raise ValueError("object_ids must contain distinct, nonempty GUIDs.")
+        if shared_ids is not None and ids:
+            raise ValueError("Use either shared object_ids or per-tile object_ids, not both.")
         mode, label = view.get("display_mode", ""), view.get("label", "")
         if not isinstance(mode, str) or len(mode) > 512 or not isinstance(label, str) or len(label) > 120:
             raise ValueError("display_mode is a name/GUID up to 512 characters; label is at most 120 characters.")
@@ -72,6 +87,19 @@ def _request(payload, path):
         raise ValueError("The complete contact sheet must not exceed 16 megapixels.")
     request = {"type": "capture_rhino_inspection", "expected_model_path": path,
                "views": normalized, "width": width, "height": height, "columns": columns}
+    if shared_ids is not None:
+        request["object_ids"] = shared_ids
+    if "model_view_id" in payload:
+        value = payload["model_view_id"]
+        if not isinstance(value, str):
+            raise ValueError("model_view_id must be a nonempty model viewport GUID.")
+        try:
+            identifier = uuid.UUID(value)
+        except (ValueError, AttributeError):
+            raise ValueError("model_view_id must be a valid model viewport GUID.") from None
+        if identifier.int == 0:
+            raise ValueError("model_view_id must be a nonempty model viewport GUID.")
+        request["model_view_id"] = str(identifier)
     if len(json.dumps(request, ensure_ascii=False).encode("utf-8")) > 262144:
         raise ValueError("Capture request exceeds 256 KiB; narrow the object sets.")
     return request
@@ -89,6 +117,10 @@ def execute(send, payload, path):
             return _result(_error("unsupported_inspection_capture", "Could not verify the capture capability."))
         if capabilities.get("capabilities", {}).get("inspection_capture") != 1:
             return _result(_error("unsupported_inspection_capture", "Load a Bridge with inspection_capture=1."))
+        if request.get("model_view_id") and capabilities.get("capabilities", {}).get("inspection_model_view") != 1:
+            return _result(_error("unsupported_inspection_model_view", "Load a Bridge with inspection_model_view=1."))
+        if "object_ids" in request and capabilities.get("capabilities", {}).get("inspection_shared_scope") != 1:
+            return _result(_error("unsupported_inspection_shared_scope", "Load a Bridge with inspection_shared_scope=1."))
         response = send(json.dumps(request, ensure_ascii=False, allow_nan=False).encode("utf-8"))
         if len(response.encode("utf-8")) > 6 * 1024 * 1024:
             raise ValueError("Inspection capture response exceeds its bounded image and metadata budget.")
@@ -104,6 +136,13 @@ def execute(send, payload, path):
         tiles = response.get("tiles")
         if not isinstance(tiles, list) or len(tiles) != len(request["views"]):
             raise ValueError("Native tile metadata does not match the requested tile count.")
+        shared_ids = request.get("object_ids")
+        if shared_ids is not None:
+            shared = response.get("shared_scope")
+            if (not isinstance(shared, dict) or shared.get("object_ids") != shared_ids
+                    or type(shared.get("object_count")) is not int
+                    or shared["object_count"] != len(shared_ids)):
+                raise ValueError("Native shared scope differs from the complete requested object set.")
         columns = request["columns"]
         rows = math.ceil(len(tiles) / columns)
         expected = (request["width"] * columns, request["height"] * rows)
@@ -114,6 +153,17 @@ def execute(send, payload, path):
                 raise ValueError("Native tile identity/status/direction is invalid.")
             if tile.get("status") == "success" and not isinstance(tile.get("scope"), dict):
                 raise ValueError("A captured tile must report its actual scope.")
+            if tile.get("status") == "success" and shared_ids is not None:
+                scope = tile["scope"]
+                if (scope.get("shared_scope_ref") != "shared_scope.object_ids"
+                        or scope.get("complete") is not True
+                        or type(scope.get("eligible_count")) is not int
+                        or scope["eligible_count"] != len(shared_ids)):
+                    raise ValueError("A captured tile does not confirm the complete shared scope.")
+        successful = sum(tile["status"] == "success" for tile in tiles)
+        if (successful == 0 or type(response.get("complete")) is not bool
+                or response["complete"] != (successful == len(tiles))):
+            raise ValueError("Native completion metadata disagrees with the captured and failed tiles.")
         captured = response["image"]
         encoded = captured["data"]
         if captured.get("mime_type") != "image/png" or not isinstance(encoded, str):
@@ -135,4 +185,5 @@ def execute(send, payload, path):
             raise ValueError("Tile metadata exceeds 512 KiB.")
     except Exception as exc:
         return _result(_error("invalid_capture_response", f"Invalid inspection sheet: {exc}"))
+    metadata["image_file"] = save_png(raw, "inspection")
     return _result(metadata, encoded)

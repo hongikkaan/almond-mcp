@@ -544,19 +544,21 @@ class PlanningStore:
                 "INSERT INTO generation_step_ontological(plan_id, step_id, ontological_id, position) VALUES (?, ?, ?, ?)",
                 [(plan_id, step_id, component, index) for index, component in enumerate(components or [])],
             )
-            statuses = [status if item["step_id"] == step_id else item["status"] for item in plan["steps"]]
-            plan_status = (
-                "failed" if "failed" in statuses
-                else "blocked" if "blocked" in statuses
-                else "completed" if all(item == "completed" for item in statuses)
-                else "running" if "running" in statuses
-                else "paused" if "paused" in statuses
-                else "running" if "completed" in statuses
-                else "pending"
-            )
-            connection.execute(
-                "UPDATE generation_plans SET status = ? WHERE plan_id = ?", (plan_status, plan_id),
-            )
+            # References and target changes do not resume an explicitly stopped Plan.
+            if status != step["status"]:
+                statuses = [status if item["step_id"] == step_id else item["status"] for item in plan["steps"]]
+                plan_status = (
+                    "failed" if "failed" in statuses
+                    else "blocked" if "blocked" in statuses
+                    else "completed" if all(item == "completed" for item in statuses)
+                    else "running" if "running" in statuses
+                    else "paused" if "paused" in statuses
+                    else "running" if "completed" in statuses
+                    else "pending"
+                )
+                connection.execute(
+                    "UPDATE generation_plans SET status = ? WHERE plan_id = ?", (plan_status, plan_id),
+                )
             result = self._record_generation_revision(connection, plan_id, "update_step:" + step_id)
         return result
 

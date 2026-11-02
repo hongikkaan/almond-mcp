@@ -238,7 +238,7 @@
   "capture_rhino_inspection": {
     "annotations": {
       "destructiveHint": false,
-      "readOnlyHint": true
+      "readOnlyHint": false
     },
     "inputSchema": {
       "additionalProperties": false,
@@ -261,6 +261,24 @@
         "height": {
           "default": 480,
           "type": "integer"
+        },
+        "model_view_id": {
+          "default": "",
+          "type": "string"
+        },
+        "object_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "views": {
           "items": {
@@ -1642,7 +1660,7 @@
   "get_rhino_context": {
     "annotations": {
       "destructiveHint": false,
-      "readOnlyHint": true
+      "readOnlyHint": false
     },
     "inputSchema": {
       "additionalProperties": false,
@@ -1658,7 +1676,7 @@
         },
         "include_image": {
           "default": false,
-          "description": "False keeps the JSON-only response. True returns JSON text first and\nthe current PNG from the same native UI call. An image_error preserves available\ncontext when capture fails. Use this when the current viewport is needed visually.",
+          "description": "False keeps the JSON-only response. True returns JSON text first and\nthe current PNG from the same native UI call. An image_error preserves available\ncontext when capture fails. image_file reports the same PNG's managed file, or a\nseparate storage error without removing a successful image.",
           "type": "boolean"
         },
         "recursive": {
@@ -1879,7 +1897,7 @@
   "get_rhino_viewport_image": {
     "annotations": {
       "destructiveHint": false,
-      "readOnlyHint": true
+      "readOnlyHint": false
     },
     "inputSchema": {
       "additionalProperties": false,
@@ -1894,9 +1912,20 @@
           "description": "Installed display mode name or GUID. Empty preserves the current\nmodel viewport mode; Named View/group/block captures default to Shaded. List\navailable modes with get_rhino_context(sections=[\"display_modes\"], include_ids=true).\nRealtime rendering modes such as Raytraced are rejected; this tool does not\nwait for asynchronous rendering to finish.",
           "type": "string"
         },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "include_usage": {
           "default": false,
-          "description": "False returns only an image. True also returns dimensions and an\nillustrative token estimate (32px patches x 1.2, without provider resizing).\nActual usage depends on the client's model and detail setting, which MCP\ndoes not supply. PNG compression reduces bytes, not pixel-token counts.",
+          "description": "False returns the image and file metadata. True also returns dimensions and an\nillustrative token estimate (32px patches x 1.2, without provider resizing).\nActual usage depends on the client's model and detail setting, which MCP\ndoes not supply. PNG compression reduces bytes, not pixel-token counts.",
           "type": "boolean"
         },
         "labels": {
@@ -1906,7 +1935,7 @@
         },
         "scale_percent": {
           "default": 75,
-          "description": "Integer from 1 to 100; default 75. Use 100 for visual drawing review. Controls pixels, not a Layout Detail's drawing scale.",
+          "description": "Integer from 1 to 100; default 75. Choose sufficient resolution for the intended reading. Controls pixels, not a Layout Detail's drawing scale.",
           "type": "integer"
         },
         "target_id": {
@@ -1923,6 +1952,17 @@
           "default": "",
           "description": "Empty for current view, \"a\" for the grouped list, or a listed GUID.",
           "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "type": "object"
@@ -4218,10 +4258,18 @@
           "type": "string"
         },
         "object_ids": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "rhino_group_id": {
           "default": "",
@@ -4243,8 +4291,7 @@
         }
       },
       "required": [
-        "name",
-        "object_ids"
+        "name"
       ],
       "type": "object"
     },

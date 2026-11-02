@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Rhino 8: _-RunPythonScript. Contract and limitations: SPEC.md."""
 import json
+from contextlib import contextmanager
 import math
 import os
 import re
@@ -9,7 +10,7 @@ import clr
 import Rhino as R
 import System
 from System.Drawing import Color
-from System.Collections.Generic import List
+from System.Collections.Generic import List, IEnumerable
 
 G = R.Geometry
 D = R.DocObjects
@@ -60,6 +61,176 @@ def plane_json(p):
                            yaxis=[p.YAxis.X, p.YAxis.Y, p.YAxis.Z]))
 
 
+def plane_components(plane, origin_only=False):
+    result = (plane.OriginX, plane.OriginY, plane.OriginZ)
+    if not origin_only:
+        result += (plane.XAxis.X, plane.XAxis.Y, plane.XAxis.Z,
+                   plane.YAxis.X, plane.YAxis.Y, plane.YAxis.Z)
+    return result
+
+
+def same_placement(a, b, origin_only=False):
+    values_a, values_b = plane_components(a, origin_only), plane_components(b, origin_only)
+    return all(finite(x) and finite(y) and
+               abs(x-y) <= 1.e-9*max(1., abs(x), abs(y))
+               for x, y in zip(values_a, values_b))
+
+
+def read_saved_plane(attributes, key):
+    """Typed metadata wins only if the historical JSON mirror agrees with it."""
+    if key not in ('draft_plane', 'ps:placement'):
+        raise ValueError('Unknown PlanSection placement key')
+    # Duplicating avoids attaching an empty UserDictionary to a live RhinoObject.
+    values = attributes.Duplicate()
+    dictionary = getattr(values, 'UserDictionary', None)
+    legacy = attributes.GetUserString(key)
+    if dictionary is None or not dictionary.ContainsKey(key):
+        return draft_plane(legacy)
+    typed = dictionary[key]
+    point = key == 'ps:placement'
+    if point:
+        if not isinstance(typed, G.Point3d) or not typed.IsValid:
+            raise ValueError('Invalid typed ps:placement; expected Point3d')
+        result = placement_plane(G.Plane.WorldXY, typed)
+    else:
+        if not isinstance(typed, G.Plane) or not typed.IsValid:
+            raise ValueError('Invalid typed draft_plane; expected Plane')
+        result = G.Plane(typed)
+    if legacy is not None and not same_placement(result, draft_plane(legacy), point):
+        raise ValueError('Typed '+key+' conflicts with the JSON user text; resolve before updating')
+    return result
+
+
+def write_saved_plane(attributes, key, plane):
+    """Write RhinoCommon data and a synchronized legacy JSON mirror on detached attrs."""
+    if key not in ('draft_plane', 'ps:placement'):
+        raise ValueError('Unknown PlanSection placement key')
+    if not plane.IsValid or not all(finite(v) for v in plane_components(plane)):
+        raise ValueError('Invalid placement plane')
+    typed = (G.Point3d(plane.OriginX, plane.OriginY, plane.OriginZ)
+             if key == 'ps:placement' else G.Plane(plane))
+    if attributes.UserDictionary.Set(key, typed) is False:
+        raise ValueError('Cannot write typed '+key)
+    if attributes.SetUserString(key, plane_json(plane)) is False:
+        raise ValueError('Cannot write JSON mirror for '+key)
+
+
+def _signature(value):
+    """Only metadata types with deterministic comparison and lossless storage."""
+    if isinstance(value, STRING_TYPES): return ('string', value)
+    if isinstance(value, bool): return ('bool', value)
+    if isinstance(value, (int, float)) and finite(float(value)):
+        return ('number', type(value).__name__, value)
+    # CLR geometry value types are safe to store, but their implicit equality
+    # must never be confused with comparison of arbitrary user-data objects.
+    for kind, value_type in (('Point3d', G.Point3d), ('Plane', G.Plane),
+                             ('Vector3d', G.Vector3d)):
+        try:
+            matches = isinstance(value, value_type)
+        except TypeError:
+            matches = False  # The model-free tests use partial Rhino doubles.
+        if matches:
+            if kind == 'Point3d':
+                coords = (value.X, value.Y, value.Z)
+            elif kind == 'Plane':
+                coords = plane_components(value)
+            else:
+                coords = (value.X, value.Y, value.Z)
+            return (kind, tuple(coords)) if all(finite(number) for number in coords) else None
+    try:
+        if isinstance(value, System.Guid): return ('Guid', str(value))
+    except TypeError:
+        pass
+    try:
+        if isinstance(value, Color): return ('Color', value.ToArgb())
+    except TypeError:
+        pass
+    if isinstance(value, (list, tuple)) or (
+            hasattr(value, '__iter__') and not hasattr(value, 'Keys')
+            and not isinstance(value, STRING_TYPES)):
+        try:
+            parts = list(value)
+        except (TypeError, ValueError):
+            return None
+        if len(parts) <= 256 and all(isinstance(part, STRING_TYPES) for part in parts):
+            return ('string_array', tuple(parts))
+    return None
+
+
+def source_metadata(attributes):
+    """Copy document-independent fields only; never transfer object ownership."""
+    strings = getattr(attributes, 'GetUserStrings', lambda: None)()
+    text = {}
+    for key in strings.AllKeys if strings is not None else ():
+        if key and not key.startswith('ps:') and key not in ('draft_plane', 'Floor'):
+            text[key] = attributes.GetUserString(key)
+    dictionary = getattr(attributes, 'UserDictionary', None)
+    values = {}
+    if dictionary is not None:
+        for key in dictionary.Keys:
+            if key and key != 'Floor' and not key.startswith('ps:') and key != 'draft_plane':
+                values[key] = dictionary[key]
+    return dict(name=attributes.Name or '', user_text=text, dictionary=values)
+
+
+def consensus_metadata(sources):
+    """Only fields agreed by *every* contributor survive; record real disagreements."""
+    sources = sorted(sources, key=lambda item: item[0])
+    if not sources:
+        return dict(name='', user_text={}, dictionary={}, conflicts=[])
+    identifiers = [source for source, _ in sources]
+    names = [metadata['name'] for _, metadata in sources]
+    name = names[0] if names[0] and all(value == names[0] for value in names) else ''
+    conflicts = []
+    if any(names) and len(set(names)) != 1:
+        conflicts.append(dict(field='Name', sources=identifiers,
+                              reason='conflicting_or_missing_name'))
+    result = dict(name=name, user_text={}, dictionary={}, conflicts=conflicts)
+    for category in ('user_text', 'dictionary'):
+        keys = sorted(set(key for _, metadata in sources for key in metadata[category]))
+        for key in keys:
+            present = [(key in metadata[category]) for _, metadata in sources]
+            values = [metadata[category].get(key) for _, metadata in sources]
+            signatures = [_signature(value) if exists else None
+                          for exists, value in zip(present, values)]
+            if all(present) and signatures[0] is not None and all(value == signatures[0] for value in signatures):
+                result[category][key] = values[0]
+            else:
+                reason = ('missing_on_contributor' if not all(present) else
+                          'unsupported_type' if any(value is None for value in signatures) else
+                          'different_values')
+                conflicts.append(dict(field=('user_text.' if category == 'user_text' else
+                                              'user_dictionary.')+key, sources=identifiers,
+                                      reason=reason))
+    return result
+
+
+def set_dictionary_field(dictionary, key, value):
+    signature = _signature(value)
+    if signature is None:
+        raise ValueError('Unsupported inherited user dictionary field: '+key)
+    # Python.NET can choose a Boolean overload for CLR String[] without an explicit signature.
+    if signature[0] == 'string_array':
+        values = System.Array[System.String](list(value))
+        return dictionary.Set.Overloads[System.String, IEnumerable[System.String]](key, values)
+    return dictionary.Set(key, value)
+
+
+def apply_source_metadata(attributes, agreed, floor):
+    attributes.Name = agreed['name']
+    for key, value in agreed['user_text'].items():
+        if attributes.SetUserString(key, value) is False:
+            raise ValueError('Cannot inherit source user text: '+key)
+    for key, value in agreed['dictionary'].items():
+        if set_dictionary_field(attributes.UserDictionary, key, value) is False:
+            raise ValueError('Cannot inherit source dictionary key: '+key)
+    if attributes.UserDictionary.Set('Floor', floor) is False:
+        raise ValueError('Cannot set drawing Floor')
+    # The marker is discarded by output_attributes; arbitrary user strings remain excluded.
+    if attributes.SetUserString('ps:inherited_keys', json.dumps(sorted(agreed['user_text']))) is False:
+        raise ValueError('Cannot record inherited user text keys')
+
+
 def relative_style(distance, nearest, farthest, near_width, far_width, near_dark, far_dark):
     t = 0.0 if farthest <= nearest else max(0.0, min(1.0, (distance-nearest)/(farthest-nearest)))
     width = near_width + (far_width-near_width)*t
@@ -89,7 +260,7 @@ def read_clip(doc, cp, target=None):
             raise ValueError('Clipping participation references a missing object')
         if any(i < 0 or i >= doc.Layers.Count or doc.Layers[i].IsDeleted for i in layers):
             raise ValueError('Clipping participation references a missing layer')
-    placement = target if target is not None else draft_plane(cp.Attributes.GetUserString('draft_plane'))
+    placement = target if target is not None else read_saved_plane(cp.Attributes, 'draft_plane')
     if not placement.IsValid:
         raise ValueError('Invalid placement plane')
     return dict(plane=geo.Plane, depth=depth, target=placement, ids=ids, layers=layers,
@@ -302,6 +473,7 @@ def model_objects(doc, clip, issues, model_cache=None):
             record['bounds'] = entry['bounds']
         record['attributes'] = obj.Attributes.Duplicate()
         record['resolved'] = resolved_attributes(doc, obj.Attributes, parents)
+        record['source_metadata'] = source_metadata(record['attributes'])
 
     try:
         identity = G.Transform.Identity
@@ -339,8 +511,9 @@ def drawing_attributes(doc, resolved, sources, role, metadata=None):
     return a
 
 
-def output(geo, attrs, role):
-    return dict(geometry=geo, attributes=attrs, role=role)
+def output(geo, attrs, role, contributors=None):
+    return dict(geometry=geo, attributes=attrs, role=role,
+                contributors=dict(contributors or {}))
 
 
 def dispose_drawing_items(items, retained=()):
@@ -407,6 +580,57 @@ def planar_union(regions, plane, tol):
                     len(group), reason))
             results.extend(result)
         return results
+    finally:
+        tree.Dispose()
+
+
+def section_region_contributors(results, source_regions, source_metadata_by_id, plane, tol):
+    """Associate each union result with regions proven to occupy its planar area."""
+    if not results: return []
+    tree = G.RTree()
+    for index, (region, source_id) in enumerate(source_regions):
+        tree.Insert(region.GetBoundingBox(True), index)
+    output = []
+    try:
+        for result in results:
+            box = result.GetBoundingBox(True)
+            box.Inflate(tol)
+            hits = []
+            tree.Search(box, lambda sender, args: hits.append(args.Id))
+            contributors = {}
+            for index in sorted(set(hits)):
+                source, source_id = source_regions[index]
+                if result is source:
+                    contributes = True  # planar_union returned an untouched input region.
+                else:
+                    intersection = G.Brep.CreatePlanarIntersection(result, source, plane, tol)
+                    if intersection is None:
+                        flipped = G.Plane(plane)
+                        flipped.Flip()
+                        intersection = G.Brep.CreatePlanarIntersection(result, source, flipped, tol)
+                    if intersection is None:
+                        raise ValueError('Cannot resolve section provenance for '+source_id+
+                                         ': planar intersection failed; previous drawing retained')
+                    contributes = False
+                    try:
+                        for region in intersection:
+                            area = G.AreaMassProperties.Compute(region)
+                            if area is None:
+                                raise ValueError('Cannot measure section provenance for '+source_id+
+                                                 '; previous drawing retained')
+                            try:
+                                if area.Area > area.AreaError:
+                                    contributes = True
+                            finally:
+                                area.Dispose()
+                    finally:
+                        for region in intersection: region.Dispose()
+                if contributes and source_id in source_metadata_by_id:
+                    contributors[source_id] = source_metadata_by_id[source_id]
+            if not contributors and source_regions and source_metadata_by_id:
+                raise ValueError('Cannot identify contributors to section union; previous drawing retained')
+            output.append(contributors)
+        return output
     finally:
         tree.Dispose()
 
@@ -526,24 +750,28 @@ def sections(doc, records, plane, hatch_on, progress=None):
                 if group is None:
                     resolved = record.get('resolved') or resolved_attributes(doc, record['attributes'])
                     key = style_key(resolved)
-                    group = groups.setdefault(key, dict(regions=[], fill=[], open=[], sources=[],
+                    group = groups.setdefault(key, dict(regions=[], region_sources=[], fill=[], open=[],
+                                                         sources=[], contributors={},
                                                          attrs=resolved, style=resolved.GetCustomSectionStyle()))
                     group['sources'].append(record['source'])
+                    if 'attributes' in record:
+                        group['contributors'][record['source']] = record.get('source_metadata') or source_metadata(record['attributes'])
                 if isinstance(geo, G.Brep) and geo.Faces.Count == 1 and not geo.IsSolid:
-                    group['open'].extend(curves)  # A surface section is linework only.
+                    group['open'].extend((curve, record['source']) for curve in curves)
                     continue
                 closed = []
                 for curve in curves:
                     if curve.IsClosed:
                         boundary, linework = clean_closed_curve(curve, plane, tol, doc.ModelAngleToleranceRadians)
                         closed.extend(boundary)
-                        group['open'].extend(linework)
+                        group['open'].extend((piece, record['source']) for piece in linework)
                     else:
-                        group['open'].append(curve)
+                        group['open'].append((curve, record['source']))
                 regions = list(G.Brep.CreatePlanarBreps(closed, tol) or []) if closed else []
                 if closed and not regions:
                     raise ValueError('Cannot create section regions: '+record['source'])
                 group['regions'].extend(regions)
+                group['region_sources'].extend((region, record['source']) for region in regions)
                 if hatch_on and regions:
                     style = group['style']
                     if (style is not None and (style.HatchIndex != R.RhinoMath.UnsetIntIndex
@@ -561,23 +789,35 @@ def sections(doc, records, plane, hatch_on, progress=None):
         layer = key[0]
         if progress: progress('union '+doc.Layers[layer].FullPath+' ('+str(len(group['regions']))+' regions)')
         regions = planar_union(group['regions'], plane, tol)
+        region_sources = section_region_contributors(regions, group['region_sources'],
+                                                     group['contributors'], plane, tol)
         boundaries = [region_boundaries(region, tol, doc.ModelAngleToleranceRadians,
                                        doc.ModelAbsoluteTolerance) for region in regions]
-        curves = [piece for c in group['open']
+        curves = [(piece, {source: group['contributors'][source]}
+                   if source in group['contributors'] else {})
+                  for c, source in group['open']
                   for piece in split_crossings(c, tol, doc.ModelAngleToleranceRadians)[0]]
-        for boundary in boundaries:
-            curves.extend(boundary)
+        for boundary, contributors in zip(boundaries, region_sources):
+            curves.extend((curve, contributors) for curve in boundary)
         metadata = drawing_metadata(doc, group['attrs'], group['sources'])
         attributes = drawing_attributes(doc, group['attrs'], group['sources'], 'section', metadata)
-        for c in curves:
-            results.append(output(c, attributes.Duplicate(), 'section'))
+        for curve, contributors in curves:
+            attrs = attributes.Duplicate()
+            attrs.SetUserString('ps:sources', json.dumps(sorted(contributors)))
+            results.append(output(curve, attrs, 'section', contributors))
         if not hatch_on or not group['fill']:
             continue
         style = group['style']
         # Reuse the common union unless this style excludes open source objects.
         fill = regions
+        fill_sources = region_sources
         if len(group['fill']) != len(group['regions']):
             fill = planar_union(group['fill'], plane, tol)
+            eligible = set(id(region) for region in group['fill'])
+            fill_inputs = [(region, source) for region, source in group['region_sources']
+                           if id(region) in eligible]
+            fill_sources = section_region_contributors(fill, fill_inputs, group['contributors'],
+                                                       plane, tol)
             boundaries = [region_boundaries(region, tol, doc.ModelAngleToleranceRadians,
                                            doc.ModelAbsoluteTolerance) for region in fill]
         if progress: progress('hatch '+doc.Layers[layer].FullPath)
@@ -589,7 +829,7 @@ def sections(doc, records, plane, hatch_on, progress=None):
             pattern = hatch_pattern(doc, style.HatchIndex)
             patterns.append((pattern.Index, style.HatchRotationRadians, style.HatchScale,
                              style.HatchPatternColor))
-        for region, boundary in zip(fill, boundaries):
+        for region, boundary, contributors in zip(fill, boundaries, fill_sources):
             for index, angle, scale, color in patterns:
                 hatches = create_hatches(boundary, index, angle, scale, tol, region)
                 if not hatches or any(not h.IsValid for h in hatches):
@@ -607,7 +847,8 @@ def sections(doc, records, plane, hatch_on, progress=None):
                     else:
                         a.ObjectColor, a.ColorSource = group['attrs'].ObjectColor, D.ObjectColorSource.ColorFromObject
                     a.PlotColorSource = D.ObjectPlotColorSource.PlotColorFromLayer
-                    results.append(output(hatch, a, 'hatch'))
+                    a.SetUserString('ps:sources', json.dumps(sorted(contributors)))
+                    results.append(output(hatch, a, 'hatch', contributors))
     return results
 
 
@@ -696,7 +937,10 @@ def elevations(doc, records, plane, depth, near_width, far_width, near_dark, far
                 a.PlotColorSource = D.ObjectPlotColorSource.PlotColorFromObject
                 a.SetUserString('ps:depth', str(distance))
                 attributes[index] = a
-            result.append(output(curve, attributes[index].Duplicate(), 'elevation'))
+            source = candidates[index]
+            contributors = ({source['source']: source.get('source_metadata') or source_metadata(source['attributes'])}
+                            if 'attributes' in source else {})
+            result.append(output(curve, attributes[index].Duplicate(), 'elevation', contributors))
         if watch is not None:
             profile['hld_output_seconds'] = watch.Elapsed.TotalSeconds
         return result
@@ -707,7 +951,7 @@ def elevations(doc, records, plane, depth, near_width, far_width, near_dark, far
 
 def deduplicate(items, tol, section_tol=None):
     """Keep sections first; elevation overlap uses the document's cleanup tolerance."""
-    trees, kept, result = {}, {}, []
+    trees, kept, kept_items, result = {}, {}, {}, []
     try:
         for item in items:
             curve = item['geometry']
@@ -716,7 +960,7 @@ def deduplicate(items, tol, section_tol=None):
                 continue
             layer = (item['attributes'].LayerIndex, item['attributes'].GetUserString('ps:style'))
             if layer not in trees:
-                trees[layer], kept[layer] = G.RTree(), []
+                trees[layer], kept[layer], kept_items[layer] = G.RTree(), [], []
             item_tol = section_tol if item['role']=='section' and section_tol is not None else tol
             box = curve.GetBoundingBox(True); box.Inflate(item_tol)
             hits = []
@@ -724,7 +968,15 @@ def deduplicate(items, tol, section_tol=None):
             intervals = []
             for index in hits:
                 events = G.Intersect.Intersection.CurveCurve(curve, kept[layer][index], item_tol, item_tol)
-                intervals.extend((event.OverlapA.T0, event.OverlapA.T1) for event in events or [] if event.IsOverlap)
+                for event in events or []:
+                    if not event.IsOverlap: continue
+                    intervals.append((event.OverlapA.T0, event.OverlapA.T1))
+                    existing = kept_items[layer][index]
+                    # A duplicate/overlap has multiple contributors even if
+                    # native deduplication retains only the earlier geometry.
+                    merged = dict(existing.get('contributors', {}))
+                    merged.update(item.get('contributors', {}))
+                    existing['contributors'] = merged
             cursor, end = curve.Domain.T0, curve.Domain.T1
             pieces = []
             for start, stop in sorted(intervals):
@@ -739,9 +991,11 @@ def deduplicate(items, tol, section_tol=None):
                 if piece is None or piece.IsShort(minimum):
                     continue
                 entry = dict(item); entry['geometry'] = piece
+                entry['contributors'] = dict(item.get('contributors', {}))
                 result.append(entry)
                 trees[layer].Insert(piece.GetBoundingBox(True), len(kept[layer]))
                 kept[layer].append(piece)
+                kept_items[layer].append(entry)
         return result
     finally:
         for tree in trees.values(): tree.Dispose()
@@ -845,6 +1099,9 @@ def cleanup_elevations(doc, items, plane=G.Plane.WorldXY, small_details=True):
             attrs = members[0]['attributes'].Duplicate()
             sources = set(s for i in members for s in json.loads(i['attributes'].GetUserString('ps:sources') or '[]'))
             attrs.SetUserString('ps:sources', json.dumps(sorted(sources)))
+            contributors = {}
+            for member in members:
+                contributors.update(member.get('contributors', {}))
             depths = set(i['attributes'].GetUserString('ps:depth') for i in members)
             if len(depths)>1: attrs.DeleteUserString('ps:depth')
             try:
@@ -852,7 +1109,7 @@ def cleanup_elevations(doc, items, plane=G.Plane.WorldXY, small_details=True):
             except ValueError as error:
                 raise ValueError(str(error)+' on '+str(attrs.GetUserString('ps:source_layer')))
             if split: report['self_split'] += 1
-            entries = [output(c, attrs.Duplicate(), 'elevation') for c in pieces]
+            entries = [output(c, attrs.Duplicate(), 'elevation', contributors) for c in pieces]
             if overlaps: entries = deduplicate(entries,tol)
             result.extend(entries)
     # Different styles cannot share one curve. Preserve endpoint bridges in Omit;
@@ -939,13 +1196,21 @@ def generate(doc, cp, hatch=True, elevation=True, target=None,
         dispose_drawing_items(previous, items)
         if place:
             move_drawing(dict(objects=items), clip['plane'], clip['target'])
+        conflicts = {}
         for item in items:
-            item['attributes'].Name = cp.Name
+            agreed = consensus_metadata(list(item.get('contributors', {}).items()))
+            apply_source_metadata(item['attributes'], agreed, cp.Name or '')
+            for conflict in agreed['conflicts']:
+                key = (item['role'], conflict['field'], tuple(conflict['sources']))
+                conflicts[key] = dict(role=item['role'], field=conflict['field'],
+                                      sources=conflict['sources'], reason=conflict['reason'])
             item['attributes'].SetUserString('ps:clip', str(cp.Id))
         report = dict(sources=len(records), skipped=issues, cleanup=cleanup,
                       section=sum(i['role']=='section' for i in items),
                       hatch=sum(i['role']=='hatch' for i in items),
-                      elevation=sum(i['role']=='elevation' for i in items))
+                      elevation=sum(i['role']=='elevation' for i in items),
+                      metadata_conflict_count=len(conflicts),
+                      metadata_conflicts=[conflicts[key] for key in sorted(conflicts)][:64])
         drawing = dict(objects=items, report=report)
         items = []  # The caller now owns the final drawing geometry.
         return drawing
@@ -965,14 +1230,36 @@ def drawing_objects(doc, cp):
 
 
 def saved_placement(cp, existing):
-    saved = set(o.Attributes.GetUserString('ps:placement') for o in existing)
-    if len(saved) > 1: raise ValueError('Drawing has inconsistent placement metadata; regenerate it first')
-    return draft_plane((next(iter(saved)) if saved else None) or cp.Attributes.GetUserString('draft_plane'))
+    # Catch inconsistent legacy mirrors even before applying typed migration.
+    legacy_values = set(obj.Attributes.GetUserString('ps:placement') for obj in existing)
+    if len(legacy_values) > 1:
+        raise ValueError('Drawing has inconsistent placement metadata; regenerate it first')
+    saved = []
+    for obj in existing:
+        attrs = obj.Attributes
+        dictionary = getattr(attrs.Duplicate(), 'UserDictionary', None)
+        has_typed = dictionary is not None and dictionary.ContainsKey('ps:placement')
+        if has_typed or attrs.GetUserString('ps:placement') is not None:
+            saved.append(read_saved_plane(attrs, 'ps:placement'))
+        else:
+            saved.append(None)
+    if any(value is not None for value in saved):
+        if any(value is None for value in saved):
+            raise ValueError('Drawing has inconsistent placement metadata; regenerate it first')
+        first = saved[0]
+        if any(not same_placement(first, other, True) for other in saved[1:]):
+            raise ValueError('Drawing has inconsistent placement metadata; regenerate it first')
+        return first
+    return read_saved_plane(cp.Attributes, 'draft_plane')
 
 
 def output_attributes(original, role=None):
     attrs = original.Duplicate()
-    values = [(key, attrs.GetUserString(key)) for key in ('ps:source_layer', 'ps:placement')]
+    selected = ['ps:source_layer', 'ps:placement']
+    inherited = attrs.GetUserString('ps:inherited_keys')
+    if inherited:
+        selected.extend(json.loads(inherited))
+    values = [(key, attrs.GetUserString(key)) for key in selected]
     attrs.DeleteAllUserStrings()
     if role in ('section', 'elevation'):
         attrs.PlotColorSource = D.ObjectPlotColorSource.PlotColorFromLayer
@@ -1020,7 +1307,32 @@ def configure_hatch_layer(layer):
     layer.PlotWeight = -1.0  # Rhino No Print
 
 
+@contextmanager
+def model_output_view(doc, model_view):
+    """Add model-space output without retaining a change to the active page/detail."""
+    original = doc.Views.ActiveView
+    page = isinstance(original, R.Display.RhinoPageView)
+    detail = original.ActiveDetailId if page else None
+    try:
+        doc.Views.ActiveView = model_view
+        if doc.ActiveSpace != D.ActiveSpace.ModelSpace:
+            raise ValueError('Cannot activate model space for drawing output')
+        yield
+    finally:
+        doc.Views.ActiveView = original
+        if page:
+            if detail == System.Guid.Empty:
+                original.SetPageAsActive()
+                if original.ActiveDetailId != System.Guid.Empty:
+                    raise ValueError('Cannot restore the previously active layout page')
+            elif not original.SetActiveDetail(detail):
+                raise ValueError('Cannot restore the previously active layout detail')
+
+
 def bake(doc, cp, drawing, target=None):
+    model_views = doc.Views.GetViewList(True, False)
+    if not model_views:
+        raise ValueError('An existing model viewport is required for drawing output')
     old = drawing_objects(doc, cp)
     layers = {role: local_output_layer(doc, output_layer(role))
               for role in set(i['role'] for i in drawing['objects'])}
@@ -1036,33 +1348,40 @@ def bake(doc, cp, drawing, target=None):
     original_registry = None
     registry_changed = False
     try:
-        for item in drawing['objects']:
-            attrs = output_attributes(item['attributes'], item['role'])
-            attrs.LayerIndex = layers[item['role']]
-            style = attrs.GetCustomSectionStyle()
-            geometry = item['geometry']
-            # A document without Solid can compute with the system pattern (-1).
-            # Materialize it only when output is actually added to that document.
-            if (style is not None and style.HatchIndex == -1) or (item['role']=='hatch' and geometry.PatternIndex == -1):
-                solid = doc.HatchPatterns.FindName('Solid')
-                index = solid.Index if solid else doc.HatchPatterns.Add(D.HatchPattern.Defaults.Solid)
-                if index < 0: raise ValueError('Cannot add Solid hatch pattern')
-                if style is not None and style.HatchIndex == -1:
-                    style.HatchIndex = index
-                    attrs.SetCustomSectionStyle(style)
-                if item['role']=='hatch' and geometry.PatternIndex == -1:
-                    geometry = geometry.Duplicate()
-                    geometry.PatternIndex = index
-            try:
-                guid = doc.Objects.Add(geometry, attrs)
-            finally:
-                if geometry is not item['geometry']: geometry.Dispose()
-            if guid == System.Guid.Empty:
-                raise ValueError('Failed to add drawing object')
-            added.append(guid)
+        with model_output_view(doc, model_views[0]):
+            for item in drawing['objects']:
+                attrs = output_attributes(item['attributes'], item['role'])
+                attrs.LayerIndex = layers[item['role']]
+                attrs.Space = D.ActiveSpace.ModelSpace
+                attrs.ViewportId = System.Guid.Empty
+                style = attrs.GetCustomSectionStyle()
+                geometry = item['geometry']
+                # A document without Solid can compute with the system pattern (-1).
+                # Materialize it only when output is actually added to that document.
+                if (style is not None and style.HatchIndex == -1) or (item['role']=='hatch' and geometry.PatternIndex == -1):
+                    solid = doc.HatchPatterns.FindName('Solid')
+                    index = solid.Index if solid else doc.HatchPatterns.Add(D.HatchPattern.Defaults.Solid)
+                    if index < 0: raise ValueError('Cannot add Solid hatch pattern')
+                    if style is not None and style.HatchIndex == -1:
+                        style.HatchIndex = index
+                        attrs.SetCustomSectionStyle(style)
+                    if item['role']=='hatch' and geometry.PatternIndex == -1:
+                        geometry = geometry.Duplicate()
+                        geometry.PatternIndex = index
+                try:
+                    guid = doc.Objects.Add(geometry, attrs)
+                finally:
+                    if geometry is not item['geometry']: geometry.Dispose()
+                if guid == System.Guid.Empty:
+                    raise ValueError('Failed to add drawing object')
+                added.append(guid)
+                created = doc.Objects.FindId(guid)
+                if (created is None or created.Attributes.Space != D.ActiveSpace.ModelSpace
+                        or created.Attributes.ViewportId != System.Guid.Empty):
+                    raise ValueError('Drawing output was not added to unrestricted model space')
         if target is not None and not cp.IsReference:
             attrs = original.Duplicate()
-            attrs.SetUserString('draft_plane', plane_json(target))
+            write_saved_plane(attrs, 'draft_plane', target)
             if not doc.Objects.ModifyAttributes(cp.Id, attrs, True):
                 raise ValueError('Failed to save draft_plane')
         original_registry = save_drawing_registry(doc, cp, json.dumps([str(i) for i in added]))
@@ -1073,11 +1392,37 @@ def bake(doc, cp, drawing, target=None):
                 raise ValueError('Cannot remove previous drawing object '+str(obj.Id))
             removed.append(serial)
         return added
-    except Exception:
-        for serial in removed: doc.Objects.Undelete(serial)
-        for guid in added: doc.Objects.Delete(doc.Objects.FindId(guid), True, True)
-        if registry_changed: save_drawing_registry(doc, cp, original_registry)
-        if target is not None and not cp.IsReference: doc.Objects.ModifyAttributes(cp.Id, original, True)
+    except Exception as error:
+        rollback_errors = []
+        for serial in reversed(removed):
+            try:
+                if doc.Objects.Undelete(serial) is False:
+                    rollback_errors.append('cannot undelete previous output '+str(serial))
+            except Exception as failure:
+                rollback_errors.append(str(failure))
+        for guid in reversed(added):
+            try:
+                created = doc.Objects.FindId(guid)
+                deleted = (doc.Objects.Delete(created, True, True) if created is not None
+                           else doc.Objects.Delete(guid, True))
+                if deleted is False:
+                    rollback_errors.append('cannot remove new output '+str(guid))
+            except Exception as failure:
+                rollback_errors.append(str(failure))
+        if registry_changed:
+            try:
+                save_drawing_registry(doc, cp, original_registry)
+            except Exception as failure:
+                rollback_errors.append(str(failure))
+        if target is not None and not cp.IsReference:
+            try:
+                if doc.Objects.ModifyAttributes(cp.Id, original, True) is False:
+                    rollback_errors.append('cannot restore clipping metadata '+str(cp.Id))
+            except Exception as failure:
+                rollback_errors.append(str(failure))
+        if rollback_errors:
+            raise ValueError('Output failed ({0}) and rollback was incomplete; use Undo: {1}'.format(
+                error, '; '.join(rollback_errors)))
         raise
 
 
@@ -1134,7 +1479,7 @@ def move_drawing(drawing, source, target):
         if not transformed or not item['geometry'].IsValid:
             valid, reason = item['geometry'].IsValidWithLog()
             raise ValueError('Invalid '+item['role']+' output: '+str(reason)+'; previous drawing retained')
-        item['attributes'].SetUserString('ps:placement', plane_json(placement_plane(source, target.Origin)))
+        write_saved_plane(item['attributes'], 'ps:placement', placement_plane(source, target.Origin))
 
 
 def reposition_drawing(doc, cp, target=None):
@@ -1161,12 +1506,13 @@ def reposition_drawing(doc, cp, target=None):
             if not doc.Objects.Replace(guid, after, True): raise ValueError('Cannot move drawing object '+str(guid))
             changed.append((guid, before, attrs_before))
             # Rhino 8 can ignore user-text edits copied before Replace.
-            attrs = output_attributes(doc.Objects.FindId(guid).Attributes)
-            attrs.SetUserString('ps:placement', plane_json(target))
+            # Move changes only placement. Keep existing Name, Floor, and manual metadata.
+            attrs = doc.Objects.FindId(guid).Attributes.Duplicate()
+            write_saved_plane(attrs, 'ps:placement', target)
             if not doc.Objects.ModifyAttributes(guid, attrs, True): raise ValueError('Cannot update drawing placement')
         if not cp.IsReference:
             attrs = original_cp.Duplicate()
-            attrs.SetUserString('draft_plane', plane_json(target))
+            write_saved_plane(attrs, 'draft_plane', target)
             if not doc.Objects.ModifyAttributes(cp.Id, attrs, True): raise ValueError('Cannot save draft_plane')
         save_drawing_registry(doc, cp, json.dumps([str(o.Id) for o in existing]))
         return True
@@ -1174,10 +1520,7 @@ def reposition_drawing(doc, cp, target=None):
         restored = []
         for guid, geo, attrs in reversed(changed):
             replaced = doc.Objects.Replace(guid, geo, True)
-            current = doc.Objects.FindId(guid).Attributes.Duplicate()
-            current.DeleteAllUserStrings()
-            for key in attrs.GetUserStrings().AllKeys: current.SetUserString(key, attrs.GetUserString(key))
-            restored.append(doc.Objects.ModifyAttributes(guid, current, True) and replaced)
+            restored.append(doc.Objects.ModifyAttributes(guid, attrs, True) and replaced)
         if not cp.IsReference: restored.append(doc.Objects.ModifyAttributes(cp.Id, original_cp, True))
         if not all(restored): raise ValueError('Move failed and rollback was incomplete; use Undo')
         raise
@@ -1468,47 +1811,38 @@ def get_options(operation='Create'):
     values['mode'] = default_options(operation)['mode']
     if operation != 'Create': values['pick'] = False
     if operation == 'Move': return values
-    print('SmallDetails='+('Keep' if values['small_details'] else 'Omit'))
-    print('Output={mode}, Hatch={hatch}, Elevation={elevation}, PickPlacement={pick}; '
-          'Near/Far width={near_width}/{far_width} mm, darkness={near_dark}/{far_dark}%'.format(**values))
+    toggle_keys = [('Hatch','hatch'), ('Elevation','elevation')]
+    if operation == 'Create': toggle_keys.append(('PickPlacement','pick'))
+    toggles = [(name, key, R.Input.Custom.OptionToggle(values[key], 'False', 'True'))
+               for name, key in toggle_keys]
+    toggles.append(('SmallDetails', 'small_details',
+                    R.Input.Custom.OptionToggle(values['small_details'], 'Omit', 'Keep')))
+    numbers = [(name, key, R.Input.Custom.OptionDouble(values[key], .001, System.Double.MaxValue)
+                if key.endswith('width') else R.Input.Custom.OptionDouble(values[key], 0., 100.))
+               for name, key in zip(('NearWidth','FarWidth','NearDark','FarDark'), keys)]
+    modes = ['Document', 'Files']
     getter = R.Input.Custom.GetOption()
-    getter.SetCommandPrompt('PlanSection: Enter to proceed, Change to edit options')
+    getter.SetCommandPrompt('PlanSection options: change any option or Enter to run (width mm, darkness 0-100%)')
     getter.AcceptNothing(True)
-    getter.AddOption('Change')
     try:
-        result = getter.Get()
-        if result == R.Input.GetResult.Option:
-            toggle_keys = [('Hatch','hatch'), ('Elevation','elevation')]
-            if operation == 'Create': toggle_keys.append(('PickPlacement','pick'))
-            toggles = [(name, key, R.Input.Custom.OptionToggle(values[key], 'False', 'True'))
-                       for name, key in toggle_keys]
-            toggles.append(('SmallDetails', 'small_details',
-                            R.Input.Custom.OptionToggle(values['small_details'], 'Omit', 'Keep')))
-            numbers = [(name, key, R.Input.Custom.OptionDouble(values[key], .001, System.Double.MaxValue)
-                        if key.endswith('width') else R.Input.Custom.OptionDouble(values[key], 0., 100.))
-                       for name, key in zip(('NearWidth','FarWidth','NearDark','FarDark'), keys)]
-            modes = ['Document', 'Files']
-            getter.SetCommandPrompt('PlanSection options: Enter to run (width mm, darkness 0-100%)')
-            while True:
-                getter.ClearCommandOptions()
-                mode_index = (getter.AddOptionList('Output', modes, modes.index(values['mode']))
-                              if operation == 'Create' else None)
-                for name, key, option in toggles: getter.AddOptionToggle(name, option)
-                for name, key, option in numbers: getter.AddOptionDouble(name, option)
-                result = getter.Get()
-                if result == R.Input.GetResult.Option:
-                    if getter.OptionIndex() == mode_index:
-                        values['mode'] = modes[getter.Option().CurrentListOptionIndex]
-                    continue
-                if result != R.Input.GetResult.Nothing: return None
-                values.update((key, option.CurrentValue) for name, key, option in toggles+numbers)
-                try:
-                    validate_options(*(values[key] for key in keys))
-                    break
-                except ValueError as error:
-                    print(error)
-        elif result != R.Input.GetResult.Nothing:
-            return None
+        while True:
+            getter.ClearCommandOptions()
+            mode_index = (getter.AddOptionList('Output', modes, modes.index(values['mode']))
+                          if operation == 'Create' else None)
+            for name, key, option in toggles: getter.AddOptionToggle(name, option)
+            for name, key, option in numbers: getter.AddOptionDouble(name, option)
+            result = getter.Get()
+            if result == R.Input.GetResult.Option:
+                if mode_index is not None and getter.OptionIndex() == mode_index:
+                    values['mode'] = modes[getter.Option().CurrentListOptionIndex]
+                continue
+            if result != R.Input.GetResult.Nothing: return None
+            values.update((key, option.CurrentValue) for name, key, option in toggles+numbers)
+            try:
+                validate_options(*(values[key] for key in keys))
+                break
+            except ValueError as error:
+                print(error)
         sc.sticky['PlanSection:style_defaults'] = [values[key] for key in keys]
         sc.sticky['PlanSection:options'] = dict(values)
         return values
@@ -1559,7 +1893,7 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
             print('Exported: '+path)
             if target is not None and not cp.IsReference:
                 attrs = cp.Attributes.Duplicate()
-                attrs.SetUserString('draft_plane', plane_json(target))
+                write_saved_plane(attrs, 'draft_plane', target)
                 if not doc.Objects.ModifyAttributes(cp.Id, attrs, True):
                     raise ValueError('3dm exported, but draft_plane could not be saved')
         else:

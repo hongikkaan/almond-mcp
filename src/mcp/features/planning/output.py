@@ -38,7 +38,8 @@ def project(payload: dict, groups: list[str] | None) -> dict:
             selected = select_fields(record, groups, core, GROUPS)
             if "steps" in selected and "all" not in (groups or []):
                 selected["steps"] = [select_fields(step, groups,
-                    {"step_id", "name", "position", "kind", "status"}, GROUPS) for step in selected["steps"]]
+                    {"step_id", "name", "position", "kind", "status", "input_refs", "output_refs"},
+                    GROUPS) for step in selected["steps"]]
             return selected
         result[key] = [item(record) for record in result[key]] if isinstance(result[key], list) else item(result[key])
     # Target resolution is already one bounded target set; preserve handles/counts.

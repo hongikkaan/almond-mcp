@@ -17,13 +17,27 @@ with patch.dict(sys.modules, {name: MagicMock() for name in
     spec.loader.exec_module(ps)
 
 
+class Dictionary:
+    def __init__(self, values=None): self.values = dict(values or {})
+    @property
+    def Keys(self): return list(self.values)
+    def Set(self, key, value):
+        self.values[key] = value
+        return True
+    def ContainsKey(self, key): return key in self.values
+    def __getitem__(self, key): return self.values[key]
+
+
 class Attributes:
-    def __init__(self, values=None, layer=0):
+    def __init__(self, values=None, layer=0, name='', dictionary=None):
         self.values, self.LayerIndex = dict(values or {}), layer
+        self.Name = name
+        self.UserDictionary = Dictionary(dictionary)
     def GetUserString(self, key): return self.values.get(key)
     def SetUserString(self, key, value): self.values[key] = value
+    def GetUserStrings(self): return NS(AllKeys=list(self.values))
     def DeleteAllUserStrings(self): self.values.clear()
-    def Duplicate(self): return Attributes(self.values, self.LayerIndex)
+    def Duplicate(self): return Attributes(self.values, self.LayerIndex, self.Name, self.UserDictionary.values)
 
 
 def clipping(reference=False, values=None):
@@ -172,7 +186,7 @@ class PlacementHeight(unittest.TestCase):
                      patch.object(ps,'drawing_objects',return_value=[obj]), \
                      patch.object(ps,'saved_placement',return_value=NS(Origin=Point(X=10,Y=20,Z=100))), \
                      patch.object(ps,'placement_plane',return_value=target), \
-                     patch.object(ps,'plane_json',return_value='new-height'), \
+                     patch.object(ps,'write_saved_plane',side_effect=lambda attrs,key,plane: attrs.SetUserString(key,'new-height')), \
                      patch.object(ps,'save_drawing_registry') as registry:
                     self.assertTrue(ps.reposition_drawing(doc,cp,target))
                 after.Transform.assert_called_once_with((20,30,-4000))
@@ -350,7 +364,9 @@ class OverlapContracts(unittest.TestCase):
             rows = [('section',first),('section',Line(0.,10.,.1)),
                     ('section',Line(5.,15.)),('section',Line(20.,20.2)),
                     ('elevation',Line(0.,10.,.1)),('elevation',Line(30.,30.2))]
-            items = [dict(geometry=line,attributes=attrs,role=role) for role,line in rows]
+            items = [dict(geometry=line,attributes=attrs,role=role,
+                          contributors={str(i):{'name':str(i)}})
+                     for i,(role,line) in enumerate(rows)]
             with self.subTest(tolerance=document_tol),patch.object(ps,'G',geo), \
                  patch.object(ps,'R',NS(RhinoMath=NS(ZeroTolerance=1e-12))):
                 result = ps.deduplicate(items,document_tol,.01)
@@ -359,6 +375,10 @@ class OverlapContracts(unittest.TestCase):
             self.assertEqual(len(sections),4)
             self.assertEqual(len(elevations),1)
             self.assertIs(sections[0],first)
+            # Section overlap uses section_tol=.01, so y=.1 source 1 must
+            # remain separate while partially overlapping source 2 merges.
+            self.assertTrue({'0','2'}.issubset(set(result[0]['contributors'])))
+            self.assertNotIn('1', result[0]['contributors'])
             self.assertAlmostEqual(sum(c.Domain.T1-c.Domain.T0 for c in sections),25.2)
             self.assertEqual((elevations[0].Domain.T0,elevations[0].Domain.T1),(30.,30.2))
         self.assertIn(.01,tolerances)
@@ -374,7 +394,8 @@ class SectionStyleGroups(unittest.TestCase):
             custom = None if crc is None else NS(DataCRC=lambda seed, value=crc: value)
             attrs = NS(LayerIndex=0, ObjectColor=color, PlotColor=color,
                        PlotWeight=.1, LinetypeIndex=0, LinetypePatternScale=1.,
-                       GetCustomSectionStyle=lambda: None, GetCustomLinetype=lambda: None)
+                       GetCustomSectionStyle=lambda: None, GetCustomLinetype=lambda: None,
+                       SetUserString=lambda key, value: True)
             setattr(attrs, custom_field, lambda value=custom: value)
             attrs.Duplicate = lambda value=attrs: value
             styles.append(attrs)
@@ -572,6 +593,7 @@ class Workflow(unittest.TestCase):
             move_drawing=Mock(),bake=Mock(return_value=[]),export_drawing=Mock(return_value='result'),
             export_pdf=Mock(return_value='result'),pdf_settings=Mock(return_value=([210,297],300)),
             plane_json=Mock(return_value='picked-plane'),
+            write_saved_plane=Mock(side_effect=lambda attrs,key,plane: attrs.SetUserString(key,'picked-plane')),
             drawing_objects=Mock(side_effect=lambda doc,cp:[object()] if cp.Id=='clip' else []),
             saved_placement=Mock(return_value=saved),reposition_drawing=Mock(return_value=True))
         events = Mock()

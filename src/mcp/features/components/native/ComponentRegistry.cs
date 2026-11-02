@@ -120,21 +120,41 @@ namespace RhinoAlmondBridge
                 string[] scenes = ComponentSemanticRegistry.Strings(request["scene_ids"], false);
                 string[] childrenIds = request["child_component_ids"] == null || request["child_component_ids"].Type == JTokenType.Null
                     ? (prior == null ? new string[0] : Children(prior)) : Strings(request["child_component_ids"]);
-                Guid[] direct = Ids(request["object_ids"]); Objects(doc, direct);
-                var wanted = new HashSet<Guid>(direct);
-                foreach (string child in childrenIds)
-                {
-                    if (child == target || !(records[child] is JObject r) || !Active(r)) throw new ArgumentException("Missing child Component.");
-                    if (Parent(records, child) != null && Parent(records, child) != target) throw new ArgumentException("Detach before reparenting.");
-                    wanted.UnionWith(Members(doc, r).Select(o => o.Id));
-                }
-                if (wanted.Count == 0 || wanted.Count > MaxObjects) throw new ArgumentException("Register a group with 1 to 4096 current members.");
+                bool inferMembers = request["object_ids"] == null || request["object_ids"].Type == JTokenType.Null;
                 string gid = prior == null ? Text(request, "rhino_group_id", false) : (string)prior["rhino_group_id"];
                 Group group = null;
                 if (gid != "")
                 {
                     group = doc.Groups.FindId(Guid.Parse(gid));
                     if (group == null || group.IsDeleted || group.IsReference) throw new ArgumentException("The supplied Rhino group is unavailable.");
+                }
+                else if (inferMembers)
+                    throw new ArgumentException("Omitting object_ids requires an existing Rhino group binding.");
+                var childMembers = new HashSet<Guid>();
+                foreach (string child in childrenIds)
+                {
+                    if (child == target || !(records[child] is JObject r) || !Active(r)) throw new ArgumentException("Missing child Component.");
+                    if (Parent(records, child) != null && Parent(records, child) != target) throw new ArgumentException("Detach before reparenting.");
+                    if (inferMembers)
+                    {
+                        var childGroup = doc.Groups.FindId(Guid.Parse((string)r["rhino_group_id"]));
+                        if (childGroup == null || childGroup.IsDeleted || childGroup.IsReference)
+                            throw new ArgumentException("Group inference requires available declared child groups.");
+                    }
+                    childMembers.UnionWith(Members(doc, r).Select(o => o.Id));
+                }
+                // Read and validate current members in this same native operation.
+                // Only explicitly declared children keep their own direct ownership.
+                Guid[] direct = inferMembers
+                    ? Objects(doc, doc.Groups.GroupMembers(group.Index).Select(o => o.Id).ToArray())
+                        .Where(o => !childMembers.Contains(o.Id)).Select(o => o.Id).ToArray()
+                    : Ids(request["object_ids"]);
+                Objects(doc, direct);
+                var wanted = new HashSet<Guid>(direct);
+                wanted.UnionWith(childMembers);
+                if (wanted.Count == 0 || wanted.Count > MaxObjects) throw new ArgumentException("Register a group with 1 to 4096 current members.");
+                if (group != null)
+                {
                     if (!wanted.SetEquals(doc.Groups.GroupMembers(group.Index).Select(o => o.Id)))
                         throw new ArgumentException("Registration must match the actual group; edit Rhino first. Alignment never repairs memberships.");
                 }
@@ -161,9 +181,14 @@ namespace RhinoAlmondBridge
                     ["rhino_group_id"] = group == null ? Guid.NewGuid().ToString("D") : group.Id.ToString("D"),
                     ["name"] = name, ["scene_ids"] = new JArray(scenes), ["child_component_ids"] = new JArray(childrenIds) });
                 Tree(proposed, target, new HashSet<string>());
+                // The inferred group already exists: validate the full proposed
+                // ownership tree and response budget before opening a mutation.
+                JObject reply = inferMembers ? Bound(new JObject {
+                    ["status"] = "success", ["component"] = Snapshot(doc, proposed, target),
+                    ["affected_components"] = Related(doc, proposed, target) }) : null;
                 if (JToken.DeepEquals(prior, proposed[target])) return Bound(new JObject {
                     ["status"] = "success", ["component"] = Snapshot(doc, records, target), ["affected_components"] = new JArray() });
-                started = true; JObject reply = null;
+                started = true;
                 var changed = new ScriptExecutor().ExecuteAction(doc, () => {
                     if (group == null)
                     {
@@ -172,7 +197,7 @@ namespace RhinoAlmondBridge
                         group = doc.Groups[index]; proposed[target]["rhino_group_id"] = group.Id.ToString("D");
                     }
                     ComponentSemanticRegistry.Change(doc, proposed);
-                    reply = Bound(new JObject { ["status"] = "success", ["component"] = Snapshot(doc, proposed, target),
+                    reply = reply ?? Bound(new JObject { ["status"] = "success", ["component"] = Snapshot(doc, proposed, target),
                         ["affected_components"] = Related(doc, proposed, target) }); return null;
                 });
                 return changed.Status == "success" ? reply : MutationError(changed);

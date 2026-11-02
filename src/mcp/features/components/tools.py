@@ -27,6 +27,9 @@ def register(mcp, context):
                 raise ValueError(read_instruction(__file__, 'response-566'))
             if rhino_context.get("capabilities", {}).get("component_registry") != 2:
                 raise ValueError("Load a Bridge with component_registry=2 before using object-free Component registration.")
+            if (request.get("action") == "upsert" and request.get("object_ids") is None
+                    and rhino_context.get("capabilities", {}).get("component_group_inference") != 1):
+                raise ValueError("Load a Bridge with component_group_inference=1 before omitting object_ids.")
         except Exception as exc:
             return {"status": "error", "mutation_applied": False, "message": str(exc)}
         response = context._send_and_receive(payload)
@@ -54,7 +57,7 @@ def register(mcp, context):
     @tool_instruction(__file__, 'upsert_ontological_component')
     def upsert_ontological_component(
         name: str,
-        object_ids: list[str],
+        object_ids: list[str] | None = None,
         expected_model_path: str = "",
         scene_ids: list[str] | None = None,
         component_id: str = "",
