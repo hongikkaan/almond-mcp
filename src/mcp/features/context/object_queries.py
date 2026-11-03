@@ -59,21 +59,32 @@ def validate_filters(filters):
 
 def query(send, *, scope, ids, filters, include_geometry, offset, limit, expected_model_path,
           result_mode="objects", fields=None, face_offset=0, face_limit=128,
-          expected_geometry_crcs=None, include_ids=False):
+          expected_geometry_crcs=None, include_ids=False, group_ids=None,
+          expand_groups=False, expand_blocks=False, depth=1):
     try:
-        if scope not in ("visible", "selected", "ids", "document"):
-            raise ValueError("scope must be visible, selected, ids or document.")
+        if scope not in ("visible", "selected", "ids", "document", "groups"):
+            raise ValueError("scope must be visible, selected, ids, document or groups.")
         ids = object_ids(ids, 4096, required=scope == "ids")
         if ids and scope != "ids":
             raise ValueError("object_ids requires scope=ids.")
+        try:
+            groups = object_ids([] if group_ids is None else group_ids, 64, required=scope == "groups")
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise ValueError("group_ids: " + str(exc).replace("object_ids", "group_ids")) from exc
+        if groups and scope != "groups":
+            raise ValueError("group_ids requires scope=groups.")
         if type(offset) is not int or not 0 <= offset <= 100000 or type(limit) is not int or not 1 <= limit <= 200:
             raise ValueError("offset must be 0..100000 and limit 1..200.")
         if type(include_geometry) is not bool:
             raise ValueError("include_geometry must be boolean.")
         if type(include_ids) is not bool:
             raise ValueError("include_ids must be boolean.")
-        if result_mode not in ("objects", "summary"):
-            raise ValueError("result_mode must be objects or summary.")
+        if result_mode not in ("objects", "hierarchy", "summary"):
+            raise ValueError("result_mode must be objects, hierarchy or summary.")
+        if type(expand_groups) is not bool or type(expand_blocks) is not bool or type(depth) is not int or not 1 <= depth <= 8:
+            raise ValueError("expand_groups/expand_blocks must be booleans and depth an integer in 1..8.")
+        if result_mode != "hierarchy" and (expand_groups or expand_blocks or depth != 1):
+            raise ValueError("Expansion and depth require result_mode=hierarchy; objects returns distinct document objects.")
         if fields is not None and (not isinstance(fields, list) or not fields
                 or any(not isinstance(field, str) or field not in OBJECT_FIELDS for field in fields)
                 or len(set(fields)) != len(fields)):
@@ -98,13 +109,18 @@ def query(send, *, scope, ids, filters, include_geometry, offset, limit, expecte
             raise ValueError("A subsequent face page requires scope=ids and an observed CRC for every object.")
         if result_mode == "summary" and (fields is not None or include_geometry or crcs or face_offset or face_limit != 128):
             raise ValueError("Summary returns layer/type counts; object fields and face options require result_mode=objects.")
+        if result_mode == "hierarchy" and (include_geometry or crcs or face_offset or face_limit != 128
+                or set(fields or []) & {"geometry_valid", "solid", "manifold", "volume", "faces", "face_count"}):
+            raise ValueError("Geometry detail and face editing references require result_mode=objects; hierarchy describes occurrences and metadata.")
         payload = dict(type="get_rhino_objects", scope=scope, object_ids=ids, filters=validate_filters(filters),
                        include_geometry=include_geometry, offset=offset, limit=limit)
         extended = result_mode != "objects" or fields is not None or face_offset or face_limit != 128 or crcs or "object_types" in filters
         if extended:
             payload.update(result_mode=result_mode, fields=fields, face_offset=face_offset,
                            face_limit=face_limit, expected_geometry_crcs=crcs)
-        raw = dispatch(send, payload, expected_model_path, required_version=2 if extended else 1)
+        # Keep the private native route; older Bridges must not silently ignore group/expansion inputs.
+        payload.update(group_ids=groups, expand_groups=expand_groups, expand_blocks=expand_blocks, depth=depth)
+        raw = dispatch(send, payload, expected_model_path, required_version=3)
         value = json.loads(raw)
         if isinstance(value, dict) and requires_full_evidence(value):
             return raw

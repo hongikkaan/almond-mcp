@@ -3,7 +3,6 @@ import asyncio
 import json
 import os
 from pathlib import Path
-import re
 import sys
 
 from mcp.client.session import ClientSession
@@ -26,11 +25,6 @@ def isolated_environment(tmp_path):
     return env
 
 
-def first_sentence(text):
-    prose = re.split(r"^(?:Args|Arguments|Returns|Raises|Yields):\s*$", text, maxsplit=1, flags=re.M)[0]
-    return re.split(r"(?<=[.!?])\s+", " ".join(prose.split()), maxsplit=1)[0]
-
-
 async def collect(params, *, bound):
     async with stdio_client(params) as (reader, writer):
         async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
@@ -40,30 +34,81 @@ async def collect(params, *, bound):
             basic_result = await client.call_tool("get_modeling_guide", {})
             assert not basic_result.is_error
             basic = json.loads(basic_result.content[0].text)
+            assert "list_project_files" not in tools and "list_project_files" not in basic["tools"]
             assert basic["text"] == BASIC_GUIDE.read_text(encoding="utf-8").strip()
             # Codex CodeMode appends this namespace-level field to every tool.
             # Keep the guide discoverable on its own tool, without a shared suffix.
             assert not initialized.instructions, "namespace instructions would be appended to every CodeMode tool"
             for name, item in tools.items():
-                result = await client.call_tool("get_modeling_guide", {"tool": name})
-                assert not result.is_error, name
-                guide = json.loads(result.content[0].text)
-                assert guide["text"] == read_guide(name)["text"], name
-                assert guide["guide_version"] == basic["guide_version"], name
-                assert item["description"] == first_sentence(guide["text"]), name
+                for heading in ("When to use:", "Before calling:", "Inputs from earlier results:",
+                                "Interpretation:", "Limits:"):
+                    assert heading in item["description"], (name, heading)
                 assert "Almond inspects and edits Rhino" not in item["description"], name
                 assert "guide_version=" not in item["description"], name
+            scripting_result = await client.call_tool("get_modeling_guide", {"include_scripting": True})
+            assert not scripting_result.is_error
+            scripting = json.loads(scripting_result.content[0].text)
+            assert scripting == read_guide(include_scripting=True)
+            assert scripting["guide_version"] == basic["guide_version"]
+            rejected = await client.call_tool("get_modeling_guide", {"tool": "get_rhino_context"})
+            assert rejected.is_error
+            detail_name = "get_phase_plan_step"
+            assert detail_name in tools and detail_name in basic["tools"]
+            assert tools[detail_name]["title"] == "get_phase·plan·step"
+            assert "get_phase·plan·step" not in tools
+            assert not {"get_phase", "get_plan", "get_step"}.intersection(tools)
+
+            async def call(name, arguments):
+                response = await client.call_tool(name, arguments)
+                assert not response.is_error
+                return json.loads(response.content[0].text)
+
+            phase = (await call("create_phase", {"name": "Stdio discovery", "depends_on": ["phase_future"]}))["phase"]
+            plan = (await call("create_plan", {"title": "Entrance review", "goal": "Inspect entrance", "phase_id": phase["phase_id"]}))["plan"]
+            rows = await call("list_plans", {"phase_id": phase["phase_id"]})
+            assert rows["plans"][0]["title"] == "Entrance review"
+            assert "goal" not in rows["plans"][0] and detail_name in rows["next_step"]
+            detail = await call(detail_name, {"plan_id": plan["plan_id"]})
+            assert detail["id"] == plan["plan_id"] and detail["status"] == "pending"
+            assert detail["plan"]["phase"] == {"phase_id": phase["phase_id"], "name": "Stdio discovery"}
+            sid = detail["plan"]["steps"][0]["step_id"]
+            assert "set_working_plan" in detail["next_step"]
+            partial = await call("update_step", {"plan_id": plan["plan_id"], "step_id": sid,
+                "output_refs": {"add": ["survey.md", "survey.md"], "remove": ["absent.md"]}})
+            assert partial["status"] == "partial_success" and partial["changed"] is True
+            assert {issue["reason"] for issue in partial["issues"]} == {"duplicate_input", "not_found"}
+            step = await call(detail_name, {"plan_id": plan["plan_id"], "step_id": sid})
+            assert step["step"]["output_refs"] == ["survey.md"]
+            assert step["status"] == "pending" and "set_working_plan" in step["next_step"]
+            assert step["step"]["revision"] == plan["revision"] + 1
+            historic = await call(detail_name, {"plan_id": plan["plan_id"], "step_id": sid, "revision": plan["revision"]})
+            assert historic["step"]["output_refs"] == []
+            assert "without revision" in historic["next_step"]
             if bound:
-                result = await client.call_tool("project_info", {"sections": ["project"]})
+                result = await client.call_tool("project_info", {})
                 assert not result.is_error
-                project = json.loads(result.content[0].text)["project"]
+                info = json.loads(result.content[0].text)
+                project = info["project"]
                 assert project["file_name"] == "disposable.3dm"
-                assert project["database"] == ".almond/scene.sqlite3"
-                assert project["root_variable_set"] is True
+                assert project["file_path"] == "disposable.3dm"
+                assert project["is_bound_document"] is True
+                assert project["files"] == [{"file_name": "disposable.3dm"}]
+                assert project["files_page"]["total"] == 1
+                assert info["locations"]["database"] == ".almond/scene.sqlite3"
+                assert info["locations"]["artifact_dir"] is None
+                assert not {"root_variable_set", "root_variable", "database"}.intersection(project)
+                assert not {"name", "path", "runtime_serial_number", "live_document_checked", "is_bound_document"}.intersection(info["document"])
+                rejected = await client.call_tool("list_project_files", {})
+                assert rejected.is_error
+                selected = await call("set_working_plan", {"plan_id": plan["plan_id"], "step_id": sid})
+                assert selected["revision"] == step["step"]["revision"] + 1
+                updated = await call("update_step", {"plan_id": plan["plan_id"], "step_id": sid,
+                    "output_refs": {"add": ["selected-survey.md"], "remove": ["survey.md"]}, "expected_revision": selected["revision"]})
+                assert updated["status"] == "success" and updated["plan"]["revision"] == selected["revision"] + 1
             return initialized.instructions, tools
 
 
-def test_cold_direct_descriptions_and_explicit_full_guides(tmp_path):
+def test_cold_direct_full_descriptions_and_basic_scripting_guide(tmp_path):
     params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", "-c",
         "from almond_mcp.server import mcp; mcp.run()"], env=isolated_environment(tmp_path))
     instructions, tools = asyncio.run(collect(params, bound=False))
@@ -86,6 +131,7 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
     validate_worker_tools(catalog, list(worker.values()))
     assert all(schema_identity(worker[n]) == schema_identity(expected[n]) for n in worker)
     assert all(worker[n]["description"] == expected[n]["description"] for n in worker)
+    assert worker["get_phase_plan_step"]["title"] == expected["get_phase_plan_step"]["title"] == "get_phase·plan·step"
     exposed, mapping = exposed_tools(catalog)
     external = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True) for tool in exposed}
     for name in worker:

@@ -164,10 +164,10 @@ def test_internal_fts_tables_marked_and_actual_almond_schema_supported(tmp_path)
     database = Database(path)
     schema = database.schema()
     tables = {t["name"]: t for t in schema["tables"]}
-    assert "generation_plans" in tables and "ontological_components" in tables
-    assert tables["ontological_components"]["type"] == "table"
+    assert "generation_plans" in tables and "ontological_holons" in tables
+    assert tables["ontological_holons"]["type"] == "table"
     assert tables["_component_records"]["type"] == "view"
-    assert any(r["target"] == "project_files" for r in tables["ontological_components"]["relations"])
+    assert any(r["target"] == "project_files" for r in tables["ontological_holons"]["relations"])
     assert tables["asset_fts_data"]["internal"]
     assert not tables["asset_fts"]["internal"]
     for table in schema["tables"]:

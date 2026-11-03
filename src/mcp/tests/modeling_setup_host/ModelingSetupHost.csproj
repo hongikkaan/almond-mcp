@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><Nullable>disable</Nullable>
+    <RhinoSystem Condition="'$(RhinoSystem)' == ''">C:\Program Files\Rhino 8\System</RhinoSystem>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Reference Include="RhinoCommon"><HintPath>$(RhinoSystem)\RhinoCommon.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Microsoft.CodeAnalysis"><HintPath>$(MSBuildBinPath)\Roslyn\bincore\Microsoft.CodeAnalysis.dll</HintPath></Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp"><HintPath>$(MSBuildBinPath)\Roslyn\bincore\Microsoft.CodeAnalysis.CSharp.dll</HintPath></Reference>
+    <Compile Include="../../../rhp/RhinoAlmondBridge/ScriptExecutor.cs" Link="ScriptExecutor.cs" />
+    <Compile Include="../../features/modeling/native/ModelingSetup.cs" Link="ModelingSetup.cs" />
+    <Compile Include="../../features/modeling/native/DocumentLayers.cs" Link="DocumentLayers.cs" />
+    <Compile Include="../../rhino/ModelingMaterials.cs" Link="ModelingMaterials.cs" />
+    <Compile Include="../../rhino/ModelingMetadata.cs" Link="ModelingMetadata.cs" />
+    <EmbeddedResource Include="../../modeling_policy.json" LogicalName="RhinoAlmondBridge.modeling_policy.json" />
+  </ItemGroup>
+</Project>

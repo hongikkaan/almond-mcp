@@ -1,6 +1,21 @@
 """Read adjacent Markdown instructions without importing a model runtime."""
+import ast
 from pathlib import Path
-import re
+
+
+def public_tool_name(node: ast.FunctionDef) -> str:
+    """Read an explicit literal MCP name without executing the tool module."""
+    for decorator in node.decorator_list:
+        if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute)
+                and isinstance(decorator.func.value, ast.Name)
+                and decorator.func.value.id == "mcp" and decorator.func.attr == "tool"):
+            for keyword in decorator.keywords:
+                if keyword.arg == "name":
+                    name = ast.literal_eval(keyword.value)
+                    if not isinstance(name, str) or not name:
+                        raise ValueError("A public tool name must be a nonempty literal string.")
+                    return name
+    return node.name
 
 
 def read_instruction(source_file: str, section: str) -> str:
@@ -18,13 +33,8 @@ def parse_instruction(text: str, section: str, path: Path) -> str:
 
 
 def read_tool_instruction(source_file: str, section: str) -> str:
-    description = read_instruction(source_file, section)
-    # Keep the full explanation in its adjacent Markdown. FastMCP still needs
-    # Args/Returns metadata to preserve parameter and output schemas.
-    metadata = re.search(r"^(?:Args|Arguments|Returns|Raises|Yields):\s*$", description, re.M)
-    prose = description[:metadata.start()] if metadata else description
-    summary = re.split(r"(?<=[.!?])\s+", " ".join(prose.split()), maxsplit=1)[0]
-    return summary + ("\n\n" + description[metadata.start():] if metadata else "")
+    """Return the complete description, including its Args/Returns metadata."""
+    return read_instruction(source_file, section)
 
 
 def tool_instruction(source_file: str, section: str):

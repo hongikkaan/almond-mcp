@@ -13,8 +13,8 @@ using Rhino.Geometry;
 
 namespace RhinoAlmondBridge
 {
-    // Fixed read-only queries. Object sets do not expand through groups or block definitions.
-    public static class ObjectObservation
+    // Fixed read-only queries. Hierarchy expansion never adds unrelated document objects.
+    public static partial class ObjectObservation
     {
         const int MaxBytes = 262144;
         static readonly HashSet<string> ObjectFields = new HashSet<string>(new[] {
@@ -111,12 +111,21 @@ namespace RhinoAlmondBridge
             string scope = (string)request["scope"] ?? "visible";
             var ids = ReadIds(request["object_ids"], 4096, scope == "ids");
             if (scope != "ids" && ids.Length != 0) throw new ArgumentException("object_ids requires scope=ids.");
+            Guid[] groupIds;
+            try { groupIds = ReadIds(request["group_ids"], 64, scope == "groups"); }
+            catch (ArgumentException ex) { throw new ArgumentException(ex.Message.Replace("object_ids", "group_ids")); }
+            if (scope != "groups" && groupIds.Length != 0) throw new ArgumentException("group_ids requires scope=groups.");
             int offset = Integer(request, "offset", 0, 0, 100000), limit = Integer(request, "limit", 50, 1, 200);
             if (request["include_geometry"] != null && request["include_geometry"].Type != JTokenType.Boolean)
                 throw new ArgumentException("include_geometry must be a boolean.");
             bool geometry = (bool?)request["include_geometry"] ?? false;
             string mode = (string)request["result_mode"] ?? "objects";
-            if (mode != "objects" && mode != "summary") throw new ArgumentException("result_mode must be objects or summary.");
+            if (mode != "objects" && mode != "hierarchy" && mode != "summary")
+                throw new ArgumentException("result_mode must be objects, hierarchy or summary.");
+            bool expandGroups = Boolean(request, "expand_groups"), expandBlocks = Boolean(request, "expand_blocks");
+            int depth = Integer(request, "depth", 1, 1, 8);
+            if (mode != "hierarchy" && (expandGroups || expandBlocks || depth != 1))
+                throw new ArgumentException("Expansion and depth require result_mode=hierarchy.");
             HashSet<string> fields = null;
             if (request["fields"] != null && request["fields"].Type != JTokenType.Null)
             {
@@ -150,6 +159,9 @@ namespace RhinoAlmondBridge
                 throw new ArgumentException("A subsequent face page requires scope=ids and an observed CRC for every object.");
             if (mode == "summary" && (fields != null || geometry || expected.Count != 0 || faceOffset != 0 || faceLimit != 128))
                 throw new ArgumentException("Summary returns layer/type counts; object fields and face options require result_mode=objects.");
+            if (mode == "hierarchy" && (geometry || expected.Count != 0 || faceOffset != 0 || faceLimit != 128 ||
+                (fields != null && fields.Overlaps(new[] { "geometry_valid", "solid", "manifold", "volume", "faces", "face_count" }))))
+                throw new ArgumentException("Geometry detail and face editing references require result_mode=objects.");
             var filters = request["filters"] as JObject ?? new JObject();
             if (request["filters"] != null && !(request["filters"] is JObject)) throw new ArgumentException("filters must be an object.");
             ValidateFilters(filters);
@@ -166,7 +178,11 @@ namespace RhinoAlmondBridge
                     var missing = ids.Where(id => !byId.ContainsKey(id)).ToArray();
                     if (missing.Length != 0) throw new ArgumentException("IDs are not top-level model objects: " + String.Join(",", missing));
                     source = ids.Select(id => byId[id]); break;
-                default: throw new ArgumentException("scope must be visible, selected, ids or document.");
+                case "groups":
+                    var modelIds = new HashSet<Guid>(all.Select(o => o.Id));
+                    source = RequestedGroups(doc, groupIds).SelectMany(g => g.Members)
+                        .Where(o => modelIds.Contains(o.Id)).GroupBy(o => o.Id).Select(g => g.First()); break;
+                default: throw new ArgumentException("scope must be visible, selected, ids, document or groups.");
             }
             var candidates = source.ToArray();
             var matched = candidates.Where(o => Matches(doc, o, filters)).OrderBy(o => o.Id).ToArray();
@@ -174,6 +190,8 @@ namespace RhinoAlmondBridge
                 if (expected.TryGetValue(obj.Id, out var crc) && obj.Geometry.DataCRC(0) != crc)
                     return Error("stale_geometry", "An object's geometry changed; observe its faces from the beginning: " + obj.Id);
             var set = new HashSet<Guid>(matched.Select(o => o.Id));
+            if (mode == "hierarchy") return Hierarchy(doc, scope, groupIds, candidates, matched, visible,
+                fields, expandGroups, expandBlocks, depth, offset, limit);
             var rows = new JArray();
             var budget = new ValueBudget();
             int rowBytes = 0;
@@ -211,13 +229,20 @@ namespace RhinoAlmondBridge
                 ["next_offset"] = offset + rows.Count < rowCount ? new JValue(offset + rows.Count) : JValue.CreateNull(),
                 ["complete"] = offset == 0 && rows.Count == rowCount,
                 ["visibility_basis"] = "Rhino document visibility, including object/layer hiding; not pixel, frustum, clipping or occlusion proof.",
-                ["limitations"] = new JArray("Top-level model objects only; groups do not expand the set, block contents are not traversed.",
+                ["limitations"] = new JArray("Top-level model objects only. scope=groups uses the distinct model-space members of the requested groups; other group relations do not expand the set. Block contents require result_mode=hierarchy.",
                     "Filters describe metadata, not architectural element identity. Scalar dictionary strings are not split into inferred lists.")
             };
             if (mode == "summary") { answer["result_mode"] = mode; answer["summary_count"] = rowCount; }
             if (Encoding.UTF8.GetByteCount(answer.ToString(Formatting.None)) > MaxBytes)
                 return Error("observation_too_large", "Response exceeds 256 KiB; reduce limit, scope or geometry detail.");
             return answer;
+        }
+
+        static bool Boolean(JObject request, string key)
+        {
+            if (request[key] == null) return false;
+            if (request[key].Type != JTokenType.Boolean) throw new ArgumentException(key + " must be boolean.");
+            return (bool)request[key];
         }
 
         static void ValidateFilters(JObject filters)

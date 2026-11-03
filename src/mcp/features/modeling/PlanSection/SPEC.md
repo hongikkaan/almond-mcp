@@ -2,7 +2,7 @@
 
 PlanSection은 clipping plane으로 **현재 활성 Rhino 문서의 모델**을 잘라 단면선·해치·가시 입면선을 만든다. Worksession의 다른 파일에서 clipping을 가져올 수 있지만, attached 모델의 최상위 객체는 도면에 포함하지 않는다. 숨김·잠금은 모델 입력을 제외하는 조건이 아니다.
 
-이 문서는 현재 동작과 수정 위치를 설명한다. 실행 결과와 변경 이력은 [log.md](log.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon / IronPython을 사용하며 Grasshopper와 MCP가 없어도 실행·검증할 수 있다.
+이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용하며 대화형 실행은 IronPython, MCP의 무인 `run()` 호출은 RhinoCode Python 3 경로를 사용한다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
 
 ## 1. 실행과 출력 모드
 
@@ -126,7 +126,7 @@ Clipping plane의 signed distance를 `s`라 하면 입면 범위는 depth 비활
 
 `elevations`는 HLD의 Visible segment만 사용한다. Tangent edge는 포함하고 hidden curve·tangent seam·인공 SectionCut edge는 제외한다. 화면의 활성 clipping 상태와 무관하게 계산한다. 동일 입력의 반복 계산에서 가시 구간이 달라지는 병렬 경로를 피하도록 HLD는 단일 스레드로 실행한다. RejoinCompatibleVisible로 같은 FullCurve의 연속 가시 구간을 먼저 재결합한다.
 
-거리값은 원본 객체 bbox 중심의 signed distance를 0 이상으로 제한한 값이며 가시선을 낸 원본마다 한 번 계산한다. 실제 가시 출력의 최소·최대 깊이로 정규화한 `t`를 써서 `width = near + (far - near) * t`와 darkness를 선형 보간한다. 완전히 가려진 후보는 이 최소·최대값에 포함하지 않는다. 한 깊이만 있으면 near 값을 쓴다. 최종 속성 템플릿도 원본마다 한 번 만들고 각 곡선에는 독립 복사본을 준다. 입면 plot width와 print grayscale은 이 계산값이 우선하며 display color·linetype은 원본에서 상속한다. 긴 한 객체의 segment마다 다른 깊이를 주지는 않는다.
+거리값은 원본 객체 bbox 중심의 signed distance를 0 이상으로 제한한 값이며 가시선을 낸 원본마다 한 번 계산한다. 실제 가시 출력의 최소·최대 깊이로 정규화한 `t`를 써서 `width = near + (far - near) * t`와 darkness를 선형 보간한다. 완전히 가려진 후보는 이 최소·최대값에 포함하지 않는다. 한 깊이만 있으면 near 값을 쓴다. 계산 중 속성 템플릿은 원본마다 한 번 만들고 각 곡선에는 독립 복사본을 준다. 이 단계의 plot width·print grayscale은 Join할 스타일을 구분하는 값이며 display color·linetype은 원본에서 상속한다. 실제 Document·Files·PDF 출력에는 `output_attributes`가 인쇄색·두께를 ByLayer로 적용한다. 긴 한 객체의 segment마다 다른 깊이를 주지는 않는다.
 
 ### 선 정리 순서
 
@@ -359,18 +359,13 @@ $env:PLANSECTION_CASES = '3F,4F,Sec-D,Sec-C,Sec-B,Sec-A'
 
 ### 자료 정리와 검증 공백
 
-입력은 `TEST.3dm` 하나, 코드는 `tests/`, 공용 실행기는 `data/`로 구분한다. 이전 작은 회귀 `.3dm` 24개와 그것을 읽는 거대한 통합 검사, 모델 준비/캡처 스크립트는 제거했다. 모두 이전 Git 커밋에서 복원 가능하다. 사용자 작업 원본은 정리 대상이 아니다. export/reopen의 임시 `.3dm`은 삭제하며 결과 JSON/PDF/host는 커밋하지 않는다.
+입력은 `TEST.3dm` 하나, 코드는 `tests/`, 공용 실행기는 `data/`로 구분한다. 사용자 작업 원본은 정리 대상이 아니다. export/reopen의 임시 `.3dm`은 삭제하며 결과 JSON/PDF/host는 커밋하지 않는다.
 
-| 제거한 입력·검사 | 대체 범위와 한계 |
-| --- | --- |
-| `plansection_dev`, `hatch_regression` 및 부재별 boundary/union | 옵션·분기·소유 정보는 모델 없는 검사, 실제 형상은 TEST. 기존 작은 모델의 정확한 면적/구멍 기대값은 더 이상 직접 검사하지 않음 |
-| `housing_3F*`, `housing_4F*`, `housing_Sec-B/C/D_mesh`, `omit_open_split_failure`, `reported_Sec-D/E*` | 오류 처리·seam API 계약 + TEST 전체 생성. 해당 추출 형상의 특수 topology/단위 변환은 동일하게 커버되지 않음; 필요시 외부 실제 주거동 검사 |
-| `reported_subd.3dm` | TEST에 그 SubD가 없어 711-face packed fallback 실패 사례를 검증하지 못함. 동일 문제를 확인하려면 실제 SubD 입력이 필요하며 임의 코드 형상으로 대신하지 않음 |
-| PDF calibration·독립 선택 폼 | 실제 모델 PDF 생성/분석과 모델 없는 옵션 검증. 특수 선굵기·점선·해치 간격과 실제 폼 조작은 현재 자동 범위 밖 |
+현재 검사는 TEST에 없는 특수 topology·SubD 변환 실패, 형상별 정확한 면적·구멍 기대값, PDF의 특수 선굵기·점선·해치 간격과 실제 선택 폼 조작을 모두 다루지 않는다. 해당 문제는 사용자가 제공한 실제 입력으로 확인하며 임의 코드 형상이나 모델 없는 검사로 검증 범위를 대신하지 않는다.
 
 ## 12. 확인된 한계
 
-- 원본 폴더의 이전 native 검사는 Rhino 8.34에서 수행됐다. 이번 통합의 실제 검증과 구분한다. 버전별 실제 실행 결과는 log.md를 따른다. 필요한 API가 없는 Rhino 버전을 지원한다고 추측하지 않는다.
+- 필요한 RhinoCommon API를 제공하는 Rhino 8 환경을 사용한다. 버전별 실제 실행 결과는 log.md와 검사 보고서에서 확인하며, 모의 API 검사로 다른 Rhino 버전의 호환성을 보장하지 않는다.
 - 실제 .rws attach/reload UI, 미저장 라이브 상태는 자동 검사에 포함하지 않는다. 별도 RhinoCore는 저장된 입력과 메모리 문서를 검사한다.
 - 해당 headless 환경에서 Undo는 확인했지만 Redo는 단순 point 대조군에서도 false였다. Redo 성공을 보장하지 않는다.
 - Native HLD는 같은 입력의 반복 실행에서도 입면선 개수가 달라질 수 있다. Update 계약은 저장 위치와 유효 출력이며 재생성 전후 객체 수 일치는 아니다.

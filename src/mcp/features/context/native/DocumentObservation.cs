@@ -26,11 +26,12 @@ namespace RhinoAlmondBridge
         public static string HandleContext(JObject request)
         {
             int selectionLimit, depth;
-            bool recursive, includeImage, selectionEntities;
+            bool recursive, includeImage, selectionEntities, publicContext;
             if (!ReadInteger(request, "selection_limit", 50, 0, MaxSelectionLimit, out selectionLimit) ||
                 !ReadInteger(request, "depth", 1, 1, 8, out depth) ||
                 !ReadBoolean(request, "recursive", false, out recursive) ||
                 !ReadBoolean(request, "selection_entities", false, out selectionEntities) ||
+                !ReadBoolean(request, "public_context", false, out publicContext) ||
                 !ReadBoolean(request, "include_image", false, out includeImage))
                 return Error("invalid_arguments", "Use selection_limit 0..200, depth 1..8 and boolean recursive/include_image.").ToString(Formatting.None);
             string[] sections = null;
@@ -41,7 +42,7 @@ namespace RhinoAlmondBridge
                     return Error("invalid_arguments", "sections must be an array of document, selection or viewport.").ToString(Formatting.None);
                 sections = requested.Values<string>().ToArray();
             }
-            return GetContext(RhinoDoc.ActiveDoc, selectionLimit, sections, recursive, depth, includeImage, selectionEntities).ToString(Formatting.None);
+            return GetContext(RhinoDoc.ActiveDoc, selectionLimit, sections, recursive, depth, includeImage, selectionEntities, publicContext).ToString(Formatting.None);
         }
 
         public static string HandleViewportImage(JObject request)
@@ -70,11 +71,11 @@ namespace RhinoAlmondBridge
         /// Failed fields or sections are null and identified in warnings, never fake zeroes.
         /// </summary>
         public static JObject GetContext(RhinoDoc doc, int selectionLimit = 50, string[] sections = null,
-            bool recursive = false, int depth = 1, bool includeImage = false, bool selectionEntities = false)
+            bool recursive = false, int depth = 1, bool includeImage = false, bool selectionEntities = false, bool publicContext = false)
         {
             var requested = new HashSet<string>(sections ?? new[] { "document" });
-            if (requested.Except(new[] { "document", "selection", "viewport", "editor", "display_modes" }).Any())
-                return Error("invalid_arguments", "sections must contain document, selection, viewport, editor or display_modes.");
+            if (requested.Except(new[] { "document", "selection", "viewport", "editor", "display_modes", "named_views", "layouts", "viewports" }).Any())
+                return Error("invalid_arguments", "Unknown context section.");
             if (selectionLimit < 0 || selectionLimit > MaxSelectionLimit || depth < 1 || depth > 8)
                 return Error("invalid_arguments", "selection_limit must be 0..200 and depth 1..8.");
             if (doc == null)
@@ -85,11 +86,11 @@ namespace RhinoAlmondBridge
             {
                 ["status"] = "success",
                 ["capabilities"] = new JObject { ["block_analysis"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2, ["component_group_inference"] = 1,
-                    ["component_operations"] = 1, ["drawing_asset_extract"] = 2, ["context_sections"] = 1, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
-                    ["object_observation"] = 2, ["inspection_capture"] = 1, ["inspection_model_view"] = 1,
+                    ["component_operations"] = 1, ["drawing_asset_extract"] = 2, ["context_sections"] = 2, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
+                    ["object_observation"] = 3, ["inspection_capture"] = 1, ["inspection_model_view"] = 1,
                     ["inspection_shared_scope"] = 1, ["capture_output_size"] = 1, ["face_edit"] = 1,
                     ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
-                    ["drawing_asset_linked"] = 1 },
+                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1 },
                 ["warnings"] = warnings
             };
             if (requested.Contains("document")) result["document"] = new JObject
@@ -106,7 +107,7 @@ namespace RhinoAlmondBridge
             };
             if (requested.Contains("selection"))
                 result["selection"] = Observe("selection", () => ObservationEntities.Selection(doc, selectionLimit, recursive, depth, selectionEntities), warnings);
-            if (requested.Overlaps(new[] { "document", "selection", "viewport", "editor" }))
+            if (requested.Contains("editor") || (!publicContext && requested.Overlaps(new[] { "document", "selection", "viewport" })))
             {
                 var editor = EditingContext.Observe(doc);
                 if (!requested.Contains("editor"))
@@ -117,6 +118,8 @@ namespace RhinoAlmondBridge
                 result["editor"] = editor;
             }
             if (requested.Contains("display_modes")) result["display_modes"] = DisplayModes(warnings);
+            foreach (var section in new[] { "named_views", "layouts", "viewports" })
+                if (requested.Contains(section)) result[section] = Observe(section, () => ListContextViews(doc, section), warnings);
             if (requested.Contains("viewport")) result["viewport"] = Observe("viewport", () =>
             {
                 var view = doc.Views.ActiveView;
@@ -149,7 +152,7 @@ namespace RhinoAlmondBridge
         /// </summary>
         public static JObject GetViewportImage(RhinoDoc doc, string selector = "", int scalePercent = 75,
             string displayMode = "", bool labels = true, int depth = 1,
-            string targetKind = "view", string target = "", int width = 0, int height = 0)
+            string targetKind = "view", string target = "", int width = 0, int height = 0, string definedKind = "")
         {
             selector = (selector ?? "").Trim().ToLowerInvariant();
             Guid targetId = Guid.Empty;
@@ -184,15 +187,16 @@ namespace RhinoAlmondBridge
                 if (targetKind != "view") entities = ObservationEntities.CaptureRoots(doc, targetKind, Guid.Parse(target));
                 if (selector != "")
                 {
-                    foreach (var candidate in doc.Views.GetViewList(ViewTypeFilter.Model | ViewTypeFilter.Page))
-                        if (candidate.MainViewport.Id == targetId)
-                            view = candidate;
-                    if (view == null)
+                    if (definedKind != "named_view")
+                        foreach (var candidate in doc.Views.GetViewList(definedKind == "layout" ? ViewTypeFilter.Page : ViewTypeFilter.Model | ViewTypeFilter.Page))
+                            if (candidate.MainViewport.Id == targetId)
+                                view = candidate;
+                    if (view == null && definedKind != "layout")
                         foreach (var candidate in doc.NamedViews)
                             if (candidate.NamedViewId == targetId)
                                 namedView = candidate;
                     if (view == null && namedView == null)
-                        return Error("view_not_found", "This GUID is not an available viewport, named view or layout. Use view='a' to list them.");
+                        return Error("view_not_found", "This ID is not an available view of the requested kind. Use get_rhino_context to list views.");
                 }
                 var documentInfo = ReadIdentity(doc);
                 var activeState = ImageViewState(activeView);
@@ -317,6 +321,23 @@ namespace RhinoAlmondBridge
                 ["views"] = new JObject { ["viewports"] = viewports, ["named_views"] = namedViews, ["layouts"] = layouts },
                 ["warnings"] = new JArray()
             };
+        }
+
+        private static JArray ListContextViews(RhinoDoc doc, string section)
+        {
+            var entries = new JArray();
+            if (section == "named_views")
+            {
+                foreach (var view in doc.NamedViews)
+                    entries.Add(new JObject { ["name"] = view.Name, ["id"] = view.NamedViewId.ToString() });
+            }
+            else
+            {
+                var filter = section == "layouts" ? ViewTypeFilter.Page : ViewTypeFilter.Model;
+                foreach (var view in doc.Views.GetViewList(filter))
+                    entries.Add(new JObject { ["name"] = view.MainViewport.Name, ["id"] = view.MainViewport.Id.ToString() });
+            }
+            return entries;
         }
 
         private static JObject ImageViewState(RhinoView view)

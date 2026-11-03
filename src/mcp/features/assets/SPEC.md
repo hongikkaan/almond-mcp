@@ -55,7 +55,7 @@ Room·scene instance 배치 장부 API와 AABB 충돌 도구는 제거했다. �
 
 ## Layout·Sheet 호환
 
-Sheet DB CRUD/sync와 native 등록 경로는 종료됐다. 기존 Sheet 자료와 Rhino Layout은 보존하며 옛 Sheet 참조는 Component 등록 해제를 막지 않는다. Drawing 자산은 라이브러리 manifest·파일에 등록하고 프로젝트 DB에 복제하지 않는다. Viewport·Named View·Layout 용지는 `get_rhino_viewport_image`로 조회·캡처한다.
+Sheet DB CRUD/sync와 native 등록 경로는 종료됐다. 기존 Sheet 자료와 Rhino Layout은 보존하며 옛 Sheet 참조는 Component 등록 해제를 막지 않는다. Drawing 자산은 라이브러리 manifest·파일에 등록하고 프로젝트 DB에 복제하지 않는다. 뷰 목록은 `get_rhino_context`, Named View·Layout 용지는 `get_defined_viewcapture`, 현재 모델 화면은 `get_current_viewcapture`로 조회·캡처한다.
 
 ## GLB에서 투영 도면 만들기
 

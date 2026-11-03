@@ -32,8 +32,8 @@ from native_request import RequestBatch
 # All other upstream tools conservatively share the DB gate.
 NATIVE_ONLY_TOOLS = frozenset({
     "execute_rhino_script", "capture_conditioning_pass", "save_rhino_document",
-    "get_rhino_context", "get_rhino_viewport_image", "analyze_block_reculviely",
-    "get_rhino_objects", "get_object_intersections", "capture_rhino_inspection", "edit_planar_face", "edit_planar_faces",
+    "get_rhino_context", "get_defined_viewcapture", "get_current_viewcapture", "analyze_block_reculviely",
+    "get_objects", "get_object_intersections", "capture_rhino_inspection", "edit_planar_face", "edit_planar_faces",
     "show_object_intersection", "resolve_object_intersection",
     "prepare_drawing_asset",
 })
@@ -47,14 +47,11 @@ OUTPUT_TOOLS = frozenset({"execute_project_python", "export_structural_report", 
 
 
 def writes_artifacts(name, arguments):
-    return (name in FILE_TOOLS
-            or (name == "get_rhino_context" and arguments.get("include_image") is True)
-            or (name == "get_rhino_viewport_image" and str(arguments.get("view") or "").strip().lower() != "a"))
+    return name in FILE_TOOLS or name in {"get_defined_viewcapture", "get_current_viewcapture"}
 
 
 def capture_file_write(name, arguments):
-    return name in {"capture_rhino_inspection", "get_rhino_viewport_image"} or (
-        name == "get_rhino_context" and arguments.get("include_image") is True)
+    return name in {"capture_rhino_inspection", "get_defined_viewcapture", "get_current_viewcapture"}
 
 
 class StoreGate:
@@ -467,9 +464,9 @@ class ProjectRuntime(Middleware):
             operation_dir.mkdir(parents=True, exist_ok=False)
         # Bound document expectations are supplied internally. Optional
         # public arguments remain available to standalone consumers.
-        if self.workspace is not None and name in {"analyze_block_reculviely", "upsert_ontological_component", "sync_ontological_component",
-                    "get_component_intersections", "focus_components",
-                    "list_ontological_components"} and not args.get("expected_model_path"):
+        if self.workspace is not None and name in {"analyze_block_reculviely", "upsert_ontological_holon", "sync_ontological_holon",
+                    "focus_holons",
+                    "list_ontological_holons"} and not args.get("expected_model_path"):
             args["expected_model_path"] = self.locations["model_path"]
         message = context.message.model_copy(update={"arguments": args})
         operation_path = Path(self.locations["session_dir"]) / "operation.json"

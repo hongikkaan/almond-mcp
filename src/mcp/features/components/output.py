@@ -1,4 +1,4 @@
-"""Ontological-component projections; no registration or alignment semantics."""
+"""Ontological-holon projections; no registration or alignment semantics."""
 from almond_mcp.query_output import select_fields, requires_full_evidence
 
 CORE = {"component_id", "name", "status", "registration_status", "availability", "object_count", "effective_object_count",

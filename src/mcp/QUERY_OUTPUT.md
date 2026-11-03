@@ -2,14 +2,24 @@
 
 The public MCP query API returns feature summaries by default. `field_groups` is an explicit optional array: omitted, null and [] mean summary; selected groups add fields, and `all` restores the complete existing payload. Unknown groups fail with `invalid_arguments` before store or native work. Group selection never changes persisted records or the Python store API.
 
-`include_ids` remains an independent strict boolean, default false. It enables handles in the selected records, without enabling geometry, references, steps or timestamps. Supplied target IDs are not repeated. Technical timestamps (`created_at`, `updated_at`, `observed_at`, `generated_at`) require `audit` or `all`.
+Except for planning queries described below, `include_ids` remains an independent strict boolean, default false. It enables handles in the selected records, without enabling geometry, references, steps or timestamps. Supplied target IDs are not repeated. Technical timestamps (`created_at`, `updated_at`, `observed_at`, `generated_at`) require `audit` or `all`.
 Pagination, status, availability, counts and required revisions remain useful.
 Errors, warnings, incomplete/unsupported work, mutation uncertainty, conflicts, reconciliation requirements and native completion/proof are never hidden by projection, ID display or timestamp preferences. Uncertain outcomes retain their full evidence and must not be retried automatically.
 
 Feature tools project their own records. Collections keep their original envelopes, totals and pagination. A requested asset drawing manifest, parsed Grasshopper logic or helper script is intrinsically the useful payload and stays available by default. `list_library` also returns logic_names so discovery remains useful with IDs hidden. Field groups are additive: a selected optional field can be absent when the source record does not contain it.
 
-Successful Plan/Phase/Scene and legacy placement writes acknowledge their needed handle, revision and counts, rather than echoing whole records, geometry or input metadata. Existing envelope names remain. Use the matching get query for details.
+Successful Plan/Phase/Scene writes acknowledge their needed handle, revision and counts, rather than echoing whole records, geometry or input metadata. Existing envelope names remain. Use the matching get query for details.
 Component mutation acknowledgements are owned by the Component feature.
+
+Planning update tools return changed and unsummarized per-item issues. status is success when no item was skipped (including a clean no-op), partial_success when changes and skips coexist, or no_change when skips exist but no stored value changed. Step updates also acknowledge the Step ID/status separately from the Plan status/revision. General-field validation and revision conflicts reject the entire request; typed-input errors are rejected before the tool body. Creation and unrelated write contracts remain unchanged.
+
+## Planning queries
+
+Phase/Plan/Step discovery and related target/selection queries always expose IDs and have no `include_ids` option. `list_phases` and `list_plans` provide `next_step` call guidance. `list_plans` has no field groups: its rows contain plan_id/title/scope/status/revision.
+
+`get_phase_plan_step` selects one Phase, Plan or Step using phase_id, plan_id and optional step_id. Its root id/type/status identifies the selected record and workflow state; target details are nested in phase/plan/step. Plan details always include scene_ids, artifact fields, KST creation/update times and Step ID/name/status summaries; include_holons=true adds Plan holon_ids. A selected Step exposes only its own input_refs/output_refs. Detail queries have no audit/field_groups option. Errors still have status=error. See [planning inputs and outputs](features/planning/README.md).
+
+The planning field groups below apply only to list_phases, list_plan_revisions, resolve_targets and get_selection_references, according to each tool's signature; they do not change the unified detail response.
 
 ## Declared field groups
 
@@ -19,13 +29,13 @@ Each row names fields added to the feature's normal summary. The tool descriptio
 |---|---|---|
 | assets | `dimensions` | `bounds_mm`, `clearance_mm`, `dimension_basis`, `dimensions_mm`, `spatial` |
 | assets | `source` | `license`, `provenance`, `sha256`, `source`, `source_url`, `warehouse_url` |
-| assets | `paths` | `contract`, `dimensions_path`, `file`, `generation_image`, `library_dir`, `model`, `model_path`, `package_dir`, `preview`, `preview_uri` |
+| assets | `paths` | `contract`, `dimensions_path`, `file`, `generation_image`, `library_dir`, `model`, `model_path`, `package_dir`, `preview`, `preview_uri`, `source_file`, `source_path` |
 | assets | `drawing` | `drawing`, `drawing_manifest`, `drawing_package`, `drawing_roles`, `lod` |
 | assets | `metadata` | `description`, `material_id`, `metadata`, `passport`, `render_material_id`, `series`, `tags` |
-| assets | `audit` | `created_at`, `generated_at`, `updated_at` |
-| components | `references` | `child_component_ids`, `parent_component_id`, `rhino_group_id`, `scene_ids` |
+| assets | `audit` | `created_at`, `generated_at`, `updated_at`, `verification_basis` |
+| components | `references` | `child_holon_ids`, `parent_holon_id`, `rhino_group_id`, `scene_ids` |
 | components | `geometry` | `bounds_mm`, `direct_object_ids`, `effective_object_ids`, `effective_objects`, `intersections`, `object_ids`, `objects`, `pairs`, `pending_objects` |
-| components | `scope` | `expected_model_path`, `model_path` |
+| components | `scope` | `expected_model_path`, `model_path`, `project_file_id`, `file_name` |
 | components | `audit` | `created_at`, `observed_at`, `updated_at` |
 | diagrams | `dimensions` | `bounds_mm`, `dimensions_mm` |
 | diagrams | `drawing` | `drawing_roles`, `lod`, `projection` |
@@ -34,7 +44,7 @@ Each row names fields added to the feature's normal summary. The tool descriptio
 | diagrams | `paths` | `file`, `model_path`, `preview`, `preview_uri` |
 | diagrams | `audit` | `created_at`, `updated_at` |
 | drawings | `scales` | `recommended_scales`, `scales` |
-| drawings | `parameters` | `annotations`, `display`, `hatches`, `layers`, `layout`, `linework`, `output`, `parameters`, `projection`, `style`, `units`, `views` |
+| drawings | `parameters` | `annotations`, `display`, `hatches`, `layers`, `layout`, `linework`, `output`, `parameters`, `projection`, `review_preparation`, `style`, `units`, `views` |
 | drawings | `source` | `license`, `references`, `source` |
 | drawings | `audit` | `created_at`, `updated_at` |
 | exchange | `notes` | `note` |
@@ -47,7 +57,7 @@ Each row names fields added to the feature's normal summary. The tool descriptio
 | guidance | `rules` | `construction_detail`, `construction_notes`, `construction_reference`, `depth_guidance`, `depth_rules`, `elements`, `render_material_ids`, `span_axis`, `span_range_m`, `typical_spacing_m` |
 | guidance | `narrative` | `narrative`, `precedents`, `related_construction_systems`, `urban_role` |
 | guidance | `source` | `access`, `bci_ref`, `formats`, `gha_ref`, `license`, `reference`, `source`, `url`, `urls` |
-| guidance | `metadata` | `description`, `matched_terms`, `notes`, `structure_types`, `tags` |
+| guidance | `metadata` | `description`, `notes`, `structure_types`, `tags` |
 | guidance | `audit` | `created_at`, `updated_at` |
 | modeling | `display` | `base_color`, `emission`, `ior`, `metallic`, `opacity`, `roughness`, `textures`, `ue_material_slot` |
 | modeling | `physical` | `density`, `density_kg_m3`, `physical`, `structural_material` |
@@ -56,7 +66,7 @@ Each row names fields added to the feature's normal summary. The tool descriptio
 | modeling | `paths` | `file`, `library_dir` |
 | modeling | `audit` | `created_at`, `updated_at` |
 | planning | `steps` | `steps` |
-| planning | `references` | `child_component_ids`, `component_id`, `component_ids`, `depends_on`, `input_refs`, `matched_step_ids`, `output_refs`, `parent_component_id`, `phase_id`, `related_component_ids`, `scene_ids` |
+| planning | `references` | `child_holon_ids`, `holon_id`, `holon_ids`, `depends_on`, `input_refs`, `matched_step_ids`, `output_refs`, `parent_holon_id`, `phase_id`, `related_holon_ids`, `scene_ids` |
 | planning | `geometry` | `direct_object_ids`, `effective_object_ids` |
 | planning | `artifacts` | `artifact_dir`, `artifact_refs` |
 | planning | `description` | `description` |
@@ -65,8 +75,10 @@ Each row names fields added to the feature's normal summary. The tool descriptio
 | structure | `parameters` | `deflection_limit_ratio`, `imposed_floor_kn_m2`, `uls_default`, `uls_expression`, `values` |
 | structure | `source` | `origin`, `source`, `sources` |
 | structure | `audit` | `created_at`, `updated_at` |
-
-| scenes | `scope`, `state`, `geometry`, `audit` | file_name/project_file_id/units/model_path; revision; bounds_mm/component_id; timestamps | | placement validation | `details` | collisions, outside_room (bounded by detail_limit) |
+| scenes | `scope` | `file_name`, `project_file_id`, `units`, `model_path` |
+| scenes | `state` | `revision` |
+| scenes | `geometry` | `bounds_mm`, `holon_id` |
+| scenes | `audit` | `created_at`, `updated_at`, `observed_at` |
 
 ## Project Scene discovery
 
@@ -74,13 +86,15 @@ Each row names fields added to the feature's normal summary. The tool descriptio
 
 ## Other bounded/query-specific contracts
 
-- `project_info`: explicit project/document/artifacts/runtime/instructions sections.
-- `get_rhino_context`: explicit document/selection/viewport sections and selection_limit.
+- `project_info`: project/document/locations by default, optional runtime. project/document share one live observation; failed identity checks return an error, otherwise project.is_bound_document is a boolean: true for the bound model, false for a different document. Document name/path occur only in project. project.files pages the recorded DB list using files_limit (1–500, default 50) and files_offset; files_page retains total/limit/offset/truncated. Duplicate names remain distinct and include_ids=true exposes project_file_id. Document runtime_serial_number and runtime.rhinocode.pipe_id are also hidden by default. locations contains the project DB and connection-selected Plan folder (null before selection); locations/runtime alone need no live observation. Basic instructions come from get_modeling_guide.
+- `get_rhino_context`: explicit document/selection/viewport/editor/display_modes sections, bounded selection expansion and optional current image.
 - `analyze_block_reculviely`: outline/resolve-block mode and bounded traversal options.
-- `get_rhino_viewport_image`: one bounded image/result for the selected view.
+- `get_defined_viewcapture`, `get_current_viewcapture`: one bounded image/file result; live-view mutation evidence is never omitted.
+- `get_objects`: selected/visible/document/explicit-object/group scopes; flat objects, layer/type counts or numbered group/block hierarchy. Internal block paths are distinct from editable document IDs.
+- `get_rhino_context`: requested sections only; Named View/Layout/Display Mode catalogue IDs are always included.
 - `get_retrieval_status`: bounded readiness/count diagnostics.
 - `get_modeling_policy`: one fixed policy document.
-- `get_modeling_guide`: one named topic, with optional images.
+- `get_modeling_guide`: BASIC and public tool names; `include_scripting=true` adds bundled scripting references. Individual tool descriptions come from `tools/list`; there are no topic, tool-name or image arguments. See [guidance delivery](SPEC.md#모델링-안내-전달).
 - `audit_asset_drawing`: one requested package's validation/proof result.
 - `validate_structure`: its existing detail=false summary/detail=true contract.
 

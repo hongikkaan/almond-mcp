@@ -3,13 +3,13 @@
 ## validate_structure
 
 <!-- instruction:validate_structure -->
-Analyze the specified Rhino geometry under the supplied loads, supports and calculation assumptions.
+Analyze selected live Rhino geometry under explicit loads, support assumptions and structural design settings.
 
-engine="auto" (default) analyses line models (beams, columns, trusses, frames) with Almond's built-in 3D frame solver: analysis_method "native", confidence "high", no Karamba install needed. It is a linear-elastic first-order frame analysis with EN 1993-1-1 member checks (elastic moduli; flexural buckling with L_cr = member length; no lateral-torsional buckling), benchmarked against closed-form results and live Karamba runs. Models with shells, and shell/gridshell/membrane structure types, go to Karamba. engine="karamba" forces the Karamba route, which tries three pathways in strict order of confidence and always tells you which one ran:
-    analysis_method "api"        — direct Karamba 3.1 API solve, confidence "high" analysis_method "template"   — audited capsule GHX template,  confidence "medium" analysis_method "rule_based" — heuristic span/slenderness rules, confidence "low" The verdict string names the method (e.g. "[RULE-BASED ESTIMATE, LOW CONFIDENCE] ...").
-Treat rule_based/low results as estimates, NOT finite element analysis, and say so when reporting to the user.
-
-Results locate demand and capacity issues in the analyzed system. The cause and appropriate design change depend on the members' connections, supports and load path.
+When to use: Check a structural scheme and locate governing member demand, deflection or stability issues.
+Before calling: Confirm geometry scope, actual supports, sections, material, joint behavior and load basis. Loads are kN, floor loads kN/m2 and span_m metres; native load_kn is a total downward (-Z) imposed load shared equally among free nodes. Use the full physical span when members are segmented. Avoid counting occupancy/furniture twice when combining floor and asset loads; load_kn may need to be zero.
+Inputs from earlier results: Pass observed Rhino object id strings to guids (request include_ids=true on object discovery), not asset/scene IDs. list_design_codes.profiles[].id, obtained with include_ids=true, maps to design_code. Construction/reference loads are guidance and require conversion to the applied load scope, not direct copying of kPa as kN.
+Interpretation: Report results.analysis_method, confidence, warnings and design_code.unverified. auto uses native frames for line models, otherwise Karamba; forced karamba tries api/high, template/medium then rule_based/low. results deflections are mm, stresses MPa, spans m; utilization 1 means capacity. per_element_utilization[].source_guids and worst_member_guids locate objects; detail=true adds members/support reactions. Native EN 1990 uses SLS G+Q and ULS combinations; stability=auto adds imperfections and P-Delta when alpha_cr<10, failing instability at <=1.
+Limits: Rule-based results are estimates, not FEA. Native steel checks exclude lateral-torsional buckling and use member length for flexural buckling; non-steel capacity may be indicative with no pass/fail. High confidence is not code certification. Karamba checks unfactored loads; floor/asset loads are native-only and fallback warnings matter. construction_check is a heuristic span/depth cross-check, not capacity proof. Connections/load path govern interpretation, not red-member replacement alone. This does not edit model geometry; pass/fail runs are recorded best-effort for export_structural_report, while error/indicative runs need not appear.
 
 Args:
     guids: Current Rhino object GUID strings in the analysis scope.
@@ -92,26 +92,26 @@ Returns:
 ## list_design_codes
 
 <!-- instruction:list_design_codes -->
-Lists the design code profiles validate_structure / visualize_structure accept as design_code.
+List the design-code profiles available to structural validation and viewport analysis.
 
-A profile holds the numbers a design code or National Annex sets (load factors gamma_G, gamma_Q, psi_0, xi; the ULS expression; material factors gamma_M0, gamma_M1; the deflection limit; suggested imposed floor loads), each with its source clause and a verified flag.
-"eurocode" (EN recommended values) is built in and the default; "off" is unfactored mechanics.
-Practices add National Annex profiles as JSON files in user_dir (see src/mcp/features/structure/PROFILES-SPEC.md).
-Unverified values are allowed but flagged in every result that uses them.
+When to use: Choose numerical load/material factors, ULS expressions and deflection limits for the intended jurisdiction.
+Before calling: No model or prior result is required; the built-in default is eurocode and off selects unfactored mechanics.
+Inputs from earlier results: None required. Request include_ids=true and pass profiles[].id as validate_structure.design_code or visualize_structure.design_code.
+Interpretation: Summary shows name, basis, verified and unverified parameter names. field_groups=["parameters"] adds ULS choices, deflection_limit_ratio (250 means L/250) and imposed_floor_kn_m2 suggestions; ["source"] adds origin. problems lists profiles rejected during loading; user_dir identifies the optional custom-profile folder.
+Limits: verified concerns profile values, not approval of a structure or project compliance. Unverified values are allowed and flagged in analysis results. off still uses an indicative L/250 screen; listing a floor-load suggestion does not apply it to a model.
 
-Returns JSON: default, profiles [{id, name, basis, origin, verified, unverified, uls_expression, uls_default, deflection_limit_ratio, imposed_floor_kn_m2}], problems (files that failed validation), user_dir.
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
-field_groups adds parameters, source, audit, or all; default is summary.
-include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_design_codes -->
 
 ## visualize_structure
 
 <!-- instruction:visualize_structure -->
-Run a live structural analysis on a line model and SHOW it in every Rhino viewport:
-the undeformed wireframe, the exaggerated deformed shape coloured blue -> red by displacement (or by utilization), supports, load arrows and a legend panel with max deflection, the L/limit check and PASS/FAIL. Nothing is baked into the document.
+Analyze live Rhino structural axes and display a temporary viewport overlay of deformation, utilization or buckling behavior.
 
-Use it to make structural behaviour visible while designing: model the structural axes as curves, include Rhino point objects at the supports, call this tool, then fix the members it shows in red (add a column, shorten a cantilever, upsize the section via beam_diameter_mm) and call it again. validate_structure gives the auditable verdict; this tool is the visual, iterative view of the same solve.
+When to use: Inspect load paths, support assumptions and iterative design changes visually without baking geometry.
+Before calling: Supply structural curve GUIDs and support-point GUIDs, or accept lowest-node supports. Match actual joints and load scope; kN loads, kN/m2 floor loads, mm section sizes and metre spans are distinct. Use clear=true to remove the overlay.
+Inputs from earlier results: Reuse validate_structure's geometry scope or observed object id strings as guids; request include_ids=true on discovery. Use per_element_utilization[].source_guids for display_guids to isolate members visually without shrinking analysis scope. list_design_codes.profiles[].id maps to design_code. Even reanalyze=false requires a nonempty guids list unless clearing.
+Interpretation: Deformation is exaggerated by scale, not actual geometry. Native overlays combine SLS displacement with ULS utilization; read max_displacement_mm, deflection_limit_mm, max_utilization, analysis_method and warnings. Red may mean displacement or utilization according to color_by, not a diagnosed design cause. Buckling mode shape has no physical displacement magnitude: use buckling.alpha_cr (>1 for the returned pass; 1-10 remains sway-sensitive, >=10 the first-order threshold).
+Limits: reanalyze=false reuses the prior solve and only changes display; it does not validate changed geometry or loads. physics=false/reveal/display_guids affect presentation only. No objects are baked, but viewport state changes. Native non-steel results can be indicative; read status rather than claiming a pass. Karamba requires its runtime (3.1 trial: 20 beam elements); fallback/load warnings and validate_structure's analysis limits still apply.
 
 Args:
     guids: Curve GUIDs of the structural axes plus point GUIDs marking supports
@@ -164,9 +164,13 @@ Karamba3D 3.1 (the trial caps models at 20 beam elements).
 ## export_structural_report
 
 <!-- instruction:export_structural_report -->
-Renders the persisted validate_structure history to a Markdown report.
+Write locally recorded structural-validation runs to a newest-first Markdown report.
 
-Every successful validate_structure call is recorded in the local state database (inputs, analysis method, confidence, numbers, warnings). This tool writes them to a .md file, newest first, with an explanation of the analysis pathways and pass criteria.
+When to use: Export the persisted validation history for review without running another solve.
+Before calling: Ensure the intended validate_structure pass/fail runs were recorded; select an output path and run limit. No live Rhino analysis occurs.
+Inputs from earlier results: This reads history automatically rather than accepting validation JSON or GUIDs. A prior validate_structure response may not be present if best-effort persistence failed; an empty history returns an error.
+Interpretation: path locates the written .md file, runs is the exported count and latest_method identifies the newest stored analysis method. Stored numbers, confidence, verdicts and warnings describe past runs, not current model state.
+Limits: The limit is clamped to 1..500. Parent folders are created and an existing target file is overwritten. The history stores summary fields, not all detailed settings/member results; exported pathway/pass-criteria narrative is static and may not fully describe current native/code behavior. Export is not a fresh validation or engineering certification.
 
 Args:
     path: Output file path. Default:

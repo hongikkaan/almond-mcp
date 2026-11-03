@@ -3,8 +3,13 @@
 ## list_library
 
 <!-- instruction:list_library -->
-Lists all available physics logic archetypes in the Grasshopper library.
-Use this tool first to discover what logic IDs are available before calling get_logic_by_id.
+List the local Grasshopper logic names available for retrieval.
+
+When to use: Discover an archetype name when get_logic_by_id's logic_id is not already known.
+Before calling: No inputs or live Rhino connection are needed; optional field_groups selects extra output.
+Inputs from earlier results: None required. Pass an exact logic_names entry to get_logic_by_id.logic_id; include_ids=true additionally retains logic_ids.
+Interpretation: total_entries is the index count, and logic_names contains filename stems, not solved physics results. field_groups=["paths"] adds library_dir.
+Limits: Presence in this index does not establish execution readiness or an audited capsule contract; use capsule discovery for that distinction. This call only reads the existing index.
 
 Returns:
     JSON list of logic IDs available (e.g., ["catenary", "bending", "01_simplebeam"]).
@@ -16,8 +21,13 @@ include_ids independently enables handles; audit enables timestamps.
 ## get_logic_by_id
 
 <!-- instruction:get_logic_by_id -->
-Retrieves parsed physics context for a specific Kangaroo2 or Karamba3D archetype.
-Returns detected components, descriptions, and metadata extracted from the Grasshopper binary file.
+Retrieve parsed Grasshopper component context or JSON-sidecar metadata for a local logic name without executing it.
+
+When to use: Inspect a Kangaroo2/Karamba3D archetype or an attached capsule contract before reuse.
+Before calling: Supply a known filename stem as logic_id; list_library can discover unknown names but is not required for a known one.
+Inputs from earlier results: Use list_library.logic_names, or list_capsules.definition_file's stem obtained with field_groups=["definition"]. When present, metadata.capsule.inputs supplies exact names/types/units/required flags for run_gh_definition.inputs; metadata.capsule.outputs supplies output semantics. Request include_ids=true to retain nested capsule_id.
+Interpretation: Parsed components, all_descriptions and metadata remain in the default payload; field_groups=["source"] exposes a sidecar source and ["paths"] exposes available path fields. The reader prefers GHX over GH, or returns metadata alone for JSON-only entries.
+Limits: Components are detected by binary-string scanning, not graph evaluation or a verified dependency graph. Missing/invalid capsule metadata does not establish an executable contract; no solve, baking or model change occurs.
 
 Args:
     logic_id: The filename (without extension) of the Grasshopper file.
@@ -33,10 +43,13 @@ include_ids independently enables handles; audit enables timestamps.
 ## list_capsules
 
 <!-- instruction:list_capsules -->
-Lists Grasshopper capsules: GH definitions with a typed, audited input/output contract that can be executed via run_gh_definition.
+List compact Grasshopper capsule cards and distinguish audited executable definitions from retrieval-only context.
 
-Call this FIRST to discover what capsules exist before calling run_gh_definition.
-Each entry is a compact card with capsule_id, capability, structure_type, audited flag, and the reserved ALMOND_IN_* / ALMOND_OUT_* port names. Only capsules with audited=true can actually run; audited=false capsules are retrieval context only (read them via get_logic_by_id instead).
+When to use: Choose a capsule by capability or find its declared input/output port names.
+Before calling: Optionally filter capability and audited_only; no live solve is performed.
+Inputs from earlier results: None required. Request include_ids=true to obtain capsules[].capsule_id for run_gh_definition.capsule_id, and field_groups=["ports","definition"] for inputs/outputs names and definition_file. Use that filename's stem with get_logic_by_id to inspect metadata.capsule's typed contract when available.
+Interpretation: audited=true is the runner's eligibility gate, not an engineering confidence rating. The ports group contains names only, not their types, units, defaults or semantics.
+Limits: audited=false capsules cannot run. At most 50 cards are returned; total and next_offset can indicate more matches, but this tool exposes no offset input. Default summary omits both capsule IDs and port lists; discovery alone does not verify outputs or plugin availability.
 
 Args:
     capability: Optional filter: "analyze", "generate", "form_find", or "aggregate".
@@ -51,20 +64,13 @@ include_ids independently enables handles; audit enables timestamps.
 ## run_gh_definition
 
 <!-- instruction:run_gh_definition -->
-Runs an audited Grasshopper capsule (GH definition + typed contract) through the Rhino bridge and returns its declared outputs.
+Execute an audited Grasshopper capsule through the live Rhino bridge and return its declared outputs.
 
-Workflow: call list_capsules() first to pick a capsule_id and see its input/ output port names. Create any geometry with execute_rhino_script, then pass the returned GUIDs here. Inputs are validated client-side against the capsule manifest before anything is sent to Rhino, so errors from this tool name the exact port at fault.
-
-Input value forms (keyed by the exact ALMOND_IN_* port name):
-  - Geometry ports (point/curve/mesh/brep and their [] list forms):
-    {"guids": ["<rhino-object-guid>", ...]} referencing objects already in the Rhino document.
-  - number / integer / string / bool ports: the raw JSON value.
-  - number[] / integer[] / string[] ports: a flat JSON list.
-Units are declared per port in the manifest — supply values in those units; nothing is guessed or auto-converted client-side. Optional inputs may be omitted; the capsule's declared defaults then apply inside the definition.
-
-Only audited capsules run. audited=false means the GHX has no verified ALMOND_IN_*/ALMOND_OUT_* harness params yet; this tool refuses it (see asset/capsules/AUTHORING.md for how to harness one).
-
-The response's "outputs" object is keyed by ALMOND_OUT_* names; interpret each value using the manifest's semantics field (e.g. max_nodal_displacement, per_element_utilization) and declared units. The response also carries analysis_method (api|template|rule_based), confidence (high|medium|low), warnings, and baked_guids — report method and confidence honestly; rule_based/low means an estimate, not FEA.
+When to use: Run a known typed capsule for analysis, generation, form-finding or aggregation.
+Before calling: Confirm audited=true, the required contract ports and their units; ensure referenced geometry already exists in the connected document. Known contracts can be reused without mandatory discovery calls.
+Inputs from earlier results: Use list_capsules.capsules[].capsule_id with include_ids=true. Its ports group gives names only; get_logic_by_id.metadata.capsule, when present, supplies types/units/required flags. Map exact ALMOND_IN_* names to {"guids":["<object-guid>"]} for geometry, raw JSON scalars for number/integer/string/bool, or flat primitive arrays for their list types. Use confirmed existing object handles, not library/scene IDs.
+Interpretation: Read outputs by ALMOND_OUT_* name using manifest semantics and units. analysis_method/confidence reflect the manifest declaration (api/high, template/medium, rule_based/low), not independent certification; report them with warnings. Rule-based/low is an estimate, not FEA. baked_guids identifies geometry the definition baked into the document.
+Limits: Unknown ports, missing required values and unsupported types are rejected before sending. No client-side unit conversion occurs; omitted optional ports use definition defaults. Execution can change the document. timeout_s is a solver budget of >0 to 600 seconds, not proof of rollback or non-execution after a timeout.
 
 Args:
     capsule_id: Stable capsule identifier from list_capsules (e.g. "karamba_beam_v1").

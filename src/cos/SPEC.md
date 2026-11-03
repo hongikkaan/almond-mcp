@@ -1,7 +1,7 @@
 # 외부 연결기와 AlmondRhino 계약
 
 Codex 직접 연결의 이름은 beyond, CoS 경유 연결의 이름은 CoS다. 이 모듈은 두 경로의 공용 외부 연결기와 AlmondRhino 플러그인을 소유한다.
-[작업 지침](AGENTS.md)과 [공통 경계](../../SPEC.md)를 함께 따른다.
+[루트 작업 지침](../../AGENTS.md)과 [공통 경계](../../SPEC.md)를 함께 따른다.
 
 CoS는 `cos_host.py`, Codex·외부 로컬 MCP 클라이언트는 `codex_host.py`를 진입점으로 사용한다.
 두 진입점은 `external_host.py`의 같은 stdio 연결기와 worker를 사용한다.
@@ -32,10 +32,10 @@ Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS
 ## 의존·연결 계약
 
 Python worker는 MCP runtime의 기존 `main`, binding 검증·구성 훅과 완료 receipt를 사용한다. 저장소 잠금·native 완료·자산 helper 정책을 외부 연결기에 복제하지 않는다.
-RHP는 [공용 Engine](../rhp/AGENTS.md#shared-engine)을 참조한다. Bridge·Terminal의 구현 소스를 AlmondRhino에 링크하지 않는다.
+RHP는 [공용 Engine](../rhp/SPEC.md#구성과-빌드)을 참조한다. Bridge·Terminal의 구현 소스를 AlmondRhino에 링크하지 않는다.
 
 새 클라이언트의 catalog 생성은 MCP server와 `features/*/tools.py`의 `register` 내부 도구 AST에서 schema만 읽고 DB를 소유하는 MCP server를 import하지 않는다. 같은 이름의 중복 도구는 거절한다. fingerprint는 runtime의 검토된 소스와 MCP package 전체 Python 파일 목록·내용을 포함하여 feature 파일의 추가·삭제·이동도 감지한다. 패키지 버전은 `uv.lock`과 대조한다. 추출 중 소스 변경, 시작한 클라이언트와 worker의 snapshot 불일치, 실제 worker schema 불일치를 검사하며 불일치하면 모델링 요청을 보내지 않는다.
-관측 이미지의 직접 `ToolResult`와 context의 정확한 `str | ToolResult` 반환형만 별도로 허용한다. ToolResult 입력형·중첩형·임의 annotation 실행은 허용하지 않는다. context 기본 JSON과 선택한 PNG의 MCP content 계약을 schema 생성 때문에 바꾸지 않는다. context에 한해 기존 `{result: string}` output schema literal을 허용하고 text/structuredContent를 함께 보존한다.
+관측 이미지의 직접 `ToolResult`와 고정 조회의 정확한 `str | ToolResult` 반환형만 별도로 허용한다. ToolResult 입력형·중첩형·임의 annotation 실행은 허용하지 않는다. context·선택·객체·교차 조회는 기존 `{result: string}` output schema literal을 허용하고 JSON text/structuredContent와 명시적 오류 상태를 함께 보존한다. PNG는 별도 캡처 도구의 MCP image content로 전달하며 schema 생성 때문에 이 계약을 바꾸지 않는다.
 공통 도구 변경 후 수동 catalog 재생성 없이 관련 Codex/CoS MCP를 정상 종료·재시작하면 새 구현과 schema를 읽는다. Terminal은 almond 세션을 새로 시작한다. 이미 시작한 프로세스를 자동 교체하거나 restart 도구를 제공하지 않는다. RHP/DLL 변경은 빌드와 Rhino의 정상 종료·새 시작이 별도로 필요하다.
 
 connection ID와 token·프로세스 identity·저장 문서를 함께 확인한다. 변경된 binding, 미확인 native 결과, 실행 중 작업의 해제·취소에 대한 기존 소유권 규칙을 유지한다.
@@ -67,6 +67,6 @@ AlmondRhino 전용 C# 변경은 이 모듈의 runtime-manifest.json만 갱신한
 외부 host는 `SERVER-DESCRIPTION.md`를 초기화 응답의 `serverInfo.description`과 `instructions` 앞부분에 제공한다. 소개 템플릿의 `{server_name}`은 Codex 경로에서 `beyond`, CoS 경로에서 `CoS`로 치환한다.
 CoS 앱 등록용 생성 설정 이름은 `CoS`다. 등록된 `src/cos` 진입점과 플러그인 GUID는 유지한다.
 ChatGPT의 `Chat On Steroids Plugins` 공통 소개는 클라이언트가 관리하므로, 서버 소개를 수정한 것만으로 해당 화면에 표시되었다고 판단하지 않는다.
-이어서 MCP package의 시작 안내를 제공한다. `project_info`도 원본 도구 설명을 유지하므로 document의 live 조회와 선택 instructions 항목이 정확히 안내된다.
-`get_modeling_guide`는 기존 worker 도구 전달 경로를 사용한다. 연결 후 connection_id가 필요하며 control·binding·receipt 예외를 추가하지 않는다. BASIC·도구별 설명의 JSON text content를 그대로 전달한다. BASIC·도구 소스·설명 Markdown도 session source fingerprint에 포함한다.
+이어서 MCP package의 시작 안내를 제공한다. `project_info`도 원본 도구 설명을 유지하므로 project/document의 단일 live 조회, project의 파일 목록과 연결 상태, locations의 DB·Plan 산출물 경로가 정확히 안내된다. 기본 지침은 `get_modeling_guide`에서 조회한다.
+`get_modeling_guide`는 기존 worker 도구 전달 경로를 사용한다. 연결 후 connection_id가 필요하며 control·binding·receipt 예외를 추가하지 않는다. BASIC과 선택적 내장 스크립팅 자료의 JSON text content를 그대로 전달한다. 툴별 원문 조회 인자는 없으며 개별 설명 전문은 tools/list·외부 catalog에서 제공한다. BASIC·도구 소스·설명 Markdown도 session source fingerprint에 포함한다.
 안내 조회 계약과 갱신 절차는 [MCP SPEC](../mcp/SPEC.md#모델링-안내-전달)을 따른다.

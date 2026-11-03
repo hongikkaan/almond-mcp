@@ -12,7 +12,7 @@ from almond_mcp.features.context.tools import register
 
 
 @pytest.mark.parametrize("name,arguments", [
-    ("get_rhino_objects", {"scope": "not-a-scope"}),
+    ("get_objects", {"scope": "not-a-scope"}),
     ("get_object_intersections", {"object_ids": []}),
 ])
 def test_invalid_observation_input_sets_mcp_error_without_native_dispatch(name, arguments):
@@ -29,7 +29,7 @@ def test_invalid_observation_input_sets_mcp_error_without_native_dispatch(name, 
 
 
 @pytest.mark.parametrize("name,arguments", [
-    ("get_rhino_objects", {}),
+    ("get_objects", {}),
     ("get_object_intersections", {"object_ids": [str(UUID(int=1))]}),
 ])
 def test_native_observation_error_keeps_details_and_sets_mcp_error(name, arguments):
@@ -38,7 +38,7 @@ def test_native_observation_error_keeps_details_and_sets_mcp_error(name, argumen
 
     def send(raw):
         if json.loads(raw)["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"object_observation": 2, "intersection_queries": 1}})
+            return json.dumps({"status": "success", "capabilities": {"object_observation": 3, "intersection_queries": 1}})
         return json.dumps(error)
 
     tools = register(FastMCP("observation-error-test"), SimpleNamespace(_send_and_receive=send))
@@ -65,7 +65,7 @@ def test_unfinished_intersections_keep_unknown_pairs_and_cursor_without_hard_err
 
 
 @pytest.mark.parametrize("name,arguments", [
-    ("get_rhino_objects", {"scope": "not-a-scope"}),
+    ("get_objects", {"scope": "not-a-scope"}),
     ("get_object_intersections", {"object_ids": []}),
 ])
 def test_mcp_client_receives_the_error_flag_and_original_json(name, arguments):

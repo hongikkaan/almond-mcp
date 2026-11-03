@@ -69,7 +69,10 @@ namespace RhinoAlmondBridge
             catch (Exception error) { return Error("component_intersection_error", error, false); }
         }
 
-        public static JObject IsolateAndZoomSelected(RhinoDoc doc, Guid[] objectIds)
+        public static JObject IsolateAndZoomSelected(RhinoDoc doc, Guid[] objectIds) => FocusObjects(doc, objectIds, true);
+
+        // Shared by Holon focus and current-view capture; geometry type is not filtered.
+        public static JObject FocusObjects(RhinoDoc doc, Guid[] objectIds, bool isolate)
         {
             bool started = false;
             try
@@ -92,9 +95,9 @@ namespace RhinoAlmondBridge
                     ["status"] = "success", ["model_path"] = doc.Path,
                     ["viewport_id"] = viewportId.ToString("D"),
                     ["selected_ids"] = new JArray(objects.Select(o => o.Id.ToString("D"))),
-                    ["isolated"] = true, ["zoom_selected"] = true,
-                    ["locked_context_remains_visible"] = true,
-                    ["restore_visibility_command"] = "Unisolate"
+                    ["isolated"] = isolate, ["zoom_selected"] = true,
+                    ["locked_context_remains_visible"] = isolate,
+                    ["restore_visibility_command"] = isolate ? "Unisolate" : null
                 });
                 started = true;
                 doc.Objects.UnselectAll();
@@ -102,7 +105,7 @@ namespace RhinoAlmondBridge
                     if (obj.Select(true, true, true, false, false, false) == 0)
                         throw new InvalidOperationException("Rhino could not select target: " + obj.Id);
                 // Fixed Rhino command preserves its native Isolate/Unisolate bookkeeping.
-                if (!RhinoApp.RunScript("_Isolate", false))
+                if (isolate && !RhinoApp.RunScript("_Isolate", false))
                     throw new InvalidOperationException("Rhino did not complete Isolate.");
                 if (RhinoDoc.ActiveDoc?.RuntimeSerialNumber != doc.RuntimeSerialNumber ||
                     doc.Views.ActiveView?.ActiveViewport.Id != viewportId)

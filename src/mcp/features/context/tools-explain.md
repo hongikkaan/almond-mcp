@@ -3,43 +3,39 @@
 ## get_retrieval_status
 
 <!-- instruction:get_retrieval_status -->
-Returns compact diagnostics for the local structured retrieval system.
-This is an intrinsically bounded diagnostic: fixed scalar counts/status and configured index names, not asset records.
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+When to use: Diagnose the local retrieval indexes when library availability or search behavior is unclear.
+Before calling: No other tool or live Rhino query is required; this is not a mandatory connection preflight when retrieval is already understood.
+Inputs from earlier results: No target handle is needed. include_ids=true requests any diagnostic identities that the default response omits; it does not request asset records.
+Interpretation: Read the fixed counts/status for the SQLite cache, drawing manifest, current model manifests and model states, configured retrieval mechanisms and embedding adapter. Use the relevant search/list tool next if actual library records are needed.
+Limits: ready describes the retrieval system, not proof that every model file is present, placeable or correct. The response is intrinsically bounded and contains no asset list or geometric/scene validation; supplied target IDs are not echoed.
+
 <!-- /instruction:get_retrieval_status -->
 
 ## get_rhino_context
 
 <!-- instruction:get_rhino_context -->
-Read selected LIVE Rhino context on the UI thread. sections accepts document, selection, viewport, editor and display_modes; default is ["document"]. Unrequested sections are not collected.
-Document/selection/viewport responses also contain compact editor mode/target/stable so isolation is immediately visible. Request editor for provider evidence and warnings; sections=[] skips editor observation for capability-only calls.
-editor reports mode (model/group/block/unknown), the known target and stable. Only a verified normal model is stable; active isolation, transitions and unsupported editor versions are unstable. Unknown target identity remains null, never inferred from selection.
-display_modes lists at most 128 installed mode names/GUIDs. Shaded, Dark and CadWhite are choices only if actually installed; do not invent aliases for custom modes.
-
-Includes document identity/path, units/tolerances, object/layer counts, a bounded selection summary and camera/display metadata. This query does not create layers, geometry, dimensions or an Undo record. Unavailable values are null with warnings.
-Counts and the current view are context, not a geometric or visibility validation.
-Request only the context needed for the task. project_info already verifies the live document; do not repeat this call merely to check whether that document is live.
+When to use: Read needed live document properties, editing state or available view/display-mode catalogues.
+Before calling: No preceding call is required for unknown context. Reuse known information; project_info already checks the live document and provides its filename/path. Requires the matching Bridge with context_sections>=2.
+Inputs from earlier results: sections selects document, viewport, editor, named_views, layouts, display_modes or viewports. Omit sections for document/named_views/layouts/display_modes. Named View/Layout/Display Mode IDs are always returned, including with include_ids=false. include_ids controls other identities. Request editor with include_editor_details=true for provider, command and Undo evidence.
+Interpretation: Explicit sections return only those sections; sections=[] returns status/warnings. next_step appears only when sections is omitted. Document angle_tolerance is in radians; absolute_tolerance uses document units. editor normally returns mode/target/stable/warnings; only a verified normal model is stable, unknown target identity stays null. Use get_objects(scope="selected") for selected entities and a capture tool for images.
+Limits: No document or file writes. Counts and camera state do not establish geometric or pixel-visibility correctness. Unavailable observations are null with warnings. No implicit editor query accompanies document or viewport. display_modes is capped at 128 with a warning; use actually listed modes rather than invented aliases. include_editor_details does not implicitly request editor.
 
 Args:
-    selection_limit: Maximum selected object summaries, from 0 to 200; total/truncated are still reported.
-    recursive: False by default: summarize complete top-level groups and block instances.
-        True expands nested members only to depth; partial groups remain object selections.
-    depth: 1..8, default 1. IDs are omitted unless include_ids=true.
-    include_image: False keeps the JSON-only response. True returns JSON text first and
-        the current PNG from the same native UI call. An image_error preserves available
-        context when capture fails. image_file reports the same PNG's managed file, or a
-        separate storage error without removing a successful image.
+    sections: Optional section names; omitted requests document, named_views, layouts and display_modes.
+    include_ids: Include identities outside the always-identified Named View/Layout/Display Mode catalogues.
+    include_editor_details: Include provider/command/Undo evidence only when editor is requested.
 Returns:
-    JSON with status, document, selection, viewport and warnings, or an explicit error.
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+    JSON status/warnings and requested sections. No images, document filename or path.
 <!-- /instruction:get_rhino_context -->
 
 ## analyze_block_reculviely
 
 <!-- instruction:analyze_block_reculviely -->
-Read nested block structure or resolve a block occurrence without modifying the document.
-
-Requests and responses are bounded to 256 KiB of UTF-8 JSON. Unknown, unsupported and truncated observations remain unverified. Requires Bridge block_analysis=1.
+When to use: Inspect nested block structure or resolve an occurrence path when top-level object observations are insufficient.
+Before calling: Reuse known top-level block GUIDs or obtain them from get_objects(include_ids=true). No lookup is required for an already defined selected/viewport/document outline scope. Requires Bridge block_analysis=1; the tool checks support internally.
+Inputs from earlier results: For outline pass options.ids or a previously observed options.path, or choose scope with depth/output budgets. Request options.field_groups for summary, objects, annotations or transforms and include_ids=true when the returned handles/path will feed another call. resolve-block takes only an explicit path of 1..65 GUIDs from the top-level instance inward; use the observed occurrence path, not a definition GUID. expected_model_path is normally supplied by the runtime.
+Interpretation: Read mode, document identity/units/tolerance and the returned data as bounded structure/occurrence evidence. After truncation narrow the IDs/path/depth; max_items also bounds eligible visits and may report reason=max_visits. Geometry and annotation details require their explicit options.
+Limits: Does not modify the document or certify unknown, unsupported or truncated observations. Requests and responses are capped at 256 KiB of UTF-8 JSON. IDs are omitted by default and supplied target IDs are not echoed; outline field_groups must be a nonempty supported list when supplied.
 
 Args:
     mode: outline traverses objects and nested definitions; resolve-block finds
@@ -56,88 +52,75 @@ Returns:
     JSON with status, mode, document identity/units/tolerance and data, or an explicit error.
 <!-- /instruction:analyze_block_reculviely -->
 
-## get_rhino_viewport_image
+## get_defined_viewcapture
 
-<!-- instruction:get_rhino_viewport_image -->
-Return a Rhino viewport, Named View or Layout as a PNG image, without activating it.
-
-Omit view to capture the current view. Pass view="a" to list viewports, named_views, and layouts, with only name and guid for each entry. Then pass the desired GUID as view.
-Names need not be unique. Named Views render the saved camera off screen using Shaded by default; they never replace the visible viewport. Layouts capture the paper area, including its details, not the surrounding workspace. A current Layout also captures its paper, even when a detail is active.
-
-For capture resolution and Layout print appearance, follow [BASIC-INSTRUCTIONS.md](../../BASIC-INSTRUCTIONS.md#get_rhino_viewport_image-화면으로-관찰하기).
-The validated PNG is saved under the selected Plan's artifacts/captures, or connection-owned scratch when no Plan is selected. image_file reports a project-relative path, bytes, SHA256 and lifetime; storage failure leaves the image available. Capture does not change camera, selection or Undo state, or prove geometric correctness. A failed or oversized image is an error, never a silently resized image.
+<!-- instruction:get_defined_viewcapture -->
+When to use: Capture a known Named View or actual Layout paper without activating it or changing the working camera.
+Before calling: No preceding query is needed for a known name/ID. Obtain unknown Named View/Layout names and IDs from get_rhino_context. Requires view_capture=1; the tool checks this internally.
+Inputs from earlier results: target_kind is named_view or layout, and target is its name or ID. Ambiguous names are errors; use a unique listed ID. Those two inputs suffice. Optional display_mode uses an installed name/ID for Named Views. The runtime supplies expected_model_path for the bound document.
+Interpretation: Returns a PNG and image_file metadata (relative path, bytes, SHA256, lifetime or separate storage failure). Named Views use their saved camera and default Shaded mode. Layouts render the paper and details with print colors/widths, their actual paper proportions and 144 dpi as the 100% reference. Neither capture activates the saved view or changes the model.
+Limits: Layouts retain each detail's mode and reject display-mode or explicit-pixel overrides. scale_percent is the desired upper bound, default 75; oversized defined-view PNGs are reduced automatically, with a warning and actual usage dimensions, to fit 16 megapixels/4 MiB. Explicit Named View pixels are never silently resized. No live camera/selection/visibility edits; file writes are additive. Labels default false; optional overlays are bounded to 200 and Layout detail labels are unavailable. Realtime display modes cannot be independently rendered.
 
 Args:
-    view: Empty for current view, "a" for the grouped list, or a listed GUID.
-    scale_percent: Integer from 1 to 100; default 75. Choose sufficient resolution for the intended reading. Controls pixels, not a Layout Detail's drawing scale.
-    width, height: Optional explicit output pixels, both 128..2048 with scale_percent=100.
-        Supported for model view/Named View/group/block with capture_output_size=1;
-        the live window is not resized. Layouts reject these options and retain 144 dpi.
-    include_usage: False returns the image and file metadata. True also returns dimensions and an
-        illustrative token estimate (32px patches x 1.2, without provider resizing).
-        Actual usage depends on the client's model and detail setting, which MCP
-        does not supply. PNG compression reduces bytes, not pixel-token counts.
-    display_mode: Installed display mode name or GUID. Empty preserves the current
-        model viewport mode; Named View/group/block captures default to Shaded. List
-        available modes with get_rhino_context(sections=["display_modes"], include_ids=true).
-        Realtime rendering modes such as Raytraced are rejected; this tool does not
-        wait for asynchronous rendering to finish.
-    labels: True by default. Transient pixels show top-level group name/GUID, block
-        instance name/GUID and ungrouped object GUID, without creating document objects.
-        At most 200 labels; explicit smaller targets/depth narrow a truncated overlay.
-    depth: 1..8, default 1; higher values expose nested entity labels.
-    target_kind: view (default), group or block. group/block frame target bounds in a
-        detached viewport and label that target; surrounding geometry stays visible.
-    target_id: Persistent group GUID or block instance GUID for group/block; leave view
-        empty. Definition GUIDs are not block instance targets.
-    Layouts retain each detail's mode, reject a mode override, and explicitly warn that
-        detail labels are unavailable; capture a Named View/model viewport for labels.
+    target_kind: named_view or layout.
+    target: Existing name or ID; case-insensitive name matches must be unique.
+    scale_percent: 1..100, default 75. Desired upper bound; percentage captures may shrink to fit the delivery budget.
+    include_usage: Include actual dimensions and an illustrative pixel-based token estimate, not measured usage.
+    display_mode: Installed mode name/ID for Named Views; empty uses Shaded. Layouts reject overrides.
+    labels: Optional transient entity labels; default false.
+    depth: Entity-label expansion depth 1..8.
+    width, height: Optional Named View pixels, both 128..2048 with scale_percent=100. Not used for Layouts.
+    expected_model_path: Usually omitted; runtime supplies the bound model.
 Returns:
-    One MCP PNG image and image_file metadata, optional warnings/usage, or the grouped name/GUID list for view="a".
-    Images are limited to 16 megapixels and 4 MiB. PNG files are additive writes, so capture-capable tools do not advertise MCP readOnlyHint; the Rhino document remains unchanged.
-<!-- /instruction:get_rhino_viewport_image -->
-<!-- instruction:get_rhino_objects -->
+    PNG image and image_file metadata, plus warnings/usage when applicable.
+<!-- /instruction:get_defined_viewcapture -->
 
-읽기 전용으로 일반 모델 객체의 범위·속성·그룹·형상을 조회한다. `scope`는 현재 문서 가시 객체 `visible`(기본값), `selected`, 명시 GUID `ids`, 숨긴 객체를 포함한 `document` 중 선택한다. `object_ids`는 `ids`에서만 1..4096개를 받는다. 그룹이나 블록 내부로 자동 확장하지 않는다.
+## get_current_viewcapture
 
-`result_mode="summary"`는 필터된 집합에서 실제 객체가 있는 레이어·객체 유형·형상 종류별 개수와 가시 수만 반환한다. `objects`(기본값)는 개별 객체를 반환한다. 필요한 정보가 정해져 있으면 `fields`로 골라 받는다. `fields=["id"]`는 별도의 `include_ids` 설정 없이 GUID만 반환하며, `id`, `name`, `layer_path`, `object_type`, `geometry_kind`, `geometry_crc`, `visible`, `selected`, `hidden`, `locked`, `bounds`, `groups`, `user_dictionary`를 조합할 수 있다. 생략하면 기존 기본 정보를 반환하고 GUID는 `include_ids=true`일 때 포함한다. 요약·필드 선택·면 페이지와 유형 필터는 Bridge `object_observation>=2`가 필요하다.
+<!-- instruction:get_current_viewcapture -->
+When to use: Capture the current model viewport, optionally selecting and zooming to several targets in the actual Rhino screen and isolating them there.
+Before calling: No preceding query is required for the current screen. For targets, reuse observed object/group/Holon IDs; get_objects can supply missing object IDs. An active Layout requires switching to a model viewport, or get_defined_viewcapture for its paper. Requires view_capture=1.
+Inputs from earlier results: target_ids accepts multiple IDs. target_kind=object accepts mixed Rhino geometry types, including block instances, without a geometry-type allowlist; block is the same object-ID route. group expands current group members; holon resolves live effective members. isolate defaults false and requires targets. Targets must currently exist and be selectable by Rhino; hidden/locked objects are not automatically shown or unlocked.
+Interpretation: No arguments captures the current screen as is. Targets replace the live selection and apply Zoom Selected; isolate=true first invokes Rhino's native Isolate. The screen remains at that camera/selection/visibility after capture. A display_mode override also changes the live viewport. image_file reports managed PNG storage independently of image success. view_change/mutation_applied preserve completed or uncertain screen changes even when capture fails; never retry an uncertain mutation automatically.
+Limits: Object shape/type is unrestricted; IDs must refer to current model-space objects, not Layout objects or block-definition members. The shared focus operation accepts at most 4096 resolved objects. Invalid input/targets are rejected before selection changes. Native Isolate retains locked context and supports Unisolate; no custom renderer or geometry duplication is used. The native command owns its Undo history. No 3DM save occurs. labels defaults false; optional labels are transient, bounded to 200, with depth 1..8. PNG is capped at 16 megapixels/4 MiB; image/storage failure does not undo screen changes. Realtime mode overrides are rejected before changes.
 
-`filters` 조건은 AND로 결합한다. `layer_paths`는 전체 레이어 경로 1..64개의 정확한 일치, `object_types`는 조회된 `object_type` 이름 1..32개, `name_contains`는 이름 부분 문자열이며 대소문자를 구분하지 않는다. `user_dictionary`는 `{source: "attributes" 또는 "geometry", key: 키, any_of: [값들]}` 조건 배열이다. scalar 또는 배열의 원소와 정확히 비교하며 문자열을 임의로 분할하거나 층 정보를 추론하지 않는다. 메타데이터 필터를 건축 요소의 정체성과 동일시하지 않는다.
+Args:
+    target_ids: Optional nonempty string array of object, group or Holon IDs. Duplicate resolved objects are selected once.
+    target_kind: object (default), group, block (ordinary object IDs), or holon; this selects the ID namespace, not allowed geometry types.
+    isolate: False by default. True invokes actual Rhino Isolate before Zoom Selected; use Unisolate to restore visibility.
+    scale_percent: 1..100, default 75; changes image resolution, not viewport window size.
+    include_usage: Include dimensions and an illustrative pixel-token estimate, not measured usage.
+    display_mode: Optional installed raster mode name/ID; changes the live model viewport when supplied.
+    labels: Optional transient labels; default false. The selection highlight remains Rhino's normal display.
+    depth: Label expansion depth 1..8.
+    width, height: Optional image pixels, both 128..2048 with scale_percent=100; does not resize the Rhino window.
+    expected_model_path: Usually omitted; runtime supplies the bound model.
+Returns:
+    PNG image and image_file metadata; requested live changes also return their outcome. Errors preserve mutation uncertainty.
+<!-- /instruction:get_current_viewcapture -->
+<!-- instruction:get_objects -->
+When to use: Read the actual object set, properties, grouping or Brep faces needed to choose targets or verify a modeling decision without changing Rhino.
+Before calling: No preceding call is needed to discover visible, selected or document objects. Reuse known object GUIDs with scope="ids", or actual Rhino group GUIDs (including a Holon's rhino_group_id) with scope="groups". Holon registration is not required. Requires object_observation>=3; the tool checks the loaded Bridge before dispatch.
+Inputs from earlier results: object_ids accepts 1..4096 distinct GUIDs only with scope="ids"; group_ids accepts 1..64 distinct group GUIDs only with scope="groups". Filters select top-level model objects before grouping or block expansion: exact layer_paths/object_types, case-insensitive name_contains and explicit UserDictionary conditions combined with AND. include_ids=true retains identities; fields=["id"] explicitly requests them. Geometry/face details use result_mode="objects" and the observed object GUID/geometry_crc; later face pages require expected_geometry_crcs for all requested IDs. The runtime supplies the bound expected_model_path.
+Interpretation: visible is the default, selected reads current selection, document includes hidden objects, and groups returns the distinct current model-space members of the specified groups. result_mode="objects" is a flat list of document objects; summary counts by layer/object/geometry type. hierarchy summarizes complete groups and blocks, then expand_groups/expand_blocks independently expand them to depth 1..8 (root=1). Explicit group roots remain identifiable after filtering. nodes use number/parent_number to preserve hierarchy even without IDs or across pages. Overlapping/equal-member groups are separate branches; repeated occurrences are not distinct document objects. document_object=false marks block-definition members, identified by root_object_id plus block_path_ids, never standalone edit GUIDs. Their bounds are in world coordinates, metadata comes from the definition, and effective occurrence visible/selected is null. Geometry detail/face editing references are available only in objects mode.
+Limits: No selection, camera, geometry or file writes. Scope and filters do not infer architectural identity, Scene membership, screen pixels or occlusion. Group relations never pull in other groups' outside members. Expansion/depth require hierarchy mode; depth defaults 1 and both expansion flags default false. children_state distinguishes leaf/collapsed/expanded/depth_limit/cycle. complete covers pagination at the requested depth, not unexpanded descendants. Keep scope/options/model unchanged across offset/limit pages and read next_offset; numbers are traversal positions, not persistent handles. Object/hierarchy/summary pages allow 1..200 rows, face pages 1..128 faces, scans/traversals at most 100000 entries, and JSON 256 KiB. fields selects id/name/layer_path/object_type/geometry_kind/geometry_crc/visible/selected/hidden/locked/bounds/groups/user_dictionary; objects additionally allows geometry_valid/solid/manifold/volume/face_count/faces or include_geometry. Explicit fields override include_geometry. UserDictionary filters use source=attributes|geometry, key, scalar any_of; values are not split or inferred. Metadata omissions and unfinished pages remain explicit; errors retain evidence with MCP isError=true.
 
-예: `get_rhino_objects(scope="document", filters={"user_dictionary":[{"source":"attributes","key":"Floor","any_of":["층A"]}]}, fields=["id","user_dictionary"])`는 Floor의 scalar 값 또는 배열 원소가 `"층A"`인 객체를 조회한다. 층 이름은 실제 값으로 바꾼다. 키의 존재나 필터 일치는 실제 층 소속의 정확성을 보증하지 않는다. 배열 쓰기는 `get_modeling_guide(tool="execute_rhino_script")`의 예를 따른다.
-
-기본 객체 응답은 문서 가시성·선택 여부·bbox·원본 `geometry_crc`·두 UserDictionary·그룹을 포함한다. 그룹의 `members_outside_match_count`와 문서의 `visible_outside_match_count`는 조회 범위 밖의 관계를 드러낸다. `visible`은 Rhino의 문서/레이어 가시성으로, 화면의 픽셀·가림·clipping 결과를 보증하지 않는다.
-
-`include_geometry=true`면 Brep의 유효성·solid·manifold·체적과 면 정보를 추가한다. 기하 정보도 `fields`의 `geometry_valid`, `solid`, `manifold`, `volume`, `face_count`, `faces`로 선택할 수 있으며 명시한 fields가 우선한다. `faces`에는 원본 ID·CRC와 `face_page`를 함께 반환한다. `face_limit`은 1..128, `face_offset`은 면 시작 위치다. 다음 면 페이지는 `scope="ids"`, 대상 ID들과 이전 `geometry_crc`를 담은 `expected_geometry_crcs={GUID: CRC}`로 요청하며 형상이 바뀌면 거절한다. 면의 `face_edit_supported`는 사전 판별이며 실제 편집 성공 보장은 아니다.
-
-바깥 `offset`/`limit`(1..200), `next_offset`, `complete`는 객체 또는 요약행의 페이지이고, 각 객체의 `face_page`는 그 객체의 면 페이지다. 응답은 256 KiB, 문서 스캔은 100000개로 제한하며 초과하면 범위·필드·페이지 크기를 줄여 조회한다. 가시 범위와 그룹의 범위 밖 관계는 실제로 반환된 필드에 근거해 읽는다.
-
-명시적 `status="error"`는 같은 상세 JSON을 유지하면서 MCP `isError=true`로 반환한다. 미완료 페이지를 오류나 전체 검증 완료로 바꾸지 않는다.
-
-<!-- /instruction:get_rhino_objects -->
+<!-- /instruction:get_objects -->
 
 <!-- instruction:get_object_intersections -->
-
-명시 GUID 1..512개의 닫힌 Brep·Extrusion·방향이 정해진 manifold Mesh의 체적 교차를 읽기 전용으로 검사한다. Component 등록은 필요 없다. `max_pairs`(1..64)는 한 페이지의 후보쌍 계산 수다. `include_blocks=true`면 중첩 블록의 배치 변환을 적용한 구성원도 검사하며 정의는 수정하지 않는다. Disjoint Mesh는 문서에서 분해·재결합할 필요가 없다. Brep/Mesh 혼합 쌍은 임시 메싱에 의한 근사임을 결과에 표시한다.
-
-`next_cursor`를 같은 대상과 함께 전달하면 나머지 후보를 이어 검사한다. 형상·범위가 바뀌면 cursor가 거절된다. 페이지 결과를 합쳐 읽고, `pagination_complete`는 후보 열거의 끝, `complete`는 이번 응답만으로 전체 범위가 확인됐는지를 뜻한다. 미지원·판정 불명·미검사는 무교차가 아니다. 각 쌍의 `a.handle`, `b.handle`, `pair_state`는 ID 표시 옵션과 무관하게 반환되며 `show_object_intersection`·`resolve_object_intersection`의 입력으로 쓴다. 그룹은 대상을 자동 추가하지 않는다.
-
-명시적 `status="error"`는 MCP `isError=true`와 일치시킨다. 정상 페이지의 `unknown`·`complete=false`·`next_cursor`는 그대로 보존한다.
+When to use: Check volume overlap among identified closed solid objects without requiring Component registration or modifying the document.
+Before calling: Reuse known current object GUIDs or obtain them from get_objects(include_ids=true/fields=["id"]). Choose the explicit scope rather than assuming group membership adds targets.
+Inputs from earlier results: Pass 1..512 object_ids; max_pairs=1..64 bounds candidate-pair calculations per page. Reuse next_cursor with exactly the same targets to continue; a geometry/scope change invalidates the cursor. include_blocks=true expands transformed nested block members without changing definitions.
+Interpretation: Combine required pages and distinguish pagination_complete (candidate enumeration finished) from complete (this response alone verifies the whole scope). Each pair's a.handle, b.handle and pair_state are supplied independently of ID-display settings; pass that same observation to show_object_intersection or resolve_object_intersection if a later authorized display/edit is needed. Read unsupported/unknown/unexamined outcomes instead of treating them as clear pairs.
+Limits: Supports closed Breps/Extrusions and oriented manifold Meshes. Brep/Mesh mixing uses temporary meshing and is explicitly approximate; disjoint Meshes need not be split/rejoined in the document. This is volume-overlap evidence, not clearance, design suitability or code compliance. status="error" maps to MCP isError=true; normal unknown/complete=false/next_cursor values remain normal evidence and must not be rewritten as no intersection.
 
 <!-- /instruction:get_object_intersections -->
 
 <!-- instruction:capture_rhino_inspection -->
-
-지정한 여러 시점과 객체집합을 하나의 PNG에 담으며 Rhino 문서를 바꾸지 않는 캡처다. `views`는 1..16개 tile로, 각 항목은 `object_ids`, `direction`, `display_mode`, `label`을 받는다. tile별 명시 `object_ids`는 서로 다른 최상위 GUID 1..512개이며, 생략 또는 `[]`는 기존 문서 가시 범위다. 모든 tile에 같은 집합을 쓰면 최상위 `object_ids`(1..4096개)를 한 번 전달한다. 이 공통 집합의 `[]`는 오류이며 문서 전체로 확대하지 않는다. 공통 집합과 비어 있지 않은 tile별 집합은 혼용하지 않는다. 공통 집합에는 `inspection_shared_scope=1`이 필요하며 응답 `shared_scope`의 전체 GUID·총수와 tile의 `scope.shared_scope_ref`가 대응한다. 현재 선택·카메라·숨김 상태를 바꾸지 않는다.
-
-기본 카메라는 연결 문서의 활성 모델뷰다. `model_view_id`에 기존 모델 viewport GUID를 지정하면 활성 Layout·Detail을 유지한 채 그 모델뷰를 복사한다(`inspection_model_view=1` 필요). Layout이 활성인데 모델뷰를 지정하지 않으면 `layout_not_supported`다. `editor.mode="model"`, `stable=true`가 필요하며 group/block 편집이나 미확인 상태는 `editing_context_unverified`다. Layout 용지는 `get_rhino_viewport_image(view=Layout_GUID)`로 캡처한다.
-
-`direction`은 `current`, `top`, `bottom`, `front`, `back`, `left`, `right`, `iso_ne`, `iso_nw`, `iso_se`, `iso_sw`, `below_ne`, `below_nw`, `below_se`, `below_sw` 중 선택한다. 필요한 시점만 요청한다. `display_mode` 생략 시 현재 모드를 쓰며, 이름이 중복되면 `get_rhino_context(sections=["display_modes"], include_ids=true)`에서 확인한 GUID를 사용한다. 각 tile의 메타데이터와 오류를 읽고 이미지의 실제 범위를 확인한다.
-
-`width`/`height`는 tile 픽셀 크기(128..2048, 기본 640×480), `columns`는 배치 열 수다. 합계 16M 픽셀과 PNG 4 MiB를 넘으면 크기나 tile 수를 줄인다. 명시 필터에서 블록 인스턴스·블록 내부 객체는 지원하지 않으며 해당 tile 오류로 보고한다. 필터를 생략한 전체 범위에서는 블록을 원래대로 표시한다.
-
-최상위 `complete`는 요청한 tile의 캡처 성공 여부, `scope.complete`는 요청 GUID가 문서 가시 범위에 포함됐는지를 뜻한다. 실제 픽셀 노출이나 설계 적합성을 보증하지 않는다. 부분 성공이면 정상 이미지와 tile별 오류를 함께 읽고, 조회 preview나 일부 GUID만 캡처한 결과를 전체 범위로 해석하지 않는다.
-
-PNG는 이미지 content를 유지하면서 관리된 파일로도 저장한다. `image_file`은 상대 경로·bytes·SHA256·plan/connection 보존 수명 또는 저장 실패를 별도로 반환한다. 요청은 256 KiB, 이미지 외 메타데이터는 512 KiB 이내이며 상한 초과를 조용히 잘라내지 않는다.
+When to use: Compare several specified viewpoints or object sets in one PNG when visual evidence beyond a single current viewport is needed.
+Before calling: Reuse known GUIDs and view/mode choices; obtain missing targets through get_objects and unknown modes through get_rhino_context(sections=["display_modes"], include_ids=true). Requires a verified stable model editor context; group/block or unknown editing is rejected. No separate context refresh is mandatory if the needed information is already current.
+Inputs from earlier results: views contains 1..16 tiles with direction, display_mode, label and optional distinct top-level object_ids (1..512). An omitted/empty tile set uses existing document visibility. Alternatively pass one common top-level object_ids set (1..4096, never empty) for all tiles with inspection_shared_scope=1; do not mix it with nonempty tile-level sets. model_view_id can reuse a listed model viewport GUID to preserve an active Layout/Detail, with inspection_model_view=1. Runtime normally supplies expected_model_path.
+Interpretation: Read the image with each tile's metadata/errors. Top-level complete means the requested tiles captured; scope.complete concerns requested GUIDs being in document-visible scope, not pixel exposure or design correctness. Common-scope GUIDs/count are returned once in shared_scope and referenced by scope.shared_scope_ref. Partial success retains usable tiles and tile errors. image_file supplies a managed relative path, bytes, SHA256 and Plan/connection lifetime or a separate storage error while image content remains available.
+Limits: Camera/selection/hidden state and document content are unchanged; PNG storage is additive, not a 3DM save. Filtered tiles reject block instances/interior objects, while unfiltered visible scope renders blocks normally. An active Layout without model_view_id gives layout_not_supported; use get_defined_viewcapture(target_kind="layout", target=Layout_ID) for paper. direction accepts current, top/bottom/front/back/left/right, iso_ne/nw/se/sw and below_ne/nw/se/sw. Tile pixels are 128..2048 each (default 640x480), columns controls layout; combined output is capped at 16M pixels/4 MiB PNG. Requests are 256 KiB and non-image metadata 512 KiB; oversize data is not silently truncated. A preview or subset capture cannot establish full-scope visibility.
 
 <!-- /instruction:capture_rhino_inspection -->

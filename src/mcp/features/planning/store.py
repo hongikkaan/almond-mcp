@@ -8,6 +8,7 @@ import uuid
 from typing import Any
 
 from almond_mcp.store_common import _utc_now, _json, _decode
+from almond_mcp.features.planning.updates import StringListPatch, PlanningUpdate, apply_list_patch
 
 
 class PlanningStore:
@@ -30,6 +31,7 @@ class PlanningStore:
         initialize_workflow(connection)
         additions = {
             "generation_plans": {
+                "title": "TEXT NOT NULL DEFAULT ''",
                 "phase_id": "TEXT REFERENCES generation_phases(phase_id) ON DELETE RESTRICT",
                 "revision": "INTEGER NOT NULL DEFAULT 0",
                 "depends_on_json": "TEXT NOT NULL DEFAULT '[]'",
@@ -38,6 +40,9 @@ class PlanningStore:
             },
             "generation_plan_steps": {
                 "component_refs_set": "INTEGER NOT NULL DEFAULT 0 CHECK(component_refs_set IN (0, 1))",
+            },
+            "generation_phases": {
+                "depends_on_json": "TEXT NOT NULL DEFAULT '[]'",
             },
         }
         for table, columns in additions.items():
@@ -93,6 +98,8 @@ class PlanningStore:
                     (plan_id, revision, operation, snapshot_json, created_at)
                 VALUES (?, ?, 'migration_baseline', ?, ?)
             """, (row["plan_id"], snapshot["revision"], _json(snapshot), _utc_now()))
+        from almond_mcp.features.planning.schema import initialize_planning_details
+        initialize_planning_details(self, connection)
 
     @staticmethod
     def _generation_text(value: str, field: str, *, allow_empty: bool = False) -> str:
@@ -116,11 +123,9 @@ class PlanningStore:
         return list(dict.fromkeys(value.strip() for value in values))
 
     @staticmethod
-    def _related_ids(values: list[str]) -> list[str]:
-        # These are free references, not an execution graph or foreign keys.
-        if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
-            raise ValueError("depends_on must be an array of strings, not a comma-separated string.")
-        return list(values)
+    def _related_ids(values: list[str], kind: str = "plan") -> list[str]:
+        from almond_mcp.features.planning.schema import same_kind_ids
+        return same_kind_ids(values, kind)
 
     @staticmethod
     def _generation_limit(limit: int) -> int:
@@ -177,24 +182,30 @@ class PlanningStore:
         if not row:
             return None
         result = dict(row)
+        result["depends_on"] = _decode(result.pop("depends_on_json"), [])
         result["plan_count"] = connection.execute(
             "SELECT COUNT(*) FROM generation_plans WHERE phase_id = ?", (phase_id,)
         ).fetchone()[0]
+        from almond_mcp.features.planning.schema import default_plan_title
+        result["plan_titles"] = [row["title"] or default_plan_title(row["goal"]) for row in connection.execute(
+            "SELECT title,goal FROM generation_plans WHERE phase_id=? ORDER BY created_at,plan_id", (phase_id,))]
         return result
 
-    def create_phase(self, name: str, description: str = "", file_name: str = "", project_file_id: str | None = None, status: str = "pending") -> dict[str, Any]:
+    def create_phase(self, name: str, description: str = "", file_name: str = "", project_file_id: str | None = None,
+                     status: str = "pending", depends_on: list[str] | None = None) -> dict[str, Any]:
         name = self._generation_text(name, "name")
         description = self._generation_text(description, "description", allow_empty=True)
         file_name = self._generation_text(file_name, "file_name", allow_empty=True)
         status = self._generation_status(status)
+        depends_on = self._related_ids([] if depends_on is None else depends_on, "phase")
         phase_id = f"phase_{uuid.uuid4().hex[:12]}"
         now = _utc_now()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             file_id = self._project_file_reference(connection,file_name,project_file_id)
             connection.execute(
-                "INSERT INTO generation_phases(phase_id, name, description, created_at, updated_at, project_file_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (phase_id, name, description, now, now, file_id, status),
+                "INSERT INTO generation_phases(phase_id, name, description, created_at, updated_at, project_file_id, status, depends_on_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (phase_id, name, description, now, now, file_id, status, _json(depends_on)),
             )
             result = self._read_generation_phase(connection, phase_id)
         return result
@@ -218,7 +229,15 @@ class PlanningStore:
     def update_phase(
         self, phase_id: str, name: str | None = None, description: str | None = None,
         file_name: str | None = None, project_file_id: str | None = None, status: str | None = None,
+        depends_on: list[str] | None = None,
     ) -> dict[str, Any]:
+        return self.edit_phase(phase_id, name, description, file_name, project_file_id, status, depends_on).record
+
+    def edit_phase(
+        self, phase_id: str, name: str | None = None, description: str | None = None,
+        file_name: str | None = None, project_file_id: str | None = None, status: str | None = None,
+        depends_on: list[str] | StringListPatch | None = None,
+    ) -> PlanningUpdate:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             current = self._read_generation_phase(connection, phase_id)
@@ -230,13 +249,19 @@ class PlanningStore:
             )
             file_id = current['project_file_id'] if file_name is None and project_file_id is None else self._project_file_reference(connection,file_name or '',project_file_id)
             status = current['status'] if status is None else self._generation_status(status)
-            if (name,description,file_id,status) != (current['name'],current['description'],current['project_file_id'],current['status']):
+            issues = []
+            if isinstance(depends_on, StringListPatch):
+                depends_on, issues = apply_list_patch(current['depends_on'], depends_on, "depends_on", kind="phase")
+            else:
+                depends_on = current['depends_on'] if depends_on is None else self._related_ids(depends_on, "phase")
+            changed = (name,description,file_id,status,depends_on) != (current['name'],current['description'],current['project_file_id'],current['status'],current['depends_on'])
+            if changed:
                 connection.execute(
-                    "UPDATE generation_phases SET name = ?, description = ?, project_file_id = ?, status = ?, updated_at = ? WHERE phase_id = ?",
-                    (name, description, file_id, status, _utc_now(), phase_id),
+                    "UPDATE generation_phases SET name = ?, description = ?, project_file_id = ?, status = ?, depends_on_json = ?, updated_at = ? WHERE phase_id = ?",
+                    (name, description, file_id, status, _json(depends_on), _utc_now(), phase_id),
                 )
             result = self._read_generation_phase(connection, phase_id)
-        return result
+        return PlanningUpdate(result, changed, issues)
 
     def _read_generation_plan(self, connection, plan_id) -> dict[str, Any] | None:
         row = connection.execute(
@@ -245,6 +270,10 @@ class PlanningStore:
         if not row:
             return None
         result = dict(row)
+        from almond_mcp.features.planning.schema import default_plan_title
+        result["title"] = result["title"] or default_plan_title(result["goal"])
+        phase = connection.execute("SELECT phase_id,name FROM generation_phases WHERE phase_id=?", (result["phase_id"],)).fetchone()
+        result["phase"] = dict(phase) if phase else None
         result["depends_on"] = _decode(result.pop("depends_on_json"), [])
         result["artifact_refs"] = _decode(result.pop("artifact_refs_json"), [])
         for table, field, key in (
@@ -254,12 +283,6 @@ class PlanningStore:
             result[key] = [item[field] for item in connection.execute(
                 f"SELECT {field} FROM {table} WHERE plan_id = ? ORDER BY position", (plan_id,)
             )]
-        component_refs: dict[str, list[str]] = {}
-        for item in connection.execute(
-            "SELECT step_id, component_id FROM _step_component_refs WHERE plan_id = ? ORDER BY position",
-            (plan_id,),
-        ):
-            component_refs.setdefault(item["step_id"], []).append(item["component_id"])
         result["steps"] = [
             {
                 "step_id": step["step_id"], "name": step["step_id"], "position": step["position"],
@@ -267,7 +290,6 @@ class PlanningStore:
                 "depends_on": _decode(step["depends_on_json"], []),
                 "input_refs": _decode(step["input_refs_json"], []),
                 "output_refs": _decode(step["output_refs_json"], []),
-                "component_ids": component_refs.get(step["step_id"], []) if step["component_refs_set"] else None,
             }
             for step in connection.execute(
                 "SELECT * FROM generation_plan_steps WHERE plan_id = ? ORDER BY position", (plan_id,)
@@ -298,8 +320,11 @@ class PlanningStore:
         scene_ids: list[str] | None = None,
         component_ids: list[str] | None = None,
         depends_on: list[str] | None = None,
+        title: str | None = None,
     ) -> dict[str, Any]:
         goal = self._generation_text(goal, "goal")
+        from almond_mcp.features.planning.schema import default_plan_title
+        title = default_plan_title(goal) if title is None else self._generation_text(title, "title")
         scope = self._generation_text(scope, "scope").lower()
         scene_id = self._generation_text(scene_id, "scene_id", allow_empty=True)
         phase_id = self._generation_text(phase_id, "phase_id", allow_empty=True)
@@ -355,6 +380,39 @@ class PlanningStore:
                 ("model", "execute", ["design"]),
                 ("validate", "validate", ["model"]),
             ],
+            "spatial_development": [
+                ("inspect_context", "reason", []),
+                ("identify_opportunities", "reason", ["inspect_context"]),
+                ("develop_options", "reason", ["identify_opportunities"]),
+                ("apply_design", "execute", ["develop_options"]),
+                ("validate_relationships", "validate", ["apply_design"]),
+            ],
+            "plan_editing": [
+                ("inspect_plan", "reason", []),
+                ("define_changes", "reason", ["inspect_plan"]),
+                ("edit_plan", "execute", ["define_changes"]),
+                ("validate_plan", "validate", ["edit_plan"]),
+            ],
+            "construction_detail": [
+                ("inspect_context", "reason", []),
+                ("review_system", "retrieve", ["inspect_context"]),
+                ("resolve_detail", "reason", ["review_system"]),
+                ("model_detail", "execute", ["resolve_detail"]),
+                ("validate_detail", "validate", ["model_detail"]),
+            ],
+            "model_revision": [
+                ("inspect_context", "reason", []),
+                ("diagnose_issue", "reason", ["inspect_context"]),
+                ("define_changes", "reason", ["diagnose_issue"]),
+                ("apply_changes", "execute", ["define_changes"]),
+                ("validate_impacts", "validate", ["apply_changes"]),
+            ],
+            "inspection": [
+                ("define_criteria", "reason", []),
+                ("observe", "retrieve", ["define_criteria"]),
+                ("evaluate", "validate", ["observe"]),
+                ("report_findings", "reason", ["evaluate"]),
+            ],
         }
         plan_id = f"plan_{uuid.uuid4().hex[:12]}"
         now = _utc_now()
@@ -367,10 +425,10 @@ class PlanningStore:
             connection.execute(
                 """
                 INSERT INTO generation_plans(
-                    plan_id, scene_id, scope, goal, status, created_at, updated_at, phase_id, depends_on_json
-                ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?)
+                    plan_id, scene_id, scope, goal, status, created_at, updated_at, phase_id, depends_on_json, title
+                ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
                 """,
-                (plan_id, scene_ids[0] if scene_ids else None, scope, goal, now, now, phase_id or None, _json(depends_on)),
+                (plan_id, scene_ids[0] if scene_ids else None, scope, goal, now, now, phase_id or None, _json(depends_on), title),
             )
             for position, (step_id, kind, dependencies) in enumerate(templates[template[0]]):
                 connection.execute(
@@ -402,11 +460,35 @@ class PlanningStore:
             ).fetchone()
             snapshot = _decode(row["snapshot_json"], None) if row else None
             if snapshot is not None:
+                from almond_mcp.features.planning.schema import default_plan_title
+                snapshot.setdefault("title", default_plan_title(snapshot["goal"]))
+                # Older snapshots had no Phase name. Do not invent its historical name.
+                snapshot.setdefault("phase", {"phase_id": snapshot["phase_id"], "name": None} if snapshot.get("phase_id") else None)
                 for key, default in (("depends_on", []), ("artifact_dir", ""), ("artifact_refs", [])):
                     snapshot.setdefault(key, default)
                 for step in snapshot.get("steps", []):
                     step.setdefault("name", step["step_id"])
             return snapshot
+
+    def get_step(self, plan_id: str, step_id: str, revision: int | None = None) -> dict[str, Any] | None:
+        """Read one Step; the public unified tool owns the output envelope."""
+        if revision is not None:
+            plan = self.get_plan(plan_id, revision)
+            if plan is None:
+                return None
+            step = next((item for item in plan["steps"] if item["step_id"] == step_id), None)
+            return {"plan_id": plan_id, "revision": plan["revision"], "step": step} if step else None
+        with self._connect() as connection:
+            connection.execute("BEGIN")
+            row = connection.execute('''SELECT p.revision,s.step_id,s.status,s.input_refs_json,s.output_refs_json
+                FROM generation_plan_steps s JOIN generation_plans p ON p.plan_id=s.plan_id
+                WHERE s.plan_id=? AND s.step_id=?''', (plan_id, step_id)).fetchone()
+            if row is None:
+                return None
+            return {"plan_id": plan_id, "revision": row["revision"], "step": {
+                "step_id": row["step_id"], "name": row["step_id"], "status": row["status"],
+                "input_refs": _decode(row["input_refs_json"], []),
+                "output_refs": _decode(row["output_refs_json"], [])}}
 
     def list_plans(
         self, phase_id: str = "", scene_id: str = "", status: str = "", limit: int = 50,
@@ -432,12 +514,14 @@ class PlanningStore:
                 "SELECT COUNT(*) FROM generation_plans p" + where, arguments
             ).fetchone()[0]
             rows = connection.execute(
-                "SELECT p.plan_id FROM generation_plans p" + where + " ORDER BY p.updated_at DESC, p.plan_id LIMIT ?",
+                "SELECT p.plan_id,p.title,p.goal,p.scope,p.status,p.revision FROM generation_plans p" + where + " ORDER BY p.updated_at DESC, p.plan_id LIMIT ?",
                 [*arguments, limit],
             ).fetchall()
-            plans = [self._read_generation_plan(connection, row["plan_id"]) for row in rows]
+            plans = [dict(row) for row in rows]
+            from almond_mcp.features.planning.schema import default_plan_title
             for plan in plans:
-                plan.pop("steps")
+                goal = plan.pop("goal")
+                plan["title"] = plan["title"] or default_plan_title(goal)
         return {"plans": plans, "total": total, "limit": limit, "truncated": total > len(plans)}
 
     def list_plan_revisions(self, plan_id: str, limit: int = 50) -> dict[str, Any]:
@@ -465,7 +549,17 @@ class PlanningStore:
         depends_on: list[str] | None = None,
         status: str | None = None,
         artifact_refs: list[str] | None = None,
+        title: str | None = None,
     ) -> dict[str, Any]:
+        return self.edit_plan(plan_id, goal, phase_id, scene_ids, component_ids, expected_revision,
+                              depends_on, status, artifact_refs, title).record
+
+    def edit_plan(
+        self, plan_id: str, goal: str | None = None, phase_id: str | None = None,
+        scene_ids: list[str] | None = None, component_ids: list[str] | None = None,
+        expected_revision: int | None = None, depends_on: list[str] | StringListPatch | None = None,
+        status: str | None = None, artifact_refs: list[str] | None = None, title: str | None = None,
+    ) -> PlanningUpdate:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             plan = self._read_generation_plan(connection, plan_id)
@@ -473,42 +567,55 @@ class PlanningStore:
                 raise KeyError(f"Unknown plan_id: {plan_id}")
             self._check_generation_revision(plan, expected_revision)
             goal = plan["goal"] if goal is None else self._generation_text(goal, "goal")
+            title = plan["title"] if title is None else self._generation_text(title, "title")
             phase_id = plan["phase_id"] if phase_id is None else (
                 self._generation_text(phase_id, "phase_id", allow_empty=True) or None
             )
             scene_ids = plan["scene_ids"] if scene_ids is None else self._generation_refs(scene_ids, "scene_ids")
             component_ids = plan["component_ids"] if component_ids is None else self._generation_refs(component_ids, "component_ids")
-            depends_on = plan["depends_on"] if depends_on is None else self._related_ids(depends_on)
+            issues = []
+            if isinstance(depends_on, StringListPatch):
+                depends_on, issues = apply_list_patch(plan["depends_on"], depends_on, "depends_on", kind="plan")
+            else:
+                depends_on = plan["depends_on"] if depends_on is None else self._related_ids(depends_on)
             status = plan["status"] if status is None else self._generation_text(status, "status").lower()
             if status not in {"pending", "running", "completed", "failed", "blocked", "paused"}:
                 raise ValueError("Unsupported plan status.")
             artifact_refs = plan["artifact_refs"] if artifact_refs is None else self._generation_refs(artifact_refs, "artifact_refs")
             self._validate_generation_refs(connection, scene_ids, component_ids, phase_id)
-            if (goal, phase_id, scene_ids, component_ids, depends_on, status, artifact_refs) == (
-                plan["goal"], plan["phase_id"], plan["scene_ids"], plan["component_ids"], plan["depends_on"], plan["status"], plan["artifact_refs"]
+            if (goal, phase_id, scene_ids, component_ids, depends_on, status, artifact_refs, title) == (
+                plan["goal"], plan["phase_id"], plan["scene_ids"], plan["component_ids"], plan["depends_on"], plan["status"], plan["artifact_refs"], plan["title"]
             ):
-                return plan
+                return PlanningUpdate(plan, False, issues)
             connection.execute(
-                "UPDATE generation_plans SET goal = ?, phase_id = ?, scene_id = ?, depends_on_json = ?, status = ?, artifact_refs_json = ? WHERE plan_id = ?",
-                (goal, phase_id, scene_ids[0] if scene_ids else None, _json(depends_on), status, _json(artifact_refs), plan_id),
+                "UPDATE generation_plans SET goal = ?, phase_id = ?, scene_id = ?, depends_on_json = ?, status = ?, artifact_refs_json = ?, title = ? WHERE plan_id = ?",
+                (goal, phase_id, scene_ids[0] if scene_ids else None, _json(depends_on), status, _json(artifact_refs), title, plan_id),
             )
             self._write_generation_refs(connection, plan_id, scene_ids, component_ids)
             result = self._record_generation_revision(connection, plan_id, "update_plan")
-        return result
+        return PlanningUpdate(result, True, issues)
 
     def update_plan_step(
         self,
         plan_id: str,
         step_id: str,
-        status: str,
+        status: str | None = None,
         input_refs: list[str] | None = None,
         output_refs: list[str] | None = None,
-        component_ids: list[str] | None = None,
         expected_revision: int | None = None,
     ) -> dict[str, Any]:
-        status = self._generation_text(status, "status").lower()
-        if status not in {"pending", "running", "completed", "failed", "blocked", "paused"}:
-            raise ValueError("Unsupported step status.")
+        return self.edit_step(plan_id, step_id, status, input_refs, output_refs, expected_revision).record
+
+    def edit_step(
+        self, plan_id: str, step_id: str, status: str | None = None,
+        input_refs: list[str] | StringListPatch | None = None,
+        output_refs: list[str] | StringListPatch | None = None,
+        expected_revision: int | None = None,
+    ) -> PlanningUpdate:
+        if status is not None:
+            status = self._generation_text(status, "status").lower()
+            if status not in {"pending", "running", "completed", "failed", "blocked", "paused"}:
+                raise ValueError("Unsupported step status.")
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             plan = self._read_generation_plan(connection, plan_id)
@@ -519,32 +626,28 @@ class PlanningStore:
             if step_id not in step_map:
                 raise KeyError(f"Unknown step_id: {step_id}")
             step = step_map[step_id]
-            inputs = step["input_refs"] if input_refs is None else self._generation_refs(input_refs, "input_refs")
-            outputs = step["output_refs"] if output_refs is None else self._generation_refs(output_refs, "output_refs")
-            components = step["component_ids"] if component_ids is None else self._generation_refs(component_ids, "component_ids")
-            self._validate_generation_refs(connection, [], components or [])
-            if components is not None:
-                components = self._canonical_component_refs(connection, components)
-            if (status, inputs, outputs, components) == (
-                step["status"], step["input_refs"], step["output_refs"], step["component_ids"]
+            status = step["status"] if status is None else status
+            issues = []
+            def refs(value, field):
+                if isinstance(value, StringListPatch):
+                    result, skipped = apply_list_patch(step[field], value, field)
+                    issues.extend(skipped)
+                    return result
+                return step[field] if value is None else self._generation_refs(value, field)
+            inputs, outputs = refs(input_refs, "input_refs"), refs(output_refs, "output_refs")
+            if (status, inputs, outputs) == (
+                step["status"], step["input_refs"], step["output_refs"]
             ):
-                return plan
+                return PlanningUpdate(plan, False, issues)
             connection.execute(
                 """
                 UPDATE generation_plan_steps
-                SET status = ?, input_refs_json = ?, output_refs_json = ?, component_refs_set = ?
+                SET status = ?, input_refs_json = ?, output_refs_json = ?
                 WHERE plan_id = ? AND step_id = ?
                 """,
-                (status, _json(inputs), _json(outputs), int(components is not None), plan_id, step_id),
+                (status, _json(inputs), _json(outputs), plan_id, step_id),
             )
-            connection.execute(
-                "DELETE FROM generation_step_ontological WHERE plan_id = ? AND step_id = ?", (plan_id, step_id)
-            )
-            connection.executemany(
-                "INSERT INTO generation_step_ontological(plan_id, step_id, ontological_id, position) VALUES (?, ?, ?, ?)",
-                [(plan_id, step_id, component, index) for index, component in enumerate(components or [])],
-            )
-            # References and target changes do not resume an explicitly stopped Plan.
+            # Reference-only changes do not resume an explicitly stopped Plan.
             if status != step["status"]:
                 statuses = [status if item["step_id"] == step_id else item["status"] for item in plan["steps"]]
                 plan_status = (
@@ -560,7 +663,7 @@ class PlanningStore:
                     "UPDATE generation_plans SET status = ? WHERE plan_id = ?", (plan_status, plan_id),
                 )
             result = self._record_generation_revision(connection, plan_id, "update_step:" + step_id)
-        return result
+        return PlanningUpdate(result, True, issues)
 
     def resolve_targets(self, plan_id: str, step_id: str = "") -> dict[str, Any]:
         """Resolve registered component identities only; scene refs never expand targets."""
@@ -574,8 +677,6 @@ class PlanningStore:
                 step = next((item for item in plan["steps"] if item["step_id"] == step_id), None)
                 if step is None:
                     raise KeyError(f"Unknown step_id: {step_id}")
-                if step["component_ids"] is not None:
-                    component_ids, source = step["component_ids"], "step"
             self._validate_generation_refs(connection, [], component_ids)
             components = []
             for component_id in component_ids:
@@ -628,8 +729,7 @@ class PlanningStore:
                     related.append(component_id)
                     for match in connection.execute("""
                         SELECT plan_id FROM _plan_component_refs WHERE component_id = ?
-                        UNION SELECT plan_id FROM _step_component_refs WHERE component_id = ?
-                    """, (component_id, component_id)):
+                    """, (component_id,)):
                         plans.setdefault(match["plan_id"], set()).add(component_id)
                 objects.append({"object_id": guid, "registered": owner is not None,
                                 "component_id": owner, "related_component_ids": related})
@@ -640,14 +740,11 @@ class PlanningStore:
                 related = plans[plan_id]
                 steps = []
                 for step in plan["steps"]:
-                    inherited = step["component_ids"] is None
-                    targets = plan["component_ids"] if inherited else step["component_ids"]
-                    matched = sorted(related.intersection(targets))
+                    matched = sorted(related.intersection(plan["component_ids"]))
                     if matched:
                         steps.append({"step_id": step["step_id"], "name": step["name"],
-                                      "source": "plan_inherited" if inherited else "step_direct",
-                                      "component_ids": matched})
-                matches.append({"plan_id": plan_id, "goal": plan["goal"], "phase_id": plan["phase_id"],
+                                      "status": step["status"], "source": "plan"})
+                matches.append({"plan_id": plan_id, "title": plan["title"], "goal": plan["goal"], "phase_id": plan["phase_id"],
                                 "component_ids": sorted(related.intersection(plan["component_ids"])), "steps": steps})
         return {"objects": objects, "components": list(components.values()), "plans": matches,
                 "total_plans": total, "truncated": total > len(matches),

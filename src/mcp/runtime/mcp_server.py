@@ -10,7 +10,6 @@ The existing sender wrapper adds connection/request identity in this process onl
 """
 from __future__ import annotations
 from almond_mcp.instruction_text import tool_instruction, read_instruction
-from almond_mcp.modeling_guidance import project_instructions
 
 import argparse
 import asyncio
@@ -84,42 +83,54 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
     """Register bound model and output path metadata for the current connection."""
     @mcp.tool()
     @tool_instruction(__file__, 'project_info')
-    def project_info(sections: list[str] | None = None, include_ids: StrictBool = False) -> dict:
-        sections = ["project", "document", "artifacts"] if sections is None else sections
-        allowed = {"project", "document", "artifacts", "runtime", "instructions"}
+    def project_info(sections: list[str] | None = None, include_ids: StrictBool = False,
+                     files_limit: StrictInt = 50, files_offset: StrictInt = 0) -> dict:
+        sections = ["project", "document", "locations"] if sections is None else sections
+        allowed = {"project", "document", "locations", "runtime"}
         if not isinstance(sections, list) or any(section not in allowed for section in sections):
-            raise ValueError("sections must contain project, document, artifacts, runtime or instructions.")
+            raise ValueError("sections must contain project, document, locations or runtime.")
+        if type(files_limit) is not int or not 1 <= files_limit <= 500 or type(files_offset) is not int or files_offset < 0:
+            raise ValueError("files_limit must be 1–500 and files_offset must be nonnegative integers.")
         current, _ = read_binding(args.session, args.token)
         if current != binding:
             raise RuntimeError(read_instruction(__file__, 'response-96'))
         verify_process(current)
         result = {"status": "success"}
         root = locations["project_dir"]
-        if "project" in sections:
-            result["project"] = {"project_root": root, "root_variable": "ALMOND_PROJECT_ROOT",
-                "root_variable_set": os.environ.get("ALMOND_PROJECT_ROOT") == root,
-                "file_name": Path(locations["model_path"]).name,
-                "database": relative_path(locations["state_db"], root),
-                "path_rule": "Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths."}
-        if "document" in sections:
+        if {"project", "document"}.intersection(sections):
             if sender is None:
                 raise RuntimeError("The live document observer is not connected.")
             live = json.loads(sender(b'{"type":"get_rhino_context","sections":["document"],"selection_limit":0}'))
+            if not isinstance(live, dict):
+                return {"status": "error", "message": "The live document observation is incomplete."}
             document = live.get("document")
-            if live.get("status") != "success" or not isinstance(document, dict):
-                result.update(status="error", live_document_checked=False,
-                              message=live.get("message", "The live document observation is incomplete."))
-                return result
-            path = document.get("path")
-            document["live_document_checked"] = True
-            document["is_bound_document"] = bool(path and Path(path).resolve() == Path(locations["model_path"]).resolve())
-            result["document"] = project_query(relative_output(document), include_ids=include_ids)
+            if (live.get("status") != "success" or not isinstance(document, dict)
+                    or not isinstance(document.get("path"), str)):
+                return relative_output({**live, "status": "error",
+                    "message": live.get("message") or "The live document observation is incomplete."})
             if live.get("warnings"):
                 result["warnings"] = live["warnings"]
-        if "artifacts" in sections:
-            result["artifacts"] = runtime.workspace.current() if runtime and runtime.workspace else {"artifact_dir": ""}
-            result["artifacts"] = project_query(result["artifacts"], include_ids=include_ids)
-            result["artifacts"]["path_rule"] = "Select a Plan with set_working_plan; managed outputs use its tmp/YYMMDD_name folder."
+        if "project" in sections:
+            if runtime is None or runtime.workspace is None:
+                raise RuntimeError("The project workspace is not connected.")
+            page = runtime.workspace.store.list_project_files(files_limit, files_offset)
+            path = document["path"]
+            is_bound_document = bool(path and Path(path).resolve() == Path(locations["model_path"]).resolve())
+            result["project"] = {"project_root": root, "file_name": document.get("name"),
+                "file_path": relative_path(path, root),
+                "is_bound_document": is_bound_document,
+                "files": project_query(page["files"], include_ids=include_ids),
+                "files_page": {key: page[key] for key in ("total", "limit", "offset", "truncated")}}
+        if "document" in sections:
+            result["document"] = project_query(relative_output({key: value for key, value in document.items()
+                if key not in {"name", "path"} and (include_ids or key != "runtime_serial_number")}),
+                include_ids=include_ids)
+        if "locations" in sections:
+            work = runtime.workspace.current() if runtime and runtime.workspace else {"artifact_dir": ""}
+            result["locations"] = project_query({**work, "artifact_dir": work["artifact_dir"] or None}, include_ids=include_ids)
+            result["locations"].update(database=relative_path(locations["state_db"], root),
+                path_rule="Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths.",
+                artifact_rule="Select a Plan with set_working_plan; managed outputs use its tmp/YYMMDD_name folder.")
         if "runtime" in sections:
             result["runtime"] = relative_output({"slot": binding["label"], "port": binding["port"],
                 "session_dir": locations["session_dir"], "scratch_root": str(Path(locations["temp"]) / "python"),
@@ -128,8 +139,7 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
                 "python_executable": sys.executable, "attachment": binding.get("attachment", "external")})
             if runtime is not None:
                 result["runtime"]["rhinocode"] = runtime.rhinocode_availability()
-        if "instructions" in sections:
-            result["instructions"] = project_instructions()
+            result["runtime"] = project_query(result["runtime"], include_ids=include_ids)
         return result
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
