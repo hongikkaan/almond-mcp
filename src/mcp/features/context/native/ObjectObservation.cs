@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -69,7 +70,11 @@ namespace RhinoAlmondBridge
                         throw new ArgumentException("cursor must be a string of at most 256 characters.");
                     bool includeBlocks = (bool?)request["include_blocks"] ?? false;
                     string cursor = (string)request["cursor"] ?? "";
-                    var result = ComponentOperations.CheckIntersectVolumes(doc, ids, maxPairs, includeBlocks, cursor);
+                    if (request["stop_at_first_positive"] != null && request["stop_at_first_positive"].Type != JTokenType.Boolean)
+                        throw new ArgumentException("stop_at_first_positive must be boolean.");
+                    bool stop = (bool?)request["stop_at_first_positive"] ?? false;
+                    var result = stop ? IntersectionAnalysis.QueryForPreview(doc, ids, maxPairs, includeBlocks, cursor, null, true)
+                        : ComponentOperations.CheckIntersectVolumes(doc, ids, maxPairs, includeBlocks, cursor);
                     if ((string)result["status"] == "success")
                     {
                         result["schema"] = "almond-object-intersections/v1";
@@ -109,12 +114,19 @@ namespace RhinoAlmondBridge
         static JObject Query(RhinoDoc doc, JObject request)
         {
             string scope = (string)request["scope"] ?? "visible";
+            bool current = scope == "current";
+            bool selected = Boolean(request, "selected"), insideWindow = Boolean(request, "inside_window");
+            bool recursive = Boolean(request, "recursive");
+            if (selected && insideWindow) throw new ArgumentException("Choose selected or inside_window, not both.");
+            if (!current && (selected || insideWindow)) throw new ArgumentException("selected and inside_window require scope=current.");
             var ids = ReadIds(request["object_ids"], 4096, scope == "ids");
-            if (scope != "ids" && ids.Length != 0) throw new ArgumentException("object_ids requires scope=ids.");
+            bool idScope = scope == "ids" || (scope == "document" && ids.Length != 0);
+            if (!idScope && ids.Length != 0) throw new ArgumentException("object_ids requires scope=document.");
             Guid[] groupIds;
             try { groupIds = ReadIds(request["group_ids"], 64, scope == "groups"); }
             catch (ArgumentException ex) { throw new ArgumentException(ex.Message.Replace("object_ids", "group_ids")); }
-            if (scope != "groups" && groupIds.Length != 0) throw new ArgumentException("group_ids requires scope=groups.");
+            if (groupIds.Length != 0 && (ids.Length != 0 || !new[] { "current", "document", "groups" }.Contains(scope)))
+                throw new ArgumentException("group_ids requires current/document scope without object_ids.");
             int offset = Integer(request, "offset", 0, 0, 100000), limit = Integer(request, "limit", 50, 1, 200);
             if (request["include_geometry"] != null && request["include_geometry"].Type != JTokenType.Boolean)
                 throw new ArgumentException("include_geometry must be a boolean.");
@@ -122,7 +134,8 @@ namespace RhinoAlmondBridge
             string mode = (string)request["result_mode"] ?? "objects";
             if (mode != "objects" && mode != "hierarchy" && mode != "summary")
                 throw new ArgumentException("result_mode must be objects, hierarchy or summary.");
-            bool expandGroups = Boolean(request, "expand_groups"), expandBlocks = Boolean(request, "expand_blocks");
+            bool expandGroups = recursive || Boolean(request, "expand_groups"), expandBlocks = recursive || Boolean(request, "expand_blocks");
+            if (recursive && mode == "objects") mode = "hierarchy";
             int depth = Integer(request, "depth", 1, 1, 8);
             if (mode != "hierarchy" && (expandGroups || expandBlocks || depth != 1))
                 throw new ArgumentException("Expansion and depth require result_mode=hierarchy.");
@@ -153,10 +166,10 @@ namespace RhinoAlmondBridge
                     expected.Add(id, (uint)entry.Value);
                 }
             }
-            if (expected.Count != 0 && (scope != "ids" || expected.Keys.Any(id => !ids.Contains(id))))
-                throw new ArgumentException("expected_geometry_crcs keys must belong to the explicit scope=ids object set.");
-            if (faceOffset != 0 && (scope != "ids" || expected.Count != ids.Length))
-                throw new ArgumentException("A subsequent face page requires scope=ids and an observed CRC for every object.");
+            if (expected.Count != 0 && (!idScope || expected.Keys.Any(id => !ids.Contains(id))))
+                throw new ArgumentException("expected_geometry_crcs keys must belong to the explicit object_ids set.");
+            if (faceOffset != 0 && (!idScope || expected.Count != ids.Length))
+                throw new ArgumentException("A subsequent face page requires document object_ids and an observed CRC for every object.");
             if (mode == "summary" && (fields != null || geometry || expected.Count != 0 || faceOffset != 0 || faceLimit != 128))
                 throw new ArgumentException("Summary returns layer/type counts; object fields and face options require result_mode=objects.");
             if (mode == "hierarchy" && (geometry || expected.Count != 0 || faceOffset != 0 || faceLimit != 128 ||
@@ -167,12 +180,22 @@ namespace RhinoAlmondBridge
             ValidateFilters(filters);
             var all = ModelObjects(doc);
             var visible = new HashSet<Guid>(all.Where(o => o.Visible).Select(o => o.Id));
+            var editing = EditingContext.ObserveObjects(doc);
+            var editor = editing.State;
+            var viewport = insideWindow ? doc.Views.ActiveView?.ActiveViewport : null;
+            if (insideWindow && (viewport == null || doc.ActiveSpace != ActiveSpace.ModelSpace))
+                return Error("model_viewport_required", "inside_window requires an active model viewport or model Detail.");
             IEnumerable<RhinoObject> source;
             switch (scope)
             {
                 case "visible": source = all.Where(o => visible.Contains(o.Id)); break;
                 case "selected": source = all.Where(o => o.IsSelected(false) != 0); break;
-                case "document": source = all; break;
+                case "current":
+                    source = CurrentObjects(doc, all, selected, insideWindow);
+                    break;
+                case "document":
+                    if (!idScope) { source = all; break; }
+                    goto case "ids";
                 case "ids":
                     var byId = all.ToDictionary(o => o.Id);
                     var missing = ids.Where(id => !byId.ContainsKey(id)).ToArray();
@@ -180,9 +203,14 @@ namespace RhinoAlmondBridge
                     source = ids.Select(id => byId[id]); break;
                 case "groups":
                     var modelIds = new HashSet<Guid>(all.Select(o => o.Id));
-                    source = RequestedGroups(doc, groupIds).SelectMany(g => g.Members)
+                    source = RequestedGroups(doc, groupIds, editing).SelectMany(g => g.Members)
                         .Where(o => modelIds.Contains(o.Id)).GroupBy(o => o.Id).Select(g => g.First()); break;
-                default: throw new ArgumentException("scope must be visible, selected, ids, document or groups.");
+                default: throw new ArgumentException("scope must be current or document.");
+            }
+            if (groupIds.Length != 0 && scope != "groups")
+            {
+                var groupMembers = new HashSet<Guid>(RequestedGroups(doc, groupIds, editing).SelectMany(g => g.Members).Select(o => o.Id));
+                source = source.Where(o => groupMembers.Contains(o.Id));
             }
             var candidates = source.ToArray();
             var matched = candidates.Where(o => Matches(doc, o, filters)).OrderBy(o => o.Id).ToArray();
@@ -190,8 +218,18 @@ namespace RhinoAlmondBridge
                 if (expected.TryGetValue(obj.Id, out var crc) && obj.Geometry.DataCRC(0) != crc)
                     return Error("stale_geometry", "An object's geometry changed; observe its faces from the beginning: " + obj.Id);
             var set = new HashSet<Guid>(matched.Select(o => o.Id));
-            if (mode == "hierarchy") return Hierarchy(doc, scope, groupIds, candidates, matched, visible,
-                fields, expandGroups, expandBlocks, depth, offset, limit);
+            string snapshot = SnapshotToken(doc, request, all, editor);
+            string wantedSnapshot = (string)request["expected_snapshot"] ?? "";
+            if (wantedSnapshot.Length != 0 && !String.Equals(wantedSnapshot, snapshot, StringComparison.Ordinal))
+                return Error("observation_changed", "The model, editor, selection, view or query changed; restart at offset=0.");
+            if (request["recursive"] != null && offset > 0 && wantedSnapshot.Length == 0)
+                throw new ArgumentException("Subsequent pages require expected_snapshot from the first page.");
+            if (mode == "hierarchy")
+            {
+                var hierarchy = Hierarchy(doc, scope, groupIds, candidates, matched, visible,
+                    fields, expandGroups, expandBlocks, depth, offset, limit, editing);
+                return QueryEvidence(hierarchy, editor, snapshot, current, selected, insideWindow);
+            }
             var rows = new JArray();
             var budget = new ValueBudget();
             int rowBytes = 0;
@@ -235,8 +273,62 @@ namespace RhinoAlmondBridge
             if (mode == "summary") { answer["result_mode"] = mode; answer["summary_count"] = rowCount; }
             if (Encoding.UTF8.GetByteCount(answer.ToString(Formatting.None)) > MaxBytes)
                 return Error("observation_too_large", "Response exceeds 256 KiB; reduce limit, scope or geometry detail.");
-            return answer;
+            if (selected) answer["excluded_selected_count"] = all.Count(o => o.IsSelected(false) != 0) - candidates.Length;
+            return QueryEvidence(answer, editor, snapshot, current, selected, insideWindow);
         }
+
+        static JObject QueryEvidence(JObject result, JObject editor, string snapshot, bool current, bool selected, bool window)
+        {
+            result["snapshot"] = snapshot;
+            result["editing"] = editor;
+            if ((bool?)editor["stable"] != true)
+            {
+                result["membership_complete"] = false;
+                result["page_complete"] = result["page_complete"] ?? result["complete"]?.DeepClone();
+                result["complete"] = false;
+                result["membership_limitation"] = "Editor working members can be observed, but original persistent group identity and ancestor membership are not fully verified. A current save target is not proof of its pre-edit GUID.";
+            }
+            if (current)
+            {
+                result["selection"] = selected ? "selected" : window ? "inside_window" : "all";
+                result["visibility_basis"] = window
+                    ? "Visible unlocked model objects whose world bounding boxes intersect the active model viewport frustum. Occlusion and clipping planes are not evaluated; bounding boxes can overinclude geometry."
+                    : "Currently visible unlocked model objects, including off-screen objects. Object/layer hiding and locking apply; clipping planes and pixel occlusion do not change this scope.";
+            }
+            if (Encoding.UTF8.GetByteCount(result.ToString(Formatting.None)) > MaxBytes)
+                return Error("observation_too_large", "Response including editor evidence exceeds 256 KiB; reduce limit or fields.");
+            return result;
+        }
+
+        internal static string SnapshotToken(RhinoDoc doc, JObject request, RhinoObject[] objects, JObject editor)
+        {
+            var options = (JObject)request.DeepClone();
+            foreach (string key in new[] { "offset", "limit", "face_offset", "face_limit", "expected_snapshot" }) options.Remove(key);
+            var state = new JObject { ["document"] = doc.RuntimeSerialNumber, ["query"] = options, ["editing"] = editor,
+                ["units"] = doc.ModelUnitSystem.ToString(), ["tolerance"] = doc.ModelAbsoluteTolerance,
+                ["objects"] = new JArray(objects.OrderBy(o => o.Id).Select(ObjectStamp)),
+                ["groups"] = new JArray(doc.Groups.Where(g => g != null && !g.IsDeleted).OrderBy(g => g.Id)
+                    .Select(g => new JArray(g.Id.ToString(), g.Index, g.Name))),
+                ["layers"] = new JArray(doc.Layers.Where(l => l != null && !l.IsDeleted)
+                    .Select(l => new JArray(l.Id.ToString(), l.FullPath, l.IsVisible, l.IsLocked))),
+                ["definitions"] = new JArray(doc.InstanceDefinitions.Where(d => d != null && !d.IsDeleted)
+                    .OrderBy(d => d.Id).Select(d => new JObject { ["id"] = d.Id.ToString(), ["name"] = d.Name,
+                        ["members"] = new JArray(d.GetObjects().OrderBy(o => o.Id).Select(ObjectStamp)) })) };
+            if ((bool?)request["inside_window"] == true)
+            {
+                var view = doc.Views.ActiveView.ActiveViewport;
+                if (!view.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far))
+                    throw new ArgumentException("The active model viewport has no valid frustum.");
+                state["view"] = new JArray(view.Id.ToString(), view.IsParallelProjection, view.CameraLocation.X, view.CameraLocation.Y, view.CameraLocation.Z,
+                    view.CameraDirection.X, view.CameraDirection.Y, view.CameraDirection.Z,
+                    view.CameraUp.X, view.CameraUp.Y, view.CameraUp.Z, left, right, bottom, top, near, far);
+            }
+            using (var sha = SHA256.Create())
+                return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(state.ToString(Formatting.None)))).ToLowerInvariant();
+        }
+
+        static JArray ObjectStamp(RhinoObject obj) => new JArray(obj.Id.ToString(), obj.Geometry.DataCRC(0),
+            obj.Attributes.ToJSON(new Rhino.FileIO.SerializationOptions()), obj.Visible, obj.IsLocked, obj.IsSelected(false));
 
         static bool Boolean(JObject request, string key)
         {
@@ -353,6 +445,35 @@ namespace RhinoAlmondBridge
             return new JObject { ["values"] = data, ["total_keys"] = dictionary.Count, ["truncated"] = dictionary.Count > data.Count };
         }
         static JArray Point(Point3d p) => new JArray(p.X, p.Y, p.Z);
+        internal static JObject IntersectionMetadata(RhinoObject obj)
+        {
+            var budget = new ValueBudget { Nodes = 2048, Characters = 16000 };
+            var strings = obj.Attributes.GetUserStrings();
+            var values = new JObject();
+            if (strings != null)
+                foreach (string key in strings.AllKeys.Take(64))
+                {
+                    if (key == null || (budget.Characters -= key.Length) < 0) break;
+                    values[key] = SafeValue(strings[key], 0, budget);
+                }
+            return new JObject {
+                ["attributes"] = new JObject {
+                    ["name"] = SafeValue(obj.Attributes.Name, 0, budget), ["layer_index"] = obj.Attributes.LayerIndex,
+                    ["material_index"] = obj.Attributes.MaterialIndex,
+                    ["material_source"] = obj.Attributes.MaterialSource.ToString(),
+                    ["color_source"] = obj.Attributes.ColorSource.ToString(),
+                    ["object_color"] = obj.Attributes.ObjectColor.ToArgb(),
+                    ["mode"] = obj.Attributes.Mode.ToString(),
+                    ["user_strings"] = new JObject { ["values"] = values,
+                        ["total_keys"] = strings?.Count ?? 0, ["truncated"] = (strings?.Count ?? 0) > values.Count },
+                    ["projection"] = "Selected document attributes; custom geometry user data is not serialized."
+                },
+                ["user_dictionary"] = new JObject {
+                    ["attributes"] = Dictionary(ExistingDictionary(obj.Attributes), budget),
+                    ["geometry"] = Dictionary(ExistingDictionary(obj.Geometry), budget)
+                }
+            };
+        }
         static JObject Bounds(BoundingBox b) => b.IsValid ? new JObject { ["min"] = Point(b.Min), ["max"] = Point(b.Max) } : null;
         static JObject Describe(RhinoDoc doc, RhinoObject obj, HashSet<Guid> matched, HashSet<Guid> visible,
             bool includeGeometry, ValueBudget budget, HashSet<string> fields, int faceOffset, int faceLimit)

@@ -22,7 +22,7 @@ def hierarchy(tmp_path_factory):
     folder = tmp_path_factory.mktemp("hierarchy")
     tests = Path(__file__).resolve().parent
     native = tests.parent / "features/context/native"
-    includes = [tests / "object_hierarchy_host/Fixture.cs", native / "ObservationEntities.cs", native / "ObjectHierarchy.cs"]
+    includes = [tests / "object_hierarchy_host/Fixture.cs", native / "ObservationEntities.cs", native / "ObjectHierarchy.cs", native / "ObjectScope.cs"]
     compile_items = "".join(f'<Compile Include="{escape(str(p))}" Link="{p.name}" />' for p in includes)
     (folder / "NuGet.Config").write_text('<configuration><packageSources><clear /></packageSources></configuration>', encoding="utf-8")
     (folder / "Hierarchy.csproj").write_text(f'''<Project Sdk="Microsoft.NET.Sdk">
@@ -145,3 +145,47 @@ def test_stale_group_is_error_not_empty_success(hierarchy):
     case["group_ids"] = [guid(999)]
     result = hierarchy(case)
     assert result["status"] == "error" and "Unknown group" in result["message"]
+
+
+def test_current_excludes_hidden_object_and_ancestor_layer_locks_but_keeps_offscreen(hierarchy):
+    case = {"scope": "current", "objects": [
+        {"id": guid(1), "min_x": 20, "max_x": 21},
+        {"id": guid(2), "hidden": True}, {"id": guid(3), "locked": True},
+        {"id": guid(4), "layer": 2}], "layers": [
+        {"id": guid(51)}, {"id": guid(52), "locked": True}, {"id": guid(53), "parent": guid(52)}]}
+    result = hierarchy(case)
+    assert [n["id"] for n in result["nodes"]] == [guid(1)]
+    case["objects"][0]["selected"] = True
+    case["current_selected"] = True
+    assert hierarchy(case)["matched_count"] == 1  # Selection is not a screen intersection.
+
+
+def test_inside_window_includes_crossing_bounds_and_marks_partial_group_scope(hierarchy):
+    case = {"scope": "current", "inside_window": True, "objects": [
+        {"id": guid(1), "min_x": -1, "max_x": 1},
+        {"id": guid(2), "min_x": 9, "max_x": 12},
+        {"id": guid(3), "min_x": 11, "max_x": 12}],
+        "groups": [{"id": guid(101), "members": [guid(1), guid(2), guid(3)]}],
+        "expand_groups": True, "depth": 2}
+    result = hierarchy(case)
+    assert [n["id"] for n in result["nodes"]] == [guid(101), guid(1), guid(2)]
+    group = result["nodes"][0]
+    assert group["member_count"] == 3 and group["matched_member_count"] == 2
+    assert group["membership_complete"] and not group["all_members_in_scope"]
+
+
+def test_unknown_editor_group_membership_is_not_a_complete_empty_group(hierarchy):
+    result = hierarchy({"objects": [], "groups": [{"id": guid(101), "members": [], "complete": False}],
+                        "group_ids": [guid(101)]})
+    assert result["complete"] is False and result["membership_complete"] is False
+    assert result["nodes"][0]["member_count"] is None
+    assert result["nodes"][0]["children_state"] == "unavailable"
+
+
+def test_group_inside_block_uses_the_occurrence_transform_and_never_document_ids(hierarchy):
+    case = block_case()
+    case["groups"] = [{"id": guid(101), "members": [guid(4)]}]
+    case.update(expand_groups=True, depth=5)
+    leaves = [n for n in hierarchy(case)["nodes"] if n["id"] == guid(4)]
+    assert len(leaves) == 2 and all(not n["document_object"] for n in leaves)
+    assert [n["bounds"]["min_x"] for n in leaves] == [15, 25]

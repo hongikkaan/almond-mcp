@@ -32,11 +32,19 @@ Returns:
 
 <!-- instruction:edit_planar_face -->
 When to use: Extend or retract one planar face of an existing closed Brep when Rhino PushPull Extend preserves the intended element and connections.
-Before calling: Reuse a current get_objects geometry observation of the target; request faces if the required face index is unknown. Finish group/block editing first. Requires Bridge face_edit=1 and Rhino 8.16+.
+Before calling: Reuse a current get_objects geometry observation of the target; request faces if the required face index is unknown. Finish group/block editing first: editor Replace/Undo/save/cancel integration is not verified, even when its working objects can be observed. Requires Bridge face_edit=1 and Rhino 8.16+.
 Inputs from earlier results: Pass object_id, the chosen face index as face_index and the same observation's geometry_crc as expected_geometry_crc; do not mix observations. translation is an XYZ vector in document units with a normal component greater than document tolerance. expected_model_path is normally supplied by the bound runtime.
 Interpretation: A confirmed edited=true result provides the new geometry_crc, before/after volumes and face counts under the same object GUID. Face indices can change, so observe faces again before a further face edit.
 Limits: Only unlocked top-level model-space Breps with planar selected and adjacent faces are supported; extrusion conversion and block interiors are not. A prepared duplicate must remain valid, closed, manifold, correctly oriented and positive finite volume before replacement. Attributes, groups, geometry UserStrings and UserDictionary are preserved; other unverifiable custom geometry data is rejected. Native execution owns Undo, but timeout/result_error is not rollback proof. Inspect uncertain outcomes before retrying. This is geometric editing, not construction/clearance validation or a document save.
 
+Args:
+    object_id: Current unlocked top-level closed Brep GUID from an observation in the bound document.
+    face_index: Zero-based planar face index from the same geometry observation as expected_geometry_crc.
+    expected_geometry_crc: Geometry CRC from that observation; changed geometry rejects the edit before replacement.
+    translation: Three finite XYZ numbers in document units; its face-normal component must exceed document tolerance.
+    expected_model_path: Usually omitted; runtime supplies the bound saved document.
+Returns:
+    JSON edit outcome and replacement geometry evidence; explicit errors set MCP isError=true and retain mutation uncertainty.
 <!-- /instruction:edit_planar_face -->
 
 ## edit_planar_faces
@@ -48,6 +56,11 @@ Inputs from earlier results: Each edits item supplies object_id, face_index, exp
 Interpretation: All replacements are prepared and checked before document changes; preparation failure leaves originals unchanged. Read each item's applied/failed/unknown/not_attempted state and applied_count, not only the outer status, to determine which objects require inspection.
 Limits: A replacement failure stops further edits but completed replacements stay in the Undo record; this is not automatic rollback or an all-or-nothing transaction. Never repeat the whole batch after partial/uncertain execution. Reconcile unknown items and observe any changed face indices before another edit. It does not establish construction suitability or save the model.
 
+Args:
+    edits: 1..32 items for distinct Breps, each containing object_id, face_index, expected_geometry_crc and translation; the single-face eligibility rules apply.
+    expected_model_path: Usually omitted; runtime supplies the bound saved document.
+Returns:
+    JSON per-item applied/failed/unknown/not_attempted states and applied_count; partial changes are not rolled back automatically.
 <!-- /instruction:edit_planar_faces -->
 
 ## save_rhino_document
@@ -70,6 +83,10 @@ Inputs from earlier results: No IDs or preceding lookup are required when the ta
 Interpretation: Materials are processed before Layers in one caller-owned Undo action. success with applied=true confirms that predefined properties match. incomplete with applied=false includes differences (kind, name, property, current, expected) and errors (kind, name, message). Missing entries can be created while other values remain different or fail. An error can occur after a partial mutation; this is not rollback or proof that nothing changed.
 Limits: Setup does not move objects, change their ByLayer settings, attach object metadata or enable construction detail. Layer defaults use each system's first render_material_ids, galvanized steel for connection/reinforcement/decking and birch plywood for Wood subfloor/sheathing; containers are gray. Only prescribed properties are reconciled. Unrelated properties and objects are preserved. API confirmation is not visual review or a saved 3DM. Inspect errors or mutation_state=unknown before retrying.
 
+Args:
+    overwrite: Required boolean for both Materials and Layers. False preserves existing values, creates missing entries and reports differences; true updates predefined properties.
+Returns:
+    JSON applied status with differences/errors when incomplete; partial changes and unknown mutation state require inspection before retrying.
 <!-- /instruction:setup_modeling -->
 
 ## list_materials

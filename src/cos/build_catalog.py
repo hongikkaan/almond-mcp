@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import sys
 import types
+from typing import Literal
 import tomllib
 from almond_mcp.instruction_text import read_tool_instruction, public_tool_name
 
@@ -50,7 +51,7 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         for part in ast.walk(annotation):
             if not isinstance(part, allowed):
                 raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
-            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict", "StringListPatch"}:
+            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict", "StringListPatch", "Literal"}:
                 raise ValueError(f"Review annotation name {part.id} in {node.name}")
     for default in [*node.args.defaults, *node.args.kw_defaults]:
         if default is not None:
@@ -58,7 +59,7 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
     decorators = []
     external_doc = None
     for decorator in node.decorator_list:
-        if isinstance(decorator, ast.Name) and decorator.id in {"query_output", "holon_output"}:
+        if isinstance(decorator, ast.Name) and decorator.id in {"query_output", "holon_output", "mcp_error_result"}:
             continue  # Known output projection; schemas are built from inert bodies.
         if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
                 and decorator.func.id == "tool_instruction"):
@@ -151,6 +152,7 @@ async def generate(engine: Path = ENGINE) -> dict:
     module.StrictInt = StrictInt
     module.StrictFloat = StrictFloat
     module.StrictBool = StrictBool
+    module.Literal = Literal
     module.StringListPatch = StringListPatch
     sys.modules[module.__name__] = module
     tree = ast.Module(body=[checked_stub(n) for n in functions], type_ignores=[])

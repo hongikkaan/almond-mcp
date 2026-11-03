@@ -51,7 +51,7 @@ namespace RhinoAlmondBridge
             => QueryForPreview(doc, ids, maxPairs, includeBlocks, cursor, null);
 
         internal static JObject QueryForPreview(RhinoDoc doc, Guid[] ids, int maxPairs,
-            bool includeBlocks, string cursor, Action<Observation> accept)
+            bool includeBlocks, string cursor, Action<Observation> accept, bool stopAtFirstPositive = false)
         {
             if (doc == null) throw new ArgumentException("No Rhino document is available.");
             if (ids == null || ids.Length < 1 || ids.Length > 512 || ids.Any(id => id == Guid.Empty))
@@ -110,6 +110,7 @@ namespace RhinoAlmondBridge
                             break;
                         }
                         accept?.Invoke(observation);
+                        if (stopAtFirstPositive && (string)observation.Report["overlap"]?["status"] == "positive_volume") break;
                     }
                 }
                 int next = offset + rows.Count;

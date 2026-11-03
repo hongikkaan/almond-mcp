@@ -23,6 +23,9 @@ namespace RhinoAlmondBridge
             public Transform ToWorld = Transform.Identity;
             public Guid[] Path;
             public BoundingBox Bounds;
+            public bool MembershipComplete = true;
+            public string MembershipBasis = "document_group_table";
+            public bool DefinitionOccurrence;
         }
 
         public static RhinoObject[] ModelObjects(RhinoDoc doc)
@@ -51,20 +54,25 @@ namespace RhinoAlmondBridge
             };
         }
 
-        public static List<Entity> Roots(RhinoDoc doc, RhinoObject[] objects, Guid? excludedGroup = null)
+        public static List<Entity> Roots(RhinoDoc doc, RhinoObject[] objects, Guid? excludedGroup = null,
+            Func<Group, Entity> groupSource = null, bool includePartial = false)
         {
             var present = new HashSet<Guid>(objects.Select(o => o.Id));
             var groups = new List<Entity>();
             foreach (var group in doc.Groups)
             {
                 if (group == null || group.IsDeleted || group.Id == excludedGroup) continue;
-                var members = doc.Groups.GroupMembers(group.Index) ?? Array.Empty<RhinoObject>();
-                if (members.Length == 0 || members.Any(o => o == null || !present.Contains(o.Id))) continue;
+                var observed = groupSource?.Invoke(group);
+                var members = observed?.Members ?? doc.Groups.GroupMembers(group.Index) ?? Array.Empty<RhinoObject>();
+                if (members.Length == 0 || members.Any(o => o == null) ||
+                    (includePartial ? !members.Any(o => present.Contains(o.Id)) : members.Any(o => !present.Contains(o.Id)))) continue;
                 if (excludedGroup.HasValue && members.Length >= objects.Length) continue;
                 var bounds = BoundingBox.Empty;
                 foreach (var member in members) bounds.Union(member.Geometry.GetBoundingBox(true));
                 groups.Add(new Entity { Id = group.Id, Name = group.Name ?? "", Kind = "Group",
-                    Members = members, Bounds = bounds, Path = new[] { group.Id } });
+                    Members = members, Bounds = bounds, Path = new[] { group.Id },
+                    MembershipComplete = observed?.MembershipComplete ?? true,
+                    MembershipBasis = observed?.MembershipBasis ?? "document_group_table" });
             }
             var roots = groups.Where(g => !groups.Any(parent => parent.Id != g.Id &&
                 parent.Members.Length > g.Members.Length &&

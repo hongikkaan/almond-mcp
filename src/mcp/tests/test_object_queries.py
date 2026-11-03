@@ -19,7 +19,7 @@ MODEL = r"C:\offline\objects.3dm"
 A, B, GROUP = (str(UUID(int=n)) for n in (1, 2, 3))
 
 
-def tools_for(reply=None, version=3):
+def tools_for(reply=None, version=4):
     calls = []
 
     def send(raw):
@@ -38,15 +38,19 @@ def tools_for(reply=None, version=3):
     {"scope": "groups"}, {"scope": "groups", "group_ids": ["holon_name"]},
     {"scope": "groups", "group_ids": [GROUP, GROUP.upper()]},
     {"scope": "selected", "group_ids": [GROUP]},
-    {"scope": "groups", "group_ids": [GROUP], "object_ids": [A]},
-    {"result_mode": "objects", "expand_blocks": True},
-    {"result_mode": "summary", "expand_groups": True},
+    {"scope": "document", "group_ids": [GROUP], "object_ids": [A]},
+    {"scope": "current", "object_ids": [A]},
+    {"scope": "document", "selected": True},
+    {"scope": "document", "inside_window": True},
+    {"selected": True, "inside_window": True},
+    {"result_mode": "summary", "recursive": True},
     {"result_mode": "hierarchy", "depth": True},
     {"result_mode": "hierarchy", "depth": 9},
-    {"result_mode": "hierarchy", "expand_blocks": 1},
+    {"result_mode": "hierarchy", "recursive": 1},
     {"result_mode": "hierarchy", "include_geometry": True},
     {"result_mode": "hierarchy", "fields": ["faces"]},
-    {"scope": "ids", "object_ids": [A], "face_offset": 1, "fields": ["faces"]},
+    {"scope": "document", "object_ids": [A], "face_offset": 1, "fields": ["faces"]},
+    {"offset": 1}, {"offset": 1, "expected_snapshot": "bad"},
 ])
 def test_invalid_or_ambiguous_scope_never_dispatches(arguments):
     tools, calls, _ = tools_for()
@@ -57,27 +61,27 @@ def test_invalid_or_ambiguous_scope_never_dispatches(arguments):
 
 
 @pytest.mark.parametrize("arguments", [
-    {}, {"scope": "groups", "group_ids": [GROUP]},
-    {"scope": "selected", "result_mode": "hierarchy", "expand_groups": True, "depth": 3},
+    {}, {"scope": "document", "group_ids": [GROUP]},
+    {"selected": True, "recursive": True, "depth": 3},
 ])
 def test_old_bridge_cannot_silently_ignore_new_scope_or_expansion(arguments):
-    tools, calls, _ = tools_for(version=2)
+    tools, calls, _ = tools_for(version=3)
     result = tools["get_objects"](expected_model_path=MODEL, **arguments)
     assert result.is_error
-    assert "object_observation>=3" in result.structured_content["result"]
+    assert "object_observation>=4" in result.structured_content["result"]
     assert [c["type"] for c in calls] == ["get_rhino_context"]
 
 
 def test_group_members_use_group_namespace_and_bound_fixed_query_without_selection():
     tools, calls, _ = tools_for()
-    tools["get_objects"](scope="groups", group_ids=[GROUP], expected_model_path=MODEL, fields=["id"])
+    tools["get_objects"](scope="document", group_ids=[GROUP], expected_model_path=MODEL, fields=["id"])
     assert len(calls) == 2
     request = calls[1]
     assert request["type"] == "get_rhino_objects"  # Deliberately retained private native route.
-    assert request["scope"] == "groups" and request["group_ids"] == [GROUP]
+    assert request["scope"] == "document" and request["group_ids"] == [GROUP]
     assert request["object_ids"] == []
     assert request["expected_model_path"] == MODEL
-    assert not request["expand_groups"] and not request["expand_blocks"]
+    assert not request["recursive"] and not request["selected"] and not request["inside_window"]
 
 
 def test_selected_hierarchy_retains_parent_relationships_and_distinguishes_occurrence_handles():
@@ -89,7 +93,7 @@ def test_selected_hierarchy_retains_parent_relationships_and_distinguishes_occur
         {"number": 3, "parent_number": 2, "entity_kind": "object", "id": B,
          "root_object_id": A, "block_path_ids": [B], "document_object": False, "visible": None}]}
     tools, calls, _ = tools_for(reply)
-    options = dict(scope="selected", result_mode="hierarchy", expand_groups=True, expand_blocks=True,
+    options = dict(scope="current", selected=True, recursive=True,
                    depth=3, expected_model_path=MODEL)
     compact = json.loads(tools["get_objects"](**options))
     assert compact["depth_limited"] is True
@@ -98,8 +102,9 @@ def test_selected_hierarchy_retains_parent_relationships_and_distinguishes_occur
     assert compact["nodes"][2]["document_object"] is False
     identified = json.loads(tools["get_objects"](**options, include_ids=True))
     assert identified == reply
-    assert calls[-1]["scope"] == "selected" and calls[-1]["depth"] == 3
-    assert calls[-1]["expand_groups"] and calls[-1]["expand_blocks"]
+    assert calls[-1]["scope"] == "current" and calls[-1]["depth"] == 3
+    assert calls[-1]["recursive"] and calls[-1]["selected"]
+    assert calls[-1]["result_mode"] == "hierarchy"
 
 
 def test_face_page_identity_and_crc_contract_survives_public_rename():
@@ -107,7 +112,7 @@ def test_face_page_identity_and_crc_contract_survives_public_rename():
         {"id": A, "geometry_crc": 42, "faces": [{"face_index": 128}],
          "face_page": {"complete": False, "offset": 128, "next_offset": 129}}]}
     tools, calls, _ = tools_for(reply)
-    result = json.loads(tools["get_objects"](scope="ids", object_ids=[A], fields=["faces"],
+    result = json.loads(tools["get_objects"](scope="document", object_ids=[A], fields=["faces"],
         face_offset=128, expected_geometry_crcs={A: 42}, expected_model_path=MODEL))
     assert result == reply
     assert calls[-1]["expected_geometry_crcs"] == {A: 42}
@@ -118,9 +123,22 @@ def test_incomplete_hierarchy_preserves_out_of_page_parent_and_diagnostics():
     reply = {"status": "success", "complete": False, "next_offset": 3, "depth_limited": True,
              "nodes": [{"number": 3, "parent_number": 1, "id": A, "children_state": "depth_limit"}]}
     tools, _, _ = tools_for(reply)
-    result = json.loads(tools["get_objects"](scope="selected", result_mode="hierarchy", offset=2,
-                                            limit=1, expected_model_path=MODEL))
-    assert result == reply  # Unfinished-observation evidence is never silently projected away.
+    result = json.loads(tools["get_objects"](selected=True, result_mode="hierarchy", offset=2,
+                                            limit=1, expected_model_path=MODEL, expected_snapshot="a" * 64))
+    assert result == {**reply, "nodes": [{k: v for k, v in reply["nodes"][0].items() if k != "id"}]}
+    assert result["complete"] is False and result["nodes"][0]["parent_number"] == 1
+
+
+@pytest.mark.parametrize("complete", [True, False])
+def test_public_object_output_omits_document_metadata_without_losing_coverage(complete):
+    reply = {"status": "success", "complete": complete, "objects": [], "next_offset": 50,
+             "warnings": ["depth limited"], "schema": "native/v1", "model_path": MODEL,
+             "document_units": "Millimeters", "tolerance_model_units": 0.001}
+    tools, calls, _ = tools_for(reply)
+    result = json.loads(tools["get_objects"](expected_model_path=MODEL))
+    assert result == {key: value for key, value in reply.items()
+                      if key not in {"schema", "model_path", "document_units", "tolerance_model_units"}}
+    assert calls[-1]["expected_model_path"] == MODEL  # Binding remains an internal native requirement.
 
 
 def test_real_mcp_discovery_exposes_one_query_and_strict_expansion_inputs():

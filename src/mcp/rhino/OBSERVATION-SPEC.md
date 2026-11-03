@@ -23,7 +23,7 @@ sections를 생략하면 document/named_views/layouts/display_modes와 next_step
 
 문서 파일명·경로는 project_info에서 확인한다. 문서 객체 수는 정상·숨김·잠금·reference·light를 포함하며 삭제 객체·블록 정의 내부·grip은 제외한다. 레이어 수는 삭제 레이어를 제외한다. 실패한 관측은 null과 경고이며 가짜 0/빈 목록으로 바꾸지 않는다. 공개 context는 이미지를 받거나 파일을 쓰지 않는다.
 
-선택 조회는 `get_objects(scope="selected")`로 통합한다. 기본은 문서 객체 목록이며, `result_mode="hierarchy"`로 완전히 선택된 그룹·블록을 요약하고 expand_groups/expand_blocks와 depth로 내부를 펼친다. 부분적으로 선택된 그룹은 개별 객체로 남는다. 문서 객체 수와 계층 occurrence 수는 서로 다르다.
+선택 조회는 `get_objects(scope="current", selected=true)`로 통합한다. 기본은 문서 객체 목록이며, `result_mode="hierarchy"`로 그룹·블록을 요약하고 recursive와 depth로 내부를 펼친다. 부분 범위의 그룹은 전체 구성원과 조회에 포함된 구성원 수를 구분한다. 문서 객체 수와 계층 occurrence 수는 서로 다르다.
 
 공개 조회는 context_sections>=2를 요구하고 native public_context=true로 요청한다. 기존 내부 native 호출은 문서 identity/capabilities, 필요한 compact editor, raw 선택 GUID 기본값을 유지한다. 이로써 연결 문서 검증과 Holon/Plan 역조회 계약을 보존한다.
 
@@ -53,21 +53,23 @@ labels는 기본 false이고 선택 시 최대 200개의 임시 pixel label을 �
 
 ## 일반 객체 범위·형상과 묶음 캡처
 
-`get_objects`는 `object_observation>=3`로 확인한 고정 native 경로다. 내부 get_rhino_objects 요청 이름은 유지하고 공개 get_rhino_selection/get_rhino_objects는 제거한다.
-조회는 visible/selected/명시 GUID/document/groups 중 정한 top-level 모델 객체를 대상으로 한다. groups는 실제 Rhino group GUID 1–64개를 받아 해당 model-space 멤버의 중복 없는 합집합을 반환한다. 없는 그룹은 오류이며 다른 그룹의 연결 관계를 따라 범위를 확대하지 않는다.
+`get_objects`는 `object_observation>=4`로 확인한 고정 native 경로다. 내부 get_rhino_objects 요청 이름과 기존 내부 소비자는 유지한다.
+공개 scope는 current(기본)/document다. current는 화면 밖을 포함한 표시·비잠금 모델 객체이고 객체 및 상위 Layer 잠금을 제외한다. selected/inside_window는 current에서만 허용하며 서로 배타적이다. selected는 화면 밖의 선택을 포함하되 current의 표시·잠금 조건을 유지한다. inside_window는 활성 모델뷰 또는 Detail의 frustum과 world 경계 상자가 일부라도 교차하면 포함한다. 경계 상자 근사이며 픽셀 가림·클리핑 평면은 판정하지 않는다. document는 숨김·잠금 객체를 포함하고 object_ids로 좁힐 수 있다. 양 scope에서 group_ids로 원하는 그룹을 지정할 수 있으며 object_ids와 혼용하지 않는다. 이름은 식별자가 아니다.
 필터·페이지·기하 상세의 입력은 [도구 설명](../features/context/tools-explain.md)에 둔다.
-result_mode=objects는 문서 객체, summary는 레이어·유형 수량, hierarchy는 그룹·블록 계층이다. 필터는 top-level 객체에 먼저 적용한다. hierarchy는 expand_groups/expand_blocks(각 기본 false), depth(1–8, 기본 1)로 확장하며 number/parent_number가 페이지를 가로지르는 부모 관계를 보존한다. 그룹 계층은 엄격한 멤버 포함 관계로 판정하며, 겹치는 그룹·동일 멤버 그룹을 임의의 단일 부모에 배치하지 않는다. 명시한 그룹은 필터 후에도 루트로 유지하며 member_count와 matched_member_count를 구분한다.
+result_mode=objects는 문서 객체, summary는 레이어·유형 수량, hierarchy는 그룹·블록 계층이다. recursive=true는 hierarchy를 선택하고 그룹·블록을 함께 펼친다. 기본 false, depth는 1–8(최상위=1)이며 number/parent_number가 페이지를 가로지르는 부모 관계를 보존한다. 필터는 top-level 객체에 먼저 적용한다. 그룹 계층은 엄격한 멤버 포함 관계로 판정하며 겹치는 그룹·동일 멤버 그룹을 임의의 단일 부모에 배치하지 않는다. member_count, observed_member_count, matched_member_count와 all_members_in_scope를 구분한다. 확인할 수 없는 전체 개수는 null이다.
 블록 내부는 root_object_id와 block_path_ids로 구분하고 document_object=false를 표시한다. bounds는 world 좌표, 나머지 metadata는 정의 객체 기준이며 effective occurrence visible/selected는 null이다. 문서 객체의 수정 ID와 혼동하지 않도록 hierarchy에서 geometry/face 상세 입력은 거절한다. 해당 상세는 objects 모드로 조회한다.
-children_state는 leaf/collapsed/expanded/depth_limit/cycle을 구분한다. complete는 요청한 깊이에서의 페이지 완전성을 뜻하며 모든 자손 조사 완료를 뜻하지 않는다. 계층 번호는 동일 문서·범위·옵션에서만 유효한 순회 순번이다. 페이지 사이 문서가 변경되면 처음부터 다시 조회한다. 계층은 100000 occurrence 한도를 둔다.
+children_state는 leaf/collapsed/expanded/depth_limit/cycle/unavailable을 구분한다. complete는 페이지와 확인한 관계의 완전성이며 모든 자손 조사 완료를 뜻하지 않는다. page_complete와 membership_complete를 구분한다. 후속 offset 페이지에는 첫 응답의 snapshot을 expected_snapshot으로 전달한다. 문서·형상·속성·그룹·Layer·블록 정의·편집기·선택·조회 조건 또는 inside_window 카메라가 바뀌면 observation_changed로 거절하고 처음부터 조회한다. 계층은 100000 occurrence 한도를 둔다.
+검증된 BlockEditNew 바이너리는 현재 save-member 집합을 문서 객체와 대조해 작업 구성원을 읽는다. 최초 구성원 수나 visibility로 관계를 추측하지 않는다. editor_current_save_target은 편집기가 현재 저장할 테이블 슬롯이며 원본 persistent group GUID를 보장하지 않는다. 원본·상위 관계와 미지원 편집기의 소속은 incomplete로 남기고 Holon/Scene의 완전한 live 소유 관계로 대체하지 않는다. 편집 대상 조회와 Replace/Undo/save/cancel 검증은 별개이며, 고정 면·겹침 수정의 편집기 제한은 유지한다.
 문서 가시성은 화면 픽셀·frustum·clipping·occlusion 판정과 구분한다.
 UserDictionary는 기존 SharedUserDictionary만 읽으며, 사전을 생성하는 원본 getter를 호출하지 않는다.
 다중 값 필터는 출력 잘림과 별개로 판정하고 필터 검사 예산 초과는 오류로 보고한다.
-응답은 256 KiB를 넘지 않으며 기하 상세의 면·그룹·메타데이터 생략과 페이지를 명시한다.
+응답은 256 KiB를 넘지 않으며 기하 상세의 면·그룹·메타데이터 생략과 페이지를 명시한다. 공개 출력은 schema/model_path/document_units/tolerance_model_units를 생략한다. 부분 성공에서도 ID 선택과 관계·진단 근거를 분리해 include_ids를 지킨다.
 요약은 필터된 전체 집합을 레이어·객체 유형·형상 종류로 집계하며, 선택한 필드만 계산한다.
 명시적인 `fields=["id"]`는 기본 ID 생략보다 우선한다. 바깥 페이지는 객체/요약행, 각 객체의 `face_page`는 면 목록의 페이지다. 후속 면 조회는 명시 객체 집합과 원본 CRC를 요구한다.
 
 GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 components/native의 공통 분석기를 사용한다. 512개 top-level 객체에서 닫힌 Brep·Extrusion·Mesh를 검사하고, 명시된 include_blocks에 따라 중첩 배치를 world-space 복사본으로 해석한다. 최대 2048개 occurrence· 20000개 후보를 허용하며 페이지당 최대 64쌍을 계산한다. Cursor는 문서·형상·범위·공차에 묶인다.
-pair handle과 pair_state는 표시·수정의 실행 입력이므로 요약·ID 표시 옵션과 무관하게 보존한다.
+복원된 Holon 조회는 기존 pair handle과 pair_state 관측 출력을 유지한다. 통합 `resolve_object_intersection`은 object_ids로 시작해 첫 양의 겹침에서 멈추고 비교 이미지·번호·속성·소속 블록을 반환한다. 이후 같은 도구에 review_id와 choice=1/2/skip을 전달한다. 번호는 그 객체의 겹친 부분 제거이며 전체 객체 삭제가 아니다. review_id는 표시한 대상의 연결이고 형상 상태 토큰이 아니다. 매 수정 직전 현재 형상을 다시 계산하며 pair_state 입력은 받지 않는다.
+비교 캡처는 같은 카메라에서 주변 맥락과 native Isolate 상태를 합친다. 카메라·선택은 대상에 유지하고 이번 격리를 종료한 뒤 가시성을 대조한다. 블록 전체 배치를 표시하되 내부 부재 위치와 소속 블록 이름·경로를 구분한다. 공개 show_object_intersection은 통합 도구로 대체한다. 각 수정은 기존 단일 Replace·Undo 경계를 유지하며 다음 조회가 실패해도 previous_result의 완료된 수정 기록을 보존한다. 중복 선택은 재실행하지 않고 완료 불명은 자동 진행을 중단한다.
 미지원·미확정·미검사는 무교차가 아니다. Mesh/Brep 혼합 관찰의 메싱 근사와 페이지별 범위를 명시한다.
 두 고정 객체 조회의 명시적 `status=error`는 기존 `{result: JSON 문자열}` schema와 오류 상세를 보존하며 MCP `isError=true`로 반환한다. 정상 페이지의 `unknown`, `complete=false`, cursor는 오류로 대체하지 않는다.
 
@@ -76,7 +78,7 @@ pair handle과 pair_state는 표시·수정의 실행 입력이므로 요약·ID
 필터의 culling 실행을 확인하지 못하면 이미지를 반환하지 않는다. 타일별 범위·모드·카메라·오류를 돌려주며 일부 실패는 `complete=false`로 표시한다. 전체 이미지는 16M 픽셀·PNG 4 MiB 이내다.
 기본은 활성 모델뷰를 사용한다. `inspection_model_view=1`에서는 `model_view_id`로 기존 모델뷰를 지정해 활성 Layout·Detail을 바꾸지 않고 모델을 관찰한다. 문서·선택·가시성·Modified와 원본/활성 viewport·ActiveSpace가 전후 일치하지 않으면 이미지를 내보내지 않는다.
 기존 tile별 GUID는 512개 한도를 유지한다. `inspection_shared_scope=1`에서는 최상위 `object_ids`에 기존 객체 조회와 같은 상한인 1..4096개를 한 번 전달해 모든 tile에 재사용한다. 공통 `[]`와 공통/개별 집합 혼용은 오류다. 전체 GUID·총수는 `shared_scope`에 한 번 반환하며, 성공 tile의 참조·개수와 요청 집합을 Python에서 대조한다. 요청 256 KiB·메타데이터 512 KiB 한도를 유지한다. 전체/부분 성공 표시는 실제 tile 상태와 일치해야 하며 정상 부분 이미지는 보존한다.
-명시 블록 인스턴스 필터와 group/block 편집 중 캡처는 지원하지 않는다.
+명시 블록 인스턴스 필터는 지원하지 않는다. inspection_editing_context=1에서는 검증된 group/block 편집 상태의 캡처를 허용한다. 타일 사이 편집 대상과 마지막 문서 내용·현재 작업 멤버도 대조하며 변하면 이미지를 반환하지 않는다. 편집기로 숨겨진 바깥 객체를 자동으로 복원하지 않는다. 알 수 없는 편집기·명령 전환 중에는 거절한다.
 
 ## 제한된 평면 면 편집
 
@@ -103,7 +105,7 @@ outline은 summary를 기본으로 하며 field_groups로 objects/annotations/tr
 
 Python은 `capabilities.block_analysis=1`을 먼저 확인한다. 지원하지 않는 Bridge에는 분석 요청을 보내지 않는다.
 Bridge의 알 수 없는 request type도 실행 없이 unsupported_request로 거절한다.
-Holon의 rhino_group_id는 get_objects(scope="groups", group_ids=[...], include_ids=true)로 실제 문서 객체 GUID를 얻은 뒤 get_object_intersections에 전달한다. 전용 공개 get_holon_intersections는 없으며 공통 교차 계산기는 components/native가 소유한다. 의미 등록의 정합 검사는 Holon 조회 계약으로 남는다.
+get_holon_intersections는 Holon ID로 현재 재귀 멤버의 겹침을 조회한다. 일반 객체는 get_object_intersections(object_ids, include_block=false)로 조회하며 성공 시 intersections.number에 전체 겹침 쌍의 건수와 next_step만 반환한다. max_pairs·cursor는 내부 페이지 계산에만 사용한다. 미지원 형상·계산 실패·조회 중 범위 변경은 정상 건수로 축약하지 않고 오류 근거를 반환한다. include_block=false로 제외한 블록은 계산 범위 밖이다. Holon의 rhino_group_id로 get_objects(scope="document", group_ids=[...], include_ids=true)를 조회해 객체 GUID를 얻는 경로도 유지한다. 공통 교차 계산기는 components/native가 소유하며 의미 등록의 정합 검사는 Holon 조회 계약으로 남는다.
 
 ## Private Bridge C# recipe에서 계산값 반환
 

@@ -1,5 +1,5 @@
 """Live Rhino observations and local retrieval diagnostics."""
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.query_output import query_output
 from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.instruction_text import tool_instruction
@@ -59,6 +59,7 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp_error_result
     @tool_instruction(__file__, 'analyze_block_reculviely')
     @query_output
     def analyze_block_reculviely(mode: str, options: dict, expected_model_path: str = "", include_ids: StrictBool = False) -> str:
@@ -115,15 +116,16 @@ def register(mcp, context):
         "type": "object", "properties": {"result": {"type": "string"}},
         "required": ["result"], "x-fastmcp-wrap-result": True})
     @tool_instruction(__file__, 'get_objects')
-    def get_objects(scope: str = "visible", object_ids: list[str] | None = None,
+    def get_objects(scope: str = "current", object_ids: list[str] | None = None,
                           filters: dict | None = None, include_geometry: StrictBool = False,
                           offset: StrictInt = 0, limit: StrictInt = 50,
                           expected_model_path: str = "", include_ids: StrictBool = False,
                           result_mode: str = "objects", fields: list[str] | None = None,
                           face_offset: StrictInt = 0, face_limit: StrictInt = 128,
                           expected_geometry_crcs: dict[str, StrictInt] | None = None,
-                          group_ids: list[str] | None = None, expand_groups: StrictBool = False,
-                          expand_blocks: StrictBool = False, depth: StrictInt = 1) -> str | ToolResult:
+                          group_ids: list[str] | None = None, selected: StrictBool = False,
+                          inside_window: StrictBool = False, recursive: StrictBool = False,
+                          depth: StrictInt = 1, expected_snapshot: str = "") -> str | ToolResult:
         return _observation_result(object_queries.query(context._send_and_receive, scope=scope,
                                     ids=[] if object_ids is None else object_ids,
                                     filters={} if filters is None else filters,
@@ -131,20 +133,17 @@ def register(mcp, context):
                                     expected_model_path=expected_model_path, result_mode=result_mode,
                                     fields=fields, face_offset=face_offset, face_limit=face_limit,
                                     expected_geometry_crcs=expected_geometry_crcs, include_ids=include_ids,
-                                    group_ids=group_ids, expand_groups=expand_groups,
-                                    expand_blocks=expand_blocks, depth=depth))
+                                    group_ids=group_ids, selected=selected, inside_window=inside_window,
+                                    recursive=recursive, depth=depth, expected_snapshot=expected_snapshot))
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False}, output_schema={
         "type": "object", "properties": {"result": {"type": "string"}},
         "required": ["result"], "x-fastmcp-wrap-result": True})
     @tool_instruction(__file__, 'get_object_intersections')
-    def get_object_intersections(object_ids: list[str], max_pairs: StrictInt = 64,
-                                 expected_model_path: str = "", include_ids: StrictBool = False,
-                                 include_blocks: StrictBool = False, cursor: str = "") -> str | ToolResult:
-        return _observation_result(object_queries.intersections(context._send_and_receive, ids=object_ids, max_pairs=max_pairs,
-                                            expected_model_path=expected_model_path, include_blocks=include_blocks,
-                                            cursor=cursor, include_ids=include_ids))
+    def get_object_intersections(object_ids: list[str], include_block: StrictBool = False) -> str | ToolResult:
+        return _observation_result(object_queries.intersections(
+            context._send_and_receive, ids=object_ids, include_block=include_block))
 
 
     @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})

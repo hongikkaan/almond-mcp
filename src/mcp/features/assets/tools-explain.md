@@ -74,10 +74,16 @@ Limits: No hidden lines, inferred construction or product-front recognition. Cus
 
 <!-- instruction:audit_asset_drawing -->
 When to use: Check a drawing package's exported file hashes and, when a source is available, its staleness.
-Before calling: Supply an absolute package_dir. A known library source resolves automatically; custom packages need the current absolute source_glb to check source geometry.
+Before calling: In a managed Almond session, supply project-relative package_dir and optional source_glb; absolute paths and parent traversal are rejected by the runtime. Standalone library calls use absolute paths internally. A known library source resolves automatically; custom packages need the current source_glb to check source geometry.
 Inputs from earlier results: Reuse package_dir from generate_asset_drawing_views or get_asset_drawing with field_groups=["paths"]. Keep the original custom GLB path for source comparison.
 Interpretation: Read source_geometry as well as status: not_checked means no source comparison was made, even if status is success; stale means the source changed. The checked_files count reports audit coverage, not visual review.
 Limits: This is a read-only file/geometry audit, not visual, drawing-quality or construction validation, and it does not regenerate files.
+
+Args:
+    package_dir: Drawing package directory from a prior generation/query result. Use a project-relative path in managed Almond sessions; standalone library calls require an absolute path.
+    source_glb: Optional current source GLB for staleness checking, using the same managed/standalone path convention. Omit when the source resolves from the library.
+Returns:
+    Audit status, checked_files and source_geometry evidence; not_checked does not establish source freshness.
 <!-- /instruction:audit_asset_drawing -->
 
 ## asset_catalogue_resource

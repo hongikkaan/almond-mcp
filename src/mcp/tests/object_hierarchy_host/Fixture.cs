@@ -23,7 +23,8 @@ namespace Rhino.Geometry {
         public void Transform(Transform transform) { Min.X += transform.X; Max.X += transform.X; }
     }
     public class GeometryBase {
-        public BoundingBox GetBoundingBox(bool accurate) => new BoundingBox();
+        public double MinX, MaxX;
+        public BoundingBox GetBoundingBox(bool accurate) => new BoundingBox { Min = new Point3d { X=MinX }, Max = new Point3d { X=MaxX } };
     }
 }
 namespace Rhino.DocObjects {
@@ -32,7 +33,8 @@ namespace Rhino.DocObjects {
     public class ObjectAttributes { public ActiveSpace Space; public int LayerIndex; }
     public class RhinoObject {
         public Guid Id; public string Name = "";
-        public bool IsDeleted, IsInstanceDefinitionGeometry, Visible = true;
+        public bool IsDeleted, IsInstanceDefinitionGeometry, IsLocked, Selected, Visible = true;
+        public int IsSelected(bool subobjects) => Selected ? 1 : 0;
         public ObjectType ObjectType = ObjectType.Brep;
         public ObjectAttributes Attributes = new ObjectAttributes();
         public GeometryBase Geometry = new GeometryBase();
@@ -47,11 +49,11 @@ namespace Rhino.DocObjects {
         public InstanceDefinition InstanceDefinition = new InstanceDefinition();
         public Transform InstanceXform = Transform.Identity;
     }
-    public class Group { public Guid Id; public string Name; public int Index; public bool IsDeleted; public Guid[] Members; }
+    public class Group { public Guid Id; public string Name; public int Index; public bool IsDeleted; public Guid[] Members; public bool Complete=true; }
     public class ObjectEnumeratorSettings {
         public bool NormalObjects, HiddenObjects, LockedObjects, ReferenceObjects, DeletedObjects, IdefObjects, VisibleFilter;
     }
-    public class Layer { public string FullPath = "Model"; }
+    public class Layer { public string FullPath = "Model"; public Guid Id, ParentLayerId; public bool IsDeleted, IsLocked; }
 }
 namespace Rhino {
     public class ObjectTable : List<RhinoObject> {
@@ -63,18 +65,21 @@ namespace Rhino {
         public ObjectTable Objects;
         public RhinoObject[] GroupMembers(int index) => this[index].Members.Select(id => Objects.FindId(id)).Where(o => o != null).ToArray();
     }
-    public class LayerTable { public Layer FindIndex(int index) => new Layer(); }
+    public class LayerTable : List<Layer> { public Layer FindIndex(int index) => index >= 0 && index < Count ? this[index] : null; }
+    public class View { public Rhino.Display.RhinoViewport ActiveViewport = new Rhino.Display.RhinoViewport(); }
+    public class Views { public View ActiveView = new View(); }
     public class RhinoDoc {
         public ObjectTable Objects = new ObjectTable();
         public GroupTable Groups = new GroupTable();
         public LayerTable Layers = new LayerTable();
-        public RhinoDoc() { Groups.Objects = Objects; }
+        public Views Views = new Views(); public ActiveSpace ActiveSpace = ActiveSpace.ModelSpace;
+        public RhinoDoc() { Groups.Objects = Objects; Layers.Add(new Layer { Id=Guid.NewGuid() }); }
     }
 }
 namespace Rhino.Display {
     public class RhinoViewport {
         public System.Drawing.Size Size => new System.Drawing.Size(100, 100);
-        public bool IsVisible(BoundingBox bounds) => true;
+        public bool IsVisible(BoundingBox bounds) => bounds.Max.X >= 0 && bounds.Min.X <= 10;
         public System.Drawing.PointF WorldToClient(Point3d point) => new System.Drawing.PointF();
     }
 }
@@ -93,6 +98,15 @@ namespace System.Drawing {
     }
 }
 namespace RhinoAlmondBridge {
+    public static class EditingContext {
+        public class ObjectScope { }
+        public static ObjectScope ObserveObjects(Rhino.RhinoDoc doc) => new ObjectScope();
+        public static RhinoObject[] GroupObjects(Rhino.RhinoDoc doc, Group group, ObjectScope scope,
+            out bool complete, out string basis) {
+            complete = group.Complete; basis = complete ? "document_group_table" : "editor_incomplete";
+            return doc.Groups.GroupMembers(group.Index);
+        }
+    }
     public static partial class ObjectObservation {
         const int MaxBytes = 262144;
         class ValueBudget {}
@@ -105,10 +119,18 @@ namespace RhinoAlmondBridge {
 
         public static JObject Run(JObject input) {
             var doc = new Rhino.RhinoDoc();
+            if (input["layers"] is JArray layers) {
+                doc.Layers.Clear();
+                foreach (var row in layers) doc.Layers.Add(new Layer { Id=Guid.Parse((string)row["id"]),
+                    ParentLayerId=row["parent"] == null ? Guid.Empty : Guid.Parse((string)row["parent"]), IsLocked=(bool?)row["locked"] ?? false });
+            }
             foreach (var item in input["objects"]) {
                 RhinoObject obj = item["members"] == null ? new RhinoObject() : new InstanceObject();
                 obj.Id = Guid.Parse((string)item["id"]); obj.Name = (string)item["name"] ?? "";
                 obj.IsInstanceDefinitionGeometry = (bool?)item["definition"] ?? false;
+                obj.Visible = !((bool?)item["hidden"] ?? false); obj.IsLocked = (bool?)item["locked"] ?? false;
+                obj.Selected = (bool?)item["selected"] ?? false; obj.Attributes.LayerIndex = (int?)item["layer"] ?? 0;
+                obj.Geometry.MinX = (double?)item["min_x"] ?? 0; obj.Geometry.MaxX = (double?)item["max_x"] ?? 0;
                 if (obj is InstanceObject block) {
                     block.ObjectType = ObjectType.InstanceReference;
                     block.InstanceXform = new Transform { X = (double?)item["x"] ?? 0 };
@@ -120,12 +142,14 @@ namespace RhinoAlmondBridge {
                     item["members"].Values<string>().Select(id => doc.Objects.FindId(Guid.Parse(id))).ToArray();
             foreach (var item in input["groups"] ?? new JArray())
                 doc.Groups.Add(new Group { Id = Guid.Parse((string)item["id"]), Name = (string)item["name"] ?? "",
-                    Index = doc.Groups.Count, Members = item["members"].Values<string>().Select(Guid.Parse).ToArray() });
+                    Index = doc.Groups.Count, Members = item["members"].Values<string>().Select(Guid.Parse).ToArray(),
+                    Complete = (bool?)item["complete"] ?? true });
             var groupIds = (input["group_ids"] ?? new JArray()).Values<string>().Select(Guid.Parse).ToArray();
-            string scope = groupIds.Length == 0 ? "selected" : "groups";
+            string scope = (string)input["scope"] ?? (groupIds.Length == 0 ? "selected" : "groups");
             var source = scope == "groups" ? RequestedGroups(doc, groupIds).SelectMany(g => g.Members).Distinct().ToArray()
                 : (input["selected"] ?? new JArray(doc.Objects.Where(o => !o.IsInstanceDefinitionGeometry).Select(o => o.Id.ToString())))
                     .Values<string>().Select(id => doc.Objects.FindId(Guid.Parse(id))).ToArray();
+            if (scope == "current") source = CurrentObjects(doc, source, (bool?)input["current_selected"] ?? false, (bool?)input["inside_window"] ?? false);
             var matched = input["matched"] == null ? source : source.Where(o => input["matched"].Values<string>().Contains(o.Id.ToString())).ToArray();
             return Hierarchy(doc, scope, groupIds, source, matched, new HashSet<Guid>(source.Select(o => o.Id)), null,
                 (bool?)input["expand_groups"] ?? false, (bool?)input["expand_blocks"] ?? false,

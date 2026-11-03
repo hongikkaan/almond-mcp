@@ -87,9 +87,11 @@ namespace RhinoAlmondBridge
                 ["status"] = "success",
                 ["capabilities"] = new JObject { ["block_analysis"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2, ["component_group_inference"] = 1,
                     ["component_operations"] = 1, ["drawing_asset_extract"] = 2, ["context_sections"] = 2, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
-                    ["object_observation"] = 3, ["inspection_capture"] = 1, ["inspection_model_view"] = 1,
-                    ["inspection_shared_scope"] = 1, ["capture_output_size"] = 1, ["face_edit"] = 1,
+                    ["object_observation"] = 4, ["inspection_capture"] = 1, ["inspection_model_view"] = 1,
+                    ["inspection_shared_scope"] = 1, ["inspection_editing_context"] = 1,
+                    ["capture_output_size"] = 1, ["face_edit"] = 1,
                     ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
+                    ["intersection_review"] = 1,
                     ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1 },
                 ["warnings"] = warnings
             };
@@ -340,7 +342,7 @@ namespace RhinoAlmondBridge
             return entries;
         }
 
-        private static JObject ImageViewState(RhinoView view)
+        internal static JObject ImageViewState(RhinoView view)
         {
             return new JObject { ["main"] = ReadViewport(view.MainViewport), ["active"] = ReadViewport(view.ActiveViewport) };
         }

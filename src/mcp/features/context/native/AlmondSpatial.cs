@@ -324,9 +324,10 @@ public static class AlmondSpatial
         if (wanted == null) throw new ArgumentException("Path target is not a block.");
         var world = parent * wanted.InstanceXform;
         if (path.Length == 1) {
-            if (!Editable(wanted)) throw new InvalidOperationException("The explicit root is not currently editable.");
             var root = Row(doc, wanted); root["definition_to_world"] = Matrix(world);
             root["match_rule"] = "explicit_root_id"; root["editor_owner_verified"] = false;
+            root["selectable_now"] = Editable(wanted);
+            root["editing_permission"] = "not_granted_by_read_only_resolution";
             return root;
         }
         var matches = TopObjects(doc).OfType<InstanceObject>().Where(o =>

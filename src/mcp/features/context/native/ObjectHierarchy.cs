@@ -12,36 +12,46 @@ namespace RhinoAlmondBridge
 {
     public static partial class ObjectObservation
     {
-        static List<ObservationEntities.Entity> RequestedGroups(RhinoDoc doc, Guid[] ids)
+        static ObservationEntities.Entity GroupEntity(RhinoDoc doc, Group group, EditingContext.ObjectScope editing)
         {
+            var members = EditingContext.GroupObjects(doc, group, editing, out bool complete, out string basis)
+                .Where(o => o != null && !o.IsDeleted && !o.IsInstanceDefinitionGeometry &&
+                    o.Attributes.Space != ActiveSpace.PageSpace).ToArray();
+            var bounds = BoundingBox.Empty;
+            foreach (var member in members) bounds.Union(member.Geometry.GetBoundingBox(true));
+            return new ObservationEntities.Entity { Id = group.Id, Name = group.Name ?? "", Kind = "Group",
+                Members = members, Bounds = bounds, Path = Array.Empty<Guid>(),
+                MembershipComplete = complete, MembershipBasis = basis };
+        }
+
+        static List<ObservationEntities.Entity> RequestedGroups(RhinoDoc doc, Guid[] ids, EditingContext.ObjectScope editing = null)
+        {
+            editing = editing ?? EditingContext.ObserveObjects(doc);
             var result = new List<ObservationEntities.Entity>();
             foreach (var id in ids.OrderBy(value => value))
             {
                 var group = doc.Groups.FirstOrDefault(g => g != null && !g.IsDeleted && g.Id == id);
                 if (group == null) throw new ArgumentException("Unknown group GUID: " + id);
-                var members = (doc.Groups.GroupMembers(group.Index) ?? Array.Empty<RhinoObject>())
-                    .Where(o => o != null && !o.IsDeleted && !o.IsInstanceDefinitionGeometry &&
-                        o.Attributes.Space != ActiveSpace.PageSpace).ToArray();
-                var bounds = BoundingBox.Empty;
-                foreach (var member in members) bounds.Union(member.Geometry.GetBoundingBox(true));
-                result.Add(new ObservationEntities.Entity { Id = group.Id, Name = group.Name ?? "", Kind = "Group",
-                    Members = members, Bounds = bounds, Path = new[] { group.Id } });
+                result.Add(GroupEntity(doc, group, editing));
             }
             return result;
         }
 
         static JObject Hierarchy(RhinoDoc doc, string scope, Guid[] groupIds, RhinoObject[] candidates,
             RhinoObject[] matched, HashSet<Guid> visible, HashSet<string> fields,
-            bool expandGroups, bool expandBlocks, int depth, int offset, int limit)
+            bool expandGroups, bool expandBlocks, int depth, int offset, int limit, EditingContext.ObjectScope editing = null)
         {
+            editing = editing ?? EditingContext.ObserveObjects(doc);
             var matchedIds = new HashSet<Guid>(matched.Select(o => o.Id));
-            var roots = scope == "groups" ? RequestedGroups(doc, groupIds) : ObservationEntities.Roots(doc, matched);
+            Func<Group, ObservationEntities.Entity> groupSource = g => GroupEntity(doc, g, editing);
+            var roots = groupIds.Length != 0 ? RequestedGroups(doc, groupIds, editing) :
+                ObservationEntities.Roots(doc, matched, null, groupSource, includePartial: scope == "current" || scope == "document");
             // Explicit group roots retain their identity even when filtering selects only some members.
             // The traversal below sees only matched members, so it cannot widen the requested scope.
             var rows = new JArray();
             var budget = new ValueBudget();
             int count = 0, bytes = 0;
-            bool depthLimited = false, cycleLimited = false;
+            bool depthLimited = false, cycleLimited = false, membershipIncomplete = false;
             Action<ObservationEntities.Entity, int?, int, HashSet<Guid>> visit = null;
             visit = (entity, parent, level, ancestors) =>
             {
@@ -50,9 +60,13 @@ namespace RhinoAlmondBridge
                 bool group = entity.Kind == "Group";
                 var block = entity.Object as InstanceObject;
                 var members = group ? entity.Members.Where(o => matchedIds.Contains(o.Id)).ToArray() : null;
+                if (group && entity.DefinitionOccurrence)
+                    members = entity.Members; // Definition members are already scoped by their root occurrence.
+                membershipIncomplete |= group && !entity.MembershipComplete;
                 bool hasChildren = group ? members.Length > 0 : block != null && block.InstanceDefinition.ObjectCount > 0;
                 bool expand = group ? expandGroups : block != null && expandBlocks;
-                string state = !hasChildren ? "leaf" : !expand ? "collapsed" : level >= depth ? "depth_limit" :
+                string state = group && !entity.MembershipComplete && !hasChildren ? "unavailable" :
+                    !hasChildren ? "leaf" : !expand ? "collapsed" : level >= depth ? "depth_limit" :
                     ancestors.Contains(entity.Id) ? "cycle" : "expanded";
                 depthLimited |= state == "depth_limit";
                 cycleLimited |= state == "cycle";
@@ -61,7 +75,11 @@ namespace RhinoAlmondBridge
                     JObject row;
                     if (group)
                     {
-                        row = new JObject { ["member_count"] = entity.Members.Length, ["matched_member_count"] = members.Length };
+                        row = new JObject { ["member_count"] = entity.MembershipComplete ? new JValue(entity.Members.Length) : JValue.CreateNull(),
+                            ["observed_member_count"] = entity.Members.Length, ["matched_member_count"] = members.Length,
+                            ["membership_complete"] = entity.MembershipComplete,
+                            ["all_members_in_scope"] = members.Length == entity.Members.Length,
+                            ["membership_basis"] = entity.MembershipBasis };
                         if (fields == null || fields.Contains("id")) row["id"] = entity.Id.ToString();
                         if (fields == null || fields.Contains("name")) row["name"] = entity.Name;
                         if (fields == null || fields.Contains("bounds")) row["bounds"] = Bounds(entity.Bounds);
@@ -94,10 +112,15 @@ namespace RhinoAlmondBridge
                 }
                 if (state != "expanded") return;
                 var next = new HashSet<Guid>(ancestors) { entity.Id };
-                IEnumerable<ObservationEntities.Entity> children = group
-                    ? ObservationEntities.Roots(doc, members, entity.Id)
-                    : block.InstanceDefinition.GetObjects().OrderBy(o => o.Id)
-                        .Select(o => ObservationEntities.ObjectEntity(doc, o, entity.ToWorld, entity.Path));
+                IEnumerable<ObservationEntities.Entity> children;
+                if (group)
+                {
+                    children = ObservationEntities.Roots(doc, members, entity.Id, entity.DefinitionOccurrence ? null : groupSource);
+                    if (entity.DefinitionOccurrence)
+                        children = children.Select(e => Place(doc, e, entity.ToWorld, entity.Path));
+                }
+                else children = ObservationEntities.Roots(doc, block.InstanceDefinition.GetObjects())
+                    .Select(e => Place(doc, e, entity.ToWorld, entity.Path));
                 foreach (var child in children) visit(child, number, level + 1, next);
             };
             foreach (var root in roots) visit(root, null, 1, new HashSet<Guid>());
@@ -107,7 +130,9 @@ namespace RhinoAlmondBridge
                 ["root_count"] = roots.Count, ["hierarchy_count"] = count, ["nodes"] = rows,
                 ["offset"] = offset, ["limit"] = limit, ["depth"] = depth,
                 ["next_offset"] = offset + rows.Count < count ? new JValue(offset + rows.Count) : JValue.CreateNull(),
-                ["complete"] = offset == 0 && rows.Count == count, ["depth_limited"] = depthLimited,
+                ["complete"] = offset == 0 && rows.Count == count && !membershipIncomplete,
+                ["page_complete"] = offset == 0 && rows.Count == count,
+                ["membership_complete"] = !membershipIncomplete, ["depth_limited"] = depthLimited,
                 ["cycle_limited"] = cycleLimited,
                 ["limitations"] = new JArray(
                     "Filters select top-level model objects before grouping or block traversal. Expanded block members retain definition metadata and world bounds.",
@@ -119,6 +144,14 @@ namespace RhinoAlmondBridge
             if (Encoding.UTF8.GetByteCount(answer.ToString(Formatting.None)) > MaxBytes)
                 return Error("observation_too_large", "Hierarchy response exceeds 256 KiB; reduce limit or fields.");
             return answer;
+        }
+
+        static ObservationEntities.Entity Place(RhinoDoc doc, ObservationEntities.Entity entity, Transform parent, Guid[] prefix)
+        {
+            if (entity.Kind != "Group") return ObservationEntities.ObjectEntity(doc, entity.Object, parent, prefix);
+            entity.ToWorld = parent; entity.Path = prefix; entity.DefinitionOccurrence = true;
+            var bounds = entity.Bounds; bounds.Transform(parent); entity.Bounds = bounds;
+            return entity;
         }
     }
 }

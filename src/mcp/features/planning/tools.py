@@ -1,5 +1,5 @@
 """Register Phase, Plan and Step tools without owning server state."""
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.features.components.public_contract import holon_output
 from almond_mcp.query_output import compact_ack
 from almond_mcp.query_output import validate_field_groups, InvalidFieldGroups
@@ -215,6 +215,7 @@ def register(mcp, context):
             return json.dumps(project(error_payload(str(exc)), field_groups))
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp_error_result
     @tool_instruction(__file__, 'get_selection_references')
     @holon_output
     def get_selection_references(selection_limit: StrictInt = 50, limit: StrictInt = 50,

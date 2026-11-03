@@ -82,7 +82,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 | 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `analyze_block_reculviely`, `get_defined_viewcapture`, `get_current_viewcapture`, `get_objects`, `get_object_intersections`, `capture_rhino_inspection` |
 | 작업계획 | `create_phase`, `list_phases`, `update_phase`, `create_plan`, `get_phase_plan_step`, `list_plans`, `update_plan`, `list_plan_revisions`, `update_step`, `resolve_targets`, `get_selection_references` |
 | Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `list_design_scenes`, `get_scene_objects` |
-| Component | `upsert_ontological_holon`, `get_ontological_holon`, `list_ontological_holons`, `sync_ontological_holon`, `remove_ontological_holon`, `show_object_intersection`, `resolve_object_intersection`, `focus_holons` |
+| Component | `upsert_ontological_holon`, `get_ontological_holon`, `list_ontological_holons`, `sync_ontological_holon`, `remove_ontological_holon`, `get_holon_intersections`, `resolve_object_intersection`, `focus_holons` |
 | 설계 참고자료 | `get_modeling_guide`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
 | 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `save_rhino_document`, `edit_planar_face`, `edit_planar_faces`, `setup_modeling`, `list_materials`, `assign_material` |
 | Grasshopper | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` |
@@ -204,7 +204,7 @@ Python 지침만 변경했을 때 Rhino RHP 빌드·등록 변경은 필요하�
 project의 `files`는 DB에 기록된 파일 목록으로, 디스크 존재나 열린 문서를 보증하지 않는다. `files_limit`은 1–500(기본 50), `files_offset`은 0 이상이다. `files_page`의 total/limit/offset/truncated를 보존하며 truncated는 뒤에 더 조회할 행이 있다는 뜻이다. 같은 이름의 파일은 `include_ids=true`의 `project_file_id`로 구분한다. 공개 `list_project_files` 도구는 없으며 저장소의 내부 목록 조회 메서드를 재사용한다.
 
 locations는 프로젝트 공통 `database`와 현재 연결이 선택한 Plan의 `artifact_dir`·경로 규칙을 제공한다. 산출물 폴더 미선택은 null이고 Plan/Step ID는 `include_ids=true`일 때만 포함한다. `project_root`는 절대경로이고 다른 관리 경로는 프로젝트 상대경로다. `root_variable`·`root_variable_set` 및 artifacts/instructions section은 제공하지 않는다. locations/runtime만 요청하면 live 문서를 조회하지 않는다. `get_rhino_context`는 document/viewport/editor/named_views/layouts/display_modes/viewports에서 요청한 항목만 수집한다. 기본은 document/named_views/layouts/display_modes와 next_step이며 명시 sections에는 next_step을 붙이지 않는다. Named View/Layout/표시 모드 ID는 항상 제공한다. editor의 provider·명령·Undo 근거는 include_editor_details로 선택한다.
-선택·그룹·일반 객체 조회는 get_objects로 통합한다. 기본은 문서 객체 목록이며, hierarchy 모드에서 그룹·블록을 선택적으로 펼친다. context에는 이미지·문서 이름/경로를 넣지 않는다. get_defined_viewcapture는 Named View/실제 Layout 용지를, get_current_viewcapture는 현재 모델 화면을 캡처한다. 후자는 여러 종류의 일반 객체를 공통 선택 경로로 확대하고 선택적으로 native Isolate를 적용하며 실제 화면 상태를 유지한다. 세부 한도와 실패 후 변경 근거는 관측 계약을 따른다.
+선택·그룹·일반 객체 조회는 get_objects로 통합한다. 기본 current는 화면 밖을 포함한 표시·비잠금 모델 객체이며 selected 또는 inside_window로 좁힌다. document는 숨김·잠금 객체와 명시 object_ids 조회를 포함하고, group_ids는 두 범위 모두에서 사용할 수 있다. recursive는 그룹·블록을 함께 펼친 hierarchy를 반환한다. 후속 페이지는 첫 snapshot을 expected_snapshot으로 전달해 조회 사이 변경을 검사한다. context에는 이미지·문서 이름/경로를 넣지 않는다. get_defined_viewcapture는 Named View/실제 Layout 용지를, get_current_viewcapture는 현재 모델 화면을 캡처한다. 후자는 여러 종류의 일반 객체를 공통 선택 경로로 확대하고 선택적으로 native Isolate를 적용하며 실제 화면 상태를 유지한다. 세부 한도와 편집 중 조회의 불완전성·실패 후 변경 근거는 관측 계약을 따른다.
 계획 도구를 제외한 일반 조회는 include_ids=false이고 입력으로 확정된 get 대상 ID는 반복 출력하지 않는다.
 필드군을 지원하는 조회는 기본 summary에 필요한 field_groups만 추가하며 IDs와 audit는 독립이다.
 오류·불완전·native 완료/proof는 요약으로 숨기지 않는다.

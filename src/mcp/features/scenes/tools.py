@@ -1,5 +1,5 @@
 """Scene MCP tools registered against a per-server feature context."""
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.features.components.public_contract import holon_output
 from almond_mcp.query_output import compact_ack, query_output, select_fields, validate_field_groups
 from almond_mcp.managed_paths import bound_model_path
@@ -71,6 +71,7 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp_error_result
     @tool_instruction(__file__, 'get_scene_objects')
     @query_output
     @holon_output

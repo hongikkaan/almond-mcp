@@ -97,6 +97,9 @@ namespace RhinoAlmondBridge
                     case "intersection_preview":
                         return IntersectionTools.PreviewHandle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 
+                    case "intersection_review":
+                        return IntersectionReview.Capture(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
                     case "intersection_resolve":
                         return IntersectionTools.ResolveHandle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 

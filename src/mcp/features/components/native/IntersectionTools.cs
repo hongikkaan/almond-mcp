@@ -155,7 +155,7 @@ namespace RhinoAlmondBridge
                 if (doc.IsReadOnly) throw new ArgumentException("The document is read-only.");
                 var editor = EditingContext.Observe(doc);
                 if ((bool?)editor["stable"] != true || (string)editor["mode"] != "model")
-                    throw new ArgumentException("Finish the current group/block editing context before changing document-level solids.");
+                    throw new ArgumentException("The active editor's Replace/Undo/save/cancel contract is not yet verified for subtraction. Working-object observation alone does not authorize document-level replacement.");
                 IntersectionAnalysis.Scope sk = null, st = null;
                 try
                 {
@@ -282,7 +282,9 @@ namespace RhinoAlmondBridge
         static void ValidatePair(RhinoDoc doc, IntersectionAnalysis.Member a, IntersectionAnalysis.Member b, string state)
         {
             if (a.Key == b.Key) throw new ArgumentException("Choose two distinct occurrences.");
-            if (String.IsNullOrEmpty(state) || state != IntersectionAnalysis.PairState(doc, a, b))
+            // Legacy callers can still validate their receipt. The review workflow binds
+            // operand identities and recomputes live geometry instead of requiring a CRC token.
+            if (!String.IsNullOrEmpty(state) && state != IntersectionAnalysis.PairState(doc, a, b))
                 throw new ArgumentException("The pair state changed or was not supplied; inspect this pair again.");
         }
 

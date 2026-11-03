@@ -6,7 +6,7 @@
       "properties": {
         "mode": {
           "type": "string",
-          "description": "outline traverses objects and nested definitions; resolve-block finds\ncandidates for the current editing context along an explicit occurrence path."
+          "description": "outline traverses objects and nested definitions; resolve-block resolves an explicit occurrence path. Top-level resolution does not require selection eligibility or grant editor ownership."
         },
         "options": {
           "additionalProperties": true,
@@ -150,11 +150,13 @@
       "additionalProperties": false,
       "properties": {
         "package_dir": {
-          "type": "string"
+          "type": "string",
+          "description": "Drawing package directory from a prior generation/query result. Use a project-relative path in managed Almond sessions; standalone library calls require an absolute path."
         },
         "source_glb": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Optional current source GLB for staleness checking, using the same managed/standalone path convention. Omit when the source resolves from the library."
         }
       },
       "required": [
@@ -245,15 +247,18 @@
             "additionalProperties": true,
             "type": "object"
           },
-          "type": "array"
+          "type": "array",
+          "description": "1..16 tile objects with direction, display_mode, label and optional object_ids (1..512 distinct top-level GUIDs). Omitted/empty tile IDs use document visibility."
         },
         "width": {
           "default": 640,
-          "type": "integer"
+          "type": "integer",
+          "description": "Tile width in pixels, 128..2048; default 640. Combined image limit also applies."
         },
         "height": {
           "default": 480,
-          "type": "integer"
+          "type": "integer",
+          "description": "Tile height in pixels, 128..2048; default 480. Combined image limit also applies."
         },
         "columns": {
           "anyOf": [
@@ -264,15 +269,18 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Optional column count, 1..number of views; omitted uses an automatic grid."
         },
         "expected_model_path": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Usually omitted; runtime supplies the bound saved document."
         },
         "model_view_id": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Optional listed model viewport GUID used without activating it, including while a Layout/Detail is active."
         },
         "object_ids": {
           "anyOf": [
@@ -286,7 +294,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Optional common set of 1..4096 distinct top-level GUIDs for all tiles. Do not combine with nonempty tile-level object_ids."
         }
       },
       "required": [
@@ -578,13 +587,16 @@
       "additionalProperties": false,
       "properties": {
         "object_id": {
-          "type": "string"
+          "type": "string",
+          "description": "Current unlocked top-level closed Brep GUID from an observation in the bound document."
         },
         "face_index": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Zero-based planar face index from the same geometry observation as expected_geometry_crc."
         },
         "expected_geometry_crc": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Geometry CRC from that observation; changed geometry rejects the edit before replacement."
         },
         "translation": {
           "items": {
@@ -597,11 +609,13 @@
               }
             ]
           },
-          "type": "array"
+          "type": "array",
+          "description": "Three finite XYZ numbers in document units; its face-normal component must exceed document tolerance."
         },
         "expected_model_path": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Usually omitted; runtime supplies the bound saved document."
         }
       },
       "required": [
@@ -636,11 +650,13 @@
             "additionalProperties": true,
             "type": "object"
           },
-          "type": "array"
+          "type": "array",
+          "description": "1..32 items for distinct Breps, each containing object_id, face_index, expected_geometry_crc and translation; the single-face eligibility rules apply."
         },
         "expected_model_path": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Usually omitted; runtime supplies the bound saved document."
         }
       },
       "required": [
@@ -737,7 +753,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Rhino object GUIDs to export (from execute_rhino_script)."
+          "description": "Current Rhino object GUIDs from an existing object observation, selection or modeling result."
         },
         "asset_id": {
           "type": "string",
@@ -751,7 +767,7 @@
         "output_dir": {
           "default": "",
           "type": "string",
-          "description": "Destination folder. Default: <user data dir>/exchange."
+          "description": "Managed session: relative to the selected Plan's artifact folder (default exchange). Standalone: destination folder, default <user data dir>/exchange."
         }
       },
       "required": [
@@ -958,19 +974,23 @@
         },
         "asset_id": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Required for export; stable identifier used for the exported files."
         },
         "name": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Export display name; defaults to asset_id."
         },
         "output_dir": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Export destination. Managed sessions require a selected Plan and use a relative folder beneath its artifact directory, default exchange; standalone calls default to the user-data exchange folder."
         },
         "material_id": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Known library material ID required for materials."
         },
         "object_names": {
           "anyOf": [
@@ -984,11 +1004,13 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Nonempty list of actual Blender object names required for materials."
         },
         "include_ids": {
           "default": false,
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Include supplementary identity fields; supplied target IDs are not repeated."
         },
         "field_groups": {
           "anyOf": [
@@ -1002,7 +1024,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Optional notes, audit or all; script remains in the default payload."
         }
       },
       "required": [
@@ -1158,7 +1181,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Optional image width in pixels, 128..2048; supply height too and scale_percent=100. Does not resize the Rhino window."
         },
         "height": {
           "anyOf": [
@@ -1169,7 +1193,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Optional image height in pixels, 128..2048; supply width too and scale_percent=100. Does not resize the Rhino window."
         },
         "expected_model_path": {
           "default": "",
@@ -1232,7 +1257,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Optional Named View width in pixels, 128..2048; supply height too and scale_percent=100. Not used for Layouts."
         },
         "height": {
           "anyOf": [
@@ -1243,7 +1269,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Optional Named View height in pixels, 128..2048; supply width too and scale_percent=100. Not used for Layouts."
         },
         "expected_model_path": {
           "default": "",
@@ -1447,6 +1474,74 @@
     },
     "annotations": null
   },
+  "get_holon_intersections": {
+    "name": "get_holon_intersections",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "holon_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string"
+        },
+        "max_pairs": {
+          "default": 64,
+          "type": "integer"
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean"
+        },
+        "field_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "include_blocks": {
+          "default": false,
+          "type": "boolean"
+        },
+        "cursor": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "holon_ids"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false
+    }
+  },
   "get_logic_by_id": {
     "name": "get_logic_by_id",
     "inputSchema": {
@@ -1538,32 +1633,186 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Distinct current top-level Rhino object GUIDs, 1..512; checked as one scope with internal pagination."
         },
-        "max_pairs": {
-          "default": 64,
-          "type": "integer"
-        },
-        "expected_model_path": {
-          "default": "",
-          "type": "string"
-        },
-        "include_ids": {
+        "include_block": {
           "default": false,
-          "type": "boolean"
-        },
-        "include_blocks": {
-          "default": false,
-          "type": "boolean"
-        },
-        "cursor": {
-          "default": "",
-          "type": "string"
+          "type": "boolean",
+          "description": "Expand transformed nested block members when true; default false excludes blocks from the scope."
         }
       },
       "required": [
         "object_ids"
       ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "x-fastmcp-wrap-result": true
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false
+    }
+  },
+  "get_objects": {
+    "name": "get_objects",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "default": "current",
+          "type": "string",
+          "description": "current (default) includes visible, unlocked model objects even off-screen; document also includes hidden/locked objects."
+        },
+        "object_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional distinct top-level object GUIDs (1..4096) in document scope only. Do not combine with group_ids."
+        },
+        "filters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "AND conditions: layer_paths (exact full paths), object_types (observed Rhino names), name_contains (case-insensitive), user_dictionary (source=attributes|geometry, key, scalar any_of)."
+        },
+        "include_geometry": {
+          "default": false,
+          "type": "boolean",
+          "description": "Include geometry detail in objects mode when fields is omitted; explicit fields take precedence."
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer",
+          "description": "Row offset 0..100000. Values above zero require expected_snapshot from the first page."
+        },
+        "limit": {
+          "default": 50,
+          "type": "integer",
+          "description": "Rows per page, 1..200; default 50."
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string",
+          "description": "Usually omitted; runtime supplies the bound saved document."
+        },
+        "include_ids": {
+          "default": false,
+          "type": "boolean",
+          "description": "Include object/group/occurrence identities; default false. Explicit id or faces fields also enable identities."
+        },
+        "result_mode": {
+          "default": "objects",
+          "type": "string",
+          "description": "objects (default), hierarchy, or summary. recursive=true selects hierarchy and cannot be combined with summary."
+        },
+        "fields": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional nonempty field list: id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, geometry_valid, solid, manifold, volume, faces, face_count. Geometry detail and faces require objects mode; summary rejects fields."
+        },
+        "face_offset": {
+          "default": 0,
+          "type": "integer",
+          "description": "Face-page offset, default 0. Later face pages require document object_ids and expected_geometry_crcs for every object."
+        },
+        "face_limit": {
+          "default": 128,
+          "type": "integer",
+          "description": "Faces per object page, 1..128; default 128. Face options require objects mode."
+        },
+        "expected_geometry_crcs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Observed CRCs keyed by each requested object GUID; rejects changed geometry during face pagination."
+        },
+        "group_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional distinct Rhino group GUIDs (1..64) in either scope. Membership is intersected with the selected scope; do not combine with object_ids."
+        },
+        "selected": {
+          "default": false,
+          "type": "boolean",
+          "description": "current only, default false. Filter to selected eligible objects, including off-screen selection; mutually exclusive with inside_window."
+        },
+        "inside_window": {
+          "default": false,
+          "type": "boolean",
+          "description": "current only, default false. Include bounding boxes crossing the active viewport boundary; no clipping-plane or pixel-occlusion test. Mutually exclusive with selected."
+        },
+        "recursive": {
+          "default": false,
+          "type": "boolean",
+          "description": "Expand groups and block occurrences together as hierarchy; default false."
+        },
+        "depth": {
+          "default": 1,
+          "type": "integer",
+          "description": "Hierarchy depth 1..8, root=1; values above 1 require recursive=true."
+        },
+        "expected_snapshot": {
+          "default": "",
+          "type": "string",
+          "description": "Omit on the first page; pass its snapshot token unchanged for later offset pages. A changed snapshot rejects continuation."
+        }
+      },
       "type": "object"
     },
     "outputSchema": {
@@ -1827,147 +2076,6 @@
       "destructiveHint": false
     }
   },
-  "get_objects": {
-    "name": "get_objects",
-    "inputSchema": {
-      "additionalProperties": false,
-      "properties": {
-        "scope": {
-          "default": "visible",
-          "type": "string"
-        },
-        "object_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "filters": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "include_geometry": {
-          "default": false,
-          "type": "boolean"
-        },
-        "offset": {
-          "default": 0,
-          "type": "integer"
-        },
-        "limit": {
-          "default": 50,
-          "type": "integer"
-        },
-        "expected_model_path": {
-          "default": "",
-          "type": "string"
-        },
-        "include_ids": {
-          "default": false,
-          "type": "boolean"
-        },
-        "result_mode": {
-          "default": "objects",
-          "type": "string"
-        },
-        "fields": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "face_offset": {
-          "default": 0,
-          "type": "integer"
-        },
-        "face_limit": {
-          "default": 128,
-          "type": "integer"
-        },
-        "expected_geometry_crcs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "integer"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "group_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "expand_groups": {
-          "default": false,
-          "type": "boolean"
-        },
-        "expand_blocks": {
-          "default": false,
-          "type": "boolean"
-        },
-        "depth": {
-          "default": 1,
-          "type": "integer"
-        }
-      },
-      "type": "object"
-    },
-    "outputSchema": {
-      "type": "object",
-      "properties": {
-        "result": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "result"
-      ],
-      "x-fastmcp-wrap-result": true
-    },
-    "annotations": {
-      "readOnlyHint": true,
-      "destructiveHint": false
-    }
-  },
   "get_scene_objects": {
     "name": "get_scene_objects",
     "inputSchema": {
@@ -2147,15 +2255,18 @@
         },
         "x_mm": {
           "default": 0,
-          "type": "number"
+          "type": "number",
+          "description": "Contract anchor X placement in millimetres, default 0."
         },
         "y_mm": {
           "default": 0,
-          "type": "number"
+          "type": "number",
+          "description": "Contract anchor Y placement in millimetres, default 0."
         },
         "z_mm": {
           "default": 0,
-          "type": "number"
+          "type": "number",
+          "description": "Contract anchor Z placement in millimetres, default 0."
         },
         "rotation_degrees": {
           "default": 0,
@@ -3249,41 +3360,51 @@
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "keep": {
-          "additionalProperties": true,
-          "type": "object"
+        "object_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional 1..512 distinct current top-level object GUIDs to start a review scope. Omit to continue the current scope or submit a choice."
         },
-        "trim": {
-          "additionalProperties": true,
-          "type": "object"
+        "include_block": {
+          "default": false,
+          "type": "boolean",
+          "description": "Include transformed nested block members in a new review scope; default false. Block definition edits remain unsupported."
         },
-        "pair_state": {
-          "type": "string"
-        },
-        "expected_model_path": {
+        "review_id": {
           "default": "",
-          "type": "string"
+          "type": "string",
+          "description": "Returned decision handle required with choice; identifies the displayed operands. Completed/superseded handles cannot replay a change."
+        },
+        "choice": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "skip",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "1 or 2 removes the overlap from that numbered object; \"skip\" leaves both unchanged. Supply review_id and omit object_ids. Omit choice to inspect/continue."
         }
       },
-      "required": [
-        "keep",
-        "trim",
-        "pair_state"
-      ],
       "type": "object"
     },
-    "outputSchema": {
-      "properties": {
-        "result": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "result"
-      ],
-      "type": "object",
-      "x-fastmcp-wrap-result": true
-    },
+    "outputSchema": null,
     "annotations": null
   },
   "resolve_targets": {
@@ -3667,7 +3788,8 @@
       "additionalProperties": false,
       "properties": {
         "overwrite": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Required boolean for both Materials and Layers. False preserves existing values, creates missing entries and reports differences; true updates predefined properties."
         }
       },
       "required": [
@@ -3688,66 +3810,6 @@
       "x-fastmcp-wrap-result": true
     },
     "annotations": null
-  },
-  "show_object_intersection": {
-    "name": "show_object_intersection",
-    "inputSchema": {
-      "additionalProperties": false,
-      "properties": {
-        "a": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "b": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "pair_state": {
-          "default": "",
-          "type": "string"
-        },
-        "clear": {
-          "default": false,
-          "type": "boolean"
-        },
-        "expected_model_path": {
-          "default": "",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "outputSchema": {
-      "properties": {
-        "result": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "result"
-      ],
-      "type": "object",
-      "x-fastmcp-wrap-result": true
-    },
-    "annotations": {
-      "destructiveHint": false
-    }
   },
   "sync_ontological_holon": {
     "name": "sync_ontological_holon",

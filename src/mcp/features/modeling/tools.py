@@ -1,5 +1,5 @@
 """Modeling policy, script execution, setup and material tools."""
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.modeling.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
@@ -47,6 +47,7 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @mcp_error_result
     @tool_instruction(__file__, 'edit_planar_face')
     def edit_planar_face(object_id: str, face_index: StrictInt, expected_geometry_crc: StrictInt,
                          translation: list[StrictFloat | StrictInt], expected_model_path: str = "") -> str:
@@ -60,6 +61,7 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @mcp_error_result
     @tool_instruction(__file__, 'edit_planar_faces')
     def edit_planar_faces(edits: list[dict], expected_model_path: str = "") -> str:
         try:

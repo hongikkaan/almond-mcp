@@ -197,5 +197,9 @@ def test_kst_minute_rolls_into_the_next_day():
 def test_invalid_groups_keep_the_existing_error_contract_before_any_io(name, args):
     # No store or native context is available: validation must run first.
     tools = register(FastMCP("planning"), SimpleNamespace())
-    result = json.loads(tools[name](**args, field_groups=["unknown"]))
+    response = tools[name](**args, field_groups=["unknown"])
+    if name == "get_selection_references":
+        assert response.is_error
+        response = response.structured_content["result"]
+    result = json.loads(response)
     assert result["status"] == "error" and result["error_code"] == "invalid_arguments"

@@ -26,10 +26,11 @@ namespace RhinoAlmondBridge
                     Path.GetFullPath(Text(request, "expected_model_path")), StringComparison.OrdinalIgnoreCase))
                     throw new ArgumentException("The Component request must target the current saved document.");
                 string action = Text(request, "action");
-                var editing = EditingContext.Observe(doc);
+                var editing = EditingContext.ObserveObjects(doc).State;
                 if ((bool?)editing["stable"] != true) return new JObject {
                     ["status"] = "error", ["error_code"] = "unstable_editing_scope", ["editing"] = editing,
-                    ["message"] = "Finish group/block editing before observing Component groups.", ["mutation_applied"] = false };
+                    ["message"] = "Live Holon ownership is unverified during this edit. Current working objects are not proof of the original persistent group binding or its ancestors; stored records were not substituted for live membership.",
+                    ["membership_available"] = false, ["mutation_applied"] = false };
                 var records = ComponentSemanticRegistry.Records(doc, request["registrations"] as JArray);
                 if (action == "objects") return Bound(new JObject {
                     ["status"] = "success", ["complete"] = true, ["model_path"] = doc.Path,

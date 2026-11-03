@@ -34,7 +34,7 @@ NATIVE_ONLY_TOOLS = frozenset({
     "execute_rhino_script", "capture_conditioning_pass", "save_rhino_document",
     "get_rhino_context", "get_defined_viewcapture", "get_current_viewcapture", "analyze_block_reculviely",
     "get_objects", "get_object_intersections", "capture_rhino_inspection", "edit_planar_face", "edit_planar_faces",
-    "show_object_intersection", "resolve_object_intersection",
+    "resolve_object_intersection",
     "prepare_drawing_asset",
 })
 BINDING_TOOLS = frozenset({"worker_state", "get_rhino_execution"})
@@ -47,11 +47,11 @@ OUTPUT_TOOLS = frozenset({"execute_project_python", "export_structural_report", 
 
 
 def writes_artifacts(name, arguments):
-    return name in FILE_TOOLS or name in {"get_defined_viewcapture", "get_current_viewcapture"}
+    return name in FILE_TOOLS or name in {"get_defined_viewcapture", "get_current_viewcapture", "resolve_object_intersection"}
 
 
 def capture_file_write(name, arguments):
-    return name in {"capture_rhino_inspection", "get_defined_viewcapture", "get_current_viewcapture"}
+    return name in {"capture_rhino_inspection", "get_defined_viewcapture", "get_current_viewcapture", "resolve_object_intersection"}
 
 
 class StoreGate:
@@ -465,7 +465,7 @@ class ProjectRuntime(Middleware):
         # Bound document expectations are supplied internally. Optional
         # public arguments remain available to standalone consumers.
         if self.workspace is not None and name in {"analyze_block_reculviely", "upsert_ontological_holon", "sync_ontological_holon",
-                    "focus_holons",
+                    "get_holon_intersections", "focus_holons",
                     "list_ontological_holons"} and not args.get("expected_model_path"):
             args["expected_model_path"] = self.locations["model_path"]
         message = context.message.model_copy(update={"arguments": args})

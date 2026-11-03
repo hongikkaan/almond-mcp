@@ -17,7 +17,7 @@ namespace RhinoAlmondBridge
     /// No commands, plugin loads, editor methods, or document writes are performed.
     /// The two private adapters are restricted to the inspected binary identities.
     /// </summary>
-    public static class EditingContext
+    public static partial class EditingContext
     {
         private sealed class Provider
         {
@@ -40,6 +40,15 @@ namespace RhinoAlmondBridge
         private static readonly HashSet<Assembly> VerifiedAssemblies = new HashSet<Assembly>();
         private const BindingFlags DeclaredFields = BindingFlags.Public | BindingFlags.NonPublic |
             BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+        // A verified active editor can support read-only observations. This does not
+        // grant stable=true, document-save permission, or permission to edit any object.
+        public static bool CanObserve(JObject state)
+        {
+            string mode = (string)state?["mode"];
+            return mode == "model" ? (bool?)state["stable"] == true
+                : (mode == "group" || mode == "block") && state["target"] is JObject;
+        }
 
         public static JObject Observe(RhinoDoc doc)
         {
