@@ -9,8 +9,30 @@ from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from almond_mcp import paths
 from almond_mcp.modeling_guidance import BASIC_GUIDE, read_guide
+from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def assert_documented_schema(schema, path):
+    """Every input field, including typed nested edits, must carry callable help."""
+    Draft202012Validator.check_schema(schema)
+
+    def visit(node, location, inherited=frozenset()):
+        if isinstance(node, dict):
+            documented = set(inherited)
+            for name, prop in node.get("properties", {}).items():
+                if isinstance(prop.get("description"), str) and prop["description"].strip():
+                    documented.add(name)
+                assert name in documented, (location, name)
+            for key, value in node.items():
+                # Composition may constrain a field whose help belongs to this object.
+                visit(value, f"{location}/{key}", documented if key in {"anyOf", "oneOf", "allOf", "if", "then", "else"} else frozenset())
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                visit(value, f"{location}/{index}", inherited)
+
+    visit(schema, path)
 
 
 def isolated_environment(tmp_path):
@@ -40,6 +62,7 @@ async def collect(params, *, bound):
             # Keep the guide discoverable on its own tool, without a shared suffix.
             assert not initialized.instructions, "namespace instructions would be appended to every CodeMode tool"
             for name, item in tools.items():
+                assert_documented_schema(item["inputSchema"], name)
                 for heading in ("When to use:", "Before calling:", "Inputs from earlier results:",
                                 "Interpretation:", "Limits:"):
                     assert heading in item["description"], (name, heading)
@@ -160,6 +183,8 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
                          for t in (await client.list_tools()).tools}
                 assert initialized.instructions  # External-host instructions are a separate contract.
                 assert tools == expected
+                for name, tool in tools.items():
+                    assert_documented_schema(tool["inputSchema"], name)
                 return initialized.server_info.name
 
     for name, label in (("codex", "beyond"), ("cos", "CoS")):

@@ -62,7 +62,7 @@ validate_structure(guids, "beam", load_kn, "Wood")
 
 ## 재료·구축 레이어 구현
 
-도구 입력은 `tools/list`의 `setup_modeling`·`assign_material` 설명 전문과 schema를 따른다. 설명 원본은 [모델링 도구 설명](../modeling/tools-explain.md), 공통 적용 기준은 [구축 시스템과 표현 단계](../../BASIC-INSTRUCTIONS.md#구축-시스템과-표현-단계)에 있다.
+도구 입력은 `tools/list`의 `setup_modeling`·`assign_material` 설명 전문과 schema를 따른다. 설명 원본은 [모델링 도구 설명](../modeling/tools-explain.md), Layer 위계는 위 setup_modeling 설명에, 과업별 구축 상세화 판단은 [get_construction_guidance 설명](tools-explain.md)에 있다.
 
 MCP owns catalog loading, material choices, construction-layer specifications and metadata policy. `modeling_setup.py` supplies resolved recipes to the shared C# implementation in `src/mcp/rhino/`. The Bridge compiles those files to execute Rhino API operations on its UI thread; it does not independently read the material or construction manifests. Native document access, Undo recovery, panels and geometry services remain in RHP. `DocumentLayers.Ensure` is the common native layer-path adapter used by drawing styles, asset placement and setup.
 

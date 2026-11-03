@@ -49,7 +49,10 @@ def test_whole_scope_count_spans_pages_and_keeps_private_bound_document(monkeypa
 
 def test_block_exclusion_is_intentional_but_unreadable_geometry_is_not_zero(monkeypatch):
     tool, _, _ = setup(monkeypatch, [page(unsupported=[{"object_id": A, "reason": "block_excluded"}])])
-    assert json.loads(tool(object_ids=[A]))["intersections"]["number"] == 0
+    empty = json.loads(tool(object_ids=[A]))
+    assert empty["intersections"]["number"] == 0
+    assert "no resolution call is needed" in empty["next_step"]
+    assert "resolve_object_intersection" not in empty["next_step"]
     failure = {"object_id": A, "reason": "open_geometry"}
     tool, _, _ = setup(monkeypatch, [page(unsupported=[failure])])
     result = tool(object_ids=[A])
@@ -93,23 +96,15 @@ def test_public_schema_has_only_targets_and_singular_include_block(monkeypatch):
     asyncio.run(run())
 
 
-def test_restored_holon_query_keeps_semantic_ids_and_occurrence_evidence(monkeypatch):
-    monkeypatch.setenv("ALMOND_MODEL_PATH", MODEL)
-    calls = []
-    pair = {"a": {"handle": {"object_id": A, "path": []}},
-            "b": {"handle": {"object_id": B, "path": []}}, "pair_state": "f" * 64}
+def test_removed_holon_overlap_is_not_registered_or_callable():
+    context = SimpleNamespace(_send_and_receive=lambda _: None)
+    server = FastMCP("object-overlap-only")
+    registered = register_holons(server, context)
+    assert "get_holon_intersections" not in registered
 
-    def send(raw):
-        request = json.loads(raw)
-        if request["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"component_operations": 1, "intersection_queries": 1}})
-        calls.append(request)
-        return json.dumps({"status": "success", "complete": True, "pairs": [pair], "component_ids": ["holon_test"]})
-
-    context = SimpleNamespace(_send_and_receive=send,
-                              retrieval_store=SimpleNamespace(_component_model_path=lambda path: path))
-    tool = register_holons(FastMCP("holon-overlap"), context)["get_holon_intersections"]
-    result = json.loads(tool(holon_ids=["holon_test"]))
-    assert result["pairs"] == [pair]
-    assert calls == [{"type": "component_operation", "action": "intersections", "expected_model_path": MODEL,
-                      "component_ids": ["holon_test"], "max_pairs": 64}]
+    async def run():
+        async with Client(server) as client:
+            assert "get_holon_intersections" not in {tool.name for tool in await client.list_tools()}
+            result = await client.call_tool("get_holon_intersections", {"holon_ids": ["old"]}, raise_on_error=False)
+            assert result.is_error
+    asyncio.run(run())

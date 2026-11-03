@@ -18,6 +18,15 @@ def store(tmp_path):
     return AlmondStore(tmp_path / "planning.sqlite3")
 
 
+def test_empty_discovery_does_not_offer_missing_detail_or_working_handles(store):
+    tools = register(FastMCP("empty-planning"), SimpleNamespace(retrieval_store=store))
+    for name, collection in (("list_phases", "phases"), ("list_plans", "plans")):
+        value = json.loads(tools[name]())
+        assert value[collection] == []
+        assert "get_phase_plan_step" not in value["next_step"]
+        assert "set_working_plan" not in value["next_step"]
+
+
 def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     phase = store.create_phase("Entrance", depends_on=["phase_future"])
     plan = store.create_plan("Review access and circulation", scope="component", phase_id=phase["phase_id"], title="Entrance access")

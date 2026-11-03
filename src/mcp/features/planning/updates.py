@@ -9,8 +9,8 @@ class StringListPatch(BaseModel):
     """Add/remove string values; omission and empty arrays leave that operation empty."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
-    add: list[str] = Field(default_factory=list)
-    remove: list[str] = Field(default_factory=list)
+    add: list[str] = Field(default_factory=list, description="String values to append. Existing/duplicate/invalid items are reported and skipped; a value also in remove is skipped in both operations.")
+    remove: list[str] = Field(default_factory=list, description="Observed string values to remove. Missing/duplicate/invalid items are reported and skipped; omitted or empty arrays make no changes.")
 
 
 @dataclass

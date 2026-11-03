@@ -186,6 +186,42 @@ def test_group_inside_block_uses_the_occurrence_transform_and_never_document_ids
     case = block_case()
     case["groups"] = [{"id": guid(101), "members": [guid(4)]}]
     case.update(expand_groups=True, depth=5)
-    leaves = [n for n in hierarchy(case)["nodes"] if n["id"] == guid(4)]
+    rows = hierarchy(case)["nodes"]
+    leaves = [n for n in rows if n["id"] == guid(4)]
     assert len(leaves) == 2 and all(not n["document_object"] for n in leaves)
     assert [n["bounds"]["min_x"] for n in leaves] == [15, 25]
+    groups = [n for n in rows if n["id"] == guid(101)]
+    assert len(groups) == 2 and all(not n["document_object"] for n in groups)
+    assert [n["root_object_id"] for n in groups] == [n["root_object_id"] for n in leaves]
+    assert [n["block_path_ids"] for n in groups] == [n["block_path_ids"][:-1] for n in leaves]
+
+
+def test_partial_nested_group_keeps_its_parent_and_excludes_overlapping_sibling(hierarchy):
+    case = {"scope": "current", "objects": [{"id": guid(i)} for i in range(1, 6)],
+            "groups": [{"id": guid(101), "name": "parent", "members": [guid(i) for i in range(1, 5)]},
+                       {"id": guid(102), "name": "child", "members": [guid(1), guid(2)]},
+                       {"id": guid(103), "name": "overlap", "members": [guid(1), guid(5)]}],
+            "matched": [guid(1)], "expand_groups": True, "depth": 3}
+    rows = hierarchy(case)["nodes"]
+    parent = next(row for row in rows if row["id"] == guid(101))
+    child = next(row for row in rows if row["id"] == guid(102))
+    overlap = next(row for row in rows if row["id"] == guid(103))
+    assert child["parent_number"] == parent["number"]
+    assert child["matched_member_count"] == 1 and child["member_count"] == 2
+    assert not child["all_members_in_scope"] and overlap["parent_number"] is None
+
+
+def test_object_group_metadata_keeps_unknown_editor_counts_separate(hierarchy):
+    row = hierarchy({"objects": [{"id": guid(1)}],
+                     "groups": [{"id": guid(101), "members": [guid(1)], "complete": False}],
+                     "group_metadata": True})
+    assert row["member_count"] is None and row["visible_member_count"] is None
+    assert row["members_outside_match_count"] is None and row["membership_complete"] is False
+    assert row["observed_member_count"] == 1 and row["member_ids"] == [guid(1)]
+
+
+def test_object_group_metadata_preserves_definition_members(hierarchy):
+    row = hierarchy({"objects": [{"id": guid(1), "definition": True}],
+                     "groups": [{"id": guid(101), "members": [guid(1)]}], "group_metadata": True})
+    assert row["membership_complete"] is True and row["member_count"] == 1
+    assert row["member_ids"] == [guid(1)]

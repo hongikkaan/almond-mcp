@@ -12,14 +12,10 @@ Limits: This uploads geometry plus source document path/GUIDs, bounds and units.
 Args:
     guids: Rhino object GUIDs to export. Unrelated document objects are excluded.
     asset_name: Human-readable name shown in Chestnut.
-    asset_id: Stable optional ID for linked updates. Generated deterministically
-              from the Rhino document and GUIDs when omitted.
-    body_type: "static" for architecture, "dynamic" for loose props, or
-               "kinematic" for script-driven objects.
-    collider: Collider intent: "box", "convex", "compound", or "trimesh".
-              Chestnut currently falls back to a box where needed.
-    preserve_scale: Keep Rhino's real-world dimensions instead of normalizing
-                    the model to a one-metre display prop.
+    asset_id: Stable optional ID for linked updates. Generated deterministically from the Rhino document and GUIDs when omitted.
+    body_type: "static" for architecture, "dynamic" for loose props, or "kinematic" for script-driven objects.
+    collider: Collider intent: "box", "convex", "compound", or "trimesh". Chestnut currently falls back to a box where needed.
+    preserve_scale: Keep Rhino's real-world dimensions instead of normalizing the model to a one-metre display prop.
     mass: Physics mass in kilograms. Static bodies always use zero.
 Returns:
     JSON containing the stable Chestnut asset ID, URL, metadata, and whether
@@ -36,13 +32,9 @@ Interpretation: architecture maps to static, object to dynamic and animated to k
 Limits: Animated selects a body type and does not create animation. The underlying publisher normalizes zero non-static mass to 1 kg. This uploads a GLB and metadata including source path/GUIDs; repeated asset_id updates the existing asset while referenced placements remain. Use publish_objects_to_chestnut for low-level controls; reconcile uncertain network results before repeating publication.
 
 Args:
-    guids: Rhino object GUIDs returned by execute_rhino_script.
+    guids: Current Rhino object GUIDs from an observation, selection or modeling result; a scripting call is not required.
     asset_name: Human-readable asset name.
-    behavior: Optional semantic preset:
-        "auto"         — infer architecture versus movable object from name
-        "architecture" — fixed building, terrain, structure, or enclosure
-        "object"       — movable physical prop affected by gravity
-        "animated"     — script-driven door, lift, platform, or mechanism
+    behavior: Optional semantic preset: auto infers from the name; architecture is fixed; object is movable and affected by gravity; animated is script-driven. This selects physics intent and does not generate animation.
     asset_id: Optional stable link ID. Omit for a deterministic Rhino link.
 <!-- /instruction:publish_to_chestnut -->
 

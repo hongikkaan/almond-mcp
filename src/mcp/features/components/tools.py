@@ -1,9 +1,9 @@
 """Component MCP tools; register explicitly with the current server context."""
 from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.features.components.public_contract import holon_output
-from almond_mcp.query_output import query_output, validate_field_groups, project_query
+from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.components.output import GROUPS, project
-from almond_mcp.managed_paths import bound_model_path, relative_output
+from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool, StrictInt
 from typing import Literal
@@ -205,26 +205,6 @@ def register(mcp, context):
                                "message": str(exc), "requires_reconciliation": uncertainty,
                                "mutation_applied": None if uncertainty else False})
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @mcp_error_result
-    @tool_instruction(__file__, 'get_holon_intersections')
-    @holon_output
-    def get_holon_intersections(holon_ids: list[str], expected_model_path: str = "",
-                                max_pairs: StrictInt = 64, include_ids: StrictBool = False,
-                                field_groups: list[str] | None = None,
-                                include_blocks: StrictBool = False, cursor: str = "") -> str:
-        validate_field_groups(field_groups, GROUPS)
-        if type(include_ids) is not bool:
-            raise ValueError("include_ids must be a boolean.")
-        payload = json.loads(_component_operation_bridge("intersections", expected_model_path,
-            holon_ids, max_pairs, include_blocks, cursor))
-        result = project_query(project(payload, field_groups), include_ids=include_ids,
-                               supplied={"component_ids": holon_ids})
-        # Preserve executable occurrence references independently of metadata projection.
-        if "pairs" in payload:
-            result["pairs"] = payload["pairs"]
-        return json.dumps(relative_output(result), ensure_ascii=False)
-
     @mcp.tool()
     @tool_instruction(__file__, 'resolve_object_intersection')
     def resolve_object_intersection(object_ids: list[str] | None = None, include_block: StrictBool = False,
@@ -246,7 +226,6 @@ def register(mcp, context):
         "sync_ontological_holon": sync_ontological_holon,
         "remove_ontological_holon": remove_ontological_holon,
         "_component_operation_bridge": _component_operation_bridge,
-        "get_holon_intersections": get_holon_intersections,
         "resolve_object_intersection": resolve_object_intersection,
         "focus_holons": focus_holons,
     }

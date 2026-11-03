@@ -27,7 +27,8 @@ def test_all_holon_boundaries_use_new_keys_and_preserve_native_identity(tmp_path
     async def run():
         async with Client(server) as client:
             schemas = {tool.name: tool.input_schema for tool in await client.list_tools()}
-            assert {'get_holon_intersections', 'focus_holons', 'upsert_ontological_holon'} <= schemas.keys()
+            assert {'focus_holons', 'upsert_ontological_holon'} <= schemas.keys()
+            assert 'get_holon_intersections' not in schemas
             for name, schema in schemas.items():
                 assert 'ontological_component' not in name
                 assert not any('component' in key for key in schema['properties']), (name, schema)

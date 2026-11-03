@@ -39,8 +39,10 @@ def register(mcp, context):
     def list_phases(limit: StrictInt = 50, field_groups: list[str] | None = None) -> str:
         try:
             validate_field_groups(field_groups, PHASE_GROUPS)
-            return encode(project({"status": "success", **context.retrieval_store.list_phases(limit),
-                "next_step": "Use a phases[].phase_id in get_phase_plan_step(phase_id=...) for Phase details or in list_plans(phase_id=...) to list that Phase's Plans."}, field_groups))
+            page = context.retrieval_store.list_phases(limit)
+            next_step = ("Use a phases[].phase_id in get_phase_plan_step(phase_id=...) for Phase details or in list_plans(phase_id=...) to list that Phase's Plans."
+                         if page["phases"] else "No Phase IDs were returned; this page provides no Phase detail or Plan-filter target.")
+            return encode(project({"status": "success", **page, "next_step": next_step}, field_groups))
         except InvalidFieldGroups as exc:
             return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
         except Exception as exc:
@@ -132,9 +134,11 @@ def register(mcp, context):
         phase_id: str = "", scene_id: str = "", status: str = "", limit: StrictInt = 50,
     ) -> str:
         try:
+            page = context.retrieval_store.list_plans(phase_id, scene_id, status, limit)
             return encode({
-                "status": "success", **context.retrieval_store.list_plans(phase_id, scene_id, status, limit),
-                "next_step": "Use a plans[].plan_id in get_phase_plan_step(plan_id=...) for Plan details; add a step_id for one Step's records.",
+                "status": "success", **page,
+                "next_step": ("Use a plans[].plan_id in get_phase_plan_step(plan_id=...) for Plan details; obtain its plan.steps[].step_id before querying one Step's records."
+                              if page["plans"] else "No Plan IDs matched these filters. If a wider search is needed, adjust phase_id, scene_id or status in list_plans; no detail or working selection target was returned."),
             })
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
@@ -243,7 +247,7 @@ def register(mcp, context):
         except InvalidFieldGroups as exc:
             return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
         except Exception as exc:
-            return json.dumps(error_payload(str(exc)))
+            return json.dumps({**error_payload(str(exc)), **getattr(exc, "native_result", {})}, ensure_ascii=False)
 
     return {
         "create_phase": create_phase,

@@ -9,6 +9,8 @@ Inputs from earlier results: None. Omit include_scripting for BASIC and the publ
 Interpretation: text is BASIC, tools lists public names, and source_refs/guide_version identify the pinned documentation. include_scripting adds scripting_skill sources without selecting or executing a modeling tool.
 Limits: This is static documentation, not live model state or a validation result. Per-tool description lookup and its tool argument are not supported. It does not edit the model, task database or user artifacts.
 
+Args:
+    include_scripting: Include bundled Rhino scripting reference material as well as the concise design guidance; false returns only the basic guide and tool discovery information.
 <!-- /instruction:get_modeling_guide -->
 
 ## get_construction_guidance
@@ -17,7 +19,7 @@ Limits: This is static documentation, not live model state or a validation resul
 Find construction systems and preliminary span, member-depth and assembly guidance from the local construction library.
 
 When to use: Compare floor, wall, roof or foundation options before selecting a structural scheme.
-Before calling: Choose optional filters; span_m is metres and must be positive to add fits_span and depth_guidance. No prior lookup is required.
+Before calling: Choose optional filters; span_m is metres and must be positive to add fits_span and depth_guidance. No prior lookup is required. Construction detailing is off unless requested for the current task. For a target already on a system Layer, use that system as the starting point and check its members and surroundings. A category-only Layer leaves the system undecided: research suitable systems and discuss alternatives before applying one, rather than building every alternative first. Layer names alone prove no joint, load or construction condition.
 Inputs from earlier results: Reuse a known structural_material as material. Request include_ids=true for systems[].system_id; pass it as get_typology_narrative.construction_system or assign_material.construction_system. field_groups=["rules"] adds construction_detail, construction_reference and render_material_ids for the corresponding assign_material inputs.
 Interpretation: Summary cards retain name, category, structural_material and any fits_span. rules adds span_range_m, span_axis, typical_spacing_m and suggested_depth_mm; wall span ranges mean unsupported vertical height. include_reference_data adds live loads in kPa and densities in kg/m3; these require tributary-area/volume conversion before choosing kN loads.
 Limits: Ching BCI 4th-edition ranges and span/N depths are sizing heuristics, not structural adequacy checks. rules, source and metadata expose supporting detail; summary alone is not an assembly specification.
@@ -26,18 +28,15 @@ Args:
     query: Free-text filter (e.g. "glulam", "longspan", "bearing wall").
     category: "floor", "wall", "roof", "foundation" (empty = all).
     material: "Wood", "Steel", "Concrete" - validate_structure names.
-    structure_type: validate_structure type ("beam", "truss", "shell",
-        "frame", "canopy", "gridshell", "membrane", "highrise").
-    span_m: If > 0, each returned system reports fits_span and
-        suggested member depths from its span-ratio rules.
-    include_reference_data: Also return occupancy live loads (kPa) and
-        material densities (kg/m3) for choosing load_kn inputs.
+    structure_type: validate_structure type ("beam", "truss", "shell", "frame", "canopy", "gridshell", "membrane", "highrise").
+    span_m: If > 0, each returned system reports fits_span and suggested member depths from its span-ratio rules.
+    include_reference_data: Also return occupancy live loads (kPa) and material densities (kg/m3) for choosing load_kn inputs.
+    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
+    field_groups: Optional detail groups: rules, narrative, source, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
 Returns:
     JSON: {total, systems: [...], reference?} - for wall systems
     span_range_m is the unsupported height range (span_axis "vertical").
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds rules, narrative, source, metadata, audit, or all; default is summary.
-include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_construction_guidance -->
 
 ## get_typology_narrative
@@ -53,18 +52,16 @@ Limits: These entries are historical context distilled from A Global History of 
 
 Args:
     query: Free text (e.g. "courtyard", "skyscraper", "timber hall").
-    construction_system: Filter to entries related to a construction
-        library system_id (e.g. "steel-column-frame").
-    structure_type: Filter by validate_structure type ("shell",
-        "truss", "frame", "membrane", ...).
+    construction_system: Filter to entries related to a construction library system_id (e.g. "steel-column-frame").
+    structure_type: Filter by validate_structure type ("shell", "truss", "frame", "membrane", ...).
     limit: Maximum entries returned (default 5).
+    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
+    field_groups: Optional detail groups: rules, narrative, source, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
 Returns:
     JSON: {total, entries: [{typology_id, name, era, region, narrative,
     precedents, related_construction_systems, urban_role, gha_ref,
     tags}], source}.
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds rules, narrative, source, metadata, audit, or all; default is summary.
-include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_typology_narrative -->
 
 ## search_detail_sources
@@ -78,6 +75,10 @@ Inputs from earlier results: No prior result is required; system names, element 
 Interpretation: query_terms, expanded_terms and sources[].matched_terms show why titles/tags/formats matched; results are ordered by matched-term count. Default cards show title and scope; include_ids=true retains source_id.
 Limits: This searches directory metadata, not hosted detail content or certified assemblies. Links are candidates, not attributed project inputs; rights/access must be checked before reuse. DETAIL subscription access is not required.
 
+Args:
+    query: Free-text search terms; empty leaves the text filter unset.
+    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
+    field_groups: Optional detail groups: rules, narrative, source, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
 <!-- /instruction:search_detail_sources -->
 
 ## response-732

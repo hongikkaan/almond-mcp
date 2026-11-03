@@ -37,6 +37,25 @@ namespace RhinoAlmondBridge
             return result;
         }
 
+        static JObject GroupMembership(RhinoDoc doc, Group group, HashSet<Guid> matched, HashSet<Guid> visible,
+            EditingContext.ObjectScope editing)
+        {
+            // Metadata keeps the group's actual namespace, including definition members.
+            // Only top-level hierarchy roots exclude definition/PageSpace objects.
+            var members = EditingContext.GroupObjects(doc, group, editing, out bool complete, out string basis);
+            return new JObject {
+                ["id"] = group.Id.ToString(), ["name"] = group.Name,
+                ["member_count"] = complete ? new JValue(members.Length) : JValue.CreateNull(),
+                ["members_outside_match_count"] = complete ? new JValue(members.Count(o => !matched.Contains(o.Id))) : JValue.CreateNull(),
+                ["visible_member_count"] = complete ? new JValue(members.Count(o => visible.Contains(o.Id))) : JValue.CreateNull(),
+                ["membership_complete"] = complete, ["membership_basis"] = basis,
+                ["observed_member_count"] = members.Length,
+                ["observed_members_outside_match_count"] = members.Count(o => !matched.Contains(o.Id)),
+                ["observed_visible_member_count"] = members.Count(o => visible.Contains(o.Id)),
+                ["member_ids"] = new JArray(members.Take(64).Select(o => o.Id.ToString())),
+                ["members_truncated"] = members.Length > 64 };
+        }
+
         static JObject Hierarchy(RhinoDoc doc, string scope, Guid[] groupIds, RhinoObject[] candidates,
             RhinoObject[] matched, HashSet<Guid> visible, HashSet<string> fields,
             bool expandGroups, bool expandBlocks, int depth, int offset, int limit, EditingContext.ObjectScope editing = null)
@@ -78,15 +97,21 @@ namespace RhinoAlmondBridge
                         row = new JObject { ["member_count"] = entity.MembershipComplete ? new JValue(entity.Members.Length) : JValue.CreateNull(),
                             ["observed_member_count"] = entity.Members.Length, ["matched_member_count"] = members.Length,
                             ["membership_complete"] = entity.MembershipComplete,
-                            ["all_members_in_scope"] = members.Length == entity.Members.Length,
+                            ["all_members_in_scope"] = entity.MembershipComplete ? new JValue(members.Length == entity.Members.Length) : JValue.CreateNull(),
                             ["membership_basis"] = entity.MembershipBasis };
                         if (fields == null || fields.Contains("id")) row["id"] = entity.Id.ToString();
                         if (fields == null || fields.Contains("name")) row["name"] = entity.Name;
                         if (fields == null || fields.Contains("bounds")) row["bounds"] = Bounds(entity.Bounds);
+                        if (entity.DefinitionOccurrence)
+                        {
+                            row["root_object_id"] = entity.Path[0].ToString();
+                            row["block_path_ids"] = new JArray(entity.Path.Skip(1).Select(id => id.ToString()));
+                            row["document_object"] = false;
+                        }
                     }
                     else
                     {
-                        row = Describe(doc, entity.Object, matchedIds, visible, false, budget, fields, 0, 128);
+                        row = Describe(doc, entity.Object, matchedIds, visible, false, budget, fields, 0, 128, editing);
                         if (fields == null || fields.Contains("name")) row["name"] = entity.Name;
                         bool definitionMember = entity.Path.Length > 1;
                         row["root_object_id"] = entity.Path[0].ToString();
@@ -115,7 +140,9 @@ namespace RhinoAlmondBridge
                 IEnumerable<ObservationEntities.Entity> children;
                 if (group)
                 {
-                    children = ObservationEntities.Roots(doc, members, entity.Id, entity.DefinitionOccurrence ? null : groupSource);
+                    children = ObservationEntities.Roots(doc, members, entity.Id, entity.DefinitionOccurrence ? null : groupSource,
+                        includePartial: !entity.DefinitionOccurrence && (scope == "current" || scope == "document"),
+                        parentMembers: entity.Members);
                     if (entity.DefinitionOccurrence)
                         children = children.Select(e => Place(doc, e, entity.ToWorld, entity.Path));
                 }

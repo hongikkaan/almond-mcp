@@ -30,6 +30,7 @@ namespace RhinoAlmondBridge
                 if ((bool?)editing["stable"] != true) return new JObject {
                     ["status"] = "error", ["error_code"] = "unstable_editing_scope", ["editing"] = editing,
                     ["message"] = "Live Holon ownership is unverified during this edit. Current working objects are not proof of the original persistent group binding or its ancestors; stored records were not substituted for live membership.",
+                    ["next_step"] = "Use get_objects(scope=\"current\", include_ids=true) to observe current working objects and capture_rhino_inspection for visual inspection. These objects are not automatically this Holon/Scene's members. To verify persistent Holon ownership, finish or cancel the editor as intended and repeat this live query; do not sync stored records from an unverified edit scope.",
                     ["membership_available"] = false, ["mutation_applied"] = false };
                 var records = ComponentSemanticRegistry.Records(doc, request["registrations"] as JArray);
                 if (action == "objects") return Bound(new JObject {

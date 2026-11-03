@@ -105,7 +105,7 @@ outline은 summary를 기본으로 하며 field_groups로 objects/annotations/tr
 
 Python은 `capabilities.block_analysis=1`을 먼저 확인한다. 지원하지 않는 Bridge에는 분석 요청을 보내지 않는다.
 Bridge의 알 수 없는 request type도 실행 없이 unsupported_request로 거절한다.
-get_holon_intersections는 Holon ID로 현재 재귀 멤버의 겹침을 조회한다. 일반 객체는 get_object_intersections(object_ids, include_block=false)로 조회하며 성공 시 intersections.number에 전체 겹침 쌍의 건수와 next_step만 반환한다. max_pairs·cursor는 내부 페이지 계산에만 사용한다. 미지원 형상·계산 실패·조회 중 범위 변경은 정상 건수로 축약하지 않고 오류 근거를 반환한다. include_block=false로 제외한 블록은 계산 범위 밖이다. Holon의 rhino_group_id로 get_objects(scope="document", group_ids=[...], include_ids=true)를 조회해 객체 GUID를 얻는 경로도 유지한다. 공통 교차 계산기는 components/native가 소유하며 의미 등록의 정합 검사는 Holon 조회 계약으로 남는다.
+Holon 전용 겹침 도구는 제공하지 않는다. Holon의 현재 객체 GUID를 확인한 뒤 일반 객체와 같은 get_object_intersections(object_ids, include_block=false)로 조회하며 성공 시 intersections.number에 전체 겹침 쌍의 건수와 next_step만 반환한다. max_pairs·cursor는 내부 페이지 계산에만 사용한다. 미지원 형상·계산 실패·조회 중 범위 변경은 정상 건수로 축약하지 않고 오류 근거를 반환한다. include_block=false로 제외한 블록은 계산 범위 밖이다. Holon의 rhino_group_id로 get_objects(scope="document", group_ids=[...], include_ids=true)를 조회해 객체 GUID를 얻는 경로도 유지한다. 공통 교차 계산기는 components/native가 소유하며 의미 등록의 정합 검사는 Holon 조회 계약으로 남는다.
 
 ## Private Bridge C# recipe에서 계산값 반환
 

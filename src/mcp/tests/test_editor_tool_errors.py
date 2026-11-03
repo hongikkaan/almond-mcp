@@ -23,7 +23,6 @@ EDIT = {"object_id": OBJECT, "face_index": 0, "expected_geometry_crc": 42, "tran
     ("get_ontological_holon", {"holon_id": "holon_existing", "live": True}),
     ("get_scene_objects", {"scene_id": "scene_existing"}),
     ("get_selection_references", {}),
-    ("get_holon_intersections", {"holon_ids": ["holon_existing"]}),
     ("analyze_block_reculviely", {"mode": "resolve-block", "options": {"path": [OBJECT]}}),
 ])
 def test_editor_failure_sets_mcp_error_and_preserves_native_evidence(monkeypatch, name, args):
@@ -62,5 +61,52 @@ def test_editor_failure_sets_mcp_error_and_preserves_native_evidence(monkeypatch
     body = json.loads(serialized)
     assert body["status"] == "error" and body["message"] == failure["message"]
     assert response.content[0].text == serialized
-    if name in {"edit_planar_face", "edit_planar_faces", "get_holon_intersections"}:
+    if name in {"edit_planar_face", "edit_planar_faces"}:
         assert body["mutation_applied"] is False and body["mutation_state"] == "not_started"
+
+
+def test_native_editor_guidance_survives_real_store_and_public_query_errors(tmp_path, monkeypatch):
+    from almond_mcp.retrieval_store import AlmondStore
+    from test_component_group_inference import snapshot, MODEL as SAVED_MODEL, GROUP, COMPONENT, OBJECT as MEMBER
+
+    monkeypatch.setenv("ALMOND_MODEL_PATH", SAVED_MODEL)
+    store = AlmondStore(tmp_path / "editor-guidance.sqlite3")
+    scene = store.create_scene("Arrival")
+    reply = {"status": "success", "component": snapshot(scene["scene_id"])}
+    def send(raw, **kwargs):
+        request = json.loads(raw)
+        if request["type"] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {
+                "design_components": 1, "component_registry": 2, "component_group_inference": 1},
+                "document": {"path": SAVED_MODEL}, "selection": {"objects": [{"id": MEMBER}], "total": 1, "truncated": False}})
+        return json.dumps(reply)
+    context = SimpleNamespace(retrieval_store=store, _send_and_receive=send)
+    server = FastMCP("native-editor-guidance")
+    registered = components(server, context)
+    for key, value in registered.items():
+        setattr(context, key, value)
+    registered["upsert_ontological_holon"](name="Arrival", holon_id=COMPONENT,
+        expected_model_path=SAVED_MODEL, rhino_group_id=GROUP, scene_ids=[scene["scene_id"]])
+    scenes(server, context)
+    planning(server, context)
+    before = store.get_component(COMPONENT)
+    reply = {"status": "error", "error_code": "unstable_editing_scope", "message": "Ownership unverified",
+             "editing": {"mode": "group", "stable": False}, "mutation_applied": False,
+             "membership_available": False, "next_step": 'Use get_objects(scope="current", include_ids=true); working IDs are not component ownership proof.'}
+
+    async def run():
+        async with Client(server) as client:
+            for name, arguments in [
+                ("get_ontological_holon", {"holon_id": COMPONENT, "live": True}),
+                ("get_scene_objects", {"scene_id": scene["scene_id"]}),
+                ("get_selection_references", {}),
+            ]:
+                result = await client.call_tool(name, arguments, raise_on_error=False)
+                assert result.is_error
+                body = json.loads(result.content[0].text)
+                assert body.get("error_code") == "unstable_editing_scope", (name, body)
+                assert body["membership_available"] is False and body["mutation_applied"] is False
+                assert "get_objects" in body["next_step"] and "holon ownership" in body["next_step"]
+                assert body["editing"] == reply["editing"]
+    asyncio.run(run())
+    assert store.get_component(COMPONENT) == before

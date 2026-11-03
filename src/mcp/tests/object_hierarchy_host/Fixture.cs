@@ -114,7 +114,7 @@ namespace RhinoAlmondBridge {
         static JObject Error(string code, string message) => new JObject { ["status"] = "error", ["error_code"] = code, ["message"] = message };
         // Metadata serialization is covered by the production build and public contract tests.
         static JObject Describe(Rhino.RhinoDoc doc, RhinoObject obj, HashSet<Guid> matched, HashSet<Guid> visible,
-            bool geometry, ValueBudget budget, HashSet<string> fields, int offset, int limit) => new JObject {
+            bool geometry, ValueBudget budget, HashSet<string> fields, int offset, int limit, EditingContext.ObjectScope editing = null) => new JObject {
                 ["id"] = obj.Id.ToString(), ["name"] = obj.Name, ["visible"] = obj.Visible, ["selected"] = false };
 
         public static JObject Run(JObject input) {
@@ -145,6 +145,8 @@ namespace RhinoAlmondBridge {
                     Index = doc.Groups.Count, Members = item["members"].Values<string>().Select(Guid.Parse).ToArray(),
                     Complete = (bool?)item["complete"] ?? true });
             var groupIds = (input["group_ids"] ?? new JArray()).Values<string>().Select(Guid.Parse).ToArray();
+            if ((bool?)input["group_metadata"] == true)
+                return GroupMembership(doc, doc.Groups[0], new HashSet<Guid>(), new HashSet<Guid>(), EditingContext.ObserveObjects(doc));
             string scope = (string)input["scope"] ?? (groupIds.Length == 0 ? "selected" : "groups");
             var source = scope == "groups" ? RequestedGroups(doc, groupIds).SelectMany(g => g.Members).Distinct().ToArray()
                 : (input["selected"] ?? new JArray(doc.Objects.Where(o => !o.IsInstanceDefinitionGeometry).Select(o => o.Id.ToString())))

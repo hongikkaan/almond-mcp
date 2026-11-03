@@ -1,6 +1,6 @@
 # ontological-holon: 사용자 설명 원문과 사진
 
-두 사례의 사용자 설명과 사진을 보존한다. 적용할 의미 기준과 요약은 [모델링 지침의 ontological-holon](../../../../BASIC-INSTRUCTIONS.md#ontological-holon)에 있다. 아래 원문 구간은 기존 조회본을 그대로 옮겼다.
+두 사례의 사용자 설명과 사진을 보존한다. 의미와 등록 기준은 [upsert_ontological_holon 도구 설명](../../../components/tools-explain.md)에 있다. 이 사례의 구체적인 묶음은 모든 설계에 강제하는 등록 규칙이 아니다. 아래 원문 구간은 기존 조회본을 그대로 옮겼다.
 
 ## 지붕과 우수관
 

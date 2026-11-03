@@ -13,6 +13,19 @@ Component mutation acknowledgements are owned by the Component feature.
 
 Planning update tools return changed and unsummarized per-item issues. status is success when no item was skipped (including a clean no-op), partial_success when changes and skips coexist, or no_change when skips exist but no stored value changed. Step updates also acknowledge the Step ID/status separately from the Plan status/revision. General-field validation and revision conflicts reject the entire request; typed-input errors are rejected before the tool body. Creation and unrelated write contracts remain unchanged.
 
+## Follow-up guidance
+
+`next_step` is conditional call guidance, not a Plan Step, an execution command or a requirement to call every named tool. It identifies the public tool and maps available response/input handles to its arguments; when IDs, paths, units or a user choice are missing, it says how to obtain or choose them. It does not imply that a prior operation succeeded or authorize a mutation.
+
+- Default `get_rhino_context` offers current-view capture; explicit sections omit this hint.
+- Whole-scope intersection counts guide positive results into `resolve_object_intersection` using the original object scope. Zero needs no resolution. Each valid comparison supplies `review_id` and numbered choices; choice 1/2 trims that object, while skip preserves both. Errors/completion do not fabricate another actionable comparison.
+- Phase/Plan lists and Plan/Step details link IDs to detail/workspace selection. Saved revisions retain their historical read context and require a current read before selecting work.
+- Asset records with `next_tool` keep matching `next_step` in summary output, even when IDs/paths are omitted; the hint explains those missing inputs. Ready/empty records do not invent conversion work. A source-only placement rejection carries the same conversion guidance.
+- Preparation retains `next_stage` and adds its concrete tool/job/hash inputs. Final preview approval is distinct from producing previews. Errors clear the next stage; status only rereads saved evidence and does not reconcile late native completion or promote an unconfirmed job.
+- Contract export maps the returned contract path to an import only when importing into a destination is intended. The Blender helper supports export/materials, not import.
+
+Tool descriptions and input-schema property descriptions carry the same argument contract. Dynamic instructions must use current public names and survive the relevant response projection. Legacy non-public asset helper functions do not expand the MCP tool catalogue.
+
 ## Planning queries
 
 Phase/Plan/Step discovery and related target/selection queries always expose IDs and have no `include_ids` option. `list_phases` and `list_plans` provide `next_step` call guidance. `list_plans` has no field groups: its rows contain plan_id/title/scope/status/revision.
@@ -88,7 +101,7 @@ Each row names fields added to the feature's normal summary. The tool descriptio
 
 - `project_info`: project/document/locations by default, optional runtime. project/document share one live observation; failed identity checks return an error, otherwise project.is_bound_document is a boolean: true for the bound model, false for a different document. Document name/path occur only in project. project.files pages the recorded DB list using files_limit (1–500, default 50) and files_offset; files_page retains total/limit/offset/truncated. Duplicate names remain distinct and include_ids=true exposes project_file_id. Document runtime_serial_number and runtime.rhinocode.pipe_id are also hidden by default. locations contains the project DB and connection-selected Plan folder (null before selection); locations/runtime alone need no live observation. Basic instructions come from get_modeling_guide.
 - `get_rhino_context`: explicit document/selection/viewport/editor/display_modes sections, bounded selection expansion and optional current image.
-- `analyze_block_reculviely`: outline/resolve-block mode and bounded traversal options.
+- `analyze_block_reculviely`: outline/resolve-block mode and bounded traversal options. `resolve-block` also returns placed Model/Layout occurrence paths and counts in `definition_impact`, with separate completeness and list truncation. Definition-member IDs and matching working candidates are not document edit identities. Its `next_step` connects impact review to an intended BlockEditNew entry and fresh working-ID observation; it does not grant unsupported editor mutation permission.
 - `get_defined_viewcapture`, `get_current_viewcapture`: one bounded image/file result; live-view mutation evidence is never omitted.
 - `get_objects`: selected/visible/document/explicit-object/group scopes; flat objects, layer/type counts or numbered group/block hierarchy. Internal block paths are distinct from editable document IDs.
 - `get_rhino_context`: requested sections only; Named View/Layout/Display Mode catalogue IDs are always included.

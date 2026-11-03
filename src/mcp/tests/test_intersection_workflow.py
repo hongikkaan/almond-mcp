@@ -165,6 +165,34 @@ def test_unconfirmed_native_receipt_stops_before_querying_more(setup):
     assert len(calls) == 3
 
 
+def test_native_runtime_error_preserves_undo_failure_and_stops_continuation(setup):
+    failure = {"status": "runtime_error", "message": "EndUndoRecord failed",
+               "error_trace": "undo restoration failed", "guids": [A]}
+    workflow, calls, _ = setup(page(pair()), image(), failure)
+    first = workflow.execute([A, B]).structured_content
+    output = workflow.execute(review_id=first["review_id"], choice=1).structured_content
+    assert output["status"] == "error" and output["native_status"] == "runtime_error"
+    assert output["message"] == failure["message"] and output["error_trace"] == failure["error_trace"]
+    assert output["guids"] == [A] and output["requires_reconciliation"] is True
+    assert output["geometry_change_possible"] is True
+    assert workflow.execute().is_error and len(calls) == 3
+
+
+@pytest.mark.parametrize("invalid", ["image", "identity"])
+def test_invalid_comparison_preserves_screen_change_evidence_and_blocks_continuation(setup, invalid):
+    response = image()
+    response["requires_reconciliation"] = True
+    if invalid == "image":
+        response.pop("image")
+    else:
+        response["objects"][1]["handle"] = HC
+    workflow, calls, _ = setup(page(pair()), response)
+    output = workflow.execute([A, B]).structured_content
+    assert output["status"] == "error" and output["mutation_applied"] is True
+    assert output["view_change"] == response["view_change"] and output["requires_reconciliation"] is True
+    assert workflow.pending is None and workflow.execute().is_error and len(calls) == 2
+
+
 def test_public_tool_combines_review_and_choice_with_strict_schema(setup):
     _, calls, send = setup()
     server = FastMCP("review-test")

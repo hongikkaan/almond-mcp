@@ -249,7 +249,7 @@ namespace RhinoAlmondBridge
                 });
             }
             else page = matched.Skip(offset).Take(limit).Select(obj =>
-                Describe(doc, obj, set, visible, geometry, budget, fields, faceOffset, faceLimit));
+                Describe(doc, obj, set, visible, geometry, budget, fields, faceOffset, faceLimit, editing));
             foreach (var row in page)
             {
                 rowBytes += Encoding.UTF8.GetByteCount(row.ToString(Formatting.None));
@@ -476,7 +476,8 @@ namespace RhinoAlmondBridge
         }
         static JObject Bounds(BoundingBox b) => b.IsValid ? new JObject { ["min"] = Point(b.Min), ["max"] = Point(b.Max) } : null;
         static JObject Describe(RhinoDoc doc, RhinoObject obj, HashSet<Guid> matched, HashSet<Guid> visible,
-            bool includeGeometry, ValueBudget budget, HashSet<string> fields, int faceOffset, int faceLimit)
+            bool includeGeometry, ValueBudget budget, HashSet<string> fields, int faceOffset, int faceLimit,
+            EditingContext.ObjectScope editing = null)
         {
             bool Want(string field, bool detail = false) => fields == null ? !detail || includeGeometry : fields.Contains(field);
             var geometry = obj.Geometry;
@@ -494,15 +495,12 @@ namespace RhinoAlmondBridge
             if (Want("bounds")) row["bounds"] = Bounds(geometry.GetBoundingBox(true));
             if (Want("groups"))
             {
+                editing = editing ?? EditingContext.ObserveObjects(doc);
                 var groups = new JArray();
                 foreach (int index in (obj.Attributes.GetGroupList() ?? Array.Empty<int>()).Take(64))
                 {
                     var group = doc.Groups[index];
-                    var members = doc.Groups.GroupMembers(index) ?? Array.Empty<RhinoObject>();
-                    groups.Add(new JObject { ["id"] = group.Id.ToString(), ["name"] = group.Name,
-                        ["member_count"] = members.Length, ["members_outside_match_count"] = members.Count(o => !matched.Contains(o.Id)),
-                        ["visible_member_count"] = members.Count(o => visible.Contains(o.Id)),
-                        ["member_ids"] = new JArray(members.Take(64).Select(o => o.Id.ToString())), ["members_truncated"] = members.Length > 64 });
+                    groups.Add(GroupMembership(doc, group, matched, visible, editing));
                 }
                 row["groups"] = groups;
                 row["groups_truncated"] = obj.Attributes.GroupCount > 64;

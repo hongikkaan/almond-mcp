@@ -35,7 +35,8 @@ def result(value):
             content.append(ImageContent(type="image", data=picture["data"], mimeType="image/png"))
             value["image_file"] = save_png(raw, "inspection")
         except Exception as exc:
-            value.update(status="error", error_code="invalid_intersection_image", message=str(exc))
+            value.update(status="error", error_code="invalid_intersection_image", message=str(exc),
+                         requires_reconciliation=value.get("requires_reconciliation", False) or value.get("mutation_applied") is not False)
     serialized = json.dumps(value, ensure_ascii=False)
     content.append(TextContent(type="text", text=serialized))
     return ToolResult(content=content, structured_content=value, is_error=value.get("status") == "error")
@@ -135,8 +136,17 @@ class Workflow:
             payload["expected_model_path"] = self.scope[0]
             dispatched = True
             value = json.loads(self.send(json.dumps(payload).encode("utf-8")))
-            if not isinstance(value, dict) or value.get("status") not in ("success", "error"):
+            if not isinstance(value, dict):
                 raise ValueError("Invalid native review response.")
+            if value.get("status") not in ("success", "error"):
+                # ScriptExecutor reports runtime_error after execution/Undo failures.
+                # Preserve its diagnostic body and fence uncertain screen/geometry changes.
+                native_status = value.get("status")
+                value.update(status="error", native_status=native_status,
+                             requires_reconciliation=True, mutation_state="unknown",
+                             geometry_change_possible=mutates_geometry)
+                value.setdefault("error_code", "intersection_review_runtime_error")
+                value.setdefault("message", "The native result is unconfirmed; inspect it before continuing.")
             return value
         except Exception as exc:
             return {**error_payload(str(exc), error_code="intersection_review_transport_error"),
@@ -179,15 +189,21 @@ class Workflow:
                     self.blocked = bool(review.get("requires_reconciliation"))
                     return review
                 objects = review.get("objects")
-                if not isinstance(objects, list) or len(objects) != 2 or not isinstance(review.get("image"), dict):
-                    raise ValueError("Comparison omitted its image or numbered objects.")
-                if [v.get("number") for v in objects] != [1, 2] or [handle(v.get("handle")) for v in objects] != handles:
-                    raise ValueError("Comparison object identities differ from the queried pair.")
+                try:
+                    if not isinstance(objects, list) or len(objects) != 2 or not isinstance(review.get("image"), dict):
+                        raise ValueError("Comparison omitted its image or numbered objects.")
+                    if [v.get("number") for v in objects] != [1, 2] or [handle(v.get("handle")) for v in objects] != handles:
+                        raise ValueError("Comparison object identities differ from the queried pair.")
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    review.update(status="error", error_code="invalid_intersection_comparison", message=str(exc),
+                                  requires_reconciliation=True)
+                    self.blocked = True
+                    return review
                 self.number += 1
                 identity = uuid4().hex
                 self.pending = {"review_id": identity, "number": self.number, "handles": handles, "key": key}
                 review.update(state="awaiting_choice", review_id=identity, number=self.number,
-                              next_step="이미지와 속성을 검토한 뒤 같은 도구에 review_id와 choice=1 또는 2를 보내 해당 객체의 겹친 부분만 제거하세요. 판단을 보류하면 choice='skip'을 사용하세요.")
+                              next_step="Inspect this image and objects[].number, then call resolve_object_intersection(review_id=<this review_id>, choice=1 or 2) to trim only that numbered object and keep the other. Use choice='skip' to leave both unchanged; do not resend object_ids when answering this review.")
                 return review
             next_cursor = page.get("next_cursor")
             if page.get("pagination_complete") is True:

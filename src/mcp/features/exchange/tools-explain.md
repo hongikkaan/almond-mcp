@@ -28,7 +28,7 @@ Interpretation: Read imported_count, metadata_restored, materials_deduplicated a
 Limits: Canonical PBR/material metadata is restored only for known library materials recognized by name; this does not restore everything glTF omits. Rotation can change measured world-axis extents. A restore/place failure may leave imported_guids in the document; reconcile them before retrying because an error is not rollback.
 
 Args:
-    contract_path: Path to a .almond.json contract file.
+    contract_path: Contract path returned by export_asset_contract or a Blender export. Managed session: project-relative .almond.json path; standalone: absolute path.
     x_mm: Contract anchor X placement in millimetres, default 0.
     y_mm: Contract anchor Y placement in millimetres, default 0.
     z_mm: Contract anchor Z placement in millimetres, default 0.
@@ -64,7 +64,7 @@ Returns:
 ## response-672
 
 <!-- instruction:response-672 -->
-Use import_asset_contract to load this contract into Rhino. For Blender, import the GLB in Blender and verify materials and placement there; get_blender_helper_script supports export and materials, not import.
+If importing into a destination Rhino is intended, pass the returned contract_path to import_asset_contract(contract_path=...) and choose its placement coordinates in mm; exporting alone does not request another import. For Blender, import the returned glb_path there and verify materials/placement; get_blender_helper_script supports export and materials, not import.
 <!-- /instruction:response-672 -->
 
 ## response-677

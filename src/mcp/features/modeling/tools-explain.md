@@ -80,7 +80,7 @@ Limits: Saves all document changes, not just the current task. It has no SaveAs/
 When to use: 사전 정의된 Material과 Layer를 현재 Rhino 문서에 등록합니다.
 Before calling: Supply the required overwrite boolean for both Materials and Layers. false preserves existing values, creates missing entries and reports differences; true updates predefined properties. Bridge modeling_materials=2 and modeling_setup=1 are required. Setup is not a prerequisite for every modeling action or assign_material call.
 Inputs from earlier results: No IDs or preceding lookup are required when the task's setup and overwrite intent are known. There is no operation argument or Rhino Yes/No prompt. Consider existing project settings before choosing overwrite.
-Interpretation: Materials are processed before Layers in one caller-owned Undo action. success with applied=true confirms that predefined properties match. incomplete with applied=false includes differences (kind, name, property, current, expected) and errors (kind, name, message). Missing entries can be created while other values remain different or fail. An error can occur after a partial mutation; this is not rollback or proof that nothing changed.
+Interpretation: Materials are processed before Layers in one caller-owned Undo action. success with applied=true confirms that predefined properties match. incomplete with applied=false includes differences (kind, name, property, current, expected) and errors (kind, name, message). Missing entries can be created while other values remain different or fail. An error can occur after a partial mutation; this is not rollback or proof that nothing changed. Layer는 건축 유형 → 구축 시스템 → 구성 요소 역할의 위계로 구성됩니다. 시스템이 미정일 때는 유형 Layer를, 시스템이 정해진 단순 모델에는 시스템 Layer를, 부재·마감을 구체화할 때는 요소 역할 Layer를 사용합니다. 시스템과 요소 Layer에는 각각 기본 Material과 표시·출력 색이 설정됩니다. These levels express design resolution; setup does not move objects or change their ByLayer assignments.
 Limits: Setup does not move objects, change their ByLayer settings, attach object metadata or enable construction detail. Layer defaults use each system's first render_material_ids, galvanized steel for connection/reinforcement/decking and birch plywood for Wood subfloor/sheathing; containers are gray. Only prescribed properties are reconciled. Unrelated properties and objects are preserved. API confirmation is not visual review or a saved 3DM. Inspect errors or mutation_state=unknown before retrying.
 
 Args:
@@ -98,6 +98,11 @@ Inputs from earlier results: Optional category/query narrow the known material r
 Interpretation: The default summary returns material names/categories; display adds PBR channels and ue_material_slot for cross-application remapping. include_ids independently controls handles and audit adds timestamps. Use the selected material_id unchanged in the next call.
 Limits: This reads the library without changing Rhino; it does not prove materials are installed/applied or assign object layers. setup_modeling registers Materials and construction Layers together. Supplied target IDs are not repeated and paths require the corresponding fields.
 
+Args:
+    category: Optional library category filter; empty includes all categories.
+    query: Free-text search terms; empty leaves the text filter unset.
+    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
+    field_groups: Optional detail groups: display, physical, metadata, source, paths, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
 <!-- /instruction:list_materials -->
 
 ## assign_material
@@ -109,6 +114,16 @@ Inputs from earlier results: Pass observed GUIDs as guids and the selected mater
 Interpretation: Compare applied_count with requested_count and inspect applied_guids, optional changed_guids/changed_count, render_material_applied, metadata_attached and warnings. A material atypical for a declared system warns but still applies. Reuse confirmed applied GUIDs for export or follow-up observation.
 Limits: apply_render_material controls native PBR assignment, preserving object layers. attach_metadata defaults false; enable it only for an explicit metadata request. It writes supplied floor/detail/reference/role data and material identity only when appropriate; unspecified metadata and provenance survive. Metadata-only calls preserve native material identity; even these require a known material_id. Block-instance materials affect definition geometry set by-parent, while requested metadata belongs to the instance. No dimensions, saved-document proof or construction verification are produced. An uncertain result/result_error must be inspected before retrying.
 
+Args:
+    guids: Current Rhino object GUIDs to assign; reuse an observation or creation result.
+    material_id: Canonical library material ID from list_materials(include_ids=true).
+    apply_render_material: Apply the canonical render material to the specified objects when true.
+    attach_metadata: Attach Almond material/construction metadata when true; false applies only the requested render material.
+    structural_role: Optional structural role metadata, used with attach_metadata.
+    construction_system: Optional construction system label, used with attach_metadata.
+    floor: Optional floor label metadata, used with attach_metadata.
+    construction_detail: Optional construction detail note, used with attach_metadata.
+    construction_reference: Optional source-reference object, used with attach_metadata; omission adds no reference.
 <!-- /instruction:assign_material -->
 
 ## response-750

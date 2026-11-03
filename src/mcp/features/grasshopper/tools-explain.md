@@ -11,11 +11,12 @@ Inputs from earlier results: None required. Pass an exact logic_names entry to g
 Interpretation: total_entries is the index count, and logic_names contains filename stems, not solved physics results. field_groups=["paths"] adds library_dir.
 Limits: Presence in this index does not establish execution readiness or an audited capsule contract; use capsule discovery for that distinction. This call only reads the existing index.
 
+Args:
+    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
+    field_groups: Optional detail groups: ports, definition, source, paths, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
 Returns:
-    JSON list of logic IDs available (e.g., ["catenary", "bending", "01_simplebeam"]).
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
+    JSON object with total_entries and logic_names; include_ids=true also returns logic_ids.
 field_groups adds ports, definition, source, paths, audit, or all; default is summary.
-include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_library -->
 
 ## get_logic_by_id
@@ -30,14 +31,12 @@ Interpretation: Parsed components, all_descriptions and metadata remain in the d
 Limits: Components are detected by binary-string scanning, not graph evaluation or a verified dependency graph. Missing/invalid capsule metadata does not establish an executable contract; no solve, baking or model change occurs.
 
 Args:
-    logic_id: The filename (without extension) of the Grasshopper file.
-              Use list_library() first to see available IDs.
-              Examples: catenary, bending, 01_simplebeam
+    logic_id: Existing Grasshopper library filename without extension. Reuse a known ID, or obtain one from list_library(include_ids=true).
+    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
+    field_groups: Optional detail groups: ports, definition, source, paths, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
 Returns:
     JSON string with detected physics components and context, or error.
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds ports, definition, source, paths, audit, or all; the requested manifest/parsed logic/script remains in the default payload.
-include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:get_logic_by_id -->
 
 ## list_capsules
@@ -54,11 +53,11 @@ Limits: audited=false capsules cannot run. At most 50 cards are returned; total 
 Args:
     capability: Optional filter: "analyze", "generate", "form_find", or "aggregate".
     audited_only: When true, list only capsules that run_gh_definition will accept.
+    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
+    field_groups: Optional detail groups: ports, definition, source, paths, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
 Returns:
     JSON with total and a list of compact capsule cards.
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
 field_groups adds ports, definition, source, paths, audit, or all; default is summary.
-include_ids independently enables handles; audit enables timestamps.
 <!-- /instruction:list_capsules -->
 
 ## run_gh_definition

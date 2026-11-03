@@ -65,6 +65,12 @@ namespace RhinoAlmondBridge
                     },
                     ["data"] = data
                 };
+                if (mode == "resolve-block") reply["next_step"] =
+                    "Before a block-internal edit, review data.definition_impact for shared occurrences and reference/linked limits. " +
+                    "If impact is incomplete, do not conclude that only one placement is affected. Use BlockEditNew for the intended definition level, " +
+                    "then get_objects(scope=\"current\", include_ids=true) to obtain current working IDs for observation and capture. " +
+                    "Do not pass definition-member IDs or unverified candidate IDs as independent edit targets. " +
+                    "Current face/subtraction tools do not yet support editor save/cancel/Undo integration; their rejection is not an edit.";
                 if (Encoding.UTF8.GetByteCount(reply.ToString(Formatting.None)) > MaxBytes)
                     return Error("block_analysis_too_large", "Block analysis response exceeds 256 KiB; narrow the scope or output budgets.");
                 return reply;

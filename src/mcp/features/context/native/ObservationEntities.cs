@@ -55,9 +55,10 @@ namespace RhinoAlmondBridge
         }
 
         public static List<Entity> Roots(RhinoDoc doc, RhinoObject[] objects, Guid? excludedGroup = null,
-            Func<Group, Entity> groupSource = null, bool includePartial = false)
+            Func<Group, Entity> groupSource = null, bool includePartial = false, RhinoObject[] parentMembers = null)
         {
             var present = new HashSet<Guid>(objects.Select(o => o.Id));
+            var parentIds = new HashSet<Guid>((parentMembers ?? objects).Select(o => o.Id));
             var groups = new List<Entity>();
             foreach (var group in doc.Groups)
             {
@@ -66,7 +67,8 @@ namespace RhinoAlmondBridge
                 var members = observed?.Members ?? doc.Groups.GroupMembers(group.Index) ?? Array.Empty<RhinoObject>();
                 if (members.Length == 0 || members.Any(o => o == null) ||
                     (includePartial ? !members.Any(o => present.Contains(o.Id)) : members.Any(o => !present.Contains(o.Id)))) continue;
-                if (excludedGroup.HasValue && members.Length >= objects.Length) continue;
+                if (excludedGroup.HasValue && (members.Length >= parentIds.Count ||
+                    members.Any(o => !parentIds.Contains(o.Id)))) continue;
                 var bounds = BoundingBox.Empty;
                 foreach (var member in members) bounds.Union(member.Geometry.GetBoundingBox(true));
                 groups.Add(new Entity { Id = group.Id, Name = group.Name ?? "", Kind = "Group",

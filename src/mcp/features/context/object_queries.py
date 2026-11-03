@@ -205,9 +205,12 @@ def intersections(send, *, ids, include_block=False):
             if page.get("pagination_complete") is True:
                 if next_cursor:
                     raise ValueError("A completed intersection query returned a continuation cursor.")
-                return json.dumps({"intersections": {"number": count}, "next_step":
-                    "같은 object_ids와 include_block으로 resolve_object_intersection을 시작해 비교 이미지·객체 정보를 확인하세요. 이어 review_id와 choice=1/2 또는 'skip'을 보내 처리합니다."},
-                    ensure_ascii=False)
+                next_step = (
+                    "To review these overlaps, call resolve_object_intersection with the same object_ids and include_block. "
+                    "Inspect its comparison and numbered objects, then pass its review_id with choice=1 or 2 to trim that numbered object, or 'skip'."
+                    if count else
+                    "No positive-volume overlap was found in this scope; no resolution call is needed. This does not establish other design or clearance conditions.")
+                return json.dumps({"intersections": {"number": count}, "next_step": next_step}, ensure_ascii=False)
             if not pairs or not isinstance(next_cursor, str) or not next_cursor or next_cursor in seen:
                 raise ValueError("Native intersection pagination did not advance.")
             seen.add(next_cursor)

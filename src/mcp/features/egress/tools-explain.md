@@ -12,21 +12,13 @@ Interpretation: occupant_load is the ceiling of area divided by the occupancy fa
 Limits: Empty travel_distances_m and dead_end_m=0 skip those checks; routes and obstacles are not inferred. Gross area is the bounding rectangle, not a measured irregular plate. Travel limits use business values even for other occupancies and warn; dead-end rules are also simplified. BCI A.10-A.13/IBC-typical factors are screening guidance, not governing-code certification; verify local requirements and source_note.
 
 Args:
-    plate_bounds_mm: Floor plate [min_x, min_y, max_x, max_y] in mm
-        (sets gross area and the diagonal used for exit separation).
-    exits: One entry per exit (stair door or exterior exit door):
-        {"name": str, "x_mm": float, "y_mm": float, "width_mm": float}.
-        Positions are the door centers; width is the clear egress width.
-    occupancy: Occupant-load key: business, mercantile, assembly_
-        unconcentrated, classroom, residential, storage.
-    stories: Stories served. Above 1, at least two exits are required
-        and exit width demand uses the stair factor (7.6 mm/occupant)
-        instead of the door factor (5.1).
-    sprinklered: Sprinklered throughout (affects separation fraction,
-        travel-distance and dead-end limits).
+    plate_bounds_mm: Floor plate [min_x, min_y, max_x, max_y] in mm (sets gross area and the diagonal used for exit separation).
+    exits: One entry per exit (stair door or exterior exit door): {"name": str, "x_mm": float, "y_mm": float, "width_mm": float}. Positions are the door centers; width is the clear egress width.
+    occupancy: Occupant-load key: business, mercantile, assembly_unconcentrated, classroom, residential, storage.
+    stories: Stories served. Above 1, at least two exits are required and exit width demand uses the stair factor (7.6 mm/occupant) instead of the door factor (5.1).
+    sprinklered: Sprinklered throughout (affects separation fraction, travel-distance and dead-end limits).
     net_area_m2: Override the occupied area; 0 uses the gross plate area.
-    travel_distances_m: Measured worst-case travel distances (e.g. from
-        drawn egress paths); empty skips the travel check.
+    travel_distances_m: Measured worst-case travel distances (e.g. from drawn egress paths); empty skips the travel check.
     dead_end_m: Longest dead-end corridor in metres; 0 skips the check.
 Returns:
     JSON: {passed, occupant_load, checks: [{check, required, provided,
