@@ -158,7 +158,8 @@ class ScenesStore:
             direct, missing = native_objects(model_path, included)
             if missing:
                 raise ValueError('Some directly registered Scene objects are absent from the bound document; remove their Scene memberships before retrying.')
-            objects.update(direct)
+            for guid, row in direct.items():
+                objects.setdefault(guid, row)
         elif included:
             raise ValueError('Scene direct-object geometry requires a live Rhino observation.')
         return [objects[key] for key in sorted(objects) if key not in excluded]

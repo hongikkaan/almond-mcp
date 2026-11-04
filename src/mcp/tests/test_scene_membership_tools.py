@@ -56,8 +56,14 @@ def test_live_scene_resolution_combines_holon_members_and_direct_objects(tmp_pat
     result = store.change_scene_objects(scene, MODEL, [clip, OBJECT], True, inspect, objects)
     assert result == {'failed_indices': [], 'already_present_indices': [1]}
     assert {x['rhino_guid'] for x in store.scene_objects(scene, MODEL, inspect, objects)} == {clip, OBJECT}
+    # A directly registered object may subsequently become a Holon member.
+    component = snapshot(scene, object_ids=(OBJECT, clip))
+    store.upsert_component(MODEL, 'Arrival', [OBJECT, clip], [scene], COMPONENT, GROUP,
+                           native_apply=lambda _: {'status': 'success', 'component': component})
+    rows = store.scene_objects(scene, MODEL, inspect, objects)
+    assert next(row for row in rows if row['rhino_guid'] == clip)['component_id'] == COMPONENT
     store.change_scene_objects(scene, MODEL, [OBJECT], False, inspect, objects)
     assert [x['rhino_guid'] for x in store.scene_objects(scene, MODEL, inspect, objects)] == [clip]
-    assert store.get_component(COMPONENT)['object_count'] == 1
+    assert store.get_component(COMPONENT)['object_count'] == 2
     store.change_scene_objects(scene, MODEL, [OBJECT], True, inspect, objects)
     assert {x['rhino_guid'] for x in store.scene_objects(scene, MODEL, inspect, objects)} == {clip, OBJECT}
