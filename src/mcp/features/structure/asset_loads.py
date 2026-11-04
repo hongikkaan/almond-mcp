@@ -2,7 +2,7 @@
 
 An asset's load is its estimated self weight (dead) plus its in-use contents or occupants
 (imposed), from ``asset/models/GeneratedAssetfiles/structural-loads.json``. A placement is an asset id plus
-its world bounding box (meters), read from tagged Rhino objects or from the scene ledger.
+its world bounding box (meters), read from tagged Rhino objects.
 
 Placement onto the frame:
 - floor / work-surface / ground assets are carried by the highest level of horizontal

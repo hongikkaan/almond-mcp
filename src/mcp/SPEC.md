@@ -81,7 +81,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 |---|---|
 | 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `analyze_block_reculviely`, `get_defined_viewcapture`, `get_current_viewcapture`, `get_objects`, `get_object_intersections`, `capture_rhino_inspection` |
 | 작업계획 | `create_phase`, `list_phases`, `update_phase`, `create_plan`, `get_phase_plan_step`, `list_plans`, `update_plan`, `list_plan_revisions`, `update_step`, `resolve_targets`, `get_selection_references` |
-| Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `list_design_scenes`, `get_scene_objects` |
+| Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `list_design_scenes`, `get_scene_objects`, `add_scene_objects`, `remove_scene_objects` |
 | Component | `upsert_ontological_holon`, `get_ontological_holon`, `list_ontological_holons`, `sync_ontological_holon`, `remove_ontological_holon`, `resolve_object_intersection`, `focus_holons` |
 | 설계 참고자료 | `get_modeling_guide`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
 | 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `save_rhino_document`, `edit_planar_face`, `edit_planar_faces`, `setup_modeling`, `list_materials`, `assign_material` |

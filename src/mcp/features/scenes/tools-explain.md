@@ -41,7 +41,7 @@ Read a stored Scene summary with revision, units and registered Holon/object cou
 When to use: Inspect known Scene metadata without requesting live geometry.
 Before calling: Supply an existing scene_id; select field_groups for additional available metadata.
 Inputs from earlier results: Use create_design_scene.scene.scene_id or list_design_scenes(include_ids=true).scenes[].scene_id as scene_id. With scope and include_ids=true, scene.project_file_id feeds file-binding inputs; retain the supplied scene_id for get_scene_objects or Plan scene_ids.
-Interpretation: Summary includes name, units, revision, holons and objects; live_verified=false marks cached counts. field_groups supports scope (file_name, empty when unrecorded, and available units/model_path), state (revision), geometry (available bounds/component), audit (timestamps) or all.
+Interpretation: Summary includes name, units, revision, holons, objects and direct_objects; objects is null when direct memberships or exclusions make a deduplicated live count necessary. live_verified=false marks cached counts. field_groups supports scope (file_name, empty when unrecorded, and available units/model_path), state (revision), geometry (available bounds/component), audit (timestamps) or all.
 DB와 Rhino 문서의 상태가 다르면 수동으로 정렬(align)해야 합니다.
 Scene membership is a design decision, not an automatically detected mismatch. Existing Holon requires_sync reports technical registration state separately.
 Limits: IDs are hidden unless include_ids=true, and the supplied scene_id is not echoed. Optional groups expose only returned fields; this is not current Rhino membership, a geometry backup or edit authorization.
@@ -69,12 +69,12 @@ Args:
 ## get_scene_objects
 
 <!-- instruction:get_scene_objects -->
-Read live Rhino objects belonging to a Scene's registered semantic Holon groups in the bound model.
-When to use: Inspect current members of registered groups, including linked descendant Holons, rather than cached Scene counts.
+Read live Rhino objects belonging to a Scene, including registered Holon members, ordinary objects and clipping planes.
+When to use: Inspect current registered objects, including direct members and linked descendant Holons, rather than cached Scene counts.
 Before calling: Use a live saved document in stable editing state; at most 64 Holon registrations may be observed for that model. expected_model_path uses the bound model when omitted and can explicitly fence the model to observe; choose limit (1–200) and nonnegative offset.
 Inputs from earlier results: A created/listed scene_id feeds scene_id. With include_ids=true, objects[].rhino_guid can feed upsert_ontological_holon.object_ids only for a separately intended and authorized mutation; field_groups=["geometry"] also exposes holon_id for get_ontological_holon.holon_id and available bounds_mm. scope exposes available model_path for expected_model_path.
 Interpretation: live_verified=true identifies successful live observation; total, offset and truncated bound the returned object page, not the entire project's geometry. field_groups supports scope, state, geometry, audit or all for available object fields; audit enables timestamps when present.
-Limits: IDs/GUIDs are hidden by default; supplied scene_id is not echoed. Incomplete, unstable or unresolved native observations fail with MCP isError=true. Group/block editing cannot certify persistent Holon ownership; an unavailable member set is not an empty Scene or cached live substitute. This read never registers individual objects in the DB, and pagination does not bypass the 64-group observation limit.
+Limits: IDs/GUIDs are hidden by default; supplied scene_id is not echoed. Incomplete, unstable or unresolved native observations fail with MCP isError=true. Group/block editing cannot certify persistent Holon ownership; an unavailable member set is not an empty Scene or cached live substitute. Direct memberships and Scene-specific exclusions are stored per model; missing direct members make the query fail until removed. Pagination does not bypass the 64-group observation limit.
 
 Args:
     scene_id: Existing Scene ID from list_design_scenes(include_ids=true) or a recorded Scene reference.
@@ -84,3 +84,32 @@ Args:
     offset: Zero-based starting row for this page; use the same filters when requesting the next page.
     expected_model_path: Usually omitted: managed sessions supply the bound saved Rhino document. An explicit path must match that binding; it does not switch documents.
 <!-- /instruction:get_scene_objects -->
+
+
+<!-- instruction:add_scene_objects -->
+Register a GUID array of top-level Rhino objects including ordinary geometry and clipping planes in a Scene, returning only zero-based indices for failed and already-present entries while omitting successful GUIDs.
+When to use: Add direct Scene membership or restore a group member excluded from this Scene. A member already present through a Holon counts as already present. No group or geometry is edited.
+Before calling: Use a saved bound model, an existing scene_id, and an object_ids array of at most 4096 GUID strings. Items are processed in input order, including duplicates. A malformed, missing or unsupported GUID fails individually.
+Inputs from earlier results: Use a created/listed scene_id and Rhino object GUIDs obtained from observation or model creation.
+Interpretation: failed_indices and already_present_indices contain zero-based positions in object_ids. Successful GUIDs and positions are not returned. Overall errors mean the batch could not be safely evaluated.
+Limits: This persists Scene membership per model and does not delete or create geometry. Reopen clients after the source change; older workers cannot safely interpret direct membership.
+
+Args:
+    scene_id: Existing Scene ID from list_design_scenes(include_ids=true).
+    object_ids: Array of object GUIDs, including ordinary geometry or clipping planes, up to 4096 entries.
+    expected_model_path: Usually omitted; the managed session supplies the bound saved document. An explicit path must match it.
+<!-- /instruction:add_scene_objects -->
+
+<!-- instruction:remove_scene_objects -->
+Remove a GUID array of top-level Rhino objects including ordinary geometry and clipping planes from a Scene, returning only zero-based indices for failed and already-absent entries while omitting successful GUIDs.
+When to use: Remove direct membership or exclude a Holon member from this Scene without changing the group or deleting geometry.
+Before calling: Use a saved bound model, an existing scene_id and an object_ids array of at most 4096 GUID strings. Items are processed in input order, including duplicates.
+Inputs from earlier results: Use a created/listed scene_id and object GUIDs from a prior observation or Scene membership record.
+Interpretation: failed_indices and already_absent_indices contain zero-based positions in object_ids. A valid GUID absent from the Scene is already absent even when absent from the document; successful GUIDs and positions are omitted.
+Limits: This changes Scene membership only, not model objects or Holon groups. Overall errors mean the batch could not be safely evaluated.
+
+Args:
+    scene_id: Existing Scene ID from list_design_scenes(include_ids=true).
+    object_ids: Array of object GUIDs, including ordinary geometry or clipping planes, up to 4096 entries.
+    expected_model_path: Usually omitted; the managed session supplies the bound saved document. An explicit path must match it.
+<!-- /instruction:remove_scene_objects -->
