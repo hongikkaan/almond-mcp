@@ -70,9 +70,20 @@ class Database:
                 table["internal"] = name.startswith("sqlite_") or table["kind"] == "shadow"
                 tables.append(table)
             parent = self.path.parent.parent if self.path.parent.name == ".almond" else self.path.parent
+            from .domain_views import DomainViews
             return {"path": str(self.path), "name": self.path.name, "project": parent.name, "bytes": self.path.stat().st_size,
                     "schema_version": db.execute("PRAGMA schema_version").fetchone()[0],
-                    "tables": tables, "read_only": True}
+                    "tables": tables, "read_only": True, "domain_views": DomainViews(db).capabilities()}
+
+    def domain_page(self, kind, **options):
+        from .domain_views import DomainViews
+        with self.connect() as db:
+            return DomainViews(db).page(kind, **options)
+
+    def domain_detail(self, kind, key, parent=""):
+        from .domain_views import DomainViews
+        with self.connect() as db:
+            return DomainViews(db).detail(kind, key, parent)
 
     @staticmethod
     def _selection(columns, cell_limit=CELL_LIMIT):

@@ -3,6 +3,7 @@
 import hashlib
 import http.client
 import json
+import os
 import sqlite3
 import threading
 from contextlib import closing
@@ -299,3 +300,47 @@ def test_http_filters_and_picker_cancel_failure_and_success(server, tmp_path, mo
     for invalid in ("[]", "null", "{"):
         query = urlencode({"database": str(selected), "table": "chosen", "filters": invalid})
         assert request(server, "/api/rows?" + query)[0] == 400
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows batch launcher")
+@pytest.mark.parametrize("host", ["windows", "pwsh"])
+def test_dashboard_launcher_works_without_powershell_on_path(tmp_path, host):
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    checkout = tmp_path / "checkout with spaces"
+    runtime = checkout / "src/mcp/runtime"
+    runtime.mkdir(parents=True)
+    launcher = runtime / "Almond DB Dashboard.cmd"
+    source = Path(__file__).resolve().parents[2] / "runtime/Almond DB Dashboard.cmd"
+    shutil.copyfile(source, launcher)
+    # Exercise the actual batch call; replace only its interactive picker/server.
+    (runtime / "dashboard.ps1").write_text('''
+param([switch]$PickFile, [switch]$Development)
+@{pick_file=[bool]$PickFile; development=[bool]$Development;
+  edition=$PSVersionTable.PSEdition;
+  child_powershell=[bool](Get-Command powershell.exe -ErrorAction SilentlyContinue)} |
+    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'launcher.json') -Encoding UTF8
+''', encoding="utf-8")
+    environment = dict(os.environ, PATH="")
+    installed = [Path(os.environ["ProgramFiles"]) / "PowerShell/7/pwsh.exe",
+                 Path(os.environ["LOCALAPPDATA"]) / "Microsoft/WindowsApps/pwsh.exe"]
+    pwsh = next((path for path in installed if path.is_file()), None)
+    if host == "pwsh" and pwsh is None:
+        pytest.skip("Optional PowerShell 7 is not installed")
+    if host == "windows":
+        environment.update(ProgramFiles=str(tmp_path / "no-programs"),
+                           LOCALAPPDATA=str(tmp_path / "no-apps"))
+    # Isolate global CMD AutoRun scripts from the launcher's host/path behavior.
+    comspec = str(Path(os.environ["SystemRoot"]) / "System32/cmd.exe")
+    result = subprocess.run([comspec, "/d", "/c", str(launcher)],
+                            cwd=tmp_path, env=environment, input="\n", capture_output=True,
+                            text=True, encoding="oem", errors="replace", timeout=20,
+                            creationflags=subprocess.CREATE_NO_WINDOW)
+    receipt = runtime / "launcher.json"
+    assert receipt.exists(), result.stdout + result.stderr
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(receipt.read_text(encoding="utf-8-sig")) == {
+        "pick_file": True, "development": False,
+        "edition": "Core" if host == "pwsh" else "Desktop", "child_powershell": True}

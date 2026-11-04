@@ -31,6 +31,16 @@ async function api(path, body) {
   return result;
 }
 
+const domainExplorer = new DomainExplorer({api, node, busy: () => state.loadingSchema,
+  rawVisibility: (raw, load) => {
+    state.epoch++;
+    $("explorer").hidden = !raw || !state.table;
+    $("empty").hidden = !raw || !!state.table;
+    if (state.schema) renderNavigation();
+    if (load && raw && state.table) showTab(state.tab);
+  }
+});
+
 function visibleTables() {
   return (state.schema?.tables || []).filter(t => $("show-internal").checked || !t.internal);
 }
@@ -50,12 +60,13 @@ function renderNavigation() {
     item.draggable = true;
     item.dataset.table = table.name;
     item.addEventListener("dragstart", event => { event.dataTransfer.setData("text/plain", table.name); event.dataTransfer.effectAllowed = "move"; });
-    const button = node("button", undefined, "table-nav" + (table.name === state.table?.name ? " active" : ""));
+    const current = domainExplorer.isRaw && table.name === state.table?.name;
+    const button = node("button", undefined, "table-nav" + (current ? " active" : ""));
     button.title = table.name;
-    button.setAttribute("aria-current", table.name === state.table?.name ? "true" : "false");
+    button.setAttribute("aria-current", current ? "true" : "false");
     button.append(node("span", table.type === "view" ? "◈" : "▦"), node("span", table.name, "nav-name"), node("span", table.columns.length, "nav-count"));
     button.addEventListener("click", () => activateTable(table));
-    const toggle = node("button", folded ? "↥" : "↧", "fold-toggle");
+    const toggle = node("button", folded ? "↧" : "↥", "fold-toggle");
     toggle.title = `${table.name} ${folded ? "펼치기" : "접기"}`;
     toggle.setAttribute("aria-label", toggle.title);
     toggle.addEventListener("click", () => foldTable(table.name, !folded));
@@ -80,15 +91,13 @@ function applySchema(schema) {
   state.epoch++;
   $("refresh").disabled = !schema.name;
   $("database-name").textContent = schema.name || "DB Dashboard";
-  $("brand-database").textContent = schema.name || "DB Dashboard";
-  $("brand-project").textContent = schema.project || "";
-  $("brand-project").hidden = !schema.project;
-  $("brand-project").title = schema.project || "";
-  $("brand-database").title = schema.path || "";
+  $("database-name").title = schema.path || "";
   $("database-meta").textContent = schema.name ? `${format(schema.bytes / 1024)} KB · ${schema.path}` : "";
   renderNavigation();
   const tables = visibleTables();
-  activateTable(tables.find(t => t.name === previous) || tables[0] || null);
+  domainExplorer.setSchema(schema);
+  activateTable(tables.find(t => t.name === previous) || tables[0] || null, [], true);
+  domainExplorer.refresh();
   if (schema.name && !tables.length) message("열린 DB에 표시할 테이블이 없습니다. 필요하면 SQLite 내부 테이블 포함을 선택하세요.");
 }
 
@@ -104,7 +113,7 @@ async function loadSchema(body) {
     if (epoch !== state.epoch) return;
     message();
     state.loadingSchema = false;
-    if (schema.cancelled) { showTab(state.tab); return; }
+    if (schema.cancelled) { if (domainExplorer.isRaw) showTab(state.tab); else domainExplorer.refresh(); return; }
     applySchema(schema);
   } catch (error) {
     if (epoch === state.epoch) message(error.message, true);
@@ -115,8 +124,9 @@ async function loadSchema(body) {
   }
 }
 
-function activateTable(table, focusColumns = []) {
+function activateTable(table, focusColumns = [], keepView = false) {
   if (state.loadingSchema) return;
+  if (!keepView) domainExplorer.showRaw(false);
   state.epoch++;
   state.table = table;
   state.offset = 0;
@@ -129,18 +139,18 @@ function activateTable(table, focusColumns = []) {
   if (focusColumns.length) state.tab = "rows";
   $("row-search").value = "";
   $("detail").close();
-  $("empty").hidden = !!table;
-  $("explorer").hidden = !table;
+  $("empty").hidden = !domainExplorer.isRaw || !!table;
+  $("explorer").hidden = !domainExplorer.isRaw || !table;
   renderNavigation();
   if (!table) return;
   $("table-name").textContent = table.name;
   $("table-kind").textContent = (table.kind || table.type).toUpperCase();
-  $("column-count").textContent = `${table.columns.length}개 열`;
-  showTab(state.tab);
+  if (domainExplorer.isRaw) showTab(state.tab);
 }
 
 function showTab(tab) {
   state.tab = tab;
+  $("search-form").hidden = tab !== "rows";
   for (const name of ["rows", "charts", "schema"]) {
     $("panel-" + name).hidden = name !== tab;
     $("tab-" + name).setAttribute("aria-selected", String(name === tab));
@@ -197,7 +207,9 @@ async function loadRows() {
         state.descending = state.sort === col.name ? !state.descending : false;
         state.sort = col.name; state.offset = 0; loadRows();
       });
-      th.append(button, node("span", `${col.pk ? "PK · " : ""}${col.type || "ANY"}`, "column-type"));
+      const heading = node("div", undefined, "column-heading");
+      heading.append(button, node("span", `${col.pk ? "PK · " : ""}${col.type || "ANY"}`, "column-type"));
+      th.append(heading);
       if (state.filterOptions && Object.hasOwn(state.filterOptions, col.name)) th.append(columnFilter(col.name));
       header.append(th);
     }

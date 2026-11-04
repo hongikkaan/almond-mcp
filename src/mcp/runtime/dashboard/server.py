@@ -110,6 +110,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         assets = {"/": ("index.html", "text/html; charset=utf-8"),
                   "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+                  "/domain.js": ("domain.js", "text/javascript; charset=utf-8"),
                   "/style.css": ("style.css", "text/css; charset=utf-8")}
         if request.path == "/favicon.ico":
             self._reply(204, b"", "image/x-icon")
@@ -124,14 +125,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             database = self.server.database
             if request.path == "/api/schema":
                 self._reply(200, database.schema() if database else {"tables": [], "name": None})
-            elif request.path in ("/api/rows", "/api/profile", "/api/filters", "/api/values"):
+            elif request.path in ("/api/rows", "/api/profile", "/api/filters", "/api/values", "/api/domain", "/api/domain-detail"):
                 if database is None:
                     raise ValueError("먼저 DB 파일을 선택해 주세요.")
                 # Stale requests cannot accidentally display rows from a newly selected file.
                 if get("database") != str(database.path):
                     self._reply(409, {"error": "선택한 DB가 바뀌었습니다. 구조 새로고침을 눌러 주세요."})
                     return
-                if request.path.endswith("/rows"):
+                if request.path == "/api/domain":
+                    result = database.domain_page(get("view"), search=get("search"), focus=get("focus"),
+                                                  offset=int(get("offset", "0")), limit=int(get("limit", "20")))
+                elif request.path == "/api/domain-detail":
+                    result = database.domain_detail(get("view"), get("id"), get("parent"))
+                elif request.path.endswith("/rows"):
                     filters = json.loads(get("filters", "{}"))
                     if not isinstance(filters, dict):
                         raise ValueError("열 필터가 올바르지 않습니다.")
