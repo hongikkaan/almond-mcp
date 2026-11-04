@@ -3,11 +3,19 @@ param([string]$Database, [switch]$Development, [switch]$NoBrowser, [int]$Port = 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$environmentPath = if ($Development) { 'data/development/.venv/Scripts/python.exe' } else { 'src/engine/.venv/Scripts/python.exe' }
-$python = Join-Path $repo $environmentPath
-if (-not (Test-Path -LiteralPath $python)) {
-    throw 'Python environment missing. Run src/mcp/rebuild_environment.ps1 (or -Development for this worktree) first.'
+. (Join-Path $PSScriptRoot 'auto-venv/repository.ps1')
+$selection = Get-AutoVenvSelection $repo
+if (-not $selection) {
+    throw 'Cannot resolve the original Git checkout. Check Git and the main repository core.worktree setting.'
 }
+$pythonRepo = $selection.Root
+$python = if ($Development) { Join-Path $pythonRepo 'data/development/.venv/Scripts/python.exe' } else { $selection.Python }
+if (-not $python -or -not (Test-Path -LiteralPath $python -PathType Leaf)) {
+    throw "Python environment missing in original repository: $pythonRepo"
+}
+Write-Verbose "Original repository: $pythonRepo"
+Write-Verbose "Python: $python"
+Write-Verbose "Dashboard source: $PSScriptRoot"
 if ($Demo -and $Database) { throw 'Choose either -Demo or -Database.' }
 if ($PickFile -and -not $Database -and -not $Demo) {
     Add-Type -AssemblyName System.Windows.Forms

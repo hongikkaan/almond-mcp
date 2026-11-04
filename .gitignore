@@ -37,7 +37,10 @@ obj/
 
 # Personal integration runtime, local settings and verification artifacts
 /.trash/
-/data/
+/data/*
+!/data/dashboard/
+/data/dashboard/*
+!/data/dashboard/README.md
 /src/engine/data/
 /tests/engine/data/
 /src/mcp/runtime/data/
