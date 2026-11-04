@@ -31,7 +31,7 @@ Rhino 내부 패널에서 이전 대화 이어가기
 저장 위치
   프로젝트\UNIT.3dm
   프로젝트\.almond\scene.sqlite3                   ← 모델 폴더의 공통 DB
-  프로젝트\tmp\261026_적절한이름\                 ← Plan이 소유하는 산출물
+  프로젝트\.almond\produced\261026_적절한이름\                 ← Plan이 소유하는 산출물
   프로젝트\.almond\.sessions\<token>\             ← 연결 기록과 역할 잠금
   프로젝트\.almond\.sessions\store.lock           ← 공통 DB 잠금
   프로젝트\.almond\tmp\python\<token>\<operation>\ ← 필요할 때만 만드는 임시자료
@@ -56,7 +56,7 @@ rename_artifact_folder로 폴더명을 바꾸면 현재 Plan/Step 자료 참조�
   다운로드하지 않은 외부 모델은 경로가 올바르더라도 계속 사용 불가로 표시됩니다.
 
 tmp 정리
-  프로젝트 tmp/YYMMDD_name 산출물은 작업 완료만으로 자동 삭제하지 않습니다.
+  프로젝트 .almond/produced/YYMMDD_name 산출물은 작업 완료만으로 자동 삭제하지 않습니다.
   .almond/tmp/python의 호출 임시자료는 코드/native 완료 확인 후 회수하고 빈 상위 폴더도 제거합니다.
   .sessions의 종료된 token 기록은 worker 종료 또는 다음 시작 시 프로세스 identity·잠금을 확인해 회수합니다. 사용 중이거나 native 완료가 확인되지 않은 연결 자료는 보존합니다. 이는 Plan/Step 완료 여부와 무관합니다.
   기존 .almond/tmp에는 과거 산출물도 있으므로 일괄 삭제하지 않습니다.

@@ -349,6 +349,12 @@ class PlanningStore:
                 ("validate_relationships", "validate", ["check_tectonic_consistency"]),
                 ("cleanup_intermediate_artifacts", "validate", ["validate_relationships"]),
             ],
+            "semantic_exploration": [
+                ("inspect_context", "reason", []),
+                ("inspect_surroundings", "reason", ["inspect_context"]),
+                ("interpret_spatial_context", "reason", ["inspect_surroundings"]),
+                ("report_findings", "reason", ["interpret_spatial_context"]),
+            ],
             "plan_editing": [
                 ("inspect_plan", "reason", []),
                 ("define_changes", "reason", ["inspect_plan"]),

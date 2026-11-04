@@ -38,20 +38,20 @@ Args:
 When to use: Select or resume an existing Plan and optional Step as this connection's output workspace before writing Plan-owned artifacts.
 Before calling: Reuse a known plan_id or obtain one from create_plan or list_plans; get_phase_plan_step(plan_id=...) supplies Step handles if the step_id is unknown. Plans/Steps need not be completed or followed linearly to select them.
 Inputs from earlier results: Pass the existing plan_id and optional matching steps[].step_id. On first selection artifact_name is one folder label; otherwise the Plan goal provides it. Reuse an existing folder instead of selecting a new Plan just to continue work.
-Interpretation: The response returns plan_id, step_id, revision and the shared project-relative artifact_dir under tmp/YYMMDD_name. revision is the Plan revision at selection, after any first-folder setup; use it as expected_revision for a subsequent Plan/Step update. Selection belongs to this connection; the Plan folder/refs are shared and discoverable by other workers. The directory is created only when files are needed.
-Limits: Selection does not execute steps, create geometry or mark work complete. An existing artifact folder is reused; rename_artifact_folder changes its name. execute_project_python uses the selected folder as cwd; Rhino C# can write through RhinoAlmondBridge.ManagedFiles.Output("relative-name").
+Interpretation: The response returns plan_id, step_id, revision and the shared project-relative artifact_dir under .almond/produced/YYMMDD_name. revision is the Plan revision at selection, after any first-folder setup; use it as expected_revision for a subsequent Plan/Step update. Selection belongs to this connection; the Plan folder/refs are shared and discoverable by other workers. The directory is created only when files are needed.
+Limits: Selection does not execute steps, create geometry or mark work complete. An existing .almond/produced folder is reused; rename_artifact_folder changes its name. Legacy tmp or .almond/tmp Plan folders must first be migrated with rename_artifact_folder and the explicit plan_id. execute_project_python uses the selected folder as cwd; Rhino C# can write through RhinoAlmondBridge.ManagedFiles.Output("relative-name").
 
 Args:
     plan_id: Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.
     step_id: Optional Step ID within the Plan; empty selects the Plan without a Step. Selection does not run or complete it.
-    artifact_name: Initial artifact folder label only; omitted uses the Plan goal. Existing folders are reused; use rename_artifact_folder to rename one.
+    artifact_name: Initial folder name only, never an absolute or relative path; omitted uses the Plan goal. Files go under .almond/produced/YYMMDD_name. Existing folders are reused; use rename_artifact_folder to rename one.
 <!-- /instruction:set_working_plan -->
 
 <!-- instruction:rename_artifact_folder -->
 When to use: Rename an existing Plan-owned artifact folder without losing current Plan/Step references.
 Before calling: Reuse a known plan_id with an artifact folder, or select its workspace through set_working_plan when relying on the default current Plan. There is no need to create a replacement Plan.
 Inputs from earlier results: Pass the Plan's existing plan_id when not using the current selection and one new folder name as name; the tool adds the YYMMDD_ prefix. Use the previously returned artifact_dir to recognize which folder is being renamed, not as name.
-Interpretation: The response returns the current artifact_dir and, when changed, previous_artifact_dir. Managed writes are serialized and current Plan/Step file refs are rewritten together; continue using the new path.
+Interpretation: The response returns the current artifact_dir and, when changed, previous_artifact_dir. The destination is always .almond/produced/YYMMDD_name. Managed writes are serialized and current Plan/Step file refs are rewritten together; continue using the new path. Legacy Plan folders directly under tmp or .almond/tmp can be moved here with the same name and an explicit plan_id. Existing destinations are rejected; folders are never merged or overwritten.
 Limits: Existing destinations are never overwritten. This is a folder/ref operation, not a model rename or model save; immutable revision history is intentionally not rewritten. A Plan without an owned artifact folder must be selected first.
 
 Args:

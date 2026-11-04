@@ -448,6 +448,16 @@ class ProjectRuntime(Middleware):
         # directory lazily in send(), then reclaims it after confirmed completion.
         args = dict(context.message.arguments or {})
         work = self.workspace.current() if self.workspace is not None else {"artifact_dir": ""}
+        is_capture_file_write = capture_file_write(name, args)
+        if work["artifact_dir"] and (name == "execute_rhino_script" or is_capture_file_write):
+            try:
+                # Rhino scripts may write through ManagedFiles.Output; reject legacy Plan paths before dispatch.
+                self.workspace.artifact_path()
+            except ValueError as exc:
+                if not is_capture_file_write:
+                    raise
+                # A legacy Plan path prevents persistence, never the PNG observation.
+                capture_save_error = capture_save_error or str(exc)
         if name in OUTPUT_TOOLS and (name != "get_blender_helper_script" or str(args.get("action", "")).lower() == "export"):
             artifact_dir = self.workspace.artifact_path() if self.workspace is not None else operation_dir
             args = output_arguments(name, args, artifact_dir, relative_only=self.workspace is not None)

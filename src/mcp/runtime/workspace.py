@@ -9,6 +9,9 @@ from almond_mcp.managed_paths import project_path, relative_path
 from project import read_json, write_json
 
 
+ARTIFACT_ROOT = ".almond/produced"
+
+
 def folder_name(name: str) -> str:
     if not isinstance(name, str) or not name.strip():
         raise ValueError("artifact_name must be a nonempty folder name.")
@@ -40,7 +43,14 @@ class Workspace:
         value = self.current()["artifact_dir"]
         if not value:
             raise ValueError("Select a Plan with set_working_plan before writing artifacts.")
-        return project_path(value, base=self.root)
+        return self._artifact_path(value)
+
+    def _artifact_path(self, value: str) -> Path:
+        target = project_path(value, base=self.root)
+        if target.parent != project_path(ARTIFACT_ROOT, base=self.root):
+            raise ValueError("Plan artifacts must be under .almond/produced. "
+                             "Use rename_artifact_folder with this Plan ID to migrate its legacy folder.")
+        return target
 
     def select(self, plan_id: str, step_id: str = "", artifact_name: str = "") -> dict:
         with self.store._connect() as db:
@@ -53,8 +63,8 @@ class Workspace:
             directory = plan["artifact_dir"]
             if not directory:
                 label = artifact_name or re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', plan["goal"])[:60].strip('. ') or "work"
-                directory = "tmp/" + folder_name(label)
-                existing = db.execute("SELECT 1 FROM generation_plans WHERE artifact_dir = ?", (directory,)).fetchone()
+                directory = ARTIFACT_ROOT + "/" + folder_name(label)
+                existing = db.execute("SELECT 1 FROM generation_plans WHERE artifact_dir = ? COLLATE NOCASE", (directory,)).fetchone()
                 if existing or project_path(directory, base=self.root).exists():
                     if artifact_name:
                         raise ValueError("That artifact folder is already in use; choose another name.")
@@ -63,8 +73,10 @@ class Workspace:
                     raise ValueError("The artifact folder already exists and is not owned by this Plan.")
                 db.execute("UPDATE generation_plans SET artifact_dir = ? WHERE plan_id = ?", (directory, plan_id))
                 plan = self.store._record_generation_revision(db, plan_id, "set_artifact_dir")
-            elif artifact_name and directory != "tmp/" + folder_name(artifact_name):
-                raise ValueError("This Plan already owns an artifact folder. Use rename_artifact_folder to rename it.")
+            else:
+                self._artifact_path(directory)
+                if artifact_name and directory != ARTIFACT_ROOT + "/" + folder_name(artifact_name):
+                    raise ValueError("This Plan already owns an artifact folder. Use rename_artifact_folder to rename it.")
         # Selection is connection-local; the folder and refs are shared Plan data.
         write_json(self.state_path, {"plan_id": plan_id, "step_id": step_id})
         return {"plan_id": plan_id, "step_id": step_id, "artifact_dir": directory,
@@ -72,7 +84,7 @@ class Workspace:
 
     def rename(self, name: str, plan_id: str = "") -> dict:
         plan_id = plan_id or self.current()["plan_id"]
-        destination = "tmp/" + folder_name(name)
+        destination = ARTIFACT_ROOT + "/" + folder_name(name)
         moved = False
         with self.store._connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -83,10 +95,12 @@ class Workspace:
             source, target = project_path(original, base=self.root), project_path(destination, base=self.root)
             if source == target:
                 return {"artifact_dir": original}
-            if target.exists() or db.execute("SELECT 1 FROM generation_plans WHERE artifact_dir = ?", (destination,)).fetchone():
+            if target.exists() or db.execute("SELECT 1 FROM generation_plans WHERE artifact_dir = ? COLLATE NOCASE", (destination,)).fetchone():
                 raise ValueError("The target artifact folder already exists or belongs to another Plan.")
-            if source.parent != self.root.resolve() / "tmp":
-                raise ValueError("Only a directly owned project tmp folder can be renamed.")
+            allowed_roots = {project_path(relative, base=self.root)
+                             for relative in (ARTIFACT_ROOT, "tmp", ".almond/tmp")}
+            if source.parent not in allowed_roots:
+                raise ValueError("Only a directly owned Plan artifact folder can be renamed.")
 
             def rewrite(ref):
                 # URI/opaque references are not filesystem paths. A Windows
@@ -101,6 +115,7 @@ class Workspace:
 
             try:
                 if source.exists():
+                    target.parent.mkdir(parents=True, exist_ok=True)
                     source.rename(target)
                     moved = True
                 for row in db.execute("SELECT plan_id FROM generation_plans").fetchall():

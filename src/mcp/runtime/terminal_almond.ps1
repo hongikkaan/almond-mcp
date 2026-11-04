@@ -86,7 +86,7 @@ try {
     }
     Write-Host "Almond 연결: $($project.model_path)"
     Write-Host "DB: $($project.state_db)"
-    Write-Host '산출물: 선택한 Plan의 tmp/날짜_이름 폴더. 도구에는 상대경로를 사용하세요.'
+    Write-Host '산출물: 선택한 Plan의 .almond/produced/날짜_이름 폴더. 도구에는 상대경로를 사용하세요.'
     Write-Host '연결 중에는 다른 문서를 열거나 이름을 바꾸지 마세요. 끝낼 때 Codex에서 /exit.'
     Write-Host '이전 대화는 /exit 후 PowerShell에서 almond resume. Codex 안의 /resume은 MCP 잠금과 충돌합니다.'
     & (Join-Path $PSScriptRoot 'codex.ps1') -Port $port -AlmondVersion $config.almond_version `
