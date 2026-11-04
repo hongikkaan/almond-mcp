@@ -349,6 +349,12 @@ class PlanningStore:
                 ("validate_relationships", "validate", ["check_tectonic_consistency"]),
                 ("cleanup_intermediate_artifacts", "validate", ["validate_relationships"]),
             ],
+            "plan_editing": [
+                ("inspect_plan", "reason", []),
+                ("define_changes", "reason", ["inspect_plan"]),
+                ("edit_plan", "execute", ["define_changes"]),
+                ("validate_plan", "validate", ["edit_plan"]),
+            ],
             "model_revision": [
                 ("inspect_context", "reason", []),
                 ("identify_tectonic_system", "reason", ["inspect_context"]),
