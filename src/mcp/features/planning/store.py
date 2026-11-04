@@ -336,6 +336,64 @@ class PlanningStore:
         component_ids = self._generation_refs([] if component_ids is None else component_ids, "component_ids")
         depends_on = self._related_ids([] if depends_on is None else depends_on)
         templates = {
+
+
+            "spatial_development": [
+                ("inspect_context", "reason", []),
+                ("inspect_surroundings", "reason", ["inspect_context"]),
+                ("Explore_opportunities", "reason", ["inspect_surroundings"]),
+                ("develop_options", "reason", ["Explore_opportunities"]),
+                ("develop_model_and_drawings", "execute", ["develop_options"]),
+                ("resolve_collisions", "resolve", ["develop_model_and_drawings"]),
+                ("check_tectonic_consistency", "resolve", ["resolve_collisions"]),
+                ("validate_relationships", "validate", ["check_tectonic_consistency"]),
+                ("cleanup_intermediate_artifacts", "validate", ["validate_relationships"]),
+            ],
+            "model_revision": [
+                ("inspect_context", "reason", []),
+                ("identify_tectonic_system", "reason", ["inspect_context"]),
+                ("diagnose_issue", "reason", ["identify_tectonic_system"]),
+                ("define_changes", "reason", ["diagnose_issue"]),
+                ("apply_changes", "execute", ["define_changes"]),
+                ("resolve_collisions", "resolve", ["apply_changes"]),
+                ("validate_impacts", "validate", ["resolve_collisions"]),
+                ("final_validation", "validate", ["validate_impacts"]),
+            ],
+            "construction_detail": [
+                ("inspect_context", "reason", []),
+                ("review_system", "retrieve", ["inspect_context"]),
+                ("resolve_detail", "reason", ["review_system"]),
+                ("model_detail", "execute", ["resolve_detail"]),
+                ("validate_detail", "validate", ["model_detail"]),
+            ],
+            "inspection": [
+                ("define_criteria", "reason", []),
+                ("observe", "retrieve", ["define_criteria"]),
+                ("evaluate", "validate", ["observe"]),
+                ("report_findings", "reason", ["evaluate"]),
+            ],
+            "structure": [
+                ("inspect_existing_structure", "reason", []),
+                ("programme", "reason", ["inspect_existing_structure"]),
+                ("retrieve_structural_logic", "retrieve", ["programme"]),
+                ("analyze_structure", "validate", ["retrieve_structural_logic"]),
+                ("develop_structure_or_improvements", "reason", ["analyze_structure"]),
+                ("apply_structure_changes", "execute", ["develop_structure_or_improvements"]),
+                ("validate_structure", "validate", ["apply_structure_changes"]),
+            ],
+            "drawing": [
+                ("define_drawing_scope", "reason", []),
+                ("inspect_existing_drawings", "retrieve", ["define_drawing_scope"]),
+                ("generate_or_update_drawings", "execute", ["inspect_existing_drawings"]),
+                ("validate_drawing", "validate", ["generate_or_update_drawings"]),
+                ("prepare_layout_or_export", "execute", ["validate_drawing"]),
+            ],
+            "component": [
+                ("inspect_context", "reason", []),
+                ("design", "reason", ["inspect_context"]),
+                ("model", "execute", ["design"]),
+                ("validate", "validate", ["model"]),
+            ],
             "house": [
                 ("programme", "reason", []),
                 ("retrieve_structural_logic", "retrieve", ["programme"]),
@@ -355,63 +413,6 @@ class PlanningStore:
                 ("validate_layout", "validate", ["place_assets"]),
                 ("resolve_collisions", "resolve", ["validate_layout"]),
                 ("final_validation", "validate", ["resolve_collisions"]),
-            ],
-            "structure": [
-                ("programme", "reason", []),
-                ("retrieve_structural_logic", "retrieve", ["programme"]),
-                ("generate_structure", "execute", ["retrieve_structural_logic"]),
-                ("validate_structure", "validate", ["generate_structure"]),
-            ],
-            "drawing": [
-                ("freeze_scene", "reason", []),
-                ("retrieve_drawing_recipe", "retrieve", ["freeze_scene"]),
-                ("retrieve_drawing_assets", "retrieve", ["retrieve_drawing_recipe"]),
-                ("prepare_drawing_layers", "execute", ["retrieve_drawing_recipe"]),
-                ("configure_projection", "execute", ["prepare_drawing_layers"]),
-                ("generate_linework", "execute", ["configure_projection"]),
-                ("apply_graphic_styles", "execute", ["generate_linework"]),
-                ("create_layout", "execute", ["apply_graphic_styles"]),
-                ("export_drawing", "execute", ["create_layout"]),
-                ("validate_drawing", "validate", ["export_drawing"]),
-            ],
-            "component": [
-                ("inspect_context", "reason", []),
-                ("design", "reason", ["inspect_context"]),
-                ("model", "execute", ["design"]),
-                ("validate", "validate", ["model"]),
-            ],
-            "spatial_development": [
-                ("inspect_context", "reason", []),
-                ("identify_opportunities", "reason", ["inspect_context"]),
-                ("develop_options", "reason", ["identify_opportunities"]),
-                ("apply_design", "execute", ["develop_options"]),
-                ("validate_relationships", "validate", ["apply_design"]),
-            ],
-            "plan_editing": [
-                ("inspect_plan", "reason", []),
-                ("define_changes", "reason", ["inspect_plan"]),
-                ("edit_plan", "execute", ["define_changes"]),
-                ("validate_plan", "validate", ["edit_plan"]),
-            ],
-            "construction_detail": [
-                ("inspect_context", "reason", []),
-                ("review_system", "retrieve", ["inspect_context"]),
-                ("resolve_detail", "reason", ["review_system"]),
-                ("model_detail", "execute", ["resolve_detail"]),
-                ("validate_detail", "validate", ["model_detail"]),
-            ],
-            "model_revision": [
-                ("inspect_context", "reason", []),
-                ("diagnose_issue", "reason", ["inspect_context"]),
-                ("define_changes", "reason", ["diagnose_issue"]),
-                ("apply_changes", "execute", ["define_changes"]),
-                ("validate_impacts", "validate", ["apply_changes"]),
-            ],
-            "inspection": [
-                ("define_criteria", "reason", []),
-                ("observe", "retrieve", ["define_criteria"]),
-                ("evaluate", "validate", ["observe"]),
-                ("report_findings", "reason", ["evaluate"]),
             ],
         }
         plan_id = f"plan_{uuid.uuid4().hex[:12]}"
