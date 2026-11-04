@@ -56,3 +56,33 @@ def test_existing_registry_and_plan_history_survive_migration_and_reopen(tmp_pat
         with pytest.raises(sqlite3.IntegrityError):
             con.execute("INSERT INTO planning_scopes VALUES('invalid','not_a_template')")
     assert AlmondStore(db).get_plan(old_plan['plan_id']) == old_plan
+
+
+@pytest.mark.parametrize("scope", ["plan_editing", "custom_editing"])
+def test_plan_editing_tool_persists_plan_and_mapped_scope_without_changing_history(tmp_path, scope):
+    from types import SimpleNamespace
+    from fastmcp import FastMCP
+    from almond_mcp.features.planning.tools import register
+
+    db = tmp_path / "plan-editing.sqlite3"
+    store = AlmondStore(db)
+    existing = store.create_plan("Existing task", scope="component")
+    with store._connect() as connection:
+        existing_revisions = [tuple(row) for row in connection.execute(
+            'SELECT * FROM generation_plan_revisions WHERE plan_id=?', (existing['plan_id'],))]
+        if scope == "custom_editing":
+            connection.execute("INSERT INTO planning_scopes VALUES('custom_editing','plan_editing')")
+    tools = register(FastMCP('plan-editing'), SimpleNamespace(retrieval_store=store))
+    result = json.loads(tools['create_plan'](title="Edit plan", goal="Revise the plan", scope=scope))
+    assert result['status'] == 'success'
+    reopened = AlmondStore(db)
+    plan = reopened.get_plan(result['plan']['plan_id'])
+    assert plan['scope'] == scope and plan['title'] == 'Edit plan'
+    assert plan['status'] == 'pending' and plan['steps']
+    assert all(step['status'] == 'pending' for step in plan['steps'])
+    assert reopened.get_plan(plan['plan_id'], plan['revision']) == plan
+    assert reopened.get_plan(existing['plan_id']) == existing
+    with reopened._connect() as connection:
+        assert [tuple(row) for row in connection.execute(
+            'SELECT * FROM generation_plan_revisions WHERE plan_id=?', (existing['plan_id'],))] == existing_revisions
+        assert not connection.execute('PRAGMA foreign_key_check').fetchall()
