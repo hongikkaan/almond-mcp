@@ -1,4 +1,4 @@
-"""Scene metadata and live semantic-group geometry; no per-object persistence."""
+"""Scene metadata, object membership and live geometry."""
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -8,7 +8,7 @@ from almond_mcp.store_common import _utc_now
 
 
 class ScenesStore:
-    """Scene metadata and transient recursive semantic-group observations."""
+    """Scene metadata, membership overrides and live object observations."""
 
     def list_scenes(self, name: str = "", file_name: str = "", limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """List project metadata in one query, without recursive geometry reads."""
@@ -88,11 +88,13 @@ class ScenesStore:
                 SELECT COALESCE(SUM(c.object_count),0) FROM _component_records c JOIN linked l ON l.component_id=c.component_id
                 WHERE c.availability='present'
             """, (scene_id,)).fetchone()[0]
+            direct_count = connection.execute("SELECT COUNT(*) FROM scene_object_membership WHERE scene_id=? AND included=1", (scene_id,)).fetchone()[0]
+            has_overrides = connection.execute("SELECT 1 FROM scene_object_membership WHERE scene_id=? LIMIT 1", (scene_id,)).fetchone() is not None
         return dict(scene_id=scene['scene_id'], name=scene['name'], file_name=scene['file_name'],
                     project_file_id=scene['project_file_id'],units=scene['units'],revision=int(scene['revision']),components=component_count,
-                    objects=object_count,live_verified=False,updated_at=scene['updated_at'])
+                    objects=None if has_overrides else object_count, direct_objects=direct_count, live_verified=False,updated_at=scene['updated_at'])
 
-    def scene_objects(self, scene_id, model_path='', native_inspect=None):
+    def _scene_group_objects(self, scene_id, model_path='', native_inspect=None):
         """Read members of semantic groups from Rhino; never register individual objects."""
         if not callable(native_inspect):
             raise ValueError('Scene geometry requires a live read-only Rhino observation.')
@@ -140,3 +142,72 @@ class ScenesStore:
                 for obj in item['objects']:
                     objects[obj['rhino_guid']]=dict(obj,model_path=model_path,live_verified=True)
             return [objects[guid] for guid in sorted(objects)]
+
+    def scene_objects(self, scene_id, model_path='', native_inspect=None, native_objects=None):
+        """Read the union of live semantic group members and direct Scene objects."""
+        model_path = self._component_model_path(model_path)
+        objects = {o['rhino_guid']: o for o in self._scene_group_objects(scene_id, model_path, native_inspect)}
+        with self._connect() as connection:
+            self._component_scene_ids(connection, [scene_id])
+            refs = connection.execute("""SELECT m.rhino_guid, m.included FROM scene_object_membership m
+                JOIN _project_file_locations l ON l.file_id=m.project_file_id
+                WHERE m.scene_id=? AND l.model_path=?""", (scene_id, model_path)).fetchall()
+        included = [row['rhino_guid'] for row in refs if row['included']]
+        excluded = {row['rhino_guid'] for row in refs if not row['included']}
+        if callable(native_objects):
+            direct, missing = native_objects(model_path, included)
+            if missing:
+                raise ValueError('Some directly registered Scene objects are absent from the bound document; remove their Scene memberships before retrying.')
+            for guid, row in direct.items():
+                objects.setdefault(guid, row)
+        elif included:
+            raise ValueError('Scene direct-object geometry requires a live Rhino observation.')
+        return [objects[key] for key in sorted(objects) if key not in excluded]
+
+    def change_scene_objects(self, scene_id, model_path, object_ids, add, native_inspect, native_objects):
+        """Apply membership overrides in input order, reporting only 0-based exceptions."""
+        if not isinstance(object_ids, list) or len(object_ids) > 4096:
+            raise ValueError('object_ids must be an array of at most 4096 GUIDs.')
+        model_path = self._component_model_path(model_path)
+        valid, failed = [], []
+        for index, value in enumerate(object_ids):
+            try:
+                valid.append((index, self._component_guid(value)))
+            except ValueError:
+                failed.append(index)
+        # Group members are observed live: never infer membership from cached counts.
+        group = {o['rhino_guid'] for o in self._scene_group_objects(scene_id, model_path, native_inspect)}
+        distinct = list(dict.fromkeys(guid for _, guid in valid))
+        _, missing = native_objects(model_path, distinct if add else [])
+        already = []
+        with self._connect() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            self._component_scene_ids(connection, [scene_id])
+            file_row = connection.execute('SELECT file_id FROM _project_file_locations WHERE model_path=?', (model_path,)).fetchone()
+            file_id = file_row['file_id'] if file_row else None
+            refs = {} if file_id is None else {r['rhino_guid']: bool(r['included']) for r in connection.execute(
+                'SELECT rhino_guid,included FROM scene_object_membership WHERE scene_id=? AND project_file_id=?', (scene_id, file_id))}
+            changed = 0
+            for index, guid in valid:
+                present = refs.get(guid, guid in group)
+                if add and present:
+                    already.append(index); continue
+                if not add and not present:
+                    already.append(index); continue
+                if add and guid in missing:
+                    failed.append(index); continue
+                if file_id is None:
+                    file_id = self._project_file_reference(connection, model_path=model_path)
+                # Store only differences from current group membership.
+                if add == (guid in group):
+                    connection.execute('DELETE FROM scene_object_membership WHERE scene_id=? AND project_file_id=? AND rhino_guid=?',
+                                       (scene_id, file_id, guid))
+                    refs.pop(guid, None)
+                else:
+                    connection.execute('INSERT OR REPLACE INTO scene_object_membership VALUES(?,?,?,?)',
+                                       (scene_id, file_id, guid, int(add)))
+                    refs[guid] = add
+                changed += 1
+            if changed:
+                self._record_revision(connection, scene_id, 'add_scene_objects' if add else 'remove_scene_objects', {'changed_count': changed})
+        return {'failed_indices': sorted(failed), ('already_present_indices' if add else 'already_absent_indices'): already}

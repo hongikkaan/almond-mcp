@@ -93,6 +93,12 @@ def initialize_semantics(store, connection):
                 connection.execute(f'DROP TABLE {old}')
         connection.execute('UPDATE components SET parent_component_id=NULL')
         connection.execute('DROP TABLE components')
+    # Scene direct membership and per-Scene exclusions do not alter Holon groups.
+    connection.execute('''CREATE TABLE IF NOT EXISTS scene_object_membership(
+        scene_id TEXT NOT NULL REFERENCES scenes(scene_id) ON DELETE CASCADE,
+        project_file_id TEXT NOT NULL REFERENCES project_files(file_id) ON DELETE RESTRICT,
+        rhino_guid TEXT NOT NULL, included INTEGER NOT NULL CHECK(included IN (0,1)),
+        PRIMARY KEY(scene_id,project_file_id,rhino_guid))''')
     # Read projections preserve the public/native component_id vocabulary. All
     # relationships and writes use the canonical ontological IDs in real tables.
     connection.execute('''CREATE VIEW IF NOT EXISTS _component_records AS SELECT

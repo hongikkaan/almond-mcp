@@ -1,4 +1,46 @@
 {
+  "add_scene_objects": {
+    "name": "add_scene_objects",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "scene_id": {
+          "type": "string",
+          "description": "Existing Scene ID from list_design_scenes(include_ids=true)."
+        },
+        "object_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Array of object GUIDs, including ordinary geometry or clipping planes, up to 4096 entries."
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string",
+          "description": "Usually omitted; the managed session supplies the bound saved document. An explicit path must match it."
+        }
+      },
+      "required": [
+        "scene_id",
+        "object_ids"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    },
+    "annotations": null
+  },
   "analyze_block_reculviely": {
     "annotations": {
       "destructiveHint": false,
@@ -3437,6 +3479,48 @@
       "type": "object",
       "x-fastmcp-wrap-result": true
     }
+  },
+  "remove_scene_objects": {
+    "name": "remove_scene_objects",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "scene_id": {
+          "type": "string",
+          "description": "Existing Scene ID from list_design_scenes(include_ids=true)."
+        },
+        "object_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Array of object GUIDs, including ordinary geometry or clipping planes, up to 4096 entries."
+        },
+        "expected_model_path": {
+          "default": "",
+          "type": "string",
+          "description": "Usually omitted; the managed session supplies the bound saved document. An explicit path must match it."
+        }
+      },
+      "required": [
+        "scene_id",
+        "object_ids"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    },
+    "annotations": null
   },
   "rename_artifact_folder": {
     "annotations": null,
