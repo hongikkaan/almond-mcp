@@ -2,6 +2,7 @@
 
 import base64
 import asyncio
+import pytest
 import hashlib
 import io
 import json
@@ -207,7 +208,8 @@ def test_capture_public_tool_through_owned_runtime_preserves_connection_lifetime
     assert not (Path(locations["session_dir"]) / "artifact-write.json").exists()
 
 
-def test_capture_still_returns_png_when_prior_artifact_write_is_unconfirmed(tmp_path, monkeypatch):
+@pytest.mark.parametrize("blocker", ["unconfirmed", "legacy_folder"])
+def test_capture_still_returns_png_when_persistence_is_blocked(tmp_path, monkeypatch, blocker):
     from project import connection_paths
     import shared_store
 
@@ -225,7 +227,13 @@ def test_capture_still_returns_png_when_prior_artifact_write_is_unconfirmed(tmp_
     def unavailable(_storage):
         raise RuntimeError("Previous artifact write has unconfirmed native completion")
 
-    monkeypatch.setattr(shared_store, "validate_artifact_writers", unavailable)
+    if blocker == "unconfirmed":
+        monkeypatch.setattr(shared_store, "validate_artifact_writers", unavailable)
+    else:
+        def legacy_path():
+            raise ValueError("Plan artifacts must be under .almond/produced")
+        runtime.workspace = SimpleNamespace(current=lambda: {"artifact_dir": "tmp/legacy"},
+                                            artifact_path=legacy_path)
     raw = _png()
     capture = _tools(lambda _: json.dumps({"status": "success", "image": _native_image(raw)}))[
         "get_current_viewcapture"]

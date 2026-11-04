@@ -130,7 +130,7 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
             result["locations"] = project_query({**work, "artifact_dir": work["artifact_dir"] or None}, include_ids=include_ids)
             result["locations"].update(database=relative_path(locations["state_db"], root),
                 path_rule="Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths.",
-                artifact_rule="Select a Plan with set_working_plan; managed outputs use its tmp/YYMMDD_name folder.")
+                artifact_rule="Select a Plan with set_working_plan; managed outputs use its .almond/produced/YYMMDD_name folder.")
         if "runtime" in sections:
             result["runtime"] = relative_output({"slot": binding["label"], "port": binding["port"],
                 "session_dir": locations["session_dir"], "scratch_root": str(Path(locations["temp"]) / "python"),

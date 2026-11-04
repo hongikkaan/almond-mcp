@@ -257,6 +257,7 @@ Output — update_phase / update_plan / update_step
 | `construction_detail` | 요청된 구축 상세 발전 | inspect_context → review_system → resolve_detail → model_detail → validate_detail |
 | `model_revision` | 기존 설계·모델 수정 | inspect_context → diagnose_issue → define_changes → apply_changes → validate_impacts |
 | `inspection` | 변경을 전제하지 않는 검수 | define_criteria → observe → evaluate → report_findings |
+| `semantic_exploration` | 공간과 주변 맥락의 해석·보고 | inspect_context → inspect_surroundings → interpret_spatial_context → report_findings |
 
 `drawing`은 도면 생성·표현·출력 흐름이고 `plan_editing`은 기존 평면의 공간·선·치수 관계를 편집하는 흐름이다. 일반 공간 발전·모델 수정 템플릿에는 구축 상세를 자동 요구하는 Step이 없다. 검수의 report_findings는 판단·기록 단계이며 모델 수정 단계가 아니다.
 

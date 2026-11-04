@@ -177,7 +177,7 @@ Plan 변경을 commit할 때마다 전체 Plan 상태를 immutable revision으�
 
 #### 파일·작업자료·역조회
 
-Phase와 Scene의 `project_file_id`는 `project_files(file_id, file_name)`을 참조한다. `file_name`은 파일 관계에서 읽어 반환하며 미지정이면 빈 문자열이다. `project_info(sections=["project"], include_ids=true)`의 `project.files`로 파일명과 선택 가능한 ID를 조회한다. 선택한 Plan의 `artifact_dir`은 프로젝트 `tmp/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `set_working_plan`은 폴더를 재사용하고 선택 시점의 Plan revision을 반환한다. 첫 경로 설정으로 revision이 증가했다면 증가한 값을 반환하므로 후속 수정의 expected_revision에 사용할 수 있다. `rename_artifact_folder`는 현재 참조를 갱신하며 과거 revision을 보존한다.
+Phase와 Scene의 `project_file_id`는 `project_files(file_id, file_name)`을 참조한다. `file_name`은 파일 관계에서 읽어 반환하며 미지정이면 빈 문자열이다. `project_info(sections=["project"], include_ids=true)`의 `project.files`로 파일명과 선택 가능한 ID를 조회한다. 선택한 Plan의 `artifact_dir`은 프로젝트 `.almond/produced/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `set_working_plan`은 폴더를 재사용하고 선택 시점의 Plan revision을 반환한다. 첫 경로 설정으로 revision이 증가했다면 증가한 값을 반환하므로 후속 수정의 expected_revision에 사용할 수 있다. `rename_artifact_folder`는 현재 참조를 갱신하며 과거 revision을 보존한다.
 
 `get_selection_references`는 선택 객체에서 등록 Component의 조상과 해당 Component를 대상으로 하는 Plan 및 그 Step을 찾는다. 계획 관련 조회에는 `include_ids` 인자가 없고 ID를 항상 출력한다.
 
@@ -217,7 +217,7 @@ Plan depends_on은 다른 Phase에 속한 Plan도 참조할 수 있지만 Plan I
 Phase와 Scene은 미입력 시에도 file_name=""를 보존한다.
 
 ALMOND_PROJECT_ROOT를 런타임이 설정하고 managed 도구가 상대경로를 적용한다.
-Plan별 tmp/YYMMDD_name 폴더는 재사용하며 rename_artifact_folder는 현재 참조도 갱신한다.
+Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 rename_artifact_folder는 현재 참조도 갱신한다.
 공개 Python/C# 코드는 공식 RhinoCode를 통해 연결된 Rhino에서 실행한다. Python worker가 시작한 CLI와 Rhino 안에서 실행되는 코드를 구분한다. 호출 scratch는 `.almond/tmp/python/<token>/<operation>`이며 그 아래 `rc-<request_id 앞 12자리>`에 원본 소스·wrapper·journal·완료 receipt를 기록한다. 산출물은 선택한 Plan 폴더에 두고, 완료가 미확정인 실행 파일과 근거는 보존한다. 언어별 실행·cwd·대기 한도는 [RhinoCode 실행 계약](runtime/RHINOCODE-SPEC.md)을 따른다.
 로컬 조회는 scratch 폴더를 만들지 않는다. Native 요청은 Bridge 소유권 검증에 필요한 폴더를 전송 직전에 생성하고 완료 확인 후 회수한다. 결과가 불명확한 파일 쓰기는 별도 소유 기록으로 다른 연결의 쓰기·폴더 이름 변경을 차단한다. Worker 재시작이나 Plan 완료로 이 기록을 지우지 않는다.
 
@@ -225,7 +225,7 @@ Plan별 tmp/YYMMDD_name 폴더는 재사용하며 rename_artifact_folder는 현�
 호출마다 DB 사본을 만들지 않는다. 종료된 `.sessions` 정리는 프로세스·잠금·native 완료를 기준으로 하며 Plan/Step 상태와 무관하다. 고정 공유 잠금 파일은 삭제하지 않는다.
 
 구형 `.almond/tmp/calls/<token>`에는 작업 보고서·모델·DB 백업이 섞여 있을 수 있다.
-파일이 남은 구형 호출 폴더와 세션 locator는 자동 정리에서 제외한다. 기존 프로젝트를 정리할 때는 파일과 DB의 현재 자료 참조를 대조해 보존 자료를 `tmp/YYMMDD_name`으로 옮기고 현재 참조도 함께 갱신한다. 당시 경로를 포함한 과거 revision과 미완료 작업 상태는 유지한다. 이전 완료 후 빈 구형 호출 폴더는 종료된 연결 정리에서 회수한다. 새 scratch와 구형 작업자료를 혼동하지 않는다.
+파일이 남은 구형 호출 폴더와 세션 locator는 자동 정리에서 제외한다. 기존 프로젝트를 정리할 때는 파일과 DB의 현재 자료 참조를 대조해 보존 자료를 `.almond/produced/YYMMDD_name`으로 옮기고 현재 참조도 함께 갱신한다. 당시 경로를 포함한 과거 revision과 미완료 작업 상태는 유지한다. 이전 완료 후 빈 구형 호출 폴더는 종료된 연결 정리에서 회수한다. 새 scratch와 구형 작업자료를 혼동하지 않는다.
 
 ## 모델링 안내 전달
 
