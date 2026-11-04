@@ -35,7 +35,7 @@ Bridge는 시작할 때 이 경로를 캐시하므로 worker와 실제 캐시가
 
 Windows 패키지 앱의 AppData 가상화가 감지되면 `desktop_runtime.py`가 허용된 Almond 진입점만 일반 Windows 프로세스에서 다시 시작한다. lease·DB·라이브러리 초기화 전에 전환하고 인증된 loopback 연결로 stdio·환경·종료 코드를 전달한다. 실제 worker의 PID와 기존 EOF 종료 절차를 유지하며, 제한된 토큰·AppContainer에서는 전환을 거부한다. stdin을 읽지 않는 라이브러리 HTTP 서버에는 중계 연결 종료를 별도 Windows 이벤트로 전달해 포트를 해제한다. 기존 AppData와 명시적 경로는 이동·병합하지 않고, 전환 실패를 빈 라이브러리로 처리하지 않는다.
 
-설계 용어는 `ontological-component`다. 기존 도구의 `get_ontological_component` 등 이름과 `component_id`, 저장 메타데이터·DB 키는 API 호환 식별자로 유지한다.
+설계 용어는 `Ontological_Holon`이다. 공개 도구는 `get_ontological_holon` 등과 `holon_id`·`holon_ids` 계열 키를 사용하며, DB 등록 테이블은 `ontological_holons`다. 기존 ID 값과 Rhino 내부 메타데이터 형식은 유지하고 공개 응답에서 키를 변환한다. 기존 클라이언트는 새 스키마로 다시 연결해야 한다.
 표현 변경을 데이터 이전이나 전체 도구 rename으로 취급하지 않는다.
 
 ## 확인 단계

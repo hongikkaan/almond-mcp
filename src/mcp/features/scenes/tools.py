@@ -1,5 +1,6 @@
 """Scene MCP tools registered against a per-server feature context."""
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, mcp_error_result
+from almond_mcp.features.components.public_contract import holon_output
 from almond_mcp.query_output import compact_ack, query_output, select_fields, validate_field_groups
 from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.instruction_text import tool_instruction
@@ -20,6 +21,7 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'list_design_scenes')
     @query_output
+    @holon_output
     def list_design_scenes(name: str = "", file_name: str = "", limit: StrictInt = 50,
                            offset: StrictInt = 0, include_ids: StrictBool = False,
                            field_groups: list[str] | None = None) -> str:
@@ -34,6 +36,7 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'create_design_scene')
+    @holon_output
     def create_design_scene(name: str, units: str = "mm", file_name: str = "", project_file_id: str | None = None) -> str:
         try:
             return json.dumps({
@@ -47,6 +50,7 @@ def register(mcp, context):
     @mcp.tool()
     @tool_instruction(__file__, 'get_design_scene')
     @query_output
+    @holon_output
     def get_design_scene(scene_id: str, include_ids: StrictBool = False,
                          field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, SCENE_GROUPS)
@@ -58,6 +62,7 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'update_design_scene')
+    @holon_output
     def update_design_scene(scene_id: str, file_name: str | None = None, project_file_id: str | None = None) -> str:
         try:
             return json.dumps({"status": "success", "scene": compact_ack(context.retrieval_store.update_scene(scene_id, file_name, project_file_id), ACK_FIELDS)})
@@ -66,8 +71,10 @@ def register(mcp, context):
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp_error_result
     @tool_instruction(__file__, 'get_scene_objects')
     @query_output
+    @holon_output
     def get_scene_objects(scene_id: str, include_ids: StrictBool = False,
                           field_groups: list[str] | None = None, limit: StrictInt = 50,
                           offset: StrictInt = 0, expected_model_path: str = "") -> str:

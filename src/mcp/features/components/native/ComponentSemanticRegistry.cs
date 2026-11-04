@@ -145,7 +145,7 @@ namespace RhinoAlmondBridge
             if (JToken.DeepEquals(before, records)) return;
             if (System.Text.Encoding.UTF8.GetByteCount(records.ToString(Formatting.None)) > MaxArchiveBytes - 64)
                 throw new InvalidOperationException("Component document registry exceeds its archive budget.");
-            if (!doc.AddCustomUndoEvent("ontological_component registration", Restore, before))
+            if (!doc.AddCustomUndoEvent("ontological_holon registration", Restore, before))
                 throw new InvalidOperationException("Could not record semantic registration Undo.");
             state.Records = (JObject)records.DeepClone();
             doc.Modified = true;

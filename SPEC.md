@@ -1,13 +1,13 @@
 # Almond 공통 구조
 
 이 문서는 모듈 사이의 공통 경계와 문서의 진입점만 유지한다.
-기능·검사·내부 구조의 현재 계약은 해당 모듈 문서에서 유지한다.
+기능·검사·내부 구조의 현재 계약은 해당 모듈 문서에서 유지한다. 저장소 작업 지침은 [루트 AGENTS.md](AGENTS.md) 한 곳에서 관리한다.
 
-| 모듈 | 책임 | 상세 계약·작업 지침 |
+| 모듈 | 책임 | 상세 계약 |
 |---|---|---|
-| MCP | 모델링 도구·계산·자산 API, CLI와 Python 실행기 | [SPEC](src/mcp/SPEC.md) · [AGENTS](src/mcp/AGENTS.md) |
-| 외부 연결기·AlmondRhino | beyond/CoS 진입점, 공용 외부 host/worker와 AlmondRhino 플러그인 | [SPEC](src/cos/SPEC.md) · [AGENTS](src/cos/AGENTS.md) |
-| RHP | Rhino Bridge·패널·Terminal과 공용 native Engine | [SPEC](src/rhp/SPEC.md) · [AGENTS](src/rhp/AGENTS.md) |
+| MCP | 모델링 도구·계산·자산 API, CLI와 Python 실행기 | [SPEC](src/mcp/SPEC.md) |
+| 외부 연결기·AlmondRhino | beyond/CoS 진입점, 공용 외부 host/worker와 AlmondRhino 플러그인 | [SPEC](src/cos/SPEC.md) |
+| RHP | Rhino Bridge·패널·Terminal과 공용 native Engine | [SPEC](src/rhp/SPEC.md) |
 | 호환 진입점 | 기존 시작 버튼과 Python 환경 위치 보존 | [설명](src/engine/README.md) |
 
 ## 공통 경계

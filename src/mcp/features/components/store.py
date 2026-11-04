@@ -89,6 +89,7 @@ class ComponentsStore:
                        else ValueError(message))
             failure.native_result = {key: reply[key] for key in (
                 "error_code", "editing", "mutation_applied", "requires_reconciliation", "rolled_back",
+                "next_step", "membership_available",
             ) if key in reply}
             raise failure
         return reply
@@ -392,7 +393,7 @@ class ComponentsStore:
         now = _utc_now()
         for h in changed:
             item = prepared[h]
-            connection.execute("""INSERT INTO ontological_components(ontological_id,project_file_id,rhino_group_id,name,created_at,updated_at,
+            connection.execute("""INSERT INTO ontological_holons(ontological_id,project_file_id,rhino_group_id,name,created_at,updated_at,
                 availability,geometry_digest,object_count,effective_object_count,object_types_json,bounds_json)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(ontological_id) DO UPDATE SET
                 name=excluded.name,updated_at=excluded.updated_at,availability=excluded.availability,
@@ -407,12 +408,12 @@ class ComponentsStore:
         if changed:
             # Clear observed edges first so valid simultaneous reparenting is order independent.
             for h in prepared:
-                connection.execute('UPDATE ontological_components SET parent_ontological_id = NULL WHERE ontological_id = ? OR parent_ontological_id = ?', (h, h))
+                connection.execute('UPDATE ontological_holons SET parent_ontological_id = NULL WHERE ontological_id = ? OR parent_ontological_id = ?', (h, h))
             for h, item in prepared.items():
                 for child in item['child_component_ids']:
-                    connection.execute('UPDATE ontological_components SET parent_ontological_id = ? WHERE ontological_id = ?', (h, child))
+                    connection.execute('UPDATE ontological_holons SET parent_ontological_id = ? WHERE ontological_id = ?', (h, child))
             for h, item in prepared.items():
-                connection.execute('UPDATE ontological_components SET parent_ontological_id = ? WHERE ontological_id = ?', (item['parent_component_id'], h))
+                connection.execute('UPDATE ontological_holons SET parent_ontological_id = ? WHERE ontological_id = ?', (item['parent_component_id'], h))
             self._component_canonical_scene_links(connection, model_path)
             for h in changed:
                 for ancestor in self._component_ancestor_ids(connection, h):
@@ -420,7 +421,7 @@ class ComponentsStore:
                     unobserved_ancestors.add(ancestor)
             # A child-only observation cannot certify an ancestor's aggregate
             # geometry. Retain direct summaries but hide obsolete effective data.
-            connection.executemany('UPDATE ontological_components SET effective_summary_stale=1 WHERE ontological_id=?',
+            connection.executemany('UPDATE ontological_holons SET effective_summary_stale=1 WHERE ontological_id=?',
                 [(h,) for h in unobserved_ancestors - prepared.keys()])
         revisions = {scene: self._record_revision(connection, scene, operation, {'component_ids': changed})
                      for scene in sorted(affected)}
@@ -630,7 +631,7 @@ class ComponentsStore:
                 if any(r.get('parent_component_id') is not None for r in related):
                     raise ValueError('Native detached child still has a parent.')
                 _,_,revisions=self._component_apply_snapshots(connection,related,model_path,'detach_components')
-                connection.execute('DELETE FROM ontological_components WHERE ontological_id=?',(component_id,))
+                connection.execute('DELETE FROM ontological_holons WHERE ontological_id=?',(component_id,))
                 self._component_canonical_scene_links(connection,model_path)
                 for scene in prior['scene_ids']:
                     revisions[scene]=self._record_revision(connection,scene,'unregister_component',{'component_id':component_id})
@@ -650,9 +651,8 @@ class ComponentsStore:
         if node and node["parent_component_id"] is not None:
             raise ValueError(read_instruction(__file__, 'response-491'))
         if connection.execute(
-            "SELECT 1 FROM _plan_component_refs WHERE component_id = ? "
-            "UNION ALL SELECT 1 FROM _step_component_refs WHERE component_id = ? LIMIT 1",
-            (component_id, component_id),
+            "SELECT 1 FROM _plan_component_refs WHERE component_id = ? LIMIT 1",
+            (component_id,),
         ).fetchone():
             raise ValueError(
                 read_instruction(__file__, 'response-492')

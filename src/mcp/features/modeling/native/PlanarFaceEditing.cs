@@ -36,7 +36,7 @@ namespace RhinoAlmondBridge
             if (doc.IsReadOnly) throw new ArgumentException("The bound document is read-only.");
             var editor = EditingContext.Observe(doc);
             if (editor["stable"]?.Type != JTokenType.Boolean || !(bool)editor["stable"] || (string)editor["mode"] != "model")
-                throw new ArgumentException("Finish group/block editing before editing this model-space face.");
+                throw new ArgumentException("The active editor's Replace/Undo/save/cancel contract is not yet verified for face edits. Working-object observation alone does not authorize document-level replacement.");
         }
 
         public static JObject Handle(RhinoDoc doc, JObject request)

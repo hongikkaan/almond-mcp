@@ -17,8 +17,8 @@ def register(mcp, context):
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False})
     @tool_instruction(__file__, 'get_modeling_guide')
-    def get_modeling_guide(tool: str = "") -> ToolResult:
-        return ToolResult(content=[TextContent(type="text", text=json.dumps(read_guide(tool), ensure_ascii=False))])
+    def get_modeling_guide(include_scripting: StrictBool = False) -> ToolResult:
+        return ToolResult(content=[TextContent(type="text", text=json.dumps(read_guide(include_scripting=include_scripting), ensure_ascii=False))])
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_construction_guidance')

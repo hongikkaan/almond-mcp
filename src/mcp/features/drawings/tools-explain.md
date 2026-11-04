@@ -3,36 +3,56 @@
 ## list_drawing_recipes
 
 <!-- instruction:list_drawing_recipes -->
-Lists compact audited layer, lineweight, projection, and export recipes.
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
-field_groups adds scales, parameters, source, audit, or all; default is summary.
-include_ids independently enables handles; audit enables timestamps.
+When to use: Browse available drawing recipes by purpose and projection before choosing a style.
+Before calling: No prerequisite; this catalogue query does not change Rhino.
+Inputs from earlier results: None required. Set include_ids=true to obtain recipe_id for get_drawing_recipe or apply_drawing_style; field_groups=["scales"] includes available recommended scales.
+Interpretation: A recipe shortlist describes authored conventions, not proof that the current document follows them. Inspect the chosen recipe only if its settings are unknown.
+Limits: The list does not include full layer/style settings; use get_drawing_recipe with field_groups=["parameters"] for those. Other optional groups are source, audit and all; audit enables available timestamps.
+
+Args:
+    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
+    field_groups: Optional detail groups: scales, parameters, source, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
 <!-- /instruction:list_drawing_recipes -->
 
 ## get_drawing_recipe
 
 <!-- instruction:get_drawing_recipe -->
-Returns one audited drawing recipe summary by default. Request field_groups=["parameters"] for layer/style and review-preparation settings.
-IDs and GUIDs are omitted by default. Set include_ids=true when needed; supplied target IDs are not repeated.
-field_groups adds scales, parameters, source, audit, or all; default is summary.
-include_ids independently enables handles; audit enables timestamps.
+When to use: Inspect a known drawing recipe's conventions and execution settings without modifying Rhino.
+Before calling: Supply recipe_id; list recipes only when that ID is unknown.
+Inputs from earlier results: Reuse recipe_id from list_drawing_recipes with include_ids=true. Request field_groups=["parameters"] for layers, style and review_preparation, or ["scales"] for scale guidance; retain the supplied ID for apply_drawing_style.
+Interpretation: Default output is a compact recipe summary, not a current-document audit. Review-preparation settings describe intended follow-up, not actions already executed.
+Limits: This neither applies layers nor prepares PrintDisplay. The supplied ID is not echoed; include_ids exposes other unsupplied handles. Optional source, audit and all expose available evidence, with timestamps under audit.
+
+Args:
+    recipe_id: Drawing recipe ID from list_drawing_recipes(include_ids=true), or a previously known recipe ID.
+    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
+    field_groups: Optional detail groups: scales, parameters, source, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
 <!-- /instruction:get_drawing_recipe -->
 
 ## apply_drawing_style
 
 <!-- instruction:apply_drawing_style -->
-Creates or updates the Rhino layer hierarchy, plot weights, colours, and linetypes defined by an audited drawing recipe.
-The A4 plan/section recipe can return an unexecuted rhinocode CLI command template for print-review preparation on the same connected document; this tool does not inspect or change PrintDisplay.
-Recipes may specify linetype_segments with positive lengths and explicit is_solid values. Conflicting named patterns or malformed explicit segments are rejected before layer changes; matching named patterns are reused.
-Recipes without segments retain their existing name-based behaviour.
+When to use: Create or update the active Rhino document's layer hierarchy, plot weights, colours and linetypes from a drawing recipe.
+Before calling: Use a known recipe_id or accept technical_axon_v1; fetch recipe parameters only if the intended layer changes are unknown. A connected active Rhino document is required.
+Inputs from earlier results: Reuse recipe_id from list_drawing_recipes with include_ids=true; get_drawing_recipe with field_groups=["parameters"] exposes layer and review settings when needed.
+Interpretation: Success confirms the layer-style operation, not a finished drawing or print review. The A4 plan/section recipe may return review_preparation with an unexecuted rhinocode template: reuse a pipe confirmed for this connection's Rhino PID and saved document path, discover only if unknown, and skip if Document-scoped Model/Layout PrintDisplay On with Print colours is already confirmed.
+Limits: The tool does not inspect or change PrintDisplay. Explicit linetype_segments need positive lengths and is_solid; conflicting named patterns or malformed segments are rejected before layer changes, while matching patterns are reused. Recipes without segments retain name-based behaviour. On timeout, inspect document state before repeating changes.
+
+Args:
+    recipe_id: Drawing recipe ID from list_drawing_recipes(include_ids=true), or a previously known recipe ID.
 <!-- /instruction:apply_drawing_style -->
 
 ## import_drawing_hatch_patterns
 
 <!-- instruction:import_drawing_hatch_patterns -->
-Imports the AutoCAD-style .pat hatch definitions of an indexed drawing asset into the active Rhino document's hatch pattern table.
+When to use: Add an indexed drawing asset's PAT hatch definitions to the active Rhino document's hatch pattern table.
+Before calling: Supply an available .pat drawing asset_id and an active Rhino connection; no recipe or placement prerequisite exists.
+Inputs from earlier results: Reuse asset_id from drawing asset discovery with include_ids=true. Request field_groups=["paths"] if the source extension is not known; the tool resolves the path itself.
+Interpretation: Returned pattern names identify available definitions; the message distinguishes newly added patterns from already present names. Existing names are reused, not overwritten.
+Limits: Only .pat files from the controlled asset/drawing/DrawingAssetfiles manifest are accepted. This imports definitions, not hatch objects or regions, and does not certify pattern appearance at a drawing scale.
 
-The tool accepts only .pat files resolved from the controlled asset/drawing/DrawingAssetfiles manifest, mirroring the placement tools' security boundary.
+Args:
+    asset_id: Existing library asset ID from a matching list/search result with include_ids=true, or a previously known ID.
 <!-- /instruction:import_drawing_hatch_patterns -->
 
 ## response-642

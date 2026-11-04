@@ -10,8 +10,16 @@ def initialize_semantics(store, connection):
     if not connection.in_transaction:
         connection.execute('BEGIN IMMEDIATE')
     tables = {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if 'ontological_components' in tables:
+        if {'ontological_holons', 'components'} & tables:
+            raise RuntimeError('Mixed Component/Holon registries. Stop older clients and inspect the DB before continuing.')
+        # SQLite rewrites dependent foreign keys, views and triggers in this same
+        # transaction. Keep every stable ID, payload and relationship unchanged.
+        connection.execute('ALTER TABLE ontological_components RENAME TO ontological_holons')
+        tables.remove('ontological_components')
+        tables.add('ontological_holons')
     legacy = 'components' in tables
-    if legacy and 'ontological_components' in tables:
+    if legacy and 'ontological_holons' in tables:
         raise RuntimeError('Mixed legacy and semantic schemas. Stop older clients and inspect the DB before continuing.')
     if not legacy and {'document_objects', 'scene_objects'} & tables:
         raise RuntimeError('Object tables without the legacy semantic registry cannot be migrated safely. Stop older clients and inspect the DB.')
@@ -35,11 +43,11 @@ def initialize_semantics(store, connection):
     connection.execute('''CREATE TABLE IF NOT EXISTS _project_file_locations(
         file_id TEXT PRIMARY KEY REFERENCES project_files(file_id) ON DELETE RESTRICT,
         model_path TEXT NOT NULL UNIQUE)''')
-    connection.execute('''CREATE TABLE IF NOT EXISTS ontological_components(
+    connection.execute('''CREATE TABLE IF NOT EXISTS ontological_holons(
         ontological_id TEXT PRIMARY KEY,
         project_file_id TEXT NOT NULL REFERENCES project_files(file_id) ON DELETE RESTRICT,
         rhino_group_id TEXT NOT NULL,name TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,
-        parent_ontological_id TEXT REFERENCES ontological_components(ontological_id) ON DELETE RESTRICT,
+        parent_ontological_id TEXT REFERENCES ontological_holons(ontological_id) ON DELETE RESTRICT,
         availability TEXT NOT NULL DEFAULT 'present' CHECK(availability IN ('present','missing_group','unregistered')),
         geometry_digest TEXT NOT NULL DEFAULT '',
         object_count INTEGER NOT NULL DEFAULT 0,effective_object_count INTEGER NOT NULL DEFAULT 0,
@@ -47,27 +55,27 @@ def initialize_semantics(store, connection):
         object_types_json TEXT NOT NULL DEFAULT '{}',bounds_json TEXT NOT NULL DEFAULT 'null',
         UNIQUE(project_file_id,rhino_group_id))''')
     connection.execute('''CREATE TABLE IF NOT EXISTS ontological_scene_context(
-        ontological_id TEXT NOT NULL REFERENCES ontological_components(ontological_id) ON DELETE CASCADE,
+        ontological_id TEXT NOT NULL REFERENCES ontological_holons(ontological_id) ON DELETE CASCADE,
         scene_id TEXT NOT NULL REFERENCES scenes(scene_id) ON DELETE RESTRICT,
         PRIMARY KEY(ontological_id,scene_id))''')
     connection.execute('''CREATE TABLE IF NOT EXISTS scene_ontological(
         scene_id TEXT NOT NULL REFERENCES scenes(scene_id) ON DELETE CASCADE,
-        ontological_id TEXT NOT NULL REFERENCES ontological_components(ontological_id) ON DELETE CASCADE,
+        ontological_id TEXT NOT NULL REFERENCES ontological_holons(ontological_id) ON DELETE CASCADE,
         PRIMARY KEY(scene_id,ontological_id))''')
     connection.execute('''CREATE TABLE IF NOT EXISTS generation_plan_ontological(
         plan_id TEXT NOT NULL REFERENCES generation_plans(plan_id) ON DELETE CASCADE,
-        ontological_id TEXT NOT NULL REFERENCES ontological_components(ontological_id) ON DELETE RESTRICT,
+        ontological_id TEXT NOT NULL REFERENCES ontological_holons(ontological_id) ON DELETE RESTRICT,
         position INTEGER NOT NULL,PRIMARY KEY(plan_id,ontological_id),UNIQUE(plan_id,position))''')
     connection.execute('''CREATE TABLE IF NOT EXISTS generation_step_ontological(
         plan_id TEXT NOT NULL,step_id TEXT NOT NULL,
-        ontological_id TEXT NOT NULL REFERENCES ontological_components(ontological_id) ON DELETE RESTRICT,
+        ontological_id TEXT NOT NULL REFERENCES ontological_holons(ontological_id) ON DELETE RESTRICT,
         position INTEGER NOT NULL,PRIMARY KEY(plan_id,step_id,ontological_id),UNIQUE(plan_id,step_id,position),
         FOREIGN KEY(plan_id,step_id) REFERENCES generation_plan_steps(plan_id,step_id) ON DELETE CASCADE)''')
     if legacy:
         records = connection.execute('SELECT * FROM components').fetchall()
         for r in records:
             file_id = store._project_file_reference(connection,model_path=r['model_path'])
-            connection.execute('''INSERT INTO ontological_components(ontological_id,project_file_id,rhino_group_id,
+            connection.execute('''INSERT INTO ontological_holons(ontological_id,project_file_id,rhino_group_id,
                 name,created_at,updated_at,availability,geometry_digest,object_count,effective_object_count,object_types_json,bounds_json)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''',
                 (r['component_id'],file_id,r['rhino_group_id'],r['name'],r['created_at'],r['updated_at'],r['availability'],
@@ -75,7 +83,7 @@ def initialize_semantics(store, connection):
             connection.executemany('INSERT INTO ontological_scene_context VALUES(?,?)',
                 [(r['component_id'],scene) for scene in json.loads(r['scene_ids_json'])])
         for r in records:
-            connection.execute('UPDATE ontological_components SET parent_ontological_id=? WHERE ontological_id=?',
+            connection.execute('UPDATE ontological_holons SET parent_ontological_id=? WHERE ontological_id=?',
                 (r['parent_component_id'],r['component_id']))
         for old,new,fields in [('scene_components','scene_ontological','scene_id,component_id'),
                 ('generation_plan_components','generation_plan_ontological','plan_id,component_id,position'),
@@ -93,24 +101,24 @@ def initialize_semantics(store, connection):
         (SELECT json_group_array(scene_id) FROM (SELECT scene_id FROM ontological_scene_context
             WHERE ontological_id=c.ontological_id ORDER BY scene_id)) AS scene_ids_json,
         c.geometry_digest,c.object_count,c.effective_object_count,c.effective_summary_stale,c.object_types_json,c.bounds_json
-        FROM ontological_components c JOIN project_files f ON f.file_id=c.project_file_id
+        FROM ontological_holons c JOIN project_files f ON f.file_id=c.project_file_id
         LEFT JOIN _project_file_locations l ON l.file_id=c.project_file_id''')
     for view,table,fields in [('_scene_component_refs','scene_ontological','scene_id,ontological_id AS component_id'),
             ('_plan_component_refs','generation_plan_ontological','plan_id,ontological_id AS component_id,position'),
             ('_step_component_refs','generation_step_ontological','plan_id,step_id,ontological_id AS component_id,position')]:
         connection.execute(f'CREATE VIEW IF NOT EXISTS {view} AS SELECT {fields} FROM {table}')
-    connection.execute('CREATE INDEX IF NOT EXISTS idx_ontological_parent ON ontological_components(parent_ontological_id)')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_ontological_parent ON ontological_holons(parent_ontological_id)')
     for action,suffix in [('INSERT','insert'),('UPDATE OF parent_ontological_id,project_file_id','update')]:
         connection.execute(f'''CREATE TRIGGER IF NOT EXISTS ontological_parent_check_{suffix}
-            BEFORE {action} ON ontological_components WHEN NEW.parent_ontological_id IS NOT NULL
+            BEFORE {action} ON ontological_holons WHEN NEW.parent_ontological_id IS NOT NULL
             BEGIN
                 SELECT CASE WHEN NEW.parent_ontological_id=NEW.ontological_id OR NOT EXISTS(
-                    SELECT 1 FROM ontological_components p WHERE p.ontological_id=NEW.parent_ontological_id
+                    SELECT 1 FROM ontological_holons p WHERE p.ontological_id=NEW.parent_ontological_id
                     AND p.project_file_id=NEW.project_file_id)
                 THEN RAISE(ABORT,'Semantic parent must exist in the same model and differ from child') END;
                 SELECT CASE WHEN EXISTS(WITH RECURSIVE ancestors(ontological_id,parent_ontological_id) AS (
-                    SELECT ontological_id,parent_ontological_id FROM ontological_components WHERE ontological_id=NEW.parent_ontological_id
-                    UNION SELECT c.ontological_id,c.parent_ontological_id FROM ontological_components c
+                    SELECT ontological_id,parent_ontological_id FROM ontological_holons WHERE ontological_id=NEW.parent_ontological_id
+                    UNION SELECT c.ontological_id,c.parent_ontological_id FROM ontological_holons c
                     JOIN ancestors a ON c.ontological_id=a.parent_ontological_id)
                     SELECT 1 FROM ancestors WHERE ontological_id=NEW.ontological_id)
                 THEN RAISE(ABORT,'Semantic hierarchy contains a cycle') END;

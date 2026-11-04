@@ -62,12 +62,13 @@ class Workspace:
                 if project_path(directory, base=self.root).exists():
                     raise ValueError("The artifact folder already exists and is not owned by this Plan.")
                 db.execute("UPDATE generation_plans SET artifact_dir = ? WHERE plan_id = ?", (directory, plan_id))
-                self.store._record_generation_revision(db, plan_id, "set_artifact_dir")
+                plan = self.store._record_generation_revision(db, plan_id, "set_artifact_dir")
             elif artifact_name and directory != "tmp/" + folder_name(artifact_name):
                 raise ValueError("This Plan already owns an artifact folder. Use rename_artifact_folder to rename it.")
         # Selection is connection-local; the folder and refs are shared Plan data.
         write_json(self.state_path, {"plan_id": plan_id, "step_id": step_id})
-        return self.current()
+        return {"plan_id": plan_id, "step_id": step_id, "artifact_dir": directory,
+                "revision": plan["revision"]}
 
     def rename(self, name: str, plan_id: str = "") -> dict:
         plan_id = plan_id or self.current()["plan_id"]

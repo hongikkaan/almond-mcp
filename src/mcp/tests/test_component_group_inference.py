@@ -74,15 +74,15 @@ def public_tools(store, native):
 def test_group_registration_accepts_omitted_or_null_members(registry, member_arguments):
     store, scene_id = registry
     native = NativeBoundary({"status": "success", "component": snapshot(scene_id)})
-    tool = public_tools(store, native)["upsert_ontological_component"]
+    tool = public_tools(store, native)["upsert_ontological_holon"]
 
-    result = json.loads(tool(name="Arrival", component_id=COMPONENT,
+    result = json.loads(tool(name="Arrival", holon_id=COMPONENT,
                              expected_model_path=MODEL, rhino_group_id=GROUP,
                              scene_ids=[scene_id], **member_arguments))
 
     assert result["status"] == "success", result
-    assert result["component"]["rhino_group_id"] == GROUP
-    assert result["component"]["object_count"] == 1
+    assert result["holon"]["rhino_group_id"] == GROUP
+    assert result["holon"]["object_count"] == 1
     assert store.get_component(COMPONENT)["object_count"] == 1
     # Atomic inference sends no separate member observation before upsert.
     operations = [r for r in native.requests if r["type"] != "get_rhino_context"]
@@ -94,9 +94,9 @@ def test_group_registration_accepts_omitted_or_null_members(registry, member_arg
 def test_group_inference_requires_its_capability_before_registration(registry):
     store, scene_id = registry
     native = NativeBoundary({"status": "success", "component": snapshot(scene_id)}, inference=False)
-    tool = public_tools(store, native)["upsert_ontological_component"]
+    tool = public_tools(store, native)["upsert_ontological_holon"]
 
-    result = json.loads(tool(name="Arrival", component_id=COMPONENT,
+    result = json.loads(tool(name="Arrival", holon_id=COMPONENT,
                              expected_model_path=MODEL, rhino_group_id=GROUP,
                              scene_ids=[scene_id]))
 
@@ -110,9 +110,9 @@ def test_group_inference_requires_its_capability_before_registration(registry):
 def test_explicit_members_remain_supported_without_inference_capability(registry):
     store, scene_id = registry
     native = NativeBoundary({"status": "success", "component": snapshot(scene_id)}, inference=False)
-    tool = public_tools(store, native)["upsert_ontological_component"]
+    tool = public_tools(store, native)["upsert_ontological_holon"]
 
-    result = json.loads(tool(name="Arrival", object_ids=[OBJECT], component_id=COMPONENT,
+    result = json.loads(tool(name="Arrival", object_ids=[OBJECT], holon_id=COMPONENT,
                              expected_model_path=MODEL, rhino_group_id=GROUP,
                              scene_ids=[scene_id]))
 
@@ -127,9 +127,9 @@ def test_inference_requires_a_nonempty_present_group_snapshot(registry, availabi
     observed = snapshot(scene_id, object_ids=())
     observed["availability"] = availability
     native = NativeBoundary({"status": "success", "component": observed})
-    tool = public_tools(store, native)["upsert_ontological_component"]
+    tool = public_tools(store, native)["upsert_ontological_holon"]
 
-    result = json.loads(tool(name="Arrival", component_id=COMPONENT,
+    result = json.loads(tool(name="Arrival", holon_id=COMPONENT,
                              expected_model_path=MODEL, rhino_group_id=GROUP,
                              scene_ids=[scene_id]))
 
@@ -147,8 +147,8 @@ def test_inference_requires_a_nonempty_present_group_snapshot(registry, availabi
 def test_registration_does_not_infer_from_empty_members_or_missing_context(registry, arguments):
     store, scene_id = registry
     native = NativeBoundary({"status": "success", "component": snapshot(scene_id)})
-    tool = public_tools(store, native)["upsert_ontological_component"]
-    inputs = dict(name="Arrival", component_id=COMPONENT, expected_model_path=MODEL,
+    tool = public_tools(store, native)["upsert_ontological_holon"]
+    inputs = dict(name="Arrival", holon_id=COMPONENT, expected_model_path=MODEL,
                   rhino_group_id=GROUP, scene_ids=[scene_id])
     inputs.update(arguments)
 
@@ -162,13 +162,13 @@ def test_registration_does_not_infer_from_empty_members_or_missing_context(regis
 def test_existing_component_binding_infers_new_group_members_without_respecifying_context(registry):
     store, scene_id = registry
     native = NativeBoundary({"status": "success", "component": snapshot(scene_id)})
-    tool = public_tools(store, native)["upsert_ontological_component"]
-    assert json.loads(tool(name="Arrival", object_ids=[OBJECT], component_id=COMPONENT,
+    tool = public_tools(store, native)["upsert_ontological_holon"]
+    assert json.loads(tool(name="Arrival", object_ids=[OBJECT], holon_id=COMPONENT,
                            expected_model_path=MODEL, rhino_group_id=GROUP,
                            scene_ids=[scene_id]))["status"] == "success"
     native.reply = {"status": "success", "component": snapshot(scene_id, object_ids=(OBJECT, CHILD_OBJECT))}
 
-    result = json.loads(tool(name="Arrival", component_id=COMPONENT, expected_model_path=MODEL))
+    result = json.loads(tool(name="Arrival", holon_id=COMPONENT, expected_model_path=MODEL))
 
     assert result["status"] == "success", result
     assert store.get_component(COMPONENT)["object_count"] == 2
@@ -183,17 +183,17 @@ def test_parent_without_direct_members_preserves_child_ownership_through_store(r
     child = snapshot(scene_id, component_id=CHILD, group_id=CHILD_GROUP,
                      name="Seating", object_ids=(CHILD_OBJECT,))
     native = NativeBoundary({"status": "success", "component": child}, inference=member_ids is None)
-    tool = public_tools(store, native)["upsert_ontological_component"]
-    assert json.loads(tool(name="Seating", object_ids=[CHILD_OBJECT], component_id=CHILD,
+    tool = public_tools(store, native)["upsert_ontological_holon"]
+    assert json.loads(tool(name="Seating", object_ids=[CHILD_OBJECT], holon_id=CHILD,
                            expected_model_path=MODEL, rhino_group_id=CHILD_GROUP,
                            scene_ids=[scene_id]))["status"] == "success"
     parent = snapshot(scene_id, object_ids=(), children=(CHILD,), effective=child["objects"])
     child["parent_component_id"] = COMPONENT
     native.reply = {"status": "success", "component": parent, "affected_components": [child]}
 
-    result = json.loads(tool(name="Arrival", object_ids=member_ids, component_id=COMPONENT,
+    result = json.loads(tool(name="Arrival", object_ids=member_ids, holon_id=COMPONENT,
                              expected_model_path=MODEL, rhino_group_id=GROUP,
-                             scene_ids=[scene_id], child_component_ids=[CHILD]))
+                             scene_ids=[scene_id], child_holon_ids=[CHILD]))
 
     assert result["status"] == "success", result
     assert store.get_component(COMPONENT)["object_count"] == 0
@@ -226,10 +226,10 @@ def test_invalid_native_snapshot_never_changes_the_ledger_or_replays_registratio
     elif broken == "object_ids":
         observed["object_ids"] = [CHILD_OBJECT]
     native = NativeBoundary({"status": "success", "component": observed})
-    tool = public_tools(store, native)["upsert_ontological_component"]
+    tool = public_tools(store, native)["upsert_ontological_holon"]
     before = store.get_scene(scene_id)
 
-    result = json.loads(tool(name="Arrival", component_id=COMPONENT,
+    result = json.loads(tool(name="Arrival", holon_id=COMPONENT,
                              expected_model_path=MODEL, rhino_group_id=GROUP,
                              scene_ids=[scene_id]))
 
@@ -357,6 +357,8 @@ namespace RhinoAlmondBridge {
     public static class ModelingMetadata { public static string Key(string key) => "almond:" + key; }
     public static class EditingContext {
         public static JObject Observe(RhinoDoc doc) => new JObject { ["stable"]=doc.Stable };
+        public class ObjectScope { public JObject State; }
+        public static ObjectScope ObserveObjects(RhinoDoc doc) => new ObjectScope { State=Observe(doc) };
     }
     public class ScriptResult { public string Status, Message; }
     public class ScriptExecutor {

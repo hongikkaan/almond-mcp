@@ -1,19 +1,19 @@
 """Component MCP tools; register explicitly with the current server context."""
-from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output, validate_field_groups, project_query
+from almond_mcp.tool_response import error_payload, mcp_error_result
+from almond_mcp.features.components.public_contract import holon_output
+from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.components.output import GROUPS, project
-from almond_mcp.managed_paths import bound_model_path, relative_output
+from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.instruction_text import tool_instruction, read_instruction
-from pydantic import StrictBool
+from pydantic import StrictBool, StrictInt
+from typing import Literal
 import json
 
-from pydantic import StrictInt
 
 from almond_mcp.store_common import ComponentReconciliationError
-from almond_mcp.features.components import intersection_queries
-
-
 def register(mcp, context):
+    from almond_mcp.features.components.intersection_workflow import Workflow
+    intersection_workflow = Workflow(context._send_and_receive)
     def _component_bridge(request: dict) -> dict:
         """Capability-check before one native operation; never retry an uncertain mutation."""
         payload = json.dumps(request, allow_nan=False).encode("utf-8")
@@ -54,38 +54,41 @@ def register(mcp, context):
         ) if key in component}
 
     @mcp.tool()
-    @tool_instruction(__file__, 'upsert_ontological_component')
-    def upsert_ontological_component(
+    @tool_instruction(__file__, 'upsert_ontological_holon')
+    @holon_output
+    def upsert_ontological_holon(
         name: str,
         object_ids: list[str] | None = None,
         expected_model_path: str = "",
         scene_ids: list[str] | None = None,
-        component_id: str = "",
+        holon_id: str = "",
         rhino_group_id: str = "",
-        child_component_ids: list[str] | None = None,
+        child_holon_ids: list[str] | None = None,
     ) -> str:
         try:
             component = context.retrieval_store.upsert_component(
                 model_path=bound_model_path(expected_model_path), name=name, object_ids=object_ids,
-                scene_ids=scene_ids, component_id=component_id, rhino_group_id=rhino_group_id,
-                native_apply=_component_bridge, child_component_ids=child_component_ids,
+                scene_ids=scene_ids, component_id=holon_id, rhino_group_id=rhino_group_id,
+                native_apply=_component_bridge, child_component_ids=child_holon_ids,
             )
             return json.dumps({"status": "success", "component": _component_ack(component)}, ensure_ascii=False)
         except Exception as exc:
             return _component_error(exc)
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @tool_instruction(__file__, 'get_ontological_component')
+    @mcp_error_result
+    @tool_instruction(__file__, 'get_ontological_holon')
     @query_output
-    def get_ontological_component(component_id: str, live: bool = False, include_ids: StrictBool = False,
+    @holon_output
+    def get_ontological_holon(holon_id: str, live: bool = False, include_ids: StrictBool = False,
                              recursive: StrictBool = False, field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
         try:
             component = context.retrieval_store.get_component(
-                component_id, live=live, native_inspect=_component_bridge if live else None,
+                holon_id, live=live, native_inspect=_component_bridge if live else None,
             )
             if component is None:
-                raise KeyError(f"Unknown component_id: {component_id}")
+                raise KeyError(f"Unknown component_id: {holon_id}")
             if not recursive:
                 component = {key: value for key, value in component.items()
                              if key not in {"effective_objects", "effective_object_ids"}}
@@ -94,9 +97,10 @@ def register(mcp, context):
             return json.dumps(project(json.loads(_component_error(exc)), field_groups))
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @tool_instruction(__file__, 'list_ontological_components')
+    @tool_instruction(__file__, 'list_ontological_holons')
     @query_output
-    def list_ontological_components(expected_model_path: str = "", include_ids: StrictBool = False,
+    @holon_output
+    def list_ontological_holons(expected_model_path: str = "", include_ids: StrictBool = False,
                                scene_id: str = "", recursive: StrictBool = False,
                                field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
@@ -108,27 +112,28 @@ def register(mcp, context):
             return json.dumps(project(json.loads(_component_error(exc)), field_groups))
 
     @mcp.tool()
-    @tool_instruction(__file__, 'sync_ontological_component')
-    def sync_ontological_component(component_id: str = "", expected_model_path: str = "", rhino_group_id: str = "",
-                              component_ids: list[str] | None = None, scene_id: str = "") -> str:
+    @tool_instruction(__file__, 'sync_ontological_holon')
+    @holon_output
+    def sync_ontological_holon(holon_id: str = "", expected_model_path: str = "", rhino_group_id: str = "",
+                              holon_ids: list[str] | None = None, scene_id: str = "") -> str:
         try:
-            if component_id and component_ids is not None:
+            if holon_id and holon_ids is not None:
                 raise ValueError("Use component_id or component_ids, not both.")
-            if scene_id and (component_id or component_ids is not None):
+            if scene_id and (holon_id or holon_ids is not None):
                 raise ValueError("Use a Component target or a Scene scope, not both.")
             if rhino_group_id:
                 rhino_group_id = context.retrieval_store._component_guid(rhino_group_id)
-                existing = context.retrieval_store.get_component(component_id)
-                if not component_id or (existing and existing["rhino_group_id"] != rhino_group_id):
+                existing = context.retrieval_store.get_component(holon_id)
+                if not holon_id or (existing and existing["rhino_group_id"] != rhino_group_id):
                     raise ValueError("The supplied group GUID does not match the existing Component binding.")
             result = context.retrieval_store.align_components(
                 model_path=bound_model_path(expected_model_path),
-                component_ids=[component_id] if component_id else component_ids,
+                component_ids=[holon_id] if holon_id else holon_ids,
                 scene_id=scene_id, native_inspect=_component_bridge,
-                expected_groups={component_id: rhino_group_id} if rhino_group_id else None)
-            if component_id:
-                component = context.retrieval_store.get_component(component_id)
-                failed = any(isinstance(problem, dict) and problem.get("component_id") == component_id
+                expected_groups={holon_id: rhino_group_id} if rhino_group_id else None)
+            if holon_id:
+                component = context.retrieval_store.get_component(holon_id)
+                failed = any(isinstance(problem, dict) and problem.get("component_id") == holon_id
                              for problem in result["problems"])
                 if component and not failed:
                     result["component"] = _component_ack(dict(component, live_verified=True))
@@ -137,10 +142,11 @@ def register(mcp, context):
             return _component_error(exc)
 
     @mcp.tool(annotations={"destructiveHint": False})
-    @tool_instruction(__file__, 'remove_ontological_component')
-    def remove_ontological_component(component_id: str) -> str:
+    @tool_instruction(__file__, 'remove_ontological_holon')
+    @holon_output
+    def remove_ontological_holon(holon_id: str) -> str:
         try:
-            component = context.retrieval_store.unregister_component(component_id, native_apply=_component_bridge)
+            component = context.retrieval_store.unregister_component(holon_id, native_apply=_component_bridge)
             return json.dumps({"status": "success", "component": _component_ack(component)}, ensure_ascii=False)
         except Exception as exc:
             return _component_error(exc)
@@ -199,55 +205,27 @@ def register(mcp, context):
                                "message": str(exc), "requires_reconciliation": uncertainty,
                                "mutation_applied": None if uncertainty else False})
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @tool_instruction(__file__, 'get_component_intersections')
-    def get_component_intersections(component_ids: list[str], expected_model_path: str = "",
-                                    max_pairs: StrictInt = 64, include_ids: StrictBool = False, field_groups: list[str] | None = None,
-                                    include_blocks: StrictBool = False, cursor: str = "") -> str:
-        validate_field_groups(field_groups, GROUPS)
-        if type(include_ids) is not bool:
-            raise ValueError("include_ids must be a boolean.")
-        payload = json.loads(_component_operation_bridge("intersections", expected_model_path,
-            component_ids, max_pairs, include_blocks, cursor))
-        result = project_query(project(payload, field_groups), include_ids=include_ids,
-                               supplied={"component_ids": component_ids})
-        # Pair handles and state are execution inputs for the observation just computed.
-        # Preserve them even for a complete/default-summary response to avoid a repeat query.
-        if "pairs" in payload:
-            result["pairs"] = payload["pairs"]
-        return json.dumps(relative_output(result), ensure_ascii=False)
-
-    @mcp.tool(annotations={"destructiveHint": False})
-    @tool_instruction(__file__, 'show_object_intersection')
-    def show_object_intersection(a: dict | None = None, b: dict | None = None,
-                                 pair_state: str = "", clear: StrictBool = False,
-                                 expected_model_path: str = "") -> str:
-        return intersection_queries.request(context._send_and_receive, operation="preview", first=a, second=b,
-            pair_state=pair_state, clear=clear, expected_model_path=expected_model_path)
-
     @mcp.tool()
     @tool_instruction(__file__, 'resolve_object_intersection')
-    def resolve_object_intersection(keep: dict, trim: dict, pair_state: str,
-                                    expected_model_path: str = "") -> str:
-        return intersection_queries.request(context._send_and_receive, operation="resolve", first=keep, second=trim,
-            pair_state=pair_state, expected_model_path=expected_model_path)
+    def resolve_object_intersection(object_ids: list[str] | None = None, include_block: StrictBool = False,
+                                    review_id: str = "", choice: StrictInt | Literal["skip"] | None = None):
+        return intersection_workflow.execute(object_ids, include_block, review_id, choice)
 
     @mcp.tool(annotations={"destructiveHint": False})
-    @tool_instruction(__file__, 'focus_components')
-    def focus_components(component_ids: list[str], expected_model_path: str = "") -> str:
-        return _component_operation_bridge("focus", expected_model_path, component_ids)
+    @tool_instruction(__file__, 'focus_holons')
+    @holon_output
+    def focus_holons(holon_ids: list[str], expected_model_path: str = "") -> str:
+        return _component_operation_bridge("focus", expected_model_path, holon_ids)
 
     return {
         "_component_bridge": _component_bridge,
         "_component_error": _component_error,
-        "upsert_ontological_component": upsert_ontological_component,
-        "get_ontological_component": get_ontological_component,
-        "list_ontological_components": list_ontological_components,
-        "sync_ontological_component": sync_ontological_component,
-        "remove_ontological_component": remove_ontological_component,
+        "upsert_ontological_holon": upsert_ontological_holon,
+        "get_ontological_holon": get_ontological_holon,
+        "list_ontological_holons": list_ontological_holons,
+        "sync_ontological_holon": sync_ontological_holon,
+        "remove_ontological_holon": remove_ontological_holon,
         "_component_operation_bridge": _component_operation_bridge,
-        "get_component_intersections": get_component_intersections,
-        "show_object_intersection": show_object_intersection,
         "resolve_object_intersection": resolve_object_intersection,
-        "focus_components": focus_components,
+        "focus_holons": focus_holons,
     }

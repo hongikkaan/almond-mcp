@@ -81,7 +81,7 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         ("list_connections", "List available Rhino documents, this client's connections and connection instructions. Run almondconnect in a saved ordinary Rhino to make it available for connection.",
          {}, []),
         ("connect", "Connect one advertised Rhino/document. Call list_connections first for the verified model path and connection instructions. Uses an independent A-J slot and session; models in one folder share the existing database and artifact root.",
-         {"host_id": {"type": "string"}, "model_path": {"type": "string", "description": "Exact saved model path shown in the listing."}},
+         {"host_id": {"type": "string", "description": "Exact advertised host_id from list_connections for the intended Rhino process."}, "model_path": {"type": "string", "description": "Exact saved model path shown in the listing."}},
          ["host_id", "model_path"]),
         ("start_session", "Explicitly open a saved .3dm in a new visible Rhino, advertise it with almondconnect, and connect its own A-J slot/worker. Does not save or close Rhino. Reuse the same request_id after a startup timeout; a new ID deliberately opens another Rhino.",
          {"model_path": {"type": "string", "description": "Absolute path of an existing saved local .3dm; opened without saving."},
@@ -89,7 +89,7 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
                          "description": "Unique ID for this deliberate start; keep it unchanged when checking the same attempt."}},
          ["model_path", "request_id"]),
         ("disconnect", "Disconnect this client's connection after its calls complete. Never closes or saves Rhino. An unconfirmed native operation can retain its Rhino-side locks.",
-         {"connection_id": {"type": "string"}}, ["connection_id"]),
+         {"connection_id": {"type": "string", "description": "This client's live connection_id returned by connect or list_connections; disconnects only that connection."}}, ["connection_id"]),
     ]
     for name, description, properties, required in management:
         if name in mapping:

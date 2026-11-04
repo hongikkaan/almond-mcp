@@ -64,24 +64,23 @@ def construction_layers(systems, materials):
     return list(layers.values())
 
 
-def setup_script(operation, material_library, construction_library, overwrite=None):
-    if operation == "materials":
-        recipes = [recipe(m) for m in material_library.materials.values()]
-        if len({r["name"] for r in recipes}) != len(recipes):
-            raise ValueError("Duplicate material names in manifest")
-        flag = "null" if overwrite is None else str(overwrite).lower()
-        return script(f"ModelingMaterials.Register(doc, {literal(recipes)}, {flag})")
-    if operation != "layers":
-        raise ValueError("Expected materials or layers")
+def setup_script(material_library, construction_library, overwrite):
+    if type(overwrite) is not bool:
+        raise ValueError("overwrite must be true or false")
+    recipes = [recipe(m) for m in material_library.materials.values()]
+    if not recipes or not construction_library.systems:
+        raise ValueError("Material and construction libraries must be available before setup")
+    if len({r["name"] for r in recipes}) != len(recipes):
+        raise ValueError("Duplicate material names in manifest")
     layers = construction_layers(construction_library.systems.values(), material_library.materials)
-    return script(f"ModelingMaterials.ApplyLayers(doc, {literal(layers)})")
+    return script(f"ModelingMaterials.Setup(doc, {literal(recipes)}, {literal(layers)}, {str(overwrite).lower()})")
 
 
-def dispatch(code, send, timeout=60.0):
+def dispatch(code, send, timeout=60.0, *, require_setup=False):
     """Require the explicit-only Bridge contract before one mutation dispatch."""
     dispatched = False
     try:
-        problem = check_bridge(send)
+        problem = check_bridge(send, require_setup=require_setup)
         if problem:
             return problem
         dispatched = True
@@ -94,7 +93,7 @@ def dispatch(code, send, timeout=60.0):
                 "message": read_instruction(__file__, 'response-744').format(exc)}
 
 
-def check_bridge(send):
+def check_bridge(send, *, require_setup=False):
     try:
         context = json.loads(send(b'{"type":"get_rhino_context","selection_limit":0}'))
         if not isinstance(context, dict) or context.get("status") not in ("success", "error"):
@@ -104,6 +103,26 @@ def check_bridge(send):
         if context.get("capabilities", {}).get("modeling_materials") != 2:
             return {"status": "error", "error_code": "unsupported_materials", "mutation_state": "not_started",
                     "message": read_instruction(__file__, 'response-746')}
+        if require_setup and context.get("capabilities", {}).get("modeling_setup") != 1:
+            return {"status": "error", "error_code": "unsupported_modeling_setup", "mutation_state": "not_started",
+                    "message": "Load the updated Bridge (modeling_setup=1) before combined Material/Layer setup."}
     except Exception as exc:
         return {"status": "error", "mutation_state": "not_started", "message": str(exc)}
     return None
+
+
+def setup_result(response):
+    if response.get("status") != "success":
+        return response
+    result = response.get("result")
+    if (response.get("result_error") or not isinstance(result, dict)
+            or type(result.get("applied")) is not bool
+            or not isinstance(result.get("differences"), list)
+            or not isinstance(result.get("errors"), list)
+            or result["applied"] != (not result["differences"] and not result["errors"])):
+        return {"status": "error", "error_code": "setup_result_unconfirmed", "mutation_state": "unknown",
+                "message": "Could not confirm setup results. Inspect Rhino before retrying."}
+    if result["applied"]:
+        return {"status": "success", "applied": True}
+    return {"status": "incomplete", "applied": False,
+            "differences": result["differences"], "errors": result["errors"]}

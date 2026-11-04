@@ -184,6 +184,86 @@ namespace RhinoAlmondBridge
             return new { updated_materials = updated, skipped_materials = skipped };
         }
 
+        private static RenderMaterial[] SetupMaterials(RhinoDoc doc, JObject recipe)
+        {
+            string name = (string)recipe["name"], legacy = "ALMOND::" + (string)recipe["material_id"];
+            return doc.RenderMaterials.Where(m => m != null && (m.Name == name || m.Name == legacy)).ToArray();
+        }
+
+        private static JArray Rgb(Color color) => new JArray(color.R, color.G, color.B);
+
+        private static JArray ReadSetupMaterials(RhinoDoc doc, JObject recipe)
+        {
+            string name = (string)recipe["name"], legacy = "ALMOND::" + (string)recipe["material_id"];
+            var matches = SetupMaterials(doc, recipe);
+            foreach (var material in doc.Materials.Where(m => !m.IsDeleted && (m.Name == name || m.Name == legacy)))
+            {
+                string identity = material.GetUserString(ModelingMetadata.Key("material_id"));
+                if (!String.IsNullOrEmpty(identity) && identity != (string)recipe["material_id"])
+                    throw new InvalidOperationException("The named material has a conflicting material_id: " + material.Name);
+                if (!matches.Any(m => m.Id == material.RenderMaterialInstanceId))
+                    throw new InvalidOperationException("The named material has no matching render content; inspect it before setup: " + material.Name);
+            }
+            var result = new JArray();
+            foreach (var material in matches)
+            {
+                bool pbr = material.TypeId == ContentUuids.PhysicallyBasedMaterialType;
+                var state = new JObject { ["name"] = material.Name, ["type"] = pbr ? "pbr" : material.TypeId.ToString() };
+                if (pbr)
+                {
+                    var value = material.GetParameter(Rhino.Render.ParameterNames.PhysicallyBased.BaseColor) as IConvertible;
+                    if (value == null) throw new InvalidOperationException("Cannot read material base color: " + material.Name);
+                    var color = (Rhino.Display.Color4f)value.ToType(typeof(Rhino.Display.Color4f), System.Globalization.CultureInfo.InvariantCulture);
+                    state["base_color"] = new JArray((int)Math.Round(color.R * 255), (int)Math.Round(color.G * 255), (int)Math.Round(color.B * 255));
+                    foreach (var pair in new[] {
+                        ("metallic", Rhino.Render.ParameterNames.PhysicallyBased.Metallic),
+                        ("roughness", Rhino.Render.ParameterNames.PhysicallyBased.Roughness),
+                        ("opacity", Rhino.Render.ParameterNames.PhysicallyBased.Opacity) })
+                    {
+                        var parameter = material.GetParameter(pair.Item2);
+                        if (parameter == null) throw new InvalidOperationException("Cannot read material " + pair.Item1 + ": " + material.Name);
+                        state[pair.Item1] = Convert.ToDouble(parameter, System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                }
+                result.Add(state);
+            }
+            return result;
+        }
+
+        private static Layer SetupLayer(RhinoDoc doc, string path) => doc.Layers.FirstOrDefault(layer =>
+            !layer.IsDeleted && !layer.IsReference && String.Equals(layer.FullPath, path, StringComparison.OrdinalIgnoreCase));
+
+        public static object Setup(RhinoDoc doc, string recipesJson, string specificationsJson, bool overwrite)
+        {
+            if (doc == null) throw new ArgumentNullException(nameof(doc));
+            var recipes = JArray.Parse(recipesJson);
+            var specifications = JArray.Parse(specificationsJson);
+            var result = ModelingSetup.Apply(recipes, specifications, overwrite,
+                recipe => ReadSetupMaterials(doc, recipe),
+                recipe => EnsureMaterial(doc, recipe, overwrite),
+                specification => {
+                    var layer = SetupLayer(doc, (string)specification["path"]);
+                    if (layer == null) return null;
+                    return new JObject { ["color"] = Rgb(layer.Color), ["plot_color"] = Rgb(layer.PlotColor),
+                        ["material"] = layer.RenderMaterial?.Name };
+                },
+                specification => {
+                    var recipe = specification["material"] as JObject;
+                    var matches = recipe == null ? Array.Empty<RenderMaterial>() : SetupMaterials(doc, recipe);
+                    var material = matches.FirstOrDefault(m => m.Name == (string)recipe["name"]) ?? matches.FirstOrDefault();
+                    if (recipe != null && material == null)
+                        throw new InvalidOperationException("Required material was not registered: " + (string)recipe["name"]);
+                    int index = DocumentLayers.Ensure(doc, (string)specification["path"]);
+                    if (material != null) doc.Layers[index].RenderMaterial = material;
+                    var layer = doc.Layers[index];
+                    layer.EnsurePrivateCopy();
+                    layer.Color = layer.PlotColor = ColorFor(specification["color"]);
+                    if (!doc.Layers.Modify(layer, index, true)) throw new InvalidOperationException("Cannot style layer: " + (string)specification["path"]);
+                });
+            doc.Views.Redraw();
+            return ModelingSetup.ToResultData(result);
+        }
+
         public static object ApplyLayers(RhinoDoc doc, string specificationsJson)
         {
             int count = 0;

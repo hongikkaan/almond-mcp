@@ -77,11 +77,12 @@ namespace RhinoAlmondBridge
                 }
                 if (source is RhinoPageView)
                     return Error("layout_not_supported", "Specify model_view_id to inspect the model without leaving the active Layout; use the Layout capture tool for paper.");
-                var editor = EditingContext.Observe(doc);
-                if ((string)editor["mode"] != "model" || (bool?)editor["stable"] != true)
-                    return Error("editing_context_unverified", "Detached inspection requires a verified model editing context; group/block editing is unsupported.");
+                var editor = EditingContext.ObserveObjects(doc).State;
+                if (!EditingContext.CanObserve(editor))
+                    return Error("editing_context_unverified", "Detached inspection requires a verified model or supported group/block editor context.");
                 var baseline = ObjectObservation.VisibleObjects(doc);
                 var baselineIds = new HashSet<Guid>(baseline.Select(o => o.Id));
+                string beforeContent = ObjectObservation.SnapshotToken(doc, new JObject(), ObjectObservation.ModelObjects(doc), editor);
                 var beforeView = ViewState(source.ActiveViewport);
                 var beforeActiveMain = ViewState(activeView.MainViewport);
                 var beforeActiveViewport = ViewState(activeView.ActiveViewport);
@@ -96,6 +97,8 @@ namespace RhinoAlmondBridge
                     graphics.Clear(Color.White);
                     for (int index = 0; index < views.Count; index++)
                     {
+                        if (!JToken.DeepEquals(editor, EditingContext.ObserveObjects(doc).State))
+                            return Error("editing_context_changed", "The editor changed during inspection; no combined image was returned.", tiles);
                         var tileRequest = (JObject)views[index];
                         var rectangle = new Rectangle(index % columns * width, index / columns * height, width, height);
                         var tile = new JObject { ["index"] = index, ["direction"] = (string)tileRequest["direction"] ?? "current",
@@ -165,7 +168,9 @@ namespace RhinoAlmondBridge
                         !JToken.DeepEquals(beforeActiveViewport, ViewState(activeView.ActiveViewport)) ||
                         !JToken.DeepEquals(beforeView, ViewState(source.ActiveViewport)) ||
                         !beforeSelection.SetEquals(Selected(doc)) || doc.Modified != beforeModified ||
-                        !baselineIds.SetEquals(ObjectObservation.VisibleObjects(doc).Select(o => o.Id)))
+                        !baselineIds.SetEquals(ObjectObservation.VisibleObjects(doc).Select(o => o.Id)) ||
+                        !JToken.DeepEquals(editor, EditingContext.ObserveObjects(doc).State) ||
+                        beforeContent != ObjectObservation.SnapshotToken(doc, new JObject(), ObjectObservation.ModelObjects(doc), editor))
                         return Error("observation_state_changed", "Document, camera, selection or visibility changed during capture; no image was returned.", tiles);
                     if (captured == 0)
                         return Error("all_tiles_failed", "No requested inspection tile could be captured.", tiles);
@@ -181,7 +186,8 @@ namespace RhinoAlmondBridge
                                 ["active_viewport_id"] = activeView.ActiveViewport.Id.ToString(),
                                 ["active_main_viewport_id"] = activeView.MainViewport.Id.ToString(),
                                 ["active_space"] = beforeSpace.ToString(),
-                                ["document_visible_count"] = baseline.Length, ["live_state_preserved"] = true },
+                                ["document_visible_count"] = baseline.Length, ["live_state_preserved"] = true,
+                                ["editing_context"] = editor.DeepClone() },
                             ["limitations"] = new JArray("Scopes describe document-visible eligible objects, not proof that every object produced visible pixels.",
                                 "Groups never expand the supplied object IDs. Explicit block occurrence/definition filtering is unsupported.",
                                 "Existing non-object display conduits may draw overlays; clipping participation belongs to the detached viewport.",

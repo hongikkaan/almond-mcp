@@ -12,7 +12,7 @@ from almond_mcp.features.context.tools import register
 
 
 @pytest.mark.parametrize("name,arguments", [
-    ("get_rhino_objects", {"scope": "not-a-scope"}),
+    ("get_objects", {"scope": "not-a-scope"}),
     ("get_object_intersections", {"object_ids": []}),
 ])
 def test_invalid_observation_input_sets_mcp_error_without_native_dispatch(name, arguments):
@@ -29,29 +29,32 @@ def test_invalid_observation_input_sets_mcp_error_without_native_dispatch(name, 
 
 
 @pytest.mark.parametrize("name,arguments", [
-    ("get_rhino_objects", {}),
+    ("get_objects", {}),
     ("get_object_intersections", {"object_ids": [str(UUID(int=1))]}),
 ])
-def test_native_observation_error_keeps_details_and_sets_mcp_error(name, arguments):
+def test_native_observation_error_keeps_details_and_sets_mcp_error(name, arguments, monkeypatch):
+    monkeypatch.setenv("ALMOND_MODEL_PATH", r"C:\offline\model.3dm")
     error = {"status": "error", "error_code": "document_mismatch", "message": "Bound document changed.",
              "details": {"observed_path": "other.3dm"}, "complete": False}
 
     def send(raw):
         if json.loads(raw)["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"object_observation": 2, "intersection_queries": 1}})
+            return json.dumps({"status": "success", "capabilities": {"object_observation": 4, "intersection_queries": 1}})
         return json.dumps(error)
 
     tools = register(FastMCP("observation-error-test"), SimpleNamespace(_send_and_receive=send))
-    result = tools[name](expected_model_path=r"C:\offline\model.3dm", **arguments)
+    result = tools[name](**arguments)
     assert isinstance(result, ToolResult)
     assert result.is_error
     assert json.loads(result.structured_content["result"]) == error
 
 
-def test_unfinished_intersections_keep_unknown_pairs_and_cursor_without_hard_error():
+def test_unknown_intersections_cannot_be_reported_as_a_complete_count(monkeypatch):
+    monkeypatch.setenv("ALMOND_MODEL_PATH", r"C:\offline\model.3dm")
     evidence = {"status": "success", "complete": False, "pagination_complete": False,
-                "next_cursor": "continue-the-same-scope", "unknown_count": 1,
-                "pairs": [{"pair_state": "unknown", "a": {"handle": "a"}, "b": {"handle": "b"}}]}
+                "next_cursor": "continue-the-same-scope", "unsupported_objects": [],
+                "pairs": [{"a": {"handle": "a"}, "b": {"handle": "b"},
+                           "overlap": {"status": "unknown", "reason": "Boolean failed"}}]}
 
     def send(raw):
         if json.loads(raw)["type"] == "get_rhino_context":
@@ -59,13 +62,16 @@ def test_unfinished_intersections_keep_unknown_pairs_and_cursor_without_hard_err
         return json.dumps(evidence)
 
     tool = register(FastMCP("observation-partial-test"), SimpleNamespace(_send_and_receive=send))["get_object_intersections"]
-    result = tool(object_ids=[str(UUID(int=1))], expected_model_path=r"C:\offline\model.3dm")
-    assert isinstance(result, str)
-    assert json.loads(result) == evidence
+    result = tool(object_ids=[str(UUID(int=1))])
+    assert isinstance(result, ToolResult) and result.is_error
+    detail = json.loads(result.structured_content["result"])
+    assert detail["error_code"] == "intersection_count_incomplete"
+    assert "intersections" not in detail
+    assert detail["failed_pairs"][0]["reason"] == evidence["pairs"][0]["overlap"]
 
 
 @pytest.mark.parametrize("name,arguments", [
-    ("get_rhino_objects", {"scope": "not-a-scope"}),
+    ("get_objects", {"scope": "not-a-scope"}),
     ("get_object_intersections", {"object_ids": []}),
 ])
 def test_mcp_client_receives_the_error_flag_and_original_json(name, arguments):

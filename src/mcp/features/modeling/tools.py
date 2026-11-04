@@ -1,5 +1,5 @@
 """Modeling policy, script execution, setup and material tools."""
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.modeling.output import GROUPS, project
 from almond_mcp.instruction_text import tool_instruction, read_instruction
@@ -47,6 +47,7 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @mcp_error_result
     @tool_instruction(__file__, 'edit_planar_face')
     def edit_planar_face(object_id: str, face_index: StrictInt, expected_geometry_crc: StrictInt,
                          translation: list[StrictFloat | StrictInt], expected_model_path: str = "") -> str:
@@ -60,6 +61,7 @@ def register(mcp, context):
 
 
     @mcp.tool()
+    @mcp_error_result
     @tool_instruction(__file__, 'edit_planar_faces')
     def edit_planar_faces(edits: list[dict], expected_model_path: str = "") -> str:
         try:
@@ -103,21 +105,13 @@ def register(mcp, context):
 
     @mcp.tool()
     @tool_instruction(__file__, 'setup_modeling')
-    def setup_modeling(operation: str, overwrite: bool | None = None) -> str:
-        if operation not in ("materials", "layers"):
-            return json.dumps(error_payload("operation must be materials or layers"))
-        if overwrite is not None and type(overwrite) is not bool:
-            return json.dumps(error_payload("overwrite must be true, false or null"))
-        if operation == "layers" and overwrite is not None:
-            return json.dumps(error_payload("overwrite applies only to materials"))
+    def setup_modeling(overwrite: StrictBool) -> str:
         try:
-            code = modeling_setup.setup_script(operation, context.material_library, context.construction_library, overwrite)
+            code = modeling_setup.setup_script(context.material_library, context.construction_library, overwrite)
         except (KeyError, ValueError, IndexError, TypeError) as exc:
             return json.dumps({"status": "error", "mutation_state": "not_started", "message": str(exc)})
-        result = modeling_setup.dispatch(code, context._send_and_receive, timeout=600.0)
-        if result.get("status") == "success" and (result.get("result_error") or not isinstance(result.get("result"), dict)):
-            result.update(mutation_state="unknown", message=read_instruction(__file__, 'response-750'))
-        return json.dumps(result)
+        result = modeling_setup.dispatch(code, context._send_and_receive, timeout=600.0, require_setup=True)
+        return json.dumps(modeling_setup.setup_result(result), ensure_ascii=False)
 
 
     @mcp.tool()

@@ -20,10 +20,11 @@ def test_capture_annotations_disclose_file_writes_without_claiming_destructive_m
     context_tools.register(server, SimpleNamespace(_send_and_receive=None))
     tools = {tool.name: tool.to_mcp_tool().model_dump(mode="json", by_alias=True)
              for tool in asyncio.run(server.list_tools())}
-    for name in ("get_rhino_context", "get_rhino_viewport_image", "capture_rhino_inspection"):
+    for name in ("get_current_viewcapture", "get_defined_viewcapture", "capture_rhino_inspection"):
         assert tools[name]["annotations"]["readOnlyHint"] is False
         assert tools[name]["annotations"]["destructiveHint"] is False
-    assert tools["get_rhino_objects"]["annotations"]["readOnlyHint"] is True
+    for name in ("get_rhino_context", "get_objects"):
+        assert tools[name]["annotations"]["readOnlyHint"] is True
 
 
 class RegisteredTools:
@@ -39,7 +40,11 @@ class RegisteredTools:
 
 def _tools(send):
     mcp = RegisteredTools()
-    context_tools.register(mcp, SimpleNamespace(_send_and_receive=send))
+    def capable_send(payload):
+        if json.loads(payload)["type"] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {"view_capture": 1, "inspection_capture": 1}})
+        return send(payload)
+    context_tools.register(mcp, SimpleNamespace(_send_and_receive=capable_send))
     return mcp.tools
 
 
@@ -70,7 +75,7 @@ def test_viewport_public_tool_saves_identical_png_in_bound_plan_artifacts(tmp_pa
     raw = _png()
     tools = _tools(lambda _request: json.dumps({"status": "success", "image": _native_image(raw), "warnings": []}))
 
-    response = tools["get_rhino_viewport_image"]()
+    response = tools["get_current_viewcapture"]()
 
     assert not response.is_error
     assert base64.b64decode(_image(response).data) == raw
@@ -110,29 +115,6 @@ def test_inspection_public_tool_keeps_png_and_saves_in_connection_owned_scratch(
     assert (tmp_path / image_file["path"]).read_bytes() == raw
 
 
-def test_context_image_returns_metadata_and_original_png_in_one_tool_result(tmp_path, monkeypatch):
-    _owned(monkeypatch, tmp_path)
-    raw = _png()
-    calls = []
-
-    def send(payload):
-        calls.append(json.loads(payload))
-        return json.dumps({"status": "success", "document": {"name": "model.3dm"},
-                           "image": _native_image(raw), "warnings": []})
-
-    response = _tools(send)["get_rhino_context"](include_image=True)
-
-    assert len(calls) == 1 and calls[0]["include_image"] is True
-    assert not response.is_error
-    assert base64.b64decode(_image(response).data) == raw
-    metadata = json.loads(response.structured_content["result"])
-    file_info = metadata["image_file"]
-    assert file_info["status"] == "saved" and file_info["lifetime"] == "plan"
-    assert (tmp_path / file_info["path"]).read_bytes() == raw
-    assert len([item for item in response.content if item.type == "image"]) == 1
-    assert all("data" not in item.text for item in response.content if item.type == "text")
-
-
 def test_storage_failure_keeps_viewport_png_and_reports_file_error(tmp_path, monkeypatch):
     _owned(monkeypatch, tmp_path)
     occupied = tmp_path / "tmp" / "design" / "captures"
@@ -140,7 +122,7 @@ def test_storage_failure_keeps_viewport_png_and_reports_file_error(tmp_path, mon
     occupied.write_bytes(b"untouched")
     raw = _png()
     response = _tools(lambda _: json.dumps({"status": "success", "image": _native_image(raw)}))[
-        "get_rhino_viewport_image"]()
+        "get_current_viewcapture"]()
 
     assert not response.is_error
     assert base64.b64decode(_image(response).data) == raw
@@ -155,7 +137,7 @@ def test_invalid_managed_path_cannot_write_outside_project(tmp_path, monkeypatch
     _owned(monkeypatch, tmp_path, plan="../outside")
     raw = _png()
     response = _tools(lambda _: json.dumps({"status": "success", "image": _native_image(raw)}))[
-        "get_rhino_viewport_image"]()
+        "get_current_viewcapture"]()
 
     assert not response.is_error
     assert base64.b64decode(_image(response).data) == raw
@@ -168,7 +150,7 @@ def test_missing_connection_binding_never_saves_into_random_working_directory(tm
     monkeypatch.setenv("ALMOND_CAPTURE_ROOT", str(tmp_path.parent / "foreign" / "captures"))
     raw = _png()
     response = _tools(lambda _: json.dumps({"status": "success", "image": _native_image(raw)}))[
-        "get_rhino_viewport_image"]()
+        "get_current_viewcapture"]()
 
     assert not response.is_error
     assert response.structured_content["image_file"]["status"] == "error"
@@ -195,10 +177,10 @@ def test_capture_public_tool_through_owned_runtime_preserves_connection_lifetime
     monkeypatch.setenv("ALMOND_CAPTURE_ROOT", foreign)
     raw = _png()
     capture = _tools(lambda _: json.dumps({"status": "success", "image": _native_image(raw)}))[
-        "get_rhino_viewport_image"]
+        "get_current_viewcapture"]
 
     class Message:
-        name = "get_rhino_viewport_image"
+        name = "get_current_viewcapture"
         arguments = {}
 
         def model_copy(self, update):
@@ -246,10 +228,10 @@ def test_capture_still_returns_png_when_prior_artifact_write_is_unconfirmed(tmp_
     monkeypatch.setattr(shared_store, "validate_artifact_writers", unavailable)
     raw = _png()
     capture = _tools(lambda _: json.dumps({"status": "success", "image": _native_image(raw)}))[
-        "get_rhino_viewport_image"]
+        "get_current_viewcapture"]
 
     class Message:
-        name = "get_rhino_viewport_image"
+        name = "get_current_viewcapture"
         arguments = {}
 
         def model_copy(self, update):

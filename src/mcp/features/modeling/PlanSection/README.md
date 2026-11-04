@@ -32,7 +32,7 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 기존 `execute_rhino_script(language="python")` 경로에서 아래처럼 스크립트를 읽고 `run`을 호출한다. 런타임이 검증해 제공한 `doc`를 전달하며 다른 문서를 자동으로 열지 않는다. 이 함수는 목록·점·폴더 입력 창을 열지 않는다. 일반 `main()`의 Project는 번호·목록 선택이고 CurrentDocument는 GUID 직접 입력이다. `Document`는 Create의 출력 위치이며 `CurrentDocument` 선택 방식과 다른 옵션이다. 무인 실행은 `run()`의 인자로 출력·표현 옵션을 지정한다.
 
-공개 실행 도구는 RhinoCode를 사용하며 연결 문서의 `StartScriptServer`가 필요하다. `get_modeling_guide(tool="execute_rhino_script")`로 현재 실행 계약을 확인한다. MCP에서 대화형 `main()`이나 `runpy.run_path(..., run_name="__main__")`을 호출하지 않는다. 아래처럼 기본 `run_path`로 함수를 읽고 `result`에 JSON 결과를 대입한다. 실행기가 이미 연 Undo는 재사용하며 PlanSection이 종료하지 않는다.
+공개 실행 도구는 RhinoCode를 사용하며 연결 문서의 `StartScriptServer`가 필요하다. `execute_rhino_script`의 도구 설명 전문에서 현재 실행 계약을 확인한다. 내장 API·로딩 참고자료가 필요하면 `get_modeling_guide(include_scripting=True)`로 요청한다. MCP에서 대화형 `main()`이나 `runpy.run_path(..., run_name="__main__")`을 호출하지 않는다. 아래처럼 기본 `run_path`로 함수를 읽고 `result`에 JSON 결과를 대입한다. 실행기가 이미 연 Undo는 재사용하며 PlanSection이 종료하지 않는다.
 
 ```python
 import json

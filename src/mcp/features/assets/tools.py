@@ -1,7 +1,7 @@
 """Register asset tools and resources against the calling server's live context."""
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
-from almond_mcp.features.assets.output import GROUPS, project
+from almond_mcp.features.assets.output import GROUPS, project, with_next_step
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 from pydantic import StrictBool, StrictInt
@@ -528,9 +528,9 @@ public class Script
         if not asset:
             return json.dumps(error_payload(f"Unknown drawing asset_id: {asset_id}"))
         if asset.get("source_only"):
-            return json.dumps({"status": "error", "error_code": "asset_needs_conversion",
+            return json.dumps(with_next_step({"status": "error", "error_code": "asset_needs_conversion",
                 "mutation_state": "not_started", "next_tool": "prepare_drawing_asset",
-                "message": "Prepare and register this source as a 3DM before placement; preserve its asset_id."})
+                "message": "Prepare and register this source as a 3DM before placement; preserve its asset_id."}))
         if not asset.get("file_available"):
             return json.dumps(error_payload(f"Drawing asset file is missing for {asset_id}."))
         numeric_values = [x, y, z, rotation_degrees, scale]

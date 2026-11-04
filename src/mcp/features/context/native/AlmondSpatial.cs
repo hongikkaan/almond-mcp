@@ -323,21 +323,34 @@ public static class AlmondSpatial
         var wanted = PathObject(doc, path, out parent) as InstanceObject;
         if (wanted == null) throw new ArgumentException("Path target is not a block.");
         var world = parent * wanted.InstanceXform;
+        var editor = RhinoAlmondBridge.EditingContext.Observe(doc);
+        var impact = RhinoAlmondBridge.BlockDefinitionImpact.Observe(doc, wanted.InstanceDefinition,
+            (string)editor["mode"] == "model" && (bool?)editor["stable"] == true);
         if (path.Length == 1) {
-            if (!Editable(wanted)) throw new InvalidOperationException("The explicit root is not currently editable.");
             var root = Row(doc, wanted); root["definition_to_world"] = Matrix(world);
             root["match_rule"] = "explicit_root_id"; root["editor_owner_verified"] = false;
+            root["document_object"] = true;
+            root["selectable_now"] = Editable(wanted);
+            root["editing_permission"] = "not_granted_by_read_only_resolution";
+            root["definition_impact"] = impact;
             return root;
         }
         var matches = TopObjects(doc).OfType<InstanceObject>().Where(o =>
             Editable(o) && o.InstanceDefinition.Id == wanted.InstanceDefinition.Id &&
             SameTransform(o.InstanceXform, world, doc.ModelAbsoluteTolerance)).ToArray();
-        if (matches.Length != 1)
-            throw new InvalidOperationException("Expected one editable occurrence; found " + matches.Length +
-                ". Refresh editor level/path; do not select the first match.");
-        var row = Row(doc, matches[0]); row["definition_to_world"] = Matrix(world);
-        row["match_rule"] = "definition_and_world_transform";
+        // Resolve the explicit occurrence even before entering an editor. A matching
+        // definition/transform is not proof that a top-level object is its edit copy.
+        var row = Row(doc, wanted); row["definition_to_world"] = Matrix(world);
+        row["root_object_id"] = path[0].ToString();
+        row["block_path_ids"] = new JArray(path.Skip(1).Select(id => id.ToString()));
+        row["document_object"] = false;
+        row["match_rule"] = "explicit_definition_occurrence_path";
+        row["candidate_count"] = matches.Length;
+        row["candidate_object_ids"] = new JArray(matches.Take(16).Select(o => o.Id.ToString()));
+        row["candidates_truncated"] = matches.Length > 16;
+        row["editing_permission"] = "definition member ID is not an editable document object; candidates do not prove editor ownership";
         row["editor_owner_verified"] = false;
+        row["definition_impact"] = impact;
         return row;
     }
 

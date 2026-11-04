@@ -54,7 +54,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 1. 일반 Codex 대화에서 "`C:\작업\모델.3dm`을 Almond의 새 세션으로 열어 줘"라고 요청한다.
 2. Codex가 `start_session`에 절대 `model_path`와 새 `request_id`를 전달한다.
    새 Rhino를 열고 `_almondconnect`를 자동 실행한 뒤 해당 프로세스에만 연결한다. CoS 앱이나 별도 Codex 창을 열 필요는 없다. 원본 모델을 저장하거나 기존 Rhino를 종료하지 않는다.
-3. 프로젝트·문서 정보가 필요하면 반환된 `connection_id`로 `project_info`의 필요한 sections를 조회한다. 기본 document 항목이 live 확인을 포함한다. 자료를 작성할 때는 `set_working_plan`으로 Plan의 `artifact_dir`를 선택한다.
+3. 프로젝트·문서 정보가 필요하면 반환된 `connection_id`로 `project_info`의 필요한 sections를 조회한다. project/document는 한 번의 live 확인을 공유하고, project에 파일 목록·문서 이름·경로·is_bound_document가 나온다. DB·선택 Plan의 산출물 경로는 locations에서 조회한다. 자료를 작성할 때는 `set_working_plan`으로 Plan의 `artifact_dir`를 선택한다.
 4. 끝나면 `disconnect`를 호출한다. Rhino 창은 남으며 저장·종료는 Rhino에서 한다.
 
 새 Rhino는 디스크에 저장된 파일을 연다. 다른 Rhino 창의 저장되지 않은 변경을 복제하지 않는다.
