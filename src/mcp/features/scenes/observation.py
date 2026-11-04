@@ -25,6 +25,12 @@ def observe_objects(send, model_path, ids):
         pathnorm = ntpath.normpath if ntpath.splitdrive(model_path)[0] else os.path.normpath
         return norm(pathnorm(value)) == norm(pathnorm(model_path))
 
+    def require_stable_membership(reply):
+        editing = reply.get("editing")
+        if (not isinstance(editing, dict) or editing.get("stable") is not True
+                or reply.get("membership_complete") is False):
+            raise ValueError("Scene objects require stable, complete membership observation; no Scene membership changes were made.")
+
     if not ids:
         request = {"type": "get_rhino_objects", "scope": "document", "object_ids": [],
                    "expected_model_path": model_path, "filters": {}, "offset": 0, "limit": 1,
@@ -32,6 +38,9 @@ def observe_objects(send, model_path, ids):
         reply = json.loads(send(json.dumps(request).encode("utf-8")))
         if reply.get("status") != "success" or not same_model(reply.get("model_path")):
             raise ValueError("Could not verify the bound Rhino document; no Scene membership changes were made.")
+        # This is a document identity check, so limit=1 may legitimately make
+        # complete=false. Editor and membership evidence must still be reliable.
+        require_stable_membership(reply)
         return rows, missing
 
     def inspect(batch):
@@ -50,6 +59,7 @@ def observe_objects(send, model_path, ids):
             raise ValueError("Could not observe the bound Rhino document; no Scene membership changes were made.")
         if not same_model(reply.get("model_path")):
             raise ValueError("Rhino returned an observation for a different document.")
+        require_stable_membership(reply)
         values = reply.get("objects")
         if reply.get("complete") is not True or not isinstance(values, list) or len(values) != len(batch):
             raise ValueError("The Rhino object observation was incomplete; no Scene membership changes were made.")

@@ -61,10 +61,48 @@ class SceneMembershipTests(unittest.TestCase):
             if MISSING in ids:
                 return json.dumps({'status': 'error', 'error_code': 'invalid_arguments', 'message': 'IDs are not top-level model objects: ' + MISSING})
             return json.dumps({'status': 'success', 'complete': True, 'model_path': MODEL,
+                               'editing': {'stable': True},
                                'document_units': 'Meters', 'objects': [{'id': v, 'name': 'x', 'object_type': 'ClipPlane', 'bounds': {'min': [0, 1, 2], 'max': [3, 4, 5]}} for v in ids]})
         found, missing = observe_objects(send, MODEL, [A, MISSING, B])
         self.assertEqual(set(found), {A, B})
         self.assertEqual(found[B]['bounds_mm'], [0, 1000, 2000, 3000, 4000, 5000])
         self.assertEqual(missing, {MISSING})
+
+    def test_empty_observation_checks_membership_without_requiring_a_full_page(self):
+        reply = {'status': 'success', 'model_path': MODEL, 'complete': False,
+                 'objects': [{'id': A}], 'editing': {'stable': True}}
+        def send(payload):
+            request = json.loads(payload)
+            if request['type'] == 'get_rhino_context':
+                return json.dumps({'status': 'success', 'capabilities': {'object_observation': 2}})
+            self.assertEqual(request['scope'], 'document')
+            self.assertEqual(request['limit'], 1)
+            return json.dumps(reply)
+        self.assertEqual(observe_objects(send, MODEL, []), ({}, set()))
+        for evidence in ({'editing': {'stable': False}}, {'editing': None},
+                         {'editing': {'stable': True}, 'membership_complete': False}):
+            with self.subTest(evidence=evidence):
+                reply.update(evidence)
+                with self.assertRaisesRegex(ValueError, 'stable, complete membership'):
+                    observe_objects(send, MODEL, [])
+
+    def test_unstable_empty_observation_rejects_scene_reads_and_preserves_removal(self):
+        self.store._scene_group_objects = lambda *args: []
+        self.change([B], True)
+        before = self.store.get_scene(self.scene)
+        def send(payload):
+            request = json.loads(payload)
+            if request['type'] == 'get_rhino_context':
+                return json.dumps({'status': 'success', 'capabilities': {'object_observation': 2}})
+            return json.dumps({'status': 'success', 'model_path': MODEL, 'complete': False,
+                               'editing': {'stable': False}, 'membership_complete': False})
+        observer = lambda model, ids: observe_objects(send, model, ids)
+        with self.assertRaisesRegex(ValueError, 'stable, complete membership'):
+            self.store.change_scene_objects(self.scene, MODEL, [B], False, lambda _: None, observer)
+        self.assertEqual(self.store.get_scene(self.scene), before)
+        self.assertEqual([row['rhino_guid'] for row in self.objects()], [B])
+        empty_scene = self.store.create_scene('Empty')['scene_id']
+        with self.assertRaisesRegex(ValueError, 'stable, complete membership'):
+            self.store.scene_objects(empty_scene, MODEL, lambda _: None, observer)
 
 if __name__ == '__main__': unittest.main()
