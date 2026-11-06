@@ -52,7 +52,7 @@ Almond 전용 `plan_section` 도구를 사용한다. 이 도구는 Bridge에 포
 
 거리별 입면선 0.09→0.04mm·darkness 80→45% 기본값은 내부 style 구분에 사용된다. 최종 section/elevation의 인쇄색·선폭은 ByLayer다. 전용 도구를 추가해도 이 출력 정책은 바뀌지 않는다.
 
-생성 GUID와 보고서는 전체를 반환하며 자동 pagination·JSON 결과 저장은 제공하지 않는다. 큰 도면은 clipping별로 호출해 응답량을 관리한다. 이 native 실행은 RhinoCode journal을 만들지 않으므로 `get_rhino_execution`으로 결과를 회수할 수 없다. 큰 응답의 전송 실패도 완료된 형상을 되돌리지 않으며, 결과를 얻기 위해 도면을 재생성하지 않는다.
+전용 도구의 전체 결과에는 기존 native capture 한도인 **65,536 UTF-8 JSON bytes·16 nested containers**가 적용된다. 한도를 넘으면 결과 전체가 누락되고 `plan_section_result_unconfirmed`, `mutation_state=unknown`, `requires_reconciliation=true` 및 원래 `result_error`를 반환한다. 결과 캡처 실패는 이미 끝난 도면 변경을 rollback하지 않는다. 자동 재시도하거나 ID 복구를 위해 재생성하지 않는다. 한도 안에서 object_ids는 자르지 않지만 기존 알고리즘의 `metadata_conflicts`는 64개 표본이며 `metadata_conflict_count`가 전체 수다. 자동 pagination·JSON 보관은 없다. 단일 clipping의 1,681 GUID 배열만 65,560 bytes이므로 clipping별 호출도 전달을 보장하지 않는다. 이 native 경로는 RhinoCode journal을 만들지 않아 `get_rhino_execution`으로 회수할 수 없다. native 실행 실패는 원래 상태를 `native_status`에 보존하면서 외부 `status=error`와 MCP `isError=true`로 전달한다. partial/cancelled는 미완료가 드러나는 구조화 결과이며 기존 계약대로 MCP `isError=false`다.
 
 ## 개발 검사
 

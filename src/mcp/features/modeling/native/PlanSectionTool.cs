@@ -108,6 +108,17 @@ _almond_result_json = json.dumps(run(_almond_doc,
             }
         }
 
+        // ScriptExecutor deliberately accepts CLR data containers, not JTokens.
+        // Keep its size/depth/type limits unchanged and let CaptureResult enforce them.
+        static object ResultData(JToken token)
+        {
+            if (token is JObject obj)
+                return obj.Properties().ToDictionary(p => p.Name, p => ResultData(p.Value));
+            if (token is JArray array)
+                return array.Select(ResultData).ToList();
+            return ((JValue)token).Value;
+        }
+
         public static JObject Handle(RhinoDoc doc, JObject request)
         {
             bool entered = false;
@@ -156,10 +167,15 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 {
                     entered = true;
                     if (!python.ExecuteScript(Invoke)) throw new InvalidOperationException("PlanSection did not return an execution result.");
-                    var drawing = JObject.Parse((string)python.GetVariable("_almond_result_json"));
+                    JObject drawing;
+                    using (var reader = new JsonTextReader(new StringReader((string)python.GetVariable("_almond_result_json"))))
+                    {
+                        reader.DateParseHandling = DateParseHandling.None;
+                        drawing = JObject.Load(reader);
+                    }
                     drawing["algorithm_sha256"] = sha256;
                     drawing["output"] = "Document";
-                    return drawing;
+                    return ResultData(drawing);
                 }));
                 if ((string)response["status"] != "success" || response["result_error"] != null)
                 {
@@ -211,7 +227,7 @@ _almond_result_json = json.dumps(run(_almond_doc,
                     }
                 }
             }
-            if ((string)response?["status"] == "error" && diagnostic.Length != 0)
+            if ((string)response?["status"] != "success" && diagnostic.Length != 0)
             {
                 response["python_diagnostic"] = diagnostic.ToString();
                 response["python_diagnostic_truncated"] = diagnosticTruncated;

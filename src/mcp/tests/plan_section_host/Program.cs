@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RhinoAlmondBridge;
 
@@ -21,9 +23,17 @@ class Program
         ScriptExecutor.Calls = 0;
         return PlanSectionTool.Handle(Doc(), request ?? Request());
     }
-    static void Main()
+    static void Main(string[] args)
     {
         Rhino.Runtime.PythonScript.Reset();
+        if (args.Contains("--reproduce"))
+        {
+            var normal = Run();
+            Rhino.Runtime.PythonScript.FailInvoke = true;
+            Console.WriteLine(new JObject { ["normal"] = normal, ["exception"] = Run(),
+                ["projection_source"] = "production ScriptExecutor.Results.cs", ["native_geometry_tested"] = false });
+            return;
+        }
         var good = Run();
         Check((string)good["status"] == "success" && (string)good["mutation_state"] == "completed", "completed status: " + good);
         var python = Rhino.Runtime.PythonScript.Last;
@@ -32,8 +42,36 @@ class Program
         Check(ReferenceEquals(python.ScriptContextDoc, python.OriginalDoc) && python.Output == python.OriginalOutput, "context restored");
         Check(((string)good["result"]["algorithm_sha256"]).Length == 64, "source fingerprint");
         Check((string)good["result"]["output"] == "Document", "document output only");
+        Check(good["result"]["results"][0]["report"]["timestamp_text"].Type == JTokenType.String &&
+            (string)good["result"]["results"][0]["report"]["timestamp_text"] == "2026-11-05T12:00:00Z", "JSON date-shaped strings retain string identity");
         Check(python.LoadedSource.StartsWith("__name__ = 'almond_plansection_internal'\n"), "interactive main disabled");
         Check(python.LoadedSource.Contains("def run(doc, operation, clipping_ids"), "packaged algorithm shared");
+        var responses = new JObject { ["completed"] = good };
+
+        foreach (object unsupported in new object[] { new JObject { ["ok"] = true }, new JValue("text"),
+            new Dictionary<string, object> { ["nested"] = new JValue(1) } })
+        {
+            var captured = ScriptExecutor.CaptureForTest(unsupported);
+            Check(captured.Result == null && captured.ResultError.StartsWith("result_unsupported_type:"), "production unsupported JToken contract");
+        }
+        var exactBytes = ScriptExecutor.CaptureForTest(new string('x', 65534));
+        Check(exactBytes.ResultError == null && Encoding.UTF8.GetByteCount(exactBytes.Result.ToString(Formatting.None)) == 65536, "exact 64KiB accepted");
+        Check(ScriptExecutor.CaptureForTest(new string('x', 65535)).ResultError.StartsWith("result_too_large:"), "64KiB plus one rejected");
+        var unicode = String.Concat(Enumerable.Repeat("한", 21844)) + "aa";
+        Check(ScriptExecutor.CaptureForTest(unicode).ResultError == null &&
+            ScriptExecutor.CaptureForTest(unicode + "a").ResultError.StartsWith("result_too_large:"), "budget counts UTF8 bytes");
+        object nested = "leaf";
+        for (int depth = 0; depth < 16; depth++) nested = new List<object> { nested };
+        Check(ScriptExecutor.CaptureForTest(nested).ResultError == null, "16 containers accepted");
+        Check(ScriptExecutor.CaptureForTest(new List<object> { nested }).ResultError.StartsWith("result_too_deep:"), "17 containers rejected");
+        var ids = Enumerable.Repeat(Id.ToString(), 1681).ToList();
+        Check(Encoding.UTF8.GetByteCount(JsonConvert.SerializeObject(ids)) == 65560, "single clipping GUID array exceeds budget");
+        Rhino.Runtime.PythonScript.ObjectIds = ids;
+        var oversized = Run(); responses["oversized"] = oversized;
+        Check(oversized["result"] == null && ((string)oversized["result_error"]).StartsWith("result_too_large:") &&
+            (string)oversized["mutation_state"] == "unknown" && (bool)oversized["requires_reconciliation"], "oversized result unavailable after execution");
+        Check((string)oversized["status"] == "success" && ScriptExecutor.Calls == 1, "capture failure is not an execution retry or runtime failure");
+        Rhino.Runtime.PythonScript.Reset();
 
         foreach (var field in new[] { "script", "folder", "output", "language", "project_root", "artifact_dir" })
         {
@@ -66,11 +104,14 @@ class Program
         {
             Rhino.Runtime.PythonScript.DrawingStatus = state;
             var result = Run();
+            responses[state] = result;
             Check((string)result["drawing_status"] == state && (string)result["mutation_state"] == "partial", "partial evidence " + state);
         }
         Rhino.Runtime.PythonScript.Reset();
         Rhino.Runtime.PythonScript.FailInvoke = true;
-        Check((string)Run()["mutation_state"] == "unknown", "execution failure remains uncertain");
+        var runtimeError = Run(); responses["runtime_error"] = runtimeError;
+        Check((string)runtimeError["mutation_state"] == "unknown" && (string)runtimeError["status"] == "runtime_error" &&
+            runtimeError["error_trace"] != null, "production execution failure status remains uncertain");
         Check(Rhino.Runtime.PythonScript.Last.Variables.Count == 1, "failure cleanup");
         Rhino.Runtime.PythonScript.Reset();
         Rhino.Runtime.PythonScript.FailRemove = true;
@@ -78,7 +119,8 @@ class Program
         Check((string)cleanup["error_code"] == "plan_section_context_restore_failed", "cleanup diagnostic");
         Check(ReferenceEquals(python.ScriptContextDoc, python.OriginalDoc) && python.Output == python.OriginalOutput, "remove failure does not skip doc/output restoration");
         Check(cleanup["result"] != null && cleanup["context_restore_errors"] is JArray, "retain drawing result on cleanup failure");
-        Console.WriteLine(new JObject { ["passed"] = checks, ["native_geometry_tested"] = false }.ToString());
+        Console.WriteLine("PLAN_SECTION_RESULTS=" + new JObject { ["passed"] = checks, ["native_geometry_tested"] = false,
+            ["production_result_projector"] = true, ["responses"] = responses }.ToString(Formatting.None));
     }
 }
 
@@ -105,6 +147,7 @@ namespace Rhino.Runtime
         public static PythonScript Last;
         public static bool Unavailable, FailLoad, FailInvoke, FailRemove;
         public static string DrawingStatus = "completed";
+        public static List<string> ObjectIds = new List<string>();
         public readonly object OriginalDoc = new object();
         public readonly Action<string> OriginalOutput = text => { };
         public Dictionary<string, object> Variables = new Dictionary<string, object> { ["__name__"] = "original" };
@@ -112,7 +155,7 @@ namespace Rhino.Runtime
         public Action<string> Output { get; set; }
         public string LoadedSource;
         public int Invocations;
-        public static void Reset() { Unavailable = FailLoad = FailInvoke = FailRemove = false; DrawingStatus = "completed"; }
+        public static void Reset() { Unavailable = FailLoad = FailInvoke = FailRemove = false; DrawingStatus = "completed"; ObjectIds = new List<string>(); }
         public static PythonScript Create()
         {
             if (Unavailable) return null;
@@ -141,6 +184,7 @@ namespace Rhino.Runtime
             Variables["_almond_result_json"] = new JObject {
                 ["status"] = DrawingStatus, ["requested"] = 1, ["completed"] = DrawingStatus == "completed" ? 1 : 0,
                 ["results"] = new JArray(new JObject { ["clipping_id"] = args["clipping_ids"][0].DeepClone(),
+                    ["object_ids"] = new JArray(ObjectIds), ["report"] = new JObject { ["timestamp_text"] = "2026-11-05T12:00:00Z" },
                     ["status"] = DrawingStatus == "completed" ? "completed" : "cancelled" }) }.ToString();
             return true;
         }
@@ -152,14 +196,22 @@ namespace RhinoAlmondBridge
     {
         public static JObject Observe(Rhino.RhinoDoc doc) => new JObject { ["stable"] = true, ["mode"] = "model" };
     }
-    public class ScriptExecutor
+    // Only execution scheduling/Undo/documents are doubles. Projection and runtime_error
+    // classification are the production partial source linked by this project.
+    public partial class ScriptExecutor
     {
         public static int Calls;
+        internal static ScriptResult CaptureForTest(object value)
+        {
+            var result = new ScriptResult(); CaptureResult(result, value); return result;
+        }
         internal object ExecuteAction(Rhino.RhinoDoc doc, Func<object> action)
         {
             Calls++;
-            try { return new JObject { ["status"] = "success", ["result"] = JToken.FromObject(action()) }; }
-            catch (Exception error) { return new JObject { ["status"] = "error", ["message"] = error.Message }; }
+            var result = new ScriptResult();
+            try { CaptureResult(result, action()); }
+            catch (Exception error) { SetRuntimeError(result, error); }
+            return result;
         }
     }
 }

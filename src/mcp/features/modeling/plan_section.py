@@ -63,7 +63,9 @@ def dispatch(payload, send):
         if not isinstance(result, dict):
             raise ValueError("The Bridge returned an invalid PlanSection response.")
         if result.get("status") != "success":
-            result.setdefault("status", "error")
+            if result.get("status") not in (None, "error"):
+                result["native_status"] = result["status"]
+            result["status"] = "error"
             if result.get("mutation_state") not in {"not_started", "unknown", "partial", "completed"}:
                 result["mutation_state"] = "unknown"
             if result["mutation_state"] == "unknown":

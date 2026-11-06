@@ -371,3 +371,8 @@ $env:PLANSECTION_CASES = '3F,4F,Sec-D,Sec-C,Sec-B,Sec-A'
 - Native HLD는 같은 입력의 반복 실행에서도 입면선 개수가 달라질 수 있다. Update 계약은 저장 위치와 유효 출력이며 재생성 전후 객체 수 일치는 아니다.
 - 거의 공면인 open mesh를 다른 단위로 변환하면 MeshPlane 연결 관계가 달라질 수 있다. Sec-B의 mm→m에서 확인했으며 복잡한 mesh의 단위 변환 전후 동일 단면을 보장하지 않는다.
 - 입면 깊이는 객체 bbox 중심 하나를 사용한다. 길거나 휜 한 객체 내부에서 세그먼트별 명암이 필요해질 때 깊이 계산을 재검토한다.
+
+
+### 전용 도구 결과 전달 경계
+
+Bridge의 기존 CaptureResult는 CLR JSON 자료구조에 65,536 UTF-8 JSON bytes와 16 nested containers 한도를 적용한다. 전용 도구는 Python JSON을 문자열 형태를 보존하며 CLR dictionary/list/scalar로 변환한 뒤 이 공통 경계를 거친다. 범위 안에서 생성 object_ids를 자르지 않는다. 기존 report.metadata_conflicts는 최대 64개 표본이고 metadata_conflict_count가 전체 수다. 크기·깊이 초과는 결과 전체 누락 및 result_error이며 실행 완료와 Undo commit을 되돌리지 않는다. 공개 도구는 error/plan_section_result_unconfirmed와 unknown/requires_reconciliation=true로 이를 알린다. 단일 clipping도 초과할 수 있고 자동 재실행·결과 paging·JSON 보관은 제공하지 않는다. native runtime_error는 native_status로 보존하고 공개 status=error 및 MCP isError=true로 정규화한다. 확인된 partial/cancelled는 기존 구조화 결과와 MCP isError=false를 유지한다.

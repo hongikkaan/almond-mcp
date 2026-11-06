@@ -124,6 +124,25 @@ def test_confirmed_native_not_started_is_preserved():
     assert plan_section.dispatch(request(), send) == reply and len(calls) == 2
 
 
+def test_native_runtime_error_marks_actual_mcp_result_error():
+    reply = dict(status="runtime_error", mutation_state="unknown", requires_reconciliation=True,
+                 message="native drawing failed", error_trace="production trace")
+    async def check():
+        send, calls = transport(reply)
+        mcp = FastMCP("plan-section-runtime-error")
+        register(mcp, SimpleNamespace(_send_and_receive=send))
+        async with Client(mcp) as client:
+            result = await client.call_tool("plan_section", dict(operation="Create", clipping_ids=[ID],
+                expected_model_path=MODEL), raise_on_error=False)
+            assert result.is_error
+            payload = json.loads(result.content[0].text)
+            assert payload["status"] == "error" and payload["native_status"] == "runtime_error"
+            assert payload["message"] == reply["message"] and payload["error_trace"] == reply["error_trace"]
+            assert payload["mutation_state"] == "unknown" and payload["requires_reconciliation"] is True
+            assert len(calls) == 2
+    asyncio.run(check())
+
+
 async def schema_contract():
     send, calls = transport()
     mcp = FastMCP("plan-section-contract")
@@ -143,15 +162,52 @@ def test_public_schema_rejects_untyped_and_arbitrary_code_inputs():
     asyncio.run(schema_contract())
 
 
-def test_native_adapter_context_and_failure_boundaries(tmp_path):
+@pytest.fixture(scope="module")
+def native_boundary_results():
     dotnet = os.environ.get("ALMOND_TEST_DOTNET")
     assert dotnet, "Run through run_tests.ps1 with the .NET 8 SDK."
     project = Path(__file__).with_name("plan_section_host") / "PlanSectionHost.csproj"
     result = subprocess.run([dotnet, "run", "--project", str(project), "--configuration", "Release"],
                             capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert '"native_geometry_tested": false' in result.stdout
-    assert '"passed": 33' in result.stdout
+    return json.loads(next(line.split("=", 1)[1] for line in result.stdout.splitlines()
+                           if line.startswith("PLAN_SECTION_RESULTS=")))
+
+
+def test_native_adapter_context_and_failure_boundaries(native_boundary_results):
+    assert native_boundary_results["native_geometry_tested"] is False
+    assert native_boundary_results["production_result_projector"] is True
+    assert native_boundary_results["passed"] == 45
+
+
+@pytest.mark.parametrize("case,is_error,status", [
+    ("completed", False, "success"), ("partial", False, "partial"), ("cancelled", False, "cancelled"),
+    ("runtime_error", True, "error"), ("oversized", True, "error"),
+])
+def test_production_native_responses_through_actual_mcp_boundary(native_boundary_results, case, is_error, status):
+    native = native_boundary_results["responses"][case]
+    async def check():
+        send, calls = transport(native)
+        mcp = FastMCP("production-plan-section-result")
+        register(mcp, SimpleNamespace(_send_and_receive=send))
+        async with Client(mcp) as client:
+            result = await client.call_tool("plan_section", dict(operation="Create", clipping_ids=[ID],
+                expected_model_path=MODEL), raise_on_error=False)
+            assert result.is_error is is_error
+            value = json.loads(result.content[0].text)
+            assert value["status"] == status and len(calls) == 2
+            if is_error:
+                assert value["mutation_state"] == "unknown" and value["requires_reconciliation"] is True
+            else:
+                assert value["result"] == native["result"]
+            if case == "runtime_error":
+                assert value["native_status"] == "runtime_error"
+                assert value["error_trace"] == native["error_trace"]
+            if case == "oversized":
+                assert "result" not in value and value["error_code"] == "plan_section_result_unconfirmed"
+                assert value["result_error"].startswith("result_too_large:")
+                assert "not rolled back" in value["result_error"]
+    asyncio.run(check())
 
 
 def test_embedded_algorithm_is_a_runtime_source_and_stale_changes_are_detected(tmp_path):

@@ -5,6 +5,7 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="../../features/modeling/native/PlanSectionTool.cs" Link="PlanSectionTool.cs" />
+    <Compile Include="../../../rhp/RhinoAlmondBridge/ScriptExecutor.Results.cs" Link="ScriptExecutor.Results.cs" />
     <EmbeddedResource Include="../../features/modeling/PlanSection/PlanSection.py" LogicalName="RhinoAlmondBridge.PlanSection.py" />
   </ItemGroup>
 </Project>
