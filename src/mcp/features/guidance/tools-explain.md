@@ -3,8 +3,8 @@
 <!-- instruction:get_modeling_guide -->
 Read BASIC operating guidance and, when requested, the bundled Rhino scripting references.
 
-When to use: Read shared design and verification principles, or the packaged scripting skill when source-authoring references are needed.
-Before calling: No model observation is required. Tool descriptions are already delivered in full by tools/list; do not call this reader to retrieve a tool explanation.
+When to use: Read shared design and verification principles, or the packaged scripting skill when source-authoring references are needed. Plans and Steps organize the work; apply BASIC's modeling, inspection and drafting principles to the current activity regardless of the Plan template or Step.
+Before calling: No model observation is required. Reuse guidance already read at the same guide_version across activities. Tool descriptions are already delivered in full by tools/list; do not call this reader to retrieve a tool explanation.
 Inputs from earlier results: None. Omit include_scripting for BASIC and the public-name inventory; set include_scripting=true only when the bundled rhino3d-scripts material is needed.
 Interpretation: text is BASIC, tools lists public names, and source_refs/guide_version identify the pinned documentation. include_scripting adds scripting_skill sources without selecting or executing a modeling tool.
 Limits: This is static documentation, not live model state or a validation result. Per-tool description lookup and its tool argument are not supported. It does not edit the model, task database or user artifacts.

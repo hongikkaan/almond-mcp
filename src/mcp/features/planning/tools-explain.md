@@ -55,7 +55,7 @@ Args:
 
 <!-- instruction:create_plan -->
 When to use: Record a titled Plan with template Steps, optional Phase organization, contextual Scenes and explicit Holon targets.
-Before calling: Supply nonempty title and goal. title is the short list label; goal preserves the full objective. scope defaults to house and selects an existing registered Step template. Choose a scope appropriate to the task; custom registered scope mappings are supported. phase_id is optional; depends_on accepts only plan_ IDs.
+Before calling: Supply nonempty title and goal. title is the short list label; goal preserves the full objective. scope defaults to house and selects an existing registered Step template. For each new Plan, including a follow-up or a change of task, choose scope from the task's purpose and the user's existing template choice; custom registered scope mappings are supported. phase_id is optional; depends_on accepts only plan_ IDs.
 Inputs from earlier results: list_phases.phases[].phase_id feeds phase_id. Scene and Holon discovery provide scene_ids and holon_ids. The legacy scene_id, when supplied with scene_ids, must equal its first item. list_plans.plans[].plan_id provides dependency references.
 Interpretation: plan.plan_id and revision feed get_phase_plan_step, set_working_plan and subsequent updates. The selected scope creates its ordered template Steps; Holon targets belong to the Plan only.
 Limits: Creating a Plan does not select its artifact folder, edit Rhino or force Step execution. construction_detail is a template, not an enabling flag: detailed construction modeling still needs the user's request for that Task. inspection has no modeling Step. Existing custom scope mappings are preserved. Dependencies may be uncreated, self-referential or cyclic and do not enforce completion.
@@ -63,7 +63,7 @@ Limits: Creating a Plan does not select its artifact folder, edit Rhino or force
 Args:
     title: Nonempty short title used in Plan lists.
     goal: Nonempty full objective and intended outcome.
-    scope: Registered Step template key; default house. Built-in keys: house, interior, structure, drawing, component, spatial_development, plan_editing, construction_detail, model_revision, inspection. Custom registered scopes map to a built-in template. Select by task purpose; creation does not execute Steps.
+    scope: Registered Step template key; default house. Built-in keys: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. Custom registered scopes map to a built-in template. Select by task purpose; creation does not execute Steps.
     scene_id: Legacy single Scene ID. Prefer scene_ids; if both are supplied this must equal its first item.
     phase_id: Optional existing Phase ID; empty leaves the Plan without Phase organization.
     scene_ids: Optional existing Scene ID array describing context, including several Scenes; omission permits work without a Scene. This does not expand the geometry target set.
