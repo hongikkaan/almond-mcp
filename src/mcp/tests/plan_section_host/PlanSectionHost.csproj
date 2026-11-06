@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Compile Include="../../features/modeling/native/PlanSectionTool.cs" Link="PlanSectionTool.cs" />
+    <EmbeddedResource Include="../../features/modeling/PlanSection/PlanSection.py" LogicalName="RhinoAlmondBridge.PlanSection.py" />
+  </ItemGroup>
+</Project>

@@ -2,7 +2,7 @@
 
 PlanSection은 clipping plane으로 **현재 활성 Rhino 문서의 모델**을 잘라 단면선·해치·가시 입면선을 만든다. Worksession의 다른 파일에서 clipping을 가져올 수 있지만, attached 모델의 최상위 객체는 도면에 포함하지 않는다. 숨김·잠금은 모델 입력을 제외하는 조건이 아니다.
 
-이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용하며 대화형 실행은 IronPython, MCP의 무인 `run()` 호출은 RhinoCode Python 3 경로를 사용한다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
+이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용한다. 대화형 실행은 IronPython이며 전용 MCP `plan_section`은 Bridge에 embedded된 같은 소스를 Rhino.Runtime.PythonScript의 독립 context로 읽어 `run()`을 호출한다. RhinoCode·StartScriptServer는 필요 없다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
 
 ## 1. 실행과 출력 모드
 
@@ -234,7 +234,7 @@ SectionStyle이 같은 단면 원본은 기존처럼 union하며, 입면은 동�
 
 Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 기존 ObjectAttributes 전체를 보존하면서 배치 정보만 갱신한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 Undo 필요 오류를 보고한다. Drawing 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다.
 
-PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. RhinoCode wrapper나 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 빈 정상 계산 결과는 Document/Update에서 기존 해당 도면을 빈 결과로 교체할 수 있으며 빈 결과 자체가 항상 오류인 것은 아니다.
+PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. 전용 Bridge 도구의 ScriptExecutor 또는 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 빈 정상 계산 결과는 Document/Update에서 기존 해당 도면을 빈 결과로 교체할 수 있으며 빈 결과 자체가 항상 오류인 것은 아니다.
 
 ## 9. 실패와 취소의 의미
 

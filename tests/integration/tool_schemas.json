@@ -3116,6 +3116,140 @@
       "x-fastmcp-wrap-result": true
     }
   },
+  "plan_section": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "clipping_ids": {
+          "description": "Nonempty list of observed clipping-plane GUIDs. Duplicate identities are processed once.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "elevation": {
+          "default": true,
+          "description": "Include visible elevation curves behind the clipping plane.",
+          "type": "boolean"
+        },
+        "expected_model_path": {
+          "default": "",
+          "description": "Bound saved-document path supplied by the runtime; an explicit value must match that binding.",
+          "type": "string"
+        },
+        "far_dark": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 45.0,
+          "description": "Internal farthest elevation darkness percentage, 0..100 and at most near_dark. Final print color is ByLayer."
+        },
+        "far_width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 0.04,
+          "description": "Internal farthest elevation width in mm; positive and at most near_width. Final print width is ByLayer."
+        },
+        "hatch": {
+          "default": true,
+          "description": "Generate section hatches from existing source section styles.",
+          "type": "boolean"
+        },
+        "near_dark": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 80.0,
+          "description": "Internal nearest elevation darkness percentage, 0..100 and at least far_dark. Final print color is ByLayer."
+        },
+        "near_width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 0.09,
+          "description": "Internal nearest elevation width in mm; positive and at least far_width. Final print width is ByLayer."
+        },
+        "operation": {
+          "description": "Create or Update.",
+          "enum": [
+            "Create",
+            "Update"
+          ],
+          "type": "string"
+        },
+        "points": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional Create-only mapping of requested clipping GUIDs to [x,y] or [x,y,z] absolute drawing origins in document units. Omit for Update."
+        },
+        "small_details": {
+          "default": true,
+          "description": "Retain the existing small-detail protection mode when true.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation",
+        "clipping_ids"
+      ],
+      "type": "object"
+    },
+    "name": "plan_section",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
   "prepare_drawing_asset": {
     "annotations": {
       "destructiveHint": false,
@@ -3984,7 +4118,7 @@
       "properties": {
         "artifact_name": {
           "default": "",
-          "description": "Initial artifact folder label only; omitted uses the Plan goal. Existing folders are reused; use rename_artifact_folder to rename one.",
+          "description": "Initial folder name only, never an absolute or relative path; omitted uses the Plan goal. Files go under .almond/produced/YYMMDD_name. Existing folders are reused; use rename_artifact_folder to rename one.",
           "type": "string"
         },
         "plan_id": {
