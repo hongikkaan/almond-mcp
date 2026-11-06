@@ -25,6 +25,8 @@ def execute(send, name, *, scale_percent=75, include_usage=False, display_mode="
                 raise ValueError("Specify target_kind named_view/layout and a nonempty name or ID as target.")
             if target["target_kind"] == "layout" and (explicit_size or display_mode):
                 raise ValueError("Layout captures use their paper size and detail display modes; omit pixels and display_mode.")
+            if target["target_kind"] == "named_view" and not display_mode:
+                display_mode = "Shaded"
         elif name == "get_current_viewcapture":
             kind, ids, isolate = target["target_kind"], target["target_ids"], target["isolate"]
             if kind not in ("object", "group", "block", "holon") or type(isolate) is not bool:
