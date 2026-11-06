@@ -92,7 +92,7 @@ namespace RhinoAlmondBridge
                     ["capture_output_size"] = 1, ["face_edit"] = 1,
                     ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
                     ["intersection_review"] = 1,
-                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1 },
+                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1, ["plan_section"] = 1 },
                 ["warnings"] = warnings
             };
             if (requested.Contains("document")) result["document"] = new JObject

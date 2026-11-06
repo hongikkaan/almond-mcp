@@ -2,7 +2,7 @@
 
 PlanSection은 clipping plane으로 **현재 활성 Rhino 문서의 모델**을 잘라 단면선·해치·가시 입면선을 만든다. Worksession의 다른 파일에서 clipping을 가져올 수 있지만, attached 모델의 최상위 객체는 도면에 포함하지 않는다. 숨김·잠금은 모델 입력을 제외하는 조건이 아니다.
 
-이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용하며 대화형 실행은 IronPython, MCP의 무인 `run()` 호출은 RhinoCode Python 3 경로를 사용한다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
+이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용한다. 대화형 실행은 IronPython이며 전용 MCP `plan_section`은 Bridge에 embedded된 같은 소스를 Rhino.Runtime.PythonScript의 독립 context로 읽어 `run()`을 호출한다. RhinoCode·StartScriptServer는 필요 없다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
 
 ## 1. 실행과 출력 모드
 
@@ -234,7 +234,7 @@ SectionStyle이 같은 단면 원본은 기존처럼 union하며, 입면은 동�
 
 Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 기존 ObjectAttributes 전체를 보존하면서 배치 정보만 갱신한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 Undo 필요 오류를 보고한다. Drawing 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다.
 
-PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. RhinoCode wrapper나 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 빈 정상 계산 결과는 Document/Update에서 기존 해당 도면을 빈 결과로 교체할 수 있으며 빈 결과 자체가 항상 오류인 것은 아니다.
+PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. 전용 Bridge 도구의 ScriptExecutor 또는 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 빈 정상 계산 결과는 Document/Update에서 기존 해당 도면을 빈 결과로 교체할 수 있으며 빈 결과 자체가 항상 오류인 것은 아니다.
 
 ## 9. 실패와 취소의 의미
 
@@ -371,3 +371,8 @@ $env:PLANSECTION_CASES = '3F,4F,Sec-D,Sec-C,Sec-B,Sec-A'
 - Native HLD는 같은 입력의 반복 실행에서도 입면선 개수가 달라질 수 있다. Update 계약은 저장 위치와 유효 출력이며 재생성 전후 객체 수 일치는 아니다.
 - 거의 공면인 open mesh를 다른 단위로 변환하면 MeshPlane 연결 관계가 달라질 수 있다. Sec-B의 mm→m에서 확인했으며 복잡한 mesh의 단위 변환 전후 동일 단면을 보장하지 않는다.
 - 입면 깊이는 객체 bbox 중심 하나를 사용한다. 길거나 휜 한 객체 내부에서 세그먼트별 명암이 필요해질 때 깊이 계산을 재검토한다.
+
+
+### 전용 도구 결과 전달 경계
+
+Bridge의 기존 CaptureResult는 CLR JSON 자료구조에 65,536 UTF-8 JSON bytes와 16 nested containers 한도를 적용한다. 전용 도구는 Python JSON을 문자열 형태를 보존하며 CLR dictionary/list/scalar로 변환한 뒤 이 공통 경계를 거친다. 범위 안에서 생성 object_ids를 자르지 않는다. 기존 report.metadata_conflicts는 최대 64개 표본이고 metadata_conflict_count가 전체 수다. 크기·깊이 초과는 결과 전체 누락 및 result_error이며 실행 완료와 Undo commit을 되돌리지 않는다. 공개 도구는 error/plan_section_result_unconfirmed와 unknown/requires_reconciliation=true로 이를 알린다. 단일 clipping도 초과할 수 있고 자동 재실행·결과 paging·JSON 보관은 제공하지 않는다. native runtime_error는 native_status로 보존하고 공개 status=error 및 MCP isError=true로 정규화한다. 확인된 partial/cancelled는 기존 구조화 결과와 MCP isError=false를 유지한다.

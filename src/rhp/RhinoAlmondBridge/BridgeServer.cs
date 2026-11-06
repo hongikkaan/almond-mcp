@@ -94,6 +94,9 @@ namespace RhinoAlmondBridge
                     case "edit_planar_faces":
                         return PlanarFaceEditing.HandleBatch(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 
+                    case "plan_section":
+                        return PlanSectionTool.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+
                     case "intersection_preview":
                         return IntersectionTools.PreviewHandle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 

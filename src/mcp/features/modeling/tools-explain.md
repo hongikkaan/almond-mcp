@@ -1,5 +1,29 @@
 # tools.py explain
 
+## plan_section
+
+<!-- instruction:plan_section -->
+When to use: Generate or update model-space section curves, hatches and visible elevation curves from observed clipping-plane GUIDs using Almond's built-in PlanSection algorithm.
+Before calling: Use Create for a new drawing or to replace the existing local drawing for the same clipping; Update regenerates existing drawings at their saved placement and skips missing ones. Supply clipping_ids and only intended options. Create points maps requested clipping GUIDs to finite [x,y] or [x,y,z] in document units; omit points for Update. Omitted Create placement uses saved draft_plane or the origin, so separate drawings may overlap unless you specify their placement.
+Inputs from earlier results: Reuse observed clipping-plane GUIDs. Within the result budget, results return each clipping's status, generated object_ids and the algorithm report. This dedicated tool executes the packaged algorithm inside the Bridge; it requires plan_section=1 and the built-in Python runtime, not RhinoCode or StartScriptServer.
+Interpretation: success means all requested drawings completed; partial or cancelled is a structured outcome (MCP isError=false), preserving per-clipping evidence and any already completed drawings, not confirmation that the whole request completed. Native execution failures become status=error/MCP isError=true with the original native_status and diagnostics preserved. Update may report skipped when no local drawing exists. Section/elevation print colors and widths currently follow the Drawing layers. Internal elevation distance interpolation defaults to 0.09→0.04 mm and 80→45% darkness for style grouping; final output is ByLayer, not guaranteed distance-graded print output.
+Limits: Only Create/Update Document output is exposed here. This does not create Layouts, change Plan/Step status, save the model, or expose Move/PDF/Files. It reuses the existing Undo scope and never edits attached source geometry. A Layout Detail can present the model-space drawing; get_defined_viewcapture(target_kind="layout", target=Layout_ID) captures its paper. Timeout or an unconfirmed result is not rollback: inspect existing drawings and runtime completion before any retry. Do not regenerate to recover a missing response. Long native computation runs on Rhino's UI thread; Escape cancellation follows the existing PlanSection checkpoints.
+Output size: The complete result must fit the existing native capture budget of 65,536 UTF-8 JSON bytes and 16 nested containers. If capture exceeds either limit, the whole result is absent: status=error, error_code=plan_section_result_unconfirmed, mutation_state=unknown and requires_reconciliation=true preserve result_error; completed geometry is not rolled back by capture failure. Never retry automatically. Within the budget, object_ids are not shortened, but the algorithm already samples metadata_conflicts to 64 entries and reports the full metadata_conflict_count. There is no paging or retained JSON result. Even a single clipping may exceed the budget; one clipping per call reduces batch size but cannot guarantee delivery. This native tool creates no RhinoCode execution journal, so get_rhino_execution cannot recover the result. Inspect existing geometry and native completion before another mutation; do not regenerate to recover IDs.
+
+Args:
+    operation: Create or Update.
+    clipping_ids: Nonempty list of observed clipping-plane GUIDs. Duplicate identities are processed once.
+    points: Optional Create-only mapping of requested clipping GUIDs to [x,y] or [x,y,z] absolute drawing origins in document units. Omit for Update.
+    hatch: Generate section hatches from existing source section styles.
+    elevation: Include visible elevation curves behind the clipping plane.
+    small_details: Retain the existing small-detail protection mode when true.
+    near_width: Internal nearest elevation width in mm; positive and at least far_width. Final print width is ByLayer.
+    far_width: Internal farthest elevation width in mm; positive and at most near_width. Final print width is ByLayer.
+    near_dark: Internal nearest elevation darkness percentage, 0..100 and at least far_dark. Final print color is ByLayer.
+    far_dark: Internal farthest elevation darkness percentage, 0..100 and at most near_dark. Final print color is ByLayer.
+    expected_model_path: Bound saved-document path supplied by the runtime; an explicit value must match that binding.
+<!-- /instruction:plan_section -->
+
 ## get_modeling_policy
 
 <!-- instruction:get_modeling_policy -->

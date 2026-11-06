@@ -30,36 +30,29 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 ## 에이전트에서 사용
 
-기존 `execute_rhino_script(language="python")` 경로에서 아래처럼 스크립트를 읽고 `run`을 호출한다. 런타임이 검증해 제공한 `doc`를 전달하며 다른 문서를 자동으로 열지 않는다. 이 함수는 목록·점·폴더 입력 창을 열지 않는다. 일반 `main()`의 Project는 번호·목록 선택이고 CurrentDocument는 GUID 직접 입력이다. `Document`는 Create의 출력 위치이며 `CurrentDocument` 선택 방식과 다른 옵션이다. 무인 실행은 `run()`의 인자로 출력·표현 옵션을 지정한다.
+Almond 전용 `plan_section` 도구를 사용한다. 이 도구는 Bridge에 포함된 기존 PlanSection 알고리즘을 Rhino 내부 Python 런타임에서 실행한다. RhinoCode·StartScriptServer나 사용자 작성 script/path를 사용하지 않는다. 연결된 저장 문서의 관측된 clipping GUID와 typed 옵션을 전달하며 목록·점·폴더 입력 창을 열지 않는다.
 
-공개 실행 도구는 RhinoCode를 사용하며 연결 문서의 `StartScriptServer`가 필요하다. `execute_rhino_script`의 도구 설명 전문에서 현재 실행 계약을 확인한다. 내장 API·로딩 참고자료가 필요하면 `get_modeling_guide(include_scripting=True)`로 요청한다. MCP에서 대화형 `main()`이나 `runpy.run_path(..., run_name="__main__")`을 호출하지 않는다. 아래처럼 기본 `run_path`로 함수를 읽고 `result`에 JSON 결과를 대입한다. 실행기가 이미 연 Undo는 재사용하며 PlanSection이 종료하지 않는다.
-
-```python
-import json
-import runpy
-
-ps = runpy.run_path(r"C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSection\PlanSection.py")
-ids = ["첫 번째 clipping GUID", "두 번째 clipping GUID"]  # 실제 GUID로 교체
-result = ps["run"](doc, "Create", ids,
-                   points={ids[0]: [10000, 0], ids[1]: [20000, 0]})
-print(json.dumps(result, ensure_ascii=False))
+```json
+{
+  "operation": "Create",
+  "clipping_ids": ["00000000-0000-0000-0000-000000000001"],
+  "points": {"00000000-0000-0000-0000-000000000001": [10000, 0, 0]},
+  "hatch": true,
+  "elevation": true
+}
 ```
 
-작업별 호출은 다음과 같다. 좌표는 현재 문서 단위이며 clipping 원점의 **새 절대 위치**다. 배치점은 GUID별 `[x,y]`(Z=0) 또는 `[x,y,z]`로 전달한다. Update는 저장된 높이를 유지한다. clipping 평면의 로컬 `(u,v)`는 배치점 `(Tx,Ty,Tz)`에 대해 `(Tx+u,Ty-v,Tz)`로 옮겨진다. 비수평 단면의 출력 상하는 clipping의 로컬 Y 방향에 달려 있으며 World Y 방향과 구분한다.
+예시 GUID를 실제 관측 GUID로 교체한다. 전용 도구의 범위는 **Create/Update의 Document 출력**이다. Update는 `operation="Update"`로 지정하고 points를 생략한다. Move·PDF·Files는 기존 Rhino 직접 실행에서 제공되지만 이 전용 API에 노출하지 않는다. 출력은 ModelSpace이며 Layout을 자동으로 만들지 않는다. 도면을 Layout Detail로 구성한 뒤 `get_defined_viewcapture(target_kind="layout", target=Layout_ID)`로 용지를 캡처한다.
 
-```python
-result = ps["run"](doc, "Update", ids)
-result = ps["run"](doc, "Move", ids, points={ids[0]: [12000, 0], ids[1]: [22000, 0]})
-result = ps["run"](doc, "PDF", ids, folder=r"프로젝트 Plan 산출물의 기존 폴더")
-```
-
-GUID 전체를 먼저 검증하며 중복 GUID는 한 번만 처리한다. Move는 모든 GUID의 좌표가 필요하다. Update·PDF에 이동 좌표를 주면 오류다. Create의 좌표 생략은 기존 draft_plane 또는 원점 배치다. 여러 clipping의 기본 원점이 같으면 출력이 겹치므로 필요한 위치를 각각 전달한다.
+좌표는 현재 문서 단위이며 clipping 원점의 **새 절대 위치**다. GUID별 `[x,y]`(Z=0) 또는 `[x,y,z]`를 전달한다. Update는 저장된 높이를 유지한다. clipping 평면의 로컬 `(u,v)`는 배치점 `(Tx,Ty,Tz)`에 대해 `(Tx+u,Ty-v,Tz)`로 옮겨진다. 비수평 단면의 상하는 clipping의 로컬 Y 방향에 달려 있다. GUID 전체를 먼저 검증하며 중복 GUID는 한 번만 처리한다. Create의 좌표 생략은 기존 draft_plane 또는 원점 배치이므로 여러 도면이 겹치지 않도록 필요한 위치를 지정한다.
 
 로컬 clipping의 `draft_plane`은 UserDictionary의 RhinoCommon `Plane`, 출력의 `ps:placement`는 UserDictionary의 `Point3d`로 저장한다. 기존 user text JSON도 호환을 위해 함께 기록한다. 두 값이 모두 있으면 좌표·(Plane의 경우) 축을 검증하며 불일치는 오류다. typed 값이 없는 구 도면은 기존 JSON으로 읽을 수 있다. 비수평 clipping은 실제 CPlane의 방향을 확인하고 설정 지침에 따라 축을 지정해야 하며, 스크립트가 CPlane을 자동 회전시키지 않는다.
 
-결과의 `status`는 `completed` / `partial` / `cancelled`, `results`에는 GUID별 완료·건너뜀·실패·취소와 생성 객체 ID 또는 파일 경로·보고서가 들어간다. 한 도면 실패가 이미 완료한 다른 도면을 되돌리지 않는다. MCP 실행이 timeout이면 재실행하지 말고 `get_rhino_execution`으로 완료를 회수한다. 파일 출력 전에 `set_working_plan`으로 프로젝트 산출물 폴더를 정한다.
+전용 응답의 `status`는 전체 완료 `success`, 일부 완료 `partial`, 취소 `cancelled` 또는 `error`다. `result.status`에는 기존 알고리즘의 completed/partial/cancelled가 보존되고 `results`에는 GUID별 완료·건너뜀·실패·취소, 생성 object_ids와 보고서가 들어간다. `algorithm_sha256`는 실제 RHP에 포함된 알고리즘의 해시다. 부분 완료는 이미 완료한 도면을 되돌리지 않는다. 시간 초과·결과 불명은 rollback을 뜻하지 않으며 native 완료 상태와 기존 도면을 확인하기 전 재실행하지 않는다. 실행기 Undo 안에서 기존 `run_selected`가 같은 record를 재사용한다. 기존 직접 실행의 `run`·Create/Update/Move/PDF 계약과 출력 알고리즘은 유지한다.
 
-`execute_rhino_script`의 현재 폴더는 프로젝트 루트다. 같은 코드를 `execute_project_python`으로 실행하면 선택한 Plan 폴더가 현재 폴더이므로 PDF/Files의 `folder="."`를 사용할 수 있다. 두 도구 모두 동일한 RhinoCode 완료·결과 회수 계약을 사용한다. 바깥 실행 응답이 성공해도 내부 `result.status="partial"`이면 GUID별 실패 내용을 확인한다. 결과가 크면 `get_rhino_execution`의 `result_fields`·offset/limit를 사용하며 도면 생성을 반복하지 않는다.
+거리별 입면선 0.09→0.04mm·darkness 80→45% 기본값은 내부 style 구분에 사용된다. 최종 section/elevation의 인쇄색·선폭은 ByLayer다. 전용 도구를 추가해도 이 출력 정책은 바뀌지 않는다.
+
+전용 도구의 전체 결과에는 기존 native capture 한도인 **65,536 UTF-8 JSON bytes·16 nested containers**가 적용된다. 한도를 넘으면 결과 전체가 누락되고 `plan_section_result_unconfirmed`, `mutation_state=unknown`, `requires_reconciliation=true` 및 원래 `result_error`를 반환한다. 결과 캡처 실패는 이미 끝난 도면 변경을 rollback하지 않는다. 자동 재시도하거나 ID 복구를 위해 재생성하지 않는다. 한도 안에서 object_ids는 자르지 않지만 기존 알고리즘의 `metadata_conflicts`는 64개 표본이며 `metadata_conflict_count`가 전체 수다. 자동 pagination·JSON 보관은 없다. 단일 clipping의 1,681 GUID 배열만 65,560 bytes이므로 clipping별 호출도 전달을 보장하지 않는다. 이 native 경로는 RhinoCode journal을 만들지 않아 `get_rhino_execution`으로 회수할 수 없다. native 실행 실패는 원래 상태를 `native_status`에 보존하면서 외부 `status=error`와 MCP `isError=true`로 전달한다. partial/cancelled는 미완료가 드러나는 구조화 결과이며 기존 계약대로 MCP `isError=false`다.
 
 ## 개발 검사
 
@@ -70,4 +63,4 @@ GUID 전체를 먼저 검증하며 중복 GUID는 한 번만 처리한다. Move�
 & ./data/development/.venv/Scripts/python.exe -B -X utf8 -m unittest discover -s src/mcp/features/modeling/PlanSection/tests -p 'test_*.py'
 ```
 
-기존 `TEST.3dm`과 native 검사 도구도 함께 보관하지만, 실제 사용 검증은 사용자가 지정한 연결 문서에서 별도로 수행한다. 모의 API 검사 통과를 실제 단면·UI·PDF 품질 검증으로 간주하지 않는다. Python 스크립트 변경은 RHP 빌드를 요구하지 않지만, typed Point3d·Plane 조회를 지원하도록 변경한 `features/context/native/ObjectObservation.cs`는 Bridge RHP 반영 단계에서 별도 빌드·로드 검증이 필요하다.
+기존 `TEST.3dm`과 native 검사 도구도 함께 보관하지만, 실제 사용 검증은 사용자가 지정한 연결 문서에서 별도로 수행한다. 모의 API 검사 통과를 실제 단면·UI·PDF 품질 검증으로 간주하지 않는다. 직접 Rhino에서 실행하는 Python 파일과 전용 도구의 embedded 알고리즘은 배포 경로가 다르다. 전용 `plan_section` 경로는 `PlanSection.py` 변경 시 Bridge RHP 재빌드와 runtime manifest 갱신이 필요하며, 실제 Rhino 로드 확인은 별도 검증이다. typed Point3d·Plane 조회를 지원하는 `features/context/native/ObjectObservation.cs` 변경도 Bridge 재빌드·로드 검증이 필요하다.
