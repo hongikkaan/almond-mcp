@@ -44,8 +44,8 @@ class RhinoStart:
         # The launcher verifies complete job breakaway before Rhino can execute;
         # ending a Terminal/client job must never terminate this separate Rhino.
         self.process = process_factory(
-            [str(executable), project["model_path"], "/nosplash", "/runscript=_almondconnect"],
-            cwd=project["project_dir"], env=environment,
+            [str(executable), "/nosplash", project["model_path"]],
+            cwd=project["project_dir"], env=environment, startup_script="_almondconnect",
         )
         try:
             self.identity = identity_reader(self.process.pid)

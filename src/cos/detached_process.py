@@ -83,8 +83,21 @@ class IndependentProcess:
         self.close()  # Releasing an observation handle never terminates Rhino.
 
 
-def launch_detached(args: list[str], *, cwd: str, env: dict) -> IndependentProcess:
-    command = ctypes.create_unicode_buffer(subprocess.list2cmdline(args))
+def rhino_command_line(args: list[str], startup_script: str | None = None) -> str:
+    if startup_script is None:
+        return subprocess.list2cmdline(args)
+    if not args or not startup_script or any(c in startup_script for c in '\"\r\n\0'):
+        raise ValueError("Rhino startup script must be nonempty and contain no quotes or line breaks.")
+    # Rhino parses /runscript from the raw Windows command line. Even a single
+    # command needs literal quotes after '='; list2cmdline alone omits them or
+    # backslash-escapes embedded quotes. Keep all switches before the model path.
+    return (subprocess.list2cmdline(args[:1]) + ' /runscript="' + startup_script + '" '
+            + subprocess.list2cmdline(args[1:]))
+
+
+def launch_detached(args: list[str], *, cwd: str, env: dict,
+                    startup_script: str | None = None) -> IndependentProcess:
+    command = ctypes.create_unicode_buffer(rhino_command_line(args, startup_script))
     environment = ctypes.create_unicode_buffer("\0".join(f"{k}={v}" for k, v in sorted(env.items())) + "\0\0")
     startup, process = StartupInfo(), ProcessInfo()
     startup.cb = ctypes.sizeof(startup)

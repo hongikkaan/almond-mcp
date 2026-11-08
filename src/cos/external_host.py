@@ -32,6 +32,8 @@ from execution_recovery import ExecutionRecoveryStore, read_bound_execution
 
 GUIDANCE = (ROOT / "CONNECTION-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
 DESCRIPTION = (ROOT / "SERVER-DESCRIPTION.md").read_text(encoding="utf-8").strip()
+UNSAVED_DOCUMENT = ("Save this Rhino document as a local .3dm, then refresh "
+                    "list_connections before connecting.")
 
 
 def json_result(value: dict) -> types.CallToolResult:
@@ -376,6 +378,8 @@ class Broker:
                 control = self.control_factory(record)
                 target = await control.request("describe")
                 model_path = target.get("model_path")
+                if not isinstance(model_path, str) or not model_path.strip():
+                    target = dict(target, state="unavailable", reason=UNSAVED_DOCUMENT)
                 targets.append(dict(target, host_id=record["host_id"],
                                     model_filename=Path(model_path).name if model_path else None))
             except HostInUse as exc:
@@ -464,7 +468,10 @@ class Broker:
             try:
                 description = await conn.control.request("describe")
                 ensure_open()
-                if os.path.normcase(description.get("model_path", "")) != os.path.normcase(model_path):
+                current_model = description.get("model_path")
+                if not isinstance(current_model, str) or not current_model.strip():
+                    raise RuntimeError(UNSAVED_DOCUMENT)
+                if os.path.normcase(current_model) != os.path.normcase(model_path):
                     raise RuntimeError("Rhino's saved model changed. Refresh the connection list.")
                 conn.binding = await conn.control.request(
                     "attach", model_path=model_path, document_serial=description["document_serial"],
