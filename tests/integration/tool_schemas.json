@@ -2015,6 +2015,48 @@
       "x-fastmcp-wrap-result": true
     }
   },
+  "get_plan_section_result": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_model_path": {
+          "default": "",
+          "description": "Bound saved-document path; explicit value must agree with the runtime binding.",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Start at zero; subsequently copy next_offset from the preceding page.",
+          "type": "integer"
+        },
+        "result_id": {
+          "description": "Opaque 32-character receipt ID from plan_section.result.result_id.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_plan_section_result",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
   "get_retrieval_status": {
     "annotations": null,
     "inputSchema": {
@@ -3127,6 +3169,140 @@
       "type": "object"
     },
     "name": "place_drawing_asset",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "plan_section": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "clipping_ids": {
+          "description": "Nonempty list of observed clipping-plane GUIDs. Duplicate identities are processed once.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "elevation": {
+          "default": true,
+          "description": "Include visible elevation curves behind the clipping plane.",
+          "type": "boolean"
+        },
+        "expected_model_path": {
+          "default": "",
+          "description": "Bound saved-document path supplied by the runtime; an explicit value must match that binding.",
+          "type": "string"
+        },
+        "far_dark": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 45.0,
+          "description": "Farthest elevation object print darkness percentage, 0..100 and at most near_dark. Preserved in final output."
+        },
+        "far_width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 0.04,
+          "description": "Farthest elevation object print width in mm; positive and at most near_width. Preserved in final output."
+        },
+        "hatch": {
+          "default": true,
+          "description": "Generate section hatches from existing source section styles.",
+          "type": "boolean"
+        },
+        "near_dark": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 80.0,
+          "description": "Nearest elevation object print darkness percentage, 0..100 and at least far_dark. Preserved in final output."
+        },
+        "near_width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 0.09,
+          "description": "Nearest elevation object print width in mm; positive and at least far_width. Preserved in final output."
+        },
+        "operation": {
+          "description": "Create or Update.",
+          "enum": [
+            "Create",
+            "Update"
+          ],
+          "type": "string"
+        },
+        "points": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional Create-only mapping of requested clipping GUIDs to [x,y] or [x,y,z] absolute drawing origins in document units. Omit for Update."
+        },
+        "small_details": {
+          "default": true,
+          "description": "Retain the existing small-detail protection mode when true.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation",
+        "clipping_ids"
+      ],
+      "type": "object"
+    },
+    "name": "plan_section",
     "outputSchema": {
       "properties": {
         "result": {

@@ -1261,7 +1261,9 @@ def output_attributes(original, role=None):
         selected.extend(json.loads(inherited))
     values = [(key, attrs.GetUserString(key)) for key in selected]
     attrs.DeleteAllUserStrings()
-    if role in ('section', 'elevation'):
+    # Elevation already carries the distance-interpolated object print style.
+    # Do not replace it at the final Document/Files output boundary.
+    if role == 'section':
         attrs.PlotColorSource = D.ObjectPlotColorSource.PlotColorFromLayer
         attrs.PlotWeightSource = D.ObjectPlotWeightSource.PlotWeightFromLayer
     elif role == 'hatch':

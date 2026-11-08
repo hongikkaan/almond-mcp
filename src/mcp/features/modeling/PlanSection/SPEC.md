@@ -2,7 +2,7 @@
 
 PlanSection은 clipping plane으로 **현재 활성 Rhino 문서의 모델**을 잘라 단면선·해치·가시 입면선을 만든다. Worksession의 다른 파일에서 clipping을 가져올 수 있지만, attached 모델의 최상위 객체는 도면에 포함하지 않는다. 숨김·잠금은 모델 입력을 제외하는 조건이 아니다.
 
-이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용하며 대화형 실행은 IronPython, MCP의 무인 `run()` 호출은 RhinoCode Python 3 경로를 사용한다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
+이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용한다. 대화형 실행은 IronPython이며 전용 MCP `plan_section`은 Bridge에 embedded된 같은 소스를 Rhino.Runtime.PythonScript의 독립 context로 읽어 `run()`을 호출한다. RhinoCode·StartScriptServer는 필요 없다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
 
 ## 1. 실행과 출력 모드
 
@@ -14,7 +14,7 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 첫 단계에서 Project/CurrentDocument 사용 방식을 선택한 뒤 Create·Update·Move·PDF 네 작업 중 하나를 선택한다. Project는 번호와 이름을 출력하며 번호 하나, `All`, 또는 `List`를 입력받는다. `List`는 이름 내림차순 clipping 목록 창을 연다. 쉼표로 구분한 숫자는 받지 않는다. CurrentDocument는 GUID를 쉼표·공백으로 입력한다. 목록은 동명을 GUID로 구분하며 Ctrl/Shift 다중 선택과 Enter 확정을 지원한다. 여러 GUID는 요청 순서를 유지하고 중복은 제거하며, 없는 GUID가 하나라도 있으면 전체 요청을 실행 전에 거절한다.
 
-Create·Update·PDF는 최초 옵션 프롬프트에서 Toggle·숫자 설정을 바로 변경하거나 Enter로 확정한다. Esc는 sticky 옵션을 변경하지 않는다. Move는 표현 옵션을 묻지 않는다. 초기값은 Hatch=True, Elevation=True, PickPlacement=False, SmallDetails=Keep, Near/Far Width=0.09/0.04mm, Near/Far Dark=80/45%다. 이 거리별 값은 내부 스타일 구분에 사용하며 최종 곡선 인쇄색·두께는 ByLayer다. Darkness 100%는 검정이다. 최근 표현 옵션은 같은 Rhino 세션에서 재사용하되 작업은 매번 명시적으로 선택한다. Output=Document/Files와 PickPlacement는 Create에만 있다. Update·Move·PDF는 생성 옵션에 들어가지 않는다. 아래 표의 Placement는 Move 작업의 내부 모드명이다.
+Create·Update·PDF는 최초 옵션 프롬프트에서 Toggle·숫자 설정을 바로 변경하거나 Enter로 확정한다. Esc는 sticky 옵션을 변경하지 않는다. Move는 표현 옵션을 묻지 않는다. 초기값은 Hatch=True, Elevation=True, PickPlacement=False, SmallDetails=Keep, Near/Far Width=0.09/0.04mm, Near/Far Dark=80/45%다. 이 거리별 값은 내부 스타일 구분과 최종 입면선의 객체 인쇄색·두께에 적용한다. Darkness 100%는 검정이다. 최근 표현 옵션은 같은 Rhino 세션에서 재사용하되 작업은 매번 명시적으로 선택한다. Output=Document/Files와 PickPlacement는 Create에만 있다. Update·Move·PDF는 생성 옵션에 들어가지 않는다. 아래 표의 Placement는 Move 작업의 내부 모드명이다.
 
 | Output | 하는 일 | 도면 원점 | 기존 도면과 객체 ID |
 | --- | --- | --- | --- |
@@ -126,7 +126,7 @@ Clipping plane의 signed distance를 `s`라 하면 입면 범위는 depth 비활
 
 `elevations`는 HLD의 Visible segment만 사용한다. Tangent edge는 포함하고 hidden curve·tangent seam·인공 SectionCut edge는 제외한다. 화면의 활성 clipping 상태와 무관하게 계산한다. 동일 입력의 반복 계산에서 가시 구간이 달라지는 병렬 경로를 피하도록 HLD는 단일 스레드로 실행한다. RejoinCompatibleVisible로 같은 FullCurve의 연속 가시 구간을 먼저 재결합한다.
 
-거리값은 원본 객체 bbox 중심의 signed distance를 0 이상으로 제한한 값이며 가시선을 낸 원본마다 한 번 계산한다. 실제 가시 출력의 최소·최대 깊이로 정규화한 `t`를 써서 `width = near + (far - near) * t`와 darkness를 선형 보간한다. 완전히 가려진 후보는 이 최소·최대값에 포함하지 않는다. 한 깊이만 있으면 near 값을 쓴다. 계산 중 속성 템플릿은 원본마다 한 번 만들고 각 곡선에는 독립 복사본을 준다. 이 단계의 plot width·print grayscale은 Join할 스타일을 구분하는 값이며 display color·linetype은 원본에서 상속한다. 실제 Document·Files·PDF 출력에는 `output_attributes`가 인쇄색·두께를 ByLayer로 적용한다. 긴 한 객체의 segment마다 다른 깊이를 주지는 않는다.
+거리값은 원본 객체 bbox 중심의 signed distance를 0 이상으로 제한한 값이며 가시선을 낸 원본마다 한 번 계산한다. 실제 가시 출력의 최소·최대 깊이로 정규화한 `t`를 써서 `width = near + (far - near) * t`와 darkness를 선형 보간한다. 완전히 가려진 후보는 이 최소·최대값에 포함하지 않는다. 한 깊이만 있으면 near 값을 쓴다. 계산 중 속성 템플릿은 원본마다 한 번 만들고 각 곡선에는 독립 복사본을 준다. 이 단계의 plot width·print grayscale은 Join할 스타일을 구분하며 최종 Document·Files·PDF 출력에도 객체 속성으로 유지한다. display color·linetype은 원본에서 상속한다. 긴 한 객체의 segment마다 다른 깊이를 주지는 않는다.
 
 ### 선 정리 순서
 
@@ -213,7 +213,7 @@ Clipping plane의 CPlane Z가 World Z와 평행하지 않을 때 CPlane을 180°
 | --- | --- | --- |
 | 단면선 | `Drawing::Section` | 원본 화면 표현과 SectionStyle 경계 색·선종류; 인쇄색·인쇄 두께는 ByLayer |
 | 해치 | `Drawing::Hatch` | SectionStyle 패턴·스케일; 화면색·인쇄색은 레이어의 90% 검정, 인쇄 두께는 No Print |
-| 입면선 | `Drawing::Elevation` | 원본 화면색·선종류; 인쇄색·인쇄 두께는 ByLayer |
+| 입면선 | `Drawing::Elevation` | 원본 화면색·선종류; 거리별 객체 인쇄색·인쇄 두께 유지 |
 
 원본의 숨김·잠금·그룹·참조 소유권·재질은 출력 속성으로 복사하지 않는다. 목적 레이어나 부모가 참조·숨김·잠금이면 Document 출력은 명시적으로 실패한다. Document 출력은 기존 Drawing::Hatch 레이어도 지정 색과 No Print로 갱신하며, Files/PDF에는 동일한 레이어 속성을 적용한다. SectionAttributesSource.FromSectioner는 지원하지 않는다. BoundaryVisible/화면용 BoundaryWidthScale, 재질, viewport별 override를 일반 도면 속성으로 변환하지 않는다.
 
@@ -234,7 +234,7 @@ SectionStyle이 같은 단면 원본은 기존처럼 union하며, 입면은 동�
 
 Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 기존 ObjectAttributes 전체를 보존하면서 배치 정보만 갱신한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 Undo 필요 오류를 보고한다. Drawing 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다.
 
-PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. RhinoCode wrapper나 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 빈 정상 계산 결과는 Document/Update에서 기존 해당 도면을 빈 결과로 교체할 수 있으며 빈 결과 자체가 항상 오류인 것은 아니다.
+PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. 전용 Bridge 도구의 ScriptExecutor 또는 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 빈 정상 계산 결과는 Document/Update에서 기존 해당 도면을 빈 결과로 교체할 수 있으며 빈 결과 자체가 항상 오류인 것은 아니다.
 
 ## 9. 실패와 취소의 의미
 
@@ -371,3 +371,8 @@ $env:PLANSECTION_CASES = '3F,4F,Sec-D,Sec-C,Sec-B,Sec-A'
 - Native HLD는 같은 입력의 반복 실행에서도 입면선 개수가 달라질 수 있다. Update 계약은 저장 위치와 유효 출력이며 재생성 전후 객체 수 일치는 아니다.
 - 거의 공면인 open mesh를 다른 단위로 변환하면 MeshPlane 연결 관계가 달라질 수 있다. Sec-B의 mm→m에서 확인했으며 복잡한 mesh의 단위 변환 전후 동일 단면을 보장하지 않는다.
 - 입면 깊이는 객체 bbox 중심 하나를 사용한다. 길거나 휜 한 객체 내부에서 세그먼트별 명암이 필요해질 때 깊이 계산을 재검토한다.
+
+
+### 전용 도구 결과 전달 경계
+
+전용 도구는 작은 결과를 직접 반환하고 큰 결과는 `result_delivery=paged`, `result_id`, `result_sha256`, 처리 수를 반환한다. `get_plan_section_result(result_id, offset=0)`부터 `next_offset`이 null일 때까지 `json_chunk`를 순서대로 연결해 원래 JSON을 회수한다. offset은 UTF-16 단위이며 반환값을 그대로 사용한다. 페이지는 최대 4096 UTF-16 단위로 서로게이트 쌍을 자르지 않으며, SHA256은 원래 UTF-8 JSON 기준이다. 조회는 도면을 재생성하거나 Undo를 시작하지 않는다. 보관은 Bridge 프로세스·동일 문서 인스턴스 내 최대 1시간, 최근 8개·총 64 MiB(UTF-16) 범위로 오래된 결과부터 제거된다. 즉시 회수하고 필요한 경우 작업 산출물에 보존한다. 단일 결과가 보관 한도보다 크면 명시적인 미확인 오류로 남긴다. 만료·재시작·전달 실패를 rollback으로 간주하거나 자동 재생성하지 않는다. 공통 64 KiB·16-container 제한은 유지한다. metadata_conflicts의 기존 64개 표본과 전체 count도 유지한다. native runtime_error는 native_status에 보존하고 외부 status=error/MCP isError=true로 전달하며 partial/cancelled는 구조화된 미완료 결과다.

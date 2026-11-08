@@ -7,8 +7,9 @@ from almond_mcp.managed_paths import bound_model_path
 from pydantic import StrictBool, StrictFloat, StrictInt
 import json
 import uuid
+from typing import Literal
 
-from almond_mcp.features.modeling import face_edit, modeling_policy, modeling_setup
+from almond_mcp.features.modeling import face_edit, modeling_policy, modeling_setup, plan_section
 
 
 def register(mcp, context):
@@ -19,6 +20,38 @@ def register(mcp, context):
     @tool_instruction(__file__, 'get_modeling_policy')
     def get_modeling_policy() -> dict:
         return {"status": "success", "policy": modeling_policy.POLICY}
+
+
+    @mcp.tool(name="plan_section")
+    @mcp_error_result
+    @tool_instruction(__file__, 'plan_section')
+    def plan_section_tool(operation: Literal["Create", "Update"], clipping_ids: list[str],
+                          points: dict[str, list[StrictFloat | StrictInt]] | None = None,
+                          hatch: StrictBool = True, elevation: StrictBool = True, small_details: StrictBool = True,
+                          near_width: StrictFloat | StrictInt = 0.09, far_width: StrictFloat | StrictInt = 0.04,
+                          near_dark: StrictFloat | StrictInt = 80.0, far_dark: StrictFloat | StrictInt = 45.0,
+                          expected_model_path: str = "") -> str:
+        try:
+            payload = plan_section.request(operation, clipping_ids, points, hatch, elevation, small_details,
+                                           near_width, far_width, near_dark, far_dark,
+                                           bound_model_path(expected_model_path))
+        except (ValueError, TypeError, AttributeError, OverflowError) as exc:
+            return json.dumps({**error_payload(str(exc), error_code="invalid_arguments"),
+                               "mutation_state": "not_started"})
+        return json.dumps(plan_section.dispatch(payload, context._send_and_receive), ensure_ascii=False)
+
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp_error_result
+    @tool_instruction(__file__, 'get_plan_section_result')
+    def get_plan_section_result(result_id: str, offset: StrictInt = 0, expected_model_path: str = "") -> str:
+        try:
+            if len(result_id) != 32 or any(c not in '0123456789abcdef' for c in result_id) or type(offset) is not int or not 0 <= offset <= 2147483647:
+                raise ValueError("Supply a receipt ID and nonnegative offset from the preceding page.")
+            payload = dict(type="get_plan_section_result", result_id=result_id, offset=offset,
+                           expected_model_path=bound_model_path(expected_model_path))
+            return context._send_and_receive(json.dumps(payload).encode('utf-8'))
+        except Exception as exc:
+            return json.dumps(error_payload(str(exc), error_code="plan_section_result_read_failed"))
 
 
     @mcp.tool()
@@ -242,6 +275,8 @@ def register(mcp, context):
 
     return {
         "get_modeling_policy": get_modeling_policy,
+        "plan_section": plan_section_tool,
+        "get_plan_section_result": get_plan_section_result,
         "execute_rhino_script": execute_rhino_script,
         "edit_planar_face": edit_planar_face,
         "edit_planar_faces": edit_planar_faces,
