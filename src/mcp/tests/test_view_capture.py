@@ -1,12 +1,14 @@
 """Split captures preserve live-view effects through image/transport failures."""
+import asyncio
 import base64
 import io
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
-from fastmcp import FastMCP
+from fastmcp import Client, FastMCP
 from PIL import Image
 
 from almond_mcp.features.context.tools import register
@@ -45,6 +47,7 @@ def test_default_current_capture_never_requests_selection_isolation_or_labels():
     assert calls[-1]["type"] == "get_current_viewcapture"
     assert "target_ids" not in calls[-1]
     assert calls[-1]["isolate"] is False and calls[-1]["labels"] is False
+    assert calls[-1]["display_mode"] == ""
 
 
 def test_multiple_object_targets_and_isolation_use_one_native_capture_without_geometry_filters():
@@ -118,6 +121,35 @@ def test_defined_target_alone_is_sufficient_and_uses_the_right_native_tool(kind)
     assert calls[-1]["target_kind"] == kind and calls[-1]["target"] == "도면 A"
     assert calls[-1]["type"] == "get_defined_viewcapture"
     assert "width" not in calls[-1] and "height" not in calls[-1]
+    assert calls[-1]["display_mode"] == ("Shaded" if kind == "named_view" else "")
+
+
+@pytest.mark.parametrize("mode,expected", [("", "Shaded"), ("Technical", "Technical"),
+    ("AGENT_Section_Glass", "AGENT_Section_Glass"),
+    ("f24230d5-159b-4228-b674-0be9ebde30a2", "f24230d5-159b-4228-b674-0be9ebde30a2")])
+def test_named_view_default_and_explicit_modes_are_sent_without_reading_saved_mode(mode, expected):
+    tools, calls = capture_tools(png_response())
+    result = invoke(tools, "get_defined_viewcapture", target_kind="named_view", target="section", display_mode=mode)
+    assert not result.is_error
+    assert [call["type"] for call in calls] == ["get_rhino_context", "get_defined_viewcapture"]
+    assert calls[0]["sections"] == []  # Capability check, not a stored Named View mode lookup.
+    assert calls[-1]["display_mode"] == expected
+
+
+def test_defined_capture_public_schema_explains_target_specific_mode_defaults():
+    async def schema():
+        mcp = FastMCP("defined-capture-schema")
+        register(mcp, SimpleNamespace())
+        async with Client(mcp) as client:
+            return next(tool for tool in await client.list_tools() if tool.name == "get_defined_viewcapture")
+    tool = asyncio.run(schema())
+    properties = tool.input_schema["properties"]
+    assert properties["display_mode"]["default"] == ""  # Neutral for Layout; resolved by target kind.
+    for text in (tool.description, properties["target_kind"]["description"], properties["display_mode"]["description"]):
+        assert "Shaded" in text and "Detail" in text
+    assert "AGENT_Section_Glass" in properties["display_mode"]["description"]
+    baseline = Path(__file__).resolve().parents[3] / "tests/integration/tool_schemas.json"
+    assert tool.input_schema == json.loads(baseline.read_text(encoding="utf-8"))["get_defined_viewcapture"]["inputSchema"]
 
 
 def test_defined_capture_automatic_scale_is_verified_against_the_returned_png():
