@@ -51,18 +51,18 @@ Returns:
 ## get_defined_viewcapture
 
 <!-- instruction:get_defined_viewcapture -->
-When to use: Capture a known Named View or actual Layout paper without activating it or changing the working camera.
+When to use: Capture a known Named View or actual Layout paper without activating it or changing the working camera. Named Views default to Shaded; Layouts preserve each Detail's existing display mode.
 Before calling: No preceding query is needed for a known name/ID. Obtain unknown Named View/Layout names and IDs from get_rhino_context. Requires view_capture=1; the tool checks this internally.
-Inputs from earlier results: target_kind is named_view or layout, and target is its name or ID. Ambiguous names are errors; use a unique listed ID. Those two inputs suffice. Optional display_mode uses an installed name/ID for Named Views. The runtime supplies expected_model_path for the bound document.
-Interpretation: Returns a PNG and image_file metadata (relative path, bytes, SHA256, lifetime or separate storage failure). Named Views use their saved camera and default Shaded mode. Layouts render the paper and details with print colors/widths, their actual paper proportions and 144 dpi as the 100% reference. Neither capture activates the saved view or changes the model.
+Inputs from earlier results: target_kind is named_view or layout, and target is its name or ID. Ambiguous names are errors; use a unique listed ID. Those two inputs suffice. For Named Views, display_mode can select another installed raster mode by name/ID. For section review, AGENT_Section_Glass is a custom-mode candidate; confirm its name/ID in get_rhino_context sections=['display_modes'] before selecting it. The runtime supplies expected_model_path for the bound document.
+Interpretation: Returns a PNG and image_file metadata (relative path, bytes, SHA256, lifetime or separate storage failure). Named Views use their saved camera; omitted or empty display_mode selects the capture tool's Shaded default, independent of any display mode stored with the Named View. Layouts render the paper and details with print colors/widths, their actual paper proportions and 144 dpi as the 100% reference, preserving each Detail's existing display mode. Neither capture activates the saved view or changes the model.
 Limits: Layouts retain each detail's mode and reject display-mode or explicit-pixel overrides. scale_percent is the desired upper bound, default 75; oversized defined-view PNGs are reduced automatically, with a warning and actual usage dimensions, to fit 16 megapixels/4 MiB. Explicit Named View pixels are never silently resized. No live camera/selection/visibility edits; file writes are additive. Labels default false; optional overlays are bounded to 200 and Layout detail labels are unavailable. Realtime display modes cannot be independently rendered.
 
 Args:
-    target_kind: named_view or layout.
+    target_kind: named_view uses the saved camera and defaults to Shaded unless display_mode is supplied; layout preserves each Detail's existing mode and takes no display_mode override.
     target: Existing name or ID; case-insensitive name matches must be unique.
     scale_percent: 1..100, default 75. Desired upper bound; percentage captures may shrink to fit the delivery budget.
     include_usage: Include actual dimensions and an illustrative pixel-based token estimate, not measured usage.
-    display_mode: Installed mode name/ID for Named Views; empty uses Shaded. Layouts reject overrides.
+    display_mode: Named View only: omitted/empty selects Shaded, or supply another installed raster mode name/ID. For section review, consider AGENT_Section_Glass after confirming it in display_modes. Layout: omit to preserve each Detail's existing mode; overrides are rejected.
     labels: Optional transient entity labels; default false.
     depth: Entity-label expansion depth 1..8.
     width: Optional Named View width in pixels, 128..2048; supply height too and scale_percent=100. Not used for Layouts.
