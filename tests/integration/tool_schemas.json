@@ -530,6 +530,18 @@
           "description": "Nonempty organizational Phase name.",
           "type": "string"
         },
+        "previous_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One preceding Phase ID (phase_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion."
+        },
         "project_file_id": {
           "anyOf": [
             {
@@ -611,6 +623,18 @@
           "description": "Optional existing Phase ID; empty leaves the Plan without Phase organization.",
           "type": "string"
         },
+        "previous_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion."
+        },
         "scene_id": {
           "default": "",
           "description": "Legacy single Scene ID. Prefer scene_ids; if both are supplied this must equal its first item.",
@@ -633,7 +657,7 @@
         },
         "scope": {
           "default": "house",
-          "description": "Registered Step template key; default house. Built-in keys: house, interior, structure, drawing, component, spatial_development, plan_editing, construction_detail, model_revision, inspection. Custom registered scopes map to a built-in template. Select by task purpose; creation does not execute Steps.",
+          "description": "Registered Step template key; default house. Built-in keys: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. Custom registered scopes map to a built-in template. Select by task purpose; creation does not execute Steps.",
           "type": "string"
         },
         "title": {
@@ -3984,7 +4008,7 @@
       "properties": {
         "artifact_name": {
           "default": "",
-          "description": "Initial artifact folder label only; omitted uses the Plan goal. Existing folders are reused; use rename_artifact_folder to rename one.",
+          "description": "Initial folder name only, never an absolute or relative path; omitted uses the Plan goal. Files go under .almond/produced/YYMMDD_name. Existing folders are reused; use rename_artifact_folder to rename one.",
           "type": "string"
         },
         "plan_id": {
@@ -4222,6 +4246,18 @@
           "description": "Existing Phase ID from list_phases.phases[].phase_id or get_phase_plan_step.id.",
           "type": "string"
         },
+        "previous_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One preceding Phase ID (phase_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion."
+        },
         "project_file_id": {
           "anyOf": [
             {
@@ -4370,6 +4406,18 @@
         "plan_id": {
           "description": "Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.",
           "type": "string"
+        },
+        "previous_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion."
         },
         "scene_ids": {
           "anyOf": [

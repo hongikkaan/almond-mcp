@@ -7,7 +7,7 @@ import json
 
 
 PLAN_CORE = {"plan_id", "title", "scope", "status", "revision"}
-PHASE_CORE = {"phase_id", "name", "status", "plan_count", "depends_on"}
+PHASE_CORE = {"phase_id", "name", "status", "plan_count", "depends_on", "previous_id"}
 GROUPS = {
     "steps": {"steps"},
     "references": {"phase_id", "scene_ids", "component_id", "component_ids", "depends_on",
@@ -51,12 +51,12 @@ def kst_minute(value: str) -> str:
 
 def phase_detail(phase: dict) -> dict:
     return {"id": phase["phase_id"], "type": "phase", "status": phase["status"],
-            "phase": {key: phase[key] for key in ("name", "description", "file_name", "project_file_id", "depends_on", "plan_titles")}}
+            "phase": {key: phase[key] for key in ("name", "description", "file_name", "project_file_id", "depends_on", "previous_id", "plan_titles")}}
 
 
 def plan_detail(plan: dict, include_components: bool, *, historical: bool = False) -> dict:
     detail = {key: plan[key] for key in (
-        "title", "goal", "scope", "revision", "phase", "scene_ids", "artifact_dir", "artifact_refs")}
+        "title", "goal", "scope", "revision", "phase", "scene_ids", "artifact_dir", "artifact_refs", "previous_id")}
     # Old immutable snapshots keep their original data in storage. The current
     # public view no longer exposes mixed-kind dependencies or Step assignments.
     detail["depends_on"] = [v for v in plan["depends_on"] if isinstance(v, str) and v.startswith("plan_") and v[5:].strip()]

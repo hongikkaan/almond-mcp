@@ -25,6 +25,15 @@ def same_kind_ids(values, kind: str) -> list[str]:
     return list(values)
 
 
+def previous_reference(value: str | None, kind: str) -> str | None:
+    """Record one same-kind predecessor without turning it into an execution gate."""
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str) or not value.startswith(kind + '_') or not value[len(kind) + 1:].strip():
+        raise ValueError(f"previous_id must be a {kind}_ ID or an empty string to clear it.")
+    return value
+
+
 def initialize_planning_details(store, connection):
     """Add labels and retire mixed-kind dependencies and Step target overrides."""
     migration = 'planning_details_v1'

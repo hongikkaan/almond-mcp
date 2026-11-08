@@ -26,9 +26,10 @@ def register(mcp, context):
     @tool_instruction(__file__, 'create_phase')
     @holon_output
     def create_phase(name: str, description: str = "", file_name: str = "", project_file_id: str | None = None,
-                     status: str = "pending", depends_on: list[str] | None = None) -> str:
+                     status: str = "pending", depends_on: list[str] | None = None,
+                     previous_id: str | None = None) -> str:
         try:
-            return json.dumps({"status": "success", "phase": compact_ack(context.retrieval_store.create_phase(name, description, file_name, project_file_id, status, depends_on), PHASE_ACK_FIELDS)})
+            return json.dumps({"status": "success", "phase": compact_ack(context.retrieval_store.create_phase(name, description, file_name, project_file_id, status, depends_on, previous_id), PHASE_ACK_FIELDS)})
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
@@ -56,10 +57,11 @@ def register(mcp, context):
         phase_id: str, name: str | None = None, description: str | None = None,
         file_name: str | None = None, project_file_id: str | None = None, status: str | None = None,
         depends_on: StringListPatch | None = None,
+        previous_id: str | None = None,
     ) -> str:
         try:
             return json.dumps(update_ack(context.retrieval_store.edit_phase(
-                phase_id, name, description, file_name, project_file_id, status, depends_on), "phase"))
+                phase_id, name, description, file_name, project_file_id, status, depends_on, previous_id), "phase"))
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
@@ -76,6 +78,7 @@ def register(mcp, context):
         scene_ids: list[str] | None = None,
         holon_ids: list[str] | None = None,
         depends_on: list[str] | None = None,
+        previous_id: str | None = None,
     ) -> str:
         try:
             return json.dumps({
@@ -89,6 +92,7 @@ def register(mcp, context):
                     scene_ids=scene_ids,
                     component_ids=holon_ids,
                     depends_on=depends_on,
+                    previous_id=previous_id,
                 ), PLAN_ACK_FIELDS),
             })
         except Exception as exc:
@@ -158,12 +162,14 @@ def register(mcp, context):
         status: str | None = None,
         artifact_refs: list[str] | None = None,
         title: str | None = None,
+        previous_id: str | None = None,
     ) -> str:
         try:
             return json.dumps(update_ack(context.retrieval_store.edit_plan(
                     plan_id, goal=goal, phase_id=phase_id, scene_ids=scene_ids,
                     component_ids=holon_ids, expected_revision=expected_revision,
                     depends_on=depends_on, status=status, artifact_refs=artifact_refs, title=title,
+                    previous_id=previous_id,
                 ), "plan"))
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))

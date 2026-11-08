@@ -9,6 +9,7 @@ from typing import Any
 
 from almond_mcp.store_common import _utc_now, _json, _decode
 from almond_mcp.features.planning.updates import StringListPatch, PlanningUpdate, apply_list_patch
+from almond_mcp.features.planning.schema import previous_reference
 
 
 class PlanningStore:
@@ -35,6 +36,7 @@ class PlanningStore:
                 "phase_id": "TEXT REFERENCES generation_phases(phase_id) ON DELETE RESTRICT",
                 "revision": "INTEGER NOT NULL DEFAULT 0",
                 "depends_on_json": "TEXT NOT NULL DEFAULT '[]'",
+                "previous_id": "TEXT",
                 "artifact_dir": "TEXT NOT NULL DEFAULT ''",
                 "artifact_refs_json": "TEXT NOT NULL DEFAULT '[]'",
             },
@@ -43,6 +45,7 @@ class PlanningStore:
             },
             "generation_phases": {
                 "depends_on_json": "TEXT NOT NULL DEFAULT '[]'",
+                "previous_id": "TEXT",
             },
         }
         for table, columns in additions.items():
@@ -192,20 +195,22 @@ class PlanningStore:
         return result
 
     def create_phase(self, name: str, description: str = "", file_name: str = "", project_file_id: str | None = None,
-                     status: str = "pending", depends_on: list[str] | None = None) -> dict[str, Any]:
+                     status: str = "pending", depends_on: list[str] | None = None,
+                     previous_id: str | None = None) -> dict[str, Any]:
         name = self._generation_text(name, "name")
         description = self._generation_text(description, "description", allow_empty=True)
         file_name = self._generation_text(file_name, "file_name", allow_empty=True)
         status = self._generation_status(status)
         depends_on = self._related_ids([] if depends_on is None else depends_on, "phase")
+        previous_id = previous_reference(previous_id, "phase")
         phase_id = f"phase_{uuid.uuid4().hex[:12]}"
         now = _utc_now()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             file_id = self._project_file_reference(connection,file_name,project_file_id)
             connection.execute(
-                "INSERT INTO generation_phases(phase_id, name, description, created_at, updated_at, project_file_id, status, depends_on_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (phase_id, name, description, now, now, file_id, status, _json(depends_on)),
+                "INSERT INTO generation_phases(phase_id, name, description, created_at, updated_at, project_file_id, status, depends_on_json, previous_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (phase_id, name, description, now, now, file_id, status, _json(depends_on), previous_id),
             )
             result = self._read_generation_phase(connection, phase_id)
         return result
@@ -230,13 +235,15 @@ class PlanningStore:
         self, phase_id: str, name: str | None = None, description: str | None = None,
         file_name: str | None = None, project_file_id: str | None = None, status: str | None = None,
         depends_on: list[str] | None = None,
+        previous_id: str | None = None,
     ) -> dict[str, Any]:
-        return self.edit_phase(phase_id, name, description, file_name, project_file_id, status, depends_on).record
+        return self.edit_phase(phase_id, name, description, file_name, project_file_id, status, depends_on, previous_id).record
 
     def edit_phase(
         self, phase_id: str, name: str | None = None, description: str | None = None,
         file_name: str | None = None, project_file_id: str | None = None, status: str | None = None,
         depends_on: list[str] | StringListPatch | None = None,
+        previous_id: str | None = None,
     ) -> PlanningUpdate:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -249,16 +256,17 @@ class PlanningStore:
             )
             file_id = current['project_file_id'] if file_name is None and project_file_id is None else self._project_file_reference(connection,file_name or '',project_file_id)
             status = current['status'] if status is None else self._generation_status(status)
+            previous_id = current['previous_id'] if previous_id is None else previous_reference(previous_id, "phase")
             issues = []
             if isinstance(depends_on, StringListPatch):
                 depends_on, issues = apply_list_patch(current['depends_on'], depends_on, "depends_on", kind="phase")
             else:
                 depends_on = current['depends_on'] if depends_on is None else self._related_ids(depends_on, "phase")
-            changed = (name,description,file_id,status,depends_on) != (current['name'],current['description'],current['project_file_id'],current['status'],current['depends_on'])
+            changed = (name,description,file_id,status,depends_on,previous_id) != (current['name'],current['description'],current['project_file_id'],current['status'],current['depends_on'],current['previous_id'])
             if changed:
                 connection.execute(
-                    "UPDATE generation_phases SET name = ?, description = ?, project_file_id = ?, status = ?, depends_on_json = ?, updated_at = ? WHERE phase_id = ?",
-                    (name, description, file_id, status, _json(depends_on), _utc_now(), phase_id),
+                    "UPDATE generation_phases SET name = ?, description = ?, project_file_id = ?, status = ?, depends_on_json = ?, previous_id = ?, updated_at = ? WHERE phase_id = ?",
+                    (name, description, file_id, status, _json(depends_on), previous_id, _utc_now(), phase_id),
                 )
             result = self._read_generation_phase(connection, phase_id)
         return PlanningUpdate(result, changed, issues)
@@ -321,6 +329,7 @@ class PlanningStore:
         component_ids: list[str] | None = None,
         depends_on: list[str] | None = None,
         title: str | None = None,
+        previous_id: str | None = None,
     ) -> dict[str, Any]:
         goal = self._generation_text(goal, "goal")
         from almond_mcp.features.planning.schema import default_plan_title
@@ -335,6 +344,7 @@ class PlanningStore:
             raise ValueError("scene_id must match the first entry of scene_ids when both are supplied.")
         component_ids = self._generation_refs([] if component_ids is None else component_ids, "component_ids")
         depends_on = self._related_ids([] if depends_on is None else depends_on)
+        previous_id = previous_reference(previous_id, "plan")
         templates = {
 
 
@@ -438,10 +448,10 @@ class PlanningStore:
             connection.execute(
                 """
                 INSERT INTO generation_plans(
-                    plan_id, scene_id, scope, goal, status, created_at, updated_at, phase_id, depends_on_json, title
-                ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
+                    plan_id, scene_id, scope, goal, status, created_at, updated_at, phase_id, depends_on_json, title, previous_id
+                ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)
                 """,
-                (plan_id, scene_ids[0] if scene_ids else None, scope, goal, now, now, phase_id or None, _json(depends_on), title),
+                (plan_id, scene_ids[0] if scene_ids else None, scope, goal, now, now, phase_id or None, _json(depends_on), title, previous_id),
             )
             for position, (step_id, kind, dependencies) in enumerate(templates[template[0]]):
                 connection.execute(
@@ -477,7 +487,7 @@ class PlanningStore:
                 snapshot.setdefault("title", default_plan_title(snapshot["goal"]))
                 # Older snapshots had no Phase name. Do not invent its historical name.
                 snapshot.setdefault("phase", {"phase_id": snapshot["phase_id"], "name": None} if snapshot.get("phase_id") else None)
-                for key, default in (("depends_on", []), ("artifact_dir", ""), ("artifact_refs", [])):
+                for key, default in (("depends_on", []), ("previous_id", None), ("artifact_dir", ""), ("artifact_refs", [])):
                     snapshot.setdefault(key, default)
                 for step in snapshot.get("steps", []):
                     step.setdefault("name", step["step_id"])
@@ -563,15 +573,17 @@ class PlanningStore:
         status: str | None = None,
         artifact_refs: list[str] | None = None,
         title: str | None = None,
+        previous_id: str | None = None,
     ) -> dict[str, Any]:
         return self.edit_plan(plan_id, goal, phase_id, scene_ids, component_ids, expected_revision,
-                              depends_on, status, artifact_refs, title).record
+                              depends_on, status, artifact_refs, title, previous_id).record
 
     def edit_plan(
         self, plan_id: str, goal: str | None = None, phase_id: str | None = None,
         scene_ids: list[str] | None = None, component_ids: list[str] | None = None,
         expected_revision: int | None = None, depends_on: list[str] | StringListPatch | None = None,
         status: str | None = None, artifact_refs: list[str] | None = None, title: str | None = None,
+        previous_id: str | None = None,
     ) -> PlanningUpdate:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -581,6 +593,7 @@ class PlanningStore:
             self._check_generation_revision(plan, expected_revision)
             goal = plan["goal"] if goal is None else self._generation_text(goal, "goal")
             title = plan["title"] if title is None else self._generation_text(title, "title")
+            previous_id = plan["previous_id"] if previous_id is None else previous_reference(previous_id, "plan")
             phase_id = plan["phase_id"] if phase_id is None else (
                 self._generation_text(phase_id, "phase_id", allow_empty=True) or None
             )
@@ -596,13 +609,13 @@ class PlanningStore:
                 raise ValueError("Unsupported plan status.")
             artifact_refs = plan["artifact_refs"] if artifact_refs is None else self._generation_refs(artifact_refs, "artifact_refs")
             self._validate_generation_refs(connection, scene_ids, component_ids, phase_id)
-            if (goal, phase_id, scene_ids, component_ids, depends_on, status, artifact_refs, title) == (
-                plan["goal"], plan["phase_id"], plan["scene_ids"], plan["component_ids"], plan["depends_on"], plan["status"], plan["artifact_refs"], plan["title"]
+            if (goal, phase_id, scene_ids, component_ids, depends_on, status, artifact_refs, title, previous_id) == (
+                plan["goal"], plan["phase_id"], plan["scene_ids"], plan["component_ids"], plan["depends_on"], plan["status"], plan["artifact_refs"], plan["title"], plan["previous_id"]
             ):
                 return PlanningUpdate(plan, False, issues)
             connection.execute(
-                "UPDATE generation_plans SET goal = ?, phase_id = ?, scene_id = ?, depends_on_json = ?, status = ?, artifact_refs_json = ?, title = ? WHERE plan_id = ?",
-                (goal, phase_id, scene_ids[0] if scene_ids else None, _json(depends_on), status, _json(artifact_refs), title, plan_id),
+                "UPDATE generation_plans SET goal = ?, phase_id = ?, scene_id = ?, depends_on_json = ?, status = ?, artifact_refs_json = ?, title = ?, previous_id = ? WHERE plan_id = ?",
+                (goal, phase_id, scene_ids[0] if scene_ids else None, _json(depends_on), status, _json(artifact_refs), title, previous_id, plan_id),
             )
             self._write_generation_refs(connection, plan_id, scene_ids, component_ids)
             result = self._record_generation_revision(connection, plan_id, "update_plan")
