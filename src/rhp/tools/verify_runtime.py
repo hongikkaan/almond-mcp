@@ -42,7 +42,9 @@ def is_source(relative, component):
         return False
     if relative == "global.json":
         return True
-    if component == "bridge" and relative == "src/mcp/modeling_policy.json":
+    if component == "bridge" and relative in {
+        "src/mcp/modeling_policy.json", "src/mcp/features/modeling/PlanSection/PlanSection.py"
+    }:
         return True
     return relative.startswith(SOURCE_ROOTS[component]) and (
         path.suffix.lower() in {".cs", ".csproj", ".props", ".targets", ".ico", ".resx"}

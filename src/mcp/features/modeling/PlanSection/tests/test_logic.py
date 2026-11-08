@@ -87,7 +87,7 @@ class OptionsAndMetadata(unittest.TestCase):
                  ObjectPlotColorSource=NS(PlotColorFromLayer=plot_color_source),
                  ObjectPlotWeightSource=NS(PlotWeightFromLayer=plot_weight_source))
         with patch.object(ps, 'D', api):
-            for role in ('section', 'elevation', 'hatch'):
+            for role in ('section', 'hatch'):
                 attrs = ps.output_attributes(Attributes(), role)
                 self.assertIs(attrs.PlotColorSource, plot_color_source)
                 self.assertIs(attrs.PlotWeightSource, plot_weight_source)
@@ -101,6 +101,26 @@ class OptionsAndMetadata(unittest.TestCase):
         self.assertIs(layer.PlotColor, color)
         self.assertEqual(layer.PlotWeight, -1.0)
         self.assertEqual(ps.output_layer('hatch'), 'Drawing::Hatch')
+
+    def test_final_elevation_keeps_distance_print_style_and_source_is_unchanged(self):
+        import copy
+        for distance in (0, 5, 10):
+            width, gray = ps.relative_style(distance, 0, 10, .09, .04, 80, 45)
+            source = Attributes({'ps:source_layer':'Model', 'internal':'remove'})
+            source.PlotWeight, source.PlotColor = width, (gray, gray, gray)
+            source.PlotWeightSource = source.PlotColorSource = 'object'
+            source.Duplicate = lambda: copy.copy(source)
+            # Copy user strings separately as real Rhino Duplicate does.
+            def duplicate():
+                result = copy.copy(source)
+                result.values = dict(source.values)
+                return result
+            source.Duplicate = duplicate
+            attrs = ps.output_attributes(source, 'elevation')
+            self.assertEqual((attrs.PlotWeight, attrs.PlotColor), (width, (gray, gray, gray)))
+            self.assertEqual((attrs.PlotWeightSource, attrs.PlotColorSource), ('object','object'))
+            self.assertEqual(attrs.values, {'ps:source_layer':'Model'})
+            self.assertIn('internal', source.values)
 
     def test_read_clip_shared_default_and_explicit_update_target(self):
         shared, moved = NS(IsValid=True), NS(IsValid=True)
