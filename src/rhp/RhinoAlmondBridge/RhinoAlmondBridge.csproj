@@ -42,6 +42,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="../../mcp/modeling_policy.json" LogicalName="RhinoAlmondBridge.modeling_policy.json" />
+    <EmbeddedResource Include="../../mcp/features/modeling/PlanSection/PlanSection.py" LogicalName="RhinoAlmondBridge.PlanSection.py" />
     <!-- Panel tab icons: Almond and Almond Results -->
     <EmbeddedResource Include="Resources\*.ico" />
     <EmbeddedResource Include="../RhinoTerminal/src/web/terminal.html" LogicalName="RhinoTerminal.terminal.html" />

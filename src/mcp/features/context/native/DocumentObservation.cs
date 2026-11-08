@@ -92,7 +92,7 @@ namespace RhinoAlmondBridge
                     ["capture_output_size"] = 1, ["face_edit"] = 1,
                     ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
                     ["intersection_review"] = 1,
-                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1 },
+                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1, ["plan_section"] = 1, ["plan_section_result"] = 1 },
                 ["warnings"] = warnings
             };
             if (requested.Contains("document")) result["document"] = new JObject
@@ -344,7 +344,15 @@ namespace RhinoAlmondBridge
 
         internal static JObject ImageViewState(RhinoView view)
         {
-            return new JObject { ["main"] = ReadViewport(view.MainViewport), ["active"] = ReadViewport(view.ActiveViewport) };
+            var main = view.MainViewport;
+            var active = view.ActiveViewport;
+            // Paper space can have no display mode; a Layout's active Detail still must have one.
+            var paper = view is RhinoPageView;
+            return new JObject
+            {
+                ["main"] = ReadViewport(main, paper),
+                ["active"] = ReadViewport(active, paper && main != null && active != null && active.Id == main.Id)
+            };
         }
 
         private static Bitmap CaptureImage(RhinoDoc doc, RhinoView view, ViewInfo namedView,
@@ -491,13 +499,13 @@ namespace RhinoAlmondBridge
             return count;
         }
 
-        private static JObject ReadViewport(RhinoViewport viewport)
+        private static JObject ReadViewport(RhinoViewport viewport, bool allowMissingDisplayMode = false)
         {
             if (viewport == null)
                 throw new InvalidOperationException("The active viewport is unavailable.");
             var size = viewport.Size;
             var mode = viewport.DisplayMode;
-            if (mode == null)
+            if (mode == null && !allowMissingDisplayMode)
                 throw new InvalidOperationException("The viewport display mode is unavailable.");
             return new JObject
             {
@@ -505,7 +513,7 @@ namespace RhinoAlmondBridge
                 ["name"] = viewport.Name,
                 ["width"] = size.Width,
                 ["height"] = size.Height,
-                ["display_mode"] = mode.EnglishName,
+                ["display_mode"] = mode == null ? JValue.CreateNull() : new JValue(mode.EnglishName),
                 ["projection"] = viewport.IsTwoPointPerspectiveProjection ? "two-point-perspective" :
                     viewport.IsPerspectiveProjection ? "perspective" : viewport.IsParallelProjection ? "parallel" : "unknown",
                 ["camera_location"] = Coordinates(viewport.CameraLocation),

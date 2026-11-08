@@ -1,5 +1,44 @@
 # tools.py explain
 
+## plan_section
+
+<!-- instruction:plan_section -->
+When to use: Generate or update model-space section curves, hatches and visible elevation curves from observed clipping-plane GUIDs using Almond's built-in PlanSection algorithm.
+Before calling: Use Create for a new drawing or to replace the existing local drawing for the same clipping; Update regenerates existing drawings at their saved placement and skips missing ones. Supply clipping_ids and only intended options. Create points maps requested clipping GUIDs to finite [x,y] or [x,y,z] in document units; omit points for Update. Omitted Create placement uses saved draft_plane or the origin, so separate drawings may overlap unless you specify their placement.
+Inputs from earlier results: Reuse observed clipping-plane GUIDs. Within the result budget, results return each clipping's status, generated object_ids and the algorithm report. This dedicated tool executes the packaged algorithm inside the Bridge; it requires plan_section=1 and the built-in Python runtime, not RhinoCode or StartScriptServer.
+Interpretation: success means all requested drawings completed; partial or cancelled is a structured outcome (MCP isError=false), preserving per-clipping evidence and any already completed drawings, not confirmation that the whole request completed. Native execution failures become status=error/MCP isError=true with the original native_status and diagnostics preserved. Update may report skipped when no local drawing exists. Elevation object print colors and widths preserve distance interpolation through final output, defaulting to 0.09→0.04 mm and 80→45% darkness. Section and hatch print properties follow their Drawing layers.
+Limits: Only Create/Update Document output is exposed here. This does not create Layouts, change Plan/Step status, save the model, or expose Move/PDF/Files. It reuses the existing Undo scope and never edits attached source geometry. A Layout Detail can present the model-space drawing; get_defined_viewcapture(target_kind="layout", target=Layout_ID) captures its paper. Timeout or an unconfirmed result is not rollback: inspect existing drawings and runtime completion before any retry. Do not regenerate to recover a missing response. Long native computation runs on Rhino's UI thread; Escape cancellation follows the existing PlanSection checkpoints.
+Output size: Small results return per-clipping evidence directly. Larger/deeper results return result_delivery=paged with result_id, result_sha256 and counts; use get_plan_section_result to recover the full JSON without another drawing mutation. Retention is in the Bridge process for the same document instance: up to one hour, latest 8 receipts within 64 MiB UTF-16 total, with older receipts evicted as needed. Read promptly; save the reconstructed result in task artifacts if needed. A single result exceeding that retention budget returns unconfirmed/error rather than silently truncating. The common 64 KiB/16-container capture limits remain unchanged. Timeout, missing/expired receipt or unconfirmed output is not rollback and never authorizes automatic regeneration. This is not a RhinoCode journal. Existing metadata_conflicts remains a 64-entry sample with full metadata_conflict_count.
+
+Args:
+    operation: Create or Update.
+    clipping_ids: Nonempty list of observed clipping-plane GUIDs. Duplicate identities are processed once.
+    points: Optional Create-only mapping of requested clipping GUIDs to [x,y] or [x,y,z] absolute drawing origins in document units. Omit for Update.
+    hatch: Generate section hatches from existing source section styles.
+    elevation: Include visible elevation curves behind the clipping plane.
+    small_details: Retain the existing small-detail protection mode when true.
+    near_width: Nearest elevation object print width in mm; positive and at least far_width. Preserved in final output.
+    far_width: Farthest elevation object print width in mm; positive and at most near_width. Preserved in final output.
+    near_dark: Nearest elevation object print darkness percentage, 0..100 and at least far_dark. Preserved in final output.
+    far_dark: Farthest elevation object print darkness percentage, 0..100 and at most near_dark. Preserved in final output.
+    expected_model_path: Bound saved-document path supplied by the runtime; an explicit value must match that binding.
+<!-- /instruction:plan_section -->
+
+## get_plan_section_result
+
+<!-- instruction:get_plan_section_result -->
+When to use: Read a retained, paged PlanSection execution result without regenerating any drawing.
+Before calling: Use the same bound document instance and result_id from plan_section.result when result_delivery=paged. Start at offset=0, then pass the returned next_offset until it is null.
+Inputs from earlier results: plan_section.result.result_id selects the retained result; each page's next_offset selects the next fragment.
+Interpretation: Concatenate json_chunk strings in order, then parse the reconstructed JSON. Offsets and total_characters count UTF-16 code units; use returned offsets, not a Python string length. result_sha256 hashes the reconstructed UTF-8 JSON. Pages are at most 4096 UTF-16 units and do not split surrogate pairs. Counts/status describe the stored execution, not current geometry.
+Limits: Read-only; never calls PlanSection or creates Undo records. Receipts expire after one hour, Bridge restart, or cache eviction (latest 8 within 64 MiB total). A different document instance cannot read them. plan_section_result_expired means inspect existing drawings and execution evidence, not rerun Create/Update. No arbitrary file paths or code are accepted.
+
+Args:
+    result_id: Opaque 32-character receipt ID from plan_section.result.result_id.
+    offset: Start at zero; subsequently copy next_offset from the preceding page.
+    expected_model_path: Bound saved-document path; explicit value must agree with the runtime binding.
+<!-- /instruction:get_plan_section_result -->
+
 ## get_modeling_policy
 
 <!-- instruction:get_modeling_policy -->

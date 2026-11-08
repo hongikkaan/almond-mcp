@@ -16,6 +16,7 @@ Args:
     project_file_id: Existing project.files[].project_file_id from project_info(sections=["project"], include_ids=true). Must agree with file_name when both are supplied.
     status: Initial workflow state: pending, running, paused, completed, failed or blocked.
     depends_on: Optional Phase ID array (phase_ prefix only). Records relationships without enforcing execution order; omission creates no dependencies.
+    previous_id: One preceding Phase ID (phase_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
 <!-- /instruction:create_phase -->
 
 ## list_phases
@@ -49,13 +50,14 @@ Args:
     project_file_id: Existing project.files[].project_file_id from project_info(sections=["project"], include_ids=true). Must agree with file_name when both are supplied.
     status: Optional pending, running, paused, completed, failed or blocked. Omission/null preserves state.
     depends_on: Optional {add: string[], remove: string[]} patch using Phase IDs only. Conflicting/invalid string items are reported and skipped; malformed types reject the whole request.
+    previous_id: One preceding Phase ID (phase_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
 <!-- /instruction:update_phase -->
 
 ## create_plan
 
 <!-- instruction:create_plan -->
 When to use: Record a titled Plan with template Steps, optional Phase organization, contextual Scenes and explicit Holon targets.
-Before calling: Supply nonempty title and goal. title is the short list label; goal preserves the full objective. scope defaults to house and selects an existing registered Step template. Choose a scope appropriate to the task; custom registered scope mappings are supported. phase_id is optional; depends_on accepts only plan_ IDs.
+Before calling: Supply nonempty title and goal. title is the short list label; goal preserves the full objective. scope defaults to house and selects an existing registered Step template. For each new Plan, including a follow-up or a change of task, choose scope from the task's purpose and the user's existing template choice; custom registered scope mappings are supported. phase_id is optional; depends_on accepts only plan_ IDs.
 Inputs from earlier results: list_phases.phases[].phase_id feeds phase_id. Scene and Holon discovery provide scene_ids and holon_ids. The legacy scene_id, when supplied with scene_ids, must equal its first item. list_plans.plans[].plan_id provides dependency references.
 Interpretation: plan.plan_id and revision feed get_phase_plan_step, set_working_plan and subsequent updates. The selected scope creates its ordered template Steps; Holon targets belong to the Plan only.
 Limits: Creating a Plan does not select its artifact folder, edit Rhino or force Step execution. construction_detail is a template, not an enabling flag: detailed construction modeling still needs the user's request for that Task. inspection has no modeling Step. Existing custom scope mappings are preserved. Dependencies may be uncreated, self-referential or cyclic and do not enforce completion.
@@ -63,12 +65,13 @@ Limits: Creating a Plan does not select its artifact folder, edit Rhino or force
 Args:
     title: Nonempty short title used in Plan lists.
     goal: Nonempty full objective and intended outcome.
-    scope: Registered Step template key; default house. Built-in keys: house, interior, structure, drawing, component, spatial_development, plan_editing, construction_detail, model_revision, inspection. Custom registered scopes map to a built-in template. Select by task purpose; creation does not execute Steps.
+    scope: Registered Step template key; default house. Built-in keys: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. Custom registered scopes map to a built-in template. Select by task purpose; creation does not execute Steps.
     scene_id: Legacy single Scene ID. Prefer scene_ids; if both are supplied this must equal its first item.
     phase_id: Optional existing Phase ID; empty leaves the Plan without Phase organization.
     scene_ids: Optional existing Scene ID array describing context, including several Scenes; omission permits work without a Scene. This does not expand the geometry target set.
     holon_ids: Optional explicit registered Holon targets for this Plan. Steps have no separate Holon assignment.
     depends_on: Optional Plan ID array (plan_ prefix only). Records dependencies without enforcing execution order.
+    previous_id: One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
 <!-- /instruction:create_plan -->
 
 ## get_phase_plan_step
@@ -77,7 +80,7 @@ Args:
 When to use: Read one Phase, Plan or specific Step in detail, including a saved Plan/Step revision when needed.
 Before calling: Supply exactly one of phase_id or plan_id. A step_id requires plan_id and selects only that Step. revision is valid only for a Plan or Step; include_holons=true is valid only for a Plan. No include_ids or field_groups argument is accepted.
 Inputs from earlier results: list_phases.phases[].phase_id selects a Phase; list_plans.plans[].plan_id selects a Plan. A Plan result's plan.steps[].step_id selects one Step under the same plan_id. list_plan_revisions.revisions[].revision selects saved state.
-Interpretation: Common id, type and status identify the selected item and its workflow state. phase contains name, description, file_name/project_file_id, Phase depends_on and plan_titles. plan contains title, goal, scope, revision, phase (phase_id/name or null), Plan depends_on, scene_ids, artifact_dir/artifact_refs, created_at/updated_at in KST YYYY-MM-DD-HH:mm and Step ID/name/status summaries. Plan holon_ids appear only with include_holons=true; available_details lists an unrequested include_holons option. step contains its plan_id, Plan revision, name and only that Step's input_refs/output_refs. IDs are always returned. Plan next_step explains specific-Step detail and set_working_plan; Step next_step explains selecting that work context and artifact location. Selection is not execution or a status change.
+Interpretation: Common id, type and status identify the selected item and its workflow state. phase contains name, description, file_name/project_file_id, Phase depends_on, previous_id and plan_titles. plan contains title, goal, scope, revision, phase (phase_id/name or null), Plan depends_on, previous_id, scene_ids, artifact_dir/artifact_refs, created_at/updated_at in KST YYYY-MM-DD-HH:mm and Step ID/name/status summaries. Plan holon_ids appear only with include_holons=true; available_details lists an unrequested include_holons option. step contains its plan_id, Plan revision, name and only that Step's input_refs/output_refs. IDs are always returned. Plan next_step explains specific-Step detail and set_working_plan; Step next_step explains selecting that work context and artifact location. Selection is not execution or a status change.
 Limits: This does not select a working Plan, execute a Step or verify geometry. status is the item's pending/running/paused/completed/failed/blocked state; status=error reports a failed query. Step records have no Holon assignment. Old snapshots stay immutable; missing legacy titles are derived from their goals, and an unavailable historical Phase name is null. Revisions are metadata history, not Rhino backups. Historical next_step keeps the revision for Step discovery and directs a fresh query without revision before selecting current work; set_working_plan never restores history.
 
 Args:
@@ -124,6 +127,7 @@ Args:
     status: Optional pending, running, paused, completed, failed or blocked; omission/null preserves.
     artifact_refs: Optional replacement artifact-reference string array; [] clears, omission/null preserves.
     title: Optional nonempty replacement short title.
+    previous_id: One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
 <!-- /instruction:update_plan -->
 
 ## list_plan_revisions

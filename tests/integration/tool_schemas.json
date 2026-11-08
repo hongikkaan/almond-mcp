@@ -530,6 +530,18 @@
           "description": "Nonempty organizational Phase name.",
           "type": "string"
         },
+        "previous_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One preceding Phase ID (phase_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion."
+        },
         "project_file_id": {
           "anyOf": [
             {
@@ -611,6 +623,18 @@
           "description": "Optional existing Phase ID; empty leaves the Plan without Phase organization.",
           "type": "string"
         },
+        "previous_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion."
+        },
         "scene_id": {
           "default": "",
           "description": "Legacy single Scene ID. Prefer scene_ids; if both are supplied this must equal its first item.",
@@ -633,7 +657,7 @@
         },
         "scope": {
           "default": "house",
-          "description": "Registered Step template key; default house. Built-in keys: house, interior, structure, drawing, component, spatial_development, plan_editing, construction_detail, model_revision, inspection. Custom registered scopes map to a built-in template. Select by task purpose; creation does not execute Steps.",
+          "description": "Registered Step template key; default house. Built-in keys: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. Custom registered scopes map to a built-in template. Select by task purpose; creation does not execute Steps.",
           "type": "string"
         },
         "title": {
@@ -1318,7 +1342,7 @@
         },
         "display_mode": {
           "default": "",
-          "description": "Installed mode name/ID for Named Views; empty uses Shaded. Layouts reject overrides.",
+          "description": "Named View only: omitted/empty selects Shaded, or supply another installed raster mode name/ID. For section review, consider AGENT_Section_Glass after confirming it in display_modes. Layout: omit to preserve each Detail's existing mode; overrides are rejected.",
           "type": "string"
         },
         "expected_model_path": {
@@ -1358,7 +1382,7 @@
           "type": "string"
         },
         "target_kind": {
-          "description": "named_view or layout.",
+          "description": "named_view uses the saved camera and defaults to Shaded unless display_mode is supplied; layout preserves each Detail's existing mode and takes no display_mode override.",
           "type": "string"
         },
         "width": {
@@ -1978,6 +2002,48 @@
       "type": "object"
     },
     "name": "get_phase_plan_step",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
+  "get_plan_section_result": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_model_path": {
+          "default": "",
+          "description": "Bound saved-document path; explicit value must agree with the runtime binding.",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Start at zero; subsequently copy next_offset from the preceding page.",
+          "type": "integer"
+        },
+        "result_id": {
+          "description": "Opaque 32-character receipt ID from plan_section.result.result_id.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result_id"
+      ],
+      "type": "object"
+    },
+    "name": "get_plan_section_result",
     "outputSchema": {
       "properties": {
         "result": {
@@ -3116,6 +3182,140 @@
       "x-fastmcp-wrap-result": true
     }
   },
+  "plan_section": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "clipping_ids": {
+          "description": "Nonempty list of observed clipping-plane GUIDs. Duplicate identities are processed once.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "elevation": {
+          "default": true,
+          "description": "Include visible elevation curves behind the clipping plane.",
+          "type": "boolean"
+        },
+        "expected_model_path": {
+          "default": "",
+          "description": "Bound saved-document path supplied by the runtime; an explicit value must match that binding.",
+          "type": "string"
+        },
+        "far_dark": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 45.0,
+          "description": "Farthest elevation object print darkness percentage, 0..100 and at most near_dark. Preserved in final output."
+        },
+        "far_width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 0.04,
+          "description": "Farthest elevation object print width in mm; positive and at most near_width. Preserved in final output."
+        },
+        "hatch": {
+          "default": true,
+          "description": "Generate section hatches from existing source section styles.",
+          "type": "boolean"
+        },
+        "near_dark": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 80.0,
+          "description": "Nearest elevation object print darkness percentage, 0..100 and at least far_dark. Preserved in final output."
+        },
+        "near_width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 0.09,
+          "description": "Nearest elevation object print width in mm; positive and at least far_width. Preserved in final output."
+        },
+        "operation": {
+          "description": "Create or Update.",
+          "enum": [
+            "Create",
+            "Update"
+          ],
+          "type": "string"
+        },
+        "points": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional Create-only mapping of requested clipping GUIDs to [x,y] or [x,y,z] absolute drawing origins in document units. Omit for Update."
+        },
+        "small_details": {
+          "default": true,
+          "description": "Retain the existing small-detail protection mode when true.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation",
+        "clipping_ids"
+      ],
+      "type": "object"
+    },
+    "name": "plan_section",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
   "prepare_drawing_asset": {
     "annotations": {
       "destructiveHint": false,
@@ -3984,7 +4184,7 @@
       "properties": {
         "artifact_name": {
           "default": "",
-          "description": "Initial artifact folder label only; omitted uses the Plan goal. Existing folders are reused; use rename_artifact_folder to rename one.",
+          "description": "Initial folder name only, never an absolute or relative path; omitted uses the Plan goal. Files go under .almond/produced/YYMMDD_name. Existing folders are reused; use rename_artifact_folder to rename one.",
           "type": "string"
         },
         "plan_id": {
@@ -4222,6 +4422,18 @@
           "description": "Existing Phase ID from list_phases.phases[].phase_id or get_phase_plan_step.id.",
           "type": "string"
         },
+        "previous_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One preceding Phase ID (phase_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion."
+        },
         "project_file_id": {
           "anyOf": [
             {
@@ -4370,6 +4582,18 @@
         "plan_id": {
           "description": "Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.",
           "type": "string"
+        },
+        "previous_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion."
         },
         "scene_ids": {
           "anyOf": [

@@ -190,3 +190,31 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
     for name, label in (("codex", "beyond"), ("cos", "CoS")):
         (tmp_path / name).mkdir()
         assert asyncio.run(inspect(name)) == label
+
+
+def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
+    params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
+        str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path))
+    _, worker = asyncio.run(collect(params, bound=True))
+    from runtime import load_catalog, schema_identity
+    from external_host import Broker, json_result
+    from types import SimpleNamespace
+    catalog = next(t for t in load_catalog()["tools"] if t["name"] == "plan_section")
+    baseline = json.loads((ROOT / "tests/integration/tool_schemas.json").read_text(encoding="utf-8"))["plan_section"]
+    assert schema_identity(worker["plan_section"]) == schema_identity(catalog) == baseline
+    arguments = dict(connection_id="fixture", operation="Create", clipping_ids=["00000000-0000-0000-0000-000000000001"])
+    observed = []
+
+    async def invoke(conn, name, payload, invocation):
+        observed.append((conn, name, payload))
+        return json_result({"status": "success"})
+
+    async def route():
+        broker = SimpleNamespace(mapping={"plan_section": "plan_section"}, connections={"fixture": "bound"},
+                                 invoke=invoke, spawn=asyncio.create_task)
+        response = await Broker.call(broker, "plan_section", arguments)
+        assert not response.is_error
+
+    asyncio.run(route())
+    assert observed == [("bound", "plan_section", {key: value for key, value in arguments.items() if key != "connection_id"})]
+    assert arguments["connection_id"] == "fixture"
