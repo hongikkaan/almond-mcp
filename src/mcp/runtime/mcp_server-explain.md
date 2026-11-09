@@ -1,5 +1,21 @@
 # mcp_server.py explain
 
+## execute_looping
+
+<!-- instruction:execute_looping -->
+When to use: Begin the next working pass of a Plan, or explicitly resume its current pass after interruption. After reporting a pass, call again without resume to begin the next one.
+Before calling: Supply a known plan_id. The first call starts Loop 1; subsequent calls start the next Loop. Use resume=true only to continue the latest already-started Loop without incrementing it.
+Inputs from earlier results: create_plan or list_plans provides plan_id. Optional feedback states what this pass should address. artifact_name selects the initial Plan folder label only.
+Interpretation: Returns loop_no, the automatically assigned revision, goal, feedback, ordered Steps and their progress, previous records, current artifact_dir and short execution/reporting policy. get_looping_policy provides the detailed policy. Step IDs remain stable between Loops. This prepares context; the agent performs the Steps, checks results and reports to the user.
+Limits: No Step or Rhino operation is automatically executed. Loop has no running/paused/completed status. Earlier Loops are read-only after a higher Loop starts. Plan completion is the user's decision. A pre-existing unowned next-Loop folder is rejected to preserve its files. A repeated non-resume call advances again; do not retry an uncertain start blindly. Reading the policy or resuming unchanged work creates no revision.
+
+Args:
+    plan_id: Existing Plan ID whose next Loop should begin or current Loop should resume.
+    resume: False starts the next Loop; true preserves the latest Loop number and records. There is no older Loop resume.
+    feedback: Optional feedback for this pass. Empty preserves existing feedback on resume; new passes default to no feedback.
+    artifact_name: Optional initial Plan folder label, not a path. Executed Loops write under its 01, 02 and later subfolders.
+<!-- /instruction:execute_looping -->
+
 ## project_info
 
 <!-- instruction:project_info -->
@@ -38,13 +54,14 @@ Args:
 When to use: Select or resume an existing Plan and optional Step as this connection's output workspace before writing Plan-owned artifacts.
 Before calling: Reuse a known plan_id or obtain one from create_plan or list_plans; get_phase_plan_step(plan_id=...) supplies Step handles if the step_id is unknown. Plans/Steps need not be completed or followed linearly to select them.
 Inputs from earlier results: Pass the existing plan_id and optional matching steps[].step_id. On first selection artifact_name is one folder label; otherwise the Plan goal provides it. Reuse an existing folder instead of selecting a new Plan just to continue work.
-Interpretation: The response returns plan_id, step_id, revision and the shared project-relative artifact_dir under .almond/produced/YYMMDD_name. revision is the Plan revision at selection, after any first-folder setup; use it as expected_revision for a subsequent Plan/Step update. Selection belongs to this connection; the Plan folder/refs are shared and discoverable by other workers. The directory is created only when files are needed.
-Limits: Selection does not execute steps, create geometry or mark work complete. An existing .almond/produced folder is reused; rename_artifact_folder changes its name. Legacy tmp or .almond/tmp Plan folders must first be migrated with rename_artifact_folder and the explicit plan_id. execute_project_python uses the selected folder as cwd; Rhino C# can write through RhinoAlmondBridge.ManagedFiles.Output("relative-name").
+Interpretation: The response returns plan_id, step_id, loop_no, revision, plan_artifact_dir and the project-relative artifact_dir. Executed Loops use .almond/produced/YYMMDD_name/01, /02 and later; before execute_looping, loop_no=0 uses the Plan root without a 00 folder. revision is the Plan revision at selection, after any first-folder setup; revision is assigned automatically; if using the optional expected_revision guard, also pass loop_no after Loop execution starts. Selection belongs to this connection; the Plan folder/refs are shared and discoverable by other workers. The directory is created only when files are needed.
+Limits: Selection uses the latest Loop only and does not advance it, execute Steps, create geometry or mark work complete. Use execute_looping to begin a new pass or explicitly resume the current one. A selection made stale by another connection advancing the Loop cannot write artifacts until reselected. An existing .almond/produced folder is reused; rename_artifact_folder changes its name. Legacy tmp or .almond/tmp Plan folders must first be migrated with rename_artifact_folder and the explicit plan_id. execute_project_python uses the selected folder as cwd; Rhino C# can write through RhinoAlmondBridge.ManagedFiles.Output("relative-name").
 
 Args:
     plan_id: Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.
     step_id: Optional Step ID within the Plan; empty selects the Plan without a Step. Selection does not run or complete it.
-    artifact_name: Initial folder name only, never an absolute or relative path; omitted uses the Plan goal. Files go under .almond/produced/YYMMDD_name. Existing folders are reused; use rename_artifact_folder to rename one.
+    artifact_name: Initial folder name only, never an absolute or relative path; omitted uses the Plan goal. Files go under .almond/produced/YYMMDD_name. Existing folders are reused.
+    loop_no: Optional current Loop number guard; older or unknown Loops cannot be selected for writing.
 <!-- /instruction:set_working_plan -->
 
 <!-- instruction:rename_artifact_folder -->
@@ -52,7 +69,7 @@ When to use: Rename an existing Plan-owned artifact folder without losing curren
 Before calling: Reuse a known plan_id with an artifact folder, or select its workspace through set_working_plan when relying on the default current Plan. There is no need to create a replacement Plan.
 Inputs from earlier results: Pass the Plan's existing plan_id when not using the current selection and one new folder name as name; the tool adds the YYMMDD_ prefix. Use the previously returned artifact_dir to recognize which folder is being renamed, not as name.
 Interpretation: The response returns the current artifact_dir and, when changed, previous_artifact_dir. The destination is always .almond/produced/YYMMDD_name. Managed writes are serialized and current Plan/Step file refs are rewritten together; continue using the new path. Legacy Plan folders directly under tmp or .almond/tmp can be moved here with the same name and an explicit plan_id. Existing destinations are rejected; folders are never merged or overwritten.
-Limits: Existing destinations are never overwritten. This is a folder/ref operation, not a model rename or model save; immutable revision history is intentionally not rewritten. A Plan without an owned artifact folder must be selected first.
+Limits: Renaming is allowed only before the Plan starts execution and only if no past Loop references its files; executed Loop paths must remain unchanged. Existing destinations are never overwritten. This is a folder/ref operation, not a model rename or model save; immutable revision history is intentionally not rewritten. A Plan without an owned artifact folder must be selected first.
 
 Args:
     name: New Plan artifact folder label; the date prefix is managed by the runtime. Moves the owned folder and updates related stored references.
@@ -62,9 +79,9 @@ Args:
 <!-- instruction:execute_project_python -->
 When to use: Run synchronous Python 3 in the bound Rhino with the selected Plan artifact folder as cwd when code needs Plan-owned outputs.
 Before calling: Select or resume the intended workspace with set_working_plan; reuse an already valid selection. Reuse observed targets/units and the bundled rhino3d-scripts skill/references, currently available via get_modeling_guide(include_scripting=True), when authoring Rhino code.
-Inputs from earlier results: Use set_working_plan's artifact_dir as the output context and previously observed GUIDs/measurements in code. Relative writes land in that folder; doc and scriptcontext.doc are the bound RhinoDoc. Assign a JSON-safe value to result and record useful output refs in the Plan/Step.
+Inputs from earlier results: Use set_working_plan's artifact_dir as the output context and previously observed GUIDs/measurements in code. Relative writes land in the current Loop folder and may overwrite files in that same Loop; doc and scriptcontext.doc are the bound RhinoDoc. Assign a JSON-safe value to result and record useful output refs in the Plan/Step.
 Interpretation: The response includes the RhinoCode outcome, request_id and selected artifact_dir. Use the exact request_id with get_rhino_execution for pending/uncertain completion, missing result pages or needed diagnostics, not after every completed result. project_root is absolute and artifact_dir is relative.
-Limits: This is Rhino's embedded Python, not the external worker venv; missing packages are not installed automatically. The wrapper temporarily applies project/artifact environment and restores cwd, scriptcontext, Undo and redraw. Timeout limits waiting and does not kill Rhino or roll back partial changes; do not rerun writes merely because the CLI returned/timed out. Do not switch documents or launch detached/background writers.
+Limits: Do not write to earlier Loop paths; keep them as inputs and write revised outputs in the current Loop. The selected folder and managed path helpers are protections, not an OS sandbox against arbitrary Python or absolute-path file writes. This is Rhino's embedded Python, not the external worker venv; missing packages are not installed automatically. The wrapper temporarily applies project/artifact environment and restores cwd, scriptcontext, Undo and redraw. Timeout limits waiting and does not kill Rhino or roll back partial changes; do not rerun writes merely because the CLI returned/timed out. Do not switch documents or launch detached/background writers.
 
 Args:
     code: Synchronous Python 3 source; assign a JSON-safe value to result.

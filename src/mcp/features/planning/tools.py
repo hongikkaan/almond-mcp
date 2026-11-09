@@ -8,7 +8,7 @@ from almond_mcp.features.planning.output import (
     encode, phase_detail, plan_detail, step_detail, update_ack,
 )
 from almond_mcp.features.planning.updates import StringListPatch
-from almond_mcp.instruction_text import tool_instruction
+from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import json
 
@@ -16,11 +16,16 @@ from pydantic import StrictBool, StrictInt
 
 
 PHASE_ACK_FIELDS = {"phase_id"}
-PLAN_ACK_FIELDS = {"plan_id", "revision"}
+PLAN_ACK_FIELDS = {"plan_id", "loop_no", "revision"}
 
 
 def register(mcp, context):
     """Register planning tools against the calling server's live context."""
+
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @tool_instruction(__file__, 'get_looping_policy')
+    def get_looping_policy() -> str:
+        return encode({"status": "success", "policy": read_instruction(__file__, 'looping-policy')})
 
     @mcp.tool()
     @tool_instruction(__file__, 'create_phase')
@@ -79,6 +84,8 @@ def register(mcp, context):
         holon_ids: list[str] | None = None,
         depends_on: list[str] | None = None,
         previous_id: str | None = None,
+        parent_plan: list[str] | None = None,
+        child_plan: list[str] | None = None,
     ) -> str:
         try:
             return json.dumps({
@@ -93,6 +100,8 @@ def register(mcp, context):
                     component_ids=holon_ids,
                     depends_on=depends_on,
                     previous_id=previous_id,
+                    parent_plan=parent_plan,
+                    child_plan=child_plan,
                 ), PLAN_ACK_FIELDS),
             })
         except Exception as exc:
@@ -103,13 +112,14 @@ def register(mcp, context):
     @tool_instruction(__file__, 'get_phase_plan_step')
     @holon_output
     def get_phase_plan_step(phase_id: str = "", plan_id: str = "", step_id: str = "",
-                            revision: StrictInt | None = None, include_holons: StrictBool = False) -> str:
+                            revision: StrictInt | None = None, include_holons: StrictBool = False,
+                            loop_no: StrictInt | None = None) -> str:
         try:
             if bool(phase_id) == bool(plan_id) or (step_id and not plan_id):
                 raise ValueError("Supply phase_id or plan_id, never both; step_id also requires plan_id.")
             if phase_id:
-                if revision is not None or include_holons:
-                    raise ValueError("revision and include_holons do not apply to a Phase.")
+                if revision is not None or loop_no is not None or include_holons:
+                    raise ValueError("loop_no, revision and include_holons do not apply to a Phase.")
                 phase = context.retrieval_store.get_phase(phase_id)
                 if phase is None:
                     raise KeyError(f"Unknown phase_id: {phase_id}")
@@ -117,16 +127,16 @@ def register(mcp, context):
             if step_id:
                 if include_holons:
                     raise ValueError("Components belong to Plans, not Steps.")
-                step = context.retrieval_store.get_step(plan_id, step_id, revision)
+                step = context.retrieval_store.get_step(plan_id, step_id, revision, loop_no)
                 if step is None:
                     raise KeyError(f"Unknown Plan/Step/revision: {plan_id}, {step_id}, {revision}")
-                return encode(step_detail(step, historical=revision is not None))
-            plan = context.retrieval_store.get_plan(plan_id, revision)
+                return encode(step_detail(step, historical=step["read_only"]))
+            plan = context.retrieval_store.get_plan(plan_id, revision, loop_no)
             if plan is None:
                 message = (f"Unknown plan_id: {plan_id}" if revision is None else
                            f"Unknown saved revision {revision} for plan_id: {plan_id}")
                 return json.dumps(error_payload(message))
-            return encode(plan_detail(plan, include_holons, historical=revision is not None))
+            return encode(plan_detail(plan, include_holons, historical=plan["read_only"]))
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
@@ -163,13 +173,16 @@ def register(mcp, context):
         artifact_refs: list[str] | None = None,
         title: str | None = None,
         previous_id: str | None = None,
+        parent_plan: list[str] | None = None,
+        child_plan: list[str] | None = None,
+        loop_no: StrictInt | None = None,
     ) -> str:
         try:
             return json.dumps(update_ack(context.retrieval_store.edit_plan(
                     plan_id, goal=goal, phase_id=phase_id, scene_ids=scene_ids,
                     component_ids=holon_ids, expected_revision=expected_revision,
                     depends_on=depends_on, status=status, artifact_refs=artifact_refs, title=title,
-                    previous_id=previous_id,
+                    previous_id=previous_id, parent_plan=parent_plan, child_plan=child_plan, loop_no=loop_no,
                 ), "plan"))
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
@@ -178,10 +191,11 @@ def register(mcp, context):
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     @tool_instruction(__file__, 'list_plan_revisions')
     @holon_output
-    def list_plan_revisions(plan_id: str, limit: StrictInt = 50, field_groups: list[str] | None = None) -> str:
+    def list_plan_revisions(plan_id: str, limit: StrictInt = 50, field_groups: list[str] | None = None,
+                            loop_no: StrictInt | None = None, step_id: str = "") -> str:
         try:
             validate_field_groups(field_groups, REVISION_GROUPS)
-            return encode(project({"status": "success", **context.retrieval_store.list_plan_revisions(plan_id, limit)}, field_groups))
+            return encode(project({"status": "success", **context.retrieval_store.list_plan_revisions(plan_id, limit, loop_no, step_id)}, field_groups))
         except InvalidFieldGroups as exc:
             return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
         except Exception as exc:
@@ -198,6 +212,7 @@ def register(mcp, context):
         input_refs: StringListPatch | None = None,
         output_refs: StringListPatch | None = None,
         expected_revision: StrictInt | None = None,
+        loop_no: StrictInt | None = None,
     ) -> str:
         try:
             return json.dumps(update_ack(context.retrieval_store.edit_step(
@@ -207,6 +222,7 @@ def register(mcp, context):
                     input_refs=input_refs,
                     output_refs=output_refs,
                     expected_revision=expected_revision,
+                    loop_no=loop_no,
                 ), "plan", step_id))
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
@@ -256,6 +272,7 @@ def register(mcp, context):
             return json.dumps({**error_payload(str(exc)), **getattr(exc, "native_result", {})}, ensure_ascii=False)
 
     return {
+        "get_looping_policy": get_looping_policy,
         "create_phase": create_phase,
         "list_phases": list_phases,
         "update_phase": update_phase,

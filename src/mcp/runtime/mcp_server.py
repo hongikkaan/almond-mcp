@@ -130,7 +130,7 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
             result["locations"] = project_query({**work, "artifact_dir": work["artifact_dir"] or None}, include_ids=include_ids)
             result["locations"].update(database=relative_path(locations["state_db"], root),
                 path_rule="Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths.",
-                artifact_rule="Select a Plan with set_working_plan; managed outputs use its .almond/produced/YYMMDD_name folder.")
+                artifact_rule="Select a Plan with set_working_plan; managed outputs use its current Loop folder .almond/produced/YYMMDD_name/01, /02, etc.; before execute_looping they use the Plan root.")
         if "runtime" in sections:
             result["runtime"] = relative_output({"slot": binding["label"], "port": binding["port"],
                 "session_dir": locations["session_dir"], "scratch_root": str(Path(locations["temp"]) / "python"),
@@ -163,10 +163,17 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
 
     @mcp.tool()
     @tool_instruction(__file__, 'set_working_plan')
-    def set_working_plan(plan_id: str, step_id: str = "", artifact_name: str = "") -> dict:
+    def set_working_plan(plan_id: str, step_id: str = "", artifact_name: str = "", loop_no: StrictInt | None = None) -> dict:
         if runtime is None or runtime.workspace is None:
             raise RuntimeError("The project workspace is not connected.")
-        return {"status": "success", **runtime.workspace.select(plan_id, step_id, artifact_name)}
+        return {"status": "success", **runtime.workspace.select(plan_id, step_id, artifact_name, loop_no)}
+
+    @mcp.tool()
+    @tool_instruction(__file__, 'execute_looping')
+    def execute_looping(plan_id: str, resume: StrictBool = False, feedback: str = "", artifact_name: str = "") -> dict:
+        if runtime is None or runtime.workspace is None:
+            raise RuntimeError("The project workspace is not connected.")
+        return {"status": "success", **runtime.workspace.execute_looping(plan_id, resume, feedback, artifact_name)}
 
     @mcp.tool()
     @tool_instruction(__file__, 'rename_artifact_folder')

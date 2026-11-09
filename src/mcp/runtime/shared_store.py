@@ -40,7 +40,7 @@ NATIVE_ONLY_TOOLS = frozenset({
 BINDING_TOOLS = frozenset({"worker_state", "get_rhino_execution"})
 FILE_TOOLS = frozenset({"execute_rhino_script", "save_rhino_document", "execute_project_python", "export_structural_report",
     "export_asset_contract", "get_blender_helper_script", "capture_conditioning_pass",
-    "import_asset_contract", "rename_artifact_folder", "prepare_drawing_asset",
+    "import_asset_contract", "rename_artifact_folder", "execute_looping", "prepare_drawing_asset",
     "capture_rhino_inspection"})
 OUTPUT_TOOLS = frozenset({"execute_project_python", "export_structural_report", "export_asset_contract",
                          "get_blender_helper_script", "capture_conditioning_pass"})

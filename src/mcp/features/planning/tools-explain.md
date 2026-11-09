@@ -1,5 +1,31 @@
 # Planning tools
 
+## get_looping_policy
+
+<!-- instruction:get_looping_policy -->
+When to use: Read the detailed execution, artifact and reporting policy when the short execute_looping reminder is insufficient or the working context has been lost.
+Before calling: No Plan or connection selection is required.
+Inputs from earlier results: execute_looping.policy_tool identifies this optional detailed policy.
+Interpretation: The policy describes how an agent performs and records Steps, reuses earlier results, and reports a Loop to the user.
+Limits: This read does not execute work, change status, start a Loop or create a revision. Plan completion remains the user's decision.
+<!-- /instruction:get_looping_policy -->
+
+## Loop execution and reporting policy
+
+<!-- instruction:looping-policy -->
+Execution: execute_looping prepares the current Plan/Loop context; it does not execute Steps. Follow the ordered Steps by default without turning that order into a rigid execution gate. Inspect the current records before resuming. Distinguish work performed, verification remaining, and a report not yet delivered in the Step input_refs/output_refs records so that completed Rhino work is not repeated.
+
+Reuse: Check that an earlier result is still valid before relying on it. Add the useful previous file paths to input_refs; create revised results in the current Loop folder and record their paths in output_refs. Do not move a useful older result into the Plan root. Earlier Loops remain reference material when a higher Loop exists.
+
+Artifacts: Keep all outputs for this Loop in its numbered folder (01, 02, ...). Overwriting within the same Loop is allowed; use another filename when an intermediate result should be kept. Revision snapshots preserve records and references, not overwritten file contents or Rhino geometry. Do not automatically delete old artifacts.
+
+Progress: Plan and Step share pending, running, paused, completed, failed and blocked. Record their states explicitly. A Loop has no separate running, paused or completed status. Continue the current Loop or explicitly begin the next one; do not edit a lower-numbered Loop after a higher one exists. General Rhino/Python calls do not automatically create Plan revisions; record useful work and evidence through Plan/Step updates.
+
+Report: At the end of a pass, present the goal, what changed, visual material that supports a decision, verification results and remaining choices. Connect each question to its relevant evidence and keep the report concise; do not require a fixed number of images. Check saved Step records when resuming to see whether verification or reporting is still outstanding.
+
+Plan completion: Only the user decides that the Plan is complete. Finishing all Steps or presenting a Loop result does not automatically complete the Plan. Update Plan status to completed only after that decision.
+<!-- /instruction:looping-policy -->
+
 ## create_phase
 
 <!-- instruction:create_phase -->
@@ -59,7 +85,7 @@ Args:
 When to use: Record a titled Plan with template Steps, optional Phase organization, contextual Scenes and explicit Holon targets.
 Before calling: Supply nonempty title and goal. title is the short list label; goal preserves the full objective. scope defaults to house and selects an existing registered Step template. For each new Plan, including a follow-up or a change of task, choose scope from the task's purpose and the user's existing template choice; custom registered scope mappings are supported. phase_id is optional; depends_on accepts only plan_ IDs.
 Inputs from earlier results: list_phases.phases[].phase_id feeds phase_id. Scene and Holon discovery provide scene_ids and holon_ids. The legacy scene_id, when supplied with scene_ids, must equal its first item. list_plans.plans[].plan_id provides dependency references.
-Interpretation: plan.plan_id and revision feed get_phase_plan_step, set_working_plan and subsequent updates. The selected scope creates its ordered template Steps; Holon targets belong to the Plan only.
+Interpretation: plan.plan_id feeds get_phase_plan_step or execute_looping. loop_no=0 means no Loop has started; revision numbers are assigned automatically. The selected scope creates ordered template Steps with UUID IDs separate from step_type/name; Holon targets belong to the Plan only.
 Limits: Creating a Plan does not select its artifact folder, edit Rhino or force Step execution. construction_detail is a template, not an enabling flag: detailed construction modeling still needs the user's request for that Task. inspection has no modeling Step. Existing custom scope mappings are preserved. Dependencies may be uncreated, self-referential or cyclic and do not enforce completion.
 
 Args:
@@ -72,6 +98,8 @@ Args:
     holon_ids: Optional explicit registered Holon targets for this Plan. Steps have no separate Holon assignment.
     depends_on: Optional Plan ID array (plan_ prefix only). Records dependencies without enforcing execution order.
     previous_id: One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
+    parent_plan: Optional parent Plan ID array.
+    child_plan: Optional child Plan ID array.
 <!-- /instruction:create_plan -->
 
 ## get_phase_plan_step
@@ -79,15 +107,16 @@ Args:
 <!-- instruction:get_phase_plan_step -->
 When to use: Read one Phase, Plan or specific Step in detail, including a saved Plan/Step revision when needed.
 Before calling: Supply exactly one of phase_id or plan_id. A step_id requires plan_id and selects only that Step. revision is valid only for a Plan or Step; include_holons=true is valid only for a Plan. No include_ids or field_groups argument is accepted.
-Inputs from earlier results: list_phases.phases[].phase_id selects a Phase; list_plans.plans[].plan_id selects a Plan. A Plan result's plan.steps[].step_id selects one Step under the same plan_id. list_plan_revisions.revisions[].revision selects saved state.
-Interpretation: Common id, type and status identify the selected item and its workflow state. phase contains name, description, file_name/project_file_id, Phase depends_on, previous_id and plan_titles. plan contains title, goal, scope, revision, phase (phase_id/name or null), Plan depends_on, previous_id, scene_ids, artifact_dir/artifact_refs, created_at/updated_at in KST YYYY-MM-DD-HH:mm and Step ID/name/status summaries. Plan holon_ids appear only with include_holons=true; available_details lists an unrequested include_holons option. step contains its plan_id, Plan revision, name and only that Step's input_refs/output_refs. IDs are always returned. Plan next_step explains specific-Step detail and set_working_plan; Step next_step explains selecting that work context and artifact location. Selection is not execution or a status change.
-Limits: This does not select a working Plan, execute a Step or verify geometry. status is the item's pending/running/paused/completed/failed/blocked state; status=error reports a failed query. Step records have no Holon assignment. Old snapshots stay immutable; missing legacy titles are derived from their goals, and an unavailable historical Phase name is null. Revisions are metadata history, not Rhino backups. Historical next_step keeps the revision for Step discovery and directs a fresh query without revision before selecting current work; set_working_plan never restores history.
+Inputs from earlier results: list_phases.phases[].phase_id selects a Phase; list_plans.plans[].plan_id selects a Plan. A Plan result's plan.steps[].step_id selects one Step under the same plan_id. Each list_plan_revisions row supplies loop_no and revision together to select saved state.
+Interpretation: Common id, type and status identify the selected item and its workflow state. phase contains name, description, file_name/project_file_id, Phase depends_on, previous_id and plan_titles. plan contains title, goal, scope, revision, phase (phase_id/name or null), Plan depends_on, previous_id, scene_ids, artifact_dir/artifact_refs, created_at/updated_at in KST YYYY-MM-DD-HH:mm and Step UUID/type/name/status/loop_no summaries; loop_no, loop_artifact_dir and feedback identify the selected pass. Plan holon_ids appear only with include_holons=true; available_details lists an unrequested include_holons option. step contains its plan_id, loop_no, Loop-local revision, step_type and name and only that Step's input_refs/output_refs. IDs are always returned. Plan next_step explains specific-Step detail and set_working_plan; Step next_step explains selecting that work context and artifact location. Selection is not execution or a status change.
+Limits: This does not select a working Plan, execute a Step or verify geometry. status is the item's pending/running/paused/completed/failed/blocked state; status=error reports a failed query. Step records have no Holon assignment. Old snapshots stay immutable; missing legacy titles are derived from their goals, and an unavailable historical Phase name is null. Revisions are metadata history, not Rhino backups. read_only=true marks historical state. Historical next_step keeps loop_no and revision for Step discovery and directs a fresh query without revision or loop_no before selecting current work; set_working_plan never restores history.
 
 Args:
     phase_id: Select a Phase; mutually exclusive with plan_id.
     plan_id: Select a Plan; mutually exclusive with phase_id. Add step_id to read only one Step.
     step_id: Optional Step ID within plan_id; selects that Step input/output records instead of the Plan summary.
-    revision: Optional saved Plan revision for Plan/Step queries; omitted reads current state. Not valid for a Phase.
+    revision: Optional saved revision within the selected Loop. Omitted reads the selected Loop latest state. Not valid for a Phase.
+    loop_no: Optional nonnegative Loop number for Plan/Step queries; omitted selects the latest Loop. 0 reads pre-execution records. Not valid for a Phase.
     include_holons: Include Plan holon_ids; valid only for a Plan query, not Phase or Step.
 <!-- /instruction:get_phase_plan_step -->
 
@@ -97,7 +126,7 @@ Args:
 When to use: List concise Plan titles within a Phase, or use existing scene/status filters to inspect recorded work.
 Before calling: Prefer phase_id from list_phases. scene_id and status are optional existing filters; omitted filters span the project. limit is 1–500. There are no field_groups or include_ids arguments.
 Inputs from earlier results: list_phases.phases[].phase_id feeds phase_id; Scene discovery can supply scene_id. Every returned plans[].plan_id feeds get_phase_plan_step(plan_id=...).
-Interpretation: Each row contains plan_id, title, scope, status and revision. goal and repeated Phase membership are omitted. total/limit/truncated describe the list; next_step explains Plan detail and specific-Step discovery.
+Interpretation: Each row contains plan_id, title, scope, status, loop_no and revision. goal and repeated Phase membership are omitted. total/limit/truncated describe the list; next_step explains Plan detail and specific-Step discovery.
 Limits: This reads stored metadata and does not prove design completion. The current filters remain available; no new cross-Phase progress mode or multi-Plan detail batch is implied.
 
 Args:
@@ -113,7 +142,7 @@ Args:
 When to use: Change a Plan's title, full goal, Phase, Scene context, Plan Holon targets, dependency references, status or artifact references.
 Before calling: Supply plan_id and intended fields. depends_on accepts {add: string[], remove: string[]} with plan_ IDs; omitted/null/empty patches retain it. Other arrays retain their replacement contract: omission/null preserves and [] clears. phase_id='' detaches the Phase. title and goal must be nonempty when supplied. expected_revision remains optional.
 Inputs from earlier results: list_plans.plans[].plan_id or get_phase_plan_step(plan_id=...).id identifies the Plan. The detail's plan.revision feeds expected_revision; Phase/Scene/Holon discovery provides relationship IDs.
-Interpretation: plan.plan_id/status/revision, changed and issues acknowledge the result. success means no skips, partial_success means changes plus skipped items, and no_change means skips without actual change. Issues identify field, operation, index, value and reason. Actual changes create one revision; unchanged values create none. Explicit Plan status remains until a real Step status change recalculates it.
+Interpretation: plan.plan_id/status/revision, changed and issues acknowledge the result. success means no skips, partial_success means changes plus skipped items, and no_change means skips without actual change. Issues identify field, operation, index, value and reason. Actual changes create one revision; unchanged values create none. Plan status is explicit and independent of Step status; only the user decides Plan completion.
 Limits: Invalid general fields, unknown targets, stale expected_revision or malformed input reject the entire request. Dependency string item problems are reported individually; same-value add/remove skips both. References are recorded, not executed or verified. Same-kind dependencies allow uncreated IDs, self-references and cycles. This does not select a folder or edit geometry; update_step remains separate.
 
 Args:
@@ -122,12 +151,15 @@ Args:
     phase_id: Optional existing Phase ID; empty detaches Phase organization, omission/null preserves it.
     scene_ids: Optional replacement Scene ID array; [] clears, omission/null preserves. Scenes describe context, not automatic edit targets.
     holon_ids: Optional replacement Plan Holon target array; [] clears, omission/null preserves.
-    expected_revision: Optional current Plan revision from get_phase_plan_step. A mismatch rejects the entire request before changes; omission leaves this check unset.
+    expected_revision: Optional stale-state check, not a new revision number. Use the observed current revision and loop_no together after execution starts; mismatch rejects changes. Normally omit; the server allocates revisions.
+    loop_no: Optional current Loop number guard; any older or unknown Loop is rejected. Required with expected_revision when the Plan has executed a Loop.
     depends_on: Optional {add: string[], remove: string[]} patch of Plan IDs only; string item problems are skipped and reported.
     status: Optional pending, running, paused, completed, failed or blocked; omission/null preserves.
     artifact_refs: Optional replacement artifact-reference string array; [] clears, omission/null preserves.
     title: Optional nonempty replacement short title.
     previous_id: One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
+    parent_plan: Optional replacement parent Plan ID array; omission/null preserves, [] clears.
+    child_plan: Optional replacement child Plan ID array; omission/null preserves, [] clears.
 <!-- /instruction:update_plan -->
 
 ## list_plan_revisions
@@ -135,14 +167,16 @@ Args:
 <!-- instruction:list_plan_revisions -->
 When to use: Discover which metadata operations created a Plan's saved revisions before reading an earlier state.
 Before calling: Supply plan_id and limit from 1–500. Optional field_groups accepts audit or all to include stored revision timestamps.
-Inputs from earlier results: A Plan's id or list_plans.plans[].plan_id feeds plan_id. Each revisions[].revision feeds get_phase_plan_step(plan_id=..., revision=...), optionally with step_id.
-Interpretation: plan_id is always returned; rows expose revision and operation, with created_at when audit/all is selected. total/limit/truncated describe available history. There is no include_ids argument.
-Limits: Revisions preserve Plan metadata and Step records, not Rhino geometry. Artifact folder setup can create a revision. Reading history neither restores it nor changes current state.
+Inputs from earlier results: A Plan's id or list_plans.plans[].plan_id feeds plan_id. Each row feeds get_phase_plan_step(plan_id=..., loop_no=..., revision=...), optionally with step_id.
+Interpretation: plan_id is always returned; rows expose loop_no, revision, operation and step_id (null for Plan-wide changes), with created_at when audit/all is selected. total/limit/truncated describe available history. There is no include_ids argument.
+Limits: Revisions preserve Plan metadata and Step records, not Rhino geometry. Artifact folder setup can create a revision. Reading history neither restores it nor changes current state. Ordinary Rhino/Python calls are not recorded. Numbers are scoped to Plan + Loop; omitted loop_no lists all Loops, newest first. A step_id filter matches direct Step changes only, excluding Plan-wide records.
 
 Args:
     plan_id: Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.
     limit: Maximum revision records, 1..500.
-    field_groups: Optional audit or all to include stored timestamps; omitted/empty returns revision and operation.
+    field_groups: Optional audit or all to include stored timestamps; omitted/empty returns loop_no, revision, operation and step_id.
+    loop_no: Optional nonnegative Loop filter; omitted includes all Loops, 0 selects pre-execution history.
+    step_id: Optional UUID Step filter for direct Step changes; empty includes Plan-wide records too.
 <!-- /instruction:list_plan_revisions -->
 
 ## update_step
@@ -151,16 +185,17 @@ Args:
 When to use: Track a Step's status or revise its input/output evidence under its Plan.
 Before calling: Supply plan_id and step_id. status is optional (pending, running, paused, completed, failed or blocked); omission/null keeps it. input_refs/output_refs accept {add: string[], remove: string[]}; omission/null/{} and empty add/remove retain existing records. Remove observed values to clear them. Bare replacement arrays are not accepted. Holon assignment belongs to update_plan.
 Inputs from earlier results: get_phase_plan_step(plan_id=...).plan.steps[].step_id identifies a Step; add step_id to that query to read its current input_refs/output_refs. plan.revision or step.revision feeds expected_revision.
-Interpretation: The response acknowledges plan.plan_id/status/revision and step.step_id/status, with changed and issues. success has no skips; partial_success has changes and skipped items; no_change has skips but no actual change. Each issue identifies field, add/remove operation, zero-based index, original value and reason. Any combination of valid status/refs edits creates one Plan revision if changed. Reference-only edits preserve the current Step and paused/completed Plan; a real Step status change recalculates Plan status.
+Interpretation: The response acknowledges plan.plan_id/status/revision and step.step_id/status, with changed and issues. success has no skips; partial_success has changes and skipped items; no_change has skips but no actual change. Each issue identifies field, add/remove operation, zero-based index, original value and reason. Any combination of valid status/refs edits creates one Plan revision if changed. Step changes never recalculate Plan status. Only the user decides Plan completion.
 Limits: Same-value add/remove skips both; duplicate_input, already_present, not_found and invalid_value skip only the affected string item. Invalid status, unknown target, stale expected_revision or malformed input/type rejects the entire request. Evidence strings are stored, not verified; partial application may leave a requested record replacement unfinished. Dependencies do not gate execution and this call grants no authority to edit geometry. No actual change creates no revision.
 
 Args:
     plan_id: Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.
     step_id: Step ID from the selected Plan detail, used together with that Plan ID.
-    status: Optional pending, running, paused, completed, failed or blocked; omission/null preserves. A real status change recalculates Plan status.
+    status: Optional pending, running, paused, completed, failed or blocked; omission/null preserves. This never changes Plan status.
     input_refs: Optional {add: string[], remove: string[]} patch of input evidence strings. Omission/null/{} leaves it unchanged; invalid string items are skipped and reported.
     output_refs: Optional {add: string[], remove: string[]} patch of output evidence strings. Omission/null/{} leaves it unchanged; [] replacement arrays are not accepted.
-    expected_revision: Optional current Plan revision from get_phase_plan_step. A mismatch rejects the entire request before changes; omission leaves this check unset.
+    expected_revision: Optional stale-state check, not a new revision number. Use the observed current revision and loop_no together after execution starts; mismatch rejects changes. Normally omit; the server allocates revisions.
+    loop_no: Optional current Loop number guard; any older or unknown Loop is rejected. Required with expected_revision when the Plan has executed a Loop.
 <!-- /instruction:update_step -->
 
 ## resolve_targets

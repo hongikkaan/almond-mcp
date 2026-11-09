@@ -37,7 +37,7 @@ def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     assert "list_plans" in phases["next_step"]
     assert DETAIL in phases["next_step"]
     rows = json.loads(tools["list_plans"](phase_id=phase["phase_id"]))
-    assert rows["plans"] == [{"plan_id": pid, "title": "Entrance access", "scope": "component", "status": "pending", "revision": 1}]
+    assert rows["plans"] == [{"plan_id": pid, "title": "Entrance access", "scope": "component", "status": "pending", "loop_no": 0, "revision": 1}]
     assert DETAIL in rows["next_step"]
     ph = json.loads(tools[DETAIL](phase_id=phase["phase_id"]))
     assert (ph["id"], ph["type"], ph["status"]) == (phase["phase_id"], "phase", "pending")
@@ -55,14 +55,14 @@ def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     with pytest.raises(ValueError):
         store.update_plan(pid, title=" ")
     assert store.get_plan(pid, 1)["title"] == "Entrance access"
-    store.update_plan_step(pid, "inspect_context", "pending", input_refs=["brief"], output_refs=["survey"])
-    store.update_plan_step(pid, "design", "pending", output_refs=["another Step's long record"])
+    store.update_plan_step(pid, plan["steps"][0]["step_id"], "pending", input_refs=["brief"], output_refs=["survey"])
+    store.update_plan_step(pid, plan["steps"][1]["step_id"], "pending", output_refs=["another Step's long record"])
     # The current Step path must not fetch the whole Plan and its other records.
     monkeypatch.setattr(store, "get_plan", lambda *args, **kwargs: pytest.fail("unbounded Plan read"))
-    step = json.loads(tools[DETAIL](plan_id=pid, step_id="inspect_context"))
+    step = json.loads(tools[DETAIL](plan_id=pid, step_id=plan["steps"][0]["step_id"]))
     assert "set_working_plan" in step.pop("next_step")
-    assert step == {"id": "inspect_context", "type": "step", "status": "pending", "step": {
-        "plan_id": pid, "revision": 4, "name": "inspect_context", "input_refs": ["brief"], "output_refs": ["survey"]}}
+    assert step == {"id": plan["steps"][0]["step_id"], "type": "step", "status": "pending", "read_only": False, "step": {
+        "plan_id": pid, "loop_no": 0, "revision": 4, "step_type": "inspect_context", "name": "inspect_context", "input_refs": ["brief"], "output_refs": ["survey"]}}
 
 
 @pytest.mark.parametrize("arguments", [{}, {"phase_id": "phase_a", "plan_id": "plan_a"},
@@ -76,15 +76,15 @@ def test_invalid_detail_selection_is_an_error(store, arguments):
 
 def test_saved_revision_navigation_keeps_history_separate_from_current_work(store):
     plan = store.create_plan("Review entrance", scope="component")
-    current = store.update_plan_step(plan["plan_id"], "design", output_refs=["new design"])
+    current = store.update_plan_step(plan["plan_id"], plan["steps"][1]["step_id"], output_refs=["new design"])
     tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=store))
     historic = json.loads(tools[DETAIL](plan_id=plan["plan_id"], revision=plan["revision"]))
     assert "revision=1" in historic["next_step"]
     assert "without revision" in historic["next_step"]
-    historic_step = json.loads(tools[DETAIL](plan_id=plan["plan_id"], step_id="design", revision=plan["revision"]))
+    historic_step = json.loads(tools[DETAIL](plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], revision=plan["revision"]))
     assert historic_step["step"]["output_refs"] == []
     assert "without revision" in historic_step["next_step"]
-    latest_step = json.loads(tools[DETAIL](plan_id=plan["plan_id"], step_id="design"))
+    latest_step = json.loads(tools[DETAIL](plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"]))
     assert latest_step["step"]["output_refs"] == ["new design"]
     assert "without revision" not in latest_step["next_step"]
     assert store.get_plan(plan["plan_id"]) == current
@@ -142,8 +142,8 @@ def _legacy_data(store):
         con.execute("INSERT INTO project_files(file_id,file_name) VALUES('file_test','test.3dm')")
         con.execute("""INSERT INTO ontological_holons(ontological_id,project_file_id,rhino_group_id,name,created_at,updated_at)
             VALUES('component_old','file_test','group_test','Old target','2026-01-01T00:00+00:00','2026-01-01T00:00+00:00')""")
-        con.execute("INSERT INTO generation_step_ontological VALUES(?,?,?,0)", (affected["plan_id"], "design", "component_old"))
-        con.execute("UPDATE generation_plan_steps SET component_refs_set=1 WHERE plan_id=? AND step_id='design'", (affected["plan_id"],))
+        con.execute("INSERT INTO generation_step_ontological VALUES(?,?,?,0)", (affected["plan_id"], affected["steps"][1]["step_id"], "component_old"))
+        con.execute("UPDATE generation_plan_steps SET component_refs_set=1 WHERE plan_id=? AND step_id=?", (affected["plan_id"], affected["steps"][1]["step_id"]))
         con.execute("UPDATE generation_plans SET title=''")
         con.execute("UPDATE generation_plans SET depends_on_json=? WHERE plan_id=?", (json.dumps(["phase_other", "plan_missing"]), affected["plan_id"]))
         con.execute("UPDATE generation_phases SET depends_on_json=?", (json.dumps(["plan_other", "phase_missing"]),))
@@ -166,11 +166,11 @@ def test_migration_retires_targets_without_rewriting_history(store):
     current = migrated.get_plan(pid)
     assert current["depends_on"] == ["plan_missing"] and current["revision"] == affected["revision"] + 1
     assert migrated.get_phase(affected["phase_id"])["depends_on"] == ["phase_missing"]
-    assert migrated.resolve_targets(pid, "design")["source"] == "plan"
-    assert migrated.resolve_targets(pid, "design")["component_ids"] == []
+    assert migrated.resolve_targets(pid, affected["steps"][1]["step_id"])["source"] == "plan"
+    assert migrated.resolve_targets(pid, affected["steps"][1]["step_id"])["component_ids"] == []
     assert migrated.get_plan(label_only["plan_id"]) == label_only
     with migrated._connect() as con:
-        assert [tuple(r) for r in con.execute("SELECT * FROM _retired_step_targets")] == [(pid, "design", '["component_old"]')]
+        assert [tuple(r) for r in con.execute("SELECT * FROM _retired_step_targets")] == [(pid, affected["steps"][1]["step_id"], '["component_old"]')]
         assert con.execute("SELECT COUNT(*) FROM generation_step_ontological").fetchone()[0] == 0
         assert con.execute("SELECT SUM(component_refs_set) FROM generation_plan_steps").fetchone()[0] == 0
         for old in old_snapshots:
