@@ -42,6 +42,40 @@ def test_holon_focus_uses_id_and_preserves_scene_and_parent_links(project):
     assert project.domain_detail("holons", "holon_child")["fields"]["parent_ontological_id"] == "holon_a"
 
 
+@pytest.mark.parametrize("canonical_state", ["populated", "empty", "partial"])
+def test_canonical_relationships_exclude_stale_legacy_scene_links(project, canonical_state):
+    with sqlite3.connect(project.path) as db:
+        db.execute("CREATE TABLE scene_components(scene_id TEXT,component_id TEXT)")
+        db.execute("INSERT INTO scene_components VALUES ('scene_b','holon_a')")
+        db.execute("CREATE VIEW _scene_component_refs AS SELECT 'scene_b' AS scene_id,'holon_b' AS component_id")
+        db.execute("ALTER TABLE ontological_holons ADD COLUMN scene_ids_json TEXT")
+        db.execute("UPDATE ontological_holons SET scene_ids_json='[\"scene_b\"]' WHERE ontological_id='holon_child'")
+        db.execute("UPDATE generation_plans SET scene_id='scene_b' WHERE plan_id='plan_b'")
+        for table in ("ontological_scene_context", "scene_ontological", "generation_plan_scenes"):
+            if canonical_state == "empty":
+                db.execute(f"DELETE FROM {table}")
+            elif canonical_state == "partial":
+                db.execute(f"DROP TABLE {table}")
+                db.execute(f"CREATE TABLE {table}(scene_id TEXT)")
+
+    page = project.domain_page("scenes")
+    scenes = {group["id"]: group for group in page["groups"]}
+    if canonical_state != "populated":
+        assert all(not group["holons"] and not group["tasks"] for group in scenes.values())
+        assert all(not group["scenes"] for group in project.domain_page("holons")["groups"])
+        if canonical_state == "partial":
+            assert any("Holon 관계 저장 구조가 불완전" in note for note in page["notes"])
+            assert any("Task 관계 저장 구조가 불완전" in note for note in page["notes"])
+        return
+    assert {item["id"] for item in scenes["scene_a"]["holons"]} == {"holon_a", "holon_b", "holon_child"}
+    assert {item["id"] for item in scenes["scene_b"]["holons"]} == {"holon_c"}
+    assert {item["id"] for item in scenes["scene_a"]["tasks"]} == {"plan_a", "plan_b"}
+    assert {item["id"] for item in scenes["scene_b"]["tasks"]} == {"plan_a", "plan_c"}
+    for holon_id in ("holon_a", "holon_b", "holon_child"):
+        holon = project.domain_page("holons", focus=holon_id)["groups"][0]
+        assert [item["id"] for item in holon["scenes"]] == ["scene_a"]
+
+
 def test_phase_groups_do_not_merge_same_names_and_include_empty_and_unassigned(project):
     groups = {group["id"]: group for group in project.domain_page("phases")["groups"]}
     assert groups["phase_a"]["name"] == groups["phase_b"]["name"] == "설계"
@@ -65,7 +99,7 @@ def test_task_steps_are_ordered_and_do_not_inherit_an_unstored_goal(project):
 
 def test_step_detail_is_scoped_by_both_task_and_step_and_keeps_evidence(project):
     first = project.domain_detail("steps", "z_first", "plan_a")
-    second = project.domain_detail("steps", "z_first", "plan_b")
+    second = project.domain_detail("steps", "b_first", "plan_b")
     assert first["fields"]["Task revision"] == 7 and second["fields"]["Task revision"] == 2
     assert json.loads(first["fields"]["output_refs_json"]) == ["장면 해석 결과"]
     assert json.loads(second["fields"]["input_refs_json"]) == ["다른 Task의 입력"]
@@ -93,8 +127,8 @@ def test_pagination_preserves_whole_parent_groups_and_bounds_expansions(project)
     second = project.domain_page("tasks", limit=1, offset=1)
     assert first["has_more"] and first["groups"][0]["id"] != second["groups"][0]["id"]
     with sqlite3.connect(project.path) as db:
-        db.executemany("""INSERT INTO generation_plan_steps(plan_id,step_id,position,kind,status,
-            depends_on_json,input_refs_json,output_refs_json) VALUES ('plan_empty',?,?,'reason','pending','[]','[]','[]')""",
+        db.executemany("""INSERT INTO generation_plan_steps(plan_id,step_id,position,kind,
+            depends_on_json) VALUES ('plan_empty',?,?,'reason','[]')""",
                        [(f"extra_{i}", i) for i in range(RELATED_LIMIT + 1)])
     page = project.domain_page("tasks", focus="plan_empty", limit=1)
     assert len(page["groups"][0]["steps"]) == RELATED_LIMIT
@@ -167,3 +201,50 @@ def test_domain_http_endpoints_keep_authentication_file_identity_and_assets(proj
         assert status == 200 and b"DomainExplorer" in body
     finally:
         server.shutdown(); server.server_close(); thread.join(2)
+
+
+def test_task_uses_current_loop_without_leaking_previous_step_evidence(project):
+    with sqlite3.connect(project.path) as db:
+        db.execute("UPDATE generation_plans SET loop_no=1 WHERE plan_id='plan_a'")
+        db.execute("INSERT INTO generation_loop_steps(plan_id,loop_no,step_id,status,input_refs_json,output_refs_json) VALUES ('plan_a',1,'z_first','pending','[]','[]')")
+    task = project.domain_page('tasks', focus='plan_a')['groups'][0]
+    assert task['loop_no'] == 1
+    assert [step['status'] for step in task['steps']] == ['pending', None, None]
+    detail = project.domain_detail('steps', 'z_first', 'plan_a')['fields']
+    assert detail['loop_no'] == 1
+    assert json.loads(detail['output_refs_json']) == []
+    missing = project.domain_detail('steps', 'm_middle', 'plan_a')['fields']
+    assert missing['status'] is None and missing['output_refs_json'] is None
+
+
+def test_legacy_step_fields_remain_readable(tmp_path):
+    path = tmp_path / 'legacy.sqlite3'
+    with sqlite3.connect(path) as db:
+        db.execute('CREATE TABLE generation_plans(plan_id TEXT, title TEXT)')
+        db.execute("INSERT INTO generation_plans VALUES ('p','Legacy')")
+        db.execute('CREATE TABLE generation_plan_steps(plan_id TEXT, step_id TEXT, status TEXT, output_refs_json TEXT)')
+        db.execute("INSERT INTO generation_plan_steps VALUES ('p','s','completed','[]')")
+    legacy = Database(path)
+    assert legacy.domain_page('tasks')['groups'][0]['steps'][0]['status'] == 'completed'
+    assert legacy.domain_detail('steps', 's', 'p')['fields']['output_refs_json'] == '[]'
+
+
+@pytest.mark.parametrize("partial_loop_table", [False, True])
+def test_current_loop_without_usable_state_table_does_not_reuse_legacy_step_fields(project, partial_loop_table):
+    with sqlite3.connect(project.path) as db:
+        db.execute("UPDATE generation_plans SET loop_no=2 WHERE plan_id='plan_a'")
+        for field in ("status", "input_refs_json", "output_refs_json"):
+            db.execute(f"ALTER TABLE generation_plan_steps ADD COLUMN {field} TEXT")
+        db.execute("UPDATE generation_plan_steps SET status='completed',input_refs_json='[\"old input\"]',"
+                   "output_refs_json='[\"old output\"]' WHERE plan_id='plan_a'")
+        db.execute("DROP TABLE generation_loop_steps")
+        if partial_loop_table:
+            db.execute("CREATE TABLE generation_loop_steps(plan_id TEXT,loop_no INTEGER,status TEXT)")
+            db.execute("INSERT INTO generation_loop_steps VALUES ('plan_a',2,'completed')")
+
+    task = project.domain_page("tasks", focus="plan_a")["groups"][0]
+    assert task["loop_no"] == 2
+    assert all(step["status"] is None for step in task["steps"])
+    detail = project.domain_detail("steps", "z_first", "plan_a")["fields"]
+    assert detail["loop_no"] == 2
+    assert all(detail[field] is None for field in ("status", "input_refs_json", "output_refs_json"))

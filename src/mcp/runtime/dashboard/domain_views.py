@@ -41,13 +41,13 @@ class DomainViews:
         self.db = connection
         self.columns = {}
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_schema WHERE type IN ('table','view')")}
-        for name in ("scenes", "ontological_holons", "_component_records", "components", "generation_phases",
-                     "generation_plans", "generation_plan_steps", "generation_plan_scenes", "ontological_scene_context",
+        for name in ("scenes", "ontological_holons", "components", "generation_phases",
+                     "generation_plans", "generation_plan_steps", "generation_loop_steps", "generation_plan_scenes", "ontological_scene_context",
                      "scene_ontological", "_scene_component_refs", "scene_components", "document_objects"):
             if name in names:
                 self.columns[name] = [row[1] for row in connection.execute("SELECT * FROM pragma_table_xinfo(?)", (name,))]
         self.holon_table, self.holon_key = None, None
-        for name, key in (("ontological_holons", "ontological_id"), ("_component_records", "component_id"), ("components", "component_id")):
+        for name, key in (("ontological_holons", "ontological_id"), ("components", "component_id")):
             if self.has(name, key, "name") and (name != "components" or self.has(name, "rhino_group_id") or self.has(name, "model_path")):
                 self.holon_table, self.holon_key = name, key
                 break
@@ -138,17 +138,27 @@ class DomainViews:
             self.notes.append(f"연결 목록은 처음 {LINK_LIMIT}개만 표시합니다.")
         return result[:LINK_LIMIT]
 
+    def holon_link_sources(self):
+        canonical = [(table, "ontological_id") for table in ("ontological_scene_context", "scene_ontological")
+                     if table in self.columns]
+        if canonical:
+            if any(not self.has(table, "scene_id", key) for table, key in canonical):
+                self.notes.append("현재 Holon 관계 저장 구조가 불완전합니다. 과거 관계로 대체하지 않습니다.")
+            return canonical
+        return [(table, "component_id") for table in ("_scene_component_refs", "scene_components")
+                if self.has(table, "scene_id", "component_id")]
+
     def holon_links(self, scene_ids):
         links = set()
-        for table, key in (("ontological_scene_context", "ontological_id"), ("scene_ontological", "ontological_id"),
-                           ("_scene_component_refs", "component_id"), ("scene_components", "component_id")):
+        for table, key in self.holon_link_sources():
             links.update(self.links(table, "scene_id", key, scene_ids))
         return links
 
     def task_links(self, scene_ids):
-        links = set(self.links("generation_plan_scenes", "scene_id", "plan_id", scene_ids))
-        links.update(self.links("generation_plans", "scene_id", "plan_id", scene_ids))
-        return links
+        table = "generation_plan_scenes" if "generation_plan_scenes" in self.columns else "generation_plans"
+        if table == "generation_plan_scenes" and not self.has(table, "scene_id", "plan_id"):
+            self.notes.append("현재 Task 관계 저장 구조가 불완전합니다. 과거 관계로 대체하지 않습니다.")
+        return set(self.links(table, "scene_id", "plan_id", scene_ids))
 
     def indexed(self, table, key, ids):
         ids = sorted(set(ids))
@@ -193,10 +203,11 @@ class DomainViews:
         for row in records:
             key = row[self.holon_key]
             scene_ids = set()
-            for table, column in (("ontological_scene_context", "ontological_id"), ("scene_ontological", "ontological_id"),
-                                  ("_scene_component_refs", "component_id"), ("scene_components", "component_id")):
+            sources = self.holon_link_sources()
+            for table, column in sources:
                 scene_ids.update(right for _, right in self.links(table, column, "scene_id", [key]))
-            scene_ids.update(item for item in json_list(row.get("scene_ids_json")) if isinstance(item, str))
+            if not sources:
+                scene_ids.update(item for item in json_list(row.get("scene_ids_json")) if isinstance(item, str))
             scenes = self.indexed("scenes", "scene_id", scene_ids) if self.has("scenes", "scene_id", "name") else {}
             parent_key = row.get("parent_ontological_id", row.get("parent_component_id"))
             parent = self.indexed(self.holon_table, self.holon_key, [parent_key]) if parent_key else {}
@@ -216,16 +227,36 @@ class DomainViews:
                            "tasks": self.limited(tasks, "Phase 소속 Task")})
         return result
 
+    def step_records(self, plan, key=None):
+        if not self.has("generation_plan_steps", "plan_id", "step_id"):
+            return []
+        where, params = "plan_id=?", (plan["plan_id"],)
+        if key is not None:
+            where += " AND step_id=?"
+            params += (key,)
+        order = ("position," if self.has("generation_plan_steps", "position") else "") + "step_id"
+        steps = self.rows("generation_plan_steps", where, params, order, 1 if key is not None else RELATED_LIMIT + 1)
+        if steps and self.has("generation_plans", "loop_no"):
+            ids = [step["step_id"] for step in steps]
+            states = []
+            if self.has("generation_loop_steps", "plan_id", "loop_no", "step_id"):
+                states = self.rows("generation_loop_steps",
+                                   "plan_id=? AND loop_no=? AND step_id IN (" + ",".join("?" for _ in ids) + ")",
+                                   (plan["plan_id"], plan["loop_no"], *ids), limit=len(ids))
+            by_id = {state["step_id"]: state for state in states}
+            for step in steps:
+                state = by_id.get(step["step_id"], {})
+                step.update(loop_no=plan["loop_no"])
+                for field in ("status", "input_refs_json", "output_refs_json"):
+                    step[field] = state.get(field)
+        return steps
+
     def tasks(self, records):
         result = []
         for row in records:
-            steps = []
-            if self.has("generation_plan_steps", "plan_id", "step_id"):
-                # position is stored as an INTEGER; retain it rather than sorting step names.
-                order = ("position," if self.has("generation_plan_steps", "position") else "") + "step_id"
-                steps = self.rows("generation_plan_steps", "plan_id=?", (row["plan_id"],), order, RELATED_LIMIT + 1)
+            steps = self.step_records(row)
             result.append({"id": row["plan_id"], "name": label(row, "title", "name"), "revision": row.get("revision"),
-                           "goal": row.get("goal"), "scope": row.get("scope"), "status": row.get("status"),
+                           "goal": row.get("goal"), "scope": row.get("scope"), "status": row.get("status"), "loop_no": row.get("loop_no"),
                            "steps": [{"id": step["step_id"], "name": label(step, "name", "step_id"),
                                       "status": step.get("status"), "goal": step.get(self.step_goal), "position": step.get("position")}
                                      for step in self.limited(steps, "Task 소속 Step")]})
@@ -237,8 +268,8 @@ class DomainViews:
         if kind == "steps":
             if not self.has("generation_plan_steps", "step_id", "plan_id") or not self.has("generation_plans", "plan_id") or not parent:
                 raise ValueError("Step을 조회하려면 소속 Task가 필요합니다.")
-            records = self.rows("generation_plan_steps", "step_id=? AND plan_id=?", (key, parent), limit=1)
             plan = self.rows("generation_plans", "plan_id=?", (parent,), limit=1)
+            records = self.step_records(plan[0], key) if plan else []
             if not records or not plan:
                 raise ValueError("선택한 Step 또는 Task가 없습니다. 새로고침해 주세요.")
             return {"title": label(records[0], "name", "step_id"),

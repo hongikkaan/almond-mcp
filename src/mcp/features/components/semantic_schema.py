@@ -99,20 +99,9 @@ def initialize_semantics(store, connection):
         project_file_id TEXT NOT NULL REFERENCES project_files(file_id) ON DELETE RESTRICT,
         rhino_guid TEXT NOT NULL, included INTEGER NOT NULL CHECK(included IN (0,1)),
         PRIMARY KEY(scene_id,project_file_id,rhino_guid))''')
-    # Read projections preserve the public/native component_id vocabulary. All
-    # relationships and writes use the canonical ontological IDs in real tables.
-    connection.execute('''CREATE VIEW IF NOT EXISTS _component_records AS SELECT
-        c.ontological_id AS component_id,l.model_path,c.project_file_id,f.file_name,c.rhino_group_id,c.name,
-        c.created_at,c.updated_at,c.parent_ontological_id AS parent_component_id,c.availability,
-        (SELECT json_group_array(scene_id) FROM (SELECT scene_id FROM ontological_scene_context
-            WHERE ontological_id=c.ontological_id ORDER BY scene_id)) AS scene_ids_json,
-        c.geometry_digest,c.object_count,c.effective_object_count,c.effective_summary_stale,c.object_types_json,c.bounds_json
-        FROM ontological_holons c JOIN project_files f ON f.file_id=c.project_file_id
-        LEFT JOIN _project_file_locations l ON l.file_id=c.project_file_id''')
-    for view,table,fields in [('_scene_component_refs','scene_ontological','scene_id,ontological_id AS component_id'),
-            ('_plan_component_refs','generation_plan_ontological','plan_id,ontological_id AS component_id,position'),
-            ('_step_component_refs','generation_step_ontological','plan_id,step_id,ontological_id AS component_id,position')]:
-        connection.execute(f'CREATE VIEW IF NOT EXISTS {view} AS SELECT {fields} FROM {table}')
+    # Retire obsolete compatibility views; canonical tables own all relationships.
+    for view in ('_component_records', '_scene_component_refs', '_plan_component_refs', '_step_component_refs'):
+        connection.execute(f'DROP VIEW IF EXISTS {view}')
     connection.execute('CREATE INDEX IF NOT EXISTS idx_ontological_parent ON ontological_holons(parent_ontological_id)')
     for action,suffix in [('INSERT','insert'),('UPDATE OF parent_ontological_id,project_file_id','update')]:
         connection.execute(f'''CREATE TRIGGER IF NOT EXISTS ontological_parent_check_{suffix}

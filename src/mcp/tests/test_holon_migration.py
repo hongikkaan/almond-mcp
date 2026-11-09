@@ -46,7 +46,7 @@ def test_rename_preserves_every_row_relationship_and_revision(tmp_path):
         assert con.execute('PRAGMA foreign_key_check').fetchall() == []
         assert con.execute('PRAGMA integrity_check').fetchone() == ('ok',)
         assert not con.execute("SELECT name FROM sqlite_master WHERE name='ontological_components'").fetchone()
-        assert con.execute("SELECT component_id FROM _component_records ORDER BY component_id").fetchall() == [
+        assert con.execute("SELECT ontological_id FROM ontological_holons ORDER BY ontological_id").fetchall() == [
             ('component_child',), ('component_parent',)]
         assert con.execute('PRAGMA foreign_key_list(generation_plan_ontological)').fetchall()[0][2] == 'ontological_holons'
     assert reopened.get_plan(plan['plan_id']) == old_detail
@@ -84,3 +84,32 @@ def test_invalid_relationship_rolls_back_the_registry_rename(tmp_path):
         assert rows(con) == before
         assert con.execute("SELECT name FROM sqlite_master WHERE name='ontological_components'").fetchone()
         assert not con.execute("SELECT name FROM sqlite_master WHERE name='ontological_holons'").fetchone()
+
+
+def test_retire_component_view_preserves_holons_and_queries(tmp_path):
+    path = tmp_path / 'scene.sqlite3'
+    store, plan = populated_store(path)
+    before_holons = store.list_components(recursive=True)
+    before_plan = store.get_plan(plan['plan_id'])
+    with sqlite3.connect(path) as con:
+        before = rows(con)
+        con.execute('DROP VIEW IF EXISTS _component_records')
+        con.execute('CREATE VIEW _component_records AS SELECT ontological_id AS component_id FROM ontological_holons')
+        for view, table in (('_scene_component_refs', 'scene_ontological'),
+                            ('_plan_component_refs', 'generation_plan_ontological'),
+                            ('_step_component_refs', 'generation_step_ontological')):
+            con.execute(f'DROP VIEW IF EXISTS {view}')
+            con.execute(f'CREATE VIEW {view} AS SELECT ontological_id AS component_id FROM {table}')
+    reopened = AlmondStore(path)
+    with sqlite3.connect(path) as con:
+        assert not con.execute("SELECT 1 FROM sqlite_schema WHERE type='view' AND name IN "
+                               "('_component_records','_scene_component_refs','_plan_component_refs','_step_component_refs')").fetchone()
+        assert rows(con) == before
+        assert con.execute('PRAGMA foreign_key_check').fetchall() == []
+    assert reopened.list_components(recursive=True) == before_holons
+    assert reopened.get_plan(plan['plan_id']) == before_plan
+    assert reopened.get_component('component_child')['parent_component_id'] == 'component_parent'
+    AlmondStore(path)
+    with sqlite3.connect(path) as con:
+        assert not con.execute("SELECT 1 FROM sqlite_schema WHERE type='view' AND name IN "
+                               "('_component_records','_scene_component_refs','_plan_component_refs','_step_component_refs')").fetchone()

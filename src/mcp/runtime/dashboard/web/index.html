@@ -42,20 +42,14 @@
       <section id="explorer" hidden>
         <div class="table-heading">
           <div class="table-title"><div class="eyebrow" id="table-kind">TABLE</div><h2 id="table-name"></h2></div>
-          <div class="tabbar" role="tablist" aria-label="탐색 방식"><button id="tab-rows" role="tab" aria-selected="true" aria-controls="panel-rows" data-tab="rows">자료 보기</button><button id="tab-charts" role="tab" aria-selected="false" aria-controls="panel-charts" data-tab="charts">자동 차트</button><button id="tab-schema" role="tab" aria-selected="false" aria-controls="panel-schema" data-tab="schema">구조와 관계</button></div>
+          <div class="tabbar" role="tablist" aria-label="탐색 방식"><button id="tab-rows" role="tab" aria-selected="true" aria-controls="panel-rows" data-tab="rows">자료 보기</button><button id="tab-schema" role="tab" aria-selected="false" aria-controls="panel-schema" data-tab="schema">구조와 관계</button></div>
           <form id="search-form" class="data-toolbar" aria-label="자료 검색"><input id="row-search" type="search" aria-label="현재 테이블 검색" placeholder="이 테이블의 값 검색…" maxlength="200"><button class="secondary" type="submit">검색</button><button id="clear-filters" class="secondary" type="button" hidden>필터 해제</button></form>
         </div>
         <section id="panel-rows" role="tabpanel" aria-labelledby="tab-rows">
           <div id="row-note" class="hint"></div><div class="table-scroll"><table id="data-table"></table></div>
           <div class="pagination"><span id="page-info"></span><div><button id="previous" class="secondary">← 이전</button><button id="next" class="secondary">다음 →</button></div></div>
         </section>
-        <section id="panel-charts" role="tabpanel" aria-labelledby="tab-charts" hidden><p id="sample-note" class="section-note"></p><div id="charts" class="chart-grid"></div></section>
         <section id="panel-schema" role="tabpanel" aria-labelledby="tab-schema" hidden><h3>연결 지도</h3><p class="section-note">연결된 키를 누르면 해당 열의 자료로 이동합니다.</p><div id="relations" class="relation-list"></div><h3>열 구조</h3><div class="table-scroll"><table id="schema-table"></table></div><details class="sql-details"><summary>테이블 정의 SQL</summary><pre id="table-sql"></pre></details></section>
-      </section>
-      <section class="metrics" aria-label="DB 요약">
-        <div class="metric"><span>테이블 · 뷰</span><strong id="metric-tables">—</strong></div>
-        <div class="metric"><span>데이터 열</span><strong id="metric-columns">—</strong></div>
-        <div class="metric"><span>연결 관계</span><strong id="metric-relations">—</strong></div>
       </section>
       <footer class="workspace-footer">ALMOND <span id="database-meta"></span></footer>
     </section>

@@ -32,19 +32,7 @@ RhinoTerminal은 `codex.ps1 -RhinoTerminal`로 시작하며 새 대화·resume·
 
 ### 로컬 DB Dashboard
 
-`runtime/dashboard.ps1`과 `runtime/dashboard/`는 SQLite 파일을 선택해 보는 별도 로컬
-브라우저 화면이다. [사용법](runtime/dashboard/README.md)을 따른다. MCP 도구를 추가하거나
-Rhino에 연결하지 않는다. SQLite metadata에서 테이블·열·외래키를 요청마다 읽으며 특정
-Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초기화나 migration도 호출하지 않는다.
-`mode=ro`·`query_only`·요청별 짧은 읽기 트랜잭션을 사용하며 WAL의 커밋된 자료를 포함한다.
-전체 건수를 자동 집계하지 않고 표는 페이지별, 차트는 최대 300행의 표본으로 읽는다.
-열 값 필터는 여러 열을 AND로 결합하고 검색·정렬·페이지 이동과 함께 적용한다.
-전체 열에 100자를 넘는 값이나 BLOB이 있으면 해당 열의 드롭다운을 생략한다.
-고유값은 자료형을 보존해 100개씩 조회하며 기존 요청 시간 제한을 따른다.
-화면의 파일 열기는 Windows 파일 선택 창을 사용하고 취소·실패 시 현재 DB를 유지한다.
-독점 잠금·시간 초과는 조회 오류로 표시하며 잠금이나 다른 연결을 정리하지 않는다.
-외부 업로드 없이 loopback HTTP와 실행별 token/Host/Origin 검사로 화면에 자료를 제공한다.
-기존 RHP 패널 웹 자원·MCP 공개 schema·외부 실행기의 fingerprint 범위에는 포함하지 않는다.
+별도 조회 프로그램은 [runtime/dashboard/](runtime/dashboard/AGENTS.md)를 따른다.
 
 ### 기능별 Python 모듈
 

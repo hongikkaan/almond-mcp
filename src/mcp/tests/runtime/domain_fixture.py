@@ -32,14 +32,17 @@ def create_domain_database(path):
             ("plan_unassigned", "독립 작업", None, "아직 Phase를 정하지 않은 작업", "pending", 0, None, now, now),
             ("plan_empty", "단계 없는 작업", None, "Step이 없는 Task", "paused", 0, "phase_a", now, now)])
         db.executemany("INSERT INTO generation_plan_scenes VALUES (?,?,?)", [
-            ("plan_a", "scene_a", 0), ("plan_a", "scene_b", 1), ("plan_c", "scene_b", 0)])
-        db.executemany("""INSERT INTO generation_plan_steps(plan_id,step_id,position,kind,status,
-                           depends_on_json,input_refs_json,output_refs_json) VALUES (?,?,?,'reason',?,'[]',?,?)""", [
+            ("plan_a", "scene_a", 0), ("plan_a", "scene_b", 1), ("plan_b", "scene_a", 0), ("plan_c", "scene_b", 0)])
+        steps = [
             ("plan_a", "a_last", 2, "pending", '["검토할 조건"]', '[]'),
             ("plan_a", "z_first", 0, "completed", '["기존 도면"]', '["장면 해석 결과"]'),
             ("plan_a", "m_middle", 1, "running", '["장면 해석 결과"]', '["동선 검토 중"]'),
-            ("plan_b", "z_first", 0, "blocked", '["다른 Task의 입력"]', '[]'),
-            ("plan_c", "review_structure", 0, "completed", '[]', '["검토 완료"]')])
+            ("plan_b", "b_first", 0, "blocked", '["다른 Task의 입력"]', '[]'),
+            ("plan_c", "review_structure", 0, "completed", '[]', '["검토 완료"]')]
+        db.executemany("INSERT INTO generation_plan_steps(plan_id,step_id,position,kind,depends_on_json) VALUES (?,?,?,'reason','[]')",
+                       [(plan, step, position) for plan, step, position, *_ in steps])
+        db.executemany("INSERT INTO generation_loop_steps(plan_id,loop_no,step_id,status,input_refs_json,output_refs_json) VALUES (?,0,?,?,?,?)",
+                       [(plan, step, status, inputs, outputs) for plan, step, _, status, inputs, outputs in steps])
         db.commit()
         db.execute("PRAGMA journal_mode=DELETE")
     return path
