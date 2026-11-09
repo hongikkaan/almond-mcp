@@ -125,7 +125,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             database = self.server.database
             if request.path == "/api/schema":
                 self._reply(200, database.schema() if database else {"tables": [], "name": None})
-            elif request.path in ("/api/rows", "/api/profile", "/api/filters", "/api/values", "/api/domain", "/api/domain-detail"):
+            elif request.path in ("/api/rows", "/api/filters", "/api/values", "/api/domain", "/api/domain-detail"):
                 if database is None:
                     raise ValueError("먼저 DB 파일을 선택해 주세요.")
                 # Stale requests cannot accidentally display rows from a newly selected file.
@@ -149,8 +149,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     result = database.filter_options(get("table"))
                 elif request.path.endswith("/values"):
                     result = database.filter_options(get("table"), column=get("column"), offset=int(get("offset", "0")))
-                else:
-                    result = database.profile(get("table"))
                 self._reply(200, result)
             else:
                 self._reply(404, {"error": "페이지가 없습니다."})

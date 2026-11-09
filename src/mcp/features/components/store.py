@@ -12,6 +12,7 @@ import uuid
 from contextlib import contextmanager
 from typing import Any, Callable
 
+from almond_mcp.features.components.records import HOLON_READ_SQL
 from almond_mcp.store_common import ComponentReconciliationError, _NativeRejected, _utc_now
 
 
@@ -133,11 +134,11 @@ class ComponentsStore:
 
     @staticmethod
     def _component_descendant_ids(connection, component_id):
-        return [row["component_id"] for row in connection.execute("""
+        return [row["component_id"] for row in connection.execute(f"""
             WITH RECURSIVE subtree(component_id) AS (
-                SELECT component_id FROM _component_records WHERE component_id = ?
+                SELECT component_id FROM ({HOLON_READ_SQL}) WHERE component_id = ?
                 UNION
-                SELECT child.component_id FROM _component_records child
+                SELECT child.component_id FROM ({HOLON_READ_SQL}) child
                     JOIN subtree parent ON child.parent_component_id = parent.component_id
             )
             SELECT component_id FROM subtree ORDER BY component_id
@@ -145,11 +146,11 @@ class ComponentsStore:
 
     @staticmethod
     def _component_ancestor_ids(connection, component_id):
-        return [row["component_id"] for row in connection.execute("""
+        return [row["component_id"] for row in connection.execute(f"""
             WITH RECURSIVE ancestors(component_id, parent_component_id) AS (
-                SELECT component_id, parent_component_id FROM _component_records WHERE component_id = ?
+                SELECT component_id, parent_component_id FROM ({HOLON_READ_SQL}) WHERE component_id = ?
                 UNION
-                SELECT parent.component_id, parent.parent_component_id FROM _component_records parent
+                SELECT parent.component_id, parent.parent_component_id FROM ({HOLON_READ_SQL}) parent
                     JOIN ancestors child ON parent.component_id = child.parent_component_id
             )
             SELECT component_id FROM ancestors WHERE component_id != ?
@@ -166,7 +167,7 @@ class ComponentsStore:
             if child_id == component_id:
                 raise ValueError("A Component cannot be its own child.")
             row = connection.execute(
-                "SELECT model_path, parent_component_id, scene_ids_json FROM _component_records WHERE component_id = ?", (child_id,)
+                f"SELECT model_path, parent_component_id, scene_ids_json FROM ({HOLON_READ_SQL}) WHERE component_id = ?", (child_id,)
             ).fetchone()
             if row is None:
                 raise KeyError(f"Unknown child component_id: {child_id}")
@@ -184,7 +185,7 @@ class ComponentsStore:
     def _canonical_component_refs(connection, values):
         """Retain a requested child only when none of its requested ancestors is present."""
         selected = set(values)
-        rows = connection.execute("SELECT component_id, parent_component_id, availability FROM _component_records").fetchall()
+        rows = connection.execute(f"SELECT component_id, parent_component_id, availability FROM ({HOLON_READ_SQL})").fetchall()
         parents = {row[0]: row[1] for row in rows}
         selected.intersection_update(row[0] for row in rows if row[2] == "present")
         result = []
@@ -199,7 +200,7 @@ class ComponentsStore:
 
     @staticmethod
     def _component_canonical_scene_links(connection, model_path):
-        rows = connection.execute("SELECT component_id, parent_component_id, scene_ids_json, availability FROM _component_records WHERE model_path = ?",
+        rows = connection.execute(f"SELECT component_id, parent_component_id, scene_ids_json, availability FROM ({HOLON_READ_SQL}) WHERE model_path = ?",
                                   (model_path,)).fetchall()
         parents = {row[0]: row[1] for row in rows}
         availability = {row[0]: row[3] for row in rows}
@@ -234,7 +235,7 @@ class ComponentsStore:
 
     @staticmethod
     def _component_read(connection, component_id):
-        row = connection.execute('SELECT * FROM _component_records WHERE component_id = ?', (component_id,)).fetchone()
+        row = connection.execute(f'SELECT * FROM ({HOLON_READ_SQL}) WHERE component_id = ?', (component_id,)).fetchone()
         if row is None:
             return None
         result = dict(row)
@@ -242,7 +243,7 @@ class ComponentsStore:
         result['object_types'] = json.loads(result.pop('object_types_json'))
         result['bounds_mm'] = json.loads(result.pop('bounds_json'))
         result['child_component_ids'] = [r[0] for r in connection.execute(
-            'SELECT component_id FROM _component_records WHERE parent_component_id = ? ORDER BY component_id', (component_id,))]
+            f'SELECT component_id FROM ({HOLON_READ_SQL}) WHERE parent_component_id = ? ORDER BY component_id', (component_id,))]
         result.update(status='unregistered' if row['availability'] == 'unregistered' else 'registered',
                       live_verified=False, geometry_available=False)
         if result.pop('effective_summary_stale'):
@@ -304,7 +305,7 @@ class ComponentsStore:
     def _component_validate_tree(self, connection, prepared, model_path):
         """Validate observed relations and transient ownership before any ledger writes."""
         cached = {r[0]: self._component_read(connection, r[0]) for r in connection.execute(
-            'SELECT component_id FROM _component_records WHERE model_path = ?', (model_path,))}
+            f'SELECT component_id FROM ({HOLON_READ_SQL}) WHERE model_path = ?', (model_path,))}
         combined = {**cached, **prepared}
         for handle, item in prepared.items():
             for related in item['child_component_ids'] + ([item['parent_component_id']] if item['parent_component_id'] else []):
@@ -456,10 +457,10 @@ class ComponentsStore:
         with self._connect() as connection:
             if scene_id:
                 self._component_scene_ids(connection, [scene_id])
-            rows = connection.execute("""WITH RECURSIVE scoped(component_id) AS (
-                SELECT component_id FROM _scene_component_refs WHERE scene_id = ? UNION
-                SELECT c.component_id FROM _component_records c JOIN scoped p ON c.parent_component_id = p.component_id WHERE ?)
-                SELECT component_id FROM _component_records WHERE (? = '' OR model_path = ?)
+            rows = connection.execute(f"""WITH RECURSIVE scoped(component_id) AS (
+                SELECT ontological_id FROM scene_ontological WHERE scene_id = ? UNION
+                SELECT c.component_id FROM ({HOLON_READ_SQL}) c JOIN scoped p ON c.parent_component_id = p.component_id WHERE ?)
+                SELECT component_id FROM ({HOLON_READ_SQL}) WHERE (? = '' OR model_path = ?)
                 AND (? = '' OR component_id IN (SELECT component_id FROM scoped))
                 AND (? OR ? != '' OR parent_component_id IS NULL) ORDER BY model_path,name,component_id""",
                 (scene_id,recursive,model_path,model_path,scene_id,recursive,scene_id)).fetchall()
@@ -488,7 +489,7 @@ class ComponentsStore:
                 if ids is None and not group:
                     raise ValueError('Omitting object_ids requires an existing Rhino group binding.')
                 if group:
-                    owner = connection.execute('SELECT component_id FROM _component_records WHERE model_path=? AND rhino_group_id=?', (model_path,group)).fetchone()
+                    owner = connection.execute(f'SELECT component_id FROM ({HOLON_READ_SQL}) WHERE model_path=? AND rhino_group_id=?', (model_path,group)).fetchone()
                     if owner and owner[0] != handle:
                         raise ValueError('The Rhino group is already registered as another component.')
                 scenes = self._component_scene_ids(connection, scene_ids if scene_ids is not None else (prior['scene_ids'] if prior else []))
@@ -547,11 +548,11 @@ class ComponentsStore:
                 raise ValueError('component_ids must not contain duplicates.')
         with self._connect() as connection:
             connection.execute('BEGIN IMMEDIATE')
-            cached = {r[0]:self._component_read(connection,r[0]) for r in connection.execute('SELECT component_id FROM _component_records WHERE model_path=?',(model_path,))}
+            cached = {r[0]:self._component_read(connection,r[0]) for r in connection.execute(f'SELECT component_id FROM ({HOLON_READ_SQL}) WHERE model_path=?',(model_path,))}
             ids = component_ids
             if scene_id:
                 self._component_scene_ids(connection,[scene_id])
-                ids = [r[0] for r in connection.execute('SELECT component_id FROM _scene_component_refs WHERE scene_id=?',(scene_id,)) if r[0] in cached]
+                ids = [r[0] for r in connection.execute('SELECT ontological_id FROM scene_ontological WHERE scene_id=?',(scene_id,)) if r[0] in cached]
             if ids is not None:
                 ids = sorted(set(child for h in ids for child in (self._component_descendant_ids(connection,h) if h in cached else [h])))
                 if len(ids)>64:
@@ -646,12 +647,12 @@ class ComponentsStore:
     @staticmethod
     def _component_require_unreferenced(connection, component_id):
         node = connection.execute(
-            "SELECT parent_component_id FROM _component_records WHERE component_id = ?", (component_id,)
+            f"SELECT parent_component_id FROM ({HOLON_READ_SQL}) WHERE component_id = ?", (component_id,)
         ).fetchone()
         if node and node["parent_component_id"] is not None:
             raise ValueError(read_instruction(__file__, 'response-491'))
         if connection.execute(
-            "SELECT 1 FROM _plan_component_refs WHERE component_id = ? LIMIT 1",
+            "SELECT 1 FROM generation_plan_ontological WHERE ontological_id = ? LIMIT 1",
             (component_id,),
         ).fetchone():
             raise ValueError(

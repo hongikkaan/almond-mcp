@@ -56,14 +56,6 @@ Git이 없거나 저장소 밖인 경우에도 자동 선택하지 않습니다.
 3. `data/development/.venv`
 4. `src/engine/.venv`
 
-현재 Dashboard에서 실제 사용하는 값은 다음과 같습니다.
-
-```text
-AUTO_VENV_WORKTREE_ROOT=C:\TOOL\Rhino\mcp\almond-mcp\data\worktrees\DashBoard
-AUTO_VENV_REPO_ROOT=C:\TOOL\Rhino\mcp\almond-mcp
-AUTO_VENV_PYTHON=C:\TOOL\Rhino\mcp\almond-mcp\.venv\Scripts\python.exe
-```
-
 환경 생성·복사·패키지 설치는 하지 않습니다. 프로젝트의 활성화 스크립트를 실행하지 않고
 `PATH`·`VIRTUAL_ENV`를 설정합니다. 직접 활성화한 다른 환경은 유지합니다.
 자동 선택한 저장소에서 벗어나면 선택 전 환경을 복원합니다.
@@ -97,16 +89,7 @@ if defined AUTO_VENV_PYTHON "%AUTO_VENV_PYTHON%" --version
 
 ## Dashboard 실행
 
-현재 폴더와 관계없이 아래 한 줄을 실행합니다.
-
-```powershell
-& 'C:\TOOL\Rhino\mcp\almond-mcp\data\worktrees\DashBoard\src\mcp\runtime\Almond DB Dashboard.cmd'
-```
-
-실행기는 **원본 리포의 Python**으로 **이 워크트리의 Dashboard 소스**를 실행합니다.
-자동 선택이 꺼져 있거나 다른 환경을 직접 활성화했더라도 실행기는 Git에서 원본 경로를
-별도로 구합니다. 전역 설치 복사본이 없어도 워크트리에 추적된 `repository.ps1`로 실행됩니다.
-호출한 셸의 환경은 바꾸지 않습니다.
+Dashboard 실행은 [해당 폴더의 사용법](../dashboard/README.md)을 따른다.
 
 경로 해석은 [Git rev-parse](https://git-scm.com/docs/git-rev-parse)와
 [Git core.worktree 설정](https://git-scm.com/docs/git-config#Documentation/git-config.txt-coreworktree)을 따릅니다.

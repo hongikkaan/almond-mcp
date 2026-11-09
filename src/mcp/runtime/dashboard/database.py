@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import json
 import math
 import sqlite3
 import time
-from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 
 MAX_COLUMNS = 128
 CELL_LIMIT = 8192
-SAMPLE_LIMIT = 300
 FILTER_PAGE = 100
 
 
@@ -189,43 +186,4 @@ class Database:
                                  (*params, limit + 1, offset)).fetchall()
             return {"table": name, "columns": columns, "rows": [self._cells(row) for row in records[:limit]],
                     "offset": offset, "limit": limit, "has_more": len(records) > limit,
-                    "omitted_columns": len([c for c in table["columns"] if c["hidden"] != 1]) - len(columns)}
-
-    def profile(self, name):
-        """Describe a bounded, unfiltered sample, never claim a whole-table count."""
-        with self.connect() as db:
-            table = self._table(db, name)
-            columns = [c for c in table["columns"] if c["hidden"] != 1][:MAX_COLUMNS]
-            if not columns:
-                return {"sample_size": 0, "has_more": False, "columns": []}
-            # Category labels need only a short prefix. Discard truncated values from distributions.
-            records = db.execute(f"SELECT {self._selection(columns, 256)} FROM {identifier(name)} LIMIT ?", (SAMPLE_LIMIT + 1,)).fetchall()
-            sampled = records[:SAMPLE_LIMIT]
-            profiles = []
-            for index, col in enumerate(columns):
-                values = [row[index * 2] for row in sampled]
-                non_null = [v for v in values if v is not None]
-                item = {"name": col["name"], "nulls": len(values) - len(non_null), "kind": "empty"}
-                numeric = [v for v in non_null if isinstance(v, (int, float)) and math.isfinite(v)]
-                if numeric and len(numeric) == len(non_null) and all(abs(v) <= 2**53 - 1 for v in numeric):
-                    low, high = min(numeric), max(numeric)
-                    bins = [0] * (1 if low == high else 8)
-                    for value in numeric:
-                        bucket = 0 if low == high else min(7, int((value - low) / (high - low) * 8))
-                        bins[bucket] += 1
-                    item.update(kind="number", minimum=low, maximum=high, mean=sum(v / len(numeric) for v in numeric), bins=bins)
-                elif non_null and all(isinstance(v, str) for v in non_null):
-                    short = [row[index * 2] for row in sampled if row[index * 2] is not None and row[index * 2 + 1] <= 256]
-                    counts = Counter(short)
-                    item.update(kind="category", distinct=len(counts), excluded_long=len(non_null) - len(short),
-                                top=[{"label": k, "count": v} for k, v in counts.most_common(8)])
-                    try:
-                        if short and all(isinstance(json.loads(v), (dict, list)) for v in short):
-                            item["kind"] = "json"
-                    except (ValueError, RecursionError):
-                        pass
-                elif non_null:
-                    item["kind"] = "binary_or_mixed"
-                profiles.append(item)
-            return {"sample_size": len(sampled), "has_more": len(records) > SAMPLE_LIMIT, "columns": profiles,
                     "omitted_columns": len([c for c in table["columns"] if c["hidden"] != 1]) - len(columns)}

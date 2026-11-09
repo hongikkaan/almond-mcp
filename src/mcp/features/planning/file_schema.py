@@ -114,12 +114,7 @@ def _copy_relations(connection):
 def initialize_file_views(connection):
     for table, view in (("scenes", "_scene_records"), ("generation_phases", "_phase_records")):
         connection.execute(f"CREATE VIEW IF NOT EXISTS {view} AS SELECT * FROM {table}")
-    connection.execute("""CREATE VIEW IF NOT EXISTS _component_records AS SELECT
-        c.ontological_id AS component_id,l.model_path,c.file_name,c.rhino_group_id,c.name,
-        c.created_at,c.updated_at,c.parent_ontological_id AS parent_component_id,c.availability,
-        (SELECT json_group_array(scene_id) FROM (SELECT scene_id FROM ontological_scene_context
-            WHERE ontological_id=c.ontological_id ORDER BY scene_id)) AS scene_ids_json,
-        c.geometry_digest,c.object_count,c.effective_object_count,c.effective_summary_stale,c.object_types_json,c.bounds_json
-        FROM ontological_holons c LEFT JOIN _project_file_locations l ON l.file_name=c.file_name""")
+    for view in ('_component_records', '_scene_component_refs', '_plan_component_refs', '_step_component_refs'):
+        connection.execute(f'DROP VIEW IF EXISTS {view}')
     from almond_mcp.features.components.semantic_schema import initialize_parent_guards
     initialize_parent_guards(connection, "file_name")
