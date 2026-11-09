@@ -8,7 +8,7 @@ import sys
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from almond_mcp import paths
-from almond_mcp.modeling_guidance import BASIC_GUIDE, read_guide
+from almond_mcp.modeling_guidance import BASIC_GUIDE, read_guide, startup_instructions
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -58,9 +58,11 @@ async def collect(params, *, bound):
             basic = json.loads(basic_result.content[0].text)
             assert "list_project_files" not in tools and "list_project_files" not in basic["tools"]
             assert basic["text"] == BASIC_GUIDE.read_text(encoding="utf-8").strip()
-            # Codex CodeMode appends this namespace-level field to every tool.
-            # Keep the guide discoverable on its own tool, without a shared suffix.
-            assert not initialized.instructions, "namespace instructions would be appended to every CodeMode tool"
+            # The Rhino-bound launcher publishes its first-use guidance through
+            # initialize; the shared standalone server remains instruction-free.
+            expected_instructions = startup_instructions() if bound else None
+            assert initialized.instructions == expected_instructions
+            assert initialized.server_info.description is None
             for name, item in tools.items():
                 assert_documented_schema(item["inputSchema"], name)
                 for heading in ("When to use:", "Before calling:", "Inputs from earlier results:",
