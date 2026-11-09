@@ -131,15 +131,15 @@ def test_ids_are_opt_in_for_document_runtime_and_selected_plan(context):
 
 def test_workspace_selection_returns_revision_after_first_folder_setup(context):
     plan = context.store.create_plan(goal="Review entrance", scope="component")
-    selected = context.workspace.select(plan["plan_id"], "design", artifact_name="review")
+    selected = context.workspace.select(plan["plan_id"], plan["steps"][1]["step_id"], artifact_name="review")
     assert selected["revision"] == plan["revision"] + 1
-    assert context.store.get_step(plan["plan_id"], "design")["step"]["status"] == "pending"
+    assert context.store.get_step(plan["plan_id"], plan["steps"][1]["step_id"])["step"]["status"] == "pending"
     assert not (context.root / selected["artifact_dir"]).exists()
-    assert context.workspace.select(plan["plan_id"], "design") == selected
+    assert context.workspace.select(plan["plan_id"], plan["steps"][1]["step_id"]) == selected
     with pytest.raises(ValueError):
-        context.store.update_plan_step(plan["plan_id"], "design", output_refs=["review"],
+        context.store.update_plan_step(plan["plan_id"], plan["steps"][1]["step_id"], output_refs=["review"],
                                        expected_revision=plan["revision"])
-    updated = context.store.update_plan_step(plan["plan_id"], "design", output_refs=["review"],
+    updated = context.store.update_plan_step(plan["plan_id"], plan["steps"][1]["step_id"], output_refs=["review"],
                                             expected_revision=selected["revision"])
     assert updated["revision"] == selected["revision"] + 1
 

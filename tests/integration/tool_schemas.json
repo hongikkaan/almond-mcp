@@ -1,24 +1,24 @@
 {
   "add_scene_objects": {
-    "name": "add_scene_objects",
+    "annotations": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "scene_id": {
-          "type": "string",
-          "description": "Existing Scene ID from list_design_scenes(include_ids=true)."
+        "expected_model_path": {
+          "default": "",
+          "description": "Usually omitted; the managed session supplies the bound saved document. An explicit path must match it.",
+          "type": "string"
         },
         "object_ids": {
+          "description": "Array of object GUIDs, including ordinary geometry or clipping planes, up to 4096 entries.",
           "items": {
             "type": "string"
           },
-          "type": "array",
-          "description": "Array of object GUIDs, including ordinary geometry or clipping planes, up to 4096 entries."
+          "type": "array"
         },
-        "expected_model_path": {
-          "default": "",
-          "type": "string",
-          "description": "Usually omitted; the managed session supplies the bound saved document. An explicit path must match it."
+        "scene_id": {
+          "description": "Existing Scene ID from list_design_scenes(include_ids=true).",
+          "type": "string"
         }
       },
       "required": [
@@ -27,6 +27,7 @@
       ],
       "type": "object"
     },
+    "name": "add_scene_objects",
     "outputSchema": {
       "properties": {
         "result": {
@@ -38,8 +39,7 @@
       ],
       "type": "object",
       "x-fastmcp-wrap-result": true
-    },
-    "annotations": null
+    }
   },
   "analyze_block_reculviely": {
     "annotations": {
@@ -584,6 +584,21 @@
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
+        "child_plan": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional child Plan ID array."
+        },
         "depends_on": {
           "anyOf": [
             {
@@ -617,6 +632,21 @@
           ],
           "default": null,
           "description": "Optional explicit registered Holon targets for this Plan. Steps have no separate Holon assignment."
+        },
+        "parent_plan": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional parent Plan ID array."
         },
         "phase_id": {
           "default": "",
@@ -780,6 +810,42 @@
       ],
       "type": "object",
       "x-fastmcp-wrap-result": true
+    }
+  },
+  "execute_looping": {
+    "annotations": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_name": {
+          "default": "",
+          "description": "Optional initial Plan folder label, not a path. Executed Loops write under its 01, 02 and later subfolders.",
+          "type": "string"
+        },
+        "feedback": {
+          "default": "",
+          "description": "Optional feedback for this pass. Empty preserves existing feedback on resume; new passes default to no feedback.",
+          "type": "string"
+        },
+        "plan_id": {
+          "description": "Existing Plan ID whose next Loop should begin or current Loop should resume.",
+          "type": "string"
+        },
+        "resume": {
+          "default": false,
+          "description": "False starts the next Loop; true preserves the latest Loop number and records. There is no older Loop resume.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "plan_id"
+      ],
+      "type": "object"
+    },
+    "name": "execute_looping",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object"
     }
   },
   "execute_project_python": {
@@ -1652,6 +1718,30 @@
       "x-fastmcp-wrap-result": true
     }
   },
+  "get_looping_policy": {
+    "annotations": {
+      "destructiveHint": false,
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_looping_policy",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object",
+      "x-fastmcp-wrap-result": true
+    }
+  },
   "get_modeling_guide": {
     "annotations": {
       "destructiveHint": false,
@@ -1971,6 +2061,18 @@
           "description": "Include Plan holon_ids; valid only for a Plan query, not Phase or Step.",
           "type": "boolean"
         },
+        "loop_no": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional nonnegative Loop number for Plan/Step queries; omitted selects the latest Loop. 0 reads pre-execution records. Not valid for a Phase."
+        },
         "phase_id": {
           "default": "",
           "description": "Select a Phase; mutually exclusive with plan_id.",
@@ -1991,7 +2093,7 @@
             }
           ],
           "default": null,
-          "description": "Optional saved Plan revision for Plan/Step queries; omitted reads current state. Not valid for a Phase."
+          "description": "Optional saved revision within the selected Loop. Omitted reads the selected Loop latest state. Not valid for a Phase."
         },
         "step_id": {
           "default": "",
@@ -2998,15 +3100,32 @@
             }
           ],
           "default": null,
-          "description": "Optional audit or all to include stored timestamps; omitted/empty returns revision and operation."
+          "description": "Optional audit or all to include stored timestamps; omitted/empty returns loop_no, revision, operation and step_id."
         },
         "limit": {
           "default": 50,
           "description": "Maximum revision records, 1..500.",
           "type": "integer"
         },
+        "loop_no": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional nonnegative Loop filter; omitted includes all Loops, 0 selects pre-execution history."
+        },
         "plan_id": {
           "description": "Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.",
+          "type": "string"
+        },
+        "step_id": {
+          "default": "",
+          "description": "Optional UUID Step filter for direct Step changes; empty includes Plan-wide records too.",
           "type": "string"
         }
       },
@@ -3681,25 +3800,25 @@
     }
   },
   "remove_scene_objects": {
-    "name": "remove_scene_objects",
+    "annotations": null,
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "scene_id": {
-          "type": "string",
-          "description": "Existing Scene ID from list_design_scenes(include_ids=true)."
+        "expected_model_path": {
+          "default": "",
+          "description": "Usually omitted; the managed session supplies the bound saved document. An explicit path must match it.",
+          "type": "string"
         },
         "object_ids": {
+          "description": "Array of object GUIDs, including ordinary geometry or clipping planes, up to 4096 entries.",
           "items": {
             "type": "string"
           },
-          "type": "array",
-          "description": "Array of object GUIDs, including ordinary geometry or clipping planes, up to 4096 entries."
+          "type": "array"
         },
-        "expected_model_path": {
-          "default": "",
-          "type": "string",
-          "description": "Usually omitted; the managed session supplies the bound saved document. An explicit path must match it."
+        "scene_id": {
+          "description": "Existing Scene ID from list_design_scenes(include_ids=true).",
+          "type": "string"
         }
       },
       "required": [
@@ -3708,6 +3827,7 @@
       ],
       "type": "object"
     },
+    "name": "remove_scene_objects",
     "outputSchema": {
       "properties": {
         "result": {
@@ -3719,8 +3839,7 @@
       ],
       "type": "object",
       "x-fastmcp-wrap-result": true
-    },
-    "annotations": null
+    }
   },
   "rename_artifact_folder": {
     "annotations": null,
@@ -4184,8 +4303,20 @@
       "properties": {
         "artifact_name": {
           "default": "",
-          "description": "Initial folder name only, never an absolute or relative path; omitted uses the Plan goal. Files go under .almond/produced/YYMMDD_name. Existing folders are reused; use rename_artifact_folder to rename one.",
+          "description": "Initial folder name only, never an absolute or relative path; omitted uses the Plan goal. Files go under .almond/produced/YYMMDD_name. Existing folders are reused.",
           "type": "string"
+        },
+        "loop_no": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional current Loop number guard; older or unknown Loops cannot be selected for writing."
         },
         "plan_id": {
           "description": "Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.",
@@ -4498,6 +4629,21 @@
           "default": null,
           "description": "Optional replacement artifact-reference string array; [] clears, omission/null preserves."
         },
+        "child_plan": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional replacement child Plan ID array; omission/null preserves, [] clears."
+        },
         "depends_on": {
           "anyOf": [
             {
@@ -4538,7 +4684,7 @@
             }
           ],
           "default": null,
-          "description": "Optional current Plan revision from get_phase_plan_step. A mismatch rejects the entire request before changes; omission leaves this check unset."
+          "description": "Optional stale-state check, not a new revision number. Use the observed current revision and loop_no together after execution starts; mismatch rejects changes. Normally omit; the server allocates revisions."
         },
         "goal": {
           "anyOf": [
@@ -4566,6 +4712,33 @@
           ],
           "default": null,
           "description": "Optional replacement Plan Holon target array; [] clears, omission/null preserves."
+        },
+        "loop_no": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional current Loop number guard; any older or unknown Loop is rejected. Required with expected_revision when the Plan has executed a Loop."
+        },
+        "parent_plan": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional replacement parent Plan ID array; omission/null preserves, [] clears."
         },
         "phase_id": {
           "anyOf": [
@@ -4669,7 +4842,7 @@
             }
           ],
           "default": null,
-          "description": "Optional current Plan revision from get_phase_plan_step. A mismatch rejects the entire request before changes; omission leaves this check unset."
+          "description": "Optional stale-state check, not a new revision number. Use the observed current revision and loop_no together after execution starts; mismatch rejects changes. Normally omit; the server allocates revisions."
         },
         "input_refs": {
           "anyOf": [
@@ -4700,6 +4873,18 @@
           ],
           "default": null,
           "description": "Optional {add: string[], remove: string[]} patch of input evidence strings. Omission/null/{} leaves it unchanged; invalid string items are skipped and reported."
+        },
+        "loop_no": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional current Loop number guard; any older or unknown Loop is rejected. Required with expected_revision when the Plan has executed a Loop."
         },
         "output_refs": {
           "anyOf": [
@@ -4745,7 +4930,7 @@
             }
           ],
           "default": null,
-          "description": "Optional pending, running, paused, completed, failed or blocked; omission/null preserves. A real status change recalculates Plan status."
+          "description": "Optional pending, running, paused, completed, failed or blocked; omission/null preserves. This never changes Plan status."
         },
         "step_id": {
           "description": "Step ID from the selected Plan detail, used together with that Plan ID.",

@@ -29,8 +29,8 @@ def test_select_and_rename_keep_file_and_current_references_together(workspace):
     with store._connect() as db:
         db.execute("UPDATE generation_plans SET artifact_refs_json=? WHERE plan_id=?",
                    (json.dumps([original + "/drawing.pdf", "https://example.com/" + original]), peer["plan_id"]))
-        db.execute("UPDATE generation_plan_steps SET input_refs_json=?,output_refs_json=? WHERE plan_id=? AND step_id='design'",
-                   (json.dumps([str(folder / "drawing.pdf")]), json.dumps([original.upper() + "/drawing.pdf"]), peer["plan_id"]))
+        db.execute("UPDATE generation_loop_steps SET input_refs_json=?,output_refs_json=? WHERE plan_id=? AND loop_no=0 AND step_id=?",
+                   (json.dumps([str(folder / "drawing.pdf")]), json.dumps([original.upper() + "/drawing.pdf"]), peer["plan_id"], peer["steps"][1]["step_id"]))
         store._record_generation_revision(db, peer["plan_id"], "test_reference")
         history = list(map(tuple, db.execute("SELECT * FROM generation_plan_revisions")))
     renamed = workspace.rename("261104_review")
@@ -40,7 +40,7 @@ def test_select_and_rename_keep_file_and_current_references_together(workspace):
     assert (workspace.root / target / "drawing.pdf").read_bytes() == b"drawing"
     current = store.get_plan(peer["plan_id"])
     assert current["artifact_refs"] == [target + "/drawing.pdf", "https://example.com/" + original]
-    step = next(s for s in current["steps"] if s["step_id"] == "design")
+    step = next(s for s in current["steps"] if s["step_id"] == peer["steps"][1]["step_id"])
     assert step["input_refs"] == step["output_refs"] == [target + "/drawing.pdf"]
     with store._connect() as db:
         assert set(history) <= set(map(tuple, db.execute("SELECT * FROM generation_plan_revisions")))

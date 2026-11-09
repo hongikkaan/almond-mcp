@@ -131,7 +131,8 @@ def initialize_workflow(connection):
         # Preserve custom scopes, including a pre-existing mapping with a new built-in name.
         connection.executemany('INSERT OR IGNORE INTO planning_scopes VALUES(?,?)', [(s,s) for s in TASK_SCOPES])
     for table in ('generation_plans', 'generation_plan_steps'):
-        _add_reference(connection, table, 'status', 'workflow_statuses', 'status')
+        if 'status' in {row['name'] for row in connection.execute(f'PRAGMA table_info({table})')}:
+            _add_reference(connection, table, 'status', 'workflow_statuses', 'status')
     _add_reference(connection, 'generation_plans', 'scope', 'planning_scopes', 'scope')
     columns = {r['name'] for r in connection.execute('PRAGMA table_info(generation_phases)')}
     if 'status' not in columns:

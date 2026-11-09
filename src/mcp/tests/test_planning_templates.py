@@ -22,7 +22,7 @@ def test_builtin_templates_are_plans_with_ordered_steps_and_no_automatic_executi
     if scope == "inspection":
         assert not any(s["kind"] == "execute" for s in plan["steps"])
     if scope != "construction_detail":
-        assert "model_detail" not in seen
+        assert "model_detail" not in {step["step_type"] for step in plan["steps"]}
     assert "construction_detail_enabled" not in plan
     assert store.create_plan("Unspecified scope")["scope"] == "house"
 
@@ -47,7 +47,7 @@ def test_existing_registry_and_plan_history_survive_migration_and_reopen(tmp_pat
         con.execute('CREATE INDEX user_scope_index ON planning_scopes(template_scope)')
     migrated = AlmondStore(db)
     assert migrated.get_plan(old_plan['plan_id']) == old_plan
-    assert migrated.create_plan("User mapping", scope="inspection")["steps"][0]["step_id"] == "inspect_context"
+    assert migrated.create_plan("User mapping", scope="inspection")["steps"][0]["step_type"] == "inspect_context"
     with migrated._connect() as con:
         assert [tuple(r) for r in con.execute('SELECT * FROM generation_plan_revisions WHERE plan_id=?', (old_plan['plan_id'],))] == snapshots
         assert con.execute("SELECT template_scope FROM planning_scopes WHERE scope='user_scope'").fetchone()[0] == 'drawing'
@@ -80,7 +80,7 @@ def test_plan_editing_tool_persists_plan_and_mapped_scope_without_changing_histo
     assert plan['scope'] == scope and plan['title'] == 'Edit plan'
     assert plan['status'] == 'pending' and plan['steps']
     assert all(step['status'] == 'pending' for step in plan['steps'])
-    assert reopened.get_plan(plan['plan_id'], plan['revision']) == plan
+    assert reopened.get_plan(plan['plan_id'], plan['revision']) == {**plan, 'read_only': True}
     assert reopened.get_plan(existing['plan_id']) == existing
     with reopened._connect() as connection:
         assert [tuple(row) for row in connection.execute(
@@ -100,7 +100,7 @@ def test_semantic_exploration_tool_creates_ordered_reasoning_steps(tmp_path):
         title="Explore context", goal="Interpret the spatial context", scope="semantic_exploration"))
     assert result['status'] == 'success', result
     plan = AlmondStore(db).get_plan(result['plan']['plan_id'])
-    assert [step['step_id'] for step in plan['steps']] == [
+    assert [step['step_type'] for step in plan['steps']] == [
         'inspect_context', 'inspect_surroundings', 'interpret_spatial_context', 'report_findings']
     assert all(step['kind'] == 'reason' and step['status'] == 'pending' for step in plan['steps'])
 
@@ -152,6 +152,6 @@ def test_semantic_scope_migration_preserves_existing_plans_and_custom_registry(t
     assert reopened.get_plan(old_plan['plan_id']) == old_plan
     for scope, expected_first in [('custom_house', 'programme'), ('custom_interior', 'inspect_rooms'),
                                   ('custom_semantic', 'inspect_context')]:
-        assert reopened.create_plan('Mapped task', scope=scope)['steps'][0]['step_id'] == expected_first
+        assert reopened.create_plan('Mapped task', scope=scope)['steps'][0]['step_type'] == expected_first
     semantic_plan = reopened.create_plan('Explore', scope='semantic_exploration')
-    assert semantic_plan['steps'][1]['step_id'] == ('design' if custom_semantic_mapping else 'inspect_surroundings')
+    assert semantic_plan['steps'][1]['step_type'] == ('design' if custom_semantic_mapping else 'inspect_surroundings')

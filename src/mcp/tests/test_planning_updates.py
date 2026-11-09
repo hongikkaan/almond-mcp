@@ -32,17 +32,17 @@ def test_step_partial_edits_preserve_other_records_and_make_one_revision(context
     store, call = context
     plan = store.create_plan("Inspect entrance", scope="component")
     pid = plan["plan_id"]
-    before = store.update_plan_step(pid, "design", input_refs=["keep", "old", "conflict"], output_refs=["existing"])
-    arguments = dict(plan_id=pid, step_id="design", status="running",
+    before = store.update_plan_step(pid, plan["steps"][1]["step_id"], input_refs=["keep", "old", "conflict"], output_refs=["existing"])
+    arguments = dict(plan_id=pid, step_id=plan["steps"][1]["step_id"], status="running",
                      input_refs={"add": ["new", "new", " conflict ", " ", "keep"],
                                  "remove": ["old", "absent", "conflict"]},
                      output_refs={"add": ["existing", "out"]})
     result = body(call("update_step", **arguments, expected_revision=before["revision"]))
     after = store.get_plan(pid)
     assert result["status"] == "partial_success" and result["changed"] is True
-    assert result["plan"] == {"plan_id": pid, "status": "running", "revision": before["revision"] + 1}
-    assert result["step"] == {"step_id": "design", "status": "running"}
-    step = store.get_step(pid, "design")["step"]
+    assert result["plan"] == {"plan_id": pid, "status": "pending", "loop_no": 0, "revision": before["revision"] + 1}
+    assert result["step"] == {"step_id": plan["steps"][1]["step_id"], "status": "running", "loop_no": 0}
+    step = store.get_step(pid, plan["steps"][1]["step_id"])["step"]
     assert step["input_refs"] == ["keep", "conflict", "new"]
     assert step["output_refs"] == ["existing", "out"]
     assert len(result["issues"]) == 7
@@ -50,7 +50,7 @@ def test_step_partial_edits_preserve_other_records_and_make_one_revision(context
         "conflicting_operation", "duplicate_input", "already_present", "not_found", "invalid_value"}
     assert {issue["operation"] for issue in result["issues"] if issue["reason"] == "conflicting_operation"} == {"add", "remove"}
     assert all(set(issue) == {"field", "operation", "index", "value", "reason"} for issue in result["issues"])
-    assert store.get_plan(pid, before["revision"]) == before
+    assert store.get_plan(pid, before["revision"]) == {**before, "read_only": True}
     assert store.list_plan_revisions(pid)["total"] == after["revision"]
     replay = body(call("update_step", **arguments))
     assert replay["status"] == "no_change" and replay["changed"] is False
@@ -73,7 +73,7 @@ def test_each_combination_uses_one_revision(context, status, inputs, outputs):
         changes["input_refs"] = {"add": ["brief"]}
     if outputs:
         changes["output_refs"] = {"add": ["survey"]}
-    result = body(call("update_step", plan_id=plan["plan_id"], step_id="design", **changes))
+    result = body(call("update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], **changes))
     assert result["status"] == "success" and result["changed"] is True and result["issues"] == []
     assert result["plan"]["revision"] == plan["revision"] + 1
     assert result["step"]["status"] == ("running" if status else "pending")
@@ -83,8 +83,8 @@ def test_each_combination_uses_one_revision(context, status, inputs, outputs):
 def test_empty_patch_keeps_records_and_revision(context, patch):
     store, call = context
     plan = store.create_plan("Review", scope="component")
-    saved = store.update_plan_step(plan["plan_id"], "design", output_refs=["keep"])
-    result = body(call("update_step", plan_id=plan["plan_id"], step_id="design", output_refs=patch))
+    saved = store.update_plan_step(plan["plan_id"], plan["steps"][1]["step_id"], output_refs=["keep"])
+    result = body(call("update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], output_refs=patch))
     assert result["status"] == "success" and result["changed"] is False and result["issues"] == []
     assert store.get_plan(plan["plan_id"]) == saved
 
@@ -94,7 +94,7 @@ def test_empty_patch_keeps_records_and_revision(context, patch):
 def test_schema_errors_reject_whole_request(context, patch):
     store, call = context
     plan = store.create_plan("Review", scope="component")
-    response = call("update_step", plan_id=plan["plan_id"], step_id="design",
+    response = call("update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"],
                     status="running", input_refs={"add": ["valid"]}, output_refs=patch)
     assert response.is_error
     assert store.get_plan(plan["plan_id"]) == plan
@@ -115,7 +115,7 @@ def test_invalid_general_plan_field_prevents_valid_dependency_edit(context, inva
 def test_invalid_step_status_and_phase_status_roll_back_everything(context):
     store, call = context
     plan = store.create_plan("Review", scope="component")
-    result = body(call("update_step", plan_id=plan["plan_id"], step_id="design",
+    result = body(call("update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"],
                        status="finished", output_refs={"add": ["valid"]}))
     assert result["status"] == "error" and store.get_plan(plan["plan_id"]) == plan
     phase = store.create_phase("Review")
@@ -156,7 +156,7 @@ def test_revision_recording_failure_rolls_back_valid_partial_edits(context, monk
     def fail(*args, **kwargs):
         raise RuntimeError("snapshot failure")
     monkeypatch.setattr(store, "_record_generation_revision", fail)
-    result = body(call("update_step", plan_id=plan["plan_id"], step_id="design", status="running",
+    result = body(call("update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], status="running",
                        output_refs={"add": ["valid", ""]}))
     assert result["status"] == "error"
     assert store.get_plan(plan["plan_id"]) == plan

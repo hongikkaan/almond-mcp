@@ -21,6 +21,16 @@ _Avoid_: 자동 등록된 ontological_holon
 하나의 실물 형상 정의를 여러 위치·회전·축척으로 재사용하는 구성.
 _Avoid_: 자산 배치 대장의 Instance
 
+## 계획과 반복 작업
+
+**Plan**: 목표와 Step 정의를 가진 작업 단위. Plan 상태는 Step 상태와 독립이며 완료는 사용자가 판단한다.
+
+**Step**: Plan 안의 고유 작업 단계. UUID인 step_id와 유형인 step_type/표시 이름을 구분한다. 같은 UUID가 여러 Loop에서 유지된다.
+
+**Loop**: 같은 Plan을 수행하는 회차. 1부터 시작하며 최신 회차만 수정한다. 회차 자체의 진행·중단·완료 상태는 없고 Plan·Step에 상태를 기록한다. loop_no=0은 실행 전 기록의 식별값이며 실행 Loop가 아니다.
+
+**Revision**: Plan·Step 메타데이터가 바뀔 때 자동 저장되는 전체 상태 기록. Plan ID + Loop 번호 + 해당 Loop의 revision 번호로 식별하며 파일 내용이나 Rhino 형상 백업은 아니다.
+
 ## 제품과 연결 경로
 
 **Almond**:

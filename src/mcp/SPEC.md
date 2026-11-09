@@ -167,17 +167,21 @@ Phase는 Plan의 상위 묶음이고 Plan 안에 Step을 둔다. Plan의 Scene �
 #### 상태와 revision
 
 Phase·Plan·Step 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`다. 작업을 중단·전환·재개할 수 있으며 선행 작업 완료나 뒤 단계 무효화를 강제하지 않는다.
-Step 상태값이 실제로 바뀔 때만 Plan 상태를 재집계한다. 같은 상태로 입출력 참조만 수정하면 명시적인 `paused`·`completed`를 포함한 기존 Plan 상태를 보존한다. `update_plan`과 `update_step`은 별도 도구이며 Step 변경도 Plan revision을 공유한다. `update_step.status`·input_refs·output_refs는 각각 선택 입력이며 함께 변경해도 revision은 한 번만 증가한다. status 생략은 현재 상태를 유지한다. `expected_revision`도 선택 입력이다.
+Plan 상태는 Step 상태와 독립적으로 기록하며 Step 변경으로 자동 재집계하지 않는다. Plan 완료 여부는 사용자가 판단한다. `update_plan`과 `update_step`은 별도 도구이며 Step 변경도 해당 Plan의 현재 Loop revision을 공유한다. `update_step.status`·input_refs·output_refs는 각각 선택 입력이며 함께 변경해도 revision은 한 번만 증가한다. status 생략은 현재 상태를 유지한다. `expected_revision`도 선택 입력이며 실제 Loop 실행 후에는 관측한 loop_no와 함께 사용한다. 번호는 서버가 자동 부여하므로 에이전트가 계산하지 않는다.
 
 수정 도구의 Phase/Plan depends_on과 Step input_refs/output_refs는 string[] add/remove 객체를 받는다. 충돌·중복·없는 값·잘못된 종류 ID 등 문자열 항목 문제는 해당 항목만 보고하고 정상 변경을 적용한다. 같은 값의 동시 add/remove는 양쪽을 건너뛴다. 일반 필드·대상·예상 revision·자료형/입력 구조 오류는 전체 미적용이다. 실제 변경은 한 transaction과 한 Plan revision으로 기록하며 무변경은 revision을 유지한다. 응답은 changed와 issues, success/partial_success/no_change를 구분한다. 상세 조회의 호출 이름은 get_phase_plan_step이고 표시 title만 get_phase·plan·step이다.
 
-Plan 변경을 commit할 때마다 전체 Plan 상태를 immutable revision으로 저장한다. `expected_revision`으로 오래된 상태의 수정을 거절하며, 관계·상태·참조 변경과 revision 보관은 같은 DB transaction에서 처리한다. revision은 설계 시도 횟수가 아니며 Rhino 형상을 백업하지 않는다. 기존 Plan에는 migration baseline을 남기되 과거 이력을 만들어내지 않는다.
+실제 Plan·Step 메타데이터 변경을 commit할 때마다 전체 상태를 immutable revision으로 저장한다. 번호와 로그는 (plan_id, loop_no, revision)으로 식별하며 기존 BEGIN IMMEDIATE 안에서 해당 Plan+Loop의 MAX(revision)+1을 할당한다. 일반 Rhino/Python 호출 로그와 전역 카운터는 추가하지 않는다. `expected_revision`으로 오래된 상태의 수정을 거절하며, 관계·상태·참조 변경과 revision 보관은 같은 DB transaction에서 처리한다. revision은 회차 안의 메타데이터 변경 순서이며 Rhino 형상이나 파일 바이트를 백업하지 않는다. 기존 Plan에는 migration baseline을 남기되 과거 이력을 만들어내지 않는다.
 
-상태는 `workflow_statuses`를 참조하는 외래 키로 제한한다. scope는 `planning_scopes(scope, template_scope)`를 참조하며 사용자가 추가한 scope는 내장 템플릿 하나를 선택한다. 기존 house/interior/structure/drawing/component와 기본값 house를 유지하고 spatial_development/plan_editing/construction_detail/model_revision/inspection을 추가한다. 기존 scope 매핑·Plan Step·revision을 보존하며 새 이름과 충돌하는 사용자 매핑을 덮어쓰지 않는다. Construction detail 적용 여부는 저장 필드 없이 Task의 사용자 요청과 지침으로 판단하고 기본 OFF다. 관계없는 문자열은 SQL에서도 거부한다. 타임스탬프는 UTC 분 단위로 기록하고 revision은 정수로 순서를 보존한다.
+상태는 `workflow_statuses`를 참조하는 외래 키로 제한한다. scope는 `planning_scopes(scope, template_scope)`를 참조하며 사용자가 추가한 scope는 내장 템플릿 하나를 선택한다. 기존 house/interior/structure/drawing/component와 기본값 house를 유지하고 spatial_development/plan_editing/construction_detail/model_revision/inspection을 추가한다. 기존 scope 매핑·Plan Step·revision을 보존하며 새 이름과 충돌하는 사용자 매핑을 덮어쓰지 않는다. Construction detail 적용 여부는 저장 필드 없이 Task의 사용자 요청과 지침으로 판단하고 기본 OFF다. 관계없는 문자열은 SQL에서도 거부한다. 타임스탬프는 UTC 분 단위로 기록하고 revision은 각 Loop 안에서 정수로 순서를 보존한다.
+
+Step 정의는 유형·표시 이름과 분리한 UUID를 가지며 회차 간 유지한다. generation_loop_steps에 Plan+Loop+Step별 상태와 입출력을 둔다. execute_looping은 첫 1회차 또는 다음 회차를 시작하며 resume=true는 최신 회차를 이어 간다. 새 회차 Step은 pending과 빈 입출력으로 시작하며 이전 기록을 참고로 제공한다. 목표·피드백·순서 있는 Step·현재 위치·산출물 위치·짧은 정책을 반환하지만 Step을 자동 실행하지 않는다. Loop에는 별도 진행·중단·완료 상태가 없고 과거 회차는 수정하지 않는다. 실행 전 기록은 loop_no=0이지만 실행 Loop0 행과 00 폴더는 만들지 않는다. 기존 revision 번호와 raw snapshot은 그대로 보존한다.
+
+Plan·Step 조회의 loop_no 생략은 최신 회차, revision 생략은 선택 회차 최신 상태다. 지정 revision 또는 과거 회차의 응답은 read_only=true이며 복원 동작은 없다. list_plan_revisions는 Loop와 직접 Step 변경을 필터할 수 있다.
 
 #### 파일·작업자료·역조회
 
-Phase와 Scene의 `project_file_id`는 `project_files(file_id, file_name)`을 참조한다. `file_name`은 파일 관계에서 읽어 반환하며 미지정이면 빈 문자열이다. `project_info(sections=["project"], include_ids=true)`의 `project.files`로 파일명과 선택 가능한 ID를 조회한다. 선택한 Plan의 `artifact_dir`은 프로젝트 `.almond/produced/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `set_working_plan`은 폴더를 재사용하고 선택 시점의 Plan revision을 반환한다. 첫 경로 설정으로 revision이 증가했다면 증가한 값을 반환하므로 후속 수정의 expected_revision에 사용할 수 있다. `rename_artifact_folder`는 현재 참조를 갱신하며 과거 revision을 보존한다.
+Phase와 Scene의 `project_file_id`는 `project_files(file_id, file_name)`을 참조한다. `file_name`은 파일 관계에서 읽어 반환하며 미지정이면 빈 문자열이다. `project_info(sections=["project"], include_ids=true)`의 `project.files`로 파일명과 선택 가능한 ID를 조회한다. 선택한 Plan의 `artifact_dir`은 프로젝트 `.almond/produced/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `set_working_plan`은 폴더를 재사용하고 선택 시점의 Plan revision을 반환한다. 첫 경로 설정으로 revision이 증가했다면 증가한 값을 반환하므로 후속 수정의 expected_revision에 사용할 수 있다. 실행한 회차의 출력은 그 아래 01, 02 등 번호 폴더에 두고 현재 회차 내 덮어쓰기는 허용한다. 이전 결과는 원래 경로의 input_refs로 재사용하고 새 결과는 현재 회차에 쓴다. set_working_plan은 loop_no와 Plan 루트/회차 경로를 반환하며 오래된 회차 선택의 출력은 차단한다. execute_looping도 기존 산출물 잠금·native 완료 장벽을 지켜 미확정 쓰기 중 회차를 전환하지 않는다. `rename_artifact_folder`는 실행 전이고 과거 회차가 참조하지 않는 폴더만 변경하며 기존 revision은 보존한다.
 
 `get_selection_references`는 선택 객체에서 등록 Component의 조상과 해당 Component를 대상으로 하는 Plan 및 그 Step을 찾는다. 계획 관련 조회에는 `include_ids` 인자가 없고 ID를 항상 출력한다.
 
