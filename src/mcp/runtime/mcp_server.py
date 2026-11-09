@@ -41,13 +41,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def configure_rhino_session_instructions(mcp) -> None:
-    """Expose the modeling-guide entry point to this Rhino-bound MCP session."""
-    from almond_mcp.modeling_guidance import startup_instructions
-
-    mcp.instructions = startup_instructions()
-
-
 def main(argv: list[str] | None = None, *, validate_binding=None, configure=None) -> int:
     args = parse_args(argv)
     if args.expected_version is not None:
@@ -270,9 +263,6 @@ def serve(args, binding, locations, db, *, configure=None):
             await configure(server.mcp, args, binding, locations, runtime)
 
     asyncio.run(prepare())
-    # This launcher is the RhinoTerminal session-bound server. The shared
-    # package server stays instruction-free for other launch modes.
-    configure_rhino_session_instructions(server.mcp)
     print("[AlmondParallel] Rhino target: {0}:{1}".format(
         server.BRIDGE_HOST, args.port), file=sys.stderr)
     print("[AlmondParallel] Scene DB: {0}".format(db), file=sys.stderr)
