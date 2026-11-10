@@ -1,17 +1,11 @@
 # tools.py explain
 
-<!-- instruction:get_modeling_guide -->
-Read BASIC operating guidance and, when requested, the bundled Rhino scripting references.
-
-When to use: Read shared design and verification principles, or the packaged scripting skill when source-authoring references are needed. Plans and Steps organize the work; apply BASIC's modeling, inspection and drafting principles to the current activity regardless of the Plan template or Step.
-Before calling: No model observation is required. Reuse guidance already read at the same guide_version across activities. Tool descriptions are already delivered in full by tools/list; do not call this reader to retrieve a tool explanation.
-Inputs from earlier results: None. Omit include_scripting for BASIC and the public-name inventory; set include_scripting=true only when the bundled rhino3d-scripts material is needed.
-Interpretation: text is BASIC, tools lists public names, and source_refs/guide_version identify the pinned documentation. include_scripting adds scripting_skill sources without selecting or executing a modeling tool.
-Limits: This is static documentation, not live model state or a validation result. Per-tool description lookup and its tool argument are not supported. It does not edit the model, task database or user artifacts.
+<!-- instruction:get_policy -->
+BASIC 설계·검증 지침, 메타데이터 규칙 또는 Rhino 실행 참고 자료를 조회합니다. 생략하면 기본 지침·공통 도구 이름·선택 가능한 policy 목록을 반환합니다.
 
 Args:
-    include_scripting: Include bundled Rhino scripting reference material as well as the concise design guidance; false returns only the basic guide and tool discovery information.
-<!-- /instruction:get_modeling_guide -->
+    policy: 조회할 지침입니다. basic=설계·검증, metadata=객체·그룹 메타데이터, rhino_scripting=스크립트 작성 참고, rhinocode=코드·커맨드 실행. 생략하거나 빈 문자열이면 basic입니다.
+<!-- /instruction:get_policy -->
 
 ## get_construction_guidance
 

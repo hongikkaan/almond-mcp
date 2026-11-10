@@ -71,7 +71,7 @@ print(f"Chestnut publish target: {CHESTNUT_URL}", file=sys.stderr)
 # ── MCP Server ───────────────────────────────────────────────────────────────
 
 # Codex Code Mode appends initialize.instructions to every tool description.
-# Keep the first-use entry point on get_modeling_guide itself; detailed guidance
+# Keep the first-use entry point on get_policy itself; detailed guidance
 # and its source version are returned only by an explicit guide request.
 mcp = FastMCP("Almond")
 

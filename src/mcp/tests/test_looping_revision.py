@@ -97,21 +97,14 @@ def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path):
     asyncio.run(run())
 
 
-def test_looping_policy_is_available_without_recording_a_revision(tmp_path):
-    store = AlmondStore(tmp_path / "policy.db")
-    plan = store.create_plan("Read guidance")
-    server = FastMCP("looping-policy")
-    register(server, SimpleNamespace(retrieval_store=store))
-
-    async def run():
-        async with Client(server) as client:
-            result = await client.call_tool("get_looping_policy", {})
-            value = json.loads(result.content[0].text)
-            assert value["status"] == "success"
-            assert "Plan completion" in value["policy"]
-            assert "input_refs" in value["policy"]
-    asyncio.run(run())
-    assert store.get_plan(plan["plan_id"]) == plan
+def test_loop_policy_is_in_execute_description_and_inputs():
+    from almond_mcp.instruction_text import read_tool_instruction
+    import mcp_server
+    text = read_tool_instruction(mcp_server.__file__, "execute_looping")
+    assert "input_refs" in text and "output_refs" in text
+    assert "completed" in text and "사용자가 결정" in text
+    assert "Args:" in text and "resume:" in text
+    assert "get_looping_policy" not in text
 
 
 def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path, monkeypatch):
@@ -149,7 +142,7 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
             assert (first["loop_no"], first["revision"]) == (1, 1)
             assert first["artifact_dir"].endswith("/01")
             assert first["feedback"] == "Review access"
-            assert first["policy_tool"] == "get_looping_policy"
+            assert "policy_tool" not in first
             assert all(s["status"] == "pending" for s in first["steps"])
             updated = await call("update_step", plan_id=pid, step_id=sid, loop_no=1,
                                  status="completed", output_refs={"add": [first["artifact_dir"] + "/result.json"]})

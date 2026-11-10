@@ -28,24 +28,6 @@ def _observation_result(serialized: str) -> str | ToolResult:
 
 def register(mcp, context):
     """Register observation tools using the server's current connection and state."""
-    @mcp.tool()
-    @tool_instruction(__file__, 'get_retrieval_status')
-    @query_output
-    def get_retrieval_status(include_ids: StrictBool = False) -> str:
-        from almond_mcp.features.assets.model_index import for_context
-        from collections import Counter
-        models = for_context(context)
-        return json.dumps({
-            "status": "ready",
-            "database": context.STATE_DB_PATH,
-            "asset_index": {"source": "sqlite_cache", **context.retrieval_store.asset_stats()},
-            "drawing_asset_index": {"source": "manifest", "total": len(context.drawing_asset_indexer.assets)},
-            "model_asset_index": {"source": "current_manifests", "total": len(models.assets),
-                                  "states": dict(Counter(a["model_status"] for a in models.assets.values()))},
-            "drawing_recipes": len(context.drawing_recipe_indexer.recipes),
-            "retrieval": ["sqlite", "fts5", "rtree"],
-            "embedding_adapter": "not_configured",
-        })
 
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False}, output_schema={
@@ -256,7 +238,6 @@ def register(mcp, context):
 
 
     return {
-        "get_retrieval_status": get_retrieval_status,
         "get_rhino_context": get_rhino_context,
         "analyze_block_reculviely": analyze_block_reculviely,
         "_viewport_result": _viewport_result,

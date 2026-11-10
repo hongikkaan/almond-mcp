@@ -86,7 +86,7 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 
 모델 폴더는 `.almond/scene.sqlite3`를 공유한다. Plan 산출물은 프로젝트 `.almond/produced/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 종료된 연결의 소유 임시자료와 `.sessions` 기록은 프로세스·잠금·native 완료로 회수하며 Plan·Step 완료 여부와 연결하지 않는다. 공유 잠금·역할 lease·A–J 슬롯·프로세스 identity·UI thread·native 완료 확인을 유지한다. 모델을 이동·이름 변경하기 전에 연결을 정상 종료한다.
 
-프로젝트 정보가 필요하면 `project_info`에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `set_working_plan`으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond·CoS 외부 연결에서는 `connection_id`도 전달한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [관측 SPEC](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
+프로젝트 정보가 필요하면 `project_info`에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `set_working_plan`으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond·CoS 외부 연결에서는 connect/start_session으로 선택한 연결을 재사용한다. `connection_id`는 호출별 연결 재지정 시에만 전달한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [관측 SPEC](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
 
 임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. SPEC·AGENTS에는 현재 구조·계약·작업 규칙만 유지한다. 과거 설계안·진행 보고·커밋별 변경 내역·검증 실측은 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
 

@@ -61,7 +61,7 @@ RhinoApp.RunScript called from a modeless callback may return before its command
 Rhino's unified ScriptEditor supports Python and C#. Legacy VBScript uses the separate LoadScript/RunScript surface; it is not a claimed native ScriptEditor language. External CLI script arguments are file paths, not a general script-argv protocol. Use explicit data files or values in the submitted source.
 
 The rhino3d-scripts skill and its four references are bundled with the tools.
-get_modeling_guide(include_scripting=True) returns this pinned material and INTEGRATION.md, whose automated execution rules take precedence over interactive examples, VB/ScriptEditor claims, forced-cancel macros and manual Undo scaffolds.
+get_policy(policy="rhino_scripting") returns this pinned material and INTEGRATION.md, whose automated execution rules take precedence over interactive examples, VB/ScriptEditor claims, forced-cancel macros and manual Undo scaffolds.
 Its personal installed files are not a dependency of the MCP server.
 
 ## Results, errors and Undo

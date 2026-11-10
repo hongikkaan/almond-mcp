@@ -8,7 +8,7 @@ import sys
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from almond_mcp import paths
-from almond_mcp.modeling_guidance import BASIC_GUIDE, read_guide, startup_instructions
+from almond_mcp.modeling_guidance import BASIC_GUIDE, read_policy, startup_instructions
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,7 +53,7 @@ async def collect(params, *, bound):
             initialized = await client.initialize()
             tools = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True)
                      for t in (await client.list_tools()).tools}
-            basic_result = await client.call_tool("get_modeling_guide", {})
+            basic_result = await client.call_tool("get_policy", {})
             assert not basic_result.is_error
             basic = json.loads(basic_result.content[0].text)
             assert "list_project_files" not in tools and "list_project_files" not in basic["tools"]
@@ -65,17 +65,15 @@ async def collect(params, *, bound):
             assert initialized.server_info.description is None
             for name, item in tools.items():
                 assert_documented_schema(item["inputSchema"], name)
-                for heading in ("When to use:", "Before calling:", "Inputs from earlier results:",
-                                "Interpretation:", "Limits:"):
-                    assert heading in item["description"], (name, heading)
+                assert item["description"].strip(), name
                 assert "Almond inspects and edits Rhino" not in item["description"], name
                 assert "guide_version=" not in item["description"], name
-            scripting_result = await client.call_tool("get_modeling_guide", {"include_scripting": True})
+            scripting_result = await client.call_tool("get_policy", {"policy": "rhino_scripting"})
             assert not scripting_result.is_error
             scripting = json.loads(scripting_result.content[0].text)
-            assert scripting == read_guide(include_scripting=True)
+            assert scripting == read_policy("rhino_scripting")
             assert scripting["guide_version"] == basic["guide_version"]
-            rejected = await client.call_tool("get_modeling_guide", {"tool": "get_rhino_context"})
+            rejected = await client.call_tool("get_policy", {"tool": "get_rhino_context"})
             assert rejected.is_error
             detail_name = "get_phase_plan_step"
             assert detail_name in tools and detail_name in basic["tools"]
@@ -139,7 +137,7 @@ def test_cold_direct_full_descriptions_and_basic_scripting_guide(tmp_path):
     instructions, tools = asyncio.run(collect(params, bound=False))
     assert "get_rhino_context" in tools
     assert not instructions
-    assert "get_modeling_guide" in tools
+    assert "get_policy" in tools
 
 
 def test_bound_serve_and_external_catalog_identity(tmp_path):
@@ -213,7 +211,7 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
 
     async def route():
         broker = SimpleNamespace(mapping={"plan_section": "plan_section"}, connections={"fixture": "bound"},
-                                 invoke=invoke, spawn=asyncio.create_task)
+                                 invoke=invoke, spawn=asyncio.create_task, selected_connection_id=None)
         response = await Broker.call(broker, "plan_section", arguments)
         assert not response.is_error
 

@@ -79,12 +79,12 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 
 | 기능 | 공개 함수 |
 |---|---|
-| 관찰·진단 | `get_retrieval_status`, `get_rhino_context`, `analyze_block_reculviely`, `get_defined_viewcapture`, `get_current_viewcapture`, `get_objects`, `get_object_intersections`, `capture_rhino_inspection` |
+| 관찰·진단 | `get_rhino_context`, `analyze_block_reculviely`, `get_defined_viewcapture`, `get_current_viewcapture`, `get_objects`, `get_object_intersections`, `capture_rhino_inspection` |
 | 작업계획 | `create_phase`, `list_phases`, `update_phase`, `create_plan`, `get_phase_plan_step`, `list_plans`, `update_plan`, `list_plan_revisions`, `update_step`, `resolve_targets`, `get_selection_references` |
 | Scene | `create_design_scene`, `update_design_scene`, `get_design_scene`, `list_design_scenes`, `get_scene_objects`, `add_scene_objects`, `remove_scene_objects` |
 | Component | `upsert_ontological_holon`, `get_ontological_holon`, `list_ontological_holons`, `sync_ontological_holon`, `remove_ontological_holon`, `resolve_object_intersection`, `focus_holons` |
-| 설계 참고자료 | `get_modeling_guide`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
-| 모델링·재료 | `get_modeling_policy`, `execute_rhino_script`, `save_rhino_document`, `edit_planar_face`, `edit_planar_faces`, `setup_modeling`, `list_materials`, `assign_material` |
+| 설계 참고자료 | `get_policy`, `get_construction_guidance`, `get_typology_narrative`, `search_detail_sources` |
+| 모델링·재료 | `execute_rhino_script`, `save_rhino_document`, `edit_planar_face`, `edit_planar_faces`, `setup_modeling`, `list_materials`, `assign_material` |
 | Grasshopper | `list_library`, `get_logic_by_id`, `list_capsules`, `run_gh_definition` |
 | 자산 | `list_drawing_assets`, `search_drawing_assets`, `get_drawing_asset`, `prepare_drawing_asset`, `register_drawing_asset`, `refresh_asset`, `get_asset_drawing`, `generate_asset_drawing_views`, `audit_asset_drawing`, `place_drawing_asset`, `search_asset_repository` |
 | 다이어그램 | `list_diagram_assets`, `search_diagram_assets`, `get_diagram_asset`, `place_diagram_asset` |
@@ -235,7 +235,7 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 rename_artifact_f
 
 `tools/list`에는 각 도구의 설명 전문과 입력·출력 schema를 제공한다. `*-explain.md`의 공개 instruction 본문을 함수 docstring으로 그대로 읽으며 첫 문장 추출이나 문장 축약을 하지 않는다. FastMCP의 표준 docstring 처리가 Args/Returns 등의 인수·반환 메타데이터를 schema에 반영하므로 본문과 메타데이터를 임의로 분리·삭제하지 않는다. 전체 BASIC 지침을 각 도구 설명에 자동 삽입하지 않는다.
 
-`get_modeling_guide()`는 `BASIC-INSTRUCTIONS.md`와 공개 도구명 목록을 반환한다. `include_scripting=true`를 명시하면 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 `scripting_skill`에 추가한다. `tool` 인자를 받거나 개별 도구의 설명 원문을 반환하는 경로는 없다. 기본 지침의 조회 진입점은 `get_modeling_guide`다. BASIC에는 설계·관찰·검수의 공통 원칙과 개념을 두며, 도구별 호출법·인수·반환값·개별 한계를 중복 열거하지 않는다.
+`get_policy()`는 `BASIC-INSTRUCTIONS.md`와 공개 도구명 목록을 반환한다. `policy="rhino_scripting"`을 선택하면 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 `scripting_skill`로 반환한다. `metadata`는 메타데이터 규칙, `rhinocode`는 코드·커맨드 실행 지침이다. 선택값을 생략하면 BASIC과 도구명·policy 목록을 반환한다. `tool` 인자를 받거나 개별 도구의 설명 원문을 반환하는 경로는 없다. 기본 지침의 조회 진입점은 `get_policy`다. BASIC에는 설계·관찰·검수의 공통 원칙과 개념을 두며, 도구별 호출법·인수·반환값·개별 한계를 중복 열거하지 않는다.
 
 문서 전용 MCP의 initialize.instructions에는 공통 안내를 넣지 않는다. Codex Code Mode가 이 필드를 모든 도구 설명에 반복해서 붙이기 때문이다. 외부 연결기의 연결 안내는 별도 계약이다.
 

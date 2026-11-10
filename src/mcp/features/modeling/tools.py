@@ -16,10 +16,6 @@ def register(mcp, context):
     """Register modeling tools against the current server execution context."""
     _material_script = modeling_setup.material_script
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @tool_instruction(__file__, 'get_modeling_policy')
-    def get_modeling_policy() -> dict:
-        return {"status": "success", "policy": modeling_policy.POLICY}
 
 
     @mcp.tool(name="plan_section")
@@ -274,7 +270,6 @@ def register(mcp, context):
 
 
     return {
-        "get_modeling_policy": get_modeling_policy,
         "plan_section": plan_section_tool,
         "get_plan_section_result": get_plan_section_result,
         "execute_rhino_script": execute_rhino_script,

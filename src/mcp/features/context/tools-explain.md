@@ -1,18 +1,5 @@
 # tools.py explain
 
-## get_retrieval_status
-
-<!-- instruction:get_retrieval_status -->
-When to use: Diagnose the local retrieval indexes when library availability or search behavior is unclear.
-Before calling: No other tool or live Rhino query is required; this is not a mandatory connection preflight when retrieval is already understood.
-Inputs from earlier results: No target handle is needed. include_ids=true requests any diagnostic identities that the default response omits; it does not request asset records.
-Interpretation: Read the fixed counts/status for the SQLite cache, drawing manifest, current model manifests and model states, configured retrieval mechanisms and embedding adapter. Use the relevant search/list tool next if actual library records are needed.
-Limits: ready describes the retrieval system, not proof that every model file is present, placeable or correct. The response is intrinsically bounded and contains no asset list or geometric/scene validation; supplied target IDs are not echoed.
-
-Args:
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-<!-- /instruction:get_retrieval_status -->
-
 ## get_rhino_context
 
 <!-- instruction:get_rhino_context -->

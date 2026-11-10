@@ -39,22 +39,11 @@ Args:
     expected_model_path: Bound saved-document path; explicit value must agree with the runtime binding.
 <!-- /instruction:get_plan_section_result -->
 
-## get_modeling_policy
-
-<!-- instruction:get_modeling_policy -->
-When to use: Read the metadata vocabulary and material/layer conventions when an explicitly requested naming or metadata operation needs them.
-Before calling: No other tool is required; reuse a known policy rather than fetching it for every modeling action.
-Inputs from earlier results: None; this tool takes no arguments. Use policy keys to interpret existing metadata or author only the metadata the user requested.
-Interpretation: status and policy describe JSON-defined object/group keys and naming conventions, not the current contents of Rhino.
-Limits: Reading policy does not create layers, assign materials or stamp objects. Names are free; compatibility keys are not a checklist. Preserve user metadata and asset provenance; ordinary names, layers and materials do not require Almond management UserStrings.
-
-<!-- /instruction:get_modeling_policy -->
-
 ## execute_rhino_script
 
 <!-- instruction:execute_rhino_script -->
 When to use: Run synchronous modeling, editing or custom measurements in the bound Rhino when a fixed observation or dedicated tool does not cover the task.
-Before calling: Use known document units/tolerance and explicit targets; obtain missing object IDs or geometry from get_objects rather than guessing. Official RhinoCode/StartScriptServer must be available. The bundled rhino3d-scripts skill and API/loading references remain available through get_modeling_guide(include_scripting=True); no separate installation is needed.
+Before calling: Use known document units/tolerance and explicit targets; obtain missing object IDs or geometry from get_objects rather than guessing. Official RhinoCode/StartScriptServer must be available. The bundled rhino3d-scripts skill and API/loading references remain available through get_policy(policy="rhino_scripting"); no separate installation is needed.
 Inputs from earlier results: Reuse observed object GUIDs in script and choose language explicitly when not using the default Python 3. Python/python2 assign JSON-compatible values to result; dict/list keep structured data, whereas json.dumps produces text. csharp/csharp-script accept statement bodies with doc and result_json, not a class/Run wrapper. command accepts one complete macro without added !, Pause or dialogs. General scripts use project root as cwd; execute_project_python uses the selected Plan folder instead.
 Interpretation: Read completed, status, mutation_state and the returned result together. A first response includes up to 20 items per array/top-level list field or 4096 top-level string characters. Feed its exact request_id to get_rhino_execution only while pending, when more pages are needed or when output/diagnostics remain unchecked; completed output containing the needed result needs no extra read. Record useful GUIDs, measurements and artifact refs for later calls.
 Limits: The wrapper binds doc/scriptcontext and owns Undo/redraw plus cwd/environment restoration; it does not guarantee a script's design correctness, rollback of partial changes or a saved document. A timeout, CLI exit, print output or result_error is not rollback/completion proof: reconcile the same request instead of automatically rerunning uncertain writes. Do not switch documents or create detached/background document writers. Use validated geometry before replacing originals and synchronous batches with per-item results. Rhino embedded packages can differ from the worker venv; fixed native queries/recipes do not use this public executor. project_root is absolute and artifact_dir is relative. If writing Floor metadata, use the object's actual level labels, a typed string array for multiple levels or a string for one, preserve unrelated attributes and verify the stored value; never copy a Scene's whole level range onto every object.

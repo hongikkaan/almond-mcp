@@ -147,6 +147,9 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
             if runtime is not None:
                 result["runtime"]["rhinocode"] = runtime.rhinocode_availability()
             result["runtime"] = project_query(result["runtime"], include_ids=include_ids)
+        result["next_step_guide"] = ("- list_plans으로 프로젝트 진행상황 파악합니다.\n"
+                                     "- 산출물 작업 공간은 set_working_plan으로 선택합니다.\n"
+                                     "- 객체 상태가 필요하면 get_objects로 확인합니다.")
         return result
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})

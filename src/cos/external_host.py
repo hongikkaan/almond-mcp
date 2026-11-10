@@ -68,21 +68,17 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
             raise RuntimeError(f"Unsupported routing schema: {name}")
         schema.setdefault("properties", {})["connection_id"] = {
             "type": "string", "minLength": 1,
-            "description": "Exact live connection ID returned by connect."
+            "description": "Optional connection override from list_connections. Omit to use the connection selected by connect or start_session."
         }
         if name == "get_rhino_execution":
             schema["properties"]["connection_id"]["description"] = (
-                "Live connection for tracked recovery; omit with exact request_id to read a retained result after client restart.")
-            schema["anyOf"] = [{"required": ["connection_id"]}, {
-                "required": ["request_id"], "properties": {"request_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}}]
-        else:
-            schema["required"] = [*schema.get("required", []), "connection_id"]
+                "Optional connection override for tracked recovery. Omit to use the selected connection, or supply an exact request_id after client restart to read its retained result.")
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
         ("list_connections", "List available Rhino documents, this client's connections and connection instructions. Run almondconnect in a saved ordinary Rhino to make it available for connection.",
          {}, []),
-        ("connect", "Connect one advertised Rhino/document. Call list_connections first for the verified model path and connection instructions. Uses an independent A-J slot and session; models in one folder share the existing database and artifact root.",
+        ("connect", "Connect and select one advertised Rhino/document, or select an existing connection to it. Other connections stay open. Calls use this selection until another connect/start_session succeeds. Models in one folder share the database and artifact root.",
          {"host_id": {"type": "string", "description": "Exact advertised host_id from list_connections for the intended Rhino process."}, "model_path": {"type": "string", "description": "Exact saved model path shown in the listing."}},
          ["host_id", "model_path"]),
         ("start_session", "Explicitly open a saved .3dm in a new visible Rhino, advertise it with almondconnect, and connect its own A-J slot/worker. Does not save or close Rhino. Reuse the same request_id after a startup timeout; a new ID deliberately opens another Rhino.",
@@ -90,8 +86,8 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
           "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
                          "description": "Unique ID for this deliberate start; keep it unchanged when checking the same attempt."}},
          ["model_path", "request_id"]),
-        ("disconnect", "Disconnect this client's connection after its calls complete. Never closes or saves Rhino. An unconfirmed native operation can retain its Rhino-side locks.",
-         {"connection_id": {"type": "string", "description": "This client's live connection_id returned by connect or list_connections; disconnects only that connection."}}, ["connection_id"]),
+        ("disconnect", "Disconnect the selected connection after its calls complete. Never closes or saves Rhino. An unconfirmed native operation can retain its Rhino-side locks. Select another connection explicitly before continuing work.",
+         {"connection_id": {"type": "string", "minLength": 1, "description": "Optional connection override from list_connections; omit to disconnect the selected connection."}}, []),
     ]
     for name, description, properties, required in management:
         if name in mapping:
@@ -293,6 +289,7 @@ class Broker:
         self.queue_timeout = queue_timeout
         self.tools, self.mapping = exposed_tools(catalog)
         self.connections: dict[str, Connection] = {}
+        self.selected_connection_id: str | None = None
         self.host_connections: dict[str, str] = {}
         self.background: set[asyncio.Task] = set()
         self.closing = False
@@ -395,7 +392,8 @@ class Broker:
                 finally:
                     if lease is not None:
                         lease.close()
-        return {"instructions": GUIDANCE, "targets": targets, "connections": [c.public() for c in self.connections.values()],
+        return {"instructions": GUIDANCE, "selected_connection_id": self.selected_connection_id,
+                "targets": targets, "connections": [c.public() for c in self.connections.values()],
                 "starts": [attempt.public(key) for key, attempt in self.starts.items()]}
 
     async def start_session(self, model_path: str, request_id: str):
@@ -411,6 +409,9 @@ class Broker:
                 conn = self.connections.get(attempt.connection_id)
                 if conn is None:
                     raise RuntimeError("This start's connection has ended. No new Rhino was started; list existing Rhino documents before deliberately creating another session.")
+                if conn.closing or conn.state != "ready":
+                    raise RuntimeError(f"Connection is {conn.state}: {conn.reason}.")
+                self.selected_connection_id = conn.connection_id
                 return dict(conn.public(), request_id=request_id)
         else:
             self.contract_check(self.catalog)
@@ -447,7 +448,13 @@ class Broker:
             raise RuntimeError("Almond external host is closing.")
         self.contract_check(self.catalog)
         if host_id in self.host_connections:
-            raise RuntimeError(f"Rhino already has external connection {self.host_connections[host_id]}.")
+            conn = self.connections[self.host_connections[host_id]]
+            if os.path.normcase(conn.binding.get("model_path", "")) != os.path.normcase(model_path):
+                raise RuntimeError("This connection belongs to a different model. Refresh list_connections.")
+            if conn.closing or conn.state != "ready":
+                raise RuntimeError(f"Connection is {conn.state}: {conn.reason}.")
+            self.selected_connection_id = conn.connection_id
+            return conn.public()
         record = next((r for r in self.host_reader(self.data) if r["host_id"] == host_id), None)
         if record is None:
             raise RuntimeError("Rhino advertisement is stale. Run almondconnect in the intended saved document.")
@@ -500,6 +507,7 @@ class Broker:
                                            process_start_ticks=state["process_start_ticks"])
                 ensure_open()
                 conn.state = "ready"
+                self.selected_connection_id = conn.connection_id
                 return conn.public()
             except BaseException:
                 await self._dispose_locked(conn)
@@ -649,6 +657,8 @@ class Broker:
                 errors.append("Control shutdown: " + str(exc))
             finally:
                 self.connections.pop(conn.connection_id, None)
+                if self.selected_connection_id == conn.connection_id:
+                    self.selected_connection_id = None
                 if self.host_connections.get(conn.host_id) == conn.connection_id:
                     self.host_connections.pop(conn.host_id, None)
                 if conn.lease is not None:
@@ -658,7 +668,8 @@ class Broker:
                         "rhino_closed": False, "released": released, "reason": "; ".join(errors)}
         return conn.cleanup
 
-    async def disconnect(self, connection_id: str):
+    async def disconnect(self, connection_id: str | None = None):
+        connection_id = self.selected_connection_id if connection_id is None else connection_id
         conn = self.connections.get(connection_id)
         if conn is None:
             raise RuntimeError("Unknown or stale connection_id.")
@@ -681,11 +692,15 @@ class Broker:
             if name == "start_session":
                 return json_result(await self.start_session(**arguments))
             if name == "disconnect":
+                arguments = dict(arguments)
+                arguments.setdefault("connection_id", self.selected_connection_id)
+                if arguments["connection_id"] is None:
+                    raise RuntimeError("No selected connection. Use list_connections and connect.")
                 return json_result(await asyncio.shield(self.spawn(self.disconnect(**arguments))))
             if name not in self.mapping:
                 raise RuntimeError("Unknown Almond tool.")
             arguments = dict(arguments)
-            connection_id = arguments.pop("connection_id", None)
+            connection_id = arguments.pop("connection_id", self.selected_connection_id)
             conn = self.connections.get(connection_id)
             if conn is None:
                 if self.mapping[name] == "get_rhino_execution" and connection_id in self.recovery_bindings:
@@ -695,7 +710,7 @@ class Broker:
                     return json_result(value)
                 if self.mapping[name] == "get_rhino_execution" and arguments.get("request_id"):
                     return json_result(await asyncio.to_thread(self.recovery_store.recover, arguments))
-                raise RuntimeError("Unknown or stale connection_id. No Rhino request was sent.")
+                raise RuntimeError("No selected live connection, or unknown/stale connection_id. Use list_connections and connect. No Rhino request was sent.")
             invocation = Invocation()
             return await asyncio.shield(self.spawn(self.invoke(conn, self.mapping[name], arguments, invocation)))
         except asyncio.CancelledError:

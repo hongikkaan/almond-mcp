@@ -99,15 +99,13 @@ Each row names fields added to the feature's normal summary. The tool descriptio
 
 ## Other bounded/query-specific contracts
 
-- `project_info`: project/document/locations by default, optional runtime. project/document share one live observation; failed identity checks return an error, otherwise project.is_bound_document is a boolean: true for the bound model, false for a different document. Document name/path occur only in project. project.files pages the recorded DB list using files_limit (1–500, default 50) and files_offset; files_page retains total/limit/offset/truncated. Duplicate names remain distinct and include_ids=true exposes project_file_id. Document runtime_serial_number and runtime.rhinocode.pipe_id are also hidden by default. locations contains the project DB and connection-selected Plan folder (null before selection); locations/runtime alone need no live observation. Basic instructions come from get_modeling_guide.
+- `project_info`: project/document/locations by default, optional runtime. project/document share one live observation; failed identity checks return an error, otherwise project.is_bound_document is a boolean: true for the bound model, false for a different document. Document name/path occur only in project. project.files pages the recorded DB list using files_limit (1–500, default 50) and files_offset; files_page retains total/limit/offset/truncated. Duplicate names remain distinct and include_ids=true exposes project_file_id. Document runtime_serial_number and runtime.rhinocode.pipe_id are also hidden by default. locations contains the project DB and connection-selected Plan folder (null before selection); locations/runtime alone need no live observation. Basic instructions come from get_policy.
 - `get_rhino_context`: explicit document/selection/viewport/editor/display_modes sections, bounded selection expansion and optional current image.
 - `analyze_block_reculviely`: outline/resolve-block mode and bounded traversal options. `resolve-block` also returns placed Model/Layout occurrence paths and counts in `definition_impact`, with separate completeness and list truncation. Definition-member IDs and matching working candidates are not document edit identities. Its `next_step` connects impact review to an intended BlockEditNew entry and fresh working-ID observation; it does not grant unsupported editor mutation permission.
 - `get_defined_viewcapture`, `get_current_viewcapture`: one bounded image/file result; live-view mutation evidence is never omitted.
 - `get_objects`: selected/visible/document/explicit-object/group scopes; flat objects, layer/type counts or numbered group/block hierarchy. Internal block paths are distinct from editable document IDs.
 - `get_rhino_context`: requested sections only; Named View/Layout/Display Mode catalogue IDs are always included.
-- `get_retrieval_status`: bounded readiness/count diagnostics.
-- `get_modeling_policy`: one fixed policy document.
-- `get_modeling_guide`: BASIC and public tool names; `include_scripting=true` adds bundled scripting references. Individual tool descriptions come from `tools/list`; there are no topic, tool-name or image arguments. See [guidance delivery](SPEC.md#모델링-안내-전달).
+- `get_policy`: 생략 시 BASIC과 공통 도구명, available_policies. policy로 basic/metadata/rhino_scripting/rhinocode 중 하나를 선택한다. source_refs와 guide_version은 출처를 식별한다.
 - `audit_asset_drawing`: one requested package's validation/proof result.
 - `validate_structure`: its existing detail=false summary/detail=true contract.
 

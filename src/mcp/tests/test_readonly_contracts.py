@@ -6,22 +6,27 @@ from almond_mcp.managed_paths import project_path
 from almond_mcp.query_output import select_fields, validate_field_groups
 
 
-def test_guide_returns_basic_and_optional_scripting_not_tool_explanations():
-    basic = modeling_guidance.read_guide()
-    assert "get_rhino_context" in basic["tools"]
+def test_policy_selection_returns_only_requested_content():
+    basic = modeling_guidance.read_policy()
+    assert "get_policy" in basic["tools"]
+    assert not {"get_modeling_guide", "get_looping_policy", "get_modeling_policy", "get_retrieval_status"}.intersection(basic["tools"])
     assert basic["text"] == modeling_guidance.BASIC_GUIDE.read_text(encoding="utf-8").strip()
-    assert "tool_name" not in basic and "scripting_skill" not in basic
-    scripting = modeling_guidance.read_guide(include_scripting=True)
+    assert set(basic["available_policies"]) == {"basic", "metadata", "rhino_scripting", "rhinocode"}
+    assert modeling_guidance.read_policy("basic") == basic
+    scripting = modeling_guidance.read_policy("rhino_scripting")
     assert scripting["guide_version"] == basic["guide_version"]
-    assert scripting["text"] == basic["text"]
+    assert "text" not in scripting and "policy" not in scripting
     assert scripting["scripting_skill"]["name"] == "rhino3d-scripts"
     assert all(source["text"] and source["sha256"] for source in scripting["scripting_skill"]["sources"])
-    assert len(scripting["source_refs"]) > len(basic["source_refs"])
-    assert all(not path.name.endswith("-explain.md") for path in modeling_guidance.source_files())
-    with pytest.raises(ValueError, match="must be a boolean"):
-        modeling_guidance.read_guide("get_rhino_context")
-    with pytest.raises(TypeError):
-        modeling_guidance.read_guide(tool="get_rhino_context")
+    metadata = modeling_guidance.read_policy("metadata")
+    assert "public_object_keys" in metadata["policy"]
+    metadata["policy"].clear()
+    assert modeling_guidance.read_policy("metadata")["policy"]
+    assert "execute_rhino_script" in modeling_guidance.read_policy("rhinocode")["text"]
+    with pytest.raises(ValueError, match="policy must"):
+        modeling_guidance.read_policy("get_rhino_context")
+    with pytest.raises(ValueError):
+        modeling_guidance.read_policy(True)
 
 
 def test_tool_description_loader_preserves_full_prose_and_schema_metadata(tmp_path):

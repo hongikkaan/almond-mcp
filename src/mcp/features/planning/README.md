@@ -304,7 +304,7 @@ Plan과 Phase의 `previous_id`는 같은 종류의 직전 작업 하나를 기�
 ## Loop 실행과 저장
 
 - `execute_looping(plan_id, resume=false, feedback="", artifact_name="")`은 다음 회차를 시작하고 작업 맥락을 선택한다. 첫 호출은 1, 다음 호출은 2다. `resume=true`는 최신 회차의 번호와 Step 기록을 유지한다. 실행 전에는 재개할 회차가 없다.
-- 응답에는 목표, Plan 상태, 피드백, 순서 있는 Step 및 입출력 기록, 다음 미완료 Step, 이전 회차 기록, 산출물 경로, 짧은 실행·보고 원칙과 `get_looping_policy` 안내가 있다. Step을 자동 실행하지 않는다. 회차에는 종료·중단·진행 상태가 없고 Plan·Step의 기존 6개 상태만 사용한다.
+- 응답에는 목표, Plan 상태, 피드백, 순서 있는 Step 및 입출력 기록, 다음 미완료 Step, 이전 회차 기록, 산출물 경로, 짧은 실행·보고 원칙가 있다. Step을 자동 실행하지 않는다. 회차에는 종료·중단·진행 상태가 없고 Plan·Step의 기존 6개 상태만 사용한다.
 - Step UUID와 유형/이름은 별개다. 새 회차에도 UUID·순서·유형을 유지하며 회차별 상태는 pending, 입출력 기록은 빈 배열로 시작한다. 이전 결과의 유효성을 확인한 뒤 원래 경로를 input_refs로 참조한다.
 - Plan의 `loop_no=0`은 아직 execute_looping을 호출하지 않았다는 값이다. 실행 Loop 테이블에 0 행을 만들지 않고 00 폴더도 만들지 않는다. 기존 생성·수정 기록은 번호와 snapshot 원문을 그대로 보존하며 loop_no=0으로 조회한다.
 - `generation_plan_steps`는 Step 정의, `generation_loop_steps`는 (plan_id, loop_no, step_id)별 상태·입출력, `generation_plan_loops`는 실제 1 이상 회차와 피드백, `generation_plan_revisions`는 (plan_id, loop_no, revision)별 전체 snapshot이다. Step 수정 revision의 별도 step_id 열로 필터한다. Plan-wide 기록의 step_id는 null이다.

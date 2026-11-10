@@ -10,6 +10,14 @@ from almond_mcp.instruction_text import public_tool_name
 PACKAGE = Path(__file__).resolve().parent
 BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
 SCRIPTING_SKILL = PACKAGE / "features/modeling/rhino3d-scripts"
+METADATA_POLICY = PACKAGE / "modeling_policy.json"
+RHINOCODE_POLICY = PACKAGE / "RHINOCODE-INSTRUCTIONS.md"
+POLICIES = {
+    "basic": "건축 설계·모델링·도면 검증 지침과 공통 도구 목록",
+    "metadata": "객체·그룹 메타데이터 키, 레이어·재료 기록 규칙",
+    "rhino_scripting": "Rhino 스크립트 작성과 API 참고 자료",
+    "rhinocode": "RhinoCode 코드·Rhino 커맨드 실행과 결과 확인",
+}
 
 
 def _read_content(path: Path) -> bytes:
@@ -32,7 +40,7 @@ def _tool_sources() -> list[Path]:
 
 def source_files() -> list[Path]:
     # Tool sources provide names only. Descriptions are delivered by tools/list.
-    return sorted([BASIC_GUIDE, *_tool_sources(),
+    return sorted([BASIC_GUIDE, METADATA_POLICY, RHINOCODE_POLICY, *_tool_sources(),
                    *(p for p in SCRIPTING_SKILL.rglob("*") if p.is_file())])
 
 
@@ -70,24 +78,34 @@ def _snapshot() -> dict:
     version = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     return {"tools": sorted(tools), "guide_version": version,
             "basic": raw[BASIC_GUIDE].decode("utf-8").strip(), "basic_refs": [reference(BASIC_GUIDE)],
-            "scripting_skill": scripting_skill, "scripting_refs": [reference(p) for p in skill_files]}
+            "scripting_skill": scripting_skill, "scripting_refs": [reference(p) for p in skill_files],
+            "metadata": json.loads(raw[METADATA_POLICY]), "metadata_refs": [reference(METADATA_POLICY)],
+            "rhinocode": raw[RHINOCODE_POLICY].decode("utf-8").strip(),
+            "rhinocode_refs": [reference(RHINOCODE_POLICY)]}
 
 
 def startup_instructions() -> str:
     snapshot = _snapshot()
     return ('Almond inspects and edits Rhino architecture and drawings. On first use, call '
-            'get_modeling_guide() to read BASIC-INSTRUCTIONS.md. '
+            'get_policy() to read BASIC-INSTRUCTIONS.md and discover optional policies. '
             f'guide_version={snapshot["guide_version"]}')
 
 
-def read_guide(include_scripting: bool = False) -> dict:
-    if type(include_scripting) is not bool:
-        raise ValueError("include_scripting must be a boolean.")
+def read_policy(policy: str = "") -> dict:
+    if not isinstance(policy, str) or (policy and policy not in POLICIES):
+        raise ValueError("policy must be basic, metadata, rhino_scripting, rhinocode or an empty string.")
+    policy = policy or "basic"
     snapshot = _snapshot()
     result = {"status": "success", "guide_version": snapshot["guide_version"],
-              "text": snapshot["basic"], "source_refs": deepcopy(snapshot["basic_refs"]),
-              "tools": list(snapshot["tools"])}
-    if include_scripting:
+              "selected_policy": policy, "available_policies": dict(POLICIES)}
+    if policy == "basic":
+        result.update(text=snapshot["basic"], source_refs=deepcopy(snapshot["basic_refs"]),
+                      tools=list(snapshot["tools"]))
+    elif policy == "metadata":
+        result.update(policy=deepcopy(snapshot["metadata"]), source_refs=deepcopy(snapshot["metadata_refs"]))
+    elif policy == "rhinocode":
+        result.update(text=snapshot["rhinocode"], source_refs=deepcopy(snapshot["rhinocode_refs"]))
+    else:
         result["scripting_skill"] = deepcopy(snapshot["scripting_skill"])
-        result["source_refs"].extend(deepcopy(snapshot["scripting_refs"]))
+        result["source_refs"] = deepcopy(snapshot["scripting_refs"])
     return result

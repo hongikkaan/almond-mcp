@@ -1,31 +1,5 @@
 # Planning tools
 
-## get_looping_policy
-
-<!-- instruction:get_looping_policy -->
-When to use: Read the detailed execution, artifact and reporting policy when the short execute_looping reminder is insufficient or the working context has been lost.
-Before calling: No Plan or connection selection is required.
-Inputs from earlier results: execute_looping.policy_tool identifies this optional detailed policy.
-Interpretation: The policy describes how an agent performs and records Steps, reuses earlier results, and reports a Loop to the user.
-Limits: This read does not execute work, change status, start a Loop or create a revision. Plan completion remains the user's decision.
-<!-- /instruction:get_looping_policy -->
-
-## Loop execution and reporting policy
-
-<!-- instruction:looping-policy -->
-Execution: execute_looping prepares the current Plan/Loop context; it does not execute Steps. Follow the ordered Steps by default without turning that order into a rigid execution gate. Inspect the current records before resuming. Distinguish work performed, verification remaining, and a report not yet delivered in the Step input_refs/output_refs records so that completed Rhino work is not repeated.
-
-Reuse: Check that an earlier result is still valid before relying on it. Add the useful previous file paths to input_refs; create revised results in the current Loop folder and record their paths in output_refs. Do not move a useful older result into the Plan root. Earlier Loops remain reference material when a higher Loop exists.
-
-Artifacts: Keep all outputs for this Loop in its numbered folder (01, 02, ...). Overwriting within the same Loop is allowed; use another filename when an intermediate result should be kept. Revision snapshots preserve records and references, not overwritten file contents or Rhino geometry. Do not automatically delete old artifacts.
-
-Progress: Plan and Step share pending, running, paused, completed, failed and blocked. Record their states explicitly. A Loop has no separate running, paused or completed status. Continue the current Loop or explicitly begin the next one; do not edit a lower-numbered Loop after a higher one exists. General Rhino/Python calls do not automatically create Plan revisions; record useful work and evidence through Plan/Step updates.
-
-Report: At the end of a pass, present the goal, what changed, visual material that supports a decision, verification results and remaining choices. Connect each question to its relevant evidence and keep the report concise; do not require a fixed number of images. Check saved Step records when resuming to see whether verification or reporting is still outstanding.
-
-Plan completion: Only the user decides that the Plan is complete. Finishing all Steps or presenting a Loop result does not automatically complete the Plan. Update Plan status to completed only after that decision.
-<!-- /instruction:looping-policy -->
-
 ## create_phase
 
 <!-- instruction:create_phase -->

@@ -7,7 +7,8 @@ from almond_mcp.features.guidance.source_search import search_sources
 from pydantic import StrictBool
 from fastmcp.tools import ToolResult
 from mcp.types import TextContent
-from almond_mcp.modeling_guidance import read_guide
+from almond_mcp.modeling_guidance import read_policy
+from typing import Literal
 import json
 from pathlib import Path
 
@@ -16,9 +17,9 @@ def register(mcp, context):
     """Register guidance tools against the calling server's live context."""
 
     @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False})
-    @tool_instruction(__file__, 'get_modeling_guide')
-    def get_modeling_guide(include_scripting: StrictBool = False) -> ToolResult:
-        return ToolResult(content=[TextContent(type="text", text=json.dumps(read_guide(include_scripting=include_scripting), ensure_ascii=False))])
+    @tool_instruction(__file__, 'get_policy')
+    def get_policy(policy: Literal["", "basic", "metadata", "rhino_scripting", "rhinocode"] = "") -> ToolResult:
+        return ToolResult(content=[TextContent(type="text", text=json.dumps(read_policy(policy), ensure_ascii=False))])
 
     @mcp.tool()
     @tool_instruction(__file__, 'get_construction_guidance')
@@ -90,7 +91,7 @@ def register(mcp, context):
         return project({"scope": data["scope"], **search_sources(data["sources"], query)}, field_groups)
 
     return {
-        "get_modeling_guide": get_modeling_guide,
+        "get_policy": get_policy,
         "get_construction_guidance": get_construction_guidance,
         "get_typology_narrative": get_typology_narrative,
         "search_detail_sources": search_detail_sources,

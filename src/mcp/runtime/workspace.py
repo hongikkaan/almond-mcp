@@ -114,7 +114,6 @@ class Workspace:
                 "feedback": plan["feedback"], "steps": plan["steps"],
                 "next_step_id": next((s["step_id"] for s in plan["steps"] if s["status"] != "completed"), None),
                 "previous_loop": None if previous is None else {"loop_no": previous["loop_no"], "steps": previous["steps"]},
-                "policy_tool": "get_looping_policy",
                 "policy_reminder": read_instruction(__file__, "looping-reminder")}
 
     def rename(self, name: str, plan_id: str = "") -> dict:

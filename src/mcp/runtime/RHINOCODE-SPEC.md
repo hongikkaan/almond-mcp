@@ -1,6 +1,6 @@
 # RhinoCode 실행 계약
 
-`execute_rhino_script`와 `execute_project_python`은 공식 RhinoCode → Rhino ScriptEditor에서 실행한다. 런타임은 연결된 Rhino·저장 문서를 확인하고 호출별 완료 근거를 관리한다. 입력 사용법은 각 실행 도구의 `tools/list` 설명 전문과 schema를 따른다. 내장 rhino3d-scripts 자료는 `get_modeling_guide(include_scripting=True)`로 조회하며 도구 설명을 별도로 재조회하지 않는다. 작업 판단은 [BASIC](../BASIC-INSTRUCTIONS.md), 고정 관찰과 캡처는 [관측 계약](../rhino/OBSERVATION-SPEC.md)을 따른다.
+`execute_rhino_script`와 `execute_project_python`은 공식 RhinoCode → Rhino ScriptEditor에서 실행한다. 런타임은 연결된 Rhino·저장 문서를 확인하고 호출별 완료 근거를 관리한다. 입력 사용법은 각 실행 도구의 `tools/list` 설명 전문과 schema를 따른다. 내장 rhino3d-scripts 자료는 `get_policy(policy="rhino_scripting")`로 조회하며 도구 설명을 별도로 재조회하지 않는다. 작업 판단은 [BASIC](../BASIC-INSTRUCTIONS.md), 고정 관찰과 캡처는 [관측 계약](../rhino/OBSERVATION-SPEC.md)을 따른다.
 
 ## 실행 경로와 언어
 

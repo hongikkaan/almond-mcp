@@ -54,7 +54,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 1. 일반 Codex 대화에서 "`C:\작업\모델.3dm`을 Almond의 새 세션으로 열어 줘"라고 요청한다.
 2. Codex가 `start_session`에 절대 `model_path`와 새 `request_id`를 전달한다.
    새 Rhino를 열고 `_almondconnect`를 자동 실행한 뒤 해당 프로세스에만 연결한다. CoS 앱이나 별도 Codex 창을 열 필요는 없다. 원본 모델을 저장하거나 기존 Rhino를 종료하지 않는다.
-3. 프로젝트·문서 정보가 필요하면 반환된 `connection_id`로 `project_info`의 필요한 sections를 조회한다. project/document는 한 번의 live 확인을 공유하고, project에 파일 목록·문서 이름·경로·is_bound_document가 나온다. DB·선택 Plan의 산출물 경로는 locations에서 조회한다. 자료를 작성할 때는 `set_working_plan`으로 Plan의 `artifact_dir`를 선택한다.
+3. 프로젝트·문서 정보가 필요하면 선택된 연결에서 `project_info`의 필요한 sections를 조회한다. project/document는 한 번의 live 확인을 공유하고, project에 파일 목록·문서 이름·경로·is_bound_document가 나온다. DB·선택 Plan의 산출물 경로는 locations에서 조회한다. 자료를 작성할 때는 `set_working_plan`으로 Plan의 `artifact_dir`를 선택한다.
 4. 끝나면 `disconnect`를 호출한다. Rhino 창은 남으며 저장·종료는 Rhino에서 한다.
 
 새 Rhino는 디스크에 저장된 파일을 연다. 다른 Rhino 창의 저장되지 않은 변경을 복제하지 않는다.
@@ -65,7 +65,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 1. 해당 Rhino 8에서 `.3dm`을 열고 저장한 뒤 `almondconnect`를 실행한다.
 2. 등록된 Codex 앱이나 외부 Codex CLI에서 "Almond 연결 목록을 확인하고 이 문서에 연결해 줘"라고 요청한다. 클라이언트가 `list_connections`를 호출한다.
 3. 목록의 정확한 `host_id`와 `model_path`로 `connect`를 호출한다.
-   반환된 `connection_id`를 이후 모든 호출에 사용한다.
+   이후 호출은 선택된 연결을 사용하므로 `connection_id`를 생략한다. 다른 연결로 전환하려면 목록의 host_id/model_path로 connect를 다시 호출한다. 기존 연결은 유지되며, connection_id를 지정하면 해당 호출만 그 연결로 보낸다.
 4. 필요할 때 `project_info`에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 자료 작성 전 `set_working_plan`으로 폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../mcp/BASIC-INSTRUCTIONS.md)을 따른다.
 5. 끝나면 `disconnect`로 해당 연결을 해제한다. 문서 변경 후에는 재연결한다.
 
@@ -80,7 +80,7 @@ Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고 연결 가능�
 
 ## 공통 도구를 수정했을 때
 
-RhinoTerminal·Codex·CoS는 같은 공통 도구 소스를 사용한다. 외부 연결기는 연결 관리 도구를 추가하고 공통 도구 입력에 `connection_id`를 붙인다. 카탈로그를 따로 갱신할 필요는 없다.
+RhinoTerminal·Codex·CoS는 같은 공통 도구 소스를 사용한다. 외부 연결기는 연결 관리 도구를 추가하고 공통 도구 입력에 선택적인 `connection_id`를 붙인다. 카탈로그를 따로 갱신할 필요는 없다.
 Python 도구 변경 후 해당 Codex/CoS MCP를 정상 종료하고 새로 시작하면 현재 소스의 구현·목록·입력 schema를 읽는다. Terminal은 almond 세션을 정상 종료·재시작한다.
 Rhino만 재시작해도 외부 Codex/CoS MCP 프로세스가 살아 있으면 그 메모리는 바뀌지 않는다.
 이미 실행 중인 프로세스의 자동 갱신이나 restart 도구는 이번 범위에 포함하지 않는다.

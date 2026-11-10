@@ -1,3 +1,5 @@
+> 1차 서버 반영: get_policy 선택 조회, 삭제 도구 3개 제거, 연결 선택 기억 및 project_info 안내. 분류·기존 번호는 보존합니다. 설명·출력 예시 전체 재검수는 2차 범위이며, 예시는 실측이 아닙니다.
+
 **DESCRIPTION 간결화와 후속 도구 안내 제안**
 실제 서버에 등록된 description·스키마·반환값은 변경하지 않았다.
 
@@ -34,7 +36,7 @@
 - 기준 저장소: 공개 GitHub 저장소 hongikkaan/almond-mcp (MIT License).
 - 현재 대조 기준: main · 098703619e10f68f3721a32033f0da0f6eaf6159. 기존 기준 b2108b2 이후 92개 도구의 description·입력 계약·반환 구현은 바뀌지 않았다. 각 도구의 고정 커밋 근거 링크도 유효하다.
 - 버전: almond-mcp 0.7.0rc2, FastMCP 4.1.0, MCP 2.3.0.
-- 총 **92개**: 공통 공개 도구 **88개** + beyond·CoS 외부 연결 관리 도구 **4개**. 내부 상태 확인용 worker_state는 외부 공개 도구가 아니므로 이 목록에 포함하지 않는다.
+- 총 **89개**: 공통 공개 도구 **85개** + beyond·CoS 외부 연결 관리 도구 **4개**. 내부 상태 확인용 worker_state는 외부 공개 도구가 아니므로 이 목록에 포함하지 않는다.
 - 도구 본문이 실행되지 않는 AST 등록 방식으로 현재 description·inputSchema를 재생성하고, 외부 연결기가 추가하는 connection_id와 관리 도구 4개의 스키마를 적용했다. 배포 중인 Rhino 서버에서 수집한 실측 목록은 아니다.
 - DESCRIPTION에서 입력 필드·기본값·출력 키를 되풀이하던 설명을 줄였다. 스키마에 없는 실행 조건·부작용·오류 후 재시도 제한은 남기고, 특정 입력의 상세 계약은 TOOL INPUT의 보충 설명에 둔다. 후속 안내는 반환 코드와 다음 도구의 실제 입력 계약을 대조했다.
 
@@ -236,7 +238,6 @@
     }
   },
   "required": [
-    "connection_id"
   ],
   "additionalProperties": false
 }
@@ -314,12 +315,11 @@
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -355,13 +355,13 @@
     "artifact_dir": null, // Plan/Loop 선택 전에는 null. DB는 프로젝트 공유, 이 작업 공간 선택은 연결별
     "database": ".almond/example.db"
   },
-  "next_step_guide": "- `list_plan`으로 프로젝트 진행상황 파악합니다.\n- 산출물 작업 공간은 `set_working_plan`으로 선택합니다.\n- 객체 상태가 필요하면 `get_objects`로 확인합니다."
+  "next_step_guide": "- `list_plans`으로 프로젝트 진행상황 파악합니다.\n- 산출물 작업 공간은 `set_working_plan`으로 선택합니다.\n- 객체 상태가 필요하면 `get_objects`로 확인합니다."
 }
 ```
 
 ## 36. context-01_get_policy
 
-기준 API: `get_modeling_guide`
+기준 API: `get_policy`
 
 근거: src/mcp/features/guidance/tools.py
 
@@ -369,7 +369,7 @@
 
 BASIC 설계·검증 지침과 사용 가능한 공통 도구 이름을 조회합니다. 
 
-선택적인 Rhino 스크립팅 참고 자료를 읽습니다.
+policy를 생략하면 기본 지침과 도구명·policy 목록을 반환합니다. metadata, rhino_scripting, rhinocode를 선택하면 해당 지침을 반환합니다.
 ### TOOL INPUT
 
 현재 inputSchema (description만 한국어 번역).
@@ -378,21 +378,25 @@ BASIC 설계·검증 지침과 사용 가능한 공통 도구 이름을 조회�
 {
   "additionalProperties": false,
   "properties": {
-    "include_scripting": {
-      "default": false,
-      "type": "boolean",
-      "description": "간결한 설계 지침과 함께 번들 Rhino 스크립팅 참고 자료도 포함합니다. false이면 기본 지침과 도구 탐색 정보만 반환합니다."
+    "policy": {
+      "default": "",
+      "enum": [
+        "",
+        "basic",
+        "metadata",
+        "rhino_scripting",
+        "rhinocode"
+      ],
+      "type": "string",
+      "description": "조회할 지침입니다. basic=설계·검증, metadata=객체·그룹 메타데이터, rhino_scripting=스크립트 작성 참고, rhinocode=코드·커맨드 실행. 생략하거나 빈 문자열이면 basic입니다."
     },
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "Optional connection override from list_connections. Omit to use the connection selected by connect or start_session."
     }
   },
-  "type": "object",
-  "required": [
-    "connection_id"
-  ]
+  "type": "object"
 }
 ```
 
@@ -405,14 +409,16 @@ BASIC 설계·검증 지침과 사용 가능한 공통 도구 이름을 조회�
   "status": "success", // 해당 처리·항목의 상태
   "guide_version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 같은 버전 지침 재사용용 해시. 다른 도구의 입력 핸들이 아님
   "text": "---\nname: rhino-almond\ndescription: \"Rhino에서 Almond MCP로 기존 설계를 발전시키기 위한 건축적 판단.\"\n---\n\n# Rhino Almond\nAlmond MCP를 사용해 Rhino로 건축 설계를 발전시킨다. \n\n**작업 태도**\n 설계 내용의 충돌은, 현재 설계 의도와 작업 목적을 기준으로 …", // 실제 BASIC 본문 일부. 정적 지침이지 현재 모델의 검증 결과가 아님
-  "source_refs": [ // 출처와 해시. include_scripting=true이면 scripting_skill과 그 출처도 추가
+  "source_refs": [ // 출처와 해시. rhino_scripting 선택 시 scripting_skill과 해당 출처 반환
     {
       "path": "src/mcp/BASIC-INSTRUCTIONS.md", // 안내문 출처 경로
       "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" // 파일 해시. 예시 값은 가상
     }
   ],
+  "selected_policy": "basic",
+  "available_policies": {"basic": "설계·검증", "metadata": "메타데이터", "rhino_scripting": "스크립트 작성", "rhinocode": "실행"},
   "tools": [ // 공개 이름 목록만 제공. 도구별 description 전문이나 호출 인수 묶음이 아님
-    "get_modeling_guide"
+    "get_policy"
   ]
 }
 ```
@@ -493,12 +499,11 @@ BASIC 설계·검증 지침과 사용 가능한 공통 도구 이름을 조회�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "name",
-    "connection_id"
+    "name"
   ],
   "type": "object"
 }
@@ -653,13 +658,12 @@ BASIC 설계·검증 지침과 사용 가능한 공통 도구 이름을 조회�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
     "title",
-    "goal",
-    "connection_id"
+    "goal"
   ],
   "type": "object"
 }
@@ -731,12 +735,11 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "plan_id",
-    "connection_id"
+    "plan_id"
   ],
   "type": "object"
 }
@@ -753,7 +756,6 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
   "loop_no": 1, // Loop 회차 번호
   "next_step_id": "step_example", // 미완료 Step 중 다음 후보. 자동 선택·실행은 아니며 없으면 null
   "previous_loop": null, // 이전 회차의 loop_no/steps 요약 또는 null. 이전 Loop는 읽기 전용
-  "policy_tool": "get_looping_policy", // 현행 서버가 반환하는 이전 참조. 통합 구현 시 제거 대상이며 별도 정책 조회는 필요하지 않음
   "step_id": "", // 아직 특정 Step은 선택하지 않음. 후보를 set_working_plan.step_id로 전달
   "plan_artifact_dir": ".almond/produced/example", // Plan 산출물 폴더
   "artifact_dir": ".almond/produced/example/01", // 작업 산출물 폴더
@@ -843,12 +845,11 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -936,12 +937,11 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -1028,12 +1028,11 @@ Plan·Loop의 저장 리비전 목록과 변경 작업을 조회합니다. 이�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "plan_id",
-    "connection_id"
+    "plan_id"
   ],
   "type": "object"
 }
@@ -1100,12 +1099,11 @@ Plan·Loop의 저장 리비전 목록과 변경 작업을 조회합니다. 이�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -1160,12 +1158,11 @@ Plan이 소유한 산출물 폴더를 이름 변경하거나 이전 위치에서
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "name",
-    "connection_id"
+    "name"
   ],
   "type": "object"
 }
@@ -1235,12 +1232,11 @@ Plan이 소유한 산출물 폴더를 이름 변경하거나 이전 위치에서
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "plan_id",
-    "connection_id"
+    "plan_id"
   ],
   "type": "object"
 }
@@ -1394,12 +1390,11 @@ Phase의 이름·설명·상태·파일 연결과 관계를 수정합니다. 의
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "phase_id",
-    "connection_id"
+    "phase_id"
   ],
   "type": "object"
 }
@@ -1640,12 +1635,11 @@ Plan의 목표·분류·대상·관계·상태와 산출물 참조를 수정합�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "plan_id",
-    "connection_id"
+    "plan_id"
   ],
   "type": "object"
 }
@@ -1799,13 +1793,12 @@ Plan의 Step 상태와 입력·출력 근거를 기록합니다. 근거 문자�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
     "plan_id",
-    "step_id",
-    "connection_id"
+    "step_id"
   ],
   "type": "object"
 }
@@ -1883,13 +1876,12 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
     "mode",
-    "options",
-    "connection_id"
+    "options"
   ],
   "type": "object"
 }
@@ -2092,12 +2084,11 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -2198,7 +2189,6 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -2285,7 +2275,6 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -2367,8 +2356,7 @@ Plan에 명시적으로 등록된 Holon 대상 집합을 읽습니다. **빈 대
     }
   },
   "required": [
-    "plan_id",
-    "connection_id"
+    "plan_id"
   ],
   "type": "object"
 }
@@ -2479,8 +2467,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     }
   },
   "required": [
-    "shot",
-    "connection_id"
+    "shot"
   ],
   "type": "object"
 }
@@ -2603,8 +2590,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     }
   },
   "required": [
-    "views",
-    "connection_id"
+    "views"
   ],
   "type": "object"
 }
@@ -2751,7 +2737,6 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -2871,8 +2856,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
   },
   "required": [
     "target_kind",
-    "target",
-    "connection_id"
+    "target"
   ],
   "type": "object"
 }
@@ -2990,8 +2974,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
   },
   "required": [
     "guids",
-    "material_id",
-    "connection_id"
+    "material_id"
   ],
   "type": "object"
 }
@@ -3089,8 +3072,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "object_id",
     "face_index",
     "expected_geometry_crc",
-    "translation",
-    "connection_id"
+    "translation"
   ],
   "type": "object"
 }
@@ -3161,8 +3143,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     }
   },
   "required": [
-    "edits",
-    "connection_id"
+    "edits"
   ],
   "type": "object"
 }
@@ -3258,7 +3239,6 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -3313,8 +3293,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     }
   },
   "required": [
-    "overwrite",
-    "connection_id"
+    "overwrite"
   ],
   "type": "object"
 }
@@ -3375,8 +3354,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     }
   },
   "required": [
-    "code",
-    "connection_id"
+    "code"
   ],
   "type": "object"
 }
@@ -3386,7 +3364,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 - `set_working_plan`으로 선택한 현재 Plan/Loop를 사용합니다. 기존 유효 선택은 재사용하며 상대 경로의 수정 결과는 현재 산출물 폴더에 씁니다. 이전 Loop 폴더는 입력으로만 사용합니다.
 - doc와 scriptcontext.doc는 연결된 RhinoDoc입니다. JSON-safe 값을 result에 할당합니다. 없는 Rhino 내장 패키지를 자동 설치하지 않습니다.
-- Rhino 스크립트 작성 참고는 `get_modeling_guide`(include_scripting=true)에서 얻습니다. 래퍼는 임시 cwd·환경·scriptcontext·Undo·다시 그리기를 관리하지만 설계 정확성·부분 변경 롤백·문서 저장을 보장하지 않습니다.
+- Rhino 스크립트 작성 참고는 `get_policy`(policy="rhino_scripting")에서 얻습니다. 래퍼는 임시 cwd·환경·scriptcontext·Undo·다시 그리기를 관리하지만 설계 정확성·부분 변경 롤백·문서 저장을 보장하지 않습니다.
 
 ### TOOL OUTPUT
 
@@ -3445,8 +3423,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     }
   },
   "required": [
-    "script",
-    "connection_id"
+    "script"
   ],
   "type": "object"
 }
@@ -3457,7 +3434,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 - Python/Python2는 JSON-safe 값을 result에 할당합니다. dict/list는 구조화된 값을 유지하고 json.dumps는 문자열을 반환합니다. C#은 class/Run 래퍼가 아닌 doc·result_json을 사용하는 문장 본문을 받습니다.
 - command는 !, Pause, 대화상자 없이 완료되는 하나의 매크로를 받습니다. 실행 전 관찰한 대상·문서 단위·허용오차를 사용합니다.
 - 공식 RhinoCode/StartScriptServer가 필요합니다. 일반 실행의 cwd는 프로젝트 루트이며 Plan 산출물 폴더가 필요하면 `execute_project_python`을 사용합니다.
-- Rhino 스크립트 작성 참고는 `get_modeling_guide`(include_scripting=true)에서 얻습니다. 래퍼는 doc/scriptcontext·cwd/환경·Undo·다시 그리기를 관리하며 Rhino 내장 패키지는 작업자 venv와 다를 수 있습니다.
+- Rhino 스크립트 작성 참고는 `get_policy`(policy="rhino_scripting")에서 얻습니다. 래퍼는 doc/scriptcontext·cwd/환경·Undo·다시 그리기를 관리하며 Rhino 내장 패키지는 작업자 venv와 다를 수 있습니다.
 - Floor 메타데이터는 실제 객체의 층만 기록합니다. 여러 층은 명시적인 문자열 배열, 한 층은 문자열로 저장하고 관련 없는 속성을 보존합니다. Scene의 전체 층 범위를 모든 객체에 복사하지 않습니다.
 
 ### TOOL OUTPUT
@@ -3627,7 +3604,6 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -3696,8 +3672,7 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
   },
   "required": [
     "scene_id",
-    "object_ids",
-    "connection_id"
+    "object_ids"
   ],
   "type": "object"
 }
@@ -3775,8 +3750,7 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
     }
   },
   "required": [
-    "name",
-    "connection_id"
+    "name"
   ],
   "type": "object"
 }
@@ -3838,8 +3812,7 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
     }
   },
   "required": [
-    "holon_ids",
-    "connection_id"
+    "holon_ids"
   ],
   "type": "object"
 }
@@ -3922,8 +3895,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     }
   },
   "required": [
-    "scene_id",
-    "connection_id"
+    "scene_id"
   ],
   "type": "object"
 }
@@ -4012,8 +3984,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     }
   },
   "required": [
-    "holon_id",
-    "connection_id"
+    "holon_id"
   ],
   "type": "object"
 }
@@ -4108,8 +4079,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     }
   },
   "required": [
-    "scene_id",
-    "connection_id"
+    "scene_id"
   ],
   "type": "object"
 }
@@ -4207,7 +4177,6 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -4297,7 +4266,6 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -4353,8 +4321,7 @@ Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등
     }
   },
   "required": [
-    "holon_id",
-    "connection_id"
+    "holon_id"
   ],
   "type": "object"
 }
@@ -4426,8 +4393,7 @@ Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등
   },
   "required": [
     "scene_id",
-    "object_ids",
-    "connection_id"
+    "object_ids"
   ],
   "type": "object"
 }
@@ -4515,7 +4481,6 @@ Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -4598,8 +4563,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "scene_id",
-    "connection_id"
+    "scene_id"
   ],
   "type": "object"
 }
@@ -4717,8 +4681,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "name",
-    "connection_id"
+    "name"
   ],
   "type": "object"
 }
@@ -4791,8 +4754,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "object_ids",
-    "connection_id"
+    "object_ids"
   ],
   "type": "object"
 }
@@ -4887,7 +4849,6 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -4953,8 +4914,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "package_dir",
-    "connection_id"
+    "package_dir"
   ],
   "type": "object"
 }
@@ -5060,7 +5020,6 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -5135,8 +5094,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "asset_id"
   ],
   "type": "object"
 }
@@ -5212,8 +5170,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "asset_id"
   ],
   "type": "object"
 }
@@ -5305,7 +5262,6 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -5389,8 +5345,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "asset_id"
   ],
   "type": "object"
 }
@@ -5505,8 +5460,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "stage",
-    "connection_id"
+    "stage"
   ],
   "type": "object"
 }
@@ -5569,8 +5523,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "asset_id"
   ],
   "type": "object"
 }
@@ -5682,8 +5635,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
   "required": [
     "source_3dm",
     "asset_id",
-    "name",
-    "connection_id"
+    "name"
   ],
   "type": "object"
 }
@@ -5786,7 +5738,6 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -5892,7 +5843,6 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -5973,8 +5923,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "asset_id"
   ],
   "type": "object"
 }
@@ -6064,7 +6013,6 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -6148,8 +6096,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "asset_id"
   ],
   "type": "object"
 }
@@ -6258,7 +6205,6 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -6316,12 +6262,11 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -6408,12 +6353,11 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "recipe_id",
-    "connection_id"
+    "recipe_id"
   ],
   "type": "object"
 }
@@ -6480,12 +6424,11 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "result_id",
-    "connection_id"
+    "result_id"
   ],
   "type": "object"
 }
@@ -6547,12 +6490,11 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "asset_id"
   ],
   "type": "object"
 }
@@ -6619,12 +6561,11 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -6786,13 +6727,12 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
     "operation",
-    "clipping_ids",
-    "connection_id"
+    "clipping_ids"
   ],
   "type": "object"
 }
@@ -6884,12 +6824,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "logic_id",
-    "connection_id"
+    "logic_id"
   ],
   "type": "object"
 }
@@ -6974,12 +6913,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -7059,12 +6997,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -7135,13 +7072,12 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
     "capsule_id",
-    "inputs",
-    "connection_id"
+    "inputs"
   ],
   "type": "object"
 }
@@ -7252,12 +7188,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -7362,12 +7297,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -7453,12 +7387,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -7572,13 +7505,12 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
     "plate_bounds_mm",
-    "exits",
-    "connection_id"
+    "exits"
   ],
   "type": "object"
 }
@@ -7648,12 +7580,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -7722,12 +7653,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -7889,12 +7819,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "guids",
-    "connection_id"
+    "guids"
   ],
   "type": "object"
 }
@@ -8170,12 +8099,11 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object",
   "required": [
-    "connection_id"
   ]
 }
 ```
@@ -8266,13 +8194,12 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
     "guids",
-    "asset_id",
-    "connection_id"
+    "asset_id"
   ],
   "type": "object"
 }
@@ -8382,12 +8309,11 @@ Blender의 선택 형상 내보내기 또는 지정 객체 재료 설정을 위�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "action",
-    "connection_id"
+    "action"
   ],
   "type": "object"
 }
@@ -8464,12 +8390,11 @@ Almond 계약과 GLB를 Rhino 문서로 가져와 인식 가능한 재료·메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
-    "contract_path",
-    "connection_id"
+    "contract_path"
   ],
   "type": "object"
 }
@@ -8568,13 +8493,12 @@ Almond 계약과 GLB를 Rhino 문서로 가져와 인식 가능한 재료·메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
     "guids",
-    "asset_name",
-    "connection_id"
+    "asset_name"
   ],
   "type": "object"
 }
@@ -8649,13 +8573,12 @@ Almond 계약과 GLB를 Rhino 문서로 가져와 인식 가능한 재료·메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 활성 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
     "guids",
-    "asset_name",
-    "connection_id"
+    "asset_name"
   ],
   "type": "object"
 }

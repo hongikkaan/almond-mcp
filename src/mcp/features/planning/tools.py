@@ -22,10 +22,6 @@ PLAN_ACK_FIELDS = {"plan_id", "loop_no", "revision"}
 def register(mcp, context):
     """Register planning tools against the calling server's live context."""
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @tool_instruction(__file__, 'get_looping_policy')
-    def get_looping_policy() -> str:
-        return encode({"status": "success", "policy": read_instruction(__file__, 'looping-policy')})
 
     @mcp.tool()
     @tool_instruction(__file__, 'create_phase')
@@ -272,7 +268,6 @@ def register(mcp, context):
             return json.dumps({**error_payload(str(exc)), **getattr(exc, "native_result", {})}, ensure_ascii=False)
 
     return {
-        "get_looping_policy": get_looping_policy,
         "create_phase": create_phase,
         "list_phases": list_phases,
         "update_phase": update_phase,

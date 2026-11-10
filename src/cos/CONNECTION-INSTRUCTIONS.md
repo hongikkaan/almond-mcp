@@ -2,4 +2,4 @@ Initialization only advertises tools; it does not start Rhino or a modeling work
 
 Select a Rhino by the verified model_filename and model_path in list_connections. Connect with the exact host_id and model_path shown there; confirm the same file in the connect result. In-use or unavailable entries may have no verified filename.
 
-Use the explicit connection_id from connect for every call. Document changes require disconnect/reconnect. A timeout is not a rollback; inspect Rhino before repeating a mutation.
+connect/start_session selects a connection; later calls reuse it without connection_id. To switch, call connect with an existing connection's host_id and model_path. Other connections stay open. An explicit connection_id overrides one call only. Disconnecting the selection does not select another connection. Document changes require disconnect/reconnect. A timeout is not a rollback; inspect Rhino before repeating a mutation.
