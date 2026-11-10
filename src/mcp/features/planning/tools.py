@@ -139,7 +139,9 @@ def register(mcp, context):
     @tool_instruction(__file__, 'list_plans')
     @holon_output
     def list_plans(
-        phase_id: str = "", scene_id: str = "", status: str = "", limit: StrictInt = 50,
+        phase_id: str = "", scene_id: str = "",
+        status: Literal["", "pending", "running", "paused", "completed", "failed", "blocked"] = "",
+        limit: StrictInt = 50,
     ) -> str:
         try:
             page = context.retrieval_store.list_plans(phase_id, scene_id, status, limit)

@@ -1002,6 +1002,15 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
     },
     "status": {
       "default": "",
+      "enum": [
+        "",
+        "pending",
+        "running",
+        "paused",
+        "completed",
+        "failed",
+        "blocked"
+      ],
       "type": "string",
       "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 빈 문자열이면 모든 상태를 포함합니다."
     },
@@ -4533,8 +4542,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "package_dir": ".almond/produced/example/drawing", // 생성한 도면 패키지 폴더입니다.
-  "manifest": {}, // 생성한 도면과 원본·축척·단위 기록입니다.
-  "next_step_guide": "생성한 도면은 get_asset_drawing으로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "manifest": {} // 생성한 도면과 원본·축척·단위 기록입니다.
 }
 ```
 
@@ -4599,8 +4607,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "plan_svg_uri": "almond://drawing/example-asset/drawing/plan/50", // 저장된 평면 SVG를 읽는 리소스 URI입니다.
-  "manifest": {}, // 도면 패키지의 원본·파일·축척 기록입니다.
-  "next_step_guide": "저장 도면과 원본의 일치 여부는 audit_asset_drawing으로 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "manifest": {} // 도면 패키지의 원본·파일·축척 기록입니다.
 }
 ```
 
@@ -5894,7 +5901,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
       ]
     }
   ],
-  "next_step_guide": "선택한 자산의 ID로 get_drawing_recipe을 호출할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "선택한 레시피의 ID로 get_drawing_recipe을 호출할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 

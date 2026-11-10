@@ -25,8 +25,9 @@ EDIT = {"object_id": OBJECT, "face_index": 0, "expected_geometry_crc": 42, "tran
     ("get_selection_references", {}),
     ("analyze_block_reculviely", {"mode": "resolve-block", "options": {"path": [OBJECT]}}),
 ])
-def test_editor_failure_sets_mcp_error_and_preserves_native_evidence(monkeypatch, name, args):
-    monkeypatch.setenv("ALMOND_MODEL_PATH", MODEL)
+def test_editor_failure_sets_mcp_error_and_preserves_native_evidence(tmp_path, monkeypatch, name, args):
+    saved_model = str(tmp_path / "editor.3dm")
+    monkeypatch.setenv("ALMOND_MODEL_PATH", saved_model)
     failure = {"status": "error", "message": "Editing membership is unavailable.",
                "error_code": "unstable_editing_scope", "mutation_state": "not_started",
                "mutation_applied": False}
@@ -37,7 +38,7 @@ def test_editor_failure_sets_mcp_error_and_preserves_native_evidence(monkeypatch
         if request["type"] == "get_rhino_context":
             return json.dumps({"status": "success", "capabilities": {
                 "face_edit": 1, "face_edit_batch": 1, "component_operations": 1, "intersection_queries": 1, "block_analysis": 1},
-                "document": {"path": MODEL}, "selection": {"objects": [{"id": OBJECT}], "total": 1, "truncated": False}})
+                "document": {"path": saved_model}, "selection": {"objects": [{"id": OBJECT}], "total": 1, "truncated": False}})
         return json.dumps(failure)
     def refused(*args, **kwargs):
         raise ValueError(failure["message"])
@@ -67,8 +68,11 @@ def test_editor_failure_sets_mcp_error_and_preserves_native_evidence(monkeypatch
 
 def test_native_editor_guidance_survives_real_store_and_public_query_errors(tmp_path, monkeypatch):
     from almond_mcp.retrieval_store import AlmondStore
-    from test_component_group_inference import snapshot, MODEL as SAVED_MODEL, GROUP, COMPONENT, OBJECT as MEMBER
+    import test_component_group_inference as fixtures
+    from test_component_group_inference import snapshot, GROUP, COMPONENT, OBJECT as MEMBER
 
+    SAVED_MODEL = str(tmp_path / "housing.3dm")
+    monkeypatch.setattr(fixtures, "MODEL", SAVED_MODEL)
     monkeypatch.setenv("ALMOND_MODEL_PATH", SAVED_MODEL)
     store = AlmondStore(tmp_path / "editor-guidance.sqlite3")
     scene = store.create_scene("Arrival")
@@ -92,7 +96,7 @@ def test_native_editor_guidance_survives_real_store_and_public_query_errors(tmp_
     before = store.get_component(COMPONENT)
     reply = {"status": "error", "error_code": "unstable_editing_scope", "message": "Ownership unverified",
              "editing": {"mode": "group", "stable": False}, "mutation_applied": False,
-             "membership_available": False, "next_step_guide": 'Use get_objects(scope="current", include_ids=true); working IDs are not component ownership proof.'}
+             "membership_available": False, "next_step": 'Use get_objects(scope="current", include_ids=true); working IDs are not component ownership proof.'}
 
     async def run():
         async with Client(server) as client:
@@ -107,6 +111,7 @@ def test_native_editor_guidance_survives_real_store_and_public_query_errors(tmp_
                 assert body.get("error_code") == "unstable_editing_scope", (name, body)
                 assert body["membership_available"] is False and body["mutation_applied"] is False
                 assert "get_objects" in body["next_step_guide"] and "holon ownership" in body["next_step_guide"]
+                assert "next_step" not in body
                 assert body["editing"] == reply["editing"]
     asyncio.run(run())
     assert store.get_component(COMPONENT) == before

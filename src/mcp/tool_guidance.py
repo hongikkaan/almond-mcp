@@ -28,8 +28,6 @@ SUCCESS_GUIDES = {
     "upsert_ontological_holon": "get_ontological_holon으로 등록 결과와 현재 구성원을 확인합니다.",
     "sync_ontological_holon": "갱신된 구성원은 get_ontological_holon으로 확인할 수 있습니다.",
     "list_ontological_holons": "현재 구성원 확인에는 get_ontological_holon을 사용합니다.",
-    "generate_asset_drawing_views": "생성한 도면은 get_asset_drawing으로 조회합니다.",
-    "get_asset_drawing": "저장 도면과 원본의 일치 여부는 audit_asset_drawing으로 확인할 수 있습니다.",
     "register_drawing_asset": "등록한 자산은 get_drawing_asset으로 확인합니다.",
     "refresh_asset": "갱신된 도면은 get_asset_drawing으로 확인합니다.",
     "place_drawing_asset": "get_objects와 캡처로 배치 위치·축척을 확인합니다.",
@@ -67,7 +65,9 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
     """Choose from observed state, never from a tool's name alone on failure."""
     if name in EXECUTIONS and value.get("completed") is False and value.get("request_id"):
         return "이 request_id로 get_rhino_execution을 조회해 완료 여부를 확인합니다. 같은 코드를 다시 제출하지 않습니다."
-    if value.get("status") in {"error", "failed", "unknown", "uncertain", "incomplete"} or value.get("error"):
+    planning_record = name == "get_phase_plan_step" and value.get("type") in {"phase", "plan", "step"}
+    failed_status = value.get("status") in {"error", "failed", "unknown", "uncertain", "incomplete"}
+    if (failed_status and not planning_record) or value.get("error"):
         return None
     if (value.get("mutation_state") in {"unknown", "pending", "uncertain"}
             or value.get("requires_reconciliation") or value.get("mutation_applied", False) is None):
@@ -166,13 +166,16 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         asset = value.get("asset", {})
         if isinstance(asset, dict) and asset.get("next_tool") in {"prepare_drawing_asset", "refresh_asset"}:
             return None  # The selected asset already carries its required preparation.
+        if isinstance(asset, dict) and asset.get("file_available") is False:
+            return None
         # Retained IDs, not display names, are the next tool's inputs.
         data = value.get("results", value.get("assets", value.get("recipes", value.get("asset", value))))
         if not data:
             return None
         if arguments.get("include_ids") is False and not arguments.get("asset_id") and not arguments.get("recipe_id"):
             return "후속 조회에 사용할 ID가 필요하면 같은 조건에 include_ids=true로 다시 조회합니다."
-        return "선택한 자산의 ID로 " + ASSET_GUIDES[name] + "을 호출할 수 있습니다."
+        label = "레시피" if name == "list_drawing_recipes" else "자산"
+        return f"선택한 {label}의 ID로 {ASSET_GUIDES[name]}을 호출할 수 있습니다."
     if name == "resolve_targets" and not value.get("holon_ids"):
         return None
     if name == "get_selection_references" and not value.get("plans"):

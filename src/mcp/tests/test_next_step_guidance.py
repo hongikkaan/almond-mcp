@@ -4,6 +4,8 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from jsonschema import validate
+from almond_mcp.output_contracts import public_output_schema
 
 from almond_mcp.features.assets.output import project
 from almond_mcp.features.assets import preparation
@@ -47,6 +49,7 @@ def test_refresh_detail_reuses_supplied_id_and_ready_or_empty_results_do_not_inv
 @pytest.mark.parametrize("state", ["running", "unconfirmed", "failed"])
 def test_uncertain_preparation_never_advances_to_mutating_stage(state):
     value = preparation.present(Path("unused-job"), {"state": state, "error": "Unconfirmed", "stages": {}})
+    validate(value, public_output_schema('prepare_drawing_asset', wrapped=False))
     assert value["status"] == "error" and value["next_stage"] is None
     assert "stage='status'" in value["next_step_guide"] and "do not replay" in value["next_step_guide"]
 

@@ -446,7 +446,10 @@
                 "description": "요청한 메타데이터 적용 여부입니다."
               },
               "layer_path": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "description": "대상의 레이어 경로입니다. 제공되지 않으면 null입니다."
               },
               "message": {
@@ -3028,7 +3031,10 @@
                     "description": "Scene의 Holon 개수"
                   },
                   "objects": {
-                    "type": "integer",
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
                     "description": "저장된 구성원 수. 직접 등록·제외 override가 있으면 null이며 빈 Scene을 뜻하지 않음"
                   },
                   "direct_objects": {
@@ -4485,27 +4491,45 @@
                 "type": "object",
                 "properties": {
                   "units": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "description": "문서 길이 단위"
                   },
                   "absolute_tolerance": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "description": "문서 길이 단위의 절대 허용오차"
                   },
                   "modified": {
-                    "type": "boolean",
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
                     "description": "문서 수정 플래그"
                   },
                   "object_count": {
-                    "type": "integer",
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
                     "description": "객체 수"
                   },
                   "layer_count": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "description": "레이어 수"
                   },
                   "angle_tolerance": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "description": "라디안 단위의 각도 허용오차"
                   }
                 },
@@ -6492,6 +6516,15 @@
         },
         "status": {
           "default": "",
+          "enum": [
+            "",
+            "pending",
+            "running",
+            "paused",
+            "completed",
+            "failed",
+            "blocked"
+          ],
           "type": "string",
           "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 빈 문자열이면 모든 상태를 포함합니다."
         },
@@ -7062,7 +7095,10 @@
           "description": "검토 완료 최종 파일. register_drawing_asset에 검토한 name/asset_id와 함께 전달"
         },
         "next_stage": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "현재 상태의 다음 단계. 오류에서 자동 진행을 유도하지 않음"
         },
         "review_evidence": {
@@ -7557,7 +7593,10 @@
           "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
         },
         "registration_applied": {
-          "type": "boolean",
+          "type": [
+            "boolean",
+            "null"
+          ],
           "description": "true면 게시 적용. 불명확한 오류는 null과 requires_reconciliation; 단순 재시도 금지"
         },
         "live_index_refreshed": {
@@ -8137,7 +8176,10 @@
                 "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
               },
               "saved": {
-                "type": "boolean",
+                "type": [
+                  "boolean",
+                  "null"
+                ],
                 "description": "true는 확인된 저장, false는 확인된 실패, null은 미확정이며 requires_reconciliation=true"
               },
               "modified": {
@@ -9951,7 +9993,10 @@
                 "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
               },
               "passed": {
-                "type": "boolean",
+                "type": [
+                  "boolean",
+                  "null"
+                ],
                 "description": "indicative인 경우 null 가능. 구조 안전 인증을 뜻하지 않음"
               },
               "structure_type": {
