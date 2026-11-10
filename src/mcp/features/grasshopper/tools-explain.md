@@ -3,83 +3,54 @@
 ## list_library
 
 <!-- instruction:list_library -->
-List the local Grasshopper logic names available for retrieval.
+로컬 색인에서 조회 가능한 Grasshopper 로직 이름을 찾습니다. 반환된 logic_names 항목을 get_logic_by_id에 사용합니다.
 
-When to use: Discover an archetype name when get_logic_by_id's logic_id is not already known.
-Before calling: No inputs or live Rhino connection are needed; optional field_groups selects extra output.
-Inputs from earlier results: None required. Pass an exact logic_names entry to get_logic_by_id.logic_id; include_ids=true additionally retains logic_ids.
-Interpretation: total_entries is the index count, and logic_names contains filename stems, not solved physics results. field_groups=["paths"] adds library_dir.
-Limits: Presence in this index does not establish execution readiness or an audited capsule contract; use capsule discovery for that distinction. This call only reads the existing index.
+반환: total_entries·logic_names를 반환합니다. include_ids=true는 logic_ids, false는 logic_count를 포함합니다.
 
 Args:
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: ports, definition, source, paths, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
-Returns:
-    JSON object with total_entries and logic_names; include_ids=true also returns logic_ids.
-field_groups adds ports, definition, source, paths, audit, or all; default is summary.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
 <!-- /instruction:list_library -->
 
 ## get_logic_by_id
 
 <!-- instruction:get_logic_by_id -->
-Retrieve parsed Grasshopper component context or JSON-sidecar metadata for a local logic name without executing it.
+로컬 Grasshopper 정의에서 탐지한 구성요소·설명과 사이드카 metadata를 조회합니다. 실행 입력의 타입·단위·필수 여부는 metadata.capsule 계약에서 확인합니다.
 
-When to use: Inspect a Kangaroo2/Karamba3D archetype or an attached capsule contract before reuse.
-Before calling: Supply a known filename stem as logic_id; list_library can discover unknown names but is not required for a known one.
-Inputs from earlier results: Use list_library.logic_names, or list_capsules.definition_file's stem obtained with field_groups=["definition"]. When present, metadata.capsule.inputs supplies exact names/types/units/required flags for run_gh_definition.inputs; metadata.capsule.outputs supplies output semantics. Request include_ids=true to retain nested capsule_id.
-Interpretation: Parsed components, all_descriptions and metadata remain in the default payload; field_groups=["source"] exposes a sidecar source and ["paths"] exposes available path fields. The reader prefers GHX over GH, or returns metadata alone for JSON-only entries.
-Limits: Components are detected by binary-string scanning, not graph evaluation or a verified dependency graph. Missing/invalid capsule metadata does not establish an executable contract; no solve, baking or model change occurs.
+반환: file_name·components·all_descriptions·metadata를 반환합니다. components는 문자열 탐지 결과이며 metadata.capsule은 실행 계약이 있을 때 포함됩니다.
 
 Args:
-    logic_id: Existing Grasshopper library filename without extension. Reuse a known ID, or obtain one from list_library(include_ids=true).
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: ports, definition, source, paths, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
-Returns:
-    JSON string with detected physics components and context, or error.
-field_groups adds ports, definition, source, paths, audit, or all; the requested manifest/parsed logic/script remains in the default payload.
+    logic_id: 기존 Grasshopper 라이브러리 파일명에서 확장자를 뺀 이름입니다. 알고 있는 ID를 재사용하거나 list_library(include_ids=true)에서 얻습니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
 <!-- /instruction:get_logic_by_id -->
 
 ## list_capsules
 
 <!-- instruction:list_capsules -->
-List compact Grasshopper capsule cards and distinguish audited executable definitions from retrieval-only context.
+기능별 Grasshopper 캡슐과 실행 감사 여부를 조회합니다. audited=true인 캡슐을 실행할 수 있습니다. 최대 50개를 반환합니다.
 
-When to use: Choose a capsule by capability or find its declared input/output port names.
-Before calling: Optionally filter capability and audited_only; no live solve is performed.
-Inputs from earlier results: None required. Request include_ids=true to obtain capsules[].capsule_id for run_gh_definition.capsule_id, and field_groups=["ports","definition"] for inputs/outputs names and definition_file. Use that filename's stem with get_logic_by_id to inspect metadata.capsule's typed contract when available.
-Interpretation: audited=true is the runner's eligibility gate, not an engineering confidence rating. The ports group contains names only, not their types, units, defaults or semantics.
-Limits: audited=false capsules cannot run. At most 50 cards are returned; total and next_offset can indicate more matches, but this tool exposes no offset input. Default summary omits both capsule IDs and port lists; discovery alone does not verify outputs or plugin availability.
+반환: capsules와 total·offset·limit·next_offset을 반환합니다. ports 그룹은 포트 이름만 포함합니다. 공개 입력에는 추가 페이지 offset이 없습니다.
 
 Args:
-    capability: Optional filter: "analyze", "generate", "form_find", or "aggregate".
-    audited_only: When true, list only capsules that run_gh_definition will accept.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: ports, definition, source, paths, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
-Returns:
-    JSON with total and a list of compact capsule cards.
-field_groups adds ports, definition, source, paths, audit, or all; default is summary.
+    capability: 선택 필터: "analyze", "generate", "form_find", "aggregate".
+    audited_only: true이면 run_gh_definition이 실행을 허용하는 캡슐만 나열합니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
 <!-- /instruction:list_capsules -->
 
 ## run_gh_definition
 
 <!-- instruction:run_gh_definition -->
-Execute an audited Grasshopper capsule through the live Rhino bridge and return its declared outputs.
+실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산합니다. 계약의 단위 그대로 입력하며 정의에 따라 문서에 형상을 베이크할 수 있습니다. 시간 초과 뒤에는 문서와 실행 상태를 확인합니다.
 
-When to use: Run a known typed capsule for analysis, generation, form-finding or aggregation.
-Before calling: Confirm audited=true, the required contract ports and their units; ensure referenced geometry already exists in the connected document. Known contracts can be reused without mandatory discovery calls.
-Inputs from earlier results: Use list_capsules.capsules[].capsule_id with include_ids=true. Its ports group gives names only; get_logic_by_id.metadata.capsule, when present, supplies types/units/required flags. Map exact ALMOND_IN_* names to {"guids":["<object-guid>"]} for geometry, raw JSON scalars for number/integer/string/bool, or flat primitive arrays for their list types. Use confirmed existing object handles, not library/scene IDs.
-Interpretation: Read outputs by ALMOND_OUT_* name using manifest semantics and units. analysis_method/confidence reflect the manifest declaration (api/high, template/medium, rule_based/low), not independent certification; report them with warnings. Rule-based/low is an estimate, not FEA. baked_guids identifies geometry the definition baked into the document.
-Limits: Unknown ports, missing required values and unsupported types are rejected before sending. No client-side unit conversion occurs; omitted optional ports use definition defaults. Execution can change the document. timeout_s is a solver budget of >0 to 600 seconds, not proof of rollback or non-execution after a timeout.
+반환: status, ALMOND_OUT_*별 outputs, baked_guids, analysis_method·confidence·warnings·error를 반환합니다. rule_based는 예비 추정입니다.
 
 Args:
-    capsule_id: Stable capsule identifier from list_capsules (e.g. "karamba_beam_v1").
-    inputs: Object mapping ALMOND_IN_* port names to values (forms above).
-    seed: Optional integer seed for stochastic definitions; omit for deterministic ones.
-    timeout_s: Solver budget in seconds (default 60, max 600).
-Returns:
-    JSON with status, capsule_id, outputs, baked_guids, analysis_method,
-    confidence, warnings, and error — or a validation error naming the
-    offending input and the valid port names.
+    capsule_id: list_capsules에서 얻은 안정적인 캡슐 식별자입니다(예: "karamba_beam_v1").
+    inputs: ALMOND_IN_ 포트 이름과 값의 객체입니다. 형상은 {"guids":["객체 GUID"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다. 타입·단위·필수 여부는 metadata.capsule.inputs 계약을 따릅니다.
+    seed: 확률적 정의에 사용할 선택적 정수 시드입니다. 결정적인 정의에서는 생략합니다.
+    timeout_s: 솔버 시간 한도(초)입니다. 기본값은 60, 최댓값은 600입니다.
 <!-- /instruction:run_gh_definition -->
 
 ## response-713

@@ -68,26 +68,26 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
             raise RuntimeError(f"Unsupported routing schema: {name}")
         schema.setdefault("properties", {})["connection_id"] = {
             "type": "string", "minLength": 1,
-            "description": "Optional connection override from list_connections. Omit to use the connection selected by connect or start_session."
+            "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
         }
         if name == "get_rhino_execution":
             schema["properties"]["connection_id"]["description"] = (
-                "Optional connection override for tracked recovery. Omit to use the selected connection, or supply an exact request_id after client restart to read its retained result.")
+                "생략하면 선택한 연결을 사용합니다. 다른 연결은 connection_id로 지정합니다. 클라이언트 재시작 후에는 정확한 request_id로 보관된 결과를 조회할 수 있습니다.")
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
-        ("list_connections", "List available Rhino documents, this client's connections and connection instructions. Run almondconnect in a saved ordinary Rhino to make it available for connection.",
+        ("list_connections", "연결 가능한 Rhino 문서, 이 클라이언트의 연결과 시작 요청을 조회합니다. 저장한 문서에서 almondconnect를 실행하면 연결 대상으로 나타납니다.\n\n반환: targets의 host_id·model_path로 connect를 호출합니다. connections는 독립 연결 목록, selected_connection_id는 기본 호출 대상, starts는 request_id별 시작 상태입니다.",
          {}, []),
-        ("connect", "Connect and select one advertised Rhino/document, or select an existing connection to it. Other connections stay open. Calls use this selection until another connect/start_session succeeds. Models in one folder share the database and artifact root.",
-         {"host_id": {"type": "string", "description": "Exact advertised host_id from list_connections for the intended Rhino process."}, "model_path": {"type": "string", "description": "Exact saved model path shown in the listing."}},
+        ("connect", "목록의 Rhino 문서에 연결하거나 기존 연결을 다시 선택합니다. 이후 호출은 선택한 연결을 사용하며 다른 연결도 유지됩니다. 같은 폴더의 모델은 데이터베이스와 산출물 루트를 공유합니다.\n\n반환: 선택한 연결의 connection_id, state, model_path, slot, pid, artifact_dir와 in_flight를 반환합니다. 이후 호출에서는 connection_id를 생략할 수 있습니다.",
+         {"host_id": {"type": "string", "description": "list_connections.targets에서 선택한 Rhino 프로세스의 host_id입니다."}, "model_path": {"type": "string", "description": "같은 연결 대상에 표시된 저장 모델의 정확한 model_path입니다."}},
          ["host_id", "model_path"]),
-        ("start_session", "Explicitly open a saved .3dm in a new visible Rhino, advertise it with almondconnect, and connect its own A-J slot/worker. Does not save or close Rhino. Reuse the same request_id after a startup timeout; a new ID deliberately opens another Rhino.",
-         {"model_path": {"type": "string", "description": "Absolute path of an existing saved local .3dm; opened without saving."},
+        ("start_session", "저장된 .3dm을 새 Rhino 창에서 열고 연결을 선택합니다. 시작 확인이 지연되면 같은 request_id로 조회합니다. 새 ID는 별도의 Rhino를 시작합니다.\n\n반환: request_id와 시작 상태를 반환합니다. ready이면 connection_id와 연결된 문서 정보를 포함합니다. 진행 중인 요청은 같은 request_id로 확인합니다.",
+         {"model_path": {"type": "string", "description": "새 Rhino에서 열 저장된 로컬 .3dm 파일의 절대 경로입니다."},
           "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
-                         "description": "Unique ID for this deliberate start; keep it unchanged when checking the same attempt."}},
+                         "description": "이 시작 요청의 고유 ID입니다. 같은 시작 시도를 확인할 때 그대로 재사용합니다."}},
          ["model_path", "request_id"]),
-        ("disconnect", "Disconnect the selected connection after its calls complete. Never closes or saves Rhino. An unconfirmed native operation can retain its Rhino-side locks. Select another connection explicitly before continuing work.",
-         {"connection_id": {"type": "string", "minLength": 1, "description": "Optional connection override from list_connections; omit to disconnect the selected connection."}}, []),
+        ("disconnect", "선택한 연결의 호출이 끝난 뒤 연결을 해제합니다. Rhino 창과 문서는 유지됩니다. 완료가 확인되지 않은 네이티브 작업의 잠금은 남을 수 있습니다. 이후 작업할 연결은 connect로 선택합니다.\n\n반환: connection_id, worker_closed, rhino_closed, released와 reason으로 해제 결과를 반환합니다.",
+         {"connection_id": {"type": "string", "minLength": 1, "description": "생략하면 선택한 연결을 해제합니다. 다른 연결을 해제하려면 list_connections의 connection_id를 입력합니다."}}, []),
     ]
     for name, description, properties, required in management:
         if name in mapping:
@@ -451,6 +451,8 @@ class Broker:
             conn = self.connections[self.host_connections[host_id]]
             if os.path.normcase(conn.binding.get("model_path", "")) != os.path.normcase(model_path):
                 raise RuntimeError("This connection belongs to a different model. Refresh list_connections.")
+            # Selection permits recovery reads; invoke still gates ordinary
+            # calls on ready and never clears an uncertain native operation.
             if conn.closing or conn.state not in {"ready", "recovering", "unconfirmed"}:
                 raise RuntimeError(f"Connection is {conn.state}: {conn.reason}.")
             self.selected_connection_id = conn.connection_id

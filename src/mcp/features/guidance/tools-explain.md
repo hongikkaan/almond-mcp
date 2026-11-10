@@ -1,7 +1,9 @@
 # tools.py explain
 
 <!-- instruction:get_policy -->
-BASIC 설계·검증 지침, 메타데이터 규칙 또는 Rhino 실행 참고 자료를 조회합니다. 생략하면 기본 지침·공통 도구 이름·선택 가능한 policy 목록을 반환합니다.
+설계·검증, metadata, Rhino scripting, RhinoCode 지침 중 필요한 내용을 조회합니다. policy를 생략하면 BASIC 지침과 공통 도구 이름, 선택 가능한 policy 목록을 반환합니다.
+
+반환: status, guide_version, selected_policy, available_policies와 선택한 내용을 반환합니다. basic은 text·tools, metadata는 policy, rhino_scripting은 scripting_skill, rhinocode는 text를 사용하며 source_refs가 출처를 표시합니다.
 
 Args:
     policy: 조회할 지침입니다. basic=설계·검증, metadata=객체·그룹 메타데이터, rhino_scripting=스크립트 작성 참고, rhinocode=코드·커맨드 실행. 생략하거나 빈 문자열이면 basic입니다.
@@ -10,69 +12,48 @@ Args:
 ## get_construction_guidance
 
 <!-- instruction:get_construction_guidance -->
-Find construction systems and preliminary span, member-depth and assembly guidance from the local construction library.
+구법 라이브러리에서 구조 시스템, 예비 경간·부재 깊이와 조립 방식을 비교합니다. 경험칙에 따른 예비 치수이며 실제 구조 검토는 별도로 수행합니다. 시공 상세 작업은 사용자가 요청한 범위에서 진행합니다.
 
-When to use: Compare floor, wall, roof or foundation options before selecting a structural scheme.
-Before calling: Choose optional filters; span_m is metres and must be positive to add fits_span and depth_guidance. No prior lookup is required. Construction detailing is off unless requested for the current task. For a target already on a system Layer, use that system as the starting point and check its members and surroundings. A category-only Layer leaves the system undecided: research suitable systems and discuss alternatives before applying one, rather than building every alternative first. Layer names alone prove no joint, load or construction condition.
-Inputs from earlier results: Reuse a known structural_material as material. Request include_ids=true for systems[].system_id; pass it as get_typology_narrative.construction_system or assign_material.construction_system. field_groups=["rules"] adds construction_detail, construction_reference and render_material_ids for the corresponding assign_material inputs.
-Interpretation: Summary cards retain name, category, structural_material and any fits_span. rules adds span_range_m, span_axis, typical_spacing_m and suggested_depth_mm; wall span ranges mean unsupported vertical height. include_reference_data adds live loads in kPa and densities in kg/m3; these require tributary-area/volume conversion before choosing kN loads.
-Limits: Ching BCI 4th-edition ranges and span/N depths are sizing heuristics, not structural adequacy checks. rules, source and metadata expose supporting detail; summary alone is not an assembly specification.
+반환: systems와 total·source를 반환합니다. span_m을 지정하면 fits_span과 권장 깊이를, include_reference_data=true이면 참고 하중·밀도를 포함합니다.
 
 Args:
-    query: Free-text filter (e.g. "glulam", "longspan", "bearing wall").
-    category: "floor", "wall", "roof", "foundation" (empty = all).
-    material: "Wood", "Steel", "Concrete" - validate_structure names.
-    structure_type: validate_structure type ("beam", "truss", "shell", "frame", "canopy", "gridshell", "membrane", "highrise").
-    span_m: If > 0, each returned system reports fits_span and suggested member depths from its span-ratio rules.
-    include_reference_data: Also return occupancy live loads (kPa) and material densities (kg/m3) for choosing load_kn inputs.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: rules, narrative, source, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
-Returns:
-    JSON: {total, systems: [...], reference?} - for wall systems
-    span_range_m is the unsupported height range (span_axis "vertical").
-field_groups adds rules, narrative, source, metadata, audit, or all; default is summary.
+    query: 자유 텍스트 필터입니다(예: "glulam", "longspan", "bearing wall").
+    category: "floor", "wall", "roof", "foundation" 중 하나입니다. 비워 두면 모두 포함합니다.
+    material: validate_structure에서 사용하는 이름: "Wood", "Steel", "Concrete".
+    structure_type: validate_structure의 유형입니다("beam", "truss", "shell", "frame", "canopy", "gridshell", "membrane", "highrise").
+    span_m: 0보다 크면 반환되는 각 시스템이 fits_span과 경간 비율 규칙에 따른 권장 부재 깊이를 보고합니다.
+    include_reference_data: load_kn 입력을 정하는 데 사용할 용도별 활하중(kPa)과 재료 밀도(kg/m3)도 반환합니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    field_groups: 상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
 <!-- /instruction:get_construction_guidance -->
 
 ## get_typology_narrative
 
 <!-- instruction:get_typology_narrative -->
-Find architectural typology narratives, historical precedents and urban roles in the local history library.
+역사 라이브러리에서 건축 유형의 서사·선례·도시적 역할을 조회합니다.
 
-When to use: Develop project storytelling or relate a construction system to historical examples.
-Before calling: Select optional text/system/type filters and a limit; no project model or prior call is required.
-Inputs from earlier results: Pass get_construction_guidance.systems[].system_id to construction_system, requesting include_ids=true on that lookup. A known structure_type can also be reused directly.
-Interpretation: total counts all matches before the limit; entries defaults to name, era and region. field_groups=["narrative","source"] adds narrative, precedents, related_construction_systems, urban_role and gha_ref page references; include_ids=true retains typology_id and related identifier fields.
-Limits: These entries are historical context distilled from A Global History of Architecture, not evidence for project loads, member sizing or structural capacity. The effective minimum result limit is one.
+반환: entries·total·source를 반환합니다. total은 limit 적용 전 일치 수입니다.
 
 Args:
-    query: Free text (e.g. "courtyard", "skyscraper", "timber hall").
-    construction_system: Filter to entries related to a construction library system_id (e.g. "steel-column-frame").
-    structure_type: Filter by validate_structure type ("shell", "truss", "frame", "membrane", ...).
-    limit: Maximum entries returned (default 5).
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: rules, narrative, source, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
-Returns:
-    JSON: {total, entries: [{typology_id, name, era, region, narrative,
-    precedents, related_construction_systems, urban_role, gha_ref,
-    tags}], source}.
-field_groups adds rules, narrative, source, metadata, audit, or all; default is summary.
+    query: 자유 텍스트입니다(예: "courtyard", "skyscraper", "timber hall").
+    construction_system: 구법 라이브러리의 system_id와 관련된 항목으로 필터링합니다(예: "steel-column-frame").
+    structure_type: validate_structure의 유형으로 필터링합니다("shell", "truss", "frame", "membrane" 등).
+    limit: 반환할 최대 항목 수입니다. 기본값은 5입니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    field_groups: 상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
 <!-- /instruction:get_typology_narrative -->
 
 ## search_detail_sources
 
 <!-- instruction:search_detail_sources -->
-Search six curated architectural source directories offline and return research candidates.
+선별된 건축 자료 디렉터리의 metadata를 검색합니다. 참고자료로 사용하기 전에 실제 내용과 재사용 권리를 확인합니다.
 
-When to use: Find places to research details, drawings or reusable reference material without fetching external content.
-Before calling: Use English catalogue terms where practical; an empty query lists all sources. Selected Korean catalogue terms expand to English, not general translation.
-Inputs from earlier results: No prior result is required; system names, element names or material terms can inform query. Request field_groups=["source"] to obtain source URLs, formats, access and license notes for later research.
-Interpretation: query_terms, expanded_terms and sources[].matched_terms show why titles/tags/formats matched; results are ordered by matched-term count. Default cards show title and scope; include_ids=true retains source_id.
-Limits: This searches directory metadata, not hosted detail content or certified assemblies. Links are candidates, not attributed project inputs; rights/access must be checked before reuse. DETAIL subscription access is not required.
+반환: sources와 query_terms·expanded_terms·scope를 반환합니다. 각 항목은 자료 디렉터리의 검색 결과입니다.
 
 Args:
-    query: Free-text search terms; empty leaves the text filter unset.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: rules, narrative, source, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    query: 자유 텍스트 검색어입니다. 비워 두면 텍스트 필터를 적용하지 않습니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    field_groups: 상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
 <!-- /instruction:search_detail_sources -->
 
 ## response-732

@@ -3,146 +3,118 @@
 ## get_rhino_context
 
 <!-- instruction:get_rhino_context -->
-When to use: Read needed live document properties, editing state or available view/display-mode catalogues.
-Before calling: No preceding call is required for unknown context. Reuse known information; project_info already checks the live document and provides its filename/path. Requires the matching Bridge with context_sections>=2.
-Inputs from earlier results: sections selects document, viewport, editor, named_views, layouts, display_modes or viewports. Omit sections for document/named_views/layouts/display_modes. Named View/Layout/Display Mode IDs are always returned, including with include_ids=false. include_ids controls other identities. Request editor with include_editor_details=true for provider, command and Undo evidence.
-Interpretation: Explicit sections return only those sections; sections=[] returns status/warnings. next_step appears only when sections is omitted. Document angle_tolerance is in radians; absolute_tolerance uses document units. editor normally returns mode/target/stable/warnings; only a verified normal model is stable, unknown target identity stays null. Use get_objects(selected=true) for selected entities and a capture tool for images.
-Limits: No document or file writes. Counts and camera state do not establish geometric or pixel-visibility correctness. Unavailable observations are null with warnings. No implicit editor query accompanies document or viewport. display_modes is capped at 128 with a warning; use actually listed modes rather than invented aliases. include_editor_details does not implicitly request editor.
+Rhino 문서 속성, 편집 상태, 뷰와 디스플레이 모드를 필요한 범위만 조회합니다. 관찰할 수 없는 값은 null과 warnings로 표시합니다.
+
+반환: 요청한 섹션과 warnings를 반환합니다. 문서 단위·편집기 상태·뷰 ID는 해당 섹션의 값으로 확인하며 관찰 이미지가 함께 반환될 수 있습니다.
 
 Args:
-    sections: Optional section names; omitted requests document, named_views, layouts and display_modes.
-    include_ids: Include identities outside the always-identified Named View/Layout/Display Mode catalogues.
-    include_editor_details: Include provider/command/Undo evidence only when editor is requested.
-Returns:
-    JSON status/warnings and requested sections. No images, document filename or path.
+    sections: document, viewport, editor, display_modes, named_views, layouts, viewports 중 필요한 항목의 배열입니다. 생략하면 document, named_views, layouts, display_modes를 조회합니다. []는 status와 warnings만 반환합니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다.
+    include_editor_details: editor를 요청한 경우에만 provider/command/Undo 근거를 포함합니다.
 <!-- /instruction:get_rhino_context -->
 
 ## analyze_block_reculviely
 
 <!-- instruction:analyze_block_reculviely -->
-When to use: Inspect nested block structure or resolve an occurrence path when top-level object observations are insufficient.
-Before calling: Reuse known top-level block GUIDs or obtain them from get_objects(include_ids=true). No lookup is required for an already defined selected/viewport/document outline scope. Requires Bridge block_analysis=1; the tool checks support internally. For block-internal edits use BlockEditNew after determining the intended occurrence and shared-definition impact; in this installation GroupEdit is handled by that provider. Observe the actual editor/provider state rather than assuming every Rhino BlockEdit variant is verified.
-Inputs from earlier results: For outline pass options.ids or a previously observed options.path, or choose scope with depth/output budgets. Request options.field_groups for summary, objects, annotations or transforms and include_ids=true when the returned handles/path will feed another call. resolve-block takes only an explicit path of 1..65 GUIDs from the top-level instance inward; use the observed occurrence path, not a definition GUID. expected_model_path is normally supplied by the runtime.
-Interpretation: Read mode, document identity/units/tolerance and the returned data as bounded structure/occurrence evidence. An explicit top-level block ID resolves even when hidden/locked; selectable_now reports its current selection eligibility and resolution grants no edit permission. Nested paths resolve their definition member even before editing, with document_object=false and root_object_id/block_path_ids; candidate_object_ids are only definition/transform matches and never editor ownership proof. definition_impact reports shared placed occurrence paths/counts, containing definitions, reference/update type and source-archive presence. Hidden/locked placements count too. complete=false during editing or a bounded/incomplete traversal; unknown totals are null, observed counts are not complete totals. A truncated occurrence list can coexist with a complete count. No definition is made unique or modified by this query. resolve-block returns next_step for inspecting impact and obtaining current working IDs after an intended BlockEditNew entry; it does not authorize unsupported mutations. For outline truncation narrow the IDs/path/depth; max_items also bounds eligible visits and may report reason=max_visits. Geometry and annotation details require their explicit options. Groups collect independently editable members and may overlap; overlapping membership alone is not nesting. Block occurrences share definitions while carrying their own transforms. Before a definition edit, establish which occurrences and nested definition levels share the change; a one-occurrence intent may require making that definition unique first. External/linked definitions retain their own support limits.
-Limits: Does not modify the document or certify unknown, unsupported or truncated observations. Requests and responses are capped at 256 KiB of UTF-8 JSON. IDs are omitted by default and supplied target IDs are not echoed; outline field_groups must be a nonempty supported list when supplied.
+중첩 블록의 정의·배치 계층과 선택한 배치 경로의 공유 정의 영향을 조회합니다. 내부 편집 전에는 현재 편집기 상태와 영향 범위를 확인합니다. 정의 구성원·후보 ID는 관찰용이며 변경 도구가 지원하는 대상인지 별도로 확인합니다.
+
+반환: mode·document·data에 계층 또는 경로 관찰을 반환합니다. 완전성·경고를 확인하고 편집 대상으로 사용할 ID는 현재 편집 컨텍스트와 대조합니다.
 
 Args:
-    mode: outline traverses objects and nested definitions; resolve-block resolves an explicit occurrence path and reports shared-definition impact. Resolution does not require selection eligibility or grant editor ownership; nested definition members are not standalone edit IDs.
-    options: For outline: ids (root GUID array) or path (one occurrence GUID array), mutually exclusive; otherwise scope=selected (default), viewport or document. depth=0..64 (default 64, root=0); max_items=1..5000 (default 200) also bounds visits; max_bytes=2048..262144 (default 48000). Optional field_groups is a nonempty array of summary, objects, annotations, transforms; omitted defaults to summary unless legacy detail flags are supplied. include_geometry and annotations are optional booleans controlling their details; annotation_layer filters text dots by layer path/name. Narrow ids/path/depth after truncation. For resolve-block, only path is accepted: 1..65 GUIDs from the top-level instance inward. The last GUID is an instance occurrence, not its definition ID; returned definition_impact scans placed occurrences within 100000 visits/depth 64 and lists up to 512 paths and containers.
-    expected_model_path: Usually omitted; the runtime supplies the bound document path.
-    include_ids: Include IDs when needed; supplied target IDs are not repeated.
-Returns:
-    JSON with status, mode, document identity/units/tolerance and data, or an explicit error.
+    mode: outline은 객체와 중첩 정의를 순회합니다. resolve-block은 명시적인 배치 인스턴스 경로를 해석하고 공유 정의에 미치는 영향을 보고합니다. 경로 해석에는 선택 가능 조건이 필요하지 않으며 편집기 소유 관계를 부여하지도 않습니다. 중첩 정의 구성원은 독립적인 편집 ID가 아닙니다.
+    options: outline의 경우 ids(루트 GUID 배열) 또는 path(한 배치 인스턴스의 GUID 배열)를 사용하며 둘을 함께 사용할 수 없습니다. 둘 다 없으면 scope=selected(기본값), viewport 또는 document를 사용합니다. depth=0..64(기본값 64, 루트=0)이며, max_items=1..5000(기본값 200)은 방문 수도 제한합니다. max_bytes=2048..262144(기본값 48000)입니다. 선택 사항인 field_groups는 summary, objects, annotations, transforms로 구성된 비어 있지 않은 배열입니다. 생략하면 기존 상세 플래그를 전달하지 않은 한 summary가 기본값입니다. include_geometry와 annotations는 해당 상세 정보를 제어하는 선택 사항인 불리언입니다. annotation_layer는 레이어 경로/이름으로 텍스트 도트를 필터링합니다. 결과가 잘리면 ids/path/depth의 범위를 좁힙니다. resolve-block은 path만 받으며, 최상위 인스턴스에서 내부 방향으로 이어지는 GUID 1..65개를 전달합니다. 마지막 GUID는 배치 인스턴스이며 정의 ID가 아닙니다. 반환되는 definition_impact는 방문 100000회/깊이 64 이내에서 배치 인스턴스를 스캔하고 최대 512개의 경로와 포함 관계를 나열합니다.
+    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 문서 경로를 제공합니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다.
 <!-- /instruction:analyze_block_reculviely -->
 
 ## get_defined_viewcapture
 
 <!-- instruction:get_defined_viewcapture -->
-When to use: Capture a known Named View or actual Layout paper without activating it or changing the working camera. Named Views default to Shaded; Layouts preserve each Detail's existing display mode.
-Before calling: No preceding query is needed for a known name/ID. Obtain unknown Named View/Layout names and IDs from get_rhino_context. Requires view_capture=1; the tool checks this internally.
-Inputs from earlier results: target_kind is named_view or layout, and target is its name or ID. Ambiguous names are errors; use a unique listed ID. Those two inputs suffice. For Named Views, display_mode can select another installed raster mode by name/ID. For section review, AGENT_Section_Glass is a custom-mode candidate; confirm its name/ID in get_rhino_context sections=['display_modes'] before selecting it. The runtime supplies expected_model_path for the bound document.
-Interpretation: Returns a PNG and image_file metadata (relative path, bytes, SHA256, lifetime or separate storage failure). Named Views use their saved camera; omitted or empty display_mode selects the capture tool's Shaded default, independent of any display mode stored with the Named View. Layouts render the paper and details with print colors/widths, their actual paper proportions and 144 dpi as the 100% reference, preserving each Detail's existing display mode. Neither capture activates the saved view or changes the model.
-Limits: Layouts retain each detail's mode and reject display-mode or explicit-pixel overrides. scale_percent is the desired upper bound, default 75; oversized defined-view PNGs are reduced automatically, with a warning and actual usage dimensions, to fit 16 megapixels/4 MiB. Explicit Named View pixels are never silently resized. No live camera/selection/visibility edits; file writes are additive. Labels default false; optional overlays are bounded to 200 and Layout detail labels are unavailable. Realtime display modes cannot be independently rendered.
+저장된 Named View나 Layout 용지를 작업 화면 전환 없이 PNG로 캡처합니다. Layout은 기존 Detail 디스플레이 모드와 용지 비율을 유지합니다.
+
+반환: PNG 이미지와 저장한 image_file을 반환합니다.
 
 Args:
-    target_kind: named_view uses the saved camera and defaults to Shaded unless display_mode is supplied; layout preserves each Detail's existing mode and takes no display_mode override.
-    target: Existing name or ID; case-insensitive name matches must be unique.
-    scale_percent: 1..100, default 75. Desired upper bound; percentage captures may shrink to fit the delivery budget.
-    include_usage: Include actual dimensions and an illustrative pixel-based token estimate, not measured usage.
-    display_mode: Named View only: omitted/empty selects Shaded, or supply another installed raster mode name/ID. For section review, consider AGENT_Section_Glass after confirming it in display_modes. Layout: omit to preserve each Detail's existing mode; overrides are rejected.
-    labels: Optional transient entity labels; default false.
-    depth: Entity-label expansion depth 1..8.
-    width: Optional Named View width in pixels, 128..2048; supply height too and scale_percent=100. Not used for Layouts.
-    height: Optional Named View height in pixels, 128..2048; supply width too and scale_percent=100. Not used for Layouts.
-    expected_model_path: Usually omitted; runtime supplies the bound model.
-Returns:
-    PNG image and image_file metadata, plus warnings/usage when applicable.
+    target_kind: named_view는 저장된 카메라를 사용하며, display_mode가 제공되지 않으면 기본값은 Shaded입니다. layout은 각 Detail의 기존 모드를 유지하며 display_mode 재정의를 허용하지 않습니다.
+    target: 기존 이름 또는 ID입니다. 대소문자를 구분하지 않는 이름 일치는 유일해야 합니다.
+    scale_percent: 범위는 1..100이며 기본값은 75입니다. 원하는 상한이며, 백분율 캡처는 전달 용량 제한에 맞게 축소될 수 있습니다.
+    include_usage: 실제 치수와 설명용 픽셀 기반 토큰 추정치를 포함합니다. 측정된 사용량은 아닙니다.
+    display_mode: Named View 전용: 생략하거나 비워 두면 Shaded를 선택하며, 다른 설치된 래스터 모드 이름/ID를 제공할 수도 있습니다. 단면 검토 시 display_modes에서 확인한 뒤 AGENT_Section_Glass를 고려합니다. Layout: 각 Detail의 기존 모드를 유지하려면 생략합니다. 재정의는 거부됩니다.
+    labels: 선택 사항인 일시적 엔터티 레이블이며, 기본값은 false입니다.
+    depth: 엔터티 레이블 확장 깊이이며, 범위는 1..8입니다.
+    width: 선택 사항인 Named View의 픽셀 너비로, 범위는 128..2048입니다. height도 제공하고 scale_percent=100으로 설정합니다. Layout에는 사용하지 않습니다.
+    height: 선택 사항인 Named View의 픽셀 높이로, 범위는 128..2048입니다. width도 제공하고 scale_percent=100으로 설정합니다. Layout에는 사용하지 않습니다.
+    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 모델을 제공합니다.
 <!-- /instruction:get_defined_viewcapture -->
 
 ## get_current_viewcapture
 
 <!-- instruction:get_current_viewcapture -->
-When to use: Capture the current model viewport, optionally selecting and zooming to several targets in the actual Rhino screen and isolating them there.
-Before calling: No preceding query is required for the current screen. For targets, reuse observed object/group/Holon IDs; get_objects can supply missing object IDs. An active Layout requires switching to a model viewport, or get_defined_viewcapture for its paper. Requires view_capture=1.
-Inputs from earlier results: target_ids accepts multiple IDs. target_kind=object accepts mixed Rhino geometry types, including block instances, without a geometry-type allowlist; block is the same object-ID route. group expands current group members; holon resolves live effective members. isolate defaults false and requires targets. Targets must currently exist and be selectable by Rhino; hidden/locked objects are not automatically shown or unlocked.
-Interpretation: No arguments captures the current screen as is. Targets replace the live selection and apply Zoom Selected; isolate=true first invokes Rhino's native Isolate. The screen remains at that camera/selection/visibility after capture. A display_mode override also changes the live viewport. image_file reports managed PNG storage independently of image success. view_change/mutation_applied preserve completed or uncertain screen changes even when capture fails; never retry an uncertain mutation automatically.
-Limits: Object shape/type is unrestricted; IDs must refer to current model-space objects, not Layout objects or block-definition members. The shared focus operation accepts at most 4096 resolved objects. Invalid input/targets are rejected before selection changes. Native Isolate retains locked context and supports Unisolate; no custom renderer or geometry duplication is used. The native command owns its Undo history. No 3DM save occurs. labels defaults false; optional labels are transient, bounded to 200, with depth 1..8. PNG is capped at 16 megapixels/4 MiB; image/storage failure does not undo screen changes. Realtime mode overrides are rejected before changes.
+현재 모델 화면을 캡처합니다. 대상을 지정하면 실제 선택·카메라와 선택적 격리가 적용되고 디스플레이 모드 변경도 화면에 남습니다. 실패해도 화면 변경이 남을 수 있으므로 재시도 전에 상태를 확인합니다.
+
+반환: 이미지와 image_file을 반환합니다. 실패이면 적용되었거나 확인되지 않은 화면 변경 정보를 함께 확인합니다.
 
 Args:
-    target_ids: Optional nonempty string array of object, group or Holon IDs. Duplicate resolved objects are selected once.
-    target_kind: object (default), group, block (ordinary object IDs), or holon; this selects the ID namespace, not allowed geometry types.
-    isolate: False by default. True invokes actual Rhino Isolate before Zoom Selected; use Unisolate to restore visibility.
-    scale_percent: 1..100, default 75; changes image resolution, not viewport window size.
-    include_usage: Include dimensions and an illustrative pixel-token estimate, not measured usage.
-    display_mode: Optional installed raster mode name/ID; changes the live model viewport when supplied.
-    labels: Optional transient labels; default false. The selection highlight remains Rhino's normal display.
-    depth: Label expansion depth 1..8.
-    width: Optional image width in pixels, 128..2048; supply height too and scale_percent=100. Does not resize the Rhino window.
-    height: Optional image height in pixels, 128..2048; supply width too and scale_percent=100. Does not resize the Rhino window.
-    expected_model_path: Usually omitted; runtime supplies the bound model.
-Returns:
-    PNG image and image_file metadata; requested live changes also return their outcome. Errors preserve mutation uncertainty.
+    target_ids: 객체, 그룹 또는 Holon ID로 구성된 선택 사항인 비어 있지 않은 문자열 배열입니다. 확인된 객체가 중복되면 한 번만 선택합니다.
+    target_kind: object(기본값), group, block(일반 객체 ID) 또는 holon입니다. 허용할 형상 유형이 아니라 ID 이름 공간을 선택합니다.
+    isolate: 기본값은 false입니다. true이면 Zoom Selected 전에 실제 Rhino Isolate를 실행합니다. 가시성을 복원하려면 Unisolate를 사용합니다.
+    scale_percent: 범위는 1..100이며 기본값은 75입니다. 뷰포트 창 크기가 아니라 이미지 해상도를 변경합니다.
+    include_usage: 치수와 설명용 픽셀 기반 토큰 추정치를 포함합니다. 측정된 사용량은 아닙니다.
+    display_mode: 선택 사항인 설치된 래스터 모드 이름/ID입니다. 제공하면 실제 모델 뷰포트를 변경합니다.
+    labels: 선택 사항인 일시적 레이블이며 기본값은 false입니다. 선택 강조 표시는 Rhino의 기본 표시를 유지합니다.
+    depth: 레이블 확장 깊이이며, 범위는 1..8입니다.
+    width: 선택 사항인 이미지의 픽셀 너비로, 범위는 128..2048입니다. height도 제공하고 scale_percent=100으로 설정합니다. Rhino 창 크기를 바꾸지는 않습니다.
+    height: 선택 사항인 이미지의 픽셀 높이로, 범위는 128..2048입니다. width도 제공하고 scale_percent=100으로 설정합니다. Rhino 창 크기를 바꾸지는 않습니다.
+    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 모델을 제공합니다.
 <!-- /instruction:get_current_viewcapture -->
 <!-- instruction:get_objects -->
-When to use: Read the actual object set, properties, grouping or Brep faces needed to choose targets or verify a modeling decision without changing Rhino.
-Before calling: No preceding call is required. scope is current (default) or document. Requires object_observation>=4, checked before dispatch. Holon registration is not required.
-Inputs from earlier results: document accepts object_ids (1..4096 distinct document object GUIDs). Either scope accepts group_ids (1..64 distinct Rhino group GUIDs) to restrict membership; do not mix them with object_ids. Group names are labels, not unique handles. current optionally takes selected=true or inside_window=true, never both. Filters combine exact layer_paths/object_types, case-insensitive name_contains and explicit UserDictionary conditions with AND. include_ids=true or fields=["id"] opts into identities. Later face pages require document object_ids and observed expected_geometry_crcs. Runtime supplies the bound expected_model_path. Inside BlockEditNew/GroupEdit, reuse current working object IDs for supported captures, not persistent definition-member IDs. Fixed face/intersection modification tools still require leaving the editor and observing current document IDs/CRCs again; observation support does not grant editor mutation support. Re-query after entering, committing or cancelling the editor because those identities and CRCs may change. Use get_current_viewcapture or capture_rhino_inspection for needed visual evidence before and after an edit; a successful call alone does not verify shared-definition impact.
-Interpretation: current includes visible, unlocked model objects even off-screen; hidden objects and locked objects/layers are excluded. selected keeps this eligibility rule and reads the current selection, including off-screen selections. inside_window includes world bounding boxes intersecting the active model viewport, including crossing the edge; it is not a pixel-occlusion or clipping-plane test and may overinclude geometry. document includes hidden/locked objects. result_mode=objects returns distinct document objects, summary gives layer/type counts, hierarchy gives grouping and block occurrences. recursive=true selects hierarchy and expands groups and blocks together; default false, depth 1..8 with root=1. number/parent_number preserve hierarchy across pages. membership_complete concerns verified group membership; all_members_in_scope distinguishes a clipped/filtered subset. document_object=false identifies definition members via root_object_id/block_path_ids with world bounds, never standalone edit GUIDs.
-Limits: No selection, camera, geometry or file writes. Output omits schema/model_path/document_units/tolerance_model_units. Pass snapshot back as expected_snapshot with every subsequent offset page; changed model/editor/view/selection/query rejects continuation. complete does not certify unexpanded descendants; children_state distinguishes leaf/collapsed/expanded/depth_limit/cycle/unavailable. During verified BlockEditNew editing, working sets come from current provider save-member sets, not visibility or entry-time counts. editor_current_save_target identifies the provider's current table slot, not proof of the original persistent group GUID; ancestor/original membership stays incomplete and unknown counts remain null. Unsupported editor versions do not invent ownership. Geometry/face details remain in objects mode; explicit fields override include_geometry. Pages allow 1..200 rows, faces 1..128, scans/traversals at most 100000 entries, JSON 256 KiB. Errors retain evidence with MCP isError=true; partial success retains coverage while honoring ID opt-in.
+Rhino 객체 속성, 그룹·블록 계층과 Brep 면을 조회합니다. 편집기에 진입하거나 확정·취소한 뒤에는 ID와 geometry_crc를 다시 관찰합니다. 면·교차 편집에는 편집기 밖의 문서 객체가 필요합니다.
+
+반환: objects, matched_count·offset·limit·next_offset, snapshot·editing·complete를 반환합니다. geometry_crc는 후속 면 편집의 변경 검사 값입니다. 관찰 이미지가 함께 반환될 수 있습니다.
 
 Args:
-    scope: current (default) includes visible, unlocked model objects even off-screen; document also includes hidden/locked objects.
-    object_ids: Optional distinct top-level object GUIDs (1..4096) in document scope only. Do not combine with group_ids.
-    filters: AND conditions: layer_paths (exact full paths), object_types (observed Rhino names), name_contains (case-insensitive), user_dictionary (source=attributes|geometry, key, scalar any_of).
-    include_geometry: Include geometry detail in objects mode when fields is omitted; explicit fields take precedence.
-    offset: Row offset 0..100000. Values above zero require expected_snapshot from the first page.
-    limit: Rows per page, 1..200; default 50.
-    expected_model_path: Usually omitted; runtime supplies the bound saved document.
-    include_ids: Include object/group/occurrence identities; default false. Explicit id or faces fields also enable identities.
-    result_mode: objects (default), hierarchy, or summary. recursive=true selects hierarchy and cannot be combined with summary.
-    fields: Optional nonempty field list: id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, geometry_valid, solid, manifold, volume, faces, face_count. Geometry detail and faces require objects mode; summary rejects fields.
-    face_offset: Face-page offset, default 0. Later face pages require document object_ids and expected_geometry_crcs for every object.
-    face_limit: Faces per object page, 1..128; default 128. Face options require objects mode.
-    expected_geometry_crcs: Observed CRCs keyed by each requested object GUID; rejects changed geometry during face pagination.
-    group_ids: Optional distinct Rhino group GUIDs (1..64) in either scope. Membership is intersected with the selected scope; do not combine with object_ids.
-    selected: current only, default false. Filter to selected eligible objects, including off-screen selection; mutually exclusive with inside_window.
-    inside_window: current only, default false. Include bounding boxes crossing the active viewport boundary; no clipping-plane or pixel-occlusion test. Mutually exclusive with selected.
-    recursive: Expand groups and block occurrences together as hierarchy; default false.
-    depth: Hierarchy depth 1..8, root=1; values above 1 require recursive=true.
-    expected_snapshot: Omit on the first page; pass its snapshot token unchanged for later offset pages. A changed snapshot rejects continuation.
-Returns:
-    JSON rows or summary with pagination, snapshot and coverage evidence. Incomplete editor membership is explicit; unknown counts remain null.
+    scope: current(기본값)는 화면 밖에 있더라도 표시 상태이고 잠기지 않은 모델 객체를 포함합니다. document는 숨김/잠금 객체도 포함합니다.
+    object_ids: document 범위에서만 사용할 수 있는 선택 사항인 서로 다른 최상위 객체 GUID입니다(1..4096개). group_ids와 함께 사용하지 않습니다.
+    filters: AND 조건입니다. layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary(source=attributes|geometry, key, 스칼라 any_of)를 사용할 수 있습니다.
+    include_geometry: fields를 생략했을 때 objects 모드에서 형상 상세 정보를 포함합니다. 명시적인 fields가 우선합니다.
+    offset: 행 오프셋으로, 범위는 0..100000입니다. 0보다 큰 값에는 첫 페이지의 expected_snapshot이 필요합니다.
+    limit: 페이지당 행 수입니다. 범위는 1..200이며 기본값은 50입니다.
+    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다.
+    result_mode: objects(기본값), hierarchy 또는 summary입니다. recursive=true는 hierarchy를 선택하며 summary와 함께 사용할 수 없습니다.
+    fields: 선택 사항인 비어 있지 않은 필드 목록입니다. id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, geometry_valid, solid, manifold, volume, faces, face_count를 사용할 수 있습니다. 형상 상세 정보와 faces에는 objects 모드가 필요합니다. summary는 fields를 거부합니다.
+    face_offset: 면 페이지 오프셋이며 기본값은 0입니다. 두 번째 이후 면 페이지에는 document 범위의 object_ids와 모든 객체에 대한 expected_geometry_crcs가 필요합니다.
+    face_limit: 객체별 페이지의 면 수입니다. 범위는 1..128이며 기본값은 128입니다. 면 옵션에는 objects 모드가 필요합니다.
+    expected_geometry_crcs: 요청한 각 객체 GUID를 키로 하는 관찰된 CRC입니다. 면을 페이지 단위로 조회하는 동안 형상이 변경되면 거부합니다.
+    group_ids: 어느 scope에서든 사용할 수 있는 선택 사항인 서로 다른 Rhino 그룹 GUID입니다(1..64개). 구성원과 선택한 범위의 교집합을 사용합니다. object_ids와 함께 사용하지 않습니다.
+    selected: current에서만 사용하며 기본값은 false입니다. 화면 밖의 선택도 포함하여 적격한 선택 객체로 필터링합니다. inside_window와 함께 사용할 수 없습니다.
+    inside_window: current에서만 사용하며 기본값은 false입니다. 활성 뷰포트 경계에 걸친 바운딩 박스를 포함합니다. 클리핑 평면이나 픽셀 가림 검사는 수행하지 않습니다. selected와 함께 사용할 수 없습니다.
+    recursive: 그룹과 블록 배치 인스턴스를 계층 구조로 함께 펼칩니다. 기본값은 false입니다.
+    depth: 계층 깊이는 1..8이며 루트는 1입니다. 1보다 큰 값에는 recursive=true가 필요합니다.
+    expected_snapshot: 첫 페이지에서는 생략합니다. 이후 offset 페이지에는 첫 페이지의 snapshot 토큰을 변경 없이 전달합니다. 스냅샷이 변경되면 이어서 조회하는 요청을 거부합니다.
 <!-- /instruction:get_objects -->
 
 <!-- instruction:get_object_intersections -->
-When to use: Check volume overlap among identified closed solid objects without requiring Holon registration or modifying the document.
-Before calling: Reuse known current object GUIDs or obtain them from get_objects(include_ids=true/fields=["id"]). Choose the explicit scope rather than assuming group membership adds targets.
-Inputs from earlier results: Pass 1..512 current top-level Rhino object_ids. include_block defaults to false; true expands transformed nested block members without changing definitions. The saved document is bound internally. Paging, max_pairs, cursor and ID-display switches are not public inputs.
-Interpretation: A successful response contains only intersections.number (the whole-scope count of confirmed overlapping pairs) and next_step. For a positive count the hint reuses the original object_ids/include_block in resolve_object_intersection; choice 1/2 trims that numbered object, not the other. A zero count requires no resolution call. One pair may contain several disjoint overlap regions; this is not a region count or an n-way intersection count. The native pages are consumed internally. Unsupported solids, failed calculations or a changed scope return an error with evidence instead of an incomplete count or a misleading zero. Blocks deliberately excluded by include_block=false are outside the requested scope.
-Limits: Supports closed Breps/Extrusions and oriented manifold Meshes. Counts involving Brep/Mesh mixing use temporary meshing and are approximate; disjoint Meshes need not be split/rejoined in the document. At most 512 top-level objects, 2048 occurrences and 20000 candidate pairs are supported. This is volume-overlap evidence, not clearance, design suitability or code compliance. Errors retain diagnostic evidence and set MCP isError=true; they do not publish a successful count.
+닫힌 솔리드의 양의 부피 겹침 쌍을 조회합니다. 닫힌 Brep·Extrusion과 면 방향이 정렬된 매니폴드 Mesh를 지원하며 Brep/Mesh 혼합 계산은 임시 메시 근사입니다.
+
+반환: intersections에 겹침 쌍과 관찰 근거를 반환합니다. 양의 부피 겹침이 0이어도 접촉·이격 거리는 별도로 확인합니다. 관찰 이미지가 함께 반환될 수 있습니다.
 
 Args:
-    object_ids: Distinct current top-level Rhino object GUIDs, 1..512; checked as one scope with internal pagination.
-    include_block: Expand transformed nested block members when true; default false excludes blocks from the scope.
-Returns:
-    intersections.number is the whole-scope confirmed overlapping-pair count, plus next_step; unresolved calculations return an error instead of an incomplete count.
+    object_ids: 서로 다른 현재 최상위 Rhino 객체 GUID 1..512개입니다. 내부 페이지 처리를 통해 하나의 범위로 검사합니다.
+    include_block: true이면 변환이 적용된 중첩 블록 구성원까지 펼칩니다. 기본값 false는 범위에서 블록을 제외합니다.
 <!-- /instruction:get_object_intersections -->
 
 <!-- instruction:capture_rhino_inspection -->
-When to use: Compare several specified viewpoints or object sets in one PNG when visual evidence beyond a single current viewport is needed.
-Before calling: Reuse known GUIDs and view/mode choices; obtain missing targets through get_objects and unknown modes through get_rhino_context(sections=["display_modes"], include_ids=true). Verified model or supported group/block editor contexts are accepted with inspection_editing_context=1; unknown or transitioning contexts are rejected. No separate context refresh is mandatory if the needed information is already current.
-Inputs from earlier results: views contains 1..16 tiles with direction, display_mode, label and optional distinct top-level object_ids (1..512). An omitted/empty tile set uses existing document visibility. Alternatively pass one common top-level object_ids set (1..4096, never empty) for all tiles with inspection_shared_scope=1; do not mix it with nonempty tile-level sets. model_view_id can reuse a listed model viewport GUID to preserve an active Layout/Detail, with inspection_model_view=1. Runtime normally supplies expected_model_path.
-Interpretation: Read the image with each tile's metadata/errors. Top-level complete means the requested tiles captured; scope.complete concerns requested GUIDs being in document-visible scope, not pixel exposure or design correctness. Editing context is checked between tiles; camera, selection, visibility, model content and working membership are checked before returning. Editor-hidden outer objects are not automatically restored for capture. Common-scope GUIDs/count are returned once in shared_scope and referenced by scope.shared_scope_ref. Partial success retains usable tiles and tile errors. image_file supplies a managed relative path, bytes, SHA256 and Plan/connection lifetime or a separate storage error while image content remains available.
-Limits: Camera/selection/hidden state and document content are unchanged; PNG storage is additive, not a 3DM save. Filtered tiles reject block instances/interior objects, while unfiltered visible scope renders blocks normally. An active Layout without model_view_id gives layout_not_supported; use get_defined_viewcapture(target_kind="layout", target=Layout_ID) for paper. direction accepts current, top/bottom/front/back/left/right, iso_ne/nw/se/sw and below_ne/nw/se/sw. Tile pixels are 128..2048 each (default 640x480), columns controls layout; combined output is capped at 16M pixels/4 MiB PNG. Requests are 256 KiB and non-image metadata 512 KiB; oversize data is not silently truncated. A preview or subset capture cannot establish full-scope visibility.
+여러 시점과 객체 범위를 하나의 PNG로 비교합니다. 작업 카메라·선택·가시성·모델은 유지하며 이미지 파일을 저장합니다. 명시적 객체 필터는 일반 문서 객체를 지원하고 블록 인스턴스·내부 객체는 제외합니다.
+
+반환: PNG 이미지와 image_file, complete 및 타일별 tiles 관찰 결과를 반환합니다. complete는 요청 범위 충족 여부입니다.
 
 Args:
-    views: 1..16 tile objects. direction defaults to current; choices: current, top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode is an optional installed name/GUID (up to 512 characters); label is optional (up to 120 characters). Optional object_ids contains 1..512 distinct top-level GUIDs; omitted/empty IDs use document visibility unless shared object_ids is supplied.
-    width: Tile width in pixels, 128..2048; default 640. Combined image limit also applies.
-    height: Tile height in pixels, 128..2048; default 480. Combined image limit also applies.
-    columns: Optional column count, 1..number of views; omitted uses an automatic grid.
-    expected_model_path: Usually omitted; runtime supplies the bound saved document.
-    model_view_id: Optional listed model viewport GUID used without activating it, including while a Layout/Detail is active.
-    object_ids: Optional common set of 1..4096 distinct top-level GUIDs for all tiles. Do not combine with nonempty tile-level object_ids.
-Returns:
-    PNG with per-tile scope/errors and image_file storage metadata; editor and document-state checks preserve evidence of incomplete or failed capture.
+    views: 타일 객체 1..16개입니다. direction 기본값은 current이며, 선택지는 current, top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw입니다. display_mode는 선택 사항인 설치된 이름/GUID(최대 512자)이며, label도 선택 사항(최대 120자)입니다. 선택 사항인 object_ids에는 서로 다른 최상위 GUID 1..512개를 넣습니다. ID를 생략하거나 비워 두면 공통 object_ids가 제공된 경우를 제외하고 문서 가시성을 사용합니다.
+    width: 타일의 픽셀 너비로, 범위는 128..2048이며 기본값은 640입니다. 결합 이미지 제한도 적용됩니다.
+    height: 타일의 픽셀 높이로, 범위는 128..2048이며 기본값은 480입니다. 결합 이미지 제한도 적용됩니다.
+    columns: 선택 사항인 열 개수이며, 범위는 1..뷰 개수입니다. 생략하면 자동 격자를 사용합니다.
+    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다.
+    model_view_id: 선택 사항인, 목록에 있는 모델 뷰포트 GUID입니다. Layout/Detail이 활성화된 경우를 포함하여 해당 뷰포트를 활성화하지 않고 사용합니다.
+    object_ids: 모든 타일에 공통으로 적용할, 서로 다른 최상위 GUID 1..4096개의 선택 사항인 집합입니다. 비어 있지 않은 타일별 object_ids와 함께 사용하지 않습니다.
 <!-- /instruction:capture_rhino_inspection -->

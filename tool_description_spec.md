@@ -1,11 +1,8 @@
-> 1차 서버 반영: get_policy 선택 조회, 삭제 도구 3개 제거, 연결 선택 기억 및 project_info 안내. 분류·기존 번호는 보존합니다. 설명·출력 예시 전체 재검수는 2차 범위이며, 예시는 실측이 아닙니다.
-
-**DESCRIPTION 간결화와 후속 도구 안내 제안**
-실제 서버에 등록된 description·스키마·반환값은 변경하지 않았다.
+> 현재 서버 등록을 기준으로 DESCRIPTION·TOOL INPUT·TOOL OUTPUT을 대조한 참조 문서입니다. 출력 예시는 실측 응답이 아닙니다.
 
 ## Prefix 명명
 
-문서의 도구명은 유형별 prefix 뒤에 해당 유형 안의 두 자리 순번을 붙인다. 예: connect-01_list_up, connect-02_session. 순번은 각 유형에서 01부터 시작하며, 기존 전체 도구 번호 01–92도 함께 유지한다. 각 도구 아래의 기준 API는 실제 서버 호출명이다. 설명·스키마·출력에서 쓰는 API 이름과 서버 코드는 이번 문서 편집으로 변경하지 않는다.
+문서의 도구명은 유형별 prefix 뒤에 해당 유형 안의 두 자리 순번을 붙인다. 예: connect-01_list_up, connect-02_session. 순번은 각 유형에서 01부터 시작하며, 기존 전체 도구 번호 01–92도 함께 유지한다. 각 도구 아래의 기준 API는 실제 서버 호출명이다. 서버 호출에는 기준 API를 사용합니다. 분류용 prefix는 실제 도구명이 아닙니다.
 
 수정: November 9, 2026 · 기존 묶음을 영어로 명명하고 prefix를 붙이라는 요청
 
@@ -32,9 +29,9 @@
 
 ## 문서 기준
 
-- 확인일: 2026-11-09.
+- 확인일: 2026-11-10.
 - 기준 저장소: 공개 GitHub 저장소 hongikkaan/almond-mcp (MIT License).
-- 현재 대조 기준: main · 098703619e10f68f3721a32033f0da0f6eaf6159. 기존 기준 b2108b2 이후 92개 도구의 description·입력 계약·반환 구현은 바뀌지 않았다. 각 도구의 고정 커밋 근거 링크도 유효하다.
+- 대조 기준: tool-description의 실제 등록 코드·입력 스키마·반환 구현. 공통 도구와 외부 연결 관리 도구를 함께 대조합니다.
 - 버전: almond-mcp 0.7.0rc2, FastMCP 4.1.0, MCP 2.3.0.
 - 총 **89개**: 공통 공개 도구 **85개** + beyond·CoS 외부 연결 관리 도구 **4개**. 내부 상태 확인용 worker_state는 외부 공개 도구가 아니므로 이 목록에 포함하지 않는다.
 - 도구 본문이 실행되지 않는 AST 등록 방식으로 현재 description·inputSchema를 재생성하고, 외부 연결기가 추가하는 connection_id와 관리 도구 4개의 스키마를 적용했다. 배포 중인 Rhino 서버에서 수집한 실측 목록은 아니다.
@@ -42,13 +39,13 @@
 
 ## 읽는 방법
 
-- **DESCRIPTION: 서버 미반영 개편안.** 도구의 역할·선택 기준과 스키마만으로 알 수 없는 핵심 조건을 적는다. 원문 그대로의 인용이 아니며, 기존 전체 설명은 각 도구의 기준 코드에서 확인할 수 있다.
-- **TOOL INPUT: 현재 코드의 inputSchema.** 필드명·타입·필수 목록·기본값·제약은 그대로이며 description 값만 한국어로 번역했다. 필요한 경우 스키마 아래에 **입력 보충 설명(문서용)**을 붙인다. 이 설명은 실제 전달되는 스키마에 포함되지 않는다.
+- **DESCRIPTION: 서버 등록 설명.** 도구의 역할, 실행 조건과 반환값 해석을 적습니다. 입력별 형식·선택지는 TOOL INPUT에 있습니다.
+- **TOOL INPUT: 현재 서버의 inputSchema.** 필드명·타입·필수 목록·기본값·description을 등록 코드에서 생성합니다. 문서용 입력 보충 설명은 해당 schema 아래에 표시합니다.
 - **TOOL OUTPUT: 현재 코드 기반 예시.** 따옴표 안의 키·값은 반환 데이터 영역이며, **// 뒤는 실제 응답에 없는 독자용 주석**이다. 서버가 반환하는 안내문도 데이터 영역에 포함하되 영어 설명은 한국어로 번역했다. 실제 응답 언어를 바꿨다는 뜻은 아니다. 주석을 붙인 표기는 JSONC다.
 - **후속 안내 제안 · 서버 미반영:** 실제 출력 예시와 분리한 next_step_guide 문구다. 기존 next_step·next_tool과 같은 현재 반환 필드를 교체하거나 이미 구현된 필드로 표시하지 않는다. 필요한 경우에만 후속 역할을 안내하며, 후속 호출의 입력 형식은 해당 TOOL INPUT을 따른다.
 - 예시는 실측 응답이 아니다. 이름·ID·수치·경로는 예시 값이고, …와 주석에 표시한 상세 객체·배열은 축약이다. MCP 포장·이미지 바이너리는 생략했다. API·필드명·상태값 등 기술 식별자는 번역하지 않았다.
 - **연계 조건:** 반환 상태와 작업 목적에 맞는 안내만 사용한다. ID를 생략하는 조회는 필요한 식별자·상세 그룹을 요청해야 하며, 재출력하지 않는 ID는 기존 입력에서 보관한다. 참고값·경로·자산 ID를 확인 없이 객체 GUID나 다른 단위의 값으로 넘기지 않는다. 안내 자체가 실행·검증·게시 권한을 뜻하지 않는다.
-- 근거는 main의 등록 코드, 반환 투영·런타임 구현과 재생성한 92개 inputSchema다. Rhino 연결이나 모델 변경 도구 실행은 하지 않았으며, 실행 성공을 검증한 문서는 아니다.
+- 근거는 tool-description의 등록 코드, 반환 투영·런타임 구현과 재생성한 89개 inputSchema다. Rhino 연결이나 모델 변경 도구 실행은 하지 않았으며, 실행 성공을 검증한 문서는 아니다.
 
 # Connect
 
@@ -62,11 +59,13 @@
 
 ### DESCRIPTION
 
-연결 대상으로 공개된 Rhino 문서와 이 클라이언트의 연결·시작 시도를 조회합니다. **Rhino를 새로 실행하지 않습니다.** 기존 Rhino를 연결 대상으로 공개하려면 저장된 문서에서 almondconnect를 실행합니다.
+연결 가능한 Rhino 문서, 이 클라이언트의 연결과 시작 요청을 조회합니다. 저장한 문서에서 almondconnect를 실행하면 연결 대상으로 나타납니다.
+
+반환: targets의 host_id·model_path로 connect를 호출합니다. connections는 독립 연결 목록, selected_connection_id는 기본 호출 대상, starts는 request_id별 시작 상태입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -85,7 +84,8 @@
 {
   "instructions": "초기화는 도구를 공개하기만 하며 Rhino나 모델링 워커를 시작하지 않습니다. …", // 서버가 실제 반환하는 연결 안내문. 값은 앞부분만 발췌
   "targets": [], // 대상별 host_id/model_path를 connect에 함께 사용. state가 in_use/unavailable이면 연결 후보가 아님
-  "connections": [], // 이 클라이언트의 연결. 각 활성 항목의 connection_id를 업무 도구에 재사용
+  "connections": [], // 이 클라이언트의 독립 연결 목록
+  "selected_connection_id": null, // 기본 호출 대상. connect/start_session 성공으로 선택하며 해제하면 null
   "starts": [] // 명시적 시작 시도만 기록. waiting 시도는 같은 request_id/model_path로 start_session을 이어감
 }
 ```
@@ -103,11 +103,13 @@
 
 ### DESCRIPTION
 
-목록에서 확인한 Rhino 문서 하나에 독립 슬롯·세션으로 연결합니다. **같은 폴더의 모델은 데이터베이스와 산출물 루트를 공유합니다.**
+목록의 Rhino 문서에 연결하거나 기존 연결을 다시 선택합니다. 이후 호출은 선택한 연결을 사용하며 다른 연결도 유지됩니다. 같은 폴더의 모델은 데이터베이스와 산출물 루트를 공유합니다.
+
+반환: 선택한 연결의 connection_id, state, model_path, slot, pid, artifact_dir와 in_flight를 반환합니다. 이후 호출에서는 connection_id를 생략할 수 있습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -115,11 +117,11 @@
   "properties": {
     "host_id": {
       "type": "string",
-      "description": "대상 Rhino 프로세스에 대해 list_connections가 연결 대상으로 공개한 정확한 host_id입니다."
+      "description": "list_connections.targets에서 선택한 Rhino 프로세스의 host_id입니다."
     },
     "model_path": {
       "type": "string",
-      "description": "목록에 표시된 저장된 모델의 정확한 경로입니다."
+      "description": "같은 연결 대상에 표시된 저장 모델의 정확한 model_path입니다."
     }
   },
   "required": [
@@ -136,7 +138,7 @@
 
 ```json
 {
-  "connection_id": "example-connection", // 이 연결의 업무 도구 및 disconnect에 전달
+  "connection_id": "example-connection", // 선택한 연결. 이후 호출에서 생략 가능하며 다른 연결을 지정할 때 사용
   "host_id": "example-host", // Rhino 호스트 ID
   "state": "ready", // 현재 상태
   "reason": "", // 상태 사유 또는 오류 내용. 없으면 빈 문자열
@@ -161,11 +163,13 @@
 
 ### DESCRIPTION
 
-저장된 모델을 화면에 표시되는 새 Rhino에서 열고 연결합니다. Rhino를 저장하거나 닫지 않습니다. 시작 확인이 지연되면 **같은 요청 ID로 확인**하며, 새 ID는 별도의 Rhino를 시작합니다.
+저장된 .3dm을 새 Rhino 창에서 열고 연결을 선택합니다. 시작 확인이 지연되면 같은 request_id로 조회합니다. 새 ID는 별도의 Rhino를 시작합니다.
+
+반환: request_id와 시작 상태를 반환합니다. ready이면 connection_id와 연결된 문서 정보를 포함합니다. 진행 중인 요청은 같은 request_id로 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -173,13 +177,13 @@
   "properties": {
     "model_path": {
       "type": "string",
-      "description": "기존에 저장된 로컬 .3dm의 절대 경로입니다. 저장하지 않고 엽니다."
+      "description": "새 Rhino에서 열 저장된 로컬 .3dm 파일의 절대 경로입니다."
     },
     "request_id": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "description": "이번 명시적인 시작 시도의 고유 ID입니다. 같은 시도를 확인할 때는 변경하지 않습니다."
+      "description": "이 시작 요청의 고유 ID입니다. 같은 시작 시도를 확인할 때 그대로 재사용합니다."
     }
   },
   "required": [
@@ -196,7 +200,7 @@
 
 ```json
 {
-  "connection_id": "example-connection", // 연결 성공 후 업무 도구에 전달
+  "connection_id": "example-connection", // 연결 성공 시 기본 호출 대상으로 선택됨
   "host_id": "example-host", // Rhino 호스트 ID
   "state": "ready", // 현재 상태
   "reason": "", // 상태 사유 또는 오류 내용. 없으면 빈 문자열
@@ -222,11 +226,13 @@
 
 ### DESCRIPTION
 
-연결을 해제합니다. **Rhino를 닫거나 저장하지 않으며**, 완료가 확인되지 않은 네이티브 작업의 잠금은 남을 수 있습니다.
+선택한 연결의 호출이 끝난 뒤 연결을 해제합니다. Rhino 창과 문서는 유지됩니다. 완료가 확인되지 않은 네이티브 작업의 잠금은 남을 수 있습니다. 이후 작업할 연결은 connect로 선택합니다.
+
+반환: connection_id, worker_closed, rhino_closed, released와 reason으로 해제 결과를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -234,11 +240,11 @@
   "properties": {
     "connection_id": {
       "type": "string",
-      "description": "connect 또는 list_connections가 반환한 이 클라이언트의 활성 connection_id입니다. 해당 연결만 해제합니다."
+      "minLength": 1,
+      "description": "생략하면 선택한 연결을 해제합니다. 다른 연결을 해제하려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "required": [
-  ],
+  "required": [],
   "additionalProperties": false
 }
 ```
@@ -272,11 +278,13 @@
 
 ### DESCRIPTION
 
-필요한 프로젝트 경로·등록 파일·현재 문서·작업 공간 정보를 읽습니다. 확인한 정보는 재사용하되 **문서 변경이나 재연결 뒤에는 갱신**합니다. 등록 파일 목록은 디스크 존재 증명이 아니며, 조회가 Plan을 선택하거나 모델을 저장하지 않습니다.
+프로젝트 경로, 등록 파일, 연결된 문서와 현재 산출물 작업 공간을 조회합니다. 문서를 변경하거나 다시 연결한 뒤에는 정보를 갱신합니다.
+
+반환: 요청한 project·document·locations·runtime 섹션과 next_step_guide를 반환합니다. project.files는 등록된 파일 연결 정보, locations.artifact_dir는 현재 작업 공간입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -300,7 +308,7 @@
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false이면 부가 ID를 생략합니다. 이후 도구에 반환된 ID가 필요할 때 true를 요청합니다. 추가 상세 그룹을 선택하는 옵션은 아닙니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다."
     },
     "files_limit": {
       "default": 50,
@@ -318,9 +326,7 @@
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -367,12 +373,13 @@
 
 ### DESCRIPTION
 
-BASIC 설계·검증 지침과 사용 가능한 공통 도구 이름을 조회합니다. 
+설계·검증, metadata, Rhino scripting, RhinoCode 지침 중 필요한 내용을 조회합니다. policy를 생략하면 BASIC 지침과 공통 도구 이름, 선택 가능한 policy 목록을 반환합니다.
 
-policy를 생략하면 기본 지침과 도구명·policy 목록을 반환합니다. metadata, rhino_scripting, rhinocode를 선택하면 해당 지침을 반환합니다.
+반환: status, guide_version, selected_policy, available_policies와 선택한 내용을 반환합니다. basic은 text·tools, metadata는 policy, rhino_scripting은 scripting_skill, rhinocode는 text를 사용하며 source_refs가 출처를 표시합니다.
+
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -393,7 +400,7 @@ policy를 생략하면 기본 지침과 도구명·policy 목록을 반환합니
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "Optional connection override from list_connections. Omit to use the connection selected by connect or start_session."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -437,36 +444,48 @@ policy를 생략하면 기본 지침과 도구명·policy 목록을 반환합니
 
 ### DESCRIPTION
 
-관련 Plan을 묶는 관리 단위인 Phase를 생성합니다. 파일 연결과 의존성은 기록만 하며, 모델·Plan을 만들거나 **의존성에 따라 실행을 강제하지 않습니다.**
+관련 Plan을 묶는 Phase를 생성하고 이름, 설명, 파일 연결과 관계를 기록합니다.
+
+반환: status와 phase.phase_id를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
-  "additionalProperties": false, // phase를 create하는데 이 값이 왜 필요한지?
+  "additionalProperties": false,
   "properties": {
     "name": {
       "type": "string",
-      "description": "작업 구성에 사용할 비어 있지 않은 Phase 이름입니다."
+      "description": "Phase 이름을 문자열로 입력합니다. 빈 문자열은 사용할 수 없습니다."
     },
     "description": {
       "default": "",
       "type": "string",
-      "description": "선택 사항인 프로젝트 단계 또는 작업 묶음에 대한 설명입니다."
+      "description": "Phase의 목적이나 작업 범위를 문자열로 입력합니다."
     },
     "file_name": {
       "default": "",
-      "type": "string", // array로, file명.3dm으로. 
-      "description": "phase가 속한 라이노 파일명을 기입, array입력 가능. 저장된 연결 관계이며 파일 작업이 아닙니다.??"
+      "type": "string",
+      "description": "Phase가 속한 Rhino 파일명을 폴더 경로 없이 문자열로 입력합니다. 예: model.3dm."
     },
-    "project_file_id": { // 불필요
+    "project_file_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "등록된 프로젝트 파일 ID입니다. 같은 파일명이 여러 개일 때 project_info(sections=[\"project\"], include_ids=true)에서 선택합니다."
     },
     "status": {
       "default": "pending",
       "type": "string",
-      "description": "초기 워크플로 상태입니다. pending, running, paused, completed, failed 또는 blocked를 사용할 수 있습니다."
+      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다."
     },
     "depends_on": {
       "anyOf": [
@@ -481,7 +500,7 @@ policy를 생략하면 기본 지침과 도구명·policy 목록을 반환합니
         }
       ],
       "default": null,
-      "description": "설명을 좆같이 써놨더라고? 필요한 말만 써라. "
+      "description": "의존하는 Phase ID의 배열입니다. 각 값은 phase_로 시작합니다. 생략하면 빈 목록입니다."
     },
     "previous_id": {
       "anyOf": [
@@ -493,8 +512,7 @@ policy를 생략하면 기본 지침과 도구명·policy 목록을 반환합니
         }
       ],
       "default": null,
-      "description": "앞선 Phase ID 하나입니다(phase_ 접두사). depends_on 관계와 별개입니다. 
-      갱신 시 생략/null이면 유지하고 빈 문자열이면 지웁니다. 실행을 제한하거나 완료를 요구하지 않고 연속성을 기록합니다." // 이 line문장은 꼭 필요한 건가??
+      "description": "이전 Phase ID 하나를 입력합니다. 값은 phase_로 시작합니다."
     },
     "connection_id": {
       "type": "string",
@@ -535,11 +553,13 @@ policy를 생략하면 기본 지침과 도구명·policy 목록을 반환합니
 
 ### DESCRIPTION
 
-목표와 작업 목적에 맞는 템플릿으로 Plan과 Step을 생성합니다. 기존에 선택한 템플릿을 존중하며, **생성만으로 작업 공간을 선택하거나 작업을 실행하지 않습니다.** 시공 상세 템플릿이 해당 모델링에 대한 사용자 요청을 대신하지는 않습니다.
+목표와 작업 목적에 맞는 템플릿으로 Plan과 Step을 생성합니다. 작업 공간은 set_working_plan으로 선택하고 회차는 execute_looping으로 시작합니다. 시공 상세 작업은 사용자가 요청한 범위에서 수행합니다.
+
+반환: status와 plan.plan_id·loop_no·revision을 반환합니다. 최초 loop_no는 0입니다. 제목·상태와 Step ID는 Plan 상세에서 조회합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -623,7 +643,7 @@ policy를 생략하면 기본 지침과 도구명·policy 목록을 반환합니
         }
       ],
       "default": null,
-      "description": "앞선 Plan ID 하나입니다(plan_ 접두사). depends_on 관계와 별개입니다. 갱신 시 생략/null이면 유지하고 빈 문자열이면 지웁니다. 실행을 제한하거나 완료를 요구하지 않고 연속성을 기록합니다."
+      "description": "이전 Plan ID 하나를 입력합니다. 값은 plan_으로 시작합니다."
     },
     "parent_plan": {
       "anyOf": [
@@ -704,6 +724,8 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
 - 이전 결과는 현재에도 유효한지 확인한 뒤 재사용합니다. 사용할 이전 파일 경로는 `input_refs`에, 이번 Loop에서 새로 만들거나 수정한 결과 경로는 `output_refs`에 기록합니다.
 - Loop에는 별도 업무 상태가 없고, 더 높은 Loop가 시작되면 이전 Loop는 읽기 전용 참고자료입니다. Step 상태는 Plan 상태와 독립적입니다. 모든 Step을 마치거나 회차를 보고했더라도 Plan 완료는 사용자가 결정하며, 그 결정 후에만 Plan 상태를 completed로 기록합니다.
 - 회차가 끝나면 목표, 바뀐 내용, 판단을 뒷받침하는 시각 자료, 검증 결과와 남은 선택지를 사용자에게 보고합니다. 질문은 관련 근거와 연결하고 보고는 간결하게 하며, 이미지 수를 고정하지 않습니다.
+
+반환: 현재 loop_no·revision, Step 순서, 이전 회차, 선택한 작업 공간과 artifact_dir를 반환합니다. Loop에는 별도 업무 상태가 없으며 plan_status와 steps[].status를 확인합니다.
 
 ### TOOL INPUT
 
@@ -788,11 +810,13 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
 
 ### DESCRIPTION
 
-%% 표현이 존나 모호해서 툴 잘못 이해할 설명임. 하 씨발... 1. 조회도구이다 2. phsae/plan/step 중에서 조회할 유형을 하나만 선택해서 실행할 수 있다 3. 상세내용(공통이 아닌 값들)조회는 true/false선택해라- 이렇게만 적으면 될 것을 어휴 씨발.....그리고 뭐 백업도구 어쩌고 이런 필요 이상의 설명은 왜 붙이는데 %%
+Phase, Plan 또는 Step 하나를 조회합니다. phase_id로 Phase를, plan_id로 Plan을, plan_id와 step_id로 Step을 선택합니다. Plan의 Holon 목록은 include_holons=true로 포함합니다. loop_no와 revision으로 과거 기록을 선택할 수 있습니다.
+
+반환: 공통 id·type·status와 선택한 phase, plan 또는 step을 반환합니다. status는 pending/running/paused/completed/failed/blocked이며 조회 실패는 error입니다. Plan·Step의 read_only=true는 과거 기록입니다. Plan의 steps는 요약, Step의 input_refs·output_refs는 근거 문자열입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -848,9 +872,7 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -904,11 +926,13 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
 
 ### DESCRIPTION
 
-프로젝트의 Phase 목록을 조회해 Phase → Plan → Step으로 작업을 탐색합니다. 저장된 구성과 상태를 보여 주며 **설계 완료를 검증하지 않습니다.**
+프로젝트의 Phase 목록과 각 Phase의 상태·Plan 수를 조회합니다.
+
+반환: phases에 phase_id·name·status·plan_count·depends_on·previous_id를 반환합니다. total·limit·truncated가 반환 범위를 표시합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -940,9 +964,7 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -974,11 +996,13 @@ Plan의 다음 Loop를 시작하거나 최신 Loop를 재개하여 작업 맥락
 
 ### DESCRIPTION
 
-Plan·Loop의 저장 리비전 목록과 변경 작업을 조회합니다. 이력은 Plan 메타데이터와 Step 기록이며, **Rhino 형상 백업이나 모든 스크립트 실행 기록은 아닙니다.**
+Plan과 Loop의 저장 리비전 목록, 변경 작업과 관련 Step을 조회합니다. 반환된 loop_no와 revision을 함께 사용해 해당 기록을 읽습니다.
+
+반환: revisions에 loop_no·revision·operation·step_id를 반환합니다. Plan 전체 변경의 step_id는 null입니다. audit 그룹은 created_at을 추가합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -1066,11 +1090,13 @@ Plan·Loop의 저장 리비전 목록과 변경 작업을 조회합니다. 이�
 
 ### DESCRIPTION
 
-프로젝트 또는 특정 Phase·Scene·상태에 해당하는 Plan의 간략한 목록을 조회합니다. 저장된 업무 상태는 **설계 완료의 증명이 아닙니다.**
+프로젝트 또는 특정 Phase·Scene·상태에 해당하는 Plan 목록을 조회합니다.
+
+반환: plans에 plan_id·title·scope·status·loop_no·revision을 반환합니다. total·limit·truncated가 반환 범위를 표시합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -1089,7 +1115,7 @@ Plan·Loop의 저장 리비전 목록과 변경 작업을 조회합니다. 이�
     "status": {
       "default": "",
       "type": "string",
-      "description": "선택 사항인 워크플로 상태 필터입니다. 비어 있으면 모든 상태를 포함합니다."
+      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 빈 문자열이면 모든 상태를 포함합니다."
     },
     "limit": {
       "default": 50,
@@ -1102,9 +1128,7 @@ Plan·Loop의 저장 리비전 목록과 변경 작업을 조회합니다. 이�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -1136,11 +1160,13 @@ Plan·Loop의 저장 리비전 목록과 변경 작업을 조회합니다. 이�
 
 ### DESCRIPTION
 
-Plan이 소유한 산출물 폴더를 이름 변경하거나 이전 위치에서 옮기고 현재 참조를 갱신합니다. **실행된 Loop가 있거나 과거 Loop가 해당 파일을 참조하면 변경하지 않으며**, 기존 대상 폴더를 덮어쓰지 않습니다.
+Plan 산출물 폴더의 이름이나 위치를 바꾸고 현재 참조를 갱신합니다. 실행된 Loop나 과거 Loop의 파일 참조가 있으면 거부하며, 대상 폴더는 새 경로여야 합니다.
+
+반환: 새 artifact_dir와 previous_artifact_dir를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -1193,11 +1219,13 @@ Plan이 소유한 산출물 폴더를 이름 변경하거나 이전 위치에서
 
 ### DESCRIPTION
 
-기존 Plan과 선택적인 Step을 이 연결의 산출물 작업 공간으로 선택합니다. 최신 Loop만 선택하며, 새 회차를 시작하거나 Step을 실행·완료하지 않습니다. 다른 연결이 회차를 진행했다면 **다시 선택해야 산출물을 쓸 수 있습니다.** 기존 tmp 계열 Plan 폴더는 `rename_artifact_folder`로 먼저 이전합니다.
+Plan과 선택한 Step을 이 연결의 산출물 작업 공간으로 지정합니다. 최신 Loop만 선택할 수 있습니다. 다른 연결이 다음 회차를 시작하면 다시 선택해야 파일을 쓸 수 있습니다. 기존 tmp 계열 폴더는 rename_artifact_folder로 먼저 이전합니다.
+
+반환: plan_id·step_id·loop_no·revision, 현재 artifact_dir와 Plan 루트 plan_artifact_dir를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -1271,11 +1299,13 @@ Plan이 소유한 산출물 폴더를 이름 변경하거나 이전 위치에서
 
 ### DESCRIPTION
 
-Phase의 이름·설명·상태·파일 연결과 관계를 수정합니다. 의존성은 실행 순서를 강제하지 않으며, 모델 파일을 이동하거나 다른 항목의 상태를 바꾸지 않습니다. 일부 패치 항목이 건너뛰어질 수 있으므로 **적용 결과를 확인**합니다.
+Phase의 이름, 설명, 상태, 파일 연결과 관계를 수정합니다. 변경 결과와 건너뛴 패치 항목을 응답에서 확인합니다.
+
+반환: changed와 phase, 건너뛴 항목의 issues를 반환합니다. status는 success, 변경과 건너뜀이 함께 있으면 partial_success, 건너뜀이 있고 변경이 없으면 no_change입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -1343,23 +1373,23 @@ Phase의 이름·설명·상태·파일 연결과 관계를 수정합니다. 의
         }
       ],
       "default": null,
-      "description": "선택적으로 pending, running, paused, completed, failed 또는 blocked를 사용할 수 있습니다. 생략/null이면 상태를 유지합니다."
+      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
     },
     "depends_on": {
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "추가/삭제할 문자열 값입니다. 생략하거나 빈 배열이면 해당 작업을 수행하지 않습니다.",
+          "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
           "properties": {
             "add": {
-              "description": "추가할 문자열 값입니다. 이미 존재하거나 중복되거나 유효하지 않은 항목은 보고하고 건너뜁니다. remove에도 있는 값은 양쪽 작업에서 모두 건너뜁니다.",
+              "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
               "items": {
                 "type": "string"
               },
               "type": "array"
             },
             "remove": {
-              "description": "삭제할, 앞서 관찰한 문자열 값입니다. 존재하지 않거나 중복되거나 유효하지 않은 항목은 보고하고 건너뜁니다. 생략하거나 빈 배열이면 변경하지 않습니다.",
+              "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
               "items": {
                 "type": "string"
               },
@@ -1385,7 +1415,7 @@ Phase의 이름·설명·상태·파일 연결과 관계를 수정합니다. 의
         }
       ],
       "default": null,
-      "description": "앞선 Phase ID 하나입니다(phase_ 접두사). depends_on 관계와 별개입니다. 갱신 시 생략/null이면 유지하고 빈 문자열이면 지웁니다. 실행을 제한하거나 완료를 요구하지 않고 연속성을 기록합니다."
+      "description": "이전 Phase ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
     },
     "connection_id": {
       "type": "string",
@@ -1429,11 +1459,13 @@ Phase의 이름·설명·상태·파일 연결과 관계를 수정합니다. 의
 
 ### DESCRIPTION
 
-Plan의 목표·분류·대상·관계·상태와 산출물 참조를 수정합니다. 형상은 바꾸지 않으며 Plan 상태는 Step 상태와 독립적입니다. **Plan 완료는 사용자가 결정**하고, 일부 패치 항목은 건너뛰어질 수 있습니다.
+Plan의 제목, 목표, Phase·Scene·Holon 관계, 상태와 산출물 참조를 수정합니다. Plan 상태는 Step 상태와 별도로 기록하며 completed는 사용자의 완료 결정 후 지정합니다. 실행된 Loop에서는 현재 loop_no와 expected_revision을 함께 입력합니다.
+
+반환: changed, plan.plan_id·status·revision, issues를 반환합니다. success/partial_success/no_change를 구분하며 실제 변경이 있을 때만 리비전이 증가합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -1507,23 +1539,23 @@ Plan의 목표·분류·대상·관계·상태와 산출물 참조를 수정합�
         }
       ],
       "default": null,
-      "description": "선택 사항인 오래된 상태 검사이며 새 리비전 번호가 아닙니다. 실행이 시작된 후에는 관찰한 현재 revision과 loop_no를 함께 사용합니다. 일치하지 않으면 변경을 거부합니다. 일반적으로 생략하며, 리비전은 서버가 할당합니다."
+      "description": "현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다."
     },
     "depends_on": {
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "추가/삭제할 문자열 값입니다. 생략하거나 빈 배열이면 해당 작업을 수행하지 않습니다.",
+          "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
           "properties": {
             "add": {
-              "description": "추가할 문자열 값입니다. 이미 존재하거나 중복되거나 유효하지 않은 항목은 보고하고 건너뜁니다. remove에도 있는 값은 양쪽 작업에서 모두 건너뜁니다.",
+              "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
               "items": {
                 "type": "string"
               },
               "type": "array"
             },
             "remove": {
-              "description": "삭제할, 앞서 관찰한 문자열 값입니다. 존재하지 않거나 중복되거나 유효하지 않은 항목은 보고하고 건너뜁니다. 생략하거나 빈 배열이면 변경하지 않습니다.",
+              "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
               "items": {
                 "type": "string"
               },
@@ -1549,7 +1581,7 @@ Plan의 목표·분류·대상·관계·상태와 산출물 참조를 수정합�
         }
       ],
       "default": null,
-      "description": "선택적으로 pending, running, paused, completed, failed 또는 blocked를 사용할 수 있습니다. 생략/null이면 유지합니다."
+      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
     },
     "artifact_refs": {
       "anyOf": [
@@ -1588,7 +1620,7 @@ Plan의 목표·분류·대상·관계·상태와 산출물 참조를 수정합�
         }
       ],
       "default": null,
-      "description": "앞선 Plan ID 하나입니다(plan_ 접두사). depends_on 관계와 별개입니다. 갱신 시 생략/null이면 유지하고 빈 문자열이면 지웁니다. 실행을 제한하거나 완료를 요구하지 않고 연속성을 기록합니다."
+      "description": "이전 Plan ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
     },
     "parent_plan": {
       "anyOf": [
@@ -1676,11 +1708,13 @@ Plan의 목표·분류·대상·관계·상태와 산출물 참조를 수정합�
 
 ### DESCRIPTION
 
-Plan의 Step 상태와 입력·출력 근거를 기록합니다. 근거 문자열을 검증하거나 작업을 실행하지 않으며 **Plan 상태도 바꾸지 않습니다.** 패치가 일부만 적용될 수 있으므로 적용 여부와 건너뛴 항목을 확인합니다.
+Step의 상태와 입력·출력 근거를 기록합니다. Plan 상태는 별도로 유지됩니다. 실행된 Loop에서는 현재 loop_no와 expected_revision을 함께 입력하고, 응답에서 적용 결과와 건너뛴 항목을 확인합니다.
+
+반환: changed, plan과 step의 ID·상태, plan.revision, issues를 반환합니다. success/partial_success/no_change를 구분합니다. issues는 field·operation·index·value·reason을 포함합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -1704,23 +1738,23 @@ Plan의 Step 상태와 입력·출력 근거를 기록합니다. 근거 문자�
         }
       ],
       "default": null,
-      "description": "선택적으로 pending, running, paused, completed, failed 또는 blocked를 사용할 수 있습니다. 생략/null이면 유지합니다. Plan 상태는 변경하지 않습니다."
+      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
     },
     "input_refs": {
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "추가/삭제할 문자열 값입니다. 생략하거나 빈 배열이면 해당 작업을 수행하지 않습니다.",
+          "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
           "properties": {
             "add": {
-              "description": "추가할 문자열 값입니다. 이미 존재하거나 중복되거나 유효하지 않은 항목은 보고하고 건너뜁니다. remove에도 있는 값은 양쪽 작업에서 모두 건너뜁니다.",
+              "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
               "items": {
                 "type": "string"
               },
               "type": "array"
             },
             "remove": {
-              "description": "삭제할, 앞서 관찰한 문자열 값입니다. 존재하지 않거나 중복되거나 유효하지 않은 항목은 보고하고 건너뜁니다. 생략하거나 빈 배열이면 변경하지 않습니다.",
+              "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
               "items": {
                 "type": "string"
               },
@@ -1740,17 +1774,17 @@ Plan의 Step 상태와 입력·출력 근거를 기록합니다. 근거 문자�
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "추가/삭제할 문자열 값입니다. 생략하거나 빈 배열이면 해당 작업을 수행하지 않습니다.",
+          "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
           "properties": {
             "add": {
-              "description": "추가할 문자열 값입니다. 이미 존재하거나 중복되거나 유효하지 않은 항목은 보고하고 건너뜁니다. remove에도 있는 값은 양쪽 작업에서 모두 건너뜁니다.",
+              "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
               "items": {
                 "type": "string"
               },
               "type": "array"
             },
             "remove": {
-              "description": "삭제할, 앞서 관찰한 문자열 값입니다. 존재하지 않거나 중복되거나 유효하지 않은 항목은 보고하고 건너뜁니다. 생략하거나 빈 배열이면 변경하지 않습니다.",
+              "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
               "items": {
                 "type": "string"
               },
@@ -1776,7 +1810,7 @@ Plan의 Step 상태와 입력·출력 근거를 기록합니다. 근거 문자�
         }
       ],
       "default": null,
-      "description": "선택 사항인 오래된 상태 검사이며 새 리비전 번호가 아닙니다. 실행이 시작된 후에는 관찰한 현재 revision과 loop_no를 함께 사용합니다. 일치하지 않으면 변경을 거부합니다. 일반적으로 생략하며, 리비전은 서버가 할당합니다."
+      "description": "현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다."
     },
     "loop_no": {
       "anyOf": [
@@ -1844,11 +1878,13 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
 
 ### DESCRIPTION
 
-중첩 블록 구조와 특정 배치 경로의 공유 정의 영향을 읽습니다. 블록 내부를 편집하기 전에는 영향 범위와 실제 편집기 상태를 확인합니다. **정의 구성원 ID나 후보 ID는 독립 편집 대상·편집기 소유 증거가 아니며**, 불완전한 관찰을 전체 영향으로 단정하지 않습니다.
+중첩 블록의 정의·배치 계층과 선택한 배치 경로의 공유 정의 영향을 조회합니다. 내부 편집 전에는 현재 편집기 상태와 영향 범위를 확인합니다. 정의 구성원·후보 ID는 관찰용이며 변경 도구가 지원하는 대상인지 별도로 확인합니다.
+
+반환: mode·document·data에 계층 또는 경로 관찰을 반환합니다. 완전성·경고를 확인하고 편집 대상으로 사용할 ID는 현재 편집 컨텍스트와 대조합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -1871,7 +1907,7 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "필요할 때 ID를 포함합니다. 전달한 대상 ID는 반복해서 표시하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다."
     },
     "connection_id": {
       "type": "string",
@@ -1928,11 +1964,13 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
 
 ### DESCRIPTION
 
-Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 관찰합니다. 편집기에 진입하거나 확정·취소한 뒤에는 **ID와 CRC를 새로 확인**합니다. 정의 구성원이나 관찰 가능한 편집기 작업 ID가 모든 변경 도구의 대상인 것은 아니며, 현재 면·교차 수정은 편집기 밖에서 다시 관찰한 문서 객체를 사용합니다.
+Rhino 객체 속성, 그룹·블록 계층과 Brep 면을 조회합니다. 편집기에 진입하거나 확정·취소한 뒤에는 ID와 geometry_crc를 다시 관찰합니다. 면·교차 편집에는 편집기 밖의 문서 객체가 필요합니다.
+
+반환: objects, matched_count·offset·limit·next_offset, snapshot·editing·complete를 반환합니다. geometry_crc는 후속 면 편집의 변경 검사 값입니다. 관찰 이미지가 함께 반환될 수 있습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -1994,7 +2032,7 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "객체/그룹/배치 인스턴스 식별 정보를 포함합니다. 기본값은 false입니다. id 또는 faces 필드를 명시하면 식별 정보도 활성화됩니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다."
     },
     "result_mode": {
       "default": "objects",
@@ -2087,9 +2125,7 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -2146,11 +2182,13 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
 
 ### DESCRIPTION
 
-현재 Rhino 문서의 속성, 편집 상태와 사용 가능한 뷰·디스플레이 모드를 **필요한 범위만 읽습니다**. 관찰 불가 값은 경고와 함께 null로 반환하며, 객체 형상이나 화면의 실제 가시성을 검증하지는 않습니다.
+Rhino 문서 속성, 편집 상태, 뷰와 디스플레이 모드를 필요한 범위만 조회합니다. 관찰할 수 없는 값은 null과 warnings로 표시합니다.
+
+반환: 요청한 섹션과 warnings를 반환합니다. 문서 단위·편집기 상태·뷰 ID는 해당 섹션의 값으로 확인하며 관찰 이미지가 함께 반환될 수 있습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -2169,12 +2207,12 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
         }
       ],
       "default": null,
-      "description": "선택 사항인 섹션 이름 목록입니다. 생략하면 document, named_views, layouts 및 display_modes를 요청합니다."
+      "description": "document, viewport, editor, display_modes, named_views, layouts, viewports 중 필요한 항목의 배열입니다. 생략하면 document, named_views, layouts, display_modes를 조회합니다. []는 status와 warnings만 반환합니다."
     },
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "항상 식별 정보가 제공되는 Named View/Layout/Display Mode 목록 외의 식별 정보도 포함합니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다."
     },
     "include_editor_details": {
       "default": false,
@@ -2184,12 +2222,10 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -2232,11 +2268,13 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
 
 ### DESCRIPTION
 
-현재 Rhino 선택 객체와 그 상위 Holon을 참조하는 저장된 Plan을 찾습니다. 객체 소유 관계는 현재 상태로 확인하지만 **Plan 관계는 저장 정보**이며, Step별 편집 대상이나 편집 승인을 뜻하지 않습니다. 저장된 문서와 검증 가능한 일반 모델 컨텍스트가 필요합니다.
+현재 Rhino 선택 객체와 상위 Holon을 참조하는 Plan을 찾습니다. 객체 소유 관계는 현재 문서에서, Plan 관계는 저장된 기록에서 읽습니다. 저장된 일반 모델 컨텍스트가 필요합니다.
+
+반환: objects·holons·plans와 총수·truncated, ownership_live_verified·references_live_verified를 반환합니다. 현재 소유 관계와 저장된 Plan 참조를 구분합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -2270,12 +2308,10 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -2315,11 +2351,13 @@ Rhino 객체의 실제 속성·그룹·블록 계층·Brep 면을 변경 없이 
 
 ### DESCRIPTION
 
-Plan에 명시적으로 등록된 Holon 대상 집합을 읽습니다. **빈 대상은 그대로 유지**하고 Scene이나 Step으로 확장하지 않습니다. 저장된 식별 정보이며 현재 구성원·형상이나 편집 권한을 검증하지는 않습니다.
+Plan에 등록된 Holon 대상 집합을 조회합니다. 빈 대상은 빈 목록으로 반환합니다. 현재 구성원과 형상은 후속 관찰에서 확인합니다.
+
+반환: plan_id·step_id·revision, scene_ids·holon_ids·holons와 live_verified·source를 반환합니다. Holon ID는 등록된 대상 참조입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -2352,7 +2390,7 @@ Plan에 명시적으로 등록된 Holon 대상 집합을 읽습니다. **빈 대
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -2401,11 +2439,13 @@ Plan에 명시적으로 등록된 Holon 대상 집합을 읽습니다. **빈 대
 
 ### DESCRIPTION
 
-Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메라 기록을 생성합니다. 활성 카메라·디스플레이를 변경하고 **출력 파일을 쓰거나 덮어쓰며**, 카메라 복원은 보장되지 않습니다. AI 영상 생성이 아니며 깊이는 실제 거리값이 아닌 8비트 회색조입니다.
+Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기록을 저장합니다. 활성 카메라·디스플레이와 출력 파일이 변경되며 카메라 복원은 실패할 수 있습니다. 깊이 출력은 8비트 회색조입니다.
+
+반환: frames_requested·frames_captured·errors, out_dir·camera_json·videos와 document 정보를 반환합니다. videos는 인코딩을 사용할 수 없으면 null일 수 있습니다. 프레임 파일은 rgb/edge/depth 폴더, 카메라 기록은 camera.json에 저장됩니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -2413,7 +2453,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
   "properties": {
     "shot": {
       "type": "string",
-      "description": "orbit, track 또는 keyframes 샷을 설명하는 JSON 문자열입니다. 좌표에는 문서 단위를, 렌즈 값에는 밀리미터를 사용합니다. 이 도구 설명의 shot 예시를 참고합니다."
+      "description": "카메라 경로를 담은 JSON 문자열입니다. type=orbit은 center:[x,y,z], radius, height와 선택적 start_deg/end_deg/lens/target_height; type=track은 cam0/cam1/target0/target1 좌표와 선택적 lens; type=keyframes는 camera·target·선택적 lens를 가진 keyframes 배열입니다. frames 기본값은 81, lens는 mm, 좌표는 문서 단위입니다."
     },
     "out_dir": {
       "default": "",
@@ -2463,7 +2503,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -2518,11 +2558,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-**작업 화면을 바꾸지 않고** 여러 시점·객체 범위를 하나의 PNG로 비교합니다. 이미지 파일은 추가로 저장하지만 카메라·선택·가시성·모델 내용은 유지합니다. 명시적 객체 필터는 블록 인스턴스·내부 객체를 지원하지 않으며, 캡처 범위 충족이 픽셀 노출이나 설계 정확성을 보장하지는 않습니다.
+여러 시점과 객체 범위를 하나의 PNG로 비교합니다. 작업 카메라·선택·가시성·모델은 유지하며 이미지 파일을 저장합니다. 명시적 객체 필터는 일반 문서 객체를 지원하고 블록 인스턴스·내부 객체는 제외합니다.
+
+반환: PNG 이미지와 image_file, complete 및 타일별 tiles 관찰 결과를 반환합니다. complete는 요청 범위 충족 여부입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -2586,7 +2628,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -2640,11 +2682,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-현재 모델 화면을 캡처합니다. 대상을 지정하면 실제 선택·카메라를 바꾸고 선택적으로 격리하며, 디스플레이 모드 재정의도 **화면에 남습니다**. 캡처 실패 후에도 적용되거나 불확실한 화면 변경은 되돌리지 않으므로 자동 재시도하지 않습니다.
+현재 모델 화면을 캡처합니다. 대상을 지정하면 실제 선택·카메라와 선택적 격리가 적용되고 디스플레이 모드 변경도 화면에 남습니다. 실패해도 화면 변경이 남을 수 있으므로 재시도 전에 상태를 확인합니다.
+
+반환: 이미지와 image_file을 반환합니다. 실패이면 적용되었거나 확인되지 않은 화면 변경 정보를 함께 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -2732,12 +2776,10 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -2776,11 +2818,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-저장된 Named View 또는 Layout 용지를 **활성화하지 않고** 캡처합니다. 작업 카메라·선택·가시성·모델을 유지하며 PNG 파일만 추가 저장합니다. Layout은 각 Detail의 기존 디스플레이 모드와 실제 용지 비율을 유지합니다.
+저장된 Named View나 Layout 용지를 작업 화면 전환 없이 PNG로 캡처합니다. Layout은 기존 Detail 디스플레이 모드와 용지 비율을 유지합니다.
+
+반환: PNG 이미지와 저장한 image_file을 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -2851,7 +2895,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -2902,11 +2946,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-현재 Rhino 객체의 레이어를 유지하면서 라이브러리 PBR 재료를 적용합니다. 메타데이터는 **명시적으로 요청한 경우에만** 추가하며, 지정하지 않은 속성은 유지합니다. 일부 적용이나 결과 불확실성을 확인한 뒤 후속 작업을 진행하고, 이 호출을 전체 모델링 설정이나 문서 저장으로 해석하지 않습니다.
+Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 기존 레이어는 유지하고 metadata는 요청한 항목만 추가합니다. 응답에서 부분 적용과 확인되지 않은 결과를 구분합니다.
+
+반환: requested_count·applied_count, 재료 적용·metadata 첨부 여부와 대상 정보를 반환합니다. 부분 적용과 실패 항목을 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -2941,7 +2987,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "construction_system": {
       "default": "",
       "type": "string",
-      "description": "선택 사항인 구축 시스템 레이블이며, attach_metadata와 함께 사용합니다."
+      "description": "알려진 구축 시스템 ID입니다. attach_metadata=true일 때 사용합니다. construction_reference를 함께 지정하면 같은 시스템이어야 합니다."
     },
     "floor": {
       "default": "",
@@ -2964,12 +3010,12 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
         }
       ],
       "default": null,
-      "description": "선택 사항인 출처 참조 객체이며, attach_metadata와 함께 사용합니다. 생략하면 참조를 추가하지 않습니다."
+      "description": "{\"kind\":\"construction_system\",\"id\":\"확인한 system_id\"} 형식의 출처 참조입니다. attach_metadata=true일 때 사용합니다. construction_system도 지정하면 같은 시스템이어야 합니다."
     },
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3021,11 +3067,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-잠기지 않은 최상위 닫힌 Brep의 평면 한 면을 PushPull Extend로 늘리거나 줄입니다. 선택한 면과 인접 면이 평면인 일반 모델만 지원하며, **그룹·블록 편집 중에는 사용할 수 없습니다**. 속성·그룹과 지원되는 형상 메타데이터를 유지하고, 불확실한 실행을 자동 재시도하지 않습니다.
+최상위 닫힌 Brep의 평면 한 면을 PushPull Extend로 이동합니다. 대상과 인접 면은 평면이고 객체는 잠금 해제 상태여야 하며 그룹·블록 편집을 종료한 뒤 사용합니다. 불확실한 실행은 재호출 전에 관찰합니다.
+
+반환: status와 result에 변경 객체·관찰값·보존 결과를 반환합니다. 적용 여부가 불확실하면 새 관찰로 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3065,7 +3113,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3113,11 +3161,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-서로 다른 닫힌 Brep의 평면 한 면씩을 단일 호출·Undo 기록으로 늘리거나 줄입니다. 모든 교체본을 먼저 검증하지만 교체 중 실패한 배치는 **자동 롤백되지 않으며**, 부분 적용·불확실한 배치를 통째로 다시 실행하지 않습니다. 단일 면 편집과 같은 대상·보존 규칙을 따릅니다.
+서로 다른 닫힌 Brep에서 평면 한 면씩을 단일 호출·Undo 기록으로 이동합니다. 단일 면 편집의 대상 조건을 따릅니다. 교체 중 실패하면 일부 변경이 남으므로 배치 전체를 자동 재실행하지 않습니다.
+
+반환: status와 result에 배치 적용·실패 항목을 반환합니다. 일부 적용된 배치는 남은 대상만 새 관찰 후 처리합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3139,7 +3189,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3191,11 +3241,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-할당이나 응용 프로그램 간 재료 매핑에 사용할 라이브러리 PBR 재료를 찾습니다. Rhino 문서는 변경하지 않으며, 조회 결과가 재료의 **설치·적용 상태를 뜻하지는 않습니다**.
+이름·용도에 맞는 라이브러리 PBR 재료와 매핑 정보를 조회합니다.
+
+반환: materials와 total을 반환합니다. 후속 할당에 필요한 재료 ID는 include_ids=true로 요청합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3214,7 +3266,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false이면 보조 ID를 생략합니다. 후속 도구에서 반환된 ID가 필요하면 true를 요청합니다. 추가 상세 그룹이 선택되는 것은 아닙니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -3234,12 +3286,10 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -3272,11 +3322,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-사전 정의된 Material과 구축 Layer를 현재 Rhino 문서에 함께 등록·정렬합니다. 객체의 레이어·ByLayer 설정·메타데이터는 바꾸지 않으며, 다른 모델링이나 재료 할당의 필수 선행 작업은 아닙니다. incomplete·오류여도 **일부 항목은 이미 생성·변경되었을 수 있습니다**.
+정의된 Material과 구축 Layer를 Rhino 문서에 등록·정렬합니다. 객체의 기존 레이어·ByLayer 설정·metadata는 유지합니다. incomplete나 오류이면 이미 변경된 항목을 응답에서 확인합니다.
+
+반환: status와 applied를 반환합니다. incomplete이면 항목별 성공·실패와 보존 결과를 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3289,7 +3341,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3328,11 +3380,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-선택한 Plan의 현재 산출물 폴더에서 연결된 Rhino의 Python 3 코드를 실행합니다. Rhino 내장 실행 환경이며 작업자 venv나 파일 쓰기를 차단하는 OS 샌드박스가 아닙니다. 문서 전환·백그라운드 쓰기를 만들지 말고, 시간 초과나 불확실한 결과는 동일 요청으로 확인하며 **코드를 재실행하지 않습니다**.
+선택한 Plan의 산출물 폴더를 작업 디렉터리로 삼아 연결된 Rhino의 Python 3 코드를 실행합니다. Rhino 내장 실행 환경이며 파일 접근은 OS 권한을 따릅니다. 문서 전환과 백그라운드 쓰기를 만들지 않습니다. 시간 초과·불확실한 결과는 get_rhino_execution으로 확인합니다.
+
+반환: request_id·status·completed와 artifact_dir, 확보한 실행 결과를 반환합니다. completed=false이면 같은 요청을 조회합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3340,7 +3394,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
   "properties": {
     "code": {
       "type": "string",
-      "description": "동기식 Python 3 소스입니다. JSON으로 안전하게 표현할 수 있는 값을 result에 할당합니다."
+      "description": "연결된 Rhino에서 실행할 동기식 Python 3 코드입니다. doc과 scriptcontext.doc은 연결된 문서이며 JSON-safe 결과를 result에 할당합니다. 상대 출력 경로는 선택한 Plan/Loop의 산출물 폴더를 기준으로 합니다."
     },
     "timeout_seconds": {
       "default": 60,
@@ -3350,7 +3404,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3392,11 +3446,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-전용 도구로 처리할 수 없는 모델링·편집·사용자 정의 측정을 연결된 Rhino에서 공식 RhinoCode로 실행합니다. 문서 전환·백그라운드 쓰기를 만들지 말고, 시간 초과나 불확실한 결과는 동일 요청으로 확인하며 **코드를 재실행하지 않습니다**. 실행 완료가 설계 검증·자동 롤백·문서 저장을 뜻하지는 않습니다.
+전용 도구로 처리하기 어려운 모델링·편집·측정 코드를 연결된 RhinoCode에서 실행합니다. 문서 전환과 백그라운드 쓰기를 만들지 않습니다. 시간 초과·불확실한 결과는 재실행하지 말고 get_rhino_execution으로 확인합니다. 지침은 get_policy의 rhino_scripting과 rhinocode로 조회합니다.
+
+반환: request_id·status·completed와 result를 반환합니다. 결과가 페이지화되거나 실행이 끝나지 않았으면 get_rhino_execution으로 이어서 읽습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3404,7 +3460,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
   "properties": {
     "script": {
       "type": "string",
-      "description": "동기식 Python 소스, C# 문장 본문 또는 완전한 명령 매크로입니다."
+      "description": "동기식 Python 소스, C# 문장 본문 또는 명령 매크로입니다. Python은 JSON-safe 값을 result에, C#은 결과 JSON을 result_json에 할당합니다. doc은 연결된 문서입니다. command는 !·Pause·대화상자 없이 끝나는 매크로를 입력합니다."
     },
     "language": {
       "default": "python",
@@ -3419,7 +3475,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3465,11 +3521,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-기존 RhinoCode 요청을 **다시 실행하지 않고** 완료 근거·결과 페이지·로그를 읽습니다. 대기 중이거나 불확실한 실행을 대조하는 조회이며, 작업을 취소·롤백하거나 모델에 재연결하지 않습니다. CLI 종료만으로 실행 완료를 판단하지 않습니다.
+기존 RhinoCode 요청의 완료 근거, 결과 페이지와 로그를 조회합니다. 실행 상태는 completed와 status로 확인하며 CLI 종료만으로 완료를 판단하지 않습니다.
+
+반환: request_id·completed·status와 결과·로그 페이지를 반환합니다. next_offset 등 반환된 이어읽기 값을 그대로 사용합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3518,7 +3576,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "include_ids": {
       "default": true,
       "type": "boolean",
-      "description": "요청/실행 식별 필드를 포함합니다. 기본값은 true입니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다."
     },
     "include_diagnostics": {
       "default": false,
@@ -3528,28 +3586,10 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "추적 복구에 사용할 현재 연결입니다. 클라이언트 재시작 후 보관된 결과를 읽으려면 이를 생략하고 정확한 request_id를 제공합니다."
+      "description": "생략하면 선택한 연결을 사용합니다. 다른 연결은 connection_id로 지정합니다. 클라이언트 재시작 후에는 정확한 request_id로 보관된 결과를 조회할 수 있습니다."
     }
   },
-  "type": "object",
-  "anyOf": [
-    {
-      "required": [
-        "connection_id"
-      ]
-    },
-    {
-      "required": [
-        "request_id"
-      ],
-      "properties": {
-        "request_id": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{32}$"
-        }
-      }
-    }
-  ]
+  "type": "object"
 }
 ```
 
@@ -3586,11 +3626,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
 
 ### DESCRIPTION
 
-영구 저장을 요청받았을 때 연결된 **문서 전체**를 기존 .3dm 경로에 저장합니다. 다른 작업의 변경도 함께 저장하므로 미확정 편집과 그룹·블록 편집을 먼저 정리해야 합니다. SaveAs를 지원하지 않으며, 확인되지 않은 저장을 자동 반복하지 않습니다.
+사용자가 영구 저장을 요청한 연결 문서 전체를 기존 .3dm 경로에 저장합니다. 다른 작업의 변경도 포함되므로 미확정 편집과 그룹·블록 편집을 먼저 정리합니다. 확인되지 않은 저장은 재실행 전에 상태를 대조합니다.
+
+반환: status·saved·modified로 저장 및 문서 변경 상태를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3599,12 +3641,10 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 조건 프레임과 카메�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -3638,11 +3678,13 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
 
 ### DESCRIPTION
 
-최상위 Rhino 객체를 Scene의 직접 구성원으로 등록하거나 해당 Scene에서 제외된 Holon 구성원을 복원합니다. **모델별 Scene 관계만 저장**하며 형상·그룹은 편집하지 않습니다. 이미 Holon을 통해 포함된 객체는 중복 등록하지 않습니다.
+최상위 Rhino 객체를 Scene의 직접 구성원으로 등록하거나 해당 Scene에서 제외했던 Holon 구성원을 복원합니다. 이미 Holon을 통해 포함된 객체는 중복 등록하지 않습니다.
+
+반환: status와 failed_indices·already_present_indices로 입력 배열의 항목별 등록 결과를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3667,7 +3709,7 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3707,11 +3749,13 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
 
 ### DESCRIPTION
 
-**형상을 만들지 않고** 설계 영역·프로그램·상황을 나타내는 지속적인 Scene 메타데이터 핸들을 생성합니다. 단위와 프로젝트 파일 연결은 기록 정보이며 Rhino 문서의 단위·파일명·활성 문서를 바꾸거나 편집 대상을 확정하지 않습니다.
+설계 영역·프로그램·상황을 나타내는 Scene을 생성하고 단위와 프로젝트 파일 연결을 기록합니다.
+
+반환: status와 생성한 scene.scene_id를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3746,7 +3790,7 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3783,11 +3827,13 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
 
 ### DESCRIPTION
 
-등록된 Holon과 하위 Holon의 현재 구성원을 **실제 Rhino에서 선택·격리·확대**합니다. 카메라·선택·가시성이 바뀌며 잠긴 주변 객체는 남을 수 있습니다. 일부 변경이나 결과 불확실성이 있으면 현재 상태를 확인하고 자동 재시도하지 않습니다.
+등록된 Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대합니다. 카메라·선택·가시성이 바뀌며 잠긴 주변 객체는 보일 수 있습니다. 결과가 불확실하면 재실행 전에 화면 상태를 확인합니다.
+
+반환: selected_ids, zoom_selected·isolated와 locked_context_remains_visible, restore_visibility_command 등을 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3808,7 +3854,7 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3854,11 +3900,13 @@ Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01
 
 ### DESCRIPTION
 
-Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 **현재 Rhino 형상 검증이 아니며** 직접 구성원·제외 관계가 있으면 전체 객체 수를 확정하지 않습니다. Scene 구성원 관계는 설계상의 기록으로, 자동으로 대상을 보정하지 않습니다.
+Scene의 저장된 metadata와 등록 요약을 조회합니다. 현재 문서의 구성원이 필요하면 get_scene_objects를 사용합니다.
+
+반환: scene의 요약과 선택한 상세 그룹을 반환합니다. 직접 구성원·제외 관계가 있으면 개수만으로 전체 형상을 판단하지 않습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3871,7 +3919,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false이면 보조 ID를 생략합니다. 후속 도구에서 반환된 ID가 필요하면 true를 요청합니다. 추가 상세 그룹이 선택되는 것은 아닙니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -3891,7 +3939,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3933,11 +3981,13 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
 
 ### DESCRIPTION
 
-등록된 Holon의 저장 요약 또는 현재 Rhino 그룹 구성원을 변경 없이 읽습니다. 현재 상태 관찰에는 검증 가능한 일반 모델이 필요하며 그룹·블록 편집 중에는 오류를 반환합니다. 등록 불일치를 보고할 뿐 **자동 동기화나 설계·편집 적합성 검증을 하지 않습니다**.
+Holon의 등록 요약이나 현재 Rhino 그룹 구성원을 조회합니다. 현재 상태 조회는 안정된 일반 모델에서 수행하며 그룹·블록 편집 중에는 오류를 반환합니다. 등록과 현재 상태의 차이는 응답에 표시합니다.
+
+반환: holon의 저장 요약 또는 현재 구성원 관찰과 불일치 정보를 반환합니다. live_verified 등의 근거 범위를 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -3955,7 +4005,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false이면 보조 ID를 생략합니다. 후속 도구에서 반환된 ID가 필요하면 true를 요청합니다. 추가 상세 그룹이 선택되는 것은 아닙니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "recursive": {
       "default": false,
@@ -3980,7 +4030,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4023,11 +4073,13 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
 
 ### DESCRIPTION
 
-연결된 저장 모델에서 Scene의 직접 객체와 하위 Holon 구성원을 현재 상태로 읽습니다. 불완전한 관찰·불안정한 편집 상태·사라진 직접 등록 객체는 오류로 처리하며 **빈 Scene이나 캐시 결과로 대체하지 않습니다**.
+연결된 저장 모델에서 Scene의 직접 객체와 하위 Holon 구성원을 조회합니다. 관찰이 불완전하거나 직접 등록 객체가 사라졌거나 편집 상태가 불안정하면 오류를 반환합니다.
+
+반환: objects와 total·offset·limit·truncated, live_verified·model_path를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4040,7 +4092,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false이면 보조 ID를 생략합니다. 후속 도구에서 반환된 ID가 필요하면 true를 요청합니다. 추가 상세 그룹이 선택되는 것은 아닙니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -4075,7 +4127,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4119,11 +4171,13 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
 
 ### DESCRIPTION
 
-프로젝트에 저장된 Scene을 이름·파일 연결로 찾습니다. 현재 Rhino 문서나 객체 형상을 조회하지 않는 **메타데이터 목록**입니다.
+프로젝트에 저장된 Scene을 이름과 프로젝트 파일 연결로 조회합니다.
+
+반환: scenes와 total·offset·limit·truncated를 반환합니다. scene_id는 include_ids=true로 포함합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4152,7 +4206,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false이면 보조 ID를 생략합니다. 후속 도구에서 반환된 ID가 필요하면 true를 요청합니다. 추가 상세 그룹이 선택되는 것은 아닙니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -4172,12 +4226,10 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 현재 연결의 정확한 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -4213,11 +4265,13 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
 
 ### DESCRIPTION
 
-**캐시된 Holon 등록 정보**를 문서 또는 Scene 범위로 조회합니다. Rhino의 현재 형상·구성원 관계를 확인하거나 등록 대장을 갱신하지는 않습니다. 현재 구성원이 필요한 작업에는 유효한 실시간 관찰 근거를 사용합니다.
+문서 또는 Scene 범위의 캐시된 Holon 등록 목록을 조회합니다. 현재 구성원은 get_ontological_holon이나 get_scene_objects로 확인합니다.
+
+반환: holons와 total·live_verified를 반환합니다. 캐시된 등록 목록이므로 현재 구성원 검증은 별도 조회가 필요합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4231,7 +4285,7 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "scene_id": {
       "default": "",
@@ -4261,12 +4315,10 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -4300,11 +4352,13 @@ Scene의 저장된 메타데이터와 등록 요약을 읽습니다. 개수는 *
 
 ### DESCRIPTION
 
-Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등록만 해제**합니다. 부모 및 Plan/Step 참조를 먼저 해제해야 하며, 자식은 독립된 등록 루트로 남습니다. 결과가 불확실하면 현재 상태를 대조하고, 제거를 자동 재시도하지 않습니다.
+Holon 등록을 해제하고 Rhino 형상·일반 그룹·객체 속성은 보존합니다. 부모와 Plan 참조를 먼저 해제해야 하며 자식 Holon은 독립된 등록 루트로 남습니다. 결과가 불확실하면 현재 등록 상태를 확인합니다.
+
+반환: status와 해제된 holon 정보를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4317,7 +4371,7 @@ Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4359,11 +4413,13 @@ Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등
 
 ### DESCRIPTION
 
-**Scene의 직접 구성원 관계**를 제거하거나 Holon 구성원을 해당 Scene에서 제외합니다. Rhino 객체·Holon 그룹은 삭제하거나 수정하지 않습니다.
+Scene의 직접 구성원 관계를 제거하거나 Holon 구성원을 해당 Scene에서 제외합니다. Rhino 객체와 Holon 그룹은 유지됩니다.
+
+반환: status와 failed_indices·already_absent_indices로 입력 항목별 제외 결과를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4388,7 +4444,7 @@ Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4428,11 +4484,13 @@ Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등
 
 ### DESCRIPTION
 
-안정된 Rhino 편집 상태에서 현재 Holon 등록을 읽어 **대장을 한 차례 맞춥니다**. 형상이나 그룹을 복구·수정하는 도구는 아니며, 유효한 기존 근거가 있으면 정례 동기화는 필요하지 않습니다. 불확실한 변경 작업의 재실행을 대신해 상태를 대조할 때 사용합니다.
+안정된 Rhino 편집 상태에서 현재 Holon 구성원을 읽어 등록 대장을 갱신합니다. 변경 뒤 등록과 현재 상태를 맞출 때 사용합니다.
+
+반환: checked·changed·unavailable·problems와 scene_revisions·live_verified로 동기화 결과를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4476,12 +4534,10 @@ Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -4518,11 +4574,13 @@ Rhino 형상·일반 그룹·객체 속성을 보존하고 Holon의 **의미 등
 
 ### DESCRIPTION
 
-Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해제합니다. Scene 이름·단위·형상·Holon 소유권과 실제 Rhino 문서의 이름·경로는 변경하지 않습니다.
+Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
+
+반환: status와 수정된 scene 정보를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4559,7 +4617,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4600,11 +4658,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-물리적 요소와 그 관계가 이루는 역할·동작·구조를 **Holon으로 등록하거나 갱신**하며 형상은 복제하지 않습니다. 직접 객체 소유권은 Holon 하나에만 속하고, 일반 그룹·블록이 자동으로 의미 단위가 되지는 않습니다. 기존 그룹 이름 변경은 거부되며, 불확실한 결과나 Undo 뒤에는 자동 재등록 대신 현재 상태를 대조합니다.
+물리적 요소와 관계의 역할·동작·구조를 Holon으로 등록하거나 갱신합니다. 직접 객체 소유권은 Holon 하나에 속합니다. 기존 그룹 이름 변경은 거부하며, 불확실한 결과나 Undo 뒤에는 현재 상태를 확인합니다.
+
+반환: status와 holon의 ID·그룹·상태 등 등록 확인 정보를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4677,7 +4737,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4725,11 +4785,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-식별된 닫힌 솔리드의 **양의 부피 겹침 쌍**을 문서 수정 없이 셉니다. 닫힌 Brep/Extrusion과 면 방향이 정렬된 매니폴드 Mesh를 지원하며, Brep/Mesh 혼합 계산은 임시 메시 근사입니다. 겹침 0은 이격 거리·설계 적합성·법규 준수의 확인이 아닙니다.
+닫힌 솔리드의 양의 부피 겹침 쌍을 조회합니다. 닫힌 Brep·Extrusion과 면 방향이 정렬된 매니폴드 Mesh를 지원하며 Brep/Mesh 혼합 계산은 임시 메시 근사입니다.
+
+반환: intersections에 겹침 쌍과 관찰 근거를 반환합니다. 양의 부피 겹침이 0이어도 접촉·이격 거리는 별도로 확인합니다. 관찰 이미지가 함께 반환될 수 있습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4750,7 +4812,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4790,11 +4852,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-겹친 객체를 한 쌍씩 이미지로 비교하고, **명시적으로 고른 객체**에서 겹친 부분만 제거합니다. 검토 중 실제 선택·카메라가 바뀌며 안정된 저장 문서와 래스터 모델 뷰포트가 필요합니다. 형상만 보고 설계 선택을 추론하지 않으며, 불확실한 변경 결과에서는 자동 진행을 멈춥니다.
+겹친 객체를 한 쌍씩 이미지로 비교하고 선택한 객체에서 겹친 부분을 제거합니다. 검토 중 실제 선택·카메라가 바뀝니다. 안정된 저장 문서와 래스터 모델 뷰포트가 필요하며, 설계 판단에 따라 명시적으로 대상을 선택합니다. 변경 결과가 불확실하면 진행을 멈추고 관찰합니다.
+
+반환: state와 현재 검토 쌍·이미지 또는 적용 결과, skipped_pairs를 반환합니다. 검토 이미지의 review_id와 choice로 다음 결정을 제출합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4844,12 +4908,10 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -4888,11 +4950,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-저장 도면 패키지의 **파일 해시**를 검사하고, 원본을 확인할 수 있으면 변경 여부도 대조합니다. 읽기 전용 무결성 검사이며 시각적 품질·설계·시공 검증이나 재생성을 수행하지 않습니다.
+저장 도면 패키지의 파일 해시와 확인 가능한 원본의 변경 여부를 검사합니다.
+
+반환: checked_files와 failures, source_geometry로 파일 무결성과 확인 가능한 원본 일치 여부를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -4910,7 +4974,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4951,11 +5015,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-등록 3DM 또는 사용자 지정 GLB로 평면·정면·우측면 실루엣의 **새 도면 패키지**를 만듭니다. 기존 등록 도면은 교체하지 않으며, 숨은선·시공 상세·제품의 정면 방향을 추론하지 않습니다. 등록 원본의 저장된 변경을 반영하려면 `refresh_asset`을 사용합니다.
+등록 3DM 또는 지정 GLB에서 평면·정면·우측면 실루엣의 새 도면 패키지를 만듭니다. 기존 등록 도면의 저장된 변경을 반영하려면 refresh_asset을 사용합니다.
+
+반환: 새 package_dir와 manifest를 반환합니다. 도면은 실루엣이며 제품의 정면 방향·시공 상세는 별도로 검토합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5015,12 +5081,10 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -5053,11 +5117,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-등록 모델의 **저장 도면 매니페스트와 뷰 URI** 또는 사용 가능한 기존 시범 패키지를 가져옵니다. 도면을 생성·갱신하지 않으며, 저장 패키지가 현재 원본과 일치한다는 보장은 하지 않습니다.
+등록 모델의 저장 도면 매니페스트·뷰 URI 또는 기존 시범 패키지를 조회합니다. 원본과의 일치 여부는 audit_asset_drawing으로 확인합니다.
+
+반환: plan_svg_uri 등 저장 뷰 URI와 manifest를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5070,7 +5136,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5090,7 +5156,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5129,11 +5195,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-알고 있는 모델·2D 자산의 파일 사용 가능 여부, 출처와 **변환·갱신 상태**를 확인합니다. 실제 형상을 가져오거나 시각적으로 검증하지 않습니다.
+모델·2D 자산의 파일 사용 가능 여부, 출처, 변환·갱신 상태를 조회합니다.
+
+반환: asset의 요약·파일 상태와 요청한 상세 그룹을 반환합니다. 입력 asset_id는 응답에 반복되지 않을 수 있습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5146,7 +5214,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5166,7 +5234,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5209,11 +5277,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-변환 대기 원본을 포함한 **모델·2D 자산 모음**을 둘러봅니다. 다이어그램은 별도 라이브러리이며, 카탈로그의 파일 준비 상태는 배치 결과나 시각적 품질을 보증하지 않습니다.
+변환 대기 원본을 포함한 모델·2D 자산 목록을 조회합니다. 사람·나무·기호 등 다이어그램은 list_diagram_assets로 조회합니다.
+
+반환: assets와 total·offset·limit·truncated를 반환합니다. source_only는 변환 대기 상태이며 배치 가능한 3DM과 구분합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5237,7 +5307,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5257,12 +5327,10 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -5299,11 +5367,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-관리되는 모델·2D 자산을 편집 가능한 Rhino 문서에 배치하며 3DM은 원본에 연결된 블록으로 삽입합니다. 공유 연결 정의를 갱신해 **기존 인스턴스에도 영향을 줄 수 있습니다**. 시간 초과나 불확실한 실패는 변경 미적용을 뜻하지 않으므로 재시도 전에 문서를 대조합니다.
+모델·2D 자산을 Rhino 문서에 배치합니다. 3DM은 원본에 연결된 블록으로 삽입하며 공유 정의 갱신이 기존 인스턴스에 영향을 줄 수 있습니다. 불확실한 실패나 시간 초과 뒤에는 문서를 확인한 후 재시도합니다.
+
+반환: asset_id·object_guid·definition_created를 반환합니다. object_guid는 삽입한 최상위 블록의 관찰에 사용합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5341,7 +5411,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5381,11 +5451,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-원본 사본을 검사하고, 필요한 경우 명시적으로 편집한 뒤 최종 이미지를 검토할 수 있는 3DM 준비 작업을 만듭니다. 기본 조립 구조·레이어·재질·원점은 보존합니다. 검토 확인은 **실제 이미지와 파일 해시**에 연결되어야 하며, 불확실한 실행은 자동 반복하지 않습니다.
+원본 사본을 검사하고 명시적 편집과 이미지 검토를 거쳐 등록용 3DM을 준비합니다. 기본 조립 구조·레이어·재질·원점은 보존합니다. 검토 확인은 실제 이미지와 파일 해시에 연결하며, 불확실한 실행은 status 단계에서 확인합니다.
+
+반환: state·ready_for_registration·job_dir·next_stage와 검토 근거를 반환합니다. ready일 때 source_3dm을 등록에 사용할 수 있습니다. running/unconfirmed/failed는 상태와 error를 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5421,7 +5493,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
         }
       ],
       "default": null,
-      "description": "정규화 또는 최종 검증 승인에 필요한 명시적 검토/편집 근거 객체입니다. 정확한 출력 해시와 「이전 결과에서 가져올 입력」에 제시된 지원 필드를 사용합니다. 생략하더라도 시각적 승인을 뜻하지 않습니다."
+      "description": "검토 결과 객체입니다. normalize: {vision_reviewed:true, inspected_sha256:\"확인한 해시\", rotation_degrees_xyz:[x,y,z], translation:[x,y,z], remove:[{object_id:\"ID\",reason:\"사유\"}]}. 생략한 변환은 유지하며 translation은 원본 단위입니다. 최종 이미지를 본 뒤 verify: {vision_reviewed:true, final_sha256:\"확인한 해시\", name:\"이름\", asset_id:\"ID\"}. 첫 verify로 최종 이미지를 만든 후 검토 확인을 제출합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5441,7 +5513,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "offset": {
       "default": 0,
@@ -5456,7 +5528,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5502,11 +5574,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-**편집 후 저장된 등록 3DM**을 다시 측정하고 저장 도면을 재생성하며 연결 원본 경로를 유지합니다. Rhino 문서를 저장하거나 기존 연결 인스턴스를 다시 불러오지는 않습니다. 게시가 적용되었거나 불확실한 오류에서는 갱신을 무작정 반복하지 않습니다.
+편집 후 저장된 등록 3DM을 다시 측정하고 저장 도면을 재생성합니다. 원본 경로는 유지됩니다. Rhino 문서 저장과 기존 연결 인스턴스 갱신은 별도로 수행합니다. 게시가 적용되었거나 결과가 불확실하면 재실행 전에 등록 상태를 확인합니다.
+
+반환: registration_applied·source_path_preserved·live_index_refreshed와 갱신 파일 경로를 반환합니다. registration_applied=true이면 색인 갱신 오류가 있어도 게시가 적용된 상태입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5519,7 +5593,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5564,11 +5638,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-준비된 3DM을 측정 치수와 평면·정면·우측면 실루엣 도면을 갖춘 **라이브러리 자산으로 게시**합니다. 별도 준비 도구는 필수가 아니며, 준비 작업을 첨부하지 않은 등록은 시각적 검토를 증명하지 않습니다. 기존 자산 교체는 연결 인스턴스에 영향을 줄 수 있고, 게시 후 오류를 미적용으로 보고 재시도하지 않습니다.
+준비한 3DM을 측정 치수와 평면·정면·우측면 도면이 있는 라이브러리 자산으로 게시합니다. 기존 자산 교체는 연결 인스턴스에 영향을 줄 수 있습니다. 게시 후 오류에서는 registration_applied를 확인하고 불확실하면 등록 상태부터 대조합니다.
+
+반환: registration_applied, 자산·파일 경로와 live_index_refreshed를 반환합니다. 적용 여부가 null이고 requires_reconciliation이면 기존 등록과 파일을 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5629,7 +5705,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5680,11 +5756,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-모델·2D 요소 아카이브를 검색하고 필요하면 도면 준비가 완료된 후보로 좁힙니다. **비-3DM 모델은 별도 변환·등록이 필요**하며, 검색은 실제 가져오기나 외관 검증을 수행하지 않습니다. 다이어그램 라이브러리는 포함하지 않습니다.
+모델·2D 요소 아카이브를 검색합니다. 도면 준비가 완료된 후보로 필터링할 수 있으며, 비-3DM 원본은 변환·등록 후 배치합니다.
+
+반환: total과 assets를 반환합니다. 결과 ID는 include_ids=true로 요청하고 변환 안내 next_tool·next_step을 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5713,7 +5791,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5733,12 +5811,10 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -5770,11 +5846,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-텍스트·분류·측정 치수로 **모델·2D 자산**을 찾습니다. 원본이 존재하는 변환 대기 모델도 포함하며, 치수 조건 일치는 Scene 내 적합성이나 이격 거리 검증이 아닙니다. 다이어그램은 별도 검색 도구를 사용합니다.
+텍스트·분류·측정 치수로 모델·2D 자산을 검색합니다. 변환 대기 원본도 포함되므로 반환된 준비 상태를 확인합니다. 다이어그램은 search_diagram_assets로 검색합니다.
+
+반환: assets와 total·offset·limit·truncated를 반환합니다. asset_id는 include_ids=true로 요청합니다. 변환 대기 항목의 next_tool·next_step을 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5818,7 +5896,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5838,12 +5916,10 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -5882,11 +5958,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-알고 있는 **다이어그램 자산의 메타데이터**와 색인된 파일 사용 가능 여부를 확인합니다. 자산을 배치하거나 실제 가져오기·시각적 품질을 검증하지 않습니다.
+다이어그램 자산의 metadata와 색인된 파일 사용 가능 여부를 조회합니다.
+
+반환: asset의 요약·file_available과 선택한 상세 그룹을 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5899,7 +5977,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5919,7 +5997,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5960,11 +6038,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-사람·나무·기호 등 **별도 다이어그램 라이브러리**를 둘러봅니다. 카탈로그와 파일 상태를 보여주며 모델 자산 검색이나 실제 배치를 수행하지 않습니다.
+사람·나무·기호 등 다이어그램 라이브러리의 자산과 파일 상태를 조회합니다.
+
+반환: assets와 total·offset·limit·next_offset을 반환합니다. 후속 배치의 asset_id는 include_ids=true로 요청합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -5988,7 +6068,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6008,12 +6088,10 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -6050,11 +6128,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-관리되는 SVG·DWG·DXF 다이어그램을 편집 가능한 Rhino 문서의 블록 인스턴스로 삽입합니다. 시간 초과는 미삽입을 뜻하지 않으므로 **재시도 전에 문서 상태를 확인**합니다.
+SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 삽입합니다. 시간 초과 뒤에는 문서 상태를 확인한 후 재시도합니다.
+
+반환: asset_id·object_guid·definition_created를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6092,7 +6172,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -6132,11 +6212,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-텍스트·분류·기록된 치수로 **별도 다이어그램 라이브러리**를 검색합니다. 검색 일치는 Scene 내 적합성, 가져오기 성공 또는 시각적 품질을 보증하지 않습니다.
+텍스트·분류·기록된 치수로 다이어그램 라이브러리를 검색합니다.
+
+반환: assets와 total·offset·limit·next_offset을 반환합니다. asset_id는 include_ids=true로 요청합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6180,7 +6262,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별 필드를 포함합니다. false는 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 세부 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6200,12 +6282,10 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "connect가 반환한 정확한 실시간 연결 ID입니다."
+      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -6244,11 +6324,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-도면 레시피의 레이어 계층·색상·출력 선 두께·선종류를 Rhino 문서에 적용합니다. **도면 형상이나 PrintDisplay는 만들거나 변경하지 않습니다.** 선종류 정의 충돌은 변경 전에 거부하며, 시간 초과 후에는 문서 상태를 확인한 뒤 재시도합니다.
+도면 레시피의 레이어 계층·색상·출력 선 두께·선종류를 Rhino 문서에 적용합니다. 선종류 충돌은 변경 전에 거부합니다. 시간 초과 뒤에는 문서 상태를 확인한 후 재시도합니다.
+
+반환: recipe_id·layers와 review_preparation을 반환합니다. 레이어 적용 결과와 출력 검토 준비 사항을 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6265,9 +6347,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -6316,11 +6396,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-저장된 도면 레시피의 목적과 선택한 상세 설정을 조회합니다. *현재 문서를 검사하거나 레이어·PrintDisplay를 변경하지 않습니다.*
+저장된 도면 레시피의 목적과 선택한 상세 설정을 조회합니다.
+
+반환: recipe에 목적·요약과 선택한 scales·parameters 등 상세 그룹을 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6333,7 +6415,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별자 필드를 포함합니다. false이면 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 상세 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6348,7 +6430,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
         }
       ],
       "default": null,
-      "description": "선택 가능한 상세 그룹은 scales, parameters, source, audit, all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별자 포함 여부는 include_ids로 별도 제어합니다."
+      "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6397,11 +6479,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-같은 문서 인스턴스에 보관된 PlanSection 실행 결과를 읽기 전용으로 복구합니다. 결과는 현재 형상 관찰이 아니며, 만료·누락된 응답을 복구하려고 **도면을 재생성하지 않습니다.**
+같은 문서 인스턴스에 보관된 PlanSection 실행 결과를 페이지별로 복구합니다. 만료·누락된 결과는 오류로 반환하며 결과 복구를 위해 도면을 재생성하지 않습니다.
+
+반환: json_chunk와 offset·next_offset·total_characters·result_sha256을 반환합니다. 청크를 순서대로 합친 뒤 JSON을 읽습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6414,7 +6498,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "offset": {
       "default": 0,
       "type": "integer",
-      "description": "0부터 시작합니다. 이후에는 앞 페이지의 next_offset을 그대로 사용합니다."
+      "description": "첫 페이지는 0, 이후에는 같은 결과의 next_offset을 그대로 입력합니다. UTF-16 코드 단위이므로 Python 문자열 길이로 계산하지 않습니다."
     },
     "expected_model_path": {
       "default": "",
@@ -6473,11 +6557,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-등록된 PAT 도면 자산의 해치 정의를 Rhino 문서에 추가합니다. <u>같은 이름은 덮어쓰지 않고 재사용</u>하며, 해치 객체나 영역을 생성하지 않습니다.
+등록된 PAT 도면 자산의 해치 정의를 Rhino 문서에 추가합니다. 같은 이름의 정의는 재사용합니다.
+
+반환: patterns에 새로 추가했거나 기존에 있어 사용 가능한 해치 이름을 반환합니다. message가 신규 수와 사용 가능 수를 구분합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6528,11 +6614,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-도면 목적·투영 방식에 따라 저장된 스타일 레시피를 찾습니다. 카탈로그 조회이며 *현재 문서가 레시피를 따르는지 검사하지 않습니다.*
+목적·투영 방식에 맞는 저장 도면 스타일 레시피를 조회합니다.
+
+반환: total과 recipes를 반환합니다. 후속 적용에 필요한 recipe_id는 include_ids=true로 요청합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6541,7 +6629,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별자 필드를 포함합니다. false이면 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 상세 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6556,7 +6644,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
         }
       ],
       "default": null,
-      "description": "선택 가능한 상세 그룹은 scales, parameters, source, audit, all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별자 포함 여부는 include_ids로 별도 제어합니다."
+      "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6564,9 +6652,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -6606,11 +6692,13 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
 
 ### DESCRIPTION
 
-확인된 클리핑 평면에서 모델 공간의 단면·해치·입면 도면을 생성하거나 갱신합니다. Create는 해당 도면을 생성·교체하고 Update는 저장된 배치의 기존 도면만 갱신합니다. Layout·PDF·파일 출력이나 모델 저장은 하지 않습니다. **부분 완료·취소·시간 초과는 롤백이 아니므로 응답 복구를 위해 재실행하지 않습니다.**
+클리핑 평면에서 모델 공간의 단면·해치·입면 도면을 생성하거나 갱신합니다. Create는 해당 도면을 생성·교체하고 Update는 저장된 배치의 도면을 갱신합니다. 부분 완료·취소·시간 초과 뒤에도 생성된 도면은 남을 수 있으므로 결과 복구는 get_plan_section_result로 수행합니다.
+
+반환: status·drawing_status와 result를 반환합니다. partial/cancelled이면 이미 생성된 도면이 남을 수 있습니다. result_id와 next_offset이 있으면 get_plan_section_result로 이어 읽습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6704,7 +6792,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
           "type": "integer"
         }
       ],
-      "default": 80,
+      "default": 80.0,
       "description": "가장 가까운 입면 객체의 출력 농도 백분율입니다. 0..100 범위이며 far_dark 이상이어야 합니다. 최종 출력에도 유지됩니다."
     },
     "far_dark": {
@@ -6716,7 +6804,7 @@ Scene의 **프로젝트 파일 연결 메타데이터**를 변경하거나 해�
           "type": "integer"
         }
       ],
-      "default": 45,
+      "default": 45.0,
       "description": "가장 먼 입면 객체의 출력 농도 백분율입니다. 0..100 범위이며 near_dark 이하여야 합니다. 최종 출력에도 유지됩니다."
     },
     "expected_model_path": {
@@ -6787,11 +6875,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-로컬 Grasshopper 정의의 구성요소·설명·사이드카 메타데이터를 실행 없이 읽습니다. 바이너리 문자열 탐지는 *그래프 평가나 실행 가능성 검증이 아닙니다.*
+로컬 Grasshopper 정의에서 탐지한 구성요소·설명과 사이드카 metadata를 조회합니다. 실행 입력의 타입·단위·필수 여부는 metadata.capsule 계약에서 확인합니다.
+
+반환: file_name·components·all_descriptions·metadata를 반환합니다. components는 문자열 탐지 결과이며 metadata.capsule은 실행 계약이 있을 때 포함됩니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6804,7 +6894,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별자 필드를 포함합니다. false이면 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 상세 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6819,7 +6909,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "선택 가능한 상세 그룹은 ports, definition, source, paths, audit, all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별자 포함 여부는 include_ids로 별도 제어합니다."
+      "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6870,11 +6960,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-기능별 Grasshopper 캡슐을 찾아 실행 감사 여부를 구분합니다. **audited는 실행 허용 조건이지 공학적 신뢰도 인증이 아닙니다.** 최대 50개를 반환하며 추가 페이지를 요청하는 입력은 없습니다.
+기능별 Grasshopper 캡슐과 실행 감사 여부를 조회합니다. audited=true인 캡슐을 실행할 수 있습니다. 최대 50개를 반환합니다.
+
+반환: capsules와 total·offset·limit·next_offset을 반환합니다. ports 그룹은 포트 이름만 포함합니다. 공개 입력에는 추가 페이지 offset이 없습니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6893,7 +6985,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별자 필드를 포함합니다. false이면 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 상세 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6908,7 +7000,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "선택 가능한 상세 그룹은 ports, definition, source, paths, audit, all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별자 포함 여부는 include_ids로 별도 제어합니다."
+      "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6916,9 +7008,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -6964,11 +7054,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-기존 로컬 색인에서 조회 가능한 Grasshopper 로직 이름을 찾습니다. *색인에 있다는 사실은 실행 감사나 계산 성공을 뜻하지 않습니다.*
+로컬 색인에서 조회 가능한 Grasshopper 로직 이름을 찾습니다. 반환된 logic_names 항목을 get_logic_by_id에 사용합니다.
+
+반환: total_entries·logic_names를 반환합니다. include_ids=true는 logic_ids, false는 logic_count를 포함합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -6977,7 +7069,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별자 필드를 포함합니다. false이면 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 상세 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6992,7 +7084,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "선택 가능한 상세 그룹은 ports, definition, source, paths, audit, all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별자 포함 여부는 include_ids로 별도 제어합니다."
+      "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -7000,9 +7092,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -7033,11 +7123,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산하고 선언된 출력을 반환합니다. 단위는 자동 변환하지 않으며 정의에 따라 문서에 형상을 베이크할 수 있습니다. **시간 초과는 미실행이나 롤백의 증거가 아닙니다.**
+실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산합니다. 계약의 단위 그대로 입력하며 정의에 따라 문서에 형상을 베이크할 수 있습니다. 시간 초과 뒤에는 문서와 실행 상태를 확인합니다.
+
+반환: status, ALMOND_OUT_*별 outputs, baked_guids, analysis_method·confidence·warnings·error를 반환합니다. rule_based는 예비 추정입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -7050,7 +7142,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "inputs": {
       "additionalProperties": true,
       "type": "object",
-      "description": "ALMOND_IN_* 포트 이름을 값에 대응시키는 객체입니다. 형식은 위 설명을 참조합니다."
+      "description": "ALMOND_IN_ 포트 이름과 값의 객체입니다. 형상은 {\"guids\":[\"객체 GUID\"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다. 타입·단위·필수 여부는 metadata.capsule.inputs 계약을 따릅니다."
     },
     "seed": {
       "anyOf": [
@@ -7065,7 +7157,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "확률적 정의에 사용할 선택적 정수 시드입니다. 결정적인 정의에서는 생략합니다."
     },
     "timeout_s": {
-      "default": 60,
+      "default": 60.0,
       "type": "number",
       "description": "솔버 시간 한도(초)입니다. 기본값은 60, 최댓값은 600입니다."
     },
@@ -7125,11 +7217,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-로컬 구법 라이브러리에서 구조 시스템과 예비 경간·부재 깊이·조립 방식을 비교합니다. **경험칙 기반 안내이며 구조 내력 검증이 아닙니다.** 요청 없이 시공 상세 작업을 시작하지 않습니다.
+구법 라이브러리에서 구조 시스템, 예비 경간·부재 깊이와 조립 방식을 비교합니다. 경험칙에 따른 예비 치수이며 실제 구조 검토는 별도로 수행합니다. 시공 상세 작업은 사용자가 요청한 범위에서 진행합니다.
+
+반환: systems와 total·source를 반환합니다. span_m을 지정하면 fits_span과 권장 깊이를, include_reference_data=true이면 참고 하중·밀도를 포함합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -7156,7 +7250,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "validate_structure의 유형입니다(\"beam\", \"truss\", \"shell\", \"frame\", \"canopy\", \"gridshell\", \"membrane\", \"highrise\")."
     },
     "span_m": {
-      "default": 0,
+      "default": 0.0,
       "type": "number",
       "description": "0보다 크면 반환되는 각 시스템이 fits_span과 경간 비율 규칙에 따른 권장 부재 깊이를 보고합니다."
     },
@@ -7168,7 +7262,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별자 필드를 포함합니다. false이면 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 상세 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -7183,7 +7277,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "선택 가능한 상세 그룹은 rules, narrative, source, metadata, audit, all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별자 포함 여부는 include_ids로 별도 제어합니다."
+      "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -7191,9 +7285,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -7244,11 +7336,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-로컬 역사 라이브러리에서 건축 유형의 서사·선례·도시적 역할을 찾습니다. 역사적 맥락을 위한 자료이며 *프로젝트의 하중·부재 치수·내력 근거는 아닙니다.*
+역사 라이브러리에서 건축 유형의 서사·선례·도시적 역할을 조회합니다.
+
+반환: entries·total·source를 반환합니다. total은 limit 적용 전 일치 수입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -7277,7 +7371,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별자 필드를 포함합니다. false이면 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 상세 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -7292,7 +7386,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "선택 가능한 상세 그룹은 rules, narrative, source, metadata, audit, all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별자 포함 여부는 include_ids로 별도 제어합니다."
+      "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -7300,9 +7394,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -7349,11 +7441,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-선별된 건축 자료 디렉터리의 메타데이터를 오프라인으로 검색합니다. 외부 상세 콘텐츠를 가져오거나 프로젝트 근거로 검증하지 않으므로 **실제 자료와 재사용 권리를 따로 확인합니다.**
+선별된 건축 자료 디렉터리의 metadata를 검색합니다. 참고자료로 사용하기 전에 실제 내용과 재사용 권리를 확인합니다.
+
+반환: sources와 query_terms·expanded_terms·scope를 반환합니다. 각 항목은 자료 디렉터리의 검색 결과입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -7367,7 +7461,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별자 필드를 포함합니다. false이면 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 상세 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -7382,7 +7476,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "선택 가능한 상세 그룹은 rules, narrative, source, metadata, audit, all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별자 포함 여부는 include_ids로 별도 제어합니다."
+      "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -7390,9 +7484,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -7444,11 +7536,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-제공된 층 경계·출구·경로 측정값으로 피난 조건을 예비 검토합니다. Rhino 형상이나 경로를 추론하지 않으며, **전체 통과는 실행된 검사에만 해당합니다.** 단순화된 참고 규칙이므로 적용 법규 인증으로 사용하지 않습니다.
+제공된 층 경계·출구·경로 측정값에 참고 규칙을 적용해 피난 조건을 예비 검토합니다. passed는 실제 수행한 검사에만 해당하며, 적용 법규 검토는 별도로 수행합니다.
+
+반환: passed·occupant_load·area_m2·gross_area_m2, checks·warnings·source_note를 반환합니다. 경로 입력을 생략한 검사는 warnings에서 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -7485,7 +7579,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "전체에 스프링클러가 설치됐는지 여부입니다. 이격 비율, 보행거리, 막다른 복도 길이 제한에 영향을 줍니다."
     },
     "net_area_m2": {
-      "default": 0,
+      "default": 0.0,
       "type": "number",
       "description": "재실 면적을 대체합니다. 0이면 전체 바닥 면적을 사용합니다."
     },
@@ -7498,7 +7592,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "측정한 최악 조건의 보행거리입니다(예: 그려진 피난 경로에서 측정). 비워 두면 보행거리 검사를 건너뜁니다."
     },
     "dead_end_m": {
-      "default": 0,
+      "default": 0.0,
       "type": "number",
       "description": "가장 긴 막다른 복도의 길이(미터)입니다. 0이면 검사를 건너뜁니다."
     },
@@ -7557,11 +7651,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-저장된 구조 검증 이력을 최신순 Markdown 보고서로 작성합니다. 새 해석을 하지 않으며 **대상 파일을 덮어쓸 수 있습니다.** 저장된 이력은 과거 실행의 요약이지 현재 모델의 검증 결과가 아닙니다.
+저장된 구조 검증 이력을 최신순 Markdown 보고서로 작성합니다. 대상 파일이 있으면 덮어쓸 수 있습니다.
+
+반환: 작성한 path, 포함된 runs 수와 latest_method를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -7583,9 +7679,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -7620,11 +7714,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-구조 해석에 사용할 설계기준 프로필과 값의 검증 상태를 조회합니다. 프로필의 verified는 **프로젝트의 법규 준수나 구조 안전 승인이 아닙니다.**
+구조 해석에 사용할 설계기준 프로필과 수치의 검증 상태를 조회합니다. verified는 프로필 값에 대한 표시입니다.
+
+반환: default·profiles·problems·user_dir를 반환합니다. 해석에 전달할 profiles[].id는 include_ids=true로 요청합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -7633,7 +7729,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "요청한 출력에 식별자 필드를 포함합니다. false이면 보조 ID를 생략합니다. 이후 도구에 반환된 ID가 필요하면 true를 요청합니다. 이 설정은 추가 상세 그룹을 선택하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -7648,7 +7744,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "선택 가능한 상세 그룹은 parameters, source, audit, all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별자 포함 여부는 include_ids로 별도 제어합니다."
+      "description": "상세 그룹: parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -7656,9 +7752,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -7700,11 +7794,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-현재 Rhino 구조 형상을 지정한 하중·지지·접합·설계기준 가정으로 해석합니다. 형상은 편집하지 않습니다. 엔진의 적용 범위와 경고를 확인해야 하며, 규칙 기반 추정·참고용 내력·높은 confidence를 **구조 안전 인증으로 해석하지 않습니다.**
+Rhino 구조 형상을 지정한 하중·지지·접합·설계기준 가정으로 해석합니다. analysis_method, confidence와 warnings를 함께 읽습니다. rule_based는 추정이며 native 강재 검사는 횡비틀림좌굴을 제외합니다. 비강재 내력은 indicative로 표시될 수 있습니다. 실제 지지·접합·하중 경로를 확인해 결과를 해석합니다.
+
+반환: status는 pass/fail/indicative/error입니다. passed는 indicative에서 null일 수 있습니다. results에 변위(mm)·응력(MPa)·경간(m)·사용률을, worst_member_guids에 주요 대상을 반환합니다. warnings·assumptions·design_code.unverified를 함께 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -7723,9 +7819,9 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "사용할 해석 템플릿입니다. 선택지: \"beam\"은 단순 보의 휨/처짐, \"truss\"는 축력/좌굴 해석, \"shell\"은 셸 응력/변위, \"frame\"은 프레임 모멘트/전단 해석, \"canopy\"는 캔틸레버 캐노피, \"gridshell\"은 대변형 그리드셸, \"membrane\"은 막 구조 형상 탐색, \"highrise\"는 고층 구조 시스템입니다."
     },
     "load_kn": {
-      "default": 10,
+      "default": 10.0,
       "type": "number",
-      "description": "적용 하중(kN)입니다. 기본값은 10.0입니다."
+      "description": "전체 부과하중(kN)입니다. native에서는 자유 절점에 하향(-Z) 균등 분배합니다. 바닥·자산 하중과 중복 계산되지 않게 산정하며 필요한 경우 0으로 입력합니다."
     },
     "material": {
       "default": "Steel",
@@ -7735,7 +7831,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "engine": {
       "default": "auto",
       "type": "string",
-      "description": "\"auto\" | \"native\" | \"karamba\" 중 하나입니다. 위 설명을 참조합니다."
+      "description": "auto, native, karamba 중 선택합니다. auto는 선형 프레임에 native를, 그 외에는 Karamba를 사용합니다. karamba는 사용 가능한 api, template, rule_based 순으로 시도합니다. 결과의 analysis_method와 warnings를 확인합니다."
     },
     "fixed_supports": {
       "default": true,
@@ -7765,12 +7861,12 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "배치된 라이브러리 자산이 프레임 위에 놓이거나 프레임에 매달린 위치에 중력 하중을 추가합니다. 각 자산의 하중 항목에 따른 추정 자중과 사용 중 내용물/재실자 하중을 포함합니다(예: 물이 채워진 욕조). 배치는 Almond 자산 ID로 태그된 Rhino 객체에서 가져옵니다. 네이티브 엔진 전용입니다. 결과의 \"asset_loads\"에는 각 배치의 하중과 하중을 지지하는 부재 또는 적용하지 않은 이유가 나열됩니다."
     },
     "floor_load_kn_m2": {
-      "default": 0,
+      "default": 0.0,
       "type": "number",
       "description": "한 층에서 보로 둘러싸인 모든 구획에 적용할 부과 바닥 하중(kN/m2)입니다(예: 주거용 2.0, EN 1991-1-1의 category A). 보는 45도 분배 규칙에 따라 하중을 받습니다(2방향, 장단변비 2:1 초과 시 1방향). 네이티브 엔진 전용입니다. 설계기준의 바닥 하중에는 이동 가능한 가구와 사람이 이미 포함되므로, asset_loads는 무거운 특정 물품에 대해서만 함께 사용하고 중복 계산을 피하려면 load_kn을 0으로 설정합니다."
     },
     "floor_dead_kn_m2": {
-      "default": 0,
+      "default": 0.0,
       "type": "number",
       "description": "같은 구획에 적용할 추가 고정하중(kN/m2)입니다. 바닥 구성층과 마감 등을 포함합니다."
     },
@@ -7884,11 +7980,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-구조 형상을 해석해 변형·사용률·좌굴의 임시 뷰포트 오버레이를 표시합니다. 객체를 베이크하지 않지만 뷰포트 상태는 바뀝니다. **재계산 없는 표시 변경은 수정된 형상·하중 검증이 아니며**, 과장된 변형이나 좌굴 모드를 실제 형상으로 해석하지 않습니다.
+구조 형상을 해석해 변형·사용률·좌굴의 임시 뷰포트 오버레이를 표시합니다. 변형은 scale만큼 과장되며 좌굴 모드는 실제 변위 크기를 뜻하지 않습니다. reanalyze=false는 이전 계산을 사용하므로 형상·하중 변경 뒤에는 재계산합니다. 해석 엔진의 경고와 적용 범위는 validate_structure와 같습니다.
+
+반환: status, analysis_method·max_displacement_mm·max_utilization·scale과 요소별 결과를 반환합니다. clear 성공은 cleared, 참고 내력은 indicative일 수 있습니다. 좌굴 조회의 alpha_cr는 임계하중 배율입니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -7910,7 +8008,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "구조 축선의 곡선 GUID와 지점을 표시하는 점 GUID입니다(fixed_supports 참조). 점이 없으면 최하단 절점을 지점으로 사용합니다."
     },
     "load_kn": {
-      "default": 10,
+      "default": 10.0,
       "type": "number",
       "description": "자유 절점에 하향(-Z)으로 균등 분배할 전체 부과하중(kN)입니다."
     },
@@ -7995,7 +8093,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "변형 과장 배율입니다. 생략하면 자동으로 정합니다(경간의 약 6%)."
     },
     "reveal": {
-      "default": 1,
+      "default": 1.0,
       "type": "number",
       "description": "그릴 부재의 비율이며 0..1 범위입니다. 단계별 시공 재생에 사용합니다."
     },
@@ -8045,12 +8143,12 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "validate_structure와 동일하게 배치된 라이브러리 자산의 하중을 추가합니다(네이티브 엔진). 하중 작용점에 하중 화살표를 그립니다."
     },
     "floor_load_kn_m2": {
-      "default": 0,
+      "default": 0.0,
       "type": "number",
       "description": "한 층에서 보로 둘러싸인 모든 구획에 적용할 부과 바닥 하중(kN/m2)입니다(예: 주거용 2.0, EN 1991-1-1의 category A). 보는 45도 분배 규칙에 따라 하중을 받습니다(2방향, 장단변비 2:1 초과 시 1방향). 네이티브 엔진 전용입니다. 설계기준의 바닥 하중에는 이동 가능한 가구와 사람이 이미 포함되므로, asset_loads는 무거운 특정 물품에 대해서만 함께 사용하고 중복 계산을 피하려면 load_kn을 0으로 설정합니다."
     },
     "floor_dead_kn_m2": {
-      "default": 0,
+      "default": 0.0,
       "type": "number",
       "description": "같은 구획에 적용할 추가 고정하중(kN/m2)입니다. 바닥 구성층과 마감 등을 포함합니다."
     },
@@ -8102,9 +8200,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "required": [
-  ]
+  "type": "object"
 }
 ```
 
@@ -8160,11 +8256,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-선택한 Rhino 객체를 GLB와 Almond 자산 계약 파일로 내보냅니다. **같은 폴더의 동일 자산 파일을 덮어쓸 수 있으며**, 계약은 기록된 의미만 보존하므로 임의의 Rhino 데이터나 수신 앱의 완전한 복원을 보장하지 않습니다.
+선택한 Rhino 객체를 GLB와 Almond 자산 계약 파일로 내보냅니다. 같은 출력 폴더의 동일 자산 파일은 덮어쓸 수 있습니다.
+
+반환: glb_path·contract_path와 dimensions_mm·materials를 반환합니다. 수신 앱에서 지원되는 의미와 재료를 복원하는 데 사용합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -8237,11 +8335,13 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-Blender의 선택 형상 내보내기 또는 지정 객체 재료 설정을 위한 Python 코드를 생성합니다. **코드를 실행하지 않으며** 실행 시 내보내기는 파일을 쓰고 재료 설정은 일치 객체의 재료 슬롯을 교체합니다.
+Blender의 선택 형상 내보내기 또는 지정 객체의 재료 설정에 사용할 Python 코드를 생성합니다. 생성한 코드를 실행하면 파일을 쓰거나 일치 객체의 재료 슬롯을 교체합니다.
+
+반환: action과 실행할 Python script를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -8289,7 +8389,7 @@ Blender의 선택 형상 내보내기 또는 지정 객체 재료 설정을 위�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "보조 식별자 필드를 포함합니다. 입력한 대상 ID는 반복하지 않습니다."
+      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -8348,11 +8448,13 @@ Blender의 선택 형상 내보내기 또는 지정 객체 재료 설정을 위�
 
 ### DESCRIPTION
 
-Almond 계약과 GLB를 Rhino 문서로 가져와 인식 가능한 재료·메타데이터·앵커 배치를 복원합니다. 모든 원본 정보를 복구하는 것은 아니며, **복원·배치 오류 뒤에도 가져온 객체가 남을 수 있으므로 확인 없이 재가져오지 않습니다.**
+Almond 계약과 GLB를 Rhino로 가져와 지원되는 재료·metadata·앵커 배치를 복원합니다. 복원·배치 오류 뒤에도 가져온 객체가 남을 수 있으므로 확인 후 재시도합니다.
+
+반환: imported_count·imported_guids, metadata_restored·materials_deduplicated·unknown_material_ids와 dimension_check를 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -8444,11 +8546,13 @@ Almond 계약과 GLB를 Rhino 문서로 가져와 인식 가능한 재료·메�
 
 ### DESCRIPTION
 
-선택한 Rhino 객체를 지정한 물리·콜라이더 설정의 GLB로 Chestnut에 게시합니다. 형상과 **원본 문서 경로·GUID 등 메타데이터가 업로드**되며 같은 자산 ID는 기존 자산을 갱신합니다. 네트워크 결과가 불확실하면 서비스 상태를 확인한 뒤 재시도합니다.
+Rhino 객체를 지정한 물리·콜라이더 설정의 GLB로 Chestnut에 게시합니다. 원본 문서 경로·GUID 등 metadata도 업로드하며 같은 asset_id는 기존 자산을 갱신합니다. 네트워크 결과가 불확실하면 서비스 상태를 확인한 후 재시도합니다.
+
+반환: 원격 응답의 success와 chestnut_url 등을 반환합니다. 서비스에서 받은 추가 키가 병합되므로 실패·불확실한 상태는 응답과 원격 자산을 함께 확인합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -8486,7 +8590,7 @@ Almond 계약과 GLB를 Rhino 문서로 가져와 인식 가능한 재료·메�
       "description": "모델을 1미터 크기의 전시 소품으로 정규화하지 않고 Rhino의 실제 치수를 유지합니다."
     },
     "mass": {
-      "default": 0,
+      "default": 0.0,
       "type": "number",
       "description": "물리 질량(kg)입니다. static 바디는 항상 0을 사용합니다."
     },
@@ -8539,11 +8643,13 @@ Almond 계약과 GLB를 Rhino 문서로 가져와 인식 가능한 재료·메�
 
 ### DESCRIPTION
 
-선택한 Rhino 객체를 간단한 동작 프리셋으로 Chestnut에 게시합니다. 형상과 **원본 문서 경로·GUID 등을 업로드**하며 같은 자산 ID는 기존 자산을 갱신합니다. 성공은 외관·시뮬레이션 검증이 아니고, 불확실한 네트워크 결과는 재시도 전에 확인합니다.
+Rhino 객체를 동작 프리셋으로 Chestnut에 게시합니다. 원본 문서 경로·GUID 등 metadata도 업로드하며 같은 asset_id는 기존 자산을 갱신합니다. 네트워크 결과가 불확실하면 서비스 상태를 확인한 후 재시도합니다.
+
+반환: publish_objects_to_chestnut의 원격 게시 응답을 반환합니다.
 
 ### TOOL INPUT
 
-현재 inputSchema (description만 한국어 번역).
+현재 서버의 inputSchema입니다.
 
 ```json
 {
@@ -8568,7 +8674,7 @@ Almond 계약과 GLB를 Rhino 문서로 가져와 인식 가능한 재료·메�
     "asset_id": {
       "default": "",
       "type": "string",
-      "description": "선택적인 안정적 연결 ID입니다. 생략하면 결정적인 Rhino 연결을 사용합니다."
+      "description": "Chestnut 자산의 고정 ID입니다. 같은 ID로 게시하면 기존 자산을 갱신합니다. 비우면 서버가 생성합니다."
     },
     "connection_id": {
       "type": "string",

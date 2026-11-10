@@ -3,201 +3,179 @@
 ## create_phase
 
 <!-- instruction:create_phase -->
-When to use: Create an organizational Phase for related Plans without editing Rhino geometry.
-Before calling: Supply a nonempty name. status accepts pending, running, paused, completed, failed or blocked. file_name is a filename without folders; depends_on contains only phase_ IDs.
-Inputs from earlier results: project_info(sections=["project"], include_ids=true).project.files[].project_file_id selects an existing file and distinguishes duplicate filenames. list_phases.phases[].phase_id supplies Phase dependency references.
-Interpretation: phase.phase_id feeds list_plans.phase_id, get_phase_plan_step.phase_id or update_phase.phase_id. Dependencies are recorded relationships; [] means none.
-Limits: Same-kind references may be uncreated, self-referential or cyclic; they do not force execution or completion. This creates no model or Plan and does not verify a file on disk.
+관련 Plan을 묶는 Phase를 생성하고 이름, 설명, 파일 연결과 관계를 기록합니다.
+
+반환: status와 phase.phase_id를 반환합니다.
 
 Args:
-    name: Nonempty organizational Phase name.
-    description: Optional explanation of this project stage or work grouping.
-    file_name: Project filename without folders. Use project_file_id to disambiguate duplicate filenames; this is a stored association, not a file operation.
-    project_file_id: Existing project.files[].project_file_id from project_info(sections=["project"], include_ids=true). Must agree with file_name when both are supplied.
-    status: Initial workflow state: pending, running, paused, completed, failed or blocked.
-    depends_on: Optional Phase ID array (phase_ prefix only). Records relationships without enforcing execution order; omission creates no dependencies.
-    previous_id: One preceding Phase ID (phase_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
+    name: Phase 이름을 문자열로 입력합니다. 빈 문자열은 사용할 수 없습니다.
+    description: Phase의 목적이나 작업 범위를 문자열로 입력합니다.
+    file_name: Phase가 속한 Rhino 파일명을 폴더 경로 없이 문자열로 입력합니다. 예: model.3dm.
+    project_file_id: 등록된 프로젝트 파일 ID입니다. 같은 파일명이 여러 개일 때 project_info(sections=["project"], include_ids=true)에서 선택합니다.
+    status: pending, running, paused, completed, failed, blocked 중 하나를 선택합니다.
+    depends_on: 의존하는 Phase ID의 배열입니다. 각 값은 phase_로 시작합니다. 생략하면 빈 목록입니다.
+    previous_id: 이전 Phase ID 하나를 입력합니다. 값은 phase_로 시작합니다.
 <!-- /instruction:create_phase -->
 
 ## list_phases
 
 <!-- instruction:list_phases -->
-When to use: Begin Phase → Plan → Step discovery or inspect the project's organizational Phases.
-Before calling: Choose limit from 1–500. Optional field_groups are description, scope, audit or all; no earlier lookup is required.
-Inputs from earlier results: None required. Every phases[].phase_id is visible and feeds list_plans(phase_id=...) or get_phase_plan_step(phase_id=...).
-Interpretation: Rows contain phase_id, name, status, plan_count and Phase depends_on IDs. next_step explains how to read the selected Phase's details or list its Plans. total and truncated describe the bounded list; description adds prose, scope adds file references and audit adds stored timestamps.
-Limits: This is recorded organization, not evidence of live geometry or completed design. IDs are always returned; there is no include_ids argument. There is no offset argument.
+프로젝트의 Phase 목록과 각 Phase의 상태·Plan 수를 조회합니다.
+
+반환: phases에 phase_id·name·status·plan_count·depends_on·previous_id를 반환합니다. total·limit·truncated가 반환 범위를 표시합니다.
 
 Args:
-    limit: Maximum Phases, 1..500; this list has no offset argument.
-    field_groups: Optional groups: description, scope, audit or all. Omitted/empty keeps the summary and IDs.
+    limit: 최대 Phase 수입니다. 범위는 1..500이며, 이 목록에는 offset 인수가 없습니다.
+    field_groups: 선택 사항인 그룹은 description, scope, audit 또는 all입니다. 생략하거나 비어 있으면 요약과 ID를 유지합니다.
 <!-- /instruction:list_phases -->
 
 ## update_phase
 
 <!-- instruction:update_phase -->
-When to use: Revise a Phase's name, description, status, file association or Phase dependency references.
-Before calling: Supply phase_id and only intended changes. depends_on accepts {add: string[], remove: string[]}; omit either array for no operation. Omitted/null fields and an empty patch stay unchanged. Use only phase_ IDs. file_name='' clears the file association when project_file_id is omitted.
-Inputs from earlier results: list_phases.phases[].phase_id or get_phase_plan_step(phase_id=...).id feeds phase_id. project_info(..., include_ids=true).project.files[].project_file_id selects an existing project file.
-Interpretation: The acknowledgment returns phase.phase_id/status, changed and issues for skipped input items. status is success with no skips, partial_success with applied changes and skips, or no_change with skips but no actual change. A repeated scalar value is a no-op. Each issue identifies field, add/remove operation, zero-based index, original value and reason.
-Limits: Conflicting add/remove values are skipped on both sides; duplicates, already-present additions, absent removals and invalid string values affect only those items. Invalid general fields or input types/structure reject the entire request. This does not rename/move a model, propagate status or enforce dependency order. Same-kind dependencies need not exist and may contain cycles or self-references.
+Phase의 이름, 설명, 상태, 파일 연결과 관계를 수정합니다. 변경 결과와 건너뛴 패치 항목을 응답에서 확인합니다.
+
+반환: changed와 phase, 건너뛴 항목의 issues를 반환합니다. status는 success, 변경과 건너뜀이 함께 있으면 partial_success, 건너뜀이 있고 변경이 없으면 no_change입니다.
 
 Args:
-    phase_id: Existing Phase ID from list_phases.phases[].phase_id or get_phase_plan_step.id.
-    name: Optional nonempty replacement Phase name.
-    description: Optional replacement description; empty clears it.
-    file_name: Optional stored filename; empty clears association when project_file_id is omitted.
-    project_file_id: Existing project.files[].project_file_id from project_info(sections=["project"], include_ids=true). Must agree with file_name when both are supplied.
-    status: Optional pending, running, paused, completed, failed or blocked. Omission/null preserves state.
-    depends_on: Optional {add: string[], remove: string[]} patch using Phase IDs only. Conflicting/invalid string items are reported and skipped; malformed types reject the whole request.
-    previous_id: One preceding Phase ID (phase_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
+    phase_id: list_phases.phases[].phase_id 또는 get_phase_plan_step.id에서 얻은 기존 Phase ID입니다.
+    name: 선택 사항인 비어 있지 않은 대체 Phase 이름입니다.
+    description: 선택 사항인 대체 설명입니다. 비어 있으면 지웁니다.
+    file_name: 선택 사항인 저장할 파일명입니다. project_file_id를 생략한 경우 비어 있으면 연결 관계를 해제합니다.
+    project_file_id: project_info(sections=["project"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name도 함께 전달하면 두 값이 일치해야 합니다.
+    status: pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다.
+    depends_on: Phase ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 충돌하거나 유효하지 않은 문자열 항목은 보고하고 건너뜁니다. 잘못된 타입은 요청 전체를 거부합니다.
+    previous_id: 이전 Phase ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다.
 <!-- /instruction:update_phase -->
 
 ## create_plan
 
 <!-- instruction:create_plan -->
-When to use: Record a titled Plan with template Steps, optional Phase organization, contextual Scenes and explicit Holon targets.
-Before calling: Supply nonempty title and goal. title is the short list label; goal preserves the full objective. scope defaults to house and selects an existing registered Step template. For each new Plan, including a follow-up or a change of task, choose scope from the task's purpose and the user's existing template choice; custom registered scope mappings are supported. phase_id is optional; depends_on accepts only plan_ IDs.
-Inputs from earlier results: list_phases.phases[].phase_id feeds phase_id. Scene and Holon discovery provide scene_ids and holon_ids. The legacy scene_id, when supplied with scene_ids, must equal its first item. list_plans.plans[].plan_id provides dependency references.
-Interpretation: plan.plan_id feeds get_phase_plan_step or execute_looping. loop_no=0 means no Loop has started; revision numbers are assigned automatically. The selected scope creates ordered template Steps with UUID IDs separate from step_type/name; Holon targets belong to the Plan only.
-Limits: Creating a Plan does not select its artifact folder, edit Rhino or force Step execution. construction_detail is a template, not an enabling flag: detailed construction modeling still needs the user's request for that Task. inspection has no modeling Step. Existing custom scope mappings are preserved. Dependencies may be uncreated, self-referential or cyclic and do not enforce completion.
+목표와 작업 목적에 맞는 템플릿으로 Plan과 Step을 생성합니다. 작업 공간은 set_working_plan으로 선택하고 회차는 execute_looping으로 시작합니다. 시공 상세 작업은 사용자가 요청한 범위에서 수행합니다.
+
+반환: status와 plan.plan_id·loop_no·revision을 반환합니다. 최초 loop_no는 0입니다. 제목·상태와 Step ID는 Plan 상세에서 조회합니다.
 
 Args:
-    title: Nonempty short title used in Plan lists.
-    goal: Nonempty full objective and intended outcome.
-    scope: Registered Step template key; default house. Built-in keys: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. Custom registered scopes map to a built-in template. Select by task purpose; creation does not execute Steps.
-    scene_id: Legacy single Scene ID. Prefer scene_ids; if both are supplied this must equal its first item.
-    phase_id: Optional existing Phase ID; empty leaves the Plan without Phase organization.
-    scene_ids: Optional existing Scene ID array describing context, including several Scenes; omission permits work without a Scene. This does not expand the geometry target set.
-    holon_ids: Optional explicit registered Holon targets for this Plan. Steps have no separate Holon assignment.
-    depends_on: Optional Plan ID array (plan_ prefix only). Records dependencies without enforcing execution order.
-    previous_id: One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
-    parent_plan: Optional parent Plan ID array.
-    child_plan: Optional child Plan ID array.
+    title: Plan 목록에서 사용할 비어 있지 않은 짧은 제목입니다.
+    goal: 비어 있지 않은 전체 목표와 의도한 결과입니다.
+    scope: 등록된 Step 템플릿 키이며 기본값은 house입니다. 기본 제공 키는 spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior입니다. 등록된 사용자 지정 scope는 기본 제공 템플릿에 매핑됩니다. 작업 목적에 따라 선택합니다. 생성 시 Step이 실행되지는 않습니다.
+    scene_id: 기존 방식의 단일 Scene ID입니다. scene_ids를 우선 사용합니다. 둘 다 전달하면 scene_ids의 첫 번째 항목과 같아야 합니다.
+    phase_id: 선택 사항인 기존 Phase ID입니다. 비어 있으면 Plan을 Phase에 소속시키지 않습니다.
+    scene_ids: 맥락을 설명하는 선택 사항인 기존 Scene ID 배열로, 여러 Scene을 포함할 수 있습니다. 생략하면 Scene 없이 작업할 수 있습니다. 형상 대상 집합을 확장하지는 않습니다.
+    holon_ids: 이 Plan을 위해 명시적으로 지정하는 선택 사항인 등록된 Holon 대상입니다. Step에는 별도의 Holon 할당이 없습니다.
+    depends_on: 선택 사항인 Plan ID 배열입니다(plan_ 접두사만 허용). 실행 순서를 강제하지 않고 의존성을 기록합니다.
+    previous_id: 이전 Plan ID 하나를 입력합니다. 값은 plan_으로 시작합니다.
+    parent_plan: 선택 사항인 상위 Plan ID 배열입니다.
+    child_plan: 선택 사항인 하위 Plan ID 배열입니다.
 <!-- /instruction:create_plan -->
 
 ## get_phase_plan_step
 
 <!-- instruction:get_phase_plan_step -->
-When to use: Read one Phase, Plan or specific Step in detail, including a saved Plan/Step revision when needed.
-Before calling: Supply exactly one of phase_id or plan_id. A step_id requires plan_id and selects only that Step. revision is valid only for a Plan or Step; include_holons=true is valid only for a Plan. No include_ids or field_groups argument is accepted.
-Inputs from earlier results: list_phases.phases[].phase_id selects a Phase; list_plans.plans[].plan_id selects a Plan. A Plan result's plan.steps[].step_id selects one Step under the same plan_id. Each list_plan_revisions row supplies loop_no and revision together to select saved state.
-Interpretation: Common id, type and status identify the selected item and its workflow state. phase contains name, description, file_name/project_file_id, Phase depends_on, previous_id and plan_titles. plan contains title, goal, scope, revision, phase (phase_id/name or null), Plan depends_on, previous_id, scene_ids, artifact_dir/artifact_refs, created_at/updated_at in KST YYYY-MM-DD-HH:mm and Step UUID/type/name/status/loop_no summaries; loop_no, loop_artifact_dir and feedback identify the selected pass. Plan holon_ids appear only with include_holons=true; available_details lists an unrequested include_holons option. step contains its plan_id, loop_no, Loop-local revision, step_type and name and only that Step's input_refs/output_refs. IDs are always returned. Plan next_step explains specific-Step detail and set_working_plan; Step next_step explains selecting that work context and artifact location. Selection is not execution or a status change.
-Limits: This does not select a working Plan, execute a Step or verify geometry. status is the item's pending/running/paused/completed/failed/blocked state; status=error reports a failed query. Step records have no Holon assignment. Old snapshots stay immutable; missing legacy titles are derived from their goals, and an unavailable historical Phase name is null. Revisions are metadata history, not Rhino backups. read_only=true marks historical state. Historical next_step keeps loop_no and revision for Step discovery and directs a fresh query without revision or loop_no before selecting current work; set_working_plan never restores history.
+Phase, Plan 또는 Step 하나를 조회합니다. phase_id로 Phase를, plan_id로 Plan을, plan_id와 step_id로 Step을 선택합니다. Plan의 Holon 목록은 include_holons=true로 포함합니다. loop_no와 revision으로 과거 기록을 선택할 수 있습니다.
+
+반환: 공통 id·type·status와 선택한 phase, plan 또는 step을 반환합니다. status는 pending/running/paused/completed/failed/blocked이며 조회 실패는 error입니다. Plan·Step의 read_only=true는 과거 기록입니다. Plan의 steps는 요약, Step의 input_refs·output_refs는 근거 문자열입니다.
 
 Args:
-    phase_id: Select a Phase; mutually exclusive with plan_id.
-    plan_id: Select a Plan; mutually exclusive with phase_id. Add step_id to read only one Step.
-    step_id: Optional Step ID within plan_id; selects that Step input/output records instead of the Plan summary.
-    revision: Optional saved revision within the selected Loop. Omitted reads the selected Loop latest state. Not valid for a Phase.
-    loop_no: Optional nonnegative Loop number for Plan/Step queries; omitted selects the latest Loop. 0 reads pre-execution records. Not valid for a Phase.
-    include_holons: Include Plan holon_ids; valid only for a Plan query, not Phase or Step.
+    phase_id: Phase를 선택합니다. plan_id와 함께 사용할 수 없습니다.
+    plan_id: Plan을 선택합니다. phase_id와 함께 사용할 수 없습니다. Step 하나만 읽으려면 step_id를 추가합니다.
+    step_id: 선택 사항인 plan_id 내 Step ID입니다. Plan 요약 대신 해당 Step의 입력/출력 기록을 선택합니다.
+    revision: 선택한 Loop 안에 저장된 선택적 리비전입니다. 생략하면 선택한 Loop의 최신 상태를 읽습니다. Phase에는 사용할 수 없습니다.
+    include_holons: Plan의 holon_ids를 포함합니다. Plan 조회에만 유효하며 Phase 또는 Step에는 사용할 수 없습니다.
+    loop_no: Plan/Step 조회에 사용할 선택 사항인 0 이상의 Loop 번호입니다. 생략하면 최신 Loop를 선택합니다. 0은 실행 전 기록을 읽습니다. Phase에는 사용할 수 없습니다.
 <!-- /instruction:get_phase_plan_step -->
 
 ## list_plans
 
 <!-- instruction:list_plans -->
-When to use: List concise Plan titles within a Phase, or use existing scene/status filters to inspect recorded work.
-Before calling: Prefer phase_id from list_phases. scene_id and status are optional existing filters; omitted filters span the project. limit is 1–500. There are no field_groups or include_ids arguments.
-Inputs from earlier results: list_phases.phases[].phase_id feeds phase_id; Scene discovery can supply scene_id. Every returned plans[].plan_id feeds get_phase_plan_step(plan_id=...).
-Interpretation: Each row contains plan_id, title, scope, status, loop_no and revision. goal and repeated Phase membership are omitted. total/limit/truncated describe the list; next_step explains Plan detail and specific-Step discovery.
-Limits: This reads stored metadata and does not prove design completion. The current filters remain available; no new cross-Phase progress mode or multi-Plan detail batch is implied.
+프로젝트 또는 특정 Phase·Scene·상태에 해당하는 Plan 목록을 조회합니다.
+
+반환: plans에 plan_id·title·scope·status·loop_no·revision을 반환합니다. total·limit·truncated가 반환 범위를 표시합니다.
 
 Args:
-    phase_id: Optional Phase ID filter; empty spans Phases.
-    scene_id: Optional Scene ID filter; empty includes Plans with any/no Scene.
-    status: Optional workflow-state filter; empty includes all states.
-    limit: Maximum Plans, 1..500; this list has no offset argument.
+    phase_id: 선택 사항인 Phase ID 필터입니다. 비어 있으면 여러 Phase를 범위로 합니다.
+    scene_id: 선택 사항인 Scene ID 필터입니다. 비어 있으면 어떤 Scene에 속하든, Scene이 없든 모든 Plan을 포함합니다.
+    status: pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 빈 문자열이면 모든 상태를 포함합니다.
+    limit: 최대 Plan 수입니다. 범위는 1..500이며, 이 목록에는 offset 인수가 없습니다.
 <!-- /instruction:list_plans -->
 
 ## update_plan
 
 <!-- instruction:update_plan -->
-When to use: Change a Plan's title, full goal, Phase, Scene context, Plan Holon targets, dependency references, status or artifact references.
-Before calling: Supply plan_id and intended fields. depends_on accepts {add: string[], remove: string[]} with plan_ IDs; omitted/null/empty patches retain it. Other arrays retain their replacement contract: omission/null preserves and [] clears. phase_id='' detaches the Phase. title and goal must be nonempty when supplied. expected_revision remains optional.
-Inputs from earlier results: list_plans.plans[].plan_id or get_phase_plan_step(plan_id=...).id identifies the Plan. The detail's plan.revision feeds expected_revision; Phase/Scene/Holon discovery provides relationship IDs.
-Interpretation: plan.plan_id/status/revision, changed and issues acknowledge the result. success means no skips, partial_success means changes plus skipped items, and no_change means skips without actual change. Issues identify field, operation, index, value and reason. Actual changes create one revision; unchanged values create none. Plan status is explicit and independent of Step status; only the user decides Plan completion.
-Limits: Invalid general fields, unknown targets, stale expected_revision or malformed input reject the entire request. Dependency string item problems are reported individually; same-value add/remove skips both. References are recorded, not executed or verified. Same-kind dependencies allow uncreated IDs, self-references and cycles. This does not select a folder or edit geometry; update_step remains separate.
+Plan의 제목, 목표, Phase·Scene·Holon 관계, 상태와 산출물 참조를 수정합니다. Plan 상태는 Step 상태와 별도로 기록하며 completed는 사용자의 완료 결정 후 지정합니다. 실행된 Loop에서는 현재 loop_no와 expected_revision을 함께 입력합니다.
+
+반환: changed, plan.plan_id·status·revision, issues를 반환합니다. success/partial_success/no_change를 구분하며 실제 변경이 있을 때만 리비전이 증가합니다.
 
 Args:
-    plan_id: Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.
-    goal: Optional nonempty replacement full objective.
-    phase_id: Optional existing Phase ID; empty detaches Phase organization, omission/null preserves it.
-    scene_ids: Optional replacement Scene ID array; [] clears, omission/null preserves. Scenes describe context, not automatic edit targets.
-    holon_ids: Optional replacement Plan Holon target array; [] clears, omission/null preserves.
-    expected_revision: Optional stale-state check, not a new revision number. Use the observed current revision and loop_no together after execution starts; mismatch rejects changes. Normally omit; the server allocates revisions.
-    loop_no: Optional current Loop number guard; any older or unknown Loop is rejected. Required with expected_revision when the Plan has executed a Loop.
-    depends_on: Optional {add: string[], remove: string[]} patch of Plan IDs only; string item problems are skipped and reported.
-    status: Optional pending, running, paused, completed, failed or blocked; omission/null preserves.
-    artifact_refs: Optional replacement artifact-reference string array; [] clears, omission/null preserves.
-    title: Optional nonempty replacement short title.
-    previous_id: One preceding Plan ID (plan_ prefix), separate from depends_on relationships. Omitted/null preserves it on update; empty string clears it. This records continuity without gating execution or requiring completion.
-    parent_plan: Optional replacement parent Plan ID array; omission/null preserves, [] clears.
-    child_plan: Optional replacement child Plan ID array; omission/null preserves, [] clears.
+    plan_id: list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다.
+    goal: 선택 사항인 비어 있지 않은 대체 전체 목표입니다.
+    phase_id: 선택 사항인 기존 Phase ID입니다. 비어 있으면 Phase 소속을 해제하고, 생략/null이면 유지합니다.
+    scene_ids: 선택 사항인 대체 Scene ID 배열입니다. []이면 비우고 생략/null이면 유지합니다. Scene은 맥락을 설명하며 자동 편집 대상이 아닙니다.
+    holon_ids: 선택 사항인 대체 Plan Holon 대상 배열입니다. []이면 비우고 생략/null이면 유지합니다.
+    expected_revision: 현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다.
+    depends_on: Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다.
+    status: pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다.
+    artifact_refs: 선택 사항인 대체 산출물 참조 문자열 배열입니다. []이면 비우고 생략/null이면 유지합니다.
+    title: 선택 사항인 비어 있지 않은 대체 짧은 제목입니다.
+    previous_id: 이전 Plan ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다.
+    parent_plan: 선택 사항인 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다.
+    child_plan: 선택 사항인 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다.
+    loop_no: 선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Plan이 Loop를 실행한 후에는 expected_revision과 함께 필수로 전달해야 합니다.
 <!-- /instruction:update_plan -->
 
 ## list_plan_revisions
 
 <!-- instruction:list_plan_revisions -->
-When to use: Discover which metadata operations created a Plan's saved revisions before reading an earlier state.
-Before calling: Supply plan_id and limit from 1–500. Optional field_groups accepts audit or all to include stored revision timestamps.
-Inputs from earlier results: A Plan's id or list_plans.plans[].plan_id feeds plan_id. Each row feeds get_phase_plan_step(plan_id=..., loop_no=..., revision=...), optionally with step_id.
-Interpretation: plan_id is always returned; rows expose loop_no, revision, operation and step_id (null for Plan-wide changes), with created_at when audit/all is selected. total/limit/truncated describe available history. There is no include_ids argument.
-Limits: Revisions preserve Plan metadata and Step records, not Rhino geometry. Artifact folder setup can create a revision. Reading history neither restores it nor changes current state. Ordinary Rhino/Python calls are not recorded. Numbers are scoped to Plan + Loop; omitted loop_no lists all Loops, newest first. A step_id filter matches direct Step changes only, excluding Plan-wide records.
+Plan과 Loop의 저장 리비전 목록, 변경 작업과 관련 Step을 조회합니다. 반환된 loop_no와 revision을 함께 사용해 해당 기록을 읽습니다.
+
+반환: revisions에 loop_no·revision·operation·step_id를 반환합니다. Plan 전체 변경의 step_id는 null입니다. audit 그룹은 created_at을 추가합니다.
 
 Args:
-    plan_id: Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.
-    limit: Maximum revision records, 1..500.
-    field_groups: Optional audit or all to include stored timestamps; omitted/empty returns loop_no, revision, operation and step_id.
-    loop_no: Optional nonnegative Loop filter; omitted includes all Loops, 0 selects pre-execution history.
-    step_id: Optional UUID Step filter for direct Step changes; empty includes Plan-wide records too.
+    plan_id: list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다.
+    limit: 최대 리비전 기록 수입니다. 범위는 1..500입니다.
+    field_groups: 저장된 타임스탬프를 포함하려면 선택적으로 audit 또는 all을 사용합니다. 생략하거나 비어 있으면 loop_no, revision, operation 및 step_id를 반환합니다.
+    loop_no: 선택 사항인 0 이상의 Loop 필터입니다. 생략하면 모든 Loop를 포함하며, 0은 실행 전 이력을 선택합니다.
+    step_id: 직접적인 Step 변경에 사용할 선택 사항인 UUID Step 필터입니다. 비어 있으면 Plan 전체 기록도 포함합니다.
 <!-- /instruction:list_plan_revisions -->
 
 ## update_step
 
 <!-- instruction:update_step -->
-When to use: Track a Step's status or revise its input/output evidence under its Plan.
-Before calling: Supply plan_id and step_id. status is optional (pending, running, paused, completed, failed or blocked); omission/null keeps it. input_refs/output_refs accept {add: string[], remove: string[]}; omission/null/{} and empty add/remove retain existing records. Remove observed values to clear them. Bare replacement arrays are not accepted. Holon assignment belongs to update_plan.
-Inputs from earlier results: get_phase_plan_step(plan_id=...).plan.steps[].step_id identifies a Step; add step_id to that query to read its current input_refs/output_refs. plan.revision or step.revision feeds expected_revision.
-Interpretation: The response acknowledges plan.plan_id/status/revision and step.step_id/status, with changed and issues. success has no skips; partial_success has changes and skipped items; no_change has skips but no actual change. Each issue identifies field, add/remove operation, zero-based index, original value and reason. Any combination of valid status/refs edits creates one Plan revision if changed. Step changes never recalculate Plan status. Only the user decides Plan completion.
-Limits: Same-value add/remove skips both; duplicate_input, already_present, not_found and invalid_value skip only the affected string item. Invalid status, unknown target, stale expected_revision or malformed input/type rejects the entire request. Evidence strings are stored, not verified; partial application may leave a requested record replacement unfinished. Dependencies do not gate execution and this call grants no authority to edit geometry. No actual change creates no revision.
+Step의 상태와 입력·출력 근거를 기록합니다. Plan 상태는 별도로 유지됩니다. 실행된 Loop에서는 현재 loop_no와 expected_revision을 함께 입력하고, 응답에서 적용 결과와 건너뛴 항목을 확인합니다.
+
+반환: changed, plan과 step의 ID·상태, plan.revision, issues를 반환합니다. success/partial_success/no_change를 구분합니다. issues는 field·operation·index·value·reason을 포함합니다.
 
 Args:
-    plan_id: Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.
-    step_id: Step ID from the selected Plan detail, used together with that Plan ID.
-    status: Optional pending, running, paused, completed, failed or blocked; omission/null preserves. This never changes Plan status.
-    input_refs: Optional {add: string[], remove: string[]} patch of input evidence strings. Omission/null/{} leaves it unchanged; invalid string items are skipped and reported.
-    output_refs: Optional {add: string[], remove: string[]} patch of output evidence strings. Omission/null/{} leaves it unchanged; [] replacement arrays are not accepted.
-    expected_revision: Optional stale-state check, not a new revision number. Use the observed current revision and loop_no together after execution starts; mismatch rejects changes. Normally omit; the server allocates revisions.
-    loop_no: Optional current Loop number guard; any older or unknown Loop is rejected. Required with expected_revision when the Plan has executed a Loop.
+    plan_id: list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다.
+    step_id: 선택한 Plan의 상세 결과에서 얻은 Step ID입니다. 해당 Plan ID와 함께 사용합니다.
+    status: pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다.
+    input_refs: 입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다.
+    output_refs: 출력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. [] 형식의 전체 교체 배열은 허용하지 않습니다.
+    expected_revision: 현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다.
+    loop_no: 선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Plan이 Loop를 실행한 후에는 expected_revision과 함께 필수로 전달해야 합니다.
 <!-- /instruction:update_step -->
 
 ## resolve_targets
 
 <!-- instruction:resolve_targets -->
-When to use: Identify a Plan's registered Holon target set before deciding how to inspect or act on it.
-Before calling: Supply plan_id; an optional step_id validates the Step context but never overrides Plan targets. field_groups accepts references, geometry, scope, audit or all.
-Inputs from earlier results: list_plans.plans[].plan_id or unified detail id supplies plan_id. Plan detail supplies step IDs when needed. Returned holon_ids feed focus_holons or Holon detail queries; revision can feed expected_revision.
-Interpretation: source is plan. A Plan's explicit empty target set stays empty. IDs are always returned, including plan_id and a supplied step_id; there is no include_ids argument. Optional groups add available hierarchy, model/group identity or timestamp fields.
-Limits: Scene context never expands targets. This returns stored identities with live_verified=false, not verified group membership, live geometry or edit authorization. Steps own no separate Holon targets.
+Plan에 등록된 Holon 대상 집합을 조회합니다. 빈 대상은 빈 목록으로 반환합니다. 현재 구성원과 형상은 후속 관찰에서 확인합니다.
+
+반환: plan_id·step_id·revision, scene_ids·holon_ids·holons와 live_verified·source를 반환합니다. Holon ID는 등록된 대상 참조입니다.
 
 Args:
-    plan_id: Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.
-    step_id: Optional Step ID to validate context; never overrides Plan targets.
-    field_groups: Optional references, geometry, scope, audit or all. Omitted/empty returns stored Plan target IDs.
+    plan_id: list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다.
+    step_id: 컨텍스트를 검증하는 선택 사항인 Step ID입니다. Plan 대상을 재정의하지 않습니다.
+    field_groups: 선택 사항: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 저장된 Plan 대상 ID를 반환합니다.
 <!-- /instruction:resolve_targets -->
 
 ## get_selection_references
 
 <!-- instruction:get_selection_references -->
-When to use: Discover which recorded Plans refer to the current Rhino selection, including ancestor Holons.
-Before calling: A live saved document is needed. selection_limit is 1–200 and the matching-Plan limit is 1–500. field_groups selects steps, references, geometry, artifacts, description, scope, audit or all.
-Inputs from earlier results: No IDs are required. Returned plans[].plan_id feeds get_phase_plan_step or resolve_targets. The steps group adds Step summaries belonging to the matched Plan. Holon and object handles are always visible for separately authorized follow-up work.
-Interpretation: Target references belong to Plans. Optional Step summaries have source=plan and do not imply Step assignments. ownership_live_verified concerns native selected-object ownership; references_live_verified=false concerns stored ancestry and Plan relationships. Selection counts, total_plans and truncated remain explicit.
-Limits: There is no include_ids argument. Group/block editing cannot certify persistent Holon ownership and returns MCP isError=true, not an empty reference result. Scene context invents no targets; this query does not reconcile registrations or authorize edits. Obtain the current Plan revision before relying on an expected_revision guard.
+현재 Rhino 선택 객체와 상위 Holon을 참조하는 Plan을 찾습니다. 객체 소유 관계는 현재 문서에서, Plan 관계는 저장된 기록에서 읽습니다. 저장된 일반 모델 컨텍스트가 필요합니다.
+
+반환: objects·holons·plans와 총수·truncated, ownership_live_verified·references_live_verified를 반환합니다. 현재 소유 관계와 저장된 Plan 참조를 구분합니다.
 
 Args:
-    selection_limit: Maximum selected Rhino objects to inspect, 1..200.
-    limit: Maximum matching Plans to return, 1..500.
-    field_groups: Optional groups: steps, references, geometry, artifacts, description, scope, audit or all. Omitted/empty keeps the summary.
+    selection_limit: 검사할 선택된 Rhino 객체의 최대 개수이며, 범위는 1..200입니다.
+    limit: 반환할 일치 Plan의 최대 개수이며, 범위는 1..500입니다.
+    field_groups: 선택 사항인 그룹: steps, references, geometry, artifacts, description, scope, audit 또는 all. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:get_selection_references -->

@@ -3,116 +3,100 @@
 ## upsert_ontological_holon
 
 <!-- instruction:upsert_ontological_holon -->
-When to use: Register or update a semantic Holon bound to a current Rhino group, without copying geometry. A Holon combines physical elements with the shared role, behavior or structure they make possible. Choose its boundary from that relationship, not solely object type, material or proximity; a Holon can belong to several Scenes. Illustrative groupings are not mandatory registration patterns.
-Before calling: Use the active saved document; expected_model_path, if supplied, must match it. Supply at least one existing Scene (omitting scene_ids preserves an existing association). Each object has one direct Holon owner; children have at most one same-document parent and no cycles. Use the existing group's exact current name: renaming is refused because group-table changes are not Undo-tracked. Registration requires design_components=1 and component_registry=2; omitted/null object_ids also requires component_group_inference=1.
-Inputs from earlier results: Reuse valid Scene handles from Scene creation or list_design_scenes(include_ids=true), and Holon handles from registration acknowledgements or list_ontological_holons(include_ids=true). These semantic IDs are not Rhino GUIDs. object_ids are current top-level object GUIDs for DIRECT owners, not child members; obtain them from an existing valid observation or a live Holon read with include_ids=true and field_groups=["geometry"]. rhino_group_id is a group GUID, not its name/index or a Holon ID. Omit object_ids or pass null to infer direct owners from that existing group or holon_id's binding; native validation reads its actual members and declared children together. child_holon_ids=None preserves children; [] detaches them. Explicit object_ids=[] means no direct owners and requires existing children.
-Interpretation: The compact component acknowledgement returns holon_id and rhino_group_id with status, availability, object_count and live_verified when available; retain these handles. The document-private registry records meaning, Scene links and explicit children without object management attributes. Actual group membership/order is truth; child members retain their ownership. One exact ordinary group is adopted; ambiguous matches require its GUID. Only an explicitly requested new group may be created, and name collisions fail before mutation rather than adding a suffix.
-Limits: Ordinary groups/blocks are not automatically meaning units. Inference needs an existing group with 1–4096 valid members and never infers name, Scene context or child links, creates a missing group, or repairs membership/order from DB records. No geometry is duplicated. Registration Undo restores original object membership and removes meaning, but an empty non-Undo-tracked group-table entry may remain; review the intended structure rather than repairing or replaying an undone registration. After an uncertain native result, inspect current state and sync_ontological_holon; never replay the mutation automatically.
+물리적 요소와 관계의 역할·동작·구조를 Holon으로 등록하거나 갱신합니다. 직접 객체 소유권은 Holon 하나에 속합니다. 기존 그룹 이름 변경은 거부하며, 불확실한 결과나 Undo 뒤에는 현재 상태를 확인합니다.
+
+반환: status와 holon의 ID·그룹·상태 등 등록 확인 정보를 반환합니다.
 
 Args:
-    name: Semantic Holon name; must match the exact existing Rhino group name when binding that group.
-    object_ids: Current top-level Rhino object GUIDs to register. Omitted may resolve an existing named group; [] is valid only for a parent with child_holon_ids.
-    expected_model_path: Usually omitted: managed sessions supply the bound saved Rhino document. An explicit path must match that binding; it does not switch documents.
-    scene_ids: Existing Scene memberships; required for a new Holon. Omission preserves an existing registration; this does not create Scenes.
-    holon_id: Optional existing Holon ID to revise; omitted creates a registration.
-    rhino_group_id: Optional exact existing Rhino group GUID; use it to disambiguate names.
-    child_holon_ids: Optional registered child Holons; [] detaches existing children and omission preserves them. Enforces one parent per child and no hierarchy cycles.
+    name: 의미적 Holon 이름입니다. 기존 Rhino 그룹에 연결할 때는 해당 그룹의 정확한 이름과 일치해야 합니다.
+    object_ids: 등록할 현재 최상위 Rhino 객체 GUID입니다. 생략하면 이름이 지정된 기존 그룹을 찾아 사용할 수 있습니다. []는 child_holon_ids가 있는 부모에만 유효합니다.
+    expected_model_path: 보통 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 경로를 명시하면 해당 연결과 일치해야 하며, 문서를 전환하지는 않습니다.
+    scene_ids: 기존 Scene 소속 관계입니다. 새 Holon에는 필수입니다. 생략하면 기존 등록을 유지하며, Scene을 생성하지는 않습니다.
+    holon_id: 수정할 기존 Holon ID입니다. 선택 사항이며, 생략하면 등록을 생성합니다.
+    rhino_group_id: 기존 Rhino 그룹의 정확한 GUID입니다. 선택 사항이며, 이름의 모호성을 해소하는 데 사용합니다.
+    child_holon_ids: 등록된 자식 Holon 목록입니다. 선택 사항이며, []는 기존 자식을 분리하고 생략하면 유지합니다. 자식당 부모는 하나만 허용하고 계층 순환을 금지합니다.
 <!-- /instruction:upsert_ontological_holon -->
 
 ## get_ontological_holon
 
 <!-- instruction:get_ontological_holon -->
-When to use: Read a cached Holon summary or observe its current Rhino group without changing Rhino or the ledger.
-Before calling: Choose live=true for current members/name; live=false is cached. recursive=false is the default; use true only when effective nested geometry is needed. An existing valid observation can be reused instead of requiring another read.
-Inputs from earlier results: Pass a semantic holon_id from a registration acknowledgement or list_ontological_holons(include_ids=true), not a Rhino object/group GUID. For live member GUIDs, request live=true, include_ids=true and field_groups=["geometry"]; add "references" for Scene/parent/child handles and rhino_group_id.
-Interpretation: Default output is a summary with IDs/GUIDs omitted; the supplied holon_id is not repeated even with include_ids=true. field_groups selects references, geometry, scope, audit or all; include_ids separately permits IDs within the selected fields, and audit enables timestamps. live_verified identifies a live observation; requires_sync reports ledger disagreement without aligning it.
-Limits: Cached geometry_available=false means group-level summaries only, never member IDs or per-object geometry, even when geometry fields are requested. Live observation requires a stable normal model; group/block editing returns an error because persistent group ownership is unverified, not an empty member list or cached live substitute. It validates registration, not design correctness or overlap/topology suitability for editing. Obtain face CRCs through get_objects and intersection review_id through resolve_object_intersection when those operations are needed.
+Holon의 등록 요약이나 현재 Rhino 그룹 구성원을 조회합니다. 현재 상태 조회는 안정된 일반 모델에서 수행하며 그룹·블록 편집 중에는 오류를 반환합니다. 등록과 현재 상태의 차이는 응답에 표시합니다.
+
+반환: holon의 저장 요약 또는 현재 구성원 관찰과 불일치 정보를 반환합니다. live_verified 등의 근거 범위를 확인합니다.
 
 Args:
-    holon_id: Registered Holon ID from a Holon query with include_ids=true or a prior registration result.
-    live: Read current Rhino group membership and geometry when true; false reads only stored registration.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    recursive: Expand registered child Holons when true; this is the semantic hierarchy, not block-definition expansion.
-    field_groups: Optional detail groups: references, geometry, scope, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    holon_id: include_ids=true를 사용한 Holon 조회 또는 이전 등록 결과에서 얻은 등록된 Holon ID입니다.
+    live: true이면 현재 Rhino 그룹 구성원 관계와 형상을 읽습니다. false이면 저장된 등록 정보만 읽습니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    recursive: true이면 등록된 하위 Holon을 확장합니다. 이는 의미적 계층이며, 블록 정의 확장이 아닙니다.
+    field_groups: 선택 사항인 상세 그룹: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다.
 <!-- /instruction:get_ontological_holon -->
 
 ## list_ontological_holons
 
 <!-- instruction:list_ontological_holons -->
-When to use: Discover compact cached Holon registrations, optionally filtered by model path or Scene.
-Before calling: Choose the intended scope; managed sessions default expected_model_path to the bound model; standalone empty input spans models. recursive=false lists roots in that scope; true includes registered descendants. Scene-scoped roots follow that Scene's canonical links, even when a Holon has a parent in another Scene.
-Inputs from earlier results: Use a Scene handle from Scene creation or list_design_scenes(include_ids=true) as scene_id, not a Scene name or Rhino GUID. Request include_ids=true to obtain holon_id handles for later reads, registration updates, alignment, removal or focus; add field_groups=["references"] for Scene/parent/child handles and group GUIDs. For overlaps, first obtain current document object GUIDs with get_ontological_holon(live=true, include_ids=true, field_groups=["geometry"]) or get_objects(scope="document", group_ids=[rhino_group_id], include_ids=true), then pass the verified object IDs to get_object_intersections or resolve_object_intersection. Holon IDs are not accepted as object IDs.
-Interpretation: Results report total and live_verified=false. Default output omits IDs/GUIDs; include_ids enables handles only within selected fields. field_groups selects references, geometry, scope, audit or all; default is summary and audit enables timestamps. Returned holon_id is a semantic handle, whereas rhino_group_id is the physical Rhino group GUID.
-Limits: This does not inspect or align Rhino. Cached geometry_available=false records contain group summaries, not member GUIDs or per-object geometry; selecting geometry fields cannot turn them into live evidence. Use existing valid live evidence or an explicit live read when current membership matters.
+문서 또는 Scene 범위의 캐시된 Holon 등록 목록을 조회합니다. 현재 구성원은 get_ontological_holon이나 get_scene_objects로 확인합니다.
+
+반환: holons와 total·live_verified를 반환합니다. 캐시된 등록 목록이므로 현재 구성원 검증은 별도 조회가 필요합니다.
 
 Args:
-    expected_model_path: Managed sessions default to the bound model; standalone empty input lists registrations across models. Does not switch the active Rhino document.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    scene_id: Optional registered Scene ID filter; empty does not filter by Scene.
-    recursive: Include registered child Holons when true.
-    field_groups: Optional detail groups: references, geometry, scope, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    expected_model_path: 관리형 세션의 기본값은 연결된 모델입니다. 독립 실행에서 빈 입력을 사용하면 여러 모델의 등록 정보를 나열합니다. 활성 Rhino 문서를 전환하지 않습니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    scene_id: 선택 사항인 등록된 Scene ID 필터입니다. 비어 있으면 Scene으로 필터링하지 않습니다.
+    recursive: true이면 등록된 자식 Holon을 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 references, geometry, scope, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다.
 <!-- /instruction:list_ontological_holons -->
 
 ## sync_ontological_holon
 
 <!-- instruction:sync_ontological_holon -->
-When to use: Align the ledger with current Rhino Holon registrations once, without modifying model structure.
-Before calling: Use the bound saved document in a stable editing state; a supplied expected_model_path must match. Choose one holon_id, holon_ids, one scene_id, or no targets for the bound document; do not combine target forms. Group/block editing, unknown isolation and other unstable states refuse alignment. No routine pre-query or repeated sync is required when existing evidence remains valid.
-Inputs from earlier results: Use semantic Holon handles from registration acknowledgements or list_ontological_holons(include_ids=true), or a Scene handle from Scene creation/listing with IDs enabled. Optional rhino_group_id is a GUID consistency check for an existing single holon_id binding, not a way to rebind it; obtain it from an acknowledgement or a read with include_ids=true and field_groups=["references"].
-Interpretation: The compact reply reports checked/changed/unavailable counts, per-item problems and Scene revisions; complete native snapshots stay internal. A successful single target can add a compact component acknowledgement with its Holon and group handles. Valid unrelated registrations can align despite individual problems; repeated unchanged alignment creates no revision.
-Limits: Scope is at most 64 registrations including descendants and is response-size bounded; narrow larger scopes. Scene/document discovery may find native registrations missing from the DB, while explicit Holon scope does not broaden that way. Geometry, groups, membership/order, names, selection/view and object attributes are unchanged. Missing groups retain identity/history for Rhino Undo, never recreate geometry. Inspect item-specific recovery instructions; never replay an uncertain mutation as a substitute for reconciliation.
+안정된 Rhino 편집 상태에서 현재 Holon 구성원을 읽어 등록 대장을 갱신합니다. 변경 뒤 등록과 현재 상태를 맞출 때 사용합니다.
+
+반환: checked·changed·unavailable·problems와 scene_revisions·live_verified로 동기화 결과를 반환합니다.
 
 Args:
-    holon_id: Optional registered Holon ID for single-target reconciliation.
-    expected_model_path: Usually omitted: managed sessions supply the bound saved Rhino document. An explicit path must match that binding; it does not switch documents.
-    rhino_group_id: Optional current Rhino group GUID consistency check accompanying holon_id; it does not select or rebind a group by itself.
-    holon_ids: Optional explicit Holon ID batch; do not combine with single Holon/group selectors.
-    scene_id: Optional Scene scope for batch reconciliation; does not create or infer new Holons.
+    holon_id: 단일 대상의 상태 대조 및 정합성 확인에 사용할 등록된 Holon ID입니다. 선택 사항입니다.
+    expected_model_path: 보통 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 경로를 명시하면 해당 연결과 일치해야 하며, 문서를 전환하지는 않습니다.
+    rhino_group_id: holon_id와 함께 제공하는 선택 항목으로, 현재 Rhino 그룹 GUID의 일관성을 확인합니다. 이 값만으로 그룹을 선택하거나 연결 대상을 바꾸지 않습니다.
+    holon_ids: 명시적 Holon ID 일괄 목록입니다. 선택 사항이며, 단일 Holon/그룹 선택자와 함께 사용하지 않습니다.
+    scene_id: 일괄 상태 대조 및 정합성 확인에 사용할 Scene 범위입니다. 선택 사항이며, 새 Holon을 생성하거나 추론하지 않습니다.
 <!-- /instruction:sync_ontological_holon -->
 
 ## remove_ontological_holon
 
 <!-- instruction:remove_ontological_holon -->
-When to use: Unregister a Holon's semantic meaning while preserving its Rhino geometry, ordinary group and object attributes.
-Before calling: A Holon with its own parent must first be detached, and Plan/Step references to it must be cleared. Confirm the intended semantic removal rather than treating it as geometry deletion.
-Inputs from earlier results: Pass the semantic holon_id from a registration acknowledgement or list_ontological_holons(include_ids=true), not a Rhino object/group GUID. Existing valid references can be reused; no fresh read is mandatory solely to obtain an already-known handle.
-Interpretation: The compact acknowledgement identifies the removed holon_id and rhino_group_id with unregistered status. Children of a removed root become registered roots and retain direct object ownership, Rhino groups and Scene links. Rhino Undo/Redo restores or removes the document-private semantic binding.
-Limits: No geometry is deleted or copied and existing object attributes are preserved. Native semantic changes and DB commits are separate: an uncertain result requires inspecting current registry/groups and alignment, not automatically retrying removal. Undo of meaning does not imply any group-table rename/create/delete rollback.
+Holon 등록을 해제하고 Rhino 형상·일반 그룹·객체 속성은 보존합니다. 부모와 Plan 참조를 먼저 해제해야 하며 자식 Holon은 독립된 등록 루트로 남습니다. 결과가 불확실하면 현재 등록 상태를 확인합니다.
+
+반환: status와 해제된 holon 정보를 반환합니다.
 
 Args:
-    holon_id: Registered Holon ID from a Holon query with include_ids=true or a prior registration result.
+    holon_id: include_ids=true를 지정한 Holon 조회 또는 이전 등록 결과에서 얻은 등록된 Holon ID입니다.
 <!-- /instruction:remove_ontological_holon -->
 
 ## resolve_object_intersection
 
 <!-- instruction:resolve_object_intersection -->
-When to use: Review and resolve one overlap at a time through this same tool. The first call shows a comparison; a later numbered choice explicitly authorizes subtraction.
-Before calling: Start with 1..512 current top-level Rhino object_ids, optionally include_block=true. A prior count query is optional. Use the bound saved document, a raster model viewport, visible/selectable targets and stable model-editing state. Requires intersection_review=1. Starting with object_ids resets this connection's review scope and skipped pairs.
-Inputs from earlier results: After visually inspecting the returned comparison and numbered object metadata, call this tool with review_id and choice=1 or 2 to remove only the overlap from that numbered object; the other object stays unchanged. choice='skip' leaves both objects unchanged. Do not combine a choice with object_ids, supply pair_state, or treat a Holon ID as a Rhino GUID. review_id binds a decision to displayed operand identities, not an old geometry fingerprint. Current geometry is recalculated immediately before replacement.
-Interpretation: The tool stops at the first positive pair and returns one side-by-side context/isolated image with object markers 1 and 2, names, layers, containing block names/paths, bounded attributes/UserDictionary, and review_id. Camera and selection move to the targets. Both images share the camera; the temporary native isolation is ended and visibility checked. Whole top-level block instances are displayed; internal member positions are numbered and definitions are unchanged. A choice preserves the target GUID, attributes and groups through the existing per-object Undo boundary, then scans current geometry from the beginning to show the next pending pair. previous_result retains a completed edit/skip even if the next review fails. A no-argument call continues the current scope; completed means no unskipped positive pair remains, not that skipped overlaps disappeared.
-Limits: No choice is inferred from geometry or the image. If the design decision is unclear, discuss it with the user or skip. Block/source-file edits, mixed Mesh/Brep edits, textured or vertex-coloured Meshes, unpreservable geometry user data, whole-target deletion and multiple-Brep results remain unsupported. Unknown calculations are errors, not zero overlaps. An uncertain response blocks automatic continuation; inspect the document before explicitly restarting review. Repeated or superseded review_id values cannot replay a modification. Reconnect loses the review session. No model save, source-asset edit or semantic Holon registration is performed.
+겹친 객체를 한 쌍씩 이미지로 비교하고 선택한 객체에서 겹친 부분을 제거합니다. 검토 중 실제 선택·카메라가 바뀝니다. 안정된 저장 문서와 래스터 모델 뷰포트가 필요하며, 설계 판단에 따라 명시적으로 대상을 선택합니다. 변경 결과가 불확실하면 진행을 멈추고 관찰합니다.
+
+반환: state와 현재 검토 쌍·이미지 또는 적용 결과, skipped_pairs를 반환합니다. 검토 이미지의 review_id와 choice로 다음 결정을 제출합니다.
 
 Args:
-    object_ids: Optional 1..512 distinct current top-level object GUIDs to start a review scope. Omit to continue the current scope or submit a choice.
-    include_block: Include transformed nested block members in a new review scope; default false. Block definition edits remain unsupported.
-    review_id: Returned decision handle required with choice; identifies the displayed operands. Completed/superseded handles cannot replay a change.
-    choice: 1 or 2 removes the overlap from that numbered object; "skip" leaves both unchanged. Supply review_id and omit object_ids. Omit choice to inspect/continue.
-Returns:
-    Comparison PNG, numbered object/block metadata and review_id, or completion/error evidence. previous_result preserves a completed edit even when the next review fails.
+    object_ids: 검토 범위를 시작할 서로 다른 현재 최상위 객체 GUID 1..512개입니다. 선택 사항이며, 현재 범위를 이어서 검토하거나 선택을 제출할 때는 생략합니다.
+    include_block: 새 검토 범위에 변환이 적용된 중첩 블록 구성원을 포함합니다. 기본값은 false입니다. 블록 정의 편집은 여전히 지원하지 않습니다.
+    review_id: 반환된 결정 핸들로, choice와 함께 사용할 때 필수입니다. 화면에 표시된 연산 대상을 식별합니다. 완료되었거나 새 검토로 대체된 핸들로는 변경을 다시 실행할 수 없습니다.
+    choice: 1 또는 2는 해당 번호의 객체에서 겹친 부분을 제거합니다. "skip"은 두 객체를 모두 그대로 둡니다. review_id를 제공하고 object_ids는 생략합니다. 확인/계속 진행하려면 choice를 생략합니다.
 <!-- /instruction:resolve_object_intersection -->
 
 ## focus_holons
 
 <!-- instruction:focus_holons -->
-When to use: Select, isolate and zoom to the current members and registered descendants of Holons.
-Before calling: Use 1–32 distinct present Holon handles in the current regular Rhino document with an active model view and no command or Undo/Redo in progress. Targets must be visible/selectable; the resolved set must contain 1–4096 top-level model-space objects. supplied expected_model_path must match the bound saved document.
-Inputs from earlier results: Use semantic holon_id handles from registration acknowledgements or list_ontological_holons(include_ids=true), not Rhino object/group GUIDs. The tool resolves current recursive membership itself; no mandatory live read, sync, topology or CRC observation precedes focus.
-Interpretation: This changes selection, visibility and camera using Rhino Isolate/Unisolate bookkeeping. The reply identifies selected object GUIDs and viewport, isolation/zoom status and restore_visibility_command=Unisolate. Locked context remains visible; hiding it is not promised.
-Limits: This is a viewing operation, not geometry editing or design verification. Existing hidden/locked objects and document state affect native isolation. Unisolate restores visibility through Rhino's bookkeeping, not necessarily the previous selection/camera. Failure or timeout after dispatch can leave partial UI changes: inspect current state instead of automatically retrying.
+등록된 Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대합니다. 카메라·선택·가시성이 바뀌며 잠긴 주변 객체는 보일 수 있습니다. 결과가 불확실하면 재실행 전에 화면 상태를 확인합니다.
+
+반환: selected_ids, zoom_selected·isolated와 locked_context_remains_visible, restore_visibility_command 등을 반환합니다.
 
 Args:
-    holon_ids: 1..32 registered Holon IDs resolved to their live effective members; at most 4096 resolved top-level objects are supported. Changes actual selection, isolation and camera.
-    expected_model_path: Usually omitted: managed sessions supply the bound saved Rhino document. An explicit path must match that binding; it does not switch documents.
+    holon_ids: 현재 유효 구성원으로 해석할 등록된 Holon ID 1..32개입니다. 확인된 최상위 객체는 최대 4096개를 지원합니다. 실제 선택, 격리 및 카메라를 변경합니다.
+    expected_model_path: 일반적으로 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 명시한 경로는 이 연결 정보와 일치해야 하며, 문서를 전환하지는 않습니다.
 <!-- /instruction:focus_holons -->
 
 ## response-566

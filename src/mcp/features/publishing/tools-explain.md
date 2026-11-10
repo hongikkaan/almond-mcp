@@ -3,39 +3,32 @@
 ## publish_objects_to_chestnut
 
 <!-- instruction:publish_objects_to_chestnut -->
-When to use: Publish specific Rhino objects as one Chestnut GLB with explicit physics, collider and scale settings.
-Before calling: Supply current object GUIDs and asset_name with Rhino and the configured Chestnut service available. Use publish_to_chestnut for normal semantic defaults; no modeling or structural validation call is mandatory. Confirm the selected objects and permission to publish their geometry and source metadata.
-Inputs from earlier results: Reuse actual object GUIDs from modeling, selection or other document results. Reuse an existing Chestnut asset_id for linked updates; when omitted, the tool derives a stable ID from document path, exported GUIDs and the name slug.
-Interpretation: Inspect the service response for created/updated state and retain its stable asset ID for later updates. Reusing asset_id updates that Chestnut asset without changing placements referencing it; success does not validate physics or appearance.
-Limits: This uploads geometry plus source document path/GUIDs, bounds and units. Only selected objects are exported. body_type/collider are intent; Chestnut may fall back to box. preserve_scale keeps real-world size; static mass is zero, while a zero mass for non-static bodies becomes 1 kg. Network errors can leave publication uncertain, so check the service before retrying.
+Rhino 객체를 지정한 물리·콜라이더 설정의 GLB로 Chestnut에 게시합니다. 원본 문서 경로·GUID 등 metadata도 업로드하며 같은 asset_id는 기존 자산을 갱신합니다. 네트워크 결과가 불확실하면 서비스 상태를 확인한 후 재시도합니다.
+
+반환: 원격 응답의 success와 chestnut_url 등을 반환합니다. 서비스에서 받은 추가 키가 병합되므로 실패·불확실한 상태는 응답과 원격 자산을 함께 확인합니다.
 
 Args:
-    guids: Rhino object GUIDs to export. Unrelated document objects are excluded.
-    asset_name: Human-readable name shown in Chestnut.
-    asset_id: Stable optional ID for linked updates. Generated deterministically from the Rhino document and GUIDs when omitted.
-    body_type: "static" for architecture, "dynamic" for loose props, or "kinematic" for script-driven objects.
-    collider: Collider intent: "box", "convex", "compound", or "trimesh". Chestnut currently falls back to a box where needed.
-    preserve_scale: Keep Rhino's real-world dimensions instead of normalizing the model to a one-metre display prop.
-    mass: Physics mass in kilograms. Static bodies always use zero.
-Returns:
-    JSON containing the stable Chestnut asset ID, URL, metadata, and whether
-    the operation created or updated the asset.
+    guids: 내보낼 Rhino 객체 GUID입니다. 관련 없는 문서 객체는 제외합니다.
+    asset_name: Chestnut에 표시할 사람이 읽을 수 있는 이름입니다.
+    asset_id: 연결된 갱신에 사용할 선택적이고 안정적인 ID입니다. 생략하면 Rhino 문서와 GUID에서 결정적으로 생성합니다.
+    body_type: 건축물은 "static", 고정되지 않은 소품은 "dynamic", 스크립트로 구동하는 객체는 "kinematic"입니다.
+    collider: 의도한 콜라이더: "box", "convex", "compound", "trimesh". 현재 Chestnut은 필요하면 box로 대체합니다.
+    preserve_scale: 모델을 1미터 크기의 전시 소품으로 정규화하지 않고 Rhino의 실제 치수를 유지합니다.
+    mass: 물리 질량(kg)입니다. static 바디는 항상 0을 사용합니다.
 <!-- /instruction:publish_objects_to_chestnut -->
 
 ## publish_to_chestnut
 
 <!-- instruction:publish_to_chestnut -->
-When to use: Publish selected Rhino objects to Chestnut using simple architecture, object or animated behaviour presets.
-Before calling: Supply current object GUIDs and asset_name with Rhino and Chestnut available; no scripting or validation prerequisite exists. Confirm the intended objects and authorization to upload geometry and source document metadata. Choose explicit behavior if name-based auto inference is unsuitable.
-Inputs from earlier results: Reuse object GUIDs from modeling, selection or prior document results. Reuse the returned Chestnut asset ID as asset_id for later updates; omit it for a deterministic link based on document path, GUIDs and name slug.
-Interpretation: architecture maps to static, object to dynamic and animated to kinematic; all preserve real-world scale and use box colliders. auto uses English words in asset_name, not geometry inspection. Success is a service acknowledgement, not validated appearance or simulated behaviour.
-Limits: Animated selects a body type and does not create animation. The underlying publisher normalizes zero non-static mass to 1 kg. This uploads a GLB and metadata including source path/GUIDs; repeated asset_id updates the existing asset while referenced placements remain. Use publish_objects_to_chestnut for low-level controls; reconcile uncertain network results before repeating publication.
+Rhino 객체를 동작 프리셋으로 Chestnut에 게시합니다. 원본 문서 경로·GUID 등 metadata도 업로드하며 같은 asset_id는 기존 자산을 갱신합니다. 네트워크 결과가 불확실하면 서비스 상태를 확인한 후 재시도합니다.
+
+반환: publish_objects_to_chestnut의 원격 게시 응답을 반환합니다.
 
 Args:
-    guids: Current Rhino object GUIDs from an observation, selection or modeling result; a scripting call is not required.
-    asset_name: Human-readable asset name.
-    behavior: Optional semantic preset: auto infers from the name; architecture is fixed; object is movable and affected by gravity; animated is script-driven. This selects physics intent and does not generate animation.
-    asset_id: Optional stable link ID. Omit for a deterministic Rhino link.
+    guids: 관찰, 선택 또는 모델링 결과에서 얻은 현재 Rhino 객체 GUID입니다. 스크립팅 호출은 필요하지 않습니다.
+    asset_name: 사람이 읽을 수 있는 자산 이름입니다.
+    behavior: 선택적인 의미 기반 프리셋입니다. auto는 이름에서 추론하고, architecture는 고정형, object는 이동 가능하고 중력의 영향을 받는 유형, animated는 스크립트 구동형입니다. 의도한 물리 설정을 선택하며 애니메이션을 생성하지 않습니다.
+    asset_id: Chestnut 자산의 고정 ID입니다. 같은 ID로 게시하면 기존 자산을 갱신합니다. 비우면 서버가 생성합니다.
 <!-- /instruction:publish_to_chestnut -->
 
 ## response-847

@@ -3,62 +3,49 @@
 ## export_asset_contract
 
 <!-- instruction:export_asset_contract -->
-When to use: Export specific Rhino objects as a GLB plus an Almond contract for cross-application transfer.
-Before calling: Supply current object GUIDs, a stable asset_id and a connected Rhino document. Managed Almond sessions require set_working_plan before writing; output_dir is relative to that Plan's artifact folder and defaults to its exchange subfolder. Standalone calls default to the user-data exchange folder.
-Inputs from earlier results: Reuse object GUIDs returned by modeling, selection or prior document operations, not catalogue asset IDs. Retain returned glb_path and contract_path together; import_asset_contract takes contract_path on the receiving side.
-Interpretation: The contract records measured dimensions in mm, default bottom-center anchor/floor support, zero clearances and recognized Almond material groups. Material mapping may be incomplete; export success does not prove every object's material identity was captured.
-Limits: This writes files and may replace the same asset_id's files in the chosen folder. The contract preserves recorded meaning beyond glTF metadata, not arbitrary Rhino data or automatic Blender/Unreal restoration. Inspect the receiving application's geometry/material result separately.
+선택한 Rhino 객체를 GLB와 Almond 자산 계약 파일로 내보냅니다. 같은 출력 폴더의 동일 자산 파일은 덮어쓸 수 있습니다.
+
+반환: glb_path·contract_path와 dimensions_mm·materials를 반환합니다. 수신 앱에서 지원되는 의미와 재료를 복원하는 데 사용합니다.
 
 Args:
-    guids: Current Rhino object GUIDs from an existing object observation, selection or modeling result.
-    asset_id: Stable id, e.g. "canopy-pavilion-01" (letters, digits, . _ -).
-    name: Human-readable name; defaults to asset_id.
-    output_dir: Managed session: relative to the selected Plan's artifact folder (default exchange). Standalone: destination folder, default <user data dir>/exchange.
-Returns:
-    JSON with the glb path, contract path, and recorded dimensions.
+    guids: 기존 객체 관찰, 선택 또는 모델링 결과에서 얻은 현재 Rhino 객체 GUID입니다.
+    asset_id: 안정적으로 유지할 ID입니다. 예: "canopy-pavilion-01". 영문자, 숫자, . _ -를 사용합니다.
+    name: 사람이 읽을 수 있는 이름입니다. 기본값은 asset_id입니다.
+    output_dir: 관리형 세션에서는 선택한 Plan 산출물 폴더에 대한 상대 경로이며, 기본값은 exchange입니다. 독립 실행에서는 대상 폴더이며, 기본값은 <user data dir>/exchange입니다.
 <!-- /instruction:export_asset_contract -->
 
 ## import_asset_contract
 
 <!-- instruction:import_asset_contract -->
-When to use: Import a GLB with its Almond contract into Rhino and restore recognized materials, metadata and anchor placement.
-Before calling: Keep the contract and referenced GLB available together and connect the intended active Rhino document. Placement x_mm/y_mm/z_mm is in millimetres regardless of document units, rotation_degrees is about world Z, and the destination layer is created if absent.
-Inputs from earlier results: Reuse contract_path returned by export_asset_contract or the path printed after running the Blender export helper. Retain imported_guids from this response for later document edits instead of re-importing to obtain handles.
-Interpretation: Read imported_count, metadata_restored, materials_deduplicated and unknown_material_ids separately. dimension_check compares sorted measured extents in mm at 2% tolerance; ok is not visual correctness, while unknown means the comparison lacks usable evidence.
-Limits: Canonical PBR/material metadata is restored only for known library materials recognized by name; this does not restore everything glTF omits. Rotation can change measured world-axis extents. A restore/place failure may leave imported_guids in the document; reconcile them before retrying because an error is not rollback.
+Almond 계약과 GLB를 Rhino로 가져와 지원되는 재료·metadata·앵커 배치를 복원합니다. 복원·배치 오류 뒤에도 가져온 객체가 남을 수 있으므로 확인 후 재시도합니다.
+
+반환: imported_count·imported_guids, metadata_restored·materials_deduplicated·unknown_material_ids와 dimension_check를 반환합니다.
 
 Args:
-    contract_path: Contract path returned by export_asset_contract or a Blender export. Managed session: project-relative .almond.json path; standalone: absolute path.
-    x_mm: Contract anchor X placement in millimetres, default 0.
-    y_mm: Contract anchor Y placement in millimetres, default 0.
-    z_mm: Contract anchor Z placement in millimetres, default 0.
-    rotation_degrees: Rotation about world Z.
-    layer: Destination layer, created if absent.
-Returns:
-    JSON with counts restored/deduplicated and a dimension_check comparing
-    what landed against the contract.
+    contract_path: export_asset_contract 또는 Blender 내보내기가 반환한 계약 경로입니다. 관리형 세션에서는 프로젝트 기준 상대 .almond.json 경로이고, 독립 실행에서는 절대 경로입니다.
+    x_mm: 계약 앵커의 X 배치 좌표(밀리미터)입니다. 기본값은 0입니다.
+    y_mm: 계약 앵커의 Y 배치 좌표(밀리미터)입니다. 기본값은 0입니다.
+    z_mm: 계약 앵커의 Z 배치 좌표(밀리미터)입니다. 기본값은 0입니다.
+    rotation_degrees: 월드 Z축 기준 회전입니다.
+    layer: 대상 레이어입니다. 없으면 생성합니다.
 <!-- /instruction:import_asset_contract -->
 
 ## get_blender_helper_script
 
 <!-- instruction:get_blender_helper_script -->
-When to use: Obtain Blender Python for exporting an Almond contract/GLB or assigning canonical Almond materials to named objects.
-Before calling: Choose action export or materials. In managed Almond sessions, export requires a selected Plan via set_working_plan; output_dir is relative to its artifact folder (default exchange). export also needs asset_id and a Blender mesh/curve/surface selection when run. materials does not require a Plan; it needs a known material_id and object_names. Query the material library only if that ID is unknown.
-Inputs from earlier results: Pass the returned script to Blender execution, such as blender-mcp execute_code. For materials, reuse material_id from material discovery with include_ids=true and actual Blender object names. After running export, reuse its printed contract path with import_asset_contract.
-Interpretation: Success here means code was generated, not executed or verified in Blender. Export measures evaluated mesh data rather than inflated curve bounding boxes; material code converts sRGB to linear and tags matching materials/objects.
-Limits: Only export and materials are supported, not import. Running export writes to output_dir or the default exchange folder; the materials script replaces material slots on matching objects. Generating either script alone changes nothing. The script stays in the default payload; field_groups notes/audit/all and include_ids only affect supplementary output.
+Blender의 선택 형상 내보내기 또는 지정 객체의 재료 설정에 사용할 Python 코드를 생성합니다. 생성한 코드를 실행하면 파일을 쓰거나 일치 객체의 재료 슬롯을 교체합니다.
+
+반환: action과 실행할 Python script를 반환합니다.
 
 Args:
-    action: "export" or "materials".
-    asset_id: Required for export; stable identifier used for the exported files.
-    name: Export display name; defaults to asset_id.
-    output_dir: Export destination. Managed sessions require a selected Plan and use a relative folder beneath its artifact directory, default exchange; standalone calls default to the user-data exchange folder.
-    material_id: Known library material ID required for materials.
-    object_names: Nonempty list of actual Blender object names required for materials.
-    include_ids: Include supplementary identity fields; supplied target IDs are not repeated.
-    field_groups: Optional notes, audit or all; script remains in the default payload.
-Returns:
-    JSON with a "script" field to pass to Blender's execute_code.
+    action: "export" 또는 "materials"입니다.
+    asset_id: export에 필요한 값으로, 내보낸 파일에 사용할 안정적인 식별자입니다.
+    name: 내보내기 표시 이름입니다. 기본값은 asset_id입니다.
+    output_dir: 내보내기 대상 위치입니다. 관리형 세션에서는 선택한 Plan이 필요하며, 해당 산출물 디렉터리 아래의 상대 폴더를 사용합니다. 기본값은 exchange입니다. 독립 실행 호출의 기본값은 사용자 데이터의 exchange 폴더입니다.
+    material_id: materials에 필요한, 알고 있는 라이브러리 재료 ID입니다.
+    object_names: materials에 필요한 실제 Blender 객체 이름의 비어 있지 않은 목록입니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    field_groups: 선택 항목은 notes, audit, all입니다. script는 기본 응답에 유지됩니다.
 <!-- /instruction:get_blender_helper_script -->
 
 ## response-672
