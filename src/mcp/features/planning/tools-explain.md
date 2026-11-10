@@ -101,7 +101,7 @@ Args:
 ## update_plan
 
 <!-- instruction:update_plan -->
-Plan의 제목, 목표, Phase·Scene·Holon 관계, 상태와 산출물 참조를 수정합니다. Plan 상태는 Step 상태와 별도로 기록하며 completed는 사용자의 완료 결정 후 지정합니다. 실행된 Loop에서는 현재 loop_no와 expected_revision을 함께 입력합니다.
+Plan의 제목, 목표, Phase·Scene·Holon 관계, 상태와 산출물 참조를 수정합니다. Plan 상태는 Step 상태와 별도로 기록하며 completed는 사용자의 완료 결정 후 지정합니다. Loop 실행 후 리비전을 검사하려면 현재 loop_no와 expected_revision을 함께 입력합니다.
 
 반환: changed, plan.plan_id·status·revision, issues를 반환합니다. success/partial_success/no_change를 구분하며 실제 변경이 있을 때만 리비전이 증가합니다.
 
@@ -111,7 +111,7 @@ Args:
     phase_id: 선택 사항인 기존 Phase ID입니다. 비어 있으면 Phase 소속을 해제하고, 생략/null이면 유지합니다.
     scene_ids: 선택 사항인 대체 Scene ID 배열입니다. []이면 비우고 생략/null이면 유지합니다. Scene은 맥락을 설명하며 자동 편집 대상이 아닙니다.
     holon_ids: 선택 사항인 대체 Plan Holon 대상 배열입니다. []이면 비우고 생략/null이면 유지합니다.
-    expected_revision: 현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다.
+    expected_revision: 현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다.
     depends_on: Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다.
     status: pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다.
     artifact_refs: 선택 사항인 대체 산출물 참조 문자열 배열입니다. []이면 비우고 생략/null이면 유지합니다.
@@ -119,7 +119,7 @@ Args:
     previous_id: 이전 Plan ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다.
     parent_plan: 선택 사항인 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다.
     child_plan: 선택 사항인 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다.
-    loop_no: 선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Plan이 Loop를 실행한 후에는 expected_revision과 함께 필수로 전달해야 합니다.
+    loop_no: 선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다.
 <!-- /instruction:update_plan -->
 
 ## list_plan_revisions
@@ -140,7 +140,7 @@ Args:
 ## update_step
 
 <!-- instruction:update_step -->
-Step의 상태와 입력·출력 근거를 기록합니다. Plan 상태는 별도로 유지됩니다. 실행된 Loop에서는 현재 loop_no와 expected_revision을 함께 입력하고, 응답에서 적용 결과와 건너뛴 항목을 확인합니다.
+Step의 상태와 입력·출력 근거를 기록합니다. Plan 상태는 별도로 유지됩니다. Loop 실행 후 리비전을 검사하려면 현재 loop_no와 expected_revision을 함께 입력하고, 응답에서 적용 결과와 건너뛴 항목을 확인합니다.
 
 반환: changed, plan과 step의 ID·상태, plan.revision, issues를 반환합니다. success/partial_success/no_change를 구분합니다. issues는 field·operation·index·value·reason을 포함합니다.
 
@@ -150,8 +150,8 @@ Args:
     status: pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다.
     input_refs: 입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다.
     output_refs: 출력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. [] 형식의 전체 교체 배열은 허용하지 않습니다.
-    expected_revision: 현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다.
-    loop_no: 선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Plan이 Loop를 실행한 후에는 expected_revision과 함께 필수로 전달해야 합니다.
+    expected_revision: 현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다.
+    loop_no: 선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다.
 <!-- /instruction:update_step -->
 
 ## resolve_targets

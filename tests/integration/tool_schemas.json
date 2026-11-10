@@ -4622,7 +4622,7 @@
             }
           ],
           "default": null,
-          "description": "현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다."
+          "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
         },
         "depends_on": {
           "anyOf": [
@@ -4745,7 +4745,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Plan이 Loop를 실행한 후에는 expected_revision과 함께 필수로 전달해야 합니다."
+          "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
         }
       },
       "required": [
@@ -4862,7 +4862,7 @@
             }
           ],
           "default": null,
-          "description": "현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다."
+          "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
         },
         "loop_no": {
           "anyOf": [
@@ -4874,7 +4874,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Plan이 Loop를 실행한 후에는 expected_revision과 함께 필수로 전달해야 합니다."
+          "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
         }
       },
       "required": [

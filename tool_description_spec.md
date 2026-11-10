@@ -1459,7 +1459,7 @@ Phase의 이름, 설명, 상태, 파일 연결과 관계를 수정합니다. 변
 
 ### DESCRIPTION
 
-Plan의 제목, 목표, Phase·Scene·Holon 관계, 상태와 산출물 참조를 수정합니다. Plan 상태는 Step 상태와 별도로 기록하며 completed는 사용자의 완료 결정 후 지정합니다. 실행된 Loop에서는 현재 loop_no와 expected_revision을 함께 입력합니다.
+Plan의 제목, 목표, Phase·Scene·Holon 관계, 상태와 산출물 참조를 수정합니다. Plan 상태는 Step 상태와 별도로 기록하며 completed는 사용자의 완료 결정 후 지정합니다. Loop 실행 후 리비전을 검사하려면 현재 loop_no와 expected_revision을 함께 입력합니다.
 
 반환: changed, plan.plan_id·status·revision, issues를 반환합니다. success/partial_success/no_change를 구분하며 실제 변경이 있을 때만 리비전이 증가합니다.
 
@@ -1539,7 +1539,7 @@ Plan의 제목, 목표, Phase·Scene·Holon 관계, 상태와 산출물 참조�
         }
       ],
       "default": null,
-      "description": "현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다."
+      "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
     },
     "depends_on": {
       "anyOf": [
@@ -1662,7 +1662,7 @@ Plan의 제목, 목표, Phase·Scene·Holon 관계, 상태와 산출물 참조�
         }
       ],
       "default": null,
-      "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Plan이 Loop를 실행한 후에는 expected_revision과 함께 필수로 전달해야 합니다."
+      "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
     },
     "connection_id": {
       "type": "string",
@@ -1708,7 +1708,7 @@ Plan의 제목, 목표, Phase·Scene·Holon 관계, 상태와 산출물 참조�
 
 ### DESCRIPTION
 
-Step의 상태와 입력·출력 근거를 기록합니다. Plan 상태는 별도로 유지됩니다. 실행된 Loop에서는 현재 loop_no와 expected_revision을 함께 입력하고, 응답에서 적용 결과와 건너뛴 항목을 확인합니다.
+Step의 상태와 입력·출력 근거를 기록합니다. Plan 상태는 별도로 유지됩니다. Loop 실행 후 리비전을 검사하려면 현재 loop_no와 expected_revision을 함께 입력하고, 응답에서 적용 결과와 건너뛴 항목을 확인합니다.
 
 반환: changed, plan과 step의 ID·상태, plan.revision, issues를 반환합니다. success/partial_success/no_change를 구분합니다. issues는 field·operation·index·value·reason을 포함합니다.
 
@@ -1810,7 +1810,7 @@ Step의 상태와 입력·출력 근거를 기록합니다. Plan 상태는 별�
         }
       ],
       "default": null,
-      "description": "현재 조회한 리비전 번호입니다. Loop 실행 후에는 loop_no와 함께 필수이며, 현재 값과 다르면 변경을 거부합니다. Loop 0에서는 생략할 수 있습니다."
+      "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
     },
     "loop_no": {
       "anyOf": [
@@ -1822,7 +1822,7 @@ Step의 상태와 입력·출력 근거를 기록합니다. Plan 상태는 별�
         }
       ],
       "default": null,
-      "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Plan이 Loop를 실행한 후에는 expected_revision과 함께 필수로 전달해야 합니다."
+      "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
     },
     "connection_id": {
       "type": "string",
