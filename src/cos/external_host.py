@@ -409,7 +409,7 @@ class Broker:
                 conn = self.connections.get(attempt.connection_id)
                 if conn is None:
                     raise RuntimeError("This start's connection has ended. No new Rhino was started; list existing Rhino documents before deliberately creating another session.")
-                if conn.closing or conn.state != "ready":
+                if conn.closing or conn.state not in {"ready", "recovering", "unconfirmed"}:
                     raise RuntimeError(f"Connection is {conn.state}: {conn.reason}.")
                 self.selected_connection_id = conn.connection_id
                 return dict(conn.public(), request_id=request_id)
@@ -451,7 +451,7 @@ class Broker:
             conn = self.connections[self.host_connections[host_id]]
             if os.path.normcase(conn.binding.get("model_path", "")) != os.path.normcase(model_path):
                 raise RuntimeError("This connection belongs to a different model. Refresh list_connections.")
-            if conn.closing or conn.state != "ready":
+            if conn.closing or conn.state not in {"ready", "recovering", "unconfirmed"}:
                 raise RuntimeError(f"Connection is {conn.state}: {conn.reason}.")
             self.selected_connection_id = conn.connection_id
             return conn.public()

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from external_host import Broker, Connection, exposed_tools, json_result
+from external_host import Broker, Connection, StartAttempt, exposed_tools, json_result
 
 
 CATALOG = {"tools": [{"name": "observe", "inputSchema": {
@@ -91,6 +91,44 @@ def test_disconnect_clears_selection_without_falling_back(tmp_path):
         assert (await broker.call("observe", {})).is_error
         await broker.connect("host-b", "b.3dm")
         assert broker.selected_connection_id == "b"
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("state", ["recovering", "unconfirmed"])
+@pytest.mark.parametrize("route", ["connect", "start_session"])
+def test_reselect_for_recovery_keeps_normal_calls_blocked(tmp_path, state, route):
+    """A -> B -> A recovery needs no routing ID and never dispatches new work."""
+    broker = broker_for(tmp_path)
+    broker.mapping["get_rhino_execution"] = "get_rhino_execution"
+    broker.starts["start-a"] = StartAttempt("a.3dm", state="ready", connection_id="a")
+    calls = []
+
+    async def worker_call(name, arguments):
+        calls.append((name, arguments))
+        return json_result({"request_id": "execution-a", "completed": False})
+
+    async def worker_state():
+        return {"pending": True, "uncertain": True, "native_uncertain": False}
+
+    async def run():
+        a = broker.connections["a"]
+        a.worker = SimpleNamespace(call=worker_call, state=worker_state)
+        await broker.connect("host-a", "a.3dm")
+        a.state = state
+        await broker.connect("host-b", "b.3dm")
+        selected = (await broker.connect("host-a", "a.3dm") if route == "connect"
+                    else await broker.start_session("a.3dm", "start-a"))
+        assert selected["state"] == state and broker.selected_connection_id == "a"
+        assert (await broker.call("observe", {})).is_error
+        result = await broker.call("get_rhino_execution", {"request_id": "execution-a"})
+        assert not result.is_error
+        assert result.structured_content["connection_state"] == state
+        assert calls == [("get_rhino_execution", {"request_id": "execution-a"})]
+        assert a.state == state
+        a.closing = True
+        with pytest.raises(RuntimeError):
+            await broker.connect("host-a", "a.3dm")
 
     asyncio.run(run())
 
