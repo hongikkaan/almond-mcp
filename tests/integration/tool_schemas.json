@@ -654,7 +654,11 @@
                 "type": "object",
                 "properties": {
                   "rgb": {
-                    "description": "조립된 RGB 영상 경로입니다. 조립하지 못하면 null입니다."
+                    "description": "조립된 RGB 영상 경로입니다. 조립하지 못하면 null입니다.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "description": "완전 캡처 후 패스별 MP4. ffmpeg 조립 실패는 null이며 부분 캡처에는 빈 객체일 수 있음"
@@ -6945,8 +6949,8 @@
                     "description": "요청한 대상 수입니다."
                   },
                   "completed": {
-                    "type": "boolean",
-                    "description": "실행 완료가 확인되었는지 나타냅니다."
+                    "type": "integer",
+                    "description": "도면 생성을 완료한 대상 수입니다."
                   },
                   "output": {
                     "type": "string",
@@ -7637,7 +7641,11 @@
           "description": "교체 전 원본·도면·매니페스트 백업 보존"
         },
         "previous_source_sha256": {
-          "description": "기존 원본 해시. 없으면 null"
+          "description": "기존 원본 해시. 없으면 null",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "message": {
           "type": "string",
@@ -8861,7 +8869,7 @@
                 "description": "확인한 Holon 수"
               },
               "changed": {
-                "type": "boolean",
+                "type": "integer",
                 "description": "실제 대장 갱신 수. 변경 없으면 새 리비전도 없음"
               },
               "unavailable": {

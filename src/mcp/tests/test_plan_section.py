@@ -10,6 +10,8 @@ from uuid import UUID
 
 import pytest
 from fastmcp import Client, FastMCP
+from jsonschema import validate
+from almond_mcp.output_contracts import public_output_schema
 
 from almond_mcp.features.modeling import plan_section
 from almond_mcp.features.modeling.tools import register
@@ -66,6 +68,7 @@ def test_dedicated_native_dispatch_never_routes_caller_script_or_rhinocode():
     send, calls = transport()
     result = plan_section.dispatch(request(), send)
     assert result["status"] == "success" and result["drawing_status"] == "completed"
+    validate(result, public_output_schema('plan_section', wrapped=False))
     assert [c[0]["type"] for c in calls] == ["get_rhino_context", "plan_section"]
     assert calls[-1][1] == {"timeout": 600.0}
     assert not {"script", "language", "folder", "path", "output"}.intersection(calls[-1][0])
