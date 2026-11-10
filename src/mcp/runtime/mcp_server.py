@@ -9,6 +9,7 @@ The launcher uses internal module names, not an upstream-supported port option.
 The existing sender wrapper adds connection/request identity in this process only.
 """
 from __future__ import annotations
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import argparse
@@ -88,7 +89,7 @@ def main(argv: list[str] | None = None, *, validate_binding=None, configure=None
 
 async def configure_project_context(mcp, args, binding, locations, *, sender=None, runtime=None):
     """Register bound model and output path metadata for the current connection."""
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('project_info', wrapped=False))
     @tool_instruction(__file__, 'project_info')
     def project_info(sections: list[str] | None = None, include_ids: StrictBool = False,
                      files_limit: StrictInt = 50, files_offset: StrictInt = 0) -> dict:
@@ -152,7 +153,7 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
                                      "- 객체 상태가 필요하면 get_objects로 확인합니다.")
         return result
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_rhino_execution', wrapped=False))
     @tool_instruction(__file__, 'get_rhino_execution')
     def get_rhino_execution(request_id: str = "", include_result: StrictBool = True,
                             include_stdout: StrictBool = False, result_fields: list[str] | None = None,
@@ -171,28 +172,28 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
         result = runtime.get_rhino_execution(request_id, offset, limit, include_result, include_stdout, result_fields, include_ids)
         return execution_output(result, include_diagnostics=include_diagnostics)
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('set_working_plan', wrapped=False))
     @tool_instruction(__file__, 'set_working_plan')
     def set_working_plan(plan_id: str, step_id: str = "", artifact_name: str = "", loop_no: StrictInt | None = None) -> dict:
         if runtime is None or runtime.workspace is None:
             raise RuntimeError("The project workspace is not connected.")
         return {"status": "success", **runtime.workspace.select(plan_id, step_id, artifact_name, loop_no)}
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('execute_looping', wrapped=False))
     @tool_instruction(__file__, 'execute_looping')
     def execute_looping(plan_id: str, resume: StrictBool = False, feedback: str = "", artifact_name: str = "") -> dict:
         if runtime is None or runtime.workspace is None:
             raise RuntimeError("The project workspace is not connected.")
         return {"status": "success", **runtime.workspace.execute_looping(plan_id, resume, feedback, artifact_name)}
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('rename_artifact_folder', wrapped=False))
     @tool_instruction(__file__, 'rename_artifact_folder')
     def rename_artifact_folder(name: str, plan_id: str = "") -> dict:
         if runtime is None or runtime.workspace is None:
             raise RuntimeError("The project workspace is not connected.")
         return {"status": "success", **runtime.workspace.rename(name, plan_id)}
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('execute_project_python', wrapped=False))
     @tool_instruction(__file__, 'execute_project_python')
     def execute_project_python(code: str, timeout_seconds: StrictInt = 60) -> dict:
         if not isinstance(code, str) or not code.strip():

@@ -3,9 +3,7 @@
 ## upsert_ontological_holon
 
 <!-- instruction:upsert_ontological_holon -->
-물리적 요소와 관계의 역할·동작·구조를 Holon으로 등록하거나 갱신합니다. 직접 객체 소유권은 Holon 하나에 속합니다. 기존 그룹 이름 변경은 거부하며, 불확실한 결과나 Undo 뒤에는 현재 상태를 확인합니다.
-
-반환: status와 holon의 ID·그룹·상태 등 등록 확인 정보를 반환합니다.
+물리적 요소와 관계를 역할·동작·구조 정보가 있는 Holon으로 등록하거나 갱신합니다. 직접 객체는 Holon 하나에 속합니다.
 
 Args:
     name: 의미적 Holon 이름입니다. 기존 Rhino 그룹에 연결할 때는 해당 그룹의 정확한 이름과 일치해야 합니다.
@@ -20,9 +18,7 @@ Args:
 ## get_ontological_holon
 
 <!-- instruction:get_ontological_holon -->
-Holon의 등록 요약이나 현재 Rhino 그룹 구성원을 조회합니다. 현재 상태 조회는 안정된 일반 모델에서 수행하며 그룹·블록 편집 중에는 오류를 반환합니다. 등록과 현재 상태의 차이는 응답에 표시합니다.
-
-반환: holon의 저장 요약 또는 현재 구성원 관찰과 불일치 정보를 반환합니다. live_verified 등의 근거 범위를 확인합니다.
+Holon의 등록 정보 또는 현재 Rhino 그룹 구성원을 조회합니다.
 
 Args:
     holon_id: include_ids=true를 사용한 Holon 조회 또는 이전 등록 결과에서 얻은 등록된 Holon ID입니다.
@@ -35,9 +31,7 @@ Args:
 ## list_ontological_holons
 
 <!-- instruction:list_ontological_holons -->
-문서 또는 Scene 범위의 캐시된 Holon 등록 목록을 조회합니다. 현재 구성원은 get_ontological_holon이나 get_scene_objects로 확인합니다.
-
-반환: holons와 total·live_verified를 반환합니다. 캐시된 등록 목록이므로 현재 구성원 검증은 별도 조회가 필요합니다.
+문서 또는 Scene에 등록된 Holon 목록을 조회합니다.
 
 Args:
     expected_model_path: 관리형 세션의 기본값은 연결된 모델입니다. 독립 실행에서 빈 입력을 사용하면 여러 모델의 등록 정보를 나열합니다. 활성 Rhino 문서를 전환하지 않습니다.
@@ -50,9 +44,7 @@ Args:
 ## sync_ontological_holon
 
 <!-- instruction:sync_ontological_holon -->
-안정된 Rhino 편집 상태에서 현재 Holon 구성원을 읽어 등록 대장을 갱신합니다. 변경 뒤 등록과 현재 상태를 맞출 때 사용합니다.
-
-반환: checked·changed·unavailable·problems와 scene_revisions·live_verified로 동기화 결과를 반환합니다.
+Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
 
 Args:
     holon_id: 단일 대상의 상태 대조 및 정합성 확인에 사용할 등록된 Holon ID입니다. 선택 사항입니다.
@@ -65,9 +57,7 @@ Args:
 ## remove_ontological_holon
 
 <!-- instruction:remove_ontological_holon -->
-Holon 등록을 해제하고 Rhino 형상·일반 그룹·객체 속성은 보존합니다. 부모와 Plan 참조를 먼저 해제해야 하며 자식 Holon은 독립된 등록 루트로 남습니다. 결과가 불확실하면 현재 등록 상태를 확인합니다.
-
-반환: status와 해제된 holon 정보를 반환합니다.
+Rhino 형상과 그룹을 유지하면서 Holon 등록을 해제합니다. 부모 Holon과 Plan의 참조를 먼저 해제해야 합니다.
 
 Args:
     holon_id: include_ids=true를 지정한 Holon 조회 또는 이전 등록 결과에서 얻은 등록된 Holon ID입니다.
@@ -76,9 +66,7 @@ Args:
 ## resolve_object_intersection
 
 <!-- instruction:resolve_object_intersection -->
-겹친 객체를 한 쌍씩 이미지로 비교하고 선택한 객체에서 겹친 부분을 제거합니다. 검토 중 실제 선택·카메라가 바뀝니다. 안정된 저장 문서와 래스터 모델 뷰포트가 필요하며, 설계 판단에 따라 명시적으로 대상을 선택합니다. 변경 결과가 불확실하면 진행을 멈추고 관찰합니다.
-
-반환: state와 현재 검토 쌍·이미지 또는 적용 결과, skipped_pairs를 반환합니다. 검토 이미지의 review_id와 choice로 다음 결정을 제출합니다.
+겹친 객체 쌍을 이미지로 검토하고 선택한 객체에서 겹친 부분을 제거합니다. 검토 시 실제 카메라와 선택이 바뀝니다.
 
 Args:
     object_ids: 검토 범위를 시작할 서로 다른 현재 최상위 객체 GUID 1..512개입니다. 선택 사항이며, 현재 범위를 이어서 검토하거나 선택을 제출할 때는 생략합니다.
@@ -90,9 +78,7 @@ Args:
 ## focus_holons
 
 <!-- instruction:focus_holons -->
-등록된 Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대합니다. 카메라·선택·가시성이 바뀌며 잠긴 주변 객체는 보일 수 있습니다. 결과가 불확실하면 재실행 전에 화면 상태를 확인합니다.
-
-반환: selected_ids, zoom_selected·isolated와 locked_context_remains_visible, restore_visibility_command 등을 반환합니다.
+Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대합니다.
 
 Args:
     holon_ids: 현재 유효 구성원으로 해석할 등록된 Holon ID 1..32개입니다. 확인된 최상위 객체는 최대 4096개를 지원합니다. 실제 선택, 격리 및 카메라를 변경합니다.

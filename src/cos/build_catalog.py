@@ -86,11 +86,23 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
                     raise ValueError(f"Review tool title in {node.name}")
                 continue
             if keyword.arg == "output_schema":
-                expected = {"type": "object", "properties": {"result": {"type": "string"}},
-                            "required": ["result"], "x-fastmcp-wrap-result": True}
-                if (node.name not in {"get_rhino_context", "get_objects", "get_object_intersections"}
-                        or ast.literal_eval(keyword.value) != expected):
+                if isinstance(keyword.value, ast.Dict):
+                    expected = {"type": "object", "properties": {"result": {"type": "string"}},
+                                "required": ["result"], "x-fastmcp-wrap-result": True}
+                    if (node.name not in {"get_rhino_context", "get_objects", "get_object_intersections"}
+                            or ast.literal_eval(keyword.value) != expected):
+                        raise ValueError(f"Review output schema in {node.name}")
+                    continue
+                call = keyword.value
+                if (not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name)
+                        or call.func.id != "public_output_schema" or len(call.args) != 1
+                        or ast.literal_eval(call.args[0]) != public_tool_name(node)
+                        or len(call.keywords) != 1 or call.keywords[0].arg != "wrapped"
+                        or type(ast.literal_eval(call.keywords[0].value)) is not bool):
                     raise ValueError(f"Review output schema in {node.name}")
+                from almond_mcp.output_contracts import public_output_schema
+                resolved = public_output_schema(public_tool_name(node), ast.literal_eval(call.keywords[0].value))
+                keyword.value = ast.parse(repr(resolved), mode="eval").body
                 continue
             if keyword.arg != "annotations":
                 raise ValueError(f"Review decorator option {keyword.arg} in {node.name}")

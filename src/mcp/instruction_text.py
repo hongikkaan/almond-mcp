@@ -1,5 +1,7 @@
 """Read adjacent Markdown instructions without importing a model runtime."""
 import ast
+from functools import wraps
+from inspect import signature
 from pathlib import Path
 
 
@@ -40,5 +42,12 @@ def read_tool_instruction(source_file: str, section: str) -> str:
 def tool_instruction(source_file: str, section: str):
     def apply(function):
         function.__doc__ = read_tool_instruction(source_file, section)
-        return function
+        parameters = signature(function)
+        @wraps(function)
+        def invoke(*args, **kwargs):
+            from almond_mcp.tool_guidance import guide_result
+            arguments = parameters.bind(*args, **kwargs)
+            arguments.apply_defaults()
+            return guide_result(section, function(*args, **kwargs), arguments.arguments)
+        return invoke
     return apply

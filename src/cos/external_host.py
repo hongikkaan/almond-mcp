@@ -23,6 +23,8 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.server.lowlevel.server import Server
 from mcp.server.stdio import stdio_server
 from almond_mcp.modeling_guidance import startup_instructions
+from almond_mcp.tool_guidance import guide_payload
+from almond_mcp.output_contracts import public_output_schema
 
 from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_contract, catalog_identity,
                      load_catalog, validate_worker_tools)
@@ -36,7 +38,8 @@ UNSAVED_DOCUMENT = ("Save this Rhino document as a local .3dm, then refresh "
                     "list_connections before connecting.")
 
 
-def json_result(value: dict) -> types.CallToolResult:
+def json_result(value: dict, name: str = "") -> types.CallToolResult:
+    value = guide_payload(name, value) if name else value
     return types.CallToolResult(content=[types.TextContent(type="text", text=json.dumps(value, ensure_ascii=False))],
                                 structured_content=value)
 
@@ -76,23 +79,23 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
-        ("list_connections", "연결 가능한 Rhino 문서, 이 클라이언트의 연결과 시작 요청을 조회합니다. 저장한 문서에서 almondconnect를 실행하면 연결 대상으로 나타납니다.\n\n반환: targets의 host_id·model_path로 connect를 호출합니다. connections는 독립 연결 목록, selected_connection_id는 기본 호출 대상, starts는 request_id별 시작 상태입니다.",
+        ("list_connections", "연결 가능한 Rhino 문서와 현재 연결·시작 요청을 조회합니다.",
          {}, []),
-        ("connect", "목록의 Rhino 문서에 연결하거나 기존 연결을 다시 선택합니다. 이후 호출은 선택한 연결을 사용하며 다른 연결도 유지됩니다. 같은 폴더의 모델은 데이터베이스와 산출물 루트를 공유합니다.\n\n반환: 선택한 연결의 connection_id, state, model_path, slot, pid, artifact_dir와 in_flight를 반환합니다. 이후 호출에서는 connection_id를 생략할 수 있습니다.",
+        ("connect", "목록에서 고른 Rhino 문서에 연결하거나 기존 연결을 다시 선택합니다. 다른 문서의 연결도 유지됩니다.",
          {"host_id": {"type": "string", "description": "list_connections.targets에서 선택한 Rhino 프로세스의 host_id입니다."}, "model_path": {"type": "string", "description": "같은 연결 대상에 표시된 저장 모델의 정확한 model_path입니다."}},
          ["host_id", "model_path"]),
-        ("start_session", "저장된 .3dm을 새 Rhino 창에서 열고 연결을 선택합니다. 시작 확인이 지연되면 같은 request_id로 조회합니다. 새 ID는 별도의 Rhino를 시작합니다.\n\n반환: request_id와 시작 상태를 반환합니다. ready이면 connection_id와 연결된 문서 정보를 포함합니다. 진행 중인 요청은 같은 request_id로 확인합니다.",
+        ("start_session", "저장된 모델을 새 Rhino 창에서 열고 연결합니다.",
          {"model_path": {"type": "string", "description": "새 Rhino에서 열 저장된 로컬 .3dm 파일의 절대 경로입니다."},
           "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
                          "description": "이 시작 요청의 고유 ID입니다. 같은 시작 시도를 확인할 때 그대로 재사용합니다."}},
          ["model_path", "request_id"]),
-        ("disconnect", "선택한 연결의 호출이 끝난 뒤 연결을 해제합니다. Rhino 창과 문서는 유지됩니다. 완료가 확인되지 않은 네이티브 작업의 잠금은 남을 수 있습니다. 이후 작업할 연결은 connect로 선택합니다.\n\n반환: connection_id, worker_closed, rhino_closed, released와 reason으로 해제 결과를 반환합니다.",
+        ("disconnect", "선택한 연결을 해제하고 Rhino 창과 문서는 유지합니다.",
          {"connection_id": {"type": "string", "minLength": 1, "description": "생략하면 선택한 연결을 해제합니다. 다른 연결을 해제하려면 list_connections의 connection_id를 입력합니다."}}, []),
     ]
     for name, description, properties, required in management:
         if name in mapping:
             raise RuntimeError("Management tool name collides with Almond.")
-        tools.append(types.Tool(name=name, description=description,
+        tools.append(types.Tool(name=name, description=description, output_schema=public_output_schema(name, wrapped=False),
                                 input_schema={"type": "object", "properties": properties,
                                               "required": required, "additionalProperties": False}))
     return tools, mapping
@@ -688,17 +691,17 @@ class Broker:
         invocation = None
         try:
             if name == "list_connections":
-                return json_result(await self.list_connections())
+                return json_result(await self.list_connections(), name)
             if name == "connect":
-                return json_result(await asyncio.shield(self.spawn(self.connect(**arguments))))
+                return json_result(await asyncio.shield(self.spawn(self.connect(**arguments))), name)
             if name == "start_session":
-                return json_result(await self.start_session(**arguments))
+                return json_result(await self.start_session(**arguments), name)
             if name == "disconnect":
                 arguments = dict(arguments)
                 arguments.setdefault("connection_id", self.selected_connection_id)
                 if arguments["connection_id"] is None:
                     raise RuntimeError("No selected connection. Use list_connections and connect.")
-                return json_result(await asyncio.shield(self.spawn(self.disconnect(**arguments))))
+                return json_result(await asyncio.shield(self.spawn(self.disconnect(**arguments))), name)
             if name not in self.mapping:
                 raise RuntimeError("Unknown Almond tool.")
             arguments = dict(arguments)

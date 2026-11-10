@@ -3,9 +3,7 @@
 ## get_rhino_context
 
 <!-- instruction:get_rhino_context -->
-Rhino 문서 속성, 편집 상태, 뷰와 디스플레이 모드를 필요한 범위만 조회합니다. 관찰할 수 없는 값은 null과 warnings로 표시합니다.
-
-반환: 요청한 섹션과 warnings를 반환합니다. 문서 단위·편집기 상태·뷰 ID는 해당 섹션의 값으로 확인하며 관찰 이미지가 함께 반환될 수 있습니다.
+현재 Rhino 문서와 편집 상태, 뷰·디스플레이 모드를 조회합니다.
 
 Args:
     sections: document, viewport, editor, display_modes, named_views, layouts, viewports 중 필요한 항목의 배열입니다. 생략하면 document, named_views, layouts, display_modes를 조회합니다. []는 status와 warnings만 반환합니다.
@@ -16,13 +14,11 @@ Args:
 ## analyze_block_reculviely
 
 <!-- instruction:analyze_block_reculviely -->
-중첩 블록의 정의·배치 계층과 선택한 배치 경로의 공유 정의 영향을 조회합니다. 내부 편집 전에는 현재 편집기 상태와 영향 범위를 확인합니다. 정의 구성원·후보 ID는 관찰용이며 변경 도구가 지원하는 대상인지 별도로 확인합니다.
-
-반환: mode·document·data에 계층 또는 경로 관찰을 반환합니다. 완전성·경고를 확인하고 편집 대상으로 사용할 ID는 현재 편집 컨텍스트와 대조합니다.
+중첩 블록 구조와 특정 배치 경로의 공유 정의 영향을 조회합니다.
 
 Args:
     mode: outline은 객체와 중첩 정의를 순회합니다. resolve-block은 명시적인 배치 인스턴스 경로를 해석하고 공유 정의에 미치는 영향을 보고합니다. 경로 해석에는 선택 가능 조건이 필요하지 않으며 편집기 소유 관계를 부여하지도 않습니다. 중첩 정의 구성원은 독립적인 편집 ID가 아닙니다.
-    options: outline의 경우 ids(루트 GUID 배열) 또는 path(한 배치 인스턴스의 GUID 배열)를 사용하며 둘을 함께 사용할 수 없습니다. 둘 다 없으면 scope=selected(기본값), viewport 또는 document를 사용합니다. depth=0..64(기본값 64, 루트=0)이며, max_items=1..5000(기본값 200)은 방문 수도 제한합니다. max_bytes=2048..262144(기본값 48000)입니다. 선택 사항인 field_groups는 summary, objects, annotations, transforms로 구성된 비어 있지 않은 배열입니다. 생략하면 기존 상세 플래그를 전달하지 않은 한 summary가 기본값입니다. include_geometry와 annotations는 해당 상세 정보를 제어하는 선택 사항인 불리언입니다. annotation_layer는 레이어 경로/이름으로 텍스트 도트를 필터링합니다. 결과가 잘리면 ids/path/depth의 범위를 좁힙니다. resolve-block은 path만 받으며, 최상위 인스턴스에서 내부 방향으로 이어지는 GUID 1..65개를 전달합니다. 마지막 GUID는 배치 인스턴스이며 정의 ID가 아닙니다. 반환되는 definition_impact는 방문 100000회/깊이 64 이내에서 배치 인스턴스를 스캔하고 최대 512개의 경로와 포함 관계를 나열합니다.
+    options: outline: ids(루트 GUID 배열) 또는 path(배치 GUID 경로)를 선택합니다. 둘 다 없으면 scope=selected|viewport|document로 범위를 정합니다. depth=0..64, max_items=1..5000, max_bytes=2048..262144이며 기본값은 각각 64, 200, 48000입니다. field_groups는 summary, objects, annotations, transforms 중 선택한 비어 있지 않은 배열입니다. include_geometry/annotations는 상세 포함 여부, annotation_layer는 텍스트 도트의 레이어 필터입니다. resolve-block: 최상위에서 내부 방향의 배치 GUID 1..65개를 path에 입력합니다.
     expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 문서 경로를 제공합니다.
     include_ids: true이면 후속 호출에 필요한 ID를 포함합니다.
 <!-- /instruction:analyze_block_reculviely -->
@@ -30,9 +26,7 @@ Args:
 ## get_defined_viewcapture
 
 <!-- instruction:get_defined_viewcapture -->
-저장된 Named View나 Layout 용지를 작업 화면 전환 없이 PNG로 캡처합니다. Layout은 기존 Detail 디스플레이 모드와 용지 비율을 유지합니다.
-
-반환: PNG 이미지와 저장한 image_file을 반환합니다.
+저장된 Named View 또는 Layout 용지를 작업 화면 전환 없이 캡처합니다.
 
 Args:
     target_kind: named_view는 저장된 카메라를 사용하며, display_mode가 제공되지 않으면 기본값은 Shaded입니다. layout은 각 Detail의 기존 모드를 유지하며 display_mode 재정의를 허용하지 않습니다.
@@ -50,9 +44,7 @@ Args:
 ## get_current_viewcapture
 
 <!-- instruction:get_current_viewcapture -->
-현재 모델 화면을 캡처합니다. 대상을 지정하면 실제 선택·카메라와 선택적 격리가 적용되고 디스플레이 모드 변경도 화면에 남습니다. 실패해도 화면 변경이 남을 수 있으므로 재시도 전에 상태를 확인합니다.
-
-반환: 이미지와 image_file을 반환합니다. 실패이면 적용되었거나 확인되지 않은 화면 변경 정보를 함께 확인합니다.
+현재 모델 화면을 캡처합니다. 대상·격리·디스플레이 옵션을 지정하면 실제 화면에도 적용됩니다.
 
 Args:
     target_ids: 객체, 그룹 또는 Holon ID로 구성된 선택 사항인 비어 있지 않은 문자열 배열입니다. 확인된 객체가 중복되면 한 번만 선택합니다.
@@ -68,9 +60,7 @@ Args:
     expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 모델을 제공합니다.
 <!-- /instruction:get_current_viewcapture -->
 <!-- instruction:get_objects -->
-Rhino 객체 속성, 그룹·블록 계층과 Brep 면을 조회합니다. 편집기에 진입하거나 확정·취소한 뒤에는 ID와 geometry_crc를 다시 관찰합니다. 면·교차 편집에는 편집기 밖의 문서 객체가 필요합니다.
-
-반환: objects, matched_count·offset·limit·next_offset, snapshot·editing·complete를 반환합니다. geometry_crc는 후속 면 편집의 변경 검사 값입니다. 관찰 이미지가 함께 반환될 수 있습니다.
+Rhino 객체의 속성·그룹·블록 계층·Brep 면을 관찰합니다.
 
 Args:
     scope: current(기본값)는 화면 밖에 있더라도 표시 상태이고 잠기지 않은 모델 객체를 포함합니다. document는 숨김/잠금 객체도 포함합니다.
@@ -95,9 +85,7 @@ Args:
 <!-- /instruction:get_objects -->
 
 <!-- instruction:get_object_intersections -->
-닫힌 솔리드의 양의 부피 겹침 쌍을 조회합니다. 닫힌 Brep·Extrusion과 면 방향이 정렬된 매니폴드 Mesh를 지원하며 Brep/Mesh 혼합 계산은 임시 메시 근사입니다.
-
-반환: intersections에 겹침 쌍과 관찰 근거를 반환합니다. 양의 부피 겹침이 0이어도 접촉·이격 거리는 별도로 확인합니다. 관찰 이미지가 함께 반환될 수 있습니다.
+닫힌 솔리드 사이에서 부피가 겹치는 객체 쌍을 찾습니다.
 
 Args:
     object_ids: 서로 다른 현재 최상위 Rhino 객체 GUID 1..512개입니다. 내부 페이지 처리를 통해 하나의 범위로 검사합니다.
@@ -105,9 +93,7 @@ Args:
 <!-- /instruction:get_object_intersections -->
 
 <!-- instruction:capture_rhino_inspection -->
-여러 시점과 객체 범위를 하나의 PNG로 비교합니다. 작업 카메라·선택·가시성·모델은 유지하며 이미지 파일을 저장합니다. 명시적 객체 필터는 일반 문서 객체를 지원하고 블록 인스턴스·내부 객체는 제외합니다.
-
-반환: PNG 이미지와 image_file, complete 및 타일별 tiles 관찰 결과를 반환합니다. complete는 요청 범위 충족 여부입니다.
+작업 화면을 유지하면서 여러 시점과 객체 범위를 하나의 PNG로 비교합니다.
 
 Args:
     views: 타일 객체 1..16개입니다. direction 기본값은 current이며, 선택지는 current, top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw입니다. display_mode는 선택 사항인 설치된 이름/GUID(최대 512자)이며, label도 선택 사항(최대 120자)입니다. 선택 사항인 object_ids에는 서로 다른 최상위 GUID 1..512개를 넣습니다. ID를 생략하거나 비워 두면 공통 object_ids가 제공된 경우를 제외하고 문서 가시성을 사용합니다.

@@ -4,7 +4,7 @@ from almond_mcp.query_output import select_fields, select_records, requires_full
 
 CORE = {"asset_id", "id", "name", "product", "variant", "category", "kind", "file_available",
         "drawing_ready", "drawing_status", "ready", "available", "format", "match_status",
-        "asset_kind", "model_status", "source_only", "source_available", "next_tool", "next_step", "conversion_target", "verification_issue"}
+        "asset_kind", "model_status", "source_only", "source_available", "next_tool", "next_step_guide", "conversion_target", "verification_issue"}
 GROUPS = {
     "dimensions": {"dimensions_mm", "dimension_basis", "bounds_mm", "spatial", "clearance_mm"},
     "source": {"source", "source_url", "warehouse_url", "license", "provenance", "sha256"},
@@ -21,17 +21,12 @@ def with_next_step(record: dict) -> dict:
     tool = record.get("next_tool")
     if tool not in {"prepare_drawing_asset", "refresh_asset"}:
         return record
-    identity = "id" if "id" in record else "asset_id"
-    prerequisite = (f"Reuse this row's {identity} as asset_id, or retain the ID supplied to this detail query; "
-                    "if unknown, repeat the list/search with include_ids=true. ")
     if tool == "refresh_asset":
-        hint = "If updating this saved source is intended, call refresh_asset(asset_id=...). Review the refreshed model/drawings before placement."
+        hint = "원본의 저장된 변경을 반영하려면 조회에 사용한 asset_id로 refresh_asset을 호출합니다."
     else:
-        hint = ("To convert this source, request get_drawing_asset(asset_id=..., field_groups=['paths']) if its path is missing, "
-                "then prepare_drawing_asset(stage='inspect', source_file=...) with the actual source units and a selected Plan. "
-                "Managed source_file must be project-relative; an external library path must first be made available within the project. "
-                "An asset ID is not a file path; retain it for registration.")
-    return {**record, "next_step": prerequisite + hint}
+        hint = ("get_drawing_asset(field_groups=['paths'])로 원본 경로를 확인하고, "
+                "Plan을 선택한 뒤 prepare_drawing_asset(stage='inspect')의 source_file에 프로젝트 기준 경로를 넣고 원본 단위를 입력합니다.")
+    return {**record, "next_step_guide": hint}
 
 
 def project(payload: dict, groups: list[str] | None) -> dict:

@@ -6,83 +6,34 @@
 
 ## 통합 상세 조회
 
-```text
-get_phase_plan_step Input
-  phase_id?: string          기본 ""
-  plan_id?: string           기본 ""
-  step_id?: string           기본 ""
-  revision?: integer | null  선택 Loop 안의 저장된 revision
-  loop_no?: integer | null   생략하면 현재 Loop, 0은 실행 전 기록
-  include_holons?: boolean  기본 false
-```
+`get_phase_plan_step`은 `phase_id` 또는 `plan_id` 중 하나를 받는다. Step 하나를 조회할 때는 `plan_id`와 `step_id`를 함께 입력한다.
 
-`phase_id`와 `plan_id` 중 정확히 하나가 필요하다. `step_id`는 `plan_id`와 함께 사용한다. `revision`은 Plan 또는 Step의 과거 상태 조회에 사용한다. `include_holons=true`는 Plan 상세에서만 허용한다. Phase에 revision을 넣거나 Step에 Component를 요청하면 오류다. `field_groups`와 `audit` 옵션은 없다.
+| 입력 | 타입 | 의미 |
+|---|---|---|
+| phase_id | string | 조회할 Phase ID |
+| plan_id | string | 조회할 Plan 또는 Step의 소속 Plan ID |
+| step_id | string | 조회할 Step ID |
+| include_details | boolean, 기본 false | true이면 해당 유형의 상세 객체 포함 |
+| loop_no | integer 또는 null | Plan·Step의 회차. 생략하면 현재, 0은 실행 전 |
+| revision | integer 또는 null | 선택 회차의 저장 리비전. 생략하면 최신 |
 
-```text
-Output — phase_id로 조회
-  id: string                Phase ID
-  type: "phase"
-  status: workflow status
-  phase:
-    name: string
-    description: string
-    file_name: string       미지정이면 ""
-    project_file_id: string | null
-    depends_on: string[]    Phase ID만
-    plan_titles: string[]   소속 Plan 제목, 중복 제목 허용
+공통 출력은 `id`, `type`, `name`, `status`다. `status`는 해당 항목의 업무 상태이며 조회 오류는 `error`다. Plan·Step에는 상세 선택과 무관하게 `plan_id`, `loop_no`, `revision`, `read_only`도 포함한다.
 
-Output — plan_id로 조회
-  id: string                Plan ID
-  type: "plan"
-  read_only: boolean         과거 Loop 또는 지정 revision이면 true
-  status: workflow status
-  next_step: string          Step 상세 조회와 실제 작업 선택 안내
-  plan:
-    title: string
-    goal: string
-    scope: string
-    loop_no: integer
-    revision: integer
-    phase: null | object
-      phase_id: string
-      name: string | null   과거 snapshot에 이름이 없으면 null
-    depends_on: string[]    Plan ID만
-    parent_plan: string[]
-    child_plan: string[]
-    scene_ids: string[]
-    artifact_dir: string    미선택이면 ""
-    loop_artifact_dir: string
-    feedback: string
-    artifact_refs: string[]
-    created_at: string      KST, YYYY-MM-DD-HH:mm
-    updated_at: string      KST, YYYY-MM-DD-HH:mm
-    steps[]:
-      step_id: string
-      step_type: string
-      name: string
-      status: workflow status
-    available_details: string[]  미요청 시 ["include_holons"]
-    holon_ids?: string[]     include_holons=true일 때
+`include_details=true`일 때 추가하는 본문은 다음과 같다.
 
-Output — plan_id와 step_id로 조회
-  id: string                해당 Plan 안의 Step ID
-  type: "step"
-  read_only: boolean
-  status: workflow status
-  next_step: string          set_working_plan 작업 선택 안내
-  step:
-    plan_id: string
-    loop_no: integer
-    revision: integer       소속 Plan revision
-    step_type: string
-    name: string
-    input_refs: string[]
-    output_refs: string[]
-```
+- `phase`: description, file_name 배열, depends_on, previous_id, plan_titles.
+- `plan`: goal, scope, phase, scene_ids, holon_ids, depends_on, previous_id, parent_plan, child_plan, artifact_dir, loop_artifact_dir, artifact_refs, feedback, created_at, updated_at, steps.
+- `step`: step_type, input_refs, output_refs.
 
-Plan의 Step 목록에는 긴 입출력 기록이 없다. 특정 Step을 선택하면 그 Step의 기록만 반환한다. Step에는 Component를 할당하지 않는다. revision은 Plan 메타데이터와 Step 기록의 snapshot이며 Rhino 형상 백업이 아니다.
+Plan의 steps는 Step ID·역할·이름·상태·회차의 요약이다. 특정 Step 조회는 해당 Step의 긴 입출력 기록만 읽는다. Plan의 시각은 KST `YYYY-MM-DD-HH:mm`으로 반환한다.
 
-과거 Plan의 `next_step`은 같은 loop_no와 revision을 지정해 Step을 조회하도록 안내한다. 현재 작업을 선택하려면 revision과 loop_no 없이 최신 상태를 먼저 조회한다. `set_working_plan`은 현재 Plan을 선택하며 과거 revision을 복원하지 않는다.
+과거 기록은 `read_only=true`다. 현재 작업을 선택하려면 loop_no와 revision을 생략하고 다시 조회한다. `next_step_guide`는 요약이면 상세 조회, 과거 기록이면 현재 재조회, 현재 상세이면 필요한 작업 선택을 안내한다.
+
+## Phase의 파일 연결
+
+`create_phase.file_name`은 파일명 문자열 또는 문자열 배열을 받는다. `update_phase.file_name`도 같으며 생략/null은 유지, 빈 문자열이나 빈 배열은 연결 해제다. 공개 Phase 도구에는 `project_file_id` 입력이 없다. Phase 상세와 목록 scope 그룹의 `file_name`은 항상 배열이다.
+
+파일 연결은 순서가 있는 `generation_phase_files`에 저장한다. 기존 단일 연결을 이관하며 Plan·Step 이력은 바꾸지 않는다. 내부 호환 키에는 첫 파일을 남기고, 이전 저장소가 단일 연결을 변경하면 트리거로 연결을 맞춘다. 여러 파일 중 하나라도 유효하지 않거나 이름이 모호하면 해당 요청의 파일 등록과 Phase 변경을 모두 되돌린다. 같은 이름의 여러 등록 파일을 임의로 선택하지 않는다. Scene의 단일 파일 입력 계약은 유지한다.
 
 ## 목록과 이력
 
@@ -95,23 +46,22 @@ Output
   phases[]:
     phase_id: string
     name: string
-    status: workflow status
+    status: pending | running | paused | completed | failed | blocked
     plan_count: integer
     depends_on: string[]
     description?: string             description 선택
-    file_name?: string               scope 선택
-    project_file_id?: string | null  scope 선택
+    file_name?: string[]             scope 선택
     created_at?: string              audit 선택, 저장 시각
     updated_at?: string              audit 선택, 저장 시각
   total: integer
   limit: integer
   truncated: boolean
-  next_step: string          Phase 상세 조회 또는 list_plans 필터 안내
+  next_step_guide?: string          Phase 상세 조회 또는 list_plans 필터 안내
 
 list_plans Input
   phase_id?: string          기본 "", 생략 시 모든 Phase
   scene_id?: string          기본 ""
-  status?: string            기본 "", 지정 시 workflow status
+  status?: string            기본 "", 지정 시 pending | running | paused | completed | failed | blocked
   limit?: integer            기본 50, 1~500
 Output
   status: "success"
@@ -119,13 +69,13 @@ Output
     plan_id: string
     title: string
     scope: string
-    status: workflow status
+    status: pending | running | paused | completed | failed | blocked
     loop_no: integer
     revision: integer
   total: integer
   limit: integer
   truncated: boolean
-  next_step: string          plan_id를 통합 상세에 넣는 안내
+  next_step_guide?: string          plan_id를 통합 상세에 넣는 안내
 
 list_plan_revisions Input
   plan_id: string            필수
@@ -155,8 +105,7 @@ Output
 create_phase Input
   name: string              필수, 비어 있지 않은 이름
   description?: string      기본 ""
-  file_name?: string        기본 "", 폴더 제외 파일명
-  project_file_id?: string | null
+  file_name?: string | string[]    기본 "", Rhino 파일명
   status?: string           기본 pending
   depends_on?: string[] | null  Phase ID만
 
@@ -164,8 +113,7 @@ update_phase Input
   phase_id: string          필수
   name?: string | null
   description?: string | null
-  file_name?: string | null
-  project_file_id?: string | null
+  file_name?: string | string[] | null
   status?: string | null
   depends_on?: object | null
     add?: string[]          Phase ID만, 기본 []
@@ -217,13 +165,13 @@ Output — create_phase
   status: "success"
   phase:
     phase_id: string
-    status: workflow status
+    status: pending | running | paused | completed | failed | blocked
 
 Output — create_plan
   status: "success"
   plan:
     plan_id: string
-    status: workflow status
+    status: pending | running | paused | completed | failed | blocked
     loop_no: integer
     revision: integer
 
@@ -232,15 +180,15 @@ Output — update_phase / update_plan / update_step
   changed: boolean
   phase?:                  update_phase
     phase_id: string
-    status: workflow status
+    status: pending | running | paused | completed | failed | blocked
   plan?:                   update_plan / update_step
     plan_id: string
-    status: workflow status
+    status: pending | running | paused | completed | failed | blocked
     loop_no: integer
     revision: integer
   step?:                   update_step
     step_id: string
-    status: workflow status
+    status: pending | running | paused | completed | failed | blocked
   issues[]:                건너뛴 입력 항목만; 없으면 []
     field: string          depends_on | input_refs | output_refs
     operation: add | remove
@@ -264,7 +212,7 @@ Output — update_phase / update_plan / update_step
 
 `scene_id`와 `scene_ids`를 함께 넣으면 단일 값이 배열 첫 항목과 같아야 한다. Plan의 Component와 Scene은 실제 저장된 대상을 참조한다. `depends_on`은 Phase에는 `phase_`, Plan에는 `plan_` ID만 받지만 미생성 참조·자기 참조·순환을 허용하고 실행/완료를 강제하지 않는다.
 
-제목·상태·참조가 실제로 바뀌면 Plan revision을 기록하고 같은 값이면 시각/revision을 유지한다. Step 상태가 바뀌어도 Plan 상태는 자동 변경하지 않는다. Plan 완료는 사용자가 판단한다. status/input_refs/output_refs는 어떤 조합으로도 선택 수정하며 한 요청은 실제 변경이 있을 때 revision을 한 번만 증가시킨다. 기록만 수정할 때 status를 생략할 수 있고 Step 상태와 Plan의 paused/completed 상태가 유지된다. 조회 응답의 next_step은 후속 조회·작업 선택을 안내하지만, 조회나 set_working_plan 선택 자체가 상태 변경 또는 실행을 뜻하지 않는다. `expected_revision`은 선택 입력으로, 저장된 최신 revision과 다르면 수정을 거절한다.
+제목·상태·참조가 실제로 바뀌면 Plan revision을 기록하고 같은 값이면 시각/revision을 유지한다. Step 상태가 바뀌어도 Plan 상태는 자동 변경하지 않는다. Plan 완료는 사용자가 판단한다. status/input_refs/output_refs는 어떤 조합으로도 선택 수정하며 한 요청은 실제 변경이 있을 때 revision을 한 번만 증가시킨다. 기록만 수정할 때 status를 생략할 수 있고 Step 상태와 Plan의 paused/completed 상태가 유지된다. 조회 응답의 next_step_guide는 후속 조회·작업 선택을 안내하지만, 조회나 set_working_plan 선택 자체가 상태 변경 또는 실행을 뜻하지 않는다. `expected_revision`은 선택 입력으로, 저장된 최신 revision과 다르면 수정을 거절한다.
 
 `resolve_targets`는 Plan의 Component 대상을 해석한다. 선택적 step_id는 소속 Step을 확인할 뿐 대상을 바꾸지 않는다. `get_selection_references`도 Plan 대상을 기준으로 선택 객체와 관련된 Plan/Step을 찾는다. 두 도구의 상세 선택은 각 tools/list 설명을 따른다. `set_working_plan`의 선택·산출물 폴더 계약은 [runtime 설명](../../runtime/mcp_server-explain.md)을 따른다.
 

@@ -3,9 +3,7 @@
 ## list_drawing_assets
 
 <!-- instruction:list_drawing_assets -->
-변환 대기 원본을 포함한 모델·2D 자산 목록을 조회합니다. 사람·나무·기호 등 다이어그램은 list_diagram_assets로 조회합니다.
-
-반환: assets와 total·offset·limit·truncated를 반환합니다. source_only는 변환 대기 상태이며 배치 가능한 3DM과 구분합니다.
+모델·2D 자산 목록을 조회합니다. 변환 대기 원본도 포함합니다.
 
 Args:
     category: 라이브러리 분류 필터입니다. 선택 사항이며, 비어 있으면 모든 분류를 포함합니다.
@@ -18,9 +16,7 @@ Args:
 ## search_drawing_assets
 
 <!-- instruction:search_drawing_assets -->
-텍스트·분류·측정 치수로 모델·2D 자산을 검색합니다. 변환 대기 원본도 포함되므로 반환된 준비 상태를 확인합니다. 다이어그램은 search_diagram_assets로 검색합니다.
-
-반환: assets와 total·offset·limit·truncated를 반환합니다. asset_id는 include_ids=true로 요청합니다. 변환 대기 항목의 next_tool·next_step을 확인합니다.
+텍스트·분류·측정 치수로 모델·2D 자산을 검색합니다.
 
 Args:
     query: 자유 텍스트 검색어입니다. 비어 있으면 텍스트 필터를 설정하지 않습니다.
@@ -37,9 +33,7 @@ Args:
 ## get_drawing_asset
 
 <!-- instruction:get_drawing_asset -->
-모델·2D 자산의 파일 사용 가능 여부, 출처, 변환·갱신 상태를 조회합니다.
-
-반환: asset의 요약·파일 상태와 요청한 상세 그룹을 반환합니다. 입력 asset_id는 응답에 반복되지 않을 수 있습니다.
+모델·2D 자산의 파일·출처·변환·갱신 상태를 조회합니다.
 
 Args:
     asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
@@ -50,9 +44,7 @@ Args:
 ## prepare_drawing_asset
 
 <!-- instruction:prepare_drawing_asset -->
-원본 사본을 검사하고 명시적 편집과 이미지 검토를 거쳐 등록용 3DM을 준비합니다. 기본 조립 구조·레이어·재질·원점은 보존합니다. 검토 확인은 실제 이미지와 파일 해시에 연결하며, 불확실한 실행은 status 단계에서 확인합니다.
-
-반환: state·ready_for_registration·job_dir·next_stage와 검토 근거를 반환합니다. ready일 때 source_3dm을 등록에 사용할 수 있습니다. running/unconfirmed/failed는 상태와 error를 확인합니다.
+원본 사본을 검사·편집·시각 검토해 등록용 3DM을 준비합니다.
 
 Args:
     stage: inspect, normalize, verify 또는 status입니다. inspect는 작업을 생성하고, 이후 단계는 job_dir를 재사용합니다. status는 저장된 근거만 다시 읽습니다. 네이티브 작업을 실행하거나, 나중에 완료되었다는 이유로 확인되지 않은 작업의 단계를 올리지 않습니다.
@@ -69,9 +61,7 @@ Args:
 ## register_drawing_asset
 
 <!-- instruction:register_drawing_asset -->
-준비한 3DM을 측정 치수와 평면·정면·우측면 도면이 있는 라이브러리 자산으로 게시합니다. 기존 자산 교체는 연결 인스턴스에 영향을 줄 수 있습니다. 게시 후 오류에서는 registration_applied를 확인하고 불확실하면 등록 상태부터 대조합니다.
-
-반환: registration_applied, 자산·파일 경로와 live_index_refreshed를 반환합니다. 적용 여부가 null이고 requires_reconciliation이면 기존 등록과 파일을 확인합니다.
+준비한 3DM을 측정 치수와 평면·정면·우측면 도면이 있는 라이브러리 자산으로 등록합니다.
 
 Args:
     source_3dm: 검토한 3DM 원본입니다. 관리형 세션에서는 프로젝트 상대 경로, 독립 실행에서는 절대 경로를 사용합니다. preparation_job을 사용할 때는 해당 작업 응답의 source_3dm을 사용합니다.
@@ -88,9 +78,7 @@ Args:
 ## get_asset_drawing
 
 <!-- instruction:get_asset_drawing -->
-등록 모델의 저장 도면 매니페스트·뷰 URI 또는 기존 시범 패키지를 조회합니다. 원본과의 일치 여부는 audit_asset_drawing으로 확인합니다.
-
-반환: plan_svg_uri 등 저장 뷰 URI와 manifest를 반환합니다.
+등록 모델의 저장 도면 매니페스트와 뷰를 조회합니다.
 
 Args:
     asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
@@ -101,9 +89,7 @@ Args:
 ## generate_asset_drawing_views
 
 <!-- instruction:generate_asset_drawing_views -->
-등록 3DM 또는 지정 GLB에서 평면·정면·우측면 실루엣의 새 도면 패키지를 만듭니다. 기존 등록 도면의 저장된 변경을 반영하려면 refresh_asset을 사용합니다.
-
-반환: 새 package_dir와 manifest를 반환합니다. 도면은 실루엣이며 제품의 정면 방향·시공 상세는 별도로 검토합니다.
+등록 3DM 또는 GLB에서 평면·정면·우측면 도면 패키지를 생성합니다.
 
 Args:
     asset_id: 라이브러리 자산 ID입니다. 선택 사항이며, 이 값 또는 source_glb 중 하나를 제공합니다.
@@ -117,9 +103,7 @@ Args:
 ## audit_asset_drawing
 
 <!-- instruction:audit_asset_drawing -->
-저장 도면 패키지의 파일 해시와 확인 가능한 원본의 변경 여부를 검사합니다.
-
-반환: checked_files와 failures, source_geometry로 파일 무결성과 확인 가능한 원본 일치 여부를 반환합니다.
+저장 도면 패키지의 파일 해시와 원본 변경 여부를 검사합니다.
 
 Args:
     package_dir: 이전 생성/조회 결과의 도면 패키지 디렉터리입니다. 관리형 Almond 세션에서는 프로젝트 상대 경로를 사용하며, 독립 실행 라이브러리 호출에서는 절대 경로가 필요합니다.
@@ -141,9 +125,7 @@ Existing Blender preview for a known catalogue id.
 ## place_drawing_asset
 
 <!-- instruction:place_drawing_asset -->
-모델·2D 자산을 Rhino 문서에 배치합니다. 3DM은 원본에 연결된 블록으로 삽입하며 공유 정의 갱신이 기존 인스턴스에 영향을 줄 수 있습니다. 불확실한 실패나 시간 초과 뒤에는 문서를 확인한 후 재시도합니다.
-
-반환: asset_id·object_guid·definition_created를 반환합니다. object_guid는 삽입한 최상위 블록의 관찰에 사용합니다.
+모델·2D 자산을 Rhino 문서에 배치합니다. 연결된 3DM 블록 정의를 갱신하면 기존 인스턴스에도 반영됩니다.
 
 Args:
     asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
@@ -157,9 +139,7 @@ Args:
 ## search_asset_repository
 
 <!-- instruction:search_asset_repository -->
-모델·2D 요소 아카이브를 검색합니다. 도면 준비가 완료된 후보로 필터링할 수 있으며, 비-3DM 원본은 변환·등록 후 배치합니다.
-
-반환: total과 assets를 반환합니다. 결과 ID는 include_ids=true로 요청하고 변환 안내 next_tool·next_step을 확인합니다.
+모델·2D 요소 아카이브를 검색합니다.
 
 Args:
     query: 자유 텍스트 검색어입니다. 비어 있으면 텍스트 필터를 설정하지 않습니다.
@@ -251,9 +231,7 @@ Rhino bridge is unavailable. Start RhinoAlmondBridge first.
 ## refresh_asset
 
 <!-- instruction:refresh_asset -->
-편집 후 저장된 등록 3DM을 다시 측정하고 저장 도면을 재생성합니다. 원본 경로는 유지됩니다. Rhino 문서 저장과 기존 연결 인스턴스 갱신은 별도로 수행합니다. 게시가 적용되었거나 결과가 불확실하면 재실행 전에 등록 상태를 확인합니다.
-
-반환: registration_applied·source_path_preserved·live_index_refreshed와 갱신 파일 경로를 반환합니다. registration_applied=true이면 색인 갱신 오류가 있어도 게시가 적용된 상태입니다.
+편집 후 저장된 등록 3DM을 다시 측정하고 도면을 갱신합니다.
 
 Args:
     asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.

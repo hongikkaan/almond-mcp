@@ -66,6 +66,8 @@ class PlanningStore(LoopingStore):
                             WHERE r.plan_id=generation_plan_steps.plan_id AND r.step_id=generation_plan_steps.step_id)''')
         from almond_mcp.features.components.semantic_schema import initialize_file_relations
         initialize_file_relations(self, connection)
+        from almond_mcp.features.planning.files import initialize_phase_files
+        initialize_phase_files(connection)
         from almond_mcp.features.planning.schema import initialize_minute_timestamps
         initialize_minute_timestamps(connection)
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS plan_artifact_folder ON generation_plans(artifact_dir COLLATE NOCASE) WHERE artifact_dir <> ''")
@@ -195,6 +197,9 @@ class PlanningStore(LoopingStore):
         if not row:
             return None
         result = dict(row)
+        result["file_names"] = [item[0] for item in connection.execute('''
+            SELECT f.file_name FROM generation_phase_files r JOIN project_files f ON f.file_id=r.file_id
+            WHERE r.phase_id=? ORDER BY r.position''', (phase_id,))]
         result["depends_on"] = _decode(result.pop("depends_on_json"), [])
         result["plan_count"] = connection.execute(
             "SELECT COUNT(*) FROM generation_plans WHERE phase_id = ?", (phase_id,)
@@ -204,12 +209,11 @@ class PlanningStore(LoopingStore):
             "SELECT title,goal FROM generation_plans WHERE phase_id=? ORDER BY created_at,plan_id", (phase_id,))]
         return result
 
-    def create_phase(self, name: str, description: str = "", file_name: str = "", project_file_id: str | None = None,
+    def create_phase(self, name: str, description: str = "", file_name: str | list[str] = "", project_file_id: str | None = None,
                      status: str = "pending", depends_on: list[str] | None = None,
                      previous_id: str | None = None) -> dict[str, Any]:
         name = self._generation_text(name, "name")
         description = self._generation_text(description, "description", allow_empty=True)
-        file_name = self._generation_text(file_name, "file_name", allow_empty=True)
         status = self._generation_status(status)
         depends_on = self._related_ids([] if depends_on is None else depends_on, "phase")
         previous_id = previous_reference(previous_id, "phase")
@@ -217,11 +221,13 @@ class PlanningStore(LoopingStore):
         now = _utc_now()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            file_id = self._project_file_reference(connection,file_name,project_file_id)
+            file_ids = self._phase_file_references(connection,file_name,project_file_id)
+            file_id = file_ids[0] if file_ids else None
             connection.execute(
                 "INSERT INTO generation_phases(phase_id, name, description, created_at, updated_at, project_file_id, status, depends_on_json, previous_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (phase_id, name, description, now, now, file_id, status, _json(depends_on), previous_id),
             )
+            self._write_phase_files(connection, phase_id, file_ids)
             result = self._read_generation_phase(connection, phase_id)
         return result
 
@@ -243,7 +249,7 @@ class PlanningStore(LoopingStore):
 
     def update_phase(
         self, phase_id: str, name: str | None = None, description: str | None = None,
-        file_name: str | None = None, project_file_id: str | None = None, status: str | None = None,
+        file_name: str | list[str] | None = None, project_file_id: str | None = None, status: str | None = None,
         depends_on: list[str] | None = None,
         previous_id: str | None = None,
     ) -> dict[str, Any]:
@@ -251,7 +257,7 @@ class PlanningStore(LoopingStore):
 
     def edit_phase(
         self, phase_id: str, name: str | None = None, description: str | None = None,
-        file_name: str | None = None, project_file_id: str | None = None, status: str | None = None,
+        file_name: str | list[str] | None = None, project_file_id: str | None = None, status: str | None = None,
         depends_on: list[str] | StringListPatch | None = None,
         previous_id: str | None = None,
     ) -> PlanningUpdate:
@@ -264,7 +270,10 @@ class PlanningStore(LoopingStore):
             description = current["description"] if description is None else self._generation_text(
                 description, "description", allow_empty=True
             )
-            file_id = current['project_file_id'] if file_name is None and project_file_id is None else self._project_file_reference(connection,file_name or '',project_file_id)
+            old_files = [r[0] for r in connection.execute(
+                'SELECT file_id FROM generation_phase_files WHERE phase_id=? ORDER BY position', (phase_id,))]
+            file_ids = old_files if file_name is None and project_file_id is None else self._phase_file_references(connection, '' if file_name is None else file_name, project_file_id)
+            file_id = file_ids[0] if file_ids else None
             status = current['status'] if status is None else self._generation_status(status)
             previous_id = current['previous_id'] if previous_id is None else previous_reference(previous_id, "phase")
             issues = []
@@ -272,12 +281,13 @@ class PlanningStore(LoopingStore):
                 depends_on, issues = apply_list_patch(current['depends_on'], depends_on, "depends_on", kind="phase")
             else:
                 depends_on = current['depends_on'] if depends_on is None else self._related_ids(depends_on, "phase")
-            changed = (name,description,file_id,status,depends_on,previous_id) != (current['name'],current['description'],current['project_file_id'],current['status'],current['depends_on'],current['previous_id'])
+            changed = (name,description,file_ids,status,depends_on,previous_id) != (current['name'],current['description'],old_files,current['status'],current['depends_on'],current['previous_id'])
             if changed:
                 connection.execute(
                     "UPDATE generation_phases SET name = ?, description = ?, project_file_id = ?, status = ?, depends_on_json = ?, previous_id = ?, updated_at = ? WHERE phase_id = ?",
                     (name, description, file_id, status, _json(depends_on), previous_id, _utc_now(), phase_id),
                 )
+                self._write_phase_files(connection, phase_id, file_ids)
             result = self._read_generation_phase(connection, phase_id)
         return PlanningUpdate(result, changed, issues)
 

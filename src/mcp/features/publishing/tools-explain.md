@@ -3,9 +3,7 @@
 ## publish_objects_to_chestnut
 
 <!-- instruction:publish_objects_to_chestnut -->
-Rhino 객체를 지정한 물리·콜라이더 설정의 GLB로 Chestnut에 게시합니다. 원본 문서 경로·GUID 등 metadata도 업로드하며 같은 asset_id는 기존 자산을 갱신합니다. 네트워크 결과가 불확실하면 서비스 상태를 확인한 후 재시도합니다.
-
-반환: 원격 응답의 success와 chestnut_url 등을 반환합니다. 서비스에서 받은 추가 키가 병합되므로 실패·불확실한 상태는 응답과 원격 자산을 함께 확인합니다.
+Rhino 객체를 물리·콜라이더 설정이 있는 GLB로 Chestnut에 게시합니다. 원본 문서 경로·GUID 등의 metadata도 업로드됩니다.
 
 Args:
     guids: 내보낼 Rhino 객체 GUID입니다. 관련 없는 문서 객체는 제외합니다.
@@ -20,9 +18,7 @@ Args:
 ## publish_to_chestnut
 
 <!-- instruction:publish_to_chestnut -->
-Rhino 객체를 동작 프리셋으로 Chestnut에 게시합니다. 원본 문서 경로·GUID 등 metadata도 업로드하며 같은 asset_id는 기존 자산을 갱신합니다. 네트워크 결과가 불확실하면 서비스 상태를 확인한 후 재시도합니다.
-
-반환: publish_objects_to_chestnut의 원격 게시 응답을 반환합니다.
+Rhino 객체를 동작 프리셋으로 Chestnut에 게시합니다. 원본 문서 경로·GUID 등의 metadata도 업로드됩니다.
 
 Args:
     guids: 관찰, 선택 또는 모델링 결과에서 얻은 현재 Rhino 객체 GUID입니다. 스크립팅 호출은 필요하지 않습니다.

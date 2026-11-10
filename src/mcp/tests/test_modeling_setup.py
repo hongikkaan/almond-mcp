@@ -39,7 +39,9 @@ def context(reply=None, *, capability=True):
 def test_single_dispatch_and_compact_confirmation(overwrite):
     ctx = context()
     tools = register(FastMCP("setup-test"), ctx)
-    assert json.loads(tools["setup_modeling"](overwrite)) == {"status": "success", "applied": True}
+    result = json.loads(tools["setup_modeling"](overwrite))
+    assert "assign_material" in result.pop("next_step_guide")
+    assert result == {"status": "success", "applied": True}
     assert [r["type"] for r in ctx.requests] == ["get_rhino_context", "execute"]
     code = ctx.requests[-1]["script"]
     assert "ModelingMaterials.Setup(doc," in code and f", {str(overwrite).lower()})" in code

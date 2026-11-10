@@ -1,9 +1,7 @@
 # tools.py explain
 
 <!-- instruction:get_policy -->
-설계·검증, metadata, Rhino scripting, RhinoCode 지침 중 필요한 내용을 조회합니다. policy를 생략하면 BASIC 지침과 공통 도구 이름, 선택 가능한 policy 목록을 반환합니다.
-
-반환: status, guide_version, selected_policy, available_policies와 선택한 내용을 반환합니다. basic은 text·tools, metadata는 policy, rhino_scripting은 scripting_skill, rhinocode는 text를 사용하며 source_refs가 출처를 표시합니다.
+Almond 작업에 필요한 지침을 조회합니다.
 
 Args:
     policy: 조회할 지침입니다. basic=설계·검증, metadata=객체·그룹 메타데이터, rhino_scripting=스크립트 작성 참고, rhinocode=코드·커맨드 실행. 생략하거나 빈 문자열이면 basic입니다.
@@ -12,9 +10,7 @@ Args:
 ## get_construction_guidance
 
 <!-- instruction:get_construction_guidance -->
-구법 라이브러리에서 구조 시스템, 예비 경간·부재 깊이와 조립 방식을 비교합니다. 경험칙에 따른 예비 치수이며 실제 구조 검토는 별도로 수행합니다. 시공 상세 작업은 사용자가 요청한 범위에서 진행합니다.
-
-반환: systems와 total·source를 반환합니다. span_m을 지정하면 fits_span과 권장 깊이를, include_reference_data=true이면 참고 하중·밀도를 포함합니다.
+구법 라이브러리에서 구조 시스템·예비 경간·부재 깊이·조립 방식을 비교합니다.
 
 Args:
     query: 자유 텍스트 필터입니다(예: "glulam", "longspan", "bearing wall").
@@ -32,8 +28,6 @@ Args:
 <!-- instruction:get_typology_narrative -->
 역사 라이브러리에서 건축 유형의 서사·선례·도시적 역할을 조회합니다.
 
-반환: entries·total·source를 반환합니다. total은 limit 적용 전 일치 수입니다.
-
 Args:
     query: 자유 텍스트입니다(예: "courtyard", "skyscraper", "timber hall").
     construction_system: 구법 라이브러리의 system_id와 관련된 항목으로 필터링합니다(예: "steel-column-frame").
@@ -46,9 +40,7 @@ Args:
 ## search_detail_sources
 
 <!-- instruction:search_detail_sources -->
-선별된 건축 자료 디렉터리의 metadata를 검색합니다. 참고자료로 사용하기 전에 실제 내용과 재사용 권리를 확인합니다.
-
-반환: sources와 query_terms·expanded_terms·scope를 반환합니다. 각 항목은 자료 디렉터리의 검색 결과입니다.
+건축 자료 디렉터리의 metadata를 검색합니다.
 
 Args:
     query: 자유 텍스트 검색어입니다. 비워 두면 텍스트 필터를 적용하지 않습니다.

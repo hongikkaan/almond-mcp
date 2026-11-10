@@ -65,6 +65,7 @@ async def collect(params, *, bound):
             assert initialized.server_info.description is None
             for name, item in tools.items():
                 assert_documented_schema(item["inputSchema"], name)
+                Draft202012Validator.check_schema(item["outputSchema"])
                 assert item["description"].strip(), name
                 assert "Almond inspects and edits Rhino" not in item["description"], name
                 assert "guide_version=" not in item["description"], name
@@ -84,29 +85,34 @@ async def collect(params, *, bound):
             async def call(name, arguments):
                 response = await client.call_tool(name, arguments)
                 assert not response.is_error
-                return json.loads(response.content[0].text)
+                value = json.loads(response.content[0].text)
+                output = tools[name]["outputSchema"]
+                if output.get("x-fastmcp-wrap-result"):
+                    output = output["properties"]["result"]["contentSchema"]
+                Draft202012Validator(output).validate(value)
+                return value
 
             phase = (await call("create_phase", {"name": "Stdio discovery", "depends_on": ["phase_future"]}))["phase"]
             plan = (await call("create_plan", {"title": "Entrance review", "goal": "Inspect entrance", "phase_id": phase["phase_id"]}))["plan"]
             rows = await call("list_plans", {"phase_id": phase["phase_id"]})
             assert rows["plans"][0]["title"] == "Entrance review"
-            assert "goal" not in rows["plans"][0] and detail_name in rows["next_step"]
-            detail = await call(detail_name, {"plan_id": plan["plan_id"]})
+            assert "goal" not in rows["plans"][0] and detail_name in rows["next_step_guide"]
+            detail = await call(detail_name, {"include_details": True, "plan_id": plan["plan_id"]})
             assert detail["id"] == plan["plan_id"] and detail["status"] == "pending"
             assert detail["plan"]["phase"] == {"phase_id": phase["phase_id"], "name": "Stdio discovery"}
             sid = detail["plan"]["steps"][0]["step_id"]
-            assert "set_working_plan" in detail["next_step"]
+            assert "set_working_plan" in detail["next_step_guide"]
             partial = await call("update_step", {"plan_id": plan["plan_id"], "step_id": sid,
                 "output_refs": {"add": ["survey.md", "survey.md"], "remove": ["absent.md"]}})
             assert partial["status"] == "partial_success" and partial["changed"] is True
             assert {issue["reason"] for issue in partial["issues"]} == {"duplicate_input", "not_found"}
-            step = await call(detail_name, {"plan_id": plan["plan_id"], "step_id": sid})
+            step = await call(detail_name, {"include_details": True, "plan_id": plan["plan_id"], "step_id": sid})
             assert step["step"]["output_refs"] == ["survey.md"]
-            assert step["status"] == "pending" and "set_working_plan" in step["next_step"]
-            assert step["step"]["revision"] == plan["revision"] + 1
-            historic = await call(detail_name, {"plan_id": plan["plan_id"], "step_id": sid, "revision": plan["revision"]})
+            assert step["status"] == "pending" and "set_working_plan" in step["next_step_guide"]
+            assert step["revision"] == plan["revision"] + 1
+            historic = await call(detail_name, {"include_details": True, "plan_id": plan["plan_id"], "step_id": sid, "revision": plan["revision"]})
             assert historic["step"]["output_refs"] == []
-            assert "without revision" in historic["next_step"]
+            assert "revision을 생략" in historic["next_step_guide"]
             if bound:
                 result = await client.call_tool("project_info", {})
                 assert not result.is_error
@@ -124,7 +130,7 @@ async def collect(params, *, bound):
                 rejected = await client.call_tool("list_project_files", {})
                 assert rejected.is_error
                 selected = await call("set_working_plan", {"plan_id": plan["plan_id"], "step_id": sid})
-                assert selected["revision"] == step["step"]["revision"] + 1
+                assert selected["revision"] == step["revision"] + 1
                 updated = await call("update_step", {"plan_id": plan["plan_id"], "step_id": sid,
                     "output_refs": {"add": ["selected-survey.md"], "remove": ["survey.md"]}, "expected_revision": selected["revision"]})
                 assert updated["status"] == "success" and updated["plan"]["revision"] == selected["revision"] + 1

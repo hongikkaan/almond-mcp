@@ -48,11 +48,11 @@ def test_step_details_include_refs_without_expanding_the_plan_summary(store):
     tools = register(FastMCP("planning-test"), SimpleNamespace(retrieval_store=store))
 
     detailed = json.loads(tools["get_phase_plan_step"](
-        plan_id=plan_id, step_id=step_id,
+        include_details=True, plan_id=plan_id, step_id=step_id,
     ))["step"]
     assert detailed["input_refs"] == ["brief.md"]
     assert detailed["output_refs"] == ["entrance.png"]
-    summary = json.loads(tools["get_phase_plan_step"](plan_id=plan_id))["plan"]
+    summary = json.loads(tools["get_phase_plan_step"](include_details=True, plan_id=plan_id))["plan"]
     assert summary["steps"][0] == {"step_id": step_id, "step_type": "inspect_context", "name": "inspect_context", "status": "running", "loop_no": 0}
     assert summary["scene_ids"] == [] and summary["artifact_refs"] == []
     assert "component_ids" not in summary
@@ -146,13 +146,13 @@ def test_reference_artifact_and_saved_revision_selection_remain_available(store)
     store.update_plan_step(plan_id, step_id, "running", output_refs=["entrance.png"])
     tools = register(FastMCP("planning-test"), SimpleNamespace(retrieval_store=store))
 
-    selected = json.loads(tools["get_phase_plan_step"](plan_id=plan_id))["plan"]
+    selected = json.loads(tools["get_phase_plan_step"](include_details=True, plan_id=plan_id))["plan"]
     assert selected["depends_on"] == ["plan_related"]
     assert selected["artifact_refs"] == ["report.md"]
     assert "output_refs" not in selected["steps"][0]
-    historical = json.loads(tools["get_phase_plan_step"](plan_id=plan_id, revision=saved["revision"]))
+    historical = json.loads(tools["get_phase_plan_step"](include_details=True, plan_id=plan_id, revision=saved["revision"]))
     assert historical["status"] == "pending"
     assert historical["plan"]["artifact_refs"] == ["report.md"]
     old_step = json.loads(tools["get_phase_plan_step"](
-        plan_id=plan_id, revision=saved["revision"], step_id=step_id))
+        include_details=True, plan_id=plan_id, revision=saved["revision"], step_id=step_id))
     assert old_step["step"]["output_refs"] == []

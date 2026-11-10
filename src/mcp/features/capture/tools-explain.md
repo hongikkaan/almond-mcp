@@ -3,9 +3,7 @@
 ## capture_conditioning_pass
 
 <!-- instruction:capture_conditioning_pass -->
-Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기록을 저장합니다. 활성 카메라·디스플레이와 출력 파일이 변경되며 카메라 복원은 실패할 수 있습니다. 깊이 출력은 8비트 회색조입니다.
-
-반환: frames_requested·frames_captured·errors, out_dir·camera_json·videos와 document 정보를 반환합니다. videos는 인코딩을 사용할 수 없으면 null일 수 있습니다. 프레임 파일은 rgb/edge/depth 폴더, 카메라 기록은 camera.json에 저장됩니다.
+Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기록을 저장합니다. 활성 화면과 출력 파일이 변경됩니다.
 
 Args:
     shot: 카메라 경로를 담은 JSON 문자열입니다. type=orbit은 center:[x,y,z], radius, height와 선택적 start_deg/end_deg/lens/target_height; type=track은 cam0/cam1/target0/target1 좌표와 선택적 lens; type=keyframes는 camera·target·선택적 lens를 가진 keyframes 배열입니다. frames 기본값은 81, lens는 mm, 좌표는 문서 단위입니다.

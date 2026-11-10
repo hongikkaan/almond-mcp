@@ -39,8 +39,8 @@ def fixture_tools():
 def test_default_only_hint_catalogue_ids_and_document_projection(options):
     tools, calls, _, _ = fixture_tools()
     result = json.loads(tools["get_rhino_context"](**options))
-    assert set(result) == {"status", "warnings", "document", "named_views", "layouts", "display_modes", "next_step"}
-    assert "get_current_viewcapture" in result["next_step"]
+    assert set(result) == {"status", "warnings", "document", "named_views", "layouts", "display_modes", "next_step_guide"}
+    assert "get_current_viewcapture" in result["next_step_guide"]
     assert result["document"] == {"units": "Millimeters", "absolute_tolerance": .01, "angle_tolerance": .02,
                                   "modified": True, "object_count": 7, "layer_count": 3}
     for section in ("named_views", "layouts", "display_modes"):

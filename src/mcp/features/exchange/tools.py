@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.exchange.output import GROUPS, project
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
@@ -158,7 +159,7 @@ public class Script
 """
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('export_asset_contract', wrapped=True))
     @tool_instruction(__file__, 'export_asset_contract')
     def export_asset_contract(
         guids: list[str],
@@ -219,7 +220,7 @@ public class Script
             "contract_path": str(contract_path),
             "dimensions_mm": contract["dimensions_mm"],
             "materials": material_groups,
-            "next_step": read_instruction(__file__, 'response-672'),
+            "next_step_guide": read_instruction(__file__, 'response-672'),
         })
 
 
@@ -270,7 +271,7 @@ public class Script
             return []
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('import_asset_contract', wrapped=True))
     @tool_instruction(__file__, 'import_asset_contract')
     def import_asset_contract(
         contract_path: str,
@@ -371,7 +372,7 @@ public class Script
         }
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('get_blender_helper_script', wrapped=True))
     @tool_instruction(__file__, 'get_blender_helper_script')
     @query_output
     def get_blender_helper_script(action: str, asset_id: str = "", name: str = "",

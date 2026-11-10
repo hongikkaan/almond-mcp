@@ -145,7 +145,8 @@ def test_defined_capture_public_schema_explains_target_specific_mode_defaults():
     tool = asyncio.run(schema())
     properties = tool.input_schema["properties"]
     assert properties["display_mode"]["default"] == ""  # Neutral for Layout; resolved by target kind.
-    for text in (tool.description, properties["target_kind"]["description"], properties["display_mode"]["description"]):
+    assert "Named View" in tool.description and "Layout" in tool.description
+    for text in (properties["target_kind"]["description"], properties["display_mode"]["description"]):
         assert "Shaded" in text and "Detail" in text
     assert "AGENT_Section_Glass" in properties["display_mode"]["description"]
     baseline = Path(__file__).resolve().parents[3] / "tests/integration/tool_schemas.json"

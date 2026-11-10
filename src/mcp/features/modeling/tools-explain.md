@@ -3,9 +3,7 @@
 ## plan_section
 
 <!-- instruction:plan_section -->
-클리핑 평면에서 모델 공간의 단면·해치·입면 도면을 생성하거나 갱신합니다. Create는 해당 도면을 생성·교체하고 Update는 저장된 배치의 도면을 갱신합니다. 부분 완료·취소·시간 초과 뒤에도 생성된 도면은 남을 수 있으므로 결과 복구는 get_plan_section_result로 수행합니다.
-
-반환: status·drawing_status와 result를 반환합니다. partial/cancelled이면 이미 생성된 도면이 남을 수 있습니다. result_id와 next_offset이 있으면 get_plan_section_result로 이어 읽습니다.
+클리핑 평면에서 모델 공간의 단면·해치·입면 도면을 생성하거나 갱신합니다. 부분 완료나 취소 뒤에도 만들어진 도면은 남을 수 있습니다.
 
 Args:
     operation: Create 또는 Update입니다.
@@ -24,9 +22,7 @@ Args:
 ## get_plan_section_result
 
 <!-- instruction:get_plan_section_result -->
-같은 문서 인스턴스에 보관된 PlanSection 실행 결과를 페이지별로 복구합니다. 만료·누락된 결과는 오류로 반환하며 결과 복구를 위해 도면을 재생성하지 않습니다.
-
-반환: json_chunk와 offset·next_offset·total_characters·result_sha256을 반환합니다. 청크를 순서대로 합친 뒤 JSON을 읽습니다.
+보관된 PlanSection 실행 결과를 페이지별로 조회합니다.
 
 Args:
     result_id: plan_section.result.result_id에서 얻은 의미를 해석하지 않는 32자 결과 영수증 ID입니다.
@@ -37,9 +33,7 @@ Args:
 ## execute_rhino_script
 
 <!-- instruction:execute_rhino_script -->
-전용 도구로 처리하기 어려운 모델링·편집·측정 코드를 연결된 RhinoCode에서 실행합니다. 문서 전환과 백그라운드 쓰기를 만들지 않습니다. 시간 초과·불확실한 결과는 재실행하지 말고 get_rhino_execution으로 확인합니다. 지침은 get_policy의 rhino_scripting과 rhinocode로 조회합니다.
-
-반환: request_id·status·completed와 result를 반환합니다. 결과가 페이지화되거나 실행이 끝나지 않았으면 get_rhino_execution으로 이어서 읽습니다.
+연결된 RhinoCode에서 모델링·편집·측정 코드를 실행합니다. 전용 도구로 처리하기 어려운 작업에 사용합니다.
 
 Args:
     script: 동기식 Python 소스, C# 문장 본문 또는 명령 매크로입니다. Python은 JSON-safe 값을 result에, C#은 결과 JSON을 result_json에 할당합니다. doc은 연결된 문서입니다. command는 !·Pause·대화상자 없이 끝나는 매크로를 입력합니다.
@@ -50,9 +44,7 @@ Args:
 ## edit_planar_face
 
 <!-- instruction:edit_planar_face -->
-최상위 닫힌 Brep의 평면 한 면을 PushPull Extend로 이동합니다. 대상과 인접 면은 평면이고 객체는 잠금 해제 상태여야 하며 그룹·블록 편집을 종료한 뒤 사용합니다. 불확실한 실행은 재호출 전에 관찰합니다.
-
-반환: status와 result에 변경 객체·관찰값·보존 결과를 반환합니다. 적용 여부가 불확실하면 새 관찰로 확인합니다.
+닫힌 Brep의 평면 한 면을 PushPull Extend로 이동합니다. 그룹·블록 편집을 종료한 일반 모델에서 사용합니다.
 
 Args:
     object_id: 연결된 문서의 관찰 결과에서 얻은 현재 잠기지 않은 최상위 닫힌 Brep GUID입니다.
@@ -65,9 +57,7 @@ Args:
 ## edit_planar_faces
 
 <!-- instruction:edit_planar_faces -->
-서로 다른 닫힌 Brep에서 평면 한 면씩을 단일 호출·Undo 기록으로 이동합니다. 단일 면 편집의 대상 조건을 따릅니다. 교체 중 실패하면 일부 변경이 남으므로 배치 전체를 자동 재실행하지 않습니다.
-
-반환: status와 result에 배치 적용·실패 항목을 반환합니다. 일부 적용된 배치는 남은 대상만 새 관찰 후 처리합니다.
+서로 다른 닫힌 Brep의 평면을 한 면씩 단일 Undo 기록으로 이동합니다. 그룹·블록 편집을 종료한 일반 모델에서 사용합니다.
 
 Args:
     edits: 서로 다른 Brep에 대한 항목 1..32개이며, 각 항목에는 object_id, face_index, expected_geometry_crc 및 translation이 들어갑니다. 단일 면 도구의 적용 대상 조건이 적용됩니다.
@@ -77,18 +67,13 @@ Args:
 ## save_rhino_document
 
 <!-- instruction:save_rhino_document -->
-사용자가 영구 저장을 요청한 연결 문서 전체를 기존 .3dm 경로에 저장합니다. 다른 작업의 변경도 포함되므로 미확정 편집과 그룹·블록 편집을 먼저 정리합니다. 확인되지 않은 저장은 재실행 전에 상태를 대조합니다.
-
-반환: status·saved·modified로 저장 및 문서 변경 상태를 반환합니다.
-
+연결된 문서 전체를 기존 .3dm 경로에 저장합니다. 사용자에게 영구 저장을 요청받은 경우 사용합니다.
 <!-- /instruction:save_rhino_document -->
 
 ## setup_modeling
 
 <!-- instruction:setup_modeling -->
-정의된 Material과 구축 Layer를 Rhino 문서에 등록·정렬합니다. 객체의 기존 레이어·ByLayer 설정·metadata는 유지합니다. incomplete나 오류이면 이미 변경된 항목을 응답에서 확인합니다.
-
-반환: status와 applied를 반환합니다. incomplete이면 항목별 성공·실패와 보존 결과를 확인합니다.
+정의된 Material과 구축 Layer를 Rhino 문서에 등록·정렬합니다.
 
 Args:
     overwrite: Material과 Layer 모두에 적용되는 필수 불리언입니다. false는 기존 값을 유지하고, 없는 항목을 만들며, 차이를 보고합니다. true는 사전 정의된 속성을 갱신합니다.
@@ -97,9 +82,7 @@ Args:
 ## list_materials
 
 <!-- instruction:list_materials -->
-이름·용도에 맞는 라이브러리 PBR 재료와 매핑 정보를 조회합니다.
-
-반환: materials와 total을 반환합니다. 후속 할당에 필요한 재료 ID는 include_ids=true로 요청합니다.
+라이브러리 PBR 재료와 매핑 정보를 조회합니다.
 
 Args:
     category: 선택 사항인 라이브러리 분류 필터입니다. 비워 두면 모든 분류를 포함합니다.
@@ -111,9 +94,7 @@ Args:
 ## assign_material
 
 <!-- instruction:assign_material -->
-Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 기존 레이어는 유지하고 metadata는 요청한 항목만 추가합니다. 응답에서 부분 적용과 확인되지 않은 결과를 구분합니다.
-
-반환: requested_count·applied_count, 재료 적용·metadata 첨부 여부와 대상 정보를 반환합니다. 부분 적용과 실패 항목을 확인합니다.
+Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 요청한 경우 구법 metadata도 기록합니다.
 
 Args:
     guids: 할당할 현재 Rhino 객체 GUID입니다. 관찰 결과나 생성 결과를 재사용합니다.

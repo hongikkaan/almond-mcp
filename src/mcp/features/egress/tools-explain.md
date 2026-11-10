@@ -3,9 +3,7 @@
 ## check_egress
 
 <!-- instruction:check_egress -->
-제공된 층 경계·출구·경로 측정값에 참고 규칙을 적용해 피난 조건을 예비 검토합니다. passed는 실제 수행한 검사에만 해당하며, 적용 법규 검토는 별도로 수행합니다.
-
-반환: passed·occupant_load·area_m2·gross_area_m2, checks·warnings·source_note를 반환합니다. 경로 입력을 생략한 검사는 warnings에서 확인합니다.
+제공된 층 경계·출구·경로 측정값으로 피난 조건을 예비 검토합니다.
 
 Args:
     plate_bounds_mm: mm 단위의 층 바닥 경계 [min_x, min_y, max_x, max_y]입니다. 전체 면적과 출구 이격거리에 사용하는 대각선을 결정합니다.

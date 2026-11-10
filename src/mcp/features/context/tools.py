@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.query_output import query_output
 from almond_mcp.managed_paths import bound_model_path
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction
 from almond_mcp.features.context import object_queries
 from almond_mcp.features.context.capture_artifacts import save_png
@@ -30,9 +31,7 @@ def register(mcp, context):
     """Register observation tools using the server's current connection and state."""
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False}, output_schema={
-        "type": "object", "properties": {"result": {"type": "string"}},
-        "required": ["result"], "x-fastmcp-wrap-result": True})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_rhino_context', wrapped=True))
     @tool_instruction(__file__, 'get_rhino_context')
     def get_rhino_context(sections: list[str] | None = None, include_ids: StrictBool = False,
                           include_editor_details: StrictBool = False) -> str | ToolResult:
@@ -40,7 +39,7 @@ def register(mcp, context):
         return _observation_result(query(context._send_and_receive, sections, include_ids, include_editor_details))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('analyze_block_reculviely', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'analyze_block_reculviely')
     @query_output
@@ -94,9 +93,7 @@ def register(mcp, context):
             ))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False}, output_schema={
-        "type": "object", "properties": {"result": {"type": "string"}},
-        "required": ["result"], "x-fastmcp-wrap-result": True})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_objects', wrapped=True))
     @tool_instruction(__file__, 'get_objects')
     def get_objects(scope: str = "current", object_ids: list[str] | None = None,
                           filters: dict | None = None, include_geometry: StrictBool = False,
@@ -119,16 +116,14 @@ def register(mcp, context):
                                     recursive=recursive, depth=depth, expected_snapshot=expected_snapshot))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False}, output_schema={
-        "type": "object", "properties": {"result": {"type": "string"}},
-        "required": ["result"], "x-fastmcp-wrap-result": True})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_object_intersections', wrapped=True))
     @tool_instruction(__file__, 'get_object_intersections')
     def get_object_intersections(object_ids: list[str], include_block: StrictBool = False) -> str | ToolResult:
         return _observation_result(object_queries.intersections(
             context._send_and_receive, ids=object_ids, include_block=include_block))
 
 
-    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': False, 'destructiveHint': False}, output_schema=public_output_schema('capture_rhino_inspection', wrapped=False))
     @tool_instruction(__file__, 'capture_rhino_inspection')
     def capture_rhino_inspection(views: list[dict], width: StrictInt = 640, height: StrictInt = 480,
                                  columns: StrictInt | None = None, expected_model_path: str = "",
@@ -154,7 +149,7 @@ def register(mcp, context):
                           is_error=metadata.get("status") != "success")
 
 
-    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': False, 'destructiveHint': False}, output_schema=public_output_schema('get_defined_viewcapture', wrapped=False))
     @tool_instruction(__file__, 'get_defined_viewcapture')
     def get_defined_viewcapture(target_kind: str, target: str, scale_percent: StrictInt = 75,
                                 include_usage: StrictBool = False, display_mode: str = "",
@@ -169,7 +164,7 @@ def register(mcp, context):
                                requested_size=(width, height) if width is not None and height is not None else None)
 
 
-    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': False, 'destructiveHint': False}, output_schema=public_output_schema('get_current_viewcapture', wrapped=False))
     @tool_instruction(__file__, 'get_current_viewcapture')
     def get_current_viewcapture(target_ids: list[str] | None = None, target_kind: str = "object",
                                 isolate: StrictBool = False, scale_percent: StrictInt = 75,

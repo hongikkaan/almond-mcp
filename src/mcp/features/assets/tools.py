@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.assets.output import GROUPS, project, with_next_step
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 from pydantic import StrictBool, StrictInt
@@ -24,7 +25,7 @@ from almond_mcp.features.assets import drawing_assets, drafting, preparation, mo
 def register(mcp, context):
     """Register the existing asset API without freezing mutable server services."""
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('list_drawing_assets', wrapped=True))
     @tool_instruction(__file__, 'list_drawing_assets')
     @query_output
     def list_drawing_assets(
@@ -44,7 +45,7 @@ def register(mcp, context):
         }, field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('search_drawing_assets', wrapped=True))
     @tool_instruction(__file__, 'search_drawing_assets')
     @query_output
     def search_drawing_assets(
@@ -67,7 +68,7 @@ def register(mcp, context):
         ), field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('get_drawing_asset', wrapped=True))
     @tool_instruction(__file__, 'get_drawing_asset')
     @query_output
     def get_drawing_asset(asset_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -90,7 +91,7 @@ def register(mcp, context):
         return json.loads(response)
 
 
-    @mcp.tool(annotations={"destructiveHint": False, "openWorldHint": False})
+    @mcp.tool(annotations={'destructiveHint': False, 'openWorldHint': False}, output_schema=public_output_schema('prepare_drawing_asset', wrapped=False))
     @tool_instruction(__file__, 'prepare_drawing_asset')
     def prepare_drawing_asset(stage: str, source_file: str = "", job_dir: str = "",
                               input_units: str = "", review: dict | None = None,
@@ -107,7 +108,7 @@ def register(mcp, context):
             return error_payload(str(exc))
 
 
-    @mcp.tool(annotations={"destructiveHint": False, "openWorldHint": False})
+    @mcp.tool(annotations={'destructiveHint': False, 'openWorldHint': False}, output_schema=public_output_schema('register_drawing_asset', wrapped=False))
     @tool_instruction(__file__, 'register_drawing_asset')
     def register_drawing_asset(source_3dm: str, asset_id: str, name: str,
                                category: str = "other", tags: list[str] | None = None,
@@ -139,7 +140,7 @@ def register(mcp, context):
         return {**result, "registration_applied": True, "live_index_refreshed": True}
 
 
-    @mcp.tool(annotations={"destructiveHint": False, "openWorldHint": False})
+    @mcp.tool(annotations={'destructiveHint': False, 'openWorldHint': False}, output_schema=public_output_schema('refresh_asset', wrapped=False))
     @tool_instruction(__file__, 'refresh_asset')
     def refresh_asset(asset_id: str) -> dict:
         try:
@@ -280,7 +281,7 @@ def register(mcp, context):
         return {"status": "success", "record": record}
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
+    @mcp.tool(annotations={'readOnlyHint': True, 'openWorldHint': False}, output_schema=public_output_schema('get_asset_drawing', wrapped=False))
     @tool_instruction(__file__, 'get_asset_drawing')
     @query_output
     def get_asset_drawing(asset_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:
@@ -306,7 +307,7 @@ def register(mcp, context):
                 "plan_svg_uri": f"almond://assets/{asset_id}/drawing/plan/50"}, field_groups)
 
 
-    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
+    @mcp.tool(annotations={'readOnlyHint': False, 'destructiveHint': False, 'openWorldHint': False}, output_schema=public_output_schema('generate_asset_drawing_views', wrapped=False))
     @tool_instruction(__file__, 'generate_asset_drawing_views')
     def generate_asset_drawing_views(asset_id: str = "", source_glb: str = "",
                                      input_units: str = "", up_axis: str = "y",
@@ -354,7 +355,7 @@ def register(mcp, context):
             return error_payload(str(exc))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
+    @mcp.tool(annotations={'readOnlyHint': True, 'openWorldHint': False}, output_schema=public_output_schema('audit_asset_drawing', wrapped=False))
     @tool_instruction(__file__, 'audit_asset_drawing')
     def audit_asset_drawing(package_dir: str, source_glb: str = "") -> dict:
         try:
@@ -514,7 +515,7 @@ public class Script
             return False
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('place_drawing_asset', wrapped=True))
     @tool_instruction(__file__, 'place_drawing_asset')
     def place_drawing_asset(
         asset_id: str,
@@ -632,12 +633,12 @@ public class Script
                 "dimensions_mm": asset.get("dimensions_mm"),
                 "clearance_mm": (asset.get("spatial") or {}).get("clearance_mm"),
                 "render_material_id": asset.get("render_material_id"),
-                "next_step": read_instruction(__file__, 'response-419'),
+                "next_step_guide": read_instruction(__file__, 'response-419'),
             })
         return json.dumps(result)
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('search_asset_repository', wrapped=False))
     @tool_instruction(__file__, 'search_asset_repository')
     @query_output
     def search_asset_repository(query: str = "", kind: str = "all", drawing_ready: bool = False, limit: int = 20, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:

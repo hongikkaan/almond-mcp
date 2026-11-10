@@ -23,8 +23,7 @@ def test_empty_discovery_does_not_offer_missing_detail_or_working_handles(store)
     for name, collection in (("list_phases", "phases"), ("list_plans", "plans")):
         value = json.loads(tools[name]())
         assert value[collection] == []
-        assert "get_phase_plan_step" not in value["next_step"]
-        assert "set_working_plan" not in value["next_step"]
+        assert "next_step_guide" not in value
 
 
 def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
@@ -34,18 +33,18 @@ def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=store))
     phases = json.loads(tools["list_phases"]())
     assert phases["phases"][0]["phase_id"] == phase["phase_id"]
-    assert "list_plans" in phases["next_step"]
-    assert DETAIL in phases["next_step"]
+    assert "list_plans" in phases["next_step_guide"]
+    assert DETAIL in phases["next_step_guide"]
     rows = json.loads(tools["list_plans"](phase_id=phase["phase_id"]))
     assert rows["plans"] == [{"plan_id": pid, "title": "Entrance access", "scope": "component", "status": "pending", "loop_no": 0, "revision": 1}]
-    assert DETAIL in rows["next_step"]
-    ph = json.loads(tools[DETAIL](phase_id=phase["phase_id"]))
+    assert DETAIL in rows["next_step_guide"]
+    ph = json.loads(tools[DETAIL](include_details=True, phase_id=phase["phase_id"]))
     assert (ph["id"], ph["type"], ph["status"]) == (phase["phase_id"], "phase", "pending")
     assert ph["phase"]["plan_titles"] == ["Entrance access"]
     assert ph["phase"]["depends_on"] == ["phase_future"]
     assert "plan_count" not in ph["phase"]
-    detail = json.loads(tools[DETAIL](plan_id=pid, include_holons=True))
-    assert "set_working_plan" in detail["next_step"] and DETAIL in detail["next_step"]
+    detail = json.loads(tools[DETAIL](plan_id=pid, include_details=True))
+    assert "set_working_plan" in detail["next_step_guide"]
     assert detail["plan"]["phase"] == {"phase_id": phase["phase_id"], "name": "Entrance"}
     assert detail["plan"]["holon_ids"] == []
     assert detail["plan"]["created_at"] == kst_minute(plan["created_at"])
@@ -59,16 +58,18 @@ def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     store.update_plan_step(pid, plan["steps"][1]["step_id"], "pending", output_refs=["another Step's long record"])
     # The current Step path must not fetch the whole Plan and its other records.
     monkeypatch.setattr(store, "get_plan", lambda *args, **kwargs: pytest.fail("unbounded Plan read"))
-    step = json.loads(tools[DETAIL](plan_id=pid, step_id=plan["steps"][0]["step_id"]))
-    assert "set_working_plan" in step.pop("next_step")
-    assert step == {"id": plan["steps"][0]["step_id"], "type": "step", "status": "pending", "read_only": False, "step": {
-        "plan_id": pid, "loop_no": 0, "revision": 4, "step_type": "inspect_context", "name": "inspect_context", "input_refs": ["brief"], "output_refs": ["survey"]}}
+    step = json.loads(tools[DETAIL](include_details=True, plan_id=pid, step_id=plan["steps"][0]["step_id"]))
+    assert "set_working_plan" in step.pop("next_step_guide")
+    assert step == {"id": plan["steps"][0]["step_id"], "type": "step", "name": "inspect_context", "status": "pending", "read_only": False,
+        "plan_id": pid, "loop_no": 0, "revision": 4,
+        "step": {"step_type": "inspect_context", "input_refs": ["brief"], "output_refs": ["survey"]}}
+
 
 
 @pytest.mark.parametrize("arguments", [{}, {"phase_id": "phase_a", "plan_id": "plan_a"},
     {"step_id": "design"}, {"phase_id": "phase_a", "revision": 1},
-    {"phase_id": "phase_a", "include_holons": True},
-    {"plan_id": "plan_a", "step_id": "design", "include_holons": True}])
+    {"phase_id": "phase_a", "loop_no": 0},
+    {"phase_id": "phase_a", "step_id": "design"}])
 def test_invalid_detail_selection_is_an_error(store, arguments):
     tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=store))
     assert json.loads(tools[DETAIL](**arguments))["status"] == "error"
@@ -78,15 +79,15 @@ def test_saved_revision_navigation_keeps_history_separate_from_current_work(stor
     plan = store.create_plan("Review entrance", scope="component")
     current = store.update_plan_step(plan["plan_id"], plan["steps"][1]["step_id"], output_refs=["new design"])
     tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=store))
-    historic = json.loads(tools[DETAIL](plan_id=plan["plan_id"], revision=plan["revision"]))
-    assert "revision=1" in historic["next_step"]
-    assert "without revision" in historic["next_step"]
-    historic_step = json.loads(tools[DETAIL](plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], revision=plan["revision"]))
+    historic = json.loads(tools[DETAIL](include_details=True, plan_id=plan["plan_id"], revision=plan["revision"]))
+    assert historic["revision"] == 1 and historic["read_only"] is True
+    assert "revision을 생략" in historic["next_step_guide"]
+    historic_step = json.loads(tools[DETAIL](include_details=True, plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], revision=plan["revision"]))
     assert historic_step["step"]["output_refs"] == []
-    assert "without revision" in historic_step["next_step"]
-    latest_step = json.loads(tools[DETAIL](plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"]))
+    assert "revision을 생략" in historic_step["next_step_guide"]
+    latest_step = json.loads(tools[DETAIL](include_details=True, plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"]))
     assert latest_step["step"]["output_refs"] == ["new design"]
-    assert "without revision" not in latest_step["next_step"]
+    assert "revision을 생략" not in latest_step["next_step_guide"]
     assert store.get_plan(plan["plan_id"]) == current
 
 
@@ -177,7 +178,7 @@ def test_migration_retires_targets_without_rewriting_history(store):
             assert tuple(con.execute("SELECT * FROM generation_plan_revisions WHERE plan_id=? AND revision=?", old[:2]).fetchone()) == old
         assert con.execute("PRAGMA foreign_key_check").fetchall() == []
     tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=migrated))
-    historic = json.loads(tools[DETAIL](plan_id=pid, revision=1))
+    historic = json.loads(tools[DETAIL](include_details=True, plan_id=pid, revision=1))
     assert historic["plan"]["depends_on"] == ["plan_missing"]
     assert historic["plan"]["phase"]["name"] is None
     assert all("component_ids" not in s for s in historic["plan"]["steps"])

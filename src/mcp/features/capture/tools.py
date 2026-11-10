@@ -1,5 +1,6 @@
 """MCP registration for camera-path conditioning capture."""
 from almond_mcp.tool_response import error_payload
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction
 import json
 
@@ -8,7 +9,7 @@ from almond_mcp.features.capture import conditioning
 
 def register(mcp, context):
     """Register capture tools against this server's live connection context."""
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('capture_conditioning_pass', wrapped=True))
     @tool_instruction(__file__, 'capture_conditioning_pass')
     def capture_conditioning_pass(
         shot: str,

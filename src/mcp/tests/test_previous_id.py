@@ -55,11 +55,11 @@ def test_public_tools_expose_and_round_trip_previous(tmp_path):
                 assert 'previous_id' in tools[name].input_schema['properties']
             result = await client.call_tool('create_plan', {'title':'Next', 'goal':'Next task', 'previous_id':'plan_prior'})
             pid = json.loads(result.content[0].text)['plan']['plan_id']
-            result = await client.call_tool('get_phase_plan_step', {'plan_id':pid})
+            result = await client.call_tool('get_phase_plan_step', {"include_details": True, 'plan_id':pid})
             assert json.loads(result.content[0].text)['plan']['previous_id'] == 'plan_prior'
             result = await client.call_tool('create_phase', {'name':'Next phase', 'previous_id':'phase_prior'})
             phase_id = json.loads(result.content[0].text)['phase']['phase_id']
-            result = await client.call_tool('get_phase_plan_step', {'phase_id':phase_id})
+            result = await client.call_tool('get_phase_plan_step', {"include_details": True, 'phase_id':phase_id})
             assert json.loads(result.content[0].text)['phase']['previous_id'] == 'phase_prior'
     asyncio.run(run())
 

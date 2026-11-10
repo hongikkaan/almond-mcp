@@ -303,17 +303,17 @@ def present(job: Path, record: dict, *, field_groups=None, include_ids=False, of
                              "verified": "verify with final image review", "ready": "register_drawing_asset"}.get(state)}
     if record.get("error") or state in {"running", "unconfirmed", "failed"}:
         result["next_stage"] = None
-        result["next_step"] = ("Read the error/execution evidence. Use prepare_drawing_asset(stage='status', job_dir=<returned job_dir>) "
+        result["next_step_guide"] = ("Read the error/execution evidence. Use prepare_drawing_asset(stage='status', job_dir=<returned job_dir>) "
                                "to reread saved evidence only; status does not reconcile late completion or promote an unconfirmed job. "
                                "Inspect execution and durable reports before deciding recovery; do not replay inspect/normalize/verify automatically.")
     elif state in {"inspected", "normalized"}:
-        result["next_step"] = ("Reuse job_dir in prepare_drawing_asset(stage='verify') to produce final preview evidence. "
+        result["next_step_guide"] = ("Reuse job_dir in prepare_drawing_asset(stage='verify') to produce final preview evidence. "
                                "For intended normalization of an inspected copy, first review its previews/parts and supply the documented review object with stage='normalize'; no edit is implied.")
     elif state == "verified":
-        result["next_step"] = ("Review the final preview images, retrieving field_groups=['previews'] with prepare_drawing_asset(stage='status', job_dir=...) if omitted. "
+        result["next_step_guide"] = ("Review the final preview images, retrieving field_groups=['previews'] with prepare_drawing_asset(stage='status', job_dir=...) if omitted. "
                                "Only after that review, call stage='verify' with the same job_dir and review={vision_reviewed:true, final_sha256:<review_targets.final_sha256>, name:<chosen name>, asset_id:<chosen ID>}.")
     elif state == "ready":
-        result["next_step"] = ("If publication is intended, call register_drawing_asset with source_3dm from this response, preparation_job=job_dir, "
+        result["next_step_guide"] = ("If publication is intended, call register_drawing_asset with source_3dm from this response, preparation_job=job_dir, "
                                "and the reviewed asset_id/name; category is optional. Choose replace_existing explicitly when replacing an existing asset.")
     if record.get("error"):
         result.update(message=record["error"], execution=record.get("execution"),

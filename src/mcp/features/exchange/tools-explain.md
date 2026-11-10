@@ -3,9 +3,7 @@
 ## export_asset_contract
 
 <!-- instruction:export_asset_contract -->
-선택한 Rhino 객체를 GLB와 Almond 자산 계약 파일로 내보냅니다. 같은 출력 폴더의 동일 자산 파일은 덮어쓸 수 있습니다.
-
-반환: glb_path·contract_path와 dimensions_mm·materials를 반환합니다. 수신 앱에서 지원되는 의미와 재료를 복원하는 데 사용합니다.
+Rhino 객체를 GLB와 Almond 자산 계약 파일로 내보냅니다.
 
 Args:
     guids: 기존 객체 관찰, 선택 또는 모델링 결과에서 얻은 현재 Rhino 객체 GUID입니다.
@@ -17,9 +15,7 @@ Args:
 ## import_asset_contract
 
 <!-- instruction:import_asset_contract -->
-Almond 계약과 GLB를 Rhino로 가져와 지원되는 재료·metadata·앵커 배치를 복원합니다. 복원·배치 오류 뒤에도 가져온 객체가 남을 수 있으므로 확인 후 재시도합니다.
-
-반환: imported_count·imported_guids, metadata_restored·materials_deduplicated·unknown_material_ids와 dimension_check를 반환합니다.
+Almond 계약과 GLB를 Rhino 문서로 가져와 재료·metadata·배치를 복원합니다.
 
 Args:
     contract_path: export_asset_contract 또는 Blender 내보내기가 반환한 계약 경로입니다. 관리형 세션에서는 프로젝트 기준 상대 .almond.json 경로이고, 독립 실행에서는 절대 경로입니다.
@@ -33,9 +29,7 @@ Args:
 ## get_blender_helper_script
 
 <!-- instruction:get_blender_helper_script -->
-Blender의 선택 형상 내보내기 또는 지정 객체의 재료 설정에 사용할 Python 코드를 생성합니다. 생성한 코드를 실행하면 파일을 쓰거나 일치 객체의 재료 슬롯을 교체합니다.
-
-반환: action과 실행할 Python script를 반환합니다.
+Blender의 선택 형상 내보내기 또는 재료 설정에 사용할 Python 코드를 생성합니다.
 
 Args:
     action: "export" 또는 "materials"입니다.

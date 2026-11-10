@@ -106,23 +106,26 @@ def test_schema_errors_reject_whole_request(context, patch):
 def test_invalid_general_plan_field_prevents_valid_dependency_edit(context, invalid):
     store, call = context
     plan = store.create_plan("Review", scope="component")
-    result = body(call("update_plan", plan_id=plan["plan_id"],
-                       depends_on={"add": ["plan_future", "phase_wrong"]}, **invalid))
-    assert result["status"] == "error"
+    result = call("update_plan", plan_id=plan["plan_id"],
+                       depends_on={"add": ["plan_future", "phase_wrong"]}, **invalid)
+    if "status" in invalid:
+        assert result.is_error
+    else:
+        assert body(result)["status"] == "error"
     assert store.get_plan(plan["plan_id"]) == plan
 
 
 def test_invalid_step_status_and_phase_status_roll_back_everything(context):
     store, call = context
     plan = store.create_plan("Review", scope="component")
-    result = body(call("update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"],
-                       status="finished", output_refs={"add": ["valid"]}))
-    assert result["status"] == "error" and store.get_plan(plan["plan_id"]) == plan
+    result = call("update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"],
+                       status="finished", output_refs={"add": ["valid"]})
+    assert result.is_error and store.get_plan(plan["plan_id"]) == plan
     phase = store.create_phase("Review")
     files = store.list_project_files()
-    result = body(call("update_phase", phase_id=phase["phase_id"], status="finished",
-                       file_name="should-not-be-registered.3dm", depends_on={"add": ["phase_future"]}))
-    assert result["status"] == "error" and store.get_phase(phase["phase_id"]) == phase
+    result = call("update_phase", phase_id=phase["phase_id"], status="finished",
+                       file_name="should-not-be-registered.3dm", depends_on={"add": ["phase_future"]})
+    assert result.is_error and store.get_phase(phase["phase_id"]) == phase
     assert store.list_project_files() == files
 
 

@@ -88,7 +88,7 @@ def test_public_plan_links_schema_create_update_and_details(tmp_path):
             created = await call("create_plan", title="Task", goal="Task",
                 parent_plan=["plan_parent"], child_plan=["plan_child"])
             pid = created["plan"]["plan_id"]
-            detail = await call("get_phase_plan_step", plan_id=pid)
+            detail = await call("get_phase_plan_step", include_details=True, plan_id=pid)
             assert detail["plan"]["parent_plan"] == ["plan_parent"]
             assert detail["plan"]["child_plan"] == ["plan_child"]
             kept = await call("update_plan", plan_id=pid, parent_plan=None, child_plan=None)
@@ -96,10 +96,10 @@ def test_public_plan_links_schema_create_update_and_details(tmp_path):
             updated = await call("update_plan", plan_id=pid,
                 parent_plan=[], child_plan=[pid, "plan_not_created"])
             assert updated["changed"]
-            detail = await call("get_phase_plan_step", plan_id=pid)
+            detail = await call("get_phase_plan_step", include_details=True, plan_id=pid)
             assert detail["plan"]["parent_plan"] == []
             assert detail["plan"]["child_plan"] == [pid, "plan_not_created"]
-            historic = await call("get_phase_plan_step", plan_id=pid, revision=created["plan"]["revision"])
+            historic = await call("get_phase_plan_step", include_details=True, plan_id=pid, revision=created["plan"]["revision"])
             assert historic["plan"]["parent_plan"] == ["plan_parent"]
             assert historic["plan"]["child_plan"] == ["plan_child"]
             listed = await call("list_plans")

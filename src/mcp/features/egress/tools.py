@@ -1,12 +1,13 @@
 """Egress tool registration using the shared construction library."""
 from almond_mcp.tool_response import error_payload
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 import json
 
 
 def register(mcp, context):
     """Register egress checks and return the server compatibility exports."""
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('check_egress', wrapped=True))
     @tool_instruction(__file__, 'check_egress')
     def check_egress(
         plate_bounds_mm: list[float],

@@ -23,7 +23,7 @@ def test_mcp_step_identity_is_independent_of_template_type(tmp_path):
                 return json.loads(result.content[0].text)
             first = await call("create_plan", title="First", goal="Inspect", scope="inspection")
             second = await call("create_plan", title="Second", goal="Inspect", scope="inspection")
-            details = [await call("get_phase_plan_step", plan_id=item["plan"]["plan_id"])
+            details = [await call("get_phase_plan_step", include_details=True, plan_id=item["plan"]["plan_id"])
                        for item in (first, second)]
             a, b = [detail["plan"]["steps"] for detail in details]
             assert [step["step_type"] for step in a] == [step["step_type"] for step in b]
@@ -31,7 +31,7 @@ def test_mcp_step_identity_is_independent_of_template_type(tmp_path):
             for step in a:
                 uuid.UUID(step["step_id"].removeprefix("step_"))
                 assert step["step_id"] != step["step_type"]
-                detail = await call("get_phase_plan_step", plan_id=first["plan"]["plan_id"], step_id=step["step_id"])
+                detail = await call("get_phase_plan_step", include_details=True, plan_id=first["plan"]["plan_id"], step_id=step["step_id"])
                 assert detail["step"]["step_type"] == step["step_type"]
     asyncio.run(run())
 
@@ -87,13 +87,13 @@ def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path):
             created = await call("create_plan", title="Review", goal="Review", scope="inspection")
             pid = created["plan"]["plan_id"]
             await call("update_plan", plan_id=pid, status="paused")
-            detail = await call("get_phase_plan_step", plan_id=pid)
+            detail = await call("get_phase_plan_step", include_details=True, plan_id=pid)
             for step in detail["plan"]["steps"]:
                 changed = await call("update_step", plan_id=pid, step_id=step["step_id"], status="completed")
                 assert changed["plan"]["status"] == "paused"
-            assert (await call("get_phase_plan_step", plan_id=pid))["status"] == "paused"
+            assert (await call("get_phase_plan_step", include_details=True, plan_id=pid))["status"] == "paused"
             await call("update_plan", plan_id=pid, status="completed")
-            assert (await call("get_phase_plan_step", plan_id=pid))["status"] == "completed"
+            assert (await call("get_phase_plan_step", include_details=True, plan_id=pid))["status"] == "completed"
     asyncio.run(run())
 
 
@@ -101,10 +101,12 @@ def test_loop_policy_is_in_execute_description_and_inputs():
     from almond_mcp.instruction_text import read_tool_instruction
     import mcp_server
     text = read_tool_instruction(mcp_server.__file__, "execute_looping")
-    assert "input_refs" in text and "output_refs" in text
-    assert "completed" in text and "사용자가 결정" in text
+    assert "사용자가 결정" in text
     assert "Args:" in text and "resume:" in text
     assert "get_looping_policy" not in text
+    assert "반환:" not in text
+    from almond_mcp.tool_guidance import guide_payload
+    assert "update_step" in guide_payload("execute_looping", {"status": "success"})["next_step_guide"]
 
 
 def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path, monkeypatch):
@@ -136,7 +138,7 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
             pid = created["plan"]["plan_id"]
             assert created["plan"]["loop_no"] == 0
             await call("update_plan", plan_id=pid, goal="Inspect access")
-            before = await call("get_phase_plan_step", plan_id=pid)
+            before = await call("get_phase_plan_step", include_details=True, plan_id=pid)
             sid = before["plan"]["steps"][0]["step_id"]
             first = await call("execute_looping", plan_id=pid, feedback="Review access", artifact_name="review")
             assert (first["loop_no"], first["revision"]) == (1, 1)
@@ -155,13 +157,13 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
             assert second["steps"][0]["step_id"] == sid
             assert second["steps"][0]["status"] == "pending"
             assert second["steps"][0]["output_refs"] == []
-            old = await call("get_phase_plan_step", plan_id=pid, step_id=sid, loop_no=1)
-            assert old["status"] == "completed" and old["step"]["loop_no"] == 1
+            old = await call("get_phase_plan_step", include_details=True, plan_id=pid, step_id=sid, loop_no=1)
+            assert old["status"] == "completed" and old["loop_no"] == 1
             assert old["step"]["output_refs"] == [first["artifact_dir"] + "/result.json"]
             refused = await call("update_step", plan_id=pid, step_id=sid, loop_no=1, status="running")
             assert refused["status"] == "error"
             history = await call("list_plan_revisions", plan_id=pid, loop_no=1, step_id=sid)
             assert [(r["loop_no"],r["revision"]) for r in history["revisions"]] == [(1,2)]
-            baseline = await call("get_phase_plan_step", plan_id=pid, loop_no=0, revision=1)
+            baseline = await call("get_phase_plan_step", include_details=True, plan_id=pid, loop_no=0, revision=1)
             assert baseline["plan"]["goal"] == "Inspect"
     asyncio.run(run())

@@ -53,11 +53,11 @@ def test_all_holon_boundaries_use_new_keys_and_preserve_native_identity(tmp_path
             assert 'holons' in cached_scene['scene']
             plan = (await call('create_plan', {'title': 'component_id literal', 'goal': 'Keep component text',
                 'holon_ids': [COMPONENT]}))['plan']
-            plan_detail = await call('get_phase_plan_step', {'plan_id': plan['plan_id'], 'include_holons': True})
+            plan_detail = await call('get_phase_plan_step', {'plan_id': plan['plan_id'], 'include_details': True})
             assert plan_detail['plan']['holon_ids'] == [COMPONENT]
-            assert plan_detail['plan']['title'] == 'component_id literal'
+            assert plan_detail['name'] == 'component_id literal'
             assert plan_detail['plan']['goal'] == 'Keep component text'
-            assert 'include_holons' in (await call('get_phase_plan_step', {'plan_id': plan['plan_id']}))['plan']['available_details']
+            assert 'plan' not in (await call('get_phase_plan_step', {'plan_id': plan['plan_id']}))
             invalid = await call('update_plan', {'plan_id': plan['plan_id'], 'holon_ids': ['component_unknown']})
             assert invalid['status'] == 'error' and 'component_id' not in invalid['message']
             rejected = await client.call_tool('upsert_ontological_holon', {'name': 'Arrival', 'component_id': COMPONENT}, raise_on_error=False)

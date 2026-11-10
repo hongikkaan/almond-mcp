@@ -92,7 +92,7 @@ def test_native_editor_guidance_survives_real_store_and_public_query_errors(tmp_
     before = store.get_component(COMPONENT)
     reply = {"status": "error", "error_code": "unstable_editing_scope", "message": "Ownership unverified",
              "editing": {"mode": "group", "stable": False}, "mutation_applied": False,
-             "membership_available": False, "next_step": 'Use get_objects(scope="current", include_ids=true); working IDs are not component ownership proof.'}
+             "membership_available": False, "next_step_guide": 'Use get_objects(scope="current", include_ids=true); working IDs are not component ownership proof.'}
 
     async def run():
         async with Client(server) as client:
@@ -106,7 +106,7 @@ def test_native_editor_guidance_survives_real_store_and_public_query_errors(tmp_
                 body = json.loads(result.content[0].text)
                 assert body.get("error_code") == "unstable_editing_scope", (name, body)
                 assert body["membership_available"] is False and body["mutation_applied"] is False
-                assert "get_objects" in body["next_step"] and "holon ownership" in body["next_step"]
+                assert "get_objects" in body["next_step_guide"] and "holon ownership" in body["next_step_guide"]
                 assert body["editing"] == reply["editing"]
     asyncio.run(run())
     assert store.get_component(COMPONENT) == before

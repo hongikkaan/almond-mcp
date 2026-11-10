@@ -3,9 +3,7 @@
 ## validate_structure
 
 <!-- instruction:validate_structure -->
-Rhino 구조 형상을 지정한 하중·지지·접합·설계기준 가정으로 해석합니다. analysis_method, confidence와 warnings를 함께 읽습니다. rule_based는 추정이며 native 강재 검사는 횡비틀림좌굴을 제외합니다. 비강재 내력은 indicative로 표시될 수 있습니다. 실제 지지·접합·하중 경로를 확인해 결과를 해석합니다.
-
-반환: status는 pass/fail/indicative/error입니다. passed는 indicative에서 null일 수 있습니다. results에 변위(mm)·응력(MPa)·경간(m)·사용률을, worst_member_guids에 주요 대상을 반환합니다. warnings·assumptions·design_code.unverified를 함께 확인합니다.
+Rhino 구조 형상을 지정한 하중·지지·접합·설계기준 가정으로 해석합니다.
 
 Args:
     guids: 해석 범위에 포함되는 현재 Rhino 객체 GUID 문자열입니다.
@@ -16,7 +14,7 @@ Args:
     fixed_supports: True는 완전 고정 지점, False는 핀 지점(회전 자유)을 뜻합니다.
     self_weight: 부재 자중을 포함합니다.
     span_m: 부재가 모든 절점에서 분할됐을 때 L/250 한계에 사용할 구조 경간(미터)입니다. 예를 들어 6.2 m 장선을 3.1 m 구간 두 개로 그린 경우에 사용합니다. 네이티브 엔진 전용입니다.
-    asset_loads: 배치된 라이브러리 자산이 프레임 위에 놓이거나 프레임에 매달린 위치에 중력 하중을 추가합니다. 각 자산의 하중 항목에 따른 추정 자중과 사용 중 내용물/재실자 하중을 포함합니다(예: 물이 채워진 욕조). 배치는 Almond 자산 ID로 태그된 Rhino 객체에서 가져옵니다. 네이티브 엔진 전용입니다. 결과의 "asset_loads"에는 각 배치의 하중과 하중을 지지하는 부재 또는 적용하지 않은 이유가 나열됩니다.
+    asset_loads: true이면 배치된 라이브러리 자산의 자중·내용물·재실자 하중을 추가합니다. 네이티브 엔진에서 사용합니다. 다른 하중 입력에 이미 포함한 무게를 중복 적용하지 않습니다.
     floor_load_kn_m2: 한 층에서 보로 둘러싸인 모든 구획에 적용할 부과 바닥 하중(kN/m2)입니다(예: 주거용 2.0, EN 1991-1-1의 category A). 보는 45도 분배 규칙에 따라 하중을 받습니다(2방향, 장단변비 2:1 초과 시 1방향). 네이티브 엔진 전용입니다. 설계기준의 바닥 하중에는 이동 가능한 가구와 사람이 이미 포함되므로, asset_loads는 무거운 특정 물품에 대해서만 함께 사용하고 중복 계산을 피하려면 load_kn을 0으로 설정합니다.
     floor_dead_kn_m2: 같은 구획에 적용할 추가 고정하중(kN/m2)입니다. 바닥 구성층과 마감 등을 포함합니다.
     design_basis: "en1990"(기본값)은 SLS 특성 조합(G + Q)에서 처짐을, ULS 1.35 G + 1.5 Q에서 부재를 검토합니다. G는 자중, 바닥 구성층, 배치된 물품의 중량이고, Q는 load_kn, 용도별 바닥 활하중, 내용물, 재실자입니다. "unfactored"는 둘 다 G + Q에서 검토합니다(Karamba 경로의 기준). 네이티브 엔진에 적용됩니다.
@@ -24,16 +22,14 @@ Args:
     connections: "rigid"(기본값)는 모든 접합부가 모멘트를 전달합니다. "simple"은 보를 핀 접합(강축 휨 해제)으로, 가새를 양축 핀 접합으로 처리하되, 다른 부재가 같은 선상으로 계속 이어지는 지점이 아니라 해당 부재가 끝나는 지점에 적용하며 기둥은 연속으로 유지합니다. 일반적인 볼트 접합 강구조와 목구조 프레임은 "simple"에 더 가깝습니다. 강접합은 보 처짐을 실제보다 유리하게 보이게 할 수 있습니다. 곡선의 사용자 텍스트 almond:release = "pinned" | "pinned_start" | "pinned_end" | "rigid"는 두 모드보다 우선합니다. 네이티브 엔진에 적용됩니다.
     stability: "auto"(기본값)는 모든 ULS 조합의 탄성 임계 하중 계수 alpha_cr(EN 1993-1-1 5.2.1)과 +/-x 및 +/-y 방향의 횡변위 초기 불완전성 phi = 1/200 x alpha_h x alpha_m(5.3.2)을 적용합니다. alpha_cr < 10이면 2차(P-Delta) ULS 해석을 실행하며, alpha_cr <= 1이면 불안정으로 실패 처리합니다. "off"는 초기 불완전성 없는 1차 해석입니다.
     design_code: 설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. "eurocode"(기본값, EN 권장값), list_design_codes의 프로필 또는 "off"를 사용합니다. "off"는 부분계수 없이 G + Q를 적용하며 design_basis="unfactored"와 같습니다. 결과의 "design_code"에는 사용한 값과 검증되지 않은 값이 포함됩니다.
-    detail: 네이티브 엔진 전용입니다. "members"와 "supports"를 추가합니다. "members"는 부재별 역할, 길이, 단면, ULS 설계 단면력 N/V/M/T, 지배 조합과 검토 항목, 세장비, chi, 응력, 사용률, SLS 처짐과 경간/처짐 비, 핀 접합 단부를 포함합니다. "supports"는 SLS와 각 ULS 조합의 반력 Fx..Mz를 포함합니다. 응답을 짧게 유지하도록 기본적으로 꺼져 있습니다.
+    detail: true이면 네이티브 해석의 부재별 단면력·사용률·처짐과 지점 반력을 포함합니다.
     fabrication: 중공 강재 단면(CHS/RHS)은 "cold_formed"(기본값, EN 10219, 좌굴 곡선 c) 또는 "hot_finished"(EN 10210, 곡선 a, S460은 a0)입니다. 좌굴 내력에 최대 약 23% 차이가 있으므로, hot_finished는 명시된 경우에만 사용합니다.
 <!-- /instruction:validate_structure -->
 
 ## list_design_codes
 
 <!-- instruction:list_design_codes -->
-구조 해석에 사용할 설계기준 프로필과 수치의 검증 상태를 조회합니다. verified는 프로필 값에 대한 표시입니다.
-
-반환: default·profiles·problems·user_dir를 반환합니다. 해석에 전달할 profiles[].id는 include_ids=true로 요청합니다.
+구조 해석에 사용할 설계기준 프로필을 조회합니다.
 
 Args:
     include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
@@ -43,9 +39,7 @@ Args:
 ## visualize_structure
 
 <!-- instruction:visualize_structure -->
-구조 형상을 해석해 변형·사용률·좌굴의 임시 뷰포트 오버레이를 표시합니다. 변형은 scale만큼 과장되며 좌굴 모드는 실제 변위 크기를 뜻하지 않습니다. reanalyze=false는 이전 계산을 사용하므로 형상·하중 변경 뒤에는 재계산합니다. 해석 엔진의 경고와 적용 범위는 validate_structure와 같습니다.
-
-반환: status, analysis_method·max_displacement_mm·max_utilization·scale과 요소별 결과를 반환합니다. clear 성공은 cleared, 참고 내력은 indicative일 수 있습니다. 좌굴 조회의 alpha_cr는 임계하중 배율입니다.
+구조 해석 결과를 변형·사용률·좌굴의 임시 뷰포트 오버레이로 표시합니다.
 
 Args:
     guids: 구조 축선의 곡선 GUID와 지점을 표시하는 점 GUID입니다(fixed_supports 참조). 점이 없으면 최하단 절점을 지점으로 사용합니다.
@@ -81,9 +75,7 @@ Args:
 ## export_structural_report
 
 <!-- instruction:export_structural_report -->
-저장된 구조 검증 이력을 최신순 Markdown 보고서로 작성합니다. 대상 파일이 있으면 덮어쓸 수 있습니다.
-
-반환: 작성한 path, 포함된 runs 수와 latest_method를 반환합니다.
+저장된 구조 검증 이력을 Markdown 보고서로 작성합니다.
 
 Args:
     path: 관리형 세션에서는 선택한 Plan 산출물 디렉터리 아래의 상대 파일 경로이며, 기본값은 reports/structural-validation.md입니다. 독립 실행의 기본값은 사용자 데이터의 reports/structural-validation-<timestamp>.md입니다.

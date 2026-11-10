@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.structure.output import GROUPS, project
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
@@ -18,7 +19,7 @@ KARAMBA_ONLY_TYPES = ("shell", "gridshell", "membrane")
 def register(mcp, context):
     """Register structural tools against the assembling server's current services."""
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('validate_structure', wrapped=True))
     @tool_instruction(__file__, 'validate_structure')
     def validate_structure(
         guids: list[str],
@@ -202,7 +203,7 @@ def register(mcp, context):
         return result, None
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('list_design_codes', wrapped=True))
     @tool_instruction(__file__, 'list_design_codes')
     @query_output
     def list_design_codes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -210,7 +211,7 @@ def register(mcp, context):
         return json.dumps(project(design_codes.listing(), field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('visualize_structure', wrapped=True))
     @tool_instruction(__file__, 'visualize_structure')
     def visualize_structure(
         guids: list[str] | None = None,
@@ -490,7 +491,7 @@ def register(mcp, context):
         return "\n".join(lines)
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('export_structural_report', wrapped=True))
     @tool_instruction(__file__, 'export_structural_report')
     def export_structural_report(path: str = "", limit: int = 50) -> str:
         from datetime import datetime, timezone

@@ -158,9 +158,9 @@ Phase는 Plan의 상위 묶음이고 Plan 안에 Step을 둔다. Plan의 Scene �
 
 #### 목록과 통합 상세 조회
 
-`list_phases` → `list_plans(phase_id=...)` → `get_phase_plan_step` 순서로 조회한다. 두 목록은 후속 호출 방법을 `next_step`에 제공한다. Phase 목록은 상세 또는 소속 Plan 조회를 안내하고, Plan·Step 상세는 특정 Step 조회와 실제 작업에 필요한 set_working_plan 선택을 안내한다. 조회·선택은 상태 변경이나 실행이 아니다. Plan 목록은 ID·title·scope·status·revision만 반환하고 goal·소속 Phase를 반복하지 않으며 field_groups를 받지 않는다. Plan 생성에는 title과 goal이 모두 필요하고 수정에는 title을 선택 입력한다.
+`list_phases` → `list_plans(phase_id=...)` → `get_phase_plan_step` 순서로 조회한다. 두 목록은 후속 호출 방법을 `next_step_guide`에 제공한다. Phase 목록은 상세 또는 소속 Plan 조회를 안내하고, Plan·Step 상세는 특정 Step 조회와 실제 작업에 필요한 set_working_plan 선택을 안내한다. 조회·선택은 상태 변경이나 실행이 아니다. Plan 목록은 ID·title·scope·status·revision만 반환하고 goal·소속 Phase를 반복하지 않으며 field_groups를 받지 않는다. Plan 생성에는 title과 goal이 모두 필요하고 수정에는 title을 선택 입력한다.
 
-통합 상세 도구는 phase_id 또는 plan_id 중 하나를 받으며, plan_id에 step_id를 추가하면 해당 Step 하나만 조회한다. 공통 id/type/status와 대상별 phase/plan/step 객체를 반환한다. 이 status는 작업 상태다. Phase에는 plan_titles와 Phase depends_on, Plan에는 title·goal·scope·revision·소속 Phase·Plan depends_on·scene_ids·artifact_dir·artifact_refs·생성/수정 시각·간결한 Step 목록이 기본 포함된다. Plan의 holon_ids만 include_holons=true로 추가한다. Step 상세에는 소속 Plan ID와 revision, 이름, 입출력 기록을 반환한다. Plan의 시각은 KST `YYYY-MM-DD-HH:mm`으로 항상 출력하며 상세 audit/field_groups 옵션은 없다. 입력·출력 구조는 [계획 도구 계약](features/planning/README.md)을 따른다.
+통합 상세 도구는 phase_id 또는 plan_id 중 하나를 받으며, plan_id에 step_id를 추가하면 해당 Step 하나만 조회한다. 기본 출력은 id/type/name/status이며 Plan·Step에는 plan_id/loop_no/revision/read_only도 유지한다. include_details=true이면 선택한 유형의 phase/plan/step 본문을 추가한다. Plan 본문은 대상·관계·산출물과 Step 요약, Step 본문은 자신의 역할과 입출력 근거를 담는다. Phase의 file_name은 배열이다. Plan 시각은 KST `YYYY-MM-DD-HH:mm`이다. 입력·출력 구조는 [계획 도구 계약](features/planning/README.md)을 따른다.
 
 스키마 이관은 빈 Plan 제목을 기존 goal에서 채우고 동종이 아닌 의존 참조를 현재 데이터에서 제거한다. Step별 대상은 `_retired_step_targets`에 보존한 뒤 활성 관계에서 제거한다. 의존 참조나 대상이 달라진 Plan에는 새 revision을 기록하며 기존 revision JSON은 수정하지 않는다. 제목만의 초기 보충은 기존 시각·revision을 유지하고 이후 제목 수정은 일반 Plan 변경으로 기록한다. 과거 snapshot 조회는 부족한 title을 goal로 보완하며 저장되지 않았던 Phase 이름을 추측하지 않는다.
 
@@ -181,7 +181,7 @@ Plan·Step 조회의 loop_no 생략은 최신 회차, revision 생략은 선택 
 
 #### 파일·작업자료·역조회
 
-Phase와 Scene의 `project_file_id`는 `project_files(file_id, file_name)`을 참조한다. `file_name`은 파일 관계에서 읽어 반환하며 미지정이면 빈 문자열이다. `project_info(sections=["project"], include_ids=true)`의 `project.files`로 파일명과 선택 가능한 ID를 조회한다. 선택한 Plan의 `artifact_dir`은 프로젝트 `.almond/produced/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `set_working_plan`은 폴더를 재사용하고 선택 시점의 Plan revision을 반환한다. 첫 경로 설정으로 revision이 증가했다면 증가한 값을 반환하므로 후속 수정의 expected_revision에 사용할 수 있다. 실행한 회차의 출력은 그 아래 01, 02 등 번호 폴더에 두고 현재 회차 내 덮어쓰기는 허용한다. 이전 결과는 원래 경로의 input_refs로 재사용하고 새 결과는 현재 회차에 쓴다. set_working_plan은 loop_no와 Plan 루트/회차 경로를 반환하며 오래된 회차 선택의 출력은 차단한다. execute_looping도 기존 산출물 잠금·native 완료 장벽을 지켜 미확정 쓰기 중 회차를 전환하지 않는다. `rename_artifact_folder`는 실행 전이고 과거 회차가 참조하지 않는 폴더만 변경하며 기존 revision은 보존한다.
+Phase는 `generation_phase_files`에서 순서 있는 여러 파일 관계를 유지하고 공개 file_name은 배열로 반환한다. create/update_phase는 문자열 또는 문자열 배열의 파일명을 받고 내부 project_file_id는 노출하지 않는다. 기존 단일 관계를 이관하고 호환 키에 첫 파일을 유지한다. Scene의 project_file_id는 단일 project_files 관계이며 미지정 file_name은 빈 문자열이다. `project_info(sections=["project"], include_ids=true)`의 `project.files`로 파일명과 선택 가능한 ID를 조회한다. 선택한 Plan의 `artifact_dir`은 프로젝트 `.almond/produced/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `set_working_plan`은 폴더를 재사용하고 선택 시점의 Plan revision을 반환한다. 첫 경로 설정으로 revision이 증가했다면 증가한 값을 반환하므로 후속 수정의 expected_revision에 사용할 수 있다. 실행한 회차의 출력은 그 아래 01, 02 등 번호 폴더에 두고 현재 회차 내 덮어쓰기는 허용한다. 이전 결과는 원래 경로의 input_refs로 재사용하고 새 결과는 현재 회차에 쓴다. set_working_plan은 loop_no와 Plan 루트/회차 경로를 반환하며 오래된 회차 선택의 출력은 차단한다. execute_looping도 기존 산출물 잠금·native 완료 장벽을 지켜 미확정 쓰기 중 회차를 전환하지 않는다. `rename_artifact_folder`는 실행 전이고 과거 회차가 참조하지 않는 폴더만 변경하며 기존 revision은 보존한다.
 
 `get_selection_references`는 선택 객체에서 등록 Component의 조상과 해당 Component를 대상으로 하는 Plan 및 그 Step을 찾는다. 계획 관련 조회에는 `include_ids` 인자가 없고 ID를 항상 출력한다.
 
@@ -207,7 +207,7 @@ Python 지침만 변경했을 때 Rhino RHP 빌드·등록 변경은 필요하�
 
 project의 `files`는 DB에 기록된 파일 목록으로, 디스크 존재나 열린 문서를 보증하지 않는다. `files_limit`은 1–500(기본 50), `files_offset`은 0 이상이다. `files_page`의 total/limit/offset/truncated를 보존하며 truncated는 뒤에 더 조회할 행이 있다는 뜻이다. 같은 이름의 파일은 `include_ids=true`의 `project_file_id`로 구분한다. 공개 `list_project_files` 도구는 없으며 저장소의 내부 목록 조회 메서드를 재사용한다.
 
-locations는 프로젝트 공통 `database`와 현재 연결이 선택한 Plan의 `artifact_dir`·경로 규칙을 제공한다. 산출물 폴더 미선택은 null이고 Plan/Step ID는 `include_ids=true`일 때만 포함한다. `project_root`는 절대경로이고 다른 관리 경로는 프로젝트 상대경로다. `root_variable`·`root_variable_set` 및 artifacts/instructions section은 제공하지 않는다. locations/runtime만 요청하면 live 문서를 조회하지 않는다. `get_rhino_context`는 document/viewport/editor/named_views/layouts/display_modes/viewports에서 요청한 항목만 수집한다. 기본은 document/named_views/layouts/display_modes와 next_step이며 명시 sections에는 next_step을 붙이지 않는다. Named View/Layout/표시 모드 ID는 항상 제공한다. editor의 provider·명령·Undo 근거는 include_editor_details로 선택한다.
+locations는 프로젝트 공통 `database`와 현재 연결이 선택한 Plan의 `artifact_dir`·경로 규칙을 제공한다. 산출물 폴더 미선택은 null이고 Plan/Step ID는 `include_ids=true`일 때만 포함한다. `project_root`는 절대경로이고 다른 관리 경로는 프로젝트 상대경로다. `root_variable`·`root_variable_set` 및 artifacts/instructions section은 제공하지 않는다. locations/runtime만 요청하면 live 문서를 조회하지 않는다. `get_rhino_context`는 document/viewport/editor/named_views/layouts/display_modes/viewports에서 요청한 항목만 수집한다. 기본은 document/named_views/layouts/display_modes와 next_step_guide이며 명시 sections에는 next_step_guide를 붙이지 않는다. Named View/Layout/표시 모드 ID는 항상 제공한다. editor의 provider·명령·Undo 근거는 include_editor_details로 선택한다.
 선택·그룹·일반 객체 조회는 get_objects로 통합한다. 기본 current는 화면 밖을 포함한 표시·비잠금 모델 객체이며 selected 또는 inside_window로 좁힌다. document는 숨김·잠금 객체와 명시 object_ids 조회를 포함하고, group_ids는 두 범위 모두에서 사용할 수 있다. recursive는 그룹·블록을 함께 펼친 hierarchy를 반환한다. 후속 페이지는 첫 snapshot을 expected_snapshot으로 전달해 조회 사이 변경을 검사한다. context에는 이미지·문서 이름/경로를 넣지 않는다. get_defined_viewcapture는 Named View/실제 Layout 용지를, get_current_viewcapture는 현재 모델 화면을 캡처한다. 후자는 여러 종류의 일반 객체를 공통 선택 경로로 확대하고 선택적으로 native Isolate를 적용하며 실제 화면 상태를 유지한다. 세부 한도와 편집 중 조회의 불완전성·실패 후 변경 근거는 관측 계약을 따른다.
 계획 도구를 제외한 일반 조회는 include_ids=false이고 입력으로 확정된 get 대상 ID는 반복 출력하지 않는다.
 필드군을 지원하는 조회는 기본 summary에 필요한 field_groups만 추가하며 IDs와 audit는 독립이다.
@@ -218,7 +218,7 @@ locations는 프로젝트 공통 `database`와 현재 연결이 선택한 Plan�
 확인 결과는 saved=true와 실제 modified boolean이고, 결과 불명은 saved=null 및 requires_reconciliation=true다. SaveAs·명령/Enter·자동 재시도·완료 보호 해제는 제공하지 않는다.
 
 Plan depends_on은 다른 Phase에 속한 Plan도 참조할 수 있지만 Plan ID만 담는다. Phase depends_on은 Phase ID만 담는다. 실행 순서·존재·순환 검사를 강제하지 않는다. Step은 paused 상태를 포함하고 중단·전환·재개가 정상 흐름이다.
-Phase와 Scene은 미입력 시에도 file_name=""를 보존한다.
+Phase 파일 연결을 비우면 공개 file_name은 []다. Scene은 미입력 file_name=""를 보존한다.
 
 ALMOND_PROJECT_ROOT를 런타임이 설정하고 managed 도구가 상대경로를 적용한다.
 Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 rename_artifact_folder는 현재 참조도 갱신한다.

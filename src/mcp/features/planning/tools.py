@@ -8,11 +8,13 @@ from almond_mcp.features.planning.output import (
     encode, phase_detail, plan_detail, step_detail, update_ack,
 )
 from almond_mcp.features.planning.updates import StringListPatch
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import json
 
 from pydantic import StrictBool, StrictInt
+from typing import Literal
 
 
 PHASE_ACK_FIELDS = {"phase_id"}
@@ -23,51 +25,49 @@ def register(mcp, context):
     """Register planning tools against the calling server's live context."""
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('create_phase', wrapped=True))
     @tool_instruction(__file__, 'create_phase')
     @holon_output
-    def create_phase(name: str, description: str = "", file_name: str = "", project_file_id: str | None = None,
-                     status: str = "pending", depends_on: list[str] | None = None,
+    def create_phase(name: str, description: str = "", file_name: str | list[str] = "",
+                     status: Literal["pending", "running", "paused", "completed", "failed", "blocked"] = "pending", depends_on: list[str] | None = None,
                      previous_id: str | None = None) -> str:
         try:
-            return json.dumps({"status": "success", "phase": compact_ack(context.retrieval_store.create_phase(name, description, file_name, project_file_id, status, depends_on, previous_id), PHASE_ACK_FIELDS)})
+            return json.dumps({"status": "success", "phase": compact_ack(context.retrieval_store.create_phase(name, description, file_name, None, status, depends_on, previous_id), PHASE_ACK_FIELDS)})
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_phases', wrapped=True))
     @tool_instruction(__file__, 'list_phases')
     @holon_output
     def list_phases(limit: StrictInt = 50, field_groups: list[str] | None = None) -> str:
         try:
             validate_field_groups(field_groups, PHASE_GROUPS)
             page = context.retrieval_store.list_phases(limit)
-            next_step = ("Use a phases[].phase_id in get_phase_plan_step(phase_id=...) for Phase details or in list_plans(phase_id=...) to list that Phase's Plans."
-                         if page["phases"] else "No Phase IDs were returned; this page provides no Phase detail or Plan-filter target.")
-            return encode(project({"status": "success", **page, "next_step": next_step}, field_groups))
+            return encode(project({"status": "success", **page}, field_groups))
         except InvalidFieldGroups as exc:
             return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
         except Exception as exc:
             return json.dumps(project(error_payload(str(exc)), field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('update_phase', wrapped=True))
     @tool_instruction(__file__, 'update_phase')
     @holon_output
     def update_phase(
         phase_id: str, name: str | None = None, description: str | None = None,
-        file_name: str | None = None, project_file_id: str | None = None, status: str | None = None,
+        file_name: str | list[str] | None = None, status: Literal["pending", "running", "paused", "completed", "failed", "blocked"] | None = None,
         depends_on: StringListPatch | None = None,
         previous_id: str | None = None,
     ) -> str:
         try:
             return json.dumps(update_ack(context.retrieval_store.edit_phase(
-                phase_id, name, description, file_name, project_file_id, status, depends_on, previous_id), "phase"))
+                phase_id, name, description, file_name, None, status, depends_on, previous_id), "phase"))
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('create_plan', wrapped=True))
     @tool_instruction(__file__, 'create_plan')
     @holon_output
     def create_plan(
@@ -104,40 +104,38 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(name="get_phase_plan_step", title="get_phase·plan·step", annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(name='get_phase_plan_step', title='get_phase·plan·step', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_phase_plan_step', wrapped=True))
     @tool_instruction(__file__, 'get_phase_plan_step')
     @holon_output
     def get_phase_plan_step(phase_id: str = "", plan_id: str = "", step_id: str = "",
-                            revision: StrictInt | None = None, include_holons: StrictBool = False,
+                            revision: StrictInt | None = None, include_details: StrictBool = False,
                             loop_no: StrictInt | None = None) -> str:
         try:
             if bool(phase_id) == bool(plan_id) or (step_id and not plan_id):
                 raise ValueError("Supply phase_id or plan_id, never both; step_id also requires plan_id.")
             if phase_id:
-                if revision is not None or loop_no is not None or include_holons:
-                    raise ValueError("loop_no, revision and include_holons do not apply to a Phase.")
+                if revision is not None or loop_no is not None:
+                    raise ValueError("loop_no and revision do not apply to a Phase.")
                 phase = context.retrieval_store.get_phase(phase_id)
                 if phase is None:
                     raise KeyError(f"Unknown phase_id: {phase_id}")
-                return encode(phase_detail(phase))
+                return encode(phase_detail(phase, include_details))
             if step_id:
-                if include_holons:
-                    raise ValueError("Components belong to Plans, not Steps.")
                 step = context.retrieval_store.get_step(plan_id, step_id, revision, loop_no)
                 if step is None:
                     raise KeyError(f"Unknown Plan/Step/revision: {plan_id}, {step_id}, {revision}")
-                return encode(step_detail(step, historical=step["read_only"]))
+                return encode(step_detail(step, include_details, historical=step["read_only"]))
             plan = context.retrieval_store.get_plan(plan_id, revision, loop_no)
             if plan is None:
                 message = (f"Unknown plan_id: {plan_id}" if revision is None else
                            f"Unknown saved revision {revision} for plan_id: {plan_id}")
                 return json.dumps(error_payload(message))
-            return encode(plan_detail(plan, include_holons, historical=plan["read_only"]))
+            return encode(plan_detail(plan, include_details, historical=plan["read_only"]))
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_plans', wrapped=True))
     @tool_instruction(__file__, 'list_plans')
     @holon_output
     def list_plans(
@@ -147,14 +145,12 @@ def register(mcp, context):
             page = context.retrieval_store.list_plans(phase_id, scene_id, status, limit)
             return encode({
                 "status": "success", **page,
-                "next_step": ("Use a plans[].plan_id in get_phase_plan_step(plan_id=...) for Plan details; obtain its plan.steps[].step_id before querying one Step's records."
-                              if page["plans"] else "No Plan IDs matched these filters. If a wider search is needed, adjust phase_id, scene_id or status in list_plans; no detail or working selection target was returned."),
             })
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('update_plan', wrapped=True))
     @tool_instruction(__file__, 'update_plan')
     @holon_output
     def update_plan(
@@ -165,7 +161,7 @@ def register(mcp, context):
         holon_ids: list[str] | None = None,
         expected_revision: StrictInt | None = None,
         depends_on: StringListPatch | None = None,
-        status: str | None = None,
+        status: Literal["pending", "running", "paused", "completed", "failed", "blocked"] | None = None,
         artifact_refs: list[str] | None = None,
         title: str | None = None,
         previous_id: str | None = None,
@@ -184,7 +180,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_plan_revisions', wrapped=True))
     @tool_instruction(__file__, 'list_plan_revisions')
     @holon_output
     def list_plan_revisions(plan_id: str, limit: StrictInt = 50, field_groups: list[str] | None = None,
@@ -198,13 +194,13 @@ def register(mcp, context):
             return json.dumps(project(error_payload(str(exc)), field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(output_schema=public_output_schema('update_step', wrapped=True))
     @tool_instruction(__file__, 'update_step')
     @holon_output
     def update_step(
         plan_id: str,
         step_id: str,
-        status: str | None = None,
+        status: Literal["pending", "running", "paused", "completed", "failed", "blocked"] | None = None,
         input_refs: StringListPatch | None = None,
         output_refs: StringListPatch | None = None,
         expected_revision: StrictInt | None = None,
@@ -224,7 +220,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('resolve_targets', wrapped=True))
     @tool_instruction(__file__, 'resolve_targets')
     @holon_output
     def resolve_targets(plan_id: str, step_id: str = "", field_groups: list[str] | None = None) -> str:
@@ -236,7 +232,7 @@ def register(mcp, context):
         except Exception as exc:
             return json.dumps(project(error_payload(str(exc)), field_groups))
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_selection_references', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'get_selection_references')
     @holon_output

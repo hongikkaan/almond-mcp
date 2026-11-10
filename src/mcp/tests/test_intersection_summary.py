@@ -41,8 +41,8 @@ def test_whole_scope_count_spans_pages_and_keeps_private_bound_document(monkeypa
                                        page("zero_volume", "positive_volume")])
     result = json.loads(tool(object_ids=[A, B]))
     assert result["intersections"] == {"number": 65}
-    assert set(result) == {"intersections", "next_step"}
-    assert "resolve_object_intersection" in result["next_step"] and "skip" in result["next_step"]
+    assert set(result) == {"intersections", "next_step_guide"}
+    assert "resolve_object_intersection" in result["next_step_guide"] and "skip" in result["next_step_guide"]
     assert [request["cursor"] for request in calls] == ["", "state:64"]
     assert all(request["expected_model_path"] == MODEL and not request["include_blocks"] for request in calls)
 
@@ -51,8 +51,8 @@ def test_block_exclusion_is_intentional_but_unreadable_geometry_is_not_zero(monk
     tool, _, _ = setup(monkeypatch, [page(unsupported=[{"object_id": A, "reason": "block_excluded"}])])
     empty = json.loads(tool(object_ids=[A]))
     assert empty["intersections"]["number"] == 0
-    assert "no resolution call is needed" in empty["next_step"]
-    assert "resolve_object_intersection" not in empty["next_step"]
+    assert "no resolution call is needed" in empty["next_step_guide"]
+    assert "resolve_object_intersection" not in empty["next_step_guide"]
     failure = {"object_id": A, "reason": "open_geometry"}
     tool, _, _ = setup(monkeypatch, [page(unsupported=[failure])])
     result = tool(object_ids=[A])

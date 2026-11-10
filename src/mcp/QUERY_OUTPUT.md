@@ -15,28 +15,28 @@ Planning update tools return changed and unsummarized per-item issues. status is
 
 ## Follow-up guidance
 
-`next_step` is conditional call guidance, not a Plan Step, an execution command or a requirement to call every named tool. It identifies the public tool and maps available response/input handles to its arguments; when IDs, paths, units or a user choice are missing, it says how to obtain or choose them. It does not imply that a prior operation succeeded or authorize a mutation.
+`next_step_guide` is conditional call guidance, not a Plan Step, an execution command or a requirement to call every named tool. It identifies the public tool and maps available response/input handles to its arguments; when IDs, paths, units or a user choice are missing, it says how to obtain or choose them. It does not imply that a prior operation succeeded or authorize a mutation.
 
 - Default `get_rhino_context` offers current-view capture; explicit sections omit this hint.
 - Whole-scope intersection counts guide positive results into `resolve_object_intersection` using the original object scope. Zero needs no resolution. Each valid comparison supplies `review_id` and numbered choices; choice 1/2 trims that object, while skip preserves both. Errors/completion do not fabricate another actionable comparison.
 - Phase/Plan lists and Plan/Step details link IDs to detail/workspace selection. Saved revisions retain their historical read context and require a current read before selecting work.
-- Asset records with `next_tool` keep matching `next_step` in summary output, even when IDs/paths are omitted; the hint explains those missing inputs. Ready/empty records do not invent conversion work. A source-only placement rejection carries the same conversion guidance.
+- Asset records with `next_tool` keep matching `next_step_guide` in summary output, even when IDs/paths are omitted; the hint explains those missing inputs. Ready/empty records do not invent conversion work. A source-only placement rejection carries the same conversion guidance.
 - Preparation retains `next_stage` and adds its concrete tool/job/hash inputs. Final preview approval is distinct from producing previews. Errors clear the next stage; status only rereads saved evidence and does not reconcile late native completion or promote an unconfirmed job.
 - Contract export maps the returned contract path to an import only when importing into a destination is intended. The Blender helper supports export/materials, not import.
 
-Tool descriptions and input-schema property descriptions carry the same argument contract. Dynamic instructions must use current public names and survive the relevant response projection. Legacy non-public asset helper functions do not expand the MCP tool catalogue.
+Tool descriptions explain the role and essential selection conditions. Input-schema properties explain the requested values. Output schemas describe result fields; JSON text results use contentSchema within the result field. These annotations do not assert that every optional field exists in every mode. Dynamic instructions must use current public names and survive the relevant response projection. Legacy non-public asset helper functions do not expand the MCP tool catalogue.
 
 ## Planning queries
 
-Phase/Plan/Step discovery and related target/selection queries always expose IDs and have no `include_ids` option. `list_phases` and `list_plans` provide `next_step` call guidance. `list_plans` has no field groups: its rows contain plan_id/title/scope/status/revision.
+Phase/Plan/Step discovery and related target/selection queries always expose IDs and have no `include_ids` option. `list_phases` and `list_plans` provide `next_step_guide` call guidance. `list_plans` has no field groups: its rows contain plan_id/title/scope/status/revision.
 
-`get_phase_plan_step` selects one Phase, Plan or Step using phase_id, plan_id and optional step_id. Its root id/type/status identifies the selected record and workflow state; target details are nested in phase/plan/step. Plan details always include scene_ids, artifact fields, KST creation/update times and Step ID/name/status summaries; include_holons=true adds Plan holon_ids. A selected Step exposes only its own input_refs/output_refs. Detail queries have no audit/field_groups option. Errors still have status=error. See [planning inputs and outputs](features/planning/README.md).
+`get_phase_plan_step` selects one Phase, Plan or Step using phase_id, plan_id and optional step_id. The default result contains id/type/name/status. Plan and Step also retain plan_id/loop_no/revision/read_only regardless of detail selection. include_details=true adds the corresponding phase/plan/step body. A selected Step includes only its own input_refs/output_refs; Plan details include Step summaries. Phase file_name is an array; its internal project_file_id is not public. Errors have status=error. See [planning inputs and outputs](features/planning/README.md).
 
 The planning field groups below apply only to list_phases, list_plan_revisions, resolve_targets and get_selection_references, according to each tool's signature; they do not change the unified detail response.
 
 ## Declared field groups
 
-Each row names fields added to the feature's normal summary. The tool description lists the supported groups; `all` is available for every field-group query.
+Each row names fields added to the feature's normal summary. Each input property lists the supported groups; `all` is available for every field-group query.
 
 | Feature | Group | Added fields |
 |---|---|---|
@@ -101,7 +101,7 @@ Each row names fields added to the feature's normal summary. The tool descriptio
 
 - `project_info`: project/document/locations by default, optional runtime. project/document share one live observation; failed identity checks return an error, otherwise project.is_bound_document is a boolean: true for the bound model, false for a different document. Document name/path occur only in project. project.files pages the recorded DB list using files_limit (1–500, default 50) and files_offset; files_page retains total/limit/offset/truncated. Duplicate names remain distinct and include_ids=true exposes project_file_id. Document runtime_serial_number and runtime.rhinocode.pipe_id are also hidden by default. locations contains the project DB and connection-selected Plan folder (null before selection); locations/runtime alone need no live observation. Basic instructions come from get_policy.
 - `get_rhino_context`: explicit document/selection/viewport/editor/display_modes sections, bounded selection expansion and optional current image.
-- `analyze_block_reculviely`: outline/resolve-block mode and bounded traversal options. `resolve-block` also returns placed Model/Layout occurrence paths and counts in `definition_impact`, with separate completeness and list truncation. Definition-member IDs and matching working candidates are not document edit identities. Its `next_step` connects impact review to an intended BlockEditNew entry and fresh working-ID observation; it does not grant unsupported editor mutation permission.
+- `analyze_block_reculviely`: outline/resolve-block mode and bounded traversal options. `resolve-block` also returns placed Model/Layout occurrence paths and counts in `definition_impact`, with separate completeness and list truncation. Definition-member IDs and matching working candidates are not document edit identities. Its `next_step_guide` connects impact review to an intended BlockEditNew entry and fresh working-ID observation; it does not grant unsupported editor mutation permission.
 - `get_defined_viewcapture`, `get_current_viewcapture`: one bounded image/file result; live-view mutation evidence is never omitted.
 - `get_objects`: selected/visible/document/explicit-object/group scopes; flat objects, layer/type counts or numbered group/block hierarchy. Internal block paths are distinct from editable document IDs.
 - `get_rhino_context`: requested sections only; Named View/Layout/Display Mode catalogue IDs are always included.
