@@ -42,6 +42,7 @@ Args:
 ## execute_rhino_script
 
 <!-- instruction:execute_rhino_script -->
+실행 환경과 결과 확인은 get_policy(policy="rhinocode")로 조회합니다.
 When to use: Run synchronous modeling, editing or custom measurements in the bound Rhino when a fixed observation or dedicated tool does not cover the task.
 Before calling: Use known document units/tolerance and explicit targets; obtain missing object IDs or geometry from get_objects rather than guessing. Official RhinoCode/StartScriptServer must be available. The bundled rhino3d-scripts skill and API/loading references remain available through get_policy(policy="rhino_scripting"); no separate installation is needed.
 Inputs from earlier results: Reuse observed object GUIDs in script and choose language explicitly when not using the default Python 3. Python/python2 assign JSON-compatible values to result; dict/list keep structured data, whereas json.dumps produces text. csharp/csharp-script accept statement bodies with doc and result_json, not a class/Run wrapper. command accepts one complete macro without added !, Pause or dialogs. General scripts use project root as cwd; execute_project_python uses the selected Plan folder instead.
@@ -136,6 +137,7 @@ Args:
 ## assign_material
 
 <!-- instruction:assign_material -->
+메타데이터 키·레이어 기록 규칙은 get_policy(policy="metadata")로 조회합니다.
 When to use: Apply a chosen curated PBR material or explicitly requested metadata to identified Rhino objects without changing their layers.
 Before calling: Reuse known valid object GUIDs and material_id; otherwise obtain them from get_objects and list_materials(include_ids=true). Only look up get_construction_guidance(include_ids=true) when a requested construction reference is not already known. Requires Bridge modeling_materials=2; no bulk setup call is required.
 Inputs from earlier results: Pass observed GUIDs as guids and the selected materials[].material_id as material_id. An explicitly requested construction source uses its system_id in construction_reference={"kind":"construction_system","id":...}; legacy construction_system accepts that same ID and must agree with an explicit reference. structural_role, floor and construction_detail are supplied labels, not inferred identities. A source name fills a missing detail label.

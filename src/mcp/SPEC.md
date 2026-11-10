@@ -239,9 +239,9 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 rename_artifact_f
 
 문서 전용 MCP의 initialize.instructions에는 공통 안내를 넣지 않는다. Codex Code Mode가 이 필드를 모든 도구 설명에 반복해서 붙이기 때문이다. 외부 연결기의 연결 안내는 별도 계약이다.
 
-reader는 BASIC·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 guide_version을 계산한다. snapshot 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 툴 설명은 이 reader가 수집하거나 반환하지 않으며 설명 파일의 source fingerprint는 외부 실행기의 일반 소스 검사에서 유지한다. 토픽·파일 경로·URL 조회 인자는 제공하지 않는다. 기본 응답은 status·guide_version·text·source_refs·tools를 가지며, include_scripting일 때 scripting_skill과 그 자료의 source_refs를 추가한다. source_refs는 패키지 상대 경로와 정규화 SHA-256이다.
+reader는 BASIC·메타데이터·RhinoCode policy·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 guide_version을 계산한다. snapshot 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 툴 설명은 이 reader가 수집하거나 반환하지 않으며 설명 파일의 source fingerprint는 외부 실행기의 일반 소스 검사에서 유지한다. 토픽·파일 경로·URL 조회 인자는 제공하지 않는다. 응답에는 status·guide_version·selected_policy·available_policies가 공통으로 있다. basic은 text·source_refs·tools, metadata는 policy·source_refs, rhino_scripting은 scripting_skill·source_refs, rhinocode는 text·source_refs를 반환한다. source_refs는 패키지 상대 경로와 정규화 SHA-256이다.
 
-reader는 모델·작업 DB·사용자 산출물을 읽거나 수정하지 않는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기에서는 connection_id가 필요하다. runtime을 포함한 체크아웃은 runtime의 공개 도구명도 수집하고, runtime이 제외된 standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 BASIC/스크립팅 자료 일치·버전·원문 조회 인자 거부·설명 전문 노출·cold stdio와 외부 경로의 schema 일치를 확인한다.
+reader는 모델·작업 DB·사용자 산출물을 읽거나 수정하지 않는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기에서는 선택된 연결을 사용하고 connection_id로 호출별 재지정할 수 있다. runtime을 포함한 체크아웃은 runtime의 공개 도구명도 수집하고, runtime이 제외된 standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 BASIC/스크립팅 자료 일치·버전·원문 조회 인자 거부·설명 전문 노출·cold stdio와 외부 경로의 schema 일치를 확인한다.
 
 문서·도구 설명 변경은 해당 Python/MCP 세션을 정상 종료하고 새로 시작해야 적용된다. Python 안내 변경만으로 RHP 빌드나 Rhino 재시작을 요구하지 않는다.
 

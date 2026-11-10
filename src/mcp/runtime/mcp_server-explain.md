@@ -79,6 +79,7 @@ Args:
 <!-- /instruction:rename_artifact_folder -->
 
 <!-- instruction:execute_project_python -->
+RhinoCode 실행 환경과 결과 확인은 get_policy(policy="rhinocode")로 조회합니다.
 When to use: Run synchronous Python 3 in the bound Rhino with the selected Plan artifact folder as cwd when code needs Plan-owned outputs.
 Before calling: Select or resume the intended workspace with set_working_plan; reuse an already valid selection. Reuse observed targets/units and the bundled rhino3d-scripts skill/references, currently available via get_policy(policy="rhino_scripting"), when authoring Rhino code.
 Inputs from earlier results: Use set_working_plan's artifact_dir as the output context and previously observed GUIDs/measurements in code. Relative writes land in the current Loop folder and may overwrite files in that same Loop; doc and scriptcontext.doc are the bound RhinoDoc. Assign a JSON-safe value to result and record useful output refs in the Plan/Step.
