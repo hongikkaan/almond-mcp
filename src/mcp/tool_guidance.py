@@ -72,6 +72,17 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
     if (value.get("mutation_state") in {"unknown", "pending", "uncertain"}
             or value.get("requires_reconciliation") or value.get("mutation_applied", False) is None):
         return None
+    if name == "disconnect":
+        if value.get("released") is not True or value.get("rhino_closed") is not False:
+            return None
+        guide = ("저장하고 종료하려면 해제한 연결의 Rhino 창과 현재 문서를 확인합니다. "
+                 "Rhino에서 _Save(Ctrl+S)로 저장 완료를 확인한 뒤 _Exit(파일 > 종료)로 정상 종료합니다.")
+        if type(value.get("pid")) is int and value["pid"] > 0 and value.get("model_path"):
+            guide += ("\nStartScriptServer가 켜져 있으면 로컬 셸의 rhinocode list --json에서 "
+                      "이 pid와 model_path가 processId·activeDoc.location에 모두 일치하는 pipeId를 찾습니다. "
+                      "rhinocode --rhino <pipeId> command \"_Save\"로 저장을 확인하고, 같은 대상으로 "
+                      "command \"_Exit\"를 실행할 수 있습니다. 목록에 없거나 저장 대화상자가 뜨면 Rhino UI에서 처리합니다.")
+        return guide + "\n종료 후 대상 Rhino 창과 프로세스가 종료됐는지 확인합니다."
     if name in {"update_phase", "update_plan", "update_step"} and value.get("issues"):
         return "issues에서 건너뛴 항목을 확인합니다. 필요한 항목만 수정해 다시 요청합니다."
     if name == "get_phase_plan_step":

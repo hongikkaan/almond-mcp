@@ -221,7 +221,10 @@
   "worker_closed": true, // worker가 종료됐는지 여부
   "rhino_closed": false, // Rhino가 닫혔는지 여부. disconnect는 false
   "released": true, // Rhino에서 연결 해제를 확인했는지 나타냅니다.
-  "reason": "" // 해제 결과 또는 남아 있는 잠금의 사유입니다.
+  "reason": "", // 해제 결과 또는 남아 있는 잠금의 사유입니다.
+  "pid": 12340, // 해제한 연결의 Rhino 프로세스 ID입니다. 종료할 창을 식별할 때 model_path와 함께 확인합니다.
+  "model_path": "C:\\Projects\\Example\\model.3dm", // 해제한 연결에 저장된 모델 경로입니다. 저장·종료 전에 현재 문서 경로와 일치하는지 확인합니다.
+  "next_step_guide": "저장하고 종료하려면 해제한 연결의 Rhino 창과 현재 문서를 확인합니다. Rhino에서 _Save(Ctrl+S)로 저장 완료를 확인한 뒤 _Exit(파일 > 종료)로 정상 종료합니다.\nStartScriptServer가 켜져 있으면 로컬 셸의 rhinocode list --json에서 이 pid와 model_path가 processId·activeDoc.location에 모두 일치하는 pipeId를 찾습니다. rhinocode --rhino <pipeId> command \"_Save\"로 저장을 확인하고, 같은 대상으로 command \"_Exit\"를 실행할 수 있습니다. 목록에 없거나 저장 대화상자가 뜨면 Rhino UI에서 처리합니다.\n종료 후 대상 Rhino 창과 프로세스가 종료됐는지 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 

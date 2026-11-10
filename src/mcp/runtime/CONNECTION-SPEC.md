@@ -10,6 +10,7 @@
 
 RhinoTerminal은 Codex `/exit`로 세션을 종료하고 `RhinoTerminal Off`로 터미널을 닫는다.
 두 외부 경로는 `disconnect`로 연결을 해제하며 Rhino 문서를 저장하거나 닫지 않는다.
+해제 성공 응답의 `pid`·`model_path`는 대상 식별에 사용하고, `next_step_guide`는 Rhino UI의 저장 확인 후 정상 종료 순서를 안내한다. StartScriptServer가 켜진 대상은 로컬 RhinoCode CLI로도 제어할 수 있으며, `rhinocode list --json`의 PID·현재 문서 경로를 먼저 대조한다. 해제가 미확정이면 저장·종료 안내를 성공 응답으로 제공하지 않는다.
 
 외부 시작 버튼 `src/mcp/runtime/Almond 시작.cmd`도 문서 전용 Codex를 만드는 기존 관리 세션 경로다. 별도 창에서 실행되지만 `beyond`가 아니며, 위 세 경로 중 RhinoTerminal과 같은 **문서 전용 세션 방식**을 사용한다. 따라서 사용 경로는 세 가지로 구분하되, 내부 연결 방식은 **문서 전용 세션 / 외부 연결기** 두 가지로 구분한다.
 

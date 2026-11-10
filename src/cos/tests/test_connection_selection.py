@@ -207,3 +207,64 @@ def test_new_connections_bind_independent_workers_and_keep_previous_on_failure(t
         assert (await broker.call("observe", {})).structured_content == {"model_path": "a.3dm"}
 
     asyncio.run(run())
+
+
+def test_disconnect_returns_save_exit_guidance_for_the_released_target(tmp_path):
+    """Detach reports how to close the right Rhino, without dispatching Save/Exit."""
+    from jsonschema import validate
+    broker = broker_for(tmp_path)
+    calls = []
+
+    async def control_request(name, **kwargs):
+        calls.append((name, kwargs))
+        return {"detached": True}
+
+    async def worker_close():
+        calls.append(("worker_close", {}))
+
+    broker.connections['a'].binding.update(pid=321, model_path='C:\\models\\a.3dm')
+    broker.connections['a'].control.request = control_request
+    broker.connections['a'].worker = SimpleNamespace(close=worker_close)
+    broker.selected_connection_id = 'a'
+
+    async def run():
+        response = await broker.call('disconnect', {})
+        assert not response.is_error
+        result = response.structured_content
+        output = next(t.output_schema for t in exposed_tools(CATALOG)[0] if t.name == 'disconnect')
+        validate(result, output)
+        assert result['pid'] == 321 and result['model_path'] == 'C:\\models\\a.3dm'
+        assert result['released'] is True and result['rhino_closed'] is False
+        assert result['worker_closed'] is True
+        guide = result['next_step_guide']
+        assert '_Save' in guide and '_Exit' in guide and guide.index('_Save') < guide.index('_Exit')
+        assert 'processId·activeDoc.location' in guide and 'StartScriptServer' in guide
+        assert calls == [('worker_close', {}), ('detach', {'session_token': 'token-a'})]
+        assert broker.selected_connection_id is None and set(broker.connections) == {'b'}
+
+    asyncio.run(run())
+
+
+def test_unconfirmed_disconnect_never_suggests_closing_rhino(tmp_path):
+    broker = broker_for(tmp_path)
+
+    async def pending(*args, **kwargs):
+        return {'detached': False}
+
+    broker.connections['a'].control.request = pending
+    broker.selected_connection_id = 'a'
+
+    async def run():
+        result = await broker.call('disconnect', {})
+        assert result.is_error
+        assert result.structured_content is None
+        assert all('_Exit' not in block.text for block in result.content)
+
+    asyncio.run(run())
+
+
+def test_disconnect_without_process_identity_keeps_ui_guidance():
+    result = json_result({'released': True, 'rhino_closed': False, 'pid': None, 'model_path': None}, 'disconnect')
+    guide = result.structured_content['next_step_guide']
+    assert '_Save' in guide and '_Exit' in guide
+    assert 'pipeId' not in guide

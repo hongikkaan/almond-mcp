@@ -670,7 +670,8 @@ class Broker:
                     conn.lease.close()
                     conn.lease = None
         conn.cleanup = {"connection_id": conn.connection_id, "worker_closed": worker_closed,
-                        "rhino_closed": False, "released": released, "reason": "; ".join(errors)}
+                        "rhino_closed": False, "released": released, "reason": "; ".join(errors),
+                        "pid": conn.binding.get("pid"), "model_path": conn.binding.get("model_path")}
         return conn.cleanup
 
     async def disconnect(self, connection_id: str | None = None):
