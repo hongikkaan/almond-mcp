@@ -41,7 +41,7 @@ def fixture(tmp_path):
         return dict(pending=False, uncertain=False, native_uncertain=False, pid=321, process_start_ticks="654")
     async def call(name, arguments):
         assert name == "execute_rhino_script"
-        assert arguments["language"] == "command" and arguments["script"] == "_-Save"
+        assert arguments["language"] == "command" and arguments["script"] == "_Save"
         actions.append("save")
         # execute_rhino_script has the reviewed wrapped-string MCP schema.
         return json_result({"result": json.dumps(behavior["save"])})
@@ -360,7 +360,7 @@ def test_exact_late_save_completion_is_read_without_automatically_exiting(tmp_pa
         folder = Path(conn.binding["session_dir"])
         folder.mkdir()
         (folder / "rhinocode.json").write_text(json.dumps(dict(
-            request_id="b" * 32, token=conn.token, source_hash=hashlib.sha256(b"_-Save").hexdigest(),
+            request_id="b" * 32, token=conn.token, source_hash=hashlib.sha256(b"_Save").hexdigest(),
             target=conn.binding)))
         monkeypatch.setattr("session_close.read_bound_execution", lambda *_: dict(completed=True, status="success"))
         value = (await broker.call("close_session", {"request_id": "late-save"})).structured_content

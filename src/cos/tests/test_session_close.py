@@ -32,7 +32,7 @@ def test_close_saves_then_exits_and_repeated_id_only_reads(tmp_path):
         broker.host_connections[conn.host_id] = conn.connection_id
         broker.selected_connection_id = conn.connection_id
         async def invoke(conn, name, arguments, invocation):
-            assert arguments["language"] == "command" and arguments["script"] == "_-Save"
+            assert arguments["language"] == "command" and arguments["script"] == "_Save"
             actions.append("save")
             return json_result(dict(completed=True, status="success", request_id="save-request",
                                     result=dict(command_accepted=True, last_command_result=0)))

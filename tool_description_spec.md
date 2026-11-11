@@ -287,7 +287,7 @@
 }
 ```
 
-`closing`·`unconfirmed`는 같은 `request_id`로 조회합니다. `rejected`·`save_failed`는 Exit를 완료하지 않은 결과입니다. 사유를 해결하고 종료하려는 경우에만 새 요청 ID를 사용합니다. Save의 늦은 완료 확인은 Exit를 자동 재개하지 않습니다.
+고정 실행 순서는 기존 저장 문서에 대한 `_Save` → 정확한 저장 완료와 `modified=false` 확인 → `_-Exit`입니다. `closing`·`unconfirmed`는 같은 `request_id`로 조회합니다. `rejected`·`save_failed`는 Exit를 완료하지 않은 결과입니다. 사유를 해결하고 종료하려는 경우에만 새 요청 ID를 사용합니다. Save의 늦은 완료 확인은 Exit를 자동 재개하지 않습니다.
 
 # Context
 

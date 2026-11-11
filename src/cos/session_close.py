@@ -28,6 +28,7 @@ from execution_recovery import read_bound_execution
 
 TERMINAL = {"completed", "rejected", "save_failed"}
 IDENTITY = ("pid", "process_start_ticks", "document_serial", "model_path")
+SAVE_COMMAND = "_Save"  # The verified bound document already has its saved filename.
 
 
 class ExitNotDispatched(RuntimeError):
@@ -228,7 +229,7 @@ class SessionCloser:
             if journal is None:
                 return
             if (journal.get("request_id") == record.get("save_baseline")
-                    or journal.get("source_hash") != hashlib.sha256(b"_-Save").hexdigest()
+                    or journal.get("source_hash") != hashlib.sha256(SAVE_COMMAND.encode("utf-8")).hexdigest()
                     or journal.get("token") != record["binding"]["token"]
                     or not same_document(record["target"], journal.get("target", {}))):
                 return
@@ -320,7 +321,7 @@ class SessionCloser:
                 record["stage"] = "saving"
                 self.persist(record)  # Fence precedes the first possible save dispatch.
                 response = await broker._invoke_locked(conn, "execute_rhino_script",
-                    dict(script="_-Save", language="command", timeout_seconds=60), Invocation())
+                    dict(script=SAVE_COMMAND, language="command", timeout_seconds=60), Invocation())
                 if conn.state == "ready" and not conn.in_flight:
                     record["stage"] = "save_settled"
                     self.persist(record)

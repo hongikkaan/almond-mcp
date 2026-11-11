@@ -12,7 +12,7 @@ CoS는 `cos_host.py`, Codex·외부 로컬 MCP 클라이언트는 `codex_host.py
 
 Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS`와 `AlmondCOSDisconnect` 명령/별칭은 등록하지 않는다. 플러그인 GUID는 유지하고, 이전 AlmondCOS의 이름과 파일 경로는 AlmondRhino로 이전한다.
 연결 준비 및 상태 안내는 Codex와 CoS 모두에 적용된다. connect는 discovery host를 재사용하고 disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해제한다. Rhino 문서는 유지한다.
-`close_session`은 연결된 문서의 변경 여부를 조회하고 공식 RhinoCode `_-Save` 완료·동일 문서의 저장 상태를 확인한 뒤 `_-Exit`로 정상 종료한다. 요청 ID별 OS 잠금·보관 결과·대상별 진행 기록으로 재호출과 호스트 재시작의 중복 저장·종료를 막는다. 종료 직전 guard와 실제 프로세스 종료·worker 종료·lease 해제를 구분해 입증한다. 상세 절차는 [연결 계약](../mcp/runtime/CONNECTION-SPEC.md)에 둔다.
+`close_session`은 연결된 문서의 변경 여부를 조회하고 공식 RhinoCode `_Save`로 기존 파일명에 저장한다. 저장 완료·동일 문서의 저장 상태를 확인한 뒤 `_-Exit`로 정상 종료한다. 요청 ID별 OS 잠금·보관 결과·대상별 진행 기록으로 재호출과 호스트 재시작의 중복 저장·종료를 막는다. 종료 직전 guard와 실제 프로세스 종료·worker 종료·lease 해제를 구분해 입증한다. 상세 절차는 [연결 계약](../mcp/runtime/CONNECTION-SPEC.md)에 둔다.
 
 ## 구성
 
