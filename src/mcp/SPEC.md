@@ -9,7 +9,7 @@
 - `runtime/`: CLI 시작·재연결, 모델 binding, A–J 슬롯, 공유 저장소와 native 완료 확인.
 - `BASIC-INSTRUCTIONS.md`, `*-explain.md`: 기본 작업 지침과 도구별 설명 원본. `features/guidance/guides/`는 연결된 참고자료, `release_validation/`은 배포 검증을 소유한다.
 - `tests/`, `pytest.ini`, `run_tests.ps1`: 모듈 검사. COS import 없이 실행한다.
-- `rebuild_environment.ps1`: 이 체크아웃의 환경을 구성하며 COS catalog는 수정하지 않는다.
+- `rebuild_environment.ps1`: 일상 환경과 이미 존재하는 루트 환경을 함께 정합화한다. `-VerifyOnly`는 패키지를 변경하지 않고 검사하며, `-Development`는 개발 환경만 대상으로 한다. COS catalog는 수정하지 않는다.
 - `use_offline_environment.ps1`: 현재 셸과 자식에만 로컬 검사 경로를 설정한다.
 
 COS는 runtime의 binding 검증·구성 훅을 사용한다. MCP는 COS 구현을 참조하지 않는다.
@@ -137,6 +137,7 @@ GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper
 요청·반환 제한과 미확인 값의 의미는 [관측 계약](rhino/OBSERVATION-SPEC.md)을 따른다.
 
 기존 CoS command를 유지하기 위해 Python 환경은 `../engine/.venv`에 둔다.
+루트 `.venv`가 있으면 저장소 셸·`uv run`의 별도 환경으로 유지보수 대상에 포함한다. 일반 유지보수는 두 환경의 사용 여부를 모두 확인한 뒤 lock 동기화·editable 메타데이터 재설치·검증을 수행한다. 없는 루트 환경은 만들지 않는다. `-VerifyOnly`는 실행 중인 환경에서도 lock 정합성·패키지 호환성·중복·Python 버전·editable 출처/메타데이터를 읽기 전용으로 검사한다. `-Development`는 일상 환경·루트 환경·연결 등록을 변경하지 않는다. 일반 실행에서 자동 동기화하지 않는다.
 구현 위치와 실행 파일 위치는 별개다. 이전 시작 버튼은 호환 스크립트를 거쳐 `runtime/` 실행기를 호출한다. 사용자 모델·라이브러리를 자동 이동하지 않는다.
 기존 확장자 없는 `DB`는 아래의 DB 파일명 이전 조건을 충족할 때만 같은 폴더의 `scene.sqlite3`로 바꾼다.
 
