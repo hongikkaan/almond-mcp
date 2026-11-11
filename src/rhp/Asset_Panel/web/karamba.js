@@ -31,8 +31,7 @@ const HINTS=[
   [/finish the current rhino command|rhino was busy/i,'Press Esc in Rhino to end the running command, then try again.'],
   [/still running/i,'Wait for the current run to finish.'],
   [/document units/i,'Set standard document units in Rhino (Options > Units), then capture again.'],
-  [/certificate|unknownissuer/i,'Security software or a proxy on this network inspects HTTPS. Allow uv to use the Windows certificates: in PowerShell run [Environment]::SetEnvironmentVariable("UV_NATIVE_TLS","1","User"), restart Rhino, then press Check engines.'],
-  [/uv is not installed|could not start the native solver|engine unavailable/i,'Install uv (winget install astral-sh.uv), restart Rhino, then press Check engines.'],
+  [/local solver startup failed|registered Almond checkout|could not start the native solver|engine unavailable/i,'Restore the registered Almond checkout and prepare its Python environment using the installation guide, then press Check engines.'],
   [/geometry changed|recapture|model changed/i,'The geometry changed after capture: click Use Rhino selection again on the Model tab.'],
   [/mechanism|unstable|singular/i,'Part of the frame can move freely: add support points, or use Fixed restraints or Rigid joints on the Supports tab.'],
   [/no (curve|structural|exported|geometry)/i,'Select the structural centre lines in Rhino, then Use Rhino selection on the Model tab.'],
@@ -220,7 +219,7 @@ window.almondAnalysisReceive = payload => {
     el('engine-detail').textContent=[n.detail,payload.detail||payload.message].filter(Boolean).join(' · ');
     showEngines();
     if(n.available===false)message('Native engine unavailable'+(n.detail?': '+n.detail:'.'),'error');
-    else if(n.checking)message('Starting the native engine… The first run downloads it.','busy');
+    else if(n.checking)message('Checking the local native engine…','busy');
     else message('Engines checked.','ok');
   }
   if(payload.kind==='capture'){

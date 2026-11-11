@@ -41,7 +41,7 @@ The separately installed Python archive uses a stable configurable port.
 
 Choose **Structure** from the Almond menu, or run **AlmondStructure** (the older **AlmondKaramba** still works). The step-by-step guide is the [Structure workspace tutorial](../../structure/guides/tutorial.md).
 
-**Almond native** is built in. Rhino runs `uvx almond-mcp@0.7.0rc2 solve`, so uv must be installed (`winget install astral-sh.uv`); the first run downloads the engine, later runs take a few seconds. It analyses frames drawn as centre lines:
+**Almond native** uses the registered checkout's Python environment and solver source. Prepare `src/engine/.venv` with `src/mcp/rebuild_environment.ps1` using the root installation procedure. The panel checks that the editable package belongs to this checkout before running; it does not download an engine. It analyses frames drawn as centre lines:
 
 - loads: total load, floor area loads (imposed and build-up), placed Almond models, self-weight;
 - EN 1990 load combinations from the selected design code (Eurocode recommended values by default; National Annex profiles can be added);
@@ -53,7 +53,7 @@ Choose **Structure** from the Almond menu, or run **AlmondStructure** (the older
 
 Concrete, timber and aluminium results are indicative: forces, deflection and stability are computed, but EN 1992/1995/1999 are not applied, so there is no capacity pass/fail. Prismatic solids are read as their centre lines; other solids are skipped with a warning. One study takes at most 200 selected objects.
 **Karamba3D** needs its own installation and licence and also handles shells.
-Developers can point the panel at a checkout with `ALMOND_SOLVER_COMMAND` (for example `"<repo>\src\engine\.venv\Scripts\python.exe" -m almond_mcp`).
+The solver location follows the registered RHP's fixed checkout layout. The previous `ALMOND_SOLVER_COMMAND` override is no longer used. AppData libraries and explicit `RHINO_MCP_*` library locations remain unchanged.
 
 Changing settings marks results stale; recapture after changing Rhino geometry.
 Results are snapshots, not live monitoring. This is design-stage screening of the stated idealisation, not a substitute for an engineer's design and sign-off.
@@ -65,7 +65,7 @@ The old port-5000 listener and standalone server start/stop commands are removed
 
 ## Troubleshooting
 
-- Native engine unavailable with *invalid peer certificate* or *UnknownIssuer*: security software or a proxy inspects HTTPS and uv does not trust it. The panel asks uv to use the Windows certificates; for the MCP server (and older plugins) run once in PowerShell `[Environment]::SetEnvironmentVariable('UV_NATIVE_TLS','1','User')`, then restart Rhino and the MCP client.
+- Native engine unavailable or source mismatch: read the reported path and rebuild the Python environment from the registered checkout using the root installation procedure. The panel requires its local editable package and fixed solver launcher.
 - Archive folder missing: reinstall the full Yak package; copying only the RHP is insufficient. Keep its dependencies and `archive` directory together.
 - Installed library lookup failed: read the message above the cards, check the daily Almond Python environment or manifest, then click **Reload**.
 - An installed file changed while browsing: click **Reload**. If placement reports a source mismatch, run `refresh_asset(asset_id)` before placing it.

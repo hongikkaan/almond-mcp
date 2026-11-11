@@ -91,7 +91,7 @@ The **Code** tab's defaults suit a first check. When anything on it differs from
 
 ## 5. Run and read
 
-Click **Run native analysis ↗**. After a few seconds (the very first run downloads the engine and takes longer):
+Click **Run native analysis ↗**. After the local solver finishes:
 
 - **In the viewport**, the frame is drawn bent, exaggerated so you can see it, and coloured by how hard each member works: blue is comfortable, yellow is close, red is overloaded. A card at the top shows the verdict.
 - **In the panel**, the results appear.
@@ -139,7 +139,7 @@ Click **Open full results ↗**, or type `AlmondResults`. The **Almond Results**
 
 ## 8. Use it from Claude
 
-With the MCP server registered (`uvx almond-mcp`), Claude can run the same engine on the objects you name or select:
+With the daily checkout's MCP connection configured using [the connection guide](../../../../cos/EXTERNAL_CLIENTS.md), your client can run the same engine on the objects you name or select:
 
 - `validate_structure`: solve and check. Pass `detail=True` for the per-member and per-support tables. `design_code`, `fabrication`, `floor_load_kn_m2` and `asset_loads` match the panel settings.
 - `visualize_structure`: draw the deflected shape or a buckling mode (`view="buckling"`) in the viewport.
@@ -150,8 +150,8 @@ A typical request: *"Check the frame on layer Structure with 2 kN/m² imposed an
 
 | You see | Do this |
 |---|---|
-| Native engine unavailable | Install uv (`winget install astral-sh.uv`), restart Rhino, then click **Check engines**. The first run downloads the engine. |
-| Native engine unavailable: *invalid peer certificate* / *UnknownIssuer* | Security software or a proxy on your network inspects HTTPS, and uv does not trust it. From 0.7.0-rc.2 the panel tells uv to use the Windows certificates itself. For older versions and for the MCP server, run once in PowerShell: `[Environment]::SetEnvironmentVariable('UV_NATIVE_TLS','1','User')`, then restart Rhino and your MCP client. |
+| Native engine unavailable | Check the reported path and restore the registered checkout's Python environment with `src/mcp/rebuild_environment.ps1`. Follow the normal shutdown and update procedure in the root AGENTS.md, then click **Check engines**. |
+| Local solver source mismatch | The installed Almond package points to a wheel or another checkout. Rebuild the Python environment from the registered checkout; the panel requires that checkout's editable source. |
 | Nothing captured | The structural layer is probably hidden. Show it, select the curves, and capture again. |
 | "Select at most 200 structural objects per study" | Join segments into continuous curves (step 1), or check part of the structure. |
 | "The model changed" | You edited the geometry after capturing. Click **Use Rhino selection** again. |

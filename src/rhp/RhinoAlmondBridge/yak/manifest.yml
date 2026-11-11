@@ -15,8 +15,8 @@ description: >
   drawn in the viewport. AlmondResults lists every member, support and
   combination, with CSV export. Concrete, timber and aluminium results are
   indicative. Design-stage screening, not a substitute for an engineer's
-  design. The native engine needs uv (as the MCP server does); Karamba is
-  optional and needs its own installation/licence.
+  design. The native engine uses the personal checkout's prepared Python
+  environment and solver source; Karamba needs its own installation/licence.
 
   AlmondLibrary opens Models; AlmondLibraryBrowser opens the full
   browser view. Compact thumbnails offer native placement as shared blocks,
@@ -33,8 +33,8 @@ description: >
   Third-party community model files are not bundled. Download them separately
   from their original sources under the applicable terms.
 
-  The MCP bridge listens on 127.0.0.1:5000. For AI workflows, install uv and
-  register uvx --from almond-mcp==0.7.0rc2 almond-mcp with your MCP client.
+  For AI workflows, configure the personal checkout's Codex/CoS connection,
+  run almondconnect in Rhino and select the saved document in the client.
   Windows only; this .NET 8 build targets Rhino 8.34 and later Rhino 8 service releases.
 url: https://github.com/liangjunglj-cpu/almond-mcp
 keywords:

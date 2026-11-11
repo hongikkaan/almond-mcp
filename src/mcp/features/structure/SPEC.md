@@ -22,7 +22,7 @@ The same engine runs from the panel, with no AI client: run **AlmondStructure**,
 
 The panel and `visualize_structure` share `native_structure` and `structure_study.draw_message`.
 
-The plugin finds the solver as `uvx almond-mcp@<plugin version> solve` (a development build without a release version takes the latest), or the command line in `ALMOND_SOLVER_COMMAND`. A protocol number in every request and reply catches a plugin/solver mismatch.
+The plugin uses the registered checkout's `src/engine/.venv/Scripts/python.exe` to run its fixed `src/mcp/runtime/solve.py` launcher. Python runs in isolated mode; the launcher checks that the single installed Almond distribution is editable and that its metadata and imported source point to this checkout before loading the solver. Missing or mismatched files stop execution. There is no remote-package fallback or command override. The daily runtime's AppData library paths and explicit library overrides are preserved. A protocol number in every request and reply catches a plugin/solver mismatch.
 
 ## Live view
 
