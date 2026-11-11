@@ -90,6 +90,8 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 
 임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. SPEC·AGENTS에는 현재 구조·계약·작업 규칙만 유지한다. 과거 설계안·진행 보고·커밋별 변경 내역·검증 실측은 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
 
+작업을 마무리할 때 루트 [tool_description_spec.md](tool_description_spec.md)의 도구 목록·DESCRIPTION·TOOL INPUT·TOOL OUTPUT 예시를 현재 구현과 실제 공개 스키마에 대조하고, 달라진 내용을 갱신한다. 코드 기반 예시와 실제 Rhino 검증 결과를 구분한다.
+
 ## 검증
 
 Rhino와 사용 중인 MCP 서버를 실행·종료하지 않고 오프라인 개발 검사를 수행할 수 있게 구현한다. 개발 검사는 `rebuild_environment.ps1 -Development`로 `data/development/.venv`를 구성하고 MCP·외부 연결기의 `run_tests.ps1 -Development`를 사용한다. 일상 `src/engine/.venv`나 연결 등록을 바꾸지 않는다. 실행 중 호스트의 소스까지 보호해야 하면 별도 워크트리에서 작업한다. 오프라인 단위·통합 검사는 일회용 저장소와 대역을 사용하며 실제 모델·DB에 연결하지 않는다. 실제 기능 테스트는 위 작업 원칙에 따라 사용자가 연결해 준 Rhino 파일에서 수행한다. RHP 교체 시의 Rhino 종료 조건은 그대로 유지한다.

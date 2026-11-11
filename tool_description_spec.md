@@ -1,8 +1,8 @@
+# Almond MCP 도구 설명·입출력 예시
+
 ## Prefix 명명
 
-문서의 도구명은 유형별 prefix 뒤에 해당 유형 안의 두 자리 순번을 붙인다. 예: connect-01_list_up, connect-02_session. 순번은 각 유형에서 01부터 시작하며, 기존 전체 도구 번호 01–92도 함께 유지한다. 각 도구 아래의 기준 API는 실제 서버 호출명이다. 실제 API·schema·출력은 아래 구현 계약을 따릅니다.
-
-수정: November 9, 2026 · 기존 묶음을 영어로 명명하고 prefix를 붙이라는 요청
+제목의 prefix와 번호는 문서에서 도구를 찾기 위한 분류입니다. 예: connect-01_list_up, connect-02_session. 실제 호출에는 각 항목의 `기준 API`를 사용합니다. 원문의 식별 번호를 유지하므로 제거된 도구의 번호는 비어 있습니다.
 
 | Group | Prefix | 기존 묶음 |
 | --- | --- | --- |
@@ -27,13 +27,14 @@
 
 ## 문서 기준
 
-- 공개 도구는 공통 **85개**와 외부 연결 관리 **4개**, 총 **89개**입니다.
+- 이 문서는 beyond·CoS 외부 연결 경로의 공개 도구 **89개**(공통 85개 + 연결 관리 4개)를 다룹니다. `tools/list`의 도구명·DESCRIPTION·inputSchema와 대조합니다. 독립 Python 서버는 실행기 도구 없이 79개를 공개합니다.
+- 출력 타입·필드 설명은 [공개 출력 계약](src/mcp/output_contracts.py)에 있으며 실제 `tools/list`의 outputSchema로 노출됩니다. 각 항목의 `근거`는 반환 구현을 확인할 소스입니다.
 - DESCRIPTION은 도구를 선택할 때 필요한 역할과 핵심 조건을 설명합니다.
 - TOOL INPUT은 실제 공개 schema입니다. 변수명·타입·선택지·입력 설명을 확인합니다.
-- TOOL OUTPUT은 코드 기반 예시이며 Rhino 실측 응답이 아닙니다. 이름·ID·수치·경로는 예시 값이고, // 뒤는 출력 필드의 의미를 설명하는 문서용 주석입니다.
-- 실제 outputSchema에도 결과 필드의 타입과 설명을 제공합니다. JSON 문자열을 반환하는 도구는 result.contentSchema가 그 안의 JSON을 설명합니다. 이미지와 실행기 도구는 객체로 반환합니다.
+- TOOL OUTPUT은 현재 반환 구현에 따른 예시이며 Rhino 실측 응답이 아닙니다. 별도 표시가 없으면 일부 필드를 발췌했습니다. 이름·ID·수치·경로는 예시 값이며 `…`는 문서상 생략입니다. 고정 안내문은 서버 원문을 사용하고, `//` 뒤의 한국어 설명은 응답에 없는 문서용 주석입니다.
+- 예시는 도구 결과의 JSON 본문을 보여 줍니다. JSON 문자열을 반환하는 도구는 outputSchema의 properties.result.contentSchema가 그 본문을 설명합니다. 객체를 직접 반환하는 도구는 outputSchema 자체를 따르며, 이미지 도구는 MCP 이미지 콘텐츠도 함께 반환할 수 있습니다.
 - next_step_guide는 현재 결과에서 필요한 후속 작업이 있을 때 반환하는 문자열입니다. 빈 목록·오류·부분 적용·과거 기록·실행 대기에 따라 안내가 달라집니다.
-- 요청한 상세 그룹이나 실행 상태에 따라 출력 필드는 달라집니다. 입력에 사용한 ID가 응답에서 생략되면 후속 호출에 재사용할 수 있도록 보관합니다.
+- 요청한 상세 그룹이나 실행 상태에 따라 출력 필드는 달라집니다. include_ids 옵션이 있는 조회에서 ID가 포함된 예시는 true를 사용한 경우이며, 기본값 예시는 따로 표시합니다. 입력에 사용한 ID가 응답에서 생략되면 후속 호출에 재사용할 수 있도록 보관합니다.
 
 # Connect
 
@@ -62,7 +63,7 @@
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -110,7 +111,7 @@
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -122,7 +123,7 @@
   "model_filename": "example.3dm", // 모델 파일명
   "slot": "A", // 독립 연결 슬롯. 같은 폴더의 모델은 DB·산출물 루트를 공유
   "pid": 1234, // Rhino 프로세스 ID
-  "artifact_dir": ".almond/produced/example", // 이 연결의 임시 작업 폴더입니다.
+  "artifact_dir": "C:\\Example\\.almond\\tmp\\python\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 이 연결의 임시 작업 폴더입니다.
   "in_flight": false, // 해당 연결에 호출이 진행 중인지 여부
   "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
@@ -165,7 +166,7 @@
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -177,7 +178,7 @@
   "model_filename": "example.3dm", // 모델 파일명
   "slot": "A", // 독립 연결 슬롯. 같은 폴더의 모델은 DB·산출물 루트를 공유
   "pid": 1234, // Rhino 프로세스 ID
-  "artifact_dir": ".almond/produced/example", // 이 연결의 임시 작업 폴더입니다.
+  "artifact_dir": "C:\\Example\\.almond\\tmp\\python\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 이 연결의 임시 작업 폴더입니다.
   "in_flight": false, // 해당 연결에 호출이 진행 중인지 여부
   "request_id": "example-start", // 동일 시작 시도에 재사용. 대기·실패 상태는 list_connections.starts에서 확인
   "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
@@ -213,7 +214,7 @@
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -291,7 +292,9 @@
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+sections=["project", "locations"], include_ids=true이고 아직 작업할 Plan을 선택하지 않은 경우입니다.
 
 ```jsonc
 {
@@ -318,7 +321,9 @@
     "plan_id": "",
     "step_id": "",
     "artifact_dir": null,
-    "database": ".almond/example.db"
+    "database": ".almond/scene.sqlite3",
+    "path_rule": "Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths.",
+    "artifact_rule": "Select a Plan with set_working_plan; managed outputs use its current Loop folder .almond/produced/YYMMDD_name/01, /02, etc.; before execute_looping they use the Plan root."
   },
   "next_step_guide": "- list_plans으로 프로젝트 진행상황 파악합니다.\n- 산출물 작업 공간은 set_working_plan으로 선택합니다.\n- 객체 상태가 필요하면 get_objects로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
@@ -364,29 +369,115 @@ Almond 작업에 필요한 지침을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+현재 stdio 응답(본문 전체·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답을 수록했으며, tools는 체크아웃의 공통 도구 목록입니다. Rhino 실행 검증 결과는 아닙니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "guide_version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 지침 버전을 비교하는 해시입니다.
-  "text": "---\nname: rhino-almond\ndescription: \"Rhino에서 Almond MCP로 기존 설계를 발전시키기 위한 건축적 판단.\"\n---\n\n# Rhino Almond\nAlmond MCP를 사용해 Rhino로 건축 설계를 발전시킨다. \n\n**작업 태도**\n 설계 내용의 충돌은, 현재 설계 의도와 작업 목적을 기준으로 …", // 선택한 policy의 지침 본문입니다.
+  "guide_version": "62b4e1621a0ab646cc7cfad3e6910c82fecd52103f61b84ce8e6f275e0932409", // 지침 버전을 비교하는 해시입니다.
+  "selected_policy": "basic", // 선택한 policy 이름입니다.
+  "available_policies": { // 선택 가능한 policy 이름과 설명입니다.
+    "basic": "건축 설계·모델링·도면 검증 지침과 공통 도구 목록",
+    "metadata": "객체·그룹 메타데이터 키, 레이어·재료 기록 규칙",
+    "rhino_scripting": "Rhino 스크립트 작성과 API 참고 자료",
+    "rhinocode": "RhinoCode 코드·Rhino 커맨드 실행과 결과 확인"
+  },
+  "text": "---\nname: rhino-almond\ndescription: \"Architectural judgment for developing existing designs with Almond MCP in Rhino.\"\n---\n\n# Rhino Almond\nAlmond MCP를 사용해 Rhino로 건축 설계를 develop한다. \n\n**Attitude**\n 설계 내용의 충돌은, 현재 설계 의도와 작업 목적을 기준으로 하여 주체적으로 추론·고찰하여 필요한 부분을 정합한다. \n 판단한 방향이 사용자의 지시나 설계 방향과 충돌하면, 차이가 생긴 구체적 근거와 선택의 영향을 사용자에게 설명하며 논의를 요청해 작업 방향을 사용자 주도 하에 align한다.\n\n## 작업 최초 실행 시\n1. 프로젝트 기본 구조를 `projct_info`실행해서 파악\n2. 작업 하다가 `get_rhino_context`를 사용하여 작업 중의 맥락 파악\n \n### Scene·ontological-holon\n\nScene은 행태·프로그램·장면의 맥락이고, ontological-holon는 그 장면을 가능하게 하는 건축 요소와 의미의 묶음이다. ontological-holon는 여러 Scene에 포함될 수 있다.\n\n#### Scene\n\nScene은 특정 공간에서 일어나는 **행태·프로그램·장면·가치**다. 파일 전체를 Scene 하나로 치환하지 않는다.\n\n#### ontological-holon\n\nontological-holon는 **건축 요소와, 그 요소들이 함께 가능하게 하는 사용·행태·구조적 역할을 묶은 의미 단위**다.\n-  무엇을 만들었는지와 그 묶음이 무엇을 가능하게 하는지를 함께 설명할 수 있어야 하며, 객체 종류·재료·거리만으로 경계를 정하지 않는다. \n\n##### 예시\n1. 마루와 계단참\n\n![마루·계단참·지지 구조·가구의 공간 관계](features/guidance/guides/references/assets/resident-porch.png)\n\n작은 계단참과 마루에서 사람들이 머물고 교류하는 행태가 Scene이다. 그 Scene을 이루는 ontological-holon는 다음처럼 **실물 구성과 그것이 가능하게 하는 것**을 함께 갖는다.\n\n| ontological-holon | 함께 구성하는 요소와 의미 |\n|---|---|\n| 마루 위 공간을 지지하는 구조 | 기둥·보 여러 개가 함께 위에서 오는 하중을 지지한다. 기둥마다 따로 등록하지 않는다. |\n| 사람들이 걸터앉는 마루·계단참 | 지지 콘크리트와 마루 마감이 함께 단차와 앉을 자리를 만든다. 마루라는 실물이면서 걸터앉을 수 있게 하는 장치다. 공유 바닥슬래브 전체를 포함할 필요는 없다. |\n| 마루에서 바둑 두는 가구 묶음 | 방석·낮은 탁자·바둑판·바둑알과 통·시계 등이 함께 앉아서 바둑 두는 행위를 가능하게 하고 유도한다. 가구 하나씩 나누지 않고, 그 행위와 사용 관계로 묶는다. |\n\n2. 지붕과 우수관\n\n![지붕과 우수관](features/guidance/guides/references/assets/roof-drainage.png)\n\n지붕의 의미에는 덮는 역할과 함께 집수·배수가 이어진다. 우수관이 여러 층을 지나거나 기둥 속 콘크리트에 매립돼 있어도 그 역할이 이어지므로 지붕 ontological-holon에 포함한다. 지붕 안의 구축 시스템과 우수관 element들은 일반 group으로 나눠 관리할 수 있다. **물리적으로 떨어져 있어도 하나의 역할을 이루면 같은 ontological-holon가 될 수 있다.** 두 사례의 [사용자 설명 원문과 사진](features/guidance/guides/references/component-feedback.md)은 별도로 보존한다.\n\n## 모델링\n\n### 건축물을 모델로 다루기\n\n건축 모델링은 공간을 이루는 물질적 구성을 설계하고 구체화하는 일이다. 모델에서 부재와 재료가 차지하는 부분, 그 사이에 생기는 공간, 공간을 연결하거나 나누는 경계를 함께 읽는다. 형상의 크기·두께·방향·배치는 사람이 머물고 움직이는 방식과 빛·시선·환경을 받아들이는 조건을 만든다. 형상을 수정할 때는 그 변화가 어떤 공간과 사용을 가능하게 하고 무엇을 어렵게 하는지 판단한다.\n\n모델의 요소는 건축물 안에서 서로 역할을 주고받는다. 한 요소가 여러 공간을 형성하거나 다른 요소를 지지할 수 있고, 떨어진 요소들이 하나의 기능을 함께 수행할 수도 있다. 따라서 요소의 이름이나 현재 묶음만으로 역할을 확정하지 않고, 어디에 놓여 무엇과 연결되며 어떤 구성에 참여하는지 해석한다. 과업의 규모에 따라 이 관계를 실내에서 건축물 전체와 주변 환경까지 연결해 이해한다.\n\nRhino 객체는 이 건축을 표현하는 편집 단위다. 하나의 실물 부재가 여러 객체로 나뉘거나 하나의 객체가 복합적인 구성을 단순화해 나타낼 수 있다. 모델을 읽을 때는 형상이 무엇을 나타내는지와 실제로 어느 정도까지 구체화돼 있는지를 구별한다. 분할된 객체 사이의 경계와 실물의 이음, 모델에 생긴 빈틈과 의도한 공간은 그 의미를 확인해야 구분할 수 있다.\n\n### 텍토닉: 재료와 구성, 접합\n\n텍토닉은 재료의 성질과 부재의 구성·결합이 건축의 공간과 표현을 성립시키는 방식이다. 재료의 물성과 가공 방식, 부재를 만들고 조립하는 순서는 가능한 형상·치수·접합을 제약한다. 요소를 이해할 때는 이 조건 속에서 부재가 무엇을 받치거나 감싸며, 힘과 기능이 다른 요소로 어떻게 이어지는지 읽는다. 실제 역할과 만드는 방식이 부재의 구분과 연결을 판단하는 근거다.\n\n접합부에는 요소 사이의 의존 관계가 드러난다. 연속돼야 할 부분, 힘이나 기능을 넘겨받는 부분, 서로 움직이거나 교체할 수 있도록 분리할 부분은 서로 다른 구성을 요구한다. 맞닿음·겹침·틈은 이 관계를 표현하는 기하 상태이므로, 각각이 재료·시공·사용 조건에 맞는지 판단한다. 모델에서 면이 맞거나 솔리드가 닫혔다는 사실과, 실제로 조립되고 역할을 수행할 수 있다는 판단은 별도의 근거를 갖는다.\n\n공간과 구축은 함께 발전한다. 부재의 위치와 깊이, 재료의 두께, 접합과 지지 방식은 공간의 여유·개방감·경계의 성질을 바꾸고, 원하는 공간은 다시 구성 방식의 선택에 영향을 준다. 현재 설계 단계에서 판단하려는 내용에 맞춰 형상을 구체화한다. 단순화한 표현으로 남긴 구성과 실제 상세를 결정한 부분을 구별하고, 상세를 추가할 때는 전체 구성과의 관계를 이어 간다.\n\n#### 구축 시스템과 표현 단계\n\nLayer는 `건축 유형 → 구축 시스템 → 구성 요소 역할`의 위계로 구성됩니다. 시스템이 미정일 때는 유형 Layer를, 시스템이 정해진 단순 모델에는 시스템 Layer를, 부재·마감을 구체화할 때는 요소 역할 Layer를 사용합니다. 시스템과 요소 Layer에는 각각 기본 Material과 표시·출력 색이 설정됩니다.\n\n실제 경로는 `M::유형::시스템명::요소역할`이다. 구축 상세를 적용할 대상이 이미 시스템 Layer에 있으면 그 시스템을 출발점으로 자료와 실제 구성을 대조한다. 유형 Layer에만 있으면 시스템은 미정이므로 적합한 시스템을 조사·구상하고 대안을 사용자와 논의한 뒤 적용한다. 대안을 모두 모델링해 놓고 사후 선택을 요구하지 않는다.\n\n시스템의 요소 역할·재료·간격·초기 치수·구성 메모는 모델의 지지·경계·접합 및 주변 조건과 대조한다. Layer 이름은 이런 조건의 검증 결과가 아니다. 합의한 부재·마감을 기존 요소 역할 Layer에 배치한다. 하나의 구축 구성을 함께 조립·편집할 수 있도록 group으로 묶는 것을 권장한다. 라이브러리 자료는 초기 설계 참고이며 검증된 시공 상세로 취급하지 않는다.\n\n\n### 객체들의 묶음 단위 유형\n\n함께 다룰 구성과 변경을 공유할 범위에 따라 group과 block을 선택·조합한다. Group은 개별 객체와 재귀적 묶음을 유지하고, group 자체는 복사본 사이에 변경을 전파하지 않는다. 한 객체가 여러 group에 속할 수 있으므로 중첩과 멤버 중복을 구분한다. Block은 definition을 공유하는 instance의 배치로, 각 배치의 위치·회전·축척은 개별적이고 정의 변경은 공유 배치에 반영된다. 일부 배치의 구성만 달라져야 하면 정의를 분리한다. 중첩 block은 보존되지만 일반 group의 묶음 관계는 block definition 내부에 보존되지 않으며, 바깥 group을 복사해도 내부 block은 정의를 공유한다. 묶음을 전환·해체·재조립할 때는 개별화할 형상과 남길 하위 구성, 변경이 전파될 배치를 구분한다.\n\n#### BlockEditNew에서 편집 범위를 다루기\n\nBlockEditNew에서는 뷰포트에서 선택한 group이나 block instance를 열고, 중첩 구성의 필요한 단계로 들어가 편집한다. Group 편집은 묶음의 구성원들을 다루는 작업이고, block 편집은 선택한 배치를 통해 공유 정의의 내용을 고치는 작업이다. Block을 열었을 때 화면에서 선택 가능한 작업 객체는 저장된 definition 내부 객체와 같은 식별 대상이 아니다. 정의 내부 GUID와 현재 편집 객체의 ID를 구분하고, 편집 진입·완료·재구성 뒤에는 대상을 다시 조회한다. 정의와 배치 변환은 이때 어떤 구성과 위치를 편집하는지 연결하는 근거가 된다.\n\n격리된 부분에서는 부재의 형상과 내부 구성을 읽기 쉽고, 그 부분이 전체에서 맡는 역할은 주변 관계 속에서 판단할 수 있다. 검토할 관계에 맞춰 편집 깊이와 관찰 범위를 선택하고, 부분의 변경이 끝나면 영향을 받는 상위 구성과 공유 배치에서 결과를 확인한다. 중첩 단계 밖의 선택·표시 상태를 임의로 재설정해 현재 편집 맥락을 잃지 않도록 한다.\n\n### 모델링 검수\n\n관찰·검수용 이미지를 만들기 위해 원본 모델을 별도 위치에 복사하거나, 실제 모델의 수정·검수 대신 이미지에 형상을 덧그리지 않는다.\n\n검수는 바뀐 모델이 해결하려던 설계 문제를 해결했는지, 의도한 공간과 구축을 성립시키는지 판단하는 과정이다. 수정한 형상에서 출발해 그 요소의 역할, 접합과 연속, 영향을 받은 공간과 다른 요소로 판단을 이어 간다. 국소적인 형상 개선이 주변의 사용이나 구성에 새로운 문제를 만들었는지도 살핀다.\n\n무엇을 판단할지에 따라 관찰 방법을 정한다. 전체 배치와 공간 관계, 부재의 연결, 가려진 내부 구성은 필요한 관찰 범위와 시점이 다르다. 판단에 필요한 요소들이 함께 드러나도록 화면을 구성하고 실제 이미지를 읽는다. 격리한 화면이 보여 주는 관계와 제외한 관계를 구분하며, 잘린 요소나 빠진 주변 구성 때문에 판단 근거가 달라지지 않는지 확인한다.\n\n시각적으로 읽은 내용은 그 판단에 필요한 형상과 치수로 대조한다. 부재 전체의 연속성을 판단하려면 그 부재를 이루는 객체들의 관계를, 접합을 판단하려면 맞물리는 요소의 실제 형상과 구성을 확인한다. 수치상 교차·간격이나 객체별 유효성은 해당 질문의 근거로 해석한다. 검사를 통과한 항목만으로 아직 보지 않은 관계까지 성립한다고 확대하지 않는다.\n\n의미 있는 편집 묶음이 끝나면 결과를 사용자의 목표와 보존 조건에 대조해 추가 개입이 필요한지 판단한다. 요청된 결과가 성립하고 관련 보존 조건을 확인했으면 해당 작업을 완료한다. 불일치나 판단에 필요한 미확인이 남아 있으면 이를 해소할 관찰·검증·수정으로 이어간다. 변경으로 새롭게 드러난 문제가 작업 범위를 넘으면 근거와 영향을 설명하고 별도 제안으로 다룬다.\n\n확인한 사실, 설계 의도에 대한 해석, 가정과 미확인 사항을 구분한다. 실행 성공과 형상의 유효성, 공간·구축의 적합성, 사용자 요청의 완료는 각각의 근거로 판단하며 미검사 범위와 남은 문제를 보고한다.\n\n## Drafting\n\n도면은 건축 요소의 표현이자 공간의 구성과 사용을 구상하고 전달하는 설계 도구다. 도면을 읽을 때는 그려진 형상과 표현을 파악하는 동시에, 그 구성이 만들어 내는 공간과 경험, 사람들이 그 안에서 맺는 관계를 이해한다.\n\n### 도면을 공간과 의미로 읽기\n\n도면의 요소를 독립된 객체나 선의 집합으로만 보지 않는다. 요소들이 함께 형성하는 공간적 관계와 그 관계가 가능하게 하는 사용·행태·경험을 읽는다. 하나의 요소가 여러 공간과 역할에 걸쳐 작용할 수 있음을 고려하고, 물리적으로 떨어진 요소도 하나의 사용이나 역할을 함께 이룰 수 있음을 살핀다.\n\n공간의 의미는 실의 명칭이나 도면 기호만으로 결정되지 않는다. 공간의 구성과 주변 관계를 바탕으로 그곳에서 일어날 수 있는 행태를 구상하고, 그 행태가 공간과 건축 요소에 의해 어떻게 뒷받침되는지 판단한다.\n\n평면·단면·입면은 같은 건축을 서로 다른 관점에서 보여 준다. 하나의 도면에서 읽은 관계를 다른 도면이나 모델과 연결해 이해하고, 확인할 수 없는 사항은 추론의 범위와 함께 구분한다.\n\n#### 행태와 공간 경험\n\n공간을 구상하고 검토할 때 사람이 그곳을 어떻게 경험하고 이용할지 생각한다. 공간의 크기나 형태뿐 아니라 공간 사이의 연결과 전이, 경계와 개방, 이용의 가능성과 제약을 함께 이해한다.\n\n사람의 행태는 고정된 하나의 장면이 아니다. 공간은 이용자와 상황에 따라 다르게 사용될 수 있으며, 그 변화가 공간 구성과 어떤 관계를 맺는지 살핀다. 설계가 어떤 경험을 유도하고 무엇을 선택할 수 있게 하는지, 또는 어떤 이용을 어렵게 하는지 판단한다.\n\n도면에 표현된 행태를 그대로 받아들이는 데 그치지 않고, 실제 공간에서 가능한 관계인지 검토한다. 도면만으로 확인할 수 없는 이용 조건은 필요한 자료와 시점을 통해 보완한다.\n\n#### 공간의 규모와 사회적 관계\n\n도면을 개별 실과 건축 요소에서 시작해 더 넓은 공간적 맥락과 연결해 읽는다. 과업의 규모와 목적에 따라 개인의 생활, 공동체의 관계, 거리와 도시, 사회적 가치까지 건축적 판단의 범위에 포함한다.\n\n사람과 사람, 개인과 공동체, 건축과 주변 환경의 관계가 공간을 통해 어떻게 형성되는지 고찰한다. 공간적 구성과 사회적 가치 사이의 관계를 살피되, 도면만으로 확정할 수 없는 운영이나 사회적 효과는 해석과 제안으로 구분한다.\n\n### 설계와 도면의 발전\n\n도면 작업에서는 사용자의 의도와 설계 방향을 바탕으로 공간을 발전시키고, 그 결과가 도면에 정확하게 반영되도록 한다. 피드백이 특정 요소를 가리키더라도 그것이 놓인 공간과 주변 관계를 함께 이해한다.\n\n평면을 수정하거나 새롭게 구성할 때는 도면상 형상의 변화가 실제 공간의 사용과 경험에 어떤 영향을 주는지 판단한다. 설계 과정에서 발견한 관계와 문제를 도면의 구성에 반영하고, 변경에 따라 함께 달라져야 할 사항을 정합한다.\n\n확인된 조건을 바탕으로 전문적으로 판단하되, 사용자의 의도나 중요한 설계 선택이 불확실하면 그 불확실성과 선택의 영향을 분명히 설명한다.\n\n작업의 목적과 대상, 설계 단계, 사용자의 결정과 조건을 파악한다. 현재 도면과 관련 스케치·피드백을 함께 읽고 공간의 구성과 맥락을 이해한다.\n\n실제 도면 이미지를 보며 공간의 구성과 사용 관계를 검토한다. 그려진 요소가 의도한 공간과 행태를 뒷받침하는지, 도면이 설계의 관계를 정확하게 전달하는지 확인한다.\n\n시각적으로 읽은 내용은 필요한 형상과 치수로 대조한다. 평면에서 확인하기 어려운 사항은 단면·입면·모델을 함께 살피고, 수정한 부분과 그 영향을 받는 공간을 다시 검토한다. 지정된 Named View가 있으면 검수에 활용한다.\n\n도면에서 확인한 사실과 그에 대한 해석, 설계상 가정과 미확인 사항을 구분한다.\n\n벽·문·가구·동선·프로그램 관계를 촘촘히 검토한 과거 과정의 참고 이미지가 필요하면 [Bonsai 평면 개요](features/guidance/guides/Bonsai-FloorPlan-overview.png)를 확인하되, 이를 최신 공간 결정이나 완성 도면 원본으로 사용하지 않는다.\n\n### 도면의 작성과 관리\n먼저 도면으로 무엇을 보여주고 어떤 판단을 돕는지 정하고, 그 목적에 필요한 범위와 축척을 선택한다. 선·면·색·두께의 위계가 전달할 관계를 드러내도록 구성하며, 주변 맥락을 포함하느라 핵심 대상이 읽히지 않으면 범위를 조절하거나 별도 도면으로 나눈다.", // 선택한 policy의 지침 본문입니다.
   "source_refs": [ // 선택한 지침의 출처 파일과 해시입니다.
     {
       "path": "src/mcp/BASIC-INSTRUCTIONS.md",
-      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "sha256": "6a62262f9e43e50b18be64e5af15e4ad8ffa3d847270fbedd466c3edc19435ca"
     }
   ],
   "tools": [ // 사용할 수 있는 도구 이름 목록입니다.
-    "get_policy"
-  ],
-  "selected_policy": "basic", // 선택한 policy 이름입니다.
-  "available_policies": { // 선택 가능한 policy 이름과 설명입니다.
-    "basic": "설계·검증 기본 지침",
-    "metadata": "metadata 입력 지침",
-    "rhino_scripting": "Rhino 내부 스크립팅 지침",
-    "rhinocode": "RhinoCode 실행 지침"
-  }
+    "add_scene_objects",
+    "analyze_block_reculviely",
+    "apply_drawing_style",
+    "assign_material",
+    "audit_asset_drawing",
+    "capture_conditioning_pass",
+    "capture_rhino_inspection",
+    "check_egress",
+    "create_design_scene",
+    "create_phase",
+    "create_plan",
+    "edit_planar_face",
+    "edit_planar_faces",
+    "execute_looping",
+    "execute_project_python",
+    "execute_rhino_script",
+    "export_asset_contract",
+    "export_structural_report",
+    "focus_holons",
+    "generate_asset_drawing_views",
+    "get_asset_drawing",
+    "get_blender_helper_script",
+    "get_construction_guidance",
+    "get_current_viewcapture",
+    "get_defined_viewcapture",
+    "get_design_scene",
+    "get_diagram_asset",
+    "get_drawing_asset",
+    "get_drawing_recipe",
+    "get_logic_by_id",
+    "get_object_intersections",
+    "get_objects",
+    "get_ontological_holon",
+    "get_phase_plan_step",
+    "get_plan_section_result",
+    "get_policy",
+    "get_rhino_context",
+    "get_rhino_execution",
+    "get_scene_objects",
+    "get_selection_references",
+    "get_typology_narrative",
+    "import_asset_contract",
+    "import_drawing_hatch_patterns",
+    "list_capsules",
+    "list_design_codes",
+    "list_design_scenes",
+    "list_diagram_assets",
+    "list_drawing_assets",
+    "list_drawing_recipes",
+    "list_library",
+    "list_materials",
+    "list_ontological_holons",
+    "list_phases",
+    "list_plan_revisions",
+    "list_plans",
+    "place_diagram_asset",
+    "place_drawing_asset",
+    "plan_section",
+    "prepare_drawing_asset",
+    "project_info",
+    "publish_objects_to_chestnut",
+    "publish_to_chestnut",
+    "refresh_asset",
+    "register_drawing_asset",
+    "remove_ontological_holon",
+    "remove_scene_objects",
+    "rename_artifact_folder",
+    "resolve_object_intersection",
+    "resolve_targets",
+    "run_gh_definition",
+    "save_rhino_document",
+    "search_asset_repository",
+    "search_detail_sources",
+    "search_diagram_assets",
+    "search_drawing_assets",
+    "set_working_plan",
+    "setup_modeling",
+    "sync_ontological_holon",
+    "update_design_scene",
+    "update_phase",
+    "update_plan",
+    "update_step",
+    "upsert_ontological_holon",
+    "validate_structure",
+    "visualize_structure"
+  ]
 }
 ```
 
@@ -489,7 +580,7 @@ Almond 작업에 필요한 지침을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -643,7 +734,7 @@ Almond 작업에 필요한 지침을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -707,7 +798,7 @@ Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -717,8 +808,8 @@ Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전�
   "next_step_id": "step_example", // 아직 완료되지 않은 첫 Step의 ID입니다. 없으면 null입니다.
   "previous_loop": null, // 이전 회차의 번호와 Step 기록입니다. 새 작업에 앞서 수행·검증·보고 내용을 확인합니다.
   "step_id": "", // 선택한 Step ID입니다.
-  "plan_artifact_dir": ".almond/produced/example", // Plan 산출물 폴더
-  "artifact_dir": ".almond/produced/example/01", // 작업 산출물 폴더
+  "plan_artifact_dir": ".almond/produced/261111_example", // Plan 산출물 폴더
+  "artifact_dir": ".almond/produced/261111_example/01", // 작업 산출물 폴더
   "revision": 1, // 현재 Plan·Loop의 저장 리비전입니다.
   "title": "예시 계획", // 저장된 제목
   "goal": "예시 목표", // 저장된 목표
@@ -808,7 +899,9 @@ Phase, Plan 또는 Step의 작업 기록을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). Phase를 include_details=true로 조회한 예시입니다. false이면 공통 식별·상태 정보만 반환합니다. Plan·Step은 상세 선택과 무관하게 plan_id·loop_no·revision·read_only를 포함합니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+Phase를 include_details=true로 조회한 예시입니다. false이면 공통 식별·상태 정보만 반환합니다. Plan·Step은 상세 선택과 무관하게 plan_id·loop_no·revision·read_only를 포함합니다.
 
 ```jsonc
 {
@@ -880,7 +973,7 @@ Phase, Plan 또는 Step의 작업 기록을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -964,7 +1057,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -1034,7 +1127,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -1086,13 +1179,13 @@ Plan 산출물 폴더를 옮기거나 이름을 바꾸고 저장된 참조를 �
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "artifact_dir": ".almond/produced/example-new", // 변경 후 산출물 폴더 경로입니다.
-  "previous_artifact_dir": ".almond/produced/example-old", // 변경 전 폴더 경로입니다. 실제 변경이 있을 때 반환합니다.
+  "artifact_dir": ".almond/produced/261111_example-new", // 변경 후 산출물 폴더 경로입니다.
+  "previous_artifact_dir": ".almond/produced/261111_example-old", // 변경 전 폴더 경로입니다. 실제 변경이 있을 때 반환합니다.
   "next_step_guide": "이후 산출물 작업에는 갱신된 artifact_dir를 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
@@ -1154,7 +1247,7 @@ Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -1163,8 +1256,8 @@ Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
   "step_id": "step_example", // 선택한 Step. Step 미선택이면 빈 문자열
   "loop_no": 1, // Loop 회차 번호
   "revision": 2, // 작업 공간 설정 후의 저장 리비전입니다.
-  "artifact_dir": ".almond/produced/example/01", // 현재 연결의 산출물 폴더입니다. execute_project_python의 작업 디렉터리로 사용합니다.
-  "plan_artifact_dir": ".almond/produced/example", // Plan 산출물 루트입니다. Loop 시작 전에는 이 폴더를 사용합니다.
+  "artifact_dir": ".almond/produced/261111_example/01", // 현재 연결의 산출물 폴더입니다. execute_project_python의 작업 디렉터리로 사용합니다.
+  "plan_artifact_dir": ".almond/produced/261111_example", // Plan 산출물 루트입니다. Loop 시작 전에는 이 폴더를 사용합니다.
   "next_step_guide": "이 artifact_dir에서 작업하고, 재사용한 파일은 input_refs에, 새로 만든 산출물은 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
@@ -1308,7 +1401,7 @@ Phase의 작업 정보를 수정합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -1555,7 +1648,7 @@ Plan의 작업 정보를 수정합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -1716,7 +1809,7 @@ Step의 상태와 입력·출력 근거를 기록합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -1793,7 +1886,7 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -1993,7 +2086,7 @@ Rhino 객체와 모델 구성을 관찰합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -2085,7 +2178,7 @@ Rhino 문서와 화면의 현재 상태를 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -2156,7 +2249,7 @@ Rhino 문서와 화면의 현재 상태를 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -2228,7 +2321,7 @@ Plan에 등록된 Holon 대상 집합을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -2328,7 +2421,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -2344,8 +2437,8 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
   ],
   "fps": 16, // 영상 프레임 레이트
   "errors": [], // 실패한 청크의 프레임 범위와 메시지. 부분 생성 파일이 남을 수 있음
-  "out_dir": ".almond/produced/example/capture", // 패스별 PNG와 doc.json/camera.json/zrange.csv/summary.json을 쓰는 폴더
-  "camera_json": ".almond/produced/example/capture/camera.json", // 전체 계획 경로 기록. frames[].camera/target/lens_mm를 포함하며 부분 캡처에도 계획은 전체 길이
+  "out_dir": ".almond/produced/261111_example/capture", // 패스별 PNG와 doc.json/camera.json/zrange.csv/summary.json을 쓰는 폴더
+  "camera_json": ".almond/produced/261111_example/capture/camera.json", // 전체 계획 경로 기록. frames[].camera/target/lens_mm를 포함하며 부분 캡처에도 계획은 전체 길이
   "videos": { // 완전 캡처 후 패스별 MP4. ffmpeg 조립 실패는 null이며 부분 캡처에는 빈 객체일 수 있음
     "rgb": null
   },
@@ -2440,7 +2533,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -2455,7 +2548,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
   ],
   "image_file": { // PNG 파일 저장 결과. 이미지 전달과 별개이며 저장 실패여도 이미지가 제공될 수 있음
     "status": "saved",
-    "path": ".almond/produced/example/captures/example.png",
+    "path": ".almond/produced/261111_example/captures/example.png",
     "lifetime": "plan",
     "bytes": 12345,
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -2571,13 +2664,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
   "image_file": { // PNG 저장 결과입니다. 이미지 전달 여부와 별도로 확인합니다.
     "status": "saved",
-    "path": ".almond/produced/example/captures/example.png",
+    "path": ".almond/produced/261111_example/captures/example.png",
     "lifetime": "plan",
     "bytes": 12345,
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -2680,13 +2773,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
   "image_file": { // PNG 저장 결과입니다. 실제 치수와 축소 경고는 캡처 메타데이터에서 확인합니다.
     "status": "saved",
-    "path": ".almond/produced/example/captures/example.png",
+    "path": ".almond/produced/261111_example/captures/example.png",
     "lifetime": "plan",
     "bytes": 12345,
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -2785,7 +2878,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -2871,7 +2964,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -2930,7 +3023,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3012,7 +3105,9 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+기본 include_ids=false로 조회한 예시입니다. 재료 ID가 필요하면 안내에 따라 include_ids=true로 조회합니다.
 
 ```jsonc
 {
@@ -3023,7 +3118,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
       "category": "wood"
     }
   ],
-  "next_step_guide": "선택한 material_id를 assign_material에 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "재료를 적용하려면 include_ids=true로 재료 ID를 조회해 assign_material에 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -3062,7 +3157,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3116,14 +3211,14 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "completed": true, // Rhino 실행 완료가 확인됐는지 나타냅니다.
   "request_id": "00000000000000000000000000000001", // 미완료·불확실성·결과 페이지를 get_rhino_execution으로 회수할 정확한 ID
-  "artifact_dir": ".almond/produced/example/01" // 실행에 사용한 Plan·Loop 산출물 폴더입니다.
+  "artifact_dir": ".almond/produced/261111_example/01" // 실행에 사용한 Plan·Loop 산출물 폴더입니다.
 }
 ```
 
@@ -3172,7 +3267,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3263,7 +3358,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3304,7 +3399,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3366,7 +3461,7 @@ Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon �
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3434,7 +3529,7 @@ Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon �
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3490,7 +3585,7 @@ Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3562,7 +3657,7 @@ Scene의 등록 정보를 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3645,7 +3740,7 @@ Holon의 등록 정보와 구성원을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3729,7 +3824,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3812,7 +3907,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3888,7 +3983,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3934,7 +4029,7 @@ Holon 등록을 해제하고 Rhino 형상과 그룹은 유지합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -3995,7 +4090,7 @@ Holon 등록을 해제하고 Rhino 형상과 그룹은 유지합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4069,7 +4164,7 @@ Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4143,7 +4238,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4251,7 +4346,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4313,14 +4408,14 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
   "intersections": { // 겹침 집계
     "number": 0
   },
-  "next_step_guide": "이 범위에서 양의 부피 겹침이 발견되지 않았으므로 해결 도구를 호출할 필요가 없습니다. 이 결과가 다른 설계 조건이나 이격 거리 조건을 충족함을 입증하지는 않습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "No positive-volume overlap was found in this scope; no resolution call is needed. This does not establish other design or clearance conditions." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -4393,7 +4488,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4448,7 +4543,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4539,12 +4634,12 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "package_dir": ".almond/produced/example/drawing", // 생성한 도면 패키지 폴더입니다.
+  "package_dir": ".almond/produced/261111_example/drawing", // 생성한 도면 패키지 폴더입니다.
   "manifest": {} // 생성한 도면과 원본·축척·단위 기록입니다.
 }
 ```
@@ -4604,7 +4699,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4669,7 +4764,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4747,7 +4842,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4757,7 +4852,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
   "limit": 20, // 페이지 최대 항목 수
   "offset": 0, // 현재 페이지 시작 위치
   "truncated": false, // true이면 같은 필터로 offset+현재 항목 수부터 계속. next_offset 필드는 없음
-  "purpose": "3DM 모델 및 2D 표현. 기존 원본은 명시적인 변환이 필요합니다." // 이 라이브러리의 용도입니다.
+  "purpose": "3DM models and 2D representations; legacy sources require explicit conversion" // 이 라이브러리의 용도입니다.
 }
 ```
 
@@ -4821,7 +4916,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4926,18 +5021,20 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+최종 검토가 기록되어 state=ready인 경우입니다. review_evidence와 next_step_guide는 현재 서버가 반환하는 영어 원문입니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "state": "ready", // ready일 때만 source_3dm 제공. running/unconfirmed/failed는 error와 next_stage=null
   "ready_for_registration": true, // 현재 파일 해시에 대한 이미지 검토를 호출자가 확인했는지 나타냅니다.
-  "job_dir": ".almond/produced/example/job", // 이후 단계 및 등록의 preparation_job에 재사용. status는 저장 근거만 읽고 늦은 실행을 자동 정합화하지 않음
-  "source_3dm": ".almond/produced/example/job/final.3dm", // 검토 완료 최종 파일. register_drawing_asset에 검토한 name/asset_id와 함께 전달
+  "job_dir": ".almond/produced/261111_example/job", // 이후 단계 및 등록의 preparation_job에 재사용. status는 저장 근거만 읽고 늦은 실행을 자동 정합화하지 않음
+  "source_3dm": ".almond/produced/261111_example/job/final.3dm", // 검토 완료 최종 파일. register_drawing_asset에 검토한 name/asset_id와 함께 전달
   "next_stage": "register_drawing_asset", // 현재 상태의 다음 단계. 오류에서 자동 진행을 유도하지 않음
-  "review_evidence": "파일 해시에 연결된 호출자의 검토 확인이며, 자동 시각 검증은 수행하지 않습니다.", // 저장된 검토 증거에 대한 설명입니다.
-  "next_step_guide": "게시하려는 경우 이 응답의 source_3dm, preparation_job=job_dir, 검토한 asset_id/name을 지정하여 register_drawing_asset을 호출합니다. category는 선택 사항입니다. …" // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "review_evidence": "caller attestations tied to file hashes; no automatic vision verification", // 저장된 검토 증거에 대한 설명입니다.
+  "next_step_guide": "If publication is intended, call register_drawing_asset with source_3dm from this response, preparation_job=job_dir, and the reviewed asset_id/name; category is optional. Choose replace_existing explicitly when replacing an existing asset." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -4976,7 +5073,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -4986,8 +5083,8 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
   "rhino_linked_instances_updated": false, // false: 기존 Rhino 연결 인스턴스 재로드는 별도
   "live_index_refreshed": true, // false인데 게시가 적용됐다면 재연결하여 인덱스 갱신
   "asset": {}, // 갱신한 자산의 정보입니다.
-  "model_path": ".almond/produced/example/asset.3dm", // 갱신한 라이브러리 3DM 경로입니다.
-  "package_dir": ".almond/produced/example/drawing", // 갱신한 도면 패키지 폴더입니다.
+  "model_path": ".almond/produced/261111_example/asset.3dm", // 갱신한 라이브러리 3DM 경로입니다.
+  "package_dir": ".almond/produced/261111_example/drawing", // 갱신한 도면 패키지 폴더입니다.
   "previous_files_retained": true, // 이전 도면·매니페스트 백업·원본 리비전 사본 보존
   "next_step_guide": "갱신된 도면은 get_asset_drawing으로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
@@ -5078,7 +5175,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5088,10 +5185,10 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
   "source_path_preserved": false, // 기존 원본 경로를 보존했는지 여부
   "linked_instances_may_update": false, // 교체로 기존 연결 인스턴스에 영향 가능
   "asset": {}, // 등록한 자산의 정보입니다.
-  "library_dir": ".almond/produced/example", // 라이브러리 폴더
-  "model_path": ".almond/produced/example/asset.3dm", // 저장된 모델의 경로
-  "package_dir": ".almond/produced/example/drawing", // 생성한 도면 패키지 폴더입니다. DXF와 치수는 mm 단위입니다.
-  "manifest_path": ".almond/produced/example/manifest.json", // 라이브러리 manifest.json 경로입니다.
+  "library_dir": ".almond/produced/261111_example", // 라이브러리 폴더
+  "model_path": ".almond/produced/261111_example/asset.3dm", // 저장된 모델의 경로
+  "package_dir": ".almond/produced/261111_example/drawing", // 생성한 도면 패키지 폴더입니다. DXF와 치수는 mm 단위입니다.
+  "manifest_path": ".almond/produced/261111_example/manifest.json", // 라이브러리 manifest.json 경로입니다.
   "previous_files_retained": false, // 교체 전 원본·도면·매니페스트 백업 보존
   "previous_source_sha256": null, // 기존 원본 해시. 없으면 null
   "next_step_guide": "등록한 자산은 get_drawing_asset으로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
@@ -5166,7 +5263,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5258,7 +5355,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5329,7 +5426,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5405,7 +5502,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5415,7 +5512,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
   "offset": 0, // 현재 페이지 시작 위치
   "limit": 20, // 페이지 최대 항목 수
   "next_offset": null, // 다음 페이지의 시작 위치입니다. null이면 다음 페이지가 없습니다.
-  "purpose": "2D 벡터 다이어그램 및 선화" // 이 라이브러리의 용도입니다.
+  "purpose": "2D vector diagramming and line-art" // 이 라이브러리의 용도입니다.
 }
 ```
 
@@ -5479,7 +5576,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5574,7 +5671,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5623,7 +5720,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5640,7 +5737,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
   ],
   "review_preparation": { // A4 레시피에서 준비한 검토용 정보입니다.
     "status": "not_executed",
-    "message": "…",
+    "message": "PrintDisplay was not inspected or changed. Reuse a discovered pipe matching this connection's Rhino PID and saved document path; discover it only if unconfirmed. Skip this step if Document-scoped Model/Layout PrintDisplay On with Print colors is already confirmed.",
     "cli": {
       "program": "rhinocode",
       "discovery_arguments": [
@@ -5714,7 +5811,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5775,7 +5872,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5825,7 +5922,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -5886,7 +5983,9 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+include_ids=true로 조회한 예시입니다.
 
 ```jsonc
 {
@@ -6048,7 +6147,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -6127,7 +6226,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -6207,7 +6306,9 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니다.
 
 ```jsonc
 {
@@ -6283,7 +6384,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -6354,7 +6455,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -6454,7 +6555,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -6556,7 +6657,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -6632,7 +6733,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -6748,7 +6849,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -6810,12 +6911,12 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "path": ".almond/produced/example/structure-report.md", // 작성된 Markdown 파일
+  "path": ".almond/produced/261111_example/structure-report.md", // 작성된 Markdown 파일
   "runs": 1, // 실제 포함한 저장 실행 수
   "latest_method": "native" // 가장 최근 저장된 실행 방식
 }
@@ -6869,7 +6970,9 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+include_ids=true로 조회한 예시입니다.
 
 ```jsonc
 {
@@ -7028,7 +7131,7 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -7298,7 +7401,7 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -7381,21 +7484,23 @@ Rhino 객체를 GLB와 Almond 자산 계약 파일로 내보냅니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+next_step_guide는 현재 서버가 반환하는 영어 원문입니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "asset_id": "example-asset", // 자산 ID입니다.
-  "glb_path": ".almond/produced/example/example-asset.glb", // 내보낸 GLB 파일 경로입니다.
-  "contract_path": ".almond/produced/example/example-asset.almond.json", // import_asset_contract에 전달
+  "glb_path": ".almond/produced/261111_example/example-asset.glb", // 내보낸 GLB 파일 경로입니다.
+  "contract_path": ".almond/produced/261111_example/example-asset.almond.json", // import_asset_contract에 전달
   "dimensions_mm": { // 내보낸 자산의 경계 치수입니다. 단위는 mm입니다.
     "width": 1000,
     "depth": 500,
     "height": 800
   },
   "materials": [], // 인식된 Almond 재료 그룹. 비어 있어도 모든 재료가 보존됐다는 뜻은 아님
-  "next_step_guide": "대상 Rhino로 가져오려면 반환된 contract_path를 import_asset_contract에 전달하고 mm 단위 배치를 선택합니다. 내보내기만으로 추가 가져오기를 요청한 것은 아닙니다. …" // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "If importing into a destination Rhino is intended, pass the returned contract_path to import_asset_contract(contract_path=...) and choose its placement coordinates in mm; exporting alone does not request another import. For Blender, import the returned glb_path there and verify materials/placement; get_blender_helper_script supports export and materials, not import." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -7489,7 +7594,7 @@ Blender의 선택 형상 내보내기 또는 재료 설정에 사용할 Python �
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -7560,7 +7665,7 @@ Almond 자산 계약에 따라 GLB를 Rhino 문서로 가져옵니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -7662,7 +7767,7 @@ Rhino 객체를 물리·콜라이더 설정이 있는 GLB로 Chestnut에 게시�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
@@ -7726,7 +7831,7 @@ Rhino 객체를 동작 프리셋으로 Chestnut에 게시합니다. 원본 문�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
