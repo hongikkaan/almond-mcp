@@ -107,7 +107,7 @@ internal sealed class RhinoHost : IDisposable
     string State => binding == null ? "available" : busy ? "unconfirmed_or_running" : invalid ? "cleanup_pending" : "connected";
 
     internal string StatusText() => binding == null
-        ? "Almond 연결 준비됨. Codex 또는 CoS에서 list_connections → connect로 저장된 현재 문서를 선택하세요."
+        ? "Almond 연결 준비됨. Codex 또는 CoS에서 connect_01-list_up tool → connect_02-session tool로 저장된 현재 문서를 선택하세요."
         : "Almond " + binding["label"] + " · " + Path.GetFileName((string)binding["model_path"]!) +
           (busy ? " · 요청 처리 중 또는 결과 확인 필요" : invalid ? " · 연결 정리 대기" : " · 연결됨");
 
@@ -119,7 +119,8 @@ internal sealed class RhinoHost : IDisposable
         return new { host_id = hostId, pid, process_start_ticks = startTicks,
             model_path = saved ? Canonical(doc!.Path) : null,
             document_serial = saved ? doc!.RuntimeSerialNumber.ToString() : null,
-            supported_slots = Slots, state = State, reason = problem, saved };
+            supported_slots = Slots, state = State, reason = problem, saved,
+            modified = doc?.Modified, read_only = doc?.IsReadOnly };
     }
 
     void Own(JsonElement request)

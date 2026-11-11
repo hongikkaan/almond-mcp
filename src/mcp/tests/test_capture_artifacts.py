@@ -21,10 +21,10 @@ def test_capture_annotations_disclose_file_writes_without_claiming_destructive_m
     context_tools.register(server, SimpleNamespace(_send_and_receive=None))
     tools = {tool.name: tool.to_mcp_tool().model_dump(mode="json", by_alias=True)
              for tool in asyncio.run(server.list_tools())}
-    for name in ("get_current_viewcapture", "get_defined_viewcapture", "capture_rhino_inspection"):
+    for name in ("capture_03-current_view", "capture_04-defined_view", "capture_02-inspection"):
         assert tools[name]["annotations"]["readOnlyHint"] is False
         assert tools[name]["annotations"]["destructiveHint"] is False
-    for name in ("get_rhino_context", "get_objects"):
+    for name in ("inspect_03-get_document_context", "inspect_02-get_objects"):
         assert tools[name]["annotations"]["readOnlyHint"] is True
 
 
@@ -181,7 +181,7 @@ def test_capture_public_tool_through_owned_runtime_preserves_connection_lifetime
         "get_current_viewcapture"]
 
     class Message:
-        name = "get_current_viewcapture"
+        name = "capture_03-current_view"
         arguments = {}
 
         def model_copy(self, update):
@@ -239,7 +239,7 @@ def test_capture_still_returns_png_when_persistence_is_blocked(tmp_path, monkeyp
         "get_current_viewcapture"]
 
     class Message:
-        name = "get_current_viewcapture"
+        name = "capture_03-current_view"
         arguments = {}
 
         def model_copy(self, update):

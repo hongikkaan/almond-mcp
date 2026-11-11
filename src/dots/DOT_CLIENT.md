@@ -19,22 +19,22 @@
 ```json
 {"id":"help","op":"help"}
 {"id":"names","op":"catalog"}
-{"id":"definitions","op":"describe","names":["list_connections","connect","project_info"]}
-{"id":"available","op":"call","name":"list_connections","arguments":{}}
+{"id":"definitions","op":"describe","names":["connect_01-list_up","connect_02-session","context_04-get_project_info"]}
+{"id":"available","op":"call","name":"connect_01-list_up","arguments":{}}
 ```
 
 `describe`는 이름 배열에 해당하는 전체 description, inputSchema와 제공되는 outputSchema·annotations를 원본 그대로 반환한다. 현재 세션 시작 때 받은 catalog를 사용한다. 알려지지 않은 이름이나 잘못된 명령 형식은 서버를 호출하지 않고 오류로 반환한다.
 
-실제 대상 선택은 `list_connections`에서 확인한 정확한 값으로 한다. 아래 값은 설명용 자리표시자다.
+실제 대상 선택은 `connect_01-list_up` tool에서 확인한 정확한 값으로 한다. 아래 값은 설명용 자리표시자다.
 
 ```json
-{"op":"call","name":"connect","arguments":{"host_id":"<목록의 host_id>","model_path":"<목록의 model_path>"}}
-{"op":"call","name":"project_info","arguments":{"connection_id":"<connect 결과의 ID>","sections":["document"]}}
-{"op":"call","name":"disconnect","arguments":{"connection_id":"<같은 ID>"}}
+{"op":"call","name":"connect_02-session","arguments":{"host_id":"<목록의 host_id>","model_path":"<목록의 model_path>"}}
+{"op":"call","name":"context_04-get_project_info","arguments":{"connection_id":"<connect_02-session tool 결과의 ID>","sections":["document"]}}
+{"op":"call","name":"connect_04-disconnect","arguments":{"connection_id":"<같은 ID>"}}
 {"op":"shutdown"}
 ```
 
-`connect` 이후의 호출도 같은 실행 도구 session_id에 입력한다. 다른 클라이언트가 소유한 Rhino를 빼앗거나 잠금 파일을 삭제하지 않는다. 새 Rhino는 자동으로 만들지 않으며 `start_session`은 명시적인 요청일 때만 호출한다.
+`connect_02-session` tool 이후의 호출도 같은 실행 도구 session_id에 입력한다. 다른 클라이언트가 소유한 Rhino를 빼앗거나 잠금 파일을 삭제하지 않는다. 새 Rhino는 자동으로 만들지 않으며 `connect_03-start_session` tool은 명시적인 요청일 때만 호출한다.
 
 ## 응답과 오류
 
@@ -42,7 +42,7 @@
 
 잘못된 입력 뒤에도 클라이언트는 다음 입력을 기다린다. 호출 오류·timeout을 자동 재시도하지 않는다. timeout은 rollback 증거가 아니며 변경 호출을 다시 보내기 전 결과를 확인한다. 요청은 한 번에 하나씩 처리한다.
 
-`shutdown` 또는 정상 EOF는 이 클라이언트가 만든 MCP 연결을 정리한다. Rhino 파일을 저장하거나 Rhino를 종료하지 않는다. 작업이 끝났으면 먼저 `disconnect`로 연결 해제를 확인한다. 강제 프로세스 종료와 정상 정리를 혼동하지 않는다.
+`shutdown` 또는 정상 EOF는 이 클라이언트가 만든 MCP 연결을 정리한다. Rhino 파일을 저장하거나 Rhino를 종료하지 않는다. 작업이 끝났으면 먼저 `connect_04-disconnect` tool로 연결 해제를 확인한다. 강제 프로세스 종료와 정상 정리를 혼동하지 않는다.
 
 호출 제한 기본값은 600초다. `--timeout`, `--server-python`, `--server-entry`는 명시적으로 변경할 때만 사용한다. 서버 stdout은 MCP 전용이고 클라이언트 stdout은 위 JSON 출력용이다. 터미널 화면의 줄바꿈·ANSI 코드는 전송 JSON 데이터가 아니다.
 

@@ -3,26 +3,17 @@
 ## check_egress
 
 <!-- instruction:check_egress -->
-Screen a supplied floor layout against the local construction library's egress rules without reading or changing Rhino geometry.
-
-When to use: Compare exit count, separation, widths and supplied path measurements after laying out cores/exits and before detailing.
-Before calling: Provide a four-value plate bounding rectangle and nonempty exits with door-center coordinates and clear widths in mm. Confirm occupancy, stories and sprinkler assumptions; net_area_m2 overrides occupied area only, while plate bounds still set the separation diagonal.
-Inputs from earlier results: No discovery call is required. Convert verified floor bounds to [min_x,min_y,max_x,max_y] in mm and measured exit centers/clear widths to exits[].x_mm/y_mm/width_mm. Supply measured path lengths in metres as travel_distances_m and the longest dead end as dead_end_m; geometry IDs alone are not inputs.
-Interpretation: occupant_load is the ceiling of area divided by the occupancy factor. checks[].required/provided use units named in check (m or mm), passed is each comparison and basis explains it. Overall passed covers only checks actually performed. Multi-story layouts require at least two exits and use stair width factors; separation uses the most remote exit pair.
-Limits: Empty travel_distances_m and dead_end_m=0 skip those checks; routes and obstacles are not inferred. Gross area is the bounding rectangle, not a measured irregular plate. Travel limits use business values even for other occupancies and warn; dead-end rules are also simplified. BCI A.10-A.13/IBC-typical factors are screening guidance, not governing-code certification; verify local requirements and source_note.
+피난 조건을 예비 검토합니다.
 
 Args:
-    plate_bounds_mm: Floor plate [min_x, min_y, max_x, max_y] in mm (sets gross area and the diagonal used for exit separation).
-    exits: One entry per exit (stair door or exterior exit door): {"name": str, "x_mm": float, "y_mm": float, "width_mm": float}. Positions are the door centers; width is the clear egress width.
-    occupancy: Occupant-load key: business, mercantile, assembly_unconcentrated, classroom, residential, storage.
-    stories: Stories served. Above 1, at least two exits are required and exit width demand uses the stair factor (7.6 mm/occupant) instead of the door factor (5.1).
-    sprinklered: Sprinklered throughout (affects separation fraction, travel-distance and dead-end limits).
-    net_area_m2: Override the occupied area; 0 uses the gross plate area.
-    travel_distances_m: Measured worst-case travel distances (e.g. from drawn egress paths); empty skips the travel check.
-    dead_end_m: Longest dead-end corridor in metres; 0 skips the check.
-Returns:
-    JSON: {passed, occupant_load, checks: [{check, required, provided,
-    passed, basis}], warnings, source_note}.
+    plate_bounds_mm: mm 단위의 층 바닥 경계 [min_x, min_y, max_x, max_y]입니다. 전체 면적과 출구 이격거리에 사용하는 대각선을 결정합니다.
+    exits: 출구(계단실 문 또는 외부 출입문)마다 항목 하나를 제공합니다: {"name": str, "x_mm": float, "y_mm": float, "width_mm": float}. 위치는 문 중심이며, 너비는 피난에 사용할 수 있는 유효 너비입니다.
+    occupancy: 재실 인원 산정에 사용할 키: business, mercantile, assembly_unconcentrated, classroom, residential, storage.
+    stories: 담당하는 층수입니다. 1을 초과하면 최소 2개 출구가 필요하며, 필요 출구 너비에는 문 계수(5.1) 대신 계단 계수(재실자당 7.6 mm)를 사용합니다.
+    sprinklered: 전체에 스프링클러가 설치됐는지 여부입니다. 이격 비율, 보행거리, 막다른 복도 길이 제한에 영향을 줍니다.
+    net_area_m2: 재실 면적을 대체합니다. 0이면 전체 바닥 면적을 사용합니다.
+    travel_distances_m: 측정한 최악 조건의 보행거리입니다(예: 그려진 피난 경로에서 측정). 비워 두면 보행거리 검사를 건너뜁니다.
+    dead_end_m: 가장 긴 막다른 복도의 길이(미터)입니다. 0이면 검사를 건너뜁니다.
 <!-- /instruction:check_egress -->
 
 ## response-651

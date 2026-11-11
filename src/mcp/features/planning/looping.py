@@ -55,7 +55,7 @@ class LoopingStore:
     @staticmethod
     def _loop_number(value):
         if type(value) is not int or value < 0:
-            raise ValueError("loop_no must be a nonnegative integer; 0 means before execute_looping.")
+            raise ValueError("loop_no must be a nonnegative integer; 0 means before plan_03-execute_looping tool.")
         return value
 
     def _check_current_loop(self, plan, loop_no=None, expected_revision=None):
@@ -74,7 +74,7 @@ class LoopingStore:
                 raise KeyError(f"Unknown plan_id: {plan_id}")
             if resume:
                 if plan["loop_no"] == 0:
-                    raise ValueError("No Loop has been executed. Call execute_looping without resume first.")
+                    raise ValueError("No Loop has been executed. Call plan_03-execute_looping tool without resume first.")
                 if not feedback or feedback == plan["feedback"]:
                     return plan
                 connection.execute("UPDATE generation_plan_loops SET feedback=? WHERE plan_id=? AND loop_no=?",

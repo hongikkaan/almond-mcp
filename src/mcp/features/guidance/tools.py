@@ -1,4 +1,5 @@
 """Register construction, typology and detail-source guidance tools."""
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.guidance.output import GROUPS, project
@@ -7,7 +8,8 @@ from almond_mcp.features.guidance.source_search import search_sources
 from pydantic import StrictBool
 from fastmcp.tools import ToolResult
 from mcp.types import TextContent
-from almond_mcp.modeling_guidance import read_guide
+from almond_mcp.modeling_guidance import read_policy
+from typing import Literal
 import json
 from pathlib import Path
 
@@ -15,12 +17,13 @@ from pathlib import Path
 def register(mcp, context):
     """Register guidance tools against the calling server's live context."""
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False})
-    @tool_instruction(__file__, 'get_modeling_guide')
-    def get_modeling_guide(include_scripting: StrictBool = False) -> ToolResult:
-        return ToolResult(content=[TextContent(type="text", text=json.dumps(read_guide(include_scripting=include_scripting), ensure_ascii=False))])
+    @mcp.tool(name='context_01-get_policy', annotations={'readOnlyHint': True, 'destructiveHint': False, 'openWorldHint': False}, output_schema=public_output_schema('get_policy', wrapped=False))
+    @tool_instruction(__file__, 'get_policy')
+    def get_policy(policy: Literal["", "basic", "metadata", "rhino_scripting", "rhinocode"] = "") -> ToolResult:
+        value = read_policy(policy)
+        return ToolResult(content=[TextContent(type="text", text=json.dumps(value, ensure_ascii=False))], structured_content=value)
 
-    @mcp.tool()
+    @mcp.tool(name='research_01-get_construction_guidance', output_schema=public_output_schema('get_construction_guidance', wrapped=True))
     @tool_instruction(__file__, 'get_construction_guidance')
     @query_output
     def get_construction_guidance(
@@ -63,7 +66,7 @@ def register(mcp, context):
             payload["hint"] = (read_instruction(__file__, 'response-732'))
         return json.dumps(project(payload, field_groups))
 
-    @mcp.tool()
+    @mcp.tool(name='research_02-get_typology_narrative', output_schema=public_output_schema('get_typology_narrative', wrapped=True))
     @tool_instruction(__file__, 'get_typology_narrative')
     @query_output
     def get_typology_narrative(
@@ -81,7 +84,7 @@ def register(mcp, context):
             "source": context.history_library.source,
         }, field_groups))
 
-    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
+    @mcp.tool(name='research_03-search_details', annotations={'readOnlyHint': True, 'openWorldHint': False}, output_schema=public_output_schema('search_detail_sources', wrapped=False))
     @tool_instruction(__file__, 'search_detail_sources')
     @query_output
     def search_detail_sources(query: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:
@@ -90,7 +93,7 @@ def register(mcp, context):
         return project({"scope": data["scope"], **search_sources(data["sources"], query)}, field_groups)
 
     return {
-        "get_modeling_guide": get_modeling_guide,
+        "get_policy": get_policy,
         "get_construction_guidance": get_construction_guidance,
         "get_typology_narrative": get_typology_narrative,
         "search_detail_sources": search_detail_sources,

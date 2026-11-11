@@ -7,7 +7,7 @@ Almond's native structural engine follows the Eurocode method: EN 1990 load comb
   Useful for comparisons (it matches the Karamba route's basis), not for design.
 - **Your own profiles**: one JSON file per National Annex (or office standard) in `%LOCALAPPDATA%\Almond\design-codes\` (or the folder named by `ALMOND_DESIGN_CODE_DIR`).
 
-Choose the profile under **Design code** in the panel (step 02), or pass `design_code` to `validate_structure` / `visualize_structure` (`list_design_codes` lists them). Every result states the profile, the values it used and any value that is not yet verified.
+Choose the profile under **Design code** in the panel (step 02), or pass `design_code` to `analysis_04-validate_structure` tool / `analysis_05-visualize_structure` tool (`analysis_03-list_design_codes` tool lists them). Every result states the profile, the values it used and any value that is not yet verified.
 
 ## What a profile sets
 

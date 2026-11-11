@@ -4,6 +4,7 @@ The context supplies the current bridge sender, target URL and exported helper
 bindings at call time, preserving per-server runtime and monkeypatch behavior.
 """
 from almond_mcp.tool_response import error_payload
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
@@ -62,7 +63,7 @@ def register(mcp, context):
             detail = exc.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"Chestnut returned HTTP {exc.code}: {detail}") from exc
 
-    @mcp.tool()
+    @mcp.tool(name='exchange_04-publish_chestnut_advanced', output_schema=public_output_schema('publish_objects_to_chestnut', wrapped=True))
     @tool_instruction(__file__, 'publish_objects_to_chestnut')
     def publish_objects_to_chestnut(
         guids: list[str],
@@ -155,7 +156,7 @@ def register(mcp, context):
             except OSError:
                 pass
 
-    @mcp.tool()
+    @mcp.tool(name='exchange_05-publish_chestnut', output_schema=public_output_schema('publish_to_chestnut', wrapped=True))
     @tool_instruction(__file__, 'publish_to_chestnut')
     def publish_to_chestnut(
         guids: list[str],

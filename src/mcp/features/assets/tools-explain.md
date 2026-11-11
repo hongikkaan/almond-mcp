@@ -3,145 +3,111 @@
 ## list_drawing_assets
 
 <!-- instruction:list_drawing_assets -->
-When to use: Browse the common model and 2D asset collection, including legacy sources awaiting conversion.
-Before calling: No prerequisite; use category and offset/limit to narrow or page the catalogue. Diagram assets are a separate collection.
-Inputs from earlier results: None required. Set include_ids=true to obtain asset_id for get_drawing_asset or placement; request field_groups=["paths"] if source paths are needed.
-Interpretation: Read file_available, model_status, source_only and drawing_status separately. A source_only or needs_conversion model must be prepared and registered as 3DM while retaining its asset_id. Where next_tool exists, next_step supplies the matching ID/path inputs and missing prerequisites; this is conditional guidance, not an automatic conversion or placement request.
-Limits: Catalogue readiness is file evidence, not visual or placement validation. Optional groups are dimensions, source, paths, drawing, metadata, audit or all; audit exposes timestamps and include_ids independently exposes handles.
+모델·2D 자산 목록을 조회합니다.
 
 Args:
-    category: Optional library category filter; empty includes all categories.
-    limit: Maximum rows returned in this response. Inspect total and pagination fields before treating the page as complete.
-    offset: Zero-based starting row for this page; use the same filters when requesting the next page.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: dimensions, source, paths, drawing, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    category: 라이브러리 분류 필터입니다. 선택 사항이며, 비어 있으면 모든 분류를 포함합니다.
+    limit: 한 페이지에 반환할 최대 항목 수입니다.
+    offset: 이 페이지의 시작 행을 0부터 세는 값입니다. 다음 페이지를 요청할 때도 같은 필터를 사용합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:list_drawing_assets -->
 
 ## search_drawing_assets
 
 <!-- instruction:search_drawing_assets -->
-When to use: Find common model or 2D assets by text, category and maximum measured dimensions.
-Before calling: No prerequisite; provide only relevant filters, with dimension limits in millimetres and zero meaning unbounded.
-Inputs from earlier results: None required. Set include_ids=true to retain asset_id for inspection, preparation/registration or placement; request dimensions or paths through field_groups when needed.
-Interpretation: Compare returned dimensions and readiness before choosing a model. Legacy source_only models are not placement-ready even when their original source is available. A row's next_step explains its next_tool and how to obtain missing IDs/paths; an empty list authorizes no placement.
-Limits: Dimension matching is not a scene fit or clearance check. Diagram assets are separate. Optional groups are dimensions, source, paths, drawing, metadata, audit or all; IDs and timestamps require include_ids and audit respectively.
+조건에 맞는 모델·2D 자산을 검색합니다.
 
 Args:
-    query: Free-text search terms; empty leaves the text filter unset.
-    category: Optional library category filter; empty includes all categories.
-    max_width_mm: Optional maximum measured asset width in millimetres; zero disables this size filter.
-    max_depth_mm: Optional maximum measured asset depth in millimetres; zero disables this size filter.
-    max_height_mm: Optional maximum measured asset height in millimetres; zero disables this size filter.
-    limit: Maximum rows returned in this response. Inspect total and pagination fields before treating the page as complete.
-    offset: Zero-based starting row for this page; use the same filters when requesting the next page.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: dimensions, source, paths, drawing, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    query: 자유 텍스트 검색어입니다. 비어 있으면 텍스트 필터를 설정하지 않습니다.
+    category: 라이브러리 분류 필터입니다. 선택 사항이며, 비어 있으면 모든 분류를 포함합니다.
+    max_width_mm: 측정된 자산 너비의 최댓값이며, 밀리미터 단위입니다. 선택 사항이며, 0은 이 크기 필터를 해제합니다.
+    max_depth_mm: 측정된 자산 깊이의 최댓값이며, 밀리미터 단위입니다. 선택 사항이며, 0은 이 크기 필터를 해제합니다.
+    max_height_mm: 측정된 자산 높이의 최댓값이며, 밀리미터 단위입니다. 선택 사항이며, 0은 이 크기 필터를 해제합니다.
+    limit: 한 페이지에 반환할 최대 항목 수입니다.
+    offset: 이 페이지의 시작 행을 0부터 세는 값입니다. 다음 페이지를 요청할 때도 같은 필터를 사용합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:search_drawing_assets -->
 
 ## get_drawing_asset
 
 <!-- instruction:get_drawing_asset -->
-When to use: Inspect one known model or 2D asset's availability, provenance and conversion or refresh status.
-Before calling: Supply a known asset_id; list or search only if the ID is unknown.
-Inputs from earlier results: Reuse asset_id from list_drawing_assets or search_drawing_assets with include_ids=true. Request field_groups=["paths"] for source_path/model_path and dimensions, source or drawing for the corresponding details.
-Interpretation: model_status and drawing_status distinguish an available file from a current registered model or drawing package; needs_refresh directs saved source edits to refresh_asset. next_step preserves the next_tool action's prerequisites; retain the asset_id supplied to this detail query because the response does not echo it.
-Limits: This query neither imports nor visually validates geometry. The supplied asset_id is not echoed even with include_ids=true; retain it yourself. Other optional groups are metadata, audit and all; audit enables timestamps.
+모델·2D 자산의 등록 정보와 사용 가능 상태를 조회합니다.
 
 Args:
-    asset_id: Existing library asset ID from a matching list/search result with include_ids=true, or a previously known ID.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: dimensions, source, paths, drawing, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:get_drawing_asset -->
 
 ## prepare_drawing_asset
 
 <!-- instruction:prepare_drawing_asset -->
-When to use: Inspect and optionally normalize a source copy into a reviewed 3DM without changing its assembly, layers, materials or origin by default.
-Before calling: Select a working Plan artifact directory. inspect needs an existing source_file (project-relative in managed sessions, absolute in standalone calls); OBJ/STL/PLY/OFF/GLB/glTF also need input_units. Later stages reuse job_dir and omit source_file/input_units. An independently prepared 3DM can instead be registered directly.
-Inputs from earlier results: Reuse job_dir and review_targets hashes exactly. Request field_groups=["parts","previews"] with include_ids=true to obtain object_id removal handles and images; offset/limit page parts. Optional normalize needs actual image review with review={vision_reviewed:true,inspected_sha256:...,rotation_degrees_xyz:[...],translation:[...],remove:[{object_id,reason}]}; omitted transforms are identity and translation uses source document units. Skip normalize if no edits are needed. verify produces final images; after reviewing them, a second verify with review={vision_reviewed:true,final_sha256:...,name:...,asset_id:...} makes source_3dm available for register_drawing_asset with preparation_job=job_dir.
-Interpretation: ready_for_registration records hash-bound caller review attestations, not automated visual approval. next_step maps next_stage to the public tool, job_dir, review hashes and still-required choices. It requests actual final-image review before approval and offers registration only for ready work. status rereads durable reports without running Rhino; reconcile unconfirmed work rather than replaying it. Errors clear next_stage and direct evidence review/status instead of advancing.
-Limits: Managed output paths are project-relative. Inputs are limited to 100 MB, 10,000 top-level objects and 32 preview block levels; 3DM units are preserved. Only explicitly named top-level objects are removed; definitions, layers and object names remain intact. Previews sample dense meshes and do not verify textures, PBR channels or intended front.
+원본 사본을 검사·편집·시각 검토해 등록용 3DM을 준비합니다.
 
 Args:
-    stage: inspect, normalize, verify or status. inspect creates a job; later stages reuse job_dir. status only rereads saved evidence; it neither runs native work nor promotes an unconfirmed job after late completion.
-    source_file: Source model for inspect. Managed session: project-relative path; standalone: absolute path. Keep original source bytes unchanged.
-    job_dir: Preparation job_dir returned earlier. Managed session: project-relative path; standalone: absolute path. Required for normalize, verify and status.
-    input_units: Explicit source units mm, cm, m, in or ft for OBJ/STL/PLY/OFF/GLB/glTF; use measured source units. Omit for later stages; 3DM preserves its embedded units.
-    review: Explicit review/edit evidence object required for normalization or final verification approval; use the exact output hashes and supported fields in Inputs from earlier results. Omission never implies visual approval.
-    field_groups: Optional summary, parts, previews, provenance or all. Omission includes preview paths; [] keeps the compact result. Pagination applies to parts.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    offset: Zero-based starting row for this page; use the same filters when requesting the next page.
-    limit: Parts page size, 1..200.
+    stage: inspect, normalize, verify 또는 status입니다. inspect는 작업을 생성하고, 이후 단계는 job_dir를 재사용합니다. status는 저장된 근거만 다시 읽습니다. 네이티브 작업을 실행하거나, 나중에 완료되었다는 이유로 확인되지 않은 작업의 단계를 올리지 않습니다.
+    source_file: inspect에 사용할 원본 모델입니다. 관리형 세션에서는 프로젝트 상대 경로, 독립 실행에서는 절대 경로를 사용합니다. 원본 바이트는 변경하지 않고 유지합니다.
+    job_dir: 이전에 반환된 준비 작업의 job_dir입니다. 관리형 세션에서는 프로젝트 상대 경로, 독립 실행에서는 절대 경로를 사용합니다. normalize, verify, status에 필수입니다.
+    input_units: OBJ/STL/PLY/OFF/GLB/glTF의 명시적 원본 단위로 mm, cm, m, in 또는 ft를 지정합니다. 측정한 원본 단위를 사용합니다. 이후 단계에서는 생략하며, 3DM은 내장된 단위를 보존합니다.
+    review: 검토 결과 객체입니다. normalize: {vision_reviewed:true, inspected_sha256:"확인한 해시", rotation_degrees_xyz:[x,y,z], translation:[x,y,z], remove:[{object_id:"ID",reason:"사유"}]}. 생략한 변환은 유지하며 translation은 원본 단위입니다. 최종 이미지를 본 뒤 verify: {vision_reviewed:true, final_sha256:"확인한 해시", name:"이름", asset_id:"ID"}. 첫 verify로 최종 이미지를 만든 후 검토 확인을 제출합니다.
+    field_groups: 선택 가능한 값은 summary, parts, previews, provenance 또는 all입니다. 생략하면 미리 보기 경로를 포함하고, []이면 간략한 결과를 유지합니다. 페이지 처리는 parts에 적용됩니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    offset: 이 페이지의 시작 행을 0부터 세는 값입니다. 다음 페이지를 요청할 때도 같은 필터를 사용합니다.
+    limit: 부품 목록의 페이지 크기이며, 범위는 1..200입니다.
 <!-- /instruction:prepare_drawing_asset -->
 
 ## register_drawing_asset
 
 <!-- instruction:register_drawing_asset -->
-When to use: Publish a 3DM model with measured dimensions and linked plan/front/right drawings as one versioned library asset.
-Before calling: Supply a source_3dm with standard Rhino units (project-relative in managed sessions, absolute in standalone calls) and a Bridge supporting drawing_asset_extract=2. No preparation prerequisite exists for an independently prepared 3DM; preparation_job optionally attaches hash-bound review and original-source evidence. Existing registered IDs require replace_existing=true.
-Inputs from earlier results: Reuse a legacy model's asset_id when converting it; Diagram IDs cannot be reused. For reviewed preparation, pass returned source_3dm and job_dir as preparation_job, with the reviewed name and asset_id. Retain the published ID for placement or refresh_asset.
-Interpretation: registration_applied=true means publication happened even if live_index_refreshed=false; reconnect to refresh the index, not repeat registration. requires_reconciliation or an unknown application state needs investigation before retrying. Registration without preparation_job does not attest visual review.
-Limits: Source units, origin, layers and blocks are preserved; dimensions and full-size DXF are in mm, SVG defaults to 1:50/1:100 with A3 sheets where they fit. Native extraction covers meshes, Breps, extrusions, surfaces, SubD and embedded nested blocks up to 100 MB/250k triangles; external dependencies are not silently embedded or published. Drawings are silhouettes, not hidden lines or construction details. Replacement retains the canonical source path and may affect linked instances; prior source bytes, drawings and manifest backups are retained. Use refresh_asset for saved edits to an existing linked source; other clients reload on reconnect.
+준비한 3DM을 라이브러리 자산으로 등록합니다.
 
 Args:
-    source_3dm: Reviewed 3DM source. Managed session: project-relative path; standalone: absolute path. When using preparation_job, use that job response source_3dm.
-    asset_id: New stable library identifier for the reviewed asset.
-    name: Human-readable asset name.
-    category: Library category for the new asset.
-    tags: Optional descriptive search tags.
-    description: Optional asset description.
-    source_url: Optional original source URL preserved as provenance.
-    replace_existing: Explicitly replace an existing asset with this ID when true; false refuses replacement.
-    preparation_job: Optional completed preparation job_dir. Managed session: project-relative path; standalone: absolute path. Required for the reviewed multi-format conversion workflow.
+    source_3dm: 검토한 3DM 원본입니다. 관리형 세션에서는 프로젝트 상대 경로, 독립 실행에서는 절대 경로를 사용합니다. preparation_job을 사용할 때는 해당 작업 응답의 source_3dm을 사용합니다.
+    asset_id: 검토한 자산에 사용할 새 고정 라이브러리 식별자입니다.
+    name: 사람이 읽을 수 있는 자산 이름입니다.
+    category: 새 자산의 라이브러리 분류입니다.
+    tags: 선택 사항인 설명용 검색 태그입니다.
+    description: 선택 사항인 자산 설명입니다.
+    source_url: 출처 이력으로 보존할 원래 원본 URL입니다. 선택 사항입니다.
+    replace_existing: true이면 이 ID를 가진 기존 자산을 명시적으로 교체합니다. false이면 교체를 거부합니다.
+    preparation_job: 완료된 준비 작업의 job_dir입니다. 선택 사항이며, 관리형 세션에서는 프로젝트 상대 경로, 독립 실행에서는 절대 경로를 사용합니다. 검토를 거치는 다중 형식 변환 절차에는 필수입니다.
 <!-- /instruction:register_drawing_asset -->
 
 ## get_asset_drawing
 
 <!-- instruction:get_asset_drawing -->
-When to use: Retrieve a registered model's drawing manifest and view URI, or an available legacy pilot drawing package.
-Before calling: Supply a known asset_id; discovery is optional when the ID is already known.
-Inputs from earlier results: Reuse asset_id from model discovery with include_ids=true. Request field_groups=["paths"] to obtain package_dir and available dimensions_path for file access or audit_asset_drawing; retain the supplied ID because it is not echoed.
-Interpretation: The default result retains manifest and plan_svg_uri. A returned package describes stored outputs, not proof that they still match the current source; use audit_asset_drawing when that evidence is needed.
-Limits: This retrieves existing drawings and does not generate or refresh them. Optional groups are dimensions, source, paths, drawing, metadata, audit or all; include_ids exposes unsupplied handles independently, and audit enables timestamps.
+등록 모델의 저장 도면을 조회합니다.
 
 Args:
-    asset_id: Existing library asset ID from a matching list/search result with include_ids=true, or a previously known ID.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: dimensions, source, paths, drawing, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:get_asset_drawing -->
 
 ## generate_asset_drawing_views
 
 <!-- instruction:generate_asset_drawing_views -->
-When to use: Generate a new local package of plan/front/right mesh silhouettes without replacing a registered asset's stored drawings.
-Before calling: Choose exactly one registered 3DM asset_id or custom source_glb (project-relative in managed sessions, absolute in standalone calls). Custom GLB input requires input_units mm or m and up_axis y or z; scales default to [50,100]. Registered 3DM extraction needs the capable Rhino Bridge; custom GLB processing is local.
-Inputs from earlier results: Reuse a registered asset_id obtained with include_ids=true, or a known GLB file path. Retain returned package_dir for audit_asset_drawing. Optional source_references need source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url.
-Interpretation: The new drawing-runs folder contains full-size mm DXF, scaled SVG and A3 sheets where they fit. Reference records describe evidence attached to this drawing, not retroactive generation inputs.
-Limits: No hidden lines, inferred construction or product-front recognition. Custom GLBs must contain static uncompressed triangles, at most 100 MB/250k triangles. Legacy generated IDs need 3DM conversion first. For a changed registered source, use refresh_asset to update stored drawings and measurements instead.
+등록 3DM 또는 GLB에서 평면·정면·우측면 도면 패키지를 생성합니다.
 
 Args:
-    asset_id: Optional library asset ID; supply this or source_glb.
-    source_glb: Custom static GLB source. Managed session: project-relative path; standalone: absolute path. Supply this or asset_id.
-    input_units: Custom GLB source units: mm or m, required with source_glb.
-    up_axis: Source up axis, y or z; default y.
-    scales: Optional drawing scale denominators; omission uses [50, 100].
-    source_references: Optional reference objects with source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url; provenance does not certify accuracy.
+    asset_id: 라이브러리 자산 ID입니다. 선택 사항이며, 이 값 또는 source_glb 중 하나를 제공합니다.
+    source_glb: 사용자 지정 정적 GLB 원본입니다. 관리형 세션에서는 프로젝트 상대 경로, 독립 실행에서는 절대 경로를 사용합니다. 이 값 또는 asset_id 중 하나를 제공합니다.
+    input_units: 사용자 지정 GLB 원본 단위로 mm 또는 m을 사용합니다. source_glb를 제공할 때 필수입니다.
+    up_axis: 원본의 위쪽 축으로 y 또는 z를 사용합니다. 기본값은 y입니다.
+    scales: 도면 축척의 분모 목록입니다. 선택 사항이며, 생략하면 [50, 100]을 사용합니다.
+    source_references: 출처 이력입니다. source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url을 담은 참조 객체를 입력합니다.
 <!-- /instruction:generate_asset_drawing_views -->
 
 ## audit_asset_drawing
 
 <!-- instruction:audit_asset_drawing -->
-When to use: Check a drawing package's exported file hashes and, when a source is available, its staleness.
-Before calling: In a managed Almond session, supply project-relative package_dir and optional source_glb; absolute paths and parent traversal are rejected by the runtime. Standalone library calls use absolute paths internally. A known library source resolves automatically; custom packages need the current source_glb to check source geometry.
-Inputs from earlier results: Reuse package_dir from generate_asset_drawing_views or get_asset_drawing with field_groups=["paths"]. Keep the original custom GLB path for source comparison.
-Interpretation: Read source_geometry as well as status: not_checked means no source comparison was made, even if status is success; stale means the source changed. The checked_files count reports audit coverage, not visual review.
-Limits: This is a read-only file/geometry audit, not visual, drawing-quality or construction validation, and it does not regenerate files.
+저장 도면 패키지의 파일 해시와 원본 변경 여부를 검사합니다.
 
 Args:
-    package_dir: Drawing package directory from a prior generation/query result. Use a project-relative path in managed Almond sessions; standalone library calls require an absolute path.
-    source_glb: Optional current source GLB for staleness checking, using the same managed/standalone path convention. Omit when the source resolves from the library.
-Returns:
-    Audit status, checked_files and source_geometry evidence; not_checked does not establish source freshness.
+    package_dir: 생성/조회 결과의 package_dir를 그대로 입력합니다. 관리형 세션은 프로젝트 안의 패키지와 설정된 도면 라이브러리·drawing-runs의 패키지를 검사합니다. 독립 실행에서는 절대 경로가 필요합니다.
+    source_glb: 원본 변경으로 오래된 상태가 되었는지 확인할 현재 원본 GLB입니다. 선택 사항이며, 관리형 세션에서는 프로젝트 상대 경로, 독립 실행에서는 절대 경로를 사용합니다. 라이브러리에서 원본을 확인할 수 있으면 생략합니다.
 <!-- /instruction:audit_asset_drawing -->
 
 ## asset_catalogue_resource
@@ -159,37 +125,29 @@ Existing Blender preview for a known catalogue id.
 ## place_drawing_asset
 
 <!-- instruction:place_drawing_asset -->
-When to use: Place a common model or 2D library asset into the active Rhino document, linking 3DM models to their registered source.
-Before calling: Use an available known asset_id in an editable document; finish any active edit or Undo/Redo. Standard document/source units and drawing_asset_linked=1 are required for 3DM. Legacy non-3DM models require preparation and registration first. scale must be finite, greater than zero and at most 100.
-Inputs from earlier results: Reuse asset_id from list/search results requested with include_ids=true; no lookup is needed if already known. x/y/z and returned bounds use active document units, rotation_degrees is about world Z, scale is dimensionless, and the source origin is the anchor.
-Interpretation: Rhino converts 3DM units to document units; linked blocks use active document layers. Inspect returned placement evidence and relevant views before concluding correctness; needs_refresh means save the edited library 3DM and call refresh_asset. Retain returned object_guid for later document operations.
-Limits: Files resolve only from the controlled library; ordinary document blocks are not converted into assets. Placement can refresh a shared linked definition and affect existing instances. A timeout may leave a mutation applied: inspect/reconcile before retrying.
+모델·2D 자산을 Rhino 문서에 배치합니다. 연결된 3DM 블록 정의를 갱신하면 기존 인스턴스에도 반영됩니다.
 
 Args:
-    asset_id: Existing library asset ID from a matching list/search result with include_ids=true, or a previously known ID.
-    x: Placement X coordinate in current Rhino document units.
-    y: Placement Y coordinate in current Rhino document units.
-    z: Placement Z coordinate in current Rhino document units.
-    rotation_degrees: Rotation about world Z in degrees.
-    scale: Positive uniform placement scale; 1 preserves the asset size after unit conversion.
+    asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
+    x: 현재 Rhino 문서 단위를 사용하는 배치 X 좌표입니다.
+    y: 현재 Rhino 문서 단위를 사용하는 배치 Y 좌표입니다.
+    z: 현재 Rhino 문서 단위를 사용하는 배치 Z 좌표입니다.
+    rotation_degrees: 월드 Z축을 중심으로 한 회전각이며, 단위는 도입니다.
+    scale: 양수인 균일 배치 축척입니다. 1이면 단위 변환 후 자산 크기를 유지합니다.
 <!-- /instruction:place_drawing_asset -->
 
 ## search_asset_repository
 
 <!-- instruction:search_asset_repository -->
-When to use: Search the unified model/drawing archive and optionally restrict results to current drawing-ready packages.
-Before calling: No prerequisite; choose kind all, model or element and drawing_ready=true only when that filter matches the task.
-Inputs from earlier results: None required. Set include_ids=true to obtain each record's id for the corresponding asset tools; this search does not return an asset_id field. Request field_groups=["dimensions"] or ["source"] for dimensions or license details, or ["all"] to retain uri for the individual repository resource.
-Interpretation: drawing_ready means package files verify against the current 3DM; drawing_status distinguishes missing, stale, invalid and source_requires_conversion. source_available and source_only can identify a convertible source even when it is not ready for placement. A row next_step explains its existing next_tool, maps id to asset_id and identifies missing source paths/units or an ID-bearing repeat query.
-Limits: Non-3DM models such as SKP/GLB need explicit conversion and registration; existing 2D files remain usable. Search does not import or certify appearance. Optional groups are dimensions, source, paths, drawing, metadata, audit or all, but groups cannot add fields absent from this search's shortlist; use individual repository resources for full files/representations.
+모델·2D 요소 아카이브를 검색합니다.
 
 Args:
-    query: Free-text search terms; empty leaves the text filter unset.
-    kind: Repository kind filter: all, element or model.
-    drawing_ready: Restrict to assets with ready drawing data when true.
-    limit: Maximum shortlisted assets, clamped to 1..100. Compare returned assets length with total; this tool has no offset/has_more field.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: dimensions, source, paths, drawing, metadata, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    query: 자유 텍스트 검색어입니다. 비어 있으면 텍스트 필터를 설정하지 않습니다.
+    kind: 저장소 유형 필터로 all, element 또는 model을 사용합니다.
+    drawing_ready: true이면 도면 데이터가 준비된 자산으로 제한합니다.
+    limit: 반환할 최대 자산 수입니다. 1..100 범위입니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:search_asset_repository -->
 
 ## repository_asset_resource
@@ -273,12 +231,8 @@ Rhino bridge is unavailable. Start RhinoAlmondBridge first.
 ## refresh_asset
 
 <!-- instruction:refresh_asset -->
-When to use: Remeasure a saved, edited registered 3DM and regenerate its stored drawings while retaining the linked source path.
-Before calling: Save edits to the asset's library 3DM and supply its known asset_id; do not use this to convert a legacy source or save an open document. Native extraction requires a Bridge supporting drawing_asset_extract=2.
-Inputs from earlier results: Reuse the registered asset_id from registration or discovery with include_ids=true; a needs_refresh result identifies this operation when the source hash changed.
-Interpretation: Publication updates dimensions, source hash and drawing package together, preserving prior packages, manifest backups and a source revision copy. If publication succeeded but live index refresh failed, the revision is already applied; reconnect instead of blindly repeating it.
-Limits: Source units, origin, layers and blocks stay unchanged. This neither saves Rhino nor reloads existing linked instances; update their linked source in Rhino afterward. Publication does not establish visual correctness, and an error alone is not proof that no file publication occurred.
+편집 후 저장된 등록 3DM을 다시 측정하고 도면을 갱신합니다.
 
 Args:
-    asset_id: Existing library asset ID from a matching list/search result with include_ids=true, or a previously known ID.
+    asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
 <!-- /instruction:refresh_asset -->

@@ -3,56 +3,40 @@
 ## list_drawing_recipes
 
 <!-- instruction:list_drawing_recipes -->
-When to use: Browse available drawing recipes by purpose and projection before choosing a style.
-Before calling: No prerequisite; this catalogue query does not change Rhino.
-Inputs from earlier results: None required. Set include_ids=true to obtain recipe_id for get_drawing_recipe or apply_drawing_style; field_groups=["scales"] includes available recommended scales.
-Interpretation: A recipe shortlist describes authored conventions, not proof that the current document follows them. Inspect the chosen recipe only if its settings are unknown.
-Limits: The list does not include full layer/style settings; use get_drawing_recipe with field_groups=["parameters"] for those. Other optional groups are source, audit and all; audit enables available timestamps.
+도면 목적·투영 방식에 맞는 스타일 레시피를 조회합니다.
 
 Args:
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: scales, parameters, source, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
 <!-- /instruction:list_drawing_recipes -->
 
 ## get_drawing_recipe
 
 <!-- instruction:get_drawing_recipe -->
-When to use: Inspect a known drawing recipe's conventions and execution settings without modifying Rhino.
-Before calling: Supply recipe_id; list recipes only when that ID is unknown.
-Inputs from earlier results: Reuse recipe_id from list_drawing_recipes with include_ids=true. Request field_groups=["parameters"] for layers, style and review_preparation, or ["scales"] for scale guidance; retain the supplied ID for apply_drawing_style.
-Interpretation: Default output is a compact recipe summary, not a current-document audit. Review-preparation settings describe intended follow-up, not actions already executed.
-Limits: This neither applies layers nor prepares PrintDisplay. The supplied ID is not echoed; include_ids exposes other unsupplied handles. Optional source, audit and all expose available evidence, with timestamps under audit.
+도면 스타일 레시피를 조회합니다.
 
 Args:
-    recipe_id: Drawing recipe ID from list_drawing_recipes(include_ids=true), or a previously known recipe ID.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: scales, parameters, source, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    recipe_id: drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
 <!-- /instruction:get_drawing_recipe -->
 
 ## apply_drawing_style
 
 <!-- instruction:apply_drawing_style -->
-When to use: Create or update the active Rhino document's layer hierarchy, plot weights, colours and linetypes from a drawing recipe.
-Before calling: Use a known recipe_id or accept technical_axon_v1; fetch recipe parameters only if the intended layer changes are unknown. A connected active Rhino document is required.
-Inputs from earlier results: Reuse recipe_id from list_drawing_recipes with include_ids=true; get_drawing_recipe with field_groups=["parameters"] exposes layer and review settings when needed.
-Interpretation: Success confirms the layer-style operation, not a finished drawing or print review. The A4 plan/section recipe may return review_preparation with an unexecuted rhinocode template: reuse a pipe confirmed for this connection's Rhino PID and saved document path, discover only if unknown, and skip if Document-scoped Model/Layout PrintDisplay On with Print colours is already confirmed.
-Limits: The tool does not inspect or change PrintDisplay. Explicit linetype_segments need positive lengths and is_solid; conflicting named patterns or malformed segments are rejected before layer changes, while matching patterns are reused. Recipes without segments retain name-based behaviour. On timeout, inspect document state before repeating changes.
+도면 스타일 레시피를 Rhino 문서에 적용합니다.
 
 Args:
-    recipe_id: Drawing recipe ID from list_drawing_recipes(include_ids=true), or a previously known recipe ID.
+    recipe_id: drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다.
 <!-- /instruction:apply_drawing_style -->
 
 ## import_drawing_hatch_patterns
 
 <!-- instruction:import_drawing_hatch_patterns -->
-When to use: Add an indexed drawing asset's PAT hatch definitions to the active Rhino document's hatch pattern table.
-Before calling: Supply an available .pat drawing asset_id and an active Rhino connection; no recipe or placement prerequisite exists.
-Inputs from earlier results: Reuse asset_id from drawing asset discovery with include_ids=true. Request field_groups=["paths"] if the source extension is not known; the tool resolves the path itself.
-Interpretation: Returned pattern names identify available definitions; the message distinguishes newly added patterns from already present names. Existing names are reused, not overwritten.
-Limits: Only .pat files from the controlled asset/drawing/DrawingAssetfiles manifest are accepted. This imports definitions, not hatch objects or regions, and does not certify pattern appearance at a drawing scale.
+등록된 PAT 자산의 해치 정의를 Rhino 문서에 추가합니다.
 
 Args:
-    asset_id: Existing library asset ID from a matching list/search result with include_ids=true, or a previously known ID.
+    asset_id: 해치 정의를 가져올 PAT 자산 ID입니다. 같은 이름의 해치 정의가 있으면 재사용합니다.
 <!-- /instruction:import_drawing_hatch_patterns -->
 
 ## response-642

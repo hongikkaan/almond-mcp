@@ -21,9 +21,9 @@ def test_mcp_step_identity_is_independent_of_template_type(tmp_path):
             async def call(name, **arguments):
                 result = await client.call_tool(name, arguments)
                 return json.loads(result.content[0].text)
-            first = await call("create_plan", title="First", goal="Inspect", scope="inspection")
-            second = await call("create_plan", title="Second", goal="Inspect", scope="inspection")
-            details = [await call("get_phase_plan_step", plan_id=item["plan"]["plan_id"])
+            first = await call("plan_02-create", request=dict(target="plan", title="First", goal="Inspect", scope="inspection"))
+            second = await call("plan_02-create", request=dict(target="plan", title="Second", goal="Inspect", scope="inspection"))
+            details = [await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=item["plan"]["plan_id"]))
                        for item in (first, second)]
             a, b = [detail["plan"]["steps"] for detail in details]
             assert [step["step_type"] for step in a] == [step["step_type"] for step in b]
@@ -31,7 +31,7 @@ def test_mcp_step_identity_is_independent_of_template_type(tmp_path):
             for step in a:
                 uuid.UUID(step["step_id"].removeprefix("step_"))
                 assert step["step_id"] != step["step_type"]
-                detail = await call("get_phase_plan_step", plan_id=first["plan"]["plan_id"], step_id=step["step_id"])
+                detail = await call("plan_05-get", request=dict(target="step", include_details=True, plan_id=first["plan"]["plan_id"], step_id=step["step_id"]))
                 assert detail["step"]["step_type"] == step["step_type"]
     asyncio.run(run())
 
@@ -84,34 +84,34 @@ def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path):
             async def call(name, **arguments):
                 result = await client.call_tool(name, arguments)
                 return json.loads(result.content[0].text)
-            created = await call("create_plan", title="Review", goal="Review", scope="inspection")
+            created = await call("plan_02-create", request=dict(target="plan", title="Review", goal="Review", scope="inspection"))
             pid = created["plan"]["plan_id"]
-            await call("update_plan", plan_id=pid, status="paused")
-            detail = await call("get_phase_plan_step", plan_id=pid)
+            await call("plan_12-update", request=dict(target="plan", plan_id=pid, status="paused"))
+            detail = await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid))
             for step in detail["plan"]["steps"]:
-                changed = await call("update_step", plan_id=pid, step_id=step["step_id"], status="completed")
+                changed = await call("plan_12-update", request=dict(target="step", plan_id=pid, step_id=step["step_id"], status="completed"))
                 assert changed["plan"]["status"] == "paused"
-            assert (await call("get_phase_plan_step", plan_id=pid))["status"] == "paused"
-            await call("update_plan", plan_id=pid, status="completed")
-            assert (await call("get_phase_plan_step", plan_id=pid))["status"] == "completed"
+            assert (await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid)))["status"] == "paused"
+            await call("plan_12-update", request=dict(target="plan", plan_id=pid, status="completed"))
+            assert (await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid)))["status"] == "completed"
     asyncio.run(run())
 
 
-def test_looping_policy_is_available_without_recording_a_revision(tmp_path):
-    store = AlmondStore(tmp_path / "policy.db")
-    plan = store.create_plan("Read guidance")
-    server = FastMCP("looping-policy")
-    register(server, SimpleNamespace(retrieval_store=store))
-
-    async def run():
-        async with Client(server) as client:
-            result = await client.call_tool("get_looping_policy", {})
-            value = json.loads(result.content[0].text)
-            assert value["status"] == "success"
-            assert "Plan completion" in value["policy"]
-            assert "input_refs" in value["policy"]
-    asyncio.run(run())
-    assert store.get_plan(plan["plan_id"]) == plan
+def test_loop_role_and_input_options_do_not_include_post_execution_reporting():
+    from almond_mcp.instruction_text import read_tool_instruction
+    import mcp_server
+    text = read_tool_instruction(mcp_server.__file__, "execute_looping")
+    role, inputs = text.split("Args:", 1)
+    assert "사용자가 결정" not in role
+    assert "시각적 근거" not in role
+    assert "재개" in inputs and "현재 회차를 먼저 확인" in inputs
+    assert "Args:" in text and "resume:" in text
+    assert "get_looping_policy" not in text
+    assert "반환:" not in text
+    from almond_mcp.tool_guidance import guide_payload
+    guide = guide_payload("execute_looping", {"status": "success"})["next_step_guide"]
+    assert "plan_12-update" in guide and "시각적 근거" in guide
+    assert "next_step_guide" not in guide_payload("execute_looping", {"status": "error"})
 
 
 def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path, monkeypatch):
@@ -139,36 +139,51 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
             async def call(name, **arguments):
                 result = await client.call_tool(name, arguments)
                 return json.loads(result.content[0].text)
-            created = await call("create_plan", title="Review", goal="Inspect", scope="inspection")
+            created = await call("plan_02-create", request=dict(target="plan", title="Review", goal="Inspect", scope="inspection"))
             pid = created["plan"]["plan_id"]
             assert created["plan"]["loop_no"] == 0
-            await call("update_plan", plan_id=pid, goal="Inspect access")
-            before = await call("get_phase_plan_step", plan_id=pid)
+            await call("plan_12-update", request=dict(target="plan", plan_id=pid, goal="Inspect access"))
+            before = await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid))
             sid = before["plan"]["steps"][0]["step_id"]
-            first = await call("execute_looping", plan_id=pid, feedback="Review access", artifact_name="review")
+            first = await call("plan_03-execute_looping", plan_id=pid, feedback="Review access", artifact_name="review")
             assert (first["loop_no"], first["revision"]) == (1, 1)
             assert first["artifact_dir"].endswith("/01")
             assert first["feedback"] == "Review access"
-            assert first["policy_tool"] == "get_looping_policy"
+            assert "완료한 작업은 반복하지 않고" in first["next_step_guide"]
+            assert "시각적 근거" in first["next_step_guide"]
+            assert "policy_tool" not in first
             assert all(s["status"] == "pending" for s in first["steps"])
-            updated = await call("update_step", plan_id=pid, step_id=sid, loop_no=1,
-                                 status="completed", output_refs={"add": [first["artifact_dir"] + "/result.json"]})
+            updated = await call("plan_12-update", request=dict(target="step", plan_id=pid, step_id=sid, loop_no=1,
+                                 status="completed", output_refs={"add": [first["artifact_dir"] + "/result.json"]}))
             assert updated["plan"]["revision"] == 2
-            resumed = await call("execute_looping", plan_id=pid, resume=True)
+            resumed = await call("plan_03-execute_looping", plan_id=pid, resume=True)
             assert (resumed["loop_no"], resumed["revision"]) == (1, 2)
-            second = await call("execute_looping", plan_id=pid)
+            assert "사용자가 결정" in resumed["policy_reminder"]
+            assert "시각적 근거" in resumed["next_step_guide"]
+            second = await call("plan_03-execute_looping", plan_id=pid)
             assert (second["loop_no"], second["revision"]) == (2, 1)
             assert second["artifact_dir"].endswith("/02")
             assert second["steps"][0]["step_id"] == sid
             assert second["steps"][0]["status"] == "pending"
             assert second["steps"][0]["output_refs"] == []
-            old = await call("get_phase_plan_step", plan_id=pid, step_id=sid, loop_no=1)
-            assert old["status"] == "completed" and old["step"]["loop_no"] == 1
+            old = await call("plan_05-get", request=dict(target="step", include_details=True, plan_id=pid, step_id=sid, loop_no=1))
+            assert old["status"] == "completed" and old["loop_no"] == 1
             assert old["step"]["output_refs"] == [first["artifact_dir"] + "/result.json"]
-            refused = await call("update_step", plan_id=pid, step_id=sid, loop_no=1, status="running")
+            refused = await call("plan_12-update", request=dict(target="step", plan_id=pid, step_id=sid, loop_no=1, status="running"))
             assert refused["status"] == "error"
-            history = await call("list_plan_revisions", plan_id=pid, loop_no=1, step_id=sid)
+            # A delayed capture from Loop 1 must not land on the same Step UUID
+            # after another connection advances to Loop 2. No revision guard is
+            # needed: the preserved source loop alone must reject the write.
+            current_before = await call("plan_05-get", request=dict(target="step", include_details=True, plan_id=pid, step_id=sid))
+            revisions_before = await call("plan_07-list_revisions", plan_id=pid)
+            delayed = await call("plan_12-update", request=dict(target="step", plan_id=pid, step_id=sid,
+                loop_no=first["loop_no"], output_refs={"add": [first["artifact_dir"] + "/delayed-capture.png"]}))
+            assert delayed["status"] == "error"
+            assert await call("plan_05-get", request=dict(target="step", include_details=True, plan_id=pid, step_id=sid)) == current_before
+            assert await call("plan_05-get", request=dict(target="step", include_details=True, plan_id=pid, step_id=sid, loop_no=1)) == old
+            assert await call("plan_07-list_revisions", plan_id=pid) == revisions_before
+            history = await call("plan_07-list_revisions", plan_id=pid, loop_no=1, step_id=sid)
             assert [(r["loop_no"],r["revision"]) for r in history["revisions"]] == [(1,2)]
-            baseline = await call("get_phase_plan_step", plan_id=pid, loop_no=0, revision=1)
+            baseline = await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid, loop_no=0, revision=1))
             assert baseline["plan"]["goal"] == "Inspect"
     asyncio.run(run())

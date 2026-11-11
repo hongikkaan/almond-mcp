@@ -3,9 +3,13 @@ import json
 import sqlite3
 
 import pytest
+from pydantic import TypeAdapter
 
+from almond_mcp.features.planning.requests import CreateRequest
 from almond_mcp.features.planning.schema import SCOPES
 from almond_mcp.retrieval_store import AlmondStore
+
+parse_create = TypeAdapter(CreateRequest).validate_python
 
 
 @pytest.mark.parametrize("scope", SCOPES)
@@ -73,7 +77,7 @@ def test_plan_editing_tool_persists_plan_and_mapped_scope_without_changing_histo
         if scope == "custom_editing":
             connection.execute("INSERT INTO planning_scopes VALUES('custom_editing','plan_editing')")
     tools = register(FastMCP('plan-editing'), SimpleNamespace(retrieval_store=store))
-    result = json.loads(tools['create_plan'](title="Edit plan", goal="Revise the plan", scope=scope))
+    result = json.loads(tools["create_planning"](parse_create(dict(target="plan", title="Edit plan", goal="Revise the plan", scope=scope))))
     assert result['status'] == 'success'
     reopened = AlmondStore(db)
     plan = reopened.get_plan(result['plan']['plan_id'])
@@ -96,8 +100,8 @@ def test_semantic_exploration_tool_creates_ordered_reasoning_steps(tmp_path):
     db = tmp_path / "semantic.sqlite3"
     store = AlmondStore(db)
     tools = register(FastMCP('semantic-exploration'), SimpleNamespace(retrieval_store=store))
-    result = json.loads(tools['create_plan'](
-        title="Explore context", goal="Interpret the spatial context", scope="semantic_exploration"))
+    result = json.loads(tools["create_planning"](parse_create(dict(
+        target="plan", title="Explore context", goal="Interpret the spatial context", scope="semantic_exploration"))))
     assert result['status'] == 'success', result
     plan = AlmondStore(db).get_plan(result['plan']['plan_id'])
     assert [step['step_type'] for step in plan['steps']] == [

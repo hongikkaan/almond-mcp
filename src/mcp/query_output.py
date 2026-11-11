@@ -1,6 +1,6 @@
 """Public response projection; stored identities and snapshots stay intact."""
 
-from functools import wraps
+from functools import partial, wraps
 from inspect import signature
 import json
 from typing import Any
@@ -118,8 +118,10 @@ def project_query(value: Any, *, include_ids: bool = False, supplied: dict | Non
     return result
 
 
-def query_output(function):
+def query_output(function=None, *, preserve_cross_drive_fields=()):
     """Wrap JSON query output; callers still declare include_ids in their schema."""
+    if function is None:
+        return partial(query_output, preserve_cross_drive_fields=preserve_cross_drive_fields)
     parameters = signature(function)
 
     @wraps(function)
@@ -141,7 +143,8 @@ def query_output(function):
         groups = arguments.arguments.get("field_groups") or []
         include_audit = "field_groups" not in parameters.parameters or bool({"audit", "all"} & set(groups))
         value = relative_output(project_query(value, include_ids=include_ids, supplied=arguments.arguments,
-                                              include_audit=include_audit))
+                                              include_audit=include_audit),
+                                preserve_cross_drive_fields=preserve_cross_drive_fields)
         return json.dumps(value, ensure_ascii=False) if is_text else value
 
     return invoke

@@ -6,12 +6,13 @@ Codex 직접 연결의 이름은 beyond, CoS 경유 연결의 이름은 CoS다. 
 CoS는 `cos_host.py`, Codex·외부 로컬 MCP 클라이언트는 `codex_host.py`를 진입점으로 사용한다.
 두 진입점은 `external_host.py`의 같은 stdio 연결기와 worker를 사용한다.
 `client_config.py`는 일상 설치의 설정을 생성하고 명시적으로 요청할 때만 Codex 설정에 `rhino` 항목을 추가한다. 이전 `almond_cos` 항목이 이 생성기의 설정과 정확히 같을 때만 원본 백업 후 이름을 이전하고, 수정된 항목이나 중복·충돌은 변경 없이 거절한다.
-공개 도구는 `project_info`, `connect`, `start_session` 등 접두사 없는 이름을 사용하고 이전 이름의 alias를 공개하지 않는다. 클라이언트가 붙이는 서버 namespace는 도구 schema와 별개다.
-등록·initialize·tools/list는 catalog만 제공하며 broker·worker· Rhino·모델 DB 연결이나 소유권 잠금을 준비하지 않는다. stdio 통신을 위한 클라이언트별 최소 Python 프로세스는 필요하다. 모델링 준비는 명시적 connect/start_session 호출에서 한다.
+공개 호출명은 `context_04-get_project_info`, `connect_02-session`, `connect_03-start_session`처럼 `<category>_<NN>-<name>` 형식이며 이전 이름의 alias를 공개하지 않는다. 클라이언트가 붙이는 서버 namespace는 도구 schema와 별개다.
+등록·initialize·tools/list는 catalog만 제공하며 broker·worker· Rhino·모델 DB 연결이나 소유권 잠금을 준비하지 않는다. stdio 통신을 위한 클라이언트별 최소 Python 프로세스는 필요하다. 모델링 준비는 명시적 connect_02-session tool/connect_03-start_session tool 호출에서 한다.
 사용 방법과 동시 연결 제한은 [외부 클라이언트 안내](EXTERNAL_CLIENTS.md)에 둔다.
 
 Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS`와 `AlmondCOSDisconnect` 명령/별칭은 등록하지 않는다. 플러그인 GUID는 유지하고, 이전 AlmondCOS의 이름과 파일 경로는 AlmondRhino로 이전한다.
-연결 준비 및 상태 안내는 Codex와 CoS 모두에 적용된다. connect는 discovery host를 재사용하고 disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해제한다. Rhino 문서는 유지한다.
+연결 준비 및 상태 안내는 Codex와 CoS 모두에 적용된다. connect_02-session tool는 discovery host를 재사용하고 connect_04-disconnect tool는 기존 native drain·worker 종료 확인을 거쳐 연결만 해제한다. Rhino 문서는 유지한다.
+`connect_05-close_session` tool은 연결된 문서의 변경 여부를 조회하고 공식 RhinoCode `_Save`로 기존 파일명에 저장한다. 저장 완료·동일 문서의 저장 상태를 확인한 뒤 `_-Exit`로 정상 종료한다. 요청 ID별 OS 잠금·보관 결과·대상별 진행 기록으로 재호출과 호스트 재시작의 중복 저장·종료를 막는다. 종료 직전 guard와 실제 프로세스 종료·worker 종료·lease 해제를 구분해 입증한다. 상세 절차는 [연결 계약](../mcp/runtime/CONNECTION-SPEC.md)에 둔다.
 
 ## 구성
 
@@ -19,8 +20,9 @@ Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS
 |---|---|
 | `external_host.py`, `external_worker.py` | 공용 외부 stdio adapter와 Rhino 연결마다 분리된 worker |
 | `cos_host.py`, `codex_host.py` | CoS 경유·Codex 직접 연결의 명시적인 진입점과 MCP 서버 식별 |
-| `SERVER-DESCRIPTION.md` | 건축설계 용도·연결 관리 도구 4개·연결 및 해제 방법을 담은 공통 소개 |
+| `SERVER-DESCRIPTION.md` | 건축설계·모델링·도면·연결 관리 역할을 담은 공통 소개 |
 | `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 외부 연결 광고 확인 |
+| `session_close.py`, `session_close_guard.py.txt` | 저장 확인·문서 변경 방지·정상 종료·보관 결과 조회. 일반 실행 receipt와 종료 프로세스 근거를 구분 |
 | `detached_process.py` | 새 프로세스를 suspended 상태로 생성하고 모든 Windows Job 밖임을 확인한 뒤 실행 |
 | `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
 | `data/tool_catalog.json` | configure/build에서 만드는 Git 추적 제외 개발용 export; 런타임은 읽지 않고 현재 소스에서 schema를 생성함 |
@@ -38,6 +40,8 @@ RHP는 [공용 Engine](../rhp/SPEC.md#구성과-빌드)을 참조한다. Bridge�
 관측 이미지의 직접 `ToolResult`와 고정 조회의 정확한 `str | ToolResult` 반환형만 별도로 허용한다. ToolResult 입력형·중첩형·임의 annotation 실행은 허용하지 않는다. context·선택·객체·교차 조회는 기존 `{result: string}` output schema literal을 허용하고 JSON text/structuredContent와 명시적 오류 상태를 함께 보존한다. PNG는 별도 캡처 도구의 MCP image content로 전달하며 schema 생성 때문에 이 계약을 바꾸지 않는다.
 공통 도구 변경 후 수동 catalog 재생성 없이 관련 Codex/CoS MCP를 정상 종료·재시작하면 새 구현과 schema를 읽는다. Terminal은 almond 세션을 새로 시작한다. 이미 시작한 프로세스를 자동 교체하거나 restart 도구를 제공하지 않는다. RHP/DLL 변경은 빌드와 Rhino의 정상 종료·새 시작이 별도로 필요하다.
 
+연결별 PID·token·문서 binding·worker·잠금은 각 Connection에 유지한다. connect_02-session tool/connect_03-start_session tool 성공 시 해당 연결을 선택하고 일반 호출·connect_04-disconnect tool는 이를 재사용한다. 이미 연결된 host_id/model_path의 connect_02-session tool는 선택만 바꾸며, 다른 연결은 유지한다. connection_id는 호출별 선택 재지정 옵션이다. 호출을 접수할 때 대상 Connection을 고정하므로 이후 선택 변경이 진행 중 호출의 대상을 바꾸지 않는다. 선택한 연결이 종료되면 선택을 비우며 다른 연결로 자동 전환하지 않는다. 시작 request_id와 실행 결과 request_id는 작업별 식별자이므로 계속 명시한다.
+
 connection ID와 token·프로세스 identity·저장 문서를 함께 확인한다. 변경된 binding, 미확인 native 결과, 실행 중 작업의 해제·취소에 대한 기존 소유권 규칙을 유지한다.
 다른 연결의 DB 접근은 기존 공유 lease·gate를 통과한다.
 
@@ -47,10 +51,10 @@ connection ID와 token·프로세스 identity·저장 문서를 함께 확인한
 이전 singleton host가 독점 중이면 새 연결을 거절한다. 어떤 잠금 파일도 삭제하지 않는다.
 adapter lease 해제는 RHP의 native/slot/token 소유권 해제가 아니다. 미확인 native 작업의 기존 RHP binding은 계속 새 attach를 거절한다.
 
-`start_session`은 저장된 절대 `.3dm` 경로와 request ID를 받는다. 기존 runtime의 모델 경로 검증을 재사용하고 새 Rhino에 `_almondconnect` 명령을 전달한다. 정확히 그 PID·시작 시각의 광고만 기존 connect 경로에 연결한다. A–J 슬롯·DB·native 준비는 기존 RHP Attach와 worker 계약을 사용하며 시작 로직에 복제하지 않는다. 모델을 저장하거나 Rhino를 강제 종료하지 않는다. launch/advertise 실패 후 새 프로세스를 자동 실행하지 않는다.
-새 프로세스는 `CREATE_BREAKAWAY_FROM_JOB`으로 생성하고 실행 전 `IsProcessInJob`으로 중첩 Job까지 벗어났는지 확인한다. 분리 불가 시 아직 한 줄도 실행하지 않은 suspended 프로세스만 폐기하고 시작을 거절한다. Terminal의 자식 종료 규칙은 완화하지 않으며 이미 열린 Rhino는 건드리지 않는다. 해당 환경에서는 Rhino를 직접 열고 connect한다.
+`connect_03-start_session` tool은 저장된 절대 `.3dm` 경로와 request ID를 받는다. 기존 runtime의 모델 경로 검증을 재사용하고 새 Rhino에 `_almondconnect` 명령을 전달한다. 정확히 그 PID·시작 시각의 광고만 기존 connect_02-session tool 경로에 연결한다. A–J 슬롯·DB·native 준비는 기존 RHP Attach와 worker 계약을 사용하며 시작 로직에 복제하지 않는다. 모델을 저장하거나 Rhino를 강제 종료하지 않는다. launch/advertise 실패 후 새 프로세스를 자동 실행하지 않는다.
+새 프로세스는 `CREATE_BREAKAWAY_FROM_JOB`으로 생성하고 실행 전 `IsProcessInJob`으로 중첩 Job까지 벗어났는지 확인한다. 분리 불가 시 아직 한 줄도 실행하지 않은 suspended 프로세스만 폐기하고 시작을 거절한다. Terminal의 자식 종료 규칙은 완화하지 않으며 이미 열린 Rhino는 건드리지 않는다. 해당 환경에서는 Rhino를 직접 열고 connect_02-session tool한다.
 
-request ID는 한 adapter 수명 안에서 시작 시도 하나를 가리킨다. startup timeout 뒤 같은 ID로 호출하면 이미 시작한 프로세스만 재조회한다. connect가 실패하면 같은 ID로 attach를 반복하지 않는다. caller 취소 뒤에도 결과를 보존하고, adapter 종료 때는 시작 대기를 취소하고 기존 연결 정리를 수행한다. 열린 Rhino는 남는다. adapter를 재시작한 뒤에는 연결 목록으로 남은 Rhino를 확인해야 한다.
+request ID는 한 adapter 수명 안에서 시작 시도 하나를 가리킨다. startup timeout 뒤 같은 ID로 호출하면 이미 시작한 프로세스만 재조회한다. connect_02-session tool가 실패하면 같은 ID로 attach를 반복하지 않는다. caller 취소 뒤에도 결과를 보존하고, adapter 종료 때는 시작 대기를 취소하고 기존 연결 정리를 수행한다. 열린 Rhino는 남는다. adapter를 재시작한 뒤에는 연결 목록으로 남은 Rhino를 확인해야 한다.
 
 완료 결과 재조회는 공통 runtime이 원본 실행 근거를 읽고 조정한 다음 공개 응답만 축약한다. 정상 완료의 결과·페이지·요청한 로그·복구 대상 정보는 남기며 `include_diagnostics=true`로 전체 근거를 조회한다. 실패·불확실·부분 변경·0이 아닌 CLI 종료 코드·결과 표시 오류는 기본 응답에서도 유지한다. 보관 파일 복구 경로도 같은 projection을 사용하며 journal, worker schema 검사와 완료 판단을 바꾸지 않는다.
 
@@ -67,6 +71,6 @@ AlmondRhino 전용 C# 변경은 이 모듈의 runtime-manifest.json만 갱신한
 외부 host는 `SERVER-DESCRIPTION.md`를 초기화 응답의 `serverInfo.description`과 `instructions` 앞부분에 제공한다. 소개 템플릿의 `{server_name}`은 Codex 경로에서 `beyond`, CoS 경로에서 `CoS`로 치환한다.
 CoS 앱 등록용 생성 설정 이름은 `CoS`다. 등록된 `src/cos` 진입점과 플러그인 GUID는 유지한다.
 ChatGPT의 `Chat On Steroids Plugins` 공통 소개는 클라이언트가 관리하므로, 서버 소개를 수정한 것만으로 해당 화면에 표시되었다고 판단하지 않는다.
-이어서 MCP package의 시작 안내를 제공한다. `project_info`도 원본 도구 설명을 유지하므로 project/document의 단일 live 조회, project의 파일 목록과 연결 상태, locations의 DB·Plan 산출물 경로가 정확히 안내된다. 기본 지침은 `get_modeling_guide`에서 조회한다.
-`get_modeling_guide`는 기존 worker 도구 전달 경로를 사용한다. 연결 후 connection_id가 필요하며 control·binding·receipt 예외를 추가하지 않는다. BASIC과 선택적 내장 스크립팅 자료의 JSON text content를 그대로 전달한다. 툴별 원문 조회 인자는 없으며 개별 설명 전문은 tools/list·외부 catalog에서 제공한다. BASIC·도구 소스·설명 Markdown도 session source fingerprint에 포함한다.
+이어서 MCP package의 시작 안내를 제공한다. `context_04-get_project_info` tool도 원본 도구 설명을 유지하므로 project/document의 단일 live 조회, project의 파일 목록과 연결 상태, locations의 DB·Plan 산출물 경로가 정확히 안내된다. 기본 지침은 `context_01-get_policy` tool에서 조회한다.
+`context_01-get_policy` tool는 기존 worker 도구 전달 경로를 사용한다. 선택한 연결을 사용하며 control·binding·receipt 예외를 추가하지 않는다. BASIC과 선택적 내장 스크립팅 자료의 JSON text content를 그대로 전달한다. 툴별 원문 조회 인자는 없으며 개별 설명 전문은 tools/list·외부 catalog에서 제공한다. BASIC·도구 소스·설명 Markdown도 session source fingerprint에 포함한다.
 안내 조회 계약과 갱신 절차는 [MCP SPEC](../mcp/SPEC.md#모델링-안내-전달)을 따른다.

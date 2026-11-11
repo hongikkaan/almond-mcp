@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.exchange.output import GROUPS, project
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
@@ -19,7 +20,7 @@ def register(mcp, context):
 
     def _restore_and_place_script(contract: dict, materials: dict[str, dict],
                                   x_mm: float, y_mm: float, z_mm: float,
-                                  rotation_degrees: float, layer: str) -> str:
+                                  rotation_degrees: float, layer: str, report_path: Path) -> str:
         """C# run after a GLB import: restore metadata, correct the colour drift,
     collapse duplicate materials, then place per the contract anchor."""
         lib_rows = []
@@ -60,7 +61,7 @@ public class Script
         {",\n        ".join(lib_rows) if lib_rows else ""}
     }};
 
-    public static List<Guid> Run(RhinoDoc doc)
+    public static object Run(RhinoDoc doc)
     {{
         var imported = new List<RhinoObject>();
         foreach (string s in new[] {{ {", ".join('"%s"' % g for g in contract["_imported_guids"])} }})
@@ -68,7 +69,7 @@ public class Script
             var o = doc.Objects.FindId(new Guid(s));
             if (o != null) imported.Add(o);
         }}
-        if (imported.Count == 0) return new List<Guid>();
+        if (imported.Count == 0) return new {{ restored_count = 0 }};
 
         // Resolve only imported objects through the shared MCP material implementation.
         var canonical = new Dictionary<string, int>();
@@ -146,19 +147,19 @@ public class Script
             (after.Max.Y - after.Min.Y) * toMM,
             (after.Max.Z - after.Min.Z) * toMM));
         System.IO.File.WriteAllText(
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "almond_import_report.json"),
+            {json.dumps(str(report_path), ensure_ascii=True)},
             "{{\\"stamped\\":" + stamped + ",\\"deduped\\":" + deduped
             + ",\\"width\\":" + ((after.Max.X - after.Min.X) * toMM).ToString("F1")
             + ",\\"depth\\":" + ((after.Max.Y - after.Min.Y) * toMM).ToString("F1")
             + ",\\"height\\":" + ((after.Max.Z - after.Min.Z) * toMM).ToString("F1") + "}}");
         doc.Views.Redraw();
-        return imported.Select(o => o.Id).ToList();
+        return new {{ restored_count = imported.Count }};
     }}
 }}
 """
 
 
-    @mcp.tool()
+    @mcp.tool(name='exchange_01-export_asset_contract', output_schema=public_output_schema('export_asset_contract', wrapped=True))
     @tool_instruction(__file__, 'export_asset_contract')
     def export_asset_contract(
         guids: list[str],
@@ -219,7 +220,7 @@ public class Script
             "contract_path": str(contract_path),
             "dimensions_mm": contract["dimensions_mm"],
             "materials": material_groups,
-            "next_step": read_instruction(__file__, 'response-672'),
+            "next_step_guide": read_instruction(__file__, 'response-672'),
         })
 
 
@@ -270,7 +271,7 @@ public class Script
             return []
 
 
-    @mcp.tool()
+    @mcp.tool(name='exchange_03-import_asset_contract', output_schema=public_output_schema('import_asset_contract', wrapped=True))
     @tool_instruction(__file__, 'import_asset_contract')
     def import_asset_contract(
         contract_path: str,
@@ -295,6 +296,15 @@ public class Script
         problem = modeling_setup.check_bridge(context._send_and_receive)
         if problem:
             return problem
+        # A unique pair is required even outside the managed runtime. The same
+        # absolute paths are embedded in the native scripts and read here.
+        token = uuid.uuid4().hex
+        temp_dir = Path(context.tempfile.gettempdir())
+        receipt = temp_dir / f"almond_imported_{token}.txt"
+        report_path = temp_dir / f"almond_import_report_{token}.json"
+        managed_paths = getattr(context, "_exchange_report_paths", None)
+        if managed_paths is not None:
+            managed_paths.update(receipt=receipt, report=report_path)
         import_script = """
 using System;
 using System.Collections.Generic;
@@ -304,17 +314,17 @@ using Rhino;
 
 public class Script
 {
-    public static List<Guid> Run(RhinoDoc doc)
+    public static object Run(RhinoDoc doc)
     {
         var before = new HashSet<Guid>(doc.Objects.Select(o => o.Id));
         RhinoApp.RunScript("_-Import \\"%s\\" _Enter", false);
         var added = doc.Objects.Where(o => !before.Contains(o.Id)).Select(o => o.Id).ToList();
-        File.WriteAllLines(Path.Combine(Path.GetTempPath(), "almond_imported.txt"),
+        File.WriteAllLines(%s,
             added.Select(g => g.ToString()));
-        return added;
+        return new { imported_count = added.Count };
     }
 }
-""" % contract["_resolved_file"].replace("\\", "\\\\")
+""" % (contract["_resolved_file"].replace("\\", "\\\\"), json.dumps(str(receipt), ensure_ascii=True))
         try:
             result = json.loads(context._send_and_receive(
                 json.dumps({"type": "execute", "script": import_script}).encode("utf-8"),
@@ -322,11 +332,34 @@ public class Script
         except ConnectionRefusedError:
             return error_payload("Rhino bridge is unavailable.")
         except Exception as exc:
-            return error_payload(f"Import failed: {exc}")
+            return {"status": "error", "message": f"Import completion is unconfirmed: {exc}",
+                    "requires_reconciliation": True, "mutation_applied": None}
         if result.get("status") != "success":
             return result
-        imported = result.get("guids") or []
+        # Structured returns avoid ScriptExecutor's legacy List<Guid> automatic
+        # dimension creation. A serialization failure is not an empty import.
+        observation = result.get("result")
+        if result.get("result_error") or not isinstance(observation, dict) or type(observation.get("imported_count")) is not int:
+            return {"status": "error", "message": "Import completed but its object IDs could not be read. Inspect Rhino before continuing.",
+                    "requires_reconciliation": True, "mutation_applied": None,
+                    "result_error": result.get("result_error")}
+        try:
+            # The script writes this operation-owned receipt before returning.
+            # Keep large imports out of ScriptExecutor's 64 KiB result budget.
+            if receipt.stat().st_size > 2_097_152:
+                raise ValueError("Import receipt exceeds 2 MiB")
+            imported = [str(uuid.UUID(line)) for line in receipt.read_text(encoding="utf-8-sig").splitlines()]
+            if len(imported) != observation["imported_count"] or len(set(imported)) != len(imported):
+                raise ValueError("Import receipt does not match the completed import")
+        except (OSError, ValueError) as exc:
+            return {"status": "error", "message": f"Import completed but its object receipt could not be read: {exc}",
+                    "requires_reconciliation": True, "mutation_applied": None}
         if not imported:
+            if not getattr(context, "_retain_exchange_reports", False):
+                try:
+                    receipt.unlink(missing_ok=True)
+                except OSError:
+                    pass
             return error_payload("Rhino imported no objects from the GLB.")
 
         contract["_imported_guids"] = imported
@@ -336,7 +369,7 @@ public class Script
         unknown = sorted(mid for mid, spec in library.items() if not spec)
 
         script = context._restore_and_place_script(contract, known, x_mm, y_mm, z_mm,
-                                           rotation_degrees, layer)
+                                           rotation_degrees, layer, report_path)
         try:
             restore = json.loads(context._send_and_receive(
                 json.dumps({"type": "execute", "script": script}).encode("utf-8"),
@@ -344,12 +377,18 @@ public class Script
         except Exception as exc:
             return {"status": "error",
                                "message": f"Imported, but restore/place failed: {exc}",
-                               "imported_guids": imported}
+                               "imported_guids": imported, "requires_reconciliation": True,
+                               "mutation_applied": None}
         if restore.get("status") != "success":
             return {"status": "error", "message": restore.get("message", "restore failed"),
                                "imported_guids": imported}
+        if (restore.get("result_error") or not isinstance(restore.get("result"), dict)
+                or type(restore["result"].get("restored_count")) is not int
+                or restore["result"].get("restored_count") != len(imported)):
+            return {"status": "error", "message": "Restore/place completed but its result could not be read. Inspect the imported objects before continuing.",
+                    "imported_guids": imported, "requires_reconciliation": True, "mutation_applied": None,
+                    "result_error": restore.get("result_error")}
 
-        report_path = Path(context.tempfile.gettempdir()) / "almond_import_report.json"
         report = {}
         if report_path.is_file():
             try:
@@ -357,6 +396,14 @@ public class Script
             except ValueError:
                 report = {}
         check = context.exchange.dimension_report(contract, report) if report else {"status": "unknown"}
+        if report and not getattr(context, "_retain_exchange_reports", False):
+            # Both native calls returned and their output was read. On any
+            # uncertain outcome leave the files for inspection/late writes.
+            for path in (receipt, report_path):
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
         return {
             "status": "success",
             "asset_id": contract["asset_id"],
@@ -371,7 +418,7 @@ public class Script
         }
 
 
-    @mcp.tool()
+    @mcp.tool(name='exchange_02-get_blender_script', output_schema=public_output_schema('get_blender_helper_script', wrapped=True))
     @tool_instruction(__file__, 'get_blender_helper_script')
     @query_output
     def get_blender_helper_script(action: str, asset_id: str = "", name: str = "",

@@ -53,7 +53,7 @@ class Workspace:
             raise ValueError("The selected Loop is now read-only. Select the current Loop before writing artifacts.")
         value = work["artifact_dir"]
         if not value:
-            raise ValueError("Select a Plan with set_working_plan before writing artifacts.")
+            raise ValueError("Select a Plan with plan_10-set_working tool before writing artifacts.")
         self._artifact_path(work["plan_artifact_dir"])
         return project_path(value, base=self.root)
 
@@ -61,7 +61,7 @@ class Workspace:
         target = project_path(value, base=self.root)
         if target.parent != project_path(ARTIFACT_ROOT, base=self.root):
             raise ValueError("Plan artifacts must be under .almond/produced. "
-                             "Use rename_artifact_folder with this Plan ID to migrate its legacy folder.")
+                             "Use plan_09-rename_artifact_folder tool with this Plan ID to migrate its legacy folder.")
         return target
 
     def select(self, plan_id: str, step_id: str = "", artifact_name: str = "", loop_no: int | None = None) -> dict:
@@ -89,7 +89,7 @@ class Workspace:
             else:
                 self._artifact_path(directory)
                 if artifact_name and directory != ARTIFACT_ROOT + "/" + folder_name(artifact_name):
-                    raise ValueError("This Plan already owns an artifact folder. Use rename_artifact_folder to rename it.")
+                    raise ValueError("This Plan already owns an artifact folder. Use plan_09-rename_artifact_folder tool to rename it.")
         # Selection is connection-local; the folder and refs are shared Plan data.
         write_json(self.state_path, {"plan_id": plan_id, "step_id": step_id, "loop_no": plan["loop_no"]})
         return {"plan_id": plan_id, "step_id": step_id, "loop_no": plan["loop_no"],
@@ -101,7 +101,7 @@ class Workspace:
         if before is None:
             raise KeyError(f"Unknown plan_id: {plan_id}")
         if resume and before["loop_no"] == 0:
-            raise ValueError("No Loop has been executed. Call execute_looping without resume first.")
+            raise ValueError("No Loop has been executed. Call plan_03-execute_looping tool without resume first.")
         selected = self.select(plan_id, artifact_name=artifact_name)
         number = selected["loop_no"] if resume else selected["loop_no"] + 1
         candidate = project_path(f"{selected['plan_artifact_dir']}/{number:02d}", base=self.root)
@@ -114,7 +114,6 @@ class Workspace:
                 "feedback": plan["feedback"], "steps": plan["steps"],
                 "next_step_id": next((s["step_id"] for s in plan["steps"] if s["status"] != "completed"), None),
                 "previous_loop": None if previous is None else {"loop_no": previous["loop_no"], "steps": previous["steps"]},
-                "policy_tool": "get_looping_policy",
                 "policy_reminder": read_instruction(__file__, "looping-reminder")}
 
     def rename(self, name: str, plan_id: str = "") -> dict:
@@ -131,7 +130,7 @@ class Workspace:
             if source == target:
                 return {"artifact_dir": original}
             if plan["loop_no"] > 0:
-                raise ValueError("Cannot rename a Plan folder after execute_looping; earlier Loop file paths must remain unchanged.")
+                raise ValueError("Cannot rename a Plan folder after plan_03-execute_looping tool; earlier Loop file paths must remain unchanged.")
             if target.exists() or db.execute("SELECT 1 FROM generation_plans WHERE artifact_dir = ? COLLATE NOCASE", (destination,)).fetchone():
                 raise ValueError("The target artifact folder already exists or belongs to another Plan.")
             allowed_roots = {project_path(relative, base=self.root)

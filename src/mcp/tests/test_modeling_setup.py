@@ -39,7 +39,9 @@ def context(reply=None, *, capability=True):
 def test_single_dispatch_and_compact_confirmation(overwrite):
     ctx = context()
     tools = register(FastMCP("setup-test"), ctx)
-    assert json.loads(tools["setup_modeling"](overwrite)) == {"status": "success", "applied": True}
+    result = json.loads(tools["setup_modeling"](overwrite))
+    assert "model_01-assign_material" in result.pop("next_step_guide")
+    assert result == {"status": "success", "applied": True}
     assert [r["type"] for r in ctx.requests] == ["get_rhino_context", "execute"]
     code = ctx.requests[-1]["script"]
     assert "ModelingMaterials.Setup(doc," in code and f", {str(overwrite).lower()})" in code
@@ -80,13 +82,13 @@ async def check_required_strict_boolean_and_no_operation_argument():
     mcp = FastMCP("setup-schema")
     register(mcp, ctx)
     async with Client(mcp) as client:
-        tool = next(t for t in await client.list_tools() if t.name == "setup_modeling")
+        tool = next(t for t in await client.list_tools() if t.name == "model_05-setup")
         assert tool.input_schema["required"] == ["overwrite"]
         assert set(tool.input_schema["properties"]) == {"overwrite"}
         baseline = Path(__file__).resolve().parents[3] / "tests/integration/tool_schemas.json"
-        assert tool.input_schema == json.loads(baseline.read_text(encoding="utf-8"))["setup_modeling"]["inputSchema"]
+        assert tool.input_schema == json.loads(baseline.read_text(encoding="utf-8"))["model_05-setup"]["inputSchema"]
         for args in ({}, {"overwrite": None}, {"overwrite": "false"}, {"overwrite": 1}, {"overwrite": False, "operation": "layers"}):
-            result = await client.call_tool("setup_modeling", args, raise_on_error=False)
+            result = await client.call_tool("model_05-setup", args, raise_on_error=False)
             assert result.is_error
         assert ctx.requests == []
 

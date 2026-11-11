@@ -71,8 +71,8 @@ def test_unknown_intersections_cannot_be_reported_as_a_complete_count(monkeypatc
 
 
 @pytest.mark.parametrize("name,arguments", [
-    ("get_objects", {"scope": "not-a-scope"}),
-    ("get_object_intersections", {"object_ids": []}),
+    ("inspect_02-get_objects", {"scope": "not-a-scope"}),
+    ("intersect_01-find", {"object_ids": []}),
 ])
 def test_mcp_client_receives_the_error_flag_and_original_json(name, arguments):
     calls = []

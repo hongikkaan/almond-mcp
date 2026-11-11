@@ -3,143 +3,95 @@
 ## validate_structure
 
 <!-- instruction:validate_structure -->
-Analyze selected live Rhino geometry under explicit loads, support assumptions and structural design settings.
-
-When to use: Check a structural scheme and locate governing member demand, deflection or stability issues.
-Before calling: Confirm geometry scope, actual supports, sections, material, joint behavior and load basis. Loads are kN, floor loads kN/m2 and span_m metres; native load_kn is a total downward (-Z) imposed load shared equally among free nodes. Use the full physical span when members are segmented. Avoid counting occupancy/furniture twice when combining floor and asset loads; load_kn may need to be zero.
-Inputs from earlier results: Pass observed Rhino object id strings to guids (request include_ids=true on object discovery), not asset/scene IDs. list_design_codes.profiles[].id, obtained with include_ids=true, maps to design_code. Construction/reference loads are guidance and require conversion to the applied load scope, not direct copying of kPa as kN.
-Interpretation: Report results.analysis_method, confidence, warnings and design_code.unverified. auto uses native frames for line models, otherwise Karamba; forced karamba tries api/high, template/medium then rule_based/low. results deflections are mm, stresses MPa, spans m; utilization 1 means capacity. per_element_utilization[].source_guids and worst_member_guids locate objects; detail=true adds members/support reactions. Native EN 1990 uses SLS G+Q and ULS combinations; stability=auto adds imperfections and P-Delta when alpha_cr<10, failing instability at <=1.
-Limits: Rule-based results are estimates, not FEA. Native steel checks exclude lateral-torsional buckling and use member length for flexural buckling; non-steel capacity may be indicative with no pass/fail. High confidence is not code certification. Karamba checks unfactored loads; floor/asset loads are native-only and fallback warnings matter. construction_check is a heuristic span/depth cross-check, not capacity proof. Connections/load path govern interpretation, not red-member replacement alone. This does not edit model geometry; pass/fail runs are recorded best-effort for export_structural_report, while error/indicative runs need not appear.
-
-The tool also compares the analyzed span with the construction-system library
-and appends a "construction_check" object (matching_systems with
-fits_span and suggested member depths, plus warnings when the span falls
-outside every curated system's range for this structure_type/material).
+Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
 
 Args:
-    guids: Current Rhino object GUID strings in the analysis scope.
-    structure_type: Analysis template to use. Options: "beam" — simple beam bending/deflection "truss" — axial force/buckling analysis "shell" — shell stress/displacement "frame" — moment/shear frame analysis "canopy" — cantilevered canopy "gridshell" — large deformation gridshell "membrane" — form-finding membrane "highrise" — high-rise structural systems
-    load_kn: Applied load in kN (default 10.0).
-    material: Material type: "Steel", "S355", "Concrete", "Wood", "Aluminium" (default "Steel").
-    engine: "auto" | "native" | "karamba" (see above).
-    fixed_supports: True = fully fixed supports, False = pinned (rotations free).
-    self_weight: include member self weight.
-    span_m: structural span in meters for the L/250 limit when members are split at every node (e.g. a 6.2 m joist drawn as two 3.1 m segments). Native engine only.
-    asset_loads: add the gravity loads of placed library assets (estimated self weight plus in-use contents/occupants from each asset's load entry, e.g. a filled bathtub) where they stand on (or hang from) the frame. Placements come from Rhino objects tagged with an Almond asset id. Native engine only; the result's "asset_loads" lists every placement with its load and carrying members, or why it was not applied.
-    floor_load_kn_m2: imposed floor load in kN/m2 (e.g. 2.0 for homes, EN 1991-1-1 category A) on every bay enclosed by beams on a level; the beams take it by the 45-degree rule (two-way, one-way above 2:1). Native engine only. A code floor load already covers movable furniture and people: combine it with asset_loads only for heavy specific items, and set load_kn to 0 to avoid double counting.
-    floor_dead_kn_m2: superimposed dead load in kN/m2 (floor build-up, finishes) on the same bays.
-    design_basis: "en1990" (default): deflection at SLS characteristic (G + Q), member checks at ULS 1.35 G + 1.5 Q. G = self weight, floor build-up and the weight of placed items; Q = load_kn, the occupancy floor load, contents and occupants. "unfactored" checks both at G + Q (the Karamba route's basis). Native engine.
-    uls_combination: "6.10" or "6.10ab" (the worse of 6.10a and 6.10b per member). Default: the design code's choice (Eurocode profile: 6.10). A profile that prescribes one expression overrides the request (with a warning).
-    connections: "rigid" (default: every joint transmits moment) or "simple": beams are pinned (major-axis bending released) and braces pinned in both axes where they stop - not where another member carries on in line - while columns stay continuous. Typical bolted steel and timber framing is closer to "simple"; rigid joints can flatter beam deflection. A curve's user text almond:release = "pinned" | "pinned_start" | "pinned_end" | "rigid" overrides either mode. Native engine.
-    stability: "auto" (default): elastic critical load factor alpha_cr for every ULS combination (EN 1993-1-1 5.2.1) and sway imperfections phi = 1/200 x alpha_h x alpha_m (5.3.2) in +/-x and +/-y; alpha_cr < 10 runs a second-order (P-Delta) ULS analysis, alpha_cr <= 1 fails as unstable. "off": first-order without imperfections.
-    design_code: design code profile for the numbers a code or National Annex sets (gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, deflection limit): "eurocode" (default, EN recommended values), any profile from list_design_codes, or "off" (unfactored G + Q, no partial factors; same as design_basis="unfactored"). Results carry "design_code" with the values used and any unverified ones.
-    detail: native engine only. Adds "members" (per member: role, length, section, ULS design forces N/V/M/T, governing combination and check, slenderness, chi, stress, utilization, SLS deflection and span/deflection ratio, pinned ends) and "supports" (reactions Fx..Mz at SLS and each ULS combination). Off by default to keep replies short.
-    fabrication: hollow steel sections (CHS/RHS) are "cold_formed" (default, EN 10219, buckling curve c) or "hot_finished" (EN 10210, curve a; a0 for S460). The difference is up to about 23 % in buckling resistance; use hot_finished only when specified.
-Returns:
-    JSON from the bridge plus the construction_check. Top-level fields: status
-    ("pass"|"fail"|"error"), passed (bool), verdict (text), suggestions,
-    confidence ("high"|"medium"|"low"), warnings, and worst_member_guids
-    (up to 5 Rhino GUIDs of the most over-utilized members). The results
-    object carries the numbers: max_deflection_mm,
-    deflection_limit_mm, utilization_ratio, max_stress_mpa, yield_stress_mpa,
-    span_m, analysis_method ("native"|"api"|"template"|"rule_based"), reactions_kn
-    (total vertical reaction, api path only), and per_element_utilization —
-    a list of {source_guids, utilization} entries (utilization 1.0 = at
-    capacity) keyed back to the Rhino objects that produced each element.
+    guids: 해석 범위에 포함되는 현재 Rhino 객체 GUID 문자열입니다.
+    structure_type: 사용할 해석 템플릿입니다. 선택지: "beam"은 단순 보의 휨/처짐, "truss"는 축력/좌굴 해석, "shell"은 셸 응력/변위, "frame"은 프레임 모멘트/전단 해석, "canopy"는 캔틸레버 캐노피, "gridshell"은 대변형 그리드셸, "membrane"은 막 구조 형상 탐색, "highrise"는 고층 구조 시스템입니다.
+    load_kn: 전체 부과하중(kN)입니다. native에서는 자유 절점에 하향(-Z) 균등 분배합니다. 바닥·자산 하중과 중복 계산되지 않게 산정하며 필요한 경우 0으로 입력합니다.
+    material: 재료 유형: "Steel", "S355", "Concrete", "Wood", "Aluminium". 기본값은 "Steel"입니다.
+    engine: auto, native, karamba 중 선택합니다. auto는 선형 프레임에 native를, 그 외에는 Karamba를 사용합니다. karamba는 사용 가능한 api, template, rule_based 순으로 시도합니다. 결과의 analysis_method와 warnings를 확인합니다.
+    fixed_supports: True는 완전 고정 지점, False는 핀 지점(회전 자유)을 뜻합니다.
+    self_weight: 부재 자중을 포함합니다.
+    span_m: 부재가 모든 절점에서 분할됐을 때 L/250 한계에 사용할 구조 경간(미터)입니다. 예를 들어 6.2 m 장선을 3.1 m 구간 두 개로 그린 경우에 사용합니다. 네이티브 엔진 전용입니다.
+    asset_loads: true이면 배치된 라이브러리 자산의 자중·내용물·재실자 하중을 추가합니다. 네이티브 엔진에서 사용합니다. 다른 하중 입력에 이미 포함한 무게를 중복 적용하지 않습니다.
+    floor_load_kn_m2: 한 층에서 보로 둘러싸인 모든 구획에 적용할 부과 바닥 하중(kN/m2)입니다(예: 주거용 2.0, EN 1991-1-1의 category A). 보는 45도 분배 규칙에 따라 하중을 받습니다(2방향, 장단변비 2:1 초과 시 1방향). 네이티브 엔진 전용입니다. 설계기준의 바닥 하중에는 이동 가능한 가구와 사람이 이미 포함되므로, asset_loads는 무거운 특정 물품에 대해서만 함께 사용하고 중복 계산을 피하려면 load_kn을 0으로 설정합니다.
+    floor_dead_kn_m2: 같은 구획에 적용할 추가 고정하중(kN/m2)입니다. 바닥 구성층과 마감 등을 포함합니다.
+    design_basis: "en1990"(기본값)은 SLS 특성 조합(G + Q)에서 처짐을, ULS 1.35 G + 1.5 Q에서 부재를 검토합니다. G는 자중, 바닥 구성층, 배치된 물품의 중량이고, Q는 load_kn, 용도별 바닥 활하중, 내용물, 재실자입니다. "unfactored"는 둘 다 G + Q에서 검토합니다(Karamba 경로의 기준). 네이티브 엔진에 적용됩니다.
+    uls_combination: "6.10" 또는 "6.10ab"입니다. "6.10ab"는 부재별로 6.10a와 6.10b 중 더 불리한 결과를 사용합니다. 기본값은 설계기준이 선택한 식입니다(Eurocode 프로필: 6.10). 특정 식을 지정한 프로필은 요청보다 우선하며 경고를 반환합니다.
+    connections: "rigid"(기본값)는 모든 접합부가 모멘트를 전달합니다. "simple"은 보를 핀 접합(강축 휨 해제)으로, 가새를 양축 핀 접합으로 처리하되, 다른 부재가 같은 선상으로 계속 이어지는 지점이 아니라 해당 부재가 끝나는 지점에 적용하며 기둥은 연속으로 유지합니다. 일반적인 볼트 접합 강구조와 목구조 프레임은 "simple"에 더 가깝습니다. 강접합은 보 처짐을 실제보다 유리하게 보이게 할 수 있습니다. 곡선의 사용자 텍스트 almond:release = "pinned" | "pinned_start" | "pinned_end" | "rigid"는 두 모드보다 우선합니다. 네이티브 엔진에 적용됩니다.
+    stability: "auto"(기본값)는 모든 ULS 조합의 탄성 임계 하중 계수 alpha_cr(EN 1993-1-1 5.2.1)과 +/-x 및 +/-y 방향의 횡변위 초기 불완전성 phi = 1/200 x alpha_h x alpha_m(5.3.2)을 적용합니다. alpha_cr < 10이면 2차(P-Delta) ULS 해석을 실행하며, alpha_cr <= 1이면 불안정으로 실패 처리합니다. "off"는 초기 불완전성 없는 1차 해석입니다.
+    design_code: 설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. "eurocode"(기본값, EN 권장값), analysis_03-list_design_codes tool의 프로필 또는 "off"를 사용합니다. "off"는 부분계수 없이 G + Q를 적용하며 design_basis="unfactored"와 같습니다. 결과의 "design_code"에는 사용한 값과 검증되지 않은 값이 포함됩니다.
+    detail: true이면 네이티브 해석의 부재별 단면력·사용률·처짐과 지점 반력을 포함합니다.
+    fabrication: 중공 강재 단면(CHS/RHS)은 "cold_formed"(기본값, EN 10219, 좌굴 곡선 c) 또는 "hot_finished"(EN 10210, 곡선 a, S460은 a0)입니다. 좌굴 내력에 최대 약 23% 차이가 있으므로, hot_finished는 명시된 경우에만 사용합니다.
 <!-- /instruction:validate_structure -->
 
 ## list_design_codes
 
 <!-- instruction:list_design_codes -->
-List the design-code profiles available to structural validation and viewport analysis.
-
-When to use: Choose numerical load/material factors, ULS expressions and deflection limits for the intended jurisdiction.
-Before calling: No model or prior result is required; the built-in default is eurocode and off selects unfactored mechanics.
-Inputs from earlier results: None required. Request include_ids=true and pass profiles[].id as validate_structure.design_code or visualize_structure.design_code.
-Interpretation: Summary shows name, basis, verified and unverified parameter names. field_groups=["parameters"] adds ULS choices, deflection_limit_ratio (250 means L/250) and imposed_floor_kn_m2 suggestions; ["source"] adds origin. problems lists profiles rejected during loading; user_dir identifies the optional custom-profile folder.
-Limits: verified concerns profile values, not approval of a structure or project compliance. Unverified values are allowed and flagged in analysis results. off still uses an indicative L/250 screen; listing a floor-load suggestion does not apply it to a model.
+구조 해석에 사용할 설계기준 프로필을 조회합니다.
 
 Args:
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    field_groups: Optional detail groups: parameters, source, audit or all. Omitted/empty keeps the summary; include_ids controls identities separately.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 상세 그룹: parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
 <!-- /instruction:list_design_codes -->
 
 ## visualize_structure
 
 <!-- instruction:visualize_structure -->
-Analyze live Rhino structural axes and display a temporary viewport overlay of deformation, utilization or buckling behavior.
-
-When to use: Inspect load paths, support assumptions and iterative design changes visually without baking geometry.
-Before calling: Supply structural curve GUIDs and support-point GUIDs, or accept lowest-node supports. Match actual joints and load scope; kN loads, kN/m2 floor loads, mm section sizes and metre spans are distinct. Use clear=true to remove the overlay.
-Inputs from earlier results: Reuse validate_structure's geometry scope or observed object id strings as guids; request include_ids=true on discovery. Use per_element_utilization[].source_guids for display_guids to isolate members visually without shrinking analysis scope. list_design_codes.profiles[].id maps to design_code. Even reanalyze=false requires a nonempty guids list unless clearing.
-Interpretation: Deformation is exaggerated by scale, not actual geometry. Native overlays combine SLS displacement with ULS utilization; read max_displacement_mm, deflection_limit_mm, max_utilization, analysis_method and warnings. Red may mean displacement or utilization according to color_by, not a diagnosed design cause. Buckling mode shape has no physical displacement magnitude: use buckling.alpha_cr (>1 for the returned pass; 1-10 remains sway-sensitive, >=10 the first-order threshold).
-Limits: reanalyze=false reuses the prior solve and only changes display; it does not validate changed geometry or loads. physics=false/reveal/display_guids affect presentation only. No objects are baked, but viewport state changes. Native non-steel results can be indicative; read status rather than claiming a pass. Karamba requires its runtime (3.1 trial: 20 beam elements); fallback/load warnings and validate_structure's analysis limits still apply.
-
-Returns JSON: status ("pass"|"fail"|"error"|"cleared"), max_displacement_mm,
-deflection_limit_mm, span_m, max_utilization, scale, per-element
-{source_guids, max_displacement_mm, utilization}, warnings.
-The native engine reports analysis_method "native"; engine="karamba" needs
-Karamba3D 3.1 (the trial caps models at 20 beam elements).
+구조 해석 결과를 임시 뷰포트 오버레이로 표시합니다.
 
 Args:
-    guids: Curve GUIDs of the structural axes plus point GUIDs marking supports (see fixed_supports). Without points, the lowest nodes are supported.
-    load_kn: Total imposed load in kN, shared equally by the free nodes (-Z).
-    material: "Steel", "S355", "Concrete", "Wood", "Aluminium".
-    beam_diameter_mm: Optional circular member outside diameter in millimetres.
-    beam_wall_mm: Optional hollow member wall thickness in millimetres.
-    self_weight: include gravity.
-    fixed_supports: True = fully fixed supports, False = pinned (rotations free).
-    deflection_limit_ratio: span/ratio limit, e.g. 250 for L/250. Default: the design code's limit (Eurocode profile: 250).
-    span_m: reference span in meters for the limit (default: longest member). Set it when members are split at every node, e.g. a 6.2 m joist drawn as two 3.1 m segments.
-    color_by: "displacement" or "utilization".
-    scale: deformation exaggeration; omit for automatic (~6% of span).
-    reveal: 0..1 fraction of members drawn (for staged construction playback).
-    reanalyze: False re-uses the last solve and only changes the display (scale / color_by / reveal / physics / title) - cheap enough to animate.
-    physics: False draws the same members as plain geometry with no analysis overlay ("physics off"), for before/after comparisons.
-    display_guids: draw only these members (e.g. one frame line for a section view); the analysis still covers every member in guids.
-    title: legend title.
-    clear: remove the overlay.
-    engine: "auto" (default: Almond's native frame solver, no Karamba needed; Karamba when the selection has shells or the bridge cannot export a model), "native" or "karamba".
-    asset_loads: add the loads of placed library assets (native engine), as in validate_structure; loaded points are drawn with load arrows.
-    floor_load_kn_m2: imposed floor load in kN/m2 (e.g. 2.0 for homes, EN 1991-1-1 category A) on every bay enclosed by beams on a level; the beams take it by the 45-degree rule (two-way, one-way above 2:1). Native engine only. A code floor load already covers movable furniture and people: combine it with asset_loads only for heavy specific items, and set load_kn to 0 to avoid double counting.
-    floor_dead_kn_m2: superimposed dead load in kN/m2 (floor build-up, finishes) on the same bays.
-    design_basis: "en1990" (default): deflection at SLS characteristic (G + Q), member checks at ULS 1.35 G + 1.5 Q. G = self weight, floor build-up and the weight of placed items; Q = load_kn, the occupancy floor load, contents and occupants. "unfactored" checks both at G + Q (the Karamba route's basis). Native engine.
-    uls_combination: "6.10" or "6.10ab" (the worse of 6.10a and 6.10b per member). Default: the design code's choice (Eurocode profile: 6.10). A profile that prescribes one expression overrides the request (with a warning).
-    connections: "rigid" or "simple", as in validate_structure; pinned ends are drawn as small circles.
-    stability: "auto" or "off", as in validate_structure.
-    design_code: design code profile for the numbers a code or National Annex sets (gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, deflection limit): "eurocode" (default, EN recommended values), any profile from list_design_codes, or "off" (unfactored G + Q, no partial factors; same as design_basis="unfactored"). Results carry "design_code" with the values used and any unverified ones.
-    fabrication: hollow steel sections (CHS/RHS) are "cold_formed" (default, EN 10219, buckling curve c) or "hot_finished" (EN 10210, curve a; a0 for S460). The difference is up to about 23 % in buckling resistance; use hot_finished only when specified.
-    view: "deflection" (default) or "buckling": draw the first buckling mode of the governing ULS combination with its alpha_cr (STABLE >= 10, SWAY-SENSITIVE 1-10, UNSTABLE <= 1) instead of the deflected shape.
+    guids: 구조 축선의 곡선 GUID와 지점을 표시하는 점 GUID입니다(fixed_supports 참조). 점이 없으면 최하단 절점을 지점으로 사용합니다.
+    load_kn: 자유 절점에 하향(-Z)으로 균등 분배할 전체 부과하중(kN)입니다.
+    material: "Steel", "S355", "Concrete", "Wood", "Aluminium" 중 하나입니다.
+    beam_diameter_mm: 선택 항목인 원형 부재 외경(밀리미터)입니다.
+    beam_wall_mm: 선택 항목인 중공 부재의 벽 두께(밀리미터)입니다.
+    self_weight: 중력을 포함합니다.
+    fixed_supports: True는 완전 고정 지점, False는 핀 지점(회전 자유)을 뜻합니다.
+    deflection_limit_ratio: 경간/비율 한계입니다. 예를 들어 L/250은 250입니다. 기본값은 설계기준의 한계입니다(Eurocode 프로필: 250).
+    span_m: 한계에 사용할 기준 경간(미터)입니다. 기본값은 가장 긴 부재입니다. 부재가 모든 절점에서 분할됐다면 지정합니다. 예: 6.2 m 장선을 3.1 m 구간 두 개로 그린 경우.
+    color_by: "displacement" 또는 "utilization"입니다.
+    scale: 변형 과장 배율입니다. 생략하면 자동으로 정합니다(경간의 약 6%).
+    reveal: 그릴 부재의 비율이며 0..1 범위입니다. 단계별 시공 재생에 사용합니다.
+    reanalyze: False이면 마지막 계산을 재사용하고 표시(scale / color_by / reveal / physics / title)만 변경합니다. 애니메이션에 사용할 수 있을 만큼 계산 부담이 작습니다.
+    physics: False이면 해석 오버레이 없이 같은 부재를 일반 형상으로 그립니다("physics off"). 전후 비교에 사용합니다.
+    display_guids: 이 부재들만 그립니다(예: 단면 보기를 위한 한 줄의 프레임). 해석은 여전히 guids의 모든 부재를 포함합니다.
+    title: 범례 제목입니다.
+    clear: 오버레이를 제거합니다.
+    engine: "auto"(기본값), "native", "karamba" 중 하나입니다. "auto"는 Karamba 없이 Almond 네이티브 프레임 솔버를 사용하되, 선택에 셸이 있거나 브리지가 모델을 내보낼 수 없으면 Karamba를 사용합니다.
+    asset_loads: analysis_04-validate_structure tool와 동일하게 배치된 라이브러리 자산의 하중을 추가합니다(네이티브 엔진). 하중 작용점에 하중 화살표를 그립니다.
+    floor_load_kn_m2: 한 층에서 보로 둘러싸인 모든 구획에 적용할 부과 바닥 하중(kN/m2)입니다(예: 주거용 2.0, EN 1991-1-1의 category A). 보는 45도 분배 규칙에 따라 하중을 받습니다(2방향, 장단변비 2:1 초과 시 1방향). 네이티브 엔진 전용입니다. 설계기준의 바닥 하중에는 이동 가능한 가구와 사람이 이미 포함되므로, asset_loads는 무거운 특정 물품에 대해서만 함께 사용하고 중복 계산을 피하려면 load_kn을 0으로 설정합니다.
+    floor_dead_kn_m2: 같은 구획에 적용할 추가 고정하중(kN/m2)입니다. 바닥 구성층과 마감 등을 포함합니다.
+    design_basis: "en1990"(기본값)은 SLS 특성 조합(G + Q)에서 처짐을, ULS 1.35 G + 1.5 Q에서 부재를 검토합니다. G는 자중, 바닥 구성층, 배치된 물품의 중량이고, Q는 load_kn, 용도별 바닥 활하중, 내용물, 재실자입니다. "unfactored"는 둘 다 G + Q에서 검토합니다(Karamba 경로의 기준). 네이티브 엔진에 적용됩니다.
+    uls_combination: "6.10" 또는 "6.10ab"입니다. "6.10ab"는 부재별로 6.10a와 6.10b 중 더 불리한 결과를 사용합니다. 기본값은 설계기준이 선택한 식입니다(Eurocode 프로필: 6.10). 특정 식을 지정한 프로필은 요청보다 우선하며 경고를 반환합니다.
+    connections: analysis_04-validate_structure tool와 동일한 "rigid" 또는 "simple"입니다. 핀 접합 단부는 작은 원으로 그립니다.
+    stability: analysis_04-validate_structure tool와 동일한 "auto" 또는 "off"입니다.
+    design_code: 설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. "eurocode"(기본값, EN 권장값), analysis_03-list_design_codes tool의 프로필 또는 "off"를 사용합니다. "off"는 부분계수 없이 G + Q를 적용하며 design_basis="unfactored"와 같습니다. 결과의 "design_code"에는 사용한 값과 검증되지 않은 값이 포함됩니다.
+    fabrication: 중공 강재 단면(CHS/RHS)은 "cold_formed"(기본값, EN 10219, 좌굴 곡선 c) 또는 "hot_finished"(EN 10210, 곡선 a, S460은 a0)입니다. 좌굴 내력에 최대 약 23% 차이가 있으므로, hot_finished는 명시된 경우에만 사용합니다.
+    view: "deflection"(기본값) 또는 "buckling"입니다. "buckling"은 처짐 형상 대신 지배 ULS 조합의 첫 번째 좌굴 모드를 alpha_cr과 함께 그립니다(STABLE >= 10, SWAY-SENSITIVE 1-10, UNSTABLE <= 1).
 <!-- /instruction:visualize_structure -->
 
 ## export_structural_report
 
 <!-- instruction:export_structural_report -->
-Write locally recorded structural-validation runs to a newest-first Markdown report.
-
-When to use: Export the persisted validation history for review without running another solve.
-Before calling: Ensure the intended validate_structure pass/fail runs were recorded; select an output path and run limit. No live Rhino analysis occurs.
-Inputs from earlier results: This reads history automatically rather than accepting validation JSON or GUIDs. A prior validate_structure response may not be present if best-effort persistence failed; an empty history returns an error.
-Interpretation: path locates the written .md file, runs is the exported count and latest_method identifies the newest stored analysis method. Stored numbers, confidence, verdicts and warnings describe past runs, not current model state.
-Limits: The limit is clamped to 1..500. Parent folders are created and an existing target file is overwritten. The history stores summary fields, not all detailed settings/member results; exported pathway/pass-criteria narrative is static and may not fully describe current native/code behavior. Export is not a fresh validation or engineering certification.
+저장된 구조 검증 이력을 Markdown 보고서로 작성합니다.
 
 Args:
-    path: Managed session: relative file beneath the selected Plan artifact directory, default reports/structural-validation.md. Standalone default: user-data reports/structural-validation-<timestamp>.md.
-    limit: Maximum number of runs to include (default 50, max 500).
-Returns:
-    JSON with the report path and run count.
+    path: 관리형 세션에서는 선택한 Plan 산출물 디렉터리 아래의 상대 파일 경로이며, 기본값은 reports/structural-validation.md입니다. 독립 실행의 기본값은 사용자 데이터의 reports/structural-validation-<timestamp>.md입니다.
+    limit: 포함할 최대 실행 개수입니다. 기본값은 50, 최댓값은 500입니다.
 <!-- /instruction:export_structural_report -->
 
 ## response-981
 
 <!-- instruction:response-981 -->
-- Only **api** runs are finite element analysis; reactions_kn is
+- **native** and **api** runs use finite element analysis. Their reactions_kn
 <!-- /instruction:response-981 -->
 
 ## response-982
 
 <!-- instruction:response-982 -->
-  populated on the api path only and should equal the applied load
+  should balance the modeled load for the reported load combination,
 <!-- /instruction:response-982 -->
 
 ## response-983
@@ -181,7 +133,7 @@ Returns:
 ## response-1026
 
 <!-- instruction:response-1026 -->
-No validation runs recorded yet - call validate_structure first.
+No validation runs recorded yet - call analysis_04-validate_structure tool first.
 <!-- /instruction:response-1026 -->
 
 ## response-1031

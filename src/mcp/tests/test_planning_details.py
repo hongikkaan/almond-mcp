@@ -5,12 +5,21 @@ from types import SimpleNamespace
 
 import pytest
 from fastmcp import Client, FastMCP
+from pydantic import TypeAdapter
 
 from almond_mcp.features.planning.output import kst_minute
+from almond_mcp.features.planning.requests import GetRequest, ListRequest
 from almond_mcp.features.planning.tools import register
 from almond_mcp.retrieval_store import AlmondStore
 
-DETAIL = "get_phase_plan_step"
+PUBLIC_DETAIL = "plan_05-get"
+parse_get = TypeAdapter(GetRequest).validate_python
+parse_list = TypeAdapter(ListRequest).validate_python
+
+
+def request_branch(schema, target):
+    return next(branch for branch in schema["properties"]["request"]["oneOf"]
+                if branch["properties"]["target"]["const"] == target)
 
 
 @pytest.fixture
@@ -20,11 +29,10 @@ def store(tmp_path):
 
 def test_empty_discovery_does_not_offer_missing_detail_or_working_handles(store):
     tools = register(FastMCP("empty-planning"), SimpleNamespace(retrieval_store=store))
-    for name, collection in (("list_phases", "phases"), ("list_plans", "plans")):
-        value = json.loads(tools[name]())
+    for target, collection in (("phase", "phases"), ("plan", "plans")):
+        value = json.loads(tools["list_planning"](parse_list({"target": target})))
         assert value[collection] == []
-        assert "get_phase_plan_step" not in value["next_step"]
-        assert "set_working_plan" not in value["next_step"]
+        assert "next_step_guide" not in value
 
 
 def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
@@ -32,20 +40,24 @@ def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     plan = store.create_plan("Review access and circulation", scope="component", phase_id=phase["phase_id"], title="Entrance access")
     pid = plan["plan_id"]
     tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=store))
-    phases = json.loads(tools["list_phases"]())
+    phases = json.loads(tools["list_planning"](parse_list({"target": "phase"})))
     assert phases["phases"][0]["phase_id"] == phase["phase_id"]
-    assert "list_plans" in phases["next_step"]
-    assert DETAIL in phases["next_step"]
-    rows = json.loads(tools["list_plans"](phase_id=phase["phase_id"]))
+    assert "plan_08-list" in phases["next_step_guide"]
+    assert PUBLIC_DETAIL in phases["next_step_guide"]
+    rows = json.loads(tools["list_planning"](parse_list({"target": "plan", "phase_id": phase["phase_id"]})))
     assert rows["plans"] == [{"plan_id": pid, "title": "Entrance access", "scope": "component", "status": "pending", "loop_no": 0, "revision": 1}]
-    assert DETAIL in rows["next_step"]
-    ph = json.loads(tools[DETAIL](phase_id=phase["phase_id"]))
+    assert PUBLIC_DETAIL in rows["next_step_guide"]
+    ph = json.loads(tools["get_planning"](parse_get({
+        "target": "phase", "include_details": True, "phase_id": phase["phase_id"],
+    })))
     assert (ph["id"], ph["type"], ph["status"]) == (phase["phase_id"], "phase", "pending")
     assert ph["phase"]["plan_titles"] == ["Entrance access"]
     assert ph["phase"]["depends_on"] == ["phase_future"]
     assert "plan_count" not in ph["phase"]
-    detail = json.loads(tools[DETAIL](plan_id=pid, include_holons=True))
-    assert "set_working_plan" in detail["next_step"] and DETAIL in detail["next_step"]
+    detail = json.loads(tools["get_planning"](parse_get({
+        "target": "plan", "plan_id": pid, "include_details": True,
+    })))
+    assert "plan_10-set_working" in detail["next_step_guide"]
     assert detail["plan"]["phase"] == {"phase_id": phase["phase_id"], "name": "Entrance"}
     assert detail["plan"]["holon_ids"] == []
     assert detail["plan"]["created_at"] == kst_minute(plan["created_at"])
@@ -59,34 +71,49 @@ def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     store.update_plan_step(pid, plan["steps"][1]["step_id"], "pending", output_refs=["another Step's long record"])
     # The current Step path must not fetch the whole Plan and its other records.
     monkeypatch.setattr(store, "get_plan", lambda *args, **kwargs: pytest.fail("unbounded Plan read"))
-    step = json.loads(tools[DETAIL](plan_id=pid, step_id=plan["steps"][0]["step_id"]))
-    assert "set_working_plan" in step.pop("next_step")
-    assert step == {"id": plan["steps"][0]["step_id"], "type": "step", "status": "pending", "read_only": False, "step": {
-        "plan_id": pid, "loop_no": 0, "revision": 4, "step_type": "inspect_context", "name": "inspect_context", "input_refs": ["brief"], "output_refs": ["survey"]}}
+    step = json.loads(tools["get_planning"](parse_get({
+        "target": "step", "include_details": True, "plan_id": pid, "step_id": plan["steps"][0]["step_id"],
+    })))
+    assert "plan_10-set_working" in step.pop("next_step_guide")
+    assert step == {"id": plan["steps"][0]["step_id"], "type": "step", "name": "inspect_context", "status": "pending", "read_only": False,
+        "plan_id": pid, "loop_no": 0, "revision": 4,
+        "step": {"step_type": "inspect_context", "input_refs": ["brief"], "output_refs": ["survey"]}}
 
 
-@pytest.mark.parametrize("arguments", [{}, {"phase_id": "phase_a", "plan_id": "plan_a"},
-    {"step_id": "design"}, {"phase_id": "phase_a", "revision": 1},
-    {"phase_id": "phase_a", "include_holons": True},
-    {"plan_id": "plan_a", "step_id": "design", "include_holons": True}])
+
+@pytest.mark.parametrize("arguments", [{}, {"target": "phase", "phase_id": "phase_a", "plan_id": "plan_a"},
+    {"target": "step", "step_id": "design"}, {"target": "phase", "phase_id": "phase_a", "revision": 1},
+    {"target": "phase", "phase_id": "phase_a", "loop_no": 0},
+    {"target": "phase", "phase_id": "phase_a", "step_id": "design"}])
 def test_invalid_detail_selection_is_an_error(store, arguments):
-    tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=store))
-    assert json.loads(tools[DETAIL](**arguments))["status"] == "error"
+    server = FastMCP("planning")
+    register(server, SimpleNamespace(retrieval_store=store))
+
+    async def run():
+        async with Client(server) as client:
+            result = await client.call_tool(PUBLIC_DETAIL, {"request": arguments}, raise_on_error=False)
+            assert result.is_error
+
+    asyncio.run(run())
 
 
 def test_saved_revision_navigation_keeps_history_separate_from_current_work(store):
     plan = store.create_plan("Review entrance", scope="component")
     current = store.update_plan_step(plan["plan_id"], plan["steps"][1]["step_id"], output_refs=["new design"])
     tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=store))
-    historic = json.loads(tools[DETAIL](plan_id=plan["plan_id"], revision=plan["revision"]))
-    assert "revision=1" in historic["next_step"]
-    assert "without revision" in historic["next_step"]
-    historic_step = json.loads(tools[DETAIL](plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], revision=plan["revision"]))
+    historic = json.loads(tools["get_planning"](parse_get({
+        "target": "plan", "include_details": True, "plan_id": plan["plan_id"], "revision": plan["revision"],
+    })))
+    assert historic["revision"] == 1 and historic["read_only"] is True
+    assert "revision을 생략" in historic["next_step_guide"]
+    request = {"target": "step", "include_details": True, "plan_id": plan["plan_id"],
+               "step_id": plan["steps"][1]["step_id"]}
+    historic_step = json.loads(tools["get_planning"](parse_get({**request, "revision": plan["revision"]})))
     assert historic_step["step"]["output_refs"] == []
-    assert "without revision" in historic_step["next_step"]
-    latest_step = json.loads(tools[DETAIL](plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"]))
+    assert "revision을 생략" in historic_step["next_step_guide"]
+    latest_step = json.loads(tools["get_planning"](parse_get(request)))
     assert latest_step["step"]["output_refs"] == ["new design"]
-    assert "without revision" not in latest_step["next_step"]
+    assert "revision을 생략" not in latest_step["next_step_guide"]
     assert store.get_plan(plan["plan_id"]) == current
 
 
@@ -105,30 +132,44 @@ def test_dependency_kinds_are_not_execution_gates(store):
         store.update_phase(phase["phase_id"], depends_on=[first["plan_id"]])
 
 
-def test_public_schema_and_ascii_name_with_middle_dot_title(store):
+def test_public_planning_schema_uses_strict_target_requests(store):
     server = FastMCP("planning")
     register(server, SimpleNamespace(retrieval_store=store))
 
     async def run():
         async with Client(server) as client:
             tools = {t.name: t for t in await client.list_tools()}
-            assert DETAIL in tools and not {"get_phase", "get_plan", "get_step"}.intersection(tools)
-            assert "get_phase·plan·step" not in tools
-            assert tools[DETAIL].title == "get_phase·plan·step"
-            assert {"update_plan", "update_step"}.issubset(tools)
+            crud = {"plan_02-create", PUBLIC_DETAIL, "plan_08-list", "plan_12-update"}
+            assert crud <= tools.keys()
+            assert not {"get_phase", "get_plan", "get_step", "get_phase·plan·step",
+                        "plan_01-create_phase", "plan_05-get_phase_plan_step", "plan_06-list_phases",
+                        "plan_11-update_phase", "plan_13-update_step"}.intersection(tools)
             schemas = {n: t.model_dump(by_alias=True)["inputSchema"] for n, t in tools.items()}
             assert all("include_ids" not in s["properties"] for s in schemas.values())
-            assert "field_groups" not in schemas["list_plans"]["properties"]
-            assert set(schemas["create_plan"]["required"]) == {"title", "goal"}
-            assert "component_ids" not in schemas["update_step"]["properties"]
-            assert set(schemas["update_step"]["required"]) == {"plan_id", "step_id"}
-            result = await client.call_tool("create_plan", {"title": "Survey", "goal": "Inspect entrance"})
+            for name in crud:
+                assert set(schemas[name]["properties"]) == set(schemas[name]["required"]) == {"request"}
+                branches = schemas[name]["properties"]["request"]["oneOf"]
+                assert {branch["properties"]["target"]["const"] for branch in branches} == (
+                    {"phase", "plan"} if name == "plan_02-create" else {"phase", "plan", "step"})
+                for branch in branches:
+                    assert branch["additionalProperties"] is False
+                    assert "target" in branch["required"] and "include_ids" not in branch["properties"]
+            assert "field_groups" not in request_branch(schemas["plan_08-list"], "plan")["properties"]
+            assert set(request_branch(schemas["plan_02-create"], "plan")["required"]) == {"target", "title", "goal"}
+            step_update = request_branch(schemas["plan_12-update"], "step")
+            assert "component_ids" not in step_update["properties"]
+            assert set(step_update["required"]) == {"target", "plan_id", "step_id"}
+            result = await client.call_tool("plan_02-create",
+                {"request": {"target": "plan", "title": "Survey", "goal": "Inspect entrance"}})
             pid = json.loads(result.content[0].text)["plan"]["plan_id"]
-            result = await client.call_tool(DETAIL, {"plan_id": pid})
+            result = await client.call_tool(PUBLIC_DETAIL, {"request": {"target": "plan", "plan_id": pid}})
             assert json.loads(result.content[0].text)["id"] == pid
-            for name, args in [(DETAIL, {"plan_id": pid, "include_ids": True}),
-                               ("update_step", {"plan_id": pid, "step_id": "inspect_context", "status": "pending", "component_ids": []})]:
-                result = await client.call_tool(name, args, raise_on_error=False)
+            for name, request in [
+                (PUBLIC_DETAIL, {"target": "plan", "plan_id": pid, "include_ids": True}),
+                ("plan_12-update", {"target": "step", "plan_id": pid, "step_id": "inspect_context",
+                                    "status": "pending", "component_ids": []}),
+            ]:
+                result = await client.call_tool(name, {"request": request}, raise_on_error=False)
                 assert result.is_error
 
     asyncio.run(run())
@@ -177,7 +218,7 @@ def test_migration_retires_targets_without_rewriting_history(store):
             assert tuple(con.execute("SELECT * FROM generation_plan_revisions WHERE plan_id=? AND revision=?", old[:2]).fetchone()) == old
         assert con.execute("PRAGMA foreign_key_check").fetchall() == []
     tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=migrated))
-    historic = json.loads(tools[DETAIL](plan_id=pid, revision=1))
+    historic = json.loads(tools["get_planning"](parse_get(dict(target="plan", include_details=True, plan_id=pid, revision=1))))
     assert historic["plan"]["depends_on"] == ["plan_missing"]
     assert historic["plan"]["phase"]["name"] is None
     assert all("component_ids" not in s for s in historic["plan"]["steps"])
@@ -201,7 +242,7 @@ def test_kst_minute_rolls_into_the_next_day():
     assert kst_minute("2026-01-31T16:45:59+00:00") == "2026-02-01-01:45"
 
 
-@pytest.mark.parametrize("name,args", [("list_phases", {}), ("list_plan_revisions", {"plan_id": "plan_a"}),
+@pytest.mark.parametrize("name,args", [("list_plan_revisions", {"plan_id": "plan_a"}),
     ("resolve_targets", {"plan_id": "plan_a"}), ("get_selection_references", {})])
 def test_invalid_groups_keep_the_existing_error_contract_before_any_io(name, args):
     # No store or native context is available: validation must run first.
@@ -212,3 +253,17 @@ def test_invalid_groups_keep_the_existing_error_contract_before_any_io(name, arg
         response = response.structured_content["result"]
     result = json.loads(response)
     assert result["status"] == "error" and result["error_code"] == "invalid_arguments"
+
+
+def test_invalid_phase_list_groups_are_rejected_before_any_io():
+    server = FastMCP("planning")
+    register(server, SimpleNamespace())
+
+    async def run():
+        async with Client(server) as client:
+            result = await client.call_tool("plan_08-list",
+                {"request": {"target": "phase", "field_groups": ["unknown"]}}, raise_on_error=False)
+            payload = json.loads(result.content[0].text)
+            assert payload["status"] == "error" and payload["error_code"] == "invalid_arguments"
+
+    asyncio.run(run())

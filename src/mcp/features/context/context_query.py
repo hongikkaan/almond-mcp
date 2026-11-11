@@ -56,7 +56,7 @@ def query(send, sections=None, include_ids=False, include_editor_details=False):
         result = project_query(result, include_ids=include_ids)
         result.update(catalogues)
         if default:
-            result["next_step"] = "현재 화면을 보려면 get_current_viewcapture를 사용하세요."
+            result["next_step_guide"] = "현재 화면을 보려면 capture_03-current_view tool을 사용하세요."
         return json.dumps(relative_output(result), ensure_ascii=False)
     except Exception as exc:
         return _error(f"Could not read the live Rhino context: {exc}", "bridge_error")

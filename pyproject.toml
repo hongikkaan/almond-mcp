@@ -16,7 +16,6 @@ classifiers = [
 ]
 dependencies = [
     "fastmcp>=3.0.2",
-    "lxml>=6.0.2",
     "mcp>=1.26.0",
     "pydantic>=2.12.5",
     "numpy>=2.0,<3",

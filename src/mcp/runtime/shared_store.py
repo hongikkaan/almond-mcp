@@ -15,7 +15,9 @@ from pathlib import Path
 import tempfile
 import time
 import uuid
-from almond_mcp.managed_paths import project_path, relative_output
+from almond_mcp.managed_paths import project_path, relative_output, relative_path
+from almond_mcp.tool_response import error_payload
+from almond_mcp.public_names import internal_tool_name
 from storage_cleanup import plain_descendant, process_identity_alive, remove_owned_tree, rhinocode_settled
 
 import anyio
@@ -126,7 +128,7 @@ def validate_artifact_writers(storage: str | Path) -> None:
                 continue
             if not rhinocode_settled(session):
                 raise RuntimeError("An earlier RhinoCode execution has no confirmed completion. "
-                                   "Use get_rhino_execution to retrieve its outcome before writing artifacts.")
+                                   "Use script_03-get_execution tool to retrieve its outcome before writing artifacts.")
             if (native.get("schema") == "almond-native" and native.get("token") == token
                     and native.get("phase") in {"stopped", "faulted"}
                     and native.get("pending") == 0):
@@ -136,7 +138,7 @@ def validate_artifact_writers(storage: str | Path) -> None:
                            "no new file operation was started.")
 
 
-def output_arguments(name: str, arguments: dict, operation_dir: Path, *, relative_only=False) -> dict:
+def output_arguments(name: str, arguments: dict, operation_dir: Path, *, relative_only=False, create=True) -> dict:
     """Fill reviewed public output arguments; explicit output paths retain priority."""
     arguments = dict(arguments)
     fields = {
@@ -153,9 +155,9 @@ def output_arguments(name: str, arguments: dict, operation_dir: Path, *, relativ
     if arguments.get(field) and relative_only:
         target = project_path(arguments[field], base=operation_dir)
     if arguments.get(field) == "" or field not in arguments or relative_only:
-        if name == "export_structural_report":
+        if create and name == "export_structural_report":
             target.parent.mkdir(parents=True, exist_ok=True)
-        else:
+        elif create:
             target.mkdir(parents=True, exist_ok=True)
         arguments[field] = str(target)
     return arguments
@@ -165,23 +167,39 @@ def public_result(result, name):
     if name == "project_info" or not os.environ.get("ALMOND_PROJECT_ROOT"):
         return result
 
-    def convert(value):
-        if isinstance(value, str):
+    def convert(value, *, decode_json=True):
+        if isinstance(value, str) and decode_json:
             try:
                 decoded = json.loads(value)
             except (ValueError, TypeError):
                 return relative_output(value)
             if isinstance(decoded, (dict, list)):
-                return json.dumps(relative_output(decoded), ensure_ascii=False)
+                # Decode the transport envelope once. JSON-looking strings in
+                # its body are user data, not additional response envelopes.
+                return json.dumps(convert(decoded, decode_json=False), ensure_ascii=False)
         if isinstance(value, dict):
-            return {key: convert(item) for key, item in value.items()}
+            converted = {key: convert(item, decode_json=decode_json) for key, item in value.items()}
+            package = value.get("package_dir")
+            if (name in {"generate_asset_drawing_views", "get_asset_drawing", "register_drawing_asset", "refresh_asset"}
+                    and isinstance(package, str)):
+                # A package on another Windows drive has no relative spelling.
+                # Audit accepts this absolute path only inside configured roots.
+                converted["package_dir"] = relative_path(package, preserve_cross_drive=True)
+            return converted
+        if isinstance(value, list):
+            return [convert(item, decode_json=False) for item in value]
         return relative_output(value)
 
     if isinstance(result, ToolResult):
         content = [TextContent(type="text", text=convert(item.text)) if isinstance(item, TextContent) else item
                    for item in result.content]
-        return ToolResult(content=content, structured_content=convert(result.structured_content), is_error=result.is_error)
-    return convert(result)
+        structured = result.structured_content
+        if isinstance(structured, dict) and set(structured) == {"result"} and isinstance(structured["result"], str):
+            structured = {"result": convert(structured["result"])}
+        else:
+            structured = convert(structured, decode_json=False)
+        return ToolResult(content=content, structured_content=structured, is_error=result.is_error)
+    return convert(result, decode_json=isinstance(result, str))
 
 
 class ProjectRuntime(Middleware):
@@ -407,7 +425,7 @@ class ProjectRuntime(Middleware):
             write_json(operation_path.with_name("artifact-write.json"), operation)
 
     async def on_call_tool(self, context, call_next):
-        name = context.message.name
+        name = internal_tool_name(context.message.name)
         if name == "get_rhino_execution":
             async with serial_gate(self.serial, self.queue_timeout):
                 return await call_next(context)
@@ -441,12 +459,8 @@ class ProjectRuntime(Middleware):
                 finally:
                     artifact_gate.close()
 
-    async def _owned_call(self, context, call_next, name, artifact_write, capture_save_error):
-        operation_id = uuid.uuid4().hex
-        operation_dir = Path(self.locations["call_root"]) / operation_id
-        # Pure local queries need no scratch. Native ownership creates its
-        # directory lazily in send(), then reclaims it after confirmed completion.
-        args = dict(context.message.arguments or {})
+    def _prepare_arguments(self, name, args, operation_dir, capture_save_error):
+        """Validate paths before an operation, file creation or native dispatch."""
         work = self.workspace.current() if self.workspace is not None else {"artifact_dir": ""}
         is_capture_file_write = capture_file_write(name, args)
         if work["artifact_dir"] and (name == "execute_rhino_script" or is_capture_file_write):
@@ -460,16 +474,50 @@ class ProjectRuntime(Middleware):
                 capture_save_error = capture_save_error or str(exc)
         if name in OUTPUT_TOOLS and (name != "get_blender_helper_script" or str(args.get("action", "")).lower() == "export"):
             artifact_dir = self.workspace.artifact_path() if self.workspace is not None else operation_dir
-            args = output_arguments(name, args, artifact_dir, relative_only=self.workspace is not None)
+            args = output_arguments(name, args, artifact_dir, relative_only=self.workspace is not None, create=False)
         if self.workspace is not None:
             input_fields = {"register_drawing_asset": ("source_3dm", "preparation_job"),
                             "prepare_drawing_asset": ("source_file", "job_dir"),
                             "import_asset_contract": ("contract_path",),
-                            "audit_asset_drawing": ("package_dir", "source_glb"),
+                            "audit_asset_drawing": ("source_glb",),
                             "generate_asset_drawing_views": ("source_glb",)}
             for field in input_fields.get(name, ()):
                 if args.get(field):
                     args[field] = str(project_path(args[field], base=Path(self.locations["project_dir"])))
+            if name == "prepare_drawing_asset":
+                if args.get("stage") == "status" and work["artifact_dir"]:
+                    self.workspace._artifact_path(work["plan_artifact_dir"])
+                    prepared = project_path(work["artifact_dir"], base=Path(self.locations["project_dir"]))
+                else:
+                    prepared = self.workspace.artifact_path()
+                # Preparation alone expects an absolute internal root. Scripts,
+                # captures and saved Plan references keep their relative contract.
+                work = {**work, "artifact_dir": str(prepared)}
+        return args, work, capture_save_error
+
+    async def _owned_call(self, context, call_next, name, artifact_write, capture_save_error):
+        operation_id = uuid.uuid4().hex
+        operation_dir = Path(self.locations["call_root"]) / operation_id
+        args = dict(context.message.arguments or {})
+        try:
+            args, work, capture_save_error = self._prepare_arguments(name, args, operation_dir, capture_save_error)
+        except ValueError as exc:
+            # Known pre-dispatch input rejection is a tool error. Transport,
+            # ownership and uncertain completion errors still propagate/fence.
+            value = error_payload(str(exc), error_code="invalid_arguments")
+            serialized = json.dumps(value)
+            server_context = getattr(context, "fastmcp_context", None)
+            tool = await server_context.fastmcp.get_tool(context.message.name) if server_context else None
+            schema = tool.output_schema if tool else None
+            structured = {"result": serialized} if (schema or {}).get("x-fastmcp-wrap-result") else value
+            return ToolResult(content=[TextContent(type="text", text=serialized)],
+                              structured_content=structured, is_error=True)
+        if name in OUTPUT_TOOLS and (name != "get_blender_helper_script" or str(args.get("action", "")).lower() == "export"):
+            output_field = {"export_structural_report": "path", "export_asset_contract": "output_dir",
+                            "get_blender_helper_script": "output_dir", "capture_conditioning_pass": "out_dir"}.get(name)
+            if output_field and args.get(output_field):
+                target = Path(args[output_field])
+                (target.parent if name == "export_structural_report" else target).mkdir(parents=True, exist_ok=True)
         if name in {"execute_project_python", "publish_objects_to_chestnut"}:
             operation_dir.mkdir(parents=True, exist_ok=False)
         # Bound document expectations are supplied internally. Optional

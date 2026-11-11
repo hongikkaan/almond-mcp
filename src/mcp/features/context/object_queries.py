@@ -206,11 +206,11 @@ def intersections(send, *, ids, include_block=False):
                 if next_cursor:
                     raise ValueError("A completed intersection query returned a continuation cursor.")
                 next_step = (
-                    "To review these overlaps, call resolve_object_intersection with the same object_ids and include_block. "
+                    "To review these overlaps, call intersect_02-resolve tool with the same object_ids and include_block. "
                     "Inspect its comparison and numbered objects, then pass its review_id with choice=1 or 2 to trim that numbered object, or 'skip'."
                     if count else
                     "No positive-volume overlap was found in this scope; no resolution call is needed. This does not establish other design or clearance conditions.")
-                return json.dumps({"intersections": {"number": count}, "next_step": next_step}, ensure_ascii=False)
+                return json.dumps({"intersections": {"number": count}, "next_step_guide": next_step}, ensure_ascii=False)
             if not pairs or not isinstance(next_cursor, str) or not next_cursor or next_cursor in seen:
                 raise ValueError("Native intersection pagination did not advance.")
             seen.add(next_cursor)

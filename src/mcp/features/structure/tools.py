@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.structure.output import GROUPS, project
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
@@ -18,7 +19,7 @@ KARAMBA_ONLY_TYPES = ("shell", "gridshell", "membrane")
 def register(mcp, context):
     """Register structural tools against the assembling server's current services."""
 
-    @mcp.tool()
+    @mcp.tool(name='analysis_04-validate_structure', output_schema=public_output_schema('validate_structure', wrapped=True))
     @tool_instruction(__file__, 'validate_structure')
     def validate_structure(
         guids: list[str],
@@ -109,7 +110,7 @@ def register(mcp, context):
         # export_structural_report can render an auditable history. Neither step
         # may ever break validation itself.
         try:
-            if isinstance(result, dict) and result.get("status") in ("pass", "fail"):
+            if isinstance(result, dict) and result.get("status") in ("pass", "fail", "indicative"):
                 span = None
                 results_block = result.get("results")
                 if isinstance(results_block, dict):
@@ -202,7 +203,7 @@ def register(mcp, context):
         return result, None
 
 
-    @mcp.tool()
+    @mcp.tool(name='analysis_03-list_design_codes', output_schema=public_output_schema('list_design_codes', wrapped=True))
     @tool_instruction(__file__, 'list_design_codes')
     @query_output
     def list_design_codes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -210,7 +211,7 @@ def register(mcp, context):
         return json.dumps(project(design_codes.listing(), field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(name='analysis_05-visualize_structure', output_schema=public_output_schema('visualize_structure', wrapped=True))
     @tool_instruction(__file__, 'visualize_structure')
     def visualize_structure(
         guids: list[str] | None = None,
@@ -304,11 +305,31 @@ def register(mcp, context):
             spec, err = context._asset_load_spec()
             if err:
                 return json.dumps(error_payload(err))
-        if not clear and engine != "karamba" and not (not reanalyze and context._VIEW_ENGINE == "api"):
-            if not reanalyze and context._VIEW_ENGINE == "native":
-                draw = {k: v for k, v in request.items() if k not in ("guids", "reanalyze", "clear")}
-                draw["type"] = "structure_draw"
-                return context._bridge_call(draw, 30.0)
+        if not clear and not reanalyze and context._VIEW_ENGINE is not None:
+            # An established overlay is display-only regardless of who last
+            # replaced it or which engine produced it. HandleDraw errors when
+            # it was cleared elsewhere; structure_view would start a new solve.
+            draw = {k: v for k, v in request.items() if k not in ("guids", "reanalyze", "clear")}
+            draw["type"] = "structure_draw"
+            out = context._bridge_call(draw, 30.0)
+            try:
+                parsed = json.loads(out)
+                if isinstance(parsed, dict) and parsed.get("status") in ("pass", "fail", "indicative"):
+                    overlay_id = parsed.pop("overlay_id", None)
+                    cached = getattr(context, "_VIEW_NATIVE_REPORT", {})
+                    # Rhino owns one process-wide overlay; another worker or the
+                    # panel may have replaced it since this worker last solved.
+                    if overlay_id and overlay_id == cached.get("overlay_id"):
+                        _enrich_native_view(parsed, cached["report"])
+                    else:
+                        context.set_state("_VIEW_NATIVE_REPORT", {})
+                    _native_verdict(parsed)
+                    return json.dumps(parsed)
+                context.set_state("_VIEW_NATIVE_REPORT", {})
+            except (ValueError, TypeError):
+                pass
+            return out
+        if not clear and engine != "karamba":
             reply, note = context._native_view(request, guids, required=engine == "native", asset_spec=spec, floor_spec=floor,
                                        design=(design_basis, uls_combination, design_code), connections=connections,
                                        stability=stability, view=view, fabrication=fabrication)
@@ -317,15 +338,19 @@ def register(mcp, context):
         out = context._bridge_call(request, 90.0)
         if clear:
             context.set_state("_VIEW_ENGINE", None)
+            context.set_state("_VIEW_NATIVE_REPORT", {})
         elif reanalyze:
             context.set_state("_VIEW_ENGINE", "api")
-        if note:
-            try:
-                parsed = json.loads(out)
-                parsed.setdefault("warnings", []).append(note)
+            context.set_state("_VIEW_NATIVE_REPORT", {})
+        try:
+            parsed = json.loads(out)
+            if isinstance(parsed, dict):
+                parsed.pop("overlay_id", None)
+                if note:
+                    parsed.setdefault("warnings", []).append(note)
                 out = json.dumps(parsed)
-            except Exception:
-                pass
+        except (ValueError, TypeError):
+            pass
         return out
 
 
@@ -387,39 +412,64 @@ def register(mcp, context):
             parsed = json.loads(out)
         except Exception:
             return out, None
-        if isinstance(parsed, dict) and parsed.get("status") in ("pass", "fail"):
+        if isinstance(parsed, dict) and parsed.get("status") in ("pass", "fail", "indicative"):
             context.set_state("_VIEW_ENGINE", "native")
-            parsed["warnings"] = result["warnings"]
+            overlay_id = parsed.pop("overlay_id", None)
+            enrichment = {"warnings": result["warnings"]}
             if report is not None:
-                parsed["asset_loads"] = report
+                enrichment["asset_loads"] = report
             if floor_report is not None:
-                parsed["floor_loads"] = floor_report
+                enrichment["floor_loads"] = floor_report
             if combos:
-                parsed["combinations"] = combos
+                enrichment["combinations"] = combos
             if conn_report:
-                parsed["connections"] = conn_report
+                enrichment["connections"] = conn_report
             if stab_report:
-                parsed["stability"] = stab_report
+                enrichment["stability"] = stab_report
             if code_report:
-                parsed["design_code"] = code_report
-            if reports.get("indicative") and parsed.get("status") == "pass":
-                parsed["status"] = "indicative"                 # the bridge judged utilization; there is no capacity check
-                parsed["passed"] = None
+                enrichment["design_code"] = code_report
+            enrichment["_indicative"] = bool(reports.get("indicative"))
             if buckling:
-                # a mode shape has no magnitude: the bridge's deflection-limit verdict is meaningless here
-                parsed["buckling"] = buckling
-                parsed["passed"] = buckling["alpha_cr"] > 1.0
-                parsed["status"] = "pass" if parsed["passed"] else "fail"
-                parsed.pop("max_displacement_mm", None)
-            parsed["nodes"] = len({tuple(p) for e in result["elements"] for p in (e["start_m"], e["end_m"])})
+                enrichment["buckling"] = buckling
+            enrichment["nodes"] = len({tuple(p) for e in result["elements"] for p in (e["start_m"], e["end_m"])})
+            context.set_state("_VIEW_NATIVE_REPORT", {"overlay_id": overlay_id, "report": enrichment}
+                              if overlay_id else {})
+            _enrich_native_view(parsed, enrichment)
+            _native_verdict(parsed)
         elif not required:
             # a bridge without structure_draw: fall back to the Karamba overlay
             return None, "This bridge version cannot draw native results (update almondbridge)."
         return json.dumps(parsed), None
 
 
+    def _enrich_native_view(parsed, report):
+        # Current bridge observations take precedence, including any warnings
+        # reported after the solve. Older bridges report zero native draw nodes.
+        for key, value in report.items():
+            if key == "warnings":
+                parsed[key] = list(dict.fromkeys([*parsed.get(key, []), *value]))
+            elif key == "nodes" and not parsed.get(key):
+                parsed[key] = value
+            else:
+                parsed.setdefault(key, value)
+
+
+    def _native_verdict(parsed):
+        indicative = parsed.pop("_indicative", False) or parsed.get("status") == "indicative"
+        if indicative and parsed.get("status") == "pass":
+            parsed["status"] = "indicative"
+        if parsed.get("buckling"):
+            # Elastic mode amplitude has no physical deflection magnitude.
+            stable = parsed["buckling"]["alpha_cr"] > 1.0
+            # Stability alone cannot supply an unsupported material capacity verdict.
+            if not stable:
+                parsed["status"] = "fail"
+            parsed.pop("max_displacement_mm", None)
+        parsed["passed"] = None if parsed["status"] == "indicative" else parsed["status"] == "pass"
+
+
     def _render_validation_report(runs: list[dict]) -> str:
-        """Markdown report of persisted validate_structure runs, newest first."""
+        """Markdown report of persisted analysis_04-validate_structure tool runs, newest first."""
         from datetime import datetime, timezone
 
         lines = [
@@ -430,17 +480,23 @@ def register(mcp, context):
             "",
             "## How a run works",
             "",
-            "`validate_structure(guids, structure_type, load_kn, material)` sends the",
-            "referenced Rhino geometry to the bridge, which extracts member axes and",
-            "tries three analysis pathways in strict order of confidence:",
+            "`analysis_04-validate_structure tool` extracts the referenced Rhino geometry through the bridge.",
+            "With `engine='auto'`, line/frame models use **native** — Almond's frame FEA.",
+            "Its confidence depends on the material and supported checks. Shell models or",
+            "unavailable native model export use the Karamba route. Explicit `engine='native'`",
+            "requires native analysis; `engine='karamba'` selects the Karamba route directly.",
+            "The Karamba route tries:",
             "",
             "1. **api** — direct Karamba 3.1 solve (real FEA), confidence *high*;",
             "2. **template** — audited capsule GHX definition, confidence *medium*;",
             "3. **rule_based** — span/slenderness heuristics (UDL `w = load/span`,",
             "   `5wL^4/384EI`), confidence *low*. An estimate, not FEA.",
             "",
-            "Pass criteria: max deflection within **L/250** of the detected span, and",
-            "material utilization below yield (default S235 steel, fy = 235 MPa).",
+            "Native validation returns the selected design code, combinations and limits.",
+            "PASS means the configured checks passed; it is not a structural safety certification.",
+            "FAIL means a configured check failed; consult its verdict and warnings.",
+            "**INDICATIVE** means the analysis completed without a material capacity verdict;",
+            "it is neither PASS nor FAIL. Consult each run's verdict and warnings.",
             "The applied load defaults to **10 kN** unless load_kn is given.",
             "",
             "## Runs",
@@ -455,7 +511,7 @@ def register(mcp, context):
                 f"| {run['confidence']} | {run['span_m']:.1f} "
                 f"| {run['max_deflection_mm']:.2f} | {run['deflection_limit_mm']:.1f} "
                 f"| {run['utilization_ratio']:.2f} | {run['reactions_kn']:.2f} "
-                f"| {run['member_count']} | {'PASS' if run['passed'] else 'FAIL'} |"
+                f"| {run['member_count']} | {run['status'].upper()} |"
             )
         lines.append("")
         lines.append("## Run details")
@@ -463,7 +519,7 @@ def register(mcp, context):
             lines += [
                 "",
                 f"### Run {run['id']} — {run['structure_type']}, "
-                f"{run['analysis_method']} ({'PASS' if run['passed'] else 'FAIL'})",
+                f"{run['analysis_method']} ({run['status'].upper()})",
                 "",
                 f"- input: {run['member_count']} object(s), load {run['load_kn']:.1f} kN, "
                 f"material {run['material']}",
@@ -478,7 +534,7 @@ def register(mcp, context):
             "",
             read_instruction(__file__, 'response-981'),
             read_instruction(__file__, 'response-982'),
-            "  plus self-weight (equilibrium).",
+            "  including enabled self-weight, floor and asset loads (equilibrium).",
             read_instruction(__file__, 'response-983'),
             read_instruction(__file__, 'response-984'),
             read_instruction(__file__, 'response-985'),
@@ -490,7 +546,7 @@ def register(mcp, context):
         return "\n".join(lines)
 
 
-    @mcp.tool()
+    @mcp.tool(name='analysis_02-export_structural_report', output_schema=public_output_schema('export_structural_report', wrapped=True))
     @tool_instruction(__file__, 'export_structural_report')
     def export_structural_report(path: str = "", limit: int = 50) -> str:
         from datetime import datetime, timezone

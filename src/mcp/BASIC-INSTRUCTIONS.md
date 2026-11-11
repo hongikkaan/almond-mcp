@@ -11,8 +11,8 @@ Almond MCP를 사용해 Rhino로 건축 설계를 develop한다.
  판단한 방향이 사용자의 지시나 설계 방향과 충돌하면, 차이가 생긴 구체적 근거와 선택의 영향을 사용자에게 설명하며 논의를 요청해 작업 방향을 사용자 주도 하에 align한다.
 
 ## 작업 최초 실행 시
-1. 프로젝트 기본 구조를 `projct_info`실행해서 파악
-2. 작업 하다가 `get_rhino_context`를 사용하여 작업 중의 맥락 파악
+1. 프로젝트 기본 구조를 `context_04-get_project_info` tool로 조회하여 파악
+2. 작업 하다가 `inspect_03-get_document_context` tool를 사용하여 작업 중의 맥락 파악
  
 ### Scene·ontological-holon
 

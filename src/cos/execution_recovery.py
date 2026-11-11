@@ -75,7 +75,7 @@ class ExecutionRecoveryStore:
     def recover(self, arguments):
         request = arguments.get('request_id', '')
         if not isinstance(request, str) or not _TOKEN.fullmatch(request):
-            raise ValueError('Without connection_id, get_rhino_execution requires an exact returned request_id.')
+            raise ValueError('Without connection_id, script_03-get_execution tool requires an exact returned request_id.')
         sys.path.insert(0, str(ENGINE))
         from project import read_json
         from rhinocode import find_request_manifest

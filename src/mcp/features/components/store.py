@@ -89,7 +89,7 @@ class ComponentsStore:
                        else ValueError(message))
             failure.native_result = {key: reply[key] for key in (
                 "error_code", "editing", "mutation_applied", "requires_reconciliation", "rolled_back",
-                "next_step", "membership_available",
+                "next_step", "next_step_guide", "membership_available",
             ) if key in reply}
             raise failure
         return reply

@@ -1,6 +1,6 @@
 # RhinoCode 실행 계약
 
-`execute_rhino_script`와 `execute_project_python`은 공식 RhinoCode → Rhino ScriptEditor에서 실행한다. 런타임은 연결된 Rhino·저장 문서를 확인하고 호출별 완료 근거를 관리한다. 입력 사용법은 각 실행 도구의 `tools/list` 설명 전문과 schema를 따른다. 내장 rhino3d-scripts 자료는 `get_modeling_guide(include_scripting=True)`로 조회하며 도구 설명을 별도로 재조회하지 않는다. 작업 판단은 [BASIC](../BASIC-INSTRUCTIONS.md), 고정 관찰과 캡처는 [관측 계약](../rhino/OBSERVATION-SPEC.md)을 따른다.
+`script_02-run_rhino` tool와 `script_01-run_project_python` tool은 공식 RhinoCode → Rhino ScriptEditor에서 실행한다. 런타임은 연결된 Rhino·저장 문서를 확인하고 호출별 완료 근거를 관리한다. 입력 사용법은 각 실행 도구의 `tools/list` 설명 전문과 schema를 따른다. 내장 rhino3d-scripts 자료는 `context_01-get_policy tool(policy="rhino_scripting")`로 조회하며 도구 설명을 별도로 재조회하지 않는다. 작업 판단은 [BASIC](../BASIC-INSTRUCTIONS.md), 고정 관찰과 캡처는 [관측 계약](../rhino/OBSERVATION-SPEC.md)을 따른다.
 
 ## 실행 경로와 언어
 
@@ -51,7 +51,7 @@ wrapper는 자신이 소유한 0이 아닌 Undo record만 종료한다. 사용�
 
 ## 완료 결과 조회
 
-`get_rhino_execution`은 같은 실행의 상태·결과를 재실행 없이 조회한다. request_id를 생략하면 현재 연결의 최근 실행을, 지정하면 정확한 요청을 읽는다. `result_fields`, offset/limit와 결과·stdout 선택을 통해 필요한 부분만 조회한다.
+`script_03-get_execution` tool은 같은 실행의 상태·결과를 재실행 없이 조회한다. request_id를 생략하면 현재 연결의 최근 실행을, 지정하면 정확한 요청을 읽는다. `result_fields`, offset/limit와 결과·stdout 선택을 통해 필요한 부분만 조회한다.
 
 최초 실행 응답은 배열 또는 최상위 list 필드마다 20항목, 최상위 문자열은 4096문자까지 반환한다.
 명시적 후속 조회의 offset/limit는 배열에는 항목, 문자열에는 문자 단위다. 문자열을 JSON으로 추정해 다시 파싱하지 않는다. Python의 구조화 결과는 `result`에 dict/list를 직접 대입한다.

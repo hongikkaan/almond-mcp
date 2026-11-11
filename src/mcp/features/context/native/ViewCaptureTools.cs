@@ -72,7 +72,13 @@ namespace RhinoAlmondBridge
                     if (targets.Length != 0)
                     {
                         var focused = ComponentOperations.FocusObjects(doc, targets.Select(o => o.Id).ToArray(), isolate);
-                        if ((string)focused["status"] != "success") return focused;
+                        if (focused["view_change"] is JObject focusChanges)
+                            changes = (JObject)focusChanges.DeepClone();
+                        if ((string)focused["status"] != "success")
+                        {
+                            focused["view_change"] = changes;
+                            return focused;
+                        }
                         started = true;
                         changes["selection_changed"] = true;
                         changes["isolated"] = isolate;
@@ -82,6 +88,7 @@ namespace RhinoAlmondBridge
                     if (modeChange)
                     {
                         started = true;
+                        changes["display_mode_changed"] = JValue.CreateNull();
                         view.ActiveViewport.DisplayMode = mode;
                         changes["display_mode_changed"] = true;
                     }

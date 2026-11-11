@@ -123,7 +123,7 @@ namespace RhinoAlmondBridge
                 ["native"]=command==null ? new JObject {["available"]=false,["detail"]=missing} :
                     new JObject {["checking"]=true,["detail"]=command.Label}});
             if(command==null) return;
-            // a ping also fetches the solver on first use, so the first analysis starts quickly
+            // Check the registered checkout's solver without installing or fetching packages.
             Task.Run(async () => {
                 var reply=await NativeSolver.RunAsync(new JObject {["ping"]=true},300000).ConfigureAwait(false);
                 bool ok=(string)reply["status"]=="ok";

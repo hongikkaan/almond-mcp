@@ -4,6 +4,7 @@ from almond_mcp.features.components.public_contract import holon_output
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.components.output import GROUPS, project
 from almond_mcp.managed_paths import bound_model_path
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool, StrictInt
 from typing import Literal
@@ -13,7 +14,9 @@ import json
 from almond_mcp.store_common import ComponentReconciliationError
 def register(mcp, context):
     from almond_mcp.features.components.intersection_workflow import Workflow
-    intersection_workflow = Workflow(context._send_and_receive)
+    # The managed runtime binds the sender after registration. Keep this
+    # Workflow's review state, but resolve the owning context on every call.
+    intersection_workflow = Workflow(lambda *args, **kwargs: context._send_and_receive(*args, **kwargs))
     def _component_bridge(request: dict) -> dict:
         """Capability-check before one native operation; never retry an uncertain mutation."""
         payload = json.dumps(request, allow_nan=False).encode("utf-8")
@@ -53,7 +56,7 @@ def register(mcp, context):
             "component_id", "rhino_group_id", "status", "availability", "object_count", "live_verified",
         ) if key in component}
 
-    @mcp.tool()
+    @mcp.tool(name='scene_13-upsert_holon', output_schema=public_output_schema('upsert_ontological_holon', wrapped=True))
     @tool_instruction(__file__, 'upsert_ontological_holon')
     @holon_output
     def upsert_ontological_holon(
@@ -75,7 +78,7 @@ def register(mcp, context):
         except Exception as exc:
             return _component_error(exc)
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(name='scene_05-get_holon', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_ontological_holon', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'get_ontological_holon')
     @query_output
@@ -96,7 +99,7 @@ def register(mcp, context):
         except Exception as exc:
             return json.dumps(project(json.loads(_component_error(exc)), field_groups))
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(name='scene_08-list_holons', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_ontological_holons', wrapped=True))
     @tool_instruction(__file__, 'list_ontological_holons')
     @query_output
     @holon_output
@@ -111,7 +114,7 @@ def register(mcp, context):
         except Exception as exc:
             return json.dumps(project(json.loads(_component_error(exc)), field_groups))
 
-    @mcp.tool()
+    @mcp.tool(name='scene_11-sync_holon', output_schema=public_output_schema('sync_ontological_holon', wrapped=True))
     @tool_instruction(__file__, 'sync_ontological_holon')
     @holon_output
     def sync_ontological_holon(holon_id: str = "", expected_model_path: str = "", rhino_group_id: str = "",
@@ -141,7 +144,7 @@ def register(mcp, context):
         except Exception as exc:
             return _component_error(exc)
 
-    @mcp.tool(annotations={"destructiveHint": False})
+    @mcp.tool(name='scene_09-remove_holon', annotations={'destructiveHint': False}, output_schema=public_output_schema('remove_ontological_holon', wrapped=True))
     @tool_instruction(__file__, 'remove_ontological_holon')
     @holon_output
     def remove_ontological_holon(holon_id: str) -> str:
@@ -205,13 +208,13 @@ def register(mcp, context):
                                "message": str(exc), "requires_reconciliation": uncertainty,
                                "mutation_applied": None if uncertainty else False})
 
-    @mcp.tool()
+    @mcp.tool(name='intersect_02-resolve', output_schema=public_output_schema('resolve_object_intersection', wrapped=False))
     @tool_instruction(__file__, 'resolve_object_intersection')
     def resolve_object_intersection(object_ids: list[str] | None = None, include_block: StrictBool = False,
                                     review_id: str = "", choice: StrictInt | Literal["skip"] | None = None):
         return intersection_workflow.execute(object_ids, include_block, review_id, choice)
 
-    @mcp.tool(annotations={"destructiveHint": False})
+    @mcp.tool(name='scene_03-focus_holons', annotations={'destructiveHint': False}, output_schema=public_output_schema('focus_holons', wrapped=True))
     @tool_instruction(__file__, 'focus_holons')
     @holon_output
     def focus_holons(holon_ids: list[str], expected_model_path: str = "") -> str:

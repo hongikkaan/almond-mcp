@@ -40,25 +40,44 @@ namespace RhinoAlmondBridge
                     });
         }
 
+        private static JObject Change(string kind, string name, JToken before, JToken after,
+            bool beforeObserved, bool attempted, bool observed)
+        {
+            int Count(JToken value) => value is JArray rows ? rows.Count : value == null ? 0 : 1;
+            string action = !observed ? (attempted ? "unconfirmed" : "skipped")
+                : !attempted ? "preserved"
+                : JToken.DeepEquals(before, after) ? "unchanged"
+                : Count(after) > Count(before) ? "created" : "updated";
+            return new JObject { ["kind"] = kind, ["name"] = name, ["action"] = action,
+                ["previous_count"] = beforeObserved ? new JValue(Count(before)) : JValue.CreateNull(),
+                ["current_count"] = observed ? new JValue(Count(after)) : JValue.CreateNull() };
+        }
+
         public static JObject Apply(JArray recipes, JArray layers, bool overwrite,
             Func<JObject, JArray> readMaterials, Action<JObject> writeMaterial,
             Func<JObject, JObject> readLayer, Action<JObject> writeLayer)
         {
             var differences = new JArray();
             var errors = new JArray();
+            var changes = new JArray();
             var failedMaterials = new HashSet<string>(StringComparer.Ordinal);
             // Material registration precedes Layer creation/assignment within one caller-owned Undo record.
             foreach (var recipe in recipes.Cast<JObject>())
             {
                 string name = (string)recipe["name"];
+                JToken before = null, after = null;
+                bool beforeObserved = false, attempted = false, observed = false;
                 try
                 {
                     var actual = readMaterials(recipe);
+                    before = actual.DeepClone(); beforeObserved = true;
                     if (actual.Count == 0 || overwrite)
                     {
+                        attempted = true;
                         writeMaterial(recipe);
                         actual = readMaterials(recipe);
                     }
+                    after = actual.DeepClone(); observed = true;
                     if (actual.Count == 0) throw new InvalidOperationException("Material is missing after registration.");
                     var expected = new JObject { ["name"] = name, ["type"] = "pbr" };
                     foreach (string key in new[] { "base_color", "metallic", "roughness", "opacity" })
@@ -70,20 +89,26 @@ namespace RhinoAlmondBridge
                     failedMaterials.Add(name);
                     errors.Add(new JObject { ["kind"] = "material", ["name"] = name, ["message"] = exc.Message });
                 }
+                finally { changes.Add(Change("material", name, before, after, beforeObserved, attempted, observed)); }
             }
             foreach (var specification in layers.Cast<JObject>())
             {
                 string path = (string)specification["path"];
+                JToken before = null, after = null;
+                bool beforeObserved = false, attempted = false, observed = false;
                 try
                 {
                     if (specification["material"] is JObject required && failedMaterials.Contains((string)required["name"]))
                         throw new InvalidOperationException("Required material could not be confirmed: " + (string)required["name"]);
                     var actual = readLayer(specification);
+                    before = actual?.DeepClone(); beforeObserved = true;
                     if (actual == null || overwrite)
                     {
+                        attempted = true;
                         writeLayer(specification);
                         actual = readLayer(specification);
                     }
+                    after = actual?.DeepClone(); observed = true;
                     if (actual == null) throw new InvalidOperationException("Layer is missing after registration.");
                     var expected = new JObject {
                         ["color"] = specification["color"].DeepClone(),
@@ -97,9 +122,10 @@ namespace RhinoAlmondBridge
                 {
                     errors.Add(new JObject { ["kind"] = "layer", ["name"] = path, ["message"] = exc.Message });
                 }
+                finally { changes.Add(Change("layer", path, before, after, beforeObserved, attempted, observed)); }
             }
             return new JObject { ["applied"] = differences.Count == 0 && errors.Count == 0,
-                ["differences"] = differences, ["errors"] = errors };
+                ["changes"] = changes, ["differences"] = differences, ["errors"] = errors };
         }
     }
 }

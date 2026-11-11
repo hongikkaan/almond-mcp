@@ -3,91 +3,65 @@
 ## execute_looping
 
 <!-- instruction:execute_looping -->
-When to use: Begin the next working pass of a Plan, or explicitly resume its current pass after interruption. After reporting a pass, call again without resume to begin the next one.
-Before calling: Supply a known plan_id. The first call starts Loop 1; subsequent calls start the next Loop. Use resume=true only to continue the latest already-started Loop without incrementing it.
-Inputs from earlier results: create_plan or list_plans provides plan_id. Optional feedback states what this pass should address. artifact_name selects the initial Plan folder label only.
-Interpretation: Returns loop_no, the automatically assigned revision, goal, feedback, ordered Steps and their progress, previous records, current artifact_dir and short execution/reporting policy. get_looping_policy provides the detailed policy. Step IDs remain stable between Loops. This prepares context; the agent performs the Steps, checks results and reports to the user.
-Limits: No Step or Rhino operation is automatically executed. Loop has no running/paused/completed status. Earlier Loops are read-only after a higher Loop starts. Plan completion is the user's decision. A pre-existing unowned next-Loop folder is rejected to preserve its files. A repeated non-resume call advances again; do not retry an uncertain start blindly. Reading the policy or resuming unchanged work creates no revision.
+Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전트가 수행합니다.
 
 Args:
-    plan_id: Existing Plan ID whose next Loop should begin or current Loop should resume.
-    resume: False starts the next Loop; true preserves the latest Loop number and records. There is no older Loop resume.
-    feedback: Optional feedback for this pass. Empty preserves existing feedback on resume; new passes default to no feedback.
-    artifact_name: Optional initial Plan folder label, not a path. Executed Loops write under its 01, 02 and later subfolders.
+    plan_id: 다음 Loop를 시작하거나 최신 Loop를 재개할 기존 Plan ID입니다. plan_02-create tool 또는 plan_08-list tool에서 얻은 ID를 사용합니다.
+    resume: false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 plan_05-get tool의 request에 target='plan'과 plan_id를 넣어 현재 회차를 먼저 확인합니다.
+    feedback: 이번 회차에 반영할 피드백입니다. 재개 시 생략하거나 비우면 기존 값을 유지합니다.
+    artifact_name: Plan의 최초 산출물 폴더 이름입니다. 생략하면 목표에서 정하며 날짜 접두사 YYMMDD_를 붙입니다. 기존 폴더는 재사용합니다.
 <!-- /instruction:execute_looping -->
 
 ## project_info
 
 <!-- instruction:project_info -->
-When to use: Read missing project paths, registered file references, live-document identity or selected artifact context on first connection/reconnection, after evidence of a document change or when explicitly requested.
-Before calling: No other tool is required. Reuse known context; a new instruction alone is not a reason to refresh. Either project or document requests the live document once, so do not call get_rhino_context merely to repeat that check.
-Inputs from earlier results: Select only needed sections: project, document and locations are the defaults; runtime is optional. files_limit (1–500, default 50) and files_offset (nonnegative, default 0) page project.files. Use an earlier set_working_plan selection to interpret locations, not as a prerequisite. With include_ids=true, project.files[].project_file_id feeds Phase/Scene project_file_id inputs and distinguishes duplicate filenames; document.runtime_serial_number and runtime.rhinocode.pipe_id are also opt-in.
-Interpretation: project.project_root is the absolute project root; managed paths are relative to it. project.file_name/file_path identify the observed live document once, and is_bound_document is true when it is the bound model, false when it is a different document. project.files is the DB's recorded file list, not a disk scan; files_page retains total/limit/offset/truncated, where truncated means more rows follow this page. document contains units, tolerances, modified state and counts. locations.database is project-wide; artifact_dir belongs to the Plan selected by this connection and is null until selected. runtime exposes requested runtime diagnostics. Use get_modeling_guide for basic instructions.
-Limits: This does not change the document, select a Plan, save files or validate geometry. Managed tools apply project/artifact paths automatically; workers supply relative paths. A recorded file does not prove disk existence or an open document. A failed live check returns an error without is_bound_document; there is no separate checked/failed flag. Refresh project after a document change or reconnection. locations/runtime alone do not query the live document.
+프로젝트와 현재 문서의 작업 정보를 조회합니다.
 
 Args:
-    sections: Requested sections: project, document, locations, runtime. Omitted defaults to project/document/locations. Project includes registered files; document reads live document properties.
-    include_ids: Include identity fields in the requested output; false omits supplementary IDs. Request true when a later tool needs a returned ID; this does not select extra detail groups.
-    files_limit: Registered-file page size, 1..500, within the project section.
-    files_offset: Zero-based registered-file offset within the project section.
+    sections: 요청할 섹션은 project, document, locations, runtime입니다. 생략하면 project/document/locations가 기본값입니다. project에는 등록된 파일이 포함되며, document는 현재 문서의 속성을 읽습니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다.
+    files_limit: project 섹션 내 등록 파일의 페이지 크기입니다. 범위는 1..500입니다.
+    files_offset: project 섹션 내 등록 파일의 오프셋입니다. 0부터 시작합니다.
 <!-- /instruction:project_info -->
 
 <!-- instruction:get_rhino_execution -->
-When to use: Recover an official RhinoCode request's completion evidence, remaining result pages, logs or diagnostics without rerunning its code.
-Before calling: Use an existing execute_rhino_script or execute_project_python request when pending, uncertain or missing needed output. A completed response containing the needed result requires no routine follow-up read.
-Inputs from earlier results: Pass the exact returned request_id, or omit it for this connection's latest execution. Follow result_page offsets with offset/limit and choose result_fields/include_result/include_stdout as needed; include_stdout defaults false. include_ids defaults true for authored results. Set include_diagnostics=true for operation identity, native/CLI, Undo and file/hash evidence. External client wrappers reconcile a live connection with connection_id; after a client process restart, omit that wrapper connection_id and provide the exact request_id to read retained evidence only, without reconnecting or executing Rhino work.
-Interpretation: Read completed, status, mutation_state and result/result_page together. Successful completed reads are compact; pending, uncertain, failed, partial, nonzero-CLI or result-display-error outcomes retain detailed evidence. native_completed can be true while completed remains false until the exact final Rhino receipt and CLI process exit both agree. Page information is retained even on the final page.
-Limits: This query never executes or cancels Rhino work, reconnects a lost model or rolls back changes. Timeout/process exit alone is not completion; late exact receipts may reconcile CLI-only uncertainty but unrelated native uncertainty stays blocked. Pending/finishing work keeps ownership. Files/evidence last until connection cleanup and can still be read after a model rename/deletion while their original session storage remains. Request identity is always returned; operation identity is diagnostic.
+기존 RhinoCode 요청의 실행 상태·결과·로그를 조회합니다.
 
 Args:
-    request_id: Previously returned execution request_id; empty selects the most recent request for this session. A timeout requires retrieving the same request, not resubmitting code.
-    include_result: Include the saved result when true.
-    include_stdout: Include captured stdout when true; this does not run code again.
-    result_fields: Optional top-level result field names to retain; omission keeps the result fields.
-    offset: Zero-based result page offset (array rows or string characters); stdout uses its byte-stream offset.
-    limit: Result page size, 1..1000; stdout is independently bounded by its stream budget.
-    include_ids: Include request/execution identity fields; default true.
-    include_diagnostics: Include detailed execution diagnostics when true.
+    request_id: 이전에 반환된 실행 request_id입니다. 비워 두면 이 세션의 가장 최근 요청을 선택합니다. 시간 초과 시에는 코드를 다시 제출하지 말고 동일 요청을 조회해야 합니다.
+    include_result: true이면 저장된 결과를 포함합니다.
+    include_stdout: true이면 캡처된 stdout을 포함합니다. 코드를 다시 실행하지는 않습니다.
+    result_fields: 유지할 최상위 결과 필드 이름으로, 선택 사항입니다. 생략하면 결과 필드를 유지합니다.
+    offset: 0부터 시작하는 결과 페이지 오프셋(배열 행 또는 문자열 문자 수)입니다. stdout은 바이트 스트림 오프셋을 사용합니다.
+    limit: 결과 페이지 크기로, 범위는 1..1000입니다. stdout은 해당 스트림 용량 한도에 따라 독립적으로 제한됩니다.
+    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다.
+    include_diagnostics: true이면 상세 실행 진단을 포함합니다.
 <!-- /instruction:get_rhino_execution -->
 
 <!-- instruction:set_working_plan -->
-When to use: Select or resume an existing Plan and optional Step as this connection's output workspace before writing Plan-owned artifacts.
-Before calling: Reuse a known plan_id or obtain one from create_plan or list_plans; get_phase_plan_step(plan_id=...) supplies Step handles if the step_id is unknown. Plans/Steps need not be completed or followed linearly to select them.
-Inputs from earlier results: Pass the existing plan_id and optional matching steps[].step_id. On first selection artifact_name is one folder label; otherwise the Plan goal provides it. Reuse an existing folder instead of selecting a new Plan just to continue work.
-Interpretation: The response returns plan_id, step_id, loop_no, revision, plan_artifact_dir and the project-relative artifact_dir. Executed Loops use .almond/produced/YYMMDD_name/01, /02 and later; before execute_looping, loop_no=0 uses the Plan root without a 00 folder. revision is the Plan revision at selection, after any first-folder setup; revision is assigned automatically; if using the optional expected_revision guard, also pass loop_no after Loop execution starts. Selection belongs to this connection; the Plan folder/refs are shared and discoverable by other workers. The directory is created only when files are needed.
-Limits: Selection uses the latest Loop only and does not advance it, execute Steps, create geometry or mark work complete. Use execute_looping to begin a new pass or explicitly resume the current one. A selection made stale by another connection advancing the Loop cannot write artifacts until reselected. An existing .almond/produced folder is reused; rename_artifact_folder changes its name. Legacy tmp or .almond/tmp Plan folders must first be migrated with rename_artifact_folder and the explicit plan_id. execute_project_python uses the selected folder as cwd; Rhino C# can write through RhinoAlmondBridge.ManagedFiles.Output("relative-name").
+Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
 
 Args:
-    plan_id: Existing Plan ID from list_plans.plans[].plan_id or get_phase_plan_step.id.
-    step_id: Optional Step ID within the Plan; empty selects the Plan without a Step. Selection does not run or complete it.
-    artifact_name: Initial folder name only, never an absolute or relative path; omitted uses the Plan goal. Files go under .almond/produced/YYMMDD_name. Existing folders are reused.
-    loop_no: Optional current Loop number guard; older or unknown Loops cannot be selected for writing.
+    plan_id: plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다.
+    step_id: 선택할 Step ID입니다. 생략하면 Plan만 선택합니다.
+    artifact_name: Plan의 최초 산출물 폴더 이름입니다. 생략하면 목표에서 정하고 날짜 접두사 YYMMDD_를 붙입니다. 기존 폴더는 재사용합니다.
+    loop_no: 선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 쓰기 대상으로 선택할 수 없습니다.
 <!-- /instruction:set_working_plan -->
 
 <!-- instruction:rename_artifact_folder -->
-When to use: Rename an existing Plan-owned artifact folder without losing current Plan/Step references.
-Before calling: Reuse a known plan_id with an artifact folder, or select its workspace through set_working_plan when relying on the default current Plan. There is no need to create a replacement Plan.
-Inputs from earlier results: Pass the Plan's existing plan_id when not using the current selection and one new folder name as name; the tool adds the YYMMDD_ prefix. Use the previously returned artifact_dir to recognize which folder is being renamed, not as name.
-Interpretation: The response returns the current artifact_dir and, when changed, previous_artifact_dir. The destination is always .almond/produced/YYMMDD_name. Managed writes are serialized and current Plan/Step file refs are rewritten together; continue using the new path. Legacy Plan folders directly under tmp or .almond/tmp can be moved here with the same name and an explicit plan_id. Existing destinations are rejected; folders are never merged or overwritten.
-Limits: Renaming is allowed only before the Plan starts execution and only if no past Loop references its files; executed Loop paths must remain unchanged. Existing destinations are never overwritten. This is a folder/ref operation, not a model rename or model save; immutable revision history is intentionally not rewritten. A Plan without an owned artifact folder must be selected first.
+Plan 산출물 폴더를 옮기거나 이름을 바꾸고 저장된 참조를 갱신합니다. 실행된 회차가 있으면 변경할 수 없습니다.
 
 Args:
-    name: New Plan artifact folder label; the date prefix is managed by the runtime. Moves the owned folder and updates related stored references.
-    plan_id: Optional Plan ID; empty uses the currently selected working Plan.
+    name: Plan 산출물 폴더의 새 이름입니다. 날짜 접두사는 런타임이 관리합니다. 소유한 폴더를 이동하고 관련된 저장 참조를 갱신합니다.
+    plan_id: 선택 사항인 Plan ID입니다. 비어 있으면 현재 선택된 작업 Plan을 사용합니다.
 <!-- /instruction:rename_artifact_folder -->
 
 <!-- instruction:execute_project_python -->
-When to use: Run synchronous Python 3 in the bound Rhino with the selected Plan artifact folder as cwd when code needs Plan-owned outputs.
-Before calling: Select or resume the intended workspace with set_working_plan; reuse an already valid selection. Reuse observed targets/units and the bundled rhino3d-scripts skill/references, currently available via get_modeling_guide(include_scripting=True), when authoring Rhino code.
-Inputs from earlier results: Use set_working_plan's artifact_dir as the output context and previously observed GUIDs/measurements in code. Relative writes land in the current Loop folder and may overwrite files in that same Loop; doc and scriptcontext.doc are the bound RhinoDoc. Assign a JSON-safe value to result and record useful output refs in the Plan/Step.
-Interpretation: The response includes the RhinoCode outcome, request_id and selected artifact_dir. Use the exact request_id with get_rhino_execution for pending/uncertain completion, missing result pages or needed diagnostics, not after every completed result. project_root is absolute and artifact_dir is relative.
-Limits: Do not write to earlier Loop paths; keep them as inputs and write revised outputs in the current Loop. The selected folder and managed path helpers are protections, not an OS sandbox against arbitrary Python or absolute-path file writes. This is Rhino's embedded Python, not the external worker venv; missing packages are not installed automatically. The wrapper temporarily applies project/artifact environment and restores cwd, scriptcontext, Undo and redraw. Timeout limits waiting and does not kill Rhino or roll back partial changes; do not rerun writes merely because the CLI returned/timed out. Do not switch documents or launch detached/background writers.
+선택한 Plan의 산출물 폴더를 작업 디렉터리로 삼아 Rhino 내부에서 Python 3 코드를 실행합니다.
 
 Args:
-    code: Synchronous Python 3 source; assign a JSON-safe value to result.
-    timeout_seconds: Integer 1-600, default 60; waiting limit, not execution cancellation.
-Returns:
-    RhinoCode outcome, request_id and selected artifact_dir, with late-result recovery.
+    code: 연결된 Rhino에서 실행할 동기식 Python 3 코드입니다. doc과 scriptcontext.doc은 연결된 문서이며 JSON-safe 결과를 result에 할당합니다. 상대 출력 경로는 선택한 Plan/Loop의 산출물 폴더를 기준으로 합니다.
+    timeout_seconds: 1-600의 정수이며 기본값은 60입니다. 대기 시간 제한이며, 실행을 취소하지 않습니다.
 <!-- /instruction:execute_project_python -->
 
 ## response-90

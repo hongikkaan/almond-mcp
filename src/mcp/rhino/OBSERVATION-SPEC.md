@@ -1,6 +1,6 @@
 # 현재 문서·화면 조회와 C# 결과 반환
 
-프로젝트 정보가 필요하면 `project_info`를 조회한다. project/document 항목이 실제 문서를 한 번 함께 확인하고 project에 연결 문서와의 일치 여부를 제공하므로 같은 live 확인을 위해 `get_rhino_context`를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때 `get_current_viewcapture`를 호출한다. beyond·CoS에서도 같은 이름을 사용하고 `connection_id`를 전달한다.
+프로젝트 정보가 필요하면 `context_04-get_project_info` tool를 조회한다. project/document 항목이 실제 문서를 한 번 함께 확인하고 project에 연결 문서와의 일치 여부를 제공하므로 같은 live 확인을 위해 `inspect_03-get_document_context` tool를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때 `capture_03-current_view` tool를 호출한다. beyond·CoS에서도 같은 이름을 사용하고 `connection_id`를 전달한다.
 
 두 조회는 기존 Engine의 문서 binding·UI thread·호출 identity·native 완료 확인을 거친다. 파일 경로를 임의로 골라 다른 모델을 조회하는 기능은 없다.
 
@@ -8,7 +8,7 @@
 
 ## 현재 상태
 
-`get_rhino_context`는 document/viewport/editor/named_views/layouts/display_modes/viewports 중 요청한 항목만 수집한다.
+`inspect_03-get_document_context` tool는 document/viewport/editor/named_views/layouts/display_modes/viewports 중 요청한 항목만 수집한다.
 sections를 생략하면 document/named_views/layouts/display_modes와 next_step을 반환한다. next_step은 다른 선택 입력에 관계없이 sections 생략 시에만 표시한다. 명시한 sections에 editor가 없으면 편집 상태를 조사하거나 출력하지 않는다. sections=[]는 status/warnings만 반환한다.
 
 | 필드 | 내용 |
@@ -21,9 +21,9 @@ sections를 생략하면 document/named_views/layouts/display_modes와 next_step
 | `display_modes` | 설치된 이름과 ID, 최대 128개와 초과 경고; ID 항상 유지 |
 | `viewports` | 모델 viewport 목록; 선택 조회이며 일반 include_ids 정책 적용 |
 
-문서 파일명·경로는 project_info에서 확인한다. 문서 객체 수는 정상·숨김·잠금·reference·light를 포함하며 삭제 객체·블록 정의 내부·grip은 제외한다. 레이어 수는 삭제 레이어를 제외한다. 실패한 관측은 null과 경고이며 가짜 0/빈 목록으로 바꾸지 않는다. 공개 context는 이미지를 받거나 파일을 쓰지 않는다.
+문서 파일명·경로는 context_04-get_project_info tool에서 확인한다. 문서 객체 수는 정상·숨김·잠금·reference·light를 포함하며 삭제 객체·블록 정의 내부·grip은 제외한다. 레이어 수는 삭제 레이어를 제외한다. 실패한 관측은 null과 경고이며 가짜 0/빈 목록으로 바꾸지 않는다. 공개 context는 이미지를 받거나 파일을 쓰지 않는다.
 
-선택 조회는 `get_objects(scope="current", selected=true)`로 통합한다. 기본은 문서 객체 목록이며, `result_mode="hierarchy"`로 그룹·블록을 요약하고 recursive와 depth로 내부를 펼친다. 부분 범위의 그룹은 전체 구성원과 조회에 포함된 구성원 수를 구분한다. 문서 객체 수와 계층 occurrence 수는 서로 다르다.
+선택 조회는 `inspect_02-get_objects tool(scope="current", selected=true)`로 통합한다. 기본은 문서 객체 목록이며, `result_mode="hierarchy"`로 그룹·블록을 요약하고 recursive와 depth로 내부를 펼친다. 부분 범위의 그룹은 전체 구성원과 조회에 포함된 구성원 수를 구분한다. 문서 객체 수와 계층 occurrence 수는 서로 다르다.
 
 공개 조회는 context_sections>=2를 요구하고 native public_context=true로 요청한다. 기존 내부 native 호출은 문서 identity/capabilities, 필요한 compact editor, raw 선택 GUID 기본값을 유지한다. 이로써 연결 문서 검증과 Holon/Plan 역조회 계약을 보존한다.
 
@@ -35,11 +35,11 @@ sections를 생략하면 document/named_views/layouts/display_modes와 next_step
 
 ## 화면 캡처
 
-`get_defined_viewcapture(target_kind="named_view"|"layout", target="이름 또는 ID")`는 지정된 Named View 또는 Layout을 캡처한다. 목록은 get_rhino_context에서 조회한다. 같은 이름이 여러 개이면 오류이며 고유 ID로 구분한다. Named View는 저장된 카메라를 별도 화면에서 그리므로 실제 활성 뷰를 바꾸지 않는다. 기본 표시 모드는 Shaded이며 설치된 이름/ID로 변경할 수 있다.
+`capture_04-defined_view tool(target_kind="named_view"|"layout", target="이름 또는 ID")`는 지정된 Named View 또는 Layout을 캡처한다. 목록은 inspect_03-get_document_context tool에서 조회한다. 같은 이름이 여러 개이면 오류이며 고유 ID로 구분한다. Named View는 저장된 카메라를 별도 화면에서 그리므로 실제 활성 뷰를 바꾸지 않는다. 기본 표시 모드는 Shaded이며 설치된 이름/ID로 변경할 수 있다.
 
 Layout은 실제 용지와 Detail을 인쇄 색·선 두께로 캡처하고 주변 작업창을 포함하지 않는다. 100%는 용지를 144 dpi로 표현한 크기다. 호출자는 픽셀이나 용지 비율을 계산하지 않는다. Layout의 표시 모드·픽셀 강제 지정은 거절하며 Detail 축척과 문서 PrintDisplay를 바꾸지 않는다. scale_percent는 기본 75의 상한이며 정의된 뷰가 PNG 전달 한도를 넘으면 비율을 줄이고 경고한다. 명시한 Named View 픽셀은 자동 축소하지 않는다.
 
-`get_current_viewcapture()`는 현재 모델 viewport를 그대로 캡처한다. target_ids를 지정하면 실제 선택을 그 대상으로 바꾸고 Zoom Selected를 적용한다. isolate=true는 그 전에 Rhino 기본 Isolate를 실행한다. 실제 화면의 카메라·선택·격리는 캡처 후 유지되며 Unisolate로 native 격리를 해제한다. 잠긴 주변 객체는 Rhino Isolate의 기존 동작대로 남을 수 있다. optional display_mode도 실제 viewport에 적용한다. Layout에서 호출하면 모델 viewport 활성화 또는 정의된 Layout 캡처를 안내한다.
+`capture_03-current_view tool()`는 현재 모델 viewport를 그대로 캡처한다. target_ids를 지정하면 실제 선택을 그 대상으로 바꾸고 Zoom Selected를 적용한다. isolate=true는 그 전에 Rhino 기본 Isolate를 실행한다. 실제 화면의 카메라·선택·격리는 캡처 후 유지되며 Unisolate로 native 격리를 해제한다. 잠긴 주변 객체는 Rhino Isolate의 기존 동작대로 남을 수 있다. optional display_mode도 실제 viewport에 적용한다. Layout에서 호출하면 모델 viewport 활성화 또는 정의된 Layout 캡처를 안내한다.
 
 대상은 여러 ID를 받는다. target_kind는 ID의 종류(object/group/block/holon)를 뜻하며 geometry 허용 목록이 아니다. object와 block 경로는 같은 일반 Rhino 객체 식별을 사용하므로 curve/mesh/Brep/block/annotation을 따로 분기하지 않는다. group은 현재 멤버, holon은 현재 effective 멤버를 해석한다. 실제 선택·격리·확대는 기존 Holon focus와 공통 함수를 사용한다. 현재 선택 가능한 model-space 객체와 4096개 focus 한도, 명령·Undo 전환 보호를 유지한다. 숨김·잠금·Layout 객체·블록 정의 내부의 ID는 자동으로 수정하거나 잘못된 위치에서 선택하지 않는다.
 
@@ -47,13 +47,13 @@ Layout은 실제 용지와 Detail을 인쇄 색·선 두께로 캡처하고 주�
 
 labels는 기본 false이고 선택 시 최대 200개의 임시 pixel label을 그린다. depth는 1–8이다. Layout Detail label은 지원하지 않으며 경고한다. 현재 화면 scale_percent는 1–100, 기본 75다. 명시 width/height는 각 128–2048과 scale_percent=100으로 요청하고 창 크기를 변경하지 않는다. PNG는 16 megapixels/4 MiB 한도다. 선택적 include_usage는 실제 출력 픽셀과 예시 token 추정이며 실제 모델 사용량이 아니다. 새 realtime 표시 모드를 시작하거나 렌더 완료를 기다리지 않는다.
 
-검증된 PNG를 Plan artifact_dir/captures 또는 연결 소유 .almond/tmp/python/<token>/captures에 저장한다. 상대 경로·bytes·SHA256·보존 수명을 반환하며 별도 저장 실패에도 이미지와 화면 변경 근거는 유지한다. 캡처 도구는 MCP readOnlyHint=false, destructiveHint=false다. get_rhino_context와 get_objects는 파일을 쓰지 않는다.
+검증된 PNG를 Plan artifact_dir/captures 또는 연결 소유 .almond/tmp/python/<token>/captures에 저장한다. 상대 경로·bytes·SHA256·보존 수명을 반환하며 별도 저장 실패에도 이미지와 화면 변경 근거는 유지한다. 캡처 도구는 MCP readOnlyHint=false, destructiveHint=false다. inspect_03-get_document_context tool와 inspect_02-get_objects tool는 파일을 쓰지 않는다.
 
 공개 get_rhino_viewport_image와 context의 include_image는 제거됐다. 내부 native 문서 관측과 기존 capture helper는 private 호출 계약을 유지한다. 새 캡처는 view_capture=1 capability와 문서 binding을 검증한다.
 
 ## 일반 객체 범위·형상과 묶음 캡처
 
-`get_objects`는 `object_observation>=4`로 확인한 고정 native 경로다. 내부 get_rhino_objects 요청 이름과 기존 내부 소비자는 유지한다.
+`inspect_02-get_objects` tool는 `object_observation>=4`로 확인한 고정 native 경로다. 내부 get_rhino_objects 요청 이름과 기존 내부 소비자는 유지한다.
 공개 scope는 current(기본)/document다. current는 화면 밖을 포함한 표시·비잠금 모델 객체이고 객체 및 상위 Layer 잠금을 제외한다. selected/inside_window는 current에서만 허용하며 서로 배타적이다. selected는 화면 밖의 선택을 포함하되 current의 표시·잠금 조건을 유지한다. inside_window는 활성 모델뷰 또는 Detail의 frustum과 world 경계 상자가 일부라도 교차하면 포함한다. 경계 상자 근사이며 픽셀 가림·클리핑 평면은 판정하지 않는다. document는 숨김·잠금 객체를 포함하고 object_ids로 좁힐 수 있다. 양 scope에서 group_ids로 원하는 그룹을 지정할 수 있으며 object_ids와 혼용하지 않는다. 이름은 식별자가 아니다.
 필터·페이지·기하 상세의 입력은 [도구 설명](../features/context/tools-explain.md)에 둔다.
 result_mode=objects는 문서 객체, summary는 레이어·유형 수량, hierarchy는 그룹·블록 계층이다. recursive=true는 hierarchy를 선택하고 그룹·블록을 함께 펼친다. 기본 false, depth는 1–8(최상위=1)이며 number/parent_number가 페이지를 가로지르는 부모 관계를 보존한다. 필터는 top-level 객체에 먼저 적용한다. 그룹 계층은 엄격한 멤버 포함 관계로 판정하며 겹치는 그룹·동일 멤버 그룹을 임의의 단일 부모에 배치하지 않는다. member_count, observed_member_count, matched_member_count와 all_members_in_scope를 구분한다. 확인할 수 없는 전체 개수는 null이다.
@@ -68,12 +68,12 @@ UserDictionary는 기존 SharedUserDictionary만 읽으며, 사전을 생성하�
 명시적인 `fields=["id"]`는 기본 ID 생략보다 우선한다. 바깥 페이지는 객체/요약행, 각 객체의 `face_page`는 면 목록의 페이지다. 후속 면 조회는 명시 객체 집합과 원본 CRC를 요구한다.
 
 GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 components/native의 공통 분석기를 사용한다. 512개 top-level 객체에서 닫힌 Brep·Extrusion·Mesh를 검사하고, 명시된 include_blocks에 따라 중첩 배치를 world-space 복사본으로 해석한다. 최대 2048개 occurrence· 20000개 후보를 허용하며 페이지당 최대 64쌍을 계산한다. Cursor는 문서·형상·범위·공차에 묶인다.
-복원된 Holon 조회는 기존 pair handle과 pair_state 관측 출력을 유지한다. 통합 `resolve_object_intersection`은 object_ids로 시작해 첫 양의 겹침에서 멈추고 비교 이미지·번호·속성·소속 블록을 반환한다. 이후 같은 도구에 review_id와 choice=1/2/skip을 전달한다. 번호는 그 객체의 겹친 부분 제거이며 전체 객체 삭제가 아니다. review_id는 표시한 대상의 연결이고 형상 상태 토큰이 아니다. 매 수정 직전 현재 형상을 다시 계산하며 pair_state 입력은 받지 않는다.
+복원된 Holon 조회는 기존 pair handle과 pair_state 관측 출력을 유지한다. 통합 `intersect_02-resolve` tool은 object_ids로 시작해 첫 양의 겹침에서 멈추고 비교 이미지·번호·속성·소속 블록을 반환한다. 이후 같은 도구에 review_id와 choice=1/2/skip을 전달한다. 번호는 그 객체의 겹친 부분 제거이며 전체 객체 삭제가 아니다. review_id는 표시한 대상의 연결이고 형상 상태 토큰이 아니다. 매 수정 직전 현재 형상을 다시 계산하며 pair_state 입력은 받지 않는다.
 비교 캡처는 같은 카메라에서 주변 맥락과 native Isolate 상태를 합친다. 카메라·선택은 대상에 유지하고 이번 격리를 종료한 뒤 가시성을 대조한다. 블록 전체 배치를 표시하되 내부 부재 위치와 소속 블록 이름·경로를 구분한다. 공개 show_object_intersection은 통합 도구로 대체한다. 각 수정은 기존 단일 Replace·Undo 경계를 유지하며 다음 조회가 실패해도 previous_result의 완료된 수정 기록을 보존한다. 중복 선택은 재실행하지 않고 완료 불명은 자동 진행을 중단한다.
 미지원·미확정·미검사는 무교차가 아니다. Mesh/Brep 혼합 관찰의 메싱 근사와 페이지별 범위를 명시한다.
 두 고정 객체 조회의 명시적 `status=error`는 기존 `{result: JSON 문자열}` schema와 오류 상세를 보존하며 MCP `isError=true`로 반환한다. 정상 페이지의 `unknown`, `complete=false`, cursor는 오류로 대체하지 않는다.
 
-`capture_rhino_inspection`은 `inspection_capture=1`을 확인한 뒤 최대 16개 타일을 합성한다.
+`capture_02-inspection` tool은 `inspection_capture=1`을 확인한 뒤 최대 16개 타일을 합성한다.
 별도 viewport와 범위 제한 display conduit를 사용하며 live 카메라·선택·가시 상태를 수정하지 않는다.
 필터의 culling 실행을 확인하지 못하면 이미지를 반환하지 않는다. 타일별 범위·모드·카메라·오류를 돌려주며 일부 실패는 `complete=false`로 표시한다. 전체 이미지는 16M 픽셀·PNG 4 MiB 이내다.
 기본은 활성 모델뷰를 사용한다. `inspection_model_view=1`에서는 `model_view_id`로 기존 모델뷰를 지정해 활성 Layout·Detail을 바꾸지 않고 모델을 관찰한다. 문서·선택·가시성·Modified와 원본/활성 viewport·ActiveSpace가 전후 일치하지 않으면 이미지를 내보내지 않는다.
@@ -82,17 +82,17 @@ GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 compon
 
 ## 제한된 평면 면 편집
 
-`edit_planar_face`는 `face_edit=1`과 저장된 대상 문서를 확인하는 고정 native 편집 경로다.
+`model_02-edit_planar_face` tool는 `face_edit=1`과 저장된 대상 문서를 확인하는 고정 native 편집 경로다.
 공개 임의 코드 실행의 대체 경로가 아니라, 닫힌 manifold Brep의 평면 면과 인접 평면을 `Brep.PushPullExtend`로 연장하는 고정 연산이다. 대상 GUID·면 index·원본 geometry CRC를 받아 오래된 면 참조를 거절하고, 복제본에서 검사한 뒤 같은 GUID로 교체한다. 속성·그룹과 기존 geometry UserDictionary/UserStrings를 보존하며, 기타 custom geometry UserData는 편집 전에 거절한다.
 상자 재생성으로 대신하지 않는다. Undo·완료·불확실한 수정의 재시도 금지는 기존 ScriptExecutor/native receipt 계약을 따른다. 형상 연산 성공이 설계 적합성을 뜻하지 않는다.
 
-`edit_planar_faces`는 `face_edit_batch=1`을 확인하고 서로 다른 객체 1..32개의 면을 한 native 호출로 편집한다.
+`model_03-edit_planar_faces` tool는 `face_edit_batch=1`을 확인하고 서로 다른 객체 1..32개의 면을 한 native 호출로 편집한다.
 모든 복제본을 준비·검증한 뒤 한 Undo 구간에서 교체한다. 준비 실패는 문서를 바꾸지 않으며, 교체 중 실패는 적용·실패·불명·미시도 항목을 구분하고 중단한다. 단일 Undo는 자동 rollback을 뜻하지 않는다.
 동일 객체를 두 번 포함할 수 없으며, 같은 객체의 다음 편집에는 바뀐 면·CRC 관찰이 필요하다.
 
 ## 중첩 블록 분석
 
-`analyze_block_reculviely(mode, options)`는 `outline`, `resolve-block` 두 모드만 제공한다.
+`inspect_01-analyze_nested_blocks tool(mode, options)`는 `outline`, `resolve-block` 두 모드만 제공한다.
 입력·옵션 의미는 `tools/list`의 해당 도구 설명 전문과 schema를 따른다. 설명 원본은 [context 도구 설명](../features/context/tools-explain.md)에 있다.
 runtime은 연결된 문서의 expected_model_path를 공급하고 외부 연결기는 connection_id를 요구한다.
 경로가 현재 문서와 다르면 계산 전에 거절한다.
@@ -105,12 +105,12 @@ outline은 summary를 기본으로 하며 field_groups로 objects/annotations/tr
 
 Python은 `capabilities.block_analysis=1`을 먼저 확인한다. 지원하지 않는 Bridge에는 분석 요청을 보내지 않는다.
 Bridge의 알 수 없는 request type도 실행 없이 unsupported_request로 거절한다.
-Holon 전용 겹침 도구는 제공하지 않는다. Holon의 현재 객체 GUID를 확인한 뒤 일반 객체와 같은 get_object_intersections(object_ids, include_block=false)로 조회하며 성공 시 intersections.number에 전체 겹침 쌍의 건수와 next_step만 반환한다. max_pairs·cursor는 내부 페이지 계산에만 사용한다. 미지원 형상·계산 실패·조회 중 범위 변경은 정상 건수로 축약하지 않고 오류 근거를 반환한다. include_block=false로 제외한 블록은 계산 범위 밖이다. Holon의 rhino_group_id로 get_objects(scope="document", group_ids=[...], include_ids=true)를 조회해 객체 GUID를 얻는 경로도 유지한다. 공통 교차 계산기는 components/native가 소유하며 의미 등록의 정합 검사는 Holon 조회 계약으로 남는다.
+Holon 전용 겹침 도구는 제공하지 않는다. Holon의 현재 객체 GUID를 확인한 뒤 일반 객체와 같은 intersect_01-find tool(object_ids, include_block=false)로 조회하며 성공 시 intersections.number에 전체 겹침 쌍의 건수와 next_step만 반환한다. max_pairs·cursor는 내부 페이지 계산에만 사용한다. 미지원 형상·계산 실패·조회 중 범위 변경은 정상 건수로 축약하지 않고 오류 근거를 반환한다. include_block=false로 제외한 블록은 계산 범위 밖이다. Holon의 rhino_group_id로 inspect_02-get_objects tool(scope="document", group_ids=[...], include_ids=true)를 조회해 객체 GUID를 얻는 경로도 유지한다. 공통 교차 계산기는 components/native가 소유하며 의미 등록의 정합 검사는 Holon 조회 계약으로 남는다.
 
 ## Private Bridge C# recipe에서 계산값 반환
 
 재료·자산·교환·capture의 내부 Bridge recipe는 `public static Run(RhinoDoc doc)` 진입점을 유지한다. JSON으로 표현 가능한 값을 반환하면 응답의 `result`에 들어간다.
-아래 반환값 규칙은 이 private 전송에 해당한다. 공개 `execute_rhino_script`의 C#은 RhinoCode statement body이며 `result_json`을 지정한다. 공개 언어·완료·결과 한도는 [RhinoCode 실행 계약](../runtime/RHINOCODE-SPEC.md)을 따른다.
+아래 반환값 규칙은 이 private 전송에 해당한다. 공개 `script_02-run_rhino` tool의 C#은 RhinoCode statement body이며 `result_json`을 지정한다. 공개 언어·완료·결과 한도는 [RhinoCode 실행 계약](../runtime/RHINOCODE-SPEC.md)을 따른다.
 
 ```csharp
 public class Script

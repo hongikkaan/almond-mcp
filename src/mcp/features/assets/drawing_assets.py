@@ -148,7 +148,7 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
             previous_source = canonical.read_bytes()
             previous_hash = drafting.sha(previous_source)
             if previous_hash != entries[matches[0]].get("sha256"):
-                raise ValueError("The linked source has unrefreshed edits; refresh_asset before replacing it")
+                raise ValueError("The linked source has unrefreshed edits; call asset_08-refresh tool before replacing it")
         version = uuid4().hex
         stage = Path(tempfile.mkdtemp(prefix=".register-", dir=root))
         final = root / "registered" / f"{asset_id}-{version}"

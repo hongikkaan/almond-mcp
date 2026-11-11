@@ -36,7 +36,7 @@ namespace RhinoAlmondBridge
         {
             var context = Current.Value ?? throw new InvalidOperationException("No active managed file scope.");
             if (context.Artifact.Length == 0)
-                throw new InvalidOperationException("Select a Plan with set_working_plan before writing artifacts.");
+                throw new InvalidOperationException("Select a Plan with plan_10-set_working tool before writing artifacts.");
             var root = Resolve(context.Root, context.Artifact);
             var path = Resolve(root, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(path));

@@ -114,6 +114,7 @@ def test_face_page_identity_and_crc_contract_survives_public_rename():
     tools, calls, _ = tools_for(reply)
     result = json.loads(tools["get_objects"](scope="document", object_ids=[A], fields=["faces"],
         face_offset=128, expected_geometry_crcs={A: 42}, expected_model_path=MODEL))
+    assert "face_offset" in result.pop("next_step_guide")
     assert result == reply
     assert calls[-1]["expected_geometry_crcs"] == {A: 42}
     assert calls[-1]["face_offset"] == 128
@@ -125,6 +126,7 @@ def test_incomplete_hierarchy_preserves_out_of_page_parent_and_diagnostics():
     tools, _, _ = tools_for(reply)
     result = json.loads(tools["get_objects"](selected=True, result_mode="hierarchy", offset=2,
                                             limit=1, expected_model_path=MODEL, expected_snapshot="a" * 64))
+    assert "expected_snapshot" in result.pop("next_step_guide")
     assert result == {**reply, "nodes": [{k: v for k, v in reply["nodes"][0].items() if k != "id"}]}
     assert result["complete"] is False and result["nodes"][0]["parent_number"] == 1
 
@@ -147,9 +149,9 @@ def test_real_mcp_discovery_exposes_one_query_and_strict_expansion_inputs():
     async def exercise():
         async with Client(server) as client:
             names = {tool.name for tool in await client.list_tools()}
-            assert "get_objects" in names
+            assert "inspect_02-get_objects" in names
             assert not {"get_rhino_objects", "get_rhino_selection"}.intersection(names)
-            result = await client.call_tool("get_objects", {"result_mode": "hierarchy", "depth": True}, raise_on_error=False)
+            result = await client.call_tool("inspect_02-get_objects", {"result_mode": "hierarchy", "depth": True}, raise_on_error=False)
             assert result.is_error
 
     asyncio.run(exercise())

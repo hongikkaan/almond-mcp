@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.grasshopper.output import GROUPS, project
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
@@ -89,7 +90,7 @@ def _capsule_input_error(port: dict, value) -> str | None:
 def register(mcp, context):
     """Register the existing Grasshopper MCP surface without import-time effects."""
 
-    @mcp.tool()
+    @mcp.tool(name='grasshopper_03-list_library', output_schema=public_output_schema('list_library', wrapped=True))
     @tool_instruction(__file__, 'list_library')
     @query_output
     def list_library(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -102,7 +103,7 @@ def register(mcp, context):
         }, field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(name='grasshopper_01-get_logic', output_schema=public_output_schema('get_logic_by_id', wrapped=True))
     @tool_instruction(__file__, 'get_logic_by_id')
     @query_output
     def get_logic_by_id(logic_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -135,7 +136,7 @@ def register(mcp, context):
             return json.dumps(project({"error": f"Failed to parse '{target_file}': {str(e)}"}, field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(name='grasshopper_02-list_capsules', output_schema=public_output_schema('list_capsules', wrapped=True))
     @tool_instruction(__file__, 'list_capsules')
     @query_output
     def list_capsules(capability: str = "", audited_only: bool = False, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -151,7 +152,7 @@ def register(mcp, context):
         }, field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(name='grasshopper_04-run_definition', output_schema=public_output_schema('run_gh_definition', wrapped=True))
     @tool_instruction(__file__, 'run_gh_definition')
     def run_gh_definition(
         capsule_id: str,
@@ -172,8 +173,8 @@ def register(mcp, context):
 
         if not manifest.get("audited"):
             return json.dumps(error_payload(f"Capsule '{capsule_id}' is not audited: its definition has no verified "
-                    "ALMOND_IN_*/ALMOND_OUT_* harness params, so run_gh_definition refuses to "
-                    "execute it. It remains available as retrieval context (get_logic_by_id). "
+                    "ALMOND_IN_*/ALMOND_OUT_* harness params, so grasshopper_04-run_definition tool refuses to "
+                    "execute it. It remains available as retrieval context (grasshopper_01-get_logic tool). "
                     "See asset/capsules/AUTHORING.md for how to harness and audit the definition."))
 
         if not isinstance(inputs, dict):

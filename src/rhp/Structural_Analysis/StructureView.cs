@@ -177,11 +177,15 @@ namespace RhinoAlmondBridge
 
             var r = data.Result;
             double maxUtil = r.Elements.Where(e => !double.IsNaN(e.Utilization)).Select(e => e.Utilization).DefaultIfEmpty(double.NaN).Max();
-            return JsonConvert.SerializeObject(new
+            var response = JObject.FromObject(new
             {
-                status = r.MaxDisplacementMM > data.LimitMM ? "fail"
+                // A buckling mode's amplitude is arbitrary, not a deflection.
+                status = data.BucklingAlpha.HasValue
+                    ? data.BucklingAlpha.Value <= 1.0 ? "fail" : data.VerdictLabel != null ? "indicative" : "pass"
+                    : r.MaxDisplacementMM > data.LimitMM ? "fail"
                     : data.VerdictLabel != null ? "indicative"
                     : (double.IsNaN(maxUtil) || maxUtil <= 1.0) ? "pass" : "fail",
+                overlay_id = data.OverlayId,
                 analysis_method = data.Engine,
                 max_displacement_mm = Math.Round(r.MaxDisplacementMM, 3),
                 deflection_limit_mm = Math.Round(data.LimitMM, 3),
@@ -194,9 +198,13 @@ namespace RhinoAlmondBridge
                     max_displacement_mm = Math.Round(e.SampleDispM.Max(d => Len(d)) * 1000, 3),
                     utilization = double.IsNaN(e.Utilization) ? (double?)null : Math.Round(e.Utilization, 4),
                 }),
-                nodes = r.NodeDispM.Count,
+                nodes = r.NodeDispM.Count > 0 ? r.NodeDispM.Count : r.Elements
+                    .SelectMany(e => new[] { e.StartM, e.EndM })
+                    .Select(p => Tuple.Create(p[0], p[1], p[2])).Distinct().Count(),
                 warnings = r.Warnings,
             });
+            if (data.BucklingAlpha.HasValue) response.Remove("max_displacement_mm");
+            return response.ToString(Formatting.None);
         }
 
         private static double Len(double[] d) => Math.Sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
@@ -207,6 +215,8 @@ namespace RhinoAlmondBridge
 
     public class StructureData
     {
+        // Identity belongs to this process-wide result, never to a caller's cache.
+        public readonly string OverlayId = Guid.NewGuid().ToString("N");
         public KarambaResults Result;
         public double ToDoc = 1000, SpanM, LimitMM, LimitRatio, Scale = 1, Reveal = 1;
         public double LoadKN;

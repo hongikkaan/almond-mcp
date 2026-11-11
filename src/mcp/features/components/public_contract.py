@@ -15,7 +15,7 @@ def public_result(value, field=''):
         return [public_result(item, field) for item in value]
     # Only generated diagnostics/options are rewritten. User names, goals,
     # reference text and stable ID values must remain byte-for-byte unchanged.
-    if isinstance(value, str) and field in {'message', 'next_step', 'available_details'}:
+    if isinstance(value, str) and field in {'message', 'next_step', 'next_step_guide', 'available_details'}:
         return re.sub(r'\bcomponent(s)?\b', lambda m: 'holons' if m[1] else 'holon',
                       re.sub(r'\bComponents?\b', lambda m: 'Holons' if m[0].endswith('s') else 'Holon',
                              re.sub(r'\b(?:[a-z]+_)*component(?:s|_ids?|_count)?\b', lambda m: public_key(m[0]), value)))

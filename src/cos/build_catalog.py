@@ -12,6 +12,7 @@ import types
 from typing import Literal
 import tomllib
 from almond_mcp.instruction_text import read_tool_instruction, public_tool_name
+from almond_mcp.public_names import internal_tool_name
 
 sys.dont_write_bytecode = True
 from runtime import CATALOG, ENGINE, ROOT, digest, source_paths
@@ -51,7 +52,7 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         for part in ast.walk(annotation):
             if not isinstance(part, allowed):
                 raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
-            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict", "StringListPatch", "Literal"}:
+            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict", "StringListPatch", "Literal", "CreateRequest", "GetRequest", "ListRequest", "UpdateRequest"}:
                 raise ValueError(f"Review annotation name {part.id} in {node.name}")
     for default in [*node.args.defaults, *node.args.kw_defaults]:
         if default is not None:
@@ -62,15 +63,22 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         if isinstance(decorator, ast.Name) and decorator.id in {"query_output", "holon_output", "mcp_error_result"}:
             continue  # Known output projection; schemas are built from inert bodies.
         if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
+                and decorator.func.id == "query_output"):
+            if (node.name != "get_asset_drawing" or decorator.args or len(decorator.keywords) != 1
+                    or decorator.keywords[0].arg != "preserve_cross_drive_fields"
+                    or ast.literal_eval(decorator.keywords[0].value) != {"package_dir"}):
+                raise ValueError(f"Unexpected output projection: {node.name}")
+            continue  # Reviewed output-only option; never execute its decorator.
+        if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
                 and decorator.func.id == "tool_instruction"):
             if (len(decorator.args) != 2 or decorator.keywords
                     or not isinstance(decorator.args[0], ast.Name)
                     or decorator.args[0].id != "__file__"
                     or not isinstance(decorator.args[1], ast.Constant)
-                    or decorator.args[1].value != public_tool_name(node)
+                    or decorator.args[1].value != internal_tool_name(public_tool_name(node))
                     or not hasattr(node, "_guidance_source")):
                 raise ValueError(f"Unexpected instruction decorator: {node.name}")
-            external_doc = read_tool_instruction(node._guidance_source, public_tool_name(node))
+            external_doc = read_tool_instruction(node._guidance_source, internal_tool_name(public_tool_name(node)))
             continue
         if not (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute)
                 and isinstance(decorator.func.value, ast.Name) and decorator.func.value.id == "mcp"
@@ -86,11 +94,23 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
                     raise ValueError(f"Review tool title in {node.name}")
                 continue
             if keyword.arg == "output_schema":
-                expected = {"type": "object", "properties": {"result": {"type": "string"}},
-                            "required": ["result"], "x-fastmcp-wrap-result": True}
-                if (node.name not in {"get_rhino_context", "get_objects", "get_object_intersections"}
-                        or ast.literal_eval(keyword.value) != expected):
+                if isinstance(keyword.value, ast.Dict):
+                    expected = {"type": "object", "properties": {"result": {"type": "string"}},
+                                "required": ["result"], "x-fastmcp-wrap-result": True}
+                    if (node.name not in {"get_rhino_context", "get_objects", "get_object_intersections"}
+                            or ast.literal_eval(keyword.value) != expected):
+                        raise ValueError(f"Review output schema in {node.name}")
+                    continue
+                call = keyword.value
+                if (not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name)
+                        or call.func.id != "public_output_schema" or len(call.args) != 1
+                        or ast.literal_eval(call.args[0]) != internal_tool_name(public_tool_name(node))
+                        or len(call.keywords) != 1 or call.keywords[0].arg != "wrapped"
+                        or type(ast.literal_eval(call.keywords[0].value)) is not bool):
                     raise ValueError(f"Review output schema in {node.name}")
+                from almond_mcp.output_contracts import public_output_schema
+                resolved = public_output_schema(internal_tool_name(public_tool_name(node)), ast.literal_eval(call.keywords[0].value))
+                keyword.value = ast.parse(repr(resolved), mode="eval").body
                 continue
             if keyword.arg != "annotations":
                 raise ValueError(f"Review decorator option {keyword.arg} in {node.name}")
@@ -134,6 +154,7 @@ async def generate(engine: Path = ENGINE) -> dict:
     from fastmcp.tools import ToolResult
     from pydantic import StrictInt, StrictFloat, StrictBool
     from almond_mcp.features.planning.updates import StringListPatch
+    from almond_mcp.features.planning.requests import CreateRequest, GetRequest, ListRequest, UpdateRequest
     paths = source_paths(engine)
     sources = {name: digest(path) for name, path in paths.items()}
     functions = collect_tool_functions(paths["server"])
@@ -154,6 +175,10 @@ async def generate(engine: Path = ENGINE) -> dict:
     module.StrictBool = StrictBool
     module.Literal = Literal
     module.StringListPatch = StringListPatch
+    module.CreateRequest = CreateRequest
+    module.GetRequest = GetRequest
+    module.ListRequest = ListRequest
+    module.UpdateRequest = UpdateRequest
     sys.modules[module.__name__] = module
     tree = ast.Module(body=[checked_stub(n) for n in functions], type_ignores=[])
     exec(compile(ast.fix_missing_locations(tree), "<Almond external schemas only>", "exec"), module.__dict__)

@@ -10,6 +10,8 @@ from uuid import UUID
 
 import pytest
 from fastmcp import Client, FastMCP
+from jsonschema import validate
+from almond_mcp.output_contracts import public_output_schema
 
 from almond_mcp.features.modeling import plan_section
 from almond_mcp.features.modeling.tools import register
@@ -66,6 +68,7 @@ def test_dedicated_native_dispatch_never_routes_caller_script_or_rhinocode():
     send, calls = transport()
     result = plan_section.dispatch(request(), send)
     assert result["status"] == "success" and result["drawing_status"] == "completed"
+    validate(result, public_output_schema('plan_section', wrapped=False))
     assert [c[0]["type"] for c in calls] == ["get_rhino_context", "plan_section"]
     assert calls[-1][1] == {"timeout": 600.0}
     assert not {"script", "language", "folder", "path", "output"}.intersection(calls[-1][0])
@@ -132,7 +135,7 @@ def test_native_runtime_error_marks_actual_mcp_result_error():
         mcp = FastMCP("plan-section-runtime-error")
         register(mcp, SimpleNamespace(_send_and_receive=send))
         async with Client(mcp) as client:
-            result = await client.call_tool("plan_section", dict(operation="Create", clipping_ids=[ID],
+            result = await client.call_tool("drawing_06-generate_plan_section", dict(operation="Create", clipping_ids=[ID],
                 expected_model_path=MODEL), raise_on_error=False)
             assert result.is_error
             payload = json.loads(result.content[0].text)
@@ -148,12 +151,12 @@ async def schema_contract():
     mcp = FastMCP("plan-section-contract")
     register(mcp, SimpleNamespace(_send_and_receive=send))
     async with Client(mcp) as client:
-        tool = next(t for t in await client.list_tools() if t.name == "plan_section")
+        tool = next(t for t in await client.list_tools() if t.name == "drawing_06-generate_plan_section")
         assert set(tool.input_schema["required"]) == {"operation", "clipping_ids"}
         assert tool.input_schema["properties"]["operation"]["enum"] == ["Create", "Update"]
         for args in (dict(operation="PDF", clipping_ids=[ID]), dict(operation="Create", clipping_ids=[ID], hatch=1),
                      dict(operation="Create", clipping_ids=[ID], script="pass")):
-            result = await client.call_tool("plan_section", args, raise_on_error=False)
+            result = await client.call_tool("drawing_06-generate_plan_section", args, raise_on_error=False)
             assert result.is_error
         assert calls == []
 
@@ -171,12 +174,12 @@ def test_public_receipt_read_is_readonly_and_never_dispatches_generation():
         mcp = FastMCP('receipt-reader')
         register(mcp, SimpleNamespace(_send_and_receive=send))
         async with Client(mcp) as client:
-            tool = next(t for t in await client.list_tools() if t.name == 'get_plan_section_result')
+            tool = next(t for t in await client.list_tools() if t.name == 'drawing_03-get_plan_section_result')
             assert tool.annotations.read_only_hint is True
-            result = await client.call_tool('get_plan_section_result', dict(result_id='a'*32, expected_model_path=MODEL))
+            result = await client.call_tool('drawing_03-get_plan_section_result', dict(result_id='a'*32, expected_model_path=MODEL))
             assert not result.is_error and json.loads(result.content[0].text)['json_chunk'] == '{}'
             assert calls == [dict(type='get_plan_section_result',result_id='a'*32,offset=0,expected_model_path=MODEL)]
-            result = await client.call_tool('get_plan_section_result', dict(result_id='../file', expected_model_path=MODEL), raise_on_error=False)
+            result = await client.call_tool('drawing_03-get_plan_section_result', dict(result_id='../file', expected_model_path=MODEL), raise_on_error=False)
             assert result.is_error and len(calls) == 1
     asyncio.run(check())
 
@@ -210,7 +213,7 @@ def test_production_native_responses_through_actual_mcp_boundary(native_boundary
         mcp = FastMCP("production-plan-section-result")
         register(mcp, SimpleNamespace(_send_and_receive=send))
         async with Client(mcp) as client:
-            result = await client.call_tool("plan_section", dict(operation="Create", clipping_ids=[ID],
+            result = await client.call_tool("drawing_06-generate_plan_section", dict(operation="Create", clipping_ids=[ID],
                 expected_model_path=MODEL), raise_on_error=False)
             assert result.is_error is is_error
             value = json.loads(result.content[0].text)

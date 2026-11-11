@@ -300,7 +300,8 @@ def select_instance(binding: dict, instances: list[dict]) -> dict:
     return item
 
 
-def _child_identity(process) -> dict:
+def child_process_identity(process) -> dict:
+    """Identity from an owned CLI handle, including a child that exited quickly."""
     # The owned Popen handle remains valid even if a very fast CLI already exited.
     # project.process_start_ticks deliberately rejects exited processes.
     if sys.platform != "win32":
@@ -414,7 +415,7 @@ class _Execution:
             self.publish()
             return
         try:
-            self.journal["child"] = _child_identity(self.process)
+            self.journal["child"] = child_process_identity(self.process)
             self.publish()
         finally:
             # Even an identity/persistence error after CreateProcess must drain
@@ -610,7 +611,7 @@ class RhinocodeExecution:
         result = self.get_execution(request_id=request_id, limit=20, include_ids=True, _initial_result=True)
         if not result["completed"]:
             result["timed_out"] = True
-            result["message"] = ("Execution is retained. Retrieve this request with get_rhino_execution; "
+            result["message"] = ("Execution is retained. Retrieve this request with script_03-get_execution tool; "
                                  "do not repeat the Rhino work.")
         return _execution_summary(result)
 

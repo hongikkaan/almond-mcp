@@ -285,4 +285,4 @@ def recommend(assets: list[dict], query: str = "", category: str = "",
     ranked.sort(key=lambda a: (-a["score"], a["asset_id"]))
     return {"status": "success", "total_matches": len(ranked), "assets": ranked[:limit],
             "ranking": "exact token overlap; explicit category, room, polygon and envelope filters",
-            "next_step": read_instruction(__file__, 'response-6')}
+            "next_step_guide": read_instruction(__file__, 'response-6')}

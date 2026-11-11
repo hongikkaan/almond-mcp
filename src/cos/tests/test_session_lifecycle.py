@@ -110,7 +110,7 @@ def test_unsaved_document_is_unavailable_with_save_instructions(tmp_path, model_
 def test_unsaved_connect_is_clear_and_releases_ownership(tmp_path, model_path):
     broker, control, lease = broker_for(tmp_path, {
         "model_path": model_path, "saved": False, "state": "available"})
-    result = asyncio.run(broker.call("connect", {"host_id": "test-host", "model_path": ""}))
+    result = asyncio.run(broker.call("connect_02-session", {"host_id": "test-host", "model_path": ""}))
     assert result.is_error
     assert result.content[0].text == UNSAVED_DOCUMENT
     assert control.calls == ["describe", "detach"]
@@ -130,7 +130,7 @@ def test_saved_document_listing_is_unchanged(tmp_path):
 def test_changed_saved_document_still_rejects_stale_model_path(tmp_path):
     broker, control, lease = broker_for(tmp_path, {
         "model_path": r"C:\work\new.3dm", "saved": True, "state": "available"})
-    result = asyncio.run(broker.call("connect", {
+    result = asyncio.run(broker.call("connect_02-session", {
         "host_id": "test-host", "model_path": r"C:\work\old.3dm"}))
     assert result.is_error
     assert "saved model changed" in result.content[0].text

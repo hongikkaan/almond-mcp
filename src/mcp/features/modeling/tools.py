@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.modeling.output import GROUPS, project
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from almond_mcp.managed_paths import bound_model_path
 from pydantic import StrictBool, StrictFloat, StrictInt
@@ -16,13 +17,9 @@ def register(mcp, context):
     """Register modeling tools against the current server execution context."""
     _material_script = modeling_setup.material_script
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    @tool_instruction(__file__, 'get_modeling_policy')
-    def get_modeling_policy() -> dict:
-        return {"status": "success", "policy": modeling_policy.POLICY}
 
 
-    @mcp.tool(name="plan_section")
+    @mcp.tool(name='drawing_06-generate_plan_section', output_schema=public_output_schema('plan_section', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'plan_section')
     def plan_section_tool(operation: Literal["Create", "Update"], clipping_ids: list[str],
@@ -40,7 +37,7 @@ def register(mcp, context):
                                "mutation_state": "not_started"})
         return json.dumps(plan_section.dispatch(payload, context._send_and_receive), ensure_ascii=False)
 
-    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+    @mcp.tool(name='drawing_03-get_plan_section_result', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_plan_section_result', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'get_plan_section_result')
     def get_plan_section_result(result_id: str, offset: StrictInt = 0, expected_model_path: str = "") -> str:
@@ -54,7 +51,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc), error_code="plan_section_result_read_failed"))
 
 
-    @mcp.tool()
+    @mcp.tool(name='script_02-run_rhino', output_schema=public_output_schema('execute_rhino_script', wrapped=True))
     @tool_instruction(__file__, 'execute_rhino_script')
     def execute_rhino_script(script: str, language: str = "python",
                              timeout_seconds: StrictInt = 60) -> str:
@@ -79,7 +76,7 @@ def register(mcp, context):
                                   timeout_seconds), ensure_ascii=False)
 
 
-    @mcp.tool()
+    @mcp.tool(name='model_02-edit_planar_face', output_schema=public_output_schema('edit_planar_face', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'edit_planar_face')
     def edit_planar_face(object_id: str, face_index: StrictInt, expected_geometry_crc: StrictInt,
@@ -93,7 +90,7 @@ def register(mcp, context):
         return json.dumps(face_edit.dispatch(payload, context._send_and_receive), ensure_ascii=False)
 
 
-    @mcp.tool()
+    @mcp.tool(name='model_03-edit_planar_faces', output_schema=public_output_schema('edit_planar_faces', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'edit_planar_faces')
     def edit_planar_faces(edits: list[dict], expected_model_path: str = "") -> str:
@@ -105,7 +102,7 @@ def register(mcp, context):
         return json.dumps(face_edit.dispatch(payload, context._send_and_receive, batch=True), ensure_ascii=False)
 
 
-    @mcp.tool(annotations={"destructiveHint": False})
+    @mcp.tool(name='script_04-save_document', annotations={'destructiveHint': False}, output_schema=public_output_schema('save_rhino_document', wrapped=True))
     @tool_instruction(__file__, 'save_rhino_document')
     def save_rhino_document() -> str:
         try:
@@ -136,7 +133,7 @@ def register(mcp, context):
                                "saved": None, "requires_reconciliation": True})
 
 
-    @mcp.tool()
+    @mcp.tool(name='model_05-setup', output_schema=public_output_schema('setup_modeling', wrapped=True))
     @tool_instruction(__file__, 'setup_modeling')
     def setup_modeling(overwrite: StrictBool) -> str:
         try:
@@ -147,7 +144,7 @@ def register(mcp, context):
         return json.dumps(modeling_setup.setup_result(result), ensure_ascii=False)
 
 
-    @mcp.tool()
+    @mcp.tool(name='model_04-list_materials', output_schema=public_output_schema('list_materials', wrapped=True))
     @tool_instruction(__file__, 'list_materials')
     @query_output
     def list_materials(category: str = "", query: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -160,7 +157,7 @@ def register(mcp, context):
         }, field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(name='model_01-assign_material', output_schema=public_output_schema('assign_material', wrapped=True))
     @tool_instruction(__file__, 'assign_material')
     def assign_material(
         guids: list[str],
@@ -274,7 +271,6 @@ def register(mcp, context):
 
 
     return {
-        "get_modeling_policy": get_modeling_policy,
         "plan_section": plan_section_tool,
         "get_plan_section_result": get_plan_section_result,
         "execute_rhino_script": execute_rhino_script,

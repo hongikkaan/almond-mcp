@@ -16,7 +16,7 @@ GROUPS = {
     "geometry": {"direct_object_ids", "effective_object_ids"},
     "artifacts": {"artifact_dir", "artifact_refs"},
     "description": {"description"},
-    "scope": {"file_name", "project_file_id", "model_path", "rhino_group_id"},
+    "scope": {"file_name", "model_path", "rhino_group_id"},
     "audit": {"created_at", "updated_at"},
 }
 PHASE_GROUPS = {key: GROUPS[key] for key in ("description", "scope", "audit")}
@@ -49,41 +49,35 @@ def kst_minute(value: str) -> str:
     return parsed.astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d-%H:%M")
 
 
-def phase_detail(phase: dict) -> dict:
-    return {"id": phase["phase_id"], "type": "phase", "status": phase["status"],
-            "phase": {key: phase[key] for key in ("name", "description", "file_name", "project_file_id", "depends_on", "previous_id", "plan_titles")}}
+def phase_detail(phase: dict, include_details: bool = False) -> dict:
+    result = {"id": phase["phase_id"], "type": "phase", "name": phase["name"], "status": phase["status"]}
+    if include_details:
+        result["phase"] = {key: phase[key] for key in ("description", "depends_on", "previous_id", "plan_titles")}
+        result["phase"]["file_name"] = phase["file_names"]
+    return result
 
 
-def plan_detail(plan: dict, include_components: bool, *, historical: bool = False) -> dict:
-    detail = {key: plan[key] for key in (
-        "title", "goal", "scope", "revision", "phase", "scene_ids", "artifact_dir", "artifact_refs", "previous_id",
-        "parent_plan", "child_plan", "loop_no", "loop_artifact_dir", "feedback")}
-    # Old immutable snapshots keep their original data in storage. The current
-    # public view no longer exposes mixed-kind dependencies or Step assignments.
-    detail["depends_on"] = [v for v in plan["depends_on"] if isinstance(v, str) and v.startswith("plan_") and v[5:].strip()]
-    detail.update({key: kst_minute(plan[key]) for key in ("created_at", "updated_at")})
-    detail["steps"] = [{key: step[key] for key in ("step_id", "step_type", "name", "status", "loop_no")} for step in plan["steps"]]
-    detail["available_details"] = [] if include_components else ["include_components"]
-    if include_components:
-        detail["component_ids"] = plan["component_ids"]
-    next_step = (f"For a Step in this saved state, use id as plan_id, its step_id, loop_no={plan['loop_no']} and revision={plan['revision']} in get_phase_plan_step. "
-                 "Before selecting current work, query the Plan without revision or loop_no; set_working_plan uses current state and does not restore history."
-                 if historical else
-                 "Use id as plan_id and a plan.steps[].step_id in get_phase_plan_step for that Step's records. Use execute_looping to begin the next pass or resume=true for the latest pass. Once you choose a Step, use set_working_plan(plan_id=..., step_id=...) to select it and its artifact location; selection does not execute work or change status.")
-    return {"id": plan["plan_id"], "type": "plan", "status": plan["status"], "read_only": historical, "plan": detail,
-            "next_step": next_step}
+def plan_detail(plan: dict, include_details: bool = False, *, historical: bool = False) -> dict:
+    result = {"id": plan["plan_id"], "type": "plan", "name": plan["title"], "status": plan["status"],
+              "plan_id": plan["plan_id"], "loop_no": plan["loop_no"], "revision": plan["revision"], "read_only": historical}
+    if include_details:
+        detail = {key: plan[key] for key in (
+            "goal", "scope", "phase", "scene_ids", "artifact_dir", "artifact_refs", "previous_id",
+            "parent_plan", "child_plan", "loop_artifact_dir", "feedback", "component_ids")}
+        detail["depends_on"] = [v for v in plan["depends_on"] if isinstance(v, str) and v.startswith("plan_") and v[5:].strip()]
+        detail.update({key: kst_minute(plan[key]) for key in ("created_at", "updated_at")})
+        detail["steps"] = [{key: step[key] for key in ("step_id", "step_type", "name", "status", "loop_no")} for step in plan["steps"]]
+        result["plan"] = detail
+    return result
 
 
-def step_detail(record: dict, *, historical: bool = False) -> dict:
+def step_detail(record: dict, include_details: bool = False, *, historical: bool = False) -> dict:
     step = record["step"]
-    next_step = ("Before selecting current work, query step.plan_id and id as step_id without revision or loop_no in get_phase_plan_step; "
-                 "set_working_plan uses current state and does not restore this saved Step."
-                 if historical else
-                 "If this is the Step you intend to work on, use step.plan_id as plan_id and id as step_id in set_working_plan. Selection sets the working context and artifact location; it does not execute the Step or change status.")
-    return {"id": step["step_id"], "type": "step", "status": step["status"], "read_only": historical, "step": {
-        "plan_id": record["plan_id"], "loop_no": record["loop_no"], "revision": record["revision"],
-        **{key: step[key] for key in ("step_type", "name", "input_refs", "output_refs")}},
-        "next_step": next_step}
+    result = {"id": step["step_id"], "type": "step", "name": step["name"], "status": step["status"],
+              "plan_id": record["plan_id"], "loop_no": record["loop_no"], "revision": record["revision"], "read_only": historical}
+    if include_details:
+        result["step"] = {key: step[key] for key in ("step_type", "input_refs", "output_refs")}
+    return result
 
 
 def project(payload: dict, groups: list[str] | None) -> dict:
@@ -99,6 +93,11 @@ def project(payload: dict, groups: list[str] | None) -> dict:
         def item(record):
             if requires_full_evidence(record):
                 return record
+            record = dict(record)
+            if "file_names" in record:
+                record["file_name"] = record["file_names"]
+                record.pop("project_file_id", None)
+                record.pop("file_names", None)
             selected = select_fields(record, groups, core, GROUPS)
             if "steps" in selected and "all" not in (groups or []):
                 selected["steps"] = [select_fields(step, groups,

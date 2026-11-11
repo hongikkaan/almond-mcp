@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.drawings.output import GROUPS, project
+from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
@@ -41,7 +42,7 @@ def _add_print_review_preparation(response: str) -> str:
 
 def register(mcp, context):
     """Register drawing tools against the assembling server's live services."""
-    @mcp.tool()
+    @mcp.tool(name='drawing_05-list_recipes', output_schema=public_output_schema('list_drawing_recipes', wrapped=True))
     @tool_instruction(__file__, 'list_drawing_recipes')
     @query_output
     def list_drawing_recipes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -58,7 +59,7 @@ def register(mcp, context):
         return json.dumps(project({"total": len(recipes), "recipes": recipes}, field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(name='drawing_02-get_recipe', output_schema=public_output_schema('get_drawing_recipe', wrapped=True))
     @tool_instruction(__file__, 'get_drawing_recipe')
     @query_output
     def get_drawing_recipe(recipe_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -72,7 +73,7 @@ def register(mcp, context):
         }, field_groups))
 
 
-    @mcp.tool()
+    @mcp.tool(name='drawing_01-apply_style', output_schema=public_output_schema('apply_drawing_style', wrapped=True))
     @tool_instruction(__file__, 'apply_drawing_style')
     def apply_drawing_style(recipe_id: str = "technical_axon_v1") -> str:
         recipe = context.drawing_recipe_indexer.get(recipe_id)
@@ -97,7 +98,7 @@ def register(mcp, context):
             return json.dumps(error_payload(f"Drawing style application failed: {exc}"))
 
 
-    @mcp.tool()
+    @mcp.tool(name='drawing_04-import_hatches', output_schema=public_output_schema('import_drawing_hatch_patterns', wrapped=True))
     @tool_instruction(__file__, 'import_drawing_hatch_patterns')
     def import_drawing_hatch_patterns(asset_id: str) -> str:
         asset = context.drawing_asset_indexer.get(asset_id)
