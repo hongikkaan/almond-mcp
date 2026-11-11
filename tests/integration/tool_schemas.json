@@ -2228,7 +2228,15 @@
                       "boolean",
                       "null"
                     ],
-                    "description": "Zoom Selected 완료 여부입니다."
+                    "description": "기본 선택 확대 또는 대상 경계 확대를 완료했는지 나타냅니다."
+                  },
+                  "zoom_method": {
+                    "type": "string",
+                    "enum": [
+                      "selected",
+                      "bounding_box"
+                    ],
+                    "description": "성공한 확대 방식입니다. selected는 기본 선택 확대, bounding_box는 기본 방식 실패 후 대상 경계 확대입니다."
                   },
                   "display_mode_changed": {
                     "type": [
@@ -2278,6 +2286,20 @@
                   "target_bounds_error": {
                     "type": "string",
                     "description": "대상 경계를 관측하지 못한 이유입니다."
+                  },
+                  "zoom_extents_selected": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "description": "기본 선택 확대의 관측 결과입니다. null이면 완료 여부를 확인하지 못했습니다."
+                  },
+                  "zoom_bounding_box": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "description": "대상 경계 확대의 관측 결과입니다. null이면 완료 여부를 확인하지 못했습니다."
                   },
                   "before_zoom": {
                     "type": "object",
@@ -2377,7 +2399,7 @@
               },
               "zoom_selected": {
                 "type": "boolean",
-                "description": "선택 객체로 줌했는지 여부"
+                "description": "기본 선택 확대 또는 대상 경계 확대를 완료했는지 나타냅니다."
               },
               "isolated": {
                 "type": "boolean",
@@ -3015,7 +3037,15 @@
                 "boolean",
                 "null"
               ],
-              "description": "Zoom Selected 완료 여부입니다."
+              "description": "기본 선택 확대 또는 대상 경계 확대를 완료했는지 나타냅니다."
+            },
+            "zoom_method": {
+              "type": "string",
+              "enum": [
+                "selected",
+                "bounding_box"
+              ],
+              "description": "성공한 확대 방식입니다. selected는 기본 선택 확대, bounding_box는 기본 방식 실패 후 대상 경계 확대입니다."
             },
             "display_mode_changed": {
               "type": [
@@ -3065,6 +3095,20 @@
             "target_bounds_error": {
               "type": "string",
               "description": "대상 경계를 관측하지 못한 이유입니다."
+            },
+            "zoom_extents_selected": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "기본 선택 확대의 관측 결과입니다. null이면 완료 여부를 확인하지 못했습니다."
+            },
+            "zoom_bounding_box": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "대상 경계 확대의 관측 결과입니다. null이면 완료 여부를 확인하지 못했습니다."
             },
             "before_zoom": {
               "type": "object",
@@ -9246,7 +9290,7 @@
               },
               "changes": {
                 "type": "array",
-                "description": "재료 이름·레이어 경로별 관측한 처리 내역입니다. 이 필드가 없으면 변경 내역을 제공하지 않는 Bridge입니다.",
+                "description": "재료 레시피별 RenderMaterial과 지정 레이어 경로의 처리 내역입니다. 레이어 재료 할당으로 추가될 수 있는 Rhino Materials 테이블 레코드는 집계하지 않습니다. 이 필드가 없으면 변경 내역을 제공하지 않는 Bridge입니다.",
                 "items": {
                   "type": "object",
                   "properties": {
@@ -9256,11 +9300,11 @@
                         "material",
                         "layer"
                       ],
-                      "description": "관측 대상의 종류입니다."
+                      "description": "material은 RenderMaterial을 확인한 재료 레시피, layer는 지정 레이어입니다."
                     },
                     "name": {
                       "type": "string",
-                      "description": "재료 이름 또는 레이어 전체 경로입니다."
+                      "description": "재료 레시피 이름 또는 레이어 전체 경로입니다."
                     },
                     "action": {
                       "type": "string",
@@ -9272,21 +9316,21 @@
                         "unconfirmed",
                         "skipped"
                       ],
-                      "description": "created=레코드 증가, updated=기존 값 변경, preserved=기존 값 유지, unchanged=작성 후 관측값 동일, unconfirmed=작성 후 확인 실패, skipped=작성 전 중단입니다."
+                      "description": "created=해당 RenderMaterial 수 증가 또는 지정 레이어 생성, updated=기존 값 변경, preserved=기존 값 유지, unchanged=작성 후 관측값 동일, unconfirmed=작성 후 확인 실패, skipped=작성 전 중단입니다."
                     },
                     "previous_count": {
                       "type": [
                         "integer",
                         "null"
                       ],
-                      "description": "처리 전 확인한 해당 이름의 재료 수 또는 레이어 존재 여부(0/1)입니다. 확인하지 못하면 null입니다."
+                      "description": "처리 전 레시피와 일치하는 RenderMaterial 수 또는 지정 레이어 존재 여부(0/1)입니다. 확인하지 못하면 null입니다."
                     },
                     "current_count": {
                       "type": [
                         "integer",
                         "null"
                       ],
-                      "description": "처리 후 확인한 해당 레코드 수입니다. 확인하지 못하면 null입니다."
+                      "description": "처리 후 레시피와 일치하는 RenderMaterial 수 또는 지정 레이어 존재 여부(0/1)입니다. 확인하지 못하면 null입니다."
                     }
                   }
                 }

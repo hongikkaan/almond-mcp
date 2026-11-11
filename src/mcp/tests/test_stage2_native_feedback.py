@@ -202,12 +202,19 @@ namespace Rhino.Display {
     }
     public class RhinoViewport {
         public Guid Id=Guid.NewGuid(); public string Name="Perspective";
-        public bool IsParallelProjection=true,ZoomResult,FailCamera,FailDisplay;
+        public bool IsParallelProjection=true,ZoomResult,BoundsZoomResult,FailCamera,FailDisplay;
+        public int SelectedZoomCalls, BoundsZoomCalls;
+        public BoundingBox LastZoomBounds;
         public Point3d CameraLocation { get { if(FailCamera) throw new Exception("Camera unavailable"); return new Point3d(231000,200000,1000); } }
         public Point3d CameraTarget => new Point3d(231000,200000,0);
         DisplayModeDescription mode=new DisplayModeDescription();
         public DisplayModeDescription DisplayMode { get=>mode; set { if(FailDisplay) throw new Exception("Mode acknowledgement unavailable"); mode=value; } }
-        public bool ZoomExtentsSelected() => ZoomResult;
+        public bool ZoomExtentsSelected() { SelectedZoomCalls++; return ZoomResult; }
+        public bool ZoomBoundingBox(BoundingBox bounds) {
+            BoundsZoomCalls++;
+            LastZoomBounds=bounds;
+            return BoundsZoomResult;
+        }
         public bool GetFrustum(out double l,out double r,out double b,out double t,out double n,out double f) {
             l=-100;r=100;b=-75;t=75;n=1;f=10000;return true;
         }
@@ -257,11 +264,12 @@ class Program {
         doc.Objects.Items.Add(new RhinoObject { Geometry=new GeometryBase { Bounds=new BoundingBox {
             IsValid=true,Min=new Point3d(229500,199500,0),Max=new Point3d(230500,200500,0) } } });
         var view=doc.Views.ActiveView.ActiveViewport;
-        view.ZoomResult=scenario=="capture_failed" || scenario=="success" || scenario=="redraw_failed";
+        view.ZoomResult=scenario=="capture_failed" || scenario=="success" || scenario=="redraw_failed" || scenario=="selected_without_bounds";
+        view.BoundsZoomResult=scenario=="bounds_fallback";
         view.FailCamera=scenario=="camera_unavailable";
         view.FailDisplay=scenario=="display_failed";
         doc.Views.FailRedraw=scenario=="redraw_failed";
-        doc.Objects.Items[0].Geometry.FailBounds=scenario=="bounds_unavailable";
+        doc.Objects.Items[0].Geometry.FailBounds=scenario=="bounds_unavailable" || scenario=="selected_without_bounds";
         if(scenario=="bounds_invalid") doc.Objects.Items[0].Geometry.Bounds=BoundingBox.Empty;
         doc.Objects.Items[1].FailSelect=scenario=="select_failed";
         RhinoApp.IsolateResult=scenario!="isolate_failed";
@@ -269,8 +277,20 @@ class Program {
             ["status"]="error",["error_code"]="image_too_large",["message"]="PNG budget exceeded",["warnings"]=new JArray() };
         var request=new JObject { ["type"]="get_current_viewcapture",["target_ids"]=new JArray(doc.Objects.Items.Select(o=>o.Id.ToString())),
             ["isolate"]=true,["width"]=800,["height"]=600,["scale_percent"]=100 };
+        doc.Objects.Items.Add(new RhinoObject { Geometry=new GeometryBase { Bounds=new BoundingBox {
+            IsValid=true,Min=new Point3d(-200000,-200000,-5000),Max=new Point3d(-100000,-100000,5000) } } });
         if(scenario=="display_failed") { request.Remove("target_ids");request["isolate"]=false;request["display_mode"]="Shaded"; }
         var result=ViewCaptureTools.Handle(doc,request);
+        bool noZoom=scenario=="display_failed" || scenario=="select_failed" || scenario=="isolate_failed";
+        bool useBounds=!noZoom && !view.ZoomResult && scenario!="bounds_unavailable" && scenario!="bounds_invalid";
+        if(view.SelectedZoomCalls!=(noZoom?0:1) || view.BoundsZoomCalls!=(useBounds?1:0))
+            throw new Exception("Unexpected selected or bounding-box zoom calls.");
+        if(useBounds) {
+            var min=view.LastZoomBounds.Min;
+            var max=view.LastZoomBounds.Max;
+            if(min.X!=229500 || min.Y!=199500 || min.Z!=0 || max.X!=232500 || max.Y!=200500 || max.Z!=0)
+                throw new Exception("Bounding-box zoom must receive the exact planar target union.");
+        }
         Console.WriteLine(result.ToString(Formatting.None));
     }
 }''', ["features/components/native/ComponentOperations.cs", "features/context/native/ViewCaptureTools.cs"])
@@ -287,6 +307,8 @@ def test_zoom_failure_keeps_completed_steps_and_observed_planar_bounds(focus_hos
     }
     observation = result["focus_observation"]
     assert observation["target_count"] == 2
+    assert observation["zoom_extents_selected"] is False
+    assert observation["zoom_bounding_box"] is False
     assert observation["target_bounds"] == {"min": [229500, 199500, 0], "max": [232500, 200500, 0]}
     for key in ("before_zoom", "after_failure"):
         assert observation[key]["camera_location"] == [231000, 200000, 1000]
@@ -299,6 +321,18 @@ def test_bounds_observation_failure_does_not_prevent_the_zoom_attempt(focus_host
     assert result["view_change"]["zoom_selected"] is None
     assert result["message"] == "Rhino could not zoom to the selected Components."
     assert result["focus_observation"]["target_bounds_error"] == "Bounds unavailable"
+    assert result["focus_observation"]["zoom_extents_selected"] is False
+    assert "zoom_bounding_box" not in result["focus_observation"]
+
+
+@pytest.mark.parametrize("scenario,method", [
+    ("success", "selected"), ("selected_without_bounds", "selected"), ("bounds_fallback", "bounding_box"),
+])
+def test_successful_focus_reports_the_zoom_method(focus_host, scenario, method):
+    result = focus_host(scenario)
+    assert result["status"] == "success"
+    assert result["view_change"]["zoom_selected"] is True
+    assert result["view_change"]["zoom_method"] == method
 
 
 def test_camera_observation_failure_does_not_replace_the_focus_failure(focus_host):
@@ -353,7 +387,8 @@ def test_native_setup_accounting_survives_the_public_tool_and_schema(setup_host,
     validate(result, public_output_schema("setup_modeling", wrapped=False))
 
 
-@pytest.mark.parametrize("scenario", ["zoom_failed", "bounds_unavailable", "camera_unavailable", "capture_failed", "display_failed"])
+@pytest.mark.parametrize("scenario", ["bounds_fallback", "zoom_failed", "bounds_unavailable", "camera_unavailable",
+                                      "capture_failed", "display_failed"])
 def test_native_focus_feedback_survives_the_public_tool_and_schema(focus_host, scenario):
     native = focus_host(scenario)
     tools, _ = capture_tools(native)

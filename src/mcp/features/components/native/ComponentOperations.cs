@@ -134,6 +134,7 @@ namespace RhinoAlmondBridge
                 observations["before_zoom"] = FocusViewState(viewport);
                 observations["target_count"] = objects.Length;
                 // Diagnostic reads must not prevent the requested native zoom.
+                BoundingBox? zoomBounds = null;
                 try
                 {
                     var bounds = BoundingBox.Empty;
@@ -144,14 +145,29 @@ namespace RhinoAlmondBridge
                         bounds.Union(targetBounds);
                     }
                     if (bounds.IsValid)
+                    {
+                        zoomBounds = bounds;
                         observations["target_bounds"] = new JObject { ["min"] = Coordinates(bounds.Min), ["max"] = Coordinates(bounds.Max) };
+                    }
                     else observations["target_bounds_error"] = "Target bounds are unavailable.";
                 }
                 catch (Exception error) { observations["target_bounds_error"] = error.Message; }
                 changes["zoom_selected"] = JValue.CreateNull();
-                if (!view.ActiveViewport.ZoomExtentsSelected())
-                    throw new InvalidOperationException("Rhino could not zoom to the selected Components.");
+                string zoomMethod = "selected";
+                if (!viewport.ZoomExtentsSelected())
+                {
+                    observations["zoom_extents_selected"] = false;
+                    if (!zoomBounds.HasValue)
+                        throw new InvalidOperationException("Rhino could not zoom to the selected Components.");
+                    observations["zoom_bounding_box"] = JValue.CreateNull();
+                    bool zoomed = viewport.ZoomBoundingBox(zoomBounds.Value);
+                    observations["zoom_bounding_box"] = zoomed;
+                    if (!zoomed)
+                        throw new InvalidOperationException("Rhino could not zoom to the selected Components or their bounds.");
+                    zoomMethod = "bounding_box";
+                }
                 changes["zoom_selected"] = true;
+                changes["zoom_method"] = zoomMethod;
                 stage = "redraw";
                 doc.Views.Redraw();
                 result["view_change"] = changes;

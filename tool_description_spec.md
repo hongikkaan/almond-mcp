@@ -2664,13 +2664,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). 대상 선택·격리 후 확대 완료를 확인하지 못해 캡처하지 않은 경우입니다. 현재 뷰와 선택 상태부터 확인합니다. //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). 대상 선택·격리 후 기본 선택 확대와 대상 경계 확대가 모두 실패해 캡처하지 않은 경우입니다. 현재 뷰와 선택 상태부터 확인합니다. 성공하면 `view_change.zoom_method`는 기본 선택 확대인 `selected` 또는 기본 방식 실패 뒤 같은 대상의 경계로 확대한 `bounding_box`입니다. //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
   "status": "error", // 이미지 캡처의 처리 상태입니다.
   "error_code": "component_focus_error", // 오류 유형입니다.
-  "message": "Rhino could not zoom to the selected Components.", // 현재 결과 또는 오류의 설명입니다.
+  "message": "Rhino could not zoom to the selected Components or their bounds.", // 현재 결과 또는 오류의 설명입니다.
   "mutation_applied": null, // 뷰 변경 적용 여부입니다. null이면 중간 상태를 확인해야 합니다.
   "requires_reconciliation": true, // true이면 현재 Rhino 상태를 확인한 뒤 다음 작업을 정합니다.
   "failed_stage": "zoom_selected", // 실패한 단계입니다: validate, select, isolate, verify_selection, zoom_selected, redraw.
@@ -2682,6 +2682,8 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "restore_visibility_command": "Unisolate"
   },
   "focus_observation": { // 포커스 실행 전후에 확인한 대상과 뷰 상태입니다.
+    "zoom_extents_selected": false, // 기본 선택 확대의 관측 결과입니다. null이면 완료 여부를 확인하지 못했습니다.
+    "zoom_bounding_box": false, // 대상 경계 확대의 관측 결과입니다. null이면 완료 여부를 확인하지 못했습니다.
     "target_count": 2,
     "target_bounds": {
       "min": [
@@ -3205,20 +3207,20 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 {
   "status": "incomplete", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "applied": false, // 모든 지정 속성이 일치하는지 여부. false여도 누락 항목 생성·일부 변경이 있었을 수 있음
-  "changes": [ // 재료 이름·레이어 경로별 관측한 처리 내역입니다. 이 필드가 없으면 변경 내역을 제공하지 않는 Bridge입니다.
+  "changes": [ // 재료 레시피별 RenderMaterial과 지정 레이어 경로의 처리 내역입니다. 레이어 재료 할당으로 추가될 수 있는 Rhino Materials 테이블 레코드는 집계하지 않습니다. 이 필드가 없으면 변경 내역을 제공하지 않는 Bridge입니다.
     {
       "kind": "material",
       "name": "Oak",
       "action": "preserved",
-      "previous_count": 1,
-      "current_count": 1
+      "previous_count": 1, // 처리 전 레시피와 일치하는 RenderMaterial 수입니다.
+      "current_count": 1 // 처리 후 레시피와 일치하는 RenderMaterial 수입니다.
     },
     {
       "kind": "layer",
       "name": "M::wood",
       "action": "created",
-      "previous_count": 0,
-      "current_count": 1
+      "previous_count": 0, // 처리 전 지정 레이어 존재 여부(0/1)입니다.
+      "current_count": 1 // 처리 후 지정 레이어 존재 여부(0/1)입니다.
     }
   ],
   "differences": [ // 최종 관측값과 요청한 속성이 다른 항목입니다.
@@ -3657,7 +3659,15 @@ Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대�
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "zoom_selected": true, // 선택 객체로 줌했는지 여부
+  "zoom_selected": true, // 기본 선택 확대 또는 대상 경계 확대를 완료했는지 나타냅니다.
+  "view_change": {
+    "selection_changed": true,
+    "isolated": true,
+    "zoom_selected": true, // 기본 선택 확대 또는 대상 경계 확대를 완료했는지 나타냅니다.
+    "zoom_method": "bounding_box", // selected: 기본 선택 확대, bounding_box: 기본 방식 실패 후 같은 대상의 경계로 확대 성공.
+    "display_mode_changed": false,
+    "restore_visibility_command": "Unisolate"
+  },
   "isolated": true, // 대상을 격리했는지 여부
   "locked_context_remains_visible": true, // 잠긴 주변 객체를 계속 표시하는지 여부
   "restore_visibility_command": "Unisolate", // 격리한 객체의 가시성을 복구하는 명령입니다.
