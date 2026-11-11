@@ -14,7 +14,9 @@ import json
 from almond_mcp.store_common import ComponentReconciliationError
 def register(mcp, context):
     from almond_mcp.features.components.intersection_workflow import Workflow
-    intersection_workflow = Workflow(context._send_and_receive)
+    # The managed runtime binds the sender after registration. Keep this
+    # Workflow's review state, but resolve the owning context on every call.
+    intersection_workflow = Workflow(lambda *args, **kwargs: context._send_and_receive(*args, **kwargs))
     def _component_bridge(request: dict) -> dict:
         """Capability-check before one native operation; never retry an uncertain mutation."""
         payload = json.dumps(request, allow_nan=False).encode("utf-8")

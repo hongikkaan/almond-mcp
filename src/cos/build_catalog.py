@@ -62,6 +62,13 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         if isinstance(decorator, ast.Name) and decorator.id in {"query_output", "holon_output", "mcp_error_result"}:
             continue  # Known output projection; schemas are built from inert bodies.
         if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
+                and decorator.func.id == "query_output"):
+            if (node.name != "get_asset_drawing" or decorator.args or len(decorator.keywords) != 1
+                    or decorator.keywords[0].arg != "preserve_cross_drive_fields"
+                    or ast.literal_eval(decorator.keywords[0].value) != {"package_dir"}):
+                raise ValueError(f"Unexpected output projection: {node.name}")
+            continue  # Reviewed output-only option; never execute its decorator.
+        if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
                 and decorator.func.id == "tool_instruction"):
             if (len(decorator.args) != 2 or decorator.keywords
                     or not isinstance(decorator.args[0], ast.Name)

@@ -12,6 +12,25 @@ from runtime import check_contract, schema_identity, validate_worker_tools
 from build_catalog import checked_stub
 
 
+def test_reviewed_package_projection_option_is_inert_and_narrow():
+    source = '''
+@mcp.tool()
+@query_output(preserve_cross_drive_fields={"package_dir"})
+def get_asset_drawing(asset_id: str) -> dict:
+    raise RuntimeError("Bodies are inert")
+'''
+    checked = checked_stub(ast.parse(source).body[0])
+    assert len(checked.decorator_list) == 1
+    for changed in (
+        source.replace('{"package_dir"}', 'get_fields()'),
+        source.replace('{"package_dir"}', '{"model_path"}'),
+        source.replace('preserve_cross_drive_fields=', 'unknown='),
+        source.replace('get_asset_drawing(', 'unreviewed_tool('),
+    ):
+        with pytest.raises(ValueError):
+            checked_stub(ast.parse(changed).body[0])
+
+
 def test_literal_public_tool_alias_survives_inert_catalog_generation():
     source = '@mcp.tool(name="get_phase_plan_step", title="get_phase·plan·step")\ndef get_details(plan_id: str = "") -> str:\n    raise RuntimeError("original body")'
     node = checked_stub(ast.parse(source).body[0])

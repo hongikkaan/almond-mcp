@@ -61,7 +61,7 @@ public class Script
         {",\n        ".join(lib_rows) if lib_rows else ""}
     }};
 
-    public static List<Guid> Run(RhinoDoc doc)
+    public static object Run(RhinoDoc doc)
     {{
         var imported = new List<RhinoObject>();
         foreach (string s in new[] {{ {", ".join('"%s"' % g for g in contract["_imported_guids"])} }})
@@ -69,7 +69,7 @@ public class Script
             var o = doc.Objects.FindId(new Guid(s));
             if (o != null) imported.Add(o);
         }}
-        if (imported.Count == 0) return new List<Guid>();
+        if (imported.Count == 0) return new {{ restored_count = 0 }};
 
         // Resolve only imported objects through the shared MCP material implementation.
         var canonical = new Dictionary<string, int>();
@@ -153,7 +153,7 @@ public class Script
             + ",\\"depth\\":" + ((after.Max.Y - after.Min.Y) * toMM).ToString("F1")
             + ",\\"height\\":" + ((after.Max.Z - after.Min.Z) * toMM).ToString("F1") + "}}");
         doc.Views.Redraw();
-        return imported.Select(o => o.Id).ToList();
+        return new {{ restored_count = imported.Count }};
     }}
 }}
 """
@@ -305,14 +305,14 @@ using Rhino;
 
 public class Script
 {
-    public static List<Guid> Run(RhinoDoc doc)
+    public static object Run(RhinoDoc doc)
     {
         var before = new HashSet<Guid>(doc.Objects.Select(o => o.Id));
         RhinoApp.RunScript("_-Import \\"%s\\" _Enter", false);
         var added = doc.Objects.Where(o => !before.Contains(o.Id)).Select(o => o.Id).ToList();
         File.WriteAllLines(Path.Combine(Path.GetTempPath(), "almond_imported.txt"),
             added.Select(g => g.ToString()));
-        return added;
+        return new { imported_count = added.Count };
     }
 }
 """ % contract["_resolved_file"].replace("\\", "\\\\")
@@ -326,7 +326,25 @@ public class Script
             return error_payload(f"Import failed: {exc}")
         if result.get("status") != "success":
             return result
-        imported = result.get("guids") or []
+        # Structured returns avoid ScriptExecutor's legacy List<Guid> automatic
+        # dimension creation. A serialization failure is not an empty import.
+        observation = result.get("result")
+        if result.get("result_error") or not isinstance(observation, dict) or type(observation.get("imported_count")) is not int:
+            return {"status": "error", "message": "Import completed but its object IDs could not be read. Inspect Rhino before continuing.",
+                    "requires_reconciliation": True, "mutation_applied": None,
+                    "result_error": result.get("result_error")}
+        try:
+            # The script writes this operation-owned receipt before returning.
+            # Keep large imports out of ScriptExecutor's 64 KiB result budget.
+            receipt = Path(context.tempfile.gettempdir()) / "almond_imported.txt"
+            if receipt.stat().st_size > 2_097_152:
+                raise ValueError("Import receipt exceeds 2 MiB")
+            imported = [str(uuid.UUID(line)) for line in receipt.read_text(encoding="utf-8-sig").splitlines()]
+            if len(imported) != observation["imported_count"] or len(set(imported)) != len(imported):
+                raise ValueError("Import receipt does not match the completed import")
+        except (OSError, ValueError) as exc:
+            return {"status": "error", "message": f"Import completed but its object receipt could not be read: {exc}",
+                    "requires_reconciliation": True, "mutation_applied": None}
         if not imported:
             return error_payload("Rhino imported no objects from the GLB.")
 
@@ -349,6 +367,12 @@ public class Script
         if restore.get("status") != "success":
             return {"status": "error", "message": restore.get("message", "restore failed"),
                                "imported_guids": imported}
+        if (restore.get("result_error") or not isinstance(restore.get("result"), dict)
+                or type(restore["result"].get("restored_count")) is not int
+                or restore["result"].get("restored_count") != len(imported)):
+            return {"status": "error", "message": "Restore/place completed but its result could not be read. Inspect the imported objects before continuing.",
+                    "imported_guids": imported, "requires_reconciliation": True, "mutation_applied": None,
+                    "result_error": restore.get("result_error")}
 
         report_path = Path(context.tempfile.gettempdir()) / "almond_import_report.json"
         report = {}

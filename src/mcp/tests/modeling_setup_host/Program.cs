@@ -24,18 +24,24 @@ static class Program
         internal readonly Dictionary<string, JObject> Materials = new();
         internal readonly Dictionary<string, JObject> Layers = new();
         internal readonly List<string> Writes = new();
-        internal string FailMaterial, RefuseLayer;
+        internal string FailMaterial, RefuseLayer, FailMaterialRead, FailLayerRead;
         internal JObject Run(bool overwrite)
         {
             var oak = Recipe("Oak"); var steel = Recipe("Steel");
             return ModelingSetup.Apply(new JArray(oak, steel), new JArray(Layer("M::wood", oak), Layer("M::steel", steel)), overwrite,
-                recipe => Materials.TryGetValue((string)recipe["name"], out var m) ? new JArray(m.DeepClone()) : new JArray(),
+                recipe => {
+                    if ((string)recipe["name"] == FailMaterialRead) throw new Exception("Material lookup failed");
+                    return Materials.TryGetValue((string)recipe["name"], out var m) ? new JArray(m.DeepClone()) : new JArray();
+                },
                 recipe => {
                     string name = (string)recipe["name"]; Writes.Add("material:" + name);
                     Materials[name] = Material(recipe);
                     if (name == FailMaterial) throw new Exception("Failure after a table mutation");
                 },
-                spec => Layers.TryGetValue((string)spec["path"], out var l) ? (JObject)l.DeepClone() : null,
+                spec => {
+                    if ((string)spec["path"] == FailLayerRead) throw new Exception("Layer lookup failed");
+                    return Layers.TryGetValue((string)spec["path"], out var l) ? (JObject)l.DeepClone() : null;
+                },
                 spec => {
                     string path = (string)spec["path"]; Writes.Add("layer:" + path);
                     if (path == RefuseLayer) return;
@@ -50,6 +56,8 @@ static class Program
         var tables = new Tables();
         var created = tables.Run(false);
         Check((bool)created["applied"], "Missing materials/layers must be created with overwrite=false.");
+        Check(((JArray)created["changes"]).Count(c => (string)c["action"] == "created") == 4,
+            "Report confirmed creations independently from target-property agreement.");
         Check(tables.Writes.SequenceEqual(new[] { "material:Oak", "material:Steel", "layer:M::wood", "layer:M::steel" }), "Material before Layer order.");
         tables.Writes.Clear();
         Check((bool)tables.Run(false)["applied"] && tables.Writes.Count == 0, "Repeat false must not mutate existing tables.");
@@ -63,6 +71,9 @@ static class Program
         Check(!(bool)preserved["applied"] && ((JArray)preserved["differences"]).Count == 3, "Report every preserved predefined-property difference.");
         Check(originalMaterial == tables.Materials["Oak"].ToString() && originalLayer == tables.Layers["M::wood"].ToString(), "Preserve existing values verbatim.");
         Check(tables.Writes.SequenceEqual(new[] { "material:Steel", "layer:M::steel" }), "Only missing entries may be written.");
+        Check(((JArray)preserved["changes"]).Count(c => (string)c["action"] == "created") == 2 &&
+              ((JArray)preserved["changes"]).Count(c => (string)c["action"] == "preserved") == 2,
+              "Incomplete does not erase the two confirmed creations or the two preserved entries.");
         Check((bool)tables.Run(true)["applied"], "Overwrite true reconciles both kinds.");
 
         var failure = new Tables { FailMaterial = "Oak" };
@@ -71,6 +82,18 @@ static class Program
         Check(!failure.Layers.ContainsKey("M::wood"), "Do not assign an unconfirmed material to a dependent Layer.");
         Check(failure.Materials.ContainsKey("Steel") && failure.Layers.ContainsKey("M::steel"), "Other targets still processed.");
         Check(failure.Writes.Count(w => w == "material:Oak") == 1, "No automatic mutation retry.");
+        Check(((JArray)failed["changes"]).Any(c => (string)c["name"] == "Oak" && (string)c["action"] == "unconfirmed" &&
+            c["current_count"].Type == JTokenType.Null), "A writer exception cannot certify no mutation.");
+        Check(((JArray)failed["changes"]).Any(c => (string)c["name"] == "M::wood" && (string)c["action"] == "skipped"),
+            "The blocked dependent Layer was not attempted.");
+        Check(((JArray)failed["changes"]).Single(c => (string)c["name"] == "M::wood")["previous_count"].Type == JTokenType.Null,
+            "A blocked Layer was not read; do not claim it was absent.");
+        var materialReadFailure = new Tables { FailMaterialRead = "Oak" }.Run(false);
+        var layerReadFailure = new Tables { FailLayerRead = "M::wood" }.Run(false);
+        foreach (var payload in new[] { materialReadFailure, layerReadFailure })
+            foreach (var change in ((JArray)payload["changes"]).Where(c => (string)c["action"] == "skipped"))
+                Check(change["previous_count"].Type == JTokenType.Null && change["current_count"].Type == JTokenType.Null,
+                    "Failed initial observations are unknown, not zero table records.");
         var refusal = new Tables { RefuseLayer = "M::wood" }.Run(false);
         Check(!(bool)refusal["applied"] && ((JArray)refusal["errors"]).Count == 1, "Unconfirmed missing Layer is an error.");
 
@@ -79,7 +102,7 @@ static class Program
         var retained = tables.Run(true);
         Check(!(bool)retained["applied"] && ((JArray)retained["differences"]).Count == 1, "Verify requested values after writes.");
         var capture = typeof(ScriptExecutor).GetMethod("CaptureResult", BindingFlags.NonPublic | BindingFlags.Static);
-        foreach (var payload in new[] { created, preserved, failed, refusal, retained })
+        foreach (var payload in new[] { created, preserved, failed, materialReadFailure, layerReadFailure, refusal, retained })
         {
             var raw = new ScriptResult();
             capture.Invoke(null, new object[] { raw, payload });

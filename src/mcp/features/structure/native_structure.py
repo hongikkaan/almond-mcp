@@ -43,7 +43,7 @@ from . import design_codes as dc
 from . import floor_loads as fl
 from . import frame_solver as fs
 
-METHOD_PREFIX = "[ALMOND NATIVE FEA (LINEAR 3D FRAME), HIGH CONFIDENCE] "
+METHOD_PREFIX = "[ALMOND NATIVE FEA (LINEAR 3D FRAME), {confidence} CONFIDENCE] "
 LINE_TYPES = ("beam", "frame", "truss", "canopy", "highrise")
 ASSUMPTIONS = [
     read_instruction(__file__, 'response-897'),
@@ -632,13 +632,13 @@ def validate(model: dict, structure_type: str = "beam", load_kn: float = 10.0, m
         res, ulss, envelope, stab = _solve_design(frame, design_basis, uls, plastic=plastic, stability=stability,
                                                   design_code=code, fabrication=_fabrication(fabrication))
     except InstabilityError as exc:
-        result["verdict"] = METHOD_PREFIX + f"FAILED: {exc}"
+        result["verdict"] = METHOD_PREFIX.format(confidence=result["confidence"].upper()) + f"FAILED: {exc}"
         result["status"] = "fail"
         result["results"]["stability"] = exc.report
         result["suggestions"] = [read_instruction(__file__, 'response-931')]
         return result
     except fs.MechanismError as exc:
-        result["verdict"] = METHOD_PREFIX + f"FAILED: {exc}"
+        result["verdict"] = METHOD_PREFIX.format(confidence=result["confidence"].upper()) + f"FAILED: {exc}"
         result["status"] = "fail"
         result["suggestions"] = [read_instruction(__file__, 'response-932')]
         if (connections or "").lower() == "simple":
@@ -745,7 +745,7 @@ def validate(model: dict, structure_type: str = "beam", load_kn: float = 10.0, m
         # no capacity verdict without the material's own design code; deflection and stability still decide fail
         result["passed"] = None
         result["status"] = "indicative"
-        result["verdict"] = METHOD_PREFIX + (
+        result["verdict"] = METHOD_PREFIX.format(confidence=result["confidence"].upper()) + (
             f"INDICATIVE ONLY ({mat.name}): forces, deflection and stability are computed, but member capacity "
             f"is not checked to {indicative}, so there is no pass/fail. Deflection {dmax_mm:.1f}mm ({SLS[0]}, "
             f"limit {limit_mm:.1f}mm); utilization {umax:.2f} against the characteristic strength, for comparison only.")
@@ -753,7 +753,7 @@ def validate(model: dict, structure_type: str = "beam", load_kn: float = 10.0, m
     else:
         result["passed"] = not failures
         result["status"] = "pass" if not failures else "fail"
-        result["verdict"] = METHOD_PREFIX + (
+        result["verdict"] = METHOD_PREFIX.format(confidence=result["confidence"].upper()) + (
             f"PASSED: Configured checks satisfied. Deflection {dmax_mm:.1f}mm ({SLS[0]}, limit {limit_mm:.1f}mm), "
             f"Utilization {umax:.2f} ({governing})" if not failures else "FAILED: " + "; ".join(failures))
     result["suggestions"] = sug

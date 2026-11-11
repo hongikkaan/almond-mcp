@@ -75,6 +75,11 @@ namespace RhinoAlmondBridge
         public static JObject FocusObjects(RhinoDoc doc, Guid[] objectIds, bool isolate)
         {
             bool started = false;
+            string stage = "validate";
+            var changes = new JObject { ["selection_changed"] = false, ["isolated"] = false,
+                ["zoom_selected"] = false, ["display_mode_changed"] = false };
+            var observations = new JObject();
+            RhinoViewport viewport = null;
             try
             {
                 var objects = Objects(doc, objectIds, MaxFocusObjects);
@@ -89,6 +94,7 @@ namespace RhinoAlmondBridge
                     if (!obj.IsSelectable(true, false, false, false))
                         throw new ArgumentException("Every target must be visible and selectable; cannot focus: " + obj.Id);
                 Guid viewportId = view.ActiveViewport.Id;
+                viewport = view.ActiveViewport;
                 // Bound the complete acknowledgement before any selection/view mutation.
                 var result = Bounded(new JObject
                 {
@@ -100,25 +106,84 @@ namespace RhinoAlmondBridge
                     ["restore_visibility_command"] = isolate ? "Unisolate" : null
                 });
                 started = true;
+                stage = "select";
+                changes["selection_changed"] = JValue.CreateNull();
                 doc.Objects.UnselectAll();
                 foreach (var obj in objects)
                     if (obj.Select(true, true, true, false, false, false) == 0)
                         throw new InvalidOperationException("Rhino could not select target: " + obj.Id);
+                changes["selection_changed"] = true;
                 // Fixed Rhino command preserves its native Isolate/Unisolate bookkeeping.
-                if (isolate && !RhinoApp.RunScript("_Isolate", false))
-                    throw new InvalidOperationException("Rhino did not complete Isolate.");
+                if (isolate)
+                {
+                    stage = "isolate";
+                    changes["isolated"] = JValue.CreateNull();
+                    if (!RhinoApp.RunScript("_Isolate", false))
+                        throw new InvalidOperationException("Rhino did not complete Isolate.");
+                    changes["isolated"] = true;
+                    changes["restore_visibility_command"] = "Unisolate";
+                }
+                stage = "verify_selection";
                 if (RhinoDoc.ActiveDoc?.RuntimeSerialNumber != doc.RuntimeSerialNumber ||
                     doc.Views.ActiveView?.ActiveViewport.Id != viewportId)
                     throw new InvalidOperationException("The document or active view changed while isolating Components.");
                 var wanted = new HashSet<Guid>(objects.Select(o => o.Id));
                 var selected = doc.Objects.GetSelectedObjects(false, false).Select(o => o.Id);
                 if (!wanted.SetEquals(selected)) throw new InvalidOperationException("Selection changed while isolating Components.");
+                stage = "zoom_selected";
+                observations["before_zoom"] = FocusViewState(viewport);
+                observations["target_count"] = objects.Length;
+                // Diagnostic reads must not prevent the requested native zoom.
+                try
+                {
+                    var bounds = BoundingBox.Empty;
+                    foreach (var obj in objects)
+                    {
+                        var targetBounds = obj.Geometry.GetBoundingBox(true);
+                        if (!targetBounds.IsValid) throw new InvalidOperationException("Target bounds are unavailable: " + obj.Id);
+                        bounds.Union(targetBounds);
+                    }
+                    if (bounds.IsValid)
+                        observations["target_bounds"] = new JObject { ["min"] = Coordinates(bounds.Min), ["max"] = Coordinates(bounds.Max) };
+                    else observations["target_bounds_error"] = "Target bounds are unavailable.";
+                }
+                catch (Exception error) { observations["target_bounds_error"] = error.Message; }
+                changes["zoom_selected"] = JValue.CreateNull();
                 if (!view.ActiveViewport.ZoomExtentsSelected())
                     throw new InvalidOperationException("Rhino could not zoom to the selected Components.");
+                changes["zoom_selected"] = true;
+                stage = "redraw";
                 doc.Views.Redraw();
+                result["view_change"] = changes;
                 return result;
             }
-            catch (Exception error) { return Error("component_focus_error", error, started); }
+            catch (Exception error)
+            {
+                var result = Error("component_focus_error", error, started);
+                result["view_change"] = changes;
+                result["failed_stage"] = stage;
+                if (viewport != null) observations["after_failure"] = FocusViewState(viewport);
+                result["focus_observation"] = observations;
+                return result;
+            }
+        }
+
+        private static JArray Coordinates(Point3d point) => new JArray(point.X, point.Y, point.Z);
+
+        private static JObject FocusViewState(RhinoViewport viewport)
+        {
+            try
+            {
+                var state = new JObject { ["viewport_id"] = viewport.Id.ToString("D"),
+                    ["parallel_projection"] = viewport.IsParallelProjection,
+                    ["camera_location"] = Coordinates(viewport.CameraLocation),
+                    ["camera_target"] = Coordinates(viewport.CameraTarget) };
+                if (viewport.GetFrustum(out double left, out double right, out double bottom,
+                    out double top, out double near, out double far))
+                    state["frustum"] = new JArray(left, right, bottom, top, near, far);
+                return state;
+            }
+            catch (Exception error) { return new JObject { ["observation_error"] = error.Message }; }
         }
 
         private static RhinoObject[] Objects(RhinoDoc doc, Guid[] objectIds, int max)

@@ -283,7 +283,7 @@ def register(mcp, context):
 
     @mcp.tool(annotations={'readOnlyHint': True, 'openWorldHint': False}, output_schema=public_output_schema('get_asset_drawing', wrapped=False))
     @tool_instruction(__file__, 'get_asset_drawing')
-    @query_output
+    @query_output(preserve_cross_drive_fields={"package_dir"})
     def get_asset_drawing(asset_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:
         validate_field_groups(field_groups, GROUPS)
         asset = context.drawing_asset_indexer.get(asset_id)
@@ -359,9 +359,10 @@ def register(mcp, context):
     @tool_instruction(__file__, 'audit_asset_drawing')
     def audit_asset_drawing(package_dir: str, source_glb: str = "") -> dict:
         try:
-            package = Path(package_dir)
-            if not package.is_absolute():
-                raise ValueError("Supply an absolute package directory")
+            from almond_mcp.managed_paths import drawing_package_path
+            package = drawing_package_path(package_dir, library_roots=[
+                paths.user_data_dir() / "drawing-runs", Path(context.DRAWING_LIBRARY_DIR),
+                Path(context.GENERATED_LIBRARY_DIR), Path(context.DRAFTING_LIBRARY_DIR)])
             manifest = json.loads((package/"drawing.json").read_text(encoding="utf-8"))
             source = Path(source_glb) if source_glb else None
             if source is not None and not source.is_absolute():

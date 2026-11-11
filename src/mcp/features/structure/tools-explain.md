@@ -85,13 +85,13 @@ Args:
 ## response-981
 
 <!-- instruction:response-981 -->
-- Only **api** runs are finite element analysis; reactions_kn is
+- **native** and **api** runs use finite element analysis. Their reactions_kn
 <!-- /instruction:response-981 -->
 
 ## response-982
 
 <!-- instruction:response-982 -->
-  populated on the api path only and should equal the applied load
+  should balance the modeled load for the reported load combination,
 <!-- /instruction:response-982 -->
 
 ## response-983

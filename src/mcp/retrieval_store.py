@@ -207,28 +207,6 @@ class AlmondStore(
                 CREATE INDEX IF NOT EXISTS idx_capsules_capability
                     ON capsules(capability, audited);
 
-                CREATE TABLE IF NOT EXISTS validation_runs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ran_at TEXT NOT NULL,
-                    structure_type TEXT NOT NULL,
-                    material TEXT NOT NULL,
-                    load_kn REAL NOT NULL,
-                    member_count INTEGER NOT NULL,
-                    analysis_method TEXT NOT NULL,
-                    confidence TEXT NOT NULL,
-                    passed INTEGER NOT NULL,
-                    span_m REAL NOT NULL,
-                    max_deflection_mm REAL NOT NULL,
-                    deflection_limit_mm REAL NOT NULL,
-                    utilization_ratio REAL NOT NULL,
-                    max_stress_mpa REAL NOT NULL,
-                    yield_stress_mpa REAL NOT NULL,
-                    reactions_kn REAL NOT NULL,
-                    verdict TEXT NOT NULL,
-                    warnings_json TEXT NOT NULL,
-                    guids_json TEXT NOT NULL
-                );
-
                 CREATE INDEX IF NOT EXISTS idx_assets_category
                     ON assets(category, width_mm, depth_mm, height_mm);
                 CREATE INDEX IF NOT EXISTS idx_instances_scene
@@ -242,6 +220,7 @@ class AlmondStore(
                 END;
                 """
             )
+            self._initialize_validation_runs(connection)
             asset_columns = {
                 row["name"]
                 for row in connection.execute("PRAGMA table_info(assets)")

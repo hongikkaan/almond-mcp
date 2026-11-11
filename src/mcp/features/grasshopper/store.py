@@ -78,6 +78,8 @@ class GrasshopperStore:
             "audited": bool(manifest.get("audited")),
             "inputs": [port.get("name") for port in manifest.get("inputs", [])],
             "outputs": [port.get("name") for port in manifest.get("outputs", [])],
+            "input_ports": manifest.get("inputs", []),
+            "output_ports": manifest.get("outputs", []),
         }
 
     def search_capsules(

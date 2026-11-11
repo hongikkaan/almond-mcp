@@ -6,6 +6,39 @@ mode is present. Image and runtime tools expose the object directly.
 """
 from copy import deepcopy
 
+_POINT = {'type': 'array', 'items': {'type': 'number'}, 'minItems': 3, 'maxItems': 3}
+_VIEW_OBSERVATION = {
+    'type': 'object', 'properties': {
+        'viewport_id': {'type': 'string', 'description': '관측한 뷰포트의 UUID입니다.'},
+        'parallel_projection': {'type': 'boolean', 'description': '평행 투영이면 true입니다.'},
+        'camera_location': {**_POINT, 'description': '문서 단위의 카메라 위치 [x, y, z]입니다.'},
+        'camera_target': {**_POINT, 'description': '문서 단위의 카메라 대상 [x, y, z]입니다.'},
+        'frustum': {'type': 'array', 'items': {'type': 'number'}, 'minItems': 6, 'maxItems': 6,
+                    'description': '관측한 [left, right, bottom, top, near, far]입니다.'},
+        'observation_error': {'type': 'string', 'description': '뷰 관측 중 확인하지 못한 정보의 오류입니다.'}}}
+
+_FOCUS_FIELDS = {
+    'mutation_applied': {'type': ['boolean', 'null'], 'description': '뷰 변경 적용 여부입니다. null이면 중간 상태를 확인해야 합니다.'},
+    'requires_reconciliation': {'type': 'boolean', 'description': 'true이면 현재 Rhino 상태를 확인한 뒤 다음 작업을 정합니다.'},
+    'failed_stage': {'type': 'string', 'description': '실패한 단계입니다: validate, select, isolate, verify_selection, zoom_selected, redraw.'},
+    'view_change': {'type': 'object', 'description': '이 호출에서 완료한 뷰 작업입니다. null인 항목은 시도 후 완료를 확인하지 못했습니다.',
+        'properties': {
+            'selection_changed': {'type': ['boolean', 'null'], 'description': '대상 선택 작업 완료 여부입니다.'},
+            'isolated': {'type': ['boolean', 'null'], 'description': 'Isolate 완료 여부입니다.'},
+            'zoom_selected': {'type': ['boolean', 'null'], 'description': 'Zoom Selected 완료 여부입니다.'},
+            'display_mode_changed': {'type': ['boolean', 'null'], 'description': '화면 표시 모드 변경 완료 여부입니다.'},
+            'restore_visibility_command': {'type': 'string', 'description': '격리된 객체의 가시성을 복구하는 Rhino 명령입니다. 카메라와 선택은 별도로 확인합니다.'}}},
+    'focus_observation': {'type': 'object', 'description': '포커스 실행 전후에 확인한 대상과 뷰 상태입니다.',
+        'properties': {
+            'target_count': {'type': 'integer', 'description': '포커스 대상으로 확인한 객체 수입니다.'},
+            'target_bounds': {'type': 'object', 'description': '문서 단위의 대상 합집합 경계입니다.',
+                'properties': {'min': {**_POINT, 'description': '최소 [x, y, z] 좌표입니다.'},
+                               'max': {**_POINT, 'description': '최대 [x, y, z] 좌표입니다.'}}},
+            'target_bounds_error': {'type': 'string', 'description': '대상 경계를 관측하지 못한 이유입니다.'},
+            'before_zoom': {**_VIEW_OBSERVATION, 'description': '확대 작업 직전에 관측한 뷰 상태입니다.'},
+            'after_failure': {**_VIEW_OBSERVATION, 'description': '포커스 작업 실패 후 관측한 뷰 상태입니다.'}}}
+}
+
 CONTRACTS = {'list_connections': {'type': 'object',
                       'properties': {'instructions': {'type': 'string',
                                                       'description': '연결 목록의 구분과 상태를 읽는 방법입니다.'},
@@ -1072,7 +1105,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                  'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 '
                                                                                 '경우에만 반환합니다.'}}},
  'get_current_viewcapture': {'type': 'object',
-                             'properties': {'image_file': {'type': 'object',
+                             'properties': {**_FOCUS_FIELDS, 'image_file': {'type': 'object',
                                                            'properties': {'status': {'type': 'string',
                                                                                      'description': '파일 저장 결과입니다. '
                                                                                                     'saved일 때 '
@@ -1263,6 +1296,26 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                    'applied': {'type': 'boolean',
                                                'description': '모든 지정 속성이 일치하는지 여부. false여도 누락 항목 생성·일부 변경이 있었을 수 '
                                                               '있음'},
+                                   'changes': {'type': 'array', 'description': '재료 이름·레이어 경로별 관측한 처리 내역입니다. 이 필드가 없으면 변경 내역을 제공하지 않는 Bridge입니다.',
+                                               'items': {'type': 'object', 'properties': {
+                                                   'kind': {'type': 'string', 'enum': ['material', 'layer'], 'description': '관측 대상의 종류입니다.'},
+                                                   'name': {'type': 'string', 'description': '재료 이름 또는 레이어 전체 경로입니다.'},
+                                                   'action': {'type': 'string', 'enum': ['created', 'updated', 'preserved', 'unchanged', 'unconfirmed', 'skipped'],
+                                                              'description': 'created=레코드 증가, updated=기존 값 변경, preserved=기존 값 유지, unchanged=작성 후 관측값 동일, unconfirmed=작성 후 확인 실패, skipped=작성 전 중단입니다.'},
+                                                   'previous_count': {'type': ['integer', 'null'], 'description': '처리 전 확인한 해당 이름의 재료 수 또는 레이어 존재 여부(0/1)입니다. 확인하지 못하면 null입니다.'},
+                                                   'current_count': {'type': ['integer', 'null'], 'description': '처리 후 확인한 해당 레코드 수입니다. 확인하지 못하면 null입니다.'}}}},
+                                   'differences': {'type': 'array', 'description': '최종 관측값과 요청한 속성이 다른 항목입니다.',
+                                                   'items': {'type': 'object', 'properties': {
+                                                       'kind': {'type': 'string', 'description': 'material 또는 layer입니다.'},
+                                                       'name': {'type': 'string', 'description': '재료 이름 또는 레이어 경로입니다.'},
+                                                       'property': {'type': 'string', 'description': '일치하지 않는 속성 이름입니다.'},
+                                                       'current': {'description': '현재 관측한 값입니다.'},
+                                                       'expected': {'description': '설정에 지정된 값입니다.'}}}},
+                                   'errors': {'type': 'array', 'description': '처리 중 발생한 오류입니다. 비어 있어도 differences가 남을 수 있습니다.',
+                                              'items': {'type': 'object', 'properties': {
+                                                  'kind': {'type': 'string', 'description': '처리 대상의 종류입니다.'},
+                                                  'name': {'type': 'string', 'description': '처리 대상의 이름입니다.'},
+                                                  'message': {'type': 'string', 'description': '처리를 완료하지 못한 이유입니다.'}}}},
                                    'message': {'type': 'string', 'description': '현재 결과 또는 오류의 설명입니다.'},
                                    'error_code': {'type': 'string', 'description': '오류 유형입니다.'},
                                    'next_step_guide': {'type': 'string',
@@ -1545,7 +1598,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                             'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 '
                                                                            '반환합니다.'}}},
  'focus_holons': {'type': 'object',
-                  'properties': {'status': {'type': 'string',
+                  'properties': {**_FOCUS_FIELDS, 'status': {'type': 'string',
                                             'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.'},
                                  'zoom_selected': {'type': 'boolean', 'description': '선택 객체로 줌했는지 여부'},
                                  'isolated': {'type': 'boolean', 'description': '대상을 격리했는지 여부'},
@@ -1823,7 +1876,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                             'description': '현재 처리의 상태입니다. 오류이면 message와 '
                                                                            'error_code를 확인합니다.'},
                                                  'package_dir': {'type': 'string',
-                                                                 'description': '생성한 도면 패키지 폴더입니다.'},
+                                                                 'description': 'audit_asset_drawing의 package_dir에 그대로 전달할 경로입니다. 관리 연결에서는 프로젝트 상대 경로이며, 다른 드라이브의 라이브러리는 절대 경로를 유지합니다.'},
                                                  'manifest': {'type': 'object',
                                                               'properties': {},
                                                               'description': '생성한 도면과 원본·축척·단위 기록입니다.'},
@@ -1836,6 +1889,8 @@ CONTRACTS = {'list_connections': {'type': 'object',
  'get_asset_drawing': {'type': 'object',
                        'properties': {'status': {'type': 'string',
                                                  'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.'},
+                                      'package_dir': {'type': 'string',
+                                                      'description': 'all 조회에서 반환하는 도면 패키지 경로입니다. audit_asset_drawing의 package_dir에 그대로 전달할 수 있습니다.'},
                                       'plan_svg_uri': {'type': 'string',
                                                        'description': '저장된 평면 SVG를 읽는 리소스 URI입니다.'},
                                       'manifest': {'type': 'object',
@@ -2303,14 +2358,10 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                         'capability': {'type': 'string',
                                                                                        'description': '캡슐의 '
                                                                                                       '기능입니다.'},
-                                                                        'structure_type': {'type': 'string',
-                                                                                           'description': '구조 '
-                                                                                                          '유형입니다.'},
+                                                                        'structure_type': {'type': ['string', 'null'],
+                                                                                           'description': '구조 유형입니다. 지정되지 않은 캡슐은 null입니다.'},
                                                                         'definition_file': {'type': 'string',
-                                                                                            'description': '경로·확장자를 '
-                                                                                                           '뺀 로컬 '
-                                                                                                           '이름 → '
-                                                                                                           'get_logic_by_id'},
+                                                                                            'description': '캡슐 라이브러리 안의 정의 파일명입니다.'},
                                                                         'title': {'type': 'string',
                                                                                   'description': '제목입니다.'},
                                                                         'audited': {'type': 'boolean',
@@ -2319,8 +2370,20 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                         'inputs': {'type': 'array',
                                                                                    'items': {'type': 'string'},
                                                                                    'description': '캡슐 입력 포트 '
-                                                                                                  '이름입니다. 세부 계약은 '
-                                                                                                  '정의에서 확인합니다.'},
+                                                                                                  '이름입니다. 타입·단위·필수 여부는 input_ports에 있습니다.'},
+                                                                        'input_ports': {'type': 'array', 'description': 'inputs를 구성할 때 따르는 입력 포트 계약입니다.',
+                                                                            'items': {'type': 'object', 'properties': {
+                                                                                'name': {'type': 'string', 'description': 'inputs 객체의 키로 사용할 포트 이름입니다.'},
+                                                                                'type': {'type': 'string', 'description': '값의 타입입니다. []는 해당 타입의 배열입니다.'},
+                                                                                'units': {'type': 'string', 'description': '값의 단위입니다. 생략되면 단위를 선언하지 않은 포트입니다.'},
+                                                                                'required': {'type': 'boolean', 'description': 'true이거나 생략되면 반드시 입력합니다.'},
+                                                                                'description': {'type': 'string', 'description': '캡슐 제작자가 제공한 입력 안내입니다.'}}}},
+                                                                        'output_ports': {'type': 'array', 'description': '실행 결과 outputs의 이름·타입·단위입니다.',
+                                                                            'items': {'type': 'object', 'properties': {
+                                                                                'name': {'type': 'string', 'description': 'outputs 객체에 반환되는 포트 이름입니다.'},
+                                                                                'type': {'type': 'string', 'description': '반환 값의 타입입니다. []는 배열입니다.'},
+                                                                                'units': {'type': 'string', 'description': '반환 값의 단위입니다.'},
+                                                                                'description': {'type': 'string', 'description': '캡슐 제작자가 제공한 출력 안내입니다.'}}}},
                                                                         'outputs': {'type': 'array',
                                                                                     'items': {'type': 'string'},
                                                                                     'description': '출력 포트 이름 '
@@ -2345,6 +2408,10 @@ CONTRACTS = {'list_connections': {'type': 'object',
  'run_gh_definition': {'type': 'object',
                        'properties': {'status': {'type': 'string',
                                                  'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.'},
+                                      'valid_inputs': {'type': 'array', 'items': {'type': 'string'},
+                                                       'description': '이 캡슐이 받는 입력 이름입니다. 값의 타입·단위·필수 여부는 list_capsules의 input_ports에서 확인합니다.'},
+                                      'available_capsules': {'type': 'array', 'items': {'type': 'string'},
+                                                            'description': '요청한 ID를 찾지 못했을 때 반환하는 등록 캡슐 ID입니다. 실행 가능 여부는 list_capsules의 audited로 확인합니다.'},
                                       'capsule_id': {'type': 'string', 'description': '실행한 캡슐 ID입니다.'},
                                       'outputs': {'type': 'object',
                                                   'properties': {},
@@ -2705,10 +2772,11 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                    'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 '
                                                                   '확인합니다.'},
                                         'analysis_method': {'type': 'string', 'description': '해석 방식입니다.'},
+                                        'passed': {'type': ['boolean', 'null'], 'description': '검토 기준 충족 여부입니다. indicative의 null은 해석은 완료했으나 재료 내력 합격 판정을 하지 않았음을 뜻합니다.'},
                                         'max_displacement_mm': {'type': 'number', 'description': '최대 변위(mm)입니다.'},
                                         'deflection_limit_mm': {'type': 'number', 'description': '허용 처짐(mm)입니다.'},
                                         'span_m': {'type': 'number', 'description': '검토 스팬(m)입니다.'},
-                                        'max_utilization': {'type': 'number', 'description': '최대 부재 사용률입니다.'},
+                                        'max_utilization': {'type': ['number', 'null'], 'description': '최대 부재 사용률입니다. 해당 해석에서 계산하지 않으면 null입니다.'},
                                         'scale': {'type': 'number', 'description': '실제 변위가 아닌 표시 과장 배율'},
                                         'elements': {'type': 'array',
                                                      'items': {'type': 'object',
@@ -2722,9 +2790,8 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                               'max_displacement_mm': {'type': 'number',
                                                                                                       'description': '최대 '
                                                                                                                      '변위(mm)입니다.'},
-                                                                              'utilization': {'type': 'number',
-                                                                                              'description': '부재 '
-                                                                                                             '사용률입니다.'}}},
+                                                                              'utilization': {'type': ['number', 'null'],
+                                                                                              'description': '부재 사용률입니다. 해당 해석에서 계산하지 않으면 null입니다.'}}},
                                                      'description': '시각화한 부재별 결과입니다.'},
                                         'nodes': {'type': 'integer', 'description': '해석 노드 수입니다.'},
                                         'warnings': {'type': 'array',

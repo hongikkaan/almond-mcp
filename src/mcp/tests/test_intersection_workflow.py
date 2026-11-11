@@ -41,8 +41,9 @@ def edited(choice):
 
 
 @pytest.fixture
-def setup(monkeypatch):
-    monkeypatch.setenv("ALMOND_MODEL_PATH", r"C:\offline\review.3dm")
+def setup(monkeypatch, tmp_path):
+    monkeypatch.setenv("ALMOND_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(tmp_path / "review.3dm"))
     monkeypatch.setattr("almond_mcp.features.components.intersection_workflow.save_png", lambda *_: {"status": "saved"})
     def create(*replies):
         responses = iter(replies)
@@ -67,6 +68,21 @@ def test_stops_at_first_positive_without_scanning_later_pairs(setup):
     assert [c["type"] for c in calls] == ["get_object_intersections", "get_object_intersections", "intersection_review"]
     assert all(c["max_pairs"] == 64 and c["stop_at_first_positive"] is True for c in calls[:2])
     assert "pair_state" not in calls[-1] and response.content[0].type == "image"
+
+
+def test_registered_workflow_rebinds_sender_and_keeps_pending_review(setup):
+    from almond_mcp.feature_context import FeatureContext
+    _, calls, current = setup(page(pair()), image(), edited(1), page())
+    def unbound(*args, **kwargs):
+        raise AssertionError("Registration-time sender must not dispatch")
+    namespace = {"_send_and_receive": unbound}
+    tools = register(FastMCP("late-bound-review"), FeatureContext(namespace))
+    namespace["_send_and_receive"] = current
+    first = tools["resolve_object_intersection"]([A, B]).structured_content
+    output = tools["resolve_object_intersection"](review_id=first["review_id"], choice=1)
+    assert output.structured_content["state"] == "completed"
+    assert [c["type"] for c in calls] == ["get_object_intersections", "intersection_review", "intersection_resolve", "get_object_intersections"]
+    assert tools["resolve_object_intersection"](review_id=first["review_id"], choice=1).is_error
 
 
 @pytest.mark.parametrize("choice", [1, 2])

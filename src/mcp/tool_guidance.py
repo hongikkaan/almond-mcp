@@ -150,9 +150,15 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
     if name == "list_capsules":
         if not value.get("capsules"):
             return None
-        if not any(row.get("definition_file") for row in value["capsules"]):
-            return "정의와 포트 타입을 확인하려면 field_groups=['definition']으로 definition_file을 조회합니다."
-        return "definition_file의 파일명(확장자 제외)을 get_logic_by_id에 입력해 포트 타입·단위를 확인합니다."
+        if not all("input_ports" in row for row in value["capsules"]):
+            return "실행할 캡슐의 입력 타입·단위·필수 여부는 include_ids=true, field_groups=['ports']로 조회합니다."
+        if any(row.get("capsule_id") and row.get("audited") for row in value["capsules"]):
+            return "audited=true인 캡슐의 input_ports에 맞춰 inputs를 구성하고, capsule_id와 함께 run_gh_definition에 입력합니다."
+        return None
+    if name == "list_library" and not value.get("logic_names"):
+        return None
+    if name == "visualize_structure" and value.get("status") == "cleared":
+        return None
     if name == "list_materials":
         if not value.get("materials"):
             return None

@@ -122,7 +122,11 @@ def setup_result(response):
             or result["applied"] != (not result["differences"] and not result["errors"])):
         return {"status": "error", "error_code": "setup_result_unconfirmed", "mutation_state": "unknown",
                 "message": "Could not confirm setup results. Inspect Rhino before retrying."}
-    if result["applied"]:
-        return {"status": "success", "applied": True}
-    return {"status": "incomplete", "applied": False,
-            "differences": result["differences"], "errors": result["errors"]}
+    # Older modeling_setup=1 Bridges have no change accounting. Preserve their
+    # verified outcome without claiming that a missing change list means none.
+    value = {"status": "success" if result["applied"] else "incomplete", "applied": result["applied"]}
+    if not result["applied"]:
+        value.update(differences=result["differences"], errors=result["errors"])
+    if isinstance(result.get("changes"), list):
+        value["changes"] = result["changes"]
+    return value

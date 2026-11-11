@@ -40,7 +40,7 @@ Args:
 
 Args:
     capsule_id: list_capsules에서 얻은 안정적인 캡슐 식별자입니다(예: "karamba_beam_v1").
-    inputs: ALMOND_IN_ 포트 이름과 값의 객체입니다. 형상은 {"guids":["객체 GUID"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다. 타입·단위·필수 여부는 metadata.capsule.inputs 계약을 따릅니다.
+    inputs: ALMOND_IN_ 포트 이름과 값의 객체입니다. list_capsules(field_groups=['ports'])의 input_ports에서 타입·단위·필수 여부를 확인합니다. 형상은 {"guids":["객체 GUID"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다.
     seed: 확률적 정의에 사용할 선택적 정수 시드입니다. 결정적인 정의에서는 생략합니다.
     timeout_s: 솔버 시간 한도(초)입니다. 기본값은 60, 최댓값은 600입니다.
 <!-- /instruction:run_gh_definition -->

@@ -229,7 +229,7 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
     if review is not None and not isinstance(review, dict):
         raise ValueError("review must be an object")
     value = artifact_dir or os.environ.get("ALMOND_ARTIFACT_DIR")
-    if not value or not Path(value).is_absolute() or not Path(value).is_dir():
+    if not value or not Path(value).is_absolute():
         raise ValueError("Select a working Plan artifact directory before preparing an asset")
     root = Path(value).resolve()
     if stage == "inspect":
@@ -249,6 +249,9 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
             triangles = drafting.load_triangles(source, "mm", "y", data=content)
             factor = {"mm": 1, "cm": 10, "m": 1000, "in": 25.4, "ft": 304.8}[input_units]
             expected_bounds = [*(triangles.min(axis=(0, 1)) * factor).tolist(), *(triangles.max(axis=(0, 1)) * factor).tolist()]
+        # Plan selection allocates a path, not a directory. Only inspect creates
+        # it, after validating/reading the source; status never creates work.
+        root.mkdir(parents=True, exist_ok=True)
         job = root / ("asset-preparation-" + uuid4().hex)
         job.mkdir()
         copied = job / ("source" + source.suffix.lower())
@@ -261,6 +264,8 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
         with _lock(job):
             _dispatch(job, record, stage, sender, execute)
     else:
+        if not root.is_dir():
+            raise ValueError("The selected Plan artifact directory does not exist; inspect a source first")
         job, record = _job(root, job_dir)
         if source_file or input_units:
             raise ValueError("Source and units are fixed by inspect; omit them for later stages")

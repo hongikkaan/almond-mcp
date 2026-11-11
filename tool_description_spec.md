@@ -376,7 +376,7 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "guide_version": "62b4e1621a0ab646cc7cfad3e6910c82fecd52103f61b84ce8e6f275e0932409", // 지침 버전을 비교하는 해시입니다.
+  "guide_version": "767850f8fd5663ff86682455ee602063d9b2b5d23623603505d4eb07fc5d57ba", // 지침 버전을 비교하는 해시입니다.
   "selected_policy": "basic", // 선택한 policy 이름입니다.
   "available_policies": { // 선택 가능한 policy 이름과 설명입니다.
     "basic": "건축 설계·모델링·도면 검증 지침과 공통 도구 목록",
@@ -2664,18 +2664,60 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
 
 ### TOOL OUTPUT
 
-코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). 대상 선택·격리 후 확대 완료를 확인하지 못해 캡처하지 않은 경우입니다. 현재 뷰와 선택 상태부터 확인합니다. //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
-  "image_file": { // PNG 저장 결과입니다. 이미지 전달 여부와 별도로 확인합니다.
-    "status": "saved",
-    "path": ".almond/produced/261111_example/captures/example.png",
-    "lifetime": "plan",
-    "bytes": 12345,
-    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  "status": "error", // 이미지 캡처의 처리 상태입니다.
+  "error_code": "component_focus_error", // 오류 유형입니다.
+  "message": "Rhino could not zoom to the selected Components.", // 현재 결과 또는 오류의 설명입니다.
+  "mutation_applied": null, // 뷰 변경 적용 여부입니다. null이면 중간 상태를 확인해야 합니다.
+  "requires_reconciliation": true, // true이면 현재 Rhino 상태를 확인한 뒤 다음 작업을 정합니다.
+  "failed_stage": "zoom_selected", // 실패한 단계입니다: validate, select, isolate, verify_selection, zoom_selected, redraw.
+  "view_change": { // 이 호출에서 완료한 뷰 작업입니다. null인 항목은 시도 후 완료를 확인하지 못했습니다.
+    "selection_changed": true,
+    "isolated": true,
+    "zoom_selected": null,
+    "display_mode_changed": false,
+    "restore_visibility_command": "Unisolate"
   },
-  "next_step_guide": "보관할 이미지라면 image_file.path를 update_step의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "focus_observation": { // 포커스 실행 전후에 확인한 대상과 뷰 상태입니다.
+    "target_count": 2,
+    "target_bounds": {
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        3000,
+        1000,
+        0
+      ]
+    },
+    "before_zoom": {
+      "viewport_id": "00000000-0000-0000-0000-000000000001",
+      "parallel_projection": true,
+      "camera_location": [
+        1500,
+        500,
+        1000
+      ],
+      "camera_target": [
+        1500,
+        500,
+        0
+      ],
+      "frustum": [
+        -100,
+        100,
+        -75,
+        75,
+        1,
+        10000
+      ]
+    }
+  }
 }
 ```
 
@@ -3157,13 +3199,38 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL OUTPUT
 
-코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). overwrite=false에서 기존 재료 속성을 보존하고 누락된 레이어는 생성했으나, 요청 속성과 차이가 남은 경우입니다. //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
-  "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "applied": true, // 모든 지정 속성이 일치하는지 여부. false여도 누락 항목 생성·일부 변경이 있었을 수 있음
-  "next_step_guide": "객체에 재료를 적용하려면 list_materials에서 선택한 재료를 assign_material에 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "status": "incomplete", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
+  "applied": false, // 모든 지정 속성이 일치하는지 여부. false여도 누락 항목 생성·일부 변경이 있었을 수 있음
+  "changes": [ // 재료 이름·레이어 경로별 관측한 처리 내역입니다. 이 필드가 없으면 변경 내역을 제공하지 않는 Bridge입니다.
+    {
+      "kind": "material",
+      "name": "Oak",
+      "action": "preserved",
+      "previous_count": 1,
+      "current_count": 1
+    },
+    {
+      "kind": "layer",
+      "name": "M::wood",
+      "action": "created",
+      "previous_count": 0,
+      "current_count": 1
+    }
+  ],
+  "differences": [ // 최종 관측값과 요청한 속성이 다른 항목입니다.
+    {
+      "kind": "material",
+      "name": "Oak",
+      "property": "roughness",
+      "current": 0.2,
+      "expected": 0.5
+    }
+  ],
+  "errors": [] // 처리 중 발생한 오류입니다. 비어 있어도 differences가 남을 수 있습니다.
 }
 ```
 
@@ -4115,7 +4182,6 @@ Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
 
 ```json
 {
-  "additionalProperties": false,
   "properties": {
     "holon_id": {
       "default": "",
@@ -4150,7 +4216,7 @@ Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
     "scene_id": {
       "default": "",
       "type": "string",
-      "description": "일괄 상태 대조 및 정합성 확인에 사용할 Scene 범위입니다. 선택 사항이며, 새 Holon을 생성하거나 추론하지 않습니다."
+      "description": "구성원을 갱신할 Scene ID입니다. holon_id, holon_ids, rhino_group_id와 함께 입력하지 않습니다."
     },
     "connection_id": {
       "type": "string",
@@ -4158,7 +4224,8 @@ Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
       "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
     }
   },
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }
 ```
 
@@ -4517,16 +4584,15 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ```json
 {
-  "additionalProperties": false,
   "properties": {
     "package_dir": {
       "type": "string",
-      "description": "이전 생성/조회 결과의 도면 패키지 디렉터리입니다. 관리형 Almond 세션에서는 프로젝트 상대 경로를 사용하며, 독립 실행 라이브러리 호출에서는 절대 경로가 필요합니다."
+      "description": "생성/조회 결과의 package_dir를 그대로 입력합니다. 관리형 세션은 프로젝트 안의 패키지와 설정된 도면 라이브러리·drawing-runs의 패키지를 검사합니다. 독립 실행에서는 절대 경로가 필요합니다."
     },
     "source_glb": {
       "default": "",
       "type": "string",
-      "description": "원본 변경으로 오래된 상태가 되었는지 확인할 현재 원본 GLB입니다. 선택 사항이며, 동일한 관리형/독립 실행 경로 규칙을 사용합니다. 라이브러리에서 원본을 확인할 수 있으면 생략합니다."
+      "description": "원본 변경으로 오래된 상태가 되었는지 확인할 현재 원본 GLB입니다. 선택 사항이며, 관리형 세션에서는 프로젝트 상대 경로, 독립 실행에서는 절대 경로를 사용합니다. 라이브러리에서 원본을 확인할 수 있으면 생략합니다."
     },
     "connection_id": {
       "type": "string",
@@ -4537,7 +4603,8 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
   "required": [
     "package_dir"
   ],
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }
 ```
 
@@ -4638,12 +4705,12 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
-Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다. 공개 입력에는 출력 위치 옵션이 없습니다. 아래는 프로젝트가 C:/Projects/Example, LOCALAPPDATA가 C:/Users/example/AppData/Local인 관리형 세션의 반환 형식입니다. 프로젝트 밖 경로가 `../` 형태로 반환될 수 있으며, 현재 audit_asset_drawing의 관리형 경로 검사는 이 경로를 거부합니다.
+Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다. 공개 입력에는 출력 위치 옵션이 없습니다. 아래는 프로젝트가 C:/Projects/Example, LOCALAPPDATA가 C:/Users/example/AppData/Local인 관리형 세션의 반환 형식입니다. 프로젝트 밖 경로가 `../` 형태로 반환될 수 있습니다. 이 값을 audit_asset_drawing에 그대로 전달하며, 현재 설정된 도면 라이브러리·drawing-runs 안의 패키지인지 검사합니다. 다른 드라이브의 라이브러리 경로는 절대 경로로 반환합니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "package_dir": "../../Users/example/AppData/Local/Almond/drawing-runs/123e4567-e89b-42d3-a456-426614174000", // 생성한 도면 패키지 폴더입니다.
+  "package_dir": "../../Users/example/AppData/Local/Almond/drawing-runs/123e4567-e89b-42d3-a456-426614174000", // audit_asset_drawing의 package_dir에 그대로 전달할 경로입니다. 관리 연결에서는 프로젝트 상대 경로이며, 다른 드라이브의 라이브러리는 절대 경로를 유지합니다.
   "manifest": {} // 생성한 도면과 원본·축척·단위 기록입니다.
 }
 ```
@@ -4703,13 +4770,14 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
 
 ### TOOL OUTPUT
 
-코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). field_groups=["all"]로 조회한 경우입니다. 프로젝트 C:/Projects/Example, 라이브러리 C:/Users/example/AppData/Local/Almond/DrawingAssetfiles 기준입니다. //는 실제 응답에 없는 문서용 설명입니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "plan_svg_uri": "almond://drawing/example-asset/drawing/plan/50", // 저장된 평면 SVG를 읽는 리소스 URI입니다.
-  "manifest": {} // 도면 패키지의 원본·파일·축척 기록입니다.
+  "manifest": {}, // 도면 패키지의 원본·파일·축척 기록입니다.
+  "package_dir": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles/registered/example-asset-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/drawing" // all 조회에서 반환하는 도면 패키지 경로입니다. audit_asset_drawing의 package_dir에 그대로 전달할 수 있습니다.
 }
 ```
 
@@ -6330,7 +6398,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     {
       "capsule_id": "example-capsule",
       "capability": "analyze",
-      "structure_type": "beam",
+      "structure_type": null,
       "definition_file": "example.ghx",
       "title": "Example capsule",
       "audited": true,
@@ -6339,10 +6407,25 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
       ],
       "outputs": [
         "ALMOND_OUT_example"
+      ],
+      "input_ports": [
+        {
+          "name": "ALMOND_IN_example",
+          "type": "number",
+          "units": "mm",
+          "required": true
+        }
+      ],
+      "output_ports": [
+        {
+          "name": "ALMOND_OUT_example",
+          "type": "number",
+          "units": "mm"
+        }
       ]
     }
   ],
-  "next_step_guide": "definition_file의 파일명(확장자 제외)을 get_logic_by_id에 입력해 포트 타입·단위를 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "audited=true인 캡슐의 input_ports에 맞춰 inputs를 구성하고, capsule_id와 함께 run_gh_definition에 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -6421,7 +6504,6 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
 
 ```json
 {
-  "additionalProperties": false,
   "properties": {
     "capsule_id": {
       "type": "string",
@@ -6430,7 +6512,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "inputs": {
       "additionalProperties": true,
       "type": "object",
-      "description": "ALMOND_IN_ 포트 이름과 값의 객체입니다. 형상은 {\"guids\":[\"객체 GUID\"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다. 타입·단위·필수 여부는 metadata.capsule.inputs 계약을 따릅니다."
+      "description": "ALMOND_IN_ 포트 이름과 값의 객체입니다. list_capsules(field_groups=['ports'])의 input_ports에서 타입·단위·필수 여부를 확인합니다. 형상은 {\"guids\":[\"객체 GUID\"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다."
     },
     "seed": {
       "anyOf": [
@@ -6459,7 +6541,8 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "capsule_id",
     "inputs"
   ],
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }
 ```
 
@@ -7420,7 +7503,7 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
   "max_displacement_mm": 12, // 최대 변위(mm)입니다.
   "deflection_limit_mm": 24, // 허용 처짐(mm)입니다.
   "span_m": 6, // 검토 스팬(m)입니다.
-  "max_utilization": 0.72, // 최대 부재 사용률입니다.
+  "max_utilization": 0.72, // 최대 부재 사용률입니다. 해당 해석에서 계산하지 않으면 null입니다.
   "scale": 30, // 실제 변위가 아닌 표시 과장 배율
   "elements": [ // 시각화한 부재별 결과입니다.
     {
@@ -7433,7 +7516,8 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
   ],
   "nodes": 2, // 해석 노드 수입니다.
   "warnings": [], // 결과를 해석할 때 확인할 경고입니다.
-  "next_step_guide": "판정을 검증 이력으로 남기려면 validate_structure를 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "판정을 검증 이력으로 남기려면 validate_structure를 사용합니다.", // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "passed": true // 검토 기준 충족 여부입니다. indicative의 null은 해석은 완료했으나 재료 내력 합격 판정을 하지 않았음을 뜻합니다.
 }
 ```
 
