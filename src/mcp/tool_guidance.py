@@ -65,6 +65,12 @@ CAPTURES = {"get_current_viewcapture", "get_defined_viewcapture", "capture_rhino
 
 def next_step(name: str, value: dict, arguments: dict) -> str | None:
     """Choose from observed state, never from a tool's name alone on failure."""
+    if name == "close_session":
+        if value.get("status") in {"closing", "unconfirmed"}:
+            return "같은 request_id로 close_session을 다시 호출해 보관된 결과를 조회합니다. 저장·종료를 다시 실행하지 않습니다. save_request_id가 있으면 get_rhino_execution으로 저장 결과도 확인할 수 있습니다."
+        if value.get("status") in {"rejected", "save_failed"}:
+            return "reason을 확인합니다. Rhino는 자동으로 다시 종료하지 않습니다. 문제를 해결한 뒤 종료하려는 경우 새 request_id로 close_session을 호출합니다."
+        return None
     if name in EXECUTIONS and value.get("completed") is False and value.get("request_id"):
         return "이 request_id로 get_rhino_execution을 조회해 완료 여부를 확인합니다. 같은 코드를 다시 제출하지 않습니다."
     planning_record = name == "get_phase_plan_step" and value.get("type") in {"phase", "plan", "step"}
@@ -77,14 +83,8 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
     if name == "disconnect":
         if value.get("released") is not True or value.get("rhino_closed") is not False:
             return None
-        guide = ("저장하고 종료하려면 해제한 연결의 Rhino 창과 현재 문서를 확인합니다. "
-                 "Rhino에서 _Save(Ctrl+S)로 저장 완료를 확인한 뒤 _Exit(파일 > 종료)로 정상 종료합니다.")
-        if type(value.get("pid")) is int and value["pid"] > 0 and value.get("model_path"):
-            guide += ("\nStartScriptServer가 켜져 있으면 로컬 셸의 rhinocode list --json에서 "
-                      "이 pid와 model_path가 processId·activeDoc.location에 모두 일치하는 pipeId를 찾습니다. "
-                      "rhinocode --rhino <pipeId> command \"_Save\"로 저장을 확인하고, 같은 대상으로 "
-                      "command \"_Exit\"를 실행할 수 있습니다. 목록에 없거나 저장 대화상자가 뜨면 Rhino UI에서 처리합니다.")
-        return guide + "\n종료 후 대상 Rhino 창과 프로세스가 종료됐는지 확인합니다."
+        return ("연결을 해제했으며 Rhino 창과 문서는 유지됩니다. 저장하고 Rhino까지 종료하려면 "
+                "list_connections에서 해당 문서를 확인하고 connect로 다시 연결한 뒤 close_session을 호출합니다.")
     if name in {"update_phase", "update_plan", "update_step"} and value.get("issues"):
         return "issues에서 건너뛴 항목을 확인합니다. 필요한 항목만 수정해 다시 요청합니다."
     if name == "get_phase_plan_step":

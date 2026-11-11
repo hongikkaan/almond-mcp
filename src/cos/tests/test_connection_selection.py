@@ -237,8 +237,8 @@ def test_disconnect_returns_save_exit_guidance_for_the_released_target(tmp_path)
         assert result['released'] is True and result['rhino_closed'] is False
         assert result['worker_closed'] is True
         guide = result['next_step_guide']
-        assert '_Save' in guide and '_Exit' in guide and guide.index('_Save') < guide.index('_Exit')
-        assert 'processId·activeDoc.location' in guide and 'StartScriptServer' in guide
+        assert 'list_connections' in guide and 'connect' in guide and 'close_session' in guide
+        assert '_Exit' not in guide
         assert calls == [('worker_close', {}), ('detach', {'session_token': 'token-a'})]
         assert broker.selected_connection_id is None and set(broker.connections) == {'b'}
 
@@ -263,8 +263,8 @@ def test_unconfirmed_disconnect_never_suggests_closing_rhino(tmp_path):
     asyncio.run(run())
 
 
-def test_disconnect_without_process_identity_keeps_ui_guidance():
+def test_disconnect_without_process_identity_requires_target_selection_before_close():
     result = json_result({'released': True, 'rhino_closed': False, 'pid': None, 'model_path': None}, 'disconnect')
     guide = result.structured_content['next_step_guide']
-    assert '_Save' in guide and '_Exit' in guide
+    assert 'list_connections' in guide and 'close_session' in guide
     assert 'pipeId' not in guide

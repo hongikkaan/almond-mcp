@@ -12,6 +12,7 @@ CoS는 `cos_host.py`, Codex·외부 로컬 MCP 클라이언트는 `codex_host.py
 
 Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS`와 `AlmondCOSDisconnect` 명령/별칭은 등록하지 않는다. 플러그인 GUID는 유지하고, 이전 AlmondCOS의 이름과 파일 경로는 AlmondRhino로 이전한다.
 연결 준비 및 상태 안내는 Codex와 CoS 모두에 적용된다. connect는 discovery host를 재사용하고 disconnect는 기존 native drain·worker 종료 확인을 거쳐 연결만 해제한다. Rhino 문서는 유지한다.
+`close_session`은 연결된 문서의 변경 여부를 조회하고 공식 RhinoCode `_-Save` 완료·동일 문서의 저장 상태를 확인한 뒤 `_-Exit`로 정상 종료한다. 요청 ID별 OS 잠금·보관 결과·대상별 진행 기록으로 재호출과 호스트 재시작의 중복 저장·종료를 막는다. 종료 직전 guard와 실제 프로세스 종료·worker 종료·lease 해제를 구분해 입증한다. 상세 절차는 [연결 계약](../mcp/runtime/CONNECTION-SPEC.md)에 둔다.
 
 ## 구성
 
@@ -19,8 +20,9 @@ Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS
 |---|---|
 | `external_host.py`, `external_worker.py` | 공용 외부 stdio adapter와 Rhino 연결마다 분리된 worker |
 | `cos_host.py`, `codex_host.py` | CoS 경유·Codex 직접 연결의 명시적인 진입점과 MCP 서버 식별 |
-| `SERVER-DESCRIPTION.md` | 건축설계 용도·연결 관리 도구 4개·연결 및 해제 방법을 담은 공통 소개 |
+| `SERVER-DESCRIPTION.md` | 건축설계·모델링·도면·연결 관리 역할을 담은 공통 소개 |
 | `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 외부 연결 광고 확인 |
+| `session_close.py`, `session_close_guard.py.txt` | 저장 확인·문서 변경 방지·정상 종료·보관 결과 조회. 일반 실행 receipt와 종료 프로세스 근거를 구분 |
 | `detached_process.py` | 새 프로세스를 suspended 상태로 생성하고 모든 Windows Job 밖임을 확인한 뒤 실행 |
 | `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
 | `data/tool_catalog.json` | configure/build에서 만드는 Git 추적 제외 개발용 export; 런타임은 읽지 않고 현재 소스에서 schema를 생성함 |

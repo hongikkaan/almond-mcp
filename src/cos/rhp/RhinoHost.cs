@@ -119,7 +119,8 @@ internal sealed class RhinoHost : IDisposable
         return new { host_id = hostId, pid, process_start_ticks = startTicks,
             model_path = saved ? Canonical(doc!.Path) : null,
             document_serial = saved ? doc!.RuntimeSerialNumber.ToString() : null,
-            supported_slots = Slots, state = State, reason = problem, saved };
+            supported_slots = Slots, state = State, reason = problem, saved,
+            modified = doc?.Modified, read_only = doc?.IsReadOnly };
     }
 
     void Own(JsonElement request)

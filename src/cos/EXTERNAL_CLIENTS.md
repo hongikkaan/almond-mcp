@@ -55,7 +55,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 2. Codex가 `start_session`에 절대 `model_path`와 새 `request_id`를 전달한다.
    새 Rhino를 열고 `_almondconnect`를 자동 실행한 뒤 해당 프로세스에만 연결한다. CoS 앱이나 별도 Codex 창을 열 필요는 없다. 원본 모델을 저장하거나 기존 Rhino를 종료하지 않는다.
 3. 프로젝트·문서 정보가 필요하면 `project_info`의 필요한 sections를 조회한다. project/document는 한 번의 live 확인을 공유하고, project에 파일 목록·문서 이름·경로·is_bound_document가 나온다. DB·선택 Plan의 산출물 경로는 locations에서 조회한다. 자료를 작성할 때는 `set_working_plan`으로 Plan의 `artifact_dir`를 선택한다.
-4. 끝나면 `disconnect`를 호출한다. Rhino 창은 남으며 저장·종료는 Rhino에서 한다.
+4. 작업 문서를 저장하고 Rhino까지 종료하려면 `close_session`에 새 `request_id`를 전달한다. 저장 완료를 확인한 뒤 정상 종료한다. 연결만 해제하고 창을 유지하려면 `disconnect`를 호출한다.
 
 새 Rhino는 디스크에 저장된 파일을 연다. 다른 Rhino 창의 저장되지 않은 변경을 복제하지 않는다.
 다른 Codex 대화나 CoS에서도 별도 Rhino 세션을 시작할 수 있다. 슬롯 A–J는 기존 Terminal· CoS 연결과 함께 사용하며 사용 가능한 자리가 있어야 연결된다.
@@ -67,7 +67,9 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 3. 목록의 정확한 `host_id`와 `model_path`로 `connect`를 호출한다.
    이후 일반 호출과 `disconnect()`에는 연결 ID를 입력하지 않아도 된다. 다른 문서로 전환하려면 목록의 host_id/model_path로 connect를 다시 호출한다. 기존 연결은 유지된다.
 4. 필요할 때 `project_info`에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 자료 작성 전 `set_working_plan`으로 폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../mcp/BASIC-INSTRUCTIONS.md)을 따른다.
-5. 끝나면 `disconnect`로 해당 연결을 해제한다. 문서 변경 후에는 재연결한다.
+5. 저장·정상 종료는 `close_session(request_id=...)`, 창을 유지한 연결 해제는 `disconnect`를 사용한다. 문서 변경 후에는 재연결한다.
+
+`close_session`이 지연되거나 결과가 불확실하면 같은 `request_id`로 다시 조회한다. 이 조회는 Save·Exit를 반복하지 않는다. 저장 실패·읽기 전용 문서·저장 뒤 새 변경이 있으면 문서를 닫지 않고 사유를 반환한다. `completed`는 저장 확인, 실제 Rhino 프로세스 종료, worker 종료와 연결 소유권 해제를 모두 확인한 결과다. 같은 문서의 다른 연결이나 다른 Rhino 창은 종료하지 않는다.
 
 Rhino에서 직접 해제하려면 `almonddisconnect`를 사용한다. 처리 중인 작업이나 worker의 종료가 아직 확인되지 않으면 완료 안내를 기다린다. Rhino와 모델은 저장·종료하지 않는다.
 기존 `AlmondCOS`·`AlmondCOSDisconnect`와 `AlmondMCPStart`·`AlmondMCPStop`· `AlmondMCPStatus` 명령은 제거했다. PackageManager에서 다른 패키지를 삭제할 필요는 없다.

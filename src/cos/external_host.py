@@ -31,6 +31,7 @@ from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_con
 from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
 from execution_recovery import ExecutionRecoveryStore, read_bound_execution
+from session_close import SessionCloser
 
 GUIDANCE = (ROOT / "CONNECTION-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
 DESCRIPTION = (ROOT / "SERVER-DESCRIPTION.md").read_text(encoding="utf-8").strip()
@@ -91,6 +92,11 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
          ["model_path", "request_id"]),
         ("disconnect", "선택한 연결을 해제하고 Rhino 창과 문서는 유지합니다.",
          {"connection_id": {"type": "string", "minLength": 1, "description": "생략하면 선택한 연결을 해제합니다. 다른 연결을 해제하려면 list_connections의 connection_id를 입력합니다."}}, []),
+        ("close_session", "선택한 Rhino 문서를 저장하고 완료를 확인한 뒤 정상 종료합니다.",
+         {"request_id": {"type": "string", "minLength": 1, "maxLength": 128,
+                         "description": "이 종료 요청의 고유 ID입니다. 지연·불확실 상태에서는 같은 ID로 결과를 조회합니다. 저장 확인 전에는 종료하지 않습니다."},
+          "connection_id": {"type": "string", "minLength": 1,
+                            "description": "생략하면 선택한 연결을 종료합니다. 기존 request_id 조회에는 연결이 없어도 됩니다."}}, ["request_id"]),
     ]
     for name, description, properties, required in management:
         if name in mapping:
@@ -302,6 +308,7 @@ class Broker:
         self.starts: dict[str, StartAttempt] = {}
         self.recovery_bindings: dict[str, dict] = {}
         self.recovery_store = recovery_store_factory(data)
+        self.session_closer = SessionCloser(data)
 
     def binding_changed(self, connection_id: str, error: str | None):
         conn = self.connections.get(connection_id)
@@ -374,6 +381,9 @@ class Broker:
             control = None
             lease = None
             try:
+                closing_request = self.session_closer.pending_for(record)
+                if closing_request:
+                    raise RuntimeError("A close is retained. Read close_session with request_id=" + closing_request)
                 lease = self.lease_factory(self.data, record)
                 control = self.control_factory(record)
                 target = await control.request("describe")
@@ -463,6 +473,9 @@ class Broker:
         record = next((r for r in self.host_reader(self.data) if r["host_id"] == host_id), None)
         if record is None:
             raise RuntimeError("Rhino advertisement is stale. Run almondconnect in the intended saved document.")
+        closing_request = self.session_closer.pending_for(record)
+        if closing_request:
+            raise RuntimeError("A close is retained. Read close_session with request_id=" + closing_request)
         connection_id = uuid4().hex
         lease = self.lease_factory(self.data, record)
         try:
@@ -570,66 +583,99 @@ class Broker:
         sys.path.insert(0, str(ENGINE))
         from project import serial_gate
         async with serial_gate(conn.lock, self.queue_timeout):
-            if name == "get_rhino_execution":
-                if conn.closing:
-                    value = await asyncio.to_thread(self._read_execution_files, conn.binding, arguments)
-                    value.update(connection_state=conn.state, requires_reconnect=True)
-                    return json_result(value)
-                return await self.recover_execution(conn, arguments)
-            if invocation.abandoned:
-                raise RuntimeError("Caller stopped while this request was queued. No Rhino request was sent.")
-            if conn.closing or conn.state != "ready":
-                raise RuntimeError(f"Connection is {conn.state}: {conn.reason}. Inspect Rhino before reconnecting.")
-            request_id = uuid4().hex
-            invocation.started = True
-            conn.in_flight = True
-            worker_dispatched = False
-            try:
-                await conn.control.request("begin", session_token=conn.token, request_id=request_id)
-                if invocation.abandoned or conn.closing or conn.state != "ready":
-                    # No worker request was dispatched. Clear only this reservation.
-                    await conn.control.request("end", session_token=conn.token, request_id=request_id)
-                    conn.in_flight = False
-                    raise RuntimeError("Caller stopped before Rhino execution began.")
-                if conn.watch_again:
-                    conn.watch_again = False
-                    try:
-                        await self._binding_status(conn)
-                    except Exception:
-                        # The RHP may have disconnected while begin's reply was
-                        # in transit. No worker call has been dispatched yet.
-                        await conn.control.request("end", session_token=conn.token, request_id=request_id)
-                        conn.in_flight = False
-                        raise
-                worker_dispatched = True
-                result = await asyncio.wait_for(conn.worker.call(name, arguments), self.call_timeout)
-                state = await conn.worker.state()
-                if state.get("pending") or state.get("uncertain"):
-                    if self._cli_only(state) and not conn.closing:
-                        self._retain_cli(conn, request_id, state)
-                        return result
-                    raise RuntimeError("Rhino execution outcome is unconfirmed. Do not repeat the operation automatically.")
-                if invocation.abandoned and self._cli_only(state) and not conn.closing:
-                    self._retain_cli(conn, request_id, state)
-                    return result
+            if name != "get_rhino_execution":
+                closing_request = self.session_closer.pending_for(conn.binding)
+                if closing_request:
+                    raise RuntimeError("A close is retained. Read close_session with request_id=" + closing_request)
+            return await self._invoke_locked(conn, name, arguments, invocation)
+
+    async def _invoke_locked(self, conn, name, arguments, invocation):
+        if name == "get_rhino_execution":
+            if conn.closing:
+                value = await asyncio.to_thread(self._read_execution_files, conn.binding, arguments)
+                value.update(connection_state=conn.state, requires_reconnect=True)
+                return json_result(value)
+            return await self.recover_execution(conn, arguments)
+        if invocation.abandoned:
+            raise RuntimeError("Caller stopped while this request was queued. No Rhino request was sent.")
+        if conn.closing or conn.state != "ready":
+            raise RuntimeError(f"Connection is {conn.state}: {conn.reason}. Inspect Rhino before reconnecting.")
+        request_id = uuid4().hex
+        invocation.started = True
+        conn.in_flight = True
+        worker_dispatched = False
+        try:
+            await conn.control.request("begin", session_token=conn.token, request_id=request_id)
+            if invocation.abandoned or conn.closing or conn.state != "ready":
+                # No worker request was dispatched. Clear only this reservation.
                 await conn.control.request("end", session_token=conn.token, request_id=request_id)
                 conn.in_flight = False
-                return result
-            except BaseException as exc:
-                state = None
-                if worker_dispatched and not conn.closing:
-                    with suppress(Exception):
-                        state = await conn.worker.state()
-                if state is not None and self._cli_only(state):
+                raise RuntimeError("Caller stopped before Rhino execution began.")
+            if conn.watch_again:
+                conn.watch_again = False
+                try:
+                    await self._binding_status(conn)
+                except Exception:
+                    # The RHP may have disconnected while begin's reply was
+                    # in transit. No worker call has been dispatched yet.
+                    await conn.control.request("end", session_token=conn.token, request_id=request_id)
+                    conn.in_flight = False
+                    raise
+            worker_dispatched = True
+            result = await asyncio.wait_for(conn.worker.call(name, arguments), self.call_timeout)
+            state = await conn.worker.state()
+            if state.get("pending") or state.get("uncertain"):
+                if self._cli_only(state) and not conn.closing:
                     self._retain_cli(conn, request_id, state)
-                    raise RuntimeError(conn.reason) from exc
-                await self._fail(conn, str(exc) or "Caller canceled while Rhino might still be executing.")
-                raise
+                    return result
+                raise RuntimeError("Rhino execution outcome is unconfirmed. Do not repeat the operation automatically.")
+            if invocation.abandoned and self._cli_only(state) and not conn.closing:
+                self._retain_cli(conn, request_id, state)
+                return result
+            await conn.control.request("end", session_token=conn.token, request_id=request_id)
+            conn.in_flight = False
+            return result
+        except BaseException as exc:
+            state = None
+            if worker_dispatched and not conn.closing:
+                with suppress(Exception):
+                    state = await conn.worker.state()
+            if state is not None and self._cli_only(state):
+                self._retain_cli(conn, request_id, state)
+                raise RuntimeError(conn.reason) from exc
+            await self._fail(conn, str(exc) or "Caller canceled while Rhino might still be executing.")
+            raise
 
     async def _dispose(self, conn: Connection):
         conn.closing = True
         async with conn.lock:
             return await self._dispose_locked(conn)
+
+    async def _dispose_closed_rhino(self, conn: Connection):
+        """Called only after the close guard and exact process-exit evidence.
+
+        Keep the host lease until worker EOF is complete. A dead process has
+        released its OS/native leases; sending detach to a new PID is forbidden.
+        """
+        if conn.cleanup is not None and conn.cleanup.get("rhino_closed"):
+            return
+        conn.closing, conn.state = True, "closing"
+        if self.watcher is not None:
+            self.watcher.remove(conn.connection_id)
+        if conn.worker is not None:
+            await conn.worker.close()
+        await conn.control.close()
+        if conn.lease is not None:
+            conn.lease.close()
+            conn.lease = None
+        self.connections.pop(conn.connection_id, None)
+        if self.host_connections.get(conn.host_id) == conn.connection_id:
+            self.host_connections.pop(conn.host_id, None)
+        if self.selected_connection_id == conn.connection_id:
+            self.selected_connection_id = None
+        conn.cleanup = dict(connection_id=conn.connection_id, worker_closed=True,
+                            rhino_closed=True, released=True, reason="",
+                            pid=conn.binding.get("pid"), model_path=conn.binding.get("model_path"))
 
     async def _dispose_locked(self, conn: Connection):
         if conn.cleanup is not None:
@@ -679,6 +725,9 @@ class Broker:
         conn = self.connections.get(connection_id)
         if conn is None:
             raise RuntimeError("Unknown or stale connection_id.")
+        closing_request = self.session_closer.pending_for(conn.binding)
+        if closing_request:
+            raise RuntimeError("A close is retained. Read close_session with request_id=" + closing_request)
         if conn.lock.locked() or (conn.in_flight and conn.state == "ready"):
             raise RuntimeError("A call is still running. Wait for its result before disconnecting.")
         result = await self._dispose(conn)
@@ -697,6 +746,8 @@ class Broker:
                 return json_result(await asyncio.shield(self.spawn(self.connect(**arguments))), name)
             if name == "start_session":
                 return json_result(await self.start_session(**arguments), name)
+            if name == "close_session":
+                return json_result(await asyncio.shield(self.spawn(self.session_closer.run(self, **arguments))), name)
             if name == "disconnect":
                 arguments = dict(arguments)
                 arguments.setdefault("connection_id", self.selected_connection_id)
@@ -759,7 +810,7 @@ class SessionAdapter:
 
     async def call(self, name, arguments):
         if self.broker is None:
-            if name not in {"list_connections", "connect", "start_session", "get_rhino_execution"}:
+            if name not in {"list_connections", "connect", "start_session", "close_session", "get_rhino_execution"}:
                 return error_result("Unknown or stale connection_id. No Rhino request was sent.")
             self.broker = self.broker_factory(self.catalog, data=self.data)
         return await self.broker.call(name, arguments)

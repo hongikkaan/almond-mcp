@@ -29,6 +29,8 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "external_connection_guidance": ROOT / "CONNECTION-INSTRUCTIONS.md",
         "server_description": ROOT / "SERVER-DESCRIPTION.md",
         "external_execution_recovery": ROOT / "execution_recovery.py",
+        "external_session_close": ROOT / "session_close.py",
+        "external_close_guard": ROOT / "session_close_guard.py.txt",
         "project": engine / "project.py",
         "entry": engine / "mcp_server.py",
         "shared_store": engine / "shared_store.py",

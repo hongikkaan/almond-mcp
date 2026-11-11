@@ -27,7 +27,7 @@
 
 ## 문서 기준
 
-- 이 문서는 beyond·CoS 외부 연결 경로의 공개 도구 **89개**(공통 85개 + 연결 관리 4개)를 다룹니다. `tools/list`의 도구명·DESCRIPTION·inputSchema와 대조합니다. 독립 Python 서버는 실행기 도구 없이 79개를 공개합니다.
+- 이 문서는 beyond·CoS 외부 연결 경로의 공개 도구 **90개**(공통 85개 + 연결 관리 5개)를 다룹니다. `tools/list`의 도구명·DESCRIPTION·inputSchema와 대조합니다. 독립 Python 서버는 실행기 도구 없이 79개를 공개합니다.
 - 출력 타입·필드 설명은 [공개 출력 계약](src/mcp/output_contracts.py)에 있으며 실제 `tools/list`의 outputSchema로 노출됩니다. 각 항목의 `근거`는 반환 구현을 확인할 소스입니다.
 - DESCRIPTION은 도구를 선택할 때 필요한 역할과 핵심 조건을 설명합니다.
 - TOOL INPUT은 실제 공개 schema입니다. 변수명·타입·선택지·입력 설명을 확인합니다.
@@ -38,7 +38,7 @@
 
 # Connect
 
-연결·세션 관리 · prefix: `connect-NN_` · 유형 내 순번 01–04
+연결·세션 관리 · prefix: `connect-NN_` · 유형 내 순번 01–05
 
 ## 01. connect-01_list_up
 
@@ -225,9 +225,69 @@
   "reason": "", // 해제 결과 또는 남아 있는 잠금의 사유입니다.
   "pid": 12340, // 해제한 연결의 Rhino 프로세스 ID입니다. 종료할 창을 식별할 때 model_path와 함께 확인합니다.
   "model_path": "C:\\Projects\\Example\\model.3dm", // 해제한 연결에 저장된 모델 경로입니다. 저장·종료 전에 현재 문서 경로와 일치하는지 확인합니다.
-  "next_step_guide": "저장하고 종료하려면 해제한 연결의 Rhino 창과 현재 문서를 확인합니다. Rhino에서 _Save(Ctrl+S)로 저장 완료를 확인한 뒤 _Exit(파일 > 종료)로 정상 종료합니다.\nStartScriptServer가 켜져 있으면 로컬 셸의 rhinocode list --json에서 이 pid와 model_path가 processId·activeDoc.location에 모두 일치하는 pipeId를 찾습니다. rhinocode --rhino <pipeId> command \"_Save\"로 저장을 확인하고, 같은 대상으로 command \"_Exit\"를 실행할 수 있습니다. 목록에 없거나 저장 대화상자가 뜨면 Rhino UI에서 처리합니다.\n종료 후 대상 Rhino 창과 프로세스가 종료됐는지 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "연결을 해제했으며 Rhino 창과 문서는 유지됩니다. 저장하고 Rhino까지 종료하려면 list_connections에서 해당 문서를 확인하고 connect로 다시 연결한 뒤 close_session을 호출합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
+
+## 90. connect-05_close_session
+
+기준 API: `close_session`
+
+근거: src/cos/external_host.py, src/cos/session_close.py, src/cos/session_close_guard.py.txt
+
+### DESCRIPTION
+
+선택한 Rhino 문서를 저장하고 완료를 확인한 뒤 정상 종료합니다.
+
+### TOOL INPUT
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "이 종료 요청의 고유 ID입니다. 지연·불확실 상태에서는 같은 ID로 결과를 조회합니다. 저장 확인 전에는 종료하지 않습니다."
+    },
+    "connection_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "생략하면 선택한 연결을 종료합니다. 기존 request_id 조회에는 연결이 없어도 됩니다."
+    }
+  },
+  "required": [
+    "request_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+### TOOL OUTPUT
+
+코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+```jsonc
+{
+  "request_id": "example-close", // 같은 ID 재호출은 결과만 조회합니다.
+  "connection_id": "example-connection", // 저장·종료 대상 연결입니다.
+  "pid": 12340, // 시작 identity까지 대조한 Rhino 프로세스입니다.
+  "model_path": "C:\\Projects\\Example\\model.3dm", // 저장 대상의 절대 경로입니다.
+  "status": "completed", // 저장 확인·실제 종료·worker 종료·소유권 해제를 모두 확인했습니다.
+  "stage": "completed", // 마지막 처리 단계입니다.
+  "modified_before": true, // Save 전 변경 여부입니다.
+  "modified_after": false, // Save 후 변경이 없음을 확인했습니다.
+  "saved": true, // 정확한 Save 완료와 같은 문서 상태를 확인했습니다.
+  "save_request_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", // get_rhino_execution으로 조회할 Save 실행입니다.
+  "rhino_closed": true, // 정확한 Rhino와 종료 CLI의 프로세스 종료를 확인했습니다.
+  "worker_closed": true, // 해당 worker가 정상 종료됐습니다.
+  "released": true, // 연결 소유권을 해제했습니다.
+  "reason": "" // 거부·실패·불확실한 결과이면 원인이 담깁니다.
+}
+```
+
+`closing`·`unconfirmed`는 같은 `request_id`로 조회합니다. `rejected`·`save_failed`는 Exit를 완료하지 않은 결과입니다. 사유를 해결하고 종료하려는 경우에만 새 요청 ID를 사용합니다. Save의 늦은 완료 확인은 Exit를 자동 재개하지 않습니다.
 
 # Context
 

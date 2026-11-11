@@ -6,7 +6,7 @@
     "src/cos/rhp/AlmondRhino.csproj": "637433b1537574c18236d4a8fe1c8a27bd091af6be82aece5b7022f85b3ff64a",
     "src/cos/rhp/ControlPipe.cs": "f30b66d3fe84adee585acd716d69f24b5019ae9836202989012cd8ac78df2ad5",
     "src/cos/rhp/Plugin.cs": "c8f1fe314ce85ef7eac1dba955d2364fcb3f47c73ea5a738601a421af0a7c158",
-    "src/cos/rhp/RhinoHost.cs": "fd0b925348521b327cc560f4900cf13512b6fd03d012bc9395ad152029f613e6",
+    "src/cos/rhp/RhinoHost.cs": "72e421ec05f10ffd3da9b29130dfd133d7c9e2d23073f41413c0e86f2f5ff277",
     "src/rhp/Engine/Almond.Engine.csproj": "c841bbcfa8455a5269be91ae8a1a96f5c232c445ffc8892daddbac5879e1b5cb",
     "src/rhp/Engine/AssemblyInfo.cs": "d79686f397969ef3681e1037b226a9527c476c377a6c1042ca1bf4f0ef7ce2f6",
     "src/rhp/Engine/BoundBridge.cs": "a5d2d5b5b235a3271ecbbbd365498694571ba65397fc932aa05ab319130544a9",
@@ -19,11 +19,11 @@
     "src/rhp/Engine/WindowsPeerIdentity.cs": "27276b76eec4a5c9c32d7560406a6f067ac16810d045be30a18eef856019d16e"
   },
   "files": {
-    "src/rhp/AlmondRhino/plugin-runtime/Almond.Engine.dll": "24a78bd4e3591eb3a26ec64a756ddc0b16f7f87035d3c9d7cbac118eb6a16ba2",
-    "src/rhp/AlmondRhino/plugin-runtime/Almond.Engine.pdb": "7f8501aa994f4c06c2c17c584f2b89d0d78cbe66a7b1798813cbc796a6d6099d",
+    "src/rhp/AlmondRhino/plugin-runtime/Almond.Engine.dll": "67a3d2a3ceb6a30023fa5eed1f402e2588c6f9830d2ca75a461dc43e109820ad",
+    "src/rhp/AlmondRhino/plugin-runtime/Almond.Engine.pdb": "cb13ea18a1da310dfd53b50b11fad205ef473bed3c3ebf3646fd58f79c5dd3ac",
     "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.deps.json": "8b7bdae6f2f9bd2cc3dfffda5de3945674b656d3adf9f88d065013f7b92f2260",
-    "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.pdb": "958e95582a5017bbb1e0eb253d8f4dfa425e062c25a5b0529fc883f8829ba769",
-    "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp": "e23a3a697bfc90e03eac369b213f77972d54ad6396f9681218744349dc751b29",
+    "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.pdb": "32348c1982a20881cdde5c689ab638d8579849d2e261899553734f6b4f412a4f",
+    "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp": "2628b71b755cec1c5db0e6cf05504898f0fc825659bd2355f53e8bf263a6524f",
     "src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.runtimeconfig.json": "2fa0b19e9ba0d01bf6fc57c18cbd4b03f808c229ac05316e321b62824c1aea9c"
   }
 }
