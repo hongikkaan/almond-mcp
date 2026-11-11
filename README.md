@@ -32,4 +32,15 @@ git pull --ff-only
 `almondconnect`가 없으면 이 등록 경로부터 확인합니다. 올바른 RHP가 아직 로드되지 않은 프로세스에서는 공식 `Rhino.PlugIns.PlugIn.LoadPlugIn(fullPath)`로 기존 파일을 직접 로드할 수 있습니다. Python에서는 반환값이 `(LoadPlugInResult, Guid)`이며, 로드 후 명령 존재와 실제 assembly 경로를 확인합니다. 이 방식은 로드된 구형 assembly를 교체하는 기능이 아닙니다.
 이미 새 경로로 등록된 환경과 이후 업데이트는 Rhino 종료 → `git pull --ff-only` → Rhino 시작 순서입니다.
 Git에 실행 파일이 포함되어 있어 일반 업데이트마다 빌드하거나 재등록할 필요는 없습니다.
+
+Python 의존성이 바뀐 업데이트에서는 `git pull` 뒤, 클라이언트를 시작하기 전에 환경도 확인합니다.
+
+```powershell
+./src/mcp/rebuild_environment.ps1 -VerifyOnly
+```
+
+이 명령은 일상 실행용 `src/engine/.venv`와 이미 존재하는 루트 `.venv`를 모두 검사합니다. 루트 환경은 저장소 셸·`uv run`에서 사용하며, Rhino 실행기·beyond·CoS·solver는 일상 환경을 사용합니다. 검사에서는 패키지나 lock을 변경하지 않으므로 연결 중에도 실행할 수 있습니다. `uv.lock`과 설치 목록, 중복 패키지, Python 버전, editable 출처와 의존성 메타데이터를 확인합니다.
+
+검사가 실패하면 해당 환경의 MCP 클라이언트·host/worker와 관리형 Rhino 연결을 정상 종료한 상태에서 `./src/mcp/rebuild_environment.ps1`을 실행합니다. 두 환경 중 하나라도 사용 중이면 변경 전에 경로·PID를 알리고 중단합니다. 정리 후 같은 검증까지 통과해야 완료됩니다. 없는 루트 `.venv`는 만들지 않으며, `-Development`는 해당 체크아웃의 `data/development/.venv`만 처리합니다. 일반 시작은 의존성을 자동 동기화하지 않습니다. 의존성 변경을 전달하는 작업자는 두 환경의 검증까지 마친 뒤 사용자에게 업데이트 완료를 보고합니다.
+
 프로젝트 DB는 `.almond/scene.sqlite3`를 사용합니다. 기존 확장자 없는 `DB`의 파일명 이전과 작업자료·임시자료 정리 기준은 [조회와 작업자료 계약](src/mcp/SPEC.md#조회와-작업자료-계약)을 따릅니다. 구형 `.almond/tmp/calls`에 남은 보고서·백업은 자동 삭제하지 않고 현재 자료 참조와 함께 이전합니다.
