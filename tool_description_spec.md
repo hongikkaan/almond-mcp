@@ -4545,6 +4545,8 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
+아래 성공 예시는 프로젝트 내부의 기존 패키지를 검사한 경우입니다. 현재 관리형 입력 검사는 절대 경로와 `..`를 거부하므로, generate_asset_drawing_views가 프로젝트 밖 AppData에 생성해 반환한 경로는 그대로 검사할 수 없습니다.
+
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
@@ -4636,10 +4638,12 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
+Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다. 공개 입력에는 출력 위치 옵션이 없습니다. 아래는 프로젝트가 C:/Projects/Example, LOCALAPPDATA가 C:/Users/example/AppData/Local인 관리형 세션의 반환 형식입니다. 프로젝트 밖 경로가 `../` 형태로 반환될 수 있으며, 현재 audit_asset_drawing의 관리형 경로 검사는 이 경로를 거부합니다.
+
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "package_dir": ".almond/produced/261111_example/drawing", // 생성한 도면 패키지 폴더입니다.
+  "package_dir": "../../Users/example/AppData/Local/Almond/drawing-runs/123e4567-e89b-42d3-a456-426614174000", // 생성한 도면 패키지 폴더입니다.
   "manifest": {} // 생성한 도면과 원본·축척·단위 기록입니다.
 }
 ```
@@ -5075,6 +5079,8 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
+model_path는 기존에 등록된 라이브러리 3DM 경로를 유지하고, 새 도면은 같은 라이브러리의 `revisions/<asset_id>-<버전>/drawing`에 저장합니다. 아래는 프로젝트 C:/Projects/Example, 라이브러리 C:/Users/example/AppData/Local/Almond/DrawingAssetfiles를 사용한 관리형 세션의 반환 예시입니다.
+
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
@@ -5083,8 +5089,8 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
   "rhino_linked_instances_updated": false, // false: 기존 Rhino 연결 인스턴스 재로드는 별도
   "live_index_refreshed": true, // false인데 게시가 적용됐다면 재연결하여 인덱스 갱신
   "asset": {}, // 갱신한 자산의 정보입니다.
-  "model_path": ".almond/produced/261111_example/asset.3dm", // 갱신한 라이브러리 3DM 경로입니다.
-  "package_dir": ".almond/produced/261111_example/drawing", // 갱신한 도면 패키지 폴더입니다.
+  "model_path": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles/registered/example-asset-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.3dm", // 갱신한 라이브러리 3DM 경로입니다.
+  "package_dir": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles/revisions/example-asset-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/drawing", // 갱신한 도면 패키지 폴더입니다.
   "previous_files_retained": true, // 이전 도면·매니페스트 백업·원본 리비전 사본 보존
   "next_step_guide": "갱신된 도면은 get_asset_drawing으로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
@@ -5177,6 +5183,8 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
+source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY_DIR`의 `registered/<asset_id>-<버전>/`에 저장합니다. 아래는 새 등록이며, 프로젝트 C:/Projects/Example, 라이브러리 C:/Users/example/AppData/Local/Almond/DrawingAssetfiles를 사용한 관리형 세션의 반환 예시입니다. 실제 라이브러리는 환경 변수·개발 체크아웃·사용자 데이터 경로 설정에 따라 달라집니다.
+
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
@@ -5185,10 +5193,10 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
   "source_path_preserved": false, // 기존 원본 경로를 보존했는지 여부
   "linked_instances_may_update": false, // 교체로 기존 연결 인스턴스에 영향 가능
   "asset": {}, // 등록한 자산의 정보입니다.
-  "library_dir": ".almond/produced/261111_example", // 라이브러리 폴더
-  "model_path": ".almond/produced/261111_example/asset.3dm", // 저장된 모델의 경로
-  "package_dir": ".almond/produced/261111_example/drawing", // 생성한 도면 패키지 폴더입니다. DXF와 치수는 mm 단위입니다.
-  "manifest_path": ".almond/produced/261111_example/manifest.json", // 라이브러리 manifest.json 경로입니다.
+  "library_dir": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles", // 라이브러리 폴더
+  "model_path": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles/registered/example-asset-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.3dm", // 저장된 모델의 경로
+  "package_dir": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles/registered/example-asset-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/drawing", // 생성한 도면 패키지 폴더입니다. DXF와 치수는 mm 단위입니다.
+  "manifest_path": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles/manifest.json", // 라이브러리 manifest.json 경로입니다.
   "previous_files_retained": false, // 교체 전 원본·도면·매니페스트 백업 보존
   "previous_source_sha256": null, // 기존 원본 해시. 없으면 null
   "next_step_guide": "등록한 자산은 get_drawing_asset으로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
