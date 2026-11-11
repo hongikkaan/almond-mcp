@@ -354,7 +354,7 @@ let savedTab='model';try{savedTab=localStorage.getItem('almond-structure-tab')||
 showTab(TABS.includes(savedTab)?savedTab:'model');
 el('analysis-native-note').hidden=native;
 if(!native) message('Open AlmondStructure inside Rhino to select geometry and run the solver.','info');
-// check the engines once, the first time the workspace is shown (it also fetches the native solver)
+// Check the local engines once when the workspace is first shown.
 function firstVisit(){if(native&&!checked&&location.hash==='#karamba'){checked=true;setTimeout(()=>{if(!busy)request('status');},300);}}
 addEventListener('hashchange',firstVisit);firstVisit();
 controls();draw();
