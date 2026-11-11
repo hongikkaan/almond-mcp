@@ -885,7 +885,7 @@ Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전�
     }
   ],
   "policy_reminder": "Step은 기본 순서대로 수행합니다. 기존 결과는 확인한 뒤 재사용하고 산출물은 이 회차의 artifact_dir에 작성합니다. Plan 완료는 사용자가 결정합니다.", // Step 순서·기존 결과 재사용·산출물 위치·Plan 완료 결정에 적용할 지침입니다.
-  "next_step_guide": "저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 plan_10-set_working tool으로 선택합니다. 완료한 작업은 반복하지 않고, 수행·검증 결과는 plan_12-update tool의 request에 target='step', plan_id, step_id와 기록할 필드를 넣어 갱신합니다.\n회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다." // 저장 기록 확인, Step 수행·검증 기록과 회차 결과 보고 안내입니다.
+  "next_step_guide": "저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 plan_10-set_working tool으로 선택합니다. 완료한 작업은 반복하지 않고, 수행·검증 결과는 plan_12-update tool의 request에 target='step', plan_id, step_id와 기록할 필드를 넣어 갱신합니다. 기록할 Step ID가 없으면 먼저 plan_08-list tool의 request에 target='step', 같은 plan_id·loop_no를 넣어 목록에서 Step을 선택합니다. 근거를 얻은 작업 맥락의 loop_no를 유지해 request.loop_no로 함께 전달합니다. expected_revision 검사도 사용할 경우 plan_05-get tool의 request에 같은 target·ID·loop_no를 넣어 조회한 최신 revision을 사용합니다. Loop가 바뀌었으면 기록 대상을 먼저 재검토합니다.\n회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다." // 저장 기록 확인, Step 수행·검증 기록과 회차 결과 보고 안내입니다.
 }
 ```
 
@@ -1494,7 +1494,7 @@ Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
   "revision": 2, // 작업 공간 설정 후의 저장 리비전입니다.
   "artifact_dir": ".almond/produced/261111_example/01", // 현재 연결의 산출물 폴더입니다. execute_project_python의 작업 디렉터리로 사용합니다.
   "plan_artifact_dir": ".almond/produced/261111_example", // Plan 산출물 루트입니다. Loop 시작 전에는 이 폴더를 사용합니다.
-  "next_step_guide": "이 artifact_dir에서 작업하고, 재사용한 파일은 input_refs에, 새로 만든 산출물은 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "이 artifact_dir에서 작업하고, plan_12-update tool의 request에 target='step', plan_id, step_id와 재사용한 파일은 input_refs.add, 새 산출물은 output_refs.add로 기록합니다. 기록할 Step ID가 없으면 먼저 plan_08-list tool의 request에 target='step', 같은 plan_id·loop_no를 넣어 목록에서 Step을 선택합니다. 근거를 얻은 작업 맥락의 loop_no를 유지해 request.loop_no로 함께 전달합니다. expected_revision 검사도 사용할 경우 plan_05-get tool의 request에 같은 target·ID·loop_no를 넣어 조회한 최신 revision을 사용합니다. Loop가 바뀌었으면 기록 대상을 먼저 재검토합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -2669,7 +2669,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "rgb": null
   },
   "document": {}, // 원본 문서·단위·뷰·경계 정보입니다.
-  "next_step_guide": "프레임과 camera_json을 확인하고, plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs.add에 사용할 산출물 경로를 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "프레임과 camera_json을 확인하고, plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs.add에 사용할 산출물 경로를 입력합니다. 기록할 Step ID가 없으면 먼저 plan_08-list tool의 request에 target='step', 같은 plan_id·loop_no를 넣어 목록에서 Step을 선택합니다. 근거를 얻은 작업 맥락의 loop_no를 유지해 request.loop_no로 함께 전달합니다. expected_revision 검사도 사용할 경우 plan_05-get tool의 request에 같은 target·ID·loop_no를 넣어 조회한 최신 revision을 사용합니다. Loop가 바뀌었으면 기록 대상을 먼저 재검토합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -2779,7 +2779,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "bytes": 12345,
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
-  "next_step_guide": "보관할 이미지라면 plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs={add:[image_file.path]}를 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "보관할 이미지라면 plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs={add:[image_file.path]}를 입력합니다. 기록할 Step ID가 없으면 먼저 plan_08-list tool의 request에 target='step', 같은 plan_id·loop_no를 넣어 목록에서 Step을 선택합니다. 근거를 얻은 작업 맥락의 loop_no를 유지해 request.loop_no로 함께 전달합니다. expected_revision 검사도 사용할 경우 plan_05-get tool의 request에 같은 target·ID·loop_no를 넣어 조회한 최신 revision을 사용합니다. Loop가 바뀌었으면 기록 대상을 먼저 재검토합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -3054,7 +3054,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "bytes": 12345,
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
-  "next_step_guide": "보관할 이미지라면 plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs={add:[image_file.path]}를 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "보관할 이미지라면 plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs={add:[image_file.path]}를 입력합니다. 기록할 Step ID가 없으면 먼저 plan_08-list tool의 request에 target='step', 같은 plan_id·loop_no를 넣어 목록에서 Step을 선택합니다. 근거를 얻은 작업 맥락의 loop_no를 유지해 request.loop_no로 함께 전달합니다. expected_revision 검사도 사용할 경우 plan_05-get tool의 request에 같은 target·ID·loop_no를 넣어 조회한 최신 revision을 사용합니다. Loop가 바뀌었으면 기록 대상을 먼저 재검토합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 

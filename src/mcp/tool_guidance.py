@@ -3,13 +3,22 @@ import json
 from almond_mcp.public_names import internal_tool_name, tool_references
 
 
+REVISION_GUIDE = ("expected_revision 검사도 사용할 경우 plan_05-get tool의 request에 같은 target·ID·loop_no를 넣어 "
+                  "조회한 최신 revision을 사용합니다. Loop가 바뀌었으면 기록 대상을 먼저 재검토합니다.")
+EVIDENCE_LOOP_GUIDE = ("기록할 Step ID가 없으면 먼저 plan_08-list tool의 request에 target='step', 같은 plan_id·loop_no를 넣어 목록에서 Step을 선택합니다. "
+                       "근거를 얻은 작업 맥락의 loop_no를 유지해 request.loop_no로 함께 전달합니다. "
+                       + REVISION_GUIDE)
+
+
 # These are successful, single-step suggestions. State/handle checks below take
 # precedence; an error never inherits a success suggestion.
 SUCCESS_GUIDES = {
     "execute_looping": ("저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 set_working_plan으로 선택합니다. "
-                        "완료한 작업은 반복하지 않고, 수행·검증 결과는 plan_12-update tool의 request에 target='step', plan_id, step_id와 기록할 필드를 넣어 갱신합니다.\n"
+                        "완료한 작업은 반복하지 않고, 수행·검증 결과는 plan_12-update tool의 request에 target='step', plan_id, step_id와 기록할 필드를 넣어 갱신합니다. "
+                        + EVIDENCE_LOOP_GUIDE + "\n"
                         "회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다."),
-    "set_working_plan": "이 artifact_dir에서 작업하고, 재사용한 파일은 input_refs에, 새로 만든 산출물은 output_refs에 기록합니다.",
+    "set_working_plan": ("이 artifact_dir에서 작업하고, plan_12-update tool의 request에 target='step', plan_id, step_id와 "
+                         "재사용한 파일은 input_refs.add, 새 산출물은 output_refs.add로 기록합니다. " + EVIDENCE_LOOP_GUIDE),
     "rename_artifact_folder": "이후 산출물 작업에는 갱신된 artifact_dir를 사용합니다.",
     "resolve_targets": "대상의 현재 구성원은 get_ontological_holon으로 확인합니다.",
     "get_selection_references": "관련 Plan은 plan_05-get tool의 request에 target='plan'과 plan_id를 넣어 확인합니다.",
@@ -80,6 +89,9 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
                 "list_connections에서 해당 문서를 확인하고 connect로 다시 연결한 뒤 close_session을 호출합니다.")
     if name == "update_planning":
         if value.get("issues"):
+            if arguments.get("target") in {"plan", "step"}:
+                return ("issues에서 건너뛴 항목을 확인합니다. 같은 request.target·ID·loop_no를 유지하고 필요한 필드만 수정해 다시 요청합니다. "
+                        + REVISION_GUIDE)
             return "issues에서 건너뛴 항목을 확인합니다. 같은 request.target·ID를 유지하고 필요한 필드만 수정해 다시 요청합니다."
         target = arguments.get("target")
         if target == "step":
@@ -156,10 +168,14 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         return None
     if value.get("complete") is False:
         return None
+    if name == "set_working_plan" and not value.get("step_id"):
+        return ("이 artifact_dir에서 작업하고, plan_08-list tool의 request에 target='step', 반환된 plan_id와 loop_no를 넣어 "
+                "조회한 목록에서 기록할 Step을 선택합니다.")
     if name in CAPTURES:
         saved = value.get("image_file", {})
         if saved.get("status") == "saved" and saved.get("path") and saved.get("lifetime") == "plan":
-            return "보관할 이미지라면 plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs={add:[image_file.path]}를 입력합니다."
+            return ("보관할 이미지라면 plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs={add:[image_file.path]}를 입력합니다. "
+                    + EVIDENCE_LOOP_GUIDE)
         return None
     if name in EXECUTIONS:
         page = value.get("result_page", {})
@@ -188,7 +204,8 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
     if name == "capture_conditioning_pass":
         if value.get("errors") or value.get("frames_captured", 0) != value.get("frames_requested"):
             return None
-        return "프레임과 camera_json을 확인하고, plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs.add에 사용할 산출물 경로를 입력합니다."
+        return ("프레임과 camera_json을 확인하고, plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs.add에 사용할 산출물 경로를 입력합니다. "
+                + EVIDENCE_LOOP_GUIDE)
     if name == "check_egress":
         return "미달 항목의 배치·너비·경로를 수정하고 측정값을 갱신해 다시 검토합니다." if value.get("passed") is False else None
     if name == "apply_drawing_style":

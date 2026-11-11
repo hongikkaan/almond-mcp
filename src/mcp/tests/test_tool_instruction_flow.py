@@ -100,6 +100,53 @@ def test_capture_guidance_keeps_binary_content_and_error_flags():
     assert original.structured_content == payload
 
 
+@pytest.mark.parametrize('name,payload', [
+    ('execute_looping', {'status': 'success', 'loop_no': 1}),
+    ('set_working_plan', {'status': 'success', 'loop_no': 1, 'step_id': 'step_selected'}),
+    *[(name, {'status': 'success', 'image_file': {
+        'status': 'saved', 'path': '.almond/produced/review/01/evidence.png', 'lifetime': 'plan',
+    }}) for name in ('get_current_viewcapture', 'get_defined_viewcapture', 'capture_rhino_inspection')],
+    ('capture_conditioning_pass', {'status': 'success', 'frames_captured': 1, 'frames_requested': 1}),
+])
+def test_evidence_guidance_preserves_source_loop(name, payload):
+    guide = guide_payload(name, payload)['next_step_guide']
+    assert all(field in guide for field in ('plan_12-update', 'plan_id', 'step_id', 'loop_no'))
+    assert '근거를 얻은' in guide and 'loop_no를 유지' in guide
+    assert 'expected_revision' in guide and '최신 revision' in guide
+    if name in {'get_current_viewcapture', 'get_defined_viewcapture', 'capture_rhino_inspection', 'capture_conditioning_pass'}:
+        assert 'Step ID가 없으면' in guide and 'plan_08-list' in guide
+
+
+@pytest.mark.parametrize('step_id', ['', 'step_selected'])
+def test_working_selection_guidance_requires_a_step_before_recording(step_id):
+    guide = guide_payload('set_working_plan', {
+        'status': 'success', 'plan_id': 'plan_selected', 'step_id': step_id, 'loop_no': 1,
+    })['next_step_guide']
+    assert 'plan_id' in guide and 'loop_no' in guide
+    if step_id:
+        assert 'plan_12-update' in guide and 'step_id' in guide and 'output_refs.add' in guide
+    else:
+        assert 'plan_08-list' in guide and "target='step'" in guide and 'Step을 선택' in guide
+        assert 'plan_12-update' not in guide
+
+
+@pytest.mark.parametrize('target', ['plan', 'step'])
+def test_partial_retry_guidance_keeps_loop_and_refreshes_optional_revision(target):
+    guide = guide_payload('update_planning', {
+        'status': 'partial_success', 'issues': [{'reason': 'not_found'}],
+    }, {'request': {'target': target, 'loop_no': 1, 'expected_revision': 2}})['next_step_guide']
+    assert '같은 request.target·ID·loop_no' in guide
+    assert 'expected_revision' in guide and '최신 revision' in guide
+    assert '필요한 필드만' in guide
+
+
+def test_phase_retry_does_not_offer_loop_fields():
+    guide = guide_payload('update_planning', {
+        'status': 'partial_success', 'issues': [{'reason': 'not_found'}],
+    }, {'request': {'target': 'phase'}})['next_step_guide']
+    assert 'loop_no' not in guide and 'expected_revision' not in guide
+
+
 def test_user_script_result_keys_are_not_rewritten():
     payload = {'status':'success','completed':True,'result':{'next_step':'user data','status':'unfinished'}}
     assert guide_payload('execute_rhino_script',payload) == payload

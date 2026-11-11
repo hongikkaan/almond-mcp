@@ -171,6 +171,17 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
             assert old["step"]["output_refs"] == [first["artifact_dir"] + "/result.json"]
             refused = await call("plan_12-update", request=dict(target="step", plan_id=pid, step_id=sid, loop_no=1, status="running"))
             assert refused["status"] == "error"
+            # A delayed capture from Loop 1 must not land on the same Step UUID
+            # after another connection advances to Loop 2. No revision guard is
+            # needed: the preserved source loop alone must reject the write.
+            current_before = await call("plan_05-get", request=dict(target="step", include_details=True, plan_id=pid, step_id=sid))
+            revisions_before = await call("plan_07-list_revisions", plan_id=pid)
+            delayed = await call("plan_12-update", request=dict(target="step", plan_id=pid, step_id=sid,
+                loop_no=first["loop_no"], output_refs={"add": [first["artifact_dir"] + "/delayed-capture.png"]}))
+            assert delayed["status"] == "error"
+            assert await call("plan_05-get", request=dict(target="step", include_details=True, plan_id=pid, step_id=sid)) == current_before
+            assert await call("plan_05-get", request=dict(target="step", include_details=True, plan_id=pid, step_id=sid, loop_no=1)) == old
+            assert await call("plan_07-list_revisions", plan_id=pid) == revisions_before
             history = await call("plan_07-list_revisions", plan_id=pid, loop_no=1, step_id=sid)
             assert [(r["loop_no"],r["revision"]) for r in history["revisions"]] == [(1,2)]
             baseline = await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid, loop_no=0, revision=1))
