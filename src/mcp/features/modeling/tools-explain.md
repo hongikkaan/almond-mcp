@@ -25,7 +25,7 @@ Args:
 보관된 PlanSection 실행 결과를 조회합니다.
 
 Args:
-    result_id: plan_section.result.result_id에서 얻은 의미를 해석하지 않는 32자 결과 영수증 ID입니다.
+    result_id: drawing_06-generate_plan_section tool의 result.result_id에서 얻은 의미를 해석하지 않는 32자 결과 영수증 ID입니다.
     offset: 첫 페이지는 0, 이후에는 같은 결과의 next_offset을 그대로 입력합니다. UTF-16 코드 단위이므로 Python 문자열 길이로 계산하지 않습니다.
     expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:get_plan_section_result -->
@@ -98,7 +98,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 Args:
     guids: 할당할 현재 Rhino 객체 GUID입니다. 관찰 결과나 생성 결과를 재사용합니다.
-    material_id: list_materials(include_ids=true)에서 얻은 라이브러리의 표준 재료 ID입니다.
+    material_id: model_04-list_materials tool(include_ids=true)에서 얻은 라이브러리의 표준 재료 ID입니다.
     apply_render_material: true이면 지정된 객체에 표준 렌더 재료를 적용합니다.
     attach_metadata: true이면 Almond 재료/구축 메타데이터를 부착합니다. false이면 요청한 렌더 재료만 적용합니다.
     structural_role: 선택 사항인 구조 역할 메타데이터이며, attach_metadata와 함께 사용합니다.

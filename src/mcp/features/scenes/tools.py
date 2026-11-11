@@ -20,7 +20,7 @@ SCENE_GROUPS = {
 
 
 def register(mcp, context):
-    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_design_scenes', wrapped=True))
+    @mcp.tool(name='scene_07-list', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_design_scenes', wrapped=True))
     @tool_instruction(__file__, 'list_design_scenes')
     @query_output
     @holon_output
@@ -36,7 +36,7 @@ def register(mcp, context):
         except ValueError as exc:
             return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
 
-    @mcp.tool(output_schema=public_output_schema('create_design_scene', wrapped=True))
+    @mcp.tool(name='scene_02-create', output_schema=public_output_schema('create_design_scene', wrapped=True))
     @tool_instruction(__file__, 'create_design_scene')
     @holon_output
     def create_design_scene(name: str, units: str = "mm", file_name: str = "", project_file_id: str | None = None) -> str:
@@ -49,7 +49,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(output_schema=public_output_schema('get_design_scene', wrapped=True))
+    @mcp.tool(name='scene_04-get', output_schema=public_output_schema('get_design_scene', wrapped=True))
     @tool_instruction(__file__, 'get_design_scene')
     @query_output
     @holon_output
@@ -62,7 +62,7 @@ def register(mcp, context):
         return json.dumps({"status": "success", "scene": select_fields(scene, field_groups,
             {"scene_id", "name", "units", "revision", "components", "objects", "direct_objects"}, SCENE_GROUPS)})
 
-    @mcp.tool(output_schema=public_output_schema('update_design_scene', wrapped=True))
+    @mcp.tool(name='scene_12-update', output_schema=public_output_schema('update_design_scene', wrapped=True))
     @tool_instruction(__file__, 'update_design_scene')
     @holon_output
     def update_design_scene(scene_id: str, file_name: str | None = None, project_file_id: str | None = None) -> str:
@@ -75,7 +75,7 @@ def register(mcp, context):
     def _observe(model_path, ids):
         return observe_objects(context._send_and_receive, model_path, ids)
 
-    @mcp.tool(output_schema=public_output_schema('add_scene_objects', wrapped=True))
+    @mcp.tool(name='scene_01-add_objects', output_schema=public_output_schema('add_scene_objects', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'add_scene_objects')
     def add_scene_objects(scene_id: str, object_ids: list[str], expected_model_path: str = "") -> str:
@@ -86,7 +86,7 @@ def register(mcp, context):
         except Exception as exc:
             return context._component_error(exc)
 
-    @mcp.tool(output_schema=public_output_schema('remove_scene_objects', wrapped=True))
+    @mcp.tool(name='scene_10-remove_objects', output_schema=public_output_schema('remove_scene_objects', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'remove_scene_objects')
     def remove_scene_objects(scene_id: str, object_ids: list[str], expected_model_path: str = "") -> str:
@@ -97,7 +97,7 @@ def register(mcp, context):
         except Exception as exc:
             return context._component_error(exc)
 
-    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_scene_objects', wrapped=True))
+    @mcp.tool(name='scene_06-get_objects', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_scene_objects', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'get_scene_objects')
     @query_output

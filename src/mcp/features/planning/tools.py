@@ -25,7 +25,7 @@ def register(mcp, context):
     """Register planning tools against the calling server's live context."""
 
 
-    @mcp.tool(output_schema=public_output_schema('create_phase', wrapped=True))
+    @mcp.tool(name='plan_01-create_phase', output_schema=public_output_schema('create_phase', wrapped=True))
     @tool_instruction(__file__, 'create_phase')
     @holon_output
     def create_phase(name: str, description: str = "", file_name: str | list[str] = "",
@@ -37,7 +37,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_phases', wrapped=True))
+    @mcp.tool(name='plan_06-list_phases', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_phases', wrapped=True))
     @tool_instruction(__file__, 'list_phases')
     @holon_output
     def list_phases(limit: StrictInt = 50, field_groups: list[str] | None = None) -> str:
@@ -51,7 +51,7 @@ def register(mcp, context):
             return json.dumps(project(error_payload(str(exc)), field_groups))
 
 
-    @mcp.tool(output_schema=public_output_schema('update_phase', wrapped=True))
+    @mcp.tool(name='plan_11-update_phase', output_schema=public_output_schema('update_phase', wrapped=True))
     @tool_instruction(__file__, 'update_phase')
     @holon_output
     def update_phase(
@@ -67,7 +67,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(output_schema=public_output_schema('create_plan', wrapped=True))
+    @mcp.tool(name='plan_02-create', output_schema=public_output_schema('create_plan', wrapped=True))
     @tool_instruction(__file__, 'create_plan')
     @holon_output
     def create_plan(
@@ -104,7 +104,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(name='get_phase_plan_step', title='get_phase·plan·step', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_phase_plan_step', wrapped=True))
+    @mcp.tool(name='plan_05-get_phase_plan_step', title='get_phase·plan·step', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_phase_plan_step', wrapped=True))
     @tool_instruction(__file__, 'get_phase_plan_step')
     @holon_output
     def get_phase_plan_step(phase_id: str = "", plan_id: str = "", step_id: str = "",
@@ -135,7 +135,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_plans', wrapped=True))
+    @mcp.tool(name='plan_08-list', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_plans', wrapped=True))
     @tool_instruction(__file__, 'list_plans')
     @holon_output
     def list_plans(
@@ -152,7 +152,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(output_schema=public_output_schema('update_plan', wrapped=True))
+    @mcp.tool(name='plan_12-update', output_schema=public_output_schema('update_plan', wrapped=True))
     @tool_instruction(__file__, 'update_plan')
     @holon_output
     def update_plan(
@@ -182,7 +182,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_plan_revisions', wrapped=True))
+    @mcp.tool(name='plan_07-list_revisions', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_plan_revisions', wrapped=True))
     @tool_instruction(__file__, 'list_plan_revisions')
     @holon_output
     def list_plan_revisions(plan_id: str, limit: StrictInt = 50, field_groups: list[str] | None = None,
@@ -196,7 +196,7 @@ def register(mcp, context):
             return json.dumps(project(error_payload(str(exc)), field_groups))
 
 
-    @mcp.tool(output_schema=public_output_schema('update_step', wrapped=True))
+    @mcp.tool(name='plan_13-update_step', output_schema=public_output_schema('update_step', wrapped=True))
     @tool_instruction(__file__, 'update_step')
     @holon_output
     def update_step(
@@ -222,7 +222,7 @@ def register(mcp, context):
             return json.dumps(error_payload(str(exc)))
 
 
-    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('resolve_targets', wrapped=True))
+    @mcp.tool(name='inspect_05-resolve_targets', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('resolve_targets', wrapped=True))
     @tool_instruction(__file__, 'resolve_targets')
     @holon_output
     def resolve_targets(plan_id: str, step_id: str = "", field_groups: list[str] | None = None) -> str:
@@ -234,7 +234,7 @@ def register(mcp, context):
         except Exception as exc:
             return json.dumps(project(error_payload(str(exc)), field_groups))
 
-    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_selection_references', wrapped=True))
+    @mcp.tool(name='inspect_04-get_selection_references', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_selection_references', wrapped=True))
     @mcp_error_result
     @tool_instruction(__file__, 'get_selection_references')
     @holon_output

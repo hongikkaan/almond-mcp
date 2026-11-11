@@ -1,12 +1,12 @@
 # Phase·Plan·Step 도구 계약
 
-기본 조회 순서는 `list_phases` → `list_plans` → `get_phase_plan_step`이다. MCP 호출 이름은 `get_phase_plan_step`, 표시 제목(title)은 `get_phase·plan·step`이다. 표시 제목을 지원하지 않는 클라이언트에서는 호출 이름이 보일 수 있다.
+기본 조회 순서는 `plan_06-list_phases` tool → `plan_08-list` tool → `plan_05-get_phase_plan_step` tool이다. MCP 호출 이름은 `plan_05-get_phase_plan_step`, 표시 제목(title)은 `get_phase·plan·step`이다. 표시 제목을 지원하지 않는 클라이언트에서는 호출 이름이 보일 수 있다.
 
 이 모듈의 조회에는 `include_ids`가 없고 ID를 항상 출력한다. 작업 상태값은 `pending | running | paused | completed | failed | blocked`다. 아래 `?`는 선택 입력이다. 통합 상세 응답의 최상위 `status`는 선택한 항목의 작업 상태다. 목록·생성 성공은 `status: success`, 오류는 `status: error`와 message를 사용한다. 수정 응답의 적용 여부와 부분 성공은 아래 계약을 따른다.
 
 ## 통합 상세 조회
 
-`get_phase_plan_step`은 `phase_id` 또는 `plan_id` 중 하나를 받는다. Step 하나를 조회할 때는 `plan_id`와 `step_id`를 함께 입력한다.
+`plan_05-get_phase_plan_step` tool은 `phase_id` 또는 `plan_id` 중 하나를 받는다. Step 하나를 조회할 때는 `plan_id`와 `step_id`를 함께 입력한다.
 
 | 입력 | 타입 | 의미 |
 |---|---|---|
@@ -31,14 +31,14 @@ Plan의 steps는 Step ID·역할·이름·상태·회차의 요약이다. 특정
 
 ## Phase의 파일 연결
 
-`create_phase.file_name`은 파일명 문자열 또는 문자열 배열을 받는다. `update_phase.file_name`도 같으며 생략/null은 유지, 빈 문자열이나 빈 배열은 연결 해제다. 공개 Phase 도구에는 `project_file_id` 입력이 없다. Phase 상세와 목록 scope 그룹의 `file_name`은 항상 배열이다.
+`plan_01-create_phase tool.file_name`은 파일명 문자열 또는 문자열 배열을 받는다. `plan_11-update_phase tool.file_name`도 같으며 생략/null은 유지, 빈 문자열이나 빈 배열은 연결 해제다. 공개 Phase 도구에는 `project_file_id` 입력이 없다. Phase 상세와 목록 scope 그룹의 `file_name`은 항상 배열이다.
 
 파일 연결은 순서가 있는 `generation_phase_files`에 저장한다. 기존 단일 연결을 이관하며 Plan·Step 이력은 바꾸지 않는다. 내부 호환 키에는 첫 파일을 남기고, 이전 저장소가 단일 연결을 변경하면 트리거로 연결을 맞춘다. 여러 파일 중 하나라도 유효하지 않거나 이름이 모호하면 해당 요청의 파일 등록과 Phase 변경을 모두 되돌린다. 같은 이름의 여러 등록 파일을 임의로 선택하지 않는다. Scene의 단일 파일 입력 계약은 유지한다.
 
 ## 목록과 이력
 
 ```text
-list_phases Input
+plan_06-list_phases tool Input
   limit?: integer           기본 50, 1~500
   field_groups?: string[] | null  description | scope | audit | all
 Output
@@ -56,9 +56,9 @@ Output
   total: integer
   limit: integer
   truncated: boolean
-  next_step_guide?: string          Phase 상세 조회 또는 list_plans 필터 안내
+  next_step_guide?: string          Phase 상세 조회 또는 plan_08-list tool 필터 안내
 
-list_plans Input
+plan_08-list tool Input
   phase_id?: string          기본 "", 생략 시 모든 Phase
   scene_id?: string          기본 ""
   status?: string            기본 "", 지정 시 pending | running | paused | completed | failed | blocked
@@ -77,7 +77,7 @@ Output
   truncated: boolean
   next_step_guide?: string          plan_id를 통합 상세에 넣는 안내
 
-list_plan_revisions Input
+plan_07-list_revisions tool Input
   plan_id: string            필수
   loop_no?: integer | null   생략하면 모든 Loop
   step_id?: string           직접 Step 변경 기록만 필터
@@ -102,14 +102,14 @@ Output
 ## 생성과 수정
 
 ```text
-create_phase Input
+plan_01-create_phase tool Input
   name: string              필수, 비어 있지 않은 이름
   description?: string      기본 ""
   file_name?: string | string[]    기본 "", Rhino 파일명
   status?: string           기본 pending
   depends_on?: string[] | null  Phase ID만
 
-update_phase Input
+plan_11-update_phase tool Input
   phase_id: string          필수
   name?: string | null
   description?: string | null
@@ -119,7 +119,7 @@ update_phase Input
     add?: string[]          Phase ID만, 기본 []
     remove?: string[]       Phase ID만, 기본 []
 
-create_plan Input
+plan_02-create tool Input
   title: string             필수, 비어 있지 않은 제목
   goal: string              필수, 비어 있지 않은 목표
   scope?: string            기본 house, 등록된 템플릿 scope
@@ -131,7 +131,7 @@ create_plan Input
   parent_plan?: string[] | null  기본 []
   child_plan?: string[] | null   기본 []
 
-update_plan Input
+plan_12-update tool Input
   plan_id: string           필수
   title?: string | null
   goal?: string | null
@@ -148,7 +148,7 @@ update_plan Input
   expected_revision?: integer | null  선택적 오래된 상태 검사
   loop_no?: integer | null   현재 Loop 검사, 실행 후 expected_revision과 함께 필요
 
-update_step Input
+plan_13-update_step tool Input
   plan_id: string           필수
   step_id: string           필수
   status?: string | null    생략/null이면 유지
@@ -161,13 +161,13 @@ update_step Input
   expected_revision?: integer | null  선택적 오래된 상태 검사
   loop_no?: integer | null   현재 Loop 검사, 실행 후 expected_revision과 함께 필요
 
-Output — create_phase
+Output — plan_01-create_phase tool
   status: "success"
   phase:
     phase_id: string
     status: pending | running | paused | completed | failed | blocked
 
-Output — create_plan
+Output — plan_02-create tool
   status: "success"
   plan:
     plan_id: string
@@ -175,18 +175,18 @@ Output — create_plan
     loop_no: integer
     revision: integer
 
-Output — update_phase / update_plan / update_step
+Output — plan_11-update_phase tool / plan_12-update tool / plan_13-update_step tool
   status: success | partial_success | no_change
   changed: boolean
-  phase?:                  update_phase
+  phase?:                  plan_11-update_phase tool
     phase_id: string
     status: pending | running | paused | completed | failed | blocked
-  plan?:                   update_plan / update_step
+  plan?:                   plan_12-update tool / plan_13-update_step tool
     plan_id: string
     status: pending | running | paused | completed | failed | blocked
     loop_no: integer
     revision: integer
-  step?:                   update_step
+  step?:                   plan_13-update_step tool
     step_id: string
     status: pending | running | paused | completed | failed | blocked
   issues[]:                건너뛴 입력 항목만; 없으면 []
@@ -212,11 +212,11 @@ Output — update_phase / update_plan / update_step
 
 `scene_id`와 `scene_ids`를 함께 넣으면 단일 값이 배열 첫 항목과 같아야 한다. Plan의 Component와 Scene은 실제 저장된 대상을 참조한다. `depends_on`은 Phase에는 `phase_`, Plan에는 `plan_` ID만 받지만 미생성 참조·자기 참조·순환을 허용하고 실행/완료를 강제하지 않는다.
 
-제목·상태·참조가 실제로 바뀌면 Plan revision을 기록하고 같은 값이면 시각/revision을 유지한다. Step 상태가 바뀌어도 Plan 상태는 자동 변경하지 않는다. Plan 완료는 사용자가 판단한다. status/input_refs/output_refs는 어떤 조합으로도 선택 수정하며 한 요청은 실제 변경이 있을 때 revision을 한 번만 증가시킨다. 기록만 수정할 때 status를 생략할 수 있고 Step 상태와 Plan의 paused/completed 상태가 유지된다. 조회 응답의 next_step_guide는 후속 조회·작업 선택을 안내하지만, 조회나 set_working_plan 선택 자체가 상태 변경 또는 실행을 뜻하지 않는다. `expected_revision`은 선택 입력으로, 저장된 최신 revision과 다르면 수정을 거절한다.
+제목·상태·참조가 실제로 바뀌면 Plan revision을 기록하고 같은 값이면 시각/revision을 유지한다. Step 상태가 바뀌어도 Plan 상태는 자동 변경하지 않는다. Plan 완료는 사용자가 판단한다. status/input_refs/output_refs는 어떤 조합으로도 선택 수정하며 한 요청은 실제 변경이 있을 때 revision을 한 번만 증가시킨다. 기록만 수정할 때 status를 생략할 수 있고 Step 상태와 Plan의 paused/completed 상태가 유지된다. 조회 응답의 next_step_guide는 후속 조회·작업 선택을 안내하지만, 조회나 plan_10-set_working tool 선택 자체가 상태 변경 또는 실행을 뜻하지 않는다. `expected_revision`은 선택 입력으로, 저장된 최신 revision과 다르면 수정을 거절한다.
 
-`resolve_targets`는 Plan의 Component 대상을 해석한다. 선택적 step_id는 소속 Step을 확인할 뿐 대상을 바꾸지 않는다. `get_selection_references`도 Plan 대상을 기준으로 선택 객체와 관련된 Plan/Step을 찾는다. 두 도구의 상세 선택은 각 tools/list 설명을 따른다. `set_working_plan`의 선택·산출물 폴더 계약은 [runtime 설명](../../runtime/mcp_server-explain.md)을 따른다.
+`inspect_05-resolve_targets` tool는 Plan의 Component 대상을 해석한다. 선택적 step_id는 소속 Step을 확인할 뿐 대상을 바꾸지 않는다. `inspect_04-get_selection_references` tool도 Plan 대상을 기준으로 선택 객체와 관련된 Plan/Step을 찾는다. 두 도구의 상세 선택은 각 tools/list 설명을 따른다. `plan_10-set_working` tool의 선택·산출물 폴더 계약은 [runtime 설명](../../runtime/mcp_server-explain.md)을 따른다.
 
-`set_working_plan`은 plan_id·step_id·loop_no·plan_artifact_dir·artifact_dir와 선택 시점의 Plan revision을 반환한다. 첫 산출물 경로 설정으로 revision이 증가할 수 있으므로, 선택적 expected_revision 검사를 쓸 때에는 선택 응답의 revision과 loop_no를 함께 사용한다. 번호 계산이나 직접 증가는 필요 없다. 폴더를 재사용하는 선택만으로는 revision이 증가하지 않는다.
+`plan_10-set_working` tool은 plan_id·step_id·loop_no·plan_artifact_dir·artifact_dir와 선택 시점의 Plan revision을 반환한다. 첫 산출물 경로 설정으로 revision이 증가할 수 있으므로, 선택적 expected_revision 검사를 쓸 때에는 선택 응답의 revision과 loop_no를 함께 사용한다. 번호 계산이나 직접 증가는 필요 없다. 폴더를 재사용하는 선택만으로는 revision이 증가하지 않는다.
 
 ## Step 템플릿 선택
 
@@ -239,7 +239,7 @@ Construction detail은 저장된 ON/OFF 필드가 없다. 해당 Task의 사용�
 
 ## 기존 데이터
 
-새 스키마를 처음 열 때 빈 제목을 goal의 첫 비어 있지 않은 줄에서 최대 80자로 채운다. goal 원문은 보존한다. 실제 프로젝트의 읽기 좋은 제목 작성은 update_plan으로 기록한다. 동종이 아닌 의존 참조와 Step별 활성 대상을 정리하되 Step별 이전 대상은 `_retired_step_targets`에 보존한다. 대상/의존 관계가 달라진 Plan은 새 revision을 남긴다. 기존 revision JSON은 그대로 보존하며 과거 조회에서 현재 계약에 맞는 필드만 보여준다. 타임스탬프 저장은 UTC, Plan 상세 표시는 KST다.
+새 스키마를 처음 열 때 빈 제목을 goal의 첫 비어 있지 않은 줄에서 최대 80자로 채운다. goal 원문은 보존한다. 실제 프로젝트의 읽기 좋은 제목 작성은 plan_12-update tool으로 기록한다. 동종이 아닌 의존 참조와 Step별 활성 대상을 정리하되 Step별 이전 대상은 `_retired_step_targets`에 보존한다. 대상/의존 관계가 달라진 Plan은 새 revision을 남긴다. 기존 revision JSON은 그대로 보존하며 과거 조회에서 현재 계약에 맞는 필드만 보여준다. 타임스탬프 저장은 UTC, Plan 상세 표시는 KST다.
 
 Python 변경을 사용하려면 관련 MCP/Terminal almond 세션을 정상 종료하고 새로 시작한다. 외부 카탈로그는 시작 시 현재 소스에서 자동 생성된다. 이 변경에는 RHP 빌드·교체·등록 변경이 필요하지 않다.
 
@@ -251,10 +251,10 @@ Plan과 Phase의 `previous_id`는 같은 종류의 직전 작업 하나를 기�
 
 ## Loop 실행과 저장
 
-- `execute_looping(plan_id, resume=false, feedback="", artifact_name="")`은 다음 회차를 시작하고 작업 맥락을 선택한다. 첫 호출은 1, 다음 호출은 2다. `resume=true`는 최신 회차의 번호와 Step 기록을 유지한다. 실행 전에는 재개할 회차가 없다.
+- `plan_03-execute_looping tool(plan_id, resume=false, feedback="", artifact_name="")`은 다음 회차를 시작하고 작업 맥락을 선택한다. 첫 호출은 1, 다음 호출은 2다. `resume=true`는 최신 회차의 번호와 Step 기록을 유지한다. 실행 전에는 재개할 회차가 없다.
 - 응답에는 목표, Plan 상태, 피드백, 순서 있는 Step 및 입출력 기록, 다음 미완료 Step, 이전 회차 기록, 산출물 경로, 짧은 실행·보고 원칙가 있다. Step을 자동 실행하지 않는다. 회차에는 종료·중단·진행 상태가 없고 Plan·Step의 기존 6개 상태만 사용한다.
 - Step UUID와 유형/이름은 별개다. 새 회차에도 UUID·순서·유형을 유지하며 회차별 상태는 pending, 입출력 기록은 빈 배열로 시작한다. 이전 결과의 유효성을 확인한 뒤 원래 경로를 input_refs로 참조한다.
-- Plan의 `loop_no=0`은 아직 execute_looping을 호출하지 않았다는 값이다. 실행 Loop 테이블에 0 행을 만들지 않고 00 폴더도 만들지 않는다. 기존 생성·수정 기록은 번호와 snapshot 원문을 그대로 보존하며 loop_no=0으로 조회한다.
+- Plan의 `loop_no=0`은 아직 plan_03-execute_looping tool을 호출하지 않았다는 값이다. 실행 Loop 테이블에 0 행을 만들지 않고 00 폴더도 만들지 않는다. 기존 생성·수정 기록은 번호와 snapshot 원문을 그대로 보존하며 loop_no=0으로 조회한다.
 - `generation_plan_steps`는 Step 정의, `generation_loop_steps`는 (plan_id, loop_no, step_id)별 상태·입출력, `generation_plan_loops`는 실제 1 이상 회차와 피드백, `generation_plan_revisions`는 (plan_id, loop_no, revision)별 전체 snapshot이다. Step 수정 revision의 별도 step_id 열로 필터한다. Plan-wide 기록의 step_id는 null이다.
 - 현재 Loop의 MAX(revision)+1을 기존 BEGIN IMMEDIATE 트랜잭션 안에서 할당하고 데이터 변경과 snapshot을 함께 commit한다. 새 Loop는 revision 1부터 시작한다. 현재 Plan의 revision은 현재 Loop 최신 번호이며 전역 카운터가 아니다. 조회·무변경·일반 Rhino/Python 호출은 revision을 만들지 않는다.
 - 현재보다 작은 Loop와 그 기록은 읽기 전용이다. 조회에 loop_no를 생략하면 최신 회차, revision도 생략하면 그 회차 최신 상태다. 과거 상태는 읽을 수 있지만 복원하거나 다시 수정하지 않는다. 선택적 expected_revision은 실행 후 loop_no와 함께 검사해 서로 다른 회차의 같은 번호를 혼동하지 않는다.

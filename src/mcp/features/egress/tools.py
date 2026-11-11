@@ -7,7 +7,7 @@ import json
 
 def register(mcp, context):
     """Register egress checks and return the server compatibility exports."""
-    @mcp.tool(output_schema=public_output_schema('check_egress', wrapped=True))
+    @mcp.tool(name='analysis_01-check_egress', output_schema=public_output_schema('check_egress', wrapped=True))
     @tool_instruction(__file__, 'check_egress')
     def check_egress(
         plate_bounds_mm: list[float],

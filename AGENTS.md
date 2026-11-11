@@ -56,7 +56,7 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 - 외부 실행: `src/mcp/runtime/Almond 시작.cmd`에서 저장된 모델을 선택한다.
 - Rhino 내부: `RhinoTerminal` → `On`; 패널이 숨으면 `PanelToggle`로 표시한 뒤 `almond`를 입력하거나 우측 상단 버튼을 누른다. 재연결은 `almond resume` 또는 resume 버튼. `Off`는 패널 표시와 무관하게 터미널을 종료한다.
-- 외부 Codex·CoS: 저장된 Rhino 문서에서 `almondconnect`를 실행하고 클라이언트에서 host/model을 선택한다. 연결 해제는 `almonddisconnect` 또는 클라이언트의 `disconnect`다.
+- 외부 Codex·CoS: 저장된 Rhino 문서에서 `almondconnect`를 실행하고 클라이언트에서 host/model을 선택한다. 연결 해제는 `almonddisconnect` 또는 클라이언트의 `connect_04-disconnect` tool다.
 - 패널: `Almond`, `AlmondLibrary`, `AlmondStructure`, `AlmondResults`. 패널이 숨으면 Terminal/Layers와 같은 dock에 둔다.
 
 ## 개발·빌드·반영
@@ -86,9 +86,11 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 
 모델 폴더는 `.almond/scene.sqlite3`를 공유한다. Plan 산출물은 프로젝트 `.almond/produced/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 종료된 연결의 소유 임시자료와 `.sessions` 기록은 프로세스·잠금·native 완료로 회수하며 Plan·Step 완료 여부와 연결하지 않는다. 공유 잠금·역할 lease·A–J 슬롯·프로세스 identity·UI thread·native 완료 확인을 유지한다. 모델을 이동·이름 변경하기 전에 연결을 정상 종료한다.
 
-프로젝트 정보가 필요하면 `project_info`에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `set_working_plan`으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond·CoS 외부 연결에서는 connect/start_session으로 선택한 연결을 재사용한다. `connection_id`는 호출별 연결 재지정 시에만 전달한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [관측 SPEC](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
+프로젝트 정보가 필요하면 `context_04-get_project_info` tool에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `inspect_03-get_document_context` tool를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `plan_10-set_working` tool으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond·CoS 외부 연결에서는 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 재사용한다. `connection_id`는 호출별 연결 재지정 시에만 전달한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [관측 SPEC](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
 
 임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. SPEC·AGENTS에는 현재 구조·계약·작업 규칙만 유지한다. 과거 설계안·진행 보고·커밋별 변경 내역·검증 실측은 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
+
+공개 도구명은 `<category>_<NN>-<name>`을 사용하며 기존 이름의 별칭은 등록하지 않는다. DESCRIPTION·입력 설명·후속 안내에서 등록된 도구를 언급할 때는 `<공개 도구명> tool`로 표기한다. Python 함수명·native command·DB 식별자는 공개 호출명과 구분한다.
 
 작업을 마무리할 때 루트 [tool_description_spec.md](tool_description_spec.md)의 도구 목록·DESCRIPTION·TOOL INPUT·TOOL OUTPUT 예시를 현재 구현과 실제 공개 스키마에 대조하고, 달라진 내용을 갱신한다. 코드 기반 예시와 실제 Rhino 검증 결과를 구분한다.
 

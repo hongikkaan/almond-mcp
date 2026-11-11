@@ -203,7 +203,7 @@ class Workflow:
                 identity = uuid4().hex
                 self.pending = {"review_id": identity, "number": self.number, "handles": handles, "key": key}
                 review.update(state="awaiting_choice", review_id=identity, number=self.number,
-                              next_step="Inspect this image and objects[].number, then call resolve_object_intersection(review_id=<this review_id>, choice=1 or 2) to trim only that numbered object and keep the other. Use choice='skip' to leave both unchanged; do not resend object_ids when answering this review.")
+                              next_step="Inspect this image and objects[].number, then call intersect_02-resolve tool with review_id=<this review_id> and choice=1 or 2 to trim only that numbered object and keep the other. Use choice='skip' to leave both unchanged; do not resend object_ids when answering this review.")
                 return review
             next_cursor = page.get("next_cursor")
             if page.get("pagination_complete") is True:

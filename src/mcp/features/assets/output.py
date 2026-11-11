@@ -1,4 +1,5 @@
 """Drawing/repository shortlist fields and explicit detail groups."""
+from almond_mcp.public_names import internal_tool_name, public_tool_name, tool_references
 from almond_mcp.query_output import select_fields, select_records, requires_full_evidence
 
 
@@ -18,15 +19,15 @@ GROUPS = {
 
 def with_next_step(record: dict) -> dict:
     """Explain existing readiness hints without choosing an asset or hiding missing inputs."""
-    tool = record.get("next_tool")
+    tool = internal_tool_name(record.get("next_tool", ""))
     if tool not in {"prepare_drawing_asset", "refresh_asset"}:
         return record
     if tool == "refresh_asset":
-        hint = "원본의 저장된 변경을 반영하려면 조회에 사용한 asset_id로 refresh_asset을 호출합니다."
+        hint = "원본의 저장된 변경을 반영하려면 조회에 사용한 asset_id로 asset_08-refresh tool을 호출합니다."
     else:
-        hint = ("get_drawing_asset(field_groups=['paths'])로 원본 경로를 확인하고, "
-                "Plan을 선택한 뒤 prepare_drawing_asset(stage='inspect')의 source_file에 프로젝트 기준 경로를 넣고 원본 단위를 입력합니다.")
-    return {**record, "next_step_guide": hint}
+        hint = ("asset_04-get tool에서 field_groups=['paths']로 원본 경로를 확인하고, "
+                "Plan을 선택한 뒤 asset_07-prepare tool에 stage='inspect', source_file의 프로젝트 기준 경로와 원본 단위를 입력합니다.")
+    return {**record, "next_tool": public_tool_name(tool), "next_step_guide": tool_references(hint)}
 
 
 def project(payload: dict, groups: list[str] | None) -> dict:

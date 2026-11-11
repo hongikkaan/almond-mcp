@@ -13,7 +13,7 @@ import socket
 def register(mcp, context):
     """Register diagram tools against the calling server's live context."""
 
-    @mcp.tool(output_schema=public_output_schema('list_diagram_assets', wrapped=True))
+    @mcp.tool(name='diagram_02-list', output_schema=public_output_schema('list_diagram_assets', wrapped=True))
     @tool_instruction(__file__, 'list_diagram_assets')
     @query_output
     def list_diagram_assets(category: str = "", limit: int = 20, offset: int = 0, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -31,7 +31,7 @@ def register(mcp, context):
         }, field_groups))
 
 
-    @mcp.tool(output_schema=public_output_schema('search_diagram_assets', wrapped=True))
+    @mcp.tool(name='diagram_04-search', output_schema=public_output_schema('search_diagram_assets', wrapped=True))
     @tool_instruction(__file__, 'search_diagram_assets')
     @query_output
     def search_diagram_assets(
@@ -55,7 +55,7 @@ def register(mcp, context):
         ), field_groups))
 
 
-    @mcp.tool(output_schema=public_output_schema('get_diagram_asset', wrapped=True))
+    @mcp.tool(name='diagram_01-get', output_schema=public_output_schema('get_diagram_asset', wrapped=True))
     @tool_instruction(__file__, 'get_diagram_asset')
     @query_output
     def get_diagram_asset(asset_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -66,7 +66,7 @@ def register(mcp, context):
         return json.dumps(project({"status": "success", "asset": asset}, field_groups))
 
 
-    @mcp.tool(output_schema=public_output_schema('place_diagram_asset', wrapped=True))
+    @mcp.tool(name='diagram_03-place', output_schema=public_output_schema('place_diagram_asset', wrapped=True))
     @tool_instruction(__file__, 'place_diagram_asset')
     def place_diagram_asset(
         asset_id: str,

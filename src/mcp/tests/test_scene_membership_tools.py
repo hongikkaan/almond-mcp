@@ -18,7 +18,7 @@ def test_scene_membership_public_tools_return_indices_only():
     for name, field in [('add_scene_objects', 'already_present_indices'), ('remove_scene_objects', 'already_absent_indices')]:
         output = tools[name](scene_id='scene_test', object_ids=ids, expected_model_path=r'C:\\fixture\\model.3dm')
         value = json.loads(output)
-        assert 'get_scene_objects' in value.pop('next_step_guide')
+        assert 'scene_06-get_objects' in value.pop('next_step_guide')
         assert value == {'status': 'success', 'failed_indices': [1], field: [2]}
         assert all(guid not in output for guid in ids)
     assert [r[3] for r in requests] == [True, False]

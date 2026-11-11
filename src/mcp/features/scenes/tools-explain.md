@@ -21,7 +21,7 @@ Args:
     name: 설계 영역 또는 행위/프로그램 맥락을 설명하는 Scene 이름입니다. 비어 있으면 Untitled가 됩니다.
     units: Scene에 기록할 단위입니다. mm, cm, m, in, ft 중 하나를 선택합니다.
     file_name: 이 Scene이 속한 프로젝트 파일명을 문자열로 입력합니다. 폴더는 제외하고, 같은 이름의 파일이 여러 개면 project_file_id로 지정합니다.
-    project_file_id: project_info(sections=["project"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name과 함께 제공하면 서로 일치해야 합니다.
+    project_file_id: context_04-get_project_info tool(sections=["project"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name과 함께 제공하면 서로 일치해야 합니다.
 <!-- /instruction:create_design_scene -->
 
 ## get_design_scene
@@ -30,7 +30,7 @@ Args:
 Scene의 등록 정보를 조회합니다.
 
 Args:
-    scene_id: list_design_scenes(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
+    scene_id: scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
     include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
     field_groups: 선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다.
 <!-- /instruction:get_design_scene -->
@@ -39,7 +39,7 @@ Args:
 Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 Args:
-    scene_id: list_design_scenes(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
+    scene_id: scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
     file_name: 폴더를 포함하지 않는 교체 파일 이름입니다. 선택 사항이며, project_file_id를 생략한 상태에서 빈 문자열을 지정하면 연결을 해제합니다. 생략하면 유지합니다.
     project_file_id: 연결할 기존 프로젝트 파일의 ID입니다. file_name도 입력하면 같은 파일을 가리켜야 합니다.
 <!-- /instruction:update_design_scene -->
@@ -50,7 +50,7 @@ Args:
 Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회합니다.
 
 Args:
-    scene_id: list_design_scenes(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
+    scene_id: scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
     include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
     field_groups: 선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다.
     limit: 현재 상태를 검증한 Scene 객체의 페이지 크기이며, 범위는 1..200입니다.
@@ -63,7 +63,7 @@ Args:
 Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon 구성원을 복원합니다.
 
 Args:
-    scene_id: list_design_scenes(include_ids=true)에서 얻은 기존 Scene ID입니다.
+    scene_id: scene_07-list tool(include_ids=true)에서 얻은 기존 Scene ID입니다.
     object_ids: 일반 형상이나 클리핑 평면을 포함하는 객체 GUID 배열로, 최대 4096개 항목을 허용합니다.
     expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:add_scene_objects -->
@@ -72,7 +72,7 @@ Args:
 객체를 Scene에서 제외합니다. Rhino 형상과 Holon 그룹은 유지됩니다.
 
 Args:
-    scene_id: list_design_scenes(include_ids=true)에서 얻은 기존 Scene ID입니다.
+    scene_id: scene_07-list tool(include_ids=true)에서 얻은 기존 Scene ID입니다.
     object_ids: 일반 형상 또는 클리핑 평면을 포함하는 객체 GUID 배열이며, 최대 4096개 항목을 받습니다.
     expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:remove_scene_objects -->

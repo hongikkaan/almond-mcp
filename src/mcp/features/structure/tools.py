@@ -19,7 +19,7 @@ KARAMBA_ONLY_TYPES = ("shell", "gridshell", "membrane")
 def register(mcp, context):
     """Register structural tools against the assembling server's current services."""
 
-    @mcp.tool(output_schema=public_output_schema('validate_structure', wrapped=True))
+    @mcp.tool(name='analysis_04-validate_structure', output_schema=public_output_schema('validate_structure', wrapped=True))
     @tool_instruction(__file__, 'validate_structure')
     def validate_structure(
         guids: list[str],
@@ -203,7 +203,7 @@ def register(mcp, context):
         return result, None
 
 
-    @mcp.tool(output_schema=public_output_schema('list_design_codes', wrapped=True))
+    @mcp.tool(name='analysis_03-list_design_codes', output_schema=public_output_schema('list_design_codes', wrapped=True))
     @tool_instruction(__file__, 'list_design_codes')
     @query_output
     def list_design_codes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
@@ -211,7 +211,7 @@ def register(mcp, context):
         return json.dumps(project(design_codes.listing(), field_groups))
 
 
-    @mcp.tool(output_schema=public_output_schema('visualize_structure', wrapped=True))
+    @mcp.tool(name='analysis_05-visualize_structure', output_schema=public_output_schema('visualize_structure', wrapped=True))
     @tool_instruction(__file__, 'visualize_structure')
     def visualize_structure(
         guids: list[str] | None = None,
@@ -469,7 +469,7 @@ def register(mcp, context):
 
 
     def _render_validation_report(runs: list[dict]) -> str:
-        """Markdown report of persisted validate_structure runs, newest first."""
+        """Markdown report of persisted analysis_04-validate_structure tool runs, newest first."""
         from datetime import datetime, timezone
 
         lines = [
@@ -480,7 +480,7 @@ def register(mcp, context):
             "",
             "## How a run works",
             "",
-            "`validate_structure` extracts the referenced Rhino geometry through the bridge.",
+            "`analysis_04-validate_structure tool` extracts the referenced Rhino geometry through the bridge.",
             "With `engine='auto'`, line/frame models use **native** — Almond's frame FEA.",
             "Its confidence depends on the material and supported checks. Shell models or",
             "unavailable native model export use the Karamba route. Explicit `engine='native'`",
@@ -546,7 +546,7 @@ def register(mcp, context):
         return "\n".join(lines)
 
 
-    @mcp.tool(output_schema=public_output_schema('export_structural_report', wrapped=True))
+    @mcp.tool(name='analysis_02-export_structural_report', output_schema=public_output_schema('export_structural_report', wrapped=True))
     @tool_instruction(__file__, 'export_structural_report')
     def export_structural_report(path: str = "", limit: int = 50) -> str:
         from datetime import datetime, timezone

@@ -40,7 +40,7 @@ def test_default_only_hint_catalogue_ids_and_document_projection(options):
     tools, calls, _, _ = fixture_tools()
     result = json.loads(tools["get_rhino_context"](**options))
     assert set(result) == {"status", "warnings", "document", "named_views", "layouts", "display_modes", "next_step_guide"}
-    assert "get_current_viewcapture" in result["next_step_guide"]
+    assert "capture_03-current_view" in result["next_step_guide"]
     assert result["document"] == {"units": "Millimeters", "absolute_tolerance": .01, "angle_tolerance": .02,
                                   "modified": True, "object_count": 7, "layer_count": 3}
     for section in ("named_views", "layouts", "display_modes"):
@@ -119,6 +119,6 @@ def test_native_errors_and_unavailable_observations_are_preserved():
 def test_public_schema_removes_image_and_selection_arguments_from_context():
     _, _, _, server = fixture_tools()
     tools = {t.name: t.to_mcp_tool().model_dump(mode="json", by_alias=True) for t in asyncio.run(server.list_tools())}
-    assert set(tools["get_rhino_context"]["inputSchema"]["properties"]) == {"sections", "include_ids", "include_editor_details"}
-    assert "get_objects" in tools
+    assert set(tools["inspect_03-get_document_context"]["inputSchema"]["properties"]) == {"sections", "include_ids", "include_editor_details"}
+    assert "inspect_02-get_objects" in tools
     assert not {"get_rhino_selection", "get_rhino_objects"}.intersection(tools)

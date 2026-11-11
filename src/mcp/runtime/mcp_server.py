@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None, *, validate_binding=None, configure=None
 
 async def configure_project_context(mcp, args, binding, locations, *, sender=None, runtime=None):
     """Register bound model and output path metadata for the current connection."""
-    @mcp.tool(output_schema=public_output_schema('project_info', wrapped=False))
+    @mcp.tool(name='context_04-get_project_info', output_schema=public_output_schema('project_info', wrapped=False))
     @tool_instruction(__file__, 'project_info')
     def project_info(sections: list[str] | None = None, include_ids: StrictBool = False,
                      files_limit: StrictInt = 50, files_offset: StrictInt = 0) -> dict:
@@ -138,7 +138,7 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
             result["locations"] = project_query({**work, "artifact_dir": work["artifact_dir"] or None}, include_ids=include_ids)
             result["locations"].update(database=relative_path(locations["state_db"], root),
                 path_rule="Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths.",
-                artifact_rule="Select a Plan with set_working_plan; managed outputs use its current Loop folder .almond/produced/YYMMDD_name/01, /02, etc.; before execute_looping they use the Plan root.")
+                artifact_rule="Select a Plan with plan_10-set_working tool; managed outputs use its current Loop folder .almond/produced/YYMMDD_name/01, /02, etc.; before plan_03-execute_looping tool they use the Plan root.")
         if "runtime" in sections:
             result["runtime"] = relative_output({"slot": binding["label"], "port": binding["port"],
                 "session_dir": locations["session_dir"], "scratch_root": str(Path(locations["temp"]) / "python"),
@@ -148,12 +148,12 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
             if runtime is not None:
                 result["runtime"]["rhinocode"] = runtime.rhinocode_availability()
             result["runtime"] = project_query(result["runtime"], include_ids=include_ids)
-        result["next_step_guide"] = ("- list_plans으로 프로젝트 진행상황 파악합니다.\n"
-                                     "- 산출물 작업 공간은 set_working_plan으로 선택합니다.\n"
-                                     "- 객체 상태가 필요하면 get_objects로 확인합니다.")
+        result["next_step_guide"] = ("- plan_08-list tool으로 프로젝트 진행상황 파악합니다.\n"
+                                     "- 산출물 작업 공간은 plan_10-set_working tool으로 선택합니다.\n"
+                                     "- 객체 상태가 필요하면 inspect_02-get_objects tool로 확인합니다.")
         return result
 
-    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_rhino_execution', wrapped=False))
+    @mcp.tool(name='script_03-get_execution', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_rhino_execution', wrapped=False))
     @tool_instruction(__file__, 'get_rhino_execution')
     def get_rhino_execution(request_id: str = "", include_result: StrictBool = True,
                             include_stdout: StrictBool = False, result_fields: list[str] | None = None,
@@ -172,28 +172,28 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
         result = runtime.get_rhino_execution(request_id, offset, limit, include_result, include_stdout, result_fields, include_ids)
         return execution_output(result, include_diagnostics=include_diagnostics)
 
-    @mcp.tool(output_schema=public_output_schema('set_working_plan', wrapped=False))
+    @mcp.tool(name='plan_10-set_working', output_schema=public_output_schema('set_working_plan', wrapped=False))
     @tool_instruction(__file__, 'set_working_plan')
     def set_working_plan(plan_id: str, step_id: str = "", artifact_name: str = "", loop_no: StrictInt | None = None) -> dict:
         if runtime is None or runtime.workspace is None:
             raise RuntimeError("The project workspace is not connected.")
         return {"status": "success", **runtime.workspace.select(plan_id, step_id, artifact_name, loop_no)}
 
-    @mcp.tool(output_schema=public_output_schema('execute_looping', wrapped=False))
+    @mcp.tool(name='plan_03-execute_looping', output_schema=public_output_schema('execute_looping', wrapped=False))
     @tool_instruction(__file__, 'execute_looping')
     def execute_looping(plan_id: str, resume: StrictBool = False, feedback: str = "", artifact_name: str = "") -> dict:
         if runtime is None or runtime.workspace is None:
             raise RuntimeError("The project workspace is not connected.")
         return {"status": "success", **runtime.workspace.execute_looping(plan_id, resume, feedback, artifact_name)}
 
-    @mcp.tool(output_schema=public_output_schema('rename_artifact_folder', wrapped=False))
+    @mcp.tool(name='plan_09-rename_artifact_folder', output_schema=public_output_schema('rename_artifact_folder', wrapped=False))
     @tool_instruction(__file__, 'rename_artifact_folder')
     def rename_artifact_folder(name: str, plan_id: str = "") -> dict:
         if runtime is None or runtime.workspace is None:
             raise RuntimeError("The project workspace is not connected.")
         return {"status": "success", **runtime.workspace.rename(name, plan_id)}
 
-    @mcp.tool(output_schema=public_output_schema('execute_project_python', wrapped=False))
+    @mcp.tool(name='script_01-run_project_python', output_schema=public_output_schema('execute_project_python', wrapped=False))
     @tool_instruction(__file__, 'execute_project_python')
     def execute_project_python(code: str, timeout_seconds: StrictInt = 60) -> dict:
         if not isinstance(code, str) or not code.strip():

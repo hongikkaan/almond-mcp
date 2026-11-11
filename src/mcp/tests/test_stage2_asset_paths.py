@@ -21,6 +21,7 @@ from almond_mcp import paths
 from almond_mcp.features.assets import preparation
 from almond_mcp.features.assets.tools import register as asset_tools
 from almond_mcp.features.planning.tools import register as planning_tools
+from almond_mcp.public_names import internal_tool_name
 from almond_mcp.retrieval_store import AlmondStore
 import mcp_server
 from project import connection_paths, write_json
@@ -35,8 +36,9 @@ class OwnedCallBoundary(Middleware):
 
     async def on_call_tool(self, context, call_next):
         self.runtime.validate()
-        return await self.runtime._owned_call(context, call_next, context.message.name,
-            writes_artifacts(context.message.name, context.message.arguments or {}), "")
+        name = internal_tool_name(context.message.name)
+        return await self.runtime._owned_call(context, call_next, name,
+            writes_artifacts(name, context.message.arguments or {}), "")
 
 
 def small_glb(path):
@@ -128,9 +130,9 @@ def test_generate_audit_roundtrip_uses_returned_package_path(managed_assets):
     fixture = managed_assets
     async def run():
         async with Client(fixture.server) as client:
-            _, generated = await call(client, "generate_asset_drawing_views", source_glb="source.glb", input_units="mm")
+            _, generated = await call(client, "asset_02-generate_drawing_views", source_glb="source.glb", input_units="mm")
             assert generated["status"] == "success", generated
-            _, audited = await call(client, "audit_asset_drawing", package_dir=generated["package_dir"], source_glb="source.glb")
+            _, audited = await call(client, "asset_01-audit_drawing", package_dir=generated["package_dir"], source_glb="source.glb")
             assert audited["status"] == "success" and audited["source_geometry"] == "current", audited
             assert audited["checked_files"] > 0
             assert fixture.wire.calls == []
@@ -142,12 +144,12 @@ def test_preflight_error_keeps_same_connection_usable_without_creating_operation
     fixture = managed_assets
     async def run():
         async with Client(fixture.server) as client:
-            rejected, error = await call(client, "generate_asset_drawing_views", source_glb="../outside.glb", input_units="mm")
+            rejected, error = await call(client, "asset_02-generate_drawing_views", source_glb="../outside.glb", input_units="mm")
             assert rejected.is_error and error["error_code"] == "invalid_arguments"
             assert fixture.runtime.completion()["uncertain"] is False
             assert not (Path(fixture.runtime.locations["session_dir"]) / "operation.json").exists()
             assert not Path(fixture.runtime.locations["call_root"]).exists()
-            _, generated = await call(client, "generate_asset_drawing_views", source_glb="source.glb", input_units="mm")
+            _, generated = await call(client, "asset_02-generate_drawing_views", source_glb="source.glb", input_units="mm")
             assert generated["status"] == "success", generated
             assert fixture.wire.calls == []
     asyncio.run(run())
@@ -157,28 +159,28 @@ def test_selected_plan_prepare_and_loop_preserve_public_work_state(managed_asset
     fixture = managed_assets
     async def run():
         async with Client(fixture.server) as client:
-            _, created = await call(client, "create_plan", title="Prepare", goal="Inspect asset", scope="inspection")
+            _, created = await call(client, "plan_02-create", title="Prepare", goal="Inspect asset", scope="inspection")
             pid = created["plan"]["plan_id"]
-            _, selected = await call(client, "set_working_plan", plan_id=pid, artifact_name="261111_assets")
+            _, selected = await call(client, "plan_10-set_working", plan_id=pid, artifact_name="261111_assets")
             artifact = fixture.project / selected["artifact_dir"]
             assert not artifact.exists()
-            _, before = await call(client, "get_phase_plan_step", plan_id=pid, include_details=True)
-            _, missing = await call(client, "prepare_drawing_asset", stage="status", job_dir=selected["artifact_dir"] + "/missing")
+            _, before = await call(client, "plan_05-get_phase_plan_step", plan_id=pid, include_details=True)
+            _, missing = await call(client, "asset_07-prepare", stage="status", job_dir=selected["artifact_dir"] + "/missing")
             assert missing["status"] == "error" and not artifact.exists()
-            _, inspected = await call(client, "prepare_drawing_asset", stage="inspect", source_file="source.3dm")
+            _, inspected = await call(client, "asset_07-prepare", stage="inspect", source_file="source.3dm")
             assert inspected.get("state") == "inspected", inspected
             assert not Path(inspected["job_dir"]).is_absolute()
             assert (fixture.project / inspected["job_dir"]).parent == artifact
-            _, reread = await call(client, "prepare_drawing_asset", stage="status", job_dir=inspected["job_dir"])
+            _, reread = await call(client, "asset_07-prepare", stage="status", job_dir=inspected["job_dir"])
             assert reread["state"] == "inspected" and len(fixture.wire.calls) == 1
-            _, after = await call(client, "get_phase_plan_step", plan_id=pid, include_details=True)
+            _, after = await call(client, "plan_05-get_phase_plan_step", plan_id=pid, include_details=True)
             assert before == after
-            _, reselected = await call(client, "set_working_plan", plan_id=pid)
+            _, reselected = await call(client, "plan_10-set_working", plan_id=pid)
             assert reselected == selected
             assert fixture.wire.calls[0]["artifact_dir"] == selected["artifact_dir"]
-            _, loop = await call(client, "execute_looping", plan_id=pid)
+            _, loop = await call(client, "plan_03-execute_looping", plan_id=pid)
             assert loop["loop_no"] == 1 and loop["artifact_dir"].endswith("/01")
-            _, second = await call(client, "prepare_drawing_asset", stage="inspect", source_file="source.3dm")
+            _, second = await call(client, "asset_07-prepare", stage="inspect", source_file="source.3dm")
             assert second["state"] == "inspected", second
             assert (fixture.project / second["job_dir"]).parent == fixture.project / loop["artifact_dir"]
             assert len(fixture.wire.calls) == 2
@@ -199,9 +201,9 @@ def test_returned_package_path_survives_cross_volume_relpath_failure(managed_ass
     monkeypatch.setattr(os.path, "relpath", cross_volume)
     async def run():
         async with Client(fixture.server) as client:
-            _, generated = await call(client, "generate_asset_drawing_views", source_glb="source.glb", input_units="mm")
+            _, generated = await call(client, "asset_02-generate_drawing_views", source_glb="source.glb", input_units="mm")
             assert Path(generated["package_dir"]).is_absolute(), generated
-            _, audited = await call(client, "audit_asset_drawing", package_dir=generated["package_dir"])
+            _, audited = await call(client, "asset_01-audit_drawing", package_dir=generated["package_dir"])
             assert audited["status"] == "success", audited
     asyncio.run(run())
 
@@ -224,9 +226,9 @@ def test_audit_rejects_paths_outside_configured_libraries(managed_assets, kind):
         (candidate / "drawing.json").symlink_to(outside / "drawing.json")
     async def run():
         async with Client(fixture.server) as client:
-            _, result = await call(client, "audit_asset_drawing", package_dir=str(candidate))
+            _, result = await call(client, "asset_01-audit_drawing", package_dir=str(candidate))
             assert result["status"] == "error" and "private-asset" not in json.dumps(result), result
-            _, valid = await call(client, "generate_asset_drawing_views", source_glb="source.glb", input_units="mm")
+            _, valid = await call(client, "asset_02-generate_drawing_views", source_glb="source.glb", input_units="mm")
             assert valid["status"] == "success", valid
     asyncio.run(run())
 
@@ -240,7 +242,7 @@ def test_project_manifest_link_is_rejected_before_read(managed_assets):
     (package / "drawing.json").symlink_to(foreign)
     async def run():
         async with Client(fixture.server) as client:
-            _, result = await call(client, "audit_asset_drawing", package_dir="linked-package")
+            _, result = await call(client, "asset_01-audit_drawing", package_dir="linked-package")
             assert result["status"] == "error" and "must-not-be-returned" not in json.dumps(result), result
     asyncio.run(run())
 
@@ -266,8 +268,8 @@ def test_get_drawing_result_is_auditable_in_separate_drafting_library(managed_as
         monkeypatch.setattr(os.path, "relpath", different_drive)
     async def run():
         async with Client(fixture.server) as client:
-            _, drawing = await call(client, "get_asset_drawing", asset_id="fixture", field_groups=["all"])
-            _, result = await call(client, "audit_asset_drawing", package_dir=drawing["package_dir"])
+            _, drawing = await call(client, "asset_03-get_drawings", asset_id="fixture", field_groups=["all"])
+            _, result = await call(client, "asset_01-audit_drawing", package_dir=drawing["package_dir"])
             assert result["status"] == "success" and result["checked_files"] == 1, result
             if cross_volume:
                 assert drawing["package_dir"] == str(package)
@@ -281,14 +283,14 @@ def test_unconfirmed_native_work_still_fences_followup(managed_assets):
     fixture.wire.uncertain = True
     async def run():
         async with Client(fixture.server) as client:
-            _, created = await call(client, "create_plan", title="Prepare", goal="Inspect asset", scope="inspection")
-            await call(client, "set_working_plan", plan_id=created["plan"]["plan_id"], artifact_name="261111_uncertain")
-            _, result = await call(client, "prepare_drawing_asset", stage="inspect", source_file="source.3dm")
+            _, created = await call(client, "plan_02-create", title="Prepare", goal="Inspect asset", scope="inspection")
+            await call(client, "plan_10-set_working", plan_id=created["plan"]["plan_id"], artifact_name="261111_uncertain")
+            _, result = await call(client, "asset_07-prepare", stage="inspect", source_file="source.3dm")
             assert result["state"] == "unconfirmed" and result["requires_reconciliation"] is True
             assert fixture.runtime.completion()["uncertain"] is True
             assert (Path(fixture.runtime.locations["session_dir"]) / "artifact-write.json").exists()
             with pytest.raises(MCPError, match="Internal server error"):
-                await call(client, "generate_asset_drawing_views", source_glb="source.glb", input_units="mm")
+                await call(client, "asset_02-generate_drawing_views", source_glb="source.glb", input_units="mm")
             assert not (paths.user_data_dir() / "drawing-runs").exists()
             assert len(fixture.wire.calls) == 1
     asyncio.run(run())

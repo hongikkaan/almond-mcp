@@ -2,26 +2,26 @@
 
 ## Prefix 명명
 
-제목의 prefix와 번호는 문서에서 도구를 찾기 위한 분류입니다. 예: connect-01_list_up, connect-02_session. 실제 호출에는 각 항목의 `기준 API`를 사용합니다. 원문의 식별 번호를 유지하므로 제거된 도구의 번호는 비어 있습니다.
+공개 호출명은 `<category>_<NN>-<name>` 형식입니다. 예: `connect_01-list_up`, `connect_02-session`. 제목과 `기준 API`는 실제 tools/list·tools/call 이름이며 기존 이름의 별칭은 제공하지 않습니다. 원문의 식별 번호를 유지하므로 제거된 도구의 번호는 비어 있습니다. 설명에서 등록된 도구는 `<공개 도구명> tool`로 표기합니다.
 
 | Group | Prefix | 기존 묶음 |
 | --- | --- | --- |
-| Connect | connect-NN_ | 연결·세션 관리 |
-| Context | context-NN_ | 기본 가이드·프로젝트 정보·운영 정책 |
-| Plan | plan-NN_ | 작업 계획·단계·산출물 관리 |
-| Inspect | inspect-NN_ | Rhino 문서·객체·선택 조회 |
-| Capture | capture-NN_ | 화면 캡처·시각 검토 |
-| Model | model-NN_ | 모델링 설정·재료·형상 편집 |
-| Script | script-NN_ | 스크립트 실행·결과 확인·저장 |
-| Scene | scene-NN_ | Scene·Holon 의미 구조 관리 |
-| Intersect | intersect-NN_ | 교차·겹침 검토와 해결 |
-| Asset | asset-NN_ | 모델·도면 자산 검색·준비·배치 |
-| Diagram | diagram-NN_ | 다이어그램 자산 검색·배치 |
-| Drawing | drawing-NN_ | 도면 스타일·해치·평면 및 단면 생성 |
-| Grasshopper | grasshopper-NN_ | Grasshopper 로직·캡슐 조회와 실행 |
-| Research | research-NN_ | 구법·건축 유형·참고자료 조사 |
-| Analysis | analysis-NN_ | 구조·피난 검토와 보고서 |
-| Exchange | exchange-NN_ | 앱 간 자산 교환·Chestnut 게시 |
+| Connect | connect_NN- | 연결·세션 관리 |
+| Context | context_NN- | 기본 가이드·프로젝트 정보·운영 정책 |
+| Plan | plan_NN- | 작업 계획·단계·산출물 관리 |
+| Inspect | inspect_NN- | Rhino 문서·객체·선택 조회 |
+| Capture | capture_NN- | 화면 캡처·시각 검토 |
+| Model | model_NN- | 모델링 설정·재료·형상 편집 |
+| Script | script_NN- | 스크립트 실행·결과 확인·저장 |
+| Scene | scene_NN- | Scene·Holon 의미 구조 관리 |
+| Intersect | intersect_NN- | 교차·겹침 검토와 해결 |
+| Asset | asset_NN- | 모델·도면 자산 검색·준비·배치 |
+| Diagram | diagram_NN- | 다이어그램 자산 검색·배치 |
+| Drawing | drawing_NN- | 도면 스타일·해치·평면 및 단면 생성 |
+| Grasshopper | grasshopper_NN- | Grasshopper 로직·캡슐 조회와 실행 |
+| Research | research_NN- | 구법·건축 유형·참고자료 조사 |
+| Analysis | analysis_NN- | 구조·피난 검토와 보고서 |
+| Exchange | exchange_NN- | 앱 간 자산 교환·Chestnut 게시 |
 
 # 설명
 
@@ -38,11 +38,11 @@
 
 # Connect
 
-연결·세션 관리 · prefix: `connect-NN_` · 유형 내 순번 01–05
+연결·세션 관리 · prefix: `connect_NN-` · 유형 내 순번 01–05
 
-## 01. connect-01_list_up
+## 01. connect_01-list_up
 
-기준 API: `list_connections`
+기준 API: `connect_01-list_up`
 
 근거: src/cos/external_host.py
 
@@ -76,9 +76,9 @@
 }
 ```
 
-## 02. connect-02_session
+## 02. connect_02-session
 
-기준 API: `connect`
+기준 API: `connect_02-session`
 
 근거: src/cos/external_host.py
 
@@ -94,7 +94,7 @@
   "properties": {
     "host_id": {
       "type": "string",
-      "description": "list_connections.targets에서 선택한 Rhino 프로세스의 host_id입니다."
+      "description": "connect_01-list_up tool의 targets에서 선택한 Rhino 프로세스의 host_id입니다."
     },
     "model_path": {
       "type": "string",
@@ -125,13 +125,13 @@
   "pid": 1234, // Rhino 프로세스 ID
   "artifact_dir": "C:\\Example\\.almond\\tmp\\python\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 이 연결의 임시 작업 폴더입니다.
   "in_flight": false, // 해당 연결에 호출이 진행 중인지 여부
-  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 context_04-get_project_info tool, 기존 작업은 plan_08-list tool로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 03. connect-03_start_session
+## 03. connect_03-start_session
 
-기준 API: `start_session`
+기준 API: `connect_03-start_session`
 
 근거: src/cos/external_host.py
 
@@ -181,13 +181,13 @@
   "artifact_dir": "C:\\Example\\.almond\\tmp\\python\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 이 연결의 임시 작업 폴더입니다.
   "in_flight": false, // 해당 연결에 호출이 진행 중인지 여부
   "request_id": "example-start", // 동일 시작 시도에 재사용. 대기·실패 상태는 list_connections.starts에서 확인
-  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 context_04-get_project_info tool, 기존 작업은 plan_08-list tool로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 04. connect-04_disconnect
+## 04. connect_04-disconnect
 
-기준 API: `disconnect`
+기준 API: `connect_04-disconnect`
 
 근거: src/cos/external_host.py
 
@@ -204,7 +204,7 @@
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 선택한 연결을 해제합니다. 다른 연결을 해제하려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 선택한 연결을 해제합니다. 다른 연결을 해제하려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [],
@@ -225,13 +225,13 @@
   "reason": "", // 해제 결과 또는 남아 있는 잠금의 사유입니다.
   "pid": 12340, // 해제한 연결의 Rhino 프로세스 ID입니다. 종료할 창을 식별할 때 model_path와 함께 확인합니다.
   "model_path": "C:\\Projects\\Example\\model.3dm", // 해제한 연결에 저장된 모델 경로입니다. 저장·종료 전에 현재 문서 경로와 일치하는지 확인합니다.
-  "next_step_guide": "연결을 해제했으며 Rhino 창과 문서는 유지됩니다. 저장하고 Rhino까지 종료하려면 list_connections에서 해당 문서를 확인하고 connect로 다시 연결한 뒤 close_session을 호출합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "연결을 해제했으며 Rhino 창과 문서는 유지됩니다. 저장하고 Rhino까지 종료하려면 connect_01-list_up tool에서 해당 문서를 확인하고 connect_02-session tool로 다시 연결한 뒤 connect_05-close_session tool을 호출합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 90. connect-05_close_session
+## 90. connect_05-close_session
 
-기준 API: `close_session`
+기준 API: `connect_05-close_session`
 
 근거: src/cos/external_host.py, src/cos/session_close.py, src/cos/session_close_guard.py.txt
 
@@ -291,12 +291,12 @@
 
 # Context
 
-기본 가이드·프로젝트 정보·운영 정책 · prefix: `context-NN_` · 유형 내 순번 01–04
+기본 가이드·프로젝트 정보·운영 정책 · prefix: `context_NN-` · 유형 내 순번 01–04
 
 
-## 67. context-04_get_project_info
+## 67. context_04-get_project_info
 
-기준 API: `project_info`
+기준 API: `context_04-get_project_info`
 
 근거: src/mcp/runtime/mcp_server.py
 
@@ -343,7 +343,7 @@
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -383,15 +383,15 @@ sections=["project", "locations"], include_ids=true이고 아직 작업할 Plan�
     "artifact_dir": null,
     "database": ".almond/scene.sqlite3",
     "path_rule": "Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths.",
-    "artifact_rule": "Select a Plan with set_working_plan; managed outputs use its current Loop folder .almond/produced/YYMMDD_name/01, /02, etc.; before execute_looping they use the Plan root."
+    "artifact_rule": "Select a Plan with plan_10-set_working tool; managed outputs use its current Loop folder .almond/produced/YYMMDD_name/01, /02, etc.; before plan_03-execute_looping tool they use the Plan root."
   },
-  "next_step_guide": "- list_plans으로 프로젝트 진행상황 파악합니다.\n- 산출물 작업 공간은 set_working_plan으로 선택합니다.\n- 객체 상태가 필요하면 get_objects로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "- plan_08-list tool으로 프로젝트 진행상황 파악합니다.\n- 산출물 작업 공간은 plan_10-set_working tool으로 선택합니다.\n- 객체 상태가 필요하면 inspect_02-get_objects tool로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 36. context-01_get_policy
+## 36. context_01-get_policy
 
-기준 API: `get_policy`
+기준 API: `context_01-get_policy`
 
 근거: src/mcp/features/guidance/tools.py
 
@@ -420,7 +420,7 @@ Almond 작업에 필요한 지침을 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -543,11 +543,11 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
 
 # Plan
 
-작업 계획·단계·산출물 관리 · prefix: `plan-NN_` · 유형 내 순번 01–13
+작업 계획·단계·산출물 관리 · prefix: `plan_NN-` · 유형 내 순번 01–13
 
-## 14. plan-01_create_phase
+## 14. plan_01-create_phase
 
-기준 API: `create_phase`
+기준 API: `plan_01-create_phase`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -628,7 +628,7 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -648,13 +648,13 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
   "phase": { // 생성한 Phase입니다.
     "phase_id": "phase_example"
   },
-  "next_step_guide": "이 phase_id로 create_plan을 호출해 Phase에 Plan을 추가할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "이 phase_id로 plan_02-create tool을 호출해 Phase에 Plan을 추가할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 15. plan-02_create
+## 15. plan_02-create
 
-기준 API: `create_plan`
+기준 API: `plan_02-create`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -781,7 +781,7 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -804,13 +804,13 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
     "loop_no": 0,
     "revision": 1
   },
-  "next_step_guide": "get_phase_plan_step에서 plan_id와 include_details=true로 Step을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "plan_05-get_phase_plan_step tool에서 plan_id와 include_details=true로 Step을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 18. plan-03_execute_looping
+## 18. plan_03-execute_looping
 
-기준 API: `execute_looping`
+기준 API: `plan_03-execute_looping`
 
 근거: src/mcp/runtime/mcp_server.py
 
@@ -826,12 +826,12 @@ Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전�
   "properties": {
     "plan_id": {
       "type": "string",
-      "description": "다음 Loop를 시작하거나 최신 Loop를 재개할 기존 Plan ID입니다. create_plan 또는 list_plans에서 얻은 ID를 사용합니다."
+      "description": "다음 Loop를 시작하거나 최신 Loop를 재개할 기존 Plan ID입니다. plan_02-create tool 또는 plan_08-list tool에서 얻은 ID를 사용합니다."
     },
     "resume": {
       "default": false,
       "type": "boolean",
-      "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 get_phase_plan_step으로 현재 회차를 먼저 확인합니다."
+      "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 plan_05-get_phase_plan_step tool으로 현재 회차를 먼저 확인합니다."
     },
     "feedback": {
       "default": "",
@@ -846,7 +846,7 @@ Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -883,13 +883,13 @@ Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전�
     }
   ],
   "policy_reminder": "Step은 기본 순서대로 수행합니다. 기존 결과는 확인한 뒤 재사용하고 산출물은 이 회차의 artifact_dir에 작성합니다. Plan 완료는 사용자가 결정합니다.", // Step 순서·기존 결과 재사용·산출물 위치·Plan 완료 결정에 적용할 지침입니다.
-  "next_step_guide": "저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 set_working_plan으로 선택합니다. 완료한 작업은 반복하지 않고, 수행·검증 결과를 update_step에 기록합니다.\n회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다." // 저장 기록 확인, Step 수행·검증 기록과 회차 결과 보고 안내입니다.
+  "next_step_guide": "저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 plan_10-set_working tool으로 선택합니다. 완료한 작업은 반복하지 않고, 수행·검증 결과를 plan_13-update_step tool에 기록합니다.\n회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다." // 저장 기록 확인, Step 수행·검증 기록과 회차 결과 보고 안내입니다.
 }
 ```
 
-## 41. plan-05_get_phase_plan_step
+## 41. plan_05-get_phase_plan_step
 
-기준 API: `get_phase_plan_step`
+기준 API: `plan_05-get_phase_plan_step`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -950,7 +950,7 @@ Phase, Plan 또는 Step의 작업 기록을 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -981,13 +981,13 @@ Phase를 include_details=true로 조회한 예시입니다. false이면 공통 �
       "진입 동선 검토"
     ]
   },
-  "next_step_guide": "이 id를 list_plans의 phase_id에 입력해 소속 Plan을 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "이 id를 plan_08-list tool의 phase_id에 입력해 소속 Plan을 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 60. plan-06_list_phases
+## 60. plan_06-list_phases
 
-기준 API: `list_phases`
+기준 API: `plan_06-list_phases`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -1024,7 +1024,7 @@ Phase를 include_details=true로 조회한 예시입니다. false이면 공통 �
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -1045,9 +1045,9 @@ Phase를 include_details=true로 조회한 예시입니다. false이면 공통 �
 }
 ```
 
-## 61. plan-07_list_revisions
+## 61. plan_07-list_revisions
 
-기준 API: `list_plan_revisions`
+기준 API: `plan_07-list_revisions`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -1063,7 +1063,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
   "properties": {
     "plan_id": {
       "type": "string",
-      "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
     },
     "limit": {
       "default": 50,
@@ -1105,7 +1105,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -1130,9 +1130,9 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 }
 ```
 
-## 62. plan-08_list
+## 62. plan_08-list
 
-기준 API: `list_plans`
+기준 API: `plan_08-list`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -1178,7 +1178,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -1199,9 +1199,9 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 }
 ```
 
-## 74. plan-09_rename_artifact_folder
+## 74. plan_09-rename_artifact_folder
 
-기준 API: `rename_artifact_folder`
+기준 API: `plan_09-rename_artifact_folder`
 
 근거: src/mcp/runtime/mcp_server.py
 
@@ -1227,7 +1227,7 @@ Plan 산출물 폴더를 옮기거나 이름을 바꾸고 저장된 참조를 �
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -1250,9 +1250,9 @@ Plan 산출물 폴더를 옮기거나 이름을 바꾸고 저장된 참조를 �
 }
 ```
 
-## 83. plan-10_set_working
+## 83. plan_10-set_working
 
-기준 API: `set_working_plan`
+기준 API: `plan_10-set_working`
 
 근거: src/mcp/runtime/mcp_server.py
 
@@ -1268,7 +1268,7 @@ Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
   "properties": {
     "plan_id": {
       "type": "string",
-      "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
     },
     "step_id": {
       "default": "",
@@ -1295,7 +1295,7 @@ Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -1322,9 +1322,9 @@ Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
 }
 ```
 
-## 87. plan-11_update_phase
+## 87. plan_11-update_phase
 
-기준 API: `update_phase`
+기준 API: `plan_11-update_phase`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -1340,7 +1340,7 @@ Phase의 작업 정보를 수정합니다.
   "properties": {
     "phase_id": {
       "type": "string",
-      "description": "list_phases.phases[].phase_id 또는 get_phase_plan_step.id에서 얻은 기존 Phase ID입니다."
+      "description": "plan_06-list_phases tool의 phases[].phase_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Phase ID입니다."
     },
     "name": {
       "anyOf": [
@@ -1449,7 +1449,7 @@ Phase의 작업 정보를 수정합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -1472,13 +1472,13 @@ Phase의 작업 정보를 수정합니다.
     "status": "pending"
   },
   "issues": [], // 적용하지 못한 패치 항목입니다. 나머지 항목은 적용되었을 수 있습니다.
-  "next_step_guide": "get_phase_plan_step으로 변경된 Phase를 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "plan_05-get_phase_plan_step tool으로 변경된 Phase를 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 88. plan-12_update
+## 88. plan_12-update
 
-기준 API: `update_plan`
+기준 API: `plan_12-update`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -1494,7 +1494,7 @@ Plan의 작업 정보를 수정합니다.
   "properties": {
     "plan_id": {
       "type": "string",
-      "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
     },
     "goal": {
       "anyOf": [
@@ -1696,7 +1696,7 @@ Plan의 작업 정보를 수정합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -1721,13 +1721,13 @@ Plan의 작업 정보를 수정합니다.
     "revision": 2
   },
   "issues": [], // 적용하지 못한 패치 항목입니다. 나머지 항목은 적용되었을 수 있습니다.
-  "next_step_guide": "get_phase_plan_step으로 변경된 Plan을 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "plan_05-get_phase_plan_step tool으로 변경된 Plan을 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 89. plan-13_update_step
+## 89. plan_13-update_step
 
-기준 API: `update_step`
+기준 API: `plan_13-update_step`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -1743,7 +1743,7 @@ Step의 상태와 입력·출력 근거를 기록합니다.
   "properties": {
     "plan_id": {
       "type": "string",
-      "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
     },
     "step_id": {
       "type": "string",
@@ -1856,7 +1856,7 @@ Step의 상태와 입력·출력 근거를 기록합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -1887,17 +1887,17 @@ Step의 상태와 입력·출력 근거를 기록합니다.
     "status": "pending",
     "loop_no": 1
   },
-  "next_step_guide": "다음에 수행할 Step을 정했다면 set_working_plan으로 선택합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "다음에 수행할 Step을 정했다면 plan_10-set_working tool으로 선택합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
 # Inspect
 
-Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순번 01–05
+Rhino 문서·객체·선택 조회 · prefix: `inspect_NN-` · 유형 내 순번 01–05
 
-## 06. inspect-01_analyze_nested_blocks
+## 06. inspect_01-analyze_nested_blocks
 
-기준 API: `analyze_block_reculviely`
+기준 API: `inspect_01-analyze_nested_blocks`
 
 근거: src/mcp/features/context/tools.py
 
@@ -1933,7 +1933,7 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -1971,13 +1971,13 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
     "items": 1,
     "truncated": false
   },
-  "next_step_guide": "블록 편집에 들어간 뒤에는 get_objects로 현재 편집 대상 ID를 다시 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "블록 편집에 들어간 뒤에는 inspect_02-get_objects tool로 현재 편집 대상 ID를 다시 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 39. inspect-02_get_objects
+## 39. inspect_02-get_objects
 
-기준 API: `get_objects`
+기준 API: `inspect_02-get_objects`
 
 근거: src/mcp/features/context/tools.py
 
@@ -2137,7 +2137,7 @@ Rhino 객체와 모델 구성을 관찰합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -2185,9 +2185,9 @@ Rhino 객체와 모델 구성을 관찰합니다.
 }
 ```
 
-## 44. inspect-03_get_document_context
+## 44. inspect_03-get_document_context
 
-기준 API: `get_rhino_context`
+기준 API: `inspect_03-get_document_context`
 
 근거: src/mcp/features/context/tools.py
 
@@ -2229,7 +2229,7 @@ Rhino 문서와 화면의 현재 상태를 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -2252,13 +2252,13 @@ Rhino 문서와 화면의 현재 상태를 조회합니다.
     "layer_count": 1,
     "angle_tolerance": 0.0174532925199433
   },
-  "next_step_guide": "현재 화면을 보려면 get_current_viewcapture를 사용하세요." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "현재 화면을 보려면 capture_03-current_view tool를 사용하세요." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 47. inspect-04_get_selection_references
+## 47. inspect_04-get_selection_references
 
-기준 API: `get_selection_references`
+기준 API: `inspect_04-get_selection_references`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -2300,7 +2300,7 @@ Rhino 문서와 화면의 현재 상태를 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -2326,9 +2326,9 @@ Rhino 문서와 화면의 현재 상태를 조회합니다.
 }
 ```
 
-## 76. inspect-05_resolve_targets
+## 76. inspect_05-resolve_targets
 
-기준 API: `resolve_targets`
+기준 API: `inspect_05-resolve_targets`
 
 근거: src/mcp/features/planning/tools.py
 
@@ -2344,7 +2344,7 @@ Plan에 등록된 Holon 대상 집합을 조회합니다.
   "properties": {
     "plan_id": {
       "type": "string",
-      "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
     },
     "step_id": {
       "default": "",
@@ -2369,7 +2369,7 @@ Plan에 등록된 Holon 대상 집합을 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -2399,11 +2399,11 @@ Plan에 등록된 Holon 대상 집합을 조회합니다.
 
 # Capture
 
-화면 캡처·시각 검토 · prefix: `capture-NN_` · 유형 내 순번 01–04
+화면 캡처·시각 검토 · prefix: `capture_NN-` · 유형 내 순번 01–04
 
-## 10. capture-01_conditioning_pass
+## 10. capture_01-conditioning_pass
 
-기준 API: `capture_conditioning_pass`
+기준 API: `capture_01-conditioning_pass`
 
 근거: src/mcp/features/capture/tools.py
 
@@ -2469,7 +2469,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -2503,13 +2503,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "rgb": null
   },
   "document": {}, // 원본 문서·단위·뷰·경계 정보입니다.
-  "next_step_guide": "프레임과 camera_json을 확인하고, 사용할 산출물 경로를 update_step의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "프레임과 camera_json을 확인하고, 사용할 산출물 경로를 plan_13-update_step tool의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 11. capture-02_inspection
+## 11. capture_02-inspection
 
-기준 API: `capture_rhino_inspection`
+기준 API: `capture_02-inspection`
 
 근거: src/mcp/features/context/tools.py
 
@@ -2581,7 +2581,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -2613,13 +2613,13 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "bytes": 12345,
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
-  "next_step_guide": "보관할 이미지라면 image_file.path를 update_step의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "보관할 이미지라면 image_file.path를 plan_13-update_step tool의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 28. capture-03_current_view
+## 28. capture_03-current_view
 
-기준 API: `get_current_viewcapture`
+기준 API: `capture_03-current_view`
 
 근거: src/mcp/features/context/tools.py
 
@@ -2715,7 +2715,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -2783,9 +2783,9 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
 }
 ```
 
-## 29. capture-04_defined_view
+## 29. capture_04-defined_view
 
-기준 API: `get_defined_viewcapture`
+기준 API: `capture_04-defined_view`
 
 근거: src/mcp/features/context/tools.py
 
@@ -2864,7 +2864,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -2888,17 +2888,17 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "bytes": 12345,
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
-  "next_step_guide": "보관할 이미지라면 image_file.path를 update_step의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "보관할 이미지라면 image_file.path를 plan_13-update_step tool의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
 # Model
 
-모델링 설정·재료·형상 편집 · prefix: `model-NN_` · 유형 내 순번 01–05
+모델링 설정·재료·형상 편집 · prefix: `model_NN-` · 유형 내 순번 01–05
 
-## 08. model-01_assign_material
+## 08. model_01-assign_material
 
-기준 API: `assign_material`
+기준 API: `model_01-assign_material`
 
 근거: src/mcp/features/modeling/tools.py
 
@@ -2921,7 +2921,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     },
     "material_id": {
       "type": "string",
-      "description": "list_materials(include_ids=true)에서 얻은 라이브러리의 표준 재료 ID입니다."
+      "description": "model_04-list_materials tool(include_ids=true)에서 얻은 라이브러리의 표준 재료 ID입니다."
     },
     "apply_render_material": {
       "default": true,
@@ -2969,7 +2969,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -2999,13 +2999,13 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
   ],
   "metadata_attached": false, // 요청한 메타데이터 적용 여부입니다.
   "layer_path": "Example layer", // 대상의 레이어 경로입니다. 제공되지 않으면 null입니다.
-  "next_step_guide": "get_objects로 적용된 재료를 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "inspect_02-get_objects tool로 적용된 재료를 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 16. model-02_edit_planar_face
+## 16. model_02-edit_planar_face
 
-기준 API: `edit_planar_face`
+기준 API: `model_02-edit_planar_face`
 
 근거: src/mcp/features/modeling/tools.py
 
@@ -3053,7 +3053,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3079,13 +3079,13 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     "previous_geometry_crc": 123,
     "geometry_crc": 456
   },
-  "next_step_guide": "get_objects로 변경된 형상과 CRC를 다시 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "inspect_02-get_objects tool로 변경된 형상과 CRC를 다시 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 17. model-03_edit_planar_faces
+## 17. model_03-edit_planar_faces
 
-기준 API: `edit_planar_faces`
+기준 API: `model_03-edit_planar_faces`
 
 근거: src/mcp/features/modeling/tools.py
 
@@ -3115,7 +3115,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3147,13 +3147,13 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
       }
     ]
   },
-  "next_step_guide": "get_objects로 변경된 객체의 형상과 CRC를 다시 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "inspect_02-get_objects tool로 변경된 객체의 형상과 CRC를 다시 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 58. model-04_list_materials
+## 58. model_04-list_materials
 
-기준 API: `list_materials`
+기준 API: `model_04-list_materials`
 
 근거: src/mcp/features/modeling/tools.py
 
@@ -3200,7 +3200,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -3222,13 +3222,13 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
       "category": "wood"
     }
   ],
-  "next_step_guide": "재료를 적용하려면 include_ids=true로 재료 ID를 조회해 assign_material에 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "재료를 적용하려면 include_ids=true로 재료 ID를 조회해 model_01-assign_material tool에 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 84. model-05_setup
+## 84. model_05-setup
 
-기준 API: `setup_modeling`
+기준 API: `model_05-setup`
 
 근거: src/mcp/features/modeling/tools.py
 
@@ -3249,7 +3249,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3298,11 +3298,11 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 # Script
 
-스크립트 실행·결과 확인·저장 · prefix: `script-NN_` · 유형 내 순번 01–04
+스크립트 실행·결과 확인·저장 · prefix: `script_NN-` · 유형 내 순번 01–04
 
-## 19. script-01_run_project_python
+## 19. script_01-run_project_python
 
-기준 API: `execute_project_python`
+기준 API: `script_01-run_project_python`
 
 근거: src/mcp/runtime/mcp_server.py
 
@@ -3328,7 +3328,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3351,9 +3351,9 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 }
 ```
 
-## 20. script-02_run_rhino
+## 20. script_02-run_rhino
 
-기준 API: `execute_rhino_script`
+기준 API: `script_02-run_rhino`
 
 근거: src/mcp/features/modeling/tools.py
 
@@ -3384,7 +3384,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3409,9 +3409,9 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 }
 ```
 
-## 45. script-03_get_execution
+## 45. script_03-get_execution
 
-기준 API: `get_rhino_execution`
+기준 API: `script_03-get_execution`
 
 근거: src/mcp/runtime/mcp_server.py
 
@@ -3500,9 +3500,9 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 }
 ```
 
-## 78. script-04_save_document
+## 78. script_04-save_document
 
-기준 API: `save_rhino_document`
+기준 API: `script_04-save_document`
 
 근거: src/mcp/features/modeling/tools.py
 
@@ -3519,7 +3519,7 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -3540,11 +3540,11 @@ Rhino 객체에 라이브러리 재료를 적용합니다.
 
 # Scene
 
-Scene·Holon 의미 구조 관리 · prefix: `scene-NN_` · 유형 내 순번 01–13
+Scene·Holon 의미 구조 관리 · prefix: `scene_NN-` · 유형 내 순번 01–13
 
-## 05. scene-01_add_objects
+## 05. scene_01-add_objects
 
-기준 API: `add_scene_objects`
+기준 API: `scene_01-add_objects`
 
 근거: src/mcp/features/scenes/tools.py
 
@@ -3560,7 +3560,7 @@ Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon �
   "properties": {
     "scene_id": {
       "type": "string",
-      "description": "list_design_scenes(include_ids=true)에서 얻은 기존 Scene ID입니다."
+      "description": "scene_07-list tool(include_ids=true)에서 얻은 기존 Scene ID입니다."
     },
     "object_ids": {
       "items": {
@@ -3577,7 +3577,7 @@ Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon �
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3597,13 +3597,13 @@ Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon �
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "failed_indices": [], // 입력 object_ids에서 처리하지 못한 항목의 인덱스입니다. 0부터 시작합니다.
   "already_present_indices": [], // 이미 포함되어 변경하지 않은 입력 위치. Holon을 통해 포함된 경우도 포함
-  "next_step_guide": "get_scene_objects로 Scene의 현재 구성원을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "scene_06-get_objects tool로 Scene의 현재 구성원을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 13. scene-02_create
+## 13. scene_02-create
 
-기준 API: `create_design_scene`
+기준 API: `scene_02-create`
 
 근거: src/mcp/features/scenes/tools.py
 
@@ -3641,12 +3641,12 @@ Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon �
         }
       ],
       "default": null,
-      "description": "project_info(sections=[\"project\"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name과 함께 제공하면 서로 일치해야 합니다."
+      "description": "context_04-get_project_info tool(sections=[\"project\"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name과 함께 제공하면 서로 일치해야 합니다."
     },
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3667,13 +3667,13 @@ Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon �
     "scene_id": "scene_example",
     "revision": 0
   },
-  "next_step_guide": "객체를 포함하려면 add_scene_objects에 이 scene_id를 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "객체를 포함하려면 scene_01-add_objects tool에 이 scene_id를 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 23. scene-03_focus_holons
+## 23. scene_03-focus_holons
 
-기준 API: `focus_holons`
+기준 API: `scene_03-focus_holons`
 
 근거: src/mcp/features/components/tools.py
 
@@ -3702,7 +3702,7 @@ Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3739,9 +3739,9 @@ Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대�
 }
 ```
 
-## 30. scene-04_get
+## 30. scene_04-get
 
-기준 API: `get_design_scene`
+기준 API: `scene_04-get`
 
 근거: src/mcp/features/scenes/tools.py
 
@@ -3757,7 +3757,7 @@ Scene의 등록 정보를 조회합니다.
   "properties": {
     "scene_id": {
       "type": "string",
-      "description": "list_design_scenes(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
+      "description": "scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
     },
     "include_ids": {
       "default": false,
@@ -3782,7 +3782,7 @@ Scene의 등록 정보를 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3808,13 +3808,13 @@ Scene의 등록 정보를 조회합니다.
     "direct_objects": 0,
     "live_verified": false
   },
-  "next_step_guide": "현재 Rhino 구성원은 get_scene_objects로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "현재 Rhino 구성원은 scene_06-get_objects tool로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 40. scene-05_get_holon
+## 40. scene_05-get_holon
 
-기준 API: `get_ontological_holon`
+기준 API: `scene_05-get_holon`
 
 근거: src/mcp/features/components/tools.py
 
@@ -3865,7 +3865,7 @@ Holon의 등록 정보와 구성원을 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3891,9 +3891,9 @@ Holon의 등록 정보와 구성원을 조회합니다.
 }
 ```
 
-## 46. scene-06_get_objects
+## 46. scene_06-get_objects
 
-기준 API: `get_scene_objects`
+기준 API: `scene_06-get_objects`
 
 근거: src/mcp/features/scenes/tools.py
 
@@ -3909,7 +3909,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
   "properties": {
     "scene_id": {
       "type": "string",
-      "description": "list_design_scenes(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
+      "description": "scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
     },
     "include_ids": {
       "default": false,
@@ -3949,7 +3949,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -3976,9 +3976,9 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
 }
 ```
 
-## 53. scene-07_list
+## 53. scene_07-list
 
-기준 API: `list_design_scenes`
+기준 API: `scene_07-list`
 
 근거: src/mcp/features/scenes/tools.py
 
@@ -4035,7 +4035,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -4057,9 +4057,9 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
 }
 ```
 
-## 59. scene-08_list_holons
+## 59. scene_08-list_holons
 
-기준 API: `list_ontological_holons`
+기준 API: `scene_08-list_holons`
 
 근거: src/mcp/features/components/tools.py
 
@@ -4111,7 +4111,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -4131,9 +4131,9 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
 }
 ```
 
-## 72. scene-09_remove_holon
+## 72. scene_09-remove_holon
 
-기준 API: `remove_ontological_holon`
+기준 API: `scene_09-remove_holon`
 
 근거: src/mcp/features/components/tools.py
 
@@ -4154,7 +4154,7 @@ Holon 등록을 해제하고 Rhino 형상과 그룹은 유지합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4179,9 +4179,9 @@ Holon 등록을 해제하고 Rhino 형상과 그룹은 유지합니다.
 }
 ```
 
-## 73. scene-10_remove_objects
+## 73. scene_10-remove_objects
 
-기준 API: `remove_scene_objects`
+기준 API: `scene_10-remove_objects`
 
 근거: src/mcp/features/scenes/tools.py
 
@@ -4197,7 +4197,7 @@ Holon 등록을 해제하고 Rhino 형상과 그룹은 유지합니다.
   "properties": {
     "scene_id": {
       "type": "string",
-      "description": "list_design_scenes(include_ids=true)에서 얻은 기존 Scene ID입니다."
+      "description": "scene_07-list tool(include_ids=true)에서 얻은 기존 Scene ID입니다."
     },
     "object_ids": {
       "items": {
@@ -4214,7 +4214,7 @@ Holon 등록을 해제하고 Rhino 형상과 그룹은 유지합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4234,13 +4234,13 @@ Holon 등록을 해제하고 Rhino 형상과 그룹은 유지합니다.
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "failed_indices": [], // 입력 object_ids에서 처리하지 못한 항목의 인덱스입니다. 0부터 시작합니다.
   "already_absent_indices": [], // Scene에 이미 포함되지 않은 입력 항목의 인덱스입니다. 0부터 시작합니다.
-  "next_step_guide": "get_scene_objects로 Scene의 현재 구성원을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "scene_06-get_objects tool로 Scene의 현재 구성원을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 85. scene-11_sync_holon
+## 85. scene_11-sync_holon
 
-기준 API: `sync_ontological_holon`
+기준 API: `scene_11-sync_holon`
 
 근거: src/mcp/features/components/tools.py
 
@@ -4252,6 +4252,7 @@ Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
 
 ```json
 {
+  "additionalProperties": false,
   "properties": {
     "holon_id": {
       "default": "",
@@ -4291,11 +4292,10 @@ Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
-  "type": "object",
-  "additionalProperties": false
+  "type": "object"
 }
 ```
 
@@ -4312,13 +4312,13 @@ Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
   "problems": [], // 항목별 문제. 관련 없는 유효 등록은 함께 갱신될 수 있음
   "scene_revisions": {}, // 갱신한 Scene ID와 저장 리비전의 대응입니다.
   "live_verified": true, // 문제 없이 모든 대상의 현재 상태를 확인했는지 나타냅니다.
-  "next_step_guide": "갱신된 구성원은 get_ontological_holon으로 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "갱신된 구성원은 scene_05-get_holon tool으로 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 86. scene-12_update
+## 86. scene_12-update
 
-기준 API: `update_design_scene`
+기준 API: `scene_12-update`
 
 근거: src/mcp/features/scenes/tools.py
 
@@ -4334,7 +4334,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
   "properties": {
     "scene_id": {
       "type": "string",
-      "description": "list_design_scenes(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
+      "description": "scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
     },
     "file_name": {
       "anyOf": [
@@ -4363,7 +4363,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4384,13 +4384,13 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "scene_id": "scene_example",
     "revision": 1
   },
-  "next_step_guide": "get_design_scene으로 변경된 Scene을 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "scene_04-get tool으로 변경된 Scene을 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 90. scene-13_upsert_holon
+## 90. scene_13-upsert_holon
 
-기준 API: `upsert_ontological_holon`
+기준 API: `scene_13-upsert_holon`
 
 근거: src/mcp/features/components/tools.py
 
@@ -4471,7 +4471,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4494,17 +4494,17 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "object_count": 1,
     "live_verified": true
   },
-  "next_step_guide": "get_ontological_holon으로 등록 결과와 현재 구성원을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "scene_05-get_holon tool으로 등록 결과와 현재 구성원을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
 # Intersect
 
-교차·겹침 검토와 해결 · prefix: `intersect-NN_` · 유형 내 순번 01–02
+교차·겹침 검토와 해결 · prefix: `intersect_NN-` · 유형 내 순번 01–02
 
-## 38. intersect-01_find
+## 38. intersect_01-find
 
-기준 API: `get_object_intersections`
+기준 API: `intersect_01-find`
 
 근거: src/mcp/features/context/tools.py
 
@@ -4533,7 +4533,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4556,9 +4556,9 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 }
 ```
 
-## 75. intersect-02_resolve
+## 75. intersect_02-resolve
 
-기준 API: `resolve_object_intersection`
+기준 API: `intersect_02-resolve`
 
 근거: src/mcp/features/components/tools.py
 
@@ -4616,7 +4616,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -4638,11 +4638,11 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 # Asset
 
-모델·도면 자산 검색·준비·배치 · prefix: `asset-NN_` · 유형 내 순번 01–11
+모델·도면 자산 검색·준비·배치 · prefix: `asset_NN-` · 유형 내 순번 01–11
 
-## 09. asset-01_audit_drawing
+## 09. asset_01-audit_drawing
 
-기준 API: `audit_asset_drawing`
+기준 API: `asset_01-audit_drawing`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -4654,6 +4654,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ```json
 {
+  "additionalProperties": false,
   "properties": {
     "package_dir": {
       "type": "string",
@@ -4667,14 +4668,13 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
     "package_dir"
   ],
-  "type": "object",
-  "additionalProperties": false
+  "type": "object"
 }
 ```
 
@@ -4694,9 +4694,9 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 }
 ```
 
-## 24. asset-02_generate_drawing_views
+## 24. asset_02-generate_drawing_views
 
-기준 API: `generate_asset_drawing_views`
+기준 API: `asset_02-generate_drawing_views`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -4764,7 +4764,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -4785,9 +4785,9 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
 }
 ```
 
-## 25. asset-03_get_drawings
+## 25. asset_03-get_drawings
 
-기준 API: `get_asset_drawing`
+기준 API: `asset_03-get_drawings`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -4828,7 +4828,7 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4851,9 +4851,9 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
 }
 ```
 
-## 32. asset-04_get
+## 32. asset_04-get
 
-기준 API: `get_drawing_asset`
+기준 API: `asset_04-get`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -4894,7 +4894,7 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -4917,13 +4917,13 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
     "model_status": "ready",
     "drawing_ready": true
   },
-  "next_step_guide": "선택한 자산의 ID로 place_drawing_asset을 호출할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "선택한 자산의 ID로 asset_06-place tool을 호출할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 55. asset-05_list
+## 55. asset_05-list
 
-기준 API: `list_drawing_assets`
+기준 API: `asset_05-list`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -4975,7 +4975,7 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -4998,9 +4998,9 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
 }
 ```
 
-## 64. asset-06_place
+## 64. asset_06-place
 
-기준 API: `place_drawing_asset`
+기준 API: `asset_06-place`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -5046,7 +5046,7 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5066,13 +5066,13 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
   "asset_id": "example-asset", // 자산 ID
   "object_guid": "00000000-0000-0000-0000-000000000001", // 삽입한 최상위 블록 GUID. get_objects 또는 Scene 구성원 입력에 재사용
   "definition_created": true, // 새 정의 생성 여부. 공유 정의 갱신 시 definition_refreshed/affected_existing_instances가 추가될 수 있음
-  "next_step_guide": "get_objects와 캡처로 배치 위치·축척을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "inspect_02-get_objects tool와 캡처로 배치 위치·축척을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 66. asset-07_prepare
+## 66. asset_07-prepare
 
-기준 API: `prepare_drawing_asset`
+기준 API: `asset_07-prepare`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -5151,7 +5151,7 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5176,15 +5176,15 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
   "ready_for_registration": true, // 현재 파일 해시에 대한 이미지 검토를 호출자가 확인했는지 나타냅니다.
   "job_dir": ".almond/produced/261111_example/01/asset-preparation-123e4567e89b42d3a456426614174000", // 이후 단계 및 등록의 preparation_job에 재사용. status는 저장 근거만 읽고 늦은 실행을 자동 정합화하지 않음
   "source_3dm": ".almond/produced/261111_example/01/asset-preparation-123e4567e89b42d3a456426614174000/final.3dm", // 검토 완료 최종 파일. register_drawing_asset에 검토한 name/asset_id와 함께 전달
-  "next_stage": "register_drawing_asset", // 현재 상태의 다음 단계. 오류에서 자동 진행을 유도하지 않음
+  "next_stage": "asset_09-register", // 현재 상태의 다음 단계. 오류에서 자동 진행을 유도하지 않음
   "review_evidence": "caller attestations tied to file hashes; no automatic vision verification", // 저장된 검토 증거에 대한 설명입니다.
-  "next_step_guide": "If publication is intended, call register_drawing_asset with source_3dm from this response, preparation_job=job_dir, and the reviewed asset_id/name; category is optional. Choose replace_existing explicitly when replacing an existing asset." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "If publication is intended, call asset_09-register tool with source_3dm from this response, preparation_job=job_dir, and the reviewed asset_id/name; category is optional. Choose replace_existing explicitly when replacing an existing asset." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 70. asset-08_refresh
+## 70. asset_08-refresh
 
-기준 API: `refresh_asset`
+기준 API: `asset_08-refresh`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -5205,7 +5205,7 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5232,13 +5232,13 @@ model_path는 기존에 등록된 라이브러리 3DM 경로를 유지하고, �
   "model_path": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles/registered/example-asset-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/model.3dm", // 갱신한 라이브러리 3DM 경로입니다.
   "package_dir": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles/revisions/example-asset-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/drawing", // 갱신한 도면 패키지 폴더입니다.
   "previous_files_retained": true, // 이전 도면·매니페스트 백업·원본 리비전 사본 보존
-  "next_step_guide": "갱신된 도면은 get_asset_drawing으로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "갱신된 도면은 asset_03-get_drawings tool으로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 71. asset-09_register
+## 71. asset_09-register
 
-기준 API: `register_drawing_asset`
+기준 API: `asset_09-register`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -5307,7 +5307,7 @@ model_path는 기존에 등록된 라이브러리 3DM 경로를 유지하고, �
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5339,13 +5339,13 @@ source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY
   "manifest_path": "../../Users/example/AppData/Local/Almond/DrawingAssetfiles/manifest.json", // 라이브러리 manifest.json 경로입니다.
   "previous_files_retained": false, // 교체 전 원본·도면·매니페스트 백업 보존
   "previous_source_sha256": null, // 기존 원본 해시. 없으면 null
-  "next_step_guide": "등록한 자산은 get_drawing_asset으로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "등록한 자산은 asset_04-get tool으로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 79. asset-10_search_repository
+## 79. asset_10-search_repository
 
-기준 API: `search_asset_repository`
+기준 API: `asset_10-search_repository`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -5402,7 +5402,7 @@ source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -5420,9 +5420,9 @@ source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY
 }
 ```
 
-## 82. asset-11_search
+## 82. asset_11-search
 
-기준 API: `search_drawing_assets`
+기준 API: `asset_11-search`
 
 근거: src/mcp/features/assets/tools.py
 
@@ -5494,7 +5494,7 @@ source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -5517,11 +5517,11 @@ source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY
 
 # Diagram
 
-다이어그램 자산 검색·배치 · prefix: `diagram-NN_` · 유형 내 순번 01–04
+다이어그램 자산 검색·배치 · prefix: `diagram_NN-` · 유형 내 순번 01–04
 
-## 31. diagram-01_get
+## 31. diagram_01-get
 
-기준 API: `get_diagram_asset`
+기준 API: `diagram_01-get`
 
 근거: src/mcp/features/diagrams/tools.py
 
@@ -5562,7 +5562,7 @@ source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5583,13 +5583,13 @@ source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY
     "name": "예시 다이어그램",
     "file_available": true
   },
-  "next_step_guide": "선택한 자산의 ID로 place_diagram_asset을 호출할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "선택한 자산의 ID로 diagram_03-place tool을 호출할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 54. diagram-02_list
+## 54. diagram_02-list
 
-기준 API: `list_diagram_assets`
+기준 API: `diagram_02-list`
 
 근거: src/mcp/features/diagrams/tools.py
 
@@ -5641,7 +5641,7 @@ source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -5664,9 +5664,9 @@ source_3dm은 준비 산출물에서 읽지만 등록 결과는 `DRAWING_LIBRARY
 }
 ```
 
-## 63. diagram-03_place
+## 63. diagram_03-place
 
-기준 API: `place_diagram_asset`
+기준 API: `diagram_03-place`
 
 근거: src/mcp/features/diagrams/tools.py
 
@@ -5712,7 +5712,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5732,13 +5732,13 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
   "asset_id": "example-asset", // 자산 ID
   "object_guid": "00000000-0000-0000-0000-000000000001", // 삽입한 최상위 블록 GUID. get_objects 또는 Scene 구성원 입력에 재사용
   "definition_created": true, // 새 블록 정의를 생성했는지 나타냅니다.
-  "next_step_guide": "get_objects와 캡처로 배치 위치·축척을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "inspect_02-get_objects tool와 캡처로 배치 위치·축척을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 81. diagram-04_search
+## 81. diagram_04-search
 
-기준 API: `search_diagram_assets`
+기준 API: `diagram_04-search`
 
 근거: src/mcp/features/diagrams/tools.py
 
@@ -5810,7 +5810,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -5833,11 +5833,11 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 # Drawing
 
-도면 스타일·해치·평면 및 단면 생성 · prefix: `drawing-NN_` · 유형 내 순번 01–06
+도면 스타일·해치·평면 및 단면 생성 · prefix: `drawing_NN-` · 유형 내 순번 01–06
 
-## 07. drawing-01_apply_style
+## 07. drawing_01-apply_style
 
-기준 API: `apply_drawing_style`
+기준 API: `drawing_01-apply_style`
 
 근거: src/mcp/features/drawings/tools.py
 
@@ -5854,12 +5854,12 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "recipe_id": {
       "default": "technical_axon_v1",
       "type": "string",
-      "description": "list_drawing_recipes(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다."
+      "description": "drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다."
     },
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -5904,9 +5904,9 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 }
 ```
 
-## 33. drawing-02_get_recipe
+## 33. drawing_02-get_recipe
 
-기준 API: `get_drawing_recipe`
+기준 API: `drawing_02-get_recipe`
 
 근거: src/mcp/features/drawings/tools.py
 
@@ -5922,7 +5922,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
   "properties": {
     "recipe_id": {
       "type": "string",
-      "description": "list_drawing_recipes(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다."
+      "description": "drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다."
     },
     "include_ids": {
       "default": false,
@@ -5947,7 +5947,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -5971,13 +5971,13 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
       "type": "parallel"
     }
   },
-  "next_step_guide": "선택한 규칙을 문서에 적용하려면 apply_drawing_style을 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "선택한 규칙을 문서에 적용하려면 drawing_01-apply_style tool을 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 42. drawing-03_get_plan_section_result
+## 42. drawing_03-get_plan_section_result
 
-기준 API: `get_plan_section_result`
+기준 API: `drawing_03-get_plan_section_result`
 
 근거: src/mcp/features/modeling/tools.py
 
@@ -5993,7 +5993,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
   "properties": {
     "result_id": {
       "type": "string",
-      "description": "plan_section.result.result_id에서 얻은 의미를 해석하지 않는 32자 결과 영수증 ID입니다."
+      "description": "drawing_06-generate_plan_section tool의 result.result_id에서 얻은 의미를 해석하지 않는 32자 결과 영수증 ID입니다."
     },
     "offset": {
       "default": 0,
@@ -6008,7 +6008,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -6035,9 +6035,9 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 }
 ```
 
-## 50. drawing-04_import_hatches
+## 50. drawing_04-import_hatches
 
-기준 API: `import_drawing_hatch_patterns`
+기준 API: `drawing_04-import_hatches`
 
 근거: src/mcp/features/drawings/tools.py
 
@@ -6058,7 +6058,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -6083,9 +6083,9 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 }
 ```
 
-## 56. drawing-05_list_recipes
+## 56. drawing_05-list_recipes
 
-기준 API: `list_drawing_recipes`
+기준 API: `drawing_05-list_recipes`
 
 근거: src/mcp/features/drawings/tools.py
 
@@ -6122,7 +6122,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -6151,13 +6151,13 @@ include_ids=true로 조회한 예시입니다.
       ]
     }
   ],
-  "next_step_guide": "선택한 레시피의 ID로 get_drawing_recipe을 호출할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "선택한 레시피의 ID로 drawing_02-get_recipe tool을 호출할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 65. drawing-06_generate_plan_section
+## 65. drawing_06-generate_plan_section
 
-기준 API: `plan_section`
+기준 API: `drawing_06-generate_plan_section`
 
 근거: src/mcp/features/modeling/tools.py
 
@@ -6282,7 +6282,7 @@ include_ids=true로 조회한 예시입니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -6317,11 +6317,11 @@ include_ids=true로 조회한 예시입니다.
 
 # Grasshopper
 
-Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유형 내 순번 01–04
+Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper_NN-` · 유형 내 순번 01–04
 
-## 34. grasshopper-01_get_logic
+## 34. grasshopper_01-get_logic
 
-기준 API: `get_logic_by_id`
+기준 API: `grasshopper_01-get_logic`
 
 근거: src/mcp/features/grasshopper/tools.py
 
@@ -6337,7 +6337,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
   "properties": {
     "logic_id": {
       "type": "string",
-      "description": "기존 Grasshopper 라이브러리 파일명에서 확장자를 뺀 이름입니다. 알고 있는 ID를 재사용하거나 list_library(include_ids=true)에서 얻습니다."
+      "description": "기존 Grasshopper 라이브러리 파일명에서 확장자를 뺀 이름입니다. 알고 있는 ID를 재사용하거나 grasshopper_03-list_library tool(include_ids=true)에서 얻습니다."
     },
     "include_ids": {
       "default": false,
@@ -6362,7 +6362,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -6392,13 +6392,13 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
     "…"
   ],
   "metadata": {}, // 정의 파일에서 읽은 메타데이터입니다.
-  "next_step_guide": "캡슐 계약과 실행 감사가 확인된 경우 run_gh_definition으로 계산할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "캡슐 계약과 실행 감사가 확인된 경우 grasshopper_04-run_definition tool으로 계산할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 51. grasshopper-02_list_capsules
+## 51. grasshopper_02-list_capsules
 
-기준 API: `list_capsules`
+기준 API: `grasshopper_02-list_capsules`
 
 근거: src/mcp/features/grasshopper/tools.py
 
@@ -6420,7 +6420,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
     "audited_only": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 run_gh_definition이 실행을 허용하는 캡슐만 나열합니다."
+      "description": "true이면 grasshopper_04-run_definition tool이 실행을 허용하는 캡슐만 나열합니다."
     },
     "include_ids": {
       "default": false,
@@ -6445,7 +6445,7 @@ Grasshopper 정의의 구성과 사용 계약을 조회합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -6495,13 +6495,13 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
       ]
     }
   ],
-  "next_step_guide": "audited=true인 캡슐의 input_ports에 맞춰 inputs를 구성하고, capsule_id와 함께 run_gh_definition에 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "audited=true인 캡슐의 input_ports에 맞춰 inputs를 구성하고, capsule_id와 함께 grasshopper_04-run_definition tool에 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 57. grasshopper-03_list_library
+## 57. grasshopper_03-list_library
 
-기준 API: `list_library`
+기준 API: `grasshopper_03-list_library`
 
 근거: src/mcp/features/grasshopper/tools.py
 
@@ -6538,7 +6538,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -6556,13 +6556,13 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "example-logic"
   ],
   "logic_count": 1, // include_ids=false에서 logic_ids 대신 추가됨
-  "next_step_guide": "logic_names에서 선택한 이름을 get_logic_by_id에 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "logic_names에서 선택한 이름을 grasshopper_01-get_logic tool에 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 77. grasshopper-04_run_definition
+## 77. grasshopper_04-run_definition
 
-기준 API: `run_gh_definition`
+기준 API: `grasshopper_04-run_definition`
 
 근거: src/mcp/features/grasshopper/tools.py
 
@@ -6574,15 +6574,16 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
 
 ```json
 {
+  "additionalProperties": false,
   "properties": {
     "capsule_id": {
       "type": "string",
-      "description": "list_capsules에서 얻은 안정적인 캡슐 식별자입니다(예: \"karamba_beam_v1\")."
+      "description": "grasshopper_02-list_capsules tool에서 얻은 안정적인 캡슐 식별자입니다(예: \"karamba_beam_v1\")."
     },
     "inputs": {
       "additionalProperties": true,
       "type": "object",
-      "description": "ALMOND_IN_ 포트 이름과 값의 객체입니다. list_capsules(field_groups=['ports'])의 input_ports에서 타입·단위·필수 여부를 확인합니다. 형상은 {\"guids\":[\"객체 GUID\"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다."
+      "description": "ALMOND_IN_ 포트 이름과 값의 객체입니다. grasshopper_02-list_capsules tool(field_groups=['ports'])의 input_ports에서 타입·단위·필수 여부를 확인합니다. 형상은 {\"guids\":[\"객체 GUID\"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다."
     },
     "seed": {
       "anyOf": [
@@ -6604,15 +6605,14 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
     "capsule_id",
     "inputs"
   ],
-  "type": "object",
-  "additionalProperties": false
+  "type": "object"
 }
 ```
 
@@ -6632,17 +6632,17 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
   "confidence": "medium", // 매니페스트 선언: api/high, template/medium, rule_based/low
   "warnings": [], // 결과를 해석할 때 확인할 경고입니다.
   "error": null, // 오류 내용입니다.
-  "next_step_guide": "베이크한 형상이 있으면 get_objects와 캡처로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "베이크한 형상이 있으면 inspect_02-get_objects tool와 캡처로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
 # Research
 
-구법·건축 유형·참고자료 조사 · prefix: `research-NN_` · 유형 내 순번 01–03
+구법·건축 유형·참고자료 조사 · prefix: `research_NN-` · 유형 내 순번 01–03
 
-## 27. research-01_get_construction_guidance
+## 27. research_01-get_construction_guidance
 
-기준 API: `get_construction_guidance`
+기준 API: `research_01-get_construction_guidance`
 
 근거: src/mcp/features/guidance/tools.py
 
@@ -6669,12 +6669,12 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "material": {
       "default": "",
       "type": "string",
-      "description": "validate_structure에서 사용하는 이름: \"Wood\", \"Steel\", \"Concrete\"."
+      "description": "analysis_04-validate_structure tool에서 사용하는 이름: \"Wood\", \"Steel\", \"Concrete\"."
     },
     "structure_type": {
       "default": "",
       "type": "string",
-      "description": "validate_structure의 유형입니다(\"beam\", \"truss\", \"shell\", \"frame\", \"canopy\", \"gridshell\", \"membrane\", \"highrise\")."
+      "description": "analysis_04-validate_structure tool의 유형입니다(\"beam\", \"truss\", \"shell\", \"frame\", \"canopy\", \"gridshell\", \"membrane\", \"highrise\")."
     },
     "span_m": {
       "default": 0.0,
@@ -6709,7 +6709,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -6748,13 +6748,13 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
       ]
     }
   ],
-  "next_step_guide": "선택한 구법을 객체에 기록하려면 assign_material을 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "선택한 구법을 객체에 기록하려면 model_01-assign_material tool을 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 48. research-02_get_typology_narrative
+## 48. research_02-get_typology_narrative
 
-기준 API: `get_typology_narrative`
+기준 API: `research_02-get_typology_narrative`
 
 근거: src/mcp/features/guidance/tools.py
 
@@ -6781,7 +6781,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "structure_type": {
       "default": "",
       "type": "string",
-      "description": "validate_structure의 유형으로 필터링합니다(\"shell\", \"truss\", \"frame\", \"membrane\" 등)."
+      "description": "analysis_04-validate_structure tool의 유형으로 필터링합니다(\"shell\", \"truss\", \"frame\", \"membrane\" 등)."
     },
     "limit": {
       "default": 5,
@@ -6811,7 +6811,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -6839,13 +6839,13 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     }
   ],
   "source": "…", // 자료 출처입니다.
-  "next_step_guide": "관련 구법은 get_construction_guidance로 비교할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "관련 구법은 research_01-get_construction_guidance tool로 비교할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 80. research-03_search_details
+## 80. research_03-search_details
 
-기준 API: `search_detail_sources`
+기준 API: `research_03-search_details`
 
 근거: src/mcp/features/guidance/tools.py
 
@@ -6887,7 +6887,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -6930,11 +6930,11 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
 
 # Analysis
 
-구조·피난 검토와 보고서 · prefix: `analysis-NN_` · 유형 내 순번 01–05
+구조·피난 검토와 보고서 · prefix: `analysis_NN-` · 유형 내 순번 01–05
 
-## 12. analysis-01_check_egress
+## 12. analysis_01-check_egress
 
-기준 API: `check_egress`
+기준 API: `analysis_01-check_egress`
 
 근거: src/mcp/features/egress/tools.py
 
@@ -6999,7 +6999,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -7036,9 +7036,9 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
 }
 ```
 
-## 22. analysis-02_export_structural_report
+## 22. analysis_02-export_structural_report
 
-기준 API: `export_structural_report`
+기준 API: `analysis_02-export_structural_report`
 
 근거: src/mcp/features/structure/tools.py
 
@@ -7065,7 +7065,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -7085,9 +7085,9 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
 }
 ```
 
-## 52. analysis-03_list_design_codes
+## 52. analysis_03-list_design_codes
 
-기준 API: `list_design_codes`
+기준 API: `analysis_03-list_design_codes`
 
 근거: src/mcp/features/structure/tools.py
 
@@ -7124,7 +7124,7 @@ include_ids=true, field_groups=["definition", "ports"]로 조회한 예시입니
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -7153,13 +7153,13 @@ include_ids=true로 조회한 예시입니다.
   ],
   "problems": [], // 로딩 중 거부된 사용자 프로필 문제
   "user_dir": "…", // 사용자 설계 기준 프로필 폴더입니다.
-  "next_step_guide": "선택한 기준 ID를 validate_structure 또는 visualize_structure에 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "선택한 기준 ID를 analysis_04-validate_structure tool 또는 analysis_05-visualize_structure tool에 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 91. analysis-04_validate_structure
+## 91. analysis_04-validate_structure
 
-기준 API: `validate_structure`
+기준 API: `analysis_04-validate_structure`
 
 근거: src/mcp/features/structure/tools.py
 
@@ -7267,7 +7267,7 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
     "design_code": {
       "default": "eurocode",
       "type": "string",
-      "description": "설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. \"eurocode\"(기본값, EN 권장값), list_design_codes의 프로필 또는 \"off\"를 사용합니다. \"off\"는 부분계수 없이 G + Q를 적용하며 design_basis=\"unfactored\"와 같습니다. 결과의 \"design_code\"에는 사용한 값과 검증되지 않은 값이 포함됩니다."
+      "description": "설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. \"eurocode\"(기본값, EN 권장값), analysis_03-list_design_codes tool의 프로필 또는 \"off\"를 사용합니다. \"off\"는 부분계수 없이 G + Q를 적용하며 design_basis=\"unfactored\"와 같습니다. 결과의 \"design_code\"에는 사용한 값과 검증되지 않은 값이 포함됩니다."
     },
     "detail": {
       "default": false,
@@ -7282,7 +7282,7 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -7330,13 +7330,13 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
     "id": "eurocode",
     "unverified": []
   },
-  "next_step_guide": "문제 부재는 visualize_structure로 검토할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "문제 부재는 analysis_05-visualize_structure tool로 검토할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 92. analysis-05_visualize_structure
+## 92. analysis_05-visualize_structure
 
-기준 API: `visualize_structure`
+기준 API: `analysis_05-visualize_structure`
 
 근거: src/mcp/features/structure/tools.py
 
@@ -7498,7 +7498,7 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
     "asset_loads": {
       "default": false,
       "type": "boolean",
-      "description": "validate_structure와 동일하게 배치된 라이브러리 자산의 하중을 추가합니다(네이티브 엔진). 하중 작용점에 하중 화살표를 그립니다."
+      "description": "analysis_04-validate_structure tool와 동일하게 배치된 라이브러리 자산의 하중을 추가합니다(네이티브 엔진). 하중 작용점에 하중 화살표를 그립니다."
     },
     "floor_load_kn_m2": {
       "default": 0.0,
@@ -7530,17 +7530,17 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
     "connections": {
       "default": "rigid",
       "type": "string",
-      "description": "validate_structure와 동일한 \"rigid\" 또는 \"simple\"입니다. 핀 접합 단부는 작은 원으로 그립니다."
+      "description": "analysis_04-validate_structure tool와 동일한 \"rigid\" 또는 \"simple\"입니다. 핀 접합 단부는 작은 원으로 그립니다."
     },
     "stability": {
       "default": "auto",
       "type": "string",
-      "description": "validate_structure와 동일한 \"auto\" 또는 \"off\"입니다."
+      "description": "analysis_04-validate_structure tool와 동일한 \"auto\" 또는 \"off\"입니다."
     },
     "design_code": {
       "default": "eurocode",
       "type": "string",
-      "description": "설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. \"eurocode\"(기본값, EN 권장값), list_design_codes의 프로필 또는 \"off\"를 사용합니다. \"off\"는 부분계수 없이 G + Q를 적용하며 design_basis=\"unfactored\"와 같습니다. 결과의 \"design_code\"에는 사용한 값과 검증되지 않은 값이 포함됩니다."
+      "description": "설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. \"eurocode\"(기본값, EN 권장값), analysis_03-list_design_codes tool의 프로필 또는 \"off\"를 사용합니다. \"off\"는 부분계수 없이 G + Q를 적용하며 design_basis=\"unfactored\"와 같습니다. 결과의 \"design_code\"에는 사용한 값과 검증되지 않은 값이 포함됩니다."
     },
     "fabrication": {
       "default": "cold_formed",
@@ -7555,7 +7555,7 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "type": "object"
@@ -7586,18 +7586,18 @@ Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
   ],
   "nodes": 2, // 해석 노드 수입니다.
   "warnings": [], // 결과를 해석할 때 확인할 경고입니다.
-  "next_step_guide": "판정을 검증 이력으로 남기려면 validate_structure를 사용합니다.", // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "판정을 검증 이력으로 남기려면 analysis_04-validate_structure tool를 사용합니다.", // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
   "passed": true // 검토 기준 충족 여부입니다. indicative의 null은 해석은 완료했으나 재료 내력 합격 판정을 하지 않았음을 뜻합니다.
 }
 ```
 
 # Exchange
 
-앱 간 자산 교환·Chestnut 게시 · prefix: `exchange-NN_` · 유형 내 순번 01–05
+앱 간 자산 교환·Chestnut 게시 · prefix: `exchange_NN-` · 유형 내 순번 01–05
 
-## 21. exchange-01_export_asset_contract
+## 21. exchange_01-export_asset_contract
 
-기준 API: `export_asset_contract`
+기준 API: `exchange_01-export_asset_contract`
 
 근거: src/mcp/features/exchange/tools.py
 
@@ -7635,7 +7635,7 @@ Rhino 객체를 GLB와 Almond 자산 계약 파일로 내보냅니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -7664,13 +7664,13 @@ next_step_guide는 현재 서버가 반환하는 영어 원문입니다.
     "height": 800
   },
   "materials": [], // 인식된 Almond 재료 그룹. 비어 있어도 모든 재료가 보존됐다는 뜻은 아님
-  "next_step_guide": "If importing into a destination Rhino is intended, pass the returned contract_path to import_asset_contract(contract_path=...) and choose its placement coordinates in mm; exporting alone does not request another import. For Blender, import the returned glb_path there and verify materials/placement; get_blender_helper_script supports export and materials, not import." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "If importing into a destination Rhino is intended, pass the returned contract_path to exchange_03-import_asset_contract tool(contract_path=...) and choose its placement coordinates in mm; exporting alone does not request another import. For Blender, import the returned glb_path there and verify materials/placement; exchange_02-get_blender_script tool supports export and materials, not import." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 26. exchange-02_get_blender_script
+## 26. exchange_02-get_blender_script
 
-기준 API: `get_blender_helper_script`
+기준 API: `exchange_02-get_blender_script`
 
 근거: src/mcp/features/exchange/tools.py
 
@@ -7746,7 +7746,7 @@ Blender의 선택 형상 내보내기 또는 재료 설정에 사용할 Python �
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -7765,13 +7765,13 @@ Blender의 선택 형상 내보내기 또는 재료 설정에 사용할 Python �
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "action": "export", // 스크립트의 작업 종류입니다.
   "script": "<생성된 Blender Python 소스>", // Blender에서 실행할 Python 코드입니다.
-  "next_step_guide": "생성한 코드는 Blender에서 실행합니다. export 실행이 성공하면 얻은 계약을 import_asset_contract에 사용할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "생성한 코드는 Blender에서 실행합니다. export 실행이 성공하면 얻은 계약을 exchange_03-import_asset_contract tool에 사용할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 49. exchange-03_import_asset_contract
+## 49. exchange_03-import_asset_contract
 
-기준 API: `import_asset_contract`
+기준 API: `exchange_03-import_asset_contract`
 
 근거: src/mcp/features/exchange/tools.py
 
@@ -7787,7 +7787,7 @@ Almond 자산 계약에 따라 GLB를 Rhino 문서로 가져옵니다.
   "properties": {
     "contract_path": {
       "type": "string",
-      "description": "export_asset_contract 또는 Blender 내보내기가 반환한 계약 경로입니다. 관리형 세션에서는 프로젝트 기준 상대 .almond.json 경로이고, 독립 실행에서는 절대 경로입니다."
+      "description": "exchange_01-export_asset_contract tool 또는 Blender 내보내기가 반환한 계약 경로입니다. 관리형 세션에서는 프로젝트 기준 상대 .almond.json 경로이고, 독립 실행에서는 절대 경로입니다."
     },
     "x_mm": {
       "default": 0,
@@ -7817,7 +7817,7 @@ Almond 자산 계약에 따라 GLB를 Rhino 문서로 가져옵니다.
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -7859,7 +7859,7 @@ Almond 자산 계약에 따라 GLB를 Rhino 문서로 가져옵니다.
     "tolerance": 0.02
   },
   "layer": "ALMOND-EXCHANGE", // 가져온 객체의 레이어입니다.
-  "next_step_guide": "get_objects와 캡처로 가져온 형상·재료·배치를 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "inspect_02-get_objects tool와 캡처로 가져온 형상·재료·배치를 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -7876,9 +7876,9 @@ Almond 자산 계약에 따라 GLB를 Rhino 문서로 가져옵니다.
 
 복원 단계에서 응답을 잃으면 확인된 `imported_guids`도 함께 반환합니다. 결과 직렬화 실패에는 `result_error`, 관리형 가져오기 보고서 검증 실패에는 `report_path`가 포함될 수 있습니다.
 
-## 68. exchange-04_publish_chestnut_advanced
+## 68. exchange_04-publish_chestnut_advanced
 
-기준 API: `publish_objects_to_chestnut`
+기준 API: `exchange_04-publish_chestnut_advanced`
 
 근거: src/mcp/features/publishing/tools.py
 
@@ -7931,7 +7931,7 @@ Rhino 객체를 물리·콜라이더 설정이 있는 GLB로 Chestnut에 게시�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [
@@ -7955,9 +7955,9 @@ Rhino 객체를 물리·콜라이더 설정이 있는 GLB로 Chestnut에 게시�
 }
 ```
 
-## 69. exchange-05_publish_chestnut
+## 69. exchange_05-publish_chestnut
 
-기준 API: `publish_to_chestnut`
+기준 API: `exchange_05-publish_chestnut`
 
 근거: src/mcp/features/publishing/tools.py
 
@@ -7995,7 +7995,7 @@ Rhino 객체를 동작 프리셋으로 Chestnut에 게시합니다. 원본 문�
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
   "required": [

@@ -141,8 +141,8 @@ Click **Open full results ↗**, or type `AlmondResults`. The **Almond Results**
 
 With the daily checkout's MCP connection configured using [the connection guide](../../../../cos/EXTERNAL_CLIENTS.md), your client can run the same engine on the objects you name or select:
 
-- `validate_structure`: solve and check. Pass `detail=True` for the per-member and per-support tables. `design_code`, `fabrication`, `floor_load_kn_m2` and `asset_loads` match the panel settings.
-- `visualize_structure`: draw the deflected shape or a buckling mode (`view="buckling"`) in the viewport.
+- `analysis_04-validate_structure` tool: solve and check. Pass `detail=True` for the per-member and per-support tables. `design_code`, `fabrication`, `floor_load_kn_m2` and `asset_loads` match the panel settings.
+- `analysis_05-visualize_structure` tool: draw the deflected shape or a buckling mode (`view="buckling"`) in the viewport.
 
 A typical request: *"Check the frame on layer Structure with 2 kN/m² imposed and 1 kN/m² build-up, simple joints. If it fails, find the lightest CHS that passes."*
 

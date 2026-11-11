@@ -87,7 +87,7 @@ def _snapshot() -> dict:
 def startup_instructions() -> str:
     snapshot = _snapshot()
     return ('Almond inspects and edits Rhino architecture and drawings. On first use, call '
-            'get_policy() to read BASIC-INSTRUCTIONS.md and discover optional policies. '
+            'context_01-get_policy tool to read BASIC-INSTRUCTIONS.md and discover optional policies. '
             f'guide_version={snapshot["guide_version"]}')
 
 

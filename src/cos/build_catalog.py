@@ -12,6 +12,7 @@ import types
 from typing import Literal
 import tomllib
 from almond_mcp.instruction_text import read_tool_instruction, public_tool_name
+from almond_mcp.public_names import internal_tool_name
 
 sys.dont_write_bytecode = True
 from runtime import CATALOG, ENGINE, ROOT, digest, source_paths
@@ -74,10 +75,10 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
                     or not isinstance(decorator.args[0], ast.Name)
                     or decorator.args[0].id != "__file__"
                     or not isinstance(decorator.args[1], ast.Constant)
-                    or decorator.args[1].value != public_tool_name(node)
+                    or decorator.args[1].value != internal_tool_name(public_tool_name(node))
                     or not hasattr(node, "_guidance_source")):
                 raise ValueError(f"Unexpected instruction decorator: {node.name}")
-            external_doc = read_tool_instruction(node._guidance_source, public_tool_name(node))
+            external_doc = read_tool_instruction(node._guidance_source, internal_tool_name(public_tool_name(node)))
             continue
         if not (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute)
                 and isinstance(decorator.func.value, ast.Name) and decorator.func.value.id == "mcp"
@@ -103,12 +104,12 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
                 call = keyword.value
                 if (not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name)
                         or call.func.id != "public_output_schema" or len(call.args) != 1
-                        or ast.literal_eval(call.args[0]) != public_tool_name(node)
+                        or ast.literal_eval(call.args[0]) != internal_tool_name(public_tool_name(node))
                         or len(call.keywords) != 1 or call.keywords[0].arg != "wrapped"
                         or type(ast.literal_eval(call.keywords[0].value)) is not bool):
                     raise ValueError(f"Review output schema in {node.name}")
                 from almond_mcp.output_contracts import public_output_schema
-                resolved = public_output_schema(public_tool_name(node), ast.literal_eval(call.keywords[0].value))
+                resolved = public_output_schema(internal_tool_name(public_tool_name(node)), ast.literal_eval(call.keywords[0].value))
                 keyword.value = ast.parse(repr(resolved), mode="eval").body
                 continue
             if keyword.arg != "annotations":

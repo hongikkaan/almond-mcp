@@ -124,7 +124,7 @@ def test_legacy_plan_does_not_block_bound_model_save(workspace):
     runtime.workspace = workspace
     runtime.validate = lambda: None  # No live Rhino in this fixture.
     class Message:
-        name = "save_rhino_document"
+        name = "script_04-save_document"
         arguments = {}
         def model_copy(self, update):
             return self
@@ -137,4 +137,4 @@ def test_legacy_plan_does_not_block_bound_model_save(workspace):
         called.append(context.message.name)
         return {"status": "success"}
     assert asyncio.run(runtime.on_call_tool(Context(), save)) == {"status": "success"}
-    assert called == ["save_rhino_document"]
+    assert called == ["script_04-save_document"]

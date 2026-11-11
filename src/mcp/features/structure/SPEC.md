@@ -1,6 +1,6 @@
 # Native frame solver
 
-`validate_structure` analyses line models (beams, columns, trusses, frames) with Almond's own 3D frame solver by default. Users no longer need Karamba3D for these; Karamba remains available for shells and as a cross-check.
+`analysis_04-validate_structure` tool analyses line models (beams, columns, trusses, frames) with Almond's own 3D frame solver by default. Users no longer need Karamba3D for these; Karamba remains available for shells and as a cross-check.
 
 | | Native (`engine="auto"` / `"native"`) | Karamba (`engine="karamba"`) |
 | --- | --- | --- |
@@ -18,15 +18,15 @@ the built-in Eurocode recommended values by default, a National Annex file you a
 The same engine runs from the panel, with no AI client: run **AlmondStructure**, keep the engine on **Almond native**, select the members and **Use Rhino selection**. Step 02 adds the native options (floor imposed and build-up loads, loads from placed models, connections, load combinations, stability, deflection span, and the viewport overlay: deflected shape or first buckling mode).
 **Run native analysis** exports the conditioned line model, runs `almond-mcp solve` out of process (JSON in, JSON out: `src/mcp/features/structure/structure_study.py`), draws the result through the same `structure_draw` overlay the MCP tools use, and fills step 04 with deflection, utilization, the governing combination, αcr and the load facts. **Clear viewport overlay** removes the drawing.
 
-**Open full results ↗** (or the `AlmondResults` command) opens the **Almond Results** panel, docked beside the Almond panel: a summary, then every member (role, section, length, ULS utilization with its governing check and combination, design forces N/V/M/T, stress, slenderness and χ, SLS deflection and span/deflection, end connections), the support reactions for each combination, the combinations and stability, the loads and settings, and all notes. Click a member to select it in Rhino; **Save CSV** writes the member table. The same tables are available to the MCP tools with `validate_structure(..., detail=True)`.
+**Open full results ↗** (or the `AlmondResults` command) opens the **Almond Results** panel, docked beside the Almond panel: a summary, then every member (role, section, length, ULS utilization with its governing check and combination, design forces N/V/M/T, stress, slenderness and χ, SLS deflection and span/deflection, end connections), the support reactions for each combination, the combinations and stability, the loads and settings, and all notes. Click a member to select it in Rhino; **Save CSV** writes the member table. The same tables are available to the MCP tools with `analysis_04-validate_structure tool(..., detail=True)`.
 
-The panel and `visualize_structure` share `native_structure` and `structure_study.draw_message`.
+The panel and `analysis_05-visualize_structure` tool share `native_structure` and `structure_study.draw_message`.
 
 The plugin uses the registered checkout's `src/engine/.venv/Scripts/python.exe` to run its fixed `src/mcp/runtime/solve.py` launcher. Python runs in isolated mode; the launcher checks that the single installed Almond distribution is editable and that its metadata and imported source point to this checkout before loading the solver. Missing or mismatched files stop execution. There is no remote-package fallback or command override. The daily runtime's AppData library paths and explicit library overrides are preserved. A protocol number in every request and reply catches a plugin/solver mismatch.
 
 ## Live view
 
-`visualize_structure` uses the same engines: the server exports the model (`structure_model`), solves it with `frame_solver`, and sends the solved field to the bridge (`structure_draw`), which draws it with the same overlay as the Karamba route — deformed shape coloured by displacement or utilization, supports, loads and a PASS/FAIL legend. Display-only updates (`reanalyze=False`: scale, colouring, reveal, physics on/off, `display_guids`) resend no geometry.
+`analysis_05-visualize_structure` tool uses the same engines: the server exports the model (`structure_model`), solves it with `frame_solver`, and sends the solved field to the bridge (`structure_draw`), which draws it with the same overlay as the Karamba route — deformed shape coloured by displacement or utilization, supports, loads and a PASS/FAIL legend. Display-only updates (`reanalyze=False`: scale, colouring, reveal, physics on/off, `display_guids`) resend no geometry.
 
 `engine="auto"` routes to Karamba when the structure type is shell, gridshell or membrane, when the selection contains shells, or when the installed bridge cannot export a structural model (older than this change); the result then carries a warning saying why.
 
@@ -68,7 +68,7 @@ With `stability="auto"` (the default), every ULS combination gets:
 - **Regime** (5.2.1): α_cr ≥ 10 → first-order results; 1 < α_cr < 10 → a second-order (P-Δ) ULS analysis, iterating (K + K_G(N))·u = F until the axial forces settle; α_cr ≤ 1 (or a second-order stiffness that stops being positive definite) → **FAIL, unstable**.
 - Member buckling checks use L_cr = the member length, also when the stability check has split the member into elements: conservative for non-sway frames (α_cr ≥ 10) and permitted after a global second-order analysis with sway imperfections (5.2.2(7)b).
 
-`visualize_structure(view="buckling")` draws the first buckling mode of the governing ULS combination with its α_cr and a STABLE / SWAY-SENSITIVE / UNSTABLE badge.
+`analysis_05-visualize_structure tool(view="buckling")` draws the first buckling mode of the governing ULS combination with its α_cr and a STABLE / SWAY-SENSITIVE / UNSTABLE badge.
 `stability="off"` returns to first-order without imperfections.
 
 Verified against closed forms: pin-ended Euler column (one element: exactly 12/π² × the Euler load, the textbook value; eight: within 0.003 %), cantilever (2L effective length), sway of a fixed-base portal with a stiff beam (π²EI/L² per column, within 0.04 %), and the exact second-order cantilever deflection H/(Pk)·(tan kL − kL) and base moment (within 1e-5).
@@ -104,7 +104,7 @@ Recommended values of EN 1990 Table A1.2(B) (γ_G 1.35, γ_Q 1.5, ψ0 0.7 for ca
 
 ## Floor area loads
 
-`validate_structure(..., floor_load_kn_m2=2.0, floor_dead_kn_m2=1.0)` (and the same on `visualize_structure`) loads every floor bay of the frame:
+`analysis_04-validate_structure tool(..., floor_load_kn_m2=2.0, floor_dead_kn_m2=1.0)` (and the same on `analysis_05-visualize_structure` tool) loads every floor bay of the frame:
 
 - **Bays** are the areas enclosed by beams on one level (faces of the plan graph, found with a half-edge walk). A straight line between two adjacent supports with no beam along it is a **bearing wall**: bays close on it and its share goes straight into those supports (in the reactions, bending no member). Diagonals between supports that would cut an already closed bay are rejected.
 - **Distribution:** rectangular bays use 45° lines from the corners — short edges carry a triangle, long edges a trapezoid; above 2:1 the bay spans one way onto its long edges.
@@ -114,7 +114,7 @@ Recommended values of EN 1990 Table A1.2(B) (γ_G 1.35, γ_Q 1.5, ψ0 0.7 for ca
 
 ## Loads from placed assets
 
-`validate_structure(..., asset_loads=True)` and `visualize_structure(..., asset_loads=True)` add the gravity load of every placed library asset that stands on (or hangs from) the frame:
+`analysis_04-validate_structure tool(..., asset_loads=True)` and `analysis_05-visualize_structure tool(..., asset_loads=True)` add the gravity load of every placed library asset that stands on (or hangs from) the frame:
 
 - **Load data:** `asset/models/GeneratedAssetfiles/structural-loads.json` gives each of the 50 library assets an estimated self weight (dead) and in-use load (imposed: occupants at 80 kg, water in a filled bath, books on shelves), with category defaults for other libraries.
   These are typical-product estimates, not measured or manufacturer data. The internal asset passport reader also retains `structural_loads`.

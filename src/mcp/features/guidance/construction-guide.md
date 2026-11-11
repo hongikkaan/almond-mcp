@@ -1,6 +1,6 @@
 # Construction-system guidance: real assemblies, not arbitrary members
 
-Why Almond v0.6 adds a construction knowledge layer, where its numbers come from, and how it threads through `get_construction_guidance`, `validate_structure`, and `assign_material`.
+Why Almond v0.6 adds a construction knowledge layer, where its numbers come from, and how it threads through `research_01-get_construction_guidance` tool, `analysis_04-validate_structure` tool, and `model_01-assign_material` tool.
 
 ## The problem it solves
 
@@ -23,8 +23,8 @@ Parameters are distilled and paraphrased from **Francis D.K. Ching, *Building Co
 
 Each system entry:
 
-- `structural_material` — `validate_structure`'s material vocabulary (`Steel`, `Concrete`, `Wood`; `S355` is normalized to Steel).
-- `structure_types` — which `validate_structure` templates the system maps to.
+- `structural_material` — `analysis_04-validate_structure` tool's material vocabulary (`Steel`, `Concrete`, `Wood`; `S355` is normalized to Steel).
+- `structure_types` — which `analysis_04-validate_structure` tool templates the system maps to.
 - `render_material_ids` — Materialfiles PBR ids, so the declared construction material is *visible in Rhino* and survives GLB/Datasmith export.
 - `span_range_m` — real span range (for `category: wall`, `span_axis` is `"vertical"` and the range is unsupported height).
 - `depth_rules` — `depth ≈ span / span_ratio` rules per element.
@@ -37,17 +37,17 @@ Every parameter is itemized with its exact BCI section title and page in the gen
 ## The workflow
 
 ```
-get_construction_guidance(material="Wood", structure_type="beam", span_m=4.5)
+research_01-get_construction_guidance tool(material="Wood", structure_type="beam", span_m=4.5)
         │  pick a system; size members from depth/spacing rules
         ▼
-execute_rhino_script          — generate members at real sections/spacings
+script_02-run_rhino tool          — generate members at real sections/spacings
         ▼
-assign_material(guids, "wood-oak",
+model_01-assign_material tool(guids, "wood-oak",
                 structural_role="joist",
                 construction_system="wood-joist-floor")
         │  applies material and the supported metadata described below
         ▼
-validate_structure(guids, "beam", load_kn, "Wood")
+analysis_04-validate_structure tool(guids, "beam", load_kn, "Wood")
         │  Karamba pathway as before, PLUS construction_check appended:
         │  which curated systems cover this structure_type/material,
         │  fits_span per system, suggested depths, and a warning when the
@@ -58,21 +58,21 @@ validate_structure(guids, "beam", load_kn, "Wood")
 
 ## Egress checking
 
-`check_egress` turns the manifest's egress rules into one verdict pass: occupant load from plate area and occupancy, required exit count (tiers + the multi-story minimum of two), exit separation against the plate diagonal, total and per-exit egress widths, and optional measured travel distances and dead-end lengths. Each check names its requirement, the provided value, and its basis, so a failing layout says what to fix (add an exit, move a core, widen a stair). IBC-typical numeric factors are labeled as such and the response repeats the verify-governing-code note.
+`analysis_01-check_egress` tool turns the manifest's egress rules into one verdict pass: occupant load from plate area and occupancy, required exit count (tiers + the multi-story minimum of two), exit separation against the plate diagonal, total and per-exit egress widths, and optional measured travel distances and dead-end lengths. Each check names its requirement, the provided value, and its basis, so a failing layout says what to fix (add an exit, move a core, widen a stair). IBC-typical numeric factors are labeled as such and the response repeats the verify-governing-code note.
 
 ## 재료·구축 레이어 구현
 
-도구 입력은 `tools/list`의 `setup_modeling`·`assign_material` 설명 전문과 schema를 따른다. 설명 원본은 [모델링 도구 설명](../modeling/tools-explain.md), Layer 위계는 위 setup_modeling 설명에, 과업별 구축 상세화 판단은 [get_construction_guidance 설명](tools-explain.md)에 있다.
+도구 입력은 `tools/list`의 `model_05-setup` tool·`model_01-assign_material` tool 설명 전문과 schema를 따른다. 설명 원본은 [모델링 도구 설명](../modeling/tools-explain.md), Layer 위계는 위 model_05-setup tool 설명에, 과업별 구축 상세화 판단은 [research_01-get_construction_guidance tool 설명](tools-explain.md)에 있다.
 
 MCP owns catalog loading, material choices, construction-layer specifications and metadata policy. `modeling_setup.py` supplies resolved recipes to the shared C# implementation in `src/mcp/rhino/`. The Bridge compiles those files to execute Rhino API operations on its UI thread; it does not independently read the material or construction manifests. Native document access, Undo recovery, panels and geometry services remain in RHP. `DocumentLayers.Ensure` is the common native layer-path adapter used by drawing styles, asset placement and setup.
 
-`setup_modeling(overwrite: boolean)` registers Materials then Layers in one native execution. The boolean is required and applies to both tables: false creates missing entries and preserves all existing values; true updates prescribed properties. No operation selector or UI prompt is used. New materials use readable manifest names. Existing `ALMOND::<id>` render materials are recognized; false preserves their names and reports the difference, while true reconciles them. Conflicting material IDs or legacy material-table entries without matching render content are reported for inspection rather than silently replaced.
+`model_05-setup tool(overwrite: boolean)` registers Materials then Layers in one native execution. The boolean is required and applies to both tables: false creates missing entries and preserves all existing values; true updates prescribed properties. No operation selector or UI prompt is used. New materials use readable manifest names. Existing `ALMOND::<id>` render materials are recognized; false preserves their names and reports the difference, while true reconciles them. Conflicting material IDs or legacy material-table entries without matching render content are reported for inspection rather than silently replaced.
 
 Layers use `M/category/system.name/element.role` with material and matching display/print colors. Existing Layers are unchanged when overwrite=false, even when they differ from the library. The system default is the first `render_material_ids` entry. Current role defaults use galvanized steel for connection/reinforcement/decking and birch plywood for Wood subfloor/sheathing; these are setup choices, not mappings present in the construction manifest. M and category containers are gray. Setup preserves objects, their layer assignments/ByLayer choices and unrelated Layer properties.
 
 Confirmed full application returns `{status: "success", applied: true}`. Otherwise a completed setup returns `{status: "incomplete", applied: false, differences: [...], errors: [...]}`. Each difference names kind/material-or-layer name/property/current/expected; errors name kind/name/message. This can include preserved differences and partial changes, and does not imply rollback. Transport timeout or an unreadable native result is `mutation_state: "unknown"`; inspect before any retry. No processing counts are represented as created-object counts.
 
-`assign_material` preserves the object's layer and unspecified metadata. Registration, assignment, layer setup and archive placement share one PBR implementation. Archive recipes with hash-suffixed names reuse only exact names and remain separate from legacy `ALMOND::<id>` materials. Direct batch scripts may call `ModelingMaterials.CreateAttributes` with a resolved recipe JSON string; passing only a library ID is no longer supported. No operation guesses a layer from a material name or watches material-table events to move unrelated objects. Catalog reads and plugin startup create no modeling state.
+`model_01-assign_material` tool preserves the object's layer and unspecified metadata. Registration, assignment, layer setup and archive placement share one PBR implementation. Archive recipes with hash-suffixed names reuse only exact names and remain separate from legacy `ALMOND::<id>` materials. Direct batch scripts may call `ModelingMaterials.CreateAttributes` with a resolved recipe JSON string; passing only a library ID is no longer supported. No operation guesses a layer from a material name or watches material-table events to move unrelated objects. Catalog reads and plugin startup create no modeling state.
 
 MCP checks `modeling_materials=2` before these mutations and additionally `modeling_setup=1` before combined setup, rejecting an older loaded Bridge before dispatch. RHP source changes require a rebuilt Bridge and a new Rhino process. Rebuilding a file does not change a running process's assembly.
 
@@ -82,4 +82,4 @@ The existing construction catalog contains preliminary construction systems, not
 
 ## Companion narration
 
-`asset/history/Historyfiles/manifest.json` + `get_typology_narrative` provide historical narratives, precedents and urban roles from Ching/Jarzombek/Prakash, *A Global History of Architecture*, linked to construction-system IDs and page references (`gha_ref`). They contain no project-specific dimensions, loads or structural capacity. Page-indexed TOCs remain in [reference/](../../profiles/construction_system/references) for deeper reading.
+`asset/history/Historyfiles/manifest.json` + `research_02-get_typology_narrative` tool provide historical narratives, precedents and urban roles from Ching/Jarzombek/Prakash, *A Global History of Architecture*, linked to construction-system IDs and page references (`gha_ref`). They contain no project-specific dimensions, loads or structural capacity. Page-indexed TOCs remain in [reference/](../../profiles/construction_system/references) for deeper reading.

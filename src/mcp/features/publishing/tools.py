@@ -63,7 +63,7 @@ def register(mcp, context):
             detail = exc.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"Chestnut returned HTTP {exc.code}: {detail}") from exc
 
-    @mcp.tool(output_schema=public_output_schema('publish_objects_to_chestnut', wrapped=True))
+    @mcp.tool(name='exchange_04-publish_chestnut_advanced', output_schema=public_output_schema('publish_objects_to_chestnut', wrapped=True))
     @tool_instruction(__file__, 'publish_objects_to_chestnut')
     def publish_objects_to_chestnut(
         guids: list[str],
@@ -156,7 +156,7 @@ def register(mcp, context):
             except OSError:
                 pass
 
-    @mcp.tool(output_schema=public_output_schema('publish_to_chestnut', wrapped=True))
+    @mcp.tool(name='exchange_05-publish_chestnut', output_schema=public_output_schema('publish_to_chestnut', wrapped=True))
     @tool_instruction(__file__, 'publish_to_chestnut')
     def publish_to_chestnut(
         guids: list[str],

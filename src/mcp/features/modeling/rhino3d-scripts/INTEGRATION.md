@@ -1,6 +1,6 @@
 # Almond에서 사용하는 Rhino 3D Scripting Skill
 
-이 묶음은 사용자가 설치한 `rhino3d-scripts`의 본문·네 참고자료·MIT LICENSE를 그대로 포함한다. `get_policy(policy="rhino_scripting")`는 이 자료를 같은 guide snapshot으로 반환한다. 개인 skill 폴더나 네트워크 조회는 실행 시 필요하지 않다.
+이 묶음은 사용자가 설치한 `rhino3d-scripts`의 본문·네 참고자료·MIT LICENSE를 그대로 포함한다. `context_01-get_policy tool(policy="rhino_scripting")`는 이 자료를 같은 guide snapshot으로 반환한다. 개인 skill 폴더나 네트워크 조회는 실행 시 필요하지 않다.
 
 원본: https://github.com/github/awesome-copilot/tree/main/skills/rhino3d-scripts 공식 실행 명세: https://developer.rhino3d.com/guides/scripting/advanced-cli/ 포함본: 2026-10-30 사용자 로컬 설치본. upstream 원본과 동일한 revision이라는 뜻은 아니다.
 

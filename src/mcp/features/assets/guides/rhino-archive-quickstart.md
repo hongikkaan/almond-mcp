@@ -15,7 +15,7 @@ Search registered models and included source files, inspect available drawing pa
 
 ## Place a model
 
-1. Register a source **3DM** with Almond's `register_drawing_asset`. For GLB or another model format, use `prepare_drawing_asset` first, then register the prepared 3DM. Click **Reload** in the Rhino panel to see it.
+1. Register a source **3DM** with Almond's `asset_09-register` tool. For GLB or another model format, use `asset_07-prepare` tool first, then register the prepared 3DM. Click **Reload** in the Rhino panel to see it.
 2. Finish other Rhino commands. Click **Verify & place** (or **Place** for a verified record), then pick a point; object snaps and keyboard entry work.
    You can also drag the card into a viewport and release there. Esc cancels; releasing outside a viewport cancels after a short timeout. Measured bounds, when available, provide an orange size preview.
 3. The source origin lands at that point, aligned to world axes. Source units are converted to document units without recentering the source geometry.
@@ -23,7 +23,7 @@ Search registered models and included source files, inspect available drawing pa
 
 Placement creates a **Linked** block with **Active** layers, so source layers join the document's layers rather than reference layers. Repeated placements share that canonical 3DM definition. Instances carry the asset ID and metadata identified as a snapshot from placement time. Ordinary Rhino blocks remain ordinary blocks.
 
-The catalogue's **unverified** state means it has not checked the current model bytes. **Verify & place** checks the registered source hash before changing the document. A changed source needs `refresh_asset(asset_id)` first. To edit an asset, edit and save its canonical 3DM, run `refresh_asset` to renew measurements and drawings, then update its linked definition in Rhino. **Reload** refreshes the panel list. A drawing package may be present without being verified current.
+The catalogue's **unverified** state means it has not checked the current model bytes. **Verify & place** checks the registered source hash before changing the document. A changed source needs `asset_08-refresh tool(asset_id)` first. To edit an asset, edit and save its canonical 3DM, run `asset_08-refresh` tool to renew measurements and drawings, then update its linked definition in Rhino. **Reload** refreshes the panel list. A drawing package may be present without being verified current.
 
 Native placement is available inside the Rhino panel for registered 3DMs.
 Legacy GLBs remain downloadable source files and show **3DM conversion required**.
@@ -68,10 +68,10 @@ The old port-5000 listener and standalone server start/stop commands are removed
 - Native engine unavailable or source mismatch: read the reported path and rebuild the Python environment from the registered checkout using the root installation procedure. The panel requires its local editable package and fixed solver launcher.
 - Archive folder missing: reinstall the full Yak package; copying only the RHP is insufficient. Keep its dependencies and `archive` directory together.
 - Installed library lookup failed: read the message above the cards, check the daily Almond Python environment or manifest, then click **Reload**.
-- An installed file changed while browsing: click **Reload**. If placement reports a source mismatch, run `refresh_asset(asset_id)` before placing it.
+- An installed file changed while browsing: click **Reload**. If placement reports a source mismatch, run `asset_08-refresh tool(asset_id)` before placing it.
   A changed bundled file instead requires restoring that release's archive.
 - Optional drawing element says unavailable: its community model is not bundled.
-- Browser cannot connect after quitting Rhino: reopen Rhino and run `AlmondLibrary`.
+- Browser cannot connect_02-session tool after quitting Rhino: reopen Rhino and run `AlmondLibrary`.
 - Models remain available on disk inside the installed package's `archive/files/generated/models` directory; source records are in `archive/evidence`.
 
 Support: <https://github.com/liangjunglj-cpu/almond-mcp/issues>.

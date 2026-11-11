@@ -16,8 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 USAGE = {
     "help": {"op": "help"},
     "catalog": {"op": "catalog"},
-    "describe": {"op": "describe", "names": ["list_connections", "connect"]},
-    "call": {"op": "call", "name": "list_connections", "arguments": {}},
+    "describe": {"op": "describe", "names": ["connect_01-list_up", "connect_02-session"]},
+    "call": {"op": "call", "name": "connect_01-list_up", "arguments": {}},
     "shutdown": {"op": "shutdown"},
 }
 
@@ -42,7 +42,7 @@ class DotClient:
         op = request.get("op")
         if op == "help":
             return {"usage": USAGE,
-                    "connection": "Call list_connections, then connect with its exact host_id/model_path. Use the returned connection_id in subsequent calls in THIS session. Disconnect when finished; shutdown closes this client's MCP session, not Rhino.",
+                    "connection": "Call connect_01-list_up tool, then connect_02-session tool with its exact host_id/model_path. Use the returned connection_id in subsequent calls in THIS session. Use connect_04-disconnect tool when finished; shutdown closes this client's MCP session, not Rhino.",
                     "errors": "Calls are never retried automatically. A timeout or error does not prove rollback."}
         if op == "catalog":
             return self.catalog()

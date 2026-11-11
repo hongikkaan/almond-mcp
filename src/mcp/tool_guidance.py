@@ -1,5 +1,6 @@
 """Give the next useful action with the result that makes it actionable."""
 import json
+from almond_mcp.public_names import internal_tool_name, tool_references
 
 
 # These are successful, single-step suggestions. State/handle checks below take
@@ -183,7 +184,7 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         return None
     if name in ASSET_GUIDES:
         asset = value.get("asset", {})
-        if isinstance(asset, dict) and asset.get("next_tool") in {"prepare_drawing_asset", "refresh_asset"}:
+        if isinstance(asset, dict) and internal_tool_name(asset.get("next_tool", "")) in {"prepare_drawing_asset", "refresh_asset"}:
             return None  # The selected asset already carries its required preparation.
         if isinstance(asset, dict) and asset.get("file_available") is False:
             return None
@@ -203,6 +204,7 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
 
 
 def guide_payload(name: str, payload: dict, arguments: dict | None = None) -> dict:
+    name = internal_tool_name(name)
     value = dict(payload)
     # Existing state-machine instructions carry exact action tokens and take
     # precedence. Publish one human guidance key instead of two overlapping ones.
@@ -213,6 +215,8 @@ def guide_payload(name: str, payload: dict, arguments: dict | None = None) -> di
         guide = next_step(name, value, arguments or {})
         if guide:
             value["next_step_guide"] = guide
+    if isinstance(value.get("next_step_guide"), str):
+        value["next_step_guide"] = tool_references(value["next_step_guide"])
     return value
 
 

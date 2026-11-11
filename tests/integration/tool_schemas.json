@@ -1,12 +1,12 @@
 {
-  "add_scene_objects": {
-    "name": "add_scene_objects",
+  "scene_01-add_objects": {
+    "name": "scene_01-add_objects",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "scene_id": {
           "type": "string",
-          "description": "list_design_scenes(include_ids=true)에서 얻은 기존 Scene ID입니다."
+          "description": "scene_07-list tool(include_ids=true)에서 얻은 기존 Scene ID입니다."
         },
         "object_ids": {
           "items": {
@@ -73,8 +73,8 @@
     },
     "annotations": null
   },
-  "analyze_block_reculviely": {
-    "name": "analyze_block_reculviely",
+  "inspect_01-analyze_nested_blocks": {
+    "name": "inspect_01-analyze_nested_blocks",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -149,7 +149,7 @@
                         },
                         "id": {
                           "type": "string",
-                          "description": "배치 객체 또는 블록 정의 구성원의 ID입니다. 모델 편집에 쓸 객체 ID는 편집 상태에서 get_objects로 확인합니다."
+                          "description": "배치 객체 또는 블록 정의 구성원의 ID입니다. 모델 편집에 쓸 객체 ID는 편집 상태에서 inspect_02-get_objects tool로 확인합니다."
                         },
                         "type": {
                           "type": "string",
@@ -207,15 +207,15 @@
       "destructiveHint": false
     }
   },
-  "apply_drawing_style": {
-    "name": "apply_drawing_style",
+  "drawing_01-apply_style": {
+    "name": "drawing_01-apply_style",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "recipe_id": {
           "default": "technical_axon_v1",
           "type": "string",
-          "description": "list_drawing_recipes(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다."
+          "description": "drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다."
         }
       },
       "type": "object"
@@ -244,7 +244,7 @@
                   "properties": {
                     "path": {
                       "type": "string",
-                      "description": "get_objects의 layer_paths 필터로 연결 가능"
+                      "description": "inspect_02-get_objects tool의 layer_paths 필터로 연결 가능"
                     },
                     "role": {
                       "type": "string",
@@ -327,8 +327,8 @@
     },
     "annotations": null
   },
-  "assign_material": {
-    "name": "assign_material",
+  "model_01-assign_material": {
+    "name": "model_01-assign_material",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -341,7 +341,7 @@
         },
         "material_id": {
           "type": "string",
-          "description": "list_materials(include_ids=true)에서 얻은 라이브러리의 표준 재료 ID입니다."
+          "description": "model_04-list_materials tool(include_ids=true)에서 얻은 라이브러리의 표준 재료 ID입니다."
         },
         "apply_render_material": {
           "default": true,
@@ -475,8 +475,8 @@
     },
     "annotations": null
   },
-  "audit_asset_drawing": {
-    "name": "audit_asset_drawing",
+  "asset_01-audit_drawing": {
+    "name": "asset_01-audit_drawing",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -538,8 +538,8 @@
       "openWorldHint": false
     }
   },
-  "capture_conditioning_pass": {
-    "name": "capture_conditioning_pass",
+  "capture_01-conditioning_pass": {
+    "name": "capture_01-conditioning_pass",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -691,8 +691,8 @@
     },
     "annotations": null
   },
-  "capture_rhino_inspection": {
-    "name": "capture_rhino_inspection",
+  "capture_02-inspection": {
+    "name": "capture_02-inspection",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -834,8 +834,8 @@
       "destructiveHint": false
     }
   },
-  "check_egress": {
-    "name": "check_egress",
+  "analysis_01-check_egress": {
+    "name": "analysis_01-check_egress",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -986,8 +986,8 @@
     },
     "annotations": null
   },
-  "create_design_scene": {
-    "name": "create_design_scene",
+  "scene_02-create": {
+    "name": "scene_02-create",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1015,7 +1015,7 @@
             }
           ],
           "default": null,
-          "description": "project_info(sections=[\"project\"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name과 함께 제공하면 서로 일치해야 합니다."
+          "description": "context_04-get_project_info tool(sections=[\"project\"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name과 함께 제공하면 서로 일치해야 합니다."
         }
       },
       "required": [
@@ -1073,8 +1073,8 @@
     },
     "annotations": null
   },
-  "create_phase": {
-    "name": "create_phase",
+  "plan_01-create_phase": {
+    "name": "plan_01-create_phase",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1194,8 +1194,8 @@
     },
     "annotations": null
   },
-  "create_plan": {
-    "name": "create_plan",
+  "plan_02-create": {
+    "name": "plan_02-create",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1370,8 +1370,8 @@
     },
     "annotations": null
   },
-  "edit_planar_face": {
-    "name": "edit_planar_face",
+  "model_02-edit_planar_face": {
+    "name": "model_02-edit_planar_face",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1473,8 +1473,8 @@
     },
     "annotations": null
   },
-  "edit_planar_faces": {
-    "name": "edit_planar_faces",
+  "model_03-edit_planar_faces": {
+    "name": "model_03-edit_planar_faces",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1584,19 +1584,19 @@
     },
     "annotations": null
   },
-  "execute_looping": {
-    "name": "execute_looping",
+  "plan_03-execute_looping": {
+    "name": "plan_03-execute_looping",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "plan_id": {
           "type": "string",
-          "description": "다음 Loop를 시작하거나 최신 Loop를 재개할 기존 Plan ID입니다. create_plan 또는 list_plans에서 얻은 ID를 사용합니다."
+          "description": "다음 Loop를 시작하거나 최신 Loop를 재개할 기존 Plan ID입니다. plan_02-create tool 또는 plan_08-list tool에서 얻은 ID를 사용합니다."
         },
         "resume": {
           "default": false,
           "type": "boolean",
-          "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 get_phase_plan_step으로 현재 회차를 먼저 확인합니다."
+          "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 plan_05-get_phase_plan_step tool으로 현재 회차를 먼저 확인합니다."
         },
         "feedback": {
           "default": "",
@@ -1719,8 +1719,8 @@
     },
     "annotations": null
   },
-  "execute_project_python": {
-    "name": "execute_project_python",
+  "script_01-run_project_python": {
+    "name": "script_01-run_project_python",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1752,7 +1752,7 @@
         },
         "request_id": {
           "type": "string",
-          "description": "미완료·불확실성·결과 페이지를 get_rhino_execution으로 회수할 정확한 ID"
+          "description": "미완료·불확실성·결과 페이지를 script_03-get_execution tool으로 회수할 정확한 ID"
         },
         "artifact_dir": {
           "type": [
@@ -1848,8 +1848,8 @@
     },
     "annotations": null
   },
-  "execute_rhino_script": {
-    "name": "execute_rhino_script",
+  "script_02-run_rhino": {
+    "name": "script_02-run_rhino",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1892,7 +1892,7 @@
               },
               "request_id": {
                 "type": "string",
-                "description": "필요할 때 get_rhino_execution으로 같은 요청을 조회하는 ID"
+                "description": "필요할 때 script_03-get_execution tool으로 같은 요청을 조회하는 ID"
               },
               "result": {
                 "description": "실행 코드가 정한 JSON 값입니다."
@@ -1988,8 +1988,8 @@
     },
     "annotations": null
   },
-  "export_asset_contract": {
-    "name": "export_asset_contract",
+  "exchange_01-export_asset_contract": {
+    "name": "exchange_01-export_asset_contract",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2044,7 +2044,7 @@
               },
               "contract_path": {
                 "type": "string",
-                "description": "import_asset_contract에 전달"
+                "description": "exchange_03-import_asset_contract tool에 전달"
               },
               "dimensions_mm": {
                 "type": "object",
@@ -2092,8 +2092,8 @@
     },
     "annotations": null
   },
-  "export_structural_report": {
-    "name": "export_structural_report",
+  "analysis_02-export_structural_report": {
+    "name": "analysis_02-export_structural_report",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2158,8 +2158,8 @@
     },
     "annotations": null
   },
-  "focus_holons": {
-    "name": "focus_holons",
+  "scene_03-focus_holons": {
+    "name": "scene_03-focus_holons",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2453,8 +2453,8 @@
       "destructiveHint": false
     }
   },
-  "generate_asset_drawing_views": {
-    "name": "generate_asset_drawing_views",
+  "asset_02-generate_drawing_views": {
+    "name": "asset_02-generate_drawing_views",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2521,7 +2521,7 @@
         },
         "package_dir": {
           "type": "string",
-          "description": "audit_asset_drawing의 package_dir에 그대로 전달할 경로입니다. 관리 연결에서는 프로젝트 상대 경로이며, 다른 드라이브의 라이브러리는 절대 경로를 유지합니다."
+          "description": "asset_01-audit_drawing tool의 package_dir에 그대로 전달할 경로입니다. 관리 연결에서는 프로젝트 상대 경로이며, 다른 드라이브의 라이브러리는 절대 경로를 유지합니다."
         },
         "manifest": {
           "type": "object",
@@ -2548,8 +2548,8 @@
       "openWorldHint": false
     }
   },
-  "get_asset_drawing": {
-    "name": "get_asset_drawing",
+  "asset_03-get_drawings": {
+    "name": "asset_03-get_drawings",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2592,7 +2592,7 @@
         },
         "package_dir": {
           "type": "string",
-          "description": "all 조회에서 반환하는 도면 패키지 경로입니다. audit_asset_drawing의 package_dir에 그대로 전달할 수 있습니다."
+          "description": "all 조회에서 반환하는 도면 패키지 경로입니다. asset_01-audit_drawing tool의 package_dir에 그대로 전달할 수 있습니다."
         },
         "plan_svg_uri": {
           "type": "string",
@@ -2622,8 +2622,8 @@
       "openWorldHint": false
     }
   },
-  "get_blender_helper_script": {
-    "name": "get_blender_helper_script",
+  "exchange_02-get_blender_script": {
+    "name": "exchange_02-get_blender_script",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2736,8 +2736,8 @@
     },
     "annotations": null
   },
-  "get_construction_guidance": {
-    "name": "get_construction_guidance",
+  "research_01-get_construction_guidance": {
+    "name": "research_01-get_construction_guidance",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2754,12 +2754,12 @@
         "material": {
           "default": "",
           "type": "string",
-          "description": "validate_structure에서 사용하는 이름: \"Wood\", \"Steel\", \"Concrete\"."
+          "description": "analysis_04-validate_structure tool에서 사용하는 이름: \"Wood\", \"Steel\", \"Concrete\"."
         },
         "structure_type": {
           "default": "",
           "type": "string",
-          "description": "validate_structure의 유형입니다(\"beam\", \"truss\", \"shell\", \"frame\", \"canopy\", \"gridshell\", \"membrane\", \"highrise\")."
+          "description": "analysis_04-validate_structure tool의 유형입니다(\"beam\", \"truss\", \"shell\", \"frame\", \"canopy\", \"gridshell\", \"membrane\", \"highrise\")."
         },
         "span_m": {
           "default": 0.0,
@@ -2880,7 +2880,7 @@
                       "items": {
                         "type": "string"
                       },
-                      "description": "의도한 유효 재료 하나를 assign_material에 선택"
+                      "description": "의도한 유효 재료 하나를 model_01-assign_material tool에 선택"
                     }
                   }
                 },
@@ -2909,8 +2909,8 @@
     },
     "annotations": null
   },
-  "get_current_viewcapture": {
-    "name": "get_current_viewcapture",
+  "capture_03-current_view": {
+    "name": "capture_03-current_view",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -3251,8 +3251,8 @@
       "destructiveHint": false
     }
   },
-  "get_defined_viewcapture": {
-    "name": "get_defined_viewcapture",
+  "capture_04-defined_view": {
+    "name": "capture_04-defined_view",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -3377,14 +3377,14 @@
       "destructiveHint": false
     }
   },
-  "get_design_scene": {
-    "name": "get_design_scene",
+  "scene_04-get": {
+    "name": "scene_04-get",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "scene_id": {
           "type": "string",
-          "description": "list_design_scenes(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
+          "description": "scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
         },
         "include_ids": {
           "default": false,
@@ -3485,8 +3485,8 @@
     },
     "annotations": null
   },
-  "get_diagram_asset": {
-    "name": "get_diagram_asset",
+  "diagram_01-get": {
+    "name": "diagram_01-get",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -3570,8 +3570,8 @@
     },
     "annotations": null
   },
-  "get_drawing_asset": {
-    "name": "get_drawing_asset",
+  "asset_04-get": {
+    "name": "asset_04-get",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -3663,14 +3663,14 @@
     },
     "annotations": null
   },
-  "get_drawing_recipe": {
-    "name": "get_drawing_recipe",
+  "drawing_02-get_recipe": {
+    "name": "drawing_02-get_recipe",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "recipe_id": {
           "type": "string",
-          "description": "list_drawing_recipes(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다."
+          "description": "drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다."
         },
         "include_ids": {
           "default": false,
@@ -3758,14 +3758,14 @@
     },
     "annotations": null
   },
-  "get_logic_by_id": {
-    "name": "get_logic_by_id",
+  "grasshopper_01-get_logic": {
+    "name": "grasshopper_01-get_logic",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "logic_id": {
           "type": "string",
-          "description": "기존 Grasshopper 라이브러리 파일명에서 확장자를 뺀 이름입니다. 알고 있는 ID를 재사용하거나 list_library(include_ids=true)에서 얻습니다."
+          "description": "기존 Grasshopper 라이브러리 파일명에서 확장자를 뺀 이름입니다. 알고 있는 ID를 재사용하거나 grasshopper_03-list_library tool(include_ids=true)에서 얻습니다."
         },
         "include_ids": {
           "default": false,
@@ -3865,8 +3865,8 @@
     },
     "annotations": null
   },
-  "get_object_intersections": {
-    "name": "get_object_intersections",
+  "intersect_01-find": {
+    "name": "intersect_01-find",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -3933,8 +3933,8 @@
       "destructiveHint": false
     }
   },
-  "get_objects": {
-    "name": "get_objects",
+  "inspect_02-get_objects": {
+    "name": "inspect_02-get_objects",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -4125,7 +4125,7 @@
                         "properties": {
                           "face_index": {
                             "type": "number",
-                            "description": "이 id·CRC와 함께 edit_planar_face의 object_id/face_index/expected_geometry_crc로 전달"
+                            "description": "이 id·CRC와 함께 model_02-edit_planar_face tool의 object_id/face_index/expected_geometry_crc로 전달"
                           },
                           "planar": {
                             "type": "boolean",
@@ -4234,8 +4234,8 @@
       "destructiveHint": false
     }
   },
-  "get_ontological_holon": {
-    "name": "get_ontological_holon",
+  "scene_05-get_holon": {
+    "name": "scene_05-get_holon",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -4340,8 +4340,8 @@
       "destructiveHint": false
     }
   },
-  "get_phase_plan_step": {
-    "name": "get_phase_plan_step",
+  "plan_05-get_phase_plan_step": {
+    "name": "plan_05-get_phase_plan_step",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -4655,14 +4655,14 @@
       "destructiveHint": false
     }
   },
-  "get_plan_section_result": {
-    "name": "get_plan_section_result",
+  "drawing_03-get_plan_section_result": {
+    "name": "drawing_03-get_plan_section_result",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "result_id": {
           "type": "string",
-          "description": "plan_section.result.result_id에서 얻은 의미를 해석하지 않는 32자 결과 영수증 ID입니다."
+          "description": "drawing_06-generate_plan_section tool의 result.result_id에서 얻은 의미를 해석하지 않는 32자 결과 영수증 ID입니다."
         },
         "offset": {
           "default": 0,
@@ -4750,8 +4750,8 @@
       "destructiveHint": false
     }
   },
-  "get_policy": {
-    "name": "get_policy",
+  "context_01-get_policy": {
+    "name": "context_01-get_policy",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -4848,8 +4848,8 @@
       "openWorldHint": false
     }
   },
-  "get_rhino_context": {
-    "name": "get_rhino_context",
+  "inspect_03-get_document_context": {
+    "name": "inspect_03-get_document_context",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -4975,8 +4975,8 @@
       "destructiveHint": false
     }
   },
-  "get_rhino_execution": {
-    "name": "get_rhino_execution",
+  "script_03-get_execution": {
+    "name": "script_03-get_execution",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -5138,14 +5138,14 @@
       "destructiveHint": false
     }
   },
-  "get_scene_objects": {
-    "name": "get_scene_objects",
+  "scene_06-get_objects": {
+    "name": "scene_06-get_objects",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "scene_id": {
           "type": "string",
-          "description": "list_design_scenes(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
+          "description": "scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
         },
         "include_ids": {
           "default": false,
@@ -5258,8 +5258,8 @@
       "destructiveHint": false
     }
   },
-  "get_selection_references": {
-    "name": "get_selection_references",
+  "inspect_04-get_selection_references": {
+    "name": "inspect_04-get_selection_references",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -5375,8 +5375,8 @@
       "destructiveHint": false
     }
   },
-  "get_typology_narrative": {
-    "name": "get_typology_narrative",
+  "research_02-get_typology_narrative": {
+    "name": "research_02-get_typology_narrative",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -5393,7 +5393,7 @@
         "structure_type": {
           "default": "",
           "type": "string",
-          "description": "validate_structure의 유형으로 필터링합니다(\"shell\", \"truss\", \"frame\", \"membrane\" 등)."
+          "description": "analysis_04-validate_structure tool의 유형으로 필터링합니다(\"shell\", \"truss\", \"frame\", \"membrane\" 등)."
         },
         "limit": {
           "default": 5,
@@ -5470,7 +5470,7 @@
                       "items": {
                         "type": "string"
                       },
-                      "description": "get_construction_guidance의 query로 검색 가능"
+                      "description": "research_01-get_construction_guidance tool의 query로 검색 가능"
                     }
                   }
                 },
@@ -5503,14 +5503,14 @@
     },
     "annotations": null
   },
-  "import_asset_contract": {
-    "name": "import_asset_contract",
+  "exchange_03-import_asset_contract": {
+    "name": "exchange_03-import_asset_contract",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "contract_path": {
           "type": "string",
-          "description": "export_asset_contract 또는 Blender 내보내기가 반환한 계약 경로입니다. 관리형 세션에서는 프로젝트 기준 상대 .almond.json 경로이고, 독립 실행에서는 절대 경로입니다."
+          "description": "exchange_01-export_asset_contract tool 또는 Blender 내보내기가 반환한 계약 경로입니다. 관리형 세션에서는 프로젝트 기준 상대 .almond.json 경로이고, 독립 실행에서는 절대 경로입니다."
         },
         "x_mm": {
           "default": 0,
@@ -5669,8 +5669,8 @@
     },
     "annotations": null
   },
-  "import_drawing_hatch_patterns": {
-    "name": "import_drawing_hatch_patterns",
+  "drawing_04-import_hatches": {
+    "name": "drawing_04-import_hatches",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -5730,8 +5730,8 @@
     },
     "annotations": null
   },
-  "list_capsules": {
-    "name": "list_capsules",
+  "grasshopper_02-list_capsules": {
+    "name": "grasshopper_02-list_capsules",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -5743,7 +5743,7 @@
         "audited_only": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 run_gh_definition이 실행을 허용하는 캡슐만 나열합니다."
+          "description": "true이면 grasshopper_04-run_definition tool이 실행을 허용하는 캡슐만 나열합니다."
         },
         "include_ids": {
           "default": false,
@@ -5803,7 +5803,7 @@
                   "properties": {
                     "capsule_id": {
                       "type": "string",
-                      "description": "audited=true일 때 run_gh_definition에 사용 가능"
+                      "description": "audited=true일 때 grasshopper_04-run_definition tool에 사용 가능"
                     },
                     "capability": {
                       "type": "string",
@@ -5923,8 +5923,8 @@
     },
     "annotations": null
   },
-  "list_design_codes": {
-    "name": "list_design_codes",
+  "analysis_03-list_design_codes": {
+    "name": "analysis_03-list_design_codes",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -5971,7 +5971,7 @@
                   "properties": {
                     "id": {
                       "type": "string",
-                      "description": "validate_structure / visualize_structure의 design_code에 사용"
+                      "description": "analysis_04-validate_structure tool / analysis_05-visualize_structure tool의 design_code에 사용"
                     },
                     "name": {
                       "type": "string",
@@ -6035,8 +6035,8 @@
     },
     "annotations": null
   },
-  "list_design_scenes": {
-    "name": "list_design_scenes",
+  "scene_07-list": {
+    "name": "scene_07-list",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -6145,8 +6145,8 @@
       "destructiveHint": false
     }
   },
-  "list_diagram_assets": {
-    "name": "list_diagram_assets",
+  "diagram_02-list": {
+    "name": "diagram_02-list",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -6254,8 +6254,8 @@
     },
     "annotations": null
   },
-  "list_drawing_assets": {
-    "name": "list_drawing_assets",
+  "asset_05-list": {
+    "name": "asset_05-list",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -6360,8 +6360,8 @@
     },
     "annotations": null
   },
-  "list_drawing_recipes": {
-    "name": "list_drawing_recipes",
+  "drawing_05-list_recipes": {
+    "name": "drawing_05-list_recipes",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -6408,7 +6408,7 @@
                   "properties": {
                     "recipe_id": {
                       "type": "string",
-                      "description": "get_drawing_recipe / apply_drawing_style에 재사용"
+                      "description": "drawing_02-get_recipe tool / drawing_01-apply_style tool에 재사용"
                     },
                     "name": {
                       "type": [
@@ -6465,8 +6465,8 @@
     },
     "annotations": null
   },
-  "list_library": {
-    "name": "list_library",
+  "grasshopper_03-list_library": {
+    "name": "grasshopper_03-list_library",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -6511,7 +6511,7 @@
                 "items": {
                   "type": "string"
                 },
-                "description": "기본 응답에서도 get_logic_by_id.logic_id로 사용 가능"
+                "description": "기본 응답에서도 grasshopper_01-get_logic tool.logic_id로 사용 가능"
               },
               "logic_count": {
                 "type": "number",
@@ -6540,8 +6540,8 @@
     },
     "annotations": null
   },
-  "list_materials": {
-    "name": "list_materials",
+  "model_04-list_materials": {
+    "name": "model_04-list_materials",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -6631,8 +6631,8 @@
     },
     "annotations": null
   },
-  "list_ontological_holons": {
-    "name": "list_ontological_holons",
+  "scene_08-list_holons": {
+    "name": "scene_08-list_holons",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -6728,8 +6728,8 @@
       "destructiveHint": false
     }
   },
-  "list_phases": {
-    "name": "list_phases",
+  "plan_06-list_phases": {
+    "name": "plan_06-list_phases",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -6853,14 +6853,14 @@
       "destructiveHint": false
     }
   },
-  "list_plan_revisions": {
-    "name": "list_plan_revisions",
+  "plan_07-list_revisions": {
+    "name": "plan_07-list_revisions",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "plan_id": {
           "type": "string",
-          "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
         },
         "limit": {
           "default": 50,
@@ -6920,7 +6920,7 @@
               },
               "plan_id": {
                 "type": "string",
-                "description": "각 행의 loop_no/revision과 함께 get_phase_plan_step에 사용"
+                "description": "각 행의 loop_no/revision과 함께 plan_05-get_phase_plan_step tool에 사용"
               },
               "revisions": {
                 "type": "array",
@@ -6992,8 +6992,8 @@
       "destructiveHint": false
     }
   },
-  "list_plans": {
-    "name": "list_plans",
+  "plan_08-list": {
+    "name": "plan_08-list",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -7113,8 +7113,8 @@
       "destructiveHint": false
     }
   },
-  "place_diagram_asset": {
-    "name": "place_diagram_asset",
+  "diagram_03-place": {
+    "name": "diagram_03-place",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -7172,7 +7172,7 @@
               },
               "object_guid": {
                 "type": "string",
-                "description": "삽입한 최상위 블록 GUID. get_objects 또는 Scene 구성원 입력에 재사용"
+                "description": "삽입한 최상위 블록 GUID. inspect_02-get_objects tool 또는 Scene 구성원 입력에 재사용"
               },
               "definition_created": {
                 "type": "boolean",
@@ -7201,8 +7201,8 @@
     },
     "annotations": null
   },
-  "place_drawing_asset": {
-    "name": "place_drawing_asset",
+  "asset_06-place": {
+    "name": "asset_06-place",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -7260,7 +7260,7 @@
               },
               "object_guid": {
                 "type": "string",
-                "description": "삽입한 최상위 블록 GUID. get_objects 또는 Scene 구성원 입력에 재사용"
+                "description": "삽입한 최상위 블록 GUID. inspect_02-get_objects tool 또는 Scene 구성원 입력에 재사용"
               },
               "definition_created": {
                 "type": "boolean",
@@ -7289,8 +7289,8 @@
     },
     "annotations": null
   },
-  "plan_section": {
-    "name": "plan_section",
+  "drawing_06-generate_plan_section": {
+    "name": "drawing_06-generate_plan_section",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -7451,7 +7451,7 @@
                   },
                   "result_id": {
                     "type": "string",
-                    "description": "get_plan_section_result로 복구"
+                    "description": "drawing_03-get_plan_section_result tool로 복구"
                   },
                   "result_characters": {
                     "type": "integer",
@@ -7491,8 +7491,8 @@
     },
     "annotations": null
   },
-  "prepare_drawing_asset": {
-    "name": "prepare_drawing_asset",
+  "asset_07-prepare": {
+    "name": "asset_07-prepare",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -7585,7 +7585,7 @@
         },
         "source_3dm": {
           "type": "string",
-          "description": "검토 완료 최종 파일. register_drawing_asset에 검토한 name/asset_id와 함께 전달"
+          "description": "검토 완료 최종 파일. asset_09-register tool에 검토한 name/asset_id와 함께 전달"
         },
         "next_stage": {
           "type": [
@@ -7617,8 +7617,8 @@
       "openWorldHint": false
     }
   },
-  "project_info": {
-    "name": "project_info",
+  "context_04-get_project_info": {
+    "name": "context_04-get_project_info",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -7770,8 +7770,8 @@
     },
     "annotations": null
   },
-  "publish_objects_to_chestnut": {
-    "name": "publish_objects_to_chestnut",
+  "exchange_04-publish_chestnut_advanced": {
+    "name": "exchange_04-publish_chestnut_advanced",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -7862,8 +7862,8 @@
     },
     "annotations": null
   },
-  "publish_to_chestnut": {
-    "name": "publish_to_chestnut",
+  "exchange_05-publish_chestnut": {
+    "name": "exchange_05-publish_chestnut",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -7910,7 +7910,7 @@
               },
               "success": {
                 "type": "boolean",
-                "description": "하위 publish_objects_to_chestnut의 원격 응답을 그대로 반환"
+                "description": "하위 exchange_04-publish_chestnut_advanced tool의 원격 응답을 그대로 반환"
               },
               "chestnut_url": {
                 "type": "string",
@@ -7939,8 +7939,8 @@
     },
     "annotations": null
   },
-  "refresh_asset": {
-    "name": "refresh_asset",
+  "asset_08-refresh": {
+    "name": "asset_08-refresh",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -8013,8 +8013,8 @@
       "openWorldHint": false
     }
   },
-  "register_drawing_asset": {
-    "name": "register_drawing_asset",
+  "asset_09-register": {
+    "name": "asset_09-register",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -8155,8 +8155,8 @@
       "openWorldHint": false
     }
   },
-  "remove_ontological_holon": {
-    "name": "remove_ontological_holon",
+  "scene_09-remove_holon": {
+    "name": "scene_09-remove_holon",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -8226,14 +8226,14 @@
       "destructiveHint": false
     }
   },
-  "remove_scene_objects": {
-    "name": "remove_scene_objects",
+  "scene_10-remove_objects": {
+    "name": "scene_10-remove_objects",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "scene_id": {
           "type": "string",
-          "description": "list_design_scenes(include_ids=true)에서 얻은 기존 Scene ID입니다."
+          "description": "scene_07-list tool(include_ids=true)에서 얻은 기존 Scene ID입니다."
         },
         "object_ids": {
           "items": {
@@ -8300,8 +8300,8 @@
     },
     "annotations": null
   },
-  "rename_artifact_folder": {
-    "name": "rename_artifact_folder",
+  "plan_09-rename_artifact_folder": {
+    "name": "plan_09-rename_artifact_folder",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -8354,8 +8354,8 @@
     },
     "annotations": null
   },
-  "resolve_object_intersection": {
-    "name": "resolve_object_intersection",
+  "intersect_02-resolve": {
+    "name": "intersect_02-resolve",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -8434,14 +8434,14 @@
     },
     "annotations": null
   },
-  "resolve_targets": {
-    "name": "resolve_targets",
+  "inspect_05-resolve_targets": {
+    "name": "inspect_05-resolve_targets",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "plan_id": {
           "type": "string",
-          "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
         },
         "step_id": {
           "default": "",
@@ -8544,19 +8544,19 @@
       "destructiveHint": false
     }
   },
-  "run_gh_definition": {
-    "name": "run_gh_definition",
+  "grasshopper_04-run_definition": {
+    "name": "grasshopper_04-run_definition",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "capsule_id": {
           "type": "string",
-          "description": "list_capsules에서 얻은 안정적인 캡슐 식별자입니다(예: \"karamba_beam_v1\")."
+          "description": "grasshopper_02-list_capsules tool에서 얻은 안정적인 캡슐 식별자입니다(예: \"karamba_beam_v1\")."
         },
         "inputs": {
           "additionalProperties": true,
           "type": "object",
-          "description": "ALMOND_IN_ 포트 이름과 값의 객체입니다. list_capsules(field_groups=['ports'])의 input_ports에서 타입·단위·필수 여부를 확인합니다. 형상은 {\"guids\":[\"객체 GUID\"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다."
+          "description": "ALMOND_IN_ 포트 이름과 값의 객체입니다. grasshopper_02-list_capsules tool(field_groups=['ports'])의 input_ports에서 타입·단위·필수 여부를 확인합니다. 형상은 {\"guids\":[\"객체 GUID\"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다."
         },
         "seed": {
           "anyOf": [
@@ -8600,14 +8600,14 @@
                 "items": {
                   "type": "string"
                 },
-                "description": "이 캡슐이 받는 입력 이름입니다. 값의 타입·단위·필수 여부는 list_capsules의 input_ports에서 확인합니다."
+                "description": "이 캡슐이 받는 입력 이름입니다. 값의 타입·단위·필수 여부는 grasshopper_02-list_capsules tool의 input_ports에서 확인합니다."
               },
               "available_capsules": {
                 "type": "array",
                 "items": {
                   "type": "string"
                 },
-                "description": "요청한 ID를 찾지 못했을 때 반환하는 등록 캡슐 ID입니다. 실행 가능 여부는 list_capsules의 audited로 확인합니다."
+                "description": "요청한 ID를 찾지 못했을 때 반환하는 등록 캡슐 ID입니다. 실행 가능 여부는 grasshopper_02-list_capsules tool의 audited로 확인합니다."
               },
               "capsule_id": {
                 "type": "string",
@@ -8666,8 +8666,8 @@
     },
     "annotations": null
   },
-  "save_rhino_document": {
-    "name": "save_rhino_document",
+  "script_04-save_document": {
+    "name": "script_04-save_document",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {},
@@ -8722,8 +8722,8 @@
       "destructiveHint": false
     }
   },
-  "search_asset_repository": {
-    "name": "search_asset_repository",
+  "asset_10-search_repository": {
+    "name": "asset_10-search_repository",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -8800,8 +8800,8 @@
     },
     "annotations": null
   },
-  "search_detail_sources": {
-    "name": "search_detail_sources",
+  "research_03-search_details": {
+    "name": "research_03-search_details",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -8930,8 +8930,8 @@
       "openWorldHint": false
     }
   },
-  "search_diagram_assets": {
-    "name": "search_diagram_assets",
+  "diagram_04-search": {
+    "name": "diagram_04-search",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -9051,8 +9051,8 @@
     },
     "annotations": null
   },
-  "search_drawing_assets": {
-    "name": "search_drawing_assets",
+  "asset_11-search": {
+    "name": "asset_11-search",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -9169,14 +9169,14 @@
     },
     "annotations": null
   },
-  "set_working_plan": {
-    "name": "set_working_plan",
+  "plan_10-set_working": {
+    "name": "plan_10-set_working",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "plan_id": {
           "type": "string",
-          "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
         },
         "step_id": {
           "default": "",
@@ -9234,7 +9234,7 @@
             "string",
             "null"
           ],
-          "description": "현재 연결의 산출물 폴더입니다. execute_project_python의 작업 디렉터리로 사용합니다."
+          "description": "현재 연결의 산출물 폴더입니다. script_01-run_project_python tool의 작업 디렉터리로 사용합니다."
         },
         "plan_artifact_dir": {
           "type": "string",
@@ -9256,8 +9256,8 @@
     },
     "annotations": null
   },
-  "setup_modeling": {
-    "name": "setup_modeling",
+  "model_05-setup": {
+    "name": "model_05-setup",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -9406,8 +9406,8 @@
     },
     "annotations": null
   },
-  "sync_ontological_holon": {
-    "name": "sync_ontological_holon",
+  "scene_11-sync_holon": {
+    "name": "scene_11-sync_holon",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -9511,14 +9511,14 @@
     },
     "annotations": null
   },
-  "update_design_scene": {
-    "name": "update_design_scene",
+  "scene_12-update": {
+    "name": "scene_12-update",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "scene_id": {
           "type": "string",
-          "description": "list_design_scenes(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
+          "description": "scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다."
         },
         "file_name": {
           "anyOf": [
@@ -9600,14 +9600,14 @@
     },
     "annotations": null
   },
-  "update_phase": {
-    "name": "update_phase",
+  "plan_11-update_phase": {
+    "name": "plan_11-update_phase",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "phase_id": {
           "type": "string",
-          "description": "list_phases.phases[].phase_id 또는 get_phase_plan_step.id에서 얻은 기존 Phase ID입니다."
+          "description": "plan_06-list_phases tool의 phases[].phase_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Phase ID입니다."
         },
         "name": {
           "anyOf": [
@@ -9801,14 +9801,14 @@
     },
     "annotations": null
   },
-  "update_plan": {
-    "name": "update_plan",
+  "plan_12-update": {
+    "name": "plan_12-update",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "plan_id": {
           "type": "string",
-          "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
         },
         "goal": {
           "anyOf": [
@@ -10103,14 +10103,14 @@
     },
     "annotations": null
   },
-  "update_step": {
-    "name": "update_step",
+  "plan_13-update_step": {
+    "name": "plan_13-update_step",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "plan_id": {
           "type": "string",
-          "description": "list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다."
+          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
         },
         "step_id": {
           "type": "string",
@@ -10335,8 +10335,8 @@
     },
     "annotations": null
   },
-  "upsert_ontological_holon": {
-    "name": "upsert_ontological_holon",
+  "scene_13-upsert_holon": {
+    "name": "scene_13-upsert_holon",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -10468,8 +10468,8 @@
     },
     "annotations": null
   },
-  "validate_structure": {
-    "name": "validate_structure",
+  "analysis_04-validate_structure": {
+    "name": "analysis_04-validate_structure",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -10567,7 +10567,7 @@
         "design_code": {
           "default": "eurocode",
           "type": "string",
-          "description": "설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. \"eurocode\"(기본값, EN 권장값), list_design_codes의 프로필 또는 \"off\"를 사용합니다. \"off\"는 부분계수 없이 G + Q를 적용하며 design_basis=\"unfactored\"와 같습니다. 결과의 \"design_code\"에는 사용한 값과 검증되지 않은 값이 포함됩니다."
+          "description": "설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. \"eurocode\"(기본값, EN 권장값), analysis_03-list_design_codes tool의 프로필 또는 \"off\"를 사용합니다. \"off\"는 부분계수 없이 G + Q를 적용하며 design_basis=\"unfactored\"와 같습니다. 결과의 \"design_code\"에는 사용한 값과 검증되지 않은 값이 포함됩니다."
         },
         "detail": {
           "default": false,
@@ -10726,8 +10726,8 @@
     },
     "annotations": null
   },
-  "visualize_structure": {
-    "name": "visualize_structure",
+  "analysis_05-visualize_structure": {
+    "name": "analysis_05-visualize_structure",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -10879,7 +10879,7 @@
         "asset_loads": {
           "default": false,
           "type": "boolean",
-          "description": "validate_structure와 동일하게 배치된 라이브러리 자산의 하중을 추가합니다(네이티브 엔진). 하중 작용점에 하중 화살표를 그립니다."
+          "description": "analysis_04-validate_structure tool와 동일하게 배치된 라이브러리 자산의 하중을 추가합니다(네이티브 엔진). 하중 작용점에 하중 화살표를 그립니다."
         },
         "floor_load_kn_m2": {
           "default": 0.0,
@@ -10911,17 +10911,17 @@
         "connections": {
           "default": "rigid",
           "type": "string",
-          "description": "validate_structure와 동일한 \"rigid\" 또는 \"simple\"입니다. 핀 접합 단부는 작은 원으로 그립니다."
+          "description": "analysis_04-validate_structure tool와 동일한 \"rigid\" 또는 \"simple\"입니다. 핀 접합 단부는 작은 원으로 그립니다."
         },
         "stability": {
           "default": "auto",
           "type": "string",
-          "description": "validate_structure와 동일한 \"auto\" 또는 \"off\"입니다."
+          "description": "analysis_04-validate_structure tool와 동일한 \"auto\" 또는 \"off\"입니다."
         },
         "design_code": {
           "default": "eurocode",
           "type": "string",
-          "description": "설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. \"eurocode\"(기본값, EN 권장값), list_design_codes의 프로필 또는 \"off\"를 사용합니다. \"off\"는 부분계수 없이 G + Q를 적용하며 design_basis=\"unfactored\"와 같습니다. 결과의 \"design_code\"에는 사용한 값과 검증되지 않은 값이 포함됩니다."
+          "description": "설계기준 또는 국가 부록에서 정하는 수치(gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계)에 사용할 설계기준 프로필입니다. \"eurocode\"(기본값, EN 권장값), analysis_03-list_design_codes tool의 프로필 또는 \"off\"를 사용합니다. \"off\"는 부분계수 없이 G + Q를 적용하며 design_basis=\"unfactored\"와 같습니다. 결과의 \"design_code\"에는 사용한 값과 검증되지 않은 값이 포함됩니다."
         },
         "fabrication": {
           "default": "cold_formed",

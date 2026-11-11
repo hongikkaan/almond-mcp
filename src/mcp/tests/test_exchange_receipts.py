@@ -74,7 +74,7 @@ def server(native, runtime=None):
 def call_import(native, runtime=None):
     async def run():
         async with Client(server(native, runtime)) as client:
-            reply = await client.call_tool("import_asset_contract", {"contract_path": "contract.json"})
+            reply = await client.call_tool("exchange_03-import_asset_contract", {"contract_path": "contract.json"})
             return json.loads(reply.content[0].text)
     return asyncio.run(run())
 

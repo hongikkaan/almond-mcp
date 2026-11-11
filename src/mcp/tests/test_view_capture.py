@@ -141,7 +141,7 @@ def test_defined_capture_public_schema_explains_target_specific_mode_defaults():
         mcp = FastMCP("defined-capture-schema")
         register(mcp, SimpleNamespace())
         async with Client(mcp) as client:
-            return next(tool for tool in await client.list_tools() if tool.name == "get_defined_viewcapture")
+            return next(tool for tool in await client.list_tools() if tool.name == "capture_04-defined_view")
     tool = asyncio.run(schema())
     properties = tool.input_schema["properties"]
     assert properties["display_mode"]["default"] == ""  # Neutral for Layout; resolved by target kind.
@@ -150,7 +150,7 @@ def test_defined_capture_public_schema_explains_target_specific_mode_defaults():
         assert "Shaded" in text and "Detail" in text
     assert "AGENT_Section_Glass" in properties["display_mode"]["description"]
     baseline = Path(__file__).resolve().parents[3] / "tests/integration/tool_schemas.json"
-    assert tool.input_schema == json.loads(baseline.read_text(encoding="utf-8"))["get_defined_viewcapture"]["inputSchema"]
+    assert tool.input_schema == json.loads(baseline.read_text(encoding="utf-8"))["capture_04-defined_view"]["inputSchema"]
 
 
 def test_defined_capture_automatic_scale_is_verified_against_the_returned_png():

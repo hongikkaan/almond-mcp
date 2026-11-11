@@ -16,7 +16,7 @@ Args:
 도면 스타일 레시피를 조회합니다.
 
 Args:
-    recipe_id: list_drawing_recipes(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다.
+    recipe_id: drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다.
     include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
     field_groups: 상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
 <!-- /instruction:get_drawing_recipe -->
@@ -27,7 +27,7 @@ Args:
 도면 스타일 레시피를 Rhino 문서에 적용합니다.
 
 Args:
-    recipe_id: list_drawing_recipes(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다.
+    recipe_id: drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다.
 <!-- /instruction:apply_drawing_style -->
 
 ## import_drawing_hatch_patterns

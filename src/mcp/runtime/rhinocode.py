@@ -611,7 +611,7 @@ class RhinocodeExecution:
         result = self.get_execution(request_id=request_id, limit=20, include_ids=True, _initial_result=True)
         if not result["completed"]:
             result["timed_out"] = True
-            result["message"] = ("Execution is retained. Retrieve this request with get_rhino_execution; "
+            result["message"] = ("Execution is retained. Retrieve this request with script_03-get_execution tool; "
                                  "do not repeat the Rhino work.")
         return _execution_summary(result)
 

@@ -23,19 +23,19 @@ def assert_information_placement(tools):
         for field in tool["inputSchema"].get("properties", {}).values():
             help_text = field.get("description", "").strip()
             assert not help_text or help_text not in role, name
-    detail = tools["get_phase_plan_step"]
+    detail = tools["plan_05-get_phase_plan_step"]
     assert "상세 내용의 포함 여부" not in detail["description"]
     assert "상세" in detail["inputSchema"]["properties"]["include_details"]["description"]
-    assert "Phase·Scene·상태로" not in tools["list_plans"]["description"]
-    phase = tools["create_phase"]["inputSchema"]["properties"]
+    assert "Phase·Scene·상태로" not in tools["plan_08-list"]["description"]
+    phase = tools["plan_01-create_phase"]["inputSchema"]["properties"]
     assert set(phase["status"]["enum"]) == {"pending", "running", "paused", "completed", "failed", "blocked"}
     assert {option["type"] for option in phase["file_name"]["anyOf"]} == {"string", "array"}
     assert "중 하나" in phase["status"]["description"]
     assert "문자열 배열" in phase["file_name"]["description"]
-    scene_file = tools["create_design_scene"]["inputSchema"]["properties"]["file_name"]["description"]
+    scene_file = tools["scene_02-create"]["inputSchema"]["properties"]["file_name"]["description"]
     assert "파일 작업이 아닙니다" not in scene_file and "파일명" in scene_file
-    if "execute_looping" in tools:
-        loop = tools["execute_looping"]
+    if "plan_03-execute_looping" in tools:
+        loop = tools["plan_03-execute_looping"]
         assert "회차가 끝나면" not in loop["description"]
         assert "새 회차" in loop["inputSchema"]["properties"]["resume"]["description"]
 
@@ -80,7 +80,7 @@ async def collect(params, *, bound):
             tools = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True)
                      for t in (await client.list_tools()).tools}
             assert_information_placement(tools)
-            basic_result = await client.call_tool("get_policy", {})
+            basic_result = await client.call_tool("context_01-get_policy", {})
             assert not basic_result.is_error
             basic = json.loads(basic_result.content[0].text)
             assert "list_project_files" not in tools and "list_project_files" not in basic["tools"]
@@ -96,14 +96,14 @@ async def collect(params, *, bound):
                 assert item["description"].strip(), name
                 assert "Almond inspects and edits Rhino" not in item["description"], name
                 assert "guide_version=" not in item["description"], name
-            scripting_result = await client.call_tool("get_policy", {"policy": "rhino_scripting"})
+            scripting_result = await client.call_tool("context_01-get_policy", {"policy": "rhino_scripting"})
             assert not scripting_result.is_error
             scripting = json.loads(scripting_result.content[0].text)
             assert scripting == read_policy("rhino_scripting")
             assert scripting["guide_version"] == basic["guide_version"]
-            rejected = await client.call_tool("get_policy", {"tool": "get_rhino_context"})
+            rejected = await client.call_tool("context_01-get_policy", {"tool": "inspect_03-get_document_context"})
             assert rejected.is_error
-            detail_name = "get_phase_plan_step"
+            detail_name = "plan_05-get_phase_plan_step"
             assert detail_name in tools and detail_name in basic["tools"]
             assert tools[detail_name]["title"] == "get_phase·plan·step"
             assert "get_phase·plan·step" not in tools
@@ -119,29 +119,29 @@ async def collect(params, *, bound):
                 Draft202012Validator(output).validate(value)
                 return value
 
-            phase = (await call("create_phase", {"name": "Stdio discovery", "depends_on": ["phase_future"]}))["phase"]
-            plan = (await call("create_plan", {"title": "Entrance review", "goal": "Inspect entrance", "phase_id": phase["phase_id"]}))["plan"]
-            rows = await call("list_plans", {"phase_id": phase["phase_id"]})
+            phase = (await call("plan_01-create_phase", {"name": "Stdio discovery", "depends_on": ["phase_future"]}))["phase"]
+            plan = (await call("plan_02-create", {"title": "Entrance review", "goal": "Inspect entrance", "phase_id": phase["phase_id"]}))["plan"]
+            rows = await call("plan_08-list", {"phase_id": phase["phase_id"]})
             assert rows["plans"][0]["title"] == "Entrance review"
             assert "goal" not in rows["plans"][0] and detail_name in rows["next_step_guide"]
             detail = await call(detail_name, {"include_details": True, "plan_id": plan["plan_id"]})
             assert detail["id"] == plan["plan_id"] and detail["status"] == "pending"
             assert detail["plan"]["phase"] == {"phase_id": phase["phase_id"], "name": "Stdio discovery"}
             sid = detail["plan"]["steps"][0]["step_id"]
-            assert "set_working_plan" in detail["next_step_guide"]
-            partial = await call("update_step", {"plan_id": plan["plan_id"], "step_id": sid,
+            assert "plan_10-set_working" in detail["next_step_guide"]
+            partial = await call("plan_13-update_step", {"plan_id": plan["plan_id"], "step_id": sid,
                 "output_refs": {"add": ["survey.md", "survey.md"], "remove": ["absent.md"]}})
             assert partial["status"] == "partial_success" and partial["changed"] is True
             assert {issue["reason"] for issue in partial["issues"]} == {"duplicate_input", "not_found"}
             step = await call(detail_name, {"include_details": True, "plan_id": plan["plan_id"], "step_id": sid})
             assert step["step"]["output_refs"] == ["survey.md"]
-            assert step["status"] == "pending" and "set_working_plan" in step["next_step_guide"]
+            assert step["status"] == "pending" and "plan_10-set_working" in step["next_step_guide"]
             assert step["revision"] == plan["revision"] + 1
             historic = await call(detail_name, {"include_details": True, "plan_id": plan["plan_id"], "step_id": sid, "revision": plan["revision"]})
             assert historic["step"]["output_refs"] == []
             assert "revision을 생략" in historic["next_step_guide"]
             if bound:
-                result = await client.call_tool("project_info", {})
+                result = await client.call_tool("context_04-get_project_info", {})
                 assert not result.is_error
                 info = json.loads(result.content[0].text)
                 project = info["project"]
@@ -156,9 +156,9 @@ async def collect(params, *, bound):
                 assert not {"name", "path", "runtime_serial_number", "live_document_checked", "is_bound_document"}.intersection(info["document"])
                 rejected = await client.call_tool("list_project_files", {})
                 assert rejected.is_error
-                selected = await call("set_working_plan", {"plan_id": plan["plan_id"], "step_id": sid})
+                selected = await call("plan_10-set_working", {"plan_id": plan["plan_id"], "step_id": sid})
                 assert selected["revision"] == step["revision"] + 1
-                updated = await call("update_step", {"plan_id": plan["plan_id"], "step_id": sid,
+                updated = await call("plan_13-update_step", {"plan_id": plan["plan_id"], "step_id": sid,
                     "output_refs": {"add": ["selected-survey.md"], "remove": ["survey.md"]}, "expected_revision": selected["revision"]})
                 assert updated["status"] == "success" and updated["plan"]["revision"] == selected["revision"] + 1
             return initialized.instructions, tools
@@ -168,9 +168,9 @@ def test_cold_direct_full_descriptions_and_basic_scripting_guide(tmp_path):
     params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", "-c",
         "from almond_mcp.server import mcp; mcp.run()"], env=isolated_environment(tmp_path))
     instructions, tools = asyncio.run(collect(params, bound=False))
-    assert "get_rhino_context" in tools
+    assert "inspect_03-get_document_context" in tools
     assert not instructions
-    assert "get_policy" in tools
+    assert "context_01-get_policy" in tools
 
 
 def test_bound_serve_and_external_catalog_identity(tmp_path):
@@ -187,7 +187,7 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
     validate_worker_tools(catalog, list(worker.values()))
     assert all(schema_identity(worker[n]) == schema_identity(expected[n]) for n in worker)
     assert all(worker[n]["description"] == expected[n]["description"] for n in worker)
-    assert worker["get_phase_plan_step"]["title"] == expected["get_phase_plan_step"]["title"] == "get_phase·plan·step"
+    assert worker["plan_05-get_phase_plan_step"]["title"] == expected["plan_05-get_phase_plan_step"]["title"] == "get_phase·plan·step"
     exposed, mapping = exposed_tools(catalog)
     external = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True) for tool in exposed}
     for name in worker:
@@ -218,8 +218,8 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
                 assert initialized.instructions  # External-host instructions are a separate contract.
                 for text in (initialized.instructions, initialized.server_info.description):
                     assert not any(name in text for name in ("host_id", "model_path", "connection_id", "request_id"))
-                assert "connection_id" not in tools["disconnect"]["inputSchema"]["required"]
-                assert "생략" in tools["disconnect"]["inputSchema"]["properties"]["connection_id"]["description"]
+                assert "connection_id" not in tools["connect_04-disconnect"]["inputSchema"]["required"]
+                assert "생략" in tools["connect_04-disconnect"]["inputSchema"]["properties"]["connection_id"]["description"]
                 assert tools == expected
                 for name, tool in tools.items():
                     assert_documented_schema(tool["inputSchema"], name)
@@ -237,9 +237,9 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
     from runtime import load_catalog, schema_identity
     from external_host import Broker, json_result
     from types import SimpleNamespace
-    catalog = next(t for t in load_catalog()["tools"] if t["name"] == "plan_section")
-    baseline = json.loads((ROOT / "tests/integration/tool_schemas.json").read_text(encoding="utf-8"))["plan_section"]
-    assert schema_identity(worker["plan_section"]) == schema_identity(catalog) == baseline
+    catalog = next(t for t in load_catalog()["tools"] if t["name"] == "drawing_06-generate_plan_section")
+    baseline = json.loads((ROOT / "tests/integration/tool_schemas.json").read_text(encoding="utf-8"))["drawing_06-generate_plan_section"]
+    assert schema_identity(worker["drawing_06-generate_plan_section"]) == schema_identity(catalog) == baseline
     arguments = dict(connection_id="fixture", operation="Create", clipping_ids=["00000000-0000-0000-0000-000000000001"])
     observed = []
 
@@ -248,11 +248,11 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
         return json_result({"status": "success"})
 
     async def route():
-        broker = SimpleNamespace(mapping={"plan_section": "plan_section"}, connections={"fixture": "bound"},
+        broker = SimpleNamespace(mapping={"drawing_06-generate_plan_section": "drawing_06-generate_plan_section"}, connections={"fixture": "bound"},
                                  invoke=invoke, spawn=asyncio.create_task, selected_connection_id=None)
-        response = await Broker.call(broker, "plan_section", arguments)
+        response = await Broker.call(broker, "drawing_06-generate_plan_section", arguments)
         assert not response.is_error
 
     asyncio.run(route())
-    assert observed == [("bound", "plan_section", {key: value for key, value in arguments.items() if key != "connection_id"})]
+    assert observed == [("bound", "drawing_06-generate_plan_section", {key: value for key, value in arguments.items() if key != "connection_id"})]
     assert arguments["connection_id"] == "fixture"

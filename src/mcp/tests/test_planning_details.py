@@ -11,6 +11,7 @@ from almond_mcp.features.planning.tools import register
 from almond_mcp.retrieval_store import AlmondStore
 
 DETAIL = "get_phase_plan_step"
+PUBLIC_DETAIL = "plan_05-get_phase_plan_step"
 
 
 @pytest.fixture
@@ -33,18 +34,18 @@ def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     tools = register(FastMCP("planning"), SimpleNamespace(retrieval_store=store))
     phases = json.loads(tools["list_phases"]())
     assert phases["phases"][0]["phase_id"] == phase["phase_id"]
-    assert "list_plans" in phases["next_step_guide"]
-    assert DETAIL in phases["next_step_guide"]
+    assert "plan_08-list" in phases["next_step_guide"]
+    assert PUBLIC_DETAIL in phases["next_step_guide"]
     rows = json.loads(tools["list_plans"](phase_id=phase["phase_id"]))
     assert rows["plans"] == [{"plan_id": pid, "title": "Entrance access", "scope": "component", "status": "pending", "loop_no": 0, "revision": 1}]
-    assert DETAIL in rows["next_step_guide"]
+    assert PUBLIC_DETAIL in rows["next_step_guide"]
     ph = json.loads(tools[DETAIL](include_details=True, phase_id=phase["phase_id"]))
     assert (ph["id"], ph["type"], ph["status"]) == (phase["phase_id"], "phase", "pending")
     assert ph["phase"]["plan_titles"] == ["Entrance access"]
     assert ph["phase"]["depends_on"] == ["phase_future"]
     assert "plan_count" not in ph["phase"]
     detail = json.loads(tools[DETAIL](plan_id=pid, include_details=True))
-    assert "set_working_plan" in detail["next_step_guide"]
+    assert "plan_10-set_working" in detail["next_step_guide"]
     assert detail["plan"]["phase"] == {"phase_id": phase["phase_id"], "name": "Entrance"}
     assert detail["plan"]["holon_ids"] == []
     assert detail["plan"]["created_at"] == kst_minute(plan["created_at"])
@@ -59,7 +60,7 @@ def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     # The current Step path must not fetch the whole Plan and its other records.
     monkeypatch.setattr(store, "get_plan", lambda *args, **kwargs: pytest.fail("unbounded Plan read"))
     step = json.loads(tools[DETAIL](include_details=True, plan_id=pid, step_id=plan["steps"][0]["step_id"]))
-    assert "set_working_plan" in step.pop("next_step_guide")
+    assert "plan_10-set_working" in step.pop("next_step_guide")
     assert step == {"id": plan["steps"][0]["step_id"], "type": "step", "name": "inspect_context", "status": "pending", "read_only": False,
         "plan_id": pid, "loop_no": 0, "revision": 4,
         "step": {"step_type": "inspect_context", "input_refs": ["brief"], "output_refs": ["survey"]}}
@@ -113,22 +114,22 @@ def test_public_schema_and_ascii_name_with_middle_dot_title(store):
     async def run():
         async with Client(server) as client:
             tools = {t.name: t for t in await client.list_tools()}
-            assert DETAIL in tools and not {"get_phase", "get_plan", "get_step"}.intersection(tools)
+            assert PUBLIC_DETAIL in tools and not {"get_phase", "get_plan", "get_step"}.intersection(tools)
             assert "get_phase·plan·step" not in tools
-            assert tools[DETAIL].title == "get_phase·plan·step"
-            assert {"update_plan", "update_step"}.issubset(tools)
+            assert tools[PUBLIC_DETAIL].title == "get_phase·plan·step"
+            assert {"plan_12-update", "plan_13-update_step"}.issubset(tools)
             schemas = {n: t.model_dump(by_alias=True)["inputSchema"] for n, t in tools.items()}
             assert all("include_ids" not in s["properties"] for s in schemas.values())
-            assert "field_groups" not in schemas["list_plans"]["properties"]
-            assert set(schemas["create_plan"]["required"]) == {"title", "goal"}
-            assert "component_ids" not in schemas["update_step"]["properties"]
-            assert set(schemas["update_step"]["required"]) == {"plan_id", "step_id"}
-            result = await client.call_tool("create_plan", {"title": "Survey", "goal": "Inspect entrance"})
+            assert "field_groups" not in schemas["plan_08-list"]["properties"]
+            assert set(schemas["plan_02-create"]["required"]) == {"title", "goal"}
+            assert "component_ids" not in schemas["plan_13-update_step"]["properties"]
+            assert set(schemas["plan_13-update_step"]["required"]) == {"plan_id", "step_id"}
+            result = await client.call_tool("plan_02-create", {"title": "Survey", "goal": "Inspect entrance"})
             pid = json.loads(result.content[0].text)["plan"]["plan_id"]
-            result = await client.call_tool(DETAIL, {"plan_id": pid})
+            result = await client.call_tool(PUBLIC_DETAIL, {"plan_id": pid})
             assert json.loads(result.content[0].text)["id"] == pid
-            for name, args in [(DETAIL, {"plan_id": pid, "include_ids": True}),
-                               ("update_step", {"plan_id": pid, "step_id": "inspect_context", "status": "pending", "component_ids": []})]:
+            for name, args in [(PUBLIC_DETAIL, {"plan_id": pid, "include_ids": True}),
+                               ("plan_13-update_step", {"plan_id": pid, "step_id": "inspect_context", "status": "pending", "component_ids": []})]:
                 result = await client.call_tool(name, args, raise_on_error=False)
                 assert result.is_error
 

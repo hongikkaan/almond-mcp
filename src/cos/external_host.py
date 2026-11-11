@@ -36,7 +36,7 @@ from session_close import SessionCloser
 GUIDANCE = (ROOT / "CONNECTION-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
 DESCRIPTION = (ROOT / "SERVER-DESCRIPTION.md").read_text(encoding="utf-8").strip()
 UNSAVED_DOCUMENT = ("Save this Rhino document as a local .3dm, then refresh "
-                    "list_connections before connecting.")
+                    "connect_01-list_up tool before connecting.")
 
 
 def json_result(value: dict, name: str = "") -> types.CallToolResult:
@@ -72,27 +72,27 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
             raise RuntimeError(f"Unsupported routing schema: {name}")
         schema.setdefault("properties", {})["connection_id"] = {
             "type": "string", "minLength": 1,
-            "description": "생략하면 connect/start_session으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 list_connections의 connection_id를 입력합니다."
+            "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
         }
-        if name == "get_rhino_execution":
+        if name == "script_03-get_execution":
             schema["properties"]["connection_id"]["description"] = (
                 "생략하면 현재 연결을 자동 적용합니다. 다른 연결의 보관된 결과를 찾을 때는 해당 connection_id와 request_id를 입력합니다.")
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
-        ("list_connections", "연결 가능한 Rhino 문서와 현재 연결·시작 요청을 조회합니다.",
+        ("connect_01-list_up", "연결 가능한 Rhino 문서와 현재 연결·시작 요청을 조회합니다.",
          {}, []),
-        ("connect", "열려 있는 Rhino 문서에 연결하거나 작업할 문서를 전환합니다.",
-         {"host_id": {"type": "string", "description": "list_connections.targets에서 선택한 Rhino 프로세스의 host_id입니다."}, "model_path": {"type": "string", "description": "같은 연결 대상에 표시된 저장 모델의 정확한 model_path입니다."}},
+        ("connect_02-session", "열려 있는 Rhino 문서에 연결하거나 작업할 문서를 전환합니다.",
+         {"host_id": {"type": "string", "description": "connect_01-list_up tool의 targets에서 선택한 Rhino 프로세스의 host_id입니다."}, "model_path": {"type": "string", "description": "같은 연결 대상에 표시된 저장 모델의 정확한 model_path입니다."}},
          ["host_id", "model_path"]),
-        ("start_session", "저장된 모델을 새 Rhino 창에서 열고 연결합니다.",
+        ("connect_03-start_session", "저장된 모델을 새 Rhino 창에서 열고 연결합니다.",
          {"model_path": {"type": "string", "description": "새 Rhino에서 열 저장된 로컬 .3dm 파일의 절대 경로입니다."},
           "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
                          "description": "이 시작 요청의 고유 ID입니다. 시작이 지연되거나 결과가 불확실하면 새 ID를 만들지 말고 같은 값을 재사용해 상태를 확인합니다."}},
          ["model_path", "request_id"]),
-        ("disconnect", "선택한 연결을 해제하고 Rhino 창과 문서는 유지합니다.",
-         {"connection_id": {"type": "string", "minLength": 1, "description": "생략하면 선택한 연결을 해제합니다. 다른 연결을 해제하려면 list_connections의 connection_id를 입력합니다."}}, []),
-        ("close_session", "선택한 Rhino 문서를 저장하고 완료를 확인한 뒤 정상 종료합니다.",
+        ("connect_04-disconnect", "선택한 연결을 해제하고 Rhino 창과 문서는 유지합니다.",
+         {"connection_id": {"type": "string", "minLength": 1, "description": "생략하면 선택한 연결을 해제합니다. 다른 연결을 해제하려면 connect_01-list_up tool의 connection_id를 입력합니다."}}, []),
+        ("connect_05-close_session", "선택한 Rhino 문서를 저장하고 완료를 확인한 뒤 정상 종료합니다.",
          {"request_id": {"type": "string", "minLength": 1, "maxLength": 128,
                          "description": "이 종료 요청의 고유 ID입니다. 지연·불확실 상태에서는 같은 ID로 결과를 조회합니다. 저장 확인 전에는 종료하지 않습니다."},
           "connection_id": {"type": "string", "minLength": 1,
@@ -137,7 +137,7 @@ def host_lease(data: Path, record: dict):
         except OSError as exc:
             if exc.errno not in (32, 33):
                 raise
-            raise HostInUse("This Rhino is owned by another Almond client. Keep that connection, or explicitly start a separate Rhino with start_session.") from exc
+            raise HostInUse("This Rhino is owned by another Almond client. Keep that connection, or explicitly start a separate Rhino with connect_03-start_session tool.") from exc
         return leases
     except BaseException:
         leases.close()
@@ -383,7 +383,7 @@ class Broker:
             try:
                 closing_request = self.session_closer.pending_for(record)
                 if closing_request:
-                    raise RuntimeError("A close is retained. Read close_session with request_id=" + closing_request)
+                    raise RuntimeError("A close is retained. Read connect_05-close_session tool with request_id=" + closing_request)
                 lease = self.lease_factory(self.data, record)
                 control = self.control_factory(record)
                 target = await control.request("describe")
@@ -463,7 +463,7 @@ class Broker:
         if host_id in self.host_connections:
             conn = self.connections[self.host_connections[host_id]]
             if os.path.normcase(conn.binding.get("model_path", "")) != os.path.normcase(model_path):
-                raise RuntimeError("This connection belongs to a different model. Refresh list_connections.")
+                raise RuntimeError("This connection belongs to a different model. Refresh connect_01-list_up tool.")
             # Selection permits recovery reads; invoke still gates ordinary
             # calls on ready and never clears an uncertain native operation.
             if conn.closing or conn.state not in {"ready", "recovering", "unconfirmed"}:
@@ -475,7 +475,7 @@ class Broker:
             raise RuntimeError("Rhino advertisement is stale. Run almondconnect in the intended saved document.")
         closing_request = self.session_closer.pending_for(record)
         if closing_request:
-            raise RuntimeError("A close is retained. Read close_session with request_id=" + closing_request)
+            raise RuntimeError("A close is retained. Read connect_05-close_session tool with request_id=" + closing_request)
         connection_id = uuid4().hex
         lease = self.lease_factory(self.data, record)
         try:
@@ -542,7 +542,7 @@ class Broker:
 
     def _retain_cli(self, conn, request_id, state):
         conn.state = "recovering"
-        conn.reason = "RhinoCode outcome is being tracked. Read get_rhino_execution; do not repeat the work."
+        conn.reason = "RhinoCode outcome is being tracked. Read script_03-get_execution tool; do not repeat the work."
         conn.recovery_request_id = request_id
         conn.in_flight = True
         self.recovery_bindings[conn.connection_id] = dict(conn.binding)
@@ -552,7 +552,7 @@ class Broker:
 
     async def recover_execution(self, conn, arguments):
         try:
-            result = await conn.worker.call("get_rhino_execution", arguments)
+            result = await conn.worker.call("script_03-get_execution", arguments)
             value = result_dict(result)
             state = await conn.worker.state()
         except Exception:
@@ -583,14 +583,14 @@ class Broker:
         sys.path.insert(0, str(ENGINE))
         from project import serial_gate
         async with serial_gate(conn.lock, self.queue_timeout):
-            if name != "get_rhino_execution":
+            if name != "script_03-get_execution":
                 closing_request = self.session_closer.pending_for(conn.binding)
                 if closing_request:
-                    raise RuntimeError("A close is retained. Read close_session with request_id=" + closing_request)
+                    raise RuntimeError("A close is retained. Read connect_05-close_session tool with request_id=" + closing_request)
             return await self._invoke_locked(conn, name, arguments, invocation)
 
     async def _invoke_locked(self, conn, name, arguments, invocation):
-        if name == "get_rhino_execution":
+        if name == "script_03-get_execution":
             if conn.closing:
                 value = await asyncio.to_thread(self._read_execution_files, conn.binding, arguments)
                 value.update(connection_state=conn.state, requires_reconnect=True)
@@ -727,7 +727,7 @@ class Broker:
             raise RuntimeError("Unknown or stale connection_id.")
         closing_request = self.session_closer.pending_for(conn.binding)
         if closing_request:
-            raise RuntimeError("A close is retained. Read close_session with request_id=" + closing_request)
+            raise RuntimeError("A close is retained. Read connect_05-close_session tool with request_id=" + closing_request)
         if conn.lock.locked() or (conn.in_flight and conn.state == "ready"):
             raise RuntimeError("A call is still running. Wait for its result before disconnecting.")
         result = await self._dispose(conn)
@@ -740,19 +740,19 @@ class Broker:
         conn = None
         invocation = None
         try:
-            if name == "list_connections":
+            if name == "connect_01-list_up":
                 return json_result(await self.list_connections(), name)
-            if name == "connect":
+            if name == "connect_02-session":
                 return json_result(await asyncio.shield(self.spawn(self.connect(**arguments))), name)
-            if name == "start_session":
+            if name == "connect_03-start_session":
                 return json_result(await self.start_session(**arguments), name)
-            if name == "close_session":
+            if name == "connect_05-close_session":
                 return json_result(await asyncio.shield(self.spawn(self.session_closer.run(self, **arguments))), name)
-            if name == "disconnect":
+            if name == "connect_04-disconnect":
                 arguments = dict(arguments)
                 arguments.setdefault("connection_id", self.selected_connection_id)
                 if arguments["connection_id"] is None:
-                    raise RuntimeError("No selected connection. Use list_connections and connect.")
+                    raise RuntimeError("No selected connection. Use connect_01-list_up tool and connect_02-session tool.")
                 return json_result(await asyncio.shield(self.spawn(self.disconnect(**arguments))), name)
             if name not in self.mapping:
                 raise RuntimeError("Unknown Almond tool.")
@@ -760,14 +760,14 @@ class Broker:
             connection_id = arguments.pop("connection_id", self.selected_connection_id)
             conn = self.connections.get(connection_id)
             if conn is None:
-                if self.mapping[name] == "get_rhino_execution" and connection_id in self.recovery_bindings:
+                if self.mapping[name] == "script_03-get_execution" and connection_id in self.recovery_bindings:
                     value = await asyncio.to_thread(self._read_execution_files,
                                                    self.recovery_bindings[connection_id], arguments)
                     value.update(connection_state="disconnected", requires_reconnect=True)
                     return json_result(value)
-                if self.mapping[name] == "get_rhino_execution" and arguments.get("request_id"):
+                if self.mapping[name] == "script_03-get_execution" and arguments.get("request_id"):
                     return json_result(await asyncio.to_thread(self.recovery_store.recover, arguments))
-                raise RuntimeError("No selected live connection, or unknown/stale connection_id. Use list_connections and connect. No Rhino request was sent.")
+                raise RuntimeError("No selected live connection, or unknown/stale connection_id. Use connect_01-list_up tool and connect_02-session tool. No Rhino request was sent.")
             invocation = Invocation()
             return await asyncio.shield(self.spawn(self.invoke(conn, self.mapping[name], arguments, invocation)))
         except asyncio.CancelledError:
@@ -810,7 +810,7 @@ class SessionAdapter:
 
     async def call(self, name, arguments):
         if self.broker is None:
-            if name not in {"list_connections", "connect", "start_session", "close_session", "get_rhino_execution"}:
+            if name not in {"connect_01-list_up", "connect_02-session", "connect_03-start_session", "connect_05-close_session", "script_03-get_execution"}:
                 return error_result("Unknown or stale connection_id. No Rhino request was sent.")
             self.broker = self.broker_factory(self.catalog, data=self.data)
         return await self.broker.call(name, arguments)

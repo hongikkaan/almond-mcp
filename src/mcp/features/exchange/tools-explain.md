@@ -18,7 +18,7 @@ Args:
 Almond 자산 계약에 따라 GLB를 Rhino 문서로 가져옵니다.
 
 Args:
-    contract_path: export_asset_contract 또는 Blender 내보내기가 반환한 계약 경로입니다. 관리형 세션에서는 프로젝트 기준 상대 .almond.json 경로이고, 독립 실행에서는 절대 경로입니다.
+    contract_path: exchange_01-export_asset_contract tool 또는 Blender 내보내기가 반환한 계약 경로입니다. 관리형 세션에서는 프로젝트 기준 상대 .almond.json 경로이고, 독립 실행에서는 절대 경로입니다.
     x_mm: 계약 앵커의 X 배치 좌표(밀리미터)입니다. 기본값은 0입니다.
     y_mm: 계약 앵커의 Y 배치 좌표(밀리미터)입니다. 기본값은 0입니다.
     z_mm: 계약 앵커의 Z 배치 좌표(밀리미터)입니다. 기본값은 0입니다.
@@ -45,17 +45,17 @@ Args:
 ## response-672
 
 <!-- instruction:response-672 -->
-If importing into a destination Rhino is intended, pass the returned contract_path to import_asset_contract(contract_path=...) and choose its placement coordinates in mm; exporting alone does not request another import. For Blender, import the returned glb_path there and verify materials/placement; get_blender_helper_script supports export and materials, not import.
+If importing into a destination Rhino is intended, pass the returned contract_path to exchange_03-import_asset_contract tool(contract_path=...) and choose its placement coordinates in mm; exporting alone does not request another import. For Blender, import the returned glb_path there and verify materials/placement; exchange_02-get_blender_script tool supports export and materials, not import.
 <!-- /instruction:response-672 -->
 
 ## response-677
 
 <!-- instruction:response-677 -->
-Run in Blender, then call import_asset_contract with the printed path.
+Run in Blender, then call exchange_03-import_asset_contract tool with the printed path.
 <!-- /instruction:response-677 -->
 
 ## response-679
 
 <!-- instruction:response-679 -->
-Unknown material_id: {0}. Call list_materials.
+Unknown material_id: {0}. Call model_04-list_materials tool.
 <!-- /instruction:response-679 -->

@@ -156,7 +156,7 @@ def main():
             if backup:
                 print(f"Original configuration backup: {backup}")
             print("Reload the MCP client to use the lazy adapter. Registration does not start Rhino or a modeling worker.")
-            print("Call start_session with a saved model path and a unique request_id to open an independent session.")
+            print("Call connect_03-start_session tool with a saved model path and a unique request_id to open an independent session.")
         else:
             print(codex_toml(config) if args.format == "codex" else generic_json(config, os.environ), end="")
     except (OSError, ValueError) as exc:

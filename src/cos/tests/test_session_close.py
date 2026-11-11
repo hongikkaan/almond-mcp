@@ -46,14 +46,14 @@ def test_close_saves_then_exits_and_repeated_id_only_reads(tmp_path):
             def inspect(self, record, directory):
                 return dict(guard_state="exit_dispatched", rhino_closed=True, cli_closed=True)
         broker.session_closer.exit_factory = Exit
-        result = await broker.call("close_session", {"request_id": "close-test"})
+        result = await broker.call("connect_05-close_session", {"request_id": "close-test"})
         assert not result.is_error
         value = result.structured_content
         assert value["status"] == "completed" and value["saved"]
         assert value["rhino_closed"] and value["worker_closed"] and value["released"]
         assert actions.index("save") < actions.index("exit") < actions.index("worker_closed") < actions.index("lease_closed")
         before = list(actions)
-        again = await broker.call("close_session", {"request_id": "close-test"})
+        again = await broker.call("connect_05-close_session", {"request_id": "close-test"})
         assert again.structured_content == value
         assert actions == before and not broker.connections
     asyncio.run(run())

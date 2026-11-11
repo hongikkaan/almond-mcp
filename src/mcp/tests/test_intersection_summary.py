@@ -42,7 +42,7 @@ def test_whole_scope_count_spans_pages_and_keeps_private_bound_document(monkeypa
     result = json.loads(tool(object_ids=[A, B]))
     assert result["intersections"] == {"number": 65}
     assert set(result) == {"intersections", "next_step_guide"}
-    assert "resolve_object_intersection" in result["next_step_guide"] and "skip" in result["next_step_guide"]
+    assert "intersect_02-resolve" in result["next_step_guide"] and "skip" in result["next_step_guide"]
     assert [request["cursor"] for request in calls] == ["", "state:64"]
     assert all(request["expected_model_path"] == MODEL and not request["include_blocks"] for request in calls)
 
@@ -52,7 +52,7 @@ def test_block_exclusion_is_intentional_but_unreadable_geometry_is_not_zero(monk
     empty = json.loads(tool(object_ids=[A]))
     assert empty["intersections"]["number"] == 0
     assert "no resolution call is needed" in empty["next_step_guide"]
-    assert "resolve_object_intersection" not in empty["next_step_guide"]
+    assert "intersect_02-resolve" not in empty["next_step_guide"]
     failure = {"object_id": A, "reason": "open_geometry"}
     tool, _, _ = setup(monkeypatch, [page(unsupported=[failure])])
     result = tool(object_ids=[A])
@@ -81,17 +81,17 @@ def test_public_schema_has_only_targets_and_singular_include_block(monkeypatch):
     async def run():
         async with Client(server) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
-            schema = tools["get_object_intersections"].input_schema
+            schema = tools["intersect_01-find"].input_schema
             assert set(schema["properties"]) == {"object_ids", "include_block"}
             assert schema["required"] == ["object_ids"]
             assert schema["properties"]["include_block"]["default"] is False
             for extra in ({"max_pairs": 1}, {"cursor": "old"}, {"include_ids": True},
                           {"include_blocks": True}, {"include_block": 1}):
-                result = await client.call_tool("get_object_intersections", {"object_ids": [A, B], **extra},
+                result = await client.call_tool("intersect_01-find", {"object_ids": [A, B], **extra},
                                                raise_on_error=False)
                 assert result.is_error
             assert not calls
-            result = await client.call_tool("get_object_intersections", {"object_ids": [A, B], "include_block": True})
+            result = await client.call_tool("intersect_01-find", {"object_ids": [A, B], "include_block": True})
             assert not result.is_error and calls[-1]["include_blocks"] is True
     asyncio.run(run())
 

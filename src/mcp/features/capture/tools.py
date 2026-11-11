@@ -9,7 +9,7 @@ from almond_mcp.features.capture import conditioning
 
 def register(mcp, context):
     """Register capture tools against this server's live connection context."""
-    @mcp.tool(output_schema=public_output_schema('capture_conditioning_pass', wrapped=True))
+    @mcp.tool(name='capture_01-conditioning_pass', output_schema=public_output_schema('capture_conditioning_pass', wrapped=True))
     @tool_instruction(__file__, 'capture_conditioning_pass')
     def capture_conditioning_pass(
         shot: str,

@@ -19,11 +19,11 @@ EDIT = {"object_id": OBJECT, "face_index": 0, "expected_geometry_crc": 42, "tran
 
 
 @pytest.mark.parametrize("name,args", [
-    ("edit_planar_face", EDIT), ("edit_planar_faces", {"edits": [EDIT]}),
-    ("get_ontological_holon", {"holon_id": "holon_existing", "live": True}),
-    ("get_scene_objects", {"scene_id": "scene_existing"}),
-    ("get_selection_references", {}),
-    ("analyze_block_reculviely", {"mode": "resolve-block", "options": {"path": [OBJECT]}}),
+    ("model_02-edit_planar_face", EDIT), ("model_03-edit_planar_faces", {"edits": [EDIT]}),
+    ("scene_05-get_holon", {"holon_id": "holon_existing", "live": True}),
+    ("scene_06-get_objects", {"scene_id": "scene_existing"}),
+    ("inspect_04-get_selection_references", {}),
+    ("inspect_01-analyze_nested_blocks", {"mode": "resolve-block", "options": {"path": [OBJECT]}}),
 ])
 def test_editor_failure_sets_mcp_error_and_preserves_native_evidence(tmp_path, monkeypatch, name, args):
     saved_model = str(tmp_path / "editor.3dm")
@@ -62,7 +62,7 @@ def test_editor_failure_sets_mcp_error_and_preserves_native_evidence(tmp_path, m
     body = json.loads(serialized)
     assert body["status"] == "error" and body["message"] == failure["message"]
     assert response.content[0].text == serialized
-    if name in {"edit_planar_face", "edit_planar_faces"}:
+    if name in {"model_02-edit_planar_face", "model_03-edit_planar_faces"}:
         assert body["mutation_applied"] is False and body["mutation_state"] == "not_started"
 
 
@@ -101,16 +101,16 @@ def test_native_editor_guidance_survives_real_store_and_public_query_errors(tmp_
     async def run():
         async with Client(server) as client:
             for name, arguments in [
-                ("get_ontological_holon", {"holon_id": COMPONENT, "live": True}),
-                ("get_scene_objects", {"scene_id": scene["scene_id"]}),
-                ("get_selection_references", {}),
+                ("scene_05-get_holon", {"holon_id": COMPONENT, "live": True}),
+                ("scene_06-get_objects", {"scene_id": scene["scene_id"]}),
+                ("inspect_04-get_selection_references", {}),
             ]:
                 result = await client.call_tool(name, arguments, raise_on_error=False)
                 assert result.is_error
                 body = json.loads(result.content[0].text)
                 assert body.get("error_code") == "unstable_editing_scope", (name, body)
                 assert body["membership_available"] is False and body["mutation_applied"] is False
-                assert "get_objects" in body["next_step_guide"] and "holon ownership" in body["next_step_guide"]
+                assert "inspect_02-get_objects" in body["next_step_guide"] and "holon ownership" in body["next_step_guide"]
                 assert "next_step" not in body
                 assert body["editing"] == reply["editing"]
     asyncio.run(run())

@@ -1,17 +1,17 @@
 # Structural validation: Karamba workflow
 
-`validate_structure`의 Karamba 경로(`engine="karamba"`)와 입력·반환 계약이다. 선형 frame은 기본 `engine="auto"`에서 [native solver](../SPEC.md)를 사용한다.
+`analysis_04-validate_structure` tool의 Karamba 경로(`engine="karamba"`)와 입력·반환 계약이다. 선형 frame은 기본 `engine="auto"`에서 [native solver](../SPEC.md)를 사용한다.
 
 ## 해석 대상과 자산 하중
 
-`validate_structure(guids, ...)` and `visualize_structure(guids, ...)` take explicit Rhino GUIDs, not Component IDs. `StructureModelExport.Handle` runs `ModelConditioner.Condition`: Points become support anchors, Curves become member axes, slender Extrusions and prismatic Breps can heuristically become members, and Mesh/surface/plate-like geometry becomes shells; other solids can be skipped with warnings. The native frame solver requires line members and rejects shells. The Karamba fallback is not automatically equivalent EN 1990 / Eurocode verification. Passing all architectural Component geometry directly as structural members would overstate both coverage and analysis validity.
+`analysis_04-validate_structure tool(guids, ...)` and `analysis_05-visualize_structure tool(guids, ...)` take explicit Rhino GUIDs, not Component IDs. `StructureModelExport.Handle` runs `ModelConditioner.Condition`: Points become support anchors, Curves become member axes, slender Extrusions and prismatic Breps can heuristically become members, and Mesh/surface/plate-like geometry becomes shells; other solids can be skipped with warnings. The native frame solver requires line members and rejects shells. The Karamba fallback is not automatically equivalent EN 1990 / Eurocode verification. Passing all architectural Component geometry directly as structural members would overstate both coverage and analysis validity.
 
 Generated-asset gravity loads are **loads**, not automatically members. Preserve `AssetPlacementExport.Handle` (including old/new asset-ID tags), `LoadTable.lookup`, `asset_loads.apply`, `structure_study.asset_catalogue`, `server._structural_loads_path`, `_asset_load_spec`, `get_asset_passport`, `structural-loads.json`, and generated manifest `category`, `spatial.support_plane`, `nominal_dimensions_mm`, and stable asset IDs. This existing path assigns estimated G/Q product/occupancy loads to frame members while reporting skipped ground-only, wall-mounted and structural elements. `test_asset_load_tools.py` and `test_asset_loads.py` cover these consumers. Asset conversion must not drop those identities/loads.
 
 ## Process
 
 ```
-validate_structure(guids, structure_type, load_kn, material)
+analysis_04-validate_structure tool(guids, structure_type, load_kn, material)
         │  MCP worker → document-bound Engine bridge (A–J: 5501–5510)
         ▼
 RhinoAlmondBridge.StructuralValidator
@@ -38,7 +38,7 @@ RhinoAlmondBridge.StructuralValidator
                     ALMOND_IN_SUPPORTS-style point ports.
        rule_based → heuristic UDL formulas                            confidence: low
   4. pass/fail checks (same criteria for every pathway)
-  5. record the run in the state DB → export_structural_report renders Markdown
+  5. record the run in the state DB → analysis_02-export_structural_report tool renders Markdown
 ```
 
 The response always names the pathway that actually ran (`results.analysis_method`) and prefixes the verdict, e.g. `[KARAMBA 3.1 API, HIGH CONFIDENCE]` vs `[RULE-BASED ESTIMATE, LOW CONFIDENCE]`. A rule-based answer is an estimate, not FEA — the label is the contract.
@@ -75,25 +75,25 @@ Karamba는 build-time reference 없이 `KarambaAdapter.cs`가 reflection으로 �
 
 준비·빌드는 [AGENTS.md](../../../../../AGENTS.md)를 따른다. 실제 기능 검증은 사용자가 연결한 작업 문서의 기존 구조 형상에서 수행하며 테스트만을 위한 문서를 자동 생성하지 않는다.
 
-- 문서·단위·공차 정보가 필요하면 `project_info`의 document 항목에서 live 문서를 확인한다. 같은 확인을 위해 `get_rhino_context`를 추가 호출하지 않는다. 포트 충돌이면 해당 프로세스를 조사하고 강제 종료하지 않는다.
+- 문서·단위·공차 정보가 필요하면 `context_04-get_project_info` tool의 document 항목에서 live 문서를 확인한다. 같은 확인을 위해 `inspect_03-get_document_context` tool를 추가 호출하지 않는다. 포트 충돌이면 해당 프로세스를 조사하고 강제 종료하지 않는다.
 - 단순 beam의 치수·단위·하중·지점을 명시해 해석하고 `analysis_method`, 변위, 반력 평형, 부재 utilization과 경고를 확인한다.
 - Karamba 미설치 조건에서도 명시적인 downgrade와 오류가 반환돼야 한다. capsule의 `audited` 상태는 실제 harness 검증 근거가 있어야 한다.
-- `run_gh_definition`의 미등록 capsule·필수 입력 누락·잘못된 타입은 native 실행 전에 거절되어야 한다.
+- `grasshopper_04-run_definition` tool의 미등록 capsule·필수 입력 누락·잘못된 타입은 native 실행 전에 거절되어야 한다.
 - timeout 뒤에는 완료 상태를 확인한다. 불확실한 geometry 수정을 재시도하지 않는다.
 - 고정 조회·캡처와 표시 overlay, 일반 C# 수정의 부수효과를 구분한다. 실제 결과와 테스트 환경을 보고한다.
 
 ## Live structure view
 
-`visualize_structure(guids=[...])` solves the frame (native solver by default, `engine="karamba"` for the Karamba route; see [native-solver.md](../SPEC.md)) and draws it in every viewport through a display conduit (nothing is baked): ghosted undeformed axes, the exaggerated deformed shape coloured blue → red by displacement or utilization, supports, load arrows and a legend with max δ, the L/limit check and PASS/FAIL. `reanalyze=False` updates only the display (`scale`, `color_by`, `reveal`, `title`), so a staged construction sequence can be played back with `reveal` from 0 to 1, and `physics=False` draws the same members as plain geometry (physics off) for comparisons. `span_m` sets the reference span for the L/limit check when members are split at every node, `fixed_supports=False` pins the supports. `clear=True` removes the overlay.
+`analysis_05-visualize_structure tool(guids=[...])` solves the frame (native solver by default, `engine="karamba"` for the Karamba route; see [native-solver.md](../SPEC.md)) and draws it in every viewport through a display conduit (nothing is baked): ghosted undeformed axes, the exaggerated deformed shape coloured blue → red by displacement or utilization, supports, load arrows and a legend with max δ, the L/limit check and PASS/FAIL. `reanalyze=False` updates only the display (`scale`, `color_by`, `reveal`, `title`), so a staged construction sequence can be played back with `reveal` from 0 to 1, and `physics=False` draws the same members as plain geometry (physics off) for comparisons. `span_m` sets the reference span for the L/limit check when members are split at every node, `fixed_supports=False` pins the supports. `clear=True` removes the overlay.
 
 ## Getting a report
 
 Every recorded run can be exported as Markdown:
 
 ```text
-validate_structure(guids=[...], structure_type="truss", load_kn=25)
-export_structural_report()            # → %LOCALAPPDATA%\Almond\reports\structural-validation-<ts>.md
-export_structural_report(path="C:\\project\\checks.md", limit=10)
+analysis_04-validate_structure tool(guids=[...], structure_type="truss", load_kn=25)
+analysis_02-export_structural_report tool()            # → %LOCALAPPDATA%\Almond\reports\structural-validation-<ts>.md
+analysis_02-export_structural_report tool(path="C:\\project\\checks.md", limit=10)
 ```
 
 The report contains the pathway explanation, a run table (span, deflection vs limit, utilization, reactions, member count, PASS/FAIL), per-run verdicts and warnings, and the interpretation notes above.

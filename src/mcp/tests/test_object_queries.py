@@ -149,9 +149,9 @@ def test_real_mcp_discovery_exposes_one_query_and_strict_expansion_inputs():
     async def exercise():
         async with Client(server) as client:
             names = {tool.name for tool in await client.list_tools()}
-            assert "get_objects" in names
+            assert "inspect_02-get_objects" in names
             assert not {"get_rhino_objects", "get_rhino_selection"}.intersection(names)
-            result = await client.call_tool("get_objects", {"result_mode": "hierarchy", "depth": True}, raise_on_error=False)
+            result = await client.call_tool("inspect_02-get_objects", {"result_mode": "hierarchy", "depth": True}, raise_on_error=False)
             assert result.is_error
 
     asyncio.run(exercise())

@@ -36,22 +36,23 @@ def test_json_body_keeps_embedded_json_strings_byte_for_byte(tmp_path, monkeypat
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_preflight_error_matches_registered_output_envelope(tmp_path, monkeypatch, wrapped):
     monkeypatch.setenv("ALMOND_PROJECT_ROOT", str(tmp_path))
-    name = "import_asset_contract" if wrapped else "generate_asset_drawing_views"
-    schema = public_output_schema(name, wrapped=wrapped)
+    internal_name = "import_asset_contract" if wrapped else "generate_asset_drawing_views"
+    name = "exchange_03-import_asset_contract" if wrapped else "asset_02-generate_drawing_views"
+    schema = public_output_schema(internal_name, wrapped=wrapped)
     runtime = object.__new__(ProjectRuntime)
     runtime.locations = {"project_dir": str(tmp_path), "call_root": str(tmp_path / "calls")}
     runtime.workspace = SimpleNamespace(current=lambda: {"artifact_dir": ""})
 
     class Preflight(Middleware):
         async def on_call_tool(self, context, call_next):
-            return await runtime._owned_call(context, call_next, name, False, "")
+            return await runtime._owned_call(context, call_next, internal_name, False, "")
 
     server = FastMCP("preflight-contract")
     def import_asset_contract(contract_path: str):
         raise AssertionError("Rejected path must not dispatch")
     def generate_asset_drawing_views(source_glb: str):
         raise AssertionError("Rejected path must not dispatch")
-    server.tool(output_schema=schema)(import_asset_contract if wrapped else generate_asset_drawing_views)
+    server.tool(name=name, output_schema=schema)(import_asset_contract if wrapped else generate_asset_drawing_views)
     server.add_middleware(Preflight())
 
     async def run():

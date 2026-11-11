@@ -8,7 +8,7 @@ from almond_mcp.query_output import select_fields, validate_field_groups
 
 def test_policy_selection_returns_only_requested_content():
     basic = modeling_guidance.read_policy()
-    assert "get_policy" in basic["tools"]
+    assert "context_01-get_policy" in basic["tools"]
     assert not {"get_modeling_guide", "get_looping_policy", "get_modeling_policy", "get_retrieval_status"}.intersection(basic["tools"])
     assert basic["text"] == modeling_guidance.BASIC_GUIDE.read_text(encoding="utf-8").strip()
     assert set(basic["available_policies"]) == {"basic", "metadata", "rhino_scripting", "rhinocode"}
@@ -22,9 +22,9 @@ def test_policy_selection_returns_only_requested_content():
     assert "public_object_keys" in metadata["policy"]
     metadata["policy"].clear()
     assert modeling_guidance.read_policy("metadata")["policy"]
-    assert "execute_rhino_script" in modeling_guidance.read_policy("rhinocode")["text"]
+    assert "script_02-run_rhino" in modeling_guidance.read_policy("rhinocode")["text"]
     with pytest.raises(ValueError, match="policy must"):
-        modeling_guidance.read_policy("get_rhino_context")
+        modeling_guidance.read_policy("inspect_03-get_document_context")
     with pytest.raises(ValueError):
         modeling_guidance.read_policy(True)
 

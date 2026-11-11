@@ -45,9 +45,9 @@ async def main():
                                env=dict(os.environ), cwd=str(Path(sys.prefix)))
     async with Client(transport, timeout=60) as client:
         tools = await client.list_tools()
-        assert "validate_structure" in {t.name for t in tools}
+        assert "analysis_04-validate_structure" in {t.name for t in tools}
         assert not any("ikea" in t.name.lower() for t in tools)
-        result = await client.call_tool("search_asset_repository", {
+        result = await client.call_tool("asset_10-search_repository", {
             "query":"office chair", "drawing_ready":True, "include_ids":True, "field_groups":["all"]})
         payload = result.structured_content
         assert payload["total"] == 1, payload
@@ -55,7 +55,7 @@ async def main():
         assert len(record["local_files"]) == 18
         assert record["provenance"]["recorded_generation"]["mesh_task_id"]
         assert all(Path(p).is_file() for p in record["local_files"].values())
-        organic = (await client.call_tool("search_asset_repository", {
+        organic = (await client.call_tool("asset_10-search_repository", {
             "query":"organic-2026-09", "include_ids":True, "field_groups":["all"]})).structured_content
         assert organic["total"] == 3
         for asset in organic["assets"]:

@@ -30,7 +30,7 @@ Args:
 Phase의 작업 정보를 수정합니다.
 
 Args:
-    phase_id: list_phases.phases[].phase_id 또는 get_phase_plan_step.id에서 얻은 기존 Phase ID입니다.
+    phase_id: plan_06-list_phases tool의 phases[].phase_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Phase ID입니다.
     name: 선택 사항인 비어 있지 않은 대체 Phase 이름입니다.
     description: 선택 사항인 대체 설명입니다. 비어 있으면 지웁니다.
     file_name: 이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다. [] 또는 ""는 연결 해제, 생략/null은 유지입니다.
@@ -90,7 +90,7 @@ Args:
 Plan의 작업 정보를 수정합니다.
 
 Args:
-    plan_id: list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다.
+    plan_id: plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다.
     goal: 선택 사항인 비어 있지 않은 대체 전체 목표입니다.
     phase_id: 선택 사항인 기존 Phase ID입니다. 비어 있으면 Phase 소속을 해제하고, 생략/null이면 유지합니다.
     scene_ids: Plan의 작업 맥락이 되는 기존 Scene ID 배열로 교체합니다. []이면 비우고 생략/null이면 유지합니다.
@@ -112,7 +112,7 @@ Args:
 Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 
 Args:
-    plan_id: list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다.
+    plan_id: plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다.
     limit: 최대 리비전 기록 수입니다. 범위는 1..500입니다.
     field_groups: 저장된 타임스탬프를 포함하려면 선택적으로 audit 또는 all을 사용합니다. 생략하거나 비어 있으면 loop_no, revision, operation 및 step_id를 반환합니다.
     loop_no: 선택 사항인 0 이상의 Loop 필터입니다. 생략하면 모든 Loop를 포함하며, 0은 실행 전 이력을 선택합니다.
@@ -125,7 +125,7 @@ Args:
 Step의 상태와 입력·출력 근거를 기록합니다.
 
 Args:
-    plan_id: list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다.
+    plan_id: plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다.
     step_id: 선택한 Plan의 상세 결과에서 얻은 Step ID입니다. 해당 Plan ID와 함께 사용합니다.
     status: pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다.
     input_refs: 입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다.
@@ -140,7 +140,7 @@ Args:
 Plan에 등록된 Holon 대상 집합을 조회합니다.
 
 Args:
-    plan_id: list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다.
+    plan_id: plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다.
     step_id: 선택한 Plan에 속하는지 확인할 Step ID입니다. 생략해도 Plan의 Holon 대상을 조회합니다.
     field_groups: 선택 사항: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 저장된 Plan 대상 ID를 반환합니다.
 <!-- /instruction:resolve_targets -->

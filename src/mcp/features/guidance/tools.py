@@ -17,13 +17,13 @@ from pathlib import Path
 def register(mcp, context):
     """Register guidance tools against the calling server's live context."""
 
-    @mcp.tool(annotations={'readOnlyHint': True, 'destructiveHint': False, 'openWorldHint': False}, output_schema=public_output_schema('get_policy', wrapped=False))
+    @mcp.tool(name='context_01-get_policy', annotations={'readOnlyHint': True, 'destructiveHint': False, 'openWorldHint': False}, output_schema=public_output_schema('get_policy', wrapped=False))
     @tool_instruction(__file__, 'get_policy')
     def get_policy(policy: Literal["", "basic", "metadata", "rhino_scripting", "rhinocode"] = "") -> ToolResult:
         value = read_policy(policy)
         return ToolResult(content=[TextContent(type="text", text=json.dumps(value, ensure_ascii=False))], structured_content=value)
 
-    @mcp.tool(output_schema=public_output_schema('get_construction_guidance', wrapped=True))
+    @mcp.tool(name='research_01-get_construction_guidance', output_schema=public_output_schema('get_construction_guidance', wrapped=True))
     @tool_instruction(__file__, 'get_construction_guidance')
     @query_output
     def get_construction_guidance(
@@ -66,7 +66,7 @@ def register(mcp, context):
             payload["hint"] = (read_instruction(__file__, 'response-732'))
         return json.dumps(project(payload, field_groups))
 
-    @mcp.tool(output_schema=public_output_schema('get_typology_narrative', wrapped=True))
+    @mcp.tool(name='research_02-get_typology_narrative', output_schema=public_output_schema('get_typology_narrative', wrapped=True))
     @tool_instruction(__file__, 'get_typology_narrative')
     @query_output
     def get_typology_narrative(
@@ -84,7 +84,7 @@ def register(mcp, context):
             "source": context.history_library.source,
         }, field_groups))
 
-    @mcp.tool(annotations={'readOnlyHint': True, 'openWorldHint': False}, output_schema=public_output_schema('search_detail_sources', wrapped=False))
+    @mcp.tool(name='research_03-search_details', annotations={'readOnlyHint': True, 'openWorldHint': False}, output_schema=public_output_schema('search_detail_sources', wrapped=False))
     @tool_instruction(__file__, 'search_detail_sources')
     @query_output
     def search_detail_sources(query: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:

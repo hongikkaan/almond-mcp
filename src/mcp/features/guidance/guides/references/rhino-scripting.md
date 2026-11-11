@@ -7,13 +7,13 @@ Almond can use Rhino's official ScriptServer from an external process. Rhino 8.1
 | Need | Call or language | Result contract |
 |---|---|---|
 | A supported document, selection or geometric observation | context/probe tools | Tested nonmutating observation, selectable fields |
-| A custom query or ordinary geometry script | execute_rhino_script, language="python" | Python 3; set result to JSON data |
-| C# source | execute_rhino_script, language="csharp" | Official C# statement body; doc and result_json, no Run class |
-| Python with the selected Plan folder as cwd | execute_project_python | Official Rhino Python 3; same execution receipt and recovery |
+| A custom query or ordinary geometry script | script_02-run_rhino tool, language="python" | Python 3; set result to JSON data |
+| C# source | script_02-run_rhino tool, language="csharp" | Official C# statement body; doc and result_json, no Run class |
+| Python with the selected Plan folder as cwd | script_01-run_project_python tool | Official Rhino Python 3; same execution receipt and recovery |
 | A verified official C# statement body | language="csharp-script" | doc and result_json; explicit JSON text, no Run class |
 | Existing Python 2 code | language="python2" | Only when this runtime reports the language verified |
 | A complete Rhino command | language="command" | Only when a synchronous script-runner context is verified |
-| A previously dispatched operation | get_rhino_execution | State/result lookup; never dispatches the code again |
+| A previously dispatched operation | script_03-get_execution tool | State/result lookup; never dispatches the code again |
 
 Capabilities and actual installed versions decide which official modes are ready.
 An unavailable mode is rejected before execution. Python 3 is the default; csharp and csharp-script select the same official statement-body mode.
@@ -47,7 +47,7 @@ result = {"units": str(doc.ModelUnitSystem),
 
 Return dimensions, relationships or selected attributes needed for the decision.
 Do not serialize Rhino geometry objects or return every object property by default.
-For large results, retrieve selected fields/pages from get_rhino_execution instead of rerunning the query. include_ids controls data handles; request/operation IDs remain visible because they identify the execution being inspected.
+For large results, retrieve selected fields/pages from script_03-get_execution tool instead of rerunning the query. include_ids controls data handles; request/operation IDs remain visible because they identify the execution being inspected.
 
 Build and validate replacement geometry before deleting originals. Check operation results for empty/invalid geometry and document-unit mistakes. Use try/finally to restore redraw or other temporary state changed by your code. User input prompts, background tasks, async:true and delayed document changes are outside this synchronous execution contract.
 
@@ -61,7 +61,7 @@ RhinoApp.RunScript called from a modeless callback may return before its command
 Rhino's unified ScriptEditor supports Python and C#. Legacy VBScript uses the separate LoadScript/RunScript surface; it is not a claimed native ScriptEditor language. External CLI script arguments are file paths, not a general script-argv protocol. Use explicit data files or values in the submitted source.
 
 The rhino3d-scripts skill and its four references are bundled with the tools.
-get_policy(policy="rhino_scripting") returns this pinned material and INTEGRATION.md, whose automated execution rules take precedence over interactive examples, VB/ScriptEditor claims, forced-cancel macros and manual Undo scaffolds.
+context_01-get_policy tool(policy="rhino_scripting") returns this pinned material and INTEGRATION.md, whose automated execution rules take precedence over interactive examples, VB/ScriptEditor claims, forced-cancel macros and manual Undo scaffolds.
 Its personal installed files are not a dependency of the MCP server.
 
 ## Results, errors and Undo
@@ -69,7 +69,7 @@ Its personal installed files are not a dependency of the MCP server.
 An execution receipt records the exact request and document identity independently of stdout and result size. A result serialization error can occur after code ran; that does not reverse edits. A user exception may leave partial edits. The runtime only ends an Undo record it owns; it must not automatically undo preceding work.
 Read the returned execution and Undo fields before deciding the next action.
 
-A timeout ends waiting, not the Rhino operation. Keep the request_id and query get_rhino_execution. A matching final receipt and stopped CLI process allow late results to be recovered; a missing or invalid receipt remains explicitly unresolved.
+A timeout ends waiting, not the Rhino operation. Keep the request_id and query script_03-get_execution tool. A matching final receipt and stopped CLI process allow late results to be recovered; a missing or invalid receipt remains explicitly unresolved.
 Do not resend the script, switch transport, or delete its temporary files to make the connection appear idle. Existing native-transport uncertainty is not cleared by an unrelated successful CLI result.
 
 ## Sources

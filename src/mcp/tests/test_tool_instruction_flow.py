@@ -23,29 +23,29 @@ def test_public_phase_input_and_optional_details_survive_restart(tmp_path):
     async def run():
         async with Client(server) as client:
             tools = {t.name:t for t in await client.list_tools()}
-            create = tools['create_phase'].input_schema['properties']
+            create = tools['plan_01-create_phase'].input_schema['properties']
             assert create['status']['enum'] == ['pending','running','paused','completed','failed','blocked']
             assert {item['type'] for item in create['file_name']['anyOf']} == {'string','array'}
             assert 'project_file_id' not in create
-            assert 'include_details' in tools['get_phase_plan_step'].input_schema['properties']
-            result = await client.call_tool('create_phase', {'name':'Site and building', 'file_name':['site.3dm','building.3dm']})
+            assert 'include_details' in tools['plan_05-get_phase_plan_step'].input_schema['properties']
+            result = await client.call_tool('plan_01-create_phase', {'name':'Site and building', 'file_name':['site.3dm','building.3dm']})
             value = json.loads(result.content[0].text)
             pid = value['phase']['phase_id']
             for details in (False, True):
-                result = await client.call_tool('get_phase_plan_step', {'phase_id':pid,'include_details':details})
+                result = await client.call_tool('plan_05-get_phase_plan_step', {'phase_id':pid,'include_details':details})
                 value = json.loads(result.content[0].text)
                 assert value['name'] == 'Site and building' and ('phase' in value) == details
                 if details:
                     assert value['phase']['file_name'] == ['site.3dm','building.3dm']
                     assert 'project_file_id' not in value['phase']
-                output = tools['get_phase_plan_step'].output_schema['properties']['result']['contentSchema']
+                output = tools['plan_05-get_phase_plan_step'].output_schema['properties']['result']['contentSchema']
                 validate(value, output)
-            await client.call_tool('update_phase', {'phase_id': pid, 'status': 'failed'})
-            failed_phase = await client.call_tool('get_phase_plan_step', {'phase_id': pid})
+            await client.call_tool('plan_11-update_phase', {'phase_id': pid, 'status': 'failed'})
+            failed_phase = await client.call_tool('plan_05-get_phase_plan_step', {'phase_id': pid})
             failed_record = json.loads(failed_phase.content[0].text)
             assert failed_record['status'] == 'failed'
             assert 'include_details=true' in failed_record['next_step_guide']
-            result = await client.call_tool('update_phase', {'phase_id':pid,'status':'finished','file_name':['should-not-exist.3dm']}, raise_on_error=False)
+            result = await client.call_tool('plan_11-update_phase', {'phase_id':pid,'status':'finished','file_name':['should-not-exist.3dm']}, raise_on_error=False)
             assert result.is_error
             reopened = AlmondStore(path)
             assert reopened.get_phase(pid)['file_names'] == ['site.3dm','building.3dm']
@@ -63,13 +63,13 @@ def test_failed_or_incomplete_work_has_no_success_suggestion(payload):
 
 def test_history_partial_updates_empty_lists_and_execution_recovery():
     past = guide_payload('get_phase_plan_step', {'status':'completed','type':'plan','read_only':True}, {'include_details':True})
-    assert '생략' in past['next_step_guide'] and 'set_working_plan' not in past['next_step_guide']
+    assert '생략' in past['next_step_guide'] and 'plan_10-set_working' not in past['next_step_guide']
     partial = guide_payload('update_step', {'status':'partial_success','issues':[{'reason':'missing'}]})
-    assert 'issues' in partial['next_step_guide'] and 'set_working_plan' not in partial['next_step_guide']
+    assert 'issues' in partial['next_step_guide'] and 'plan_10-set_working' not in partial['next_step_guide']
     empty = guide_payload('list_plans', {'status':'success','plans':[]})
     assert 'next_step_guide' not in empty
     pending = guide_payload('execute_rhino_script', {'status':'timeout','completed':False,'request_id':'saved'})
-    assert 'get_rhino_execution' in pending['next_step_guide'] and '다시 제출하지' in pending['next_step_guide']
+    assert 'script_03-get_execution' in pending['next_step_guide'] and '다시 제출하지' in pending['next_step_guide']
 
 
 def test_capture_guidance_keeps_binary_content_and_error_flags():
@@ -133,12 +133,12 @@ def test_unconfirmed_asset_publication_preserves_nullable_contract(tmp_path, mon
     async def run():
         async with Client(server) as client:
             schemas = {t.name: t.output_schema for t in await client.list_tools()}
-            response = await client.call_tool('register_drawing_asset', {
+            response = await client.call_tool('asset_09-register', {
                 'source_3dm': str(tmp_path / 'source.3dm'), 'asset_id': 'asset', 'name': 'Fixture',
             })
             value = json.loads(response.content[0].text)
             assert value['registration_applied'] is None and value['requires_reconciliation'] is True
             assert 'next_step_guide' not in value
-            validate(value, schemas['register_drawing_asset'])
+            validate(value, schemas['asset_09-register'])
 
     asyncio.run(run())

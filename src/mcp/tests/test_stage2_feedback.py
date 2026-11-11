@@ -39,7 +39,7 @@ def test_capsule_ports_and_nullable_type_match_the_call_contract(tmp_path):
     assert "input_ports" in public_output_schema("run_gh_definition", False)["properties"]["valid_inputs"]["description"]
     assert next_step("list_library", {"logic_names": []}, {}) is None
     assert next_step("visualize_structure", {"status": "cleared"}, {}) is None
-    assert "get_logic_by_id" not in value["next_step_guide"]
+    assert "grasshopper_01-get_logic" not in value["next_step_guide"]
 
 
 def test_package_audit_accepts_returned_library_path_but_not_arbitrary_files(tmp_path, monkeypatch):

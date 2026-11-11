@@ -159,7 +159,7 @@ public class Script
 """
 
 
-    @mcp.tool(output_schema=public_output_schema('export_asset_contract', wrapped=True))
+    @mcp.tool(name='exchange_01-export_asset_contract', output_schema=public_output_schema('export_asset_contract', wrapped=True))
     @tool_instruction(__file__, 'export_asset_contract')
     def export_asset_contract(
         guids: list[str],
@@ -271,7 +271,7 @@ public class Script
             return []
 
 
-    @mcp.tool(output_schema=public_output_schema('import_asset_contract', wrapped=True))
+    @mcp.tool(name='exchange_03-import_asset_contract', output_schema=public_output_schema('import_asset_contract', wrapped=True))
     @tool_instruction(__file__, 'import_asset_contract')
     def import_asset_contract(
         contract_path: str,
@@ -418,7 +418,7 @@ public class Script
         }
 
 
-    @mcp.tool(output_schema=public_output_schema('get_blender_helper_script', wrapped=True))
+    @mcp.tool(name='exchange_02-get_blender_script', output_schema=public_output_schema('get_blender_helper_script', wrapped=True))
     @tool_instruction(__file__, 'get_blender_helper_script')
     @query_output
     def get_blender_helper_script(action: str, asset_id: str = "", name: str = "",

@@ -12,7 +12,7 @@ Almond MCP를 사용해 Rhino로 건축 설계를 develop한다.
 
 ## 작업 최초 실행 시
 1. 프로젝트 기본 구조를 `projct_info`실행해서 파악
-2. 작업 하다가 `get_rhino_context`를 사용하여 작업 중의 맥락 파악
+2. 작업 하다가 `inspect_03-get_document_context` tool를 사용하여 작업 중의 맥락 파악
  
 ### Scene·ontological-holon
 

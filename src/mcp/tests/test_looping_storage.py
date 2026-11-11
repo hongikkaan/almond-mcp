@@ -174,7 +174,7 @@ def test_loop_advance_waits_for_existing_native_artifact_completion(workspace):
     runtime.workspace = workspace
     runtime.validate = lambda: None  # Disposable fixture, no live Rhino ownership.
     class Message:
-        name = "execute_looping"
+        name = "plan_03-execute_looping"
         arguments = {"plan_id": pid}
         def model_copy(self, update):
             return self

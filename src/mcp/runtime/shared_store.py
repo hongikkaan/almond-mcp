@@ -17,6 +17,7 @@ import time
 import uuid
 from almond_mcp.managed_paths import project_path, relative_output, relative_path
 from almond_mcp.tool_response import error_payload
+from almond_mcp.public_names import internal_tool_name
 from storage_cleanup import plain_descendant, process_identity_alive, remove_owned_tree, rhinocode_settled
 
 import anyio
@@ -127,7 +128,7 @@ def validate_artifact_writers(storage: str | Path) -> None:
                 continue
             if not rhinocode_settled(session):
                 raise RuntimeError("An earlier RhinoCode execution has no confirmed completion. "
-                                   "Use get_rhino_execution to retrieve its outcome before writing artifacts.")
+                                   "Use script_03-get_execution tool to retrieve its outcome before writing artifacts.")
             if (native.get("schema") == "almond-native" and native.get("token") == token
                     and native.get("phase") in {"stopped", "faulted"}
                     and native.get("pending") == 0):
@@ -424,7 +425,7 @@ class ProjectRuntime(Middleware):
             write_json(operation_path.with_name("artifact-write.json"), operation)
 
     async def on_call_tool(self, context, call_next):
-        name = context.message.name
+        name = internal_tool_name(context.message.name)
         if name == "get_rhino_execution":
             async with serial_gate(self.serial, self.queue_timeout):
                 return await call_next(context)
@@ -506,7 +507,7 @@ class ProjectRuntime(Middleware):
             value = error_payload(str(exc), error_code="invalid_arguments")
             serialized = json.dumps(value)
             server_context = getattr(context, "fastmcp_context", None)
-            tool = await server_context.fastmcp.get_tool(name) if server_context else None
+            tool = await server_context.fastmcp.get_tool(context.message.name) if server_context else None
             schema = tool.output_schema if tool else None
             structured = {"result": serialized} if (schema or {}).get("x-fastmcp-wrap-result") else value
             return ToolResult(content=[TextContent(type="text", text=serialized)],

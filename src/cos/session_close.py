@@ -100,7 +100,7 @@ class SessionCloser:
 
     def directory(self, request_id):
         if not isinstance(request_id, str) or not request_id.strip() or len(request_id) > 128:
-            raise ValueError("close_session requires a nonempty request_id of at most 128 characters.")
+            raise ValueError("connect_05-close_session tool requires a nonempty request_id of at most 128 characters.")
         key = hashlib.sha256(request_id.encode("utf-8")).hexdigest()
         return plain_descendant(self.root / key, self.root.parent)
 
@@ -287,7 +287,7 @@ class SessionCloser:
         broker.contract_check(broker.catalog)
         pending = self.pending_for(conn.binding)
         if pending:
-            raise RuntimeError("A previous close is retained. Read close_session with request_id=" + pending)
+            raise RuntimeError("A previous close is retained. Read connect_05-close_session tool with request_id=" + pending)
         self.running.add(request_id)
         try:
             return await self._run_new(broker, conn, request_id)
@@ -320,7 +320,7 @@ class SessionCloser:
                 record["save_baseline"] = read_json(baseline)["request_id"] if baseline.is_file() else None
                 record["stage"] = "saving"
                 self.persist(record)  # Fence precedes the first possible save dispatch.
-                response = await broker._invoke_locked(conn, "execute_rhino_script",
+                response = await broker._invoke_locked(conn, "script_02-run_rhino",
                     dict(script=SAVE_COMMAND, language="command", timeout_seconds=60), Invocation())
                 if conn.state == "ready" and not conn.in_flight:
                     record["stage"] = "save_settled"
@@ -334,7 +334,7 @@ class SessionCloser:
                     raise RuntimeError("Save returned an invalid execution result; Exit was not sent.")
                 record["save_request_id"] = saved.get("request_id", "")
                 if saved.get("completed") is not True:
-                    record.update(status="unconfirmed", stage="saving", reason="Save completion is retained. Read get_rhino_execution; Exit was not sent.")
+                    record.update(status="unconfirmed", stage="saving", reason="Save completion is retained. Read script_03-get_execution tool; Exit was not sent.")
                     self.persist(record)
                     return self.public(record)
                 command = saved.get("result", {})

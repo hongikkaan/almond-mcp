@@ -108,12 +108,12 @@ def launch_detached(args: list[str], *, cwd: str, env: dict,
                                  environment, cwd, ctypes.byref(startup), ctypes.byref(process)):
         error = ctypes.get_last_error()
         raise RuntimeError(f"Independent Rhino launch was refused by Windows ({error}); no Rhino was started. "
-                           "Open Rhino normally and use list_connections/connect instead.")
+                           "Open Rhino normally and use connect_01-list_up tool and connect_02-session tool instead.")
     resumed = False
     try:
         if in_job(process.process):
             raise RuntimeError("Independent Rhino launch remains inside a parent job. No model was opened; "
-                               "open Rhino normally and use list_connections/connect instead.")
+                               "open Rhino normally and use connect_01-list_up tool and connect_02-session tool instead.")
         if kernel.ResumeThread(process.thread) == 0xFFFFFFFF:
             raise ctypes.WinError(ctypes.get_last_error())
         resumed = True

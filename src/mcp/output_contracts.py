@@ -2957,7 +2957,19 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                            '반환합니다.'}}}}
 
 def public_output_schema(name: str, wrapped: bool = True) -> dict:
-    contract = deepcopy(CONTRACTS[name])
+    from almond_mcp.public_names import internal_tool_name, tool_references
+    contract = deepcopy(CONTRACTS[internal_tool_name(name)])
+    def describe(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "description" and isinstance(value, str):
+                    node[key] = tool_references(value)
+                else:
+                    describe(value)
+        elif isinstance(node, list):
+            for value in node:
+                describe(value)
+    describe(contract)
     if not wrapped:
         return contract
     return {"type": "object", "properties": {"result": {

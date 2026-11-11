@@ -217,11 +217,11 @@ def test_public_tool_combines_review_and_choice_with_strict_schema(setup):
         async with Client(server) as client:
             tools = {v.name: v for v in await client.list_tools()}
             assert "show_object_intersection" not in tools
-            schema = tools["resolve_object_intersection"].input_schema
+            schema = tools["intersect_02-resolve"].input_schema
             assert set(schema["properties"]) == {"object_ids", "include_block", "review_id", "choice"}
             for args in ({"choice": True}, {"choice": "1"}, {"choice": 3}, {"pair_state": "x"},
                          {"object_ids": [A], "choice": 1}, {"review_id": "missing", "choice": 2}):
-                response = await client.call_tool("resolve_object_intersection", args, raise_on_error=False)
+                response = await client.call_tool("intersect_02-resolve", args, raise_on_error=False)
                 assert response.is_error
             assert not calls
     asyncio.run(run())

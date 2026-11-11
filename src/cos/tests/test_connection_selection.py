@@ -100,7 +100,7 @@ def test_disconnect_clears_selection_without_falling_back(tmp_path):
 def test_reselect_for_recovery_keeps_normal_calls_blocked(tmp_path, state, route):
     """A -> B -> A recovery needs no routing ID and never dispatches new work."""
     broker = broker_for(tmp_path)
-    broker.mapping["get_rhino_execution"] = "get_rhino_execution"
+    broker.mapping["script_03-get_execution"] = "script_03-get_execution"
     broker.starts["start-a"] = StartAttempt("a.3dm", state="ready", connection_id="a")
     calls = []
 
@@ -121,10 +121,10 @@ def test_reselect_for_recovery_keeps_normal_calls_blocked(tmp_path, state, route
                     else await broker.start_session("a.3dm", "start-a"))
         assert selected["state"] == state and broker.selected_connection_id == "a"
         assert (await broker.call("observe", {})).is_error
-        result = await broker.call("get_rhino_execution", {"request_id": "execution-a"})
+        result = await broker.call("script_03-get_execution", {"request_id": "execution-a"})
         assert not result.is_error
         assert result.structured_content["connection_state"] == state
-        assert calls == [("get_rhino_execution", {"request_id": "execution-a"})]
+        assert calls == [("script_03-get_execution", {"request_id": "execution-a"})]
         assert a.state == state
         a.closing = True
         with pytest.raises(RuntimeError):
@@ -200,7 +200,7 @@ def test_new_connections_bind_independent_workers_and_keep_previous_on_failure(t
         assert a["connection_id"] != b["connection_id"]
         assert controls["a"].token != controls["b"].token
         assert len(workers) == 2
-        failed = await broker.call("connect", {"host_id": "missing", "model_path": "c.3dm"})
+        failed = await broker.call("connect_02-session", {"host_id": "missing", "model_path": "c.3dm"})
         assert failed.is_error and broker.selected_connection_id == b["connection_id"]
         assert (await broker.connect("a", "a.3dm"))["connection_id"] == a["connection_id"]
         assert len(workers) == 2
@@ -228,16 +228,16 @@ def test_disconnect_returns_save_exit_guidance_for_the_released_target(tmp_path)
     broker.selected_connection_id = 'a'
 
     async def run():
-        response = await broker.call('disconnect', {})
+        response = await broker.call('connect_04-disconnect', {})
         assert not response.is_error
         result = response.structured_content
-        output = next(t.output_schema for t in exposed_tools(CATALOG)[0] if t.name == 'disconnect')
+        output = next(t.output_schema for t in exposed_tools(CATALOG)[0] if t.name == 'connect_04-disconnect')
         validate(result, output)
         assert result['pid'] == 321 and result['model_path'] == 'C:\\models\\a.3dm'
         assert result['released'] is True and result['rhino_closed'] is False
         assert result['worker_closed'] is True
         guide = result['next_step_guide']
-        assert 'list_connections' in guide and 'connect' in guide and 'close_session' in guide
+        assert 'connect_01-list_up' in guide and 'connect_02-session' in guide and 'connect_05-close_session' in guide
         assert '_Exit' not in guide
         assert calls == [('worker_close', {}), ('detach', {'session_token': 'token-a'})]
         assert broker.selected_connection_id is None and set(broker.connections) == {'b'}
@@ -255,7 +255,7 @@ def test_unconfirmed_disconnect_never_suggests_closing_rhino(tmp_path):
     broker.selected_connection_id = 'a'
 
     async def run():
-        result = await broker.call('disconnect', {})
+        result = await broker.call('connect_04-disconnect', {})
         assert result.is_error
         assert result.structured_content is None
         assert all('_Exit' not in block.text for block in result.content)
@@ -264,7 +264,7 @@ def test_unconfirmed_disconnect_never_suggests_closing_rhino(tmp_path):
 
 
 def test_disconnect_without_process_identity_requires_target_selection_before_close():
-    result = json_result({'released': True, 'rhino_closed': False, 'pid': None, 'model_path': None}, 'disconnect')
+    result = json_result({'released': True, 'rhino_closed': False, 'pid': None, 'model_path': None}, 'connect_04-disconnect')
     guide = result.structured_content['next_step_guide']
-    assert 'list_connections' in guide and 'close_session' in guide
+    assert 'connect_01-list_up' in guide and 'connect_05-close_session' in guide
     assert 'pipeId' not in guide

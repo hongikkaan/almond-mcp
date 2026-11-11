@@ -44,7 +44,7 @@ def context(tmp_path, monkeypatch):
     def call(**arguments):
         async def invoke():
             async with Client(server) as client:
-                return await client.call_tool("project_info", arguments, raise_on_error=False)
+                return await client.call_tool("context_04-get_project_info", arguments, raise_on_error=False)
         return asyncio.run(invoke())
 
     return SimpleNamespace(call=call, live=live, calls=calls, store=store,
@@ -60,9 +60,9 @@ def test_first_query_checks_live_once_and_separates_identity_properties_and_loca
     result = value(context.call())
     assert set(result) == {"status", "project", "document", "locations", "next_step_guide"}
     assert result["next_step_guide"].splitlines() == [
-        "- list_plans으로 프로젝트 진행상황 파악합니다.",
-        "- 산출물 작업 공간은 set_working_plan으로 선택합니다.",
-        "- 객체 상태가 필요하면 get_objects로 확인합니다.",
+        "- plan_08-list tool으로 프로젝트 진행상황 파악합니다.",
+        "- 산출물 작업 공간은 plan_10-set_working tool으로 선택합니다.",
+        "- 객체 상태가 필요하면 inspect_02-get_objects tool로 확인합니다.",
     ]
     project = result["project"]
     assert project["project_root"] == str(context.root)
