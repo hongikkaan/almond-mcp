@@ -7793,6 +7793,19 @@ Almond 자산 계약에 따라 GLB를 Rhino 문서로 가져옵니다.
 }
 ```
 
+응답 유실 시의 코드 기반 예시입니다. 실제 Rhino 검증 결과가 아니며, 오류를 되돌리기 완료로 해석하지 않습니다.
+
+```jsonc
+{
+  "status": "error",
+  "message": "Import completion is unconfirmed: reply lost after native import",
+  "requires_reconciliation": true, // 기존 Rhino 객체를 확인하기 전 같은 가져오기를 재시도하지 않습니다.
+  "mutation_applied": null // 변경 완료 여부를 확인하지 못했습니다.
+}
+```
+
+복원 단계에서 응답을 잃으면 확인된 `imported_guids`도 함께 반환합니다. 결과 직렬화 실패에는 `result_error`, 관리형 가져오기 보고서 검증 실패에는 `report_path`가 포함될 수 있습니다.
+
 ## 68. exchange-04_publish_chestnut_advanced
 
 기준 API: `publish_objects_to_chestnut`

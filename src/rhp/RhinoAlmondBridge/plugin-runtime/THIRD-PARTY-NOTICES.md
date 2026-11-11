@@ -106,7 +106,7 @@ xterm.js, addon-fit, Porta.Pty and Vanara retain their original MIT notices in
 
 ## Python dependencies — installed, not vendored
 
-`fastmcp`, `mcp`, `pydantic`, and `lxml` are declared dependencies installed
+`fastmcp`, `mcp`, and `pydantic` are declared dependencies installed
 by the user's package manager from PyPI; they are not vendored into any
 almond-mcp artifact.
 # Drafting runtime dependencies (0.6.0rc2)

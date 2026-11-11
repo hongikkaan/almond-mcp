@@ -77,11 +77,46 @@ def install(server, runtime) -> None:
     @wraps(receive)
     def receive_contract(*args, **kwargs):
         folder = new_folder()
-        result = call_scoped(receive, server, folder,
-                             {"almond_imported.txt", "almond_import_report.json"}, args, kwargs)
+        feature_context = getattr(server, "_feature_context", None)
+        if feature_context is None:
+            # Compatibility with older, module-level helpers.
+            result = call_scoped(receive, server, folder,
+                                 {"almond_imported.txt", "almond_import_report.json"}, args, kwargs)
+            report_path = folder / "almond_import_report.json"
+        else:
+            # The runtime creates this directory only after admitting a native
+            # frame and checking its ownership. The initial capability request
+            # does that before the exchange helper selects its unique paths.
+            folder = base / runtime.scope.get().operation_id
+            paths = {}
+            sent = set()
+
+            def scoped_sender(payload, *positional, **keywords):
+                request = json.loads(payload)
+                if request == {"type": "get_rhino_context", "selection_limit": 0}:
+                    return server._send_and_receive(payload, *positional, **keywords)
+                script = request.get("script")
+                if request.get("type") != "execute" or not isinstance(script, str):
+                    raise RuntimeError("Unsupported Almond asset helper payload.")
+                matches = [name for name, path in paths.items()
+                           if json.dumps(str(path), ensure_ascii=True) in script]
+                if (len(matches) != 1 or matches[0] in sent or
+                        script.count(json.dumps(str(paths[matches[0]]), ensure_ascii=True)) != 1):
+                    raise RuntimeError("Almond asset helper report contract changed.")
+                sent.add(matches[0])
+                return server._send_and_receive(payload, *positional, **keywords)
+
+            with feature_context.override(
+                tempfile=SimpleNamespace(gettempdir=lambda: str(folder)),
+                _send_and_receive=scoped_sender,
+                _exchange_report_paths=paths,
+                _retain_exchange_reports=True,
+            ):
+                result = receive(*args, **kwargs)
+            report_path = paths.get("report", folder / "almond_import_report.json")
         if result.get("status") == "success":
             try:
-                report = json.loads((folder / "almond_import_report.json").read_text(encoding="utf-8"))
+                report = json.loads(report_path.read_text(encoding="utf-8"))
                 if not isinstance(report, dict) or not {"stamped", "deduped", "width", "depth", "height"} <= report.keys():
                     raise ValueError("Incomplete import report")
             except (OSError, ValueError):
@@ -89,7 +124,7 @@ def install(server, runtime) -> None:
                     "status": "error",
                     "message": read_instruction(__file__, 'response-84'),
                     "imported_guids": result.get("imported_guids", []),
-                    "report_path": str(folder / "almond_import_report.json"),
+                    "report_path": str(report_path),
                 }
         return result
 

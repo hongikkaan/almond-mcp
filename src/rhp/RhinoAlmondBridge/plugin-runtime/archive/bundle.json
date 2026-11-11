@@ -1596,12 +1596,12 @@
     },
     "/karamba-help.js": {
       "path": "ui/karamba-help.js",
-      "sha256": "08d5ea3fbff0685142b86c0d6acf435d0705f1cefcd737b7b2e779f970875e53",
+      "sha256": "809d742d345f7a6ac0b1cc849af3cdadcd6094030016213e600cbe7d655f5db8",
       "mime": "text/javascript; charset=utf-8"
     },
     "/karamba.js": {
       "path": "ui/karamba.js",
-      "sha256": "5de512161bb830f357aa5c32453086b5404757a4f7c583913391aebf9795950e",
+      "sha256": "75f95a99c4c47ca3352ee97ceeb70d219715686c381214856c24ddb290460a25",
       "mime": "text/javascript; charset=utf-8"
     },
     "/panel-theme.js": {
