@@ -63,14 +63,14 @@ def test_all_holon_boundaries_use_new_keys_and_preserve_native_identity(tmp_path
             assert synced['checked'] == 1 and synced['changed'] == 0
             cached_scene = await call('scene_04-get', {'scene_id': scene['scene_id'], 'include_ids': True})
             assert 'holons' in cached_scene['scene']
-            plan = (await call('plan_02-create', {'title': 'component_id literal', 'goal': 'Keep component text',
-                'holon_ids': [COMPONENT]}))['plan']
-            plan_detail = await call('plan_05-get_phase_plan_step', {'plan_id': plan['plan_id'], 'include_details': True})
+            plan = (await call('plan_02-create', {'request': {'target': 'plan', 'title': 'component_id literal', 'goal': 'Keep component text',
+                'holon_ids': [COMPONENT]}}))['plan']
+            plan_detail = await call('plan_05-get', {'request': {'target': 'plan', 'plan_id': plan['plan_id'], 'include_details': True}})
             assert plan_detail['plan']['holon_ids'] == [COMPONENT]
             assert plan_detail['name'] == 'component_id literal'
             assert plan_detail['plan']['goal'] == 'Keep component text'
-            assert 'plan' not in (await call('plan_05-get_phase_plan_step', {'plan_id': plan['plan_id']}))
-            invalid = await call('plan_12-update', {'plan_id': plan['plan_id'], 'holon_ids': ['component_unknown']})
+            assert 'plan' not in (await call('plan_05-get', {'request': {'target': 'plan', 'plan_id': plan['plan_id']}}))
+            invalid = await call('plan_12-update', {'request': {'target': 'plan', 'plan_id': plan['plan_id'], 'holon_ids': ['component_unknown']}})
             assert invalid['status'] == 'error' and 'component_id' not in invalid['message']
             rejected = await client.call_tool('scene_13-upsert_holon', {'name': 'Arrival', 'component_id': COMPONENT}, raise_on_error=False)
             assert rejected.is_error

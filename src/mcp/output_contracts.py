@@ -593,7 +593,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                   '확인합니다.'},
                                         'plan_id': {'type': 'string',
                                                     'description': '각 행의 loop_no/revision과 함께 '
-                                                                   'get_phase_plan_step에 사용'},
+                                                                   'plan_05-get tool의 request에 사용'},
                                         'revisions': {'type': 'array',
                                                       'items': {'type': 'object',
                                                                 'properties': {'loop_no': {'type': 'integer',
@@ -2955,6 +2955,44 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                         'next_step_guide': {'type': 'string',
                                                             'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 '
                                                                            '반환합니다.'}}}}
+
+
+def _planning_variants(*names: str) -> dict:
+    # Result fields are optional because failures return only status/message.
+    # An anyOf of these objects would let a malformed target field pass through
+    # another target's permissive object schema, so validate their union once.
+    properties = {}
+    for name in names:
+        properties.update(deepcopy(CONTRACTS[name]["properties"]))
+    return {"type": "object", "properties": properties}
+
+
+CONTRACTS["create_planning"] = _planning_variants("create_phase", "create_plan")
+CONTRACTS["get_planning"] = deepcopy(CONTRACTS["get_phase_plan_step"])
+CONTRACTS["update_planning"] = _planning_variants("update_phase", "update_plan", "update_step")
+CONTRACTS["update_planning"]["properties"]["changed"]["description"] = "실제 저장 값이 변경되었는지 나타냅니다. success여도 false일 수 있습니다."
+CONTRACTS["update_planning"]["properties"]["plan"]["description"] = "Plan 수정 또는 소속 Step 수정 후의 Plan 확인 정보입니다."
+CONTRACTS["list_planning"] = _planning_variants("list_phases", "list_plans")
+CONTRACTS["list_planning"]["properties"].update({
+    "status": {"type": "string", "description": "조회 성공 또는 오류 상태입니다."},
+    "plan_id": {"type": "string", "description": "Step이 속한 Plan ID입니다."},
+    "loop_no": {"type": "integer", "description": "Step 목록을 읽은 Loop 번호입니다."},
+    "revision": {"type": "integer", "description": "Step 목록을 읽은 스냅샷의 리비전입니다."},
+    "read_only": {"type": "boolean", "description": "과거 Loop 또는 저장된 리비전이면 true입니다."},
+    "steps": {"type": "array", "description": "정의된 순서를 유지한 Step 요약 목록입니다.", "items": {
+        "type": "object", "properties": {
+            "step_id": {"type": "string", "description": "변하지 않는 Step UUID입니다."},
+            "step_type": {"type": "string", "description": "Step의 역할 유형입니다."},
+            "name": {"type": "string", "description": "Step의 표시 이름입니다."},
+            "status": {"type": "string", "description": "선택한 Loop에서의 Step 상태입니다."},
+            "loop_no": {"type": "integer", "description": "이 Step 상태의 Loop 번호입니다."},
+        }}},
+    "total": {"type": "integer", "description": "선택한 목록의 전체 항목 수입니다. Step은 선택한 Plan 스냅샷을 기준으로 합니다."},
+    "limit": {"type": "integer", "description": "요청한 최대 항목 수입니다."},
+    "truncated": {"type": "boolean", "description": "limit으로 일부 항목을 생략했으면 true입니다."},
+    "next_step_guide": {"type": "string", "description": "현재 결과에서 이어갈 수 있는 후속 조회 안내입니다."},
+})
+
 
 def public_output_schema(name: str, wrapped: bool = True) -> dict:
     from almond_mcp.public_names import internal_tool_name, tool_references

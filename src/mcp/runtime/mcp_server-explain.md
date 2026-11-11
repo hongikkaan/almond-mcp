@@ -7,7 +7,7 @@ Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전�
 
 Args:
     plan_id: 다음 Loop를 시작하거나 최신 Loop를 재개할 기존 Plan ID입니다. plan_02-create tool 또는 plan_08-list tool에서 얻은 ID를 사용합니다.
-    resume: false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 plan_05-get_phase_plan_step tool으로 현재 회차를 먼저 확인합니다.
+    resume: false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 plan_05-get tool의 request에 target='plan'과 plan_id를 넣어 현재 회차를 먼저 확인합니다.
     feedback: 이번 회차에 반영할 피드백입니다. 재개 시 생략하거나 비우면 기존 값을 유지합니다.
     artifact_name: Plan의 최초 산출물 폴더 이름입니다. 생략하면 목표에서 정하며 날짜 접두사 YYMMDD_를 붙입니다. 기존 폴더는 재사용합니다.
 <!-- /instruction:execute_looping -->
@@ -42,7 +42,7 @@ Args:
 Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
 
 Args:
-    plan_id: plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다.
+    plan_id: plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다.
     step_id: 선택할 Step ID입니다. 생략하면 Plan만 선택합니다.
     artifact_name: Plan의 최초 산출물 폴더 이름입니다. 생략하면 목표에서 정하고 날짜 접두사 YYMMDD_를 붙입니다. 기존 폴더는 재사용합니다.
     loop_no: 선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 쓰기 대상으로 선택할 수 없습니다.

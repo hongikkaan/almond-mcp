@@ -58,7 +58,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 | 폴더 | 분류·성격 | 소유한 구현과 기능 |
 |---|---|---|
 | [`context`](features/context) | 관찰·진단 | 모델·화면·프로브와 저장소 상태를 조회한다. runtime의 context_04-get_project_info tool와 COS 연결관리 도구는 각 호스트에 남는다. |
-| [`planning`](features/planning) | 작업계획 | Phase·Plan·Step, 참조 대상·자유 관계·evidence·immutable revision과 계획 SQL을 소유한다. |
+| [`planning`](features/planning) | 작업계획 | `plan_02-create` tool, `plan_05-get` tool, `plan_08-list` tool, `plan_12-update` tool, `plan_07-list_revisions` tool, `inspect_05-resolve_targets` tool, `inspect_04-get_selection_references` tool |
 | [`scenes`](features/scenes) | Scene | 설계 의도와 Scene 장부, 일반 객체의 Scene 참조를 관리한다. |
 | [`components`](features/components) | Component | 등록 group의 소유권·계층·조회·동기화, focus·교차 관찰 및 native snapshot 정합과 SQL을 소유한다. |
 | [`guidance`](features/guidance) | 설계 참고자료 | 시공 지침·유형 서사·상세자료 후보 탐색과 ConstructionLibrary·HistoryLibrary를 소유한다. |
@@ -75,12 +75,12 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 
 ### 공개 도구 위치
 
-package는 79개, 문서 전용 runtime은 6개를 더한 공통 85개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 90개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 명시적인 `mcp.tool(name=...)` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 전체 공개 이름·입출력 예시는 [도구 명세](../../tool_description_spec.md)를 따른다.
+package는 75개, 문서 전용 runtime은 6개를 더한 공통 81개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 86개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 명시적인 `mcp.tool(name=...)` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 전체 공개 이름·입출력 예시는 [도구 명세](../../tool_description_spec.md)를 따른다.
 
 | 기능 | 공개 도구 |
 |---|---|
 | 관찰·진단 | `inspect_03-get_document_context` tool, `inspect_01-analyze_nested_blocks` tool, `capture_04-defined_view` tool, `capture_03-current_view` tool, `inspect_02-get_objects` tool, `intersect_01-find` tool, `capture_02-inspection` tool |
-| 작업계획 | `plan_01-create_phase` tool, `plan_06-list_phases` tool, `plan_11-update_phase` tool, `plan_02-create` tool, `plan_05-get_phase_plan_step` tool, `plan_08-list` tool, `plan_12-update` tool, `plan_07-list_revisions` tool, `plan_13-update_step` tool, `inspect_05-resolve_targets` tool, `inspect_04-get_selection_references` tool |
+| 작업계획 | `plan_02-create` tool, `plan_05-get` tool, `plan_08-list` tool, `plan_12-update` tool, `plan_07-list_revisions` tool, `inspect_05-resolve_targets` tool, `inspect_04-get_selection_references` tool |
 | Scene | `scene_02-create` tool, `scene_12-update` tool, `scene_04-get` tool, `scene_07-list` tool, `scene_06-get_objects` tool, `scene_01-add_objects` tool, `scene_10-remove_objects` tool |
 | Component | `scene_13-upsert_holon` tool, `scene_05-get_holon` tool, `scene_08-list_holons` tool, `scene_11-sync_holon` tool, `scene_09-remove_holon` tool, `intersect_02-resolve` tool, `scene_03-focus_holons` tool |
 | 설계 참고자료 | `context_01-get_policy` tool, `research_01-get_construction_guidance` tool, `research_02-get_typology_narrative` tool, `research_03-search_details` tool |
@@ -158,7 +158,7 @@ Phase는 Plan의 상위 묶음이고 Plan 안에 Step을 둔다. Plan의 Scene �
 
 #### 목록과 통합 상세 조회
 
-`plan_06-list_phases` tool → `plan_08-list tool(phase_id=...)` → `plan_05-get_phase_plan_step` tool 순서로 조회한다. 두 목록은 후속 호출 방법을 `next_step_guide`에 제공한다. Phase 목록은 상세 또는 소속 Plan 조회를 안내하고, Plan·Step 상세는 특정 Step 조회와 실제 작업에 필요한 plan_10-set_working tool 선택을 안내한다. 조회·선택은 상태 변경이나 실행이 아니다. Plan 목록은 ID·title·scope·status·revision만 반환하고 goal·소속 Phase를 반복하지 않으며 field_groups를 받지 않는다. Plan 생성에는 title과 goal이 모두 필요하고 수정에는 title을 선택 입력한다.
+계획 CRUD는 `plan_02-create` tool, `plan_05-get` tool, `plan_08-list` tool, `plan_12-update` tool 네 가지다. 단일 request.target으로 Phase/Plan/Step을 선택하며 create는 Phase/Plan만 지원한다. Step은 Plan 생성 시 템플릿에서 자동 생성한다. 대상별 필드를 엄격히 검증하여 다른 대상의 필드를 거절한다. 조회 순서는 plan_08-list tool의 request.target="phase" → request.target="plan"과 phase_id → plan_05-get tool이다. 목록과 상세는 next_step_guide로 해당 target과 ID를 안내한다. Step 목록은 한 Plan 스냅샷의 순서를 보존하고 loop_no/revision/read_only를 반환한다. 조회·선택은 상태 변경이나 실행이 아니다. Plan 목록은 ID·title·scope·status·loop_no·revision만 반환하고 field_groups를 받지 않는다. Plan 생성에는 title과 goal이 모두 필요하다.
 
 통합 상세 도구는 phase_id 또는 plan_id 중 하나를 받으며, plan_id에 step_id를 추가하면 해당 Step 하나만 조회한다. 기본 출력은 id/type/name/status이며 Plan·Step에는 plan_id/loop_no/revision/read_only도 유지한다. include_details=true이면 선택한 유형의 phase/plan/step 본문을 추가한다. Plan 본문은 대상·관계·산출물과 Step 요약, Step 본문은 자신의 역할과 입출력 근거를 담는다. Phase의 file_name은 배열이다. Plan 시각은 KST `YYYY-MM-DD-HH:mm`이다. 입력·출력 구조는 [계획 도구 계약](features/planning/README.md)을 따른다.
 
@@ -167,9 +167,9 @@ Phase는 Plan의 상위 묶음이고 Plan 안에 Step을 둔다. Plan의 Scene �
 #### 상태와 revision
 
 Phase·Plan·Step 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`다. 작업을 중단·전환·재개할 수 있으며 선행 작업 완료나 뒤 단계 무효화를 강제하지 않는다.
-Plan 상태는 Step 상태와 독립적으로 기록하며 Step 변경으로 자동 재집계하지 않는다. Plan 완료 여부는 사용자가 판단한다. `plan_12-update` tool과 `plan_13-update_step` tool은 별도 도구이며 Step 변경도 해당 Plan의 현재 Loop revision을 공유한다. `plan_13-update_step tool.status`·input_refs·output_refs는 각각 선택 입력이며 함께 변경해도 revision은 한 번만 증가한다. status 생략은 현재 상태를 유지한다. `expected_revision`도 선택 입력이며 실제 Loop 실행 후에는 관측한 loop_no와 함께 사용한다. 번호는 서버가 자동 부여하므로 에이전트가 계산하지 않는다.
+Plan 상태는 Step 상태와 독립적으로 기록하며 Step 변경으로 자동 재집계하지 않는다. Plan 완료 여부는 사용자가 판단한다. `plan_12-update` tool의 request.target="plan" 또는 "step"으로 수정하며 Step 변경도 해당 Plan의 현재 Loop revision을 공유한다. Step의 request.status·input_refs·output_refs는 각각 선택 입력이며 함께 변경해도 revision은 한 번만 증가한다. status 생략은 현재 상태를 유지한다. `expected_revision`도 선택 입력이며 실제 Loop 실행 후에는 관측한 loop_no와 함께 사용한다. 번호는 서버가 자동 부여하므로 에이전트가 계산하지 않는다.
 
-수정 도구의 Phase/Plan depends_on과 Step input_refs/output_refs는 string[] add/remove 객체를 받는다. 충돌·중복·없는 값·잘못된 종류 ID 등 문자열 항목 문제는 해당 항목만 보고하고 정상 변경을 적용한다. 같은 값의 동시 add/remove는 양쪽을 건너뛴다. 일반 필드·대상·예상 revision·자료형/입력 구조 오류는 전체 미적용이다. 실제 변경은 한 transaction과 한 Plan revision으로 기록하며 무변경은 revision을 유지한다. 응답은 changed와 issues, success/partial_success/no_change를 구분한다. 상세 조회의 호출 이름은 plan_05-get_phase_plan_step tool이고 표시 title만 get_phase·plan·step이다.
+수정 도구의 Phase/Plan depends_on과 Step input_refs/output_refs는 string[] add/remove 객체를 받는다. 충돌·중복·없는 값·잘못된 종류 ID 등 문자열 항목 문제는 해당 항목만 보고하고 정상 변경을 적용한다. 같은 값의 동시 add/remove는 양쪽을 건너뛴다. 일반 필드·대상·예상 revision·자료형/입력 구조 오류는 전체 미적용이다. 실제 변경은 한 transaction과 한 Plan revision으로 기록하며 무변경은 revision을 유지한다. 응답은 changed와 issues, success/partial_success/no_change를 구분한다. 상세 조회는 plan_05-get tool의 request.target과 대상 ID를 사용한다. 과거 요약의 상세 조회는 같은 loop_no/revision을 유지한다.
 
 실제 Plan·Step 메타데이터 변경을 commit할 때마다 전체 상태를 immutable revision으로 저장한다. 번호와 로그는 (plan_id, loop_no, revision)으로 식별하며 기존 BEGIN IMMEDIATE 안에서 해당 Plan+Loop의 MAX(revision)+1을 할당한다. 일반 Rhino/Python 호출 로그와 전역 카운터는 추가하지 않는다. `expected_revision`으로 오래된 상태의 수정을 거절하며, 관계·상태·참조 변경과 revision 보관은 같은 DB transaction에서 처리한다. revision은 회차 안의 메타데이터 변경 순서이며 Rhino 형상이나 파일 바이트를 백업하지 않는다. 기존 Plan에는 migration baseline을 남기되 과거 이력을 만들어내지 않는다.
 

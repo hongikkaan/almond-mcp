@@ -159,12 +159,12 @@ def test_selected_plan_prepare_and_loop_preserve_public_work_state(managed_asset
     fixture = managed_assets
     async def run():
         async with Client(fixture.server) as client:
-            _, created = await call(client, "plan_02-create", title="Prepare", goal="Inspect asset", scope="inspection")
+            _, created = await call(client, "plan_02-create", request=dict(target="plan", title="Prepare", goal="Inspect asset", scope="inspection"))
             pid = created["plan"]["plan_id"]
             _, selected = await call(client, "plan_10-set_working", plan_id=pid, artifact_name="261111_assets")
             artifact = fixture.project / selected["artifact_dir"]
             assert not artifact.exists()
-            _, before = await call(client, "plan_05-get_phase_plan_step", plan_id=pid, include_details=True)
+            _, before = await call(client, "plan_05-get", request=dict(target="plan", plan_id=pid, include_details=True))
             _, missing = await call(client, "asset_07-prepare", stage="status", job_dir=selected["artifact_dir"] + "/missing")
             assert missing["status"] == "error" and not artifact.exists()
             _, inspected = await call(client, "asset_07-prepare", stage="inspect", source_file="source.3dm")
@@ -173,7 +173,7 @@ def test_selected_plan_prepare_and_loop_preserve_public_work_state(managed_asset
             assert (fixture.project / inspected["job_dir"]).parent == artifact
             _, reread = await call(client, "asset_07-prepare", stage="status", job_dir=inspected["job_dir"])
             assert reread["state"] == "inspected" and len(fixture.wire.calls) == 1
-            _, after = await call(client, "plan_05-get_phase_plan_step", plan_id=pid, include_details=True)
+            _, after = await call(client, "plan_05-get", request=dict(target="plan", plan_id=pid, include_details=True))
             assert before == after
             _, reselected = await call(client, "plan_10-set_working", plan_id=pid)
             assert reselected == selected
@@ -283,7 +283,7 @@ def test_unconfirmed_native_work_still_fences_followup(managed_assets):
     fixture.wire.uncertain = True
     async def run():
         async with Client(fixture.server) as client:
-            _, created = await call(client, "plan_02-create", title="Prepare", goal="Inspect asset", scope="inspection")
+            _, created = await call(client, "plan_02-create", request=dict(target="plan", title="Prepare", goal="Inspect asset", scope="inspection"))
             await call(client, "plan_10-set_working", plan_id=created["plan"]["plan_id"], artifact_name="261111_uncertain")
             _, result = await call(client, "asset_07-prepare", stage="inspect", source_file="source.3dm")
             assert result["state"] == "unconfirmed" and result["requires_reconciliation"] is True

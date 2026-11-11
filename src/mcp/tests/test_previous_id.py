@@ -7,6 +7,7 @@ import pytest
 from fastmcp import Client, FastMCP
 from almond_mcp.features.planning.tools import register
 from almond_mcp.retrieval_store import AlmondStore
+from test_planning_details import request_branch
 
 
 def test_previous_survives_restart_and_revision_without_changing_dependencies(tmp_path):
@@ -51,15 +52,16 @@ def test_public_tools_expose_and_round_trip_previous(tmp_path):
     async def run():
         async with Client(server) as client:
             tools = {t.name:t for t in await client.list_tools()}
-            for name in ['plan_01-create_phase','plan_11-update_phase','plan_02-create','plan_12-update']:
-                assert 'previous_id' in tools[name].input_schema['properties']
-            result = await client.call_tool('plan_02-create', {'title':'Next', 'goal':'Next task', 'previous_id':'plan_prior'})
+            for name in ['plan_02-create', 'plan_12-update']:
+                for target in ['phase', 'plan']:
+                    assert 'previous_id' in request_branch(tools[name].input_schema, target)['properties']
+            result = await client.call_tool('plan_02-create', {'request': {'target': 'plan', 'title':'Next', 'goal':'Next task', 'previous_id':'plan_prior'}})
             pid = json.loads(result.content[0].text)['plan']['plan_id']
-            result = await client.call_tool('plan_05-get_phase_plan_step', {"include_details": True, 'plan_id':pid})
+            result = await client.call_tool('plan_05-get', {'request': {'target': 'plan', "include_details": True, 'plan_id':pid}})
             assert json.loads(result.content[0].text)['plan']['previous_id'] == 'plan_prior'
-            result = await client.call_tool('plan_01-create_phase', {'name':'Next phase', 'previous_id':'phase_prior'})
+            result = await client.call_tool('plan_02-create', {'request': {'target': 'phase', 'name':'Next phase', 'previous_id':'phase_prior'}})
             phase_id = json.loads(result.content[0].text)['phase']['phase_id']
-            result = await client.call_tool('plan_05-get_phase_plan_step', {"include_details": True, 'phase_id':phase_id})
+            result = await client.call_tool('plan_05-get', {'request': {'target': 'phase', "include_details": True, 'phase_id':phase_id}})
             assert json.loads(result.content[0].text)['phase']['previous_id'] == 'phase_prior'
     asyncio.run(run())
 

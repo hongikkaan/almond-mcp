@@ -6,18 +6,13 @@ from almond_mcp.public_names import internal_tool_name, tool_references
 # These are successful, single-step suggestions. State/handle checks below take
 # precedence; an error never inherits a success suggestion.
 SUCCESS_GUIDES = {
-    "create_phase": "이 phase_id로 create_plan을 호출해 Phase에 Plan을 추가할 수 있습니다.",
-    "create_plan": "get_phase_plan_step에서 plan_id와 include_details=true로 Step을 확인합니다.",
     "execute_looping": ("저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 set_working_plan으로 선택합니다. "
-                        "완료한 작업은 반복하지 않고, 수행·검증 결과를 update_step에 기록합니다.\n"
+                        "완료한 작업은 반복하지 않고, 수행·검증 결과는 plan_12-update tool의 request에 target='step', plan_id, step_id와 기록할 필드를 넣어 갱신합니다.\n"
                         "회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다."),
     "set_working_plan": "이 artifact_dir에서 작업하고, 재사용한 파일은 input_refs에, 새로 만든 산출물은 output_refs에 기록합니다.",
     "rename_artifact_folder": "이후 산출물 작업에는 갱신된 artifact_dir를 사용합니다.",
-    "update_phase": "get_phase_plan_step으로 변경된 Phase를 확인할 수 있습니다.",
-    "update_plan": "get_phase_plan_step으로 변경된 Plan을 확인할 수 있습니다.",
-    "update_step": "다음에 수행할 Step을 정했다면 set_working_plan으로 선택합니다.",
     "resolve_targets": "대상의 현재 구성원은 get_ontological_holon으로 확인합니다.",
-    "get_selection_references": "관련 Plan은 get_phase_plan_step으로 확인합니다.",
+    "get_selection_references": "관련 Plan은 plan_05-get tool의 request에 target='plan'과 plan_id를 넣어 확인합니다.",
     "analyze_block_reculviely": "블록 편집에 들어간 뒤에는 get_objects로 현재 편집 대상 ID를 다시 조회합니다.",
     "assign_material": "get_objects로 적용된 재료를 확인합니다.",
     "setup_modeling": "객체에 재료를 적용하려면 list_materials에서 선택한 재료를 assign_material에 사용합니다.",
@@ -49,9 +44,6 @@ SUCCESS_GUIDES = {
     "publish_to_chestnut": "Chestnut에서 게시 결과를 확인합니다.",
 }
 LIST_GUIDES = {
-    "list_phases": ("phases", "get_phase_plan_step으로 Phase 상세를 보거나 list_plans로 소속 Plan을 조회합니다."),
-    "list_plans": ("plans", "선택한 plan_id를 get_phase_plan_step에 입력하고 include_details=true로 Step을 확인합니다."),
-    "list_plan_revisions": ("revisions", "선택한 loop_no와 revision을 get_phase_plan_step에 함께 입력합니다."),
     "list_design_scenes": ("scenes", "선택한 scene_id로 get_design_scene을 조회합니다."),
 }
 ASSET_GUIDES = {
@@ -74,7 +66,7 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         return None
     if name in EXECUTIONS and value.get("completed") is False and value.get("request_id"):
         return "이 request_id로 get_rhino_execution을 조회해 완료 여부를 확인합니다. 같은 코드를 다시 제출하지 않습니다."
-    planning_record = name == "get_phase_plan_step" and value.get("type") in {"phase", "plan", "step"}
+    planning_record = name == "get_planning" and value.get("type") in {"phase", "plan", "step"}
     failed_status = value.get("status") in {"error", "failed", "unknown", "uncertain", "incomplete"}
     if (failed_status and not planning_record) or value.get("error"):
         return None
@@ -86,18 +78,46 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
             return None
         return ("연결을 해제했으며 Rhino 창과 문서는 유지됩니다. 저장하고 Rhino까지 종료하려면 "
                 "list_connections에서 해당 문서를 확인하고 connect로 다시 연결한 뒤 close_session을 호출합니다.")
-    if name in {"update_phase", "update_plan", "update_step"} and value.get("issues"):
-        return "issues에서 건너뛴 항목을 확인합니다. 필요한 항목만 수정해 다시 요청합니다."
-    if name == "get_phase_plan_step":
+    if name == "update_planning":
+        if value.get("issues"):
+            return "issues에서 건너뛴 항목을 확인합니다. 같은 request.target·ID를 유지하고 필요한 필드만 수정해 다시 요청합니다."
+        target = arguments.get("target")
+        if target == "step":
+            return "다음에 수행할 Step을 정했다면 set_working_plan으로 선택합니다."
+        if target in {"phase", "plan"}:
+            return f"plan_05-get tool의 request에 target='{target}'과 해당 {target}_id를 넣어 변경된 기록을 확인할 수 있습니다."
+        return None
+    if name == "create_planning":
+        if arguments.get("target") == "phase":
+            return "Plan을 추가하려면 plan_02-create tool의 request에 target='plan', title, goal과 반환된 phase_id를 입력합니다."
+        return "plan_05-get tool의 request에 target='plan', 반환된 plan_id와 include_details=true를 넣어 자동 생성된 Step을 확인합니다."
+    if name == "get_planning":
         if value.get("read_only"):
-            return "현재 작업을 선택하려면 loop_no와 revision을 생략하고 다시 조회합니다."
+            if not arguments.get("include_details", False):
+                return "과거 기록의 상세를 보려면 같은 request.target·ID·loop_no·revision을 유지하고 request.include_details=true로 다시 조회합니다."
+            return "이 과거 기록은 읽기 전용입니다. 현재 작업을 조회하려는 경우 request.loop_no와 request.revision을 생략합니다."
         if not arguments.get("include_details", False):
-            return "상세 내용이 필요하면 같은 ID에 include_details=true로 다시 조회합니다."
+            return "상세 내용이 필요하면 같은 request.target·ID에 request.include_details=true로 다시 조회합니다."
         if value.get("type") == "phase":
-            return "이 id를 list_plans의 phase_id에 입력해 소속 Plan을 조회합니다."
+            return "plan_08-list tool의 request에 target='plan'과 이 id를 phase_id로 입력해 소속 Plan을 조회합니다."
         if value.get("type") == "plan":
             return "수행할 Step을 정했다면 set_working_plan으로 선택합니다. 새 회차는 execute_looping으로 시작합니다."
         return "이 Step을 수행하려면 plan_id와 id를 set_working_plan의 plan_id·step_id에 입력합니다."
+    if name == "list_plan_revisions":
+        if not value.get("revisions"):
+            return None
+        if arguments.get("step_id"):
+            return "plan_05-get tool의 request에 target='step', 같은 plan_id·step_id와 선택한 loop_no·revision을 함께 입력합니다."
+        return "plan_05-get tool의 request에 target='plan', 같은 plan_id와 선택한 loop_no·revision을 함께 입력합니다."
+    if name == "list_planning":
+        target = arguments.get("target")
+        if target == "phase" and value.get("phases"):
+            return "plan_05-get tool의 request에 target='phase'와 phase_id를 넣어 상세를 조회하거나, plan_08-list tool의 request에 target='plan'과 phase_id를 넣어 소속 Plan을 조회합니다."
+        if target == "plan" and value.get("plans"):
+            return "plan_05-get tool의 request에 target='plan', 선택한 plan_id와 include_details=true를 넣어 Step을 확인합니다."
+        if target == "step" and value.get("steps"):
+            return "plan_05-get tool의 request에 target='step', 이 plan_id와 선택한 step_id를 입력합니다. 같은 스냅샷을 상세 조회하려면 반환된 loop_no·revision과 include_details=true를 함께 넣습니다."
+        return None
     if name == "list_connections":
         available = [t for t in value.get("targets", []) if t.get("model_path") and t.get("state") not in {"in_use", "unavailable", "closing"}]
         if available:
@@ -107,7 +127,7 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         return "연결할 Rhino의 저장된 문서에서 almondconnect를 실행한 뒤 목록을 다시 조회합니다."
     if name in {"connect", "start_session"}:
         if value.get("state") == "ready":
-            return "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 조회합니다."
+            return "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 project_info, 기존 작업은 plan_08-list tool의 request에 target='plan'을 넣어 조회합니다."
         if name == "start_session" and value.get("request_id"):
             return "같은 request_id와 model_path로 start_session을 다시 조회합니다."
         return "list_connections로 연결 상태를 확인합니다."
@@ -139,7 +159,7 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
     if name in CAPTURES:
         saved = value.get("image_file", {})
         if saved.get("status") == "saved" and saved.get("path") and saved.get("lifetime") == "plan":
-            return "보관할 이미지라면 image_file.path를 update_step의 output_refs에 기록합니다."
+            return "보관할 이미지라면 plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs={add:[image_file.path]}를 입력합니다."
         return None
     if name in EXECUTIONS:
         page = value.get("result_page", {})
@@ -168,7 +188,7 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
     if name == "capture_conditioning_pass":
         if value.get("errors") or value.get("frames_captured", 0) != value.get("frames_requested"):
             return None
-        return "프레임과 camera_json을 확인하고, 사용할 산출물 경로를 update_step의 output_refs에 기록합니다."
+        return "프레임과 camera_json을 확인하고, plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs.add에 사용할 산출물 경로를 입력합니다."
     if name == "check_egress":
         return "미달 항목의 배치·너비·경로를 수정하고 측정값을 갱신해 다시 검토합니다." if value.get("passed") is False else None
     if name == "apply_drawing_style":
@@ -205,11 +225,17 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
 
 def guide_payload(name: str, payload: dict, arguments: dict | None = None) -> dict:
     name = internal_tool_name(name)
+    arguments = arguments or {}
+    if name in {"create_planning", "get_planning", "list_planning", "update_planning"}:
+        request = arguments.get("request", {})
+        # Pydantic models arrive from registered tools; dictionaries from direct
+        # JSON consumers. Read fields without flattening nested patch objects.
+        arguments = request if isinstance(request, dict) else vars(request)
     value = dict(payload)
     # Existing state-machine instructions carry exact action tokens and take
     # precedence. Publish one human guidance key instead of two overlapping ones.
     existing = value.pop("next_step", None)
-    if existing and name not in {"list_phases", "list_plans"}:
+    if existing and name != "list_planning":
         value.setdefault("next_step_guide", existing)
     if "next_step_guide" not in value:
         guide = next_step(name, value, arguments or {})

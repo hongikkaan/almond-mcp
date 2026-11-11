@@ -12,6 +12,7 @@ from jsonschema import validate
 from almond_mcp.features.planning.tools import register
 from almond_mcp.retrieval_store import AlmondStore
 from almond_mcp.tool_guidance import guide_payload, guide_result
+from test_planning_details import request_branch
 
 
 def test_public_phase_input_and_optional_details_survive_restart(tmp_path):
@@ -23,29 +24,29 @@ def test_public_phase_input_and_optional_details_survive_restart(tmp_path):
     async def run():
         async with Client(server) as client:
             tools = {t.name:t for t in await client.list_tools()}
-            create = tools['plan_01-create_phase'].input_schema['properties']
+            create = request_branch(tools['plan_02-create'].input_schema, 'phase')['properties']
             assert create['status']['enum'] == ['pending','running','paused','completed','failed','blocked']
             assert {item['type'] for item in create['file_name']['anyOf']} == {'string','array'}
             assert 'project_file_id' not in create
-            assert 'include_details' in tools['plan_05-get_phase_plan_step'].input_schema['properties']
-            result = await client.call_tool('plan_01-create_phase', {'name':'Site and building', 'file_name':['site.3dm','building.3dm']})
+            assert 'include_details' in request_branch(tools['plan_05-get'].input_schema, 'phase')['properties']
+            result = await client.call_tool('plan_02-create', {'request': {'target': 'phase', 'name':'Site and building', 'file_name':['site.3dm','building.3dm']}})
             value = json.loads(result.content[0].text)
             pid = value['phase']['phase_id']
             for details in (False, True):
-                result = await client.call_tool('plan_05-get_phase_plan_step', {'phase_id':pid,'include_details':details})
+                result = await client.call_tool('plan_05-get', {'request': {'target': 'phase', 'phase_id':pid,'include_details':details}})
                 value = json.loads(result.content[0].text)
                 assert value['name'] == 'Site and building' and ('phase' in value) == details
                 if details:
                     assert value['phase']['file_name'] == ['site.3dm','building.3dm']
                     assert 'project_file_id' not in value['phase']
-                output = tools['plan_05-get_phase_plan_step'].output_schema['properties']['result']['contentSchema']
+                output = tools['plan_05-get'].output_schema['properties']['result']['contentSchema']
                 validate(value, output)
-            await client.call_tool('plan_11-update_phase', {'phase_id': pid, 'status': 'failed'})
-            failed_phase = await client.call_tool('plan_05-get_phase_plan_step', {'phase_id': pid})
+            await client.call_tool('plan_12-update', {'request': {'target': 'phase', 'phase_id': pid, 'status': 'failed'}})
+            failed_phase = await client.call_tool('plan_05-get', {'request': {'target': 'phase', 'phase_id': pid}})
             failed_record = json.loads(failed_phase.content[0].text)
             assert failed_record['status'] == 'failed'
             assert 'include_details=true' in failed_record['next_step_guide']
-            result = await client.call_tool('plan_11-update_phase', {'phase_id':pid,'status':'finished','file_name':['should-not-exist.3dm']}, raise_on_error=False)
+            result = await client.call_tool('plan_12-update', {'request': {'target': 'phase', 'phase_id':pid,'status':'finished','file_name':['should-not-exist.3dm']}}, raise_on_error=False)
             assert result.is_error
             reopened = AlmondStore(path)
             assert reopened.get_phase(pid)['file_names'] == ['site.3dm','building.3dm']
@@ -62,14 +63,28 @@ def test_failed_or_incomplete_work_has_no_success_suggestion(payload):
 
 
 def test_history_partial_updates_empty_lists_and_execution_recovery():
-    past = guide_payload('get_phase_plan_step', {'status':'completed','type':'plan','read_only':True}, {'include_details':True})
+    past = guide_payload('get_planning', {'status':'completed','type':'plan','read_only':True},
+                         {'request': {'target': 'plan', 'include_details': True}})
     assert '생략' in past['next_step_guide'] and 'plan_10-set_working' not in past['next_step_guide']
-    partial = guide_payload('update_step', {'status':'partial_success','issues':[{'reason':'missing'}]})
+    partial = guide_payload('update_planning', {'status':'partial_success','issues':[{'reason':'missing'}]},
+                            {'request': {'target': 'step'}})
     assert 'issues' in partial['next_step_guide'] and 'plan_10-set_working' not in partial['next_step_guide']
-    empty = guide_payload('list_plans', {'status':'success','plans':[]})
+    empty = guide_payload('list_planning', {'status':'success','plans':[]}, {'request': {'target': 'plan'}})
     assert 'next_step_guide' not in empty
     pending = guide_payload('execute_rhino_script', {'status':'timeout','completed':False,'request_id':'saved'})
     assert 'script_03-get_execution' in pending['next_step_guide'] and '다시 제출하지' in pending['next_step_guide']
+
+
+@pytest.mark.parametrize('target,step_id', [('plan', ''), ('step', 'step_selected')])
+def test_revision_guidance_preserves_selected_target(target, step_id):
+    value = guide_payload('list_plan_revisions', {
+        'status': 'success', 'plan_id': 'plan_selected',
+        'revisions': [{'loop_no': 2, 'revision': 7}],
+    }, {'plan_id': 'plan_selected', 'step_id': step_id})
+    guide = value['next_step_guide']
+    assert f"target='{target}'" in guide
+    assert all(field in guide for field in ('plan_id', 'loop_no', 'revision'))
+    assert ('step_id' in guide) == bool(step_id)
 
 
 def test_capture_guidance_keeps_binary_content_and_error_flags():

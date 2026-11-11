@@ -28,11 +28,11 @@ Tool descriptions explain the role and essential selection conditions. Input-sch
 
 ## Planning queries
 
-Phase/Plan/Step discovery and related target/selection queries always expose IDs and have no `include_ids` option. `plan_06-list_phases` tool and `plan_08-list` tool provide `next_step_guide` call guidance. `plan_08-list` tool has no field groups: its rows contain plan_id/title/scope/status/revision.
+Phase/Plan/Step discovery and related target/selection queries always expose IDs and have no `include_ids` option. The four planning CRUD tools accept one `request` object with a discriminating `target`. `plan_08-list` tool selects Phase, Plan or Step with `request.target="phase"`, `"plan"` or `"step"` and provides target-specific `next_step_guide` call guidance. Plan rows contain plan_id/title/scope/status/loop_no/revision without field groups. Step rows preserve the selected Plan snapshot's order and return plan_id/loop_no/revision/read_only plus total/limit/truncated; unknown Plan/Loop/revision returns an error.
 
-`plan_05-get_phase_plan_step` tool selects one Phase, Plan or Step using phase_id, plan_id and optional step_id. The default result contains id/type/name/status. Plan and Step also retain plan_id/loop_no/revision/read_only regardless of detail selection. include_details=true adds the corresponding phase/plan/step body. A selected Step includes only its own input_refs/output_refs; Plan details include Step summaries. Phase file_name is an array; its internal project_file_id is not public. Errors have status=error. See [planning inputs and outputs](features/planning/README.md).
+`plan_05-get` tool selects one Phase, Plan or Step with `request.target` and the corresponding phase_id, plan_id, or plan_id+step_id. The default result contains id/type/name/status. Plan and Step retain plan_id/loop_no/revision/read_only regardless of detail selection. `request.include_details=true` adds the corresponding phase/plan/step body. A selected Step includes only its own input_refs/output_refs; Plan details include Step summaries. Historical detail guidance preserves target, IDs, loop_no and revision. Phase rejects loop_no/revision; its file_name is an array and its internal project_file_id is not public. Errors have status=error. See [planning inputs and outputs](features/planning/README.md).
 
-The planning field groups below apply only to plan_06-list_phases tool, plan_07-list_revisions tool, inspect_05-resolve_targets tool and inspect_04-get_selection_references tool, according to each tool's signature; they do not change the unified detail response.
+The planning field groups below apply only to `plan_08-list` tool with `request.target="phase"`, `plan_07-list_revisions` tool, `inspect_05-resolve_targets` tool and `inspect_04-get_selection_references` tool, according to each tool's signature; they do not change the unified detail response.
 
 ## Declared field groups
 

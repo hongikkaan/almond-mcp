@@ -1073,78 +1073,224 @@
     },
     "annotations": null
   },
-  "plan_01-create_phase": {
-    "name": "plan_01-create_phase",
+  "plan_02-create": {
+    "name": "plan_02-create",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Phase 이름을 문자열로 입력합니다. 빈 문자열은 사용할 수 없습니다."
-        },
-        "description": {
-          "default": "",
-          "type": "string",
-          "description": "Phase의 목적이나 작업 범위를 문자열로 입력합니다."
-        },
-        "file_name": {
-          "anyOf": [
+        "request": {
+          "oneOf": [
             {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "phase",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Phase 이름을 문자열로 입력합니다. 빈 문자열은 사용할 수 없습니다.",
+                  "type": "string"
+                },
+                "description": {
+                  "default": "",
+                  "description": "Phase의 목적이나 작업 범위를 문자열로 입력합니다.",
+                  "type": "string"
+                },
+                "file_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  ],
+                  "default": "",
+                  "description": "이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다."
+                },
+                "status": {
+                  "default": "pending",
+                  "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다.",
+                  "enum": [
+                    "pending",
+                    "running",
+                    "paused",
+                    "completed",
+                    "failed",
+                    "blocked"
+                  ],
+                  "type": "string"
+                },
+                "depends_on": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "이 Phase가 의존하는 Phase ID 목록입니다."
+                },
+                "previous_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "이전 Phase의 ID입니다."
+                }
               },
-              "type": "array"
-            }
-          ],
-          "default": "",
-          "description": "이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다."
-        },
-        "status": {
-          "default": "pending",
-          "enum": [
-            "pending",
-            "running",
-            "paused",
-            "completed",
-            "failed",
-            "blocked"
-          ],
-          "type": "string",
-          "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다."
-        },
-        "depends_on": {
-          "anyOf": [
+              "required": [
+                "target",
+                "name"
+              ],
+              "type": "object"
+            },
             {
-              "items": {
-                "type": "string"
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "plan",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
+                },
+                "title": {
+                  "description": "Plan 목록에서 사용할 비어 있지 않은 짧은 제목입니다.",
+                  "type": "string"
+                },
+                "goal": {
+                  "description": "비어 있지 않은 전체 목표와 의도한 결과입니다.",
+                  "type": "string"
+                },
+                "scope": {
+                  "default": "house",
+                  "description": "작업 목적에 맞는 Step 템플릿을 선택합니다: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. 등록한 사용자 템플릿도 사용할 수 있습니다.",
+                  "type": "string"
+                },
+                "scene_id": {
+                  "default": "",
+                  "description": "기존 방식의 단일 Scene ID입니다. scene_ids를 우선 사용합니다. 둘 다 전달하면 scene_ids의 첫 번째 항목과 같아야 합니다.",
+                  "type": "string"
+                },
+                "phase_id": {
+                  "default": "",
+                  "description": "선택 사항인 기존 Phase ID입니다. 비어 있으면 Plan을 Phase에 소속시키지 않습니다.",
+                  "type": "string"
+                },
+                "scene_ids": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열입니다. 생략하면 Scene 없이 생성합니다."
+                },
+                "holon_ids": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "이 Plan에서 작업할 기존 Holon ID 배열입니다."
+                },
+                "depends_on": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "이 Plan이 의존하는 Plan ID 목록입니다."
+                },
+                "previous_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "이전 Plan의 ID입니다."
+                },
+                "parent_plan": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 상위 Plan ID 배열입니다."
+                },
+                "child_plan": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 하위 Plan ID 배열입니다."
+                }
               },
-              "type": "array"
-            },
-            {
-              "type": "null"
+              "required": [
+                "target",
+                "title",
+                "goal"
+              ],
+              "type": "object"
             }
           ],
-          "default": null,
-          "description": "이 Phase가 의존하는 Phase ID 목록입니다."
-        },
-        "previous_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "이전 Phase의 ID입니다."
+          "description": "target으로 phase 또는 plan을 선택하고 해당 생성 정보를 입력합니다. Step 독립 생성은 제공하지 않습니다."
         }
       },
       "required": [
-        "name"
+        "request"
       ],
       "type": "object"
     },
@@ -1182,152 +1328,6 @@
               "next_step_guide": {
                 "type": "string",
                 "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
-              }
-            }
-          }
-        }
-      },
-      "required": [
-        "result"
-      ],
-      "x-fastmcp-wrap-result": true
-    },
-    "annotations": null
-  },
-  "plan_02-create": {
-    "name": "plan_02-create",
-    "inputSchema": {
-      "additionalProperties": false,
-      "properties": {
-        "title": {
-          "type": "string",
-          "description": "Plan 목록에서 사용할 비어 있지 않은 짧은 제목입니다."
-        },
-        "goal": {
-          "type": "string",
-          "description": "비어 있지 않은 전체 목표와 의도한 결과입니다."
-        },
-        "scope": {
-          "default": "house",
-          "type": "string",
-          "description": "작업 목적에 맞는 Step 템플릿을 선택합니다: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. 등록한 사용자 템플릿도 사용할 수 있습니다."
-        },
-        "scene_id": {
-          "default": "",
-          "type": "string",
-          "description": "기존 방식의 단일 Scene ID입니다. scene_ids를 우선 사용합니다. 둘 다 전달하면 scene_ids의 첫 번째 항목과 같아야 합니다."
-        },
-        "phase_id": {
-          "default": "",
-          "type": "string",
-          "description": "선택 사항인 기존 Phase ID입니다. 비어 있으면 Plan을 Phase에 소속시키지 않습니다."
-        },
-        "scene_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열입니다. 생략하면 Scene 없이 생성합니다."
-        },
-        "holon_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "이 Plan에서 작업할 기존 Holon ID 배열입니다."
-        },
-        "depends_on": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "이 Plan이 의존하는 Plan ID 목록입니다."
-        },
-        "previous_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "이전 Plan의 ID입니다."
-        },
-        "parent_plan": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 상위 Plan ID 배열입니다."
-        },
-        "child_plan": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 하위 Plan ID 배열입니다."
-        }
-      },
-      "required": [
-        "title",
-        "goal"
-      ],
-      "type": "object"
-    },
-    "outputSchema": {
-      "type": "object",
-      "properties": {
-        "result": {
-          "type": "string",
-          "contentMediaType": "application/json",
-          "contentSchema": {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string",
-                "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
               },
               "plan": {
                 "type": "object",
@@ -1346,18 +1346,6 @@
                   }
                 },
                 "description": "생성한 Plan입니다."
-              },
-              "message": {
-                "type": "string",
-                "description": "현재 결과 또는 오류의 설명입니다."
-              },
-              "error_code": {
-                "type": "string",
-                "description": "오류 유형입니다."
-              },
-              "next_step_guide": {
-                "type": "string",
-                "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
               }
             }
           }
@@ -1596,7 +1584,7 @@
         "resume": {
           "default": false,
           "type": "boolean",
-          "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 plan_05-get_phase_plan_step tool으로 현재 회차를 먼저 확인합니다."
+          "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 plan_05-get tool의 request에 target='plan'과 plan_id를 넣어 현재 회차를 먼저 확인합니다."
         },
         "feedback": {
           "default": "",
@@ -4340,56 +4328,145 @@
       "destructiveHint": false
     }
   },
-  "plan_05-get_phase_plan_step": {
-    "name": "plan_05-get_phase_plan_step",
+  "plan_05-get": {
+    "name": "plan_05-get",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "phase_id": {
-          "default": "",
-          "type": "string",
-          "description": "조회할 Phase ID입니다. plan_id와 함께 입력하지 않습니다."
-        },
-        "plan_id": {
-          "default": "",
-          "type": "string",
-          "description": "조회할 Plan ID입니다. Step 조회에도 함께 입력합니다."
-        },
-        "step_id": {
-          "default": "",
-          "type": "string",
-          "description": "조회할 Step ID입니다. 해당 plan_id와 함께 입력합니다."
-        },
-        "revision": {
-          "anyOf": [
+        "request": {
+          "oneOf": [
             {
-              "type": "integer"
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "phase",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
+                },
+                "phase_id": {
+                  "description": "조회할 Phase ID입니다.",
+                  "type": "string"
+                },
+                "include_details": {
+                  "default": false,
+                  "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다.",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "target",
+                "phase_id"
+              ],
+              "type": "object"
             },
             {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택한 Loop 안에 저장된 선택적 리비전입니다. 생략하면 선택한 Loop의 최신 상태를 읽습니다. Phase에는 사용할 수 없습니다."
-        },
-        "include_details": {
-          "default": false,
-          "type": "boolean",
-          "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다."
-        },
-        "loop_no": {
-          "anyOf": [
-            {
-              "type": "integer"
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "plan",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
+                },
+                "plan_id": {
+                  "description": "조회할 Plan ID입니다. Step 조회에는 해당 Step의 Plan ID를 사용합니다.",
+                  "type": "string"
+                },
+                "revision": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택한 Loop 안에 저장된 선택적 리비전입니다. 생략하면 선택한 Loop의 최신 상태를 읽습니다. Phase에는 사용할 수 없습니다."
+                },
+                "include_details": {
+                  "default": false,
+                  "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다.",
+                  "type": "boolean"
+                },
+                "loop_no": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Plan/Step 조회에 사용할 선택 사항인 0 이상의 Loop 번호입니다. 생략하면 최신 Loop를 선택합니다. 0은 실행 전 기록을 읽습니다. Phase에는 사용할 수 없습니다."
+                }
+              },
+              "required": [
+                "target",
+                "plan_id"
+              ],
+              "type": "object"
             },
             {
-              "type": "null"
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "step",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
+                },
+                "plan_id": {
+                  "description": "조회할 Plan ID입니다. Step 조회에는 해당 Step의 Plan ID를 사용합니다.",
+                  "type": "string"
+                },
+                "step_id": {
+                  "description": "선택한 Plan에 속한 Step ID입니다.",
+                  "type": "string"
+                },
+                "revision": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택한 Loop 안에 저장된 선택적 리비전입니다. 생략하면 선택한 Loop의 최신 상태를 읽습니다. Phase에는 사용할 수 없습니다."
+                },
+                "include_details": {
+                  "default": false,
+                  "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다.",
+                  "type": "boolean"
+                },
+                "loop_no": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Plan/Step 조회에 사용할 선택 사항인 0 이상의 Loop 번호입니다. 생략하면 최신 Loop를 선택합니다. 0은 실행 전 기록을 읽습니다. Phase에는 사용할 수 없습니다."
+                }
+              },
+              "required": [
+                "target",
+                "plan_id",
+                "step_id"
+              ],
+              "type": "object"
             }
           ],
-          "default": null,
-          "description": "Plan/Step 조회에 사용할 선택 사항인 0 이상의 Loop 번호입니다. 생략하면 최신 Loop를 선택합니다. 0은 실행 전 기록을 읽습니다. Phase에는 사용할 수 없습니다."
+          "description": "target으로 phase, plan, step을 선택하고 해당 ID를 입력합니다. include_details로 상세 기록을 선택합니다."
         }
       },
+      "required": [
+        "request"
+      ],
       "type": "object"
     },
     "outputSchema": {
@@ -6728,131 +6805,6 @@
       "destructiveHint": false
     }
   },
-  "plan_06-list_phases": {
-    "name": "plan_06-list_phases",
-    "inputSchema": {
-      "additionalProperties": false,
-      "properties": {
-        "limit": {
-          "default": 50,
-          "type": "integer",
-          "description": "최대 Phase 수입니다. 범위는 1..500입니다."
-        },
-        "field_groups": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 그룹은 description, scope, audit 또는 all입니다. 생략하거나 비어 있으면 요약과 ID를 유지합니다."
-        }
-      },
-      "type": "object"
-    },
-    "outputSchema": {
-      "type": "object",
-      "properties": {
-        "result": {
-          "type": "string",
-          "contentMediaType": "application/json",
-          "contentSchema": {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string",
-                "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
-              },
-              "phases": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "phase_id": {
-                      "type": "string",
-                      "description": "Phase ID입니다."
-                    },
-                    "name": {
-                      "type": "string",
-                      "description": "Phase 이름입니다."
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Phase의 업무 상태입니다."
-                    },
-                    "plan_count": {
-                      "type": "integer",
-                      "description": "소속 Plan 수입니다."
-                    },
-                    "depends_on": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "description": "의존하는 Phase ID입니다."
-                    },
-                    "previous_id": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "이전 Phase ID입니다."
-                    },
-                    "file_name": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "description": "scope 그룹에서 반환하는 Rhino 파일명 목록입니다."
-                    }
-                  }
-                },
-                "description": "Phase 목록입니다."
-              },
-              "total": {
-                "type": "integer",
-                "description": "필터에 일치하는 전체 항목 수"
-              },
-              "limit": {
-                "type": "integer",
-                "description": "페이지 최대 항목 수"
-              },
-              "truncated": {
-                "type": "boolean",
-                "description": "limit 때문에 목록 일부만 반환했는지 나타냅니다."
-              },
-              "next_step_guide": {
-                "type": "string",
-                "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
-              },
-              "message": {
-                "type": "string",
-                "description": "현재 결과 또는 오류의 설명입니다."
-              },
-              "error_code": {
-                "type": "string",
-                "description": "오류 유형입니다."
-              }
-            }
-          }
-        }
-      },
-      "required": [
-        "result"
-      ],
-      "x-fastmcp-wrap-result": true
-    },
-    "annotations": {
-      "readOnlyHint": true,
-      "destructiveHint": false
-    }
-  },
   "plan_07-list_revisions": {
     "name": "plan_07-list_revisions",
     "inputSchema": {
@@ -6860,7 +6812,7 @@
       "properties": {
         "plan_id": {
           "type": "string",
-          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
+          "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다."
         },
         "limit": {
           "default": 50,
@@ -6920,7 +6872,7 @@
               },
               "plan_id": {
                 "type": "string",
-                "description": "각 행의 loop_no/revision과 함께 plan_05-get_phase_plan_step tool에 사용"
+                "description": "각 행의 loop_no/revision과 함께 plan_05-get tool의 request에 사용"
               },
               "revisions": {
                 "type": "array",
@@ -6997,36 +6949,142 @@
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "phase_id": {
-          "default": "",
-          "type": "string",
-          "description": "선택 사항인 Phase ID 필터입니다. 비어 있으면 여러 Phase를 범위로 합니다."
-        },
-        "scene_id": {
-          "default": "",
-          "type": "string",
-          "description": "선택 사항인 Scene ID 필터입니다. 비어 있으면 어떤 Scene에 속하든, Scene이 없든 모든 Plan을 포함합니다."
-        },
-        "status": {
-          "default": "",
-          "enum": [
-            "",
-            "pending",
-            "running",
-            "paused",
-            "completed",
-            "failed",
-            "blocked"
+        "request": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "phase",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
+                },
+                "limit": {
+                  "default": 50,
+                  "description": "최대 Phase 수입니다. 범위는 1..500입니다.",
+                  "type": "integer"
+                },
+                "field_groups": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 그룹은 description, scope, audit 또는 all입니다. 생략하거나 비어 있으면 요약과 ID를 유지합니다."
+                }
+              },
+              "required": [
+                "target"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "plan",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
+                },
+                "phase_id": {
+                  "default": "",
+                  "description": "선택 사항인 Phase ID 필터입니다. 비어 있으면 여러 Phase를 범위로 합니다.",
+                  "type": "string"
+                },
+                "scene_id": {
+                  "default": "",
+                  "description": "선택 사항인 Scene ID 필터입니다. 비어 있으면 어떤 Scene에 속하든, Scene이 없든 모든 Plan을 포함합니다.",
+                  "type": "string"
+                },
+                "status": {
+                  "default": "",
+                  "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 빈 문자열이면 모든 상태를 포함합니다.",
+                  "enum": [
+                    "",
+                    "pending",
+                    "running",
+                    "paused",
+                    "completed",
+                    "failed",
+                    "blocked"
+                  ],
+                  "type": "string"
+                },
+                "limit": {
+                  "default": 50,
+                  "description": "최대 Plan 수입니다. 범위는 1..500입니다.",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "target"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "step",
+                  "description": "Step 목록을 선택합니다.",
+                  "type": "string"
+                },
+                "plan_id": {
+                  "description": "Step 목록을 읽을 기존 Plan ID입니다.",
+                  "type": "string"
+                },
+                "revision": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택한 Loop 안의 리비전입니다. 생략하면 해당 Loop의 최신 상태를 읽습니다."
+                },
+                "loop_no": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택할 0 이상의 Loop 번호입니다. 생략하면 최신 Loop, 0은 실행 전 기록입니다."
+                },
+                "limit": {
+                  "default": 50,
+                  "description": "정의된 순서대로 반환할 최대 Step 수입니다. 범위는 1..500입니다.",
+                  "maximum": 500,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "target",
+                "plan_id"
+              ],
+              "type": "object"
+            }
           ],
-          "type": "string",
-          "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 빈 문자열이면 모든 상태를 포함합니다."
-        },
-        "limit": {
-          "default": 50,
-          "type": "integer",
-          "description": "최대 Plan 수입니다. 범위는 1..500입니다."
+          "description": "target으로 phase, plan, step을 선택합니다. Step에는 plan_id가 필요하며 대상별 필터와 limit을 지정합니다."
         }
       },
+      "required": [
+        "request"
+      ],
       "type": "object"
     },
     "outputSchema": {
@@ -7040,7 +7098,77 @@
             "properties": {
               "status": {
                 "type": "string",
-                "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
+                "description": "조회 성공 또는 오류 상태입니다."
+              },
+              "phases": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "phase_id": {
+                      "type": "string",
+                      "description": "Phase ID입니다."
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Phase 이름입니다."
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Phase의 업무 상태입니다."
+                    },
+                    "plan_count": {
+                      "type": "integer",
+                      "description": "소속 Plan 수입니다."
+                    },
+                    "depends_on": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "의존하는 Phase ID입니다."
+                    },
+                    "previous_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "이전 Phase ID입니다."
+                    },
+                    "file_name": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "scope 그룹에서 반환하는 Rhino 파일명 목록입니다."
+                    }
+                  }
+                },
+                "description": "Phase 목록입니다."
+              },
+              "total": {
+                "type": "integer",
+                "description": "선택한 목록의 전체 항목 수입니다. Step은 선택한 Plan 스냅샷을 기준으로 합니다."
+              },
+              "limit": {
+                "type": "integer",
+                "description": "요청한 최대 항목 수입니다."
+              },
+              "truncated": {
+                "type": "boolean",
+                "description": "limit으로 일부 항목을 생략했으면 true입니다."
+              },
+              "next_step_guide": {
+                "type": "string",
+                "description": "현재 결과에서 이어갈 수 있는 후속 조회 안내입니다."
+              },
+              "message": {
+                "type": "string",
+                "description": "현재 결과 또는 오류의 설명입니다."
+              },
+              "error_code": {
+                "type": "string",
+                "description": "오류 유형입니다."
               },
               "plans": {
                 "type": "array",
@@ -7075,29 +7203,50 @@
                 },
                 "description": "Plan 목록입니다."
               },
-              "total": {
-                "type": "integer",
-                "description": "필터에 일치하는 전체 항목 수"
+              "plan_id": {
+                "type": "string",
+                "description": "Step이 속한 Plan ID입니다."
               },
-              "limit": {
+              "loop_no": {
                 "type": "integer",
-                "description": "페이지 최대 항목 수"
+                "description": "Step 목록을 읽은 Loop 번호입니다."
               },
-              "truncated": {
+              "revision": {
+                "type": "integer",
+                "description": "Step 목록을 읽은 스냅샷의 리비전입니다."
+              },
+              "read_only": {
                 "type": "boolean",
-                "description": "limit 때문에 목록 일부만 반환했는지 나타냅니다."
+                "description": "과거 Loop 또는 저장된 리비전이면 true입니다."
               },
-              "next_step_guide": {
-                "type": "string",
-                "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
-              },
-              "message": {
-                "type": "string",
-                "description": "현재 결과 또는 오류의 설명입니다."
-              },
-              "error_code": {
-                "type": "string",
-                "description": "오류 유형입니다."
+              "steps": {
+                "type": "array",
+                "description": "정의된 순서를 유지한 Step 요약 목록입니다.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "step_id": {
+                      "type": "string",
+                      "description": "변하지 않는 Step UUID입니다."
+                    },
+                    "step_type": {
+                      "type": "string",
+                      "description": "Step의 역할 유형입니다."
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Step의 표시 이름입니다."
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "선택한 Loop에서의 Step 상태입니다."
+                    },
+                    "loop_no": {
+                      "type": "integer",
+                      "description": "이 Step 상태의 Loop 번호입니다."
+                    }
+                  }
+                }
               }
             }
           }
@@ -8441,7 +8590,7 @@
       "properties": {
         "plan_id": {
           "type": "string",
-          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
+          "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다."
         },
         "step_id": {
           "default": "",
@@ -9176,7 +9325,7 @@
       "properties": {
         "plan_id": {
           "type": "string",
-          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
+          "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다."
         },
         "step_id": {
           "default": "",
@@ -9600,122 +9749,486 @@
     },
     "annotations": null
   },
-  "plan_11-update_phase": {
-    "name": "plan_11-update_phase",
+  "plan_12-update": {
+    "name": "plan_12-update",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "phase_id": {
-          "type": "string",
-          "description": "plan_06-list_phases tool의 phases[].phase_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Phase ID입니다."
-        },
-        "name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 비어 있지 않은 대체 Phase 이름입니다."
-        },
-        "description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 대체 설명입니다. 비어 있으면 지웁니다."
-        },
-        "file_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다. [] 또는 \"\"는 연결 해제, 생략/null은 유지입니다."
-        },
-        "status": {
-          "anyOf": [
-            {
-              "enum": [
-                "pending",
-                "running",
-                "paused",
-                "completed",
-                "failed",
-                "blocked"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
-        },
-        "depends_on": {
-          "anyOf": [
+        "request": {
+          "oneOf": [
             {
               "additionalProperties": false,
-              "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
               "properties": {
-                "add": {
-                  "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
+                "target": {
+                  "const": "phase",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
                 },
-                "remove": {
-                  "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
+                "phase_id": {
+                  "description": "plan_08-list tool에 request.target=phase로 조회한 phases[].phase_id 또는 plan_05-get tool의 id에서 얻은 기존 Phase ID입니다.",
+                  "type": "string"
+                },
+                "name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 비어 있지 않은 대체 Phase 이름입니다."
+                },
+                "description": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 대체 설명입니다. 비어 있으면 지웁니다."
+                },
+                "file_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다. [] 또는 \"\"는 연결 해제, 생략/null은 유지입니다."
+                },
+                "status": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "pending",
+                        "running",
+                        "paused",
+                        "completed",
+                        "failed",
+                        "blocked"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
+                },
+                "depends_on": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
+                      "properties": {
+                        "add": {
+                          "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "remove": {
+                          "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Phase ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 충돌하거나 유효하지 않은 문자열 항목은 보고하고 건너뜁니다. 잘못된 타입은 요청 전체를 거부합니다."
+                },
+                "previous_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "이전 Phase ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
                 }
               },
+              "required": [
+                "target",
+                "phase_id"
+              ],
               "type": "object"
             },
             {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Phase ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 충돌하거나 유효하지 않은 문자열 항목은 보고하고 건너뜁니다. 잘못된 타입은 요청 전체를 거부합니다."
-        },
-        "previous_id": {
-          "anyOf": [
-            {
-              "type": "string"
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "plan",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
+                },
+                "plan_id": {
+                  "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다.",
+                  "type": "string"
+                },
+                "goal": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 비어 있지 않은 대체 전체 목표입니다."
+                },
+                "phase_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 기존 Phase ID입니다. 비어 있으면 Phase 소속을 해제하고, 생략/null이면 유지합니다."
+                },
+                "scene_ids": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열로 교체합니다. []이면 비우고 생략/null이면 유지합니다."
+                },
+                "holon_ids": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 대체 Plan Holon 대상 배열입니다. []이면 비우고 생략/null이면 유지합니다."
+                },
+                "expected_revision": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
+                },
+                "depends_on": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
+                      "properties": {
+                        "add": {
+                          "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "remove": {
+                          "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다."
+                },
+                "status": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "pending",
+                        "running",
+                        "paused",
+                        "completed",
+                        "failed",
+                        "blocked"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. completed는 사용자의 완료 결정 후 지정합니다. 생략/null은 유지입니다."
+                },
+                "artifact_refs": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 대체 산출물 참조 문자열 배열입니다. []이면 비우고 생략/null이면 유지합니다."
+                },
+                "title": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 비어 있지 않은 대체 짧은 제목입니다."
+                },
+                "previous_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "이전 Plan ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
+                },
+                "parent_plan": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
+                },
+                "child_plan": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
+                },
+                "loop_no": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
+                }
+              },
+              "required": [
+                "target",
+                "plan_id"
+              ],
+              "type": "object"
             },
             {
-              "type": "null"
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "const": "step",
+                  "description": "작업할 대상 종류입니다.",
+                  "type": "string"
+                },
+                "plan_id": {
+                  "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다.",
+                  "type": "string"
+                },
+                "step_id": {
+                  "description": "선택한 Plan의 상세 결과에서 얻은 Step ID입니다. 해당 Plan ID와 함께 사용합니다.",
+                  "type": "string"
+                },
+                "status": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "pending",
+                        "running",
+                        "paused",
+                        "completed",
+                        "failed",
+                        "blocked"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
+                },
+                "input_refs": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
+                      "properties": {
+                        "add": {
+                          "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "remove": {
+                          "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다."
+                },
+                "output_refs": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
+                      "properties": {
+                        "add": {
+                          "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "remove": {
+                          "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "출력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. [] 형식의 전체 교체 배열은 허용하지 않습니다."
+                },
+                "expected_revision": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
+                },
+                "loop_no": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
+                }
+              },
+              "required": [
+                "target",
+                "plan_id",
+                "step_id"
+              ],
+              "type": "object"
             }
           ],
-          "default": null,
-          "description": "이전 Phase ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
+          "description": "target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step은 상태와 문자열 목록 패치로 기록을 갱신합니다."
         }
       },
       "required": [
-        "phase_id"
+        "request"
       ],
       "type": "object"
     },
@@ -9734,7 +10247,7 @@
               },
               "changed": {
                 "type": "boolean",
-                "description": "실제 저장 변경 여부. status=success여도 false일 수 있음"
+                "description": "실제 저장 값이 변경되었는지 나타냅니다. success여도 false일 수 있습니다."
               },
               "phase": {
                 "type": "object",
@@ -9789,460 +10302,6 @@
               "next_step_guide": {
                 "type": "string",
                 "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
-              }
-            }
-          }
-        }
-      },
-      "required": [
-        "result"
-      ],
-      "x-fastmcp-wrap-result": true
-    },
-    "annotations": null
-  },
-  "plan_12-update": {
-    "name": "plan_12-update",
-    "inputSchema": {
-      "additionalProperties": false,
-      "properties": {
-        "plan_id": {
-          "type": "string",
-          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
-        },
-        "goal": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 비어 있지 않은 대체 전체 목표입니다."
-        },
-        "phase_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 기존 Phase ID입니다. 비어 있으면 Phase 소속을 해제하고, 생략/null이면 유지합니다."
-        },
-        "scene_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열로 교체합니다. []이면 비우고 생략/null이면 유지합니다."
-        },
-        "holon_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 대체 Plan Holon 대상 배열입니다. []이면 비우고 생략/null이면 유지합니다."
-        },
-        "expected_revision": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
-        },
-        "depends_on": {
-          "anyOf": [
-            {
-              "additionalProperties": false,
-              "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
-              "properties": {
-                "add": {
-                  "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                "remove": {
-                  "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                }
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다."
-        },
-        "status": {
-          "anyOf": [
-            {
-              "enum": [
-                "pending",
-                "running",
-                "paused",
-                "completed",
-                "failed",
-                "blocked"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. completed는 사용자의 완료 결정 후 지정합니다. 생략/null은 유지입니다."
-        },
-        "artifact_refs": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 대체 산출물 참조 문자열 배열입니다. []이면 비우고 생략/null이면 유지합니다."
-        },
-        "title": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 비어 있지 않은 대체 짧은 제목입니다."
-        },
-        "previous_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "이전 Plan ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
-        },
-        "parent_plan": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
-        },
-        "child_plan": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
-        },
-        "loop_no": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
-        }
-      },
-      "required": [
-        "plan_id"
-      ],
-      "type": "object"
-    },
-    "outputSchema": {
-      "type": "object",
-      "properties": {
-        "result": {
-          "type": "string",
-          "contentMediaType": "application/json",
-          "contentSchema": {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string",
-                "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
-              },
-              "changed": {
-                "type": "boolean",
-                "description": "실제 변경일 때만 리비전 하나 생성. success여도 false일 수 있음"
-              },
-              "plan": {
-                "type": "object",
-                "properties": {
-                  "plan_id": {
-                    "type": "string",
-                    "description": "Plan ID"
-                  },
-                  "status": {
-                    "type": "string",
-                    "description": "업무 상태입니다. pending, running, paused, completed, failed, blocked 중 하나입니다."
-                  },
-                  "loop_no": {
-                    "type": "integer",
-                    "description": "Loop 회차 번호"
-                  },
-                  "revision": {
-                    "type": "integer",
-                    "description": "다음 수정의 선택적 expected_revision 값. loop_no도 함께 사용"
-                  }
-                },
-                "description": "수정한 Plan의 확인 정보입니다."
-              },
-              "issues": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "field": {
-                      "type": "string",
-                      "description": "문제가 있는 입력 필드입니다."
-                    },
-                    "operation": {
-                      "type": "string",
-                      "description": "add 또는 remove입니다."
-                    },
-                    "index": {
-                      "type": "integer",
-                      "description": "해당 배열에서의 0부터 시작하는 위치입니다."
-                    },
-                    "value": {
-                      "description": "요청한 값입니다."
-                    },
-                    "reason": {
-                      "type": "string",
-                      "description": "건너뛴 이유입니다."
-                    }
-                  }
-                },
-                "description": "적용하지 못한 패치 항목입니다. 나머지 항목은 적용되었을 수 있습니다."
-              },
-              "message": {
-                "type": "string",
-                "description": "현재 결과 또는 오류의 설명입니다."
-              },
-              "error_code": {
-                "type": "string",
-                "description": "오류 유형입니다."
-              },
-              "next_step_guide": {
-                "type": "string",
-                "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
-              }
-            }
-          }
-        }
-      },
-      "required": [
-        "result"
-      ],
-      "x-fastmcp-wrap-result": true
-    },
-    "annotations": null
-  },
-  "plan_13-update_step": {
-    "name": "plan_13-update_step",
-    "inputSchema": {
-      "additionalProperties": false,
-      "properties": {
-        "plan_id": {
-          "type": "string",
-          "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
-        },
-        "step_id": {
-          "type": "string",
-          "description": "선택한 Plan의 상세 결과에서 얻은 Step ID입니다. 해당 Plan ID와 함께 사용합니다."
-        },
-        "status": {
-          "anyOf": [
-            {
-              "enum": [
-                "pending",
-                "running",
-                "paused",
-                "completed",
-                "failed",
-                "blocked"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
-        },
-        "input_refs": {
-          "anyOf": [
-            {
-              "additionalProperties": false,
-              "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
-              "properties": {
-                "add": {
-                  "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                "remove": {
-                  "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                }
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다."
-        },
-        "output_refs": {
-          "anyOf": [
-            {
-              "additionalProperties": false,
-              "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
-              "properties": {
-                "add": {
-                  "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                "remove": {
-                  "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                }
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "출력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. [] 형식의 전체 교체 배열은 허용하지 않습니다."
-        },
-        "expected_revision": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
-        },
-        "loop_no": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
-        }
-      },
-      "required": [
-        "plan_id",
-        "step_id"
-      ],
-      "type": "object"
-    },
-    "outputSchema": {
-      "type": "object",
-      "properties": {
-        "result": {
-          "type": "string",
-          "contentMediaType": "application/json",
-          "contentSchema": {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string",
-                "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
-              },
-              "changed": {
-                "type": "boolean",
-                "description": "실제 변경일 때만 Plan 리비전 하나 생성. success여도 false일 수 있음"
               },
               "plan": {
                 "type": "object",
@@ -10264,35 +10323,7 @@
                     "description": "다음 수정의 선택적 expected_revision 값. loop_no도 함께 사용"
                   }
                 },
-                "description": "수정한 Step이 속한 Plan의 확인 정보입니다."
-              },
-              "issues": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "field": {
-                      "type": "string",
-                      "description": "문제가 있는 입력 필드입니다."
-                    },
-                    "operation": {
-                      "type": "string",
-                      "description": "add 또는 remove입니다."
-                    },
-                    "index": {
-                      "type": "integer",
-                      "description": "해당 배열에서의 0부터 시작하는 위치입니다."
-                    },
-                    "value": {
-                      "description": "요청한 값입니다."
-                    },
-                    "reason": {
-                      "type": "string",
-                      "description": "건너뛴 이유입니다."
-                    }
-                  }
-                },
-                "description": "적용하지 못한 패치 항목입니다. 나머지 항목은 적용되었을 수 있습니다."
+                "description": "Plan 수정 또는 소속 Step 수정 후의 Plan 확인 정보입니다."
               },
               "step": {
                 "type": "object",
@@ -10311,18 +10342,6 @@
                   }
                 },
                 "description": "수정한 Step의 확인 정보입니다."
-              },
-              "message": {
-                "type": "string",
-                "description": "현재 결과 또는 오류의 설명입니다."
-              },
-              "error_code": {
-                "type": "string",
-                "description": "오류 유형입니다."
-              },
-              "next_step_guide": {
-                "type": "string",
-                "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
               }
             }
           }

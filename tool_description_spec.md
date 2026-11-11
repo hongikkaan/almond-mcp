@@ -27,9 +27,9 @@
 
 ## 문서 기준
 
-- 이 문서는 beyond·CoS 외부 연결 경로의 공개 도구 **90개**(공통 85개 + 연결 관리 5개)를 다룹니다. `tools/list`의 도구명·DESCRIPTION·inputSchema와 대조합니다. 독립 Python 서버는 실행기 도구 없이 79개를 공개합니다.
+- 이 문서는 beyond·CoS 외부 연결 경로의 공개 도구 **86개**(공통 81개 + 연결 관리 5개)를 다룹니다. `tools/list`의 도구명·DESCRIPTION·inputSchema와 대조합니다. 독립 Python 서버는 실행기 도구 없이 75개를 공개합니다.
 - 출력 타입·필드 설명은 [공개 출력 계약](src/mcp/output_contracts.py)에 있으며 실제 `tools/list`의 outputSchema로 노출됩니다. 각 항목의 `근거`는 반환 구현을 확인할 소스입니다.
-- DESCRIPTION은 도구를 선택할 때 필요한 역할과 핵심 조건을 설명합니다.
+- DESCRIPTION은 도구를 선택할 때 필요한 역할과 핵심 조건을 설명합니다. 계획 CRUD 네 도구는 단일 request 안의 target으로 대상을 선택합니다. create는 phase/plan, get/list/update는 phase/plan/step을 지원하며 Step은 Plan 생성 시 템플릿에서 자동 생성합니다.
 - TOOL INPUT은 실제 공개 schema입니다. 변수명·타입·선택지·입력 설명을 확인합니다.
 - TOOL OUTPUT은 현재 반환 구현에 따른 예시이며 Rhino 실측 응답이 아닙니다. 별도 표시가 없으면 일부 필드를 발췌했습니다. 이름·ID·수치·경로는 예시 값이며 `…`는 문서상 생략입니다. 고정 안내문은 서버 원문을 사용하고, `//` 뒤의 한국어 설명은 응답에 없는 문서용 주석입니다.
 - 예시는 도구 결과의 JSON 본문을 보여 줍니다. JSON 문자열을 반환하는 도구는 outputSchema의 properties.result.contentSchema가 그 본문을 설명합니다. 객체를 직접 반환하는 도구는 outputSchema 자체를 따르며, 이미지 도구는 MCP 이미지 콘텐츠도 함께 반환할 수 있습니다.
@@ -125,7 +125,7 @@
   "pid": 1234, // Rhino 프로세스 ID
   "artifact_dir": "C:\\Example\\.almond\\tmp\\python\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 이 연결의 임시 작업 폴더입니다.
   "in_flight": false, // 해당 연결에 호출이 진행 중인지 여부
-  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 context_04-get_project_info tool, 기존 작업은 plan_08-list tool로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 context_04-get_project_info tool, 기존 작업은 plan_08-list tool의 request에 target='plan'을 넣어 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -181,7 +181,7 @@
   "artifact_dir": "C:\\Example\\.almond\\tmp\\python\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 이 연결의 임시 작업 폴더입니다.
   "in_flight": false, // 해당 연결에 호출이 진행 중인지 여부
   "request_id": "example-start", // 동일 시작 시도에 재사용. 대기·실패 상태는 list_connections.starts에서 확인
-  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 context_04-get_project_info tool, 기존 작업은 plan_08-list tool로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 context_04-get_project_info tool, 기존 작업은 plan_08-list tool의 request에 target='plan'을 넣어 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -385,7 +385,7 @@ sections=["project", "locations"], include_ids=true이고 아직 작업할 Plan�
     "path_rule": "Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths.",
     "artifact_rule": "Select a Plan with plan_10-set_working tool; managed outputs use its current Loop folder .almond/produced/YYMMDD_name/01, /02, etc.; before plan_03-execute_looping tool they use the Plan root."
   },
-  "next_step_guide": "- plan_08-list tool으로 프로젝트 진행상황 파악합니다.\n- 산출물 작업 공간은 plan_10-set_working tool으로 선택합니다.\n- 객체 상태가 필요하면 inspect_02-get_objects tool로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "- plan_08-list tool에 request.target='plan'으로 프로젝트 진행상황을 조회합니다.\n- 산출물 작업 공간은 plan_10-set_working tool으로 선택합니다.\n- 객체 상태가 필요하면 inspect_02-get_objects tool로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -429,114 +429,110 @@ Almond 작업에 필요한 지침을 조회합니다.
 
 ### TOOL OUTPUT
 
-현재 stdio 응답(본문 전체·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+현재 코드 응답(본문 전체·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
-policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답을 수록했으며, tools는 체크아웃의 공통 도구 목록입니다. Rhino 실행 검증 결과는 아닙니다.
+policy를 생략한 basic 응답입니다. 현재 코드의 read_policy 응답을 수록했으며, tools는 체크아웃의 공통 도구 목록입니다. Rhino 실행 검증 결과는 아닙니다.
 
 ```jsonc
 {
-  "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "guide_version": "767850f8fd5663ff86682455ee602063d9b2b5d23623603505d4eb07fc5d57ba", // 지침 버전을 비교하는 해시입니다.
-  "selected_policy": "basic", // 선택한 policy 이름입니다.
-  "available_policies": { // 선택 가능한 policy 이름과 설명입니다.
+  "status": "success",
+  "guide_version": "a85148a33d476eb0edb928ef215f30b447f2feddd2126cf97e741e882eb0413e",
+  "selected_policy": "basic",
+  "available_policies": {
     "basic": "건축 설계·모델링·도면 검증 지침과 공통 도구 목록",
     "metadata": "객체·그룹 메타데이터 키, 레이어·재료 기록 규칙",
     "rhino_scripting": "Rhino 스크립트 작성과 API 참고 자료",
     "rhinocode": "RhinoCode 코드·Rhino 커맨드 실행과 결과 확인"
   },
-  "text": "---\nname: rhino-almond\ndescription: \"Architectural judgment for developing existing designs with Almond MCP in Rhino.\"\n---\n\n# Rhino Almond\nAlmond MCP를 사용해 Rhino로 건축 설계를 develop한다. \n\n**Attitude**\n 설계 내용의 충돌은, 현재 설계 의도와 작업 목적을 기준으로 하여 주체적으로 추론·고찰하여 필요한 부분을 정합한다. \n 판단한 방향이 사용자의 지시나 설계 방향과 충돌하면, 차이가 생긴 구체적 근거와 선택의 영향을 사용자에게 설명하며 논의를 요청해 작업 방향을 사용자 주도 하에 align한다.\n\n## 작업 최초 실행 시\n1. 프로젝트 기본 구조를 `projct_info`실행해서 파악\n2. 작업 하다가 `get_rhino_context`를 사용하여 작업 중의 맥락 파악\n \n### Scene·ontological-holon\n\nScene은 행태·프로그램·장면의 맥락이고, ontological-holon는 그 장면을 가능하게 하는 건축 요소와 의미의 묶음이다. ontological-holon는 여러 Scene에 포함될 수 있다.\n\n#### Scene\n\nScene은 특정 공간에서 일어나는 **행태·프로그램·장면·가치**다. 파일 전체를 Scene 하나로 치환하지 않는다.\n\n#### ontological-holon\n\nontological-holon는 **건축 요소와, 그 요소들이 함께 가능하게 하는 사용·행태·구조적 역할을 묶은 의미 단위**다.\n-  무엇을 만들었는지와 그 묶음이 무엇을 가능하게 하는지를 함께 설명할 수 있어야 하며, 객체 종류·재료·거리만으로 경계를 정하지 않는다. \n\n##### 예시\n1. 마루와 계단참\n\n![마루·계단참·지지 구조·가구의 공간 관계](features/guidance/guides/references/assets/resident-porch.png)\n\n작은 계단참과 마루에서 사람들이 머물고 교류하는 행태가 Scene이다. 그 Scene을 이루는 ontological-holon는 다음처럼 **실물 구성과 그것이 가능하게 하는 것**을 함께 갖는다.\n\n| ontological-holon | 함께 구성하는 요소와 의미 |\n|---|---|\n| 마루 위 공간을 지지하는 구조 | 기둥·보 여러 개가 함께 위에서 오는 하중을 지지한다. 기둥마다 따로 등록하지 않는다. |\n| 사람들이 걸터앉는 마루·계단참 | 지지 콘크리트와 마루 마감이 함께 단차와 앉을 자리를 만든다. 마루라는 실물이면서 걸터앉을 수 있게 하는 장치다. 공유 바닥슬래브 전체를 포함할 필요는 없다. |\n| 마루에서 바둑 두는 가구 묶음 | 방석·낮은 탁자·바둑판·바둑알과 통·시계 등이 함께 앉아서 바둑 두는 행위를 가능하게 하고 유도한다. 가구 하나씩 나누지 않고, 그 행위와 사용 관계로 묶는다. |\n\n2. 지붕과 우수관\n\n![지붕과 우수관](features/guidance/guides/references/assets/roof-drainage.png)\n\n지붕의 의미에는 덮는 역할과 함께 집수·배수가 이어진다. 우수관이 여러 층을 지나거나 기둥 속 콘크리트에 매립돼 있어도 그 역할이 이어지므로 지붕 ontological-holon에 포함한다. 지붕 안의 구축 시스템과 우수관 element들은 일반 group으로 나눠 관리할 수 있다. **물리적으로 떨어져 있어도 하나의 역할을 이루면 같은 ontological-holon가 될 수 있다.** 두 사례의 [사용자 설명 원문과 사진](features/guidance/guides/references/component-feedback.md)은 별도로 보존한다.\n\n## 모델링\n\n### 건축물을 모델로 다루기\n\n건축 모델링은 공간을 이루는 물질적 구성을 설계하고 구체화하는 일이다. 모델에서 부재와 재료가 차지하는 부분, 그 사이에 생기는 공간, 공간을 연결하거나 나누는 경계를 함께 읽는다. 형상의 크기·두께·방향·배치는 사람이 머물고 움직이는 방식과 빛·시선·환경을 받아들이는 조건을 만든다. 형상을 수정할 때는 그 변화가 어떤 공간과 사용을 가능하게 하고 무엇을 어렵게 하는지 판단한다.\n\n모델의 요소는 건축물 안에서 서로 역할을 주고받는다. 한 요소가 여러 공간을 형성하거나 다른 요소를 지지할 수 있고, 떨어진 요소들이 하나의 기능을 함께 수행할 수도 있다. 따라서 요소의 이름이나 현재 묶음만으로 역할을 확정하지 않고, 어디에 놓여 무엇과 연결되며 어떤 구성에 참여하는지 해석한다. 과업의 규모에 따라 이 관계를 실내에서 건축물 전체와 주변 환경까지 연결해 이해한다.\n\nRhino 객체는 이 건축을 표현하는 편집 단위다. 하나의 실물 부재가 여러 객체로 나뉘거나 하나의 객체가 복합적인 구성을 단순화해 나타낼 수 있다. 모델을 읽을 때는 형상이 무엇을 나타내는지와 실제로 어느 정도까지 구체화돼 있는지를 구별한다. 분할된 객체 사이의 경계와 실물의 이음, 모델에 생긴 빈틈과 의도한 공간은 그 의미를 확인해야 구분할 수 있다.\n\n### 텍토닉: 재료와 구성, 접합\n\n텍토닉은 재료의 성질과 부재의 구성·결합이 건축의 공간과 표현을 성립시키는 방식이다. 재료의 물성과 가공 방식, 부재를 만들고 조립하는 순서는 가능한 형상·치수·접합을 제약한다. 요소를 이해할 때는 이 조건 속에서 부재가 무엇을 받치거나 감싸며, 힘과 기능이 다른 요소로 어떻게 이어지는지 읽는다. 실제 역할과 만드는 방식이 부재의 구분과 연결을 판단하는 근거다.\n\n접합부에는 요소 사이의 의존 관계가 드러난다. 연속돼야 할 부분, 힘이나 기능을 넘겨받는 부분, 서로 움직이거나 교체할 수 있도록 분리할 부분은 서로 다른 구성을 요구한다. 맞닿음·겹침·틈은 이 관계를 표현하는 기하 상태이므로, 각각이 재료·시공·사용 조건에 맞는지 판단한다. 모델에서 면이 맞거나 솔리드가 닫혔다는 사실과, 실제로 조립되고 역할을 수행할 수 있다는 판단은 별도의 근거를 갖는다.\n\n공간과 구축은 함께 발전한다. 부재의 위치와 깊이, 재료의 두께, 접합과 지지 방식은 공간의 여유·개방감·경계의 성질을 바꾸고, 원하는 공간은 다시 구성 방식의 선택에 영향을 준다. 현재 설계 단계에서 판단하려는 내용에 맞춰 형상을 구체화한다. 단순화한 표현으로 남긴 구성과 실제 상세를 결정한 부분을 구별하고, 상세를 추가할 때는 전체 구성과의 관계를 이어 간다.\n\n#### 구축 시스템과 표현 단계\n\nLayer는 `건축 유형 → 구축 시스템 → 구성 요소 역할`의 위계로 구성됩니다. 시스템이 미정일 때는 유형 Layer를, 시스템이 정해진 단순 모델에는 시스템 Layer를, 부재·마감을 구체화할 때는 요소 역할 Layer를 사용합니다. 시스템과 요소 Layer에는 각각 기본 Material과 표시·출력 색이 설정됩니다.\n\n실제 경로는 `M::유형::시스템명::요소역할`이다. 구축 상세를 적용할 대상이 이미 시스템 Layer에 있으면 그 시스템을 출발점으로 자료와 실제 구성을 대조한다. 유형 Layer에만 있으면 시스템은 미정이므로 적합한 시스템을 조사·구상하고 대안을 사용자와 논의한 뒤 적용한다. 대안을 모두 모델링해 놓고 사후 선택을 요구하지 않는다.\n\n시스템의 요소 역할·재료·간격·초기 치수·구성 메모는 모델의 지지·경계·접합 및 주변 조건과 대조한다. Layer 이름은 이런 조건의 검증 결과가 아니다. 합의한 부재·마감을 기존 요소 역할 Layer에 배치한다. 하나의 구축 구성을 함께 조립·편집할 수 있도록 group으로 묶는 것을 권장한다. 라이브러리 자료는 초기 설계 참고이며 검증된 시공 상세로 취급하지 않는다.\n\n\n### 객체들의 묶음 단위 유형\n\n함께 다룰 구성과 변경을 공유할 범위에 따라 group과 block을 선택·조합한다. Group은 개별 객체와 재귀적 묶음을 유지하고, group 자체는 복사본 사이에 변경을 전파하지 않는다. 한 객체가 여러 group에 속할 수 있으므로 중첩과 멤버 중복을 구분한다. Block은 definition을 공유하는 instance의 배치로, 각 배치의 위치·회전·축척은 개별적이고 정의 변경은 공유 배치에 반영된다. 일부 배치의 구성만 달라져야 하면 정의를 분리한다. 중첩 block은 보존되지만 일반 group의 묶음 관계는 block definition 내부에 보존되지 않으며, 바깥 group을 복사해도 내부 block은 정의를 공유한다. 묶음을 전환·해체·재조립할 때는 개별화할 형상과 남길 하위 구성, 변경이 전파될 배치를 구분한다.\n\n#### BlockEditNew에서 편집 범위를 다루기\n\nBlockEditNew에서는 뷰포트에서 선택한 group이나 block instance를 열고, 중첩 구성의 필요한 단계로 들어가 편집한다. Group 편집은 묶음의 구성원들을 다루는 작업이고, block 편집은 선택한 배치를 통해 공유 정의의 내용을 고치는 작업이다. Block을 열었을 때 화면에서 선택 가능한 작업 객체는 저장된 definition 내부 객체와 같은 식별 대상이 아니다. 정의 내부 GUID와 현재 편집 객체의 ID를 구분하고, 편집 진입·완료·재구성 뒤에는 대상을 다시 조회한다. 정의와 배치 변환은 이때 어떤 구성과 위치를 편집하는지 연결하는 근거가 된다.\n\n격리된 부분에서는 부재의 형상과 내부 구성을 읽기 쉽고, 그 부분이 전체에서 맡는 역할은 주변 관계 속에서 판단할 수 있다. 검토할 관계에 맞춰 편집 깊이와 관찰 범위를 선택하고, 부분의 변경이 끝나면 영향을 받는 상위 구성과 공유 배치에서 결과를 확인한다. 중첩 단계 밖의 선택·표시 상태를 임의로 재설정해 현재 편집 맥락을 잃지 않도록 한다.\n\n### 모델링 검수\n\n관찰·검수용 이미지를 만들기 위해 원본 모델을 별도 위치에 복사하거나, 실제 모델의 수정·검수 대신 이미지에 형상을 덧그리지 않는다.\n\n검수는 바뀐 모델이 해결하려던 설계 문제를 해결했는지, 의도한 공간과 구축을 성립시키는지 판단하는 과정이다. 수정한 형상에서 출발해 그 요소의 역할, 접합과 연속, 영향을 받은 공간과 다른 요소로 판단을 이어 간다. 국소적인 형상 개선이 주변의 사용이나 구성에 새로운 문제를 만들었는지도 살핀다.\n\n무엇을 판단할지에 따라 관찰 방법을 정한다. 전체 배치와 공간 관계, 부재의 연결, 가려진 내부 구성은 필요한 관찰 범위와 시점이 다르다. 판단에 필요한 요소들이 함께 드러나도록 화면을 구성하고 실제 이미지를 읽는다. 격리한 화면이 보여 주는 관계와 제외한 관계를 구분하며, 잘린 요소나 빠진 주변 구성 때문에 판단 근거가 달라지지 않는지 확인한다.\n\n시각적으로 읽은 내용은 그 판단에 필요한 형상과 치수로 대조한다. 부재 전체의 연속성을 판단하려면 그 부재를 이루는 객체들의 관계를, 접합을 판단하려면 맞물리는 요소의 실제 형상과 구성을 확인한다. 수치상 교차·간격이나 객체별 유효성은 해당 질문의 근거로 해석한다. 검사를 통과한 항목만으로 아직 보지 않은 관계까지 성립한다고 확대하지 않는다.\n\n의미 있는 편집 묶음이 끝나면 결과를 사용자의 목표와 보존 조건에 대조해 추가 개입이 필요한지 판단한다. 요청된 결과가 성립하고 관련 보존 조건을 확인했으면 해당 작업을 완료한다. 불일치나 판단에 필요한 미확인이 남아 있으면 이를 해소할 관찰·검증·수정으로 이어간다. 변경으로 새롭게 드러난 문제가 작업 범위를 넘으면 근거와 영향을 설명하고 별도 제안으로 다룬다.\n\n확인한 사실, 설계 의도에 대한 해석, 가정과 미확인 사항을 구분한다. 실행 성공과 형상의 유효성, 공간·구축의 적합성, 사용자 요청의 완료는 각각의 근거로 판단하며 미검사 범위와 남은 문제를 보고한다.\n\n## Drafting\n\n도면은 건축 요소의 표현이자 공간의 구성과 사용을 구상하고 전달하는 설계 도구다. 도면을 읽을 때는 그려진 형상과 표현을 파악하는 동시에, 그 구성이 만들어 내는 공간과 경험, 사람들이 그 안에서 맺는 관계를 이해한다.\n\n### 도면을 공간과 의미로 읽기\n\n도면의 요소를 독립된 객체나 선의 집합으로만 보지 않는다. 요소들이 함께 형성하는 공간적 관계와 그 관계가 가능하게 하는 사용·행태·경험을 읽는다. 하나의 요소가 여러 공간과 역할에 걸쳐 작용할 수 있음을 고려하고, 물리적으로 떨어진 요소도 하나의 사용이나 역할을 함께 이룰 수 있음을 살핀다.\n\n공간의 의미는 실의 명칭이나 도면 기호만으로 결정되지 않는다. 공간의 구성과 주변 관계를 바탕으로 그곳에서 일어날 수 있는 행태를 구상하고, 그 행태가 공간과 건축 요소에 의해 어떻게 뒷받침되는지 판단한다.\n\n평면·단면·입면은 같은 건축을 서로 다른 관점에서 보여 준다. 하나의 도면에서 읽은 관계를 다른 도면이나 모델과 연결해 이해하고, 확인할 수 없는 사항은 추론의 범위와 함께 구분한다.\n\n#### 행태와 공간 경험\n\n공간을 구상하고 검토할 때 사람이 그곳을 어떻게 경험하고 이용할지 생각한다. 공간의 크기나 형태뿐 아니라 공간 사이의 연결과 전이, 경계와 개방, 이용의 가능성과 제약을 함께 이해한다.\n\n사람의 행태는 고정된 하나의 장면이 아니다. 공간은 이용자와 상황에 따라 다르게 사용될 수 있으며, 그 변화가 공간 구성과 어떤 관계를 맺는지 살핀다. 설계가 어떤 경험을 유도하고 무엇을 선택할 수 있게 하는지, 또는 어떤 이용을 어렵게 하는지 판단한다.\n\n도면에 표현된 행태를 그대로 받아들이는 데 그치지 않고, 실제 공간에서 가능한 관계인지 검토한다. 도면만으로 확인할 수 없는 이용 조건은 필요한 자료와 시점을 통해 보완한다.\n\n#### 공간의 규모와 사회적 관계\n\n도면을 개별 실과 건축 요소에서 시작해 더 넓은 공간적 맥락과 연결해 읽는다. 과업의 규모와 목적에 따라 개인의 생활, 공동체의 관계, 거리와 도시, 사회적 가치까지 건축적 판단의 범위에 포함한다.\n\n사람과 사람, 개인과 공동체, 건축과 주변 환경의 관계가 공간을 통해 어떻게 형성되는지 고찰한다. 공간적 구성과 사회적 가치 사이의 관계를 살피되, 도면만으로 확정할 수 없는 운영이나 사회적 효과는 해석과 제안으로 구분한다.\n\n### 설계와 도면의 발전\n\n도면 작업에서는 사용자의 의도와 설계 방향을 바탕으로 공간을 발전시키고, 그 결과가 도면에 정확하게 반영되도록 한다. 피드백이 특정 요소를 가리키더라도 그것이 놓인 공간과 주변 관계를 함께 이해한다.\n\n평면을 수정하거나 새롭게 구성할 때는 도면상 형상의 변화가 실제 공간의 사용과 경험에 어떤 영향을 주는지 판단한다. 설계 과정에서 발견한 관계와 문제를 도면의 구성에 반영하고, 변경에 따라 함께 달라져야 할 사항을 정합한다.\n\n확인된 조건을 바탕으로 전문적으로 판단하되, 사용자의 의도나 중요한 설계 선택이 불확실하면 그 불확실성과 선택의 영향을 분명히 설명한다.\n\n작업의 목적과 대상, 설계 단계, 사용자의 결정과 조건을 파악한다. 현재 도면과 관련 스케치·피드백을 함께 읽고 공간의 구성과 맥락을 이해한다.\n\n실제 도면 이미지를 보며 공간의 구성과 사용 관계를 검토한다. 그려진 요소가 의도한 공간과 행태를 뒷받침하는지, 도면이 설계의 관계를 정확하게 전달하는지 확인한다.\n\n시각적으로 읽은 내용은 필요한 형상과 치수로 대조한다. 평면에서 확인하기 어려운 사항은 단면·입면·모델을 함께 살피고, 수정한 부분과 그 영향을 받는 공간을 다시 검토한다. 지정된 Named View가 있으면 검수에 활용한다.\n\n도면에서 확인한 사실과 그에 대한 해석, 설계상 가정과 미확인 사항을 구분한다.\n\n벽·문·가구·동선·프로그램 관계를 촘촘히 검토한 과거 과정의 참고 이미지가 필요하면 [Bonsai 평면 개요](features/guidance/guides/Bonsai-FloorPlan-overview.png)를 확인하되, 이를 최신 공간 결정이나 완성 도면 원본으로 사용하지 않는다.\n\n### 도면의 작성과 관리\n먼저 도면으로 무엇을 보여주고 어떤 판단을 돕는지 정하고, 그 목적에 필요한 범위와 축척을 선택한다. 선·면·색·두께의 위계가 전달할 관계를 드러내도록 구성하며, 주변 맥락을 포함하느라 핵심 대상이 읽히지 않으면 범위를 조절하거나 별도 도면으로 나눈다.", // 선택한 policy의 지침 본문입니다.
-  "source_refs": [ // 선택한 지침의 출처 파일과 해시입니다.
+  "text": "---\nname: rhino-almond\ndescription: \"Architectural judgment for developing existing designs with Almond MCP in Rhino.\"\n---\n\n# Rhino Almond\nAlmond MCP를 사용해 Rhino로 건축 설계를 develop한다. \n\n**Attitude**\n 설계 내용의 충돌은, 현재 설계 의도와 작업 목적을 기준으로 하여 주체적으로 추론·고찰하여 필요한 부분을 정합한다. \n 판단한 방향이 사용자의 지시나 설계 방향과 충돌하면, 차이가 생긴 구체적 근거와 선택의 영향을 사용자에게 설명하며 논의를 요청해 작업 방향을 사용자 주도 하에 align한다.\n\n## 작업 최초 실행 시\n1. 프로젝트 기본 구조를 `projct_info`실행해서 파악\n2. 작업 하다가 `inspect_03-get_document_context` tool를 사용하여 작업 중의 맥락 파악\n \n### Scene·ontological-holon\n\nScene은 행태·프로그램·장면의 맥락이고, ontological-holon는 그 장면을 가능하게 하는 건축 요소와 의미의 묶음이다. ontological-holon는 여러 Scene에 포함될 수 있다.\n\n#### Scene\n\nScene은 특정 공간에서 일어나는 **행태·프로그램·장면·가치**다. 파일 전체를 Scene 하나로 치환하지 않는다.\n\n#### ontological-holon\n\nontological-holon는 **건축 요소와, 그 요소들이 함께 가능하게 하는 사용·행태·구조적 역할을 묶은 의미 단위**다.\n-  무엇을 만들었는지와 그 묶음이 무엇을 가능하게 하는지를 함께 설명할 수 있어야 하며, 객체 종류·재료·거리만으로 경계를 정하지 않는다. \n\n##### 예시\n1. 마루와 계단참\n\n![마루·계단참·지지 구조·가구의 공간 관계](features/guidance/guides/references/assets/resident-porch.png)\n\n작은 계단참과 마루에서 사람들이 머물고 교류하는 행태가 Scene이다. 그 Scene을 이루는 ontological-holon는 다음처럼 **실물 구성과 그것이 가능하게 하는 것**을 함께 갖는다.\n\n| ontological-holon | 함께 구성하는 요소와 의미 |\n|---|---|\n| 마루 위 공간을 지지하는 구조 | 기둥·보 여러 개가 함께 위에서 오는 하중을 지지한다. 기둥마다 따로 등록하지 않는다. |\n| 사람들이 걸터앉는 마루·계단참 | 지지 콘크리트와 마루 마감이 함께 단차와 앉을 자리를 만든다. 마루라는 실물이면서 걸터앉을 수 있게 하는 장치다. 공유 바닥슬래브 전체를 포함할 필요는 없다. |\n| 마루에서 바둑 두는 가구 묶음 | 방석·낮은 탁자·바둑판·바둑알과 통·시계 등이 함께 앉아서 바둑 두는 행위를 가능하게 하고 유도한다. 가구 하나씩 나누지 않고, 그 행위와 사용 관계로 묶는다. |\n\n2. 지붕과 우수관\n\n![지붕과 우수관](features/guidance/guides/references/assets/roof-drainage.png)\n\n지붕의 의미에는 덮는 역할과 함께 집수·배수가 이어진다. 우수관이 여러 층을 지나거나 기둥 속 콘크리트에 매립돼 있어도 그 역할이 이어지므로 지붕 ontological-holon에 포함한다. 지붕 안의 구축 시스템과 우수관 element들은 일반 group으로 나눠 관리할 수 있다. **물리적으로 떨어져 있어도 하나의 역할을 이루면 같은 ontological-holon가 될 수 있다.** 두 사례의 [사용자 설명 원문과 사진](features/guidance/guides/references/component-feedback.md)은 별도로 보존한다.\n\n## 모델링\n\n### 건축물을 모델로 다루기\n\n건축 모델링은 공간을 이루는 물질적 구성을 설계하고 구체화하는 일이다. 모델에서 부재와 재료가 차지하는 부분, 그 사이에 생기는 공간, 공간을 연결하거나 나누는 경계를 함께 읽는다. 형상의 크기·두께·방향·배치는 사람이 머물고 움직이는 방식과 빛·시선·환경을 받아들이는 조건을 만든다. 형상을 수정할 때는 그 변화가 어떤 공간과 사용을 가능하게 하고 무엇을 어렵게 하는지 판단한다.\n\n모델의 요소는 건축물 안에서 서로 역할을 주고받는다. 한 요소가 여러 공간을 형성하거나 다른 요소를 지지할 수 있고, 떨어진 요소들이 하나의 기능을 함께 수행할 수도 있다. 따라서 요소의 이름이나 현재 묶음만으로 역할을 확정하지 않고, 어디에 놓여 무엇과 연결되며 어떤 구성에 참여하는지 해석한다. 과업의 규모에 따라 이 관계를 실내에서 건축물 전체와 주변 환경까지 연결해 이해한다.\n\nRhino 객체는 이 건축을 표현하는 편집 단위다. 하나의 실물 부재가 여러 객체로 나뉘거나 하나의 객체가 복합적인 구성을 단순화해 나타낼 수 있다. 모델을 읽을 때는 형상이 무엇을 나타내는지와 실제로 어느 정도까지 구체화돼 있는지를 구별한다. 분할된 객체 사이의 경계와 실물의 이음, 모델에 생긴 빈틈과 의도한 공간은 그 의미를 확인해야 구분할 수 있다.\n\n### 텍토닉: 재료와 구성, 접합\n\n텍토닉은 재료의 성질과 부재의 구성·결합이 건축의 공간과 표현을 성립시키는 방식이다. 재료의 물성과 가공 방식, 부재를 만들고 조립하는 순서는 가능한 형상·치수·접합을 제약한다. 요소를 이해할 때는 이 조건 속에서 부재가 무엇을 받치거나 감싸며, 힘과 기능이 다른 요소로 어떻게 이어지는지 읽는다. 실제 역할과 만드는 방식이 부재의 구분과 연결을 판단하는 근거다.\n\n접합부에는 요소 사이의 의존 관계가 드러난다. 연속돼야 할 부분, 힘이나 기능을 넘겨받는 부분, 서로 움직이거나 교체할 수 있도록 분리할 부분은 서로 다른 구성을 요구한다. 맞닿음·겹침·틈은 이 관계를 표현하는 기하 상태이므로, 각각이 재료·시공·사용 조건에 맞는지 판단한다. 모델에서 면이 맞거나 솔리드가 닫혔다는 사실과, 실제로 조립되고 역할을 수행할 수 있다는 판단은 별도의 근거를 갖는다.\n\n공간과 구축은 함께 발전한다. 부재의 위치와 깊이, 재료의 두께, 접합과 지지 방식은 공간의 여유·개방감·경계의 성질을 바꾸고, 원하는 공간은 다시 구성 방식의 선택에 영향을 준다. 현재 설계 단계에서 판단하려는 내용에 맞춰 형상을 구체화한다. 단순화한 표현으로 남긴 구성과 실제 상세를 결정한 부분을 구별하고, 상세를 추가할 때는 전체 구성과의 관계를 이어 간다.\n\n#### 구축 시스템과 표현 단계\n\nLayer는 `건축 유형 → 구축 시스템 → 구성 요소 역할`의 위계로 구성됩니다. 시스템이 미정일 때는 유형 Layer를, 시스템이 정해진 단순 모델에는 시스템 Layer를, 부재·마감을 구체화할 때는 요소 역할 Layer를 사용합니다. 시스템과 요소 Layer에는 각각 기본 Material과 표시·출력 색이 설정됩니다.\n\n실제 경로는 `M::유형::시스템명::요소역할`이다. 구축 상세를 적용할 대상이 이미 시스템 Layer에 있으면 그 시스템을 출발점으로 자료와 실제 구성을 대조한다. 유형 Layer에만 있으면 시스템은 미정이므로 적합한 시스템을 조사·구상하고 대안을 사용자와 논의한 뒤 적용한다. 대안을 모두 모델링해 놓고 사후 선택을 요구하지 않는다.\n\n시스템의 요소 역할·재료·간격·초기 치수·구성 메모는 모델의 지지·경계·접합 및 주변 조건과 대조한다. Layer 이름은 이런 조건의 검증 결과가 아니다. 합의한 부재·마감을 기존 요소 역할 Layer에 배치한다. 하나의 구축 구성을 함께 조립·편집할 수 있도록 group으로 묶는 것을 권장한다. 라이브러리 자료는 초기 설계 참고이며 검증된 시공 상세로 취급하지 않는다.\n\n\n### 객체들의 묶음 단위 유형\n\n함께 다룰 구성과 변경을 공유할 범위에 따라 group과 block을 선택·조합한다. Group은 개별 객체와 재귀적 묶음을 유지하고, group 자체는 복사본 사이에 변경을 전파하지 않는다. 한 객체가 여러 group에 속할 수 있으므로 중첩과 멤버 중복을 구분한다. Block은 definition을 공유하는 instance의 배치로, 각 배치의 위치·회전·축척은 개별적이고 정의 변경은 공유 배치에 반영된다. 일부 배치의 구성만 달라져야 하면 정의를 분리한다. 중첩 block은 보존되지만 일반 group의 묶음 관계는 block definition 내부에 보존되지 않으며, 바깥 group을 복사해도 내부 block은 정의를 공유한다. 묶음을 전환·해체·재조립할 때는 개별화할 형상과 남길 하위 구성, 변경이 전파될 배치를 구분한다.\n\n#### BlockEditNew에서 편집 범위를 다루기\n\nBlockEditNew에서는 뷰포트에서 선택한 group이나 block instance를 열고, 중첩 구성의 필요한 단계로 들어가 편집한다. Group 편집은 묶음의 구성원들을 다루는 작업이고, block 편집은 선택한 배치를 통해 공유 정의의 내용을 고치는 작업이다. Block을 열었을 때 화면에서 선택 가능한 작업 객체는 저장된 definition 내부 객체와 같은 식별 대상이 아니다. 정의 내부 GUID와 현재 편집 객체의 ID를 구분하고, 편집 진입·완료·재구성 뒤에는 대상을 다시 조회한다. 정의와 배치 변환은 이때 어떤 구성과 위치를 편집하는지 연결하는 근거가 된다.\n\n격리된 부분에서는 부재의 형상과 내부 구성을 읽기 쉽고, 그 부분이 전체에서 맡는 역할은 주변 관계 속에서 판단할 수 있다. 검토할 관계에 맞춰 편집 깊이와 관찰 범위를 선택하고, 부분의 변경이 끝나면 영향을 받는 상위 구성과 공유 배치에서 결과를 확인한다. 중첩 단계 밖의 선택·표시 상태를 임의로 재설정해 현재 편집 맥락을 잃지 않도록 한다.\n\n### 모델링 검수\n\n관찰·검수용 이미지를 만들기 위해 원본 모델을 별도 위치에 복사하거나, 실제 모델의 수정·검수 대신 이미지에 형상을 덧그리지 않는다.\n\n검수는 바뀐 모델이 해결하려던 설계 문제를 해결했는지, 의도한 공간과 구축을 성립시키는지 판단하는 과정이다. 수정한 형상에서 출발해 그 요소의 역할, 접합과 연속, 영향을 받은 공간과 다른 요소로 판단을 이어 간다. 국소적인 형상 개선이 주변의 사용이나 구성에 새로운 문제를 만들었는지도 살핀다.\n\n무엇을 판단할지에 따라 관찰 방법을 정한다. 전체 배치와 공간 관계, 부재의 연결, 가려진 내부 구성은 필요한 관찰 범위와 시점이 다르다. 판단에 필요한 요소들이 함께 드러나도록 화면을 구성하고 실제 이미지를 읽는다. 격리한 화면이 보여 주는 관계와 제외한 관계를 구분하며, 잘린 요소나 빠진 주변 구성 때문에 판단 근거가 달라지지 않는지 확인한다.\n\n시각적으로 읽은 내용은 그 판단에 필요한 형상과 치수로 대조한다. 부재 전체의 연속성을 판단하려면 그 부재를 이루는 객체들의 관계를, 접합을 판단하려면 맞물리는 요소의 실제 형상과 구성을 확인한다. 수치상 교차·간격이나 객체별 유효성은 해당 질문의 근거로 해석한다. 검사를 통과한 항목만으로 아직 보지 않은 관계까지 성립한다고 확대하지 않는다.\n\n의미 있는 편집 묶음이 끝나면 결과를 사용자의 목표와 보존 조건에 대조해 추가 개입이 필요한지 판단한다. 요청된 결과가 성립하고 관련 보존 조건을 확인했으면 해당 작업을 완료한다. 불일치나 판단에 필요한 미확인이 남아 있으면 이를 해소할 관찰·검증·수정으로 이어간다. 변경으로 새롭게 드러난 문제가 작업 범위를 넘으면 근거와 영향을 설명하고 별도 제안으로 다룬다.\n\n확인한 사실, 설계 의도에 대한 해석, 가정과 미확인 사항을 구분한다. 실행 성공과 형상의 유효성, 공간·구축의 적합성, 사용자 요청의 완료는 각각의 근거로 판단하며 미검사 범위와 남은 문제를 보고한다.\n\n## Drafting\n\n도면은 건축 요소의 표현이자 공간의 구성과 사용을 구상하고 전달하는 설계 도구다. 도면을 읽을 때는 그려진 형상과 표현을 파악하는 동시에, 그 구성이 만들어 내는 공간과 경험, 사람들이 그 안에서 맺는 관계를 이해한다.\n\n### 도면을 공간과 의미로 읽기\n\n도면의 요소를 독립된 객체나 선의 집합으로만 보지 않는다. 요소들이 함께 형성하는 공간적 관계와 그 관계가 가능하게 하는 사용·행태·경험을 읽는다. 하나의 요소가 여러 공간과 역할에 걸쳐 작용할 수 있음을 고려하고, 물리적으로 떨어진 요소도 하나의 사용이나 역할을 함께 이룰 수 있음을 살핀다.\n\n공간의 의미는 실의 명칭이나 도면 기호만으로 결정되지 않는다. 공간의 구성과 주변 관계를 바탕으로 그곳에서 일어날 수 있는 행태를 구상하고, 그 행태가 공간과 건축 요소에 의해 어떻게 뒷받침되는지 판단한다.\n\n평면·단면·입면은 같은 건축을 서로 다른 관점에서 보여 준다. 하나의 도면에서 읽은 관계를 다른 도면이나 모델과 연결해 이해하고, 확인할 수 없는 사항은 추론의 범위와 함께 구분한다.\n\n#### 행태와 공간 경험\n\n공간을 구상하고 검토할 때 사람이 그곳을 어떻게 경험하고 이용할지 생각한다. 공간의 크기나 형태뿐 아니라 공간 사이의 연결과 전이, 경계와 개방, 이용의 가능성과 제약을 함께 이해한다.\n\n사람의 행태는 고정된 하나의 장면이 아니다. 공간은 이용자와 상황에 따라 다르게 사용될 수 있으며, 그 변화가 공간 구성과 어떤 관계를 맺는지 살핀다. 설계가 어떤 경험을 유도하고 무엇을 선택할 수 있게 하는지, 또는 어떤 이용을 어렵게 하는지 판단한다.\n\n도면에 표현된 행태를 그대로 받아들이는 데 그치지 않고, 실제 공간에서 가능한 관계인지 검토한다. 도면만으로 확인할 수 없는 이용 조건은 필요한 자료와 시점을 통해 보완한다.\n\n#### 공간의 규모와 사회적 관계\n\n도면을 개별 실과 건축 요소에서 시작해 더 넓은 공간적 맥락과 연결해 읽는다. 과업의 규모와 목적에 따라 개인의 생활, 공동체의 관계, 거리와 도시, 사회적 가치까지 건축적 판단의 범위에 포함한다.\n\n사람과 사람, 개인과 공동체, 건축과 주변 환경의 관계가 공간을 통해 어떻게 형성되는지 고찰한다. 공간적 구성과 사회적 가치 사이의 관계를 살피되, 도면만으로 확정할 수 없는 운영이나 사회적 효과는 해석과 제안으로 구분한다.\n\n### 설계와 도면의 발전\n\n도면 작업에서는 사용자의 의도와 설계 방향을 바탕으로 공간을 발전시키고, 그 결과가 도면에 정확하게 반영되도록 한다. 피드백이 특정 요소를 가리키더라도 그것이 놓인 공간과 주변 관계를 함께 이해한다.\n\n평면을 수정하거나 새롭게 구성할 때는 도면상 형상의 변화가 실제 공간의 사용과 경험에 어떤 영향을 주는지 판단한다. 설계 과정에서 발견한 관계와 문제를 도면의 구성에 반영하고, 변경에 따라 함께 달라져야 할 사항을 정합한다.\n\n확인된 조건을 바탕으로 전문적으로 판단하되, 사용자의 의도나 중요한 설계 선택이 불확실하면 그 불확실성과 선택의 영향을 분명히 설명한다.\n\n작업의 목적과 대상, 설계 단계, 사용자의 결정과 조건을 파악한다. 현재 도면과 관련 스케치·피드백을 함께 읽고 공간의 구성과 맥락을 이해한다.\n\n실제 도면 이미지를 보며 공간의 구성과 사용 관계를 검토한다. 그려진 요소가 의도한 공간과 행태를 뒷받침하는지, 도면이 설계의 관계를 정확하게 전달하는지 확인한다.\n\n시각적으로 읽은 내용은 필요한 형상과 치수로 대조한다. 평면에서 확인하기 어려운 사항은 단면·입면·모델을 함께 살피고, 수정한 부분과 그 영향을 받는 공간을 다시 검토한다. 지정된 Named View가 있으면 검수에 활용한다.\n\n도면에서 확인한 사실과 그에 대한 해석, 설계상 가정과 미확인 사항을 구분한다.\n\n벽·문·가구·동선·프로그램 관계를 촘촘히 검토한 과거 과정의 참고 이미지가 필요하면 [Bonsai 평면 개요](features/guidance/guides/Bonsai-FloorPlan-overview.png)를 확인하되, 이를 최신 공간 결정이나 완성 도면 원본으로 사용하지 않는다.\n\n### 도면의 작성과 관리\n먼저 도면으로 무엇을 보여주고 어떤 판단을 돕는지 정하고, 그 목적에 필요한 범위와 축척을 선택한다. 선·면·색·두께의 위계가 전달할 관계를 드러내도록 구성하며, 주변 맥락을 포함하느라 핵심 대상이 읽히지 않으면 범위를 조절하거나 별도 도면으로 나눈다.",
+  "source_refs": [
     {
       "path": "src/mcp/BASIC-INSTRUCTIONS.md",
-      "sha256": "6a62262f9e43e50b18be64e5af15e4ad8ffa3d847270fbedd466c3edc19435ca"
+      "sha256": "3989f7efb12c0e84e43889e3f6f89cbd1e40b0424a8de902938dc946ce40ac86"
     }
   ],
-  "tools": [ // 사용할 수 있는 도구 이름 목록입니다.
-    "add_scene_objects",
-    "analyze_block_reculviely",
-    "apply_drawing_style",
-    "assign_material",
-    "audit_asset_drawing",
-    "capture_conditioning_pass",
-    "capture_rhino_inspection",
-    "check_egress",
-    "create_design_scene",
-    "create_phase",
-    "create_plan",
-    "edit_planar_face",
-    "edit_planar_faces",
-    "execute_looping",
-    "execute_project_python",
-    "execute_rhino_script",
-    "export_asset_contract",
-    "export_structural_report",
-    "focus_holons",
-    "generate_asset_drawing_views",
-    "get_asset_drawing",
-    "get_blender_helper_script",
-    "get_construction_guidance",
-    "get_current_viewcapture",
-    "get_defined_viewcapture",
-    "get_design_scene",
-    "get_diagram_asset",
-    "get_drawing_asset",
-    "get_drawing_recipe",
-    "get_logic_by_id",
-    "get_object_intersections",
-    "get_objects",
-    "get_ontological_holon",
-    "get_phase_plan_step",
-    "get_plan_section_result",
-    "get_policy",
-    "get_rhino_context",
-    "get_rhino_execution",
-    "get_scene_objects",
-    "get_selection_references",
-    "get_typology_narrative",
-    "import_asset_contract",
-    "import_drawing_hatch_patterns",
-    "list_capsules",
-    "list_design_codes",
-    "list_design_scenes",
-    "list_diagram_assets",
-    "list_drawing_assets",
-    "list_drawing_recipes",
-    "list_library",
-    "list_materials",
-    "list_ontological_holons",
-    "list_phases",
-    "list_plan_revisions",
-    "list_plans",
-    "place_diagram_asset",
-    "place_drawing_asset",
-    "plan_section",
-    "prepare_drawing_asset",
-    "project_info",
-    "publish_objects_to_chestnut",
-    "publish_to_chestnut",
-    "refresh_asset",
-    "register_drawing_asset",
-    "remove_ontological_holon",
-    "remove_scene_objects",
-    "rename_artifact_folder",
-    "resolve_object_intersection",
-    "resolve_targets",
-    "run_gh_definition",
-    "save_rhino_document",
-    "search_asset_repository",
-    "search_detail_sources",
-    "search_diagram_assets",
-    "search_drawing_assets",
-    "set_working_plan",
-    "setup_modeling",
-    "sync_ontological_holon",
-    "update_design_scene",
-    "update_phase",
-    "update_plan",
-    "update_step",
-    "upsert_ontological_holon",
-    "validate_structure",
-    "visualize_structure"
+  "tools": [
+    "analysis_01-check_egress",
+    "analysis_02-export_structural_report",
+    "analysis_03-list_design_codes",
+    "analysis_04-validate_structure",
+    "analysis_05-visualize_structure",
+    "asset_01-audit_drawing",
+    "asset_02-generate_drawing_views",
+    "asset_03-get_drawings",
+    "asset_04-get",
+    "asset_05-list",
+    "asset_06-place",
+    "asset_07-prepare",
+    "asset_08-refresh",
+    "asset_09-register",
+    "asset_10-search_repository",
+    "asset_11-search",
+    "capture_01-conditioning_pass",
+    "capture_02-inspection",
+    "capture_03-current_view",
+    "capture_04-defined_view",
+    "context_01-get_policy",
+    "context_04-get_project_info",
+    "diagram_01-get",
+    "diagram_02-list",
+    "diagram_03-place",
+    "diagram_04-search",
+    "drawing_01-apply_style",
+    "drawing_02-get_recipe",
+    "drawing_03-get_plan_section_result",
+    "drawing_04-import_hatches",
+    "drawing_05-list_recipes",
+    "drawing_06-generate_plan_section",
+    "exchange_01-export_asset_contract",
+    "exchange_02-get_blender_script",
+    "exchange_03-import_asset_contract",
+    "exchange_04-publish_chestnut_advanced",
+    "exchange_05-publish_chestnut",
+    "grasshopper_01-get_logic",
+    "grasshopper_02-list_capsules",
+    "grasshopper_03-list_library",
+    "grasshopper_04-run_definition",
+    "inspect_01-analyze_nested_blocks",
+    "inspect_02-get_objects",
+    "inspect_03-get_document_context",
+    "inspect_04-get_selection_references",
+    "inspect_05-resolve_targets",
+    "intersect_01-find",
+    "intersect_02-resolve",
+    "model_01-assign_material",
+    "model_02-edit_planar_face",
+    "model_03-edit_planar_faces",
+    "model_04-list_materials",
+    "model_05-setup",
+    "plan_02-create",
+    "plan_03-execute_looping",
+    "plan_05-get",
+    "plan_07-list_revisions",
+    "plan_08-list",
+    "plan_09-rename_artifact_folder",
+    "plan_10-set_working",
+    "plan_12-update",
+    "research_01-get_construction_guidance",
+    "research_02-get_typology_narrative",
+    "research_03-search_details",
+    "scene_01-add_objects",
+    "scene_02-create",
+    "scene_03-focus_holons",
+    "scene_04-get",
+    "scene_05-get_holon",
+    "scene_06-get_objects",
+    "scene_07-list",
+    "scene_08-list_holons",
+    "scene_09-remove_holon",
+    "scene_10-remove_objects",
+    "scene_11-sync_holon",
+    "scene_12-update",
+    "scene_13-upsert_holon",
+    "script_01-run_project_python",
+    "script_02-run_rhino",
+    "script_03-get_execution",
+    "script_04-save_document"
   ]
 }
 ```
@@ -544,113 +540,6 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
 # Plan
 
 작업 계획·단계·산출물 관리 · prefix: `plan_NN-` · 유형 내 순번 01–13
-
-## 14. plan_01-create_phase
-
-기준 API: `plan_01-create_phase`
-
-근거: src/mcp/features/planning/tools.py
-
-### DESCRIPTION
-
-관련 Plan을 묶는 Phase를 생성합니다.
-
-### TOOL INPUT
-
-```json
-{
-  "additionalProperties": false,
-  "properties": {
-    "name": {
-      "type": "string",
-      "description": "Phase 이름을 문자열로 입력합니다. 빈 문자열은 사용할 수 없습니다."
-    },
-    "description": {
-      "default": "",
-      "type": "string",
-      "description": "Phase의 목적이나 작업 범위를 문자열로 입력합니다."
-    },
-    "file_name": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      ],
-      "default": "",
-      "description": "이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다."
-    },
-    "status": {
-      "default": "pending",
-      "enum": [
-        "pending",
-        "running",
-        "paused",
-        "completed",
-        "failed",
-        "blocked"
-      ],
-      "type": "string",
-      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다."
-    },
-    "depends_on": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "이 Phase가 의존하는 Phase ID 목록입니다."
-    },
-    "previous_id": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "이전 Phase의 ID입니다."
-    },
-    "connection_id": {
-      "type": "string",
-      "minLength": 1,
-      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
-    }
-  },
-  "required": [
-    "name"
-  ],
-  "type": "object"
-}
-```
-
-### TOOL OUTPUT
-
-코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
-
-```jsonc
-{
-  "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "phase": { // 생성한 Phase입니다.
-    "phase_id": "phase_example"
-  },
-  "next_step_guide": "이 phase_id로 plan_02-create tool을 호출해 Phase에 Plan을 추가할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
-}
-```
 
 ## 15. plan_02-create
 
@@ -660,7 +549,7 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
 
 ### DESCRIPTION
 
-작업을 수행할 Plan과 Step을 생성합니다.
+Phase 또는 Plan을 생성합니다. Plan의 Step은 선택한 scope의 템플릿에서 자동 생성합니다.
 
 ### TOOL INPUT
 
@@ -668,115 +557,215 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
 {
   "additionalProperties": false,
   "properties": {
-    "title": {
-      "type": "string",
-      "description": "Plan 목록에서 사용할 비어 있지 않은 짧은 제목입니다."
-    },
-    "goal": {
-      "type": "string",
-      "description": "비어 있지 않은 전체 목표와 의도한 결과입니다."
-    },
-    "scope": {
-      "default": "house",
-      "type": "string",
-      "description": "작업 목적에 맞는 Step 템플릿을 선택합니다: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. 등록한 사용자 템플릿도 사용할 수 있습니다."
-    },
-    "scene_id": {
-      "default": "",
-      "type": "string",
-      "description": "기존 방식의 단일 Scene ID입니다. scene_ids를 우선 사용합니다. 둘 다 전달하면 scene_ids의 첫 번째 항목과 같아야 합니다."
-    },
-    "phase_id": {
-      "default": "",
-      "type": "string",
-      "description": "선택 사항인 기존 Phase ID입니다. 비어 있으면 Plan을 Phase에 소속시키지 않습니다."
-    },
-    "scene_ids": {
-      "anyOf": [
+    "request": {
+      "oneOf": [
         {
-          "items": {
-            "type": "string"
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "phase",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
+            },
+            "name": {
+              "description": "Phase 이름을 문자열로 입력합니다. 빈 문자열은 사용할 수 없습니다.",
+              "type": "string"
+            },
+            "description": {
+              "default": "",
+              "description": "Phase의 목적이나 작업 범위를 문자열로 입력합니다.",
+              "type": "string"
+            },
+            "file_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              ],
+              "default": "",
+              "description": "이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다."
+            },
+            "status": {
+              "default": "pending",
+              "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다.",
+              "enum": [
+                "pending",
+                "running",
+                "paused",
+                "completed",
+                "failed",
+                "blocked"
+              ],
+              "type": "string"
+            },
+            "depends_on": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "이 Phase가 의존하는 Phase ID 목록입니다."
+            },
+            "previous_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "이전 Phase의 ID입니다."
+            }
           },
-          "type": "array"
+          "required": [
+            "target",
+            "name"
+          ],
+          "type": "object"
         },
         {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열입니다. 생략하면 Scene 없이 생성합니다."
-    },
-    "holon_ids": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "plan",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
+            },
+            "title": {
+              "description": "Plan 목록에서 사용할 비어 있지 않은 짧은 제목입니다.",
+              "type": "string"
+            },
+            "goal": {
+              "description": "비어 있지 않은 전체 목표와 의도한 결과입니다.",
+              "type": "string"
+            },
+            "scope": {
+              "default": "house",
+              "description": "작업 목적에 맞는 Step 템플릿을 선택합니다: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. 등록한 사용자 템플릿도 사용할 수 있습니다.",
+              "type": "string"
+            },
+            "scene_id": {
+              "default": "",
+              "description": "기존 방식의 단일 Scene ID입니다. scene_ids를 우선 사용합니다. 둘 다 전달하면 scene_ids의 첫 번째 항목과 같아야 합니다.",
+              "type": "string"
+            },
+            "phase_id": {
+              "default": "",
+              "description": "선택 사항인 기존 Phase ID입니다. 비어 있으면 Plan을 Phase에 소속시키지 않습니다.",
+              "type": "string"
+            },
+            "scene_ids": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열입니다. 생략하면 Scene 없이 생성합니다."
+            },
+            "holon_ids": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "이 Plan에서 작업할 기존 Holon ID 배열입니다."
+            },
+            "depends_on": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "이 Plan이 의존하는 Plan ID 목록입니다."
+            },
+            "previous_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "이전 Plan의 ID입니다."
+            },
+            "parent_plan": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 상위 Plan ID 배열입니다."
+            },
+            "child_plan": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 하위 Plan ID 배열입니다."
+            }
           },
-          "type": "array"
-        },
-        {
-          "type": "null"
+          "required": [
+            "target",
+            "title",
+            "goal"
+          ],
+          "type": "object"
         }
       ],
-      "default": null,
-      "description": "이 Plan에서 작업할 기존 Holon ID 배열입니다."
-    },
-    "depends_on": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "이 Plan이 의존하는 Plan ID 목록입니다."
-    },
-    "previous_id": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "이전 Plan의 ID입니다."
-    },
-    "parent_plan": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 상위 Plan ID 배열입니다."
-    },
-    "child_plan": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 하위 Plan ID 배열입니다."
+      "description": "target으로 phase 또는 plan을 선택하고 해당 생성 정보를 입력합니다. Step 독립 생성은 제공하지 않습니다."
     },
     "connection_id": {
       "type": "string",
@@ -785,8 +774,7 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
     }
   },
   "required": [
-    "title",
-    "goal"
+    "request"
   ],
   "type": "object"
 }
@@ -796,6 +784,20 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
+Phase 결과 예시:
+
+```jsonc
+{
+  "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
+  "phase": { // 생성한 Phase입니다.
+    "phase_id": "phase_example"
+  },
+  "next_step_guide": "Plan을 추가하려면 plan_02-create tool의 request에 target='plan', title, goal과 반환된 phase_id를 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+}
+```
+
+Plan 결과 예시:
+
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
@@ -804,7 +806,7 @@ policy를 생략한 basic 응답입니다. 현재 코드의 실제 stdio 응답�
     "loop_no": 0,
     "revision": 1
   },
-  "next_step_guide": "plan_05-get_phase_plan_step tool에서 plan_id와 include_details=true로 Step을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "plan_05-get tool의 request에 target='plan', 반환된 plan_id와 include_details=true를 넣어 자동 생성된 Step을 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -831,7 +833,7 @@ Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전�
     "resume": {
       "default": false,
       "type": "boolean",
-      "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 plan_05-get_phase_plan_step tool으로 현재 회차를 먼저 확인합니다."
+      "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 plan_05-get tool의 request에 target='plan'과 plan_id를 넣어 현재 회차를 먼저 확인합니다."
     },
     "feedback": {
       "default": "",
@@ -883,19 +885,19 @@ Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전�
     }
   ],
   "policy_reminder": "Step은 기본 순서대로 수행합니다. 기존 결과는 확인한 뒤 재사용하고 산출물은 이 회차의 artifact_dir에 작성합니다. Plan 완료는 사용자가 결정합니다.", // Step 순서·기존 결과 재사용·산출물 위치·Plan 완료 결정에 적용할 지침입니다.
-  "next_step_guide": "저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 plan_10-set_working tool으로 선택합니다. 완료한 작업은 반복하지 않고, 수행·검증 결과를 plan_13-update_step tool에 기록합니다.\n회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다." // 저장 기록 확인, Step 수행·검증 기록과 회차 결과 보고 안내입니다.
+  "next_step_guide": "저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 plan_10-set_working tool으로 선택합니다. 완료한 작업은 반복하지 않고, 수행·검증 결과는 plan_12-update tool의 request에 target='step', plan_id, step_id와 기록할 필드를 넣어 갱신합니다.\n회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다." // 저장 기록 확인, Step 수행·검증 기록과 회차 결과 보고 안내입니다.
 }
 ```
 
-## 41. plan_05-get_phase_plan_step
+## 41. plan_05-get
 
-기준 API: `plan_05-get_phase_plan_step`
+기준 API: `plan_05-get`
 
 근거: src/mcp/features/planning/tools.py
 
 ### DESCRIPTION
 
-Phase, Plan 또는 Step의 작업 기록을 조회합니다.
+Phase, Plan 또는 Step의 작업 기록을 조회합니다. Plan과 Step은 현재 상태 또는 저장된 Loop·리비전을 읽습니다.
 
 ### TOOL INPUT
 
@@ -903,49 +905,135 @@ Phase, Plan 또는 Step의 작업 기록을 조회합니다.
 {
   "additionalProperties": false,
   "properties": {
-    "phase_id": {
-      "default": "",
-      "type": "string",
-      "description": "조회할 Phase ID입니다. plan_id와 함께 입력하지 않습니다."
-    },
-    "plan_id": {
-      "default": "",
-      "type": "string",
-      "description": "조회할 Plan ID입니다. Step 조회에도 함께 입력합니다."
-    },
-    "step_id": {
-      "default": "",
-      "type": "string",
-      "description": "조회할 Step ID입니다. 해당 plan_id와 함께 입력합니다."
-    },
-    "revision": {
-      "anyOf": [
+    "request": {
+      "oneOf": [
         {
-          "type": "integer"
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "phase",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
+            },
+            "phase_id": {
+              "description": "조회할 Phase ID입니다.",
+              "type": "string"
+            },
+            "include_details": {
+              "default": false,
+              "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "target",
+            "phase_id"
+          ],
+          "type": "object"
         },
         {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택한 Loop 안에 저장된 선택적 리비전입니다. 생략하면 선택한 Loop의 최신 상태를 읽습니다. Phase에는 사용할 수 없습니다."
-    },
-    "include_details": {
-      "default": false,
-      "type": "boolean",
-      "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다."
-    },
-    "loop_no": {
-      "anyOf": [
-        {
-          "type": "integer"
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "plan",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
+            },
+            "plan_id": {
+              "description": "조회할 Plan ID입니다. Step 조회에는 해당 Step의 Plan ID를 사용합니다.",
+              "type": "string"
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택한 Loop 안에 저장된 선택적 리비전입니다. 생략하면 선택한 Loop의 최신 상태를 읽습니다. Phase에는 사용할 수 없습니다."
+            },
+            "include_details": {
+              "default": false,
+              "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다.",
+              "type": "boolean"
+            },
+            "loop_no": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Plan/Step 조회에 사용할 선택 사항인 0 이상의 Loop 번호입니다. 생략하면 최신 Loop를 선택합니다. 0은 실행 전 기록을 읽습니다. Phase에는 사용할 수 없습니다."
+            }
+          },
+          "required": [
+            "target",
+            "plan_id"
+          ],
+          "type": "object"
         },
         {
-          "type": "null"
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "step",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
+            },
+            "plan_id": {
+              "description": "조회할 Plan ID입니다. Step 조회에는 해당 Step의 Plan ID를 사용합니다.",
+              "type": "string"
+            },
+            "step_id": {
+              "description": "선택한 Plan에 속한 Step ID입니다.",
+              "type": "string"
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택한 Loop 안에 저장된 선택적 리비전입니다. 생략하면 선택한 Loop의 최신 상태를 읽습니다. Phase에는 사용할 수 없습니다."
+            },
+            "include_details": {
+              "default": false,
+              "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다.",
+              "type": "boolean"
+            },
+            "loop_no": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Plan/Step 조회에 사용할 선택 사항인 0 이상의 Loop 번호입니다. 생략하면 최신 Loop를 선택합니다. 0은 실행 전 기록을 읽습니다. Phase에는 사용할 수 없습니다."
+            }
+          },
+          "required": [
+            "target",
+            "plan_id",
+            "step_id"
+          ],
+          "type": "object"
         }
       ],
-      "default": null,
-      "description": "Plan/Step 조회에 사용할 선택 사항인 0 이상의 Loop 번호입니다. 생략하면 최신 Loop를 선택합니다. 0은 실행 전 기록을 읽습니다. Phase에는 사용할 수 없습니다."
+      "description": "target으로 phase, plan, step을 선택하고 해당 ID를 입력합니다. include_details로 상세 기록을 선택합니다."
     },
     "connection_id": {
       "type": "string",
@@ -953,6 +1041,9 @@ Phase, Plan 또는 Step의 작업 기록을 조회합니다.
       "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
+  "required": [
+    "request"
+  ],
   "type": "object"
 }
 ```
@@ -961,7 +1052,7 @@ Phase, Plan 또는 Step의 작업 기록을 조회합니다.
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
-Phase를 include_details=true로 조회한 예시입니다. false이면 공통 식별·상태 정보만 반환합니다. Plan·Step은 상세 선택과 무관하게 plan_id·loop_no·revision·read_only를 포함합니다.
+Phase 결과 예시:
 
 ```jsonc
 {
@@ -981,67 +1072,7 @@ Phase를 include_details=true로 조회한 예시입니다. false이면 공통 �
       "진입 동선 검토"
     ]
   },
-  "next_step_guide": "이 id를 plan_08-list tool의 phase_id에 입력해 소속 Plan을 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
-}
-```
-
-## 60. plan_06-list_phases
-
-기준 API: `plan_06-list_phases`
-
-근거: src/mcp/features/planning/tools.py
-
-### DESCRIPTION
-
-프로젝트의 Phase 목록을 조회합니다.
-
-### TOOL INPUT
-
-```json
-{
-  "additionalProperties": false,
-  "properties": {
-    "limit": {
-      "default": 50,
-      "type": "integer",
-      "description": "최대 Phase 수입니다. 범위는 1..500입니다."
-    },
-    "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 그룹은 description, scope, audit 또는 all입니다. 생략하거나 비어 있으면 요약과 ID를 유지합니다."
-    },
-    "connection_id": {
-      "type": "string",
-      "minLength": 1,
-      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
-    }
-  },
-  "type": "object"
-}
-```
-
-### TOOL OUTPUT
-
-코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
-
-```jsonc
-{
-  "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "phases": [], // Phase 목록입니다.
-  "total": 0, // 필터에 일치하는 전체 항목 수
-  "limit": 50, // 페이지 최대 항목 수
-  "truncated": false // limit 때문에 목록 일부만 반환했는지 나타냅니다.
+  "next_step_guide": "plan_08-list tool의 request에 target='plan'과 이 id를 phase_id로 입력해 소속 Plan을 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -1063,7 +1094,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
   "properties": {
     "plan_id": {
       "type": "string",
-      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
+      "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다."
     },
     "limit": {
       "default": 50,
@@ -1122,7 +1153,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "plan_id": "plan_example", // 각 행의 loop_no/revision과 함께 get_phase_plan_step에 사용
+  "plan_id": "plan_example", // 각 행의 loop_no/revision과 함께 plan_05-get tool의 request에 사용
   "revisions": [], // 저장 리비전 목록입니다.
   "total": 0, // 필터에 일치하는 전체 항목 수
   "limit": 50, // 페이지 최대 항목 수
@@ -1138,7 +1169,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 
 ### DESCRIPTION
 
-프로젝트의 Plan 목록을 조회합니다.
+Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록을 조회합니다. Step 목록은 같은 스냅샷의 Loop·리비전과 함께 반환합니다.
 
 ### TOOL INPUT
 
@@ -1146,34 +1177,137 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 {
   "additionalProperties": false,
   "properties": {
-    "phase_id": {
-      "default": "",
-      "type": "string",
-      "description": "선택 사항인 Phase ID 필터입니다. 비어 있으면 여러 Phase를 범위로 합니다."
-    },
-    "scene_id": {
-      "default": "",
-      "type": "string",
-      "description": "선택 사항인 Scene ID 필터입니다. 비어 있으면 어떤 Scene에 속하든, Scene이 없든 모든 Plan을 포함합니다."
-    },
-    "status": {
-      "default": "",
-      "enum": [
-        "",
-        "pending",
-        "running",
-        "paused",
-        "completed",
-        "failed",
-        "blocked"
+    "request": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "phase",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
+            },
+            "limit": {
+              "default": 50,
+              "description": "최대 Phase 수입니다. 범위는 1..500입니다.",
+              "type": "integer"
+            },
+            "field_groups": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 그룹은 description, scope, audit 또는 all입니다. 생략하거나 비어 있으면 요약과 ID를 유지합니다."
+            }
+          },
+          "required": [
+            "target"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "plan",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
+            },
+            "phase_id": {
+              "default": "",
+              "description": "선택 사항인 Phase ID 필터입니다. 비어 있으면 여러 Phase를 범위로 합니다.",
+              "type": "string"
+            },
+            "scene_id": {
+              "default": "",
+              "description": "선택 사항인 Scene ID 필터입니다. 비어 있으면 어떤 Scene에 속하든, Scene이 없든 모든 Plan을 포함합니다.",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 빈 문자열이면 모든 상태를 포함합니다.",
+              "enum": [
+                "",
+                "pending",
+                "running",
+                "paused",
+                "completed",
+                "failed",
+                "blocked"
+              ],
+              "type": "string"
+            },
+            "limit": {
+              "default": 50,
+              "description": "최대 Plan 수입니다. 범위는 1..500입니다.",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "target"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "step",
+              "description": "Step 목록을 선택합니다.",
+              "type": "string"
+            },
+            "plan_id": {
+              "description": "Step 목록을 읽을 기존 Plan ID입니다.",
+              "type": "string"
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택한 Loop 안의 리비전입니다. 생략하면 해당 Loop의 최신 상태를 읽습니다."
+            },
+            "loop_no": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택할 0 이상의 Loop 번호입니다. 생략하면 최신 Loop, 0은 실행 전 기록입니다."
+            },
+            "limit": {
+              "default": 50,
+              "description": "정의된 순서대로 반환할 최대 Step 수입니다. 범위는 1..500입니다.",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "target",
+            "plan_id"
+          ],
+          "type": "object"
+        }
       ],
-      "type": "string",
-      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 빈 문자열이면 모든 상태를 포함합니다."
-    },
-    "limit": {
-      "default": 50,
-      "type": "integer",
-      "description": "최대 Plan 수입니다. 범위는 1..500입니다."
+      "description": "target으로 phase, plan, step을 선택합니다. Step에는 plan_id가 필요하며 대상별 필터와 limit을 지정합니다."
     },
     "connection_id": {
       "type": "string",
@@ -1181,6 +1315,9 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
       "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
     }
   },
+  "required": [
+    "request"
+  ],
   "type": "object"
 }
 ```
@@ -1189,6 +1326,20 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
+Phase 결과 예시:
+
+```jsonc
+{
+  "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
+  "phases": [], // Phase 목록입니다.
+  "total": 0, // 필터에 일치하는 전체 항목 수
+  "limit": 50, // 페이지 최대 항목 수
+  "truncated": false // limit 때문에 목록 일부만 반환했는지 나타냅니다.
+}
+```
+
+Plan 결과 예시:
+
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
@@ -1196,6 +1347,31 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
   "total": 0, // 필터에 일치하는 전체 항목 수
   "limit": 50, // 페이지 최대 항목 수
   "truncated": false // limit 때문에 목록 일부만 반환했는지 나타냅니다.
+}
+```
+
+Step 결과 예시(한 스냅샷의 정의 순서, limit=1):
+
+```jsonc
+{
+  "status": "success",
+  "plan_id": "plan_example",
+  "loop_no": 1,
+  "revision": 7,
+  "read_only": false,
+  "steps": [
+    {
+      "step_id": "step_example",
+      "step_type": "inspect_context",
+      "name": "현황 확인",
+      "status": "completed",
+      "loop_no": 1
+    }
+  ],
+  "total": 4,
+  "limit": 1,
+  "truncated": true,
+  "next_step_guide": "plan_05-get tool의 request에 target='step', 이 plan_id와 선택한 step_id를 입력합니다. 같은 스냅샷을 상세 조회하려면 반환된 loop_no·revision과 include_details=true를 함께 넣습니다."
 }
 ```
 
@@ -1268,7 +1444,7 @@ Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
   "properties": {
     "plan_id": {
       "type": "string",
-      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
+      "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다."
     },
     "step_id": {
       "default": "",
@@ -1322,15 +1498,15 @@ Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
 }
 ```
 
-## 87. plan_11-update_phase
+## 88. plan_12-update
 
-기준 API: `plan_11-update_phase`
+기준 API: `plan_12-update`
 
 근거: src/mcp/features/planning/tools.py
 
 ### DESCRIPTION
 
-Phase의 작업 정보를 수정합니다.
+Phase·Plan의 작업 정보 또는 Step의 상태와 입력·출력 근거를 수정합니다. 기존 Loop·리비전 보호와 부분 적용 보고를 유지합니다.
 
 ### TOOL INPUT
 
@@ -1338,113 +1514,477 @@ Phase의 작업 정보를 수정합니다.
 {
   "additionalProperties": false,
   "properties": {
-    "phase_id": {
-      "type": "string",
-      "description": "plan_06-list_phases tool의 phases[].phase_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Phase ID입니다."
-    },
-    "name": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 비어 있지 않은 대체 Phase 이름입니다."
-    },
-    "description": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 대체 설명입니다. 비어 있으면 지웁니다."
-    },
-    "file_name": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다. [] 또는 \"\"는 연결 해제, 생략/null은 유지입니다."
-    },
-    "status": {
-      "anyOf": [
-        {
-          "enum": [
-            "pending",
-            "running",
-            "paused",
-            "completed",
-            "failed",
-            "blocked"
-          ],
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
-    },
-    "depends_on": {
-      "anyOf": [
+    "request": {
+      "oneOf": [
         {
           "additionalProperties": false,
-          "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
           "properties": {
-            "add": {
-              "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
+            "target": {
+              "const": "phase",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
             },
-            "remove": {
-              "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
+            "phase_id": {
+              "description": "plan_08-list tool에 request.target=phase로 조회한 phases[].phase_id 또는 plan_05-get tool의 id에서 얻은 기존 Phase ID입니다.",
+              "type": "string"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 비어 있지 않은 대체 Phase 이름입니다."
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 대체 설명입니다. 비어 있으면 지웁니다."
+            },
+            "file_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다. [] 또는 \"\"는 연결 해제, 생략/null은 유지입니다."
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "running",
+                    "paused",
+                    "completed",
+                    "failed",
+                    "blocked"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
+            },
+            "depends_on": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
+                  "properties": {
+                    "add": {
+                      "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "remove": {
+                      "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Phase ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 충돌하거나 유효하지 않은 문자열 항목은 보고하고 건너뜁니다. 잘못된 타입은 요청 전체를 거부합니다."
+            },
+            "previous_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "이전 Phase ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
             }
           },
+          "required": [
+            "target",
+            "phase_id"
+          ],
           "type": "object"
         },
         {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Phase ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 충돌하거나 유효하지 않은 문자열 항목은 보고하고 건너뜁니다. 잘못된 타입은 요청 전체를 거부합니다."
-    },
-    "previous_id": {
-      "anyOf": [
-        {
-          "type": "string"
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "plan",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
+            },
+            "plan_id": {
+              "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다.",
+              "type": "string"
+            },
+            "goal": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 비어 있지 않은 대체 전체 목표입니다."
+            },
+            "phase_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 기존 Phase ID입니다. 비어 있으면 Phase 소속을 해제하고, 생략/null이면 유지합니다."
+            },
+            "scene_ids": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열로 교체합니다. []이면 비우고 생략/null이면 유지합니다."
+            },
+            "holon_ids": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 대체 Plan Holon 대상 배열입니다. []이면 비우고 생략/null이면 유지합니다."
+            },
+            "expected_revision": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
+            },
+            "depends_on": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
+                  "properties": {
+                    "add": {
+                      "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "remove": {
+                      "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다."
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "running",
+                    "paused",
+                    "completed",
+                    "failed",
+                    "blocked"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. completed는 사용자의 완료 결정 후 지정합니다. 생략/null은 유지입니다."
+            },
+            "artifact_refs": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 대체 산출물 참조 문자열 배열입니다. []이면 비우고 생략/null이면 유지합니다."
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 비어 있지 않은 대체 짧은 제목입니다."
+            },
+            "previous_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "이전 Plan ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
+            },
+            "parent_plan": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
+            },
+            "child_plan": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
+            },
+            "loop_no": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
+            }
+          },
+          "required": [
+            "target",
+            "plan_id"
+          ],
+          "type": "object"
         },
         {
-          "type": "null"
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "const": "step",
+              "description": "작업할 대상 종류입니다.",
+              "type": "string"
+            },
+            "plan_id": {
+              "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다.",
+              "type": "string"
+            },
+            "step_id": {
+              "description": "선택한 Plan의 상세 결과에서 얻은 Step ID입니다. 해당 Plan ID와 함께 사용합니다.",
+              "type": "string"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "running",
+                    "paused",
+                    "completed",
+                    "failed",
+                    "blocked"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
+            },
+            "input_refs": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
+                  "properties": {
+                    "add": {
+                      "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "remove": {
+                      "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다."
+            },
+            "output_refs": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
+                  "properties": {
+                    "add": {
+                      "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "remove": {
+                      "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "출력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. [] 형식의 전체 교체 배열은 허용하지 않습니다."
+            },
+            "expected_revision": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
+            },
+            "loop_no": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
+            }
+          },
+          "required": [
+            "target",
+            "plan_id",
+            "step_id"
+          ],
+          "type": "object"
         }
       ],
-      "default": null,
-      "description": "이전 Phase ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
+      "description": "target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step은 상태와 문자열 목록 패치로 기록을 갱신합니다."
     },
     "connection_id": {
       "type": "string",
@@ -1453,7 +1993,7 @@ Phase의 작업 정보를 수정합니다.
     }
   },
   "required": [
-    "phase_id"
+    "request"
   ],
   "type": "object"
 }
@@ -1462,6 +2002,8 @@ Phase의 작업 정보를 수정합니다.
 ### TOOL OUTPUT
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+
+Phase 결과 예시:
 
 ```jsonc
 {
@@ -1472,243 +2014,11 @@ Phase의 작업 정보를 수정합니다.
     "status": "pending"
   },
   "issues": [], // 적용하지 못한 패치 항목입니다. 나머지 항목은 적용되었을 수 있습니다.
-  "next_step_guide": "plan_05-get_phase_plan_step tool으로 변경된 Phase를 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "plan_05-get tool의 request에 target='phase'과 해당 phase_id를 넣어 변경된 기록을 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 88. plan_12-update
-
-기준 API: `plan_12-update`
-
-근거: src/mcp/features/planning/tools.py
-
-### DESCRIPTION
-
-Plan의 작업 정보를 수정합니다.
-
-### TOOL INPUT
-
-```json
-{
-  "additionalProperties": false,
-  "properties": {
-    "plan_id": {
-      "type": "string",
-      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
-    },
-    "goal": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 비어 있지 않은 대체 전체 목표입니다."
-    },
-    "phase_id": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 기존 Phase ID입니다. 비어 있으면 Phase 소속을 해제하고, 생략/null이면 유지합니다."
-    },
-    "scene_ids": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열로 교체합니다. []이면 비우고 생략/null이면 유지합니다."
-    },
-    "holon_ids": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 대체 Plan Holon 대상 배열입니다. []이면 비우고 생략/null이면 유지합니다."
-    },
-    "expected_revision": {
-      "anyOf": [
-        {
-          "type": "integer"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
-    },
-    "depends_on": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
-          "properties": {
-            "add": {
-              "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "remove": {
-              "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다."
-    },
-    "status": {
-      "anyOf": [
-        {
-          "enum": [
-            "pending",
-            "running",
-            "paused",
-            "completed",
-            "failed",
-            "blocked"
-          ],
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. completed는 사용자의 완료 결정 후 지정합니다. 생략/null은 유지입니다."
-    },
-    "artifact_refs": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 대체 산출물 참조 문자열 배열입니다. []이면 비우고 생략/null이면 유지합니다."
-    },
-    "title": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 비어 있지 않은 대체 짧은 제목입니다."
-    },
-    "previous_id": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "이전 Plan ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다."
-    },
-    "parent_plan": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
-    },
-    "child_plan": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
-    },
-    "loop_no": {
-      "anyOf": [
-        {
-          "type": "integer"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
-    },
-    "connection_id": {
-      "type": "string",
-      "minLength": 1,
-      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
-    }
-  },
-  "required": [
-    "plan_id"
-  ],
-  "type": "object"
-}
-```
-
-### TOOL OUTPUT
-
-코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+Plan 결과 예시:
 
 ```jsonc
 {
@@ -1721,155 +2031,11 @@ Plan의 작업 정보를 수정합니다.
     "revision": 2
   },
   "issues": [], // 적용하지 못한 패치 항목입니다. 나머지 항목은 적용되었을 수 있습니다.
-  "next_step_guide": "plan_05-get_phase_plan_step tool으로 변경된 Plan을 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "plan_05-get tool의 request에 target='plan'과 해당 plan_id를 넣어 변경된 기록을 확인할 수 있습니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
-## 89. plan_13-update_step
-
-기준 API: `plan_13-update_step`
-
-근거: src/mcp/features/planning/tools.py
-
-### DESCRIPTION
-
-Step의 상태와 입력·출력 근거를 기록합니다.
-
-### TOOL INPUT
-
-```json
-{
-  "additionalProperties": false,
-  "properties": {
-    "plan_id": {
-      "type": "string",
-      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
-    },
-    "step_id": {
-      "type": "string",
-      "description": "선택한 Plan의 상세 결과에서 얻은 Step ID입니다. 해당 Plan ID와 함께 사용합니다."
-    },
-    "status": {
-      "anyOf": [
-        {
-          "enum": [
-            "pending",
-            "running",
-            "paused",
-            "completed",
-            "failed",
-            "blocked"
-          ],
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
-    },
-    "input_refs": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
-          "properties": {
-            "add": {
-              "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "remove": {
-              "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다."
-    },
-    "output_refs": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
-          "properties": {
-            "add": {
-              "description": "추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "remove": {
-              "description": "제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "출력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. [] 형식의 전체 교체 배열은 허용하지 않습니다."
-    },
-    "expected_revision": {
-      "anyOf": [
-        {
-          "type": "integer"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다."
-    },
-    "loop_no": {
-      "anyOf": [
-        {
-          "type": "integer"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다."
-    },
-    "connection_id": {
-      "type": "string",
-      "minLength": 1,
-      "description": "생략하면 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 사용합니다. 이 호출만 다른 연결에 보내려면 connect_01-list_up tool의 connection_id를 입력합니다."
-    }
-  },
-  "required": [
-    "plan_id",
-    "step_id"
-  ],
-  "type": "object"
-}
-```
-
-### TOOL OUTPUT
-
-코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
+Step 결과 예시:
 
 ```jsonc
 {
@@ -2344,7 +2510,7 @@ Plan에 등록된 Holon 대상 집합을 조회합니다.
   "properties": {
     "plan_id": {
       "type": "string",
-      "description": "plan_08-list tool의 plans[].plan_id 또는 plan_05-get_phase_plan_step tool의 id에서 얻은 기존 Plan ID입니다."
+      "description": "plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다."
     },
     "step_id": {
       "default": "",
@@ -2503,7 +2669,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "rgb": null
   },
   "document": {}, // 원본 문서·단위·뷰·경계 정보입니다.
-  "next_step_guide": "프레임과 camera_json을 확인하고, 사용할 산출물 경로를 plan_13-update_step tool의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "프레임과 camera_json을 확인하고, plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs.add에 사용할 산출물 경로를 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -2613,7 +2779,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "bytes": 12345,
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
-  "next_step_guide": "보관할 이미지라면 image_file.path를 plan_13-update_step tool의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "보관할 이미지라면 plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs={add:[image_file.path]}를 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -2888,7 +3054,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "bytes": 12345,
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
-  "next_step_guide": "보관할 이미지라면 image_file.path를 plan_13-update_step tool의 output_refs에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "보관할 이미지라면 plan_12-update tool의 request에 target='step', plan_id, step_id와 output_refs={add:[image_file.path]}를 입력합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -7153,7 +7319,7 @@ include_ids=true로 조회한 예시입니다.
   ],
   "problems": [], // 로딩 중 거부된 사용자 프로필 문제
   "user_dir": "…", // 사용자 설계 기준 프로필 폴더입니다.
-  "next_step_guide": "선택한 기준 ID를 analysis_04-validate_structure tool 또는 analysis_05-visualize_structure tool에 사용합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "기준을 적용하려면 include_ids=true로 설계 기준 ID를 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 

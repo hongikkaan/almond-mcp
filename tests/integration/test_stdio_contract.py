@@ -14,6 +14,12 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def request_properties(tool, target):
+    request = tool["inputSchema"]["properties"]["request"]
+    return next(branch["properties"] for branch in request["oneOf"]
+                if branch["properties"]["target"]["const"] == target)
+
+
 def assert_information_placement(tools):
     """Check the user's reading order at the wire boundary, beyond parity."""
     for name, tool in tools.items():
@@ -23,11 +29,11 @@ def assert_information_placement(tools):
         for field in tool["inputSchema"].get("properties", {}).values():
             help_text = field.get("description", "").strip()
             assert not help_text or help_text not in role, name
-    detail = tools["plan_05-get_phase_plan_step"]
+    detail = tools["plan_05-get"]
     assert "상세 내용의 포함 여부" not in detail["description"]
-    assert "상세" in detail["inputSchema"]["properties"]["include_details"]["description"]
+    assert "상세" in request_properties(detail, "phase")["include_details"]["description"]
     assert "Phase·Scene·상태로" not in tools["plan_08-list"]["description"]
-    phase = tools["plan_01-create_phase"]["inputSchema"]["properties"]
+    phase = request_properties(tools["plan_02-create"], "phase")
     assert set(phase["status"]["enum"]) == {"pending", "running", "paused", "completed", "failed", "blocked"}
     assert {option["type"] for option in phase["file_name"]["anyOf"]} == {"string", "array"}
     assert "중 하나" in phase["status"]["description"]
@@ -103,11 +109,12 @@ async def collect(params, *, bound):
             assert scripting["guide_version"] == basic["guide_version"]
             rejected = await client.call_tool("context_01-get_policy", {"tool": "inspect_03-get_document_context"})
             assert rejected.is_error
-            detail_name = "plan_05-get_phase_plan_step"
+            detail_name = "plan_05-get"
             assert detail_name in tools and detail_name in basic["tools"]
-            assert tools[detail_name]["title"] == "get_phase·plan·step"
-            assert "get_phase·plan·step" not in tools
-            assert not {"get_phase", "get_plan", "get_step"}.intersection(tools)
+            retired = {"get_phase", "get_plan", "get_step", "get_phase·plan·step",
+                       "plan_01-create_phase", "plan_05-get_phase_plan_step", "plan_06-list_phases",
+                       "plan_11-update_phase", "plan_13-update_step"}
+            assert retired.isdisjoint(tools) and retired.isdisjoint(basic["tools"])
 
             async def call(name, arguments):
                 response = await client.call_tool(name, arguments)
@@ -119,25 +126,36 @@ async def collect(params, *, bound):
                 Draft202012Validator(output).validate(value)
                 return value
 
-            phase = (await call("plan_01-create_phase", {"name": "Stdio discovery", "depends_on": ["phase_future"]}))["phase"]
-            plan = (await call("plan_02-create", {"title": "Entrance review", "goal": "Inspect entrance", "phase_id": phase["phase_id"]}))["plan"]
-            rows = await call("plan_08-list", {"phase_id": phase["phase_id"]})
+            phase = (await call("plan_02-create", {"request": {
+                "target": "phase", "name": "Stdio discovery", "depends_on": ["phase_future"],
+            }}))["phase"]
+            plan = (await call("plan_02-create", {"request": {
+                "target": "plan", "title": "Entrance review", "goal": "Inspect entrance", "phase_id": phase["phase_id"],
+            }}))["plan"]
+            pid = plan["plan_id"]
+            rows = await call("plan_08-list", {"request": {"target": "plan", "phase_id": phase["phase_id"]}})
             assert rows["plans"][0]["title"] == "Entrance review"
             assert "goal" not in rows["plans"][0] and detail_name in rows["next_step_guide"]
-            detail = await call(detail_name, {"include_details": True, "plan_id": plan["plan_id"]})
-            assert detail["id"] == plan["plan_id"] and detail["status"] == "pending"
+            detail = await call(detail_name, {"request": {"target": "plan", "include_details": True, "plan_id": pid}})
+            assert detail["id"] == pid and detail["status"] == "pending"
             assert detail["plan"]["phase"] == {"phase_id": phase["phase_id"], "name": "Stdio discovery"}
+            steps = await call("plan_08-list", {"request": {"target": "step", "plan_id": pid}})
+            assert steps["steps"] == detail["plan"]["steps"]
             sid = detail["plan"]["steps"][0]["step_id"]
             assert "plan_10-set_working" in detail["next_step_guide"]
-            partial = await call("plan_13-update_step", {"plan_id": plan["plan_id"], "step_id": sid,
-                "output_refs": {"add": ["survey.md", "survey.md"], "remove": ["absent.md"]}})
+            step_request = {"target": "step", "plan_id": pid, "step_id": sid}
+            partial = await call("plan_12-update", {"request": {
+                **step_request, "output_refs": {"add": ["survey.md", "survey.md"], "remove": ["absent.md"]},
+            }})
             assert partial["status"] == "partial_success" and partial["changed"] is True
             assert {issue["reason"] for issue in partial["issues"]} == {"duplicate_input", "not_found"}
-            step = await call(detail_name, {"include_details": True, "plan_id": plan["plan_id"], "step_id": sid})
+            step = await call(detail_name, {"request": {**step_request, "include_details": True}})
             assert step["step"]["output_refs"] == ["survey.md"]
             assert step["status"] == "pending" and "plan_10-set_working" in step["next_step_guide"]
             assert step["revision"] == plan["revision"] + 1
-            historic = await call(detail_name, {"include_details": True, "plan_id": plan["plan_id"], "step_id": sid, "revision": plan["revision"]})
+            historic = await call(detail_name, {"request": {
+                **step_request, "include_details": True, "revision": plan["revision"],
+            }})
             assert historic["step"]["output_refs"] == []
             assert "revision을 생략" in historic["next_step_guide"]
             if bound:
@@ -156,10 +174,12 @@ async def collect(params, *, bound):
                 assert not {"name", "path", "runtime_serial_number", "live_document_checked", "is_bound_document"}.intersection(info["document"])
                 rejected = await client.call_tool("list_project_files", {})
                 assert rejected.is_error
-                selected = await call("plan_10-set_working", {"plan_id": plan["plan_id"], "step_id": sid})
+                selected = await call("plan_10-set_working", {"plan_id": pid, "step_id": sid})
                 assert selected["revision"] == step["revision"] + 1
-                updated = await call("plan_13-update_step", {"plan_id": plan["plan_id"], "step_id": sid,
-                    "output_refs": {"add": ["selected-survey.md"], "remove": ["survey.md"]}, "expected_revision": selected["revision"]})
+                updated = await call("plan_12-update", {"request": {
+                    **step_request, "output_refs": {"add": ["selected-survey.md"], "remove": ["survey.md"]},
+                    "expected_revision": selected["revision"],
+                }})
                 assert updated["status"] == "success" and updated["plan"]["revision"] == selected["revision"] + 1
             return initialized.instructions, tools
 
@@ -187,7 +207,7 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
     validate_worker_tools(catalog, list(worker.values()))
     assert all(schema_identity(worker[n]) == schema_identity(expected[n]) for n in worker)
     assert all(worker[n]["description"] == expected[n]["description"] for n in worker)
-    assert worker["plan_05-get_phase_plan_step"]["title"] == expected["plan_05-get_phase_plan_step"]["title"] == "get_phase·plan·step"
+    assert worker["plan_05-get"]["title"] == expected["plan_05-get"]["title"] == "Plan 05 Get"
     exposed, mapping = exposed_tools(catalog)
     external = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True) for tool in exposed}
     for name in worker:

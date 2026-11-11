@@ -32,15 +32,15 @@ def get_asset_drawing(asset_id: str) -> dict:
 
 
 def test_literal_public_tool_alias_survives_inert_catalog_generation():
-    source = '@mcp.tool(name="plan_05-get_phase_plan_step", title="get_phase·plan·step")\ndef get_details(plan_id: str = "") -> str:\n    raise RuntimeError("original body")'
+    source = '@mcp.tool(name="sample_01-get_details", title="Sample·details")\ndef get_details(plan_id: str = "") -> str:\n    raise RuntimeError("original body")'
     node = checked_stub(ast.parse(source).body[0])
-    assert ast.literal_eval(node.decorator_list[0].keywords[0].value) == "plan_05-get_phase_plan_step"
-    assert ast.literal_eval(node.decorator_list[0].keywords[1].value) == "get_phase·plan·step"
+    assert ast.literal_eval(node.decorator_list[0].keywords[0].value) == "sample_01-get_details"
+    assert ast.literal_eval(node.decorator_list[0].keywords[1].value) == "Sample·details"
     assert "original body" not in ast.unparse(node)
     with pytest.raises(ValueError):
-        checked_stub(ast.parse(source.replace('"plan_05-get_phase_plan_step"', 'get_name()')).body[0])
+        checked_stub(ast.parse(source.replace('"sample_01-get_details"', 'get_name()')).body[0])
     with pytest.raises(ValueError):
-        checked_stub(ast.parse(source.replace('"get_phase·plan·step"', 'get_title()')).body[0])
+        checked_stub(ast.parse(source.replace('"Sample·details"', 'get_title()')).body[0])
 
 
 def test_list_patch_annotation_is_reviewed_without_importing_the_server():

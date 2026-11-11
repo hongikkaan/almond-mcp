@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from fastmcp import Client, FastMCP
 from almond_mcp.features.planning.tools import register
+from test_planning_details import request_branch
 from almond_mcp.retrieval_store import AlmondStore
 
 
@@ -79,29 +80,30 @@ def test_public_plan_links_schema_create_update_and_details(tmp_path):
         async with Client(server) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             for name in ("plan_02-create", "plan_12-update"):
+                properties = request_branch(tools[name].input_schema, "plan")["properties"]
                 for field in ("parent_plan", "child_plan"):
-                    schema = tools[name].input_schema["properties"][field]
+                    schema = properties[field]
                     assert {"items": {"type": "string"}, "type": "array"} in schema["anyOf"]
             async def call(name, **args):
                 result = await client.call_tool(name, args)
                 return json.loads(result.content[0].text)
-            created = await call("plan_02-create", title="Task", goal="Task",
-                parent_plan=["plan_parent"], child_plan=["plan_child"])
+            created = await call("plan_02-create", request=dict(target="plan", title="Task", goal="Task",
+                parent_plan=["plan_parent"], child_plan=["plan_child"]))
             pid = created["plan"]["plan_id"]
-            detail = await call("plan_05-get_phase_plan_step", include_details=True, plan_id=pid)
+            detail = await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid))
             assert detail["plan"]["parent_plan"] == ["plan_parent"]
             assert detail["plan"]["child_plan"] == ["plan_child"]
-            kept = await call("plan_12-update", plan_id=pid, parent_plan=None, child_plan=None)
+            kept = await call("plan_12-update", request=dict(target="plan", plan_id=pid, parent_plan=None, child_plan=None))
             assert not kept["changed"]
-            updated = await call("plan_12-update", plan_id=pid,
-                parent_plan=[], child_plan=[pid, "plan_not_created"])
+            updated = await call("plan_12-update", request=dict(target="plan", plan_id=pid,
+                parent_plan=[], child_plan=[pid, "plan_not_created"]))
             assert updated["changed"]
-            detail = await call("plan_05-get_phase_plan_step", include_details=True, plan_id=pid)
+            detail = await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid))
             assert detail["plan"]["parent_plan"] == []
             assert detail["plan"]["child_plan"] == [pid, "plan_not_created"]
-            historic = await call("plan_05-get_phase_plan_step", include_details=True, plan_id=pid, revision=created["plan"]["revision"])
+            historic = await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid, revision=created["plan"]["revision"]))
             assert historic["plan"]["parent_plan"] == ["plan_parent"]
             assert historic["plan"]["child_plan"] == ["plan_child"]
-            listed = await call("plan_08-list")
+            listed = await call("plan_08-list", request=dict(target="plan"))
             assert "parent_plan" not in listed["plans"][0]
     asyncio.run(run())

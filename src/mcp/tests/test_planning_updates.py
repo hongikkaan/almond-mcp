@@ -37,7 +37,7 @@ def test_step_partial_edits_preserve_other_records_and_make_one_revision(context
                      input_refs={"add": ["new", "new", " conflict ", " ", "keep"],
                                  "remove": ["old", "absent", "conflict"]},
                      output_refs={"add": ["existing", "out"]})
-    result = body(call("plan_13-update_step", **arguments, expected_revision=before["revision"]))
+    result = body(call("plan_12-update", request=dict(target="step", **arguments, expected_revision=before["revision"])))
     after = store.get_plan(pid)
     assert result["status"] == "partial_success" and result["changed"] is True
     assert result["plan"] == {"plan_id": pid, "status": "pending", "loop_no": 0, "revision": before["revision"] + 1}
@@ -52,10 +52,10 @@ def test_step_partial_edits_preserve_other_records_and_make_one_revision(context
     assert all(set(issue) == {"field", "operation", "index", "value", "reason"} for issue in result["issues"])
     assert store.get_plan(pid, before["revision"]) == {**before, "read_only": True}
     assert store.list_plan_revisions(pid)["total"] == after["revision"]
-    replay = body(call("plan_13-update_step", **arguments))
+    replay = body(call("plan_12-update", request=dict(target="step", **arguments)))
     assert replay["status"] == "no_change" and replay["changed"] is False
     assert store.get_plan(pid) == after
-    conflict = body(call("plan_13-update_step", **arguments, expected_revision=before["revision"]))
+    conflict = body(call("plan_12-update", request=dict(target="step", **arguments, expected_revision=before["revision"])))
     assert conflict["status"] == "error" and store.get_plan(pid) == after
 
 
@@ -73,7 +73,7 @@ def test_each_combination_uses_one_revision(context, status, inputs, outputs):
         changes["input_refs"] = {"add": ["brief"]}
     if outputs:
         changes["output_refs"] = {"add": ["survey"]}
-    result = body(call("plan_13-update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], **changes))
+    result = body(call("plan_12-update", request=dict(target="step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], **changes)))
     assert result["status"] == "success" and result["changed"] is True and result["issues"] == []
     assert result["plan"]["revision"] == plan["revision"] + 1
     assert result["step"]["status"] == ("running" if status else "pending")
@@ -84,7 +84,7 @@ def test_empty_patch_keeps_records_and_revision(context, patch):
     store, call = context
     plan = store.create_plan("Review", scope="component")
     saved = store.update_plan_step(plan["plan_id"], plan["steps"][1]["step_id"], output_refs=["keep"])
-    result = body(call("plan_13-update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], output_refs=patch))
+    result = body(call("plan_12-update", request=dict(target="step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], output_refs=patch)))
     assert result["status"] == "success" and result["changed"] is False and result["issues"] == []
     assert store.get_plan(plan["plan_id"]) == saved
 
@@ -94,8 +94,8 @@ def test_empty_patch_keeps_records_and_revision(context, patch):
 def test_schema_errors_reject_whole_request(context, patch):
     store, call = context
     plan = store.create_plan("Review", scope="component")
-    response = call("plan_13-update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"],
-                    status="running", input_refs={"add": ["valid"]}, output_refs=patch)
+    response = call("plan_12-update", request=dict(target="step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"],
+                    status="running", input_refs={"add": ["valid"]}, output_refs=patch))
     assert response.is_error
     assert store.get_plan(plan["plan_id"]) == plan
 
@@ -106,8 +106,8 @@ def test_schema_errors_reject_whole_request(context, patch):
 def test_invalid_general_plan_field_prevents_valid_dependency_edit(context, invalid):
     store, call = context
     plan = store.create_plan("Review", scope="component")
-    result = call("plan_12-update", plan_id=plan["plan_id"],
-                       depends_on={"add": ["plan_future", "phase_wrong"]}, **invalid)
+    result = call("plan_12-update", request=dict(target="plan", plan_id=plan["plan_id"],
+                       depends_on={"add": ["plan_future", "phase_wrong"]}, **invalid))
     if "status" in invalid:
         assert result.is_error
     else:
@@ -118,13 +118,13 @@ def test_invalid_general_plan_field_prevents_valid_dependency_edit(context, inva
 def test_invalid_step_status_and_phase_status_roll_back_everything(context):
     store, call = context
     plan = store.create_plan("Review", scope="component")
-    result = call("plan_13-update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"],
-                       status="finished", output_refs={"add": ["valid"]})
+    result = call("plan_12-update", request=dict(target="step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"],
+                       status="finished", output_refs={"add": ["valid"]}))
     assert result.is_error and store.get_plan(plan["plan_id"]) == plan
     phase = store.create_phase("Review")
     files = store.list_project_files()
-    result = call("plan_11-update_phase", phase_id=phase["phase_id"], status="finished",
-                       file_name="should-not-be-registered.3dm", depends_on={"add": ["phase_future"]})
+    result = call("plan_12-update", request=dict(target="phase", phase_id=phase["phase_id"], status="finished",
+                       file_name="should-not-be-registered.3dm", depends_on={"add": ["phase_future"]}))
     assert result.is_error and store.get_phase(phase["phase_id"]) == phase
     assert store.list_project_files() == files
 
@@ -135,9 +135,9 @@ def test_dependencies_apply_only_same_kind_items_without_execution_gates(context
     other = "plan" if kind == "phase" else "phase"
     record = store.create_phase("Review") if kind == "phase" else store.create_plan("Review")
     identifier = record[kind + "_id"]
-    tool_name = "plan_11-update_phase" if kind == "phase" else "plan_12-update"
-    result = body(call(tool_name, **{kind + "_id": identifier},
-                       depends_on={"add": [identifier, kind + "_future", other + "_wrong", kind + "_", ""]}))
+    request = {"target": kind, kind + "_id": identifier}
+    result = body(call("plan_12-update", request={**request,
+                       "depends_on": {"add": [identifier, kind + "_future", other + "_wrong", kind + "_", ""]}}))
     assert result["status"] == "partial_success" and result["changed"] is True
     current = store.get_phase(identifier) if kind == "phase" else store.get_plan(identifier)
     assert current["depends_on"] == [identifier, kind + "_future"]
@@ -147,8 +147,7 @@ def test_dependencies_apply_only_same_kind_items_without_execution_gates(context
         assert "revision" not in result["phase"]
     else:
         assert result["plan"]["revision"] == record["revision"] + 1
-    removed = body(call(tool_name, **{kind + "_id": identifier},
-                        depends_on={"remove": current["depends_on"]}))
+    removed = body(call("plan_12-update", request={**request, "depends_on": {"remove": current["depends_on"]}}))
     assert removed["status"] == "success"
     current = store.get_phase(identifier) if kind == "phase" else store.get_plan(identifier)
     assert current["depends_on"] == []
@@ -160,7 +159,7 @@ def test_revision_recording_failure_rolls_back_valid_partial_edits(context, monk
     def fail(*args, **kwargs):
         raise RuntimeError("snapshot failure")
     monkeypatch.setattr(store, "_record_generation_revision", fail)
-    result = body(call("plan_13-update_step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], status="running",
-                       output_refs={"add": ["valid", ""]}))
+    result = body(call("plan_12-update", request=dict(target="step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], status="running",
+                       output_refs={"add": ["valid", ""]})))
     assert result["status"] == "error"
     assert store.get_plan(plan["plan_id"]) == plan

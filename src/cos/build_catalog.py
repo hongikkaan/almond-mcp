@@ -52,7 +52,7 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         for part in ast.walk(annotation):
             if not isinstance(part, allowed):
                 raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
-            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict", "StringListPatch", "Literal"}:
+            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict", "StringListPatch", "Literal", "CreateRequest", "GetRequest", "ListRequest", "UpdateRequest"}:
                 raise ValueError(f"Review annotation name {part.id} in {node.name}")
     for default in [*node.args.defaults, *node.args.kw_defaults]:
         if default is not None:
@@ -154,6 +154,7 @@ async def generate(engine: Path = ENGINE) -> dict:
     from fastmcp.tools import ToolResult
     from pydantic import StrictInt, StrictFloat, StrictBool
     from almond_mcp.features.planning.updates import StringListPatch
+    from almond_mcp.features.planning.requests import CreateRequest, GetRequest, ListRequest, UpdateRequest
     paths = source_paths(engine)
     sources = {name: digest(path) for name, path in paths.items()}
     functions = collect_tool_functions(paths["server"])
@@ -174,6 +175,10 @@ async def generate(engine: Path = ENGINE) -> dict:
     module.StrictBool = StrictBool
     module.Literal = Literal
     module.StringListPatch = StringListPatch
+    module.CreateRequest = CreateRequest
+    module.GetRequest = GetRequest
+    module.ListRequest = ListRequest
+    module.UpdateRequest = UpdateRequest
     sys.modules[module.__name__] = module
     tree = ast.Module(body=[checked_stub(n) for n in functions], type_ignores=[])
     exec(compile(ast.fix_missing_locations(tree), "<Almond external schemas only>", "exec"), module.__dict__)
