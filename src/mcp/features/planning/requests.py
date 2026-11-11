@@ -15,7 +15,7 @@ class CreatePhase(PlanningRequest):
     description: str = Field('', description='Phase의 목적이나 작업 범위를 문자열로 입력합니다.')
     file_name: str | list[str] = Field('', description='이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다.')
     status: Literal['pending', 'running', 'paused', 'completed', 'failed', 'blocked'] = Field('pending', description='pending, running, paused, completed, failed, blocked 중 하나를 선택합니다.')
-    depends_on: list[str] | None = Field(None, description='이 Phase가 의존하는 Phase ID 목록입니다.')
+    depends_on: list[str] | None = Field(None, description='이 Phase가 의존하는 Phase ID 목록입니다. 같은 종류의 ID 형식만 검사하며 대상의 존재·자기 참조·순환을 검사하거나 실행 순서·완료를 강제하지 않습니다.')
     previous_id: str | None = Field(None, description='이전 Phase의 ID입니다.')
 
 class CreatePlan(PlanningRequest):
@@ -27,10 +27,10 @@ class CreatePlan(PlanningRequest):
     phase_id: str = Field('', description='선택 사항인 기존 Phase ID입니다. 비어 있으면 Plan을 Phase에 소속시키지 않습니다.')
     scene_ids: list[str] | None = Field(None, description='Plan의 작업 맥락이 되는 기존 Scene ID 배열입니다. 생략하면 Scene 없이 생성합니다.')
     holon_ids: list[str] | None = Field(None, description='이 Plan에서 작업할 기존 Holon ID 배열입니다.')
-    depends_on: list[str] | None = Field(None, description='이 Plan이 의존하는 Plan ID 목록입니다.')
+    depends_on: list[str] | None = Field(None, description='이 Plan이 의존하는 Plan ID 목록입니다. 같은 종류의 ID 형식만 검사하며 대상의 존재·자기 참조·순환을 검사하거나 실행 순서·완료를 강제하지 않습니다.')
     previous_id: str | None = Field(None, description='이전 Plan의 ID입니다.')
-    parent_plan: list[str] | None = Field(None, description='선택 사항인 상위 Plan ID 배열입니다.')
-    child_plan: list[str] | None = Field(None, description='선택 사항인 하위 Plan ID 배열입니다.')
+    parent_plan: list[str] | None = Field(None, description='이 Plan에 기록할 선택 사항인 상위 Plan ID 배열입니다. 상대 Plan을 자동으로 수정하거나 참조 대상의 존재를 검증하지 않습니다.')
+    child_plan: list[str] | None = Field(None, description='이 Plan에 기록할 선택 사항인 하위 Plan ID 배열입니다. 상대 Plan을 자동으로 수정하거나 참조 대상의 존재를 검증하지 않습니다.')
 
 class GetPhase(PlanningRequest):
     target: Literal['phase'] = Field(description="작업할 대상 종류입니다.")
@@ -71,7 +71,7 @@ class UpdatePhase(PlanningRequest):
     description: str | None = Field(None, description='선택 사항인 대체 설명입니다. 비어 있으면 지웁니다.')
     file_name: str | list[str] | None = Field(None, description='이 Phase가 속한 Rhino 파일명입니다. 문자열 하나 또는 문자열 배열로 입력합니다. [] 또는 ""는 연결 해제, 생략/null은 유지입니다.')
     status: Literal['pending', 'running', 'paused', 'completed', 'failed', 'blocked'] | None = Field(None, description='pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다.')
-    depends_on: StringListPatch | None = Field(None, description='Phase ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 충돌하거나 유효하지 않은 문자열 항목은 보고하고 건너뜁니다. 잘못된 타입은 요청 전체를 거부합니다.')
+    depends_on: StringListPatch | None = Field(None, description='Phase ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 충돌하거나 유효하지 않은 문자열 항목은 보고하고 건너뜁니다. 잘못된 타입은 요청 전체를 거부합니다. 같은 종류의 ID 형식만 검사하며 대상의 존재·자기 참조·순환을 검사하거나 실행 순서·완료를 강제하지 않습니다.')
     previous_id: str | None = Field(None, description='이전 Phase ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다.')
 
 class UpdatePlan(PlanningRequest):
@@ -82,13 +82,13 @@ class UpdatePlan(PlanningRequest):
     scene_ids: list[str] | None = Field(None, description='Plan의 작업 맥락이 되는 기존 Scene ID 배열로 교체합니다. []이면 비우고 생략/null이면 유지합니다.')
     holon_ids: list[str] | None = Field(None, description='선택 사항인 대체 Plan Holon 대상 배열입니다. []이면 비우고 생략/null이면 유지합니다.')
     expected_revision: StrictInt | None = Field(None, description='현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다.')
-    depends_on: StringListPatch | None = Field(None, description='Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다.')
+    depends_on: StringListPatch | None = Field(None, description='Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다. 같은 종류의 ID 형식만 검사하며 대상의 존재·자기 참조·순환을 검사하거나 실행 순서·완료를 강제하지 않습니다.')
     status: Literal['pending', 'running', 'paused', 'completed', 'failed', 'blocked'] | None = Field(None, description='pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. completed는 사용자의 완료 결정 후 지정합니다. 생략/null은 유지입니다.')
     artifact_refs: list[str] | None = Field(None, description='선택 사항인 대체 산출물 참조 문자열 배열입니다. []이면 비우고 생략/null이면 유지합니다.')
     title: str | None = Field(None, description='선택 사항인 비어 있지 않은 대체 짧은 제목입니다.')
     previous_id: str | None = Field(None, description='이전 Plan ID입니다. 생략/null이면 유지하고 빈 문자열이면 해제합니다.')
-    parent_plan: list[str] | None = Field(None, description='선택 사항인 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다.')
-    child_plan: list[str] | None = Field(None, description='선택 사항인 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다.')
+    parent_plan: list[str] | None = Field(None, description='이 Plan에 기록할 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다. 상대 Plan을 자동으로 수정하거나 참조 대상의 존재를 검증하지 않습니다.')
+    child_plan: list[str] | None = Field(None, description='이 Plan에 기록할 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다. 상대 Plan을 자동으로 수정하거나 참조 대상의 존재를 검증하지 않습니다.')
     loop_no: StrictInt | None = Field(None, description='선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다.')
 
 class UpdateStep(PlanningRequest):

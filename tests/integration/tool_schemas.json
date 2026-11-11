@@ -1138,7 +1138,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "이 Phase가 의존하는 Phase ID 목록입니다."
+                  "description": "이 Phase가 의존하는 Phase ID 목록입니다. 같은 종류의 ID 형식만 검사하며 대상의 존재·자기 참조·순환을 검사하거나 실행 순서·완료를 강제하지 않습니다."
                 },
                 "previous_id": {
                   "anyOf": [
@@ -1233,7 +1233,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "이 Plan이 의존하는 Plan ID 목록입니다."
+                  "description": "이 Plan이 의존하는 Plan ID 목록입니다. 같은 종류의 ID 형식만 검사하며 대상의 존재·자기 참조·순환을 검사하거나 실행 순서·완료를 강제하지 않습니다."
                 },
                 "previous_id": {
                   "anyOf": [
@@ -1260,7 +1260,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "선택 사항인 상위 Plan ID 배열입니다."
+                  "description": "이 Plan에 기록할 선택 사항인 상위 Plan ID 배열입니다. 상대 Plan을 자동으로 수정하거나 참조 대상의 존재를 검증하지 않습니다."
                 },
                 "child_plan": {
                   "anyOf": [
@@ -1275,7 +1275,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "선택 사항인 하위 Plan ID 배열입니다."
+                  "description": "이 Plan에 기록할 선택 사항인 하위 Plan ID 배열입니다. 상대 Plan을 자동으로 수정하거나 참조 대상의 존재를 검증하지 않습니다."
                 }
               },
               "required": [
@@ -9858,7 +9858,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "Phase ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 충돌하거나 유효하지 않은 문자열 항목은 보고하고 건너뜁니다. 잘못된 타입은 요청 전체를 거부합니다."
+                  "description": "Phase ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 충돌하거나 유효하지 않은 문자열 항목은 보고하고 건너뜁니다. 잘못된 타입은 요청 전체를 거부합니다. 같은 종류의 ID 형식만 검사하며 대상의 존재·자기 참조·순환을 검사하거나 실행 순서·완료를 강제하지 않습니다."
                 },
                 "previous_id": {
                   "anyOf": [
@@ -9985,7 +9985,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다."
+                  "description": "Plan ID만 사용하는 선택 사항인 {add: string[], remove: string[]} 패치입니다. 문자열 항목에 문제가 있으면 건너뛰고 보고합니다. 같은 종류의 ID 형식만 검사하며 대상의 존재·자기 참조·순환을 검사하거나 실행 순서·완료를 강제하지 않습니다."
                 },
                 "status": {
                   "anyOf": [
@@ -10059,7 +10059,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "선택 사항인 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
+                  "description": "이 Plan에 기록할 대체 상위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다. 상대 Plan을 자동으로 수정하거나 참조 대상의 존재를 검증하지 않습니다."
                 },
                 "child_plan": {
                   "anyOf": [
@@ -10074,7 +10074,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "선택 사항인 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다."
+                  "description": "이 Plan에 기록할 대체 하위 Plan ID 배열입니다. 생략/null이면 유지하고 []이면 비웁니다. 상대 Plan을 자동으로 수정하거나 참조 대상의 존재를 검증하지 않습니다."
                 },
                 "loop_no": {
                   "anyOf": [

@@ -242,6 +242,8 @@ Output — plan_12-update tool
 
 `scene_id`와 `scene_ids`를 함께 넣으면 단일 값이 배열 첫 항목과 같아야 한다. Plan의 Component와 Scene은 실제 저장된 대상을 참조한다. `depends_on`은 Phase에는 `phase_`, Plan에는 `plan_` ID만 받지만 미생성 참조·자기 참조·순환을 허용하고 실행/완료를 강제하지 않는다.
 
+`parent_plan`·`child_plan`은 이 Plan에만 기록하는 단방향 참조 목록이며 상대 Plan을 자동 수정하거나 참조 대상의 존재를 검증하지 않는다.
+
 제목·상태·참조가 실제로 바뀌면 Plan revision을 기록하고 같은 값이면 시각/revision을 유지한다. Step 상태가 바뀌어도 Plan 상태는 자동 변경하지 않는다. Plan 완료는 사용자가 판단한다. status/input_refs/output_refs는 어떤 조합으로도 선택 수정하며 한 요청은 실제 변경이 있을 때 revision을 한 번만 증가시킨다. 기록만 수정할 때 status를 생략할 수 있고 Step 상태와 Plan의 paused/completed 상태가 유지된다. 조회 응답의 next_step_guide는 후속 조회·작업 선택을 안내하지만, 조회나 plan_10-set_working tool 선택 자체가 상태 변경 또는 실행을 뜻하지 않는다. `expected_revision`은 선택 입력으로, 저장된 최신 revision과 다르면 수정을 거절한다.
 
 `inspect_05-resolve_targets` tool는 Plan의 Component 대상을 해석한다. 선택적 step_id는 소속 Step을 확인할 뿐 대상을 바꾸지 않는다. `inspect_04-get_selection_references` tool도 Plan 대상을 기준으로 선택 객체와 관련된 Plan/Step을 찾는다. 두 도구의 상세 선택은 각 tools/list 설명을 따른다. `plan_10-set_working` tool의 선택·산출물 폴더 계약은 [runtime 설명](../../runtime/mcp_server-explain.md)을 따른다.
