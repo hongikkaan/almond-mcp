@@ -7,7 +7,9 @@ import json
 SUCCESS_GUIDES = {
     "create_phase": "이 phase_id로 create_plan을 호출해 Phase에 Plan을 추가할 수 있습니다.",
     "create_plan": "get_phase_plan_step에서 plan_id와 include_details=true로 Step을 확인합니다.",
-    "execute_looping": "수행할 Step을 set_working_plan으로 선택하고, 수행·검증 결과를 update_step에 기록합니다.",
+    "execute_looping": ("저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 set_working_plan으로 선택합니다. "
+                        "완료한 작업은 반복하지 않고, 수행·검증 결과를 update_step에 기록합니다.\n"
+                        "회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다."),
     "set_working_plan": "이 artifact_dir에서 작업하고, 재사용한 파일은 input_refs에, 새로 만든 산출물은 output_refs에 기록합니다.",
     "rename_artifact_folder": "이후 산출물 작업에는 갱신된 artifact_dir를 사용합니다.",
     "update_phase": "get_phase_plan_step으로 변경된 Phase를 확인할 수 있습니다.",
@@ -104,7 +106,7 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         return "연결할 Rhino의 저장된 문서에서 almondconnect를 실행한 뒤 목록을 다시 조회합니다."
     if name in {"connect", "start_session"}:
         if value.get("state") == "ready":
-            return "이후 호출은 선택한 연결을 사용합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 확인합니다."
+            return "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 조회합니다."
         if name == "start_session" and value.get("request_id"):
             return "같은 request_id와 model_path로 start_session을 다시 조회합니다."
         return "list_connections로 연결 상태를 확인합니다."

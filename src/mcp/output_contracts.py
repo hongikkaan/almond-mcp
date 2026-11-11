@@ -8,7 +8,7 @@ from copy import deepcopy
 
 CONTRACTS = {'list_connections': {'type': 'object',
                       'properties': {'instructions': {'type': 'string',
-                                                      'description': '연결 가능한 Rhino와 연결 선택 방법입니다.'},
+                                                      'description': '연결 목록의 구분과 상태를 읽는 방법입니다.'},
                                      'targets': {'type': 'array',
                                                  'items': {'type': 'object',
                                                            'properties': {'connection_id': {'type': ['string',
@@ -344,7 +344,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                     'next_step_id': {'type': ['string', 'null'],
                                                      'description': '아직 완료되지 않은 첫 Step의 ID입니다. 없으면 null입니다.'},
                                     'previous_loop': {'type': ['object', 'null'],
-                                                      'description': '이전 회차의 번호와 Step 기록입니다.'},
+                                                      'description': '이전 회차의 번호와 Step 기록입니다. 새 작업에 앞서 수행·검증·보고 내용을 확인합니다.'},
                                     'step_id': {'type': 'string', 'description': '선택한 Step ID입니다.'},
                                     'plan_artifact_dir': {'type': 'string', 'description': 'Plan 산출물 폴더'},
                                     'artifact_dir': {'type': ['string', 'null'], 'description': '작업 산출물 폴더'},
@@ -368,14 +368,13 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                                                  'completed, '
                                                                                                  'failed, blocked '
                                                                                                  '중 하나입니다.'}}},
-                                              'description': '이 회차의 Step과 작업 기록입니다.'},
+                                              'description': '현재 회차의 Step과 저장된 수행 상태입니다. 미완료 작업을 선택할 때 사용합니다.'},
                                     'policy_reminder': {'type': 'string',
-                                                        'description': '이번 작업과 결과 보고에 적용할 지침입니다.'},
+                                                        'description': 'Step 순서·기존 결과 재사용·산출물 위치·Plan 완료 결정에 적용할 지침입니다.'},
                                     'message': {'type': 'string', 'description': '현재 결과 또는 오류의 설명입니다.'},
                                     'error_code': {'type': 'string', 'description': '오류 유형입니다.'},
                                     'next_step_guide': {'type': 'string',
-                                                        'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 '
-                                                                       '반환합니다.'}}},
+                                                        'description': '저장 기록 확인, Step 수행·검증 기록과 회차 결과 보고 안내입니다.'}}},
  'get_phase_plan_step': {'type': 'object',
                          'properties': {'id': {'type': 'string', 'description': '조회한 Phase·Plan·Step의 ID입니다.'},
                                         'type': {'type': 'string',
@@ -770,22 +769,13 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                                                                    'description': '항목의 '
                                                                                                                                   '종류입니다.'},
                                                                                                           'id': {'type': 'string',
-                                                                                                                 'description': '항목 '
-                                                                                                                                'ID입니다.'},
+                                                                                                                 'description': '배치 객체 또는 블록 정의 구성원의 ID입니다. 모델 편집에 쓸 객체 ID는 편집 상태에서 get_objects로 확인합니다.'},
                                                                                                           'type': {'type': 'string',
                                                                                                                    'description': '객체 '
                                                                                                                                   '유형입니다.'},
                                                                                                           'path': {'type': 'array',
                                                                                                                    'items': {'type': 'string'},
-                                                                                                                   'description': '중첩 '
-                                                                                                                                  '블록의 '
-                                                                                                                                  '배치 '
-                                                                                                                                  '경로입니다. '
-                                                                                                                                  'resolve-block의 '
-                                                                                                                                  'options.path로 '
-                                                                                                                                  '사용할 '
-                                                                                                                                  '수 '
-                                                                                                                                  '있습니다.'},
+                                                                                                                   'description': '중첩 블록의 배치 경로입니다. 공유 정의 영향을 확인할 때 resolve-block의 options.path에 재사용합니다.'},
                                                                                                           'definition': {'type': 'string',
                                                                                                                          'description': '블록 '
                                                                                                                                         '정의 '
@@ -2174,7 +2164,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                        'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 '
                                                                       '확인합니다.'},
                                             'result_id': {'type': 'string',
-                                                          'description': '같은 Rhino 문서 인스턴스에 보관된 결과 ID입니다.'},
+                                                          'description': '같은 Rhino 문서 인스턴스에 보관된 PlanSection 결과의 ID입니다. 다음 페이지 조회에 재사용합니다.'},
                                             'offset': {'type': 'integer',
                                                        'description': '결과 문자열의 UTF-16 코드 단위 시작 위치입니다.'},
                                             'json_chunk': {'type': 'string',

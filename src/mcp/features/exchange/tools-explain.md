@@ -15,7 +15,7 @@ Args:
 ## import_asset_contract
 
 <!-- instruction:import_asset_contract -->
-Almond 계약과 GLB를 Rhino 문서로 가져와 재료·metadata·배치를 복원합니다.
+Almond 자산 계약에 따라 GLB를 Rhino 문서로 가져옵니다.
 
 Args:
     contract_path: export_asset_contract 또는 Blender 내보내기가 반환한 계약 경로입니다. 관리형 세션에서는 프로젝트 기준 상대 .almond.json 경로이고, 독립 실행에서는 절대 경로입니다.
@@ -38,7 +38,7 @@ Args:
     output_dir: 내보내기 대상 위치입니다. 관리형 세션에서는 선택한 Plan이 필요하며, 해당 산출물 디렉터리 아래의 상대 폴더를 사용합니다. 기본값은 exchange입니다. 독립 실행 호출의 기본값은 사용자 데이터의 exchange 폴더입니다.
     material_id: materials에 필요한, 알고 있는 라이브러리 재료 ID입니다.
     object_names: materials에 필요한 실제 Blender 객체 이름의 비어 있지 않은 목록입니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
     field_groups: 선택 항목은 notes, audit, all입니다. script는 기본 응답에 유지됩니다.
 <!-- /instruction:get_blender_helper_script -->
 

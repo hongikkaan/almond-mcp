@@ -75,19 +75,19 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
         }
         if name == "get_rhino_execution":
             schema["properties"]["connection_id"]["description"] = (
-                "생략하면 선택한 연결을 사용합니다. 다른 연결은 connection_id로 지정합니다. 클라이언트 재시작 후에는 정확한 request_id로 보관된 결과를 조회할 수 있습니다.")
+                "생략하면 현재 연결을 자동 적용합니다. 다른 연결의 보관된 결과를 찾을 때는 해당 connection_id와 request_id를 입력합니다.")
         tools.append(types.Tool.model_validate(tool))
         mapping[tool["name"]] = name
     management = [
         ("list_connections", "연결 가능한 Rhino 문서와 현재 연결·시작 요청을 조회합니다.",
          {}, []),
-        ("connect", "목록에서 고른 Rhino 문서에 연결하거나 기존 연결을 다시 선택합니다. 다른 문서의 연결도 유지됩니다.",
+        ("connect", "열려 있는 Rhino 문서에 연결하거나 작업할 문서를 전환합니다.",
          {"host_id": {"type": "string", "description": "list_connections.targets에서 선택한 Rhino 프로세스의 host_id입니다."}, "model_path": {"type": "string", "description": "같은 연결 대상에 표시된 저장 모델의 정확한 model_path입니다."}},
          ["host_id", "model_path"]),
         ("start_session", "저장된 모델을 새 Rhino 창에서 열고 연결합니다.",
          {"model_path": {"type": "string", "description": "새 Rhino에서 열 저장된 로컬 .3dm 파일의 절대 경로입니다."},
           "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
-                         "description": "이 시작 요청의 고유 ID입니다. 같은 시작 시도를 확인할 때 그대로 재사용합니다."}},
+                         "description": "이 시작 요청의 고유 ID입니다. 시작이 지연되거나 결과가 불확실하면 새 ID를 만들지 말고 같은 값을 재사용해 상태를 확인합니다."}},
          ["model_path", "request_id"]),
         ("disconnect", "선택한 연결을 해제하고 Rhino 창과 문서는 유지합니다.",
          {"connection_id": {"type": "string", "minLength": 1, "description": "생략하면 선택한 연결을 해제합니다. 다른 연결을 해제하려면 list_connections의 connection_id를 입력합니다."}}, []),

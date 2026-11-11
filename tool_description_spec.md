@@ -66,7 +66,7 @@
 
 ```jsonc
 {
-  "instructions": "초기화는 도구를 공개하기만 하며 Rhino나 모델링 워커를 시작하지 않습니다. …", // 연결 가능한 Rhino와 연결 선택 방법입니다.
+  "instructions": "targets는 발견한 Rhino 문서, connections는 유지 중인 연결, starts는 새 Rhino 시작 요청의 상태입니다. 대상의 state와 reason으로 사용 가능 여부를 확인합니다. 사용 중이거나 확인할 수 없는 대상은 파일 정보가 비어 있을 수 있습니다.", // 연결 목록의 구분과 상태를 읽는 방법입니다.
   "targets": [], // 연결 가능한 Rhino 문서 후보입니다.
   "connections": [], // 현재 유지 중인 연결입니다.
   "starts": [], // Rhino 시작 요청과 진행 상태입니다.
@@ -83,7 +83,7 @@
 
 ### DESCRIPTION
 
-목록에서 고른 Rhino 문서에 연결하거나 기존 연결을 다시 선택합니다. 다른 문서의 연결도 유지됩니다.
+열려 있는 Rhino 문서에 연결하거나 작업할 문서를 전환합니다.
 
 ### TOOL INPUT
 
@@ -124,7 +124,7 @@
   "pid": 1234, // Rhino 프로세스 ID
   "artifact_dir": ".almond/produced/example", // 이 연결의 임시 작업 폴더입니다.
   "in_flight": false, // 해당 연결에 호출이 진행 중인지 여부
-  "next_step_guide": "이후 호출은 선택한 연결을 사용합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -152,7 +152,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "description": "이 시작 요청의 고유 ID입니다. 같은 시작 시도를 확인할 때 그대로 재사용합니다."
+      "description": "이 시작 요청의 고유 ID입니다. 시작이 지연되거나 결과가 불확실하면 새 ID를 만들지 말고 같은 값을 재사용해 상태를 확인합니다."
     }
   },
   "required": [
@@ -180,7 +180,7 @@
   "artifact_dir": ".almond/produced/example", // 이 연결의 임시 작업 폴더입니다.
   "in_flight": false, // 해당 연결에 호출이 진행 중인지 여부
   "request_id": "example-start", // 동일 시작 시도에 재사용. 대기·실패 상태는 list_connections.starts에서 확인
-  "next_step_guide": "이후 호출은 선택한 연결을 사용합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 확인합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "next_step_guide": "연결된 문서가 의도한 문서인지 확인합니다. 프로젝트 정보는 project_info, 기존 작업은 list_plans로 조회합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
 }
 ```
 
@@ -241,7 +241,7 @@
 
 ### DESCRIPTION
 
-프로젝트 경로·등록 파일·현재 문서·작업 공간 정보를 조회합니다.
+프로젝트와 현재 문서의 작업 정보를 조회합니다.
 
 ### TOOL INPUT
 
@@ -509,7 +509,7 @@ Almond 작업에 필요한 지침을 조회합니다.
 
 ### DESCRIPTION
 
-작업 목표와 템플릿에 따라 Plan과 Step을 생성합니다.
+작업을 수행할 Plan과 Step을 생성합니다.
 
 ### TOOL INPUT
 
@@ -553,7 +553,7 @@ Almond 작업에 필요한 지침을 조회합니다.
         }
       ],
       "default": null,
-      "description": "맥락을 설명하는 선택 사항인 기존 Scene ID 배열로, 여러 Scene을 포함할 수 있습니다. 생략하면 Scene 없이 작업할 수 있습니다. 형상 대상 집합을 확장하지는 않습니다."
+      "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열입니다. 생략하면 Scene 없이 생성합니다."
     },
     "holon_ids": {
       "anyOf": [
@@ -568,7 +568,7 @@ Almond 작업에 필요한 지침을 조회합니다.
         }
       ],
       "default": null,
-      "description": "이 Plan을 위해 명시적으로 지정하는 선택 사항인 등록된 Holon 대상입니다. Step에는 별도의 Holon 할당이 없습니다."
+      "description": "이 Plan에서 작업할 기존 Holon ID 배열입니다."
     },
     "depends_on": {
       "anyOf": [
@@ -665,7 +665,7 @@ Almond 작업에 필요한 지침을 조회합니다.
 
 ### DESCRIPTION
 
-Plan의 새 회차를 시작하거나 최신 회차를 재개하고 산출물 작업 공간을 준비합니다. Step 작업은 에이전트가 수행합니다. 저장된 수행·검증·보고 기록을 확인해 완료한 작업을 반복하지 않고, 회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다. Plan 완료는 사용자가 결정합니다.
+Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전트가 수행합니다.
 
 ### TOOL INPUT
 
@@ -680,7 +680,7 @@ Plan의 새 회차를 시작하거나 최신 회차를 재개하고 산출물 �
     "resume": {
       "default": false,
       "type": "boolean",
-      "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 새 회차는 이전 회차를 보고한 뒤 시작합니다. 시작 결과가 불확실하면 get_phase_plan_step으로 현재 회차를 확인한 뒤 결정합니다."
+      "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 get_phase_plan_step으로 현재 회차를 먼저 확인합니다."
     },
     "feedback": {
       "default": "",
@@ -715,7 +715,7 @@ Plan의 새 회차를 시작하거나 최신 회차를 재개하고 산출물 �
   "plan_id": "plan_example", // Plan ID
   "loop_no": 1, // Loop 회차 번호
   "next_step_id": "step_example", // 아직 완료되지 않은 첫 Step의 ID입니다. 없으면 null입니다.
-  "previous_loop": null, // 이전 회차의 번호와 Step 기록입니다.
+  "previous_loop": null, // 이전 회차의 번호와 Step 기록입니다. 새 작업에 앞서 수행·검증·보고 내용을 확인합니다.
   "step_id": "", // 선택한 Step ID입니다.
   "plan_artifact_dir": ".almond/produced/example", // Plan 산출물 폴더
   "artifact_dir": ".almond/produced/example/01", // 작업 산출물 폴더
@@ -724,15 +724,15 @@ Plan의 새 회차를 시작하거나 최신 회차를 재개하고 산출물 �
   "goal": "예시 목표", // 저장된 목표
   "plan_status": "pending", // Plan의 업무 상태입니다. 회차 시작만으로 변경되지는 않습니다.
   "feedback": "", // 저장된 피드백
-  "steps": [ // 이 회차의 Step과 작업 기록입니다.
+  "steps": [ // 현재 회차의 Step과 저장된 수행 상태입니다. 미완료 작업을 선택할 때 사용합니다.
     {
       "step_id": "step_example",
       "name": "예시 단계",
       "status": "pending"
     }
   ],
-  "policy_reminder": "…", // 이번 작업과 결과 보고에 적용할 지침입니다.
-  "next_step_guide": "수행할 Step을 set_working_plan으로 선택하고, 수행·검증 결과를 update_step에 기록합니다." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
+  "policy_reminder": "Step은 기본 순서대로 수행합니다. 기존 결과는 확인한 뒤 재사용하고 산출물은 이 회차의 artifact_dir에 작성합니다. Plan 완료는 사용자가 결정합니다.", // Step 순서·기존 결과 재사용·산출물 위치·Plan 완료 결정에 적용할 지침입니다.
+  "next_step_guide": "저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 set_working_plan으로 선택합니다. 완료한 작업은 반복하지 않고, 수행·검증 결과를 update_step에 기록합니다.\n회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다." // 저장 기록 확인, Step 수행·검증 기록과 회차 결과 보고 안내입니다.
 }
 ```
 
@@ -744,7 +744,7 @@ Plan의 새 회차를 시작하거나 최신 회차를 재개하고 산출물 �
 
 ### DESCRIPTION
 
-Phase, Plan 또는 Step 중 하나를 조회합니다. 상세 내용의 포함 여부를 선택할 수 있습니다.
+Phase, Plan 또는 Step의 작업 기록을 조회합니다.
 
 ### TOOL INPUT
 
@@ -782,7 +782,7 @@ Phase, Plan 또는 Step 중 하나를 조회합니다. 상세 내용의 포함 �
     "include_details": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 선택한 유형의 상세 내용을 추가합니다."
+      "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다."
     },
     "loop_no": {
       "anyOf": [
@@ -851,7 +851,7 @@ Phase, Plan 또는 Step 중 하나를 조회합니다. 상세 내용의 포함 �
     "limit": {
       "default": 50,
       "type": "integer",
-      "description": "최대 Phase 수입니다. 범위는 1..500이며, 이 목록에는 offset 인수가 없습니다."
+      "description": "최대 Phase 수입니다. 범위는 1..500입니다."
     },
     "field_groups": {
       "anyOf": [
@@ -985,7 +985,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
 
 ### DESCRIPTION
 
-프로젝트의 Plan 목록을 조회합니다. Phase·Scene·상태로 범위를 좁힐 수 있습니다.
+프로젝트의 Plan 목록을 조회합니다.
 
 ### TOOL INPUT
 
@@ -1020,7 +1020,7 @@ Plan과 Loop에 저장된 리비전과 변경 작업을 조회합니다.
     "limit": {
       "default": 50,
       "type": "integer",
-      "description": "최대 Plan 수입니다. 범위는 1..500이며, 이 목록에는 offset 인수가 없습니다."
+      "description": "최대 Plan 수입니다. 범위는 1..500입니다."
     },
     "connection_id": {
       "type": "string",
@@ -1105,7 +1105,7 @@ Plan 산출물 폴더를 옮기거나 이름을 바꾸고 저장된 참조를 �
 
 ### DESCRIPTION
 
-기존 Plan 또는 Step을 이 연결의 산출물 작업 공간으로 선택합니다.
+Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
 
 ### TOOL INPUT
 
@@ -1177,7 +1177,7 @@ Plan 산출물 폴더를 옮기거나 이름을 바꾸고 저장된 참조를 �
 
 ### DESCRIPTION
 
-Phase의 이름·설명·상태·파일 연결·관계를 수정합니다.
+Phase의 작업 정보를 수정합니다.
 
 ### TOOL INPUT
 
@@ -1331,7 +1331,7 @@ Phase의 이름·설명·상태·파일 연결·관계를 수정합니다.
 
 ### DESCRIPTION
 
-Plan의 목표·상태·대상·관계·산출물 참조를 수정합니다.
+Plan의 작업 정보를 수정합니다.
 
 ### TOOL INPUT
 
@@ -1380,7 +1380,7 @@ Plan의 목표·상태·대상·관계·산출물 참조를 수정합니다.
         }
       ],
       "default": null,
-      "description": "선택 사항인 대체 Scene ID 배열입니다. []이면 비우고 생략/null이면 유지합니다. Scene은 맥락을 설명하며 자동 편집 대상이 아닙니다."
+      "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열로 교체합니다. []이면 비우고 생략/null이면 유지합니다."
     },
     "holon_ids": {
       "anyOf": [
@@ -1760,7 +1760,7 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
   "properties": {
     "mode": {
       "type": "string",
-      "description": "outline은 객체와 중첩 정의를 순회합니다. resolve-block은 명시적인 배치 인스턴스 경로를 해석하고 공유 정의에 미치는 영향을 보고합니다. 경로 해석에는 선택 가능 조건이 필요하지 않으며 편집기 소유 관계를 부여하지도 않습니다. 중첩 정의 구성원은 독립적인 편집 ID가 아닙니다."
+      "description": "outline은 중첩 블록 구조, resolve-block은 지정한 배치 경로의 공유 정의 영향을 조회합니다."
     },
     "options": {
       "additionalProperties": true,
@@ -1770,7 +1770,7 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 런타임이 연결된 문서 경로를 제공합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "include_ids": {
       "default": false,
@@ -1830,7 +1830,7 @@ Rhino 문서·객체·선택 조회 · prefix: `inspect-NN_` · 유형 내 순�
 
 ### DESCRIPTION
 
-Rhino 객체의 속성·그룹·블록 계층·Brep 면을 관찰합니다.
+Rhino 객체와 모델 구성을 관찰합니다.
 
 ### TOOL INPUT
 
@@ -1889,7 +1889,7 @@ Rhino 객체의 속성·그룹·블록 계층·Brep 면을 관찰합니다.
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "include_ids": {
       "default": false,
@@ -2040,7 +2040,7 @@ Rhino 객체의 속성·그룹·블록 계층·Brep 면을 관찰합니다.
 
 ### DESCRIPTION
 
-현재 Rhino 문서와 편집 상태, 뷰·디스플레이 모드를 조회합니다.
+Rhino 문서와 화면의 현재 상태를 조회합니다.
 
 ### TOOL INPUT
 
@@ -2196,7 +2196,7 @@ Plan에 등록된 Holon 대상 집합을 조회합니다.
     "step_id": {
       "default": "",
       "type": "string",
-      "description": "컨텍스트를 검증하는 선택 사항인 Step ID입니다. Plan 대상을 재정의하지 않습니다."
+      "description": "선택한 Plan에 속하는지 확인할 Step ID입니다. 생략해도 Plan의 Holon 대상을 조회합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -2403,7 +2403,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "model_view_id": {
       "default": "",
@@ -2472,7 +2472,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
 
 ### DESCRIPTION
 
-현재 모델 화면을 캡처합니다. 대상·격리·디스플레이 옵션을 지정하면 실제 화면에도 적용됩니다.
+현재 모델 화면을 캡처하고 표시 상태를 조정합니다.
 
 ### TOOL INPUT
 
@@ -2493,12 +2493,12 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
         }
       ],
       "default": null,
-      "description": "객체, 그룹 또는 Holon ID로 구성된 선택 사항인 비어 있지 않은 문자열 배열입니다. 확인된 객체가 중복되면 한 번만 선택합니다."
+      "description": "화면에서 선택·확대할 객체, 그룹 또는 Holon의 ID 배열입니다. 생략하면 현재 화면을 사용하며, 입력할 때는 하나 이상의 ID를 지정합니다."
     },
     "target_kind": {
       "default": "object",
       "type": "string",
-      "description": "object(기본값), group, block(일반 객체 ID) 또는 holon입니다. 허용할 형상 유형이 아니라 ID 이름 공간을 선택합니다."
+      "description": "target_ids의 종류입니다. object, group, block, holon 중 선택합니다. block에는 배치 객체 ID를 입력합니다."
     },
     "isolate": {
       "default": false,
@@ -2508,12 +2508,12 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "scale_percent": {
       "default": 75,
       "type": "integer",
-      "description": "범위는 1..100이며 기본값은 75입니다. 뷰포트 창 크기가 아니라 이미지 해상도를 변경합니다."
+      "description": "이미지 해상도의 백분율입니다. 1..100 범위이며 기본값은 75입니다."
     },
     "include_usage": {
       "default": false,
       "type": "boolean",
-      "description": "치수와 설명용 픽셀 기반 토큰 추정치를 포함합니다. 측정된 사용량은 아닙니다."
+      "description": "true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다."
     },
     "display_mode": {
       "default": "",
@@ -2540,7 +2540,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
         }
       ],
       "default": null,
-      "description": "선택 사항인 이미지의 픽셀 너비로, 범위는 128..2048입니다. height도 제공하고 scale_percent=100으로 설정합니다. Rhino 창 크기를 바꾸지는 않습니다."
+      "description": "이미지의 픽셀 너비입니다. 128..2048 범위이며 height도 입력하고 scale_percent=100으로 지정합니다."
     },
     "height": {
       "anyOf": [
@@ -2552,12 +2552,12 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
         }
       ],
       "default": null,
-      "description": "선택 사항인 이미지의 픽셀 높이로, 범위는 128..2048입니다. width도 제공하고 scale_percent=100으로 설정합니다. Rhino 창 크기를 바꾸지는 않습니다."
+      "description": "이미지의 픽셀 높이입니다. 128..2048 범위이며 width도 입력하고 scale_percent=100으로 지정합니다."
     },
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 런타임이 연결된 모델을 제공합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -2618,7 +2618,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "include_usage": {
       "default": false,
       "type": "boolean",
-      "description": "실제 치수와 설명용 픽셀 기반 토큰 추정치를 포함합니다. 측정된 사용량은 아닙니다."
+      "description": "true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다."
     },
     "display_mode": {
       "default": "",
@@ -2662,7 +2662,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 런타임이 연결된 모델을 제공합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -2707,7 +2707,7 @@ Rhino 카메라 경로를 따라 RGB·에지·깊이 프레임과 카메라 기�
 
 ### DESCRIPTION
 
-Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 요청한 경우 구법 metadata도 기록합니다.
+Rhino 객체에 라이브러리 재료를 적용합니다.
 
 ### TOOL INPUT
 
@@ -2851,7 +2851,7 @@ Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 요청한 경우 
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -2913,7 +2913,7 @@ Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 요청한 경우 
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -2962,7 +2962,7 @@ Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 요청한 경우 
 
 ### DESCRIPTION
 
-라이브러리 PBR 재료와 매핑 정보를 조회합니다.
+라이브러리에서 사용할 재료를 찾습니다.
 
 ### TOOL INPUT
 
@@ -2983,7 +2983,7 @@ Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 요청한 경우 
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -2998,7 +2998,7 @@ Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 요청한 경우 
         }
       ],
       "default": null,
-      "description": "선택 사항인 상세 그룹: display, physical, metadata, source, paths, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+      "description": "선택 사항인 상세 그룹: display, physical, metadata, source, paths, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
     },
     "connection_id": {
       "type": "string",
@@ -3254,7 +3254,7 @@ Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 요청한 경우 
     "connection_id": {
       "type": "string",
       "minLength": 1,
-      "description": "생략하면 선택한 연결을 사용합니다. 다른 연결은 connection_id로 지정합니다. 클라이언트 재시작 후에는 정확한 request_id로 보관된 결과를 조회할 수 있습니다."
+      "description": "생략하면 현재 연결을 자동 적용합니다. 다른 연결의 보관된 결과를 찾을 때는 해당 connection_id와 request_id를 입력합니다."
     }
   },
   "type": "object"
@@ -3348,7 +3348,7 @@ Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon �
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 관리형 세션이 연결된 저장 문서를 제공합니다. 명시한 경로는 해당 문서와 일치해야 합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -3400,12 +3400,12 @@ Rhino 객체를 Scene에 포함하거나 해당 Scene에서 제외했던 Holon �
     "units": {
       "default": "mm",
       "type": "string",
-      "description": "Scene 단위 코드: mm, cm, m, in 또는 ft. Rhino 문서 단위를 바꾸지는 않습니다."
+      "description": "Scene에 기록할 단위입니다. mm, cm, m, in, ft 중 하나를 선택합니다."
     },
     "file_name": {
       "default": "",
       "type": "string",
-      "description": "폴더를 제외한 프로젝트 파일 이름입니다. 중복 파일 이름을 구분하려면 project_file_id를 사용합니다. 이는 저장된 연결 정보이며, 파일 작업이 아닙니다."
+      "description": "이 Scene이 속한 프로젝트 파일명을 문자열로 입력합니다. 폴더는 제외하고, 같은 이름의 파일이 여러 개면 project_file_id로 지정합니다."
     },
     "project_file_id": {
       "anyOf": [
@@ -3473,7 +3473,7 @@ Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대�
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 명시한 경로는 이 연결 정보와 일치해야 하며, 문서를 전환하지는 않습니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -3515,7 +3515,7 @@ Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대�
 
 ### DESCRIPTION
 
-Scene의 저장된 정보와 등록 요약을 조회합니다.
+Scene의 등록 정보를 조회합니다.
 
 ### TOOL INPUT
 
@@ -3530,7 +3530,7 @@ Scene의 저장된 정보와 등록 요약을 조회합니다.
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -3545,7 +3545,7 @@ Scene의 저장된 정보와 등록 요약을 조회합니다.
         }
       ],
       "default": null,
-      "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+      "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
     },
     "connection_id": {
       "type": "string",
@@ -3588,7 +3588,7 @@ Scene의 저장된 정보와 등록 요약을 조회합니다.
 
 ### DESCRIPTION
 
-Holon의 등록 정보 또는 현재 Rhino 그룹 구성원을 조회합니다.
+Holon의 등록 정보와 구성원을 조회합니다.
 
 ### TOOL INPUT
 
@@ -3608,7 +3608,7 @@ Holon의 등록 정보 또는 현재 Rhino 그룹 구성원을 조회합니다.
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "recursive": {
       "default": false,
@@ -3628,7 +3628,7 @@ Holon의 등록 정보 또는 현재 Rhino 그룹 구성원을 조회합니다.
         }
       ],
       "default": null,
-      "description": "선택 사항인 상세 그룹: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+      "description": "선택 사항인 상세 그룹: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
     },
     "connection_id": {
       "type": "string",
@@ -3682,7 +3682,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -3697,7 +3697,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
         }
       ],
       "default": null,
-      "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+      "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
     },
     "limit": {
       "default": 50,
@@ -3712,7 +3712,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "일반적으로 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 명시한 경로는 이 연결 정보와 일치해야 하며, 문서를 전환하지는 않습니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -3768,7 +3768,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
     "file_name": {
       "default": "",
       "type": "string",
-      "description": "선택 사항인 저장된 프로젝트 파일 이름 필터입니다. 현재 형상을 검증하지는 않습니다."
+      "description": "이 파일에 속한 Scene을 찾습니다. 프로젝트 파일명을 문자열로 입력하며, 생략하면 모든 파일을 포함합니다."
     },
     "limit": {
       "default": 50,
@@ -3783,7 +3783,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -3798,7 +3798,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
         }
       ],
       "default": null,
-      "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+      "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
     },
     "connection_id": {
       "type": "string",
@@ -3833,7 +3833,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
 
 ### DESCRIPTION
 
-문서 또는 Scene에 등록된 Holon 목록을 조회합니다.
+등록된 Holon 목록을 조회합니다.
 
 ### TOOL INPUT
 
@@ -3849,7 +3849,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "scene_id": {
       "default": "",
@@ -3874,7 +3874,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
         }
       ],
       "default": null,
-      "description": "선택 가능한 세부 그룹은 references, geometry, scope, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+      "description": "선택 가능한 세부 그룹은 references, geometry, scope, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
     },
     "connection_id": {
       "type": "string",
@@ -3907,7 +3907,7 @@ Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회�
 
 ### DESCRIPTION
 
-Rhino 형상과 그룹을 유지하면서 Holon 등록을 해제합니다. 부모 Holon과 Plan의 참조를 먼저 해제해야 합니다.
+Holon 등록을 해제하고 Rhino 형상과 그룹은 유지합니다.
 
 ### TOOL INPUT
 
@@ -3917,7 +3917,7 @@ Rhino 형상과 그룹을 유지하면서 Holon 등록을 해제합니다. 부�
   "properties": {
     "holon_id": {
       "type": "string",
-      "description": "include_ids=true를 지정한 Holon 조회 또는 이전 등록 결과에서 얻은 등록된 Holon ID입니다."
+      "description": "등록을 해제할 Holon ID입니다. 이 Holon을 참조하는 부모 Holon과 Plan의 관계를 먼저 해제합니다."
     },
     "connection_id": {
       "type": "string",
@@ -3977,7 +3977,7 @@ Rhino 형상과 그룹을 유지하면서 Holon 등록을 해제합니다. 부�
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "보통 생략합니다. 관리형 세션이 연결된 저장 문서를 제공합니다. 경로를 명시하면 해당 문서와 일치해야 합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -4030,7 +4030,7 @@ Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "보통 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 경로를 명시하면 해당 연결과 일치해야 하며, 문서를 전환하지는 않습니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "rhino_group_id": {
       "default": "",
@@ -4126,7 +4126,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "기존 프로젝트 파일 ID입니다. 선택 사항이며, file_name과 함께 제공하면 서로 일치해야 합니다. 디스크의 파일이 아니라 메타데이터를 변경합니다."
+      "description": "연결할 기존 프로젝트 파일의 ID입니다. file_name도 입력하면 같은 파일을 가리켜야 합니다."
     },
     "connection_id": {
       "type": "string",
@@ -4164,7 +4164,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### DESCRIPTION
 
-물리적 요소와 관계를 역할·동작·구조 정보가 있는 Holon으로 등록하거나 갱신합니다. 직접 객체는 Holon 하나에 속합니다.
+물리적 요소와 관계를 Holon으로 등록하거나 갱신합니다.
 
 ### TOOL INPUT
 
@@ -4189,12 +4189,12 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "등록할 현재 최상위 Rhino 객체 GUID입니다. 생략하면 이름이 지정된 기존 그룹을 찾아 사용할 수 있습니다. []는 child_holon_ids가 있는 부모에만 유효합니다."
+      "description": "등록할 최상위 Rhino 객체 GUID 배열입니다. 각 객체는 하나의 Holon에 속합니다. 생략하면 name과 일치하는 기존 그룹을 사용합니다. []는 child_holon_ids가 있는 부모에만 사용합니다."
     },
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "보통 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 경로를 명시하면 해당 연결과 일치해야 하며, 문서를 전환하지는 않습니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "scene_ids": {
       "anyOf": [
@@ -4209,7 +4209,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "기존 Scene 소속 관계입니다. 새 Holon에는 필수입니다. 생략하면 기존 등록을 유지하며, Scene을 생성하지는 않습니다."
+      "description": "Holon이 속할 기존 Scene ID 배열입니다. 새 Holon에는 필수이며, 수정 시 생략하면 유지합니다."
     },
     "holon_id": {
       "default": "",
@@ -4525,7 +4525,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url을 포함하는 참조 객체입니다. 선택 사항이며, 출처 이력이 정확성을 보증하지는 않습니다."
+      "description": "출처 이력입니다. source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url을 담은 참조 객체를 입력합니다."
     },
     "connection_id": {
       "type": "string",
@@ -4557,7 +4557,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### DESCRIPTION
 
-등록 모델의 저장 도면 매니페스트와 뷰를 조회합니다.
+등록 모델의 저장 도면을 조회합니다.
 
 ### TOOL INPUT
 
@@ -4572,7 +4572,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -4587,7 +4587,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
     },
     "connection_id": {
       "type": "string",
@@ -4622,7 +4622,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### DESCRIPTION
 
-모델·2D 자산의 파일·출처·변환·갱신 상태를 조회합니다.
+모델·2D 자산의 등록 정보와 사용 가능 상태를 조회합니다.
 
 ### TOOL INPUT
 
@@ -4637,7 +4637,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -4652,7 +4652,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
     },
     "connection_id": {
       "type": "string",
@@ -4692,7 +4692,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### DESCRIPTION
 
-모델·2D 자산 목록을 조회합니다. 변환 대기 원본도 포함합니다.
+모델·2D 자산 목록을 조회합니다.
 
 ### TOOL INPUT
 
@@ -4708,7 +4708,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "limit": {
       "default": 20,
       "type": "integer",
-      "description": "이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다."
+      "description": "한 페이지에 반환할 최대 항목 수입니다."
     },
     "offset": {
       "default": 0,
@@ -4718,7 +4718,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -4733,7 +4733,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
     },
     "connection_id": {
       "type": "string",
@@ -4899,7 +4899,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "offset": {
       "default": 0,
@@ -5001,7 +5001,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### DESCRIPTION
 
-준비한 3DM을 측정 치수와 평면·정면·우측면 도면이 있는 라이브러리 자산으로 등록합니다.
+준비한 3DM을 라이브러리 자산으로 등록합니다.
 
 ### TOOL INPUT
 
@@ -5132,12 +5132,12 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "limit": {
       "default": 20,
       "type": "integer",
-      "description": "간략 목록에 포함할 최대 자산 수이며, 1..100 범위로 제한됩니다. 반환된 assets의 길이를 total과 비교합니다. 이 도구에는 offset/has_more 필드가 없습니다."
+      "description": "반환할 최대 자산 수입니다. 1..100 범위입니다."
     },
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5152,7 +5152,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
     },
     "connection_id": {
       "type": "string",
@@ -5183,7 +5183,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### DESCRIPTION
 
-텍스트·분류·측정 치수로 모델·2D 자산을 검색합니다.
+조건에 맞는 모델·2D 자산을 검색합니다.
 
 ### TOOL INPUT
 
@@ -5219,7 +5219,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "limit": {
       "default": 10,
       "type": "integer",
-      "description": "이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다."
+      "description": "한 페이지에 반환할 최대 항목 수입니다."
     },
     "offset": {
       "default": 0,
@@ -5229,7 +5229,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5244,7 +5244,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+      "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
     },
     "connection_id": {
       "type": "string",
@@ -5282,7 +5282,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ### DESCRIPTION
 
-다이어그램 자산의 metadata와 파일 상태를 조회합니다.
+다이어그램 자산의 등록 정보와 사용 가능 상태를 조회합니다.
 
 ### TOOL INPUT
 
@@ -5297,7 +5297,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5312,7 +5312,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+      "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
     },
     "connection_id": {
       "type": "string",
@@ -5366,7 +5366,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "limit": {
       "default": 20,
       "type": "integer",
-      "description": "이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다."
+      "description": "한 페이지에 반환할 최대 항목 수입니다."
     },
     "offset": {
       "default": 0,
@@ -5376,7 +5376,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5391,7 +5391,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
         }
       ],
       "default": null,
-      "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+      "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
     },
     "connection_id": {
       "type": "string",
@@ -5499,7 +5499,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### DESCRIPTION
 
-텍스트·분류·기록된 치수로 다이어그램 자산을 검색합니다.
+조건에 맞는 다이어그램 자산을 검색합니다.
 
 ### TOOL INPUT
 
@@ -5535,7 +5535,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "limit": {
       "default": 10,
       "type": "integer",
-      "description": "이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다."
+      "description": "한 페이지에 반환할 최대 항목 수입니다."
     },
     "offset": {
       "default": 0,
@@ -5545,7 +5545,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5560,7 +5560,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
         }
       ],
       "default": null,
-      "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+      "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
     },
     "connection_id": {
       "type": "string",
@@ -5598,7 +5598,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### DESCRIPTION
 
-도면 레시피의 레이어·색상·출력 선 두께·선종류를 Rhino 문서에 적용합니다.
+도면 스타일 레시피를 Rhino 문서에 적용합니다.
 
 ### TOOL INPUT
 
@@ -5667,7 +5667,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### DESCRIPTION
 
-저장된 도면 레시피의 목적과 설정을 조회합니다.
+도면 스타일 레시피를 조회합니다.
 
 ### TOOL INPUT
 
@@ -5682,7 +5682,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5697,7 +5697,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
         }
       ],
       "default": null,
-      "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+      "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
     },
     "connection_id": {
       "type": "string",
@@ -5738,7 +5738,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### DESCRIPTION
 
-보관된 PlanSection 실행 결과를 페이지별로 조회합니다.
+보관된 PlanSection 실행 결과를 조회합니다.
 
 ### TOOL INPUT
 
@@ -5758,7 +5758,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "바인딩된 저장 문서 경로입니다. 값을 명시하면 런타임 바인딩과 일치해야 합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -5780,7 +5780,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-  "result_id": "00000000000000000000000000000001", // 같은 Rhino 문서 인스턴스에 보관된 결과 ID입니다.
+  "result_id": "00000000000000000000000000000001", // 같은 Rhino 문서 인스턴스에 보관된 PlanSection 결과의 ID입니다. 다음 페이지 조회에 재사용합니다.
   "offset": 0, // 결과 문자열의 UTF-16 코드 단위 시작 위치입니다.
   "json_chunk": "{\"status\":\"completed\"}", // 전체 객체가 아니라 JSON 문자열 조각
   "total_characters": 22, // UTF-16 코드 단위 길이
@@ -5798,7 +5798,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
 
 ### DESCRIPTION
 
-등록된 PAT 자산의 해치 정의를 Rhino 문서에 추가합니다. 같은 이름의 정의는 재사용합니다.
+등록된 PAT 자산의 해치 정의를 Rhino 문서에 추가합니다.
 
 ### TOOL INPUT
 
@@ -5808,7 +5808,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
   "properties": {
     "asset_id": {
       "type": "string",
-      "description": "include_ids=true로 조회한 일치하는 목록/검색 결과의 기존 라이브러리 자산 ID 또는 이미 알고 있는 ID입니다."
+      "description": "해치 정의를 가져올 PAT 자산 ID입니다. 같은 이름의 해치 정의가 있으면 재사용합니다."
     },
     "connection_id": {
       "type": "string",
@@ -5857,7 +5857,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -5872,7 +5872,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
         }
       ],
       "default": null,
-      "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+      "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6030,7 +6030,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치�
     "expected_model_path": {
       "default": "",
       "type": "string",
-      "description": "런타임이 제공하는 바인딩된 저장 문서 경로입니다. 값을 명시하면 해당 바인딩과 일치해야 합니다."
+      "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6080,7 +6080,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-로컬 Grasshopper 정의의 구성요소·설명·metadata를 조회합니다.
+Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 ### TOOL INPUT
 
@@ -6095,7 +6095,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6110,7 +6110,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+      "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6157,7 +6157,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-기능별 Grasshopper 캡슐과 실행 감사 여부를 조회합니다.
+사용할 Grasshopper 캡슐을 찾습니다.
 
 ### TOOL INPUT
 
@@ -6178,7 +6178,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6193,7 +6193,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+      "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6254,7 +6254,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6269,7 +6269,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+      "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6384,7 +6384,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-구법 라이브러리에서 구조 시스템·예비 경간·부재 깊이·조립 방식을 비교합니다.
+건축 구법을 비교하고 선택할 참고 자료를 조회합니다.
 
 ### TOOL INPUT
 
@@ -6425,7 +6425,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6440,7 +6440,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+      "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6496,7 +6496,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-역사 라이브러리에서 건축 유형의 서사·선례·도시적 역할을 조회합니다.
+건축 유형의 서사와 선례를 조회합니다.
 
 ### TOOL INPUT
 
@@ -6527,7 +6527,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6542,7 +6542,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+      "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6603,7 +6603,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6618,7 +6618,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+      "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6676,7 +6676,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-제공된 층 경계·출구·경로 측정값으로 피난 조건을 예비 검토합니다.
+피난 조건을 예비 검토합니다.
 
 ### TOOL INPUT
 
@@ -6840,7 +6840,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -6855,7 +6855,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
         }
       ],
       "default": null,
-      "description": "상세 그룹: parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+      "description": "상세 그룹: parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
     },
     "connection_id": {
       "type": "string",
@@ -6899,7 +6899,7 @@ Grasshopper 로직·캡슐 조회와 실행 · prefix: `grasshopper-NN_` · 유�
 
 ### DESCRIPTION
 
-Rhino 구조 형상을 지정한 하중·지지·접합·설계기준 가정으로 해석합니다.
+Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
 
 ### TOOL INPUT
 
@@ -7076,7 +7076,7 @@ Rhino 구조 형상을 지정한 하중·지지·접합·설계기준 가정으�
 
 ### DESCRIPTION
 
-구조 해석 결과를 변형·사용률·좌굴의 임시 뷰포트 오버레이로 표시합니다.
+구조 해석 결과를 임시 뷰포트 오버레이로 표시합니다.
 
 ### TOOL INPUT
 
@@ -7457,7 +7457,7 @@ Blender의 선택 형상 내보내기 또는 재료 설정에 사용할 Python �
     "include_ids": {
       "default": false,
       "type": "boolean",
-      "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+      "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
     },
     "field_groups": {
       "anyOf": [
@@ -7508,7 +7508,7 @@ Blender의 선택 형상 내보내기 또는 재료 설정에 사용할 Python �
 
 ### DESCRIPTION
 
-Almond 계약과 GLB를 Rhino 문서로 가져와 재료·metadata·배치를 복원합니다.
+Almond 자산 계약에 따라 GLB를 Rhino 문서로 가져옵니다.
 
 ### TOOL INPUT
 
@@ -7639,7 +7639,7 @@ Rhino 객체를 물리·콜라이더 설정이 있는 GLB로 Chestnut에 게시�
     "preserve_scale": {
       "default": true,
       "type": "boolean",
-      "description": "모델을 1미터 크기의 전시 소품으로 정규화하지 않고 Rhino의 실제 치수를 유지합니다."
+      "description": "true이면 Rhino의 실제 치수를 유지하고, false이면 1미터 크기로 정규화합니다."
     },
     "mass": {
       "default": 0.0,
@@ -7694,7 +7694,7 @@ Rhino 객체를 동작 프리셋으로 Chestnut에 게시합니다. 원본 문�
         "type": "string"
       },
       "type": "array",
-      "description": "관찰, 선택 또는 모델링 결과에서 얻은 현재 Rhino 객체 GUID입니다. 스크립팅 호출은 필요하지 않습니다."
+      "description": "게시할 현재 Rhino 객체 GUID 배열입니다. 관찰·선택·모델링 결과의 ID를 사용합니다."
     },
     "asset_name": {
       "type": "string",

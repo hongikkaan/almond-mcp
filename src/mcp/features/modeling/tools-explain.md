@@ -16,18 +16,18 @@ Args:
     far_width: 가장 먼 입면 객체의 출력 선 두께(mm)입니다. 양수이며 near_width 이하여야 합니다. 최종 출력에도 유지됩니다.
     near_dark: 가장 가까운 입면 객체의 출력 농도 백분율입니다. 0..100 범위이며 far_dark 이상이어야 합니다. 최종 출력에도 유지됩니다.
     far_dark: 가장 먼 입면 객체의 출력 농도 백분율입니다. 0..100 범위이며 near_dark 이하여야 합니다. 최종 출력에도 유지됩니다.
-    expected_model_path: 런타임이 제공하는 바인딩된 저장 문서 경로입니다. 값을 명시하면 해당 바인딩과 일치해야 합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:plan_section -->
 
 ## get_plan_section_result
 
 <!-- instruction:get_plan_section_result -->
-보관된 PlanSection 실행 결과를 페이지별로 조회합니다.
+보관된 PlanSection 실행 결과를 조회합니다.
 
 Args:
     result_id: plan_section.result.result_id에서 얻은 의미를 해석하지 않는 32자 결과 영수증 ID입니다.
     offset: 첫 페이지는 0, 이후에는 같은 결과의 next_offset을 그대로 입력합니다. UTF-16 코드 단위이므로 Python 문자열 길이로 계산하지 않습니다.
-    expected_model_path: 바인딩된 저장 문서 경로입니다. 값을 명시하면 런타임 바인딩과 일치해야 합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:get_plan_section_result -->
 
 ## execute_rhino_script
@@ -51,7 +51,7 @@ Args:
     face_index: expected_geometry_crc와 동일한 형상 관찰 결과에서 얻은 0부터 시작하는 평면 인덱스입니다.
     expected_geometry_crc: 해당 관찰 결과의 형상 CRC입니다. 형상이 변경되었으면 교체 전에 편집을 거부합니다.
     translation: 문서 단위의 유한한 XYZ 숫자 3개입니다. 면 법선 방향 성분이 문서 허용오차를 초과해야 합니다.
-    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:edit_planar_face -->
 
 ## edit_planar_faces
@@ -61,7 +61,7 @@ Args:
 
 Args:
     edits: 서로 다른 Brep에 대한 항목 1..32개이며, 각 항목에는 object_id, face_index, expected_geometry_crc 및 translation이 들어갑니다. 단일 면 도구의 적용 대상 조건이 적용됩니다.
-    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:edit_planar_faces -->
 
 ## save_rhino_document
@@ -82,19 +82,19 @@ Args:
 ## list_materials
 
 <!-- instruction:list_materials -->
-라이브러리 PBR 재료와 매핑 정보를 조회합니다.
+라이브러리에서 사용할 재료를 찾습니다.
 
 Args:
     category: 선택 사항인 라이브러리 분류 필터입니다. 비워 두면 모든 분류를 포함합니다.
     query: 자유 텍스트 검색어입니다. 비워 두면 텍스트 필터를 설정하지 않습니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 선택 사항인 상세 그룹: display, physical, metadata, source, paths, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 사항인 상세 그룹: display, physical, metadata, source, paths, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다.
 <!-- /instruction:list_materials -->
 
 ## assign_material
 
 <!-- instruction:assign_material -->
-Rhino 객체에 라이브러리 PBR 재료를 적용합니다. 요청한 경우 구법 metadata도 기록합니다.
+Rhino 객체에 라이브러리 재료를 적용합니다.
 
 Args:
     guids: 할당할 현재 Rhino 객체 GUID입니다. 관찰 결과나 생성 결과를 재사용합니다.

@@ -97,16 +97,21 @@ def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path):
     asyncio.run(run())
 
 
-def test_loop_policy_is_in_execute_description_and_inputs():
+def test_loop_role_and_input_options_do_not_include_post_execution_reporting():
     from almond_mcp.instruction_text import read_tool_instruction
     import mcp_server
     text = read_tool_instruction(mcp_server.__file__, "execute_looping")
-    assert "사용자가 결정" in text
+    role, inputs = text.split("Args:", 1)
+    assert "사용자가 결정" not in role
+    assert "시각적 근거" not in role
+    assert "재개" in inputs and "현재 회차를 먼저 확인" in inputs
     assert "Args:" in text and "resume:" in text
     assert "get_looping_policy" not in text
     assert "반환:" not in text
     from almond_mcp.tool_guidance import guide_payload
-    assert "update_step" in guide_payload("execute_looping", {"status": "success"})["next_step_guide"]
+    guide = guide_payload("execute_looping", {"status": "success"})["next_step_guide"]
+    assert "update_step" in guide and "시각적 근거" in guide
+    assert "next_step_guide" not in guide_payload("execute_looping", {"status": "error"})
 
 
 def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path, monkeypatch):
@@ -144,6 +149,8 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
             assert (first["loop_no"], first["revision"]) == (1, 1)
             assert first["artifact_dir"].endswith("/01")
             assert first["feedback"] == "Review access"
+            assert "완료한 작업은 반복하지 않고" in first["next_step_guide"]
+            assert "시각적 근거" in first["next_step_guide"]
             assert "policy_tool" not in first
             assert all(s["status"] == "pending" for s in first["steps"])
             updated = await call("update_step", plan_id=pid, step_id=sid, loop_no=1,
@@ -151,6 +158,8 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
             assert updated["plan"]["revision"] == 2
             resumed = await call("execute_looping", plan_id=pid, resume=True)
             assert (resumed["loop_no"], resumed["revision"]) == (1, 2)
+            assert "사용자가 결정" in resumed["policy_reminder"]
+            assert "시각적 근거" in resumed["next_step_guide"]
             second = await call("execute_looping", plan_id=pid)
             assert (second["loop_no"], second["revision"]) == (2, 1)
             assert second["artifact_dir"].endswith("/02")

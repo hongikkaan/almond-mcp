@@ -3,20 +3,20 @@
 ## list_drawing_assets
 
 <!-- instruction:list_drawing_assets -->
-모델·2D 자산 목록을 조회합니다. 변환 대기 원본도 포함합니다.
+모델·2D 자산 목록을 조회합니다.
 
 Args:
     category: 라이브러리 분류 필터입니다. 선택 사항이며, 비어 있으면 모든 분류를 포함합니다.
-    limit: 이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다.
+    limit: 한 페이지에 반환할 최대 항목 수입니다.
     offset: 이 페이지의 시작 행을 0부터 세는 값입니다. 다음 페이지를 요청할 때도 같은 필터를 사용합니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:list_drawing_assets -->
 
 ## search_drawing_assets
 
 <!-- instruction:search_drawing_assets -->
-텍스트·분류·측정 치수로 모델·2D 자산을 검색합니다.
+조건에 맞는 모델·2D 자산을 검색합니다.
 
 Args:
     query: 자유 텍스트 검색어입니다. 비어 있으면 텍스트 필터를 설정하지 않습니다.
@@ -24,21 +24,21 @@ Args:
     max_width_mm: 측정된 자산 너비의 최댓값이며, 밀리미터 단위입니다. 선택 사항이며, 0은 이 크기 필터를 해제합니다.
     max_depth_mm: 측정된 자산 깊이의 최댓값이며, 밀리미터 단위입니다. 선택 사항이며, 0은 이 크기 필터를 해제합니다.
     max_height_mm: 측정된 자산 높이의 최댓값이며, 밀리미터 단위입니다. 선택 사항이며, 0은 이 크기 필터를 해제합니다.
-    limit: 이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다.
+    limit: 한 페이지에 반환할 최대 항목 수입니다.
     offset: 이 페이지의 시작 행을 0부터 세는 값입니다. 다음 페이지를 요청할 때도 같은 필터를 사용합니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:search_drawing_assets -->
 
 ## get_drawing_asset
 
 <!-- instruction:get_drawing_asset -->
-모델·2D 자산의 파일·출처·변환·갱신 상태를 조회합니다.
+모델·2D 자산의 등록 정보와 사용 가능 상태를 조회합니다.
 
 Args:
     asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:get_drawing_asset -->
 
 ## prepare_drawing_asset
@@ -53,7 +53,7 @@ Args:
     input_units: OBJ/STL/PLY/OFF/GLB/glTF의 명시적 원본 단위로 mm, cm, m, in 또는 ft를 지정합니다. 측정한 원본 단위를 사용합니다. 이후 단계에서는 생략하며, 3DM은 내장된 단위를 보존합니다.
     review: 검토 결과 객체입니다. normalize: {vision_reviewed:true, inspected_sha256:"확인한 해시", rotation_degrees_xyz:[x,y,z], translation:[x,y,z], remove:[{object_id:"ID",reason:"사유"}]}. 생략한 변환은 유지하며 translation은 원본 단위입니다. 최종 이미지를 본 뒤 verify: {vision_reviewed:true, final_sha256:"확인한 해시", name:"이름", asset_id:"ID"}. 첫 verify로 최종 이미지를 만든 후 검토 확인을 제출합니다.
     field_groups: 선택 가능한 값은 summary, parts, previews, provenance 또는 all입니다. 생략하면 미리 보기 경로를 포함하고, []이면 간략한 결과를 유지합니다. 페이지 처리는 parts에 적용됩니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
     offset: 이 페이지의 시작 행을 0부터 세는 값입니다. 다음 페이지를 요청할 때도 같은 필터를 사용합니다.
     limit: 부품 목록의 페이지 크기이며, 범위는 1..200입니다.
 <!-- /instruction:prepare_drawing_asset -->
@@ -61,7 +61,7 @@ Args:
 ## register_drawing_asset
 
 <!-- instruction:register_drawing_asset -->
-준비한 3DM을 측정 치수와 평면·정면·우측면 도면이 있는 라이브러리 자산으로 등록합니다.
+준비한 3DM을 라이브러리 자산으로 등록합니다.
 
 Args:
     source_3dm: 검토한 3DM 원본입니다. 관리형 세션에서는 프로젝트 상대 경로, 독립 실행에서는 절대 경로를 사용합니다. preparation_job을 사용할 때는 해당 작업 응답의 source_3dm을 사용합니다.
@@ -78,12 +78,12 @@ Args:
 ## get_asset_drawing
 
 <!-- instruction:get_asset_drawing -->
-등록 모델의 저장 도면 매니페스트와 뷰를 조회합니다.
+등록 모델의 저장 도면을 조회합니다.
 
 Args:
     asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:get_asset_drawing -->
 
 ## generate_asset_drawing_views
@@ -97,7 +97,7 @@ Args:
     input_units: 사용자 지정 GLB 원본 단위로 mm 또는 m을 사용합니다. source_glb를 제공할 때 필수입니다.
     up_axis: 원본의 위쪽 축으로 y 또는 z를 사용합니다. 기본값은 y입니다.
     scales: 도면 축척의 분모 목록입니다. 선택 사항이며, 생략하면 [50, 100]을 사용합니다.
-    source_references: source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url을 포함하는 참조 객체입니다. 선택 사항이며, 출처 이력이 정확성을 보증하지는 않습니다.
+    source_references: 출처 이력입니다. source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url을 담은 참조 객체를 입력합니다.
 <!-- /instruction:generate_asset_drawing_views -->
 
 ## audit_asset_drawing
@@ -145,9 +145,9 @@ Args:
     query: 자유 텍스트 검색어입니다. 비어 있으면 텍스트 필터를 설정하지 않습니다.
     kind: 저장소 유형 필터로 all, element 또는 model을 사용합니다.
     drawing_ready: true이면 도면 데이터가 준비된 자산으로 제한합니다.
-    limit: 간략 목록에 포함할 최대 자산 수이며, 1..100 범위로 제한됩니다. 반환된 assets의 길이를 total과 비교합니다. 이 도구에는 offset/has_more 필드가 없습니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다.
+    limit: 반환할 최대 자산 수입니다. 1..100 범위입니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:search_asset_repository -->
 
 ## repository_asset_resource

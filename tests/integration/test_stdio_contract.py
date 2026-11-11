@@ -14,6 +14,32 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def assert_information_placement(tools):
+    """Check the user's reading order at the wire boundary, beyond parity."""
+    for name, tool in tools.items():
+        role = tool.get("description", "")
+        assert role.strip(), name
+        assert not any(marker in role for marker in ("Args:", "Returns:", "반환:", "선택된 연결에서")), name
+        for field in tool["inputSchema"].get("properties", {}).values():
+            help_text = field.get("description", "").strip()
+            assert not help_text or help_text not in role, name
+    detail = tools["get_phase_plan_step"]
+    assert "상세 내용의 포함 여부" not in detail["description"]
+    assert "상세" in detail["inputSchema"]["properties"]["include_details"]["description"]
+    assert "Phase·Scene·상태로" not in tools["list_plans"]["description"]
+    phase = tools["create_phase"]["inputSchema"]["properties"]
+    assert set(phase["status"]["enum"]) == {"pending", "running", "paused", "completed", "failed", "blocked"}
+    assert {option["type"] for option in phase["file_name"]["anyOf"]} == {"string", "array"}
+    assert "중 하나" in phase["status"]["description"]
+    assert "문자열 배열" in phase["file_name"]["description"]
+    scene_file = tools["create_design_scene"]["inputSchema"]["properties"]["file_name"]["description"]
+    assert "파일 작업이 아닙니다" not in scene_file and "파일명" in scene_file
+    if "execute_looping" in tools:
+        loop = tools["execute_looping"]
+        assert "회차가 끝나면" not in loop["description"]
+        assert "새 회차" in loop["inputSchema"]["properties"]["resume"]["description"]
+
+
 def assert_documented_schema(schema, path):
     """Every input field, including typed nested edits, must carry callable help."""
     Draft202012Validator.check_schema(schema)
@@ -53,6 +79,7 @@ async def collect(params, *, bound):
             initialized = await client.initialize()
             tools = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True)
                      for t in (await client.list_tools()).tools}
+            assert_information_placement(tools)
             basic_result = await client.call_tool("get_policy", {})
             assert not basic_result.is_error
             basic = json.loads(basic_result.content[0].text)
@@ -187,7 +214,12 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
                 initialized = await client.initialize()
                 tools = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True)
                          for t in (await client.list_tools()).tools}
+                assert_information_placement(tools)
                 assert initialized.instructions  # External-host instructions are a separate contract.
+                for text in (initialized.instructions, initialized.server_info.description):
+                    assert not any(name in text for name in ("host_id", "model_path", "connection_id", "request_id"))
+                assert "connection_id" not in tools["disconnect"]["inputSchema"]["required"]
+                assert "생략" in tools["disconnect"]["inputSchema"]["properties"]["connection_id"]["description"]
                 assert tools == expected
                 for name, tool in tools.items():
                     assert_documented_schema(tool["inputSchema"], name)

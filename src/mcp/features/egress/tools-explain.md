@@ -3,7 +3,7 @@
 ## check_egress
 
 <!-- instruction:check_egress -->
-제공된 층 경계·출구·경로 측정값으로 피난 조건을 예비 검토합니다.
+피난 조건을 예비 검토합니다.
 
 Args:
     plate_bounds_mm: mm 단위의 층 바닥 경계 [min_x, min_y, max_x, max_y]입니다. 전체 면적과 출구 이격거리에 사용하는 대각선을 결정합니다.

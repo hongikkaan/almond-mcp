@@ -3,7 +3,7 @@
 ## validate_structure
 
 <!-- instruction:validate_structure -->
-Rhino 구조 형상을 지정한 하중·지지·접합·설계기준 가정으로 해석합니다.
+Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
 
 Args:
     guids: 해석 범위에 포함되는 현재 Rhino 객체 GUID 문자열입니다.
@@ -32,14 +32,14 @@ Args:
 구조 해석에 사용할 설계기준 프로필을 조회합니다.
 
 Args:
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 상세 그룹: parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 상세 그룹: parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
 <!-- /instruction:list_design_codes -->
 
 ## visualize_structure
 
 <!-- instruction:visualize_structure -->
-구조 해석 결과를 변형·사용률·좌굴의 임시 뷰포트 오버레이로 표시합니다.
+구조 해석 결과를 임시 뷰포트 오버레이로 표시합니다.
 
 Args:
     guids: 구조 축선의 곡선 GUID와 지점을 표시하는 점 GUID입니다(fixed_supports 참조). 점이 없으면 최하단 절점을 지점으로 사용합니다.

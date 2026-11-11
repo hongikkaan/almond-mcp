@@ -3,7 +3,7 @@
 ## get_rhino_context
 
 <!-- instruction:get_rhino_context -->
-현재 Rhino 문서와 편집 상태, 뷰·디스플레이 모드를 조회합니다.
+Rhino 문서와 화면의 현재 상태를 조회합니다.
 
 Args:
     sections: document, viewport, editor, display_modes, named_views, layouts, viewports 중 필요한 항목의 배열입니다. 생략하면 document, named_views, layouts, display_modes를 조회합니다. []는 status와 warnings만 반환합니다.
@@ -17,9 +17,9 @@ Args:
 중첩 블록 구조와 특정 배치 경로의 공유 정의 영향을 조회합니다.
 
 Args:
-    mode: outline은 객체와 중첩 정의를 순회합니다. resolve-block은 명시적인 배치 인스턴스 경로를 해석하고 공유 정의에 미치는 영향을 보고합니다. 경로 해석에는 선택 가능 조건이 필요하지 않으며 편집기 소유 관계를 부여하지도 않습니다. 중첩 정의 구성원은 독립적인 편집 ID가 아닙니다.
+    mode: outline은 중첩 블록 구조, resolve-block은 지정한 배치 경로의 공유 정의 영향을 조회합니다.
     options: outline: ids(루트 GUID 배열) 또는 path(배치 GUID 경로)를 선택합니다. 둘 다 없으면 scope=selected|viewport|document로 범위를 정합니다. depth=0..64, max_items=1..5000, max_bytes=2048..262144이며 기본값은 각각 64, 200, 48000입니다. field_groups는 summary, objects, annotations, transforms 중 선택한 비어 있지 않은 배열입니다. include_geometry/annotations는 상세 포함 여부, annotation_layer는 텍스트 도트의 레이어 필터입니다. resolve-block: 최상위에서 내부 방향의 배치 GUID 1..65개를 path에 입력합니다.
-    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 문서 경로를 제공합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
     include_ids: true이면 후속 호출에 필요한 ID를 포함합니다.
 <!-- /instruction:analyze_block_reculviely -->
 
@@ -32,35 +32,35 @@ Args:
     target_kind: named_view는 저장된 카메라를 사용하며, display_mode가 제공되지 않으면 기본값은 Shaded입니다. layout은 각 Detail의 기존 모드를 유지하며 display_mode 재정의를 허용하지 않습니다.
     target: 기존 이름 또는 ID입니다. 대소문자를 구분하지 않는 이름 일치는 유일해야 합니다.
     scale_percent: 범위는 1..100이며 기본값은 75입니다. 원하는 상한이며, 백분율 캡처는 전달 용량 제한에 맞게 축소될 수 있습니다.
-    include_usage: 실제 치수와 설명용 픽셀 기반 토큰 추정치를 포함합니다. 측정된 사용량은 아닙니다.
+    include_usage: true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다.
     display_mode: Named View 전용: 생략하거나 비워 두면 Shaded를 선택하며, 다른 설치된 래스터 모드 이름/ID를 제공할 수도 있습니다. 단면 검토 시 display_modes에서 확인한 뒤 AGENT_Section_Glass를 고려합니다. Layout: 각 Detail의 기존 모드를 유지하려면 생략합니다. 재정의는 거부됩니다.
     labels: 선택 사항인 일시적 엔터티 레이블이며, 기본값은 false입니다.
     depth: 엔터티 레이블 확장 깊이이며, 범위는 1..8입니다.
     width: 선택 사항인 Named View의 픽셀 너비로, 범위는 128..2048입니다. height도 제공하고 scale_percent=100으로 설정합니다. Layout에는 사용하지 않습니다.
     height: 선택 사항인 Named View의 픽셀 높이로, 범위는 128..2048입니다. width도 제공하고 scale_percent=100으로 설정합니다. Layout에는 사용하지 않습니다.
-    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 모델을 제공합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:get_defined_viewcapture -->
 
 ## get_current_viewcapture
 
 <!-- instruction:get_current_viewcapture -->
-현재 모델 화면을 캡처합니다. 대상·격리·디스플레이 옵션을 지정하면 실제 화면에도 적용됩니다.
+현재 모델 화면을 캡처하고 표시 상태를 조정합니다.
 
 Args:
-    target_ids: 객체, 그룹 또는 Holon ID로 구성된 선택 사항인 비어 있지 않은 문자열 배열입니다. 확인된 객체가 중복되면 한 번만 선택합니다.
-    target_kind: object(기본값), group, block(일반 객체 ID) 또는 holon입니다. 허용할 형상 유형이 아니라 ID 이름 공간을 선택합니다.
+    target_ids: 화면에서 선택·확대할 객체, 그룹 또는 Holon의 ID 배열입니다. 생략하면 현재 화면을 사용하며, 입력할 때는 하나 이상의 ID를 지정합니다.
+    target_kind: target_ids의 종류입니다. object, group, block, holon 중 선택합니다. block에는 배치 객체 ID를 입력합니다.
     isolate: 기본값은 false입니다. true이면 Zoom Selected 전에 실제 Rhino Isolate를 실행합니다. 가시성을 복원하려면 Unisolate를 사용합니다.
-    scale_percent: 범위는 1..100이며 기본값은 75입니다. 뷰포트 창 크기가 아니라 이미지 해상도를 변경합니다.
-    include_usage: 치수와 설명용 픽셀 기반 토큰 추정치를 포함합니다. 측정된 사용량은 아닙니다.
+    scale_percent: 이미지 해상도의 백분율입니다. 1..100 범위이며 기본값은 75입니다.
+    include_usage: true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다.
     display_mode: 선택 사항인 설치된 래스터 모드 이름/ID입니다. 제공하면 실제 모델 뷰포트를 변경합니다.
     labels: 선택 사항인 일시적 레이블이며 기본값은 false입니다. 선택 강조 표시는 Rhino의 기본 표시를 유지합니다.
     depth: 레이블 확장 깊이이며, 범위는 1..8입니다.
-    width: 선택 사항인 이미지의 픽셀 너비로, 범위는 128..2048입니다. height도 제공하고 scale_percent=100으로 설정합니다. Rhino 창 크기를 바꾸지는 않습니다.
-    height: 선택 사항인 이미지의 픽셀 높이로, 범위는 128..2048입니다. width도 제공하고 scale_percent=100으로 설정합니다. Rhino 창 크기를 바꾸지는 않습니다.
-    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 모델을 제공합니다.
+    width: 이미지의 픽셀 너비입니다. 128..2048 범위이며 height도 입력하고 scale_percent=100으로 지정합니다.
+    height: 이미지의 픽셀 높이입니다. 128..2048 범위이며 width도 입력하고 scale_percent=100으로 지정합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:get_current_viewcapture -->
 <!-- instruction:get_objects -->
-Rhino 객체의 속성·그룹·블록 계층·Brep 면을 관찰합니다.
+Rhino 객체와 모델 구성을 관찰합니다.
 
 Args:
     scope: current(기본값)는 화면 밖에 있더라도 표시 상태이고 잠기지 않은 모델 객체를 포함합니다. document는 숨김/잠금 객체도 포함합니다.
@@ -69,7 +69,7 @@ Args:
     include_geometry: fields를 생략했을 때 objects 모드에서 형상 상세 정보를 포함합니다. 명시적인 fields가 우선합니다.
     offset: 행 오프셋으로, 범위는 0..100000입니다. 0보다 큰 값에는 첫 페이지의 expected_snapshot이 필요합니다.
     limit: 페이지당 행 수입니다. 범위는 1..200이며 기본값은 50입니다.
-    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
     include_ids: true이면 후속 호출에 필요한 ID를 포함합니다.
     result_mode: objects(기본값), hierarchy 또는 summary입니다. recursive=true는 hierarchy를 선택하며 summary와 함께 사용할 수 없습니다.
     fields: 선택 사항인 비어 있지 않은 필드 목록입니다. id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, geometry_valid, solid, manifold, volume, faces, face_count를 사용할 수 있습니다. 형상 상세 정보와 faces에는 objects 모드가 필요합니다. summary는 fields를 거부합니다.
@@ -100,7 +100,7 @@ Args:
     width: 타일의 픽셀 너비로, 범위는 128..2048이며 기본값은 640입니다. 결합 이미지 제한도 적용됩니다.
     height: 타일의 픽셀 높이로, 범위는 128..2048이며 기본값은 480입니다. 결합 이미지 제한도 적용됩니다.
     columns: 선택 사항인 열 개수이며, 범위는 1..뷰 개수입니다. 생략하면 자동 격자를 사용합니다.
-    expected_model_path: 일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
     model_view_id: 선택 사항인, 목록에 있는 모델 뷰포트 GUID입니다. Layout/Detail이 활성화된 경우를 포함하여 해당 뷰포트를 활성화하지 않고 사용합니다.
     object_ids: 모든 타일에 공통으로 적용할, 서로 다른 최상위 GUID 1..4096개의 선택 사항인 집합입니다. 비어 있지 않은 타일별 object_ids와 함께 사용하지 않습니다.
 <!-- /instruction:capture_rhino_inspection -->

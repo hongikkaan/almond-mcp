@@ -54,7 +54,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 1. 일반 Codex 대화에서 "`C:\작업\모델.3dm`을 Almond의 새 세션으로 열어 줘"라고 요청한다.
 2. Codex가 `start_session`에 절대 `model_path`와 새 `request_id`를 전달한다.
    새 Rhino를 열고 `_almondconnect`를 자동 실행한 뒤 해당 프로세스에만 연결한다. CoS 앱이나 별도 Codex 창을 열 필요는 없다. 원본 모델을 저장하거나 기존 Rhino를 종료하지 않는다.
-3. 프로젝트·문서 정보가 필요하면 선택된 연결에서 `project_info`의 필요한 sections를 조회한다. project/document는 한 번의 live 확인을 공유하고, project에 파일 목록·문서 이름·경로·is_bound_document가 나온다. DB·선택 Plan의 산출물 경로는 locations에서 조회한다. 자료를 작성할 때는 `set_working_plan`으로 Plan의 `artifact_dir`를 선택한다.
+3. 프로젝트·문서 정보가 필요하면 `project_info`의 필요한 sections를 조회한다. project/document는 한 번의 live 확인을 공유하고, project에 파일 목록·문서 이름·경로·is_bound_document가 나온다. DB·선택 Plan의 산출물 경로는 locations에서 조회한다. 자료를 작성할 때는 `set_working_plan`으로 Plan의 `artifact_dir`를 선택한다.
 4. 끝나면 `disconnect`를 호출한다. Rhino 창은 남으며 저장·종료는 Rhino에서 한다.
 
 새 Rhino는 디스크에 저장된 파일을 연다. 다른 Rhino 창의 저장되지 않은 변경을 복제하지 않는다.
@@ -65,7 +65,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 1. 해당 Rhino 8에서 `.3dm`을 열고 저장한 뒤 `almondconnect`를 실행한다.
 2. 등록된 Codex 앱이나 외부 Codex CLI에서 "Almond 연결 목록을 확인하고 이 문서에 연결해 줘"라고 요청한다. 클라이언트가 `list_connections`를 호출한다.
 3. 목록의 정확한 `host_id`와 `model_path`로 `connect`를 호출한다.
-   이후 호출은 선택된 연결을 사용하므로 `connection_id`를 생략한다. 다른 연결로 전환하려면 목록의 host_id/model_path로 connect를 다시 호출한다. 기존 연결은 유지되며, connection_id를 지정하면 해당 호출만 그 연결로 보낸다.
+   이후 일반 호출과 `disconnect()`에는 연결 ID를 입력하지 않아도 된다. 다른 문서로 전환하려면 목록의 host_id/model_path로 connect를 다시 호출한다. 기존 연결은 유지된다.
 4. 필요할 때 `project_info`에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해 `get_rhino_context`를 반복 호출하지 않는다. 자료 작성 전 `set_working_plan`으로 폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../mcp/BASIC-INSTRUCTIONS.md)을 따른다.
 5. 끝나면 `disconnect`로 해당 연결을 해제한다. 문서 변경 후에는 재연결한다.
 
@@ -79,6 +79,10 @@ Rhino에서 직접 해제하려면 `almonddisconnect`를 사용한다. 처리 �
 Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고 연결 가능한 문서 목록만 비어 있다. 기존 `Almond 시작.cmd`·`RhinoTerminal → almond`로 관리되는 Rhino는 기존 전용 CLI를 사용하거나, 연결을 정상 종료한 뒤 일반 Rhino로 연다.
 
 ## 공통 도구를 수정했을 때
+
+이 파일은 설치·사용·개발 참고 문서이며 MCP의 server description이나 tool description에 주입되지 않는다. `SERVER-DESCRIPTION.md`는 서버 역할로 노출되고, `*-explain.md`의 도구 역할 본문은 description, `Args` 항목은 각 inputSchema 필드의 description으로 분리된다. outputSchema는 `output_contracts.py`, 실행 결과의 후속 안내는 `tool_guidance.py`와 각 실행기의 상태별 응답에서 제공한다.
+
+외부 연결기의 `Broker`는 각 `Connection`에 문서 바인딩·PID·worker·토큰을 보관하고, `selected_connection_id` 변수에 현재 호출 대상을 기억한다. `connect`/`start_session` 성공 시 이 변수를 갱신하며, 일반 호출과 `disconnect()`는 생략된 연결 ID에 이 값을 자동 적용한다. 명시적 `connection_id`는 해당 호출만 재지정하며 선택값을 바꾸지 않는다. 선택한 연결을 해제하면 변수를 비우고 다른 연결로 자동 전환하지 않는다. 각 연결의 작업 공간은 별도로 유지한다.
 
 RhinoTerminal·Codex·CoS는 같은 공통 도구 소스를 사용한다. 외부 연결기는 연결 관리 도구를 추가하고 공통 도구 입력에 선택적인 `connection_id`를 붙인다. 카탈로그를 따로 갱신할 필요는 없다.
 Python 도구 변경 후 해당 Codex/CoS MCP를 정상 종료하고 새로 시작하면 현재 소스의 구현·목록·입력 schema를 읽는다. Terminal은 almond 세션을 정상 종료·재시작한다.

@@ -3,13 +3,13 @@
 ## upsert_ontological_holon
 
 <!-- instruction:upsert_ontological_holon -->
-물리적 요소와 관계를 역할·동작·구조 정보가 있는 Holon으로 등록하거나 갱신합니다. 직접 객체는 Holon 하나에 속합니다.
+물리적 요소와 관계를 Holon으로 등록하거나 갱신합니다.
 
 Args:
     name: 의미적 Holon 이름입니다. 기존 Rhino 그룹에 연결할 때는 해당 그룹의 정확한 이름과 일치해야 합니다.
-    object_ids: 등록할 현재 최상위 Rhino 객체 GUID입니다. 생략하면 이름이 지정된 기존 그룹을 찾아 사용할 수 있습니다. []는 child_holon_ids가 있는 부모에만 유효합니다.
-    expected_model_path: 보통 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 경로를 명시하면 해당 연결과 일치해야 하며, 문서를 전환하지는 않습니다.
-    scene_ids: 기존 Scene 소속 관계입니다. 새 Holon에는 필수입니다. 생략하면 기존 등록을 유지하며, Scene을 생성하지는 않습니다.
+    object_ids: 등록할 최상위 Rhino 객체 GUID 배열입니다. 각 객체는 하나의 Holon에 속합니다. 생략하면 name과 일치하는 기존 그룹을 사용합니다. []는 child_holon_ids가 있는 부모에만 사용합니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
+    scene_ids: Holon이 속할 기존 Scene ID 배열입니다. 새 Holon에는 필수이며, 수정 시 생략하면 유지합니다.
     holon_id: 수정할 기존 Holon ID입니다. 선택 사항이며, 생략하면 등록을 생성합니다.
     rhino_group_id: 기존 Rhino 그룹의 정확한 GUID입니다. 선택 사항이며, 이름의 모호성을 해소하는 데 사용합니다.
     child_holon_ids: 등록된 자식 Holon 목록입니다. 선택 사항이며, []는 기존 자식을 분리하고 생략하면 유지합니다. 자식당 부모는 하나만 허용하고 계층 순환을 금지합니다.
@@ -18,27 +18,27 @@ Args:
 ## get_ontological_holon
 
 <!-- instruction:get_ontological_holon -->
-Holon의 등록 정보 또는 현재 Rhino 그룹 구성원을 조회합니다.
+Holon의 등록 정보와 구성원을 조회합니다.
 
 Args:
     holon_id: include_ids=true를 사용한 Holon 조회 또는 이전 등록 결과에서 얻은 등록된 Holon ID입니다.
     live: true이면 현재 Rhino 그룹 구성원 관계와 형상을 읽습니다. false이면 저장된 등록 정보만 읽습니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
     recursive: true이면 등록된 하위 Holon을 확장합니다. 이는 의미적 계층이며, 블록 정의 확장이 아닙니다.
-    field_groups: 선택 사항인 상세 그룹: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다.
+    field_groups: 선택 사항인 상세 그룹: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다.
 <!-- /instruction:get_ontological_holon -->
 
 ## list_ontological_holons
 
 <!-- instruction:list_ontological_holons -->
-문서 또는 Scene에 등록된 Holon 목록을 조회합니다.
+등록된 Holon 목록을 조회합니다.
 
 Args:
     expected_model_path: 관리형 세션의 기본값은 연결된 모델입니다. 독립 실행에서 빈 입력을 사용하면 여러 모델의 등록 정보를 나열합니다. 활성 Rhino 문서를 전환하지 않습니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
     scene_id: 선택 사항인 등록된 Scene ID 필터입니다. 비어 있으면 Scene으로 필터링하지 않습니다.
     recursive: true이면 등록된 자식 Holon을 포함합니다.
-    field_groups: 선택 가능한 세부 그룹은 references, geometry, scope, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다.
+    field_groups: 선택 가능한 세부 그룹은 references, geometry, scope, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
 <!-- /instruction:list_ontological_holons -->
 
 ## sync_ontological_holon
@@ -48,7 +48,7 @@ Rhino의 현재 구성원을 읽어 Holon 등록 정보를 갱신합니다.
 
 Args:
     holon_id: 단일 대상의 상태 대조 및 정합성 확인에 사용할 등록된 Holon ID입니다. 선택 사항입니다.
-    expected_model_path: 보통 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 경로를 명시하면 해당 연결과 일치해야 하며, 문서를 전환하지는 않습니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
     rhino_group_id: holon_id와 함께 제공하는 선택 항목으로, 현재 Rhino 그룹 GUID의 일관성을 확인합니다. 이 값만으로 그룹을 선택하거나 연결 대상을 바꾸지 않습니다.
     holon_ids: 명시적 Holon ID 일괄 목록입니다. 선택 사항이며, 단일 Holon/그룹 선택자와 함께 사용하지 않습니다.
     scene_id: 일괄 상태 대조 및 정합성 확인에 사용할 Scene 범위입니다. 선택 사항이며, 새 Holon을 생성하거나 추론하지 않습니다.
@@ -57,10 +57,10 @@ Args:
 ## remove_ontological_holon
 
 <!-- instruction:remove_ontological_holon -->
-Rhino 형상과 그룹을 유지하면서 Holon 등록을 해제합니다. 부모 Holon과 Plan의 참조를 먼저 해제해야 합니다.
+Holon 등록을 해제하고 Rhino 형상과 그룹은 유지합니다.
 
 Args:
-    holon_id: include_ids=true를 지정한 Holon 조회 또는 이전 등록 결과에서 얻은 등록된 Holon ID입니다.
+    holon_id: 등록을 해제할 Holon ID입니다. 이 Holon을 참조하는 부모 Holon과 Plan의 관계를 먼저 해제합니다.
 <!-- /instruction:remove_ontological_holon -->
 
 ## resolve_object_intersection
@@ -82,7 +82,7 @@ Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대�
 
 Args:
     holon_ids: 현재 유효 구성원으로 해석할 등록된 Holon ID 1..32개입니다. 확인된 최상위 객체는 최대 4096개를 지원합니다. 실제 선택, 격리 및 카메라를 변경합니다.
-    expected_model_path: 일반적으로 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 명시한 경로는 이 연결 정보와 일치해야 하며, 문서를 전환하지는 않습니다.
+    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
 <!-- /instruction:focus_holons -->
 
 ## response-566

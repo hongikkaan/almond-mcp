@@ -3,11 +3,11 @@
 ## execute_looping
 
 <!-- instruction:execute_looping -->
-Plan의 새 회차를 시작하거나 최신 회차를 재개하고 산출물 작업 공간을 준비합니다. Step 작업은 에이전트가 수행합니다. 저장된 수행·검증·보고 기록을 확인해 완료한 작업을 반복하지 않고, 회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다. Plan 완료는 사용자가 결정합니다.
+Plan의 작업 회차를 시작하거나 재개합니다. 각 Step은 에이전트가 수행합니다.
 
 Args:
     plan_id: 다음 Loop를 시작하거나 최신 Loop를 재개할 기존 Plan ID입니다. create_plan 또는 list_plans에서 얻은 ID를 사용합니다.
-    resume: false는 새 회차 시작, true는 최신 회차 재개입니다. 새 회차는 이전 회차를 보고한 뒤 시작합니다. 시작 결과가 불확실하면 get_phase_plan_step으로 현재 회차를 확인한 뒤 결정합니다.
+    resume: false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 get_phase_plan_step으로 현재 회차를 먼저 확인합니다.
     feedback: 이번 회차에 반영할 피드백입니다. 재개 시 생략하거나 비우면 기존 값을 유지합니다.
     artifact_name: Plan의 최초 산출물 폴더 이름입니다. 생략하면 목표에서 정하며 날짜 접두사 YYMMDD_를 붙입니다. 기존 폴더는 재사용합니다.
 <!-- /instruction:execute_looping -->
@@ -15,7 +15,7 @@ Args:
 ## project_info
 
 <!-- instruction:project_info -->
-프로젝트 경로·등록 파일·현재 문서·작업 공간 정보를 조회합니다.
+프로젝트와 현재 문서의 작업 정보를 조회합니다.
 
 Args:
     sections: 요청할 섹션은 project, document, locations, runtime입니다. 생략하면 project/document/locations가 기본값입니다. project에는 등록된 파일이 포함되며, document는 현재 문서의 속성을 읽습니다.
@@ -39,7 +39,7 @@ Args:
 <!-- /instruction:get_rhino_execution -->
 
 <!-- instruction:set_working_plan -->
-기존 Plan 또는 Step을 이 연결의 산출물 작업 공간으로 선택합니다.
+Plan 또는 Step을 산출물 작업 공간으로 선택합니다.
 
 Args:
     plan_id: list_plans.plans[].plan_id 또는 get_phase_plan_step.id에서 얻은 기존 Plan ID입니다.

@@ -18,7 +18,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 관리형 세션이 연결된 저장 문서를 제공합니다. 명시한 경로는 해당 문서와 일치해야 합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "required": [
@@ -80,7 +80,7 @@
       "properties": {
         "mode": {
           "type": "string",
-          "description": "outline은 객체와 중첩 정의를 순회합니다. resolve-block은 명시적인 배치 인스턴스 경로를 해석하고 공유 정의에 미치는 영향을 보고합니다. 경로 해석에는 선택 가능 조건이 필요하지 않으며 편집기 소유 관계를 부여하지도 않습니다. 중첩 정의 구성원은 독립적인 편집 ID가 아닙니다."
+          "description": "outline은 중첩 블록 구조, resolve-block은 지정한 배치 경로의 공유 정의 영향을 조회합니다."
         },
         "options": {
           "additionalProperties": true,
@@ -90,7 +90,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 런타임이 연결된 문서 경로를 제공합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         },
         "include_ids": {
           "default": false,
@@ -149,7 +149,7 @@
                         },
                         "id": {
                           "type": "string",
-                          "description": "항목 ID입니다."
+                          "description": "배치 객체 또는 블록 정의 구성원의 ID입니다. 모델 편집에 쓸 객체 ID는 편집 상태에서 get_objects로 확인합니다."
                         },
                         "type": {
                           "type": "string",
@@ -160,7 +160,7 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "중첩 블록의 배치 경로입니다. resolve-block의 options.path로 사용할 수 있습니다."
+                          "description": "중첩 블록의 배치 경로입니다. 공유 정의 영향을 확인할 때 resolve-block의 options.path에 재사용합니다."
                         },
                         "definition": {
                           "type": "string",
@@ -729,7 +729,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         },
         "model_view_id": {
           "default": "",
@@ -998,12 +998,12 @@
         "units": {
           "default": "mm",
           "type": "string",
-          "description": "Scene 단위 코드: mm, cm, m, in 또는 ft. Rhino 문서 단위를 바꾸지는 않습니다."
+          "description": "Scene에 기록할 단위입니다. mm, cm, m, in, ft 중 하나를 선택합니다."
         },
         "file_name": {
           "default": "",
           "type": "string",
-          "description": "폴더를 제외한 프로젝트 파일 이름입니다. 중복 파일 이름을 구분하려면 project_file_id를 사용합니다. 이는 저장된 연결 정보이며, 파일 작업이 아닙니다."
+          "description": "이 Scene이 속한 프로젝트 파일명을 문자열로 입력합니다. 폴더는 제외하고, 같은 이름의 파일이 여러 개면 project_file_id로 지정합니다."
         },
         "project_file_id": {
           "anyOf": [
@@ -1235,7 +1235,7 @@
             }
           ],
           "default": null,
-          "description": "맥락을 설명하는 선택 사항인 기존 Scene ID 배열로, 여러 Scene을 포함할 수 있습니다. 생략하면 Scene 없이 작업할 수 있습니다. 형상 대상 집합을 확장하지는 않습니다."
+          "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열입니다. 생략하면 Scene 없이 생성합니다."
         },
         "holon_ids": {
           "anyOf": [
@@ -1250,7 +1250,7 @@
             }
           ],
           "default": null,
-          "description": "이 Plan을 위해 명시적으로 지정하는 선택 사항인 등록된 Holon 대상입니다. Step에는 별도의 Holon 할당이 없습니다."
+          "description": "이 Plan에서 작업할 기존 Holon ID 배열입니다."
         },
         "depends_on": {
           "anyOf": [
@@ -1404,7 +1404,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "required": [
@@ -1489,7 +1489,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "required": [
@@ -1596,7 +1596,7 @@
         "resume": {
           "default": false,
           "type": "boolean",
-          "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 새 회차는 이전 회차를 보고한 뒤 시작합니다. 시작 결과가 불확실하면 get_phase_plan_step으로 현재 회차를 확인한 뒤 결정합니다."
+          "description": "false는 새 회차 시작, true는 최신 회차 재개입니다. 이전 회차의 결과를 보고한 뒤 새 회차를 시작합니다. 시작 결과가 불확실하면 get_phase_plan_step으로 현재 회차를 먼저 확인합니다."
         },
         "feedback": {
           "default": "",
@@ -1641,7 +1641,7 @@
             "object",
             "null"
           ],
-          "description": "이전 회차의 번호와 Step 기록입니다."
+          "description": "이전 회차의 번호와 Step 기록입니다. 새 작업에 앞서 수행·검증·보고 내용을 확인합니다."
         },
         "step_id": {
           "type": "string",
@@ -1697,11 +1697,11 @@
               }
             }
           },
-          "description": "이 회차의 Step과 작업 기록입니다."
+          "description": "현재 회차의 Step과 저장된 수행 상태입니다. 미완료 작업을 선택할 때 사용합니다."
         },
         "policy_reminder": {
           "type": "string",
-          "description": "이번 작업과 결과 보고에 적용할 지침입니다."
+          "description": "Step 순서·기존 결과 재사용·산출물 위치·Plan 완료 결정에 적용할 지침입니다."
         },
         "message": {
           "type": "string",
@@ -1713,7 +1713,7 @@
         },
         "next_step_guide": {
           "type": "string",
-          "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
+          "description": "저장 기록 확인, Step 수행·검증 기록과 회차 결과 보고 안내입니다."
         }
       }
     },
@@ -2173,7 +2173,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 명시한 경로는 이 연결 정보와 일치해야 하며, 문서를 전환하지는 않습니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "required": [
@@ -2304,7 +2304,7 @@
             }
           ],
           "default": null,
-          "description": "source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url을 포함하는 참조 객체입니다. 선택 사항이며, 출처 이력이 정확성을 보증하지는 않습니다."
+          "description": "출처 이력입니다. source_id/title/url/publisher/locator/accessed_on/relationship/used_for/terms_url을 담은 참조 객체를 입력합니다."
         }
       },
       "type": "object"
@@ -2357,7 +2357,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -2372,7 +2372,7 @@
             }
           ],
           "default": null,
-          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
         }
       },
       "required": [
@@ -2462,7 +2462,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -2567,7 +2567,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -2582,7 +2582,7 @@
             }
           ],
           "default": null,
-          "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+          "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
         }
       },
       "type": "object"
@@ -2720,12 +2720,12 @@
             }
           ],
           "default": null,
-          "description": "객체, 그룹 또는 Holon ID로 구성된 선택 사항인 비어 있지 않은 문자열 배열입니다. 확인된 객체가 중복되면 한 번만 선택합니다."
+          "description": "화면에서 선택·확대할 객체, 그룹 또는 Holon의 ID 배열입니다. 생략하면 현재 화면을 사용하며, 입력할 때는 하나 이상의 ID를 지정합니다."
         },
         "target_kind": {
           "default": "object",
           "type": "string",
-          "description": "object(기본값), group, block(일반 객체 ID) 또는 holon입니다. 허용할 형상 유형이 아니라 ID 이름 공간을 선택합니다."
+          "description": "target_ids의 종류입니다. object, group, block, holon 중 선택합니다. block에는 배치 객체 ID를 입력합니다."
         },
         "isolate": {
           "default": false,
@@ -2735,12 +2735,12 @@
         "scale_percent": {
           "default": 75,
           "type": "integer",
-          "description": "범위는 1..100이며 기본값은 75입니다. 뷰포트 창 크기가 아니라 이미지 해상도를 변경합니다."
+          "description": "이미지 해상도의 백분율입니다. 1..100 범위이며 기본값은 75입니다."
         },
         "include_usage": {
           "default": false,
           "type": "boolean",
-          "description": "치수와 설명용 픽셀 기반 토큰 추정치를 포함합니다. 측정된 사용량은 아닙니다."
+          "description": "true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다."
         },
         "display_mode": {
           "default": "",
@@ -2767,7 +2767,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 이미지의 픽셀 너비로, 범위는 128..2048입니다. height도 제공하고 scale_percent=100으로 설정합니다. Rhino 창 크기를 바꾸지는 않습니다."
+          "description": "이미지의 픽셀 너비입니다. 128..2048 범위이며 height도 입력하고 scale_percent=100으로 지정합니다."
         },
         "height": {
           "anyOf": [
@@ -2779,12 +2779,12 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 이미지의 픽셀 높이로, 범위는 128..2048입니다. width도 제공하고 scale_percent=100으로 설정합니다. Rhino 창 크기를 바꾸지는 않습니다."
+          "description": "이미지의 픽셀 높이입니다. 128..2048 범위이며 width도 입력하고 scale_percent=100으로 지정합니다."
         },
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 런타임이 연결된 모델을 제공합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "type": "object"
@@ -2862,7 +2862,7 @@
         "include_usage": {
           "default": false,
           "type": "boolean",
-          "description": "실제 치수와 설명용 픽셀 기반 토큰 추정치를 포함합니다. 측정된 사용량은 아닙니다."
+          "description": "true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다."
         },
         "display_mode": {
           "default": "",
@@ -2906,7 +2906,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 런타임이 연결된 모델을 제공합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "required": [
@@ -2979,7 +2979,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -2994,7 +2994,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+          "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
         }
       },
       "required": [
@@ -3087,7 +3087,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -3102,7 +3102,7 @@
             }
           ],
           "default": null,
-          "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+          "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
         }
       },
       "required": [
@@ -3172,7 +3172,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -3187,7 +3187,7 @@
             }
           ],
           "default": null,
-          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
         }
       },
       "required": [
@@ -3265,7 +3265,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -3280,7 +3280,7 @@
             }
           ],
           "default": null,
-          "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+          "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
         }
       },
       "required": [
@@ -3360,7 +3360,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -3375,7 +3375,7 @@
             }
           ],
           "default": null,
-          "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+          "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
         }
       },
       "required": [
@@ -3579,7 +3579,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 런타임이 연결된 저장 문서를 제공합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         },
         "include_ids": {
           "default": false,
@@ -3841,7 +3841,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "recursive": {
           "default": false,
@@ -3861,7 +3861,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 상세 그룹: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+          "description": "선택 사항인 상세 그룹: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
         }
       },
       "required": [
@@ -3965,7 +3965,7 @@
         "include_details": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 선택한 유형의 상세 내용을 추가합니다."
+          "description": "false이면 식별·상태 요약, true이면 선택한 Phase·Plan·Step의 상세 작업 기록을 함께 조회합니다."
         },
         "loop_no": {
           "anyOf": [
@@ -4262,7 +4262,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "바인딩된 저장 문서 경로입니다. 값을 명시하면 런타임 바인딩과 일치해야 합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "required": [
@@ -4285,7 +4285,7 @@
               },
               "result_id": {
                 "type": "string",
-                "description": "같은 Rhino 문서 인스턴스에 보관된 결과 ID입니다."
+                "description": "같은 Rhino 문서 인스턴스에 보관된 PlanSection 결과의 ID입니다. 다음 페이지 조회에 재사용합니다."
               },
               "offset": {
                 "type": "integer",
@@ -4740,7 +4740,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -4755,7 +4755,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+          "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
         },
         "limit": {
           "default": 50,
@@ -4770,7 +4770,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "일반적으로 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 명시한 경로는 이 연결 정보와 일치해야 하며, 문서를 전환하지는 않습니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "required": [
@@ -4993,7 +4993,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -5008,7 +5008,7 @@
             }
           ],
           "default": null,
-          "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+          "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
         }
       },
       "type": "object"
@@ -5244,7 +5244,7 @@
       "properties": {
         "asset_id": {
           "type": "string",
-          "description": "include_ids=true로 조회한 일치하는 목록/검색 결과의 기존 라이브러리 자산 ID 또는 이미 알고 있는 ID입니다."
+          "description": "해치 정의를 가져올 PAT 자산 ID입니다. 같은 이름의 해치 정의가 있으면 재사용합니다."
         }
       },
       "required": [
@@ -5316,7 +5316,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -5331,7 +5331,7 @@
             }
           ],
           "default": null,
-          "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+          "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
         }
       },
       "type": "object"
@@ -5442,7 +5442,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -5457,7 +5457,7 @@
             }
           ],
           "default": null,
-          "description": "상세 그룹: parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+          "description": "상세 그룹: parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
         }
       },
       "type": "object"
@@ -5559,7 +5559,7 @@
         "file_name": {
           "default": "",
           "type": "string",
-          "description": "선택 사항인 저장된 프로젝트 파일 이름 필터입니다. 현재 형상을 검증하지는 않습니다."
+          "description": "이 파일에 속한 Scene을 찾습니다. 프로젝트 파일명을 문자열로 입력하며, 생략하면 모든 파일을 포함합니다."
         },
         "limit": {
           "default": 50,
@@ -5574,7 +5574,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -5589,7 +5589,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+          "description": "선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
         }
       },
       "type": "object"
@@ -5669,7 +5669,7 @@
         "limit": {
           "default": 20,
           "type": "integer",
-          "description": "이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다."
+          "description": "한 페이지에 반환할 최대 항목 수입니다."
         },
         "offset": {
           "default": 0,
@@ -5679,7 +5679,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -5694,7 +5694,7 @@
             }
           ],
           "default": null,
-          "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+          "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
         }
       },
       "type": "object"
@@ -5778,7 +5778,7 @@
         "limit": {
           "default": 20,
           "type": "integer",
-          "description": "이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다."
+          "description": "한 페이지에 반환할 최대 항목 수입니다."
         },
         "offset": {
           "default": 0,
@@ -5788,7 +5788,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -5803,7 +5803,7 @@
             }
           ],
           "default": null,
-          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
         }
       },
       "type": "object"
@@ -5879,7 +5879,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -5894,7 +5894,7 @@
             }
           ],
           "default": null,
-          "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+          "description": "상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
         }
       },
       "type": "object"
@@ -5984,7 +5984,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -5999,7 +5999,7 @@
             }
           ],
           "default": null,
-          "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+          "description": "상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
         }
       },
       "type": "object"
@@ -6069,7 +6069,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -6084,7 +6084,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 상세 그룹: display, physical, metadata, source, paths, audit 또는 all. 생략하거나 비워 두면 요약을 유지하며, include_ids는 식별 정보 포함 여부를 별도로 제어합니다."
+          "description": "선택 사항인 상세 그룹: display, physical, metadata, source, paths, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다."
         }
       },
       "type": "object"
@@ -6155,7 +6155,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "scene_id": {
           "default": "",
@@ -6180,7 +6180,7 @@
             }
           ],
           "default": null,
-          "description": "선택 가능한 세부 그룹은 references, geometry, scope, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+          "description": "선택 가능한 세부 그룹은 references, geometry, scope, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
         }
       },
       "type": "object"
@@ -6247,7 +6247,7 @@
         "limit": {
           "default": 50,
           "type": "integer",
-          "description": "최대 Phase 수입니다. 범위는 1..500이며, 이 목록에는 offset 인수가 없습니다."
+          "description": "최대 Phase 수입니다. 범위는 1..500입니다."
         },
         "field_groups": {
           "anyOf": [
@@ -6535,7 +6535,7 @@
         "limit": {
           "default": 50,
           "type": "integer",
-          "description": "최대 Plan 수입니다. 범위는 1..500이며, 이 목록에는 offset 인수가 없습니다."
+          "description": "최대 Plan 수입니다. 범위는 1..500입니다."
         }
       },
       "type": "object"
@@ -6911,7 +6911,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "런타임이 제공하는 바인딩된 저장 문서 경로입니다. 값을 명시하면 해당 바인딩과 일치해야 합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "required": [
@@ -7057,7 +7057,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "offset": {
           "default": 0,
@@ -7315,7 +7315,7 @@
         "preserve_scale": {
           "default": true,
           "type": "boolean",
-          "description": "모델을 1미터 크기의 전시 소품으로 정규화하지 않고 Rhino의 실제 치수를 유지합니다."
+          "description": "true이면 Rhino의 실제 치수를 유지하고, false이면 1미터 크기로 정규화합니다."
         },
         "mass": {
           "default": 0.0,
@@ -7383,7 +7383,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "관찰, 선택 또는 모델링 결과에서 얻은 현재 Rhino 객체 GUID입니다. 스크립팅 호출은 필요하지 않습니다."
+          "description": "게시할 현재 Rhino 객체 GUID 배열입니다. 관찰·선택·모델링 결과의 ID를 사용합니다."
         },
         "asset_name": {
           "type": "string",
@@ -7673,7 +7673,7 @@
       "properties": {
         "holon_id": {
           "type": "string",
-          "description": "include_ids=true를 지정한 Holon 조회 또는 이전 등록 결과에서 얻은 등록된 Holon ID입니다."
+          "description": "등록을 해제할 Holon ID입니다. 이 Holon을 참조하는 부모 Holon과 Plan의 관계를 먼저 해제합니다."
         }
       },
       "required": [
@@ -7756,7 +7756,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "보통 생략합니다. 관리형 세션이 연결된 저장 문서를 제공합니다. 경로를 명시하면 해당 문서와 일치해야 합니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         }
       },
       "required": [
@@ -7957,7 +7957,7 @@
         "step_id": {
           "default": "",
           "type": "string",
-          "description": "컨텍스트를 검증하는 선택 사항인 Step ID입니다. Plan 대상을 재정의하지 않습니다."
+          "description": "선택한 Plan에 속하는지 확인할 Step ID입니다. 생략해도 Plan의 Holon 대상을 조회합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -8242,12 +8242,12 @@
         "limit": {
           "default": 20,
           "type": "integer",
-          "description": "간략 목록에 포함할 최대 자산 수이며, 1..100 범위로 제한됩니다. 반환된 assets의 길이를 total과 비교합니다. 이 도구에는 offset/has_more 필드가 없습니다."
+          "description": "반환할 최대 자산 수입니다. 1..100 범위입니다."
         },
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -8262,7 +8262,7 @@
             }
           ],
           "default": null,
-          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
         }
       },
       "type": "object"
@@ -8310,7 +8310,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -8325,7 +8325,7 @@
             }
           ],
           "default": null,
-          "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다."
+          "description": "상세 그룹: rules, narrative, source, metadata, audit, all입니다. 생략하거나 비우면 요약을 반환합니다."
         }
       },
       "type": "object"
@@ -8460,7 +8460,7 @@
         "limit": {
           "default": 10,
           "type": "integer",
-          "description": "이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다."
+          "description": "한 페이지에 반환할 최대 항목 수입니다."
         },
         "offset": {
           "default": 0,
@@ -8470,7 +8470,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -8485,7 +8485,7 @@
             }
           ],
           "default": null,
-          "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+          "description": "선택 가능한 세부 그룹은 dimensions, drawing, metadata, source, paths, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
         }
       },
       "type": "object"
@@ -8581,7 +8581,7 @@
         "limit": {
           "default": 10,
           "type": "integer",
-          "description": "이 응답에서 반환할 최대 행 수입니다. 페이지를 전체 결과로 간주하기 전에 total과 페이지 처리 필드를 확인합니다."
+          "description": "한 페이지에 반환할 최대 항목 수입니다."
         },
         "offset": {
           "default": 0,
@@ -8591,7 +8591,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다."
+          "description": "true이면 후속 호출에 사용할 ID를 포함합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -8606,7 +8606,7 @@
             }
           ],
           "default": null,
-          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다. 식별 정보는 include_ids로 별도 제어합니다."
+          "description": "선택 가능한 세부 그룹은 dimensions, source, paths, drawing, metadata, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다."
         }
       },
       "type": "object"
@@ -8821,7 +8821,7 @@
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "보통 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 경로를 명시하면 해당 연결과 일치해야 하며, 문서를 전환하지는 않습니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         },
         "rhino_group_id": {
           "default": "",
@@ -8944,7 +8944,7 @@
             }
           ],
           "default": null,
-          "description": "기존 프로젝트 파일 ID입니다. 선택 사항이며, file_name과 함께 제공하면 서로 일치해야 합니다. 디스크의 파일이 아니라 메타데이터를 변경합니다."
+          "description": "연결할 기존 프로젝트 파일의 ID입니다. file_name도 입력하면 같은 파일을 가리켜야 합니다."
         }
       },
       "required": [
@@ -9249,7 +9249,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 대체 Scene ID 배열입니다. []이면 비우고 생략/null이면 유지합니다. Scene은 맥락을 설명하며 자동 편집 대상이 아닙니다."
+          "description": "Plan의 작업 맥락이 되는 기존 Scene ID 배열로 교체합니다. []이면 비우고 생략/null이면 유지합니다."
         },
         "holon_ids": {
           "anyOf": [
@@ -9759,12 +9759,12 @@
             }
           ],
           "default": null,
-          "description": "등록할 현재 최상위 Rhino 객체 GUID입니다. 생략하면 이름이 지정된 기존 그룹을 찾아 사용할 수 있습니다. []는 child_holon_ids가 있는 부모에만 유효합니다."
+          "description": "등록할 최상위 Rhino 객체 GUID 배열입니다. 각 객체는 하나의 Holon에 속합니다. 생략하면 name과 일치하는 기존 그룹을 사용합니다. []는 child_holon_ids가 있는 부모에만 사용합니다."
         },
         "expected_model_path": {
           "default": "",
           "type": "string",
-          "description": "보통 생략합니다. 관리형 세션이 연결된 저장 Rhino 문서를 제공합니다. 경로를 명시하면 해당 연결과 일치해야 하며, 문서를 전환하지는 않습니다."
+          "description": "생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다."
         },
         "scene_ids": {
           "anyOf": [
@@ -9779,7 +9779,7 @@
             }
           ],
           "default": null,
-          "description": "기존 Scene 소속 관계입니다. 새 Holon에는 필수입니다. 생략하면 기존 등록을 유지하며, Scene을 생성하지는 않습니다."
+          "description": "Holon이 속할 기존 Scene ID 배열입니다. 새 Holon에는 필수이며, 수정 시 생략하면 유지합니다."
         },
         "holon_id": {
           "default": "",

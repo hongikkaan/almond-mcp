@@ -6,31 +6,31 @@
 로컬 색인에서 Grasshopper 로직 이름을 찾습니다.
 
 Args:
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
 <!-- /instruction:list_library -->
 
 ## get_logic_by_id
 
 <!-- instruction:get_logic_by_id -->
-로컬 Grasshopper 정의의 구성요소·설명·metadata를 조회합니다.
+Grasshopper 정의의 구성과 사용 계약을 조회합니다.
 
 Args:
     logic_id: 기존 Grasshopper 라이브러리 파일명에서 확장자를 뺀 이름입니다. 알고 있는 ID를 재사용하거나 list_library(include_ids=true)에서 얻습니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
 <!-- /instruction:get_logic_by_id -->
 
 ## list_capsules
 
 <!-- instruction:list_capsules -->
-기능별 Grasshopper 캡슐과 실행 감사 여부를 조회합니다.
+사용할 Grasshopper 캡슐을 찾습니다.
 
 Args:
     capability: 선택 필터: "analyze", "generate", "form_find", "aggregate".
     audited_only: true이면 run_gh_definition이 실행을 허용하는 캡슐만 나열합니다.
-    include_ids: true이면 후속 호출에 필요한 ID를 포함합니다. 상세 항목은 field_groups로 별도 선택합니다.
-    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다. ID는 include_ids로 선택합니다.
+    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
+    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
 <!-- /instruction:list_capsules -->
 
 ## run_gh_definition
