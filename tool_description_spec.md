@@ -5027,15 +5027,17 @@ Windows의 생성 위치는 `%LOCALAPPDATA%/Almond/drawing-runs/<UUID>`입니다
 
 코드 기반 예시(일부 필드 발췌·Rhino 실측 아님). //는 실제 응답에 없는 문서용 설명입니다.
 
-최종 검토가 기록되어 state=ready인 경우입니다. review_evidence와 next_step_guide는 현재 서버가 반환하는 영어 원문입니다.
+현재 관리형 세션에서는 선택한 Plan·Loop의 상대 경로가 ALMOND_ARTIFACT_DIR로 전달되지만, 준비 함수는 기존 절대 경로를 요구합니다. 따라서 set_working_plan 성공 후에도 inspect·normalize·verify·status에서 status=error와 message=`Select a working Plan artifact directory before preparing an asset`를 반환할 수 있습니다. Plan 선택·Loop 시작은 경로를 기록하며 해당 폴더를 생성하지 않습니다. 이 경로 검사 실패는 준비 작업 생성과 네이티브 요청 전에 발생합니다.
+
+아래는 경로 조건이 충족되고 최종 검토가 기록되어 state=ready인 경우의 코드 기반 구조이며, 현재 관리형 호출의 성공 실측이 아닙니다. inspect가 만드는 작업 폴더명은 `asset-preparation-<UUID hex>`이고, Loop가 시작되면 선택한 Plan 폴더의 회차 하위 폴더에 둡니다. review_evidence와 next_step_guide는 현재 서버가 반환하는 영어 원문입니다.
 
 ```jsonc
 {
   "status": "success", // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
   "state": "ready", // ready일 때만 source_3dm 제공. running/unconfirmed/failed는 error와 next_stage=null
   "ready_for_registration": true, // 현재 파일 해시에 대한 이미지 검토를 호출자가 확인했는지 나타냅니다.
-  "job_dir": ".almond/produced/261111_example/job", // 이후 단계 및 등록의 preparation_job에 재사용. status는 저장 근거만 읽고 늦은 실행을 자동 정합화하지 않음
-  "source_3dm": ".almond/produced/261111_example/job/final.3dm", // 검토 완료 최종 파일. register_drawing_asset에 검토한 name/asset_id와 함께 전달
+  "job_dir": ".almond/produced/261111_example/01/asset-preparation-123e4567e89b42d3a456426614174000", // 이후 단계 및 등록의 preparation_job에 재사용. status는 저장 근거만 읽고 늦은 실행을 자동 정합화하지 않음
+  "source_3dm": ".almond/produced/261111_example/01/asset-preparation-123e4567e89b42d3a456426614174000/final.3dm", // 검토 완료 최종 파일. register_drawing_asset에 검토한 name/asset_id와 함께 전달
   "next_stage": "register_drawing_asset", // 현재 상태의 다음 단계. 오류에서 자동 진행을 유도하지 않음
   "review_evidence": "caller attestations tied to file hashes; no automatic vision verification", // 저장된 검토 증거에 대한 설명입니다.
   "next_step_guide": "If publication is intended, call register_drawing_asset with source_3dm from this response, preparation_job=job_dir, and the reviewed asset_id/name; category is optional. Choose replace_existing explicitly when replacing an existing asset." // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
