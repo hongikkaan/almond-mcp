@@ -236,13 +236,13 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 plan_09-rename_ar
 
 `tools/list`에는 각 도구의 설명 전문과 입력·출력 schema를 제공한다. `*-explain.md`의 공개 instruction 본문을 함수 docstring으로 그대로 읽으며 첫 문장 추출이나 문장 축약을 하지 않는다. FastMCP의 표준 docstring 처리가 Args/Returns 등의 인수·반환 메타데이터를 schema에 반영하므로 본문과 메타데이터를 임의로 분리·삭제하지 않는다. 전체 BASIC 지침을 각 도구 설명에 자동 삽입하지 않는다.
 
-`context_01-get_policy tool()`는 `BASIC-INSTRUCTIONS.md`와 공개 도구명 목록을 반환한다. `policy="rhino_scripting"`을 선택하면 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 `scripting_skill`로 반환한다. `metadata`는 메타데이터 규칙, `rhinocode`는 코드·커맨드 실행 지침이다. 선택값을 생략하면 BASIC과 도구명·policy 목록을 반환한다. `tool` 인자를 받거나 개별 도구의 설명 원문을 반환하는 경로는 없다. 기본 지침의 조회 진입점은 `context_01-get_policy` tool다. BASIC에는 설계·관찰·검수의 공통 원칙과 개념을 두며, 도구별 호출법·인수·반환값·개별 한계를 중복 열거하지 않는다.
+`context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `BASIC-INSTRUCTIONS.md`, 공개 도구명과 `available_policies`를 반환한다. BASIC은 설계·관찰·검수에 공통으로 적용할 판단 기준과 개념을 담는다. 활동별 지침은 `features/guidance/policies/`에 두며 `spatial_modeling`, `observation`, `drawing`, `design_exploration`, `feedback_reporting`을 선택해 읽는다. `metadata`는 객체·그룹 메타데이터 규칙, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 개별 도구의 설명과 호출법은 `tools/list`에서 확인한다.
 
 문서 전용 MCP의 initialize.instructions에는 공통 안내를 넣지 않는다. Codex Code Mode가 이 필드를 모든 도구 설명에 반복해서 붙이기 때문이다. 외부 연결기의 연결 안내는 별도 계약이다.
 
-reader는 BASIC·메타데이터·RhinoCode policy·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 guide_version을 계산한다. snapshot 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 툴 설명은 이 reader가 수집하거나 반환하지 않으며 설명 파일의 source fingerprint는 외부 실행기의 일반 소스 검사에서 유지한다. 토픽·파일 경로·URL 조회 인자는 제공하지 않는다. 응답에는 status·guide_version·selected_policy·available_policies가 공통으로 있다. basic은 text·source_refs·tools, metadata는 policy·source_refs, rhino_scripting은 scripting_skill·source_refs, rhinocode는 text·source_refs를 반환한다. source_refs는 패키지 상대 경로와 정규화 SHA-256이다.
+`modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`와 활동별 지침은 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
 
-reader는 모델·작업 DB·사용자 산출물을 읽거나 수정하지 않는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기에서는 선택된 연결을 사용하고 connection_id로 호출별 재지정할 수 있다. runtime을 포함한 체크아웃은 runtime의 공개 도구명도 수집하고, runtime이 제외된 standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 BASIC/스크립팅 자료 일치·버전·원문 조회 인자 거부·설명 전문 노출·cold stdio와 외부 경로의 schema 일치를 확인한다.
+reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기에서는 선택된 연결을 사용하고 `connection_id`로 호출별 재지정할 수 있다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 공개 스키마와 응답의 선택값 일치, cold stdio와 외부 경로의 스키마 일치, wheel·sdist의 지침 파일을 확인한다.
 
 문서·도구 설명 변경은 해당 Python/MCP 세션을 정상 종료하고 새로 시작해야 적용된다. Python 안내 변경만으로 RHP 빌드나 Rhino 재시작을 요구하지 않는다.
 

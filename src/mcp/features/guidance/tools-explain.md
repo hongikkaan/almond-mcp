@@ -4,7 +4,7 @@
 Almond 작업에 필요한 지침을 조회합니다.
 
 Args:
-    policy: 조회할 지침입니다. basic=설계·검증, metadata=객체·그룹 메타데이터, rhino_scripting=스크립트 작성 참고, rhinocode=코드·커맨드 실행. 생략하거나 빈 문자열이면 basic입니다.
+    policy: 조회할 지침입니다. 생략하거나 빈 문자열이면 basic입니다. 각 선택값의 용도는 응답의 available_policies에서 확인합니다.
 <!-- /instruction:get_policy -->
 
 ## get_construction_guidance

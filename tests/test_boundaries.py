@@ -3,6 +3,7 @@ import ast
 from pathlib import Path
 import subprocess
 import sys
+import tarfile
 import tomllib
 import zipfile
 
@@ -31,17 +32,33 @@ def test_package_wheel_contract_includes_guidance_and_excludes_runtime():
     assert "src/mcp/features/**" in wheel["include"]
 
 
-def test_offline_built_wheel_contains_unaltered_guidance_without_runtime(tmp_path):
-    build = subprocess.run(["uv", "build", "--wheel", "--offline", "--out-dir", str(tmp_path)],
+def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_in_wheel(tmp_path):
+    build = subprocess.run(["uv", "build", "--offline", "--out-dir", str(tmp_path)],
                            cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
     assert build.returncode == 0, build.stdout + build.stderr
     wheels = list(tmp_path.glob("*.whl"))
-    assert len(wheels) == 1
+    sdists = list(tmp_path.glob("*.tar.gz"))
+    assert len(wheels) == len(sdists) == 1
+    package = ROOT / "src/mcp"
+    policy_dir = "features/guidance/policies/"
+    activity_files = {p.relative_to(package).as_posix() for p in (package / policy_dir).glob("*.md")}
+    assert activity_files
     with zipfile.ZipFile(wheels[0]) as wheel:
         names = set(wheel.namelist())
-        for relative in ("BASIC-INSTRUCTIONS.md", "features/guidance/tools-explain.md", "modeling_policy.json"):
-            assert wheel.read("almond_mcp/" + relative) == (ROOT / "src/mcp" / relative).read_bytes()
+        assert {name.removeprefix("almond_mcp/") for name in names
+                if name.startswith("almond_mcp/" + policy_dir) and name.endswith(".md")} == activity_files
+        for relative in ("BASIC-INSTRUCTIONS.md", "features/guidance/tools-explain.md", "modeling_policy.json", *activity_files):
+            assert wheel.read("almond_mcp/" + relative) == (package / relative).read_bytes()
         assert not any(name.startswith(("almond_mcp/runtime/", "almond_mcp/tests/")) for name in names)
+        assert not any(name.startswith("almond_mcp/features/guidance/policy-validation/") for name in names)
+    with tarfile.open(sdists[0]) as sdist:
+        prefix = "src/mcp/"
+        members = {member.name.partition("/")[2]: member for member in sdist.getmembers() if member.isfile()}
+        assert {name.removeprefix(prefix) for name in members
+                if name.startswith(prefix + policy_dir) and name.endswith(".md")} == activity_files
+        for relative in activity_files:
+            assert sdist.extractfile(members[prefix + relative]).read() == (package / relative).read_bytes()
+        assert prefix + "features/guidance/policy-validation/README.md" in members
 
 
 def test_recorded_runtime_manifests_match_files_and_sources():

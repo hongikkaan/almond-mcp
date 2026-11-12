@@ -3,8 +3,10 @@ import ast
 import copy
 from pathlib import Path
 import sys
+from typing import get_args
 
 import pytest
+from almond_mcp.modeling_guidance import PolicyName
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src/cos"))
@@ -54,6 +56,27 @@ def update_step(output_refs: StringListPatch | None = None) -> str:
         checked_stub(ast.parse(ast.unparse(node).replace("StringListPatch", "UnreviewedType")).body[0])
 
 
+def test_policy_name_annotation_is_reviewed_only_for_the_get_policy_argument():
+    source = '''
+@mcp.tool(name="context_01-get_policy")
+def get_policy(policy: PolicyName = "") -> ToolResult:
+    raise RuntimeError("original body")
+'''
+    node = checked_stub(ast.parse(source).body[0])
+    annotation = node.args.args[0].annotation
+    assert ast.unparse(annotation.value) == "Literal"
+    assert ast.literal_eval(annotation.slice) == get_args(PolicyName)
+    for changed in (
+        source.replace("context_01-get_policy", "context_02-get_other_policy"),
+        source.replace("get_policy(", "other_function("),
+        source.replace("policy: PolicyName", "other: PolicyName"),
+        source.replace("PolicyName", "list[PolicyName]"),
+        source.replace("-> ToolResult", "-> PolicyName"),
+    ):
+        with pytest.raises(ValueError, match="annotation name"):
+            checked_stub(ast.parse(changed).body[0])
+
+
 def test_worker_schema_and_name_mismatch_are_rejected():
     tool = {"name": "sample", "inputSchema": {"type": "object", "properties": {"x": {"type": "string"}}},
             "outputSchema": {"type": "object"}, "annotations": {"readOnlyHint": True}}
@@ -82,6 +105,14 @@ def test_stale_fingerprint_and_package_version_are_rejected(monkeypatch, tmp_pat
     catalog["packages"]["sdk"] = "2"
     with pytest.raises(RuntimeError, match="expects"):
         check_contract(catalog)
+
+
+def test_activity_policy_files_are_part_of_the_external_source_fingerprint():
+    from runtime import ENGINE, PACKAGE, source_paths
+
+    policy_files = set((PACKAGE / "features/guidance/policies").glob("*.md"))
+    assert policy_files
+    assert policy_files <= set(source_paths(ENGINE).values())
 
 
 @pytest.mark.parametrize("name", ["get_rhino_context", "get_objects", "get_object_intersections"])

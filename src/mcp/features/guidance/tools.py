@@ -8,8 +8,7 @@ from almond_mcp.features.guidance.source_search import search_sources
 from pydantic import StrictBool
 from fastmcp.tools import ToolResult
 from mcp.types import TextContent
-from almond_mcp.modeling_guidance import read_policy
-from typing import Literal
+from almond_mcp.modeling_guidance import PolicyName, read_policy
 import json
 from pathlib import Path
 
@@ -19,7 +18,7 @@ def register(mcp, context):
 
     @mcp.tool(name='context_01-get_policy', annotations={'readOnlyHint': True, 'destructiveHint': False, 'openWorldHint': False}, output_schema=public_output_schema('get_policy', wrapped=False))
     @tool_instruction(__file__, 'get_policy')
-    def get_policy(policy: Literal["", "basic", "metadata", "rhino_scripting", "rhinocode"] = "") -> ToolResult:
+    def get_policy(policy: PolicyName = "") -> ToolResult:
         value = read_policy(policy)
         return ToolResult(content=[TextContent(type="text", text=json.dumps(value, ensure_ascii=False))], structured_content=value)
 

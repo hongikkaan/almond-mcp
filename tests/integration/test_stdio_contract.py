@@ -3,6 +3,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
+import re
 import sys
 
 from mcp.client.session import ClientSession
@@ -91,6 +92,9 @@ async def collect(params, *, bound):
             basic = json.loads(basic_result.content[0].text)
             assert "list_project_files" not in tools and "list_project_files" not in basic["tools"]
             assert basic["text"] == BASIC_GUIDE.read_text(encoding="utf-8").strip()
+            policy_input = tools["context_01-get_policy"]["inputSchema"]["properties"]["policy"]
+            assert policy_input["default"] == ""
+            assert policy_input["enum"] == ["", *basic["available_policies"]]
             # The Rhino-bound launcher publishes its first-use guidance through
             # initialize; the shared standalone server remains instruction-free.
             expected_instructions = startup_instructions() if bound else None
@@ -107,6 +111,9 @@ async def collect(params, *, bound):
             scripting = json.loads(scripting_result.content[0].text)
             assert scripting == read_policy("rhino_scripting")
             assert scripting["guide_version"] == basic["guide_version"]
+            activity_result = await client.call_tool("context_01-get_policy", {"policy": "observation"})
+            assert not activity_result.is_error
+            assert json.loads(activity_result.content[0].text) == activity_result.structured_content == read_policy("observation")
             rejected = await client.call_tool("context_01-get_policy", {"tool": "inspect_03-get_document_context"})
             assert rejected.is_error
             detail_name = "plan_05-get"
@@ -210,6 +217,10 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
     assert worker["plan_05-get"]["title"] == expected["plan_05-get"]["title"] == "Plan 05 Get"
     exposed, mapping = exposed_tools(catalog)
     external = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True) for tool in exposed}
+    document = (ROOT / "tool_description_spec.md").read_text(encoding="utf-8")
+    policy_section = document.split("## 36. context_01-get_policy\n", 1)[1].split("# Plan\n", 1)[0]
+    documented_input = re.search(r"### TOOL INPUT\s+```json\s*(.*?)\s*```", policy_section, re.S)
+    assert json.loads(documented_input[1]) == external["context_01-get_policy"]["inputSchema"]
     for name in worker:
         assert mapping[name] == name
         assert external[name]["description"] == worker[name]["description"]

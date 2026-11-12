@@ -105,7 +105,7 @@ Each row names fields added to the feature's normal summary. Each input property
 - `capture_04-defined_view` tool, `capture_03-current_view` tool: one bounded image/file result; live-view mutation evidence is never omitted.
 - `inspect_02-get_objects` tool: selected/visible/document/explicit-object/group scopes; flat objects, layer/type counts or numbered group/block hierarchy. Internal block paths are distinct from editable document IDs.
 - `inspect_03-get_document_context` tool: requested sections only; Named View/Layout/Display Mode catalogue IDs are always included.
-- `context_01-get_policy` tool: 생략 시 BASIC과 공통 도구명, available_policies. policy로 basic/metadata/rhino_scripting/rhinocode 중 하나를 선택한다. source_refs와 guide_version은 출처를 식별한다.
+- `context_01-get_policy` tool은 선택값을 생략하면 BASIC, 공통 도구명, `available_policies`를 반환한다. `policy`에는 공개 입력 스키마와 `available_policies`의 이름을 사용한다. 활동별 지침은 `spatial_modeling`, `observation`, `drawing`, `design_exploration`, `feedback_reporting`이다. 선택한 지침의 출처는 `source_refs`, 지침 묶음의 버전은 `guide_version`으로 확인한다.
 - `asset_01-audit_drawing` tool: one requested package's validation/proof result.
 - `analysis_04-validate_structure` tool: its existing detail=false summary/detail=true contract.
 

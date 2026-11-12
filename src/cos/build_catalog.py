@@ -9,9 +9,10 @@ import json
 from pathlib import Path
 import sys
 import types
-from typing import Literal
+from typing import Literal, get_args
 import tomllib
 from almond_mcp.instruction_text import read_tool_instruction, public_tool_name
+from almond_mcp.modeling_guidance import PolicyName
 from almond_mcp.public_names import internal_tool_name
 
 sys.dont_write_bytecode = True
@@ -33,6 +34,12 @@ def checked_versions() -> dict[str, str]:
 
 def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
     node = copy.deepcopy(node)
+    # Resolve the reviewed argument to literal values before compiling the inert stub.
+    if node.name == "get_policy" and public_tool_name(node) == "context_01-get_policy":
+        for argument in node.args.args:
+            annotation = argument.annotation
+            if argument.arg == "policy" and isinstance(annotation, ast.Name) and annotation.id == "PolicyName":
+                argument.annotation = ast.parse(f"Literal[{get_args(PolicyName)!r}]", mode="eval").body
     allowed = (ast.Name, ast.Load, ast.Subscript, ast.Tuple, ast.BinOp, ast.BitOr, ast.Constant)
     inputs = [a.annotation for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)]
     for annotation in inputs + [node.returns]:

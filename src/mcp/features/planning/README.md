@@ -256,10 +256,10 @@ Output — plan_12-update tool
 
 | scope | 용도 | 생성되는 Step 순서 |
 |---|---|---|
-| `spatial_development` | 공간 생성·구성·발전 | inspect_context → identify_opportunities → develop_options → apply_design → validate_relationships |
+| `spatial_development` | 공간 생성·구성·발전 | inspect_context → inspect_surroundings → Explore_opportunities → develop_options → develop_model_and_drawings → resolve_collisions → check_tectonic_consistency → validate_relationships → cleanup_intermediate_artifacts |
 | `plan_editing` | 기존 2D 평면 편집 | inspect_plan → define_changes → edit_plan → validate_plan |
 | `construction_detail` | 요청된 구축 상세 발전 | inspect_context → review_system → resolve_detail → model_detail → validate_detail |
-| `model_revision` | 기존 설계·모델 수정 | inspect_context → diagnose_issue → define_changes → apply_changes → validate_impacts |
+| `model_revision` | 기존 설계·모델 수정 | inspect_context → identify_tectonic_system → diagnose_issue → define_changes → apply_changes → resolve_collisions → validate_impacts → final_validation |
 | `inspection` | 변경을 전제하지 않는 검수 | define_criteria → observe → evaluate → report_findings |
 | `semantic_exploration` | 공간과 주변 맥락의 해석·보고 | inspect_context → inspect_surroundings → interpret_spatial_context → report_findings |
 

@@ -11,8 +11,22 @@ def test_policy_selection_returns_only_requested_content():
     assert "context_01-get_policy" in basic["tools"]
     assert not {"get_modeling_guide", "get_looping_policy", "get_modeling_policy", "get_retrieval_status"}.intersection(basic["tools"])
     assert basic["text"] == modeling_guidance.BASIC_GUIDE.read_text(encoding="utf-8").strip()
-    assert set(basic["available_policies"]) == {"basic", "metadata", "rhino_scripting", "rhinocode"}
+    policy_dir = modeling_guidance.PACKAGE / "features/guidance/policies"
+    activity_files = {path.stem: path for path in policy_dir.glob("*.md")}
+    assert set(basic["available_policies"]) == {"basic", "metadata", "rhino_scripting", "rhinocode", *activity_files}
+    assert {"spatial_modeling", "observation", "drawing", "design_exploration", "feedback_reporting"} <= activity_files.keys()
     assert modeling_guidance.read_policy("basic") == basic
+    for name, path in activity_files.items():
+        activity = modeling_guidance.read_policy(name)
+        assert activity == {
+            "status": "success",
+            "selected_policy": name,
+            "available_policies": basic["available_policies"],
+            "guide_version": basic["guide_version"],
+            "text": path.read_text(encoding="utf-8-sig").strip(),
+            "source_refs": [{"path": f"src/mcp/features/guidance/policies/{path.name}",
+                             "sha256": modeling_guidance.content_digest(path)}],
+        }
     scripting = modeling_guidance.read_policy("rhino_scripting")
     assert scripting["guide_version"] == basic["guide_version"]
     assert "text" not in scripting and "policy" not in scripting
@@ -27,6 +41,28 @@ def test_policy_selection_returns_only_requested_content():
         modeling_guidance.read_policy("inspect_03-get_document_context")
     with pytest.raises(ValueError):
         modeling_guidance.read_policy(True)
+
+
+def test_activity_policy_content_changes_guide_version(monkeypatch):
+    policy = "observation"
+    original = modeling_guidance.read_policy(policy)
+    path = modeling_guidance.PACKAGE / "features/guidance/policies/observation.md"
+    read_content = modeling_guidance._read_content
+
+    def changed_content(source):
+        content = read_content(source)
+        return content + b"\n\nObservation test.\n" if source == path else content
+
+    with monkeypatch.context() as patch:
+        patch.setattr(modeling_guidance, "_read_content", changed_content)
+        modeling_guidance._snapshot.cache_clear()
+        try:
+            updated = modeling_guidance.read_policy(policy)
+        finally:
+            modeling_guidance._snapshot.cache_clear()
+    assert updated["text"].endswith("Observation test.")
+    assert updated["source_refs"][0]["sha256"] != original["source_refs"][0]["sha256"]
+    assert updated["guide_version"] != original["guide_version"]
 
 
 def test_tool_description_loader_preserves_full_prose_and_schema_metadata(tmp_path):
