@@ -696,7 +696,7 @@ Phase 또는 Plan을 생성합니다. Plan의 Step은 선택한 scope의 템플�
             },
             "scope": {
               "default": "house",
-              "description": "작업 목적에 맞는 Step 템플릿을 선택합니다: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. 등록한 사용자 템플릿도 사용할 수 있습니다.",
+              "description": "작업 목적에 맞는 Step 템플릿을 선택합니다: spatial_development, drawing_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. 등록한 사용자 템플릿도 사용할 수 있습니다.",
               "type": "string"
             },
             "scene_id": {

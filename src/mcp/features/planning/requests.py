@@ -22,7 +22,7 @@ class CreatePlan(PlanningRequest):
     target: Literal['plan'] = Field(description="작업할 대상 종류입니다.")
     title: str = Field(..., description='Plan 목록에서 사용할 비어 있지 않은 짧은 제목입니다.')
     goal: str = Field(..., description='비어 있지 않은 전체 목표와 의도한 결과입니다.')
-    scope: str = Field('house', description='작업 목적에 맞는 Step 템플릿을 선택합니다: spatial_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. 등록한 사용자 템플릿도 사용할 수 있습니다.')
+    scope: str = Field('house', description='작업 목적에 맞는 Step 템플릿을 선택합니다: spatial_development, drawing_development, semantic_exploration, plan_editing, model_revision, inspection, structure, construction_detail, drawing, component, house, interior. 등록한 사용자 템플릿도 사용할 수 있습니다.')
     scene_id: str = Field('', description='기존 방식의 단일 Scene ID입니다. scene_ids를 우선 사용합니다. 둘 다 전달하면 scene_ids의 첫 번째 항목과 같아야 합니다.')
     phase_id: str = Field('', description='선택 사항인 기존 Phase ID입니다. 비어 있으면 Plan을 Phase에 소속시키지 않습니다.')
     scene_ids: list[str] | None = Field(None, description='Plan의 작업 맥락이 되는 기존 Scene ID 배열입니다. 생략하면 Scene 없이 생성합니다.')

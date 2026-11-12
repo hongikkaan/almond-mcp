@@ -396,6 +396,17 @@ class PlanningStore(LoopingStore):
                 ("validate_relationships", "validate", ["check_tectonic_consistency"]),
                 ("cleanup_intermediate_artifacts", "validate", ["validate_relationships"]),
             ],
+            "drawing_development": [
+                ("inspect_context", "reason", []),
+                ("inspect_surroundings", "reason", ["inspect_context"]),
+                ("explore_opportunities", "reason", ["inspect_surroundings"]),
+                ("develop_options", "reason", ["explore_opportunities"]),
+                ("develop_design_drawings", "execute", ["develop_options"]),
+                ("resolve_spatial_conflicts", "resolve", ["develop_design_drawings"]),
+                ("coordinate_drawings", "resolve", ["resolve_spatial_conflicts"]),
+                ("validate_design_relationships", "validate", ["coordinate_drawings"]),
+                ("cleanup_intermediate_artifacts", "validate", ["validate_design_relationships"]),
+            ],
             "semantic_exploration": [
                 ("inspect_context", "reason", []),
                 ("inspect_surroundings", "reason", ["inspect_context"]),

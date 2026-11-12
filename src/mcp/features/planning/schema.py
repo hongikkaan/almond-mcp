@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 
 STATUSES = ('pending', 'running', 'completed', 'failed', 'blocked', 'paused')
-TASK_SCOPES = ('spatial_development', 'plan_editing', 'construction_detail', 'model_revision', 'inspection', 'semantic_exploration')
+TASK_SCOPES = ('drawing_development', 'spatial_development', 'plan_editing', 'construction_detail', 'model_revision', 'inspection', 'semantic_exploration')
 SCOPES = ('house', 'interior', 'structure', 'drawing', 'component', *TASK_SCOPES)
 
 

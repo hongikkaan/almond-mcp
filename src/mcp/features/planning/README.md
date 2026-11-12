@@ -257,6 +257,7 @@ Output — plan_12-update tool
 | scope | 용도 | 생성되는 Step 순서 |
 |---|---|---|
 | `spatial_development` | 공간 생성·구성·발전 | inspect_context → inspect_surroundings → Explore_opportunities → develop_options → develop_model_and_drawings → resolve_collisions → check_tectonic_consistency → validate_relationships → cleanup_intermediate_artifacts |
+| `drawing_development` | 2D 도면으로 공간 설계 탐색·발전 | inspect_context → inspect_surroundings → explore_opportunities → develop_options → develop_design_drawings → resolve_spatial_conflicts → coordinate_drawings → validate_design_relationships → cleanup_intermediate_artifacts |
 | `plan_editing` | 기존 2D 평면 편집 | inspect_plan → define_changes → edit_plan → validate_plan |
 | `construction_detail` | 요청된 구축 상세 발전 | inspect_context → review_system → resolve_detail → model_detail → validate_detail |
 | `model_revision` | 기존 설계·모델 수정 | inspect_context → identify_tectonic_system → diagnose_issue → define_changes → apply_changes → resolve_collisions → validate_impacts → final_validation |
@@ -292,3 +293,21 @@ Plan과 Phase의 `previous_id`는 같은 종류의 직전 작업 하나를 기�
 - 현재보다 작은 Loop와 그 기록은 읽기 전용이다. 조회에 loop_no를 생략하면 최신 회차, revision도 생략하면 그 회차 최신 상태다. 과거 상태는 읽을 수 있지만 복원하거나 다시 수정하지 않는다. 선택적 expected_revision은 실행 후 loop_no와 함께 검사해 서로 다른 회차의 같은 번호를 혼동하지 않는다.
 - Plan 폴더 아래 01, 02처럼 회차별 출력을 저장한다. 같은 회차 안에서는 덮어쓸 수 있으며 이전 회차 내용은 새 회차 폴더로 옮기지 않는다. 실행 전은 기존 Plan 루트를 사용한다. 과거 경로 보존을 위해 실행한 Plan의 루트나 과거 Loop가 참조하는 폴더는 이름 변경하지 않는다.
 - 연결의 작업 선택이 다른 연결의 회차 진행으로 오래되면 관리되는 출력은 최신 회차 재선택까지 차단한다. 상대경로 helper는 상위/절대경로와 파일시스템 링크를 거절한다. 임의 Python/C#이나 외부 OS 파일 작업까지 샌드박스로 막는 기능은 아니므로 이전 회차 파일을 쓰지 않는 정책도 따른다. revision은 파일 바이트나 Rhino 형상 백업이 아니다.
+
+### drawing_development
+
+2D 도면을 설계 원본으로 공간 구성을 탐색하고 발전시킨다. 평면에 한정하지 않되 설계 질문에 필요한 평면·단면·입면만 사용한다. 3D 모델, 모든 종류의 도면, 상세 설계, Layout·출력을 일괄 요구하지 않는다. 지정 변경 중심의 `plan_editing`, 도면 생성·표현·출력 중심의 `drawing`과 구분한다.
+
+| Step | 판단과 작업 |
+|---|---|
+| inspect_context | 목표·프로그램·요구·보존 조건, 도면 출처·단위·축척·범위를 확인하고 설계 원본과 참조를 구분한다. |
+| inspect_surroundings | 진입·인접 공간·외부·기존 구조·레벨의 관계를 읽는다. |
+| explore_opportunities | 경계·동선·머무름·시선·채광·높이의 개선 가능성과 설계 질문을 탐색하고 사실과 가정을 구분한다. |
+| develop_options | 공간적 차이가 보이는 2D 대안을 같은 조건으로 비교하고 추천 이유를 정리한다. 선택 권한이 사용자에게 남아 있으면 묻고, 위임됐다면 근거를 남긴다. |
+| develop_design_drawings | 선택되거나 위임된 방향을 필요한 도면으로 발전시키고 현재 설계 단계에 필요한 공간·개구·레벨·치수를 구체화한다. |
+| resolve_spatial_conflicts | 진입·사용 여유·공간 연결·기존 구조와 제안의 충돌을 해결한다. 선 교차 자체는 공간 충돌의 증거가 아니다. |
+| coordinate_drawings | 필요한 도면 간 축선·치수·개구·레벨·계단·공간 관계와 변경 영향을 정합한다. 한 도면으로 충분하면 도면을 억지로 추가하지 않고 확인 범위를 기록한다. |
+| validate_design_relationships | 목표·보존 조건과 전체 공간 관계를 검토하고 도면상 검증·가정·추가 확인이 필요한 구조·높이·법규를 구분해 제시한다. |
+| cleanup_intermediate_artifacts | 임시·중복 표현을 정리하고 최종안·대안·참조·주석을 구별한다. 원본·판단 근거를 보존하고 정리 후 결과를 다시 확인한다. |
+
+피드백은 같은 Plan의 영향을 받은 앞 단계 판단으로 연결하며, 별도 고정 승인 Step은 추가하지 않는다. 기존 Plan의 저장된 Step과 사용자 scope 매핑은 변경하지 않는다. Python MCP 세션은 정상 종료·새 시작 후 새 템플릿을 읽으며, 실행 중인 세션에 자동 hot reload하지 않는다.

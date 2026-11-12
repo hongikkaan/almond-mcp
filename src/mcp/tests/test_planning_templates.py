@@ -159,3 +159,69 @@ def test_semantic_scope_migration_preserves_existing_plans_and_custom_registry(t
         assert reopened.create_plan('Mapped task', scope=scope)['steps'][0]['step_type'] == expected_first
     semantic_plan = reopened.create_plan('Explore', scope='semantic_exploration')
     assert semantic_plan['steps'][1]['step_type'] == ('design' if custom_semantic_mapping else 'inspect_surroundings')
+
+
+@pytest.mark.parametrize("custom_drawing_development_mapping", [False, True])
+def test_drawing_development_scope_migration_preserves_existing_plans_and_custom_registry(tmp_path, custom_drawing_development_mapping):
+    db = tmp_path / "before-drawing_development.sqlite3"
+    store = AlmondStore(db)
+    old_plan = store.create_plan("Existing task", scope="component")
+    tables = ('generation_plans', 'generation_plan_steps', 'generation_plan_revisions')
+    with store._connect() as con:
+        before = {table: [tuple(row) for row in con.execute(f'SELECT * FROM {table}')]
+                  for table in tables}
+    # Use the immediately preceding registry, including all earlier task scopes.
+    with sqlite3.connect(db) as con:
+        con.execute('PRAGMA foreign_keys=OFF')
+        con.execute('DROP TABLE planning_scopes')
+        previous_scopes = tuple(scope for scope in SCOPES if scope != 'drawing_development')
+        allowed = ','.join(repr(scope) for scope in previous_scopes)
+        con.execute(f'''CREATE TABLE planning_scopes(
+            scope TEXT PRIMARY KEY CHECK(length(trim(scope))>0 AND scope=lower(trim(scope))),
+            template_scope TEXT NOT NULL CHECK(template_scope IN ({allowed})))''')
+        con.executemany('INSERT INTO planning_scopes VALUES(?,?)', [(s, s) for s in previous_scopes])
+        con.execute("INSERT INTO planning_scopes VALUES('custom_house','house')")
+        con.execute("INSERT INTO planning_scopes VALUES('custom_interior','interior')")
+        if custom_drawing_development_mapping:
+            con.execute("INSERT INTO planning_scopes VALUES('drawing_development','component')")
+        con.execute('CREATE INDEX custom_scope_index ON planning_scopes(template_scope)')
+        con.execute('CREATE TABLE scope_audit(scope TEXT)')
+        con.execute('''CREATE TRIGGER custom_scope_trigger AFTER INSERT ON planning_scopes
+                       BEGIN INSERT INTO scope_audit VALUES(NEW.scope); END''')
+        registry_before = dict(con.execute('SELECT * FROM planning_scopes'))
+    migrated = AlmondStore(db)
+    assert migrated.get_plan(old_plan['plan_id']) == old_plan
+    with migrated._connect() as con:
+        assert {table: [tuple(row) for row in con.execute(f'SELECT * FROM {table}')]
+                for table in tables} == before
+        registry_after = dict(con.execute('SELECT * FROM planning_scopes'))
+        assert registry_after == {**registry_before, 'drawing_development':
+                                  'component' if custom_drawing_development_mapping else 'drawing_development'}
+        assert con.execute("SELECT 1 FROM sqlite_master WHERE name='custom_scope_index'").fetchone()
+        assert con.execute("SELECT 1 FROM sqlite_master WHERE name='custom_scope_trigger'").fetchone()
+        con.execute("INSERT INTO planning_scopes VALUES('custom_drawing_development','drawing_development')")
+        assert con.execute("SELECT 1 FROM scope_audit WHERE scope='custom_drawing_development'").fetchone()
+        with pytest.raises(sqlite3.IntegrityError):
+            con.execute("INSERT INTO planning_scopes VALUES('invalid','not_a_template')")
+        assert not con.execute('PRAGMA foreign_key_check').fetchall()
+    reopened = AlmondStore(db)
+    assert reopened.get_plan(old_plan['plan_id']) == old_plan
+    for scope, expected_first in [('custom_house', 'programme'), ('custom_interior', 'inspect_rooms'),
+                                  ('custom_drawing_development', 'inspect_context')]:
+        assert reopened.create_plan('Mapped task', scope=scope)['steps'][0]['step_type'] == expected_first
+    drawing_development_plan = reopened.create_plan('Explore', scope='drawing_development')
+    assert drawing_development_plan['steps'][1]['step_type'] == ('design' if custom_drawing_development_mapping else 'inspect_surroundings')
+
+
+def test_drawing_development_exact_steps_through_public_tool(tmp_path):
+    from types import SimpleNamespace
+    from fastmcp import FastMCP
+    from almond_mcp.features.planning.tools import register
+    store = AlmondStore(tmp_path / 'drawing-development.sqlite3')
+    tools = register(FastMCP('drawing-development'), SimpleNamespace(retrieval_store=store))
+    result = json.loads(tools['create_planning'](parse_create(dict(
+        target='plan', title='2D design', goal='Develop spatial design in 2D', scope='drawing_development'))))
+    assert result['status'] == 'success', result
+    plan = store.get_plan(result['plan']['plan_id'])
+    assert [(s["step_type"], s["kind"]) for s in plan["steps"]] == [('inspect_context', 'reason'), ('inspect_surroundings', 'reason'), ('explore_opportunities', 'reason'), ('develop_options', 'reason'), ('develop_design_drawings', 'execute'), ('resolve_spatial_conflicts', 'resolve'), ('coordinate_drawings', 'resolve'), ('validate_design_relationships', 'validate'), ('cleanup_intermediate_artifacts', 'validate')]
+    assert all(s["status"] == "pending" for s in plan["steps"])
