@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Callable
 import uuid
 
+from almond_mcp.features.components.records import HOLON_READ_SQL
 from almond_mcp.store_common import _utc_now
 
 
@@ -79,13 +80,13 @@ class ScenesStore:
             if not scene:
                 return None
             component_count = connection.execute(
-                "SELECT COUNT(*) FROM _scene_component_refs WHERE scene_id = ?", (scene_id,)
+                "SELECT COUNT(*) FROM scene_ontological WHERE scene_id = ?", (scene_id,)
             ).fetchone()[0]
-            object_count = connection.execute("""
+            object_count = connection.execute(f"""
                 WITH RECURSIVE linked(component_id) AS (
-                    SELECT component_id FROM _scene_component_refs WHERE scene_id = ? UNION
-                    SELECT c.component_id FROM _component_records c JOIN linked p ON c.parent_component_id=p.component_id)
-                SELECT COALESCE(SUM(c.object_count),0) FROM _component_records c JOIN linked l ON l.component_id=c.component_id
+                    SELECT ontological_id FROM scene_ontological WHERE scene_id = ? UNION
+                    SELECT c.component_id FROM ({HOLON_READ_SQL}) c JOIN linked p ON c.parent_component_id=p.component_id)
+                SELECT COALESCE(SUM(c.object_count),0) FROM ({HOLON_READ_SQL}) c JOIN linked l ON l.component_id=c.component_id
                 WHERE c.availability='present'
             """, (scene_id,)).fetchone()[0]
             direct_count = connection.execute("SELECT COUNT(*) FROM scene_object_membership WHERE scene_id=? AND included=1", (scene_id,)).fetchone()[0]
@@ -101,10 +102,10 @@ class ScenesStore:
         with self._connect() as connection:
             connection.execute('BEGIN')
             self._component_scene_ids(connection,[scene_id])
-            rows = connection.execute("""WITH RECURSIVE linked(component_id) AS (
-                SELECT component_id FROM _scene_component_refs WHERE scene_id=? UNION
-                SELECT c.component_id FROM _component_records c JOIN linked p ON c.parent_component_id=p.component_id)
-                SELECT c.component_id,c.model_path FROM _component_records c JOIN linked l ON l.component_id=c.component_id""",(scene_id,)).fetchall()
+            rows = connection.execute(f"""WITH RECURSIVE linked(component_id) AS (
+                SELECT ontological_id FROM scene_ontological WHERE scene_id=? UNION
+                SELECT c.component_id FROM ({HOLON_READ_SQL}) c JOIN linked p ON c.parent_component_id=p.component_id)
+                SELECT c.component_id,c.model_path FROM ({HOLON_READ_SQL}) c JOIN linked l ON l.component_id=c.component_id""",(scene_id,)).fetchall()
             if not rows:
                 return []
             if not model_path:

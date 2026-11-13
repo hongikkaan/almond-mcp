@@ -19,6 +19,7 @@
 
 - `src/mcp`: upstream Python MCP·계산·라이브러리 API.
 - `src/mcp/runtime`: CLI 실행·연결·공유 저장소와 MCP 실행기. 외부 연결기는 이 실행기의 공개 확장 훅을 사용한다.
+- Dashboard 작업은 [해당 폴더 지침](src/mcp/runtime/dashboard/AGENTS.md)을 따른다.
 - `src/rhp/Engine`: Bridge·AlmondRhino가 공유하는 별도 `Almond.Engine.dll`.
 - `src/cos`: beyond·CoS의 공용 외부 host/worker, 도구 카탈로그, `rhp/`의 AlmondRhino 플러그인 소스와 자체 빌드·테스트.
 - `src/rhp/RhinoAlmondBridge`: Bridge RHP. `Structural_Analysis`, `Asset_Panel`, `RhinoTerminal` 소스도 여기에 컴파일한다. Terminal에는 별도 PlugIn entry가 없다.

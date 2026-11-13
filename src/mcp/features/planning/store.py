@@ -7,6 +7,7 @@ import sqlite3
 import uuid
 from typing import Any
 
+from almond_mcp.features.components.records import HOLON_READ_SQL
 from almond_mcp.store_common import _utc_now, _json, _decode
 from almond_mcp.features.planning.updates import StringListPatch, PlanningUpdate, apply_list_patch
 from almond_mcp.features.planning.schema import previous_reference
@@ -166,7 +167,7 @@ class PlanningStore(LoopingStore):
                 raise KeyError(f"Unknown scene_id: {scene_id}")
         for component_id in component_ids:
             row = connection.execute(
-                "SELECT model_path FROM _component_records WHERE component_id = ?", (component_id,)
+                f"SELECT model_path FROM ({HOLON_READ_SQL}) WHERE component_id = ?", (component_id,)
             ).fetchone()
             if not row:
                 raise KeyError(f"Unknown component_id: {component_id}")
@@ -313,7 +314,7 @@ class PlanningStore(LoopingStore):
         result["read_only"] = False
         for table, field, key in (
             ("generation_plan_scenes", "scene_id", "scene_ids"),
-            ("_plan_component_refs", "component_id", "component_ids"),
+            ("generation_plan_ontological", "ontological_id", "component_ids"),
         ):
             result[key] = [item[field] for item in connection.execute(
                 f"SELECT {field} FROM {table} WHERE plan_id = ? ORDER BY position", (plan_id,)
@@ -812,11 +813,11 @@ class PlanningStore(LoopingStore):
                     registered = self._component_read(connection,owner)
                     if registered is None or registered['model_path'] != model_path or registered['availability'] != 'present':
                         raise ValueError('Align the selected semantic Component before resolving Plan references.')
-                ancestors = connection.execute("""
+                ancestors = connection.execute(f"""
                     WITH RECURSIVE parents(component_id, parent_component_id, name) AS (
-                        SELECT component_id, parent_component_id, name FROM _component_records WHERE component_id = ?
+                        SELECT component_id, parent_component_id, name FROM ({HOLON_READ_SQL}) WHERE component_id = ?
                         UNION
-                        SELECT c.component_id, c.parent_component_id, c.name FROM _component_records c
+                        SELECT c.component_id, c.parent_component_id, c.name FROM ({HOLON_READ_SQL}) c
                         JOIN parents p ON p.parent_component_id = c.component_id
                     ) SELECT * FROM parents
                 """, (owner,)).fetchall()
@@ -826,7 +827,7 @@ class PlanningStore(LoopingStore):
                     components[component_id] = dict(component)
                     related.append(component_id)
                     for match in connection.execute("""
-                        SELECT plan_id FROM _plan_component_refs WHERE component_id = ?
+                        SELECT plan_id FROM generation_plan_ontological WHERE ontological_id = ?
                     """, (component_id,)):
                         plans.setdefault(match["plan_id"], set()).add(component_id)
                 objects.append({"object_id": guid, "registered": owner is not None,

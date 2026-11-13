@@ -3,6 +3,7 @@
 import hashlib
 import http.client
 import json
+import os
 import sqlite3
 import threading
 from contextlib import closing
@@ -45,6 +46,11 @@ def test_schema_relations_views_and_live_schema_change(database):
     assert "future_type" in updated
     assert updated["items"]["columns"][-1]["name"] == "progress"
     assert database.rows("items")["columns"][-1]["name"] == "progress"
+    with closing(sqlite3.connect(database.path)) as writer:
+        writer.execute("DROP VIEW item_names")
+    assert "item_names" not in {table["name"] for table in database.schema()["tables"]}
+    with pytest.raises(ValueError):
+        database.rows("item_names")
 
 
 def test_reads_do_not_change_database_and_writes_are_refused(database):
@@ -52,7 +58,6 @@ def test_reads_do_not_change_database_and_writes_are_refused(database):
     siblings = set(database.path.parent.iterdir())
     database.schema()
     database.rows("items", search="부재", sort="amount", descending=True)
-    database.profile("items")
     database.filter_options("items")
     database.rows("items", filters={"group_id": {"type": "integer", "value": "1"}})
     with database.connect() as db:
@@ -77,6 +82,48 @@ def test_pagination_sort_literal_search_and_missing_table(database):
         database.rows('items; DROP TABLE groups;')
     with pytest.raises(ValueError):
         database.rows("items", sort="unknown")
+
+
+@pytest.mark.parametrize("statement", [
+    "INSERT INTO groups VALUES (2, 'new')",
+    "UPDATE groups SET title='changed'",
+    "DELETE FROM groups",
+    "CREATE TABLE added(value)",
+    "ALTER TABLE groups ADD COLUMN added TEXT",
+    "DROP VIEW item_names",
+])
+def test_readonly_connection_rejects_data_and_schema_writes(database, statement):
+    before = database.path.read_bytes()
+    with database.connect() as db:
+        # The URI protects the file even if query_only is accidentally disabled.
+        db.execute("PRAGMA query_only=OFF")
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            db.execute(statement)
+    assert database.path.read_bytes() == before
+
+
+def test_opening_legacy_component_view_never_migrates_or_copies_records(database, monkeypatch):
+    from almond_mcp.retrieval_store import AlmondStore
+
+    with closing(sqlite3.connect(database.path)) as writer:
+        writer.executescript('''
+            CREATE TABLE ontological_holons(ontological_id TEXT PRIMARY KEY, name TEXT);
+            INSERT INTO ontological_holons VALUES ('holon-1', 'Original');
+            CREATE VIEW _component_records AS
+                SELECT ontological_id AS component_id, name FROM ontological_holons;
+        ''')
+    before = database.path.read_bytes()
+
+    def reject_store(*args, **kwargs):
+        pytest.fail("Dashboard must not initialize or migrate an AlmondStore")
+
+    monkeypatch.setattr(AlmondStore, "__init__", reject_store)
+    selected = Database(database.path)
+    assert next(t for t in selected.schema()["tables"] if t["name"] == "_component_records")["type"] == "view"
+    assert selected.rows("_component_records")["rows"] == [["holon-1", "Original"]]
+    selected.filter_options("_component_records")
+    selected.domain_page("holons")
+    assert database.path.read_bytes() == before
 
 
 def test_quoted_identifiers_composite_keys_generated_columns_and_blobs(database):
@@ -116,31 +163,12 @@ def test_locked_db_does_not_unlock_or_write(database):
         assert writer.in_transaction
 
 
-def test_profile_sample_is_explicit_and_bounded(database):
-    with closing(sqlite3.connect(database.path)) as db:
-        db.executemany("INSERT INTO items(id,label,amount) VALUES (?,?,?)", [(i, "반복", i) for i in range(124, 700)])
-        db.commit()
-    profile = database.profile("items")
-    assert profile["sample_size"] == 300 and profile["has_more"]
-    cols = {c["name"]: c for c in profile["columns"]}
-    assert sum(cols["amount"]["bins"]) == 300
-    assert cols["label"]["top"][0] == {"label": "반복", "count": 177}
-    assert cols["metadata"]["kind"] == "json"
-
-
-def test_wide_table_is_explicitly_bounded_and_demo_never_overwrites(tmp_path):
-    from dashboard.demo import create_demo
-
-    path = create_demo(tmp_path / "demo.sqlite3")
-    before = path.read_bytes()
-    with pytest.raises(FileExistsError):
-        create_demo(path)
-    assert path.read_bytes() == before
+def test_wide_table_is_explicitly_bounded(tmp_path):
+    path = tmp_path / "wide.sqlite3"
     with closing(sqlite3.connect(path)) as db:
         db.execute("CREATE TABLE wide(" + ",".join(f"c{i} TEXT" for i in range(130)) + ")")
     database = Database(path)
     assert database.rows("wide")["omitted_columns"] == 2
-    assert database.profile("wide")["omitted_columns"] == 2
     assert len(next(t for t in database.schema()["tables"] if t["name"] == "wide")["columns"]) == 130
 
 
@@ -166,13 +194,12 @@ def test_internal_fts_tables_marked_and_actual_almond_schema_supported(tmp_path)
     tables = {t["name"]: t for t in schema["tables"]}
     assert "generation_plans" in tables and "ontological_holons" in tables
     assert tables["ontological_holons"]["type"] == "table"
-    assert tables["_component_records"]["type"] == "view"
+    assert "_component_records" not in tables
     assert any(r["target"] == "project_files" for r in tables["ontological_holons"]["relations"])
     assert tables["asset_fts_data"]["internal"]
     assert not tables["asset_fts"]["internal"]
     for table in schema["tables"]:
         database.rows(table["name"])
-        database.profile(table["name"])
         database.filter_options(table["name"])
 
 
@@ -207,6 +234,10 @@ def request(server, path, *, body=None, headers=None, authenticated=True):
 def test_http_assets_and_authenticated_api(server):
     status, content, headers = request(server, "/", authenticated=False)
     assert status == 200 and 'id="open-button"' in content.decode()
+    assert 'data-tab="charts"' not in content.decode()
+    assert 'id="panel-charts"' not in content.decode()
+    assert 'aria-label="DB 요약"' not in content.decode()
+    assert 'id="metric-' not in content.decode()
     assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
     for asset in ("/app.js", "/style.css"):
         assert request(server, asset)[0] == 200
@@ -214,7 +245,7 @@ def test_http_assets_and_authenticated_api(server):
     assert status == 200 and json.loads(content)["read_only"]
     query = urlencode({"database": str(server.database.path), "table": "items"})
     assert request(server, "/api/rows?" + query)[0] == 200
-    assert request(server, "/api/profile?" + query)[0] == 200
+    assert request(server, "/api/profile?" + query)[0] == 404
     assert request(server, "/api/filters?" + query)[0] == 200
 
 
@@ -224,6 +255,14 @@ def test_http_rejects_external_origins_host_and_missing_token(server):
     assert request(server, "/api/schema", headers={"Host": "untrusted.example"})[0] == 403
     assert request(server, "/../server.py")[0] == 404
     assert request(server, "/api/rows?table=items&database=another")[0] == 409
+
+
+def test_http_has_no_data_or_schema_write_routes(server):
+    before = server.database.path.read_bytes()
+    body = json.dumps({"sql": "DROP TABLE items", "table": "items", "values": {"label": "changed"}})
+    for route in ("/api/rows", "/api/schema", "/api/query", "/api/execute", "/api/save"):
+        assert request(server, route, body=body)[0] == 404
+    assert server.database.path.read_bytes() == before
 
 
 def test_http_open_invalid_file_keeps_current_and_reports_bad_parameters(server, tmp_path):
@@ -299,3 +338,47 @@ def test_http_filters_and_picker_cancel_failure_and_success(server, tmp_path, mo
     for invalid in ("[]", "null", "{"):
         query = urlencode({"database": str(selected), "table": "chosen", "filters": invalid})
         assert request(server, "/api/rows?" + query)[0] == 400
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows batch launcher")
+@pytest.mark.parametrize("host", ["windows", "pwsh"])
+def test_dashboard_launcher_works_without_powershell_on_path(tmp_path, host):
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    checkout = tmp_path / "checkout with spaces"
+    runtime = checkout / "src/mcp/runtime"
+    runtime.mkdir(parents=True)
+    launcher = runtime / "Almond DB Dashboard.cmd"
+    source = Path(__file__).resolve().parents[2] / "runtime/Almond DB Dashboard.cmd"
+    shutil.copyfile(source, launcher)
+    # Exercise the actual batch call; replace only its interactive picker/server.
+    (runtime / "dashboard.ps1").write_text('''
+param([switch]$PickFile, [switch]$Development)
+@{pick_file=[bool]$PickFile; development=[bool]$Development;
+  edition=$PSVersionTable.PSEdition;
+  child_powershell=[bool](Get-Command powershell.exe -ErrorAction SilentlyContinue)} |
+    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'launcher.json') -Encoding UTF8
+''', encoding="utf-8")
+    environment = dict(os.environ, PATH="")
+    installed = [Path(os.environ["ProgramFiles"]) / "PowerShell/7/pwsh.exe",
+                 Path(os.environ["LOCALAPPDATA"]) / "Microsoft/WindowsApps/pwsh.exe"]
+    pwsh = next((path for path in installed if path.is_file()), None)
+    if host == "pwsh" and pwsh is None:
+        pytest.skip("Optional PowerShell 7 is not installed")
+    if host == "windows":
+        environment.update(ProgramFiles=str(tmp_path / "no-programs"),
+                           LOCALAPPDATA=str(tmp_path / "no-apps"))
+    # Isolate global CMD AutoRun scripts from the launcher's host/path behavior.
+    comspec = str(Path(os.environ["SystemRoot"]) / "System32/cmd.exe")
+    result = subprocess.run([comspec, "/d", "/c", str(launcher)],
+                            cwd=tmp_path, env=environment, input="\n", capture_output=True,
+                            text=True, encoding="oem", errors="replace", timeout=20,
+                            creationflags=subprocess.CREATE_NO_WINDOW)
+    receipt = runtime / "launcher.json"
+    assert receipt.exists(), result.stdout + result.stderr
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(receipt.read_text(encoding="utf-8-sig")) == {
+        "pick_file": True, "development": False,
+        "edition": "Core" if host == "pwsh" else "Desktop", "child_powershell": True}

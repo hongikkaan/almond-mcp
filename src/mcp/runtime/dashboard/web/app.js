@@ -31,6 +31,16 @@ async function api(path, body) {
   return result;
 }
 
+const domainExplorer = new DomainExplorer({api, node, busy: () => state.loadingSchema,
+  rawVisibility: (raw, load) => {
+    state.epoch++;
+    $("explorer").hidden = !raw || !state.table;
+    $("empty").hidden = !raw || !!state.table;
+    if (state.schema) renderNavigation();
+    if (load && raw && state.table) showTab(state.tab);
+  }
+});
+
 function visibleTables() {
   return (state.schema?.tables || []).filter(t => $("show-internal").checked || !t.internal);
 }
@@ -39,9 +49,6 @@ function renderNavigation() {
   const tables = visibleTables();
   const search = $("table-filter").value.toLocaleLowerCase();
   $("table-count").textContent = tables.length;
-  $("metric-tables").textContent = tables.length;
-  $("metric-columns").textContent = format(tables.reduce((n, t) => n + t.columns.length, 0));
-  $("metric-relations").textContent = format(tables.reduce((n, t) => n + new Set(t.relations.map(r => r.id)).size, 0));
   $("tables").replaceChildren();
   $("folded-list").replaceChildren();
   $("fold-count").textContent = tables.filter(t => state.folded.has(t.name)).length;
@@ -50,12 +57,13 @@ function renderNavigation() {
     item.draggable = true;
     item.dataset.table = table.name;
     item.addEventListener("dragstart", event => { event.dataTransfer.setData("text/plain", table.name); event.dataTransfer.effectAllowed = "move"; });
-    const button = node("button", undefined, "table-nav" + (table.name === state.table?.name ? " active" : ""));
+    const current = domainExplorer.isRaw && table.name === state.table?.name;
+    const button = node("button", undefined, "table-nav" + (current ? " active" : ""));
     button.title = table.name;
-    button.setAttribute("aria-current", table.name === state.table?.name ? "true" : "false");
+    button.setAttribute("aria-current", current ? "true" : "false");
     button.append(node("span", table.type === "view" ? "◈" : "▦"), node("span", table.name, "nav-name"), node("span", table.columns.length, "nav-count"));
     button.addEventListener("click", () => activateTable(table));
-    const toggle = node("button", folded ? "↥" : "↧", "fold-toggle");
+    const toggle = node("button", folded ? "↧" : "↥", "fold-toggle");
     toggle.title = `${table.name} ${folded ? "펼치기" : "접기"}`;
     toggle.setAttribute("aria-label", toggle.title);
     toggle.addEventListener("click", () => foldTable(table.name, !folded));
@@ -80,15 +88,13 @@ function applySchema(schema) {
   state.epoch++;
   $("refresh").disabled = !schema.name;
   $("database-name").textContent = schema.name || "DB Dashboard";
-  $("brand-database").textContent = schema.name || "DB Dashboard";
-  $("brand-project").textContent = schema.project || "";
-  $("brand-project").hidden = !schema.project;
-  $("brand-project").title = schema.project || "";
-  $("brand-database").title = schema.path || "";
+  $("database-name").title = schema.path || "";
   $("database-meta").textContent = schema.name ? `${format(schema.bytes / 1024)} KB · ${schema.path}` : "";
   renderNavigation();
   const tables = visibleTables();
-  activateTable(tables.find(t => t.name === previous) || tables[0] || null);
+  domainExplorer.setSchema(schema);
+  activateTable(tables.find(t => t.name === previous) || tables[0] || null, [], true);
+  domainExplorer.refresh();
   if (schema.name && !tables.length) message("열린 DB에 표시할 테이블이 없습니다. 필요하면 SQLite 내부 테이블 포함을 선택하세요.");
 }
 
@@ -104,7 +110,7 @@ async function loadSchema(body) {
     if (epoch !== state.epoch) return;
     message();
     state.loadingSchema = false;
-    if (schema.cancelled) { showTab(state.tab); return; }
+    if (schema.cancelled) { if (domainExplorer.isRaw) showTab(state.tab); else domainExplorer.refresh(); return; }
     applySchema(schema);
   } catch (error) {
     if (epoch === state.epoch) message(error.message, true);
@@ -115,8 +121,9 @@ async function loadSchema(body) {
   }
 }
 
-function activateTable(table, focusColumns = []) {
+function activateTable(table, focusColumns = [], keepView = false) {
   if (state.loadingSchema) return;
+  if (!keepView) domainExplorer.showRaw(false);
   state.epoch++;
   state.table = table;
   state.offset = 0;
@@ -129,25 +136,24 @@ function activateTable(table, focusColumns = []) {
   if (focusColumns.length) state.tab = "rows";
   $("row-search").value = "";
   $("detail").close();
-  $("empty").hidden = !!table;
-  $("explorer").hidden = !table;
+  $("empty").hidden = !domainExplorer.isRaw || !!table;
+  $("explorer").hidden = !domainExplorer.isRaw || !table;
   renderNavigation();
   if (!table) return;
   $("table-name").textContent = table.name;
   $("table-kind").textContent = (table.kind || table.type).toUpperCase();
-  $("column-count").textContent = `${table.columns.length}개 열`;
-  showTab(state.tab);
+  if (domainExplorer.isRaw) showTab(state.tab);
 }
 
 function showTab(tab) {
   state.tab = tab;
-  for (const name of ["rows", "charts", "schema"]) {
+  $("search-form").hidden = tab !== "rows";
+  for (const name of ["rows", "schema"]) {
     $("panel-" + name).hidden = name !== tab;
     $("tab-" + name).setAttribute("aria-selected", String(name === tab));
   }
   if (!state.table) return;
   if (tab === "rows") loadRows();
-  if (tab === "charts") loadCharts();
   if (tab === "schema") { state.request++; renderStructure(); }
 }
 
@@ -179,10 +185,10 @@ async function loadRows() {
   try {
     const [data, filterResult] = await Promise.all([
       api(queryPath("rows", {offset: state.offset, search: state.search, sort: state.sort, descending: state.descending, filters: JSON.stringify(state.filters)})),
-      state.filterOptions ? {options: state.filterOptions} : api(queryPath("filters")).then(options => ({options})).catch(error => ({error: error.message}))
+      api(queryPath("filters")).then(options => ({options})).catch(error => ({error: error.message}))
     ]);
     if (epoch !== state.epoch || request !== state.request) return;
-    if (filterResult.error) message(`열 필터를 불러오지 못했습니다. ${filterResult.error}`, true);
+    if (filterResult.error) { state.filterOptions = null; message(`열 필터를 불러오지 못했습니다. ${filterResult.error}`, true); }
     else { state.filterOptions = filterResult.options; message(); }
     $("clear-filters").hidden = !Object.keys(state.filters).length;
     $("row-note").textContent = data.omitted_columns ? `처음 128개 열만 표시합니다. 나머지 ${data.omitted_columns}개 열의 정의는 구조와 관계에서 확인하세요.` : "";
@@ -197,7 +203,9 @@ async function loadRows() {
         state.descending = state.sort === col.name ? !state.descending : false;
         state.sort = col.name; state.offset = 0; loadRows();
       });
-      th.append(button, node("span", `${col.pk ? "PK · " : ""}${col.type || "ANY"}`, "column-type"));
+      const heading = node("div", undefined, "column-heading");
+      heading.append(button, node("span", `${col.pk ? "PK · " : ""}${col.type || "ANY"}`, "column-type"));
+      th.append(heading);
       if (state.filterOptions && Object.hasOwn(state.filterOptions, col.name)) th.append(columnFilter(col.name));
       header.append(th);
     }
@@ -240,7 +248,7 @@ function columnFilter(column) {
     const options = state.filterOptions[column];
     for (const value of options.values) select.add(new Option(value.type === "null" ? "(NULL)" : (value.value === "" ? "(빈 문자열)" : value.value), key(value)));
     const selected = state.filters[column];
-    if (selected && ![...select.options].some(option => option.value === key(selected))) select.add(new Option(selected.value ?? "(NULL)", key(selected)));
+    if (selected && ![...select.options].some(option => option.value === key(selected))) select.add(new Option(`적용 중인 조건: ${selected.value ?? "(NULL)"}`, key(selected)));
     if (options.has_more) select.add(new Option("값 100개 더 보기…", "more"));
     select.value = selected ? key(selected) : "";
     select.classList.toggle("filtered", !!selected);
@@ -248,15 +256,15 @@ function columnFilter(column) {
   populate();
   select.addEventListener("change", async () => {
     if (select.value === "more") {
-      const epoch = state.epoch, options = state.filterOptions[column];
+      const epoch = state.epoch, request = state.request, options = state.filterOptions[column];
       select.disabled = true;
       try {
         const more = await api(queryPath("values", {column, offset: options.offset + 100}));
-        if (epoch !== state.epoch) return;
+        if (epoch !== state.epoch || request !== state.request) return;
         if (!more) { state.filterOptions = null; loadRows(); return; }
         options.values.push(...more.values); options.offset = more.offset; options.has_more = more.has_more;
         populate();
-      } catch (error) { if (epoch === state.epoch) { message(error.message, true); populate(); } }
+      } catch (error) { if (epoch === state.epoch && request === state.request) { message(error.message, true); populate(); } }
       finally { select.disabled = false; }
       return;
     }
@@ -286,55 +294,6 @@ function showDetail(columns, row, index) {
     $("detail-fields").append(field);
   });
   $("detail").showModal();
-}
-
-function histogram(values) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 400 130"); svg.setAttribute("class", "histogram");
-  svg.setAttribute("role", "img"); svg.setAttribute("aria-label", `숫자 구간별 표본 수: ${values.join(", ")}`);
-  const max = Math.max(...values, 1), width = 400 / values.length;
-  values.forEach((value, i) => {
-    const rect = document.createElementNS(svg.namespaceURI, "rect"), height = value / max * 120;
-    for (const [key, val] of Object.entries({x: i * width + 3, y: 130 - height, width: width - 6, height, rx: 3})) rect.setAttribute(key, val);
-    const title = document.createElementNS(svg.namespaceURI, "title"); title.textContent = `${i + 1}구간 · ${value}행`;
-    rect.append(title); svg.append(rect);
-  });
-  return svg;
-}
-
-async function loadCharts() {
-  const epoch = state.epoch, request = ++state.request;
-  $("charts").replaceChildren(); $("sample-note").textContent = "표본 자료를 읽고 있습니다…";
-  try {
-    const data = await api(queryPath("profile"));
-    if (epoch !== state.epoch || request !== state.request) return;
-    message();
-    $("sample-note").textContent = `검색·정렬과 무관한 처음 ${data.sample_size}행의 표본입니다${data.has_more ? " (최대 300행, 전체 통계 아님)" : ""}. 숫자는 분포, 반복되는 짧은 텍스트는 빈도를 자동으로 표시합니다.`;
-    if (data.omitted_columns) $("sample-note").append(document.createTextNode(` 처음 128개 열을 분석했습니다 (${data.omitted_columns}개 열 제외).`));
-    let omitted = 0;
-    for (const col of data.columns) {
-      if (col.kind !== "number" && !(col.kind === "category" && col.top.length && (col.distinct <= 12 || col.top[0].count > 1))) { omitted++; continue; }
-      const card = node("article", undefined, "chart-card");
-      card.append(node("h3", col.name));
-      if (col.kind === "number") {
-        card.append(node("div", `숫자 분포 · 평균 ${format(col.mean)} · 빈 값 ${col.nulls}`, "chart-sub"), histogram(col.bins));
-        const range = node("div", undefined, "chart-range"); range.append(node("span", `최소 ${format(col.minimum)}`), node("span", `최대 ${format(col.maximum)}`)); card.append(range);
-      } else {
-        card.append(node("div", `표본 내 ${col.distinct}종 · 상위 8개 · 빈 값 ${col.nulls}${col.excluded_long ? ` · 긴 텍스트 ${col.excluded_long}개 제외` : ""}`, "chart-sub"));
-        for (const item of col.top) {
-          const row = node("div", undefined, "chart-row"), label = node("span", item.label || "(빈 문자열)", "chart-label"), meter = node("meter");
-          label.title = item.label; meter.min = 0; meter.max = data.sample_size || 1; meter.value = item.count;
-          meter.setAttribute("aria-label", `${item.label}: ${item.count}행`);
-          row.append(label, meter, node("span", item.count)); card.append(row);
-        }
-      }
-      $("charts").append(card);
-    }
-    if (!$("charts").childElementCount) $("charts").append(node("p", "이 표본에는 차트로 묶을 숫자나 반복 범주가 없습니다. 자료 보기에서 개별 값과 JSON을 살펴보세요.", "section-note"));
-    if (omitted) $("sample-note").append(document.createTextNode(` 고유 식별자·JSON·긴 텍스트·바이너리 등 ${omitted}개 열은 차트를 생략했습니다. JSON은 행 상세에서 펼쳐 볼 수 있습니다.`));
-  } catch (error) {
-    if (epoch === state.epoch && request === state.request) { $("sample-note").textContent = "표본을 불러오지 못했습니다."; message(error.message, true); }
-  }
 }
 
 function renderStructure() {
