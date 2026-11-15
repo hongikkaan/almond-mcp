@@ -1,5 +1,6 @@
 """A selected connection removes repeated routing IDs without sharing bindings."""
 import asyncio
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -7,8 +8,12 @@ import pytest
 from external_host import Broker, Connection, StartAttempt, exposed_tools, json_result
 
 
-CATALOG = {"tools": [{"name": "observe", "inputSchema": {
-    "type": "object", "properties": {}, "additionalProperties": False}}]}
+CATALOG = {"tools": [
+    {"name": "observe", "inputSchema": {
+        "type": "object", "properties": {}, "additionalProperties": False}},
+    {"name": "script_03-get_execution", "inputSchema": {
+        "type": "object", "properties": {"request_id": {"type": "string"}}, "additionalProperties": False}},
+]}
 
 
 def connection(name, root):
@@ -30,10 +35,10 @@ def broker_for(tmp_path):
     return broker
 
 
-def test_ids_are_optional_and_selection_is_advertised(tmp_path):
+def test_connection_id_is_output_only_and_selection_is_advertised(tmp_path):
     tools, _ = exposed_tools(CATALOG)
     for tool in tools:
-        assert "connection_id" not in tool.input_schema.get("required", [])
+        assert "connection_id" not in tool.input_schema["properties"]
     broker = broker_for(tmp_path)
 
     async def run():
@@ -71,11 +76,68 @@ def test_queued_call_keeps_its_connection_while_selection_changes(tmp_path):
         assert not (await first).is_error
         assert not (await second).is_error
         assert observed == [("a", "token-a", {}), ("b", "token-b", {})]
-        await broker.call("observe", {"connection_id": "a"})
-        assert observed[-1][0] == "a"
+        failed = await broker.call("observe", {"connection_id": "a"})
+        assert failed.is_error and len(observed) == 2
         assert broker.selected_connection_id == "b"
-        failed = await broker.call("observe", {"connection_id": "stale"})
-        assert failed.is_error and len(observed) == 3
+
+    asyncio.run(run())
+
+
+def test_execution_request_follows_its_binding_after_switch_and_restart(tmp_path):
+    from project import STORAGE_PROTOCOL, connection_paths, process_start_ticks, write_json
+    from rhinocode import execution_directory
+
+    broker = Broker(CATALOG, data=tmp_path / "broker", contract_check=lambda _: None)
+    request_id, token = "1" * 32, "2" * 32
+    model = tmp_path / "a.3dm"
+    model.touch()
+    locations = connection_paths(model, "A", token, create=True)
+    target = dict(pid=os.getpid(), process_start_ticks=str(process_start_ticks(os.getpid())),
+                  document_serial=1, model_path=str(model))
+    binding = dict(locations, **target)
+    binding.update(schema="almond-project", storage_protocol=STORAGE_PROTOCOL, label="A", token=token)
+    write_json(locations["ready_path"], binding)
+    journal = dict(schema="almond-rhinocode-execution", version=1, token=token,
+                   operation_id="3" * 32, request_id=request_id, nonce="4" * 32,
+                   source_hash="5" * 64, language="python", target=dict(target, pipe_id="fixture"),
+                   layout="compact-v1", child=None, not_dispatched=True, dispatch_error="fixture")
+    manifest = execution_directory(locations["call_root"], journal) / "request.json"
+    manifest.parent.mkdir(parents=True)
+    write_json(manifest, journal)
+    broker.recovery_store.remember(binding)
+    a, b = (connection(name, tmp_path) for name in ("a", "b"))
+    a.token, a.binding = token, binding
+    broker.connections = {"a": a, "b": b}
+    broker.host_connections = {"host-a": "a", "host-b": "b"}
+    calls = []
+
+    async def worker_call(name, arguments):
+        calls.append((name, arguments))
+        return json_result({"request_id": request_id})
+
+    async def worker_state():
+        return {"native_uncertain": False}
+
+    async def run():
+        a.worker = SimpleNamespace(call=worker_call, state=worker_state)
+        await broker.connect("host-a", str(model))
+        await broker.connect("host-b", "b.3dm")
+        args = {"request_id": request_id}
+        live = await broker.call("script_03-get_execution", args)
+        assert live.structured_content["connection_state"] == "ready"
+        assert calls == [("script_03-get_execution", args)]
+        assert broker.selected_connection_id == "b"
+        missing = await broker.call("script_03-get_execution", {"request_id": "6" * 32})
+        assert missing.is_error
+        assert calls == [("script_03-get_execution", args)]
+
+        restarted = Broker(CATALOG, data=broker.data, contract_check=lambda _: None)
+        retained = await restarted.call("script_03-get_execution", args)
+        assert retained.structured_content["request_id"] == request_id
+        assert retained.structured_content["target_identity"] == target
+        assert retained.structured_content["completion_state"] == "not_started"
+        assert retained.structured_content["recovery_only"] is True
+        assert not restarted.connections
 
     asyncio.run(run())
 
@@ -85,7 +147,9 @@ def test_disconnect_clears_selection_without_falling_back(tmp_path):
 
     async def run():
         await broker.connect("host-a", "a.3dm")
-        await broker.disconnect()
+        assert (await broker.call("connect_04-disconnect", {"connection_id": "b"})).is_error
+        assert set(broker.connections) == {"a", "b"}
+        assert not (await broker.call("connect_04-disconnect", {})).is_error
         assert broker.selected_connection_id is None
         assert set(broker.connections) == {"b"}
         assert (await broker.call("observe", {})).is_error
@@ -100,7 +164,6 @@ def test_disconnect_clears_selection_without_falling_back(tmp_path):
 def test_reselect_for_recovery_keeps_normal_calls_blocked(tmp_path, state, route):
     """A -> B -> A recovery needs no routing ID and never dispatches new work."""
     broker = broker_for(tmp_path)
-    broker.mapping["script_03-get_execution"] = "script_03-get_execution"
     broker.starts["start-a"] = StartAttempt("a.3dm", state="ready", connection_id="a")
     calls = []
 
@@ -121,10 +184,10 @@ def test_reselect_for_recovery_keeps_normal_calls_blocked(tmp_path, state, route
                     else await broker.start_session("a.3dm", "start-a"))
         assert selected["state"] == state and broker.selected_connection_id == "a"
         assert (await broker.call("observe", {})).is_error
-        result = await broker.call("script_03-get_execution", {"request_id": "execution-a"})
+        result = await broker.call("script_03-get_execution", {})
         assert not result.is_error
         assert result.structured_content["connection_state"] == state
-        assert calls == [("script_03-get_execution", {"request_id": "execution-a"})]
+        assert calls == [("script_03-get_execution", {})]
         assert a.state == state
         a.closing = True
         with pytest.raises(RuntimeError):

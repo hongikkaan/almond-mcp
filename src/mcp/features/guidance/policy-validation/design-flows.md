@@ -1,6 +1,6 @@
 # 설계와 의미 Plan의 정책 검토
 
-공간 발전 9개, 평면 편집 4개, 의미 탐색 4개 Step을 생성 코드 순서대로 읽었다. 현재 진행 중인 Plan에는 저장된 Step 순서를 적용한다. 아래 도구는 각 판단에 필요한 증거를 얻는 경로이며 모든 호출을 일괄 실행하는 목록이 아니다. 예시의 반환값은 공개 계약에 맞춰 구성했다. [템플릿 생성 코드](../../planning/store.py#L388) · [도구 스키마 고정본](../../../../../tests/integration/tool_schemas.json) · [출력 계약](../../../output_contracts.py) · [결과별 후속 안내 구현](../../../tool_guidance.py) · [공개 도구 예시](../../../../../tool_description_spec.md)
+공간 발전 9개, 평면 편집 4개, 의미 탐색 4개 Step을 생성 코드 순서대로 읽었다. 현재 진행 중인 Plan에는 저장된 Step 순서를 적용한다. 아래 도구는 각 판단에 필요한 증거를 얻는 경로이며 모든 호출을 일괄 실행하는 목록이 아니다. 예시의 반환값은 공개 계약에 맞춰 구성했다. [템플릿 생성 코드](../../planning/store.py#L388) · [도구 스키마 고정본](../../../../../tests/integration/tool_schemas.json) · [출력 계약](../../../output_contracts.py) · [결과별 후속 안내 구현](../../../tool_guidance.py) · [공개 도구 스키마](../../../../../tests/integration/tool_schemas.json)
 
 각 시나리오의 **정적 walkthrough 통과**는 문서와 도구 계약을 순서대로 적용해 기대 판단에 도달했다는 뜻이다. 실제 Rhino 관찰·변경·저장, 정책 적용 전후 LLM 행동 비교, 사용자 피드백은 이번 검토에서 확인하지 않았다.
 

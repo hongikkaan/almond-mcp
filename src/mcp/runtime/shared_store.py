@@ -41,11 +41,9 @@ NATIVE_ONLY_TOOLS = frozenset({
 })
 BINDING_TOOLS = frozenset({"worker_state", "get_rhino_execution"})
 FILE_TOOLS = frozenset({"execute_rhino_script", "save_rhino_document", "execute_project_python", "export_structural_report",
-    "export_asset_contract", "get_blender_helper_script", "capture_conditioning_pass",
-    "import_asset_contract", "rename_artifact_folder", "execute_looping", "prepare_drawing_asset",
+    "capture_conditioning_pass", "rename_artifact_folder", "execute_looping", "prepare_drawing_asset",
     "capture_rhino_inspection"})
-OUTPUT_TOOLS = frozenset({"execute_project_python", "export_structural_report", "export_asset_contract",
-                         "get_blender_helper_script", "capture_conditioning_pass"})
+OUTPUT_TOOLS = frozenset({"execute_project_python", "export_structural_report", "capture_conditioning_pass"})
 
 
 def writes_artifacts(name, arguments):
@@ -143,13 +141,9 @@ def output_arguments(name: str, arguments: dict, operation_dir: Path, *, relativ
     arguments = dict(arguments)
     fields = {
         "export_structural_report": ("path", operation_dir / "reports" / "structural-validation.md"),
-        "export_asset_contract": ("output_dir", operation_dir / "exchange"),
-        "get_blender_helper_script": ("output_dir", operation_dir / "exchange"),
         "capture_conditioning_pass": ("out_dir", operation_dir / "conditioning"),
     }
     if name not in fields:
-        return arguments
-    if name == "get_blender_helper_script" and str(arguments.get("action", "")).strip().lower() != "export":
         return arguments
     field, target = fields[name]
     if arguments.get(field) and relative_only:
@@ -472,13 +466,12 @@ class ProjectRuntime(Middleware):
                     raise
                 # A legacy Plan path prevents persistence, never the PNG observation.
                 capture_save_error = capture_save_error or str(exc)
-        if name in OUTPUT_TOOLS and (name != "get_blender_helper_script" or str(args.get("action", "")).lower() == "export"):
+        if name in OUTPUT_TOOLS:
             artifact_dir = self.workspace.artifact_path() if self.workspace is not None else operation_dir
             args = output_arguments(name, args, artifact_dir, relative_only=self.workspace is not None, create=False)
         if self.workspace is not None:
             input_fields = {"register_drawing_asset": ("source_3dm", "preparation_job"),
                             "prepare_drawing_asset": ("source_file", "job_dir"),
-                            "import_asset_contract": ("contract_path",),
                             "audit_asset_drawing": ("source_glb",),
                             "generate_asset_drawing_views": ("source_glb",)}
             for field in input_fields.get(name, ()):
@@ -512,13 +505,12 @@ class ProjectRuntime(Middleware):
             structured = {"result": serialized} if (schema or {}).get("x-fastmcp-wrap-result") else value
             return ToolResult(content=[TextContent(type="text", text=serialized)],
                               structured_content=structured, is_error=True)
-        if name in OUTPUT_TOOLS and (name != "get_blender_helper_script" or str(args.get("action", "")).lower() == "export"):
-            output_field = {"export_structural_report": "path", "export_asset_contract": "output_dir",
-                            "get_blender_helper_script": "output_dir", "capture_conditioning_pass": "out_dir"}.get(name)
+        if name in OUTPUT_TOOLS:
+            output_field = {"export_structural_report": "path", "capture_conditioning_pass": "out_dir"}.get(name)
             if output_field and args.get(output_field):
                 target = Path(args[output_field])
                 (target.parent if name == "export_structural_report" else target).mkdir(parents=True, exist_ok=True)
-        if name in {"execute_project_python", "publish_objects_to_chestnut"}:
+        if name == "execute_project_python":
             operation_dir.mkdir(parents=True, exist_ok=False)
         # Bound document expectations are supplied internally. Optional
         # public arguments remain available to standalone consumers.

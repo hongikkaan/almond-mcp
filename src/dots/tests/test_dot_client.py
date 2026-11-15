@@ -31,9 +31,9 @@ class DotClientTests(unittest.IsolatedAsyncioTestCase):
                 await self.client.dispatch(value)
         self.session.call_tool.assert_not_called()
 
-    async def test_call_preserves_result_and_connection(self):
+    async def test_call_preserves_result_and_arguments(self):
         self.session.call_tool.return_value = CallToolResult(content=[TextContent(type="text", text="raw")], structuredContent={"value": 3}, isError=True)
-        args = {"connection_id": "same-connection"}
+        args = {"sections": ["document"]}
         result = await self.client.dispatch({"op": "call", "name": "example", "arguments": args})
         self.assertTrue(result["tool_result"]["isError"])
         self.assertEqual(result["tool_result"]["structuredContent"], {"value": 3})

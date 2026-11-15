@@ -62,11 +62,6 @@ CONSTRUCTION_LIBRARY_DIR = paths.resolve_dir("RHINO_MCP_CONSTRUCTION_DIR")
 STATE_DB_PATH = paths.resolve_state_db()
 BRIDGE_HOST = '127.0.0.1'
 BRIDGE_PORT = 5000
-CHESTNUT_URL = os.environ.get(
-    "CHESTNUT_URL",
-    "https://chestnut-mnvo.onrender.com",
-).rstrip("/")
-print(f"Chestnut publish target: {CHESTNUT_URL}", file=sys.stderr)
 
 # ── MCP Server ───────────────────────────────────────────────────────────────
 
@@ -169,7 +164,6 @@ from almond_mcp.features.grasshopper.tools import register as _register_grasshop
 from almond_mcp.features.guidance.tools import register as _register_guidance
 from almond_mcp.features.modeling.tools import register as _register_modeling
 from almond_mcp.features.planning.tools import register as _register_planning
-from almond_mcp.features.publishing.tools import register as _register_publishing
 from almond_mcp.features.scenes.tools import register as _register_scenes
 from almond_mcp.features.structure.tools import register as _register_structure
 
@@ -186,7 +180,6 @@ globals().update(_register_grasshopper(mcp, _feature_context))
 globals().update(_register_guidance(mcp, _feature_context))
 globals().update(_register_modeling(mcp, _feature_context))
 globals().update(_register_planning(mcp, _feature_context))
-globals().update(_register_publishing(mcp, _feature_context))
 globals().update(_register_scenes(mcp, _feature_context))
 globals().update(_register_structure(mcp, _feature_context))
 # End feature composition.

@@ -6,7 +6,7 @@
 
 Almond MCP의 설계·모델링·도면·검수 작업이 Plan 템플릿에 정해진 Step을 따라 이루어진다는 전제에서 검토한다. 먼저 각 템플릿의 전체 Step 순서를 확인하고, 각 Step에서 사용하는 도구의 DESCRIPTION·입력 schema·출력·Next Step Guide를 연결한다. 개별 도구의 좋은 설명만으로 후속 단계의 판단까지 충족된다고 가정하지 않는다.
 
-실제 원본은 [Plan 생성](../../planning/store.py), [공개 요청 모델](../../planning/requests.py), [공개 출력](../../../output_contracts.py), [후속 안내](../../../tool_guidance.py), 각 기능의 `tools.py`·`tools-explain.md`와 [도구 명세](../../../../../tool_description_spec.md)다. 저장된 Plan은 사용자 scope 매핑과 이전 템플릿을 보존하므로 실제 작업에서는 조회한 Step 목록이 우선한다.
+실제 원본은 [Plan 생성](../../planning/store.py), [공개 요청 모델](../../planning/requests.py), [공개 출력](../../../output_contracts.py), [후속 안내](../../../tool_guidance.py), 각 기능의 `tools.py`·`tools-explain.md`와 [공개 도구 스키마](../../../../../tests/integration/tool_schemas.json)다. 저장된 Plan은 사용자 scope 매핑과 이전 템플릿을 보존하므로 실제 작업에서는 조회한 Step 목록이 우선한다.
 
 아래 네 문서는 내장 12개 템플릿의 75개 Step을 모두 순서대로 추적하고, 각 템플릿에 정상·실패/미확인·피드백의 Given–When–Then 시나리오를 둔다. ‘실패’는 기술 오류뿐 아니라 근거 부족이나 잘못된 범위 해석도 포함한다. 도구 응답은 현재 계약에서 구성한 가정이며 실측 응답이 아니다.
 

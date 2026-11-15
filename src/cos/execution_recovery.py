@@ -1,4 +1,4 @@
-"""Read retained execution evidence after the external broker process exits.
+"""Locate and read retained execution evidence by request ID.
 
 Locators record only sessions this adapter actually attached. Recovery never
 discovers arbitrary project folders, starts a worker, or sends a Rhino command.
@@ -72,13 +72,12 @@ class ExecutionRecoveryStore:
         self.directory.mkdir(parents=True, exist_ok=True)
         write_json(path, dict(schema='almond-execution-locator', version=1, binding=dict(binding)))
 
-    def recover(self, arguments):
-        request = arguments.get('request_id', '')
+    def find_binding(self, request):
         if not isinstance(request, str) or not _TOKEN.fullmatch(request):
-            raise ValueError('Without connection_id, script_03-get_execution tool requires an exact returned request_id.')
+            raise ValueError('script_03-get_execution tool requires the exact returned request_id.')
         sys.path.insert(0, str(ENGINE))
         from project import read_json
-        from rhinocode import find_request_manifest
+        from rhinocode import RhinocodeExecution
         from storage_cleanup import plain_descendant
         matches = []
         for path in self.directory.glob('*.json'):
@@ -96,10 +95,8 @@ class ExecutionRecoveryStore:
                     continue
             except (OSError, ValueError, KeyError, TypeError):
                 continue  # An unrelated stale locator cannot select a different target.
-            if find_request_manifest(locations['call_root'], request) is not None:
+            if RhinocodeExecution(binding, locations).has_execution(request):
                 matches.append(binding)
         if len(matches) != 1:
             raise ValueError('No unique retained session matches request_id; the result may have been cleaned up.')
-        result = read_bound_execution(matches[0], arguments)
-        result.update(connection_state='unbound', requires_reconnect=True, recovery_only=True)
-        return result
+        return matches[0]

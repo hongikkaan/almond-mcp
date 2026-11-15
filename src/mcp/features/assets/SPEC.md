@@ -47,7 +47,7 @@ verify는 준비한 3DM을 다시 열어 최종 이미지와 측정값을 반환
 
 기존 GLB의 passport는 `asset.extras.almond.passport`, `.almond.json` sidecar와 manifest에 있다. 실제 치수·polygon count와 목표값·편차, anchor·footprint·clearance, 재료·생성 기록·미확인 사항을 구분한다. importer가 extras를 잃을 수 있으므로 sidecar와 checksum을 보존한다.
 
-기존 생성 GLB는 mm·Y-up이다. 일반 glTF의 metre 관례와 구분하며 뷰어의 0.001 표시 배율은 다운로드 형상을 바꾸지 않는다. `exchange_01-export_asset_contract` tool, `exchange_03-import_asset_contract` tool, `exchange_02-get_blender_script` tool는 geometry와 sidecar를 함께 교환한다.
+기존 생성 GLB는 mm·Y-up이다. 일반 glTF의 metre 관례와 구분하며 뷰어의 0.001 표시 배율은 다운로드 형상을 바꾸지 않는다. 생성 자산 내부 helper는 GLB와 sidecar 계약을 함께 읽어 재료·metadata와 배치를 복원한다.
 
 Room·scene instance 배치 장부 API와 AABB 충돌 도구는 제거했다. 기존 장부 데이터는 보존하며 일반 Rhino 객체·block 배치와 의미 등록은 계속 사용할 수 있다.
 

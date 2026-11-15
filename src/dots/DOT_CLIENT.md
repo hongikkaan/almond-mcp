@@ -10,7 +10,7 @@
 
 동지의 실행 도구에서는 지속형 터미널(`tty=true`)로 시작하고 반환된 터미널 `session_id`에 후속 입력을 보낸다. 입력은 한 줄 JSON이며 끝에 Enter를 붙인다. 클라이언트는 서버 시작 → initialize → tools/list를 수행한 뒤 `ready`를 출력한다. 초기 출력은 서버 소개·instructions, 도구 이름 목록, 클라이언트 사용법이며 개별 description 전체를 반복하지 않는다.
 
-프로세스를 유지하는 동안 같은 MCP 세션과 connection_id를 사용한다. 터미널 session_id는 실행 도구의 핸들이고 Rhino connection_id와는 다르다. 실행 환경·터미널이 종료되면 이 세션도 종료된다. 영구 백그라운드 서비스나 재접속 복구 기능은 아니다. 새 클라이언트에 이전 connection_id를 넘겨 재사용하지 않는다.
+프로세스를 유지하는 동안 같은 MCP 세션을 사용한다. Rhino 문서는 MCP 세션에서 선택하고, 터미널의 session_id로는 실행 도구의 프로세스를 재사용한다. 실행 환경·터미널이 종료되면 이 세션도 종료된다.
 
 ## 명령
 
@@ -29,8 +29,8 @@
 
 ```json
 {"op":"call","name":"connect_02-session","arguments":{"host_id":"<목록의 host_id>","model_path":"<목록의 model_path>"}}
-{"op":"call","name":"context_04-get_project_info","arguments":{"connection_id":"<connect_02-session tool 결과의 ID>","sections":["document"]}}
-{"op":"call","name":"connect_04-disconnect","arguments":{"connection_id":"<같은 ID>"}}
+{"op":"call","name":"context_04-get_project_info","arguments":{"sections":["document"]}}
+{"op":"call","name":"connect_04-disconnect","arguments":{}}
 {"op":"shutdown"}
 ```
 

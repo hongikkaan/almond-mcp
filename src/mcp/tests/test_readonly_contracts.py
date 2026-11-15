@@ -4,10 +4,15 @@ from almond_mcp import modeling_guidance
 from almond_mcp.instruction_text import read_tool_instruction, tool_instruction
 from almond_mcp.managed_paths import project_path
 from almond_mcp.query_output import select_fields, validate_field_groups
+from almond_mcp.output_contracts import public_output_schema
+from schema_assertions import assert_described_payload
 
 
 def test_policy_selection_returns_only_requested_content():
     basic = modeling_guidance.read_policy()
+    schema = public_output_schema("get_policy", wrapped=False)
+    for name in ("", *basic["available_policies"]):
+        assert_described_payload(modeling_guidance.read_policy(name), schema)
     assert "context_01-get_policy" in basic["tools"]
     assert not {"get_modeling_guide", "get_looping_policy", "get_modeling_policy", "get_retrieval_status"}.intersection(basic["tools"])
     assert basic["text"] == modeling_guidance.BASIC_GUIDE.read_text(encoding="utf-8").strip()

@@ -65,7 +65,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 1. 해당 Rhino 8에서 `.3dm`을 열고 저장한 뒤 `almondconnect`를 실행한다.
 2. 등록된 Codex 앱이나 외부 Codex CLI에서 "Almond 연결 목록을 확인하고 이 문서에 연결해 줘"라고 요청한다. 클라이언트가 `connect_01-list_up` tool를 호출한다.
 3. 목록의 정확한 `host_id`와 `model_path`로 `connect_02-session` tool를 호출한다.
-   이후 일반 호출과 `connect_04-disconnect tool()`에는 연결 ID를 입력하지 않아도 된다. 다른 문서로 전환하려면 목록의 host_id/model_path로 connect_02-session tool를 다시 호출한다. 기존 연결은 유지된다.
+   이후 도구는 선택한 문서를 자동으로 사용한다. 다른 문서로 전환하려면 목록의 host_id/model_path로 connect_02-session tool를 다시 호출한다. 기존 연결은 유지된다.
 4. 필요할 때 `context_04-get_project_info` tool에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해 `inspect_03-get_document_context` tool를 반복 호출하지 않는다. 자료 작성 전 `plan_10-set_working` tool으로 폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../mcp/BASIC-INSTRUCTIONS.md)을 따른다.
 5. 저장·정상 종료는 `connect_05-close_session tool(request_id=...)`, 창을 유지한 연결 해제는 `connect_04-disconnect` tool를 사용한다. 문서 변경 후에는 재연결한다.
 
@@ -84,9 +84,9 @@ Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고 연결 가능�
 
 이 파일은 설치·사용·개발 참고 문서이며 MCP의 server description이나 tool description에 주입되지 않는다. `SERVER-DESCRIPTION.md`는 서버 역할로 노출되고, `*-explain.md`의 도구 역할 본문은 description, `Args` 항목은 각 inputSchema 필드의 description으로 분리된다. outputSchema는 `output_contracts.py`, 실행 결과의 후속 안내는 `tool_guidance.py`와 각 실행기의 상태별 응답에서 제공한다.
 
-외부 연결기의 `Broker`는 각 `Connection`에 문서 바인딩·PID·worker·토큰을 보관하고, `selected_connection_id` 변수에 현재 호출 대상을 기억한다. `connect_02-session` tool/`connect_03-start_session` tool 성공 시 이 변수를 갱신하며, 일반 호출과 `connect_04-disconnect tool()`는 생략된 연결 ID에 이 값을 자동 적용한다. 명시적 `connection_id`는 해당 호출만 재지정하며 선택값을 바꾸지 않는다. 선택한 연결을 해제하면 변수를 비우고 다른 연결로 자동 전환하지 않는다. 각 연결의 작업 공간은 별도로 유지한다.
+외부 연결기의 `Broker`는 `connect_02-session` tool이나 `connect_03-start_session` tool에서 선택한 연결을 기억하고, 일반 호출·연결 해제·새 종료 요청에 접수 시점의 연결을 사용한다. 해제 후에는 다음 문서를 직접 선택한다. `script_03-get_execution` tool에 실행 `request_id`를 입력하면 원래 실행 연결을 찾으며, 연결이 끝난 뒤에도 해당 실행 파일이 남아 있으면 결과를 읽는다.
 
-RhinoTerminal·Codex·CoS는 같은 공통 도구 소스를 사용한다. 외부 연결기는 연결 관리 도구를 추가하고 공통 도구 입력에 선택적인 `connection_id`를 붙인다. 카탈로그를 따로 갱신할 필요는 없다.
+RhinoTerminal·Codex·CoS는 같은 공통 도구 입력 스키마를 사용한다. 외부 연결기는 연결 관리 도구를 추가한다. 카탈로그를 따로 갱신할 필요는 없다.
 Python 도구 변경 후 해당 Codex/CoS MCP를 정상 종료하고 새로 시작하면 현재 소스의 구현·목록·입력 schema를 읽는다. Terminal은 almond 세션을 정상 종료·재시작한다.
 Rhino만 재시작해도 외부 Codex/CoS MCP 프로세스가 살아 있으면 그 메모리는 바뀌지 않는다.
 이미 실행 중인 프로세스의 자동 갱신이나 restart 도구는 이번 범위에 포함하지 않는다.
@@ -96,7 +96,7 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
 
 - 클라이언트의 Windows 실행 환경이 독립 프로세스를 허용하지 않으면 새 Rhino 시작을 모델을 열기 전에 거절한다. 이 경우 Rhino를 평소처럼 직접 열고 `almondconnect` → `connect_01-list_up` tool → `connect_02-session` tool로 연결한다. Terminal의 Off가 별도 Rhino를 닫지 않도록 실행 전에 확인하는 제한이며, 기존 Terminal의 자식 종료 규칙은 바꾸지 않는다.
 
-- 여러 CoS·Codex stdio adapter가 같은 설치를 사용할 수 있다. 각 Rhino는 한 연결의 소유권을 유지한다. 서로 다른 클라이언트에 외부 연결기의 `connection_id`를 복사해 쓸 수 없다.
+- 여러 CoS·Codex stdio adapter가 같은 설치를 사용할 수 있다. 각 Rhino는 한 연결의 소유권을 유지하며 현재 선택은 각 adapter가 관리한다.
   다른 클라이언트가 사용하는 Rhino는 `in_use`로 표시한다. 그 연결을 유지하면서 `connect_03-start_session` tool으로 별도 Rhino를 열 수 있다.
 - 업데이트 전에 시작한 singleton host가 살아 있으면 새 활성 연결은 차단한다. 기존 작업을 정상 마친 뒤 해당 CoS/Codex MCP를 재시작해 새 Python 소스를 로드한다. RHP 안내 문구는 일상 업데이트 후 새 Rhino에서 반영된다. 잠금 파일을 삭제하지 않는다.
 - Rhino 시작 확인이 늦으면 그 창의 알림과 등록 상태를 확인한다. **같은 `request_id`**로 다시 호출하면 같은 프로세스를 재조회한다. 새 ID는 새 Rhino를 여는 별도 요청이다. attach 실패나 결과 불명 오류를 새 ID로 자동 반복하지 않는다. `connect_01-list_up` tool의 `starts`에서 현재 adapter가 시작한 요청·PID·상태를 볼 수 있다.

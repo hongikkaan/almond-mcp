@@ -251,7 +251,7 @@ class SessionCloser:
         except (OSError, ValueError, RuntimeError, KeyError):
             return  # Missing or corrupt completion remains unconfirmed.
 
-    async def run(self, broker, request_id, connection_id=None):
+    async def run(self, broker, selected_connection_id, /, *, request_id):
         directory = self.directory(request_id)
         directory.mkdir(parents=True, exist_ok=True)
         try:
@@ -262,24 +262,19 @@ class SessionCloser:
             record = self.load(request_id)
             if record is None:
                 raise RuntimeError("This close request is being initialized; query the same request_id again.") from exc
-            if connection_id is not None and connection_id != record["connection_id"]:
-                raise RuntimeError("This close request_id belongs to a different connection.")
             return self.public(record)
         try:
-            return await self._run_reserved(broker, request_id, connection_id)
+            return await self._run_reserved(broker, request_id, selected_connection_id)
         finally:
             reservation.close()
 
-    async def _run_reserved(self, broker, request_id, connection_id):
+    async def _run_reserved(self, broker, request_id, selected_connection_id):
         record = self.load(request_id)
         if record is not None:
-            if connection_id is not None and connection_id != record["connection_id"]:
-                raise RuntimeError("This close request_id belongs to a different connection.")
             if request_id in self.running:
                 return self.public(record)
             return await self.inspect(broker, record)
-        selected = connection_id or broker.selected_connection_id
-        conn = broker.connections.get(selected)
+        conn = broker.connections.get(selected_connection_id)
         if conn is None:
             raise RuntimeError("No selected live connection. Connect before closing a new session.")
         if conn.lock.locked() or conn.in_flight or conn.closing or conn.state != "ready":

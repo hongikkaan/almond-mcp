@@ -47,7 +47,7 @@ obj/
 .almond/
 /src/rhp/*/plugin-*/
 /src/cos/cos-plugin.json
-/test.3dm
+*.3dm
 *.3dmbak
 *.rhp
 *.dll
@@ -56,3 +56,6 @@ obj/
 !src/rhp/RhinoAlmondBridge/plugin-runtime/**
 !src/rhp/AlmondRhino/plugin-runtime/
 !src/rhp/AlmondRhino/plugin-runtime/**
+
+# Local Understand Anything artifacts
+/.ua/

@@ -1,15 +1,17 @@
 # tools.py explain
 
 <!-- instruction:list_design_scenes -->
-프로젝트에 등록된 Scene 목록을 조회합니다.
+공유 프로젝트 DB에 등록된 Scene 목록을 조회합니다. 파일명을 생략하면 연결된 파일뿐 아니라 프로젝트의 모든 파일을 포함합니다.
+
+result는 scenes, total, limit, offset, truncated를 담은 JSON 문자열입니다. truncated=true이면 같은 필터에서 offset을 limit만큼 늘려 다음 페이지를 조회합니다. Scene 상세는 scene_04-get tool, 현재 Rhino 구성원은 scene_06-get_objects tool로 확인합니다.
 
 Args:
-    name: 선택 사항인 대소문자를 구분하지 않는 Scene 이름 필터입니다.
-    file_name: 이 파일에 속한 Scene을 찾습니다. 프로젝트 파일명을 문자열로 입력하며, 생략하면 모든 파일을 포함합니다.
-    limit: 페이지 크기이며, 범위는 1..200입니다.
-    offset: 이 페이지의 0부터 시작하는 첫 행 위치입니다. 다음 페이지를 요청할 때는 동일한 필터를 사용합니다.
-    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-    field_groups: 선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다.
+    name: Scene 이름 부분 검색. 대소문자 무관.
+    file_name: 확장자를 포함한 정확한 프로젝트 파일명. 생략: 전체 파일.
+    limit: 1~200, 기본 50.
+    offset: 0부터 시작. 기본 0.
+    include_ids: 기본 false. true: scene_id 등 포함.
+    field_groups: scope, state, geometry, audit, all. 생략·빈 배열: 요약.
 <!-- /instruction:list_design_scenes -->
 
 ## create_design_scene
@@ -27,12 +29,14 @@ Args:
 ## get_design_scene
 
 <!-- instruction:get_design_scene -->
-Scene의 등록 정보를 조회합니다.
+Scene의 등록 정보와 Holon·객체 수를 조회합니다. 저장된 요약이며 현재 Rhino 구성원을 실시간 검증하지 않습니다. 객체 수가 null이면 수를 확정할 수 없는 상태입니다. 현재 구성원은 scene_06-get_objects tool로 조회합니다.
+
+result는 scene 또는 오류를 담은 JSON 문자열입니다. include_ids=true여도 입력한 scene_id는 반복 반환하지 않습니다.
 
 Args:
     scene_id: scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
-    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-    field_groups: 선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다.
+    include_ids: 기본 false. scope 등에서 project_file_id 포함.
+    field_groups: scope, state, geometry, audit, all. 생략·빈 배열: 요약.
 <!-- /instruction:get_design_scene -->
 
 <!-- instruction:update_design_scene -->
@@ -47,15 +51,17 @@ Args:
 ## get_scene_objects
 
 <!-- instruction:get_scene_objects -->
-Scene에 포함된 직접 객체와 하위 Holon의 현재 구성원을 조회합니다.
+Scene의 직접 객체와 Holon 구성원을 현재 Rhino 문서에서 조회합니다. Scene에서 제외한 구성원은 목록에 포함되지 않습니다.
+
+result는 objects, total, limit, offset, truncated 및 live_verified 또는 오류를 담은 JSON 문자열입니다. truncated=true이면 같은 조건에서 offset을 limit만큼 늘려 다음 페이지를 조회합니다.
 
 Args:
     scene_id: scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
-    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-    field_groups: 선택 사항인 상세 그룹: scope, state, geometry, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다.
-    limit: 현재 상태를 검증한 Scene 객체의 페이지 크기이며, 범위는 1..200입니다.
-    offset: 이 페이지의 0부터 시작하는 첫 행 위치입니다. 다음 페이지를 요청할 때는 동일한 필터를 사용합니다.
-    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
+    include_ids: 기본 false. true: 객체 GUID 포함.
+    field_groups: scope, state, geometry, audit, all. 생략·빈 배열: 요약.
+    limit: 1~200, 기본 50.
+    offset: 0부터 시작. 기본 0.
+    expected_model_path: 생략: 연결된 문서. 지정 시 연결 문서와 일치해야 함.
 <!-- /instruction:get_scene_objects -->
 
 

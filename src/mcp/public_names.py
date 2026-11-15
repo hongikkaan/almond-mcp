@@ -88,11 +88,6 @@ PUBLIC_TOOL_NAMES = {
     'list_design_codes': 'analysis_03-list_design_codes',
     'validate_structure': 'analysis_04-validate_structure',
     'visualize_structure': 'analysis_05-visualize_structure',
-    'export_asset_contract': 'exchange_01-export_asset_contract',
-    'get_blender_helper_script': 'exchange_02-get_blender_script',
-    'import_asset_contract': 'exchange_03-import_asset_contract',
-    'publish_objects_to_chestnut': 'exchange_04-publish_chestnut_advanced',
-    'publish_to_chestnut': 'exchange_05-publish_chestnut',
 }
 INTERNAL_TOOL_NAMES = {public: internal for internal, public in PUBLIC_TOOL_NAMES.items()}
 

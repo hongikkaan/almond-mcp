@@ -28,6 +28,8 @@ RhinoTerminal은 `codex.ps1 -RhinoTerminal`로 시작하며 새 대화·resume·
 
 공통 오류 반환 필드인 `status`, `message`, 선택적 `error_code`는 `tool_response.py`에서 구성한다. 각 도구의 JSON 문자열·dict·이미지 반환 방식과 변경 적용·정합 필요 상태는 각 호출부가 유지하며, 공통 오류 필드만으로 rollback 여부를 추정하지 않는다.
 
+`context_01-get_policy` tool의 출력 스키마는 `scripting_skill.sources`의 출처·해시·원문을 명시하고 metadata `policy`는 열린 JSON 객체로 유지한다. `context_04-get_project_info` tool은 문서 속성·작업 경로·실행 환경과 관찰 경고를 명시하며, 문서의 관찰 실패 값과 오류 원문의 `document=null`을 허용한다. RhinoCode의 `version`은 외부 원본 값의 타입을 제한하지 않는다. `plan_03-execute_looping` tool은 현재·이전 회차의 Step 유형·순서·의존 관계·상태·입출력 참조를 같은 구조로 선언한다. 이 필드들은 요청 섹션·선택 상태·응답 종류에 따라 생략될 수 있다.
+
 ## 기능별 구현과 소유권
 
 ### 로컬 DB Dashboard
@@ -69,13 +71,12 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 | [`drawings`](features/drawings) | 도면·Sheet | recipe 색인·표현 스타일·해치 import와 기존 Sheet 자료 보존용 migration을 소유한다. 새 Sheet DB 등록은 제공하지 않는다. |
 | [`structure`](features/structure) | 구조검토 | 설계 기준·구조검사·시각화·보고서, 관련 계산·하중·study 모듈과 검사 이력 SQL을 소유한다. |
 | [`egress`](features/egress) | 피난검사 | 피난 조건 검사를 소유하고 공용 시공 라이브러리 데이터를 사용한다. |
-| [`exchange`](features/exchange) | 외부교환 | GLB·almond.json 교환, 재료·metadata 복원·배치·실측 비교와 Blender helper를 소유한다. |
+| [`exchange`](features/exchange) | 외부교환 | 생성 자산의 GLB·almond.json 계약, 재료·metadata 복원·배치·실측 비교와 내부 helper를 소유한다. 공개 MCP 도구는 등록하지 않는다. |
 | [`capture`](features/capture) | 캡처 | conditioning pass 캡처와 이미지 처리를 소유한다. |
-| [`publishing`](features/publishing) | 게시 | Chestnut 게시 payload·첨부와 객체 게시 처리를 소유한다. |
 
 ### 공개 도구 위치
 
-package는 75개, 문서 전용 runtime은 6개를 더한 공통 81개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 86개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 명시적인 `mcp.tool(name=...)` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 전체 공개 이름·입출력 예시는 [도구 명세](../../tool_description_spec.md)를 따른다.
+package는 70개, 문서 전용 runtime은 6개를 더한 공통 76개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 81개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 명시적인 `mcp.tool(name=...)` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 도구 설명과 입력 안내는 각 구현 옆 `*-explain.md`, 출력 계약은 [output_contracts.py](output_contracts.py), 공통 공개 입출력 스키마는 [통합 검사 기준](../../tests/integration/tool_schemas.json)을 따른다.
 
 | 기능 | 공개 도구 |
 |---|---|
@@ -91,9 +92,7 @@ package는 75개, 문서 전용 runtime은 6개를 더한 공통 81개 도구를
 | 도면·Sheet | `drawing_05-list_recipes` tool, `drawing_02-get_recipe` tool, `drawing_01-apply_style` tool, `drawing_04-import_hatches` tool |
 | 구조검토 | `analysis_04-validate_structure` tool, `analysis_03-list_design_codes` tool, `analysis_05-visualize_structure` tool, `analysis_02-export_structural_report` tool |
 | 피난검사 | `analysis_01-check_egress` tool |
-| 외부교환 | `exchange_01-export_asset_contract` tool, `exchange_03-import_asset_contract` tool, `exchange_02-get_blender_script` tool |
 | 캡처 | `capture_01-conditioning_pass` tool |
-| 게시 | `exchange_04-publish_chestnut_advanced` tool, `exchange_05-publish_chestnut` tool |
 
 ### 공용 서비스와 DB 연결
 
@@ -242,7 +241,7 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 plan_09-rename_ar
 
 `modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`와 활동별 지침은 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
 
-reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기에서는 선택된 연결을 사용하고 `connection_id`로 호출별 재지정할 수 있다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 공개 스키마와 응답의 선택값 일치, cold stdio와 외부 경로의 스키마 일치, wheel·sdist의 지침 파일을 확인한다.
+reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기는 선택된 연결을 자동으로 사용한다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 공개 스키마와 응답의 선택값 일치, cold stdio와 외부 경로의 스키마 일치, wheel·sdist의 지침 파일을 확인한다.
 
 문서·도구 설명 변경은 해당 Python/MCP 세션을 정상 종료하고 새로 시작해야 적용된다. Python 안내 변경만으로 RHP 빌드나 Rhino 재시작을 요구하지 않는다.
 

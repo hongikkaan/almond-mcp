@@ -3,17 +3,25 @@
 ## check_egress
 
 <!-- instruction:check_egress -->
-피난 조건을 예비 검토합니다.
+코어와 출구를 배치한 뒤, 상세 설계 전에 층의 피난 조건을 예비 검토합니다. Rhino에서 형상이나 경로를 자동으로 읽지 않으므로 층 경계와 출구별 중심·유효 폭을 직접 확인해 입력하세요.
+
+입력 경계의 직사각형으로 기본 바닥 면적과 출구 이격 기준의 대각선을 계산합니다. 실제 재실 면적이 다르면 별도로 입력하세요. 보행거리와 막다른 복도는 길이를 입력해야 검사합니다. 가장 불리한 보행 경로를 직접 측정하세요. 이 툴은 경로를 찾거나 입력한 경로가 최악인지 확인하지 않습니다.
+
+출구 수와 총·최소 폭을 검사하고, 출구가 둘 이상이면 가장 먼 두 출구의 직선 이격을 검사합니다. 용도·스프링클러·담당 층수의 기본값이 실제 조건과 맞는지 확인하세요. 비업무 용도의 보행거리에는 업무용 기준을 대신 쓰며, 막다른 복도도 스프링클러가 있으면 업무용 기준을 사용하지만 용도 경고는 나오지 않습니다.
+
+반환된 JSON의 checks에 포함된 검사의 기준값·입력값·판정을 확인하고 생략된 검사와 구분하세요. passed는 수행한 검사만의 결과입니다. 일부 출력값이 반올림돼 경계값에서는 표시값과 판정이 달라 보일 수 있습니다. 미달 항목의 배치·폭·경로를 검토하고 측정값을 갱신해 다시 검사하세요.
+
+BCI 체계와 통상적인 IBC 수치를 사용합니다. source_note와 warnings를 읽고 프로젝트에 적용되는 법규와 대조하세요. 경고가 없거나 검사가 통과해도 모든 피난 조건의 적합성이 확인된 것은 아닙니다.
 
 Args:
-    plate_bounds_mm: mm 단위의 층 바닥 경계 [min_x, min_y, max_x, max_y]입니다. 전체 면적과 출구 이격거리에 사용하는 대각선을 결정합니다.
-    exits: 출구(계단실 문 또는 외부 출입문)마다 항목 하나를 제공합니다: {"name": str, "x_mm": float, "y_mm": float, "width_mm": float}. 위치는 문 중심이며, 너비는 피난에 사용할 수 있는 유효 너비입니다.
-    occupancy: 재실 인원 산정에 사용할 키: business, mercantile, assembly_unconcentrated, classroom, residential, storage.
-    stories: 담당하는 층수입니다. 1을 초과하면 최소 2개 출구가 필요하며, 필요 출구 너비에는 문 계수(5.1) 대신 계단 계수(재실자당 7.6 mm)를 사용합니다.
-    sprinklered: 전체에 스프링클러가 설치됐는지 여부입니다. 이격 비율, 보행거리, 막다른 복도 길이 제한에 영향을 줍니다.
-    net_area_m2: 재실 면적을 대체합니다. 0이면 전체 바닥 면적을 사용합니다.
-    travel_distances_m: 측정한 최악 조건의 보행거리입니다(예: 그려진 피난 경로에서 측정). 비워 두면 보행거리 검사를 건너뜁니다.
-    dead_end_m: 가장 긴 막다른 복도의 길이(미터)입니다. 0이면 검사를 건너뜁니다.
+    plate_bounds_mm: 층 바닥 경계 [min_x, min_y, max_x, max_y](mm).
+    exits: 출구마다 {"name": string, "x_mm": number, "y_mm": number, "width_mm": number}. 좌표는 문 중심(mm), 폭은 유효 피난 폭(mm).
+    occupancy: 용도: business, mercantile, assembly_unconcentrated, classroom, residential, storage. 기본값 business.
+    stories: 출구가 담당하는 층수. 기본값 1. 1 초과면 최소 2개 출구와 계단 폭 계수(7.6mm/인) 적용.
+    sprinklered: 전체 스프링클러 설치 여부. 기본값 true.
+    net_area_m2: 재실 면적(m²). 기본값 0이며, 0이면 경계 직사각형 면적 사용.
+    travel_distances_m: 측정한 보행거리(m) 배열. 입력 중 최댓값을 검사하며, 기본값 []는 검사 생략.
+    dead_end_m: 가장 긴 막다른 복도 길이(m). 기본값 0이며, 0이면 검사 생략.
 <!-- /instruction:check_egress -->
 
 ## response-651

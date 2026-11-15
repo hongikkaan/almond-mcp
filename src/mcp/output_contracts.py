@@ -6,6 +6,21 @@ mode is present. Image and runtime tools expose the object directly.
 """
 from copy import deepcopy
 
+_LOOP_STEP = {
+    'type': 'object', 'properties': {
+        'step_id': {'type': 'string', 'description': '회차가 바뀌어도 유지되는 Step UUID입니다.'},
+        'step_type': {'type': 'string', 'description': 'Step의 역할 유형입니다.'},
+        'name': {'type': 'string', 'description': '저장된 Step 표시 이름입니다.'},
+        'position': {'type': 'integer', 'description': 'Plan 안에서 정의한 Step의 순서 값입니다.'},
+        'kind': {'type': 'string', 'description': 'Step에 정의된 작업 종류입니다.'},
+        'status': {'type': 'string', 'description': '해당 회차의 Step 상태입니다. pending, running, paused, completed, failed, blocked 중 하나입니다.'},
+        'loop_no': {'type': 'integer', 'description': '이 Step 기록이 속한 회차 번호입니다. 0은 실행 전 기록입니다.'},
+        'depends_on': {'type': 'array', 'items': {'type': 'string'}, 'description': '선행 Step의 UUID 목록입니다.'},
+        'input_refs': {'type': 'array', 'items': {'type': 'string'}, 'description': '해당 회차의 Step에 기록한 입력 참조입니다.'},
+        'output_refs': {'type': 'array', 'items': {'type': 'string'}, 'description': '해당 회차의 Step에 기록한 산출물·결과 참조입니다.'},
+    },
+}
+
 _POINT = {'type': 'array', 'items': {'type': 'number'}, 'minItems': 3, 'maxItems': 3}
 _VIEW_OBSERVATION = {
     'type': 'object', 'properties': {
@@ -187,7 +202,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                         '반환합니다.'}}},
  'connect': {'type': 'object',
              'properties': {'connection_id': {'type': ['string', 'null'],
-                                              'description': '연결 ID입니다. 선택 후 일반 호출에서는 생략할 수 있습니다.'},
+                                              'description': '연결 상태 확인용 ID입니다.'},
                             'host_id': {'type': ['string', 'null'], 'description': 'Rhino 호스트 ID'},
                             'state': {'type': 'string',
                                       'description': '연결 상태입니다. ready에서 일반 작업을 수행하며 recovering/unconfirmed에서는 실행 '
@@ -206,7 +221,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                 'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.'}}},
  'start_session': {'type': 'object',
                    'properties': {'connection_id': {'type': ['string', 'null'],
-                                                    'description': '연결 ID입니다. 선택 후 일반 호출에서는 생략할 수 있습니다.'},
+                                                    'description': '연결 상태 확인용 ID입니다.'},
                                   'host_id': {'type': ['string', 'null'], 'description': 'Rhino 호스트 ID'},
                                   'state': {'type': 'string',
                                             'description': '연결 상태입니다. ready에서 일반 작업을 수행하며 '
@@ -264,6 +279,8 @@ CONTRACTS = {'list_connections': {'type': 'object',
  'project_info': {'type': 'object',
                   'properties': {'status': {'type': 'string',
                                             'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.'},
+                                 'warnings': {'type': 'array', 'items': {'type': 'string'},
+                                              'description': '문서 속성을 읽지 못한 사유 등 native 관찰 경고입니다. 읽지 못한 개별 값은 null일 수 있습니다.'},
                                  'project': {'type': 'object',
                                              'properties': {'project_root': {'type': 'string',
                                                                              'description': '프로젝트의 절대 경로입니다. 프로젝트 '
@@ -317,20 +334,56 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                                                                                        '이어감'}},
                                                                            'description': '등록 파일 목록의 페이지 정보입니다.'}},
                                              'description': '현재 연결 문서와 프로젝트 정보입니다.'},
+                                 'document': {'type': ['object', 'null'],
+                                              'description': '현재 Rhino 문서의 관찰 속성입니다. 개별 값은 관찰 실패 시 null이며, 오류 응답의 원문 document 자체도 null일 수 있습니다.',
+                                              'properties': {
+                                                  'runtime_serial_number': {'type': ['integer', 'null'], 'description': 'Rhino 문서의 런타임 일련번호입니다. include_ids=true일 때 포함합니다.'},
+                                                  'units': {'type': ['string', 'null'], 'description': '현재 문서의 모델 단위입니다.'},
+                                                  'absolute_tolerance': {'type': ['number', 'null'], 'description': '현재 문서 단위로 표현한 절대 허용오차입니다.'},
+                                                  'angle_tolerance_radians': {'type': ['number', 'null'], 'description': '각도 허용오차이며 단위는 라디안입니다.'},
+                                                  'modified': {'type': ['boolean', 'null'], 'description': '문서에 저장하지 않은 변경이 있는지 나타냅니다.'},
+                                                  'object_count': {'type': ['integer', 'null'], 'description': '관찰한 문서의 객체 수입니다.'},
+                                                  'layer_count': {'type': ['integer', 'null'], 'description': '관찰한 문서의 활성 레이어 수입니다.'},
+                                              }},
                                  'locations': {'type': 'object',
                                                'properties': {'plan_id': {'type': 'string',
                                                                           'description': '현재 작업 대상으로 선택한 Plan '
                                                                                          'ID입니다.'},
                                                               'step_id': {'type': 'string',
                                                                           'description': 'Step ID입니다.'},
+                                                              'loop_no': {'type': 'integer', 'description': '현재 연결에서 선택한 작업 회차입니다. 0은 실행 전 기록입니다.'},
+                                                              'read_only': {'type': 'boolean', 'description': '선택한 회차가 최신 회차보다 과거이면 true입니다.'},
+                                                              'plan_artifact_dir': {'type': ['string', 'null'], 'description': '선택한 Plan의 산출물 루트이며 프로젝트 기준 상대경로입니다.'},
                                                               'artifact_dir': {'description': '현재 연결에서 사용할 '
                                                                                               'Plan·Loop 산출물 '
                                                                                               '폴더입니다. 선택 전에는 '
                                                                                               'null입니다.',
                                                                                'type': ['string', 'null']},
                                                               'database': {'type': 'string',
-                                                                           'description': '공유 데이터베이스 경로입니다.'}},
+                                                                           'description': '공유 데이터베이스 경로입니다.'},
+                                                              'path_rule': {'type': 'string', 'description': '관리형 도구에 전달할 프로젝트 상대경로 사용 안내입니다.'},
+                                                              'artifact_rule': {'type': 'string', 'description': 'Plan 선택과 현재 회차의 산출물 폴더 사용 안내입니다.'}},
                                                'description': '현재 연결의 작업 공간과 공유 데이터베이스 위치입니다.'},
+                                 'runtime': {'type': 'object', 'description': '요청한 runtime 섹션의 연결 실행 환경입니다. 프로젝트 내부 경로는 상대경로로 반환합니다.',
+                                             'properties': {
+                                                 'slot': {'type': 'string', 'description': '현재 연결의 슬롯 이름입니다.'},
+                                                 'port': {'type': 'integer', 'description': '현재 연결 binding의 포트 번호입니다.'},
+                                                 'session_dir': {'type': 'string', 'description': '현재 연결의 세션 기록 폴더입니다.'},
+                                                 'scratch_root': {'type': 'string', 'description': '현재 연결의 Python 작업별 임시자료 루트입니다.'},
+                                                 'rhino_temp_at_attach': {'type': ['string', 'null'], 'description': '연결 시 기록한 Rhino 프로세스의 TEMP 경로입니다. 기록이 없으면 null입니다.'},
+                                                 'rhino_temp_note': {'type': 'string', 'description': 'Rhino TEMP와 산출물 폴더의 차이를 설명합니다.'},
+                                                 'python_executable': {'type': 'string', 'description': '현재 worker가 실행 중인 Python 실행 파일 경로입니다.'},
+                                                 'attachment': {'type': 'string', 'description': '현재 연결 binding의 attachment 식별자입니다.'},
+                                                 'rhinocode': {'type': 'object', 'description': '현재 연결에서 RhinoCode를 사용할 수 있는지와 실행 환경 또는 불가 사유입니다.',
+                                                               'properties': {
+                                                                   'available': {'type': 'boolean', 'description': '현재 연결에서 허용된 RhinoCode 실행 언어를 사용할 수 있는지 나타냅니다.'},
+                                                                   'executable': {'type': 'string', 'description': '발견한 RhinoCode 실행 파일 경로입니다.'},
+                                                                   'pipe_id': {'type': 'string', 'description': '선택한 RhinoCode 인스턴스의 pipe ID입니다. include_ids=true일 때 포함합니다.'},
+                                                                   'version': {'description': 'RhinoCode 인스턴스의 processVersion 원본 값입니다. 반환 타입을 강제하지 않습니다.'},
+                                                                   'languages': {'type': 'array', 'items': {'type': 'string'}, 'description': '현재 연결에서 허용된 실행 언어 목록입니다. 사용할 수 없으면 빈 목록입니다.'},
+                                                                   'message': {'type': 'string', 'description': 'RhinoCode를 사용할 수 없는 경우의 사유입니다.'},
+                                                               }},
+                                             }},
                                  'next_step_guide': {'type': 'string',
                                                      'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.'},
                                  'message': {'type': 'string', 'description': '현재 결과 또는 오류의 설명입니다.'},
@@ -354,8 +407,17 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                'available_policies': {'type': 'object',
                                                       'additionalProperties': {'type': 'string'},
                                                       'description': '선택 가능한 policy 이름과 설명입니다.'},
-                               'policy': {'type': 'object', 'description': 'metadata 지침입니다.'},
-                               'scripting_skill': {'description': 'Rhino 스크립팅 지침입니다.', 'type': 'object'},
+                               'policy': {'type': 'object', 'additionalProperties': True, 'description': 'metadata 지침 JSON입니다. 키와 중첩 값은 열린 객체로 유지합니다.'},
+                               'scripting_skill': {'description': 'rhino_scripting 선택 시 반환하는 내장 Rhino 스크립팅 자료입니다.', 'type': 'object',
+                                                   'properties': {
+                                                       'name': {'type': 'string', 'description': '내장 스크립팅 skill의 이름입니다.'},
+                                                       'sources': {'type': 'array', 'description': '출처 경로·해시와 원문을 포함한 스크립팅 참고자료입니다.',
+                                                                   'items': {'type': 'object', 'properties': {
+                                                                       'path': {'type': 'string', 'description': '저장소 기준 출처 경로입니다. src/mcp/로 시작합니다.'},
+                                                                       'sha256': {'type': 'string', 'description': '줄바꿈 등을 정규화한 출처 파일의 SHA-256입니다.'},
+                                                                       'text': {'type': 'string', 'description': '해당 참고자료의 원문입니다.'},
+                                                                   }}},
+                                                   }},
                                'message': {'type': 'string', 'description': '현재 결과 또는 오류의 설명입니다.'},
                                'error_code': {'type': 'string', 'description': '오류 유형입니다.'},
                                'next_step_guide': {'type': 'string',
@@ -399,7 +461,11 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                     'next_step_id': {'type': ['string', 'null'],
                                                      'description': '아직 완료되지 않은 첫 Step의 ID입니다. 없으면 null입니다.'},
                                     'previous_loop': {'type': ['object', 'null'],
-                                                      'description': '이전 회차의 번호와 Step 기록입니다. 새 작업에 앞서 수행·검증·보고 내용을 확인합니다.'},
+                                                      'description': '이전 회차의 번호와 Step 기록입니다. 첫 회차에는 실행 전 0번 기록을 포함할 수 있으며, 이전 기록이 없으면 null입니다.',
+                                                      'properties': {
+                                                          'loop_no': {'type': 'integer', 'description': '이전 기록의 회차 번호입니다. 0은 실행 전 기록입니다.'},
+                                                          'steps': {'type': 'array', 'items': _LOOP_STEP, 'description': '이전 회차에 저장된 순서 있는 Step과 수행 상태·입출력 참조입니다.'},
+                                                      }},
                                     'step_id': {'type': 'string', 'description': '선택한 Step ID입니다.'},
                                     'plan_artifact_dir': {'type': 'string', 'description': 'Plan 산출물 폴더'},
                                     'artifact_dir': {'type': ['string', 'null'], 'description': '작업 산출물 폴더'},
@@ -410,19 +476,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                                     'description': 'Plan의 업무 상태입니다. 회차 시작만으로 변경되지는 않습니다.'},
                                     'feedback': {'type': 'string', 'description': '저장된 피드백'},
                                     'steps': {'type': 'array',
-                                              'items': {'type': 'object',
-                                                        'properties': {'step_id': {'type': 'string',
-                                                                                   'description': 'Step ID입니다.'},
-                                                                       'name': {'type': 'string',
-                                                                                'description': '저장된 이름'},
-                                                                       'status': {'type': 'string',
-                                                                                  'description': '업무 상태입니다. '
-                                                                                                 'pending, '
-                                                                                                 'running, '
-                                                                                                 'paused, '
-                                                                                                 'completed, '
-                                                                                                 'failed, blocked '
-                                                                                                 '중 하나입니다.'}}},
+                                              'items': _LOOP_STEP,
                                               'description': '현재 회차의 Step과 저장된 수행 상태입니다. 미완료 작업을 선택할 때 사용합니다.'},
                                     'policy_reminder': {'type': 'string',
                                                         'description': 'Step 순서·기존 결과 재사용·산출물 위치·Plan 완료 결정에 적용할 지침입니다.'},
@@ -2824,137 +2878,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                         'next_step_guide': {'type': 'string',
                                                             'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 '
                                                                            '반환합니다.'}}},
- 'export_asset_contract': {'type': 'object',
-                           'properties': {'status': {'type': 'string',
-                                                     'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 '
-                                                                    '확인합니다.'},
-                                          'asset_id': {'type': 'string', 'description': '자산 ID입니다.'},
-                                          'glb_path': {'type': 'string', 'description': '내보낸 GLB 파일 경로입니다.'},
-                                          'contract_path': {'type': 'string',
-                                                            'description': 'import_asset_contract에 전달'},
-                                          'dimensions_mm': {'type': 'object',
-                                                            'properties': {'width': {'type': 'number',
-                                                                                     'description': '너비(mm)입니다.'},
-                                                                           'depth': {'type': 'number',
-                                                                                     'description': '깊이(mm)입니다.'},
-                                                                           'height': {'type': 'number',
-                                                                                      'description': '높이(mm)입니다.'}},
-                                                            'description': '내보낸 자산의 경계 치수입니다. 단위는 mm입니다.'},
-                                          'materials': {'type': 'array',
-                                                        'items': {},
-                                                        'description': '인식된 Almond 재료 그룹. 비어 있어도 모든 재료가 보존됐다는 뜻은 '
-                                                                       '아님'},
-                                          'next_step_guide': {'type': 'string',
-                                                              'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 '
-                                                                             '반환합니다.'},
-                                          'message': {'type': 'string', 'description': '현재 결과 또는 오류의 설명입니다.'},
-                                          'error_code': {'type': 'string', 'description': '오류 유형입니다.'}}},
- 'get_blender_helper_script': {'type': 'object',
-                               'properties': {'status': {'type': 'string',
-                                                         'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 '
-                                                                        '확인합니다.'},
-                                              'action': {'type': 'string', 'description': '스크립트의 작업 종류입니다.'},
-                                              'script': {'type': 'string',
-                                                         'description': 'Blender에서 실행할 Python 코드입니다.'},
-                                              'message': {'type': 'string', 'description': '현재 결과 또는 오류의 설명입니다.'},
-                                              'error_code': {'type': 'string', 'description': '오류 유형입니다.'},
-                                              'next_step_guide': {'type': 'string',
-                                                                  'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 '
-                                                                                 '경우에만 반환합니다.'}}},
- 'import_asset_contract': {'type': 'object',
-                           'properties': {'status': {'type': 'string',
-                                                     'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 '
-                                                                    '확인합니다.'},
-                                          'requires_reconciliation': {'type': 'boolean',
-                                                                      'description': 'true이면 가져오기·복원 완료가 미확정입니다. Rhino의 기존 객체를 확인하기 전 재시도하지 않습니다.'},
-                                          'mutation_applied': {'type': ['boolean', 'null'],
-                                                               'description': 'null이면 변경 완료 여부를 확인하지 못했습니다. 오류가 rollback을 뜻하지 않습니다.'},
-                                          'result_error': {'type': ['string', 'null'],
-                                                           'description': '네이티브 결과를 읽지 못한 사유입니다. 형상이 이미 변경됐을 수 있습니다.'},
-                                          'report_path': {'type': 'string',
-                                                          'description': '가져오기 보고서를 확인하지 못했을 때의 임시 보고서 경로입니다.'},
-                                          'asset_id': {'type': 'string', 'description': '자산 ID입니다.'},
-                                          'source_app': {'type': 'string', 'description': '자산을 내보낸 앱입니다.'},
-                                          'imported_count': {'type': 'integer', 'description': '가져온 객체 수입니다.'},
-                                          'imported_guids': {'type': 'array',
-                                                             'items': {'type': 'string'},
-                                                             'description': '객체 관찰·캡처·재료 보정에 재사용'},
-                                          'metadata_restored': {'type': 'integer',
-                                                                'description': '메타데이터를 기록한 객체 수'},
-                                          'materials_deduplicated': {'type': 'integer',
-                                                                     'description': '중복 제거한 재료 수입니다.'},
-                                          'unknown_material_ids': {'type': 'array',
-                                                                   'items': {},
-                                                                   'description': 'Almond 라이브러리에서 찾지 못한 재료 '
-                                                                                  'ID입니다.'},
-                                          'dimension_check': {'type': 'object',
-                                                              'properties': {'status': {'type': 'string',
-                                                                                        'description': '가져온 자산의 '
-                                                                                                       '치수 비교 '
-                                                                                                       '결과입니다.'},
-                                                                             'expected_sorted_mm': {'type': 'array',
-                                                                                                    'items': {'type': 'number'},
-                                                                                                    'description': '크기순으로 '
-                                                                                                                   '정렬한 '
-                                                                                                                   '원본 '
-                                                                                                                   '경계 '
-                                                                                                                   '치수(mm)입니다.'},
-                                                                             'measured_sorted_mm': {'type': 'array',
-                                                                                                    'items': {'type': 'number'},
-                                                                                                    'description': '크기순으로 '
-                                                                                                                   '정렬한 '
-                                                                                                                   '가져온 '
-                                                                                                                   '객체의 '
-                                                                                                                   '경계 '
-                                                                                                                   '치수(mm)입니다.'},
-                                                                             'worst_relative_error': {'type': 'number',
-                                                                                                      'description': '축별 '
-                                                                                                                     '상대 '
-                                                                                                                     '오차 '
-                                                                                                                     '중 '
-                                                                                                                     '최대값입니다.'},
-                                                                             'tolerance': {'type': 'number',
-                                                                                           'description': '허용 상대 '
-                                                                                                          '오차입니다. '
-                                                                                                          '크기 순으로 '
-                                                                                                          '정렬한 축별 '
-                                                                                                          '치수를 '
-                                                                                                          '비교합니다.'}},
-                                                              'description': '내보내기 전후의 경계 치수 비교입니다.'},
-                                          'layer': {'type': 'string', 'description': '가져온 객체의 레이어입니다.'},
-                                          'message': {'type': 'string', 'description': '현재 결과 또는 오류의 설명입니다.'},
-                                          'error_code': {'type': 'string', 'description': '오류 유형입니다.'},
-                                          'next_step_guide': {'type': 'string',
-                                                              'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 '
-                                                                             '반환합니다.'}}},
- 'publish_objects_to_chestnut': {'type': 'object',
-                                 'properties': {'status': {'type': 'string',
-                                                           'description': '현재 처리의 상태입니다. 오류이면 message와 '
-                                                                          'error_code를 확인합니다.'},
-                                                'success': {'type': 'boolean',
-                                                            'description': '원격 /api/props/upsert 응답에서 온 값'},
-                                                'chestnut_url': {'type': 'string',
-                                                                 'description': '게시한 Chestnut 서비스의 주소입니다.'},
-                                                'message': {'type': 'string',
-                                                            'description': '현재 결과 또는 오류의 설명입니다.'},
-                                                'error_code': {'type': 'string', 'description': '오류 유형입니다.'},
-                                                'next_step_guide': {'type': 'string',
-                                                                    'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 '
-                                                                                   '경우에만 반환합니다.'}}},
- 'publish_to_chestnut': {'type': 'object',
-                         'properties': {'status': {'type': 'string',
-                                                   'description': '현재 처리의 상태입니다. 오류이면 message와 error_code를 '
-                                                                  '확인합니다.'},
-                                        'success': {'type': 'boolean',
-                                                    'description': '하위 publish_objects_to_chestnut의 원격 응답을 그대로 '
-                                                                   '반환'},
-                                        'chestnut_url': {'type': 'string',
-                                                         'description': '게시한 Chestnut 서비스의 주소입니다.'},
-                                        'message': {'type': 'string', 'description': '현재 결과 또는 오류의 설명입니다.'},
-                                        'error_code': {'type': 'string', 'description': '오류 유형입니다.'},
-                                        'next_step_guide': {'type': 'string',
-                                                            'description': '이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 '
-                                                                           '반환합니다.'}}}}
+}
 
 
 def _planning_variants(*names: str) -> dict:

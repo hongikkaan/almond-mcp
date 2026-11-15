@@ -60,8 +60,6 @@ Each row names fields added to the feature's normal summary. Each input property
 | drawings | `parameters` | `annotations`, `display`, `hatches`, `layers`, `layout`, `linework`, `output`, `parameters`, `projection`, `review_preparation`, `style`, `units`, `views` |
 | drawings | `source` | `license`, `references`, `source` |
 | drawings | `audit` | `created_at`, `updated_at` |
-| exchange | `notes` | `note` |
-| exchange | `audit` | `created_at`, `updated_at` |
 | grasshopper | `ports` | `input_ports`, `inputs`, `output_ports`, `outputs` |
 | grasshopper | `definition` | `all_descriptions`, `components`, `definition`, `definition_file`, `metadata` |
 | grasshopper | `source` | `license`, `provenance`, `source`, `source_url` |
