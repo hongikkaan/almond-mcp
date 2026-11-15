@@ -1714,7 +1714,7 @@ declare const tools: { mcp__rhino__model_04_list_materials(args: {
 
 반환 JSON의 `applied=true`는 기준과의 차이·오류가 없는 상태를 뜻합니다. 차이나 오류가 남으면 `incomplete`이며, 이 경우에도 일부 항목이 이미 생성·변경됐을 수 있습니다.
 
-객체별 재료 지정에는 `model_04-list_materials`와 `model_01-assign_material`을 사용합니다.
+객체별 재료 지정에는 `model_04-list_materials` tool과 `model_01-assign_material` tool을 사용합니다.
 ```
 
 ```ts
@@ -2692,7 +2692,7 @@ declare const tools: { mcp__rhino__drawing_02_get_recipe(args: {
 
 ```ts
 declare const tools: { mcp__rhino__drawing_03_apply_style(args: {
-  // drawing_05-list_recipes 또는 drawing_02-get_recipe의 레시피 ID. 생략: technical_axon_v1.
+  // drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool의 레시피 ID. 생략: technical_axon_v1.
   recipe_id?: string;
 }): Promise<CallToolResult<{
   // 적용 상태·레이어 목록 또는 오류를 담은 JSON 문자열. 오류·시간 초과가 롤백을 뜻하지는 않음.
@@ -2792,7 +2792,7 @@ declare const tools: { mcp__rhino__grasshopper_01_get_logic(args: {
   field_groups?: Array<string> | null;
   // true: 다른 식별자 포함. 입력 logic_id는 반복되지 않음.
   include_ids?: boolean;
-  // 확장자를 뺀 라이브러리 파일명. grasshopper_03-list_library의 logic_names 사용 가능.
+  // 확장자를 뺀 라이브러리 파일명. grasshopper_03-list_library tool의 logic_names 사용 가능.
   logic_id: string;
 }): Promise<CallToolResult<{
   // 추출 정보·메타데이터 또는 오류의 JSON 문자열.

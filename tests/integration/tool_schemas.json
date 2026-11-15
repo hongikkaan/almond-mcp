@@ -215,7 +215,7 @@
         "recipe_id": {
           "default": "technical_axon_v1",
           "type": "string",
-          "description": "drawing_05-list_recipes 또는 drawing_02-get_recipe의 레시피 ID. 생략: technical_axon_v1."
+          "description": "drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool의 레시피 ID. 생략: technical_axon_v1."
         }
       },
       "type": "object"
@@ -3636,7 +3636,7 @@
       "properties": {
         "logic_id": {
           "type": "string",
-          "description": "확장자를 뺀 라이브러리 파일명. grasshopper_03-list_library의 logic_names 사용 가능."
+          "description": "확장자를 뺀 라이브러리 파일명. grasshopper_03-list_library tool의 logic_names 사용 가능."
         },
         "include_ids": {
           "default": false,

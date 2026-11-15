@@ -27,7 +27,7 @@ Args:
 도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다.
 
 Args:
-    recipe_id: drawing_05-list_recipes 또는 drawing_02-get_recipe의 레시피 ID. 생략: technical_axon_v1.
+    recipe_id: drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool의 레시피 ID. 생략: technical_axon_v1.
 <!-- /instruction:apply_drawing_style -->
 
 ## import_drawing_hatch_patterns

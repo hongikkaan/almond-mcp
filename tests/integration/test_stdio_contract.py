@@ -63,12 +63,28 @@ def assert_information_placement(tools):
             assert tools[name]["description"] == description, name
     for tool_name, field_name, reference in (
         ("drawing_01-apply_style", "recipe_id", "drawing_05-list_recipes"),
+        ("drawing_01-apply_style", "recipe_id", "drawing_02-get_recipe"),
         ("drawing_02-get_recipe", "recipe_id", "drawing_05-list_recipes"),
         ("drawing_03-get_plan_section_result", "result_id", "drawing_06-generate_plan_section"),
     ):
         assert reference in tools
-        assert reference in tools[tool_name]["inputSchema"]["properties"][field_name]["description"]
+        assert reference + " tool" in tools[tool_name]["inputSchema"]["properties"][field_name]["description"]
+    # Public tool references in all exposed help must retain the AGENTS suffix.
+    def assert_tool_reference_suffix(value):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key == "description" and isinstance(child, str):
+                    for match in re.finditer(r"[a-z]+_\d{2}-[a-z_]+", child):
+                        if match.group() in tools:
+                            assert child[match.end():].lstrip("`").startswith(" tool"), child
+                else:
+                    assert_tool_reference_suffix(child)
+        elif isinstance(value, list):
+            for child in value:
+                assert_tool_reference_suffix(child)
+
     for tool in tools.values():
+        assert_tool_reference_suffix(tool)
         published = json.dumps(tool, ensure_ascii=False)
         assert "drawing_01-list_recipes" not in published
         assert "drawing_05-generate_plan_section" not in published

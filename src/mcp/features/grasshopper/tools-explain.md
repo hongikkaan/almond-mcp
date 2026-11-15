@@ -16,7 +16,7 @@ Args:
 색인된 Grasshopper 로직 파일에서 추출한 물리 관련 항목·설명과 제공된 메타데이터를 조회합니다. JSON만 있는 항목은 메타데이터를 반환합니다. 추출 정보는 완전한 구성·연결 관계나 실행 가능성을 보장하지 않습니다.
 
 Args:
-    logic_id: 확장자를 뺀 라이브러리 파일명. grasshopper_03-list_library의 logic_names 사용 가능.
+    logic_id: 확장자를 뺀 라이브러리 파일명. grasshopper_03-list_library tool의 logic_names 사용 가능.
     include_ids: true: 다른 식별자 포함. 입력 logic_id는 반복되지 않음.
     field_groups: ports, definition, source, paths, audit, all. 제공된 필드에만 적용.
 <!-- /instruction:get_logic_by_id -->
