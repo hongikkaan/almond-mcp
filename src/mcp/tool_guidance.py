@@ -47,10 +47,6 @@ SUCCESS_GUIDES = {
     "get_typology_narrative": "관련 구법은 get_construction_guidance로 비교할 수 있습니다.",
     "validate_structure": "문제 부재는 visualize_structure로 검토할 수 있습니다.",
     "visualize_structure": "판정을 검증 이력으로 남기려면 validate_structure를 사용합니다.",
-    "get_blender_helper_script": "생성한 코드는 Blender에서 실행합니다. export 실행이 성공하면 얻은 계약을 import_asset_contract에 사용할 수 있습니다.",
-    "import_asset_contract": "get_objects와 캡처로 가져온 형상·재료·배치를 확인합니다.",
-    "publish_objects_to_chestnut": "Chestnut에서 게시 결과를 확인하고, 갱신할 때는 확인한 자산 ID를 재사용합니다.",
-    "publish_to_chestnut": "Chestnut에서 게시 결과를 확인합니다.",
 }
 LIST_GUIDES = {
     "list_design_scenes": ("scenes", "선택한 scene_id로 get_design_scene을 조회합니다."),

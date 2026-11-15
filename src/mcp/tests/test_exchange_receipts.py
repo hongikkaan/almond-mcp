@@ -1,4 +1,4 @@
-"""Public import results stay observable without the legacy GUID-list side effects."""
+"""Private asset imports preserve native receipt and managed completion guarantees."""
 import asyncio
 import copy
 import json
@@ -28,7 +28,7 @@ def output_path(script, writer, folder):
 
 
 class NativeImport:
-    """Controlled Rhino transport; the real tool and receipt reader run unchanged."""
+    """Controlled Rhino transport; the real import helper and receipt reader run unchanged."""
     def __init__(self, folder, *, count=2, receipt=True, count_delta=0, restore_count=None):
         self.folder = folder
         self.ids = [str(uuid.uuid4()) for _ in range(count)]
@@ -56,14 +56,18 @@ def server(native, runtime=None):
     contract = {"asset_id": "import-example", "source_app": "blender", "materials": [],
                 "spatial": {"anchor": "bottom_center"}, "_resolved_file": str(native.folder / "model.glb")}
     services = SimpleNamespace(
-        exchange=SimpleNamespace(load_contract=lambda _: copy.deepcopy(contract),
-                                 dimension_report=lambda contract, report: {"status": "match"}),
+        exchange=SimpleNamespace(dimension_report=lambda contract, report: {"status": "match"}),
         material_library=SimpleNamespace(get=lambda _: None),
         tempfile=SimpleNamespace(gettempdir=lambda: str(native.folder)),
         _send_and_receive=native.send)
     mcp = FastMCP("exchange-receipt")
     services._feature_context = FeatureContext(vars(services))
     vars(services).update(exchange_tools.register(mcp, services._feature_context))
+
+    @mcp.tool(name="fixture_01-place_asset")
+    def place_asset() -> str:
+        return json.dumps(services._receive_contract(copy.deepcopy(contract), 0, 0, 0, 0, "fixture"))
+
     if runtime is not None:
         services._send_and_receive = lambda payload, **kwargs: runtime.send(native.send, payload, **kwargs)
         install(services, runtime)
@@ -74,7 +78,7 @@ def server(native, runtime=None):
 def call_import(native, runtime=None):
     async def run():
         async with Client(server(native, runtime)) as client:
-            reply = await client.call_tool("exchange_03-import_asset_contract", {"contract_path": "contract.json"})
+            reply = await client.call_tool("fixture_01-place_asset", {})
             return json.loads(reply.content[0].text)
     return asyncio.run(run())
 

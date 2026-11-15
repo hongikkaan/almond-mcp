@@ -208,7 +208,7 @@ def test_exit_guard_checks_live_identity_and_dirty_state_in_same_callback(tmp_pa
 def test_close_schema_is_explicit():
     tool = next(t for t in exposed_tools(CATALOG)[0] if t.name == "connect_05-close_session")
     assert tool.input_schema["required"] == ["request_id"]
-    assert set(tool.input_schema["properties"]) == {"request_id", "connection_id"}
+    assert set(tool.input_schema["properties"]) == {"request_id"}
     assert "saved" in tool.output_schema["properties"]
 
 

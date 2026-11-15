@@ -5,11 +5,14 @@ from types import SimpleNamespace
 
 import pytest
 from fastmcp import Client, FastMCP
+from jsonschema import Draft202012Validator
 
 import mcp_server
 from almond_mcp.retrieval_store import AlmondStore
 from project import connection_paths
 from workspace import Workspace
+from almond_mcp.output_contracts import public_output_schema
+from schema_assertions import assert_described_payload
 
 
 @pytest.fixture
@@ -41,14 +44,24 @@ def context(tmp_path, monkeypatch):
     asyncio.run(mcp_server.configure_project_context(server, args, binding, locations,
                                                      sender=send, runtime=runtime))
 
-    def call(**arguments):
+    def call_tool(name, arguments):
         async def invoke():
             async with Client(server) as client:
-                return await client.call_tool("context_04-get_project_info", arguments, raise_on_error=False)
+                result = await client.call_tool(name, arguments, raise_on_error=False)
+                if not result.is_error:
+                    tool = next(tool for tool in await client.list_tools() if tool.name == name)
+                    Draft202012Validator(tool.output_schema).validate(result.structured_content)
+                    if result.structured_content.get("status") == "success":
+                        assert_described_payload(result.structured_content, tool.output_schema)
+                return result
         return asyncio.run(invoke())
 
+    def call(**arguments):
+        return call_tool("context_04-get_project_info", arguments)
+
     return SimpleNamespace(call=call, live=live, calls=calls, store=store,
-                           workspace=workspace, root=tmp_path, binding=binding)
+                           workspace=workspace, root=tmp_path, binding=binding,
+                           runtime=runtime, call_tool=call_tool)
 
 
 def value(result):
@@ -153,6 +166,60 @@ def test_locations_and_runtime_only_do_not_observe_rhino(context):
     result = value(context.call(sections=["locations", "runtime"]))
     assert context.calls == []
     assert "project" not in result and "document" not in result
+
+
+def test_unreadable_document_values_and_unavailable_rhinocode_keep_their_evidence(context):
+    for key in context.live["document"].keys() - {"name", "path"}:
+        context.live["document"][key] = None
+    context.live["warnings"] = ["document.object_count: unavailable"]
+    context.runtime.rhinocode_availability = lambda: {
+        "available": False, "languages": [], "message": "RhinoCode unavailable"}
+    result = value(context.call(sections=["document", "runtime"], include_ids=True))
+    assert all(item is None for item in result["document"].values())
+    assert result["warnings"] == context.live["warnings"]
+    assert result["runtime"]["rhinocode"]["available"] is False
+    assert result["runtime"]["rhino_temp_at_attach"] is None
+
+
+@pytest.mark.parametrize("version", ["8.0", 8, {"major": 8}, None])
+def test_rhinocode_version_preserves_the_external_value_without_coercion(context, version):
+    context.runtime.rhinocode_availability = lambda: {
+        "available": True, "executable": "RhinoCode.exe", "pipe_id": "rhino-pipe",
+        "version": version, "languages": ["python", "csharp"]}
+    result = value(context.call(sections=["runtime"], include_ids=True))
+    assert result["runtime"]["rhinocode"]["version"] == version
+
+
+def test_selected_past_loop_locations_remain_read_only(context):
+    plan = context.store.create_plan("Review", scope="inspection")
+    context.workspace.execute_looping(plan["plan_id"])
+    context.store.execute_looping(plan["plan_id"])
+    result = value(context.call(sections=["locations"], include_ids=True))["locations"]
+    assert result["loop_no"] == 1 and result["read_only"] is True
+    assert result["artifact_dir"] == result["plan_artifact_dir"] + "/01"
+
+
+def test_loop_tool_exposes_current_and_previous_step_records(context):
+    plan = context.store.create_plan("Inspect entrance", scope="inspection")
+    pid = plan["plan_id"]
+    first = value(context.call_tool("plan_03-execute_looping", {"plan_id": pid}))
+    assert first["loop_no"] == 1 and first["previous_loop"]["loop_no"] == 0
+    assert all(step["loop_no"] == 0 for step in first["previous_loop"]["steps"])
+    for step in first["steps"]:
+        context.store.update_plan_step(pid, step["step_id"], status="completed",
+                                       input_refs=["survey.md"], output_refs=["report.md"])
+    resumed = value(context.call_tool("plan_03-execute_looping", {"plan_id": pid, "resume": True}))
+    assert resumed["next_step_id"] is None
+    second = value(context.call_tool("plan_03-execute_looping", {"plan_id": pid}))
+    assert second["previous_loop"]["steps"] == resumed["steps"]
+    for old, new in zip(resumed["steps"], second["steps"]):
+        for key in ("step_id", "step_type", "name", "position", "kind", "depends_on"):
+            assert old[key] == new[key]
+        assert new["status"] == "pending" and new["loop_no"] == 2
+        assert new["input_refs"] == new["output_refs"] == []
+    # The nullable fallback also covers old stores without a prior snapshot.
+    assert_described_payload({**second, "previous_loop": None},
+                             public_output_schema("execute_looping", wrapped=False))
 
 
 @pytest.mark.parametrize("arguments", [

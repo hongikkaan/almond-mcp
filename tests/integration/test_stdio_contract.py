@@ -9,6 +9,7 @@ import sys
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from almond_mcp import paths
+from almond_mcp.instruction_text import read_tool_instruction
 from almond_mcp.modeling_guidance import BASIC_GUIDE, read_policy, startup_instructions
 from jsonschema import Draft202012Validator
 
@@ -23,6 +24,9 @@ def request_properties(tool, target):
 
 def assert_information_placement(tools):
     """Check the user's reading order at the wire boundary, beyond parity."""
+    assert not any(name.startswith("exchange_") for name in tools)
+    assert {"export_asset_contract", "get_blender_helper_script", "import_asset_contract",
+            "publish_objects_to_chestnut", "publish_to_chestnut"}.isdisjoint(tools)
     for name, tool in tools.items():
         role = tool.get("description", "")
         assert role.strip(), name
@@ -37,14 +41,37 @@ def assert_information_placement(tools):
     phase = request_properties(tools["plan_02-create"], "phase")
     assert set(phase["status"]["enum"]) == {"pending", "running", "paused", "completed", "failed", "blocked"}
     assert {option["type"] for option in phase["file_name"]["anyOf"]} == {"string", "array"}
-    assert "중 하나" in phase["status"]["description"]
-    assert "문자열 배열" in phase["file_name"]["description"]
+    assert phase["status"]["description"] == "생략하면 pending."
+    assert phase["file_name"]["description"] == "연결할 파일명 하나 또는 배열. 생략하면 파일 연결 없음."
     scene_file = tools["scene_02-create"]["inputSchema"]["properties"]["file_name"]["description"]
     assert "파일 작업이 아닙니다" not in scene_file and "파일명" in scene_file
     if "plan_03-execute_looping" in tools:
         loop = tools["plan_03-execute_looping"]
         assert "회차가 끝나면" not in loop["description"]
         assert "새 회차" in loop["inputSchema"]["properties"]["resume"]["description"]
+    # The reviewed document owns wording; Drawing renumbering remains separate.
+    aliases = {"drawing_01-list_recipes": "drawing_05-list_recipes",
+               "drawing_03-apply_style": "drawing_01-apply_style",
+               "drawing_05-generate_plan_section": "drawing_06-generate_plan_section",
+               "drawing_06-get_plan_section_result": "drawing_03-get_plan_section_result"}
+    document = (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8")
+    for section in re.split(r"(?m)^### ", document)[1:]:
+        name = section.splitlines()[0].split(". ", 1)[1].replace("\\_", "_")
+        name = aliases.get(name, name)
+        if name in tools:
+            description = re.search(r"```txt\n(.*?)\n```", section, re.S).group(1)
+            assert tools[name]["description"] == description, name
+    for tool_name, field_name, reference in (
+        ("drawing_01-apply_style", "recipe_id", "drawing_05-list_recipes"),
+        ("drawing_02-get_recipe", "recipe_id", "drawing_05-list_recipes"),
+        ("drawing_03-get_plan_section_result", "result_id", "drawing_06-generate_plan_section"),
+    ):
+        assert reference in tools
+        assert reference in tools[tool_name]["inputSchema"]["properties"][field_name]["description"]
+    for tool in tools.values():
+        published = json.dumps(tool, ensure_ascii=False)
+        assert "drawing_01-list_recipes" not in published
+        assert "drawing_05-generate_plan_section" not in published
 
 
 def assert_documented_schema(schema, path):
@@ -217,16 +244,16 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
     assert worker["plan_05-get"]["title"] == expected["plan_05-get"]["title"] == "Plan 05 Get"
     exposed, mapping = exposed_tools(catalog)
     external = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True) for tool in exposed}
-    document = (ROOT / "tool_description_spec.md").read_text(encoding="utf-8")
-    policy_section = document.split("## 36. context_01-get_policy\n", 1)[1].split("# Plan\n", 1)[0]
-    documented_input = re.search(r"### TOOL INPUT\s+```json\s*(.*?)\s*```", policy_section, re.S)
-    assert json.loads(documented_input[1]) == external["context_01-get_policy"]["inputSchema"]
+    policy_instruction = read_tool_instruction(str(ROOT / "src/mcp/features/guidance/tools.py"), "get_policy")
+    role, arguments = policy_instruction.split("\n\nArgs:\n", 1)
+    policy_tool = external["context_01-get_policy"]
+    assert policy_tool["description"] == role
+    assert set(policy_tool["inputSchema"]["properties"]) == {"policy"}
+    assert policy_tool["inputSchema"]["properties"]["policy"]["description"] == arguments.strip().removeprefix("policy: ")
     for name in worker:
         assert mapping[name] == name
         assert external[name]["description"] == worker[name]["description"]
-        routed = external[name]["inputSchema"]
-        assert routed["properties"]["connection_id"]["type"] == "string"
-        assert all(routed["properties"][key] == value for key, value in worker[name]["inputSchema"].get("properties", {}).items())
+        assert external[name]["inputSchema"] == worker[name]["inputSchema"]
 
 
 def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
@@ -249,11 +276,13 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
                 assert initialized.instructions  # External-host instructions are a separate contract.
                 for text in (initialized.instructions, initialized.server_info.description):
                     assert not any(name in text for name in ("host_id", "model_path", "connection_id", "request_id"))
-                assert "connection_id" not in tools["connect_04-disconnect"]["inputSchema"]["required"]
-                assert "생략" in tools["connect_04-disconnect"]["inputSchema"]["properties"]["connection_id"]["description"]
                 assert tools == expected
                 for name, tool in tools.items():
+                    assert "connection_id" not in tool["inputSchema"].get("properties", {})
                     assert_documented_schema(tool["inputSchema"], name)
+                assert tools["connect_04-disconnect"]["inputSchema"]["properties"] == {}
+                rejected = await client.call_tool("context_04-get_project_info", {"connection_id": "old"})
+                assert rejected.is_error
                 return initialized.server_info.name
 
     for name, label in (("codex", "beyond"), ("cos", "CoS")):
@@ -271,7 +300,7 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
     catalog = next(t for t in load_catalog()["tools"] if t["name"] == "drawing_06-generate_plan_section")
     baseline = json.loads((ROOT / "tests/integration/tool_schemas.json").read_text(encoding="utf-8"))["drawing_06-generate_plan_section"]
     assert schema_identity(worker["drawing_06-generate_plan_section"]) == schema_identity(catalog) == baseline
-    arguments = dict(connection_id="fixture", operation="Create", clipping_ids=["00000000-0000-0000-0000-000000000001"])
+    arguments = dict(operation="Create", clipping_ids=["00000000-0000-0000-0000-000000000001"])
     observed = []
 
     async def invoke(conn, name, payload, invocation):
@@ -280,10 +309,9 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
 
     async def route():
         broker = SimpleNamespace(mapping={"drawing_06-generate_plan_section": "drawing_06-generate_plan_section"}, connections={"fixture": "bound"},
-                                 invoke=invoke, spawn=asyncio.create_task, selected_connection_id=None)
+                                 invoke=invoke, spawn=asyncio.create_task, selected_connection_id="fixture")
         response = await Broker.call(broker, "drawing_06-generate_plan_section", arguments)
         assert not response.is_error
 
     asyncio.run(route())
-    assert observed == [("bound", "drawing_06-generate_plan_section", {key: value for key, value in arguments.items() if key != "connection_id"})]
-    assert arguments["connection_id"] == "fixture"
+    assert observed == [("bound", "drawing_06-generate_plan_section", arguments)]

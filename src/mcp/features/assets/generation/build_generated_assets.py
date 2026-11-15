@@ -16,7 +16,7 @@ Per asset the script:
   3. scales uniformly so the height equals the catalogue height, and moves
      bottom-centre onto the origin, by inserting one root node;
   4. renames every material to ALMOND::<render_material_id> with the
-     library base colour, so import_asset_contract restores the canonical
+     library base colour, so the generated-asset placement helper restores the canonical
      Almond material and metadata in Rhino;
   5. records the *measured* dimensions (never the nominal ones) so that
      search filters and layout validation see the real geometry.

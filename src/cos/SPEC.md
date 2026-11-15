@@ -40,7 +40,7 @@ RHP는 [공용 Engine](../rhp/SPEC.md#구성과-빌드)을 참조한다. Bridge�
 관측 이미지의 직접 `ToolResult`와 고정 조회의 정확한 `str | ToolResult` 반환형만 별도로 허용한다. ToolResult 입력형·중첩형·임의 annotation 실행은 허용하지 않는다. context·선택·객체·교차 조회는 기존 `{result: string}` output schema literal을 허용하고 JSON text/structuredContent와 명시적 오류 상태를 함께 보존한다. PNG는 별도 캡처 도구의 MCP image content로 전달하며 schema 생성 때문에 이 계약을 바꾸지 않는다.
 공통 도구 변경 후 수동 catalog 재생성 없이 관련 Codex/CoS MCP를 정상 종료·재시작하면 새 구현과 schema를 읽는다. Terminal은 almond 세션을 새로 시작한다. 이미 시작한 프로세스를 자동 교체하거나 restart 도구를 제공하지 않는다. RHP/DLL 변경은 빌드와 Rhino의 정상 종료·새 시작이 별도로 필요하다.
 
-연결별 PID·token·문서 binding·worker·잠금은 각 Connection에 유지한다. connect_02-session tool/connect_03-start_session tool 성공 시 해당 연결을 선택하고 일반 호출·connect_04-disconnect tool는 이를 재사용한다. 이미 연결된 host_id/model_path의 connect_02-session tool는 선택만 바꾸며, 다른 연결은 유지한다. connection_id는 호출별 선택 재지정 옵션이다. 호출을 접수할 때 대상 Connection을 고정하므로 이후 선택 변경이 진행 중 호출의 대상을 바꾸지 않는다. 선택한 연결이 종료되면 선택을 비우며 다른 연결로 자동 전환하지 않는다. 시작 request_id와 실행 결과 request_id는 작업별 식별자이므로 계속 명시한다.
+연결별 PID·token·문서 binding·worker·잠금은 각 Connection에 유지한다. connect_02-session tool이나 connect_03-start_session tool이 성공하면 해당 연결을 선택한다. 이미 연결된 host_id/model_path로 connect_02-session tool을 호출하면 기존 연결을 선택한다. 일반 호출·연결 해제·새 종료 요청은 접수 시점에 선택된 Connection에 고정한다. 선택한 연결이 끝나면 다음 문서를 직접 선택한다. 종료 요청의 request_id는 기록된 대상을 재조회하며, script_03-get_execution tool의 request_id는 원래 실행 binding을 찾는다. 실행 request_id를 비우면 현재 연결에서 가장 최근 실행을 읽는다.
 
 connection ID와 token·프로세스 identity·저장 문서를 함께 확인한다. 변경된 binding, 미확인 native 결과, 실행 중 작업의 해제·취소에 대한 기존 소유권 규칙을 유지한다.
 다른 연결의 DB 접근은 기존 공유 lease·gate를 통과한다.

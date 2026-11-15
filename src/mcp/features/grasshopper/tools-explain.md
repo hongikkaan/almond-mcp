@@ -3,34 +3,34 @@
 ## list_library
 
 <!-- instruction:list_library -->
-로컬 색인에서 Grasshopper 로직 이름을 찾습니다.
+로컬 Grasshopper 라이브러리에서 색인된 로직 이름을 조회합니다. logic_names의 이름으로 grasshopper_01-get_logic tool에서 상세 내용을 조회할 수 있습니다.
 
 Args:
-    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
+    include_ids: true: logic_names와 같은 값의 logic_ids 포함.
+    field_groups: paths·all: 라이브러리 경로 포함. ports·definition·source·audit은 목록에 상세를 추가하지 않음.
 <!-- /instruction:list_library -->
 
 ## get_logic_by_id
 
 <!-- instruction:get_logic_by_id -->
-Grasshopper 정의의 구성과 사용 계약을 조회합니다.
+색인된 Grasshopper 로직 파일에서 추출한 물리 관련 항목·설명과 제공된 메타데이터를 조회합니다. JSON만 있는 항목은 메타데이터를 반환합니다. 추출 정보는 완전한 구성·연결 관계나 실행 가능성을 보장하지 않습니다.
 
 Args:
-    logic_id: 기존 Grasshopper 라이브러리 파일명에서 확장자를 뺀 이름입니다. 알고 있는 ID를 재사용하거나 grasshopper_03-list_library tool(include_ids=true)에서 얻습니다.
-    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
+    logic_id: 확장자를 뺀 라이브러리 파일명. grasshopper_03-list_library의 logic_names 사용 가능.
+    include_ids: true: 다른 식별자 포함. 입력 logic_id는 반복되지 않음.
+    field_groups: ports, definition, source, paths, audit, all. 제공된 필드에만 적용.
 <!-- /instruction:get_logic_by_id -->
 
 ## list_capsules
 
 <!-- instruction:list_capsules -->
-사용할 Grasshopper 캡슐을 찾습니다.
+등록된 Grasshopper 캡슐의 기능과 감사 상태를 조회합니다. 포트와 ID를 확인해 grasshopper_04-run_definition tool의 입력을 준비할 수 있습니다. 감사 상태는 정의 파일의 존재나 실행 성공을 보장하지 않습니다.
 
 Args:
-    capability: 선택 필터: "analyze", "generate", "form_find", "aggregate".
-    audited_only: true이면 grasshopper_04-run_definition tool이 실행을 허용하는 캡슐만 나열합니다.
-    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-    field_groups: 상세 그룹: ports, definition, source, paths, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
+    capability: 기능 필터: analyze, generate, form_find, aggregate. 대소문자 무시.
+    audited_only: true: audited로 등록된 캡슐만.
+    include_ids: true: capsule_id 포함. all과 별도 지정.
+    field_groups: ports, definition, source, paths, audit, all. 생략·빈 배열: 요약.
 <!-- /instruction:list_capsules -->
 
 ## run_gh_definition

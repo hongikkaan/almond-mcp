@@ -1,6 +1,6 @@
 # 자산 작업
 
-목록·검색·상세 조회는 BASIC의 자산 목록·검색 절을 사용한다. 아래는 준비·등록·배치·교환·발행이 필요할 때 읽는다. 경로는 프로젝트 상대경로를 사용한다.
+목록·검색·상세 조회는 BASIC의 자산 목록·검색 절을 사용한다. 아래는 준비·등록·배치이 필요할 때 읽는다. 경로는 프로젝트 상대경로를 사용한다.
 
 ## 3DM 등록·배치
 
@@ -26,16 +26,6 @@ Linked 에셋의 형상은 연결된 원본 3DM에서 편집한다. `asset_08-re
 | `asset_01-audit_drawing` tool | `package_dir`, custom GLB는 현재 `source_glb`도 지정 | 도면 파일 무결성과 원본 변경 여부 확인. |
 
 등록된 3DM의 파생 도면은 `asset_08-refresh` tool으로 갱신한다. 위 GLB 경로는 기존 원본·교환 파일을 위한 투영 기능이다. GLB 단위는 mm/m, 위축은 y/z를 명시한다. 파생 뷰는 Mesh silhouette이며 hidden line·시공 상세를 대신하지 않는다. DXF는 실물 mm, 기본 SVG 축척은 1:50·1:100이다.
-
-## 교환·외부 발행
-
-| 도구 | 입력 | 할 수 있는 일 |
-|---|---|---|
-| `exchange_01-export_asset_contract` tool | `guids`, `asset_id`, 선택적 `name`, `output_dir` | 선택 객체를 교환 패키지로 출력. |
-| `exchange_03-import_asset_contract` tool | `contract_path`, 선택적 `x_mm/y_mm/z_mm`, 회전·레이어 | 교환 패키지를 Rhino 문서로 가져오기. |
-| `exchange_02-get_blender_script` tool | `action`, 작업에 필요한 자산·객체·재료·출력 인자 | Blender에서 사용할 helper script 조회. 실행과 별개. |
-| `exchange_05-publish_chestnut` tool | `guids`, `asset_name`, 선택적 `behavior`, `asset_id` | Rhino 객체를 Chestnut에 발행. |
-| `exchange_04-publish_chestnut_advanced` tool | `guids`, `asset_name`, 선택적 body_type·collider·질량 | 물리 속성을 지정해 Chestnut에 발행. |
 
 ## 카메라 경로 산출물
 

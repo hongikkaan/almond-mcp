@@ -1,6 +1,6 @@
 # 현재 문서·화면 조회와 C# 결과 반환
 
-프로젝트 정보가 필요하면 `context_04-get_project_info` tool를 조회한다. project/document 항목이 실제 문서를 한 번 함께 확인하고 project에 연결 문서와의 일치 여부를 제공하므로 같은 live 확인을 위해 `inspect_03-get_document_context` tool를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때 `capture_03-current_view` tool를 호출한다. beyond·CoS에서도 같은 이름을 사용하고 `connection_id`를 전달한다.
+프로젝트 정보가 필요하면 `context_04-get_project_info` tool를 조회한다. project/document 항목이 실제 문서를 한 번 함께 확인하고 project에 연결 문서와의 일치 여부를 제공하므로 같은 live 확인을 위해 `inspect_03-get_document_context` tool를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때 `capture_03-current_view` tool를 호출한다. beyond·CoS는 선택한 연결에서 같은 도구를 호출한다.
 
 두 조회는 기존 Engine의 문서 binding·UI thread·호출 identity·native 완료 확인을 거친다. 파일 경로를 임의로 골라 다른 모델을 조회하는 기능은 없다.
 
@@ -94,7 +94,7 @@ GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 compon
 
 `inspect_01-analyze_nested_blocks tool(mode, options)`는 `outline`, `resolve-block` 두 모드만 제공한다.
 입력·옵션 의미는 `tools/list`의 해당 도구 설명 전문과 schema를 따른다. 설명 원본은 [context 도구 설명](../features/context/tools-explain.md)에 있다.
-runtime은 연결된 문서의 expected_model_path를 공급하고 외부 연결기는 connection_id를 요구한다.
+runtime은 연결된 문서의 expected_model_path를 공급한다.
 경로가 현재 문서와 다르면 계산 전에 거절한다.
 
 Python API와 설명은 `features/context`, 컴파일되는 C# handler와 탐색 helper는 그 안의 `native/`가 소유한다. Bridge의 UI thread가 handler를 직접 호출하며 일반 스크립트 실행기·Roslyn·BeginUndoRecord를 거치지 않는다. 형상·속성·레이어·선택·뷰·modified·Undo를 보존한다.

@@ -18,27 +18,31 @@ Args:
 ## get_ontological_holon
 
 <!-- instruction:get_ontological_holon -->
-Holon의 등록 정보와 구성원을 조회합니다.
+Holon의 등록 정보와 구성원을 조회합니다. 기본값은 저장된 정보이며, live=true는 현재 Rhino 그룹·형상을 조회하고 등록 정보와의 차이를 확인합니다. requires_sync는 동기화 필요 여부입니다.
+
+recursive=true는 자손 Holon을 포함한 유효 구성원을 확장합니다. 이는 Holon 계층이며 Rhino 블록 정의의 내부 확장이 아닙니다. result는 Holon 정보 또는 오류를 담은 JSON 문자열입니다. include_ids=true여도 입력한 holon_id는 요약에 반복 반환되지 않습니다.
 
 Args:
     holon_id: include_ids=true를 사용한 Holon 조회 또는 이전 등록 결과에서 얻은 등록된 Holon ID입니다.
-    live: true이면 현재 Rhino 그룹 구성원 관계와 형상을 읽습니다. false이면 저장된 등록 정보만 읽습니다.
-    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-    recursive: true이면 등록된 하위 Holon을 확장합니다. 이는 의미적 계층이며, 블록 정의 확장이 아닙니다.
-    field_groups: 선택 사항인 상세 그룹: references, geometry, scope, audit 또는 all. 생략하거나 비워 두면 요약을 조회합니다.
+    live: 기본 false. true: 현재 Rhino 구성원·형상 조회.
+    include_ids: 기본 false. true: 요청 그룹에 해당하는 ID 포함.
+    recursive: 기본 false. true: 자손 Holon 확장.
+    field_groups: references, geometry, scope, audit, all. 생략·빈 배열: 요약.
 <!-- /instruction:get_ontological_holon -->
 
 ## list_ontological_holons
 
 <!-- instruction:list_ontological_holons -->
-등록된 Holon 목록을 조회합니다.
+모델에 등록된 Holon 목록을 조회합니다. Scene을 지정하면 연결된 Holon을 조회하며, recursive=true이면 그 자손도 포함합니다. 자손은 해당 Scene에 직접 등록되어 있지 않을 수 있습니다. Scene 미지정 시 기본 목록은 최상위 Holon입니다.
+
+목록은 저장된 등록 정보이며 현재 Rhino 구성원의 실시간 검증 결과가 아닙니다. 현재 구성원은 scene_05-get_holon tool의 live=true로 조회합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
 
 Args:
-    expected_model_path: 관리형 세션의 기본값은 연결된 모델입니다. 독립 실행에서 빈 입력을 사용하면 여러 모델의 등록 정보를 나열합니다. 활성 Rhino 문서를 전환하지 않습니다.
-    include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-    scene_id: 선택 사항인 등록된 Scene ID 필터입니다. 비어 있으면 Scene으로 필터링하지 않습니다.
-    recursive: true이면 등록된 자식 Holon을 포함합니다.
-    field_groups: 선택 가능한 세부 그룹은 references, geometry, scope, audit 또는 all입니다. 생략하거나 비워 두면 요약을 유지합니다.
+    expected_model_path: 관리형 기본: 연결된 모델. 지정 경로에 등록된 Holon이 없으면 빈 목록.
+    include_ids: 기본 false. true: 후속 호출용 ID 포함.
+    scene_id: 생략·빈 문자열: Scene 필터 없음.
+    recursive: 기본 false. true: 자손 포함.
+    field_groups: references, geometry, scope, audit, all. 생략·빈 배열: 요약.
 <!-- /instruction:list_ontological_holons -->
 
 ## sync_ontological_holon
@@ -68,6 +72,8 @@ Args:
 <!-- instruction:resolve_object_intersection -->
 겹친 객체 쌍을 이미지로 검토하고 선택한 객체에서 겹친 부분을 제거합니다. 검토 시 실제 카메라와 선택이 바뀝니다.
 
+choice=1 또는 2는 해당 객체를 잘라내고 skip은 두 객체를 유지합니다. 완료 상태라도 건너뛴 쌍은 남습니다. 수정 후 다음 쌍을 계산하는 과정에서 오류가 나더라도 직전 수정이 적용됐을 수 있습니다. 응답의 previous_result와 실제 형상 상태를 확인합니다.
+
 Args:
     object_ids: 검토 범위를 시작할 서로 다른 현재 최상위 객체 GUID 1..512개입니다. 선택 사항이며, 현재 범위를 이어서 검토하거나 선택을 제출할 때는 생략합니다.
     include_block: 새 검토 범위에 변환이 적용된 중첩 블록 구성원을 포함합니다. 기본값은 false입니다. 블록 정의 편집은 여전히 지원하지 않습니다.
@@ -78,11 +84,13 @@ Args:
 ## focus_holons
 
 <!-- instruction:focus_holons -->
-Holon과 하위 Holon의 현재 구성원을 Rhino에서 선택·격리·확대합니다.
+선택한 Holon과 하위 Holon의 현재 유효 구성원을 Rhino에서 선택·격리·확대합니다. 잠긴 주변 객체는 보일 수 있습니다. Unisolate로 격리 전 표시 상태를 복원할 수 있지만, 선택과 카메라는 별도로 변경된 상태로 남을 수 있습니다.
+
+result는 선택된 객체와 격리·확대 결과 또는 오류를 담은 JSON 문자열입니다.
 
 Args:
-    holon_ids: 현재 유효 구성원으로 해석할 등록된 Holon ID 1..32개입니다. 확인된 최상위 객체는 최대 4096개를 지원합니다. 실제 선택, 격리 및 카메라를 변경합니다.
-    expected_model_path: 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
+    holon_ids: 서로 다른 Holon ID 1~32개. 유효 최상위 객체 최대 4096개.
+    expected_model_path: 생략: 연결된 문서. 지정 시 연결 문서와 일치해야 함.
 <!-- /instruction:focus_holons -->
 
 ## response-566

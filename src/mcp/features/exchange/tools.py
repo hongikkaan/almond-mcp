@@ -1,22 +1,16 @@
-"""Register portable asset exchange tools and their native report helpers."""
+"""Provide private asset placement and native report helpers."""
 from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import query_output, validate_field_groups
-from almond_mcp.features.exchange.output import GROUPS, project
-from almond_mcp.output_contracts import public_output_schema
-from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import hashlib
-from pydantic import StrictBool
 import json
 from pathlib import Path
 import uuid
 
 from almond_mcp.features.modeling import modeling_setup
-from almond_mcp import paths
 
 
 def register(mcp, context):
-    """Register exchange tools against the calling server's live context."""
+    """Bind private asset helpers without registering public MCP tools."""
 
     def _restore_and_place_script(contract: dict, materials: dict[str, dict],
                                   x_mm: float, y_mm: float, z_mm: float,
@@ -159,71 +153,6 @@ public class Script
 """
 
 
-    @mcp.tool(name='exchange_01-export_asset_contract', output_schema=public_output_schema('export_asset_contract', wrapped=True))
-    @tool_instruction(__file__, 'export_asset_contract')
-    def export_asset_contract(
-        guids: list[str],
-        asset_id: str,
-        name: str = "",
-        output_dir: str = "",
-    ) -> str:
-        if not guids:
-            return json.dumps(error_payload("At least one GUID is required."))
-        try:
-            target_dir = Path(output_dir) if output_dir else paths.user_data_dir() / "exchange"
-            glb_path, contract_path = context.exchange.contract_paths(target_dir, asset_id)
-        except Exception as exc:
-            return json.dumps(error_payload(str(exc)))
-
-        payload = json.dumps({
-            "type": "export_glb",
-            "guids": guids,
-            "output_path": str(glb_path),
-        }).encode("utf-8")
-        try:
-            result = json.loads(context._send_and_receive(payload, timeout=90.0))
-        except ConnectionRefusedError:
-            return json.dumps(error_payload("Rhino bridge is unavailable."))
-        except Exception as exc:
-            return json.dumps(error_payload(f"GLB export failed: {exc}"))
-        if result.get("status") != "success":
-            return json.dumps(result)
-
-        bounds = result.get("bounds") or {}
-        if not bounds:
-            return json.dumps(error_payload("Export returned no bounds."))
-        # export_glb reports bounds in document units
-        unit_scale = {"Millimeters": 1.0, "Centimeters": 10.0, "Meters": 1000.0,
-                      "Inches": 25.4, "Feet": 304.8}.get(result.get("units", "Millimeters"), 1.0)
-        bounds_mm = {
-            "min": [float(v) * unit_scale for v in bounds["min"]],
-            "max": [float(v) * unit_scale for v in bounds["max"]],
-        }
-        material_groups = context._material_groups(guids)
-        try:
-            contract = context.exchange.build_contract(
-                asset_id=asset_id,
-                name=name or asset_id,
-                glb_filename=glb_path.name,
-                bounds_mm=bounds_mm,
-                materials=material_groups,
-                source_app="rhino",
-                object_count=len(result.get("object_guids", guids)),
-            )
-        except ValueError as exc:
-            return json.dumps(error_payload(str(exc)))
-        contract_path.write_text(json.dumps(contract, indent=2), encoding="utf-8")
-        return json.dumps({
-            "status": "success",
-            "asset_id": asset_id,
-            "glb_path": str(glb_path),
-            "contract_path": str(contract_path),
-            "dimensions_mm": contract["dimensions_mm"],
-            "materials": material_groups,
-            "next_step_guide": read_instruction(__file__, 'response-672'),
-        })
-
-
     def _material_groups(guids: list[str]) -> list[dict]:
         """Resolve actual ByObject/ByLayer materials, including readable library names."""
         names = ", ".join("{ " + json.dumps(m["name"], ensure_ascii=True) + ", " + json.dumps(mid) + " }"
@@ -271,28 +200,11 @@ public class Script
             return []
 
 
-    @mcp.tool(name='exchange_03-import_asset_contract', output_schema=public_output_schema('import_asset_contract', wrapped=True))
-    @tool_instruction(__file__, 'import_asset_contract')
-    def import_asset_contract(
-        contract_path: str,
-        x_mm: float = 0,
-        y_mm: float = 0,
-        z_mm: float = 0,
-        rotation_degrees: float = 0,
-        layer: str = "ALMOND-EXCHANGE",
-    ) -> str:
-        try:
-            contract = context.exchange.load_contract(contract_path)
-        except Exception as exc:
-            return json.dumps(error_payload(str(exc)))
-        return json.dumps(context._receive_contract(contract, x_mm, y_mm, z_mm, rotation_degrees, layer))
-
-
     def _receive_contract(contract: dict, x_mm: float, y_mm: float, z_mm: float,
                           rotation_degrees: float, layer: str) -> dict:
         """Import a loaded contract's GLB into Rhino, restore materials and
     metadata, place it per the contract anchor, and report the dimension
-    check. Shared by import_asset_contract and place_asset."""
+    check for the generated-library place_asset helper."""
         problem = modeling_setup.check_bridge(context._send_and_receive)
         if problem:
             return problem
@@ -418,41 +330,8 @@ public class Script
         }
 
 
-    @mcp.tool(name='exchange_02-get_blender_script', output_schema=public_output_schema('get_blender_helper_script', wrapped=True))
-    @tool_instruction(__file__, 'get_blender_helper_script')
-    @query_output
-    def get_blender_helper_script(action: str, asset_id: str = "", name: str = "",
-                                  output_dir: str = "", material_id: str = "",
-                                  object_names: list[str] | None = None, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        validate_field_groups(field_groups, GROUPS)
-        action = action.strip().lower()
-        if action == "export":
-            if not asset_id:
-                return json.dumps(project(error_payload("asset_id is required for export."), field_groups))
-            target = output_dir or str(paths.user_data_dir() / "exchange")
-            return json.dumps(project({
-                "status": "success",
-                "action": "export",
-                "script": context.exchange.blender_export_script(asset_id, name or asset_id, target),
-                "note": read_instruction(__file__, 'response-677'),
-            }, field_groups))
-        if action == "materials":
-            material = context.material_library.get(material_id)
-            if not material:
-                return json.dumps(project(error_payload(read_instruction(__file__, 'response-679').format(material_id)), field_groups))
-            if not object_names:
-                return json.dumps(project(error_payload("object_names is required."), field_groups))
-            script = context.exchange.blender_material_script(
-                [material], [{"material_id": material_id, "objects": object_names}])
-            return json.dumps(project({"status": "success", "action": "materials", "script": script}, field_groups))
-        return json.dumps(project(error_payload('action must be "export" or "materials".'), field_groups))
-
-
     return {
         "_restore_and_place_script": _restore_and_place_script,
-        "export_asset_contract": export_asset_contract,
         "_material_groups": _material_groups,
-        "import_asset_contract": import_asset_contract,
         "_receive_contract": _receive_contract,
-        "get_blender_helper_script": get_blender_helper_script,
     }
