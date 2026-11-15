@@ -178,8 +178,6 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         if any(p.get("next_offset") is not None for p in page.get("pages", {}).values()):
             return "같은 request_id와 반환된 next_offset으로 get_rhino_execution에서 나머지 결과를 읽습니다."
         return None
-    if name == "get_plan_section_result":
-        return "같은 result_id와 next_offset으로 다음 페이지를 읽습니다." if value.get("next_offset") is not None else None
     if name == "list_capsules":
         if not value.get("capsules"):
             return None

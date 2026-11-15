@@ -204,12 +204,14 @@ public class Script {
       dib.Dispose();
     }
   }
-  static void SaveView(RhinoView view, ViewCapture vc, DisplayModeDescription mode, string path) {
-    var vp = view.ActiveViewport;
-    if (mode != null && vp.DisplayMode.Id != mode.Id) vp.DisplayMode = mode;
-    view.Redraw(); RhinoApp.Wait();
-    var b = vc.CaptureToBitmap(view);
-    if (b != null) { b.Save(path, ImageFormat.Png); b.Dispose(); }
+  static void SaveView(RhinoDoc doc, RhinoView view, int width, int height, DisplayModeDescription mode, string path) {
+    // Use the same independent normal-display pipeline as model viewport captures.
+    // Do not copy the attached view's PrintDisplay frame or change its display mode.
+    using (var b = RhinoAlmondBridge.DocumentObservation.CaptureModelViewport(
+      doc, view.ActiveViewport, new Size(width, height), mode, false)) {
+      if (b == null) throw new InvalidOperationException("Rhino did not produce a model viewport bitmap.");
+      b.Save(path, ImageFormat.Png);
+    }
   }
   public static List<Guid> Run(RhinoDoc doc) {
     var view = doc.Views.ActiveView;
@@ -219,8 +221,6 @@ public class Script {
     var edgeMode = DisplayModeDescription.FindByName("__EDGEMODE__");
     var depthMode = DisplayModeDescription.FindByName("Shaded") ?? rgbMode;   // a filled mode so the z-buffer is populated
     int W = __W__, H = __H__;
-    var vc = new ViewCapture { Width = W, Height = H, ScaleScreenItems = false, DrawAxes = false,
-      DrawGrid = false, DrawGridAxes = false, TransparentBackground = false };
     var zlog = new System.Text.StringBuilder();
     string outDir = @"__OUT__";
     foreach (var rec in "__DATA__".Split(';')) {
@@ -232,8 +232,8 @@ public class Script {
       vp.Camera35mmLensLength = double.Parse(v[7]);
       view.Redraw(); RhinoApp.Wait();
       string name = "f" + f.ToString("D4") + ".png";
-      if (__DO_RGB__) SaveView(view, vc, rgbMode, Path.Combine(outDir, "rgb", name));
-      if (__DO_EDGE__) SaveView(view, vc, edgeMode, Path.Combine(outDir, "edge", name));
+      if (__DO_RGB__) SaveView(doc, view, W, H, rgbMode, Path.Combine(outDir, "rgb", name));
+      if (__DO_EDGE__) SaveView(doc, view, W, H, edgeMode, Path.Combine(outDir, "edge", name));
       if (__DO_DEPTH__) {
         if (depthMode != null && vp.DisplayMode.Id != depthMode.Id) vp.DisplayMode = depthMode;
         view.Redraw(); RhinoApp.Wait();

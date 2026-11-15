@@ -34,7 +34,7 @@ Terminal의 shell·AlmondHost 수명은 패널과 독립적이다. Rhino 시작�
 ## 도면 스타일
 
 `DrawingStyleManager`는 요청한 선종류의 이름까지 확인한다. 없는 이름에 대한 Rhino의 Continuous 반환을 해당 선종류가 존재한다는 근거로 사용하지 않는다.
-레시피의 선택적 `linetype_segments`는 유한한 양수 길이와 명시적인 실선/공백으로 정의한다. 요청 내 상충하는 정의와 기존 동일명 패턴 충돌은 Undo·레이어 변경 전에 거절한다. 일치하는 패턴은 재사용하고, 명시 정의가 없는 기존 레시피는 기존 동작을 유지한다.
+`src/mcp/profiles/linetype/`에서 읽은 `linetype_segments`는 유한한 양수 길이와 명시적인 실선/공백으로 정의한다. 동명 선종이 문서에 이미 있으면 패턴 차이와 관계없이 기존 정의와 index를 보존·재사용한다. 신규 이름에 대한 요청 내 상충 정의와 잘못된 세그먼트는 Undo·레이어 변경 전에 거절한다. 기존 레시피의 기본 패턴도 외부 자료에서 해석하며, ByLayer·ByParent는 레이어의 Continuous로 처리한다.
 
 ## 공유 자원과 출력
 

@@ -3,32 +3,23 @@
 ## plan_section
 
 <!-- instruction:plan_section -->
-클리핑 평면의 방향·깊이·참여 대상을 기준으로 활성 모델에서 단면선과 선택적인 해치·입면선을 계산해 모델 공간에 생성하거나 갱신합니다. 같은 클리핑의 기존 생성 도면이 교체되며 수동 편집이 사라질 수 있습니다. 부분 완료나 취소 뒤에도 결과가 남을 수 있습니다.
+연결된 저장 문서의 clipping plane으로 평·단면 도면을 생성·갱신하거나 기존 도면을 이동합니다. clipping_ids에는 관측한 GUID를 사용합니다. Create는 기존 같은 clipping 도면을 교체하고 Update는 저장된 배치를 유지합니다. Move는 재추출하지 않고 기존 객체 ID·이름·사용자 정보를 보존해 이동합니다. 첨부 참조 포함 시 활성 문서에 로드된 참조 형상을 같은 추출·가림·중복 정리 계산에 넣습니다. 파일별 도면 적층이 아닙니다. 실제 대상은 generation_conditions의 레이어 이름·객체 수·숨김/잠금 포함 여부로 확인하고 반환된 clipping GUID는 inspect_02-get_objects tool에 scope='document', object_ids=[GUID], include_ids=true로 전달해 식별·기본 정보를 확인합니다. 저장된 참가 객체·레이어 설정의 상세가 필요하면 script_02-run_rhino tool에서 그 GUID의 ClippingPlaneGeometry.GetClipParticipation()을 읽습니다. 저장 설정은 이번 추출의 실제 generation_conditions와 다를 수 있습니다.
+
+호출 전에 request_id UUID를 정해 전달하면 응답을 전혀 받지 못해도 같은 request_id와 동일 입력으로 다시 호출해 보관된 응답을 회수합니다. 재호출은 도면을 다시 만들지 않습니다. 외부 연결의 native 완료 fence가 pending이면 전송 자체가 차단될 수 있으므로 fence 해제·회복이 확인된 뒤 같은 키를 사용합니다. pending/unknown은 완료 불명으로 기존 도면·실행 상태 확인이 필요하며 새 키로 자동 재생성하지 않습니다. 롤백 복구가 실패한 unknown은 불완전 생성보다 우선하며 현재 출력·실행 상태를 확인하기 전 자동 재실행하거나 새 키로 생성·갱신하지 않습니다. 일반 partial/cancelled/failed는 불완전 생성으로 실패한 clipping을 확인한 뒤 새 request_id로 Create 또는 Update를 호출합니다. 별도 결과 조회 도구는 없습니다. 보관된 응답은 현재 형상 재관찰이 아닙니다. 프로세스·문서 인스턴스가 달라 historical_response=true이면 저장하지 못한 과거 출력이 현재 문서에 없을 수 있으므로 requires_reconciliation에 따라 확인합니다. 신규 출력의 ps:metadata_snapshot은 사용자 정보 변경 검사용 생성기 예약키입니다. 사용자 변경 또는 비교기록 없는 legacy 정보가 있으면 임의 삭제 대신 기존 출력 교체를 차단하므로 정보를 검토·보존한 뒤 갱신합니다. 오직 이번 생성기와 값·타입이 정확히 같은 자동 Floor만 있는 legacy 도면은 무손실 교체가 가능합니다. 필수 응답조건이 예산을 넘는 요청은 모델변경 전 not_started로 거부하며 clipping 배치·대상 레이어 범위를 줄여야 합니다.
 
 Args:
-    operation: Create: 생성 또는 기존 도면 교체. Update: 기존 도면 재생성.
+    operation: Create(생성·교체), Update(저장 배치로 재생성), Move(기존 도면 이동).
     clipping_ids: 클리핑 평면 GUID 목록. 비어 있을 수 없으며 중복은 한 번만 처리.
-    points: Create만: 클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위.
+    points: Create/Move의 클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위. Move는 모든 GUID에 필수. Update는 생략.
     hatch: 해치 생성 허용. 원본 단면 스타일의 채움과 형상 조건을 따름. 기본 true.
-    elevation: 입면선 포함. 기본 true.
-    small_details: 작은 상세 보호 여부. 기본 true.
+    small_details: 작은 입면 상세 보호 여부. 기본 false.
+    include_references: false(기본)는 활성 문서 모델만, true는 활성 문서에 로드된 첨부 참조도 포함. 숨김·잠금 객체 선택 옵션과 별개.
     near_width: 가까운 입면선 출력 두께(mm). 기본 0.09, 양수이며 far_width 이상.
     far_width: 먼 입면선 출력 두께(mm). 기본 0.04, 양수이며 near_width 이하.
     near_dark: 가까운 입면선 출력 농도 0..100%. 기본 80, far_dark 이상.
     far_dark: 먼 입면선 출력 농도 0..100%. 기본 45, near_dark 이하.
-    expected_model_path: 생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인.
+    request_id: 응답 유실 시 안전한 재호출을 위해 호출 전에 정한 고유 UUID. 같은 키는 동일 요청 복구에만 사용. 의도적인 새 생성·갱신·이동에는 새 UUID 사용. 생략하면 영속 응답 복구 보장 없음.
 <!-- /instruction:plan_section -->
-
-## get_plan_section_result
-
-<!-- instruction:get_plan_section_result -->
-drawing_06-generate_plan_section tool의 큰 결과를 영수증으로 조회합니다. 같은 result_id의 json_chunk를 next_offset이 null일 때까지 이어 붙여 JSON으로 해석합니다. 저장된 실행 결과이며 현재 형상을 재관찰하지 않습니다. 결과는 같은 Bridge 프로세스·문서에서 최대 1시간 보관되지만 개수·용량 제한이나 재시작으로 더 일찍 사라질 수 있습니다.
-
-Args:
-    result_id: drawing_06-generate_plan_section tool의 result.result_id.
-    offset: 첫 페이지 기본 0, 이후 반환된 next_offset 사용. UTF-16 코드 단위.
-    expected_model_path: 생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인.
-<!-- /instruction:get_plan_section_result -->
 
 ## execute_rhino_script
 

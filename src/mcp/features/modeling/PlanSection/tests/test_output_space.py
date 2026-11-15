@@ -4,15 +4,18 @@ from types import SimpleNamespace as NS
 import unittest
 from unittest.mock import Mock, patch
 
-from test_logic import ps
+from test_logic import ps, Dictionary
 
 
 class Attributes:
     def __init__(self):
+        self.Name = ''
+        self.UserDictionary = Dictionary()
         self.Space, self.ViewportId = 'page', 'source-page'
         self.values = {'ps:source_layer':'Model', 'ps:placement':'height-100'}
         self.PlotColor, self.PlotWeight = 'manual-color', 0.2
     def Duplicate(self): return deepcopy(self)
+    def GetUserStrings(self): return NS(AllKeys=list(self.values))
     def GetUserString(self, key): return self.values.get(key)
     def SetUserString(self, key, value): self.values[key] = value
     def DeleteAllUserStrings(self): self.values.clear()
@@ -49,7 +52,7 @@ class Document:
 
 
 class ModelSpaceOutput(unittest.TestCase):
-    def scenario(self, initial='page', failure=None, no_model=False, local=False):
+    def scenario(self, initial='page', failure=None, no_model=False, local=False, legacy_attributes=None):
         model = object()
         original = model if initial == 'model' else Page('detail-1' if initial == 'detail' else 'empty')
         doc = Document()
@@ -58,26 +61,29 @@ class ModelSpaceOutput(unittest.TestCase):
         if failure == 'restore': original.SetActiveDetail.side_effect = lambda detail:False
         if no_model: doc.Views.GetViewList.return_value = []
         source = Attributes()
-        old = NS(Id='old', RuntimeSerialNumber=17, Attributes=Attributes())
+        if legacy_attributes is not None: source.UserDictionary.Set('Floor', 'Plan')
+        old = NS(Id='old', RuntimeSerialNumber=17, Attributes=legacy_attributes or Attributes())
         old2 = NS(Id='old2', RuntimeSerialNumber=18, Attributes=Attributes())
         stored = {'old':old}
-        if failure == 'late-delete': stored['old2'] = old2
+        if failure in ('late-delete', 'undelete', 'registry-restore'): stored['old2'] = old2
         observed = []
         def add(geometry, attrs):
             observed.append((doc.ActiveSpace, attrs.Space, attrs.ViewportId))
             if failure == 'add': raise ValueError('native add failure')
             attrs = attrs.Duplicate()
-            if failure == 'space': attrs.Space = 'page'
+            if failure in ('space', 'cleanup'): attrs.Space = 'page'
             if failure == 'viewport': attrs.ViewportId = 'wrong-page'
             stored['new'] = NS(Id='new', Attributes=attrs)
             return 'new'
         def delete(obj, *args):
             key = obj.Id if hasattr(obj, 'Id') else obj
-            if failure == 'late-delete' and key == 'old2':
+            if failure in ('late-delete', 'undelete', 'registry-restore') and key == 'old2':
                 return False
+            if failure == 'cleanup' and key == 'new': return False
             stored.pop(key, None)
             return True
         def undelete(serial):
+            if failure == 'undelete': return False
             if serial == old.RuntimeSerialNumber:
                 stored['old'] = old
                 return True
@@ -88,7 +94,7 @@ class ModelSpaceOutput(unittest.TestCase):
         doc.Objects = NS(Add=Mock(side_effect=add), FindId=Mock(side_effect=lookup),
                          Delete=Mock(side_effect=delete), Undelete=Mock(side_effect=undelete),
                          ModifyAttributes=Mock())
-        cp = NS(Id='clip', IsReference=not local, Attributes=Attributes())
+        cp = NS(Id='clip', Name='Plan', IsReference=not local, Attributes=Attributes())
         drawing = dict(objects=[dict(geometry=object(),attributes=source,role='section')])
         objects = NS(ActiveSpace=NS(ModelSpace='model'),
                      ObjectPlotColorSource=NS(PlotColorFromLayer='by-layer'),
@@ -96,12 +102,12 @@ class ModelSpaceOutput(unittest.TestCase):
         error = None
         with patch.object(ps,'D',objects), patch.object(ps,'R',NS(Display=NS(RhinoPageView=Page))), \
              patch.object(ps,'System',NS(Guid=NS(Empty='empty'))), \
-             patch.object(ps,'drawing_objects',return_value=[old,old2] if failure == 'late-delete' else [old]), \
+             patch.object(ps,'drawing_objects',return_value=[old,old2] if failure in ('late-delete', 'undelete', 'registry-restore') else [old]), \
              patch.object(ps,'local_output_layer',return_value=2) as layer, \
              patch.object(ps,'write_saved_plane',side_effect=ValueError('typed write failed')) if failure == 'write' else patch.object(ps,'write_saved_plane',ps.write_saved_plane), \
-             patch.object(ps,'save_drawing_registry',return_value='old-registry') as registry:
+             patch.object(ps,'save_drawing_registry', side_effect=['old-registry', ValueError('registry restore failed')] if failure == 'registry-restore' else None, return_value='old-registry') as registry:
             try: result = ps.bake(doc,cp,drawing,target='target' if local else None)
-            except ValueError as exc: error = exc; result = None
+            except (ValueError, ps.MutationUncertain) as exc: error = exc; result = None
         return NS(doc=doc,original=original,source=source,stored=stored,observed=observed,
                   layer=layer,registry=registry,result=result,error=error)
 

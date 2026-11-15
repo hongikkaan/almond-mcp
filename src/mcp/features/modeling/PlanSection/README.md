@@ -38,21 +38,29 @@ Almond 전용 `plan_section` 도구를 사용한다. 이 도구는 Bridge에 포
   "clipping_ids": ["00000000-0000-0000-0000-000000000001"],
   "points": {"00000000-0000-0000-0000-000000000001": [10000, 0, 0]},
   "hatch": true,
-  "elevation": true
+  "include_references": false,
+  "small_details": false,
+  "request_id": "00000000-0000-0000-0000-000000000002"
 }
 ```
 
-예시 GUID를 실제 관측 GUID로 교체한다. 전용 도구의 범위는 **Create/Update의 Document 출력**이다. Update는 `operation="Update"`로 지정하고 points를 생략한다. Move·PDF·Files는 기존 Rhino 직접 실행에서 제공되지만 이 전용 API에 노출하지 않는다. 출력은 ModelSpace이며 Layout을 자동으로 만들지 않는다. 도면을 Layout Detail로 구성한 뒤 `get_defined_viewcapture(target_kind="layout", target=Layout_ID)`로 용지를 캡처한다.
+예시 GUID를 실제 관측 GUID로 교체한다. 전용 도구의 범위는 **Create/Update/Move의 Document 출력**이다. Update는 `operation="Update"`로 지정하고 points를 생략한다. Move는 모든 clipping GUID의 points가 필요하며 기존 도면을 옮긴다. PDF·Files는 기존 Rhino 직접 실행에서만 제공한다. 출력은 ModelSpace이며 Layout을 자동으로 만들지 않는다. 도면을 Layout Detail로 구성한 뒤 `get_defined_viewcapture(target_kind="layout", target=Layout_ID)`로 용지를 캡처한다.
 
 좌표는 현재 문서 단위이며 clipping 원점의 **새 절대 위치**다. GUID별 `[x,y]`(Z=0) 또는 `[x,y,z]`를 전달한다. Update는 저장된 높이를 유지한다. clipping 평면의 로컬 `(u,v)`는 배치점 `(Tx,Ty,Tz)`에 대해 `(Tx+u,Ty-v,Tz)`로 옮겨진다. 비수평 단면의 상하는 clipping의 로컬 Y 방향에 달려 있다. GUID 전체를 먼저 검증하며 중복 GUID는 한 번만 처리한다. Create의 좌표 생략은 기존 draft_plane 또는 원점 배치이므로 여러 도면이 겹치지 않도록 필요한 위치를 지정한다.
 
 로컬 clipping의 `draft_plane`은 UserDictionary의 RhinoCommon `Plane`, 출력의 `ps:placement`는 UserDictionary의 `Point3d`로 저장한다. 기존 user text JSON도 호환을 위해 함께 기록한다. 두 값이 모두 있으면 좌표·(Plane의 경우) 축을 검증하며 불일치는 오류다. typed 값이 없는 구 도면은 기존 JSON으로 읽을 수 있다. 비수평 clipping은 실제 CPlane의 방향을 확인하고 설정 지침에 따라 축을 지정해야 하며, 스크립트가 CPlane을 자동 회전시키지 않는다.
 
-전용 응답의 `status`는 전체 완료 `success`, 일부 완료 `partial`, 취소 `cancelled` 또는 `error`다. `result.status`에는 기존 알고리즘의 completed/partial/cancelled가 보존되고 `results`에는 GUID별 완료·건너뜀·실패·취소, 생성 object_ids와 보고서가 들어간다. `algorithm_sha256`는 실제 RHP에 포함된 알고리즘의 해시다. 부분 완료는 이미 완료한 도면을 되돌리지 않는다. 시간 초과·결과 불명은 rollback을 뜻하지 않으며 native 완료 상태와 기존 도면을 확인하기 전 재실행하지 않는다. 실행기 Undo 안에서 기존 `run_selected`가 같은 record를 재사용한다. 기존 직접 실행의 `run`·Create/Update/Move/PDF 계약과 출력 알고리즘은 유지한다.
+전용 응답의 `status`는 전체 완료 `success`, 일부 완료 `partial`, 취소 `cancelled` 또는 `error`다. `result.status`에는 기존 알고리즘의 completed/partial/cancelled가 보존되고 `results`에는 GUID별 완료·건너뜀·실패·취소, 출력 객체 수와 실제 생성 조건·보고서가 들어간다. `algorithm_sha256`는 실제 RHP에 포함된 알고리즘의 해시다. 부분 완료는 이미 완료한 도면을 되돌리지 않는다. 시간 초과·결과 불명은 rollback을 뜻하지 않으며 native 완료 상태와 기존 도면을 확인하기 전 재실행하지 않는다. 실행기 Undo 안에서 기존 `run_selected`가 같은 record를 재사용한다. 기존 직접 실행의 `run`·Create/Update/Move/PDF 계약과 출력 알고리즘은 유지한다.
 
 거리별 입면선 0.09→0.04mm·darkness 80→45% 기본값은 내부 style 구분과 최종 객체 인쇄 속성에 모두 적용된다. 단면선·해치는 기존 레이어 인쇄 속성을 따른다.
 
-전용 도구는 작은 결과를 직접 반환하고 큰 결과는 `result_delivery=paged`, `result_id`, `result_sha256`, 처리 수를 반환한다. `get_plan_section_result(result_id, offset=0)`부터 `next_offset`이 null일 때까지 `json_chunk`를 순서대로 연결해 원래 JSON을 회수한다. offset은 UTF-16 단위이며 반환값을 그대로 사용한다. 페이지는 최대 4096 UTF-16 단위로 서로게이트 쌍을 자르지 않으며, SHA256은 원래 UTF-8 JSON 기준이다. 조회는 도면을 재생성하거나 Undo를 시작하지 않는다. 보관은 Bridge 프로세스·동일 문서 인스턴스 내 최대 1시간, 최근 8개·총 64 MiB(UTF-16) 범위로 오래된 결과부터 제거된다. 즉시 회수하고 필요한 경우 작업 산출물에 보존한다. 단일 결과가 보관 한도보다 크면 명시적인 미확인 오류로 남긴다. 만료·재시작·전달 실패를 rollback으로 간주하거나 자동 재생성하지 않는다. 공통 64 KiB·16-container 제한은 유지한다. metadata_conflicts의 기존 64개 표본과 전체 count도 유지한다. native runtime_error는 native_status에 보존하고 외부 status=error/MCP isError=true로 전달하며 partial/cancelled는 구조화된 미완료 결과다.
+전용 도구는 clipping별 이름·GUID·실제 생성 조건과 출력 객체 수를 직접 반환한다. 입력 대상 객체 ID와 출력 객체 ID를 나열하지 않는다. `generation_conditions`에는 clipping/drawing plane의 origin/xaxis/yaxis, depth, 실제 적용 source_layer_names·source_object_count와 숨김·잠금 객체 포함 사실, 첨부 참조 선택값 및 실제 참조 객체 포함 사실이 들어간다. Move는 재추출하지 않으므로 generation_conditions=null이고 이동 후 placement를 반환한다. 숨김·잠금 값은 레이어 가시성 선택 옵션이 아니라 실제 수집한 객체 상태이며 블록 상위 객체의 상태를 포함한다.
+
+`request_id`는 호출 전에 정한 UUID다. 지정하면 모델 폴더의 `.almond/plan-section-requests/<UUID>.json`에 원자적으로 pending 기록을 만든 뒤 실행하고 최종 응답을 기록한다. 같은 키·동일 입력 재호출은 저장된 응답만 반환하므로 응답 전체 유실과 Bridge 재시작 이후에도 자동 중복 실행을 막는다. 이 기록은 현재 형상 재관찰이나 모델 저장 증거가 아니다. journal에 프로세스 PID·시작시각과 문서 serial을 기록하며 다른 실행/문서 인스턴스의 replay는 historical_response=true, current_output_confirmed=false, requires_reconciliation=true이다. 저장되지 않은 과거 출력이 현재 문서에 없을 수 있으므로 현재 도면을 확인한다. 같은 키·다른 입력은 거부하며 미완료/읽기 불가 기록은 unknown으로 차단한다. 외부 연결 native 완료 fence가 pending인 동안 전송 자체가 차단될 수 있으므로 fence 해제·회복 이후 같은 키로 호출한다. 과거 인스턴스 응답은 공개 dispatch에서 status=error/plan_section_historical_response, mutation_state=unknown으로 전달하고 과거 상태를 historical_drawing_status·recorded_mutation_state로 분리한다. 다른 위치로 이동·복제한 모델은 별도 경로이므로 이 복구 범위에 포함되지 않는다. 생략한 키, 사용자가 기록을 삭제한 경우에는 영속 복구를 보장하지 않는다.
+
+도면 불완전(partial/cancelled/실패 clipping)과 응답상세 전달 부족은 구분된다. rollback 복구 실패의 mutation_state=unknown/requires_reconciliation은 상태 요약보다 우선하며 현재 출력·실행 상태를 확인하기 전 자동 재실행하거나 새키로 생성·갱신하지 않는다. 일반 불완전한 clipping은 원인을 확인한 뒤 새 request_id로 Create/Update한다. 필수 요약은 모든 clipping의 실제 입력 조건을 모델변경 전에 사전 계산하여 ASCII escape까지 포함한 32,000 UTF-8 바이트 예산으로 검사한다. 초과나 사전 조회 실패는 status=error, mutation_state=not_started와 plan_section_response_budget 또는 plan_section_preflight_failed로 거부하며 생성·이동을 시작하지 않는다. 같은 cache를 계산에 재사용하고 해제하며 bake 직전 실제 조건이 사전 조건과 같고 예산 내인지 다시 확인한다. 필수 조건은 native의 48,000 바이트 전달 예산과 완료 journal에 보존하고, 예산 초과 시 선택적 충돌 상세·진단부터 명시적으로 축약한다. 별도 결과 조회 도구와 paged 영수증은 제공하지 않는다. 공통 64 KiB·16-container 제한은 유지한다. native runtime_error는 native_status와 진단을 보존한다.
+
+신규 출력의 ps:generator/ps:clip과 ps:placement는 생성기가 소유하는 식별·배치 정보다. ps:metadata_snapshot은 생성 시 Name·사용자 텍스트·typed dictionary 비교값이며 다음 교체 전 사용자 수정 여부를 검출한다. 사용자 변경이 있거나 비교기록 없는 legacy 출력에 사용자 정보가 있으면 임의 대응을 추측하거나 삭제하지 않고 기존 도면을 보존한 채 실패한다. 단, legacy Name·일반 user text가 없고 UserDictionary가 오직 문자열 Floor이며 이번 생성기의 clipping 이름과 값·타입이 정확히 같으면 새 출력도 같은 값을 쓰므로 무손실 교체를 허용한다. 다른 필드·타입·값은 이 예외에 포함하지 않는다. Move는 기존 ID·Name·사용자 정보를 유지한다. invalid 원본 형상도 bake 전에 실패하여 기존 유효 출력을 보존한다.
 
 ## 개발 검사
 

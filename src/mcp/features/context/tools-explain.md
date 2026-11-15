@@ -12,6 +12,8 @@
 
 **Named View·Layout·표시 모드 목록의 ID**는 `include_ids`와 무관하게 반환됩니다. 화면 이미지 캡처는 `capture_03-current_view` tool을 사용합니다.
 
+`display_modes`는 호출 시 Rhino에 설치된 기본·사용자 정의 표시 모드의 name·local_name·id와 capture_supported를 읽습니다. 모드를 추가·수정한 뒤 같은 section을 다시 조회하면 목록이 갱신됩니다. capture_supported=true인 모드의 이름 또는 GUID를 캡처에 지정합니다. false인 실시간 렌더 모드는 독립 캡처와 모드 변경 캡처에서 지원하지 않습니다.
+
 Args:
     sections: document, viewport, editor, viewports, named_views, layouts, display_modes 중 선택.
         생략 또는 null은 document, named_views, layouts, display_modes. []는 status와 warnings만.
@@ -48,12 +50,16 @@ Args:
 
 Named View는 저장된 카메라를 사용하고, Layout은 용지와 Detail의 기존 표시 모드를 사용합니다. Layout에는 픽셀 크기와 display_mode를 지정할 수 없습니다. 이미지와 image_file 저장 결과는 별개이며, 사용량 추정·경고는 별도 text content로 반환됩니다. Layout Detail 레이블은 지원하지 않습니다.
 
+Named View의 display_mode 선택 예: Wireframe(선·내부 구조), Shaded(표면·형태·가림), Rendered(재료·조명), Ghosted 또는 X-Ray(반투명·겹침), Technical(윤곽·가려진 선), Arctic(단색 형태·음영). 실제 표현은 해당 모드 설정에 따릅니다. 사용자 정의 모드도 설치된 이름 또는 GUID로 선택합니다. inspect_03-get_document_context tool에 sections=["display_modes"]를 전달해 현재 선택지를 조회하고, 추가·수정 후 다시 조회합니다. capture_supported=true인 모드를 사용합니다. Layout은 인쇄 색상·선폭을 적용하며 문서의 PrintDisplay 설정은 변경하지 않습니다.
+
+Named View는 모델의 일반 표시 렌더를 요청하며 문서 PrintDisplay 설정을 바꾸지 않습니다. 저장된 clipping 참조와 단면 표시 설정도 함께 전달합니다. Rhino가 독립 뷰에 이 설정을 수용했는지 확인하지 못하면 capture_view_settings_unverified 오류를 반환합니다. Layout 용지의 기존 인쇄 경로는 유지합니다.
+
 Args:
     target_kind: named_view | layout.
     target: 기존 이름 또는 ID입니다. 대소문자를 구분하지 않는 이름 일치는 유일해야 합니다.
     scale_percent: 범위는 1..100이며 기본값은 75입니다. 원하는 상한이며, 백분율 캡처는 전달 용량 제한에 맞게 축소될 수 있습니다.
     include_usage: true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다.
-    display_mode: Named View 전용. 기본 Shaded; 설치된 래스터 모드 이름 또는 ID.
+    display_mode: Named View 전용. 기본 Shaded. Wireframe, Shaded, Rendered, Ghosted, X-Ray, Technical, Arctic 또는 설치된 사용자 정의 래스터 모드의 이름/GUID. 현재 선택지는 inspect_03-get_document_context tool의 display_modes에서 조회합니다.
     labels: 기본 false. 최대 200개; 주변 레이블이 겹칠 수 있음.
     depth: 레이블 깊이: 1..8, 기본 1.
     width: 선택 사항인 Named View의 픽셀 너비로, 범위는 128..2048입니다. height도 제공하고 scale_percent=100으로 설정합니다. Layout에는 사용하지 않습니다.
@@ -68,13 +74,17 @@ Args:
 
 PNG 이미지 전달과 image_file 저장은 별개입니다. include_usage의 토큰 수는 픽셀 기준 추정치입니다. labels는 주변 객체에도 표시되어 화면을 가릴 수 있습니다.
 
+문서 PrintDisplay 설정을 바꾸지 않고 모델의 일반 표시를 렌더합니다. 실시간 렌더 모드는 현재 화면이 이미 그 모드여도 지원하지 않습니다. 현재 뷰의 clipping 참조와 단면 표시 설정도 함께 전달하며, Rhino가 독립 뷰에 이 설정을 수용했는지 확인하지 못하면 capture_view_settings_unverified 오류를 반환합니다.
+
+display_mode 선택 예: Wireframe(선·내부 구조), Shaded(표면·형태·가림), Rendered(재료·조명), Ghosted 또는 X-Ray(반투명·겹침), Technical(윤곽·가려진 선), Arctic(단색 형태·음영). 실제 표현은 해당 모드 설정에 따릅니다. 사용자 정의 모드도 설치된 이름 또는 GUID로 선택합니다. inspect_03-get_document_context tool에 sections=["display_modes"]를 전달해 현재 선택지를 조회하고, 추가·수정 후 다시 조회합니다. capture_supported=true인 모드를 사용합니다.
+
 Args:
     target_ids: 화면에서 선택·확대할 객체, 그룹 또는 Holon의 ID 배열입니다. 생략하면 현재 화면을 사용하며, 입력할 때는 하나 이상의 ID를 지정합니다.
     target_kind: object(기본), group, block, holon. block은 배치 객체 ID; 비기본값은 target_ids 필요.
     isolate: 기본 false. true: target_ids 필수, 확대 전 Isolate.
     scale_percent: 이미지 해상도의 백분율입니다. 1..100 범위이며 기본값은 75입니다.
     include_usage: true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다.
-    display_mode: 선택 사항인 설치된 래스터 모드 이름/ID입니다. 제공하면 실제 모델 뷰포트를 변경합니다.
+    display_mode: 생략 시 현재 모드. Wireframe, Shaded, Rendered, Ghosted, X-Ray, Technical, Arctic 또는 설치된 사용자 정의 래스터 모드의 이름/GUID. 제공하면 실제 모델 뷰포트를 변경합니다. 현재 선택지는 inspect_03-get_document_context tool의 display_modes에서 조회합니다.
     labels: 기본 false. 주변 객체에도 최대 200개 표시 가능.
     depth: 레이블 확장 깊이: 1..8, 기본 1.
     width: 이미지의 픽셀 너비입니다. 128..2048 범위이며 height도 입력하고 scale_percent=100으로 지정합니다.
@@ -123,10 +133,16 @@ Args:
 <!-- instruction:capture_rhino_inspection -->
 작업 화면을 유지하면서 여러 시점과 객체 범위를 하나의 PNG로 비교합니다. 객체 범위는 문서 표시 상태를 기준으로 하며 픽셀 가시성이나 가림을 보장하지 않습니다. 그룹 자동 확장과 블록 배치·정의 필터는 지원하지 않습니다.
 
+원하는 객체를 집중 확대하려면 공통 object_ids에 최상위 객체 GUID를 지정하고 views의 direction을 front, right, top 또는 iso_ne 등으로 선택합니다. 각 타일은 그 객체 범위에 맞춰 확대되며 작업 화면의 카메라·선택·표시 모드는 유지됩니다. 예: object_ids=["객체 GUID"], views=[{"direction":"front"},{"direction":"right"}]. 타일마다 다른 대상을 비교하려면 공통 object_ids를 생략하고 각 views 항목에 object_ids를 지정합니다. 두 방식을 함께 사용하지 않습니다. direction=current는 현재 카메라를 유지하므로 자동 집중 확대가 필요하면 다른 direction을 지정합니다. ID를 생략하면 문서에서 표시되는 객체 범위를 사용하며, 숨긴 객체는 지정해도 캡처할 수 없습니다.
+
+타일별 display_mode 선택 예: Wireframe(선·내부 구조), Shaded(표면·형태·가림), Rendered(재료·조명), Ghosted 또는 X-Ray(반투명·겹침), Technical(윤곽·가려진 선), Arctic(단색 형태·음영). 실제 표현은 해당 모드 설정에 따릅니다. 사용자 정의 모드도 설치된 이름 또는 GUID로 선택합니다. inspect_03-get_document_context tool에 sections=["display_modes"]를 전달해 현재 선택지를 조회하고, 추가·수정 후 다시 조회합니다. capture_supported=true인 모드를 사용합니다.
+
+문서 PrintDisplay 설정을 바꾸지 않고 모델의 일반 표시를 렌더합니다. 원본 뷰의 clipping 적용 대상 설정은 이 독립 범위 이미지에 복사하지 않습니다. 타일 크기는 상단 28px 설명 영역을 포함하므로 다른 캡처 도구와 같은 width·height를 지정해도 같은 그림 영역이나 프레이밍을 뜻하지 않습니다.
+
 일부 타일이 실패해도 status=success일 수 있습니다. 전체 성공 여부는 complete, 개별 결과는 tiles에서 확인합니다. PNG 전달과 image_file 저장은 별개입니다.
 
 Args:
-    views: 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw.\n  // display_mode: 설치된 이름/GUID, label: 최대 120자. object_ids: 최상위 GUID 1..512개; 생략·빈 배열은 공통 범위 또는 문서 표시 상태.
+    views: 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 설치된 기본·사용자 정의 래스터 모드의 이름/GUID; 생략 시 원본 모델 뷰포트의 모드. label: 최대 120자. object_ids: 최상위 GUID 1..512개; 생략·빈 배열은 공통 범위 또는 문서 표시 상태. current 이외의 direction은 대상 범위를 확대합니다.
     width: 타일의 픽셀 너비로, 범위는 128..2048이며 기본값은 640입니다. 결합 이미지 제한도 적용됩니다.
     height: 타일의 픽셀 높이로, 범위는 128..2048이며 기본값은 480입니다. 결합 이미지 제한도 적용됩니다.
     columns: 선택 사항인 열 개수이며, 범위는 1..뷰 개수입니다. 생략하면 자동 격자를 사용합니다.

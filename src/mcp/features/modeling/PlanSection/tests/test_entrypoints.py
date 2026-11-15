@@ -143,7 +143,7 @@ class EntryPoints(unittest.TestCase):
         app = NS(RhinoApp=NS(Wait=lambda:None, EscapeKeyPressed=MagicMock()))
         def process(doc, cp, options, folder, progress, cancelled, cache, target, result):
             if cp.Id == B: raise ValueError('second clipping failed')
-            result['object_ids'] = ['new-output']
+            result['output_object_count'] = 1
             result['report'] = {'section':1}
             return 'completed'
         with patch.object(ps,'R',app), patch.object(ps,'process_clipping',side_effect=process), \
@@ -152,7 +152,7 @@ class EntryPoints(unittest.TestCase):
             outcome = ps.run_selected(doc,self.planes,ps.default_options())
         self.assertEqual((outcome['status'],outcome['completed'],outcome['requested']),('partial',1,2))
         self.assertEqual([i['status'] for i in outcome['results']],['completed','failed'])
-        self.assertEqual(outcome['results'][0]['object_ids'],['new-output'])
+        self.assertEqual(outcome['results'][0]['output_object_count'],1)
         self.assertIn('second clipping failed',outcome['results'][1]['error'])
         doc.BeginUndoRecord.assert_not_called()
         doc.EndUndoRecord.assert_not_called()

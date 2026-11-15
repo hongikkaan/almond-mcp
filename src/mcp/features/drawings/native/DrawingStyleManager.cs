@@ -36,16 +36,17 @@ namespace RhinoAlmondBridge
             uint undoRecord = 0;
             try
             {
-                var definitions = ValidateDefinitions(request.Layers);
-                foreach (var definition in definitions)
+                var definitions = ValidateDefinitions(request.Layers, doc);
+                // External segments only create missing names; existing document definitions are reused.
+                foreach (var specification in request.Layers)
                 {
-                    var existing = FindExactLinetype(doc, definition.Key);
-                    if (existing != null && !MatchesSegments(existing, definition.Value))
-                        throw PatternConflict(definition.Key);
+                    string name = LinetypeName(specification.Linetype);
+                    if (!string.Equals(name, "Continuous", StringComparison.OrdinalIgnoreCase) &&
+                        FindExactLinetype(doc, name) == null && !definitions.ContainsKey(name))
+                        throw new ArgumentException($"Missing linetype profile segments for {name}.");
                 }
 
-                // Invalid or conflicting definitions fail before layers, linetypes
-                // or an Undo record are changed.
+                // Invalid definitions fail before layers, linetypes or Undo are changed.
                 undoRecord = doc.BeginUndoRecord("Apply Almond drawing style");
                 foreach (var specification in request.Layers)
                 {
@@ -94,7 +95,7 @@ namespace RhinoAlmondBridge
         }
 
         internal static Dictionary<string, List<DrawingLinetypeSegment>> ValidateDefinitions(
-            IReadOnlyList<DrawingLayerSpecification> layers)
+            IReadOnlyList<DrawingLayerSpecification> layers, RhinoDoc doc = null)
         {
             if (layers == null || layers.Count == 0)
                 throw new ArgumentException("Drawing recipe must contain at least one layer.");
@@ -123,7 +124,8 @@ namespace RhinoAlmondBridge
                 }
                 if (!hasStroke)
                     throw new ArgumentException($"Linetype {name} must contain a solid segment.");
-                if (definitions.TryGetValue(name, out var prior) && !SameSegments(prior, segments))
+                if (definitions.TryGetValue(name, out var prior) && !SameSegments(prior, segments) &&
+                    (doc == null || FindExactLinetype(doc, name) == null))
                     throw PatternConflict(name);
                 definitions[name] = segments;
             }
@@ -132,7 +134,12 @@ namespace RhinoAlmondBridge
 
         private static string LinetypeName(string requestedName)
         {
-            return string.IsNullOrWhiteSpace(requestedName) ? "Continuous" : requestedName.Trim();
+            string name = string.IsNullOrWhiteSpace(requestedName) ? "Continuous" : requestedName.Trim();
+            // ByLayer/ByParent are object inheritance choices, not layer patterns.
+            // A layer needs a concrete definition; keep these reserved inputs usable
+            // without creating a custom linetype or requiring profile segments.
+            return string.Equals(name, "ByLayer", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(name, "ByParent", StringComparison.OrdinalIgnoreCase) ? "Continuous" : name;
         }
 
         private static Linetype FindExactLinetype(RhinoDoc doc, string name)
@@ -164,19 +171,6 @@ namespace RhinoAlmondBridge
             return true;
         }
 
-        private static bool MatchesSegments(Linetype existing, IReadOnlyList<DrawingLinetypeSegment> requested)
-        {
-            if (existing.SegmentCount != requested.Count)
-                return false;
-            for (int i = 0; i < requested.Count; i++)
-            {
-                existing.GetSegment(i, out double length, out bool solid);
-                if (!SameSegment(length, solid, requested[i].Length, requested[i].IsSolid.Value))
-                    return false;
-            }
-            return true;
-        }
-
         private static ArgumentException PatternConflict(string name)
         {
             return new ArgumentException($"Linetype {name} has a different segment definition. Use a matching definition or a distinct linetype name.");
@@ -187,31 +181,16 @@ namespace RhinoAlmondBridge
             var existing = FindExactLinetype(doc, name);
             if (existing != null)
             {
-                if (segments != null && !MatchesSegments(existing, segments))
-                    throw PatternConflict(name);
                 return existing.Index;
             }
             if (string.Equals(name, "Continuous", StringComparison.OrdinalIgnoreCase))
                 return -1;
 
             var created = new Linetype { Name = name };
-            if (segments != null)
-            {
-                foreach (var segment in segments)
-                    created.AppendSegment(segment.Length, segment.IsSolid.Value);
-            }
-            else if (name.IndexOf("DashDot", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                created.AppendSegment(8.0, true);
-                created.AppendSegment(3.0, false);
-                created.AppendSegment(1.0, true);
-                created.AppendSegment(3.0, false);
-            }
-            else
-            {
-                created.AppendSegment(6.0, true);
-                created.AppendSegment(3.0, false);
-            }
+            if (segments == null)
+                throw new ArgumentException($"Missing linetype profile segments for {name}.");
+            foreach (var segment in segments)
+                created.AppendSegment(segment.Length, segment.IsSolid.Value);
             int index = doc.Linetypes.Add(created);
             if (index < 0)
                 throw new InvalidOperationException($"Could not create linetype {name}.");

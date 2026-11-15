@@ -147,7 +147,10 @@ def test_defined_capture_public_schema_explains_target_specific_mode_defaults():
     assert properties["display_mode"]["default"] == ""  # Neutral for Layout; resolved by target kind.
     assert "Named View" in tool.description and "Layout" in tool.description
     assert properties["target_kind"]["description"] == "named_view | layout."
-    assert properties["display_mode"]["description"] == "Named View 전용. 기본 Shaded; 설치된 래스터 모드 이름 또는 ID."
+    assert properties["display_mode"]["description"].startswith("Named View 전용. 기본 Shaded.")
+    assert "사용자 정의" in properties["display_mode"]["description"]
+    assert 'sections=["display_modes"]' in tool.description
+    assert "Technical(윤곽·가려진 선)" in tool.description
     assert "Layout은 용지와 Detail의 기존 표시 모드를 사용" in tool.description
     assert "Layout에는 픽셀 크기와 display_mode를 지정할 수 없습니다." in tool.description
     baseline = Path(__file__).resolve().parents[3] / "tests/integration/tool_schemas.json"

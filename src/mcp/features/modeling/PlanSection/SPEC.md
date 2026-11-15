@@ -1,6 +1,6 @@
 # PlanSection — 동작과 구현 명세
 
-PlanSection은 clipping plane으로 **현재 활성 Rhino 문서의 모델**을 잘라 단면선·해치·가시 입면선을 만든다. Worksession의 다른 파일에서 clipping을 가져올 수 있지만, attached 모델의 최상위 객체는 도면에 포함하지 않는다. 숨김·잠금은 모델 입력을 제외하는 조건이 아니다.
+PlanSection은 clipping plane으로 **현재 활성 Rhino 문서의 모델**을 잘라 단면선·해치·가시 입면선을 만든다. Worksession의 다른 파일에서 clipping을 가져올 수 있으며 전용 도구의 include_references=true이면 활성 문서에 로드된 첨부 참조의 최상위 모델 객체도 같은 records·section union·HLD·중복 정리 경로에 포함한다. false(기본)는 기존 활성 문서 모델만 처리한다. 파일별 결과 적층은 하지 않는다. 숨김·잠금은 모델 입력을 제외하는 조건이 아니다. 실제 멀티파일 가림·중복·성능은 연결 모델에서 별도 검증이 필요하다.
 
 이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용한다. 대화형 실행은 IronPython이며 전용 MCP `plan_section`은 Bridge에 embedded된 같은 소스를 Rhino.Runtime.PythonScript의 독립 context로 읽어 `run()`을 호출한다. RhinoCode·StartScriptServer는 필요 없다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
 
@@ -217,11 +217,11 @@ Clipping plane의 CPlane Z가 World Z와 평행하지 않을 때 CPlane을 180°
 
 원본의 숨김·잠금·그룹·참조 소유권·재질은 출력 속성으로 복사하지 않는다. 목적 레이어나 부모가 참조·숨김·잠금이면 Document 출력은 명시적으로 실패한다. Document 출력은 기존 Drawing::Hatch 레이어도 지정 색과 No Print로 갱신하며, Files/PDF에는 동일한 레이어 속성을 적용한다. SectionAttributesSource.FromSectioner는 지원하지 않는다. BoundaryVisible/화면용 BoundaryWidthScale, 재질, viewport별 override를 일반 도면 속성으로 변환하지 않는다.
 
-출력 Name은 모든 기여 원본의 이름이 동일하고 비어 있지 않을 때 그 이름을 보존한다. 하나라도 무명이거나 다른 이름이면 빈 Name으로 둔다. 일반 user text와 UserDictionary는 **기여자 전체에 동일한 key/type/value가 존재하고 안전하게 저장할 수 있는 경우만** 상속한다. 예약 `ps:*`·`draft_plane`·원본 `Floor`와 소유권·그룹·잠금·참조·재질·geometry UserData는 복사하지 않는다. UserDictionary에서 지원하는 값은 유한한 scalar, 문자열 배열, Point3d·Plane·Vector3d·Guid·Color 등 명시적으로 비교 가능한 RhinoCommon 값이며, 그 외의 타입은 자동 보존하지 않는다. 충돌·누락·미지원 값은 `report.metadata_conflicts`에 필드·원본 경로·사유를 남긴다. `metadata_conflict_count`는 전체 고유 충돌 수이고 상세 목록은 앞의 64개까지 반환한다.
+출력 Name은 모든 기여 원본의 이름이 동일하고 비어 있지 않을 때 그 이름을 보존한다. 하나라도 무명이거나 다른 이름이면 빈 Name으로 둔다. 일반 user text와 UserDictionary는 **기여자 전체에 동일한 key/type/value가 존재하고 안전하게 저장할 수 있는 경우만** 상속한다. 예약 `ps:*`·`draft_plane`·원본 `Floor`와 소유권·그룹·잠금·참조·재질·geometry UserData는 복사하지 않는다. UserDictionary에서 지원하는 값은 유한한 scalar, 문자열 배열, Point3d·Plane·Vector3d·Guid·Color 등 명시적으로 비교 가능한 RhinoCommon 값이며, 그 외의 타입은 자동 보존하지 않는다. 충돌·누락·미지원 값은 `report.metadata_conflicts`에 필드·원본 경로·사유를 남긴다. `metadata_conflict_count`는 전체 고유 충돌 수이고 상세 목록은 앞의 64개까지 반환한다. 이 표본은 예산 내에서는 보존하고, 선택적 상세 때문에 전달 예산을 넘을 때만 metadata_conflicts_truncated=true와 metadata_conflicts_omitted_count(생략한 표본 수)로 축약을 명시한다. 전체 metadata_conflict_count와 기본 생성 조건은 보존한다.
 
 SectionStyle이 같은 단면 원본은 기존처럼 union하며, 입면은 동일 적용 속성끼리 join한다. 열린 단면선은 해당 입력 원본만 기여자로 기록한다. 닫힌 단면 union의 각 결과 영역은 원본 영역과의 실제 planar intersection에서 양의 면적이 확인되는 원본만 기여자로 연결하며, bbox/RTree는 후보를 줄이는 용도로만 사용한다. 해치는 채움이 허용된 원본 영역과 별도로 대응시켜 채움에서 제외된 원본을 기여자로 섞지 않는다. 기여자 판정이 실패하면 새 출력을 적용하지 않고 오류를 반환한다. 겹침 제거·Join에서는 합쳐진 원본을 추가로 기록한다. 결과 곡선만 보고 어느 단일 객체에서 왔다고 임의 추정하지 않는다.
 
-새 출력은 모든 역할의 UserDictionary `Floor`를 **clipping 이름**으로 기록한다. 원본 단일·다층 Floor는 수정하지 않는다. 로컬 clipping의 `draft_plane`은 typed Plane, 출력의 `ps:placement`는 typed Point3d로 UserDictionary에 저장하며, 기존 호출부용 JSON user text도 함께 동기화한다. 생성 출력의 user text는 `ps:source_layer`, `ps:placement`, 모든 기여자에 공통인 일반 user text만 남긴다. 내부 `ps:sources`·`ps:role`·`ps:style`·`ps:depth`·`ps:inherited_keys`는 출력에서 제거한다. Move는 이미 출력된 Name/Floor·일반 user text·수동 편집을 보존하고 배치 Point3d와 JSON만 갱신한다. 오래된 도면에 빠진 속성을 자동 보충하지 않는다.
+새 출력은 모든 역할의 UserDictionary `Floor`를 **clipping 이름**으로 기록한다. 원본 단일·다층 Floor는 수정하지 않는다. 로컬 clipping의 `draft_plane`은 typed Plane, 출력의 `ps:placement`는 typed Point3d로 UserDictionary에 저장하며, 기존 호출부용 JSON user text도 함께 동기화한다. 생성 출력의 user text는 생성기 예약키 `ps:generator`, `ps:clip`, `ps:metadata_snapshot`, `ps:source_layer`, `ps:placement`, 모든 기여자에 공통인 일반 user text만 남긴다. 내부 `ps:sources`·`ps:role`·`ps:style`·`ps:depth`·`ps:inherited_keys`는 출력에서 제거한다. Move는 이미 출력된 Name/Floor·일반 user text·수동 편집을 보존하고 배치 Point3d와 JSON만 갱신한다. 오래된 도면에 빠진 속성을 자동 보충하지 않는다.
 
 소유 정보는 로컬 `Drawing` 루트 레이어의 `ps:clip:<clipping GUID>`에 출력 GUID 목록으로 저장한다. `drawing_objects`는 이 목록과 이전 버전 generator/clip 태그로 **해당 clipping의 로컬 출력만** 찾는다. 참조 도면은 이동·교체하지 않는다.
 
@@ -230,9 +230,9 @@ SectionStyle이 같은 단면 원본은 기존처럼 union하며, 입면은 동�
 1. 기존 모델뷰가 없으면 문서 출력을 시작하기 전에 실패한다. 형상 계산·배치 검증 후 기존 모델뷰를 임시 활성화하고 새 객체에 ModelSpace·ViewportId=Guid.Empty를 강제한다. Add 직후 실제 귀속을 검사하고 원래 Layout·Detail을 복원한다. 복원 실패도 이전 객체를 삭제하기 전에 처리한다.
 2. 필요한 로컬 draft_plane과 Drawing 레이어의 소유 목록을 갱신한다.
 3. 이전 출력 객체를 삭제한다.
-4. 중간 실패는 삭제한 이전 객체를 Undelete하고 새 객체를 제거하며 metadata를 복원한다. 복구가 불완전하면 오류에 그 사실과 Undo 필요를 명시한다.
+4. 중간 실패는 삭제한 이전 객체를 Undelete하고 새 객체를 제거하며 metadata를 복원한다. 복구가 불완전하면 명시적 MutationUncertain으로 해당 item과 전체 mutation_state=unknown, requires_reconciliation=true를 전달하고 뒤의 clipping을 중단한다. native·MCP도 이 신호를 유지하며 자동 재실행이나 새키 생성 대신 현재 출력 확인을 안내한다.
 
-Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 기존 ObjectAttributes 전체를 보존하면서 배치 정보만 갱신한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 Undo 필요 오류를 보고한다. Drawing 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다.
+Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 기존 ObjectAttributes 전체를 보존하면서 배치 정보만 갱신한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 MutationUncertain과 구조화된 unknown/requires_reconciliation을 보고하고 후속 clipping을 중단한다. Drawing 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다.
 
 PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. 전용 Bridge 도구의 ScriptExecutor 또는 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 빈 정상 계산 결과는 Document/Update에서 기존 해당 도면을 빈 결과로 교체할 수 있으며 빈 결과 자체가 항상 오류인 것은 아니다.
 
@@ -375,4 +375,10 @@ $env:PLANSECTION_CASES = '3F,4F,Sec-D,Sec-C,Sec-B,Sec-A'
 
 ### 전용 도구 결과 전달 경계
 
-전용 도구는 작은 결과를 직접 반환하고 큰 결과는 `result_delivery=paged`, `result_id`, `result_sha256`, 처리 수를 반환한다. `get_plan_section_result(result_id, offset=0)`부터 `next_offset`이 null일 때까지 `json_chunk`를 순서대로 연결해 원래 JSON을 회수한다. offset은 UTF-16 단위이며 반환값을 그대로 사용한다. 페이지는 최대 4096 UTF-16 단위로 서로게이트 쌍을 자르지 않으며, SHA256은 원래 UTF-8 JSON 기준이다. 조회는 도면을 재생성하거나 Undo를 시작하지 않는다. 보관은 Bridge 프로세스·동일 문서 인스턴스 내 최대 1시간, 최근 8개·총 64 MiB(UTF-16) 범위로 오래된 결과부터 제거된다. 즉시 회수하고 필요한 경우 작업 산출물에 보존한다. 단일 결과가 보관 한도보다 크면 명시적인 미확인 오류로 남긴다. 만료·재시작·전달 실패를 rollback으로 간주하거나 자동 재생성하지 않는다. 공통 64 KiB·16-container 제한은 유지한다. metadata_conflicts의 기존 64개 표본과 전체 count도 유지한다. native runtime_error는 native_status에 보존하고 외부 status=error/MCP isError=true로 전달하며 partial/cancelled는 구조화된 미완료 결과다.
+전용 도구는 clipping별 이름·GUID·실제 생성 조건과 출력 객체 수를 직접 반환한다. 입력 대상 객체 ID와 출력 객체 ID를 나열하지 않는다. `generation_conditions`에는 clipping/drawing plane의 origin/xaxis/yaxis, depth, 실제 적용 source_layer_names·source_object_count와 숨김·잠금 객체 포함 사실, 첨부 참조 선택값 및 실제 참조 객체 포함 사실이 들어간다. Move는 재추출하지 않으므로 generation_conditions=null이고 이동 후 placement를 반환한다. 숨김·잠금 값은 레이어 가시성 선택 옵션이 아니라 실제 수집한 객체 상태이며 블록 상위 객체의 상태를 포함한다.
+
+`request_id`는 호출 전에 정한 UUID다. 지정하면 모델 폴더의 `.almond/plan-section-requests/<UUID>.json`에 원자적으로 pending 기록을 만든 뒤 실행하고 최종 응답을 기록한다. 같은 키·동일 입력 재호출은 저장된 응답만 반환하므로 응답 전체 유실과 Bridge 재시작 이후에도 자동 중복 실행을 막는다. 이 기록은 현재 형상 재관찰이나 모델 저장 증거가 아니다. journal에 프로세스 PID·시작시각과 문서 serial을 기록하며 다른 실행/문서 인스턴스의 replay는 historical_response=true, current_output_confirmed=false, requires_reconciliation=true이다. 저장되지 않은 과거 출력이 현재 문서에 없을 수 있으므로 현재 도면을 확인한다. 같은 키·다른 입력은 거부하며 미완료/읽기 불가 기록은 unknown으로 차단한다. 외부 연결 native 완료 fence가 pending인 동안 전송 자체가 차단될 수 있으므로 fence 해제·회복 이후 같은 키로 호출한다. 과거 인스턴스 응답은 공개 dispatch에서 status=error/plan_section_historical_response, mutation_state=unknown으로 전달하고 과거 상태를 historical_drawing_status·recorded_mutation_state로 분리한다. 다른 위치로 이동·복제한 모델은 별도 경로이므로 이 복구 범위에 포함되지 않는다. 생략한 키, 사용자가 기록을 삭제한 경우에는 영속 복구를 보장하지 않는다.
+
+도면 불완전(partial/cancelled/실패 clipping)과 응답상세 전달 부족은 구분된다. rollback 복구 실패의 mutation_state=unknown/requires_reconciliation은 상태 요약보다 우선하며 현재 출력·실행 상태를 확인하기 전 자동 재실행하거나 새키로 생성·갱신하지 않는다. 일반 불완전한 clipping은 원인을 확인한 뒤 새 request_id로 Create/Update한다. 필수 요약은 모든 clipping의 실제 입력 조건을 모델변경 전에 사전 계산하여 ASCII escape까지 포함한 32,000 UTF-8 바이트 예산으로 검사한다. 초과나 사전 조회 실패는 status=error, mutation_state=not_started와 plan_section_response_budget 또는 plan_section_preflight_failed로 거부하며 생성·이동을 시작하지 않는다. 같은 cache를 계산에 재사용하고 해제하며 bake 직전 실제 조건이 사전 조건과 같고 예산 내인지 다시 확인한다. 필수 조건은 native의 48,000 바이트 전달 예산과 완료 journal에 보존하고, 예산 초과 시 선택적 충돌 상세·진단부터 명시적으로 축약한다. 별도 결과 조회 도구와 paged 영수증은 제공하지 않는다. 공통 64 KiB·16-container 제한은 유지한다. native runtime_error는 native_status와 진단을 보존한다.
+
+신규 출력의 ps:generator/ps:clip과 ps:placement는 생성기가 소유하는 식별·배치 정보다. ps:metadata_snapshot은 생성 시 Name·사용자 텍스트·typed dictionary 비교값이며 다음 교체 전 사용자 수정 여부를 검출한다. 사용자 변경이 있거나 비교기록 없는 legacy 출력에 사용자 정보가 있으면 임의 대응을 추측하거나 삭제하지 않고 기존 도면을 보존한 채 실패한다. 단, legacy Name·일반 user text가 없고 UserDictionary가 오직 문자열 Floor이며 이번 생성기의 clipping 이름과 값·타입이 정확히 같으면 새 출력도 같은 값을 쓰므로 무손실 교체를 허용한다. 다른 필드·타입·값은 이 예외에 포함하지 않는다. Move는 기존 ID·Name·사용자 정보를 유지한다. invalid 원본 형상도 bake 전에 실패하여 기존 유효 출력을 보존한다.

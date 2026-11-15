@@ -195,7 +195,7 @@ class PlacementHeight(unittest.TestCase):
                 after.Transform.return_value = True
                 geo = Mock()
                 geo.Duplicate.side_effect = [before,after]
-                attrs = Attributes({'ps:placement':'old','ps:source_layer':'Model'})
+                attrs = Attributes({'ps:placement':'old','ps:source_layer':'Model','UserNote':'preserve'}, name='Manual label', dictionary={'Floor':'USER'})
                 obj = NS(Id='drawing',Geometry=geo,Attributes=attrs)
                 doc = NS(Objects=NS(Replace=Mock(return_value=True),
                     FindId=Mock(return_value=obj),ModifyAttributes=Mock(return_value=True)))
@@ -216,6 +216,9 @@ class PlacementHeight(unittest.TestCase):
                                  ['drawing'] if reference else ['drawing','clip'])
                 self.assertEqual(changes[0].args[1].GetUserString('ps:placement'),'new-height')
                 self.assertEqual(changes[0].args[1].GetUserString('ps:source_layer'),'Model')
+                self.assertEqual(changes[0].args[1].GetUserString('UserNote'),'preserve')
+                self.assertEqual(changes[0].args[1].Name,'Manual label')
+                self.assertEqual(changes[0].args[1].UserDictionary['Floor'],'USER')
                 self.assertEqual(cp.Attributes.GetUserString('draft_plane'),'original')
                 registry.assert_called_once()
                 before.Dispose.assert_called_once()
@@ -260,9 +263,11 @@ class SourceScope(unittest.TestCase):
         instance = Instance()
         instance.Id,instance.Attributes,instance.IsReference = 'active-block',Attributes(),False
         instance.InstanceXform = Transform()
-        instance.InstanceDefinition = NS(Id='definition',GetObjects=lambda:[leaf('member',True)])
+        member = leaf('member',True)
+        member.IsHidden = member.IsLocked = False
+        instance.IsHidden = instance.IsLocked = True
+        instance.InstanceDefinition = NS(Id='definition',GetObjects=lambda:[member])
         active, foreign = leaf('active'), leaf('attached',True)
-        foreign.Geometry = None  # Reference exclusion must happen before geometry access.
         unused = type('UnusedGeometry',(),{})
         geo = NS(Brep=Brep,Surface=unused,Extrusion=unused,SubD=unused,Mesh=unused,
                  ClippingPlaneSurface=unused,Transform=NS(Identity=Transform()))
@@ -272,7 +277,11 @@ class SourceScope(unittest.TestCase):
              patch.object(ps,'objects',return_value=[active,foreign,instance]), \
              patch.object(ps,'resolved_attributes',return_value='style'):
             result = ps.model_objects(NS(ModelAbsoluteTolerance=.01),clip,{})
+            included = ps.model_objects(NS(ModelAbsoluteTolerance=.01),clip,{}, include_references=True)
+        self.assertEqual([r['source'] for r in included],['active','attached','active-block/member'])
         self.assertEqual([r['source'] for r in result],['active','active-block/member'])
+        self.assertTrue(included[1]['reference'] and included[1]['hidden'] and included[1]['locked'])
+        self.assertTrue(result[1]['hidden'] and result[1]['locked'])  # Parent instance state propagates to its visible/unlocked member.
         self.assertIsNot(result[0]['geometry'],active.Geometry)
 
 
@@ -537,7 +546,7 @@ class GeneratedOwnership(unittest.TestCase):
     def generate_with(self, section_items, deduplicated=None, cleaned=None, model_cache=None):
         source = NS(Dispose=Mock())
         records = [dict(geometry=source,attributes=Attributes(),resolved=Attributes())]
-        replacements = dict(read_clip=Mock(return_value=dict(plane='cut',depth=None,target='target')),
+        replacements = dict(generation_conditions=Mock(return_value={}), read_clip=Mock(return_value=dict(plane='cut',depth=None,target='target')),
             model_objects=Mock(return_value=records),sections=Mock(return_value=section_items),
             elevations=Mock(return_value=[]),section_tolerance=Mock(return_value=.01),
             deduplicate=Mock(side_effect=lambda items,*args: items if deduplicated is None else deduplicated),
@@ -573,6 +582,7 @@ class GeneratedOwnership(unittest.TestCase):
             def progress(stage):
                 if stage=='elevation': raise RuntimeError('Cancelled after sections')
             with self.subTest(cached=model_cache is not None), \
+                 patch.object(ps,'generation_conditions',return_value={}), \
                  patch.object(ps,'read_clip',return_value=dict(plane='cut',depth=None,target='target')), \
                  patch.object(ps,'model_objects',return_value=records), \
                  patch.object(ps,'sections',return_value=[item]), \

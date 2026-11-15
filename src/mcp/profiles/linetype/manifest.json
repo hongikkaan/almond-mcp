@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "linetypes": [
+    {
+      "name": "ALMOND Hidden",
+      "segments": [
+        {
+          "length": 6,
+          "is_solid": true
+        },
+        {
+          "length": 3,
+          "is_solid": false
+        }
+      ]
+    },
+    {
+      "name": "ALMOND DashDot",
+      "segments": [
+        {
+          "length": 8,
+          "is_solid": true
+        },
+        {
+          "length": 3,
+          "is_solid": false
+        },
+        {
+          "length": 1,
+          "is_solid": true
+        },
+        {
+          "length": 3,
+          "is_solid": false
+        }
+      ]
+    },
+    {
+      "name": "ALMOND A4 Hidden",
+      "segments": [
+        {
+          "length": 3,
+          "is_solid": true
+        },
+        {
+          "length": 1.5,
+          "is_solid": false
+        }
+      ]
+    },
+    {
+      "name": "ALMOND A4 DashDot",
+      "segments": [
+        {
+          "length": 6,
+          "is_solid": true
+        },
+        {
+          "length": 1.5,
+          "is_solid": false
+        },
+        {
+          "length": 0.5,
+          "is_solid": true
+        },
+        {
+          "length": 1.5,
+          "is_solid": false
+        }
+      ]
+    }
+  ],
+  "legacy_name_rules": [
+    {
+      "contains": "DashDot",
+      "segments": [
+        {
+          "length": 8,
+          "is_solid": true
+        },
+        {
+          "length": 3,
+          "is_solid": false
+        },
+        {
+          "length": 1,
+          "is_solid": true
+        },
+        {
+          "length": 3,
+          "is_solid": false
+        }
+      ]
+    }
+  ],
+  "legacy_default_segments": [
+    {
+      "length": 6,
+      "is_solid": true
+    },
+    {
+      "length": 3,
+      "is_solid": false
+    }
+  ]
+}

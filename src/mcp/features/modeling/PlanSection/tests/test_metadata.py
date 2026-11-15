@@ -176,7 +176,8 @@ class SourceMetadata(unittest.TestCase):
         original = NS(Dispose=Mock())
         records = [{'geometry':original, 'attributes':first, 'resolved':Attributes()}]
         clip = NS(Id='clip', Name='6F')
-        with patch.object(ps,'read_clip',return_value=dict(plane='cut',depth=None,target='target')), \
+        with patch.object(ps,'generation_conditions',return_value={}), \
+             patch.object(ps,'read_clip',return_value=dict(plane='cut',depth=None,target='target')), \
              patch.object(ps,'model_objects',return_value=records), \
              patch.object(ps,'sections',return_value=[item]), \
              patch.object(ps,'section_tolerance',return_value=.01), \
@@ -189,7 +190,7 @@ class SourceMetadata(unittest.TestCase):
         self.assertEqual(attrs.UserDictionary['Class'],'Wall')
         self.assertEqual(attrs.GetUserString('Phase'),'A')
         self.assertIsNone(attrs.GetUserString('ps:inherited_keys'))
-        self.assertIsNone(attrs.GetUserString('ps:clip'))
+        self.assertEqual(attrs.GetUserString('ps:clip'), 'clip')
         self.assertEqual(generated['report']['metadata_conflict_count'],0)
         self.assertEqual(first.UserDictionary['Floor'],['5F','6F'])
         self.assertEqual(second.UserDictionary['Floor'],['7F'])
@@ -201,7 +202,8 @@ class SourceMetadata(unittest.TestCase):
         item = dict(geometry=NS(Dispose=Mock()),attributes=Attributes(),role='elevation',
                     contributors={'block/left':left, 'block/right':right})
         records = [dict(geometry=NS(Dispose=Mock()),attributes=Attributes(),resolved=Attributes())]
-        with patch.object(ps,'read_clip',return_value=dict(plane='cut',depth=None,target='target')), \
+        with patch.object(ps,'generation_conditions',return_value={}), \
+             patch.object(ps,'read_clip',return_value=dict(plane='cut',depth=None,target='target')), \
              patch.object(ps,'model_objects',return_value=records), \
              patch.object(ps,'sections',return_value=[item]), \
              patch.object(ps,'section_tolerance',return_value=.01), \

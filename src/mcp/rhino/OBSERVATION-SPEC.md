@@ -39,7 +39,9 @@ sections를 생략하면 document/named_views/layouts/display_modes와 next_step
 
 Layout은 실제 용지와 Detail을 인쇄 색·선 두께로 캡처하고 주변 작업창을 포함하지 않는다. 100%는 용지를 144 dpi로 표현한 크기다. 호출자는 픽셀이나 용지 비율을 계산하지 않는다. Layout의 표시 모드·픽셀 강제 지정은 거절하며 Detail 축척과 문서 PrintDisplay를 바꾸지 않는다. scale_percent는 기본 75의 상한이며 정의된 뷰가 PNG 전달 한도를 넘으면 비율을 줄이고 경고한다. 명시한 Named View 픽셀은 자동 축소하지 않는다.
 
-`capture_03-current_view tool()`는 현재 모델 viewport를 그대로 캡처한다. target_ids를 지정하면 실제 선택을 그 대상으로 바꾸고 Zoom Selected를 적용한다. isolate=true는 그 전에 Rhino 기본 Isolate를 실행한다. 실제 화면의 카메라·선택·격리는 캡처 후 유지되며 Unisolate로 native 격리를 해제한다. 잠긴 주변 객체는 Rhino Isolate의 기존 동작대로 남을 수 있다. optional display_mode도 실제 viewport에 적용한다. Layout에서 호출하면 모델 viewport 활성화 또는 정의된 Layout 캡처를 안내한다.
+`capture_03-current_view` tool은 현재 모델 viewport의 일반 표시를 독립 렌더하며 문서 PrintDisplay 설정을 조회하거나 바꾸지 않는다. target_ids를 지정하면 실제 선택을 그 대상으로 바꾸고 Zoom Selected를 적용한다. isolate=true는 그 전에 Rhino 기본 Isolate를 실행한다. 실제 화면의 카메라·선택·격리는 캡처 후 유지되며 Unisolate로 native 격리를 해제한다. 잠긴 주변 객체는 Rhino Isolate의 기존 동작대로 남을 수 있다. optional display_mode도 실제 viewport에 적용한다. Layout에서 호출하면 모델 viewport 활성화 또는 정의된 Layout 캡처를 안내한다.
+
+현재 뷰·Named View와 conditioning RGB/edge는 전체 뷰 정보를 독립 viewport에 전달한다. 새 viewport의 ID를 유지하고 clipping 참조·단면 표시 설정의 수용을 확인하지 못하면 이미지를 반환하지 않는다. 실시간 렌더 모드는 지원하지 않는다. inspection은 기존 독립 범위 렌더를 유지하며 원본 뷰의 clipping 적용 대상 설정을 복사하지 않는다. Layout 용지는 별도 인쇄 경로를 유지한다.
 
 대상은 여러 ID를 받는다. target_kind는 ID의 종류(object/group/block/holon)를 뜻하며 geometry 허용 목록이 아니다. object와 block 경로는 같은 일반 Rhino 객체 식별을 사용하므로 curve/mesh/Brep/block/annotation을 따로 분기하지 않는다. group은 현재 멤버, holon은 현재 effective 멤버를 해석한다. 실제 선택·격리·확대는 기존 Holon focus와 공통 함수를 사용한다. 현재 선택 가능한 model-space 객체와 4096개 focus 한도, 명령·Undo 전환 보호를 유지한다. 숨김·잠금·Layout 객체·블록 정의 내부의 ID는 자동으로 수정하거나 잘못된 위치에서 선택하지 않는다.
 

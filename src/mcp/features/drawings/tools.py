@@ -2,6 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.drawings.output import GROUPS, project
+from almond_mcp.features.drawings.linetypes import style_layers
 from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
@@ -48,7 +49,11 @@ def register(mcp, context):
     def list_drawing_recipes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
         recipes = []
-        for recipe_id, recipe in sorted(context.drawing_recipe_indexer.recipes.items()):
+        try:
+            snapshot = context.drawing_recipe_indexer.refresh()
+        except ValueError as exc:
+            return json.dumps(error_payload(str(exc)))
+        for recipe_id, recipe in sorted(snapshot.items()):
             recipes.append({
                 "recipe_id": recipe_id,
                 "name": recipe.get("name"),
@@ -56,7 +61,13 @@ def register(mcp, context):
                 "projection": recipe.get("projection", {}).get("type"),
                 "recommended_scales": recipe.get("recommended_scales", []),
             })
-        return json.dumps(project({"total": len(recipes), "recipes": recipes}, field_groups))
+        return json.dumps(project({"total": len(recipes), "recipes": recipes,
+            "next_step_guide": (
+                "drawing_05-list_recipes tool(include_ids=true)에서 선택한 recipe_id로 "
+                "drawing_02-get_recipe tool을 조회한 뒤, 같은 recipe_id를 "
+                "drawing_01-apply_style tool에 입력해 문서의 레이어 스타일을 적용합니다."
+            ) if recipes else "사용할 레시피 JSON을 현재 레시피 폴더에 준비한 뒤 drawing_05-list_recipes tool로 다시 조회합니다.",
+        }, field_groups))
 
 
     @mcp.tool(name='drawing_02-get_recipe', output_schema=public_output_schema('get_drawing_recipe', wrapped=True))
@@ -64,19 +75,30 @@ def register(mcp, context):
     @query_output
     def get_drawing_recipe(recipe_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
-        recipe = context.drawing_recipe_indexer.get(recipe_id)
+        try:
+            recipe = context.drawing_recipe_indexer.get(recipe_id)
+        except ValueError as exc:
+            return json.dumps(error_payload(str(exc)))
         if not recipe:
             return json.dumps(project(error_payload(f"Unknown drawing recipe_id: {recipe_id}"), field_groups))
         return json.dumps(project({
             "status": "success",
             "recipe": context.drawing_recipe_indexer.public_record(recipe),
+            "next_step_guide": (
+                "조회에 사용한 recipe_id를 drawing_01-apply_style tool에 입력해 "
+                "문서의 레이어 스타일을 적용합니다. 조회만으로는 스타일이 적용되지 않습니다."
+            ),
         }, field_groups))
 
 
     @mcp.tool(name='drawing_01-apply_style', output_schema=public_output_schema('apply_drawing_style', wrapped=True))
     @tool_instruction(__file__, 'apply_drawing_style')
     def apply_drawing_style(recipe_id: str = "technical_axon_v1") -> str:
-        recipe = context.drawing_recipe_indexer.get(recipe_id)
+        try:
+            recipe = context.drawing_recipe_indexer.get(recipe_id)
+            layers = style_layers(recipe) if recipe else None
+        except (ValueError, KeyError, TypeError, OSError) as exc:
+            return json.dumps(error_payload(f"Drawing style preparation failed: {exc}"))
         if not recipe:
             return json.dumps(error_payload(f"Unknown drawing recipe_id: {recipe_id}"))
         preparation = recipe.get("review_preparation")
@@ -85,7 +107,7 @@ def register(mcp, context):
         payload = json.dumps({
             "type": "apply_drawing_style",
             "recipe_id": recipe_id,
-            "layers": recipe.get("layers", []),
+            "layers": layers,
         }).encode("utf-8")
         try:
             response = context._send_and_receive(payload, timeout=60.0)

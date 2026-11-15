@@ -19,6 +19,15 @@ SECTION_LAYER = 'Drawing::Section'
 HATCH_LAYER = 'Drawing::Hatch'
 ELEVATION_LAYER = 'Drawing::Elevation'
 OWNER = 'PlanSection/2'
+
+
+class MutationUncertain(RuntimeError):
+    """A document rollback failed; reconcile before another mutation."""
+    def __init__(self, message, rollback_errors):
+        RuntimeError.__init__(self, message)
+        self.rollback_errors = list(rollback_errors)
+
+
 try:
     STRING_TYPES = (basestring,)
 except NameError:
@@ -417,12 +426,15 @@ def world_geometry(original, transform):
         raise
 
 
-def model_objects(doc, clip, issues, model_cache=None):
+def model_objects(doc, clip, issues, model_cache=None, include_references=False):
     """Return fresh provenance/styles with owned or command-cache world geometry."""
     if model_cache is not None: model_cache.check(doc)
     records = []
 
-    def walk(obj, transform, matrix, path, inherited, definitions, parents):
+    def walk(obj, transform, matrix, path, inherited, definitions, parents, hidden=False, locked=False, reference=False):
+        hidden = hidden or bool(getattr(obj, "IsHidden", False))
+        locked = locked or bool(getattr(obj, "IsLocked", False))
+        reference = reference or bool(getattr(obj, "IsReference", False))
         if obj.Attributes.GetUserString('ps:generator') == OWNER:
             return
         match = inherited or obj.Id in clip['ids'] or obj.Attributes.LayerIndex in clip['layers']
@@ -438,7 +450,7 @@ def model_objects(doc, clip, issues, model_cache=None):
             child_definitions, child_parents = definitions+[idef.Id], parents+[obj.Attributes]
             for child in idef.GetObjects():
                 walk(child, child_transform, child_matrix, child_path, match,
-                     child_definitions, child_parents)
+                     child_definitions, child_parents, hidden, locked, reference)
             return
         if clip['enabled'] and not clip['exclude'] and not match:
             return
@@ -466,7 +478,7 @@ def model_objects(doc, clip, issues, model_cache=None):
         if geo is None:
             issues['invalid'] = issues.get('invalid', 0)+1
             return
-        record = dict(geometry=geo, source=source)
+        record = dict(geometry=geo, source=source, hidden=hidden, locked=locked, reference=reference)
         records.append(record)  # Own the copy even if attribute resolution fails.
         if model_cache is not None:
             if 'bounds' not in entry: entry['bounds'] = geo.GetBoundingBox(True)
@@ -479,7 +491,7 @@ def model_objects(doc, clip, issues, model_cache=None):
         identity = G.Transform.Identity
         matrix = transform_values(identity) if model_cache is not None else None
         for obj in objects(doc):
-            if obj.IsReference: continue
+            if obj.IsReference and not include_references: continue
             # Unlisted instances can contain explicitly included nested members.
             walk(obj, identity, matrix, [], False, [], [])
         return records
@@ -1163,17 +1175,35 @@ def cleanup_elevations(doc, items, plane=G.Plane.WorldXY, small_details=True):
         tree.Dispose()
 
 
+def generation_conditions(doc, clip, records, include_references):
+    """Actual post-participation/depth inputs, not saved clipping membership lists."""
+    return dict(
+        clipping_plane=json.loads(plane_json(clip['plane'])),
+        drawing_plane=json.loads(plane_json(placement_plane(clip['plane'], clip['target'].Origin))),
+        depth=clip['depth'],
+        include_references=include_references,
+        reference_objects_included=any(record.get('reference', False) for record in records),
+        hidden_objects_included=any(record.get('hidden', False) for record in records),
+        locked_objects_included=any(record.get('locked', False) for record in records),
+        source_object_count=len(set(record['source'] for record in records)),
+        source_layer_names=sorted(set(doc.Layers[record['attributes'].LayerIndex].FullPath for record in records)),
+        participation_applied=clip['enabled'])
+
+
 def generate(doc, cp, hatch=True, elevation=True, target=None,
              near_width=.09, far_width=.04, near_dark=80., far_dark=45., progress=None, place=True,
-             small_details=True, profile=None, model_cache=None):
+             small_details=True, profile=None, model_cache=None, include_references=False):
     validate_options(near_width, far_width, near_dark, far_dark)
     clip = read_clip(doc, cp, target)
     clip['elevation'] = elevation
     issues = {}
     if progress: progress('parse')
-    records = model_objects(doc, clip, issues, model_cache)
+    records = model_objects(doc, clip, issues, model_cache, include_references)
     items = []
     try:
+        if issues.get('invalid'):
+            raise ValueError('Invalid source geometry makes this drawing incomplete; previous valid output retained. Repair the source and generate or update again.')
+        conditions = generation_conditions(doc, clip, records, include_references)
         fallbacks = sorted(set((doc.Layers[r['attributes'].LayerIndex].FullPath,
                                 r['resolved'].GetUserString('ps:hatch_fallback')) for r in records
                                if r['resolved'].GetUserString('ps:hatch_fallback')))
@@ -1211,7 +1241,7 @@ def generate(doc, cp, hatch=True, elevation=True, target=None,
                       elevation=sum(i['role']=='elevation' for i in items),
                       metadata_conflict_count=len(conflicts),
                       metadata_conflicts=[conflicts[key] for key in sorted(conflicts)][:64])
-        drawing = dict(objects=items, report=report)
+        drawing = dict(objects=items, report=report, generation_conditions=conditions)
         items = []  # The caller now owns the final drawing geometry.
         return drawing
     finally:
@@ -1255,7 +1285,7 @@ def saved_placement(cp, existing):
 
 def output_attributes(original, role=None):
     attrs = original.Duplicate()
-    selected = ['ps:source_layer', 'ps:placement']
+    selected = ['ps:generator', 'ps:clip', 'ps:source_layer', 'ps:placement']
     inherited = attrs.GetUserString('ps:inherited_keys')
     if inherited:
         selected.extend(json.loads(inherited))
@@ -1273,6 +1303,43 @@ def output_attributes(original, role=None):
     for key, value in values:
         if value is not None: attrs.SetUserString(key, value)
     return attrs
+
+
+def output_metadata_snapshot(attributes):
+    """Only user-editable values; generator identity and placement have separate owners."""
+    result = dict(name=attributes.Name or '', user_text={}, dictionary={})
+    strings = getattr(attributes, 'GetUserStrings', lambda: None)()
+    for key in strings.AllKeys if strings is not None else ():
+        if key and not key.startswith('ps:') and key != 'draft_plane':
+            result['user_text'][key] = attributes.GetUserString(key)
+    dictionary = getattr(attributes, 'UserDictionary', None)
+    if dictionary is not None:
+        for key in dictionary.Keys:
+            if key and not key.startswith('ps:') and key != 'draft_plane':
+                signature = _signature(dictionary[key])
+                if signature is None:
+                    raise ValueError('Existing output has unsupported user metadata; preserve it before replacing: '+key)
+                result['dictionary'][key] = signature
+    # Normalize tuples to the exact representation stored in JSON.
+    return json.loads(json.dumps(result, sort_keys=True))
+
+
+def protect_existing_output(existing, generated_floor=None):
+    """Never discard edits on generated output or guess a source-to-output mapping."""
+    for obj in existing:
+        current = output_metadata_snapshot(obj.Attributes)
+        baseline = obj.Attributes.GetUserString('ps:metadata_snapshot')
+        if baseline:
+            try: expected = json.loads(baseline)
+            except (ValueError, TypeError):
+                raise ValueError('Drawing metadata snapshot is invalid; previous output retained')
+            if expected != current:
+                raise ValueError('Generated drawing has user-edited Name or metadata; previous output retained. Preserve those edits before Create/Update; Move keeps them unchanged.')
+        elif (generated_floor is not None and not current['name'] and not current['user_text']
+              and current['dictionary'] == {'Floor': ['string', generated_floor]}):
+            continue  # The new algorithm writes this exact value/type on every output.
+        elif current['name'] or current['user_text'] or current['dictionary']:
+            raise ValueError('Legacy drawing metadata has no comparison baseline; previous output retained. Review and preserve its user information before Create/Update; Move is available.')
 
 
 def save_drawing_registry(doc, cp, value):
@@ -1336,6 +1403,7 @@ def bake(doc, cp, drawing, target=None):
     if not model_views:
         raise ValueError('An existing model viewport is required for drawing output')
     old = drawing_objects(doc, cp)
+    protect_existing_output(old, cp.Name or '')
     layers = {role: local_output_layer(doc, output_layer(role))
               for role in set(i['role'] for i in drawing['objects'])}
     if 'hatch' in layers:
@@ -1353,6 +1421,8 @@ def bake(doc, cp, drawing, target=None):
         with model_output_view(doc, model_views[0]):
             for item in drawing['objects']:
                 attrs = output_attributes(item['attributes'], item['role'])
+                if attrs.SetUserString('ps:metadata_snapshot', json.dumps(output_metadata_snapshot(attrs), sort_keys=True)) is False:
+                    raise ValueError('Cannot save generated metadata baseline')
                 attrs.LayerIndex = layers[item['role']]
                 attrs.Space = D.ActiveSpace.ModelSpace
                 attrs.ViewportId = System.Guid.Empty
@@ -1423,8 +1493,8 @@ def bake(doc, cp, drawing, target=None):
             except Exception as failure:
                 rollback_errors.append(str(failure))
         if rollback_errors:
-            raise ValueError('Output failed ({0}) and rollback was incomplete; use Undo: {1}'.format(
-                error, '; '.join(rollback_errors)))
+            raise MutationUncertain('Output failed ({0}) and rollback was incomplete; inspect the document before continuing: {1}'.format(
+                error, '; '.join(rollback_errors)), rollback_errors)
         raise
 
 
@@ -1518,13 +1588,28 @@ def reposition_drawing(doc, cp, target=None):
             if not doc.Objects.ModifyAttributes(cp.Id, attrs, True): raise ValueError('Cannot save draft_plane')
         save_drawing_registry(doc, cp, json.dumps([str(o.Id) for o in existing]))
         return True
-    except Exception:
-        restored = []
+    except Exception as error:
+        rollback_errors = []
         for guid, geo, attrs in reversed(changed):
-            replaced = doc.Objects.Replace(guid, geo, True)
-            restored.append(doc.Objects.ModifyAttributes(guid, attrs, True) and replaced)
-        if not cp.IsReference: restored.append(doc.Objects.ModifyAttributes(cp.Id, original_cp, True))
-        if not all(restored): raise ValueError('Move failed and rollback was incomplete; use Undo')
+            try:
+                if not doc.Objects.Replace(guid, geo, True):
+                    rollback_errors.append('cannot restore moved geometry '+str(guid))
+            except Exception as failure:
+                rollback_errors.append(str(failure))
+            try:
+                if not doc.Objects.ModifyAttributes(guid, attrs, True):
+                    rollback_errors.append('cannot restore moved attributes '+str(guid))
+            except Exception as failure:
+                rollback_errors.append(str(failure))
+        if not cp.IsReference:
+            try:
+                if not doc.Objects.ModifyAttributes(cp.Id, original_cp, True):
+                    rollback_errors.append('cannot restore clipping metadata '+str(cp.Id))
+            except Exception as failure:
+                rollback_errors.append(str(failure))
+        if rollback_errors:
+            raise MutationUncertain('Move failed ({0}) and rollback was incomplete; inspect the document before continuing: {1}'.format(
+                error, '; '.join(rollback_errors)), rollback_errors)
         raise
     finally:
         for guid, before, attrs_before, after in prepared:
@@ -1852,6 +1937,61 @@ def get_options(operation='Create'):
         getter.Dispose()
 
 
+class ResponseBudgetExceeded(ValueError):
+    pass
+
+
+def response_budget_check(options, replacement=None):
+    rows = options.get('_response_rows')
+    if rows is None:
+        return
+    if replacement is not None:
+        expected = next(row for row in rows if row['clipping_id'] == replacement['clipping_id'])
+        if expected.get('generation_conditions') != replacement.get('generation_conditions'):
+            raise ResponseBudgetExceeded('Actual source conditions changed after preflight; no output was applied for this clipping. Inspect the changed sources before continuing.')
+        rows = [replacement if row['clipping_id'] == replacement['clipping_id'] else row for row in rows]
+    # Escaped Korean is deliberately counted too: either JSON escaping policy fits.
+    payload = dict(status='completed', requested=len(rows), completed=len(rows), results=rows,
+                   output='Document', algorithm_sha256='0'*64, mutation_state='completed', requires_reconciliation=False)
+    size = len(json.dumps(payload, ensure_ascii=True, separators=(',', ':')).encode('utf-8'))
+    if size > options['_response_budget']:
+        raise ResponseBudgetExceeded('Required drawing conditions need {0} escaped UTF-8 bytes; budget is {1}. No output was applied for this clipping. Reduce the clipping batch or source layer scope.'.format(size, options['_response_budget']))
+
+
+def response_row(cp, conditions=None, placement=None, count=2147483647):
+    row = dict(clipping_id=str(cp.Id), name=cp.Name, status='completed', output_object_count=count,
+               generation_conditions=conditions)
+    if placement is not None: row['placement'] = json.loads(plane_json(placement))
+    return row
+
+
+def preflight_response(doc, planes, options, targets, model_cache):
+    rows = []
+    for cp in planes:
+        target = targets.get(str(cp.Id).lower())
+        if options['mode'] == 'Placement':
+            existing = drawing_objects(doc, cp)
+            if not existing: raise ValueError('No generated drawing to move')
+            rows.append(response_row(cp, placement=target or saved_placement(cp, existing), count=len(existing)))
+            continue
+        if options['mode'] == 'Update':
+            existing = drawing_objects(doc, cp)
+            if not existing:
+                skipped = response_row(cp, count=0)
+                skipped.update(status='skipped', message='No existing local drawing; use Create first.')
+                rows.append(skipped)
+                continue
+            target = saved_placement(cp, existing)
+        clip = read_clip(doc, cp, target)
+        clip['elevation'] = options['elevation']
+        issues = {}
+        records = model_objects(doc, clip, issues, model_cache, options.get('include_references', False))
+        if issues.get('invalid'): raise ValueError('Invalid source geometry; preflight did not change any output')
+        rows.append(response_row(cp, generation_conditions(doc, clip, records, options.get('include_references', False))))
+    options['_response_rows'] = rows
+    response_budget_check(options)
+
+
 def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cache=None,
                      target=None, result=None):
     """Handle one output and release only the newly generated, caller-owned geometry."""
@@ -1862,7 +2002,13 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
     drawing = None
     try:
         if mode == 'Placement':
+            response_budget_check(options)
             if not reposition_drawing(doc, cp, target): return 'cancelled'
+            if result is not None:
+                existing = drawing_objects(doc, cp)
+                result['output_object_count'] = len(existing)
+                result['placement'] = json.loads(plane_json(saved_placement(cp, existing)))
+                result['generation_conditions'] = None  # Move does not re-extract sources.
             print('Moved: '+(cp.Name or str(cp.Id)))
             return 'completed'
         cut = cp.ClippingPlaneGeometry.Plane
@@ -1874,11 +2020,18 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
             existing = drawing_objects(doc, cp)
             if not existing:
                 print('SKIPPED {0}: no existing local drawing; use Create first.'.format(cp.Name or cp.Id))
+                if result is not None:
+                    result.update(output_object_count=0, generation_conditions=None,
+                                  message='No existing local drawing; use Create first.')
                 return 'skipped'
             placement = saved_placement(cp, existing)
         drawing = generate(doc, cp, options['hatch'], options['elevation'], placement,
                            near_width, far_width, near_dark, far_dark, progress, place=not pick,
-                           small_details=options['small_details'], model_cache=model_cache)
+                           small_details=options['small_details'], model_cache=model_cache,
+                           include_references=options.get('include_references', False))
+        response_budget_check(options, response_row(cp, drawing.get('generation_conditions'), count=len(drawing['objects'])))
+        if result is not None and 'generation_conditions' in drawing:
+            result['generation_conditions'] = drawing['generation_conditions']
         if pick and drawing['objects']:
             R.RhinoApp.Wait()
             if is_cancelled(): return 'cancelled'
@@ -1900,8 +2053,11 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
                     raise ValueError('3dm exported, but draft_plane could not be saved')
         else:
             ids = bake(doc, cp, drawing, target)
-            if result is not None: result['object_ids'] = [str(value) for value in ids]
-        if result is not None: result['report'] = drawing['report']
+            if result is not None: result['output_object_count'] = len(ids)
+        if result is not None:
+            result['report'] = drawing['report']
+            if 'generation_conditions' in drawing:
+                result['generation_conditions'] = drawing['generation_conditions']
         print('{0}: {1}'.format(cp.Name or cp.Id, drawing['report']))
         return 'completed'
     finally:
@@ -1914,6 +2070,17 @@ def run_selected(doc, planes, options, folder=None, targets=None):
     mode = options['mode']
     targets = targets or {}
     results = []
+    model_cache = None
+    if options.get('_response_budget') is not None:
+        try:
+            if mode != 'Placement': model_cache = ModelCache(doc)
+            preflight_response(doc, planes, options, targets, model_cache)
+        except Exception as error:
+            if model_cache is not None: model_cache.Dispose()
+            return dict(status='error', completed=0, requested=len(planes), results=[],
+                        mutation_state='not_started', requires_reconciliation=False,
+                        error_code='plan_section_response_budget' if isinstance(error, ResponseBudgetExceeded) else 'plan_section_preflight_failed',
+                        message=str(error))
     if mode == 'Update':
         print('Update: regenerate existing drawings at saved placement; PickPlacement is not used.')
     if mode == 'PDF':
@@ -1929,9 +2096,8 @@ def run_selected(doc, planes, options, folder=None, targets=None):
         print(stage)
         R.RhinoApp.Wait()
         if cancelled[0]: raise RuntimeError('Cancelled')
-    model_cache = None
     try:
-        if mode != 'Placement' and len(planes)>1: model_cache = ModelCache(doc)
+        if model_cache is None and mode != 'Placement' and len(planes)>1: model_cache = ModelCache(doc)
         for cp in planes:
             R.RhinoApp.Wait()
             if cancelled[0]: break
@@ -1943,6 +2109,12 @@ def run_selected(doc, planes, options, folder=None, targets=None):
                 item['status'] = status
                 if status == 'cancelled': break
                 if status == 'completed': done += 1
+            except MutationUncertain as error:
+                item.update(status='failed', error=str(error), error_code='plan_section_rollback_incomplete',
+                            mutation_state='unknown', requires_reconciliation=True,
+                            rollback_errors=error.rollback_errors)
+                print('UNCERTAIN {0}: {1}'.format(cp.Name or cp.Id, error))
+                break  # Do not run later drawings against an unreconciled document.
             except Exception as error:
                 item['error'] = str(error)
                 if cancelled[0]: item['status'] = 'cancelled'
@@ -1956,12 +2128,15 @@ def run_selected(doc, planes, options, folder=None, targets=None):
         doc.Views.Redraw()
     return dict(status=('cancelled' if cancelled[0] or any(i['status']=='cancelled' for i in results)
                         else 'completed' if done == len(planes) else 'partial'),
-                completed=done, requested=len(planes), results=results)
+                completed=done, requested=len(planes), results=results,
+                mutation_state='unknown' if any(i.get('requires_reconciliation') for i in results) else
+                               'completed' if done == len(planes) else 'partial',
+                requires_reconciliation=any(i.get('requires_reconciliation') for i in results))
 
 
 def run(doc, operation, clipping_ids, points=None, folder=None, output='Document',
-        hatch=True, elevation=True, small_details=True,
-        near_width=.09, far_width=.04, near_dark=80., far_dark=45.):
+        hatch=True, elevation=True, small_details=False,
+        near_width=.09, far_width=.04, near_dark=80., far_dark=45., include_references=False, response_budget=None):
     """Agent entry: explicit document/GUIDs/XYZ points; never opens an input dialog.
 
     points maps clipping GUIDs to [x, y] (Z=0) or [x, y, z] in document units.
@@ -1974,8 +2149,11 @@ def run(doc, operation, clipping_ids, points=None, folder=None, output='Document
         raise ValueError('Files output is only available for Create')
     if operation == 'Create': options['mode'] = output
     validate_options(near_width, far_width, near_dark, far_dark)
-    options.update(hatch=hatch, elevation=elevation, small_details=small_details,
+    options.update(hatch=hatch, elevation=elevation, small_details=small_details, include_references=include_references,
                    near_width=near_width, far_width=far_width, near_dark=near_dark, far_dark=far_dark)
+    if response_budget is not None:
+        if not isinstance(response_budget, int) or response_budget <= 0: raise ValueError('Invalid internal response budget')
+        options['_response_budget'] = response_budget
     planes = resolve_clippings(clipping_planes(doc), clipping_ids)
     if points and operation not in ('Create', 'Move'):
         raise ValueError('Placement points apply only to Create or Move')

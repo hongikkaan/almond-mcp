@@ -92,7 +92,7 @@ namespace RhinoAlmondBridge
                     ["capture_output_size"] = 1, ["face_edit"] = 1,
                     ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
                     ["intersection_review"] = 1,
-                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1, ["plan_section"] = 1, ["plan_section_result"] = 1 },
+                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1, ["plan_section"] = 1 },
                 ["warnings"] = warnings
             };
             if (requested.Contains("document")) result["document"] = new JObject
@@ -172,6 +172,7 @@ namespace RhinoAlmondBridge
                 return Error("invalid_arguments", "Explicit width/height must both be 128..2048 with scale_percent=100, and cannot list views.");
 
             var stage = "observation_failed";
+            DisplayModeDescription sourceMode = null;
             try
             {
                 if (selector == "a")
@@ -219,8 +220,15 @@ namespace RhinoAlmondBridge
                         return error;
                     }
                 }
-                // A mode override or independent capture requests a new render. A current-view
-                // capture without an override can still copy its existing realtime frame.
+                // Render model images independently instead of copying the attached
+                // viewport's PrintDisplay frame. Preserve its actual installed mode.
+                if (page == null && mode == null)
+                {
+                    sourceMode = (view == null ? activeView.ActiveViewport : view.MainViewport).DisplayMode;
+                    mode = sourceMode;
+                }
+                if (page == null && mode == null)
+                    return Error("display_mode_not_found", "The source viewport has no display mode; choose an installed raster display mode.");
                 if (mode != null && mode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
                     return Error("unsupported_display_mode", "Realtime display modes require an asynchronous render; choose an installed raster display mode such as Shaded.");
                 Size sourceSize;
@@ -298,10 +306,15 @@ namespace RhinoAlmondBridge
                     }
                 }
             }
+            catch (UnverifiedCaptureViewException ex)
+            {
+                return Error("capture_view_settings_unverified", ex.Message);
+            }
             catch (Exception ex)
             {
                 return Error(stage, ex.Message);
             }
+            finally { sourceMode?.Dispose(); }
         }
 
         private static JObject ListImageViews(RhinoDoc doc)
@@ -386,31 +399,76 @@ namespace RhinoAlmondBridge
                     return (Bitmap)printCapture.Invoke(null, new object[] { settings, true, false });
                 }
             }
-            if (namedView == null && entities == null)
+            var source = view == null ? doc.Views.ActiveView.ActiveViewport : view.MainViewport;
+            return CaptureNormalViewport(doc, source, namedView, size, mode, labels, depth, entities, warnings);
+        }
+
+        /// <summary>
+        /// Renders model images through a fresh normal-display viewport pipeline,
+        /// without reading or changing document/viewport PrintDisplay settings.
+        /// Used by camera-path RGB/edge scripts as well as fixed observations.
+        /// </summary>
+        public static Bitmap CaptureModelViewport(RhinoDoc doc, RhinoViewport source, Size size,
+            DisplayModeDescription mode, bool drawGrid = true)
+        {
+            return CaptureNormalViewport(doc, source, null, size, mode, false, 1, null, new JArray(), drawGrid);
+        }
+
+        internal sealed class UnverifiedCaptureViewException : NotSupportedException
+        {
+            internal UnverifiedCaptureViewException(string message) : base(message) { }
+        }
+
+        internal static void ApplyCaptureView(RhinoViewport viewport, RhinoViewport source, ViewInfo namedView)
+        {
+            // SetViewProjection copies only the camera. Pass the full view settings to
+            // Rhino, retaining references to clipping planes in the same document.
+            // Never edit the document's clipping membership or substitute a viewport GUID.
+            using (var sourceInfo = namedView == null ? new ViewInfo(source) : null)
             {
-                var bitmap = mode == null ? view.CaptureToBitmap(size) : view.CaptureToBitmap(size, mode);
-                if (bitmap != null && labels) ObservationEntities.DrawLabels(doc, bitmap, view.MainViewport,
-                    ObservationEntities.Roots(doc, ObservationEntities.ModelObjects(doc)), depth, warnings);
-                return bitmap;
+                var settings = namedView ?? sourceInfo;
+                var clippingIds = new HashSet<Guid>(settings.ClippingPlanesIds ?? Array.Empty<Guid>());
+                var sectionBehavior = settings.SectionBehavior;
+                var detachedId = viewport.Id;
+                if (detachedId == Guid.Empty || detachedId == source.Id ||
+                    !viewport.PushViewInfo(settings, false) || viewport.Id != detachedId)
+                    throw new UnverifiedCaptureViewException("Rhino did not accept the view settings without changing the independent viewport identity; no image was returned.");
+                using (var applied = new ViewInfo(viewport))
+                    if (!clippingIds.SetEquals(applied.ClippingPlanesIds ?? Array.Empty<Guid>()) ||
+                        applied.SectionBehavior != sectionBehavior)
+                        throw new UnverifiedCaptureViewException("Rhino did not retain the source clipping references and section behavior in the independent viewport; no unverified image was returned.");
             }
+        }
+
+        private static Bitmap CaptureNormalViewport(RhinoDoc doc, RhinoViewport source, ViewInfo namedView,
+            Size size, DisplayModeDescription mode, bool labels, int depth,
+            List<ObservationEntities.Entity> entities, JArray warnings, bool drawGrid = true)
+        {
             if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber)
                 throw new InvalidOperationException("The capture document is no longer active.");
+            if (source == null || size.Width <= 0 || size.Height <= 0)
+                throw new ArgumentException("A source viewport and positive capture dimensions are required.");
+            // Only a mode copy obtained here is ours to dispose; callers retain theirs.
+            using var sourceMode = mode == null ? source.DisplayMode : null;
+            mode = mode ?? sourceMode;
+            if (mode == null || mode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
+                throw new NotSupportedException("Independent model capture requires an installed raster display mode.");
             // A never-shown SDK control initializes its own display pipeline. Printing settings
             // accept a detached camera but silently render Wireframe on the supported Rhino SDK.
             using (var control = new CaptureViewportControl { Visible = false, Size = size })
             {
                 var handle = control.Handle;
                 var viewport = control.Viewport;
-                if (namedView != null)
+                ApplyCaptureView(viewport, source, namedView);
+                viewport.Size = size;
+                viewport.DisplayMode = mode;
+                if (namedView == null)
                 {
-                    if (!viewport.SetViewProjection(namedView.Viewport, true))
-                        throw new InvalidOperationException("Could not apply the named view to a detached viewport.");
+                    viewport.SetConstructionPlane(source.GetConstructionPlane());
+                    viewport.ConstructionGridVisible = drawGrid && source.ConstructionGridVisible;
+                    viewport.ConstructionAxesVisible = drawGrid && source.ConstructionAxesVisible;
+                    viewport.WorldAxesVisible = drawGrid && source.WorldAxesVisible;
                 }
-                else
-                    using (var projection = new ViewportInfo(view == null ? doc.Views.ActiveView.ActiveViewport : view.MainViewport))
-                        if (!viewport.SetViewProjection(projection, true))
-                            throw new InvalidOperationException("Could not copy the capture projection.");
-                if (mode != null) viewport.DisplayMode = mode;
                 if (entities != null)
                 {
                     var bounds = BoundingBox.Empty;
@@ -419,18 +477,23 @@ namespace RhinoAlmondBridge
                         throw new InvalidOperationException("The capture target has no frameable bounds.");
                 }
                 DisplayPipeline pipeline = null;
+                Bitmap bitmap = null;
                 try
                 {
-                    control.InitializeCapturePipeline();
-                    pipeline = control.Display;
-                    if (pipeline == null || (!pipeline.IsOpen && !pipeline.Open()))
-                        throw new InvalidOperationException("Could not initialize the independent capture pipeline.");
-                    var bitmap = DisplayPipeline.DrawToBitmap(viewport, size.Width, size.Height);
-                    if (bitmap != null && labels) ObservationEntities.DrawLabels(doc, bitmap, viewport,
-                        entities ?? ObservationEntities.Roots(doc, ObservationEntities.ModelObjects(doc)), depth, warnings);
+                    try
+                    {
+                        control.InitializeCapturePipeline();
+                        pipeline = control.Display;
+                        if (pipeline == null || (!pipeline.IsOpen && !pipeline.Open()))
+                            throw new InvalidOperationException("Could not initialize the independent capture pipeline.");
+                        bitmap = DisplayPipeline.DrawToBitmap(viewport, size.Width, size.Height);
+                        if (bitmap != null && labels) ObservationEntities.DrawLabels(doc, bitmap, viewport,
+                            entities ?? ObservationEntities.Roots(doc, ObservationEntities.ModelObjects(doc)), depth, warnings);
+                    }
+                    finally { if (pipeline != null) pipeline.Close(); }
                     return bitmap;
                 }
-                finally { if (pipeline != null) pipeline.Close(); }
+                catch { bitmap?.Dispose(); throw; }
             }
         }
 
@@ -463,7 +526,9 @@ namespace RhinoAlmondBridge
             var modes = DisplayModeDescription.GetDisplayModes();
             if (modes.Length > 128) warnings.Add("display_modes: first 128 installed modes returned.");
             return new JArray(modes.Take(128).Select(mode => new JObject
-                { ["name"] = mode.EnglishName, ["id"] = mode.Id.ToString() }));
+                { ["name"] = mode.EnglishName, ["local_name"] = mode.LocalName,
+                    ["id"] = mode.Id.ToString(),
+                    ["capture_supported"] = mode.DisplayAttributes.RealtimeDisplayId == Guid.Empty }));
         }
 
         private static bool ReadBoolean(JObject request, string name, bool fallback, out bool value)

@@ -72,7 +72,6 @@ PUBLIC_TOOL_NAMES = {
     'search_diagram_assets': 'diagram_04-search',
     'apply_drawing_style': 'drawing_01-apply_style',
     'get_drawing_recipe': 'drawing_02-get_recipe',
-    'get_plan_section_result': 'drawing_03-get_plan_section_result',
     'import_drawing_hatch_patterns': 'drawing_04-import_hatches',
     'list_drawing_recipes': 'drawing_05-list_recipes',
     'plan_section': 'drawing_06-generate_plan_section',

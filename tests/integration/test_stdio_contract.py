@@ -52,8 +52,7 @@ def assert_information_placement(tools):
     # The reviewed document owns wording; Drawing renumbering remains separate.
     aliases = {"drawing_01-list_recipes": "drawing_05-list_recipes",
                "drawing_03-apply_style": "drawing_01-apply_style",
-               "drawing_05-generate_plan_section": "drawing_06-generate_plan_section",
-               "drawing_06-get_plan_section_result": "drawing_03-get_plan_section_result"}
+               "drawing_05-generate_plan_section": "drawing_06-generate_plan_section"}
     document = (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8")
     for section in re.split(r"(?m)^### ", document)[1:]:
         name = section.splitlines()[0].split(". ", 1)[1].replace("\\_", "_")
@@ -65,7 +64,6 @@ def assert_information_placement(tools):
         ("drawing_01-apply_style", "recipe_id", "drawing_05-list_recipes"),
         ("drawing_01-apply_style", "recipe_id", "drawing_02-get_recipe"),
         ("drawing_02-get_recipe", "recipe_id", "drawing_05-list_recipes"),
-        ("drawing_03-get_plan_section_result", "result_id", "drawing_06-generate_plan_section"),
     ):
         assert reference in tools
         assert reference + " tool" in tools[tool_name]["inputSchema"]["properties"][field_name]["description"]
@@ -88,6 +86,19 @@ def assert_information_placement(tools):
         published = json.dumps(tool, ensure_ascii=False)
         assert "drawing_01-list_recipes" not in published
         assert "drawing_05-generate_plan_section" not in published
+
+    assert "drawing_03-get_plan_section_result" not in tools
+    drawing = tools["drawing_06-generate_plan_section"]["inputSchema"]["properties"]
+    assert {"elevation", "expected_model_path"}.isdisjoint(drawing)
+    assert drawing["small_details"]["default"] is False
+    assert drawing["include_references"]["default"] is False
+    assert set(drawing["operation"]["enum"]) == {"Create", "Update", "Move"}
+    assert "request_id" in drawing
+    for name in ("capture_03-current_view", "capture_04-defined_view"):
+        mode = tools[name]["inputSchema"]["properties"]["display_mode"]
+        assert mode["type"] == "string" and "enum" not in mode
+        assert "사용자 정의" in mode["description"]
+    assert "object_ids" in tools["capture_02-inspection"]["description"]
 
 
 def assert_documented_schema(schema, path):

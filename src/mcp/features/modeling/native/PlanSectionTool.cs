@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -20,14 +21,15 @@ namespace RhinoAlmondBridge
 _almond_args = json.loads(_almond_arguments_json)
 _almond_result_json = json.dumps(run(_almond_doc,
     _almond_args['operation'], _almond_args['clipping_ids'],
-    points=_almond_args['points'], output='Document',
-    hatch=_almond_args['hatch'], elevation=_almond_args['elevation'],
+    points=_almond_args['points'], output='Document', response_budget=32000,
+    hatch=_almond_args['hatch'], elevation=True,
+    include_references=_almond_args['include_references'],
     small_details=_almond_args['small_details'],
     near_width=_almond_args['near_width'], far_width=_almond_args['far_width'],
     near_dark=_almond_args['near_dark'], far_dark=_almond_args['far_dark']))
 ";
         static readonly HashSet<string> Fields = new HashSet<string>(new[] {
-            "type", "operation", "clipping_ids", "points", "hatch", "elevation", "small_details",
+            "type", "operation", "clipping_ids", "points", "hatch", "small_details", "include_references", "request_id",
             "near_width", "far_width", "near_dark", "far_dark", "expected_model_path" });
 
         internal static JObject Validate(RhinoDoc doc, JObject request)
@@ -39,15 +41,9 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 !Path.IsPathRooted((string)expected) || doc == null || String.IsNullOrWhiteSpace(doc.Path) ||
                 !String.Equals(Path.GetFullPath(doc.Path), Path.GetFullPath((string)expected), StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("PlanSection requires the bound saved document.");
-            if (doc.IsReadOnly) throw new ArgumentException("The bound document is read-only.");
-            if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber)
-                throw new ArgumentException("The bound document is no longer active.");
-            var editor = EditingContext.Observe(doc);
-            if (editor["stable"]?.Type != JTokenType.Boolean || !(bool)editor["stable"] || (string)editor["mode"] != "model")
-                throw new ArgumentException("Finish active commands or editing contexts before changing drawings.");
             var operation = request["operation"];
-            if (operation?.Type != JTokenType.String || ((string)operation != "Create" && (string)operation != "Update"))
-                throw new ArgumentException("PlanSection supports Create or Update Document output.");
+            if (operation?.Type != JTokenType.String || ((string)operation != "Create" && (string)operation != "Update" && (string)operation != "Move"))
+                throw new ArgumentException("PlanSection supports Create, Update or Move Document output.");
             if (!(request["clipping_ids"] is JArray input) || input.Count == 0)
                 throw new ArgumentException("Supply a nonempty clipping GUID list.");
             var ids = new List<string>();
@@ -55,9 +51,6 @@ _almond_result_json = json.dumps(run(_almond_doc,
             {
                 if (token.Type != JTokenType.String || !Guid.TryParse((string)token, out var id) || id == Guid.Empty)
                     throw new ArgumentException("Each clipping ID must be a nonempty GUID string.");
-                var obj = doc.Objects.FindId(id);
-                if (!(obj is ClippingPlaneObject) || obj.IsDeleted || obj.Attributes.IsInstanceDefinitionObject)
-                    throw new ArgumentException("A clipping ID does not identify an available document clipping plane.");
                 if (!ids.Contains(id.ToString())) ids.Add(id.ToString());
             }
             if (!(request["points"] is JObject points))
@@ -73,7 +66,12 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 foreach (var number in point) Finite(number);
                 placements[id.ToString()] = point.DeepClone();
             }
-            foreach (var field in new[] { "hatch", "elevation", "small_details" })
+            if ((string)operation == "Move" && placements.Count != ids.Count)
+                throw new ArgumentException("Move requires a placement point for every clipping GUID.");
+            var key = request["request_id"];
+            if (key?.Type != JTokenType.String || (!String.IsNullOrEmpty((string)key) && (!Guid.TryParse((string)key, out var requestId) || requestId == Guid.Empty)))
+                throw new ArgumentException("request_id must be empty or a nonempty UUID.");
+            foreach (var field in new[] { "hatch", "small_details", "include_references" })
                 if (request[field]?.Type != JTokenType.Boolean) throw new ArgumentException(field + " must be boolean.");
             double nearWidth = Finite(request["near_width"]), farWidth = Finite(request["far_width"]),
                 nearDark = Finite(request["near_dark"]), farDark = Finite(request["far_dark"]);
@@ -84,6 +82,24 @@ _almond_result_json = json.dumps(run(_almond_doc,
             args["clipping_ids"] = new JArray(ids);
             args["points"] = placements;
             return args;
+        }
+
+        // Recovery reads stored execution evidence. Only a new mutation needs
+        // the current clipping/editor to remain usable; never gate a pending fence on them.
+        static void ValidateMutation(RhinoDoc doc, JObject args)
+        {
+            if (doc.IsReadOnly) throw new ArgumentException("The bound document is read-only.");
+            if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber)
+                throw new ArgumentException("The bound document is no longer active.");
+            var editor = EditingContext.Observe(doc);
+            if (editor["stable"]?.Type != JTokenType.Boolean || !(bool)editor["stable"] || (string)editor["mode"] != "model")
+                throw new ArgumentException("Finish active commands or editing contexts before changing drawings.");
+            foreach (var token in (JArray)args["clipping_ids"])
+            {
+                var obj = doc.Objects.FindId(Guid.Parse((string)token));
+                if (!(obj is ClippingPlaneObject) || obj.IsDeleted || obj.Attributes.IsInstanceDefinitionObject)
+                    throw new ArgumentException("A clipping ID does not identify an available document clipping plane.");
+            }
         }
 
         static double Finite(JToken value)
@@ -119,87 +135,149 @@ _almond_result_json = json.dumps(run(_almond_doc,
             return ((JValue)token).Value;
         }
 
-        sealed class Receipt
-        {
-            public string Json, ModelPath, Sha256;
-            public uint Document;
-            public DateTime Created;
-        }
-        static readonly Dictionary<string, Receipt> Receipts = new Dictionary<string, Receipt>();
-        const int ReceiptBudget = 64 * 1024 * 1024; // UTF-16 in-memory bytes, across all retained results.
-        static void ExpireReceipts()
-        {
-            foreach (var key in Receipts.Where(p => DateTime.UtcNow - p.Value.Created >= TimeSpan.FromHours(1)).Select(p => p.Key).ToArray())
-                Receipts.Remove(key);
-        }
+        // Summaries carry actual conditions and counts. Output IDs and verbose conflict
+        // samples never force a second public tool call or exceed the common result budget.
         static object Deliver(RhinoDoc doc, JObject drawing)
         {
-            string json = drawing.ToString(Formatting.None);
-            // Small results retain the original response; conservative budget leaves envelope headroom.
-            if (Encoding.UTF8.GetByteCount(json) <= 32768 && !drawing.Descendants().Any(t => t.Path.Count(c => c == '.' || c == '[') > 12))
-                return ResultData(drawing);
-            var summary = new JObject {
-                ["status"] = drawing["status"], ["requested"] = drawing["requested"], ["completed"] = drawing["completed"],
-                ["algorithm_sha256"] = drawing["algorithm_sha256"], ["output"] = "Document",
-                ["result_delivery"] = "paged", ["result_characters"] = json.Length,
-                ["retention"] = "Bridge process, same document, up to one hour; latest 8 results within 64 MiB total. Read promptly."
-            };
-            if ((long)json.Length * 2 > ReceiptBudget)
+            foreach (var item in (drawing["results"] as JArray ?? new JArray()).OfType<JObject>())
             {
-                summary["result_delivery"] = "unavailable";
-                summary["result_error"] = "receipt_too_large: result exceeds 64 MiB UTF-16 retention capacity; drawing was not retried.";
-                return ResultData(summary);
-            }
-            using (var hash = SHA256.Create())
-                summary["result_sha256"] = BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(json))).Replace("-", "").ToLowerInvariant();
-            string id = Guid.NewGuid().ToString("N");
-            lock (Receipts)
-            {
-                ExpireReceipts();
-                while (Receipts.Count >= 8 || Receipts.Values.Sum(r => (long)r.Json.Length * 2) + (long)json.Length * 2 > ReceiptBudget)
-                    Receipts.Remove(Receipts.OrderBy(p => p.Value.Created).First().Key);
-                Receipts.Add(id, new Receipt { Json = json, ModelPath = Path.GetFullPath(doc.Path), Document = doc.RuntimeSerialNumber,
-                    Created = DateTime.UtcNow, Sha256 = (string)summary["result_sha256"] });
-            }
-            summary["result_id"] = id;
-            return ResultData(summary);
-        }
-
-        public static JObject ReadResult(RhinoDoc doc, JObject request)
-        {
-            try
-            {
-                if (request == null || request.Properties().Any(p => !new[] { "type", "result_id", "offset", "expected_model_path" }.Contains(p.Name)) ||
-                    request["result_id"]?.Type != JTokenType.String || !Guid.TryParseExact((string)request["result_id"], "N", out var id) ||
-                    request["offset"]?.Type != JTokenType.Integer || (long)request["offset"] < 0 || (long)request["offset"] > Int32.MaxValue)
-                    throw new ArgumentException("Supply a receipt ID and nonnegative UTF-16 offset from the previous page.");
-                if (doc == null || String.IsNullOrWhiteSpace(doc.Path) || request["expected_model_path"]?.Type != JTokenType.String ||
-                    !Path.IsPathRooted((string)request["expected_model_path"]) ||
-                    !String.Equals(Path.GetFullPath(doc.Path), Path.GetFullPath((string)request["expected_model_path"]), StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException("Read the receipt through its bound saved document.");
-                lock (Receipts)
+                if (item["object_ids"] is JArray ids)
                 {
-                    ExpireReceipts();
-                    if (!Receipts.TryGetValue(id.ToString("N"), out var receipt))
-                        return new JObject { ["status"] = "error", ["error_code"] = "plan_section_result_expired",
-                            ["message"] = "Receipt expired, was evicted, or its Bridge restarted. Inspect existing drawings; do not regenerate to recover this result." };
-                    if (receipt.Document != doc.RuntimeSerialNumber || !String.Equals(receipt.ModelPath, Path.GetFullPath(doc.Path), StringComparison.OrdinalIgnoreCase))
-                        throw new ArgumentException("The receipt belongs to another document instance.");
-                    int offset = (int)request["offset"];
-                    if (offset > receipt.Json.Length || (offset > 0 && offset < receipt.Json.Length && Char.IsLowSurrogate(receipt.Json[offset])))
-                        throw new ArgumentException("Invalid result offset.");
-                    int count = Math.Min(4096, receipt.Json.Length - offset);
-                    if (count > 0 && offset + count < receipt.Json.Length && Char.IsHighSurrogate(receipt.Json[offset + count - 1])) count--;
-                    return new JObject { ["status"] = "success", ["result_id"] = id.ToString("N"), ["offset"] = offset,
-                        ["json_chunk"] = receipt.Json.Substring(offset, count), ["total_characters"] = receipt.Json.Length,
-                        ["next_offset"] = offset + count < receipt.Json.Length ? (JToken)(offset + count) : JValue.CreateNull(),
-                        ["result_sha256"] = receipt.Sha256,
-                        ["observation"] = "Stored execution result; does not re-observe current geometry or execute drawing generation." };
+                    item["output_object_count"] = ids.Count;
+                    item.Remove("object_ids");
+                }
+                if (item["report"] is JObject report)
+                {
+                    foreach (var property in report.Properties().Where(p => !new[] {
+                        "sources", "section", "hatch", "elevation", "metadata_conflict_count", "metadata_conflicts", "cleanup", "skipped"
+                    }.Contains(p.Name)).ToArray()) property.Remove();
                 }
             }
-            catch (Exception error)
+            if (Encoding.UTF8.GetByteCount(drawing.ToString(Formatting.None)) <= 48000)
+                return ResultData(drawing);
+            // Preserve conflict samples while they fit; optional detail is reduced
+            // before giving up required per-clipping conditions.
+            var reports = (drawing["results"] as JArray ?? new JArray()).OfType<JObject>()
+                .Select(item => item["report"] as JObject).Where(report => report != null).ToArray();
+            foreach (var report in reports)
+                if (report["metadata_conflicts"] is JArray conflicts && conflicts.Count != 0)
+                {
+                    report["metadata_conflicts_omitted_count"] = conflicts.Count;
+                    report["metadata_conflicts_truncated"] = true;
+                    conflicts.Clear();
+                }
+            if (Encoding.UTF8.GetByteCount(drawing.ToString(Formatting.None)) <= 48000)
+                return ResultData(drawing);
+            foreach (var report in reports)
             {
-                return new JObject { ["status"] = "error", ["error_code"] = "invalid_arguments", ["message"] = error.Message };
+                report.Remove("cleanup"); report.Remove("skipped");
+                report["diagnostics_truncated"] = true;
+            }
+            if (Encoding.UTF8.GetByteCount(drawing.ToString(Formatting.None)) > 48000)
+                throw new InvalidOperationException("Required PlanSection response exceeded its preflight budget; completion is uncertain. Inspect the document before continuing.");
+            return ResultData(drawing);
+        }
+
+        // A client supplies the UUID before dispatch. A completed response can then
+        // be replayed after total response loss and a Bridge restart without mutation.
+        // Pending/unknown is deliberately a fence, never permission to re-execute.
+        static string JournalPath(RhinoDoc doc, string id)
+        {
+            string root = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(doc.Path)), ".almond");
+            string directory = Path.Combine(root, "plan-section-requests");
+            foreach (string path in new[] { root, directory })
+            {
+                if (Directory.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                    throw new ArgumentException("PlanSection journals cannot traverse links.");
+                Directory.CreateDirectory(path);
+                if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                    throw new ArgumentException("PlanSection journals cannot traverse links.");
+            }
+            string result = Path.Combine(directory, Guid.Parse(id).ToString("N") + ".json");
+            if (File.Exists(result) && (File.GetAttributes(result) & FileAttributes.ReparsePoint) != 0)
+                throw new ArgumentException("PlanSection journal files cannot be links.");
+            return result;
+        }
+
+        static string RequestFingerprint(RhinoDoc doc, JObject args, string algorithm)
+        {
+            var value = (JObject)args.DeepClone();
+            value.Remove("request_id");
+            value["model_path"] = Path.GetFullPath(doc.Path).ToUpperInvariant();
+            value["algorithm_sha256"] = algorithm;
+            // JObject property order is canonicalized recursively for semantic retries.
+            using (var hash = SHA256.Create())
+                return BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(Canonical(value).ToString(Formatting.None)))).Replace("-", "").ToLowerInvariant();
+        }
+        static JToken Canonical(JToken token)
+        {
+            if (token is JObject obj) return new JObject(obj.Properties().OrderBy(p => p.Name, StringComparer.Ordinal).Select(p => new JProperty(p.Name, Canonical(p.Value))));
+            if (token is JArray array) return new JArray(array.Select(Canonical));
+            return token.DeepClone();
+        }
+        static void WriteJournal(string path, JObject value, bool create)
+        {
+            string destination = create ? path : path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var stream = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    byte[] bytes = Encoding.UTF8.GetBytes(value.ToString(Formatting.None));
+                    stream.Write(bytes, 0, bytes.Length);
+                    stream.Flush(true);
+                }
+                if (!create) File.Replace(destination, path, null);
+            }
+            finally
+            {
+                if (!create && File.Exists(destination)) File.Delete(destination);
+            }
+        }
+        static JObject BeginJournal(RhinoDoc doc, JObject args, string algorithm, out string path, out JObject journal)
+        {
+            path = null; journal = null;
+            string id = (string)args["request_id"];
+            if (String.IsNullOrEmpty(id)) return null;
+            path = JournalPath(doc, id);
+            string fingerprint = RequestFingerprint(doc, args, algorithm);
+            journal = new JObject { ["version"] = 1, ["request_id"] = Guid.Parse(id).ToString(), ["fingerprint"] = fingerprint,
+                ["model_path"] = Path.GetFullPath(doc.Path), ["document_serial"] = doc.RuntimeSerialNumber,
+                ["process_id"] = Process.GetCurrentProcess().Id,
+                ["process_start_ticks"] = Process.GetCurrentProcess().StartTime.ToUniversalTime().Ticks.ToString(),
+                ["state"] = "pending", ["created_utc"] = DateTime.UtcNow.ToString("O") };
+            try { WriteJournal(path, journal, true); return null; }
+            catch (IOException) when (File.Exists(path))
+            {
+                string existingPath = path;
+                path = null; journal = null; // The caller does not own this existing fence.
+                JObject previous;
+                try { previous = JObject.Parse(File.ReadAllText(existingPath, Encoding.UTF8)); }
+                catch (Exception error)
+                {
+                    return new JObject { ["status"] = "error", ["error_code"] = "plan_section_request_unreadable",
+                        ["request_id"] = id, ["mutation_state"] = "unknown", ["requires_reconciliation"] = true,
+                        ["message"] = "Existing request journal cannot be read; the request was not executed again: " + error.Message };
+                }
+                if ((int?)previous["version"] != 1 || (string)previous["fingerprint"] != fingerprint)
+                    throw new ArgumentException("request_id already names a different PlanSection request. Keep the original inputs for response recovery.");
+                if (previous["response"] is JObject response)
+                {
+                    var replay = (JObject)response.DeepClone();
+                    replay["response_replayed"] = true;
+                    replay["current_output_confirmed"] = false;
+                    bool sameInstance = (uint?)previous["document_serial"] == doc.RuntimeSerialNumber &&
+                        (int?)previous["process_id"] == Process.GetCurrentProcess().Id &&
+                        (string)previous["process_start_ticks"] == Process.GetCurrentProcess().StartTime.ToUniversalTime().Ticks.ToString();
+                    replay["historical_response"] = !sameInstance;
+                    if (!sameInstance) replay["requires_reconciliation"] = true;
+                    replay["observation"] = sameInstance
+                        ? "Stored execution response; current geometry was not regenerated or re-observed."
+                        : "Historical completion from another process/document instance. Unsaved outputs may not exist in the current document; inspect it before continuing. No drawing was regenerated.";
+                    return replay;
+                }
+                return new JObject { ["status"] = "error", ["error_code"] = "plan_section_request_pending",
+                    ["request_id"] = id, ["mutation_state"] = "unknown", ["requires_reconciliation"] = true,
+                    ["message"] = "This request is pending or its completion was not recorded. It was not executed again. Inspect existing drawings and execution state before deciding how to continue." };
             }
         }
 
@@ -214,10 +292,15 @@ _almond_result_json = json.dumps(run(_almond_doc,
             var diagnostic = new StringBuilder();
             bool diagnosticTruncated = false;
             JObject response = null;
+            string journalPath = null;
+            JObject journal = null;
             try
             {
                 var args = Validate(doc, request);
                 string source = Source(out var sha256);
+                var replay = BeginJournal(doc, args, sha256, out journalPath, out journal);
+                if (replay != null) return replay;
+                ValidateMutation(doc, args);
                 python = PythonScript.Create();
                 if (python == null) throw new InvalidOperationException("Rhino's built-in Python runtime is unavailable; no drawing was changed.");
                 previousDoc = python.ScriptContextDoc;
@@ -246,7 +329,8 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 if (!python.ExecuteScript(source)) throw new InvalidOperationException("The packaged PlanSection algorithm could not be loaded.");
                 python.SetVariable("_almond_doc", doc);
                 python.SetVariable("_almond_arguments_json", args.ToString(Formatting.None));
-                Validate(doc, request); // Runtime initialization must not stale the document/editor check.
+                Validate(doc, request); // Runtime initialization must not stale binding or mutation checks.
+                ValidateMutation(doc, args);
                 response = JObject.FromObject(new ScriptExecutor().ExecuteAction(doc, () =>
                 {
                     entered = true;
@@ -269,7 +353,19 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 else
                 {
                     response["drawing_status"] = response["result"]?["status"]?.DeepClone();
-                    response["mutation_state"] = (string)response["drawing_status"] == "completed" ? "completed" : "partial";
+                    bool uncertain = (string)response["result"]?["mutation_state"] == "unknown" ||
+                        (bool?)response["result"]?["requires_reconciliation"] == true;
+                    response["mutation_state"] = uncertain ? "unknown" : (string)response["drawing_status"] == "completed" ? "completed" : "partial";
+                    if (uncertain) response["requires_reconciliation"] = true;
+                    if ((string)response["result"]?["mutation_state"] == "not_started")
+                    {
+                        response["status"] = "error";
+                        response.Remove("drawing_status"); // Preflight did not produce a drawing.
+                        response["mutation_state"] = "not_started";
+                        response["requires_reconciliation"] = false;
+                        response["error_code"] = response["result"]?["error_code"]?.DeepClone();
+                        response["message"] = response["result"]?["message"]?.DeepClone();
+                    }
                 }
             }
             catch (Exception error)
@@ -315,6 +411,22 @@ _almond_result_json = json.dumps(run(_almond_doc,
             {
                 response["python_diagnostic"] = diagnostic.ToString();
                 response["python_diagnostic_truncated"] = diagnosticTruncated;
+            }
+            if (!String.IsNullOrEmpty((string)request?["request_id"])) response["request_id"] = request["request_id"].DeepClone();
+            if (journalPath != null && journal != null)
+            {
+                try
+                {
+                    journal["state"] = (string)response["mutation_state"];
+                    journal["response"] = response.DeepClone();
+                    WriteJournal(journalPath, journal, false);
+                }
+                catch (Exception error)
+                {
+                    response["journal_error"] = error.Message;
+                    response["requires_reconciliation"] = true;
+                    // The initial pending fence remains. A retry cannot regenerate.
+                }
             }
             return response;
         }

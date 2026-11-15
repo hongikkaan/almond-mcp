@@ -190,7 +190,7 @@ namespace RhinoAlmondBridge
                                 ["editing_context"] = editor.DeepClone() },
                             ["limitations"] = new JArray("Scopes describe document-visible eligible objects, not proof that every object produced visible pixels.",
                                 "Groups never expand the supplied object IDs. Explicit block occurrence/definition filtering is unsupported.",
-                                "Existing non-object display conduits may draw overlays; clipping participation belongs to the detached viewport.",
+                                "Existing non-object display conduits may draw overlays. Inspection is an independent scoped model image; the source viewport's clipping membership is not copied.",
                                 "Captures do not establish geometric or architectural correctness.")
                         };
                         if (sharedScope)

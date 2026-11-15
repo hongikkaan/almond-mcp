@@ -2,12 +2,13 @@
 
 ## 기준 및 선언 표기
 
-실사용 외부 연결 서버 beyond·CoS의 도구 선언 81개를 TypeScript로 정리했습니다. 두 경로의 도구 설명과 입력·출력 스키마는 같습니다.
+실사용 외부 연결 서버 beyond·CoS의 도구 선언을 TypeScript로 정리했습니다. 두 경로의 도구 설명과 입력·출력 스키마는 같습니다.
 
 - 리포지토리: [hongikkaan/almond-mcp](https://github.com/hongikkaan/almond-mcp)
+- A-2 도면·캡처 항목은 2026-11-15 개발 세션의 실제 조립 스키마로 갱신했습니다. 별도 PlanSection 결과 조회 도구는 제거됐습니다. 다른 항목의 최초 수집 기준은 아래와 같습니다.
 - 기준 커밋 `38d6ee1fcb680df29d79cfa7dae114caba19cbb1` (실사용 로컬 `Fix`).
 - 수집일 2026-11-13. Almond MCP 0.7.0rc2 / FastMCP 4.1.0 / MCP SDK 2.3.0 / mcp-types 2.3.0.
-- 진입점은 beyond의 `codex_host.py`와 CoS의 `cos_host.py`입니다. 기본 도구 선언 70개, 작업환경 도구 선언 6개, 연결 관리 도구 선언 5개를 수록합니다.
+- 진입점은 beyond의 `codex_host.py`와 CoS의 `cos_host.py`입니다. 기본 도구, 작업환경 도구, 연결 관리 도구를 수록합니다.
 - `connect_02-session` tool이나 `connect_03-start_session` tool에서 문서를 선택하면 일반 호출·연결 해제·새 종료 요청에 해당 연결을 적용합니다. `script_03-get_execution` tool에 실행 `request_id`를 지정하면 원래 실행 연결을 찾습니다.
 - 비교 문서: [오리지널 툴 선언](https://app.notion.com/p/417e0a3941208127aebcdbec1d2e7052)
 
@@ -470,23 +471,22 @@ declare const tools: { mcp__rhino__inspect_02_get_objects(args: {
 - `named_views` / `layouts` / `display_modes`: 저장된 뷰·용지·표시 모드 목록
 
 **Named View·Layout·표시 모드 목록의 ID**는 `include_ids`와 무관하게 반환됩니다. 화면 이미지 캡처는 `capture_03-current_view` tool을 사용합니다.
+
+`display_modes`는 호출 시 Rhino에 설치된 기본·사용자 정의 표시 모드의 name·local_name·id와 capture_supported를 읽습니다. 모드를 추가·수정한 뒤 같은 section을 다시 조회하면 목록이 갱신됩니다. capture_supported=true인 모드의 이름 또는 GUID를 캡처에 지정합니다. false인 실시간 렌더 모드는 독립 캡처와 모드 변경 캡처에서 지원하지 않습니다.
 ```
 
 ```ts
-declare const tools: {
-  mcp__rhino__inspect_03_get_document_context(args: {
-    // editor 요청 시 공급자·명령·Undo 근거 포함. 기본 false.
-    include_editor_details?: boolean;
-    // viewport 등에서 ID 포함. 기본 false.
-    include_ids?: boolean;
-    // document, viewport, editor, viewports, named_views, layouts, display_modes 중 선택.
-    // 생략 또는 null은 document, named_views, layouts, display_modes. []는 status와 warnings만.
-    sections?: Array<string> | null;
-  }): Promise<CallToolResult<{
-    // 요청한 섹션·상태·경고 또는 오류 상세가 담긴 JSON 문자열.
-    result: string;
-  }>>;
-};
+declare const tools: { mcp__rhino__inspect_03_get_document_context(args: {
+  // document, viewport, editor, viewports, named_views, layouts, display_modes 중 선택.
+  // 생략 또는 null은 document, named_views, layouts, display_modes. []는 status와 warnings만.
+  sections?: Array<string> | null;
+  // viewport 등에서 ID 포함. 기본 false.
+  include_ids?: boolean;
+  // editor 요청 시 공급자·명령·Undo 근거 포함. 기본 false.
+  include_editor_details?: boolean;
+}): Promise<CallToolResult<{
+  result: string;
+}>>; };
 ```
 
 ### 45. inspect\_04-get\_selection\_references
@@ -541,30 +541,34 @@ declare const tools: { mcp__rhino__inspect_05_resolve_targets(args: {
 활성 Rhino 뷰의 카메라 경로를 따라 RGB·에지·깊이 PNG와 카메라 기록을 저장합니다. 관리형 연결은 Plan 작업 공간을 먼저 선택합니다. 촬영 중 활성 뷰가 변경되며 전체 뷰 상태의 복원은 보장되지 않습니다.
 
 status와 frames_captured는 촬영 실행 결과이며 대상이 잘 보인다는 보장은 아닙니다. videos의 null은 MP4가 생성되지 않았음을 뜻합니다. 같은 출력 폴더를 재사용하면 기존 프레임·기록을 덮어쓰고 잔여 프레임이 남을 수 있습니다.
+
+rgb_mode·edge_mode에는 설치된 사용자 정의 모드의 이름도 지정할 수 있습니다. inspect_03-get_document_context tool에 sections=["display_modes"]를 전달해 현재 선택지를 조회하고 모드를 추가·수정한 뒤 다시 조회합니다. Wireframe은 선·내부 구조, Shaded는 표면·형태·가림, Rendered는 재료·조명, Ghosted·X-Ray는 반투명·겹침, Technical은 윤곽·가려진 선, Arctic은 단색 형태·음영 확인에 사용합니다. 실제 표현은 해당 모드 설정에 따릅니다.
+
+RGB·에지는 문서 PrintDisplay 설정을 바꾸지 않고 모델의 일반 표시를 렌더합니다. 실시간 렌더 모드는 지원하지 않습니다. 현재 뷰의 clipping 참조와 단면 표시 설정도 전달하며, 독립 뷰의 설정 수용 확인에 실패하면 오류를 반환합니다. 깊이 패스는 기존 Z-buffer 경로를 사용합니다.
 ```
 
 ```ts
 declare const tools: { mcp__rhino__capture_01_conditioning_pass(args: {
-  // 청크당 프레임 수. 기본 16.
-  chunk?: number;
-  // 에지 프레임에 사용할 설치된 Rhino 디스플레이 모드이며, 기본값은 Technical입니다.
-  edge_mode?: string;
-  // 초당 프레임 수. 기본 16.
-  fps?: number;
-  // 짝수, 기본 480px.
-  height?: number;
-  // 기본 false: 가까울수록 밝음.
-  invert_depth?: boolean;
-  // 관리형 세션: 선택한 Plan의 산출물 디렉터리 아래 상대 폴더이며, 기본값은 conditioning입니다. 먼저 Plan을 선택합니다. 독립 실행: 출력 폴더이며, 기본값은 현재 작업 디렉터리입니다.
-  out_dir?: string;
-  // 쉼표 구분: rgb, edge, depth. 기본 전체.
-  passes?: string;
-  // RGB 프레임에 사용할 설치된 Rhino 디스플레이 모드이며, 기본값은 Rendered입니다.
-  rgb_mode?: string;
   // 카메라 경로를 담은 JSON 문자열입니다. type=orbit은 center:[x,y,z], radius, height와 선택적 start_deg/end_deg/lens/target_height; type=track은 cam0/cam1/target0/target1 좌표와 선택적 lens; type=keyframes는 camera·target·선택적 lens를 가진 keyframes 배열입니다. frames 기본값은 81, lens는 mm, 좌표는 문서 단위입니다.
   shot: string;
+  // 관리형 세션: 선택한 Plan의 산출물 디렉터리 아래 상대 폴더이며, 기본값은 conditioning입니다. 먼저 Plan을 선택합니다. 독립 실행: 출력 폴더이며, 기본값은 현재 작업 디렉터리입니다.
+  out_dir?: string;
   // 짝수, 기본 832px.
   width?: number;
+  // 짝수, 기본 480px.
+  height?: number;
+  // 쉼표 구분: rgb, edge, depth. 기본 전체.
+  passes?: string;
+  // 초당 프레임 수. 기본 16.
+  fps?: number;
+  // 청크당 프레임 수. 기본 16.
+  chunk?: number;
+  // RGB 프레임에 사용할 설치된 기본·사용자 정의 Rhino 표시 모드의 이름. 기본 Rendered(재료·조명); Shaded(표면·형태), Arctic(단색·음영) 등을 선택할 수 있습니다.
+  rgb_mode?: string;
+  // 에지 프레임에 사용할 설치된 기본·사용자 정의 Rhino 표시 모드의 이름. 기본 Technical(윤곽·가려진 선); Wireframe(선·내부 구조) 등을 선택할 수 있습니다.
+  edge_mode?: string;
+  // 기본 false: 가까울수록 밝음.
+  invert_depth?: boolean;
 }): Promise<CallToolResult<{
   result: string;
 }>>; };
@@ -575,60 +579,33 @@ declare const tools: { mcp__rhino__capture_01_conditioning_pass(args: {
 ```txt
 작업 화면을 유지하면서 여러 시점과 객체 범위를 하나의 PNG로 비교합니다. 객체 범위는 문서 표시 상태를 기준으로 하며 픽셀 가시성이나 가림을 보장하지 않습니다. 그룹 자동 확장과 블록 배치·정의 필터는 지원하지 않습니다.
 
+원하는 객체를 집중 확대하려면 공통 object_ids에 최상위 객체 GUID를 지정하고 views의 direction을 front, right, top 또는 iso_ne 등으로 선택합니다. 각 타일은 그 객체 범위에 맞춰 확대되며 작업 화면의 카메라·선택·표시 모드는 유지됩니다. 예: object_ids=["객체 GUID"], views=[{"direction":"front"},{"direction":"right"}]. 타일마다 다른 대상을 비교하려면 공통 object_ids를 생략하고 각 views 항목에 object_ids를 지정합니다. 두 방식을 함께 사용하지 않습니다. direction=current는 현재 카메라를 유지하므로 자동 집중 확대가 필요하면 다른 direction을 지정합니다. ID를 생략하면 문서에서 표시되는 객체 범위를 사용하며, 숨긴 객체는 지정해도 캡처할 수 없습니다.
+
+타일별 display_mode 선택 예: Wireframe(선·내부 구조), Shaded(표면·형태·가림), Rendered(재료·조명), Ghosted 또는 X-Ray(반투명·겹침), Technical(윤곽·가려진 선), Arctic(단색 형태·음영). 실제 표현은 해당 모드 설정에 따릅니다. 사용자 정의 모드도 설치된 이름 또는 GUID로 선택합니다. inspect_03-get_document_context tool에 sections=["display_modes"]를 전달해 현재 선택지를 조회하고, 추가·수정 후 다시 조회합니다. capture_supported=true인 모드를 사용합니다.
+
+문서 PrintDisplay 설정을 바꾸지 않고 모델의 일반 표시를 렌더합니다. 원본 뷰의 clipping 적용 대상 설정은 이 독립 범위 이미지에 복사하지 않습니다. 타일 크기는 상단 28px 설명 영역을 포함하므로 다른 캡처 도구와 같은 width·height를 지정해도 같은 그림 영역이나 프레이밍을 뜻하지 않습니다.
+
 일부 타일이 실패해도 status=success일 수 있습니다. 전체 성공 여부는 complete, 개별 결과는 tiles에서 확인합니다. PNG 전달과 image_file 저장은 별개입니다.
 ```
 
 ```ts
 declare const tools: { mcp__rhino__capture_02_inspection(args: {
+  // 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 설치된 기본·사용자 정의 래스터 모드의 이름/GUID; 생략 시 원본 모델 뷰포트의 모드. label: 최대 120자. object_ids: 최상위 GUID 1..512개; 생략·빈 배열은 공통 범위 또는 문서 표시 상태. current 이외의 direction은 대상 범위를 확대합니다.
+  views: Array<{ [key: string]: unknown }>;
+  // 타일의 픽셀 너비로, 범위는 128..2048이며 기본값은 640입니다. 결합 이미지 제한도 적용됩니다.
+  width?: number;
+  // 타일의 픽셀 높이로, 범위는 128..2048이며 기본값은 480입니다. 결합 이미지 제한도 적용됩니다.
+  height?: number;
   // 선택 사항인 열 개수이며, 범위는 1..뷰 개수입니다. 생략하면 자동 격자를 사용합니다.
   columns?: number | null;
   // 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
   expected_model_path?: string;
-  // 타일의 픽셀 높이로, 범위는 128..2048이며 기본값은 480입니다. 결합 이미지 제한도 적용됩니다.
-  height?: number;
   // 선택 사항인, 목록에 있는 모델 뷰포트 GUID입니다. Layout/Detail이 활성화된 경우를 포함하여 해당 뷰포트를 활성화하지 않고 사용합니다.
   model_view_id?: string;
   // 공통 최상위 객체 GUID 1..4096개. 빈 배열 불가; 타일별 object_ids와 배타.
   object_ids?: Array<string> | null;
-  // 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw.\n  // display_mode: 설치된 이름/GUID, label: 최대 120자. object_ids: 최상위 GUID 1..512개; 생략·빈 배열은 공통 범위 또는 문서 표시 상태.
-  views: Array<{
-    [key: string]: unknown;
-  }>;
-  // 타일의 픽셀 너비로, 범위는 128..2048이며 기본값은 640입니다. 결합 이미지 제한도 적용됩니다.
-  width?: number;
 }): Promise<CallToolResult<{
-  // 요청한 모든 타일을 캡처했는지 나타냅니다.
-  complete?: boolean;
-  // 오류 유형입니다.
-  error_code?: string;
-  // PNG 파일 저장 결과. 이미지 전달과 별개이며 저장 실패여도 이미지가 제공될 수 있음
-  image_file?: {
-    // 파일 바이트 수
-    bytes?: number;
-    // plan은 Plan 산출물, connection은 연결 정리까지의 임시 파일
-    lifetime?: string;
-    // 프로젝트 기준 PNG 상대 경로. output_refs에 기록할 때는 이 문자열만 사용
-    path?: string;
-    // 파일 해시.
-    sha256?: string;
-    // 파일 저장 결과입니다. saved일 때 path를 사용할 수 있습니다.
-    status?: string;
-  };
-  // 현재 결과 또는 오류의 설명입니다.
-  message?: string;
-  // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
-  next_step_guide?: string;
-  // 이미지 캡처의 처리 상태입니다.
-  status?: string;
-  // 타일별 캡처 결과와 관찰 범위입니다. 실패한 타일도 포함합니다.
-  tiles?: Array<{
-    // 캡처한 시점입니다.
-    direction?: string;
-    // 0부터 시작하는 항목 인덱스
-    index?: number;
-    // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
-    status?: string;
-  }>;
+  result: string;
 }>>; };
 ```
 
@@ -638,123 +615,38 @@ declare const tools: { mcp__rhino__capture_02_inspection(args: {
 현재 Rhino 모델 뷰포트를 PNG로 캡처합니다. 대상 지정 시 실제 선택과 카메라가 바뀌며, isolate와 display_mode도 실제 화면 상태를 변경합니다. 격리 해제는 Rhino Unisolate를 사용합니다. 잠긴 주변 객체는 보일 수 있고, 선택·카메라는 별도로 확인해야 합니다.
 
 PNG 이미지 전달과 image_file 저장은 별개입니다. include_usage의 토큰 수는 픽셀 기준 추정치입니다. labels는 주변 객체에도 표시되어 화면을 가릴 수 있습니다.
+
+문서 PrintDisplay 설정을 바꾸지 않고 모델의 일반 표시를 렌더합니다. 실시간 렌더 모드는 현재 화면이 이미 그 모드여도 지원하지 않습니다. 현재 뷰의 clipping 참조와 단면 표시 설정도 함께 전달하며, Rhino가 독립 뷰에 이 설정을 수용했는지 확인하지 못하면 capture_view_settings_unverified 오류를 반환합니다.
+
+display_mode 선택 예: Wireframe(선·내부 구조), Shaded(표면·형태·가림), Rendered(재료·조명), Ghosted 또는 X-Ray(반투명·겹침), Technical(윤곽·가려진 선), Arctic(단색 형태·음영). 실제 표현은 해당 모드 설정에 따릅니다. 사용자 정의 모드도 설치된 이름 또는 GUID로 선택합니다. inspect_03-get_document_context tool에 sections=["display_modes"]를 전달해 현재 선택지를 조회하고, 추가·수정 후 다시 조회합니다. capture_supported=true인 모드를 사용합니다.
 ```
 
 ```ts
 declare const tools: { mcp__rhino__capture_03_current_view(args: {
-  // 레이블 확장 깊이: 1..8, 기본 1.
-  depth?: number;
-  // 선택 사항인 설치된 래스터 모드 이름/ID입니다. 제공하면 실제 모델 뷰포트를 변경합니다.
-  display_mode?: string;
-  // 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
-  expected_model_path?: string;
-  // 이미지의 픽셀 높이입니다. 128..2048 범위이며 width도 입력하고 scale_percent=100으로 지정합니다.
-  height?: number | null;
-  // true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다.
-  include_usage?: boolean;
-  // 기본 false. true: target_ids 필수, 확대 전 Isolate.
-  isolate?: boolean;
-  // 기본 false. 주변 객체에도 최대 200개 표시 가능.
-  labels?: boolean;
-  // 이미지 해상도의 백분율입니다. 1..100 범위이며 기본값은 75입니다.
-  scale_percent?: number;
   // 화면에서 선택·확대할 객체, 그룹 또는 Holon의 ID 배열입니다. 생략하면 현재 화면을 사용하며, 입력할 때는 하나 이상의 ID를 지정합니다.
   target_ids?: Array<string> | null;
   // object(기본), group, block, holon. block은 배치 객체 ID; 비기본값은 target_ids 필요.
   target_kind?: string;
+  // 기본 false. true: target_ids 필수, 확대 전 Isolate.
+  isolate?: boolean;
+  // 이미지 해상도의 백분율입니다. 1..100 범위이며 기본값은 75입니다.
+  scale_percent?: number;
+  // true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다.
+  include_usage?: boolean;
+  // 생략 시 현재 모드. Wireframe, Shaded, Rendered, Ghosted, X-Ray, Technical, Arctic 또는 설치된 사용자 정의 래스터 모드의 이름/GUID. 제공하면 실제 모델 뷰포트를 변경합니다. 현재 선택지는 inspect_03-get_document_context tool의 display_modes에서 조회합니다.
+  display_mode?: string;
+  // 기본 false. 주변 객체에도 최대 200개 표시 가능.
+  labels?: boolean;
+  // 레이블 확장 깊이: 1..8, 기본 1.
+  depth?: number;
   // 이미지의 픽셀 너비입니다. 128..2048 범위이며 height도 입력하고 scale_percent=100으로 지정합니다.
   width?: number | null;
+  // 이미지의 픽셀 높이입니다. 128..2048 범위이며 width도 입력하고 scale_percent=100으로 지정합니다.
+  height?: number | null;
+  // 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
+  expected_model_path?: string;
 }): Promise<CallToolResult<{
-  // 오류 유형입니다.
-  error_code?: string;
-  // 실패한 단계입니다: validate, select, isolate, verify_selection, zoom_selected, redraw.
-  failed_stage?: string;
-  // 포커스 실행 전후에 확인한 대상과 뷰 상태입니다.
-  focus_observation?: {
-    // 포커스 작업 실패 후 관측한 뷰 상태입니다.
-    after_failure?: {
-      // 문서 단위의 카메라 위치 [x, y, z]입니다.
-      camera_location?: Array<number>;
-      // 문서 단위의 카메라 대상 [x, y, z]입니다.
-      camera_target?: Array<number>;
-      // 관측한 [left, right, bottom, top, near, far]입니다.
-      frustum?: Array<number>;
-      // 뷰 관측 중 확인하지 못한 정보의 오류입니다.
-      observation_error?: string;
-      // 평행 투영이면 true입니다.
-      parallel_projection?: boolean;
-      // 관측한 뷰포트의 UUID입니다.
-      viewport_id?: string;
-    };
-    // 확대 작업 직전에 관측한 뷰 상태입니다.
-    before_zoom?: {
-      // 문서 단위의 카메라 위치 [x, y, z]입니다.
-      camera_location?: Array<number>;
-      // 문서 단위의 카메라 대상 [x, y, z]입니다.
-      camera_target?: Array<number>;
-      // 관측한 [left, right, bottom, top, near, far]입니다.
-      frustum?: Array<number>;
-      // 뷰 관측 중 확인하지 못한 정보의 오류입니다.
-      observation_error?: string;
-      // 평행 투영이면 true입니다.
-      parallel_projection?: boolean;
-      // 관측한 뷰포트의 UUID입니다.
-      viewport_id?: string;
-    };
-    // 문서 단위의 대상 합집합 경계입니다.
-    target_bounds?: {
-      // 최대 [x, y, z] 좌표입니다.
-      max?: Array<number>;
-      // 최소 [x, y, z] 좌표입니다.
-      min?: Array<number>;
-    };
-    // 대상 경계를 관측하지 못한 이유입니다.
-    target_bounds_error?: string;
-    // 포커스 대상으로 확인한 객체 수입니다.
-    target_count?: number;
-    // 대상 경계 확대의 관측 결과입니다. null이면 완료 여부를 확인하지 못했습니다.
-    zoom_bounding_box?: boolean | null;
-    // 기본 선택 확대의 관측 결과입니다. null이면 완료 여부를 확인하지 못했습니다.
-    zoom_extents_selected?: boolean | null;
-  };
-  // PNG 저장 결과입니다. 이미지 전달 여부와 별도로 확인합니다.
-  image_file?: {
-    // 파일 바이트 수
-    bytes?: number;
-    // plan은 Plan 산출물, connection은 연결 정리까지의 임시 파일
-    lifetime?: string;
-    // 프로젝트 기준 PNG 상대 경로. output_refs에 기록할 때는 이 문자열만 사용
-    path?: string;
-    // 파일 해시.
-    sha256?: string;
-    // 파일 저장 결과입니다. saved일 때 path를 사용할 수 있습니다.
-    status?: string;
-  };
-  // 현재 결과 또는 오류의 설명입니다.
-  message?: string;
-  // 뷰 변경 적용 여부입니다. null이면 중간 상태를 확인해야 합니다.
-  mutation_applied?: boolean | null;
-  // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
-  next_step_guide?: string;
-  // true이면 현재 Rhino 상태를 확인한 뒤 다음 작업을 정합니다.
-  requires_reconciliation?: boolean;
-  // 이미지 캡처의 처리 상태입니다.
-  status?: string;
-  // 이 호출에서 완료한 뷰 작업입니다. null인 항목은 시도 후 완료를 확인하지 못했습니다.
-  view_change?: {
-    // 화면 표시 모드 변경 완료 여부입니다.
-    display_mode_changed?: boolean | null;
-    // Isolate 완료 여부입니다.
-    isolated?: boolean | null;
-    // 격리된 객체의 가시성을 복구하는 Rhino 명령입니다. 카메라와 선택은 별도로 확인합니다.
-    restore_visibility_command?: string;
-    // 대상 선택 작업 완료 여부입니다.
-    selection_changed?: boolean | null;
-    // 성공한 확대 방식입니다. selected는 기본 선택 확대, bounding_box는 기본 방식 실패 후 대상 경계 확대입니다.
-    zoom_method?: "selected" | "bounding_box";
-    // 기본 선택 확대 또는 대상 경계 확대를 완료했는지 나타냅니다.
-    zoom_selected?: boolean | null;
-  };
+  result: string;
 }>>; };
 ```
 
@@ -764,52 +656,36 @@ declare const tools: { mcp__rhino__capture_03_current_view(args: {
 저장된 Named View 또는 Layout 용지를 PNG로 캡처합니다. 이름·ID는 inspect_03-get_document_context tool에서 조회합니다.
 
 Named View는 저장된 카메라를 사용하고, Layout은 용지와 Detail의 기존 표시 모드를 사용합니다. Layout에는 픽셀 크기와 display_mode를 지정할 수 없습니다. 이미지와 image_file 저장 결과는 별개이며, 사용량 추정·경고는 별도 text content로 반환됩니다. Layout Detail 레이블은 지원하지 않습니다.
+
+Named View의 display_mode 선택 예: Wireframe(선·내부 구조), Shaded(표면·형태·가림), Rendered(재료·조명), Ghosted 또는 X-Ray(반투명·겹침), Technical(윤곽·가려진 선), Arctic(단색 형태·음영). 실제 표현은 해당 모드 설정에 따릅니다. 사용자 정의 모드도 설치된 이름 또는 GUID로 선택합니다. inspect_03-get_document_context tool에 sections=["display_modes"]를 전달해 현재 선택지를 조회하고, 추가·수정 후 다시 조회합니다. capture_supported=true인 모드를 사용합니다. Layout은 인쇄 색상·선폭을 적용하며 문서의 PrintDisplay 설정은 변경하지 않습니다.
+
+Named View는 모델의 일반 표시 렌더를 요청하며 문서 PrintDisplay 설정을 바꾸지 않습니다. 저장된 clipping 참조와 단면 표시 설정도 함께 전달합니다. Rhino가 독립 뷰에 이 설정을 수용했는지 확인하지 못하면 capture_view_settings_unverified 오류를 반환합니다. Layout 용지의 기존 인쇄 경로는 유지합니다.
 ```
 
 ```ts
 declare const tools: { mcp__rhino__capture_04_defined_view(args: {
-  // 레이블 깊이: 1..8, 기본 1.
-  depth?: number;
-  // Named View 전용. 기본 Shaded; 설치된 래스터 모드 이름 또는 ID.
-  display_mode?: string;
-  // 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
-  expected_model_path?: string;
-  // 선택 사항인 Named View의 픽셀 높이로, 범위는 128..2048입니다. width도 제공하고 scale_percent=100으로 설정합니다. Layout에는 사용하지 않습니다.
-  height?: number | null;
-  // true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다.
-  include_usage?: boolean;
-  // 기본 false. 최대 200개; 주변 레이블이 겹칠 수 있음.
-  labels?: boolean;
-  // 범위는 1..100이며 기본값은 75입니다. 원하는 상한이며, 백분율 캡처는 전달 용량 제한에 맞게 축소될 수 있습니다.
-  scale_percent?: number;
-  // 기존 이름 또는 ID입니다. 대소문자를 구분하지 않는 이름 일치는 유일해야 합니다.
-  target: string;
   // named_view | layout.
   target_kind: string;
+  // 기존 이름 또는 ID입니다. 대소문자를 구분하지 않는 이름 일치는 유일해야 합니다.
+  target: string;
+  // 범위는 1..100이며 기본값은 75입니다. 원하는 상한이며, 백분율 캡처는 전달 용량 제한에 맞게 축소될 수 있습니다.
+  scale_percent?: number;
+  // true이면 이미지 크기와 픽셀 기준 토큰 추정치를 포함합니다.
+  include_usage?: boolean;
+  // Named View 전용. 기본 Shaded. Wireframe, Shaded, Rendered, Ghosted, X-Ray, Technical, Arctic 또는 설치된 사용자 정의 래스터 모드의 이름/GUID. 현재 선택지는 inspect_03-get_document_context tool의 display_modes에서 조회합니다.
+  display_mode?: string;
+  // 기본 false. 최대 200개; 주변 레이블이 겹칠 수 있음.
+  labels?: boolean;
+  // 레이블 깊이: 1..8, 기본 1.
+  depth?: number;
   // 선택 사항인 Named View의 픽셀 너비로, 범위는 128..2048입니다. height도 제공하고 scale_percent=100으로 설정합니다. Layout에는 사용하지 않습니다.
   width?: number | null;
+  // 선택 사항인 Named View의 픽셀 높이로, 범위는 128..2048입니다. width도 제공하고 scale_percent=100으로 설정합니다. Layout에는 사용하지 않습니다.
+  height?: number | null;
+  // 생략하면 현재 연결의 저장 문서 경로를 자동 적용합니다. 명시하면 그 경로와 일치하는지 확인합니다.
+  expected_model_path?: string;
 }): Promise<CallToolResult<{
-  // 오류 유형입니다.
-  error_code?: string;
-  // PNG 저장 결과입니다. 실제 치수와 축소 경고는 캡처 메타데이터에서 확인합니다.
-  image_file?: {
-    // 파일 바이트 수
-    bytes?: number;
-    // plan은 Plan 산출물, connection은 연결 정리까지의 임시 파일
-    lifetime?: string;
-    // 프로젝트 기준 PNG 상대 경로. output_refs에 기록할 때는 이 문자열만 사용
-    path?: string;
-    // 파일 해시.
-    sha256?: string;
-    // 파일 저장 결과입니다. saved일 때 path를 사용할 수 있습니다.
-    status?: string;
-  };
-  // 현재 결과 또는 오류의 설명입니다.
-  message?: string;
-  // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
-  next_step_guide?: string;
-  // 오류 등에서 반환. 성공 응답에는 없을 수 있음.
-  status?: string;
+  result: string;
 }>>; };
 ```
 
@@ -2642,20 +2518,20 @@ declare const tools: { mcp__rhino__diagram_04_search(args: {
 
 ## drawing
 
-### 27. drawing\_01-list\_recipes
+### 27. drawing\_05-list\_recipes
 
 대응 오리지널: `list_drawing_recipes`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-사용 가능한 도면 스타일 레시피의 요약을 조회합니다. 상세 조회에 사용할 recipe_id는 include_ids=true로 포함합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
+사용 가능한 도면 스타일 레시피의 요약을 조회합니다. 상세 조회에 사용할 recipe_id는 include_ids=true로 포함합니다. next_step_guide는 drawing_01-apply_style tool을 사용한 스타일 적용을 안내하며 요약에서도 반환합니다. 호출마다 레시피 파일을 다시 읽고 작성 틀 sample.json은 제외합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
 ```
 
 ```ts
-declare const tools: { mcp__rhino__drawing_01_list_recipes(args: {
-  // 상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
-  field_groups?: Array<string> | null;
+declare const tools: { mcp__rhino__drawing_05_list_recipes(args: {
   // true이면 후속 호출에 사용할 ID를 포함합니다.
   include_ids?: boolean;
+  // 상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
+  field_groups?: Array<string> | null;
 }): Promise<CallToolResult<{
   result: string;
 }>>; };
@@ -2666,36 +2542,35 @@ declare const tools: { mcp__rhino__drawing_01_list_recipes(args: {
 대응 오리지널: `get_drawing_recipe`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-지정한 도면 스타일 레시피의 투영·축척·레이어·출력 설정을 조회합니다. result는 레시피 또는 오류를 담은 JSON 문자열입니다.
+지정한 도면 스타일 레시피의 투영·축척·레이어·출력 설정을 조회합니다. 조회만으로 문서 스타일이 적용되지 않으며, next_step_guide에 따라 같은 recipe_id로 drawing_01-apply_style tool을 호출합니다. 안내는 상세 그룹·ID 표시 여부와 무관하게 반환합니다. result는 레시피 또는 오류를 담은 JSON 문자열입니다.
 ```
 
 ```ts
 declare const tools: { mcp__rhino__drawing_02_get_recipe(args: {
-  // 상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
-  field_groups?: Array<string> | null;
-  // true이면 후속 호출에 사용할 ID를 포함합니다.
-  include_ids?: boolean;
   // drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다.
   recipe_id: string;
+  // true이면 후속 호출에 사용할 ID를 포함합니다.
+  include_ids?: boolean;
+  // 상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
+  field_groups?: Array<string> | null;
 }): Promise<CallToolResult<{
   result: string;
 }>>; };
 ```
 
-### 29. drawing\_03-apply\_style
+### 29. drawing\_01-apply\_style
 
 대응 오리지널: `apply_drawing_style`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다.
+도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 선종 기본 정의는 실행 소스의 profiles/linetype/manifest.json에서 직접 읽으며, 문서에 동명 선종이 있으면 패턴이 달라도 기존 정의를 보존·재사용합니다. 레이어 선종의 ByLayer·ByParent 입력은 Continuous로 처리합니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다.
 ```
 
 ```ts
-declare const tools: { mcp__rhino__drawing_03_apply_style(args: {
+declare const tools: { mcp__rhino__drawing_01_apply_style(args: {
   // drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool의 레시피 ID. 생략: technical_axon_v1.
   recipe_id?: string;
 }): Promise<CallToolResult<{
-  // 적용 상태·레이어 목록 또는 오류를 담은 JSON 문자열. 오류·시간 초과가 롤백을 뜻하지는 않음.
   result: string;
 }>>; };
 ```
@@ -2718,60 +2593,39 @@ declare const tools: { mcp__rhino__drawing_04_import_hatches(args: {
 }>>; };
 ```
 
-### 31. drawing\_05-generate\_plan\_section
+### 31. drawing\_06-generate\_plan\_section
 
 ```txt
-클리핑 평면의 방향·깊이·참여 대상을 기준으로 활성 모델에서 단면선과 선택적인 해치·입면선을 계산해 모델 공간에 생성하거나 갱신합니다. 같은 클리핑의 기존 생성 도면이 교체되며 수동 편집이 사라질 수 있습니다. 부분 완료나 취소 뒤에도 결과가 남을 수 있습니다.
+연결된 저장 문서의 clipping plane으로 평·단면 도면을 생성·갱신하거나 기존 도면을 이동합니다. clipping_ids에는 관측한 GUID를 사용합니다. Create는 기존 같은 clipping 도면을 교체하고 Update는 저장된 배치를 유지합니다. Move는 재추출하지 않고 기존 객체 ID·이름·사용자 정보를 보존해 이동합니다. 첨부 참조 포함 시 활성 문서에 로드된 참조 형상을 같은 추출·가림·중복 정리 계산에 넣습니다. 파일별 도면 적층이 아닙니다. 실제 대상은 generation_conditions의 레이어 이름·객체 수·숨김/잠금 포함 여부로 확인하고 반환된 clipping GUID는 inspect_02-get_objects tool에 scope='document', object_ids=[GUID], include_ids=true로 전달해 식별·기본 정보를 확인합니다. 저장된 참가 객체·레이어 설정의 상세가 필요하면 script_02-run_rhino tool에서 그 GUID의 ClippingPlaneGeometry.GetClipParticipation()을 읽습니다. 저장 설정은 이번 추출의 실제 generation_conditions와 다를 수 있습니다.
+
+호출 전에 request_id UUID를 정해 전달하면 응답을 전혀 받지 못해도 같은 request_id와 동일 입력으로 다시 호출해 보관된 응답을 회수합니다. 재호출은 도면을 다시 만들지 않습니다. 외부 연결의 native 완료 fence가 pending이면 전송 자체가 차단될 수 있으므로 fence 해제·회복이 확인된 뒤 같은 키를 사용합니다. pending/unknown은 완료 불명으로 기존 도면·실행 상태 확인이 필요하며 새 키로 자동 재생성하지 않습니다. 롤백 복구가 실패한 unknown은 불완전 생성보다 우선하며 현재 출력·실행 상태를 확인하기 전 자동 재실행하거나 새 키로 생성·갱신하지 않습니다. 일반 partial/cancelled/failed는 불완전 생성으로 실패한 clipping을 확인한 뒤 새 request_id로 Create 또는 Update를 호출합니다. 별도 결과 조회 도구는 없습니다. 보관된 응답은 현재 형상 재관찰이 아닙니다. 프로세스·문서 인스턴스가 달라 historical_response=true이면 저장하지 못한 과거 출력이 현재 문서에 없을 수 있으므로 requires_reconciliation에 따라 확인합니다. 신규 출력의 ps:metadata_snapshot은 사용자 정보 변경 검사용 생성기 예약키입니다. 사용자 변경 또는 비교기록 없는 legacy 정보가 있으면 임의 삭제 대신 기존 출력 교체를 차단하므로 정보를 검토·보존한 뒤 갱신합니다. 오직 이번 생성기와 값·타입이 정확히 같은 자동 Floor만 있는 legacy 도면은 무손실 교체가 가능합니다. 필수 응답조건이 예산을 넘는 요청은 모델변경 전 not_started로 거부하며 clipping 배치·대상 레이어 범위를 줄여야 합니다.
 ```
 
 ```ts
-declare const tools: { mcp__rhino__drawing_05_generate_plan_section(args: {
+declare const tools: { mcp__rhino__drawing_06_generate_plan_section(args: {
+  // Create(생성·교체), Update(저장 배치로 재생성), Move(기존 도면 이동).
+  operation: "Create" | "Update" | "Move";
   // 클리핑 평면 GUID 목록. 비어 있을 수 없으며 중복은 한 번만 처리.
   clipping_ids: Array<string>;
-  // 입면선 포함. 기본 true.
-  elevation?: boolean;
-  // 생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인.
-  expected_model_path?: string;
-  // 먼 입면선 출력 농도 0..100%. 기본 45, near_dark 이하.
-  far_dark?: number;
-  // 먼 입면선 출력 두께(mm). 기본 0.04, 양수이며 near_width 이하.
-  far_width?: number;
+  // Create/Move의 클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위. Move는 모든 GUID에 필수. Update는 생략.
+  points?: { [key: string]: Array<number | number> } | null;
   // 해치 생성 허용. 원본 단면 스타일의 채움과 형상 조건을 따름. 기본 true.
   hatch?: boolean;
-  // 가까운 입면선 출력 농도 0..100%. 기본 80, far_dark 이상.
-  near_dark?: number;
-  // 가까운 입면선 출력 두께(mm). 기본 0.09, 양수이며 far_width 이상.
-  near_width?: number;
-  // Create: 생성 또는 기존 도면 교체. Update: 기존 도면 재생성.
-  operation: "Create" | "Update";
-  // Create만: 클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위.
-  points?: {
-    [key: string]: Array<number>;
-  } | null;
-  // 작은 상세 보호 여부. 기본 true.
+  // 작은 입면 상세 보호 여부. 기본 false.
   small_details?: boolean;
+  // false(기본)는 활성 문서 모델만, true는 활성 문서에 로드된 첨부 참조도 포함. 숨김·잠금 객체 선택 옵션과 별개.
+  include_references?: boolean;
+  // 가까운 입면선 출력 두께(mm). 기본 0.09, 양수이며 far_width 이상.
+  near_width?: number | number;
+  // 먼 입면선 출력 두께(mm). 기본 0.04, 양수이며 near_width 이하.
+  far_width?: number | number;
+  // 가까운 입면선 출력 농도 0..100%. 기본 80, far_dark 이상.
+  near_dark?: number | number;
+  // 먼 입면선 출력 농도 0..100%. 기본 45, near_dark 이하.
+  far_dark?: number | number;
+  // 응답 유실 시 안전한 재호출을 위해 호출 전에 정한 고유 UUID. 같은 키는 동일 요청 복구에만 사용. 의도적인 새 생성·갱신·이동에는 새 UUID 사용. 생략하면 영속 응답 복구 보장 없음.
+  request_id?: string;
 }): Promise<CallToolResult<{
-  // 상태·도면별 생성 객체와 보고 또는 오류의 JSON 문자열. 큰 결과는 result.result_id로 drawing_06-get_plan_section_result tool에서 회수.
-  result: string;
-}>>; };
-```
-
-### 32. drawing\_06-get\_plan\_section\_result
-
-```txt
-drawing_06-generate_plan_section tool의 큰 결과를 영수증으로 조회합니다. 같은 result_id의 json_chunk를 next_offset이 null일 때까지 이어 붙여 JSON으로 해석합니다. 저장된 실행 결과이며 현재 형상을 재관찰하지 않습니다. 결과는 같은 Bridge 프로세스·문서에서 최대 1시간 보관되지만 개수·용량 제한이나 재시작으로 더 일찍 사라질 수 있습니다.
-```
-
-```ts
-declare const tools: { mcp__rhino__drawing_06_get_plan_section_result(args: {
-  // 생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인.
-  expected_model_path?: string;
-  // 첫 페이지 기본 0, 이후 반환된 next_offset 사용. UTF-16 코드 단위.
-  offset?: number;
-  // drawing_06-generate_plan_section tool의 result.result_id.
-  result_id: string;
-}): Promise<CallToolResult<{
-  // json_chunk·next_offset·result_sha256 등 페이지 정보 또는 오류의 JSON 문자열.
   result: string;
 }>>; };
 ```
