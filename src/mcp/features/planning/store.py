@@ -5,7 +5,7 @@ from almond_mcp.instruction_text import read_instruction
 
 import sqlite3
 import uuid
-from typing import Any
+from typing import Any, Callable
 
 from almond_mcp.store_common import _utc_now, _json, _decode
 from almond_mcp.features.planning.updates import StringListPatch, PlanningUpdate, apply_list_patch
@@ -326,9 +326,10 @@ class PlanningStore(LoopingStore):
                 "depends_on": _decode(step["depends_on_json"], []),
                 "input_refs": _decode(step["input_refs_json"], []),
                 "output_refs": _decode(step["output_refs_json"], []),
+                "takeaways": step["takeaways"], "design_rationale": step["design_rationale"],
             }
             for step in connection.execute(
-                """SELECT s.*,r.status,r.input_refs_json,r.output_refs_json FROM generation_plan_steps s
+                """SELECT s.*,r.status,r.input_refs_json,r.output_refs_json,r.takeaways,r.design_rationale FROM generation_plan_steps s
                    JOIN generation_loop_steps r ON r.plan_id=s.plan_id AND r.step_id=s.step_id
                    WHERE s.plan_id=? AND r.loop_no=? ORDER BY s.position""", (plan_id,result["loop_no"])
             )
@@ -555,6 +556,8 @@ class PlanningStore(LoopingStore):
                 snapshot_step_identity(connection, snapshot)
                 for step in snapshot.get("steps", []):
                     step["loop_no"] = selected
+                    step.setdefault("takeaways", "")
+                    step.setdefault("design_rationale", "")
             return snapshot
 
     def get_step(self, plan_id: str, step_id: str, revision: int | None = None,
@@ -573,7 +576,7 @@ class PlanningStore(LoopingStore):
             if current is None:
                 return None
             selected = current[0] if loop_no is None else self._loop_number(loop_no)
-            row = connection.execute("""SELECT s.step_id,s.step_type,s.name,r.status,r.input_refs_json,r.output_refs_json,
+            row = connection.execute("""SELECT s.step_id,s.step_type,s.name,r.status,r.input_refs_json,r.output_refs_json,r.takeaways,r.design_rationale,
                 (SELECT MAX(revision) FROM generation_plan_revisions WHERE plan_id=r.plan_id AND loop_no=r.loop_no) AS revision
                 FROM generation_plan_steps s JOIN generation_loop_steps r ON r.plan_id=s.plan_id AND r.step_id=s.step_id
                 WHERE r.plan_id=? AND r.loop_no=? AND r.step_id=?""", (plan_id,selected,step_id)).fetchone()
@@ -581,7 +584,8 @@ class PlanningStore(LoopingStore):
                 return None
             return {"plan_id": plan_id, "loop_no": selected, "revision": row["revision"], "read_only": selected != current[0], "step": {
                 "step_id": row["step_id"], "step_type": row["step_type"], "name": row["name"], "status": row["status"], "loop_no": selected,
-                "input_refs": _decode(row["input_refs_json"], []), "output_refs": _decode(row["output_refs_json"], [])}}
+                "input_refs": _decode(row["input_refs_json"], []), "output_refs": _decode(row["output_refs_json"], []),
+                "takeaways": row["takeaways"], "design_rationale": row["design_rationale"]}}
 
     def list_plans(
         self, phase_id: str = "", scene_id: str = "", status: str = "", limit: int = 50,
@@ -713,8 +717,12 @@ class PlanningStore(LoopingStore):
         output_refs: list[str] | None = None,
         expected_revision: int | None = None,
         loop_no: int | None = None,
+        takeaways: str | None = None,
+        design_rationale: str | None = None,
+        *, _before_complete: Callable[[], None] | None = None,
     ) -> dict[str, Any]:
-        return self.edit_step(plan_id, step_id, status, input_refs, output_refs, expected_revision, loop_no).record
+        return self.edit_step(plan_id, step_id, status, input_refs, output_refs, expected_revision, loop_no,
+                              takeaways, design_rationale, _before_complete=_before_complete).record
 
     def edit_step(
         self, plan_id: str, step_id: str, status: str | None = None,
@@ -722,7 +730,21 @@ class PlanningStore(LoopingStore):
         output_refs: list[str] | StringListPatch | None = None,
         expected_revision: int | None = None,
         loop_no: int | None = None,
+        takeaways: str | None = None,
+        design_rationale: str | None = None,
+        *, _before_complete: Callable[[], None] | None = None,
     ) -> PlanningUpdate:
+        """Update one revision; public completion callers supply the private cleanup hook.
+
+        The hook runs only for a new completed transition after all validation,
+        under the same write transaction. Its exception leaves the Step unchanged.
+        External effects already performed by a hook are not rolled back by SQL.
+        """
+        if _before_complete is not None and not callable(_before_complete):
+            raise ValueError("_before_complete must be callable or None.")
+        for field, value in (("takeaways", takeaways), ("design_rationale", design_rationale)):
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"{field} must be text or None to preserve it.")
         if status is not None:
             status = self._generation_text(status, "status").lower()
             if status not in {"pending", "running", "completed", "failed", "blocked", "paused"}:
@@ -747,17 +769,21 @@ class PlanningStore(LoopingStore):
                     return result
                 return step[field] if value is None else self._generation_refs(value, field)
             inputs, outputs = refs(input_refs, "input_refs"), refs(output_refs, "output_refs")
-            if (status, inputs, outputs) == (
-                step["status"], step["input_refs"], step["output_refs"]
+            takeaways = step["takeaways"] if takeaways is None else takeaways
+            design_rationale = step["design_rationale"] if design_rationale is None else design_rationale
+            if (status, inputs, outputs, takeaways, design_rationale) == (
+                step["status"], step["input_refs"], step["output_refs"], step["takeaways"], step["design_rationale"]
             ):
                 return PlanningUpdate(plan, False, issues)
+            if status == "completed" and step["status"] != "completed" and _before_complete is not None:
+                _before_complete()
             connection.execute(
                 """
                 UPDATE generation_loop_steps
-                SET status = ?, input_refs_json = ?, output_refs_json = ?
+                SET status = ?, input_refs_json = ?, output_refs_json = ?, takeaways = ?, design_rationale = ?
                 WHERE plan_id = ? AND loop_no = ? AND step_id = ?
                 """,
-                (status, _json(inputs), _json(outputs), plan_id, plan["loop_no"], step_id),
+                (status, _json(inputs), _json(outputs), takeaways, design_rationale, plan_id, plan["loop_no"], step_id),
             )
             # Plan status is an explicit decision, not an aggregate of Steps.
             result = self._record_generation_revision(connection, plan_id, "update_step:" + step_id, step_id)

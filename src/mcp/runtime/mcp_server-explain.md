@@ -5,7 +5,7 @@
 <!-- instruction:execute_looping -->
 Plan의 새 작업 회차를 시작하거나 최신 회차를 재개합니다. Step 실행은 에이전트가 직접 수행합니다.
 
-새 회차는 Step을 pending으로 시작하며 이전 회차의 상태와 참조는 previous_loop에 반환합니다. resume=true는 기존 회차를 유지하며, 피드백을 생략하거나 비우면 기존 피드백을 유지합니다. 실행된 회차가 없으면 재개할 수 없습니다. next_step_id는 미완료 첫 Step이며 없으면 null입니다.
+새 회차는 Step을 pending과 빈 판단·파일 참조로 시작하며 이전 회차의 상태·Takeaways·Design rationale·파일 참조는 previous_loop에 반환합니다. 직전 판단을 읽고 참조 파일을 다시 찾아 실제로 열어 현재 작업 맥락을 맞춥니다. resume=true는 기존 회차와 판단을 유지하며, 피드백을 생략하거나 비우면 기존 피드백을 유지합니다. 실행된 회차가 없으면 재개할 수 없습니다. next_step_id는 미완료 첫 Step이며 없으면 null입니다.
 
 Args:
     plan_id: 다음 Loop를 시작하거나 최신 Loop를 재개할 기존 Plan ID입니다. plan_02-create tool 또는 plan_08-list tool에서 얻은 ID를 사용합니다.

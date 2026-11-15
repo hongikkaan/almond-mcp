@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RhinoSystem Condition="'$(RhinoSystem)' == ''">C:\Program Files\Rhino 8\System</RhinoSystem>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json"><HintPath>$(MSBuildSDKsPath)/../Newtonsoft.Json.dll</HintPath></Reference>
+    <Compile Include="../../features/planning/native/StepCompletion.cs" Link="StepCompletion.cs" />
+    <Compile Include="../../features/components/native/ComponentSemanticRegistry.cs" Link="Actual.ComponentSemanticRegistry.cs" />
+    <Compile Include="../../../rhp/RhinoAlmondBridge/ScriptExecutor.Results.cs" Link="ActualExecutor.Results.cs" />
+    <Compile Include="RhinoFixture.cs" /><Compile Include="Program.cs" />
+    <Compile Include="obj/ActualExecutor.g.cs" />
+  </ItemGroup>
+  <Target Name="RequireExistingExecutor" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/obj/ActualExecutor.g.cs')" Text="Run prepare_executor.py with this checkout's Python before building the offline host." />
+  </Target>
+</Project>

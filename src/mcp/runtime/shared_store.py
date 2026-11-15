@@ -161,6 +161,11 @@ def public_result(result, name):
     if name == "project_info" or not os.environ.get("ALMOND_PROJECT_ROOT"):
         return result
 
+    # These are user-authored records, not managed output paths. In particular,
+    # references may point outside the selected Plan or to another drive.
+    from almond_mcp.features.planning.output import STEP_RECORD_FIELDS
+    verbatim = STEP_RECORD_FIELDS if name in {"get_planning", "execute_looping", "get_selection_references"} else ()
+
     def convert(value, *, decode_json=True):
         if isinstance(value, str) and decode_json:
             try:
@@ -172,7 +177,7 @@ def public_result(result, name):
                 # its body are user data, not additional response envelopes.
                 return json.dumps(convert(decoded, decode_json=False), ensure_ascii=False)
         if isinstance(value, dict):
-            converted = {key: convert(item, decode_json=decode_json) for key, item in value.items()}
+            converted = {key: item if key in verbatim else convert(item, decode_json=decode_json) for key, item in value.items()}
             package = value.get("package_dir")
             if (name in {"generate_asset_drawing_views", "get_asset_drawing", "register_drawing_asset", "refresh_asset"}
                     and isinstance(package, str)):

@@ -49,7 +49,7 @@ class GetStep(PlanningRequest):
     plan_id: str = Field(..., description='조회할 Plan ID입니다. Step 조회에는 해당 Step의 Plan ID를 사용합니다.')
     step_id: str = Field(..., description='해당 Plan에 속한 Step ID.')
     revision: StrictInt | None = Field(None, description='선택한 Loop의 리비전. 생략·null이면 해당 Loop의 최신 상태; 지정하면 읽기 전용 스냅샷.')
-    include_details: StrictBool = Field(False, description='기본 false. true이면 이 Step의 유형과 입출력 참조를 포함합니다.')
+    include_details: StrictBool = Field(False, description='기본 false. true이면 이 Step의 유형, Takeaways, Design rationale과 입출력 파일 참조를 포함합니다. 기록된 경로와 현재 파일 접근 가능성은 별도로 확인합니다.')
     loop_no: StrictInt | None = Field(None, description='0 이상의 Loop 번호. 생략·null이면 최신 Loop, 0은 실행 전 기록.')
 
 class ListPhases(PlanningRequest):
@@ -95,9 +95,11 @@ class UpdateStep(PlanningRequest):
     target: Literal['step'] = Field(description="작업할 대상 종류입니다.")
     plan_id: str = Field(..., description='plan_08-list tool에 request.target=plan으로 조회한 plans[].plan_id 또는 plan_05-get tool의 id에서 얻은 기존 Plan ID입니다.')
     step_id: str = Field(..., description='선택한 Plan의 상세 결과에서 얻은 Step ID입니다. 해당 Plan ID와 함께 사용합니다.')
-    status: Literal['pending', 'running', 'paused', 'completed', 'failed', 'blocked'] | None = Field(None, description='pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다.')
-    input_refs: StringListPatch | None = Field(None, description='입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다.')
-    output_refs: StringListPatch | None = Field(None, description='출력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. [] 형식의 전체 교체 배열은 허용하지 않습니다.')
+    status: Literal['pending', 'running', 'paused', 'completed', 'failed', 'blocked'] | None = Field(None, description='생략/null은 유지합니다. 다른 상태에서 completed로 전환하면 최상위 temp와 모든 하위 레이어·잔여 객체를 자동 정리하고 성공한 뒤 완료를 기록합니다. 남길 자료는 먼저 temp 밖으로 이동합니다. 이미 completed인 기록 수정은 다시 정리하지 않으며 다른 상태로 바꾼 뒤 completed로 전환하면 다시 정리합니다.')
+    input_refs: StringListPatch | None = Field(None, description='이 Step에서 실제 참조한 자료의 파일 경로를 {add: string[], remove: string[]}로 기록합니다. 이전 회차·다른 Plan·원자료도 가능합니다. 경로 저장은 존재·접근 검증이 아니며 새 세션에서 다시 찾아 열어 확인합니다. 생략/null/{}은 유지합니다.')
+    output_refs: StringListPatch | None = Field(None, description='이 Step에서 생성한 자료의 파일 경로를 {add: string[], remove: string[]}로 기록합니다. 얻은 내용은 takeaways, 설계 판단 근거는 design_rationale에 분리합니다. 생략/null/{}은 유지하며 전체 교체 []는 허용하지 않습니다.')
+    takeaways: str | None = Field(None, description='Takeaways: 작업에서 얻은 핵심 내용과 주의점입니다. 필요하면 파일 역할을 작업 맥락에 담되 파일마다 설명을 의무로 쓰지 않습니다. 역할이 드러나는 파일명을 사용합니다. 내용이 없으면 억지로 채우지 않습니다. 생략/null은 유지, 빈 문자열은 비웁니다.')
+    design_rationale: str | None = Field(None, description='Design rationale: 설계 판단의 근거와 채택·폐기 이유입니다. 파일 경로는 refs에 분리합니다. 기록할 내용이 없으면 억지로 채우지 않습니다. 생략/null은 유지, 빈 문자열은 비웁니다.')
     expected_revision: StrictInt | None = Field(None, description='현재 조회한 리비전 번호입니다. 현재 값과 다르면 변경을 거부합니다. 선택 사항이며, Loop 실행 후 이 검사를 사용하려면 loop_no도 입력합니다.')
     loop_no: StrictInt | None = Field(None, description='선택 사항인 현재 Loop 번호 보호 검사입니다. 이전 또는 알 수 없는 Loop는 모두 거부합니다. Loop 실행 후 expected_revision을 입력할 때 함께 지정합니다. 둘 다 생략하면 현재 상태를 수정합니다.')
 

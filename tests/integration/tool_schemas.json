@@ -1680,14 +1680,22 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "해당 회차의 Step에 기록한 입력 참조입니다."
+                    "description": "해당 회차 Step에서 실제 참조한 자료의 파일 경로 원문입니다. 저장 여부와 실제 접근·열람 가능성은 별개입니다."
                   },
                   "output_refs": {
                     "type": "array",
                     "items": {
                       "type": "string"
                     },
-                    "description": "해당 회차의 Step에 기록한 산출물·결과 참조입니다."
+                    "description": "해당 회차 Step에서 생성한 자료의 파일 경로 원문입니다."
+                  },
+                  "takeaways": {
+                    "type": "string",
+                    "description": "Takeaways: 작업에서 얻은 핵심 내용과 주의점입니다. 기록할 내용이 없으면 빈 문자열입니다."
+                  },
+                  "design_rationale": {
+                    "type": "string",
+                    "description": "Design rationale: 설계 판단의 근거입니다. 기록할 내용이 없으면 빈 문자열입니다."
                   }
                 }
               },
@@ -1775,14 +1783,22 @@
                 "items": {
                   "type": "string"
                 },
-                "description": "해당 회차의 Step에 기록한 입력 참조입니다."
+                "description": "해당 회차 Step에서 실제 참조한 자료의 파일 경로 원문입니다. 저장 여부와 실제 접근·열람 가능성은 별개입니다."
               },
               "output_refs": {
                 "type": "array",
                 "items": {
                   "type": "string"
                 },
-                "description": "해당 회차의 Step에 기록한 산출물·결과 참조입니다."
+                "description": "해당 회차 Step에서 생성한 자료의 파일 경로 원문입니다."
+              },
+              "takeaways": {
+                "type": "string",
+                "description": "Takeaways: 작업에서 얻은 핵심 내용과 주의점입니다. 기록할 내용이 없으면 빈 문자열입니다."
+              },
+              "design_rationale": {
+                "type": "string",
+                "description": "Design rationale: 설계 판단의 근거입니다. 기록할 내용이 없으면 빈 문자열입니다."
               }
             }
           },
@@ -4320,7 +4336,7 @@
                 },
                 "include_details": {
                   "default": false,
-                  "description": "기본 false. true이면 이 Step의 유형과 입출력 참조를 포함합니다.",
+                  "description": "기본 false. true이면 이 Step의 유형, Takeaways, Design rationale과 입출력 파일 참조를 포함합니다. 기록된 경로와 현재 파일 접근 가능성은 별도로 확인합니다.",
                   "type": "boolean"
                 },
                 "loop_no": {
@@ -4578,14 +4594,22 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "작업에 사용한 입력 근거입니다."
+                    "description": "해당 회차 Step에서 실제 참조한 자료의 파일 경로 원문입니다. 저장 여부와 실제 접근·열람 가능성은 별개입니다."
                   },
                   "output_refs": {
                     "type": "array",
                     "items": {
                       "type": "string"
                     },
-                    "description": "작업 결과의 근거입니다."
+                    "description": "해당 회차 Step에서 생성한 자료의 파일 경로 원문입니다."
+                  },
+                  "takeaways": {
+                    "type": "string",
+                    "description": "Takeaways: 작업에서 얻은 핵심 내용과 주의점입니다. 기록할 내용이 없으면 빈 문자열입니다."
+                  },
+                  "design_rationale": {
+                    "type": "string",
+                    "description": "Design rationale: 설계 판단의 근거입니다. 기록할 내용이 없으면 빈 문자열입니다."
                   }
                 }
               },
@@ -9871,7 +9895,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
+                  "description": "생략/null은 유지합니다. 다른 상태에서 completed로 전환하면 최상위 temp와 모든 하위 레이어·잔여 객체를 자동 정리하고 성공한 뒤 완료를 기록합니다. 남길 자료는 먼저 temp 밖으로 이동합니다. 이미 completed인 기록 수정은 다시 정리하지 않으며 다른 상태로 바꾼 뒤 completed로 전환하면 다시 정리합니다."
                 },
                 "input_refs": {
                   "anyOf": [
@@ -9901,7 +9925,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다."
+                  "description": "이 Step에서 실제 참조한 자료의 파일 경로를 {add: string[], remove: string[]}로 기록합니다. 이전 회차·다른 Plan·원자료도 가능합니다. 경로 저장은 존재·접근 검증이 아니며 새 세션에서 다시 찾아 열어 확인합니다. 생략/null/{}은 유지합니다."
                 },
                 "output_refs": {
                   "anyOf": [
@@ -9931,7 +9955,31 @@
                     }
                   ],
                   "default": null,
-                  "description": "출력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. [] 형식의 전체 교체 배열은 허용하지 않습니다."
+                  "description": "이 Step에서 생성한 자료의 파일 경로를 {add: string[], remove: string[]}로 기록합니다. 얻은 내용은 takeaways, 설계 판단 근거는 design_rationale에 분리합니다. 생략/null/{}은 유지하며 전체 교체 []는 허용하지 않습니다."
+                },
+                "takeaways": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Takeaways: 작업에서 얻은 핵심 내용과 주의점입니다. 필요하면 파일 역할을 작업 맥락에 담되 파일마다 설명을 의무로 쓰지 않습니다. 역할이 드러나는 파일명을 사용합니다. 내용이 없으면 억지로 채우지 않습니다. 생략/null은 유지, 빈 문자열은 비웁니다."
+                },
+                "design_rationale": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Design rationale: 설계 판단의 근거와 채택·폐기 이유입니다. 파일 경로는 refs에 분리합니다. 기록할 내용이 없으면 억지로 채우지 않습니다. 생략/null은 유지, 빈 문자열은 비웁니다."
                 },
                 "expected_revision": {
                   "anyOf": [
@@ -9966,7 +10014,7 @@
               "type": "object"
             }
           ],
-          "description": "target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step은 상태와 문자열 목록 패치로 기록을 갱신합니다."
+          "description": "target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step 판단 문자열은 생략/null 유지, 빈 문자열 비움입니다. Step을 completed로 전환하면 temp 전체 정리를 자동 실행합니다."
         }
       },
       "required": [
@@ -10084,6 +10132,51 @@
                   }
                 },
                 "description": "수정한 Step의 확인 정보입니다."
+              },
+              "mutation_state": {
+                "type": "string",
+                "description": "native 정리가 시작되지 않았는지, 적용됐는지, 일부 또는 불확실한지 나타냅니다."
+              },
+              "cleanup_complete": {
+                "type": "boolean",
+                "description": "정리의 완료가 확인되었는지 나타냅니다. Step 완료 기록과 별개로 확인합니다."
+              },
+              "cleanup": {
+                "type": "object",
+                "description": "자동 temp 정리의 완료 여부·삭제 수와 적용 상태입니다. DB 저장 실패 시에도 실제 정리 결과를 보존하며 Rhino Undo는 Step의 저장 상태를 되돌리지 않습니다.",
+                "properties": {
+                  "cleanup_complete": {
+                    "type": "boolean",
+                    "description": "전체 temp 정리가 확인되었는지 나타냅니다."
+                  },
+                  "document_serial": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "정리한 Rhino 문서의 실행 식별 번호입니다."
+                  },
+                  "deleted_object_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "전체 정리 성공 후 확인한 삭제 객체 수입니다."
+                  },
+                  "deleted_layer_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "전체 정리 성공 후 확인한 삭제 레이어 수입니다."
+                  },
+                  "mutation_state": {
+                    "type": "string",
+                    "enum": [
+                      "applied",
+                      "not_needed"
+                    ],
+                    "description": "삭제 적용 또는 temp가 없어 정리 불필요함을 구분합니다."
+                  }
+                }
+              },
+              "requires_reconciliation": {
+                "type": "boolean",
+                "description": "정리 또는 Step 기록 결과를 다시 관찰해야 하는지 나타냅니다. 불확실한 삭제를 자동 재시도하지 않습니다."
               }
             }
           }

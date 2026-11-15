@@ -7,6 +7,7 @@ import json
 
 
 PLAN_CORE = {"plan_id", "title", "scope", "status", "loop_no", "revision"}
+STEP_RECORD_FIELDS = frozenset({"input_refs", "output_refs", "takeaways", "design_rationale"})
 PHASE_CORE = {"phase_id", "name", "status", "plan_count", "depends_on", "previous_id"}
 GROUPS = {
     "steps": {"steps"},
@@ -26,7 +27,7 @@ TARGET_GROUPS = {key: GROUPS[key] for key in ("references", "geometry", "scope",
 
 def encode(payload: dict) -> str:
     """Planning handles are always visible; errors retain their original evidence."""
-    value = payload if requires_full_evidence(payload) else relative_output(payload)
+    value = payload if requires_full_evidence(payload) else relative_output(payload, verbatim_fields=STEP_RECORD_FIELDS)
     return json.dumps(value, ensure_ascii=False)
 
 
@@ -76,7 +77,7 @@ def step_detail(record: dict, include_details: bool = False, *, historical: bool
     result = {"id": step["step_id"], "type": "step", "name": step["name"], "status": step["status"],
               "plan_id": record["plan_id"], "loop_no": record["loop_no"], "revision": record["revision"], "read_only": historical}
     if include_details:
-        result["step"] = {key: step[key] for key in ("step_type", "input_refs", "output_refs")}
+        result["step"] = {key: step[key] for key in ("step_type", "input_refs", "output_refs", "takeaways", "design_rationale")}
     return result
 
 

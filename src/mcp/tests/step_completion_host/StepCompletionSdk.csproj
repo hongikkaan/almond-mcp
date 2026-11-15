@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RhinoSystem Condition="'$(RhinoSystem)' == ''">C:\Program Files\Rhino 8\System</RhinoSystem>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="RhinoCommon"><HintPath>$(RhinoSystem)\RhinoCommon.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>$(MSBuildSDKsPath)/../Newtonsoft.Json.dll</HintPath><Private>false</Private></Reference>
+    <Compile Include="../../features/planning/native/StepCompletion.cs" Link="StepCompletion.cs" />
+    <Compile Include="../../features/components/native/ComponentSemanticRegistry.cs" Link="Actual.ComponentSemanticRegistry.cs" />
+    <Compile Include="SdkContracts.cs" />
+  </ItemGroup>
+</Project>

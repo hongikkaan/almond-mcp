@@ -77,7 +77,8 @@ def test_discovery_title_edits_and_single_step_reads(store, monkeypatch):
     assert "plan_10-set_working" in step.pop("next_step_guide")
     assert step == {"id": plan["steps"][0]["step_id"], "type": "step", "name": "inspect_context", "status": "pending", "read_only": False,
         "plan_id": pid, "loop_no": 0, "revision": 4,
-        "step": {"step_type": "inspect_context", "input_refs": ["brief"], "output_refs": ["survey"]}}
+        "step": {"step_type": "inspect_context", "input_refs": ["brief"], "output_refs": ["survey"],
+                 "takeaways": "", "design_rationale": ""}}
 
 
 

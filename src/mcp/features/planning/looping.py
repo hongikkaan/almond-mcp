@@ -18,16 +18,23 @@ def initialize_looping(connection):
         plan_id TEXT NOT NULL, loop_no INTEGER NOT NULL CHECK(loop_no>=0), step_id TEXT NOT NULL,
         status TEXT NOT NULL REFERENCES workflow_statuses(status) ON DELETE RESTRICT,
         input_refs_json TEXT NOT NULL DEFAULT '[]', output_refs_json TEXT NOT NULL DEFAULT '[]',
+        takeaways TEXT NOT NULL DEFAULT '', design_rationale TEXT NOT NULL DEFAULT '',
         PRIMARY KEY(plan_id,loop_no,step_id),
         FOREIGN KEY(plan_id,step_id) REFERENCES generation_plan_steps(plan_id,step_id) ON DELETE CASCADE)""")
     step_columns = {r["name"] for r in connection.execute("PRAGMA table_info(generation_plan_steps)")}
     if "status" in step_columns:
         connection.execute("""INSERT INTO generation_loop_steps
+            (plan_id,loop_no,step_id,status,input_refs_json,output_refs_json)
             SELECT plan_id,0,step_id,status,input_refs_json,output_refs_json FROM generation_plan_steps""")
         # The definition keeps its UUID/type/order. Mutable execution data lives
         # only in generation_loop_steps; there is no second current-state copy.
         for column in ("status", "input_refs_json", "output_refs_json"):
             connection.execute(f"ALTER TABLE generation_plan_steps DROP COLUMN {column}")
+    # Additive only: previous Loops and revision snapshot bytes remain intact.
+    loop_columns = {r["name"] for r in connection.execute("PRAGMA table_info(generation_loop_steps)")}
+    for column in ("takeaways", "design_rationale"):
+        if column not in loop_columns:
+            connection.execute(f"ALTER TABLE generation_loop_steps ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
     columns = {r["name"] for r in connection.execute("PRAGMA table_info(generation_plan_revisions)")}
     if "loop_no" not in columns:
         extras = [r[0] for r in connection.execute("""SELECT sql FROM sqlite_master

@@ -1151,7 +1151,7 @@ declare const tools: { mcp__rhino__plan_02_create(args: {
 ```txt
 Plan의 새 작업 회차를 시작하거나 최신 회차를 재개합니다. Step 실행은 에이전트가 직접 수행합니다.
 
-새 회차는 Step을 pending으로 시작하며 이전 회차의 상태와 참조는 previous_loop에 반환합니다. resume=true는 기존 회차를 유지하며, 피드백을 생략하거나 비우면 기존 피드백을 유지합니다. 실행된 회차가 없으면 재개할 수 없습니다. next_step_id는 미완료 첫 Step이며 없으면 null입니다.
+새 회차는 Step을 pending과 빈 판단·파일 참조로 시작하며 이전 회차의 상태·Takeaways·Design rationale·파일 참조는 previous_loop에 반환합니다. 직전 판단을 읽고 참조 파일을 다시 찾아 실제로 열어 현재 작업 맥락을 맞춥니다. resume=true는 기존 회차와 판단을 유지하며, 피드백을 생략하거나 비우면 기존 피드백을 유지합니다. 실행된 회차가 없으면 재개할 수 없습니다. next_step_id는 미완료 첫 Step이며 없으면 null입니다.
 ```
 
 ```ts
@@ -1189,6 +1189,8 @@ declare const tools: { mcp__rhino__plan_03_execute_looping(args: {
       depends_on?: Array<string>;
       input_refs?: Array<string>;
       output_refs?: Array<string>;
+      takeaways?: string;
+      design_rationale?: string;
       [key: string]: unknown;
     }>;
     [key: string]: unknown;
@@ -1207,6 +1209,8 @@ declare const tools: { mcp__rhino__plan_03_execute_looping(args: {
     depends_on?: Array<string>;
     input_refs?: Array<string>;
     output_refs?: Array<string>;
+    takeaways?: string;
+    design_rationale?: string;
     [key: string]: unknown;
   }>;
   title?: string;
@@ -1218,7 +1222,7 @@ declare const tools: { mcp__rhino__plan_03_execute_looping(args: {
 대응 오리지널: `get_generation_plan`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-Phase, Plan 또는 Step의 작업 기록을 조회합니다. 기본값은 식별·상태 요약이며, include_details=true이면 선택한 대상의 상세를 함께 반환합니다. Plan 상세에는 Step 요약이, Step 상세에는 해당 Step의 입출력 참조가 포함됩니다. 이 참조는 저장 기록이며 현재 형상의 실시간 검증 결과는 아닙니다.
+Phase, Plan 또는 Step의 작업 기록을 조회합니다. 기본값은 식별·상태 요약이며, include_details=true이면 선택한 대상의 상세를 함께 반환합니다. Plan 상세에는 Step 요약이, Step 상세에는 Takeaways·Design rationale과 입출력 파일 참조가 포함됩니다. 이어서 작업할 때 직전 판단을 읽고 기록된 파일을 다시 찾아 실제로 열어 맥락을 맞춥니다. 참조 저장은 파일 존재·접근이나 현재 형상의 검증을 의미하지 않습니다.
 
 `result`는 조회 결과 또는 오류를 담은 JSON 문자열입니다. 성공 시 status는 대상의 작업 상태이며, 오류는 status=error입니다. Plan과 Step은 `loop_no`·`revision`·`read_only`를 함께 반환합니다. **revision을 명시하면 현재 번호여도 읽기 전용 스냅샷**입니다.
 ```
@@ -1240,7 +1244,7 @@ declare const tools: { mcp__rhino__plan_05_get(args: {
     revision?: number | null;
     target: "plan";
   } | {
-    // 기본 false. true이면 이 Step의 유형과 입출력 참조를 포함합니다.
+    // 기본 false. true이면 이 Step의 유형, Takeaways, Design rationale과 입출력 파일 참조를 포함합니다. 기록된 경로와 현재 파일 접근 가능성은 별도로 확인합니다.
     include_details?: boolean;
     // 0 이상의 Loop 번호. 생략·null이면 최신 Loop, 0은 실행 전 기록.
     loop_no?: number | null;
@@ -1379,11 +1383,15 @@ declare const tools: { mcp__rhino__plan_10_set_working(args: {
 대응 오리지널: `update_generation_step`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-Phase·Plan의 작업 정보 또는 Step의 상태와 입출력 근거를 수정합니다. Plan·Step은 현재 Loop만 변경할 수 있습니다.
+Phase·Plan의 작업 정보 또는 Step의 상태·판단·파일 참조를 수정합니다. Plan·Step은 현재 Loop만 변경할 수 있습니다.
+
+Takeaways(takeaways)에는 작업에서 얻은 핵심 내용과 주의점을, Design rationale(design_rationale)에는 설계 판단의 근거를 기록합니다. 내용이 없으면 억지로 채우지 않습니다. input_refs는 실제 참조한 자료, output_refs는 이 Step에서 생성한 자료의 파일 경로입니다. 파일의 역할이 드러나는 이름을 사용하고, 역할 설명이 필요하면 Takeaways의 작업 맥락에 담습니다. 파일마다 설명을 의무로 작성하지 않습니다.
 
 `depends_on`, `input_refs`, `output_refs`는 add/remove 패치이며 Plan의 대상·산출물·상하위 관계 배열은 전체 교체합니다. 생략 또는 null은 유지, 교체 배열의 []는 비웁니다.
 
 응답은 JSON 문자열입니다. `changed`는 실제 변경 여부, `issues`는 건너뛴 항목입니다. 중복·충돌 등 적용하지 못한 패치 항목은 `issues`에 기록하며, 일부만 적용되면 `partial_success`를 반환합니다. Loop 실행 후 `expected_revision`을 지정할 때는 `loop_no`도 함께 지정합니다.
+
+Step이 다른 상태에서 completed로 전환되면 최상위 temp와 모든 하위 레이어·객체를 자동 정리하고, 정리에 성공한 뒤 완료를 기록합니다. 남길 자료는 완료 전 temp 밖으로 옮깁니다. 삭제는 Rhino Undo 기록 안에서 수행하며, 되돌릴 자료가 있으면 Undo로 복구해 처리한 뒤 Step을 다른 상태로 바꿨다가 completed로 전환하면 다시 정리합니다. 이미 completed인 Step의 메모 수정이나 같은 상태 재입력은 재삭제하지 않습니다. Rhino Undo는 DB의 Step 상태를 되돌리지 않습니다. 정리 실패·결과 불명은 완료로 기록하지 않으며 자동 재시도하지 않습니다. Layout·NamedView나 temp 밖 도면을 연동삭제하지 않습니다.
 ```
 
 ```ts
@@ -1431,12 +1439,18 @@ declare const tools: { mcp__rhino__plan_12_update(args: {
     // 빈 제목 불가.
     title?: string | null;
   } | {
+    // 설계 판단 근거. 생략/null 유지, 빈 문자열 비움.
+    design_rationale?: string | null;
+    // 얻은 핵심 내용·주의점. 생략/null 유지, 빈 문자열 비움.
+    takeaways?: string | null;
     expected_revision?: number | null;
+    // 실제 참조한 자료의 파일 경로. 저장은 접근·열람 검증이 아님.
     input_refs?: {
       add?: Array<string>;
       remove?: Array<string>;
     } | null;
     loop_no?: number | null;
+    // 이 Step에서 생성한 자료의 파일 경로. 판단 문구와 분리.
     output_refs?: {
       add?: Array<string>;
       remove?: Array<string>;

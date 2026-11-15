@@ -11,6 +11,20 @@ from almond_mcp.features.planning.tools import register
 from almond_mcp.retrieval_store import AlmondStore
 
 
+def completion_context(store, model):
+    """Fixed native transport double: no Rhino or user document is opened."""
+    def send(data, **kwargs):
+        request = json.loads(data)
+        if request['type'] == 'get_rhino_context':
+            return json.dumps({'status': 'success', 'capabilities': {'step_completion': 2}})
+        assert request['type'] == 'step_completion'
+        assert request == {'type': 'step_completion', 'expected_model_path': str(model)}
+        return json.dumps({'status': 'success', 'result': {'cleanup_complete': True,
+            'document_serial': 1, 'mutation_state': 'not_needed',
+            'deleted_object_count': 0, 'deleted_layer_count': 0}})
+    return SimpleNamespace(retrieval_store=store, _send_and_receive=send)
+
+
 def test_mcp_step_identity_is_independent_of_template_type(tmp_path):
     store = AlmondStore(tmp_path / "planning.db")
     server = FastMCP("looping-contracts")
@@ -74,10 +88,12 @@ def test_legacy_step_identity_migration_preserves_history_and_dependencies(tmp_p
         assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
-def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path):
+def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path, monkeypatch):
     store = AlmondStore(tmp_path / "status.db")
     server = FastMCP("plan-status-contracts")
-    register(server, SimpleNamespace(retrieval_store=store))
+    model = tmp_path / 'existing.3dm'
+    monkeypatch.setenv('ALMOND_MODEL_PATH', str(model))
+    register(server, completion_context(store, model))
 
     async def run():
         async with Client(server) as client:
@@ -89,7 +105,11 @@ def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path):
             await call("plan_12-update", request=dict(target="plan", plan_id=pid, status="paused"))
             detail = await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid))
             for step in detail["plan"]["steps"]:
-                changed = await call("plan_12-update", request=dict(target="step", plan_id=pid, step_id=step["step_id"], status="completed"))
+                changed = await call("plan_12-update", request=dict(target="step", plan_id=pid,
+                    step_id=step["step_id"], status="completed"))
+                assert store.get_step(pid, step['step_id'])['step']['status'] == 'completed'
+                assert changed['message'] == changed['cleanup']['message']
+                assert changed['message'] and changed['cleanup']['mutation_state'] == 'not_needed'
                 assert changed["plan"]["status"] == "paused"
             assert (await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid)))["status"] == "paused"
             await call("plan_12-update", request=dict(target="plan", plan_id=pid, status="completed"))
@@ -127,10 +147,11 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
     workspace = Workspace(locations, store)
     binding = {"label": "A", "port": 5501}
     monkeypatch.setenv("ALMOND_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(model))
     monkeypatch.setattr(mcp_server, "read_binding", lambda *_: (binding, locations))
     monkeypatch.setattr(mcp_server, "verify_process", lambda _: None)
     server = FastMCP("looping-public-contract")
-    register(server, SimpleNamespace(retrieval_store=store))
+    register(server, completion_context(store, model))
     asyncio.run(mcp_server.configure_project_context(server,
         SimpleNamespace(session="unused", token="a" * 32), binding, locations,
         sender=lambda _: "{}", runtime=SimpleNamespace(workspace=workspace)))

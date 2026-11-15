@@ -84,17 +84,18 @@ def drawing_package_path(value: str, *, library_roots: list[Path]) -> Path:
     raise ValueError("Use a project drawing package or a package returned by the configured drawing library.")
 
 
-def relative_output(value, *, preserve_cross_drive_fields=()):
+def relative_output(value, *, preserve_cross_drive_fields=(), verbatim_fields=()):
     """Only absolute filesystem strings change, not URI/code/text payloads.
 
     Explicitly allowed top-level fields keep their path across Windows drives.
+    Opaque record fields keep their original values at every nesting level.
     """
     if isinstance(value, list):
-        return [relative_output(item) for item in value]
+        return [relative_output(item, verbatim_fields=verbatim_fields) for item in value]
     if isinstance(value, dict):
-        return {key: relative_path(item, preserve_cross_drive=True)
+        return {key: item if key in verbatim_fields else relative_path(item, preserve_cross_drive=True)
                 if key in preserve_cross_drive_fields and isinstance(item, str) and "\n" not in item
-                else relative_output(item) for key, item in value.items()}
+                else relative_output(item, verbatim_fields=verbatim_fields) for key, item in value.items()}
     if isinstance(value, str) and "\n" not in value and os.path.isabs(value):
         return relative_path(value)
     return value

@@ -16,8 +16,10 @@ _LOOP_STEP = {
         'status': {'type': 'string', 'description': '해당 회차의 Step 상태입니다. pending, running, paused, completed, failed, blocked 중 하나입니다.'},
         'loop_no': {'type': 'integer', 'description': '이 Step 기록이 속한 회차 번호입니다. 0은 실행 전 기록입니다.'},
         'depends_on': {'type': 'array', 'items': {'type': 'string'}, 'description': '선행 Step의 UUID 목록입니다.'},
-        'input_refs': {'type': 'array', 'items': {'type': 'string'}, 'description': '해당 회차의 Step에 기록한 입력 참조입니다.'},
-        'output_refs': {'type': 'array', 'items': {'type': 'string'}, 'description': '해당 회차의 Step에 기록한 산출물·결과 참조입니다.'},
+        'input_refs': {'type': 'array', 'items': {'type': 'string'}, 'description': '해당 회차 Step에서 실제 참조한 자료의 파일 경로 원문입니다. 저장 여부와 실제 접근·열람 가능성은 별개입니다.'},
+        'output_refs': {'type': 'array', 'items': {'type': 'string'}, 'description': '해당 회차 Step에서 생성한 자료의 파일 경로 원문입니다.'},
+        'takeaways': {'type': 'string', 'description': 'Takeaways: 작업에서 얻은 핵심 내용과 주의점입니다. 기록할 내용이 없으면 빈 문자열입니다.'},
+        'design_rationale': {'type': 'string', 'description': 'Design rationale: 설계 판단의 근거입니다. 기록할 내용이 없으면 빈 문자열입니다.'},
     },
 }
 
@@ -2893,7 +2895,27 @@ def _planning_variants(*names: str) -> dict:
 
 CONTRACTS["create_planning"] = _planning_variants("create_phase", "create_plan")
 CONTRACTS["get_planning"] = deepcopy(CONTRACTS["get_phase_plan_step"])
+CONTRACTS["get_planning"]["properties"]["step"]["properties"].update({
+    key: deepcopy(_LOOP_STEP['properties'][key])
+    for key in ('input_refs', 'output_refs', 'takeaways', 'design_rationale')
+})
 CONTRACTS["update_planning"] = _planning_variants("update_phase", "update_plan", "update_step")
+CONTRACTS["update_planning"]["properties"].update({
+    "mutation_state": {"type": "string", "description": "native 정리가 시작되지 않았는지, 적용됐는지, 일부 또는 불확실한지 나타냅니다."},
+    "cleanup_complete": {"type": "boolean", "description": "정리의 완료가 확인되었는지 나타냅니다. Step 완료 기록과 별개로 확인합니다."},
+    "cleanup": {
+        "type": "object",
+        "description": "자동 temp 정리의 완료 여부·삭제 수와 적용 상태입니다. DB 저장 실패 시에도 실제 정리 결과를 보존하며 Rhino Undo는 Step의 저장 상태를 되돌리지 않습니다.",
+        "properties": {
+            "cleanup_complete": {"type": "boolean", "description": "전체 temp 정리가 확인되었는지 나타냅니다."},
+            "document_serial": {"type": "integer", "minimum": 1, "description": "정리한 Rhino 문서의 실행 식별 번호입니다."},
+            "deleted_object_count": {"type": "integer", "minimum": 0, "description": "전체 정리 성공 후 확인한 삭제 객체 수입니다."},
+            "deleted_layer_count": {"type": "integer", "minimum": 0, "description": "전체 정리 성공 후 확인한 삭제 레이어 수입니다."},
+            "mutation_state": {"type": "string", "enum": ["applied", "not_needed"], "description": "삭제 적용 또는 temp가 없어 정리 불필요함을 구분합니다."},
+        },
+    },
+    "requires_reconciliation": {"type": "boolean", "description": "정리 또는 Step 기록 결과를 다시 관찰해야 하는지 나타냅니다. 불확실한 삭제를 자동 재시도하지 않습니다."},
+})
 CONTRACTS["update_planning"]["properties"]["changed"]["description"] = "실제 저장 값이 변경되었는지 나타냅니다. success여도 false일 수 있습니다."
 CONTRACTS["update_planning"]["properties"]["plan"]["description"] = "Plan 수정 또는 소속 Step 수정 후의 Plan 확인 정보입니다."
 CONTRACTS["list_planning"] = _planning_variants("list_phases", "list_plans")

@@ -29,11 +29,31 @@
 
 - `phase`: description, file_name 배열, depends_on, previous_id, plan_titles.
 - `plan`: goal, scope, phase, scene_ids, holon_ids, depends_on, previous_id, parent_plan, child_plan, artifact_dir, loop_artifact_dir, artifact_refs, feedback, created_at, updated_at, steps.
-- `step`: step_type, input_refs, output_refs.
+- `step`: step_type, input_refs, output_refs, takeaways, design_rationale.
 
-Plan의 steps는 Step ID·역할·이름·상태·회차의 요약이다. 특정 Step 조회는 해당 Step의 긴 입출력 기록만 읽는다. Plan의 시각은 KST `YYYY-MM-DD-HH:mm`으로 반환한다.
+Plan의 steps는 Step ID·역할·이름·상태·회차의 요약이다. 특정 Step 조회는 해당 Step의 판단·입출력 기록만 읽는다. Plan의 시각은 KST `YYYY-MM-DD-HH:mm`으로 반환한다.
 
-과거 기록은 `read_only=true`다. 과거 요약의 상세를 보려면 같은 target·ID·loop_no·revision을 유지하고 include_details=true로 조회한다. 현재 기록이 필요하면 loop_no와 revision을 생략한다. `next_step_guide`는 이 구분과 현재 상세에서 필요한 작업 선택을 안내한다.
+## Step 판단과 파일 재독
+
+Takeaways(`takeaways`)는 얻은 핵심 내용·주의점, Design rationale(`design_rationale`)는 설계 판단의 근거를 담는 선택 문자열이다. 생성 시 빈 문자열이며 생략/null은 유지, 빈 문자열은 비운다. 내용이 없으면 억지로 채우지 않는다. 현재 Loop 안에서 상태·refs와 함께 수정하면 revision은 한 번만 증가한다. 새 Loop는 두 항목을 비우며 resume은 유지한다. 이전 Loop·revision에는 당시 판단을 반환하고 저장되지 않았던 과거 항목은 읽을 때만 빈 문자열로 보완한다. 기존 snapshot JSON을 일괄 변환하지 않는다.
+
+`input_refs`는 해당 Step에서 실제 참조한 자료, `output_refs`는 생성한 자료의 파일 경로다. 기존 string[] 저장과 add/remove 입력을 유지하고 상대/절대경로·기준 root를 새로 강제하지 않는다. refs와 두 판단 항목은 공개 출력에서도 원문을 유지한다. 파일 역할이 드러나는 이름을 사용하고, 역할 설명이 필요한 경우 Takeaways의 맥락에 담되 파일마다 설명을 의무로 쓰지 않는다.
+
+다음 세션은 직전 Step/Loop 판단을 읽고 각 경로의 원래 기준을 확인해 파일을 다시 찾아 실제로 연다. 경로 기록은 파일 존재·접근성 검증이 아니다. 입력은 현재 artifact_dir 밖의 원자료·다른 Plan·이전 회차일 수 있다. managed 파일 도구의 프로젝트 내부 경로 제한은 그대로이며 외부 참조 경로 기록이 그 제한을 해제하지 않는다.
+
+## Step 완료와 temp 정리
+
+`plan_12-update` tool로 Step을 다른 상태에서 `completed`로 전환하면 최상위 `temp`와 모든 하위 레이어 및 그 안의 객체를 자동 정리한다. 남길 자료는 완료 전에 temp 밖으로 옮긴다. 정리에 성공한 뒤 Step 상태·판단·refs를 한 revision으로 저장하고 삭제 수와 완료에 따른 정상적인 정리 과정임을 안내한다.
+
+삭제는 기존 Rhino Undo 기록 안에서 수행한다. 되돌릴 자료가 있으면 Rhino Undo로 복구해 처리한 뒤 Step을 다른 상태로 바꿨다가 `completed`로 전환하면 같은 정리를 다시 실행한다. 이미 completed인 Step의 메모 수정이나 같은 상태 재입력에는 재삭제하지 않는다. Rhino Undo는 DB의 Step 상태·revision을 되돌리지 않는다.
+
+대상은 최상위 temp 전체다. 하위 계층만 선택하거나 다른 위치의 temp를 전역 삭제하지 않는다. Layout·NamedView나 temp 밖 도면을 연동삭제하지 않는다. 삭제할 수 없는 잠금·참조 자료와 기존 등록·PlanSection 관계의 보호 문제가 있으면 오류로 처리하고 완료로 기록하지 않는다.
+
+정리 실패·결과 불명·timeout은 자동 재시도하지 않는다. 복구가 실패하거나 실제 결과가 불명확할 수 있으므로 Rhino와 Step을 다시 조회한다. 정리 성공 뒤 DB 저장에 실패하면 실제 정리 결과와 `requires_reconciliation`을 반환하며, DB rollback이 Rhino 삭제까지 되돌린다고 해석하지 않는다.
+
+이 자동 정리는 `step_completion=2`를 제공하는 Bridge 런타임과 대응 Python 코드가 필요하다. 승인된 배포를 받을 때는 Rhino를 정상 종료하고 일상 폴더에서 소스·실행 파일을 받은 뒤 Rhino를 시작한다. 관련 MCP/Terminal almond 세션도 새로 시작한다. 소스 수정·빌드·등록·실제 로드는 별도 단계다.
+
+과거 기록은 `read_only=true`다. 과거 요약의 상세를 보려면 같은 target·ID·loop_no·revision을 유지하고 include_details=true로 조회한다. 현재 기록이 필요하면 loop_no와 revision을 생략한다.
 
 ## Phase의 파일 연결
 
@@ -188,6 +208,8 @@ plan_12-update tool request (target="step")
   output_refs?: object | null
     add?: string[]          기본 []
     remove?: string[]       기본 []
+  takeaways?: string | null        핵심 내용·주의점, ""이면 비움
+  design_rationale?: string | null 설계 판단 근거, ""이면 비움
   expected_revision?: integer | null  선택적 오래된 상태 검사
   loop_no?: integer | null   현재 Loop 검사, 실행 후 expected_revision과 함께 필요
 
@@ -206,7 +228,7 @@ Output — plan_02-create tool (target="plan")
     revision: integer
 
 Output — plan_12-update tool
-  status: success | partial_success | no_change
+  status: success | partial_success | no_change | error
   changed: boolean
   phase?:                  target="phase"
     phase_id: string
@@ -274,7 +296,7 @@ Construction detail은 저장된 ON/OFF 필드가 없다. 해당 Task의 사용�
 
 새 스키마를 처음 열 때 빈 제목을 goal의 첫 비어 있지 않은 줄에서 최대 80자로 채운다. goal 원문은 보존한다. 실제 프로젝트의 읽기 좋은 제목 작성은 plan_12-update tool의 request.target="plan"과 title로 기록한다. 동종이 아닌 의존 참조와 Step별 활성 대상을 정리하되 Step별 이전 대상은 `_retired_step_targets`에 보존한다. 대상/의존 관계가 달라진 Plan은 새 revision을 남긴다. 기존 revision JSON은 그대로 보존하며 과거 조회에서 현재 계약에 맞는 필드만 보여준다. 타임스탬프 저장은 UTC, Plan 상세 표시는 KST다.
 
-Python 변경을 사용하려면 관련 MCP/Terminal almond 세션을 정상 종료하고 새로 시작한다. 외부 카탈로그는 시작 시 현재 소스에서 자동 생성된다. 이 변경에는 RHP 빌드·교체·등록 변경이 필요하지 않다.
+Python 저장·조회 변경은 관련 MCP/Terminal almond 세션을 정상 종료하고 새로 시작하면 읽는다. 외부 카탈로그는 시작 시 현재 소스에서 자동 생성된다. Step 완료의 temp 정리는 위의 대응 Bridge 런타임·실제 로드 절차도 필요하다.
 
 
 ### 이전 작업 연결

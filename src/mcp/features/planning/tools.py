@@ -8,6 +8,7 @@ from almond_mcp.features.planning.output import (
     encode, phase_detail, plan_detail, step_detail, update_ack,
 )
 from almond_mcp.features.planning.requests import CreateRequest, GetRequest, ListRequest, UpdateRequest
+from almond_mcp.features.planning.completion_flow import StepCompletionFlow
 from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
@@ -22,6 +23,7 @@ PLAN_ACK_FIELDS = {"plan_id", "loop_no", "revision"}
 
 def register(mcp, context):
     """Register planning tools against the calling server's live context."""
+    completion_flow = StepCompletionFlow(context)
 
 
     @mcp.tool(name='plan_02-create', output_schema=public_output_schema('create_planning', wrapped=True))
@@ -106,9 +108,7 @@ def register(mcp, context):
                     request.description, request.file_name, None, request.status,
                     request.depends_on, request.previous_id), "phase"))
             if request.target == "step":
-                return json.dumps(update_ack(store.edit_step(plan_id=request.plan_id, step_id=request.step_id,
-                    status=request.status, input_refs=request.input_refs, output_refs=request.output_refs,
-                    expected_revision=request.expected_revision, loop_no=request.loop_no), "plan", request.step_id))
+                return json.dumps(completion_flow.update(request), ensure_ascii=False)
             return json.dumps(update_ack(store.edit_plan(request.plan_id,
                 goal=request.goal, phase_id=request.phase_id, scene_ids=request.scene_ids,
                 component_ids=request.holon_ids, expected_revision=request.expected_revision,
