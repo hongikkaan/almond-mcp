@@ -65,7 +65,9 @@ class ProjectFilesStore:
         connection.executemany('INSERT INTO generation_phase_files VALUES(?,?,?)',
                                [(phase_id, file_id, i) for i, file_id in enumerate(file_ids)])
 
-    def _project_file_reference(self, connection, file_name='', project_file_id=None, *, model_path=''):
+    def _project_file_reference(self, connection, file_name='', project_file_id=None, *, model_path='', description=None):
+        if description is not None and not isinstance(description, str):
+            raise ValueError('description must be a string.')
         if not isinstance(file_name, str):
             raise ValueError('file_name must be a filename string.')
         file_name = file_name.strip()
@@ -74,6 +76,7 @@ class ProjectFilesStore:
             file_name = ntpath.basename(model_path)
             match = connection.execute('SELECT file_id FROM _project_file_locations WHERE model_path=?', (model_path,)).fetchone()
             if match:
+                self._write_project_file_description(connection, match[0], description)
                 return match[0]
         if project_file_id is not None:
             if not isinstance(project_file_id, str) or not project_file_id:
@@ -83,6 +86,7 @@ class ProjectFilesStore:
                 raise KeyError(f'Unknown project_file_id: {project_file_id}')
             if file_name and file_name.casefold() != row[0].casefold():
                 raise ValueError('file_name and project_file_id identify different files.')
+            self._write_project_file_description(connection, project_file_id, description)
             return project_file_id
         if not file_name:
             return None
@@ -98,7 +102,14 @@ class ProjectFilesStore:
             connection.execute('INSERT INTO project_files(file_id,file_name) VALUES(?,?)', (file_id,file_name))
         if model_path:
             connection.execute('INSERT INTO _project_file_locations(file_id,model_path) VALUES(?,?)',(file_id,model_path))
+        self._write_project_file_description(connection, file_id, description)
         return file_id
+
+    @staticmethod
+    def _write_project_file_description(connection, file_id, description):
+        # Omission preserves an existing description; an explicit empty string clears it.
+        if description is not None:
+            connection.execute('UPDATE project_files SET description=? WHERE file_id=?', (description, file_id))
 
     def list_project_files(self, limit=50, offset=0):
         if type(limit) is not int or not 1 <= limit <= 500 or type(offset) is not int or offset < 0:
@@ -106,5 +117,5 @@ class ProjectFilesStore:
         with self._connect() as connection:
             connection.execute('BEGIN')
             total = connection.execute('SELECT COUNT(*) FROM project_files').fetchone()[0]
-            files = [dict(row) for row in connection.execute('SELECT file_id AS project_file_id,file_name FROM project_files ORDER BY file_name COLLATE NOCASE,file_id LIMIT ? OFFSET ?', (limit,offset))]
+            files = [dict(row) for row in connection.execute('SELECT file_id AS project_file_id,file_name,file_name AS filename,description FROM project_files ORDER BY file_name COLLATE NOCASE,file_id LIMIT ? OFFSET ?', (limit,offset))]
         return dict(files=files,total=total,limit=limit,offset=offset,truncated=offset+len(files)<total)

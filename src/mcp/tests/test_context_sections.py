@@ -12,7 +12,7 @@ from almond_mcp.features.context.tools import register
 
 def fixture_tools():
     calls = []
-    response = {"status": "success", "capabilities": {"context_sections": 2}, "warnings": [],
+    response = {"status": "success", "capabilities": {"context_sections": 3}, "warnings": [],
                 "document": {"name": "private.3dm", "path": "private/path.3dm", "runtime_serial_number": 42,
                              "units": "Millimeters", "absolute_tolerance": .01, "angle_tolerance_radians": .02,
                              "modified": True, "object_count": 7, "layer_count": 3},
@@ -22,6 +22,8 @@ def fixture_tools():
                 "viewports": [{"id": "viewport", "name": "Perspective"}],
                 "named_views": [{"id": "named", "name": "Entrance"}],
                 "layouts": [{"id": "layout", "name": "A3"}],
+                "layers": [{"id": "root", "parent_id": None, "name": "Building"},
+                           {"id": "child", "parent_id": "root", "name": "Wall"}],
                 "display_modes": [{"id": "mode", "name": "Shaded"}],
                 "selection": {"total": 2, "returned": 1, "truncated": True, "depth_limited": False,
                               "selected_object_count": 4, "objects": [{"id": "selected", "name": "Group"}]},
@@ -39,14 +41,15 @@ def fixture_tools():
 def test_default_only_hint_catalogue_ids_and_document_projection(options):
     tools, calls, _, _ = fixture_tools()
     result = json.loads(tools["get_rhino_context"](**options))
-    assert set(result) == {"status", "warnings", "document", "named_views", "layouts", "display_modes", "next_step_guide"}
+    assert set(result) == {"status", "warnings", "document", "named_views", "layouts", "layers", "display_modes", "next_step_guide"}
+    assert result["layers"] == "- Building\n  - Wall"
     assert "capture_03-current_view" in result["next_step_guide"]
     assert result["document"] == {"units": "Millimeters", "absolute_tolerance": .01, "angle_tolerance": .02,
                                   "modified": True, "object_count": 7, "layer_count": 3}
     for section in ("named_views", "layouts", "display_modes"):
         assert "id" in result[section][0]
     assert calls == [{"type": "get_rhino_context", "public_context": True,
-                      "sections": ["document", "named_views", "layouts", "display_modes"]}]
+                      "sections": ["document", "named_views", "layouts", "layers", "display_modes"]}]
 
 
 @pytest.mark.parametrize("sections", [[], ["document"], ["viewport"], ["named_views", "layouts"], ["display_modes"]])
@@ -97,7 +100,7 @@ def test_old_bridge_or_missing_observations_are_errors_not_empty_catalogues():
     response["capabilities"]["context_sections"] = 1
     result = tools["get_rhino_context"]()
     assert result.is_error and "unsupported_context" in result.structured_content["result"]
-    response["capabilities"]["context_sections"] = 2
+    response["capabilities"]["context_sections"] = 3
     del response["named_views"]
     result = tools["get_rhino_context"]()
     assert result.is_error and "omitted requested sections" in result.structured_content["result"]

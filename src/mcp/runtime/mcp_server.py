@@ -23,6 +23,7 @@ from pathlib import Path
 from pydantic import StrictBool, StrictInt
 from almond_mcp.managed_paths import relative_output, relative_path
 from almond_mcp.query_output import project_query
+from almond_mcp.features.context.context_query import observe_context, context_catalogues, relative_context_output, PROJECT_CATALOGUES
 from project import (ExclusiveFile, SharedStorageLease, STORAGE_PROTOCOL,
                      process_start_ticks, read_binding, read_json, verify_process, write_json)
 
@@ -43,7 +44,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def configure_rhino_session_instructions(mcp) -> None:
-    """Expose the modeling-guide entry point to this Rhino-bound MCP session."""
+    """Deliver both required documents during this bound session's initialize."""
     from almond_mcp.modeling_guidance import startup_instructions
 
     mcp.instructions = startup_instructions()
@@ -93,10 +94,10 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
     @tool_instruction(__file__, 'project_info')
     def project_info(sections: list[str] | None = None, include_ids: StrictBool = False,
                      files_limit: StrictInt = 50, files_offset: StrictInt = 0) -> dict:
-        sections = ["project", "document", "locations"] if sections is None else sections
-        allowed = {"project", "document", "locations", "runtime"}
+        sections = ["project", "document", *PROJECT_CATALOGUES, "locations"] if sections is None else sections
+        allowed = {"project", "document", "locations", "runtime", *PROJECT_CATALOGUES}
         if not isinstance(sections, list) or any(section not in allowed for section in sections):
-            raise ValueError("sections must contain project, document, locations or runtime.")
+            raise ValueError("sections must contain project, document, named_views, layouts, layers, worksession, locations or runtime.")
         if type(files_limit) is not int or not 1 <= files_limit <= 500 or type(files_offset) is not int or files_offset < 0:
             raise ValueError("files_limit must be 1–500 and files_offset must be nonnegative integers.")
         current, _ = read_binding(args.session, args.token)
@@ -105,19 +106,33 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
         verify_process(current)
         result = {"status": "success"}
         root = locations["project_dir"]
-        if {"project", "document"}.intersection(sections):
+        requested_live = [section for section in sections if section in {"document", *PROJECT_CATALOGUES}]
+        if "project" in sections and "document" not in requested_live:
+            requested_live.insert(0, "document")
+        if requested_live:
             if sender is None:
                 raise RuntimeError("The live document observer is not connected.")
-            live = json.loads(sender(b'{"type":"get_rhino_context","sections":["document"],"selection_limit":0}'))
-            if not isinstance(live, dict):
-                return {"status": "error", "message": "The live document observation is incomplete."}
+            try:
+                live = observe_context(sender, requested_live, selection_limit=0)
+            except (ValueError, TypeError) as exc:
+                return {"status": "error", "message": f"The live document observation is incomplete: {exc}"}
+            if live.get("status") != "success":
+                return relative_output(live)
             document = live.get("document")
-            if (live.get("status") != "success" or not isinstance(document, dict)
-                    or not isinstance(document.get("path"), str)):
-                return relative_output({**live, "status": "error",
+            if ("document" in requested_live and (not isinstance(document, dict)
+                    or not isinstance(document.get("path"), str))):
+                # Raw catalogues are private native rows until projected. An
+                # identity error must not leak them under public field names.
+                evidence = {key: value for key, value in live.items() if key not in PROJECT_CATALOGUES}
+                return relative_output({**evidence, "status": "error",
                     "message": live.get("message") or "The live document observation is incomplete."})
             if live.get("warnings"):
                 result["warnings"] = live["warnings"]
+            try:
+                result.update(relative_context_output(context_catalogues(live, requested_live)))
+            except ValueError as exc:
+                return {"status": "error", "message": f"The live catalogue observation is incomplete: {exc}",
+                        "warnings": live.get("warnings", [])}
         if "project" in sections:
             if runtime is None or runtime.workspace is None:
                 raise RuntimeError("The project workspace is not connected.")

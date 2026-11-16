@@ -4859,7 +4859,7 @@
             }
           ],
           "default": null,
-          "description": "document, viewport, editor, viewports, named_views, layouts, display_modes 중 선택.\n생략 또는 null은 document, named_views, layouts, display_modes. []는 status와 warnings만."
+          "description": "document, viewport, editor, viewports, named_views, layouts, layers, worksession, display_modes 중 선택.\n생략 또는 null은 document, named_views, layouts, layers, display_modes. []는 status와 warnings만."
         },
         "include_ids": {
           "default": false,
@@ -4953,6 +4953,79 @@
               "error_code": {
                 "type": "string",
                 "description": "오류 유형입니다."
+              },
+              "named_views": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "description": "현재 문서의 저장된 Named View 전체 목록입니다. 관측하지 못하면 null이며 warnings에 사유를 반환합니다.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "저장된 Named View 이름입니다."
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "Named View UUID입니다. include_ids와 무관하게 반환합니다."
+                    }
+                  }
+                }
+              },
+              "layouts": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "description": "현재 문서의 Layout 전체 목록입니다. 관측하지 못하면 null이며 warnings에 사유를 반환합니다.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Layout 이름입니다."
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "Layout의 주 뷰포트 UUID입니다. include_ids와 무관하게 반환합니다."
+                    }
+                  }
+                }
+              },
+              "layers": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "삭제되지 않은 전체 레이어의 이름과 부모 계층을 보존한 들여쓰기 불릿 트리입니다. 자식마다 두 칸 들여쓰며 공통 부모는 한 번만 표시합니다. 빈 목록은 빈 문자열, 관측 실패는 null입니다."
+              },
+              "worksession": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "Rhino Worksession API가 보고한 첨부 경로 목록입니다. DB 등록 project.files와 별도이며 실제 로드 성공이나 최신 상태를 보증하지 않습니다. 조회·경로 형식 오류는 전체 null과 warnings로 반환합니다. 경로 검사는 문자열 형식 검사이며 파일시스템 전체 유효성을 보증하지 않습니다.",
+                "properties": {
+                  "attachments": {
+                    "type": "array",
+                    "description": "활성 모델을 제외한 전체 첨부 목록입니다. 첨부 없음은 빈 배열입니다. 동일 경로는 한 번, 동명이라도 서로 다른 경로는 각각 유지하며 필터나 페이지 생략을 적용하지 않습니다.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "filename": {
+                          "type": "string",
+                          "description": "API가 보고한 첨부 경로의 파일명입니다."
+                        },
+                        "path": {
+                          "type": "string",
+                          "description": "정규화한 첨부 경로입니다. 같은 드라이브는 프로젝트 기준 상대경로(외부는 ../ 포함), 다른 드라이브·UNC는 상대경로를 만들 수 없으면 원래 절대경로를 보존합니다. 파일 존재나 로드 상태를 검사한 값은 아닙니다."
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -7534,7 +7607,7 @@
             }
           ],
           "default": null,
-          "description": "project, document, locations, runtime. 기본은 앞의 세 섹션."
+          "description": "project, document, named_views, layouts, layers, worksession, locations, runtime. 기본은 runtime을 제외한 모든 섹션."
         },
         "include_ids": {
           "default": false,
@@ -7604,11 +7677,19 @@
                   },
                   "file_name": {
                     "type": "string",
-                    "description": "파일명입니다."
+                    "description": "filename과 같은 등록 파일명입니다."
+                  },
+                  "filename": {
+                    "type": "string",
+                    "description": "DB에 등록된 프로젝트 문서의 파일명입니다."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "등록 파일의 설명입니다. 설명을 기록하지 않았으면 빈 문자열입니다."
                   }
                 }
               },
-              "description": "프로젝트에 등록한 Rhino 파일 목록입니다."
+              "description": "DB에 등록된 프로젝트 문서 목록입니다. Rhino에서 Worksession에 attach하여 참조할 수 있으며 실제 첨부 상태나 디스크 존재를 보증하지 않습니다."
             },
             "files_page": {
               "type": "object",
@@ -7825,6 +7906,79 @@
         "error_code": {
           "type": "string",
           "description": "오류 유형입니다."
+        },
+        "named_views": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "현재 문서의 저장된 Named View 전체 목록입니다. 관측하지 못하면 null이며 warnings에 사유를 반환합니다.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "저장된 Named View 이름입니다."
+              },
+              "id": {
+                "type": "string",
+                "description": "Named View UUID입니다. include_ids와 무관하게 반환합니다."
+              }
+            }
+          }
+        },
+        "layouts": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "현재 문서의 Layout 전체 목록입니다. 관측하지 못하면 null이며 warnings에 사유를 반환합니다.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Layout 이름입니다."
+              },
+              "id": {
+                "type": "string",
+                "description": "Layout의 주 뷰포트 UUID입니다. include_ids와 무관하게 반환합니다."
+              }
+            }
+          }
+        },
+        "layers": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "삭제되지 않은 전체 레이어의 이름과 부모 계층을 보존한 들여쓰기 불릿 트리입니다. 자식마다 두 칸 들여쓰며 공통 부모는 한 번만 표시합니다. 빈 목록은 빈 문자열, 관측 실패는 null입니다."
+        },
+        "worksession": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Rhino Worksession API가 보고한 첨부 경로 목록입니다. DB 등록 project.files와 별도이며 실제 로드 성공이나 최신 상태를 보증하지 않습니다. 조회·경로 형식 오류는 전체 null과 warnings로 반환합니다. 경로 검사는 문자열 형식 검사이며 파일시스템 전체 유효성을 보증하지 않습니다.",
+          "properties": {
+            "attachments": {
+              "type": "array",
+              "description": "활성 모델을 제외한 전체 첨부 목록입니다. 첨부 없음은 빈 배열입니다. 동일 경로는 한 번, 동명이라도 서로 다른 경로는 각각 유지하며 필터나 페이지 생략을 적용하지 않습니다.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "filename": {
+                    "type": "string",
+                    "description": "API가 보고한 첨부 경로의 파일명입니다."
+                  },
+                  "path": {
+                    "type": "string",
+                    "description": "정규화한 첨부 경로입니다. 같은 드라이브는 프로젝트 기준 상대경로(외부는 ../ 포함), 다른 드라이브·UNC는 상대경로를 만들 수 없으면 원래 절대경로를 보존합니다. 파일 존재나 로드 상태를 검사한 값은 아닙니다."
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },

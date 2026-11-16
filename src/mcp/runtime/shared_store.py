@@ -173,6 +173,10 @@ def public_result(result, name):
                 return json.dumps(convert(decoded, decode_json=False), ensure_ascii=False)
         if isinstance(value, dict):
             converted = {key: convert(item, decode_json=decode_json) for key, item in value.items()}
+            if name == "get_rhino_context" and value.get("status") == "success" and "worksession" in value:
+                # The context query already normalized this catalogue. A second
+                # generic conversion would erase cross-drive reference identities.
+                converted["worksession"] = value["worksession"]
             package = value.get("package_dir")
             if (name in {"generate_asset_drawing_views", "get_asset_drawing", "register_drawing_asset", "refresh_asset"}
                     and isinstance(package, str)):

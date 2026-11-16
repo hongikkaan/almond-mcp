@@ -25,6 +25,7 @@ param(
     [string]$ResumeSessionId,
     [string]$RhinoStartTicks,
     [string]$CodexPath,
+    [switch]$Development,
     [Parameter(Mandatory=$true)][string]$SessionPath,
     [Parameter(Mandatory=$true)][string]$SessionToken
 )
@@ -32,8 +33,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($Port -eq 5000) { throw 'Use a session slot port; legacy port 5000 is not supported.' }
-if ($Exec -and $Prompt) { throw 'With -Exec, provide the prompt on stdin; do not also use -Prompt.' }
-if ($Resume -and ($Exec -or $Prompt)) { throw 'Resume must be an interactive invocation without an initial prompt.' }
+if ($Exec -and $PSBoundParameters.ContainsKey('Prompt')) { throw 'With -Exec, provide the prompt on stdin; do not also use -Prompt.' }
+if ($Resume -and $Exec) { throw 'Resume must be an interactive invocation.' }
 if ($ResumeSessionId -and -not $Resume) { throw 'ResumeSessionId requires -Resume.' }
 if ($ResumeSessionId -and $ResumeSessionId -notmatch '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$') {
     throw 'ResumeSessionId must be a session UUID.'
@@ -64,9 +65,13 @@ if (-not $CodexPath -or $CodexPath -ieq 'auto' -or
     . (Join-Path $PSScriptRoot 'codex_path.ps1')
     $CodexPath = Resolve-AlmondCodex -PreferredPath $CodexPath
 }
-$pythonPath = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\engine\.venv\Scripts\python.exe'))
+$pythonRelative = if ($Development) { '..\..\..\data\development\.venv\Scripts\python.exe' } else { '..\..\engine\.venv\Scripts\python.exe' }
+$pythonPath = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $pythonRelative))
 if (-not (Test-Path -LiteralPath $CodexPath -PathType Leaf)) { throw "Codex executable missing: $CodexPath" }
-if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) { throw 'The checkout Python runtime is missing. Run src/mcp/rebuild_environment.ps1.' }
+if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
+    $setupMode = if ($Development) { ' -Development' } else { '' }
+    throw "The checkout Python runtime is missing. Run src/mcp/rebuild_environment.ps1$setupMode."
+}
 
 Push-Location -LiteralPath $WorkDir
 $previousInput = [Console]::InputEncoding
@@ -141,7 +146,7 @@ try {
     $overrides += @('-c', "mcp_servers.$serverName.env.PYTHONIOENCODING='utf-8'")
     # Codex filters inherited variables. Keep the native Windows user-data root
     # and optional explicit library overrides; do not manufacture source paths.
-    $runtimeEnv = @('TEMP', 'TMP', 'TMPDIR', 'PYTHONDONTWRITEBYTECODE', 'LOCALAPPDATA', 'ALMOND_PROJECT_ROOT',
+    $runtimeEnv = @('TEMP', 'TMP', 'TMPDIR', 'PYTHONDONTWRITEBYTECODE', 'LOCALAPPDATA', 'ALMOND_PROJECT_ROOT', 'ALMOND_GUIDANCE_FORMAT',
         'RHINO_MCP_LIBRARY_DIR', 'RHINO_MCP_DRAWING_ASSET_DIR', 'RHINO_MCP_DIAGRAM_ASSET_DIR',
         'RHINO_MCP_GENERATED_ASSET_DIR', 'RHINO_MCP_DRAWING_RECIPE_DIR', 'RHINO_MCP_DRAFTING_DIR',
         'RHINO_MCP_CAPSULE_DIR', 'RHINO_MCP_MATERIAL_DIR', 'RHINO_MCP_CONSTRUCTION_DIR', 'RHINO_MCP_HISTORY_DIR')
@@ -176,9 +181,32 @@ try {
                 if ($ResumeSessionId) { $overrides += @($ResumeSessionId) }
             }
         }
-        if ($Prompt) { $overrides += @($Prompt) }
-        & $codexPath @overrides
-        $code = $LASTEXITCODE
+        $guidanceLauncher = Join-Path $PSScriptRoot 'user_guidance.py'
+        if (-not (Test-Path -LiteralPath $guidanceLauncher -PathType Leaf)) { throw "Missing guidance launcher: $guidanceLauncher" }
+        # Pass data through JSON so Windows PowerShell cannot strip quotes from
+        # the user's input or the existing CLI overrides. The Python launcher
+        # adds the required documents as user input, never developer settings.
+        $request = @{
+            codex = $codexPath
+            arguments = @($overrides)
+            cwd = [IO.Path]::GetFullPath($WorkDir)
+            prompt = $(if ($PSBoundParameters.ContainsKey('Prompt')) { $Prompt } else { $null })
+            stdin_prompt = [bool]$Exec
+            powershell = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+        }
+        if ($Resume -and -not $ResumeSessionId) {
+            # With the picker, Codex accepts the initial prompt before the
+            # resume subcommand. Appending it would treat the text as an ID.
+            $request.prompt_index = [Array]::IndexOf($overrides, 'resume')
+        }
+        $requestFile = [IO.Path]::GetTempFileName()
+        try {
+            [IO.File]::WriteAllText($requestFile, ($request | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
+            & $pythonPath -B -X utf8 -u $guidanceLauncher --request $requestFile
+            $code = $LASTEXITCODE
+        } finally {
+            Remove-Item -LiteralPath $requestFile -Force
+        }
         # A new CLI invocation has to use this launcher again; ordinary `codex`
         # intentionally has no Almond registration from this script.
         if ($code -ne 0) { throw "Codex exited with code $code." }

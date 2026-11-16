@@ -18,7 +18,7 @@ def populated_store(path):
     store = AlmondStore(path)
     scene = store.create_scene('Arrival')
     with store._connect() as con:
-        con.execute("INSERT INTO project_files VALUES('file_a','model.3dm')")
+        con.execute("INSERT INTO project_files(file_id,file_name) VALUES('file_a','model.3dm')")
         con.execute("INSERT INTO _project_file_locations VALUES('file_a',?)", (r'C:\fixture\model.3dm',))
         for handle in ('component_parent', 'component_child'):
             con.execute('''INSERT INTO ontological_holons

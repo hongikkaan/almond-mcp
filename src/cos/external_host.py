@@ -829,7 +829,7 @@ async def serve(catalog: dict, data: Path = ROOT / "data", *, client: str = "cos
     # too for clients that do not display serverInfo.description.
     description = server_description(client)
     server = Server(CLIENT_SERVER_NAMES[client], version=VERSION, description=description,
-                    instructions=description + "\n\n" + startup_instructions(),
+                    instructions=startup_instructions(introduction=description),
                     get_tool_input_schema=schemas.get,
                     on_list_tools=on_list_tools, on_call_tool=on_call_tool)
     try:

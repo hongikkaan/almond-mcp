@@ -29,6 +29,7 @@ def test_package_wheel_contract_includes_guidance_and_excludes_runtime():
     assert wheel["sources"]["src/mcp"] == "almond_mcp"
     assert "src/mcp/runtime" in wheel["exclude"]
     assert "src/mcp/*-INSTRUCTIONS.md" in wheel["include"]
+    assert "src/mcp/design_judgment.md" in wheel["include"]
     assert "src/mcp/features/**" in wheel["include"]
 
 
@@ -47,7 +48,7 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
         names = set(wheel.namelist())
         assert {name.removeprefix("almond_mcp/") for name in names
                 if name.startswith("almond_mcp/" + policy_dir) and name.endswith(".md")} == activity_files
-        for relative in ("BASIC-INSTRUCTIONS.md", "features/guidance/tools-explain.md", "modeling_policy.json", *activity_files):
+        for relative in ("BASIC-INSTRUCTIONS.md", "design_judgment.md", "features/guidance/tools-explain.md", "modeling_policy.json", *activity_files):
             assert wheel.read("almond_mcp/" + relative) == (package / relative).read_bytes()
         assert not any(name.startswith(("almond_mcp/runtime/", "almond_mcp/tests/")) for name in names)
         assert not any(name.startswith("almond_mcp/features/guidance/policy-validation/") for name in names)
@@ -56,7 +57,7 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
         members = {member.name.partition("/")[2]: member for member in sdist.getmembers() if member.isfile()}
         assert {name.removeprefix(prefix) for name in members
                 if name.startswith(prefix + policy_dir) and name.endswith(".md")} == activity_files
-        for relative in activity_files:
+        for relative in ("BASIC-INSTRUCTIONS.md", "design_judgment.md", *activity_files):
             assert sdist.extractfile(members[prefix + relative]).read() == (package / relative).read_bytes()
         assert prefix + "features/guidance/policy-validation/README.md" in members
 

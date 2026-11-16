@@ -49,9 +49,23 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 
 ## 매번 사용하기
 
+두 기본 지침 전문을 첫 user 입력에 자동 포함하는 Codex 직접 연결은 다음 시작기를 사용한다. 기존 Codex 모델·reasoning·다른 MCP 설정은 보존한다.
+
+```powershell
+./src/cos/beyond.ps1 -WorkDir 'C:\작업\프로젝트' -Prompt '기존 설계와 도면의 맥락을 확인해 줘'
+# 저장된 대화를 선택하여 재개
+./src/cos/beyond.ps1 -WorkDir 'C:\작업\프로젝트' -Resume
+# 마지막 대화에 새 요청을 보태 재개
+./src/cos/beyond.ps1 -WorkDir 'C:\작업\프로젝트' -Resume -ResumeLast -Prompt '이어서 검토해 줘'
+```
+
+특정 대화는 `-Resume -ResumeSessionId <대화 UUID>`로 선택한다. 재개 시에도 현재 지침을 한 번 전달하고 원래 대화 이력은 보존한다. 요청이 없는 시작은 지침 확인 후 새 요청을 기다린다. MCP 등록과 첫 사용자 입력 전달은 별도 단계이며, 이 시작기는 등록을 변경하거나 Rhino를 자동으로 열지 않는다. `-CheckOnly`는 등록 경로만 확인한다. 문서가 없거나 입력이 대화형 명령행 한도를 넘으면 전문을 자르지 않고 시작을 중단한다.
+
+CoS 연결기는 두 지침 전문을 MCP 초기화 응답으로 제공한다. 기존 CoS 앱이 이 전문을 모델의 첫 user 입력에 자동으로 포함하는 기능은 이 저장소에서 구현하지 않는다. 초기화 응답 송신과 모델에 실제 전달되는 내용은 구분한다.
+
 저장된 모델을 새 Rhino에서 시작하려면:
 
-1. 일반 Codex 대화에서 "`C:\작업\모델.3dm`을 Almond의 새 세션으로 열어 줘"라고 요청한다.
+1. 위 시작기로 연 Codex 대화에서 "`C:\작업\모델.3dm`을 Almond의 새 세션으로 열어 줘"라고 요청한다.
 2. Codex가 `connect_03-start_session` tool에 절대 `model_path`와 새 `request_id`를 전달한다.
    새 Rhino를 열고 `_almondconnect`를 자동 실행한 뒤 해당 프로세스에만 연결한다. CoS 앱이나 별도 Codex 창을 열 필요는 없다. 원본 모델을 저장하거나 기존 Rhino를 종료하지 않는다.
 3. 프로젝트·문서 정보가 필요하면 `context_04-get_project_info` tool의 필요한 sections를 조회한다. project/document는 한 번의 live 확인을 공유하고, project에 파일 목록·문서 이름·경로·is_bound_document가 나온다. DB·선택 Plan의 산출물 경로는 locations에서 조회한다. 자료를 작성할 때는 `plan_10-set_working` tool으로 Plan의 `artifact_dir`를 선택한다.
@@ -63,7 +77,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 이미 열린 일반 Rhino에 연결하려면:
 
 1. 해당 Rhino 8에서 `.3dm`을 열고 저장한 뒤 `almondconnect`를 실행한다.
-2. 등록된 Codex 앱이나 외부 Codex CLI에서 "Almond 연결 목록을 확인하고 이 문서에 연결해 줘"라고 요청한다. 클라이언트가 `connect_01-list_up` tool를 호출한다.
+2. 위 시작기로 연 Codex 대화 또는 기존 CoS 연결에서 "Almond 연결 목록을 확인하고 이 문서에 연결해 줘"라고 요청한다. 클라이언트가 `connect_01-list_up` tool를 호출한다.
 3. 목록의 정확한 `host_id`와 `model_path`로 `connect_02-session` tool를 호출한다.
    이후 도구는 선택한 문서를 자동으로 사용한다. 다른 문서로 전환하려면 목록의 host_id/model_path로 connect_02-session tool를 다시 호출한다. 기존 연결은 유지된다.
 4. 필요할 때 `context_04-get_project_info` tool에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해 `inspect_03-get_document_context` tool를 반복 호출하지 않는다. 자료 작성 전 `plan_10-set_working` tool으로 폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../mcp/BASIC-INSTRUCTIONS.md)을 따른다.

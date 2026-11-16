@@ -54,7 +54,7 @@ def test_ambiguous_file_names_never_pick_a_model_or_partially_register(tmp_path)
     store = AlmondStore(tmp_path / "ambiguous.sqlite3")
     phase = store.create_phase("Keep", file_name="old.3dm")
     with store._connect() as db:
-        db.executemany("INSERT INTO project_files VALUES(?,?)", [("a", "same.3dm"), ("b", "same.3dm")])
+        db.executemany("INSERT INTO project_files(file_id,file_name) VALUES(?,?)", [("a", "same.3dm"), ("b", "same.3dm")])
     before = store.list_project_files()
     with pytest.raises(ValueError, match="matches several"):
         store.edit_phase(phase["phase_id"], file_name=["new.3dm", "same.3dm"])

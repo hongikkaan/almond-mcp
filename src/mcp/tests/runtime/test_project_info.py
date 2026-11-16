@@ -1,6 +1,7 @@
 """Project discovery against an isolated store and a controlled live observer."""
 import asyncio
 import json
+import ntpath
 from types import SimpleNamespace
 
 import pytest
@@ -12,6 +13,7 @@ from almond_mcp.retrieval_store import AlmondStore
 from project import connection_paths
 from workspace import Workspace
 from almond_mcp.output_contracts import public_output_schema
+from almond_mcp.features.context.context_query import query as inspect_context
 from schema_assertions import assert_described_payload
 
 
@@ -28,7 +30,12 @@ def context(tmp_path, monkeypatch):
     workspace = Workspace(locations, store)
     runtime = SimpleNamespace(workspace=workspace, rhinocode_availability=lambda: {
         "available": True, "pipe_id": "rhino-pipe", "languages": ["python"]})
-    live = {"status": "success", "document": {
+    live = {"status": "success", "capabilities": {"context_sections": 4},
+        "worksession": {"attachments": [{"filename": "reference.3dm", "path": str(tmp_path / "reference.3dm")}]},
+        "named_views": [{"name": "Entrance", "id": "named"}],
+        "layouts": [{"name": "A3", "id": "layout"}],
+        "layers": [{"name": "Building", "id": "root", "parent_id": None},
+                   {"name": "Wall", "id": "wall", "parent_id": "root"}], "document": {
         "name": model.name, "path": str(model), "runtime_serial_number": 41,
         "units": "Millimeters", "absolute_tolerance": 0.01,
         "angle_tolerance_radians": 0.017, "modified": False,
@@ -71,7 +78,11 @@ def value(result):
 
 def test_first_query_checks_live_once_and_separates_identity_properties_and_locations(context):
     result = value(context.call())
-    assert set(result) == {"status", "project", "document", "locations", "next_step_guide"}
+    assert set(result) == {"status", "project", "document", "named_views", "layouts", "layers", "worksession", "locations", "next_step_guide"}
+    assert result["named_views"] == context.live["named_views"]
+    assert result["layouts"] == context.live["layouts"]
+    assert result["layers"] == "- Building\n  - Wall"
+    assert result["worksession"] == {"attachments": [{"filename": "reference.3dm", "path": "reference.3dm"}]}
     assert result["next_step_guide"].splitlines() == [
         "- plan_08-list tool에 request.target='plan'으로 프로젝트 진행상황을 조회합니다.",
         "- 산출물 작업 공간은 plan_10-set_working tool으로 선택합니다.",
@@ -88,8 +99,32 @@ def test_first_query_checks_live_once_and_separates_identity_properties_and_loca
         "angle_tolerance_radians": 0.017, "modified": False, "object_count": 5, "layer_count": 3}
     assert result["locations"]["database"] == ".almond/scene.sqlite3"
     assert result["locations"]["artifact_dir"] is None
-    assert context.calls == [{"type": "get_rhino_context", "sections": ["document"], "selection_limit": 0}]
+    assert context.calls == [{"type": "get_rhino_context", "public_context": True,
+        "sections": ["document", "named_views", "layouts", "layers", "worksession"], "selection_limit": 0}]
     assert context.live["document"]["name"] == "model.3dm"
+
+
+def test_attachment_paths_survive_relative_output_and_repeated_queries(context):
+    root = str(context.root)
+    other_drive = "Z:" if ntpath.splitdrive(root)[0].casefold() != "z:" else "Y:"
+    paths = [str(context.root / "refs" / "same.3dm"),
+             str(context.root.parent / "external" / "same.3dm"),
+             other_drive + r"\references\same.3dm", r"\\reference-host\share\same.3dm"]
+    attachments = [{"filename": "same.3dm", "path": path} for path in paths]
+    context.live["worksession"] = {"attachments": attachments}
+    first = value(context.call(sections=["worksession"]))["worksession"]
+    second = value(context.call(sections=["worksession"]))["worksession"]
+    inspected = json.loads(inspect_context(lambda _: json.dumps(context.live), ["worksession"]))["worksession"]
+    assert first == second == inspected
+    projected = first["attachments"]
+    assert len({item["path"] for item in projected}) == 4
+    assert projected[0]["path"] == "refs/same.3dm"
+    assert projected[1]["path"] == "../external/same.3dm"
+    assert projected[2]["path"] == paths[2] and projected[3]["path"] == paths[3]
+    for source, output in zip(paths, projected):
+        restored = ntpath.normcase(ntpath.normpath(ntpath.join(root, output["path"])))
+        assert restored == ntpath.normcase(ntpath.normpath(source))
+    assert context.live["worksession"]["attachments"] == attachments
 
 
 def test_files_pagination_preserves_duplicates_and_opt_in_references(context):
@@ -97,7 +132,7 @@ def test_files_pagination_preserves_duplicates_and_opt_in_references(context):
         for folder in ("first", "second", "third"):
             context.store._project_file_reference(db, model_path=str(context.root / folder / "same.3dm"))
     first = value(context.call(sections=["project"], files_limit=2))["project"]
-    assert first["files"] == [{"file_name": "same.3dm"}] * 2
+    assert first["files"] == [{"file_name": "same.3dm", "filename": "same.3dm", "description": ""}] * 2
     assert first["files_page"] == {"total": 3, "limit": 2, "offset": 0, "truncated": True}
     selected = value(context.call(sections=["project"], files_limit=2, include_ids=True))["project"]
     last = value(context.call(sections=["project"], files_limit=2, files_offset=2, include_ids=True))["project"]
@@ -117,10 +152,11 @@ def test_successful_observation_of_different_or_unsaved_document_is_not_bound(co
 
 
 @pytest.mark.parametrize("document", [None, {}, {"path": None}, {"path": 42}])
-def test_incomplete_identity_is_error_without_a_bound_document_flag(context, document):
+@pytest.mark.parametrize("sections", [["project"], None])
+def test_incomplete_identity_is_error_without_a_bound_document_flag(context, document, sections):
     context.live["document"] = document
     context.live["warnings"] = ["document.path: unavailable"]
-    result = value(context.call(sections=["project"]))
+    result = value(context.call(sections=sections))
     assert result["status"] == "error"
     assert result["warnings"] == context.live["warnings"]
     assert "project" not in result and "is_bound_document" not in result

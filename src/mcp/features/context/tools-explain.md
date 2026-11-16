@@ -9,12 +9,14 @@
 - `viewport` / `viewports`: 활성 화면의 카메라·투영·표시 모드 / 뷰포트 목록
 - `editor`: 편집 모드와 안정성
 - `named_views` / `layouts` / `display_modes`: 저장된 뷰·용지·표시 모드 목록
+- `layers`: 전체 레이어의 이름과 계층을 보존한 들여쓰기 불릿 트리. 공통 부모는 한 번만 표시합니다.
+- `worksession`: 명시적으로 요청하면 활성 모델을 제외한 전체 첨부의 filename·path를 반환합니다. DB 등록 목록과 별도이며 실제 로드 성공·최신 상태를 보증하지 않습니다. 첨부 없음은 attachments 빈 배열, 조회·경로 형식 오류는 worksession null과 warnings입니다.
 
 **Named View·Layout·표시 모드 목록의 ID**는 `include_ids`와 무관하게 반환됩니다. 화면 이미지 캡처는 `capture_03-current_view` tool을 사용합니다.
 
 Args:
-    sections: document, viewport, editor, viewports, named_views, layouts, display_modes 중 선택.
-        생략 또는 null은 document, named_views, layouts, display_modes. []는 status와 warnings만.
+    sections: document, viewport, editor, viewports, named_views, layouts, layers, worksession, display_modes 중 선택.
+        생략 또는 null은 document, named_views, layouts, layers, display_modes. []는 status와 warnings만.
     include_ids: viewport 등에서 ID 포함. 기본 false.
     include_editor_details: editor 요청 시 공급자·명령·Undo 근거 포함. 기본 false.
 <!-- /instruction:get_rhino_context -->

@@ -40,6 +40,8 @@ def initialize_semantics(store, connection):
     connection.execute('''CREATE TABLE IF NOT EXISTS project_files(file_id TEXT NOT NULL PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
         file_name TEXT NOT NULL CHECK(length(trim(file_name))>0 AND file_name NOT IN ('.','..')
         AND instr(file_name,'/')=0 AND instr(file_name,char(92))=0 AND instr(file_name,':')=0))''')
+    if 'description' not in {row['name'] for row in connection.execute('PRAGMA table_info(project_files)')}:
+        connection.execute("ALTER TABLE project_files ADD COLUMN description TEXT NOT NULL DEFAULT ''")
     connection.execute('''CREATE TABLE IF NOT EXISTS _project_file_locations(
         file_id TEXT PRIMARY KEY REFERENCES project_files(file_id) ON DELETE RESTRICT,
         model_path TEXT NOT NULL UNIQUE)''')

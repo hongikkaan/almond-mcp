@@ -1,16 +1,20 @@
 """Exercise the actual cold stdio protocol and external schema composition."""
 import asyncio
 import json
+import ntpath
 import os
 from pathlib import Path
 import re
 import sys
+import pytest
 
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from almond_mcp import paths
 from almond_mcp.instruction_text import read_tool_instruction
 from almond_mcp.modeling_guidance import BASIC_GUIDE, read_policy, startup_instructions
+from almond_mcp import modeling_guidance
+from almond_mcp.required_guidance import REQUIRED_DOCUMENTS, load_required_guidance
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -111,11 +115,48 @@ def assert_documented_schema(schema, path):
     visit(schema, path)
 
 
-def isolated_environment(tmp_path):
+@pytest.fixture
+def required_sources(tmp_path, monkeypatch):
+    """Explicit test content; final production documents remain a release gate."""
+    folder = tmp_path / "required-guidance-fixture"
+    folder.mkdir()
+    sources = {name: folder / name for name in REQUIRED_DOCUMENTS}
+    for name, path in sources.items():
+        if name == "BASIC-INSTRUCTIONS.md":
+            path.write_bytes(BASIC_GUIDE.read_bytes())
+        else:
+            path.write_text(f"{name}: first\n" + "한글 전달 검증 " * 20_000 + f"\n{name}: last\n", encoding="utf-8")
+    monkeypatch.setattr(modeling_guidance, "REQUIRED_GUIDE_SOURCES", sources)
+    monkeypatch.delenv("ALMOND_GUIDANCE_FORMAT", raising=False)
+    return sources
+
+
+def assert_full_guidance(instructions, sources, delivery):
+    """Inspect the entire initialize payload, including the JSON representation."""
+    bundle = load_required_guidance(sources)
+    if delivery == "fields":
+        fields = json.loads(instructions)
+        assert set(fields) == {*REQUIRED_DOCUMENTS, "_metadata"}
+        assert fields["_metadata"]["required_guidance_version"] == bundle.version
+        assert fields["_metadata"]["guide_version"] == read_policy()["guide_version"]
+        for document in bundle.documents:
+            assert fields[document.name] == document.text
+            assert fields["_metadata"]["sha256"][document.name] == document.sha256
+            assert instructions.count(json.dumps(document.text, ensure_ascii=False)) == 1
+    else:
+        assert bundle.instructions() in instructions
+        for document in bundle.documents:
+            assert instructions.count(document.text) == 1
+        assert instructions.index("BEGIN REQUIRED DOCUMENT BASIC-INSTRUCTIONS.md") < instructions.index("BEGIN REQUIRED DOCUMENT design_judgment.md")
+
+
+def isolated_environment(tmp_path, required_sources=None):
     env = dict(os.environ)
     env["ALMOND_TEST_ROOT"] = str(tmp_path)
     env["RHINO_MCP_STATE_DB"] = str(tmp_path / "direct.sqlite3")
     env["PYTHONPATH"] = os.pathsep.join(str(ROOT / p) for p in ("src/mcp", "src/mcp/runtime", "src/cos"))
+    if required_sources is not None:
+        env["ALMOND_TEST_GUIDANCE_DIR"] = str(next(iter(required_sources.values())).parent)
     for variable in paths.LIBRARY_DIRS:
         folder = tmp_path / variable
         folder.mkdir()
@@ -216,8 +257,15 @@ async def collect(params, *, bound):
                 assert project["file_name"] == "disposable.3dm"
                 assert project["file_path"] == "disposable.3dm"
                 assert project["is_bound_document"] is True
-                assert project["files"] == [{"file_name": "disposable.3dm"}]
+                assert project["files"] == [{"file_name": "disposable.3dm", "filename": "disposable.3dm", "description": ""}]
                 assert project["files_page"]["total"] == 1
+                assert info["named_views"] == [{"name": "Arrival", "id": "fixture-view"}]
+                assert info["layouts"] == []
+                assert info["layers"] == "- Building\n  - Wall"
+                assert info["worksession"] == {"attachments": [{"filename": "reference.3dm", "path": "reference.3dm"}]}
+                sections = ["named_views", "layouts", "layers", "worksession"]
+                inspected = await call("inspect_03-get_document_context", {"sections": sections})
+                assert {key: info[key] for key in sections} == {key: inspected[key] for key in sections}
                 assert info["locations"]["database"] == ".almond/scene.sqlite3"
                 assert info["locations"]["artifact_dir"] is None
                 assert not {"root_variable_set", "root_variable", "database"}.intersection(project)
@@ -243,10 +291,79 @@ def test_cold_direct_full_descriptions_and_basic_scripting_guide(tmp_path):
     assert "context_01-get_policy" in tools
 
 
-def test_bound_serve_and_external_catalog_identity(tmp_path):
+@pytest.mark.parametrize("route", ["bound", "codex", "cos"])
+@pytest.mark.parametrize("delivery", ["sequential", "fields"])
+def test_package_sources_initialize_without_guidance_override(tmp_path, monkeypatch, route, delivery):
+    """The actual checkout's mandatory files must initialize every client route."""
+    monkeypatch.setenv("ALMOND_GUIDANCE_FORMAT", delivery)
+    env = isolated_environment(tmp_path)
+    env.pop("ALMOND_TEST_GUIDANCE_DIR", None)
+    if route == "bound":
+        args = ["-B", "-X", "utf8", "-u", str(ROOT / "tests/integration/bound_server_fixture.py")]
+        introduction = ""
+    else:
+        from external_host import server_description
+        code = ("import os; from pathlib import Path; from external_host import main; "
+                f"main(Path(os.environ['ALMOND_TEST_ROOT']), client='{route}')")
+        args = ["-B", "-X", "utf8", "-u", "-c", code]
+        introduction = server_description(route)
+    params = StdioServerParameters(command=sys.executable, args=args, env=env)
+
+    async def initialize():
+        async with stdio_client(params) as (reader, writer):
+            async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
+                return await client.initialize()
+
+    initialized = asyncio.run(initialize())
+    assert initialized.instructions == startup_instructions(delivery, introduction=introduction)
+    sources = {name: ROOT / "src/mcp" / name for name in REQUIRED_DOCUMENTS}
+    assert_full_guidance(initialized.instructions, sources, delivery)
+
+
+def test_bound_worksession_paths_survive_the_final_response_middleware(tmp_path):
+    root = str(tmp_path)
+    other_drive = "Z:" if ntpath.splitdrive(root)[0].casefold() != "z:" else "Y:"
+    references = [str(tmp_path / "reference.3dm"), str(tmp_path.parent / "survey" / "reference.3dm"),
+                  other_drive + "\\survey\\reference.3dm", "\\\\server\\share\\reference.3dm"]
+    env = isolated_environment(tmp_path)
+    env.pop("ALMOND_TEST_GUIDANCE_DIR", None)
+    env["ALMOND_TEST_REFERENCE_PATHS"] = json.dumps(references)
     params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
-        str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path))
-    _, worker = asyncio.run(collect(params, bound=True))
+        str(ROOT / "tests/integration/bound_server_fixture.py")], env=env)
+
+    async def discover():
+        async with stdio_client(params) as (reader, writer):
+            async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
+                await client.initialize()
+                values = []
+                for name in ("context_04-get_project_info", "inspect_03-get_document_context",
+                             "inspect_03-get_document_context"):
+                    result = await client.call_tool(name, {"sections": ["worksession"]})
+                    assert not result.is_error
+                    values.append(json.loads(result.content[0].text)["worksession"])
+                    structured = result.structured_content
+                    if name.startswith("inspect_"):
+                        structured = json.loads(structured["result"])
+                    assert structured["worksession"] == values[-1]
+                return values
+
+    project, inspected, repeated = asyncio.run(discover())
+    assert project == inspected == repeated
+    rows = inspected["attachments"]
+    assert rows[0]["path"] == "reference.3dm"
+    assert rows[1]["path"].startswith("../")
+    assert [row["path"] for row in rows[2:]] == references[2:]
+    for row, original in zip(rows, references):
+        assert ntpath.normcase(ntpath.normpath(ntpath.join(root, row["path"]))) == ntpath.normcase(ntpath.normpath(original))
+
+
+@pytest.mark.parametrize("delivery", ["sequential", "fields"])
+def test_bound_serve_and_external_catalog_identity(tmp_path, required_sources, delivery, monkeypatch):
+    monkeypatch.setenv("ALMOND_GUIDANCE_FORMAT", delivery)
+    params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
+        str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path, required_sources))
+    instructions, worker = asyncio.run(collect(params, bound=True))
+    assert_full_guidance(instructions, required_sources, delivery)
     from runtime import load_catalog, schema_identity, validate_worker_tools
     from external_host import exposed_tools
     catalog = load_catalog()
@@ -272,7 +389,9 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
         assert external[name]["inputSchema"] == worker[name]["inputSchema"]
 
 
-def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
+@pytest.mark.parametrize("delivery", ["sequential", "fields"])
+def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path, required_sources, delivery, monkeypatch):
+    monkeypatch.setenv("ALMOND_GUIDANCE_FORMAT", delivery)
     from runtime import load_catalog
     from external_host import exposed_tools
     expected_tools, _ = exposed_tools(load_catalog())
@@ -280,9 +399,12 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
 
     async def inspect(client_name):
         code = ("import os; from pathlib import Path; from external_host import main; "
+                "from almond_mcp import modeling_guidance as guide; "
+                "guide.REQUIRED_GUIDE_SOURCES = {name: Path(os.environ['ALMOND_TEST_GUIDANCE_DIR']) / name "
+                f"for name in {REQUIRED_DOCUMENTS!r}}}; "
                 f"main(Path(os.environ['ALMOND_TEST_ROOT']), client='{client_name}')")
         params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", "-c", code],
-                                       env=isolated_environment(tmp_path / client_name))
+                                       env=isolated_environment(tmp_path / client_name, required_sources))
         async with stdio_client(params) as (reader, writer):
             async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
                 initialized = await client.initialize()
@@ -290,6 +412,9 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
                          for t in (await client.list_tools()).tools}
                 assert_information_placement(tools)
                 assert initialized.instructions  # External-host instructions are a separate contract.
+                assert_full_guidance(initialized.instructions, required_sources, delivery)
+                if delivery == "fields":
+                    assert json.loads(initialized.instructions)["_metadata"]["introduction"].startswith(initialized.server_info.description)
                 for text in (initialized.instructions, initialized.server_info.description):
                     assert not any(name in text for name in ("host_id", "model_path", "connection_id", "request_id"))
                 assert tools == expected
@@ -306,9 +431,9 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
         assert asyncio.run(inspect(name)) == label
 
 
-def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
+def test_plan_section_bound_schema_and_external_argument_routing(tmp_path, required_sources):
     params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
-        str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path))
+        str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path, required_sources))
     _, worker = asyncio.run(collect(params, bound=True))
     from runtime import load_catalog, schema_identity
     from external_host import Broker, json_result

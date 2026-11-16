@@ -74,7 +74,7 @@ namespace RhinoAlmondBridge
             bool recursive = false, int depth = 1, bool includeImage = false, bool selectionEntities = false, bool publicContext = false)
         {
             var requested = new HashSet<string>(sections ?? new[] { "document" });
-            if (requested.Except(new[] { "document", "selection", "viewport", "editor", "display_modes", "named_views", "layouts", "viewports" }).Any())
+            if (requested.Except(new[] { "document", "selection", "viewport", "editor", "display_modes", "named_views", "layouts", "layers", "worksession", "viewports" }).Any())
                 return Error("invalid_arguments", "Unknown context section.");
             if (selectionLimit < 0 || selectionLimit > MaxSelectionLimit || depth < 1 || depth > 8)
                 return Error("invalid_arguments", "selection_limit must be 0..200 and depth 1..8.");
@@ -86,7 +86,7 @@ namespace RhinoAlmondBridge
             {
                 ["status"] = "success",
                 ["capabilities"] = new JObject { ["block_analysis"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2, ["component_group_inference"] = 1,
-                    ["component_operations"] = 1, ["drawing_asset_extract"] = 2, ["context_sections"] = 2, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
+                    ["component_operations"] = 1, ["drawing_asset_extract"] = 2, ["context_sections"] = 4, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
                     ["object_observation"] = 4, ["inspection_capture"] = 1, ["inspection_model_view"] = 1,
                     ["inspection_shared_scope"] = 1, ["inspection_editing_context"] = 1,
                     ["capture_output_size"] = 1, ["face_edit"] = 1,
@@ -122,6 +122,8 @@ namespace RhinoAlmondBridge
             if (requested.Contains("display_modes")) result["display_modes"] = DisplayModes(warnings);
             foreach (var section in new[] { "named_views", "layouts", "viewports" })
                 if (requested.Contains(section)) result[section] = Observe(section, () => ListContextViews(doc, section), warnings);
+            if (requested.Contains("layers")) result["layers"] = Observe("layers", () => ListContextLayers(doc), warnings);
+            if (requested.Contains("worksession")) result["worksession"] = Observe("worksession", () => ReadWorksession(doc), warnings);
             if (requested.Contains("viewport")) result["viewport"] = Observe("viewport", () =>
             {
                 var view = doc.Views.ActiveView;
@@ -340,6 +342,69 @@ namespace RhinoAlmondBridge
                     entries.Add(new JObject { ["name"] = view.MainViewport.Name, ["id"] = view.MainViewport.Id.ToString() });
             }
             return entries;
+        }
+
+        private static JArray ListContextLayers(RhinoDoc doc)
+        {
+            // Include hidden, locked and reference layers. Deleted table records
+            // are not part of the document hierarchy; do not truncate this list.
+            return new JArray(doc.Layers.Where(layer => layer != null && !layer.IsDeleted).Select(layer => new JObject
+            {
+                ["name"] = layer.Name,
+                ["id"] = layer.Id.ToString(),
+                ["parent_id"] = layer.ParentLayerId.ToString()
+            }));
+        }
+
+        private static JObject ReadWorksession(RhinoDoc doc)
+        {
+            var worksession = doc.Worksession;
+            if (worksession == null)
+                throw new InvalidOperationException("The document's Worksession is unavailable.");
+            var paths = worksession.ModelPaths;
+            if (paths == null)
+                throw new InvalidOperationException("The Worksession model paths are unavailable.");
+            var active = String.IsNullOrWhiteSpace(doc.Path) ? null : NormalizeWorksessionPath(doc.Path);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var attachments = new JArray();
+            // Rhino 8 ModelPaths includes the saved active model. It is not an
+            // attachment; an unsaved active document is absent from ModelPaths.
+            foreach (var path in paths)
+            {
+                var normalized = NormalizeWorksessionPath(path);
+                if (String.Equals(normalized, active, StringComparison.OrdinalIgnoreCase) || !seen.Add(normalized))
+                    continue;
+                attachments.Add(new JObject { ["filename"] = Path.GetFileName(normalized), ["path"] = normalized });
+            }
+            return new JObject { ["attachments"] = attachments };
+        }
+
+        private static string NormalizeWorksessionPath(string path)
+        {
+            if (String.IsNullOrWhiteSpace(path) || path.IndexOf('\0') >= 0 || !Path.IsPathFullyQualified(path))
+                throw new InvalidOperationException("Worksession returned an invalid model path.");
+            // Validate components before normalization can remove a bad segment.
+            // Separators, a drive colon and a namespace prefix are path syntax;
+            // inspect all other characters, including UNC server/share names.
+            bool namespaced = path.Length >= 4 && (path[0] == '\\' || path[0] == '/') &&
+                (path[1] == '\\' || path[1] == '/') && (path[2] == '?' || path[2] == '.') &&
+                (path[3] == '\\' || path[3] == '/');
+            int start = namespaced ? 4 : 0;
+            for (int i = start; i < path.Length; i++)
+            {
+                char value = path[i];
+                bool driveColon = value == ':' && i == start + 1 && i + 1 < path.Length &&
+                    ((path[start] >= 'A' && path[start] <= 'Z') || (path[start] >= 'a' && path[start] <= 'z')) &&
+                    (path[i + 1] == '\\' || path[i + 1] == '/');
+                if (value < 32 || value == '"' || value == '<' || value == '>' || value == '|' ||
+                    value == '*' || value == '?' || (value == ':' && !driveColon))
+                    throw new InvalidOperationException("Worksession returned an invalid model path.");
+            }
+            var normalized = Path.GetFullPath(path);
+            if (String.IsNullOrWhiteSpace(Path.GetFileName(normalized)) ||
+                String.Equals(normalized.TrimEnd('\\', '/'), Path.GetPathRoot(normalized).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Worksession returned a model path without a filename.");
+            return normalized;
         }
 
         internal static JObject ImageViewState(RhinoView view)

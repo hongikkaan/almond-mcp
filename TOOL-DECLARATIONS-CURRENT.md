@@ -283,9 +283,11 @@ declare const tools: {
 ```txt
 연결된 Rhino 문서와 프로젝트의 작업 정보를 조회합니다. 작업을 시작하거나 이어갈 때 현재 문서, 등록 파일과 작업 공간을 확인하는 데 사용합니다.
 
-`sections`로 필요한 정보를 선택합니다. project는 프로젝트 경로·현재 문서와 연결 모델의 일치 여부·등록 파일, document는 현재 문서의 단위·허용오차·객체 수 등, locations는 선택된 작업 공간과 공유 DB, runtime은 연결 실행 환경입니다. project 또는 document를 요청하면 현재 Rhino 문서를 읽습니다. sections를 생략하면 project·document·locations를 조회합니다. 문서의 개별 값을 읽지 못하면 해당 값은 null이며 warnings에 사유가 나옵니다.
+`sections`로 필요한 정보를 선택합니다. project는 프로젝트 경로·현재 문서와 연결 모델의 일치 여부·DB 등록 파일, document는 현재 문서의 단위·허용오차·객체 수 등, named_views·layouts는 저장된 뷰·Layout 전체 목록, layers는 전체 레이어의 들여쓰기 불릿 트리, worksession은 활성 모델을 제외한 첨부 경로 목록, locations는 선택된 작업 공간과 공유 DB, runtime은 연결 실행 환경입니다. sections를 생략하면 runtime을 제외한 모든 섹션을 조회합니다. 필요한 현재 문서 정보는 inspect_03-get_document_context tool과 공통 수집기로 한 번 읽습니다. 문서의 개별 값을 읽지 못하면 해당 값은 null이며 warnings에 사유가 나옵니다.
 
-등록 파일 목록이 잘리면 `files_page`의 offset과 limit을 더해 `files_offset`으로 다음 페이지를 조회합니다. 파일 ID 등 후속 작업에 필요한 식별자는 `include_ids=true`로 포함합니다. 프로젝트 내부 경로는 project_root 기준 상대경로로 반환됩니다.
+`project.files`는 실제 Worksession 첨부 목록과 구분되는 DB 등록 프로젝트 문서 목록입니다. 각 행의 filename과 description으로 자료를 고르고 Rhino에서 Worksession에 attach하여 참조할 수 있습니다. 기존 file_name은 filename과 같은 값입니다. 등록은 실제 첨부 상태나 디스크 존재를 보증하지 않습니다. 등록 파일 목록이 잘리면 `files_page`의 offset과 limit을 더해 `files_offset`으로 다음 페이지를 조회합니다. 파일 ID 등 후속 작업에 필요한 식별자는 `include_ids=true`로 포함하며 Named View·Layout ID는 항상 반환합니다. 프로젝트 내부 경로는 project_root 기준 상대경로로 반환됩니다.
+
+`worksession.attachments`는 Rhino API가 보고한 전체 첨부의 filename과 path입니다. 활성 모델과 중복 경로는 제외하고 동명이어도 경로가 다르면 유지합니다. 같은 드라이브의 path는 프로젝트 기준 상대경로이며 외부 경로에는 ../가 포함될 수 있습니다. 다른 드라이브·UNC처럼 상대경로를 만들 수 없으면 절대경로를 보존합니다. 이는 참조의 식별 정보이며 관리 산출물 경로 입력과는 구분합니다. 빈 배열은 첨부 없음이며 조회 실패나 유효하지 않은 경로가 섞인 경우 worksession 전체가 null이고 warnings에 사유가 나옵니다. 형식 검사는 금지 문자·제어문자·절대경로와 파일명 구성을 확인하며 파일시스템 전체 유효성을 보증하지 않습니다. 이 목록은 실제 로드 성공이나 최신 상태를 보증하지 않습니다. 첨부 목록에는 필터·페이지 제한을 적용하지 않습니다.
 ```
 
 ```ts
@@ -297,7 +299,7 @@ declare const tools: {
     files_offset?: number;
     // 기본 false.
     include_ids?: boolean;
-    // project, document, locations, runtime. 기본은 앞의 세 섹션.
+    // project, document, named_views, layouts, layers, worksession, locations, runtime. 기본은 runtime을 제외한 모든 섹션.
     sections?: Array<string> | null;
   }): Promise<CallToolResult<{
     status?: string;
@@ -312,6 +314,8 @@ declare const tools: {
       files?: Array<{
         project_file_id?: string;
         file_name?: string;
+        filename?: string;
+        description?: string;
       }>;
       files_page?: {
         total?: number;
@@ -329,6 +333,10 @@ declare const tools: {
       object_count?: number | null;
       layer_count?: number | null;
     } | null;
+    named_views?: Array<{ name?: string; id?: string }> | null;
+    layouts?: Array<{ name?: string; id?: string }> | null;
+    layers?: string | null;
+    worksession?: { attachments?: Array<{ filename?: string; path?: string }> } | null;
     locations?: {
       plan_id?: string;
       step_id?: string;
@@ -468,6 +476,8 @@ declare const tools: { mcp__rhino__inspect_02_get_objects(args: {
 - `viewport` / `viewports`: 활성 화면의 카메라·투영·표시 모드 / 뷰포트 목록
 - `editor`: 편집 모드와 안정성
 - `named_views` / `layouts` / `display_modes`: 저장된 뷰·용지·표시 모드 목록
+- `layers`: 전체 레이어의 이름과 계층을 보존한 들여쓰기 불릿 트리. 공통 부모는 한 번만 표시합니다.
+- `worksession`: 명시적으로 요청하면 활성 모델을 제외한 전체 첨부의 filename·path를 반환합니다. DB 등록 목록과 별도이며 실제 로드 성공·최신 상태를 보증하지 않습니다. 첨부 없음은 attachments 빈 배열, 조회·경로 형식 오류는 worksession null과 warnings입니다.
 
 **Named View·Layout·표시 모드 목록의 ID**는 `include_ids`와 무관하게 반환됩니다. 화면 이미지 캡처는 `capture_03-current_view` tool을 사용합니다.
 ```
@@ -479,8 +489,8 @@ declare const tools: {
     include_editor_details?: boolean;
     // viewport 등에서 ID 포함. 기본 false.
     include_ids?: boolean;
-    // document, viewport, editor, viewports, named_views, layouts, display_modes 중 선택.
-    // 생략 또는 null은 document, named_views, layouts, display_modes. []는 status와 warnings만.
+    // document, viewport, editor, viewports, named_views, layouts, layers, worksession, display_modes 중 선택.
+    // 생략 또는 null은 document, named_views, layouts, layers, display_modes. []는 status와 warnings만.
     sections?: Array<string> | null;
   }): Promise<CallToolResult<{
     // 요청한 섹션·상태·경고 또는 오류 상세가 담긴 JSON 문자열.

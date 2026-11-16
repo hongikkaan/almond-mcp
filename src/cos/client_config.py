@@ -18,7 +18,7 @@ import tomllib
 NAME = "rhino"
 LEGACY_NAME = "almond_cos"
 ENV_VARS = (
-    "LOCALAPPDATA", "TEMP", "TMP", "TMPDIR",
+    "LOCALAPPDATA", "TEMP", "TMP", "TMPDIR", "ALMOND_GUIDANCE_FORMAT",
     "RHINO_MCP_LIBRARY_DIR", "RHINO_MCP_DRAWING_ASSET_DIR",
     "RHINO_MCP_DIAGRAM_ASSET_DIR", "RHINO_MCP_GENERATED_ASSET_DIR",
     "RHINO_MCP_DRAWING_RECIPE_DIR", "RHINO_MCP_DRAFTING_DIR",
@@ -75,7 +75,12 @@ def install_codex(path: Path, config: dict) -> Path | None:
     legacy = servers.get(LEGACY_NAME)
     old_config = dict(config, args=[*config["args"][:-1],
                                   str(Path(config["args"][-1]).with_name("cos_host.py"))])
-    supported = (config, old_config)
+    # Recognize only our exact generated entries before the guidance selector
+    # was forwarded. Customized allowlists and other settings remain conflicts.
+    previous = tuple(dict(item, env_vars=[name for name in item["env_vars"]
+                                         if name != "ALMOND_GUIDANCE_FORMAT"])
+                     for item in (config, old_config))
+    supported = (config, old_config, *previous)
     if legacy is not None:
         if existing is not None or legacy not in supported:
             raise ValueError(f"Conflicting or customized {LEGACY_NAME}/{NAME} settings in {path}; no changes made.")
@@ -92,24 +97,29 @@ def install_codex(path: Path, config: dict) -> Path | None:
     if existing is not None:
         if existing == config:
             return None
-        if existing != old_config:
+        if existing not in supported:
             raise ValueError(f"{NAME} already exists with different settings in {path}; no changes made.")
         updated = text
-    if (legacy if legacy is not None else existing) == old_config:
-        # Only the generated one-line args assignment is replaced. Reject any
-        # unfamiliar syntax rather than rewriting unrelated tables or comments.
+    owned = legacy if legacy is not None else existing
+    if owned is not None and owned != config:
+        # Replace only changed, generated one-line values in our table. Reject
+        # unfamiliar syntax rather than rewriting unrelated settings/comments.
         header = re.search(r"(?m)^\[mcp_servers\.rhino\][ \t]*\r?$", updated)
         if header is None:
             raise ValueError("Cannot locate the owned rhino table; no changes made.")
         end = re.search(r"(?m)^\s*\[", updated[header.end():])
         stop = header.end() + end.start() if end else len(updated)
-        old_args = json.dumps(old_config["args"], ensure_ascii=False)
-        pattern = r"(?m)^(args[ \t]*=[ \t]*)" + re.escape(old_args) + r"([ \t]*(?:#[^\r\n]*)?)(\r?)$"
-        body, count = re.subn(pattern,
-                             lambda match: match[1] + json.dumps(config["args"], ensure_ascii=False) + match[2] + match[3],
-                             updated[header.end():stop])
-        if count != 1:
-            raise ValueError("Cannot safely migrate the owned host arguments; no changes made.")
+        body = updated[header.end():stop]
+        for key in ("args", "env_vars"):
+            if owned[key] == config[key]:
+                continue
+            old_value = json.dumps(owned[key], ensure_ascii=False)
+            pattern = r"(?m)^(" + key + r"[ \t]*=[ \t]*)" + re.escape(old_value) + r"([ \t]*(?:#[^\r\n]*)?)(\r?)$"
+            body, count = re.subn(pattern,
+                                 lambda match: match[1] + json.dumps(config[key], ensure_ascii=False) + match[2] + match[3],
+                                 body)
+            if count != 1:
+                raise ValueError(f"Cannot safely migrate the owned {key} setting; no changes made.")
         updated = updated[:header.end()] + body + updated[stop:]
     expected = dict(parsed)
     expected["mcp_servers"] = expected_servers
@@ -157,6 +167,7 @@ def main():
                 print(f"Original configuration backup: {backup}")
             print("Reload the MCP client to use the lazy adapter. Registration does not start Rhino or a modeling worker.")
             print("Call connect_03-start_session tool with a saved model path and a unique request_id to open an independent session.")
+            print("Start with src/cos/beyond.ps1 to include both required documents in the first user input.")
         else:
             print(codex_toml(config) if args.format == "codex" else generic_json(config, os.environ), end="")
     except (OSError, ValueError) as exc:

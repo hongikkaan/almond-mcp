@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import almond_mcp
 from almond_mcp.modeling_guidance import content_digest, source_files as guide_files
+from almond_mcp import modeling_guidance
 
 ROOT = Path(__file__).resolve().parent
 ENGINE = ROOT.parent / "mcp" / "runtime"
@@ -68,6 +69,8 @@ def source_paths(engine: Path) -> dict[str, Path]:
         paths["engine/" + path.name] = path
     for path in guide_files():
         paths["package/" + path.relative_to(package).as_posix()] = path
+    for name, path in modeling_guidance.REQUIRED_GUIDE_SOURCES.items():
+        paths["required_guidance/" + name] = path
     for path in sorted((package / "profiles").rglob("*.json")):
         paths["package/" + path.relative_to(package).as_posix()] = path
     return paths

@@ -4,12 +4,17 @@ from functools import lru_cache
 import ast
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Literal
 from almond_mcp.instruction_text import public_tool_name
+from almond_mcp.required_guidance import REQUIRED_DOCUMENTS, load_required_guidance
 
 PACKAGE = Path(__file__).resolve().parent
 BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
+# The existing BASIC is the basic instruction source. Final design-judgment
+# content must be supplied before deploying the strict startup path.
+REQUIRED_GUIDE_SOURCES = {name: PACKAGE / name for name in REQUIRED_DOCUMENTS}
 SCRIPTING_SKILL = PACKAGE / "features/modeling/rhino3d-scripts"
 METADATA_POLICY = PACKAGE / "modeling_policy.json"
 RHINOCODE_POLICY = PACKAGE / "RHINOCODE-INSTRUCTIONS.md"
@@ -58,8 +63,13 @@ def _snapshot() -> dict:
     inventory = source_files()
     raw = {p: _read_content(p) for p in inventory}
 
+    def source_name(path: Path) -> str:
+        # Preserve the public source identity when a disposable fixture supplies
+        # a physical BASIC source outside the installed package.
+        return "BASIC-INSTRUCTIONS.md" if path == POLICIES["basic"][1] else path.relative_to(PACKAGE).as_posix()
+
     def reference(path: Path) -> dict:
-        return {"path": "src/mcp/" + path.relative_to(PACKAGE).as_posix(),
+        return {"path": "src/mcp/" + source_name(path),
                 "sha256": hashlib.sha256(raw[path]).hexdigest()}
 
     tools = set()
@@ -92,19 +102,39 @@ def _snapshot() -> dict:
     if inventory != source_files() or any(_read_content(p) != value for p, value in raw.items()):
         raise RuntimeError("Guide source changed while reading; start a new session.")
     identity = {
-        "sources": {p.relative_to(PACKAGE).as_posix(): hashlib.sha256(value).hexdigest() for p, value in raw.items()},
-        "policies": {name: (description, path.relative_to(PACKAGE).as_posix() if path is not None else None)
+        "sources": {source_name(p): hashlib.sha256(value).hexdigest() for p, value in raw.items()},
+        "policies": {name: (description, source_name(path) if path is not None else None)
                      for name, (description, path) in POLICIES.items()},
     }
     version = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     return {"guide_version": version, "payloads": payloads}
 
 
-def startup_instructions() -> str:
+def startup_instructions(delivery: str | None = None, *, introduction: str = "") -> str:
+    """Choose a representation inside the single initialize.instructions string.
+
+    An explicit argument takes precedence over ALMOND_GUIDANCE_FORMAT. The
+    default remains sequential labelled blocks; fields is a JSON string with
+    full document bodies in filename fields and separate metadata. An external
+    server's introduction remains a prefix for sequential or metadata for fields.
+    """
+    delivery = os.environ.get("ALMOND_GUIDANCE_FORMAT", "sequential") if delivery is None else delivery
+    if delivery not in ("sequential", "fields"):
+        raise ValueError("Guidance delivery must be sequential or fields (ALMOND_GUIDANCE_FORMAT).")
+    required = load_required_guidance(REQUIRED_GUIDE_SOURCES)
     snapshot = _snapshot()
-    return ('Almond inspects and edits Rhino architecture and drawings. On first use, call '
-            'context_01-get_policy tool to read BASIC-INSTRUCTIONS.md and discover policies for the current activity. '
-            f'guide_version={snapshot["guide_version"]}')
+    basic = next(document for document in required.documents if document.name == "BASIC-INSTRUCTIONS.md")
+    if basic.sha256 != snapshot["payloads"]["basic"]["source_refs"][0]["sha256"]:
+        raise RuntimeError("BASIC guidance changed after initialization; start a new session.")
+    common_introduction = ('Almond inspects and edits Rhino architecture and drawings. '
+                           'The following two required documents are provided in full before tool use. '
+                           'Use context_01-get_policy tool for additional policies for the current activity. ')
+    prefix = introduction + "\n\n" if introduction else ""
+    if delivery == "fields":
+        fields = required.fields()
+        fields["_metadata"].update(introduction=prefix + common_introduction.strip(), guide_version=snapshot["guide_version"])
+        return json.dumps(fields, ensure_ascii=False)
+    return prefix + common_introduction + f'guide_version={snapshot["guide_version"]}\n\n' + required.instructions()
 
 
 def read_policy(policy: str = "") -> dict:

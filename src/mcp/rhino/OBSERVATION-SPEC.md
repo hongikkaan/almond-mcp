@@ -8,8 +8,8 @@
 
 ## 현재 상태
 
-`inspect_03-get_document_context` tool는 document/viewport/editor/named_views/layouts/display_modes/viewports 중 요청한 항목만 수집한다.
-sections를 생략하면 document/named_views/layouts/display_modes와 next_step을 반환한다. next_step은 다른 선택 입력에 관계없이 sections 생략 시에만 표시한다. 명시한 sections에 editor가 없으면 편집 상태를 조사하거나 출력하지 않는다. sections=[]는 status/warnings만 반환한다.
+`inspect_03-get_document_context` tool는 document/viewport/editor/named_views/layouts/layers/worksession/display_modes/viewports 중 요청한 항목만 수집한다.
+sections를 생략하면 document/named_views/layouts/layers/display_modes와 next_step_guide를 반환한다. next_step_guide는 다른 선택 입력에 관계없이 sections 생략 시에만 표시한다. 명시한 sections에 editor가 없으면 편집 상태를 조사하거나 출력하지 않는다. sections=[]는 status/warnings만 반환한다. named_views/layouts/layers/worksession은 context_04-get_project_info tool와 같은 수집·출력 경로를 사용한다.
 
 | 필드 | 내용 |
 |---|---|
@@ -18,6 +18,8 @@ sections를 생략하면 document/named_views/layouts/display_modes와 next_step
 | `viewport` | 활성 viewport 이름/크기/표시 모드/투영/카메라; ID는 include_ids=true일 때 |
 | `editor` | mode/target/stable/warnings; include_editor_details=true일 때 provider·명령·Undo 근거 추가 |
 | `named_views`, `layouts` | 이름과 ID, include_ids와 무관하게 ID 유지 |
+| `layers` | 비삭제 레이어 전체의 이름·위계를 보존한 들여쓰기 불릿 트리. 숨김·잠금·참조 레이어 포함, 빈 목록은 빈 문자열 |
+| `worksession` | 명시 조회. 활성 문서와 중복 정규 경로를 제외한 전체 attachments의 filename/path. DB 등록 project.files와 별개이며 디스크 존재·로드 성공·최신 상태는 보증하지 않음 |
 | `display_modes` | 설치된 이름과 ID, 최대 128개와 초과 경고; ID 항상 유지 |
 | `viewports` | 모델 viewport 목록; 선택 조회이며 일반 include_ids 정책 적용 |
 
