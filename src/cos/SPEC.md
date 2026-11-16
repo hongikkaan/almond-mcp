@@ -64,7 +64,7 @@ request ID는 한 adapter 수명 안에서 시작 시도 하나를 가리킨다.
 
 `build.ps1`은 `rhp/AlmondRhino.csproj`를 staging에서 빌드한 뒤 출력 위치인 `../rhp/AlmondRhino/plugin-runtime`에 배치한다. 로드된 파일을 덮어쓰지 않으며 빌드가 Rhino 등록·실제 로드를 의미하지 않는다. plugin GUID·assembly identity는 유지한다.
 
-AlmondRhino 전용 C# 변경은 이 모듈의 runtime-manifest.json만 갱신한다. Engine을 변경하면 두 소비자 RHP를 빌드하고 루트 통합 검사로 DLL 일치까지 확인한다. MCP 공개 도구 변경에 따른 자동 schema 추출과 실제 worker의 일치도 통합 검사 대상이다.
+AlmondRhino 전용 C# 변경은 이 모듈의 runtime-manifest.json만 갱신한다. 공유 Engine 변경은 두 소비자 RHP를 빌드하고 양쪽 검사 기록과 Engine DLL 일치를 확인한다. 변경별 실행 순서와 worker·카탈로그 공개 계약 검사는 [개발 검사 안내](../../tests/README.md)를 따른다.
 
 ## 공통 모델링 안내
 
