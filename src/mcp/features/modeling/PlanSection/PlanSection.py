@@ -19,6 +19,7 @@ SECTION_LAYER = 'Drawing::Section'
 HATCH_LAYER = 'Drawing::Hatch'
 ELEVATION_LAYER = 'Drawing::Elevation'
 OWNER = 'PlanSection/2'
+ATTACHMENT_SCOPE_KEY = 'ps:include_attachments'
 try:
     STRING_TYPES = (basestring,)
 except NameError:
@@ -55,10 +56,14 @@ def draft_plane(text):
     return p
 
 
+def plane_data(p):
+    return dict(origin=[p.OriginX, p.OriginY, p.OriginZ],
+                xaxis=[p.XAxis.X, p.XAxis.Y, p.XAxis.Z],
+                yaxis=[p.YAxis.X, p.YAxis.Y, p.YAxis.Z])
+
+
 def plane_json(p):
-    return json.dumps(dict(origin=[p.OriginX, p.OriginY, p.OriginZ],
-                           xaxis=[p.XAxis.X, p.XAxis.Y, p.XAxis.Z],
-                           yaxis=[p.YAxis.X, p.YAxis.Y, p.YAxis.Z]))
+    return json.dumps(plane_data(p))
 
 
 def plane_components(plane, origin_only=False):
@@ -472,14 +477,17 @@ def model_objects(doc, clip, issues, model_cache=None):
             if 'bounds' not in entry: entry['bounds'] = geo.GetBoundingBox(True)
             record['bounds'] = entry['bounds']
         record['attributes'] = obj.Attributes.Duplicate()
+        record['layer'] = doc.Layers[record['attributes'].LayerIndex].FullPath
         record['resolved'] = resolved_attributes(doc, obj.Attributes, parents)
         record['source_metadata'] = source_metadata(record['attributes'])
 
     try:
         identity = G.Transform.Identity
         matrix = transform_values(identity) if model_cache is not None else None
+        attached_model = clip.get('attached_model')
         for obj in objects(doc):
-            if obj.IsReference: continue
+            if obj.IsReference and (attached_model is None or not attached_model(obj.ReferenceModelSerialNumber)):
+                continue
             # Unlisted instances can contain explicitly included nested members.
             walk(obj, identity, matrix, [], False, [], [])
         return records
@@ -706,9 +714,22 @@ def region_boundaries(region, tol, angle_tol, cleanup_tol=None):
         else:
             cleaned.append(curve)
     curves = cleaned
-    if not curves or any(not c.IsValid or not c.IsClosed for c in curves):
-        raise ValueError('Cannot extract closed boundaries from section union')
-    return curves
+    if curves and all(c.IsValid and c.IsClosed for c in curves):
+        return curves
+
+    # A valid planar face may have complete trim loops even when its 3D edges
+    # fail to join. A single face has no internal seams to mistake for outlines.
+    if region.IsValid and region.Faces.Count == 1:
+        ok, plane = region.Faces[0].TryGetPlane(tol)
+        if ok:
+            loops = [loop.To3dCurve() for loop in region.Loops
+                     if loop.LoopType in (G.BrepLoopType.Outer, G.BrepLoopType.Inner)]
+            if loops and all(c is not None and c.IsValid and c.IsClosed and c.IsInPlane(plane, tol)
+                             and not G.Intersect.Intersection.CurveSelf(c, tol) for c in loops):
+                return loops
+            for curve in loops:
+                if curve is not None: curve.Dispose()
+    raise ValueError('Cannot extract closed boundaries from section union')
 
 
 def create_hatches(boundary, index, angle, scale, tol, region=None):
@@ -1165,16 +1186,19 @@ def cleanup_elevations(doc, items, plane=G.Plane.WorldXY, small_details=True):
 
 def generate(doc, cp, hatch=True, elevation=True, target=None,
              near_width=.09, far_width=.04, near_dark=80., far_dark=45., progress=None, place=True,
-             small_details=True, profile=None, model_cache=None):
+             small_details=True, profile=None, model_cache=None, attached_model=None):
     validate_options(near_width, far_width, near_dark, far_dark)
     clip = read_clip(doc, cp, target)
     clip['elevation'] = elevation
+    clip['attached_model'] = attached_model
+    include_attachments = attached_model is not None
+    scope_marker = 'true' if include_attachments else 'false'
     issues = {}
     if progress: progress('parse')
     records = model_objects(doc, clip, issues, model_cache)
     items = []
     try:
-        fallbacks = sorted(set((doc.Layers[r['attributes'].LayerIndex].FullPath,
+        fallbacks = sorted(set((r['layer'],
                                 r['resolved'].GetUserString('ps:hatch_fallback')) for r in records
                                if r['resolved'].GetUserString('ps:hatch_fallback')))
         if fallbacks:
@@ -1205,13 +1229,18 @@ def generate(doc, cp, hatch=True, elevation=True, target=None,
                 conflicts[key] = dict(role=item['role'], field=conflict['field'],
                                       sources=conflict['sources'], reason=conflict['reason'])
             item['attributes'].SetUserString('ps:clip', str(cp.Id))
+            if item['attributes'].SetUserString(ATTACHMENT_SCOPE_KEY, scope_marker) is False:
+                raise ValueError('Cannot record drawing attachment scope')
         report = dict(sources=len(records), skipped=issues, cleanup=cleanup,
                       section=sum(i['role']=='section' for i in items),
                       hatch=sum(i['role']=='hatch' for i in items),
                       elevation=sum(i['role']=='elevation' for i in items),
                       metadata_conflict_count=len(conflicts),
                       metadata_conflicts=[conflicts[key] for key in sorted(conflicts)][:64])
-        drawing = dict(objects=items, report=report)
+        extraction = dict(layers=sorted(set(r['layer'] for r in records)),
+                          source_object_count=len(records), include_hidden=True,
+                          include_locked=True, include_attachments=include_attachments)
+        drawing = dict(objects=items, report=report, extraction=extraction, target=clip['target'])
         items = []  # The caller now owns the final drawing geometry.
         return drawing
     finally:
@@ -1253,9 +1282,16 @@ def saved_placement(cp, existing):
     return read_saved_plane(cp.Attributes, 'draft_plane')
 
 
+def saved_include_attachments(existing):
+    scopes = {obj.Attributes.GetUserString(ATTACHMENT_SCOPE_KEY) or 'false' for obj in existing}
+    if len(scopes) != 1 or not scopes.issubset({'true', 'false'}):
+        raise ValueError('Drawing has inconsistent attachment scope; choose include_attachments explicitly')
+    return 'true' in scopes
+
+
 def output_attributes(original, role=None):
     attrs = original.Duplicate()
-    selected = ['ps:source_layer', 'ps:placement']
+    selected = ['ps:source_layer', 'ps:placement', ATTACHMENT_SCOPE_KEY]
     inherited = attrs.GetUserString('ps:inherited_keys')
     if inherited:
         selected.extend(json.loads(inherited))
@@ -1516,8 +1552,9 @@ def reposition_drawing(doc, cp, target=None):
             attrs = original_cp.Duplicate()
             write_saved_plane(attrs, 'draft_plane', target)
             if not doc.Objects.ModifyAttributes(cp.Id, attrs, True): raise ValueError('Cannot save draft_plane')
-        save_drawing_registry(doc, cp, json.dumps([str(o.Id) for o in existing]))
-        return True
+        ids = [str(entry[0]) for entry in prepared]
+        save_drawing_registry(doc, cp, json.dumps(ids))
+        return target, ids
     except Exception:
         restored = []
         for guid, geo, attrs in reversed(changed):
@@ -1861,8 +1898,19 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
         for key in ('near_width','far_width','near_dark','far_dark')]
     drawing = None
     try:
+        observe_attachments = options.get('observe_attachments')
+        attached_model = None
+        if observe_attachments is not None and cp.IsReference:
+            # RhinoApp.Wait can process native events after the adapter's preflight.
+            attached_model = observe_attachments()
+            if not attached_model(cp.ReferenceModelSerialNumber):
+                raise ValueError('The reference clipping is no longer attached to the current Worksession')
         if mode == 'Placement':
-            if not reposition_drawing(doc, cp, target): return 'cancelled'
+            moved = reposition_drawing(doc, cp, target)
+            if not moved: return 'cancelled'
+            if result is not None:
+                position, ids = moved
+                result.update(draw_plane=plane_data(position), object_ids=ids)
             print('Moved: '+(cp.Name or str(cp.Id)))
             return 'completed'
         cut = cp.ClippingPlaneGeometry.Plane
@@ -1870,15 +1918,23 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
             paper, scale = pdf_settings(cp)
             print('{0}: Paper={1}*{2} mm; Scale=1:{3}'.format(cp.Name, paper[0], paper[1], scale))
         placement = G.Plane.WorldXY if mode == 'PDF' else (cut if pick else target)
+        include_attachments = options.get('include_attachments')
         if mode == 'Update':
             existing = drawing_objects(doc, cp)
             if not existing:
                 print('SKIPPED {0}: no existing local drawing; use Create first.'.format(cp.Name or cp.Id))
                 return 'skipped'
             placement = saved_placement(cp, existing)
+            if include_attachments is None:
+                include_attachments = saved_include_attachments(existing)
+        if include_attachments and attached_model is None:
+            if observe_attachments is None:
+                raise ValueError('Use drawing_06-generate_plan_section tool to verify the current Worksession attachments')
+            attached_model = observe_attachments()
         drawing = generate(doc, cp, options['hatch'], options['elevation'], placement,
                            near_width, far_width, near_dark, far_dark, progress, place=not pick,
-                           small_details=options['small_details'], model_cache=model_cache)
+                           small_details=options['small_details'], model_cache=model_cache,
+                           attached_model=attached_model if include_attachments else None)
         if pick and drawing['objects']:
             R.RhinoApp.Wait()
             if is_cancelled(): return 'cancelled'
@@ -1899,8 +1955,13 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
                 if not doc.Objects.ModifyAttributes(cp.Id, attrs, True):
                     raise ValueError('3dm exported, but draft_plane could not be saved')
         else:
+            position = target if pick else drawing['target']
+            # All generated document output is horizontal, regardless of the cut axes.
+            draw_plane = plane_data(placement_plane(G.Plane.WorldXY, position.Origin))
             ids = bake(doc, cp, drawing, target)
-            if result is not None: result['object_ids'] = [str(value) for value in ids]
+            if result is not None:
+                result.update(object_ids=[str(value) for value in ids],
+                              draw_plane=draw_plane, extraction=drawing['extraction'])
         if result is not None: result['report'] = drawing['report']
         print('{0}: {1}'.format(cp.Name or cp.Id, drawing['report']))
         return 'completed'
@@ -1955,13 +2016,14 @@ def run_selected(doc, planes, options, folder=None, targets=None):
         if serial: doc.EndUndoRecord(serial)
         doc.Views.Redraw()
     return dict(status=('cancelled' if cancelled[0] or any(i['status']=='cancelled' for i in results)
-                        else 'completed' if done == len(planes) else 'partial'),
+                        else 'completed' if done == len(planes) else 'partial' if done else 'failed'),
                 completed=done, requested=len(planes), results=results)
 
 
 def run(doc, operation, clipping_ids, points=None, folder=None, output='Document',
         hatch=True, elevation=True, small_details=True,
-        near_width=.09, far_width=.04, near_dark=80., far_dark=45.):
+        near_width=.09, far_width=.04, near_dark=80., far_dark=45.,
+        include_attachments=None, observe_attachments=None):
     """Agent entry: explicit document/GUIDs/XYZ points; never opens an input dialog.
 
     points maps clipping GUIDs to [x, y] (Z=0) or [x, y, z] in document units.
@@ -1975,7 +2037,8 @@ def run(doc, operation, clipping_ids, points=None, folder=None, output='Document
     if operation == 'Create': options['mode'] = output
     validate_options(near_width, far_width, near_dark, far_dark)
     options.update(hatch=hatch, elevation=elevation, small_details=small_details,
-                   near_width=near_width, far_width=far_width, near_dark=near_dark, far_dark=far_dark)
+                   near_width=near_width, far_width=far_width, near_dark=near_dark, far_dark=far_dark,
+                   include_attachments=include_attachments, observe_attachments=observe_attachments)
     planes = resolve_clippings(clipping_planes(doc), clipping_ids)
     if points and operation not in ('Create', 'Move'):
         raise ValueError('Placement points apply only to Create or Move')

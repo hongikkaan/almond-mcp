@@ -393,7 +393,7 @@ class ComponentsStore:
         now = _utc_now()
         for h in changed:
             item = prepared[h]
-            connection.execute("""INSERT INTO ontological_holons(ontological_id,project_file_id,rhino_group_id,name,created_at,updated_at,
+            connection.execute("""INSERT INTO ontological_holons(ontological_id,file_name,rhino_group_id,name,created_at,updated_at,
                 availability,geometry_digest,object_count,effective_object_count,object_types_json,bounds_json)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(ontological_id) DO UPDATE SET
                 name=excluded.name,updated_at=excluded.updated_at,availability=excluded.availability,

@@ -42,7 +42,7 @@ def assert_information_placement(tools):
     assert set(phase["status"]["enum"]) == {"pending", "running", "paused", "completed", "failed", "blocked"}
     assert {option["type"] for option in phase["file_name"]["anyOf"]} == {"string", "array"}
     assert phase["status"]["description"] == "생략하면 pending."
-    assert phase["file_name"]["description"] == "연결할 파일명 하나 또는 배열. 생략하면 파일 연결 없음."
+    assert "context_04-get_project_info tool" in phase["file_name"]["description"]
     scene_file = tools["scene_02-create"]["inputSchema"]["properties"]["file_name"]["description"]
     assert "파일 작업이 아닙니다" not in scene_file and "파일명" in scene_file
     if "plan_03-execute_looping" in tools:
@@ -52,8 +52,7 @@ def assert_information_placement(tools):
     # The reviewed document owns wording; Drawing renumbering remains separate.
     aliases = {"drawing_01-list_recipes": "drawing_05-list_recipes",
                "drawing_03-apply_style": "drawing_01-apply_style",
-               "drawing_05-generate_plan_section": "drawing_06-generate_plan_section",
-               "drawing_06-get_plan_section_result": "drawing_03-get_plan_section_result"}
+               }
     document = (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8")
     for section in re.split(r"(?m)^### ", document)[1:]:
         name = section.splitlines()[0].split(". ", 1)[1].replace("\\_", "_")
@@ -65,7 +64,6 @@ def assert_information_placement(tools):
         ("drawing_01-apply_style", "recipe_id", "drawing_05-list_recipes"),
         ("drawing_01-apply_style", "recipe_id", "drawing_02-get_recipe"),
         ("drawing_02-get_recipe", "recipe_id", "drawing_05-list_recipes"),
-        ("drawing_03-get_plan_section_result", "result_id", "drawing_06-generate_plan_section"),
     ):
         assert reference in tools
         assert reference + " tool" in tools[tool_name]["inputSchema"]["properties"][field_name]["description"]
@@ -134,6 +132,9 @@ async def collect(params, *, bound):
             assert not basic_result.is_error
             basic = json.loads(basic_result.content[0].text)
             assert "list_project_files" not in tools and "list_project_files" not in basic["tools"]
+            catalog_tool = "context_05-upsert_project_file"
+            assert (catalog_tool in tools) == bound
+            assert catalog_tool in basic["tools"]
             assert basic["text"] == BASIC_GUIDE.read_text(encoding="utf-8").strip()
             policy_input = tools["context_01-get_policy"]["inputSchema"]["properties"]["policy"]
             assert policy_input["default"] == ""
@@ -216,7 +217,8 @@ async def collect(params, *, bound):
                 assert project["file_name"] == "disposable.3dm"
                 assert project["file_path"] == "disposable.3dm"
                 assert project["is_bound_document"] is True
-                assert project["files"] == [{"file_name": "disposable.3dm"}]
+                assert project["files"] == [{"file_name": "disposable.3dm", "description": None}]
+                assert project["worksession_files"] == []
                 assert project["files_page"]["total"] == 1
                 assert info["locations"]["database"] == ".almond/scene.sqlite3"
                 assert info["locations"]["artifact_dir"] is None
@@ -224,6 +226,14 @@ async def collect(params, *, bound):
                 assert not {"name", "path", "runtime_serial_number", "live_document_checked", "is_bound_document"}.intersection(info["document"])
                 rejected = await client.call_tool("list_project_files", {})
                 assert rejected.is_error
+                catalog = await call("context_05-upsert_project_file", {
+                    "file_name": "survey.3dm", "description": "Model used for survey review",
+                })
+                assert catalog == {"status": "success", "file_name": "survey.3dm",
+                                   "description": "Model used for survey review"}
+                updated_info = await call("context_04-get_project_info", {})
+                assert updated_info["project"]["files"][-1]["file_name"] == "survey.3dm"
+                assert updated_info["project"]["worksession_files"] == []
                 selected = await call("plan_10-set_working", {"plan_id": pid, "step_id": sid})
                 assert selected["revision"] == step["revision"] + 1
                 updated = await call("plan_12-update", {"request": {
@@ -316,7 +326,9 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
     catalog = next(t for t in load_catalog()["tools"] if t["name"] == "drawing_06-generate_plan_section")
     baseline = json.loads((ROOT / "tests/integration/tool_schemas.json").read_text(encoding="utf-8"))["drawing_06-generate_plan_section"]
     assert schema_identity(worker["drawing_06-generate_plan_section"]) == schema_identity(catalog) == baseline
-    arguments = dict(operation="Create", clipping_ids=["00000000-0000-0000-0000-000000000001"])
+    assert "drawing_03-get_plan_section_result" not in worker
+    clipping_id = "00000000-0000-0000-0000-000000000001"
+    arguments = dict(operation="Move", clipping_ids=[clipping_id], points={clipping_id: [0, 0, -10]})
     observed = []
 
     async def invoke(conn, name, payload, invocation):

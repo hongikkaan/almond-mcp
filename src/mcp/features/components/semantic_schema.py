@@ -23,6 +23,12 @@ def initialize_semantics(store, connection):
         raise RuntimeError('Mixed legacy and semantic schemas. Stop older clients and inspect the DB before continuing.')
     if not legacy and {'document_objects', 'scene_objects'} & tables:
         raise RuntimeError('Object tables without the legacy semantic registry cannot be migrated safely. Stop older clients and inspect the DB.')
+    if 'file_name' in {r['name'] for r in connection.execute('PRAGMA table_info(project_files)')} and 'file_id' not in {
+        r['name'] for r in connection.execute('PRAGMA table_info(project_files)')
+    }:
+        from almond_mcp.features.planning.file_schema import initialize_file_views
+        initialize_file_views(connection)
+        return
     if legacy:
         columns = {r['name'] for r in connection.execute('PRAGMA table_info(components)')}
         if 'availability' not in columns:
@@ -74,7 +80,7 @@ def initialize_semantics(store, connection):
     if legacy:
         records = connection.execute('SELECT * FROM components').fetchall()
         for r in records:
-            file_id = store._project_file_reference(connection,model_path=r['model_path'])
+            file_id = store._legacy_project_file_reference(connection,model_path=r['model_path'])
             connection.execute('''INSERT INTO ontological_holons(ontological_id,project_file_id,rhino_group_id,
                 name,created_at,updated_at,availability,geometry_digest,object_count,effective_object_count,object_types_json,bounds_json)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''',
@@ -113,14 +119,20 @@ def initialize_semantics(store, connection):
             ('_plan_component_refs','generation_plan_ontological','plan_id,ontological_id AS component_id,position'),
             ('_step_component_refs','generation_step_ontological','plan_id,step_id,ontological_id AS component_id,position')]:
         connection.execute(f'CREATE VIEW IF NOT EXISTS {view} AS SELECT {fields} FROM {table}')
+    initialize_parent_guards(connection, 'project_file_id')
+    if connection.execute('PRAGMA foreign_key_check').fetchone():
+        raise ValueError('Semantic migration found an invalid relationship; the migration was rolled back.')
+
+
+def initialize_parent_guards(connection, file_column):
     connection.execute('CREATE INDEX IF NOT EXISTS idx_ontological_parent ON ontological_holons(parent_ontological_id)')
-    for action,suffix in [('INSERT','insert'),('UPDATE OF parent_ontological_id,project_file_id','update')]:
+    for action,suffix in [('INSERT','insert'),(f'UPDATE OF parent_ontological_id,{file_column}','update')]:
         connection.execute(f'''CREATE TRIGGER IF NOT EXISTS ontological_parent_check_{suffix}
             BEFORE {action} ON ontological_holons WHEN NEW.parent_ontological_id IS NOT NULL
             BEGIN
                 SELECT CASE WHEN NEW.parent_ontological_id=NEW.ontological_id OR NOT EXISTS(
                     SELECT 1 FROM ontological_holons p WHERE p.ontological_id=NEW.parent_ontological_id
-                    AND p.project_file_id=NEW.project_file_id)
+                    AND p.{file_column}=NEW.{file_column})
                 THEN RAISE(ABORT,'Semantic parent must exist in the same model and differ from child') END;
                 SELECT CASE WHEN EXISTS(WITH RECURSIVE ancestors(ontological_id,parent_ontological_id) AS (
                     SELECT ontological_id,parent_ontological_id FROM ontological_holons WHERE ontological_id=NEW.parent_ontological_id
@@ -129,11 +141,11 @@ def initialize_semantics(store, connection):
                     SELECT 1 FROM ancestors WHERE ontological_id=NEW.ontological_id)
                 THEN RAISE(ABORT,'Semantic hierarchy contains a cycle') END;
             END''')
-    if connection.execute('PRAGMA foreign_key_check').fetchone():
-        raise ValueError('Semantic migration found an invalid relationship; the migration was rolled back.')
 
 
 def initialize_file_relations(store,connection):
+    if 'file_id' not in {r['name'] for r in connection.execute('PRAGMA table_info(project_files)')}:
+        return
     for table in ('scenes','generation_phases'):
         columns = {r['name'] for r in connection.execute(f'PRAGMA table_info({table})')}
         if 'project_file_id' not in columns:
@@ -141,7 +153,7 @@ def initialize_file_relations(store,connection):
         if 'file_name' in columns:
             key = 'scene_id' if table=='scenes' else 'phase_id'
             for row in connection.execute(f'SELECT {key},file_name FROM {table}').fetchall():
-                file_id = store._project_file_reference(connection,row['file_name'])
+                file_id = store._legacy_project_file_reference(connection,row['file_name'])
                 connection.execute(f'UPDATE {table} SET project_file_id=? WHERE {key}=?',(file_id,row[key]))
             connection.execute(f'ALTER TABLE {table} DROP COLUMN file_name')
         view = '_scene_records' if table == 'scenes' else '_phase_records'

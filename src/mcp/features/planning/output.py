@@ -22,11 +22,13 @@ GROUPS = {
 PHASE_GROUPS = {key: GROUPS[key] for key in ("description", "scope", "audit")}
 REVISION_GROUPS = {"audit": GROUPS["audit"]}
 TARGET_GROUPS = {key: GROUPS[key] for key in ("references", "geometry", "scope", "audit")}
+STEP_HANDOFF_FIELDS = ("takeaways", "design_rationale")
 
 
 def encode(payload: dict) -> str:
     """Planning handles are always visible; errors retain their original evidence."""
-    value = payload if requires_full_evidence(payload) else relative_output(payload)
+    value = payload if requires_full_evidence(payload) else relative_output(
+        payload, preserve_text_fields=STEP_HANDOFF_FIELDS)
     return json.dumps(value, ensure_ascii=False)
 
 
@@ -76,7 +78,7 @@ def step_detail(record: dict, include_details: bool = False, *, historical: bool
     result = {"id": step["step_id"], "type": "step", "name": step["name"], "status": step["status"],
               "plan_id": record["plan_id"], "loop_no": record["loop_no"], "revision": record["revision"], "read_only": historical}
     if include_details:
-        result["step"] = {key: step[key] for key in ("step_type", "input_refs", "output_refs")}
+        result["step"] = {key: step[key] for key in ("step_type", "input_refs", "output_refs", *STEP_HANDOFF_FIELDS)}
     return result
 
 
@@ -96,7 +98,6 @@ def project(payload: dict, groups: list[str] | None) -> dict:
             record = dict(record)
             if "file_names" in record:
                 record["file_name"] = record["file_names"]
-                record.pop("project_file_id", None)
                 record.pop("file_names", None)
             selected = select_fields(record, groups, core, GROUPS)
             if "steps" in selected and "all" not in (groups or []):

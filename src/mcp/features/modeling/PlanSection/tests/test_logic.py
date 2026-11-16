@@ -47,6 +47,28 @@ def clipping(reference=False, values=None):
               Attributes=Attributes(values),ClippingPlaneGeometry=geo)
 
 
+class SectionBoundaries(unittest.TestCase):
+    def test_open_join_uses_valid_single_face_trim_loops_including_holes(self):
+        plane = object()
+        outer, inner = [NS(IsValid=True, IsClosed=True, IsInPlane=lambda *_: True) for _ in range(2)]
+        faces = MagicMock(Count=1)
+        faces[0].TryGetPlane.return_value = (True, plane)
+        region = NS(IsValid=True, Faces=faces, DuplicateNakedEdgeCurves=lambda *_: [], Loops=[
+            NS(LoopType=ps.G.BrepLoopType.Outer, To3dCurve=lambda: outer),
+            NS(LoopType=ps.G.BrepLoopType.Inner, To3dCurve=lambda: inner),
+        ])
+        open_curve = Mock(IsValid=True, IsClosed=False)
+        open_curve.GetLength.return_value = 20
+        open_curve.Simplify.return_value = None
+        with patch.object(ps.G, 'PolylineCurve', type('PolylineCurve', (), {})), \
+             patch.object(ps.G.Curve, 'JoinCurves', return_value=[open_curve]), \
+             patch.object(ps.G.Intersect.Intersection, 'CurveSelf', return_value=[]):
+            self.assertEqual(ps.region_boundaries(region, .01, .02), [outer, inner])
+            region.Faces.Count = 2
+            with self.assertRaisesRegex(ValueError, 'Cannot extract closed boundaries'):
+                ps.region_boundaries(region, .01, .02)
+
+
 class OptionsAndMetadata(unittest.TestCase):
     def test_style_limits_and_distance_clamping(self):
         ps.validate_options(.09,.04,80,45)
@@ -76,9 +98,11 @@ class OptionsAndMetadata(unittest.TestCase):
                 ps.saved_placement(cp,[NS(Attributes=Attributes({'ps:placement':v})) for v in ['a','b']])
 
     def test_output_user_text_allowlist_does_not_edit_input(self):
-        values = {'ps:source_layer':'Model','ps:placement':'local','ps:sources':'internal','note':'old'}
+        values = {'ps:source_layer':'Model','ps:placement':'local','ps:include_attachments':'true',
+                  'ps:sources':'internal','note':'old'}
         source = Attributes(values)
-        self.assertEqual(ps.output_attributes(source).values,{'ps:source_layer':'Model','ps:placement':'local'})
+        self.assertEqual(ps.output_attributes(source).values,
+                         {'ps:source_layer':'Model','ps:placement':'local','ps:include_attachments':'true'})
         self.assertEqual(source.values,values)
 
     def test_output_uses_layer_print_properties_and_hatch_layer_style(self):
@@ -195,7 +219,8 @@ class PlacementHeight(unittest.TestCase):
                 after.Transform.return_value = True
                 geo = Mock()
                 geo.Duplicate.side_effect = [before,after]
-                attrs = Attributes({'ps:placement':'old','ps:source_layer':'Model'})
+                attrs = Attributes({'ps:placement':'old','ps:source_layer':'Model',
+                                    'ps:include_attachments':'true'})
                 obj = NS(Id='drawing',Geometry=geo,Attributes=attrs)
                 doc = NS(Objects=NS(Replace=Mock(return_value=True),
                     FindId=Mock(return_value=obj),ModifyAttributes=Mock(return_value=True)))
@@ -216,6 +241,7 @@ class PlacementHeight(unittest.TestCase):
                                  ['drawing'] if reference else ['drawing','clip'])
                 self.assertEqual(changes[0].args[1].GetUserString('ps:placement'),'new-height')
                 self.assertEqual(changes[0].args[1].GetUserString('ps:source_layer'),'Model')
+                self.assertEqual(changes[0].args[1].GetUserString('ps:include_attachments'),'true')
                 self.assertEqual(cp.Attributes.GetUserString('draft_plane'),'original')
                 registry.assert_called_once()
                 before.Dispose.assert_called_once()
@@ -244,35 +270,44 @@ class SourceScope(unittest.TestCase):
         with patch.object(ps,'D',NS(ClippingPlaneObject=Clip)),patch.object(ps,'objects',return_value=rows):
             self.assertEqual([o.Name for o in ps.clipping_planes(doc)],['WrongPrefix','Sec-D','Child','3F'])
 
-    def test_only_active_roots_but_including_nested_reference_members(self):
+    def test_scope_keeps_local_block_members_and_accepts_only_attached_reference_roots(self):
         class Transform:
             def __mul__(self,other): return self
         class Brep:
             IsValid = True
+            def __init__(self, corners=(0., 1.)): self.corners = corners
             def GetBoundingBox(self,accurate):
-                return NS(Transform=lambda value:None,GetCorners=lambda:[0.,1.])
-            def Duplicate(self): return Brep()
+                return NS(Transform=lambda value:None,GetCorners=lambda:self.corners)
+            def Duplicate(self): return Brep(self.corners)
             def Transform(self,value): return True
         class Instance: pass
-        def leaf(name,reference=False):
-            return NS(Id=name,Attributes=Attributes(),Geometry=Brep(),IsReference=reference,
-                      IsHidden=True,IsLocked=True)
+        def leaf(name, reference=False, serial=0, layer=0):
+            return NS(Id=name, Attributes=Attributes(layer=layer), Geometry=Brep(),
+                      IsReference=reference, ReferenceModelSerialNumber=serial, IsHidden=True, IsLocked=True)
         instance = Instance()
         instance.Id,instance.Attributes,instance.IsReference = 'active-block',Attributes(),False
         instance.InstanceXform = Transform()
         instance.InstanceDefinition = NS(Id='definition',GetObjects=lambda:[leaf('member',True)])
-        active, foreign = leaf('active'), leaf('attached',True)
-        foreign.Geometry = None  # Reference exclusion must happen before geometry access.
+        active = leaf('active')
+        attached = leaf('attached', True, 1001, 1)
+        beyond_depth = leaf('beyond-depth', True, 1001, 1)
+        beyond_depth.Geometry = Brep((8., 9.))
+        foreign = leaf('other-reference', True, 1002)
+        foreign.Geometry = None
         unused = type('UnusedGeometry',(),{})
         geo = NS(Brep=Brep,Surface=unused,Extrusion=unused,SubD=unused,Mesh=unused,
                  ClippingPlaneSurface=unused,Transform=NS(Identity=Transform()))
         clip = dict(ids=set(),layers=set(),enabled=False,exclude=False,
-                    plane=NS(DistanceTo=lambda point:point),depth=None)
+                    plane=NS(DistanceTo=lambda point:point),depth=5.)
+        doc = NS(ModelAbsoluteTolerance=.01, Layers=[NS(FullPath='model::walls'), NS(FullPath='attached::walls')])
         with patch.object(ps,'G',geo),patch.object(ps,'D',NS(InstanceObject=Instance)), \
-             patch.object(ps,'objects',return_value=[active,foreign,instance]), \
+             patch.object(ps,'objects',return_value=[active,attached,beyond_depth,foreign,instance]), \
              patch.object(ps,'resolved_attributes',return_value='style'):
-            result = ps.model_objects(NS(ModelAbsoluteTolerance=.01),clip,{})
+            result = ps.model_objects(doc,clip,{})
+            combined = ps.model_objects(doc,dict(clip,attached_model=lambda serial:serial == 1001),{})
         self.assertEqual([r['source'] for r in result],['active','active-block/member'])
+        self.assertEqual([r['source'] for r in combined],['active','attached','active-block/member'])
+        self.assertEqual([r['layer'] for r in combined],['model::walls','attached::walls','model::walls'])
         self.assertIsNot(result[0]['geometry'],active.Geometry)
 
 
@@ -534,9 +569,9 @@ class GeneratedOwnership(unittest.TestCase):
     def item():
         return dict(geometry=NS(Dispose=Mock()),attributes=Attributes(),role='section')
 
-    def generate_with(self, section_items, deduplicated=None, cleaned=None, model_cache=None):
+    def generate_with(self, section_items, deduplicated=None, cleaned=None, model_cache=None, attached_model=None):
         source = NS(Dispose=Mock())
-        records = [dict(geometry=source,attributes=Attributes(),resolved=Attributes())]
+        records = [dict(geometry=source,attributes=Attributes(),resolved=Attributes(),layer='model::walls')]
         replacements = dict(read_clip=Mock(return_value=dict(plane='cut',depth=None,target='target')),
             model_objects=Mock(return_value=records),sections=Mock(return_value=section_items),
             elevations=Mock(return_value=[]),section_tolerance=Mock(return_value=.01),
@@ -545,8 +580,17 @@ class GeneratedOwnership(unittest.TestCase):
                                     (items if cleaned is None else cleaned,{})))
         with patch.multiple(ps,**replacements):
             result = ps.generate(NS(ModelAbsoluteTolerance=.5),clipping(),place=False,
-                                 model_cache=model_cache)
+                                 model_cache=model_cache, attached_model=attached_model)
         return result,source
+
+    def test_generated_drawing_reports_and_persists_applied_scope(self):
+        for attached_model, scope in ((None, 'false'), (lambda serial: True, 'true')):
+            with self.subTest(scope=scope):
+                drawing, _ = self.generate_with([self.item()], attached_model=attached_model)
+                self.assertIs(drawing['extraction']['include_attachments'], scope == 'true')
+                attributes = ps.output_attributes(drawing['objects'][0]['attributes'])
+                self.assertEqual(attributes.GetUserString('ps:include_attachments'), scope)
+                ps.dispose_drawing_items(drawing['objects'])
 
     def test_dispose_difference_preserves_geometry_alias_and_disposes_once(self):
         retained,dropped = self.item(),self.item()
@@ -569,7 +613,7 @@ class GeneratedOwnership(unittest.TestCase):
         for model_cache in (None,object()):
             item = self.item()
             source = NS(Dispose=Mock())
-            records = [dict(geometry=source,attributes=Attributes(),resolved=Attributes())]
+            records = [dict(geometry=source,attributes=Attributes(),resolved=Attributes(),layer='model::walls')]
             def progress(stage):
                 if stage=='elevation': raise RuntimeError('Cancelled after sections')
             with self.subTest(cached=model_cache is not None), \
@@ -587,6 +631,8 @@ class GeneratedOwnership(unittest.TestCase):
         item = self.item()
         result,source = self.generate_with([item],model_cache=object())
         self.assertIs(result['objects'][0]['geometry'],item['geometry'])
+        self.assertEqual(result['extraction'], dict(layers=['model::walls'], source_object_count=1,
+            include_hidden=True, include_locked=True, include_attachments=False))
         item['geometry'].Dispose.assert_not_called()
         source.Dispose.assert_not_called()
         ps.dispose_drawing_items(result['objects'])
@@ -597,8 +643,8 @@ class Workflow(unittest.TestCase):
     def run_mode(self,mode,pick=False,cancel=False,fail=False,reference=False,fail_output=False):
         cp,other = clipping(reference),clipping()
         other.Id = 'other'
-        drawing = dict(objects=[{'geometry':Mock()}],report={})
-        saved,picked,world = NS(OriginZ=100),object(),NS(OriginZ=0)
+        saved,picked,world = NS(OriginZ=100,Origin='saved'),NS(Origin='picked'),NS(OriginZ=0)
+        drawing = dict(objects=[{'geometry':Mock()}],report={},target=saved,extraction={})
         options = dict(mode=mode,hatch=True,elevation=True,pick=pick,small_details=False,
                        near_width=.09,far_width=.04,near_dark=80,far_dark=45)
         doc = Mock()
@@ -613,9 +659,10 @@ class Workflow(unittest.TestCase):
             move_drawing=Mock(),bake=Mock(return_value=[]),export_drawing=Mock(return_value='result'),
             export_pdf=Mock(return_value='result'),pdf_settings=Mock(return_value=([210,297],300)),
             plane_json=Mock(return_value='picked-plane'),
+            plane_data=Mock(return_value={}), placement_plane=Mock(return_value='draw-plane'),
             write_saved_plane=Mock(side_effect=lambda attrs,key,plane: attrs.SetUserString(key,'picked-plane')),
-            drawing_objects=Mock(side_effect=lambda doc,cp:[object()] if cp.Id=='clip' else []),
-            saved_placement=Mock(return_value=saved),reposition_drawing=Mock(return_value=True))
+            drawing_objects=Mock(side_effect=lambda doc,cp:[NS(Attributes=Attributes())] if cp.Id=='clip' else []),
+            saved_placement=Mock(return_value=saved),reposition_drawing=Mock(return_value=('moved-plane', [])))
         events = Mock()
         for name in ('generate','pick_placement','move_drawing','bake','export_drawing','export_pdf'):
             events.attach_mock(replacements[name],name)

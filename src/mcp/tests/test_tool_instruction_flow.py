@@ -18,6 +18,8 @@ from test_planning_details import request_branch
 def test_public_phase_input_and_optional_details_survive_restart(tmp_path):
     path = tmp_path / 'planning.sqlite3'
     store = AlmondStore(path)
+    for name in ("site.3dm", "building.3dm"):
+        store.upsert_project_file(name)
     server = FastMCP('phase-flow')
     register(server, SimpleNamespace(retrieval_store=store))
 

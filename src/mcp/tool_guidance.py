@@ -39,7 +39,8 @@ SUCCESS_GUIDES = {
     "refresh_asset": "갱신된 도면은 get_asset_drawing으로 확인합니다.",
     "place_drawing_asset": "get_objects와 캡처로 배치 위치·축척을 확인합니다.",
     "place_diagram_asset": "get_objects와 캡처로 배치 위치·축척을 확인합니다.",
-    "get_drawing_recipe": "선택한 규칙을 문서에 적용하려면 apply_drawing_style을 사용합니다.",
+    "get_drawing_recipe": ("선택한 레시피를 활성 문서에 적용하려면 drawing_01-apply_style tool에 "
+                           "상세 조회에 사용한 recipe_id를 입력합니다."),
     "list_library": "logic_names에서 선택한 이름을 get_logic_by_id에 입력합니다.",
     "get_logic_by_id": "캡슐 계약과 실행 감사가 확인된 경우 run_gh_definition으로 계산할 수 있습니다.",
     "run_gh_definition": "베이크한 형상이 있으면 get_objects와 캡처로 확인합니다.",
@@ -55,7 +56,7 @@ ASSET_GUIDES = {
     "list_drawing_assets": "get_drawing_asset", "search_drawing_assets": "get_drawing_asset",
     "search_asset_repository": "get_drawing_asset", "get_drawing_asset": "place_drawing_asset",
     "list_diagram_assets": "get_diagram_asset", "search_diagram_assets": "get_diagram_asset",
-    "get_diagram_asset": "place_diagram_asset", "list_drawing_recipes": "get_drawing_recipe",
+    "get_diagram_asset": "place_diagram_asset",
 }
 EXECUTIONS = {"execute_rhino_script", "execute_project_python", "get_rhino_execution"}
 CAPTURES = {"get_current_viewcapture", "get_defined_viewcapture", "capture_rhino_inspection"}
@@ -84,6 +85,11 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         return ("연결을 해제했으며 Rhino 창과 문서는 유지됩니다. 저장하고 Rhino까지 종료하려면 "
                 "list_connections에서 해당 문서를 확인하고 connect로 다시 연결한 뒤 close_session을 호출합니다.")
     if name == "update_planning":
+        if value.get("status") == "confirmation_required":
+            return ("confirmation.warning을 읽고 선택합니다. 같은 완료 요청의 plan_12-update tool에 "
+                    "request.completion_token으로 confirmation.token을, request.completion_decision으로 yes 또는 no를 입력합니다.")
+        if value.get("status") == "cancelled":
+            return "자료를 유지하려면 필요한 객체를 temp 밖으로 옮긴 뒤 새로 완료를 요청합니다."
         if value.get("issues"):
             if arguments.get("target") in {"plan", "step"}:
                 return ("issues에서 건너뛴 항목을 확인합니다. 같은 request.target·ID·loop_no를 유지하고 필요한 필드만 수정해 다시 요청합니다. "
@@ -178,8 +184,6 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         if any(p.get("next_offset") is not None for p in page.get("pages", {}).values()):
             return "같은 request_id와 반환된 next_offset으로 get_rhino_execution에서 나머지 결과를 읽습니다."
         return None
-    if name == "get_plan_section_result":
-        return "같은 result_id와 next_offset으로 다음 페이지를 읽습니다." if value.get("next_offset") is not None else None
     if name == "list_capsules":
         if not value.get("capsules"):
             return None
@@ -215,6 +219,14 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         return None
     if name == "get_typology_narrative" and not value.get("entries"):
         return None
+    if name == "list_drawing_recipes":
+        recipes = value.get("recipes")
+        if not recipes:
+            return None
+        if not any(recipe.get("recipe_id") for recipe in recipes):
+            return "레시피 ID를 확인하려면 drawing_05-list_recipes tool에 같은 조건과 include_ids=true를 입력합니다."
+        return ("선택한 recipe_id로 drawing_02-get_recipe tool을 호출합니다. "
+                "축척과 도면 설정을 보려면 include_ids=true, field_groups=['scales', 'parameters']를 함께 입력합니다.")
     if name in ASSET_GUIDES:
         asset = value.get("asset", {})
         if isinstance(asset, dict) and internal_tool_name(asset.get("next_tool", "")) in {"prepare_drawing_asset", "refresh_asset"}:
@@ -222,13 +234,12 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         if isinstance(asset, dict) and asset.get("file_available") is False:
             return None
         # Retained IDs, not display names, are the next tool's inputs.
-        data = value.get("results", value.get("assets", value.get("recipes", value.get("asset", value))))
+        data = value.get("results", value.get("assets", value.get("asset", value)))
         if not data:
             return None
-        if arguments.get("include_ids") is False and not arguments.get("asset_id") and not arguments.get("recipe_id"):
+        if arguments.get("include_ids") is False and not arguments.get("asset_id"):
             return "후속 조회에 사용할 ID가 필요하면 같은 조건에 include_ids=true로 다시 조회합니다."
-        label = "레시피" if name == "list_drawing_recipes" else "자산"
-        return f"선택한 {label}의 ID로 {ASSET_GUIDES[name]}을 호출할 수 있습니다."
+        return f"선택한 자산의 ID로 {ASSET_GUIDES[name]}을 호출할 수 있습니다."
     if name == "resolve_targets" and not value.get("holon_ids"):
         return None
     if name == "get_selection_references" and not value.get("plans"):

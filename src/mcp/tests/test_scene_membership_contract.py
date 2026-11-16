@@ -52,6 +52,18 @@ class SceneMembershipTests(unittest.TestCase):
         self.assertEqual(self.change([B], False)['already_absent_indices'], [])
         self.assertEqual([o['rhino_guid'] for o in self.objects()], [A])
 
+    def test_member_links_do_not_register_a_file_or_share_another_models_basename(self):
+        self.change([B], True)
+        self.assertEqual(self.store.list_project_files()["files"], [])
+        with self.assertRaisesRegex(ValueError, "cannot link"):
+            self.store.change_scene_objects(self.scene, r"D:\separate\house.3dm", [B], True,
+                                            lambda _: None, self.observe)
+        self.assertEqual(self.store.get_scene(self.scene)["direct_objects"], 1)
+        self.store.upsert_project_file("HOUSE.3DM", "Inspection model")
+        self.assertEqual(self.store.list_project_files()["files"], [
+            {"file_name": "house.3dm", "description": "Inspection model"},
+        ])
+
     def test_observer_isolates_missing_without_disclosing_guids(self):
         def send(payload):
             req = json.loads(payload)

@@ -62,7 +62,7 @@ wrapper는 자신이 소유한 0이 아닌 Undo record만 종료한다. 사용�
 
 ## 관찰과 자산 준비의 경계
 
-캡처의 scale_percent는 픽셀 크기이며 기본 75, 명시적 100은 원본 크기다. Layout raster는 print color·width 설정을 요청하지만 출력은 Rhino의 실제 PrintDisplay·뷰 상태에 영향을 받을 수 있다. 성공한 PNG를 독립적인 인쇄 색·선폭·Detail 축척 검증으로 취급하지 않는다.
+캡처의 scale_percent는 픽셀 크기의 백분율이며 기본값은 75다. 현재 모델 viewport 캡처는 원본 뷰의 카메라와 표시 모드를 사용하고 표시 색과 화면 선 표현을 요청한다. Layout의 100%는 144 dpi 용지 크기다. Layout은 문서의 PrintDisplay 설정을 변경하지 않고 Rhino의 인쇄 색과 선폭으로 래스터화한다. 실제 인쇄 색·선폭·Detail 축척과 clipping 확인은 해당 내용이 보이는 용지의 이미지 검수가 필요하다.
 
 자산 준비의 사본 관찰·명시 편집·검증과 3DM·2D 발행은 [자산 계약](../features/assets/SPEC.md)을 따른다. 준비 단계의 이미지·실행 완료와 라이브러리 등록 완료는 각각 확인한다.
 

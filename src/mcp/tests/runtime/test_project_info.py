@@ -1,6 +1,9 @@
 """Project discovery against an isolated store and a controlled live observer."""
 import asyncio
 import json
+import ntpath
+import sqlite3
+from contextlib import closing
 from types import SimpleNamespace
 
 import pytest
@@ -8,6 +11,7 @@ from fastmcp import Client, FastMCP
 from jsonschema import Draft202012Validator
 
 import mcp_server
+from almond_mcp.features.context.tools import register as register_inspection
 from almond_mcp.retrieval_store import AlmondStore
 from project import connection_paths
 from workspace import Workspace
@@ -28,7 +32,12 @@ def context(tmp_path, monkeypatch):
     workspace = Workspace(locations, store)
     runtime = SimpleNamespace(workspace=workspace, rhinocode_availability=lambda: {
         "available": True, "pipe_id": "rhino-pipe", "languages": ["python"]})
-    live = {"status": "success", "document": {
+    live = {"status": "success", "worksession_files": [],
+        "capabilities": {"context_sections": 2}, "warnings": [],
+        "named_views": [{"id": "named-01", "name": "입구"}],
+        "layouts": [{"id": "layout-01", "name": "A3"}],
+        "layer_tree": [],
+        "document": {
         "name": model.name, "path": str(model), "runtime_serial_number": 41,
         "units": "Millimeters", "absolute_tolerance": 0.01,
         "angle_tolerance_radians": 0.017, "modified": False,
@@ -43,6 +52,15 @@ def context(tmp_path, monkeypatch):
     args = SimpleNamespace(session="unused", token="a" * 32)
     asyncio.run(mcp_server.configure_project_context(server, args, binding, locations,
                                                      sender=send, runtime=runtime))
+
+    register_inspection(server, SimpleNamespace(_send_and_receive=send))
+
+    async def initialize():
+        async with Client(server) as client:
+            assert any(tool.name == "context_04-get_project_info" for tool in await client.list_tools())
+
+    asyncio.run(initialize())
+    assert calls == []
 
     def call_tool(name, arguments):
         async def invoke():
@@ -70,8 +88,13 @@ def value(result):
 
 
 def test_first_query_checks_live_once_and_separates_identity_properties_and_locations(context):
+    assert context.calls == []
     result = value(context.call())
-    assert set(result) == {"status", "project", "document", "locations", "next_step_guide"}
+    assert set(result) == {"status", "project", "document", "locations", "next_step_guide",
+                           "named_views", "layouts", "layer_tree"}
+    assert result["named_views"] == [{"id": "named-01", "name": "입구"}]
+    assert result["layouts"] == [{"id": "layout-01", "name": "A3"}]
+    assert result["layer_tree"] == ""
     assert result["next_step_guide"].splitlines() == [
         "- plan_08-list tool에 request.target='plan'으로 프로젝트 진행상황을 조회합니다.",
         "- 산출물 작업 공간은 plan_10-set_working tool으로 선택합니다.",
@@ -82,29 +105,132 @@ def test_first_query_checks_live_once_and_separates_identity_properties_and_loca
     assert project["file_name"] == "model.3dm"
     assert project["file_path"] == "model.3dm"
     assert project["is_bound_document"] is True
+    assert project["worksession_files"] == []
     assert "connection_status" not in project and "live_document_checked" not in project
     assert "database" not in project and "root_variable" not in project and "root_variable_set" not in project
     assert result["document"] == {"units": "Millimeters", "absolute_tolerance": 0.01,
         "angle_tolerance_radians": 0.017, "modified": False, "object_count": 5, "layer_count": 3}
     assert result["locations"]["database"] == ".almond/scene.sqlite3"
     assert result["locations"]["artifact_dir"] is None
-    assert context.calls == [{"type": "get_rhino_context", "sections": ["document"], "selection_limit": 0}]
+    assert len(context.calls) == 1
+    assert context.calls[0]["type"] == "get_rhino_context"
+    assert set(context.calls[0]["sections"]) == {"document", "named_views", "layouts", "layer_tree", "worksession_files"}
     assert context.live["document"]["name"] == "model.3dm"
 
 
-def test_files_pagination_preserves_duplicates_and_opt_in_references(context):
-    with context.store._connect() as db:
-        for folder in ("first", "second", "third"):
-            context.store._project_file_reference(db, model_path=str(context.root / folder / "same.3dm"))
+def test_project_and_document_tools_expose_same_live_catalogues_and_complete_layer_tree(context):
+    sections = ["document", "named_views", "layouts", "layer_tree"]
+    context.live["layer_tree"] = [
+        {"id": "a-wall", "parent_id": "a", "name": "벽"},
+        {"id": "a", "parent_id": None, "name": "주거"},
+        {"id": "b", "parent_id": None, "name": "공용"},
+        {"id": "b-wall", "parent_id": "b", "name": "벽"},
+        *[{"id": f"nested-{level}", "parent_id": f"nested-{level - 1}" if level > 0 else "b-wall",
+           "name": f"상세 {level}"} for level in range(12)],
+    ]
+    info = value(context.call(sections=sections))
+    inspection = value(context.call_tool("inspect_03-get_document_context", {"sections": sections}))
+    for section in ("named_views", "layouts", "layer_tree"):
+        assert info[section] == inspection[section]
+    assert info["named_views"] == [{"id": "named-01", "name": "입구"}]
+    assert info["layouts"] == [{"id": "layout-01", "name": "A3"}]
+    assert info["layer_tree"].splitlines() == [
+        "주거", "  벽", "공용", "  벽", *[f"{'  ' * (level + 2)}상세 {level}" for level in range(12)]
+    ]
+    metadata = dict(info["document"])
+    metadata["angle_tolerance"] = metadata.pop("angle_tolerance_radians")
+    assert metadata == inspection["document"]
+    assert [request["sections"] for request in context.calls] == [sections, sections]
+
+
+def test_both_tools_report_truncation_and_keep_catalogue_ids(context):
+    sections = ["named_views", "layouts", "layer_tree"]
+    context.live["named_views"] = [{"id": str(n), "name": f"View {n}"} for n in range(130)]
+    context.live["layouts"] = [{"id": str(n), "name": f"Layout {n}"} for n in range(129)]
+    info = value(context.call(sections=sections))
+    inspection = value(context.call_tool("inspect_03-get_document_context", {"sections": sections}))
+    for result in (info, inspection):
+        assert result["named_views"] == context.live["named_views"][:128]
+        assert result["layouts"] == context.live["layouts"][:128]
+        assert result["layer_tree"] == ""
+        assert result["warnings"] == [
+            "named_views: first 128 of 130 returned.",
+            "layouts: first 128 of 129 returned.",
+        ]
+
+
+def test_files_pagination_returns_canonical_catalog_names_and_descriptions(context):
+    context.store.upsert_project_file("Structure.3dm", "Existing beams")
+    context.store.upsert_project_file("Envelope.3dm")
+    context.store.upsert_project_file("Site.3dm", "Boundary survey")
+    context.store.upsert_project_file("SITE.3DM")
     first = value(context.call(sections=["project"], files_limit=2))["project"]
-    assert first["files"] == [{"file_name": "same.3dm"}] * 2
+    assert first["files"] == [
+        {"file_name": "Envelope.3dm", "description": None},
+        {"file_name": "Site.3dm", "description": "Boundary survey"},
+    ]
     assert first["files_page"] == {"total": 3, "limit": 2, "offset": 0, "truncated": True}
     selected = value(context.call(sections=["project"], files_limit=2, include_ids=True))["project"]
     last = value(context.call(sections=["project"], files_limit=2, files_offset=2, include_ids=True))["project"]
-    assert len({row["project_file_id"] for row in selected["files"] + last["files"]}) == 3
+    assert selected["files"] == first["files"]
+    assert last["files"] == [{"file_name": "Structure.3dm", "description": "Existing beams"}]
     assert last["files_page"] == {"total": 3, "limit": 2, "offset": 2, "truncated": False}
     empty = value(context.call(sections=["project"], files_offset=3))["project"]
     assert empty["files"] == [] and not empty["files_page"]["truncated"]
+
+
+def test_worksession_listing_does_not_register_attached_files(context):
+    context.store.upsert_project_file("recorded.3dm", "Reference survey")
+    drive = "Z:" if ntpath.splitdrive(str(context.root))[0].upper() != "Z:" else "Y:"
+    external = drive + r"\Consultant\exterior.3dm"
+
+    def snapshot():
+        with closing(sqlite3.connect(context.store.database_path)) as connection:
+            return tuple(connection.iterdump())
+
+    before = snapshot()
+    context.live["worksession_files"] = [
+        {"file_name": "wing.3dm", "file_path": str(context.root / "reference" / "wing.3dm")},
+        {"file_name": "exterior.3dm", "file_path": external},
+    ]
+    project = value(context.call(sections=["project"], include_ids=True))["project"]
+    assert [row["file_name"] for row in project["files"]] == ["recorded.3dm"]
+    assert project["worksession_files"] == [
+        {"file_name": "wing.3dm", "file_path": "reference/wing.3dm"},
+        {"file_name": "exterior.3dm", "file_path": external},
+    ]
+    context.live["worksession_files"] = []
+    detached = value(context.call(sections=["project"], include_ids=True))["project"]
+    assert detached["worksession_files"] == []
+    assert detached["files"] == project["files"]
+    assert snapshot() == before
+
+
+@pytest.mark.parametrize("omitted", [False, True])
+def test_worksession_failure_is_unknown_while_db_registration_is_still_available(context, omitted):
+    context.store.upsert_project_file("recorded.3dm")
+    if omitted:
+        del context.live["worksession_files"]
+    else:
+        context.live.update(worksession_files=None,
+                            warnings=["worksession_files: Rhino could not enumerate attachments."])
+    result = value(context.call(sections=["project"]))
+    assert result["project"]["worksession_files"] is None
+    assert [row["file_name"] for row in result["project"]["files"]] == ["recorded.3dm"]
+    assert any(warning.startswith("worksession_files:") for warning in result["warnings"])
+
+
+def test_explicit_catalog_tool_edits_only_database_without_live_observation(context):
+    registered = value(context.call_tool("context_05-upsert_project_file", {
+        "file_name": "Boundary.3dm", "description": "2026 boundary survey",
+    }))
+    assert registered == {"status": "success", "file_name": "Boundary.3dm", "description": "2026 boundary survey"}
+    repeated = value(context.call_tool("context_05-upsert_project_file", {"file_name": "BOUNDARY.3DM"}))
+    assert repeated == registered
+    assert context.calls == []
+    project = value(context.call(sections=["project"]))["project"]
+    assert project["files"] == [{"file_name": "Boundary.3dm", "description": "2026 boundary survey"}]
+    assert project["worksession_files"] == []
 
 
 @pytest.mark.parametrize("path", ["other.3dm", ""])

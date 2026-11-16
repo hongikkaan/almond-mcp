@@ -71,6 +71,6 @@ AlmondRhino 전용 C# 변경은 이 모듈의 runtime-manifest.json만 갱신한
 외부 host는 `SERVER-DESCRIPTION.md`를 초기화 응답의 `serverInfo.description`과 `instructions` 앞부분에 제공한다. 소개 템플릿의 `{server_name}`은 Codex 경로에서 `beyond`, CoS 경로에서 `CoS`로 치환한다.
 CoS 앱 등록용 생성 설정 이름은 `CoS`다. 등록된 `src/cos` 진입점과 플러그인 GUID는 유지한다.
 ChatGPT의 `Chat On Steroids Plugins` 공통 소개는 클라이언트가 관리하므로, 서버 소개를 수정한 것만으로 해당 화면에 표시되었다고 판단하지 않는다.
-이어서 MCP package의 시작 안내를 제공한다. `context_04-get_project_info` tool도 원본 도구 설명을 유지하므로 project/document의 단일 live 조회, project의 파일 목록과 연결 상태, locations의 DB·Plan 산출물 경로가 정확히 안내된다. 기본 지침은 `context_01-get_policy` tool에서 조회한다.
+이어서 MCP package의 기본 지침과 설계 판단 문서 본문을 한 번 전달한다. 사용 가능한 문서와 빈 파일이나 읽기 실패의 상태를 함께 알린다. 연결을 선택한 뒤 `context_04-get_project_info` tool로 현재 문서와 실제 Worksession 첨부, DB 파일 목록 및 작업 경로를 조회한다. 필요하면 `context_01-get_policy` tool에서 기본 지침과 활동별 정책을 다시 읽는다.
 `context_01-get_policy` tool은 선택한 연결에서 기존 worker 도구 전달 경로를 사용한다. BASIC과 선택한 지침의 JSON text content 및 structured content를 전달한다. 카탈로그는 worker와 같은 정책 선택값을 공개하고 개별 도구의 설명 전문을 `tools/list`에 제공한다. 정책 파일·도구 소스·설명 Markdown은 session source fingerprint에 포함한다.
 안내 조회 계약과 갱신 절차는 [MCP SPEC](../mcp/SPEC.md#모델링-안내-전달)을 따른다.

@@ -29,7 +29,7 @@
 
 - `phase`: description, file_name 배열, depends_on, previous_id, plan_titles.
 - `plan`: goal, scope, phase, scene_ids, holon_ids, depends_on, previous_id, parent_plan, child_plan, artifact_dir, loop_artifact_dir, artifact_refs, feedback, created_at, updated_at, steps.
-- `step`: step_type, input_refs, output_refs.
+- `step`: step_type, input_refs, output_refs, takeaways, design_rationale.
 
 Plan의 steps는 Step ID·역할·이름·상태·회차의 요약이다. 특정 Step 조회는 해당 Step의 긴 입출력 기록만 읽는다. Plan의 시각은 KST `YYYY-MM-DD-HH:mm`으로 반환한다.
 
@@ -37,7 +37,7 @@ Plan의 steps는 Step ID·역할·이름·상태·회차의 요약이다. 특정
 
 ## Phase의 파일 연결
 
-`plan_02-create` tool의 `request.target="phase"`에서 `file_name`은 파일명 문자열 또는 문자열 배열을 받는다. `plan_12-update` tool의 `request.target="phase"`에서 `file_name`도 같으며 생략/null은 유지, 빈 문자열이나 빈 배열은 연결 해제다. 공개 Phase 도구에는 `project_file_id` 입력이 없다. Phase 상세와 목록 scope 그룹의 `file_name`은 항상 배열이다.
+`plan_02-create` tool의 `request.target="phase"`에서 `file_name`은 `context_04-get_project_info` tool의 `project.files`에 등록된 파일명 하나 또는 배열을 받는다. `plan_12-update` tool도 같은 방식으로 파일명을 선택하며, 생략/null은 유지, 빈 문자열이나 빈 배열은 연결 해제다. Phase 상세와 목록 scope 그룹의 `file_name`은 항상 배열이다.
 
 파일 연결은 순서가 있는 `generation_phase_files`에 저장한다. 기존 단일 연결을 이관하며 Plan·Step 이력은 바꾸지 않는다. 내부 호환 키에는 첫 파일을 남기고, 이전 저장소가 단일 연결을 변경하면 트리거로 연결을 맞춘다. 여러 파일 중 하나라도 유효하지 않거나 이름이 모호하면 해당 요청의 파일 등록과 Phase 변경을 모두 되돌린다. 같은 이름의 여러 등록 파일을 임의로 선택하지 않는다. Scene의 단일 파일 입력 계약은 유지한다.
 
@@ -182,12 +182,16 @@ plan_12-update tool request (target="step")
   plan_id: string           필수
   step_id: string           필수
   status?: string | null    생략/null이면 유지
+  completion_token?: string | null  완료 확인 응답의 token
+  completion_decision?: yes | no | null  완료 확인 응답에 대한 에이전트 선택
   input_refs?: object | null
     add?: string[]          기본 []
     remove?: string[]       기본 []
   output_refs?: object | null
     add?: string[]          기본 []
     remove?: string[]       기본 []
+  takeaways?: string | null  다음 작업에 전달할 결론 및 확인 사항
+  design_rationale?: string | null  설계 결정의 이유와 근거
   expected_revision?: integer | null  선택적 오래된 상태 검사
   loop_no?: integer | null   현재 Loop 검사, 실행 후 expected_revision과 함께 필요
 
@@ -206,7 +210,7 @@ Output — plan_02-create tool (target="plan")
     revision: integer
 
 Output — plan_12-update tool
-  status: success | partial_success | no_change
+  status: success | partial_success | no_change | confirmation_required | cancelled
   changed: boolean
   phase?:                  target="phase"
     phase_id: string
@@ -237,18 +241,33 @@ Output — plan_12-update tool
 잘못된 일반 필드, 존재하지 않는 수정 대상, 예상 revision 불일치는 요청 전체 미적용이다. 자료형·입력 구조 오류도 전체 거절한다. 예를 들어 add=["기록", 42], add=null, 알 수 없는 patch 키, 기존 배열 형식은 MCP 입력 검증에서 거절된다. 이 오류는 MCP isError=true이고, 저장소의 일반 필드 오류는 기존처럼 본문 status=error를 반환한다. 배열 항목별 부분 성공은 입력 형식이 올바른 문자열의 내용 문제에 적용된다.
 
 ```json
-{"request":{"target":"step","plan_id":"plan_example","step_id":"step_4cfa2ee3887946c4967dfb844cfe8022","output_refs":{"add":["검토 기록"],"remove":["철회한 기록"]},"loop_no":1,"expected_revision":7}}
+{"request":{"target":"step","plan_id":"plan_example","step_id":"step_4cfa2ee3887946c4967dfb844cfe8022","takeaways":"북쪽 출입을 유지한다.","design_rationale":"기존 보행 축을 살린다.","input_refs":{"add":["source/survey.md"]},"output_refs":{"add":[".almond/produced/261116_review/01/entrance.pdf"]},"loop_no":1,"expected_revision":7}}
 ```
 
 `scene_id`와 `scene_ids`를 함께 넣으면 단일 값이 배열 첫 항목과 같아야 한다. Plan의 Component와 Scene은 실제 저장된 대상을 참조한다. `depends_on`은 Phase에는 `phase_`, Plan에는 `plan_` ID만 받지만 미생성 참조·자기 참조·순환을 허용하고 실행/완료를 강제하지 않는다.
 
 `parent_plan`·`child_plan`은 이 Plan에만 기록하는 단방향 참조 목록이며 상대 Plan을 자동 수정하거나 참조 대상의 존재를 검증하지 않는다.
 
-제목·상태·참조가 실제로 바뀌면 Plan revision을 기록하고 같은 값이면 시각/revision을 유지한다. Step 상태가 바뀌어도 Plan 상태는 자동 변경하지 않는다. Plan 완료는 사용자가 판단한다. status/input_refs/output_refs는 어떤 조합으로도 선택 수정하며 한 요청은 실제 변경이 있을 때 revision을 한 번만 증가시킨다. 기록만 수정할 때 status를 생략할 수 있고 Step 상태와 Plan의 paused/completed 상태가 유지된다. 조회 응답의 next_step_guide는 후속 조회·작업 선택을 안내하지만, 조회나 plan_10-set_working tool 선택 자체가 상태 변경 또는 실행을 뜻하지 않는다. `expected_revision`은 선택 입력으로, 저장된 최신 revision과 다르면 수정을 거절한다.
+제목·상태·참조·판단 기록이 실제로 바뀌면 Plan revision을 기록하고 같은 값이면 시각/revision을 유지한다. Step 상태가 바뀌어도 Plan 상태는 자동 변경하지 않는다. Plan 완료는 사용자가 판단한다. Step의 상태, 입출력 참조, 두 판단 필드는 각각 선택 수정하며 한 요청은 실제 변경이 있을 때 revision을 한 번만 증가시킨다. 기록만 수정할 때 status를 생략할 수 있고 Step 상태와 Plan의 paused/completed 상태가 유지된다. 조회 응답의 next_step_guide는 후속 조회·작업 선택을 안내하지만, 조회나 plan_10-set_working tool 선택 자체가 상태 변경 또는 실행을 뜻하지 않는다. `expected_revision`은 선택 입력으로, 저장된 최신 revision과 다르면 수정을 거절한다.
 
 `inspect_05-resolve_targets` tool는 Plan의 Component 대상을 해석한다. 선택적 step_id는 소속 Step을 확인할 뿐 대상을 바꾸지 않는다. `inspect_04-get_selection_references` tool도 Plan 대상을 기준으로 선택 객체와 관련된 Plan/Step을 찾는다. 두 도구의 상세 선택은 각 tools/list 설명을 따른다. `plan_10-set_working` tool의 선택·산출물 폴더 계약은 [runtime 설명](../../runtime/mcp_server-explain.md)을 따른다.
 
 `plan_10-set_working` tool은 plan_id·step_id·loop_no·plan_artifact_dir·artifact_dir와 선택 시점의 Plan revision을 반환한다. 첫 산출물 경로 설정으로 revision이 증가할 수 있으므로, 선택적 expected_revision 검사를 쓸 때에는 선택 응답의 revision과 loop_no를 함께 사용한다. 번호 계산이나 직접 증가는 필요 없다. 폴더를 재사용하는 선택만으로는 revision이 증가하지 않는다.
+
+## Step 완료와 temp 정리
+
+1. 현재 Step을 `completed`로 전환하는 요청은 `confirmation_required`와 `confirmation.token`, `warning`, `choices`를 반환한다. 경고를 반환할 때 모델과 Step 기록은 그대로다. 일반 상태 수정과 이미 완료된 Step의 기록 수정은 기존 응답을 사용한다.
+2. 보존할 자료가 있으면 `completion_decision=no`와 받은 토큰으로 먼저 시도를 닫는다. 응답은 `cancelled`다. 자료를 temp 밖으로 옮긴 뒤 새로 완료를 요청한다. 한 토큰은 발급 연결과 Step에서 한 번만 사용할 수 있다.
+3. 정리할 범위를 확인하면 원래 요청에 `completion_token`과 `completion_decision=yes`를 추가해 다시 호출한다. 발급 때의 Loop 및 revision이 현재 값과 맞아야 한다. Step 상태와 함께 지정한 Step 필드를 한 revision으로 먼저 저장한다. 그다음 Rhino의 현재 문서에서 temp 트리의 객체와 모든 하위 레이어를 삭제하고 최상위 temp 레이어를 유지한다. `cleanup.deleted_layers`와 `cleanup.deleted_objects`에 삭제 건수를 반환한다.
+
+블록 인스턴스는 배치 레이어로 정리 대상을 판단한다. 로컬 블록 정의에서는 구성원의 레이어로 판단하며, temp에 속한 구성원만 제거한다. 정의의 남은 구성원은 순서·형상·속성을 대조한다. temp 밖 인스턴스는 참조 대상·변환·속성을 대조한다. 최상위 인스턴스는 GUID도 비교한다. Rhino가 블록 정의를 수정하며 다시 지정한 중첩 구성원 GUID는 허용한다. 정리는 Worksession 참조, PlanSection의 관리 데이터 및 외부 파일을 보존한다. 현재 레이어가 삭제할 하위 레이어이면 최상위 temp 또는 사용 가능한 기존 로컬 최상위 레이어로 전환한다. 사용할 레이어가 없으면 Rhino가 기본 레이어를 추가한다. 실패 응답의 `cleanup_state`는 `not_started`, `rolled_back`, `unknown` 중 하나다. 정리를 시작한 뒤 블록 구성원이나 인스턴스의 상태를 대조할 수 없으면 `unknown`을 반환한다. `plan`과 `step`은 확인한 DB 상태를 담는다. DB 저장이 실패하면 Rhino 정리 요청을 보내지 않는다. 저장 후 Rhino 정리가 실패하면 완료한 Step과 별도로 정리 상태를 보고하며, `requires_reconciliation=true`가 반환되면 Rhino의 temp 상태를 확인한다.
+
+## 다음 Loop 또는 연결에서 Step 인계 읽기
+
+- `takeaways`에는 다음 작업에 전달할 결론과 확인 사항을, `design_rationale`에는 설계 결정의 이유와 근거를 작성한다. 각각 문자열을 그대로 저장하며 생략·null이면 유지하고 빈 문자열 `""`로 비운다.
+- 실제로 읽은 입력과 보존한 출력 파일은 `input_refs.add`·`output_refs.add`에 프로젝트 루트 기준 경로를 넣는다. Loop 산출물 경로에는 `plan_10-set_working` tool가 반환한 `artifact_dir`를 사용한다. 기존 참조 문자열과 add/remove 방식은 그대로 사용할 수 있다.
+- 새 연결에서 `plan_08-list` tool로 Plan과 Step의 ID를 찾는다. `plan_05-get` tool의 `request`에 `target="step"`, `plan_id`, `step_id`, `include_details=true`를 지정한다. 이전 회차를 찾으려면 `loop_no`를 넣고, 특정 작업 시점이 필요하면 `plan_07-list_revisions` tool로 번호를 찾아 `revision`도 넣는다.
+- 조회한 프로젝트 상대경로를 연결된 모델의 프로젝트 루트 기준으로 해석해 실제 파일을 연다. 안정적으로 보존한 경로를 다음 Loop의 입력으로 재사용하기 전에 파일의 존재와 내용을 확인한다. Revision은 판단 기록과 경로를 보존한다. 파일 바이트는 파일 시스템에서 관리한다.
 
 ## Step 템플릿 선택
 
@@ -285,12 +304,12 @@ Plan과 Phase의 `previous_id`는 같은 종류의 직전 작업 하나를 기�
 ## Loop 실행과 저장
 
 - `plan_03-execute_looping tool(plan_id, resume=false, feedback="", artifact_name="")`은 다음 회차를 시작하고 작업 맥락을 선택한다. 첫 호출은 1, 다음 호출은 2다. `resume=true`는 최신 회차의 번호와 Step 기록을 유지한다. 실행 전에는 재개할 회차가 없다.
-- 응답에는 목표, Plan 상태, 피드백, 순서 있는 Step 및 입출력 기록, 다음 미완료 Step, 이전 회차 기록, 산출물 경로, 짧은 실행·보고 원칙가 있다. Step을 자동 실행하지 않는다. 회차에는 종료·중단·진행 상태가 없고 Plan·Step의 기존 6개 상태만 사용한다.
-- Step UUID와 유형/이름은 별개다. 새 회차에도 UUID·순서·유형을 유지하며 회차별 상태는 pending, 입출력 기록은 빈 배열로 시작한다. 이전 결과의 유효성을 확인한 뒤 원래 경로를 input_refs로 참조한다.
+- 응답에는 목표, Plan 상태, 피드백, 순서 있는 Step 및 입출력·판단 기록, 다음 미완료 Step, 이전 회차 기록, 산출물 경로, 짧은 실행·보고 원칙가 있다. Step을 자동 실행하지 않는다. 회차에는 종료·중단·진행 상태가 없고 Plan·Step의 기존 6개 상태만 사용한다.
+- Step UUID와 유형/이름은 별개다. 새 회차에도 UUID·순서·유형을 유지하며 회차별 상태는 pending, 입출력 참조는 빈 배열, 판단 기록은 빈 문자열로 시작한다. 이전 결과의 유효성을 확인한 뒤 원래 경로를 input_refs로 참조한다.
 - Plan의 `loop_no=0`은 아직 plan_03-execute_looping tool을 호출하지 않았다는 값이다. 실행 Loop 테이블에 0 행을 만들지 않고 00 폴더도 만들지 않는다. 기존 생성·수정 기록은 번호와 snapshot 원문을 그대로 보존하며 loop_no=0으로 조회한다.
-- `generation_plan_steps`는 Step 정의, `generation_loop_steps`는 (plan_id, loop_no, step_id)별 상태·입출력, `generation_plan_loops`는 실제 1 이상 회차와 피드백, `generation_plan_revisions`는 (plan_id, loop_no, revision)별 전체 snapshot이다. Step 수정 revision의 별도 step_id 열로 필터한다. Plan-wide 기록의 step_id는 null이다.
+- `generation_plan_steps`는 Step 정의, `generation_loop_steps`는 (plan_id, loop_no, step_id)별 상태·입출력·판단 기록, `generation_plan_loops`는 실제 1 이상 회차와 피드백, `generation_plan_revisions`는 (plan_id, loop_no, revision)별 전체 snapshot이다. Step 수정 revision의 별도 step_id 열로 필터한다. Plan-wide 기록의 step_id는 null이다.
 - 현재 Loop의 MAX(revision)+1을 기존 BEGIN IMMEDIATE 트랜잭션 안에서 할당하고 데이터 변경과 snapshot을 함께 commit한다. 새 Loop는 revision 1부터 시작한다. 현재 Plan의 revision은 현재 Loop 최신 번호이며 전역 카운터가 아니다. 조회·무변경·일반 Rhino/Python 호출은 revision을 만들지 않는다.
-- 현재보다 작은 Loop와 그 기록은 읽기 전용이다. 조회에 loop_no를 생략하면 최신 회차, revision도 생략하면 그 회차 최신 상태다. 과거 상태는 읽을 수 있지만 복원하거나 다시 수정하지 않는다. 선택적 expected_revision은 실행 후 loop_no와 함께 검사해 서로 다른 회차의 같은 번호를 혼동하지 않는다.
+- 현재보다 작은 Loop와 그 기록은 읽기 전용이다. 조회에 loop_no를 생략하면 최신 회차, revision도 생략하면 그 회차 최신 상태다. 과거 상태는 읽기 전용이다. 판단 필드가 없는 이전 Step과 revision은 두 필드를 빈 문자열로 표시하며 스냅샷 원문을 보존한다. 선택적 expected_revision은 실행 후 loop_no와 함께 검사해 서로 다른 회차의 같은 번호를 혼동하지 않는다.
 - Plan 폴더 아래 01, 02처럼 회차별 출력을 저장한다. 같은 회차 안에서는 덮어쓸 수 있으며 이전 회차 내용은 새 회차 폴더로 옮기지 않는다. 실행 전은 기존 Plan 루트를 사용한다. 과거 경로 보존을 위해 실행한 Plan의 루트나 과거 Loop가 참조하는 폴더는 이름 변경하지 않는다.
 - 연결의 작업 선택이 다른 연결의 회차 진행으로 오래되면 관리되는 출력은 최신 회차 재선택까지 차단한다. 상대경로 helper는 상위/절대경로와 파일시스템 링크를 거절한다. 임의 Python/C#이나 외부 OS 파일 작업까지 샌드박스로 막는 기능은 아니므로 이전 회차 파일을 쓰지 않는 정책도 따른다. revision은 파일 바이트나 Rhino 형상 백업이 아니다.
 

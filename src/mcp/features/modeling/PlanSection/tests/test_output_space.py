@@ -49,7 +49,7 @@ class Document:
 
 
 class ModelSpaceOutput(unittest.TestCase):
-    def scenario(self, initial='page', failure=None, no_model=False, local=False):
+    def scenario(self, initial='page', failure=None, no_model=False, local=False, empty=False):
         model = object()
         original = model if initial == 'model' else Page('detail-1' if initial == 'detail' else 'empty')
         doc = Document()
@@ -89,7 +89,7 @@ class ModelSpaceOutput(unittest.TestCase):
                          Delete=Mock(side_effect=delete), Undelete=Mock(side_effect=undelete),
                          ModifyAttributes=Mock())
         cp = NS(Id='clip', IsReference=not local, Attributes=Attributes())
-        drawing = dict(objects=[dict(geometry=object(),attributes=source,role='section')])
+        drawing = dict(objects=[] if empty else [dict(geometry=object(),attributes=source,role='section')])
         objects = NS(ActiveSpace=NS(ModelSpace='model'),
                      ObjectPlotColorSource=NS(PlotColorFromLayer='by-layer'),
                      ObjectPlotWeightSource=NS(PlotWeightFromLayer='by-layer'))
@@ -121,7 +121,16 @@ class ModelSpaceOutput(unittest.TestCase):
                 self.assertEqual(run.source.Space,'page')
                 self.assertEqual(run.source.ViewportId,'source-page')
                 self.assertEqual(run.stored['new'].Attributes.PlotColor,'manual-color')
+                self.assertEqual(run.registry.call_args.args[1].Id, 'clip')
+                self.assertEqual(run.registry.call_args.args[2], '["new"]')
                 self.assert_restored(run,initial)
+
+    def test_empty_drawing_replaces_the_old_output_with_an_empty_registry(self):
+        run = self.scenario(empty=True)
+        self.assertIsNone(run.error)
+        self.assertEqual(run.result, [])
+        self.assertEqual(run.stored, {})
+        self.assertEqual(run.registry.call_args.args[2], '[]')
 
     def test_native_failure_or_wrong_saved_space_retains_old_drawing_and_registry(self):
         for initial in ('page','detail','model'):

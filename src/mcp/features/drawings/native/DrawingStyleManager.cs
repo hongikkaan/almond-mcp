@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Rhino;
 using Rhino.DocObjects;
 
@@ -36,22 +38,33 @@ namespace RhinoAlmondBridge
             uint undoRecord = 0;
             try
             {
-                var definitions = ValidateDefinitions(request.Layers);
-                foreach (var definition in definitions)
+                var missingNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var linetypeIndices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                foreach (var specification in request.Layers)
                 {
-                    var existing = FindExactLinetype(doc, definition.Key);
-                    if (existing != null && !MatchesSegments(existing, definition.Value))
-                        throw PatternConflict(definition.Key);
+                    if (specification == null || string.IsNullOrWhiteSpace(specification.Path))
+                        throw new ArgumentException("Drawing layer path cannot be empty.");
+
+                    string name = LinetypeName(specification.Linetype);
+                    var existing = FindExactLinetype(doc, name);
+                    if (existing != null)
+                        linetypeIndices[name] = existing.Index;
+                    else if (string.Equals(name, "Continuous", StringComparison.OrdinalIgnoreCase))
+                        linetypeIndices[name] = -1;
+                    else
+                        missingNames.Add(name);
                 }
 
-                // Invalid or conflicting definitions fail before layers, linetypes
-                // or an Undo record are changed.
+                var definitions = ReadDefinitions(request.LinetypeManifestPath, missingNames);
                 undoRecord = doc.BeginUndoRecord("Apply Almond drawing style");
                 foreach (var specification in request.Layers)
                 {
                     string name = LinetypeName(specification.Linetype);
-                    definitions.TryGetValue(name, out var segments);
-                    int linetypeIndex = EnsureLinetype(doc, name, segments);
+                    if (!linetypeIndices.TryGetValue(name, out int linetypeIndex))
+                    {
+                        linetypeIndex = AddLinetype(doc, definitions[name]);
+                        linetypeIndices.Add(name, linetypeIndex);
+                    }
                     int layerIndex = DocumentLayers.Ensure(doc, specification.Path);
                     var layer = doc.Layers[layerIndex];
                     layer.EnsurePrivateCopy();
@@ -93,41 +106,60 @@ namespace RhinoAlmondBridge
             }
         }
 
-        internal static Dictionary<string, List<DrawingLinetypeSegment>> ValidateDefinitions(
-            IReadOnlyList<DrawingLayerSpecification> layers)
+        private static Dictionary<string, DrawingLinetypeDefinition> ReadDefinitions(
+            string manifestPath, HashSet<string> missingNames)
         {
-            if (layers == null || layers.Count == 0)
-                throw new ArgumentException("Drawing recipe must contain at least one layer.");
-            var definitions = new Dictionary<string, List<DrawingLinetypeSegment>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var specification in layers)
+            var definitions = new Dictionary<string, DrawingLinetypeDefinition>(StringComparer.OrdinalIgnoreCase);
+            if (missingNames.Count == 0)
+                return definitions;
+            if (string.IsNullOrWhiteSpace(manifestPath))
+                throw new ArgumentException("Almond linetype manifest path is unavailable.");
+
+            JObject manifest;
+            try
             {
-                if (specification == null || string.IsNullOrWhiteSpace(specification.Path))
-                    throw new ArgumentException("Drawing layer path cannot be empty.");
-                var segments = specification.LinetypeSegments;
-                if (segments == null)
-                    continue; // Existing recipes keep their name-only behaviour.
-                string name = LinetypeName(specification.Linetype);
-                if (string.Equals(name, "Continuous", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(name, "ByLayer", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(name, "ByParent", StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException("Explicit segments require a named custom linetype.");
-                if (segments.Count == 0)
-                    throw new ArgumentException($"Linetype {name} must contain at least one segment.");
-                bool hasStroke = false;
-                foreach (var segment in segments)
+                manifest = JObject.Parse(File.ReadAllText(manifestPath), new JsonLoadSettings
                 {
-                    if (segment == null || double.IsNaN(segment.Length) || double.IsInfinity(segment.Length) ||
-                        segment.Length <= 0 || !segment.IsSolid.HasValue)
-                        throw new ArgumentException($"Linetype {name} needs positive finite lengths and explicit is_solid values.");
-                    hasStroke |= segment.IsSolid.Value;
-                }
-                if (!hasStroke)
-                    throw new ArgumentException($"Linetype {name} must contain a solid segment.");
-                if (definitions.TryGetValue(name, out var prior) && !SameSegments(prior, segments))
-                    throw PatternConflict(name);
-                definitions[name] = segments;
+                    DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error
+                });
             }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is JsonException)
+            {
+                throw new InvalidOperationException(
+                    $"Could not read the Almond linetype manifest at {manifestPath}: {ex.Message}", ex);
+            }
+
+            foreach (var entry in manifest.Properties())
+            {
+                string name = entry.Name.Trim();
+                if (!missingNames.Contains(name))
+                    continue;
+                if (definitions.ContainsKey(name))
+                    throw new ArgumentException($"Linetype {name} is defined more than once in {manifestPath}.");
+                var segments = entry.Value.ToObject<List<DrawingLinetypeSegment>>();
+                ValidateSegments(name, segments);
+                definitions.Add(name, new DrawingLinetypeDefinition(name, segments));
+            }
+
+            foreach (string name in missingNames)
+                if (!definitions.ContainsKey(name))
+                    throw new ArgumentException($"Linetype {name} is missing from the Almond linetype manifest at {manifestPath}.");
             return definitions;
+        }
+
+        private static void ValidateSegments(string name, List<DrawingLinetypeSegment> segments)
+        {
+            if (segments == null || segments.Count == 0)
+                throw new ArgumentException($"Linetype {name} must contain at least one segment.");
+            bool hasStroke = false;
+            foreach (var segment in segments)
+            {
+                if (segment == null || !double.IsFinite(segment.Length) || segment.Length <= 0 || !segment.IsSolid.HasValue)
+                    throw new ArgumentException($"Linetype {name} needs positive finite lengths and explicit is_solid values.");
+                hasStroke |= segment.IsSolid.Value;
+            }
+            if (!hasStroke)
+                throw new ArgumentException($"Linetype {name} must contain a solid segment.");
         }
 
         private static string LinetypeName(string requestedName)
@@ -143,78 +175,20 @@ namespace RhinoAlmondBridge
             // A missing custom name can also resolve to Continuous. A non-null
             // result alone therefore does not prove the requested name exists.
             var existing = doc.Linetypes.FindName(name);
-            return existing != null && string.Equals(existing.Name, name, StringComparison.OrdinalIgnoreCase)
+            return existing != null && !existing.IsDeleted && string.Equals(existing.Name, name, StringComparison.OrdinalIgnoreCase)
                 ? existing : null;
         }
 
-        private static bool SameSegment(double firstLength, bool firstSolid, double secondLength, bool secondSolid)
-        {
-            return firstSolid == secondSolid && Math.Abs(firstLength - secondLength) <=
-                1e-9 * Math.Max(1.0, Math.Max(Math.Abs(firstLength), Math.Abs(secondLength)));
-        }
+        private sealed record DrawingLinetypeDefinition(string Name, List<DrawingLinetypeSegment> Segments);
 
-        private static bool SameSegments(IReadOnlyList<DrawingLinetypeSegment> first,
-            IReadOnlyList<DrawingLinetypeSegment> second)
+        private static int AddLinetype(RhinoDoc doc, DrawingLinetypeDefinition definition)
         {
-            if (first.Count != second.Count)
-                return false;
-            for (int i = 0; i < first.Count; i++)
-                if (!SameSegment(first[i].Length, first[i].IsSolid.Value, second[i].Length, second[i].IsSolid.Value))
-                    return false;
-            return true;
-        }
-
-        private static bool MatchesSegments(Linetype existing, IReadOnlyList<DrawingLinetypeSegment> requested)
-        {
-            if (existing.SegmentCount != requested.Count)
-                return false;
-            for (int i = 0; i < requested.Count; i++)
-            {
-                existing.GetSegment(i, out double length, out bool solid);
-                if (!SameSegment(length, solid, requested[i].Length, requested[i].IsSolid.Value))
-                    return false;
-            }
-            return true;
-        }
-
-        private static ArgumentException PatternConflict(string name)
-        {
-            return new ArgumentException($"Linetype {name} has a different segment definition. Use a matching definition or a distinct linetype name.");
-        }
-
-        private static int EnsureLinetype(RhinoDoc doc, string name, IReadOnlyList<DrawingLinetypeSegment> segments)
-        {
-            var existing = FindExactLinetype(doc, name);
-            if (existing != null)
-            {
-                if (segments != null && !MatchesSegments(existing, segments))
-                    throw PatternConflict(name);
-                return existing.Index;
-            }
-            if (string.Equals(name, "Continuous", StringComparison.OrdinalIgnoreCase))
-                return -1;
-
-            var created = new Linetype { Name = name };
-            if (segments != null)
-            {
-                foreach (var segment in segments)
-                    created.AppendSegment(segment.Length, segment.IsSolid.Value);
-            }
-            else if (name.IndexOf("DashDot", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                created.AppendSegment(8.0, true);
-                created.AppendSegment(3.0, false);
-                created.AppendSegment(1.0, true);
-                created.AppendSegment(3.0, false);
-            }
-            else
-            {
-                created.AppendSegment(6.0, true);
-                created.AppendSegment(3.0, false);
-            }
+            var created = new Linetype { Name = definition.Name };
+            foreach (var segment in definition.Segments)
+                created.AppendSegment(segment.Length, segment.IsSolid.Value);
             int index = doc.Linetypes.Add(created);
             if (index < 0)
-                throw new InvalidOperationException($"Could not create linetype {name}.");
+                throw new InvalidOperationException($"Could not create linetype {created.Name}.");
             return index;
         }
 
@@ -237,6 +211,9 @@ namespace RhinoAlmondBridge
 
         [JsonProperty("layers")]
         public List<DrawingLayerSpecification> Layers { get; set; }
+
+        [JsonProperty("linetype_manifest_path")]
+        public string LinetypeManifestPath { get; set; }
     }
 
     public class DrawingLayerSpecification
@@ -258,9 +235,6 @@ namespace RhinoAlmondBridge
 
         [JsonProperty("linetype")]
         public string Linetype { get; set; }
-
-        [JsonProperty("linetype_segments")]
-        public List<DrawingLinetypeSegment> LinetypeSegments { get; set; }
     }
 
     public class DrawingLinetypeSegment

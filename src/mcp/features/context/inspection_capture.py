@@ -56,11 +56,11 @@ def _request(payload, path):
             raise ValueError("Shared object_ids must contain distinct, nonempty GUIDs.")
     normalized = []
     for view in views:
-        if not isinstance(view, dict) or set(view) - {"object_ids", "direction", "display_mode", "label"}:
-            raise ValueError("Each tile accepts object_ids, direction, display_mode and label.")
+        if not isinstance(view, dict) or set(view) - {"object_ids", "direction", "display_mode", "label", "frame_objects"}:
+            raise ValueError("Each tile accepts object_ids, direction, display_mode, label and frame_objects.")
         direction = view.get("direction", "current")
         if not isinstance(direction, str) or direction not in DIRECTIONS:
-            raise ValueError("Use a supported direction; current preserves the copied camera.")
+            raise ValueError("Use a supported direction; current copies the source orientation.")
         ids = view.get("object_ids", [])
         if not isinstance(ids, list) or len(ids) > 512 or any(not isinstance(value, str) for value in ids):
             raise ValueError("object_ids must contain at most 512 distinct top-level object GUIDs.")
@@ -72,11 +72,17 @@ def _request(payload, path):
             raise ValueError("object_ids must contain distinct, nonempty GUIDs.")
         if shared_ids is not None and ids:
             raise ValueError("Use either shared object_ids or per-tile object_ids, not both.")
+        frame_objects = view.get("frame_objects", False)
+        if type(frame_objects) is not bool or (
+                frame_objects and (direction != "current" or not (ids or shared_ids))):
+            raise ValueError("frame_objects must be a boolean; true requires current direction and object_ids.")
         mode, label = view.get("display_mode", ""), view.get("label", "")
         if not isinstance(mode, str) or len(mode) > 512 or not isinstance(label, str) or len(label) > 120:
             raise ValueError("display_mode is a name/GUID up to 512 characters; label is at most 120 characters.")
         normalized.append({"object_ids": ids, "direction": direction,
                            "display_mode": mode, "label": label})
+        if frame_objects:
+            normalized[-1]["frame_objects"] = True
     width, height = payload.get("width", 640), payload.get("height", 480)
     columns = payload.get("columns", math.ceil(math.sqrt(len(views))))
     if (type(width) is not int or type(height) is not int or not 128 <= width <= 2048
@@ -103,6 +109,27 @@ def _request(payload, path):
     if len(json.dumps(request, ensure_ascii=False).encode("utf-8")) > 262144:
         raise ValueError("Capture request exceeds 256 KiB; narrow the object sets.")
     return request
+
+
+def _verify_display_mode(tile, selector):
+    mode = tile.get("display_mode")
+    camera = tile.get("camera")
+    if (not isinstance(mode, dict) or not isinstance(mode.get("name"), str)
+            or not mode["name"].strip() or not isinstance(camera, dict)):
+        raise ValueError("A tile with an explicit display mode must report the applied mode and camera.")
+    try:
+        mode_id = uuid.UUID(mode["id"])
+        camera_mode_id = uuid.UUID(camera["display_mode_id"])
+    except (KeyError, ValueError, AttributeError, TypeError):
+        raise ValueError("Applied display mode and camera must identify their mode by GUID.") from None
+    if mode_id.int == 0 or mode_id != camera_mode_id:
+        raise ValueError("The applied display mode differs from the camera's display mode.")
+    try:
+        requested_id = uuid.UUID(selector.strip().removeprefix("(").removesuffix(")"))
+    except ValueError:
+        return  # Rhino resolves English and local names to IDs.
+    if requested_id != mode_id:
+        raise ValueError("The applied display mode differs from the requested GUID.")
 
 
 def execute(send, payload, path):
@@ -153,6 +180,8 @@ def execute(send, payload, path):
                 raise ValueError("Native tile identity/status/direction is invalid.")
             if tile.get("status") == "success" and not isinstance(tile.get("scope"), dict):
                 raise ValueError("A captured tile must report its actual scope.")
+            if tile["status"] == "success" and request["views"][index]["display_mode"]:
+                _verify_display_mode(tile, request["views"][index]["display_mode"])
             if tile.get("status") == "success" and shared_ids is not None:
                 scope = tile["scope"]
                 if (scope.get("shared_scope_ref") != "shared_scope.object_ids"

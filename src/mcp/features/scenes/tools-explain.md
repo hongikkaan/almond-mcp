@@ -22,8 +22,7 @@ Args:
 Args:
     name: 설계 영역 또는 행위/프로그램 맥락을 설명하는 Scene 이름입니다. 비어 있으면 Untitled가 됩니다.
     units: Scene에 기록할 단위입니다. mm, cm, m, in, ft 중 하나를 선택합니다.
-    file_name: 이 Scene이 속한 프로젝트 파일명을 문자열로 입력합니다. 폴더는 제외하고, 같은 이름의 파일이 여러 개면 project_file_id로 지정합니다.
-    project_file_id: context_04-get_project_info tool(sections=["project"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name과 함께 제공하면 서로 일치해야 합니다.
+    file_name: context_04-get_project_info tool의 project.files에 등록된 파일명입니다. 폴더는 제외하며, 비어 있으면 파일에 연결하지 않습니다.
 <!-- /instruction:create_design_scene -->
 
 ## get_design_scene
@@ -35,7 +34,7 @@ result는 scene 또는 오류를 담은 JSON 문자열입니다. include_ids=tru
 
 Args:
     scene_id: scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
-    include_ids: 기본 false. scope 등에서 project_file_id 포함.
+    include_ids: 기본 false. 결과에 포함된 식별자를 표시합니다.
     field_groups: scope, state, geometry, audit, all. 생략·빈 배열: 요약.
 <!-- /instruction:get_design_scene -->
 
@@ -44,8 +43,7 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 Args:
     scene_id: scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
-    file_name: 폴더를 포함하지 않는 교체 파일 이름입니다. 선택 사항이며, project_file_id를 생략한 상태에서 빈 문자열을 지정하면 연결을 해제합니다. 생략하면 유지합니다.
-    project_file_id: 연결할 기존 프로젝트 파일의 ID입니다. file_name도 입력하면 같은 파일을 가리켜야 합니다.
+    file_name: context_04-get_project_info tool의 project.files에 등록된 교체 파일명입니다. 빈 문자열은 연결 해제, 생략/null은 유지입니다.
 <!-- /instruction:update_design_scene -->
 
 ## get_scene_objects

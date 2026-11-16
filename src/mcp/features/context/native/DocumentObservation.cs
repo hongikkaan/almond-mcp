@@ -21,7 +21,7 @@ namespace RhinoAlmondBridge
     {
         public const int MaxSelectionLimit = 200;
         public const int MaxImageBytes = 4 * 1024 * 1024;
-        private const double LayoutDpi = 144.0;
+        private const double RasterCaptureDpi = 144.0;
 
         public static string HandleContext(JObject request)
         {
@@ -39,7 +39,7 @@ namespace RhinoAlmondBridge
             {
                 var requested = request["sections"] as JArray;
                 if (requested == null || requested.Any(item => item.Type != JTokenType.String))
-                    return Error("invalid_arguments", "sections must be an array of document, selection or viewport.").ToString(Formatting.None);
+                    return Error("invalid_arguments", "sections must be an array of strings.").ToString(Formatting.None);
                 sections = requested.Values<string>().ToArray();
             }
             return GetContext(RhinoDoc.ActiveDoc, selectionLimit, sections, recursive, depth, includeImage, selectionEntities, publicContext).ToString(Formatting.None);
@@ -74,7 +74,7 @@ namespace RhinoAlmondBridge
             bool recursive = false, int depth = 1, bool includeImage = false, bool selectionEntities = false, bool publicContext = false)
         {
             var requested = new HashSet<string>(sections ?? new[] { "document" });
-            if (requested.Except(new[] { "document", "selection", "viewport", "editor", "display_modes", "named_views", "layouts", "viewports" }).Any())
+            if (requested.Except(new[] { "document", "selection", "viewport", "editor", "display_modes", "named_views", "layouts", "viewports", "worksession_files", "layer_tree" }).Any())
                 return Error("invalid_arguments", "Unknown context section.");
             if (selectionLimit < 0 || selectionLimit > MaxSelectionLimit || depth < 1 || depth > 8)
                 return Error("invalid_arguments", "selection_limit must be 0..200 and depth 1..8.");
@@ -92,7 +92,8 @@ namespace RhinoAlmondBridge
                     ["capture_output_size"] = 1, ["face_edit"] = 1,
                     ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
                     ["intersection_review"] = 1,
-                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1, ["plan_section"] = 1, ["plan_section_result"] = 1 },
+                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1, ["plan_section"] = 2,
+                    ["step_temp_cleanup"] = 1 },
                 ["warnings"] = warnings
             };
             if (requested.Contains("document")) result["document"] = new JObject
@@ -107,6 +108,16 @@ namespace RhinoAlmondBridge
                 ["object_count"] = Observe("document.object_count", () => new JValue(CountObjects(doc)), warnings),
                 ["layer_count"] = Observe("document.layer_count", () => new JValue(doc.Layers.ActiveCount), warnings)
             };
+            if (requested.Contains("layer_tree"))
+                result["layer_tree"] = Observe("layer_tree", () => new JArray(
+                    doc.Layers.Where(layer => layer != null && !layer.IsDeleted).Select(layer => new JObject
+                    {
+                        ["id"] = layer.Id.ToString(),
+                        ["parent_id"] = layer.ParentLayerId == Guid.Empty ? JValue.CreateNull() : new JValue(layer.ParentLayerId.ToString()),
+                        ["name"] = layer.Name
+                    })), warnings);
+            if (requested.Contains("worksession_files"))
+                result["worksession_files"] = WorksessionObservation.Read(doc, warnings);
             if (requested.Contains("selection"))
                 result["selection"] = Observe("selection", () => ObservationEntities.Selection(doc, selectionLimit, recursive, depth, selectionEntities), warnings);
             if (requested.Contains("editor") || (!publicContext && requested.Overlaps(new[] { "document", "selection", "viewport" })))
@@ -219,8 +230,7 @@ namespace RhinoAlmondBridge
                         return error;
                     }
                 }
-                // A mode override or independent capture requests a new render. A current-view
-                // capture without an override can still copy its existing realtime frame.
+                // Explicit overrides and independent captures use an installed raster mode.
                 if (mode != null && mode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
                     return Error("unsupported_display_mode", "Realtime display modes require an asynchronous render; choose an installed raster display mode such as Shaded.");
                 Size sourceSize;
@@ -229,7 +239,7 @@ namespace RhinoAlmondBridge
                 else if (page != null)
                 {
                     // Paper dimensions at the default Layout DPI define 100%, independent of layout zoom.
-                    using (var settings = new ViewCaptureSettings(page, LayoutDpi))
+                    using (var settings = new ViewCaptureSettings(page, RasterCaptureDpi))
                         sourceSize = settings.MediaSize;
                 }
                 else if (namedView != null)
@@ -249,7 +259,7 @@ namespace RhinoAlmondBridge
                     return Error("image_too_large", "The requested image exceeds 16 megapixels. Use a lower scale_percent.");
                 stage = "capture_failed";
                 var warnings = new JArray();
-                using (var bitmap = CaptureImage(doc, view, namedView, size, sourceSize, scalePercent,
+                using (var bitmap = CaptureImage(doc, view, namedView, size, scalePercent,
                     mode, labels, depth, entities, warnings))
                 {
                     if (bitmap == null)
@@ -272,7 +282,7 @@ namespace RhinoAlmondBridge
                     {
                         if (page != null)
                         {
-                            var dpi = (float)(LayoutDpi * scalePercent / 100.0);
+                            var dpi = (float)(RasterCaptureDpi * scalePercent / 100.0);
                             bitmap.SetResolution(dpi, dpi);
                         }
                         bitmap.Save(stream, ImageFormat.Png);
@@ -356,39 +366,18 @@ namespace RhinoAlmondBridge
         }
 
         private static Bitmap CaptureImage(RhinoDoc doc, RhinoView view, ViewInfo namedView,
-            Size size, Size sourceSize, int scalePercent, DisplayModeDescription mode,
+            Size size, int scalePercent, DisplayModeDescription mode,
             bool labels, int depth, List<ObservationEntities.Entity> entities, JArray warnings)
         {
             var page = view as RhinoPageView;
             if (page != null)
             {
                 if (labels) warnings.Add("labels: Layout detail overlays are unavailable; capture its model viewport or a Named View for entity labels.");
-                using (var settings = new ViewCaptureSettings(page, LayoutDpi * scalePercent / 100.0))
-                {
-                    settings.Document = doc;
-                    settings.RasterMode = true;
-                    // Capture the paper's print appearance without changing PrintDisplay
-                    // or the individual details' physical model-to-paper scales.
-                    settings.OutputColor = ViewCaptureSettings.ColorMode.PrintColor;
-                    settings.UsePrintWidths = true;
-                    settings.DrawBackground = true;
-                    settings.HeaderText = "";
-                    settings.FooterText = "";
-                    settings.SetLayout(size, new Rectangle(System.Drawing.Point.Empty, size));
-                    // RhinoCommon's public overload hard-codes forPrinting=false, so
-                    // Layout details ignore OutputColor and UsePrintWidths. Use its
-                    // Rhino 8 printing overload without changing document PrintDisplay.
-                    var printCapture = typeof(ViewCapture).GetMethod("CaptureToBitmap",
-                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic,
-                        null, new[] { typeof(ViewCaptureSettings), typeof(bool), typeof(bool) }, null);
-                    if (printCapture == null)
-                        throw new NotSupportedException("This RhinoCommon version does not support Layout capture with print colors and widths.");
-                    return (Bitmap)printCapture.Invoke(null, new object[] { settings, true, false });
-                }
+                return CaptureLayoutImage(doc, page, size, scalePercent);
             }
             if (namedView == null && entities == null)
             {
-                var bitmap = mode == null ? view.CaptureToBitmap(size) : view.CaptureToBitmap(size, mode);
+                var bitmap = mode == null ? CaptureModelImage(doc, view, size) : view.CaptureToBitmap(size, mode);
                 if (bitmap != null && labels) ObservationEntities.DrawLabels(doc, bitmap, view.MainViewport,
                     ObservationEntities.Roots(doc, ObservationEntities.ModelObjects(doc)), depth, warnings);
                 return bitmap;
@@ -432,6 +421,63 @@ namespace RhinoAlmondBridge
                 }
                 finally { if (pipeline != null) pipeline.Close(); }
             }
+        }
+
+        private static Bitmap CaptureModelImage(RhinoDoc doc, RhinoView view, Size size)
+        {
+            var viewport = view.MainViewport;
+            var display = viewport.DisplayMode.DisplayAttributes;
+            using (var settings = new ViewCaptureSettings(view, size, RasterCaptureDpi))
+            {
+                settings.Document = doc;
+                settings.RasterMode = true;
+                settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.View;
+                settings.OutputColor = ViewCaptureSettings.ColorMode.DisplayColor;
+                settings.UsePrintWidths = false;
+                settings.ApplyDisplayModeThicknessScales = true;
+                settings.MatchLinetypePatternDefinition = false;
+                settings.DrawLockedObjects = true;
+                settings.DrawSelectedObjectsOnly = false;
+                settings.DrawBackground = true;
+                settings.DrawGrid = viewport.ConstructionGridVisible;
+                settings.DrawAxis = viewport.ConstructionAxesVisible;
+                settings.DrawClippingPlanes = display.ShowClippingPlanes;
+                settings.DrawLights = display.ShowLights;
+                return CaptureRasterImage(settings);
+            }
+        }
+
+        private static Bitmap CaptureLayoutImage(RhinoDoc doc, RhinoPageView page, Size size, int scalePercent)
+        {
+            using (var settings = new ViewCaptureSettings(page, RasterCaptureDpi * scalePercent / 100.0))
+            {
+                settings.Document = doc;
+                settings.RasterMode = true;
+                // Capture the paper's print appearance without changing PrintDisplay
+                // or the individual details' physical model-to-paper scales.
+                settings.OutputColor = ViewCaptureSettings.ColorMode.PrintColor;
+                settings.UsePrintWidths = true;
+                // Locking prevents edits. Visibility and print participation stay with Rhino.
+                settings.DrawLockedObjects = true;
+                settings.DrawSelectedObjectsOnly = false;
+                settings.DrawBackground = true;
+                settings.HeaderText = "";
+                settings.FooterText = "";
+                settings.SetLayout(size, new Rectangle(System.Drawing.Point.Empty, size));
+                return CaptureRasterImage(settings);
+            }
+        }
+
+        private static Bitmap CaptureRasterImage(ViewCaptureSettings settings)
+        {
+            // The public overload uses forPrinting=false. The settings-based print
+            // raster path receives the explicit output color and width choices.
+            var capture = typeof(ViewCapture).GetMethod("CaptureToBitmap",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic,
+                null, new[] { typeof(ViewCaptureSettings), typeof(bool), typeof(bool) }, null);
+            if (capture == null)
+                throw new NotSupportedException("This RhinoCommon version does not support raster capture with explicit output appearance.");
+            return (Bitmap)capture.Invoke(null, new object[] { settings, true, false });
         }
 
         internal sealed class CaptureViewportControl : RhinoWindows.Forms.Controls.ViewportControl

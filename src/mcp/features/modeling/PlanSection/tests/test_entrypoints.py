@@ -23,6 +23,7 @@ class EntryPoints(unittest.TestCase):
     def setUp(self):
         self.planes = [NS(Id=A, Name='same'), NS(Id=B, Name='same')]
         for cp in self.planes:
+            cp.IsReference = False
             cp.Document = NS(Layers=[NS(FullPath='existing::clip')])
             cp.Attributes = NS(LayerIndex=0)
 
@@ -123,20 +124,63 @@ class EntryPoints(unittest.TestCase):
     def test_explicit_create_target_reaches_generate_and_bake_without_pick(self):
         cp = self.planes[0]
         cp.ClippingPlaneGeometry = NS(Plane='cut')
-        drawing = dict(objects=[], report={})
+        point = NS(Origin='origin')
+        draw_plane = dict(origin=[10, 20, 30], xaxis=[1, 0, 0], yaxis=[0, 1, 0])
+        extraction = dict(layers=['model::walls'], source_object_count=3, include_hidden=True,
+                          include_locked=True, include_attachments=False)
+        drawing = dict(objects=[], report={}, target=point, extraction=extraction)
+        result = {}
         with patch.object(ps, 'generate', return_value=drawing) as generate, \
-             patch.object(ps, 'bake', return_value=[]) as bake, patch.object(ps, 'pick_placement') as pick:
-            ps.process_clipping(object(), cp, ps.default_options(), None, None, lambda:False, target='point')
-        self.assertEqual(generate.call_args.args[4], 'point')
-        self.assertEqual(bake.call_args.args[3], 'point')
+             patch.object(ps, 'bake', return_value=['output-id']) as bake, \
+             patch.object(ps, 'placement_plane'), patch.object(ps, 'plane_data', return_value=draw_plane), \
+             patch.object(ps, 'pick_placement') as pick:
+            ps.process_clipping(object(), cp, ps.default_options(), None, None, lambda:False,
+                                target=point, result=result)
+        self.assertIs(generate.call_args.args[4], point)
+        self.assertIs(bake.call_args.args[3], point)
+        self.assertEqual(result, dict(object_ids=['output-id'], draw_plane=draw_plane, extraction=extraction, report={}))
         pick.assert_not_called()
 
+    def test_update_uses_saved_scope_at_the_saved_placement_unless_overridden(self):
+        from test_logic import Attributes
+        cp = self.planes[0]
+        cp.ClippingPlaneGeometry = NS(Plane='cut')
+        point = NS(Origin='saved')
+        existing = [NS(Attributes=Attributes({'ps:include_attachments': 'true'}))]
+        attachment_scope = object()
+        options = ps.default_options('Update')
+        options['observe_attachments'] = Mock(return_value=attachment_scope)
+        for selected, expected in ((None, attachment_scope), (False, None)):
+            with self.subTest(selected=selected), \
+                 patch.object(ps, 'drawing_objects', return_value=existing), \
+                 patch.object(ps, 'saved_placement', return_value=point), \
+                 patch.object(ps, 'generate', return_value=dict(objects=[], target=point, report={})) as generate, \
+                 patch.object(ps, 'bake'), patch.object(ps, 'placement_plane'), patch.object(ps, 'plane_data'):
+                options['include_attachments'] = selected
+                self.assertEqual(ps.process_clipping(object(), cp, options, None, None, lambda:False), 'completed')
+                self.assertIs(generate.call_args.args[4], point)
+                self.assertIs(generate.call_args.kwargs.get('attached_model'), expected)
+        options['observe_attachments'].assert_called_once_with()
+
     def test_move_does_not_generate_geometry(self):
-        with patch.object(ps, 'reposition_drawing', return_value=True) as move, patch.object(ps, 'generate') as generate:
+        moved = dict(origin=[12, 34, -9], xaxis=[1, 0, 0], yaxis=[0, 1, 0])
+        result = {}
+        with patch.object(ps, 'reposition_drawing', return_value=('moved-plane', ['existing-id'])) as move, \
+             patch.object(ps, 'plane_data', return_value=moved), patch.object(ps, 'generate') as generate:
             self.assertEqual(ps.process_clipping(object(), self.planes[0], ps.default_options('Move'),
-                                                None, None, lambda:False, target='point'), 'completed')
+                                                None, None, lambda:False, target='point', result=result), 'completed')
         self.assertEqual(move.call_args.args[2], 'point')
+        self.assertEqual(result, dict(draw_plane=moved, object_ids=['existing-id']))
         generate.assert_not_called()
+
+    def test_detached_reference_clipping_cannot_move_local_output(self):
+        cp = self.planes[0]
+        cp.IsReference, cp.ReferenceModelSerialNumber = True, 1001
+        options = ps.default_options('Move')
+        options['observe_attachments'] = lambda: lambda serial: False
+        with patch.object(ps, 'reposition_drawing') as move, self.assertRaisesRegex(ValueError, 'no longer attached'):
+            ps.process_clipping(object(), cp, options, None, None, lambda:False, target='point')
+        move.assert_not_called()
 
     def test_batch_reports_partial_without_erasing_prior_completed_output(self):
         doc = Mock(CurrentUndoRecordSerialNumber=41)

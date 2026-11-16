@@ -30,7 +30,7 @@ Tool descriptions explain the role and essential selection conditions. Input-sch
 
 Phase/Plan/Step discovery and related target/selection queries always expose IDs and have no `include_ids` option. The four planning CRUD tools accept one `request` object with a discriminating `target`. `plan_08-list` tool selects Phase, Plan or Step with `request.target="phase"`, `"plan"` or `"step"` and provides target-specific `next_step_guide` call guidance. Plan rows contain plan_id/title/scope/status/loop_no/revision without field groups. Step rows preserve the selected Plan snapshot's order and return plan_id/loop_no/revision/read_only plus total/limit/truncated; unknown Plan/Loop/revision returns an error.
 
-`plan_05-get` tool selects one Phase, Plan or Step with `request.target` and the corresponding phase_id, plan_id, or plan_id+step_id. The default result contains id/type/name/status. Plan and Step retain plan_id/loop_no/revision/read_only regardless of detail selection. `request.include_details=true` adds the corresponding phase/plan/step body. A selected Step includes only its own input_refs/output_refs; Plan details include Step summaries. Historical detail guidance preserves target, IDs, loop_no and revision. Phase rejects loop_no/revision; its file_name is an array and its internal project_file_id is not public. Errors have status=error. See [planning inputs and outputs](features/planning/README.md).
+`plan_05-get` tool selects one Phase, Plan or Step with `request.target` and the corresponding phase_id, plan_id, or plan_id+step_id. The default result contains id/type/name/status. Plan and Step retain plan_id/loop_no/revision/read_only regardless of detail selection. `request.include_details=true` adds the corresponding phase/plan/step body. A selected Step includes only its own input_refs/output_refs; Plan details include Step summaries. Historical detail guidance preserves target, IDs, loop_no and revision. Phase rejects loop_no/revision and returns an array of registered file names. Errors have status=error. See [planning inputs and outputs](features/planning/README.md).
 
 The planning field groups below apply only to `plan_08-list` tool with `request.target="phase"`, `plan_07-list_revisions` tool, `inspect_05-resolve_targets` tool and `inspect_04-get_selection_references` tool, according to each tool's signature; they do not change the unified detail response.
 
@@ -48,7 +48,7 @@ Each row names fields added to the feature's normal summary. Each input property
 | assets | `audit` | `created_at`, `generated_at`, `updated_at`, `verification_basis` |
 | components | `references` | `child_holon_ids`, `parent_holon_id`, `rhino_group_id`, `scene_ids` |
 | components | `geometry` | `bounds_mm`, `direct_object_ids`, `effective_object_ids`, `effective_objects`, `intersections`, `object_ids`, `objects`, `pairs`, `pending_objects` |
-| components | `scope` | `expected_model_path`, `model_path`, `project_file_id`, `file_name` |
+| components | `scope` | `expected_model_path`, `model_path`, `file_name` |
 | components | `audit` | `created_at`, `observed_at`, `updated_at` |
 | diagrams | `dimensions` | `bounds_mm`, `dimensions_mm` |
 | diagrams | `drawing` | `drawing_roles`, `lod`, `projection` |
@@ -81,12 +81,12 @@ Each row names fields added to the feature's normal summary. Each input property
 | planning | `geometry` | `direct_object_ids`, `effective_object_ids` |
 | planning | `artifacts` | `artifact_dir`, `artifact_refs` |
 | planning | `description` | `description` |
-| planning | `scope` | `file_name`, `project_file_id`, `model_path`, `rhino_group_id` |
+| planning | `scope` | `file_name`, `model_path`, `rhino_group_id` |
 | planning | `audit` | `created_at`, `updated_at` |
 | structure | `parameters` | `deflection_limit_ratio`, `imposed_floor_kn_m2`, `uls_default`, `uls_expression`, `values` |
 | structure | `source` | `origin`, `source`, `sources` |
 | structure | `audit` | `created_at`, `updated_at` |
-| scenes | `scope` | `file_name`, `project_file_id`, `units`, `model_path` |
+| scenes | `scope` | `file_name`, `units`, `model_path` |
 | scenes | `state` | `revision` |
 | scenes | `geometry` | `bounds_mm`, `holon_id` |
 | scenes | `audit` | `created_at`, `updated_at`, `observed_at` |
@@ -97,7 +97,7 @@ Each row names fields added to the feature's normal summary. Each input property
 
 ## Other bounded/query-specific contracts
 
-- `context_04-get_project_info` tool: project/document/locations by default, optional runtime. project/document share one live observation; failed identity checks return an error, otherwise project.is_bound_document is a boolean: true for the bound model, false for a different document. Document name/path occur only in project. project.files pages the recorded DB list using files_limit (1–500, default 50) and files_offset; files_page retains total/limit/offset/truncated. Duplicate names remain distinct and include_ids=true exposes project_file_id. Document runtime_serial_number and runtime.rhinocode.pipe_id are also hidden by default. locations contains the project DB and connection-selected Plan folder (null before selection); locations/runtime alone need no live observation. Basic instructions come from context_01-get_policy tool.
+- `context_04-get_project_info` tool: project/document/locations by default, optional runtime. project/document share one live observation; failed identity checks return an error, otherwise project.is_bound_document is a boolean: true for the bound model, false for a different document. Document name/path occur only in project. project.files pages the recorded DB list using files_limit (1–500, default 50) and files_offset; files_page retains total/limit/offset/truncated. Rows contain the unique registered filename and its description, which is null when absent. Edit the separate catalog with the `context_05-upsert_project_file` tool. The live `worksession_files` list is independent and can contain distinct paths with the same filename. Document runtime_serial_number and runtime.rhinocode.pipe_id are also hidden by default. locations contains the project DB and connection-selected Plan folder (null before selection); locations/runtime alone need no live observation. Basic instructions come from context_01-get_policy tool.
 - `inspect_03-get_document_context` tool: explicit document/selection/viewport/editor/display_modes sections, bounded selection expansion and optional current image.
 - `inspect_01-analyze_nested_blocks` tool: outline/resolve-block mode and bounded traversal options. `resolve-block` also returns placed Model/Layout occurrence paths and counts in `definition_impact`, with separate completeness and list truncation. Definition-member IDs and matching working candidates are not document edit identities. Its `next_step_guide` connects impact review to an intended BlockEditNew entry and fresh working-ID observation; it does not grant unsupported editor mutation permission.
 - `capture_04-defined_view` tool, `capture_03-current_view` tool: one bounded image/file result; live-view mutation evidence is never omitted.

@@ -15,6 +15,7 @@ from pathlib import Path
 import tempfile
 import time
 import uuid
+from almond_mcp.features.planning.output import STEP_HANDOFF_FIELDS
 from almond_mcp.managed_paths import project_path, relative_output, relative_path
 from almond_mcp.tool_response import error_payload
 from almond_mcp.public_names import internal_tool_name
@@ -161,6 +162,10 @@ def public_result(result, name):
     if name == "project_info" or not os.environ.get("ALMOND_PROJECT_ROOT"):
         return result
 
+    preserve_text_fields = (
+        STEP_HANDOFF_FIELDS if name in {"get_planning", "execute_looping", "get_selection_references"} else ()
+    )
+
     def convert(value, *, decode_json=True):
         if isinstance(value, str) and decode_json:
             try:
@@ -172,7 +177,8 @@ def public_result(result, name):
                 # its body are user data, not additional response envelopes.
                 return json.dumps(convert(decoded, decode_json=False), ensure_ascii=False)
         if isinstance(value, dict):
-            converted = {key: convert(item, decode_json=decode_json) for key, item in value.items()}
+            converted = {key: item if key in preserve_text_fields and isinstance(item, str)
+                         else convert(item, decode_json=decode_json) for key, item in value.items()}
             package = value.get("package_dir")
             if (name in {"generate_asset_drawing_views", "get_asset_drawing", "register_drawing_asset", "refresh_asset"}
                     and isinstance(package, str)):

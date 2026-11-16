@@ -197,9 +197,9 @@ class PlanningStore(LoopingStore):
         if not row:
             return None
         result = dict(row)
+        result["file_name"] = result["file_name"] or ""
         result["file_names"] = [item[0] for item in connection.execute('''
-            SELECT f.file_name FROM generation_phase_files r JOIN project_files f ON f.file_id=r.file_id
-            WHERE r.phase_id=? ORDER BY r.position''', (phase_id,))]
+            SELECT file_name FROM generation_phase_files WHERE phase_id=? ORDER BY position''', (phase_id,))]
         result["depends_on"] = _decode(result.pop("depends_on_json"), [])
         result["plan_count"] = connection.execute(
             "SELECT COUNT(*) FROM generation_plans WHERE phase_id = ?", (phase_id,)
@@ -209,7 +209,7 @@ class PlanningStore(LoopingStore):
             "SELECT title,goal FROM generation_plans WHERE phase_id=? ORDER BY created_at,plan_id", (phase_id,))]
         return result
 
-    def create_phase(self, name: str, description: str = "", file_name: str | list[str] = "", project_file_id: str | None = None,
+    def create_phase(self, name: str, description: str = "", file_name: str | list[str] = "",
                      status: str = "pending", depends_on: list[str] | None = None,
                      previous_id: str | None = None) -> dict[str, Any]:
         name = self._generation_text(name, "name")
@@ -221,13 +221,12 @@ class PlanningStore(LoopingStore):
         now = _utc_now()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            file_ids = self._phase_file_references(connection,file_name,project_file_id)
-            file_id = file_ids[0] if file_ids else None
+            file_names = self._phase_file_references(connection,file_name)
             connection.execute(
-                "INSERT INTO generation_phases(phase_id, name, description, created_at, updated_at, project_file_id, status, depends_on_json, previous_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (phase_id, name, description, now, now, file_id, status, _json(depends_on), previous_id),
+                "INSERT INTO generation_phases(phase_id, name, description, created_at, updated_at, file_name, status, depends_on_json, previous_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (phase_id, name, description, now, now, file_names[0] if file_names else None, status, _json(depends_on), previous_id),
             )
-            self._write_phase_files(connection, phase_id, file_ids)
+            self._write_phase_files(connection, phase_id, file_names)
             result = self._read_generation_phase(connection, phase_id)
         return result
 
@@ -249,15 +248,15 @@ class PlanningStore(LoopingStore):
 
     def update_phase(
         self, phase_id: str, name: str | None = None, description: str | None = None,
-        file_name: str | list[str] | None = None, project_file_id: str | None = None, status: str | None = None,
+        file_name: str | list[str] | None = None, status: str | None = None,
         depends_on: list[str] | None = None,
         previous_id: str | None = None,
     ) -> dict[str, Any]:
-        return self.edit_phase(phase_id, name, description, file_name, project_file_id, status, depends_on, previous_id).record
+        return self.edit_phase(phase_id, name, description, file_name, status, depends_on, previous_id).record
 
     def edit_phase(
         self, phase_id: str, name: str | None = None, description: str | None = None,
-        file_name: str | list[str] | None = None, project_file_id: str | None = None, status: str | None = None,
+        file_name: str | list[str] | None = None, status: str | None = None,
         depends_on: list[str] | StringListPatch | None = None,
         previous_id: str | None = None,
     ) -> PlanningUpdate:
@@ -270,10 +269,8 @@ class PlanningStore(LoopingStore):
             description = current["description"] if description is None else self._generation_text(
                 description, "description", allow_empty=True
             )
-            old_files = [r[0] for r in connection.execute(
-                'SELECT file_id FROM generation_phase_files WHERE phase_id=? ORDER BY position', (phase_id,))]
-            file_ids = old_files if file_name is None and project_file_id is None else self._phase_file_references(connection, '' if file_name is None else file_name, project_file_id)
-            file_id = file_ids[0] if file_ids else None
+            old_files = current['file_names']
+            file_names = old_files if file_name is None else self._phase_file_references(connection, file_name)
             status = current['status'] if status is None else self._generation_status(status)
             previous_id = current['previous_id'] if previous_id is None else previous_reference(previous_id, "phase")
             issues = []
@@ -281,13 +278,13 @@ class PlanningStore(LoopingStore):
                 depends_on, issues = apply_list_patch(current['depends_on'], depends_on, "depends_on", kind="phase")
             else:
                 depends_on = current['depends_on'] if depends_on is None else self._related_ids(depends_on, "phase")
-            changed = (name,description,file_ids,status,depends_on,previous_id) != (current['name'],current['description'],old_files,current['status'],current['depends_on'],current['previous_id'])
+            changed = (name,description,file_names,status,depends_on,previous_id) != (current['name'],current['description'],old_files,current['status'],current['depends_on'],current['previous_id'])
             if changed:
                 connection.execute(
-                    "UPDATE generation_phases SET name = ?, description = ?, project_file_id = ?, status = ?, depends_on_json = ?, previous_id = ?, updated_at = ? WHERE phase_id = ?",
-                    (name, description, file_id, status, _json(depends_on), previous_id, _utc_now(), phase_id),
+                    "UPDATE generation_phases SET name = ?, description = ?, file_name = ?, status = ?, depends_on_json = ?, previous_id = ?, updated_at = ? WHERE phase_id = ?",
+                    (name, description, file_names[0] if file_names else None, status, _json(depends_on), previous_id, _utc_now(), phase_id),
                 )
-                self._write_phase_files(connection, phase_id, file_ids)
+                self._write_phase_files(connection, phase_id, file_names)
             result = self._read_generation_phase(connection, phase_id)
         return PlanningUpdate(result, changed, issues)
 
@@ -326,9 +323,11 @@ class PlanningStore(LoopingStore):
                 "depends_on": _decode(step["depends_on_json"], []),
                 "input_refs": _decode(step["input_refs_json"], []),
                 "output_refs": _decode(step["output_refs_json"], []),
+                "takeaways": step["takeaways"], "design_rationale": step["design_rationale"],
             }
             for step in connection.execute(
-                """SELECT s.*,r.status,r.input_refs_json,r.output_refs_json FROM generation_plan_steps s
+                """SELECT s.*,r.status,r.input_refs_json,r.output_refs_json,r.takeaways,r.design_rationale
+                   FROM generation_plan_steps s
                    JOIN generation_loop_steps r ON r.plan_id=s.plan_id AND r.step_id=s.step_id
                    WHERE s.plan_id=? AND r.loop_no=? ORDER BY s.position""", (plan_id,result["loop_no"])
             )
@@ -555,6 +554,8 @@ class PlanningStore(LoopingStore):
                 snapshot_step_identity(connection, snapshot)
                 for step in snapshot.get("steps", []):
                     step["loop_no"] = selected
+                    step.setdefault("takeaways", "")
+                    step.setdefault("design_rationale", "")
             return snapshot
 
     def get_step(self, plan_id: str, step_id: str, revision: int | None = None,
@@ -574,6 +575,7 @@ class PlanningStore(LoopingStore):
                 return None
             selected = current[0] if loop_no is None else self._loop_number(loop_no)
             row = connection.execute("""SELECT s.step_id,s.step_type,s.name,r.status,r.input_refs_json,r.output_refs_json,
+                r.takeaways,r.design_rationale,
                 (SELECT MAX(revision) FROM generation_plan_revisions WHERE plan_id=r.plan_id AND loop_no=r.loop_no) AS revision
                 FROM generation_plan_steps s JOIN generation_loop_steps r ON r.plan_id=s.plan_id AND r.step_id=s.step_id
                 WHERE r.plan_id=? AND r.loop_no=? AND r.step_id=?""", (plan_id,selected,step_id)).fetchone()
@@ -581,7 +583,8 @@ class PlanningStore(LoopingStore):
                 return None
             return {"plan_id": plan_id, "loop_no": selected, "revision": row["revision"], "read_only": selected != current[0], "step": {
                 "step_id": row["step_id"], "step_type": row["step_type"], "name": row["name"], "status": row["status"], "loop_no": selected,
-                "input_refs": _decode(row["input_refs_json"], []), "output_refs": _decode(row["output_refs_json"], [])}}
+                "input_refs": _decode(row["input_refs_json"], []), "output_refs": _decode(row["output_refs_json"], []),
+                "takeaways": row["takeaways"], "design_rationale": row["design_rationale"]}}
 
     def list_plans(
         self, phase_id: str = "", scene_id: str = "", status: str = "", limit: int = 50,
@@ -704,6 +707,23 @@ class PlanningStore(LoopingStore):
             result = self._record_generation_revision(connection, plan_id, "update_plan")
         return PlanningUpdate(result, True, issues)
 
+    def _step_update_target(self, connection, plan_id, step_id, expected_revision, loop_no):
+        plan = self._read_generation_plan(connection, plan_id)
+        if not plan:
+            raise KeyError(f"Unknown plan_id: {plan_id}")
+        self._check_current_loop(plan, loop_no, expected_revision)
+        self._check_generation_revision(plan, expected_revision)
+        step = next((step for step in plan["steps"] if step["step_id"] == step_id), None)
+        if step is None:
+            raise KeyError(f"Unknown step_id: {step_id}")
+        return plan, step
+
+    def step_update_target(self, plan_id, step_id, expected_revision, loop_no):
+        """Validate a proposed update against one current read snapshot."""
+        with self._connect() as connection:
+            connection.execute("BEGIN")
+            return self._step_update_target(connection, plan_id, step_id, expected_revision, loop_no)
+
     def update_plan_step(
         self,
         plan_id: str,
@@ -713,8 +733,12 @@ class PlanningStore(LoopingStore):
         output_refs: list[str] | None = None,
         expected_revision: int | None = None,
         loop_no: int | None = None,
+        *,
+        takeaways: str | None = None,
+        design_rationale: str | None = None,
     ) -> dict[str, Any]:
-        return self.edit_step(plan_id, step_id, status, input_refs, output_refs, expected_revision, loop_no).record
+        return self.edit_step(plan_id, step_id, status, input_refs, output_refs, expected_revision, loop_no,
+                              takeaways=takeaways, design_rationale=design_rationale).record
 
     def edit_step(
         self, plan_id: str, step_id: str, status: str | None = None,
@@ -722,22 +746,20 @@ class PlanningStore(LoopingStore):
         output_refs: list[str] | StringListPatch | None = None,
         expected_revision: int | None = None,
         loop_no: int | None = None,
+        *,
+        takeaways: str | None = None,
+        design_rationale: str | None = None,
     ) -> PlanningUpdate:
         if status is not None:
             status = self._generation_text(status, "status").lower()
             if status not in {"pending", "running", "completed", "failed", "blocked", "paused"}:
                 raise ValueError("Unsupported step status.")
+        for field, value in (("takeaways", takeaways), ("design_rationale", design_rationale)):
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"{field} must be a string.")
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            plan = self._read_generation_plan(connection, plan_id)
-            if not plan:
-                raise KeyError(f"Unknown plan_id: {plan_id}")
-            self._check_current_loop(plan, loop_no, expected_revision)
-            self._check_generation_revision(plan, expected_revision)
-            step_map = {step["step_id"]: step for step in plan["steps"]}
-            if step_id not in step_map:
-                raise KeyError(f"Unknown step_id: {step_id}")
-            step = step_map[step_id]
+            plan, step = self._step_update_target(connection, plan_id, step_id, expected_revision, loop_no)
             status = step["status"] if status is None else status
             issues = []
             def refs(value, field):
@@ -747,17 +769,19 @@ class PlanningStore(LoopingStore):
                     return result
                 return step[field] if value is None else self._generation_refs(value, field)
             inputs, outputs = refs(input_refs, "input_refs"), refs(output_refs, "output_refs")
-            if (status, inputs, outputs) == (
-                step["status"], step["input_refs"], step["output_refs"]
+            takeaways = step["takeaways"] if takeaways is None else takeaways
+            design_rationale = step["design_rationale"] if design_rationale is None else design_rationale
+            if (status, inputs, outputs, takeaways, design_rationale) == (
+                step["status"], step["input_refs"], step["output_refs"], step["takeaways"], step["design_rationale"]
             ):
                 return PlanningUpdate(plan, False, issues)
             connection.execute(
                 """
                 UPDATE generation_loop_steps
-                SET status = ?, input_refs_json = ?, output_refs_json = ?
+                SET status = ?, input_refs_json = ?, output_refs_json = ?, takeaways = ?, design_rationale = ?
                 WHERE plan_id = ? AND loop_no = ? AND step_id = ?
                 """,
-                (status, _json(inputs), _json(outputs), plan_id, plan["loop_no"], step_id),
+                (status, _json(inputs), _json(outputs), takeaways, design_rationale, plan_id, plan["loop_no"], step_id),
             )
             # Plan status is an explicit decision, not an aggregate of Steps.
             result = self._record_generation_revision(connection, plan_id, "update_step:" + step_id, step_id)

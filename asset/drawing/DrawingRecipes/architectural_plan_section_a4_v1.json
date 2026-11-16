@@ -92,17 +92,7 @@
         90
       ],
       "plot_weight_mm": 0.1,
-      "linetype": "ALMOND A4 Hidden",
-      "linetype_segments": [
-        {
-          "length": 3,
-          "is_solid": true
-        },
-        {
-          "length": 1.5,
-          "is_solid": false
-        }
-      ]
+      "linetype": "ALMOND A4 Hidden"
     },
     {
       "path": "ALMOND-DRAW::OVERHEAD",
@@ -118,25 +108,7 @@
         100
       ],
       "plot_weight_mm": 0.1,
-      "linetype": "ALMOND A4 DashDot",
-      "linetype_segments": [
-        {
-          "length": 6,
-          "is_solid": true
-        },
-        {
-          "length": 1.5,
-          "is_solid": false
-        },
-        {
-          "length": 0.5,
-          "is_solid": true
-        },
-        {
-          "length": 1.5,
-          "is_solid": false
-        }
-      ]
+      "linetype": "ALMOND A4 DashDot"
     },
     {
       "path": "ALMOND-DRAW::ENTOURAGE",

@@ -7,7 +7,7 @@ GROUPS = {
     "references": {"parent_component_id", "child_component_ids", "scene_ids", "rhino_group_id"},
     "geometry": {"object_ids", "direct_object_ids", "effective_object_ids", "objects", "effective_objects",
                  "pending_objects", "bounds_mm", "intersections", "pairs"},
-    "scope": {"model_path", "expected_model_path", "project_file_id", "file_name"},
+    "scope": {"model_path", "expected_model_path", "file_name"},
     "audit": {"created_at", "updated_at", "observed_at"},
 }
 

@@ -97,8 +97,8 @@ namespace RhinoAlmondBridge
                     case "plan_section":
                         return PlanSectionTool.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 
-                    case "get_plan_section_result":
-                        return PlanSectionTool.ReadResult(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                    case "cleanup_step_temp":
+                        return StepTempCleanup.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
 
                     case "intersection_preview":
                         return IntersectionTools.PreviewHandle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);

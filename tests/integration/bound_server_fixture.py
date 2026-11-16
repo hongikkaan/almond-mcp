@@ -16,7 +16,7 @@ def main():
     root = Path(os.environ["ALMOND_TEST_ROOT"])
     model = root / "disposable.3dm"
     model.write_bytes(b"")
-    token = "a" * 32
+    token = os.environ.get("ALMOND_TEST_TOKEN", "a" * 32)
     locations = connection_paths(model, "A", token, create=True)
     binding = {"schema": "almond-project", "token": token, "label": "A", "port": 5501,
                "storage_protocol": STORAGE_PROTOCOL, "valid": True, "pid": os.getpid(),
@@ -30,11 +30,16 @@ def main():
         # Only the live observer is a test double; tool registration, workspace,
         # store, middleware and stdio transport use the real bound serve path.
         def observe(_sender, payload, *_positional, **_keywords):
-            assert json.loads(payload) == {"type": "get_rhino_context", "sections": ["document"], "selection_limit": 0}
-            return json.dumps({"status": "success", "document": {
+            request = json.loads(payload)
+            assert request == {"type": "get_rhino_context",
+                               "sections": ["document", "named_views", "layouts", "layer_tree", "worksession_files"],
+                               "public_context": True, "selection_limit": 0}
+            return json.dumps({"status": "success", "worksession_files": [],
+                               "named_views": [], "layouts": [], "layer_tree": [], "document": {
                 "name": model.name, "path": str(model), "runtime_serial_number": 1,
                 "units": "Millimeters", "modified": False, "object_count": 0, "layer_count": 1}})
         runtime.send = observe
+        runtime.workspace.store.upsert_project_file(model.name)
         runtime.workspace.store.create_phase(name="Fixture", file_name=model.name)
 
     return serve(args, binding, locations, Path(locations["state_db"]), configure=configure)

@@ -46,7 +46,11 @@ def validate_filters(filters):
             raise ValueError("object_types requires 1..32 Rhino object_type names from an observation.")
     conditions = filters.get("user_dictionary", [])
     if not isinstance(conditions, list) or len(conditions) > 16:
-        raise ValueError("user_dictionary must contain at most 16 conditions.")
+        raise ValueError(
+            "filters.user_dictionary must be a JSON array of up to 16 condition objects. "
+            'Pass the filters argument as {"user_dictionary":[{"source":"attributes",'
+            '"key":"brief_probe","any_of":["yes"]}]}'
+        )
     for condition in conditions:
         if (not isinstance(condition, dict) or set(condition) != {"source", "key", "any_of"}
                 or condition["source"] not in ("attributes", "geometry")

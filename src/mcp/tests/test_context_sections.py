@@ -22,6 +22,7 @@ def fixture_tools():
                 "viewports": [{"id": "viewport", "name": "Perspective"}],
                 "named_views": [{"id": "named", "name": "Entrance"}],
                 "layouts": [{"id": "layout", "name": "A3"}],
+                "layer_tree": [{"id": "layer", "parent_id": None, "name": "Default"}],
                 "display_modes": [{"id": "mode", "name": "Shaded"}],
                 "selection": {"total": 2, "returned": 1, "truncated": True, "depth_limited": False,
                               "selected_object_count": 4, "objects": [{"id": "selected", "name": "Group"}]},
@@ -39,17 +40,18 @@ def fixture_tools():
 def test_default_only_hint_catalogue_ids_and_document_projection(options):
     tools, calls, _, _ = fixture_tools()
     result = json.loads(tools["get_rhino_context"](**options))
-    assert set(result) == {"status", "warnings", "document", "named_views", "layouts", "display_modes", "next_step_guide"}
+    assert set(result) == {"status", "warnings", "document", "named_views", "layouts", "layer_tree", "display_modes", "next_step_guide"}
     assert "capture_03-current_view" in result["next_step_guide"]
+    assert result["layer_tree"] == "Default"
     assert result["document"] == {"units": "Millimeters", "absolute_tolerance": .01, "angle_tolerance": .02,
                                   "modified": True, "object_count": 7, "layer_count": 3}
     for section in ("named_views", "layouts", "display_modes"):
         assert "id" in result[section][0]
     assert calls == [{"type": "get_rhino_context", "public_context": True,
-                      "sections": ["document", "named_views", "layouts", "display_modes"]}]
+                      "sections": ["document", "named_views", "layouts", "layer_tree", "display_modes"]}]
 
 
-@pytest.mark.parametrize("sections", [[], ["document"], ["viewport"], ["named_views", "layouts"], ["display_modes"]])
+@pytest.mark.parametrize("sections", [[], ["document"], ["viewport"], ["named_views", "layouts"], ["layer_tree"], ["display_modes"]])
 def test_explicit_sections_do_not_add_editor_images_or_hint(sections):
     tools, calls, _, _ = fixture_tools()
     result = json.loads(tools["get_rhino_context"](sections=sections))

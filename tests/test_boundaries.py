@@ -43,11 +43,15 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
     policy_dir = "features/guidance/policies/"
     activity_files = {p.relative_to(package).as_posix() for p in (package / policy_dir).glob("*.md")}
     assert activity_files
+    guidance_files = {
+        "BASIC-INSTRUCTIONS.md", "design_judgment.md", "features/guidance/tools-explain.md",
+        "modeling_policy.json", *activity_files,
+    }
     with zipfile.ZipFile(wheels[0]) as wheel:
         names = set(wheel.namelist())
         assert {name.removeprefix("almond_mcp/") for name in names
                 if name.startswith("almond_mcp/" + policy_dir) and name.endswith(".md")} == activity_files
-        for relative in ("BASIC-INSTRUCTIONS.md", "features/guidance/tools-explain.md", "modeling_policy.json", *activity_files):
+        for relative in guidance_files:
             assert wheel.read("almond_mcp/" + relative) == (package / relative).read_bytes()
         assert not any(name.startswith(("almond_mcp/runtime/", "almond_mcp/tests/")) for name in names)
         assert not any(name.startswith("almond_mcp/features/guidance/policy-validation/") for name in names)
@@ -56,7 +60,7 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
         members = {member.name.partition("/")[2]: member for member in sdist.getmembers() if member.isfile()}
         assert {name.removeprefix(prefix) for name in members
                 if name.startswith(prefix + policy_dir) and name.endswith(".md")} == activity_files
-        for relative in activity_files:
+        for relative in guidance_files:
             assert sdist.extractfile(members[prefix + relative]).read() == (package / relative).read_bytes()
         assert prefix + "features/guidance/policy-validation/README.md" in members
 

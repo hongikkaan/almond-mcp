@@ -37,6 +37,29 @@
 
 Windows에서 symlink를 만드는 자산 경계 검사는 파일 시스템과 실행 환경의 symlink 생성 지원이 필요하다. `WinError 1314`가 symlink 생성에서 발생하면 해당 검사는 환경에서 중단된 것으로 기록하고, 전체 실행 결과에도 실패로 남긴다.
 
+## 실제 Rhino 통합 검수
+
+1. 통합 오케스트레이터는 사용자에게 검수할 워크트리·모델·변경 범위와 실제 Rhino 사용을 승인받는다. 문서나 DB를 바꾸는 검수는 별도 프로젝트 폴더의 복사본에서 한다. Worksession에는 필요한 파일만 붙인다.
+2. Rhino를 정상 종료한다. 검수할 워크트리에서 `verify_runtime.py`로 소스·실행 파일의 manifest와 양쪽 Engine DLL을 확인한다. 일치하면 기존 빌드를 사용한다. 불일치하는 RHP만 다시 빌드하고 manifest를 기록·검증한다. Engine 변경은 양쪽을 빌드한다.
+3. 검수할 워크트리에서 `./src/rhp/tools/start_integration_rhino.ps1 -ModelPath '<시험 파일.3dm>'`을 실행한다. 스크립트는 시작 전에 시험 파일의 절대 경로를 출력한다. Rhino에서 워크트리 RHP 두 개를 로드하는 즉시 기존 등록값을 복원한다. 이어서 같은 워크트리의 Beyond에서 Rhino PID·시작 시각·시험 파일 경로가 일치하는 대상에 `ready`로 연결되는지 확인한다. 검증 연결을 해제하고 같은 PID의 RHP를 재확인한 뒤 검증 결과를 반환한다.
+4. 기능 검수는 같은 워크트리에서 시작한 Beyond에서 수행한다. `connect_01-list_up` tool에서 시작 스크립트가 확인한 대상의 `host_id`·PID·모델 경로를 대조하고 `connect_02-session` tool로 연결한다. 변경된 기능은 공개 도구로 검수한다. Rhino 내부 확인은 연결된 시험 문서에서 `script_02-run_rhino` tool을 사용한다. 결과를 기록하고 시험 연결과 Rhino를 정상 종료한 뒤 일상 경로에서 `install_runtime.ps1 -VerifyOnly`로 등록을 확인한다.
+
+사용자와 일상 체크아웃에서 특정 커밋을 검수하기로 합의했다면 기존 HEAD·브랜치를 기록하고 깨끗한 상태에서 `git switch --detach <SHA>`로 이동한 뒤 같은 절차를 따른다. 끝나면 합의한 HEAD와 브랜치로 되돌린다. 전원이 끊기는 등 시작 스크립트의 복구가 완료되지 않았다면 Rhino를 정상 종료하고 일상 체크아웃에서 `install_runtime.ps1`로 다시 등록한다.
+
+## 작업 워크트리와 squash 검증
+
+위임 직전에 새 티켓 워크트리의 `HEAD`를 오케스트레이터가 정한 통합 커밋의 전체 SHA와 대조한다. 검사가 통과하면 위임한다.
+
+```powershell
+./tests/verify_integration_worktree.ps1 -TicketWorktree '<티켓 워크트리>' -ExpectedBase '<통합 커밋 전체 SHA>'
+```
+
+일상 폴더에 `main`을 체크아웃한 뒤, 원본 작업 브랜치나 커밋 참조를 삭제하기 전에 검사한다. `-ExpectedBase`는 squash 직전 `main`의 전체 SHA, `-SourceCommit`은 squash한 작업의 전체 SHA다. 검사기는 `main`의 부모 하나, 원본과 동일한 파일 트리, 일상 폴더의 `main` 체크아웃과 추적 파일 상태를 검증한다.
+
+```powershell
+./tests/verify_integration_worktree.ps1 -ExpectedBase '<이전 main 전체 SHA>' -SourceCommit '<작업 커밋 전체 SHA>'
+```
+
 ## 결과 보고 기준
 
 | 확인한 단계 | 확보한 증거 |
@@ -44,7 +67,7 @@ Windows에서 symlink를 만드는 자산 경계 검사는 파일 시스템과 �
 | 오프라인 검사 | 실행한 모듈·계약·fixture에서 어떤 검사가 통과하거나 실패했는지. 현재 [native 검사 범위](../src/rhp/tests/README.md)와 [Undo·관측 검사 상태](../src/rhp/RhinoAlmondBridge/tests/script_executor_undo/README.md)도 확인한다. |
 | RHP 빌드와 출력 검증 | 빌드한 구성요소, 생성·배치된 파일, `verify_runtime.py`로 확인한 소스·배포 파일의 manifest 정합성. 전체 검증은 양쪽 Engine DLL의 바이트 일치도 확인한다. `--record`는 manifest를 갱신하고 기본 호출은 기록을 대조한다. |
 | Rhino 등록 | 일상 체크아웃에서 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`로 확인한 등록 파일 경로와 연결 명령 캐시. |
-| 실제 플러그인 로드 | 별도 요청 시 Rhino 프로세스에서 확인한 플러그인과 실제 assembly 경로. |
-| Rhino에서만 확인 가능한 동작 | 개발 검사 범위 밖으로 기록한다. 예를 들어 실제 모델링 결과, 뷰·Layout 표시, Rhino UI 동작이 해당한다. |
+| 실제 플러그인 로드 | 허가된 통합 검수에서 Rhino PID, 로드된 플러그인과 실제 assembly 경로. |
+| Rhino에서만 확인 가능한 동작 | 통합 검수에서 확인한 모델링·뷰·Layout·UI 동작과 재현 조건. 실행하지 못한 항목을 명시한다. |
 
 실행한 단계와 확인 범위를 근거와 함께 보고한다. 실패나 실행할 수 없었던 검사, 현재 자동 검사가 다루지 않는 동작도 명시한다.

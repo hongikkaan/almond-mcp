@@ -10,6 +10,7 @@ from almond_mcp.instruction_text import public_tool_name
 
 PACKAGE = Path(__file__).resolve().parent
 BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
+STARTUP_DOCUMENTS = (BASIC_GUIDE, PACKAGE / "design_judgment.md")
 SCRIPTING_SKILL = PACKAGE / "features/modeling/rhino3d-scripts"
 METADATA_POLICY = PACKAGE / "modeling_policy.json"
 RHINOCODE_POLICY = PACKAGE / "RHINOCODE-INSTRUCTIONS.md"
@@ -33,8 +34,36 @@ def _read_content(path: Path) -> bytes:
     return raw if path.suffix == ".png" else raw.decode("utf-8-sig").replace("\r\n", "\n").encode("utf-8")
 
 
+def _read_source(path: Path) -> tuple[bytes, str | None]:
+    if path not in STARTUP_DOCUMENTS:
+        return _read_content(path), None
+
+    try:
+        raw = path.read_bytes()
+    except FileNotFoundError:
+        return b"", "file missing"
+    except OSError:
+        return b"", "file unreadable"
+
+    try:
+        text = raw.decode("utf-8-sig").replace("\r\n", "\n")
+    except UnicodeDecodeError:
+        return raw, "invalid UTF-8"
+    if not text.strip():
+        return raw, "empty document"
+    return text.encode("utf-8"), None
+
+
+def _source_digest(source: tuple[bytes, str | None]) -> str:
+    content, problem = source
+    if problem is not None:
+        # An unavailable document must have a distinct fingerprint from valid UTF-8.
+        content = b"\xff" + problem.encode("utf-8") + b"\0" + content
+    return hashlib.sha256(content).hexdigest()
+
+
 def content_digest(path: Path) -> str:
-    return hashlib.sha256(_read_content(path)).hexdigest()
+    return _source_digest(_read_source(path))
 
 
 def _tool_sources() -> list[Path]:
@@ -49,18 +78,19 @@ def _tool_sources() -> list[Path]:
 def source_files() -> list[Path]:
     # Tool sources provide names only. Descriptions are delivered by tools/list.
     policy_files = [path for _, path in POLICIES.values() if path is not None]
-    return sorted([*policy_files, *_tool_sources(),
-                   *(p for p in SCRIPTING_SKILL.rglob("*") if p.is_file())])
+    return sorted({*policy_files, *STARTUP_DOCUMENTS, *_tool_sources(),
+                   *(p for p in SCRIPTING_SKILL.rglob("*") if p.is_file())})
 
 
 @lru_cache(maxsize=1)
 def _snapshot() -> dict:
     inventory = source_files()
-    raw = {p: _read_content(p) for p in inventory}
+    sources = {path: _read_source(path) for path in inventory}
+    raw = {path: content for path, (content, _) in sources.items()}
+    digests = {path: _source_digest(source) for path, source in sources.items()}
 
     def reference(path: Path) -> dict:
-        return {"path": "src/mcp/" + path.relative_to(PACKAGE).as_posix(),
-                "sha256": hashlib.sha256(raw[path]).hexdigest()}
+        return {"path": "src/mcp/" + path.relative_to(PACKAGE).as_posix(), "sha256": digests[path]}
 
     tools = set()
     for path in _tool_sources():
@@ -83,28 +113,39 @@ def _snapshot() -> dict:
     }
     payloads = {
         name: {"text": raw[path].decode("utf-8").strip(), "source_refs": [reference(path)]}
-        for name, (_, path) in POLICIES.items() if path is not None and path.suffix == ".md"
+        for name, (_, path) in POLICIES.items()
+        if path is not None and path.suffix == ".md" and sources[path][1] is None
     }
-    payloads["basic"]["tools"] = sorted(tools)
+    if "basic" in payloads:
+        payloads["basic"]["tools"] = sorted(tools)
     payloads["metadata"] = {"policy": json.loads(raw[METADATA_POLICY]), "source_refs": [reference(METADATA_POLICY)]}
     payloads["rhino_scripting"] = {"scripting_skill": scripting_skill,
                                    "source_refs": [reference(p) for p in skill_files]}
-    if inventory != source_files() or any(_read_content(p) != value for p, value in raw.items()):
+    startup_sections = {}
+    for path in STARTUP_DOCUMENTS:
+        content, problem = sources[path]
+        if problem is None:
+            startup_sections[path] = f"## {path.name}\n\n{content.decode('utf-8')}"
+        else:
+            startup_sections[path] = f"Startup guidance unavailable: {path.name} ({problem})."
+
+    if inventory != source_files() or any(_read_source(path) != source for path, source in sources.items()):
         raise RuntimeError("Guide source changed while reading; start a new session.")
     identity = {
-        "sources": {p.relative_to(PACKAGE).as_posix(): hashlib.sha256(value).hexdigest() for p, value in raw.items()},
+        "sources": {path.relative_to(PACKAGE).as_posix(): digest for path, digest in digests.items()},
         "policies": {name: (description, path.relative_to(PACKAGE).as_posix() if path is not None else None)
                      for name, (description, path) in POLICIES.items()},
     }
     version = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
-    return {"guide_version": version, "payloads": payloads}
+    return {"guide_version": version, "payloads": payloads, "startup_sections": startup_sections}
 
 
 def startup_instructions() -> str:
     snapshot = _snapshot()
-    return ('Almond inspects and edits Rhino architecture and drawings. On first use, call '
-            'context_01-get_policy tool to read BASIC-INSTRUCTIONS.md and discover policies for the current activity. '
-            f'guide_version={snapshot["guide_version"]}')
+    introduction = ("Almond inspects and edits Rhino architecture and drawings. "
+                    "Use context_01-get_policy tool for activity policies or to retrieve BASIC-INSTRUCTIONS.md on demand. "
+                    f'guide_version={snapshot["guide_version"]}')
+    return "\n\n".join([introduction, *snapshot["startup_sections"].values()])
 
 
 def read_policy(policy: str = "") -> dict:
@@ -112,6 +153,8 @@ def read_policy(policy: str = "") -> dict:
         raise ValueError(f"policy must be one of {', '.join(POLICIES)} or an empty string.")
     policy = policy or "basic"
     snapshot = _snapshot()
+    if policy == "basic" and policy not in snapshot["payloads"]:
+        raise RuntimeError(snapshot["startup_sections"][BASIC_GUIDE])
     return {"status": "success", "guide_version": snapshot["guide_version"],
             "selected_policy": policy,
             "available_policies": {name: description for name, (description, _) in POLICIES.items()},

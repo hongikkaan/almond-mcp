@@ -156,3 +156,64 @@ def test_real_mcp_discovery_exposes_one_query_and_strict_expansion_inputs():
 
     asyncio.run(exercise())
     assert not calls
+
+
+def test_dictionary_filter_rejects_a_single_object_with_a_copyable_array_example():
+    _, calls, server = tools_for()
+    condition = {"source": "attributes", "key": "brief_probe", "any_of": ["yes"]}
+
+    async def call():
+        async with Client(server) as client:
+            return await client.call_tool(
+                "inspect_02-get_objects",
+                {"filters": {"user_dictionary": condition}},
+                raise_on_error=False,
+            )
+
+    result = asyncio.run(call())
+    assert result.is_error
+    detail = json.loads(result.structured_content["result"])
+    assert detail["error_code"] == "invalid_arguments"
+    assert "filters.user_dictionary" in detail["message"]
+    assert "JSON array" in detail["message"]
+    assert json.dumps({"user_dictionary": [condition]}, separators=(",", ":")) in detail["message"]
+    assert not calls
+
+
+@pytest.mark.parametrize("conditions", [
+    [{"source": "attributes", "key": "brief_probe", "any_of": ["yes"]}],
+    [
+        {"source": "attributes", "key": "brief_probe", "any_of": ["yes", "maybe"]},
+        {"source": "geometry", "key": "phase", "any_of": [True, 2, 3.5]},
+    ],
+])
+def test_dictionary_filter_accepts_one_or_more_conditions(conditions):
+    _, calls, server = tools_for()
+
+    async def call():
+        async with Client(server) as client:
+            return await client.call_tool(
+                "inspect_02-get_objects",
+                {"filters": {"user_dictionary": conditions}, "expected_model_path": MODEL},
+            )
+
+    result = asyncio.run(call())
+    assert json.loads(result.structured_content["result"])["status"] == "success"
+    transmitted = calls[-1]["filters"]["user_dictionary"]
+    assert json.dumps(transmitted, sort_keys=True) == json.dumps(conditions, sort_keys=True)
+
+
+def test_dictionary_filter_shape_and_example_are_discoverable():
+    _, _, server = tools_for()
+
+    async def list_tools():
+        async with Client(server) as client:
+            return await client.list_tools()
+
+    tools = asyncio.run(list_tools())
+    get_objects = next(tool for tool in tools if tool.name == "inspect_02-get_objects")
+    assert '{"filters":{"user_dictionary":[{"source":"attributes","key":"brief_probe","any_of":["yes"]}]}}' in (
+        get_objects.description
+    )
+    filters_description = get_objects.input_schema["properties"]["filters"]["description"]
+    assert "조건 객체의 JSON 배열" in filters_description

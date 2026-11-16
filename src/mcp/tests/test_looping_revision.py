@@ -11,6 +11,21 @@ from almond_mcp.features.planning.tools import register
 from almond_mcp.retrieval_store import AlmondStore
 
 
+def clean_empty_temp(payload, timeout=60):
+    if json.loads(payload)["type"] == "get_rhino_context":
+        return json.dumps({"status": "success", "capabilities": {"step_temp_cleanup": 1}})
+    assert json.loads(payload)["type"] == "cleanup_step_temp"
+    return json.dumps({"status": "success", "cleanup": {"deleted_layers": 0, "deleted_objects": 0}})
+
+
+async def complete_step(call, **fields):
+    request = dict(target="step", status="completed", **fields)
+    pending = await call("plan_12-update", request=request)
+    assert pending["status"] == "confirmation_required"
+    return await call("plan_12-update", request=dict(request, completion_token=pending["confirmation"]["token"],
+                                                    completion_decision="yes"))
+
+
 def test_mcp_step_identity_is_independent_of_template_type(tmp_path):
     store = AlmondStore(tmp_path / "planning.db")
     server = FastMCP("looping-contracts")
@@ -74,10 +89,11 @@ def test_legacy_step_identity_migration_preserves_history_and_dependencies(tmp_p
         assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
-def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path):
+def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path, monkeypatch):
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(tmp_path / "fixture.3dm"))
     store = AlmondStore(tmp_path / "status.db")
     server = FastMCP("plan-status-contracts")
-    register(server, SimpleNamespace(retrieval_store=store))
+    register(server, SimpleNamespace(retrieval_store=store, _send_and_receive=clean_empty_temp))
 
     async def run():
         async with Client(server) as client:
@@ -89,7 +105,7 @@ def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path):
             await call("plan_12-update", request=dict(target="plan", plan_id=pid, status="paused"))
             detail = await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid))
             for step in detail["plan"]["steps"]:
-                changed = await call("plan_12-update", request=dict(target="step", plan_id=pid, step_id=step["step_id"], status="completed"))
+                changed = await complete_step(call, plan_id=pid, step_id=step["step_id"])
                 assert changed["plan"]["status"] == "paused"
             assert (await call("plan_05-get", request=dict(target="plan", include_details=True, plan_id=pid)))["status"] == "paused"
             await call("plan_12-update", request=dict(target="plan", plan_id=pid, status="completed"))
@@ -127,10 +143,11 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
     workspace = Workspace(locations, store)
     binding = {"label": "A", "port": 5501}
     monkeypatch.setenv("ALMOND_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(model))
     monkeypatch.setattr(mcp_server, "read_binding", lambda *_: (binding, locations))
     monkeypatch.setattr(mcp_server, "verify_process", lambda _: None)
     server = FastMCP("looping-public-contract")
-    register(server, SimpleNamespace(retrieval_store=store))
+    register(server, SimpleNamespace(retrieval_store=store, _send_and_receive=clean_empty_temp))
     asyncio.run(mcp_server.configure_project_context(server,
         SimpleNamespace(session="unused", token="a" * 32), binding, locations,
         sender=lambda _: "{}", runtime=SimpleNamespace(workspace=workspace)))
@@ -154,8 +171,8 @@ def test_execute_looping_advances_and_resumes_with_independent_history(tmp_path,
             assert "시각적 근거" in first["next_step_guide"]
             assert "policy_tool" not in first
             assert all(s["status"] == "pending" for s in first["steps"])
-            updated = await call("plan_12-update", request=dict(target="step", plan_id=pid, step_id=sid, loop_no=1,
-                                 status="completed", output_refs={"add": [first["artifact_dir"] + "/result.json"]}))
+            updated = await complete_step(call, plan_id=pid, step_id=sid, loop_no=1,
+                                          output_refs={"add": [first["artifact_dir"] + "/result.json"]})
             assert updated["plan"]["revision"] == 2
             resumed = await call("plan_03-execute_looping", plan_id=pid, resume=True)
             assert (resumed["loop_no"], resumed["revision"]) == (1, 2)

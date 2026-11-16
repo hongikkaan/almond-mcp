@@ -7,9 +7,11 @@ from almond_mcp.instruction_text import tool_instruction, read_instruction
 from pydantic import StrictBool
 import json
 import socket
+from pathlib import Path
 
 
 _A4_RECIPE_ID = "architectural_plan_section_a4_v1"
+_LINETYPE_MANIFEST = Path(__file__).resolve().parents[2] / "profiles" / "linetype" / "manifest.json"
 _PRINT_DISPLAY_REVIEW_MACRO = (
     "_PrintDisplay _Scope=_Document _Viewport=_Model _State=_On _Color=_Print "
     "_Viewport=_Layout _State=_On _Color=_Print _DetailBorder=_UsePrintWidth _Enter"
@@ -50,6 +52,7 @@ def register(mcp, context):
         recipes = []
         for recipe_id, recipe in sorted(context.drawing_recipe_indexer.recipes.items()):
             recipes.append({
+                **context.drawing_recipe_indexer.public_record(recipe),
                 "recipe_id": recipe_id,
                 "name": recipe.get("name"),
                 "description": recipe.get("description"),
@@ -86,6 +89,7 @@ def register(mcp, context):
             "type": "apply_drawing_style",
             "recipe_id": recipe_id,
             "layers": recipe.get("layers", []),
+            "linetype_manifest_path": str(_LINETYPE_MANIFEST),
         }).encode("utf-8")
         try:
             response = context._send_and_receive(payload, timeout=60.0)

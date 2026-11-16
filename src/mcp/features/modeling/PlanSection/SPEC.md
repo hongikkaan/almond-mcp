@@ -2,7 +2,7 @@
 
 PlanSection은 clipping plane으로 **현재 활성 Rhino 문서의 모델**을 잘라 단면선·해치·가시 입면선을 만든다. Worksession의 다른 파일에서 clipping을 가져올 수 있지만, attached 모델의 최상위 객체는 도면에 포함하지 않는다. 숨김·잠금은 모델 입력을 제외하는 조건이 아니다.
 
-이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용한다. 대화형 실행은 IronPython이며 전용 MCP `plan_section`은 Bridge에 embedded된 같은 소스를 Rhino.Runtime.PythonScript의 독립 context로 읽어 `run()`을 호출한다. RhinoCode·StartScriptServer는 필요 없다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
+이 문서는 현재 동작과 수정 위치를 설명한다. 저장소 작업 규칙은 [루트 AGENTS.md](../../../../../AGENTS.md), 구현은 [PlanSection.py](PlanSection.py), 자동 검사는 [tests/](tests/)를 기준으로 한다. Windows의 Rhino 8 / RhinoCommon을 사용한다. 대화형 실행은 IronPython이며 전용 `drawing_06-generate_plan_section` tool은 Bridge에 embedded된 같은 소스를 Rhino.Runtime.PythonScript의 독립 context로 읽어 `run()`을 호출한다. RhinoCode·StartScriptServer는 필요 없다. 직접 실행에는 Grasshopper와 MCP가 필요 없다. 실행 결과는 [log.md](log.md)와 별도 검사 보고서에 기록한다.
 
 ## 1. 실행과 출력 모드
 
@@ -21,7 +21,7 @@ Create·Update·PDF는 최초 옵션 프롬프트에서 Toggle·숫자 설정을
 | Document | 활성 문서에 생성·교체 | clipping의 `draft_plane` 또는 WorldXY; PickPlacement=True이면 클릭점 XYZ | 해당 clipping의 이전 로컬 도면만 교체하며 새 ID를 만든다 |
 | Files | 도면별 Rhino 8 `.3dm` 저장 | Document와 동일 | 활성 문서에 bake하지 않는다 |
 | Update | 기존 로컬 도면을 현재 옵션으로 재계산 | 기존 도면의 `ps:placement` 우선 | 새 ID로 교체한다. 수동 형상·속성 편집은 재생성 결과로 바뀐다 |
-| Placement | 기존 로컬 도면을 XYZ 평행이동 | 클릭한 새 clipping 원점 | 계산을 반복하지 않으며 ID와 수동 형상·시각 속성 편집을 유지한다 |
+| Move (Placement) | 기존 로컬 도면을 XYZ 평행이동 | 직접 실행에서 클릭하거나 전용 도구에 지정한 새 원점 | 계산을 반복하지 않으며 ID와 수동 형상·시각 속성 편집을 유지한다 |
 | PDF | 도면별 단일 페이지 벡터 PDF 저장 | clipping 원점을 종이 중심에 배치 | 활성 문서와 `draft_plane`을 변경하지 않는다 |
 
 Update는 기존 도면이 없으면 건너뛰고 Document로 먼저 생성하도록 안내한다. Placement는 기존 도면이 없으면 실패한다. 둘 다 Files로만 내보낸 도면은 대상으로 삼지 않는다. Update/PDF는 PickPlacement를 무시한다.
@@ -45,7 +45,7 @@ flowchart TD
 | 단계 | 입력 → 출력 | 담당 함수와 조건 |
 | --- | --- | --- |
 | Clipping 해석 | Rhino clipping → plane/depth/참여 목록/배치 plane | `clipping_planes`, `read_clip` |
-| 모델 수집 | 활성 모델·중첩 블록 → world geometry record 목록 | `model_objects`, `resolved_attributes` |
+| 모델 수집 | 활성 모델·선택한 첨부 모델의 최상위 객체와 중첩 블록 → world geometry record 목록 | `model_objects`, `resolved_attributes` |
 | 단면 | record 목록 → section/hatch 항목 | `sections`, `intersect`, `clean_closed_curve`, `planar_union`, `region_boundaries` |
 | 입면 | record 목록·깊이 → 가시 elevation 항목 | `elevations`; HLD와 거리별 인쇄 표현 |
 | 선 정리 | 단면·입면 → 중복 정리·입면 Join·Keep/Omit | `deduplicate`, `cleanup_elevations`, `split_crossings` |
@@ -78,11 +78,13 @@ flowchart TD
 | 활성 문서의 일반 객체 | 형상 종류·유효성·participation·깊이를 확인한다 |
 | 활성 문서의 hidden/locked 객체, off/locked 레이어 | 표시·잠금 상태에 관계없이 동일하게 계산한다 |
 | 활성 문서의 nested/linked block | 활성 최상위 instance에서 재귀 탐색한다. 변환과 부모 속성을 누적한다 |
-| Attached 모델의 최상위 객체 | 로컬 clipping과 참조 clipping 모두에서 제외한다 |
+| Attached 모델의 최상위 객체 | `include_attachments=true`일 때 Rhino의 참조 모델 serial에 해당하는 경로가 현재 Worksession 첨부 목록에 있으면 포함한다 |
 | Attached 파일의 clipping | 방향·깊이·기본 배치를 읽는다. 참조 파일의 participation 목록은 적용·검증하지 않는다 |
 | 기존 도면·삭제 객체 | legacy generator 태그가 붙은 생성물과 삭제 객체는 제외한다. 일반 curve/hatch 출력도 지원 모델 종류가 아니므로 모델 계산에 들어가지 않는다 |
 
 로컬 clipping에서 participation이 활성화되어 있으면 객체 GUID 또는 **정확한 레이어 index**의 OR로 매치한다. 포함 instance는 하위 가지 전체를 포함하고, 제외 instance는 가지 전체를 제외한다. 내부 멤버나 레이어를 직접 지정할 수도 있다. 부모 레이어 지정은 하위 레이어 전체로 확장하지 않는다. 빈 포함 목록은 빈 입력이다. 끊어진 객체 GUID나 삭제·범위 밖 레이어 참조는 도면 오류다.
+
+MCP의 참조 clipping은 형상 범위와 독립적으로 선택하며, 동일한 참조 모델 식별 기준으로 현재 첨부 여부를 검증한다. 첨부 관측에는 문서 관찰의 `WorksessionObservation`을 공유한다. 유효한 빈 목록이면 첨부 입력은 0개다. 첨부 목록이 있을 때 0이 아닌 참조 모델 serial의 전체 경로를 확인할 수 없으면 오류로 보고한다. 확인한 전체 경로가 첨부 목록 밖이면 해당 참조는 계산에서 제외한다. 선택된 모델의 형상을 한 번에 잘라서 한 번의 HLD에 전달한다. 모델 사이의 가림도 반영하고 중복선 정리는 기존 원본 레이어·스타일 경계를 따른다.
 
 `model_objects`는 가시성 필터를 사용하지 않는다. 먼저 보수적인 world bbox로 깊이 밖 객체를 제외하고 필요한 형상만 복제·변환한다. 명령 캐시를 사용해도 위의 활성/참조·hidden/locked·참여 목록·중첩 블록 규칙은 같다. 누락·순환 block definition은 오류로 보고한다.
 
@@ -107,7 +109,7 @@ flowchart TD
 2. **닫힌 loop 정리 (`clean_closed_curve`).** 유효한 평면 폐곡선이며 자기교차가 없고 면적이 계산 오차보다 크면 원래 loop를 유지한다. 이 정상 경로에는 Boolean 재구성이 없다. 나머지만 각각 CreateBooleanRegions로 정리한다. 외곽·구멍의 loop를 한꺼번에 합치지 않고 반환된 RegionCurves의 내부 경계도 유지한다. 기본 topology 공차로 유효한 닫힌 결과를 얻지 못하면 공차의 1/10로 한 번 재시도한다.
 3. **왕복·빈 Boolean 처리.** Boolean 뒤 정확한 왕복 spur가 남으면 `split_crossings`로 닫힌 영역과 열린 선을 분리한다. 입력 단면에서는 둘 다 유지한다. 빈 영역은 공선 polyline의 모든 점이 ZeroTolerance 이내일 때만 면적 없는 선으로 취급한다. 부호 있는 면적은 반대 방향 loop끼리 상쇄될 수 있으므로 면적 없는 형상의 증거로 사용하지 않는다. 설명되지 않는 빈 Boolean 결과는 출력 전에 오류로 보고한다.
 4. **영역화와 union (`sections` / `planar_union`).** 한 객체에서 정리한 닫힌 경계들을 CreatePlanarBreps로 만든다. 같은 원본 레이어·해석된 스타일끼리 묶고 bbox가 공차 이내로 닿는 연결 묶음만 CreatePlanarUnion한다. 떨어진 단독 영역은 유지한다. 결과가 없을 때만 복사한 plane을 뒤집어 한 번 더 시도하며, 계속 없거나 무효이면 실패한다.
-5. **공통 경계 (`region_boundaries`).** union의 DuplicateNakedEdgeCurves와 JoinCurves로 외곽·구멍을 얻는다. 유효하고 닫힌 Simplify 결과만 채택한다. 자기교차 경계는 같은 loop 정리 함수를 쓰되 union 경계에는 닫힌 결과만 사용한다. 짧은 열린 잔여는 제거하고 닫힌 구멍은 경계 추출에서 보존한다. 닫힌 유효 경계를 얻지 못하면 실패한다.
+5. **공통 경계 (`region_boundaries`).** union의 DuplicateNakedEdgeCurves와 JoinCurves로 외곽·구멍을 얻는다. 유효하고 닫힌 Simplify 결과만 채택한다. 자기교차 경계는 같은 loop 정리 함수를 쓰되 union 경계에는 닫힌 결과만 사용한다. 짧은 열린 잔여는 제거한다. Join 결과가 비어 있거나 공차를 넘는 열린 경계가 남은 경우, 유효한 단일 평면 face에 한해 유효하고 자기교차 없는 외곽·내부 trim loop를 사용한다. 닫힌 유효 경계를 얻지 못하면 실패한다.
 6. **단면선과 해치.** 공통 경계를 단면선으로 출력한다. 열린 절단선은 자기교차를 분리해 선으로 출력하며 면으로 강제 변환하지 않는다.
 
 해치는 Hatch=True이면서 적용 SectionStyle이 채움을 지정한 경우에만 만든다. 지정 패턴이 없고 SolidColor 배경도 없으면 해치 0개가 정상이다.
@@ -221,7 +223,9 @@ Clipping plane의 CPlane Z가 World Z와 평행하지 않을 때 CPlane을 180°
 
 SectionStyle이 같은 단면 원본은 기존처럼 union하며, 입면은 동일 적용 속성끼리 join한다. 열린 단면선은 해당 입력 원본만 기여자로 기록한다. 닫힌 단면 union의 각 결과 영역은 원본 영역과의 실제 planar intersection에서 양의 면적이 확인되는 원본만 기여자로 연결하며, bbox/RTree는 후보를 줄이는 용도로만 사용한다. 해치는 채움이 허용된 원본 영역과 별도로 대응시켜 채움에서 제외된 원본을 기여자로 섞지 않는다. 기여자 판정이 실패하면 새 출력을 적용하지 않고 오류를 반환한다. 겹침 제거·Join에서는 합쳐진 원본을 추가로 기록한다. 결과 곡선만 보고 어느 단일 객체에서 왔다고 임의 추정하지 않는다.
 
-새 출력은 모든 역할의 UserDictionary `Floor`를 **clipping 이름**으로 기록한다. 원본 단일·다층 Floor는 수정하지 않는다. 로컬 clipping의 `draft_plane`은 typed Plane, 출력의 `ps:placement`는 typed Point3d로 UserDictionary에 저장하며, 기존 호출부용 JSON user text도 함께 동기화한다. 생성 출력의 user text는 `ps:source_layer`, `ps:placement`, 모든 기여자에 공통인 일반 user text만 남긴다. 내부 `ps:sources`·`ps:role`·`ps:style`·`ps:depth`·`ps:inherited_keys`는 출력에서 제거한다. Move는 이미 출력된 Name/Floor·일반 user text·수동 편집을 보존하고 배치 Point3d와 JSON만 갱신한다. 오래된 도면에 빠진 속성을 자동 보충하지 않는다.
+새 출력은 모든 역할의 UserDictionary `Floor`를 **clipping 이름**으로 기록한다. 원본 단일·다층 Floor는 수정하지 않는다. 로컬 clipping의 `draft_plane`은 typed Plane, 출력의 `ps:placement`는 typed Point3d로 UserDictionary에 저장하며, 기존 호출부용 JSON user text도 함께 동기화한다. 생성 출력의 user text는 `ps:source_layer`, `ps:placement`, `ps:include_attachments`, 모든 기여자에 공통인 일반 user text를 보존한다. 내부 `ps:sources`·`ps:role`·`ps:style`·`ps:depth`·`ps:inherited_keys`는 출력에서 제거한다. Move는 이미 출력된 Name/Floor·일반 user text·수동 편집을 보존하고 배치 Point3d와 JSON만 갱신한다. 오래된 도면에 빠진 속성을 자동 보충하지 않는다.
+
+Create·Update는 출력 객체마다 첨부 형상 허용 여부를 user text `ps:include_attachments`에 `true` 또는 `false`로 저장한다. Update에서 값을 생략하면 기존 출력 객체의 값을 읽으며, 누락된 값은 `false`로 해석한다. 값이 일치하지 않거나 유효하지 않으면 범위를 명시하도록 오류를 반환한다. 첨부 계산에는 그 시점의 첨부 목록을 사용한다. Move는 출력 객체의 범위 값을 보존한다.
 
 소유 정보는 로컬 `Drawing` 루트 레이어의 `ps:clip:<clipping GUID>`에 출력 GUID 목록으로 저장한다. `drawing_objects`는 이 목록과 이전 버전 generator/clip 태그로 **해당 clipping의 로컬 출력만** 찾는다. 참조 도면은 이동·교체하지 않는다.
 
@@ -234,13 +238,14 @@ SectionStyle이 같은 단면 원본은 기존처럼 union하며, 입면은 동�
 
 Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 기존 ObjectAttributes 전체를 보존하면서 배치 정보만 갱신한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 Undo 필요 오류를 보고한다. Drawing 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다.
 
-PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. 전용 Bridge 도구의 ScriptExecutor 또는 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 빈 정상 계산 결과는 Document/Update에서 기존 해당 도면을 빈 결과로 교체할 수 있으며 빈 결과 자체가 항상 오류인 것은 아니다.
+PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. 전용 Bridge 도구의 ScriptExecutor 또는 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 선택한 범위에서 정상적으로 산출한 빈 결과는 이전 출력 객체를 제거하고 소유 목록을 빈 배열로 갱신한다. 이후 Update에서는 기존 출력이 없어 건너뛴다.
 
 ## 9. 실패와 취소의 의미
 
 | 조건 | 처리 |
 | --- | --- |
 | unsupported/invalid/outside_depth 입력 | report.skipped에 집계하고 나머지 입력을 계산 |
+| 첨부 목록 또는 참조 모델 경로 확인 실패 | 오류를 반환하며 실패한 도면은 교체하지 않음 |
 | 지정 해치 패턴 누락·삭제 | Solid 대체 경고; 원본 스타일은 유지 |
 | 잘못된 clipping/participation/draft_plane/옵션 | 해당 도면 오류 |
 | 설명되지 않은 빈 Boolean, union/해치/HLD/최종 형상 오류 | 해당 도면을 출력 단계로 넘기지 않음 |
@@ -375,4 +380,6 @@ $env:PLANSECTION_CASES = '3F,4F,Sec-D,Sec-C,Sec-B,Sec-A'
 
 ### 전용 도구 결과 전달 경계
 
-전용 도구는 작은 결과를 직접 반환하고 큰 결과는 `result_delivery=paged`, `result_id`, `result_sha256`, 처리 수를 반환한다. `get_plan_section_result(result_id, offset=0)`부터 `next_offset`이 null일 때까지 `json_chunk`를 순서대로 연결해 원래 JSON을 회수한다. offset은 UTF-16 단위이며 반환값을 그대로 사용한다. 페이지는 최대 4096 UTF-16 단위로 서로게이트 쌍을 자르지 않으며, SHA256은 원래 UTF-8 JSON 기준이다. 조회는 도면을 재생성하거나 Undo를 시작하지 않는다. 보관은 Bridge 프로세스·동일 문서 인스턴스 내 최대 1시간, 최근 8개·총 64 MiB(UTF-16) 범위로 오래된 결과부터 제거된다. 즉시 회수하고 필요한 경우 작업 산출물에 보존한다. 단일 결과가 보관 한도보다 크면 명시적인 미확인 오류로 남긴다. 만료·재시작·전달 실패를 rollback으로 간주하거나 자동 재생성하지 않는다. 공통 64 KiB·16-container 제한은 유지한다. metadata_conflicts의 기존 64개 표본과 전체 count도 유지한다. native runtime_error는 native_status에 보존하고 외부 status=error/MCP isError=true로 전달하며 partial/cancelled는 구조화된 미완료 결과다.
+`drawing_06-generate_plan_section` tool의 응답에서 클리핑별 결과를 읽는다. 완료된 항목의 `draw_plane`은 도면이 놓인 수평 평면의 `origin`·`xaxis`·`yaxis`를 XYZ 배열로 돌려준다. Create·Update의 `extraction.layers`와 `source_object_count`는 참여 목록·지원 형상·깊이 필터를 통과해 계산에 들어간 원본의 전체 레이어 경로와 형상 레코드 수다. 블록은 배치와 구성원 경로별로 계산된다. `include_hidden`과 `include_locked`는 숨김·잠금을 제외 조건으로 삼지 않는다는 의미다. `extraction.include_attachments`는 계산에서 첨부 형상을 허용했는지 나타낸다. 참여 목록과 깊이 조건을 적용한 뒤 남은 원본은 앞의 레이어와 객체 수에 반영한다. Move는 이동한 객체의 GUID와 배치 평면을 돌려준다.
+
+Bridge는 고정 알고리즘의 JSON 결과를 생성 응답에 담는다. 같은 Undo 실행 경계를 사용하며 일반 스크립트의 결과 크기·깊이 제한도 유지한다. 완료된 항목과 함께 일부 완료·취소·전체 실패의 항목별 상태를 확인할 수 있다. 전달이 끊겨 완료 여부를 확인할 수 없으면 기존 도면을 관찰한 뒤 다음 작업을 결정한다.

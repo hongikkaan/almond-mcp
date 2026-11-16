@@ -30,7 +30,7 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 ## 에이전트에서 사용
 
-Almond 전용 `plan_section` 도구를 사용한다. 이 도구는 Bridge에 포함된 기존 PlanSection 알고리즘을 Rhino 내부 Python 런타임에서 실행한다. RhinoCode·StartScriptServer나 사용자 작성 script/path를 사용하지 않는다. 연결된 저장 문서의 관측된 clipping GUID와 typed 옵션을 전달하며 목록·점·폴더 입력 창을 열지 않는다.
+`drawing_06-generate_plan_section` tool을 사용한다. 이 도구는 Bridge에 포함된 기존 PlanSection 알고리즘을 Rhino 내부 Python 런타임에서 실행한다. RhinoCode·StartScriptServer나 사용자 작성 script/path를 사용하지 않는다. 연결된 저장 문서의 관측된 clipping GUID와 typed 옵션을 전달하며 목록·점·폴더 입력 창을 열지 않는다.
 
 ```json
 {
@@ -38,21 +38,24 @@ Almond 전용 `plan_section` 도구를 사용한다. 이 도구는 Bridge에 포
   "clipping_ids": ["00000000-0000-0000-0000-000000000001"],
   "points": {"00000000-0000-0000-0000-000000000001": [10000, 0, 0]},
   "hatch": true,
-  "elevation": true
+  "small_details": false,
+  "include_attachments": true
 }
 ```
 
-예시 GUID를 실제 관측 GUID로 교체한다. 전용 도구의 범위는 **Create/Update의 Document 출력**이다. Update는 `operation="Update"`로 지정하고 points를 생략한다. Move·PDF·Files는 기존 Rhino 직접 실행에서 제공되지만 이 전용 API에 노출하지 않는다. 출력은 ModelSpace이며 Layout을 자동으로 만들지 않는다. 도면을 Layout Detail로 구성한 뒤 `get_defined_viewcapture(target_kind="layout", target=Layout_ID)`로 용지를 캡처한다.
+예시 GUID를 활성 모델이나 현재 Worksession에 첨부한 파일의 클리핑 GUID로 교체한다. 지원 작업은 모델 공간의 Create·Update·Move다. Update는 기존 도면과 같은 클리핑 GUID를 사용하고 points를 생략한다. Move는 요청한 모든 클리핑 GUID의 points를 지정한다. Move를 마친 위치는 이후 Update에 사용된다. PDF·Files는 Rhino에서 스크립트를 직접 실행해 이용한다. 도면을 Layout Detail로 구성한 뒤 `capture_04-defined_view` tool로 용지를 캡처할 수 있다.
+
+`include_attachments=true`는 호출 시 Worksession에 실제로 첨부된 모델에서 형상을 가져온다. 필요한 파일을 먼저 첨부한다. Create에서 생략하거나 false를 전달하면 활성 모델의 형상만 계산한다. Update에서 생략하면 이전 도면의 선택을 유지하며, 범위를 바꾸려면 true 또는 false를 지정한다. 이전 버전의 도면은 활성 모델만 사용한 것으로 처리한다. 첨부 clipping은 활성 모델만 계산하는 경우에도 절단 기준으로 사용할 수 있다. 새 계산 결과가 비어 있으면 Update는 기존 도면을 빈 결과로 교체하며 `object_ids`는 빈 목록이다.
 
 좌표는 현재 문서 단위이며 clipping 원점의 **새 절대 위치**다. GUID별 `[x,y]`(Z=0) 또는 `[x,y,z]`를 전달한다. Update는 저장된 높이를 유지한다. clipping 평면의 로컬 `(u,v)`는 배치점 `(Tx,Ty,Tz)`에 대해 `(Tx+u,Ty-v,Tz)`로 옮겨진다. 비수평 단면의 상하는 clipping의 로컬 Y 방향에 달려 있다. GUID 전체를 먼저 검증하며 중복 GUID는 한 번만 처리한다. Create의 좌표 생략은 기존 draft_plane 또는 원점 배치이므로 여러 도면이 겹치지 않도록 필요한 위치를 지정한다.
 
 로컬 clipping의 `draft_plane`은 UserDictionary의 RhinoCommon `Plane`, 출력의 `ps:placement`는 UserDictionary의 `Point3d`로 저장한다. 기존 user text JSON도 호환을 위해 함께 기록한다. 두 값이 모두 있으면 좌표·(Plane의 경우) 축을 검증하며 불일치는 오류다. typed 값이 없는 구 도면은 기존 JSON으로 읽을 수 있다. 비수평 clipping은 실제 CPlane의 방향을 확인하고 설정 지침에 따라 축을 지정해야 하며, 스크립트가 CPlane을 자동 회전시키지 않는다.
 
-전용 응답의 `status`는 전체 완료 `success`, 일부 완료 `partial`, 취소 `cancelled` 또는 `error`다. `result.status`에는 기존 알고리즘의 completed/partial/cancelled가 보존되고 `results`에는 GUID별 완료·건너뜀·실패·취소, 생성 object_ids와 보고서가 들어간다. `algorithm_sha256`는 실제 RHP에 포함된 알고리즘의 해시다. 부분 완료는 이미 완료한 도면을 되돌리지 않는다. 시간 초과·결과 불명은 rollback을 뜻하지 않으며 native 완료 상태와 기존 도면을 확인하기 전 재실행하지 않는다. 실행기 Undo 안에서 기존 `run_selected`가 같은 record를 재사용한다. 기존 직접 실행의 `run`·Create/Update/Move/PDF 계약과 출력 알고리즘은 유지한다.
+전용 응답의 `status`는 전체 완료 `success`, 일부 완료 `partial`, 취소 `cancelled` 또는 `error`다. `result.status`에는 알고리즘의 completed/partial/cancelled/failed가 보존되고 `results`에는 GUID별 완료·건너뜀·실패·취소, 생성·이동된 object_ids, 배치 평면과 보고서가 들어간다. `algorithm_sha256`는 실제 RHP에 포함된 알고리즘의 해시다. 부분 완료는 이미 완료한 도면을 되돌리지 않는다. 시간 초과·결과 불명은 rollback을 뜻하지 않으며 native 완료 상태와 기존 도면을 확인하기 전 재실행하지 않는다. 실행기 Undo 안에서 기존 `run_selected`가 같은 record를 재사용한다. Rhino에서 스크립트를 직접 실행할 때는 활성 모델의 형상을 사용한다. 첨부 형상을 포함해 생성한 도면을 다시 계산할 때는 `drawing_06-generate_plan_section` tool에서 Update를 사용한다.
 
 거리별 입면선 0.09→0.04mm·darkness 80→45% 기본값은 내부 style 구분과 최종 객체 인쇄 속성에 모두 적용된다. 단면선·해치는 기존 레이어 인쇄 속성을 따른다.
 
-전용 도구는 작은 결과를 직접 반환하고 큰 결과는 `result_delivery=paged`, `result_id`, `result_sha256`, 처리 수를 반환한다. `get_plan_section_result(result_id, offset=0)`부터 `next_offset`이 null일 때까지 `json_chunk`를 순서대로 연결해 원래 JSON을 회수한다. offset은 UTF-16 단위이며 반환값을 그대로 사용한다. 페이지는 최대 4096 UTF-16 단위로 서로게이트 쌍을 자르지 않으며, SHA256은 원래 UTF-8 JSON 기준이다. 조회는 도면을 재생성하거나 Undo를 시작하지 않는다. 보관은 Bridge 프로세스·동일 문서 인스턴스 내 최대 1시간, 최근 8개·총 64 MiB(UTF-16) 범위로 오래된 결과부터 제거된다. 즉시 회수하고 필요한 경우 작업 산출물에 보존한다. 단일 결과가 보관 한도보다 크면 명시적인 미확인 오류로 남긴다. 만료·재시작·전달 실패를 rollback으로 간주하거나 자동 재생성하지 않는다. 공통 64 KiB·16-container 제한은 유지한다. metadata_conflicts의 기존 64개 표본과 전체 count도 유지한다. native runtime_error는 native_status에 보존하고 외부 status=error/MCP isError=true로 전달하며 partial/cancelled는 구조화된 미완료 결과다.
+`drawing_06-generate_plan_section` tool의 응답에서 클리핑별 결과를 읽는다. 완료된 항목의 `draw_plane`은 도면이 놓인 수평 평면의 `origin`·`xaxis`·`yaxis`를 XYZ 배열로 돌려준다. Create·Update의 `extraction.layers`와 `source_object_count`는 참여 목록·지원 형상·깊이 필터를 통과해 계산에 들어간 원본의 전체 레이어 경로와 형상 레코드 수다. 블록은 배치와 구성원 경로별로 계산된다. `include_hidden`과 `include_locked`는 숨김·잠금을 제외 조건으로 삼지 않는다는 의미다. `extraction.include_attachments`는 계산에서 첨부 형상을 허용했는지 나타낸다. 참여 목록과 깊이 조건을 적용한 뒤 남은 원본은 앞의 레이어와 객체 수에 반영한다. Move는 이동한 객체의 GUID와 배치 평면을 돌려준다.
 
 ## 개발 검사
 
@@ -63,4 +66,4 @@ Almond 전용 `plan_section` 도구를 사용한다. 이 도구는 Bridge에 포
 & ./data/development/.venv/Scripts/python.exe -B -X utf8 -m unittest discover -s src/mcp/features/modeling/PlanSection/tests -p 'test_*.py'
 ```
 
-기존 `TEST.3dm`과 native 검사 도구도 함께 보관하지만, 실제 사용 검증은 사용자가 지정한 연결 문서에서 별도로 수행한다. 모의 API 검사 통과를 실제 단면·UI·PDF 품질 검증으로 간주하지 않는다. 직접 Rhino에서 실행하는 Python 파일과 전용 도구의 embedded 알고리즘은 배포 경로가 다르다. 전용 `plan_section` 경로는 `PlanSection.py` 변경 시 Bridge RHP 재빌드와 runtime manifest 갱신이 필요하며, 실제 Rhino 로드 확인은 별도 검증이다. typed Point3d·Plane 조회를 지원하는 `features/context/native/ObjectObservation.cs` 변경도 Bridge 재빌드·로드 검증이 필요하다.
+기존 `TEST.3dm`과 native 검사 도구도 함께 보관하지만, 실제 사용 검증은 사용자가 지정한 연결 문서에서 별도로 수행한다. 모의 API 검사 통과를 실제 단면·UI·PDF 품질 검증으로 간주하지 않는다. 직접 Rhino에서 실행하는 Python 파일과 전용 도구의 embedded 알고리즘은 배포 경로가 다르다. 전용 도구 경로는 `PlanSection.py` 변경 시 Bridge RHP 재빌드와 runtime manifest 갱신이 필요하며, 실제 Rhino 로드 확인은 별도 검증이다. typed Point3d·Plane 조회를 지원하는 `features/context/native/ObjectObservation.cs` 변경도 Bridge 재빌드·로드 검증이 필요하다.

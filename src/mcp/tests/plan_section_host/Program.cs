@@ -14,7 +14,7 @@ class Program
     static void Check(bool value, string message) { if (!value) throw new Exception(message); checks++; }
     static JObject Request() => JObject.Parse(@"{
         'type':'plan_section','operation':'Create','clipping_ids':['00000000-0000-0000-0000-000000000001'],
-        'points':{},'hatch':true,'elevation':true,'small_details':true,
+        'points':{},'hatch':true,'small_details':false,
         'near_width':0.09,'far_width':0.04,'near_dark':80,'far_dark':45,
         'expected_model_path':'C:\\offline\\model.3dm'}");
     static Rhino.RhinoDoc Doc() => Rhino.RhinoDoc.ActiveDoc = new Rhino.RhinoDoc { Path = @"C:\offline\model.3dm", Objects = new Rhino.ObjectTable(Id) };
@@ -23,7 +23,21 @@ class Program
         ScriptExecutor.Calls = 0;
         return PlanSectionTool.Handle(Doc(), request ?? Request());
     }
-    static void Main(string[] args)
+    static int Main(string[] args)
+    {
+        try
+        {
+            Verify(args);
+            return 0;
+        }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine(error);
+            return 1;
+        }
+    }
+
+    static void Verify(string[] args)
     {
         Rhino.Runtime.PythonScript.Reset();
         if (args.Contains("--reproduce"))
@@ -47,6 +61,66 @@ class Program
         Check(python.LoadedSource.StartsWith("__name__ = 'almond_plansection_internal'\n"), "interactive main disabled");
         Check(python.LoadedSource.Contains("def run(doc, operation, clipping_ids"), "packaged algorithm shared");
         var responses = new JObject { ["completed"] = good };
+        var move = Request(); move["operation"] = "Move";
+        Check((string)Run(move)["mutation_state"] == "not_started" && ScriptExecutor.Calls == 0,
+            "Move without a target never enters Undo");
+        move["points"] = new JObject { [Id.ToString()] = new JArray(12, 34, -9) };
+        Check((string)Run(move)["status"] == "success" && ScriptExecutor.Calls == 1, "Move executes once with explicit XYZ");
+        Check(Rhino.Runtime.PythonScript.Last.Arguments["operation"].Value<string>() == "Move" &&
+            !(bool)Rhino.Runtime.PythonScript.Last.Arguments["small_details"], "Move passes the typed options");
+        var referenceDoc = Doc();
+        referenceDoc.Objects.Reference = true;
+        ScriptExecutor.Calls = 0;
+        Check((string)PlanSectionTool.Handle(referenceDoc, Request())["mutation_state"] == "not_started" &&
+            ScriptExecutor.Calls == 0, "A non-Worksession reference clipping is rejected");
+
+        referenceDoc.Objects.ReferenceSerial = 1001;
+        referenceDoc.Worksession = new Rhino.DocObjects.Worksession(referenceDoc, new[] {
+            referenceDoc.Path, @"C:\offline\Attachment.3dm" });
+        var include = Request(); include["include_attachments"] = true;
+        var attached = PlanSectionTool.Handle(referenceDoc, include);
+        Check((string)attached["status"] == "success" &&
+            ScriptExecutor.Calls == 1 && (bool)Rhino.Runtime.PythonScript.Last.Arguments["include_attachments"],
+            "Attached clipping and explicit combined extraction reach the packaged script");
+        Check(Rhino.Runtime.PythonScript.Last.AttachedModelSerials.SequenceEqual(new[] { true, false, false }),
+            "The script's ownership predicate requires the serial to resolve to a current attachment");
+        ScriptExecutor.Calls = 0;
+        Check((string)PlanSectionTool.Handle(referenceDoc, Request())["status"] == "success" && ScriptExecutor.Calls == 1,
+            "Attached clipping may define a cut for active-model geometry");
+        ScriptExecutor.Calls = 0;
+        Check((string)PlanSectionTool.Handle(referenceDoc, move)["status"] == "success" && ScriptExecutor.Calls == 1,
+            "Attached clipping may identify a local drawing to move");
+
+        var unknownPath = Doc();
+        unknownPath.Objects.Reference = true;
+        unknownPath.Objects.ReferenceSerial = 1002;
+        unknownPath.Worksession = new Rhino.DocObjects.Worksession(unknownPath, new[] {
+            unknownPath.Path, @"C:\offline\Attachment.3dm" });
+        ScriptExecutor.Calls = 0;
+        Check((string)PlanSectionTool.Handle(unknownPath, include)["mutation_state"] == "not_started" &&
+            ScriptExecutor.Calls == 0, "A native reference path outside the current attachment list is rejected");
+        unknownPath.Objects.ReferenceSerial = 1003;
+        var ownershipUnavailable = PlanSectionTool.Handle(unknownPath, include);
+        Check((string)ownershipUnavailable["mutation_state"] == "not_started" && ScriptExecutor.Calls == 0 &&
+            ((string)ownershipUnavailable["message"]).Contains("Cannot resolve Worksession reference model serial 1003"),
+            "An unavailable reference clipping path reports an observation failure");
+
+        unknownPath.Objects.Reference = false;
+        var update = Request(); update["operation"] = "Update"; update["include_attachments"] = true;
+        foreach (uint serial in new uint[] { 1003, 1004 })
+        {
+            Rhino.Runtime.PythonScript.ExtractionReferenceSerial = serial;
+            var unresolved = PlanSectionTool.Handle(unknownPath, update);
+            Check((string)unresolved["drawing_status"] == "failed" &&
+                ((string)unresolved["result"]["results"][0]["error"])
+                    .Contains($"Cannot resolve Worksession reference model serial {serial}"),
+                "Update reports unavailable or invalid attachment ownership as failure");
+        }
+        Rhino.Runtime.PythonScript.Reset();
+        ScriptExecutor.Calls = 0;
+        unknownPath.Worksession.ModelCount = 3;
+        Check((string)PlanSectionTool.Handle(unknownPath, include)["mutation_state"] == "not_started" &&
+            ScriptExecutor.Calls == 0, "An incomplete attachment observation stops explicitly combined extraction");
 
         foreach (object unsupported in new object[] { new JObject { ["ok"] = true }, new JValue("text"),
             new Dictionary<string, object> { ["nested"] = new JValue(1) } })
@@ -68,35 +142,17 @@ class Program
         Check(Encoding.UTF8.GetByteCount(JsonConvert.SerializeObject(ids)) == 65560, "single clipping GUID array exceeds budget");
         Rhino.Runtime.PythonScript.ObjectIds = ids;
         var oversized = Run(); responses["oversized"] = oversized;
-        Check((string)oversized["result"]["result_delivery"] == "paged" && oversized["result_error"] == null &&
-            (string)oversized["mutation_state"] == "completed", "oversized result has a bounded receipt");
-        Check((string)oversized["status"] == "success" && ScriptExecutor.Calls == 1, "one execution before receipt reads");
-        var receiptId = (string)oversized["result"]["result_id"];
-        var read = new JObject { ["type"] = "get_plan_section_result", ["result_id"] = receiptId,
-            ["offset"] = 0, ["expected_model_path"] = @"C:\offline\model.3dm" };
-        var recovered = new StringBuilder();
-        JObject page;
-        do
-        {
-            page = PlanSectionTool.ReadResult(Rhino.RhinoDoc.ActiveDoc, read);
-            Check((string)page["status"] == "success" && Encoding.UTF8.GetByteCount(page.ToString(Formatting.None)) < 65536, "bounded result page");
-            recovered.Append((string)page["json_chunk"]);
-            read["offset"] = page["next_offset"].DeepClone();
-        } while (page["next_offset"].Type != JTokenType.Null);
-        var recoveredDrawing = JObject.Parse(recovered.ToString());
-        Check(recoveredDrawing["results"][0]["object_ids"].Count() == 1681, "all generated IDs recovered without truncation");
-        Check((string)recoveredDrawing["results"][0]["report"]["unicode"] == String.Concat(Enumerable.Repeat("한😀", 1800)), "unicode chunks reconstruct exactly");
-        Check(ScriptExecutor.Calls == 1 && Rhino.Runtime.PythonScript.Last.Invocations == 1, "receipt reads never invoke Undo or drawing generation");
-        read["offset"] = 0;
-        Check((string)PlanSectionTool.ReadResult(Rhino.RhinoDoc.ActiveDoc, read)["status"] == "success", "receipt can be read again");
-        Rhino.RhinoDoc.ActiveDoc.RuntimeSerialNumber = 2;
-        Check((string)PlanSectionTool.ReadResult(Rhino.RhinoDoc.ActiveDoc, read)["status"] == "error", "reject another document instance");
-        Rhino.RhinoDoc.ActiveDoc.RuntimeSerialNumber = 1;
-        read["offset"] = -1;
-        Check((string)PlanSectionTool.ReadResult(Rhino.RhinoDoc.ActiveDoc, read)["status"] == "error", "reject invalid offset");
-        read["offset"] = 0;
-        for (int i = 0; i < 8; i++) Run();
-        Check((string)PlanSectionTool.ReadResult(Rhino.RhinoDoc.ActiveDoc, read)["error_code"] == "plan_section_result_expired", "bounded retention eviction is explicit");
+        Check((string)oversized["status"] == "success" && (string)oversized["mutation_state"] == "completed" &&
+            oversized["result_error"] == null, "large typed result returns inline");
+        Check(Encoding.UTF8.GetByteCount(oversized["result"].ToString(Formatting.None)) > 65536,
+            "dedicated result exceeds the generic script capture limit");
+        var full = oversized["result"]["results"][0];
+        Check(full["object_ids"].Count() == 1681 && full["draw_plane"]["origin"][2].Value<int>() == -9,
+            "inline output preserves every GUID and placement");
+        Check((string)full["report"]["unicode"] == String.Concat(Enumerable.Repeat("한😀", 1800)),
+            "inline output preserves Unicode");
+        Check((string)full["extraction"]["layers"][0] == "model::walls" && ScriptExecutor.Calls == 1 &&
+            Rhino.Runtime.PythonScript.Last.Invocations == 1, "extraction evidence returns from a single execution");
         Rhino.Runtime.PythonScript.Reset();
 
         foreach (var field in new[] { "script", "folder", "output", "language", "project_root", "artifact_dir" })
@@ -107,6 +163,7 @@ class Program
         }
         foreach (var change in new Action<JObject>[] {
             r => r["operation"] = "PDF", r => r["hatch"] = 1, r => r["near_width"] = 0,
+            r => r["include_attachments"] = 1,
             r => r["clipping_ids"] = new JArray(Guid.Empty.ToString()),
             r => r["clipping_ids"] = new JArray(Guid.NewGuid().ToString()),
             r => r["expected_model_path"] = @"C:\other.3dm",
@@ -126,10 +183,12 @@ class Program
             ((string)loadError["python_diagnostic"]).EndsWith("import failure"), "bounded load failure diagnostic retains late failure");
         Check(good["python_diagnostic"] == null, "successful progress output omitted");
         Rhino.Runtime.PythonScript.Reset();
-        foreach (string state in new[] { "partial", "cancelled" })
+        foreach (string state in new[] { "partial", "cancelled", "failed" })
         {
             Rhino.Runtime.PythonScript.DrawingStatus = state;
-            var result = Run();
+            var request = Request();
+            if (state == "partial") ((JArray)request["clipping_ids"]).Add(Rhino.ObjectTable.SecondClipping.ToString());
+            var result = Run(request);
             responses[state] = result;
             Check((string)result["drawing_status"] == state && (string)result["mutation_state"] == "partial", "partial evidence " + state);
         }
@@ -152,19 +211,60 @@ class Program
 
 namespace Rhino
 {
-    public class RhinoDoc { public static RhinoDoc ActiveDoc; public uint RuntimeSerialNumber = 1; public string Path; public bool IsReadOnly; public ObjectTable Objects; }
+    public class RhinoDoc
+    {
+        public static RhinoDoc ActiveDoc;
+        public uint RuntimeSerialNumber = 1;
+        public string Path;
+        public bool IsReadOnly;
+        public ObjectTable Objects;
+        DocObjects.Worksession worksession;
+        public DocObjects.Worksession Worksession
+        {
+            get => worksession ?? new DocObjects.Worksession(this, Array.Empty<string>());
+            set => worksession = value;
+        }
+    }
     public class ObjectTable
     {
+        public static readonly Guid SecondClipping = Guid.Parse("00000000-0000-0000-0000-000000000002");
         readonly Guid id;
+        public bool Reference;
+        public uint ReferenceSerial;
         public ObjectTable(Guid id) { this.id = id; }
-        public DocObjects.RhinoObject FindId(Guid value) => value == id ? new DocObjects.ClippingPlaneObject() : null;
+        public DocObjects.RhinoObject FindId(Guid value) => value == id || value == SecondClipping
+            ? new DocObjects.ClippingPlaneObject { IsReference = Reference, ReferenceModelSerialNumber = ReferenceSerial }
+            : null;
     }
 }
 namespace Rhino.DocObjects
 {
     public class ObjectAttributes { public bool IsInstanceDefinitionObject; }
-    public class RhinoObject { public bool IsDeleted; public ObjectAttributes Attributes = new ObjectAttributes(); }
+    public class RhinoObject
+    {
+        public bool IsDeleted, IsReference;
+        public uint ReferenceModelSerialNumber;
+        public ObjectAttributes Attributes = new ObjectAttributes();
+    }
     public class ClippingPlaneObject : RhinoObject { }
+    public class Worksession
+    {
+        public RhinoDoc Document;
+        public uint RuntimeSerialNumber;
+        public int ModelCount;
+        public string[] ModelPaths;
+        public Worksession(RhinoDoc document, string[] paths)
+        {
+            Document = document;
+            ModelPaths = paths;
+            ModelCount = paths.Length;
+            RuntimeSerialNumber = paths.Length == 0 ? 0u : 51u;
+        }
+        public string ModelPathFromSerialNumber(uint serial) => serial == 1001
+            ? @"c:\offline\attachment.3dm"
+            : serial == 1002 ? @"C:\offline\Unattached.3dm"
+            : serial == 1004 ? "relative.3dm" : null;
+    }
 }
 namespace Rhino.Runtime
 {
@@ -173,7 +273,8 @@ namespace Rhino.Runtime
         public static PythonScript Last;
         public static bool Unavailable, FailLoad, FailInvoke, FailRemove;
         public static string DrawingStatus = "completed";
-        public static List<string> ObjectIds = new List<string>();
+        public static List<string> ObjectIds;
+        public static uint? ExtractionReferenceSerial;
         public readonly object OriginalDoc = new object();
         public readonly Action<string> OriginalOutput = text => { };
         public Dictionary<string, object> Variables = new Dictionary<string, object> { ["__name__"] = "original" };
@@ -181,7 +282,9 @@ namespace Rhino.Runtime
         public Action<string> Output { get; set; }
         public string LoadedSource;
         public int Invocations;
-        public static void Reset() { Unavailable = FailLoad = FailInvoke = FailRemove = false; DrawingStatus = "completed"; ObjectIds = new List<string>(); }
+        public JObject Arguments;
+        public bool[] AttachedModelSerials;
+        public static void Reset() { Unavailable = FailLoad = FailInvoke = FailRemove = false; DrawingStatus = "completed"; ExtractionReferenceSerial = null; ObjectIds = new List<string> { "00000000-0000-0000-0000-000000000003" }; }
         public static PythonScript Create()
         {
             if (Unavailable) return null;
@@ -206,12 +309,45 @@ namespace Rhino.Runtime
             }
             Invocations++;
             if (FailInvoke) throw new Exception("native drawing failed");
-            var args = JObject.Parse((string)Variables["_almond_arguments_json"]);
+            var args = Arguments = JObject.Parse((string)Variables["_almond_arguments_json"]);
+            var includeAttachments = (bool?)args["include_attachments"] == true;
+            string drawingStatus = DrawingStatus, attachmentError = null;
+            if (includeAttachments && (string)args["operation"] != "Move")
+            {
+                var observeAttachments = (Func<Func<uint, bool>>)Variables["_almond_observe_attachments"];
+                var attachedModel = observeAttachments();
+                AttachedModelSerials = new[] { attachedModel(1001), attachedModel(1002), attachedModel(0) };
+                if (ExtractionReferenceSerial is uint serial)
+                {
+                    try { attachedModel(serial); }
+                    catch (Exception error) { drawingStatus = "failed"; attachmentError = error.Message; }
+                }
+            }
+            var results = new JArray();
+            var clipIds = (JArray)args["clipping_ids"];
+            for (int i = 0; i < clipIds.Count; i++)
+            {
+                bool completed = drawingStatus == "completed" || (drawingStatus == "partial" && i == 0);
+                var result = new JObject { ["clipping_id"] = clipIds[i].DeepClone(),
+                    ["status"] = completed ? "completed" : drawingStatus == "cancelled" ? "cancelled" : "failed" };
+                if (attachmentError != null) result["error"] = attachmentError;
+                if (completed)
+                {
+                    result["object_ids"] = new JArray(ObjectIds);
+                    result["draw_plane"] = new JObject { ["origin"] = new JArray(12, 34, -9),
+                        ["xaxis"] = new JArray(1, 0, 0), ["yaxis"] = new JArray(0, 1, 0) };
+                    if ((string)args["operation"] != "Move")
+                        result["extraction"] = new JObject { ["layers"] = new JArray("model::walls"),
+                            ["source_object_count"] = 3, ["include_hidden"] = true, ["include_locked"] = true,
+                            ["include_attachments"] = includeAttachments };
+                    result["report"] = new JObject { ["timestamp_text"] = "2026-11-05T12:00:00Z",
+                        ["unicode"] = String.Concat(Enumerable.Repeat("한😀", 1800)) };
+                }
+                results.Add(result);
+            }
             Variables["_almond_result_json"] = new JObject {
-                ["status"] = DrawingStatus, ["requested"] = 1, ["completed"] = DrawingStatus == "completed" ? 1 : 0,
-                ["results"] = new JArray(new JObject { ["clipping_id"] = args["clipping_ids"][0].DeepClone(),
-                    ["object_ids"] = new JArray(ObjectIds), ["report"] = new JObject { ["timestamp_text"] = "2026-11-05T12:00:00Z", ["unicode"] = String.Concat(Enumerable.Repeat("한😀", 1800)) },
-                    ["status"] = DrawingStatus == "completed" ? "completed" : "cancelled" }) }.ToString();
+                ["status"] = drawingStatus, ["requested"] = clipIds.Count,
+                ["completed"] = results.Count(r => (string)r["status"] == "completed"), ["results"] = results }.ToString();
             return true;
         }
     }

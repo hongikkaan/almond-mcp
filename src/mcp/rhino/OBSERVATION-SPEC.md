@@ -1,6 +1,6 @@
 # 현재 문서·화면 조회와 C# 결과 반환
 
-프로젝트 정보가 필요하면 `context_04-get_project_info` tool를 조회한다. project/document 항목이 실제 문서를 한 번 함께 확인하고 project에 연결 문서와의 일치 여부를 제공하므로 같은 live 확인을 위해 `inspect_03-get_document_context` tool를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때 `capture_03-current_view` tool를 호출한다. beyond·CoS는 선택한 연결에서 같은 도구를 호출한다.
+프로젝트 정보가 필요하면 `context_04-get_project_info` tool를 조회한다. project/document/named_views/layouts/layer_tree 항목은 한 번의 문서 관찰을 공유하고 project는 연결 문서와의 일치 여부를 제공하므로 같은 live 확인을 위해 `inspect_03-get_document_context` tool를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때 `capture_03-current_view` tool를 호출한다. beyond·CoS는 선택한 연결에서 같은 도구를 호출한다.
 
 두 조회는 기존 Engine의 문서 binding·UI thread·호출 identity·native 완료 확인을 거친다. 파일 경로를 임의로 골라 다른 모델을 조회하는 기능은 없다.
 
@@ -8,8 +8,8 @@
 
 ## 현재 상태
 
-`inspect_03-get_document_context` tool는 document/viewport/editor/named_views/layouts/display_modes/viewports 중 요청한 항목만 수집한다.
-sections를 생략하면 document/named_views/layouts/display_modes와 next_step을 반환한다. next_step은 다른 선택 입력에 관계없이 sections 생략 시에만 표시한다. 명시한 sections에 editor가 없으면 편집 상태를 조사하거나 출력하지 않는다. sections=[]는 status/warnings만 반환한다.
+`inspect_03-get_document_context` tool는 document/viewport/editor/named_views/layouts/layer_tree/display_modes/viewports 중 요청한 항목만 수집한다.
+sections를 생략하면 document/named_views/layouts/layer_tree/display_modes와 next_step을 반환한다. next_step은 다른 선택 입력에 관계없이 sections 생략 시에만 표시한다. 명시한 sections에 editor가 없으면 편집 상태를 조사하거나 출력하지 않는다. sections=[]는 status/warnings만 반환한다.
 
 | 필드 | 내용 |
 |---|---|
@@ -17,7 +17,8 @@ sections를 생략하면 document/named_views/layouts/display_modes와 next_step
 | `document` | units, absolute_tolerance, angle_tolerance(라디안), modified, object_count, layer_count |
 | `viewport` | 활성 viewport 이름/크기/표시 모드/투영/카메라; ID는 include_ids=true일 때 |
 | `editor` | mode/target/stable/warnings; include_editor_details=true일 때 provider·명령·Undo 근거 추가 |
-| `named_views`, `layouts` | 이름과 ID, include_ids와 무관하게 ID 유지 |
+| `named_views`, `layouts` | 이름과 ID, 각각 최대 128개와 초과 경고; include_ids와 무관하게 ID 유지 |
+| `layer_tree` | 삭제되지 않은 모든 레이어의 이름과 부모 계층; 깊이당 공백 두 칸; 비어 있으면 빈 문자열 |
 | `display_modes` | 설치된 이름과 ID, 최대 128개와 초과 경고; ID 항상 유지 |
 | `viewports` | 모델 viewport 목록; 선택 조회이며 일반 include_ids 정책 적용 |
 
@@ -26,6 +27,10 @@ sections를 생략하면 document/named_views/layouts/display_modes와 next_step
 선택 조회는 `inspect_02-get_objects tool(scope="current", selected=true)`로 통합한다. 기본은 문서 객체 목록이며, `result_mode="hierarchy"`로 그룹·블록을 요약하고 recursive와 depth로 내부를 펼친다. 부분 범위의 그룹은 전체 구성원과 조회에 포함된 구성원 수를 구분한다. 문서 객체 수와 계층 occurrence 수는 서로 다르다.
 
 공개 조회는 context_sections>=2를 요구하고 native public_context=true로 요청한다. 기존 내부 native 호출은 문서 identity/capabilities, 필요한 compact editor, raw 선택 GUID 기본값을 유지한다. 이로써 연결 문서 검증과 Holon/Plan 역조회 계약을 보존한다.
+
+연결을 시작할 때는 저장된 모델 경로와 문서 일련번호로 연결을 확인한다. 문서 속성·뷰·레이어·Worksession은 명시적으로 요청한 MCP 조회에서만 읽는다. 프로젝트 조회와 문서 조회는 같은 native 문서 관찰과 MCP의 문서 속성·목록 투영을 재사용한다.
+
+프로젝트 섹션은 같은 고정 native 호출에서 `worksession_files`를 요청한다. 현재 문서 소유 Worksession의 실제 model paths에서 Windows 경로로 정규화한 활성 모델을 제외한다. 같은 파일명의 서로 다른 경로는 유지한다. 확인된 첨부 없음은 `[]`이며, 목록을 확인하지 못하면 `null`과 관측 경고를 반환한다. 첨부 관측은 읽기 전용이며 프로젝트 파일 카탈로그에 등록하거나 기록을 갱신하지 않는다.
 
 편집 대상은 명령 수나 선택에서 추측하지 않는다. 공용 `EditingContext.Observe`는 공식 plug-in 로드 상태와 실제 편집 provider 상태를 확인한다. 지원 adapter는 정확한 assembly identity/MVID/hash에 제한되며, 다른 버전·전환·대상 불명·UV/block 전용 공간은 unknown 또는 stable=false다.
 현재 adapter 범위는 기본 BlockEdit 8.34.26223.11001과 BlockEditNew package 2.1.7이다.
@@ -37,9 +42,9 @@ sections를 생략하면 document/named_views/layouts/display_modes와 next_step
 
 `capture_04-defined_view tool(target_kind="named_view"|"layout", target="이름 또는 ID")`는 지정된 Named View 또는 Layout을 캡처한다. 목록은 inspect_03-get_document_context tool에서 조회한다. 같은 이름이 여러 개이면 오류이며 고유 ID로 구분한다. Named View는 저장된 카메라를 별도 화면에서 그리므로 실제 활성 뷰를 바꾸지 않는다. 기본 표시 모드는 Shaded이며 설치된 이름/ID로 변경할 수 있다.
 
-Layout은 실제 용지와 Detail을 인쇄 색·선 두께로 캡처하고 주변 작업창을 포함하지 않는다. 100%는 용지를 144 dpi로 표현한 크기다. 호출자는 픽셀이나 용지 비율을 계산하지 않는다. Layout의 표시 모드·픽셀 강제 지정은 거절하며 Detail 축척과 문서 PrintDisplay를 바꾸지 않는다. scale_percent는 기본 75의 상한이며 정의된 뷰가 PNG 전달 한도를 넘으면 비율을 줄이고 경고한다. 명시한 Named View 픽셀은 자동 축소하지 않는다.
+Layout은 실제 용지와 Detail을 인쇄 색·선 두께로 캡처하고 주변 작업창을 포함하지 않는다. 100%는 용지를 144 dpi로 표현한 크기다. 호출자는 픽셀이나 용지 비율을 계산하지 않는다. Layout의 표시 모드·픽셀 강제 지정은 거절하며 Detail 축척과 문서 PrintDisplay를 바꾸지 않는다. 인쇄 가능한 가시 객체를 캡처하며 잠긴 객체도 가시성에 따라 포함한다. Layout 본체를 사용하므로 Detail의 카메라·투영 잠금·clipping 할당을 따로 편집하지 않는다. 숨김 등으로 출력할 내용이 없는 용지도 유효한 PNG다. scale_percent는 기본 75의 상한이며 정의된 뷰가 PNG 전달 한도를 넘으면 비율을 줄이고 경고한다. 명시한 Named View 픽셀은 자동 축소하지 않는다.
 
-`capture_03-current_view tool()`는 현재 모델 viewport를 그대로 캡처한다. target_ids를 지정하면 실제 선택을 그 대상으로 바꾸고 Zoom Selected를 적용한다. isolate=true는 그 전에 Rhino 기본 Isolate를 실행한다. 실제 화면의 카메라·선택·격리는 캡처 후 유지되며 Unisolate로 native 격리를 해제한다. 잠긴 주변 객체는 Rhino Isolate의 기존 동작대로 남을 수 있다. optional display_mode도 실제 viewport에 적용한다. Layout에서 호출하면 모델 viewport 활성화 또는 정의된 Layout 캡처를 안내한다.
+`capture_03-current_view tool()`는 원본 모델 viewport를 사용해 표시 색과 화면 선 표현으로 캡처한다. 이 캡처는 문서와 앱의 PrintDisplay 설정을 유지한다. target_ids를 지정하면 실제 선택을 그 대상으로 바꾸고 Zoom Selected를 적용한다. isolate=true는 그 전에 Rhino 기본 Isolate를 실행한다. 실제 화면의 카메라·선택·격리는 캡처 후 유지되며 Unisolate로 native 격리를 해제한다. 잠긴 주변 객체는 Rhino Isolate의 기존 동작대로 남을 수 있다. optional display_mode도 실제 viewport에 적용한다. Layout에서 호출하면 모델 viewport 활성화 또는 정의된 Layout 캡처를 안내한다.
 
 대상은 여러 ID를 받는다. target_kind는 ID의 종류(object/group/block/holon)를 뜻하며 geometry 허용 목록이 아니다. object와 block 경로는 같은 일반 Rhino 객체 식별을 사용하므로 curve/mesh/Brep/block/annotation을 따로 분기하지 않는다. group은 현재 멤버, holon은 현재 effective 멤버를 해석한다. 실제 선택·격리·확대는 기존 Holon focus와 공통 함수를 사용한다. 현재 선택 가능한 model-space 객체와 4096개 focus 한도, 명령·Undo 전환 보호를 유지한다. 숨김·잠금·Layout 객체·블록 정의 내부의 ID는 자동으로 수정하거나 잘못된 위치에서 선택하지 않는다.
 
@@ -67,6 +72,19 @@ UserDictionary는 기존 SharedUserDictionary만 읽으며, 사전을 생성하�
 요약은 필터된 전체 집합을 레이어·객체 유형·형상 종류로 집계하며, 선택한 필드만 계산한다.
 명시적인 `fields=["id"]`는 기본 ID 생략보다 우선한다. 바깥 페이지는 객체/요약행, 각 객체의 `face_page`는 면 목록의 페이지다. 후속 면 조회는 명시 객체 집합과 원본 CRC를 요구한다.
 
+### Rhino 요소별 메타데이터와 조회 범위
+
+| 요소 | 3DM 저장 대상 | Almond의 조회·필터 | 대상 지정·선택 |
+| --- | --- | --- | --- |
+| Layout | 페이지와 Detail의 문서 설정 | `inspect_03-get_document_context` tool의 `layouts`로 이름과 메인 뷰포트 GUID를 확인. Layout 자체의 사용자 메타데이터 조회·필터는 미지원. | `capture_04-defined_view` tool에 `target_kind="layout"`과 이름 또는 GUID를 지정. 용지 객체는 모델 객체 선택 범위 밖. |
+| Named View | Named View 테이블의 이름·저장된 카메라 | 같은 도구의 `named_views`로 이름과 Named View GUID를 확인. Named View 자체의 사용자 메타데이터 조회·필터는 미지원. | `capture_04-defined_view` tool에 `target_kind="named_view"`와 이름 또는 GUID를 지정. 모델 객체 선택과 별개로 처리. |
+| 클리핑 평면 | 문서의 클리핑 객체·속성과 형상. PlanSection의 로컬 `draft_plane`은 객체 속성의 UserDictionary와 호환용 User Text에 저장. | 적격한 최상위 클리핑 객체는 `inspect_02-get_objects` tool의 `object_types=["ClipPlane"]`과 객체 메타데이터 조건으로 조회. | 관찰한 GUID는 `drawing_06-generate_plan_section` tool의 `clipping_ids`에 사용. 모델 객체 선택 기준도 적용. |
+| 모델 객체 | 객체의 속성과 형상에 각각 Rhino UserDictionary와 User Text 저장 가능. | `inspect_02-get_objects` tool에서 `fields=["user_dictionary"]`로 기존 속성·형상 사전을 읽고 `filters.user_dictionary` 조건으로 좁힘. 일반 User Text 직접 필터는 미지원. | `selected=true`로 적격한 현재 선택을 조회. `capture_03-current_view` tool에 적격한 최상위 객체 GUID를 지정하면 실제 선택과 카메라 변경. |
+| 레이어 | Layer 테이블의 레이어와 부모 계층. RhinoCommon은 레이어별 User Text API를 제공. | `layer_tree`로 이름과 계층을 확인하고 `filters.layer_paths`로 전체 경로가 일치하는 객체를 조회. 레이어 사용자 메타데이터의 공개 조회·필터는 미지원. | 경로로 얻은 객체 GUID를 사용. 레이어 자체를 선택하는 공개 도구는 미지원. |
+| 그룹 | Group 테이블의 그룹과 문서 객체의 그룹 소속. RhinoCommon은 그룹별 User Text API를 제공. | `result_mode="hierarchy"`의 그룹 행이나 객체의 `groups`에서 그룹을 확인하고 `group_ids`로 대상 그룹의 구성원을 조회. 그룹 사용자 메타데이터의 공개 조회·필터는 미지원. | `capture_03-current_view` tool에 `target_kind="group"`과 그룹 GUID를 지정하면 적격 구성원을 선택. |
+
+오프라인에서 Layout·Named View 목록과 캡처 요청, 레이어 경로 및 그룹 구성원 조회, 단일·복수 UserDictionary 조건의 MCP 입력을 검사한다. 저장 대상의 근거는 RhinoCommon 및 현재 구현이다. 실제 `.3dm`을 저장하고 다시 연 뒤 ID·값·그룹 소속·객체 선택을 대조하는 검수는 남아 있다.
+
 GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 components/native의 공통 분석기를 사용한다. 512개 top-level 객체에서 닫힌 Brep·Extrusion·Mesh를 검사하고, 명시된 include_blocks에 따라 중첩 배치를 world-space 복사본으로 해석한다. 최대 2048개 occurrence· 20000개 후보를 허용하며 페이지당 최대 64쌍을 계산한다. Cursor는 문서·형상·범위·공차에 묶인다.
 복원된 Holon 조회는 기존 pair handle과 pair_state 관측 출력을 유지한다. 통합 `intersect_02-resolve` tool은 object_ids로 시작해 첫 양의 겹침에서 멈추고 비교 이미지·번호·속성·소속 블록을 반환한다. 이후 같은 도구에 review_id와 choice=1/2/skip을 전달한다. 번호는 그 객체의 겹친 부분 제거이며 전체 객체 삭제가 아니다. review_id는 표시한 대상의 연결이고 형상 상태 토큰이 아니다. 매 수정 직전 현재 형상을 다시 계산하며 pair_state 입력은 받지 않는다.
 비교 캡처는 같은 카메라에서 주변 맥락과 native Isolate 상태를 합친다. 카메라·선택은 대상에 유지하고 이번 격리를 종료한 뒤 가시성을 대조한다. 블록 전체 배치를 표시하되 내부 부재 위치와 소속 블록 이름·경로를 구분한다. 공개 show_object_intersection은 통합 도구로 대체한다. 각 수정은 기존 단일 Replace·Undo 경계를 유지하며 다음 조회가 실패해도 previous_result의 완료된 수정 기록을 보존한다. 중복 선택은 재실행하지 않고 완료 불명은 자동 진행을 중단한다.
@@ -75,9 +93,10 @@ GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 compon
 
 `capture_02-inspection` tool은 `inspection_capture=1`을 확인한 뒤 최대 16개 타일을 합성한다.
 별도 viewport와 범위 제한 display conduit를 사용하며 live 카메라·선택·가시 상태를 수정하지 않는다.
-필터의 culling 실행을 확인하지 못하면 이미지를 반환하지 않는다. 타일별 범위·모드·카메라·오류를 돌려주며 일부 실패는 `complete=false`로 표시한다. 전체 이미지는 16M 픽셀·PNG 4 MiB 이내다.
+필터의 culling 실행과 실제 비트맵 그리기에 적용된 표시 모드 ID를 확인할 수 없는 타일은 실패로 표시한다. 타일별 범위·적용 모드·카메라·오류를 돌려주며 일부 실패는 `complete=false`로 표시한다. 설치된 래스터 모드는 문서 컨텍스트의 `display_modes`에 있는 이름이나 GUID로 지정한다. 전체 이미지는 16M 픽셀·PNG 4 MiB 이내다.
 기본은 활성 모델뷰를 사용한다. `inspection_model_view=1`에서는 `model_view_id`로 기존 모델뷰를 지정해 활성 Layout·Detail을 바꾸지 않고 모델을 관찰한다. 문서·선택·가시성·Modified와 원본/활성 viewport·ActiveSpace가 전후 일치하지 않으면 이미지를 내보내지 않는다.
 기존 tile별 GUID는 512개 한도를 유지한다. `inspection_shared_scope=1`에서는 최상위 `object_ids`에 기존 객체 조회와 같은 상한인 1..4096개를 한 번 전달해 모든 tile에 재사용한다. 공통 `[]`와 공통/개별 집합 혼용은 오류다. 전체 GUID·총수는 `shared_scope`에 한 번 반환하며, 성공 tile의 참조·개수와 요청 집합을 Python에서 대조한다. 요청 256 KiB·메타데이터 512 KiB 한도를 유지한다. 전체/부분 성공 표시는 실제 tile 상태와 일치해야 하며 정상 부분 이미지는 보존한다.
+`current` 타일은 복제한 카메라 구도를 사용한다. 공통 또는 타일별 객체 GUID와 함께 `frame_objects: true`를 전달하면 분리된 viewport의 방향과 투영을 사용해 지정 객체의 결합 경계에 맞춘다.
 명시 블록 인스턴스 필터는 지원하지 않는다. inspection_editing_context=1에서는 검증된 group/block 편집 상태의 캡처를 허용한다. 타일 사이 편집 대상과 마지막 문서 내용·현재 작업 멤버도 대조하며 변하면 이미지를 반환하지 않는다. 편집기로 숨겨진 바깥 객체를 자동으로 복원하지 않는다. 알 수 없는 편집기·명령 전환 중에는 거절한다.
 
 ## 제한된 평면 면 편집

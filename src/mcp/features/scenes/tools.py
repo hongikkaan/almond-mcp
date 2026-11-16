@@ -12,7 +12,7 @@ from almond_mcp.features.scenes.observation import observe_objects
 
 ACK_FIELDS = {"scene_id", "revision", "scene_revisions"}
 SCENE_GROUPS = {
-    "scope": {"file_name", "project_file_id", "units", "model_path"},
+    "scope": {"file_name", "units", "model_path"},
     "state": {"revision"},
     "geometry": {"bounds_mm", "component_id"},
     "audit": {"created_at", "updated_at", "observed_at"},
@@ -39,11 +39,11 @@ def register(mcp, context):
     @mcp.tool(name='scene_02-create', output_schema=public_output_schema('create_design_scene', wrapped=True))
     @tool_instruction(__file__, 'create_design_scene')
     @holon_output
-    def create_design_scene(name: str, units: str = "mm", file_name: str = "", project_file_id: str | None = None) -> str:
+    def create_design_scene(name: str, units: str = "mm", file_name: str = "") -> str:
         try:
             return json.dumps({
                 "status": "success",
-                "scene": compact_ack(context.retrieval_store.create_scene(name=name, units=units, file_name=file_name, project_file_id=project_file_id), ACK_FIELDS),
+                "scene": compact_ack(context.retrieval_store.create_scene(name=name, units=units, file_name=file_name), ACK_FIELDS),
             })
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
@@ -65,9 +65,9 @@ def register(mcp, context):
     @mcp.tool(name='scene_12-update', output_schema=public_output_schema('update_design_scene', wrapped=True))
     @tool_instruction(__file__, 'update_design_scene')
     @holon_output
-    def update_design_scene(scene_id: str, file_name: str | None = None, project_file_id: str | None = None) -> str:
+    def update_design_scene(scene_id: str, file_name: str | None = None) -> str:
         try:
-            return json.dumps({"status": "success", "scene": compact_ack(context.retrieval_store.update_scene(scene_id, file_name, project_file_id), ACK_FIELDS)})
+            return json.dumps({"status": "success", "scene": compact_ack(context.retrieval_store.update_scene(scene_id, file_name), ACK_FIELDS)})
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
 

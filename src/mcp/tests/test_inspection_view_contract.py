@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
 from fastmcp import FastMCP
 
 from almond_mcp.features.context.tools import register
@@ -54,6 +55,42 @@ def test_invalid_model_view_guid_never_reaches_rhino():
     assert result.is_error
     assert result.structured_content["error_code"] == "invalid_arguments"
     assert calls == []
+
+
+@pytest.mark.parametrize("shared", [False, True])
+def test_current_tile_can_frame_explicit_object_ids(shared):
+    capture, calls = capture_tool({"inspection_capture": 1, "inspection_shared_scope": 1})
+    object_ids = [str(uuid4())]
+    tile = {"direction": "current", "frame_objects": True}
+    arguments = {"object_ids": object_ids} if shared else {}
+    if not shared:
+        tile["object_ids"] = object_ids
+    result = capture(views=[tile], expected_model_path=r"C:\offline\inspection.3dm", **arguments)
+    assert result.structured_content["error_code"] == "empty_scope"
+    assert calls[-1]["views"][0]["frame_objects"] is True
+    assert calls[-1]["views"][0]["direction"] == "current"
+
+
+@pytest.mark.parametrize("tile", [
+    {"frame_objects": True},
+    {"frame_objects": True, "direction": "front", "object_ids": [str(uuid4())]},
+    {"frame_objects": 1, "object_ids": [str(uuid4())]},
+])
+def test_frame_objects_requires_a_current_tile_with_object_ids(tile):
+    capture, calls = capture_tool({"inspection_capture": 1})
+    result = capture(views=[tile], expected_model_path=r"C:\offline\inspection.3dm")
+    assert result.is_error
+    assert "frame_objects" in result.structured_content["message"]
+    assert calls == []
+
+
+def test_current_tile_keeps_its_camera_by_default_even_with_object_ids():
+    capture, calls = capture_tool({"inspection_capture": 1})
+    result = capture(views=[{"object_ids": [str(uuid4())]}],
+                     expected_model_path=r"C:\offline\inspection.3dm")
+    assert result.structured_content["error_code"] == "empty_scope"
+    assert calls[-1]["views"][0]["direction"] == "current"
+    assert "frame_objects" not in calls[-1]["views"][0]
 
 
 def test_legacy_active_view_request_does_not_require_the_new_capability():

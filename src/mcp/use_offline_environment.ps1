@@ -12,6 +12,9 @@ if (-not (Test-Path -LiteralPath $offlinePython)) {
 # Do not derive this from TEMP/TMP: repeated calls must not nest the offline path.
 # Native Windows fixtures still need short paths when the checkout is deeply nested.
 $offlineTempRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Temp'
+# Prevent .NET first-run configuration from writing Windows user settings.
+$env:DOTNET_ADD_GLOBAL_TOOLS_TO_PATH = 'false'
+$env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
 $offlineSdk = $null
 if ($RequireDotNet -or $DotNet) {
     $candidates = if ($DotNet) { @($DotNet) } else {

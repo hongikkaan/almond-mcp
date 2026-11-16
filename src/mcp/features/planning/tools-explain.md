@@ -14,7 +14,7 @@ Args:
 ## get_planning
 
 <!-- instruction:get_planning -->
-Phase, Plan 또는 Step의 작업 기록을 조회합니다. 기본값은 식별·상태 요약이며, include_details=true이면 선택한 대상의 상세를 함께 반환합니다. Plan 상세에는 Step 요약이, Step 상세에는 해당 Step의 입출력 참조가 포함됩니다. 이 참조는 저장 기록이며 현재 형상의 실시간 검증 결과는 아닙니다.
+Phase, Plan 또는 Step의 작업 기록을 조회합니다. 기본값은 식별·상태 요약이며, include_details=true이면 선택한 대상의 상세를 함께 반환합니다. Plan 상세에는 Step 요약이, Step 상세에는 입출력 참조와 Takeaways·Design rationale이 포함됩니다. 다음 작업에 필요한 파일은 반환된 프로젝트 상대경로를 열어 내용을 확인합니다.
 
 `result`는 조회 결과 또는 오류를 담은 JSON 문자열입니다. 성공 시 status는 대상의 작업 상태이며, 오류는 status=error입니다. Plan과 Step은 `loop_no`·`revision`·`read_only`를 함께 반환합니다. **revision을 명시하면 현재 번호여도 읽기 전용 스냅샷**입니다.
 
@@ -36,14 +36,18 @@ Args:
 ## update_planning
 
 <!-- instruction:update_planning -->
-Phase·Plan의 작업 정보 또는 Step의 상태와 입출력 근거를 수정합니다. Plan·Step은 현재 Loop만 변경할 수 있습니다.
+Phase·Plan의 작업 정보 또는 Step의 상태, 입출력 참조, Takeaways·Design rationale을 수정합니다. Plan·Step은 현재 Loop만 변경할 수 있습니다.
 
-`depends_on`, `input_refs`, `output_refs`는 add/remove 패치이며 Plan의 대상·산출물·상하위 관계 배열은 전체 교체합니다. 생략 또는 null은 유지, 교체 배열의 []는 비웁니다.
+`depends_on`, `input_refs`, `output_refs`는 add/remove 패치이며 Plan의 대상·산출물·상하위 관계 배열은 전체 교체합니다. 생략 또는 null은 유지, 교체 배열의 []는 비웁니다. `takeaways`와 `design_rationale`은 빈 문자열로 비웁니다.
 
 응답은 JSON 문자열입니다. `changed`는 실제 변경 여부, `issues`는 건너뛴 항목입니다. 중복·충돌 등 적용하지 못한 패치 항목은 `issues`에 기록하며, 일부만 적용되면 `partial_success`를 반환합니다. Loop 실행 후 `expected_revision`을 지정할 때는 `loop_no`도 함께 지정합니다.
 
+Step을 실제로 `completed`로 바꾸려면 먼저 `confirmation_required`와 `confirmation`의 경고·선택지를 읽고 에이전트가 후속 호출에서 선택합니다. 보존할 객체가 있으면 먼저 `completion_token`과 `completion_decision=no`로 취소하고, 객체를 temp 밖으로 옮긴 후 새로 완료를 요청합니다. 정리할 범위가 확인되면 같은 요청 필드와 함께 새 `confirmation.token`을 `completion_token`에 넣어 `completion_decision=yes`로 답합니다. 토큰은 발급된 연결과 요청에서 한 번만 사용할 수 있으며, 발급 뒤 Loop 또는 리비전이 바뀌면 새로 확인해야 합니다.
+
+Yes는 Step 완료를 먼저 저장한 뒤 현재 연결 문서의 temp와 그 하위 레이어에 속한 객체를 제거합니다. 최상위 temp 레이어를 유지하고 그 하위 레이어를 모두 삭제합니다. 로컬 블록 정의에서도 해당 레이어의 구성원만 제거하며, 정의와 temp 밖 인스턴스의 배치를 보존합니다. Worksession 첨부, PlanSection 관리 데이터, Step 참조가 가리키는 파일도 보존합니다. 정리 건수는 `cleanup`에 있습니다. 실패 시 `cleanup_state`와 Step 상태를 읽습니다. Step 완료를 저장한 뒤 정리가 실패하면 `requires_reconciliation=true`를 반환하므로 Rhino의 temp 상태를 확인합니다.
+
 Args:
-    request: target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step은 상태와 문자열 목록 패치로 기록을 갱신합니다.
+    request: target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step은 상태·입출력 참조·판단 기록 중 필요한 필드만 갱신합니다. 완료 선택에는 원래 필드와 completion_token, completion_decision을 사용합니다.
 <!-- /instruction:update_planning -->
 
 ## list_plan_revisions

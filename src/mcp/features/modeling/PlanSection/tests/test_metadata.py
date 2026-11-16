@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace as NS
 from unittest.mock import Mock, patch
 
-from test_logic import ps
+from test_logic import ps, Attributes as DrawingAttributes
 
 
 class Point:
@@ -105,6 +105,50 @@ class TypedPlacement(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'conflict'):
             ps.read_saved_plane(attrs, 'draft_plane')
 
+    def test_move_keeps_drawing_ids_and_update_uses_new_output_placement(self):
+        clip = NS(Id='clip', Name='Plan', IsReference=False, Attributes=Attributes(),
+                  ClippingPlaneGeometry=NS(Plane=Plane()))
+        after = Plane(Point(30, 40, -3900))
+        stored = {}
+        drawing_layer = 5  # A local retained layer outside temp.
+        placed = DrawingAttributes(layer=drawing_layer)
+        ps.write_saved_plane(placed, 'ps:placement', Plane(Point(10, 20, 100)))
+        moved_shape = Mock(IsValid=True, Transform=Mock(return_value=True))
+        stored['drawing'] = NS(Id='drawing', IsReference=False,
+            Geometry=NS(Duplicate=Mock(side_effect=[Mock(), moved_shape])), Attributes=placed)
+        registry = { 'ps:clip:clip': '["drawing"]' }
+        class LayerTable:
+            def FindByFullPath(self, path, default): return 0
+            def __getitem__(self, index): return NS(GetUserString=registry.get)
+        def modify(guid, attributes, quiet):
+            (clip if guid == clip.Id else stored[guid]).Attributes = attributes
+            return True
+        doc = NS(Layers=LayerTable(), Objects=NS(FindId=stored.get, ModifyAttributes=modify,
+                                                Replace=Mock(return_value=True)))
+        self.geometry.Transform = NS(Translation=lambda vector:vector)
+        def make_subtraction(point, other):
+            return point.X-other.X, point.Y-other.Y, point.Z-other.Z
+        def generate(doc, cp, hatch, elevation, target, *args, **kwargs):
+            return dict(objects=[], target=target, report={}, extraction={})
+        with patch.object(Point, '__sub__', make_subtraction, create=True), \
+             patch.object(ps, 'System', NS(Guid=lambda value:value)), \
+             patch.object(ps, 'objects', side_effect=lambda doc:list(stored.values())), \
+             patch.object(ps, 'save_drawing_registry', side_effect=lambda doc, cp, value:
+                          registry.update({'ps:clip:'+cp.Id:value})), \
+             patch.object(ps, 'generate', side_effect=generate), \
+             patch.object(ps, 'bake', return_value=['regenerated']):
+            moved, updated = {}, {}
+            self.assertEqual(ps.process_clipping(doc, clip, ps.default_options('Move'),
+                None, None, lambda:False, target=after, result=moved), 'completed')
+            self.assertEqual(moved['object_ids'], ['drawing'])
+            self.assertEqual(stored['drawing'].Attributes.LayerIndex, drawing_layer)
+            self.assertEqual(ps.process_clipping(doc, clip, ps.default_options('Update'),
+                None, None, lambda:False, result=updated), 'completed')
+            self.assertEqual(moved['draw_plane']['origin'], [30, 40, -3900])
+            self.assertEqual(updated['draw_plane'], moved['draw_plane'])
+            self.assertEqual(updated['object_ids'], ['regenerated'])
+        moved_shape.Transform.assert_called_once_with((20, 20, -4000))
+
     def test_move_changes_only_position_and_retains_legacy_name_floor_and_notes(self):
         class MovePoint(Point):
             def __sub__(self, other):
@@ -174,7 +218,7 @@ class SourceMetadata(unittest.TestCase):
         item = dict(geometry=NS(Dispose=Mock()), attributes=Attributes(), role='section',
                     contributors=sources)
         original = NS(Dispose=Mock())
-        records = [{'geometry':original, 'attributes':first, 'resolved':Attributes()}]
+        records = [{'geometry':original, 'attributes':first, 'resolved':Attributes(), 'layer':'Walls'}]
         clip = NS(Id='clip', Name='6F')
         with patch.object(ps,'read_clip',return_value=dict(plane='cut',depth=None,target='target')), \
              patch.object(ps,'model_objects',return_value=records), \
@@ -200,7 +244,7 @@ class SourceMetadata(unittest.TestCase):
         right = ps.source_metadata(Attributes('Window', dictionary={'Phase':'B'}))
         item = dict(geometry=NS(Dispose=Mock()),attributes=Attributes(),role='elevation',
                     contributors={'block/left':left, 'block/right':right})
-        records = [dict(geometry=NS(Dispose=Mock()),attributes=Attributes(),resolved=Attributes())]
+        records = [dict(geometry=NS(Dispose=Mock()),attributes=Attributes(),resolved=Attributes(),layer='Walls')]
         with patch.object(ps,'read_clip',return_value=dict(plane='cut',depth=None,target='target')), \
              patch.object(ps,'model_objects',return_value=records), \
              patch.object(ps,'sections',return_value=[item]), \

@@ -1,0 +1,58 @@
+{
+  "ALMOND A4 Hidden": [
+    {
+      "length": 3,
+      "is_solid": true
+    },
+    {
+      "length": 1.5,
+      "is_solid": false
+    }
+  ],
+  "ALMOND A4 DashDot": [
+    {
+      "length": 6,
+      "is_solid": true
+    },
+    {
+      "length": 1.5,
+      "is_solid": false
+    },
+    {
+      "length": 0.5,
+      "is_solid": true
+    },
+    {
+      "length": 1.5,
+      "is_solid": false
+    }
+  ],
+  "ALMOND Hidden": [
+    {
+      "length": 6,
+      "is_solid": true
+    },
+    {
+      "length": 3,
+      "is_solid": false
+    }
+  ],
+  "ALMOND DashDot": [
+    {
+      "length": 8,
+      "is_solid": true
+    },
+    {
+      "length": 3,
+      "is_solid": false
+    },
+    {
+      "length": 1,
+      "is_solid": true
+    },
+    {
+      "length": 3,
+      "is_solid": false
+    }
+  ]
+}

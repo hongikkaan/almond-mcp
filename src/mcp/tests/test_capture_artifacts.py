@@ -90,6 +90,27 @@ def test_viewport_public_tool_saves_identical_png_in_bound_plan_artifacts(tmp_pa
     assert metadata["path"].startswith("tmp/design/captures/")
 
 
+def test_blank_layout_is_a_successful_png_and_saved_artifact(tmp_path, monkeypatch):
+    _owned(monkeypatch, tmp_path)
+    output = io.BytesIO()
+    Image.new("RGB", (30, 30), "white").save(output, format="PNG")
+    raw = output.getvalue()
+
+    def send(payload):
+        request = json.loads(payload)
+        assert request["type"] == "get_defined_viewcapture"
+        assert request["target_kind"] == "layout"
+        return json.dumps({"status": "success", "image": _native_image(raw)})
+
+    result = _tools(send)["get_defined_viewcapture"](target_kind="layout", target="Empty paper")
+
+    assert not result.is_error
+    assert base64.b64decode(_image(result).data) == raw
+    image_file = result.structured_content["image_file"]
+    assert image_file["status"] == "saved"
+    assert (tmp_path / image_file["path"]).read_bytes() == raw
+
+
 def test_inspection_public_tool_keeps_png_and_saves_in_connection_owned_scratch(tmp_path, monkeypatch):
     _owned(monkeypatch, tmp_path, plan="")
     raw = _png(128, 128)

@@ -14,15 +14,13 @@ from almond_mcp.instruction_text import tool_instruction, read_instruction
 
 import argparse
 import asyncio
-import json
 import os
 import sys
 import tempfile
 from importlib.metadata import version
 from pathlib import Path
 from pydantic import StrictBool, StrictInt
-from almond_mcp.managed_paths import relative_output, relative_path
-from almond_mcp.query_output import project_query
+from almond_mcp.managed_paths import relative_path
 from project import (ExclusiveFile, SharedStorageLease, STORAGE_PROTOCOL,
                      process_start_ticks, read_binding, read_json, verify_process, write_json)
 
@@ -88,70 +86,36 @@ def main(argv: list[str] | None = None, *, validate_binding=None, configure=None
 
 
 async def configure_project_context(mcp, args, binding, locations, *, sender=None, runtime=None):
-    """Register bound model and output path metadata for the current connection."""
-    @mcp.tool(name='context_04-get_project_info', output_schema=public_output_schema('project_info', wrapped=False))
-    @tool_instruction(__file__, 'project_info')
-    def project_info(sections: list[str] | None = None, include_ids: StrictBool = False,
-                     files_limit: StrictInt = 50, files_offset: StrictInt = 0) -> dict:
-        sections = ["project", "document", "locations"] if sections is None else sections
-        allowed = {"project", "document", "locations", "runtime"}
-        if not isinstance(sections, list) or any(section not in allowed for section in sections):
-            raise ValueError("sections must contain project, document, locations or runtime.")
-        if type(files_limit) is not int or not 1 <= files_limit <= 500 or type(files_offset) is not int or files_offset < 0:
-            raise ValueError("files_limit must be 1–500 and files_offset must be nonnegative integers.")
+    """Register tools that use the current connection's workspace."""
+    from almond_mcp.features.context.project_info import query_project_info
+    from almond_mcp.features.context.project_file_catalog import save_project_file
+
+    def verify_current_binding():
         current, _ = read_binding(args.session, args.token)
         if current != binding:
             raise RuntimeError(read_instruction(__file__, 'response-96'))
         verify_process(current)
-        result = {"status": "success"}
-        root = locations["project_dir"]
-        if {"project", "document"}.intersection(sections):
-            if sender is None:
-                raise RuntimeError("The live document observer is not connected.")
-            live = json.loads(sender(b'{"type":"get_rhino_context","sections":["document"],"selection_limit":0}'))
-            if not isinstance(live, dict):
-                return {"status": "error", "message": "The live document observation is incomplete."}
-            document = live.get("document")
-            if (live.get("status") != "success" or not isinstance(document, dict)
-                    or not isinstance(document.get("path"), str)):
-                return relative_output({**live, "status": "error",
-                    "message": live.get("message") or "The live document observation is incomplete."})
-            if live.get("warnings"):
-                result["warnings"] = live["warnings"]
-        if "project" in sections:
-            if runtime is None or runtime.workspace is None:
-                raise RuntimeError("The project workspace is not connected.")
-            page = runtime.workspace.store.list_project_files(files_limit, files_offset)
-            path = document["path"]
-            is_bound_document = bool(path and Path(path).resolve() == Path(locations["model_path"]).resolve())
-            result["project"] = {"project_root": root, "file_name": document.get("name"),
-                "file_path": relative_path(path, root),
-                "is_bound_document": is_bound_document,
-                "files": project_query(page["files"], include_ids=include_ids),
-                "files_page": {key: page[key] for key in ("total", "limit", "offset", "truncated")}}
-        if "document" in sections:
-            result["document"] = project_query(relative_output({key: value for key, value in document.items()
-                if key not in {"name", "path"} and (include_ids or key != "runtime_serial_number")}),
-                include_ids=include_ids)
-        if "locations" in sections:
-            work = runtime.workspace.current() if runtime and runtime.workspace else {"artifact_dir": ""}
-            result["locations"] = project_query({**work, "artifact_dir": work["artifact_dir"] or None}, include_ids=include_ids)
-            result["locations"].update(database=relative_path(locations["state_db"], root),
-                path_rule="Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths.",
-                artifact_rule="Select a Plan with plan_10-set_working tool; managed outputs use its current Loop folder .almond/produced/YYMMDD_name/01, /02, etc.; before plan_03-execute_looping tool they use the Plan root.")
-        if "runtime" in sections:
-            result["runtime"] = relative_output({"slot": binding["label"], "port": binding["port"],
-                "session_dir": locations["session_dir"], "scratch_root": str(Path(locations["temp"]) / "python"),
-                "rhino_temp_at_attach": binding.get("rhino_temp"),
-                "rhino_temp_note": "Rhino process TEMP at attach, not the artifact folder.",
-                "python_executable": sys.executable, "attachment": binding.get("attachment", "external")})
-            if runtime is not None:
-                result["runtime"]["rhinocode"] = runtime.rhinocode_availability()
-            result["runtime"] = project_query(result["runtime"], include_ids=include_ids)
-        result["next_step_guide"] = ("- plan_08-list tool에 request.target='plan'으로 프로젝트 진행상황을 조회합니다.\n"
-                                     "- 산출물 작업 공간은 plan_10-set_working tool으로 선택합니다.\n"
-                                     "- 객체 상태가 필요하면 inspect_02-get_objects tool로 확인합니다.")
-        return result
+
+    def project_file_store():
+        verify_current_binding()
+        if runtime is None or runtime.workspace is None:
+            raise RuntimeError("The project workspace is not connected.")
+        return runtime.workspace.store
+
+    @mcp.tool(name='context_04-get_project_info', output_schema=public_output_schema('project_info', wrapped=False))
+    @tool_instruction(__file__, 'project_info')
+    def project_info(sections: list[str] | None = None, include_ids: StrictBool = False,
+                     files_limit: StrictInt = 50, files_offset: StrictInt = 0) -> dict:
+        return query_project_info(sections, include_ids, files_limit, files_offset,
+                                  verify_binding=verify_current_binding, binding=binding,
+                                  locations=locations, sender=sender, runtime=runtime)
+
+    @mcp.tool(name='context_05-upsert_project_file',
+              annotations={'readOnlyHint': False, 'destructiveHint': False},
+              output_schema=public_output_schema('upsert_project_file', wrapped=False))
+    @tool_instruction(__file__, 'upsert_project_file')
+    def upsert_project_file(file_name: str, description: str | None = None) -> dict:
+        return save_project_file(project_file_store, file_name, description)
 
     @mcp.tool(name='script_03-get_execution', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_rhino_execution', wrapped=False))
     @tool_instruction(__file__, 'get_rhino_execution')

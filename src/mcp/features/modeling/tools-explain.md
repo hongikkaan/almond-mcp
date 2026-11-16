@@ -3,32 +3,22 @@
 ## plan_section
 
 <!-- instruction:plan_section -->
-클리핑 평면의 방향·깊이·참여 대상을 기준으로 활성 모델에서 단면선과 선택적인 해치·입면선을 계산해 모델 공간에 생성하거나 갱신합니다. 같은 클리핑의 기존 생성 도면이 교체되며 수동 편집이 사라질 수 있습니다. 부분 완료나 취소 뒤에도 결과가 남을 수 있습니다.
+활성 모델 또는 현재 Worksession에 첨부된 파일의 클리핑 평면으로 단면선·가시 입면선과 선택적 해치를 활성 모델에 생성합니다. 첨부 형상이 필요하면 먼저 필요한 파일을 Worksession에 첨부한 뒤 include_attachments를 선택합니다. Update는 저장된 위치에서 도면을 다시 계산하므로 기존 도면의 수동 편집이 교체될 수 있습니다. Move는 기존 도면 객체의 GUID와 수동 편집을 유지하며 원점을 옮깁니다.
+
+응답에는 클리핑별 상태와 도면 객체 GUID, 실제 배치 평면이 포함됩니다. Create·Update에는 실제 계산에 들어간 원본 레이어와 객체 수, 숨김·잠금·첨부 입력의 처리 조건도 포함됩니다. 일부 완료 또는 취소 뒤에는 완료된 도면이 남을 수 있습니다.
 
 Args:
-    operation: Create: 생성 또는 기존 도면 교체. Update: 기존 도면 재생성.
-    clipping_ids: 클리핑 평면 GUID 목록. 비어 있을 수 없으며 중복은 한 번만 처리.
-    points: Create만: 클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위.
+    operation: Create는 생성 또는 교체, Update는 저장 위치에서 재생성, Move는 기존 도면의 평행이동.
+    clipping_ids: 활성 모델 또는 현재 Worksession 첨부 파일의 클리핑 평면 GUID 목록. 비어 있을 수 없으며 중복은 한 번만 처리.
+    points: 클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위. Create에서 선택, Move에서 모든 GUID에 필수, Update에서 생략.
     hatch: 해치 생성 허용. 원본 단면 스타일의 채움과 형상 조건을 따름. 기본 true.
-    elevation: 입면선 포함. 기본 true.
-    small_details: 작은 상세 보호 여부. 기본 true.
+    small_details: 작은 입면 상세를 보호할지 여부. 기본 false.
     near_width: 가까운 입면선 출력 두께(mm). 기본 0.09, 양수이며 far_width 이상.
     far_width: 먼 입면선 출력 두께(mm). 기본 0.04, 양수이며 near_width 이하.
     near_dark: 가까운 입면선 출력 농도 0..100%. 기본 80, far_dark 이상.
     far_dark: 먼 입면선 출력 농도 0..100%. 기본 45, near_dark 이하.
-    expected_model_path: 생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인.
+    include_attachments: true면 활성 모델과 현재 Worksession 첨부 형상을 계산합니다. false면 활성 모델 형상만 계산합니다. Create에서 기본 false, Update에서 생략하면 기존 도면의 설정을 사용합니다. Move는 배치만 변경합니다.
 <!-- /instruction:plan_section -->
-
-## get_plan_section_result
-
-<!-- instruction:get_plan_section_result -->
-drawing_06-generate_plan_section tool의 큰 결과를 영수증으로 조회합니다. 같은 result_id의 json_chunk를 next_offset이 null일 때까지 이어 붙여 JSON으로 해석합니다. 저장된 실행 결과이며 현재 형상을 재관찰하지 않습니다. 결과는 같은 Bridge 프로세스·문서에서 최대 1시간 보관되지만 개수·용량 제한이나 재시작으로 더 일찍 사라질 수 있습니다.
-
-Args:
-    result_id: drawing_06-generate_plan_section tool의 result.result_id.
-    offset: 첫 페이지 기본 0, 이후 반환된 next_offset 사용. UTF-16 코드 단위.
-    expected_model_path: 생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인.
-<!-- /instruction:get_plan_section_result -->
 
 ## execute_rhino_script
 

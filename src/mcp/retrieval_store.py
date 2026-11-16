@@ -9,7 +9,7 @@ import os
 import re
 import sqlite3
 import uuid
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -72,6 +72,11 @@ class AlmondStore(
             connection.close()
 
     def _initialize(self) -> None:
+        from almond_mcp.features.planning.file_schema import check_file_name_collisions, migrate_project_file_keys
+        if self.database_path.exists():
+            with closing(sqlite3.connect(self.database_path.as_uri() + "?mode=ro", uri=True)) as preflight:
+                preflight.row_factory = sqlite3.Row
+                check_file_name_collisions(preflight)
         with self._connect() as connection:
             connection.execute("PRAGMA foreign_keys = OFF")
             connection.executescript(
@@ -241,6 +246,7 @@ class AlmondStore(
             from almond_mcp.features.components.semantic_schema import initialize_semantics
             initialize_semantics(self, connection)
             self._initialize_generation_plans(connection)
+            migrate_project_file_keys(connection)
             self._retire_drawing_sheet_constraints(connection)
             if connection.execute("PRAGMA foreign_key_check").fetchone():
                 raise ValueError("DB migration found invalid relationships; all migration changes were rolled back.")

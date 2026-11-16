@@ -19,8 +19,12 @@ class ScenesStore:
         if type(offset) is not int or offset < 0:
             raise ValueError("offset must be a non-negative integer.")
         with self._connect() as connection:
+            if file_name:
+                match = self._find_project_file(connection, file_name)
+                if match is not None:
+                    file_name = match["file_name"]
             rows = connection.execute(
-                "WITH matched AS (SELECT scene_id, name, file_name, project_file_id, units, revision, created_at, updated_at FROM _scene_records "
+                "WITH matched AS (SELECT scene_id, name, COALESCE(file_name,'') AS file_name, units, revision, created_at, updated_at FROM _scene_records "
                 "WHERE (? = '' OR instr(lower(name), lower(?)) > 0) "
                 "AND (? = '' OR file_name = ?)), "
                 "page AS (SELECT * FROM matched ORDER BY name COLLATE NOCASE, scene_id LIMIT ? OFFSET ?) "
@@ -34,7 +38,7 @@ class ScenesStore:
         return {"scenes": scenes, "total": total, "limit": limit, "offset": offset,
                 "truncated": offset + len(scenes) < total}
 
-    def create_scene(self, name: str, units: str = "mm", file_name: str = "", project_file_id: str | None = None) -> dict[str, Any]:
+    def create_scene(self, name: str, units: str = "mm", file_name: str = "") -> dict[str, Any]:
         if not isinstance(file_name, str):
             raise ValueError("file_name must be a string.")
         units = units.lower().strip()
@@ -44,29 +48,28 @@ class ScenesStore:
         now = _utc_now()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            file_id = self._project_file_reference(connection, file_name, project_file_id)
+            selected = self._project_file_reference(connection, file_name)
             connection.execute(
                 """
-                INSERT INTO scenes(scene_id, name, units, revision, created_at, updated_at, project_file_id)
+                INSERT INTO scenes(scene_id, name, units, revision, created_at, updated_at, file_name)
                 VALUES (?, ?, ?, 0, ?, ?, ?)
                 """,
-                (scene_id, name.strip() or "Untitled scene", units, now, now, file_id),
+                (scene_id, name.strip() or "Untitled scene", units, now, now, selected),
             )
         return self.get_scene(scene_id)
 
-    def update_scene(self, scene_id: str, file_name: str | None = None, project_file_id: str | None = None) -> dict[str, Any]:
+    def update_scene(self, scene_id: str, file_name: str | None = None) -> dict[str, Any]:
         if file_name is not None and not isinstance(file_name, str):
             raise ValueError("file_name must be a string.")
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute("SELECT file_name,project_file_id FROM _scene_records WHERE scene_id = ?", (scene_id,)).fetchone()
+            row = connection.execute("SELECT file_name FROM _scene_records WHERE scene_id = ?", (scene_id,)).fetchone()
             if row is None:
                 raise KeyError(f"Unknown scene_id: {scene_id}")
-            file_id = row['project_file_id'] if file_name is None and project_file_id is None else self._project_file_reference(connection,file_name or '',project_file_id)
-            if row['project_file_id'] != file_id:
-                connection.execute('UPDATE scenes SET project_file_id=? WHERE scene_id=?',(file_id,scene_id))
-                display = connection.execute('SELECT file_name FROM _scene_records WHERE scene_id=?',(scene_id,)).fetchone()[0]
-                self._record_revision(connection,scene_id,'update_scene',{'project_file_id':file_id,'file_name':display})
+            selected = row['file_name'] if file_name is None else self._project_file_reference(connection, file_name)
+            if row['file_name'] != selected:
+                connection.execute('UPDATE scenes SET file_name=? WHERE scene_id=?',(selected,scene_id))
+                self._record_revision(connection,scene_id,'update_scene',{'file_name':selected or ""})
         return self.get_scene(scene_id)
 
 
@@ -90,8 +93,8 @@ class ScenesStore:
             """, (scene_id,)).fetchone()[0]
             direct_count = connection.execute("SELECT COUNT(*) FROM scene_object_membership WHERE scene_id=? AND included=1", (scene_id,)).fetchone()[0]
             has_overrides = connection.execute("SELECT 1 FROM scene_object_membership WHERE scene_id=? LIMIT 1", (scene_id,)).fetchone() is not None
-        return dict(scene_id=scene['scene_id'], name=scene['name'], file_name=scene['file_name'],
-                    project_file_id=scene['project_file_id'],units=scene['units'],revision=int(scene['revision']),components=component_count,
+        return dict(scene_id=scene['scene_id'], name=scene['name'], file_name=scene['file_name'] or "",
+                    units=scene['units'],revision=int(scene['revision']),components=component_count,
                     objects=None if has_overrides else object_count, direct_objects=direct_count, live_verified=False,updated_at=scene['updated_at'])
 
     def _scene_group_objects(self, scene_id, model_path='', native_inspect=None):
@@ -150,7 +153,7 @@ class ScenesStore:
         with self._connect() as connection:
             self._component_scene_ids(connection, [scene_id])
             refs = connection.execute("""SELECT m.rhino_guid, m.included FROM scene_object_membership m
-                JOIN _project_file_locations l ON l.file_id=m.project_file_id
+                JOIN _project_file_locations l ON l.file_name=m.file_name
                 WHERE m.scene_id=? AND l.model_path=?""", (scene_id, model_path)).fetchall()
         included = [row['rhino_guid'] for row in refs if row['included']]
         excluded = {row['rhino_guid'] for row in refs if not row['included']}
@@ -183,10 +186,10 @@ class ScenesStore:
         with self._connect() as connection:
             connection.execute('BEGIN IMMEDIATE')
             self._component_scene_ids(connection, [scene_id])
-            file_row = connection.execute('SELECT file_id FROM _project_file_locations WHERE model_path=?', (model_path,)).fetchone()
-            file_id = file_row['file_id'] if file_row else None
-            refs = {} if file_id is None else {r['rhino_guid']: bool(r['included']) for r in connection.execute(
-                'SELECT rhino_guid,included FROM scene_object_membership WHERE scene_id=? AND project_file_id=?', (scene_id, file_id))}
+            file_row = connection.execute('SELECT file_name FROM _project_file_locations WHERE model_path=?', (model_path,)).fetchone()
+            file_name = file_row['file_name'] if file_row else None
+            refs = {} if file_name is None else {r['rhino_guid']: bool(r['included']) for r in connection.execute(
+                'SELECT rhino_guid,included FROM scene_object_membership WHERE scene_id=? AND file_name=?', (scene_id, file_name))}
             changed = 0
             for index, guid in valid:
                 present = refs.get(guid, guid in group)
@@ -196,16 +199,16 @@ class ScenesStore:
                     already.append(index); continue
                 if add and guid in missing:
                     failed.append(index); continue
-                if file_id is None:
-                    file_id = self._project_file_reference(connection, model_path=model_path)
+                if file_name is None:
+                    file_name = self._project_file_reference(connection, model_path=model_path)
                 # Store only differences from current group membership.
                 if add == (guid in group):
-                    connection.execute('DELETE FROM scene_object_membership WHERE scene_id=? AND project_file_id=? AND rhino_guid=?',
-                                       (scene_id, file_id, guid))
+                    connection.execute('DELETE FROM scene_object_membership WHERE scene_id=? AND file_name=? AND rhino_guid=?',
+                                       (scene_id, file_name, guid))
                     refs.pop(guid, None)
                 else:
                     connection.execute('INSERT OR REPLACE INTO scene_object_membership VALUES(?,?,?,?)',
-                                       (scene_id, file_id, guid, int(add)))
+                                       (scene_id, file_name, guid, int(add)))
                     refs[guid] = add
                 changed += 1
             if changed:

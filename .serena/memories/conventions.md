@@ -4,3 +4,4 @@
 - 소비자가 지켜야 할 계약을 모듈 SPEC에서 확인한다. 제품에 노출되는 `*-explain.md`와 정책 Markdown은 실행 중 읽히는 입력이다. 작업 지침 `AGENTS.md`와 전달 경로가 다르다.
 - 모델 경로와 Rhino GUID가 객체 identity를 구성한다. 모델 폴더 DB, 세션 token, A–J slot, lease, native 완료 확인을 보존한다. timeout·result_error는 rollback 증거가 아니므로 완료가 불확실한 수정을 자동 재시도하지 않는다.
 - 모듈 전용 검사는 각 모듈의 tests, 모듈 간 계약은 루트 `tests/`. Windows PowerShell·UTF-8을 사용한다.
+- 일상 폴더에서 `main`을 쓰는 경우 개발 워크트리는 작업 브랜치 또는 detached HEAD를 사용한다. `main` 체크아웃이 다른 워크트리 때문에 막히면 `git worktree list --porcelain`으로 소유 경로를 확인하고, 변경을 보존한 채 그 워크트리를 현재 커밋에서 detach한 다음 일상 폴더에서 체크아웃한다. 티켓 위임 전 HEAD와 일상 squash의 부모·파일 트리·체크아웃 검증은 `tests/verify_integration_worktree.ps1`을 사용한다.

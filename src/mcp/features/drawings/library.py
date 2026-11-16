@@ -20,6 +20,11 @@ class DrawingRecipeIndexer:
                 recipe_id = str(recipe.get("recipe_id", "")).strip()
                 if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", recipe_id):
                     raise ValueError("invalid recipe_id")
+                layers = recipe.get("layers")
+                if isinstance(layers, list):
+                    for layer in layers:
+                        if isinstance(layer, dict):
+                            layer.pop("linetype_segments", None)
                 recipe["_source_file"] = str(recipe_path)
                 self.recipes[recipe_id] = recipe
             except Exception as exc:

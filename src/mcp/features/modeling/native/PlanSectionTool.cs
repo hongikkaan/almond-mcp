@@ -21,14 +21,16 @@ _almond_args = json.loads(_almond_arguments_json)
 _almond_result_json = json.dumps(run(_almond_doc,
     _almond_args['operation'], _almond_args['clipping_ids'],
     points=_almond_args['points'], output='Document',
-    hatch=_almond_args['hatch'], elevation=_almond_args['elevation'],
+    hatch=_almond_args['hatch'],
     small_details=_almond_args['small_details'],
     near_width=_almond_args['near_width'], far_width=_almond_args['far_width'],
-    near_dark=_almond_args['near_dark'], far_dark=_almond_args['far_dark']))
+    near_dark=_almond_args['near_dark'], far_dark=_almond_args['far_dark'],
+    include_attachments=_almond_args.get('include_attachments'),
+    observe_attachments=_almond_observe_attachments))
 ";
         static readonly HashSet<string> Fields = new HashSet<string>(new[] {
-            "type", "operation", "clipping_ids", "points", "hatch", "elevation", "small_details",
-            "near_width", "far_width", "near_dark", "far_dark", "expected_model_path" });
+            "type", "operation", "clipping_ids", "points", "hatch", "small_details",
+            "near_width", "far_width", "near_dark", "far_dark", "expected_model_path", "include_attachments" });
 
         internal static JObject Validate(RhinoDoc doc, JObject request)
         {
@@ -46,10 +48,16 @@ _almond_result_json = json.dumps(run(_almond_doc,
             if (editor["stable"]?.Type != JTokenType.Boolean || !(bool)editor["stable"] || (string)editor["mode"] != "model")
                 throw new ArgumentException("Finish active commands or editing contexts before changing drawings.");
             var operation = request["operation"];
-            if (operation?.Type != JTokenType.String || ((string)operation != "Create" && (string)operation != "Update"))
-                throw new ArgumentException("PlanSection supports Create or Update Document output.");
+            if (operation?.Type != JTokenType.String || !new[] { "Create", "Update", "Move" }.Contains((string)operation))
+                throw new ArgumentException("PlanSection supports Create, Update or Move in the bound document.");
             if (!(request["clipping_ids"] is JArray input) || input.Count == 0)
                 throw new ArgumentException("Supply a nonempty clipping GUID list.");
+            var includeAttachments = request["include_attachments"];
+            if (includeAttachments != null && includeAttachments.Type != JTokenType.Boolean)
+                throw new ArgumentException("include_attachments must be boolean or omitted.");
+            Func<uint, bool> attachedModel = (bool?)includeAttachments == true && (string)operation != "Move"
+                ? ObserveAttachments(doc)
+                : null;
             var ids = new List<string>();
             foreach (var token in input)
             {
@@ -57,7 +65,13 @@ _almond_result_json = json.dumps(run(_almond_doc,
                     throw new ArgumentException("Each clipping ID must be a nonempty GUID string.");
                 var obj = doc.Objects.FindId(id);
                 if (!(obj is ClippingPlaneObject) || obj.IsDeleted || obj.Attributes.IsInstanceDefinitionObject)
-                    throw new ArgumentException("A clipping ID does not identify an available document clipping plane.");
+                    throw new ArgumentException("A clipping ID does not identify an available clipping plane.");
+                if (obj.IsReference)
+                {
+                    attachedModel ??= ObserveAttachments(doc);
+                    if (!attachedModel(obj.ReferenceModelSerialNumber))
+                        throw new ArgumentException("A reference clipping must belong to a current Worksession attachment.");
+                }
                 if (!ids.Contains(id.ToString())) ids.Add(id.ToString());
             }
             if (!(request["points"] is JObject points))
@@ -73,7 +87,9 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 foreach (var number in point) Finite(number);
                 placements[id.ToString()] = point.DeepClone();
             }
-            foreach (var field in new[] { "hatch", "elevation", "small_details" })
+            if ((string)operation == "Move" && placements.Count != ids.Count)
+                throw new ArgumentException("Move requires a placement point for every clipping GUID.");
+            foreach (var field in new[] { "hatch", "small_details" })
                 if (request[field]?.Type != JTokenType.Boolean) throw new ArgumentException(field + " must be boolean.");
             double nearWidth = Finite(request["near_width"]), farWidth = Finite(request["far_width"]),
                 nearDark = Finite(request["near_dark"]), farDark = Finite(request["far_dark"]);
@@ -84,6 +100,30 @@ _almond_result_json = json.dumps(run(_almond_doc,
             args["clipping_ids"] = new JArray(ids);
             args["points"] = placements;
             return args;
+        }
+
+        static Func<uint, bool> ObserveAttachments(RhinoDoc doc)
+        {
+            var warnings = new JArray();
+            if (!(WorksessionObservation.Read(doc, warnings) is JArray rows))
+                throw new InvalidOperationException("Cannot verify current Worksession attachments. " + String.Join(" ", warnings.Values<string>()));
+
+            var paths = new HashSet<string>(rows.Select(row => (string)row["file_path"]), StringComparer.OrdinalIgnoreCase);
+            var bySerial = new Dictionary<uint, bool>();
+            var worksession = doc.Worksession;
+            return serial =>
+            {
+                if (serial == 0 || paths.Count == 0) return false;
+                if (!bySerial.TryGetValue(serial, out var included))
+                {
+                    string path = worksession.ModelPathFromSerialNumber(serial);
+                    if (String.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
+                        throw new InvalidOperationException($"Cannot resolve Worksession reference model serial {serial} to a full path.");
+                    included = paths.Contains(Path.GetFullPath(path));
+                    bySerial.Add(serial, included);
+                }
+                return included;
+            };
         }
 
         static double Finite(JToken value)
@@ -105,101 +145,6 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 byte[] bytes = copy.ToArray();
                 using (var hash = SHA256.Create()) sha256 = BitConverter.ToString(hash.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
                 return "__name__ = 'almond_plansection_internal'\n" + Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
-            }
-        }
-
-        // ScriptExecutor deliberately accepts CLR data containers, not JTokens.
-        // Keep its size/depth/type limits unchanged and let CaptureResult enforce them.
-        static object ResultData(JToken token)
-        {
-            if (token is JObject obj)
-                return obj.Properties().ToDictionary(p => p.Name, p => ResultData(p.Value));
-            if (token is JArray array)
-                return array.Select(ResultData).ToList();
-            return ((JValue)token).Value;
-        }
-
-        sealed class Receipt
-        {
-            public string Json, ModelPath, Sha256;
-            public uint Document;
-            public DateTime Created;
-        }
-        static readonly Dictionary<string, Receipt> Receipts = new Dictionary<string, Receipt>();
-        const int ReceiptBudget = 64 * 1024 * 1024; // UTF-16 in-memory bytes, across all retained results.
-        static void ExpireReceipts()
-        {
-            foreach (var key in Receipts.Where(p => DateTime.UtcNow - p.Value.Created >= TimeSpan.FromHours(1)).Select(p => p.Key).ToArray())
-                Receipts.Remove(key);
-        }
-        static object Deliver(RhinoDoc doc, JObject drawing)
-        {
-            string json = drawing.ToString(Formatting.None);
-            // Small results retain the original response; conservative budget leaves envelope headroom.
-            if (Encoding.UTF8.GetByteCount(json) <= 32768 && !drawing.Descendants().Any(t => t.Path.Count(c => c == '.' || c == '[') > 12))
-                return ResultData(drawing);
-            var summary = new JObject {
-                ["status"] = drawing["status"], ["requested"] = drawing["requested"], ["completed"] = drawing["completed"],
-                ["algorithm_sha256"] = drawing["algorithm_sha256"], ["output"] = "Document",
-                ["result_delivery"] = "paged", ["result_characters"] = json.Length,
-                ["retention"] = "Bridge process, same document, up to one hour; latest 8 results within 64 MiB total. Read promptly."
-            };
-            if ((long)json.Length * 2 > ReceiptBudget)
-            {
-                summary["result_delivery"] = "unavailable";
-                summary["result_error"] = "receipt_too_large: result exceeds 64 MiB UTF-16 retention capacity; drawing was not retried.";
-                return ResultData(summary);
-            }
-            using (var hash = SHA256.Create())
-                summary["result_sha256"] = BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(json))).Replace("-", "").ToLowerInvariant();
-            string id = Guid.NewGuid().ToString("N");
-            lock (Receipts)
-            {
-                ExpireReceipts();
-                while (Receipts.Count >= 8 || Receipts.Values.Sum(r => (long)r.Json.Length * 2) + (long)json.Length * 2 > ReceiptBudget)
-                    Receipts.Remove(Receipts.OrderBy(p => p.Value.Created).First().Key);
-                Receipts.Add(id, new Receipt { Json = json, ModelPath = Path.GetFullPath(doc.Path), Document = doc.RuntimeSerialNumber,
-                    Created = DateTime.UtcNow, Sha256 = (string)summary["result_sha256"] });
-            }
-            summary["result_id"] = id;
-            return ResultData(summary);
-        }
-
-        public static JObject ReadResult(RhinoDoc doc, JObject request)
-        {
-            try
-            {
-                if (request == null || request.Properties().Any(p => !new[] { "type", "result_id", "offset", "expected_model_path" }.Contains(p.Name)) ||
-                    request["result_id"]?.Type != JTokenType.String || !Guid.TryParseExact((string)request["result_id"], "N", out var id) ||
-                    request["offset"]?.Type != JTokenType.Integer || (long)request["offset"] < 0 || (long)request["offset"] > Int32.MaxValue)
-                    throw new ArgumentException("Supply a receipt ID and nonnegative UTF-16 offset from the previous page.");
-                if (doc == null || String.IsNullOrWhiteSpace(doc.Path) || request["expected_model_path"]?.Type != JTokenType.String ||
-                    !Path.IsPathRooted((string)request["expected_model_path"]) ||
-                    !String.Equals(Path.GetFullPath(doc.Path), Path.GetFullPath((string)request["expected_model_path"]), StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException("Read the receipt through its bound saved document.");
-                lock (Receipts)
-                {
-                    ExpireReceipts();
-                    if (!Receipts.TryGetValue(id.ToString("N"), out var receipt))
-                        return new JObject { ["status"] = "error", ["error_code"] = "plan_section_result_expired",
-                            ["message"] = "Receipt expired, was evicted, or its Bridge restarted. Inspect existing drawings; do not regenerate to recover this result." };
-                    if (receipt.Document != doc.RuntimeSerialNumber || !String.Equals(receipt.ModelPath, Path.GetFullPath(doc.Path), StringComparison.OrdinalIgnoreCase))
-                        throw new ArgumentException("The receipt belongs to another document instance.");
-                    int offset = (int)request["offset"];
-                    if (offset > receipt.Json.Length || (offset > 0 && offset < receipt.Json.Length && Char.IsLowSurrogate(receipt.Json[offset])))
-                        throw new ArgumentException("Invalid result offset.");
-                    int count = Math.Min(4096, receipt.Json.Length - offset);
-                    if (count > 0 && offset + count < receipt.Json.Length && Char.IsHighSurrogate(receipt.Json[offset + count - 1])) count--;
-                    return new JObject { ["status"] = "success", ["result_id"] = id.ToString("N"), ["offset"] = offset,
-                        ["json_chunk"] = receipt.Json.Substring(offset, count), ["total_characters"] = receipt.Json.Length,
-                        ["next_offset"] = offset + count < receipt.Json.Length ? (JToken)(offset + count) : JValue.CreateNull(),
-                        ["result_sha256"] = receipt.Sha256,
-                        ["observation"] = "Stored execution result; does not re-observe current geometry or execute drawing generation." };
-                }
-            }
-            catch (Exception error)
-            {
-                return new JObject { ["status"] = "error", ["error_code"] = "invalid_arguments", ["message"] = error.Message };
             }
         }
 
@@ -246,12 +191,13 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 if (!python.ExecuteScript(source)) throw new InvalidOperationException("The packaged PlanSection algorithm could not be loaded.");
                 python.SetVariable("_almond_doc", doc);
                 python.SetVariable("_almond_arguments_json", args.ToString(Formatting.None));
+                python.SetVariable("_almond_observe_attachments", new Func<Func<uint, bool>>(() => ObserveAttachments(doc)));
                 Validate(doc, request); // Runtime initialization must not stale the document/editor check.
+                JObject drawing = null;
                 response = JObject.FromObject(new ScriptExecutor().ExecuteAction(doc, () =>
                 {
                     entered = true;
                     if (!python.ExecuteScript(Invoke)) throw new InvalidOperationException("PlanSection did not return an execution result.");
-                    JObject drawing;
                     using (var reader = new JsonTextReader(new StringReader((string)python.GetVariable("_almond_result_json"))))
                     {
                         reader.DateParseHandling = DateParseHandling.None;
@@ -259,16 +205,19 @@ _almond_result_json = json.dumps(run(_almond_doc,
                     }
                     drawing["algorithm_sha256"] = sha256;
                     drawing["output"] = "Document";
-                    return Deliver(doc, drawing);
+                    // The fixed algorithm returns detached JSON. ScriptExecutor still owns Undo
+                    // and limits results from its general-purpose execution paths.
+                    return null;
                 }));
-                if ((string)response["status"] != "success" || response["result_error"] != null)
+                if ((string)response["status"] != "success")
                 {
                     response["mutation_state"] = entered ? "unknown" : "not_started";
                     response["requires_reconciliation"] = entered;
                 }
                 else
                 {
-                    response["drawing_status"] = response["result"]?["status"]?.DeepClone();
+                    response["result"] = drawing;
+                    response["drawing_status"] = drawing["status"]?.DeepClone();
                     response["mutation_state"] = (string)response["drawing_status"] == "completed" ? "completed" : "partial";
                 }
             }

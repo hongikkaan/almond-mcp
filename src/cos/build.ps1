@@ -9,6 +9,7 @@ $data=Join-Path $root 'data'
 New-Item -ItemType Directory -Path $data -Force | Out-Null
 $env:DOTNET_CLI_TELEMETRY_OPTOUT='1'
 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE='1'
+$env:DOTNET_ADD_GLOBAL_TOOLS_TO_PATH='false'
 $env:DOTNET_GENERATE_ASPNET_CERTIFICATE='false'
 $env:DOTNET_NOLOGO='1'
 $env:DOTNET_CLI_HOME=Join-Path $data 'dotnet-home'

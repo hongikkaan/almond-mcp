@@ -1,6 +1,7 @@
 """Public typed list edits, partial success, and whole-request rejection boundaries."""
 import asyncio
 import json
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -163,3 +164,70 @@ def test_revision_recording_failure_rolls_back_valid_partial_edits(context, monk
                        output_refs={"add": ["valid", ""]})))
     assert result["status"] == "error"
     assert store.get_plan(plan["plan_id"]) == plan
+
+
+def test_step_handoff_records_decisions_separately_from_file_refs(context):
+    store, call = context
+    plan = store.create_plan("Review entrance")
+    plan_id = plan["plan_id"]
+    current = store.execute_looping(plan_id)
+    step = {"target": "step", "plan_id": plan_id, "step_id": current["steps"][0]["step_id"], "loop_no": 1}
+    notes = {"takeaways": "북쪽 출입구의 동선을 유지한다.",
+             "design_rationale": "기존 보행 축을 살린다.\n후속 도면에서도 이를 확인한다."}
+    result = body(call("plan_12-update", request={
+        **step, **notes, "expected_revision": current["revision"],
+        "input_refs": {"add": ["source/survey.md"]},
+        "output_refs": {"add": [".almond/produced/261116_review/01/entry.md"]},
+    }))
+    assert result["plan"]["revision"] == current["revision"] + 1
+    detail = body(call("plan_05-get", request={**step, "include_details": True}))
+    assert detail["status"] == "pending"
+    assert detail["step"] == {
+        "step_type": current["steps"][0]["step_type"], **notes,
+        "input_refs": ["source/survey.md"],
+        "output_refs": [".almond/produced/261116_review/01/entry.md"],
+    }
+    unchanged = body(call("plan_12-update", request={**step, "takeaways": None,
+                                                     "design_rationale": notes["design_rationale"]}))
+    assert unchanged["changed"] is False
+    assert unchanged["plan"]["revision"] == detail["revision"]
+    cleared = body(call("plan_12-update", request={**step, "takeaways": ""}))
+    assert cleared["plan"]["revision"] == detail["revision"] + 1
+    current = body(call("plan_05-get", request={**step, "include_details": True}))
+    assert current["step"] == {**detail["step"], "takeaways": ""}
+
+
+def test_reopening_pre_handoff_database_preserves_step_files_and_revision(tmp_path):
+    db = tmp_path / "legacy-handoff.sqlite3"
+    store = AlmondStore(db)
+    plan = store.create_plan("Check entrance")
+    plan_id = plan["plan_id"]
+    step_id = plan["steps"][0]["step_id"]
+    store.execute_looping(plan_id)
+    saved = store.update_plan_step(plan_id, step_id, "running",
+                                   input_refs=["source/survey.md"], output_refs=["result/entrance.pdf"])
+    # Prepare a pre-handoff database without the new columns or snapshot keys.
+    with sqlite3.connect(db) as connection:
+        for field in ("takeaways", "design_rationale"):
+            connection.execute(f"ALTER TABLE generation_loop_steps DROP COLUMN {field}")
+        for loop_no, revision, raw in connection.execute(
+            "SELECT loop_no, revision, snapshot_json FROM generation_plan_revisions"
+        ).fetchall():
+            snapshot = json.loads(raw)
+            for step in snapshot["steps"]:
+                step.pop("takeaways")
+                step.pop("design_rationale")
+            connection.execute("""UPDATE generation_plan_revisions SET snapshot_json = ?
+                                  WHERE plan_id = ? AND loop_no = ? AND revision = ?""",
+                               (json.dumps(snapshot), plan_id, loop_no, revision))
+
+    reopened = AlmondStore(db)
+    current = reopened.get_step(plan_id, step_id, loop_no=1)
+    past = reopened.get_step(plan_id, step_id, loop_no=1, revision=saved["revision"])
+    assert current["revision"] == saved["revision"]
+    assert current["read_only"] is False and past["read_only"] is True
+    for record in (current, past):
+        assert record["step"]["status"] == "running"
+        assert record["step"]["input_refs"] == ["source/survey.md"]
+        assert record["step"]["output_refs"] == ["result/entrance.pdf"]
+        assert record["step"]["takeaways"] == record["step"]["design_rationale"] == ""

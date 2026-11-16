@@ -59,7 +59,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 
 | 폴더 | 분류·성격 | 소유한 구현과 기능 |
 |---|---|---|
-| [`context`](features/context) | 관찰·진단 | 모델·화면·프로브와 저장소 상태를 조회한다. runtime의 context_04-get_project_info tool와 COS 연결관리 도구는 각 호스트에 남는다. |
+| [`context`](features/context) | 관찰·진단 | 모델·화면·프로브와 저장소 상태를 조회한다. 연결 runtime은 context_04-get_project_info tool을 등록하고, context 기능은 호출 이후 관찰과 응답 구성을 처리한다. |
 | [`planning`](features/planning) | 작업계획 | `plan_02-create` tool, `plan_05-get` tool, `plan_08-list` tool, `plan_12-update` tool, `plan_07-list_revisions` tool, `inspect_05-resolve_targets` tool, `inspect_04-get_selection_references` tool |
 | [`scenes`](features/scenes) | Scene | 설계 의도와 Scene 장부, 일반 객체의 Scene 참조를 관리한다. |
 | [`components`](features/components) | Component | 등록 group의 소유권·계층·조회·동기화, focus·교차 관찰 및 native snapshot 정합과 SQL을 소유한다. |
@@ -85,7 +85,7 @@ package는 70개, 문서 전용 runtime은 6개를 더한 공통 76개 도구를
 | Scene | `scene_02-create` tool, `scene_12-update` tool, `scene_04-get` tool, `scene_07-list` tool, `scene_06-get_objects` tool, `scene_01-add_objects` tool, `scene_10-remove_objects` tool |
 | Component | `scene_13-upsert_holon` tool, `scene_05-get_holon` tool, `scene_08-list_holons` tool, `scene_11-sync_holon` tool, `scene_09-remove_holon` tool, `intersect_02-resolve` tool, `scene_03-focus_holons` tool |
 | 설계 참고자료 | `context_01-get_policy` tool, `research_01-get_construction_guidance` tool, `research_02-get_typology_narrative` tool, `research_03-search_details` tool |
-| 모델링·재료 | `script_02-run_rhino` tool, `script_04-save_document` tool, `model_02-edit_planar_face` tool, `model_03-edit_planar_faces` tool, `model_05-setup` tool, `model_04-list_materials` tool, `model_01-assign_material` tool, `drawing_06-generate_plan_section` tool, `drawing_03-get_plan_section_result` tool |
+| 모델링·재료 | `script_02-run_rhino` tool, `script_04-save_document` tool, `model_02-edit_planar_face` tool, `model_03-edit_planar_faces` tool, `model_05-setup` tool, `model_04-list_materials` tool, `model_01-assign_material` tool, `drawing_06-generate_plan_section` tool |
 | Grasshopper | `grasshopper_03-list_library` tool, `grasshopper_01-get_logic` tool, `grasshopper_02-list_capsules` tool, `grasshopper_04-run_definition` tool |
 | 자산 | `asset_05-list` tool, `asset_11-search` tool, `asset_04-get` tool, `asset_07-prepare` tool, `asset_09-register` tool, `asset_08-refresh` tool, `asset_03-get_drawings` tool, `asset_02-generate_drawing_views` tool, `asset_01-audit_drawing` tool, `asset_06-place` tool, `asset_10-search_repository` tool |
 | 다이어그램 | `diagram_02-list` tool, `diagram_04-search` tool, `diagram_01-get` tool, `diagram_03-place` tool |
@@ -181,7 +181,7 @@ Plan·Step 조회의 loop_no 생략은 최신 회차, revision 생략은 선택 
 
 #### 파일·작업자료·역조회
 
-Phase는 `generation_phase_files`에서 순서 있는 여러 파일 관계를 유지하고 공개 file_name은 배열로 반환한다. create/update_phase는 문자열 또는 문자열 배열의 파일명을 받고 내부 project_file_id는 노출하지 않는다. 기존 단일 관계를 이관하고 호환 키에 첫 파일을 유지한다. Scene의 project_file_id는 단일 project_files 관계이며 미지정 file_name은 빈 문자열이다. `context_04-get_project_info tool(sections=["project"], include_ids=true)`의 `project.files`로 파일명과 선택 가능한 ID를 조회한다. 선택한 Plan의 `artifact_dir`은 프로젝트 `.almond/produced/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `plan_10-set_working` tool은 폴더를 재사용하고 선택 시점의 Plan revision을 반환한다. 첫 경로 설정으로 revision이 증가했다면 증가한 값을 반환하므로 후속 수정의 expected_revision에 사용할 수 있다. 실행한 회차의 출력은 그 아래 01, 02 등 번호 폴더에 두고 현재 회차 내 덮어쓰기는 허용한다. 이전 결과는 원래 경로의 input_refs로 재사용하고 새 결과는 현재 회차에 쓴다. plan_10-set_working tool은 loop_no와 Plan 루트/회차 경로를 반환하며 오래된 회차 선택의 출력은 차단한다. plan_03-execute_looping tool도 기존 산출물 잠금·native 완료 장벽을 지켜 미확정 쓰기 중 회차를 전환하지 않는다. `plan_09-rename_artifact_folder` tool는 실행 전이고 과거 회차가 참조하지 않는 폴더만 변경하며 기존 revision은 보존한다.
+Phase는 `generation_phase_files`에서 순서 있는 여러 등록 파일명을 유지하고 공개 file_name은 배열로 반환한다. Scene은 등록 파일명을 하나 고를 수 있으며 미지정 file_name은 빈 문자열이다. Phase와 Scene에서 비어 있지 않은 연결은 `context_04-get_project_info` tool의 `project.files`에 있는 파일명만 선택한다. 선택한 Plan의 `artifact_dir`은 프로젝트 `.almond/produced/YYMMDD_name` 아래에 둔다. `artifact_refs`와 Step 입출력 참조는 프로젝트 상대경로다. `plan_10-set_working` tool은 폴더를 재사용하고 선택 시점의 Plan revision을 반환한다. 첫 경로 설정으로 revision이 증가했다면 증가한 값을 반환하므로 후속 수정의 expected_revision에 사용할 수 있다. 실행한 회차의 출력은 그 아래 01, 02 등 번호 폴더에 두고 현재 회차 내 덮어쓰기는 허용한다. 이전 결과는 원래 경로의 input_refs로 재사용하고 새 결과는 현재 회차에 쓴다. plan_10-set_working tool은 loop_no와 Plan 루트/회차 경로를 반환하며 오래된 회차 선택의 출력은 차단한다. plan_03-execute_looping tool도 기존 산출물 잠금·native 완료 장벽을 지켜 미확정 쓰기 중 회차를 전환하지 않는다. `plan_09-rename_artifact_folder` tool는 실행 전이고 과거 회차가 참조하지 않는 폴더만 변경하며 기존 revision은 보존한다.
 
 `inspect_04-get_selection_references` tool는 선택 객체에서 등록 Component의 조상과 해당 Component를 대상으로 하는 Plan 및 그 Step을 찾는다. 계획 관련 조회에는 `include_ids` 인자가 없고 ID를 항상 출력한다.
 
@@ -203,9 +203,9 @@ Python 지침만 변경했을 때 Rhino RHP 빌드·등록 변경은 필요하�
 
 ## 조회와 작업자료 계약
 
-`context_04-get_project_info` tool는 project/document/locations를 기본 조회하며 `sections`로 필요한 항목과 선택 runtime 진단만 고른다. project 또는 document를 요청하면 native 문서 관측을 한 번 수행한다. project의 `file_name`·`file_path`는 관측한 문서의 이름·경로이고 `is_bound_document`는 연결된 모델과 같으면 true, 다르면 false인 단일 불리언이다. 관측 실패나 경로 정보 누락은 오류로 반환하고, 별도의 확인 성공·실패 필드나 일치 여부 값을 만들지 않는다. 문서 변경·재연결 후에는 project를 다시 조회한다. document에는 단위·공차·수정 상태·수량을 두며 이름·경로를 중복하지 않는다. `include_ids=true`일 때만 문서 `runtime_serial_number`와 runtime의 `rhinocode.pipe_id`를 제공한다.
+`context_04-get_project_info` tool은 project, document, named_views, layouts, layer_tree, locations를 기본 조회한다. `sections`로 필요한 항목 또는 runtime 진단만 고른다. 연결 후 이 도구를 호출해야 관찰이 실행되며 한 호출에서 요청한 문서·뷰·레이어 정보를 한 번에 관찰한다. project는 문서 이름·경로와 연결 모델의 `is_bound_document` 일치 여부를 반환한다. 문서 관찰 실패와 경로 누락은 오류로 반환한다. 문서 변경·재연결 후에는 project를 다시 조회한다. document에는 단위·공차·수정 상태·수량을 제공한다. `include_ids=true`이면 문서 `runtime_serial_number`와 runtime의 `rhinocode.pipe_id`도 제공한다.
 
-project의 `files`는 DB에 기록된 파일 목록으로, 디스크 존재나 열린 문서를 보증하지 않는다. `files_limit`은 1–500(기본 50), `files_offset`은 0 이상이다. `files_page`의 total/limit/offset/truncated를 보존하며 truncated는 뒤에 더 조회할 행이 있다는 뜻이다. 같은 이름의 파일은 `include_ids=true`의 `project_file_id`로 구분한다. 공개 `list_project_files` 도구는 없으며 저장소의 내부 목록 조회 메서드를 재사용한다.
+project의 `files`는 `context_05-upsert_project_file` tool로 작성한 파일명과 설명의 카탈로그다. 파일명은 Windows 대소문자 기준으로 프로젝트 안에서 고유하며 현재 파일 관계의 키다. 기존 DB 파일 관계는 파일명으로 이관한다. 둘 이상의 기록이 같은 이름으로 해석되면 이름 및 알려진 경로를 보고하고 이관을 중단한다. 설명을 기록하지 않은 파일은 null이다. 이 목록은 디스크 존재나 열린 문서를 보증하지 않는다. `files_limit`은 1–500(기본 50), `files_offset`은 0 이상이다. `files_page`의 total/limit/offset/truncated를 보존하며 truncated는 뒤에 더 조회할 행이 있다는 뜻이다. `worksession_files`는 Rhino에 현재 첨부한 모델 경로의 별도 조회 결과다. 현재 문서는 목록에서 제외하며 첨부가 없으면 빈 배열, 관찰에 실패하면 null과 경고를 반환한다. 이 조회는 DB에 파일을 등록하지 않는다.
 
 locations는 프로젝트 공통 `database`와 현재 연결이 선택한 Plan의 `artifact_dir`·경로 규칙을 제공한다. 산출물 폴더 미선택은 null이고 Plan/Step ID는 `include_ids=true`일 때만 포함한다. `project_root`는 절대경로이고 다른 관리 경로는 프로젝트 상대경로다. `root_variable`·`root_variable_set` 및 artifacts/instructions section은 제공하지 않는다. locations/runtime만 요청하면 live 문서를 조회하지 않는다. `inspect_03-get_document_context` tool는 document/viewport/editor/named_views/layouts/display_modes/viewports에서 요청한 항목만 수집한다. 기본은 document/named_views/layouts/display_modes와 next_step_guide이며 명시 sections에는 next_step_guide를 붙이지 않는다. Named View/Layout/표시 모드 ID는 항상 제공한다. editor의 provider·명령·Undo 근거는 include_editor_details로 선택한다.
 선택·그룹·일반 객체 조회는 inspect_02-get_objects tool로 통합한다. 기본 current는 화면 밖을 포함한 표시·비잠금 모델 객체이며 selected 또는 inside_window로 좁힌다. document는 숨김·잠금 객체와 명시 object_ids 조회를 포함하고, group_ids는 두 범위 모두에서 사용할 수 있다. recursive는 그룹·블록을 함께 펼친 hierarchy를 반환한다. 후속 페이지는 첫 snapshot을 expected_snapshot으로 전달해 조회 사이 변경을 검사한다. context에는 이미지·문서 이름/경로를 넣지 않는다. capture_04-defined_view tool는 Named View/실제 Layout 용지를, capture_03-current_view tool는 현재 모델 화면을 캡처한다. 후자는 여러 종류의 일반 객체를 공통 선택 경로로 확대하고 선택적으로 native Isolate를 적용하며 실제 화면 상태를 유지한다. 세부 한도와 편집 중 조회의 불완전성·실패 후 변경 근거는 관측 계약을 따른다.
@@ -237,9 +237,11 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 plan_09-rename_ar
 
 `context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `BASIC-INSTRUCTIONS.md`, 공개 도구명과 `available_policies`를 반환한다. BASIC은 설계·관찰·검수에 공통으로 적용할 판단 기준과 개념을 담는다. 활동별 지침은 `features/guidance/policies/`에 두며 `spatial_modeling`, `observation`, `drawing`, `design_exploration`, `feedback_reporting`을 선택해 읽는다. `metadata`는 객체·그룹 메타데이터 규칙, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 개별 도구의 설명과 호출법은 `tools/list`에서 확인한다.
 
-standalone MCP의 initialize.instructions는 비어 있고, Rhino 문서에 연결된 MCP 실행기는 그 필드로 모델링 시작 안내를 전달한다. 자세한 지침 본문은 context_01-get_policy tool에서 조회한다. [외부 연결기의 초기화 안내](../cos/SPEC.md#공통-모델링-안내)는 별도 계약이다. [stdio 계약 검사](../../tests/integration/test_stdio_contract.py)가 이 경로들을 확인한다.
+RhinoTerminal과 별도 창의 문서 전용 세션, beyond 및 CoS의 외부 host는 initialize.instructions로 공통 시작 안내를 전달한다. 기본 지침 원본은 [BASIC-INSTRUCTIONS.md](BASIC-INSTRUCTIONS.md)이며 설계 판단 원본은 같은 폴더의 [design_judgment.md](design_judgment.md)다. 서버는 UTF-8 원본의 본문을 파일명과 함께 한 번씩 전달하며, 서버에서 본문을 잘라내지 않는다. 누락, 읽기 실패, 인코딩 오류 또는 빈 문서는 해당 파일명과 원인을 같은 응답에 표시한다. 배포된 유효한 본문은 계속 전달한다.
 
-`modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`와 활동별 지침은 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
+standalone MCP의 initialize.instructions는 비어 있다. context_01-get_policy tool로 활동별 지침을 조회하거나 필요할 때 기존 BASIC을 다시 읽을 수 있다. [외부 연결기의 시작 안내](../cos/SPEC.md#공통-모델링-안내)와 공통 본문의 전달은 [stdio 검사](../../tests/integration/test_guidance_delivery.py)에서 확인한다.
+
+`modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 시작 문서의 본문과 가용 상태도 계산에 포함한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`와 활동별 지침은 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
 
 reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기는 선택된 연결을 자동으로 사용한다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 공개 스키마와 응답의 선택값 일치, cold stdio와 외부 경로의 스키마 일치, wheel·sdist의 지침 파일을 확인한다.
 

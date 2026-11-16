@@ -18,12 +18,12 @@ def populated_store(path):
     store = AlmondStore(path)
     scene = store.create_scene('Arrival')
     with store._connect() as con:
-        con.execute("INSERT INTO project_files VALUES('file_a','model.3dm')")
-        con.execute("INSERT INTO _project_file_locations VALUES('file_a',?)", (r'C:\fixture\model.3dm',))
+        con.execute("INSERT INTO project_files(file_name,registered) VALUES('model.3dm',1)")
+        con.execute("INSERT INTO _project_file_locations VALUES('model.3dm',?)", (r'C:\fixture\model.3dm',))
         for handle in ('component_parent', 'component_child'):
             con.execute('''INSERT INTO ontological_holons
-                (ontological_id,project_file_id,rhino_group_id,name,created_at,updated_at)
-                VALUES(?,'file_a',?,?,'2026-11-01T00:00:00+00:00','2026-11-01T00:00:00+00:00')''',
+                (ontological_id,file_name,rhino_group_id,name,created_at,updated_at)
+                VALUES(?,'model.3dm',?,?,'2026-11-01T00:00:00+00:00','2026-11-01T00:00:00+00:00')''',
                 (handle, handle + '_group', handle))
             con.execute('INSERT INTO ontological_scene_context VALUES(?,?)', (handle, scene['scene_id']))
         con.execute("UPDATE ontological_holons SET parent_ontological_id='component_parent' WHERE ontological_id='component_child'")

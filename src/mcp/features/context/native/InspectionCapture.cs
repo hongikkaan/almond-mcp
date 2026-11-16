@@ -49,13 +49,18 @@ namespace RhinoAlmondBridge
                 foreach (var token in views)
                 {
                     var tile = token as JObject;
-                    if (tile == null || tile.Properties().Any(p => !new[] { "object_ids", "direction", "display_mode", "label" }.Contains(p.Name)))
-                        throw new ArgumentException("Each tile accepts object_ids, direction, display_mode and label.");
+                    if (tile == null || tile.Properties().Any(p => !new[] { "object_ids", "direction", "display_mode", "label", "frame_objects" }.Contains(p.Name)))
+                        throw new ArgumentException("Each tile accepts object_ids, direction, display_mode, label and frame_objects.");
                     var tileIds = ObjectObservation.ReadIds(tile["object_ids"], 512, false);
                     if (sharedScope && tileIds.Length != 0)
                         throw new ArgumentException("Use either shared object_ids or per-tile object_ids, not both.");
-                    if (!Directions.Contains(Text(tile, "direction", "current", 32)))
+                    string direction = Text(tile, "direction", "current", 32);
+                    if (!Directions.Contains(direction))
                         throw new ArgumentException("Unknown capture direction.");
+                    var frameObjects = tile["frame_objects"];
+                    if (frameObjects != null && (frameObjects.Type != JTokenType.Boolean ||
+                        ((bool)frameObjects && (direction != "current" || (!sharedScope && tileIds.Length == 0)))))
+                        throw new ArgumentException("frame_objects must be a boolean; true requires current direction and object_ids.");
                     Text(tile, "display_mode", "", 512);
                     Text(tile, "label", "", 120);
                 }
@@ -145,13 +150,13 @@ namespace RhinoAlmondBridge
                                 throw new CaptureException("display_mode_not_found", "The display mode is missing or ambiguous; provide an installed mode GUID.");
                             if (mode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
                                 throw new CaptureException("unsupported_display_mode", "Realtime display modes are unsupported by detached inspection capture.");
-                            tile["display_mode"] = new JObject { ["name"] = mode.EnglishName, ["id"] = mode.Id.ToString() };
                             var bounds = BoundingBox.Empty;
                             foreach (var obj in objects) bounds.Union(obj.Geometry.GetBoundingBox(true));
                             if (!bounds.IsValid)
                                 throw new CaptureException("invalid_bounds", "The scope has no frameable bounds.");
                             using (var bitmap = Capture(doc, source.ActiveViewport, objects, bounds, (string)tile["direction"],
-                                mode, new Size(width, height - HeaderHeight), explicitFilter, tile))
+                                mode, new Size(width, height - HeaderHeight), explicitFilter,
+                                (bool?)tileRequest["frame_objects"] ?? false, tile))
                                 graphics.DrawImageUnscaled(bitmap, rectangle.X, rectangle.Y + HeaderHeight);
                             tile["status"] = "success";
                             captured++;
@@ -212,7 +217,7 @@ namespace RhinoAlmondBridge
         }
 
         static Bitmap Capture(RhinoDoc doc, RhinoViewport source, RhinoObject[] objects, BoundingBox bounds,
-            string direction, DisplayModeDescription mode, Size size, bool explicitFilter, JObject metadata)
+            string direction, DisplayModeDescription mode, Size size, bool explicitFilter, bool frameObjects, JObject metadata)
         {
             using (var control = new DocumentObservation.CaptureViewportControl { Visible = false, Size = size })
             {
@@ -229,11 +234,13 @@ namespace RhinoAlmondBridge
                     offset.Unitize();
                     viewport.SetCameraLocations(bounds.Center, bounds.Center + offset * Math.Max(bounds.Diagonal.Length * 3.0, 1.0));
                     viewport.CameraUp = direction == "top" || direction == "bottom" ? Vector3d.YAxis : Vector3d.ZAxis;
+                }
+                if (direction != "current" || frameObjects)
+                {
                     bounds.Inflate(Math.Max(bounds.Diagonal.Length * .025, doc.ModelAbsoluteTolerance));
                     if (!viewport.ZoomBoundingBox(bounds))
                         throw new InvalidOperationException("Could not frame the chosen scope.");
                 }
-                metadata["camera"] = ViewState(viewport);
                 var conduit = new ScopeConduit(doc.RuntimeSerialNumber, viewport.Id, objects.Select(o => o.Id), explicitFilter);
                 DisplayPipeline pipeline = null;
                 try
@@ -243,8 +250,13 @@ namespace RhinoAlmondBridge
                     pipeline = control.Display;
                     if (pipeline == null || (!pipeline.IsOpen && !pipeline.Open()))
                         throw new InvalidOperationException("Could not initialize the detached capture pipeline.");
-                    // Initialization paints do not prove that the exported bitmap used this scope.
-                    conduit.ResetCounters();
+                    var appliedMode = viewport.DisplayMode;
+                    if (appliedMode?.Id != mode.Id)
+                        throw new CaptureException("display_mode_not_applied", "The detached viewport did not apply the requested display mode.");
+                    FitBitmapAspect(viewport, size);
+                    metadata["camera"] = ViewState(viewport);
+                    // Initialization paints do not prove that the exported bitmap used this scope or mode.
+                    conduit.ResetObservation();
                     var bitmap = DisplayPipeline.DrawToBitmap(viewport, size.Width, size.Height);
                     if (bitmap == null || bitmap.Width != size.Width || bitmap.Height != size.Height)
                     {
@@ -256,6 +268,12 @@ namespace RhinoAlmondBridge
                         bitmap.Dispose();
                         throw new CaptureException("scope_filter_unverified", "No scoped culling callback was observed; no unverified image was returned.");
                     }
+                    if (conduit.RenderedModeId != appliedMode.Id)
+                    {
+                        bitmap.Dispose();
+                        throw new CaptureException("display_mode_not_applied", "The bitmap draw did not report the requested display mode.");
+                    }
+                    metadata["display_mode"] = new JObject { ["name"] = appliedMode.EnglishName, ["id"] = appliedMode.Id.ToString() };
                     metadata["scope"]["culling_candidates_observed"] = conduit.Observed;
                     metadata["scope"]["culling_candidates_excluded"] = conduit.Excluded;
                     return bitmap;
@@ -268,6 +286,25 @@ namespace RhinoAlmondBridge
             }
         }
 
+        static void FitBitmapAspect(RhinoViewport viewport, Size size)
+        {
+            using var projection = new ViewportInfo(viewport);
+            if (!projection.GetFrustum(out double left, out double right, out double bottom, out double top,
+                out double near, out double far))
+                throw new InvalidOperationException("Could not read the detached capture frustum.");
+
+            double width = right - left;
+            double height = top - bottom;
+            double aspect = (double)size.Width / size.Height;
+            // Pad the shorter dimension to keep the requested framing and equal pixel scale.
+            double horizontalPadding = Math.Max(0, height * aspect - width) * 0.5;
+            double verticalPadding = Math.Max(0, width / aspect - height) * 0.5;
+            if (!projection.SetFrustum(left - horizontalPadding, right + horizontalPadding,
+                bottom - verticalPadding, top + verticalPadding, near, far) ||
+                !viewport.SetViewProjection(projection, false))
+                throw new InvalidOperationException("Could not fit the detached capture frustum to the bitmap aspect ratio.");
+        }
+
         sealed class ScopeConduit : DisplayConduit
         {
             readonly uint documentSerial;
@@ -276,14 +313,22 @@ namespace RhinoAlmondBridge
             readonly bool explicitFilter;
             public int Observed { get; private set; }
             public int Excluded { get; private set; }
+            public Guid RenderedModeId { get; private set; }
             public ScopeConduit(uint serial, Guid viewport, IEnumerable<Guid> objects, bool explicitIds)
             { documentSerial = serial; viewportId = viewport; ids = new HashSet<Guid>(objects); explicitFilter = explicitIds; }
-            public void ResetCounters() { Observed = 0; Excluded = 0; }
+            public void ResetObservation()
+            {
+                Observed = 0;
+                Excluded = 0;
+                RenderedModeId = Guid.Empty;
+            }
             protected override void ObjectCulling(CullObjectEventArgs e)
             {
                 if (e.RhinoDoc == null || e.RhinoDoc.RuntimeSerialNumber != documentSerial || e.Viewport.Id != viewportId) return;
                 var obj = e.RhinoObject;
                 if (obj == null) return;
+                if (Observed == 0)
+                    RenderedModeId = e.Display.DisplayPipelineAttributes?.Id ?? Guid.Empty;
                 Observed++;
                 // Let Rhino render whole block occurrences only for an unfiltered visible baseline.
                 bool keep = obj.IsInstanceDefinitionGeometry ? !explicitFilter : ids.Contains(obj.Id);
@@ -308,7 +353,10 @@ namespace RhinoAlmondBridge
 
         static JObject ViewState(RhinoViewport viewport)
         {
+            var frustum = viewport.GetFrustum(out double left, out double right, out double bottom, out double top,
+                out _, out _) ? new JArray(left, right, bottom, top) : null;
             return new JObject { ["id"] = viewport.Id.ToString(), ["camera"] = Point(viewport.CameraLocation),
+                ["frustum_bounds"] = frustum,
                 ["target"] = Point(viewport.CameraTarget), ["up"] = Point((Point3d)viewport.CameraUp),
                 ["direction"] = Point((Point3d)viewport.CameraDirection), ["lens"] = viewport.Camera35mmLensLength,
                 ["projection"] = viewport.IsParallelProjection ? "parallel" : viewport.IsTwoPointPerspectiveProjection ? "two_point" : "perspective",

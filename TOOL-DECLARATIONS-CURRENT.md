@@ -283,9 +283,13 @@ declare const tools: {
 ```txt
 연결된 Rhino 문서와 프로젝트의 작업 정보를 조회합니다. 작업을 시작하거나 이어갈 때 현재 문서, 등록 파일과 작업 공간을 확인하는 데 사용합니다.
 
-`sections`로 필요한 정보를 선택합니다. project는 프로젝트 경로·현재 문서와 연결 모델의 일치 여부·등록 파일, document는 현재 문서의 단위·허용오차·객체 수 등, locations는 선택된 작업 공간과 공유 DB, runtime은 연결 실행 환경입니다. project 또는 document를 요청하면 현재 Rhino 문서를 읽습니다. sections를 생략하면 project·document·locations를 조회합니다. 문서의 개별 값을 읽지 못하면 해당 값은 null이며 warnings에 사유가 나옵니다.
+`sections`로 필요한 정보를 선택합니다. project는 프로젝트 경로·현재 문서와 연결 모델의 일치 여부·등록 파일, document는 현재 문서의 단위·허용오차·객체 수 등, named_views와 layouts는 저장된 뷰와 용지, layer_tree는 모든 활성 레이어의 들여쓰기 계층, locations는 선택된 작업 공간과 공유 DB, runtime은 연결 실행 환경입니다. 위치·실행 환경만 요청하면 Rhino 문서 관찰을 수행하지 않습니다. sections를 생략하면 runtime을 제외한 모든 섹션을 조회합니다. 문서의 개별 값을 읽지 못하면 해당 값은 null이며 warnings에 사유가 나옵니다.
 
-등록 파일 목록이 잘리면 `files_page`의 offset과 limit을 더해 `files_offset`으로 다음 페이지를 조회합니다. 파일 ID 등 후속 작업에 필요한 식별자는 `include_ids=true`로 포함합니다. 프로젝트 내부 경로는 project_root 기준 상대경로로 반환됩니다.
+`project.worksession_files`는 활성 문서를 제외하고 Rhino에 현재 첨부된 Worksession 파일입니다. `[]`는 첨부 없음, `null`은 조회 실패이며 실패 사유는 warnings에서 확인합니다. `project.files`는 DB의 별도 등록 목록입니다. 등록한 모델은 실제 파일이 확인되면 필요할 때 첨부할 수 있습니다. Worksession 조회·첨부·해제로 DB 등록은 바뀌지 않습니다.
+
+Named View와 Layout은 각각 이름과 ID를 최대 128개 반환하며 목록이 잘리면 warnings에 표시합니다. 두 목록의 ID는 include_ids 설정과 관계없이 반환합니다. 레이어 트리는 깊이당 공백 두 칸을 사용하며 레이어가 없으면 빈 문자열, 조회 실패 시 null입니다.
+
+`project.files`에 파일명과 파일별 설명이 표시됩니다. 파일 등록과 설명 갱신에는 context_05-upsert_project_file tool을 사용합니다. Phase와 Scene에서 파일을 연결할 때는 등록 파일명을 선택합니다. 목록이 잘리면 `files_page`의 offset과 limit을 더해 `files_offset`으로 다음 페이지를 조회합니다. 후속 작업에 필요한 Plan과 Step 식별자는 `include_ids=true`로 포함합니다. 프로젝트 내부 경로는 project_root 기준 상대경로로 반환됩니다.
 ```
 
 ```ts
@@ -297,7 +301,7 @@ declare const tools: {
     files_offset?: number;
     // 기본 false.
     include_ids?: boolean;
-    // project, document, locations, runtime. 기본은 앞의 세 섹션.
+    // project, document, named_views, layouts, layer_tree, locations, runtime. 기본은 runtime을 제외한 모든 섹션.
     sections?: Array<string> | null;
   }): Promise<CallToolResult<{
     status?: string;
@@ -310,9 +314,10 @@ declare const tools: {
       file_path?: string | null;
       is_bound_document?: boolean;
       files?: Array<{
-        project_file_id?: string;
-        file_name?: string;
+        file_name: string;
+        description: string | null;
       }>;
+      worksession_files?: Array<{file_name: string; file_path: string}> | null;
       files_page?: {
         total?: number;
         limit?: number;
@@ -320,6 +325,9 @@ declare const tools: {
         truncated?: boolean;
       };
     };
+    named_views?: Array<{name?: string; id?: string}> | null;
+    layouts?: Array<{name?: string; id?: string}> | null;
+    layer_tree?: string | null;
     document?: {
       runtime_serial_number?: number | null;
       units?: string | null;
@@ -365,6 +373,29 @@ declare const tools: {
 };
 ```
 
+### 87. context\_05-upsert\_project\_file
+
+```txt
+프로젝트 파일 카탈로그에 모델 파일을 등록하거나, 등록된 파일의 설명을 수정합니다. 같은 프로젝트에서 Windows 기준으로 같은 이름은 한 파일입니다. 기존 파일은 원래 표기를 유지합니다. 이 작업은 Rhino에서 파일을 열거나 Worksession에 첨부하지 않습니다.
+
+등록 결과는 context_04-get_project_info tool의 project.files에 나타납니다. Phase와 Scene은 그 목록의 파일명을 사용합니다.
+```
+
+```ts
+declare const tools: { mcp__rhino__context_05_upsert_project_file(args: {
+  // 프로젝트 안에서 고유한 모델 파일명입니다. 폴더는 생략합니다.
+  file_name: string;
+  // 생략하거나 null이면 기존 설명을 유지합니다. 빈 문자열은 설명을 비웁니다.
+  description?: string | null;
+}): Promise<CallToolResult<{
+  status?: string;
+  file_name?: string;
+  description?: string | null;
+  message?: string;
+  error_code?: string;
+}>>; };
+```
+
 ## inspect
 
 ### 42. inspect\_01-analyze\_nested\_blocks
@@ -404,6 +435,8 @@ declare const tools: { mcp__rhino__inspect_01_analyze_nested_blocks(args: {
 
 ```txt
 Rhino 문서의 최상위 모델 객체를 조회합니다. `current`는 표시되고 잠기지 않은 객체(화면 밖 포함), `document`는 숨김·잠금 객체도 포함합니다. 객체·그룹 ID와 메타데이터로 범위를 좁히고 객체, 요약 또는 계층으로 관찰합니다. 그룹은 선택한 범위와 구성원의 교집합입니다. 계층 조회는 그룹·블록 배치를 펼치며 문서 객체와 블록 정의 내부 항목을 구분합니다.
+
+조건 하나로 객체의 UserDictionary를 조회하는 호출 예시는 `{"filters":{"user_dictionary":[{"source":"attributes","key":"brief_probe","any_of":["yes"]}]}}`입니다.
 
 행과 면은 각각 페이지를 나눕니다. 행 후속 조회에는 같은 조건과 첫 응답의 snapshot·next_offset을, 면 후속 조회에는 document 객체 ID와 geometry_crc를 사용합니다. objects/summary의 complete는 전체 행이 첫 단일 응답에 포함되고 편집 상태가 안정적일 때 true입니다. 마지막 페이지는 next_offset=null로 확인합니다. hierarchy의 complete에는 관계 완전성도 반영되며 깊이 제한이 있을 수 있습니다. face_page.complete는 전체 면이 첫 단일 응답에 있을 때 true입니다.
 
@@ -462,12 +495,13 @@ declare const tools: { mcp__rhino__inspect_02_get_objects(args: {
 ### 44. inspect\_03-get\_document\_context
 
 ```txt
-연결된 Rhino 문서·뷰·편집 상태와 저장된 Named View·Layout·표시 모드를 조회합니다.
+연결된 Rhino 문서·뷰·편집 상태와 저장된 Named View·Layout·레이어 계층·표시 모드를 조회합니다.
 
 - `document`: 단위·공차·변경 여부·객체와 레이어 수
 - `viewport` / `viewports`: 활성 화면의 카메라·투영·표시 모드 / 뷰포트 목록
 - `editor`: 편집 모드와 안정성
-- `named_views` / `layouts` / `display_modes`: 저장된 뷰·용지·표시 모드 목록
+- `named_views` / `layouts` / `display_modes`: 저장된 뷰·용지·표시 모드 목록. 목록마다 최대 128개이며 일부만 반환하면 warnings에 표시합니다.
+- `layer_tree`: 삭제되지 않은 모든 레이어의 이름과 계층. 깊이당 공백 두 칸으로 들여쓰며 레이어가 없으면 빈 문자열, 조회 실패 시 null입니다.
 
 **Named View·Layout·표시 모드 목록의 ID**는 `include_ids`와 무관하게 반환됩니다. 화면 이미지 캡처는 `capture_03-current_view` tool을 사용합니다.
 ```
@@ -479,8 +513,8 @@ declare const tools: {
     include_editor_details?: boolean;
     // viewport 등에서 ID 포함. 기본 false.
     include_ids?: boolean;
-    // document, viewport, editor, viewports, named_views, layouts, display_modes 중 선택.
-    // 생략 또는 null은 document, named_views, layouts, display_modes. []는 status와 warnings만.
+    // document, viewport, editor, viewports, named_views, layouts, layer_tree, display_modes 중 선택.
+    // 생략 또는 null은 document, named_views, layouts, layer_tree, display_modes. []는 status와 warnings만.
     sections?: Array<string> | null;
   }): Promise<CallToolResult<{
     // 요청한 섹션·상태·경고 또는 오류 상세가 담긴 JSON 문자열.
@@ -575,7 +609,11 @@ declare const tools: { mcp__rhino__capture_01_conditioning_pass(args: {
 ```txt
 작업 화면을 유지하면서 여러 시점과 객체 범위를 하나의 PNG로 비교합니다. 객체 범위는 문서 표시 상태를 기준으로 하며 픽셀 가시성이나 가림을 보장하지 않습니다. 그룹 자동 확장과 블록 배치·정의 필터는 지원하지 않습니다.
 
-일부 타일이 실패해도 status=success일 수 있습니다. 전체 성공 여부는 complete, 개별 결과는 tiles에서 확인합니다. PNG 전달과 image_file 저장은 별개입니다.
+설치된 표시 모드의 이름과 GUID는 inspect_03-get_document_context tool에서 sections=["display_modes"]로 조회합니다. Wireframe은 와이어와 곡선 검토, Shaded는 면과 입체 형태 검토, Technical은 가려진 선을 포함한 선 표현 검토에 적합합니다. 사용자 정의 래스터 모드도 설치된 이름이나 GUID로 선택할 수 있습니다. 이름이 중복되면 GUID를 사용합니다.
+
+inspect_02-get_objects tool에서 include_ids=true로 최상위 모델 객체의 GUID를 확인합니다. 모든 타일을 같은 대상에 맞추려면 공통 object_ids에 GUID 배열을 넣고 views에서 각 방향과 모드를 선택합니다. 예를 들어 views=[{"direction":"top","display_mode":"Technical"},{"direction":"iso_ne","display_mode":"Shaded"}]는 같은 대상을 평면과 사시 방향으로 비교합니다. 원본 뷰 방향에서 지정 객체에 맞춰 확대하려면 공통 또는 타일별 object_ids와 함께 views=[{"direction":"current","frame_objects":true}]를 사용합니다. frame_objects를 생략한 current 타일은 원본 카메라 구도를 사용합니다.
+
+일부 타일이 실패해도 status=success일 수 있습니다. 전체 성공 여부는 complete에서, 개별 결과와 적용된 모드의 이름·GUID는 tiles에서 확인합니다. PNG 전달과 image_file 저장은 별개입니다.
 ```
 
 ```ts
@@ -635,7 +673,7 @@ declare const tools: { mcp__rhino__capture_02_inspection(args: {
 ### 19. capture\_03-current\_view
 
 ```txt
-현재 Rhino 모델 뷰포트를 PNG로 캡처합니다. 대상 지정 시 실제 선택과 카메라가 바뀌며, isolate와 display_mode도 실제 화면 상태를 변경합니다. 격리 해제는 Rhino Unisolate를 사용합니다. 잠긴 주변 객체는 보일 수 있고, 선택·카메라는 별도로 확인해야 합니다.
+현재 Rhino 모델 뷰포트를 일반 화면 색과 선 표현으로 PNG에 캡처합니다. 캡처 중 문서의 PrintDisplay 설정은 유지됩니다. 대상 지정 시 실제 선택과 카메라가 바뀌며, isolate와 display_mode도 실제 화면 상태를 변경합니다. 설치된 모드의 이름과 GUID는 inspect_03-get_document_context tool에서 sections=["display_modes"]로 조회합니다. 작업 화면을 유지하면서 선택한 객체를 여러 방향이나 모드로 비교하려면 capture_02-inspection tool을 사용합니다. 격리 해제는 Rhino Unisolate를 사용합니다. 잠긴 주변 객체는 보일 수 있고, 선택·카메라는 별도로 확인해야 합니다.
 
 PNG 이미지 전달과 image_file 저장은 별개입니다. include_usage의 토큰 수는 픽셀 기준 추정치입니다. labels는 주변 객체에도 표시되어 화면을 가릴 수 있습니다.
 ```
@@ -763,7 +801,7 @@ declare const tools: { mcp__rhino__capture_03_current_view(args: {
 ```txt
 저장된 Named View 또는 Layout 용지를 PNG로 캡처합니다. 이름·ID는 inspect_03-get_document_context tool에서 조회합니다.
 
-Named View는 저장된 카메라를 사용하고, Layout은 용지와 Detail의 기존 표시 모드를 사용합니다. Layout에는 픽셀 크기와 display_mode를 지정할 수 없습니다. 이미지와 image_file 저장 결과는 별개이며, 사용량 추정·경고는 별도 text content로 반환됩니다. Layout Detail 레이블은 지원하지 않습니다.
+Named View는 저장된 카메라를 사용하고, Layout은 용지와 Detail의 기존 표시 모드를 사용합니다. Named View에 사용할 설치 모드와 용도는 capture_02-inspection tool의 설명을 참고합니다. Layout에는 픽셀 크기와 display_mode를 지정할 수 없습니다. 이미지와 image_file 저장 결과는 별개이며, 사용량 추정·경고는 별도 text content로 반환됩니다. Layout은 인쇄 색과 선폭으로 출력하며 문서의 PrintDisplay 설정을 바꾸지 않습니다. 용지와 Detail에 보이는 인쇄 대상이 없으면 빈 PNG도 정상 결과입니다. Layout Detail 레이블은 지원하지 않습니다.
 ```
 
 ```ts
@@ -844,12 +882,10 @@ declare const tools: { mcp__rhino__scene_01_add_objects(args: {
 
 ```ts
 declare const tools: { mcp__rhino__scene_02_create(args: {
-  // 이 Scene이 속한 프로젝트 파일명을 문자열로 입력합니다. 폴더는 제외하고, 같은 이름의 파일이 여러 개면 project_file_id로 지정합니다.
+  // project.files의 등록 파일명입니다. 생략하거나 빈 값으로 연결 없이 생성할 수 있습니다.
   file_name?: string;
   // 설계 영역 또는 행위/프로그램 맥락을 설명하는 Scene 이름입니다. 비어 있으면 Untitled가 됩니다.
   name: string;
-  // context_04-get_project_info tool(sections=["project"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name과 함께 제공하면 서로 일치해야 합니다.
-  project_file_id?: string | null;
   // Scene에 기록할 단위입니다. mm, cm, m, in, ft 중 하나를 선택합니다.
   units?: string;
 }): Promise<CallToolResult<{
@@ -888,7 +924,7 @@ result는 scene 또는 오류를 담은 JSON 문자열입니다. include_ids=tru
 declare const tools: { mcp__rhino__scene_04_get(args: {
   // scope, state, geometry, audit, all. 생략·빈 배열: 요약.
   field_groups?: Array<string> | null;
-  // 기본 false. scope 등에서 project_file_id 포함.
+  // 기본 false. 범위에 관련 식별자를 포함합니다.
   include_ids?: boolean;
   scene_id: string;
 }): Promise<CallToolResult<{ result: string }>>; };
@@ -1053,10 +1089,8 @@ Scene의 프로젝트 파일 연결을 변경하거나 해제합니다.
 
 ```ts
 declare const tools: { mcp__rhino__scene_12_update(args: {
-  // 폴더를 포함하지 않는 교체 파일 이름입니다. 선택 사항이며, project_file_id를 생략한 상태에서 빈 문자열을 지정하면 연결을 해제합니다. 생략하면 유지합니다.
+  // project.files의 등록 파일명입니다. 빈 문자열은 연결 해제, 생략 또는 null은 기존 연결 유지입니다.
   file_name?: string | null;
-  // 연결할 기존 프로젝트 파일의 ID입니다. file_name도 입력하면 같은 파일을 가리켜야 합니다.
-  project_file_id?: string | null;
   // scene_07-list tool(include_ids=true) 또는 기록된 Scene 참조에서 얻은 기존 Scene ID입니다.
   scene_id: string;
 }): Promise<CallToolResult<{
@@ -1109,7 +1143,7 @@ declare const tools: { mcp__rhino__plan_02_create(args: {
     // 같은 종류의 ID 형식만 검사하며 대상 존재·순환·작업 순서를 검증하거나 강제하지 않습니다.
     depends_on?: Array<string> | null;
     description?: string;
-    // 연결할 파일명 하나 또는 배열. 생략하면 파일 연결 없음.
+    // project.files에 등록된 파일명 하나 또는 배열. 생략하면 파일 연결 없음.
     file_name?: string | Array<string>;
     // 공백만 있는 이름은 허용하지 않습니다.
     name: string;
@@ -1218,7 +1252,7 @@ declare const tools: { mcp__rhino__plan_03_execute_looping(args: {
 대응 오리지널: `get_generation_plan`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-Phase, Plan 또는 Step의 작업 기록을 조회합니다. 기본값은 식별·상태 요약이며, include_details=true이면 선택한 대상의 상세를 함께 반환합니다. Plan 상세에는 Step 요약이, Step 상세에는 해당 Step의 입출력 참조가 포함됩니다. 이 참조는 저장 기록이며 현재 형상의 실시간 검증 결과는 아닙니다.
+Phase, Plan 또는 Step의 작업 기록을 조회합니다. 기본값은 식별·상태 요약이며, include_details=true이면 선택한 대상의 상세를 함께 반환합니다. Plan 상세에는 Step 요약이, Step 상세에는 입출력 참조와 Takeaways·Design rationale이 포함됩니다. 다음 작업에 필요한 파일은 반환된 프로젝트 상대경로를 열어 내용을 확인합니다.
 
 `result`는 조회 결과 또는 오류를 담은 JSON 문자열입니다. 성공 시 status는 대상의 작업 상태이며, 오류는 status=error입니다. Plan과 Step은 `loop_no`·`revision`·`read_only`를 함께 반환합니다. **revision을 명시하면 현재 번호여도 읽기 전용 스냅샷**입니다.
 ```
@@ -1240,7 +1274,7 @@ declare const tools: { mcp__rhino__plan_05_get(args: {
     revision?: number | null;
     target: "plan";
   } | {
-    // 기본 false. true이면 이 Step의 유형과 입출력 참조를 포함합니다.
+    // 기본 false. true이면 이 Step의 유형, 입출력 참조, Takeaways와 Design rationale을 포함합니다.
     include_details?: boolean;
     // 0 이상의 Loop 번호. 생략·null이면 최신 Loop, 0은 실행 전 기록.
     loop_no?: number | null;
@@ -1379,11 +1413,15 @@ declare const tools: { mcp__rhino__plan_10_set_working(args: {
 대응 오리지널: `update_generation_step`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-Phase·Plan의 작업 정보 또는 Step의 상태와 입출력 근거를 수정합니다. Plan·Step은 현재 Loop만 변경할 수 있습니다.
+Phase·Plan의 작업 정보 또는 Step의 상태, 입출력 참조, Takeaways·Design rationale을 수정합니다. Plan·Step은 현재 Loop만 변경할 수 있습니다.
 
-`depends_on`, `input_refs`, `output_refs`는 add/remove 패치이며 Plan의 대상·산출물·상하위 관계 배열은 전체 교체합니다. 생략 또는 null은 유지, 교체 배열의 []는 비웁니다.
+`depends_on`, `input_refs`, `output_refs`는 add/remove 패치이며 Plan의 대상·산출물·상하위 관계 배열은 전체 교체합니다. 생략 또는 null은 유지, 교체 배열의 []는 비웁니다. `takeaways`와 `design_rationale`은 빈 문자열로 비웁니다.
 
 응답은 JSON 문자열입니다. `changed`는 실제 변경 여부, `issues`는 건너뛴 항목입니다. 중복·충돌 등 적용하지 못한 패치 항목은 `issues`에 기록하며, 일부만 적용되면 `partial_success`를 반환합니다. Loop 실행 후 `expected_revision`을 지정할 때는 `loop_no`도 함께 지정합니다.
+
+Step을 실제로 `completed`로 바꾸려면 먼저 `confirmation_required`와 `confirmation`의 경고·선택지를 읽고 에이전트가 후속 호출에서 선택합니다. 보존할 객체가 있으면 먼저 `completion_token`과 `completion_decision=no`로 취소하고, 객체를 temp 밖으로 옮긴 후 새로 완료를 요청합니다. 정리할 범위가 확인되면 같은 요청 필드와 함께 새 `confirmation.token`을 `completion_token`에 넣어 `completion_decision=yes`로 답합니다. 토큰은 발급된 연결과 요청에서 한 번만 사용할 수 있으며, 발급 뒤 Loop 또는 리비전이 바뀌면 새로 확인해야 합니다.
+
+Yes는 Step 완료를 먼저 저장한 뒤 현재 연결 문서의 temp와 그 하위 레이어에 속한 객체를 제거합니다. 최상위 temp 레이어를 유지하고 그 하위 레이어를 모두 삭제합니다. 로컬 블록 정의에서도 해당 레이어의 구성원만 제거하며, 정의와 temp 밖 인스턴스의 배치를 보존합니다. Worksession 첨부, PlanSection 관리 데이터, Step 참조가 가리키는 파일도 보존합니다. 정리 건수는 `cleanup`에 있습니다. 실패 시 `cleanup_state`와 Step 상태를 읽습니다. Step 완료를 저장한 뒤 정리가 실패하면 `requires_reconciliation=true`를 반환하므로 Rhino의 temp 상태를 확인합니다.
 ```
 
 ```ts
@@ -1431,6 +1469,10 @@ declare const tools: { mcp__rhino__plan_12_update(args: {
     // 빈 제목 불가.
     title?: string | null;
   } | {
+    // 완료 경고를 받은 뒤 선택할 값입니다.
+    completion_decision?: "yes" | "no" | null;
+    // 앞선 완료 확인 결과의 confirmation.token입니다.
+    completion_token?: string | null;
     expected_revision?: number | null;
     input_refs?: {
       add?: Array<string>;
@@ -1444,10 +1486,14 @@ declare const tools: { mcp__rhino__plan_12_update(args: {
     plan_id: string;
     status?: "pending" | "running" | "paused" | "completed" | "failed" | "blocked" | null;
     step_id: string;
+    // Takeaways. 다음 작업에 전달할 핵심 결론이나 확인 사항입니다. 생략 또는 null은 유지하고 빈 문자열은 비웁니다.
+    takeaways?: string | null;
+    // Design rationale. 설계 결정을 내린 이유와 근거입니다. 생략 또는 null은 유지하고 빈 문자열은 비웁니다.
+    design_rationale?: string | null;
     target: "step";
   };
 }): Promise<CallToolResult<{
-  // status·changed·issues 등이 담긴 JSON 문자열.
+  // 수정 결과, Step 완료 확인 또는 Rhino 정리 결과가 담긴 JSON 문자열.
   result: string;
 }>>; };
 ```
@@ -2647,7 +2693,7 @@ declare const tools: { mcp__rhino__diagram_04_search(args: {
 대응 오리지널: `list_drawing_recipes`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-사용 가능한 도면 스타일 레시피의 요약을 조회합니다. 상세 조회에 사용할 recipe_id는 include_ids=true로 포함합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
+사용 가능한 도면 스타일 레시피를 조회합니다. A4 평면·단면에는 Architectural Plan and Section A4를 선택합니다. include_ids=true로 얻은 recipe_id는 drawing_02-get_recipe tool의 입력에 사용합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
 ```
 
 ```ts
@@ -2666,7 +2712,7 @@ declare const tools: { mcp__rhino__drawing_01_list_recipes(args: {
 대응 오리지널: `get_drawing_recipe`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-지정한 도면 스타일 레시피의 투영·축척·레이어·출력 설정을 조회합니다. result는 레시피 또는 오류를 담은 JSON 문자열입니다.
+지정한 도면 스타일 레시피를 조회합니다. field_groups=["scales","parameters"]로 권장 축척·레이어·출력 설정을 확인한 뒤 같은 recipe_id를 drawing_01-apply_style tool에 전달합니다. result는 레시피 또는 오류를 담은 JSON 문자열입니다.
 ```
 
 ```ts
@@ -2687,7 +2733,7 @@ declare const tools: { mcp__rhino__drawing_02_get_recipe(args: {
 대응 오리지널: `apply_drawing_style`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다.
+도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 문서에 같은 이름의 선종류가 있으면 기존 정의를 재사용합니다. 새 선종류를 만들 때는 Almond에 포함된 선종 매니페스트를 사용합니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다.
 ```
 
 ```ts
@@ -2718,60 +2764,40 @@ declare const tools: { mcp__rhino__drawing_04_import_hatches(args: {
 }>>; };
 ```
 
-### 31. drawing\_05-generate\_plan\_section
+### 31. drawing\_06-generate\_plan\_section
 
 ```txt
-클리핑 평면의 방향·깊이·참여 대상을 기준으로 활성 모델에서 단면선과 선택적인 해치·입면선을 계산해 모델 공간에 생성하거나 갱신합니다. 같은 클리핑의 기존 생성 도면이 교체되며 수동 편집이 사라질 수 있습니다. 부분 완료나 취소 뒤에도 결과가 남을 수 있습니다.
+활성 모델 또는 현재 Worksession에 첨부된 파일의 클리핑 평면으로 단면선·가시 입면선과 선택적 해치를 활성 모델에 생성합니다. 첨부 형상이 필요하면 먼저 필요한 파일을 Worksession에 첨부한 뒤 include_attachments를 선택합니다. Update는 저장된 위치에서 도면을 다시 계산하므로 기존 도면의 수동 편집이 교체될 수 있습니다. Move는 기존 도면 객체의 GUID와 수동 편집을 유지하며 원점을 옮깁니다.
+
+응답에는 클리핑별 상태와 도면 객체 GUID, 실제 배치 평면이 포함됩니다. Create·Update에는 실제 계산에 들어간 원본 레이어와 객체 수, 숨김·잠금·첨부 입력의 처리 조건도 포함됩니다. 일부 완료 또는 취소 뒤에는 완료된 도면이 남을 수 있습니다.
 ```
 
 ```ts
-declare const tools: { mcp__rhino__drawing_05_generate_plan_section(args: {
+declare const tools: { mcp__rhino__drawing_06_generate_plan_section(args: {
   // 클리핑 평면 GUID 목록. 비어 있을 수 없으며 중복은 한 번만 처리.
   clipping_ids: Array<string>;
-  // 입면선 포함. 기본 true.
-  elevation?: boolean;
-  // 생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인.
-  expected_model_path?: string;
   // 먼 입면선 출력 농도 0..100%. 기본 45, near_dark 이하.
   far_dark?: number;
   // 먼 입면선 출력 두께(mm). 기본 0.04, 양수이며 near_width 이하.
   far_width?: number;
   // 해치 생성 허용. 원본 단면 스타일의 채움과 형상 조건을 따름. 기본 true.
   hatch?: boolean;
+  // 현재 모델만 계산하려면 false, 실제 첨부도 계산하려면 true. 생략 시 생성은 현재 모델, 갱신은 저장 범위를 사용합니다.
+  include_attachments?: boolean | null;
   // 가까운 입면선 출력 농도 0..100%. 기본 80, far_dark 이상.
   near_dark?: number;
   // 가까운 입면선 출력 두께(mm). 기본 0.09, 양수이며 far_width 이상.
   near_width?: number;
-  // Create: 생성 또는 기존 도면 교체. Update: 기존 도면 재생성.
-  operation: "Create" | "Update";
-  // Create만: 클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위.
+  // Create: 생성 또는 교체. Update: 저장 위치에서 재생성. Move: 기존 도면의 평행 이동.
+  operation: "Create" | "Update" | "Move";
+  // 클리핑 GUID별 절대 도면 원점. Create에서 선택, Move에서 필수, Update에서 생략.
   points?: {
     [key: string]: Array<number>;
   } | null;
-  // 작은 상세 보호 여부. 기본 true.
+  // 작은 상세 보호 여부. 기본 false.
   small_details?: boolean;
 }): Promise<CallToolResult<{
-  // 상태·도면별 생성 객체와 보고 또는 오류의 JSON 문자열. 큰 결과는 result.result_id로 drawing_06-get_plan_section_result tool에서 회수.
-  result: string;
-}>>; };
-```
-
-### 32. drawing\_06-get\_plan\_section\_result
-
-```txt
-drawing_06-generate_plan_section tool의 큰 결과를 영수증으로 조회합니다. 같은 result_id의 json_chunk를 next_offset이 null일 때까지 이어 붙여 JSON으로 해석합니다. 저장된 실행 결과이며 현재 형상을 재관찰하지 않습니다. 결과는 같은 Bridge 프로세스·문서에서 최대 1시간 보관되지만 개수·용량 제한이나 재시작으로 더 일찍 사라질 수 있습니다.
-```
-
-```ts
-declare const tools: { mcp__rhino__drawing_06_get_plan_section_result(args: {
-  // 생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인.
-  expected_model_path?: string;
-  // 첫 페이지 기본 0, 이후 반환된 next_offset 사용. UTF-16 코드 단위.
-  offset?: number;
-  // drawing_06-generate_plan_section tool의 result.result_id.
-  result_id: string;
-}): Promise<CallToolResult<{
-  // json_chunk·next_offset·result_sha256 등 페이지 정보 또는 오류의 JSON 문자열.
+  // 상태·클리핑별 배치와 객체 GUID, 실제 추출 조건 또는 오류의 JSON 문자열.
   result: string;
 }>>; };
 ```

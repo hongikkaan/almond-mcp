@@ -84,17 +84,24 @@ def drawing_package_path(value: str, *, library_roots: list[Path]) -> Path:
     raise ValueError("Use a project drawing package or a package returned by the configured drawing library.")
 
 
-def relative_output(value, *, preserve_cross_drive_fields=()):
+def relative_output(value, *, preserve_cross_drive_fields=(), preserve_text_fields=()):
     """Only absolute filesystem strings change, not URI/code/text payloads.
 
     Explicitly allowed top-level fields keep their path across Windows drives.
+    The caller may also identify text fields at any depth that must remain verbatim.
     """
     if isinstance(value, list):
-        return [relative_output(item) for item in value]
+        return [relative_output(item, preserve_text_fields=preserve_text_fields) for item in value]
     if isinstance(value, dict):
-        return {key: relative_path(item, preserve_cross_drive=True)
-                if key in preserve_cross_drive_fields and isinstance(item, str) and "\n" not in item
-                else relative_output(item) for key, item in value.items()}
+        result = {}
+        for key, item in value.items():
+            if key in preserve_text_fields and isinstance(item, str):
+                result[key] = item
+            elif key in preserve_cross_drive_fields and isinstance(item, str) and "\n" not in item:
+                result[key] = relative_path(item, preserve_cross_drive=True)
+            else:
+                result[key] = relative_output(item, preserve_text_fields=preserve_text_fields)
+        return result
     if isinstance(value, str) and "\n" not in value and os.path.isabs(value):
         return relative_path(value)
     return value

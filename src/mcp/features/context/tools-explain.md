@@ -3,18 +3,19 @@
 ## get_rhino_context
 
 <!-- instruction:get_rhino_context -->
-연결된 Rhino 문서·뷰·편집 상태와 저장된 Named View·Layout·표시 모드를 조회합니다.
+연결된 Rhino 문서·뷰·편집 상태와 저장된 Named View·Layout·레이어 계층·표시 모드를 조회합니다.
 
 - `document`: 단위·공차·변경 여부·객체와 레이어 수
 - `viewport` / `viewports`: 활성 화면의 카메라·투영·표시 모드 / 뷰포트 목록
 - `editor`: 편집 모드와 안정성
-- `named_views` / `layouts` / `display_modes`: 저장된 뷰·용지·표시 모드 목록
+- `named_views` / `layouts` / `display_modes`: 저장된 뷰·용지·표시 모드 목록. 목록마다 최대 128개이며 일부만 반환하면 warnings에 표시합니다.
+- `layer_tree`: 삭제되지 않은 모든 레이어의 이름과 계층. 깊이당 공백 두 칸으로 들여쓰며 레이어가 없으면 빈 문자열, 조회 실패 시 null입니다.
 
 **Named View·Layout·표시 모드 목록의 ID**는 `include_ids`와 무관하게 반환됩니다. 화면 이미지 캡처는 `capture_03-current_view` tool을 사용합니다.
 
 Args:
-    sections: document, viewport, editor, viewports, named_views, layouts, display_modes 중 선택.
-        생략 또는 null은 document, named_views, layouts, display_modes. []는 status와 warnings만.
+    sections: document, viewport, editor, viewports, named_views, layouts, layer_tree, display_modes 중 선택.
+        생략 또는 null은 document, named_views, layouts, layer_tree, display_modes. []는 status와 warnings만.
     include_ids: viewport 등에서 ID 포함. 기본 false.
     include_editor_details: editor 요청 시 공급자·명령·Undo 근거 포함. 기본 false.
 <!-- /instruction:get_rhino_context -->
@@ -46,7 +47,7 @@ Args:
 <!-- instruction:get_defined_viewcapture -->
 저장된 Named View 또는 Layout 용지를 PNG로 캡처합니다. 이름·ID는 inspect_03-get_document_context tool에서 조회합니다.
 
-Named View는 저장된 카메라를 사용하고, Layout은 용지와 Detail의 기존 표시 모드를 사용합니다. Layout에는 픽셀 크기와 display_mode를 지정할 수 없습니다. 이미지와 image_file 저장 결과는 별개이며, 사용량 추정·경고는 별도 text content로 반환됩니다. Layout Detail 레이블은 지원하지 않습니다.
+Named View는 저장된 카메라를 사용하고, Layout은 용지와 Detail의 기존 표시 모드를 사용합니다. Named View에 사용할 설치 모드와 용도는 capture_02-inspection tool의 설명을 참고합니다. Layout에는 픽셀 크기와 display_mode를 지정할 수 없습니다. 이미지와 image_file 저장 결과는 별개이며, 사용량 추정·경고는 별도 text content로 반환됩니다. Layout은 인쇄 색과 선폭으로 출력하며 문서의 PrintDisplay 설정을 바꾸지 않습니다. 용지와 Detail에 보이는 인쇄 대상이 없으면 빈 PNG도 정상 결과입니다. Layout Detail 레이블은 지원하지 않습니다.
 
 Args:
     target_kind: named_view | layout.
@@ -64,7 +65,7 @@ Args:
 ## get_current_viewcapture
 
 <!-- instruction:get_current_viewcapture -->
-현재 Rhino 모델 뷰포트를 PNG로 캡처합니다. 대상 지정 시 실제 선택과 카메라가 바뀌며, isolate와 display_mode도 실제 화면 상태를 변경합니다. 격리 해제는 Rhino Unisolate를 사용합니다. 잠긴 주변 객체는 보일 수 있고, 선택·카메라는 별도로 확인해야 합니다.
+현재 Rhino 모델 뷰포트를 일반 화면 색과 선 표현으로 PNG에 캡처합니다. 캡처 중 문서의 PrintDisplay 설정은 유지됩니다. 대상 지정 시 실제 선택과 카메라가 바뀌며, isolate와 display_mode도 실제 화면 상태를 변경합니다. 설치된 모드의 이름과 GUID는 inspect_03-get_document_context tool에서 sections=["display_modes"]로 조회합니다. 작업 화면을 유지하면서 선택한 객체를 여러 방향이나 모드로 비교하려면 capture_02-inspection tool을 사용합니다. 격리 해제는 Rhino Unisolate를 사용합니다. 잠긴 주변 객체는 보일 수 있고, 선택·카메라는 별도로 확인해야 합니다.
 
 PNG 이미지 전달과 image_file 저장은 별개입니다. include_usage의 토큰 수는 픽셀 기준 추정치입니다. labels는 주변 객체에도 표시되어 화면을 가릴 수 있습니다.
 
@@ -84,6 +85,8 @@ Args:
 <!-- instruction:get_objects -->
 Rhino 문서의 최상위 모델 객체를 조회합니다. `current`는 표시되고 잠기지 않은 객체(화면 밖 포함), `document`는 숨김·잠금 객체도 포함합니다. 객체·그룹 ID와 메타데이터로 범위를 좁히고 객체, 요약 또는 계층으로 관찰합니다. 그룹은 선택한 범위와 구성원의 교집합입니다. 계층 조회는 그룹·블록 배치를 펼치며 문서 객체와 블록 정의 내부 항목을 구분합니다.
 
+조건 하나로 객체의 UserDictionary를 조회하는 호출 예시는 `{"filters":{"user_dictionary":[{"source":"attributes","key":"brief_probe","any_of":["yes"]}]}}`입니다.
+
 행과 면은 각각 페이지를 나눕니다. 행 후속 조회에는 같은 조건과 첫 응답의 snapshot·next_offset을, 면 후속 조회에는 document 객체 ID와 geometry_crc를 사용합니다. objects/summary의 complete는 전체 행이 첫 단일 응답에 포함되고 편집 상태가 안정적일 때 true입니다. 마지막 페이지는 next_offset=null로 확인합니다. hierarchy의 complete에는 관계 완전성도 반영되며 깊이 제한이 있을 수 있습니다. face_page.complete는 전체 면이 첫 단일 응답에 있을 때 true입니다.
 
 표시 여부는 픽셀 가시성이나 가림 여부를 뜻하지 않습니다.
@@ -91,7 +94,7 @@ Rhino 문서의 최상위 모델 객체를 조회합니다. `current`는 표시�
 Args:
     scope: current(기본), document.
     object_ids: document 범위에서만 사용할 수 있는 선택 사항인 서로 다른 최상위 객체 GUID입니다(1..4096개). group_ids와 함께 사용하지 않습니다.
-    filters: AND 조건입니다. layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary(source=attributes|geometry, key, 스칼라 any_of)를 사용할 수 있습니다.
+    filters: layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary 조건을 모두 적용합니다. user_dictionary는 조건 하나도 조건 객체의 JSON 배열에 담으며 최대 16개 조건이 모두 일치해야 합니다. 각 조건의 source는 attributes(객체 속성) 또는 geometry(형상), key는 비어 있지 않은 키입니다. any_of는 문자열·불리언·숫자를 1~64개 담은 배열이며, 해당 키의 값 또는 배열 원소가 그중 하나와 일치하면 조건을 충족합니다.
     include_geometry: fields를 생략했을 때 objects 모드에서 형상 상세 정보를 포함합니다. 명시적인 fields가 우선합니다.
     offset: 0..100000. 양수: expected_snapshot 필수.
     limit: 1..200, 기본 50.
@@ -123,7 +126,11 @@ Args:
 <!-- instruction:capture_rhino_inspection -->
 작업 화면을 유지하면서 여러 시점과 객체 범위를 하나의 PNG로 비교합니다. 객체 범위는 문서 표시 상태를 기준으로 하며 픽셀 가시성이나 가림을 보장하지 않습니다. 그룹 자동 확장과 블록 배치·정의 필터는 지원하지 않습니다.
 
-일부 타일이 실패해도 status=success일 수 있습니다. 전체 성공 여부는 complete, 개별 결과는 tiles에서 확인합니다. PNG 전달과 image_file 저장은 별개입니다.
+설치된 표시 모드의 이름과 GUID는 inspect_03-get_document_context tool에서 sections=["display_modes"]로 조회합니다. Wireframe은 와이어와 곡선 검토, Shaded는 면과 입체 형태 검토, Technical은 가려진 선을 포함한 선 표현 검토에 적합합니다. 사용자 정의 래스터 모드도 설치된 이름이나 GUID로 선택할 수 있습니다. 이름이 중복되면 GUID를 사용합니다.
+
+inspect_02-get_objects tool에서 include_ids=true로 최상위 모델 객체의 GUID를 확인합니다. 모든 타일을 같은 대상에 맞추려면 공통 object_ids에 GUID 배열을 넣고 views에서 각 방향과 모드를 선택합니다. 예를 들어 views=[{"direction":"top","display_mode":"Technical"},{"direction":"iso_ne","display_mode":"Shaded"}]는 같은 대상을 평면과 사시 방향으로 비교합니다. 원본 뷰 방향에서 지정 객체에 맞춰 확대하려면 공통 또는 타일별 object_ids와 함께 views=[{"direction":"current","frame_objects":true}]를 사용합니다. frame_objects를 생략한 current 타일은 원본 카메라 구도를 사용합니다.
+
+일부 타일이 실패해도 status=success일 수 있습니다. 전체 성공 여부는 complete에서, 개별 결과와 적용된 모드의 이름·GUID는 tiles에서 확인합니다. PNG 전달과 image_file 저장은 별개입니다.
 
 Args:
     views: 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw.\n  // display_mode: 설치된 이름/GUID, label: 최대 120자. object_ids: 최상위 GUID 1..512개; 생략·빈 배열은 공통 범위 또는 문서 표시 상태.

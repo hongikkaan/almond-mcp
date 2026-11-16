@@ -784,6 +784,20 @@
               "direction": {
                 "type": "string",
                 "description": "캡처한 시점입니다."
+              },
+              "display_mode": {
+                "type": "object",
+                "description": "성공한 타일의 실제 표시 모드입니다.",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "설치된 표시 모드 이름입니다."
+                  },
+                  "id": {
+                    "type": "string",
+                    "description": "표시 모드 GUID입니다."
+                  }
+                }
               }
             }
           },
@@ -1003,19 +1017,7 @@
         "file_name": {
           "default": "",
           "type": "string",
-          "description": "이 Scene이 속한 프로젝트 파일명을 문자열로 입력합니다. 폴더는 제외하고, 같은 이름의 파일이 여러 개면 project_file_id로 지정합니다."
-        },
-        "project_file_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "context_04-get_project_info tool(sections=[\"project\"], include_ids=true)에서 얻은 기존 project.files[].project_file_id입니다. file_name과 함께 제공하면 서로 일치해야 합니다."
+          "description": "context_04-get_project_info tool의 project.files에 등록된 파일명입니다. 폴더는 제외하며, 비어 있으면 파일에 연결하지 않습니다."
         }
       },
       "required": [
@@ -1110,7 +1112,7 @@
                     }
                   ],
                   "default": "",
-                  "description": "연결할 파일명 하나 또는 배열. 생략하면 파일 연결 없음."
+                  "description": "context_04-get_project_info tool의 project.files에 등록된 파일명 하나 또는 배열. 생략하면 파일 연결 없음."
                 },
                 "status": {
                   "default": "pending",
@@ -1688,6 +1690,14 @@
                       "type": "string"
                     },
                     "description": "해당 회차의 Step에 기록한 산출물·결과 참조입니다."
+                  },
+                  "takeaways": {
+                    "type": "string",
+                    "description": "다음 작업에 넘길 이 Step의 주요 발견과 교훈입니다."
+                  },
+                  "design_rationale": {
+                    "type": "string",
+                    "description": "이 Step의 설계 결정과 근거입니다."
                   }
                 }
               },
@@ -1783,6 +1793,14 @@
                   "type": "string"
                 },
                 "description": "해당 회차의 Step에 기록한 산출물·결과 참조입니다."
+              },
+              "takeaways": {
+                "type": "string",
+                "description": "다음 작업에 넘길 이 Step의 주요 발견과 교훈입니다."
+              },
+              "design_rationale": {
+                "type": "string",
+                "description": "이 Step의 설계 결정과 근거입니다."
               }
             }
           },
@@ -3260,7 +3278,7 @@
         "include_ids": {
           "default": false,
           "type": "boolean",
-          "description": "기본 false. scope 등에서 project_file_id 포함."
+          "description": "기본 false. 결과에 포함된 식별자를 표시합니다."
         },
         "field_groups": {
           "anyOf": [
@@ -3604,7 +3622,7 @@
                     "description": "도면 투영 설정입니다."
                   }
                 },
-                "description": "선택한 도면 레시피의 요약입니다."
+                "description": "선택한 레시피의 요약과 field_groups로 요청한 설정입니다. 적용에 같은 recipe_id를 사용합니다."
               },
               "message": {
                 "type": "string",
@@ -3840,7 +3858,7 @@
             }
           ],
           "default": null,
-          "description": "AND 조건입니다. layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary(source=attributes|geometry, key, 스칼라 any_of)를 사용할 수 있습니다."
+          "description": "layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary 조건을 모두 적용합니다. user_dictionary는 조건 하나도 조건 객체의 JSON 배열에 담으며 최대 16개 조건이 모두 일치해야 합니다. 각 조건의 source는 attributes(객체 속성) 또는 geometry(형상), key는 비어 있지 않은 키입니다. any_of는 문자열·불리언·숫자를 1~64개 담은 배열이며, 해당 키의 값 또는 배열 원소가 그중 하나와 일치하면 조건을 충족합니다."
         },
         "include_geometry": {
           "default": false,
@@ -4320,7 +4338,7 @@
                 },
                 "include_details": {
                   "default": false,
-                  "description": "기본 false. true이면 이 Step의 유형과 입출력 참조를 포함합니다.",
+                  "description": "기본 false. true이면 이 Step의 유형, 입출력 참조, Takeaways와 Design rationale을 포함합니다.",
                   "type": "boolean"
                 },
                 "loop_no": {
@@ -4586,103 +4604,16 @@
                       "type": "string"
                     },
                     "description": "작업 결과의 근거입니다."
+                  },
+                  "takeaways": {
+                    "type": "string",
+                    "description": "다음 작업에 넘길 이 Step의 주요 발견과 교훈입니다."
+                  },
+                  "design_rationale": {
+                    "type": "string",
+                    "description": "이 Step의 설계 결정과 근거입니다."
                   }
                 }
-              },
-              "message": {
-                "type": "string",
-                "description": "현재 결과 또는 오류의 설명입니다."
-              },
-              "error_code": {
-                "type": "string",
-                "description": "오류 유형입니다."
-              },
-              "next_step_guide": {
-                "type": "string",
-                "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
-              }
-            }
-          }
-        }
-      },
-      "required": [
-        "result"
-      ],
-      "x-fastmcp-wrap-result": true
-    },
-    "annotations": {
-      "readOnlyHint": true,
-      "destructiveHint": false
-    }
-  },
-  "drawing_03-get_plan_section_result": {
-    "name": "drawing_03-get_plan_section_result",
-    "inputSchema": {
-      "additionalProperties": false,
-      "properties": {
-        "result_id": {
-          "type": "string",
-          "description": "drawing_06-generate_plan_section tool의 result.result_id."
-        },
-        "offset": {
-          "default": 0,
-          "type": "integer",
-          "description": "첫 페이지 기본 0, 이후 반환된 next_offset 사용. UTF-16 코드 단위."
-        },
-        "expected_model_path": {
-          "default": "",
-          "type": "string",
-          "description": "생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인."
-        }
-      },
-      "required": [
-        "result_id"
-      ],
-      "type": "object"
-    },
-    "outputSchema": {
-      "type": "object",
-      "properties": {
-        "result": {
-          "type": "string",
-          "contentMediaType": "application/json",
-          "contentSchema": {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string",
-                "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
-              },
-              "result_id": {
-                "type": "string",
-                "description": "같은 Rhino 문서 인스턴스에 보관된 PlanSection 결과의 ID입니다. 다음 페이지 조회에 재사용합니다."
-              },
-              "offset": {
-                "type": "integer",
-                "description": "결과 문자열의 UTF-16 코드 단위 시작 위치입니다."
-              },
-              "json_chunk": {
-                "type": "string",
-                "description": "전체 객체가 아니라 JSON 문자열 조각"
-              },
-              "total_characters": {
-                "type": "integer",
-                "description": "UTF-16 코드 단위 길이"
-              },
-              "next_offset": {
-                "description": "이어 읽을 UTF-16 코드 단위 위치입니다. null이면 마지막 페이지입니다.",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "result_sha256": {
-                "type": "string",
-                "description": "보관된 전체 결과 문자열의 SHA-256 해시입니다."
-              },
-              "observation": {
-                "type": "string",
-                "description": "보관된 실행 결과의 관찰 시점에 대한 안내입니다."
               },
               "message": {
                 "type": "string",
@@ -4859,7 +4790,7 @@
             }
           ],
           "default": null,
-          "description": "document, viewport, editor, viewports, named_views, layouts, display_modes 중 선택.\n생략 또는 null은 document, named_views, layouts, display_modes. []는 status와 warnings만."
+          "description": "document, viewport, editor, viewports, named_views, layouts, layer_tree, display_modes 중 선택.\n생략 또는 null은 document, named_views, layouts, layer_tree, display_modes. []는 status와 warnings만."
         },
         "include_ids": {
           "default": false,
@@ -4883,6 +4814,53 @@
           "contentSchema": {
             "type": "object",
             "properties": {
+              "named_views": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "description": "저장된 Named View 이름과 ID입니다. 최대 128개이며 일부만 반환하면 warnings에 표시합니다. 조회 실패 시 null입니다.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Named View 이름입니다."
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "Named View 식별자입니다. include_ids 설정과 관계없이 반환합니다."
+                    }
+                  }
+                }
+              },
+              "layouts": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "description": "저장된 Layout 이름과 ID입니다. 최대 128개이며 일부만 반환하면 warnings에 표시합니다. 조회 실패 시 null입니다.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Layout 이름입니다."
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "Layout 식별자입니다. include_ids 설정과 관계없이 반환합니다."
+                    }
+                  }
+                }
+              },
+              "layer_tree": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "삭제되지 않은 모든 레이어의 이름과 부모 관계입니다. 깊이당 공백 두 칸으로 들여씁니다. 레이어가 없으면 빈 문자열, 조회에 실패하면 null입니다."
+              },
               "status": {
                 "type": "string",
                 "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
@@ -6235,7 +6213,7 @@
                   "properties": {
                     "recipe_id": {
                       "type": "string",
-                      "description": "drawing_02-get_recipe tool / drawing_01-apply_style tool에 재사용"
+                      "description": "drawing_02-get_recipe tool 또는 drawing_01-apply_style tool에 입력하는 레시피 ID입니다."
                     },
                     "name": {
                       "type": [
@@ -6267,7 +6245,7 @@
                     }
                   }
                 },
-                "description": "도면 레시피와 요청한 속성입니다."
+                "description": "도면 레시피의 요약과 field_groups로 요청한 추가 속성입니다."
               },
               "message": {
                 "type": "string",
@@ -7196,17 +7174,18 @@
         "operation": {
           "enum": [
             "Create",
-            "Update"
+            "Update",
+            "Move"
           ],
           "type": "string",
-          "description": "Create: 생성 또는 기존 도면 교체. Update: 기존 도면 재생성."
+          "description": "Create는 생성 또는 교체, Update는 저장 위치에서 재생성, Move는 기존 도면의 평행이동."
         },
         "clipping_ids": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "클리핑 평면 GUID 목록. 비어 있을 수 없으며 중복은 한 번만 처리."
+          "description": "활성 모델 또는 현재 Worksession 첨부 파일의 클리핑 평면 GUID 목록. 비어 있을 수 없으며 중복은 한 번만 처리."
         },
         "points": {
           "anyOf": [
@@ -7231,22 +7210,17 @@
             }
           ],
           "default": null,
-          "description": "Create만: 클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위."
+          "description": "클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위. Create에서 선택, Move에서 모든 GUID에 필수, Update에서 생략."
         },
         "hatch": {
           "default": true,
           "type": "boolean",
           "description": "해치 생성 허용. 원본 단면 스타일의 채움과 형상 조건을 따름. 기본 true."
         },
-        "elevation": {
-          "default": true,
-          "type": "boolean",
-          "description": "입면선 포함. 기본 true."
-        },
         "small_details": {
-          "default": true,
+          "default": false,
           "type": "boolean",
-          "description": "작은 상세 보호 여부. 기본 true."
+          "description": "작은 입면 상세를 보호할지 여부. 기본 false."
         },
         "near_width": {
           "anyOf": [
@@ -7296,10 +7270,17 @@
           "default": 45.0,
           "description": "먼 입면선 출력 농도 0..100%. 기본 45, near_dark 이하."
         },
-        "expected_model_path": {
-          "default": "",
-          "type": "string",
-          "description": "생략: 연결된 저장 문서 경로. 지정: 일치 여부 확인."
+        "include_attachments": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "true면 활성 모델과 현재 Worksession 첨부 형상을 계산합니다. false면 활성 모델 형상만 계산합니다. Create에서 기본 false, Update에서 생략하면 기존 도면의 설정을 사용합니다. Move는 배치만 변경합니다."
         }
       },
       "required": [
@@ -7319,53 +7300,135 @@
             "properties": {
               "status": {
                 "type": "string",
-                "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
+                "description": "요청 결과입니다. success, partial, cancelled, error를 구분합니다."
               },
               "drawing_status": {
                 "type": "string",
-                "description": "생성된 도면의 상태입니다."
+                "description": "도면 계산의 completed, partial, cancelled, failed 상태입니다."
+              },
+              "mutation_state": {
+                "type": "string",
+                "description": "알려진 모델 변경 상태입니다. unknown이면 도면을 확인합니다."
+              },
+              "requires_reconciliation": {
+                "type": "boolean",
+                "description": "재호출 전 현재 도면 상태를 확인해야 합니다."
               },
               "result": {
                 "type": "object",
+                "description": "클리핑별 도면 결과와 실제 추출 조건입니다.",
                 "properties": {
                   "status": {
                     "type": "string",
-                    "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
+                    "description": "도면 계산의 종합 상태입니다."
                   },
                   "requested": {
                     "type": "integer",
-                    "description": "요청한 대상 수입니다."
+                    "description": "요청한 서로 다른 클리핑 수입니다."
                   },
                   "completed": {
                     "type": "integer",
-                    "description": "도면 생성을 완료한 대상 수입니다."
+                    "description": "처리를 완료한 클리핑 수입니다."
                   },
-                  "output": {
-                    "type": "string",
-                    "description": "실행 중 기록한 출력 문자열입니다."
-                  },
-                  "result_delivery": {
-                    "type": "string",
-                    "description": "전체 결과 또는 페이지 조회 방식입니다."
-                  },
-                  "result_id": {
-                    "type": "string",
-                    "description": "drawing_03-get_plan_section_result tool로 복구"
-                  },
-                  "result_characters": {
-                    "type": "integer",
-                    "description": "전체 결과 문자열의 UTF-16 코드 단위 길이입니다."
-                  },
-                  "result_sha256": {
-                    "type": "string",
-                    "description": "보관된 전체 결과 문자열의 SHA-256 해시입니다."
-                  },
-                  "retention": {
-                    "type": "string",
-                    "description": "동일 문서·Bridge, 최대 1시간·최신 8개·총 64 MiB 보관 안내"
+                  "results": {
+                    "type": "array",
+                    "description": "처리한 클리핑별 결과입니다.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "clipping_id": {
+                          "type": "string",
+                          "description": "실제로 처리한 클리핑 평면의 GUID입니다."
+                        },
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "클리핑 평면의 이름입니다."
+                        },
+                        "status": {
+                          "type": "string",
+                          "description": "해당 클리핑의 처리 상태입니다."
+                        },
+                        "object_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "생성, 갱신 또는 이동한 도면 객체의 GUID입니다."
+                        },
+                        "draw_plane": {
+                          "type": "object",
+                          "description": "완료한 도면의 실제 배치 평면입니다.",
+                          "properties": {
+                            "origin": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3
+                            },
+                            "xaxis": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3
+                            },
+                            "yaxis": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3
+                            }
+                          }
+                        },
+                        "extraction": {
+                          "type": "object",
+                          "description": "Create·Update에서 실제 계산에 사용한 추출 조건입니다.",
+                          "properties": {
+                            "layers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "사용한 원본 레이어 전체 경로입니다."
+                            },
+                            "source_object_count": {
+                              "type": "integer",
+                              "description": "계산에 사용한 원본 객체 수입니다."
+                            },
+                            "include_hidden": {
+                              "type": "boolean",
+                              "description": "숨겨진 원본 객체 처리 허용 여부입니다."
+                            },
+                            "include_locked": {
+                              "type": "boolean",
+                              "description": "잠긴 원본 객체 처리 허용 여부입니다."
+                            },
+                            "include_attachments": {
+                              "type": "boolean",
+                              "description": "Worksession 첨부 형상의 처리 허용 여부입니다."
+                            }
+                          }
+                        },
+                        "report": {
+                          "type": "object",
+                          "description": "계산 단계와 제외 또는 정리된 형상에 대한 보고입니다."
+                        },
+                        "error": {
+                          "type": "string",
+                          "description": "해당 클리핑의 계산 오류입니다."
+                        }
+                      }
+                    }
                   }
-                },
-                "description": "단면 생성 결과입니다. 큰 결과에는 페이지 조회용 result_id가 포함됩니다."
+                }
               },
               "message": {
                 "type": "string",
@@ -7374,10 +7437,6 @@
               "error_code": {
                 "type": "string",
                 "description": "오류 유형입니다."
-              },
-              "next_step_guide": {
-                "type": "string",
-                "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
               }
             }
           }
@@ -7534,7 +7593,7 @@
             }
           ],
           "default": null,
-          "description": "project, document, locations, runtime. 기본은 앞의 세 섹션."
+          "description": "project, document, named_views, layouts, layer_tree, locations, runtime. 기본은 runtime을 제외한 모든 섹션."
         },
         "include_ids": {
           "default": false,
@@ -7557,6 +7616,53 @@
     "outputSchema": {
       "type": "object",
       "properties": {
+        "named_views": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "저장된 Named View 이름과 ID입니다. 최대 128개이며 일부만 반환하면 warnings에 표시합니다. 조회 실패 시 null입니다.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Named View 이름입니다."
+              },
+              "id": {
+                "type": "string",
+                "description": "Named View 식별자입니다. include_ids 설정과 관계없이 반환합니다."
+              }
+            }
+          }
+        },
+        "layouts": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "저장된 Layout 이름과 ID입니다. 최대 128개이며 일부만 반환하면 warnings에 표시합니다. 조회 실패 시 null입니다.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Layout 이름입니다."
+              },
+              "id": {
+                "type": "string",
+                "description": "Layout 식별자입니다. include_ids 설정과 관계없이 반환합니다."
+              }
+            }
+          }
+        },
+        "layer_tree": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "삭제되지 않은 모든 레이어의 이름과 부모 관계입니다. 깊이당 공백 두 칸으로 들여씁니다. 레이어가 없으면 빈 문자열, 조회에 실패하면 null입니다."
+        },
         "status": {
           "type": "string",
           "description": "현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다."
@@ -7598,17 +7704,40 @@
               "items": {
                 "type": "object",
                 "properties": {
-                  "project_file_id": {
-                    "type": "string",
-                    "description": "등록 파일 ID입니다. Scene의 파일 연결에 사용합니다."
-                  },
                   "file_name": {
                     "type": "string",
-                    "description": "파일명입니다."
+                    "description": "Phase 또는 Scene에서 선택할 수 있는 등록 파일명입니다."
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "파일별 설명입니다. 기록된 설명이 없으면 null입니다."
                   }
                 }
               },
               "description": "프로젝트에 등록한 Rhino 파일 목록입니다."
+            },
+            "worksession_files": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "description": "Rhino에 현재 첨부한 참조 목록입니다. 활성 문서는 제외합니다. 첨부가 없으면 빈 배열, 조회에 실패하면 null입니다.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file_name": {
+                    "type": "string",
+                    "description": "첨부 파일명입니다."
+                  },
+                  "file_path": {
+                    "type": "string",
+                    "description": "첨부 파일 경로입니다. 다른 드라이브의 경로는 절대 경로로 반환합니다."
+                  }
+                }
+              }
             },
             "files_page": {
               "type": "object",
@@ -9421,19 +9550,7 @@
             }
           ],
           "default": null,
-          "description": "폴더를 포함하지 않는 교체 파일 이름입니다. 선택 사항이며, project_file_id를 생략한 상태에서 빈 문자열을 지정하면 연결을 해제합니다. 생략하면 유지합니다."
-        },
-        "project_file_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "연결할 기존 프로젝트 파일의 ID입니다. file_name도 입력하면 같은 파일을 가리켜야 합니다."
+          "description": "context_04-get_project_info tool의 project.files에 등록된 교체 파일명입니다. 빈 문자열은 연결 해제, 생략/null은 유지입니다."
         }
       },
       "required": [
@@ -9550,7 +9667,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "빈 문자열 또는 []는 연결 해제."
+                  "description": "context_04-get_project_info tool의 project.files에 등록된 파일명 하나 또는 배열. 빈 문자열 또는 []는 연결 해제, 생략/null은 유지."
                 },
                 "status": {
                   "anyOf": [
@@ -9871,7 +9988,35 @@
                     }
                   ],
                   "default": null,
-                  "description": "pending, running, paused, completed, failed, blocked 중 하나를 선택합니다. 생략하거나 null이면 유지합니다."
+                  "description": "생략하거나 null이면 유지합니다. completed로 바뀌는 경우 에이전트의 정리 선택을 먼저 반환합니다."
+                },
+                "completion_token": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "완료 확인 응답 confirmation.token. 같은 연결의 해당 요청에 한 번만 사용합니다."
+                },
+                "completion_decision": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "yes",
+                        "no"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "yes는 같은 요청의 temp 정리와 완료를 실행합니다. no는 변경 없이 확인 요청을 닫습니다."
                 },
                 "input_refs": {
                   "anyOf": [
@@ -9933,6 +10078,30 @@
                   "default": null,
                   "description": "출력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. [] 형식의 전체 교체 배열은 허용하지 않습니다."
                 },
+                "takeaways": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Takeaways. 다음 작업에 전달할 핵심 결론이나 확인 사항입니다. 생략 또는 null은 유지하고 빈 문자열은 비웁니다."
+                },
+                "design_rationale": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Design rationale. 설계 결정을 내린 이유와 근거입니다. 생략 또는 null은 유지하고 빈 문자열은 비웁니다."
+                },
                 "expected_revision": {
                   "anyOf": [
                     {
@@ -9966,7 +10135,7 @@
               "type": "object"
             }
           ],
-          "description": "target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step은 상태와 문자열 목록 패치로 기록을 갱신합니다."
+          "description": "target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step은 상태·입출력 참조·판단 기록 중 필요한 필드만 갱신합니다. 완료 선택에는 원래 필드와 completion_token, completion_decision을 사용합니다."
         }
       },
       "required": [
@@ -10084,6 +10253,56 @@
                   }
                 },
                 "description": "수정한 Step의 확인 정보입니다."
+              },
+              "confirmation": {
+                "type": "object",
+                "description": "Step 완료를 적용하기 전 에이전트에게 반환하는 확인입니다.",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "이 시도의 request.completion_token입니다."
+                  },
+                  "warning": {
+                    "type": "string",
+                    "description": "완료 시 지워지는 자료 범위와 유지 방법을 설명합니다."
+                  },
+                  "choices": {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "yes",
+                        "no"
+                      ]
+                    },
+                    "description": "request.completion_decision에서 선택할 값입니다."
+                  }
+                }
+              },
+              "cleanup": {
+                "type": "object",
+                "description": "완료 저장 후 확인한 Rhino 정리 결과입니다.",
+                "properties": {
+                  "deleted_layers": {
+                    "type": "integer",
+                    "description": "삭제한 로컬 레이어 수입니다."
+                  },
+                  "deleted_objects": {
+                    "type": "integer",
+                    "description": "삭제한 로컬 객체와 블록 정의 구성원 수입니다."
+                  }
+                }
+              },
+              "cleanup_state": {
+                "enum": [
+                  "not_started",
+                  "rolled_back",
+                  "unknown"
+                ],
+                "description": "실패 응답에서 확인한 Rhino 정리 상태입니다."
+              },
+              "requires_reconciliation": {
+                "type": "boolean",
+                "description": "오류 처리에 Rhino 또는 DB 상태 확인이 필요한지 나타냅니다."
               }
             }
           }
@@ -10804,5 +11023,65 @@
       "x-fastmcp-wrap-result": true
     },
     "annotations": null
+  },
+  "context_05-upsert_project_file": {
+    "name": "context_05-upsert_project_file",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "file_name": {
+          "type": "string",
+          "description": "폴더를 제외한 모델 파일명입니다. 프로젝트 안에서 고유해야 합니다."
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "파일을 사용하는 목적이나 내용을 설명합니다. 생략/null은 기존 설명 유지, 빈 문자열은 설명 삭제입니다."
+        }
+      },
+      "required": [
+        "file_name"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "등록 또는 설명 갱신의 결과입니다."
+        },
+        "file_name": {
+          "type": "string",
+          "description": "프로젝트에 등록한 파일명입니다."
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "저장한 파일 설명입니다."
+        },
+        "message": {
+          "type": "string",
+          "description": "등록 또는 갱신에 실패한 사유입니다."
+        },
+        "error_code": {
+          "type": "string",
+          "description": "오류 유형입니다."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false
+    }
   }
 }

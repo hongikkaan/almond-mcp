@@ -17,7 +17,7 @@ Rhino에서는 `Almond` 또는 `AlmondLibraryBrowser`를 연다. Python만으로
 | 생성 모델·passport·sidecar·preview | `asset/models/GeneratedAssetfiles` |
 | Drawing asset | `asset/drawing/DrawingAssetfiles` |
 | 파생 투영 도면 | `asset/drawing/Draftingfiles` |
-| 도면 표현 규칙 | `asset/drawing/DrawingRecipes` |
+| 도면 표현 규칙 | [`asset/drawing/DrawingRecipes`](../../../../asset/drawing/DrawingRecipes/README.md) |
 
 실행 환경의 `RHINO_MCP_*_DIR`이 저장소 경로보다 우선한다. 파일이나 manifest를 변경한 뒤 Rhino 패널은 Reload로 현재 목록을 다시 읽고 Python standalone archive는 재시작한다. 현재 등록 목록 조회에는 설치된 Almond Python 환경이 필요하며 MCP 연결은 필요 없다. 검색은 이름·ID·분류·태그·drawing role을 사용하며 즐겨찾기는 브라우저 localStorage에 남는다. HTTP 서버는 loopback에 바인딩하고 Host 검사와 파일 allowlist를 사용한다. 업로드나 임의 파일 탐색 기능은 없다.
 
