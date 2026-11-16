@@ -122,7 +122,7 @@ GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper
 서버의 기존 함수·클래스 이름도 조립 시 re-export한다. 비공개 generated-asset helper를 새 공개 MCP 도구로 노출하지 않고 기존 resource URI·등록을 유지한다.
 
 모듈 검사는 `tests/test_readonly_contracts.py`와 `tests/runtime/`에서 읽기 전용 응답·공유 저장소·환경 분리를 확인한다. 실제 stdio와 외부 연결기 사이의 도구 설명·schema 계약은 루트 `tests/integration/test_stdio_contract.py`가 검사한다. 이 범위는 모든 모델링·계산 기능 또는 실제 Rhino의 Undo/Redo 검증을 대신하지 않는다.
-전체 회귀는 `run_tests.ps1`, 호스트·catalog 검사는 COS runner, 모듈 경계·실제 전체 schema·패키징은 루트 통합 검사를 사용한다. 새 기능 파일을 추가하거나 기존 구현을 바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. COS는 새 클라이언트 시작 시 server와 feature factory의 AST에서 schema를 읽으며 서버/DB를 import하지 않는다. package의 모든 Python 파일 목록과 내용이 fingerprint 대상이므로 이동·추가·삭제도 감지한다.
+변경 종류별 실행기와 전제는 [개발 검사 안내](../../tests/README.md)를 따른다. 새 기능 파일을 추가하거나 기존 구현을 바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. COS는 새 클라이언트 시작 시 server와 feature factory의 AST에서 schema를 읽으며 서버/DB를 import하지 않는다. package의 모든 Python 파일 목록과 내용이 fingerprint 대상이므로 이동·추가·삭제도 감지한다.
 
 ## 실행·관측 계약
 
@@ -237,7 +237,7 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 plan_09-rename_ar
 
 `context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `BASIC-INSTRUCTIONS.md`, 공개 도구명과 `available_policies`를 반환한다. BASIC은 설계·관찰·검수에 공통으로 적용할 판단 기준과 개념을 담는다. 활동별 지침은 `features/guidance/policies/`에 두며 `spatial_modeling`, `observation`, `drawing`, `design_exploration`, `feedback_reporting`을 선택해 읽는다. `metadata`는 객체·그룹 메타데이터 규칙, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 개별 도구의 설명과 호출법은 `tools/list`에서 확인한다.
 
-문서 전용 MCP의 initialize.instructions에는 공통 안내를 넣지 않는다. Codex Code Mode가 이 필드를 모든 도구 설명에 반복해서 붙이기 때문이다. 외부 연결기의 연결 안내는 별도 계약이다.
+standalone MCP의 initialize.instructions는 비어 있고, Rhino 문서에 연결된 MCP 실행기는 그 필드로 모델링 시작 안내를 전달한다. 자세한 지침 본문은 context_01-get_policy tool에서 조회한다. [외부 연결기의 초기화 안내](../cos/SPEC.md#공통-모델링-안내)는 별도 계약이다. [stdio 계약 검사](../../tests/integration/test_stdio_contract.py)가 이 경로들을 확인한다.
 
 `modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`와 활동별 지침은 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
 

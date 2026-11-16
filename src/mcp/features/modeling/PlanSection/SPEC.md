@@ -287,9 +287,9 @@ py -3 -m unittest discover -s "$sectionFolder\tests" -p 'test_*.py' -v
 
 CPython 표준 라이브러리만 필요하다. Rhino·라이선스·MCP·모델 로딩 없이 실제 Python 함수의 옵션 검증, 메타데이터, 로컬/참조 입력 분기, 닫힌 seam의 Trim/Split API 계약, 정상 폐곡선의 Boolean 생략·빈 Boolean 오류, 단면/입면 중복 공차 분리·mm 환산, 단계 교체·성공 반환·실패 시 출력 소유권, Update/Document/Files/PDF/Placement와 취소·실패 흐름을 검사한다. Rhino API는 모의 객체이므로 native 교차·Boolean·HLD·해치의 정확성을 증명하지 않는다. `test_fixture_policy.py`는 보관된 `.3dm`이 `TEST.3dm` 한 개인지 검사한다.
 
-### 보존된 대표 모델 native 검사
+### 보존된 대표 모델 RhinoCore 검사 참고 자료
 
-아래는 원본에서 함께 복사한 검사 자료다. Almond 통합 작업의 실제 기능 확인은 사용자가 지정한 연결 문서를 사용한다. 아래 fixture를 실제 사용자 문서에 실행하지 않으며, 테스트만을 위한 별도 Rhino 실행은 자동으로 하지 않는다. 기존 **TEST.3dm만** 보관한다. 실제 다층 중첩 블록, Brep/Mesh, clipping 12개를 읽는다. 이 파일을 코드로 재모델링하지 않는다. 새 checkout에서 LFS pointer만 있으면 저장소 루트에서 `git lfs pull --include="src/mcp/features/modeling/PlanSection/TEST.3dm"`로 받는다.
+아래는 원본에서 함께 복사한 참고 자료다. 이 fixture는 RhinoCore를 실행하므로 [오프라인 개발 검사](../../../../../tests/README.md)에 포함하지 않는다. fixture의 입력은 보관된 대표 모델이다. 기존 **TEST.3dm만** 보관한다. 실제 다층 중첩 블록, Brep/Mesh, clipping 12개를 읽는다. 이 파일을 코드로 재모델링하지 않는다. 새 checkout에서 LFS pointer만 있으면 저장소 루트에서 `git lfs pull --include="src/mcp/features/modeling/PlanSection/TEST.3dm"`로 받는다.
 
 Windows PowerShell, 설치된 Rhino 8(기본 `C:\Program Files\Rhino 8\System`), 사용 가능한 Rhino 라이선스가 필요하다. 실행기는 별도 STA RhinoCore 프로세스를 사용하며 사용자 Rhino 문서나 MCP에 연결하지 않는다. 첫 실행 시 포함된 C# 소스로 `%TEMP%/PlanSection-runtime/native_check_host.exe`를 빌드한다.
 

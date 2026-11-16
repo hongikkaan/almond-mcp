@@ -71,9 +71,9 @@ Karamba는 build-time reference 없이 `KarambaAdapter.cs`가 reflection으로 �
 
 찾지 못하면 경고와 함께 audited template, 이어서 rule-based 추정으로 내려간다. `analysis_method`와 실제 결과의 완전성을 확인하고 낮은 confidence를 FEA로 해석하지 않는다. 진단만을 위해 정상 설치를 덮어쓰거나 프로젝트 참조에 Karamba DLL을 추가하지 않는다.
 
-## Rhino에서 검증
+## 구조해석 사용 중 결과 확인
 
-준비·빌드는 [AGENTS.md](../../../../../AGENTS.md)를 따른다. 실제 기능 검증은 사용자가 연결한 작업 문서의 기존 구조 형상에서 수행하며 테스트만을 위한 문서를 자동 생성하지 않는다.
+준비·빌드는 [AGENTS.md](../../../../../AGENTS.md)를 따른다. 아래 항목은 실제 구조해석 작업 중 결과를 해석할 때 참조한다. 개발 검사는 [오프라인 검사 기준](../../../../../tests/README.md)을 따른다.
 
 - 문서·단위·공차 정보가 필요하면 `context_04-get_project_info` tool의 document 항목에서 live 문서를 확인한다. 같은 확인을 위해 `inspect_03-get_document_context` tool를 추가 호출하지 않는다. 포트 충돌이면 해당 프로세스를 조사하고 강제 종료하지 않는다.
 - 단순 beam의 치수·단위·하중·지점을 명시해 해석하고 `analysis_method`, 변위, 반력 평형, 부재 utilization과 경고를 확인한다.

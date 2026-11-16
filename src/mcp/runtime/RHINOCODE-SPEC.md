@@ -68,7 +68,7 @@ wrapper는 자신이 소유한 0이 아닌 Undo record만 종료한다. 사용�
 
 ## 검증과 전달
 
-오프라인 검사는 정확한 대상 선택, 오래된 identity, timeout·늦은 완료, worker 종료, 손상·불일치 receipt, native 회수 fence, 결과 선택과 실제 worker/catalog 일치를 다룬다. 실제 기능 검증은 사용자가 연결한 작업 문서에서 언어별 실행·실패·Undo/Redo·복구와 관련 결과를 확인한다.
+오프라인 검사는 정확한 대상 선택, 오래된 identity, timeout·늦은 완료, worker 종료, 손상·불일치 receipt, native 회수 fence, 결과 선택과 실제 worker/catalog 일치를 다룬다. Rhino에서의 언어별 실행·실패·Undo/Redo·복구는 [오프라인 개발 검사](../../../tests/README.md)의 검증 범위 밖이다.
 
 [루트 작업 지침](../../../AGENTS.md)에 따라 사용자 모델·DB·다른 변경을 보존한다. RHP 빌드·파일 배치·등록·실제 로드·모델링 검증은 각각 다른 증거다. 프로토콜 검사만으로 설계 판단이나 실제 문서의 인쇄 표현이 검증됐다고 보고하지 않는다.
 
