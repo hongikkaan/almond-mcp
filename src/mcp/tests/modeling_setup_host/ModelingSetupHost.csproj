@@ -8,6 +8,7 @@
     <Reference Include="RhinoCommon"><HintPath>$(RhinoSystem)\RhinoCommon.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="Microsoft.CodeAnalysis"><HintPath>$(MSBuildBinPath)\Roslyn\bincore\Microsoft.CodeAnalysis.dll</HintPath></Reference>
     <Reference Include="Microsoft.CodeAnalysis.CSharp"><HintPath>$(MSBuildBinPath)\Roslyn\bincore\Microsoft.CodeAnalysis.CSharp.dll</HintPath></Reference>
+    <Compile Include="../../../rhp/Engine/NativeUndoRecord.cs" Link="NativeUndoRecord.cs" />
     <Compile Include="../../../rhp/RhinoAlmondBridge/ScriptExecutor.cs" Link="ScriptExecutor.cs" />
     <Compile Include="../../../rhp/RhinoAlmondBridge/ScriptExecutor.Results.cs" Link="ScriptExecutor.Results.cs" />
     <Compile Include="../../features/modeling/native/ModelingSetup.cs" Link="ModelingSetup.cs" />

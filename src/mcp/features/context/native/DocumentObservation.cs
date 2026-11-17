@@ -23,7 +23,9 @@ namespace RhinoAlmondBridge
         public const int MaxImageBytes = 4 * 1024 * 1024;
         private const double RasterCaptureDpi = 144.0;
 
-        public static string HandleContext(JObject request)
+        public static string HandleContext(JObject request) => HandleContext(RhinoDoc.ActiveDoc, request);
+
+        internal static string HandleContext(RhinoDoc doc, JObject request)
         {
             int selectionLimit, depth;
             bool recursive, includeImage, selectionEntities, publicContext;
@@ -42,10 +44,12 @@ namespace RhinoAlmondBridge
                     return Error("invalid_arguments", "sections must be an array of strings.").ToString(Formatting.None);
                 sections = requested.Values<string>().ToArray();
             }
-            return GetContext(RhinoDoc.ActiveDoc, selectionLimit, sections, recursive, depth, includeImage, selectionEntities, publicContext).ToString(Formatting.None);
+            return GetContext(doc, selectionLimit, sections, recursive, depth, includeImage, selectionEntities, publicContext).ToString(Formatting.None);
         }
 
-        public static string HandleViewportImage(JObject request)
+        public static string HandleViewportImage(JObject request) => HandleViewportImage(RhinoDoc.ActiveDoc, request);
+
+        internal static string HandleViewportImage(RhinoDoc doc, JObject request)
         {
             int scalePercent, depth, width, height;
             bool labels;
@@ -60,7 +64,7 @@ namespace RhinoAlmondBridge
                 return Error("invalid_arguments", "Use view (empty, 'a', or a GUID) and integer scale_percent from 1 through 100.").ToString(Formatting.None);
             if ((width == 0) != (height == 0) || (width != 0 && scalePercent != 100))
                 return Error("invalid_arguments", "Explicit width and height require both dimensions and scale_percent=100.").ToString(Formatting.None);
-            return GetViewportImage(RhinoDoc.ActiveDoc, (string)request["view"] ?? "", scalePercent,
+            return GetViewportImage(doc, (string)request["view"] ?? "", scalePercent,
                 (string)request["display_mode"] ?? "", labels, depth,
                 (string)request["target_kind"] ?? "view", (string)request["target_id"] ?? "", width, height).ToString(Formatting.None);
         }

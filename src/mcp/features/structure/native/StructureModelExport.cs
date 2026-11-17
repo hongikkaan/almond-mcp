@@ -18,10 +18,11 @@ namespace RhinoAlmondBridge
     {
         private static readonly string[] ReleaseKeys = { "almond:release", "Almond.Release" };
 
-        public static string Handle(JObject jobj)
+        public static string Handle(JObject jobj) => Handle(RhinoDoc.ActiveDoc, jobj);
+
+        internal static string Handle(RhinoDoc doc, JObject jobj)
         {
             var guids = jobj["guids"]?.ToObject<List<string>>() ?? new List<string>();
-            var doc = RhinoDoc.ActiveDoc;
             if (doc == null)
                 return JsonConvert.SerializeObject(new { status = "error", message = "No active Rhino document." });
 

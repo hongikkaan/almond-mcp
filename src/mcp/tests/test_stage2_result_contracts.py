@@ -7,11 +7,43 @@ from fastmcp import Client, FastMCP
 from fastmcp.server.middleware import Middleware
 from fastmcp.tools import ToolResult
 from jsonschema import validate
-from mcp.types import TextContent
+from mcp.types import ImageContent, TextContent
 import pytest
 
 from almond_mcp.output_contracts import public_output_schema
 from shared_store import ProjectRuntime, public_result
+from almond_mcp.tool_guidance import guide_result
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("is_error", [False, True])
+def test_guidance_and_paths_preserve_transport_metadata_and_evidence(tmp_path, monkeypatch, wrapped, is_error):
+    monkeypatch.setenv("ALMOND_PROJECT_ROOT", str(tmp_path))
+    payload = {"status": "error" if is_error else "success", "complete": False,
+               "mutation_applied": None, "requires_reconciliation": True,
+               "object_ids": ["created-object"], "proof": {"receipt": "native-receipt"},
+               "image_file": {"status": "saved", "path": str(tmp_path / "capture.png"), "lifetime": "plan"}}
+    text = TextContent(type="text", text=json.dumps(payload),
+                       annotations={"audience": ["assistant"], "priority": 0.8},
+                       _meta={"source": "native"})
+    image = ImageContent(type="image", data="AA==", mimeType="image/png", _meta={"view": "perspective"})
+    source = ToolResult(content=[text, image],
+                        structured_content={"result": json.dumps(payload)} if wrapped else payload,
+                        is_error=is_error, meta={"request": "request-original"})
+    guided = guide_result("capture_rhino_inspection", source, {})
+    result = public_result(guided, "capture_rhino_inspection")
+    assert result.meta == source.meta
+    assert result.is_error is is_error
+    assert result.content[0].annotations == text.annotations
+    assert result.content[0].meta == text.meta
+    assert result.content[1] == image
+    body = json.loads(result.content[0].text)
+    structured = json.loads(result.structured_content["result"]) if wrapped else result.structured_content
+    assert body == structured
+    assert body["image_file"]["path"] == "capture.png"
+    for field in ("complete", "mutation_applied", "requires_reconciliation", "object_ids", "proof"):
+        assert body[field] == payload[field]
+    assert json.loads(source.content[0].text) == payload
 
 
 @pytest.mark.parametrize("envelope", ["text", "structured", "wrapped", "direct"])
@@ -41,7 +73,7 @@ def test_preflight_error_matches_registered_output_envelope(tmp_path, monkeypatc
     schema = public_output_schema(internal_name, wrapped=wrapped)
     runtime = object.__new__(ProjectRuntime)
     runtime.locations = {"project_dir": str(tmp_path), "call_root": str(tmp_path / "calls")}
-    runtime.workspace = SimpleNamespace(current=lambda: {"artifact_dir": ""}, artifact_path=lambda: tmp_path)
+    runtime.workspace = SimpleNamespace(current=lambda: {"artifact_dir": ""}, artifact_path=lambda selection=None: tmp_path)
 
     class Preflight(Middleware):
         async def on_call_tool(self, context, call_next):

@@ -15,9 +15,10 @@ using Environment = System.Environment;
 
 namespace RhinoAlmondBridge
 {
-    internal sealed class AnalysisWorkspace
+    internal sealed class AnalysisWorkspace : IDisposable
     {
         private readonly Action<JObject> _send;
+        private bool _disposed;
         private List<string> _ids = new List<string>();
         private uint _document;
         private string _fingerprint;
@@ -28,8 +29,10 @@ namespace RhinoAlmondBridge
         // a native solve runs out of process after the Rhino command has returned
         internal static bool Solving { get; private set; }
         internal AnalysisWorkspace(Action<JObject> send) { _send=send; }
+        public void Dispose() { _disposed = true; }
         internal void Request(string action, string json)
         {
+            if (_disposed) return;
             var doc = RhinoDoc.ActiveDoc;
             if (Solving && action!="status") { SendError("The native solver is still running."); return; }
             if (Busy || LibraryPlacement.Busy || doc == null || doc.InCommand(false)>0)
@@ -40,7 +43,12 @@ namespace RhinoAlmondBridge
             Busy=true;
             Eto.Forms.Application.Instance.AsyncInvoke(() => {
                 try {
-                    _pending = target => Execute(target,action,settings);
+                    if (_disposed) return;
+                    _pending = target => {
+                        if (!ReferenceEquals(target, doc) || !ReferenceEquals(RhinoDoc.ActiveDoc, doc))
+                            SendError("The active document changed. Repeat the action in the intended document.");
+                        else Execute(target,action,settings);
+                    };
                     RhinoApp.RunScript("_AlmondAnalysisAction",false);
                     // the command never ran (Rhino was running a script or command): answer, so the panel never waits forever
                     if(_pending!=null) SendError("Rhino was busy. Try again.");
@@ -62,7 +70,7 @@ namespace RhinoAlmondBridge
             {
                 if(action=="status") { Status(); return; }
                 if(action=="clear_view") {
-                    StructureView.Handle(new JObject {["clear"]=true});
+                    StructureView.Handle(doc, new JObject {["clear"]=true});
                     _send(new JObject {["kind"]="notice",["message"]="Viewport overlay cleared."});
                     return;
                 }
@@ -82,7 +90,7 @@ namespace RhinoAlmondBridge
                         ExplicitSupports=settings.ExplicitSupports,BeamDiameterMM=settings.DiameterMM,BeamWallMM=settings.WallMM};
                     var snapshot=Snapshot(doc);
                     var validator=new StructuralValidator(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Almond","Grasshopperfiles"));
-                    var result=validator.Validate(request);
+                    var result=validator.Validate(doc, request);
                     _report=new JObject {["schema_version"]=1,["kind"]="result",["created_at"]=DateTime.UtcNow.ToString("o"),
                         ["document_serial"]=_document,["geometry_fingerprint"]=_fingerprint,["object_ids"]=new JArray(_ids),
                         ["settings"]=settings.ToJson(),["model"]=snapshot,["result"]=JObject.FromObject(result),
@@ -136,13 +144,13 @@ namespace RhinoAlmondBridge
         // Export on the UI thread, solve out of process, draw and report back on the UI thread.
         private void AnalyzeNative(RhinoDoc doc,AnalysisSettings settings)
         {
-            var model=JObject.Parse(StructureModelExport.Handle(new JObject {["guids"]=new JArray(_ids)}));
+            var model=JObject.Parse(StructureModelExport.Handle(doc, new JObject {["guids"]=new JArray(_ids)}));
             if((string)model["status"]!="ok") throw new InvalidOperationException((string)model["message"] ?? "Could not export the structural model.");
             if(settings.ExplicitSupports && !((model["anchor_points"] as JArray)?.Count>0))
                 throw new InvalidOperationException("Include Rhino point objects at the supports in the selection, or let Almond use the lowest nodes.");
             var request=new JObject {["model"]=model,["settings"]=settings.SolverSettings()};
             if(settings.AssetLoads)
-                request["placements"]=JObject.Parse(AssetPlacementExport.Handle(new JObject()))["placements"] ?? new JArray();
+                request["placements"]=JObject.Parse(AssetPlacementExport.Handle(doc, new JObject()))["placements"] ?? new JArray();
             var snapshot=Snapshot(doc);
             string fingerprint=_fingerprint; uint serial=_document;
             Solving=true;
@@ -158,9 +166,11 @@ namespace RhinoAlmondBridge
         private void FinishNative(JObject reply,AnalysisSettings settings,JObject snapshot,string fingerprint,uint serial)
         {
             Solving=false;
+            if (_disposed) return;
             try
             {
-                if(fingerprint!=_fingerprint || serial!=_document)
+                var doc = RhinoDoc.ActiveDoc;
+                if(doc == null || doc.RuntimeSerialNumber != serial || fingerprint!=_fingerprint || serial!=_document || Fingerprint(doc)!=fingerprint)
                     throw new InvalidOperationException("The selection changed while solving. Run the analysis again.");
                 if(!(reply["validation"] is JObject validation))
                     throw new InvalidOperationException((string)reply["message"] ?? "The native solver returned no result.");
@@ -168,7 +178,7 @@ namespace RhinoAlmondBridge
                     ["drawn"]=false,["message"]=reply["message"],["buckling"]=reply["buckling"]};
                 if(reply["draw"] is JObject draw)
                 {
-                    var shown=JObject.Parse(StructureView.HandleDraw(draw));
+                    var shown=JObject.Parse(StructureView.HandleDraw(doc, draw));
                     if((string)shown["status"]=="error") native["draw_error"]=(string)shown["message"];
                     else native["drawn"]=true;
                 }
@@ -209,10 +219,18 @@ namespace RhinoAlmondBridge
             _report=null;_reportFingerprint=null;
             _send(new JObject {["kind"]="capture",["model"]=Snapshot(doc),["settings"]=settings.ToJson()});
         }
-        private string Fingerprint(RhinoDoc doc) => doc.ModelUnitSystem + ":" + doc.ModelAbsoluteTolerance.ToString("R",System.Globalization.CultureInfo.InvariantCulture) + ":" +
-            string.Join("|",_ids.Select(id => {
+        private string Fingerprint(RhinoDoc doc) => Fingerprint(doc, _ids);
+        internal static string Fingerprint(RhinoDoc doc, IEnumerable<string> ids) => (doc.Path ?? "") + ":" + doc.ModelUnitSystem + ":" + doc.ModelAbsoluteTolerance.ToString("R",System.Globalization.CultureInfo.InvariantCulture) + ":" +
+            string.Join("|",ids.Select(id => {
                 var obj=doc.Objects.FindId(Guid.Parse(id));
-                return obj==null ? id+":missing" : id+":"+obj.Geometry.DataCRC(0);
+                if (obj == null) return id+":missing";
+                var strings = obj.Attributes.GetUserStrings();
+                var attributes = new {
+                    obj.Attributes.Name, obj.Attributes.LayerIndex,
+                    UserStrings = strings?.AllKeys.OrderBy(key => key, StringComparer.Ordinal)
+                        .Select(key => new[] { key, strings[key] }).ToArray()
+                };
+                return id+":"+obj.Geometry.DataCRC(0)+":"+JsonConvert.SerializeObject(attributes);
             }));
         private JObject Snapshot(RhinoDoc doc)
         {

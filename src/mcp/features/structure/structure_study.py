@@ -137,8 +137,10 @@ def run(request: dict) -> dict:
                   uls=s["uls_combination"], connections=s["connections"], stability=s["stability"],
                   design_code=code, fabrication=s["fabrication"])
     limit_ratio = float(s["deflection_limit_ratio"] or code.deflection_limit_ratio)
+    analysis = native_structure.DesignAnalysis(model, s["load_kn"], s["material"], **common)
     validation = native_structure.validate(model, s["structure"], s["load_kn"], s["material"],
-                                           span_m=s["span_m"], limit_ratio=limit_ratio, detail=True, **common)
+                                           span_m=s["span_m"], limit_ratio=limit_ratio, detail=True,
+                                           _analysis=analysis, **common)
     out.update(status=validation["status"], validation=validation, settings=s)
     if validation["status"] == "error":
         out["message"] = validation.get("verdict", "The native check could not run.")
@@ -146,7 +148,7 @@ def run(request: dict) -> dict:
     span = (validation.get("results") or {}).get("span_m") or s["span_m"]
     try:
         result, span = native_structure.view_result(model, s["load_kn"], s["material"], span_m=span,
-                                                    view=s["view"], **common)
+                                                    view=s["view"], _analysis=analysis, **common)
     except native_structure.InstabilityError as e:
         out["message"] = read_instruction(__file__, 'response-955').format(e)
         return out

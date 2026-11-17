@@ -7,13 +7,15 @@ namespace Rhino
         public string Path { get; set; } = "";
         public uint RuntimeSerialNumber { get; set; } = 7;
         public string ModelUnitSystem => "Millimeters";
+        public bool Modified => false;
+        public bool IsReadOnly => false;
         public static event EventHandler<DocumentEventArgs>? ActiveDocumentChanged;
         public static event EventHandler<DocumentSaveEventArgs>? EndSaveDocument;
         public static event EventHandler<DocumentEventArgs>? CloseDocument;
     }
     public sealed class DocumentEventArgs : EventArgs { public RhinoDoc? Document { get; set; } }
     public sealed class DocumentSaveEventArgs : EventArgs { }
-    public static class RhinoApp { public static void WriteLine(string message) { } }
+    public static class RhinoApp { public static void WriteLine(string message) { } public static event EventHandler? Idle; }
 }
 namespace Eto.Forms { public sealed class Application { public static Application? Instance => null; public void AsyncInvoke(Action action) => action(); } }
 namespace AlmondEngine

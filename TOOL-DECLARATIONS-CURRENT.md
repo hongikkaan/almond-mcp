@@ -1842,6 +1842,8 @@ declare const tools: { mcp__rhino__intersect_02_resolve(args: {
 
 출구 수와 총·최소 폭을 검사하고, 출구가 둘 이상이면 가장 먼 두 출구의 직선 이격을 검사합니다. 용도·스프링클러·담당 층수의 기본값이 실제 조건과 맞는지 확인하세요. 비업무 용도의 보행거리에는 업무용 기준을 대신 쓰며, 막다른 복도도 스프링클러가 있으면 업무용 기준을 사용하지만 용도 경고는 나오지 않습니다.
 
+출구는 실제 문마다 한 번만 입력하세요. 같은 중심 좌표를 중복하면 오류를 반환합니다. 좌표·폭 누락, 비유한 수, 음수 폭·거리·면적, 1 미만 또는 정수가 아닌 층수, 면적이 0인 경계도 계산 전에 거절합니다. 폭 0은 유효 폭 부족 판정을 위해 허용합니다.
+
 반환된 JSON의 checks에 포함된 검사의 기준값·입력값·판정을 확인하고 생략된 검사와 구분하세요. passed는 수행한 검사만의 결과입니다. 일부 출력값이 반올림돼 경계값에서는 표시값과 판정이 달라 보일 수 있습니다. 미달 항목의 배치·폭·경로를 검토하고 측정값을 갱신해 다시 검사하세요.
 
 BCI 체계와 통상적인 IBC 수치를 사용합니다. source_note와 warnings를 읽고 프로젝트에 적용되는 법규와 대조하세요. 경고가 없거나 검사가 통과해도 모든 피난 조건의 적합성이 확인된 것은 아닙니다.
@@ -1878,6 +1880,8 @@ declare const tools: { mcp__rhino__analysis_01_check_egress(args: {
 
 ```txt
 저장된 구조 검증 이력을 Markdown 보고서로 작성합니다.
+
+각 실행의 실제 엔진과 적용 입력을 함께 표시합니다. 저장 당시 입력이 없던 이전 이력은 알 수 없음으로 표시하며, 현재 기본값으로 과거 설정을 채우지 않습니다.
 ```
 
 ```ts
@@ -1916,6 +1920,8 @@ declare const tools: { mcp__rhino__analysis_03_list_design_codes(args: {
 
 ```txt
 Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
+
+완료된 해석은 요청 옵션과 실제 적용 엔진·입력·계산 결과를 이력에 보관합니다. native 이력은 내보낸 모델과 적용 하중 입력을 포함합니다. 이전 이력에 저장되지 않은 옵션은 현재 기본값으로 추정하지 않고 알 수 없음으로 표시합니다.
 ```
 
 ```ts
@@ -2156,7 +2162,7 @@ declare const tools: { mcp__rhino__research_03_search_details(args: {
 대응 오리지널: `audit_asset_drawing`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-저장 도면 패키지의 manifest에 기록된 파일 해시와 원본을 비교합니다. 검사 성공은 도면 내용의 적합성이나 manifest의 완전성을 보장하지 않으며, 목록이 비어 있으면 검사 파일 0개로도 성공할 수 있습니다. 원본을 찾지 못하면 파일만 검사하고 원본 비교는 생략합니다.
+저장 도면 패키지에서 선언한 뷰의 SVG·DXF와 파일 해시 목록을 대조합니다. 빈 해시 목록, 누락·변경 파일, 패키지 밖 경로와 파일시스템 링크는 오류로 반환합니다. 원본을 찾을 수 있을 때 원본 변경도 확인합니다.
 ```
 
 ```ts
@@ -2322,6 +2328,7 @@ declare const tools: { mcp__rhino__asset_05_list(args: {
 
 ```txt
 모델·2D 자산을 Rhino 문서에 블록으로 배치합니다. 3DM은 원본에 연결된 블록이며 같은 정의를 사용하는 배치에 정의 갱신이 반영됩니다. 결과는 성공 또는 오류를 담은 JSON 문자열입니다.
+응답 유실 등으로 requires_reconciliation이 true이면 Rhino 문서에서 실제 배치 결과를 확인한 뒤 다음 작업을 결정합니다.
 ```
 
 ```ts
@@ -2633,6 +2640,7 @@ declare const tools: { mcp__rhino__diagram_02_list(args: {
 
 ```txt
 SVG·DWG·DXF 다이어그램을 Rhino 문서의 블록 인스턴스로 배치합니다.
+응답 유실 등으로 requires_reconciliation이 true이면 Rhino 문서에서 실제 배치 결과를 확인한 뒤 다음 작업을 결정합니다.
 ```
 
 ```ts
@@ -2733,7 +2741,7 @@ declare const tools: { mcp__rhino__drawing_02_get_recipe(args: {
 대응 오리지널: `apply_drawing_style`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 문서에 같은 이름의 선종류가 있으면 기존 정의를 재사용합니다. 새 선종류를 만들 때는 Almond에 포함된 선종 매니페스트를 사용합니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다.
+도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 문서에 같은 이름의 선종류가 있으면 기존 정의를 재사용합니다. 새 선종류를 만들 때는 Almond에 포함된 선종 매니페스트를 사용합니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다. 변경 전에 전용 Undo record를 확보하며 실패 시 그 record만 복구합니다. mutation_state는 none·completed·rolled_back·unknown이며 requires_reconciliation=true이면 문서를 확인하기 전 자동 재시도하지 않습니다.
 ```
 
 ```ts
@@ -2770,6 +2778,8 @@ declare const tools: { mcp__rhino__drawing_04_import_hatches(args: {
 활성 모델 또는 현재 Worksession에 첨부된 파일의 클리핑 평면으로 단면선·가시 입면선과 선택적 해치를 활성 모델에 생성합니다. 첨부 형상이 필요하면 먼저 필요한 파일을 Worksession에 첨부한 뒤 include_attachments를 선택합니다. Update는 저장된 위치에서 도면을 다시 계산하므로 기존 도면의 수동 편집이 교체될 수 있습니다. Move는 기존 도면 객체의 GUID와 수동 편집을 유지하며 원점을 옮깁니다.
 
 응답에는 클리핑별 상태와 도면 객체 GUID, 실제 배치 평면이 포함됩니다. Create·Update에는 실제 계산에 들어간 원본 레이어와 객체 수, 숨김·잠금·첨부 입력의 처리 조건도 포함됩니다. 일부 완료 또는 취소 뒤에는 완료된 도면이 남을 수 있습니다.
+
+변경 도중 실패하면 각 항목의 recovery.attempts에 객체·속성·레이어의 복구 대상과 성공/실패를 보존합니다. 한 복구가 실패해도 나머지는 계속 시도합니다. tracked_changes_restored는 추적한 변경의 복구 결과이며 원자적 rollback을 보장하지 않습니다. mutation_state가 partial 또는 unknown이고 requires_reconciliation이 true이면 실제 도면을 확인하거나 Undo한 뒤 다음 작업을 결정하고 자동으로 재시도하지 마세요.
 ```
 
 ```ts
@@ -2875,7 +2885,7 @@ declare const tools: { mcp__rhino__grasshopper_03_list_library(args: {
 대응 오리지널: `run_gh_definition`. 기능 대응이며 호출 계약의 동일성을 뜻하지 않습니다.
 
 ```txt
-실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산합니다. 정의에 따라 형상을 베이크할 수 있습니다.
+실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산합니다. 정의에 따라 형상을 베이크할 수 있습니다. 모든 출력 포트를 먼저 확인하고 형상 베이크는 하나의 전용 Undo record로 처리합니다. mutation_state는 none·completed·rolled_back·unknown이며 requires_reconciliation=true이면 baked_guids와 현재 문서를 확인하기 전 자동 재시도하지 않습니다.
 ```
 
 ```ts

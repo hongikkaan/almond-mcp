@@ -83,10 +83,7 @@ def main():
                       if a.GetName().Name == 'RhinoAlmondBridge']
         if len(assemblies) != 1:
             raise RuntimeError('RhinoAlmondBridge plugin is not uniquely loaded.')
-        versions = [str(a.InformationalVersion) for a in assemblies[0].GetCustomAttributes(False)
-                    if a.GetType().FullName == 'System.Reflection.AssemblyInformationalVersionAttribute']
-        if versions != ['0.7.0-rc.2']:
-            raise RuntimeError('Unreviewed Rhino bridge version: ' + str(versions))
+        # The document-bound Engine validates the provider contract on attach.
         if 'Almond.project_lease' in sc.sticky:
             raise RuntimeError('This Rhino already owns a project. Close it before changing models.')
         from System.Reflection import Assembly

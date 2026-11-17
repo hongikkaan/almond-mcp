@@ -9,7 +9,6 @@ from pydantic import StrictBool, StrictInt
 import json
 import math
 from pathlib import Path
-import socket
 import struct
 import tempfile
 import uuid
@@ -20,6 +19,7 @@ from almond_mcp.features.structure import asset_loads
 from almond_mcp import paths, managed_paths
 from almond_mcp.features.assets import asset_passport
 from almond_mcp.features.assets import drawing_assets, drafting, preparation, model_index
+from almond_mcp.features.assets.mutation import send_mutation
 from almond_mcp.features.exchange import exchange
 from almond_mcp.features.exchange.tools import Exchange
 
@@ -283,28 +283,46 @@ def register(mcp, context):
         return {"status": "success", "record": record}
 
 
+    def registered_source(asset, root):
+        if not asset:
+            return None
+        root = Path(root).resolve()
+        source = (root / asset["file"]).resolve()
+        source.relative_to(root)
+        return source
+
+
+    def registered_drawing(asset_id):
+        asset = model_index.for_context(context).assets.get(asset_id)
+        if asset and asset.get("drawing_package"):
+            root = Path(asset["_library_root"])
+            package = drafting.package_file(root, asset["drawing_package"])
+            return package, registered_source(asset, root), True
+        root = Path(context.DRAFTING_LIBRARY_DIR).resolve()
+        data = json.loads((root/"manifest.json").read_text(encoding="utf-8"))
+        record = next((a for a in data["assets"] if a["asset_id"] == asset_id), None)
+        if not record:
+            return None
+        # Drafting packages were projected from the generated source, even
+        # when the preferred model is now a separately registered 3DM.
+        source = registered_source(context.generated_asset_indexer.get(asset_id), context.GENERATED_LIBRARY_DIR)
+        return drafting.package_file(root, record["package"]), source, False
+
+
     @mcp.tool(name='asset_03-get_drawings', annotations={'readOnlyHint': True, 'openWorldHint': False}, output_schema=public_output_schema('get_asset_drawing', wrapped=False))
     @tool_instruction(__file__, 'get_asset_drawing')
     @query_output(preserve_cross_drive_fields={"package_dir"})
     def get_asset_drawing(asset_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:
         validate_field_groups(field_groups, GROUPS)
-        asset = context.drawing_asset_indexer.get(asset_id)
-        if asset and asset.get("drawing_package"):
-            root = Path(context.DRAWING_LIBRARY_DIR).resolve()
-            package = (root / asset["drawing_package"]).resolve()
-            package.relative_to(root)
-            manifest = json.loads((package / "drawing.json").read_text(encoding="utf-8"))
+        drawing = registered_drawing(asset_id)
+        if not drawing:
+            return project(error_payload(read_instruction(__file__, 'response-406')), field_groups)
+        package, _, embedded = drawing
+        manifest = drafting.read_package_manifest(package)
+        if embedded:
             return project({"status": "success", "asset_id": asset_id, "package_dir": str(package), "manifest": manifest,
                     "dimensions_path": str(package / "dimensions.json"),
                     "plan_svg_uri": f"almond://drawing/{asset_id}/drawing/plan/50"}, field_groups)
-        root = Path(context.DRAFTING_LIBRARY_DIR)
-        data = json.loads((root/"manifest.json").read_text(encoding="utf-8"))
-        record = next((a for a in data["assets"] if a["asset_id"] == asset_id), None)
-        if not record:
-            return project(error_payload(read_instruction(__file__, 'response-406')), field_groups)
-        package = (root/record["package"]).resolve()
-        package.relative_to(root.resolve())
-        manifest = json.loads((package/"drawing.json").read_text(encoding="utf-8"))
         return project({"status": "success", "package_dir": str(package), "manifest": manifest,
                 "plan_svg_uri": f"almond://assets/{asset_id}/drawing/plan/50"}, field_groups)
 
@@ -365,17 +383,19 @@ def register(mcp, context):
             package = drawing_package_path(package_dir, library_roots=[
                 paths.user_data_dir() / "drawing-runs", Path(context.DRAWING_LIBRARY_DIR),
                 Path(context.GENERATED_LIBRARY_DIR), Path(context.DRAFTING_LIBRARY_DIR)])
-            manifest = json.loads((package/"drawing.json").read_text(encoding="utf-8"))
+            manifest = drafting.read_package_manifest(package)
             source = Path(source_glb) if source_glb else None
             if source is not None and not source.is_absolute():
                 raise ValueError("Supply an absolute source GLB path")
             if source is None:
-                asset = context.drawing_asset_indexer.get(manifest["source"]["asset_id"])
-                root = Path(context.DRAWING_LIBRARY_DIR) if asset else Path(context.GENERATED_LIBRARY_DIR)
-                asset = asset or context.generated_asset_indexer.get(manifest["source"]["asset_id"])
-                if asset:
-                    source = (root / asset["file"]).resolve()
-                    source.relative_to(root.resolve())
+                meta = manifest["source"]
+                source_format = "." + meta.get("source_format", "glb")
+                for index, root in ((context.drawing_asset_indexer, context.DRAWING_LIBRARY_DIR),
+                                    (context.generated_asset_indexer, context.GENERATED_LIBRARY_DIR)):
+                    asset = index.get(meta["asset_id"])
+                    if asset and Path(asset["file"]).suffix.lower() == source_format:
+                        source = registered_source(asset, root)
+                        break
             return drafting.audit_package(package, source)
         except (OSError, ValueError, KeyError, IndexError, TypeError, struct.error) as exc:
             return error_payload(str(exc))
@@ -390,20 +410,12 @@ def register(mcp, context):
     def asset_drawing_resource(asset_id: str, view: str, scale: str) -> ResourceResult:
         if view not in {"plan", "front", "right"} or scale not in {"50", "100"}:
             raise ValueError("Unknown bundled view or scale")
-        result = get_asset_drawing(asset_id, field_groups=["all"])
-        if result["status"] != "success":
-            raise ValueError(result["message"])
-        filename = f"{view}-1-{scale}.svg"
-        model = context.drawing_asset_indexer.get(asset_id)
-        root = Path(context.DRAWING_LIBRARY_DIR) if model else Path(context.GENERATED_LIBRARY_DIR)
-        model = model or context.generated_asset_indexer.get(asset_id)
-        source = (root / model["file"]).resolve() if model else None
-        if source:
-            source.relative_to(root.resolve())
-        checked = drafting.audit_package(Path(result["package_dir"]), source)
-        if checked["status"] != "success":
-            raise ValueError("Drawing package is modified or stale")
-        return ResourceResult([ResourceContent((Path(result["package_dir"])/filename).read_text(encoding="utf-8"), mime_type="image/svg+xml")])
+        drawing = registered_drawing(asset_id)
+        if not drawing:
+            raise ValueError(read_instruction(__file__, 'response-406'))
+        package, source, _ = drawing
+        content = drafting.read_verified_svg(package, asset_id, view, int(scale), source)
+        return ResourceResult([ResourceContent(content.decode("utf-8"), mime_type="image/svg+xml")])
 
 
     @mcp.resource("almond://drawing/{asset_id}/drawing/{view}/{scale}", mime_type="image/svg+xml")
@@ -415,7 +427,7 @@ def register(mcp, context):
     @tool_instruction(__file__, 'asset_catalogue_resource')
     def asset_catalogue_resource() -> ResourceResult:
         return ResourceResult([ResourceContent({"library_id": "model_assets", "assets": [
-            {"asset_id": a["asset_id"], "product": a["product"], "category": a["category"],
+            {"asset_id": a["asset_id"], "product": a.get("product", a["asset_id"]), "category": a.get("category", "other"),
              "dimensions_mm": a.get("dimensions_mm"), "file_available": a.get("file_available"),
              "model_status": a["model_status"], "source_only": a.get("source_only", False),
              "record_uri": f"almond://repository/{a['asset_id']}"}
@@ -578,15 +590,7 @@ public class Script
             },
         }).encode("utf-8")
 
-        try:
-            return context._send_and_receive(payload, timeout=90.0)
-        except socket.timeout:
-            return json.dumps({"status": "error", "requires_reconciliation": True,
-                "message": read_instruction(__file__, 'response-423')})
-        except ConnectionRefusedError:
-            return json.dumps(error_payload(read_instruction(__file__, 'response-424')))
-        except Exception as exc:
-            return json.dumps(error_payload(f"Drawing asset placement failed: {exc}"))
+        return json.dumps(send_mutation(context._send_and_receive, payload, timeout=90.0, action="Drawing asset placement"))
 
 
     def place_asset(
@@ -660,7 +664,7 @@ public class Script
             "drawing": Path(context.DRAWING_LIBRARY_DIR),
             "drafting": Path(context.DRAFTING_LIBRARY_DIR),
             "generated": Path(context.GENERATED_LIBRARY_DIR),
-        })
+        }, model_index=model_index.for_context(context))
 
     @mcp.resource("almond://repository/{asset_id}")
     @tool_instruction(__file__, 'repository_asset_resource')

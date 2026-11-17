@@ -323,7 +323,8 @@ public sealed class BoundBridge : IDisposable
                             ticket.Phase = "running";
                             if (!PublishLocked(ticket)) throw new IOException("Cannot publish native execution.");
                         }
-                        response = target.Handle(ticket.Payload);
+                        response = target.Handle(ticket.Payload, new NativeRequestIdentity(modelPath, documentSerial,
+                            token, ticket.Operation.Id, ticket.RequestId));
                         ticket.Completion = "completed";
                     }
                     catch (Exception ex)

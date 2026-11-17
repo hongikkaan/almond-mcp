@@ -1,17 +1,21 @@
 # Run explicitly in a development shell; changes only this process's environment.
 [CmdletBinding()]
-param([switch]$Development, [string]$DotNet = '', [switch]$RequireDotNet)
+param(
+    [switch]$Development, [string]$DotNet = '', [switch]$RequireDotNet,
+    [string]$PythonExecutable = '', [string]$ScratchDirectory = ''
+)
 $ErrorActionPreference = 'Stop'
 $offlineRepo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $environmentPath = if ($Development) { 'data\development\.venv\Scripts\python.exe' } else { 'src\engine\.venv\Scripts\python.exe' }
-$offlinePython = Join-Path $offlineRepo $environmentPath
+$offlinePython = if ($PythonExecutable) { $PythonExecutable } else { Join-Path $offlineRepo $environmentPath }
 if (-not (Test-Path -LiteralPath $offlinePython)) {
     $prepare = if ($Development) { './src/mcp/rebuild_environment.ps1 -Development' } else { './src/mcp/rebuild_environment.ps1' }
     throw "Python environment not found: $offlinePython. Run $prepare in this checkout first."
 }
 # Do not derive this from TEMP/TMP: repeated calls must not nest the offline path.
 # Native Windows fixtures still need short paths when the checkout is deeply nested.
-$offlineTempRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Temp'
+$offlineTempRoot = if ($ScratchDirectory) { $ScratchDirectory } else { Join-Path $offlineRepo 'data/t' }
+$offlineData = if ($ScratchDirectory) { Join-Path $ScratchDirectory 'offline' } else { Join-Path $offlineRepo 'data/offline' }
 # Prevent .NET first-run configuration from writing Windows user settings.
 $env:DOTNET_ADD_GLOBAL_TOOLS_TO_PATH = 'false'
 $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
@@ -37,9 +41,7 @@ if ($RequireDotNet -or $DotNet) {
     }
 }
 $offlineJson = @'
-import hashlib
 import json
-import os
 from pathlib import Path
 import sys
 import almond_mcp
@@ -48,9 +50,8 @@ from almond_mcp import paths
 repo = Path(sys.argv[1]).resolve()
 if Path(almond_mcp.__file__).resolve() != repo / "src/mcp/__init__.py":
     raise RuntimeError("The editable environment belongs to another checkout.")
-data = repo / "data/offline"
-checkout_id = hashlib.sha256(os.fsencode(os.path.normcase(str(repo)))).hexdigest()[:12]
-temporary = Path(sys.argv[2]) / ("am-" + checkout_id)
+data = Path(sys.argv[3]).resolve()
+temporary = Path(sys.argv[2]).resolve()
 temporary.mkdir(parents=True, exist_ok=True)
 environment = {
     "RHINO_MCP_STATE_DB": str(data / "state.sqlite3"),
@@ -64,7 +65,7 @@ for variable, name in paths.LIBRARY_DIRS.items():
         library.mkdir(parents=True, exist_ok=True)
     environment[variable] = str(library)
 print(json.dumps(environment))
-'@ | & $offlinePython -B -X utf8 - $offlineRepo $offlineTempRoot
+'@ | & $offlinePython -B -X utf8 - $offlineRepo $offlineTempRoot $offlineData
 if ($LASTEXITCODE -ne 0) { throw 'Offline environment preparation failed.' }
 $offlineValues = $offlineJson | ConvertFrom-Json
 foreach ($entry in $offlineValues.PSObject.Properties) {
@@ -77,5 +78,7 @@ if ($offlineSdk) {
     $env:PATH = (@($sdkDirectory) + $otherPaths) -join ';'
     Write-Output "Offline test SDK: $offlineSdk ($selectedVersion)"
 }
-Write-Output "Offline test data: $(Join-Path $offlineRepo 'data\offline')"
+$env:ALMOND_TEST_PYTHON = $offlinePython
+$env:FASTMCP_CHECK_FOR_UPDATES = 'off'
+Write-Output "Offline test data: $offlineData"
 Write-Output "Offline temporary files: $($offlineValues.TEMP)"

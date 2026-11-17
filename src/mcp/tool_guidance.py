@@ -1,5 +1,5 @@
 """Give the next useful action with the result that makes it actionable."""
-import json
+from almond_mcp.tool_response import transform_response
 from almond_mcp.public_names import internal_tool_name, tool_references
 
 
@@ -272,39 +272,8 @@ def guide_payload(name: str, payload: dict, arguments: dict | None = None) -> di
 
 def guide_result(name: str, result, arguments: dict):
     """Preserve transport, images and errors while adding result-specific prose."""
-    if isinstance(result, str):
-        try:
-            value = json.loads(result)
-        except (ValueError, TypeError):
-            return result
-        return json.dumps(guide_payload(name, value, arguments), ensure_ascii=False) if isinstance(value, dict) else result
-    if isinstance(result, dict):
-        return guide_payload(name, result, arguments)
-    # Image-bearing ToolResult: preserve every binary/text block and metadata.
     from fastmcp.tools import ToolResult
-    if not isinstance(result, ToolResult) or result.is_error:
+    if isinstance(result, ToolResult) and result.is_error:
         return result
-    value = result.structured_content
-    wrapped = isinstance(value, dict) and set(value) == {"result"} and isinstance(value["result"], str)
-    if wrapped:
-        try:
-            payload = json.loads(value["result"])
-        except ValueError:
-            return result
-    else:
-        payload = value
-    if not isinstance(payload, dict):
-        return result
-    updated = guide_payload(name, payload, arguments)
-    serialized = json.dumps(updated, ensure_ascii=False)
-    content = []
-    for block in result.content:
-        if block.type == "text":
-            try:
-                matches = json.loads(block.text) == payload
-            except (ValueError, TypeError):
-                matches = False
-            if matches:
-                block = block.model_copy(update={"text": serialized})
-        content.append(block)
-    return result.model_copy(update={"content": content, "structured_content": {"result": serialized} if wrapped else updated})
+    return transform_response(result, lambda value:
+                              guide_payload(name, value, arguments) if isinstance(value, dict) else value)

@@ -8,9 +8,10 @@ namespace RhinoAlmondBridge
     /// Registers panels and prepares native handlers. Only a bound Engine session
     /// may open a transport and dispatch requests to those handlers.
     /// </summary>
-    public class RhinoAlmondBridgePlugin : PlugIn
+    public class RhinoAlmondBridgePlugin : PlugIn, AlmondEngine.IBridgeProvider
     {
         private BridgeServer _server;
+        public AlmondEngine.IBridgeRequestHandler RequestHandler => _server;
 
         public static RhinoAlmondBridgePlugin Instance { get; private set; }
 
@@ -45,7 +46,7 @@ namespace RhinoAlmondBridge
             Rhino.UI.Panels.RegisterPanel(this, typeof(RhinoTerminal.TerminalPanel), "Terminal",
                 System.Drawing.SystemIcons.Application, Rhino.UI.PanelType.System);
 
-            // Keep this field/type for the Engine's verified handler contract.
+            // The Engine consumes IBridgeProvider after plugin initialization.
             _server = new BridgeServer();
             RhinoApp.WriteLine("Almond 준비됨. 외부 Codex·CoS 연결은 almondconnect, 터미널은 RhinoTerminal → On을 사용하세요.");
 

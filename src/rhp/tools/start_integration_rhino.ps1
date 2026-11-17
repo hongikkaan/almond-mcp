@@ -16,21 +16,15 @@ if (-not (Test-Path -LiteralPath $rhino -PathType Leaf)) {
     throw "Rhino 8 executable not found: $rhino"
 }
 
-$registry = 'HKCU:\Software\McNeel\Rhinoceros\8.0\Plug-ins'
-$registrations = [ordered]@{
-    RhinoAlmondBridge = 'c337dbb8-394a-4593-9c2b-a3d7cfc91893'
-    AlmondRhino = '39eb74f6-8283-4e43-bf26-f0106d891b75'
-}
-$plugins = foreach ($name in $registrations.Keys) {
-    $key = Join-Path $registry ($registrations[$name] + '\PlugIn')
-    $runtime = Join-Path $repo "src\rhp\$name\plugin-runtime\$name.rhp"
-    if (-not (Test-Path -LiteralPath $runtime -PathType Leaf)) {
-        throw "Runtime missing: $runtime"
+. (Join-Path $PSScriptRoot 'runtime_registration.ps1')
+$plugins = foreach ($entry in Get-RuntimeRegistration $repo) {
+    if (-not (Test-Path -LiteralPath $entry.File -PathType Leaf)) {
+        throw "Runtime missing: $($entry.File)"
     }
     [pscustomobject]@{
-        Key = $key
-        Runtime = $runtime
-        Original = (Get-ItemProperty -LiteralPath $key -Name FileName).FileName
+        Key = $entry.Key
+        Runtime = $entry.File
+        Original = (Get-ItemProperty -LiteralPath $entry.Key -Name FileName).FileName
     }
 }
 if (Get-Process -Name Rhino -ErrorAction SilentlyContinue) {

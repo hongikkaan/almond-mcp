@@ -3,6 +3,7 @@ from almond_mcp.tool_response import error_payload
 from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 import json
+from .inputs import validate_inputs
 
 
 def register(mcp, context):
@@ -22,10 +23,10 @@ def register(mcp, context):
         rules = context.construction_library.reference.get("egress_rules")
         if not rules:
             return json.dumps(error_payload("egress_rules missing from the construction manifest."))
-        if len(plate_bounds_mm) != 4:
-            return json.dumps(error_payload("plate_bounds_mm must be [min_x, min_y, max_x, max_y]."))
-        if not exits:
-            return json.dumps(error_payload("exits must not be empty."))
+        try:
+            validate_inputs(plate_bounds_mm, exits, stories, net_area_m2, travel_distances_m, dead_end_m)
+        except (ValueError, TypeError, OverflowError) as error:
+            return json.dumps(error_payload(str(error)))
 
         import math as _math
         x0, y0, x1, y1 = plate_bounds_mm

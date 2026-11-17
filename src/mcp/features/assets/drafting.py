@@ -7,7 +7,7 @@ import html
 import json
 import math
 from datetime import date, datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import re
 import struct
 
@@ -354,22 +354,88 @@ def create_package(model: Path, output: Path, *, asset_id: str, name: str,
     manifest = {"schema_version": 1, "name": name, "source": meta,
                 "triangle_count": len(triangles), "scales": list(scales),
                 "representations": [{k: v for k, v in r.items() if k != "rings"} for r in representations],
-                "files": {p.name: sha(p.read_bytes()) for p in sorted(output.iterdir())}}
+                "files": {name: file_sha(output / name)
+                          for name in sorted(set(files) | {view["dxf"] for view in representations})}}
     (output/"drawing.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return {"status": "success", "package_dir": str(output.resolve()), "manifest": manifest}
 
 
-def audit_package(package: Path, source_model: Path | None = None, *, source_sha256: str | None = None) -> dict:
-    manifest = json.loads((package/"drawing.json").read_text(encoding="utf-8"))
+def package_file(package: Path, name: str) -> Path:
+    """Resolve a portable package-relative path without following filesystem links."""
+    if not isinstance(name, str) or not name or PureWindowsPath(name).anchor or ":" in name:
+        raise ValueError(f"Unsafe drawing package path: {name}")
+    relative = Path(name.replace("\\", "/"))
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        raise ValueError(f"Unsafe drawing package path: {name}")
+    candidate = package
+    for part in relative.parts:
+        candidate = candidate / part
+        if candidate.is_symlink() or candidate.is_junction():
+            raise ValueError(f"Linked drawing package path: {name}")
+    candidate.resolve().relative_to(package.resolve())
+    return candidate
+
+
+def read_package_manifest(package: Path) -> dict:
+    manifest_path = package_file(package, "drawing.json")
+    if manifest_path.stat().st_size > 8_000_000:
+        raise ValueError("Drawing manifest exceeds 8 MB")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    if not isinstance(manifest, dict):
+        raise ValueError("Invalid drawing manifest")
+    return manifest
+
+
+def package_inventory(manifest: dict) -> tuple[dict, dict]:
+    files = manifest.get("files")
+    if not isinstance(files, dict) or not files or len(files) > 128:
+        raise ValueError("Drawing package file inventory must contain 1–128 hashes")
+    representations = manifest.get("representations")
+    if not isinstance(representations, list) or not representations:
+        raise ValueError("Drawing package has no declared representations")
+    views = {}
+    for rep in representations:
+        if not isinstance(rep, dict):
+            raise ValueError("Invalid drawing representation")
+        view, scale = rep["view"], rep["scale"]
+        if not isinstance(view, str) or not view or type(scale) is not int or scale <= 0:
+            raise ValueError("Invalid drawing representation")
+        if (view, scale) in views:
+            raise ValueError(f"Duplicate drawing representation: {view} 1:{scale}")
+        for fmt in ("svg", "dxf"):
+            name = rep.get(fmt)
+            if not isinstance(name, str) or Path(name).suffix.lower() != f".{fmt}" or name not in files:
+                raise ValueError(f"Missing declared {fmt} hash for {view} 1:{scale}")
+        views[view, scale] = rep
+    return files, views
+
+
+def verified_package_file(package: Path, filename: str, checksum: str) -> bytes:
+    if not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", checksum):
+        raise ValueError(f"Invalid output hash: {filename}")
+    data = package_file(package, filename).read_bytes()
+    if sha(data) != checksum.upper():
+        raise ValueError(f"Changed output: {filename}")
+    return data
+
+
+def _audit_package(package, manifest, source_model, source_sha256=None, selection=None):
     failures = []
-    for filename, checksum in manifest["files"].items():
-        path = (package/filename).resolve()
+    selected = None
+    try:
+        files, views = package_inventory(manifest)
+    except (ValueError, KeyError, TypeError) as exc:
+        files, views = {}, {}
+        failures.append(str(exc))
+    for filename, checksum in files.items():
         try:
-            path.relative_to(package.resolve())
-            if sha(path.read_bytes()) != checksum:
-                failures.append(f"Changed output: {filename}")
-        except (OSError, ValueError):
-            failures.append(f"Missing or unsafe output: {filename}")
+            content = verified_package_file(package, filename, checksum)
+            if selection and views.get(selection, {}).get("svg") == filename:
+                selected = content
+        except (OSError, ValueError) as exc:
+            failures.append(f"Missing or unsafe output: {filename}" if isinstance(exc, OSError) else str(exc))
+    if selection and selected is None and not failures:
+        failures.append(f"No declared drawing representation for {selection[0]} 1:{selection[1]}")
     source_state = "not_checked"
     if source_model is not None:
         meta = manifest["source"]
@@ -380,6 +446,21 @@ def audit_package(package: Path, source_model: Path | None = None, *, source_sha
             source_state = "current" if geometry_hash(triangles) == meta["geometry_sha256"] else "stale"
         if source_state == "stale":
             failures.append("Source geometry changed; regenerate drawing views")
-    return {"status": "error" if failures else "success", "source_geometry": source_state,
-            "asset_id": manifest["source"]["asset_id"], "checked_files": len(manifest["files"]),
-            "failures": failures}
+    return ({"status": "error" if failures else "success", "source_geometry": source_state,
+             "asset_id": manifest["source"]["asset_id"], "checked_files": len(files),
+             "failures": failures}, selected)
+
+
+def audit_package(package: Path, source_model: Path | None = None, *, source_sha256: str | None = None) -> dict:
+    result, _ = _audit_package(package, read_package_manifest(package), source_model, source_sha256)
+    return result
+
+
+def read_verified_svg(package: Path, asset_id: str, view: str, scale: int, source_model: Path | None) -> bytes:
+    manifest = read_package_manifest(package)
+    if manifest["source"]["asset_id"] != asset_id:
+        raise ValueError("Drawing package asset ID differs from the requested asset")
+    result, content = _audit_package(package, manifest, source_model, selection=(view, scale))
+    if result["status"] != "success":
+        raise ValueError("; ".join(result["failures"]))
+    return content

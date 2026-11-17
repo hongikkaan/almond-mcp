@@ -30,6 +30,9 @@ def execution(tmp_path, monkeypatch):
     def launch(handle, *_):
         launches.append(handle.request_id)
         handle.journal["child"] = {"pid": 5, "process_start_ticks": "6"}
+        (handle.directory / "child.json").write_text(json.dumps({
+            "schema": "almond-owned-process", "owner": {key: handle.journal[key] for key in rhinocode._IDENTITY},
+            "child": handle.journal["child"]}), encoding="utf-8")
         handle.publish()
         handle.dispatching = False
 

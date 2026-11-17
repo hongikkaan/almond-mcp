@@ -1,5 +1,9 @@
 """Plan folder tools keep durable files separate from connection scratch."""
 import json
+import os
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -97,6 +101,108 @@ def test_rename_failure_restores_files_and_database(workspace, monkeypatch):
     with workspace.store._connect() as db:
         assert list(db.iterdump()) == snapshot
     assert workspace.current()["artifact_dir"] == before["artifact_dir"]
+
+
+@pytest.mark.parametrize("interruption", ["after_move", "after_commit", "conflicting_paths"])
+def test_reopen_recovers_rename_after_process_dies_between_move_and_commit(workspace, interruption):
+    plan = workspace.store.create_plan(goal="Crash recovery")
+    workspace.select(plan["plan_id"], artifact_name="261117_before")
+    folder = workspace.artifact_path()
+    folder.mkdir(parents=True)
+    (folder / "keep.txt").write_text("preserve")
+    code = '''
+import json, os, sys
+from pathlib import Path
+from almond_mcp.retrieval_store import AlmondStore
+from workspace import Workspace
+locations = json.loads(sys.argv[1])
+workspace = Workspace(locations, AlmondStore(locations["state_db"]))
+rename = Path.rename
+unlink = Path.unlink
+def interrupted(source, target):
+    result = rename(source, target)
+    if source.name == "261117_before" and sys.argv[2] == "after_move":
+        os._exit(73)
+    return result
+def interrupted_unlink(path, *args, **kwargs):
+    if path.name == "workspace-rename.json" and sys.argv[2] == "after_commit":
+        os._exit(73)
+    return unlink(path, *args, **kwargs)
+Path.rename = interrupted
+Path.unlink = interrupted_unlink
+workspace.rename("261117_after")
+'''
+    environment = dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path))
+    boundary = "after_move" if interruption == "conflicting_paths" else interruption
+    child = subprocess.run([sys.executable, "-c", code, json.dumps(workspace.locations), boundary], env=environment)
+    assert child.returncode == 73
+    other = connection_paths(workspace.locations["model_path"], "B", "b" * 32, create=True)
+    reopened = Workspace(other, AlmondStore(other["state_db"]))
+    if interruption == "conflicting_paths":
+        folder.mkdir()
+        (folder / "new.txt").write_text("new external data")
+        with pytest.raises(ValueError, match="exactly one owned folder"):
+            reopened.select(plan["plan_id"])
+        assert (folder / "new.txt").read_text() == "new external data"
+        assert (folder.with_name("261117_after") / "keep.txt").read_text() == "preserve"
+        return
+    expected = "261117_before" if interruption == "after_move" else "261117_after"
+    assert reopened.select(plan["plan_id"])["artifact_dir"] == ".almond/produced/" + expected
+    assert (reopened.artifact_path() / "keep.txt").read_text() == "preserve"
+    assert reopened.rename("261117_after")["artifact_dir"] == ".almond/produced/261117_after"
+
+
+def test_uncommitted_loop_intent_cannot_claim_another_sessions_committed_loop(workspace, monkeypatch):
+    plan = workspace.store.create_plan(goal="Two sessions")
+    execute = workspace.store.execute_looping
+    def fail_before_commit(*args, **kwargs):
+        raise RuntimeError("injected transaction failure")
+    monkeypatch.setattr(workspace.store, "execute_looping", fail_before_commit)
+    with pytest.raises(RuntimeError, match="transaction failure"):
+        workspace.execute_looping(plan["plan_id"], feedback="same feedback")
+    monkeypatch.setattr(workspace.store, "execute_looping", execute)
+    other = connection_paths(workspace.locations["model_path"], "B", "b" * 32, create=True)
+    peer = Workspace(other, AlmondStore(other["state_db"]))
+    assert peer.execute_looping(plan["plan_id"], feedback="same feedback")["loop_no"] == 1
+    assert workspace.execute_looping(plan["plan_id"], feedback="same feedback")["loop_no"] == 2
+
+
+@pytest.mark.parametrize("interruption", ["io_error", "process_exit"])
+def test_retry_loop_after_selection_publication_failure_does_not_advance_twice(workspace, monkeypatch, interruption):
+    import workspace as module
+    plan = workspace.store.create_plan(goal="Durable Loop")
+    publish = module.write_json
+    def fail_selection(path, value):
+        if path == workspace.state_path and value.get("loop_no") == 1:
+            raise OSError("injected work.json failure")
+        publish(path, value)
+    if interruption == "io_error":
+        monkeypatch.setattr(module, "write_json", fail_selection)
+        with pytest.raises(OSError, match="work.json failure"):
+            workspace.execute_looping(plan["plan_id"], feedback="review")
+        monkeypatch.setattr(module, "write_json", publish)
+    else:
+        code = '''
+import json, os, sys, workspace
+from almond_mcp.retrieval_store import AlmondStore
+locations = json.loads(sys.argv[1])
+work = workspace.Workspace(locations, AlmondStore(locations["state_db"]))
+publish = workspace.write_json
+def interrupted(path, value):
+    if path == work.state_path and value.get("loop_no") == 1:
+        os._exit(75)
+    publish(path, value)
+workspace.write_json = interrupted
+work.execute_looping(sys.argv[2], feedback="review")
+'''
+        child = subprocess.run([sys.executable, "-c", code, json.dumps(workspace.locations), plan["plan_id"]],
+            env=dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path)))
+        assert child.returncode == 75
+    reopened = Workspace(workspace.locations, AlmondStore(workspace.locations["state_db"]))
+    result = reopened.execute_looping(plan["plan_id"], feedback="review")
+    assert result["loop_no"] == 1
+    assert reopened.current()["loop_no"] == 1
+    assert reopened.store.get_plan(plan["plan_id"])["loop_no"] == 1
 
 
 def test_folder_names_cannot_claim_another_plans_folder(workspace):

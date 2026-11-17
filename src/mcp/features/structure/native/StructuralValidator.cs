@@ -39,7 +39,9 @@ namespace RhinoAlmondBridge
         /// Validate geometry against structural criteria. Public signature is
         /// unchanged; BridgeServer depends on it.
         /// </summary>
-        public ValidationResult Validate(ValidationRequest request)
+        public ValidationResult Validate(ValidationRequest request) => Validate(RhinoDoc.ActiveDoc, request);
+
+        internal ValidationResult Validate(RhinoDoc doc, ValidationRequest request)
         {
             var result = new ValidationResult
             {
@@ -60,7 +62,6 @@ namespace RhinoAlmondBridge
             bool requireApi=request.RequireKaramba || !request.IncludeSelfWeight || !request.FixedRotations ||
                 request.ExplicitSupports || request.BeamDiameterMM.HasValue;
 
-            var doc = RhinoDoc.ActiveDoc;
             if (doc == null)
             {
                 result.Status = "error";
@@ -121,7 +122,7 @@ namespace RhinoAlmondBridge
 
             // 3. Pathway B: audited template capsule.
             if (!solved)
-                solved = TryTemplatePath(request, conditioned, result);
+                solved = TryTemplatePath(doc, request, conditioned, result);
 
             // 4. Pathway C: rule-based estimate. Never silent about it.
             if (!solved)
@@ -311,7 +312,7 @@ namespace RhinoAlmondBridge
             }
         }
 
-        private bool TryTemplatePath(ValidationRequest request,
+        private bool TryTemplatePath(RhinoDoc doc, ValidationRequest request,
             ConditionedModel conditioned, ValidationResult result)
         {
             var runner = new GhDefinitionRunner(_templateDir, _capsuleDir);
@@ -377,7 +378,7 @@ namespace RhinoAlmondBridge
                 // hard-errors if a required input remains unbound.
             }
 
-            var run = runner.Run(manifestPath, inputs, 60.0, null);
+            var run = runner.Run(doc, manifestPath, inputs, 60.0, null);
             result.Warnings.AddRange(run.Warnings);
 
             if (run.Status != "ok")

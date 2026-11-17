@@ -24,6 +24,23 @@ _LOOP_STEP = {
 }
 
 _POINT = {'type': 'array', 'items': {'type': 'number'}, 'minItems': 3, 'maxItems': 3}
+
+_DRAWING_RECOVERY = {
+    'type': 'object', 'description': '시도한 보상과 실패 내역입니다. 알려진 변경 복구는 원자적 rollback의 증명이 아닙니다.',
+    'properties': {
+        'mutation_state': {'type': 'string', 'description': '보상 실패가 있으면 partial, 미확인 변경 가능성이 남으면 unknown입니다.'},
+        'requires_reconciliation': {'type': 'boolean', 'description': '다음 변경 전에 실제 도면을 확인해야 하는지 나타냅니다.'},
+        'tracked_changes_restored': {'type': 'boolean', 'description': '기록된 변경에 대한 모든 보상 시도가 성공했는지 나타냅니다.'},
+        'attempts': {'type': 'array', 'description': '모든 보상 시도의 결과입니다.', 'items': {
+            'type': 'object', 'properties': {
+                'action': {'type': 'string', 'description': '시도한 보상 동작입니다.'},
+                'target': {'type': 'string', 'description': '보상 대상 객체, 레이어 또는 기록입니다.'},
+                'status': {'type': 'string', 'description': 'restored 또는 failed입니다.'},
+                'error': {'type': 'string', 'description': '보상 실패 원문입니다.'},
+            },
+        }},
+    },
+}
 _VIEW_OBSERVATION = {
     'type': 'object', 'properties': {
         'viewport_id': {'type': 'string', 'description': '관측한 뷰포트의 UUID입니다.'},
@@ -2369,12 +2386,19 @@ CONTRACTS = {'list_connections': {'type': 'object',
         'drawing_status': {'type': 'string', 'description': '도면 계산의 completed, partial, cancelled, failed 상태입니다.'},
         'mutation_state': {'type': 'string', 'description': '알려진 모델 변경 상태입니다. unknown이면 도면을 확인합니다.'},
         'requires_reconciliation': {'type': 'boolean', 'description': '재호출 전 현재 도면 상태를 확인해야 합니다.'},
+        'recovery': {'type': 'array', 'description': '보상이 필요했던 클리핑별 오류와 복구 근거입니다.',
+                     'items': {'type': 'object', 'properties': {
+                         'clipping_id': {'type': 'string', 'description': '처리한 클리핑 평면 GUID입니다.'},
+                         'error': {'type': 'string', 'description': '최초 도면 변경 실패 원문입니다.'},
+                         'recovery': _DRAWING_RECOVERY,
+                     }}},
         'result': {
             'type': 'object', 'description': '클리핑별 도면 결과와 실제 추출 조건입니다.',
             'properties': {
                 'status': {'type': 'string', 'description': '도면 계산의 종합 상태입니다.'},
                 'requested': {'type': 'integer', 'description': '요청한 서로 다른 클리핑 수입니다.'},
                 'completed': {'type': 'integer', 'description': '처리를 완료한 클리핑 수입니다.'},
+                'requires_reconciliation': {'type': 'boolean', 'description': '실패한 도면 변경의 실제 상태 확인이 필요한지 나타냅니다.'},
                 'results': {
                     'type': 'array', 'description': '처리한 클리핑별 결과입니다.',
                     'items': {'type': 'object', 'properties': {
@@ -2397,6 +2421,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                         },
                         'report': {'type': 'object', 'description': '계산 단계와 제외 또는 정리된 형상에 대한 보고입니다.'},
                         'error': {'type': 'string', 'description': '해당 클리핑의 계산 오류입니다.'},
+                        'recovery': _DRAWING_RECOVERY,
                     }},
                 },
             },
@@ -2954,6 +2979,17 @@ CONTRACTS["list_planning"]["properties"].update({
     "truncated": {"type": "boolean", "description": "limit으로 일부 항목을 생략했으면 true입니다."},
     "next_step_guide": {"type": "string", "description": "현재 결과에서 이어갈 수 있는 후속 조회 안내입니다."},
 })
+
+
+for _mutation_tool in ("place_drawing_asset", "place_diagram_asset", "apply_drawing_style", "run_gh_definition"):
+    CONTRACTS[_mutation_tool]["properties"].update({
+        "mutation_state": {"type": "string", "description": "실제 변경 근거에 따른 상태입니다. unknown/partial이면 변경이 남았을 수 있습니다."},
+        "requires_reconciliation": {"type": "boolean", "description": "true이면 실제 문서 상태를 확인한 뒤 다음 작업을 결정합니다. 자동 재실행을 허용하지 않습니다."},
+    })
+for _placement_tool in ("place_drawing_asset", "place_diagram_asset"):
+    CONTRACTS[_placement_tool]["properties"]["mutation_applied"] = {
+        "type": ["boolean", "null"], "description": "변경 적용 여부입니다. null이면 실제 적용 여부를 확인하지 못했습니다.",
+    }
 
 
 def public_output_schema(name: str, wrapped: bool = True) -> dict:

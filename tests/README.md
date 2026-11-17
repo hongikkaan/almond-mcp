@@ -23,7 +23,7 @@
 
 세 `run_tests.ps1`은 `-Development`로 실행하면 이 체크아웃의 `data/development/.venv`를 사용한다. 실행기가 오프라인 경로를 직접 설정한다. 세 실행기 모두 .NET 8 SDK를 확인하며, 자동 탐색에 실패하면 `-DotNet`에 SDK의 `dotnet.exe` 경로를 전달한다.
 
-로컬 도구를 별도 셸에서 직접 실행하면서 같은 데이터 경로가 필요한 경우에만 `./src/mcp/use_offline_environment.ps1 -Development`를 호출한다. 라이브러리는 체크아웃의 `asset/`을 사용하고, 해당 원본 폴더가 없으면 `data/offline/libraries/` 밑에 대체 경로를 만든다. 상태 DB는 `data/offline/state.sqlite3`, TEMP/TMP는 사용자 임시 폴더의 체크아웃별 짧은 경로를 사용한다. 설정은 현재 셸과 자식 프로세스에 적용되므로 일반 실행은 새 셸에서 시작한다. 검사의 오프라인 범위는 Rhino와 일상 연결·데이터를 사용하지 않는다는 뜻이다. 예를 들어 패키징 검사는 `uv build --offline`이 사용하는 로컬 uv 캐시에 빌드 의존성이 준비되어 있어야 한다.
+로컬 도구를 별도 셸에서 직접 실행하면서 같은 데이터 경로가 필요한 경우에만 `./src/mcp/use_offline_environment.ps1 -Development`를 호출한다. 라이브러리는 체크아웃의 `asset/`을 사용하고, 해당 원본 폴더가 없으면 `data/offline/libraries/` 밑에 대체 경로를 만든다. 상태 DB는 `data/offline/state.sqlite3`, TEMP/TMP는 체크아웃의 짧은 `data/t/` 경로를 사용한다. 설정은 현재 셸과 자식 프로세스에 적용되므로 일반 실행은 새 셸에서 시작한다. 검사의 오프라인 범위는 Rhino와 일상 연결·데이터를 사용하지 않는다는 뜻이다. 예를 들어 패키징 검사는 `uv build --offline`이 사용하는 로컬 uv 캐시에 빌드 의존성이 준비되어 있어야 한다.
 
 ## 실행기별 확인 범위
 
@@ -32,6 +32,8 @@
 - [루트 실행기](run_tests.ps1)는 독립 ArchiveHost를 빌드하고 절대 실행 파일 경로를 `ALMOND_ARCHIVE_TEST_HOST`로 지정한 뒤 루트 `tests/`를 실행한다. ArchiveHost가 필요한 검사를 pytest에서 직접 선택하면 해당 실행 파일이 필수이며, 누락 시 수집 단계에서 오류가 난다.
 - [stdio 계약 검사](integration/test_stdio_contract.py)는 실제 Python MCP 서비스를 자식 프로세스로 시작한다. 문서 연결 fixture는 임시 경로와 합성 binding 메타데이터를 사용한다. 초기화 안내, 공개 도구 설명·가이드, worker 스키마와 두 외부 카탈로그의 일치를 확인한다. 실제 모델링 동작은 이 검사의 범위 밖이다.
 - [설치된 CLI 실행기 검사](../src/mcp/tests/runtime/test_terminal_launch.ps1)는 `./src/mcp/tests/runtime/test_terminal_launch.ps1 -Codex <installed-codex.exe>`에서 실제 CLI의 설정 해석을 사용한다. OS의 binding 관측은 대역을 사용하고 대화형 실행은 가로챈다. 실제 RhinoTerminal 세션의 도구 목록은 연결 후 별도로 확인한다.
+
+[릴리스 준비 실행기](../src/rhp/tools/prepare_release.ps1)는 별도 셸에서 위 세 실행기와 패널 Node 검사를 호출한다. 릴리스용 Python 환경과 임시 폴더는 체크아웃 `data/t/` 아래에 두고, 세 pytest 결과를 릴리스 출력에 기록한다. SDK 경로를 지정할 때 `-DotNet`을 사용한다.
 
 오프라인 검사에서 다루는 모델링·계산 동작의 범위는 실제로 실행한 사례에 한정된다.
 
@@ -66,7 +68,7 @@ Windows에서 symlink를 만드는 자산 경계 검사는 파일 시스템과 �
 | --- | --- |
 | 오프라인 검사 | 실행한 모듈·계약·fixture에서 어떤 검사가 통과하거나 실패했는지. 현재 [native 검사 범위](../src/rhp/tests/README.md)와 [Undo·관측 검사 상태](../src/rhp/RhinoAlmondBridge/tests/script_executor_undo/README.md)도 확인한다. |
 | RHP 빌드와 출력 검증 | 빌드한 구성요소, 생성·배치된 파일, `verify_runtime.py`로 확인한 소스·배포 파일의 manifest 정합성. 전체 검증은 양쪽 Engine DLL의 바이트 일치도 확인한다. `--record`는 manifest를 갱신하고 기본 호출은 기록을 대조한다. |
-| Rhino 등록 | 일상 체크아웃에서 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`로 확인한 등록 파일 경로와 연결 명령 캐시. |
+| Rhino 등록 | 일상 체크아웃에서 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`로 확인한 등록 파일 경로, 로드 모드와 연결 명령 캐시. |
 | 실제 플러그인 로드 | 허가된 통합 검수에서 Rhino PID, 로드된 플러그인과 실제 assembly 경로. |
 | Rhino에서만 확인 가능한 동작 | 통합 검수에서 확인한 모델링·뷰·Layout·UI 동작과 재현 조건. 실행하지 못한 항목을 명시한다. |
 

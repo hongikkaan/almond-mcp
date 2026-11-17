@@ -1,14 +1,21 @@
 # Build-only release pipeline; no upload, install into Rhino, or live MCP changes.
 [CmdletBinding()]
-param([string]$YakExecutable = "C:\Program Files\Rhino 8\System\Yak.exe")
+param(
+    [string]$YakExecutable = "C:\Program Files\Rhino 8\System\Yak.exe",
+    [string]$DotNet = ''
+)
 $ErrorActionPreference = "Stop"
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$scratch = Join-Path ([IO.Path]::GetTempPath()) ("almond-release-" + [guid]::NewGuid().ToString("N"))
+$scratch = Join-Path $repo ("data/t/r" + [guid]::NewGuid().ToString("N").Substring(0, 8))
+New-Item -ItemType Directory -Path $scratch -Force | Out-Null
 $previousEnvironment = $env:UV_PROJECT_ENVIRONMENT
 $previousLinkMode = $env:UV_LINK_MODE
-$previousHost = $env:ALMOND_ARCHIVE_TEST_HOST
+$previousTemporary = $env:TEMP
+$previousTmp = $env:TMP
 $env:UV_PROJECT_ENVIRONMENT = Join-Path $scratch "build-env"
 $env:UV_LINK_MODE = "copy"
+$env:TEMP = $scratch
+$env:TMP = $scratch
 Push-Location $repo
 try {
     & uv sync --locked
@@ -21,13 +28,12 @@ try {
         throw "Release output must be empty; preserve or move the previous artifacts before retrying: $output"
     }
     New-Item -ItemType Directory -Force -Path $output | Out-Null
-    & dotnet build src/rhp/RhinoAlmondBridge/tests/archive_host/ArchiveHost.csproj -c Release -o (Join-Path $scratch "host")
-    if ($LASTEXITCODE -ne 0) { throw "Archive host build failed." }
-    $env:ALMOND_ARCHIVE_TEST_HOST = Join-Path $scratch "host/ArchiveHost.exe"
-    & $python -m pytest -c src/mcp/pytest.ini src/mcp/tests -q --junitxml (Join-Path $output "mcp-tests.xml")
-    if ($LASTEXITCODE -ne 0) { throw "MCP module tests failed." }
-    & $python -m pytest -q --junitxml (Join-Path $output "tests.xml")
-    if ($LASTEXITCODE -ne 0) { throw "Tests failed." }
+    # Run the normal developer suite in its own shell so its isolated paths
+    # and fixture environment cannot leak into packaging or the caller.
+    $shell = (Get-Process -Id $PID).Path
+    $sdkArg = if ($DotNet) { @('-DotNet', $DotNet) } else { @() }
+    & $shell -NoProfile -NonInteractive -File (Join-Path $repo 'tests/run_tests.ps1') -PythonExecutable $python -ScratchDirectory $scratch -ReleaseReportDirectory $output @sdkArg
+    if ($LASTEXITCODE -ne 0) { throw "Release checks failed." }
     & $python src/mcp/features/assets/generation/document_generation_sources.py --check
     if ($LASTEXITCODE -ne 0) { throw "Source check failed." }
     & uv build --out-dir $output
@@ -48,9 +54,11 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Installed package smoke test failed." }
     } finally { Pop-Location }
     $yakOutput = Join-Path $scratch "yak"
-    & (Join-Path $repo "src/rhp/tools/build_yak.ps1") -PythonExecutable $python -YakExecutable $YakExecutable -OutputDirectory $yakOutput
-    [xml]$project = Get-Content -LiteralPath (Join-Path $repo "src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj")
-    $bridgeVersion = $project.Project.PropertyGroup.Version
+    $yakBuild = @{ PythonExecutable = $python; YakExecutable = $YakExecutable; OutputDirectory = $yakOutput }
+    if ($DotNet) { $yakBuild.DotnetExecutable = $DotNet }
+    & (Join-Path $repo "src/rhp/tools/build_yak.ps1") @yakBuild
+    $bridgeVersion = & $python -B src/rhp/tools/release_version.py
+    if ($LASTEXITCODE -ne 0) { throw "Bridge version read failed." }
     $yakPackages = @(Get-ChildItem -LiteralPath $yakOutput -Filter *.yak)
     if ($yakPackages.Count -ne 1) { throw "Expected one freshly verified Yak package." }
     $yakName = $yakPackages[0].Name
@@ -70,5 +78,6 @@ try {
     Pop-Location
     $env:UV_PROJECT_ENVIRONMENT = $previousEnvironment
     $env:UV_LINK_MODE = $previousLinkMode
-    $env:ALMOND_ARCHIVE_TEST_HOST = $previousHost
+    $env:TEMP = $previousTemporary
+    $env:TMP = $previousTmp
 }

@@ -35,7 +35,6 @@ namespace RhinoAlmondBridge
                 return result;
             }
 
-            uint undoRecord = 0;
             try
             {
                 var missingNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -56,7 +55,7 @@ namespace RhinoAlmondBridge
                 }
 
                 var definitions = ReadDefinitions(request.LinetypeManifestPath, missingNames);
-                undoRecord = doc.BeginUndoRecord("Apply Almond drawing style");
+                var mutation = AlmondEngine.NativeUndoRecord.Run(doc, "Apply Almond drawing style", () => {
                 foreach (var specification in request.Layers)
                 {
                     string name = LinetypeName(specification.Linetype);
@@ -88,7 +87,16 @@ namespace RhinoAlmondBridge
                             : doc.Linetypes[layer.LinetypeIndex]?.Name ?? "Continuous"
                     });
                 }
-                doc.Views.Redraw();
+                });
+                result.MutationState = mutation.State;
+                result.RequiresReconciliation = mutation.State == "unknown";
+                if (!mutation.Success)
+                {
+                    result.Message = mutation.Error;
+                    if (mutation.State == "rolled_back") result.Layers.Clear();
+                    return result;
+                }
+                try { doc.Views.Redraw(); } catch { /* Display failure does not change the committed operation. */ }
                 result.Status = "success";
                 result.Message = $"Applied {result.Layers.Count} drawing layers.";
                 return result;
@@ -98,11 +106,6 @@ namespace RhinoAlmondBridge
                 result.Message = ex.Message;
                 result.ErrorTrace = ex.ToString();
                 return result;
-            }
-            finally
-            {
-                if (undoRecord != 0)
-                    doc.EndUndoRecord(undoRecord);
             }
         }
 
@@ -248,6 +251,11 @@ namespace RhinoAlmondBridge
 
     public class DrawingStyleResult
     {
+        [JsonProperty("mutation_state")]
+        public string MutationState { get; set; } = "none";
+        [JsonProperty("requires_reconciliation")]
+        public bool RequiresReconciliation { get; set; }
+
         [JsonProperty("status")]
         public string Status { get; set; }
 

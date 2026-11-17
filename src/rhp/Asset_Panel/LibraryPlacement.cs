@@ -17,6 +17,7 @@ namespace RhinoAlmondBridge
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
         private static bool LeftDown => (GetAsyncKeyState(1) & 0x8000) != 0;
         internal static string PendingId;
+        internal static RhinoDoc PendingDocument;
         internal static bool PendingDrag;
         internal static bool PendingLight;
         internal static bool Busy;
@@ -35,12 +36,14 @@ namespace RhinoAlmondBridge
             {
                 try
                 {
+                    if (!ReferenceEquals(RhinoDoc.ActiveDoc, doc))
+                        throw new InvalidOperationException("The active document changed. Place the asset again in the intended document.");
                     if (drag && !LeftDown) return;
-                    PendingId = id; PendingDrag = drag; PendingLight = light;
+                    PendingDocument = doc; PendingId = id; PendingDrag = drag; PendingLight = light;
                     RhinoApp.RunScript("_AlmondPlaceLibraryAsset", false);
                 }
                 catch (Exception ex) { RhinoApp.WriteLine("Almond placement: {0}", ex.Message); }
-                finally { PendingId = null; Busy = false; }
+                finally { PendingId = null; PendingDocument = null; Busy = false; }
             });
         }
 
@@ -78,6 +81,8 @@ namespace RhinoAlmondBridge
             }
             // The user may keep the point picker open while another process refreshes
             // this asset. Resolve the current record again for the actual placement.
+            if (!ReferenceEquals(RhinoDoc.ActiveDoc, doc))
+                throw new InvalidOperationException("The placement document changed while picking the insertion point.");
             asset = LibraryAssetSource.Read(root, id);
             // The panel and MCP share registered-source verification and linked placement.
             // This native Rhino command owns its Undo record.
@@ -125,6 +130,7 @@ namespace RhinoAlmondBridge
         {
             string id = LibraryPlacement.PendingId;
             if (id == null) { RhinoApp.WriteLine("Use Place or drag a model from AlmondLibrary."); return Result.Cancel; }
+            if (!ReferenceEquals(doc, LibraryPlacement.PendingDocument)) return Result.Cancel;
             LibraryPlacement.PendingId = null;
             try { return LibraryPlacement.Place(doc, id, LibraryPlacement.PendingDrag, LibraryPlacement.PendingLight); }
             catch (Exception ex) { RhinoApp.WriteLine("Almond placement: {0}", ex.Message); return Result.Failure; }

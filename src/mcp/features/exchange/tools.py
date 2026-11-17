@@ -13,6 +13,7 @@ import uuid
 
 from almond_mcp.features.modeling import modeling_setup
 from almond_mcp.features.modeling.library import MaterialLibrary
+from almond_mcp.features.assets.mutation import send_mutation, unresolved
 from . import exchange
 
 
@@ -266,35 +267,31 @@ public class Script
     }
 }
 """ % (contract["_resolved_file"].replace("\\", "\\\\"), json.dumps(str(receipt), ensure_ascii=True))
-        try:
-            result = json.loads(self.send(
-                json.dumps({"type": "execute", "script": import_script}).encode("utf-8"),
-                timeout=120.0))
-        except ConnectionRefusedError:
-            return error_payload("Rhino bridge is unavailable.")
-        except Exception as exc:
-            return {"status": "error", "message": f"Import completion is unconfirmed: {exc}",
-                    "requires_reconciliation": True, "mutation_applied": None}
-        if result.get("status") != "success":
+        result = send_mutation(self.send, json.dumps({"type": "execute", "script": import_script}).encode("utf-8"),
+                               timeout=120.0, action="Import")
+        if result.get("mutation_state") == "not_started":
             return result
-        # Structured returns avoid ScriptExecutor's legacy List<Guid> automatic
-        # dimension creation. A serialization failure is not an empty import.
-        observation = result.get("result")
-        if result.get("result_error") or not isinstance(observation, dict) or type(observation.get("imported_count")) is not int:
-            return {"status": "error", "message": "Import completed but its object IDs could not be read. Inspect Rhino before continuing.",
-                    "requires_reconciliation": True, "mutation_applied": None,
-                    "result_error": result.get("result_error")}
+        # Receipts provide evidence even after reply loss. Only a matching
+        # completed reply authorizes the second native mutation.
         try:
-            # The script writes this operation-owned receipt before returning.
-            # Keep large imports out of ScriptExecutor's 64 KiB result budget.
-            if receipt.stat().st_size > 2_097_152:
+            with receipt.open("rb") as handle:
+                data = handle.read(2_097_153)
+            if len(data) > 2_097_152:
                 raise ValueError("Import receipt exceeds 2 MiB")
-            imported = [str(uuid.UUID(line)) for line in receipt.read_text(encoding="utf-8-sig").splitlines()]
-            if len(imported) != observation["imported_count"] or len(set(imported)) != len(imported):
-                raise ValueError("Import receipt does not match the completed import")
+            imported = [str(uuid.UUID(line)) for line in data.decode("utf-8-sig").splitlines()]
+            if len(set(imported)) != len(imported):
+                raise ValueError("Import receipt has duplicate object IDs")
         except (OSError, ValueError) as exc:
-            return {"status": "error", "message": f"Import completed but its object receipt could not be read: {exc}",
-                    "requires_reconciliation": True, "mutation_applied": None}
+            if result["status"] != "success":
+                return result
+            return unresolved(f"Import object receipt could not be read: {exc}", reply=result)
+        if result["status"] != "success":
+            return unresolved(result["message"], reply=result, imported_guids=imported)
+        observation = result.get("result")
+        if (not isinstance(observation, dict) or type(observation.get("imported_count")) is not int
+                or observation["imported_count"] != len(imported)):
+            return unresolved("Import receipt and native result did not confirm the same objects. Inspect Rhino before continuing.",
+                              reply=result, imported_guids=imported)
         if not imported:
             if not managed:
                 try:
@@ -303,32 +300,24 @@ public class Script
                     pass
             return error_payload("Rhino imported no objects from the GLB.")
 
-        contract["_imported_guids"] = imported
-        needed = {row["material_id"] for row in contract.get("materials", [])}
-        library = {mid: self.material_library.get(mid) for mid in needed}
-        known = {mid: spec for mid, spec in library.items() if spec}
-        unknown = sorted(mid for mid, spec in library.items() if not spec)
-
-        script = self._restore_and_place_script(contract, known, x_mm, y_mm, z_mm,
-                                                rotation_degrees, layer, report_path)
         try:
-            restore = json.loads(self.send(
-                json.dumps({"type": "execute", "script": script}).encode("utf-8"),
-                timeout=120.0))
+            needed = {row["material_id"] for row in contract.get("materials", [])}
+            library = {mid: self.material_library.get(mid) for mid in needed}
+            known = {mid: spec for mid, spec in library.items() if spec}
+            unknown = sorted(mid for mid, spec in library.items() if not spec)
+            script = self._restore_and_place_script({**contract, "_imported_guids": imported}, known, x_mm, y_mm, z_mm,
+                                                    rotation_degrees, layer, report_path)
         except Exception as exc:
-            return {"status": "error",
-                               "message": f"Imported, but restore/place failed: {exc}",
-                               "imported_guids": imported, "requires_reconciliation": True,
-                               "mutation_applied": None}
+            return unresolved(f"Imported, but restore/place could not be prepared: {exc}", imported_guids=imported, partial=True)
+        restore = send_mutation(self.send, json.dumps({"type": "execute", "script": script}).encode("utf-8"),
+                                timeout=120.0, action="Restore/place")
         if restore.get("status") != "success":
-            return {"status": "error", "message": restore.get("message", "restore failed"),
-                               "imported_guids": imported}
+            return unresolved(restore.get("message", "Restore/place failed"), reply=restore, imported_guids=imported, partial=True)
         if (restore.get("result_error") or not isinstance(restore.get("result"), dict)
                 or type(restore["result"].get("restored_count")) is not int
                 or restore["result"].get("restored_count") != len(imported)):
-            return {"status": "error", "message": "Restore/place completed but its result could not be read. Inspect the imported objects before continuing.",
-                    "imported_guids": imported, "requires_reconciliation": True, "mutation_applied": None,
-                    "result_error": restore.get("result_error")}
+            return unresolved("Restore/place result could not be confirmed. Inspect the imported objects before continuing.",
+                              reply=restore, imported_guids=imported, partial=True)
 
         try:
             raw_report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -336,11 +325,8 @@ public class Script
             raw_report = None
         report = raw_report if isinstance(raw_report, dict) else {}
         if managed and not {"stamped", "deduped", "width", "depth", "height"} <= report.keys():
-            return {
-                **error_payload(read_instruction(__file__, "unverified_import_report")),
-                "imported_guids": imported,
-                "report_path": str(report_path),
-            }
+            return unresolved(read_instruction(__file__, "unverified_import_report"),
+                              reply={"report_path": str(report_path)}, imported_guids=imported, partial=True)
         check = self.dimension_report(contract, report) if report else {"status": "unknown"}
         if report and not managed:
             # Both native calls returned and their output was read. On any

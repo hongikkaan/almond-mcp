@@ -15,13 +15,26 @@ COMPONENT_BUNDLES = dict(zip(MANIFESTS, BUNDLES))
 SOURCE_ROOTS = {
     "bridge": ("src/rhp/RhinoAlmondBridge/", "src/rhp/Structural_Analysis/",
                "src/rhp/Asset_Panel/", "src/rhp/RhinoTerminal/", "src/rhp/Engine/",
-               "src/mcp/rhino/", "src/mcp/features/context/native/",
-               "src/mcp/features/components/native/", "src/mcp/features/modeling/native/",
-               "src/mcp/features/assets/native/", "src/mcp/features/drawings/native/",
-               "src/mcp/features/grasshopper/native/", "src/mcp/features/exchange/native/",
-               "src/mcp/features/planning/native/", "src/mcp/features/structure/native/"),
+               "src/mcp/rhino/"),
     "cos": ("src/cos/rhp/", "src/rhp/Engine/"),
 }
+SHARED_INPUTS = {"global.json", "src/rhp/tools/build_runtime.ps1"}
+BRIDGE_INPUTS = {
+    "LICENSE", "THIRD-PARTY-NOTICES.md", "pyproject.toml", "uv.lock",
+    "src/rhp/build.ps1", "src/rhp/tools/build_archive_bundle.py",
+    "src/mcp/__init__.py", "src/mcp/instruction_text.py", "src/mcp/paths.py",
+    "src/mcp/modeling_policy.json", "src/mcp/features/modeling/PlanSection/PlanSection.py",
+    "src/mcp/profiles/material/manifest.json", "asset/drawing/DrawingAssetfiles/manifest.json",
+    *(f"src/mcp/features/assets/{name}" for name in (
+        "__init__.py", "asset_repository.py", "asset_passport.py", "asset_passport-explain.md",
+        "drafting.py", "drafting-explain.md", "model_index.py", "library_index.py",
+        "generation/document_generation_sources.py", "generation/document_generation_sources-explain.md",
+    )),
+}
+BRIDGE_PAYLOAD_INPUTS = (
+    "asset/models/GeneratedAssetfiles/", "asset/drawing/Draftingfiles/",
+    "src/rhp/Asset_Panel/web/", "src/rhp/RhinoTerminal/licenses/", "src/rhp/RhinoTerminal/src/web/",
+)
 
 
 def digest(path):
@@ -30,7 +43,13 @@ def digest(path):
 
 def source_digest(path):
     data = path.read_bytes()
-    if path.suffix.lower() != ".ico":
+    repository_path = "/" + path.as_posix()
+    exact_bytes = (
+        path.suffix.lower() in {".ico", ".glb", ".png", ".jpg", ".jpeg", ".webp", ".3dm"}
+        or "/asset/drawing/Draftingfiles/pilot/" in repository_path
+        or "/src/rhp/Asset_Panel/web/vendor/" in repository_path
+    )
+    if not exact_bytes:
         data = data.replace(b"\r\n", b"\n")
     return hashlib.sha256(data).hexdigest()
 
@@ -40,16 +59,20 @@ def is_source(relative, component):
     if any(part in {"tests", "data", "bin", "obj"} or part.startswith("plugin-")
            for part in path.parts):
         return False
-    if relative == "global.json":
+    if relative in SHARED_INPUTS:
         return True
-    if component == "bridge" and relative in {
-        "src/mcp/modeling_policy.json", "src/mcp/features/modeling/PlanSection/PlanSection.py"
-    }:
+    if component == "cos" and relative == "src/cos/build.ps1":
         return True
+    if component == "bridge":
+        if relative in BRIDGE_INPUTS:
+            return True
+        if relative.startswith(BRIDGE_PAYLOAD_INPUTS):
+            return not relative.startswith("asset/models/GeneratedAssetfiles/raw/")
+        if path.match("src/mcp/features/*/native/*.cs"):
+            return True
     return relative.startswith(SOURCE_ROOTS[component]) and (
         path.suffix.lower() in {".cs", ".csproj", ".props", ".targets", ".ico", ".resx"}
-        or path.name in {"NuGet.Config", "packages.lock.json"}
-        or relative.startswith(("src/rhp/Asset_Panel/web/", "src/rhp/RhinoTerminal/src/web/")))
+        or path.name in {"NuGet.Config", "packages.lock.json"})
 
 
 def source_files(root, component):

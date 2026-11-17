@@ -319,6 +319,7 @@ namespace Rhino {
     public class Views { public void Redraw() {} }
     public class RhinoDoc {
         public static RhinoDoc ActiveDoc = new RhinoDoc();
+        public uint RuntimeSerialNumber = 1;
         public Views Views = new Views();
         public UnitSystem ModelUnitSystem = UnitSystem.Meters;
     }
@@ -331,9 +332,9 @@ namespace Rhino.Display {
         protected virtual void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) {}
         protected virtual void DrawForeground(DrawEventArgs e) {}
     }
-    public class CalculateBoundingBoxEventArgs { public void IncludeBoundingBox(BoundingBox b) {} }
+    public class CalculateBoundingBoxEventArgs { public Rhino.RhinoDoc RhinoDoc = Rhino.RhinoDoc.ActiveDoc; public void IncludeBoundingBox(BoundingBox b) {} }
     public class Viewport { public Rectangle Bounds = new Rectangle(); public Vector3d CameraX; }
-    public class DrawEventArgs { public Viewport Viewport = new Viewport(); public Pipeline Display = new Pipeline(); }
+    public class DrawEventArgs { public Rhino.RhinoDoc RhinoDoc = Rhino.RhinoDoc.ActiveDoc; public Viewport Viewport = new Viewport(); public Pipeline Display = new Pipeline(); }
     public class Pipeline {
         public void DrawLine(Point3d a,Point3d b,Color c,int width) {}
         public void DrawPoint(Point3d p,PointStyle s,int size,Color c) {}
@@ -393,7 +394,12 @@ class Program {
     static JObject Redraw() => JObject.Parse(StructureView.HandleDraw(new JObject { ["scale"]=10 }));
     static void Main(string[] args) {
         var output = new JObject();
-        if (args[0] == "identity") {
+        if (args[0] == "document") {
+            output["first"]=Draw(.028);
+            Rhino.RhinoDoc.ActiveDoc = new Rhino.RhinoDoc { RuntimeSerialNumber=2 };
+            output["other_document"]=Redraw();
+            output["other_result"]=Draw(.028);
+        } else if (args[0] == "identity") {
             output["first"]=Draw(.028,"INDICATIVE");
             output["redraw"]=Redraw();
             output["replacement"]=Draw(.028,"INDICATIVE");
@@ -516,7 +522,8 @@ def test_legacy_history_keeps_rows_and_does_not_reuse_retired_run_ids(tmp_path):
     assert "Run 13 — beam, native (PASS)" in report and "Run 21 — beam, native (FAIL)" in report
     # Exact raw-data preservation is the migration contract, including JSON bytes.
     with sqlite3.connect(database) as db:
-        columns = [row[1] for row in db.execute("PRAGMA table_info(validation_runs)") if row[1] != "status"]
+        added = {"status", "request_json", "analysis_json", "result_json"}
+        columns = [row[1] for row in db.execute("PRAGMA table_info(validation_runs)") if row[1] not in added]
         assert db.execute("SELECT " + ",".join(columns) + " FROM validation_runs ORDER BY id").fetchall() == original
     value = tools.call("validate_structure", guids=["beam"], engine="native", **OPTIONS)
     assert value["status"] == "indicative" and value["passed"] is None
@@ -524,6 +531,8 @@ def test_legacy_history_keeps_rows_and_does_not_reuse_retired_run_ids(tmp_path):
     rows = reopened.store.list_validation_runs()
     assert rows[0]["id"] > 89
     assert [(r["status"], r["passed"]) for r in rows] == [("indicative", None), ("fail", False), ("pass", True)]
+    assert all(r['request'] is None and r['analysis'] is None and r['result'] is None for r in rows[1:])
+    assert 'applied analysis inputs: unknown' in report
 
 
 def test_empty_legacy_history_keeps_retired_run_ids(tmp_path):
@@ -534,3 +543,9 @@ def test_empty_legacy_history_keeps_retired_run_ids(tmp_path):
     tools = StructureTools(database)
     tools.call("validate_structure", guids=["beam"], engine="native", **OPTIONS)
     assert AlmondStore(database).list_validation_runs()[0]["id"] > 89
+
+
+def test_native_overlay_cannot_reuse_another_documents_result(overlay_host):
+    results = overlay_host("document")
+    assert results["other_document"]["status"] == "error"
+    assert results["other_result"]["overlay_id"] != results["first"]["overlay_id"]

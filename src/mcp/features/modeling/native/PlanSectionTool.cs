@@ -219,6 +219,15 @@ _almond_result_json = json.dumps(run(_almond_doc,
                     response["result"] = drawing;
                     response["drawing_status"] = drawing["status"]?.DeepClone();
                     response["mutation_state"] = (string)response["drawing_status"] == "completed" ? "completed" : "partial";
+                    response["requires_reconciliation"] = (bool?)drawing["requires_reconciliation"] ?? false;
+                    if ((bool)response["requires_reconciliation"])
+                    {
+                        var recovery = (drawing["results"] as JArray)?.OfType<JObject>()
+                            .Where(item => item["recovery"] != null).ToArray() ?? new JObject[0];
+                        response["recovery"] = new JArray(recovery.Select(item => item.DeepClone()));
+                        response["mutation_state"] = recovery.Any(item => (string)item["recovery"]?["mutation_state"] == "partial")
+                            ? "partial" : "unknown";
+                    }
                 }
             }
             catch (Exception error)

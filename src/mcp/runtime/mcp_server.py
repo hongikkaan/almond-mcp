@@ -165,7 +165,7 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
             raise ValueError("timeout_seconds must be 1-600.")
         if runtime is None or runtime.workspace is None:
             raise RuntimeError("The project workspace is not connected.")
-        directory = runtime.workspace.artifact_path()
+        directory = runtime.workspace.artifact_path(runtime.current_workspace())
         # Same process/document fence and late-result recovery as Rhino scripts.
         # Rhino runs asynchronously after CLI acknowledgement, so this tool must
         # never kill a Python child or remove its cwd when waiting expires.

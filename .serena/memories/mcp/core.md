@@ -6,3 +6,7 @@
 - 프로젝트 초기 조회의 관찰 요청과 응답 조립은 `features/context/project_info.py`가 맡는다. 연결 설정은 바인딩을 확인한다. MCP 조회와 첨부 범위를 지정한 PlanSection 호출에서 사용하는 Worksession 정보는 Rhino의 읽기 전용 관측이다.
 - 프로젝트 파일 카탈로그의 관계 키는 등록 파일명이다. `context_05-upsert_project_file` tool로 명시 등록과 설명 갱신을 하고 Phase와 Scene은 그 목록의 이름을 선택한다. Worksession 첨부는 Rhino에서 별도로 관찰하며 자동 등록하지 않는다. `drawing_06-generate_plan_section` tool의 `include_attachments`는 Create에서 기본 false, Update에서 생략하면 저장된 값을 사용한다. Move는 기존 도면의 GUID·수동 편집을 보존하며 배치만 바꾼다.
 - `plan_12-update` tool은 Step을 실제 완료로 전환할 때 에이전트의 결정을 받는다. No는 상태·모델 변경 없이 토큰을 닫고, 새 시도에는 새 토큰이 필요하다. Yes는 SQLite에 Step 완료를 먼저 저장한 뒤 현재 모델의 `temp` 트리 객체와 하위 레이어를 정리한다. 최상위 `temp`는 유지하고 로컬 블록 정의에서 해당 레이어의 구성원만 제거한다. DB 상태와 정리 결과는 따로 보고한다. 코드 진입점은 `features/planning/completion.py`와 `features/planning/native/StepTempCleanup.cs`다.
+
+- `tool_response.transform_response`는 조회 projection·후속 안내·경로 변환의 transport 처리를 공유하고 문자열 wrapper, meta·annotations, 이미지와 오류 근거를 보존한다. 자산의 선언·hash·경로 확인은 실제 제공 bytes에 적용하고 catalogue/MCP/배치는 공통 원본 선택 규칙을 따른다.
+- Workspace는 폴더 이동 intent와 동일 Loop transaction의 `workspace_loop_transitions` receipt로 미완료 전이를 복구한다. 작업 경로를 사용하는 호출은 공유 gate 아래 얻은 snapshot을 재사용한다. `runtime/owned_process`는 정확한 자식 identity 발행 뒤 부모가 명령을 승인하며 Python·Engine은 소유권/프로세스 종료와 native receipt를 별도로 확인한다. 공개 Loop API의 최종 응답 유실까지 exactly-once를 보장하지 않는다. 상세 계약은 `runtime/RHINOCODE-SPEC.md`.
+- 구조의 `DesignAnalysis`는 요청 안에서 solved 상태를 재사용하되 11/13 station 및 buckling 의미를 보존한다. 분석 이력은 실제 적용 입력과 결과를 저장하고 legacy는 unknown으로 둔다. PlanSection은 추적한 변경의 보상을 계속 시도하고 recovery 근거를 반환하며 원자적 rollback으로 단정하지 않는다.

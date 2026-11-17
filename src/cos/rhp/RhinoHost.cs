@@ -30,7 +30,7 @@ internal sealed class RhinoHost : IDisposable
     internal RhinoHost()
     {
         root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(RhinoHost).Assembly.Location)!, ".."));
-        engine = Path.GetFullPath(Path.Combine(root, "..", "..", "mcp", "runtime"));
+        engine = AlmondEngine.RuntimeEnvironment.RuntimeDirectory(typeof(RhinoHost).Assembly.Location);
         commonData = Path.Combine(engine, "data");
         if (!File.Exists(Path.Combine(engine, "mcp_server.py")))
             throw new InvalidOperationException("공용 Engine을 찾을 수 없습니다. Rhino 플러그인 위치를 확인하세요.");
@@ -285,27 +285,21 @@ internal sealed class RhinoHost : IDisposable
             using (Lease(sessionPaths.SessionDir, "mcp.lock")) { }
             readyPath = sessionPaths.ReadyPath;
             activePath = Path.Combine(commonData, selected, "active.json");
-            binding = new Dictionary<string, object?> {
-                ["schema"]="almond-project", ["storage_protocol"]=SessionFiles.StorageProtocol,
-                ["attachment"]="cos", ["label"]=selected, ["port"]=port,
-                ["token"]=token, ["pid"]=pid, ["process_start_ticks"]=startTicks, ["document_serial"]=serial,
-                ["model_path"]=model, ["document_path"]=Canonical(doc.Path), ["storage"]=storage, ["engine"]=engine,
-                ["session_dir"]=sessionPaths.SessionDir, ["ready_path"]=readyPath, ["call_root"]=sessionPaths.CallRoot,
-                ["state_db"]=sessionPaths.StateDb, ["temp"]=sessionPaths.Temp, ["rhino_temp"]=Path.GetTempPath(),
-                ["model_units"]=doc.ModelUnitSystem.ToString(), ["valid"]=true, ["status"]="starting"
-            };
+            binding = NativeBinding.Create(sessionPaths, selected, port, doc.RuntimeSerialNumber,
+                pid, startTicks, engine, doc.ModelUnitSystem.ToString(), "cos");
+            binding["call_root"] = sessionPaths.CallRoot;
             invalid = false; busy = false; problem = "";
             Directory.CreateDirectory(Path.GetDirectoryName(activePath)!);
             // Existing maintenance and the original RHP see this reservation.
             Save(activePath, binding);
-            Save(readyPath, binding);
+            NativeBinding.Publish(binding, readyPath);
             bridge = new BoundBridge(port, readyPath, token, model, doc.RuntimeSerialNumber);
             bridge.Start();
             if (!bridge.IsRunning) throw new IOException("이 Rhino의 브리지 포트 시작을 확인하지 못했습니다.");
             binding["status"] = "started";
-            Save(sessionPaths.LaunchPath, binding);
-            Save(readyPath, binding);
-            Save(activePath, binding);
+            NativeBinding.Publish(binding, sessionPaths.LaunchPath);
+            NativeBinding.Publish(binding, readyPath);
+            NativeBinding.Publish(binding, activePath);
             RhinoApp.WriteLine(StatusText());
             return binding;
         }
@@ -322,25 +316,16 @@ internal sealed class RhinoHost : IDisposable
     {
         if (binding == null) return;
         problem = reason;
-        if (!invalid)
-        {
-            invalid = true;
-            binding["valid"] = false;
-            binding["status"] = reason;
-            try { Save(readyPath, binding); }
-            catch (Exception ex) { RhinoApp.WriteLine("Almond 연결 무효화 기록 실패: " + ex.Message); }
-        }
-        try { bridge?.Stop(); }
-        catch (Exception ex) { RhinoApp.WriteLine("Almond 브리지 중단 확인 필요: " + ex.GetBaseException().Message); }
+        invalid = true;
+        try { NativeBinding.Invalidate(binding, readyPath, reason, bridge); }
+        catch (Exception ex) { RhinoApp.WriteLine("Almond 연결 무효화/중단 확인 필요: " + ex.Message); }
     }
 
     void CheckDocument()
     {
         if (binding == null || invalid) return;
         var doc = RhinoDoc.ActiveDoc;
-        if (doc == null || string.IsNullOrEmpty(doc.Path) ||
-            doc.RuntimeSerialNumber.ToString() != (string)binding["document_serial"]! ||
-            !Same(doc.Path, (string)binding["model_path"]!))
+        if (doc == null || !NativeBinding.MatchesDocument(binding, doc.Path, doc.RuntimeSerialNumber))
             Invalidate("연결된 문서 또는 파일명이 변경됐습니다.");
         else if (bridge != null && !bridge.IsRunning)
             Invalidate("이 연결의 native bridge가 종료됐습니다.");
@@ -359,39 +344,18 @@ internal sealed class RhinoHost : IDisposable
             Invalidate("연결된 문서가 닫혔습니다.");
     }
 
-    bool Release()
+    internal bool Release()
     {
         if (binding == null) return true;
         Invalidate(string.IsNullOrEmpty(problem) ? "MCP 연결 종료" : problem);
         if (worker != null && !worker.HasExited) return false;
-        if (bridge != null)
-        {
-            try { bridge.Stop(); }
-            catch { return false; }
-            if (!bridge.IsDrained) return false;
-        }
-        // Hold the worker gate through invalidation and owner release. A probe
-        // followed by close leaves a startup race if the earlier ready write failed.
-        FileStream workerGuard;
-        try { workerGuard = Lease(sessionPaths!.SessionDir, "mcp.lock"); }
-        catch (IOException) { return false; }
-        using var retainedWorkerGuard = workerGuard;
         try
         {
-            binding["valid"] = false;
-            Save(readyPath, binding);
-            if (File.Exists(activePath))
-            {
-                using var json = JsonDocument.Parse(File.ReadAllText(activePath));
-                if (Text(json.RootElement, "token") != (string)binding["token"]!) return false;
-                File.Delete(activePath);
-            }
+            if (!NativeBinding.Release(binding, sessionPaths!.SessionDir, readyPath, activePath, bridge, ReleaseLeases)) return false;
         }
         catch (Exception ex) { problem = "점유 기록 정리 실패: " + ex.Message; return false; }
         worker?.Dispose(); worker = null;
-        bridge?.Dispose();
         bridge = null; binding = null;
-        ReleaseLeases();
         busy = false; invalid = false; requestId = ""; problem = "";
         if (notifyDisconnect)
         {

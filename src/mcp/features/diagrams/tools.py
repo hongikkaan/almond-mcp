@@ -2,12 +2,12 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.diagrams.output import GROUPS, project
+from almond_mcp.features.assets.mutation import send_mutation
 from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction
 
 from pydantic import StrictBool
 import json
-import socket
 
 
 def register(mcp, context):
@@ -76,10 +76,11 @@ def register(mcp, context):
         rotation_degrees: float = 0,
         scale: float = 1,
     ) -> str:
-        asset = context.diagram_asset_indexer.get(asset_id)
+        asset = context.retrieval_store.get_asset(asset_id, library_id="diagram_assets")
         if not asset:
             return json.dumps(error_payload(f"Unknown diagram asset_id: {asset_id}"))
-        if not asset.get("file_available"):
+        asset = context.diagram_asset_indexer.resolve_record(asset)
+        if not asset or not asset.get("file_available"):
             return json.dumps(error_payload(f"Diagram asset file is missing for {asset_id}."))
 
         payload = json.dumps({
@@ -101,12 +102,7 @@ def register(mcp, context):
             },
         }).encode("utf-8")
 
-        try:
-            return context._send_and_receive(payload, timeout=90.0)
-        except socket.timeout:
-            return json.dumps(error_payload("Rhino diagram import timed out."))
-        except Exception as exc:
-            return json.dumps(error_payload(f"Diagram asset placement failed: {exc}"))
+        return json.dumps(send_mutation(context._send_and_receive, payload, timeout=90.0, action="Diagram asset placement"))
 
     return {
         "list_diagram_assets": list_diagram_assets,

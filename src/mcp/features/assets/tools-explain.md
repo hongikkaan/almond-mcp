@@ -116,7 +116,7 @@ Args:
 ## audit_asset_drawing
 
 <!-- instruction:audit_asset_drawing -->
-저장 도면 패키지의 manifest에 기록된 파일 해시와 원본을 비교합니다. 검사 성공은 도면 내용의 적합성이나 manifest의 완전성을 보장하지 않으며, 목록이 비어 있으면 검사 파일 0개로도 성공할 수 있습니다. 원본을 찾지 못하면 파일만 검사하고 원본 비교는 생략합니다.
+저장 도면 패키지에서 선언한 뷰의 SVG·DXF와 파일 해시 목록을 대조합니다. 빈 해시 목록, 누락·변경 파일, 패키지 밖 경로와 파일시스템 링크는 오류로 반환합니다. 원본을 찾을 수 있을 때 원본 변경도 확인합니다.
 
 Args:
     package_dir: 생성/조회 결과의 package_dir를 그대로 입력합니다. 관리형 세션은 프로젝트 안의 패키지와 설정된 도면 라이브러리·drawing-runs의 패키지를 검사합니다. 독립 실행에서는 절대 경로가 필요합니다.
@@ -139,6 +139,7 @@ Existing Blender preview for a known catalogue id.
 
 <!-- instruction:place_drawing_asset -->
 모델·2D 자산을 Rhino 문서에 블록으로 배치합니다. 3DM은 원본에 연결된 블록이며 같은 정의를 사용하는 배치에 정의 갱신이 반영됩니다. 결과는 성공 또는 오류를 담은 JSON 문자열입니다.
+응답 유실 등으로 requires_reconciliation이 true이면 Rhino 문서에서 실제 배치 결과를 확인한 뒤 다음 작업을 결정합니다.
 
 Args:
     asset_id: include_ids=true를 지정한 해당 목록/검색 결과에서 얻은 기존 라이브러리 자산 ID 또는 이전부터 알고 있는 ID입니다.
@@ -230,18 +231,6 @@ Model file missing for {0}; run almond-mcp fetch-assets to download it.
 <!-- instruction:response-419 -->
 Inspect the placed geometry and relevant Rhino views before concluding the placement is correct.
 <!-- /instruction:response-419 -->
-
-## response-423
-
-<!-- instruction:response-423 -->
-Rhino drawing-asset import timed out; inspect the model before retrying.
-<!-- /instruction:response-423 -->
-
-## response-424
-
-<!-- instruction:response-424 -->
-Rhino bridge is unavailable. Start RhinoAlmondBridge first.
-<!-- /instruction:response-424 -->
 
 ## refresh_asset
 

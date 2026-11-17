@@ -41,11 +41,28 @@ internal static class ExternalExecutionFence
                 if (value.TryGetProperty("not_dispatched", out var notDispatched) && notDispatched.ValueKind == JsonValueKind.True)
                     return !value.TryGetProperty("child", out var absentChild) || absentChild.ValueKind != JsonValueKind.Null ||
                         Text(value, "dispatch_error").Length == 0;
-                var child = value.GetProperty("child");
-                if (child.ValueKind != JsonValueKind.Object || !Exited(child)) return true;
                 var directory = compact ? Path.Combine(paths.CallRoot, operation, "rc-" + request[..12]) :
                     Path.Combine(paths.CallRoot, operation, "rhinocode", request);
                 SessionFiles.CheckPlainPath(directory);
+                var child = value.GetProperty("child");
+                if (value.TryGetProperty("launch_protocol", out var launchProtocol))
+                {
+                    if (launchProtocol.ValueKind != JsonValueKind.String || launchProtocol.GetString() != "owned-v1") return true;
+                    using var published = ReadOwned(directory, "child.json", value);
+                    var actualChild = published.RootElement.GetProperty("child");
+                    if (child.ValueKind != JsonValueKind.Null && !SameChild(child, actualChild)) return true;
+                    child = actualChild.Clone();
+                    if (child.ValueKind != JsonValueKind.Object || !Exited(child)) return true;
+                    var exitPath = Path.Combine(directory, "child-exit.json");
+                    if (File.Exists(exitPath))
+                    {
+                        using var exited = ReadOwned(directory, "child-exit.json", value);
+                        if (!SameChild(child, exited.RootElement.GetProperty("child"))) return true;
+                        if (exited.RootElement.TryGetProperty("dispatched", out var dispatched) &&
+                            dispatched.ValueKind == JsonValueKind.False) return false;
+                    }
+                }
+                else if (child.ValueKind != JsonValueKind.Object || !Exited(child)) return true;
                 var finalPath = Path.Combine(directory, "complete.json");
                 if (new FileInfo(finalPath).Length > 65536) return true;
                 using var final = SessionFiles.ReadJson(finalPath);
@@ -72,6 +89,36 @@ internal static class ExternalExecutionFence
     static bool Header(JsonElement value, string schema) =>
         value.ValueKind == JsonValueKind.Object && Text(value, "schema") == schema &&
         value.TryGetProperty("version", out var version) && version.TryGetInt32(out var number) && number == 1;
+
+    static JsonDocument ReadOwned(string directory, string name, JsonElement journal)
+    {
+        var path = Path.Combine(directory, name);
+        SessionFiles.CheckPlainPath(path);
+        if (new FileInfo(path).Length > 65536) throw new InvalidDataException("Oversized process evidence");
+        var document = SessionFiles.ReadJson(path);
+        try
+        {
+            var record = document.RootElement;
+            if (Text(record, "schema") != "almond-owned-process") throw new InvalidDataException("Unknown process evidence");
+            var owner = record.GetProperty("owner");
+            foreach (var key in new[] { "token", "operation_id", "request_id", "nonce", "source_hash" })
+                if (Text(owner, key) != Text(journal, key)) throw new InvalidDataException("Different process owner");
+            var actual = owner.GetProperty("target");
+            var expected = journal.GetProperty("target");
+            foreach (var key in new[] { "pid", "document_serial" })
+                if (actual.GetProperty(key).GetInt64() != expected.GetProperty(key).GetInt64())
+                    throw new InvalidDataException("Different process target");
+            foreach (var key in new[] { "process_start_ticks", "model_path", "pipe_id" })
+                if (Text(actual, key) != Text(expected, key)) throw new InvalidDataException("Different process target");
+            return document;
+        }
+        catch { document.Dispose(); throw; }
+    }
+
+    static bool SameChild(JsonElement left, JsonElement right) =>
+        left.ValueKind == JsonValueKind.Object && right.ValueKind == JsonValueKind.Object &&
+        left.GetProperty("pid").GetInt32() == right.GetProperty("pid").GetInt32() &&
+        Text(left, "process_start_ticks") == Text(right, "process_start_ticks");
 
     static string Text(JsonElement value, string key) =>
         value.TryGetProperty(key, out var property) && property.ValueKind == JsonValueKind.String

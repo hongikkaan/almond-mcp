@@ -3,6 +3,7 @@ import asyncio
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 
 from mcp.client.session import ClientSession
@@ -121,6 +122,17 @@ def test_external_host_reports_invalid_and_empty_documents(guidance_checkout, tm
     assert "Startup guidance unavailable: BASIC-INSTRUCTIONS.md (invalid UTF-8)." in result.instructions
     assert "Startup guidance unavailable: design_judgment.md (empty document)." in result.instructions
     assert result.server_info.description in result.instructions
+
+
+def test_external_host_rejects_installed_metadata_from_a_different_release(guidance_checkout, tmp_path):
+    (guidance_directory(guidance_checkout) / "__init__.py").write_text('__version__ = "123.4.5"\n', encoding="utf-8")
+    params = session_params(guidance_checkout, tmp_path / "stale", "codex")
+    result = subprocess.run(
+        [params.command, *params.args], env=params.env, cwd=params.cwd,
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8", timeout=45,
+    )
+    assert result.returncode != 0
+    assert "Runtime expects almond-mcp version ['123.4.5'] from the current checkout; installed:" in result.stderr
 
 
 def test_unbound_standalone_keeps_initialize_free_of_document_guidance(guidance_checkout, tmp_path):

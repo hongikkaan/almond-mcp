@@ -7,6 +7,8 @@
 
 응답에는 클리핑별 상태와 도면 객체 GUID, 실제 배치 평면이 포함됩니다. Create·Update에는 실제 계산에 들어간 원본 레이어와 객체 수, 숨김·잠금·첨부 입력의 처리 조건도 포함됩니다. 일부 완료 또는 취소 뒤에는 완료된 도면이 남을 수 있습니다.
 
+변경 도중 실패하면 각 항목의 recovery.attempts에 객체·속성·레이어의 복구 대상과 성공/실패를 보존합니다. 한 복구가 실패해도 나머지는 계속 시도합니다. tracked_changes_restored는 추적한 변경의 복구 결과이며 원자적 rollback을 보장하지 않습니다. mutation_state가 partial 또는 unknown이고 requires_reconciliation이 true이면 실제 도면을 확인하거나 Undo한 뒤 다음 작업을 결정하고 자동으로 재시도하지 마세요.
+
 Args:
     operation: Create는 생성 또는 교체, Update는 저장 위치에서 재생성, Move는 기존 도면의 평행이동.
     clipping_ids: 활성 모델 또는 현재 Worksession 첨부 파일의 클리핑 평면 GUID 목록. 비어 있을 수 없으며 중복은 한 번만 처리.

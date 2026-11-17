@@ -165,6 +165,15 @@ namespace RhinoAlmondBridge
             if ((long)file["size"] > 268435456) throw new InstalledFileTooLargeException();
             bytes = File.ReadAllBytes(path);
             ValidateInstalledFile(file);
+            // Drawing package representations carry the manifest's verified digest.
+            // Verify the response bytes, not just a file stat observed before reading.
+            if (file["sha256"] != null)
+            {
+                string expected = (string)file["sha256"];
+                string actual = Convert.ToHexString(SHA256.HashData(bytes));
+                if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Installed drawing content changed; Reload to refresh.");
+            }
             mime = (string)file["mime"] ?? "application/octet-stream";
             if (mime.Contains("\r") || mime.Contains("\n")) throw new InvalidDataException("Invalid library content type.");
             return true;

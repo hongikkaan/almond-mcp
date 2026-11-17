@@ -34,9 +34,12 @@ def build_bundle(destination: Path):
             record.update(available=False, source_available=False, model=None, source_file=None,
                           preview=None, contract=None, drawing=None, drawing_ready=False,
                           drawing_status="not_installed", model_status="not_installed")
+        if record["drawing_status"] == "invalid":
+            raise ValueError(f"Invalid drawing package: {record['id']}")
         if record["drawing"]:
             package = repo.files[record["drawing"]["record"]][1].parent
-            repo.file("drafting", (package / "views.json").relative_to(repo.roots["drafting"]).as_posix())
+            if not repo.add_package_file("drafting", package, "views.json"):
+                raise ValueError(f"Drawing package views are unavailable: {record['id']}")
             source_route = record["model"] or record.get("source_file")
             if source_route not in repo.files:
                 raise ValueError(f"Drawing source is unavailable: {record['id']}")
@@ -57,7 +60,7 @@ def build_bundle(destination: Path):
             continue
         suffix = path.suffix
         mime = {".glb":"model/gltf-binary", ".3dm":"application/octet-stream", ".png":"image/png", ".json":"application/json", ".svg":"image/svg+xml", ".dxf":"application/dxf"}[suffix]
-        write(route, unquote(route.lstrip("/")), path.read_bytes(), mime)
+        write(route, unquote(route.lstrip("/")), repo.read_file(route), mime)
     for path in sorted(UI_ROOT.rglob("*")):
         if path.is_file():
             relative = path.relative_to(UI_ROOT).as_posix()

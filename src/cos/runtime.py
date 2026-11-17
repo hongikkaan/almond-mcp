@@ -38,6 +38,7 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "shared_store": engine / "shared_store.py",
         "native_request": engine / "native_request.py",
         "rhinocode": engine / "rhinocode.py",
+        "owned_process": engine / "owned_process.py",
         "rhinocode_python_wrapper": engine / "rhinocode_python.py.txt",
         "rhinocode_csharp_wrapper": engine / "rhinocode_csharp.cs.txt",
         "library_paths": engine / "library_paths.py",

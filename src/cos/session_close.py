@@ -21,7 +21,8 @@ from runtime import ENGINE
 
 sys.path.insert(0, str(ENGINE))
 from project import ExclusiveFile, read_json, write_json
-from rhinocode import find_binary, discover_instances, select_instance, child_process_identity
+from rhinocode import find_binary, discover_instances, select_instance
+from owned_process import authorize_owned, launch_owned, read_owned_identity, read_owned_exit
 from storage_cleanup import plain_descendant, process_identity_alive
 from execution_recovery import read_bound_execution
 
@@ -51,6 +52,7 @@ class RhinoExit:
         instance = select_instance(record["target"], discover_instances(binary))
         record["pipe_id"] = instance["pipeId"]
         record["executable"] = str(binary)
+        record["launch_protocol"] = "owned-v1"
         payload = {key: record[key] for key in ("request_id", "nonce", "target", "worker_identity")}
         payload.update(ready_path=record["binding"]["ready_path"], token=record["binding"]["token"])
         payload["receipt_path"] = str(directory / "guard.json")
@@ -64,18 +66,35 @@ class RhinoExit:
             if instance["pipeId"] != record["pipe_id"]:
                 raise RuntimeError("Rhino ScriptServer changed before close; no Exit was sent.")
             macro = '_-ScriptEditor _Run "' + str(directory / "guard.py") + '"'
-            self.process = subprocess.Popen(
+            self.process = launch_owned(
                 [record["executable"], "--rhino", record["pipe_id"], "command", macro],
-                shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+                directory, {key: record[key] for key in ("request_id", "nonce", "target")},
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as exc:
             raise ExitNotDispatched(str(exc)) from exc
-        record["child"] = child_process_identity(self.process)
+        record["child"] = authorize_owned(self.process, directory,
+                                          {key: record[key] for key in ("request_id", "nonce", "target")})
 
     def inspect(self, record, directory):
+        child = record.get("child", {})
+        owner = {key: record[key] for key in ("request_id", "nonce", "target")}
+        if record.get("launch_protocol") == "owned-v1":
+            try:
+                child = read_owned_identity(directory, owner)
+            except FileNotFoundError:
+                child = {}
         state = {"guard_state": "missing", "rhino_closed": process_identity_alive(record["target"]) is False,
                  "cli_closed": ((self.process.poll() is not None) if self.process is not None else
-                                process_identity_alive(record.get("child", {})) is False)}
+                                process_identity_alive(child) is False)}
+        if record.get("launch_protocol") == "owned-v1" and state["cli_closed"]:
+            try:
+                exited = read_owned_exit(directory, owner)
+                if exited.get("child") != child:
+                    raise ValueError("Close exit evidence belongs to another process.")
+                if exited.get("dispatched") is False:
+                    return dict(state, guard_state="rejected", reason=exited.get("error", "Exit was not dispatched."))
+            except FileNotFoundError:
+                pass
         try:
             path = directory / "guard.json"
             if path.stat().st_size > 32768:

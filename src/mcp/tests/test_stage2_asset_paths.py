@@ -19,6 +19,7 @@ import pytest
 
 from almond_mcp import paths
 from almond_mcp.features.assets import preparation
+from almond_mcp.features.assets.library_index import AssetLibraryIndexer
 from almond_mcp.features.assets.tools import register as asset_tools
 from almond_mcp.features.planning.tools import register as planning_tools
 from almond_mcp.public_names import internal_tool_name
@@ -109,7 +110,9 @@ def managed_assets(tmp_path, monkeypatch, request):
             "native_sequence": len(wire.calls), "completion_status": "completed",
             "payload": json.dumps({"status": "success"})})
 
-    context = SimpleNamespace(retrieval_store=store, drawing_asset_indexer={}, generated_asset_indexer={},
+    context = SimpleNamespace(retrieval_store=store,
+        drawing_asset_indexer=AssetLibraryIndexer(tmp_path / "drawings", "drawing_assets", "drawing"),
+        generated_asset_indexer=AssetLibraryIndexer(tmp_path / "generated", "generated_assets", "generated"),
         DRAWING_LIBRARY_DIR=str(tmp_path / "drawings"), GENERATED_LIBRARY_DIR=str(tmp_path / "generated"),
         DRAFTING_LIBRARY_DIR=str(tmp_path / "drafting"),
         _send_and_receive=lambda *args, **kwargs: runtime.send(native_sender, *args, **kwargs))
@@ -256,9 +259,13 @@ def test_get_drawing_result_is_auditable_in_separate_drafting_library(managed_as
     (root / "manifest.json").write_text(json.dumps({"assets": [{"asset_id": "fixture", "package": "fixture"}]}))
     drawing_bytes = b'<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0L1 1"/></svg>'
     (package / "plan.svg").write_bytes(drawing_bytes)
+    dxf = b"0\nEOF\n"
+    (package / "plan.dxf").write_bytes(dxf)
     metadata = {"path": str(package / "plan.svg"), "package_dir": str(package)}
     (package / "drawing.json").write_text(json.dumps({"source": {"asset_id": "fixture"},
-        "files": {"plan.svg": hashlib.sha256(drawing_bytes).hexdigest().upper()}, "metadata": metadata}))
+        "representations": [{"view": "plan", "scale": 50, "svg": "plan.svg", "dxf": "plan.dxf"}],
+        "files": {"plan.svg": hashlib.sha256(drawing_bytes).hexdigest().upper(),
+                  "plan.dxf": hashlib.sha256(dxf).hexdigest().upper()}, "metadata": metadata}))
     if cross_volume:
         relative = os.path.relpath
         def different_drive(path, start=None):
@@ -270,7 +277,7 @@ def test_get_drawing_result_is_auditable_in_separate_drafting_library(managed_as
         async with Client(fixture.server) as client:
             _, drawing = await call(client, "asset_03-get_drawings", asset_id="fixture", field_groups=["all"])
             _, result = await call(client, "asset_01-audit_drawing", package_dir=drawing["package_dir"])
-            assert result["status"] == "success" and result["checked_files"] == 1, result
+            assert result["status"] == "success" and result["checked_files"] == 2, result
             if cross_volume:
                 assert drawing["package_dir"] == str(package)
                 unavailable = "[unavailable: a relative path between different drives does not exist]"

@@ -129,6 +129,12 @@ EN 1991-1-1 category A, 1.5–2.0 kN/m²) already covers movable furniture and p
 
 ## Verification
 
+### One study and persisted inputs
+
+The panel study owns one `DesignAnalysis` for validation and its deflection overlay. It retains solved displacement/load states and all ULS imperfection variants. Validation still samples 11 stations; the overlay re-evaluates the same solved state at 13 stations and recomputes its own member checks/envelope. It does not interpolate the validation samples or repeat stiffness/second-order solves. Buckling remains a separate stability-off mode calculation and is never substituted with a validation deflection result. Cached states are local to one request.
+
+New validation history stores the requested options, applied engine/package version, native exported model and applied option/load snapshots, and the full calculation result. The normal tool response remains unchanged. Native-only requested options are not labelled as applied when a Karamba route runs. Existing rows retain their IDs and prior values; missing request/analysis/result snapshots remain null and reports identify those inputs as unknown. A stored result is evidence of that calculation, not proof of current geometry or external code compliance.
+
 `src/mcp/tests/test_frame_solver.py`, `test_hand_calculations.py` and `test_ec3.py` compare closed-form beam/column results, equilibrium, superposition, orientation invariance, mechanisms, section properties and member checks. `test_native_structure.py` compares the reference cases in `src/mcp/tests/data/karamba_reference.json`; `features/structure/validation/mutation_check.py` checks whether known calculation faults are detected.
 
 The native solver uses Euler-Bernoulli beams while Karamba may include Timoshenko shear deformation, so differences must be interpreted against the actual analysis method and assumptions. Benchmark outputs belong under ignored `data/`, not in this contract. Live functionality is verified in the working Rhino files the user connected, preserving existing model state.

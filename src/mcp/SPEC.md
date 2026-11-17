@@ -28,6 +28,8 @@ RhinoTerminal은 `codex.ps1 -RhinoTerminal`로 시작하며 새 대화·resume·
 
 공통 오류 반환 필드인 `status`, `message`, 선택적 `error_code`는 `tool_response.py`에서 구성한다. 각 도구의 JSON 문자열·dict·이미지 반환 방식과 변경 적용·정합 필요 상태는 각 호출부가 유지하며, 공통 오류 필드만으로 rollback 여부를 추정하지 않는다.
 
+조회 필드 선택·후속 안내·작업 경로 변환은 `tool_response.transform_response`의 공통 transport 처리를 사용한다. 직접 구조화 본문과 FastMCP의 문자열 `result` wrapper를 구분하며, 본문 안의 JSON 문자열은 사용자 자료로 보존한다. 결과와 content block의 메타데이터·이미지·오류 플래그는 유지하고, 같은 본문을 나타내는 text와 structured content에는 같은 변환 결과를 적용한다.
+
 `context_01-get_policy` tool의 출력 스키마는 `scripting_skill.sources`의 출처·해시·원문을 명시하고 metadata `policy`는 열린 JSON 객체로 유지한다. `context_04-get_project_info` tool은 문서 속성·작업 경로·실행 환경과 관찰 경고를 명시하며, 문서의 관찰 실패 값과 오류 원문의 `document=null`을 허용한다. RhinoCode의 `version`은 외부 원본 값의 타입을 제한하지 않는다. `plan_03-execute_looping` tool은 현재·이전 회차의 Step 유형·순서·의존 관계·상태·입출력 참조를 같은 구조로 선언한다. 이 필드들은 요청 섹션·선택 상태·응답 종류에 따라 생략될 수 있다.
 
 ## 기능별 구현과 소유권

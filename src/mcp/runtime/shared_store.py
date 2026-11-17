@@ -15,9 +15,10 @@ from pathlib import Path
 import tempfile
 import time
 import uuid
+from types import MappingProxyType
 from almond_mcp.features.planning.output import STEP_HANDOFF_FIELDS
 from almond_mcp.managed_paths import project_path, relative_output, relative_path
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, transform_response
 from almond_mcp.public_names import internal_tool_name
 from storage_cleanup import plain_descendant, process_identity_alive, remove_owned_tree, rhinocode_settled
 
@@ -40,6 +41,11 @@ NATIVE_ONLY_TOOLS = frozenset({
     "resolve_object_intersection",
     "prepare_drawing_asset",
 })
+# These tools need the selected Plan even when their implementation uses only
+# native/files. Keep its DB gate until dispatch/completion and artifact fencing.
+WORKSPACE_NATIVE_TOOLS = frozenset({"execute_rhino_script", "capture_conditioning_pass",
+    "get_defined_viewcapture", "get_current_viewcapture", "capture_rhino_inspection",
+    "resolve_object_intersection", "prepare_drawing_asset"})
 BINDING_TOOLS = frozenset({"worker_state", "get_rhino_execution"})
 FILE_TOOLS = frozenset({"execute_rhino_script", "save_rhino_document", "execute_project_python", "export_structural_report",
     "capture_conditioning_pass", "rename_artifact_folder", "execute_looping", "prepare_drawing_asset",
@@ -166,19 +172,10 @@ def public_result(result, name):
         STEP_HANDOFF_FIELDS if name in {"get_planning", "execute_looping", "get_selection_references"} else ()
     )
 
-    def convert(value, *, decode_json=True):
-        if isinstance(value, str) and decode_json:
-            try:
-                decoded = json.loads(value)
-            except (ValueError, TypeError):
-                return relative_output(value)
-            if isinstance(decoded, (dict, list)):
-                # Decode the transport envelope once. JSON-looking strings in
-                # its body are user data, not additional response envelopes.
-                return json.dumps(convert(decoded, decode_json=False), ensure_ascii=False)
+    def convert(value):
         if isinstance(value, dict):
             converted = {key: item if key in preserve_text_fields and isinstance(item, str)
-                         else convert(item, decode_json=decode_json) for key, item in value.items()}
+                         else convert(item) for key, item in value.items()}
             package = value.get("package_dir")
             if (name in {"generate_asset_drawing_views", "get_asset_drawing", "register_drawing_asset", "refresh_asset"}
                     and isinstance(package, str)):
@@ -187,19 +184,11 @@ def public_result(result, name):
                 converted["package_dir"] = relative_path(package, preserve_cross_drive=True)
             return converted
         if isinstance(value, list):
-            return [convert(item, decode_json=False) for item in value]
+            return [convert(item) for item in value]
         return relative_output(value)
 
-    if isinstance(result, ToolResult):
-        content = [TextContent(type="text", text=convert(item.text)) if isinstance(item, TextContent) else item
-                   for item in result.content]
-        structured = result.structured_content
-        if isinstance(structured, dict) and set(structured) == {"result"} and isinstance(structured["result"], str):
-            structured = {"result": convert(structured["result"])}
-        else:
-            structured = convert(structured, decode_json=False)
-        return ToolResult(content=content, structured_content=structured, is_error=result.is_error)
-    return convert(result, decode_json=isinstance(result, str))
+    return transform_response(result, convert, text_transform=lambda text:
+                              transform_response(text, convert, text_transform=relative_output))
 
 
 class ProjectRuntime(Middleware):
@@ -213,6 +202,7 @@ class ProjectRuntime(Middleware):
         self.queue_timeout = queue_timeout
         self.batch = None
         self.scope = ContextVar("almond_operation_" + args.token, default=None)
+        self.work_scope = ContextVar("almond_workspace_" + args.token, default=None)
         self.serial = asyncio.Lock()
         self.worker = read_json(Path(locations["session_dir"]) / "worker.json")
         self.last = {"pending": False, "uncertain": False, "operation_id": None}
@@ -230,6 +220,13 @@ class ProjectRuntime(Middleware):
                 (type(wait_cap_seconds) not in (int, float) or not 0 < wait_cap_seconds <= 600)):
             raise ValueError("The runtime wait cap must be positive and at most 600 seconds.")
         self.rhinocode_wait_cap = wait_cap_seconds
+
+    def current_workspace(self):
+        """The admitted call's immutable selection; never reopen SQLite at dispatch."""
+        work = self.work_scope.get()
+        if work is None:
+            raise RuntimeError("No active workspace snapshot.")
+        return work
 
     def _official_cli(self):
         if self.rhinocode is None:
@@ -270,7 +267,7 @@ class ProjectRuntime(Middleware):
         operation_dir = plain_descendant(Path(self.locations["call_root"]) / batch.operation_id,
                                          Path(self.locations["temp"]))
         operation_dir.mkdir(parents=True, exist_ok=True)
-        work = self.workspace.current() if self.workspace is not None else {"artifact_dir": ""}
+        work = self.current_workspace()
         options = {} if working_directory is None else {"working_directory": working_directory}
         return self._official_cli().execute(
             script=script, language=language, timeout_seconds=timeout_seconds,
@@ -323,7 +320,7 @@ class ProjectRuntime(Middleware):
             raise RuntimeError("No active operation; no native request was sent.")
         request = json.loads(payload_bytes)
         if request.get("type") == "execute" and self.workspace is not None:
-            work = self.workspace.current()
+            work = self.current_workspace()
             request["project_root"] = self.locations["project_dir"]
             request["artifact_dir"] = work["artifact_dir"]
             payload_bytes = json.dumps(request).encode("utf-8")
@@ -447,7 +444,7 @@ class ProjectRuntime(Middleware):
         async with serial_gate(self.serial, self.queue_timeout):
             self.validate()
             artifact_write = writes_artifacts(name, context.message.arguments or {})
-            gate = (nullcontext() if name in NATIVE_ONLY_TOOLS
+            gate = (nullcontext() if name in NATIVE_ONLY_TOOLS and name not in WORKSPACE_NATIVE_TOOLS
                     else StoreGate(self.locations["storage"]))
             # Waiting has no side effects and remains cancellable.
             async with gate:
@@ -472,21 +469,20 @@ class ProjectRuntime(Middleware):
                 finally:
                     artifact_gate.close()
 
-    def _prepare_arguments(self, name, args, operation_dir, capture_save_error):
+    def _prepare_arguments(self, name, args, operation_dir, capture_save_error, work):
         """Validate paths before an operation, file creation or native dispatch."""
-        work = self.workspace.current() if self.workspace is not None else {"artifact_dir": ""}
         is_capture_file_write = capture_file_write(name, args)
         if work["artifact_dir"] and (name == "execute_rhino_script" or is_capture_file_write):
             try:
                 # Rhino scripts may write through ManagedFiles.Output; reject legacy Plan paths before dispatch.
-                self.workspace.artifact_path()
+                self.workspace.artifact_path(work)
             except ValueError as exc:
                 if not is_capture_file_write:
                     raise
                 # A legacy Plan path prevents persistence, never the PNG observation.
                 capture_save_error = capture_save_error or str(exc)
         if name in OUTPUT_TOOLS:
-            artifact_dir = self.workspace.artifact_path() if self.workspace is not None else operation_dir
+            artifact_dir = self.workspace.artifact_path(work) if self.workspace is not None else operation_dir
             args = output_arguments(name, args, artifact_dir, relative_only=self.workspace is not None, create=False)
         if self.workspace is not None:
             input_fields = {"register_drawing_asset": ("source_3dm", "preparation_job"),
@@ -501,7 +497,7 @@ class ProjectRuntime(Middleware):
                     self.workspace._artifact_path(work["plan_artifact_dir"])
                     prepared = project_path(work["artifact_dir"], base=Path(self.locations["project_dir"]))
                 else:
-                    prepared = self.workspace.artifact_path()
+                    prepared = self.workspace.artifact_path(work)
                 # Preparation alone expects an absolute internal root. Scripts,
                 # captures and saved Plan references keep their relative contract.
                 work = {**work, "artifact_dir": str(prepared)}
@@ -523,7 +519,10 @@ class ProjectRuntime(Middleware):
                     or any(char not in "0123456789abcdef" for char in caller_request_id)):
                 raise ValueError("Invalid internal caller request identity; no operation was started.")
         try:
-            args, work, capture_save_error = self._prepare_arguments(name, args, operation_dir, capture_save_error)
+            selection = (self.workspace.current() if self.workspace is not None and
+                         (name not in NATIVE_ONLY_TOOLS or name in WORKSPACE_NATIVE_TOOLS)
+                         else {"artifact_dir": ""})
+            args, work, capture_save_error = self._prepare_arguments(name, args, operation_dir, capture_save_error, selection)
         except ValueError as exc:
             # Known pre-dispatch input rejection is a tool error. Transport,
             # ownership and uncertain completion errors still propagate/fence.
@@ -574,6 +573,7 @@ class ProjectRuntime(Middleware):
         batch = RequestBatch(self.args.token, operation_id)
         self.batch = batch
         scope_token = self.scope.set(batch)
+        work_token = self.work_scope.set(MappingProxyType(dict(selection)))
         # A cancelled caller must not release SQLite/TEMP ownership while
         # an offloaded original function is still running.
         with anyio.CancelScope(shield=True):
@@ -600,6 +600,7 @@ class ProjectRuntime(Middleware):
                 finally:
                     self.operation_active = False
                     self.scope.reset(scope_token)
+                    self.work_scope.reset(work_token)
                     tempfile.tempdir = old_tempdir
                     for key, value in previous.items():
                         if value is None:

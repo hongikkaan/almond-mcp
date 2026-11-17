@@ -14,7 +14,7 @@
 
 공식 모드는 해당 Rhino의 `StartScriptServer`와 현재 runtime capability를 요구한다. `rhinocode list --json`의 정확한 pipeId·프로세스 identity·문서를 확인하고 그 pipe를 `--rhino`로 지정한다. pipe와 Almond A–J 슬롯은 서로 다른 식별자다. 첫 Rhino나 PID 추정으로 대상을 선택하지 않는다.
 
-패키지는 연결 runtime의 callback을 사용하며 외부 연결기 구현을 import하지 않는다. CLI는 Python worker의 자식 프로세스로, shell 없는 인자 배열로 실행한다. Rhino UI-thread handler 안에서 외부 CLI를 기다리지 않는다.
+패키지는 연결 runtime의 callback을 사용하며 외부 연결기 구현을 import하지 않는다. CLI는 공통 `owned_process` supervisor를 통해 shell 없는 인자 배열로 실행한다. Rhino UI-thread handler 안에서 외부 CLI를 기다리지 않는다.
 
 프로젝트 Python은 선택한 Plan의 산출물 폴더를 cwd로 사용한다. 일반 스크립트는 프로젝트 루트를 사용한다. Rhino wrapper는 cwd와 프로젝트·모델·산출물 환경을 일시 적용하고 복구한다.
 외부 worker venv 실행기는 제거했으며, 그 패키지를 Rhino Python에 자동 설치하지 않는다.
@@ -33,6 +33,10 @@ timeout은 두 공개 도구 모두 실행 종료가 아닌 대기 한도다.
 ## journal과 완료 판정
 
 CLI 실행 전에 token·operation·request·nonce·source hash·target process/document·생성 파일과 자식 프로세스 identity를 포함한 durable journal을 남긴다. **정확히 일치하는 최종 wrapper receipt와 CLI 프로세스 종료 확인이 모두 있어야 완료**다. stdout·exit code·대기 timeout만으로 완료를 판정하지 않는다.
+
+`owned-v1` supervisor는 자기 PID·시작 시각과 정확한 요청 owner를 `child.json`에 먼저 기록한다. 부모는 소유 process handle과 대조한 뒤 `dispatch.json`으로 전송을 허가한다. 승인 전에 부모가 종료되면 명령을 보내지 않고 미전송 근거를 남긴다. 승인 후 부모가 journal의 child를 갱신하기 전에 종료되어도 Python 복구와 Engine fence는 같은 sidecar를 검증한다. supervisor는 Windows kill-on-close job으로 자기 CLI 자손만 소유하므로 supervisor 종료 확인이 CLI 생존을 놓치지 않는다. 실행 중인 Rhino는 이 job의 구성원이 아니며, CLI 종료는 Rhino 실행 취소·Undo·완료를 뜻하지 않는다. 실제 native receipt 또는 정확한 미전송 근거가 계속 필요하다. 구형 journal은 기존 child identity 방식으로 읽는다. 저장 후 종료의 별도 Exit dispatch도 같은 primitive를 사용한다.
+
+작업 경로가 필요한 호출은 공유 DB gate 아래 Plan·Loop·경로를 한 번 읽고 호출의 immutable snapshot으로 유지한다. 인자 준비·환경·Bridge 전송·RhinoCode와 project Python cwd는 이 snapshot을 공유한다. native 고정 조회처럼 작업 경로를 사용하지 않는 호출은 workspace DB를 읽지 않는다. 미확정 산출물 writer의 기존 artifact fence는 그대로 유지한다.
 
 최종 receipt는 결과 표시 한도와 독립적이며 실행·cleanup·Undo·결과 직렬화 오류를 구분한다. 반환 데이터를 표현하지 못해도 실행 근거는 남긴다. RequestBatch는 공식 CLI 실행을 native 요청과 별도로 관리하며 native sequence나 native-finally 응답을 합성하지 않는다.
 

@@ -146,6 +146,8 @@ def write_json(path: str | Path, value: dict) -> None:
         with temporary.open("x", encoding="utf-8", newline="\n") as stream:
             json.dump(value, stream, ensure_ascii=True, indent=2)
             stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)

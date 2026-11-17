@@ -251,7 +251,7 @@ def test_capture_still_returns_png_when_persistence_is_blocked(tmp_path, monkeyp
     if blocker == "unconfirmed":
         monkeypatch.setattr(shared_store, "validate_artifact_writers", unavailable)
     else:
-        def legacy_path():
+        def legacy_path(selection=None):
             raise ValueError("Plan artifacts must be under .almond/produced")
         runtime.workspace = SimpleNamespace(current=lambda: {"artifact_dir": "tmp/legacy"},
                                             artifact_path=legacy_path)

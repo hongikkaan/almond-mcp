@@ -1,6 +1,5 @@
 """One model/2D view with bounded, target-local verification of editable sources."""
 from collections import OrderedDict
-import json
 from pathlib import Path
 from threading import RLock
 import time
@@ -38,19 +37,14 @@ def verify_model(source, expected_hash, package=None):
             return {**result, "verification_issue": "source_exceeds_100_MB"}
         watched = [source]
         if package:
-            manifest_path = package / "drawing.json"
-            if not manifest_path.is_file() or manifest_path.stat().st_size > 8_000_000:
+            try:
+                manifest = drafting.read_package_manifest(package)
+                files, _ = drafting.package_inventory(manifest)
+            except (OSError, ValueError, KeyError, TypeError):
                 return {**result, "drawing_status": "invalid"}
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            files = manifest.get("files", {})
-            if not isinstance(files, dict) or len(files) > 128:
-                raise ValueError("Invalid drawing file manifest")
-            watched.append(manifest_path)
+            watched.append(drafting.package_file(package, "drawing.json"))
             for name in files:
-                candidate = (package / name).resolve()
-                if not candidate.is_relative_to(package.resolve()):
-                    raise ValueError("Drawing file is outside its package")
-                watched.append(candidate)
+                watched.append(drafting.package_file(package, name))
         signature = tuple(_stamp(p) for p in watched)
         key = (str(source.resolve()), expected_hash, str(package.resolve()) if package else "")
         now = time.monotonic()
@@ -88,6 +82,8 @@ class ModelAssetIndex(AssetLibraryIndexer):
         self.assets = {}
         for index, legacy in ((generated, True), (drawing, False)):
             for asset_id, original in index.assets.items():
+                if not legacy and asset_id in self.assets and not original.get("file_available"):
+                    continue
                 record = dict(original)
                 suffix = Path(record.get("file", record.get("_resolved_file", ""))).suffix.lower()
                 model = is_model_source(record, generated=legacy)

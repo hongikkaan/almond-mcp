@@ -1311,8 +1311,58 @@ def output_attributes(original, role=None):
     return attrs
 
 
-def save_drawing_registry(doc, cp, value):
-    index = local_output_layer(doc, 'Drawing')
+class DrawingMutationError(ValueError):
+    def __init__(self, message, recovery):
+        ValueError.__init__(self, message)
+        self.recovery = recovery
+
+
+class DrawingRecovery:
+    """Best-effort recovery evidence for this operation only, inside the caller's Undo."""
+    def __init__(self):
+        self.layers = {}
+        self.attempts = []
+
+    def snapshot_layer(self, doc, path, index):
+        if path not in self.layers:
+            before = doc.Layers[index] if index >= 0 else None
+            if before is not None:
+                before.EnsurePrivateCopy()
+            self.layers[path] = before
+
+    def attempt(self, action, target, callback):
+        entry = dict(action=action, target=str(target), status='restored')
+        self.attempts.append(entry)
+        try:
+            if callback() is False:
+                raise ValueError('Rhino rejected recovery')
+        except Exception as error:
+            entry.update(status='failed', error=str(error))
+
+    def restore_layers(self, doc):
+        # Restore children first, including paths whose AddPath threw after a partial add.
+        for path in sorted(self.layers, key=lambda p: p.count('::'), reverse=True):
+            before = self.layers[path]
+            def restore(path=path, before=before):
+                index = doc.Layers.FindByFullPath(path, -1)
+                if before is None:
+                    return True if index < 0 else doc.Layers.Delete(index, True)
+                return False if index < 0 else doc.Layers.Modify(before, index, True)
+            self.attempt('layer', path, restore)
+
+    def failure(self, error):
+        incomplete = any(a['status'] == 'failed' for a in self.attempts)
+        evidence = dict(mutation_state='partial' if incomplete else 'unknown',
+                        requires_reconciliation=True,
+                        tracked_changes_restored=not incomplete, attempts=self.attempts)
+        # A native exception can occur after a change but before its GUID/receipt returns.
+        # Successful compensation of known changes is not proof of atomic rollback.
+        return DrawingMutationError('{0}; recovery {1}; inspect drawing state or use Undo'.format(
+            error, 'incomplete' if incomplete else 'completed for tracked changes'), evidence)
+
+
+def save_drawing_registry(doc, cp, value, recovery=None):
+    index = local_output_layer(doc, 'Drawing', recovery)
     layer = doc.Layers[index]
     layer.EnsurePrivateCopy()  # Keep the pre-edit layer available to native Undo.
     key = 'ps:clip:'+str(cp.Id)
@@ -1327,7 +1377,8 @@ def output_layer(role):
     return {'elevation': ELEVATION_LAYER, 'hatch': HATCH_LAYER}.get(role, SECTION_LAYER)
 
 
-def local_output_layer(doc, path):
+def local_output_layer(doc, path, recovery=None):
+    checked = []
     for end in range(1, len(path.split('::'))+1):
         name = '::'.join(path.split('::')[:end])
         index = doc.Layers.FindByFullPath(name, -1)
@@ -1335,6 +1386,10 @@ def local_output_layer(doc, path):
             layer = doc.Layers[index]
             if layer.IsReference or layer.IsLocked or not layer.IsVisible:
                 raise ValueError('Output layer must be local, visible and unlocked: '+name)
+        checked.append((name, index))
+    if recovery is not None:
+        for name, index in checked:
+            recovery.snapshot_layer(doc, name, index)
     index = doc.Layers.AddPath(path)
     if index < 0: raise ValueError('Cannot create output layer: '+path)
     return index
@@ -1372,20 +1427,20 @@ def bake(doc, cp, drawing, target=None):
     if not model_views:
         raise ValueError('An existing model viewport is required for drawing output')
     old = drawing_objects(doc, cp)
-    layers = {role: local_output_layer(doc, output_layer(role))
-              for role in set(i['role'] for i in drawing['objects'])}
-    if 'hatch' in layers:
-        index = layers['hatch']
-        layer = doc.Layers[index]
-        layer.EnsurePrivateCopy()
-        configure_hatch_layer(layer)
-        if not doc.Layers.Modify(layer, index, True):
-            raise ValueError('Cannot configure hatch output layer')
     added, removed = [], []
     original = cp.Attributes.Duplicate()
-    original_registry = None
-    registry_changed = False
+    recovery = DrawingRecovery()
+    added_patterns = []
     try:
+        layers = {role: local_output_layer(doc, output_layer(role), recovery)
+                  for role in set(i['role'] for i in drawing['objects'])}
+        if 'hatch' in layers:
+            index = layers['hatch']
+            layer = doc.Layers[index]
+            layer.EnsurePrivateCopy()
+            configure_hatch_layer(layer)
+            if not doc.Layers.Modify(layer, index, True):
+                raise ValueError('Cannot configure hatch output layer')
         with model_output_view(doc, model_views[0]):
             for item in drawing['objects']:
                 attrs = output_attributes(item['attributes'], item['role'])
@@ -1400,6 +1455,7 @@ def bake(doc, cp, drawing, target=None):
                     solid = doc.HatchPatterns.FindName('Solid')
                     index = solid.Index if solid else doc.HatchPatterns.Add(D.HatchPattern.Defaults.Solid)
                     if index < 0: raise ValueError('Cannot add Solid hatch pattern')
+                    if not solid: added_patterns.append(index)
                     if style is not None and style.HatchIndex == -1:
                         style.HatchIndex = index
                         attrs.SetCustomSectionStyle(style)
@@ -1422,46 +1478,31 @@ def bake(doc, cp, drawing, target=None):
             write_saved_plane(attrs, 'draft_plane', target)
             if not doc.Objects.ModifyAttributes(cp.Id, attrs, True):
                 raise ValueError('Failed to save draft_plane')
-        original_registry = save_drawing_registry(doc, cp, json.dumps([str(i) for i in added]))
-        registry_changed = True
+        save_drawing_registry(doc, cp, json.dumps([str(i) for i in added]), recovery)
         for obj in old:
             serial = obj.RuntimeSerialNumber
-            if not doc.Objects.Delete(obj, True, True):
-                raise ValueError('Cannot remove previous drawing object '+str(obj.Id))
+            # Track the target before entering native code: exceptions may follow a mutation.
             removed.append(serial)
+            if not doc.Objects.Delete(obj, True, True):
+                removed.pop()
+                raise ValueError('Cannot remove previous drawing object '+str(obj.Id))
         return added
     except Exception as error:
-        rollback_errors = []
         for serial in reversed(removed):
-            try:
-                if doc.Objects.Undelete(serial) is False:
-                    rollback_errors.append('cannot undelete previous output '+str(serial))
-            except Exception as failure:
-                rollback_errors.append(str(failure))
+            recovery.attempt('undelete_output', serial, lambda serial=serial: doc.Objects.Undelete(serial))
         for guid in reversed(added):
-            try:
+            def remove(guid=guid):
                 created = doc.Objects.FindId(guid)
-                deleted = (doc.Objects.Delete(created, True, True) if created is not None
-                           else doc.Objects.Delete(guid, True))
-                if deleted is False:
-                    rollback_errors.append('cannot remove new output '+str(guid))
-            except Exception as failure:
-                rollback_errors.append(str(failure))
-        if registry_changed:
-            try:
-                save_drawing_registry(doc, cp, original_registry)
-            except Exception as failure:
-                rollback_errors.append(str(failure))
+                return (doc.Objects.Delete(created, True, True) if created is not None
+                        else doc.Objects.Delete(guid, True))
+            recovery.attempt('remove_output', guid, remove)
         if target is not None and not cp.IsReference:
-            try:
-                if doc.Objects.ModifyAttributes(cp.Id, original, True) is False:
-                    rollback_errors.append('cannot restore clipping metadata '+str(cp.Id))
-            except Exception as failure:
-                rollback_errors.append(str(failure))
-        if rollback_errors:
-            raise ValueError('Output failed ({0}) and rollback was incomplete; use Undo: {1}'.format(
-                error, '; '.join(rollback_errors)))
-        raise
+            recovery.attempt('clipping_attributes', cp.Id,
+                             lambda: doc.Objects.ModifyAttributes(cp.Id, original, True))
+        for index in reversed(added_patterns):
+            recovery.attempt('hatch_pattern', index, lambda index=index: doc.HatchPatterns.Delete(index, True))
+        recovery.restore_layers(doc)
+        raise recovery.failure(error)
 
 
 def placement_plane(cut, point):
@@ -1534,6 +1575,7 @@ def reposition_drawing(doc, cp, target=None):
     transform = G.Transform.Translation(target.Origin-origin)
     original_cp = cp.Attributes.Duplicate()
     prepared, changed = [], []
+    recovery = DrawingRecovery()
     try:
         for obj in existing:
             before, after = obj.Geometry.Duplicate(), obj.Geometry.Duplicate()
@@ -1541,8 +1583,8 @@ def reposition_drawing(doc, cp, target=None):
             if not after.Transform(transform) or not after.IsValid:
                 raise ValueError('Invalid drawing geometry after move')
         for guid, before, attrs_before, after in prepared:
-            if not doc.Objects.Replace(guid, after, True): raise ValueError('Cannot move drawing object '+str(guid))
             changed.append((guid, before, attrs_before))
+            if not doc.Objects.Replace(guid, after, True): raise ValueError('Cannot move drawing object '+str(guid))
             # Rhino 8 can ignore user-text edits copied before Replace.
             # Move changes only placement. Keep existing Name, Floor, and manual metadata.
             attrs = doc.Objects.FindId(guid).Attributes.Duplicate()
@@ -1553,16 +1595,18 @@ def reposition_drawing(doc, cp, target=None):
             write_saved_plane(attrs, 'draft_plane', target)
             if not doc.Objects.ModifyAttributes(cp.Id, attrs, True): raise ValueError('Cannot save draft_plane')
         ids = [str(entry[0]) for entry in prepared]
-        save_drawing_registry(doc, cp, json.dumps(ids))
+        save_drawing_registry(doc, cp, json.dumps(ids), recovery)
         return target, ids
-    except Exception:
-        restored = []
+    except Exception as error:
         for guid, geo, attrs in reversed(changed):
-            replaced = doc.Objects.Replace(guid, geo, True)
-            restored.append(doc.Objects.ModifyAttributes(guid, attrs, True) and replaced)
-        if not cp.IsReference: restored.append(doc.Objects.ModifyAttributes(cp.Id, original_cp, True))
-        if not all(restored): raise ValueError('Move failed and rollback was incomplete; use Undo')
-        raise
+            recovery.attempt('geometry', guid, lambda guid=guid, geo=geo: doc.Objects.Replace(guid, geo, True))
+            recovery.attempt('attributes', guid,
+                             lambda guid=guid, attrs=attrs: doc.Objects.ModifyAttributes(guid, attrs, True))
+        if not cp.IsReference:
+            recovery.attempt('clipping_attributes', cp.Id,
+                             lambda: doc.Objects.ModifyAttributes(cp.Id, original_cp, True))
+        recovery.restore_layers(doc)
+        raise recovery.failure(error)
     finally:
         for guid, before, attrs_before, after in prepared:
             before.Dispose(); after.Dispose()
@@ -2006,6 +2050,8 @@ def run_selected(doc, planes, options, folder=None, targets=None):
                 if status == 'completed': done += 1
             except Exception as error:
                 item['error'] = str(error)
+                if isinstance(error, DrawingMutationError):
+                    item['recovery'] = error.recovery
                 if cancelled[0]: item['status'] = 'cancelled'
                 print('FAILED {0}: {1}'.format(cp.Name or cp.Id, error))
         print('Completed {0}/{1} drawings. {2}'.format(done, len(planes),
@@ -2017,7 +2063,8 @@ def run_selected(doc, planes, options, folder=None, targets=None):
         doc.Views.Redraw()
     return dict(status=('cancelled' if cancelled[0] or any(i['status']=='cancelled' for i in results)
                         else 'completed' if done == len(planes) else 'partial' if done else 'failed'),
-                completed=done, requested=len(planes), results=results)
+                completed=done, requested=len(planes), results=results,
+                requires_reconciliation=any(i.get('recovery', {}).get('requires_reconciliation') for i in results))
 
 
 def run(doc, operation, clipping_ids, points=None, folder=None, output='Document',

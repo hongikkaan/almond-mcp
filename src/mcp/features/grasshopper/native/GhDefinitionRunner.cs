@@ -104,6 +104,8 @@ namespace RhinoAlmondBridge
         public List<string> BakedGuids { get; set; } = new List<string>();
         public List<string> Warnings { get; set; } = new List<string>();
         public string Error { get; set; }
+        public string MutationState { get; set; } = "none";
+        public bool RequiresReconciliation { get; set; }
     }
 
     /// <summary>
@@ -231,6 +233,10 @@ namespace RhinoAlmondBridge
         /// </summary>
         public DefinitionRunResult Run(string manifestPath, JObject inputs,
             double timeoutSeconds, int? seed)
+            => Run(RhinoDoc.ActiveDoc, manifestPath, inputs, timeoutSeconds, seed);
+
+        internal DefinitionRunResult Run(RhinoDoc doc, string manifestPath, JObject inputs,
+            double timeoutSeconds, int? seed)
         {
             var result = new DefinitionRunResult();
 
@@ -334,7 +340,7 @@ namespace RhinoAlmondBridge
                     if (value == null) continue;
                     if (!paramsByNick.ContainsKey(port.Name)) continue;
 
-                    var goos = ConvertInputValue(value, port, result.Warnings);
+                    var goos = ConvertInputValue(doc, value, port, result.Warnings);
                     if (goos == null)
                     {
                         result.Error = $"Input '{port.Name}': could not convert supplied " +
@@ -391,25 +397,35 @@ namespace RhinoAlmondBridge
                         result.Warnings.Add($"[GH warning] {obj.NickName}: {msg}");
                 }
 
-                // Extract outputs typed per the manifest.
-                var missingOutputs = new List<string>();
-                foreach (var port in manifest.Outputs)
-                {
-                    IGH_Param outParam;
-                    if (!paramsByNick.TryGetValue(port.Name, out outParam))
-                    {
-                        missingOutputs.Add(port.Name);
-                        continue;
-                    }
-                    result.Outputs[port.Name] = ExtractOutput(outParam, port, result);
-                }
+                // Validate the complete output contract before extracting or baking anything.
+                var missingOutputs = manifest.Outputs.Where(port => !paramsByNick.ContainsKey(port.Name)).Select(port => port.Name).ToList();
                 if (missingOutputs.Count > 0)
                 {
-                    result.Error = "The definition has no params with these output " +
-                        "NickNames: " + string.Join(", ", missingOutputs) +
-                        ". The capsule contract is broken.";
+                    result.Error = "The definition has no params with these output NickNames: " +
+                        string.Join(", ", missingOutputs) + ". The capsule contract is broken.";
                     return result;
                 }
+                bool bakes = manifest.Outputs.Any(port => new[] { "curve", "mesh", "brep" }.Contains((port.Type ?? "").Replace("[]", "")));
+                Action extract = () => {
+                    if (bakes && !ReferenceEquals(RhinoDoc.ActiveDoc, doc))
+                        throw new InvalidOperationException("The capsule document changed before baking.");
+                    foreach (var port in manifest.Outputs)
+                        result.Outputs[port.Name] = ExtractOutput(doc, paramsByNick[port.Name], port, result);
+                };
+                if (bakes)
+                {
+                    if (doc == null) { result.Error = "No bound Rhino document for geometry outputs."; return result; }
+                    var mutation = AlmondEngine.NativeUndoRecord.Run(doc, "Bake Almond capsule outputs", extract);
+                    result.MutationState = mutation.State;
+                    result.RequiresReconciliation = mutation.State == "unknown";
+                    if (!mutation.Success)
+                    {
+                        result.Error = mutation.Error;
+                        if (mutation.State == "rolled_back") { result.BakedGuids.Clear(); result.Outputs.Clear(); }
+                        return result;
+                    }
+                }
+                else extract();
 
                 result.Status = "ok";
                 result.Error = null;
@@ -447,7 +463,7 @@ namespace RhinoAlmondBridge
             }
         }
 
-        private List<IGH_Goo> ConvertInputValue(JToken value, CapsulePort port,
+        private List<IGH_Goo> ConvertInputValue(RhinoDoc doc, JToken value, CapsulePort port,
             List<string> warnings)
         {
             string baseType = (port.Type ?? "number").Replace("[]", "");
@@ -457,7 +473,6 @@ namespace RhinoAlmondBridge
             // definition built for metres receives metres from an mm document.
             if (value.Type == JTokenType.Object && value["guids"] != null)
             {
-                var doc = RhinoDoc.ActiveDoc;
                 if (doc == null) return null;
 
                 double scale = PortLengthScale(doc, port.Units);
@@ -665,7 +680,7 @@ namespace RhinoAlmondBridge
         /// baked into the active document and returned as GUID strings (which
         /// also land in BakedGuids).
         /// </summary>
-        private object ExtractOutput(IGH_Param param, CapsulePort port,
+        private object ExtractOutput(RhinoDoc doc, IGH_Param param, CapsulePort port,
             DefinitionRunResult result)
         {
             string baseType = (port.Type ?? "number").Replace("[]", "");
@@ -748,21 +763,20 @@ namespace RhinoAlmondBridge
                 {
                     // Geometry outputs are baked; the outputs dict carries the
                     // new GUIDs and they are echoed in baked_guids.
-                    var doc = RhinoDoc.ActiveDoc;
-                    var baked = new List<string>();
+                        var baked = new List<string>();
                     if (doc != null)
                     {
                         foreach (var goo in items)
                         {
                             Guid id = BakeGoo(doc, goo);
-                            if (id != Guid.Empty)
+                            if (id == Guid.Empty) throw new InvalidOperationException("Rhino could not bake output '" + port.Name + "'.");
                             {
                                 string s = id.ToString();
                                 baked.Add(s);
                                 result.BakedGuids.Add(s);
                             }
                         }
-                        if (baked.Count > 0) doc.Views.Redraw();
+                        if (baked.Count > 0) { try { doc.Views.Redraw(); } catch { } }
                     }
                     if (baked.Count == 0)
                         result.Warnings.Add($"Output '{port.Name}': no geometry could " +

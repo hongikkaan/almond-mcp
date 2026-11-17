@@ -1,5 +1,5 @@
 name: almondbridge
-version: 0.7.0-rc.2
+version: @VERSION@
 authors:
   - LiangJung
 description: >

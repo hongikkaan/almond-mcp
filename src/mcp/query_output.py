@@ -6,7 +6,7 @@ import json
 from typing import Any
 from uuid import UUID
 from almond_mcp.managed_paths import relative_output
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, transform_response
 
 
 class InvalidFieldGroups(ValueError):
@@ -136,15 +136,16 @@ def query_output(function=None, *, preserve_cross_drive_fields=()):
         except InvalidFieldGroups as exc:
             value = error_payload(str(exc), error_code="invalid_arguments")
             return json.dumps(value) if parameters.return_annotation in (str, "str") else value
-        is_text = isinstance(result, str)
-        value = json.loads(result) if is_text else result
-        if isinstance(value, dict) and requires_full_evidence(value):
-            return result
         groups = arguments.arguments.get("field_groups") or []
         include_audit = "field_groups" not in parameters.parameters or bool({"audit", "all"} & set(groups))
-        value = relative_output(project_query(value, include_ids=include_ids, supplied=arguments.arguments,
-                                              include_audit=include_audit),
-                                preserve_cross_drive_fields=preserve_cross_drive_fields)
-        return json.dumps(value, ensure_ascii=False) if is_text else value
+
+        def project(value):
+            if isinstance(value, dict) and requires_full_evidence(value):
+                return value
+            return relative_output(project_query(value, include_ids=include_ids, supplied=arguments.arguments,
+                                                  include_audit=include_audit),
+                                   preserve_cross_drive_fields=preserve_cross_drive_fields)
+
+        return transform_response(result, project)
 
     return invoke

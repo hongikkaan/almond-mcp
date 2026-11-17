@@ -36,7 +36,7 @@ Args:
 ## run_gh_definition
 
 <!-- instruction:run_gh_definition -->
-실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산합니다. 정의에 따라 형상을 베이크할 수 있습니다.
+실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산합니다. 정의에 따라 형상을 베이크할 수 있습니다. 모든 출력 포트를 먼저 확인하고 형상 베이크는 하나의 전용 Undo record로 처리합니다. mutation_state는 none·completed·rolled_back·unknown이며 requires_reconciliation=true이면 baked_guids와 현재 문서를 확인하기 전 자동 재시도하지 않습니다.
 
 Args:
     capsule_id: grasshopper_02-list_capsules tool에서 얻은 안정적인 캡슐 식별자입니다(예: "karamba_beam_v1").

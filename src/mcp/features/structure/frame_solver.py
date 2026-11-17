@@ -364,6 +364,16 @@ class FrameResult:
     combination: dict = field(default_factory=dict)   # case -> factor this result represents
     iterations: int = 0                                 # second-order iterations (0 = first order)
     converged: bool = True
+    _sampling: tuple | None = field(default=None, repr=False, compare=False)
+
+    def resample(self, stations: int) -> "FrameResult":
+        """Re-evaluate member shapes/forces from this solved state, without solving again."""
+        if self._sampling is None:
+            raise ValueError("This result has no retained sampling state.")
+        m, combo, uc, Fc, plastic, Kt, N = self._sampling
+        result = _results(m, combo, uc, Fc, stations, plastic, Kt=Kt, N=N)
+        result.iterations, result.converged = self.iterations, self.converged
+        return result
 
     @property
     def max_displacement(self) -> float:
@@ -541,8 +551,10 @@ def _results(m: _Assembly, combo: dict, uc: np.ndarray, Fc: np.ndarray, stations
         w = (sum(f[c] * m.wl[c][ei][0] for c in m.cases), sum(f[c] * m.wl[c][ei][1] for c in m.cases))
         ers.append(_element_result(ei, e, m.X, R, L, ul, fl, w, s))
         member_utilization(ers[-1], e, gamma_m0=frame.gamma_m[0], gamma_m1=frame.gamma_m[1], plastic=plastic)
-    return FrameResult(uc.reshape(len(frame.nodes), DOF), Rv.reshape(len(frame.nodes), DOF), ers,
-                       sum(f[c] * m.applied[c] for c in m.cases), m.auto, dict(combo))
+    result = FrameResult(uc.reshape(len(frame.nodes), DOF), Rv.reshape(len(frame.nodes), DOF), ers,
+                         sum(f[c] * m.applied[c] for c in m.cases), m.auto, dict(combo))
+    result._sampling = (m, dict(combo), uc, Fc, plastic, Kt, N)
+    return result
 
 
 def solve_combinations(frame: Frame, combinations: dict, stations: int = 11, plastic: bool = False,

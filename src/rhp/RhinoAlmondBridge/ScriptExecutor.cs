@@ -171,75 +171,9 @@ namespace RhinoAlmondBridge
             return result;
         }
 
-        private static bool OwnsUndoRecord(RhinoDoc doc, uint undoSn)
-        {
-            return undoSn != 0 && doc.UndoRecordingIsActive &&
-                doc.CurrentUndoRecordSerialNumber == undoSn;
-        }
+        private static bool OwnsUndoRecord(RhinoDoc doc, uint undoSn) => AlmondEngine.NativeUndoRecord.Owns(doc, undoSn);
 
-        private static void FinishUndoRecord(RhinoDoc doc, uint undoSn, bool rollback)
-        {
-            if (!OwnsUndoRecord(doc, undoSn))
-                throw new InvalidOperationException("The script changed its Undo record. Automatic rollback was skipped to protect other work.");
-
-            bool purged = false;
-            int ownerThreadId = System.Environment.CurrentManagedThreadId;
-            uint nextUndoSn = doc.NextUndoRecordSerialNumber;
-            EventHandler<UndoRedoEventArgs> onUndoRedo = (sender, e) =>
-            {
-                if (System.Environment.CurrentManagedThreadId == ownerThreadId &&
-                    e.UndoSerialNumber == undoSn && e.IsPurgeRecord)
-                    purged = true;
-            };
-
-            // Rhino discards empty records during EndUndoRecord and reports their
-            // serial via IsPurgeRecord. Undoing after that would undo earlier work.
-            // Observe only this synchronous close; no custom marker is needed,
-            // so an empty failure also preserves an existing Redo history.
-            Command.UndoRedo += onUndoRedo;
-            try
-            {
-                if (!doc.EndUndoRecord(undoSn))
-                    throw new InvalidOperationException("Could not close the script's Undo record.");
-            }
-            finally
-            {
-                Command.UndoRedo -= onUndoRedo;
-            }
-
-            if (!rollback || purged)
-                return;
-
-            if (doc.UndoRecordingIsActive || doc.UndoActive || doc.RedoActive ||
-                doc.NextUndoRecordSerialNumber != nextUndoSn)
-                throw new InvalidOperationException("Undo state changed while closing the script's record. Automatic rollback was skipped to protect other work.");
-
-            try
-            {
-                if (!doc.Undo())
-                    throw new InvalidOperationException("Rhino could not undo the failed script's record.");
-            }
-            finally
-            {
-                // Modeless Undo starts its own record. No Rhino command will end
-                // it for us; leaving it open keeps UndoActive true indefinitely.
-                if (doc.UndoRecordingIsActive)
-                {
-                    if (!OwnsUndoRecord(doc, nextUndoSn))
-                        throw new InvalidOperationException("Undo recovery encountered another active record and left it under its owner's control.");
-                    if (!doc.EndUndoRecord(nextUndoSn))
-                        throw new InvalidOperationException("Could not close the rollback Undo record.");
-                }
-
-                if (doc.UndoRecordingIsActive || doc.UndoActive || doc.RedoActive)
-                    throw new InvalidOperationException("Rhino still reports an active Undo/Redo operation after recovery.");
-            }
-
-            // Undo puts the failed nonempty script on Redo. Once recovery has
-            // completed, discard that history so Redo cannot replay partial edits.
-            // Keep this outside finally: failed recovery must retain its history.
-            doc.ClearRedoRecords();
-        }
+        private static void FinishUndoRecord(RhinoDoc doc, uint undoSn, bool rollback) => AlmondEngine.NativeUndoRecord.Finish(doc, undoSn, rollback);
 
         private static void ReportUndoError(ScriptResult result, Exception ex)
         {

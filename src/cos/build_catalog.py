@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import tomllib
 
+from almond_mcp import __version__
 from almond_mcp.tool_declarations import declaration_sources, inspect_declarations, register_inert_tools
 
 sys.dont_write_bytecode = True
@@ -15,14 +16,18 @@ from runtime import CATALOG, ENGINE, ROOT, digest, source_paths
 
 
 def checked_versions() -> dict[str, str]:
-    """Keep compatibility tied to the reviewed lock, not a generated tool count."""
+    """Verify the editable package version and its locked protocol dependencies."""
     lock = tomllib.loads((ROOT.parents[1] / "uv.lock").read_text(encoding="utf-8"))
     result = {}
     for name in ("almond-mcp", "fastmcp", "mcp"):
-        expected = {p["version"] for p in lock["package"] if p["name"] == name}
+        if name == "almond-mcp":
+            expected, source = {__version__}, "the current checkout"
+        else:
+            expected = {p["version"] for p in lock["package"] if p["name"] == name}
+            source = "uv.lock"
         actual = version(name)
         if expected != {actual}:
-            raise RuntimeError(f"Runtime expects {name} version {sorted(expected)} from uv.lock; installed: {actual}.")
+            raise RuntimeError(f"Runtime expects {name} version {sorted(expected)} from {source}; installed: {actual}.")
         result[name] = actual
     return result
 

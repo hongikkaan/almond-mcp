@@ -48,11 +48,37 @@ class Document:
         return 'model' if self.Views.ActiveView is self.Views.model and not self.force_page else 'page'
 
 
+class Layer(Attributes):
+    def __init__(self, path):
+        super().__init__()
+        self.FullPath = path
+        self.IsReference = self.IsLocked = False
+        self.IsVisible = True
+        self.values = {'ps:clip:clip': 'old-registry'}
+    def EnsurePrivateCopy(self): pass
+    def SetUserString(self, key, value): self.values[key] = value; return True
+
+
+class LayerTable:
+    def __init__(self): self.items = [Layer('Drawing')]
+    def __getitem__(self, index): return self.items[index].Duplicate()
+    def FindByFullPath(self, path, default):
+        return next((i for i, item in enumerate(self.items) if item and item.FullPath == path), default)
+    def AddPath(self, path):
+        for end in range(1, len(path.split('::'))+1):
+            part = '::'.join(path.split('::')[:end])
+            if self.FindByFullPath(part, -1) < 0: self.items.append(Layer(part))
+        return self.FindByFullPath(path, -1)
+    def Modify(self, layer, index, quiet): self.items[index] = layer.Duplicate(); return True
+    def Delete(self, index, quiet): self.items[index] = None; return True
+
+
 class ModelSpaceOutput(unittest.TestCase):
     def scenario(self, initial='page', failure=None, no_model=False, local=False, empty=False):
         model = object()
         original = model if initial == 'model' else Page('detail-1' if initial == 'detail' else 'empty')
         doc = Document()
+        doc.Layers = LayerTable()
         doc.force_page = failure == 'activate'
         doc.Views = Views(original, model)
         if failure == 'restore': original.SetActiveDetail.side_effect = lambda detail:False
@@ -66,6 +92,7 @@ class ModelSpaceOutput(unittest.TestCase):
         def add(geometry, attrs):
             observed.append((doc.ActiveSpace, attrs.Space, attrs.ViewportId))
             if failure == 'add': raise ValueError('native add failure')
+            if failure == 'second-add' and len(observed) == 2: return 'empty'
             attrs = attrs.Duplicate()
             if failure == 'space': attrs.Space = 'page'
             if failure == 'viewport': attrs.ViewportId = 'wrong-page'
@@ -90,6 +117,7 @@ class ModelSpaceOutput(unittest.TestCase):
                          ModifyAttributes=Mock())
         cp = NS(Id='clip', IsReference=not local, Attributes=Attributes())
         drawing = dict(objects=[] if empty else [dict(geometry=object(),attributes=source,role='section')])
+        if failure == 'second-add': drawing['objects'] *= 2
         objects = NS(ActiveSpace=NS(ModelSpace='model'),
                      ObjectPlotColorSource=NS(PlotColorFromLayer='by-layer'),
                      ObjectPlotWeightSource=NS(PlotWeightFromLayer='by-layer'))
@@ -97,9 +125,9 @@ class ModelSpaceOutput(unittest.TestCase):
         with patch.object(ps,'D',objects), patch.object(ps,'R',NS(Display=NS(RhinoPageView=Page))), \
              patch.object(ps,'System',NS(Guid=NS(Empty='empty'))), \
              patch.object(ps,'drawing_objects',return_value=[old,old2] if failure == 'late-delete' else [old]), \
-             patch.object(ps,'local_output_layer',return_value=2) as layer, \
+             patch.object(ps,'local_output_layer',wraps=ps.local_output_layer) as layer, \
              patch.object(ps,'write_saved_plane',side_effect=ValueError('typed write failed')) if failure == 'write' else patch.object(ps,'write_saved_plane',ps.write_saved_plane), \
-             patch.object(ps,'save_drawing_registry',return_value='old-registry') as registry:
+             patch.object(ps,'save_drawing_registry',wraps=ps.save_drawing_registry) as registry:
             try: result = ps.bake(doc,cp,drawing,target='target' if local else None)
             except ValueError as exc: error = exc; result = None
         return NS(doc=doc,original=original,source=source,stored=stored,observed=observed,
@@ -191,10 +219,19 @@ class ModelSpaceOutput(unittest.TestCase):
         deleted = [call.args[0].Id for call in run.doc.Objects.Delete.call_args_list]
         self.assertEqual(deleted,['old','old2','new'])
         updates = [call.args[2] for call in run.registry.call_args_list]
-        self.assertEqual(len(updates),2)
+        self.assertEqual(len(updates),1)
         self.assertEqual(updates[0],'["new"]')
-        self.assertEqual(updates[1],'old-registry')
+        self.assertEqual(run.doc.Layers[0].GetUserString('ps:clip:clip'),'old-registry')
         self.assert_restored(run,'detail')
+
+    def test_second_add_failure_restores_previous_drawing_and_created_layers(self):
+        run = self.scenario('detail', 'second-add')
+        self.assertEqual(set(run.stored), {'old'})
+        self.assertEqual(run.doc.Layers.FindByFullPath('Drawing::Section', -1), -1)
+        self.assertEqual(run.doc.Layers[0].GetUserString('ps:clip:clip'), 'old-registry')
+        self.assertTrue(run.error.recovery['tracked_changes_restored'])
+        self.assertEqual(run.error.recovery['mutation_state'], 'unknown')
+        self.assert_restored(run, 'detail')
 
 
 if __name__ == '__main__': unittest.main()

@@ -37,6 +37,22 @@ try
     SessionFiles.WriteJson(Path.Combine(receiptDir, "complete.json"), new { schema = "almond-rhinocode-completion", version = 1, token, operation_id = operation, request_id = request, nonce, source_hash = hash, target, execution_complete = true, status = "success", mutation_state = "completed" });
     Require(!ExternalExecutionFence.IsPending(paths, token, self.Id, ticks, 7), "Matching completion did not release fence");
     Require(ExternalExecutionFence.IsPending(paths, token, self.Id, ticks, 8), "Different document serial must retain ownership");
+    var owned = new { schema = "almond-rhinocode-execution", version = 1, token, operation_id = operation,
+        request_id = request, nonce, source_hash = hash, language = "python", target,
+        child = (object?)null, launch_protocol = "owned-v1" };
+    var owner = new { token, operation_id = operation, request_id = request, nonce, source_hash = hash, target };
+    var exitedChild = new { pid = self.Id, process_start_ticks = "1" }; // Reused PID, different creation identity.
+    SessionFiles.WriteJson(paths.RhinocodePath, owned);
+    SessionFiles.WriteJson(Path.Combine(receiptDir, "child.json"), new { schema = "almond-owned-process", owner, child = exitedChild });
+    Require(!ExternalExecutionFence.IsPending(paths, token, self.Id, ticks, 7), "Durable child must recover a parent publication crash");
+    File.Delete(Path.Combine(receiptDir, "complete.json"));
+    Require(ExternalExecutionFence.IsPending(paths, token, self.Id, ticks, 7), "Supervisor exit cannot replace native completion");
+    SessionFiles.WriteJson(Path.Combine(receiptDir, "child-exit.json"), new { schema = "almond-owned-process", owner,
+        child = exitedChild, dispatched = false, error = "Parent did not authorize dispatch" });
+    Require(!ExternalExecutionFence.IsPending(paths, token, self.Id, ticks, 7), "Exact undispatched child exit must release fence");
+    SessionFiles.WriteJson(Path.Combine(receiptDir, "child.json"), new { schema = "almond-owned-process",
+        owner = new { token = new string('f', 32), operation_id = operation, request_id = request, nonce, source_hash = hash, target }, child = exitedChild });
+    Require(ExternalExecutionFence.IsPending(paths, token, self.Id, ticks, 7), "Another owner cannot discharge the fence");
     Console.WriteLine("PASS: identity, shared/exclusive leases, and completion fence");
 }
 finally { Directory.Delete(root, true); }

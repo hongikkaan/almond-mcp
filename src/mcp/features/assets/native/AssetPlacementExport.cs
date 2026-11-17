@@ -19,9 +19,10 @@ namespace RhinoAlmondBridge
         private static readonly string[] IdKeys = { "Almond.AssetId", "almond:asset_id", "almond.asset_id" };
         private static readonly string[] ScaleKeys = { "Almond.UniformScale", "almond:scale" };
 
-        public static string Handle(JObject jobj)
+        public static string Handle(JObject jobj) => Handle(RhinoDoc.ActiveDoc, jobj);
+
+        internal static string Handle(RhinoDoc doc, JObject jobj)
         {
-            var doc = RhinoDoc.ActiveDoc;
             if (doc == null)
                 return JsonConvert.SerializeObject(new { status = "error", message = "No active Rhino document." });
             var only = jobj["guids"]?.ToObject<List<string>>();

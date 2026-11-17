@@ -13,7 +13,8 @@ _VALIDATION_COLUMNS = """
     passed INTEGER, status TEXT NOT NULL, span_m REAL NOT NULL,
     max_deflection_mm REAL NOT NULL, deflection_limit_mm REAL NOT NULL,
     utilization_ratio REAL NOT NULL, max_stress_mpa REAL NOT NULL, yield_stress_mpa REAL NOT NULL,
-    reactions_kn REAL NOT NULL, verdict TEXT NOT NULL, warnings_json TEXT NOT NULL, guids_json TEXT NOT NULL
+    reactions_kn REAL NOT NULL, verdict TEXT NOT NULL, warnings_json TEXT NOT NULL, guids_json TEXT NOT NULL,
+    request_json TEXT, analysis_json TEXT, result_json TEXT
 """
 
 
@@ -23,6 +24,9 @@ class StructureStore:
         connection.execute(f"CREATE TABLE IF NOT EXISTS validation_runs ({_VALIDATION_COLUMNS})")
         columns = {row["name"]: row for row in connection.execute("PRAGMA table_info(validation_runs)")}
         if "status" in columns and not columns["passed"]["notnull"]:
+            for name in ("request_json", "analysis_json", "result_json"):
+                if name not in columns:
+                    connection.execute(f"ALTER TABLE validation_runs ADD COLUMN {name} TEXT")
             return
         # Keep existing IDs, values and PASS/FAIL history. Only new indicative
         # runs use NULL: completion must not manufacture a safety verdict.
@@ -60,6 +64,7 @@ class StructureStore:
         request: dict[str, Any],
         result: dict[str, Any],
         guids: list[str],
+        analysis: dict[str, Any] | None = None,
     ) -> int:
         """Persists one validate_structure run for later report export."""
         status = result.get("status")
@@ -75,8 +80,8 @@ class StructureStore:
                     analysis_method, confidence, passed, status, span_m,
                     max_deflection_mm, deflection_limit_mm, utilization_ratio,
                     max_stress_mpa, yield_stress_mpa, reactions_kn,
-                    verdict, warnings_json, guids_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    verdict, warnings_json, guids_json, request_json, analysis_json, result_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     _utc_now(),
@@ -98,6 +103,9 @@ class StructureStore:
                     str(result.get("verdict", "")),
                     _json(result.get("warnings") or []),
                     _json(list(guids)),
+                    _json(request),
+                    _json(analysis) if analysis is not None else None,
+                    _json(result),
                 ),
             )
             return int(cursor.lastrowid)
@@ -115,5 +123,8 @@ class StructureStore:
             run["passed"] = None if run["status"] == "indicative" else bool(run["passed"])
             run["warnings"] = json.loads(run.pop("warnings_json") or "[]")
             run["guids"] = json.loads(run.pop("guids_json") or "[]")
+            for name in ("request", "analysis", "result"):
+                value = run.pop(name + "_json")
+                run[name] = json.loads(value) if value is not None else None
             runs.append(run)
         return runs

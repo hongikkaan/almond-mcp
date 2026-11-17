@@ -58,7 +58,15 @@ def register(mcp, context):
         if not self_weight:
             request["self_weight"] = False
 
+        requested = dict(guids=list(guids), structure_type=structure_type, load_kn=load_kn,
+            material=material, engine=engine, fixed_supports=fixed_supports, self_weight=self_weight,
+            span_m=span_m, asset_loads=asset_loads, floor_load_kn_m2=floor_load_kn_m2,
+            floor_dead_kn_m2=floor_dead_kn_m2, design_basis=design_basis, uls_combination=uls_combination,
+            connections=connections, stability=stability, design_code=design_code, detail=detail,
+            fabrication=fabrication)
+
         result, note = None, None
+        native_inputs = {}
         spec = None
         floor, err = _floor_spec(floor_load_kn_m2, floor_dead_kn_m2, engine)
         if err:
@@ -82,7 +90,7 @@ def register(mcp, context):
                                               self_weight, span_m, required=engine == "native", asset_spec=spec,
                                               floor_spec=floor, design=(design_basis, uls_combination, design_code),
                                               connections=connections, stability=stability, detail=detail,
-                                              fabrication=fabrication)
+                                              fabrication=fabrication, history=native_inputs)
             if isinstance(result, str):          # hard error (explicit native request, or no bridge)
                 return result
         if result is None:
@@ -125,7 +133,23 @@ def register(mcp, context):
                         result["warnings"].extend(check["warnings"])
                 except Exception:
                     pass
-                context.retrieval_store.record_validation_run(request, result, guids)
+                from almond_mcp import __version__
+                method = (results_block or {}).get("analysis_method", "unknown")
+                if method == "native":
+                    inputs = dict(requested, validation_stations=11,
+                        uls_combination=native_inputs["uls_expression"],
+                        design_code=native_inputs["design_profile"],
+                        deflection_limit_ratio=native_inputs["design_profile"]["values"]["deflection_limit_ratio"],
+                        fabrication=native_structure._fabrication(fabrication),
+                        connections=(connections or "rigid").lower(), stability=(stability or "auto").lower(),
+                        asset_load_report=result.get("asset_loads"), floor_load_report=result.get("floor_loads"),
+                        **native_inputs)
+                else:
+                    # Only the bridge request was applied. Native-only requested options
+                    # must not be recorded as if Karamba/template/rule-based used them.
+                    inputs = dict(request, fixed_rotations=fixed_supports, self_weight=self_weight)
+                analysis = dict(engine=method, version=__version__, inputs=inputs)
+                context.retrieval_store.record_validation_run(requested, result, guids, analysis=analysis)
         except Exception:
             pass
         return json.dumps(result)
@@ -164,7 +188,7 @@ def register(mcp, context):
 
     def _native_validation(guids, structure_type, load_kn, material, fixed_supports, self_weight, span_m, required,
                            asset_spec=None, floor_spec=None, design=("en1990", None, "eurocode"), connections="rigid",
-                           stability="auto", detail=False, fabrication="cold_formed"):
+                           stability="auto", detail=False, fabrication="cold_formed", history=None):
         """Native frame check on the bridge's exported line model.
 
         Returns (result_dict, None) when it ran, (None, note) to fall back to the Karamba
@@ -189,12 +213,24 @@ def register(mcp, context):
             return unavailable(f"The model contains {reply['shells']} shell element(s), which the native frame solver does not analyse.")
         if not reply["members"]:
             return unavailable("No line members found for the given GUIDs.")
+        if history is not None:
+            history.update(model=reply, floor_load_spec=floor_spec, asset_load_spec=None)
+            if asset_spec is not None:
+                catalogue = asset_spec.get("catalogue") or {}
+                table = asset_spec["table"]
+                history["asset_load_spec"] = dict(placements=asset_spec["placements"], catalogue=catalogue,
+                    basis=table.basis, loads={p["asset_id"]: table.lookup(p["asset_id"],
+                        (catalogue.get(p["asset_id"]) or {}).get("category", "")) for p in asset_spec["placements"]})
         try:
+            code = native_structure.design_profile(design[0], design[2])
+            if history is not None:
+                history.update(design_profile=code.summary(),
+                               uls_expression=code.uls(design[1] or None)[0] if code.factored else "unfactored")
             result = native_structure.validate(reply, structure_type.lower(), load_kn, material,
                                                fixed_supports=fixed_supports, self_weight=self_weight, span_m=span_m,
                                                asset_loads=asset_spec, floor_loads=floor_spec,
                                                design_basis=design[0], uls=design[1], connections=connections,
-                                               stability=stability, design_code=design[2], detail=detail,
+                                               stability=stability, design_code=code, detail=detail,
                                                fabrication=fabrication)
         except ValueError as e:
             return json.dumps(error_payload(str(e))), None
@@ -527,6 +563,11 @@ def register(mcp, context):
             if run["warnings"]:
                 lines.append("- warnings:")
                 lines += [f"  - {w}" for w in run["warnings"]]
+            if run.get("analysis") is None:
+                lines.append("- applied analysis inputs: unknown (legacy history did not record them)")
+            else:
+                lines += ["- applied analysis inputs:", "", "```json",
+                          json.dumps(run["analysis"], ensure_ascii=False, indent=2), "```"]
         lines += [
             "",
             "## Reading the numbers",

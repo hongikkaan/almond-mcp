@@ -4,6 +4,7 @@ import json
 import ntpath
 from pathlib import Path
 import re
+from uuid import uuid4
 
 from almond_mcp.managed_paths import project_path, relative_path
 from almond_mcp.instruction_text import read_instruction
@@ -28,8 +29,62 @@ class Workspace:
         self.locations, self.store = locations, store
         self.root = Path(locations["project_dir"])
         self.state_path = Path(locations["session_dir"]) / "work.json"
+        self.rename_path = Path(locations["storage"]) / "workspace-rename.json"
+        self.loop_path = self.state_path.with_name("workspace-loop.json")
+
+    def _recover_loop(self):
+        try:
+            intent = read_json(self.loop_path)
+        except FileNotFoundError:
+            return None
+        if (intent.get("schema") != "almond-workspace-loop"
+                or not isinstance(intent.get("transition_id"), str)
+                or not re.fullmatch(r"[0-9a-f]{32}", intent["transition_id"])):
+            raise ValueError("Invalid workspace Loop recovery record.")
+        plan = self.store.get_loop_transition(intent["transition_id"])
+        if plan is None:
+            # The transaction never committed. No folder was created by it.
+            self.loop_path.unlink()
+            return None
+        if plan["plan_id"] != intent["plan_id"] or plan["loop_no"] != intent["loop_no"]:
+            raise ValueError("Workspace Loop receipt does not match its intent.")
+        write_json(self.state_path, {"plan_id": plan["plan_id"], "step_id": "", "loop_no": plan["loop_no"]})
+        return intent, plan
+
+    def recover(self) -> None:
+        """Reconcile interrupted filesystem moves with committed DB ownership.
+
+        Runtime callers hold the project StoreGate throughout recovery and use.
+        SQLite's write transaction also prevents recovery racing a live rename.
+        """
+        with self.store._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                intent = read_json(self.rename_path)
+            except FileNotFoundError:
+                return
+            if intent.get("schema") != "almond-workspace-rename":
+                raise ValueError("Invalid workspace rename recovery record.")
+            plan = self.store._read_generation_plan(db, intent["plan_id"])
+            original, destination = intent["original"], intent["destination"]
+            source = project_path(original, base=self.root)
+            target = self._artifact_path(destination)
+            if source.parent not in {project_path(p, base=self.root) for p in (ARTIFACT_ROOT, "tmp", ".almond/tmp")}:
+                raise ValueError("Invalid workspace rename recovery source.")
+            if plan is None or plan["artifact_dir"] not in (original, destination):
+                raise ValueError("Workspace rename recovery conflicts with current Plan ownership.")
+            if intent["source_existed"]:
+                expected, other = (source, target) if plan["artifact_dir"] == original else (target, source)
+                if expected.exists() == other.exists():
+                    raise ValueError("Workspace rename recovery requires exactly one owned folder; preserve both paths for review.")
+                if other.exists():
+                    expected.parent.mkdir(parents=True, exist_ok=True)
+                    other.rename(expected)
+            self.rename_path.unlink()
 
     def current(self) -> dict:
+        self.recover()
+        self._recover_loop()
         try:
             state = read_json(self.state_path)
         except FileNotFoundError:
@@ -47,8 +102,8 @@ class Workspace:
                 "loop_no": selected, "read_only": selected != current,
                 "plan_artifact_dir": plan["artifact_dir"], "artifact_dir": plan["loop_artifact_dir"]}
 
-    def artifact_path(self) -> Path:
-        work = self.current()
+    def artifact_path(self, work=None) -> Path:
+        work = self.current() if work is None else work
         if work.get("read_only"):
             raise ValueError("The selected Loop is now read-only. Select the current Loop before writing artifacts.")
         value = work["artifact_dir"]
@@ -65,6 +120,8 @@ class Workspace:
         return target
 
     def select(self, plan_id: str, step_id: str = "", artifact_name: str = "", loop_no: int | None = None) -> dict:
+        self.recover()
+        self._recover_loop()
         with self.store._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             plan = self.store._read_generation_plan(db, plan_id)
@@ -92,11 +149,22 @@ class Workspace:
                     raise ValueError("This Plan already owns an artifact folder. Use plan_09-rename_artifact_folder tool to rename it.")
         # Selection is connection-local; the folder and refs are shared Plan data.
         write_json(self.state_path, {"plan_id": plan_id, "step_id": step_id, "loop_no": plan["loop_no"]})
+        self._finish_loop_transition()
         return {"plan_id": plan_id, "step_id": step_id, "loop_no": plan["loop_no"],
                 "plan_artifact_dir": directory, "artifact_dir": plan["loop_artifact_dir"],
                 "revision": plan["revision"]}
 
     def execute_looping(self, plan_id: str, resume: bool = False, feedback: str = "", artifact_name: str = "") -> dict:
+        if type(resume) is not bool or not isinstance(feedback, str):
+            raise ValueError("resume must be boolean and feedback must be text.")
+        recovered = self._recover_loop()
+        if recovered:
+            intent, plan = recovered
+            if (plan_id, resume, feedback, artifact_name) == (
+                    intent["plan_id"], intent["resume"], intent["requested_feedback"], intent["artifact_name"]):
+                result = self._loop_result(plan)
+                self._finish_loop_transition()
+                return result
         before = self.store.get_plan(plan_id)
         if before is None:
             raise KeyError(f"Unknown plan_id: {plan_id}")
@@ -107,8 +175,27 @@ class Workspace:
         candidate = project_path(f"{selected['plan_artifact_dir']}/{number:02d}", base=self.root)
         if not resume and candidate.exists():
             raise ValueError("The next Loop folder already exists; preserve or relocate those files before starting this Loop.")
-        plan = self.store.execute_looping(plan_id, resume=resume, feedback=feedback)
-        selection = self.select(plan_id, loop_no=plan["loop_no"])
+        transition_id = uuid4().hex
+        write_json(self.loop_path, {"schema": "almond-workspace-loop", "transition_id": transition_id, "plan_id": plan_id,
+            "loop_no": number, "resume": resume, "feedback": feedback or (before["feedback"] if resume else ""),
+            "requested_feedback": feedback, "artifact_name": artifact_name})
+        plan = self.store.execute_looping(plan_id, resume=resume, feedback=feedback, transition_id=transition_id)
+        write_json(self.state_path, {"plan_id": plan_id, "step_id": "", "loop_no": plan["loop_no"]})
+        result = self._loop_result(plan)
+        self._finish_loop_transition()
+        return result
+
+    def _finish_loop_transition(self):
+        # The minimal receipt remains tied to its immutable Plan revision.
+        # Clearing local intent must not add a second fallible DB transaction
+        # after the selection has already committed and been published.
+        self.loop_path.unlink(missing_ok=True)
+
+    def _loop_result(self, plan):
+        plan_id = plan["plan_id"]
+        selection = {"plan_id": plan_id, "step_id": "", "loop_no": plan["loop_no"],
+                     "plan_artifact_dir": plan["artifact_dir"], "artifact_dir": plan["loop_artifact_dir"],
+                     "revision": plan["revision"]}
         previous = self.store.get_plan(plan_id, loop_no=plan["loop_no"]-1)
         return {**selection, "title": plan["title"], "goal": plan["goal"], "plan_status": plan["status"],
                 "feedback": plan["feedback"], "steps": plan["steps"],
@@ -117,9 +204,9 @@ class Workspace:
                 "policy_reminder": read_instruction(__file__, "looping-reminder")}
 
     def rename(self, name: str, plan_id: str = "") -> dict:
+        self.recover()
         plan_id = plan_id or self.current()["plan_id"]
         destination = ARTIFACT_ROOT + "/" + folder_name(name)
-        moved = False
         with self.store._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             plan = self.store._read_generation_plan(db, plan_id)
@@ -162,10 +249,11 @@ class Workspace:
                     raise ValueError("Cannot rename a folder referenced by a past Loop; its file paths must remain unchanged.")
 
             try:
+                write_json(self.rename_path, {"schema": "almond-workspace-rename", "plan_id": plan_id,
+                    "original": original, "destination": destination, "source_existed": source.exists()})
                 if source.exists():
                     target.parent.mkdir(parents=True, exist_ok=True)
                     source.rename(target)
-                    moved = True
                 for row in db.execute("SELECT plan_id FROM generation_plans").fetchall():
                     current = self.store._read_generation_plan(db, row["plan_id"])
                     refs = [rewrite(ref) for ref in current["artifact_refs"]]
@@ -183,7 +271,7 @@ class Workspace:
                 db.commit()
             except BaseException:
                 db.rollback()
-                if moved:
-                    target.rename(source)
+                self.recover()
                 raise
+        self.rename_path.unlink(missing_ok=True)
         return {"artifact_dir": destination, "previous_artifact_dir": original}

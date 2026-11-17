@@ -15,169 +15,190 @@ class AssetsStore:
         assets: list[dict[str, Any]],
         library_id: str = "ikea",
     ) -> int:
+        return self.sync_asset_libraries({library_id: assets})[library_id]
+
+    def sync_asset_libraries(self, libraries: dict[str, list[dict[str, Any]]]) -> dict[str, int]:
+        """Apply complete library snapshots together or keep the existing index."""
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            return {library_id: self._sync_assets(connection, assets, library_id)
+                    for library_id, assets in libraries.items()}
+
+    def _sync_assets(
+        self,
+        connection,
+        assets: list[dict[str, Any]],
+        library_id: str = "ikea",
+    ) -> int:
         """Upsert one manifest and prune stale records only within its library."""
         library_id = library_id.strip().lower()
         if not re.fullmatch(r"[a-z0-9_-]{1,40}", library_id):
             raise ValueError("library_id must be a short lowercase identifier.")
         now = _utc_now()
         seen: list[str] = []
-        with self._connect() as connection:
-            for source in assets:
-                asset = {
-                    key: value
-                    for key, value in source.items()
-                    if not key.startswith("_")
-                }
-                asset["library_id"] = library_id
-                asset_id = str(asset["asset_id"])
-                dimensions = asset.get("dimensions_mm", {})
-                width = float(dimensions.get("width", 0))
-                depth = float(dimensions.get("depth", 0))
-                height = float(dimensions.get("height", 0))
-                if min(width, depth, height) <= 0:
-                    raise ValueError(f"Asset {asset_id} has invalid dimensions.")
+        for source in assets:
+            asset = {
+                key: value
+                for key, value in source.items()
+                if not key.startswith("_")
+            }
+            asset["library_id"] = library_id
+            asset_id = str(asset["asset_id"])
+            dimensions = asset.get("dimensions_mm", {})
+            width = float(dimensions.get("width", 0))
+            depth = float(dimensions.get("depth", 0))
+            height = float(dimensions.get("height", 0))
+            if min(width, depth, height) <= 0:
+                raise ValueError(f"Asset {asset_id} has invalid dimensions.")
 
-                search_text = " ".join(
-                    filter(
-                        None,
-                        [
-                            asset_id,
-                            asset.get("category", ""),
-                            asset.get("series", ""),
-                            asset.get("product", ""),
-                            asset.get("variant", ""),
-                            asset.get("brand", ""),
-                            asset.get("source_class", ""),
-                            " ".join(asset.get("tags", [])),
-                        ],
-                    )
-                )
-                geometry_source = asset.get("geometry_source", {})
-                connection.execute(
-                    """
-                    INSERT INTO assets (
-                        asset_id, library_id, category, series, product, variant,
-                        width_mm, depth_mm, height_mm, match_status,
-                        geometry_source_type, file_available, search_text,
-                        metadata_json, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(asset_id) DO UPDATE SET
-                        library_id = excluded.library_id,
-                        category = excluded.category,
-                        series = excluded.series,
-                        product = excluded.product,
-                        variant = excluded.variant,
-                        width_mm = excluded.width_mm,
-                        depth_mm = excluded.depth_mm,
-                        height_mm = excluded.height_mm,
-                        match_status = excluded.match_status,
-                        geometry_source_type = excluded.geometry_source_type,
-                        file_available = excluded.file_available,
-                        search_text = excluded.search_text,
-                        metadata_json = excluded.metadata_json,
-                        updated_at = excluded.updated_at
-                    """,
-                    (
+            search_text = " ".join(
+                filter(
+                    None,
+                    [
                         asset_id,
-                        library_id,
                         asset.get("category", ""),
                         asset.get("series", ""),
                         asset.get("product", ""),
                         asset.get("variant", ""),
-                        width,
-                        depth,
-                        height,
-                        asset.get("match_status", ""),
-                        geometry_source.get("type", "downloaded_asset"),
-                        int(bool(asset.get("file_available"))),
-                        search_text,
-                        _json(asset),
-                        now,
-                    ),
+                        asset.get("brand", ""),
+                        asset.get("source_class", ""),
+                        " ".join(asset.get("tags", [])),
+                    ],
                 )
-                asset_row = connection.execute(
-                    "SELECT id FROM assets WHERE asset_id = ?",
-                    (asset_id,),
-                ).fetchone()
-                row_id = int(asset_row["id"])
+            )
+            geometry_source = asset.get("geometry_source", {})
+            upserted = connection.execute(
+                """
+                INSERT INTO assets (
+                    asset_id, library_id, category, series, product, variant,
+                    width_mm, depth_mm, height_mm, match_status,
+                    geometry_source_type, file_available, search_text,
+                    metadata_json, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(asset_id) DO UPDATE SET
+                    library_id = excluded.library_id,
+                    category = excluded.category,
+                    series = excluded.series,
+                    product = excluded.product,
+                    variant = excluded.variant,
+                    width_mm = excluded.width_mm,
+                    depth_mm = excluded.depth_mm,
+                    height_mm = excluded.height_mm,
+                    match_status = excluded.match_status,
+                    geometry_source_type = excluded.geometry_source_type,
+                    file_available = excluded.file_available,
+                    search_text = excluded.search_text,
+                    metadata_json = excluded.metadata_json,
+                    updated_at = excluded.updated_at
+                WHERE assets.library_id = excluded.library_id
+                    OR (assets.library_id = ?
+                        AND json_extract(assets.metadata_json, '$.library_id') = excluded.library_id)
+                """,
+                (
+                    asset_id,
+                    library_id,
+                    asset.get("category", ""),
+                    asset.get("series", ""),
+                    asset.get("product", ""),
+                    asset.get("variant", ""),
+                    width,
+                    depth,
+                    height,
+                    asset.get("match_status", ""),
+                    geometry_source.get("type", "downloaded_asset"),
+                    int(bool(asset.get("file_available"))),
+                    search_text,
+                    _json(asset),
+                    now,
+                    RETIRED_LIBRARY_ID,
+                ),
+            )
+            if upserted.rowcount != 1:
+                owner = connection.execute("SELECT library_id FROM assets WHERE asset_id = ?", (asset_id,)).fetchone()
+                raise ValueError(f"Asset ID {asset_id!r} belongs to {owner['library_id']}, not {library_id}.")
+            asset_row = connection.execute(
+                "SELECT id FROM assets WHERE asset_id = ?",
+                (asset_id,),
+            ).fetchone()
+            row_id = int(asset_row["id"])
 
-                connection.execute(
-                    "DELETE FROM asset_fts WHERE asset_id = ?",
-                    (asset_id,),
-                )
-                connection.execute(
-                    "INSERT INTO asset_fts(asset_id, search_text) VALUES (?, ?)",
-                    (asset_id, search_text),
-                )
-                connection.execute(
-                    "DELETE FROM asset_rtree WHERE asset_rowid = ?",
-                    (row_id,),
-                )
-                spatial = asset.get("spatial", {})
-                bounds = spatial.get("local_aabb", {})
-                minimum = bounds.get("min", [-width / 2, -depth / 2, 0])
-                maximum = bounds.get("max", [width / 2, depth / 2, height])
+            connection.execute(
+                "DELETE FROM asset_fts WHERE asset_id = ?",
+                (asset_id,),
+            )
+            connection.execute(
+                "INSERT INTO asset_fts(asset_id, search_text) VALUES (?, ?)",
+                (asset_id, search_text),
+            )
+            connection.execute(
+                "DELETE FROM asset_rtree WHERE asset_rowid = ?",
+                (row_id,),
+            )
+            spatial = asset.get("spatial", {})
+            bounds = spatial.get("local_aabb", {})
+            minimum = bounds.get("min", [-width / 2, -depth / 2, 0])
+            maximum = bounds.get("max", [width / 2, depth / 2, height])
+            connection.execute(
+                """
+                INSERT INTO asset_rtree(
+                    asset_rowid, min_x, max_x, min_y, max_y, min_z, max_z
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    float(minimum[0]),
+                    float(maximum[0]),
+                    float(minimum[1]),
+                    float(maximum[1]),
+                    float(minimum[2]),
+                    float(maximum[2]),
+                ),
+            )
+            seen.append(asset_id)
+
+        if seen:
+            placeholders = ",".join("?" for _ in seen)
+            stale_rows = connection.execute(
+                f"""
+                SELECT id, asset_id FROM assets
+                WHERE library_id = ? AND asset_id NOT IN ({placeholders})
+                """,
+                [library_id, *seen],
+            ).fetchall()
+        else:
+            stale_rows = connection.execute(
+                "SELECT id, asset_id FROM assets WHERE library_id = ?",
+                (library_id,),
+            ).fetchall()
+        for stale in stale_rows:
+            connection.execute(
+                "DELETE FROM asset_fts WHERE asset_id = ?",
+                (stale["asset_id"],),
+            )
+            connection.execute(
+                "DELETE FROM asset_rtree WHERE asset_rowid = ?",
+                (stale["id"],),
+            )
+            referenced = connection.execute(
+                "SELECT 1 FROM instances WHERE asset_id = ? LIMIT 1",
+                (stale["asset_id"],),
+            ).fetchone()
+            if referenced:
+                # Scene history still points at this asset: keep the row
+                # for lookups but take it out of its library and search.
                 connection.execute(
                     """
-                    INSERT INTO asset_rtree(
-                        asset_rowid, min_x, max_x, min_y, max_y, min_z, max_z
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    UPDATE assets SET library_id = ?, file_available = 0,
+                        updated_at = ?
+                    WHERE id = ?
                     """,
-                    (
-                        row_id,
-                        float(minimum[0]),
-                        float(maximum[0]),
-                        float(minimum[1]),
-                        float(maximum[1]),
-                        float(minimum[2]),
-                        float(maximum[2]),
-                    ),
+                    (RETIRED_LIBRARY_ID, now, stale["id"]),
                 )
-                seen.append(asset_id)
-
-            if seen:
-                placeholders = ",".join("?" for _ in seen)
-                stale_rows = connection.execute(
-                    f"""
-                    SELECT id, asset_id FROM assets
-                    WHERE library_id = ? AND asset_id NOT IN ({placeholders})
-                    """,
-                    [library_id, *seen],
-                ).fetchall()
             else:
-                stale_rows = connection.execute(
-                    "SELECT id, asset_id FROM assets WHERE library_id = ?",
-                    (library_id,),
-                ).fetchall()
-            for stale in stale_rows:
                 connection.execute(
-                    "DELETE FROM asset_fts WHERE asset_id = ?",
-                    (stale["asset_id"],),
-                )
-                connection.execute(
-                    "DELETE FROM asset_rtree WHERE asset_rowid = ?",
+                    "DELETE FROM assets WHERE id = ?",
                     (stale["id"],),
                 )
-                referenced = connection.execute(
-                    "SELECT 1 FROM instances WHERE asset_id = ? LIMIT 1",
-                    (stale["asset_id"],),
-                ).fetchone()
-                if referenced:
-                    # Scene history still points at this asset: keep the row
-                    # for lookups but take it out of its library and search.
-                    connection.execute(
-                        """
-                        UPDATE assets SET library_id = ?, file_available = 0,
-                            updated_at = ?
-                        WHERE id = ?
-                        """,
-                        (RETIRED_LIBRARY_ID, now, stale["id"]),
-                    )
-                else:
-                    connection.execute(
-                        "DELETE FROM assets WHERE id = ?",
-                        (stale["id"],),
-                    )
         return len(seen)
 
 

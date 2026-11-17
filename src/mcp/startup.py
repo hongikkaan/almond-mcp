@@ -48,6 +48,9 @@ def create_server(
     drawing_assets = AssetLibraryIndexer(drawing, "drawing_assets", "drawing")
     diagram_assets = AssetLibraryIndexer(diagram, "diagram_assets", "diagram")
     generated_assets = AssetLibraryIndexer(generated, "generated_assets", "generated")
+    shared_ids = diagram_assets.assets.keys() & generated_assets.assets.keys()
+    if shared_ids:
+        raise ValueError(f"Asset ID collision between diagram_assets and generated_assets: {', '.join(sorted(shared_ids))}.")
     drawing_recipes = DrawingRecipeIndexer(library_dirs["RHINO_MCP_DRAWING_RECIPE_DIR"])
     materials = MaterialLibrary(library_dirs["RHINO_MCP_MATERIAL_DIR"])
     construction = ConstructionLibrary(library_dirs["RHINO_MCP_CONSTRUCTION_DIR"])
@@ -73,9 +76,11 @@ def create_server(
     )
     # Retire the legacy supplier catalogue from searchable cache. Keep its
     # local files and scene history, as in the standalone and bound launchers.
-    features.retrieval_store.sync_assets([], library_id="ikea")
-    for index in (features.diagram_asset_indexer, features.generated_asset_indexer):
-        features.retrieval_store.sync_assets(list(index.assets.values()), library_id=index.library_id)
+    features.retrieval_store.sync_asset_libraries({
+        "ikea": [],
+        diagram_assets.library_id: list(diagram_assets.assets.values()),
+        generated_assets.library_id: list(generated_assets.assets.values()),
+    })
     _sync_capsule_library(features.retrieval_store, capsules)
 
     mcp = FastMCP("Almond")

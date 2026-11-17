@@ -6,6 +6,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
+. (Join-Path $root 'tools/build_runtime.ps1')
 $repo=Split-Path -Parent (Split-Path -Parent $root)
 $terminal=Join-Path $root 'RhinoTerminal'
 $output=if([IO.Path]::IsPathRooted($OutputDirectory)) {
@@ -14,28 +15,15 @@ $output=if([IO.Path]::IsPathRooted($OutputDirectory)) {
     [IO.Path]::GetFullPath((Join-Path $root $OutputDirectory))
 }
 $bridge=Join-Path $root 'RhinoAlmondBridge'
-if([IO.Path]::GetDirectoryName($output) -ine [IO.Path]::GetFullPath($bridge) -or
-   [IO.Path]::GetFileName($output) -notlike 'plugin-*') {
-    throw 'Output must be a plugin-* directory directly under RhinoAlmondBridge so the shared Engine path stays valid.'
-}
-if(Test-Path -LiteralPath $output) {
-    Get-ChildItem -LiteralPath $output -File | Where-Object { $_.Extension -in '.dll','.rhp' } | ForEach-Object {
-        $candidate=$_.FullName
-        try { $probe=[IO.File]::Open($candidate,'Open','ReadWrite','None'); $probe.Dispose() }
-        catch { throw "Output is in use; close its Rhino normally before building: $candidate" }
-    }
-}
+Assert-RuntimeOutputAvailable $output $bridge
 if(-not $PythonExecutable) { $PythonExecutable=Join-Path $repo 'src\engine\.venv\Scripts\python.exe' }
 if(-not (Get-Command $PythonExecutable -ErrorAction SilentlyContinue)) { throw "Python environment not found: $PythonExecutable" }
 $data=Join-Path $terminal 'data'
 New-Item -ItemType Directory -Path $data -Force | Out-Null
-$buildOutput=Join-Path $bridge ('data\build-'+[guid]::NewGuid().ToString('N'))
+$buildData=Join-Path $bridge 'data'
+$buildOutput=Join-Path $buildData ('build-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $buildOutput -Force | Out-Null
-$env:DOTNET_CLI_TELEMETRY_OPTOUT='1'
-$env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE='1'
-$env:DOTNET_ADD_GLOBAL_TOOLS_TO_PATH='false'
-$env:DOTNET_GENERATE_ASPNET_CERTIFICATE='false'
-$env:DOTNET_NOLOGO='1'
+Initialize-RuntimeBuildEnvironment
 $sdk=Join-Path $data 'sdk\dotnet.exe'
 if(-not (Test-Path -LiteralPath $sdk)) {
     $installed=Get-Command dotnet.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -78,23 +66,6 @@ foreach($p in @(@{name='xterm';version='5.5.0';files=@{'lib/xterm.js'='xterm.js'
     Copy-Item -LiteralPath (Join-Path $unpack 'package/LICENSE') -Destination (Join-Path $vendor ($p.name+'-LICENSE.txt'))
     Remove-Item -LiteralPath $archive,$unpack -Recurse -Force
 }
-& $sdk build (Join-Path $bridge 'RhinoAlmondBridge.csproj') -c Release -o $buildOutput --nologo -p:RestoreLockedMode=true -p:UseSharedCompilation=false -nodeReuse:false
-if($LASTEXITCODE){throw 'Plugin build failed.'}
-Copy-Item -LiteralPath (Join-Path $buildOutput 'RhinoAlmondBridge.dll') -Destination (Join-Path $buildOutput 'RhinoAlmondBridge.rhp') -Force
-& $PythonExecutable (Join-Path $repo 'src\rhp\tools\build_archive_bundle.py') (Join-Path $buildOutput 'archive')
-if($LASTEXITCODE){throw 'Archive bundle build failed.'}
-$noticeOutput=Join-Path $buildOutput 'licenses'
-New-Item -ItemType Directory -Path $noticeOutput -Force | Out-Null
-Get-ChildItem -LiteralPath $vendor -File | Copy-Item -Destination $noticeOutput -Force
-foreach($name in 'LICENSE','THIRD-PARTY-NOTICES.md') {
-    Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $buildOutput -Force
-}
-$previous=Join-Path $bridge ('data\previous-build-'+[guid]::NewGuid().ToString('N'))
-if(Test-Path -LiteralPath $output) { Move-Item -LiteralPath $output -Destination $previous }
-try { Move-Item -LiteralPath $buildOutput -Destination $output }
-catch {
-    if(Test-Path -LiteralPath $previous) { Move-Item -LiteralPath $previous -Destination $output }
-    throw
-}
-if(Test-Path -LiteralPath $previous) { Remove-Item -LiteralPath $previous -Recurse -Force }
+Build-BridgeRuntime -Repo $repo -DotNet $sdk -Python $PythonExecutable -BuildOutput $buildOutput -Staging $buildOutput
+Publish-RuntimeBuild $buildOutput $output $bridge $buildData
 Write-Host ("Build complete: "+$output+". Nothing was registered or loaded into Rhino.")

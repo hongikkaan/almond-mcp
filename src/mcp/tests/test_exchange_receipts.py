@@ -82,6 +82,44 @@ def call_import(native, runtime=None):
     return asyncio.run(run())
 
 
+def test_failed_restore_keeps_known_imported_ids_and_reconciliation(tmp_path):
+    native = NativeImport(tmp_path)
+    original_send = native.send
+
+    def send(payload, **kwargs):
+        reply = original_send(payload, **kwargs)
+        if len(native.scripts) == 2:
+            return '{"status":"error","message":"restore aborted","error_code":"restore_error"}'
+        return reply
+
+    native.send = send
+    result = call_import(native)
+    assert result["status"] == "error"
+    assert result["error_code"] == "restore_error"
+    assert result["imported_guids"] == native.ids
+    assert result["requires_reconciliation"] is True
+    assert result["mutation_state"] == "partial"
+    assert len(native.scripts) == 2
+
+
+def test_import_reply_loss_keeps_receipt_guids_without_triggering_restore(tmp_path):
+    native = NativeImport(tmp_path)
+    original_send = native.send
+
+    def send(payload, **kwargs):
+        reply = original_send(payload, **kwargs)
+        if json.loads(payload)["type"] == "execute":
+            raise TimeoutError("reply unavailable even though native produced object receipt")
+        return reply
+
+    native.send = send
+    result = call_import(native)
+    assert result["status"] == "error" and result["requires_reconciliation"] is True
+    assert result["mutation_applied"] is None
+    assert result["imported_guids"] == native.ids
+    assert len(native.scripts) == 1
+
+
 class ExchangeReceiptTests(unittest.TestCase):
     def test_structured_completion_returns_receipt_ids(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -189,7 +227,7 @@ class ExchangeReceiptTests(unittest.TestCase):
             self.assertEqual(len(list(Path(folder).glob("almond_imported_*.txt"))), 1)
 
 
-@pytest.mark.parametrize("outcome", ["confirmed", "lost-reply", "missing-report"])
+@pytest.mark.parametrize("outcome", ["confirmed", "lost-reply", "late-completion", "missing-report"])
 def test_managed_import_owns_receipts_until_native_completion(outcome):
     with tempfile.TemporaryDirectory(prefix="한글 작업-") as folder:
         model = Path(folder) / "fixture.3dm"
@@ -221,7 +259,7 @@ def test_managed_import_owns_receipts_until_native_completion(outcome):
                 assert not list(native.folder.iterdir())
             sequence = len(requests)
             reply = respond(envelope["payload"], **kwargs)
-            if outcome == "lost-reply" and sequence == 2:
+            if outcome in {"lost-reply", "late-completion"} and sequence == 2:
                 raise TimeoutError("reply lost after native import")
             write_json(ready.with_name("native.json"), {
                 "schema": "almond-native", "token": token, "operation_id": operation["operation_id"],
@@ -236,11 +274,19 @@ def test_managed_import_owns_receipts_until_native_completion(outcome):
         result = call_import(native, runtime)
         state = read_json(ready.with_name("operation.json"))["state"]
         receipt = output_path(native.scripts[0], "WriteAllLines", native.folder)
-        if outcome == "lost-reply":
+        if outcome in {"lost-reply", "late-completion"}:
             assert result["status"] == "error" and result["requires_reconciliation"], result
             assert result["mutation_applied"] is None
+            assert result["imported_guids"] == native.ids
             assert state == "unconfirmed" and runtime.completion()["native_uncertain"]
             assert receipt.read_text(encoding="utf-8").splitlines() == native.ids
+            if outcome == "late-completion":
+                write_json(ready.with_name("native.json"), {
+                    "schema": "almond-native", "token": token, "operation_id": requests[1]["operation_id"],
+                    "sequence": 2, "pending": 0, "completion_status": "completed", "phase": "ready",
+                })
+                assert runtime.completion()["native_uncertain"]
+                assert receipt.is_file()
             assert len(requests) == 2
         else:
             assert result["imported_guids"] == native.ids

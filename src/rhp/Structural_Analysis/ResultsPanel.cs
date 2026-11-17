@@ -74,6 +74,7 @@ namespace RhinoAlmondBridge
         private WebView _view;
         private Uri _archive;
         private bool _ready, _disposed;
+        private JObject _shownReport;
 
         public AlmondResultsPanel()
         {
@@ -97,6 +98,7 @@ namespace RhinoAlmondBridge
                 if (_disposed || !_ready || _view == null) return;
                 _view.ExecuteScript("window.almondResultsReceive && window.almondResultsReceive(" +
                     (report == null ? "null" : JsonConvert.SerializeObject(report, new JsonSerializerSettings { StringEscapeHandling = StringEscapeHandling.EscapeHtml })) + ");");
+                _shownReport = report == null ? null : (JObject)report.DeepClone();
             });
         }
 
@@ -145,6 +147,13 @@ namespace RhinoAlmondBridge
         private void Notice(string text) =>
             _view?.ExecuteScript("window.almondResultsNotice && window.almondResultsNotice(" + JsonConvert.SerializeObject(text) + ");");
 
+        private static bool ReportDoesNotMatch(RhinoDoc doc, JObject report)
+        {
+            var ids = (report?["object_ids"] as JArray)?.Values<string>();
+            return report == null || ids == null || report.Value<uint?>("document_serial") != doc.RuntimeSerialNumber ||
+                report.Value<string>("geometry_fingerprint") != AnalysisWorkspace.Fingerprint(doc, ids);
+        }
+
         private void Act(string action, string query)
         {
             try
@@ -155,18 +164,20 @@ namespace RhinoAlmondBridge
                     if (query == null || !query.StartsWith("?data=", StringComparison.Ordinal) || query.Length > 40000) return;
                     var ids = JArray.Parse(Uri.UnescapeDataString(query.Substring(6))).Select(t => (string)t).Take(500).ToList();
                     var doc = RhinoDoc.ActiveDoc;
-                    if (doc == null) return;
+                    if (doc == null || ReportDoesNotMatch(doc, _shownReport))
+                        throw new InvalidOperationException("These results belong to a different or changed model. Run analysis again.");
+                    var allowed = new HashSet<string>(_shownReport["object_ids"].Values<string>(), StringComparer.OrdinalIgnoreCase);
                     doc.Objects.UnselectAll();
                     int found = 0;
                     foreach (var id in ids)
-                        if (Guid.TryParse(id, out Guid g) && doc.Objects.Select(g, true)) found++;
+                        if (allowed.Contains(id) && Guid.TryParse(id, out Guid g) && doc.Objects.Select(g, true)) found++;
                     doc.Views.Redraw();
                     Notice(found == 0 ? "Those members are no longer in the document." : found + " object" + (found == 1 ? "" : "s") + " selected in Rhino.");
                     return;
                 }
                 if (action == "export_csv")
                 {
-                    string csv = AnalysisResults.MembersCsv(AnalysisResults.Latest);
+                    string csv = AnalysisResults.MembersCsv(_shownReport);
                     var dialog = new SaveFileDialog { Title = "Save member results", FileName = "almond-members.csv" };
                     dialog.Filters.Add(new FileFilter("CSV", ".csv"));
                     bool saved = dialog.ShowDialog(Rhino.UI.RhinoEtoApp.MainWindow) == DialogResult.Ok;

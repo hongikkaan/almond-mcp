@@ -20,6 +20,7 @@ from almond_mcp.retrieval_store import AlmondStore
 from almond_mcp.tool_guidance import next_step
 from shared_store import ProjectRuntime
 from workspace import Workspace
+from project import connection_paths
 
 
 def test_capsule_ports_and_nullable_type_match_the_call_contract(tmp_path):
@@ -61,9 +62,9 @@ def test_package_audit_accepts_returned_library_path_but_not_arbitrary_files(tmp
 
 def runtime_with_workspace(tmp_path):
     runtime = object.__new__(ProjectRuntime)
-    runtime.locations = {"project_dir": str(tmp_path), "session_dir": str(tmp_path / "session"), "call_root": str(tmp_path / "calls")}
-    (tmp_path / "session").mkdir()
-    runtime.workspace = Workspace(runtime.locations, AlmondStore(tmp_path / "scene.sqlite3"))
+    (tmp_path / "model.3dm").touch()
+    runtime.locations = connection_paths(tmp_path / "model.3dm", "A", "a" * 32, create=True)
+    runtime.workspace = Workspace(runtime.locations, AlmondStore(runtime.locations["state_db"]))
     plan = runtime.workspace.store.create_plan(goal="Preparation review")
     runtime.workspace.select(plan["plan_id"], artifact_name="261111_review")
     return runtime, plan
@@ -71,13 +72,13 @@ def runtime_with_workspace(tmp_path):
 
 def test_prepare_resolves_current_plan_without_changing_other_path_contracts(tmp_path):
     runtime, plan = runtime_with_workspace(tmp_path)
-    args, work, _ = runtime._prepare_arguments("prepare_drawing_asset", {"stage": "inspect", "source_file": "model.3dm"}, tmp_path / "call", "")
+    args, work, _ = runtime._prepare_arguments("prepare_drawing_asset", {"stage": "inspect", "source_file": "model.3dm"}, tmp_path / "call", "", runtime.workspace.current())
     assert Path(work["artifact_dir"]) == runtime.workspace.artifact_path()
     assert not Path(work["artifact_dir"]).exists()
     assert Path(args["source_file"]) == tmp_path / "model.3dm"
     assert not Path(runtime.workspace.current()["artifact_dir"]).is_absolute()
     runtime.workspace.execute_looping(plan["plan_id"])
-    _, current, _ = runtime._prepare_arguments("prepare_drawing_asset", {"stage": "inspect"}, tmp_path / "call", "")
+    _, current, _ = runtime._prepare_arguments("prepare_drawing_asset", {"stage": "inspect"}, tmp_path / "call", "", runtime.workspace.current())
     assert current["artifact_dir"].endswith("/01") or current["artifact_dir"].endswith("\\01")
 
 
@@ -88,8 +89,8 @@ def test_bad_managed_input_is_tool_error_before_operation_or_files(tmp_path):
         raise AssertionError("Rejected input must never dispatch")
     value = asyncio.run(runtime._owned_call(context, forbidden, "audit_asset_drawing", False, ""))
     assert value.is_error and value.structured_content["error_code"] == "invalid_arguments"
-    assert not (tmp_path / "session/operation.json").exists()
-    assert not (tmp_path / "calls").exists()
+    assert not (Path(runtime.locations["session_dir"]) / "operation.json").exists()
+    assert not list(Path(runtime.locations["call_root"]).glob("*"))
 
 
 def test_inspect_creates_new_owned_folder_status_and_bad_input_do_not(tmp_path, monkeypatch):
@@ -172,10 +173,11 @@ def test_legacy_validation_rows_survive_nullable_history_migration(tmp_path):
                        (number, "2026-11-10", "beam", "Steel", 10, 1, "native", "high", passed,
                         2, .5, 8, .2, 20, 235, 10, "old verdict", '["preserved"]', '["original-guid"]'))
         old = db.execute("SELECT * FROM validation_runs ORDER BY id").fetchall()
+        original_columns = [c[1] for c in db.execute("PRAGMA table_info(validation_runs)")]
     store = AlmondStore(database)
     with store._connect() as db:
-        columns = [c["name"] for c in db.execute("PRAGMA table_info(validation_runs)") if c["name"] != "status"]
-        assert [tuple(r) for r in db.execute("SELECT " + ",".join(columns) + " FROM validation_runs ORDER BY id")] == old
+        assert [tuple(r) for r in db.execute("SELECT " + ",".join(original_columns) + " FROM validation_runs ORDER BY id")] == old
+        assert [tuple(r) for r in db.execute("SELECT request_json, analysis_json, result_json FROM validation_runs ORDER BY id")] == [(None, None, None)] * 2
     new_id = store.record_validation_run({}, {"status": "indicative", "passed": None}, ["new-guid"])
     assert new_id > 21
     rows = AlmondStore(database).list_validation_runs()

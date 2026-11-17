@@ -7,6 +7,21 @@ string manifestPath = Path.Combine(AppContext.BaseDirectory, Path.GetRandomFileN
 try
 {
     VerifyStyleApplication(manifestPath);
+    var noUndo = new RhinoDoc { UndoRecord = 0 };
+    var rejected = new DrawingStyleManager().Apply(noUndo,
+        ReadRequest(manifestPath, """{"layers":[{"path":"Must not be created"}]}"""));
+    Require(rejected.Status == "error" && noUndo.Layers.Count == 0,
+        "A modeless style operation must not mutate without owning an Undo record.");
+    foreach (bool rollback in new[] { true, false })
+    {
+        var partial = new RhinoDoc { UndoSucceeds = rollback };
+        partial.Layers.FailModifyAt = 2;
+        var result = new DrawingStyleManager().Apply(partial,
+            ReadRequest(manifestPath, """{"layers":[{"path":"First"},{"path":"Second"}]}"""));
+        Require(result.Status == "error" && result.MutationState == (rollback ? "rolled_back" : "unknown") &&
+            result.RequiresReconciliation == !rollback && partial.Layers.Count == (rollback ? 0 : 2),
+            "Partial layer update did not preserve truthful rollback/uncertain evidence.");
+    }
     Console.WriteLine("Drawing style fixture passed.");
 }
 finally

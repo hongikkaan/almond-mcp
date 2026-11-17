@@ -6,8 +6,6 @@ timeout never cancels, repeats, or discards a dispatched Rhino operation.
 from __future__ import annotations
 
 import base64
-import ctypes
-from ctypes import wintypes
 import hashlib
 import json
 import ntpath
@@ -21,7 +19,8 @@ import threading
 import time
 from uuid import uuid4
 
-from project import process_start_ticks, read_json, verify_process, write_json
+from project import read_json, verify_process, write_json
+from owned_process import authorize_owned, child_process_identity, launch_owned, read_owned_identity, read_owned_exit
 
 
 LANGUAGES = frozenset({"python", "python2", "csharp-script", "command"})
@@ -84,6 +83,8 @@ def _validate_journal(journal: dict) -> None:
         raise ValueError("Invalid execution language.")
     if "layout" in journal and journal["layout"] != "compact-v1":
         raise ValueError("Unknown RhinoCode execution storage layout.")
+    if "launch_protocol" in journal and journal["launch_protocol"] != "owned-v1":
+        raise ValueError("Unknown RhinoCode process launch protocol.")
     target = journal.get("target")
     if (not isinstance(target, dict) or type(target.get("pid")) is not int or target["pid"] <= 0
             or not _valid_ticks(target.get("process_start_ticks"))
@@ -201,12 +202,29 @@ def inspect_execution(journal: dict, *, receipt_path=None, process_inspector=Non
         except (OSError, ValueError, TypeError, KeyError) as exc:
             error = str(exc)
         child = journal.get("child")
+        owner = {key: journal[key] for key in _IDENTITY}
+        if journal.get("launch_protocol") == "owned-v1":
+            published = read_owned_identity(Path(receipt_path).parent, owner)
+            if child is not None and child != published:
+                raise ValueError("Journal child does not match the published launch identity.")
+            child = published
         if (not isinstance(child, dict) or type(child.get("pid")) is not int or child["pid"] <= 0
                 or not _valid_ticks(child.get("process_start_ticks"))):
             raise ValueError("The dispatched CLI process identity is not yet confirmed.")
         alive = (process_inspector or _process_alive)(child)
         if alive not in (True, False, None):
             alive = None
+        if alive is False and journal.get("launch_protocol") == "owned-v1":
+            try:
+                exited = read_owned_exit(Path(receipt_path).parent, owner)
+                if exited.get("child") != child:
+                    raise ValueError("Exit evidence belongs to another process.")
+                if exited.get("dispatched") is False:
+                    return dict(state, uncertain=False, completed=True, status="error",
+                                completion_state="not_started", mutation_state="not_started",
+                                not_dispatched=True, error=exited.get("error", "Command was not dispatched."))
+            except FileNotFoundError:
+                pass
         if alive is False and final is not None:
             return dict(state, pending=False, uncertain=False, completed=True,
                         completion_state="completed", status=final["status"],
@@ -300,22 +318,6 @@ def select_instance(binding: dict, instances: list[dict]) -> dict:
     return item
 
 
-def child_process_identity(process) -> dict:
-    """Identity from an owned CLI handle, including a child that exited quickly."""
-    # The owned Popen handle remains valid even if a very fast CLI already exited.
-    # project.process_start_ticks deliberately rejects exited processes.
-    if sys.platform != "win32":
-        return dict(pid=process.pid, process_start_ticks=process_start_ticks(process.pid))
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
-    kernel.GetProcessTimes.restype = wintypes.BOOL
-    values = [wintypes.FILETIME() for _ in range(4)]
-    if not kernel.GetProcessTimes(int(process._handle), *(ctypes.byref(value) for value in values)):
-        raise ctypes.WinError(ctypes.get_last_error())
-    ticks = ((values[0].dwHighDateTime << 32) | values[0].dwLowDateTime) + 504911232000000000
-    return dict(pid=process.pid, process_start_ticks=str(ticks))
-
-
 def build_wrapper(request: dict, source: str, directory: Path, *, project_root: str,
                   artifact_dir: str, executable: Path, working_directory=None) -> tuple[str, str]:
     payload = dict(request=request, source=source, directory=str(directory),
@@ -366,7 +368,7 @@ class _Execution:
             return dict(request_id=self.request_id, pending=True, uncertain=True,
                         completed=False, status="pending", completion_state="dispatching")
         def inspector(record):
-            if self.process is not None and record == self.journal.get("child"):
+            if self.process is not None and record == child_process_identity(self.process):
                 return self.process.poll() is None
             return _process_alive(record)
         state = inspect_execution(self.journal, receipt_path=self.directory / "complete.json",
@@ -404,18 +406,18 @@ class _Execution:
     def launch(self, executable, wrapper):
         try:
             macro = '_-ScriptEditor _Run "' + str(wrapper) + '"'
-            self.process = subprocess.Popen(
+            self.process = launch_owned(
                 [str(executable), "--rhino", self.journal["target"]["pipe_id"], "command", macro],
-                cwd=self.owner.locations["project_dir"], shell=False, stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+                self.directory, {key: self.journal[key] for key in _IDENTITY},
+                cwd=self.owner.locations["project_dir"])
         except OSError as exc:
             self.journal.update(not_dispatched=True, dispatch_error=str(exc)[:2000])
             self.dispatching = False
             self.publish()
             return
         try:
-            self.journal["child"] = child_process_identity(self.process)
+            self.journal["child"] = authorize_owned(self.process, self.directory,
+                                                   {key: self.journal[key] for key in _IDENTITY})
             self.publish()
         finally:
             # Even an identity/persistence error after CreateProcess must drain
@@ -586,7 +588,7 @@ class RhinocodeExecution:
                        token=self.binding["token"],
                        operation_id=operation_id, request_id=request_id, nonce=uuid4().hex,
                        source_hash=hashlib.sha256(script.encode("utf-8")).hexdigest(),
-                       language=language, target=target, child=None)
+                       language=language, target=target, child=None, launch_protocol="owned-v1")
         _validate_journal(journal)
         suffix, wrapper_text = build_wrapper(journal, script, directory,
             project_root=self.locations["project_dir"], artifact_dir=str(artifact_dir), executable=executable,

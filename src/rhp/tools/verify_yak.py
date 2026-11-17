@@ -4,13 +4,10 @@ import hashlib
 import json
 import re
 from pathlib import Path, PurePosixPath
-import sys
 import zipfile
-import xml.etree.ElementTree as ET
 
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "src" / "mcp"))
-from almond_mcp import __version__
+from release_version import __version__, bridge_version
+from almond_mcp.release_validation.archive_catalogue import verify_catalogue
 
 RUNTIME = {"RhinoAlmondBridge.rhp", "Almond.Engine.dll", "Microsoft.CodeAnalysis.CSharp.dll",
            "Microsoft.CodeAnalysis.dll", "Newtonsoft.Json.dll", "Porta.Pty.dll",
@@ -20,7 +17,7 @@ TERMINAL_LICENSES = {f"licenses/{name}-LICENSE.txt" for name in ("Porta.Pty", "V
 
 
 def verify(path, rhino_sdk_version=None):
-    version = ET.parse(ROOT/"src/rhp/RhinoAlmondBridge/RhinoAlmondBridge.csproj").findtext("PropertyGroup/Version")
+    version = bridge_version()
     tag = re.fullmatch(rf"almondbridge-{re.escape(version)}-rh(8_\d+)-win\.yak", path.name)
     if tag is None or (rhino_sdk_version is not None and tag[1] != rhino_sdk_version.replace(".", "_")):
         raise ValueError("Incorrect Yak version or Rhino/platform compatibility tag")
@@ -34,7 +31,7 @@ def verify(path, rhino_sdk_version=None):
                 raise ValueError(f"Unsafe member: {name}")
             if p.suffix.lower() in {".rhp", ".dll"} and name not in RUNTIME:
                 raise ValueError(f"Unexpected executable: {name}")
-            if p.suffix.lower() in {".skp", ".3dm", ".gh", ".ghx", ".gha", ".sqlite3", ".exe", ".py", ".ps1"}:
+            if p.suffix.lower() in {".skp", ".3dm", ".gh", ".ghx", ".gha", ".sqlite3", ".exe", ".py", ".ps1", ".pdb"}:
                 raise ValueError(f"Forbidden member: {name}")
             if "/files/drawing/" in name or "/raw/" in name:
                 raise ValueError(f"Community or raw model included: {name}")
@@ -44,9 +41,12 @@ def verify(path, rhino_sdk_version=None):
                 "archive/ui/vendor/LICENSE", "archive/ui/vendor/THIRD-PARTY-LICENSES.txt"}:
             if name not in names:
                 raise ValueError(f"Missing package file: {name}")
-        manifest = archive.read("manifest.yml").decode("utf-8-sig")
+        manifest = archive.read("manifest.yml").decode("utf-8-sig").splitlines()
         if f"version: {version}" not in manifest or "name: almondbridge" not in manifest:
             raise ValueError("Yak manifest version/name mismatch")
+        dependencies = json.loads(archive.read("RhinoAlmondBridge.deps.json"))
+        if f"RhinoAlmondBridge/{version}" not in dependencies["libraries"]:
+            raise ValueError("Yak manifest and Bridge runtime metadata versions differ")
         bundle = json.loads(archive.read("archive/bundle.json"))
         if bundle["version"] != __version__:
             raise ValueError("Python/archive version mismatch")
@@ -58,19 +58,14 @@ def verify(path, rhino_sdk_version=None):
                 raise ValueError(f"Checksum mismatch: {route}")
         catalogue = json.loads(archive.read("archive/api/catalogue.json"))
         counts = catalogue["counts"]
-        if counts != {"assets":57,"models":50,"elements":7,"drawing_packages":10,"views":60}:
-            raise ValueError(f"Unexpected catalogue: {counts}")
+        generated = verify_catalogue(catalogue)
         glbs = [n for n in names if n.endswith(".glb")]
         if len(glbs) != 50 or any(not n.startswith("archive/files/generated/models/") for n in glbs):
             raise ValueError("Generated-model pack is incomplete")
         evidence = json.loads(archive.read("archive/evidence/source-register.json"))
         sources = {a["asset_id"]:a for a in evidence["assets"]}
-        for record in catalogue["assets"]:
-            if record["kind"] == "element":
-                if record["available"] or record["model"] or record["preview"]:
-                    raise ValueError("Community model exposed by distributed catalogue")
-                continue
-            model = archive.read("archive/" + bundle["routes"][record["model"]]["path"])
+        for record in generated:
+            model = archive.read("archive/" + bundle["routes"][record["source_file"]]["path"])
             if hashlib.sha256(model).hexdigest().upper() != sources[record["id"]]["model_sha256"]:
                 raise ValueError("Source evidence does not match bundled model")
             captured = sources[record["id"]]["recorded_generation"].get("captured_generation")

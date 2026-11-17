@@ -46,7 +46,10 @@ namespace RhinoAlmondBridge
         }
 
         public FurniturePlacementResult Place(FurniturePlacementRequest request) =>
-            PlaceCore(RhinoDoc.ActiveDoc, request, false);
+            Place(RhinoDoc.ActiveDoc, request);
+
+        internal FurniturePlacementResult Place(RhinoDoc doc, FurniturePlacementRequest request) =>
+            PlaceCore(doc, request, false);
 
         // The native panel command owns its command Undo record. This is deliberately
         // not a request field: MCP callers cannot opt out of the fixed mutation guard.
@@ -469,7 +472,9 @@ namespace RhinoAlmondBridge
         /// Imports AutoCAD-style .pat hatch definitions from the controlled
         /// library root into the active document's hatch pattern table.
         /// </summary>
-        public HatchPatternImportResult ImportHatchPatterns(string filePath)
+        public HatchPatternImportResult ImportHatchPatterns(string filePath) => ImportHatchPatterns(RhinoDoc.ActiveDoc, filePath);
+
+        internal HatchPatternImportResult ImportHatchPatterns(RhinoDoc doc, string filePath)
         {
             var result = new HatchPatternImportResult
             {
@@ -503,7 +508,6 @@ namespace RhinoAlmondBridge
                 return result;
             }
 
-            var doc = RhinoDoc.ActiveDoc;
             if (doc == null)
             {
                 result.Message = "No active Rhino document.";

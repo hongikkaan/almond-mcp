@@ -21,9 +21,10 @@ namespace RhinoAlmondBridge
 
     public class GlbExporter
     {
-        public object Export(GlbExportRequest request)
+        public object Export(GlbExportRequest request) => Export(RhinoDoc.ActiveDoc, request);
+
+        internal object Export(RhinoDoc doc, GlbExportRequest request)
         {
-            var doc = RhinoDoc.ActiveDoc;
             if (doc == null)
                 return Error("No active Rhino document.");
             if (request?.Guids == null || request.Guids.Count == 0)

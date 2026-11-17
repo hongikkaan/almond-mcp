@@ -20,8 +20,9 @@ namespace RhinoAlmondBridge
     ///   {"type": "apply_drawing_style", "recipe_id": "...", "layers": [...]}
     /// The Engine owns transport, authentication, UI dispatch and completion tracking.
     /// </summary>
-    public class BridgeServer
+    public class BridgeServer : AlmondEngine.IBridgeRequestHandler
     {
+        public IReadOnlyDictionary<string, string> LibraryDirectories { get; }
         private StructuralValidator _validator;
         private GhDefinitionRunner _definitionRunner;
         private FurnitureAssetManager _drawingAssetManager;
@@ -43,6 +44,12 @@ namespace RhinoAlmondBridge
                 new[] { ".3dm", ".dwg", ".dxf", ".svg", ".png" }
             );
             _drawingStyleManager = new DrawingStyleManager();
+            LibraryDirectories = new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(
+                new Dictionary<string, string> {
+                    ["RHINO_MCP_LIBRARY_DIR"] = libDir,
+                    ["RHINO_MCP_CAPSULE_DIR"] = capsuleDir,
+                    ["RHINO_MCP_DRAWING_ASSET_DIR"] = drawingAssetDir
+                });
         }
 
         // Match runtime/library_paths.py, used by every real worker launcher.
@@ -62,7 +69,15 @@ namespace RhinoAlmondBridge
         /// <summary>
         /// Routes a JSON request to the appropriate handler based on the "type" field.
         /// </summary>
-        private string HandleRequest(string json)
+        public string HandleRequest(AlmondEngine.BridgeDispatchContext context, string json)
+        {
+            context.ValidateDocument();
+            string response = Dispatch(context.Document, json);
+            context.ValidateDocument();
+            return response;
+        }
+
+        private string Dispatch(RhinoDoc doc, string json)
         {
             try
             {
@@ -72,58 +87,58 @@ namespace RhinoAlmondBridge
                 switch (requestType.ToLower())
                 {
                     case "get_rhino_context":
-                        return DocumentObservation.HandleContext(jobj);
+                        return DocumentObservation.HandleContext(doc, jobj);
 
                     case "get_rhino_viewport_image":
-                        return DocumentObservation.HandleViewportImage(jobj);
+                        return DocumentObservation.HandleViewportImage(doc, jobj);
 
                     case "get_defined_viewcapture":
                     case "get_current_viewcapture":
-                        return ViewCaptureTools.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return ViewCaptureTools.Handle(doc, jobj).ToString(Formatting.None);
 
                     case "get_rhino_objects":
                     case "get_object_intersections":
-                        return ObjectObservation.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return ObjectObservation.Handle(doc, jobj).ToString(Formatting.None);
 
                     case "capture_rhino_inspection":
-                        return InspectionCapture.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return InspectionCapture.Handle(doc, jobj).ToString(Formatting.None);
 
                     case "edit_planar_face":
-                        return PlanarFaceEditing.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return PlanarFaceEditing.Handle(doc, jobj).ToString(Formatting.None);
 
                     case "edit_planar_faces":
-                        return PlanarFaceEditing.HandleBatch(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return PlanarFaceEditing.HandleBatch(doc, jobj).ToString(Formatting.None);
 
                     case "plan_section":
-                        return PlanSectionTool.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return PlanSectionTool.Handle(doc, jobj).ToString(Formatting.None);
 
                     case "cleanup_step_temp":
-                        return StepTempCleanup.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return StepTempCleanup.Handle(doc, jobj).ToString(Formatting.None);
 
                     case "intersection_preview":
-                        return IntersectionTools.PreviewHandle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return IntersectionTools.PreviewHandle(doc, jobj).ToString(Formatting.None);
 
                     case "intersection_review":
-                        return IntersectionReview.Capture(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return IntersectionReview.Capture(doc, jobj).ToString(Formatting.None);
 
                     case "intersection_resolve":
-                        return IntersectionTools.ResolveHandle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return IntersectionTools.ResolveHandle(doc, jobj).ToString(Formatting.None);
 
                     case "save_rhino_document":
-                        return DocumentSave.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return DocumentSave.Handle(doc, jobj).ToString(Formatting.None);
 
                     case "analyze_block_reculviely":
-                        return BlockAnalysis.Handle(jobj);
+                        return BlockAnalysis.Analyze(doc, jobj).ToString(Formatting.None);
 
                     case "design_component":
-                        return ComponentRegistry.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return ComponentRegistry.Handle(doc, jobj).ToString(Formatting.None);
 
                     case "drawing_sheet":
                         return JsonConvert.SerializeObject(new { status = "error", error_code = "retired_tool",
                             message = "Sheet database registration has been removed. Existing Layouts are unchanged." });
 
                     case "component_operation":
-                        return ComponentOperations.Handle(RhinoDoc.ActiveDoc, jobj).ToString(Formatting.None);
+                        return ComponentOperations.Handle(doc, jobj).ToString(Formatting.None);
 
                     case "drawing_asset_extract":
                         return DrawingAssetGeometry.Handle(jobj).ToString(Formatting.None);
@@ -131,56 +146,56 @@ namespace RhinoAlmondBridge
                     case "place_drawing_asset":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Placing indexed drawing asset...");
                         var drawingAssetRequest = jobj.ToObject<FurniturePlacementRequest>();
-                        var drawingAssetResult = _drawingAssetManager.Place(drawingAssetRequest);
+                        var drawingAssetResult = _drawingAssetManager.Place(doc, drawingAssetRequest);
                         return JsonConvert.SerializeObject(drawingAssetResult);
 
                     case "import_hatch_patterns":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Importing hatch patterns...");
                         string hatchFilePath = jobj.Value<string>("file_path") ?? "";
-                        var hatchResult = _drawingAssetManager.ImportHatchPatterns(hatchFilePath);
+                        var hatchResult = _drawingAssetManager.ImportHatchPatterns(doc, hatchFilePath);
                         return JsonConvert.SerializeObject(hatchResult);
 
                     case "apply_drawing_style":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Applying drawing layer style...");
                         var drawingStyleRequest = jobj.ToObject<DrawingStyleRequest>();
-                        var drawingStyleResult = _drawingStyleManager.Apply(drawingStyleRequest);
+                        var drawingStyleResult = _drawingStyleManager.Apply(doc, drawingStyleRequest);
                         return JsonConvert.SerializeObject(drawingStyleResult);
 
                     case "export_glb":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Exporting linked GLB...");
                         var exportRequest = jobj.ToObject<GlbExportRequest>();
-                        var exportResult = new GlbExporter().Export(exportRequest);
+                        var exportResult = new GlbExporter().Export(doc, exportRequest);
                         return JsonConvert.SerializeObject(exportResult);
 
                     case "run_definition":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Running capsule definition...");
-                        return HandleRunDefinition(jobj);
+                        return HandleRunDefinition(doc, jobj);
 
                     case "validate":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Running structural validation...");
                         var valRequest = jobj.ToObject<ValidationRequest>();
-                        var valResult = _validator.Validate(valRequest);
+                        var valResult = _validator.Validate(doc, valRequest);
                         RhinoApp.WriteLine($"RhinoAlmondBridge: Validation {valResult.Status}: {valResult.Verdict}");
                         return JsonConvert.SerializeObject(valResult);
 
                     case "structure_model":
-                        return StructureModelExport.Handle(jobj);
+                        return StructureModelExport.Handle(doc, jobj);
 
                     case "structure_draw":
-                        return StructureView.HandleDraw(jobj);
+                        return StructureView.HandleDraw(doc, jobj);
 
                     case "asset_placements":
-                        return AssetPlacementExport.Handle(jobj);
+                        return AssetPlacementExport.Handle(doc, jobj);
 
                     case "structure_view":
                         RhinoApp.WriteLine("RhinoAlmondBridge: Structure view (Karamba live)...");
-                        return StructureView.Handle(jobj);
+                        return StructureView.Handle(doc, jobj);
 
                     case "execute":
                         string script = jobj.Value<string>("script") ?? "";
                         var executor = new ScriptExecutor();
-                        using (ManagedFiles.Bind(RhinoDoc.ActiveDoc, jobj.Value<string>("project_root"), jobj.Value<string>("artifact_dir")))
-                            return JsonConvert.SerializeObject(executor.Execute(script));
+                        using (ManagedFiles.Bind(doc, jobj.Value<string>("project_root"), jobj.Value<string>("artifact_dir")))
+                            return JsonConvert.SerializeObject(executor.Execute(script, doc));
 
                     default:
                         return JsonConvert.SerializeObject(new { status = "error", error_code = "unsupported_request",
@@ -203,7 +218,7 @@ namespace RhinoAlmondBridge
         ///  "baked_guids": [], "analysis_method": "api|template|rule_based",
         ///  "confidence": "high|medium|low", "warnings": [], "error": null}
         /// </summary>
-        private string HandleRunDefinition(JObject jobj)
+        private string HandleRunDefinition(RhinoDoc doc, JObject jobj)
         {
             string capsuleId = jobj.Value<string>("capsule_id");
             string manifestPath = jobj.Value<string>("manifest_path");
@@ -213,7 +228,7 @@ namespace RhinoAlmondBridge
 
             string Respond(string status, string cid, Dictionary<string, object> outputs,
                 List<string> bakedGuids, string method, string confidence,
-                List<string> warnings, string error)
+                List<string> warnings, string error, string mutationState = "none", bool requiresReconciliation = false)
             {
                 return JsonConvert.SerializeObject(new
                 {
@@ -225,6 +240,8 @@ namespace RhinoAlmondBridge
                     confidence = confidence,
                     warnings = warnings ?? new List<string>(),
                     error = error,
+                    mutation_state = mutationState,
+                    requires_reconciliation = requiresReconciliation,
                 });
             }
 
@@ -253,7 +270,7 @@ namespace RhinoAlmondBridge
                     confidenceLevel, null, loadError);
             }
 
-            var runResult = _definitionRunner.Run(manifestPath, inputs, timeoutS, seed);
+            var runResult = _definitionRunner.Run(doc, manifestPath, inputs, timeoutS, seed);
 
             return Respond(
                 runResult.Status == "ok" ? "ok" : "error",
@@ -263,7 +280,7 @@ namespace RhinoAlmondBridge
                 analysisMethod,
                 confidenceLevel,
                 runResult.Warnings,
-                runResult.Error);
+                runResult.Error, runResult.MutationState, runResult.RequiresReconciliation);
         }
 
     }

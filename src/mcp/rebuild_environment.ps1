@@ -89,7 +89,8 @@ assert direct.get("dir_info", {}).get("editable") is True, "Expected an editable
 assert url.scheme == "file" and url.netloc in {"", "localhost"}, "Unexpected editable source URL"
 assert Path(url2pathname(url.path)).resolve() == repo, "Editable belongs to another checkout"
 project = tomllib.loads((repo / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-assert dist.version == project["version"], "Stale project version metadata"
+expected_version = almond_mcp.__version__ if "version" in project.get("dynamic", ()) else project["version"]
+assert dist.version == expected_version, "Stale project version metadata"
 assert {Requirement(value) for value in dist.requires or []} == {
     Requirement(value) for value in project["dependencies"]
 }, "Stale project dependency metadata"

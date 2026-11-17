@@ -32,13 +32,17 @@ def maintenance(repo, *args, check=True):
 @pytest.fixture
 def checkout(tmp_path, request):
     (tmp_path / "src/mcp").mkdir(parents=True)
-    (tmp_path / "src/mcp/__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "src/mcp/__init__.py").write_text('__version__ = "0.0.1"\n', encoding="utf-8")
     shutil.copyfile(ROOT / "src/mcp/rebuild_environment.ps1",
                     tmp_path / "src/mcp/rebuild_environment.ps1")
+    shutil.copyfile(ROOT / "src/mcp/almond_mcp.py", tmp_path / "src/mcp/almond_mcp.py")
+    setup = getattr(request, "param", True)
+    version_metadata = 'dynamic = ["version"]' if setup == "dynamic" else 'version = "0.0.1"'
+    hatch_version = '[tool.hatch.version]\npath = "src/mcp/__init__.py"' if setup == "dynamic" else ""
     version = importlib.metadata.version("packaging")
     (tmp_path / "pyproject.toml").write_text(f'''[project]
 name = "almond-mcp"
-version = "0.0.1"
+{version_metadata}
 requires-python = ">=3.12"
 dependencies = ["packaging=={version}"]
 [build-system]
@@ -48,14 +52,10 @@ build-backend = "hatchling.build"
 packages = ["src/mcp"]
 sources = {{"src/mcp" = "almond_mcp"}}
 dev-mode-dirs = ["src/mcp"]
-''', encoding="utf-8")
-    # Match this repository's editable import shim without importing its server.
-    (tmp_path / "src/mcp/almond_mcp.py").write_text('''from pathlib import Path
-__path__ = [str(Path(__file__).parent)]
-__file__ = str(Path(__file__).with_name("__init__.py"))
+{hatch_version}
 ''', encoding="utf-8")
     run(["uv", "lock", "--python", "3.12.12"], tmp_path)
-    if getattr(request, "param", True):
+    if setup:
         run(["uv", "sync", "--locked", "--python", "3.12.12", "--no-progress"], tmp_path)
     maintenance(tmp_path)
     return tmp_path
@@ -86,6 +86,7 @@ def test_verify_only_reports_drift_without_changing_packages_or_lock(checkout):
     assert (checkout / "uv.lock").read_bytes() == lock
 
 
+@pytest.mark.parametrize("checkout", [True, "dynamic"], indirect=True, ids=["static", "dynamic"])
 def test_stale_editable_requirements_are_detected_and_repaired(checkout):
     metadata = next((checkout / ".venv/Lib/site-packages").glob("almond_mcp-*.dist-info/METADATA"))
     with metadata.open("a", encoding="utf-8") as stream:

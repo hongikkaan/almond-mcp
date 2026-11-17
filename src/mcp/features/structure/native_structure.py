@@ -463,7 +463,7 @@ def _imperfection_loads(asm, frame, combo, phi) -> dict:
 
 
 def _solve_design(frame, design_basis, uls, plastic=False, stations=11, stability="auto", design_code=None,
-                  fabrication="cold_formed"):
+                  fabrication="cold_formed", _capture=None):
     """Solve SLS + ULS combinations; per-element ULS envelope. Returns (sls, uls_results, envelope,
     stability report) with envelope[i] = (utilization, governing name, element result).
 
@@ -482,7 +482,11 @@ def _solve_design(frame, design_basis, uls, plastic=False, stations=11, stabilit
         for i in range(len(frame.elements)):
             best = max(((res[n].elements[i].utilization, n) for n, _ in ulss), key=lambda t: t[0])
             envelope.append((best[0], best[1], res[best[1]].elements[i]))
-        return res[sls[0]], [(n, f, res[n]) for n, f in ulss], envelope, {"mode": "off", "method": "first-order"}
+        report = {"mode": "off", "method": "first-order"}
+        if _capture is not None:
+            _capture.update(sls=res[sls[0]], variants=[(n, f, res[n]) for n, f in ulss],
+                            ulss=ulss, report=report)
+        return res[sls[0]], [(n, f, res[n]) for n, f in ulss], envelope, report
     if (stability or "").lower() != "auto":
         raise ValueError("stability must be 'auto' or 'off'.")
     # buckling needs interior nodes in the compression members: refine those (in place), then re-assemble
@@ -537,7 +541,71 @@ def _solve_design(frame, design_basis, uls, plastic=False, stations=11, stabilit
         worst = max(mine, key=lambda v: v[2].max_utilization)
         worst[2].variant = worst[0][len(name):].strip()
         reps.append((name, factors, worst[2]))
+    if _capture is not None:
+        _capture.update(sls=sls_res, variants=variants, ulss=ulss, report=report)
     return sls_res, reps, envelope, report
+
+
+class DesignAnalysis:
+    """One request's frame and solved states; validation/view retain their own station grids.
+
+    A buckling view deliberately uses a separate stability-off analysis. This object is
+    never shared across requests, model edits, or changes to applied inputs.
+    """
+    def __init__(self, model, load_kn=10.0, material="Steel", fixed_supports=True, self_weight=True,
+                 diameter_mm=None, wall_mm=None, asset_loads=None, floor_loads=None,
+                 design_basis="en1990", uls=None, connections="rigid", stability="auto",
+                 design_code=None, fabrication="cold_formed", plastic=False):
+        self.build_args = (model, load_kn, material, fixed_supports, self_weight, diameter_mm, wall_mm,
+                           asset_loads, floor_loads, connections)
+        self.design_basis, self.uls, self.stability = design_basis, uls, stability
+        self.design_code, self.fabrication, self.plastic = design_code, fabrication, plastic
+        self.prepared = None
+        self.projections = {}
+        self.capture = {}
+        self.failure = None
+
+    def prepare(self):
+        if self.prepared is None:
+            frame, info, warnings = build_frame(*self.build_args)
+            self.prepared = (frame, info, warnings, design_profile(self.design_basis, self.design_code))
+        return self.prepared
+
+    def solve(self, stations):
+        if self.failure is not None:
+            raise self.failure
+        if stations in self.projections:
+            return self.projections[stations]
+        frame, _, _, code = self.prepare()
+        try:
+            if not self.capture:
+                result = _solve_design(frame, self.design_basis, self.uls, plastic=self.plastic,
+                    stations=stations, stability=self.stability, design_code=code,
+                    fabrication=_fabrication(self.fabrication), _capture=self.capture)
+            else:
+                members = ec3.groups(frame)
+                def sample(original):
+                    sampled = original.resample(stations)
+                    ec3.apply(frame, sampled, members, self.plastic, _fabrication(self.fabrication))
+                    return sampled
+                sls = sample(self.capture['sls'])
+                variants = [(n, f, sample(r)) for n, f, r in self.capture['variants']]
+                envelope = []
+                for i in range(len(frame.elements)):
+                    best = max(variants, key=lambda v: v[2].elements[i].utilization)
+                    envelope.append((best[2].elements[i].utilization, best[0], best[2].elements[i]))
+                reps = []
+                for name, factors in self.capture['ulss']:
+                    mine = [v for v in variants if v[0] == name or v[0].startswith(name + ' ')]
+                    worst = max(mine, key=lambda v: v[2].max_utilization)
+                    worst[2].variant = worst[0][len(name):].strip()
+                    reps.append((name, factors, worst[2]))
+                result = sls, reps, envelope, self.capture['report']
+            self.projections[stations] = result
+            return result
+        except (ValueError, fs.MechanismError) as error:
+            self.failure = error
+            raise
 
 
 def view_result(model: dict, load_kn: float = 10.0, material: str = "Steel", fixed_supports: bool = True,
@@ -545,21 +613,22 @@ def view_result(model: dict, load_kn: float = 10.0, material: str = "Steel", fix
                 stations: int = 13, asset_loads: dict | None = None,
                 floor_loads: dict | None = None, design_basis: str = "en1990",
                 uls: str | None = None, connections: str = "rigid", stability: str = "auto",
-                view: str = "deflection", design_code=None, fabrication: str = "cold_formed") -> tuple[dict, float]:
+                view: str = "deflection", design_code=None, fabrication: str = "cold_formed",
+                _analysis=None) -> tuple[dict, float]:
     """Solve and package the result for the bridge's ``structure_draw`` overlay.
 
     Returns (result, span_m): per-element start/end points and sampled global displacements in
     meters (SLS characteristic), ULS utilization envelope, supports, loaded nodes and the max
     displacement. Raises frame_solver.MechanismError for unstable models."""
-    frame, info, warnings = build_frame(model, load_kn, material, fixed_supports, self_weight, diameter_mm, wall_mm,
-                                        asset_loads, floor_loads, connections)
     want_mode = (view or "deflection").lower() == "buckling"
     if (view or "deflection").lower() not in ("deflection", "buckling"):
         raise ValueError("view must be 'deflection' or 'buckling'.")
-    code = design_profile(design_basis, design_code)
-    res, ulss, envelope, stab = _solve_design(frame, design_basis, uls, stations=stations,
-                                              stability="off" if want_mode else stability, design_code=code,
-                                              fabrication=_fabrication(fabrication))
+    analysis = None if want_mode else _analysis
+    analysis = analysis or DesignAnalysis(model, load_kn, material, fixed_supports, self_weight,
+        diameter_mm, wall_mm, asset_loads, floor_loads, design_basis, uls, connections,
+        "off" if want_mode else stability, design_code, fabrication)
+    frame, info, warnings, code = analysis.prepare()
+    res, ulss, envelope, stab = analysis.solve(stations)
     span = float(span_m or model.get("max_member_span_m") or model.get("max_span_m") or 5.0)
     buckling = None
     if want_mode:
@@ -609,7 +678,7 @@ def validate(model: dict, structure_type: str = "beam", load_kn: float = 10.0, m
              asset_loads: dict | None = None, floor_loads: dict | None = None,
              design_basis: str = "en1990", uls: str | None = None, connections: str = "rigid",
              stability: str = "auto", design_code=None, detail: bool = False,
-             fabrication: str = "cold_formed") -> dict:
+             fabrication: str = "cold_formed", _analysis=None) -> dict:
     """Run the native check and return a bridge-compatible validation result.
 
     ``detail``: add "members" (every member's geometry, section, ULS design forces and checks, SLS
@@ -623,14 +692,14 @@ def validate(model: dict, structure_type: str = "beam", load_kn: float = 10.0, m
               "results": {"analysis_method": "native"}}
     t0 = time.perf_counter()
     try:
-        frame, info, notes = build_frame(model, load_kn, material, fixed_supports, self_weight, diameter_mm, wall_mm,
-                                         asset_loads, floor_loads, connections)
+        analysis = _analysis or DesignAnalysis(model, load_kn, material, fixed_supports, self_weight,
+            diameter_mm, wall_mm, asset_loads, floor_loads, design_basis, uls, connections,
+            stability, design_code, fabrication, plastic)
+        frame, info, notes, code = analysis.prepare()
         result["warnings"] += notes
-        code = design_profile(design_basis, design_code)
         result["design_code"] = code.summary()
         result["warnings"] += _code_warnings(code, uls, info)
-        res, ulss, envelope, stab = _solve_design(frame, design_basis, uls, plastic=plastic, stability=stability,
-                                                  design_code=code, fabrication=_fabrication(fabrication))
+        res, ulss, envelope, stab = analysis.solve(11)
     except InstabilityError as exc:
         result["verdict"] = METHOD_PREFIX.format(confidence=result["confidence"].upper()) + f"FAILED: {exc}"
         result["status"] = "fail"

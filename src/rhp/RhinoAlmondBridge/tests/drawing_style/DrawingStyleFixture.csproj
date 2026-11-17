@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../Engine/NativeUndoRecord.cs" Link="NativeUndoRecord.cs" />
     <Compile Include="../../../../mcp/features/drawings/native/DrawingStyleManager.cs" Link="DrawingStyleManager.cs" />
     <Compile Include="../../../../mcp/features/modeling/native/DocumentLayers.cs" Link="DocumentLayers.cs" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />

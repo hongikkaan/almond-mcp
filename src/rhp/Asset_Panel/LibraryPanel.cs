@@ -31,7 +31,7 @@ namespace RhinoAlmondBridge
         public AlmondLibraryPanel()
         {
             _analysis = new AnalysisWorkspace(reply => {
-                if (_ready && _view != null) _view.ExecuteScript("window.almondAnalysisReceive && window.almondAnalysisReceive(" +
+                if (!_disposed && _ready && _view != null) _view.ExecuteScript("window.almondAnalysisReceive && window.almondAnalysisReceive(" +
                     JsonConvert.SerializeObject(reply,new JsonSerializerSettings{StringEscapeHandling=StringEscapeHandling.EscapeHtml}) + ");");
             });
             MinimumSize = new Size(280, 240);
@@ -49,6 +49,7 @@ namespace RhinoAlmondBridge
         {
             _disposed = true;
             if (disposing) {
+                _analysis.Dispose();
                 RhinoApp.AppSettingsChanged -= AppearanceChanged;
                 _displayTimer.Stop();
                 _displayTimer.Dispose();

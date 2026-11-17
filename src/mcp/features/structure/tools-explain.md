@@ -5,6 +5,8 @@
 <!-- instruction:validate_structure -->
 Rhino 구조 형상을 해석하고 설계기준에 따라 검토합니다.
 
+완료된 해석은 요청 옵션과 실제 적용 엔진·입력·계산 결과를 이력에 보관합니다. native 이력은 내보낸 모델과 적용 하중 입력을 포함합니다. 이전 이력에 저장되지 않은 옵션은 현재 기본값으로 추정하지 않고 알 수 없음으로 표시합니다.
+
 Args:
     guids: 해석 범위에 포함되는 현재 Rhino 객체 GUID 문자열입니다.
     structure_type: 사용할 해석 템플릿입니다. 선택지: "beam"은 단순 보의 휨/처짐, "truss"는 축력/좌굴 해석, "shell"은 셸 응력/변위, "frame"은 프레임 모멘트/전단 해석, "canopy"는 캔틸레버 캐노피, "gridshell"은 대변형 그리드셸, "membrane"은 막 구조 형상 탐색, "highrise"는 고층 구조 시스템입니다.
@@ -76,6 +78,8 @@ Args:
 
 <!-- instruction:export_structural_report -->
 저장된 구조 검증 이력을 Markdown 보고서로 작성합니다.
+
+각 실행의 실제 엔진과 적용 입력을 함께 표시합니다. 저장 당시 입력이 없던 이전 이력은 알 수 없음으로 표시하며, 현재 기본값으로 과거 설정을 채우지 않습니다.
 
 Args:
     path: 관리형 세션에서는 선택한 Plan 산출물 디렉터리 아래의 상대 파일 경로이며, 기본값은 reports/structural-validation.md입니다. 독립 실행의 기본값은 사용자 데이터의 reports/structural-validation-<timestamp>.md입니다.

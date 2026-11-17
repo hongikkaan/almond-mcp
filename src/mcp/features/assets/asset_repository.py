@@ -15,7 +15,8 @@ from urllib.parse import quote, urlsplit
 
 from almond_mcp import __version__, paths
 from almond_mcp.features.assets import drafting
-from almond_mcp.features.assets.model_index import is_model_source, verify_model
+from almond_mcp.features.assets.library_index import AssetLibraryIndexer
+from almond_mcp.features.assets.model_index import ModelAssetIndex, verify_model
 
 UI_ROOT = Path(__file__).resolve().parents[2] / "library_ui"
 if not UI_ROOT.is_dir():
@@ -40,7 +41,7 @@ def _public_metadata(value):
 
 
 class AssetRepository:
-    def __init__(self, roots: dict[str, Path] | None = None):
+    def __init__(self, roots: dict[str, Path] | None = None, *, model_index=None):
         self.roots = roots or {
             "generated": Path(paths.resolve_dir("RHINO_MCP_GENERATED_ASSET_DIR")),
             "drawing": Path(paths.resolve_dir("RHINO_MCP_DRAWING_ASSET_DIR")),
@@ -48,8 +49,9 @@ class AssetRepository:
         }
         self.roots = {k: Path(v).resolve() for k, v in self.roots.items()}
         self.files: dict[str, tuple[Path, Path]] = {}
+        self.package_files: dict[str, tuple[Path, str, str]] = {}
         self.records: dict[str, dict] = {}
-        self.refresh()
+        self.refresh(model_index=model_index)
 
     def file(self, library: str, relative: str | None) -> str | None:
         if not relative:
@@ -62,19 +64,49 @@ class AssetRepository:
         self.files[url] = (root, candidate)
         return url
 
-    def refresh(self):
+    def add_package_file(self, library, package, filename, hashes=None):
+        """Register an archive route for a verified file within a drawing package."""
+        if hashes is None:
+            hashes, _ = drafting.package_inventory(drafting.read_package_manifest(package))
+        if filename not in hashes:
+            return None
+        try:
+            drafting.verified_package_file(package, filename, hashes[filename])
+        except (OSError, ValueError):
+            return None
+        url = self.file(library, (package.relative_to(self.roots[library]) / filename).as_posix())
+        if url:
+            self.package_files[url] = (package, filename, hashes[filename])
+        return url
+
+    def read_file(self, url):
+        root, path = self.files[url]
+        path.resolve().relative_to(root)
+        if url in self.package_files:
+            return drafting.verified_package_file(*self.package_files[url])
+        return path.read_bytes()
+
+    def refresh(self, *, model_index=None):
         self.files = {}
+        self.package_files = {}
         self.records = {}
         source_register = read_json(self.roots["generated"] / "source-register.json")
         sources = {a["asset_id"]: a for a in source_register.get("assets", [])}
         drawings = {a["asset_id"]: a for a in read_json(self.roots["drafting"] / "manifest.json").get("assets", [])}
+        if model_index is None:
+            model_index = ModelAssetIndex(
+                AssetLibraryIndexer(self.roots["drawing"], "drawing_assets", "drawing"),
+                AssetLibraryIndexer(self.roots["generated"], "generated_assets", "generated"),
+            )
         for library in ("generated", "drawing"):
-            manifest = read_json(self.roots[library] / "manifest.json")
-            for asset in manifest.get("assets", []):
-                aid = asset["asset_id"]
+            for snapshot_record in model_index.assets.values():
+                if snapshot_record["source_library"] != library + "_assets":
+                    continue
+                asset = snapshot_record.get("_manifest_record", snapshot_record)
+                aid = snapshot_record["asset_id"]
                 model = self.file(library, asset.get("file"))
                 fmt = Path(asset.get("file", "")).suffix.lstrip(".").lower()
-                model_source = is_model_source(asset, generated=library == "generated")
+                model_source = snapshot_record["asset_kind"] == "model"
                 record = {
                     "id": aid, "name": asset.get("product", aid),
                     "kind": "model" if model_source else "element",
@@ -105,20 +137,29 @@ class AssetRepository:
                     record["generation_image"] = self.file(library, captured.get("input_image_file"))
                 if asset.get("drawing_package") or aid in drawings:
                     package_library = library if asset.get("drawing_package") else "drafting"
-                    package = asset.get("drawing_package") or drawings[aid]["package"]
-                    drawing_url = self.file(package_library, package + "/drawing.json")
-                    if drawing_url:
-                        drawing = read_json(self.files[drawing_url][1])
+                    relative = asset.get("drawing_package") or drawings[aid]["package"]
+                    package_root = self.roots[package_library]
+                    try:
+                        package = drafting.package_file(package_root, relative)
+                        drawing = drafting.read_package_manifest(package)
+                        hashes, representations = drafting.package_inventory(drawing)
+                        if drawing["source"]["asset_id"] != aid:
+                            raise ValueError("Drawing package asset ID differs from the catalogue")
+                    except (OSError, ValueError, TypeError, KeyError):
+                        record["drawing_status"] = "invalid"
+                    else:
+                        drawing_url = self.file(package_library, f"{relative}/drawing.json")
                         views = []
-                        for rep in drawing.get("representations", []):
+                        for rep in representations.values():
                             view = {k: rep[k] for k in ("view", "scale", "method", "approximation_note") if k in rep}
                             for fmt_name in ("svg", "dxf"):
-                                view[fmt_name] = self.file(package_library, package + "/" + rep[fmt_name])
+                                view[fmt_name] = self.add_package_file(package_library, package, rep[fmt_name], hashes)
                             views.append(view)
                         record["drawing"] = {
                             "record": drawing_url, "views": views,
-                            "sheets": [{"scale": s, "svg": self.file(package_library, f"{package}/sheet-A3-1-{s}.svg")} for s in drawing.get("scales", [])],
-                            "dimensions": self.file(package_library, package + "/dimensions.json"),
+                            "sheets": [{"scale": s, "svg": self.add_package_file(package_library, package, f"sheet-A3-1-{s}.svg", hashes)}
+                                       for s in drawing.get("scales", [])],
+                            "dimensions": self.add_package_file(package_library, package, "dimensions.json", hashes),
                             "source": _public_metadata(drawing.get("source", {})),
                         }
                         if fmt == "3dm":
@@ -131,8 +172,11 @@ class AssetRepository:
         record = dict(asset)
         if record["format"] == "3dm" and record.get("model"):
             source = self.files[record["model"]][1]
-            package = self.files[record["drawing"]["record"]][1].parent if record.get("drawing") else None
+            drawing_url = (record.get("drawing") or {}).get("record")
+            package = self.files[drawing_url][1].parent if drawing_url else None
             record.update(verify_model(source, record["metadata"].get("sha256"), package))
+            if not package and asset["drawing_status"] == "invalid":
+                record["drawing_status"] = "invalid"
             if record["model_status"] == "needs_refresh":
                 record["next_tool"] = "refresh_asset"
         return record
@@ -204,7 +248,11 @@ def create_server(port=8767, repository: AssetRepository | None = None):
                 if route in repo.files:
                     root, path = repo.files[route]
                 if path and path.resolve().is_relative_to(root) and path.is_file():
-                    content = path.read_bytes()
+                    try:
+                        content = repo.read_file(route) if route in repo.files else path.read_bytes()
+                    except (OSError, ValueError):
+                        self.send_error(404)
+                        return
                     mime = {".js": "text/javascript", ".mjs": "text/javascript", ".glb": "model/gltf-binary", ".svg": "image/svg+xml", ".dxf": "application/dxf"}.get(path.suffix, mimetypes.guess_type(path.name)[0] or "application/octet-stream")
                     filename = path.name
             if content is None:
@@ -254,6 +302,8 @@ def snapshot(repository=None) -> dict:
     files = {}
     for url, (root, path) in repository.files.items():
         try:
+            if url in repository.package_files:
+                drafting.verified_package_file(*repository.package_files[url])
             resolved = path.resolve()
             if not resolved.is_relative_to(root) or any(p.is_symlink() or (hasattr(p, "is_junction") and p.is_junction())
                     for p in (path, *path.parents) if p != root and root in p.parents):
@@ -261,7 +311,9 @@ def snapshot(repository=None) -> dict:
             stat = path.stat()
             files[url] = {"path": str(resolved), "root": str(root), "size": stat.st_size,
                           "mtime_ns": stat.st_mtime_ns, "mime": mimetypes.guess_type(path.name)[0] or "application/octet-stream"}
-        except OSError:
+            if url in repository.package_files:
+                files[url]["sha256"] = repository.package_files[url][2]
+        except (OSError, ValueError):
             continue
     return {"schema_version": 1, "catalogue": repository.catalogue(verify=False), "files": files}
 

@@ -133,7 +133,7 @@ class TypedPlacement(unittest.TestCase):
         with patch.object(Point, '__sub__', make_subtraction, create=True), \
              patch.object(ps, 'System', NS(Guid=lambda value:value)), \
              patch.object(ps, 'objects', side_effect=lambda doc:list(stored.values())), \
-             patch.object(ps, 'save_drawing_registry', side_effect=lambda doc, cp, value:
+             patch.object(ps, 'save_drawing_registry', side_effect=lambda doc, cp, value, recovery=None:
                           registry.update({'ps:clip:'+cp.Id:value})), \
              patch.object(ps, 'generate', side_effect=generate), \
              patch.object(ps, 'bake', return_value=['regenerated']):

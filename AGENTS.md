@@ -66,7 +66,7 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 일반 시작은 의존성을 동기화하지 않는다. Python 공통 도구 변경 후에는 관련 Codex/CoS MCP 또는 Terminal의 almond 세션을 정상 종료하고 새로 시작한다. 시작 시 현재 소스에서 도구 schema를 자동 추출하므로 카탈로그 수동 재생성은 필요 없다. `uv.lock` 버전·세션 source fingerprint·실제 worker schema 검사를 유지한다. 기존 프로세스에 대한 hot reload/restart 도구는 제공하지 않는다.
 
-C#/native 또는 실행용 UI 변경은 **RHP를 빌드할 때** Rhino를 닫는다. 코드 조사·수정·문서 작성·오프라인 테스트는 Rhino가 열려 있어도 진행한다. 종료 조건을 작업 전체의 선행조건으로 해석하지 않는다. 빌드 직전에 실행 여부를 확인하고, Rhino가 열려 있으면 사용자에게 작업 저장 후 정상 종료를 요청한다. 종료 확인 전에는 RHP 빌드·출력 교체를 진행하지 않으며 강제 종료하지 않는다. .NET 8 SDK와 Windows Rhino 8 SDK를 사용하며 기본 빌드는 설치된 SDK를 참조한다. 선택 SDK 위치는 `src/rhp/RhinoTerminal/data/sdk`다.
+Rhino 실행 여부와 관계없이 개발 워크트리에서 RHP를 빌드할 수 있다. 빌드 스크립트는 대상 출력 파일의 사용 가능 여부를 확인하고 staging 후 교체한다. .NET 8 SDK와 Windows Rhino 8 SDK를 사용하며 기본 빌드는 설치된 SDK를 참조한다. 선택 SDK 위치는 `src/rhp/RhinoTerminal/data/sdk`다.
 
 ```powershell
 ./src/rhp/build.ps1
@@ -98,6 +98,6 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 ## 검증
 
 - 변경에 맞는 검사·명령·판정 기준은 [개발 검사 안내](tests/README.md)에서 고른다. 개발 검사는 Rhino와 일상 MCP 호스트를 실행하거나 종료할 필요 없이 수행할 수 있게 유지한다. 체크아웃별 개발 환경을 사용해 일상 venv·호스트·연결 등록을 보존한다. 실행 중 호스트의 소스까지 보호해야 하면 별도 워크트리를 사용한다.
-- C# 오프라인 fixture 빌드는 Rhino가 열린 상태에서 수행할 수 있다. RHP 빌드·출력 교체에는 [개발·빌드·반영](#개발빌드반영)의 종료 조건을 적용한다.
+- C# 오프라인 fixture와 RHP 빌드는 Rhino가 열린 상태에서도 수행할 수 있다. 출력 위치와 교체 절차는 [개발·빌드·반영](#개발빌드반영)을 따른다.
 - Rhino에서만 확인할 수 있는 동작은 개발 검사 범위 밖이다. 통합 오케스트레이터가 허가받아 검수한 경우 실제 Rhino 결과를 별도로 보고한다. 오프라인 fixture에는 전용 입력을 사용한다.
 - 검사별 결과와 실제 확인 범위를 기록한다. 기존 실패와 환경 제약을 보고하고 검증 기준을 보존한다.

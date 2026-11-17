@@ -54,6 +54,11 @@ def initialize_looping(connection):
             WHERE operation LIKE 'update_step:%'""")
     connection.execute("""CREATE INDEX IF NOT EXISTS generation_revision_step
         ON generation_plan_revisions(plan_id,loop_no,step_id,revision)""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS workspace_loop_transitions(
+        transition_id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL, loop_no INTEGER NOT NULL, revision INTEGER NOT NULL,
+        FOREIGN KEY(plan_id,loop_no,revision)
+            REFERENCES generation_plan_revisions(plan_id,loop_no,revision) ON DELETE CASCADE)""")
 
 
 class LoopingStore:
@@ -69,27 +74,41 @@ class LoopingStore:
         if expected_revision is not None and plan["loop_no"] > 0 and loop_no is None:
             raise ValueError("Supply loop_no with expected_revision; revision numbers repeat in different Loops.")
 
-    def execute_looping(self, plan_id, *, resume=False, feedback=""):
+    def execute_looping(self, plan_id, *, resume=False, feedback="", transition_id=None):
         if type(resume) is not bool or not isinstance(feedback, str):
             raise ValueError("resume must be boolean and feedback must be text.")
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            plan = self._read_generation_plan(connection, plan_id)
-            if plan is None:
-                raise KeyError(f"Unknown plan_id: {plan_id}")
-            if resume:
-                if plan["loop_no"] == 0:
-                    raise ValueError("No Loop has been executed. Call plan_03-execute_looping tool without resume first.")
-                if not feedback or feedback == plan["feedback"]:
-                    return plan
-                connection.execute("UPDATE generation_plan_loops SET feedback=? WHERE plan_id=? AND loop_no=?",
-                                   (feedback,plan_id,plan["loop_no"]))
-                return self._record_generation_revision(connection, plan_id, "update_loop_feedback")
-            loop_no = connection.execute("SELECT COALESCE(MAX(loop_no),0)+1 FROM generation_plan_loops WHERE plan_id=?",
-                                         (plan_id,)).fetchone()[0]
-            connection.execute("INSERT INTO generation_plan_loops VALUES(?,?,?,?)",
-                               (plan_id,loop_no,feedback,_utc_now()))
-            connection.execute("UPDATE generation_plans SET loop_no=?,revision=0 WHERE plan_id=?", (loop_no,plan_id))
-            connection.execute("""INSERT INTO generation_loop_steps(plan_id,loop_no,step_id,status)
-                SELECT plan_id,?,step_id,'pending' FROM generation_plan_steps WHERE plan_id=?""", (loop_no,plan_id))
-            return self._record_generation_revision(connection, plan_id, "execute_looping")
+            plan = self._execute_looping(connection, plan_id, resume=resume, feedback=feedback)
+            if transition_id is not None:
+                connection.execute("INSERT INTO workspace_loop_transitions VALUES(?,?,?,?)",
+                    (transition_id, plan_id, plan["loop_no"], plan["revision"]))
+            return plan
+
+    def _execute_looping(self, connection, plan_id, *, resume, feedback):
+        plan = self._read_generation_plan(connection, plan_id)
+        if plan is None:
+            raise KeyError(f"Unknown plan_id: {plan_id}")
+        if resume:
+            if plan["loop_no"] == 0:
+                raise ValueError("No Loop has been executed. Call plan_03-execute_looping tool without resume first.")
+            if not feedback or feedback == plan["feedback"]:
+                return plan
+            connection.execute("UPDATE generation_plan_loops SET feedback=? WHERE plan_id=? AND loop_no=?",
+                               (feedback,plan_id,plan["loop_no"]))
+            return self._record_generation_revision(connection, plan_id, "update_loop_feedback")
+        loop_no = connection.execute("SELECT COALESCE(MAX(loop_no),0)+1 FROM generation_plan_loops WHERE plan_id=?",
+                                     (plan_id,)).fetchone()[0]
+        connection.execute("INSERT INTO generation_plan_loops VALUES(?,?,?,?)",
+                           (plan_id,loop_no,feedback,_utc_now()))
+        connection.execute("UPDATE generation_plans SET loop_no=?,revision=0 WHERE plan_id=?", (loop_no,plan_id))
+        connection.execute("""INSERT INTO generation_loop_steps(plan_id,loop_no,step_id,status)
+            SELECT plan_id,?,step_id,'pending' FROM generation_plan_steps WHERE plan_id=?""", (loop_no,plan_id))
+        return self._record_generation_revision(connection, plan_id, "execute_looping")
+
+    def get_loop_transition(self, transition_id):
+        """Read an exact committed workspace transition, never infer from Loop number."""
+        with self._connect() as connection:
+            row = connection.execute("SELECT plan_id,loop_no,revision FROM workspace_loop_transitions WHERE transition_id=?",
+                                     (transition_id,)).fetchone()
+        return None if row is None else self.get_plan(row["plan_id"], loop_no=row["loop_no"], revision=row["revision"])

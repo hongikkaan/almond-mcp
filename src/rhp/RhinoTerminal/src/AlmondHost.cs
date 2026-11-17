@@ -25,8 +25,7 @@ internal sealed class AlmondHost : IDisposable
     static readonly HashSet<AlmondHost> pendingCleanup = new(); // UI-thread only; retain failed stops.
     public string PipeName { get; } = "RhinoTerminal-" + Environment.ProcessId + "-" + Guid.NewGuid().ToString("N");
     public string AccessToken { get; } = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
-    internal static string RuntimeDirectory => Path.GetFullPath(Path.Combine(
-        Path.GetDirectoryName(typeof(AlmondHost).Assembly.Location)!, "..", "..", "..", "mcp", "runtime"));
+    internal static string RuntimeDirectory => AlmondEngine.RuntimeEnvironment.RuntimeDirectory(typeof(AlmondHost).Assembly.Location);
     public string Engine => RuntimeDirectory;
     readonly CancellationTokenSource shutdown = new();
     readonly Action<string> report;
@@ -54,19 +53,7 @@ internal sealed class AlmondHost : IDisposable
     static void Save(string path, object value)
         => SessionFiles.WriteJson(path, value);
 
-    void CheckOwnership(string path)
-    {
-        if (!File.Exists(path)) return;
-        using var json = JsonDocument.Parse(File.ReadAllText(path));
-        if (Text(json.RootElement, "token") != (string)binding!["token"]!)
-            throw new IOException("다른 Almond 세션의 연결 기록은 변경하지 않습니다.");
-    }
-
-    void SaveOwned(string path)
-    {
-        CheckOwnership(path);
-        Save(path, binding!);
-    }
+    void SaveOwned(string path) => NativeBinding.Publish(binding!, path);
 
     void ReleaseLeases()
     {
@@ -221,16 +208,8 @@ internal sealed class AlmondHost : IDisposable
             if (File.Exists(readyPath))
                 throw new InvalidOperationException("이미 사용한 세션 토큰입니다. almond를 새로 실행하세요.");
             locatorPath = Path.Combine(data, slot, "active.json");
-            binding = new Dictionary<string, object?> {
-                ["schema"]="almond-project", ["storage_protocol"]=StorageProtocol,
-                ["attachment"]="terminal", ["label"]=slot, ["port"]=port,
-                ["token"]=token, ["pid"]=process.Id, ["process_start_ticks"]=ticks, ["document_serial"]=serial,
-                ["model_path"]=Canonical(model), ["document_path"]=Canonical(doc.Path), ["storage"]=storage,
-                ["session_dir"]=sessionDirectory, ["ready_path"]=readyPath,
-                ["state_db"]=paths.StateDb,
-                ["engine"]=Engine, ["temp"]=Path.Combine(storage,"tmp"), ["rhino_temp"]=Path.GetTempPath(),
-                ["model_units"]=doc.ModelUnitSystem.ToString(), ["valid"]=true, ["status"]="starting"
-            };
+            binding = NativeBinding.Create(paths, slot, port, doc.RuntimeSerialNumber,
+                process.Id, ticks, Engine, doc.ModelUnitSystem.ToString(), "terminal");
             Directory.CreateDirectory(Path.GetDirectoryName(locatorPath)!);
             SaveOwned(Path.Combine(sessionDirectory, "launch.json"));
             SaveOwned(readyPath);
@@ -267,13 +246,8 @@ internal sealed class AlmondHost : IDisposable
     void Invalidate(string reason)
     {
         if (binding == null || binding["valid"] is not true) return;
-        binding["valid"] = false;
-        binding["status"] = reason;
-        try { SaveOwned(readyPath); }
-        catch (Exception ex) { RhinoApp.WriteLine("Almond 연결 무효화 기록 실패: " + ex.Message); }
-        // BoundBridge rejects invalid documents at dispatch; active native work must drain.
-        try { bridge?.Stop(); }
-        catch (Exception ex) { RhinoApp.WriteLine("Almond 중단 확인 필요: " + ex.GetBaseException().Message); }
+        try { NativeBinding.Invalidate(binding, readyPath, reason, bridge); }
+        catch (Exception ex) { RhinoApp.WriteLine("Almond 연결 무효화/중단 확인 필요: " + ex.Message); }
         report(reason + " — Codex에서 /exit 후 almond를 다시 입력하세요.");
     }
 
@@ -281,8 +255,7 @@ internal sealed class AlmondHost : IDisposable
     {
         if (binding == null || binding["valid"] is not true) return;
         var doc = RhinoDoc.ActiveDoc;
-        if (doc == null || string.IsNullOrEmpty(doc.Path) ||
-            doc.RuntimeSerialNumber.ToString() != (string)binding["document_serial"]! || !Same(doc.Path, (string)binding["model_path"]!))
+        if (doc == null || !NativeBinding.MatchesDocument(binding, doc.Path, doc.RuntimeSerialNumber))
             Invalidate("Rhino 문서 또는 파일명이 변경됐습니다");
     }
     // BeginOpenDocument also fires for clipboard paste/import. Do not mistake
@@ -307,18 +280,7 @@ internal sealed class AlmondHost : IDisposable
         }
         try
         {
-            // Keep this generation's MCP excluded until its host ownership is released.
-            using var probe = new FileStream(Path.Combine(sessionDirectory, "mcp.lock"),
-                FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-            // Retry a failed invalidation write before allowing another MCP to acquire this generation.
-            SaveOwned(readyPath);
-            if (File.Exists(locatorPath))
-            {
-                CheckOwnership(locatorPath);
-                File.Delete(locatorPath);
-            }
-            bridge?.Dispose();
-            ReleaseLeases();
+            if (!NativeBinding.Release(binding, sessionDirectory, readyPath, locatorPath, bridge, ReleaseLeases)) return false;
             bridge = null; binding = null;
             pendingCleanup.Remove(this);
         }

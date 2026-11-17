@@ -1,5 +1,6 @@
 """Shared manifest indexing for drawing, diagram, and generated assets."""
 import json
+import hashlib
 import re
 import sys
 from pathlib import Path
@@ -14,6 +15,8 @@ class AssetLibraryIndexer:
         self.library_id = library_id
         self.label = label
         self.assets: dict[str, dict] = {}
+        self.manifest_loaded = False
+        self.revision = None
         self.catalogue_region = ""
         self.catalogue_checked = ""
         self._load()
@@ -21,10 +24,11 @@ class AssetLibraryIndexer:
     def _load(self):
         if not self.manifest_path.is_file():
             print(f"{self.label} manifest not found: {self.manifest_path}", file=sys.stderr)
+            self.manifest_loaded = False
             return
 
-        with self.manifest_path.open("r", encoding="utf-8") as manifest_file:
-            manifest = json.load(manifest_file)
+        source = self.manifest_path.read_bytes()
+        manifest = json.loads(source.decode("utf-8-sig"))
 
         self.catalogue_region = manifest.get("catalogue_region", "")
         self.catalogue_checked = manifest.get("catalogue_checked", "")
@@ -35,32 +39,49 @@ class AssetLibraryIndexer:
                 f"found {manifest_library_id}.",
                 file=sys.stderr,
             )
+            self.manifest_loaded = False
             return
         # Treat each successful manifest read as a complete snapshot. Updating
         # the old map in place would keep removed IDs searchable after reload.
         assets: dict[str, dict] = {}
-        for asset in manifest.get("assets", []):
+        entries = manifest.get("assets", [])
+        if not isinstance(entries, list):
+            raise ValueError(f"Invalid assets list in {self.label} manifest.")
+        seen = set()
+        for asset in entries:
             asset_id = str(asset.get("asset_id", "")).strip()
             relative_file = str(asset.get("file", "")).strip()
             if not asset_id or not relative_file:
                 continue
-            resolved_file = (self.directory / relative_file).resolve()
-            try:
-                resolved_file.relative_to(self.directory)
-            except ValueError:
+            if asset_id in seen:
+                raise ValueError(f"Duplicate asset ID {asset_id!r} in {self.library_id}.")
+            seen.add(asset_id)
+            record = self.resolve_record(asset)
+            if record is None:
                 print(f"Skipping {self.label} asset outside library root: {asset_id}", file=sys.stderr)
                 continue
-            record = dict(asset)
-            record["library_id"] = self.library_id
-            record["_resolved_file"] = str(resolved_file)
-            record["file_available"] = resolved_file.is_file()
+            record["_manifest_record"] = asset
+            record["asset_id"] = asset_id
             assets[asset_id] = record
 
         self.assets = assets
+        self.manifest_loaded = True
+        self.revision = hashlib.sha256(source).hexdigest()
         print(f"Indexed {len(self.assets)} {self.label} assets.", file=sys.stderr)
 
     def public_record(self, asset: dict) -> dict:
         return {key: value for key, value in asset.items() if not key.startswith("_")}
+
+    def resolve_record(self, asset: dict) -> dict | None:
+        """Resolve the selected manifest entry under this library's configured root."""
+        relative = str(asset.get("file", "")).strip()
+        if not relative:
+            return None
+        resolved = (self.directory / relative).resolve()
+        if not resolved.is_relative_to(self.directory):
+            return None
+        return {**asset, "library_id": self.library_id, "_resolved_file": str(resolved),
+                "file_available": resolved.is_file()}
 
     def get(self, asset_id: str) -> dict | None:
         return self.assets.get(asset_id)

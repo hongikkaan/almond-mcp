@@ -54,12 +54,15 @@ namespace RhinoAlmondBridge
         private static StructureConduit _conduit;
         private static readonly ModelConditioner Conditioner = new ModelConditioner();
 
-        public static string Handle(JObject jobj)
+        public static string Handle(JObject jobj) => Handle(RhinoDoc.ActiveDoc, jobj);
+
+        internal static string Handle(RhinoDoc doc, JObject jobj)
         {
             var req = jobj.ToObject<StructureViewRequest>();
-            var doc = RhinoDoc.ActiveDoc;
             if (doc == null) return Error("No active Rhino document.");
             if (_conduit == null) _conduit = new StructureConduit();
+            if (_conduit.DocumentSerial != doc.RuntimeSerialNumber) { _conduit.Data = null; _conduit.Enabled = false; }
+            _conduit.DocumentSerial = doc.RuntimeSerialNumber;
 
             if (req.Clear)
             {
@@ -112,12 +115,15 @@ namespace RhinoAlmondBridge
         /// and sampled global displacements (meters), utilization, supports and loads; without
         /// "result" only the display options of the current overlay change.
         /// </summary>
-        public static string HandleDraw(JObject jobj)
+        public static string HandleDraw(JObject jobj) => HandleDraw(RhinoDoc.ActiveDoc, jobj);
+
+        internal static string HandleDraw(RhinoDoc doc, JObject jobj)
         {
             var req = jobj.ToObject<StructureViewRequest>();
-            var doc = RhinoDoc.ActiveDoc;
             if (doc == null) return Error("No active Rhino document.");
             if (_conduit == null) _conduit = new StructureConduit();
+            if (_conduit.DocumentSerial != doc.RuntimeSerialNumber) { _conduit.Data = null; _conduit.Enabled = false; }
+            _conduit.DocumentSerial = doc.RuntimeSerialNumber;
             var result = jobj["result"] as JObject;
             if (result != null)
             {
@@ -233,6 +239,7 @@ namespace RhinoAlmondBridge
 
     public class StructureConduit : DisplayConduit
     {
+        internal uint DocumentSerial;
         public StructureData Data;
         private static readonly Color Ghost = Color.FromArgb(150, 150, 158);
 
@@ -252,6 +259,7 @@ namespace RhinoAlmondBridge
 
         protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e)
         {
+            if (e.RhinoDoc?.RuntimeSerialNumber != DocumentSerial) return;
             if (Data?.Result == null) return;
             foreach (var el in Data.Result.Elements)
             {
@@ -261,6 +269,7 @@ namespace RhinoAlmondBridge
 
         protected override void DrawForeground(DrawEventArgs e)
         {
+            if (e.RhinoDoc?.RuntimeSerialNumber != DocumentSerial) return;
             if (Data?.Result == null) return;
             var r = Data.Result;
             int n = r.Elements.Count;

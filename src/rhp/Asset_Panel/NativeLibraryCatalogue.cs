@@ -16,9 +16,9 @@ namespace RhinoAlmondBridge
 
         private static async Task<JObject> ReadSnapshotCoreAsync()
         {
-            string runtime = RhinoTerminal.AlmondHost.RuntimeDirectory;
-            string sourceRoot = Path.GetFullPath(Path.Combine(runtime, "..", ".."));
-            string python = Path.Combine(sourceRoot, "engine", ".venv", "Scripts", "python.exe");
+            string runtime = AlmondEngine.RuntimeEnvironment.RuntimeDirectory(typeof(NativeLibraryCatalogue).Assembly.Location);
+            string sourceRoot = AlmondEngine.RuntimeEnvironment.SourceRoot(runtime);
+            string python = AlmondEngine.RuntimeEnvironment.PythonExecutable(runtime);
             if (!File.Exists(python))
                 return Error("library_python_missing", "Installed library lookup needs the Almond Python environment. Configure it, then Reload.");
             var start = new ProcessStartInfo(python) {

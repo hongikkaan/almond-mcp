@@ -12,6 +12,7 @@ sys.path.insert(0, str(REPO / "src" / "mcp"))
 from almond_mcp.features.assets.asset_passport import audit_library
 from almond_mcp.features.assets.drafting import audit_package
 from almond_mcp.features.assets.asset_repository import AssetRepository
+from almond_mcp.release_validation.archive_catalogue import verify_catalogue
 
 
 def verify(wheel: Path) -> dict:
@@ -76,15 +77,12 @@ def verify(wheel: Path) -> dict:
             result["source_records_checked"] = len(sources["assets"])
             archive_catalogue = AssetRepository({"generated": generated, "drafting": drafts,
                                                 "drawing": Path(tmp) / "almond_mcp/data/DrawingAssetfiles"})
-            counts = archive_catalogue.catalogue()["counts"]
-            if counts != {"assets":57, "models":50, "elements":7, "drawing_packages":10, "views":60}:
-                raise ValueError(f"Unified archive coverage changed: {counts}")
+            catalogue = archive_catalogue.catalogue()
+            verify_catalogue(catalogue)
             for filename in ("index.html", "style.css", "app.js", "karamba.js", "karamba-help.js", "panel-theme.js", "panel.css", "analysis-view.mjs", "favicon.svg", "vendor/model-viewer.min.js", "vendor/LICENSE", "vendor/THIRD-PARTY-LICENSES.txt", "vendor/version.json"):
                 if "almond_mcp/library_ui/" + filename not in names:
                     raise ValueError(f"Archive UI file missing: {filename}")
-            if any(a["available"] for a in archive_catalogue.records.values() if a["kind"] == "element"):
-                raise ValueError("Downloaded drawing files must not enter the distribution")
-            result["object_archive"] = counts
+            result["object_archive"] = catalogue["counts"]
             result["object_archive_ui"] = "packaged, including offline viewer"
     result.update(wheel=wheel.name, wheel_size_mb=round(wheel.stat().st_size / 1_000_000, 2),
                   distribution_check="no third-party model binaries, raw downloads or example projects")
