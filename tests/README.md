@@ -42,11 +42,13 @@ Windows에서 symlink를 만드는 자산 경계 검사는 파일 시스템과 �
 ## 실제 Rhino 통합 검수
 
 1. 통합 오케스트레이터는 사용자에게 검수할 워크트리·모델·변경 범위와 실제 Rhino 사용을 승인받는다. 문서나 DB를 바꾸는 검수는 별도 프로젝트 폴더의 복사본에서 한다. Worksession에는 필요한 파일만 붙인다.
-2. Rhino를 정상 종료한다. 검수할 워크트리에서 `verify_runtime.py`로 소스·실행 파일의 manifest와 양쪽 Engine DLL을 확인한다. 일치하면 기존 빌드를 사용한다. 불일치하는 RHP만 다시 빌드하고 manifest를 기록·검증한다. Engine 변경은 양쪽을 빌드한다.
-3. 검수할 워크트리에서 `./src/rhp/tools/start_integration_rhino.ps1 -ModelPath '<시험 파일.3dm>'`을 실행한다. 스크립트는 시작 전에 시험 파일의 절대 경로를 출력한다. Rhino에서 워크트리 RHP 두 개를 로드하는 즉시 기존 등록값을 복원한다. 이어서 같은 워크트리의 Beyond에서 Rhino PID·시작 시각·시험 파일 경로가 일치하는 대상에 `ready`로 연결되는지 확인한다. 검증 연결을 해제하고 같은 PID의 RHP를 재확인한 뒤 검증 결과를 반환한다.
-4. 기능 검수는 같은 워크트리에서 시작한 Beyond에서 수행한다. `connect_01-list_up` tool에서 시작 스크립트가 확인한 대상의 `host_id`·PID·모델 경로를 대조하고 `connect_02-session` tool로 연결한다. 변경된 기능은 공개 도구로 검수한다. Rhino 내부 확인은 연결된 시험 문서에서 `script_02-run_rhino` tool을 사용한다. 결과를 기록하고 시험 연결과 Rhino를 정상 종료한 뒤 일상 경로에서 `install_runtime.ps1 -VerifyOnly`로 등록을 확인한다.
+2. 사용 중인 Rhino는 그대로 유지한다. 이미 로드된 assembly는 디스크의 새 빌드나 임시 등록 변경으로 교체되지 않는다. 기존 Rhino의 PID·시작 시각을 기록하고, 검수할 워크트리에서 `verify_runtime.py`로 소스·실행 파일의 manifest와 양쪽 Engine DLL을 확인한다. 일치하면 기존 빌드를 사용한다. 불일치하는 RHP만 대상 출력 사용 가능 여부를 확인한 뒤 다시 빌드하고 manifest를 기록·검증한다. Engine 변경은 양쪽을 빌드한다. 해당 워크트리 RHP를 이미 로드한 이전 검수 인스턴스가 있다면 그 인스턴스만 정상 종료한 뒤 출력 교체를 진행한다.
+3. 검수할 워크트리에서 `./src/rhp/tools/start_integration_rhino.ps1 -ModelPath '<시험 파일.3dm>'`을 실행한다. 스크립트는 시작 전에 시험 파일의 절대 경로를 출력하고, 기존 등록을 보존한 뒤 두 RHP 경로를 워크트리로 임시 지정해 새 Rhino를 시작한다. 이때 시작한 PID·시작 시각으로만 프로세스를 추적한다. 새 인스턴스에서 워크트리 RHP 두 개의 실제 로드 경로가 확인되면 즉시 기존 등록값을 복원하며, 시작 실패 시에도 복원을 수행한다. 이어서 같은 워크트리의 Beyond에서 Rhino PID·시작 시각·시험 파일 경로가 일치하는 대상에 `ready`로 연결되는지 확인한다. 검증 연결을 해제하고 같은 PID의 RHP를 재확인한 뒤 검증 결과를 반환한다.
+4. 기능 검수는 같은 워크트리에서 시작한 Beyond에서 수행한다. `connect_01-list_up` tool에서 시작 스크립트가 확인한 대상의 `host_id`·PID·모델 경로를 대조하고 `connect_02-session` tool로 연결한다. 변경된 기능은 공개 도구로 검수한다. Rhino 내부 확인은 연결된 시험 문서에서 `script_02-run_rhino` tool을 사용한다. 결과를 기록하고 시험 연결과 식별한 검수용 Rhino만 정상 종료한 뒤 일상 경로에서 `install_runtime.ps1 -VerifyOnly`로 등록을 확인한다. 사용자의 기존 Rhino에는 연결·종료·문서 변경을 수행하지 않는다.
 
-사용자와 일상 체크아웃에서 특정 커밋을 검수하기로 합의했다면 기존 HEAD·브랜치를 기록하고 깨끗한 상태에서 `git switch --detach <SHA>`로 이동한 뒤 같은 절차를 따른다. 끝나면 합의한 HEAD와 브랜치로 되돌린다. 전원이 끊기는 등 시작 스크립트의 복구가 완료되지 않았다면 Rhino를 정상 종료하고 일상 체크아웃에서 `install_runtime.ps1`로 다시 등록한다.
+시작기는 기존 독립 Rhino launcher로 상위 Windows Job에서 분리한 프로세스만 실행한다. 원래 등록값과 형식은 `data/runtime-integration/<id>/registration.json`, 새 PID·시작 시각·모델·RHP 경로는 같은 폴더의 `process.json`에 남긴다. 원복 실패 시에도 이 근거로 검수 인스턴스만 재식별한다.
+
+사용자와 일상 체크아웃에서 특정 커밋을 검수하기로 합의했다면 기존 HEAD·브랜치를 기록하고 깨끗한 상태에서 `git switch --detach <SHA>`로 이동한 뒤 같은 절차를 따른다. 끝나면 합의한 HEAD와 브랜치로 되돌린다. 전원이 끊기는 등 시작 스크립트의 복구가 완료되지 않았다면 저장된 등록 백업과 현재 값을 대조해 원래 경로를 복원한다. 검수 중 다른 작업이 바꾼 등록은 덮어쓰지 않고 차이를 보고한다.
 
 ## 작업 워크트리와 squash 검증
 

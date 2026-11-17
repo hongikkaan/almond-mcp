@@ -12,24 +12,29 @@ import time
 FILETIME_TO_TICKS = 504911232000000000
 
 
+def process_identity_from_handle(pid: int, handle) -> dict:
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+    kernel.GetProcessTimes.restype = wintypes.BOOL
+    times = [wintypes.FILETIME() for _ in range(4)]
+    if not kernel.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+        raise OSError(ctypes.get_last_error(), "Cannot verify process start.")
+    started = (times[0].dwHighDateTime << 32) | times[0].dwLowDateTime
+    return {"pid": pid, "process_start_ticks": str(started + FILETIME_TO_TICKS)}
+
+
 def process_identity(pid: int) -> dict:
     if os.name != "nt":
         raise RuntimeError("AlmondRhino requires Windows.")
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     kernel.OpenProcess.restype = wintypes.HANDLE
-    kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
-    kernel.GetProcessTimes.restype = wintypes.BOOL
     kernel.CloseHandle.argtypes = [wintypes.HANDLE]
     handle = kernel.OpenProcess(0x1000, False, pid)
     if not handle:
         raise OSError(ctypes.get_last_error(), "Process is unavailable.")
     try:
-        times = [wintypes.FILETIME() for _ in range(4)]
-        if not kernel.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
-            raise OSError(ctypes.get_last_error(), "Cannot verify process start.")
-        started = (times[0].dwHighDateTime << 32) | times[0].dwLowDateTime
-        return {"pid": pid, "process_start_ticks": str(started + FILETIME_TO_TICKS)}
+        return process_identity_from_handle(pid, handle)
     finally:
         kernel.CloseHandle(handle)
 

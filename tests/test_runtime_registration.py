@@ -8,7 +8,9 @@ import pytest
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Rhino runtime tooling is Windows-only")
-@pytest.mark.parametrize("fixture", ["Test-RuntimeRegistration.ps1", "Test-RuntimeBuild.ps1"])
+@pytest.mark.parametrize("fixture", [
+    "Test-RuntimeRegistration.ps1", "Test-RuntimeBuild.ps1", "Test-IntegrationRhinoStartup.ps1",
+])
 def test_runtime_powershell_fixture(tmp_path, fixture):
     script = Path(__file__).parent / "fixtures" / fixture
     shell = shutil.which("pwsh") or shutil.which("powershell")

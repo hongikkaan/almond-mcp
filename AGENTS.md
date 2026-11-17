@@ -32,7 +32,7 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 ## 일상 실행과 최초 설치
 
-일상 폴더는 브랜치 이름과 무관하게 `C:\TOOL\Rhino\mcp\almond-mcp`다. 평소 Rhino의 Bridge/AlmondRhino 등록과 CoS command/args를 이곳에 고정한다. 통합 검수에서 사용자가 워크트리 런타임 직접 등록을 허가하면 [검수 절차](tests/README.md#실제-rhino-통합-검수)의 임시 등록·복구를 따른다.
+일상 폴더는 브랜치 이름과 무관하게 `C:\TOOL\Rhino\mcp\almond-mcp`다. 평소 Rhino의 Bridge/AlmondRhino 등록과 CoS command/args를 이곳에 고정한다. 통합 검수에서 사용자가 워크트리 런타임 직접 등록을 허가하면 [검수 절차](tests/README.md#실제-rhino-통합-검수)의 임시 등록·복구를 따른다. 사용 중인 Rhino는 기존에 로드한 assembly를 계속 사용하므로 유지한다. 검수용 새 PID·시작 시각으로 워크트리 RHP 로드를 확인하면 기존 등록을 즉시 원복하고 시험 모델의 연결을 검증한다. 종료와 기능 검사는 식별한 검수 인스턴스만 대상으로 한다.
 
 최초 설치에는 해당 환경의 host/worker와 Rhino 연결을 종료한 뒤 리포 루트에서 실행한다.
 
@@ -94,6 +94,8 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 공개 도구명은 `<category>_<NN>-<name>`을 사용하며 기존 이름의 별칭은 등록하지 않는다. DESCRIPTION·입력 설명·후속 안내에서 등록된 도구를 언급할 때는 `<공개 도구명> tool`로 표기한다. Python 함수명·native command·DB 식별자는 공개 호출명과 구분한다.
 
 공개 도구 계약에 영향을 주는 변경을 마무리할 때 구현 옆 `*-explain.md`의 도구 설명·입력 안내, [출력 계약](src/mcp/output_contracts.py), [공통 공개 스키마 기준](tests/integration/tool_schemas.json)을 현재 구현과 실제 공개 스키마에 대조하고, 달라진 내용을 갱신한다. 코드 기반 예시와 실제 Rhino 검증 결과를 구분한다.
+
+커밋 전에는 [현행 툴 선언](TOOL-DECLARATIONS-CURRENT.md)을 현재 체크아웃의 beyond·CoS `tools/list`와 대조해 도구 목록·설명·입력·출력 스키마 및 공통 안내 전달 방식을 최신 상태로 맞춘다. 두 외부 경로의 선언 일치와 문서의 누락·폐기 도구 여부를 확인한 뒤 함께 커밋한다.
 
 ## 검증
 
