@@ -302,7 +302,13 @@ def test_embedded_algorithm_is_a_runtime_source_and_stale_changes_are_detected(t
     target = tmp_path / source
     target.parent.mkdir(parents=True)
     target.write_text("algorithm v1\n", encoding="utf-8")
-    manifest = {"sources": {source: verifier.source_digest(target)}, "files": {}}
+    files = {}
+    for relative in verifier.required_outputs("bridge"):
+        output = tmp_path / relative
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(b"isolated runtime fixture")
+        files[relative] = verifier.digest(output)
+    manifest = {"component": "bridge", "sources": {source: verifier.source_digest(target)}, "files": files}
     assert verifier.verify(tmp_path, manifest) == []
     target.write_text("algorithm v2\n", encoding="utf-8")
     assert verifier.verify(tmp_path, manifest) == [source]

@@ -12,44 +12,50 @@ import json
 
 
 from almond_mcp.store_common import ComponentReconciliationError
+
+
+def send_component_request(send, request: dict) -> dict:
+    """Capability-check before one native operation; never retry an uncertain mutation."""
+    payload = json.dumps(request, allow_nan=False).encode("utf-8")
+    if len(payload) > 2_097_152:
+        return {"status": "error", "mutation_applied": False, "message": "Component request exceeds 2 MiB."}
+    try:
+        rhino_context = json.loads(send(b'{"type":"get_rhino_context","selection_limit":0}'))
+        if not isinstance(rhino_context, dict) or rhino_context.get("status") != "success":
+            raise ValueError("Could not inspect the bound Rhino document.")
+        if rhino_context.get("capabilities", {}).get("design_components") != 1:
+            raise ValueError(read_instruction(__file__, 'response-566'))
+        if rhino_context.get("capabilities", {}).get("component_registry") != 2:
+            raise ValueError("Load a Bridge with component_registry=2 before using object-free Component registration.")
+        if (request.get("action") == "upsert" and request.get("object_ids") is None
+                and rhino_context.get("capabilities", {}).get("component_group_inference") != 1):
+            raise ValueError("Load a Bridge with component_group_inference=1 before omitting object_ids.")
+    except Exception as exc:
+        return {"status": "error", "mutation_applied": False, "message": str(exc)}
+    response = send(payload)
+    if len(response.encode("utf-8")) > 2_097_152:
+        raise ValueError("Component response exceeds 2 MiB.")
+    result = json.loads(response)
+    if not isinstance(result, dict):
+        raise ValueError("Invalid native Component response.")
+    return result
+
+
+def component_error(exc: Exception) -> str:
+    result = error_payload(str(exc))
+    result.update(getattr(exc, "native_result", {}))
+    if isinstance(exc, ComponentReconciliationError):
+        result.update(error_code="component_reconciliation_required", requires_reconciliation=True,
+                      component_id=exc.component_id, expected_model_path=exc.model_path)
+    return json.dumps(result, ensure_ascii=False)
+
+
 def register(mcp, context):
     from almond_mcp.features.components.intersection_workflow import Workflow
-    # The managed runtime binds the sender after registration. Keep this
-    # Workflow's review state, but resolve the owning context on every call.
-    intersection_workflow = Workflow(lambda *args, **kwargs: context._send_and_receive(*args, **kwargs))
-    def _component_bridge(request: dict) -> dict:
-        """Capability-check before one native operation; never retry an uncertain mutation."""
-        payload = json.dumps(request, allow_nan=False).encode("utf-8")
-        if len(payload) > 2_097_152:
-            return {"status": "error", "mutation_applied": False, "message": "Component request exceeds 2 MiB."}
-        try:
-            rhino_context = json.loads(context._send_and_receive(b'{"type":"get_rhino_context","selection_limit":0}'))
-            if not isinstance(rhino_context, dict) or rhino_context.get("status") != "success":
-                raise ValueError("Could not inspect the bound Rhino document.")
-            if rhino_context.get("capabilities", {}).get("design_components") != 1:
-                raise ValueError(read_instruction(__file__, 'response-566'))
-            if rhino_context.get("capabilities", {}).get("component_registry") != 2:
-                raise ValueError("Load a Bridge with component_registry=2 before using object-free Component registration.")
-            if (request.get("action") == "upsert" and request.get("object_ids") is None
-                    and rhino_context.get("capabilities", {}).get("component_group_inference") != 1):
-                raise ValueError("Load a Bridge with component_group_inference=1 before omitting object_ids.")
-        except Exception as exc:
-            return {"status": "error", "mutation_applied": False, "message": str(exc)}
-        response = context._send_and_receive(payload)
-        if len(response.encode("utf-8")) > 2_097_152:
-            raise ValueError("Component response exceeds 2 MiB.")
-        result = json.loads(response)
-        if not isinstance(result, dict):
-            raise ValueError("Invalid native Component response.")
-        return result
+    intersection_workflow = Workflow(context._send_and_receive)
 
-    def _component_error(exc: Exception) -> str:
-        result = error_payload(str(exc))
-        result.update(getattr(exc, "native_result", {}))
-        if isinstance(exc, ComponentReconciliationError):
-            result.update(error_code="component_reconciliation_required", requires_reconciliation=True,
-                          component_id=exc.component_id, expected_model_path=exc.model_path)
-        return json.dumps(result, ensure_ascii=False)
+    def observe(request):
+        return send_component_request(context._send_and_receive, request)
 
     def _component_ack(component: dict) -> dict:
         return {key: component[key] for key in (
@@ -72,11 +78,11 @@ def register(mcp, context):
             component = context.retrieval_store.upsert_component(
                 model_path=bound_model_path(expected_model_path), name=name, object_ids=object_ids,
                 scene_ids=scene_ids, component_id=holon_id, rhino_group_id=rhino_group_id,
-                native_apply=_component_bridge, child_component_ids=child_holon_ids,
+                native_apply=observe, child_component_ids=child_holon_ids,
             )
             return json.dumps({"status": "success", "component": _component_ack(component)}, ensure_ascii=False)
         except Exception as exc:
-            return _component_error(exc)
+            return component_error(exc)
 
     @mcp.tool(name='scene_05-get_holon', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_ontological_holon', wrapped=True))
     @mcp_error_result
@@ -88,7 +94,7 @@ def register(mcp, context):
         validate_field_groups(field_groups, GROUPS)
         try:
             component = context.retrieval_store.get_component(
-                holon_id, live=live, native_inspect=_component_bridge if live else None,
+                holon_id, live=live, native_inspect=observe if live else None,
             )
             if component is None:
                 raise KeyError(f"Unknown component_id: {holon_id}")
@@ -97,7 +103,7 @@ def register(mcp, context):
                              if key not in {"effective_objects", "effective_object_ids"}}
             return json.dumps(project({"status": "success", "component": component}, field_groups), ensure_ascii=False)
         except Exception as exc:
-            return json.dumps(project(json.loads(_component_error(exc)), field_groups))
+            return json.dumps(project(json.loads(component_error(exc)), field_groups))
 
     @mcp.tool(name='scene_08-list_holons', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_ontological_holons', wrapped=True))
     @tool_instruction(__file__, 'list_ontological_holons')
@@ -112,7 +118,7 @@ def register(mcp, context):
             return json.dumps(project({"status": "success", "components": components, "total": len(components),
                                "live_verified": False}, field_groups), ensure_ascii=False)
         except Exception as exc:
-            return json.dumps(project(json.loads(_component_error(exc)), field_groups))
+            return json.dumps(project(json.loads(component_error(exc)), field_groups))
 
     @mcp.tool(name='scene_11-sync_holon', output_schema=public_output_schema('sync_ontological_holon', wrapped=True))
     @tool_instruction(__file__, 'sync_ontological_holon')
@@ -132,7 +138,7 @@ def register(mcp, context):
             result = context.retrieval_store.align_components(
                 model_path=bound_model_path(expected_model_path),
                 component_ids=[holon_id] if holon_id else holon_ids,
-                scene_id=scene_id, native_inspect=_component_bridge,
+                scene_id=scene_id, native_inspect=observe,
                 expected_groups={holon_id: rhino_group_id} if rhino_group_id else None)
             if holon_id:
                 component = context.retrieval_store.get_component(holon_id)
@@ -142,17 +148,17 @@ def register(mcp, context):
                     result["component"] = _component_ack(dict(component, live_verified=True))
             return json.dumps(result, ensure_ascii=False)
         except Exception as exc:
-            return _component_error(exc)
+            return component_error(exc)
 
     @mcp.tool(name='scene_09-remove_holon', annotations={'destructiveHint': False}, output_schema=public_output_schema('remove_ontological_holon', wrapped=True))
     @tool_instruction(__file__, 'remove_ontological_holon')
     @holon_output
     def remove_ontological_holon(holon_id: str) -> str:
         try:
-            component = context.retrieval_store.unregister_component(holon_id, native_apply=_component_bridge)
+            component = context.retrieval_store.unregister_component(holon_id, native_apply=observe)
             return json.dumps({"status": "success", "component": _component_ack(component)}, ensure_ascii=False)
         except Exception as exc:
-            return _component_error(exc)
+            return component_error(exc)
 
     def _component_operation_bridge(action: str, expected_model_path: str,
                                     component_ids: list[str], max_pairs: int = 64,
@@ -221,8 +227,6 @@ def register(mcp, context):
         return _component_operation_bridge("focus", expected_model_path, holon_ids)
 
     return {
-        "_component_bridge": _component_bridge,
-        "_component_error": _component_error,
         "upsert_ontological_holon": upsert_ontological_holon,
         "get_ontological_holon": get_ontological_holon,
         "list_ontological_holons": list_ontological_holons,

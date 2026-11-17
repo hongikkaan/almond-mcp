@@ -42,6 +42,10 @@ class LoadTable:
         self.assets = data.get("assets", {})
         self.categories = data.get("category_defaults", {})
 
+    @classmethod
+    def from_library(cls, directory: Path | str):
+        return cls(Path(directory) / "structural-loads.json")
+
     def lookup(self, asset_id: str, category: str = "") -> dict | None:
         """Load entry for an asset: its own entry, else its category default (marked)."""
         if asset_id in self.assets:

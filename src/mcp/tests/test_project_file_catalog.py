@@ -87,6 +87,72 @@ def test_legacy_catalog_and_ordered_file_links_migrate_to_the_canonical_names(tm
         ) for row in db.execute(f"PRAGMA table_info({table})"))
 
 
+def _database_snapshot(path):
+    with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as db:
+        schema = db.execute("SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name").fetchall()
+        rows = {
+            name: sorted(db.execute(f'SELECT * FROM "{name}"').fetchall(), key=repr)
+            for kind, name, _, _ in schema if kind == "table"
+        }
+        assert db.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+        return schema, rows
+
+
+@pytest.mark.parametrize("failure", ["file-key-update", "final-foreign-key-check"])
+def test_failed_initialization_preserves_committed_schema_and_rows(tmp_path, failure):
+    path = tmp_path / "legacy.sqlite3"
+    _legacy_database(path)
+    with closing(sqlite3.connect(path)) as db, db:
+        db.executescript("""
+            CREATE TABLE validation_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, ran_at TEXT NOT NULL, structure_type TEXT NOT NULL,
+                material TEXT NOT NULL, load_kn REAL NOT NULL, member_count INTEGER NOT NULL,
+                analysis_method TEXT NOT NULL, confidence TEXT NOT NULL, passed INTEGER NOT NULL,
+                span_m REAL NOT NULL, max_deflection_mm REAL NOT NULL, deflection_limit_mm REAL NOT NULL,
+                utilization_ratio REAL NOT NULL, max_stress_mpa REAL NOT NULL, yield_stress_mpa REAL NOT NULL,
+                reactions_kn REAL NOT NULL, verdict TEXT NOT NULL, warnings_json TEXT NOT NULL, guids_json TEXT NOT NULL
+            );
+            INSERT INTO validation_runs VALUES
+                (13, '2026-11-10', 'beam', 'Steel', 10, 1, 'native', 'high', 1,
+                 2, 0.5, 8, 0.2, 20, 235, 10, 'old verdict', '["warning"]', '["shape_guid"]');
+            UPDATE sqlite_sequence SET seq = 89 WHERE name = 'validation_runs';
+        """)
+        # file_name first exists during the file-key migration, after structural,
+        # semantic and Plan initialization. Use real SQLite faults at that point.
+        if failure == "file-key-update":
+            db.execute("""
+                CREATE TRIGGER migration_fixture AFTER UPDATE OF file_name ON generation_phases
+                BEGIN SELECT RAISE(ABORT, 'fixture failed during file-key migration'); END
+            """)
+            error, message = sqlite3.IntegrityError, "fixture failed during file-key migration"
+        else:
+            db.executescript("""
+                CREATE TABLE fixture_parent(id INTEGER PRIMARY KEY);
+                CREATE TABLE fixture_child(id INTEGER REFERENCES fixture_parent(id));
+                CREATE TRIGGER migration_fixture AFTER UPDATE OF file_name ON generation_phases
+                BEGIN INSERT INTO fixture_child VALUES (99); END;
+            """)
+            error, message = ValueError, "DB migration found invalid relationships"
+
+    before = _database_snapshot(path)
+    assert before[1]["sqlite_sequence"] == [("validation_runs", 89)]
+    for _ in range(2):
+        with pytest.raises(error, match=message):
+            AlmondStore(path)
+        assert _database_snapshot(path) == before
+
+    with closing(sqlite3.connect(path)) as db, db:
+        db.execute("DROP TRIGGER migration_fixture")
+    store = AlmondStore(path)
+    assert store.get_phase("phase_existing")["file_names"] == ["Site.3dm", "Building.3dm"]
+    assert [(run["id"], run["status"]) for run in store.list_validation_runs()] == [(13, "pass")]
+    after = _database_snapshot(path)
+    assert after[1]["sqlite_sequence"] == [("validation_runs", 89)]
+    AlmondStore(path)
+    assert _database_snapshot(path) == after
+
+
 def test_legacy_case_collision_reports_both_paths_and_does_not_modify_database(tmp_path):
     path = tmp_path / "scene.sqlite3"
     _legacy_database(path)

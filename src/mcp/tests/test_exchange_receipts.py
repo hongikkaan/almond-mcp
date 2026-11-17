@@ -12,9 +12,8 @@ import uuid
 from fastmcp import Client, FastMCP
 import pytest
 
-from almond_mcp.feature_context import FeatureContext
-from almond_mcp.features.exchange import tools as exchange_tools
-from compat_almond import install
+from almond_mcp.features.exchange.tools import Exchange, ExchangeReports
+from mcp_server import managed_exchange_reports
 from project import connection_paths, read_json, write_json
 from shared_store import ProjectRuntime
 
@@ -29,12 +28,13 @@ def output_path(script, writer, folder):
 
 class NativeImport:
     """Controlled Rhino transport; the real import helper and receipt reader run unchanged."""
-    def __init__(self, folder, *, count=2, receipt=True, count_delta=0, restore_count=None):
+    def __init__(self, folder, *, count=2, receipt=True, count_delta=0, restore_count=None, report=True):
         self.folder = folder
         self.ids = [str(uuid.uuid4()) for _ in range(count)]
         self.receipt = receipt
         self.count_delta = count_delta
         self.restore_count = count if restore_count is None else restore_count
+        self.report = report
         self.scripts = []
 
     def send(self, payload, **kwargs):
@@ -47,30 +47,29 @@ class NativeImport:
             if self.receipt:
                 output_path(request["script"], "WriteAllLines", self.folder).write_text("\n".join(self.ids), encoding="utf-8")
             return json.dumps({"status": "success", "result": {"imported_count": len(self.ids) + self.count_delta}})
-        output_path(request["script"], "WriteAllText", self.folder).write_text(json.dumps({
-            "stamped": len(self.ids), "deduped": 0, "width": 100, "depth": 100, "height": 100}))
+        if self.report:
+            output_path(request["script"], "WriteAllText", self.folder).write_text(json.dumps({
+                "stamped": len(self.ids), "deduped": 0, "width": 100, "depth": 100, "height": 100}))
         return json.dumps({"status": "success", "result": {"restored_count": self.restore_count}})
 
 
 def server(native, runtime=None):
     contract = {"asset_id": "import-example", "source_app": "blender", "materials": [],
                 "spatial": {"anchor": "bottom_center"}, "_resolved_file": str(native.folder / "model.glb")}
-    services = SimpleNamespace(
-        exchange=SimpleNamespace(dimension_report=lambda contract, report: {"status": "match"}),
-        material_library=SimpleNamespace(get=lambda _: None),
-        tempfile=SimpleNamespace(gettempdir=lambda: str(native.folder)),
-        _send_and_receive=native.send)
+    send = native.send
+    reports = lambda: ExchangeReports(native.folder)
+    if runtime is not None:
+        send = lambda payload, **kwargs: runtime.send(native.send, payload, **kwargs)
+        reports = lambda: managed_exchange_reports(runtime)
+    exchange = Exchange(send, SimpleNamespace(get=lambda _: None), reports,
+                        dimension_report=lambda contract, report: {"status": "match"})
     mcp = FastMCP("exchange-receipt")
-    services._feature_context = FeatureContext(vars(services))
-    vars(services).update(exchange_tools.register(mcp, services._feature_context))
 
     @mcp.tool(name="fixture_01-place_asset")
     def place_asset() -> str:
-        return json.dumps(services._receive_contract(copy.deepcopy(contract), 0, 0, 0, 0, "fixture"))
+        return json.dumps(exchange.receive_contract(copy.deepcopy(contract), 0, 0, 0, 0, "fixture"))
 
     if runtime is not None:
-        services._send_and_receive = lambda payload, **kwargs: runtime.send(native.send, payload, **kwargs)
-        install(services, runtime)
         mcp.add_middleware(runtime)
     return mcp
 
@@ -138,16 +137,12 @@ class ExchangeReceiptTests(unittest.TestCase):
             folder = Path(folder)
             ids = {"A": str(uuid.uuid4()), "B": str(uuid.uuid4())}
             restored = {}
-            context = SimpleNamespace(
-                exchange=SimpleNamespace(dimension_report=lambda contract, report: {"status": "match"}),
-                material_library=SimpleNamespace(get=lambda _: None),
-                tempfile=SimpleNamespace(gettempdir=lambda: str(folder)))
             other = {}
 
             def receive(label):
                 contract = {"asset_id": label, "materials": [], "spatial": {},
                             "_resolved_file": str(folder / f"{label}.glb")}
-                return context._receive_contract(contract, 0, 0, 0, 0, "fixture")
+                return exchange.receive_contract(contract, 0, 0, 0, 0, "fixture")
 
             def send(payload, **kwargs):
                 request = json.loads(payload)
@@ -167,8 +162,8 @@ class ExchangeReceiptTests(unittest.TestCase):
                     json.dumps({"stamped": 0, "deduped": 0, "width": 1, "depth": 1, "height": 1}), encoding="utf-8")
                 return json.dumps({"status": "success", "result": {"restored_count": 1}})
 
-            context._send_and_receive = send
-            context.__dict__.update(exchange_tools.register(FastMCP("interleaved"), context))
+            exchange = Exchange(send, SimpleNamespace(get=lambda _: None), lambda: ExchangeReports(folder),
+                                dimension_report=lambda contract, report: {"status": "match"})
             first = receive("A")
             for label, result in (("A", first), ("B", other["result"])):
                 self.assertEqual(result["status"], "success", result)
@@ -194,8 +189,8 @@ class ExchangeReceiptTests(unittest.TestCase):
             self.assertEqual(len(list(Path(folder).glob("almond_imported_*.txt"))), 1)
 
 
-@pytest.mark.parametrize("lose_reply", [False, True], ids=["confirmed", "lost-reply"])
-def test_managed_import_owns_receipts_until_native_completion(lose_reply):
+@pytest.mark.parametrize("outcome", ["confirmed", "lost-reply", "missing-report"])
+def test_managed_import_owns_receipts_until_native_completion(outcome):
     with tempfile.TemporaryDirectory(prefix="한글 작업-") as folder:
         model = Path(folder) / "fixture.3dm"
         model.touch()
@@ -208,7 +203,7 @@ def test_managed_import_owns_receipts_until_native_completion(lose_reply):
         write_json(ready.with_name("worker.json"), {"pid": 1, "process_start_ticks": "1"})
         runtime = ProjectRuntime(SimpleNamespace(token=token, session=str(ready)),
                                  binding, locations, check_owner=False)
-        native = NativeImport(model.parent)
+        native = NativeImport(model.parent, report=outcome != "missing-report")
         respond = native.send
         requests = []
 
@@ -226,7 +221,7 @@ def test_managed_import_owns_receipts_until_native_completion(lose_reply):
                 assert not list(native.folder.iterdir())
             sequence = len(requests)
             reply = respond(envelope["payload"], **kwargs)
-            if lose_reply and sequence == 2:
+            if outcome == "lost-reply" and sequence == 2:
                 raise TimeoutError("reply lost after native import")
             write_json(ready.with_name("native.json"), {
                 "schema": "almond-native", "token": token, "operation_id": operation["operation_id"],
@@ -241,15 +236,18 @@ def test_managed_import_owns_receipts_until_native_completion(lose_reply):
         result = call_import(native, runtime)
         state = read_json(ready.with_name("operation.json"))["state"]
         receipt = output_path(native.scripts[0], "WriteAllLines", native.folder)
-        if lose_reply:
+        if outcome == "lost-reply":
             assert result["status"] == "error" and result["requires_reconciliation"], result
             assert result["mutation_applied"] is None
             assert state == "unconfirmed" and runtime.completion()["native_uncertain"]
             assert receipt.read_text(encoding="utf-8").splitlines() == native.ids
             assert len(requests) == 2
         else:
-            assert result["status"] == "success", result
-            assert result["imported_guids"] == native.ids and result["metadata_restored"] == len(native.ids)
+            assert result["imported_guids"] == native.ids
+            if outcome == "missing-report":
+                assert result["status"] == "error" and "report is unverified" in result["message"], result
+            else:
+                assert result["status"] == "success" and result["metadata_restored"] == len(native.ids), result
             assert state == "completed" and not runtime.completion()["native_uncertain"]
             assert len(requests) == 3 and not native.folder.exists()
 

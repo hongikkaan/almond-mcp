@@ -220,6 +220,16 @@ class ProjectRuntime(Middleware):
         self.workspace = None
         self.operation_active = False
         self.rhinocode = None
+        self.rhinocode_wait_cap = None
+
+    def configure_rhinocode_wait(self, wait_cap_seconds=None):
+        """External adapters may bound their first reply without changing tools."""
+        if self.operation_active:
+            raise RuntimeError("Cannot change the wait policy during an active operation.")
+        if (wait_cap_seconds is not None and
+                (type(wait_cap_seconds) not in (int, float) or not 0 < wait_cap_seconds <= 600)):
+            raise ValueError("The runtime wait cap must be positive and at most 600 seconds.")
+        self.rhinocode_wait_cap = wait_cap_seconds
 
     def _official_cli(self):
         if self.rhinocode is None:
@@ -265,7 +275,8 @@ class ProjectRuntime(Middleware):
         return self._official_cli().execute(
             script=script, language=language, timeout_seconds=timeout_seconds,
             operation_id=batch.operation_id, operation_dir=operation_dir,
-            register=batch.register_external, artifact_dir=work["artifact_dir"], **options)
+            register=batch.register_external, artifact_dir=work["artifact_dir"],
+            wait_cap_seconds=self.rhinocode_wait_cap, **options)
 
     def get_rhino_execution(self, request_id="", offset=0, limit=100, include_result=True,
                             include_stdout=False, result_fields=None, include_ids=True):
@@ -418,6 +429,8 @@ class ProjectRuntime(Middleware):
 
     async def _finish_operation(self, operation_id, batch, operation_path, operation):
         self.last = await self._completion(operation_id, batch)
+        if operation.get("caller_request_id"):
+            self.last["caller_request_id"] = operation["caller_request_id"]
         self.unconfirmed = self.last["uncertain"]
         operation["state"] = "unconfirmed" if self.unconfirmed else "completed"
         write_json(operation_path, operation)
@@ -498,6 +511,17 @@ class ProjectRuntime(Middleware):
         operation_id = uuid.uuid4().hex
         operation_dir = Path(self.locations["call_root"]) / operation_id
         args = dict(context.message.arguments or {})
+        # FastMCP rebuilds the tool middleware message and retains only version
+        # metadata there. The public request context owns the original wire meta.
+        server_context = getattr(context, "fastmcp_context", None)
+        request_context = getattr(server_context, "request_context", None)
+        meta = (getattr(request_context, "meta", None) if request_context is not None
+                else getattr(context.message, "meta", None)) or {}
+        caller_request_id = meta.get("almond/caller_request_id") if isinstance(meta, dict) else None
+        if caller_request_id is not None:
+            if (not isinstance(caller_request_id, str) or len(caller_request_id) != 32
+                    or any(char not in "0123456789abcdef" for char in caller_request_id)):
+                raise ValueError("Invalid internal caller request identity; no operation was started.")
         try:
             args, work, capture_save_error = self._prepare_arguments(name, args, operation_dir, capture_save_error)
         except ValueError as exc:
@@ -534,10 +558,14 @@ class ProjectRuntime(Middleware):
             "temp": str(operation_dir), "state": "running",
             "artifact_write": artifact_write,
         }
+        if caller_request_id:
+            operation["caller_request_id"] = caller_request_id
         write_json(operation_path, operation)
         if operation["artifact_write"]:
             write_json(operation_path.with_name("artifact-write.json"), operation)
         self.last = {"pending": True, "uncertain": False, "operation_id": operation_id}
+        if caller_request_id:
+            self.last["caller_request_id"] = caller_request_id
         self.operation_active = True
         previous = {key: os.environ.get(key) for key in (
             "TEMP", "TMP", "TMPDIR", "ALMOND_ARTIFACT_DIR", "ALMOND_CAPTURE_ROOT",
@@ -565,6 +593,8 @@ class ProjectRuntime(Middleware):
                 except BaseException:
                     self.unconfirmed = True
                     self.last = {"pending": True, "uncertain": True, "operation_id": operation_id}
+                    if caller_request_id:
+                        self.last["caller_request_id"] = caller_request_id
                     batch.seal()
                     raise
                 finally:

@@ -1,6 +1,6 @@
 # Python MCP와 연결 실행기
 
-- `src/mcp/server.py`는 공통 MCP 도구를 조립한다. `src/mcp/runtime`은 checkout CLI·세션 바인딩·저장소·Rhino 문서 연결 실행기이며 외부 연결기에는 공개 확장 훅을 제공한다. Python MCP가 외부 연결기 구현을 import하지 않는다.
+- `src/mcp/startup.py`의 `create_server`는 명시적 DB·라이브러리 경로와 전송 함수를 받아 서버별 `FeatureContext`를 조립한다. `server.py`·CLI·bound runtime은 이 생성 경계를 사용하며 import만으로 DB나 라이브러리를 초기화하지 않는다. `tool_declarations.py`는 실행 등록과 같은 기능 목록에서 선언을 읽어 BASIC 이름 목록과 외부 catalog에 제공한다. `store_database.py`는 SQLite 연결과 초기 DDL부터 최종 FK 검사까지의 쓰기 트랜잭션을 소유하고 `AlmondStore`는 기능 저장소 인터페이스를 유지한다. `src/mcp/runtime`은 checkout CLI·세션 바인딩·저장소·Rhino 문서 실행기이며 외부 연결기에 공개 구성 훅을 제공한다. Python MCP가 외부 연결기 구현을 import하지 않는다. 상세 경계는 `src/mcp/SPEC.md`를 따른다.
 - 모델링·도면·Scene/Component·Plan·자산의 책임과 계약은 `src/mcp/SPEC.md`와 기능별 문서. 고정 조회와 일반 수정 실행은 `src/mcp/rhino/OBSERVATION-SPEC.md`를 따른다.
 - Rhino 문서 전용 실행기와 beyond·CoS host는 공용 `modeling_guidance.py`를 통해 initialize.instructions에 `BASIC-INSTRUCTIONS.md`와 `design_judgment.md`를 전달한다. 시작 문서의 가용 상태와 본문은 guide_version에 반영한다. 상세 정책은 context_01-get_policy tool, 도구별 공개 설명은 구현 옆 Markdown, 동적 후속 안내는 `tool_guidance.py` 경로로 전달된다.
 - 프로젝트 초기 조회의 관찰 요청과 응답 조립은 `features/context/project_info.py`가 맡는다. 연결 설정은 바인딩을 확인한다. MCP 조회와 첨부 범위를 지정한 PlanSection 호출에서 사용하는 Worksession 정보는 Rhino의 읽기 전용 관측이다.

@@ -5,8 +5,7 @@ Example (Windows, outside Rhino):
 
 The loopback endpoint is selected ONLY in this Python process's memory.
 Models in one directory share DB. Connection metadata and scratch are separate.
-The launcher uses internal module names, not an upstream-supported port option.
-The existing sender wrapper adds connection/request identity in this process only.
+The selected endpoint and managed sender are supplied when the server is built.
 """
 from __future__ import annotations
 from almond_mcp.output_contracts import public_output_schema
@@ -176,78 +175,75 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
         return result
 
 
+def managed_exchange_reports(runtime):
+    from almond_mcp.features.exchange.tools import ExchangeReports
+    from storage_cleanup import plain_descendant
+
+    batch = runtime.scope.get()
+    if batch is None or batch.sealed:
+        raise RuntimeError("No active operation for Almond asset helper reports.")
+    # send() creates this directory only after admitting the capability request.
+    # The report helper may use the owned directory, but cannot create it.
+    directory = Path(runtime.locations["call_root"]) / batch.operation_id
+    return ExchangeReports(plain_descendant(directory, Path(runtime.locations["temp"])), managed=True)
+
+
 def serve(args, binding, locations, db, *, configure=None):
-    # No import-time SQLite access occurs before the project lease is acquired.
+    from almond_mcp.bridge_transport import BridgeTransport
+    from almond_mcp.startup import create_server
+    from library_paths import bound_library_dirs
+    from shared_store import ProjectRuntime, StoreGate
+    from storage_cleanup import migrate_database, cleanup_retired_sessions
+    from workspace import Workspace
+
+    # These worker-process values are used by managed path helpers and scripts.
+    # The store and transport below receive their configuration explicitly.
     os.chdir(locations['project_dir'])
     os.environ["ALMOND_PROJECT_ROOT"] = locations["project_dir"]
     os.environ["ALMOND_MODEL_PATH"] = locations["model_path"]
 
-    # Must be set BEFORE server.py imports and creates its scene store.
-    os.environ["RHINO_MCP_STATE_DB"] = str(db)
+    transport = BridgeTransport("127.0.0.1", args.port)
+    runtime = ProjectRuntime(args, binding, locations)
 
-    from shared_store import ProjectRuntime, StoreGate
-    # SQLite's initialization, reindex transactions and closing checkpoints must
-    # not race a second worker. The original store and library resolver are used.
+    def bound_sender(payload_bytes, *positional, **keywords):
+        return runtime.send(transport, payload_bytes, *positional, **keywords)
+
+    # Serialize SQLite initialization, reindexing and closing checkpoints
+    # against other workers sharing this project.
     with StoreGate(locations['storage']):
-        from storage_cleanup import migrate_database, cleanup_retired_sessions
         migrate_database(locations, args.token)
         cleanup_retired_sessions(Path(locations['storage']), exclude_token=args.token)
-        from library_paths import configure_library_paths
-        configure_library_paths()
-        from almond_mcp import paths
-        library_dirs = {variable: str(paths.resolve_dir(variable)) for variable in paths.LIBRARY_DIRS}
-        from almond_mcp import server
+        library_dirs = bound_library_dirs()
+        application = create_server(
+            state_db=db,
+            library_dirs=library_dirs,
+            send=bound_sender,
+            execute_source=runtime.execute_rhinocode,
+            exchange_reports=lambda: managed_exchange_reports(runtime),
+        )
     worker_path = Path(locations['session_dir']) / 'worker.json'
     worker = read_json(worker_path)
     worker['library_dirs'] = library_dirs
     write_json(worker_path, worker)
 
-    # Fail rather than silently falling back to the wrong Rhino on port 5000
-    # if an upstream update has changed the expected transport helper.
-    sender = getattr(server, "_send_and_receive", None)
-    code = getattr(sender, "__code__", None)
-    if (not hasattr(server, "BRIDGE_HOST") or
-            not hasattr(server, "BRIDGE_PORT") or code is None or
-            "BRIDGE_HOST" not in code.co_names or
-            "BRIDGE_PORT" not in code.co_names):
-        raise RuntimeError(
-            "Unsupported Almond transport implementation. "
-            "No MCP service has been started. Recheck the installed package source.")
-
-    server.BRIDGE_HOST = "127.0.0.1"
-    server.BRIDGE_PORT = args.port
-    runtime = ProjectRuntime(args, binding, locations)
-    from workspace import Workspace
-    runtime.workspace = Workspace(locations, server.retrieval_store)
-    original_sender = server._send_and_receive
-
-    def bound_sender(payload_bytes, *positional, **keywords):
-        return runtime.send(original_sender, payload_bytes, *positional, **keywords)
-
-    # Retain the existing process-local sender wrapper. The installed function's
-    # socket/framing implementation is called unchanged with an owned envelope.
-    server._send_and_receive = bound_sender
-    server._execute_rhinocode = runtime.execute_rhinocode
-    from compat_almond import install
-    install(server, runtime)
-    server.mcp.add_middleware(runtime)
+    runtime.workspace = Workspace(locations, application.features.retrieval_store)
+    mcp = application.mcp
+    mcp.add_middleware(runtime)
 
     async def prepare():
-        await configure_project_context(server.mcp, args, binding, locations, sender=server._send_and_receive, runtime=runtime)
+        await configure_project_context(mcp, args, binding, locations, sender=bound_sender, runtime=runtime)
         if configure is not None:
-            await configure(server.mcp, args, binding, locations, runtime)
+            await configure(mcp, args, binding, locations, runtime)
 
     asyncio.run(prepare())
-    # This launcher is the RhinoTerminal session-bound server. The shared
-    # package server stays instruction-free for other launch modes.
-    configure_rhino_session_instructions(server.mcp)
+    configure_rhino_session_instructions(mcp)
     print("[AlmondParallel] Rhino target: {0}:{1}".format(
-        server.BRIDGE_HOST, args.port), file=sys.stderr)
+        transport.host, transport.port), file=sys.stderr)
     print("[AlmondParallel] Scene DB: {0}".format(db), file=sys.stderr)
     # Use the same MCP entry point as Almond's own cmd_serve.
     # stdout is reserved for the MCP protocol.
     print("[AlmondParallel] This is NOT a read-only service. Almond C# queries can create default layers.", file=sys.stderr)
-    server.mcp.run()
+    mcp.run()
     return 0
 
 

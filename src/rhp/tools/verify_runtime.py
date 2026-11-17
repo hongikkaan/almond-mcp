@@ -59,8 +59,28 @@ def source_files(root, component):
     return sorted({p for p in tracked if (root / p).is_file() and is_source(p, component)})
 
 
+def required_outputs(component):
+    """Minimum release payload, shared by recording and later verification."""
+    bundle = COMPONENT_BUNDLES[component]
+    entry = "RhinoAlmondBridge.rhp" if component == "bridge" else "AlmondRhino.rhp"
+    required = [f"{bundle}/{entry}", f"{bundle}/Almond.Engine.dll"]
+    if component == "bridge":
+        required += [f"{bundle}/{name}" for name in (
+            "LICENSE", "THIRD-PARTY-NOTICES.md", "archive/THIRD-PARTY-NOTICES.md",
+            "archive/ATTRIBUTION.txt", "archive/ui/vendor/LICENSE", "archive/ui/vendor/THIRD-PARTY-LICENSES.txt",
+            *(f"licenses/{name}-LICENSE.txt" for name in ("Porta.Pty", "Vanara", "addon-fit", "xterm")),
+        )]
+    return required
+
+
 def verify(root, manifest):
-    errors = []
+    component = manifest.get("component")
+    if component not in MANIFESTS:
+        return ["Unknown runtime manifest owner."]
+    # A manifest cannot omit the very files that make it a runnable release.
+    # Additional unrecorded files are not prohibited by this minimum contract.
+    errors = [relative for relative in required_outputs(component)
+              if relative not in manifest["files"]]
     for group in ("sources", "files"):
         for relative, expected in manifest[group].items():
             path = root / relative
@@ -73,14 +93,7 @@ def verify(root, manifest):
 def record(root, component):
     bundle = COMPONENT_BUNDLES[component]
     files = sorted(p.relative_to(root).as_posix() for p in (root / bundle).rglob("*") if p.is_file())
-    entry = "RhinoAlmondBridge.rhp" if component == "bridge" else "AlmondRhino.rhp"
-    required = [f"{bundle}/{entry}", f"{bundle}/Almond.Engine.dll"]
-    if component == "bridge":
-        required += [f"{bundle}/{name}" for name in (
-            "LICENSE", "THIRD-PARTY-NOTICES.md", "archive/THIRD-PARTY-NOTICES.md",
-            "archive/ATTRIBUTION.txt", "archive/ui/vendor/LICENSE", "archive/ui/vendor/THIRD-PARTY-LICENSES.txt",
-            *(f"licenses/{name}-LICENSE.txt" for name in ("Porta.Pty", "Vanara", "addon-fit", "xterm")),
-        )]
+    required = required_outputs(component)
     if not all(p in files for p in required):
         raise RuntimeError("Runtime bundles are missing executables or required license notices.")
     return {"format": 1, "component": component,

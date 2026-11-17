@@ -216,14 +216,9 @@ def cmd_paths(args: argparse.Namespace) -> int:
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
-    # Resolving before import scaffolds the user data dir on first run, so
-    # the module-level indexers in server.py find their directories.
-    for env_var in paths.LIBRARY_DIRS:
-        paths.resolve_dir(env_var)
-    from almond_mcp import server
+    from almond_mcp.server import serve_standalone
 
-    server.mcp.run()
-    return 0
+    return serve_standalone()
 
 
 def cmd_design_codes(args: argparse.Namespace) -> int:

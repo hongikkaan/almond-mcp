@@ -20,6 +20,8 @@ from almond_mcp.features.structure import asset_loads
 from almond_mcp import paths, managed_paths
 from almond_mcp.features.assets import asset_passport
 from almond_mcp.features.assets import drawing_assets, drafting, preparation, model_index
+from almond_mcp.features.exchange import exchange
+from almond_mcp.features.exchange.tools import Exchange
 
 
 def register(mcp, context):
@@ -238,7 +240,7 @@ def register(mcp, context):
                "file_available": asset.get("file_available", False),
                "preview_uri": f"almond://assets/{asset_id}/preview"}
         try:
-            table = asset_loads.LoadTable(context._structural_loads_path())
+            table = asset_loads.LoadTable.from_library(context.GENERATED_LIBRARY_DIR)
             entry = table.lookup(asset_id, asset.get("category", ""))
             if entry:
                 out["structural_loads"] = {**entry, "basis": table.basis}
@@ -623,10 +625,11 @@ public class Script
         contract_path = (library_root / contract_rel).resolve()
         try:
             contract_path.relative_to(library_root)
-            contract = context.exchange.load_contract(contract_path)
+            contract = exchange.load_contract(contract_path)
         except Exception as exc:
             return json.dumps(error_payload(str(exc)))
-        result = context._receive_contract(contract, x_mm, y_mm, z_mm, rotation_degrees, layer)
+        importer = Exchange(context._send_and_receive, context.material_library, context.exchange_reports)
+        result = importer.receive_contract(contract, x_mm, y_mm, z_mm, rotation_degrees, layer)
         if result.get("status") == "success":
             result.update({
                 "library_id": "generated_assets",
@@ -644,18 +647,25 @@ public class Script
     @query_output
     def search_asset_repository(query: str = "", kind: str = "all", drawing_ready: bool = False, limit: int = 20, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> dict:
         validate_field_groups(field_groups, GROUPS)
-        from almond_mcp.features.assets.asset_repository import AssetRepository
         try:
-            return project(AssetRepository().search(query, kind, drawing_ready, limit), field_groups)
+            return project(asset_repository().search(query, kind, drawing_ready, limit), field_groups)
         except ValueError as exc:
             return project(error_payload(str(exc)), field_groups)
 
 
+    def asset_repository():
+        from almond_mcp.features.assets.asset_repository import AssetRepository
+
+        return AssetRepository({
+            "drawing": Path(context.DRAWING_LIBRARY_DIR),
+            "drafting": Path(context.DRAFTING_LIBRARY_DIR),
+            "generated": Path(context.GENERATED_LIBRARY_DIR),
+        })
+
     @mcp.resource("almond://repository/{asset_id}")
     @tool_instruction(__file__, 'repository_asset_resource')
     def repository_asset_resource(asset_id: str) -> str:
-        from almond_mcp.features.assets.asset_repository import AssetRepository
-        repository = AssetRepository()
+        repository = asset_repository()
         record = repository.records.get(asset_id)
         if not record:
             raise ValueError("Unknown repository asset ID")

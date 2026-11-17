@@ -118,13 +118,9 @@ class StructureContext:
     def __init__(self, root):
         self.events = []
         self.overlay_number = 0
-        self._VIEW_ENGINE = None
         self.retrieval_store = AlmondStore(root / "scene.sqlite3")
         self.construction_library = SimpleNamespace(assess_span=lambda *args: {"warnings": []})
         self.__dict__.update(structure_tools.register(FastMCP("indicative"), self))
-
-    def set_state(self, name, value):
-        setattr(self, name, value)
 
     def _send_and_receive(self, payload, timeout=0):
         request = json.loads(payload)

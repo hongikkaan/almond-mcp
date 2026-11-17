@@ -1,6 +1,7 @@
 """Scene MCP tools registered against a per-server feature context."""
 from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.features.components.public_contract import holon_output
+from almond_mcp.features.components.tools import component_error, send_component_request
 from almond_mcp.query_output import compact_ack, query_output, select_fields, validate_field_groups
 from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.output_contracts import public_output_schema
@@ -20,6 +21,9 @@ SCENE_GROUPS = {
 
 
 def register(mcp, context):
+    def observe(request):
+        return send_component_request(context._send_and_receive, request)
+
     @mcp.tool(name='scene_07-list', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('list_design_scenes', wrapped=True))
     @tool_instruction(__file__, 'list_design_scenes')
     @query_output
@@ -81,10 +85,10 @@ def register(mcp, context):
     def add_scene_objects(scene_id: str, object_ids: list[str], expected_model_path: str = "") -> str:
         try:
             result = context.retrieval_store.change_scene_objects(scene_id, bound_model_path(expected_model_path),
-                object_ids, True, context._component_bridge, _observe)
+                object_ids, True, observe, _observe)
             return json.dumps({"status": "success", **result})
         except Exception as exc:
-            return context._component_error(exc)
+            return component_error(exc)
 
     @mcp.tool(name='scene_10-remove_objects', output_schema=public_output_schema('remove_scene_objects', wrapped=True))
     @mcp_error_result
@@ -92,10 +96,10 @@ def register(mcp, context):
     def remove_scene_objects(scene_id: str, object_ids: list[str], expected_model_path: str = "") -> str:
         try:
             result = context.retrieval_store.change_scene_objects(scene_id, bound_model_path(expected_model_path),
-                object_ids, False, context._component_bridge, _observe)
+                object_ids, False, observe, _observe)
             return json.dumps({"status": "success", **result})
         except Exception as exc:
-            return context._component_error(exc)
+            return component_error(exc)
 
     @mcp.tool(name='scene_06-get_objects', annotations={'readOnlyHint': True, 'destructiveHint': False}, output_schema=public_output_schema('get_scene_objects', wrapped=True))
     @mcp_error_result
@@ -110,14 +114,14 @@ def register(mcp, context):
             if type(limit) is not int or not 1 <= limit <= 200 or type(offset) is not int or offset < 0:
                 return json.dumps(error_payload("limit must be 1–200 and offset non-negative.", error_code="invalid_arguments"))
             model_path = bound_model_path(expected_model_path)
-            objects = context.retrieval_store.scene_objects(scene_id, model_path, context._component_bridge, _observe)
+            objects = context.retrieval_store.scene_objects(scene_id, model_path, observe, _observe)
             selected = [select_fields(obj, field_groups,
                 {"rhino_guid", "name", "object_type"}, SCENE_GROUPS) for obj in objects[offset:offset + limit]]
             return json.dumps({"status": "success", "scene_id": scene_id, "objects": selected,
                                "total": len(objects), "limit": limit, "offset": offset,
                                "truncated": offset + len(selected) < len(objects), "live_verified": True, "model_path": model_path}, ensure_ascii=False)
         except Exception as exc:
-            return context._component_error(exc)
+            return component_error(exc)
 
 
     return {

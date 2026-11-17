@@ -91,7 +91,7 @@ Args:
 
 Args:
     code: 비어 있지 않은 동기식 Python 3 코드. doc·scriptcontext.doc은 연결된 문서이며, 반환할 JSON 호환 값은 result에 할당합니다. 상대 경로는 선택된 산출물 폴더 기준입니다.
-    timeout_seconds: 1~600초의 정수, 기본 60초.
+    timeout_seconds: 1~600초의 정수, 기본 60초. 실행 종료가 아닌 완료 근거 대기 한도입니다. beyond·CoS는 첫 대기를 최대 60초로 줄여 pending과 request_id를 먼저 반환할 수 있습니다. 미완료 응답은 같은 ID로 script_03-get_execution tool을 조회합니다.
 <!-- /instruction:execute_project_python -->
 
 ## response-90

@@ -39,7 +39,7 @@ def fixture(tmp_path):
         actions.append("control_closed")
     async def state():
         return dict(pending=False, uncertain=False, native_uncertain=False, pid=321, process_start_ticks="654")
-    async def call(name, arguments):
+    async def call(name, arguments, *, caller_request_id=None):
         assert name == "script_02-run_rhino"
         assert arguments["language"] == "command" and arguments["script"] == "_Save"
         actions.append("save")
@@ -217,10 +217,10 @@ def test_concurrent_brokers_cannot_reuse_request_id_for_another_rhino(tmp_path):
         broker, conn, actions, behavior = fixture(tmp_path)
         entered, finish = asyncio.Event(), asyncio.Event()
         original = conn.worker.call
-        async def saving(name, arguments):
+        async def saving(name, arguments, *, caller_request_id=None):
             entered.set()
             await finish.wait()
-            return await original(name, arguments)
+            return await original(name, arguments, caller_request_id=caller_request_id)
         conn.worker.call = saving
         first = asyncio.create_task(broker.call("connect_05-close_session", {"request_id": "same-id"}))
         await entered.wait()
@@ -338,7 +338,7 @@ def test_foreign_guard_rejection_still_restores_original_owner_on_its_later_read
 def test_settled_worker_error_before_save_journal_does_not_strand_connection(tmp_path):
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
-        async def fail_before_execution(name, arguments):
+        async def fail_before_execution(name, arguments, *, caller_request_id=None):
             return error_result("ScriptServer unavailable before dispatch")
         conn.worker.call = fail_before_execution
         value = (await broker.call("connect_05-close_session", {"request_id": "save-not-dispatched"})).structured_content

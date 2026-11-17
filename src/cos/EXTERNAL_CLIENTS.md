@@ -40,6 +40,7 @@ Codex의 기존 등록 키 `rhino`와 클라이언트가 붙이는 namespace는 
 ```
 
 Codex 설정은 Python/host의 절대 경로, UTF-8, 시작 제한 120초·호출 제한 600초, AppData·TEMP와 명시적인 라이브러리 경로 전달을 포함한다. 표준 입출력은 MCP 전용이다.
+`script_01-run_project_python` tool과 `script_02-run_rhino` tool은 외부 연결에서 첫 완료 대기를 최대 60초로 제한한다. 더 짧은 timeout_seconds는 그대로 사용한다. 실행이 계속되면 pending과 정확한 request_id를 받아 `script_03-get_execution` tool로 같은 ID를 조회한다. 클라이언트의 600초 설정을 늘리거나 코드를 재실행하지 않는다. 준비·응답 회수가 지연될 때도 현재 실행의 저장 근거가 확인되어야 pending을 반환하며, 근거가 없으면 결과 미확인 오류로 알린다.
 [Codex 공식 MCP 명령 안내](https://learn.chatgpt.com/docs/developer-commands#codex-mcp).
 
 도구 호출명은 `context_04-get_project_info`, `connect_03-start_session`, `inspect_03-get_document_context`처럼 `<category>_<NN>-<name>` 형식이다. 이전 이름의 별칭은 제공하지 않는다.

@@ -1,35 +1,35 @@
-"""Per-server services with call-local overrides for native helper reports.
+"""Explicit dependencies owned by one assembled MCP application."""
+from __future__ import annotations
 
-Feature factories capture this object, never the sender or store itself. The
-namespace remains owned by the assembling server, so runtime rebinding and
-fixture replacement are visible on the next call without module-global state.
-"""
-from contextlib import contextmanager
-from contextvars import ContextVar
+from dataclasses import dataclass
+from typing import Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from almond_mcp.features.assets.library_index import AssetLibraryIndexer
+    from almond_mcp.features.drawings.library import DrawingRecipeIndexer
+    from almond_mcp.features.exchange.tools import ExchangeReports
+    from almond_mcp.features.grasshopper.library import LibraryIndexer
+    from almond_mcp.features.guidance.library import ConstructionLibrary, HistoryLibrary
+    from almond_mcp.features.modeling.library import MaterialLibrary
+    from almond_mcp.retrieval_store import AlmondStore
 
 
+@dataclass(frozen=True)
 class FeatureContext:
-    def __init__(self, namespace: dict):
-        self._namespace = namespace
-        self._overrides = ContextVar("almond_feature_overrides", default=None)
-
-    def __getattr__(self, name):
-        overrides = self._overrides.get()
-        if overrides is not None and name in overrides:
-            return overrides[name]
-        try:
-            return self._namespace[name]
-        except KeyError:
-            raise AttributeError(name) from None
-
-    def set_state(self, name, value):
-        """Update server-owned mutable state without caching it on this proxy."""
-        self._namespace[name] = value
-
-    @contextmanager
-    def override(self, **values):
-        token = self._overrides.set({**(self._overrides.get() or {}), **values})
-        try:
-            yield self
-        finally:
-            self._overrides.reset(token)
+    _send_and_receive: Callable[..., str]
+    retrieval_store: AlmondStore
+    LIBRARY_DIR: str
+    DRAWING_LIBRARY_DIR: str
+    GENERATED_LIBRARY_DIR: str
+    DRAFTING_LIBRARY_DIR: str
+    CAPSULE_LIBRARY_DIR: str
+    indexer: LibraryIndexer
+    drawing_asset_indexer: AssetLibraryIndexer
+    diagram_asset_indexer: AssetLibraryIndexer
+    generated_asset_indexer: AssetLibraryIndexer
+    drawing_recipe_indexer: DrawingRecipeIndexer
+    material_library: MaterialLibrary
+    construction_library: ConstructionLibrary
+    history_library: HistoryLibrary
+    exchange_reports: Callable[[], ExchangeReports]
+    _execute_rhinocode: Callable[..., dict] | None = None

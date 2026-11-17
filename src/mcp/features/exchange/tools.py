@@ -1,4 +1,9 @@
 """Provide private asset placement and native report helpers."""
+from dataclasses import dataclass
+import tempfile
+from typing import Callable
+
+from almond_mcp.instruction_text import read_instruction
 from almond_mcp.tool_response import error_payload
 
 import hashlib
@@ -7,11 +12,28 @@ from pathlib import Path
 import uuid
 
 from almond_mcp.features.modeling import modeling_setup
+from almond_mcp.features.modeling.library import MaterialLibrary
+from . import exchange
 
 
-def register(mcp, context):
-    """Bind private asset helpers without registering public MCP tools."""
+@dataclass(frozen=True)
+class ExchangeReports:
+    directory: Path
+    managed: bool = False
 
+
+def local_exchange_reports() -> ExchangeReports:
+    return ExchangeReports(Path(tempfile.gettempdir()))
+
+
+@dataclass(frozen=True)
+class Exchange:
+    send: Callable[..., str]
+    material_library: MaterialLibrary
+    report_files: Callable[[], ExchangeReports] = local_exchange_reports
+    dimension_report: Callable[[dict, dict], dict] = exchange.dimension_report
+
+    @staticmethod
     def _restore_and_place_script(contract: dict, materials: dict[str, dict],
                                   x_mm: float, y_mm: float, z_mm: float,
                                   rotation_degrees: float, layer: str, report_path: Path) -> str:
@@ -27,7 +49,7 @@ def register(mcp, context):
                       *material["base_color"], material["metallic"], material["roughness"], material["opacity"]]
             encoded = ", ".join(json.dumps(v, ensure_ascii=True) for v in values)
             encoded += ", " + modeling_setup.literal(resolved)
-            for alias in dict.fromkeys((context.exchange.material_name(material_id), material["name"], resolved["name"])):
+            for alias in dict.fromkeys((exchange.material_name(material_id), material["name"], resolved["name"])):
                 lib_rows.append("{ " + json.dumps(alias, ensure_ascii=True) + ", new object[] { " + encoded + " } }")
         anchor = contract["spatial"].get("anchor", "bottom_center")
         # Library GLBs hold numeric millimetres, but Rhino's glTF import reads metres.
@@ -153,10 +175,12 @@ public class Script
 """
 
 
-    def _material_groups(guids: list[str]) -> list[dict]:
+    def material_groups(self, guids: list[str]) -> list[dict]:
         """Resolve actual ByObject/ByLayer materials, including readable library names."""
+        reports = self.report_files()
+        report = reports.directory / f"almond_matgroups_{uuid.uuid4().hex}.txt"
         names = ", ".join("{ " + json.dumps(m["name"], ensure_ascii=True) + ", " + json.dumps(mid) + " }"
-                          for mid, m in context.material_library.materials.items())
+                          for mid, m in self.material_library.materials.items())
         script = """
 using System;
 using System.Collections.Generic;
@@ -180,43 +204,48 @@ public class Script
                 mid = name.Substring(8).Split(new[] { "::" }, StringSplitOptions.None)[0];
             if (!string.IsNullOrEmpty(mid)) rows.Add(mid + "|" + s);
         }
-        File.WriteAllLines(Path.Combine(Path.GetTempPath(), "almond_matgroups.txt"), rows);
+        File.WriteAllLines(%s, rows);
         return new { recorded = rows.Count };
     }
 }
-""" % (names, ", ".join(json.dumps(str(uuid.UUID(g))) for g in guids))
+""" % (names, ", ".join(json.dumps(str(uuid.UUID(g))) for g in guids), json.dumps(str(report), ensure_ascii=True))
         try:
-            context._send_and_receive(json.dumps({"type": "execute", "script": script}).encode("utf-8"),
-                              timeout=45.0)
-            report = Path(context.tempfile.gettempdir()) / "almond_matgroups.txt"
+            self.send(json.dumps({"type": "execute", "script": script}).encode("utf-8"), timeout=45.0)
             groups: dict[str, list[str]] = {}
             if report.is_file():
                 for line in report.read_text(encoding="utf-8").splitlines():
                     if "|" in line:
                         material_id, guid = line.split("|", 1)
                         groups.setdefault(material_id, []).append(guid)
-            return [{"material_id": k, "objects": v} for k, v in sorted(groups.items())]
         except Exception:
+            if reports.managed and not report.is_file():
+                raise RuntimeError("Rhino material report was not received; export metadata is unverified.")
             return []
+        if reports.managed and not report.is_file():
+            raise RuntimeError("Rhino material report was not received; export metadata is unverified.")
+        if not reports.managed and report.is_file():
+            try:
+                report.unlink()
+            except OSError:
+                pass
+        return [{"material_id": k, "objects": v} for k, v in sorted(groups.items())]
 
 
-    def _receive_contract(contract: dict, x_mm: float, y_mm: float, z_mm: float,
+    def receive_contract(self, contract: dict, x_mm: float, y_mm: float, z_mm: float,
                           rotation_degrees: float, layer: str) -> dict:
         """Import a loaded contract's GLB into Rhino, restore materials and
     metadata, place it per the contract anchor, and report the dimension
     check for the generated-library place_asset helper."""
-        problem = modeling_setup.check_bridge(context._send_and_receive)
+        problem = modeling_setup.check_bridge(self.send)
         if problem:
             return problem
         # A unique pair is required even outside the managed runtime. The same
         # absolute paths are embedded in the native scripts and read here.
         token = uuid.uuid4().hex
-        temp_dir = Path(context.tempfile.gettempdir())
-        receipt = temp_dir / f"almond_imported_{token}.txt"
-        report_path = temp_dir / f"almond_import_report_{token}.json"
-        managed_paths = getattr(context, "_exchange_report_paths", None)
-        if managed_paths is not None:
-            managed_paths.update(receipt=receipt, report=report_path)
+        reports = self.report_files()
+        receipt = reports.directory / f"almond_imported_{token}.txt"
+        report_path = reports.directory / f"almond_import_report_{token}.json"
+        managed = reports.managed
         import_script = """
 using System;
 using System.Collections.Generic;
@@ -238,7 +267,7 @@ public class Script
 }
 """ % (contract["_resolved_file"].replace("\\", "\\\\"), json.dumps(str(receipt), ensure_ascii=True))
         try:
-            result = json.loads(context._send_and_receive(
+            result = json.loads(self.send(
                 json.dumps({"type": "execute", "script": import_script}).encode("utf-8"),
                 timeout=120.0))
         except ConnectionRefusedError:
@@ -267,7 +296,7 @@ public class Script
             return {"status": "error", "message": f"Import completed but its object receipt could not be read: {exc}",
                     "requires_reconciliation": True, "mutation_applied": None}
         if not imported:
-            if not getattr(context, "_retain_exchange_reports", False):
+            if not managed:
                 try:
                     receipt.unlink(missing_ok=True)
                 except OSError:
@@ -276,14 +305,14 @@ public class Script
 
         contract["_imported_guids"] = imported
         needed = {row["material_id"] for row in contract.get("materials", [])}
-        library = {mid: context.material_library.get(mid) for mid in needed}
+        library = {mid: self.material_library.get(mid) for mid in needed}
         known = {mid: spec for mid, spec in library.items() if spec}
         unknown = sorted(mid for mid, spec in library.items() if not spec)
 
-        script = context._restore_and_place_script(contract, known, x_mm, y_mm, z_mm,
-                                           rotation_degrees, layer, report_path)
+        script = self._restore_and_place_script(contract, known, x_mm, y_mm, z_mm,
+                                                rotation_degrees, layer, report_path)
         try:
-            restore = json.loads(context._send_and_receive(
+            restore = json.loads(self.send(
                 json.dumps({"type": "execute", "script": script}).encode("utf-8"),
                 timeout=120.0))
         except Exception as exc:
@@ -301,14 +330,19 @@ public class Script
                     "imported_guids": imported, "requires_reconciliation": True, "mutation_applied": None,
                     "result_error": restore.get("result_error")}
 
-        report = {}
-        if report_path.is_file():
-            try:
-                report = json.loads(report_path.read_text(encoding="utf-8"))
-            except ValueError:
-                report = {}
-        check = context.exchange.dimension_report(contract, report) if report else {"status": "unknown"}
-        if report and not getattr(context, "_retain_exchange_reports", False):
+        try:
+            raw_report = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raw_report = None
+        report = raw_report if isinstance(raw_report, dict) else {}
+        if managed and not {"stamped", "deduped", "width", "depth", "height"} <= report.keys():
+            return {
+                **error_payload(read_instruction(__file__, "unverified_import_report")),
+                "imported_guids": imported,
+                "report_path": str(report_path),
+            }
+        check = self.dimension_report(contract, report) if report else {"status": "unknown"}
+        if report and not managed:
             # Both native calls returned and their output was read. On any
             # uncertain outcome leave the files for inspection/late writes.
             for path in (receipt, report_path):
@@ -328,10 +362,3 @@ public class Script
             "layer": layer,
             "imported_guids": imported,
         }
-
-
-    return {
-        "_restore_and_place_script": _restore_and_place_script,
-        "_material_groups": _material_groups,
-        "_receive_contract": _receive_contract,
-    }

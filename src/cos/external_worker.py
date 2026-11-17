@@ -26,6 +26,9 @@ async def configure_external_worker(mcp, args, binding, locations, runtime, cata
     """Use engine extension hooks and the public runtime's completion receipt."""
     if binding.get("attachment") != "cos" or binding.get("storage_protocol") != 2:
         raise RuntimeError("This entry point requires a protocol-2 external binding (attachment=cos).")
+    # Both external clients keep their existing 600-second outer settings.
+    # Dedicated document runtimes retain their own requested evidence wait.
+    runtime.configure_rhinocode_wait(60)
     before = [t.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
               for t in await mcp.list_tools()]
     validate_worker_tools(catalog, before)

@@ -536,7 +536,7 @@ class RhinocodeExecution:
             return dict(available=False, languages=[], message=str(exc))
 
     def execute(self, script, language, timeout_seconds, *, operation_id, operation_dir,
-                register, artifact_dir="", working_directory=None):
+                register, artifact_dir="", working_directory=None, wait_cap_seconds=None):
         if language not in LANGUAGES or language not in self.enabled_languages:
             raise ValueError("This RhinoCode language has not passed its live acceptance gate.")
         if language == "command" and not self.command_enabled:
@@ -547,6 +547,9 @@ class RhinocodeExecution:
             raise ValueError("Asynchronous script bodies are outside the completion contract.")
         if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 600:
             raise ValueError("timeout_seconds must be an integer from 1 to 600.")
+        if (wait_cap_seconds is not None and
+                (type(wait_cap_seconds) not in (int, float) or not 0 < wait_cap_seconds <= 600)):
+            raise ValueError("The runtime wait cap must be positive and at most 600 seconds.")
         if not isinstance(operation_id, str) or not _UUID.fullmatch(operation_id):
             raise ValueError("Invalid operation identity.")
         if working_directory is not None:
@@ -602,7 +605,10 @@ class RhinocodeExecution:
             handle.dispatching = False
             raise
         handle.launch(executable, wrapper)
-        deadline = time.monotonic() + timeout_seconds
+        # An external adapter may need an earlier first response than the user's
+        # requested maximum. This bounds observation only, never the execution.
+        wait = timeout_seconds if wait_cap_seconds is None else min(timeout_seconds, wait_cap_seconds)
+        deadline = time.monotonic() + wait
         while time.monotonic() < deadline:
             state = handle.snapshot()
             if state["completed"]:

@@ -1,6 +1,7 @@
 """Register Phase, Plan and Step tools without owning server state."""
 from almond_mcp.tool_response import error_payload, mcp_error_result
 from almond_mcp.features.components.public_contract import holon_output
+from almond_mcp.features.components.tools import send_component_request
 from almond_mcp.query_output import compact_ack
 from almond_mcp.query_output import validate_field_groups, InvalidFieldGroups
 from almond_mcp.features.planning.output import (
@@ -166,7 +167,8 @@ def register(mcp, context):
             if not isinstance(document, dict) or not isinstance(selection, dict):
                 raise ValueError("Live document/selection observation is incomplete.")
             result = context.retrieval_store.selection_references(
-                document["path"], [obj["id"] for obj in selection["objects"]], limit, native_observe=context._component_bridge,
+                document["path"], [obj["id"] for obj in selection["objects"]], limit,
+                native_observe=lambda req: send_component_request(context._send_and_receive, req),
             )
             result["selection_total"] = selection["total"]
             result["selection_truncated"] = selection["truncated"]

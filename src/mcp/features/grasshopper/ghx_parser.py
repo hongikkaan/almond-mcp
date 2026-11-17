@@ -71,9 +71,6 @@ CAPSULE_REQUIRED_KEYS = ("capsule_id", "capability", "definition_file", "inputs"
 CAPSULE_CAPABILITIES = {"analyze", "generate", "form_find", "aggregate"}
 from almond_mcp import paths as _paths
 
-CAPSULES_DIR = _paths.resolve_dir("RHINO_MCP_CAPSULE_DIR")
-
-
 def validate_capsule_manifest(manifest: Any) -> List[str]:
     """Manually validate a capsule manifest against the required contract.
 
@@ -122,7 +119,7 @@ def validate_capsule_manifest(manifest: Any) -> List[str]:
     return errors
 
 
-def find_capsule_manifest(file_path: str) -> Optional[Tuple[str, Dict[str, Any]]]:
+def find_capsule_manifest(file_path: str, capsule_dir: str | None = None) -> Optional[Tuple[str, Dict[str, Any]]]:
     """Locate the capsule sidecar for a GH/GHX file.
 
     Looks for <stem>.capsule.json next to the file first, then scans the
@@ -136,10 +133,12 @@ def find_capsule_manifest(file_path: str) -> Optional[Tuple[str, Dict[str, Any]]
     if os.path.isfile(sidecar_path):
         candidates.append(sidecar_path)
 
-    if os.path.isdir(CAPSULES_DIR):
-        for entry in sorted(os.listdir(CAPSULES_DIR)):
+    if capsule_dir is None:
+        capsule_dir = _paths.resolve_dir("RHINO_MCP_CAPSULE_DIR")
+    if os.path.isdir(capsule_dir):
+        for entry in sorted(os.listdir(capsule_dir)):
             if entry.lower().endswith(".capsule.json"):
-                candidates.append(os.path.join(CAPSULES_DIR, entry))
+                candidates.append(os.path.join(capsule_dir, entry))
 
     for candidate in candidates:
         try:
@@ -162,8 +161,9 @@ class GHParser:
 
     SUPPORTED_EXTENSIONS = {'.gh', '.ghx'}
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, *, capsule_dir: str | None = None):
         self.file_path = file_path
+        self.capsule_dir = capsule_dir
 
     def _decompress(self) -> bytes:
         """Decompress the DEFLATE-compressed Grasshopper file."""
@@ -264,7 +264,7 @@ class GHParser:
                     pass
 
         # Load capsule manifest (adjacent <stem>.capsule.json or asset/capsules dir)
-        capsule_hit = find_capsule_manifest(self.file_path)
+        capsule_hit = find_capsule_manifest(self.file_path, self.capsule_dir)
         if capsule_hit:
             manifest_path, manifest = capsule_hit
             capsule_errors = validate_capsule_manifest(manifest)

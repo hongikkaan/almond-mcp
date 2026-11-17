@@ -34,7 +34,7 @@ def _locations(binding):
     return locations
 
 
-def read_bound_execution(binding, arguments):
+def read_bound_execution(binding, arguments, *, operation_id=None):
     """Validate the old generation, including invalidated ready state, read only."""
     arguments = dict(arguments)
     include_diagnostics = arguments.pop('include_diagnostics', False)
@@ -54,6 +54,8 @@ def read_bound_execution(binding, arguments):
         raise ValueError('Retained execution target changed; no result can be attributed to this binding.')
     _locations(current)
     result = RhinocodeExecution(binding, locations).get_execution(**arguments)
+    if operation_id is not None and result.get('operation_id') != operation_id:
+        raise ValueError('Retained execution does not match the current operation.')
     result['target_identity'] = {key: binding[key] for key in
                                  ('pid', 'process_start_ticks', 'document_serial', 'model_path')}
     result['rhino_process_alive'] = process_identity_alive(binding)

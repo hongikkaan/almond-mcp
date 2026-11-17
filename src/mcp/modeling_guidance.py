@@ -1,12 +1,11 @@
 """Read bundled work policies and collect public tool names."""
 from copy import deepcopy
 from functools import lru_cache
-import ast
 import hashlib
 import json
 from pathlib import Path
 from typing import Literal
-from almond_mcp.instruction_text import public_tool_name
+from almond_mcp.tool_declarations import declaration_sources, inspect_declarations
 
 PACKAGE = Path(__file__).resolve().parent
 BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
@@ -65,25 +64,27 @@ def content_digest(path: Path) -> str:
     return _source_digest(_read_source(path))
 
 
-def _tool_sources() -> list[Path]:
-    sources = list((PACKAGE / "features").glob("*/tools.py"))
+def _tool_sources() -> tuple[Path, ...]:
     runtime = PACKAGE / "runtime/mcp_server.py"
     # The standalone wheel excludes the checkout's execution runtime.
-    if runtime.is_file():
-        sources.append(runtime)
-    return sorted(sources)
+    return declaration_sources(PACKAGE, document_entry=runtime if runtime.is_file() else None)
+
+
+def _source_files(tool_sources: tuple[Path, ...]) -> list[Path]:
+    # Tool sources provide names only. Descriptions are delivered by tools/list.
+    policy_files = [path for _, path in POLICIES.values() if path is not None]
+    return sorted({*policy_files, *STARTUP_DOCUMENTS, *tool_sources,
+                   *(p for p in SCRIPTING_SKILL.rglob("*") if p.is_file())})
 
 
 def source_files() -> list[Path]:
-    # Tool sources provide names only. Descriptions are delivered by tools/list.
-    policy_files = [path for _, path in POLICIES.values() if path is not None]
-    return sorted({*policy_files, *STARTUP_DOCUMENTS, *_tool_sources(),
-                   *(p for p in SCRIPTING_SKILL.rglob("*") if p.is_file())})
+    return _source_files(_tool_sources())
 
 
 @lru_cache(maxsize=1)
 def _snapshot() -> dict:
-    inventory = source_files()
+    tool_sources = _tool_sources()
+    inventory = _source_files(tool_sources)
     sources = {path: _read_source(path) for path in inventory}
     raw = {path: content for path, (content, _) in sources.items()}
     digests = {path: _source_digest(source) for path, source in sources.items()}
@@ -91,19 +92,7 @@ def _snapshot() -> dict:
     def reference(path: Path) -> dict:
         return {"path": "src/mcp/" + path.relative_to(PACKAGE).as_posix(), "sha256": digests[path]}
 
-    tools = set()
-    for path in _tool_sources():
-        for node in ast.walk(ast.parse(raw[path].decode("utf-8"))):
-            if not isinstance(node, ast.FunctionDef) or not any(
-                isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
-                and isinstance(d.func.value, ast.Name) and d.func.value.id == "mcp"
-                and d.func.attr == "tool" for d in node.decorator_list
-            ):
-                continue
-            name = public_tool_name(node)
-            if name in tools:
-                raise ValueError(f"Duplicate public tool name: {name}")
-            tools.add(name)
+    tools = inspect_declarations(tool_sources, captured_bytes=raw)
     skill_files = [SCRIPTING_SKILL / "INTEGRATION.md", SCRIPTING_SKILL / "SKILL.md",
                    *sorted((SCRIPTING_SKILL / "references").glob("*.md"))]
     scripting_skill = {
@@ -116,7 +105,7 @@ def _snapshot() -> dict:
         if path is not None and path.suffix == ".md" and sources[path][1] is None
     }
     if "basic" in payloads:
-        payloads["basic"]["tools"] = sorted(tools)
+        payloads["basic"]["tools"] = sorted(declaration.name for declaration in tools)
     payloads["metadata"] = {"policy": json.loads(raw[METADATA_POLICY]), "source_refs": [reference(METADATA_POLICY)]}
     payloads["rhino_scripting"] = {"scripting_skill": scripting_skill,
                                    "source_refs": [reference(p) for p in skill_files]}

@@ -129,7 +129,7 @@ def register(mcp, context):
 
         # Parse via the binary string extractor
         try:
-            parser = GHParser(target_file)
+            parser = GHParser(target_file, capsule_dir=context.CAPSULE_LIBRARY_DIR)
             physics_context = parser.parse()
             return json.dumps(project(json.loads(physics_context.model_dump_json()), field_groups))
         except Exception as e:

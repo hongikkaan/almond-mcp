@@ -28,7 +28,9 @@ def source_paths(engine: Path) -> dict[str, Path]:
     paths = {
         "external_connection_guidance": ROOT / "CONNECTION-INSTRUCTIONS.md",
         "server_description": ROOT / "SERVER-DESCRIPTION.md",
+        "external_worker": ROOT / "external_worker.py",
         "external_execution_recovery": ROOT / "execution_recovery.py",
+        "external_execution_invocation": ROOT / "execution_invocation.py",
         "external_session_close": ROOT / "session_close.py",
         "external_close_guard": ROOT / "session_close_guard.py.txt",
         "project": engine / "project.py",
@@ -38,7 +40,6 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "rhinocode": engine / "rhinocode.py",
         "rhinocode_python_wrapper": engine / "rhinocode_python.py.txt",
         "rhinocode_csharp_wrapper": engine / "rhinocode_csharp.cs.txt",
-        "compat_almond": engine / "compat_almond.py",
         "library_paths": engine / "library_paths.py",
         "desktop_runtime": engine / "desktop_runtime.py",
         "workspace": engine / "workspace.py",

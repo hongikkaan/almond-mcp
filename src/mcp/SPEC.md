@@ -54,7 +54,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 배포 검증은 `release_validation/`, BASIC·내장 스크립팅 참고자료 조회는 `modeling_guidance.py`에 둔다.
 자산 생성·변환·출처 기록은 `features/assets/generation/`, 구조해석 검증은 `features/structure/validation/`, 시공 기준 문서 생성은 `features/guidance/`가 소유한다.
 이 개발 스크립트들은 공개 MCP 도구 등록 코드와 구분한다.
-각 기능의 `register(mcp, context)`는 명시적으로 도구·resource를 등록하고 기존 이름의 함수 dict를 반환한다. `server.py`는 공용 서비스 생성과 정적 factory 조립을 맡는다.
+각 기능의 `register(mcp, context)`는 명시적으로 도구·resource를 등록한다. `startup.create_server`는 전달받은 경로·전송 함수로 서비스와 기능을 조립하고 `ServerApplication`을 반환한다. `server.py`와 CLI는 이 생성 경계를 호출하는 진입점이다. 모듈 import만으로 DB·라이브러리를 초기화하지 않는다.
 폴더명을 입력받아 SQL이나 모듈을 동적으로 찾거나 실행하지 않는다.
 
 | 폴더 | 분류·성격 | 소유한 구현과 기능 |
@@ -76,7 +76,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 
 ### 공개 도구 위치
 
-package는 70개, 문서 전용 runtime은 6개를 더한 공통 76개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 81개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 명시적인 `mcp.tool(name=...)` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 도구 설명과 입력 안내는 각 구현 옆 `*-explain.md`, 출력 계약은 [output_contracts.py](output_contracts.py), 공통 공개 입출력 스키마는 [통합 검사 기준](../../tests/integration/tool_schemas.json)을 따른다.
+package는 69개, 문서 전용 runtime은 7개를 더한 공통 76개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 81개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 명시적인 `mcp.tool(name=...)` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 도구 설명과 입력 안내는 각 구현 옆 `*-explain.md`, 출력 계약은 [output_contracts.py](output_contracts.py), 공통 공개 입출력 스키마는 [통합 검사 기준](../../tests/integration/tool_schemas.json)을 따른다.
 
 | 기능 | 공개 도구 |
 |---|---|
@@ -96,13 +96,13 @@ package는 70개, 문서 전용 runtime은 6개를 더한 공통 76개 도구를
 
 ### 공용 서비스와 DB 연결
 
-- `feature_context.py`는 서버별 namespace를 조회한다. 도구가 sender·store를 호출할 때 현재 값을 읽으므로 runtime binding과 테스트 대체 주입이 반영된다. 서버 사이에 feature 전역 상태를 공유하지 않는다. `override`는 ContextVar로 호출별 보고서 경로와 sender를 한정하며 종료 시 복원한다.
-- `server.py`는 경로·라이브러리 인스턴스·색인 동기화·MCP 조립과 기존 TCP sender를 유지한다. 라이브러리 초기화의 시점·순서는 기존과 같다. `features/assets/library_index.py`의 `AssetLibraryIndexer`는 drawing·diagram·generated manifest가 공유한다. `paths.py`, `features/assets/asset_passport.py`와 native 모델링 자원도 공용이다.
-- `retrieval_store.AlmondStore`는 8개 feature store를 정적으로 합성하는 기존 진입점이다. `_connect`는 작업별 SQLite 연결을 열고 성공 시 commit, 예외 시 rollback, 끝에 close한다. 기초 schema·migration 호출 순서·공용 revision 기반은 여기에 남고 `store_common.py`는 직렬화·시각·공용 예외 identity를 제공한다.
+- `feature_context.FeatureContext`는 한 서버가 소유하는 store·라이브러리·전송 함수·선택적 RhinoCode 실행 함수와 보고서 경로 제공자를 명시한다. 전체 모듈 namespace를 노출하거나 호출 중 전역 서비스를 교체하지 않는다. 기능은 전달받은 의존성만 사용한다.
+- `startup.py`는 명시적 시작 시점에 경로·라이브러리 인스턴스·색인 동기화·MCP를 조립한다. `bridge_transport.BridgeTransport`는 전달받은 endpoint에 기존 TCP framing을 적용한다. `features/assets/library_index.py`의 `AssetLibraryIndexer`는 drawing·diagram·generated manifest가 공유한다. `paths.py`, `features/assets/asset_passport.py`와 native 모델링 자원도 공용이다.
+- `retrieval_store.AlmondStore`는 8개 feature store를 정적으로 합성하고 공용 Scene revision을 기록한다. `store_database.StoreDatabase`는 전달받은 DB 경로의 작업별 SQLite 연결, commit·rollback·close, 기초 스키마와 마이그레이션 순서를 담당한다. 초기 DDL에서 최종 FK 검사까지 한 쓰기 트랜잭션을 사용한다. `AlmondStore._connect`는 기능 저장소 호출을 이 연결로 전달하고, `store_common.py`는 직렬화·시각·공용 예외 identity를 제공한다.
 - `assets`, `grasshopper`, `scenes`, `components`, `planning`, `drawings`, `structure`의 `store.py`가 각각 기능의 규칙과 SQL을 소유한다. DB를 기능별로 새로 만들거나 일반 UPSERT 엔진으로 바꾸지 않는다. 한 논리 작업의 검사와 기록은 이전과 같은 연결·transaction에서 실행된다.
 - `planning`은 Component reader를 사용한다. `drawings`의 기존 Sheet 연결 자료는 보존하되 Component·Scene 해제를 막는 제약은 제거한다. `scenes`도 component의 객체 소유·관측 helper를 사용한다. 이 호출들은 같은 facade의 명시적 메서드이며 폴더를 파싱하지 않는다.
 - Component는 DB 사전검사 → native 변경 → 완전한 snapshot 확인 → DB 기록의 기존 순서를 지킨다. native 실행 후 DB 오류를 Rhino rollback으로 취급하지 않는다.
-- `runtime/compat_almond.py`는 외부교환 helper의 보고서를 작업별 디렉터리로 제한한다. factory context override와 기존 module 함수 adapter를 지원하며 현재 sender의 binding·완료 receipt 검증을 유지한다.
+- bound runtime은 StoreGate 안에서 같은 서버 생성 함수를 호출하고 Workspace와 기능에 동일한 Store를 제공한다. 외부교환 helper는 명시적으로 주입한 보고서 경로 제공자를 사용하여 현재 operation의 소유 디렉터리에 기록한다. 전송은 runtime의 binding·완료 receipt 검증을 거친다.
 
 ### Python 구현 경로와 검증
 
@@ -119,10 +119,10 @@ Python 호출부는 기능별 실제 구현을 직접 import한다. `almond_mcp`
 
 예를 들어 `from almond_mcp.features.assets.drafting import load_triangles`로 가져온다.
 GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper.ghx_parser` 명령을 사용한다. 정책 JSON과 native C#·웹 원본의 공용 자원 위치는 유지한다.
-서버의 기존 함수·클래스 이름도 조립 시 re-export한다. 비공개 generated-asset helper를 새 공개 MCP 도구로 노출하지 않고 기존 resource URI·등록을 유지한다.
+비공개 generated-asset helper는 기능 모듈의 내부 인터페이스로 사용하며 새 공개 MCP 도구로 노출하지 않는다. 기존 resource URI·등록을 유지한다.
 
 모듈 검사는 `tests/test_readonly_contracts.py`와 `tests/runtime/`에서 읽기 전용 응답·공유 저장소·환경 분리를 확인한다. 실제 stdio와 외부 연결기 사이의 도구 설명·schema 계약은 루트 `tests/integration/test_stdio_contract.py`가 검사한다. 이 범위는 모든 모델링·계산 기능 또는 실제 Rhino의 Undo/Redo 검증을 대신하지 않는다.
-변경 종류별 실행기와 전제는 [개발 검사 안내](../../tests/README.md)를 따른다. 새 기능 파일을 추가하거나 기존 구현을 바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. COS는 새 클라이언트 시작 시 server와 feature factory의 AST에서 schema를 읽으며 서버/DB를 import하지 않는다. package의 모든 Python 파일 목록과 내용이 fingerprint 대상이므로 이동·추가·삭제도 감지한다.
+변경 종류별 실행기와 전제는 [개발 검사 안내](../../tests/README.md)를 따른다. 새 기능 파일을 추가하거나 기존 구현을 바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. `tool_declarations.py`는 실행 등록과 같은 기능 목록 및 bound runtime의 명시적 도구 선언에서 AST를 읽어 공통 schema와 안내용 이름 목록을 추출한다. COS는 이 추출기를 사용하며 서버·기능 실행 코드·DB를 import하지 않는다. annotation·기본값·decorator는 허용된 표현만 읽고 선언 검사 때문에 실행하지 않는다. package의 모든 Python 파일 목록과 내용이 fingerprint 대상이므로 이동·추가·삭제도 감지한다.
 
 ## 실행·관측 계약
 

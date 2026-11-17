@@ -19,9 +19,7 @@ def test_all_holon_boundaries_use_new_keys_and_preserve_native_identity(tmp_path
     native = NativeBoundary({'status': 'success', 'component': snapshot(scene['scene_id'])})
     context = SimpleNamespace(retrieval_store=store, _send_and_receive=native.send)
     server = FastMCP('holon-contract')
-    tools = register_holons(server, context)
-    context._component_bridge = tools['_component_bridge']
-    context._component_error = tools['_component_error']
+    register_holons(server, context)
     register_planning(server, context)
     register_scenes(server, context)
 

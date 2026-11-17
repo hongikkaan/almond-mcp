@@ -19,6 +19,7 @@
 프로젝트 Python은 선택한 Plan의 산출물 폴더를 cwd로 사용한다. 일반 스크립트는 프로젝트 루트를 사용한다. Rhino wrapper는 cwd와 프로젝트·모델·산출물 환경을 일시 적용하고 복구한다.
 외부 worker venv 실행기는 제거했으며, 그 패키지를 Rhino Python에 자동 설치하지 않는다.
 timeout은 두 공개 도구 모두 실행 종료가 아닌 대기 한도다.
+공통 runtime의 기본 대기 정책은 요청값을 유지한다. beyond·CoS의 external worker는 구성 훅에서 첫 완료 근거 대기를 `min(timeout_seconds, 60)`으로 제한한다. 기본 60초와 더 짧은 요청은 유지하며, 더 긴 실행은 durable `request_id`를 포함한 pending으로 먼저 반환하고 `script_03-get_execution` tool로 같은 요청을 조회한다. 이 상한은 준비·파일 I/O까지 포함하는 실행 시간 제한이 아니다. 문서 전용 Terminal·시작기에는 이 외부 대기 정책을 적용하지 않는다.
 
 스킬 본문·네 참고자료·라이선스는 `features/modeling/rhino3d-scripts`에 포함한다.
 정적 도구 가이드 snapshot과 source fingerprint가 이 파일들도 포함하므로 연결 도중 개인 설치본이나 네트워크 내용으로 지침이 바뀌지 않는다. 자동화 적용 차이는 그 폴더의 `INTEGRATION.md`에 명시한다. 대화형 선택·macro의 강제 취소를 자동 도입하지 않는다.
@@ -40,6 +41,7 @@ Python·C# 오류 진단은 ASCII JSON으로 직렬화된 바이트 수로 제�
 ProjectRuntime, native release/drain과 종료 세션 회수는 durable external-execution fence를 확인한다. 실행 중·누락·손상 receipt는 worker가 종료돼도 재사용과 회수를 막는다. 자식 프로세스에 접근하지 못한 것은 종료 근거가 아니다. 대상 Rhino가 확실히 종료됐다면 지연 실행 가능성이 없으므로 정상적인 종료 세션 회수 조건으로 처리한다.
 
 대기 timeout은 CLI를 종료하거나 재실행하거나 파일을 지우지 않는다. 늦게 도착한 정확한 결과를 조회해 pending·finishing·completed·unconfirmed를 구분한다. CLI에만 있던 불확실성이 해소돼도 무관한 native 불확실성은 유지한다. 무효화된 외부 binding은 재연결 필요로 표시하며 임의로 되살리지 않는다.
+외부 호출은 비공개 MCP metadata의 caller ID와 runtime operation ID를 연결하며, RhinoCode 실행 request ID는 별도로 생성한다. worker 응답 지연 시에는 현재 operation과 일치하는 durable 요청을 확인한 경우에만 보관 상태를 반환한다. ID가 아직 저장되지 않았거나 native 결과가 불확실하면 이전 실행 ID를 대신 반환하지 않는다. 원래 worker 호출과 runtime 정리가 끝날 때까지 예약·파일·native fence를 유지한다.
 
 ## Undo와 실패
 

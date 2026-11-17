@@ -17,7 +17,9 @@ KARAMBA_ONLY_TYPES = ("shell", "gridshell", "membrane")
 
 
 def register(mcp, context):
-    """Register structural tools against the assembling server's current services."""
+    """Register structural tools with overlay state for one application."""
+    view_engine = None
+    native_report = {}
 
     @mcp.tool(name='analysis_04-validate_structure', output_schema=public_output_schema('validate_structure', wrapped=True))
     @tool_instruction(__file__, 'validate_structure')
@@ -58,7 +60,7 @@ def register(mcp, context):
 
         result, note = None, None
         spec = None
-        floor, err = context._floor_spec(floor_load_kn_m2, floor_dead_kn_m2, engine)
+        floor, err = _floor_spec(floor_load_kn_m2, floor_dead_kn_m2, engine)
         if err:
             return json.dumps(error_payload(err))
         try:
@@ -72,11 +74,11 @@ def register(mcp, context):
         if asset_loads:
             if engine == "karamba":
                 return json.dumps(error_payload("asset_loads needs the native engine (engine='auto' or 'native')."))
-            spec, err = context._asset_load_spec()
+            spec, err = _asset_load_spec()
             if err:
                 return json.dumps(error_payload(err))
         if engine == "native" or (engine == "auto" and structure_type.lower() not in KARAMBA_ONLY_TYPES):
-            result, note = context._native_validation(guids, structure_type, load_kn, material, fixed_supports,
+            result, note = _native_validation(guids, structure_type, load_kn, material, fixed_supports,
                                               self_weight, span_m, required=engine == "native", asset_spec=spec,
                                               floor_spec=floor, design=(design_basis, uls_combination, design_code),
                                               connections=connections, stability=stability, detail=detail,
@@ -129,14 +131,10 @@ def register(mcp, context):
         return json.dumps(result)
 
 
-    def _structural_loads_path() -> Path:
-        return Path(context.GENERATED_LIBRARY_DIR) / "structural-loads.json"
-
-
     def _asset_load_spec():
         """Placements + load table + catalogue facts for asset loads: (spec, None) or (None, error)."""
         try:
-            table = asset_loads.LoadTable(context._structural_loads_path())
+            table = asset_loads.LoadTable.from_library(context.GENERATED_LIBRARY_DIR)
         except Exception as e:
             return None, f"The asset load table is unavailable ({e})."
         try:
@@ -243,6 +241,7 @@ def register(mcp, context):
         fabrication: str = "cold_formed",
         view: str = "deflection",
     ) -> str:
+        nonlocal view_engine, native_report
         if not clear and not guids:
             return json.dumps(error_payload("Provide the curve (and support point) GUIDs to analyse."))
         if color_by not in ("displacement", "utilization"):
@@ -284,7 +283,7 @@ def register(mcp, context):
         spec = None
         floor = None
         if not clear and reanalyze:
-            floor, err = context._floor_spec(floor_load_kn_m2, floor_dead_kn_m2, engine)
+            floor, err = _floor_spec(floor_load_kn_m2, floor_dead_kn_m2, engine)
             if err:
                 return json.dumps(error_payload(err))
             try:
@@ -302,46 +301,46 @@ def register(mcp, context):
         if asset_loads and not clear and reanalyze:
             if engine == "karamba":
                 return json.dumps(error_payload("asset_loads needs the native engine (engine='auto' or 'native')."))
-            spec, err = context._asset_load_spec()
+            spec, err = _asset_load_spec()
             if err:
                 return json.dumps(error_payload(err))
-        if not clear and not reanalyze and context._VIEW_ENGINE is not None:
+        if not clear and not reanalyze and view_engine is not None:
             # An established overlay is display-only regardless of who last
             # replaced it or which engine produced it. HandleDraw errors when
             # it was cleared elsewhere; structure_view would start a new solve.
             draw = {k: v for k, v in request.items() if k not in ("guids", "reanalyze", "clear")}
             draw["type"] = "structure_draw"
-            out = context._bridge_call(draw, 30.0)
+            out = _bridge_call(draw, 30.0)
             try:
                 parsed = json.loads(out)
                 if isinstance(parsed, dict) and parsed.get("status") in ("pass", "fail", "indicative"):
                     overlay_id = parsed.pop("overlay_id", None)
-                    cached = getattr(context, "_VIEW_NATIVE_REPORT", {})
+                    cached = native_report
                     # Rhino owns one process-wide overlay; another worker or the
                     # panel may have replaced it since this worker last solved.
                     if overlay_id and overlay_id == cached.get("overlay_id"):
                         _enrich_native_view(parsed, cached["report"])
                     else:
-                        context.set_state("_VIEW_NATIVE_REPORT", {})
+                        native_report = {}
                     _native_verdict(parsed)
                     return json.dumps(parsed)
-                context.set_state("_VIEW_NATIVE_REPORT", {})
+                native_report = {}
             except (ValueError, TypeError):
                 pass
             return out
         if not clear and engine != "karamba":
-            reply, note = context._native_view(request, guids, required=engine == "native", asset_spec=spec, floor_spec=floor,
+            reply, note = _native_view(request, guids, required=engine == "native", asset_spec=spec, floor_spec=floor,
                                        design=(design_basis, uls_combination, design_code), connections=connections,
                                        stability=stability, view=view, fabrication=fabrication)
             if reply is not None:
                 return reply
-        out = context._bridge_call(request, 90.0)
+        out = _bridge_call(request, 90.0)
         if clear:
-            context.set_state("_VIEW_ENGINE", None)
-            context.set_state("_VIEW_NATIVE_REPORT", {})
+            view_engine = None
+            native_report = {}
         elif reanalyze:
-            context.set_state("_VIEW_ENGINE", "api")
-            context.set_state("_VIEW_NATIVE_REPORT", {})
+            view_engine = "api"
+            native_report = {}
         try:
             parsed = json.loads(out)
             if isinstance(parsed, dict):
@@ -371,6 +370,7 @@ def register(mcp, context):
 
         Returns (reply_json, None) when it ran or must stop, (None, note) to fall back to Karamba."""
 
+        nonlocal view_engine, native_report
         def unavailable(msg):
             if required:
                 return json.dumps(error_payload(msg)), None
@@ -407,13 +407,13 @@ def register(mcp, context):
         report, floor_report, combos = reports["asset_loads"], reports["floor_loads"], reports["combinations"]
         conn_report, stab_report, buckling = reports["connections"], reports["stability"], reports["buckling"]
         code_report = reports["design_code"]
-        out = context._bridge_call(draw, 60.0)
+        out = _bridge_call(draw, 60.0)
         try:
             parsed = json.loads(out)
         except Exception:
             return out, None
         if isinstance(parsed, dict) and parsed.get("status") in ("pass", "fail", "indicative"):
-            context.set_state("_VIEW_ENGINE", "native")
+            view_engine = "native"
             overlay_id = parsed.pop("overlay_id", None)
             enrichment = {"warnings": result["warnings"]}
             if report is not None:
@@ -432,8 +432,7 @@ def register(mcp, context):
             if buckling:
                 enrichment["buckling"] = buckling
             enrichment["nodes"] = len({tuple(p) for e in result["elements"] for p in (e["start_m"], e["end_m"])})
-            context.set_state("_VIEW_NATIVE_REPORT", {"overlay_id": overlay_id, "report": enrichment}
-                              if overlay_id else {})
+            native_report = {"overlay_id": overlay_id, "report": enrichment} if overlay_id else {}
             _enrich_native_view(parsed, enrichment)
             _native_verdict(parsed)
         elif not required:
@@ -560,7 +559,7 @@ def register(mcp, context):
                 f"structural-validation-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.md"
             )
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(context._render_validation_report(runs), encoding="utf-8")
+            target.write_text(_render_validation_report(runs), encoding="utf-8")
             return json.dumps({
                 "status": "success",
                 "path": str(target),
@@ -572,14 +571,8 @@ def register(mcp, context):
 
     return {
         "validate_structure": validate_structure,
-        "_structural_loads_path": _structural_loads_path,
-        "_asset_load_spec": _asset_load_spec,
-        "_floor_spec": _floor_spec,
-        "_native_validation": _native_validation,
         "list_design_codes": list_design_codes,
         "visualize_structure": visualize_structure,
-        "_bridge_call": _bridge_call,
-        "_native_view": _native_view,
         "_render_validation_report": _render_validation_report,
         "export_structural_report": export_structural_report,
     }

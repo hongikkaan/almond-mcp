@@ -1,5 +1,6 @@
 """Holon naming migrates persistent identities without rewriting user history."""
 import sqlite3
+from contextlib import closing
 
 import pytest
 
@@ -84,3 +85,45 @@ def test_invalid_relationship_rolls_back_the_registry_rename(tmp_path):
         assert rows(con) == before
         assert con.execute("SELECT name FROM sqlite_master WHERE name='ontological_components'").fetchone()
         assert not con.execute("SELECT name FROM sqlite_master WHERE name='ontological_holons'").fetchone()
+
+
+def test_object_ledger_backup_keeps_committed_rows_across_reopens(tmp_path):
+    path = tmp_path / 'scene.sqlite3'
+    with closing(sqlite3.connect(path)) as db, db:
+        db.executescript("""
+            CREATE TABLE components (
+                component_id TEXT PRIMARY KEY, model_path TEXT NOT NULL, rhino_group_id TEXT NOT NULL,
+                name TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                parent_component_id TEXT REFERENCES components(component_id) ON DELETE RESTRICT,
+                UNIQUE(component_id, model_path), UNIQUE(model_path, rhino_group_id)
+            );
+            CREATE TABLE document_objects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, model_path TEXT NOT NULL, rhino_guid TEXT NOT NULL,
+                component_id TEXT, object_type TEXT NOT NULL,
+                min_x REAL NOT NULL, max_x REAL NOT NULL, min_y REAL NOT NULL, max_y REAL NOT NULL,
+                min_z REAL NOT NULL, max_z REAL NOT NULL, observed_at TEXT NOT NULL,
+                UNIQUE(model_path, rhino_guid),
+                FOREIGN KEY(component_id, model_path) REFERENCES components(component_id, model_path)
+            );
+        """)
+        model = r'C:\fixture\retired.3dm'
+        db.execute("INSERT INTO components VALUES('old-id',?,'old-group','Original name','created','updated',NULL)", (model,))
+        db.execute("INSERT INTO document_objects VALUES(7,?,'old-object','old-id','Brep',0,1,0,2,0,3,'observed')", (model,))
+    with closing(sqlite3.connect(path)) as db:
+        legacy_dump = list(db.iterdump())
+
+    migrated = AlmondStore(path)
+    holon = migrated.get_component('old-id')
+    assert holon['name'] == 'Original name'
+    assert holon['object_count'] == 1
+    archives = list(tmp_path.glob('scene.sqlite3.before-object-retirement-*.bak'))
+    assert len(archives) == 1
+    with closing(sqlite3.connect(archives[0].as_uri() + '?mode=ro', uri=True)) as db:
+        assert list(db.iterdump()) == legacy_dump
+        assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+    with closing(sqlite3.connect(path)) as db:
+        assert not db.execute("SELECT name FROM sqlite_schema WHERE name IN ('components', 'document_objects')").fetchall()
+        assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+
+    assert AlmondStore(path).get_component('old-id') == holon
+    assert list(tmp_path.glob('scene.sqlite3.before-object-retirement-*.bak')) == archives

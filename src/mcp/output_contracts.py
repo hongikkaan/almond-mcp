@@ -2903,6 +2903,16 @@ def _planning_variants(*names: str) -> dict:
     return {"type": "object", "properties": properties}
 
 
+for _script_contract in ("execute_project_python", "execute_rhino_script"):
+    CONTRACTS[_script_contract]["properties"].update({
+        "pending": {"type": "boolean", "description": "실행의 완료 근거를 기다리고 있으면 true입니다. 같은 request_id로 script_03-get_execution tool을 조회합니다."},
+        "uncertain": {"type": "boolean", "description": "정확한 완료 근거가 아직 확인되지 않았는지 나타냅니다. 자동 재실행을 허용하지 않습니다."},
+        "timed_out": {"type": "boolean", "description": "첫 응답을 위한 대기가 끝났는지 나타냅니다. 실행 종료나 rollback을 뜻하지 않습니다."},
+        "completion_state": {"type": "string", "description": "보관된 실행의 running, finishing, awaiting_receipt, completed, not_started 또는 unconfirmed 상태입니다."},
+        "connection_state": {"type": "string", "description": "외부 연결의 현재 상태입니다. recovering이면 실행 확인과 원 호출 정리를 기다립니다."},
+    })
+
+
 CONTRACTS["create_planning"] = _planning_variants("create_phase", "create_plan")
 CONTRACTS["get_planning"] = deepcopy(CONTRACTS["get_phase_plan_step"])
 CONTRACTS["update_planning"] = _planning_variants("update_phase", "update_plan", "update_step")

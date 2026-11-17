@@ -34,6 +34,21 @@
 MCP 도구의 native 구현은 `src/mcp/features/<기능>/native`에 두고 Bridge에 컴파일한다.
 연결·실행 호스트와 패널 UI는 RHP에 둔다. 패널 웹 자원은 Python 패키지에 포함된다. 이 공유 자원을 바꾸면 소비자 검사·빌드도 필요하다. 소유권을 나눈다고 모든 기능을 독립 assembly나 독립 배포로 바꾸지는 않는다.
 
+## Python 시작과 실행의 책임
+
+| 경계 | 소유자 | 전달하는 것 |
+|---|---|---|
+| 도구 선언 | MCP `tool_declarations` | 기능의 명시적 선언에서 읽은 schema·이름. 실행 등록·기본 안내·외부 catalog가 같은 기능 목록을 사용한다. |
+| 서버 시작 | MCP `startup` | 명시적 DB·라이브러리 경로와 전송 함수를 받아 한 `ServerApplication`을 만든다. import만으로 저장소를 열지 않는다. |
+| 기능 실행 | MCP `features` | 서버별 `FeatureContext`의 의존성을 사용한다. 기능별 SQL·모델링·계산 규칙을 유지한다. |
+| 저장소 수명 | MCP `store_database` | SQLite 연결·트랜잭션·초기 스키마·migration 순서를 관리한다. `AlmondStore`는 기능별 저장소의 기존 인터페이스를 제공한다. |
+| 외부 연결 수명 | 외부 연결기 `external_host` | 연결 탐색·선택·attach·detach와 worker 수명. 선택된 연결을 실행 담당자에 전달한다. |
+| 외부 호출 수명 | 외부 연결기 `execution_invocation` | 호출 접수·전송 여부·예약·대기·취소와 결과 회수를 관리한다. 실제 완료 판정은 공통 runtime의 journal·receipt·프로세스 근거에 따른다. |
+| Rhino 문서 실행 | MCP `runtime`와 `bridge_transport`, 공용 Engine | endpoint 전송과 binding·문서·UI thread·native 완료의 기존 검증을 연결한다. 외부 연결기에서 문서 실행 정책을 복제하지 않는다. |
+| 배포 검증 | RHP `tools/verify_runtime` | 필수 출력 목록·기록된 해시·공유 Engine 일치를 검사한다. 실제 Rhino 로드·모델링 검증은 별도다. |
+
+새 실행 경로는 기존 진입점에서 같은 소유자를 호출한다. 교체된 전역 서버 조립·호출별 함수 교체·중복 선언 추출 구현은 별도 경로로 유지하지 않는다. 데이터 스키마·공개 도구·Rhino 플러그인 identity를 바꾸는 이전은 해당 계약의 별도 변경이다.
+
 ## 공통 안내
 
 - [작업 원칙·설치·배포](AGENTS.md)

@@ -46,8 +46,7 @@ def test_editor_failure_sets_mcp_error_and_preserves_native_evidence(tmp_path, m
                             _generation_limit=lambda *_: None, _component_model_path=lambda value: value)
     context = SimpleNamespace(_send_and_receive=send, retrieval_store=store)
     server = FastMCP("editor-errors")
-    for key, value in components(server, context).items():
-        setattr(context, key, value)
+    components(server, context)
     modeling(server, context)
     scenes(server, context)
     planning(server, context)
@@ -87,8 +86,6 @@ def test_native_editor_guidance_survives_real_store_and_public_query_errors(tmp_
     context = SimpleNamespace(retrieval_store=store, _send_and_receive=send)
     server = FastMCP("native-editor-guidance")
     registered = components(server, context)
-    for key, value in registered.items():
-        setattr(context, key, value)
     registered["upsert_ontological_holon"](name="Arrival", holon_id=COMPONENT,
         expected_model_path=SAVED_MODEL, rhino_group_id=GROUP, scene_ids=[scene["scene_id"]])
     scenes(server, context)

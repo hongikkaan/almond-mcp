@@ -17,12 +17,18 @@ def test_policy_selection_returns_only_requested_content():
     assert not {"get_modeling_guide", "get_looping_policy", "get_modeling_policy", "get_retrieval_status"}.intersection(basic["tools"])
     assert basic["text"] == modeling_guidance.BASIC_GUIDE.read_text(encoding="utf-8").strip()
     policy_dir = modeling_guidance.PACKAGE / "features/guidance/policies"
-    activity_files = {path.stem: path for path in policy_dir.glob("*.md")}
-    assert set(basic["available_policies"]) == {"basic", "metadata", "rhino_scripting", "rhinocode", *activity_files}
-    assert {"spatial_modeling", "observation", "drawing", "design_exploration", "feedback_reporting"} <= activity_files.keys()
+    activities = {"spatial_modeling", "observation", "drawing", "feedback_reporting"}
+    assert set(basic["available_policies"]) == {"basic", "metadata", "rhino_scripting", "rhinocode", *activities}
     assert modeling_guidance.read_policy("basic") == basic
-    for name, path in activity_files.items():
+    referenced_files = set()
+    for name in activities:
         activity = modeling_guidance.read_policy(name)
+        assert len(activity["source_refs"]) == 1
+        relative = activity["source_refs"][0]["path"]
+        assert relative.startswith("src/mcp/features/guidance/policies/")
+        path = modeling_guidance.PACKAGE / relative.removeprefix("src/mcp/")
+        assert path.parent == policy_dir
+        referenced_files.add(path)
         assert activity == {
             "status": "success",
             "selected_policy": name,
@@ -32,6 +38,7 @@ def test_policy_selection_returns_only_requested_content():
             "source_refs": [{"path": f"src/mcp/features/guidance/policies/{path.name}",
                              "sha256": modeling_guidance.content_digest(path)}],
         }
+    assert referenced_files == set(policy_dir.glob("*.md"))
     scripting = modeling_guidance.read_policy("rhino_scripting")
     assert scripting["guide_version"] == basic["guide_version"]
     assert "text" not in scripting and "policy" not in scripting

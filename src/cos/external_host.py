@@ -23,7 +23,6 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.server.lowlevel.server import Server
 from mcp.server.stdio import stdio_server
 from almond_mcp.modeling_guidance import startup_instructions
-from almond_mcp.tool_guidance import guide_payload
 from almond_mcp.output_contracts import public_output_schema
 
 from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_contract, catalog_identity,
@@ -31,6 +30,7 @@ from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_con
 from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
 from execution_recovery import ExecutionRecoveryStore, read_bound_execution
+from execution_invocation import ExecutionInvocations, Invocation, json_result, error_result, result_dict
 from session_close import SessionCloser
 
 GUIDANCE = (ROOT / "CONNECTION-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
@@ -39,27 +39,6 @@ UNSAVED_DOCUMENT = ("Save this Rhino document as a local .3dm, then refresh "
                     "connect_01-list_up tool before connecting.")
 NO_SELECTED_CONNECTION = ("No selected live connection. Use connect_01-list_up tool and connect_02-session tool. "
                           "No Rhino request was sent.")
-
-
-def json_result(value: dict, name: str = "") -> types.CallToolResult:
-    value = guide_payload(name, value) if name else value
-    return types.CallToolResult(content=[types.TextContent(type="text", text=json.dumps(value, ensure_ascii=False))],
-                                structured_content=value)
-
-
-def error_result(message: str) -> types.CallToolResult:
-    return types.CallToolResult(content=[types.TextContent(type="text", text=message)], is_error=True)
-
-
-def result_dict(result: types.CallToolResult) -> dict:
-    if result.is_error:
-        raise RuntimeError("Almond worker state is unavailable.")
-    value = result.structured_content
-    if value is None:
-        value = json.loads(next(c.text for c in result.content if c.type == "text"))
-    if not isinstance(value, dict):
-        raise RuntimeError("Invalid Almond worker state.")
-    return value
 
 
 def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
@@ -207,10 +186,11 @@ class Worker:
         if WORKER_STATE_TOOL not in {t["name"] for t in found}:
             raise RuntimeError("Worker completion tracking is missing.")
 
-    async def call(self, name: str, arguments: dict):
+    async def call(self, name: str, arguments: dict, *, caller_request_id=None):
         if self.session is None:
             raise RuntimeError("Almond worker is disconnected.")
-        return await self.session.call_tool(name, arguments)
+        meta = {"almond/caller_request_id": caller_request_id} if caller_request_id else None
+        return await self.session.call_tool(name, arguments, meta=meta)
 
     async def state(self):
         return result_dict(await asyncio.wait_for(self.call(WORKER_STATE_TOOL, {}), 10))
@@ -222,12 +202,6 @@ class Worker:
 
     def request_stop(self):
         self.stop.set()
-
-
-@dataclass
-class Invocation:
-    abandoned: bool = False
-    started: bool = False
 
 
 @dataclass
@@ -248,6 +222,8 @@ class Connection:
     watch_again: bool = False
     lease: object = None
     recovery_request_id: str = ""
+    recovery_execution_id: str = ""
+    retained_call: asyncio.Task | None = None
 
     def public(self):
         b = self.binding
@@ -298,6 +274,12 @@ class Broker:
         self.starts: dict[str, StartAttempt] = {}
         self.recovery_store = recovery_store_factory(data)
         self.session_closer = SessionCloser(data)
+        self.invocations = ExecutionInvocations(
+            call_timeout=call_timeout, queue_timeout=queue_timeout,
+            closing_request=self.session_closer.pending_for, check_binding=self._binding_status,
+            read_execution=lambda *args, **kwargs: self._read_execution_files(*args, **kwargs),
+            wrapped_tools=[tool.name for tool in self.tools
+                           if (tool.output_schema or {}).get("x-fastmcp-wrap-result")])
 
     def binding_changed(self, connection_id: str, error: str | None):
         conn = self.connections.get(connection_id)
@@ -520,119 +502,19 @@ class Broker:
                 await self._dispose_locked(conn)
                 raise
 
-    async def _fail(self, conn: Connection, reason: str):
-        conn.state, conn.reason = "unconfirmed", reason
-        with suppress(Exception):
-            await conn.control.request("fail", session_token=conn.token, reason=reason[:300])
-
-    @staticmethod
-    def _cli_only(state):
-        return bool(state.get("external_requests")) and state.get("native_uncertain") is False
-
-    def _retain_cli(self, conn, request_id, state):
-        conn.state = "recovering"
-        conn.reason = "RhinoCode outcome is being tracked. Read script_03-get_execution tool; do not repeat the work."
-        conn.recovery_request_id = request_id
-        conn.in_flight = True
-
-    def _read_execution_files(self, binding, arguments):
-        return read_bound_execution(binding, arguments)
+    def _read_execution_files(self, binding, arguments, *, operation_id=None):
+        return read_bound_execution(binding, arguments, operation_id=operation_id)
 
     async def recover_execution(self, conn, arguments):
-        try:
-            result = await conn.worker.call("script_03-get_execution", arguments)
-            value = result_dict(result)
-            state = await conn.worker.state()
-        except Exception:
-            # A crashed worker cannot erase a final receipt or authorize replay.
-            value = await asyncio.to_thread(self._read_execution_files, conn.binding, arguments)
-            value.update(connection_state=conn.state, requires_reconnect=True)
-            return json_result(value)
-        if (conn.state == "recovering" and not state.get("pending") and not state.get("uncertain")
-                and state.get("native_uncertain") is False):
-            try:
-                await self._binding_status(conn)
-                await conn.control.request("end", session_token=conn.token,
-                                           request_id=conn.recovery_request_id)
-                conn.state, conn.reason = "ready", ""
-                conn.recovery_request_id = ""
-                conn.in_flight = False
-            except Exception as exc:
-                await self._fail(conn, str(exc))
-                value["requires_reconnect"] = True
-        value["connection_state"] = conn.state
-        if state.get("native_uncertain"):
-            value["requires_reconnect"] = True
-        return json_result(value)
+        return await self.invocations.recover_execution(conn, arguments)
 
     async def invoke(self, conn: Connection, name: str, arguments: dict, invocation: Invocation):
-        # Runtime owns the queue-wait contract. Import it only for an active
-        # call; cleanup/watch locks intentionally keep their drain semantics.
+        # The shared runtime remains the admission gate implementation.
         sys.path.insert(0, str(ENGINE))
-        from project import serial_gate
-        async with serial_gate(conn.lock, self.queue_timeout):
-            if name != "script_03-get_execution":
-                closing_request = self.session_closer.pending_for(conn.binding)
-                if closing_request:
-                    raise RuntimeError("A close is retained. Read connect_05-close_session tool with request_id=" + closing_request)
-            return await self._invoke_locked(conn, name, arguments, invocation)
+        return await self.invocations.invoke(conn, name, arguments, invocation)
 
     async def _invoke_locked(self, conn, name, arguments, invocation):
-        if name == "script_03-get_execution":
-            if conn.closing:
-                value = await asyncio.to_thread(self._read_execution_files, conn.binding, arguments)
-                value.update(connection_state=conn.state, requires_reconnect=True)
-                return json_result(value)
-            return await self.recover_execution(conn, arguments)
-        if invocation.abandoned:
-            raise RuntimeError("Caller stopped while this request was queued. No Rhino request was sent.")
-        if conn.closing or conn.state != "ready":
-            raise RuntimeError(f"Connection is {conn.state}: {conn.reason}. Inspect Rhino before reconnecting.")
-        request_id = uuid4().hex
-        invocation.started = True
-        conn.in_flight = True
-        worker_dispatched = False
-        try:
-            await conn.control.request("begin", session_token=conn.token, request_id=request_id)
-            if invocation.abandoned or conn.closing or conn.state != "ready":
-                # No worker request was dispatched. Clear only this reservation.
-                await conn.control.request("end", session_token=conn.token, request_id=request_id)
-                conn.in_flight = False
-                raise RuntimeError("Caller stopped before Rhino execution began.")
-            if conn.watch_again:
-                conn.watch_again = False
-                try:
-                    await self._binding_status(conn)
-                except Exception:
-                    # The RHP may have disconnected while begin's reply was
-                    # in transit. No worker call has been dispatched yet.
-                    await conn.control.request("end", session_token=conn.token, request_id=request_id)
-                    conn.in_flight = False
-                    raise
-            worker_dispatched = True
-            result = await asyncio.wait_for(conn.worker.call(name, arguments), self.call_timeout)
-            state = await conn.worker.state()
-            if state.get("pending") or state.get("uncertain"):
-                if self._cli_only(state) and not conn.closing:
-                    self._retain_cli(conn, request_id, state)
-                    return result
-                raise RuntimeError("Rhino execution outcome is unconfirmed. Do not repeat the operation automatically.")
-            if invocation.abandoned and self._cli_only(state) and not conn.closing:
-                self._retain_cli(conn, request_id, state)
-                return result
-            await conn.control.request("end", session_token=conn.token, request_id=request_id)
-            conn.in_flight = False
-            return result
-        except BaseException as exc:
-            state = None
-            if worker_dispatched and not conn.closing:
-                with suppress(Exception):
-                    state = await conn.worker.state()
-            if state is not None and self._cli_only(state):
-                self._retain_cli(conn, request_id, state)
-                raise RuntimeError(conn.reason) from exc
-            await self._fail(conn, str(exc) or "Caller canceled while Rhino might still be executing.")
-            raise
+        return await self.invocations.invoke_locked(conn, name, arguments, invocation)
 
     async def _dispose(self, conn: Connection):
         conn.closing = True
@@ -760,7 +642,8 @@ class Broker:
         except asyncio.CancelledError:
             if invocation is not None:
                 invocation.abandoned = True
-            if conn is not None and invocation is not None and invocation.started:
+            if (conn is not None and invocation is not None and invocation.worker_dispatched
+                    and not conn.closing and conn.state == "ready"):
                 # The shielded operation may finish. Its completion may clear busy,
                 # but a lost caller result does not authorize an automatic retry.
                 conn.state, conn.reason = "unconfirmed", "Caller stopped waiting; inspect the operation's outcome."

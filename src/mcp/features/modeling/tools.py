@@ -15,7 +15,6 @@ from almond_mcp.features.modeling import face_edit, modeling_policy, modeling_se
 
 def register(mcp, context):
     """Register modeling tools against the current server execution context."""
-    _material_script = modeling_setup.material_script
 
 
 
@@ -209,7 +208,7 @@ def register(mcp, context):
             extra_strings[modeling_policy.key("floor")] = floor
         if construction_detail:
             extra_strings[modeling_policy.key("construction_detail")] = construction_detail
-        script = context._material_script(material, guid_list, apply_render_material,
+        script = modeling_setup.material_script(material, guid_list, apply_render_material,
                                   attach_metadata, extra_strings)
         response = modeling_setup.dispatch(script, context._send_and_receive)
         if response.get("status") != "success":
@@ -265,5 +264,4 @@ def register(mcp, context):
         "setup_modeling": setup_modeling,
         "list_materials": list_materials,
         "assign_material": assign_material,
-        "_material_script": _material_script,
     }

@@ -22,9 +22,10 @@ Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS
 | `cos_host.py`, `codex_host.py` | CoS 경유·Codex 직접 연결의 명시적인 진입점과 MCP 서버 식별 |
 | `SERVER-DESCRIPTION.md` | 건축설계·모델링·도면·연결 관리 역할을 담은 공통 소개 |
 | `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 외부 연결 광고 확인 |
+| `execution_invocation.py` | 선택된 연결의 호출 예약·취소·첫 응답 대기·완료 복구. 연결 탐색·attach·detach는 Broker가 소유 |
 | `session_close.py`, `session_close_guard.py.txt` | 저장 확인·문서 변경 방지·정상 종료·보관 결과 조회. 일반 실행 receipt와 종료 프로세스 근거를 구분 |
 | `detached_process.py` | 새 프로세스를 suspended 상태로 생성하고 모든 Windows Job 밖임을 확인한 뒤 실행 |
-| `runtime.py`, `build_catalog.py` | 시작 시 현재 공통 schema 추출, lockfile 버전·source fingerprint·worker schema 검사 |
+| `runtime.py`, `build_catalog.py` | 시작 시 MCP에서 읽은 공통 schema의 lockfile 버전·source fingerprint·worker schema 검사 |
 | `data/tool_catalog.json` | configure/build에서 만드는 Git 추적 제외 개발용 export; 런타임은 읽지 않고 현재 소스에서 schema를 생성함 |
 | `binding_watch.py`, `winpipe.py` | 연결 변경 감시와 Windows 제어 채널 |
 | `rhp/` | Rhino 내부 almondconnect·almonddisconnect 명령·host 탐색·문서 binding |
@@ -36,7 +37,7 @@ Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS
 Python worker는 MCP runtime의 기존 `main`, binding 검증·구성 훅과 완료 receipt를 사용한다. 저장소 잠금·native 완료·자산 helper 정책을 외부 연결기에 복제하지 않는다.
 RHP는 [공용 Engine](../rhp/SPEC.md#구성과-빌드)을 참조한다. Bridge·Terminal의 구현 소스를 AlmondRhino에 링크하지 않는다.
 
-새 클라이언트의 catalog 생성은 MCP server와 `features/*/tools.py`의 `register` 내부 도구 AST에서 schema만 읽고 DB를 소유하는 MCP server를 import하지 않는다. 같은 이름의 중복 도구는 거절한다. fingerprint는 runtime의 검토된 소스와 MCP package 전체 Python 파일 목록·내용을 포함하여 feature 파일의 추가·삭제·이동도 감지한다. 패키지 버전은 `uv.lock`과 대조한다. 추출 중 소스 변경, 시작한 클라이언트와 worker의 snapshot 불일치, 실제 worker schema 불일치를 검사하며 불일치하면 모델링 요청을 보내지 않는다.
+새 클라이언트의 catalog는 [공용 MCP 선언 판독기](../mcp/tool_declarations.py)로 feature와 문서 전용 도구의 schema를 읽는다. 선언 판독기와 실행 서버는 같은 feature 목록을 사용한다. 판독기는 handler나 서버를 import하지 않고 중복 도구명을 거절한다. fingerprint는 runtime의 검토된 소스와 MCP package 전체 Python 파일 목록·내용을 포함하여 feature 파일의 추가·삭제·이동도 감지한다. 패키지 버전은 `uv.lock`과 대조한다. 추출 중 소스 변경, 시작한 클라이언트와 worker의 snapshot 불일치, 실제 worker schema 불일치를 검사하며 불일치하면 모델링 요청을 보내지 않는다.
 관측 이미지의 직접 `ToolResult`와 고정 조회의 정확한 `str | ToolResult` 반환형만 별도로 허용한다. ToolResult 입력형·중첩형·임의 annotation 실행은 허용하지 않는다. context·선택·객체·교차 조회는 기존 `{result: string}` output schema literal을 허용하고 JSON text/structuredContent와 명시적 오류 상태를 함께 보존한다. PNG는 별도 캡처 도구의 MCP image content로 전달하며 schema 생성 때문에 이 계약을 바꾸지 않는다.
 공통 도구 변경 후 수동 catalog 재생성 없이 관련 Codex/CoS MCP를 정상 종료·재시작하면 새 구현과 schema를 읽는다. Terminal은 almond 세션을 새로 시작한다. 이미 시작한 프로세스를 자동 교체하거나 restart 도구를 제공하지 않는다. RHP/DLL 변경은 빌드와 Rhino의 정상 종료·새 시작이 별도로 필요하다.
 
@@ -57,6 +58,10 @@ adapter lease 해제는 RHP의 native/slot/token 소유권 해제가 아니다. 
 request ID는 한 adapter 수명 안에서 시작 시도 하나를 가리킨다. startup timeout 뒤 같은 ID로 호출하면 이미 시작한 프로세스만 재조회한다. connect_02-session tool가 실패하면 같은 ID로 attach를 반복하지 않는다. caller 취소 뒤에도 결과를 보존하고, adapter 종료 때는 시작 대기를 취소하고 기존 연결 정리를 수행한다. 열린 Rhino는 남는다. adapter를 재시작한 뒤에는 연결 목록으로 남은 Rhino를 확인해야 한다.
 
 완료 결과 재조회는 공통 runtime이 원본 실행 근거를 읽고 조정한 다음 공개 응답만 축약한다. 정상 완료의 결과·페이지·요청한 로그·복구 대상 정보는 남기며 `include_diagnostics=true`로 전체 근거를 조회한다. 실패·불확실·부분 변경·0이 아닌 CLI 종료 코드·결과 표시 오류는 기본 응답에서도 유지한다. 보관 파일 복구 경로도 같은 projection을 사용하며 journal, worker schema 검사와 완료 판단을 바꾸지 않는다.
+
+외부 worker는 공통 runtime 구성 훅으로 두 공개 스크립트의 첫 완료 근거 대기를 최대 60초로 제한한다. public 기본값 60·범위 1–600과 클라이언트 호출 제한 600초는 유지한다. `ExecutionInvocations`는 공개 스크립트의 응답 대기가 끝나도 원래 worker tools/call을 취소하지 않는다. 비공개 caller ID·runtime operation ID·durable RhinoCode request ID를 대조하여 CLI-only인 현재 실행의 상태만 반환한다. 아직 durable ID가 없거나 native 결과가 불확실하면 미확인 오류를 반환하며 기존 native fence를 유지한다. 대기 종료는 재실행·강제 종료·완료 증거가 아니다.
+
+원 worker 호출이 정리 중이면 같은 직렬 잠금을 사용하는 worker 조회 대신 검증된 보관 파일을 읽는다. 완료 receipt가 먼저 생겨도 원 호출과 runtime 정리가 끝나기 전에는 예약을 해제하지 않는다. exact 완료·native 상태·binding이 모두 확인된 뒤에만 해당 예약을 end한다. Broker 예약 ID를 공개 실행 request_id로 대신 쓰거나 종료·무효화된 연결을 되살리지 않는다.
 
 ## 빌드·검증·설치
 

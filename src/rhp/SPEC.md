@@ -45,6 +45,8 @@ Terminal의 shell·AlmondHost 수명은 패널과 독립적이다. Rhino 시작�
 Bridge 빌드는 `build.ps1`, AlmondRhino 빌드는 해당 모듈의 스크립트를 사용한다.
 출력은 기존 각 `plugin-runtime` 위치를 유지한다. source·RHP·의존 DLL·JSON·archive를 함께 전달하며 Rhino 제공 DLL은 포함하지 않는다. Engine 변경 시 두 출력의 DLL이 같아야 한다. Bridge의 `runtime-manifest.json`은 AlmondRhino 전용 소스를 포함하지 않는다.
 
+`tools/verify_runtime.py`의 기록과 검증은 같은 필수 산출물 규칙을 사용한다. RHP·Engine과 Bridge의 필수 라이선스가 manifest에 포함되고 실제 바이트가 일치해야 한다. 빈 출력 목록이나 필수 항목 누락을 성공으로 처리하지 않는다. 기록된 나머지 파일과 소스의 해시·소스 목록·양쪽 Engine 일치도 확인한다. 기록되지 않은 추가 파일을 일괄 금지하지 않으며, 이 검사는 모든 빌드 입력의 완전성이나 실제 Rhino 로드를 보증하지 않는다.
+
 ## 검사
 
 각 구성요소의 `tests/`에 fixture를 둔다. 패널의 Node 검사는 자산 배치와 결과 선택을, Engine의 NativeFixture는 세션 identity·공유 잠금·완료 확인을, Terminal의 AlmondHostContracts는 소유권 해제를 검사한다. Bridge의 archive host는 오프라인 GLB 디코더 검사를 지원한다. 실행 방법과 범위는 [native 검사 안내](tests/README.md), Undo·관측의 현재 상태는 [별도 안내](RhinoAlmondBridge/tests/script_executor_undo/README.md)를 따른다.

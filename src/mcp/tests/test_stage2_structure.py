@@ -14,7 +14,6 @@ import pytest
 from fastmcp import FastMCP
 from jsonschema import validate
 
-from almond_mcp.feature_context import FeatureContext
 from almond_mcp.features.structure.tools import register
 from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.retrieval_store import AlmondStore
@@ -46,13 +45,11 @@ class StructureTools:
         self.overlay_ids = overlay_ids
         self.api_analyses = 0
         self.model = copy.deepcopy(MODEL)
-        self.namespace = {
-            "_VIEW_ENGINE": None,
-            "_send_and_receive": self.send,
-            "retrieval_store": AlmondStore(database),
-            "construction_library": SimpleNamespace(assess_span=lambda *args: {"warnings": []}),
-        }
-        self.namespace.update(register(FastMCP("stage2-structure"), FeatureContext(self.namespace)))
+        self.store = AlmondStore(database)
+        config = SimpleNamespace(
+            _send_and_receive=self.send, retrieval_store=self.store,
+            construction_library=SimpleNamespace(assess_span=lambda *args: {"warnings": []}))
+        self.tools = register(FastMCP("stage2-structure"), config)
 
     def send(self, payload, timeout=0):
         request = json.loads(payload)
@@ -88,7 +85,7 @@ class StructureTools:
         raise AssertionError("Unexpected Karamba fallback: " + request["type"])
 
     def call(self, name, **kwargs):
-        value = json.loads(self.namespace[name](**kwargs))
+        value = json.loads(self.tools[name](**kwargs))
         validate(value, public_output_schema(name, wrapped=False))
         return value
 
@@ -524,7 +521,7 @@ def test_legacy_history_keeps_rows_and_does_not_reuse_retired_run_ids(tmp_path):
     value = tools.call("validate_structure", guids=["beam"], engine="native", **OPTIONS)
     assert value["status"] == "indicative" and value["passed"] is None
     reopened = StructureTools(database)
-    rows = reopened.namespace["retrieval_store"].list_validation_runs()
+    rows = reopened.store.list_validation_runs()
     assert rows[0]["id"] > 89
     assert [(r["status"], r["passed"]) for r in rows] == [("indicative", None), ("fail", False), ("pass", True)]
 

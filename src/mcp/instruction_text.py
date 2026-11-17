@@ -1,23 +1,7 @@
 """Read adjacent Markdown instructions without importing a model runtime."""
-import ast
 from functools import wraps
 from inspect import signature
 from pathlib import Path
-
-
-def public_tool_name(node: ast.FunctionDef) -> str:
-    """Read an explicit literal MCP name without executing the tool module."""
-    for decorator in node.decorator_list:
-        if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute)
-                and isinstance(decorator.func.value, ast.Name)
-                and decorator.func.value.id == "mcp" and decorator.func.attr == "tool"):
-            for keyword in decorator.keywords:
-                if keyword.arg == "name":
-                    name = ast.literal_eval(keyword.value)
-                    if not isinstance(name, str) or not name:
-                        raise ValueError("A public tool name must be a nonempty literal string.")
-                    return name
-    return node.name
 
 
 def read_instruction(source_file: str, section: str) -> str:

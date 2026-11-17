@@ -70,15 +70,16 @@ def test_stops_at_first_positive_without_scanning_later_pairs(setup):
     assert "pair_state" not in calls[-1] and response.content[0].type == "image"
 
 
-def test_registered_workflow_rebinds_sender_and_keeps_pending_review(setup):
-    from almond_mcp.feature_context import FeatureContext
+def test_registered_workflow_keeps_its_review_on_its_own_connection(setup):
     _, calls, current = setup(page(pair()), image(), edited(1), page())
-    def unbound(*args, **kwargs):
-        raise AssertionError("Registration-time sender must not dispatch")
-    namespace = {"_send_and_receive": unbound}
-    tools = register(FastMCP("late-bound-review"), FeatureContext(namespace))
-    namespace["_send_and_receive"] = current
+
+    def other_sender(*args, **kwargs):
+        raise AssertionError("A foreign review must not dispatch")
+
+    tools = register(FastMCP("first-review"), SimpleNamespace(_send_and_receive=current))
+    other = register(FastMCP("second-review"), SimpleNamespace(_send_and_receive=other_sender))
     first = tools["resolve_object_intersection"]([A, B]).structured_content
+    assert other["resolve_object_intersection"](review_id=first["review_id"], choice=1).is_error
     output = tools["resolve_object_intersection"](review_id=first["review_id"], choice=1)
     assert output.structured_content["state"] == "completed"
     assert [c["type"] for c in calls] == ["get_object_intersections", "intersection_review", "intersection_resolve", "get_object_intersections"]

@@ -1,19 +1,14 @@
-"""Generate exact tool schemas from inert AST stubs, without importing Almond."""
+"""Build the external catalog from MCP declarations and the source snapshot."""
 from __future__ import annotations
 
-import ast
 import asyncio
-import copy
 from importlib.metadata import version
 import json
 from pathlib import Path
 import sys
-import types
-from typing import Literal, get_args
 import tomllib
-from almond_mcp.instruction_text import read_tool_instruction, public_tool_name
-from almond_mcp.modeling_guidance import PolicyName
-from almond_mcp.public_names import internal_tool_name
+
+from almond_mcp.tool_declarations import declaration_sources, inspect_declarations, register_inert_tools
 
 sys.dont_write_bytecode = True
 from runtime import CATALOG, ENGINE, ROOT, digest, source_paths
@@ -32,165 +27,18 @@ def checked_versions() -> dict[str, str]:
     return result
 
 
-def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
-    node = copy.deepcopy(node)
-    # Resolve the reviewed argument to literal values before compiling the inert stub.
-    if node.name == "get_policy" and public_tool_name(node) == "context_01-get_policy":
-        for argument in node.args.args:
-            annotation = argument.annotation
-            if argument.arg == "policy" and isinstance(annotation, ast.Name) and annotation.id == "PolicyName":
-                argument.annotation = ast.parse(f"Literal[{get_args(PolicyName)!r}]", mode="eval").body
-    allowed = (ast.Name, ast.Load, ast.Subscript, ast.Tuple, ast.BinOp, ast.BitOr, ast.Constant)
-    inputs = [a.annotation for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)]
-    for annotation in inputs + [node.returns]:
-        if annotation is None:
-            continue
-        # ToolResult is the reviewed image tool's return envelope, never an input type.
-        if annotation is node.returns and isinstance(annotation, ast.Name) and annotation.id == "ToolResult":
-            continue
-        # Fixed observations may append an image or mark an explicit error while
-        # preserving their existing wrapped-string output schema.
-        # Admit this exact return shape, never nested/input ToolResult annotations.
-        if (annotation is node.returns and isinstance(annotation, ast.BinOp)
-                and isinstance(annotation.op, ast.BitOr)
-                and isinstance(annotation.left, ast.Name) and annotation.left.id == "str"
-                and isinstance(annotation.right, ast.Name) and annotation.right.id == "ToolResult"):
-            continue
-        for part in ast.walk(annotation):
-            if not isinstance(part, allowed):
-                raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
-            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict", "StringListPatch", "Literal", "CreateRequest", "GetRequest", "ListRequest", "UpdateRequest"}:
-                raise ValueError(f"Review annotation name {part.id} in {node.name}")
-    for default in [*node.args.defaults, *node.args.kw_defaults]:
-        if default is not None:
-            ast.literal_eval(default)
-    decorators = []
-    external_doc = None
-    for decorator in node.decorator_list:
-        if isinstance(decorator, ast.Name) and decorator.id in {"query_output", "holon_output", "mcp_error_result"}:
-            continue  # Known output projection; schemas are built from inert bodies.
-        if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
-                and decorator.func.id == "query_output"):
-            if (node.name != "get_asset_drawing" or decorator.args or len(decorator.keywords) != 1
-                    or decorator.keywords[0].arg != "preserve_cross_drive_fields"
-                    or ast.literal_eval(decorator.keywords[0].value) != {"package_dir"}):
-                raise ValueError(f"Unexpected output projection: {node.name}")
-            continue  # Reviewed output-only option; never execute its decorator.
-        if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
-                and decorator.func.id == "tool_instruction"):
-            if (len(decorator.args) != 2 or decorator.keywords
-                    or not isinstance(decorator.args[0], ast.Name)
-                    or decorator.args[0].id != "__file__"
-                    or not isinstance(decorator.args[1], ast.Constant)
-                    or decorator.args[1].value != internal_tool_name(public_tool_name(node))
-                    or not hasattr(node, "_guidance_source")):
-                raise ValueError(f"Unexpected instruction decorator: {node.name}")
-            external_doc = read_tool_instruction(node._guidance_source, internal_tool_name(public_tool_name(node)))
-            continue
-        if not (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute)
-                and isinstance(decorator.func.value, ast.Name) and decorator.func.value.id == "mcp"
-                and decorator.func.attr == "tool" and not decorator.args):
-            raise ValueError(f"Unexpected tool decorator: {node.name}")
-        for keyword in decorator.keywords:
-            if keyword.arg == "name":
-                public_tool_name(node)  # Literal name only; retain it on the inert stub.
-                continue
-            if keyword.arg == "title":
-                title = ast.literal_eval(keyword.value)
-                if not isinstance(title, str) or not title:
-                    raise ValueError(f"Review tool title in {node.name}")
-                continue
-            if keyword.arg == "output_schema":
-                if isinstance(keyword.value, ast.Dict):
-                    expected = {"type": "object", "properties": {"result": {"type": "string"}},
-                                "required": ["result"], "x-fastmcp-wrap-result": True}
-                    if (node.name not in {"get_rhino_context", "get_objects", "get_object_intersections"}
-                            or ast.literal_eval(keyword.value) != expected):
-                        raise ValueError(f"Review output schema in {node.name}")
-                    continue
-                call = keyword.value
-                if (not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name)
-                        or call.func.id != "public_output_schema" or len(call.args) != 1
-                        or ast.literal_eval(call.args[0]) != internal_tool_name(public_tool_name(node))
-                        or len(call.keywords) != 1 or call.keywords[0].arg != "wrapped"
-                        or type(ast.literal_eval(call.keywords[0].value)) is not bool):
-                    raise ValueError(f"Review output schema in {node.name}")
-                from almond_mcp.output_contracts import public_output_schema
-                resolved = public_output_schema(internal_tool_name(public_tool_name(node)), ast.literal_eval(call.keywords[0].value))
-                keyword.value = ast.parse(repr(resolved), mode="eval").body
-                continue
-            if keyword.arg != "annotations":
-                raise ValueError(f"Review decorator option {keyword.arg} in {node.name}")
-            ast.literal_eval(keyword.value)
-        decorators.append(decorator)
-    node.decorator_list = decorators
-    doc = external_doc if external_doc is not None else ast.get_docstring(node, clean=False)
-    node.body = ([ast.Expr(ast.Constant(doc))] if doc else []) + [
-        ast.Raise(ast.Call(ast.Name("RuntimeError", ast.Load()),
-                          [ast.Constant("Catalog stub must never execute")], []), None)
-    ]
-    return node
-
-
-def collect_tool_functions(server_path: Path) -> list[ast.FunctionDef]:
-    sources = [server_path, *sorted(server_path.parent.glob("features/*/tools.py"))]
-    functions = []
-    for path in sources:
-        tree = ast.parse(path.read_text(encoding="utf-8-sig"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef):
-                node._guidance_source = str(path)
-        candidates = list(tree.body)
-        for node in tree.body:
-            if isinstance(node, ast.FunctionDef) and node.name == "register":
-                candidates.extend(node.body)
-        functions.extend(n for n in candidates if isinstance(n, ast.FunctionDef) and
-                         any(isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
-                             and isinstance(d.func.value, ast.Name) and d.func.value.id == "mcp"
-                             and d.func.attr == "tool" for d in n.decorator_list))
-    names = [public_tool_name(node) for node in functions]
-    if len(names) != len(set(names)):
-        raise RuntimeError("Duplicate public tool definitions across feature sources.")
-    return functions
-
-
 async def generate(engine: Path = ENGINE) -> dict:
     packages = checked_versions()
     server_loaded = "almond_mcp.server" in sys.modules
     from fastmcp import FastMCP
-    from fastmcp.tools import ToolResult
-    from pydantic import StrictInt, StrictFloat, StrictBool
-    from almond_mcp.features.planning.updates import StringListPatch
-    from almond_mcp.features.planning.requests import CreateRequest, GetRequest, ListRequest, UpdateRequest
+
     paths = source_paths(engine)
     sources = {name: digest(path) for name, path in paths.items()}
-    functions = collect_tool_functions(paths["server"])
-    entry = ast.parse(paths["entry"].read_text(encoding="utf-8-sig"))
-    for node in ast.walk(entry):
-        if isinstance(node, ast.FunctionDef) and any(
-            isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
-            and isinstance(d.func.value, ast.Name) and d.func.value.id == "mcp"
-            and d.func.attr == "tool" for d in node.decorator_list
-        ):
-            node._guidance_source = str(paths["entry"])
-            functions.append(node)
-    module = types.ModuleType("_almondcos_schema_stubs")
-    module.mcp = FastMCP("Almond external schema build")
-    module.ToolResult = ToolResult
-    module.StrictInt = StrictInt
-    module.StrictFloat = StrictFloat
-    module.StrictBool = StrictBool
-    module.Literal = Literal
-    module.StringListPatch = StringListPatch
-    module.CreateRequest = CreateRequest
-    module.GetRequest = GetRequest
-    module.ListRequest = ListRequest
-    module.UpdateRequest = UpdateRequest
-    sys.modules[module.__name__] = module
-    tree = ast.Module(body=[checked_stub(n) for n in functions], type_ignores=[])
-    exec(compile(ast.fix_missing_locations(tree), "<Almond external schemas only>", "exec"), module.__dict__)
-    tools = [t.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
-             for t in await module.mcp.list_tools()]
+    declarations = inspect_declarations(declaration_sources(paths["server"].parent, document_entry=paths["entry"]))
+    mcp = FastMCP("Almond external schema build")
+    register_inert_tools(mcp, declarations)
+    tools = [tool.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
+             for tool in await mcp.list_tools()]
     if not tools:
         raise RuntimeError("No common tools found in the current source.")
     if not server_loaded and "almond_mcp.server" in sys.modules:
