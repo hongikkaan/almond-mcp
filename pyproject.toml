@@ -49,7 +49,7 @@ build-backend = "hatchling.build"
 only-include = ["src/mcp"]
 include = [
     "src/mcp/*.py", "src/mcp/*-explain.md", "src/mcp/*-INSTRUCTIONS.md",
-    "src/mcp/design_judgment.md", "src/mcp/modeling_policy.json", "src/mcp/profiles/**",
+    "src/mcp/design_judgment.md", "src/mcp/About Rhino.md", "src/mcp/modeling_policy.json", "src/mcp/profiles/**",
     "src/mcp/features/**", "src/mcp/rhino/**",
 ]
 sources = {"src/mcp" = "almond_mcp"}

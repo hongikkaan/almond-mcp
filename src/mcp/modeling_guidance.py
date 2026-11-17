@@ -10,7 +10,7 @@ from almond_mcp.instruction_text import public_tool_name
 
 PACKAGE = Path(__file__).resolve().parent
 BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
-STARTUP_DOCUMENTS = (BASIC_GUIDE, PACKAGE / "design_judgment.md")
+STARTUP_DOCUMENTS = (BASIC_GUIDE, PACKAGE / "design_judgment.md", PACKAGE / "About Rhino.md")
 SCRIPTING_SKILL = PACKAGE / "features/modeling/rhino3d-scripts"
 METADATA_POLICY = PACKAGE / "modeling_policy.json"
 RHINOCODE_POLICY = PACKAGE / "RHINOCODE-INSTRUCTIONS.md"
@@ -20,10 +20,9 @@ POLICIES = {
     "metadata": ("객체·그룹 메타데이터 키, 레이어·재료 기록 규칙", METADATA_POLICY),
     "rhino_scripting": ("Rhino 스크립트 작성과 API 참고 자료", None),
     "rhinocode": ("RhinoCode 코드·Rhino 커맨드 실행과 결과 확인", RHINOCODE_POLICY),
-    "spatial_modeling": ("설계 의도에 맞춘 공간·구축 모델링과 수정 후 확인", ACTIVITY_POLICY_DIR / "spatial_modeling.md"),
+    "spatial_modeling": ("설계 의도에 맞춘 공간·구축 모델링과 수정 후 확인", ACTIVITY_POLICY_DIR / "Construction_Detail.md"),
     "observation": ("모델과 도면을 관찰하고 판단에 필요한 근거를 확인하는 기준", ACTIVITY_POLICY_DIR / "observation.md"),
-    "drawing": ("도면의 목적·표현 기준과 작성·수정 결과의 검수", ACTIVITY_POLICY_DIR / "drawing.md"),
-    "design_exploration": ("설계 질문을 구체화하고 대안을 구성·비교하는 기준", ACTIVITY_POLICY_DIR / "design_exploration.md"),
+    "drawing": ("도면의 목적·표현 기준과 작성·수정 결과의 검수", ACTIVITY_POLICY_DIR / "drafting_policy.md"),
     "feedback_reporting": ("사용자 피드백을 작업에 반영하고 결과와 판단 근거를 전달하는 기준", ACTIVITY_POLICY_DIR / "feedback_reporting.md"),
 }
 PolicyName = Literal[("", *POLICIES)]
