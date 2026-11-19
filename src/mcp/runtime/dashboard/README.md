@@ -27,7 +27,7 @@ RHP 소스 수정·빌드·등록·실제 로드는 별개입니다. 개발 워�
 
 ## 저장된 맥락 읽기
 
-- **File 목록**: 실제 등록 파일과 연결된 Scene·Holon·Phase·Task를 표시합니다.
+- **File 목록**: DB에 기록된 프로젝트 파일과 연결된 Scene·Holon·Phase·Task를 표시합니다. Holon 등의 모델 관계를 위해 식별 정보가 저장된 파일도 표시할 수 있습니다. Phase나 Scene에서 파일을 직접 선택할 때는 프로젝트 카탈로그에 등록된 파일을 사용합니다.
 - **Scene 조회**: 장면의 Holon·객체 이름 기록·Task를 읽습니다.
 - **Holon 조회**: 저장된 이름·Scene·부모 Holon·객체 수 요약·등록 상태를 읽습니다. Rhino의 실시간 형상 검사가 아닙니다.
 - **Phase**: Phase별 Task와 Phase 미지정 작업을 읽습니다.

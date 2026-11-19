@@ -20,10 +20,7 @@ def clean_empty_temp(payload, timeout=60):
 
 async def complete_step(call, **fields):
     request = dict(target="step", status="completed", **fields)
-    pending = await call("plan_12-update", request=request)
-    assert pending["status"] == "confirmation_required"
-    return await call("plan_12-update", request=dict(request, completion_token=pending["confirmation"]["token"],
-                                                    completion_decision="yes"))
+    return await call("plan_12-update", request=request)
 
 
 def test_mcp_step_identity_is_independent_of_template_type(tmp_path):

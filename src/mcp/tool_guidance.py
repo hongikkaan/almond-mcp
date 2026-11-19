@@ -85,11 +85,6 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         return ("연결을 해제했으며 Rhino 창과 문서는 유지됩니다. 저장하고 Rhino까지 종료하려면 "
                 "list_connections에서 해당 문서를 확인하고 connect로 다시 연결한 뒤 close_session을 호출합니다.")
     if name == "update_planning":
-        if value.get("status") == "confirmation_required":
-            return ("confirmation.warning을 읽고 선택합니다. 같은 완료 요청의 plan_12-update tool에 "
-                    "request.completion_token으로 confirmation.token을, request.completion_decision으로 yes 또는 no를 입력합니다.")
-        if value.get("status") == "cancelled":
-            return "자료를 유지하려면 필요한 객체를 temp 밖으로 옮긴 뒤 새로 완료를 요청합니다."
         if value.get("issues"):
             if arguments.get("target") in {"plan", "step"}:
                 return ("issues에서 건너뛴 항목을 확인합니다. 같은 request.target·ID·loop_no를 유지하고 필요한 필드만 수정해 다시 요청합니다. "

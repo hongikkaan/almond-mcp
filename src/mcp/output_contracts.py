@@ -2944,19 +2944,7 @@ CONTRACTS["update_planning"] = _planning_variants("update_phase", "update_plan",
 CONTRACTS["update_planning"]["properties"]["changed"]["description"] = "실제 저장 값이 변경되었는지 나타냅니다. success여도 false일 수 있습니다."
 CONTRACTS["update_planning"]["properties"]["plan"]["description"] = "Plan 수정 또는 소속 Step 수정 후의 Plan 확인 정보입니다."
 CONTRACTS["update_planning"]["properties"].update({
-    "confirmation": {"type": "object", "description": "Step 완료를 적용하기 전 에이전트에게 반환하는 확인입니다.",
-        "properties": {
-            "token": {"type": "string", "description": "이 시도의 request.completion_token입니다."},
-            "warning": {"type": "string", "description": "완료 시 지워지는 자료 범위와 유지 방법을 설명합니다."},
-            "choices": {"type": "array", "items": {"enum": ["yes", "no"]},
-                        "description": "request.completion_decision에서 선택할 값입니다."},
-        }},
-    "cleanup": {"type": "object", "description": "완료 저장 후 확인한 Rhino 정리 결과입니다.",
-        "properties": {
-            "deleted_layers": {"type": "integer", "description": "삭제한 로컬 레이어 수입니다."},
-            "deleted_objects": {"type": "integer", "description": "삭제한 로컬 객체와 블록 정의 구성원 수입니다."},
-        }},
-    "cleanup_state": {"enum": ["not_started", "rolled_back", "unknown"], "description": "실패 응답에서 확인한 Rhino 정리 상태입니다."},
+    "cleanup_state": {"enum": ["not_started", "rolled_back", "unknown"], "description": "실패 응답에서 확인한 Rhino 후속 작업 상태입니다."},
     "requires_reconciliation": {"type": "boolean", "description": "오류 처리에 Rhino 또는 DB 상태 확인이 필요한지 나타냅니다."},
 })
 CONTRACTS["list_planning"] = _planning_variants("list_phases", "list_plans")

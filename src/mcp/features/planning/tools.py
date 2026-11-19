@@ -4,12 +4,12 @@ from almond_mcp.features.components.public_contract import holon_output
 from almond_mcp.features.components.tools import send_component_request
 from almond_mcp.query_output import compact_ack
 from almond_mcp.query_output import validate_field_groups, InvalidFieldGroups
+from almond_mcp.features.planning.completion import update_step
 from almond_mcp.features.planning.output import (
     GROUPS, PHASE_GROUPS, REVISION_GROUPS, TARGET_GROUPS, project,
     encode, phase_detail, plan_detail, step_detail, update_ack,
 )
 from almond_mcp.features.planning.requests import CreateRequest, GetRequest, ListRequest, UpdateRequest
-from almond_mcp.features.planning.completion import StepCompletion
 from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.instruction_text import tool_instruction, read_instruction
 
@@ -24,8 +24,6 @@ PLAN_ACK_FIELDS = {"plan_id", "loop_no", "revision"}
 
 def register(mcp, context):
     """Register planning tools against the calling server's live context."""
-    completion = StepCompletion(lambda payload, **options: context._send_and_receive(payload, **options))
-
 
     @mcp.tool(name='plan_02-create', output_schema=public_output_schema('create_planning', wrapped=True))
     @tool_instruction(__file__, 'create_planning')
@@ -109,7 +107,8 @@ def register(mcp, context):
                     request.description, request.file_name, request.status,
                     request.depends_on, request.previous_id), "phase"))
             if request.target == "step":
-                return json.dumps(completion.update(store, request), ensure_ascii=False)
+                return json.dumps(update_step(store, request,
+                    lambda payload, **options: context._send_and_receive(payload, **options)), ensure_ascii=False)
             return json.dumps(update_ack(store.edit_plan(request.plan_id,
                 goal=request.goal, phase_id=request.phase_id, scene_ids=request.scene_ids,
                 component_ids=request.holon_ids, expected_revision=request.expected_revision,

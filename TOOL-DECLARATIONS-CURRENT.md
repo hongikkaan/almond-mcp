@@ -4,7 +4,7 @@
 
 현재 체크아웃의 beyond·CoS가 공개하는 도구 81개를 정리합니다. 두 경로의 `tools/list` 전체 응답을 대조했으며 도구 설명과 입력·출력 스키마가 같습니다.
 
-- 기준: 이 문서와 함께 커밋된 소스. 수집일 2026-11-18.
+- 기준: 원격 `main`의 `4be0b7b0ec2ad17924d6cf32883a34636fd06e0a`. 수집일 2026-11-19.
 - 수집 경로: `src/cos/codex_host.py`와 `src/cos/cos_host.py`가 사용하는 공용 `external_host.main`의 stdio `initialize`·`tools/list`. 격리된 데이터 폴더에서 수집했으며 Rhino 연결·도구 실행은 하지 않았습니다.
 - 실행 패키지: almond-mcp 0.7.0rc2 / fastmcp 4.1.0 / mcp 2.3.0 / mcp-types 2.3.0.
 - 선언 SHA-256: `43950c6d388ee4ed889a347521d6ba15d040e7211fd55b881a695b57264df695`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 값입니다.
@@ -14,15 +14,19 @@
 
 `mcp__rhino__`는 예시 연결 이름이며 실제 공개 도구명은 각 제목에 표시합니다. `CallToolResult<T>`의 `T`는 MCP의 구조화된 출력입니다. `result: string`이면 JSON 문자열 wrapper이며, 공개 `contentSchema`가 있는 경우 별도의 `DecodedResult`로 내부 결과를 함께 표시합니다. 이미지·텍스트 content 블록과 오류 여부 등 MCP envelope는 이 타입 밖에 있습니다.
 
+## 적용 범위
+
+이 목록은 외부 연결기 beyond·CoS의 공개 계약을 다룹니다. RhinoTerminal과 관리 실행기의 문서 전용 `rhino_session`은 [연결 경로 사양](src/mcp/runtime/CONNECTION-SPEC.md)을, 독립 Python MCP는 [MCP 사양](src/mcp/SPEC.md)을 따릅니다. [Almond Project Dashboard](src/mcp/runtime/dashboard/README.md)는 로컬 HTTP로 기존 SQLite를 읽는 화면이며, 이번 `tools/list`에서 Dashboard 도구는 등록되지 않았습니다.
+
 ## 공통 안내와 실행 결과
 
-- `BASIC-INSTRUCTIONS.md`와 `design_judgment.md` 본문은 공용 `modeling_guidance.py`를 통해 `initialize.instructions`에 전달됩니다. 개별 도구 description이나 `serverInfo.description`에 본문을 붙이는 방식이 아닙니다. `context_01-get_policy` tool은 정책을 명시적으로 조회하는 경로이며 기본 정책은 BASIC입니다. 클라이언트가 초기 instructions를 모델에게 표시·준수하게 하는 것까지 서버가 강제하지는 않습니다.
+- 외부 서버의 경로별 소개는 `serverInfo.description`과 `initialize.instructions` 첫머리에 들어갑니다. 공용 `modeling_guidance.py`가 구성한 `BASIC-INSTRUCTIONS.md`와 `design_judgment.md` 본문은 `initialize.instructions`의 소개 뒤에 이어집니다. 개별 도구 설명은 `tools/list`의 `description`에서 전달됩니다. `context_01-get_policy` tool은 정책을 명시적으로 조회하는 경로이며 기본 정책은 BASIC입니다. 클라이언트가 초기 instructions를 모델에게 표시·준수하게 하는 것까지 서버가 강제하지는 않습니다.
 - `connect_02-session` tool 또는 `connect_03-start_session` tool으로 선택한 연결이 일반 호출에 적용됩니다. `script_03-get_execution` tool에 `request_id`를 지정하면 원래 실행 연결의 결과를 회수합니다.
 - 외부 실행의 첫 완료 대기는 `min(요청 timeout, 60초)`입니다. 작업이 계속되면 `pending`과 실제 실행 `request_id`를 반환하고 같은 ID로 완료를 조회합니다. 외부 클라이언트 600초 제한은 이 최초 대기와 별개입니다. 대기 종료·취소·오류는 실행 중단이나 문서 rollback의 증거가 아니므로 결과가 불확실한 수정을 자동 재실행하지 않습니다. Terminal 등 경로별 계약은 [RhinoCode 실행 계약](src/mcp/runtime/RHINOCODE-SPEC.md)과 [외부 연결기 SPEC](src/cos/SPEC.md)을 따릅니다.
 
 ## 선언 갱신 절차
 
-커밋 전 현재 체크아웃의 두 외부 서버를 격리된 데이터 폴더에서 시작해 `initialize`와 `tools/list`를 수집합니다. 전체 도구 목록·description·inputSchema·outputSchema가 두 경로에서 일치하는지 확인하고 아래 선언을 갱신합니다. 도구의 추가·삭제·이름 변경, 기본값·nullable·중첩 입력·출력 wrapper도 대조합니다. 초기 안내 전달 방식은 공용 안내 구현과 별도로 대조합니다. 수집을 위해 Rhino에 연결하거나 모델링 도구를 호출할 필요는 없습니다.
+공개 계약을 변경할 때 [저장소 지침](AGENTS.md)에 따라 현재 체크아웃의 두 외부 서버를 격리된 데이터 폴더에서 시작해 `initialize`와 `tools/list`를 수집합니다. 전체 도구 목록·description·inputSchema·outputSchema가 두 경로에서 일치하는지 확인하고 아래 선언을 갱신합니다. 도구의 추가·삭제·이름 변경, 기본값·nullable·중첩 입력·출력 wrapper도 대조합니다. 초기 안내 전달 방식은 공용 안내 구현과 별도로 대조합니다. 수집을 위해 Rhino에 연결하거나 모델링 도구를 호출할 필요는 없습니다.
 
 ## analysis
 
@@ -4556,15 +4560,13 @@ Phase·Plan의 작업 정보 또는 Step의 상태, 입출력 참조, Takeaways�
 
 응답은 JSON 문자열입니다. `changed`는 실제 변경 여부, `issues`는 건너뛴 항목입니다. 중복·충돌 등 적용하지 못한 패치 항목은 `issues`에 기록하며, 일부만 적용되면 `partial_success`를 반환합니다. Loop 실행 후 `expected_revision`을 지정할 때는 `loop_no`도 함께 지정합니다.
 
-Step을 실제로 `completed`로 바꾸려면 먼저 `confirmation_required`와 `confirmation`의 경고·선택지를 읽고 에이전트가 후속 호출에서 선택합니다. 보존할 객체가 있으면 먼저 `completion_token`과 `completion_decision=no`로 취소하고, 객체를 temp 밖으로 옮긴 후 새로 완료를 요청합니다. 정리할 범위가 확인되면 같은 요청 필드와 함께 새 `confirmation.token`을 `completion_token`에 넣어 `completion_decision=yes`로 답합니다. 토큰은 발급된 연결과 요청에서 한 번만 사용할 수 있으며, 발급 뒤 Loop 또는 리비전이 바뀌면 새로 확인해야 합니다.
-
-Yes는 Step 완료를 먼저 저장한 뒤 현재 연결 문서의 temp와 그 하위 레이어에 속한 객체를 제거합니다. 최상위 temp 레이어를 유지하고 그 하위 레이어를 모두 삭제합니다. 로컬 블록 정의에서도 해당 레이어의 구성원만 제거하며, 정의와 temp 밖 인스턴스의 배치를 보존합니다. Worksession 첨부, PlanSection 관리 데이터, Step 참조가 가리키는 파일도 보존합니다. 정리 건수는 `cleanup`에 있습니다. 실패 시 `cleanup_state`와 Step 상태를 읽습니다. Step 완료를 저장한 뒤 정리가 실패하면 `requires_reconciliation=true`를 반환하므로 Rhino의 temp 상태를 확인합니다.
+Step 상태를 `completed`로 지정하면 다른 수정 필드와 함께 한 번의 요청으로 저장합니다.
 ```
 
 ```ts
 declare const tools: {
   mcp__rhino__plan_12_update(args: {
-    // target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step은 상태·입출력 참조·판단 기록 중 필요한 필드만 갱신합니다. 완료 선택에는 원래 필드와 completion_token, completion_decision을 사용합니다.
+    // target으로 phase, plan, step을 선택하고 해당 ID와 바꿀 필드만 입력합니다. Step은 상태·입출력 참조·판단 기록 중 필요한 필드만 갱신합니다.
     request: ({
       // 작업할 대상 종류입니다.
       target: "phase";
@@ -4649,15 +4651,9 @@ declare const tools: {
       plan_id: string;
       // 선택한 Plan의 상세 결과에서 얻은 Step ID입니다. 해당 Plan ID와 함께 사용합니다.
       step_id: string;
-      // 생략하거나 null이면 유지합니다. completed로 바뀌는 경우 에이전트의 정리 선택을 먼저 반환합니다.
+      // 생략하거나 null이면 유지합니다. completed를 지정하면 현재 Step의 상태를 완료로 저장합니다.
       // default: null
       status?: ("pending" | "running" | "paused" | "completed" | "failed" | "blocked" | null);
-      // 완료 확인 응답 confirmation.token. 같은 연결의 해당 요청에 한 번만 사용합니다.
-      // default: null
-      completion_token?: (string | null);
-      // yes는 같은 요청의 temp 정리와 완료를 실행합니다. no는 변경 없이 확인 요청을 닫습니다.
-      // default: null
-      completion_decision?: ("yes" | "no" | null);
       // 입력 근거 문자열의 선택 사항인 {add: string[], remove: string[]} 패치입니다. 생략/null/{}이면 변경하지 않습니다. 유효하지 않은 문자열 항목은 건너뛰고 보고합니다.
       // default: null
       input_refs?: ({
@@ -4752,25 +4748,7 @@ type DecodedResult = {
     loop_no?: number;
     [key: string]: unknown;
   };
-  // Step 완료를 적용하기 전 에이전트에게 반환하는 확인입니다.
-  confirmation?: {
-    // 이 시도의 request.completion_token입니다.
-    token?: string;
-    // 완료 시 지워지는 자료 범위와 유지 방법을 설명합니다.
-    warning?: string;
-    // request.completion_decision에서 선택할 값입니다.
-    choices?: Array<"yes" | "no">;
-    [key: string]: unknown;
-  };
-  // 완료 저장 후 확인한 Rhino 정리 결과입니다.
-  cleanup?: {
-    // 삭제한 로컬 레이어 수입니다.
-    deleted_layers?: number;
-    // 삭제한 로컬 객체와 블록 정의 구성원 수입니다.
-    deleted_objects?: number;
-    [key: string]: unknown;
-  };
-  // 실패 응답에서 확인한 Rhino 정리 상태입니다.
+  // 실패 응답에서 확인한 Rhino 후속 작업 상태입니다.
   cleanup_state?: "not_started" | "rolled_back" | "unknown";
   // 오류 처리에 Rhino 또는 DB 상태 확인이 필요한지 나타냅니다.
   requires_reconciliation?: boolean;

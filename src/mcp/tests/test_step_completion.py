@@ -20,13 +20,16 @@ def completion(tmp_path, monkeypatch):
     model_path = str(tmp_path / "fixture.3dm")
     monkeypatch.setenv("ALMOND_MODEL_PATH", model_path)
     bridge_requests = []
+    observed = []
 
-    def native(payload, timeout=60):
+    def native(payload, **options):
         request = json.loads(payload)
         bridge_requests.append(request)
         if request["type"] == "get_rhino_context":
             return json.dumps({"status": "success", "capabilities": {"step_temp_cleanup": 1}})
         assert request == {"type": "cleanup_step_temp", "expected_model_path": model_path}
+        saved = store.get_step(plan["plan_id"], step["step_id"])
+        observed.append((saved["step"]["status"], saved["revision"], saved["step"]["takeaways"]))
         return json.dumps({"status": "success", "cleanup": {"deleted_layers": 3, "deleted_objects": 2}})
 
     store = AlmondStore(tmp_path / "planning.sqlite3")
@@ -52,48 +55,67 @@ def completion(tmp_path, monkeypatch):
                     "step_id": step["step_id"], "include_details": True})
 
     return SimpleNamespace(update=update, read=read, bridge_requests=bridge_requests,
-                           context=context, plan=plan, native=native)
+                           context=context, plan=plan, native=native, observed=observed)
 
 
-def test_completion_request_returns_agent_choice_before_any_change(completion):
+def test_completion_commits_in_one_call_then_runs_rhino_without_a_notice(completion, tmp_path):
+    artifact = tmp_path / "handoff.3dm"
+    artifact.write_bytes(b"preserve this file")
+    store = completion.context.retrieval_store
+    registered_files = store.list_project_files()
     before = completion.read()
-    result = completion.update(status="completed", takeaways="Record the entrance decision")
-    assert result["status"] == "confirmation_required"
-    assert result["changed"] is False
-    assert result["confirmation"]["choices"] == ["yes", "no"]
-    warning = result["confirmation"]["warning"]
-    assert "temp가 아닌 다른 레이어" in warning
-    assert "모든 하위 레이어" in warning
-    assert "객체 전체가 삭제" in warning
-    assert result["confirmation"]["token"]
-    assert completion.bridge_requests == []
-    assert completion.read() == before
-
-
-
-def test_no_consumes_attempt_without_edit_then_new_attempt_can_complete(completion):
-    before = completion.read()
-    fields = {"status": "completed", "takeaways": "Record the entrance decision"}
-    first = completion.update(**fields)["confirmation"]["token"]
-    refused = completion.update(**fields, completion_token=first, completion_decision="no")
-    assert refused["status"] == "cancelled" and refused["changed"] is False
-    replay = completion.update(**fields, completion_token=first, completion_decision="yes")
-    assert replay["status"] == "error"
-    assert completion.bridge_requests == []
-    assert completion.read() == before
-
-    second = completion.update(**fields)["confirmation"]["token"]
-    assert second != first
-    accepted = completion.update(**fields, completion_token=second, completion_decision="yes")
-    assert accepted["status"] == "success" and accepted["changed"] is True
-    assert accepted["cleanup"] == {"deleted_layers": 3, "deleted_objects": 2}
+    result = completion.update(
+        status="completed", takeaways="Record the entrance decision",
+        design_rationale="Keep the circulation axis", input_refs={"add": ["survey.md"]},
+        output_refs={"add": [str(artifact)]}, expected_revision=before["revision"], loop_no=before["loop_no"],
+    )
+    assert result["status"] == "success" and result["changed"] is True
+    assert result["step"]["status"] == "completed"
+    assert result["plan"]["revision"] == before["revision"] + 1
+    assert {"confirmation", "cleanup", "cleanup_state", "requires_reconciliation"}.isdisjoint(result)
     assert [request["type"] for request in completion.bridge_requests] == [
         "get_rhino_context", "cleanup_step_temp"]
+    assert completion.observed == [("completed", before["revision"] + 1, "Record the entrance decision")]
+    assert not any(word in json.dumps(result, ensure_ascii=False).lower()
+                   for word in ("temp", "삭제", "정리", "confirmation", "cleanup"))
     after = completion.read()
-    assert after["status"] == "completed"
-    assert after["revision"] == before["revision"] + 1
-    assert after["step"]["takeaways"] == fields["takeaways"]
+    assert after["status"] == "completed" and after["revision"] == before["revision"] + 1
+    assert after["step"]["takeaways"] == "Record the entrance decision"
+    assert after["step"]["design_rationale"] == "Keep the circulation axis"
+    assert after["step"]["input_refs"] == ["survey.md"]
+    assert after["step"]["output_refs"] == [str(artifact)]
+    assert store.list_project_files() == registered_files
+    assert artifact.read_bytes() == b"preserve this file"
 
+
+def test_cleanup_runs_only_on_transition_to_completed(completion):
+    first = completion.update(status="completed")
+    second = completion.update(status="completed")
+    assert first["status"] == second["status"] == "success"
+    assert first["changed"] is True and second["changed"] is False
+    assert first["plan"]["revision"] == second["plan"]["revision"]
+    assert len(completion.bridge_requests) == 2
+    assert completion.update(status="completed", takeaways="Revised notes")["status"] == "success"
+    assert completion.update(status="running")["status"] == "success"
+    assert len(completion.bridge_requests) == 2
+    assert completion.update(status="completed")["status"] == "success"
+    assert len(completion.bridge_requests) == 4
+
+
+@pytest.mark.parametrize("change", ["revision", "loop"])
+def test_completion_rejects_stale_revision_or_loop(completion, change):
+    old = completion.read()
+    store = completion.context.retrieval_store
+    if change == "revision":
+        store.edit_plan(completion.plan["plan_id"], title="Updated")
+    else:
+        store.execute_looping(completion.plan["plan_id"])
+    current = completion.read()
+    result = completion.update(status="completed", takeaways="Stale request",
+                               expected_revision=old["revision"], loop_no=old["loop_no"])
+    assert result["status"] == "error"
+    assert completion.read() == current
+    assert completion.bridge_requests == []
 
 
 @pytest.fixture(scope="module")
@@ -153,123 +175,8 @@ def test_native_cleanup_keeps_a_current_temp_root_with_no_children(native_cleanu
     assert outcome["current_layer"] == 1 and "Temp" in outcome["layers"]
 
 
-def confirm(completion, **fields):
-    request = {"status": "completed", **fields}
-    token = completion.update(**request)["confirmation"]["token"]
-    return completion.update(**request, completion_token=token, completion_decision="yes")
-
-
-def test_cleanup_accepts_objects_removed_from_the_temp_root_only(completion):
-    def native(payload, timeout=60):
-        if json.loads(payload)["type"] == "get_rhino_context":
-            return completion.native(payload)
-        return json.dumps({"status": "success", "cleanup": {"deleted_layers": 0, "deleted_objects": 1}})
-
-    completion.context._send_and_receive = native
-    result = confirm(completion)
-    assert result["status"] == "success"
-    assert result["cleanup"] == {"deleted_layers": 0, "deleted_objects": 1}
-
-
-def test_only_actual_transition_cleans_again_and_keeps_file_registration_separate(completion, tmp_path):
-    artifact = tmp_path / "handoff.3dm"
-    artifact.write_bytes(b"preserve this file")
-    before_files = completion.context.retrieval_store.list_project_files()
-    assert completion.update(status="running")["status"] == "success"
-    assert completion.bridge_requests == []
-    assert confirm(completion, output_refs={"add": [str(artifact)]})["status"] == "success"
-    already_completed = completion.update(status="completed", takeaways="Revised notes")
-    assert already_completed["status"] == "success" and "cleanup" not in already_completed
-    assert len(completion.bridge_requests) == 2
-    assert completion.update(status="running")["status"] == "success"
-    assert confirm(completion)["status"] == "success"
-    assert len(completion.bridge_requests) == 4
-    assert completion.context.retrieval_store.list_project_files() == before_files
-    assert artifact.read_bytes() == b"preserve this file"
-
-
-@pytest.mark.parametrize("change", ["revision", "loop"])
-def test_confirmation_is_bound_to_issued_loop_and_revision(completion, change):
-    token = completion.update(status="completed")["confirmation"]["token"]
-    store = completion.context.retrieval_store
-    if change == "revision":
-        store.edit_plan(completion.plan["plan_id"], title="Updated")
-    else:
-        store.execute_looping(completion.plan["plan_id"])
-    before = completion.read()
-    result = completion.update(status="completed", completion_token=token, completion_decision="yes")
-    assert result["status"] == "error" and result["cleanup_state"] == "not_started"
-    assert completion.bridge_requests == []
-    assert completion.read() == before
-    assert result["plan"]["loop_no"] == before["loop_no"]
-    assert result["step"]["status"] == before["status"]
-
-
-def test_confirmation_cannot_cross_to_another_bound_document(completion, monkeypatch, tmp_path):
-    token = completion.update(status="completed")["confirmation"]["token"]
-    before = completion.read()
-    monkeypatch.setenv("ALMOND_MODEL_PATH", str(tmp_path / "other.3dm"))
-    result = completion.update(status="completed", completion_token=token, completion_decision="yes")
-    assert result["status"] == "error" and result["cleanup_state"] == "not_started"
-    assert completion.bridge_requests == []
-    assert completion.read() == before
-
-
-def test_wrong_request_is_rejected_without_consuming_the_matching_attempt(completion):
-    token = completion.update(status="completed", takeaways="original")["confirmation"]["token"]
-    mismatch = completion.update(status="completed", takeaways="changed", completion_token=token, completion_decision="yes")
-    assert mismatch["error_code"] == "invalid_step_completion_confirmation"
-    assert completion.bridge_requests == []
-    assert completion.update(status="completed", takeaways="original", completion_token=token, completion_decision="yes")["status"] == "success"
-
-
-@pytest.mark.parametrize("reply, expected", [
-    ({"status": "error", "cleanup_state": "rolled_back", "message": "Layer could not be deleted."}, "rolled_back"),
-    (None, "unknown"),
-    ({"status": "success", "cleanup": {"deleted_layers": 1, "deleted_objects": True}}, "unknown"),
-])
-def test_failed_native_cleanup_reports_the_committed_step_and_does_not_retry(completion, reply, expected):
-    attempts = []
-
-    def fail_native(payload, timeout=60):
-        if json.loads(payload)["type"] == "get_rhino_context":
-            return completion.native(payload, timeout)
-        attempts.append(payload)
-        if reply is None:
-            raise TimeoutError("The cleanup acknowledgement was not received.")
-        return json.dumps(reply)
-
-    completion.context._send_and_receive = fail_native
-    before = completion.read()
-    result = confirm(completion, takeaways="The Step is completed")
-    assert result["status"] == "error" and result["cleanup_state"] == expected
-    assert result["changed"] is True and result["requires_reconciliation"] is True
-    observed = completion.read()
-    assert result["step"]["status"] == observed["status"] == "completed"
-    assert result["plan"]["revision"] == observed["revision"] == before["revision"] + 1
-    assert observed["step"]["takeaways"] == "The Step is completed"
-    assert completion.update(status="completed")["status"] == "success"
-    assert len(attempts) == 1
-
-
-def test_yes_persists_the_step_before_dispatching_native_cleanup(completion):
-    store = completion.context.retrieval_store
-    before = completion.read()
-    observed = []
-
-    def observe_when_cleaning(payload, timeout=60):
-        if json.loads(payload)["type"] == "cleanup_step_temp":
-            saved = store.get_step(before["plan_id"], before["id"])
-            observed.append((saved["step"]["status"], saved["revision"], saved["step"]["takeaways"]))
-        return completion.native(payload, timeout)
-
-    completion.context._send_and_receive = observe_when_cleaning
-    assert confirm(completion, takeaways="Committed before cleanup")["status"] == "success"
-    assert observed == [("completed", before["revision"] + 1, "Committed before cleanup")]
-
-
 @pytest.mark.parametrize("stage", ["write", "commit"])
-def test_failed_db_update_never_dispatches_cleanup(completion, stage):
+def test_failed_completion_db_update_preserves_state_without_rhino(completion, stage):
     with sqlite3.connect(completion.context.retrieval_store.database_path) as db:
         if stage == "write":
             db.executescript("""
@@ -284,13 +191,43 @@ def test_failed_db_update_never_dispatches_cleanup(completion, stage):
                 WHEN new.status = 'completed' BEGIN INSERT INTO fixture_child VALUES (999); END;
             """)
     before = completion.read()
-    result = confirm(completion, takeaways="No partial update")
-    assert result["status"] == "error" and result["error_code"] == "step_completion_db_failed"
-    assert result["requires_reconciliation"] is False
+    result = completion.update(status="completed", takeaways="No partial update")
+    assert result["status"] == "error"
+    assert result["error_code"] == "step_completion_db_failed"
     assert result["cleanup_state"] == "not_started"
+    assert result["changed"] is False and result["requires_reconciliation"] is False
     assert completion.bridge_requests == []
-    assert result["step"]["status"] == before["status"]
     assert completion.read() == before
+
+
+@pytest.mark.parametrize("reply,state", [
+    ({"status": "error", "cleanup_state": "rolled_back", "message": "Could not delete layer."}, "rolled_back"),
+    (None, "unknown"),
+    ({"status": "success", "cleanup": {"deleted_layers": 1, "deleted_objects": True}}, "unknown"),
+])
+def test_failed_rhino_follow_up_reports_committed_step_without_retry(completion, reply, state):
+    attempts = []
+
+    def native(payload, **options):
+        if json.loads(payload)["type"] == "get_rhino_context":
+            return completion.native(payload, **options)
+        attempts.append(json.loads(payload))
+        if reply is None:
+            raise TimeoutError("Native acknowledgement never arrived.")
+        return json.dumps(reply)
+
+    completion.context._send_and_receive = native
+    before = completion.read()
+    result = completion.update(status="completed", takeaways="Saved before the follow-up")
+    assert result["status"] == "error" and result["cleanup_state"] == state
+    assert result["changed"] is True and result["requires_reconciliation"] is True
+    after = completion.read()
+    assert result["step"]["status"] == after["status"] == "completed"
+    assert result["plan"]["revision"] == after["revision"] == before["revision"] + 1
+    assert after["step"]["takeaways"] == "Saved before the follow-up"
+    assert "delete" not in result["message"].lower() and "next_step_guide" not in result
+    assert completion.update(status="completed")["status"] == "success"
+    assert len(attempts) == 1
 
 
 def test_native_cleanup_removes_temp_block_instances_and_definition_members(native_cleanup):
