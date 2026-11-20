@@ -16,6 +16,8 @@ namespace RhinoAlmondBridge
     public static class PlanSectionTool
     {
         const string Resource = "RhinoAlmondBridge.PlanSection.py";
+        // IronPython 2's ASCII JSON encoder may decode CLR Unicode strings as bytes.
+        // Keep the result as Unicode for the .NET JsonTextReader.
         const string Invoke = @"
 _almond_args = json.loads(_almond_arguments_json)
 _almond_result_json = json.dumps(run(_almond_doc,
@@ -26,7 +28,7 @@ _almond_result_json = json.dumps(run(_almond_doc,
     near_width=_almond_args['near_width'], far_width=_almond_args['far_width'],
     near_dark=_almond_args['near_dark'], far_dark=_almond_args['far_dark'],
     include_attachments=_almond_args.get('include_attachments'),
-    observe_attachments=_almond_observe_attachments))
+    observe_attachments=_almond_observe_attachments), ensure_ascii=False)
 ";
         static readonly HashSet<string> Fields = new HashSet<string>(new[] {
             "type", "operation", "clipping_ids", "points", "hatch", "small_details",

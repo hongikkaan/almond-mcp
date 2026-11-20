@@ -51,8 +51,8 @@ path = "src/mcp/__init__.py"
 [tool.hatch.build.targets.wheel]
 only-include = ["src/mcp"]
 include = [
-    "src/mcp/*.py", "src/mcp/*-explain.md", "src/mcp/*-INSTRUCTIONS.md",
-    "src/mcp/design_judgment.md", "src/mcp/About Rhino.md", "src/mcp/modeling_policy.json", "src/mcp/profiles/**",
+    "src/mcp/*.py", "src/mcp/*-explain.md", "src/mcp/RHINOCODE-INSTRUCTIONS.md",
+    "src/mcp/modeling_policy.json", "src/mcp/profiles/**",
     "src/mcp/features/**", "src/mcp/rhino/**",
 ]
 sources = {"src/mcp" = "almond_mcp"}

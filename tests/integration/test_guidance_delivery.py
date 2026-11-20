@@ -43,13 +43,22 @@ def session_params(checkout, project, route):
                                  env=env, cwd=checkout)
 
 
+RETIRED_NAMES = ("BASIC-INSTRUCTIONS.md", "design_judgment.md", "About Rhino.md")
+
+
 @pytest.mark.parametrize("route", ["bound", "codex", "cos"])
-def test_delivers_both_guidance_bodies_once(guidance_checkout, tmp_path, route):
-    basic = "# 업무 fixture\n\n  작업 내용.\n"
-    design = "# 판단 fixture\n\n" + "설계 판단 검증 문단\n" * 5700 + "마지막 단락.\n"
+def test_legacy_guidance_and_global_skill_are_not_read(guidance_checkout, tmp_path, route, monkeypatch):
     guide_dir = guidance_directory(guidance_checkout)
-    (guide_dir / "BASIC-INSTRUCTIONS.md").write_text(basic, encoding="utf-8", newline="\n")
-    (guide_dir / "design_judgment.md").write_text(design, encoding="utf-8", newline="\n")
+    for name in RETIRED_NAMES:
+        # Deliberately unreadable as UTF-8; a lingering fingerprint or delivery
+        # dependency would also break an external host before initialization.
+        (guide_dir / name).write_bytes(b"legacy-sentinel-\xff\xfe")
+    home = tmp_path / "profile"
+    skill = home / ".agents/skills/rhinobeyond/SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("global-skill-sentinel", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
 
     async def inspect():
         params = session_params(guidance_checkout, tmp_path / "project", route)
@@ -57,25 +66,40 @@ def test_delivers_both_guidance_bodies_once(guidance_checkout, tmp_path, route):
             async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
                 initialized = await client.initialize()
                 instructions = initialized.instructions
-                assert instructions.count(basic) == 1
-                assert instructions.count(design) == 1
                 assert "context_01-get_policy tool" in instructions
-                assert "On first use, call" not in instructions
+                assert "Use tools/list to see the tools available on this connection." in instructions
                 if route != "bound":
-                    description = initialized.server_info.description
-                    assert description in instructions
-                    assert basic not in description and design not in description
+                    assert instructions.startswith(initialized.server_info.description)
                 tools = await client.list_tools()
-                assert all(basic not in tool.description and design not in tool.description
-                           for tool in tools.tools if tool.description)
-                if route == "bound":
-                    basic_policy = await client.call_tool("context_01-get_policy", {})
-                    assert not basic_policy.is_error
-                    assert basic_policy.structured_content["text"] == basic.strip()
-                    assert design not in basic_policy.structured_content["text"]
-                    assert guide_version(instructions) == basic_policy.structured_content["guide_version"]
-
+                basic_calls = []
+                for explicit in ({}, {"policy": ""}, {"policy": "basic"}):
+                    result = await client.call_tool("context_01-get_policy", explicit)
+                    assert not result.is_error
+                    basic_calls.append(result.structured_content)
+                basic = basic_calls[0]
+                assert basic == basic_calls[1] == basic_calls[2]
+                assert basic["selected_policy"] == "basic"
+                assert "공통 도구 참고 목록" in basic["text"] and "tools/list" in basic["text"]
+                assert "context_01-get_policy" in basic["tools"]
+                assert "connect_01-list_up" not in basic["tools"]
+                assert ("connect_01-list_up" in {tool.name for tool in tools.tools}) == (route != "bound")
+                assert basic["source_refs"][0]["path"] == "src/mcp/modeling_guidance.py"
+                assert guide_version(instructions) == basic["guide_version"]
+                for name in ("rhino_scripting", "rhinocode"):
+                    result = await client.call_tool("context_01-get_policy", {"policy": name})
+                    assert not result.is_error
+                    value = result.structured_content
+                    assert value["guide_version"] == basic["guide_version"]
+                    if name == "rhinocode":
+                        assert "script_02-run_rhino" in value["text"]
+                    else:
+                        assert value["scripting_skill"]["name"] == "rhino3d-scripts"
+                        assert all(source["text"] for source in value["scripting_skill"]["sources"])
+                published = json.dumps([initialized.model_dump(), tools.model_dump(), basic], ensure_ascii=False)
+                assert not any(name in published for name in RETIRED_NAMES)
+                assert "legacy-sentinel" not in published and "global-skill-sentinel" not in published
     asyncio.run(inspect())
+
 
 @pytest.mark.parametrize("route", ["bound", "codex", "cos"])
 def test_metadata_policy_is_discoverable_and_readable_on_a_new_session(guidance_checkout, tmp_path, route):
@@ -136,37 +160,19 @@ def guide_version(instructions):
 
 
 @pytest.mark.parametrize("route", ["bound", "codex", "cos"])
-def test_reports_missing_document_and_loads_versions_in_new_sessions(guidance_checkout, tmp_path, route):
+def test_guide_version_tracks_only_retained_sources(guidance_checkout, tmp_path, route):
     guide_dir = guidance_directory(guidance_checkout)
-    basic = "첫 번째 문서입니다.\n마지막 줄입니다.\n"
-    design = guide_dir / "design_judgment.md"
-    (guide_dir / "BASIC-INSTRUCTIONS.md").write_bytes(b"\xef\xbb\xbf" + basic.replace("\n", "\r\n").encode("utf-8"))
-    design.unlink(missing_ok=True)
-
     original = startup_response(guidance_checkout, tmp_path / "before", route).instructions
-    assert basic in original
-    assert "Startup guidance unavailable: design_judgment.md (file missing)." in original
+    for name in RETIRED_NAMES:
+        (guide_dir / name).write_bytes(b"old-sentinel-\xff")
+    with_stale_files = startup_response(guidance_checkout, tmp_path / "stale-files", route).instructions
+    assert original == with_stale_files
 
-    design.write_text("첫 설계 판단.", encoding="utf-8")
-    added = startup_response(guidance_checkout, tmp_path / "added", route).instructions
-    assert "첫 설계 판단." in added and basic in added
-    assert "Startup guidance unavailable:" not in added
-    assert guide_version(original) != guide_version(added)
-
-    design.write_text("갱신한 설계 판단.", encoding="utf-8")
+    notes = guide_dir / "RHINOCODE-INSTRUCTIONS.md"
+    notes.write_text(notes.read_text(encoding="utf-8") + "\nRetained reference fixture.\n", encoding="utf-8")
     updated = startup_response(guidance_checkout, tmp_path / "updated", route).instructions
-    assert "갱신한 설계 판단." in updated and "첫 설계 판단." not in updated
-    assert guide_version(added) != guide_version(updated)
-
-
-def test_external_host_reports_invalid_and_empty_documents(guidance_checkout, tmp_path):
-    guide_dir = guidance_directory(guidance_checkout)
-    (guide_dir / "BASIC-INSTRUCTIONS.md").write_bytes(b"\xff\xfe")
-    (guide_dir / "design_judgment.md").write_bytes(b"\t\r\n ")
-    result = startup_response(guidance_checkout, tmp_path / "invalid", "codex")
-    assert "Startup guidance unavailable: BASIC-INSTRUCTIONS.md (invalid UTF-8)." in result.instructions
-    assert "Startup guidance unavailable: design_judgment.md (empty document)." in result.instructions
-    assert result.server_info.description in result.instructions
+    assert "Retained reference fixture." not in updated
+    assert guide_version(original) != guide_version(updated)
 
 
 def test_external_host_rejects_installed_metadata_from_a_different_release(guidance_checkout, tmp_path):
@@ -182,7 +188,7 @@ def test_external_host_rejects_installed_metadata_from_a_different_release(guida
 
 def test_unbound_standalone_keeps_initialize_free_of_document_guidance(guidance_checkout, tmp_path):
     guide_dir = guidance_directory(guidance_checkout)
-    (guide_dir / "BASIC-INSTRUCTIONS.md").write_text("Basic fixture.", encoding="utf-8")
-    (guide_dir / "design_judgment.md").write_text("Design fixture.", encoding="utf-8")
+    for name in RETIRED_NAMES:
+        (guide_dir / name).write_text("Legacy fixture.", encoding="utf-8")
     result = startup_response(guidance_checkout, tmp_path / "standalone", "standalone")
     assert result.instructions is None

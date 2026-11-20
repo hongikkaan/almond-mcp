@@ -7,7 +7,7 @@
 
 - `./`: Python package의 소스와 공개 도구·계산·라이브러리 API.
 - `runtime/`: CLI 시작·재연결, 모델 binding, A–J 슬롯, 공유 저장소와 native 완료 확인.
-- `BASIC-INSTRUCTIONS.md`, `*-explain.md`: 기본 작업 지침과 보조 스크립트 안내. `release_validation/`은 배포 검증을 소유한다.
+- `*-explain.md`: 보조 스크립트 안내. `release_validation/`은 배포 검증을 소유한다.
 - `tests/`, `pytest.ini`, `run_tests.ps1`: 모듈 검사. COS import 없이 실행한다.
 - `rebuild_environment.ps1`: 일상 환경과 이미 존재하는 루트 환경을 함께 정합화한다. `-VerifyOnly`는 패키지를 변경하지 않고 검사하며, `-Development`는 개발 환경만 대상으로 한다. COS catalog는 수정하지 않는다.
 - `use_offline_environment.ps1`: 현재 셸과 자식에만 로컬 검사 경로를 설정한다.
@@ -144,7 +144,7 @@ GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper
 
 ## Scene·Component·계획
 
-공통 건축 판단 원칙은 [Rhino 모델링 지침](BASIC-INSTRUCTIONS.md), Scene·Holon의 의미와 등록 기준은 [Scene 도구 설명](features/scenes/tools.py)과 [Holon 도구 설명](features/components/tools.py)을 따른다. 구현 계약은 [Component 등록·계층·동기화](features/components/SPEC.md)와 [계획 저장·참조](#계획-저장참조)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](features/assets/SPEC.md#기존-glbscene-배치-장부)에 둔다.
+공통 건축 판단 원칙은 [별도 RhinoBeyond 스킬](../../skill/SKILL.md), Scene·Holon의 의미와 등록 기준은 [Scene 도구 설명](features/scenes/tools.py)과 [Holon 도구 설명](features/components/tools.py)을 따른다. 구현 계약은 [Component 등록·계층·동기화](features/components/SPEC.md)와 [계획 저장·참조](#계획-저장참조)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](features/assets/SPEC.md#기존-glbscene-배치-장부)에 둔다.
 
 `scene_07-list` tool는 Plan이나 live 문서 조회 없이 프로젝트 전체 Scene 이름의 제한된 페이지를 제공한다. Component 목록은 `scene_id`로 범위를 정하고 기본 root/선택적 recursive를 지원한다. `scene_11-sync_holon` tool는 기존 단건 호출과 함께 holon_ids·Scene·bound 문서 범위를 지원하며 대상 형식을 혼합하지 않는다.
 
@@ -156,7 +156,7 @@ Phase는 Plan의 상위 묶음이고 Plan 안에 Step을 둔다. Plan의 Scene �
 
 참조 인자를 생략하면 기존 값을 유지하고 `[]`는 비운다. Step별 Component 할당은 없으며 Step 문맥의 대상 조회도 Plan의 대상을 사용한다. 빈 대상을 Scene 전체로 확장하지 않는다. `inspect_05-resolve_targets` tool는 등록 대상을 해석하며 실제 형상 실행과 별개다.
 
-`depends_on`은 Phase에는 `phase_` ID, Plan에는 `plan_` ID만 담는 참고 관계 JSON 배열이다. 서로 다른 종류의 참조는 거부한다. 저장소는 자기 참조·순환·미생성 ID를 허용하고 실행 순서나 선행 완료를 강제하지 않는다. 사용자 작업 단위와 도구 사용 기준은 BASIC-INSTRUCTIONS.md를 따른다. 기존 `scene_id`는 `scene_ids`의 첫 항목과 호환된다.
+`depends_on`은 Phase에는 `phase_` ID, Plan에는 `plan_` ID만 담는 참고 관계 JSON 배열이다. 서로 다른 종류의 참조는 거부한다. 저장소는 자기 참조·순환·미생성 ID를 허용하고 실행 순서나 선행 완료를 강제하지 않는다. 설계 과업의 Plan·Step 작업 방식은 별도 RhinoBeyond 스킬에 둔다. 기존 `scene_id`는 `scene_ids`의 첫 항목과 호환된다.
 
 #### 목록과 통합 상세 조회
 
@@ -197,7 +197,7 @@ Phase는 `generation_phase_files`에서 순서 있는 여러 등록 파일명을
 
 공개 도구와 리소스의 설명·입력 안내는 구현 함수의 docstring에 둔다. `public_tool` 등록은 공개 이름·출력 계약·후속 안내를 적용한다. 외부 카탈로그는 같은 선언의 서명과 docstring 및 등록 옵션으로 스키마를 생성한다.
 입력 검증 조건, 오류 상태·수치 결과, SQL과 실행할 C#/Blender 코드는 지침 원본이 아니다.
-기본 작업 지침은 `BASIC-INSTRUCTIONS.md`에 둔다.
+설계 작업 지침은 별도 [RhinoBeyond 스킬](../../skill/SKILL.md)에 둔다.
 
 beyond와 CoS는 모델 서버를 import하지 않고 선언만 읽어 스키마를 추출한다.
 package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는 해당 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
@@ -235,15 +235,15 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 plan_09-rename_ar
 
 ## 모델링 안내 전달
 
-`tools/list`에는 각 도구의 설명 전문과 입력·출력 schema를 제공한다. 공개 등록 함수의 docstring을 사용하며 첫 문장 추출이나 문장 축약을 하지 않는다. FastMCP의 표준 docstring 처리가 Args/Returns 등의 인수·반환 메타데이터를 schema에 반영하므로 본문과 메타데이터를 임의로 분리·삭제하지 않는다. 전체 BASIC 지침을 각 도구 설명에 자동 삽입하지 않는다.
+`tools/list`에는 각 도구의 설명 전문과 입력·출력 schema를 제공한다. 공개 등록 함수의 docstring을 사용하며 첫 문장 추출이나 문장 축약을 하지 않는다. FastMCP의 표준 docstring 처리가 Args/Returns 등의 인수·반환 메타데이터를 schema에 반영하므로 본문과 메타데이터를 임의로 분리·삭제하지 않는다.
 
-`context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `BASIC-INSTRUCTIONS.md`, 공개 도구명과 `available_policies`를 반환한다. BASIC은 설계·관찰·검수에 공통으로 적용할 판단 기준과 개념을 담는다. `metadata`는 객체 키 사전, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 개별 도구의 설명과 호출법은 `tools/list`에서 확인한다.
+`context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `basic`으로 공통 도구 참고 목록, 조회 방법 요약과 `available_policies`를 반환한다. `metadata`는 객체 키 사전, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 이 연결에서 호출할 수 있는 도구와 사용법은 `tools/list`에서 확인한다.
 
-RhinoTerminal과 별도 창의 문서 전용 세션, beyond 및 CoS의 외부 host는 initialize.instructions로 공통 시작 안내를 전달한다. 기본 지침 원본은 [BASIC-INSTRUCTIONS.md](BASIC-INSTRUCTIONS.md)이며 설계 판단 원본은 같은 폴더의 [design_judgment.md](design_judgment.md)다. 서버는 UTF-8 원본의 본문을 파일명과 함께 한 번씩 전달하며, 서버에서 본문을 잘라내지 않는다. 누락, 읽기 실패, 인코딩 오류 또는 빈 문서는 해당 파일명과 원인을 같은 응답에 표시한다. 배포된 유효한 본문은 계속 전달한다.
+RhinoTerminal과 별도 창의 문서 전용 세션, beyond 및 CoS의 외부 host는 `initialize.instructions`로 서버 소개, 기술 참고 자료 조회 방법과 `guide_version`을 전달한다. 런타임은 설계 지침 파일이나 별도 설치 스킬을 읽지 않는다.
 
-standalone MCP의 initialize.instructions는 비어 있다. context_01-get_policy tool로 실행 참고 자료를 조회하거나 필요할 때 기존 BASIC을 다시 읽을 수 있다. [외부 연결기의 시작 안내](../cos/SPEC.md#공통-모델링-안내)와 공통 본문의 전달은 [stdio 검사](../../tests/integration/test_guidance_delivery.py)에서 확인한다.
+standalone MCP의 `initialize.instructions`는 비어 있다. 공개 도구 목록과 기술 참고 자료는 `context_01-get_policy` tool로 조회한다. 시작 안내와 정책 조회는 [stdio 검사](../../tests/integration/test_guidance_delivery.py)에서 확인한다. [외부 연결기의 시작 안내](../cos/SPEC.md#공통-모델링-안내)
 
-`modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 시작 문서의 본문과 가용 상태도 계산에 포함한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`는 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
+`modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`는 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
 
 reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기는 선택된 연결을 자동으로 사용한다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 공개 스키마와 응답의 선택값 일치, cold stdio와 외부 경로의 스키마 일치, wheel·sdist의 지침 파일을 확인한다.
 

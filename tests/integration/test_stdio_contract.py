@@ -12,7 +12,7 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from almond_mcp import paths
 import ast
 from almond_mcp.tool_declarations import declaration_sources, inspect_declarations
-from almond_mcp.modeling_guidance import BASIC_GUIDE, read_policy, startup_instructions
+from almond_mcp.modeling_guidance import BASIC_SUMMARY, read_policy, startup_instructions
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -129,7 +129,7 @@ async def collect(params, *, bound):
             catalog_tool = "context_05-upsert_project_file"
             assert (catalog_tool in tools) == bound
             assert catalog_tool in basic["tools"]
-            assert basic["text"] == BASIC_GUIDE.read_text(encoding="utf-8").strip()
+            assert basic["text"] == BASIC_SUMMARY
             policy_input = tools["context_01-get_policy"]["inputSchema"]["properties"]["policy"]
             assert policy_input["default"] == ""
             assert policy_input["enum"] == ["", *basic["available_policies"]]

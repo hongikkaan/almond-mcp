@@ -16,7 +16,7 @@ def test_policy_selection_returns_only_requested_content():
         assert_described_payload(modeling_guidance.read_policy(name), schema)
     assert "context_01-get_policy" in basic["tools"]
     assert not {"get_modeling_guide", "get_looping_policy", "get_modeling_policy", "get_retrieval_status"}.intersection(basic["tools"])
-    assert basic["text"] == modeling_guidance.BASIC_GUIDE.read_text(encoding="utf-8").strip()
+    assert basic["text"] == modeling_guidance.BASIC_SUMMARY
     assert set(basic["available_policies"]) == {"basic", "metadata", "rhino_scripting", "rhinocode"}
     assert modeling_guidance.read_policy("basic") == basic
     for retired in ("spatial_modeling", "observation", "drawing", "feedback_reporting"):

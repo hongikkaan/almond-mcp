@@ -17,14 +17,14 @@ def register(mcp, context):
 
     @public_tool(mcp, wrapped=False, annotations={'readOnlyHint': True, 'destructiveHint': False, 'openWorldHint': False})
     def get_policy(policy: PolicyName = "") -> ToolResult:
-        """Almond 기본 지침과 도구 참고 자료 조회. policy를 생략하면 기본 지침과 공통 도구 목록을 반환.
+        """Almond 도구와 기술 참고 자료 조회. policy를 생략하면 공개 도구 목록과 참고 자료 종류를 반환.
 
         metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 내장 스크립팅 자료, rhinocode는 코드·명령 실행 지침.
 
         같은 guide_version에서 이미 읽은 지침은 재사용할 수 있다.
 
         Args:
-            policy: 생략하거나 비워 두면 basic. 선택값의 용도는 available_policies 참고.
+            policy: 생략하거나 비워 두면 basic(공개 도구 목록). 참고 자료 종류는 available_policies 참고.
         """
         value = read_policy(policy)
         return ToolResult(content=[TextContent(type="text", text=json.dumps(value, ensure_ascii=False))], structured_content=value)

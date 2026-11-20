@@ -240,6 +240,43 @@ def test_move_requires_explicit_xyz_and_dispatches_using_bound_environment(monke
     asyncio.run(check())
 
 
+@pytest.mark.parametrize("operation", ["Create", "Update"])
+@pytest.mark.parametrize("status", ["completed", "partial", "failed"])
+def test_native_result_serializes_unicode_without_ironpython_ascii_encoder(operation, status):
+    # The production IronPython traceback reaches py_encode_basestring_ascii on a
+    # nested CLR string. CPython's ASCII encoder accepts it, so model that one
+    # runtime divergence while executing the production invocation unchanged.
+    native = Path(__file__).resolve().parents[1] / "features/modeling/native/PlanSectionTool.cs"
+    invocation = native.read_text(encoding="utf-8").split('const string Invoke = @"', 1)[1].split('";', 1)[0]
+    layer = "M::\uae30\uc900\uce35::caf\u00e9"
+    name = "\ud3c9\uba74"
+    items = []
+    if status != "failed":
+        items.append(dict(name=name, status="completed", extraction=dict(layers=[layer])))
+    if status != "completed":
+        items.append(dict(name=name, status="failed", error=layer,
+                          recovery=dict(requires_reconciliation=status == "partial")))
+    result = dict(status=status, results=items, requested=len(items), completed=int(status != "failed"))
+
+    def ironpython_dumps(value, *, ensure_ascii=True):
+        if ensure_ascii:
+            layer.encode("ascii")
+        return json.dumps(value, ensure_ascii=ensure_ascii)
+
+    def run(doc, actual_operation, clipping_ids, **kwargs):
+        assert actual_operation == operation and clipping_ids == [ID]
+        assert kwargs["output"] == "Document"
+        return result
+
+    args = dict(operation=operation, clipping_ids=[ID], points={}, hatch=True,
+                small_details=False, near_width=.09, far_width=.04, near_dark=80, far_dark=45)
+    scope = dict(json=SimpleNamespace(loads=json.loads, dumps=ironpython_dumps), run=run,
+                 _almond_doc=object(), _almond_arguments_json=json.dumps(args),
+                 _almond_observe_attachments=None)
+    exec(invocation, scope)
+    assert json.loads(scope["_almond_result_json"]) == result
+
+
 @pytest.fixture(scope="module")
 def native_boundary_results():
     dotnet = os.environ.get("ALMOND_TEST_DOTNET")

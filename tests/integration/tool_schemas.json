@@ -4338,7 +4338,7 @@
             "rhinocode"
           ],
           "type": "string",
-          "description": "생략하거나 비워 두면 basic. 선택값의 용도는 available_policies 참고."
+          "description": "생략하거나 비워 두면 basic(공개 도구 목록). 참고 자료 종류는 available_policies 참고."
         }
       },
       "type": "object"

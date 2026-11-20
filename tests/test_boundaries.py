@@ -32,7 +32,7 @@ def test_package_wheel_contract_includes_guidance_and_excludes_runtime():
         wheel = tomllib.load(stream)["tool"]["hatch"]["build"]["targets"]["wheel"]
     assert wheel["sources"]["src/mcp"] == "almond_mcp"
     assert "src/mcp/runtime" in wheel["exclude"]
-    assert "src/mcp/*-INSTRUCTIONS.md" in wheel["include"]
+    assert "src/mcp/RHINOCODE-INSTRUCTIONS.md" in wheel["include"]
     assert "src/mcp/features/**" in wheel["include"]
 
 
@@ -45,8 +45,9 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
     assert len(wheels) == len(sdists) == 1
     package = ROOT / "src/mcp"
     retired_dirs = ("features/guidance/guides/", "features/guidance/policies/", "features/guidance/policy-validation/")
+    retired_guides = ("BASIC-INSTRUCTIONS.md", "design_judgment.md", "About Rhino.md")
     guidance_files = {
-        "BASIC-INSTRUCTIONS.md", "design_judgment.md", "features/guidance/tools.py",
+        "modeling_guidance.py", "features/guidance/tools.py",
         "modeling_policy.json", "RHINOCODE-INSTRUCTIONS.md",
     }
     with zipfile.ZipFile(wheels[0]) as wheel:
@@ -56,6 +57,7 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
         assert BytesParser().parsebytes(wheel.read(metadata))["Version"] == runpy.run_path(str(package / "__init__.py"))["__version__"]
         for relative in guidance_files:
             assert wheel.read("almond_mcp/" + relative) == (package / relative).read_bytes()
+        assert not any("almond_mcp/" + relative in names for relative in retired_guides)
         assert not any(name.startswith(("almond_mcp/runtime/", "almond_mcp/tests/")) for name in names)
         assert not any(name.removeprefix("almond_mcp/").startswith(("skill/", *retired_dirs)) for name in names)
     with tarfile.open(sdists[0]) as sdist:
@@ -64,6 +66,7 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
         assert prefix + "features/modeling/PlanSection/PlanSection.py" in members
         for relative in guidance_files:
             assert sdist.extractfile(members[prefix + relative]).read() == (package / relative).read_bytes()
+        assert not any(prefix + relative in members for relative in retired_guides)
         assert not any(name.removeprefix(prefix).startswith(("skill/", *retired_dirs)) for name in members)
     isolated = dict(os.environ, TMP=str(tmp_path), TEMP=str(tmp_path), TMPDIR=str(tmp_path))
     audit = subprocess.run(

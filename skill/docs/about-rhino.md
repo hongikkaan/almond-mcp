@@ -34,4 +34,4 @@ BlockEditNew에서는 block 안의 중첩 group을 저장할 수 없다. Rhino 8
 ## 참고
 
 - Rhino 8: [Group](https://docs.mcneel.com/rhino/8/help/en-us/commands/group.htm), [Block](https://docs.mcneel.com/rhino/8/help/en-us/commands/block.htm), [객체의 group 목록](https://developer.rhino3d.com/api/rhinocommon/rhino.docobjects.objectattributes/getgrouplist)
-- Almond 편집 맥락은 `rhino/OBSERVATION-SPEC.md`와 현재 도구 설명을 따른다.
+- Almond 편집 맥락은 현재 `inspect_01-analyze_nested_blocks`와 관련 편집 도구의 설명을 따른다.

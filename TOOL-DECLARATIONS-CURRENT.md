@@ -7,7 +7,7 @@ beyond·CoS의 공개 도구 81개. 두 경로의 `tools/list`에서 도구 설�
 - 수집일: 2026-11-20. 기준: 이 문서와 함께 관리하는 소스.
 - 수집 경로: `src/cos/codex_host.py`와 `src/cos/cos_host.py`의 공용 `external_host.main`. 격리된 데이터 폴더에서 Rhino 연결 없이 stdio `initialize`·`tools/list` 호출.
 - 실행 패키지: almond-mcp 0.7.0rc2 / fastmcp 4.1.0 / mcp 2.3.0 / mcp-types 2.3.0.
-- 선언 SHA-256: `2a15e6d6a9b03d6884053593f9e68c40ca416f468fa98ad83dc3bf022c0d0422`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 해시.
+- 선언 SHA-256: `6a9d4734915ad6410e87baf0062d9bd8b0030796c97025d828f34616ab5fe9b2`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 해시.
 - 도구명·입력 설명은 구현 함수와 docstring, 출력 설명은 `src/mcp/output_contracts.py`에서 확인. 공통 스키마 기준은 `tests/integration/tool_schemas.json`, 외부 연결 도구 정의는 `src/cos/external_host.py` 참조.
 
 TypeScript 표기에서 `?`는 선택 인자, `Array<T>`는 배열, `| null`은 null 허용. 기본값과 범위는 필드 위에 표시. 검증 기준은 JSON Schema이며 TypeScript 표기에서 `oneOf`의 배타성은 생략. 인덱스 시그니처는 `additionalProperties` 허용을 뜻함.
@@ -20,8 +20,8 @@ beyond·CoS 외부 연결기 기준. RhinoTerminal과 관리 실행기의 문서
 
 ## 공통 안내와 실행 결과
 
-- 서버 소개는 `serverInfo.description`과 `initialize.instructions` 첫머리에 전달. 이어서 `modeling_guidance.py`가 조립한 `BASIC-INSTRUCTIONS.md`, `design_judgment.md`, `About Rhino.md` 본문을 전달. 개별 도구 설명은 `tools/list`의 `description`에서 확인. 초기 지침을 모델에 표시하는 방식은 클라이언트에 따름.
-- 정책은 Rhino 연결 선택 전에도 `context_01-get_policy` tool로 조회 가능. 기본 정책은 BASIC. `policy="metadata"`는 객체 키 사전을 반환.
+- 서버 소개는 `serverInfo.description`과 `initialize.instructions` 첫머리에 전달. 이어서 기술 참고 자료 조회 방법과 `guide_version`을 전달. 설계 지침 본문과 별도 설치 스킬은 읽지 않음. 개별 도구 설명은 `tools/list`의 `description`에서 확인. 초기 지침을 모델에 표시하는 방식은 클라이언트에 따름.
+- 정책은 Rhino 연결 선택 전에도 `context_01-get_policy` tool로 조회 가능. 기본값 `basic`은 공통 도구 참고 목록과 참고 자료 종류를 반환. 이 연결에서 호출할 수 있는 도구는 `tools/list`에서 확인. `policy="metadata"`는 객체 키 사전을 반환.
 - `plan_03-execute_looping` tool의 성공 응답은 다음 Step의 선택·기록 방법과 회차 결과를 보고할 때 시각적 근거를 포함하라는 안내를 제공한다.
 - `connect_02-session` tool 또는 `connect_03-start_session` tool로 연결 선택. `script_03-get_execution` tool에 `request_id`를 지정하면 원래 연결의 실행 결과 조회.
 - 외부 실행의 첫 대기 한도는 `min(요청 timeout, 60초)`. `pending`이면 같은 `request_id`로 완료 여부 조회. 외부 클라이언트 제한은 600초. 대기 종료·취소·오류 후에는 실제 문서 상태와 실행 결과를 확인하고 재실행 여부를 결정. [RhinoCode 실행 계약](src/mcp/runtime/RHINOCODE-SPEC.md) · [외부 연결기 SPEC](src/cos/SPEC.md)
@@ -1448,7 +1448,7 @@ declare const tools: {
 ### 26. context\_01-get\_policy
 
 ```txt
-Almond 기본 지침과 도구 참고 자료 조회. policy를 생략하면 기본 지침과 공통 도구 목록을 반환.
+Almond 도구와 기술 참고 자료 조회. policy를 생략하면 공개 도구 목록과 참고 자료 종류를 반환.
 
 metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 내장 스크립팅 자료, rhinocode는 코드·명령 실행 지침.
 
@@ -1458,7 +1458,7 @@ metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 
 ```ts
 declare const tools: {
   mcp__rhino__context_01_get_policy(args: {
-    // 생략하거나 비워 두면 basic. 선택값의 용도는 available_policies 참고.
+    // 생략하거나 비워 두면 basic(공개 도구 목록). 참고 자료 종류는 available_policies 참고.
     // default: ""
     policy?: "" | "basic" | "metadata" | "rhino_scripting" | "rhinocode";
   }): Promise<CallToolResult<{

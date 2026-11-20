@@ -8,13 +8,16 @@ from typing import Literal
 from almond_mcp.tool_declarations import declaration_sources, inspect_declarations
 
 PACKAGE = Path(__file__).resolve().parent
-BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
-STARTUP_DOCUMENTS = (BASIC_GUIDE, PACKAGE / "design_judgment.md", PACKAGE / "About Rhino.md")
+BASIC_REFERENCE = Path(__file__).resolve()
+BASIC_SUMMARY = (
+    "공통 도구 참고 목록입니다. 이 연결에서 호출할 수 있는 도구와 사용법은 tools/list에서 확인하세요. "
+    "메타데이터·스크립팅 참고 자료는 available_policies에서 선택할 수 있습니다."
+)
 SCRIPTING_SKILL = PACKAGE / "features/modeling/rhino3d-scripts"
 METADATA_POLICY = PACKAGE / "modeling_policy.json"
 RHINOCODE_POLICY = PACKAGE / "RHINOCODE-INSTRUCTIONS.md"
 POLICIES = {
-    "basic": ("건축 설계·모델링·도면 검증 지침과 공통 도구 목록", BASIC_GUIDE),
+    "basic": ("공개 도구 목록과 참고 자료 종류", None),
     "metadata": ("Rhino 객체 메타데이터 키 사전", METADATA_POLICY),
     "rhino_scripting": ("Rhino 스크립트 작성과 API 참고 자료", None),
     "rhinocode": ("RhinoCode 코드·Rhino 커맨드 실행과 결과 확인", RHINOCODE_POLICY),
@@ -27,36 +30,8 @@ def _read_content(path: Path) -> bytes:
     return raw if path.suffix == ".png" else raw.decode("utf-8-sig").replace("\r\n", "\n").encode("utf-8")
 
 
-def _read_source(path: Path) -> tuple[bytes, str | None]:
-    if path not in STARTUP_DOCUMENTS:
-        return _read_content(path), None
-
-    try:
-        raw = path.read_bytes()
-    except FileNotFoundError:
-        return b"", "file missing"
-    except OSError:
-        return b"", "file unreadable"
-
-    try:
-        text = raw.decode("utf-8-sig").replace("\r\n", "\n")
-    except UnicodeDecodeError:
-        return raw, "invalid UTF-8"
-    if not text.strip():
-        return raw, "empty document"
-    return text.encode("utf-8"), None
-
-
-def _source_digest(source: tuple[bytes, str | None]) -> str:
-    content, problem = source
-    if problem is not None:
-        # An unavailable document must have a distinct fingerprint from valid UTF-8.
-        content = b"\xff" + problem.encode("utf-8") + b"\0" + content
-    return hashlib.sha256(content).hexdigest()
-
-
 def content_digest(path: Path) -> str:
-    return _source_digest(_read_source(path))
+    return hashlib.sha256(_read_content(path)).hexdigest()
 
 
 def _tool_sources() -> tuple[Path, ...]:
@@ -68,7 +43,7 @@ def _tool_sources() -> tuple[Path, ...]:
 def _source_files(tool_sources: tuple[Path, ...]) -> list[Path]:
     # Tool sources provide names only. Descriptions are delivered by tools/list.
     policy_files = [path for _, path in POLICIES.values() if path is not None]
-    return sorted({*policy_files, *STARTUP_DOCUMENTS, *tool_sources,
+    return sorted({BASIC_REFERENCE, *policy_files, *tool_sources,
                    *(p for p in SCRIPTING_SKILL.rglob("*") if p.is_file())})
 
 
@@ -80,9 +55,8 @@ def source_files() -> list[Path]:
 def _snapshot() -> dict:
     tool_sources = _tool_sources()
     inventory = _source_files(tool_sources)
-    sources = {path: _read_source(path) for path in inventory}
-    raw = {path: content for path, (content, _) in sources.items()}
-    digests = {path: _source_digest(source) for path, source in sources.items()}
+    raw = {path: _read_content(path) for path in inventory}
+    digests = {path: hashlib.sha256(content).hexdigest() for path, content in raw.items()}
 
     def reference(path: Path) -> dict:
         return {"path": "src/mcp/" + path.relative_to(PACKAGE).as_posix(), "sha256": digests[path]}
@@ -97,22 +71,14 @@ def _snapshot() -> dict:
     payloads = {
         name: {"text": raw[path].decode("utf-8").strip(), "source_refs": [reference(path)]}
         for name, (_, path) in POLICIES.items()
-        if path is not None and path.suffix == ".md" and sources[path][1] is None
+        if path is not None and path.suffix == ".md"
     }
-    if "basic" in payloads:
-        payloads["basic"]["tools"] = sorted(declaration.name for declaration in tools)
+    payloads["basic"] = {"text": BASIC_SUMMARY, "source_refs": [reference(BASIC_REFERENCE)],
+                         "tools": sorted(declaration.name for declaration in tools)}
     payloads["metadata"] = {"policy": json.loads(raw[METADATA_POLICY]), "source_refs": [reference(METADATA_POLICY)]}
     payloads["rhino_scripting"] = {"scripting_skill": scripting_skill,
                                    "source_refs": [reference(p) for p in skill_files]}
-    startup_sections = {}
-    for path in STARTUP_DOCUMENTS:
-        content, problem = sources[path]
-        if problem is None:
-            startup_sections[path] = f"## {path.name}\n\n{content.decode('utf-8')}"
-        else:
-            startup_sections[path] = f"Startup guidance unavailable: {path.name} ({problem})."
-
-    if inventory != source_files() or any(_read_source(path) != source for path, source in sources.items()):
+    if inventory != source_files() or any(_read_content(path) != content for path, content in raw.items()):
         raise RuntimeError("Guide source changed while reading; start a new session.")
     identity = {
         "sources": {path.relative_to(PACKAGE).as_posix(): digest for path, digest in digests.items()},
@@ -120,15 +86,15 @@ def _snapshot() -> dict:
                      for name, (description, path) in POLICIES.items()},
     }
     version = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
-    return {"guide_version": version, "payloads": payloads, "startup_sections": startup_sections}
+    return {"guide_version": version, "payloads": payloads}
 
 
 def startup_instructions() -> str:
     snapshot = _snapshot()
-    introduction = ("Almond inspects and edits Rhino architecture and drawings. "
-                    "Use context_01-get_policy tool for bundled guidance and the metadata key dictionary. "
-                    f'guide_version={snapshot["guide_version"]}')
-    return "\n\n".join([introduction, *snapshot["startup_sections"].values()])
+    return ("Almond inspects and edits Rhino architecture and drawings. "
+            "Use tools/list to see the tools available on this connection. "
+            'Use context_01-get_policy tool for technical references (policy="metadata" for object keys). '
+            f'guide_version={snapshot["guide_version"]}')
 
 
 def read_policy(policy: str = "") -> dict:
@@ -136,8 +102,6 @@ def read_policy(policy: str = "") -> dict:
         raise ValueError(f"policy must be one of {', '.join(POLICIES)} or an empty string.")
     policy = policy or "basic"
     snapshot = _snapshot()
-    if policy == "basic" and policy not in snapshot["payloads"]:
-        raise RuntimeError(snapshot["startup_sections"][BASIC_GUIDE])
     return {"status": "success", "guide_version": snapshot["guide_version"],
             "selected_policy": policy,
             "available_policies": {name: description for name, (description, _) in POLICIES.items()},

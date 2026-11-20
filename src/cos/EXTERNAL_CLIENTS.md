@@ -67,7 +67,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 2. 등록된 Codex 앱이나 외부 Codex CLI에서 "Almond 연결 목록을 확인하고 이 문서에 연결해 줘"라고 요청한다. 클라이언트가 `connect_01-list_up` tool를 호출한다.
 3. 목록의 정확한 `host_id`와 `model_path`로 `connect_02-session` tool를 호출한다.
    이후 도구는 선택한 문서를 자동으로 사용한다. 다른 문서로 전환하려면 목록의 host_id/model_path로 connect_02-session tool를 다시 호출한다. 기존 연결은 유지된다.
-4. 필요할 때 `context_04-get_project_info` tool에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해 `inspect_03-get_document_context` tool를 반복 호출하지 않는다. 자료 작성 전 `plan_10-set_working` tool으로 폴더를 선택하고, 모델링에는 [Rhino 모델링 지침](../mcp/BASIC-INSTRUCTIONS.md)을 따른다.
+4. 필요할 때 `context_04-get_project_info` tool에서 프로젝트·live 문서를 함께 조회한다. 같은 확인을 위해 `inspect_03-get_document_context` tool를 반복 호출하지 않는다. 자료 작성 전 `plan_10-set_working` tool으로 폴더를 선택하고, 설계 작업 지침이 필요하면 별도로 설치한 [RhinoBeyond 스킬](../../skill/SKILL.md)을 사용한다.
 5. 저장·정상 종료는 `connect_05-close_session tool(request_id=...)`, 창을 유지한 연결 해제는 `connect_04-disconnect` tool를 사용한다. 문서 변경 후에는 재연결한다.
 
 `connect_05-close_session` tool이 지연되거나 결과가 불확실하면 같은 `request_id`로 다시 조회한다. 이 조회는 Save·Exit를 반복하지 않는다. 저장 실패·읽기 전용 문서·저장 뒤 새 변경이 있으면 문서를 닫지 않고 사유를 반환한다. `completed`는 저장 확인, 실제 Rhino 프로세스 종료, worker 종료와 연결 소유권 해제를 모두 확인한 결과다. 같은 문서의 다른 연결이나 다른 Rhino 창은 종료하지 않는다.
