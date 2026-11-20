@@ -17,6 +17,8 @@ import re
 import shutil
 from uuid import uuid4
 
+from almond_mcp.tool_response import script_result
+
 
 SCHEMA = "almond-asset-preparation/v2"
 GROUPS = {"summary", "parts", "previews", "provenance", "all"}
@@ -123,7 +125,7 @@ def _report(job: Path, record: dict, stage: str) -> dict:
 
 
 def _check_report(job: Path, record: dict, stage: str, operation: str, report: dict) -> None:
-    if (report.get("schema") != SCHEMA or report.get("status") != "success" or
+    if (report.get("schema") != SCHEMA or report.get("status") not in {"passed", "success"} or
             report.get("stage") != stage or report.get("operation_id") != operation or
             report.get("source_sha256") != record["source_sha256"]):
         raise ValueError("Native preparation receipt does not match this operation")
@@ -196,8 +198,9 @@ def _dispatch(job: Path, record: dict, stage: str, sender, execute) -> None:
         response = sender(json.dumps({"type": "execute", "script": script}).encode("utf-8"), timeout=120.0)
         if isinstance(response, str):
             response = json.loads(response)
+        response = script_result(response)
         record["execution"] = response
-        if not isinstance(response, dict) or response.get("status") != "success" or response.get("result_error"):
+        if not isinstance(response, dict) or response.get("status") != "executed" or response.get("result_error"):
             uncertain = not isinstance(response, dict) or response.get("requires_reconciliation") or response.get("mutation_state") in {"running", "pending", "unknown", "unconfirmed"}
             record.update(state="unconfirmed" if uncertain else "failed",
                           error="Preparation execution did not complete successfully; inspect execution evidence before retrying.")
@@ -301,12 +304,13 @@ def present(job: Path, record: dict, *, field_groups=None, include_ids=False, of
     if "all" in groups:
         groups = GROUPS
     state = record["state"]
-    result = {"status": "error" if state in {"running", "unconfirmed", "failed"} or record.get("error") else "success",
+    result = {"status": "pending",
               "job_dir": str(job), "state": state, "ready_for_registration": state == "ready",
               "review_evidence": "caller attestations tied to file hashes; no automatic vision verification",
               "next_stage": {"inspected": "verify, or normalize for explicit edits", "normalized": "verify",
                              "verified": "verify with final image review", "ready": "asset_09-register"}.get(state)}
     if record.get("error") or state in {"running", "unconfirmed", "failed"}:
+        result["status"] = "error"
         result["next_stage"] = None
         result["next_step_guide"] = ("Read the error/execution evidence. Use asset_07-prepare tool with stage='status' and job_dir=<returned job_dir> "
                                "to reread saved evidence only; status does not reconcile late completion or promote an unconfirmed job. "
@@ -321,11 +325,17 @@ def present(job: Path, record: dict, *, field_groups=None, include_ids=False, of
         result["next_step_guide"] = ("If publication is intended, call asset_09-register tool with source_3dm from this response, preparation_job=job_dir, "
                                "and the reviewed asset_id/name; category is optional. Choose replace_existing explicitly when replacing an existing asset.")
     if record.get("error"):
-        result.update(message=record["error"], execution=record.get("execution"),
+        result.update(message=record["error"], execution=script_result(record.get("execution")),
                       requires_reconciliation=state in {"running", "unconfirmed"})
     completed = next((name for name in ("verify", "normalize", "inspect") if name in record.get("stages", {})), None)
+    expected_state = "verified" if state == "ready" else state
+    has_checked_stage = expected_state in STATES.values()
+    if has_checked_stage and (completed is None or STATES[completed] != expected_state):
+        raise ValueError("Missing completed stage evidence for preparation state " + state)
     if completed:
         report = _report(job, record, completed)
+        if has_checked_stage and not record.get("error"):
+            result["status"] = "passed"
         summary = report["summary"]
         result["summary"] = {key: summary[key] for key in ("units", "dimensions_mm", "object_count", "mesh_face_count", "triangle_count", "count_basis", "limitations") if key in summary}
         result["review_targets"] = {OUTPUTS[name].split(".")[0] + "_sha256": item["output_sha256"] for name, item in record["stages"].items()}

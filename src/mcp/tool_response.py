@@ -52,6 +52,13 @@ def transform_response(result, transform, *, text_transform=None):
     return result.model_copy(update={"content": content, "structured_content": structured})
 
 
+def script_result(value):
+    """Expose a private Bridge script acknowledgement without interpreting its returned data."""
+    if isinstance(value, dict) and value.get("status") == "success":
+        return {**value, "status": "executed"}
+    return value
+
+
 def error_payload(message: str, *, error_code: str | None = None) -> dict:
     """Build an error envelope without inferring mutation or reconciliation state."""
     result = {"status": "error"}

@@ -68,7 +68,7 @@ def test_capped_pending_uses_same_id_for_late_exact_completion(execution):
     assert finishing["completion_state"] == "finishing" and not finishing["completed"]
     late = execution.runner.get_execution(result["request_id"])
     assert late["request_id"] == result["request_id"] and late["completed"]
-    assert late["status"] == "success" and execution.launches == [result["request_id"]]
+    assert late["status"] == "executed" and execution.launches == [result["request_id"]]
 
 
 def test_external_wait_policy_is_explicit_runtime_configuration():

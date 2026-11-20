@@ -30,7 +30,8 @@ def context(reply=None, *, capability=True):
             raise reply
         return json.dumps(reply or {"status": "success", "result": {"applied": True, "differences": [], "errors": []}})
 
-    return SimpleNamespace(material_library=SimpleNamespace(materials={"oak": material}),
+    materials = {"oak": material}
+    return SimpleNamespace(material_library=SimpleNamespace(materials=materials, get=materials.get),
                            construction_library=SimpleNamespace(systems={"floor": system}),
                            _send_and_receive=send, requests=requests)
 
@@ -75,6 +76,28 @@ def test_unknown_mutation_never_retried(reply):
     result = json.loads(register(FastMCP("unknown-setup"), ctx)["setup_modeling"](False))
     assert result["status"] == "error" and result["mutation_state"] == "unknown"
     assert len([r for r in ctx.requests if r["type"] == "execute"]) == 1
+
+
+def test_material_script_execution_does_not_claim_assignment_after_result_error():
+    ctx = context({"status": "success", "result_error": "serialization failed"})
+    tools = register(FastMCP("material-result-error"), ctx)
+    result = json.loads(tools["assign_material"](["00000000-0000-0000-0000-000000000001"], "oak"))
+    assert result["status"] == "executed"
+    assert result["material_id"] == "oak"
+    assert result["result_error"] == "serialization failed"
+    assert "applied_count" not in result
+    assert [request["type"] for request in ctx.requests] == ["get_rhino_context", "execute"]
+
+
+@pytest.mark.parametrize("applied_count, status", [(0, "executed"), (1, "partial"), (2, "success")])
+def test_material_result_distinguishes_assignment_coverage(applied_count, status):
+    guids = ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]
+    ctx = context({"status": "success", "result": {"material_id": "oak", "applied_guids": guids[:applied_count]}})
+    tools = register(FastMCP("material-result-coverage"), ctx)
+    result = json.loads(tools["assign_material"](guids, "oak", apply_render_material=bool(applied_count)))
+    assert result["status"] == status
+    assert result["applied_count"] == applied_count
+    assert result["requested_count"] == len(guids)
 
 
 async def check_required_strict_boolean_and_no_operation_argument():

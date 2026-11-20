@@ -97,7 +97,7 @@ def managed_assets(tmp_path, monkeypatch, request):
         output = job / "inspected.3dm"
         output.write_bytes(b"Isolated inspected model receipt")
         (job / "inspect.json").write_text(json.dumps({"schema": preparation.SCHEMA,
-            "status": "success", "stage": "inspect", "operation_id": record["operation_id"],
+            "status": "passed", "stage": "inspect", "operation_id": record["operation_id"],
             "source_sha256": record["source_sha256"], "summary": {
                 "file": str(output), "sha256": preparation.sha(output), "units": "mm",
                 "object_count": 1, "dimensions_mm": {"width": 100, "depth": 100, "height": 100}},
@@ -171,11 +171,12 @@ def test_selected_plan_prepare_and_loop_preserve_public_work_state(managed_asset
             _, missing = await call(client, "asset_07-prepare", stage="status", job_dir=selected["artifact_dir"] + "/missing")
             assert missing["status"] == "error" and not artifact.exists()
             _, inspected = await call(client, "asset_07-prepare", stage="inspect", source_file="source.3dm")
-            assert inspected.get("state") == "inspected", inspected
+            assert inspected["status"] == "passed" and inspected["state"] == "inspected", inspected
             assert not Path(inspected["job_dir"]).is_absolute()
             assert (fixture.project / inspected["job_dir"]).parent == artifact
             _, reread = await call(client, "asset_07-prepare", stage="status", job_dir=inspected["job_dir"])
-            assert reread["state"] == "inspected" and len(fixture.wire.calls) == 1
+            assert reread["status"] == "passed" and reread["state"] == "inspected"
+            assert not reread["ready_for_registration"] and len(fixture.wire.calls) == 1
             _, after = await call(client, "plan_05-get", request=dict(target="plan", plan_id=pid, include_details=True))
             assert before == after
             _, reselected = await call(client, "plan_10-set_working", plan_id=pid)

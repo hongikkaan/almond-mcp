@@ -112,7 +112,7 @@ def _asset_merge(bound_doc):
         options.WriteUserData = True
         if not bound_doc.WriteFile(output, options):
             raise RuntimeError("Could not export only the prepared asset")
-        report.update(status="success", bounds_preserved=True, after_objects=len(targets()),
+        report.update(status="passed", bounds_preserved=True, after_objects=len(targets()),
                       summary={"file": output, "sha256": _asset_hash(output), "object_count": len(targets())})
     except Exception as exc:
         report["error"] = str(exc)
@@ -149,7 +149,7 @@ def _asset_merge(bound_doc):
             report["status"] = "error"
             report.setdefault("error", "Temporary command cleanup or original-document preservation failed")
         _asset_write(_os.path.join(job, "merge.json"), report)
-    if report["status"] != "success":
+    if report["status"] != "passed":
         raise RuntimeError("Asset merge failed; inspect merge.json before any retry: " + report.get("error", ""))
     return {"stage": "merge", "receipt": _os.path.join(job, "merge.json"), "final_sha256": report["summary"]["sha256"]}
 

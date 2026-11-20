@@ -138,7 +138,7 @@ def test_delayed_stdio_script_recovers_the_same_execution(tmp_path, monkeypatch,
             assert not (directory / "wire-query").exists()
 
             fixture.write(directory / (request_id + ".json"),
-                          dict(status="success", completed=True, result={"launch": 1}))
+                          dict(status="executed", completed=True, result={"launch": 1}))
             completed = validate_result(broker, fixture.GET_EXECUTION, await broker.call(fixture.GET_EXECUTION, query))
             assert completed["request_id"] == request_id and completed["completed"] is True
             assert completed["result"] == {"launch": 1}
@@ -236,7 +236,7 @@ def test_fastmcp_wire_meta_reaches_the_owned_runtime_operation(tmp_path, monkeyp
             retained = conn.retained_call
             assert not retained.done()
 
-            fixture.write(directory / (request_id + ".json"), dict(status="success", completed=True))
+            fixture.write(directory / (request_id + ".json"), dict(status="executed", completed=True))
             query = {"request_id": request_id}
             reply = await asyncio.wait_for(broker.call(fixture.GET_EXECUTION, query), 2)
             completed = validate_result(broker, fixture.GET_EXECUTION, reply)

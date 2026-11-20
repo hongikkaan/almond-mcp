@@ -263,8 +263,8 @@ class SessionCloser:
             conn = broker.connections.get(record["connection_id"])
             if conn is not None and conn.state == "recovering":
                 await broker.recover_execution(conn, {"request_id": request_id})
-            success = result.get("status") == "success"
-            record.update(status="rejected" if success else "save_failed", stage="save_completed_without_exit",
+            executed = result.get("status") == "executed"
+            record.update(status="rejected" if executed else "save_failed", stage="save_completed_without_exit",
                           reason="The retained Save finished. This close did not send Exit; submit a new close request only when you intend to close now.")
             self.persist(record)
         except (OSError, ValueError, RuntimeError, KeyError):
@@ -352,7 +352,7 @@ class SessionCloser:
                     self.persist(record)
                     return self.public(record)
                 command = saved.get("result", {})
-                if (saved.get("status") != "success" or not isinstance(command, dict)
+                if (saved.get("status") != "executed" or not isinstance(command, dict)
                         or command.get("command_accepted") is not True or command.get("last_command_result") != 0
                         or not saved.get("request_id") or saved.get("result_error") or saved.get("result_display_error")):
                     record.update(status="save_failed", reason="Save did not complete successfully; Rhino remains open.")

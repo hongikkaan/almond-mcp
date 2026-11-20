@@ -409,7 +409,7 @@ def capture_conditioning_pass(frames: Sequence[dict], out_dir: str, send: Sender
             say(f"  !! chunk {part[0]['frame']}-{part[-1]['frame']} failed: {r.get('message', '')[:160]}")
             break
         done += len(part)
-        say(f"  captured {done}/{len(frames)} frames")
+        say(f"  capture commands executed for {done}/{len(frames)} frames")
 
     if restore_view and doc_info and doc_info.get("camera") and doc_info.get("target"):
         try:
@@ -429,7 +429,7 @@ def capture_conditioning_pass(frames: Sequence[dict], out_dir: str, send: Sender
             videos[p] = mp4 if assemble_video(os.path.join(out_dir, p), mp4, fps) else None
 
     summary = {
-        "status": "success" if not errors else "partial",
+        "status": "executed" if not errors else "partial",
         "out_dir": out_dir, "frames_requested": len(frames), "frames_captured": done,
         "passes": list(passes), "resolution": [width, height], "fps": fps,
         "camera_json": os.path.join(out_dir, "camera.json"), "videos": videos,

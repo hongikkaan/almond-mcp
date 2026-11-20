@@ -22,7 +22,7 @@ def fixture(tmp_path):
                    model_path=str(tmp_path / "model.3dm"), token="a" * 32,
                    session_dir=str(tmp_path / "session"), ready_path=str(tmp_path / "ready.json"))
     Path(binding["model_path"]).write_bytes(b"existing model")
-    behavior = dict(before={}, after={}, save=dict(completed=True, status="success", request_id="b" * 32,
+    behavior = dict(before={}, after={}, save=dict(completed=True, status="executed", request_id="b" * 32,
                     result=dict(command_accepted=True, last_command_result=0)),
                     evidence=dict(guard_state="exit_dispatched", rhino_closed=True, cli_closed=True))
     async def request(action, **_):
@@ -104,10 +104,10 @@ def test_preflight_rejection_sends_neither_save_nor_exit(tmp_path, changed):
 @pytest.mark.parametrize("save,after,expected", [
     (dict(completed=True, status="error"), {}, "save_failed"),
     (dict(completed=False, status="pending", request_id="b" * 32), {}, "unconfirmed"),
-    (dict(completed=True, status="success", request_id="b" * 32, result=dict(command_accepted=True, last_command_result=0)), dict(modified=True), "rejected"),
-    (dict(completed=True, status="success", request_id="b" * 32, result=dict(command_accepted=True, last_command_result=0)), dict(document_serial="8"), "rejected"),
-    (dict(completed=True, status="success", request_id="b" * 32, result=dict(command_accepted=False, last_command_result=0)), {}, "save_failed"),
-    (dict(completed=True, status="success", request_id="b" * 32, result=dict(command_accepted=True, last_command_result=2)), {}, "save_failed"),
+    (dict(completed=True, status="executed", request_id="b" * 32, result=dict(command_accepted=True, last_command_result=0)), dict(modified=True), "rejected"),
+    (dict(completed=True, status="executed", request_id="b" * 32, result=dict(command_accepted=True, last_command_result=0)), dict(document_serial="8"), "rejected"),
+    (dict(completed=True, status="executed", request_id="b" * 32, result=dict(command_accepted=False, last_command_result=0)), {}, "save_failed"),
+    (dict(completed=True, status="executed", request_id="b" * 32, result=dict(command_accepted=True, last_command_result=2)), {}, "save_failed"),
 ])
 def test_unsuccessful_or_changed_save_never_exits(tmp_path, save, after, expected):
     async def run():
@@ -362,7 +362,7 @@ def test_exact_late_save_completion_is_read_without_automatically_exiting(tmp_pa
         (folder / "rhinocode.json").write_text(json.dumps(dict(
             request_id="b" * 32, token=conn.token, source_hash=hashlib.sha256(b"_Save").hexdigest(),
             target=conn.binding)))
-        monkeypatch.setattr("session_close.read_bound_execution", lambda *_: dict(completed=True, status="success"))
+        monkeypatch.setattr("session_close.read_bound_execution", lambda *_: dict(completed=True, status="executed"))
         value = (await broker.call("connect_05-close_session", {"request_id": "late-save"})).structured_content
         assert value["status"] == "rejected" and value["stage"] == "save_completed_without_exit"
         assert actions.count("save") == 1 and "exit" not in actions

@@ -80,6 +80,9 @@ def _atomic_json(path, value, maximum):
 
 
 def _publish_completion(directory, final):
+    # The installed Engine validates v1 receipts using the original wire status.
+    if final["status"] == "executed":
+        final = dict(final, status="success")
     path = os.path.join(directory, "complete.json")
     try:
         _atomic_json(path, final, 65536)
@@ -231,7 +234,7 @@ def _main():
                     or child.get("schema") != "almond-rhinocode-completion"
                     or type(child.get("version")) is not int or child["version"] != 1
                     or child.get("execution_complete") is not True
-                    or child.get("status") not in ("success", "error", "rejected")
+                    or child.get("status") not in ("executed", "error", "rejected")
                     or child.get("mutation_state") not in ("completed", "partial", "not_started", "unknown")
                     or ("layout" in child) != ("layout" in request)
                     or child.get("layout") != request.get("layout")
@@ -246,10 +249,10 @@ def _main():
                     final[key] = child[key]
             final["cleanup_errors"].extend(child.get("cleanup_errors", []))
             final["child_undo"] = child.get("undo", {})
-            if not accepted and final["status"] == "success":
+            if not accepted and final["status"] == "executed":
                 final["status"] = "error"
                 final["error"] = dict(stage="child_completion", type="RuntimeError",
-                                     message="ScriptEditor returned false despite an inner success receipt.")
+                                     message="ScriptEditor returned false after the C# body reported execution.")
         else:
             final["user_code_started"] = True
             final["mutation_state"] = "partial"
@@ -263,7 +266,7 @@ def _main():
         elif request["language"] != "csharp-script":
             __EXEC_SOURCE__
         if request["language"] != "csharp-script":
-            final.update(user_code_completed=True, status="success", mutation_state="completed")
+            final.update(user_code_completed=True, status="executed", mutation_state="completed")
     except BaseException as exc:
         final["status"] = "rejected" if stage in ("initialization", "identity") else "error"
         final["error"] = dict(stage=stage, type=_error_text(type(exc).__name__, 128),

@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from PIL import Image
 from fastmcp import FastMCP
 
+from almond_mcp.features.capture import conditioning, tools as capture_tools
 from almond_mcp.features.context import tools as context_tools
 
 
@@ -37,6 +38,26 @@ class RegisteredTools:
             self.tools[function.__name__] = function
             return function
         return register
+
+
+def test_conditioning_status_reports_execution_even_when_no_png_was_returned(tmp_path, monkeypatch):
+    monkeypatch.setattr(conditioning, "assemble_video", lambda *_: False)
+
+    def execute_script(payload, timeout):
+        assert json.loads(payload)["type"] == "execute"
+        return json.dumps({"status": "success"})
+
+    mcp = RegisteredTools()
+    capture_tools.register(mcp, SimpleNamespace(_send_and_receive=execute_script))
+    shot = json.dumps({
+        "type": "keyframes", "frames": 2,
+        "keyframes": [{"camera": [1, 0, 0], "target": [0, 0, 0]}],
+    })
+    result = json.loads(mcp.tools["capture_conditioning_pass"](shot, str(tmp_path), passes="rgb"))
+    assert result["status"] == "executed"
+    assert result["frames_captured"] == result["frames_requested"] == 2
+    assert not list((tmp_path / "rgb").glob("*.png"))
+    assert json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))["status"] == "executed"
 
 
 def _tools(send):

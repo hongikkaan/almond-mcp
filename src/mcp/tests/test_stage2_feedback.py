@@ -106,8 +106,30 @@ def test_inspect_creates_new_owned_folder_status_and_bad_input_do_not(tmp_path, 
         preparation.prepare(stage="inspect", source_file=str(tmp_path / "missing.3dm"), artifact_dir=root)
     assert not root.exists()
     result = preparation.prepare(stage="inspect", source_file=str(source), artifact_dir=root)
+    assert result["status"] == "pending" and not result["ready_for_registration"]
     assert calls == ["inspect"] and Path(result["job_dir"]).parent == root
     assert (Path(result["job_dir"]) / "source.3dm").read_bytes() == source.read_bytes()
+
+
+@pytest.mark.parametrize("report_status", ["passed", "success"])
+def test_preparation_rechecks_current_and_legacy_stage_reports(tmp_path, report_status):
+    output = tmp_path / "inspected.3dm"
+    output.write_bytes(b"prepared asset")
+    report = {"schema": preparation.SCHEMA, "stage": "inspect", "operation_id": "op",
+              "status": report_status, "source_sha256": "source",
+              "summary": {"file": str(output), "sha256": preparation.sha(output)}}
+    script = tmp_path / "inspect.cs"
+    script.write_text("// fixture")
+    path = tmp_path / "inspect.json"
+    path.write_text(json.dumps(report))
+    record = {"state": "inspected", "source_sha256": "source", "stages": {"inspect": {
+        "operation_id": "op", "report_sha256": preparation.sha(path),
+        "script_sha256": preparation.sha(script), "output_sha256": preparation.sha(output)}}}
+    assert preparation.present(tmp_path, record)["status"] == "passed"
+    assert json.loads(path.read_bytes())["status"] == report_status
+    output.write_bytes(b"changed")
+    with pytest.raises(ValueError, match="SHA256"):
+        preparation.present(tmp_path, record)
 
 
 MODEL = {"status": "ok", "shells": 0, "tolerance_m": 0.001, "max_member_span_m": 2., "max_span_m": 2.,

@@ -45,6 +45,8 @@ result = {"units": str(doc.ModelUnitSystem),
           "tolerance": doc.ModelAbsoluteTolerance, "objects": rows}
 ```
 
+When reporting only that a script ran, use `executed` in its print output or result. Report a successful check with the condition you verified.
+
 Return dimensions, relationships or selected attributes needed for the decision.
 Do not serialize Rhino geometry objects or return every object property by default.
 For large results, retrieve selected fields/pages from script_03-get_execution tool instead of rerunning the query. include_ids controls data handles; request/operation IDs remain visible because they identify the execution being inspected.

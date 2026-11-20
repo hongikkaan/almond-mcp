@@ -38,6 +38,8 @@ CLI 실행 전에 token·operation·request·nonce·source hash·target process/
 
 작업 경로가 필요한 호출은 공유 DB gate 아래 Plan·Loop·경로를 한 번 읽고 호출의 immutable snapshot으로 유지한다. 인자 준비·환경·Bridge 전송·RhinoCode와 project Python cwd는 이 snapshot을 공유한다. native 고정 조회처럼 작업 경로를 사용하지 않는 호출은 workspace DB를 읽지 않는다. 미확정 산출물 writer의 기존 artifact fence는 그대로 유지한다.
 
+두 실행 도구와 `script_03-get_execution` tool은 본문 실행이 끝나고 CLI 종료가 확인되면 정상 상태를 `executed`로 반환한다. 스크립트가 기록한 stdout과 `result`는 별도로 읽는다. Engine이 검증하는 v1 `complete.json`의 `success`는 읽을 때 `executed`로 해석한다.
+
 최종 receipt는 결과 표시 한도와 독립적이며 실행·cleanup·Undo·결과 직렬화 오류를 구분한다. 반환 데이터를 표현하지 못해도 실행 근거는 남긴다. RequestBatch는 공식 CLI 실행을 native 요청과 별도로 관리하며 native sequence나 native-finally 응답을 합성하지 않는다.
 
 Python·C# 오류 진단은 ASCII JSON으로 직렬화된 바이트 수로 제한한다. 부모·자식 receipt가 최종 64 KiB를 넘으면 diagnostics_truncated와 축약 진단을 남기고 identity·실행/부분 적용 상태·Undo·결과 근거를 보존한 완료 receipt를 기록한다. 부모와 공개 결과 조회에도 잘림 표시를 전달하며 진단 잘림을 성공이나 rollback으로 바꾸지 않는다.

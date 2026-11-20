@@ -1,4 +1,5 @@
 """Real durable recovery reader rejects identities from another invocation."""
+import hashlib
 import json
 from pathlib import Path
 
@@ -42,9 +43,19 @@ def test_durable_reader_checks_operation_before_public_projection(retained):
     receipt = {key: journal[key] for key in rhinocode._IDENTITY}
     receipt.update(schema="almond-rhinocode-completion", version=1, layout="compact-v1",
                    status="success", mutation_state="completed", execution_complete=True)
+    result = {"status": "success", "checks_passed": 3}
+    data = json.dumps(result).encode("utf-8")
+    (directory / "result.json").write_bytes(data)
+    (directory / "stdout.txt").write_text("validation: success", encoding="utf-8")
+    receipt.update(result_available=True, result_bytes=len(data), result_sha256=hashlib.sha256(data).hexdigest())
     (directory / "complete.json").write_text(json.dumps(receipt), encoding="utf-8")
     completed = read_bound_execution(binding, arguments, operation_id=journal["operation_id"])
     assert completed["completed"] and completed["request_id"] == journal["request_id"]
+    assert completed["status"] == "executed"
+    assert completed["result"] == result
+    detailed = read_bound_execution(binding, {**arguments, "include_diagnostics": True, "include_stdout": True})
+    assert detailed["stdout"] == "validation: success"
+    assert detailed["status"] == "executed" and detailed["native_status"] == "executed"
     with pytest.raises(ValueError, match="current operation"):
         read_bound_execution(binding, arguments, operation_id="f" * 32)
 

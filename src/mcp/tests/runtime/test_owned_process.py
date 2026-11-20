@@ -142,7 +142,7 @@ def test_public_rhinocode_execution_uses_real_owned_launcher(tmp_path, monkeypat
     runner = rhinocode.RhinocodeExecution(binding, locations)
     result = runner.execute("pass", "python", 5, operation_id="1" * 32,
                             operation_dir=operation, register=lambda handle: None)
-    assert result["completed"] and not result.get("uncertain", False)
+    assert result["status"] == "executed" and result["completed"] and not result.get("uncertain", False)
     journal = read_json(session / "rhinocode.json")
     assert journal["launch_protocol"] == "owned-v1" and journal["child"]["pid"] > 0
     assert runner.get_execution(result["request_id"])["completed"]

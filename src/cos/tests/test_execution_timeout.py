@@ -37,7 +37,7 @@ class DelayedWorker:
         self.entered.set()
         try:
             await self.release.wait()
-            return json_result({"status": "success", "completed": True, "request_id": EXECUTION})
+            return json_result({"status": "executed", "completed": True, "request_id": EXECUTION})
         except asyncio.CancelledError:
             self.cancelled = True
             raise

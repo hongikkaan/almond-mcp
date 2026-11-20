@@ -134,7 +134,7 @@ def register(mcp, context):
                               limit: StrictInt = 50) -> dict:
         """원본 사본을 검사·편집·시각 검토해 등록용 3DM을 준비합니다. inspect로 job을 만들고, 필요하면 normalize로 수정한 뒤 verify합니다. 수정이 필요 없으면 normalize를 건너뛰고 verify할 수 있습니다.
 
-        첫 verify는 최종 미리보기와 해시를 생성합니다. 이를 검토한 뒤 같은 해시·이름·ID를 넣어 다시 verify하면 등록 준비 상태가 됩니다. ready_for_registration은 호출자의 해시 연계 검토 확인이며 형상 적합성을 자동 판정했다는 뜻은 아닙니다. 관리형 source_file은 프로젝트 내부 경로여야 합니다.
+        status=passed는 state에 표시된 준비 단계의 검사를 통과했다는 뜻입니다. 첫 verify는 최종 미리보기와 해시를 생성합니다. 이를 검토한 뒤 같은 해시·이름·ID를 넣어 다시 verify하면 등록 준비 상태가 됩니다. ready_for_registration은 호출자의 해시 연계 검토 확인이며 형상 적합성을 자동 판정했다는 뜻은 아닙니다. 관리형 source_file은 프로젝트 내부 경로여야 합니다.
 
         Args:
             stage: inspect, normalize, verify 또는 status입니다. inspect는 작업을 생성하고, 이후 단계는 job_dir를 재사용합니다. status는 저장된 근거만 다시 읽습니다. 네이티브 작업을 실행하거나, 나중에 완료되었다는 이유로 확인되지 않은 작업의 단계를 올리지 않습니다.

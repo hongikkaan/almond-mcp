@@ -60,6 +60,7 @@ def test_preparation_guidance_uses_available_job_and_review_evidence(monkeypatch
     monkeypatch.setattr(preparation, "_report", lambda *args: {"summary": {}, "previews": []})
     value = guide_payload("prepare_drawing_asset", preparation.present(
         Path("unused-job"), {"state": state, "stages": {stage: {"output_sha256": "hash"}}}, field_groups=[]))
+    assert value["status"] == "passed"
     assert "job_dir" in value and "job_dir" in value["next_step_guide"]
     if state == "verified":
         assert value["review_targets"]["final_sha256"] == "hash"

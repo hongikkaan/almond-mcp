@@ -125,6 +125,9 @@ def _receipt(path: Path, journal: dict) -> dict:
             or result.get("layout") != journal.get("layout")
             or any(result.get(key) != journal[key] for key in _IDENTITY)):
         raise ValueError("Completion does not match this exact RhinoCode request.")
+    # The native v1 fence reads "success" from disk. Expose its execution meaning to callers.
+    if result["status"] == "success":
+        result["status"] = "executed"
     return result
 
 
@@ -472,7 +475,7 @@ def _result_page(value, fields, offset, limit, *, initial=False):
 
 def _execution_summary(value):
     """Keep routine design answers small; detailed evidence remains retrievable."""
-    if value.get("completed") is not True or value.get("status") != "success":
+    if value.get("completed") is not True or value.get("status") != "executed":
         return value
     keys = {"status", "completed", "request_id", "mutation_state", "result",
             "result_error", "result_display_error", "diagnostics_truncated"}
@@ -493,7 +496,7 @@ def execution_output(value, *, include_diagnostics=False):
     if type(include_diagnostics) is not bool:
         raise ValueError("include_diagnostics must be a boolean.")
     if (include_diagnostics or not isinstance(value, dict)
-            or value.get("completed") is not True or value.get("status") != "success"
+            or value.get("completed") is not True or value.get("status") != "executed"
             or value.get("exit_code") not in (None, 0)
             or value.get("mutation_state") in {"partial", "unknown"}):
         return value

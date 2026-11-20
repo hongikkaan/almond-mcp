@@ -150,7 +150,7 @@ def test_phase_retry_does_not_offer_loop_fields():
 
 
 def test_user_script_result_keys_are_not_rewritten():
-    payload = {'status':'success','completed':True,'result':{'next_step':'user data','status':'unfinished'}}
+    payload = {'status':'executed','completed':True,'result':{'next_step':'user data','status':'success'}}
     assert guide_payload('execute_rhino_script',payload) == payload
 
 
@@ -158,13 +158,13 @@ def test_execution_page_guidance_uses_runtime_field_map():
     from almond_mcp.runtime.rhinocode import _result_page
     rows, page = _result_page({'items': list(range(5))}, None, 0, 2)
     result = guide_payload('get_rhino_execution', {
-        'status': 'success', 'completed': True, 'request_id': 'saved',
+        'status': 'executed', 'completed': True, 'request_id': 'saved',
         'result': rows, 'result_page': page,
     })
     assert 'next_offset' in result['next_step_guide']
     _, last_page = _result_page({'items': list(range(5))}, None, 4, 2)
     result = guide_payload('get_rhino_execution', {
-        'status': 'success', 'completed': True, 'request_id': 'saved', 'result_page': last_page,
+        'status': 'executed', 'completed': True, 'request_id': 'saved', 'result_page': last_page,
     })
     assert 'next_step_guide' not in result
 

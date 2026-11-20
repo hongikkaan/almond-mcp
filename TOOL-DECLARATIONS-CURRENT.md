@@ -7,7 +7,7 @@
 - 기준: 이 문서와 함께 커밋된 소스. 수집일 2026-11-20.
 - 수집 경로: `src/cos/codex_host.py`와 `src/cos/cos_host.py`가 사용하는 공용 `external_host.main`의 stdio `initialize`·`tools/list`. 격리된 데이터 폴더에서 수집했으며 Rhino 연결·도구 실행은 하지 않았습니다.
 - 실행 패키지: almond-mcp 0.7.0rc2 / fastmcp 4.1.0 / mcp 2.3.0 / mcp-types 2.3.0.
-- 선언 SHA-256: `57488b3f6c60f268ba8e0b33865437def0be2e9700905dd884e23a53d0cab373`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 값입니다.
+- 선언 SHA-256: `4335d55c97c310b63a9cfbcae81198f9f36ac6a24b8cb72f73c85f054bdaed4b`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 값입니다.
 - 도구명·설명 원본은 MCP 구현 함수와 그 docstring, 출력 원본은 `src/mcp/output_contracts.py`, 공통 스키마 기준은 `tests/integration/tool_schemas.json`입니다. 외부 연결 도구는 `src/cos/external_host.py`에서 조립합니다.
 
 필수 인자와 선택 인자는 `?`로 구분합니다. 배열은 `Array<T>`, null 허용은 `| null`입니다. 기본값·범위는 주석에 표시합니다. JSON Schema의 검증 의미가 우선하며 TypeScript 표기는 읽기용입니다(`oneOf`의 배타성 등은 TypeScript로 강제하지 않습니다). `additionalProperties`가 허용된 객체는 인덱스 시그니처로 표시합니다.
@@ -820,7 +820,7 @@ type DecodedResult = {
 ```txt
 원본 사본을 검사·편집·시각 검토해 등록용 3DM을 준비합니다. inspect로 job을 만들고, 필요하면 normalize로 수정한 뒤 verify합니다. 수정이 필요 없으면 normalize를 건너뛰고 verify할 수 있습니다.
 
-첫 verify는 최종 미리보기와 해시를 생성합니다. 이를 검토한 뒤 같은 해시·이름·ID를 넣어 다시 verify하면 등록 준비 상태가 됩니다. ready_for_registration은 호출자의 해시 연계 검토 확인이며 형상 적합성을 자동 판정했다는 뜻은 아닙니다. 관리형 source_file은 프로젝트 내부 경로여야 합니다.
+status=passed는 state에 표시된 준비 단계의 검사를 통과했다는 뜻입니다. 첫 verify는 최종 미리보기와 해시를 생성합니다. 이를 검토한 뒤 같은 해시·이름·ID를 넣어 다시 verify하면 등록 준비 상태가 됩니다. ready_for_registration은 호출자의 해시 연계 검토 확인이며 형상 적합성을 자동 판정했다는 뜻은 아닙니다. 관리형 source_file은 프로젝트 내부 경로여야 합니다.
 ```
 
 ```ts
@@ -855,7 +855,7 @@ declare const tools: {
     // default: 50
     limit?: number;
   }): Promise<CallToolResult<{
-    // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
+    // passed는 현재 준비 단계의 검사 통과, pending은 검사 대기, error는 실패 또는 완료 미확정입니다. 등록 가능 여부는 ready_for_registration으로 확인합니다.
     status?: string;
     // ready일 때만 source_3dm 제공. running/unconfirmed/failed는 error와 next_stage=null
     state?: string;
@@ -1123,7 +1123,7 @@ type DecodedResult = {
 ```txt
 활성 Rhino 뷰의 카메라 경로를 따라 RGB·에지·깊이 PNG와 카메라 기록을 저장합니다. 관리형 연결은 Plan 작업 공간을 먼저 선택합니다. 촬영 중 활성 뷰가 변경되며 전체 뷰 상태의 복원은 보장되지 않습니다.
 
-status와 frames_captured는 촬영 실행 결과이며 대상이 잘 보인다는 보장은 아닙니다. videos의 null은 MP4가 생성되지 않았음을 뜻합니다. 같은 출력 폴더를 재사용하면 기존 프레임·기록을 덮어쓰고 잔여 프레임이 남을 수 있습니다.
+status=executed는 모든 촬영 청크가 실행됐음을 뜻합니다. frames_captured는 실행 완료 응답을 받은 청크에 포함된 프레임 수입니다. 패스별 PNG가 모두 생성됐는지와 대상이 잘 보이는지는 출력 파일에서 확인하세요. videos의 null은 MP4가 생성되지 않았음을 뜻합니다. 같은 출력 폴더를 재사용하면 기존 프레임·기록을 덮어쓰고 잔여 프레임이 남을 수 있습니다.
 ```
 
 ```ts
@@ -1169,13 +1169,13 @@ declare const tools: {
 
 ```ts
 type DecodedResult = {
-  // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
+  // executed는 모든 촬영 청크가 실행됐음을 뜻합니다. partial은 실행 오류가 난 청크가 있음을 뜻합니다.
   status?: string;
   // 요청 프레임 수
   frames_requested?: number;
-  // 성공한 캡처 청크의 프레임 수입니다.
+  // 실행 완료 응답을 받은 청크에 포함된 프레임 수입니다.
   frames_captured?: number;
-  // 생성한 패스 종류
+  // 요청한 패스 종류
   passes?: Array<string>;
   // 출력 이미지 해상도 [너비, 높이]
   resolution?: Array<number>;
@@ -1187,7 +1187,7 @@ type DecodedResult = {
   out_dir?: string;
   // 전체 계획 경로 기록. frames[].camera/target/lens_mm를 포함하며 부분 캡처에도 계획은 전체 길이
   camera_json?: string;
-  // 완전 캡처 후 패스별 MP4. ffmpeg 조립 실패는 null이며 부분 캡처에는 빈 객체일 수 있음
+  // 모든 촬영 청크 실행 후 조립한 패스별 MP4입니다. 조립 실패는 null이며 조립을 시도하지 않으면 빈 객체입니다.
   videos?: {
     // 조립된 RGB 영상 경로입니다. 조립하지 못하면 null입니다.
     rgb?: string | null;
@@ -3584,6 +3584,8 @@ declare const tools: {
 Rhino 객체에 라이브러리 재료와 선택적인 구축 메타데이터를 적용합니다. 렌더 재료는 객체에 직접 지정되며 레이어는 바뀌지 않습니다. 중복 GUID는 하나로 처리합니다.
 
 반환 result는 적용 결과 또는 오류를 담은 JSON 문자열입니다. 실제 렌더 재료와 사용자 문자열은 Rhino 객체 속성에서 확인할 수 있습니다. 기록한 값은 inspect_02-get_objects tool의 fields=["user_text"]로 읽거나 filters.user_text로 찾을 수 있습니다.
+
+status=executed이면 코드는 실행됐으며, 적용 객체가 없거나 적용 결과를 반환할 수 없는 경우입니다. 결과를 반환할 수 없었다면 다시 실행하기 전에 Rhino에서 대상 객체의 상태를 확인하세요. 일부 대상에만 적용됐으면 partial입니다.
 ```
 
 ```ts
@@ -3627,8 +3629,10 @@ declare const tools: {
 
 ```ts
 type DecodedResult = {
-  // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
+  // success는 모든 대상 처리, partial은 일부 대상 처리입니다. executed는 실행 후 적용 객체가 없거나 적용 결과를 읽지 못한 경우입니다.
   status?: string;
+  // 실행 후 적용 결과를 반환하지 못한 사유입니다.
+  result_error?: string;
   // 라이브러리 재료 ID
   material_id?: string;
   // 처리 성공한 객체 수. requested_count와 비교하며 실제 변경 수와 구분
@@ -5849,7 +5853,7 @@ type DecodedResult = {
 
 실행하려면 **유효하고 쓰기 가능한 작업 공간**이 선택되어 있어야 합니다. 선택된 작업 공간이 없다면 `plan_10-set_working` tool으로 선택하세요. 기존 선택은 재사용할 수 있습니다.
 
-코드는 실제 문서를 변경할 수 있으며 실행 완료가 문서 저장을 뜻하지는 않습니다. **시간 초과는 실행을 취소하지 않습니다.** 완료 여부가 불확실하면 반환된 `request_id`로 `script_03-get_execution` tool을 조회하고, 변경을 다시 실행하기 전에 문서 상태를 확인하세요. 오류가 발생해도 부분 변경이 롤백되었다고 가정하지 마세요.
+스크립트가 실행 완료만 기록할 때는 print나 반환값에 executed를 사용하세요. 코드는 실제 문서를 변경할 수 있으며 실행 완료가 문서 저장을 뜻하지는 않습니다. **시간 초과는 실행을 취소하지 않습니다.** 완료 여부가 불확실하면 반환된 `request_id`로 `script_03-get_execution` tool을 조회하고, 변경을 다시 실행하기 전에 문서 상태를 확인하세요. 오류가 발생해도 부분 변경이 롤백되었다고 가정하지 마세요.
 ```
 
 ```ts
@@ -5861,7 +5865,7 @@ declare const tools: {
     // default: 60
     timeout_seconds?: number;
   }): Promise<CallToolResult<{
-    // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
+    // executed는 스크립트 본문이 실행을 마쳤다는 뜻입니다. 결과는 result와 mutation_state에서 확인합니다.
     status?: string;
     // Rhino 실행 완료가 확인됐는지 나타냅니다.
     completed?: boolean;
@@ -5925,7 +5929,7 @@ declare const tools: {
 ### 79. script\_02-run\_rhino
 
 ```txt
-연결된 RhinoCode에서 모델링·편집·측정 코드를 실행합니다. 전용 도구로 처리하기 어려운 작업에 사용합니다.
+연결된 RhinoCode에서 모델링·편집·측정 코드를 실행합니다. 전용 도구로 처리하기 어려운 작업에 사용합니다. 스크립트가 실행 완료만 기록할 때는 print나 반환값에 executed를 사용하세요.
 ```
 
 ```ts
@@ -5950,7 +5954,7 @@ declare const tools: {
 
 ```ts
 type DecodedResult = {
-  // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
+  // executed는 스크립트 본문이 실행을 마쳤다는 뜻입니다. 결과는 result와 mutation_state에서 확인합니다.
   status?: string;
   // Rhino 실행 완료가 확인됐는지 나타냅니다. 변경 결과는 mutation_state와 result에서 확인합니다.
   completed?: boolean;
@@ -6048,7 +6052,7 @@ declare const tools: {
     request_id?: string;
     // 최종 Rhino 처리 근거와 CLI 종료가 모두 확인되었는지 여부. native_completed와 다를 수 있음
     completed?: boolean;
-    // 보관된 실행의 상태입니다. 조회 호출 자체의 성공과 구분합니다.
+    // 보관된 실행의 상태입니다. executed는 스크립트 본문이 실행을 마쳤다는 뜻입니다.
     status?: string;
     // 실행 코드가 정한 JSON 값입니다.
     result?: unknown;

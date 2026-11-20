@@ -35,6 +35,8 @@ Imported와 Generated 모델은 같은 ID 공간에서 조회·등록·배치한
 
 `asset_07-prepare` tool의 inspect는 원본 사본·SHA256을 보존하고 Rhino의 headless 가져오기로 3DM과 관찰 이미지를 만든다. 기존 3DM의 단위·원점·레이어·이름·블록 구조를 보존한다. Mesh interchange 입력은 명시적 단위를 요구하며 importer의 실제 치수·방향은 반환된 측정과 이미지로 확인한다. 100 MB 입력, 10,000 top-level 객체, 32 preview block 깊이로 제한한다. normalize는 선택 단계로, 관찰한 hash에 연결된 호출자 판단에 따라 top-level 객체 제거와 명시 XYZ 회전·이동만 적용한다. 면 병합·블록 해체·단일 레이어화·바닥 중심 원점은 강제하지 않는다.
 
+공개 상태 `passed`는 해당 단계의 보고서·산출물·미리보기 해시 대조를 통과했음을 뜻한다. 단계는 `state`, 최종 검토와 등록 가능 여부는 `ready_for_registration`으로 확인한다. 기존 v2 보고서의 `success`도 같은 검사를 거쳐 읽는다.
+
 verify는 준비한 3DM을 다시 열어 최종 이미지와 측정값을 반환한다. 같은 단계에 최종 hash·이름·ID와 실제 이미지 검토를 기록하면 `asset_09-register tool(preparation_job=...)`에 연결할 수 있다. status·pagination은 기존 보고서를 읽어 native 실행을 반복하지 않는다. 미완료 실행은 상태를 노출하고 자동 재실행하지 않는다. 이미지 검토는 호출자 진술이며 자동 시각 인식이 아니다. Preview는 grayscale 형상 확인용이며 PBR·texture 이식성을 증명하지 않는다.
 
 `asset_09-register` tool는 표준 단위의 3DM을 복사하고, File3dm에서 형상·중첩 변환을 읽어 mm 단위 triangle/bounds를 측정한다. AABB 입력은 받지 않는다. source 파일의 단위·좌표·원점은 바꾸지 않는다. 미지원 형상·불완전 추출·미확인 외부 block 의존성은 발행을 막는다. 측정값과 같은 source에서 plan/front/right DXF·SVG 및 dimensions.json을 작성한다. 2D는 mesh silhouette이며 내부 visible/hidden edge나 단면을 대체하지 않는다. 준비 job 없이 검토한 외부 3DM도 등록할 수 있으며 이 경로는 이미지 검토를 보증하지 않는다.

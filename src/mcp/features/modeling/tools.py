@@ -1,5 +1,5 @@
 """Modeling policy, script execution, setup and material tools."""
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, script_result
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.modeling.output import GROUPS, project
 from almond_mcp.tool_declarations import public_tool
@@ -53,7 +53,7 @@ def register(mcp, context):
     @public_tool(mcp, wrapped=True)
     def execute_rhino_script(script: str, language: str = "python",
                              timeout_seconds: StrictInt = 60) -> str:
-        """연결된 RhinoCode에서 모델링·편집·측정 코드를 실행합니다. 전용 도구로 처리하기 어려운 작업에 사용합니다.
+        """연결된 RhinoCode에서 모델링·편집·측정 코드를 실행합니다. 전용 도구로 처리하기 어려운 작업에 사용합니다. 스크립트가 실행 완료만 기록할 때는 print나 반환값에 executed를 사용하세요.
 
         Args:
             script: 동기식 Python 소스, C# 문장 본문 또는 명령 매크로입니다. Python은 JSON-safe 값을 result에, C#은 결과 JSON을 result_json에 할당합니다. doc은 연결된 문서입니다. command는 !·Pause·대화상자 없이 끝나는 매크로를 입력합니다.
@@ -211,6 +211,8 @@ def register(mcp, context):
 
         반환 result는 적용 결과 또는 오류를 담은 JSON 문자열입니다. 실제 렌더 재료와 사용자 문자열은 Rhino 객체 속성에서 확인할 수 있습니다. 기록한 값은 inspect_02-get_objects tool의 fields=["user_text"]로 읽거나 filters.user_text로 찾을 수 있습니다.
 
+        status=executed이면 코드는 실행됐으며, 적용 객체가 없거나 적용 결과를 반환할 수 없는 경우입니다. 결과를 반환할 수 없었다면 다시 실행하기 전에 Rhino에서 대상 객체의 상태를 확인하세요. 일부 대상에만 적용됐으면 partial입니다.
+
         Args:
             guids: 할당할 현재 Rhino 객체 GUID입니다. 관찰 결과나 생성 결과를 재사용합니다.
             material_id: model_04-list_materials tool(include_ids=true)에서 얻은 라이브러리의 표준 재료 ID입니다.
@@ -268,8 +270,7 @@ def register(mcp, context):
             if typical and material_id not in typical:
                 warnings.append(
                     f"Material '{material_id}' is not a typical finish for "
-                    f"{construction_system} (typical: {', '.join(typical)}). "
-                    f"Applied anyway.")
+                    f"{construction_system} (typical: {', '.join(typical)}).")
 
         if floor:
             extra_strings[modeling_policy.key("floor")] = floor
@@ -281,7 +282,7 @@ def register(mcp, context):
         if response.get("status") != "success":
             return json.dumps(response)
         if response.get("result_error"):
-            return json.dumps({**response, "material_id": material_id,
+            return json.dumps({**script_result(response), "material_id": material_id,
                                "message": 'Material assignment ran but its result could not be returned. Inspect Rhino before retrying.'})
         native = response.get("result")
         applied = native.get("applied_guids") if isinstance(native, dict) else None
@@ -289,8 +290,13 @@ def register(mcp, context):
                 or len(applied) != len(set(applied)) or native.get("material_id") != material_id):
             return json.dumps({"status": "error", "error_code": "material_result_unavailable", "mutation_state": "unknown",
                                "message": 'Material assignment returned no valid applied-object result. Inspect Rhino before retrying.'})
+        status = "success"
+        if not applied:
+            status = "executed"
+        elif len(applied) < len(guid_list):
+            status = "partial"
         result = {
-            "status": "success",
+            "status": status,
             "material_id": material_id,
             "rhino_material_name": material["name"],
             "ue_material_slot": material["ue_material_slot"],

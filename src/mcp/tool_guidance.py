@@ -196,6 +196,8 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
             return None
         return ("선택한 material_id를 assign_material에 입력합니다." if arguments.get("include_ids") else
                 "재료를 적용하려면 include_ids=true로 재료 ID를 조회해 assign_material에 사용합니다.")
+    if name == "assign_material" and value.get("status") == "executed":
+        return None
     if name == "capture_conditioning_pass":
         if value.get("errors") or value.get("frames_captured", 0) != value.get("frames_requested"):
             return None

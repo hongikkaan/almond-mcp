@@ -88,7 +88,7 @@ public class Script
             };
         }).ToArray();
         return new {
-            status = "success", file = Path.GetFullPath(file), sha256 = Hash(file),
+            status = "passed", file = Path.GetFullPath(file), sha256 = Hash(file),
             units = d.ModelUnitSystem.ToString(), basepoint = Point(d.ModelBasepoint),
             dimensions_mm = new { width = (b.Max.X-b.Min.X)*unitScale, depth = (b.Max.Y-b.Min.Y)*unitScale, height = (b.Max.Z-b.Min.Z)*unitScale },
             local_aabb = new { min = Point(b.Min), max = Point(b.Max) },
@@ -205,7 +205,7 @@ public class Script
             .Select(view => prefix + "-" + view + ".png")
             .Select(name => new { file = name, sha256 = Hash(Path.Combine(config.job_dir, name)) }).ToArray();
         Write(Path.Combine(config.job_dir, config.stage + ".json"), new {
-            schema = "almond-asset-preparation/v2", status = "success", stage = config.stage,
+            schema = "almond-asset-preparation/v2", status = "passed", stage = config.stage,
             operation_id = config.operation_id, source_sha256 = config.source_sha256,
             summary = summary, previews = previews
         });
@@ -217,6 +217,8 @@ public class Script
         if (Hash(config.source) != config.source_sha256) throw new Exception("Preserved source changed");
         var active = Top(doc).Select(o => o.Id).OrderBy(x => x).ToArray();
         string job = config.job_dir;
+        object summary;
+        string previewPrefix;
         if (config.stage == "inspect")
         {
             bool nativeSource = String.Equals(Path.GetExtension(config.source), ".3dm", StringComparison.OrdinalIgnoreCase);
@@ -247,7 +249,8 @@ public class Script
                 string output = Path.Combine(job, "inspected.3dm");
                 Save(h, output);
                 Preview(h, job, "before");
-                Receipt(config, Summary(h, output), "before");
+                summary = Summary(h, output);
+                previewPrefix = "before";
             }
         }
         else if (config.stage == "normalize")
@@ -280,7 +283,8 @@ public class Script
             {
                 if (check == null) throw new Exception("Could not reopen normalized geometry");
                 Preview(check, job, "after");
-                Receipt(config, Summary(check, Path.Combine(job, "normalized.3dm")), "after");
+                summary = Summary(check, Path.Combine(job, "normalized.3dm"));
+                previewPrefix = "after";
             }
         }
         else if (config.stage == "verify")
@@ -291,11 +295,13 @@ public class Script
             {
                 if (check == null) throw new Exception("Could not reopen final geometry");
                 Preview(check, job, "final");
-                Receipt(config, Summary(check, output), "final");
+                summary = Summary(check, output);
+                previewPrefix = "final";
             }
         }
         else throw new Exception("Unknown native preparation stage");
         if (!active.SequenceEqual(Top(doc).Select(o => o.Id).OrderBy(x => x))) throw new Exception("Active document object set changed");
+        Receipt(config, summary, previewPrefix);
         return new List<Guid>();
     }
 }

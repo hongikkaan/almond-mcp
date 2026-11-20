@@ -155,7 +155,7 @@ __USER_BODY__
     };
     __run();
     __final["user_code_completed"] = true;
-    __final["status"] = "success";
+    __final["status"] = "executed";
     __final["mutation_state"] = "completed";
 }
 catch (Exception __exception)

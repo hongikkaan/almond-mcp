@@ -107,7 +107,7 @@ async def run(directory):
                     await asyncio.sleep(0.01)
                 if launches > 1:
                     write(directory / (execution["request_id"] + ".json"),
-                          dict(status="success", completed=True, result={"launch": launches}))
+                          dict(status="executed", completed=True, result={"launch": launches}))
                 value = execution_value(directory, execution)
                 assert value["completed"] is True
                 (directory / "wire-return").touch()
