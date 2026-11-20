@@ -58,7 +58,7 @@ def register(mcp, context):
             uls_combination: "6.10" 또는 "6.10ab". "6.10ab"는 각 부재에서 6.10a·6.10b 중 불리한 결과를 적용. 생략 시 프로필의 식을 사용(Eurocode: 6.10). 프로필이 식을 지정한 경우 요청보다 우선하며 경고 반환.
             connections: 네이티브 접합 조건. "rigid"는 모든 접합부의 모멘트를 전달하고, "simple"은 보 단부의 강축 휨과 가새 단부의 양축 휨을 해제. 같은 선상으로 이어지는 부재와 기둥은 연속 유지. 일반 볼트 접합 강구조·목구조는 "simple"에 가깝고 강접합은 보 처짐을 과소평가할 수 있음. 곡선 User Text의 release 값("pinned", "pinned_start", "pinned_end", "rigid") 우선.
             stability: "auto"는 모든 ULS 조합의 탄성 임계 하중 계수 alpha_cr(EN 1993-1-1 5.2.1)과 ±X·±Y 횡변위 초기 불완전성 φ = 1/200 × αh × αm(5.3.2) 적용. alpha_cr < 10이면 2차 P-Delta ULS 해석, alpha_cr ≤ 1이면 불안정으로 실패 처리. "off"는 초기 불완전성을 적용하지 않는 1차 해석.
-            design_code: 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_03-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
+            design_code: 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
             detail: 네이티브 결과에 부재별 단면력·사용률·처짐과 지점 반력 포함.
             fabrication: 강재 중공 단면(CHS/RHS)의 제작 방식. "cold_formed"는 EN 10219 좌굴 곡선 c, "hot_finished"는 EN 10210 곡선 a(S460은 a0). 좌굴 내력 차이가 최대 약 23%이므로 명시된 경우에만 "hot_finished" 사용.
         """
@@ -317,14 +317,14 @@ def register(mcp, context):
             display_guids: 그릴 부재만 선택(예: 단면을 보여 줄 한 줄의 프레임). 해석은 guids 전체에 적용.
             clear: 현재 해석 오버레이 제거.
             engine: "native", "karamba", "auto". "auto"는 네이티브 프레임 솔버를 우선 사용하고 셸이 포함되거나 브리지에서 모델을 내보낼 수 없으면 Karamba 사용.
-            asset_loads: 네이티브 해석에서 analysis_04-validate_structure tool과 같은 배치 자산 하중을 추가하고 작용점에 하중 화살표 표시.
+            asset_loads: 네이티브 해석에서 analysis_02-validate_structure tool과 같은 배치 자산 하중을 추가하고 작용점에 하중 화살표 표시.
             floor_load_kn_m2: 네이티브 해석에서 한 층의 보로 둘러싸인 모든 구획에 적용(예: EN 1991-1-1 Category A 주거용 2.0 kN/m²). 보는 45° 규칙에 따라 양방향 분담하며 장단변비가 2:1을 넘으면 일방향 분담. 용도별 활하중에 가구·재실자가 포함되므로 asset_loads는 무거운 특정 물품에만 병행하고 중복 계산을 피하려면 load_kn을 0으로 지정.
             floor_dead_kn_m2: 같은 바닥 구획의 구성층·마감 등 추가 고정하중.
             design_basis: 네이티브 하중 조합. "en1990"은 처짐에 SLS G + Q, 부재 검토에 ULS 1.35 G + 1.5 Q 사용. G는 자중·바닥 구성층·배치 물품 중량, Q는 load_kn·용도별 활하중·내용물·재실자. "unfactored"는 Karamba와 같이 둘 다 G + Q 적용.
             uls_combination: "6.10" 또는 "6.10ab". "6.10ab"는 각 부재에서 6.10a·6.10b 중 불리한 결과를 적용. 생략 시 프로필의 식을 사용(Eurocode: 6.10). 프로필이 식을 지정한 경우 요청보다 우선하며 경고 반환.
-            connections: analysis_04-validate_structure tool과 같은 "rigid" 또는 "simple". 핀 접합 단부는 작은 원으로 표시.
-            stability: analysis_04-validate_structure tool과 같은 "auto" 또는 "off".
-            design_code: 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_03-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
+            connections: analysis_02-validate_structure tool과 같은 "rigid" 또는 "simple". 핀 접합 단부는 작은 원으로 표시.
+            stability: analysis_02-validate_structure tool과 같은 "auto" 또는 "off".
+            design_code: 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
             fabrication: 강재 중공 단면(CHS/RHS)의 제작 방식. "cold_formed"는 EN 10219 좌굴 곡선 c, "hot_finished"는 EN 10210 곡선 a(S460은 a0). 좌굴 내력 차이가 최대 약 23%이므로 명시된 경우에만 "hot_finished" 사용.
             view: "deflection"은 처짐 형상, "buckling"은 지배 ULS 조합의 첫 좌굴 모드와 alpha_cr 표시(STABLE ≥ 10, SWAY-SENSITIVE 1~10, UNSTABLE ≤ 1).
         """
@@ -555,7 +555,7 @@ def register(mcp, context):
 
 
     def _render_validation_report(runs: list[dict]) -> str:
-        """Markdown report of persisted analysis_04-validate_structure tool runs, newest first."""
+        """Markdown report of persisted analysis_02-validate_structure tool runs, newest first."""
         from datetime import datetime, timezone
 
         lines = [
@@ -566,7 +566,7 @@ def register(mcp, context):
             "",
             "## How a run works",
             "",
-            "`analysis_04-validate_structure tool` extracts the referenced Rhino geometry through the bridge.",
+            "`analysis_02-validate_structure tool` extracts the referenced Rhino geometry through the bridge.",
             "With `engine='auto'`, line/frame models use **native** — Almond's frame FEA.",
             "Its confidence depends on the material and supported checks. Shell models or",
             "unavailable native model export use the Karamba route. Explicit `engine='native'`",
@@ -650,7 +650,7 @@ def register(mcp, context):
         try:
             runs = context.retrieval_store.list_validation_runs(limit=limit)
             if not runs:
-                return json.dumps(error_payload('No validation runs recorded yet - call analysis_04-validate_structure tool first.'))
+                return json.dumps(error_payload('No validation runs recorded yet - call analysis_02-validate_structure tool first.'))
             target = Path(path) if path else (
                 paths.user_data_dir() / "reports" /
                 f"structural-validation-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.md"

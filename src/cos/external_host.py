@@ -55,7 +55,7 @@ def exposed_tools(catalog: dict) -> list[types.Tool]:
         ("connect_02-session", "열린 Rhino 문서에 연결하거나 작업 대상 전환. connect_01-list_up tool의 targets에서 같은 대상의 host_id와 model_path를 가져온다. 유지 중인 연결도 다시 선택할 수 있으며, 선택 후 일반 호출은 그 연결을 사용한다.",
          {"host_id": {"type": "string"}, "model_path": {"type": "string"}},
          ["host_id", "model_path"]),
-        ("connect_03-start_session", "저장된 모델을 새 Rhino 창에서 열고 연결.",
+        ("connect_03-start_session", "저장된 모델을 새 Rhino 창에서 열고 연결. model_path와 시작 시도를 식별하는 request_id 필요.",
          {"model_path": {"type": "string", "description": '저장된 로컬 .3dm 파일의 절대 경로.'},
           "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
                          "description": '시작 시도마다 고유한 값. 지연되거나 결과가 불확실하면 같은 값으로 다시 조회.'}},

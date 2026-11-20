@@ -1,17 +1,17 @@
 # Structural validation: Karamba workflow
 
-`analysis_04-validate_structure` tool의 Karamba 경로(`engine="karamba"`)와 입력·반환 계약이다. 선형 frame은 기본 `engine="auto"`에서 [native solver](../SPEC.md)를 사용한다.
+`analysis_02-validate_structure` tool의 Karamba 경로(`engine="karamba"`)와 입력·반환 계약이다. 선형 frame은 기본 `engine="auto"`에서 [native solver](../SPEC.md)를 사용한다.
 
 ## 해석 대상과 자산 하중
 
-`analysis_04-validate_structure tool(guids, ...)` and `analysis_05-visualize_structure tool(guids, ...)` take explicit Rhino GUIDs, not Component IDs. `StructureModelExport.Handle` runs `ModelConditioner.Condition`: Points become support anchors, Curves become member axes, slender Extrusions and prismatic Breps can heuristically become members, and Mesh/surface/plate-like geometry becomes shells; other solids can be skipped with warnings. The native frame solver requires line members and rejects shells. The Karamba fallback is not automatically equivalent EN 1990 / Eurocode verification. Passing all architectural Component geometry directly as structural members would overstate both coverage and analysis validity.
+`analysis_02-validate_structure tool(guids, ...)` and `analysis_03-visualize_structure tool(guids, ...)` take explicit Rhino GUIDs, not Component IDs. `StructureModelExport.Handle` runs `ModelConditioner.Condition`: Points become support anchors, Curves become member axes, slender Extrusions and prismatic Breps can heuristically become members, and Mesh/surface/plate-like geometry becomes shells; other solids can be skipped with warnings. The native frame solver requires line members and rejects shells. The Karamba fallback is not automatically equivalent EN 1990 / Eurocode verification. Passing all architectural Component geometry directly as structural members would overstate both coverage and analysis validity.
 
 Generated-asset gravity loads are **loads**, not automatically members. Preserve `AssetPlacementExport.Handle` (including old/new asset-ID tags), `LoadTable.lookup`, `asset_loads.apply`, `structure_study.asset_catalogue`, `server._structural_loads_path`, `_asset_load_spec`, `get_asset_passport`, `structural-loads.json`, and generated manifest `category`, `spatial.support_plane`, `nominal_dimensions_mm`, and stable asset IDs. This existing path assigns estimated G/Q product/occupancy loads to frame members while reporting skipped ground-only, wall-mounted and structural elements. `test_asset_load_tools.py` and `test_asset_loads.py` cover these consumers. Asset conversion must not drop those identities/loads.
 
 ## Process
 
 ```
-analysis_04-validate_structure tool(guids, structure_type, load_kn, material)
+analysis_02-validate_structure tool(guids, structure_type, load_kn, material)
         │  MCP worker → document-bound Engine bridge (A–J: 5501–5510)
         ▼
 RhinoAlmondBridge.StructuralValidator
@@ -38,7 +38,7 @@ RhinoAlmondBridge.StructuralValidator
                     ALMOND_IN_SUPPORTS-style point ports.
        rule_based → heuristic UDL formulas                            confidence: low
   4. pass/fail checks (same criteria for every pathway)
-  5. record the run in the state DB → analysis_02-export_structural_report tool renders Markdown
+  5. record the run in the state DB → analysis_04-export_structural_report tool renders Markdown
 ```
 
 The response always names the pathway that actually ran (`results.analysis_method`) and prefixes the verdict, e.g. `[KARAMBA 3.1 API, HIGH CONFIDENCE]` vs `[RULE-BASED ESTIMATE, LOW CONFIDENCE]`. A rule-based answer is an estimate, not FEA — the label is the contract.
@@ -84,16 +84,16 @@ Karamba는 build-time reference 없이 `KarambaAdapter.cs`가 reflection으로 �
 
 ## Live structure view
 
-`analysis_05-visualize_structure tool(guids=[...])` solves the frame (native solver by default, `engine="karamba"` for the Karamba route; see [native-solver.md](../SPEC.md)) and draws it in every viewport through a display conduit (nothing is baked): ghosted undeformed axes, the exaggerated deformed shape coloured blue → red by displacement or utilization, supports, load arrows and a legend with max δ, the L/limit check and PASS/FAIL. `reanalyze=False` updates only the display (`scale`, `color_by`, `reveal`, `title`), so a staged construction sequence can be played back with `reveal` from 0 to 1, and `physics=False` draws the same members as plain geometry (physics off) for comparisons. `span_m` sets the reference span for the L/limit check when members are split at every node, `fixed_supports=False` pins the supports. `clear=True` removes the overlay.
+`analysis_03-visualize_structure tool(guids=[...])` solves the frame (native solver by default, `engine="karamba"` for the Karamba route; see [native-solver.md](../SPEC.md)) and draws it in every viewport through a display conduit (nothing is baked): ghosted undeformed axes, the exaggerated deformed shape coloured blue → red by displacement or utilization, supports, load arrows and a legend with max δ, the L/limit check and PASS/FAIL. `reanalyze=False` updates only the display (`scale`, `color_by`, `reveal`, `title`), so a staged construction sequence can be played back with `reveal` from 0 to 1, and `physics=False` draws the same members as plain geometry (physics off) for comparisons. `span_m` sets the reference span for the L/limit check when members are split at every node, `fixed_supports=False` pins the supports. `clear=True` removes the overlay.
 
 ## Getting a report
 
 Every recorded run can be exported as Markdown:
 
 ```text
-analysis_04-validate_structure tool(guids=[...], structure_type="truss", load_kn=25)
-analysis_02-export_structural_report tool()            # → %LOCALAPPDATA%\Almond\reports\structural-validation-<ts>.md
-analysis_02-export_structural_report tool(path="C:\\project\\checks.md", limit=10)
+analysis_02-validate_structure tool(guids=[...], structure_type="truss", load_kn=25)
+analysis_04-export_structural_report tool()            # → %LOCALAPPDATA%\Almond\reports\structural-validation-<ts>.md
+analysis_04-export_structural_report tool(path="C:\\project\\checks.md", limit=10)
 ```
 
 The report contains the pathway explanation, a run table (span, deflection vs limit, utilization, reactions, member count, PASS/FAIL), per-run verdicts and warnings, and the interpretation notes above.

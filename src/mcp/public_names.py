@@ -82,11 +82,11 @@ PUBLIC_TOOL_NAMES = {
     'get_construction_guidance': 'research_01-get_construction_guidance',
     'get_typology_narrative': 'research_02-get_typology_narrative',
     'search_detail_sources': 'research_03-search_details',
-    'check_egress': 'analysis_01-check_egress',
-    'export_structural_report': 'analysis_02-export_structural_report',
-    'list_design_codes': 'analysis_03-list_design_codes',
-    'validate_structure': 'analysis_04-validate_structure',
-    'visualize_structure': 'analysis_05-visualize_structure',
+    'check_egress': 'analysis_05-check_egress',
+    'export_structural_report': 'analysis_04-export_structural_report',
+    'list_design_codes': 'analysis_01-list_design_codes',
+    'validate_structure': 'analysis_02-validate_structure',
+    'visualize_structure': 'analysis_03-visualize_structure',
 }
 INTERNAL_TOOL_NAMES = {public: internal for internal, public in PUBLIC_TOOL_NAMES.items()}
 
