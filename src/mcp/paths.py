@@ -1,6 +1,7 @@
 """Resolve Almond's library, capsule, and state locations.
 
-Resolution order for every library directory:
+Resolution order for library directories (checkout drawing recipes also
+replace the legacy per-user default when inherited as an explicit path):
 
 1. the explicit ``RHINO_MCP_*`` environment variable;
 2. the matching library directory under ``asset/`` in the development checkout;
@@ -51,6 +52,7 @@ REPO_LIBRARY_PATHS = {
 
 STATE_DB_ENV = "RHINO_MCP_STATE_DB"
 STATE_DB_NAME = "almond_state.sqlite3"
+DRAWING_RECIPE_ENV = "RHINO_MCP_DRAWING_RECIPE_DIR"
 
 
 def user_data_dir() -> Path:
@@ -66,6 +68,21 @@ def user_data_dir() -> Path:
 def _repo_dir(name: str) -> Path | None:
     candidate = Path(__file__).resolve().parents[2] / REPO_LIBRARY_PATHS.get(name, name)
     return candidate if candidate.is_dir() else None
+
+
+def checkout_recipe_dir() -> Path | None:
+    """Select checkout recipes unless the caller chose a custom library."""
+    name = LIBRARY_DIRS[DRAWING_RECIPE_ENV]
+    explicit = os.environ.get(DRAWING_RECIPE_ENV)
+    if explicit:
+        defaults = {user_data_dir() / name}
+        if sys.platform == "win32":
+            # A packaged client may virtualize LOCALAPPDATA while forwarding
+            # the desktop user's original default directory.
+            defaults.add(Path.home() / "AppData" / "Local" / APP_NAME / name)
+        if Path(explicit) not in defaults:
+            return None
+    return _repo_dir(name)
 
 
 def _bundled_data(name: str):
@@ -119,6 +136,8 @@ def _scaffold(name: str, target: Path) -> None:
 def resolve_dir(env_var: str) -> str:
     """Resolve one of the LIBRARY_DIRS locations to an existing directory."""
     name = LIBRARY_DIRS[env_var]
+    if env_var == DRAWING_RECIPE_ENV and (recipes := checkout_recipe_dir()):
+        return str(recipes)
     explicit = os.environ.get(env_var)
     if explicit:
         return explicit

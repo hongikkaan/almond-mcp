@@ -101,6 +101,10 @@ def test_metadata_policy_is_discoverable_and_readable_on_a_new_session(guidance_
                 assert json.loads(result.content[0].text) == value
                 assert value["text"] == expected_text
                 assert value["policy"] == expected_keys
+                assert value["policy"]["public_object_keys"]["floor"] == "floor"
+                assert value["policy"]["internal_object_keys"]["section"] == "section"
+                for group in ("public_object_keys", "internal_object_keys", "group_keys"):
+                    assert all(not key.startswith("almond:") for key in value["policy"][group].values())
                 assert value["guide_version"] == guide_version(instructions)
                 assert {ref["path"] for ref in value["source_refs"]} == {
                     f"src/mcp/{guide_path}", "src/mcp/modeling_policy.json",

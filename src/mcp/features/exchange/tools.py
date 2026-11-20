@@ -59,7 +59,7 @@ class Exchange:
         if contract.get("passport"):
             # C# verbatim string, so quotes/backslashes in provenance stay data.
             encoded = json.dumps(contract["passport"], ensure_ascii=True).replace('"', '""')
-            passport_stamp = f'attributes.SetUserString("almond:passport", @"{encoded}");'
+            passport_stamp = f'attributes.SetUserString("passport", @"{encoded}");'
         return f"""
 using System;
 using System.Collections.Generic;
@@ -121,13 +121,13 @@ public class Script
                     deduped++;
                 }}
                 attributes.MaterialSource = ObjectMaterialSource.MaterialFromObject;
-                attributes.SetUserString("almond:material_id", (string)spec[0]);
+                attributes.SetUserString("material_id", (string)spec[0]);
                 attributes.ObjectColor = System.Drawing.Color.FromArgb((int)spec[4], (int)spec[5], (int)spec[6]);
                 attributes.ColorSource = ObjectColorSource.ColorFromObject;
                 stamped++;
             }}
-            attributes.SetUserString("almond:asset_id", "{contract['asset_id']}");
-            attributes.SetUserString("almond:source_app", "{contract.get('source_app', 'unknown')}");
+            attributes.SetUserString("asset_id", "{contract['asset_id']}");
+            attributes.SetUserString("source_app", "{contract.get('source_app', 'unknown')}");
             {passport_stamp}
             attributes.LayerIndex = layerIndex;
             if (!doc.Objects.ModifyAttributes(obj.Id, attributes, true)) throw new InvalidOperationException("Cannot restore imported attributes.");
@@ -197,7 +197,7 @@ public class Script
             var obj = doc.Objects.FindId(new Guid(s));
             if (obj == null) continue;
             var mat = obj.GetMaterial(true);
-            string mid = mat == null ? null : mat.GetUserString("almond:material_id");
+            string mid = mat == null ? null : mat.GetUserString("material_id");
             string name = obj.GetRenderMaterial(true)?.Name ?? mat?.Name ?? "";
             if (string.IsNullOrEmpty(mid)) names.TryGetValue(name, out mid);
             if (string.IsNullOrEmpty(mid) && name.StartsWith("ALMOND::"))

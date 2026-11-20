@@ -24,6 +24,8 @@ class EnvironmentSmoke(unittest.TestCase):
             configure_library_paths()
             for variable, name in paths.LIBRARY_DIRS.items():
                 expected = Path("C:/fixture/custom") if variable == key else home / name
+                if variable == paths.DRAWING_RECIPE_ENV:
+                    expected = REPO / "asset/drawing/DrawingRecipes"
                 if variable != key and name in {"GeneratedAssetfiles", "Draftingfiles"}:
                     expected /= "releases" / Path(__version__)
                 self.assertEqual(Path(os.environ[variable]), expected)

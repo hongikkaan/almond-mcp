@@ -8,6 +8,9 @@ def bound_library_dirs() -> dict[str, str]:
     """Resolve the document worker's paths without changing its environment."""
     result = {}
     for variable, name in paths.LIBRARY_DIRS.items():
+        if variable == paths.DRAWING_RECIPE_ENV and (recipes := paths.checkout_recipe_dir()):
+            result[variable] = str(recipes)
+            continue
         if explicit := os.environ.get(variable):
             result[variable] = explicit
             continue

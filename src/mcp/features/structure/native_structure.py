@@ -10,7 +10,7 @@ so the two engines are comparable:
 - connections: rigid joints by default; ``connections="simple"`` pins beams (major-axis bending)
   and braces (both axes) where they stop, i.e. where no other member carries on in line (pieces
   drawn along one line form a continuous member); columns stay continuous; a curve's user text
-  ``almond:release``
+  ``release``
   ("pinned" | "pinned_start" | "pinned_end" | "rigid") overrides either mode for that member;
 - imposed load: ``load_kn`` split equally over the free (unsupported) nodes, acting -Z;
 - self weight: gamma x A along every member, -Z;

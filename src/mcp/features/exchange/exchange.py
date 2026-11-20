@@ -268,12 +268,12 @@ def almond_material(mid):
         bsdf.inputs["Roughness"].default_value = spec["roughness"]
         if spec["opacity"] < 1.0 and "Alpha" in bsdf.inputs:
             bsdf.inputs["Alpha"].default_value = spec["opacity"]
-    for key, value in (("almond:material_id", mid),
-                       ("almond:ue_material_slot", spec["slot"]),
-                       ("almond:base_color", spec["srgb"]),
-                       ("almond:metallic", spec["metallic"]),
-                       ("almond:roughness", spec["roughness"]),
-                       ("almond:opacity", spec["opacity"])):
+    for key, value in (("material_id", mid),
+                       ("ue_material_slot", spec["slot"]),
+                       ("base_color", spec["srgb"]),
+                       ("metallic", spec["metallic"]),
+                       ("roughness", spec["roughness"]),
+                       ("opacity", spec["opacity"])):
         mat[key] = value
     return mat
 
@@ -287,11 +287,11 @@ for entry in ASSIGN:
             continue
         obj.data.materials.clear()
         obj.data.materials.append(mat)
-        obj["almond:material_id"] = entry["material_id"]
-        obj["almond:material_category"] = spec["category"]
-        obj["almond:ue_material_slot"] = spec["slot"]
-        obj["almond:base_color"] = spec["srgb"]
-        obj["almond:source_app"] = "blender"
+        obj["material_id"] = entry["material_id"]
+        obj["material_category"] = spec["category"]
+        obj["ue_material_slot"] = spec["slot"]
+        obj["base_color"] = spec["srgb"]
+        obj["source_app"] = "blender"
         applied += 1
 print("ALMOND_MATERIALS applied to " + str(applied) + " object(s)")
 '''

@@ -254,6 +254,36 @@ def test_cold_direct_full_descriptions_and_basic_scripting_guide(tmp_path):
     assert "context_01-get_policy" in tools
 
 
+def test_bound_worker_reads_checkout_recipes_with_legacy_launcher_path(tmp_path):
+    env = isolated_environment(tmp_path)
+    key = paths.DRAWING_RECIPE_ENV
+    env[key] = str(paths.user_data_dir() / "DrawingRecipes")
+    params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
+        str(ROOT / "tests/integration/bound_server_fixture.py")], env=env)
+    directory = ROOT / "asset/drawing/DrawingRecipes"
+
+    async def check():
+        async with stdio_client(params) as (reader, writer), ClientSession(reader, writer) as client:
+            await client.initialize()
+            worker = json.loads(next(tmp_path.rglob("worker.json")).read_text(encoding="utf-8"))
+            assert Path(worker["library_dirs"][key]) == directory
+            listed = await client.call_tool("drawing_05-list_recipes", {"include_ids": True})
+            ids = {row["recipe_id"] for row in json.loads(listed.content[0].text)["recipes"]}
+            recipes = sorted(directory.glob("*.json"))
+            assert recipes
+            expected_ids = set()
+            for recipe_path in recipes:
+                recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+                recipe_id = recipe.pop("recipe_id")
+                expected_ids.add(recipe_id)
+                detail = await client.call_tool("drawing_02-get_recipe", {
+                    "recipe_id": recipe_id, "field_groups": ["all"]})
+                assert json.loads(detail.content[0].text)["recipe"] == recipe
+            assert ids == expected_ids
+
+    asyncio.run(check())
+
+
 def test_bound_serve_and_external_catalog_identity(tmp_path):
     params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
         str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path))

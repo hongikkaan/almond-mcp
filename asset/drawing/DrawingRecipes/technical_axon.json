@@ -10,7 +10,7 @@
   "recommended_scales": ["1:50", "1:100", "1:200"],
   "layers": [
     {
-      "path": "ALMOND-DRAW::SECTION-CUT",
+      "path": "Drawing::AxoSECTION-CUT",
       "role": "section_cut",
       "color": [0, 0, 0],
       "plot_color": [0, 0, 0],
@@ -18,7 +18,7 @@
       "linetype": "Continuous"
     },
     {
-      "path": "ALMOND-DRAW::PROFILE",
+      "path": "Drawing::AxoPROFILE",
       "role": "silhouette",
       "color": [0, 0, 0],
       "plot_color": [0, 0, 0],
@@ -26,7 +26,7 @@
       "linetype": "Continuous"
     },
     {
-      "path": "ALMOND-DRAW::VISIBLE",
+      "path": "Drawing::AxoVISIBLE",
       "role": "visible",
       "color": [35, 35, 35],
       "plot_color": [0, 0, 0],
@@ -34,7 +34,7 @@
       "linetype": "Continuous"
     },
     {
-      "path": "ALMOND-DRAW::DETAIL",
+      "path": "Drawing::AxoDETAIL",
       "role": "detail",
       "color": [70, 70, 70],
       "plot_color": [0, 0, 0],
@@ -42,7 +42,7 @@
       "linetype": "Continuous"
     },
     {
-      "path": "ALMOND-DRAW::HIDDEN",
+      "path": "Drawing::AxoHIDDEN",
       "role": "hidden",
       "color": [120, 120, 120],
       "plot_color": [90, 90, 90],
@@ -50,7 +50,7 @@
       "linetype": "ALMOND Hidden"
     },
     {
-      "path": "ALMOND-DRAW::OVERHEAD",
+      "path": "Drawing::AxoOVERHEAD",
       "role": "overhead",
       "color": [130, 130, 130],
       "plot_color": [100, 100, 100],
@@ -58,7 +58,7 @@
       "linetype": "ALMOND DashDot"
     },
     {
-      "path": "ALMOND-DRAW::ENTOURAGE",
+      "path": "Drawing::AxoENTOURAGE",
       "role": "entourage",
       "color": [85, 85, 85],
       "plot_color": [50, 50, 50],
@@ -66,7 +66,7 @@
       "linetype": "Continuous"
     },
     {
-      "path": "ALMOND-DRAW::HATCH",
+      "path": "Drawing::AxoHATCH",
       "role": "hatch",
       "color": [150, 150, 150],
       "plot_color": [120, 120, 120],
@@ -74,7 +74,7 @@
       "linetype": "Continuous"
     },
     {
-      "path": "ALMOND-DRAW::ANNOTATION",
+      "path": "Drawing::AxoANNOTATION",
       "role": "annotation",
       "color": [0, 0, 0],
       "plot_color": [0, 0, 0],
@@ -83,7 +83,7 @@
     }
   ],
   "output": {
-    "paper": "A3",
+    "paper": "A4",
     "orientation": "landscape",
     "dpi": 300,
     "vector_preferred": true

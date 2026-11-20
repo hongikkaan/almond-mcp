@@ -145,14 +145,14 @@ def register(mcp, context):
         Args:
             scope: current(기본), document.
             object_ids: document 범위에서만 사용할 수 있는 선택 사항인 서로 다른 최상위 객체 GUID입니다(1..4096개). group_ids와 함께 사용하지 않습니다.
-            filters: layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary 조건을 모두 적용합니다. user_dictionary는 조건 하나도 조건 객체의 JSON 배열에 담으며 최대 16개 조건이 모두 일치해야 합니다. 각 조건의 source는 attributes(객체 속성) 또는 geometry(형상), key는 비어 있지 않은 키입니다. any_of는 문자열·불리언·숫자를 1~64개 담은 배열이며, 해당 키의 값 또는 배열 원소가 그중 하나와 일치하면 조건을 충족합니다.
+            filters: layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary, user_text 조건을 모두 적용합니다. user_text는 객체 속성 User Text를 대상으로 하며 예시는 [{"key":"floor","any_of":["2F"]}]입니다. 최대 16개 조건이 모두 일치해야 하며, 조건마다 문자열 1~64개 중 하나와 정확히 일치해야 합니다. user_dictionary는 조건 하나도 조건 객체의 JSON 배열에 담으며 최대 16개 조건이 모두 일치해야 합니다. 각 조건의 source는 attributes(객체 속성) 또는 geometry(형상), key는 비어 있지 않은 키입니다. any_of는 문자열·불리언·숫자를 1~64개 담은 배열이며, 해당 키의 값 또는 배열 원소가 그중 하나와 일치하면 조건을 충족합니다.
             include_geometry: fields를 생략했을 때 objects 모드에서 형상 상세 정보를 포함합니다. 명시적인 fields가 우선합니다.
             offset: 0..100000. 양수: expected_snapshot 필수.
             limit: 1..200, 기본 50.
             expected_model_path: 생략: 연결 문서. 지정 시 경로 일치 검사.
             include_ids: 기본 false. true: ID 포함.
             result_mode: objects(기본), hierarchy, summary. recursive=true와 summary는 배타.
-            fields: 선택 사항인 비어 있지 않은 필드 목록입니다. id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, geometry_valid, solid, manifold, volume, faces, face_count를 사용할 수 있습니다. 형상 상세 정보와 faces에는 objects 모드가 필요합니다. summary는 fields를 거부합니다.
+            fields: 선택 사항인 비어 있지 않은 필드 목록입니다. id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, user_text, geometry_valid, solid, manifold, volume, faces, face_count를 사용할 수 있습니다. 형상 상세 정보와 faces에는 objects 모드가 필요합니다. user_text는 요청 시 객체 속성 문자열을 values, total_keys, truncated로 반환합니다. summary는 fields를 거부합니다.
             face_offset: 기본 0. 양수: document object_ids와 각 객체의 expected_geometry_crcs 필수.
             face_limit: 1..128, 기본 128. objects 모드.
             expected_geometry_crcs: 객체 GUID별 CRC. 면 연속 조회 중 형상 변경 시 거부.

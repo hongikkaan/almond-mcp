@@ -569,7 +569,7 @@ namespace RhinoAlmondBridge
                 Name = request.Name ?? request.AssetId,
                 LayerIndex = layerIndex
             };
-            attributes.SetUserString("almond.asset_id", request.AssetId ?? "");
+            attributes.SetUserString("asset_id", request.AssetId ?? "");
             attributes.SetUserString("almond.asset_type", _assetType);
             attributes.SetUserString("almond.metadata", request.Metadata?.ToString(Formatting.None) ?? "{}");
             return attributes;

@@ -45,8 +45,8 @@ Choose **Structure** from the Almond menu, or run **AlmondStructure** (the older
 
 - loads: total load, floor area loads (imposed and build-up), placed Almond models, self-weight;
 - EN 1990 load combinations from the selected design code (Eurocode recommended values by default; National Annex profiles can be added);
-- rigid or simple (pinned beam end) connections, and per-curve `almond:release`;
-- per-curve sections with `almond:section` user text (`rect 300x640`, `box 200x300x8`, `chs 114.3x4`, mm unless a unit follows); otherwise inferred, or CHS 114.3 × 4;
+- rigid or simple (pinned beam end) connections, and per-curve `release`;
+- per-curve sections with `section` user text (`rect 300x640`, `box 200x300x8`, `chs 114.3x4`, mm unless a unit follows); otherwise inferred, or CHS 114.3 × 4;
 - stability: alpha-cr, sway imperfections and P-Delta second-order analysis below 10;
 - EN 1993-1-1 steel member checks: section class, buckling curves by fabrication, flexural buckling with Annex B interaction;
 - the deflected shape or first buckling mode in the viewport, and every member, support and combination in the **Almond Results** panel (`AlmondResults`), with CSV export.

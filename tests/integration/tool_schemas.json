@@ -213,9 +213,9 @@
       "additionalProperties": false,
       "properties": {
         "recipe_id": {
-          "default": "technical_axon_v1",
+          "default": "",
           "type": "string",
-          "description": "drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool의 레시피 ID. 생략: technical_axon_v1."
+          "description": "drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool에서 확인한 레시피 ID입니다. 생략하면 파일명 순으로 처음 로드된 레시피를 적용합니다."
         }
       },
       "type": "object"
@@ -3873,7 +3873,6 @@
   "inspect_02-get_objects": {
     "name": "inspect_02-get_objects",
     "inputSchema": {
-      "additionalProperties": false,
       "properties": {
         "scope": {
           "default": "current",
@@ -3906,7 +3905,7 @@
             }
           ],
           "default": null,
-          "description": "layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary 조건을 모두 적용합니다. user_dictionary는 조건 하나도 조건 객체의 JSON 배열에 담으며 최대 16개 조건이 모두 일치해야 합니다. 각 조건의 source는 attributes(객체 속성) 또는 geometry(형상), key는 비어 있지 않은 키입니다. any_of는 문자열·불리언·숫자를 1~64개 담은 배열이며, 해당 키의 값 또는 배열 원소가 그중 하나와 일치하면 조건을 충족합니다."
+          "description": "layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary, user_text 조건을 모두 적용합니다. user_text는 객체 속성 User Text를 대상으로 하며 예시는 [{\"key\":\"floor\",\"any_of\":[\"2F\"]}]입니다. 최대 16개 조건이 모두 일치해야 하며, 조건마다 문자열 1~64개 중 하나와 정확히 일치해야 합니다. user_dictionary는 조건 하나도 조건 객체의 JSON 배열에 담으며 최대 16개 조건이 모두 일치해야 합니다. 각 조건의 source는 attributes(객체 속성) 또는 geometry(형상), key는 비어 있지 않은 키입니다. any_of는 문자열·불리언·숫자를 1~64개 담은 배열이며, 해당 키의 값 또는 배열 원소가 그중 하나와 일치하면 조건을 충족합니다."
         },
         "include_geometry": {
           "default": false,
@@ -3951,7 +3950,7 @@
             }
           ],
           "default": null,
-          "description": "선택 사항인 비어 있지 않은 필드 목록입니다. id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, geometry_valid, solid, manifold, volume, faces, face_count를 사용할 수 있습니다. 형상 상세 정보와 faces에는 objects 모드가 필요합니다. summary는 fields를 거부합니다."
+          "description": "선택 사항인 비어 있지 않은 필드 목록입니다. id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, user_text, geometry_valid, solid, manifold, volume, faces, face_count를 사용할 수 있습니다. 형상 상세 정보와 faces에는 objects 모드가 필요합니다. user_text는 요청 시 객체 속성 문자열을 values, total_keys, truncated로 반환합니다. summary는 fields를 거부합니다."
         },
         "face_offset": {
           "default": 0,
@@ -4019,10 +4018,10 @@
           "description": "첫 페이지 snapshot. offset > 0에서 필수."
         }
       },
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "outputSchema": {
-      "type": "object",
       "properties": {
         "result": {
           "type": "string",
@@ -4108,6 +4107,24 @@
                         }
                       },
                       "description": "이 객체의 면 목록 페이지 정보입니다."
+                    },
+                    "user_text": {
+                      "type": "object",
+                      "description": "Rhino object attribute User Text.",
+                      "properties": {
+                        "values": {
+                          "type": "object",
+                          "description": "Stored strings or omission markers for bounded responses."
+                        },
+                        "total_keys": {
+                          "type": "integer",
+                          "description": "Number of stored keys before projection."
+                        },
+                        "truncated": {
+                          "type": "boolean",
+                          "description": "Whether keys were omitted."
+                        }
+                      }
                     }
                   }
                 },
@@ -4156,6 +4173,32 @@
               "next_step_guide": {
                 "type": "string",
                 "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "user_text": {
+                      "type": "object",
+                      "description": "Rhino object attribute User Text.",
+                      "properties": {
+                        "values": {
+                          "type": "object",
+                          "description": "Stored strings or omission markers for bounded responses."
+                        },
+                        "total_keys": {
+                          "type": "integer",
+                          "description": "Number of stored keys before projection."
+                        },
+                        "truncated": {
+                          "type": "boolean",
+                          "description": "Whether keys were omitted."
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -4164,6 +4207,7 @@
       "required": [
         "result"
       ],
+      "type": "object",
       "x-fastmcp-wrap-result": true
     },
     "annotations": {
@@ -8561,7 +8605,6 @@
   "intersect_02-resolve": {
     "name": "intersect_02-resolve",
     "inputSchema": {
-      "additionalProperties": false,
       "properties": {
         "object_ids": {
           "anyOf": [
@@ -8603,12 +8646,28 @@
           ],
           "default": null,
           "description": "1 또는 2는 해당 번호의 객체에서 겹친 부분을 제거합니다. \"skip\"은 두 객체를 모두 그대로 둡니다. review_id를 제공하고 object_ids는 생략합니다. 확인/계속 진행하려면 choice를 생략합니다."
+        },
+        "user_text": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "새 검토 범위의 객체 속성 User Text 조건 배열입니다. 예: [{\"key\":\"floor\",\"any_of\":[\"2F\"]}]. 어느 한 객체가 모든 조건과 일치하는 쌍을 표시합니다. 양쪽 값은 objects의 attributes.user_strings.values에서 조회합니다. 중첩 블록은 정의 멤버의 속성을 사용합니다."
         }
       },
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "outputSchema": {
-      "type": "object",
       "properties": {
         "status": {
           "type": "string",
@@ -8633,8 +8692,45 @@
         "next_step_guide": {
           "type": "string",
           "description": "이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다."
+        },
+        "objects": {
+          "type": "array",
+          "description": "Numbered members of the pair awaiting a choice.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "user_strings": {
+                    "type": "object",
+                    "description": "Rhino object attribute User Text.",
+                    "properties": {
+                      "values": {
+                        "type": "object",
+                        "description": "Stored strings or omission markers for bounded responses."
+                      },
+                      "total_keys": {
+                        "type": "integer",
+                        "description": "Number of stored keys before projection."
+                      },
+                      "truncated": {
+                        "type": "boolean",
+                        "description": "Whether keys were omitted."
+                      }
+                    }
+                  }
+                }
+              },
+              "user_dictionary": {
+                "type": "object",
+                "description": "Separate attribute and geometry dictionaries."
+              }
+            }
+          }
         }
-      }
+      },
+      "type": "object"
     },
     "annotations": null
   },
@@ -10663,7 +10759,7 @@
         "connections": {
           "default": "rigid",
           "type": "string",
-          "description": "\"rigid\"(기본값)는 모든 접합부가 모멘트를 전달합니다. \"simple\"은 보를 핀 접합(강축 휨 해제)으로, 가새를 양축 핀 접합으로 처리하되, 다른 부재가 같은 선상으로 계속 이어지는 지점이 아니라 해당 부재가 끝나는 지점에 적용하며 기둥은 연속으로 유지합니다. 일반적인 볼트 접합 강구조와 목구조 프레임은 \"simple\"에 더 가깝습니다. 강접합은 보 처짐을 실제보다 유리하게 보이게 할 수 있습니다. 곡선의 사용자 텍스트 almond:release = \"pinned\" | \"pinned_start\" | \"pinned_end\" | \"rigid\"는 두 모드보다 우선합니다. 네이티브 엔진에 적용됩니다."
+          "description": "\"rigid\"(기본값)는 모든 접합부가 모멘트를 전달합니다. \"simple\"은 보를 핀 접합(강축 휨 해제)으로, 가새를 양축 핀 접합으로 처리하되, 다른 부재가 같은 선상으로 계속 이어지는 지점이 아니라 해당 부재가 끝나는 지점에 적용하며 기둥은 연속으로 유지합니다. 일반적인 볼트 접합 강구조와 목구조 프레임은 \"simple\"에 더 가깝습니다. 강접합은 보 처짐을 실제보다 유리하게 보이게 할 수 있습니다. 곡선의 사용자 텍스트 release = \"pinned\" | \"pinned_start\" | \"pinned_end\" | \"rigid\"는 두 모드보다 우선합니다. 네이티브 엔진에 적용됩니다."
         },
         "stability": {
           "default": "auto",

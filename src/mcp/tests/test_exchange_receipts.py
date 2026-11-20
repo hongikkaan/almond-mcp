@@ -193,7 +193,7 @@ class ExchangeReceiptTests(unittest.TestCase):
                     if label == "A":
                         other["result"] = receive("B")
                     return json.dumps({"status": "success", "result": {"imported_count": 1}})
-                label = re.search(r'almond:asset_id", "([AB])"', script).group(1)
+                label = re.search(r'SetUserString\("asset_id", "([AB])"\)', script).group(1)
                 selected = re.search(r'foreach \(string s in new\[\] \{([^}]+)\}', script).group(1)
                 restored[label] = re.findall(r'"([0-9a-f-]{36})"', selected)
                 output_path(script, "WriteAllText", folder).write_text(

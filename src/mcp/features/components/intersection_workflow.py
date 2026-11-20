@@ -11,7 +11,7 @@ from PIL import Image
 
 from almond_mcp.features.components.intersection_queries import handle
 from almond_mcp.features.context.capture_artifacts import save_png
-from almond_mcp.features.context.object_queries import dispatch, object_ids
+from almond_mcp.features.context.object_queries import dispatch, object_ids, validate_filters
 from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.tool_response import error_payload
 
@@ -53,27 +53,31 @@ class Workflow:
         self.blocked = False
         self.lock = Lock()
 
-    def execute(self, ids=None, include_block=False, review_id="", choice=None):
+    def execute(self, ids=None, include_block=False, review_id="", choice=None, user_text=None):
         if not self.lock.acquire(blocking=False):
             return result(error_payload("Finish the pending review call first.", error_code="intersection_review_busy"))
         try:
-            return self._execute(ids, include_block, review_id, choice)
+            return self._execute(ids, include_block, review_id, choice, user_text)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             return result(error_payload(str(exc), error_code="invalid_intersection_review"))
         finally:
             self.lock.release()
 
-    def _execute(self, ids, include_block, review_id, choice):
+    def _execute(self, ids, include_block, review_id, choice, user_text):
         path = bound_model_path()
         if type(include_block) is not bool or not isinstance(review_id, str):
             raise ValueError("include_block must be boolean and review_id must be a string.")
         if choice is not None and not (type(choice) is int and choice in (1, 2) or choice == "skip"):
             raise ValueError("choice must be 1, 2 or 'skip'. A number trims only that object's overlap.")
+        if user_text is not None:
+            if ids is None:
+                raise ValueError("Specify user_text only when starting a review with object_ids.")
+            validate_filters({"user_text": user_text})
         if ids is not None:
             if choice is not None or review_id:
                 raise ValueError("Start with object_ids, or answer a review with review_id and choice; do not mix them.")
             normalized = object_ids(ids, 512, required=True)
-            self.scope = (path, normalized, include_block)
+            self.scope = (path, normalized, include_block, user_text)
             self.pending, self.skipped, self.number, self.blocked = None, set(), 0, False
         if self.scope is None or self.scope[0] != path:
             raise ValueError("Start a review with current object_ids in this bound document.")
@@ -133,6 +137,8 @@ class Workflow:
             observed = json.loads(self.send(b'{"type":"get_rhino_context","sections":[],"selection_limit":0}'))
             if observed.get("status") != "success" or observed.get("capabilities", {}).get("intersection_review") != 1:
                 return error_payload("Load the matching Bridge with intersection_review=1.", error_code="unsupported_intersection_review")
+            if "user_text" in payload and observed["capabilities"].get("intersection_user_text") != 1:
+                return error_payload("Load a Bridge with intersection_user_text=1.", error_code="unsupported_intersection_review")
             payload["expected_model_path"] = self.scope[0]
             dispatched = True
             value = json.loads(self.send(json.dumps(payload).encode("utf-8")))
@@ -154,7 +160,7 @@ class Workflow:
                     "geometry_change_possible": dispatched and mutates_geometry}
 
     def _advance(self):
-        path, ids, include_block = self.scope
+        path, ids, include_block, user_text = self.scope
         cursor, seen = "", set()
         # Native code stops immediately on a positive pair, with bounded pages for preceding zeros.
         for _ in range(20001):
@@ -184,7 +190,12 @@ class Workflow:
                 key = tuple(sorted(json.dumps(v, sort_keys=True) for v in handles))
                 if key in self.skipped:
                     continue
-                review = self._native({"type": "intersection_review", "a": handles[0], "b": handles[1]})
+                request = {"type": "intersection_review", "a": handles[0], "b": handles[1]}
+                if user_text:
+                    request["user_text"] = user_text
+                review = self._native(request)
+                if review.get("status") == "success" and review.get("filtered_out") is True:
+                    continue
                 if review.get("status") != "success":
                     self.blocked = bool(review.get("requires_reconciliation"))
                     return review
@@ -211,7 +222,7 @@ class Workflow:
                     raise ValueError("A completed query returned a cursor.")
                 self.pending = None
                 return {"status": "success", "state": "completed", "skipped_pairs": len(self.skipped),
-                        "message": "검토할 겹침이 더 없습니다. skip한 쌍은 수정하지 않았습니다."}
+                        "message": "현재 범위와 조건에서 검토할 겹침이 더 없습니다. skip한 쌍은 수정하지 않았습니다."}
             if not pairs or not isinstance(next_cursor, str) or not next_cursor or next_cursor in seen:
                 raise ValueError("Intersection pagination did not advance.")
             seen.add(next_cursor)

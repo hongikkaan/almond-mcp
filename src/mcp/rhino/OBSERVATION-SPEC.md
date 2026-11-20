@@ -58,7 +58,7 @@ labels는 기본 false이고 선택 시 최대 200개의 임시 pixel label을 �
 
 ## 일반 객체 범위·형상과 묶음 캡처
 
-`inspect_02-get_objects` tool는 `object_observation>=4`로 확인한 고정 native 경로다. 내부 get_rhino_objects 요청 이름과 기존 내부 소비자는 유지한다.
+`inspect_02-get_objects` tool는 `object_observation>=4`(객체 속성 User Text 필드·조건은 5 이상)로 확인한 고정 native 경로다. 내부 get_rhino_objects 요청 이름과 기존 내부 소비자는 유지한다.
 공개 scope는 current(기본)/document다. current는 화면 밖을 포함한 표시·비잠금 모델 객체이고 객체 및 상위 Layer 잠금을 제외한다. selected/inside_window는 current에서만 허용하며 서로 배타적이다. selected는 화면 밖의 선택을 포함하되 current의 표시·잠금 조건을 유지한다. inside_window는 활성 모델뷰 또는 Detail의 frustum과 world 경계 상자가 일부라도 교차하면 포함한다. 경계 상자 근사이며 픽셀 가림·클리핑 평면은 판정하지 않는다. document는 숨김·잠금 객체를 포함하고 object_ids로 좁힐 수 있다. 양 scope에서 group_ids로 원하는 그룹을 지정할 수 있으며 object_ids와 혼용하지 않는다. 이름은 식별자가 아니다.
 필터·페이지·기하 상세의 입력은 [도구 설명](../features/context/tools.py)에 둔다.
 result_mode=objects는 문서 객체, summary는 레이어·유형 수량, hierarchy는 그룹·블록 계층이다. recursive=true는 hierarchy를 선택하고 그룹·블록을 함께 펼친다. 기본 false, depth는 1–8(최상위=1)이며 number/parent_number가 페이지를 가로지르는 부모 관계를 보존한다. 필터는 top-level 객체에 먼저 적용한다. 그룹 계층은 엄격한 멤버 포함 관계로 판정하며 겹치는 그룹·동일 멤버 그룹을 임의의 단일 부모에 배치하지 않는다. member_count, observed_member_count, matched_member_count와 all_members_in_scope를 구분한다. 확인할 수 없는 전체 개수는 null이다.
@@ -79,14 +79,14 @@ UserDictionary는 기존 SharedUserDictionary만 읽으며, 사전을 생성하�
 | Layout | 페이지와 Detail의 문서 설정 | `inspect_03-get_document_context` tool의 `layouts`로 이름과 메인 뷰포트 GUID를 확인. Layout 자체의 사용자 메타데이터 조회·필터는 미지원. | `capture_04-defined_view` tool에 `target_kind="layout"`과 이름 또는 GUID를 지정. 용지 객체는 모델 객체 선택 범위 밖. |
 | Named View | Named View 테이블의 이름·저장된 카메라 | 같은 도구의 `named_views`로 이름과 Named View GUID를 확인. Named View 자체의 사용자 메타데이터 조회·필터는 미지원. | `capture_04-defined_view` tool에 `target_kind="named_view"`와 이름 또는 GUID를 지정. 모델 객체 선택과 별개로 처리. |
 | 클리핑 평면 | 문서의 클리핑 객체·속성과 형상. PlanSection의 로컬 `draft_plane`은 객체 속성의 UserDictionary와 호환용 User Text에 저장. | 적격한 최상위 클리핑 객체는 `inspect_02-get_objects` tool의 `object_types=["ClipPlane"]`과 객체 메타데이터 조건으로 조회. | 관찰한 GUID는 `drawing_06-generate_plan_section` tool의 `clipping_ids`에 사용. 모델 객체 선택 기준도 적용. |
-| 모델 객체 | 객체의 속성과 형상에 각각 Rhino UserDictionary와 User Text 저장 가능. | `inspect_02-get_objects` tool에서 `fields=["user_dictionary"]`로 기존 속성·형상 사전을 읽고 `filters.user_dictionary` 조건으로 좁힘. 일반 User Text 직접 필터는 미지원. | `selected=true`로 적격한 현재 선택을 조회. `capture_03-current_view` tool에 적격한 최상위 객체 GUID를 지정하면 실제 선택과 카메라 변경. |
+| 모델 객체 | 객체의 속성과 형상에 각각 Rhino UserDictionary와 User Text 저장 가능. | `inspect_02-get_objects` tool에서 `fields=["user_dictionary"]`로 기존 속성·형상 사전을 읽고 `filters.user_dictionary` 조건으로 좁힘. 객체 속성 User Text는 fields=["user_text"]와 filters.user_text로 조회·필터한다. 형상·문서 User Text는 이 필드의 범위 밖이다. | `selected=true`로 적격한 현재 선택을 조회. `capture_03-current_view` tool에 적격한 최상위 객체 GUID를 지정하면 실제 선택과 카메라 변경. |
 | 레이어 | Layer 테이블의 레이어와 부모 계층. RhinoCommon은 레이어별 User Text API를 제공. | `layer_tree`로 이름과 계층을 확인하고 `filters.layer_paths`로 전체 경로가 일치하는 객체를 조회. 레이어 사용자 메타데이터의 공개 조회·필터는 미지원. | 경로로 얻은 객체 GUID를 사용. 레이어 자체를 선택하는 공개 도구는 미지원. |
 | 그룹 | Group 테이블의 그룹과 문서 객체의 그룹 소속. RhinoCommon은 그룹별 User Text API를 제공. | `result_mode="hierarchy"`의 그룹 행이나 객체의 `groups`에서 그룹을 확인하고 `group_ids`로 대상 그룹의 구성원을 조회. 그룹 사용자 메타데이터의 공개 조회·필터는 미지원. | `capture_03-current_view` tool에 `target_kind="group"`과 그룹 GUID를 지정하면 적격 구성원을 선택. |
 
 오프라인에서 Layout·Named View 목록과 캡처 요청, 레이어 경로 및 그룹 구성원 조회, 단일·복수 UserDictionary 조건의 MCP 입력을 검사한다. 저장 대상의 근거는 RhinoCommon 및 현재 구현이다. 실제 `.3dm`을 저장하고 다시 연 뒤 ID·값·그룹 소속·객체 선택을 대조하는 검수는 남아 있다.
 
 GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 components/native의 공통 분석기를 사용한다. 512개 top-level 객체에서 닫힌 Brep·Extrusion·Mesh를 검사하고, 명시된 include_blocks에 따라 중첩 배치를 world-space 복사본으로 해석한다. 최대 2048개 occurrence· 20000개 후보를 허용하며 페이지당 최대 64쌍을 계산한다. Cursor는 문서·형상·범위·공차에 묶인다.
-복원된 Holon 조회는 기존 pair handle과 pair_state 관측 출력을 유지한다. 통합 `intersect_02-resolve` tool은 object_ids로 시작해 첫 양의 겹침에서 멈추고 비교 이미지·번호·속성·소속 블록을 반환한다. 이후 같은 도구에 review_id와 choice=1/2/skip을 전달한다. 번호는 그 객체의 겹친 부분 제거이며 전체 객체 삭제가 아니다. review_id는 표시한 대상의 연결이고 형상 상태 토큰이 아니다. 매 수정 직전 현재 형상을 다시 계산하며 pair_state 입력은 받지 않는다.
+복원된 Holon 조회는 기존 pair handle과 pair_state 관측 출력을 유지한다. 통합 `intersect_02-resolve` tool은 object_ids로 시작해 첫 양의 겹침에서 멈추고 비교 이미지·번호·속성·소속 블록을 반환한다. 이후 같은 도구에 review_id와 choice=1/2/skip을 전달한다. 번호는 그 객체의 겹친 부분 제거이며 전체 객체 삭제가 아니다. 시작할 때 user_text 조건을 지정하면 어느 한 구성원이 모든 조건과 일치하는 쌍만 비교한다. 키가 없으면 빈 문자열 조건에도 일치하지 않는다. 두 구성원의 속성 문자열은 objects[].attributes.user_strings.values에 표시한다. review_id는 표시한 대상의 연결이고 형상 상태 토큰이 아니다. 매 수정 직전 현재 형상을 다시 계산하며 pair_state 입력은 받지 않는다.
 비교 캡처는 같은 카메라에서 주변 맥락과 native Isolate 상태를 합친다. 카메라·선택은 대상에 유지하고 이번 격리를 종료한 뒤 가시성을 대조한다. 블록 전체 배치를 표시하되 내부 부재 위치와 소속 블록 이름·경로를 구분한다. 공개 show_object_intersection은 통합 도구로 대체한다. 각 수정은 기존 단일 Replace·Undo 경계를 유지하며 다음 조회가 실패해도 previous_result의 완료된 수정 기록을 보존한다. 중복 선택은 재실행하지 않고 완료 불명은 자동 진행을 중단한다.
 미지원·미확정·미검사는 무교차가 아니다. Mesh/Brep 혼합 관찰의 메싱 근사와 페이지별 범위를 명시한다.
 두 고정 객체 조회의 명시적 `status=error`는 기존 `{result: JSON 문자열}` schema와 오류 상세를 보존하며 MCP `isError=true`로 반환한다. 정상 페이지의 `unknown`, `complete=false`, cursor는 오류로 대체하지 않는다.

@@ -541,13 +541,13 @@ namespace RhinoAlmondBridge
             return result;
         }
 
-        private static readonly string[] SectionKeys = { "almond:section", "Almond.Section" };
+        private static readonly string[] SectionKeys = { "section", "Almond.Section" };
         private static readonly System.Text.RegularExpressions.Regex SectionText = new System.Text.RegularExpressions.Regex(
             @"^\s*(rect|box|chs)\s+([0-9.]+)\s*[x*]\s*([0-9.]+)(?:\s*[x*]\s*([0-9.]+))?\s*(mm|cm|m)?\s*$",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         /// <summary>
-        /// Section the designer wrote on a curve as user text <c>almond:section</c>, in millimetres unless
+        /// Section the designer wrote on a curve as user text <c>section</c>, in millimetres unless
         /// a unit follows (<c>rect 30x64 cm</c>):
         /// <c>rect 300x640</c> (solid, width x depth), <c>box 200x300x8</c> (width x depth x wall) or
         /// <c>chs 114.3x4</c> (diameter x wall). Returns null when the key is absent; an unreadable value
@@ -568,7 +568,7 @@ namespace RhinoAlmondBridge
             ok = ok && a > 0 && b > 0 && (shape == "box" ? c > 0 && m.Groups[4].Success : !m.Groups[4].Success);
             if (!ok)
             {
-                warnings?.Add($"almond:section '{text.Trim()}' on {obj.Id} was not understood (use rect 300x640, box 200x300x8 " +
+                warnings?.Add($"section '{text.Trim()}' on {obj.Id} was not understood (use rect 300x640, box 200x300x8 " +
                     "or chs 114.3x4, in mm unless a unit follows); the drawn or default section was used.");
                 return null;
             }

@@ -7,7 +7,7 @@
 - 기준: 이 문서와 함께 커밋된 소스. 수집일 2026-11-20.
 - 수집 경로: `src/cos/codex_host.py`와 `src/cos/cos_host.py`가 사용하는 공용 `external_host.main`의 stdio `initialize`·`tools/list`. 격리된 데이터 폴더에서 수집했으며 Rhino 연결·도구 실행은 하지 않았습니다.
 - 실행 패키지: almond-mcp 0.7.0rc2 / fastmcp 4.1.0 / mcp 2.3.0 / mcp-types 2.3.0.
-- 선언 SHA-256: `a4af576e60c6a511aed2561a62cfc776050f4b49a8c1b1382ee4615958f42c3f`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 값입니다.
+- 선언 SHA-256: `57488b3f6c60f268ba8e0b33865437def0be2e9700905dd884e23a53d0cab373`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 값입니다.
 - 도구명·설명 원본은 MCP 구현 함수와 그 docstring, 출력 원본은 `src/mcp/output_contracts.py`, 공통 스키마 기준은 `tests/integration/tool_schemas.json`입니다. 외부 연결 도구는 `src/cos/external_host.py`에서 조립합니다.
 
 필수 인자와 선택 인자는 `?`로 구분합니다. 배열은 `Array<T>`, null 허용은 `| null`입니다. 기본값·범위는 주석에 표시합니다. JSON Schema의 검증 의미가 우선하며 TypeScript 표기는 읽기용입니다(`oneOf`의 배타성 등은 TypeScript로 강제하지 않습니다). `additionalProperties`가 허용된 객체는 인덱스 시그니처로 표시합니다.
@@ -20,7 +20,7 @@
 
 ## 공통 안내와 실행 결과
 
-- 외부 서버의 경로별 소개는 `serverInfo.description`과 `initialize.instructions` 첫머리에 들어갑니다. 공용 `modeling_guidance.py`가 구성한 `BASIC-INSTRUCTIONS.md`와 `design_judgment.md` 본문은 `initialize.instructions`의 소개 뒤에 이어집니다. 개별 도구 설명은 `tools/list`의 `description`에서 전달됩니다. `context_01-get_policy` tool은 정책을 명시적으로 조회하는 경로이며 기본 정책은 BASIC입니다. 클라이언트가 초기 instructions를 모델에게 표시·준수하게 하는 것까지 서버가 강제하지는 않습니다.
+- 외부 서버의 경로별 소개는 `serverInfo.description`과 `initialize.instructions` 첫머리에 들어갑니다. 공용 `modeling_guidance.py`가 구성한 `BASIC-INSTRUCTIONS.md`, `design_judgment.md`, `About Rhino.md` 본문은 `initialize.instructions`의 소개 뒤에 이어집니다. 개별 도구 설명은 `tools/list`의 `description`에서 전달됩니다. `context_01-get_policy` tool은 정책을 명시적으로 조회하는 경로이며 기본 정책은 BASIC입니다. 클라이언트가 초기 instructions를 모델에게 표시·준수하게 하는 것까지 서버가 강제하지는 않습니다.
 - `context_01-get_policy` tool은 Rhino 연결을 선택하기 전에도 조회할 수 있습니다. `policy="metadata"`는 Rhino 메타데이터 편집 지침과 객체 키 사전을 함께 반환합니다. `connect_02-session` tool 또는 `connect_03-start_session` tool으로 선택한 연결이 모델 호출에 적용됩니다. `script_03-get_execution` tool에 `request_id`를 지정하면 원래 실행 연결의 결과를 회수합니다.
 - 외부 실행의 첫 완료 대기는 `min(요청 timeout, 60초)`입니다. 작업이 계속되면 `pending`과 실제 실행 `request_id`를 반환하고 같은 ID로 완료를 조회합니다. 외부 클라이언트 600초 제한은 이 최초 대기와 별개입니다. 대기 종료·취소·오류는 실행 중단이나 문서 rollback의 증거가 아니므로 결과가 불확실한 수정을 자동 재실행하지 않습니다. Terminal 등 경로별 계약은 [RhinoCode 실행 계약](src/mcp/runtime/RHINOCODE-SPEC.md)과 [외부 연결기 SPEC](src/cos/SPEC.md)을 따릅니다.
 
@@ -279,7 +279,7 @@ declare const tools: {
     // "6.10" 또는 "6.10ab"입니다. "6.10ab"는 부재별로 6.10a와 6.10b 중 더 불리한 결과를 사용합니다. 기본값은 설계기준이 선택한 식입니다(Eurocode 프로필: 6.10). 특정 식을 지정한 프로필은 요청보다 우선하며 경고를 반환합니다.
     // default: null
     uls_combination?: (string | null);
-    // "rigid"(기본값)는 모든 접합부가 모멘트를 전달합니다. "simple"은 보를 핀 접합(강축 휨 해제)으로, 가새를 양축 핀 접합으로 처리하되, 다른 부재가 같은 선상으로 계속 이어지는 지점이 아니라 해당 부재가 끝나는 지점에 적용하며 기둥은 연속으로 유지합니다. 일반적인 볼트 접합 강구조와 목구조 프레임은 "simple"에 더 가깝습니다. 강접합은 보 처짐을 실제보다 유리하게 보이게 할 수 있습니다. 곡선의 사용자 텍스트 almond:release = "pinned" | "pinned_start" | "pinned_end" | "rigid"는 두 모드보다 우선합니다. 네이티브 엔진에 적용됩니다.
+    // "rigid"(기본값)는 모든 접합부가 모멘트를 전달합니다. "simple"은 보를 핀 접합(강축 휨 해제)으로, 가새를 양축 핀 접합으로 처리하되, 다른 부재가 같은 선상으로 계속 이어지는 지점이 아니라 해당 부재가 끝나는 지점에 적용하며 기둥은 연속으로 유지합니다. 일반적인 볼트 접합 강구조와 목구조 프레임은 "simple"에 더 가깝습니다. 강접합은 보 처짐을 실제보다 유리하게 보이게 할 수 있습니다. 곡선의 사용자 텍스트 release = "pinned" | "pinned_start" | "pinned_end" | "rigid"는 두 모드보다 우선합니다. 네이티브 엔진에 적용됩니다.
     // default: "rigid"
     connections?: string;
     // "auto"(기본값)는 모든 ULS 조합의 탄성 임계 하중 계수 alpha_cr(EN 1993-1-1 5.2.1)과 +/-x 및 +/-y 방향의 횡변위 초기 불완전성 phi = 1/200 x alpha_h x alpha_m(5.3.2)을 적용합니다. alpha_cr < 10이면 2차(P-Delta) ULS 해석을 실행하며, alpha_cr <= 1이면 불안정으로 실패 처리합니다. "off"는 초기 불완전성 없는 1차 해석입니다.
@@ -2324,14 +2324,14 @@ type DecodedResult = {
 ### 33. drawing\_01-apply\_style
 
 ```txt
-도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 문서에 같은 이름의 선종류가 있으면 기존 정의를 재사용합니다. 새 선종류를 만들 때는 Almond에 포함된 선종 매니페스트를 사용합니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다. 변경 전에 전용 Undo record를 확보하며 실패 시 그 record만 복구합니다. mutation_state는 none·completed·rolled_back·unknown이며 requires_reconciliation=true이면 문서를 확인하기 전 자동 재시도하지 않습니다.
+도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 문서에 같은 이름의 선종류가 있으면 기존 정의를 재사용합니다. 새 선종류를 만들 때는 Almond에 포함된 선종 매니페스트를 사용합니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다. 변경 전에 전용 Undo record를 확보하며 실패 시 그 record만 복구합니다. mutation_state는 none·completed·rolled_back·unknown이며 requires_reconciliation=true이면 문서를 확인하기 전 자동 재시도하지 않습니다. 레시피의 review_preparation.print_display가 true이면 적용 성공 응답에 PrintDisplay 설정 명령을 안내합니다.
 ```
 
 ```ts
 declare const tools: {
   mcp__rhino__drawing_01_apply_style(args: {
-    // drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool의 레시피 ID. 생략: technical_axon_v1.
-    // default: "technical_axon_v1"
+    // drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool에서 확인한 레시피 ID입니다. 생략하면 파일명 순으로 처음 로드된 레시피를 적용합니다.
+    // default: ""
     recipe_id?: string;
   }): Promise<CallToolResult<{
     result: string;
@@ -2489,7 +2489,7 @@ type DecodedResult = {
 ### 36. drawing\_05-list\_recipes
 
 ```txt
-사용 가능한 도면 스타일 레시피를 조회합니다. A4 평면·단면에는 Architectural Plan and Section A4를 선택합니다. include_ids=true로 얻은 recipe_id는 drawing_02-get_recipe tool의 입력에 사용합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
+로드된 도면 스타일 레시피를 조회합니다. include_ids=true로 얻은 recipe_id는 drawing_02-get_recipe tool의 입력에 사용합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
 ```
 
 ```ts
@@ -3090,7 +3090,7 @@ declare const tools: {
     // document 범위에서만 사용할 수 있는 선택 사항인 서로 다른 최상위 객체 GUID입니다(1..4096개). group_ids와 함께 사용하지 않습니다.
     // default: null
     object_ids?: (Array<string> | null);
-    // layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary 조건을 모두 적용합니다. user_dictionary는 조건 하나도 조건 객체의 JSON 배열에 담으며 최대 16개 조건이 모두 일치해야 합니다. 각 조건의 source는 attributes(객체 속성) 또는 geometry(형상), key는 비어 있지 않은 키입니다. any_of는 문자열·불리언·숫자를 1~64개 담은 배열이며, 해당 키의 값 또는 배열 원소가 그중 하나와 일치하면 조건을 충족합니다.
+    // layer_paths(정확한 전체 경로), object_types(관찰된 Rhino 이름), name_contains(대소문자 구분 없음), user_dictionary, user_text 조건을 모두 적용합니다. user_text는 객체 속성 User Text를 대상으로 하며 예시는 [{"key":"floor","any_of":["2F"]}]입니다. 최대 16개 조건이 모두 일치해야 하며, 조건마다 문자열 1~64개 중 하나와 정확히 일치해야 합니다. user_dictionary는 조건 하나도 조건 객체의 JSON 배열에 담으며 최대 16개 조건이 모두 일치해야 합니다. 각 조건의 source는 attributes(객체 속성) 또는 geometry(형상), key는 비어 있지 않은 키입니다. any_of는 문자열·불리언·숫자를 1~64개 담은 배열이며, 해당 키의 값 또는 배열 원소가 그중 하나와 일치하면 조건을 충족합니다.
     // default: null
     filters?: ({
       [key: string]: unknown;
@@ -3113,7 +3113,7 @@ declare const tools: {
     // objects(기본), hierarchy, summary. recursive=true와 summary는 배타.
     // default: "objects"
     result_mode?: string;
-    // 선택 사항인 비어 있지 않은 필드 목록입니다. id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, geometry_valid, solid, manifold, volume, faces, face_count를 사용할 수 있습니다. 형상 상세 정보와 faces에는 objects 모드가 필요합니다. summary는 fields를 거부합니다.
+    // 선택 사항인 비어 있지 않은 필드 목록입니다. id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, user_text, geometry_valid, solid, manifold, volume, faces, face_count를 사용할 수 있습니다. 형상 상세 정보와 faces에는 objects 모드가 필요합니다. user_text는 요청 시 객체 속성 문자열을 values, total_keys, truncated로 반환합니다. summary는 fields를 거부합니다.
     // default: null
     fields?: (Array<string> | null);
     // 기본 0. 양수: document object_ids와 각 객체의 expected_geometry_crcs 필수.
@@ -3194,6 +3194,18 @@ type DecodedResult = {
       complete?: boolean;
       [key: string]: unknown;
     };
+    // Rhino object attribute User Text.
+    user_text?: {
+      // Stored strings or omission markers for bounded responses.
+      values?: {
+        [key: string]: unknown;
+      };
+      // Number of stored keys before projection.
+      total_keys?: number;
+      // Whether keys were omitted.
+      truncated?: boolean;
+      [key: string]: unknown;
+    };
     [key: string]: unknown;
   }>;
   // 조회 조건에 맞는 객체 수입니다.
@@ -3218,6 +3230,21 @@ type DecodedResult = {
   error_code?: string;
   // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
   next_step_guide?: string;
+  nodes?: Array<{
+    // Rhino object attribute User Text.
+    user_text?: {
+      // Stored strings or omission markers for bounded responses.
+      values?: {
+        [key: string]: unknown;
+      };
+      // Number of stored keys before projection.
+      total_keys?: number;
+      // Whether keys were omitted.
+      truncated?: boolean;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  }>;
   [key: string]: unknown;
 };
 ```
@@ -3503,6 +3530,11 @@ declare const tools: {
     // 1 또는 2는 해당 번호의 객체에서 겹친 부분을 제거합니다. "skip"은 두 객체를 모두 그대로 둡니다. review_id를 제공하고 object_ids는 생략합니다. 확인/계속 진행하려면 choice를 생략합니다.
     // default: null
     choice?: (number | "skip" | null);
+    // 새 검토 범위의 객체 속성 User Text 조건 배열입니다. 예: [{"key":"floor","any_of":["2F"]}]. 어느 한 객체가 모든 조건과 일치하는 쌍을 표시합니다. 양쪽 값은 objects의 attributes.user_strings.values에서 조회합니다. 중첩 블록은 정의 멤버의 속성을 사용합니다.
+    // default: null
+    user_text?: Array<{
+      [key: string]: unknown;
+    }> | null;
   }): Promise<CallToolResult<{
     // 현재 처리의 상태입니다. 오류이면 message와 error_code를 확인합니다.
     status?: string;
@@ -3516,6 +3548,29 @@ declare const tools: {
     error_code?: string;
     // 이 결과에서 이어갈 수 있는 다음 작업입니다. 필요한 경우에만 반환합니다.
     next_step_guide?: string;
+    // Numbered members of the pair awaiting a choice.
+    objects?: Array<{
+      attributes?: {
+        // Rhino object attribute User Text.
+        user_strings?: {
+          // Stored strings or omission markers for bounded responses.
+          values?: {
+            [key: string]: unknown;
+          };
+          // Number of stored keys before projection.
+          total_keys?: number;
+          // Whether keys were omitted.
+          truncated?: boolean;
+          [key: string]: unknown;
+        };
+        [key: string]: unknown;
+      };
+      // Separate attribute and geometry dictionaries.
+      user_dictionary?: {
+        [key: string]: unknown;
+      };
+      [key: string]: unknown;
+    }>;
     [key: string]: unknown;
   }>>;
 };
@@ -3528,7 +3583,7 @@ declare const tools: {
 ```txt
 Rhino 객체에 라이브러리 재료와 선택적인 구축 메타데이터를 적용합니다. 렌더 재료는 객체에 직접 지정되며 레이어는 바뀌지 않습니다. 중복 GUID는 하나로 처리합니다.
 
-반환 result는 적용 결과 또는 오류를 담은 JSON 문자열입니다. 실제 렌더 재료와 사용자 문자열은 Rhino 객체 속성에서 확인할 수 있습니다. inspect_02의 user_dictionary는 이 사용자 문자열과 같은 항목이 아닙니다.
+반환 result는 적용 결과 또는 오류를 담은 JSON 문자열입니다. 실제 렌더 재료와 사용자 문자열은 Rhino 객체 속성에서 확인할 수 있습니다. 기록한 값은 inspect_02-get_objects tool의 fields=["user_text"]로 읽거나 filters.user_text로 찾을 수 있습니다.
 ```
 
 ```ts

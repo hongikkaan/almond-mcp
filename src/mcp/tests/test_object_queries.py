@@ -217,3 +217,40 @@ def test_dictionary_filter_shape_and_example_are_discoverable():
     )
     filters_description = get_objects.input_schema["properties"]["filters"]["description"]
     assert "조건 객체의 JSON 배열" in filters_description
+
+
+@pytest.mark.parametrize("mode", ["objects", "hierarchy"])
+def test_attribute_text_is_independent_of_dictionary(mode):
+    tools, calls, _ = tools_for(version=5)
+    filters = {"user_text": [{"key": "floor", "any_of": ["2F"]}],
+               "user_dictionary": [{"source": "geometry", "key": "floor", "any_of": [2]}]}
+    result = tools["get_objects"](expected_model_path=MODEL, result_mode=mode,
+                                  fields=["user_text", "user_dictionary"], filters=filters)
+    assert calls[-1]["filters"] == filters
+    assert calls[-1]["fields"] == ["user_text", "user_dictionary"]
+    assert not isinstance(result, ToolResult) or not result.is_error
+
+
+@pytest.mark.parametrize("args", [{"fields": ["user_text"]}, {"filters": {"user_text": [{"key": "floor", "any_of": ["2F"]}]}}])
+def test_old_bridge_rejects_text_before_observation(args):
+    tools, calls, _ = tools_for(version=4)
+    assert tools["get_objects"](expected_model_path=MODEL, **args).is_error
+    assert [call["type"] for call in calls] == ["get_rhino_context"]
+
+
+@pytest.mark.parametrize("condition", [{"key": "floor", "any_of": [2]}, {"key": "floor", "any_of": []},
+                                       {"source": "geometry", "key": "floor", "any_of": ["2F"]}])
+def test_text_rejects_dictionary_types_and_sources(condition):
+    tools, calls, _ = tools_for(version=5)
+    assert tools["get_objects"](filters={"user_text": [condition]}).is_error
+    assert not calls
+
+
+@pytest.mark.parametrize("include_ids", [False, True])
+def test_stored_text_keys_and_path_like_values_are_verbatim(include_ids):
+    projection = {"values": {"asset_id": "chair", "path": r"C:\archive\linked.3dm", "id": "owner"},
+                  "total_keys": 3, "truncated": False}
+    tools, _, _ = tools_for({"status": "success", "objects": [{"id": A, "user_text": projection}]}, version=5)
+    result = json.loads(tools["get_objects"](expected_model_path=MODEL, fields=["user_text"], include_ids=include_ids))
+    assert result["objects"][0]["user_text"] == projection
+    assert ("id" in result["objects"][0]) == include_ids

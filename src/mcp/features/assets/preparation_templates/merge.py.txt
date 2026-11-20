@@ -92,7 +92,7 @@ def _asset_merge(bound_doc):
             attrs = obj.Attributes.Duplicate()
             if not attrs.Name:
                 attrs.Name = review["filename"] + "__part_" + str(index + 1).zfill(4)
-            attrs.SetUserString("almond:asset_id", review["asset_id"])
+            attrs.SetUserString("asset_id", review["asset_id"])
             if not bound_doc.Objects.ModifyAttributes(obj.Id, attrs, True):
                 raise RuntimeError("Could not preserve prepared object metadata")
             if bound_doc.Layers[attrs.LayerIndex].FullPath != config["layer"]:

@@ -9,7 +9,6 @@ import socket
 from pathlib import Path
 
 
-_A4_RECIPE_ID = "architectural_plan_section_a4_v1"
 _LINETYPE_MANIFEST = Path(__file__).resolve().parents[2] / "profiles" / "linetype" / "manifest.json"
 _PRINT_DISPLAY_REVIEW_MACRO = (
     "_PrintDisplay _Scope=_Document _Viewport=_Model _State=_On _Color=_Print "
@@ -46,7 +45,7 @@ def register(mcp, context):
     @public_tool(mcp, wrapped=True)
     @query_output
     def list_drawing_recipes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """사용 가능한 도면 스타일 레시피를 조회합니다. A4 평면·단면에는 Architectural Plan and Section A4를 선택합니다. include_ids=true로 얻은 recipe_id는 drawing_02-get_recipe tool의 입력에 사용합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
+        """로드된 도면 스타일 레시피를 조회합니다. include_ids=true로 얻은 recipe_id는 drawing_02-get_recipe tool의 입력에 사용합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
 
         Args:
             include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
@@ -87,18 +86,21 @@ def register(mcp, context):
 
 
     @public_tool(mcp, wrapped=True)
-    def apply_drawing_style(recipe_id: str = "technical_axon_v1") -> str:
-        """도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 문서에 같은 이름의 선종류가 있으면 기존 정의를 재사용합니다. 새 선종류를 만들 때는 Almond에 포함된 선종 매니페스트를 사용합니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다. 변경 전에 전용 Undo record를 확보하며 실패 시 그 record만 복구합니다. mutation_state는 none·completed·rolled_back·unknown이며 requires_reconciliation=true이면 문서를 확인하기 전 자동 재시도하지 않습니다.
+    def apply_drawing_style(recipe_id: str = "") -> str:
+        """도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 문서에 같은 이름의 선종류가 있으면 기존 정의를 재사용합니다. 새 선종류를 만들 때는 Almond에 포함된 선종 매니페스트를 사용합니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다. 변경 전에 전용 Undo record를 확보하며 실패 시 그 record만 복구합니다. mutation_state는 none·completed·rolled_back·unknown이며 requires_reconciliation=true이면 문서를 확인하기 전 자동 재시도하지 않습니다. 레시피의 review_preparation.print_display가 true이면 적용 성공 응답에 PrintDisplay 설정 명령을 안내합니다.
 
         Args:
-            recipe_id: drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool의 레시피 ID. 생략: technical_axon_v1.
+            recipe_id: drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool에서 확인한 레시피 ID입니다. 생략하면 파일명 순으로 처음 로드된 레시피를 적용합니다.
         """
+        if not recipe_id:
+            recipe_id = next(iter(context.drawing_recipe_indexer.recipes), "")
+            if not recipe_id:
+                return json.dumps(error_payload("No drawing recipes were loaded."))
         recipe = context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
             return json.dumps(error_payload(f"Unknown drawing recipe_id: {recipe_id}"))
         preparation = recipe.get("review_preparation")
-        prepare_review = (recipe_id == _A4_RECIPE_ID and isinstance(preparation, dict)
-                          and preparation.get("print_display") is True)
+        prepare_review = isinstance(preparation, dict) and preparation.get("print_display") is True
         payload = json.dumps({
             "type": "apply_drawing_style",
             "recipe_id": recipe_id,

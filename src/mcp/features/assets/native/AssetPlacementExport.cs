@@ -16,8 +16,8 @@ namespace RhinoAlmondBridge
     /// </summary>
     public static class AssetPlacementExport
     {
-        private static readonly string[] IdKeys = { "Almond.AssetId", "almond:asset_id", "almond.asset_id" };
-        private static readonly string[] ScaleKeys = { "Almond.UniformScale", "almond:scale" };
+        private static readonly string[] IdKeys = { "asset_id", "Almond.AssetId", "almond.asset_id" };
+        private static readonly string[] ScaleKeys = { "scale", "Almond.UniformScale" };
 
         public static string Handle(JObject jobj) => Handle(RhinoDoc.ActiveDoc, jobj);
 

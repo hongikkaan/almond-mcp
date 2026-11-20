@@ -256,7 +256,8 @@ def register(mcp, context):
 
     @public_tool(mcp, wrapped=False)
     def resolve_object_intersection(object_ids: list[str] | None = None, include_block: StrictBool = False,
-                                    review_id: str = "", choice: StrictInt | Literal["skip"] | None = None):
+                                    review_id: str = "", choice: StrictInt | Literal["skip"] | None = None,
+                                    user_text: list[dict] | None = None):
         """겹친 객체 쌍을 이미지로 검토하고 선택한 객체에서 겹친 부분을 제거합니다. 검토 시 실제 카메라와 선택이 바뀝니다.
 
         choice=1 또는 2는 해당 객체를 잘라내고 skip은 두 객체를 유지합니다. 완료 상태라도 건너뛴 쌍은 남습니다. 수정 후 다음 쌍을 계산하는 과정에서 오류가 나더라도 직전 수정이 적용됐을 수 있습니다. 응답의 previous_result와 실제 형상 상태를 확인합니다.
@@ -264,10 +265,11 @@ def register(mcp, context):
         Args:
             object_ids: 검토 범위를 시작할 서로 다른 현재 최상위 객체 GUID 1..512개입니다. 선택 사항이며, 현재 범위를 이어서 검토하거나 선택을 제출할 때는 생략합니다.
             include_block: 새 검토 범위에 변환이 적용된 중첩 블록 구성원을 포함합니다. 기본값은 false입니다. 블록 정의 편집은 여전히 지원하지 않습니다.
+            user_text: 새 검토 범위의 객체 속성 User Text 조건 배열입니다. 예: [{"key":"floor","any_of":["2F"]}]. 어느 한 객체가 모든 조건과 일치하는 쌍을 표시합니다. 양쪽 값은 objects의 attributes.user_strings.values에서 조회합니다. 중첩 블록은 정의 멤버의 속성을 사용합니다.
             review_id: 반환된 결정 핸들로, choice와 함께 사용할 때 필수입니다. 화면에 표시된 연산 대상을 식별합니다. 완료되었거나 새 검토로 대체된 핸들로는 변경을 다시 실행할 수 없습니다.
             choice: 1 또는 2는 해당 번호의 객체에서 겹친 부분을 제거합니다. "skip"은 두 객체를 모두 그대로 둡니다. review_id를 제공하고 object_ids는 생략합니다. 확인/계속 진행하려면 choice를 생략합니다.
         """
-        return intersection_workflow.execute(object_ids, include_block, review_id, choice)
+        return intersection_workflow.execute(object_ids, include_block, review_id, choice, user_text)
 
     @public_tool(mcp, wrapped=True, annotations={'destructiveHint': False})
     @holon_output

@@ -38,11 +38,17 @@ namespace RhinoAlmondBridge
                 var a = IntersectionAnalysis.ResolveHandle(doc, request["a"] as JObject, out sa);
                 var b = IntersectionAnalysis.ResolveHandle(doc, request["b"] as JObject, out sb);
                 if (a.Key == b.Key) throw new ArgumentException("Choose distinct occurrences.");
+                ObjectObservation.ValidateUserText(request["user_text"]);
+                var conditions = request["user_text"] as JArray;
+                var first = Describe(doc, a, 1, conditions, out bool firstMatches);
+                var second = Describe(doc, b, 2, conditions, out bool secondMatches);
+                if (!firstMatches && !secondMatches)
+                    return new JObject { ["status"] = "success", ["filtered_out"] = true };
                 using (var observed = IntersectionAnalysis.Observe(doc, a, b))
                 {
                     if ((string)observed.Report["overlap"]?["status"] != "positive_volume")
                         throw new ArgumentException("The current pair has no confirmed positive overlap; query again.");
-                    answer = new JObject { ["status"] = "success", ["objects"] = new JArray(Describe(doc, a, 1), Describe(doc, b, 2)),
+                    answer = new JObject { ["status"] = "success", ["objects"] = new JArray(first, second),
                         ["overlap"] = observed.Report["overlap"].DeepClone(),
                         ["regions"] = observed.Report["regions"]?.DeepClone(),
                         ["warnings"] = new JArray("Block occurrences are shown as their whole top-level instances; numbered markers identify the intersecting member positions.",
@@ -139,7 +145,7 @@ namespace RhinoAlmondBridge
             using (var decoded = System.Drawing.Image.FromStream(stream)) return new Bitmap(decoded);
         }
 
-        static JObject Describe(RhinoDoc doc, IntersectionAnalysis.Member member, int number)
+        static JObject Describe(RhinoDoc doc, IntersectionAnalysis.Member member, int number, JArray conditions, out bool matches)
         {
             var obj = doc.Objects.FindId(member.RootId);
             var blocks = new JArray();
@@ -149,6 +155,7 @@ namespace RhinoAlmondBridge
                 blocks.Add(new JObject { ["instance_id"] = obj.Id.ToString("D"), ["name"] = instance.InstanceDefinition.Name });
                 obj = instance.InstanceDefinition.GetObjects().Single(o => o.Id == id);
             }
+            matches = conditions == null || ObjectObservation.MatchesUserText(obj.Attributes.GetUserString, conditions);
             var detail = ObjectObservation.IntersectionMetadata(obj);
             detail["number"] = number;
             detail["guid"] = member.RootId.ToString("D");

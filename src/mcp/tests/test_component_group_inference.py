@@ -354,7 +354,7 @@ namespace Rhino {
     }
 }
 namespace RhinoAlmondBridge {
-    public static class ModelingMetadata { public static string Key(string key) => "almond:" + key; }
+    public static class ModelingMetadata { public static string Key(string key) => key; }
     public static class EditingContext {
         public static JObject Observe(RhinoDoc doc) => new JObject { ["stable"]=doc.Stable };
         public class ObjectScope { public JObject State; }

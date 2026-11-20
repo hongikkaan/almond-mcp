@@ -55,7 +55,7 @@ static void VerifyStyleApplication(string manifestPath)
     """);
     var request = ReadRequest(manifestPath, """
     {
-      "recipe_id": "architectural_plan_section_a4_v1",
+      "recipe_id": "fixture_plan",
       "layers": [
         { "path": "ALMOND-DRAW::HIDDEN", "linetype": "almond a4 hidden" },
         { "path": "ALMOND-DRAW::OVERHEAD", "linetype": "almond a4 dashdot" },

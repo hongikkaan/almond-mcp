@@ -33,8 +33,8 @@ Almond analyses **centre lines**: one curve for each beam and each column, meeti
 
 | Key | Value | Example |
 |---|---|---|
-| `almond:section` | `rect W x D`, `box W x D x t` or `chs D x t`, in mm unless a unit follows | `rect 300x640`, `rect 30x64 cm`, `chs 219.1x8` |
-| `almond:release` | `pinned`, `pinned_start`, `pinned_end` or `rigid` | `pinned` for a simply supported beam |
+| `section` | `rect W x D`, `box W x D x t` or `chs D x t`, in mm unless a unit follows | `rect 300x640`, `rect 30x64 cm`, `chs 219.1x8` |
+| `release` | `pinned`, `pinned_start`, `pinned_end` or `rigid` | `pinned` for a simply supported beam |
 
 The panel's **Override beam section** sets one tube size for every member and takes precedence over both.
 
@@ -158,4 +158,4 @@ A typical request: *"Check the frame on layer Structure with 2 kN/m² imposed an
 | Unstable or mechanism | Part of the frame can swing freely. Add supports, choose fixed restraints, or use rigid joints. |
 | Solid skipped | It is neither a prismatic member nor a thin plate. Draw its centre lines. |
 | A shell will not run | The native engine checks line members. Switch the engine to Karamba3D. |
-| A section looks wrong | Check the curve's `almond:section` text; an unreadable value is listed under warnings and the default is used instead. |
+| A section looks wrong | Check the curve's `section` text; an unreadable value is listed under warnings and the default is used instead. |

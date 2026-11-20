@@ -51,7 +51,7 @@ def setup(monkeypatch, tmp_path):
         def send(raw):
             request = json.loads(raw)
             if request["type"] == "get_rhino_context":
-                return json.dumps({"status": "success", "capabilities": {"intersection_queries": 1, "intersection_review": 1}})
+                return json.dumps({"status": "success", "capabilities": {"intersection_queries": 1, "intersection_review": 1, "intersection_user_text": 1}})
             calls.append(request)
             value = next(responses)
             if isinstance(value, Exception):
@@ -219,7 +219,7 @@ def test_public_tool_combines_review_and_choice_with_strict_schema(setup):
             tools = {v.name: v for v in await client.list_tools()}
             assert "show_object_intersection" not in tools
             schema = tools["intersect_02-resolve"].input_schema
-            assert set(schema["properties"]) == {"object_ids", "include_block", "review_id", "choice"}
+            assert set(schema["properties"]) == {"object_ids", "include_block", "review_id", "choice", "user_text"}
             for args in ({"choice": True}, {"choice": "1"}, {"choice": 3}, {"pair_state": "x"},
                          {"object_ids": [A], "choice": 1}, {"review_id": "missing", "choice": 2}):
                 response = await client.call_tool("intersect_02-resolve", args, raise_on_error=False)
@@ -228,3 +228,30 @@ def test_public_tool_combines_review_and_choice_with_strict_schema(setup):
     asyncio.run(run())
     assert writes_artifacts("resolve_object_intersection", {})
     assert capture_file_write("resolve_object_intersection", {})
+
+
+def test_filtered_review_skips_nonmatching_pair_then_preserves_both_handles(setup):
+    conditions = [{"key": "floor", "any_of": ["2F"]}]
+    match = image(HA, HC)
+    match["objects"][1]["attributes"] = {"user_strings": {"values": {"floor": "2F"}}}
+    workflow, calls, _ = setup(page(pair(), cursor="s:1"), {"status": "success", "filtered_out": True},
+                               page(pair(HA, HC)), match)
+    result = workflow.execute([A, B, C], user_text=conditions).structured_content
+    assert result["objects"] == match["objects"]
+    assert result["state"] == "awaiting_choice" and result["number"] == 1
+    assert [call["user_text"] for call in calls if call["type"] == "intersection_review"] == [conditions, conditions]
+    assert not any(call["type"] == "intersection_resolve" for call in calls)
+
+
+def test_filtered_review_completes_without_showing_or_editing_nonmatches(setup):
+    workflow, calls, _ = setup(page(pair()), {"status": "success", "filtered_out": True})
+    assert workflow.execute([A, B], user_text=[{"key": "floor", "any_of": ["2F"]}]).structured_content["state"] == "completed"
+    assert [c["type"] for c in calls] == ["get_object_intersections", "intersection_review"]
+    assert workflow.pending is None
+
+
+def test_invalid_review_text_filter_does_not_start_a_scan(setup):
+    workflow, calls, _ = setup()
+    assert workflow.execute([A, B], user_text=[{"key": "floor", "any_of": [2]}]).is_error
+    assert workflow.execute(user_text=[]).is_error
+    assert not calls

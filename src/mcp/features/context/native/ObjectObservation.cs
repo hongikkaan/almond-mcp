@@ -20,7 +20,7 @@ namespace RhinoAlmondBridge
         const int MaxBytes = 262144;
         static readonly HashSet<string> ObjectFields = new HashSet<string>(new[] {
             "id", "name", "layer_path", "object_type", "geometry_kind", "geometry_crc",
-            "visible", "selected", "hidden", "locked", "bounds", "groups", "user_dictionary",
+            "visible", "selected", "hidden", "locked", "bounds", "groups", "user_dictionary", "user_text",
             "geometry_valid", "solid", "manifold", "volume", "faces", "face_count"
         }, StringComparer.Ordinal);
         static readonly Type SharedDictionaryType = typeof(Rhino.DocObjects.Custom.UserDictionary).Assembly
@@ -339,8 +339,8 @@ namespace RhinoAlmondBridge
 
         static void ValidateFilters(JObject filters)
         {
-            if (filters.Properties().Any(p => p.Name != "layer_paths" && p.Name != "object_types" && p.Name != "name_contains" && p.Name != "user_dictionary"))
-                throw new ArgumentException("Filters support layer_paths, object_types, name_contains and user_dictionary only.");
+            if (filters.Properties().Any(p => p.Name != "layer_paths" && p.Name != "object_types" && p.Name != "name_contains" && p.Name != "user_dictionary" && p.Name != "user_text"))
+                throw new ArgumentException("Filters support layer_paths, object_types, name_contains, user_dictionary and user_text only.");
             if (filters["layer_paths"] != null && (!(filters["layer_paths"] is JArray layers) || layers.Count == 0 || layers.Count > 64 ||
                 layers.Any(v => v.Type != JTokenType.String || String.IsNullOrEmpty((string)v))))
                 throw new ArgumentException("layer_paths must contain 1..64 exact full layer paths.");
@@ -349,6 +349,7 @@ namespace RhinoAlmondBridge
             if (filters["object_types"] != null && (!(filters["object_types"] is JArray types) || types.Count == 0 || types.Count > 32 ||
                 types.Any(v => v.Type != JTokenType.String || !Enum.GetNames(typeof(ObjectType)).Contains((string)v, StringComparer.OrdinalIgnoreCase))))
                 throw new ArgumentException("object_types must contain 1..32 Rhino object_type names from an observation.");
+            ValidateUserText(filters["user_text"]);
             if (filters["user_dictionary"] == null) return;
             if (!(filters["user_dictionary"] is JArray conditions) || conditions.Count > 16) throw new ArgumentException("user_dictionary must contain at most 16 conditions.");
             foreach (var item in conditions)
@@ -364,11 +365,38 @@ namespace RhinoAlmondBridge
 
         static bool Scalar(JToken token) => token.Type == JTokenType.String || token.Type == JTokenType.Boolean ||
             token.Type == JTokenType.Integer || token.Type == JTokenType.Float;
+        internal static void ValidateUserText(JToken token)
+        {
+            if (token != null)
+            {
+                if (!(token is JArray textConditions) || textConditions.Count > 16)
+                    throw new ArgumentException("filters.user_text must be an array of up to 16 conditions.");
+                foreach (var item in textConditions)
+                {
+                    if (!(item is JObject condition) || condition.Properties().Any(p => p.Name != "key" && p.Name != "any_of") ||
+                        condition["key"]?.Type != JTokenType.String || String.IsNullOrEmpty((string)condition["key"]) ||
+                        !(condition["any_of"] is JArray options) || options.Count < 1 || options.Count > 64 ||
+                        options.Any(value => value.Type != JTokenType.String))
+                        throw new ArgumentException("Each user_text condition requires a nonempty key and 1..64 strings in any_of.");
+                }
+            }
+        }
+        internal static bool MatchesUserText(Func<string, string> read, JArray conditions)
+        {
+            foreach (var condition in conditions)
+            {
+                string actual = read((string)condition["key"]);
+                if (actual == null || !condition["any_of"].Values<string>().Contains(actual, StringComparer.Ordinal))
+                    return false;
+            }
+            return true;
+        }
         static bool Matches(RhinoDoc doc, RhinoObject obj, JObject filters)
         {
             if (filters["layer_paths"] is JArray layers && !layers.Values<string>().Contains(doc.Layers.FindIndex(obj.Attributes.LayerIndex)?.FullPath, StringComparer.OrdinalIgnoreCase)) return false;
             if (filters["object_types"] is JArray types && !types.Values<string>().Contains(obj.ObjectType.ToString(), StringComparer.OrdinalIgnoreCase)) return false;
             if (filters["name_contains"] != null && (obj.Name ?? "").IndexOf((string)filters["name_contains"], StringComparison.OrdinalIgnoreCase) < 0) return false;
+            if (filters["user_text"] is JArray textConditions && !MatchesUserText(obj.Attributes.GetUserString, textConditions)) return false;
             foreach (var c in filters["user_dictionary"] as JArray ?? new JArray())
             {
                 var dictionary = ExistingDictionary((string)c["source"] == "attributes" ? (Rhino.Runtime.CommonObject)obj.Attributes : obj.Geometry);
@@ -445,17 +473,22 @@ namespace RhinoAlmondBridge
             return new JObject { ["values"] = data, ["total_keys"] = dictionary.Count, ["truncated"] = dictionary.Count > data.Count };
         }
         static JArray Point(Point3d p) => new JArray(p.X, p.Y, p.Z);
-        internal static JObject IntersectionMetadata(RhinoObject obj)
+        static JObject UserText(System.Collections.Specialized.NameValueCollection strings, ValueBudget budget)
         {
-            var budget = new ValueBudget { Nodes = 2048, Characters = 16000 };
-            var strings = obj.Attributes.GetUserStrings();
             var values = new JObject();
             if (strings != null)
                 foreach (string key in strings.AllKeys.Take(64))
                 {
-                    if (key == null || (budget.Characters -= key.Length) < 0) break;
+                    if (budget.Nodes <= 0 || key == null || (budget.Characters -= key.Length) < 0) break;
                     values[key] = SafeValue(strings[key], 0, budget);
                 }
+            return new JObject { ["values"] = values, ["total_keys"] = strings?.Count ?? 0,
+                ["truncated"] = (strings?.Count ?? 0) > values.Count };
+        }
+        internal static JObject IntersectionMetadata(RhinoObject obj)
+        {
+            var budget = new ValueBudget { Nodes = 2048, Characters = 16000 };
+            var userText = UserText(obj.Attributes.GetUserStrings(), budget);
             return new JObject {
                 ["attributes"] = new JObject {
                     ["name"] = SafeValue(obj.Attributes.Name, 0, budget), ["layer_index"] = obj.Attributes.LayerIndex,
@@ -464,8 +497,7 @@ namespace RhinoAlmondBridge
                     ["color_source"] = obj.Attributes.ColorSource.ToString(),
                     ["object_color"] = obj.Attributes.ObjectColor.ToArgb(),
                     ["mode"] = obj.Attributes.Mode.ToString(),
-                    ["user_strings"] = new JObject { ["values"] = values,
-                        ["total_keys"] = strings?.Count ?? 0, ["truncated"] = (strings?.Count ?? 0) > values.Count },
+                    ["user_strings"] = userText,
                     ["projection"] = "Selected document attributes; custom geometry user data is not serialized."
                 },
                 ["user_dictionary"] = new JObject {
@@ -505,6 +537,7 @@ namespace RhinoAlmondBridge
                 row["groups"] = groups;
                 row["groups_truncated"] = obj.Attributes.GroupCount > 64;
             }
+            if (fields?.Contains("user_text") == true) row["user_text"] = UserText(obj.Attributes.GetUserStrings(), budget);
             if (Want("user_dictionary")) row["user_dictionary"] = new JObject {
                 ["attributes"] = Dictionary(ExistingDictionary(obj.Attributes), budget), ["geometry"] = Dictionary(ExistingDictionary(geometry), budget) };
             if (Want("geometry_valid", true)) row["geometry_valid"] = geometry.IsValid;

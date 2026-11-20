@@ -2980,6 +2980,27 @@ for _placement_tool in ("place_drawing_asset", "place_diagram_asset"):
     }
 
 
+_attribute_user_text = {
+    "type": "object", "description": "Rhino object attribute User Text.",
+    "properties": {
+        "values": {"type": "object", "description": "Stored strings or omission markers for bounded responses."},
+        "total_keys": {"type": "integer", "description": "Number of stored keys before projection."},
+        "truncated": {"type": "boolean", "description": "Whether keys were omitted."},
+    },
+}
+_object_results = CONTRACTS["get_objects"]["properties"]
+_object_results["objects"]["items"]["properties"]["user_text"] = _attribute_user_text
+_object_results.setdefault("nodes", {"type": "array", "items": {"type": "object"}})["items"].setdefault(
+    "properties", {})["user_text"] = _attribute_user_text
+CONTRACTS["resolve_object_intersection"]["properties"]["objects"] = {
+    "type": "array", "description": "Numbered members of the pair awaiting a choice.",
+    "items": {"type": "object", "properties": {
+        "attributes": {"type": "object", "properties": {"user_strings": _attribute_user_text}},
+        "user_dictionary": {"type": "object", "description": "Separate attribute and geometry dictionaries."},
+    }},
+}
+
+
 def public_output_schema(name: str, wrapped: bool = True) -> dict:
     from almond_mcp.public_names import internal_tool_name, tool_references
     contract = deepcopy(CONTRACTS[internal_tool_name(name)])

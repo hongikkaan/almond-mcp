@@ -10,7 +10,7 @@ from almond_mcp.managed_paths import relative_output
 
 OBJECT_FIELDS = frozenset({
     "id", "name", "layer_path", "object_type", "geometry_kind", "geometry_crc",
-    "visible", "selected", "hidden", "locked", "bounds", "groups", "user_dictionary",
+    "visible", "selected", "hidden", "locked", "bounds", "groups", "user_dictionary", "user_text",
     "geometry_valid", "solid", "manifold", "volume", "faces", "face_count",
 })
 
@@ -32,8 +32,8 @@ def object_ids(value, maximum, *, required=False):
 
 
 def validate_filters(filters):
-    if not isinstance(filters, dict) or set(filters) - {"layer_paths", "object_types", "name_contains", "user_dictionary"}:
-        raise ValueError("filters supports layer_paths, object_types, name_contains and user_dictionary only.")
+    if not isinstance(filters, dict) or set(filters) - {"layer_paths", "object_types", "name_contains", "user_dictionary", "user_text"}:
+        raise ValueError("filters supports layer_paths, object_types, name_contains, user_dictionary and user_text only.")
     if "layer_paths" in filters:
         layers = filters["layer_paths"]
         if not isinstance(layers, list) or not 1 <= len(layers) <= 64 or any(not isinstance(v, str) or not v for v in layers):
@@ -44,6 +44,15 @@ def validate_filters(filters):
         kinds = filters["object_types"]
         if not isinstance(kinds, list) or not 1 <= len(kinds) <= 32 or any(not isinstance(v, str) or not v or len(v) > 64 for v in kinds):
             raise ValueError("object_types requires 1..32 Rhino object_type names from an observation.")
+    text_conditions = filters.get("user_text", [])
+    if not isinstance(text_conditions, list) or len(text_conditions) > 16:
+        raise ValueError("filters.user_text must be an array of up to 16 conditions.")
+    for condition in text_conditions:
+        if (not isinstance(condition, dict) or set(condition) != {"key", "any_of"}
+                or not isinstance(condition["key"], str) or not condition["key"]
+                or not isinstance(condition["any_of"], list) or not 1 <= len(condition["any_of"]) <= 64
+                or not all(isinstance(value, str) for value in condition["any_of"])):
+            raise ValueError("Each user_text condition requires a nonempty key and 1..64 strings in any_of.")
     conditions = filters.get("user_dictionary", [])
     if not isinstance(conditions, list) or len(conditions) > 16:
         raise ValueError(
@@ -140,7 +149,8 @@ def query(send, *, scope, ids, filters, include_geometry, offset, limit, expecte
         # Keep the private native route; older Bridges must not silently ignore group/expansion inputs.
         payload.update(group_ids=groups, selected=selected, inside_window=inside_window,
                        recursive=recursive, depth=depth, expected_snapshot=expected_snapshot)
-        raw = dispatch(send, payload, expected_model_path, required_version=4)
+        uses_user_text = "user_text" in filters or "user_text" in (fields or [])
+        raw = dispatch(send, payload, expected_model_path, required_version=5 if uses_user_text else 4)
         value = json.loads(raw)
         if isinstance(value, dict) and value.get("status") != "error":
             for key in ("schema", "model_path", "document_units", "tolerance_model_units"):
@@ -148,22 +158,26 @@ def query(send, *, scope, ids, filters, include_geometry, offset, limit, expecte
         if isinstance(value, dict) and value.get("status") == "error":
             return json.dumps(value, ensure_ascii=False)
         # Explicit requested identity fields take precedence over the general query default.
-        if not (include_ids or (fields is not None and bool({"id", "faces"} & set(fields)))):
-            value = _without_object_ids(value)
-        return json.dumps(relative_output(value), ensure_ascii=False)
+        show_ids = include_ids or bool({"id", "faces"} & set(fields or []))
+        return json.dumps(_object_output(value, show_ids), ensure_ascii=False)
     except (TypeError, ValueError, AttributeError) as exc:
         return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
 
 
-def _without_object_ids(value):
-    """Keep every coverage/diagnostic field, including on partial pages, but honor ID opt-in."""
+def _object_output(value, show_ids):
+    """Format observation paths and IDs while returning stored User Text verbatim."""
     if isinstance(value, list):
-        return [_without_object_ids(item) for item in value]
+        return [_object_output(item, show_ids) for item in value]
     if not isinstance(value, dict) or value.get("status") == "error":
-        return value
-    return {key: _without_object_ids(item) for key, item in value.items()
-            if key not in {"id", "ids", "guid", "guids", "document_serial_number"}
-            and not key.endswith(("_id", "_ids", "_guid", "_guids"))}
+        return relative_output(value)
+    result = {}
+    for key, item in value.items():
+        if key == "user_text":
+            result[key] = item
+        elif show_ids or (key not in {"id", "ids", "guid", "guids", "document_serial_number"}
+                          and not key.endswith(("_id", "_ids", "_guid", "_guids"))):
+            result[key] = _object_output(item, show_ids)
+    return result
 
 
 def intersections(send, *, ids, include_block=False):

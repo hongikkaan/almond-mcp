@@ -16,7 +16,7 @@ namespace RhinoAlmondBridge
     /// </summary>
     public static class StructureModelExport
     {
-        private static readonly string[] ReleaseKeys = { "almond:release", "Almond.Release" };
+        private static readonly string[] ReleaseKeys = { "release", "Almond.Release" };
 
         public static string Handle(JObject jobj) => Handle(RhinoDoc.ActiveDoc, jobj);
 

@@ -709,7 +709,7 @@ public class Script
         """
     Imports a generated-library asset into the open Rhino document and places
     it at a point (contract anchor = bottom centre, mm), restoring its Almond
-    material and almond:* metadata and verifying the landed size against the
+    material and object metadata and verifying the landed size against the
     contract. Use search_assets to choose an asset_id; afterwards inspect
     the resulting geometry and relevant Rhino views.
 

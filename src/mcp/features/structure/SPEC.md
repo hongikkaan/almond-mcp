@@ -81,9 +81,9 @@ Verified against closed forms: pin-ended Euler column (one element: exactly 12/�
   Minor-axis (plan) rotation stays continuous, which is what stops pin-ended columns spinning about their own axis.
 - **Braces** (inclined members) are pinned in both bending axes; **columns** stay continuous.
 - Torsion is released at one end of any member pinned at both ends, so it cannot twist as a rigid body.
-- **Per member:** a curve's user text `almond:release` = `pinned` | `pinned_start` | `pinned_end` | `rigid` overrides either mode (the bridge exports the curve's own start and end so one-sided releases know the direction).
+- **Per member:** a curve's user text `release` = `pinned` | `pinned_start` | `pinned_end` | `rigid` overrides either mode (the bridge exports the curve's own start and end so one-sided releases know the direction).
 
-**Sections per curve.** A curve's user text `almond:section` sets its section, in millimetres unless a unit follows (`rect 30x64 cm`):
+**Sections per curve.** A curve's user text `section` sets its section, in millimetres unless a unit follows (`rect 30x64 cm`):
 `rect 300x640` (solid, width x depth: concrete, timber), `box 200x300x8` (width x depth x wall) or `chs 114.3x4` (diameter x wall). It takes precedence over a section inferred from the geometry; the panel's *Override beam section* still overrides everything. An unreadable value is reported as a warning and the inferred or default CHS is used.
 
 The solver applies releases by **static condensation**: the released end DOFs are eliminated from the member's stiffness and fixed-end forces, then recovered after the solve so deflected shapes and moment diagrams stay exact (a member pinned at both ends between fixed supports reproduces 5wL⁴/384EI with zero end moments). Releases can leave rotations that nothing stiffens, or let pieces of a member twist as a group with no load acting on them; those zero-energy, rotation-only modes are pinned out and reported. A mode that moves a translation or carries load is a real mechanism and is reported as one (for example a chain of pin-ended pieces with nothing under the shared node). The overlay draws pinned ends as small circles.
@@ -118,7 +118,7 @@ Recommended values of EN 1990 Table A1.2(B) (γ_G 1.35, γ_Q 1.5, ψ0 0.7 for ca
 
 - **Load data:** `asset/models/GeneratedAssetfiles/structural-loads.json` gives each of the 50 library assets an estimated self weight (dead) and in-use load (imposed: occupants at 80 kg, water in a filled bath, books on shelves), with category defaults for other libraries.
   These are typical-product estimates, not measured or manufacturer data. The internal asset passport reader also retains `structural_loads`.
-- **Placements:** Rhino objects tagged with an Almond asset id (`Almond.AssetId`, `almond:asset_id`) via the bridge's `asset_placements` message. Scene ledger IDs are not public load inputs.
+- **Placements:** Rhino objects tagged with an Almond asset id (`Almond.AssetId`, `asset_id`) via the bridge's `asset_placements` message. Scene ledger IDs are not public load inputs.
 - **Load path:** floor items load the highest frame level up to 1.6 m below their base (a lamp on a desk still loads the floor); ceiling items hang from the lowest level up to 1.5 m above their top. The load goes to the nearest member, or is shared by the lever rule between the two parallel members either side (a floor spanning one way between them). Members are split at the load points, so point loads are exact.
 - **Not applied, and reported why:** wall-mounted items, ground-only items (trees, cars, street furniture), structural elements, assets outside the frame's plan, and assets with no frame level below.
 - **Sizes:** the load is the nominal product's. A placement whose plan size differs from the catalogue product by more than 1.5× (or less than 0.67×) is flagged, not rescaled:
