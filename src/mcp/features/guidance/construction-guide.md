@@ -1,6 +1,6 @@
 # Construction-system guidance: real assemblies, not arbitrary members
 
-Why Almond v0.6 adds a construction knowledge layer, where its numbers come from, and how it threads through `research_01-get_construction_guidance` tool, `analysis_04-validate_structure` tool, and `model_01-assign_material` tool.
+Why Almond v0.6 adds a construction knowledge layer, where its numbers come from, and how it threads through `research_01-get_construction_guidance` tool, `analysis_02-validate_structure` tool, and `model_01-assign_material` tool.
 
 ## The problem it solves
 
@@ -23,8 +23,8 @@ Parameters are distilled and paraphrased from **Francis D.K. Ching, *Building Co
 
 Each system entry:
 
-- `structural_material` — `analysis_04-validate_structure` tool's material vocabulary (`Steel`, `Concrete`, `Wood`; `S355` is normalized to Steel).
-- `structure_types` — which `analysis_04-validate_structure` tool templates the system maps to.
+- `structural_material` — `analysis_02-validate_structure` tool's material vocabulary (`Steel`, `Concrete`, `Wood`; `S355` is normalized to Steel).
+- `structure_types` — which `analysis_02-validate_structure` tool templates the system maps to.
 - `render_material_ids` — Materialfiles PBR ids, so the declared construction material is *visible in Rhino* and survives GLB/Datasmith export.
 - `span_range_m` — real span range (for `category: wall`, `span_axis` is `"vertical"` and the range is unsupported height).
 - `depth_rules` — `depth ≈ span / span_ratio` rules per element.
@@ -47,7 +47,7 @@ model_01-assign_material tool(guids, "wood-oak",
                 construction_system="wood-joist-floor")
         │  applies material and the supported metadata described below
         ▼
-analysis_04-validate_structure tool(guids, "beam", load_kn, "Wood")
+analysis_02-validate_structure tool(guids, "beam", load_kn, "Wood")
         │  Karamba pathway as before, PLUS construction_check appended:
         │  which curated systems cover this structure_type/material,
         │  fits_span per system, suggested depths, and a warning when the
@@ -58,7 +58,7 @@ analysis_04-validate_structure tool(guids, "beam", load_kn, "Wood")
 
 ## Egress checking
 
-`analysis_01-check_egress` tool turns the manifest's egress rules into one verdict pass: occupant load from plate area and occupancy, required exit count (tiers + the multi-story minimum of two), exit separation against the plate diagonal, total and per-exit egress widths, and optional measured travel distances and dead-end lengths. Each check names its requirement, the provided value, and its basis, so a failing layout says what to fix (add an exit, move a core, widen a stair). IBC-typical numeric factors are labeled as such and the response repeats the verify-governing-code note.
+`analysis_05-check_egress` tool turns the manifest's egress rules into one verdict pass: occupant load from plate area and occupancy, required exit count (tiers + the multi-story minimum of two), exit separation against the plate diagonal, total and per-exit egress widths, and optional measured travel distances and dead-end lengths. Each check names its requirement, the provided value, and its basis, so a failing layout says what to fix (add an exit, move a core, widen a stair). IBC-typical numeric factors are labeled as such and the response repeats the verify-governing-code note.
 
 ## 재료·구축 레이어 구현
 

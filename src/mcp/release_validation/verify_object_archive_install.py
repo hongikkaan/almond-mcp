@@ -46,7 +46,7 @@ async def main():
                                env=dict(os.environ), cwd=str(Path(sys.prefix)))
     async with Client(transport, timeout=60) as client:
         tools = await client.list_tools()
-        assert "analysis_04-validate_structure" in {t.name for t in tools}
+        assert "analysis_02-validate_structure" in {t.name for t in tools}
         assert not any("ikea" in t.name.lower() for t in tools)
         result = await client.call_tool("asset_10-search_repository", {
             "query":"gen-office-chair-1", "include_ids":True, "field_groups":["all"]})

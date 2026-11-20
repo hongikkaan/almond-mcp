@@ -81,8 +81,6 @@ def test_delivers_both_guidance_bodies_once(guidance_checkout, tmp_path, route):
 def test_metadata_policy_is_discoverable_and_readable_on_a_new_session(guidance_checkout, tmp_path, route):
     params = session_params(guidance_checkout, tmp_path / "project", route)
     guide_dir = guidance_directory(guidance_checkout)
-    guide_path = "features/guidance/policies/metadata.md"
-    expected_text = (guide_dir / guide_path).read_text(encoding="utf-8").strip()
     expected_keys = json.loads((guide_dir / "modeling_policy.json").read_text(encoding="utf-8"))
 
     async def inspect():
@@ -90,7 +88,6 @@ def test_metadata_policy_is_discoverable_and_readable_on_a_new_session(guidance_
             async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
                 instructions = (await client.initialize()).instructions
                 assert 'policy="metadata"' in instructions
-                assert expected_text not in instructions
                 tools = {tool.name: tool for tool in (await client.list_tools()).tools}
                 assert {"model_01-assign_material", "inspect_02-get_objects"} <= tools.keys()
                 assert "User Text" in tools["context_01-get_policy"].description
@@ -99,7 +96,7 @@ def test_metadata_policy_is_discoverable_and_readable_on_a_new_session(guidance_
                 assert not result.is_error
                 value = result.structured_content
                 assert json.loads(result.content[0].text) == value
-                assert value["text"] == expected_text
+                assert "text" not in value
                 assert value["policy"] == expected_keys
                 assert value["policy"]["public_object_keys"]["floor"] == "floor"
                 assert value["policy"]["internal_object_keys"]["section"] == "section"
@@ -107,13 +104,15 @@ def test_metadata_policy_is_discoverable_and_readable_on_a_new_session(guidance_
                     assert all(not key.startswith("almond:") for key in value["policy"][group].values())
                 assert value["guide_version"] == guide_version(instructions)
                 assert {ref["path"] for ref in value["source_refs"]} == {
-                    f"src/mcp/{guide_path}", "src/mcp/modeling_policy.json",
+                    "src/mcp/modeling_policy.json",
                 }
                 basic = await client.call_tool("context_01-get_policy", {})
                 assert basic.structured_content["selected_policy"] == "basic"
                 assert basic.structured_content["guide_version"] == value["guide_version"]
                 rejected = await client.call_tool("context_01-get_policy", {"unexpected": "metadata"})
                 assert rejected.is_error
+                retired = await client.call_tool("context_01-get_policy", {"policy": "drawing"})
+                assert retired.is_error
                 if route != "bound":
                     blocked = await client.call_tool("inspect_02-get_objects", {})
                     assert blocked.is_error

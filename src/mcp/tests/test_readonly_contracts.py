@@ -17,29 +17,11 @@ def test_policy_selection_returns_only_requested_content():
     assert "context_01-get_policy" in basic["tools"]
     assert not {"get_modeling_guide", "get_looping_policy", "get_modeling_policy", "get_retrieval_status"}.intersection(basic["tools"])
     assert basic["text"] == modeling_guidance.BASIC_GUIDE.read_text(encoding="utf-8").strip()
-    policy_dir = modeling_guidance.PACKAGE / "features/guidance/policies"
-    activities = {"spatial_modeling", "observation", "drawing", "feedback_reporting"}
-    assert set(basic["available_policies"]) == {"basic", "metadata", "rhino_scripting", "rhinocode", *activities}
+    assert set(basic["available_policies"]) == {"basic", "metadata", "rhino_scripting", "rhinocode"}
     assert modeling_guidance.read_policy("basic") == basic
-    referenced_files = set()
-    for name in activities:
-        activity = modeling_guidance.read_policy(name)
-        assert len(activity["source_refs"]) == 1
-        relative = activity["source_refs"][0]["path"]
-        assert relative.startswith("src/mcp/features/guidance/policies/")
-        path = modeling_guidance.PACKAGE / relative.removeprefix("src/mcp/")
-        assert path.parent == policy_dir
-        referenced_files.add(path)
-        assert activity == {
-            "status": "success",
-            "selected_policy": name,
-            "available_policies": basic["available_policies"],
-            "guide_version": basic["guide_version"],
-            "text": path.read_text(encoding="utf-8-sig").strip(),
-            "source_refs": [{"path": f"src/mcp/features/guidance/policies/{path.name}",
-                             "sha256": modeling_guidance.content_digest(path)}],
-        }
-    assert referenced_files | {modeling_guidance.METADATA_GUIDE} == set(policy_dir.glob("*.md"))
+    for retired in ("spatial_modeling", "observation", "drawing", "feedback_reporting"):
+        with pytest.raises(ValueError):
+            modeling_guidance.read_policy(retired)
     scripting = modeling_guidance.read_policy("rhino_scripting")
     assert scripting["guide_version"] == basic["guide_version"]
     assert "text" not in scripting and "policy" not in scripting
@@ -56,10 +38,10 @@ def test_policy_selection_returns_only_requested_content():
         modeling_guidance.read_policy(True)
 
 
-def test_activity_policy_content_changes_guide_version(monkeypatch):
-    policy = "observation"
+def test_bundled_policy_content_changes_guide_version(monkeypatch):
+    policy = "rhinocode"
     original = modeling_guidance.read_policy(policy)
-    path = modeling_guidance.PACKAGE / "features/guidance/policies/observation.md"
+    path = modeling_guidance.RHINOCODE_POLICY
     read_content = modeling_guidance._read_content
 
     def changed_content(source):

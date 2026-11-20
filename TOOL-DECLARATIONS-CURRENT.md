@@ -7,7 +7,7 @@ beyond·CoS의 공개 도구 81개. 두 경로의 `tools/list`에서 도구 설�
 - 수집일: 2026-11-20. 기준: 이 문서와 함께 관리하는 소스.
 - 수집 경로: `src/cos/codex_host.py`와 `src/cos/cos_host.py`의 공용 `external_host.main`. 격리된 데이터 폴더에서 Rhino 연결 없이 stdio `initialize`·`tools/list` 호출.
 - 실행 패키지: almond-mcp 0.7.0rc2 / fastmcp 4.1.0 / mcp 2.3.0 / mcp-types 2.3.0.
-- 선언 SHA-256: `cd44bff57ad328954d133ba1e4119b48465942c195847782ae77698cbb9f6a0b`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 해시.
+- 선언 SHA-256: `2a15e6d6a9b03d6884053593f9e68c40ca416f468fa98ad83dc3bf022c0d0422`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 해시.
 - 도구명·입력 설명은 구현 함수와 docstring, 출력 설명은 `src/mcp/output_contracts.py`에서 확인. 공통 스키마 기준은 `tests/integration/tool_schemas.json`, 외부 연결 도구 정의는 `src/cos/external_host.py` 참조.
 
 TypeScript 표기에서 `?`는 선택 인자, `Array<T>`는 배열, `| null`은 null 허용. 기본값과 범위는 필드 위에 표시. 검증 기준은 JSON Schema이며 TypeScript 표기에서 `oneOf`의 배타성은 생략. 인덱스 시그니처는 `additionalProperties` 허용을 뜻함.
@@ -21,7 +21,8 @@ beyond·CoS 외부 연결기 기준. RhinoTerminal과 관리 실행기의 문서
 ## 공통 안내와 실행 결과
 
 - 서버 소개는 `serverInfo.description`과 `initialize.instructions` 첫머리에 전달. 이어서 `modeling_guidance.py`가 조립한 `BASIC-INSTRUCTIONS.md`, `design_judgment.md`, `About Rhino.md` 본문을 전달. 개별 도구 설명은 `tools/list`의 `description`에서 확인. 초기 지침을 모델에 표시하는 방식은 클라이언트에 따름.
-- 정책은 Rhino 연결 선택 전에도 `context_01-get_policy` tool로 조회 가능. 기본 정책은 BASIC. `policy="metadata"`는 편집 지침과 객체 키 사전을 반환.
+- 정책은 Rhino 연결 선택 전에도 `context_01-get_policy` tool로 조회 가능. 기본 정책은 BASIC. `policy="metadata"`는 객체 키 사전을 반환.
+- `plan_03-execute_looping` tool의 성공 응답은 다음 Step의 선택·기록 방법과 회차 결과를 보고할 때 시각적 근거를 포함하라는 안내를 제공한다.
 - `connect_02-session` tool 또는 `connect_03-start_session` tool로 연결 선택. `script_03-get_execution` tool에 `request_id`를 지정하면 원래 연결의 실행 결과 조회.
 - 외부 실행의 첫 대기 한도는 `min(요청 timeout, 60초)`. `pending`이면 같은 `request_id`로 완료 여부 조회. 외부 클라이언트 제한은 600초. 대기 종료·취소·오류 후에는 실제 문서 상태와 실행 결과를 확인하고 재실행 여부를 결정. [RhinoCode 실행 계약](src/mcp/runtime/RHINOCODE-SPEC.md) · [외부 연결기 SPEC](src/cos/SPEC.md)
 
@@ -29,9 +30,11 @@ beyond·CoS 외부 연결기 기준. RhinoTerminal과 관리 실행기의 문서
 
 [저장소 지침](AGENTS.md)에 따라 두 외부 서버를 격리된 데이터 폴더에서 시작. `initialize`에서 초기 안내를 확인하고, `tools/list`에서 목록·설명·입출력 스키마 전체를 비교한 뒤 이 문서와 해시를 갱신. Rhino 연결·모델링 호출 없이 검사 가능.
 
+# Tool
+
 ## analysis
 
-### 1. analysis\_01-check\_egress
+### 1. analysis\_05-check\_egress
 
 ```txt
 층별 출구 수·유효 폭·이격·보행거리 예비 검토. Rhino에서 형상이나 경로를 읽지 않으므로 실제 층 경계와 문 중심·유효 폭, 가장 불리한 보행 경로를 직접 측정해 입력. 출구가 둘 이상이면 가장 먼 두 출구의 직선 이격을 검사.
@@ -43,7 +46,7 @@ beyond·CoS 외부 연결기 기준. RhinoTerminal과 관리 실행기의 문서
 
 ```ts
 declare const tools: {
-  mcp__rhino__analysis_01_check_egress(args: {
+  mcp__rhino__analysis_05_check_egress(args: {
     // 층 바닥 경계 [min_x, min_y, max_x, max_y].
     plate_bounds_mm: Array<number>;
     // 문마다 {"name": string, "x_mm": number, "y_mm": number, "width_mm": number}. 좌표는 문 중심, 폭은 유효 피난 폭.
@@ -104,7 +107,7 @@ type DecodedResult = {
 };
 ```
 
-### 2. analysis\_02-export\_structural\_report
+### 2. analysis\_04-export\_structural\_report
 
 ```txt
 구조 검증 이력의 Markdown 보고서 생성. 각 실행에 실제 엔진과 적용 입력을 기록하고, 저장되지 않은 과거 입력은 알 수 없음으로 표시.
@@ -112,7 +115,7 @@ type DecodedResult = {
 
 ```ts
 declare const tools: {
-  mcp__rhino__analysis_02_export_structural_report(args: {
+  mcp__rhino__analysis_04_export_structural_report(args: {
     // 관리형은 선택한 Plan 산출물 폴더 기준 상대 경로(생략 시 reports/structural-validation.md). 독립 실행에서 생략 시 사용자 데이터의 reports/structural-validation-<timestamp>.md.
     // default: ""
     path?: string;
@@ -141,7 +144,7 @@ type DecodedResult = {
 };
 ```
 
-### 3. analysis\_03-list\_design\_codes
+### 3. analysis\_01-list\_design\_codes
 
 ```txt
 구조 해석에 사용할 설계기준 프로필 조회.
@@ -149,7 +152,7 @@ type DecodedResult = {
 
 ```ts
 declare const tools: {
-  mcp__rhino__analysis_03_list_design_codes(args: {
+  mcp__rhino__analysis_01_list_design_codes(args: {
     // default: false
     include_ids?: boolean;
     // parameters, source, audit, all. 생략하거나 빈 배열이면 요약.
@@ -169,7 +172,7 @@ type DecodedResult = {
   // 기본으로 적용되는 프로필 ID.
   default?: string;
   profiles?: Array<{
-    // analysis_04-validate_structure tool과 analysis_05-visualize_structure tool의 design_code에 전달.
+    // analysis_02-validate_structure tool과 analysis_03-visualize_structure tool의 design_code에 전달.
     id?: string;
     name?: string;
     basis?: string;
@@ -194,7 +197,7 @@ type DecodedResult = {
 };
 ```
 
-### 4. analysis\_04-validate\_structure
+### 4. analysis\_02-validate\_structure
 
 ```txt
 Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청 옵션, 실제 엔진·입력·결과를 보관. native는 내보낸 모델과 적용한 하중도 기록. 이전 이력에 기록되지 않은 옵션은 알 수 없음으로 표시.
@@ -202,7 +205,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 
 ```ts
 declare const tools: {
-  mcp__rhino__analysis_04_validate_structure(args: {
+  mcp__rhino__analysis_02_validate_structure(args: {
     // 현재 Rhino 문서의 해석 대상 객체 GUID.
     guids: Array<string>;
     // "beam" 단순 보 휨·처짐, "truss" 축력·좌굴, "shell" 셸 응력·변위, "frame" 프레임 모멘트·전단, "canopy" 캔틸레버 캐노피, "gridshell" 대변형 그리드셸, "membrane" 막 구조 형상 탐색, "highrise" 고층 구조 시스템.
@@ -246,7 +249,7 @@ declare const tools: {
     // "auto"는 모든 ULS 조합의 탄성 임계 하중 계수 alpha_cr(EN 1993-1-1 5.2.1)과 ±X·±Y 횡변위 초기 불완전성 φ = 1/200 × αh × αm(5.3.2) 적용. alpha_cr < 10이면 2차 P-Delta ULS 해석, alpha_cr ≤ 1이면 불안정으로 실패 처리. "off"는 초기 불완전성을 적용하지 않는 1차 해석.
     // default: "auto"
     stability?: string;
-    // 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_03-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
+    // 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
     // default: "eurocode"
     design_code?: string;
     // 네이티브 결과에 부재별 단면력·사용률·처짐과 지점 반력 포함.
@@ -280,7 +283,7 @@ type DecodedResult = {
     span_m?: number;
     utilization_ratio?: number;
     per_element_utilization?: Array<{
-      // analysis_05-visualize_structure tool의 display_guids에 재사용.
+      // analysis_03-visualize_structure tool의 display_guids에 재사용.
       source_guids?: Array<string>;
       utilization?: number;
       // 부재 판정을 지배한 하중 조합.
@@ -305,7 +308,7 @@ type DecodedResult = {
 };
 ```
 
-### 5. analysis\_05-visualize\_structure
+### 5. analysis\_03-visualize\_structure
 
 ```txt
 구조 해석 결과를 임시 뷰포트 오버레이로 표시.
@@ -313,7 +316,7 @@ type DecodedResult = {
 
 ```ts
 declare const tools: {
-  mcp__rhino__analysis_05_visualize_structure(args: {
+  mcp__rhino__analysis_03_visualize_structure(args: {
     // 구조 축선 곡선과 지점 표식 점의 GUID. 지점 표식이 없으면 최하단 절점을 지점으로 사용(fixed_supports 참조).
     // default: null
     guids?: (Array<string> | null);
@@ -365,7 +368,7 @@ declare const tools: {
     // "native", "karamba", "auto". "auto"는 네이티브 프레임 솔버를 우선 사용하고 셸이 포함되거나 브리지에서 모델을 내보낼 수 없으면 Karamba 사용.
     // default: "auto"
     engine?: string;
-    // 네이티브 해석에서 analysis_04-validate_structure tool과 같은 배치 자산 하중을 추가하고 작용점에 하중 화살표 표시.
+    // 네이티브 해석에서 analysis_02-validate_structure tool과 같은 배치 자산 하중을 추가하고 작용점에 하중 화살표 표시.
     // default: false
     asset_loads?: boolean;
     // 네이티브 해석에서 한 층의 보로 둘러싸인 모든 구획에 적용(예: EN 1991-1-1 Category A 주거용 2.0 kN/m²). 보는 45° 규칙에 따라 양방향 분담하며 장단변비가 2:1을 넘으면 일방향 분담. 용도별 활하중에 가구·재실자가 포함되므로 asset_loads는 무거운 특정 물품에만 병행하고 중복 계산을 피하려면 load_kn을 0으로 지정.
@@ -380,13 +383,13 @@ declare const tools: {
     // "6.10" 또는 "6.10ab". "6.10ab"는 각 부재에서 6.10a·6.10b 중 불리한 결과를 적용. 생략 시 프로필의 식을 사용(Eurocode: 6.10). 프로필이 식을 지정한 경우 요청보다 우선하며 경고 반환.
     // default: null
     uls_combination?: (string | null);
-    // analysis_04-validate_structure tool과 같은 "rigid" 또는 "simple". 핀 접합 단부는 작은 원으로 표시.
+    // analysis_02-validate_structure tool과 같은 "rigid" 또는 "simple". 핀 접합 단부는 작은 원으로 표시.
     // default: "rigid"
     connections?: string;
-    // analysis_04-validate_structure tool과 같은 "auto" 또는 "off".
+    // analysis_02-validate_structure tool과 같은 "auto" 또는 "off".
     // default: "auto"
     stability?: string;
-    // 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_03-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
+    // 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
     // default: "eurocode"
     design_code?: string;
     // 강재 중공 단면(CHS/RHS)의 제작 방식. "cold_formed"는 EN 10219 좌굴 곡선 c, "hot_finished"는 EN 10210 곡선 a(S460은 a0). 좌굴 내력 차이가 최대 약 23%이므로 명시된 경우에만 "hot_finished" 사용.
@@ -440,78 +443,12 @@ type DecodedResult = {
 저장된 도면 패키지의 SVG·DXF를 파일 해시 목록과 대조. 빈 해시 목록, 누락·변경 파일, 패키지 외부 경로, 파일시스템 링크는 오류. 원본을 찾으면 원본 변경도 검사.
 ```
 
-```ts
-declare const tools: {
-  mcp__rhino__asset_01_audit_drawing(args: {
-    // 도면 생성·조회 응답의 package_dir 사용. 관리형은 프로젝트와 설정된 도면 라이브러리·drawing-runs의 패키지, 독립 실행은 절대 경로.
-    package_dir: string;
-    // 원본이 바뀌었는지 비교할 GLB. 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로. 라이브러리에서 원본을 찾을 수 있으면 생략 가능.
-    // default: ""
-    source_glb?: string;
-  }): Promise<CallToolResult<{
-    status?: string;
-    // current, source_file_current, stale, not_checked. not_checked이면 success여도 원본은 미비교.
-    source_geometry?: string;
-    // 패키지 원본 ID. custom-*는 등록 자산 ID로 사용할 수 없음.
-    asset_id?: string;
-    // 파일 해시 검사 건수. 시각 검토는 별도.
-    checked_files?: number;
-    failures?: Array<unknown>;
-    message?: string;
-    error_code?: string;
-    next_step_guide?: string;
-    [key: string]: unknown;
-  }>>;
-};
-```
-
 ### 7. asset\_02-generate\_drawing\_views
 
 ```txt
 등록 3DM 또는 사용자 GLB 메시의 평면·정면·우측면 실루엣 생성. 실물 크기 mm DXF와 축척 SVG를 출력. 세 뷰가 A3에 들어가면 시트 SVG도 생성하며, 시트 없이도 성공 가능.
 
 정면은 좌표계 기준. 실루엣에 단면·내부 가시선·은선은 없으며 축척별 단순화로 작은 윤곽이 달라질 수 있음. 결과는 별도 drawing-runs에 저장하고 등록 자산의 도면은 갱신하지 않음.
-```
-
-```ts
-declare const tools: {
-  mcp__rhino__asset_02_generate_drawing_views(args: {
-    // 등록 3DM 자산 ID. source_glb와 택일.
-    // default: ""
-    asset_id?: string;
-    // 정적·비압축 삼각형 GLB(최대 100 MB, 250,000 삼각형).
-    // 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로.
-    // default: ""
-    source_glb?: string;
-    // source_glb를 지정하면 GLB 원본 단위 mm 또는 m 필수.
-    // default: ""
-    input_units?: string;
-    // GLB 위쪽 축 y 또는 z. y는 (X, -Z, Y)로 변환. 등록 3DM에는 적용하지 않음.
-    // default: "y"
-    up_axis?: string;
-    // 서로 다른 정수 축척 분모 1~4개(5~1000). 생략 시 [50, 100].
-    // default: null
-    scales?: (Array<number> | null);
-    // 도면에 첨부하는 참고 출처. 원본 모델의 생성 이력 증빙과는 별도.
-    // 필수 키: source_id, title, url, publisher, locator, accessed_on, relationship, used_for, terms_url.
-    // relationship: background_reading, dimensional_reference, assembly_reference, post_generation_reference.
-    // default: null
-    source_references?: (Array<{
-      [key: string]: unknown;
-    }> | null);
-  }): Promise<CallToolResult<{
-    status?: string;
-    // asset_01-audit_drawing tool의 package_dir에 그대로 전달. 관리형은 프로젝트 상대 경로이며 다른 드라이브의 라이브러리는 절대 경로 유지.
-    package_dir?: string;
-    manifest?: {
-      [key: string]: unknown;
-    };
-    message?: string;
-    error_code?: string;
-    next_step_guide?: string;
-    [key: string]: unknown;
-  }>>;
-};
 ```
 
 ### 8. asset\_03-get\_drawings
@@ -1403,7 +1340,7 @@ declare const tools: {
 ### 23. connect\_03-start\_session
 
 ```txt
-저장된 모델을 새 Rhino 창에서 열고 연결.
+저장된 모델을 새 Rhino 창에서 열고 연결. model_path와 시작 시도를 식별하는 request_id 필요.
 ```
 
 ```ts
@@ -1511,9 +1448,9 @@ declare const tools: {
 ### 26. context\_01-get\_policy
 
 ```txt
-Almond 기본 지침과 활동별 지침 조회. policy를 생략하면 기본 지침과 공통 도구 목록을 확인할 수 있다. 활동별로는 available_policies에서 선택한다.
+Almond 기본 지침과 도구 참고 자료 조회. policy를 생략하면 기본 지침과 공통 도구 목록을 반환.
 
-metadata는 User Text·UserDictionary 편집 지침과 객체 키 사전, rhino_scripting은 내장 스크립팅 자료, rhinocode는 코드·명령 실행 지침이다. spatial_modeling, observation, drawing, feedback_reporting은 각 활동의 판단 기준을 다룬다.
+metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 내장 스크립팅 자료, rhinocode는 코드·명령 실행 지침.
 
 같은 guide_version에서 이미 읽은 지침은 재사용할 수 있다.
 ```
@@ -1523,7 +1460,7 @@ declare const tools: {
   mcp__rhino__context_01_get_policy(args: {
     // 생략하거나 비워 두면 basic. 선택값의 용도는 available_policies 참고.
     // default: ""
-    policy?: "" | "basic" | "metadata" | "rhino_scripting" | "rhinocode" | "spatial_modeling" | "observation" | "drawing" | "feedback_reporting";
+    policy?: "" | "basic" | "metadata" | "rhino_scripting" | "rhinocode";
   }): Promise<CallToolResult<{
     status?: string;
     // 같은 지침인지 비교할 수 있는 버전 해시.
@@ -3980,10 +3917,10 @@ declare const tools: {
     // floor, wall, roof, foundation 중 선택. 빈 값은 전체 분류.
     // default: ""
     category?: string;
-    // analysis_04-validate_structure tool과 같은 재료명. `Wood`, `Steel`, `Concrete`.
+    // analysis_02-validate_structure tool과 같은 재료명. `Wood`, `Steel`, `Concrete`.
     // default: ""
     material?: string;
-    // analysis_04-validate_structure tool과 같은 유형. `beam`, `truss`, `shell`, `frame`, `canopy`, `gridshell`, `membrane`, `highrise`.
+    // analysis_02-validate_structure tool과 같은 유형. `beam`, `truss`, `shell`, `frame`, `canopy`, `gridshell`, `membrane`, `highrise`.
     // default: ""
     structure_type?: string;
     // 0보다 크면 시스템별 `fits_span`과 경험칙에 따른 권장 부재 깊이를 계산.
@@ -4058,7 +3995,7 @@ declare const tools: {
     // 구법 라이브러리의 `system_id` 기준 필터. 예: `steel-column-frame`.
     // default: ""
     construction_system?: string;
-    // analysis_04-validate_structure tool의 유형으로 필터링. 예: `shell`, `truss`, `frame`, `membrane`.
+    // analysis_02-validate_structure tool의 유형으로 필터링. 예: `shell`, `truss`, `frame`, `membrane`.
     // default: ""
     structure_type?: string;
     // default: 5

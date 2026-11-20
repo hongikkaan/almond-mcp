@@ -16,7 +16,7 @@ SUCCESS_GUIDES = {
     "execute_looping": ("저장된 수행·검증·보고 기록을 확인하고 미완료 Step이 있으면 set_working_plan으로 선택합니다. "
                         "완료한 작업은 반복하지 않고, 수행·검증 결과는 plan_12-update tool의 request에 target='step', plan_id, step_id와 기록할 필드를 넣어 갱신합니다. "
                         + EVIDENCE_LOOP_GUIDE + "\n"
-                        "회차가 끝나면 목표·변경 내용·시각적 근거·검증 결과·남은 선택지를 보고합니다."),
+                        "회차 결과를 보고할 때 시각적 근거를 포함합니다."),
     "set_working_plan": ("이 artifact_dir에서 작업하고, plan_12-update tool의 request에 target='step', plan_id, step_id와 "
                          "재사용한 파일은 input_refs.add, 새 산출물은 output_refs.add로 기록합니다. " + EVIDENCE_LOOP_GUIDE),
     "rename_artifact_folder": "이후 산출물 작업에는 갱신된 artifact_dir를 사용합니다.",

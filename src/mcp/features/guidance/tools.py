@@ -17,9 +17,9 @@ def register(mcp, context):
 
     @public_tool(mcp, wrapped=False, annotations={'readOnlyHint': True, 'destructiveHint': False, 'openWorldHint': False})
     def get_policy(policy: PolicyName = "") -> ToolResult:
-        """Almond 기본 지침과 활동별 지침 조회. policy를 생략하면 기본 지침과 공통 도구 목록을 확인할 수 있다. 활동별로는 available_policies에서 선택한다.
+        """Almond 기본 지침과 도구 참고 자료 조회. policy를 생략하면 기본 지침과 공통 도구 목록을 반환.
 
-        metadata는 User Text·UserDictionary 편집 지침과 객체 키 사전, rhino_scripting은 내장 스크립팅 자료, rhinocode는 코드·명령 실행 지침이다. spatial_modeling, observation, drawing, feedback_reporting은 각 활동의 판단 기준을 다룬다.
+        metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 내장 스크립팅 자료, rhinocode는 코드·명령 실행 지침.
 
         같은 guide_version에서 이미 읽은 지침은 재사용할 수 있다.
 
@@ -43,8 +43,8 @@ def register(mcp, context):
         Args:
             query: 예: `glulam`, `longspan`, `bearing wall`.
             category: floor, wall, roof, foundation 중 선택. 빈 값은 전체 분류.
-            material: analysis_04-validate_structure tool과 같은 재료명. `Wood`, `Steel`, `Concrete`.
-            structure_type: analysis_04-validate_structure tool과 같은 유형. `beam`, `truss`, `shell`, `frame`, `canopy`, `gridshell`, `membrane`, `highrise`.
+            material: analysis_02-validate_structure tool과 같은 재료명. `Wood`, `Steel`, `Concrete`.
+            structure_type: analysis_02-validate_structure tool과 같은 유형. `beam`, `truss`, `shell`, `frame`, `canopy`, `gridshell`, `membrane`, `highrise`.
             span_m: 0보다 크면 시스템별 `fits_span`과 경험칙에 따른 권장 부재 깊이를 계산.
             include_reference_data: `load_kn` 산정에 참고할 용도별 활하중(kPa)과 재료 밀도(kg/m³)를 포함.
             field_groups: `rules`, `narrative`, `source`, `metadata`, `audit`, `all`. 생략하거나 비우면 요약 반환.
@@ -94,7 +94,7 @@ def register(mcp, context):
         Args:
             query: 예: `courtyard`, `skyscraper`, `timber hall`.
             construction_system: 구법 라이브러리의 `system_id` 기준 필터. 예: `steel-column-frame`.
-            structure_type: analysis_04-validate_structure tool의 유형으로 필터링. 예: `shell`, `truss`, `frame`, `membrane`.
+            structure_type: analysis_02-validate_structure tool의 유형으로 필터링. 예: `shell`, `truss`, `frame`, `membrane`.
             field_groups: `rules`, `narrative`, `source`, `metadata`, `audit`, `all`. 생략하거나 비우면 요약 반환.
         """
         validate_field_groups(field_groups, GROUPS)

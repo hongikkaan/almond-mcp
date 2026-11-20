@@ -7,7 +7,7 @@
 
 - `./`: Python package의 소스와 공개 도구·계산·라이브러리 API.
 - `runtime/`: CLI 시작·재연결, 모델 binding, A–J 슬롯, 공유 저장소와 native 완료 확인.
-- `BASIC-INSTRUCTIONS.md`, `*-explain.md`: 기본 작업 지침과 보조 스크립트 안내. `features/guidance/guides/`는 연결된 참고자료, `release_validation/`은 배포 검증을 소유한다.
+- `BASIC-INSTRUCTIONS.md`, `*-explain.md`: 기본 작업 지침과 보조 스크립트 안내. `release_validation/`은 배포 검증을 소유한다.
 - `tests/`, `pytest.ini`, `run_tests.ps1`: 모듈 검사. COS import 없이 실행한다.
 - `rebuild_environment.ps1`: 일상 환경과 이미 존재하는 루트 환경을 함께 정합화한다. `-VerifyOnly`는 패키지를 변경하지 않고 검사하며, `-Development`는 개발 환경만 대상으로 한다. COS catalog는 수정하지 않는다.
 - `use_offline_environment.ps1`: 현재 셸과 자식에만 로컬 검사 경로를 설정한다.
@@ -92,8 +92,8 @@ package는 69개, 문서 전용 runtime은 7개를 더한 공통 76개 도구를
 | 자산 | `asset_05-list` tool, `asset_11-search` tool, `asset_04-get` tool, `asset_07-prepare` tool, `asset_09-register` tool, `asset_08-refresh` tool, `asset_03-get_drawings` tool, `asset_02-generate_drawing_views` tool, `asset_01-audit_drawing` tool, `asset_06-place` tool, `asset_10-search_repository` tool |
 | 다이어그램 | `diagram_02-list` tool, `diagram_04-search` tool, `diagram_01-get` tool, `diagram_03-place` tool |
 | 도면·Sheet | `drawing_05-list_recipes` tool, `drawing_02-get_recipe` tool, `drawing_01-apply_style` tool, `drawing_04-import_hatches` tool |
-| 구조검토 | `analysis_04-validate_structure` tool, `analysis_03-list_design_codes` tool, `analysis_05-visualize_structure` tool, `analysis_02-export_structural_report` tool |
-| 피난검사 | `analysis_01-check_egress` tool |
+| 구조검토 | `analysis_02-validate_structure` tool, `analysis_01-list_design_codes` tool, `analysis_03-visualize_structure` tool, `analysis_04-export_structural_report` tool |
+| 피난검사 | `analysis_05-check_egress` tool |
 | 캡처 | `capture_01-conditioning_pass` tool |
 
 ### 공용 서비스와 DB 연결
@@ -237,13 +237,13 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 plan_09-rename_ar
 
 `tools/list`에는 각 도구의 설명 전문과 입력·출력 schema를 제공한다. 공개 등록 함수의 docstring을 사용하며 첫 문장 추출이나 문장 축약을 하지 않는다. FastMCP의 표준 docstring 처리가 Args/Returns 등의 인수·반환 메타데이터를 schema에 반영하므로 본문과 메타데이터를 임의로 분리·삭제하지 않는다. 전체 BASIC 지침을 각 도구 설명에 자동 삽입하지 않는다.
 
-`context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `BASIC-INSTRUCTIONS.md`, 공개 도구명과 `available_policies`를 반환한다. BASIC은 설계·관찰·검수에 공통으로 적용할 판단 기준과 개념을 담는다. 활동별 지침은 `features/guidance/policies/`에 두며 `spatial_modeling`, `observation`, `drawing`, `design_exploration`, `feedback_reporting`을 선택해 읽는다. `metadata`는 객체 키 사전과 메타데이터 편집 지침, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 개별 도구의 설명과 호출법은 `tools/list`에서 확인한다.
+`context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `BASIC-INSTRUCTIONS.md`, 공개 도구명과 `available_policies`를 반환한다. BASIC은 설계·관찰·검수에 공통으로 적용할 판단 기준과 개념을 담는다. `metadata`는 객체 키 사전, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 개별 도구의 설명과 호출법은 `tools/list`에서 확인한다.
 
 RhinoTerminal과 별도 창의 문서 전용 세션, beyond 및 CoS의 외부 host는 initialize.instructions로 공통 시작 안내를 전달한다. 기본 지침 원본은 [BASIC-INSTRUCTIONS.md](BASIC-INSTRUCTIONS.md)이며 설계 판단 원본은 같은 폴더의 [design_judgment.md](design_judgment.md)다. 서버는 UTF-8 원본의 본문을 파일명과 함께 한 번씩 전달하며, 서버에서 본문을 잘라내지 않는다. 누락, 읽기 실패, 인코딩 오류 또는 빈 문서는 해당 파일명과 원인을 같은 응답에 표시한다. 배포된 유효한 본문은 계속 전달한다.
 
-standalone MCP의 initialize.instructions는 비어 있다. context_01-get_policy tool로 활동별 지침을 조회하거나 필요할 때 기존 BASIC을 다시 읽을 수 있다. [외부 연결기의 시작 안내](../cos/SPEC.md#공통-모델링-안내)와 공통 본문의 전달은 [stdio 검사](../../tests/integration/test_guidance_delivery.py)에서 확인한다.
+standalone MCP의 initialize.instructions는 비어 있다. context_01-get_policy tool로 실행 참고 자료를 조회하거나 필요할 때 기존 BASIC을 다시 읽을 수 있다. [외부 연결기의 시작 안내](../cos/SPEC.md#공통-모델링-안내)와 공통 본문의 전달은 [stdio 검사](../../tests/integration/test_guidance_delivery.py)에서 확인한다.
 
-`modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 시작 문서의 본문과 가용 상태도 계산에 포함한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`와 활동별 지침은 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
+`modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 시작 문서의 본문과 가용 상태도 계산에 포함한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`는 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
 
 reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기는 선택된 연결을 자동으로 사용한다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 공개 스키마와 응답의 선택값 일치, cold stdio와 외부 경로의 스키마 일치, wheel·sdist의 지침 파일을 확인한다.
 

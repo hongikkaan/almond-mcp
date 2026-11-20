@@ -16,7 +16,7 @@ def test_rhino_session_instructions_are_discoverable_without_a_server_descriptio
 
         async with Client(server) as client:
             assert client.instructions == startup_instructions()
-            assert "Use context_01-get_policy tool for activity policies" in client.instructions
+            assert "Use context_01-get_policy tool for bundled guidance" in client.instructions
             assert client.instructions.count(BASIC_GUIDE.read_text(encoding="utf-8-sig")) == 1
             assert "guide_version=" in client.instructions
             assert client.server_info.description is None

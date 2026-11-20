@@ -40,11 +40,10 @@ def test_stale_fingerprint_and_package_version_are_rejected(monkeypatch, tmp_pat
         check_contract(catalog)
 
 
-def test_activity_policy_files_are_part_of_the_external_source_fingerprint():
+def test_bundled_policy_files_are_part_of_the_external_source_fingerprint():
     from runtime import ENGINE, PACKAGE, source_paths
 
-    policy_files = set((PACKAGE / "features/guidance/policies").glob("*.md"))
-    assert policy_files
+    policy_files = {PACKAGE / "modeling_policy.json", PACKAGE / "RHINOCODE-INSTRUCTIONS.md"}
     assert policy_files <= set(source_paths(ENGINE).values())
 
 

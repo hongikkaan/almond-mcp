@@ -150,8 +150,7 @@ async def collect(params, *, bound):
             assert scripting == read_policy("rhino_scripting")
             assert scripting["guide_version"] == basic["guide_version"]
             activity_result = await client.call_tool("context_01-get_policy", {"policy": "observation"})
-            assert not activity_result.is_error
-            assert json.loads(activity_result.content[0].text) == activity_result.structured_content == read_policy("observation")
+            assert activity_result.is_error
             rejected = await client.call_tool("context_01-get_policy", {"tool": "inspect_03-get_document_context"})
             assert rejected.is_error
             detail_name = "plan_05-get"

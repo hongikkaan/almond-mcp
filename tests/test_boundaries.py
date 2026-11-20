@@ -44,39 +44,38 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
     sdists = list(tmp_path.glob("*.tar.gz"))
     assert len(wheels) == len(sdists) == 1
     package = ROOT / "src/mcp"
-    policy_dir = "features/guidance/policies/"
-    activity_files = {p.relative_to(package).as_posix() for p in (package / policy_dir).glob("*.md")}
-    assert activity_files
+    retired_dirs = ("features/guidance/guides/", "features/guidance/policies/", "features/guidance/policy-validation/")
     guidance_files = {
         "BASIC-INSTRUCTIONS.md", "design_judgment.md", "features/guidance/tools.py",
-        "modeling_policy.json", *activity_files,
+        "modeling_policy.json", "RHINOCODE-INSTRUCTIONS.md",
     }
     with zipfile.ZipFile(wheels[0]) as wheel:
         names = set(wheel.namelist())
         assert "almond_mcp/features/modeling/PlanSection/PlanSection.py" in names
         metadata = next(name for name in names if name.endswith(".dist-info/METADATA"))
         assert BytesParser().parsebytes(wheel.read(metadata))["Version"] == runpy.run_path(str(package / "__init__.py"))["__version__"]
-        assert {name.removeprefix("almond_mcp/") for name in names
-                if name.startswith("almond_mcp/" + policy_dir) and name.endswith(".md")} == activity_files
         for relative in guidance_files:
             assert wheel.read("almond_mcp/" + relative) == (package / relative).read_bytes()
         assert not any(name.startswith(("almond_mcp/runtime/", "almond_mcp/tests/")) for name in names)
-        assert not any(name.startswith("almond_mcp/features/guidance/policy-validation/") for name in names)
+        assert not any(name.removeprefix("almond_mcp/").startswith(("skill/", *retired_dirs)) for name in names)
     with tarfile.open(sdists[0]) as sdist:
         prefix = "src/mcp/"
         members = {member.name.partition("/")[2]: member for member in sdist.getmembers() if member.isfile()}
         assert prefix + "features/modeling/PlanSection/PlanSection.py" in members
-        assert {name.removeprefix(prefix) for name in members
-                if name.startswith(prefix + policy_dir) and name.endswith(".md")} == activity_files
         for relative in guidance_files:
             assert sdist.extractfile(members[prefix + relative]).read() == (package / relative).read_bytes()
-        assert prefix + "features/guidance/policy-validation/README.md" in members
+        assert not any(name.removeprefix(prefix).startswith(("skill/", *retired_dirs)) for name in members)
     isolated = dict(os.environ, TMP=str(tmp_path), TEMP=str(tmp_path), TMPDIR=str(tmp_path))
     audit = subprocess.run(
         [sys.executable, "-B", str(ROOT / "src/mcp/release_validation/verify_release.py"), str(wheels[0])],
         env=isolated, capture_output=True, text=True, encoding="utf-8",
     )
     assert audit.returncode == 0, audit.stdout + audit.stderr
+    target = tmp_path / "installed"
+    subprocess.run(["uv", "pip", "install", "--offline", "--no-deps", "--target", str(target),
+                    str(wheels[0])], cwd=tmp_path, env=isolated, check=True)
+    subprocess.run([sys.executable, "-I", "-B", str(ROOT / "tests/integration/installed_policy_fixture.py"),
+                    str(target)], cwd=tmp_path, env=isolated, check=True, timeout=60)
 
 
 def test_bridge_project_and_yak_manifest_derive_the_same_release_version(tmp_path):
