@@ -1,8 +1,7 @@
 """Public MCP names and their stable internal operation identifiers.
 
-Registration uses literal public names so schema discovery remains inert.
-Internal Python/native/DB contracts keep their existing identifiers; this map
-is only used where public calls enter execution policy or descriptions.
+The same map provides the registered name, inert schema name and response references.
+Internal Python and native operations retain their own identifiers.
 """
 import re
 

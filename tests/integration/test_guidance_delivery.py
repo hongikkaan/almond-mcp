@@ -1,5 +1,6 @@
 """Verify guidance delivery at each supported Python MCP initialization boundary."""
 import asyncio
+import json
 import os
 from pathlib import Path
 import shutil
@@ -75,6 +76,47 @@ def test_delivers_both_guidance_bodies_once(guidance_checkout, tmp_path, route):
                     assert guide_version(instructions) == basic_policy.structured_content["guide_version"]
 
     asyncio.run(inspect())
+
+@pytest.mark.parametrize("route", ["bound", "codex", "cos"])
+def test_metadata_policy_is_discoverable_and_readable_on_a_new_session(guidance_checkout, tmp_path, route):
+    params = session_params(guidance_checkout, tmp_path / "project", route)
+    guide_dir = guidance_directory(guidance_checkout)
+    guide_path = "features/guidance/policies/metadata.md"
+    expected_text = (guide_dir / guide_path).read_text(encoding="utf-8").strip()
+    expected_keys = json.loads((guide_dir / "modeling_policy.json").read_text(encoding="utf-8"))
+
+    async def inspect():
+        async with stdio_client(params) as (reader, writer):
+            async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
+                instructions = (await client.initialize()).instructions
+                assert 'policy="metadata"' in instructions
+                assert expected_text not in instructions
+                tools = {tool.name: tool for tool in (await client.list_tools()).tools}
+                assert {"model_01-assign_material", "inspect_02-get_objects"} <= tools.keys()
+                assert "User Text" in tools["context_01-get_policy"].description
+
+                result = await client.call_tool("context_01-get_policy", {"policy": "metadata"})
+                assert not result.is_error
+                value = result.structured_content
+                assert json.loads(result.content[0].text) == value
+                assert value["text"] == expected_text
+                assert value["policy"] == expected_keys
+                assert value["guide_version"] == guide_version(instructions)
+                assert {ref["path"] for ref in value["source_refs"]} == {
+                    f"src/mcp/{guide_path}", "src/mcp/modeling_policy.json",
+                }
+                basic = await client.call_tool("context_01-get_policy", {})
+                assert basic.structured_content["selected_policy"] == "basic"
+                assert basic.structured_content["guide_version"] == value["guide_version"]
+                rejected = await client.call_tool("context_01-get_policy", {"unexpected": "metadata"})
+                assert rejected.is_error
+                if route != "bound":
+                    blocked = await client.call_tool("inspect_02-get_objects", {})
+                    assert blocked.is_error
+                    assert "No selected live connection" in blocked.content[0].text
+
+    asyncio.run(inspect())
+
 
 def startup_response(checkout, project, route):
     async def initialize():

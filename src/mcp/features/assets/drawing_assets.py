@@ -1,6 +1,5 @@
 """Publish a prepared 3DM and its derived drawings as one versioned library entry."""
 from __future__ import annotations
-from almond_mcp.instruction_text import read_instruction
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -135,9 +134,9 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
         entries = manifest["assets"]
         matches = [i for i, a in enumerate(entries) if a.get("asset_id") == asset_id]
         if len(matches) > 1:
-            raise ValueError(read_instruction(__file__, 'response-372'))
+            raise ValueError('The manifest contains duplicate asset IDs; reconcile it first')
         if matches and not replace_existing:
-            raise ValueError(read_instruction(__file__, 'response-373'))
+            raise ValueError('Asset ID already exists; use replace_existing=true for an explicit new revision')
         canonical = None
         previous_source = None
         previous_hash = None

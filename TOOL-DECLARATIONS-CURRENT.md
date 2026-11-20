@@ -4,11 +4,11 @@
 
 현재 체크아웃의 beyond·CoS가 공개하는 도구 81개를 정리합니다. 두 경로의 `tools/list` 전체 응답을 대조했으며 도구 설명과 입력·출력 스키마가 같습니다.
 
-- 기준: 원격 `main`의 `4be0b7b0ec2ad17924d6cf32883a34636fd06e0a`. 수집일 2026-11-19.
+- 기준: 이 문서와 함께 커밋된 소스. 수집일 2026-11-20.
 - 수집 경로: `src/cos/codex_host.py`와 `src/cos/cos_host.py`가 사용하는 공용 `external_host.main`의 stdio `initialize`·`tools/list`. 격리된 데이터 폴더에서 수집했으며 Rhino 연결·도구 실행은 하지 않았습니다.
 - 실행 패키지: almond-mcp 0.7.0rc2 / fastmcp 4.1.0 / mcp 2.3.0 / mcp-types 2.3.0.
-- 선언 SHA-256: `43950c6d388ee4ed889a347521d6ba15d040e7211fd55b881a695b57264df695`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 값입니다.
-- 도구명·설명 원본은 MCP 기능 선언과 구현 옆 `*-explain.md`, 출력 원본은 `src/mcp/output_contracts.py`, 공통 스키마 기준은 `tests/integration/tool_schemas.json`입니다. 외부 연결 도구는 `src/cos/external_host.py`에서 조립합니다.
+- 선언 SHA-256: `a4af576e60c6a511aed2561a62cfc776050f4b49a8c1b1382ee4615958f42c3f`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 값입니다.
+- 도구명·설명 원본은 MCP 구현 함수와 그 docstring, 출력 원본은 `src/mcp/output_contracts.py`, 공통 스키마 기준은 `tests/integration/tool_schemas.json`입니다. 외부 연결 도구는 `src/cos/external_host.py`에서 조립합니다.
 
 필수 인자와 선택 인자는 `?`로 구분합니다. 배열은 `Array<T>`, null 허용은 `| null`입니다. 기본값·범위는 주석에 표시합니다. JSON Schema의 검증 의미가 우선하며 TypeScript 표기는 읽기용입니다(`oneOf`의 배타성 등은 TypeScript로 강제하지 않습니다). `additionalProperties`가 허용된 객체는 인덱스 시그니처로 표시합니다.
 
@@ -21,7 +21,7 @@
 ## 공통 안내와 실행 결과
 
 - 외부 서버의 경로별 소개는 `serverInfo.description`과 `initialize.instructions` 첫머리에 들어갑니다. 공용 `modeling_guidance.py`가 구성한 `BASIC-INSTRUCTIONS.md`와 `design_judgment.md` 본문은 `initialize.instructions`의 소개 뒤에 이어집니다. 개별 도구 설명은 `tools/list`의 `description`에서 전달됩니다. `context_01-get_policy` tool은 정책을 명시적으로 조회하는 경로이며 기본 정책은 BASIC입니다. 클라이언트가 초기 instructions를 모델에게 표시·준수하게 하는 것까지 서버가 강제하지는 않습니다.
-- `connect_02-session` tool 또는 `connect_03-start_session` tool으로 선택한 연결이 일반 호출에 적용됩니다. `script_03-get_execution` tool에 `request_id`를 지정하면 원래 실행 연결의 결과를 회수합니다.
+- `context_01-get_policy` tool은 Rhino 연결을 선택하기 전에도 조회할 수 있습니다. `policy="metadata"`는 Rhino 메타데이터 편집 지침과 객체 키 사전을 함께 반환합니다. `connect_02-session` tool 또는 `connect_03-start_session` tool으로 선택한 연결이 모델 호출에 적용됩니다. `script_03-get_execution` tool에 `request_id`를 지정하면 원래 실행 연결의 결과를 회수합니다.
 - 외부 실행의 첫 완료 대기는 `min(요청 timeout, 60초)`입니다. 작업이 계속되면 `pending`과 실제 실행 `request_id`를 반환하고 같은 ID로 완료를 조회합니다. 외부 클라이언트 600초 제한은 이 최초 대기와 별개입니다. 대기 종료·취소·오류는 실행 중단이나 문서 rollback의 증거가 아니므로 결과가 불확실한 수정을 자동 재실행하지 않습니다. Terminal 등 경로별 계약은 [RhinoCode 실행 계약](src/mcp/runtime/RHINOCODE-SPEC.md)과 [외부 연결기 SPEC](src/cos/SPEC.md)을 따릅니다.
 
 ## 선언 갱신 절차
@@ -1801,7 +1801,7 @@ declare const tools: {
 ```txt
 Almond 작업의 기본 지침과 활동별 지침을 조회합니다. policy를 생략하면 기본 지침, 공통 도구 이름과 available_policies를 반환하며, 작업에 필요한 지침을 policy로 선택해 읽습니다.
 
-basic 또는 빈 값은 기본 지침과 공통 도구 이름을 반환합니다. metadata는 객체·그룹 메타데이터 규칙, rhino_scripting은 내장 Rhino 스크립팅 참고자료, rhinocode는 코드·명령 실행 지침입니다. spatial_modeling, observation, drawing, design_exploration, feedback_reporting은 각 활동의 판단 기준입니다. 여러 활동이 있으면 필요한 지침을 각각 조회합니다.
+basic 또는 빈 값은 기본 지침과 공통 도구 이름을 반환합니다. metadata는 User Text·UserDictionary를 편집하기 전 확인하는 지침(text)과 객체 키 사전(policy)을 함께 반환합니다. rhino_scripting은 내장 Rhino 스크립팅 참고자료, rhinocode는 코드·명령 실행 지침입니다. spatial_modeling, observation, drawing, feedback_reporting은 각 활동의 판단 기준입니다.
 
 선택에 따라 본문은 text, policy 또는 scripting_skill에 담깁니다. source_refs에서 출처와 해시를 확인하고 같은 guide_version에서 이미 읽은 지침은 재사용할 수 있습니다. 개별 도구의 호출법은 해당 도구의 공개 설명과 스키마를 확인합니다.
 ```

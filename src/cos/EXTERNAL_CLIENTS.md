@@ -28,7 +28,7 @@ Set-Location C:\TOOL\Rhino\mcp\almond-mcp
 Codex 직접 연결의 MCP 서버 이름은 `beyond`, CoS 경유 연결은 `CoS`다.
 CoS 앱 등록용 `cos-plugin.json`의 표시 이름도 `CoS`다. 두 경로는 `AlmondRhino` 플러그인을 사용한다.
 Codex의 기존 등록 키 `rhino`와 클라이언트가 붙이는 namespace는 별도로 유지한다.
-공통 소개는 `SERVER-DESCRIPTION.md`에서 수정하며, `{server_name}`을 각 경로의 이름으로 치환해 초기화 응답의 서버 설명과 첫 안내에 전달한다.
+공통 소개는 `external_host.py`의 서버 설명에서 수정하며, `{server_name}`을 각 경로의 이름으로 치환해 초기화 응답의 서버 설명과 첫 안내에 전달한다.
 
 설정 후 **실제로 사용할 Codex 대화에서 등록된 `rhino` MCP의 `connect_01-list_up` tool를 직접 호출**해 확인한다. 터미널에서 별도 MCP 클라이언트를 실행한 결과는 서버 검사일 뿐, 그 대화에 도구가 전달된 증거가 아니다. 도구를 상속하지 않는 위임 실행 환경은 일반 로컬 Codex 대화와 구분한다. 도구가 없을 때 CoS 터널 호출로 대신 성공 처리하지 않는다.
 
@@ -83,7 +83,7 @@ Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고 연결 가능�
 
 ## 공통 도구를 수정했을 때
 
-이 파일은 설치·사용·개발 참고 문서이며 MCP의 server description이나 tool description에 주입되지 않는다. `SERVER-DESCRIPTION.md`는 서버 역할로 노출되고, `*-explain.md`의 도구 역할 본문은 description, `Args` 항목은 각 inputSchema 필드의 description으로 분리된다. outputSchema는 `output_contracts.py`, 실행 결과의 후속 안내는 `tool_guidance.py`와 각 실행기의 상태별 응답에서 제공한다.
+이 파일은 설치·사용·개발 참고 문서이며 MCP의 server description이나 tool description에 주입되지 않는다. `external_host.py`의 서버 설명은 서버 역할로 노출되고, 구현 docstring의 도구 역할 본문은 description, `Args` 항목은 각 inputSchema 필드의 description으로 분리된다. outputSchema는 `output_contracts.py`, 실행 결과의 후속 안내는 `tool_guidance.py`와 각 실행기의 상태별 응답에서 제공한다.
 
 외부 연결기의 `Broker`는 `connect_02-session` tool이나 `connect_03-start_session` tool에서 선택한 연결을 기억하고, 일반 호출·연결 해제·새 종료 요청에 접수 시점의 연결을 사용한다. 해제 후에는 다음 문서를 직접 선택한다. `script_03-get_execution` tool에 실행 `request_id`를 입력하면 원래 실행 연결을 찾으며, 연결이 끝난 뒤에도 해당 실행 파일이 남아 있으면 결과를 읽는다.
 

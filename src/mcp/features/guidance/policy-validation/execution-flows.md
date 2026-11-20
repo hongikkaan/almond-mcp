@@ -12,7 +12,7 @@
 | 작업·근거 | `plan_10-set_working` tool에 `plan_id`와 해당 `step_id`를 준다. `plan_12-update` tool의 `request.target="step"`에 `plan_id/step_id/loop_no`와 필요한 `input_refs/output_refs` 패치, 선택적 `status/expected_revision`을 준다. | 선택 응답의 `artifact_dir`와 `loop_no/revision`을 사용한다. 저장된 Plan 캡처의 `image_file.path`는 `output_refs.add`에 기록하라는 안내가 있다. 기록 응답의 `changed/issues`와 반환 상태를 확인한다. `partial_success`는 건너뛴 항목이 있을 수 있고 revision 충돌 안내는 현재 Plan 재조회로 잇는다. | 저장 실패나 revision 충돌은 작업 기록의 문제다. 당시 모델 근거를 보존하고 기록 대상·회차를 재확인한다. Rhino 편집을 반복할 이유는 없다. |
 | 보고·완료 | Loop 안내에 따라 목표, 변경, 시각 자료, 검증 범위, 남은 선택을 보고한다. 필요할 때 `plan_12-update` tool의 `request.target="plan"`으로 업무 상태를 기록한다. | `status=completed`는 사용자의 완료 결정 뒤에 사용한다는 입력 안내가 있다. 도구 실행 결과와 Plan 업무 상태는 서로 다른 출력이다. | FR3로 검토 결과와 실제 수정·검증 범위를 보여 준다. FR2는 최종 보고마다 승인 질문을 추가하지 않는다. |
 
-[기본 정책](../../../BASIC-INSTRUCTIONS.md), [Planning 도구](../../planning/tools-explain.md), [Plan 입력 계약](../../planning/requests.py), [Plan 출력](../../planning/output.py), [revision 충돌](../../planning/store-explain.md), [Loop 구현](../../planning/looping.py), [작업 공간](../../../runtime/workspace.py), [후속 안내 선택](../../../tool_guidance.py).
+[기본 정책](../../../BASIC-INSTRUCTIONS.md), [Planning 도구](../../planning/tools.py), [Plan 입력 계약](../../planning/requests.py), [Plan 출력](../../planning/output.py), [revision 충돌](../../planning/store.py), [Loop 구현](../../planning/looping.py), [작업 공간](../../../runtime/workspace.py), [후속 안내 선택](../../../tool_guidance.py).
 
 ## construction_detail:
 
@@ -77,4 +77,4 @@
 - 세 시나리오의 캡처는 검토 증거다. 도면 작성·갱신·Layout 전달을 별도로 가정하지 않았으므로 DR1–DR3를 필수 경로에 추가하지 않았다.
 - 판정 기준이나 실제 관측이 끝내 부족한 경우 결과를 미확인으로 남긴다. 연구 라이브러리의 경험칙은 프로젝트별 시공·공학 검증을 대체하지 않는다. 도구 가용성, Rhino의 실제 상태, 사용자 회신과 실제 실행 결과는 이 검토에서 확인하지 않았다.
 
-[SM 정책](../policies/spatial_modeling.md), [OB 정책](../policies/observation.md), [DR 정책](../policies/drawing.md), [DE 정책](../policies/design_exploration.md), [FR 정책](../policies/feedback_reporting.md), [객체·캡처 도구](../../context/tools-explain.md), [관측 계약](../../../rhino/OBSERVATION-SPEC.md), [타일 가시성 제한](../../context/native/InspectionCapture.cs#L137), [구법 도구](../tools-explain.md), [모델링 도구](../../modeling/tools-explain.md), [겹침 도구](../../components/tools-explain.md), [출력 필드 계약](../../../output_contracts.py), [공개 도구 스키마](../../../../../tests/integration/tool_schemas.json).
+[SM 정책](../policies/spatial_modeling.md), [OB 정책](../policies/observation.md), [DR 정책](../policies/drawing.md), [DE 정책](../policies/design_exploration.md), [FR 정책](../policies/feedback_reporting.md), [객체·캡처 도구](../../context/tools.py), [관측 계약](../../../rhino/OBSERVATION-SPEC.md), [타일 가시성 제한](../../context/native/InspectionCapture.cs#L137), [구법 도구](../tools.py), [모델링 도구](../../modeling/tools.py), [겹침 도구](../../components/tools.py), [출력 필드 계약](../../../output_contracts.py), [공개 도구 스키마](../../../../../tests/integration/tool_schemas.json).

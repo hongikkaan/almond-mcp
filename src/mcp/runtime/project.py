@@ -4,7 +4,6 @@ DB and tmp belong to the model directory. A fresh token owns connection metadata
 neither a port nor a model name is a storage namespace for user data.
 """
 from __future__ import annotations
-from almond_mcp.instruction_text import read_instruction
 
 import argparse
 import asyncio
@@ -17,6 +16,9 @@ from pathlib import Path
 import re
 import sys
 import uuid
+
+
+INVALID_ATTACHMENT_MESSAGE = 'Use a local drive, not a network share, for the model and its SQLite DB.'
 
 SLOTS = "ABCDEFGHIJ"
 STORAGE_PROTOCOL = 2
@@ -47,7 +49,7 @@ def project_paths(model: str | Path, *, create: bool = False, recovery: bool = F
             raise ValueError("Execution recovery requires the original absolute model path.")
         if sys.platform == "win32" and (str(candidate).startswith("\\\\")
                 or ctypes.windll.kernel32.GetDriveTypeW(str(candidate.anchor)) == 4):
-            raise ValueError(read_instruction(__file__, 'response-111'))
+            raise ValueError(INVALID_ATTACHMENT_MESSAGE)
         for part in (candidate, *candidate.parents):
             if part.is_symlink() or (hasattr(part, "is_junction") and part.is_junction()):
                 raise ValueError("Execution recovery paths must not contain filesystem links.")
@@ -62,7 +64,7 @@ def project_paths(model: str | Path, *, create: bool = False, recovery: bool = F
     if sys.platform == "win32":
         drive_type = ctypes.windll.kernel32.GetDriveTypeW(str(path.anchor))
         if str(path).startswith("\\\\") or drive_type == 4:
-            raise ValueError(read_instruction(__file__, 'response-111'))
+            raise ValueError(INVALID_ATTACHMENT_MESSAGE)
     storage = path.parent / ".almond"
     for folder in (storage.parent, storage, storage / "tmp"):
         if folder.is_symlink() or (hasattr(folder, "is_junction") and folder.is_junction()):
@@ -239,16 +241,16 @@ def process_start_ticks(pid: int) -> str:
 
 def verify_process(binding: dict) -> None:
     if process_start_ticks(int(binding["pid"])) != str(binding["process_start_ticks"]):
-        raise RuntimeError(read_instruction(__file__, 'response-107'))
+        raise RuntimeError('The bound Rhino process ended or its PID was reused. Reconnect.')
 
 
 def read_binding(path: str | Path, token: str) -> tuple[dict, dict]:
     path = Path(path).resolve(strict=True)
     binding = read_json(path)
     if binding.get("token") != token or binding.get("schema") != "almond-project":
-        raise RuntimeError(read_instruction(__file__, 'response-108'))
+        raise RuntimeError('Connection binding changed. Close this Codex and restart the slot.')
     if binding.get('valid') is False:
-        raise RuntimeError(read_instruction(__file__, 'response-109'))
+        raise RuntimeError('Rhino document connection ended or changed. Exit Codex and reconnect with almond.')
     slot = binding.get("label")
     if not isinstance(slot, str) or len(slot) != 1 or slot not in SLOTS or binding.get("port") != 5501 + SLOTS.index(slot):
         raise RuntimeError("Invalid slot/port binding.")
@@ -266,7 +268,7 @@ def read_binding(path: str | Path, token: str) -> tuple[dict, dict]:
         # explicitly reject it before opening the DB; it is not a shared session.
         paths = project_paths(binding["model_path"])
         if path != Path(paths["storage"]) / "ready.json":
-            raise RuntimeError(read_instruction(__file__, 'response-120'))
+            raise RuntimeError('Model and .almond folder do not match. Restart the connection.')
     return binding, paths
 
 

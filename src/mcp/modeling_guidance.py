@@ -12,11 +12,12 @@ BASIC_GUIDE = PACKAGE / "BASIC-INSTRUCTIONS.md"
 STARTUP_DOCUMENTS = (BASIC_GUIDE, PACKAGE / "design_judgment.md", PACKAGE / "About Rhino.md")
 SCRIPTING_SKILL = PACKAGE / "features/modeling/rhino3d-scripts"
 METADATA_POLICY = PACKAGE / "modeling_policy.json"
+METADATA_GUIDE = PACKAGE / "features/guidance/policies/metadata.md"
 RHINOCODE_POLICY = PACKAGE / "RHINOCODE-INSTRUCTIONS.md"
 ACTIVITY_POLICY_DIR = PACKAGE / "features/guidance/policies"
 POLICIES = {
     "basic": ("건축 설계·모델링·도면 검증 지침과 공통 도구 목록", BASIC_GUIDE),
-    "metadata": ("객체·그룹 메타데이터 키, 레이어·재료 기록 규칙", METADATA_POLICY),
+    "metadata": ("Rhino 객체 User Text 키 사전과 객체·문서 메타데이터 편집 지침", METADATA_GUIDE),
     "rhino_scripting": ("Rhino 스크립트 작성과 API 참고 자료", None),
     "rhinocode": ("RhinoCode 코드·Rhino 커맨드 실행과 결과 확인", RHINOCODE_POLICY),
     "spatial_modeling": ("설계 의도에 맞춘 공간·구축 모델링과 수정 후 확인", ACTIVITY_POLICY_DIR / "Construction_Detail.md"),
@@ -73,7 +74,7 @@ def _tool_sources() -> tuple[Path, ...]:
 def _source_files(tool_sources: tuple[Path, ...]) -> list[Path]:
     # Tool sources provide names only. Descriptions are delivered by tools/list.
     policy_files = [path for _, path in POLICIES.values() if path is not None]
-    return sorted({*policy_files, *STARTUP_DOCUMENTS, *tool_sources,
+    return sorted({*policy_files, METADATA_POLICY, *STARTUP_DOCUMENTS, *tool_sources,
                    *(p for p in SCRIPTING_SKILL.rglob("*") if p.is_file())})
 
 
@@ -106,7 +107,8 @@ def _snapshot() -> dict:
     }
     if "basic" in payloads:
         payloads["basic"]["tools"] = sorted(declaration.name for declaration in tools)
-    payloads["metadata"] = {"policy": json.loads(raw[METADATA_POLICY]), "source_refs": [reference(METADATA_POLICY)]}
+    payloads["metadata"]["policy"] = json.loads(raw[METADATA_POLICY])
+    payloads["metadata"]["source_refs"].insert(0, reference(METADATA_POLICY))
     payloads["rhino_scripting"] = {"scripting_skill": scripting_skill,
                                    "source_refs": [reference(p) for p in skill_files]}
     startup_sections = {}

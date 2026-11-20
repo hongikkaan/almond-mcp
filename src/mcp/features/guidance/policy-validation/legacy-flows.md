@@ -6,13 +6,13 @@ Plan·도구 기준은 `codex/almond-global-policy` 작업의 시작점 `73fb972
 
 - [`planning/store.py:434–475`](../../../features/planning/store.py#L434)의 5개 템플릿은 총 32 Step이다. 아래 표의 각 행은 바로 앞 행을 선행 Step으로 지정한다. `planning_scopes.template_scope`에 따라 선택된 템플릿을 읽으므로 같은 이름의 기존 사용자 매핑·기존 Plan의 실제 순서는 `plan_05-get` tool의 `request.include_details=true` 또는 `plan_08-list` tool의 `request.target="step"`으로 확인한다.
 - [`planning/requests.py:24–35`](../../../features/planning/requests.py#L24)의 `plan_02-create` tool은 `request.target="plan"`, `title`, `goal`, `scope`를 받고 `scope`를 생략하면 `house`다. Phase·Scene·Holon 등록은 맥락과 대상의 근거다. `inspect_05-resolve_targets` tool 응답의 등록 대상은 `holon_ids`로 반환된다. [`planning/store.py:754–780`](../../../features/planning/store.py#L754)의 `inspect_05-resolve_targets` tool은 Plan Holon 대상만 해석하고 선택적 `step_id`는 소속 확인에 쓴다. 반환된 `live_verified=false`와 Scene 문맥만으로 실제 변경 대상을 확정할 수 없다.
-- [`runtime/workspace.py:99–117`](../../../runtime/workspace.py#L99)의 `plan_03-execute_looping` tool은 `plan_id, resume, feedback, artifact_name`을 받아 현재 Plan·Loop·revision·Step 기록·이전 Loop·산출물 경로를 반환한다. `next_step_id`는 순서상 처음으로 `completed`가 아닌 Step을 가리킨다. `failed`, `blocked`, `paused`도 포함한다. `resume=true`는 최신 Loop와 상태를 유지한다. 새 Loop는 이전 이력을 보존하며 같은 Step UUID의 상태·입출력을 초기화한다. 기본 순서, 기존 결과 확인 후 재사용, 현재 Loop 경로 사용, 사용자 Plan 완료는 [`runtime/workspace-explain.md`](../../../runtime/workspace-explain.md#L3)의 `policy_reminder`가 이미 다룬다.
+- [`runtime/workspace.py:99–117`](../../../runtime/workspace.py#L99)의 `plan_03-execute_looping` tool은 `plan_id, resume, feedback, artifact_name`을 받아 현재 Plan·Loop·revision·Step 기록·이전 Loop·산출물 경로를 반환한다. `next_step_id`는 순서상 처음으로 `completed`가 아닌 Step을 가리킨다. `failed`, `blocked`, `paused`도 포함한다. `resume=true`는 최신 Loop와 상태를 유지한다. 새 Loop는 이전 이력을 보존하며 같은 Step UUID의 상태·입출력을 초기화한다. 기본 순서, 기존 결과 확인 후 재사용, 현재 Loop 경로 사용, 사용자 Plan 완료는 [`runtime/workspace-explain.md`](../../../runtime/workspace.py)의 `policy_reminder`가 이미 다룬다.
 - [`tool_guidance.py:6–53, 71–146`](../../../tool_guidance.py#L6)의 실제 가이드는 Loop·작업 선택 응답으로부터 `plan_10-set_working` tool, 재사용 근거 `input_refs.add`, 새 근거 `output_refs.add`, 같은 `loop_no`, 선택적 `expected_revision`을 이어 준다. [`planning/output.py:30–66`](../../../features/planning/output.py#L30)의 `plan_12-update` tool 응답은 적용 여부·부분 실패·새 revision·Step 상태다. [`planning/store.py:710–750`](../../../features/planning/store.py#L710)의 Step 갱신은 존재·현재 Loop·revision·값을 검사하지만 선행 의존 근거나 사용자 승인 여부를 검사하지 않는다. [`planning/requests.py`](../../../features/planning/requests.py)의 Plan 완료 입력에는 사용자 결정이 명시되어 있다. 선택, 저장 성공, 업무의 수행, 기술적 검수, 사용자의 Plan 완료 결정은 각각 따로 판단한다.
-- [`BASIC-INSTRUCTIONS.md`](../../../BASIC-INSTRUCTIONS.md)의 모델링·Drafting은 현황·주변·사용·구축 관찰, 화면과 형상·치수 대조, 영향 범위 검수, 사실·해석·미확인 분리를 이미 요구한다. 아래 도구는 각 Step에 실제로 사용할 수 있는 선택지를 매핑했다. 근거 검토는 `reason` Step의 도구 호출 자체가 목표가 아니며, 다른 종류의 Step도 요청과 선행 결과에 따라 적합한 도구를 선택한다. 초기 연결, 정책·프로젝트 조회로 필요한 맥락을 확보한 후 목적에 맞는 Plan의 실제 Step 순서를 따라 수행한다. 활동 정책 조회는 현재 Step에 필요한 판단 기준을 가져오며 현재 과업과 별개의 Plan 생성을 요구하지 않는다. `inspect_02-get_objects` tool로 저장 문서의 명시적 객체를 읽을 때는 `scope="document"`와 `object_ids`를 전달한다. `fields`에서 필요한 `id`, `bounds`, `geometry_crc`, `faces` 등을 선택한다. 캡처 가이드는 보관된 `image_file.path`가 있는 경우에만 그 경로를 기록으로 연결한다. 도구별 설명과 입력 안내는 각 구현 옆 `tools-explain.md`, 공개 입출력 스키마는 [`tool_schemas.json`](../../../../../tests/integration/tool_schemas.json), 출력 계약은 [`output_contracts.py`](../../../output_contracts.py)에서 확인한다. 가이드가 언급되지 않은 칸은 출력의 근거로 다음 판단을 연결했다.
+- [`BASIC-INSTRUCTIONS.md`](../../../BASIC-INSTRUCTIONS.md)의 모델링·Drafting은 현황·주변·사용·구축 관찰, 화면과 형상·치수 대조, 영향 범위 검수, 사실·해석·미확인 분리를 이미 요구한다. 아래 도구는 각 Step에 실제로 사용할 수 있는 선택지를 매핑했다. 근거 검토는 `reason` Step의 도구 호출 자체가 목표가 아니며, 다른 종류의 Step도 요청과 선행 결과에 따라 적합한 도구를 선택한다. 초기 연결, 정책·프로젝트 조회로 필요한 맥락을 확보한 후 목적에 맞는 Plan의 실제 Step 순서를 따라 수행한다. 활동 정책 조회는 현재 Step에 필요한 판단 기준을 가져오며 현재 과업과 별개의 Plan 생성을 요구하지 않는다. `inspect_02-get_objects` tool로 저장 문서의 명시적 객체를 읽을 때는 `scope="document"`와 `object_ids`를 전달한다. `fields`에서 필요한 `id`, `bounds`, `geometry_crc`, `faces` 등을 선택한다. 캡처 가이드는 보관된 `image_file.path`가 있는 경우에만 그 경로를 기록으로 연결한다. 도구별 설명과 입력 안내는 각 구현 함수의 docstring, 공개 입출력 스키마는 [`tool_schemas.json`](../../../../../tests/integration/tool_schemas.json), 출력 계약은 [`output_contracts.py`](../../../output_contracts.py)에서 확인한다. 가이드가 언급되지 않은 칸은 출력의 근거로 다음 판단을 연결했다.
 
 ## house:
 
-[템플릿 정의](../../../features/planning/store.py#L456) · [구법](../../../features/guidance/tools-explain.md) · [구조](../../../features/structure/tools-explain.md) · [Grasshopper](../../../features/grasshopper/tools-explain.md) · [자산](../../../features/assets/tools-explain.md) · [겹침·Holon](../../../features/components/tools-explain.md) · [피난](../../../features/egress/tools-explain.md)
+[템플릿 정의](../../../features/planning/store.py#L456) · [구법](../../../features/guidance/tools.py) · [구조](../../../features/structure/tools.py) · [Grasshopper](../../../features/grasshopper/tools.py) · [자산](../../../features/assets/tools.py) · [겹침·Holon](../../../features/components/tools.py) · [피난](../../../features/egress/tools.py)
 
 | 순서·Step | 필요한 입력과 활용할 도구 | 얻는 근거와 다음 판단 | 정책 |
 |---|---|---|---|
@@ -35,7 +35,7 @@ Plan·도구 기준은 `codex/almond-global-policy` 작업의 시작점 `73fb972
 
 ## interior:
 
-[템플릿 정의](../../../features/planning/store.py#L468) · [관찰과 뷰](../../../features/context/tools-explain.md) · [자산](../../../features/assets/tools-explain.md) · [겹침](../../../features/components/tools-explain.md)
+[템플릿 정의](../../../features/planning/store.py#L468) · [관찰과 뷰](../../../features/context/tools.py) · [자산](../../../features/assets/tools.py) · [겹침](../../../features/components/tools.py)
 
 | 순서·Step | 필요한 입력과 활용할 도구 | 얻는 근거와 다음 판단 | 정책 |
 |---|---|---|---|
@@ -54,7 +54,7 @@ Plan·도구 기준은 `codex/almond-global-policy` 작업의 시작점 `73fb972
 
 ## structure:
 
-[템플릿 정의](../../../features/planning/store.py#L434) · [검증 DESCRIPTION과 입력](../../../features/structure/tools-explain.md#L3) · [구조 검증 출력 계약](../../../output_contracts.py) · [실제 판정 정규화](../../../features/structure/tools.py#L446) · [구법 가이드](../../../features/guidance/tools-explain.md#L10)
+[템플릿 정의](../../../features/planning/store.py#L434) · [검증 DESCRIPTION과 입력](../../../features/structure/tools.py) · [구조 검증 출력 계약](../../../output_contracts.py) · [실제 판정 정규화](../../../features/structure/tools.py#L446) · [구법 가이드](../../../features/guidance/tools.py)
 
 | 순서·Step | 필요한 입력과 활용할 도구 | 얻는 근거와 다음 판단 | 정책 |
 |---|---|---|---|
@@ -74,7 +74,7 @@ Plan·도구 기준은 `codex/almond-global-policy` 작업의 시작점 `73fb972
 
 ## drawing:
 
-[템플릿 정의](../../../features/planning/store.py#L443) · [도면 스타일](../../../features/drawings/tools-explain.md) · [PlanSection](../../../features/modeling/tools-explain.md#L3) · [뷰·Layout](../../../features/context/tools-explain.md#L26) · [실제 결과 검증](../../../features/modeling/plan_section.py#L55)
+[템플릿 정의](../../../features/planning/store.py#L443) · [도면 스타일](../../../features/drawings/tools.py) · [PlanSection](../../../features/modeling/tools.py) · [뷰·Layout](../../../features/context/tools.py) · [실제 결과 검증](../../../features/modeling/plan_section.py#L55)
 
 | 순서·Step | 필요한 입력과 활용할 도구 | 얻는 근거와 다음 판단 | 정책 |
 |---|---|---|---|
@@ -92,7 +92,7 @@ Plan·도구 기준은 `codex/almond-global-policy` 작업의 시작점 `73fb972
 
 ## component:
 
-[템플릿 정의](../../../features/planning/store.py#L450) · [블록·편집 대상 관찰](../../../features/context/tools-explain.md#L14) · [모델링 도구](../../../features/modeling/tools-explain.md) · [Holon과 겹침](../../../features/components/tools-explain.md)
+[템플릿 정의](../../../features/planning/store.py#L450) · [블록·편집 대상 관찰](../../../features/context/tools.py) · [모델링 도구](../../../features/modeling/tools.py) · [Holon과 겹침](../../../features/components/tools.py)
 
 | 순서·Step | 필요한 입력과 활용할 도구 | 얻는 근거와 다음 판단 | 정책 |
 |---|---|---|---|

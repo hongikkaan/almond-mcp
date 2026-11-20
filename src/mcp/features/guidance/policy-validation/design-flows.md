@@ -31,7 +31,7 @@ BASIC은 사용자 요구대로 현재 과업의 Plan Step 순서를 적용한�
 | 8. `validate_relationships` (validate) | `capture_02-inspection` tool은 모델 관찰을, `capture_04-defined_view` tool의 `target_kind`, `target`은 실제 도면 이미지를 반환한다. `inspect_02-get_objects` tool로 필요한 수치 근거를 확인한다. 피난 사전 검토가 범위에 있으면 `analysis_01-check_egress` tool의 `plate_bounds_mm`, `exits`와 필요한 실측 입력 → `passed`, `checks`, `warnings`, `source_note` → 미달 시 측정 갱신 및 재검토 안내. | **OB1·OB2·OB3·DR3** 현재 안의 통행·지지·도면 표현은 각 주장에 맞는 근거로 확인한다. 피난 계산은 입력한 측정과 도구가 제시한 기준 범위에서 해석한다. |
 | 9. `cleanup_intermediate_artifacts` (validate) | `plan_05-get` tool의 현재·이전 상세에서 `artifact_refs` 및 Step refs를 확인한다. `plan_10-set_working` tool은 현재 `artifact_dir`과 기록 경로를 안내한다. 모델 임시 객체는 `inspect_02-get_objects` tool로 현재 ID와 관련 대상을 확인한다. 영구 저장 요청 시 `script_04-save_document` tool의 `saved`, `modified`를 확인한다. | **FR3·OB3** 현재 과업의 불필요한 항목을 식별하고 앞 회차 비교·결정·검증 근거를 보존한다. 정리가 전달물과 참조를 바꾸면 그 영향 범위를 다시 확인하고 사용자에게 결과를 연결한다. |
 
-[관측·충돌·형상 편집](../../../rhino/OBSERVATION-SPEC.md) · [모델링·도면 설명](../../modeling/tools-explain.md) · [실행 결과·저장 근거](../../../runtime/RHINOCODE-SPEC.md)
+[관측·충돌·형상 편집](../../../rhino/OBSERVATION-SPEC.md) · [모델링·도면 설명](../../modeling/tools.py) · [실행 결과·저장 근거](../../../runtime/RHINOCODE-SPEC.md)
 
 | 사용자 시나리오 | Given / When | 적용 전 부족했던 판단 → Then | 검토 결과 |
 | --- | --- | --- | --- |
@@ -48,7 +48,7 @@ BASIC은 사용자 요구대로 현재 과업의 Plan Step 순서를 적용한�
 | 3. `edit_plan` (execute) | 2D 원본 직접 편집에는 필요시 `script_02-run_rhino` tool의 `script`, `language` → `completed`, `request_id`, 결과 → 필요시 `script_03-get_execution` tool로 회수 안내. 파생 도면에는 `drawing_06-generate_plan_section` tool의 `operation="Update"`, `clipping_ids` → `drawing_status`와 결과. 부분 완료·취소에는 `result.results`에 남은 도면과 추출 조건을 확인한다. 스타일 작업이 범위에 있으면 `drawing_01-apply_style` tool의 `recipe_id` → 결과와 `review_preparation`이 있는 경우 출력 검토 안내. | **DR1·DR2·OB3** 맡긴 범위의 원본을 수정한다. 재생성 뒤 남은 보정의 의도와 실제 적용 상태를 확인하고 필요한 표현만 연동한다. |
 | 4. `validate_plan` (validate) | `capture_04-defined_view` tool로 같은 Layout·Named View를 다시 캡처하고 `inspect_02-get_objects` tool의 `fields`로 확인 가능한 객체 위치·경계·레이어를 대조한다. 치수값 자체가 필요하면 `script_02-run_rhino` tool에 읽기 전용 측정 `script`를 전달해 결과를 현재 객체에 연결한다. 저장을 맡긴 경우 `script_04-save_document` tool의 `saved`, `modified`를 읽는다. | **DR3·OB1·OB2·FR3** 바뀐 위치와 유지한 공간, 표기·축척·잘림·선 위계를 실제 전달 형식에서 점검한다. PNG가 보여 주지 못한 인쇄 속성과 저장 여부는 각각의 확인 범위로 남긴다. |
 
-[도면 생성·회수 설명](../../modeling/tools-explain.md) · [도면 스타일 설명](../../drawings/tools-explain.md) · [Layout 캡처 관찰 범위](../../../rhino/OBSERVATION-SPEC.md#화면-캡처)
+[도면 생성·회수 설명](../../modeling/tools.py) · [도면 스타일 설명](../../drawings/tools.py) · [Layout 캡처 관찰 범위](../../../rhino/OBSERVATION-SPEC.md#화면-캡처)
 
 | 사용자 시나리오 | Given / When | 적용 전 부족했던 판단 → Then | 검토 결과 |
 | --- | --- | --- | --- |
@@ -65,7 +65,7 @@ BASIC은 사용자 요구대로 현재 과업의 Plan Step 순서를 적용한�
 | 3. `interpret_spatial_context` (reason) | 역할·행태를 근거로 해석한다. 요청에 등록이 포함된 경우 `scene_02-create` tool의 `name`, `units`, 선택적으로 등록된 `file_name` → `scene.scene_id` → 구성원 추가 경로 안내. `scene_13-upsert_holon` tool의 `name`, `scene_ids`, 필요한 `object_ids`·`rhino_group_id`·`child_holon_ids` → Holon 등록 결과 → live Holon 확인 안내. `scene_01-add_objects` tool의 `scene_id`, `object_ids` → `failed_indices`, `already_present_indices` → 현재 Scene 멤버십 조회 안내. | **SM1·DE1·DE2·FR2** 포함·제외가 장면의 역할과 연속을 설명하는지 검토한다. 맡긴 의미 등록은 실행 후 live 결과를 대조한다. 탐색에서 나온 후보는 사용자 요청의 범위대로 제안으로 전달한다. 형상 편집은 그 행위가 맡긴 범위에 있는지 따로 판단한다. |
 | 4. `report_findings` (reason) | `capture_02-inspection` tool의 `views` → 작업 화면을 유지한 이미지와 범위. 실제 격리가 필요한 경우 `capture_03-current_view` tool의 `target_ids`, `target_kind`, `isolate=true` → 이미지 결과와 별도의 `view_change`·`mutation_applied` → 보관할 Plan 이미지의 Step 기록 안내. `plan_12-update` tool로 관찰과 판단 근거를 남긴다. | **FR1·FR3·OB1·OB2** 포함·제외 이유와 전체·집중 이미지를 연결하고, 의미 해석과 확인한 멤버십, 아직 검증하지 못한 공간 관계를 밝힌다. 실제 격리는 관측 계약에 따라 복원하고 그 상태를 확인한다. |
 
-[Scene 도구 설명](../../scenes/tools-explain.md) · [현재 Scene 구성원 구현](../../scenes/store.py#L146) · [Holon 설명](../../components/tools-explain.md) · [관찰과 의미 등록 계약](../../components/SPEC.md) · [격리·이미지 상태 계약](../../../rhino/OBSERVATION-SPEC.md#화면-캡처)
+[Scene 도구 설명](../../scenes/tools.py) · [현재 Scene 구성원 구현](../../scenes/store.py#L146) · [Holon 설명](../../components/tools.py) · [관찰과 의미 등록 계약](../../components/SPEC.md) · [격리·이미지 상태 계약](../../../rhino/OBSERVATION-SPEC.md#화면-캡처)
 
 | 사용자 시나리오 | Given / When | 적용 전 부족했던 판단 → Then | 검토 결과 |
 | --- | --- | --- | --- |

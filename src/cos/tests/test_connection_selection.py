@@ -36,7 +36,7 @@ def broker_for(tmp_path):
 
 
 def test_connection_id_is_output_only_and_selection_is_advertised(tmp_path):
-    tools, _ = exposed_tools(CATALOG)
+    tools = exposed_tools(CATALOG)
     for tool in tools:
         assert "connection_id" not in tool.input_schema["properties"]
     broker = broker_for(tmp_path)
@@ -294,7 +294,7 @@ def test_disconnect_returns_save_exit_guidance_for_the_released_target(tmp_path)
         response = await broker.call('connect_04-disconnect', {})
         assert not response.is_error
         result = response.structured_content
-        output = next(t.output_schema for t in exposed_tools(CATALOG)[0] if t.name == 'connect_04-disconnect')
+        output = next(t.output_schema for t in exposed_tools(CATALOG) if t.name == 'connect_04-disconnect')
         validate(result, output)
         assert result['pid'] == 321 and result['model_path'] == 'C:\\models\\a.3dm'
         assert result['released'] is True and result['rhino_closed'] is False

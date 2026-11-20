@@ -1,5 +1,4 @@
 """Curated construction systems and architectural typology libraries."""
-from almond_mcp.instruction_text import read_instruction
 
 import json
 import sys
@@ -129,7 +128,11 @@ class ConstructionLibrary:
                 f"{s['system_id']} ({s['span_range_m'][0]}-{s['span_range_m'][1]} m)"
                 for s in candidates if s["span_range_m"][1] > 0)
             check["warnings"].append(
-                read_instruction(__file__, 'response-731').format(span_m, wanted_material, structure_type, spans))
+                (
+                    "Span {0:g} m is outside the typical range of every curated {1} system for '{2}': {3}. The structure "
+                    'may still solve numerically, but as drawn it does not correspond to a standard construction system '
+                    '- consider a different system, material, or intermediate supports.'
+                ).format(span_m, wanted_material, structure_type, spans))
         return check
 
 

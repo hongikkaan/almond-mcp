@@ -1,6 +1,5 @@
 """Component ledger rules mixed into the shared AlmondStore connection lifecycle."""
 from __future__ import annotations
-from almond_mcp.instruction_text import read_instruction
 
 import math
 import hashlib
@@ -175,7 +174,7 @@ class ComponentsStore:
             if not json.loads(row["scene_ids_json"]):
                 raise ValueError("Child Component has no Scene registration.")
             if row["parent_component_id"] not in (None, component_id):
-                raise ValueError(read_instruction(__file__, 'response-514'))
+                raise ValueError('Child already belongs to another parent; detach it before reparenting.')
             if component_id in cls._component_descendant_ids(connection, child_id):
                 raise ValueError("Component hierarchy cannot contain cycles.")
         return sorted(children)
@@ -649,11 +648,14 @@ class ComponentsStore:
             "SELECT parent_component_id FROM _component_records WHERE component_id = ?", (component_id,)
         ).fetchone()
         if node and node["parent_component_id"] is not None:
-            raise ValueError(read_instruction(__file__, 'response-491'))
+            raise ValueError('Detach this Component from its parent before unregistering.')
         if connection.execute(
             "SELECT 1 FROM _plan_component_refs WHERE component_id = ? LIMIT 1",
             (component_id,),
         ).fetchone():
             raise ValueError(
-                read_instruction(__file__, 'response-492')
+                (
+                    'Component is referenced by a generation plan or step; remove those references explicitly before '
+                    'unregistering.'
+                )
             )

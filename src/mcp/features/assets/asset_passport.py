@@ -1,6 +1,5 @@
 """Portable asset meaning and explainable, offline selection. No Rhino needed."""
 from __future__ import annotations
-from almond_mcp.instruction_text import read_instruction
 
 import hashlib
 import json
@@ -69,7 +68,10 @@ def build_passport(asset: dict, contract: dict) -> dict:
             "contract_axes": "X width, Y depth, Z up",
             "glb_axes": "X width, Y up, Z depth",
             "glb_numeric_units": "mm", "contract_units": "mm",
-            "note": read_instruction(__file__, 'response-16'),
+            "note": (
+                'Legacy Almond GLBs use numeric millimetres; generic glTF readers assume metres. Apply 0.001 outside '
+                'the Almond import workflow.'
+            ),
         },
         spatial=asset["spatial"], materials=contract["materials"],
         provenance=asset["geometry_source"],
@@ -285,4 +287,4 @@ def recommend(assets: list[dict], query: str = "", category: str = "",
     ranked.sort(key=lambda a: (-a["score"], a["asset_id"]))
     return {"status": "success", "total_matches": len(ranked), "assets": ranked[:limit],
             "ranking": "exact token overlap; explicit category, room, polygon and envelope filters",
-            "next_step_guide": read_instruction(__file__, 'response-6')}
+            "next_step_guide": 'Inspect passport/preview, then place_asset; inspect the resulting Rhino placement.'}

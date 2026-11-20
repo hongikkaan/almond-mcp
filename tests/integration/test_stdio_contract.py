@@ -9,7 +9,8 @@ import sys
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from almond_mcp import paths
-from almond_mcp.instruction_text import read_tool_instruction
+import ast
+from almond_mcp.tool_declarations import declaration_sources, inspect_declarations
 from almond_mcp.modeling_guidance import BASIC_GUIDE, read_policy, startup_instructions
 from jsonschema import Draft202012Validator
 
@@ -49,17 +50,17 @@ def assert_information_placement(tools):
         loop = tools["plan_03-execute_looping"]
         assert "회차가 끝나면" not in loop["description"]
         assert "새 회차" in loop["inputSchema"]["properties"]["resume"]["description"]
-    # The reviewed document owns wording; Drawing renumbering remains separate.
-    aliases = {"drawing_01-list_recipes": "drawing_05-list_recipes",
-               "drawing_03-apply_style": "drawing_01-apply_style",
-               }
+    assert {"inspect_02-get_objects", "capture_03-current_view", "intersect_02-resolve",
+            "model_05-setup", "drawing_06-generate_plan_section", "script_02-run_rhino"} <= tools.keys()
     document = (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8")
+    documented = {}
     for section in re.split(r"(?m)^### ", document)[1:]:
         name = section.splitlines()[0].split(". ", 1)[1].replace("\\_", "_")
-        name = aliases.get(name, name)
-        if name in tools:
-            description = re.search(r"```txt\n(.*?)\n```", section, re.S).group(1)
-            assert tools[name]["description"] == description, name
+        documented[name] = re.search(r"```txt\n(.*?)\n```", section, re.S).group(1)
+    if "connect_01-list_up" in tools:
+        assert documented.keys() == tools.keys()
+    for name, tool in tools.items():
+        assert documented[name] == tool["description"], name
     for tool_name, field_name, reference in (
         ("drawing_01-apply_style", "recipe_id", "drawing_05-list_recipes"),
         ("drawing_01-apply_style", "recipe_id", "drawing_02-get_recipe"),
@@ -268,16 +269,17 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
     assert all(schema_identity(worker[n]) == schema_identity(expected[n]) for n in worker)
     assert all(worker[n]["description"] == expected[n]["description"] for n in worker)
     assert worker["plan_05-get"]["title"] == expected["plan_05-get"]["title"] == "Plan 05 Get"
-    exposed, mapping = exposed_tools(catalog)
+    exposed = exposed_tools(catalog)
     external = {tool.name: tool.model_dump(mode="json", by_alias=True, exclude_none=True) for tool in exposed}
-    policy_instruction = read_tool_instruction(str(ROOT / "src/mcp/features/guidance/tools.py"), "get_policy")
+    policy_declaration = next(item for item in inspect_declarations(declaration_sources())
+                              if item.name == "context_01-get_policy")
+    policy_instruction = ast.get_docstring(policy_declaration.node)
     role, arguments = policy_instruction.split("\n\nArgs:\n", 1)
     policy_tool = external["context_01-get_policy"]
     assert policy_tool["description"] == role
     assert set(policy_tool["inputSchema"]["properties"]) == {"policy"}
     assert policy_tool["inputSchema"]["properties"]["policy"]["description"] == arguments.strip().removeprefix("policy: ")
     for name in worker:
-        assert mapping[name] == name
         assert external[name]["description"] == worker[name]["description"]
         assert external[name]["inputSchema"] == worker[name]["inputSchema"]
 
@@ -285,7 +287,7 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
 def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
     from runtime import load_catalog
     from external_host import exposed_tools
-    expected_tools, _ = exposed_tools(load_catalog())
+    expected_tools = exposed_tools(load_catalog())
     expected = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True) for t in expected_tools}
 
     async def inspect(client_name):
@@ -299,7 +301,7 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
                 tools = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True)
                          for t in (await client.list_tools()).tools}
                 assert_information_placement(tools)
-                assert initialized.instructions  # External-host instructions are a separate contract.
+                assert startup_instructions() in initialized.instructions
                 for text in (initialized.instructions, initialized.server_info.description):
                     assert not any(name in text for name in ("host_id", "model_path", "connection_id", "request_id"))
                 assert tools == expected
@@ -336,7 +338,7 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
         return json_result({"status": "success"})
 
     async def route():
-        broker = SimpleNamespace(mapping={"drawing_06-generate_plan_section": "drawing_06-generate_plan_section"}, connections={"fixture": "bound"},
+        broker = SimpleNamespace(worker_tool_names={"drawing_06-generate_plan_section"}, connections={"fixture": "bound"},
                                  invoke=invoke, spawn=asyncio.create_task, selected_connection_id="fixture")
         response = await Broker.call(broker, "drawing_06-generate_plan_section", arguments)
         assert not response.is_error

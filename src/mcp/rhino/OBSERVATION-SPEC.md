@@ -60,7 +60,7 @@ labels는 기본 false이고 선택 시 최대 200개의 임시 pixel label을 �
 
 `inspect_02-get_objects` tool는 `object_observation>=4`로 확인한 고정 native 경로다. 내부 get_rhino_objects 요청 이름과 기존 내부 소비자는 유지한다.
 공개 scope는 current(기본)/document다. current는 화면 밖을 포함한 표시·비잠금 모델 객체이고 객체 및 상위 Layer 잠금을 제외한다. selected/inside_window는 current에서만 허용하며 서로 배타적이다. selected는 화면 밖의 선택을 포함하되 current의 표시·잠금 조건을 유지한다. inside_window는 활성 모델뷰 또는 Detail의 frustum과 world 경계 상자가 일부라도 교차하면 포함한다. 경계 상자 근사이며 픽셀 가림·클리핑 평면은 판정하지 않는다. document는 숨김·잠금 객체를 포함하고 object_ids로 좁힐 수 있다. 양 scope에서 group_ids로 원하는 그룹을 지정할 수 있으며 object_ids와 혼용하지 않는다. 이름은 식별자가 아니다.
-필터·페이지·기하 상세의 입력은 [도구 설명](../features/context/tools-explain.md)에 둔다.
+필터·페이지·기하 상세의 입력은 [도구 설명](../features/context/tools.py)에 둔다.
 result_mode=objects는 문서 객체, summary는 레이어·유형 수량, hierarchy는 그룹·블록 계층이다. recursive=true는 hierarchy를 선택하고 그룹·블록을 함께 펼친다. 기본 false, depth는 1–8(최상위=1)이며 number/parent_number가 페이지를 가로지르는 부모 관계를 보존한다. 필터는 top-level 객체에 먼저 적용한다. 그룹 계층은 엄격한 멤버 포함 관계로 판정하며 겹치는 그룹·동일 멤버 그룹을 임의의 단일 부모에 배치하지 않는다. member_count, observed_member_count, matched_member_count와 all_members_in_scope를 구분한다. 확인할 수 없는 전체 개수는 null이다.
 블록 내부는 root_object_id와 block_path_ids로 구분하고 document_object=false를 표시한다. bounds는 world 좌표, 나머지 metadata는 정의 객체 기준이며 effective occurrence visible/selected는 null이다. 문서 객체의 수정 ID와 혼동하지 않도록 hierarchy에서 geometry/face 상세 입력은 거절한다. 해당 상세는 objects 모드로 조회한다.
 children_state는 leaf/collapsed/expanded/depth_limit/cycle/unavailable을 구분한다. complete는 페이지와 확인한 관계의 완전성이며 모든 자손 조사 완료를 뜻하지 않는다. page_complete와 membership_complete를 구분한다. 후속 offset 페이지에는 첫 응답의 snapshot을 expected_snapshot으로 전달한다. 문서·형상·속성·그룹·Layer·블록 정의·편집기·선택·조회 조건 또는 inside_window 카메라가 바뀌면 observation_changed로 거절하고 처음부터 조회한다. 계층은 100000 occurrence 한도를 둔다.
@@ -112,7 +112,7 @@ GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 compon
 ## 중첩 블록 분석
 
 `inspect_01-analyze_nested_blocks tool(mode, options)`는 `outline`, `resolve-block` 두 모드만 제공한다.
-입력·옵션 의미는 `tools/list`의 해당 도구 설명 전문과 schema를 따른다. 설명 원본은 [context 도구 설명](../features/context/tools-explain.md)에 있다.
+입력·옵션 의미는 `tools/list`의 해당 도구 설명 전문과 schema를 따른다. 설명 원본은 [context 도구 설명](../features/context/tools.py)에 있다.
 runtime은 연결된 문서의 expected_model_path를 공급한다.
 경로가 현재 문서와 다르면 계산 전에 거절한다.
 

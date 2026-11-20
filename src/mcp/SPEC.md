@@ -7,7 +7,7 @@
 
 - `./`: Python package의 소스와 공개 도구·계산·라이브러리 API.
 - `runtime/`: CLI 시작·재연결, 모델 binding, A–J 슬롯, 공유 저장소와 native 완료 확인.
-- `BASIC-INSTRUCTIONS.md`, `*-explain.md`: 기본 작업 지침과 도구별 설명 원본. `features/guidance/guides/`는 연결된 참고자료, `release_validation/`은 배포 검증을 소유한다.
+- `BASIC-INSTRUCTIONS.md`, `*-explain.md`: 기본 작업 지침과 보조 스크립트 안내. `features/guidance/guides/`는 연결된 참고자료, `release_validation/`은 배포 검증을 소유한다.
 - `tests/`, `pytest.ini`, `run_tests.ps1`: 모듈 검사. COS import 없이 실행한다.
 - `rebuild_environment.ps1`: 일상 환경과 이미 존재하는 루트 환경을 함께 정합화한다. `-VerifyOnly`는 패키지를 변경하지 않고 검사하며, `-Development`는 개발 환경만 대상으로 한다. COS catalog는 수정하지 않는다.
 - `use_offline_environment.ps1`: 현재 셸과 자식에만 로컬 검사 경로를 설정한다.
@@ -78,7 +78,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 
 ### 공개 도구 위치
 
-package는 69개, 문서 전용 runtime은 7개를 더한 공통 76개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 81개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 명시적인 `mcp.tool(name=...)` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 도구 설명과 입력 안내는 각 구현 옆 `*-explain.md`, 출력 계약은 [output_contracts.py](output_contracts.py), 공통 공개 입출력 스키마는 [통합 검사 기준](../../tests/integration/tool_schemas.json)을 따른다.
+package는 69개, 문서 전용 runtime은 7개를 더한 공통 76개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 81개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 `public_tool` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 도구 설명과 입력 안내는 구현 함수의 docstring, 출력 계약은 [output_contracts.py](output_contracts.py), 공통 공개 입출력 스키마는 [통합 검사 기준](../../tests/integration/tool_schemas.json)을 따른다.
 
 | 기능 | 공개 도구 |
 |---|---|
@@ -144,7 +144,7 @@ GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper
 
 ## Scene·Component·계획
 
-공통 건축 판단 원칙은 [Rhino 모델링 지침](BASIC-INSTRUCTIONS.md), Scene·Holon의 의미와 등록 기준은 [Scene 도구 설명](features/scenes/tools-explain.md)과 [Holon 도구 설명](features/components/tools-explain.md)을 따른다. 구현 계약은 [Component 등록·계층·동기화](features/components/SPEC.md)와 [계획 저장·참조](#계획-저장참조)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](features/assets/SPEC.md#기존-glbscene-배치-장부)에 둔다.
+공통 건축 판단 원칙은 [Rhino 모델링 지침](BASIC-INSTRUCTIONS.md), Scene·Holon의 의미와 등록 기준은 [Scene 도구 설명](features/scenes/tools.py)과 [Holon 도구 설명](features/components/tools.py)을 따른다. 구현 계약은 [Component 등록·계층·동기화](features/components/SPEC.md)와 [계획 저장·참조](#계획-저장참조)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](features/assets/SPEC.md#기존-glbscene-배치-장부)에 둔다.
 
 `scene_07-list` tool는 Plan이나 live 문서 조회 없이 프로젝트 전체 Scene 이름의 제한된 페이지를 제공한다. Component 목록은 `scene_id`로 범위를 정하고 기본 root/선택적 recursive를 지원한다. `scene_11-sync_holon` tool는 기존 단건 호출과 함께 holon_ids·Scene·bound 문서 범위를 지원하며 대상 형식을 혼합하지 않는다.
 
@@ -193,13 +193,13 @@ Phase는 `generation_phase_files`에서 순서 있는 여러 등록 파일명을
 
 저장소 `asset/`, wheel `almond_mcp/data/`, AppData 라이브러리의 배치는 다르다. 명시적 `RHINO_MCP_*_DIR`이 우선하며 기존 사용자 파일·manifest 상대 경로·계약/모델 해시를 보존한다. 다운로드한 community model과 원시 생성 파일은 기본 패키지에 포함하지 않는다. 자산·도면 도구와 단위·출처 계약은 [자산 안내](features/assets/SPEC.md)를 따른다.
 
-## 지침 Markdown 원본
+## 도구 설명과 공통 지침
 
-MCP 도구·리소스의 공개 설명과 응답에 덧붙이는 행동 지침은 원래 Python 파일과 같은 폴더의 `<파일 stem>-explain.md`에 둔다. 예를 들어 `features/modeling/tools.py`는 `features/modeling/tools-explain.md`를 읽는다. 각 항목은 `instruction:` HTML 주석으로 경계를 표시하며, 본문과 동적 값의 공백을 보존한다. `instruction_text.py`가 지침을 읽고 등록 전에 함수 설명에 적용한다. 항목이 없거나 중복되면 명시적으로 실패한다.
+공개 도구와 리소스의 설명·입력 안내는 구현 함수의 docstring에 둔다. `public_tool` 등록은 공개 이름·출력 계약·후속 안내를 적용한다. 외부 카탈로그는 같은 선언의 서명과 docstring 및 등록 옵션으로 스키마를 생성한다.
 입력 검증 조건, 오류 상태·수치 결과, SQL과 실행할 C#/Blender 코드는 지침 원본이 아니다.
 기본 작업 지침은 `BASIC-INSTRUCTIONS.md`에 둔다.
 
-COS는 모델 서버를 import하지 않고 같은 Markdown에서 도구 설명을 추출한다.
+beyond와 CoS는 모델 서버를 import하지 않고 선언만 읽어 스키마를 추출한다.
 package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는 해당 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
 Python 지침만 변경했을 때 Rhino RHP 빌드·등록 변경은 필요하지 않다.
 
@@ -235,9 +235,9 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 plan_09-rename_ar
 
 ## 모델링 안내 전달
 
-`tools/list`에는 각 도구의 설명 전문과 입력·출력 schema를 제공한다. `*-explain.md`의 공개 instruction 본문을 함수 docstring으로 그대로 읽으며 첫 문장 추출이나 문장 축약을 하지 않는다. FastMCP의 표준 docstring 처리가 Args/Returns 등의 인수·반환 메타데이터를 schema에 반영하므로 본문과 메타데이터를 임의로 분리·삭제하지 않는다. 전체 BASIC 지침을 각 도구 설명에 자동 삽입하지 않는다.
+`tools/list`에는 각 도구의 설명 전문과 입력·출력 schema를 제공한다. 공개 등록 함수의 docstring을 사용하며 첫 문장 추출이나 문장 축약을 하지 않는다. FastMCP의 표준 docstring 처리가 Args/Returns 등의 인수·반환 메타데이터를 schema에 반영하므로 본문과 메타데이터를 임의로 분리·삭제하지 않는다. 전체 BASIC 지침을 각 도구 설명에 자동 삽입하지 않는다.
 
-`context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `BASIC-INSTRUCTIONS.md`, 공개 도구명과 `available_policies`를 반환한다. BASIC은 설계·관찰·검수에 공통으로 적용할 판단 기준과 개념을 담는다. 활동별 지침은 `features/guidance/policies/`에 두며 `spatial_modeling`, `observation`, `drawing`, `design_exploration`, `feedback_reporting`을 선택해 읽는다. `metadata`는 객체·그룹 메타데이터 규칙, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 개별 도구의 설명과 호출법은 `tools/list`에서 확인한다.
+`context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `BASIC-INSTRUCTIONS.md`, 공개 도구명과 `available_policies`를 반환한다. BASIC은 설계·관찰·검수에 공통으로 적용할 판단 기준과 개념을 담는다. 활동별 지침은 `features/guidance/policies/`에 두며 `spatial_modeling`, `observation`, `drawing`, `design_exploration`, `feedback_reporting`을 선택해 읽는다. `metadata`는 객체 키 사전과 메타데이터 편집 지침, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 개별 도구의 설명과 호출법은 `tools/list`에서 확인한다.
 
 RhinoTerminal과 별도 창의 문서 전용 세션, beyond 및 CoS의 외부 host는 initialize.instructions로 공통 시작 안내를 전달한다. 기본 지침 원본은 [BASIC-INSTRUCTIONS.md](BASIC-INSTRUCTIONS.md)이며 설계 판단 원본은 같은 폴더의 [design_judgment.md](design_judgment.md)다. 서버는 UTF-8 원본의 본문을 파일명과 함께 한 번씩 전달하며, 서버에서 본문을 잘라내지 않는다. 누락, 읽기 실패, 인코딩 오류 또는 빈 문서는 해당 파일명과 원인을 같은 응답에 표시한다. 배포된 유효한 본문은 계속 전달한다.
 

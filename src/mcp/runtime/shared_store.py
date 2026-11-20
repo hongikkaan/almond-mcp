@@ -4,7 +4,6 @@ The reviewed Rhino-only tools may run in parallel in different workers. Operatio
 initial indexing, hold one OS file lease through the connection close/checkpoint.
 """
 from __future__ import annotations
-from almond_mcp.instruction_text import read_instruction
 
 import asyncio
 from contextlib import closing, nullcontext
@@ -307,11 +306,11 @@ class ProjectRuntime(Middleware):
     def validate(self):
         current, _ = read_binding(self.args.session, self.args.token)
         if current != self.binding:
-            raise RuntimeError(read_instruction(__file__, 'response-156'))
+            raise RuntimeError('This connection changed. Reconnect before another operation.')
         if self.check_owner:
             verify_process(current)
         if self.unconfirmed:
-            raise RuntimeError(read_instruction(__file__, 'response-157'))
+            raise RuntimeError('The previous native result is unconfirmed. Disconnect and inspect that Rhino before reconnecting.')
 
     def send(self, sender, payload_bytes: bytes, *positional, **keywords) -> str:
         self.validate()

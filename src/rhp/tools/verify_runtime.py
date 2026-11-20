@@ -26,8 +26,8 @@ BRIDGE_INPUTS = {
     "src/mcp/modeling_policy.json", "src/mcp/features/modeling/PlanSection/PlanSection.py",
     "src/mcp/profiles/material/manifest.json", "asset/drawing/DrawingAssetfiles/manifest.json",
     *(f"src/mcp/features/assets/{name}" for name in (
-        "__init__.py", "asset_repository.py", "asset_passport.py", "asset_passport-explain.md",
-        "drafting.py", "drafting-explain.md", "model_index.py", "library_index.py",
+        "__init__.py", "asset_repository.py", "asset_passport.py",
+        "drafting.py", "model_index.py", "library_index.py",
         "generation/document_generation_sources.py", "generation/document_generation_sources-explain.md",
     )),
 }

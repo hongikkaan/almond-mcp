@@ -57,6 +57,28 @@ def test_sqlite_owner_conflict_rolls_back_all_library_updates(tmp_path):
     assert reopened.get_asset("shared", library_id="generated_assets") is None
 
 
+def test_reindex_respects_existing_foreign_key_references(tmp_path):
+    store = AlmondStore(tmp_path / "state.sqlite3")
+    asset = {"asset_id": "used", "product": "Survey block", "file_available": True,
+             "dimensions_mm": {"width": 1, "depth": 1, "height": 1}}
+    store.sync_assets([asset, {**asset, "asset_id": "unused"}])
+    with store._connect() as db:
+        db.execute("CREATE TABLE asset_notes(asset_id TEXT REFERENCES assets(asset_id), note TEXT)")
+        db.execute("INSERT INTO asset_notes VALUES ('used', 'Existing reference')")
+
+    store.sync_assets([])
+
+    with store._connect() as db:
+        assert [tuple(row) for row in db.execute("SELECT asset_id, library_id, file_available FROM assets")] == [
+            ("used", "retired", 0),
+        ]
+        assert [tuple(row) for row in db.execute("SELECT * FROM asset_notes")] == [("used", "Existing reference")]
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+    assert store.search_assets("Survey")['total'] == 0
+    store.sync_assets([asset])
+    assert store.get_asset("used", library_id="ikea")["file_available"] is True
+
+
 @pytest.mark.parametrize("canonical", ["valid", "outside", "missing"])
 def test_model_resource_and_archive_agree_on_canonical_precedence(tmp_path, canonical):
     roots = {key: tmp_path / key for key in ("generated", "drawing", "drafting")}

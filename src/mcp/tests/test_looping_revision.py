@@ -111,9 +111,12 @@ def test_step_progress_does_not_overwrite_explicit_plan_status(tmp_path, monkeyp
 
 
 def test_loop_role_and_input_options_do_not_include_post_execution_reporting():
-    from almond_mcp.instruction_text import read_tool_instruction
+    import ast
+    from pathlib import Path
     import mcp_server
-    text = read_tool_instruction(mcp_server.__file__, "execute_looping")
+    from almond_mcp.tool_declarations import inspect_declarations
+    declarations = inspect_declarations((Path(mcp_server.__file__),))
+    text = ast.get_docstring(next(item.node for item in declarations if item.name == "plan_03-execute_looping"))
     role, inputs = text.split("Args:", 1)
     assert "사용자가 결정" not in role
     assert "시각적 근거" not in role

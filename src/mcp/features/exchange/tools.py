@@ -3,7 +3,6 @@ from dataclasses import dataclass
 import tempfile
 from typing import Callable
 
-from almond_mcp.instruction_text import read_instruction
 from almond_mcp.tool_response import error_payload
 
 import hashlib
@@ -325,7 +324,7 @@ public class Script
             raw_report = None
         report = raw_report if isinstance(raw_report, dict) else {}
         if managed and not {"stamped", "deduped", "width", "depth", "height"} <= report.keys():
-            return unresolved(read_instruction(__file__, "unverified_import_report"),
+            return unresolved('Geometry was imported, but its report is unverified. Inspect the existing objects before any retry.',
                               reply={"report_path": str(report_path)}, imported_guids=imported, partial=True)
         check = self.dimension_report(contract, report) if report else {"status": "unknown"}
         if report and not managed:

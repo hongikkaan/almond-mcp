@@ -48,11 +48,12 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
     activity_files = {p.relative_to(package).as_posix() for p in (package / policy_dir).glob("*.md")}
     assert activity_files
     guidance_files = {
-        "BASIC-INSTRUCTIONS.md", "design_judgment.md", "features/guidance/tools-explain.md",
+        "BASIC-INSTRUCTIONS.md", "design_judgment.md", "features/guidance/tools.py",
         "modeling_policy.json", *activity_files,
     }
     with zipfile.ZipFile(wheels[0]) as wheel:
         names = set(wheel.namelist())
+        assert "almond_mcp/features/modeling/PlanSection/PlanSection.py" in names
         metadata = next(name for name in names if name.endswith(".dist-info/METADATA"))
         assert BytesParser().parsebytes(wheel.read(metadata))["Version"] == runpy.run_path(str(package / "__init__.py"))["__version__"]
         assert {name.removeprefix("almond_mcp/") for name in names
@@ -64,6 +65,7 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
     with tarfile.open(sdists[0]) as sdist:
         prefix = "src/mcp/"
         members = {member.name.partition("/")[2]: member for member in sdist.getmembers() if member.isfile()}
+        assert prefix + "features/modeling/PlanSection/PlanSection.py" in members
         assert {name.removeprefix(prefix) for name in members
                 if name.startswith(prefix + policy_dir) and name.endswith(".md")} == activity_files
         for relative in guidance_files:

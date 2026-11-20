@@ -248,7 +248,7 @@ Output — plan_12-update tool
 
 제목·상태·참조·판단 기록이 실제로 바뀌면 Plan revision을 기록하고 같은 값이면 시각/revision을 유지한다. Step 상태가 바뀌어도 Plan 상태는 자동 변경하지 않는다. Plan 완료는 사용자가 판단한다. Step의 상태, 입출력 참조, 두 판단 필드는 각각 선택 수정하며 한 요청은 실제 변경이 있을 때 revision을 한 번만 증가시킨다. 기록만 수정할 때 status를 생략할 수 있고 Step 상태와 Plan의 paused/completed 상태가 유지된다. 조회 응답의 next_step_guide는 후속 조회·작업 선택을 안내하지만, 조회나 plan_10-set_working tool 선택 자체가 상태 변경 또는 실행을 뜻하지 않는다. `expected_revision`은 선택 입력으로, 저장된 최신 revision과 다르면 수정을 거절한다.
 
-`inspect_05-resolve_targets` tool는 Plan의 Component 대상을 해석한다. 선택적 step_id는 소속 Step을 확인할 뿐 대상을 바꾸지 않는다. `inspect_04-get_selection_references` tool도 Plan 대상을 기준으로 선택 객체와 관련된 Plan/Step을 찾는다. 두 도구의 상세 선택은 각 tools/list 설명을 따른다. `plan_10-set_working` tool의 선택·산출물 폴더 계약은 [runtime 설명](../../runtime/mcp_server-explain.md)을 따른다.
+`inspect_05-resolve_targets` tool는 Plan의 Component 대상을 해석한다. 선택적 step_id는 소속 Step을 확인할 뿐 대상을 바꾸지 않는다. `inspect_04-get_selection_references` tool도 Plan 대상을 기준으로 선택 객체와 관련된 Plan/Step을 찾는다. 두 도구의 상세 선택은 각 tools/list 설명을 따른다. `plan_10-set_working` tool의 선택·산출물 폴더 계약은 [runtime 설명](../../runtime/mcp_server.py)을 따른다.
 
 `plan_10-set_working` tool은 plan_id·step_id·loop_no·plan_artifact_dir·artifact_dir와 선택 시점의 Plan revision을 반환한다. 첫 산출물 경로 설정으로 revision이 증가할 수 있으므로, 선택적 expected_revision 검사를 쓸 때에는 선택 응답의 revision과 loop_no를 함께 사용한다. 번호 계산이나 직접 증가는 필요 없다. 폴더를 재사용하는 선택만으로는 revision이 증가하지 않는다.
 

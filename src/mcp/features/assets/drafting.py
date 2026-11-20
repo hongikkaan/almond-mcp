@@ -1,6 +1,5 @@
 """Traceable static-mesh silhouettes in millimetres; no Rhino required."""
 from __future__ import annotations
-from almond_mcp.instruction_text import read_instruction
 
 import hashlib
 import html
@@ -268,7 +267,7 @@ def sheet_svg(views, scale, metadata, title):
         x0, y0, x1, y1 = view["bounds_mm"]
         w, h = (x1-x0)/scale, (y1-y0)/scale
         if w > 115 or h > 180:
-            raise ValueError(read_instruction(__file__, 'response-346').format(view['view'], scale))
+            raise ValueError('{0} does not fit A3 at 1:{1}; choose a larger scale denominator'.format(view['view'], scale))
         left = 15+i*130
         parts.extend([
             f'<text x="{left}" y="48" font-size="4">{view["view"].upper()}</text>',

@@ -20,7 +20,7 @@ Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS
 |---|---|
 | `external_host.py`, `external_worker.py` | 공용 외부 stdio adapter와 Rhino 연결마다 분리된 worker |
 | `cos_host.py`, `codex_host.py` | CoS 경유·Codex 직접 연결의 명시적인 진입점과 MCP 서버 식별 |
-| `SERVER-DESCRIPTION.md` | 건축설계·모델링·도면·연결 관리 역할을 담은 공통 소개 |
+| `external_host.py`의 서버 설명 | 건축설계·모델링·도면·연결 관리 역할을 담은 공통 소개 |
 | `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 외부 연결 광고 확인 |
 | `execution_invocation.py` | 선택된 연결의 호출 예약·취소·첫 응답 대기·완료 복구. 연결 탐색·attach·detach는 Broker가 소유 |
 | `session_close.py`, `session_close_guard.py.txt` | 저장 확인·문서 변경 방지·정상 종료·보관 결과 조회. 일반 실행 receipt와 종료 프로세스 근거를 구분 |
@@ -73,9 +73,9 @@ AlmondRhino 전용 C# 변경은 이 모듈의 runtime-manifest.json만 갱신한
 
 ## 공통 모델링 안내
 
-외부 host는 `SERVER-DESCRIPTION.md`를 초기화 응답의 `serverInfo.description`과 `instructions` 앞부분에 제공한다. 소개 템플릿의 `{server_name}`은 Codex 경로에서 `beyond`, CoS 경로에서 `CoS`로 치환한다.
+외부 host는 `external_host.py`의 서버 설명을 초기화 응답의 `serverInfo.description`과 `instructions` 앞부분에 제공한다. 소개 템플릿의 `{server_name}`은 Codex 경로에서 `beyond`, CoS 경로에서 `CoS`로 치환한다.
 CoS 앱 등록용 생성 설정 이름은 `CoS`다. 등록된 `src/cos` 진입점과 플러그인 GUID는 유지한다.
 ChatGPT의 `Chat On Steroids Plugins` 공통 소개는 클라이언트가 관리하므로, 서버 소개를 수정한 것만으로 해당 화면에 표시되었다고 판단하지 않는다.
 이어서 MCP package의 기본 지침과 설계 판단 문서 본문을 한 번 전달한다. 사용 가능한 문서와 빈 파일이나 읽기 실패의 상태를 함께 알린다. 연결을 선택한 뒤 `context_04-get_project_info` tool로 현재 문서와 실제 Worksession 첨부, DB 파일 목록 및 작업 경로를 조회한다. 필요하면 `context_01-get_policy` tool에서 기본 지침과 활동별 정책을 다시 읽는다.
-`context_01-get_policy` tool은 선택한 연결에서 기존 worker 도구 전달 경로를 사용한다. BASIC과 선택한 지침의 JSON text content 및 structured content를 전달한다. 카탈로그는 worker와 같은 정책 선택값을 공개하고 개별 도구의 설명 전문을 `tools/list`에 제공한다. 정책 파일·도구 소스·설명 Markdown은 session source fingerprint에 포함한다.
+`context_01-get_policy` tool은 연결 선택 전에도 외부 host에서 읽을 수 있다. Rhino-bound worker와 같은 정책 로더를 사용해 JSON text content와 structured content를 전달한다. `metadata`는 Rhino 메타데이터 편집 지침과 객체 키 사전을 함께 반환한다. 카탈로그는 worker와 같은 정책 선택값을 공개하고 개별 도구의 설명 전문을 `tools/list`에 제공한다. 정책 파일·도구 소스·설명 Markdown은 session source fingerprint에 포함한다.
 안내 조회 계약과 갱신 절차는 [MCP SPEC](../mcp/SPEC.md#모델링-안내-전달)을 따른다.

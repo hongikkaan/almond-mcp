@@ -93,9 +93,9 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 
 공개 도구명은 `<category>_<NN>-<name>`을 사용하며 기존 이름의 별칭은 등록하지 않는다. DESCRIPTION·입력 설명·후속 안내에서 등록된 도구를 언급할 때는 `<공개 도구명> tool`로 표기한다. Python 함수명·native command·DB 식별자는 공개 호출명과 구분한다.
 
-공개 도구 계약에 영향을 주는 변경을 마무리할 때 구현 옆 `*-explain.md`의 도구 설명·입력 안내, [출력 계약](src/mcp/output_contracts.py), [공통 공개 스키마 기준](tests/integration/tool_schemas.json)을 현재 구현과 실제 공개 스키마에 대조하고, 달라진 내용을 갱신한다. 코드 기반 예시와 실제 Rhino 검증 결과를 구분한다.
+공개 도구 계약에 영향을 주는 변경을 마무리할 때 구현 함수의 docstring에 있는 도구 설명·입력 안내, [출력 계약](src/mcp/output_contracts.py), [공통 공개 스키마 기준](tests/integration/tool_schemas.json)을 현재 구현과 실제 공개 스키마에 대조하고, 달라진 내용을 갱신한다. 코드 기반 예시와 실제 Rhino 검증 결과를 구분한다.
 
-공개 도구 등록·입력·출력 스키마 또는 문서에 수록된 계약을 바꾸면 같은 변경에서 [현행 툴 선언](TOOL-DECLARATIONS-CURRENT.md)을 실제 계약과 일치하도록 갱신한다. 현재 체크아웃의 beyond·CoS `tools/list`에서 도구 목록·설명·입력·출력 스키마를 대조하고, `initialize`에서 공통 안내 전달 방식을 확인한다. 두 외부 경로의 선언 일치와 문서의 누락·폐기 도구 여부를 확인한다.
+공개 도구 등록·입력·출력 스키마 또는 문서에 수록된 계약을 바꾸면 같은 변경에서 [현행 툴 선언](TOOL-DECLARATIONS-CURRENT.md)을 갱신한다. 커밋 전 현재 체크아웃의 beyond·CoS `tools/list`로 도구 목록·설명·입력·출력 스키마의 일치와 문서의 누락·폐기 도구 여부를 확인한다. `initialize`에서 공통 안내 전달을 확인한 뒤 변경을 함께 커밋한다.
 
 ## 검증
 

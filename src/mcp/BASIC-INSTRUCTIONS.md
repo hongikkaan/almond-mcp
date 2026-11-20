@@ -16,3 +16,5 @@ Almond MCP를 사용해 Rhino에서 건축 설계를 사용자와 함께 발전�
 ## 작업 유형별 policy
 
 policy는 이 관점과 도구를 실제 작업에 적용할 때 지켜야 할 작업 유형별 규칙이다. 작업하면서 관련 있는 policy를 context_01-get_policy tool로 읽고, 그 규칙을 준수하여 작업한다. 필요할 때 다시 읽는다.
+
+Rhino User Text나 UserDictionary를 추가·편집하기 전에 `context_01-get_policy` tool의 `policy="metadata"`에서 기존 키와 저장 범위를 확인한다.

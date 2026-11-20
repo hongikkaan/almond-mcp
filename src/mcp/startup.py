@@ -8,8 +8,6 @@ from typing import Callable, Mapping, TYPE_CHECKING
 
 from fastmcp import FastMCP
 
-from almond_mcp import paths
-from almond_mcp.bridge_transport import BridgeTransport
 from almond_mcp.feature_context import FeatureContext
 
 if TYPE_CHECKING:
@@ -75,7 +73,7 @@ def create_server(
         exchange_reports=exchange_reports or local_exchange_reports,
     )
     # Retire the legacy supplier catalogue from searchable cache. Keep its
-    # local files and scene history, as in the standalone and bound launchers.
+    # local files and any existing references.
     features.retrieval_store.sync_asset_libraries({
         "ikea": [],
         diagram_assets.library_id: list(diagram_assets.assets.values()),
@@ -87,14 +85,3 @@ def create_server(
     for module in FEATURE_MODULES:
         import_module(module).register(mcp, features)
     return ServerApplication(mcp, features)
-
-
-def serve_standalone() -> int:
-    library_dirs = {variable: paths.resolve_dir(variable) for variable in paths.LIBRARY_DIRS}
-    application = create_server(
-        state_db=paths.resolve_state_db(),
-        library_dirs=library_dirs,
-        send=BridgeTransport("127.0.0.1", 5000),
-    )
-    application.mcp.run()
-    return 0

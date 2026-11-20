@@ -7,7 +7,6 @@ import re
 from uuid import uuid4
 
 from almond_mcp.managed_paths import project_path, relative_path
-from almond_mcp.instruction_text import read_instruction
 from project import read_json, write_json
 
 
@@ -201,7 +200,7 @@ class Workspace:
                 "feedback": plan["feedback"], "steps": plan["steps"],
                 "next_step_id": next((s["step_id"] for s in plan["steps"] if s["status"] != "completed"), None),
                 "previous_loop": None if previous is None else {"loop_no": previous["loop_no"], "steps": previous["steps"]},
-                "policy_reminder": read_instruction(__file__, "looping-reminder")}
+                "policy_reminder": 'Step은 기본 순서대로 수행합니다. 기존 결과는 확인한 뒤 재사용하고 산출물은 이 회차의 artifact_dir에 작성합니다. Plan 완료는 사용자가 결정합니다.'}
 
     def rename(self, name: str, plan_id: str = "") -> dict:
         self.recover()

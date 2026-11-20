@@ -22,7 +22,7 @@ from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.server.lowlevel.server import Server
 from mcp.server.stdio import stdio_server
-from almond_mcp.modeling_guidance import startup_instructions
+from almond_mcp.modeling_guidance import read_policy, startup_instructions
 from almond_mcp.output_contracts import public_output_schema
 
 from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_contract, catalog_identity,
@@ -33,23 +33,22 @@ from execution_recovery import ExecutionRecoveryStore, read_bound_execution
 from execution_invocation import ExecutionInvocations, Invocation, json_result, error_result, result_dict
 from session_close import SessionCloser
 
-GUIDANCE = (ROOT / "CONNECTION-INSTRUCTIONS.md").read_text(encoding="utf-8").strip()
-DESCRIPTION = (ROOT / "SERVER-DESCRIPTION.md").read_text(encoding="utf-8").strip()
+GUIDANCE = 'targets는 발견한 Rhino 문서, connections는 유지 중인 연결, starts는 새 Rhino 시작 요청의 상태입니다. 대상의 state와 reason으로 사용 가능 여부를 확인합니다. 사용 중이거나 확인할 수 없는 대상은 파일 정보가 비어 있을 수 있습니다.'
+DESCRIPTION = '{server_name}는 AlmondRhino를 통해 Rhino의 건축 설계·모델링·도면 작업과 연결 관리를 제공합니다.'
 UNSAVED_DOCUMENT = ("Save this Rhino document as a local .3dm, then refresh "
                     "connect_01-list_up tool before connecting.")
 NO_SELECTED_CONNECTION = ("No selected live connection. Use connect_01-list_up tool and connect_02-session tool. "
                           "No Rhino request was sent.")
 
 
-def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
-    tools, mapping = [], {}
+def exposed_tools(catalog: dict) -> list[types.Tool]:
+    tools = []
     for original in catalog["tools"]:
         name = original["name"]
         schema = original["inputSchema"]
         if schema.get("type") != "object" or "connection_id" in schema.get("properties", {}):
             raise RuntimeError(f"Unsupported routing schema: {name}")
         tools.append(types.Tool.model_validate(original))
-        mapping[name] = name
     management = [
         ("connect_01-list_up", "열린 Rhino 문서와 이 클라이언트의 연결·시작 요청을 조회합니다.\n\n- `targets`: 발견된 문서. 사용 중이거나 확인할 수 없는 대상은 파일 정보가 비어 있을 수 있습니다.\n- `connections`: 이 클라이언트가 유지 중인 연결. 연결된 대상은 `targets`에도 표시됩니다.\n- `starts`: 이 클라이언트의 Rhino 시작 요청과 상태.\n\n**선택된 연결이 `ready`면 그대로 사용할 수 있습니다.** 대상의 `state`와 `reason`을 확인하세요. 연결할 문서가 있으면 같은 대상의 `host_id`와 저장된 `model_path`를 `connect_02-session` tool에 전달할 수 있습니다. `selected_connection_id`는 이후 일반 호출에 사용할 선택된 연결이며, 선택이 없으면 null입니다. 연결의 `ready`는 일반 작업 가능 상태이며 `recovering`·`unconfirmed`에서는 이전 실행 결과 확인이 필요합니다.",
          {}, []),
@@ -67,13 +66,14 @@ def exposed_tools(catalog: dict) -> tuple[list[types.Tool], dict[str, str]]:
          {"request_id": {"type": "string", "minLength": 1, "maxLength": 128,
                          "description": "이 종료 요청의 고유 ID입니다. 지연·불확실 상태에서는 같은 ID로 결과를 조회합니다. 저장 확인 전에는 종료하지 않습니다."}}, ["request_id"]),
     ]
+    worker_names = {tool.name for tool in tools}
     for name, description, properties, required in management:
-        if name in mapping:
+        if name in worker_names:
             raise RuntimeError("Management tool name collides with Almond.")
         tools.append(types.Tool(name=name, description=description, output_schema=public_output_schema(name, wrapped=False),
                                 input_schema={"type": "object", "properties": properties,
                                               "required": required, "additionalProperties": False}))
-    return tools, mapping
+    return tools
 
 
 class HostInUse(RuntimeError):
@@ -262,7 +262,8 @@ class Broker:
         self.host_reader, self.contract_check = host_reader, contract_check
         self.call_timeout = call_timeout
         self.queue_timeout = queue_timeout
-        self.tools, self.mapping = exposed_tools(catalog)
+        self.tools = exposed_tools(catalog)
+        self.worker_tool_names = frozenset(tool["name"] for tool in catalog["tools"])
         self.connections: dict[str, Connection] = {}
         self.selected_connection_id: str | None = None
         self.host_connections: dict[str, str] = {}
@@ -623,10 +624,9 @@ class Broker:
                 if arguments:
                     raise ValueError("connect_04-disconnect tool takes no arguments.")
                 return json_result(await asyncio.shield(self.spawn(self.disconnect(selected))), name)
-            if name not in self.mapping:
+            if name not in self.worker_tool_names:
                 raise RuntimeError("Unknown Almond tool.")
-            tool_name = self.mapping[name]
-            if tool_name == "script_03-get_execution" and arguments.get("request_id"):
+            if name == "script_03-get_execution" and arguments.get("request_id"):
                 binding = await asyncio.to_thread(self.recovery_store.find_binding, arguments["request_id"])
                 conn = next((c for c in self.connections.values() if c.binding == binding), None)
                 if conn is None:
@@ -638,7 +638,7 @@ class Broker:
             if conn is None:
                 raise RuntimeError(NO_SELECTED_CONNECTION)
             invocation = Invocation()
-            return await asyncio.shield(self.spawn(self.invoke(conn, tool_name, dict(arguments), invocation)))
+            return await asyncio.shield(self.spawn(self.invoke(conn, name, dict(arguments), invocation)))
         except asyncio.CancelledError:
             if invocation is not None:
                 invocation.abandoned = True
@@ -675,10 +675,15 @@ class SessionAdapter:
 
     def __init__(self, catalog, data=ROOT / "data", *, broker_factory=Broker):
         self.catalog, self.data, self.broker_factory = catalog, data, broker_factory
-        self.tools, self.mapping = exposed_tools(catalog)
+        self.tools = exposed_tools(catalog)
         self.broker = None
 
     async def call(self, name, arguments):
+        if name == "context_01-get_policy":
+            try:
+                return json_result(read_policy(**arguments))
+            except (TypeError, ValueError, RuntimeError) as exc:
+                return error_result(str(exc))
         if self.broker is None:
             if name not in {"connect_01-list_up", "connect_02-session", "connect_03-start_session", "connect_05-close_session", "script_03-get_execution"}:
                 return error_result(NO_SELECTED_CONNECTION)

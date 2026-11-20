@@ -26,8 +26,6 @@ def digest(path: Path) -> str:
 def source_paths(engine: Path) -> dict[str, Path]:
     package = PACKAGE
     paths = {
-        "external_connection_guidance": ROOT / "CONNECTION-INSTRUCTIONS.md",
-        "server_description": ROOT / "SERVER-DESCRIPTION.md",
         "external_worker": ROOT / "external_worker.py",
         "external_execution_recovery": ROOT / "execution_recovery.py",
         "external_execution_invocation": ROOT / "execution_invocation.py",

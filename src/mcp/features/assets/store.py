@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 from typing import Any
 
 from almond_mcp.store_common import RETIRED_LIBRARY_ID, _utc_now, _json, _decode
@@ -179,25 +180,15 @@ class AssetsStore:
                 "DELETE FROM asset_rtree WHERE asset_rowid = ?",
                 (stale["id"],),
             )
-            referenced = connection.execute(
-                "SELECT 1 FROM instances WHERE asset_id = ? LIMIT 1",
-                (stale["asset_id"],),
-            ).fetchone()
-            if referenced:
-                # Scene history still points at this asset: keep the row
-                # for lookups but take it out of its library and search.
+            try:
+                connection.execute("DELETE FROM assets WHERE id = ?", (stale["id"],))
+            except sqlite3.IntegrityError as exc:
+                if exc.sqlite_errorcode != sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY:
+                    raise
+                # Keep referenced assets out of search without breaking DB relationships.
                 connection.execute(
-                    """
-                    UPDATE assets SET library_id = ?, file_available = 0,
-                        updated_at = ?
-                    WHERE id = ?
-                    """,
+                    "UPDATE assets SET library_id = ?, file_available = 0, updated_at = ? WHERE id = ?",
                     (RETIRED_LIBRARY_ID, now, stale["id"]),
-                )
-            else:
-                connection.execute(
-                    "DELETE FROM assets WHERE id = ?",
-                    (stale["id"],),
                 )
         return len(seen)
 

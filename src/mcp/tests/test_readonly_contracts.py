@@ -1,7 +1,8 @@
 """Small independent checks for guidance and response/path safety."""
+import ast
 import pytest
 from almond_mcp import modeling_guidance
-from almond_mcp.instruction_text import read_tool_instruction, tool_instruction
+from almond_mcp.tool_declarations import checked_stub
 from almond_mcp.managed_paths import project_path
 from almond_mcp.query_output import select_fields, validate_field_groups
 from almond_mcp.output_contracts import public_output_schema
@@ -38,7 +39,7 @@ def test_policy_selection_returns_only_requested_content():
             "source_refs": [{"path": f"src/mcp/features/guidance/policies/{path.name}",
                              "sha256": modeling_guidance.content_digest(path)}],
         }
-    assert referenced_files == set(policy_dir.glob("*.md"))
+    assert referenced_files | {modeling_guidance.METADATA_GUIDE} == set(policy_dir.glob("*.md"))
     scripting = modeling_guidance.read_policy("rhino_scripting")
     assert scripting["guide_version"] == basic["guide_version"]
     assert "text" not in scripting and "policy" not in scripting
@@ -77,23 +78,22 @@ def test_activity_policy_content_changes_guide_version(monkeypatch):
     assert updated["guide_version"] != original["guide_version"]
 
 
-def test_tool_description_loader_preserves_full_prose_and_schema_metadata(tmp_path):
-    source = tmp_path / "tools.py"
-    explanation = ("First sentence. A second sentence must remain.\n\n"
-                   "When to use: Inspect a bounded target.\n"
-                   "Limits: Observation is not verification.\n\n"
-                   "Args:\n    target: Target from an earlier result.\n\n"
-                   "Returns:\n    The complete result.")
-    source.with_name("tools-explain.md").write_text(
-        "<!-- instruction:example -->\n" + explanation + "\n<!-- /instruction:example -->\n",
-        encoding="utf-8")
-    assert read_tool_instruction(str(source), "example") == explanation
+def test_inert_catalog_uses_full_docstring_from_the_registration():
+    declaration = ast.parse('''@public_tool(mcp, wrapped=True)
+def get_objects(target: str):
+    """First sentence. A second sentence must remain.
 
-    @tool_instruction(str(source), "example")
-    def example(target: str):
-        pass
+    Args:
+        target: Target from an earlier result.
 
-    assert example.__doc__ == explanation
+    Returns:
+        The complete result.
+    """
+    raise RuntimeError("Only the handler should execute this.")
+''').body[0]
+    stub = checked_stub(declaration)
+    assert ast.get_docstring(stub) == ast.get_docstring(declaration)
+    assert "Only the handler" not in ast.unparse(stub)
 
 
 def test_projection_keeps_uncertainty_and_does_not_mutate_source():
