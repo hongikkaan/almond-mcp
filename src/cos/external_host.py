@@ -50,21 +50,21 @@ def exposed_tools(catalog: dict) -> list[types.Tool]:
             raise RuntimeError(f"Unsupported routing schema: {name}")
         tools.append(types.Tool.model_validate(original))
     management = [
-        ("connect_01-list_up", "열린 Rhino 문서와 이 클라이언트의 연결·시작 요청을 조회합니다.\n\n- `targets`: 발견된 문서. 사용 중이거나 확인할 수 없는 대상은 파일 정보가 비어 있을 수 있습니다.\n- `connections`: 이 클라이언트가 유지 중인 연결. 연결된 대상은 `targets`에도 표시됩니다.\n- `starts`: 이 클라이언트의 Rhino 시작 요청과 상태.\n\n**선택된 연결이 `ready`면 그대로 사용할 수 있습니다.** 대상의 `state`와 `reason`을 확인하세요. 연결할 문서가 있으면 같은 대상의 `host_id`와 저장된 `model_path`를 `connect_02-session` tool에 전달할 수 있습니다. `selected_connection_id`는 이후 일반 호출에 사용할 선택된 연결이며, 선택이 없으면 null입니다. 연결의 `ready`는 일반 작업 가능 상태이며 `recovering`·`unconfirmed`에서는 이전 실행 결과 확인이 필요합니다.",
+        ("connect_01-list_up", "열린 Rhino 문서와 이 클라이언트의 연결·시작 요청 조회. 연결된 문서도 targets에 표시된다. 연결하려면 같은 대상의 host_id와 저장된 model_path를 connect_02-session tool에 전달한다. 이후 일반 호출은 selected_connection_id의 연결을 사용한다.",
          {}, []),
-        ("connect_02-session", "열려 있는 저장된 Rhino 문서에 연결하거나 이 클라이언트의 작업 대상을 전환합니다. `connect_01-list_up` tool의 `targets`에서 선택한 같은 대상의 `host_id`와 `model_path`를 사용합니다. 이미 유지 중인 연결도 다시 선택할 수 있습니다.\n\n**선택된 연결**은 이후 일반 도구 호출에 사용됩니다. 반환된 `state`: `ready`는 일반 작업 가능, `recovering`·`unconfirmed`는 이전 실행 결과 확인이 필요한 상태입니다.",
-         {"host_id": {"type": "string", "description": "connect_01-list_up tool의 targets에서 선택한 Rhino 프로세스의 host_id입니다."}, "model_path": {"type": "string", "description": "같은 연결 대상에 표시된 저장 모델의 정확한 model_path입니다."}},
+        ("connect_02-session", "열린 Rhino 문서에 연결하거나 작업 대상 전환. connect_01-list_up tool의 targets에서 같은 대상의 host_id와 model_path를 가져온다. 유지 중인 연결도 다시 선택할 수 있으며, 선택 후 일반 호출은 그 연결을 사용한다.",
+         {"host_id": {"type": "string"}, "model_path": {"type": "string"}},
          ["host_id", "model_path"]),
-        ("connect_03-start_session", "저장된 모델을 새 Rhino 창에서 열고 연결합니다.",
-         {"model_path": {"type": "string", "description": "새 Rhino에서 열 저장된 로컬 .3dm 파일의 절대 경로입니다."},
+        ("connect_03-start_session", "저장된 모델을 새 Rhino 창에서 열고 연결.",
+         {"model_path": {"type": "string", "description": '저장된 로컬 .3dm 파일의 절대 경로.'},
           "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
-                         "description": "이 시작 요청의 고유 ID입니다. 시작이 지연되거나 결과가 불확실하면 새 ID를 만들지 말고 같은 값을 재사용해 상태를 확인합니다."}},
+                         "description": '시작 시도마다 고유한 값. 지연되거나 결과가 불확실하면 같은 값으로 다시 조회.'}},
          ["model_path", "request_id"]),
-        ("connect_04-disconnect", "선택한 연결을 해제하고 Rhino 창과 문서는 유지합니다.",
+        ("connect_04-disconnect", "선택한 연결 해제. Rhino 창과 문서는 계속 열린 상태로 유지.",
          {}, []),
-        ("connect_05-close_session", "선택한 Rhino 문서를 저장하고 완료를 확인한 뒤 정상 종료합니다.",
+        ("connect_05-close_session", "선택한 Rhino 문서의 저장 완료를 확인한 뒤 Rhino를 정상 종료.",
          {"request_id": {"type": "string", "minLength": 1, "maxLength": 128,
-                         "description": "이 종료 요청의 고유 ID입니다. 지연·불확실 상태에서는 같은 ID로 결과를 조회합니다. 저장 확인 전에는 종료하지 않습니다."}}, ["request_id"]),
+                         "description": '종료 시도마다 고유한 값. 지연되거나 결과가 불확실하면 같은 값으로 재호출해 기존 결과를 조회.'}}, ["request_id"]),
     ]
     worker_names = {tool.name for tool in tools}
     for name, description, properties, required in management:

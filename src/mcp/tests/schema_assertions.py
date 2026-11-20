@@ -15,7 +15,6 @@ def assert_described_payload(value, schema):
             for name, child in item.items():
                 location = f"{path}.{name}"
                 if name in properties:
-                    assert properties[name].get("description"), location
                     visit(child, properties[name], location)
                 elif isinstance(additional, dict):
                     visit(child, additional, location)

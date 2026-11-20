@@ -1,5 +1,6 @@
 """Exercise the actual cold stdio protocol and external schema composition."""
 import asyncio
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -37,12 +38,13 @@ def assert_information_placement(tools):
             assert not help_text or help_text not in role, name
     detail = tools["plan_05-get"]
     assert "상세 내용의 포함 여부" not in detail["description"]
-    assert "상세" in request_properties(detail, "phase")["include_details"]["description"]
+    assert request_properties(detail, "phase")["include_details"] == {"type": "boolean", "default": False}
     assert "Phase·Scene·상태로" not in tools["plan_08-list"]["description"]
     phase = request_properties(tools["plan_02-create"], "phase")
     assert set(phase["status"]["enum"]) == {"pending", "running", "paused", "completed", "failed", "blocked"}
     assert {option["type"] for option in phase["file_name"]["anyOf"]} == {"string", "array"}
-    assert phase["status"]["description"] == "생략하면 pending."
+    assert phase["status"]["default"] == "pending"
+    assert "description" not in phase["status"]
     assert "context_04-get_project_info tool" in phase["file_name"]["description"]
     scene_file = tools["scene_02-create"]["inputSchema"]["properties"]["file_name"]["description"]
     assert "파일 작업이 아닙니다" not in scene_file and "파일명" in scene_file
@@ -53,12 +55,24 @@ def assert_information_placement(tools):
     assert {"inspect_02-get_objects", "capture_03-current_view", "intersect_02-resolve",
             "model_05-setup", "drawing_06-generate_plan_section", "script_02-run_rhino"} <= tools.keys()
     document = (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8")
+    assert not re.search(r"(?:니다|세요)(?=[.!?\s]|$)", document)
+    context = tools["inspect_03-get_document_context"]["outputSchema"]["properties"]["result"]["contentSchema"]["properties"]
+    assert "description" not in context["layer_tree"]
+    for field in ("named_views", "layouts"):
+        assert "description" not in context[field]
+        assert all("description" not in prop for prop in context[field]["items"]["properties"].values())
+    material = tools["model_01-assign_material"]["outputSchema"]["properties"]["result"]["contentSchema"]
+    assert material["properties"]["result_error"] == {"type": "string"}
     documented = {}
     for section in re.split(r"(?m)^### ", document)[1:]:
         name = section.splitlines()[0].split(". ", 1)[1].replace("\\_", "_")
         documented[name] = re.search(r"```txt\n(.*?)\n```", section, re.S).group(1)
     if "connect_01-list_up" in tools:
         assert documented.keys() == tools.keys()
+        catalog = [tools[name] for name in sorted(tools)]
+        encoded = json.dumps(catalog, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        digest = hashlib.sha256(encoded).hexdigest()
+        assert f"선언 SHA-256: `{digest}`" in document
     for name, tool in tools.items():
         assert documented[name] == tool["description"], name
     for tool_name, field_name, reference in (
@@ -87,27 +101,6 @@ def assert_information_placement(tools):
         published = json.dumps(tool, ensure_ascii=False)
         assert "drawing_01-list_recipes" not in published
         assert "drawing_05-generate_plan_section" not in published
-
-
-def assert_documented_schema(schema, path):
-    """Every input field, including typed nested edits, must carry callable help."""
-    Draft202012Validator.check_schema(schema)
-
-    def visit(node, location, inherited=frozenset()):
-        if isinstance(node, dict):
-            documented = set(inherited)
-            for name, prop in node.get("properties", {}).items():
-                if isinstance(prop.get("description"), str) and prop["description"].strip():
-                    documented.add(name)
-                assert name in documented, (location, name)
-            for key, value in node.items():
-                # Composition may constrain a field whose help belongs to this object.
-                visit(value, f"{location}/{key}", documented if key in {"anyOf", "oneOf", "allOf", "if", "then", "else"} else frozenset())
-        elif isinstance(node, list):
-            for index, value in enumerate(node):
-                visit(value, f"{location}/{index}", inherited)
-
-    visit(schema, path)
 
 
 def isolated_environment(tmp_path):
@@ -146,7 +139,7 @@ async def collect(params, *, bound):
             assert initialized.instructions == expected_instructions
             assert initialized.server_info.description is None
             for name, item in tools.items():
-                assert_documented_schema(item["inputSchema"], name)
+                Draft202012Validator.check_schema(item["inputSchema"])
                 Draft202012Validator.check_schema(item["outputSchema"])
                 assert item["description"].strip(), name
                 assert "Almond inspects and edits Rhino" not in item["description"], name
@@ -337,7 +330,7 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
                 assert tools == expected
                 for name, tool in tools.items():
                     assert "connection_id" not in tool["inputSchema"].get("properties", {})
-                    assert_documented_schema(tool["inputSchema"], name)
+                    Draft202012Validator.check_schema(tool["inputSchema"])
                 assert tools["connect_04-disconnect"]["inputSchema"]["properties"] == {}
                 rejected = await client.call_tool("context_04-get_project_info", {"connection_id": "old"})
                 assert rejected.is_error

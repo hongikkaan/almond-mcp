@@ -9,8 +9,8 @@ class StringListPatch(BaseModel):
     """문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
-    add: list[str] = Field(default_factory=list, description="추가할 문자열 배열입니다. 이미 존재하거나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. remove에도 있는 값은 양쪽에서 건너뜁니다.")
-    remove: list[str] = Field(default_factory=list, description="제거할 기존 문자열 배열입니다. 없는 값이나 중복·유효하지 않은 값은 건너뛰고 issues로 보고합니다. 생략하거나 빈 배열이면 유지합니다.")
+    add: list[str] = Field(default_factory=list, description='이미 있는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록. `remove`에도 있는 값은 양쪽에서 건너뜀.')
+    remove: list[str] = Field(default_factory=list, description='없는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록.')
 
 
 @dataclass

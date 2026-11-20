@@ -216,7 +216,7 @@ def test_dictionary_filter_shape_and_example_are_discoverable():
         get_objects.description
     )
     filters_description = get_objects.input_schema["properties"]["filters"]["description"]
-    assert "조건 객체의 JSON 배열" in filters_description
+    assert "조건 객체 1개도 배열로 지정" in filters_description
 
 
 @pytest.mark.parametrize("mode", ["objects", "hierarchy"])

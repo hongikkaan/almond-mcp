@@ -146,10 +146,11 @@ def test_defined_capture_public_schema_explains_target_specific_mode_defaults():
     properties = tool.input_schema["properties"]
     assert properties["display_mode"]["default"] == ""  # Neutral for Layout; resolved by target kind.
     assert "Named View" in tool.description and "Layout" in tool.description
-    assert properties["target_kind"]["description"] == "named_view | layout."
-    assert properties["display_mode"]["description"] == "Named View 전용. 기본 Shaded; 설치된 래스터 모드 이름 또는 ID."
-    assert "Layout은 용지와 Detail의 기존 표시 모드를 사용" in tool.description
-    assert "Layout에는 픽셀 크기와 display_mode를 지정할 수 없습니다." in tool.description
+    assert {"named_view", "layout"} <= set(properties["target_kind"]["description"].rstrip(".").split())
+    mode = properties["display_mode"]["description"]
+    assert all(term in mode for term in ("Named View 전용", "생략 시 Shaded", "이름 또는 GUID"))
+    assert "Layout은 용지·Detail의 기존 모드" in tool.description
+    assert "Layout에는 픽셀 크기·display_mode를 지정할 수 없" in tool.description
     baseline = Path(__file__).resolve().parents[3] / "tests/integration/tool_schemas.json"
     assert tool.input_schema == json.loads(baseline.read_text(encoding="utf-8"))["capture_04-defined_view"]["inputSchema"]
 

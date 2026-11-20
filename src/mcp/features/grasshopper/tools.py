@@ -92,11 +92,11 @@ def register(mcp, context):
     @public_tool(mcp, wrapped=True)
     @query_output
     def list_library(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """로컬 Grasshopper 라이브러리에서 색인된 로직 이름을 조회합니다. logic_names의 이름으로 grasshopper_01-get_logic tool에서 상세 내용을 조회할 수 있습니다.
+        """로컬 Grasshopper 라이브러리의 색인된 로직 목록. logic_names는 grasshopper_01-get_logic tool에서 조회할 때 사용.
 
         Args:
-            include_ids: true: logic_names와 같은 값의 logic_ids 포함.
-            field_groups: paths·all: 라이브러리 경로 포함. ports·definition·source·audit은 목록에 상세를 추가하지 않음.
+            include_ids: logic_names와 같은 값의 logic_ids 포함
+            field_groups: paths·all은 라이브러리 경로 포함. ports·definition·source·audit은 목록에 적용되지 않음.
         """
         validate_field_groups(field_groups, GROUPS)
         return json.dumps(project({
@@ -110,11 +110,11 @@ def register(mcp, context):
     @public_tool(mcp, wrapped=True)
     @query_output
     def get_logic_by_id(logic_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """색인된 Grasshopper 로직 파일에서 추출한 물리 관련 항목·설명과 제공된 메타데이터를 조회합니다. JSON만 있는 항목은 메타데이터를 반환합니다. 추출 정보는 완전한 구성·연결 관계나 실행 가능성을 보장하지 않습니다.
+        """색인된 Grasshopper 로직에서 물리 관련 컴포넌트, 설명, 메타데이터를 추출해 조회. JSON만 있는 항목은 메타데이터만 제공. 구성·연결 관계의 완전성과 실행 가능성은 별도 확인.
 
         Args:
-            logic_id: 확장자를 뺀 라이브러리 파일명. grasshopper_03-list_library tool의 logic_names 사용 가능.
-            include_ids: true: 다른 식별자 포함. 입력 logic_id는 반복되지 않음.
+            logic_id: 확장자를 뺀 파일명. grasshopper_03-list_library tool의 logic_names 사용 가능.
+            include_ids: 추가 식별자 포함. 입력 logic_id는 반복하지 않음.
             field_groups: ports, definition, source, paths, audit, all. 제공된 필드에만 적용.
         """
         validate_field_groups(field_groups, GROUPS)
@@ -149,13 +149,12 @@ def register(mcp, context):
     @public_tool(mcp, wrapped=True)
     @query_output
     def list_capsules(capability: str = "", audited_only: bool = False, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """등록된 Grasshopper 캡슐의 기능과 감사 상태를 조회합니다. 포트와 ID를 확인해 grasshopper_04-run_definition tool의 입력을 준비할 수 있습니다. 감사 상태는 정의 파일의 존재나 실행 성공을 보장하지 않습니다.
+        """등록된 Grasshopper 캡슐의 기능과 실행 감사 상태를 조회. 포트와 ID는 grasshopper_04-run_definition tool의 입력에 사용. 감사 상태와 정의 파일의 존재·실행 성공은 별개.
 
         Args:
-            capability: 기능 필터: analyze, generate, form_find, aggregate. 대소문자 무시.
-            audited_only: true: audited로 등록된 캡슐만.
-            include_ids: true: capsule_id 포함. all과 별도 지정.
-            field_groups: ports, definition, source, paths, audit, all. 생략·빈 배열: 요약.
+            capability: analyze, generate, form_find, aggregate. 대소문자 구분 없음.
+            include_ids: capsule_id 포함. all과 별도 지정.
+            field_groups: ports, definition, source, paths, audit, all. 생략·빈 배열이면 요약.
         """
         validate_field_groups(field_groups, GROUPS)
         page = context.retrieval_store.search_capsules(
@@ -176,13 +175,13 @@ def register(mcp, context):
         seed: int | None = None,
         timeout_s: float = 60.0,
     ) -> str:
-        """실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산합니다. 정의에 따라 형상을 베이크할 수 있습니다. 모든 출력 포트를 먼저 확인하고 형상 베이크는 하나의 전용 Undo record로 처리합니다. mutation_state는 none·completed·rolled_back·unknown이며 requires_reconciliation=true이면 baked_guids와 현재 문서를 확인하기 전 자동 재시도하지 않습니다.
+        """실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산. 모든 출력 포트를 확인한 뒤 정의에 따라 하나의 Undo 기록으로 형상 베이크. mutation_state는 none·completed·rolled_back·unknown. requires_reconciliation=true이면 자동 재시도 금지. baked_guids와 현재 문서 확인.
 
         Args:
-            capsule_id: grasshopper_02-list_capsules tool에서 얻은 안정적인 캡슐 식별자입니다(예: "karamba_beam_v1").
-            inputs: ALMOND_IN_ 포트 이름과 값의 객체입니다. grasshopper_02-list_capsules tool(field_groups=['ports'])의 input_ports에서 타입·단위·필수 여부를 확인합니다. 형상은 {"guids":["객체 GUID"]}, 숫자·정수·문자열·불리언은 JSON 값, 목록은 number[]/integer[]/string[]의 평탄한 배열입니다.
-            seed: 확률적 정의에 사용할 선택적 정수 시드입니다. 결정적인 정의에서는 생략합니다.
-            timeout_s: 솔버 시간 한도(초)입니다. 기본값은 60, 최댓값은 600입니다.
+            capsule_id: grasshopper_02-list_capsules tool에서 얻은 캡슐 ID. 예: karamba_beam_v1.
+            inputs: ALMOND_IN_ 포트 이름을 키로 사용. grasshopper_02-list_capsules tool의 field_groups=['ports']로 input_ports의 타입·단위·필수 여부 확인. 형상은 {"guids":["객체 GUID"]}, 숫자·정수·문자열·불리언은 JSON 값, number[]·integer[]·string[]은 평탄한 배열.
+            seed: 확률적 정의에만 정수 시드 사용
+            timeout_s: 솔버 시간 한도(초). 0 초과, 600 이하.
         """
         manifest = context.retrieval_store.get_capsule(capsule_id)
         if not manifest:

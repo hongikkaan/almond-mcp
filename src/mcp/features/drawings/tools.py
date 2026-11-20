@@ -45,11 +45,10 @@ def register(mcp, context):
     @public_tool(mcp, wrapped=True)
     @query_output
     def list_drawing_recipes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """로드된 도면 스타일 레시피를 조회합니다. include_ids=true로 얻은 recipe_id는 drawing_02-get_recipe tool의 입력에 사용합니다. result는 목록 또는 오류를 담은 JSON 문자열입니다.
+        """로드된 도면 스타일 레시피 목록. include_ids=true로 얻은 recipe_id는 drawing_02-get_recipe tool과 drawing_01-apply_style tool에서 사용.
 
         Args:
-            include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-            field_groups: 상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
+            field_groups: scales, parameters, source, audit, all. 생략하거나 비우면 요약.
         """
         validate_field_groups(field_groups, GROUPS)
         recipes = []
@@ -68,12 +67,11 @@ def register(mcp, context):
     @public_tool(mcp, wrapped=True)
     @query_output
     def get_drawing_recipe(recipe_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """지정한 도면 스타일 레시피를 조회합니다. field_groups=["scales","parameters"]로 권장 축척·레이어·출력 설정을 확인한 뒤 같은 recipe_id를 drawing_01-apply_style tool에 전달합니다. result는 레시피 또는 오류를 담은 JSON 문자열입니다.
+        """도면 스타일 레시피 조회. field_groups=["scales","parameters"]로 권장 축척·레이어·출력 설정을 확인한 뒤 같은 recipe_id를 drawing_01-apply_style tool에 전달한다.
 
         Args:
-            recipe_id: drawing_05-list_recipes tool(include_ids=true)에서 얻은 도면 레시피 ID 또는 이미 알고 있는 레시피 ID입니다.
-            include_ids: true이면 후속 호출에 사용할 ID를 포함합니다.
-            field_groups: 상세 그룹: scales, parameters, source, audit, all입니다. 생략하거나 비우면 요약을 반환합니다.
+            recipe_id: 이미 확인한 레시피 ID 또는 drawing_05-list_recipes tool에서 include_ids=true로 조회한 ID.
+            field_groups: scales, parameters, source, audit, all. 생략하거나 비우면 요약.
         """
         validate_field_groups(field_groups, GROUPS)
         recipe = context.drawing_recipe_indexer.get(recipe_id)
@@ -87,10 +85,14 @@ def register(mcp, context):
 
     @public_tool(mcp, wrapped=True)
     def apply_drawing_style(recipe_id: str = "") -> str:
-        """도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 생성하거나 갱신합니다. 같은 경로의 기존 레이어에도 적용됩니다. 문서에 같은 이름의 선종류가 있으면 기존 정의를 재사용합니다. 새 선종류를 만들 때는 Almond에 포함된 선종 매니페스트를 사용합니다. 레시피의 투영·축척·용지 설정으로 도면이나 Layout을 만들지는 않습니다. 변경 전에 전용 Undo record를 확보하며 실패 시 그 record만 복구합니다. mutation_state는 none·completed·rolled_back·unknown이며 requires_reconciliation=true이면 문서를 확인하기 전 자동 재시도하지 않습니다. 레시피의 review_preparation.print_display가 true이면 적용 성공 응답에 PrintDisplay 설정 명령을 안내합니다.
+        """도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 적용. 같은 경로의 기존 레이어도 갱신한다. 같은 이름의 선종류는 기존 정의를 재사용하고 새 선종류는 Almond 선종 매니페스트에서 가져온다. 적용 범위는 레이어와 속성이다.
+
+        변경 전 전용 Undo record를 확보하고 실패 시 해당 record를 복구한다. mutation_state는 none·completed·rolled_back·unknown. requires_reconciliation=true면 재시도 전에 실제 문서 상태를 확인한다.
+
+        레시피의 review_preparation.print_display가 true이면 적용 성공 시 PrintDisplay 설정 명령을 안내한다.
 
         Args:
-            recipe_id: drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool에서 확인한 레시피 ID입니다. 생략하면 파일명 순으로 처음 로드된 레시피를 적용합니다.
+            recipe_id: drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool에서 확인. 생략 시 파일명 순으로 처음 로드된 레시피 적용.
         """
         if not recipe_id:
             recipe_id = next(iter(context.drawing_recipe_indexer.recipes), "")
@@ -120,11 +122,7 @@ def register(mcp, context):
 
     @public_tool(mcp, wrapped=True)
     def import_drawing_hatch_patterns(asset_id: str) -> str:
-        """등록된 PAT 자산의 해치 패턴 정의를 Rhino 문서에 가져옵니다. 같은 이름이 이미 있으면 기존 정의를 재사용합니다. 도면에 해치 객체를 배치하지는 않습니다.
-
-        Args:
-            asset_id: 등록된 PAT 도면 자산 ID.
-        """
+        """등록된 PAT 자산의 해치 패턴 정의를 Rhino 문서에 가져오기. 같은 이름이 있으면 기존 정의 재사용. 적용 범위는 해치 패턴 정의."""
         asset = context.drawing_asset_indexer.get(asset_id)
         if not asset:
             return json.dumps(error_payload(f"Unknown drawing asset_id: {asset_id}"))

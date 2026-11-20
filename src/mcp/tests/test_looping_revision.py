@@ -120,8 +120,8 @@ def test_loop_role_and_input_options_do_not_include_post_execution_reporting():
     role, inputs = text.split("Args:", 1)
     assert "사용자가 결정" not in role
     assert "시각적 근거" not in role
-    assert "resume: 기본 false: 새 회차. true: 최신 회차 재개." in inputs
-    assert "실행된 회차가 없으면 재개할 수 없습니다." in role
+    assert "`true`면 최신 회차 재개" in inputs and "`false`면 새 회차 시작" in inputs
+    assert "실행된 회차가 있어야 `resume=true`로 재개 가능" in role
     assert "Args:" in text and "resume:" in text
     assert "get_looping_policy" not in text
     assert "반환:" not in text
