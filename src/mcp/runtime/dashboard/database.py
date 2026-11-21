@@ -82,10 +82,10 @@ class Database:
         with self.connect() as db:
             return DomainViews(db).page(kind, **options)
 
-    def domain_detail(self, kind, key, parent=""):
+    def domain_detail(self, kind, key, parent="", loop_no=None):
         from .domain_views import DomainViews
         with self.connect() as db:
-            return DomainViews(db).detail(kind, key, parent)
+            return DomainViews(db).detail(kind, key, parent, loop_no)
 
     def domain_options(self, **options):
         from .domain_views import DomainViews

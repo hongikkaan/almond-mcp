@@ -256,6 +256,83 @@ h1 {
   max-width: 100%;
   width: 100%;
 }
+#task-outline {
+  margin-bottom: 16px;
+}
+.plan-outline {
+  container: plan-outline / inline-size;
+  min-width: 0;
+}
+.plan-sequence {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px;
+}
+.plan-sequence + .plan-sequence {
+  border-top: 1px solid var(--line);
+}
+.plan-sequence-level {
+  flex: 1 0 min(11rem, 100%);
+  min-width: 0;
+}
+.plan-sequence-level > .plan-outline-entry {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.plan-sequence-level > .plan-outline-entry + .plan-outline-entry {
+  margin-top: 6px;
+}
+.plan-outline-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+.plan-outline-line button {
+  max-width: 100%;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.plan-outline-line button[aria-current] {
+  font-weight: 700;
+  text-decoration: underline;
+}
+.plan-children {
+  list-style: disc outside;
+  margin: 4px 0 0;
+  padding-inline-start: min(2ch, 10%);
+}
+.plan-children > li + li {
+  margin-top: 4px;
+}
+.plan-previous,
+.plan-context,
+#execution-filter-help {
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.plan-previous {
+  display: flex;
+  gap: 4px;
+}
+@container plan-outline (max-width: 620px) {
+  .plan-sequence {
+    flex-direction: column;
+    align-items: stretch;
+    overflow: visible;
+  }
+  .plan-sequence-level {
+    flex-basis: auto;
+  }
+  .plan-sequence-arrow {
+    transform: rotate(90deg);
+  }
+}
 #task-count {
   font-size: 11px;
   font-weight: 400;
@@ -347,11 +424,27 @@ h1 {
   grid-column: 1 / -1;
 }
 .task-loop {
+  display: flex;
+  align-items: center;
+  gap: 3px;
   font-size: 23px;
   line-height: 1.2;
   font-weight: 600;
   white-space: nowrap;
 }
+.task-loop select, .task-loop button {
+  min-width: 0;
+  width: auto;
+  font: inherit;
+  font-size: .72em;
+  padding: 3px 5px;
+}
+.task-loop button:disabled { opacity: .4; }
+.task-card[aria-busy="true"] > :not(.task-heading),
+.task-card[aria-busy="true"] .task-heading :is(.task-identity, .status-label, .task-revision) {
+  visibility: hidden;
+}
+.history-kind { font-weight: 600; }
 .task-revision {
   display: block;
   font-size: 11px;
@@ -664,6 +757,11 @@ td {
 }
 td:first-child {
   min-width: 190px;
+}
+@media (min-width: 901px) {
+  td:has(.plan-outline) {
+    min-width: 15rem;
+  }
 }
 tbody tr:last-child td {
   border-bottom: 0;

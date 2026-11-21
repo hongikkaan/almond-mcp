@@ -1,4 +1,39 @@
 "use strict";
+const planStatusLabels = new Map(Object.entries({
+  pending: "대기",
+  running: "진행 중",
+  completed: "완료",
+  failed: "실패",
+  blocked: "막힘",
+  paused: "일시정지",
+}));
+const filterLabels = { file: "파일", phase: "Phase", scene: "Scene", status: "상태", execution: "실행 이력" };
+
+function planSequences(ids, records) {
+  const siblings = new Set(ids);
+  const children = new Map(ids.map((id) => [id, []]));
+  const roots = [];
+  for (const id of ids) {
+    const previous = records.get(id).previous?.id;
+    if (previous !== id && siblings.has(previous)) children.get(previous).push(id);
+    else roots.push(id);
+  }
+  const seen = new Set();
+  const sequences = [];
+  for (const root of roots) {
+    const levels = [];
+    for (let level = [root]; level.length; level = level.flatMap((id) => children.get(id))) {
+      levels.push(level);
+      for (const id of level) seen.add(id);
+    }
+    sequences.push(levels);
+  }
+  // Following cyclic references has no starting point. Keep each item and show its saved reference.
+  for (const id of ids)
+    if (!seen.has(id)) sequences.push([[id]]);
+  return sequences;
+}
+
 window.DomainExplorer = class {
   constructor({ api, node, notify }) {
     Object.assign(this, { api, node, notify });
@@ -21,7 +56,7 @@ window.DomainExplorer = class {
       scenes: "장면에 연결된 Holon과 작업의 맥락을 읽습니다.",
       holons: "건축 요소의 의미와 저장된 장면·부모 관계를 살펴봅니다.",
       phases: "Phase별 작업과 진행 맥락을 함께 읽습니다.",
-      tasks: "관계가 있는 작업을 곁에 두고 현재 회차의 Step 기록을 읽습니다.",
+      tasks: "관계가 있는 작업을 곁에 두고 회차별 Step과 피드백을 읽습니다.",
       steps: "Task별 현재 회차의 Step과 판단·입출력 기록을 찾아봅니다.",
     };
     this.reset();
@@ -52,7 +87,7 @@ window.DomainExplorer = class {
       this.chrome();
       this.load();
     });
-    for (const key of ["file", "phase", "scene"])
+    for (const key of Object.keys(filterLabels))
       this.$("filter-" + key).addEventListener("change", () => {
         this.state.filters[key] = this.$("filter-" + key).value;
         Object.assign(this.current, { offset: 0, focus: "" });
@@ -63,7 +98,7 @@ window.DomainExplorer = class {
     this.$("clear-context").addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this.state.filters = { file: "", phase: "", scene: "" };
+      this.state.filters = {};
       Object.assign(this.current, { offset: 0, focus: "", parent: "" });
       this.save();
       this.chrome();
@@ -75,6 +110,8 @@ window.DomainExplorer = class {
         this.state.filterPanelOpen = !this.$("task-filters").open;
         this.save();
       });
+    this.wideFilters = window.matchMedia("(min-width: 901px)");
+    this.wideFilters.addEventListener("change", () => this.updateFilterPanel());
     this.$("task-select").addEventListener("change", () => {
       Object.assign(this.current, {
         task: this.$("task-select").value,
@@ -94,7 +131,7 @@ window.DomainExplorer = class {
     this.state = {
       view: "tasks",
       views: {},
-      filters: { file: "", phase: "", scene: "" },
+      filters: {},
       expanded: [],
       comparisons: {},
     };
@@ -221,6 +258,8 @@ window.DomainExplorer = class {
     this.version++;
     const schemaVersion = ++this.schemaVersion;
     this.optionNotes = [];
+    this.hasExecutionHistory = false;
+    this.$("task-outline").replaceChildren();
     for (const key of ["file", "phase", "scene"])
       this.$("filter-" + key).replaceChildren(new Option("불러오는 중…", ""));
     this.schema = schema;
@@ -251,6 +290,12 @@ window.DomainExplorer = class {
       );
       if (schemaVersion !== this.schemaVersion) return;
       this.optionNotes = options.notes || [];
+      const statusSelect = this.$("filter-status");
+      statusSelect.replaceChildren(new Option("전체 상태", ""));
+      for (const status of options.statuses || [])
+        statusSelect.add(new Option(planStatusLabels.get(status) || status, status));
+      this.hasExecutionHistory = options.has_execution_history;
+      if (!this.hasExecutionHistory) delete this.state.filters.execution;
       for (const [key, plural, label] of [
         ["file", "files", "파일"],
         ["phase", "phases", "Phase"],
@@ -288,20 +333,19 @@ window.DomainExplorer = class {
     this.$("task-filters").hidden = !keys.length;
     this.$("filter-title").textContent =
       keys
-        .map((key) => ({ file: "파일", phase: "Phase", scene: "Scene" })[key])
+        .map((key) => filterLabels[key])
         .join("·") + " 필터";
     this.$("task-chooser").hidden = this.view !== "tasks";
+    this.$("task-outline").hidden = this.view !== "tasks";
     document.querySelector(".pagination").hidden = this.view === "tasks";
-    this.$("task-filters").open =
-      this.state.filterPanelOpen ??
-      window.matchMedia("(min-width: 901px)").matches;
+    this.updateFilterPanel();
     const activeFilters = keys.filter((key) => this.state.filters[key]).length;
     this.$("filter-summary").textContent = activeFilters
       ? `${activeFilters}개 적용`
       : "전체";
-    for (const key of ["file", "phase", "scene"]) {
+    for (const key of Object.keys(filterLabels)) {
       this.$("filter-" + key).closest("label").hidden = !keys.includes(key);
-      this.$("filter-" + key).value = this.state.filters[key];
+      this.$("filter-" + key).value = this.state.filters[key] || "";
       this.$("filter-" + key).disabled =
         !!this.current.focus || !!this.current.parent;
     }
@@ -310,10 +354,13 @@ window.DomainExplorer = class {
       ? "선택한 Task의 Step · 전체 목록에서 저장된 필터로 돌아갑니다."
       : "선택한 항목 · 전체 목록에서 저장된 검색·필터로 돌아갑니다.";
   }
+  updateFilterPanel() {
+    this.$("task-filters").open = this.state.filterPanelOpen ?? this.wideFilters.matches;
+  }
   filterKeys() {
     return (
       {
-        tasks: ["file", "phase", "scene"],
+        tasks: ["file", "phase", "scene", "status", ...(this.hasExecutionHistory ? ["execution"] : [])],
         steps: ["file", "phase", "scene"],
         phases: ["file"],
         scenes: ["file"],
@@ -348,6 +395,7 @@ window.DomainExplorer = class {
     const version = this.version,
       request = ++this.request,
       result = this.$("domain-results");
+    const outlineHost = this.$("task-outline");
     result.replaceChildren();
     result.setAttribute("aria-busy", "true");
     this.$("domain-note").textContent = "자료를 읽고 있습니다…";
@@ -355,10 +403,11 @@ window.DomainExplorer = class {
     this.$("domain-page-info").textContent = "";
     try {
       const filters = Object.fromEntries(
-        this.filterKeys().map((key) => [key, this.state.filters[key]]),
+        this.filterKeys().map((key) => [key, this.state.filters[key] || ""]),
       );
       const selected = this.current.focus || this.current.parent;
       let task = "",
+        outline = null,
         taskNotes = [];
       if (this.view === "tasks") {
         const select = this.$("task-select");
@@ -371,6 +420,7 @@ window.DomainExplorer = class {
         );
         if (version !== this.version || request !== this.request) return;
         const candidates = options.tasks || [];
+        outline = options.plan_outline;
         taskNotes = options.notes || [];
         task =
           this.current.focus ||
@@ -411,7 +461,7 @@ window.DomainExplorer = class {
                 ...this.current,
                 ...filters,
                 ...(selected
-                  ? { search: "", file: "", phase: "", scene: "" }
+                  ? { search: "", file: "", phase: "", scene: "", status: "", execution: "" }
                   : {}),
                 ...(this.view === "tasks"
                   ? { focus: task, search: "", offset: 0 }
@@ -423,6 +473,16 @@ window.DomainExplorer = class {
       if (this.view === "tasks" && this.current.focus && data.groups[0])
         this.$("task-select").selectedOptions[0].textContent =
           data.groups[0].name;
+      if (this.view === "tasks") {
+        const active = outlineHost.contains(document.activeElement)
+          ? document.activeElement.dataset.outlinePlan
+          : "";
+        outlineHost.replaceChildren(this.planOutline(outline, { selected: task }));
+        if (active)
+          [...outlineHost.querySelectorAll("[data-outline-plan]")]
+            .find((button) => button.dataset.outlinePlan === active)
+            ?.focus({ preventScroll: true });
+      }
       this.render(data);
       this.$("domain-note").textContent = [
         ...new Set([...this.optionNotes, ...taskNotes, ...(data.notes || [])]),
@@ -454,8 +514,8 @@ window.DomainExplorer = class {
     });
     return b;
   }
-  detailButton(title, kind, id, parent = "") {
-    const b = this.button(title, () => this.detail(kind, id, parent));
+  detailButton(title, kind, id, parent = "", loop = null) {
+    const b = this.button(title, () => this.detail(kind, id, parent, loop));
     b.dataset.detail = kind;
     return b;
   }
@@ -467,21 +527,105 @@ window.DomainExplorer = class {
     return box;
   }
   status(value) {
-    const labels = {
-      pending: "대기",
-      running: "진행 중",
-      completed: "완료",
-      failed: "실패",
-      blocked: "막힘",
-      paused: "일시정지",
-    };
     const b = this.node(
       "span",
-      labels[value] || this.plain(value),
+      planStatusLabels.get(value) || this.plain(value),
       "status-label",
     );
     b.dataset.status = value || "";
     return b;
+  }
+  planOutline(outline, { selected = "", showCount = false } = {}) {
+    const box = this.node("div", undefined, "plan-outline");
+    const records = new Map((outline?.items || []).map((item) => [item.id, item]));
+    if (!records.size) {
+      box.append(this.node("span", "표시할 Task 없음", "missing-value"));
+      return box;
+    }
+    if (showCount) {
+      const matches = [...records.values()].filter((item) => item.matches).length;
+      box.append(this.node("p", `${matches}개 Task`, "plan-context"));
+    }
+
+    const parentOf = new Map(), children = new Map();
+    for (const item of records.values()) {
+      for (const parent of item.parents) {
+        if (!records.has(parent)) continue;
+        let ancestor = parent;
+        while (ancestor && ancestor !== item.id) ancestor = parentOf.get(ancestor);
+        if (!ancestor) {
+          parentOf.set(item.id, parent);
+          break;
+        }
+      }
+      for (const parent of item.parents) {
+        if (!records.has(parent) || parent === item.id) continue;
+        if (!children.has(parent)) children.set(parent, []);
+        children.get(parent).push(item.id);
+      }
+    }
+    const rootIds = [...records.keys()].filter((id) => !parentOf.has(id));
+    const pendingChildren = [];
+    const appendPlan = (container, id, { nested = false, linked = false, ordered = false } = {}) => {
+      const item = records.get(id);
+      const entry = this.node(nested ? "li" : "div", undefined, "plan-outline-entry");
+      entry.dataset.planEntry = id;
+      const line = this.node("div", undefined, "plan-outline-line");
+      const button = this.button(item.name, () => {
+        if (this.view !== "tasks" || !item.matches) {
+          this.select("tasks", id);
+        } else {
+          Object.assign(this.current, { task: id, focus: "", parent: "", offset: 0 });
+          this.save();
+          this.chrome();
+          this.load();
+        }
+      });
+      button.dataset.outlinePlan = id;
+      if (selected === id) button.setAttribute("aria-current", "true");
+      line.append(button, this.status(item.status));
+      if (!item.matches) {
+        const files = item.file_names?.join(" · ");
+        line.append(this.node("span", files ? "상위 맥락 · " + files : "상위 맥락", "plan-context"));
+      }
+      if (linked) line.append(this.node("span", "연결된 하위 Task", "plan-context"));
+      if (item.parents.some((parent) => parent === id || !records.has(parent)))
+        line.append(this.node("span", "표시할 수 없는 상위 참조 있음", "plan-context"));
+      entry.append(line);
+      if (item.previous) {
+        const previous = this.node("div", undefined, "plan-previous");
+        if (ordered) {
+          const arrow = this.node("span", nested ? "↑" : "→",
+            nested ? "plan-sibling-arrow" : "plan-sequence-arrow");
+          arrow.setAttribute("aria-hidden", "true");
+          previous.append(arrow);
+        }
+        previous.append(this.node("span", "선행 · " + (item.previous.name || item.previous.id)));
+        entry.append(previous);
+      }
+      container.append(entry);
+      if (!linked && children.has(id)) pendingChildren.push([entry, id]);
+    };
+    for (const sequence of planSequences(rootIds, records)) {
+      const strip = this.node("div", undefined, "plan-sequence");
+      for (const [depth, ids] of sequence.entries()) {
+        const level = this.node("div", undefined, "plan-sequence-level");
+        for (const id of ids) appendPlan(level, id, { ordered: depth > 0 });
+        strip.append(level);
+      }
+      box.append(strip);
+    }
+    for (const [entry, parent] of pendingChildren) {
+      const list = this.node("ul", undefined, "plan-children");
+      for (const sequence of planSequences(children.get(parent), records))
+        for (const [depth, ids] of sequence.entries())
+          for (const id of ids)
+            appendPlan(list, id, { nested: true, linked: parentOf.get(id) !== parent, ordered: depth > 0 });
+      entry.append(list);
+    }
+    if (outline.truncated)
+      box.append(this.node("p", "조회 한도로 일부 상위 관계가 표시되지 않을 수 있습니다.", "plan-context"));
+    return box;
   }
   render(data) {
     if (!data.groups.length) {
@@ -599,23 +743,84 @@ window.DomainExplorer = class {
     queueMicrotask(show);
     return frame;
   }
+  loopPicker(group, card, adjacent, location) {
+    const numbers = group.loop_numbers || [];
+    if (!numbers.length)
+      return this.node("span", group.loop_no === 0 ? "실행 전" : "회차 미기록", "task-loop");
+    const controls = this.node("div", undefined, "task-loop");
+    const select = this.node("select");
+    select.setAttribute("aria-label", "조회할 회차");
+    for (const n of numbers) {
+      const title = n === 0 ? "실행 전 기록 (0)" : `Loop ${n}`;
+      select.add(new Option(title + (n === group.current_loop && n > 0 ? " · 현재" : ""), String(n)));
+    }
+    select.value = String(group.loop_no);
+    let serial = 0;
+    const previous = this.button("←", () => change(select.selectedIndex - 1, "previous"), "loop-arrow");
+    const next = this.button("→", () => change(select.selectedIndex + 1, "next"), "loop-arrow");
+    previous.setAttribute("aria-label", "이전 회차");
+    next.setAttribute("aria-label", "다음 회차");
+    const sync = () => {
+      previous.disabled = select.selectedIndex <= 0;
+      next.disabled = select.selectedIndex >= numbers.length - 1;
+    };
+    const change = async (index, trigger) => {
+      if (index < 0 || index >= numbers.length) return;
+      const own = ++serial;
+      this.$("detail").close();
+      const version = this.version, request = this.request;
+      select.selectedIndex = index;
+      sync();
+      const active = () => card.isConnected && own === serial && version === this.version && request === this.request;
+      card.setAttribute("aria-busy", "true");
+      try {
+        const data = await this.api(this.path("domain", { view: "tasks", focus: group.id, loop_no: numbers[index], limit: 1 }));
+        if (!active()) return;
+        const selected = data.groups[0];
+        if (!selected || selected.id !== group.id || selected.loop_no !== numbers[index])
+          throw new Error("선택한 Task 또는 회차 기록이 없습니다.");
+        const replacement = this.task(selected, adjacent, location);
+        if (data.notes?.length) replacement.append(this.node("p", data.notes.join("\n"), "hint"));
+        const hadFocus = controls.contains(document.activeElement);
+        card.replaceWith(replacement);
+        if (hadFocus) {
+          const arrows = replacement.querySelectorAll(".loop-arrow");
+          const button = trigger === "previous" ? arrows[0] : trigger === "next" ? arrows[1] : null;
+          (button && !button.disabled ? button : replacement.querySelector(".task-loop select"))?.focus();
+        }
+      } catch (error) {
+        if (!active()) return;
+        select.value = String(group.loop_no);
+        sync();
+        card.removeAttribute("aria-busy");
+        this.notify(error.message, true);
+      }
+    };
+    select.addEventListener("change", () => change(select.selectedIndex, "select"));
+    sync();
+    controls.append(previous, select, next);
+    return controls;
+  }
   task(group, adjacent = false, location = "") {
     const card = this.node("article", undefined, "task-card");
     card.dataset.taskId = group.id;
+    const selectedLoop = group.loop_numbers?.includes(group.loop_no) ? group.loop_no : null;
+    card.dataset.loop = group.loop_no ?? "";
     const header = this.node("div", undefined, "task-heading"),
       identity = this.node("div", undefined, "task-identity"),
       meta = this.node("div", undefined, "task-meta"),
       h = this.node("h2");
-    h.append(this.detailButton(group.name, "tasks", group.id));
+    h.append(this.detailButton(group.name, "tasks", group.id, "", selectedLoop));
     const top = this.node("div", undefined, "task-meta-top");
     top.append(
-      this.node("span", `LOOP ${group.loop_no ?? "미기록"}`, "task-loop"),
+      this.loopPicker(group, card, adjacent, location),
       this.status(group.status),
     );
     meta.append(
       top,
       this.node("span", `REV ${group.revision ?? "미기록"}`, "task-revision"),
     );
+    if (group.history) identity.append(this.node("span", "현재 연결된 Phase · 파일", "hint"));
     identity.append(
       this.node("span", group.phase?.name || "Phase 미지정", "task-phase"),
       this.node(
@@ -628,10 +833,21 @@ window.DomainExplorer = class {
     header.append(identity, meta);
     card.append(header);
     const context = this.node("div", undefined, "task-context");
+    if (group.history) {
+      card.append(this.node("p", group.history === "partial"
+        ? "일부 기록 · 이 회차에 남아 있는 자료만 표시합니다."
+        : "과거 회차 · 마지막으로 저장된 revision", "history-kind"));
+      context.append(this.node("span", "현재 연결된 Scene", "hint"));
+    }
     context.append(this.refs(group.scenes, "scenes"));
     if (group.scenes?.length) card.append(context);
     card.append(this.field("goal", group.goal));
     if (group.scope) card.append(this.field("scope", group.scope));
+    if (group.loop_no > 0 || group.feedback) card.append(this.field("feedback", group.feedback));
+    for (const key of ["loop_created_at", "artifact_dir", "loop_artifact_dir"])
+      if (group[key]) card.append(this.field(key, group[key]));
+    if (group.artifact_refs && group.artifact_refs !== "[]")
+      card.append(this.field("artifact_refs_json", group.artifact_refs));
     if (!adjacent && group.relations?.length) {
       const related = this.node("div", undefined, "task-relations"),
         labels = {
@@ -642,6 +858,7 @@ window.DomainExplorer = class {
           parent: "부모 Task",
           child: "자식 Task",
         };
+      if (group.history) related.append(this.node("span", "현재 연결된 Task", "hint"));
       for (const r of group.relations) {
         const item = this.node("div", undefined, "relation-item");
         item.append(
@@ -663,6 +880,7 @@ window.DomainExplorer = class {
           "",
           false,
           location || "task:" + group.id,
+          selectedLoop,
         ),
       );
     if (!group.steps?.length)
@@ -670,7 +888,7 @@ window.DomainExplorer = class {
     card.append(steps);
     return card;
   }
-  step(step, parent, taskName = "", standalone = false, location = "steps") {
+  step(step, parent, taskName = "", standalone = false, location = "steps", selectedLoop = null) {
     const panel = this.node(
       "details",
       undefined,
@@ -708,7 +926,7 @@ window.DomainExplorer = class {
     }
     const footer = this.node("div", undefined, "step-footer");
     footer.append(
-      this.detailButton("Step 전체 기록 ↗", "steps", step.id, parent),
+      this.detailButton("Step 전체 기록 ↗", "steps", step.id, parent, selectedLoop),
     );
     body.append(footer);
     panel.append(body);
@@ -771,7 +989,7 @@ window.DomainExplorer = class {
           cell(this.refs(g.scenes, "scenes")),
           cell(this.refs(g.holons, "holons")),
           cell(this.refs(g.phases, "phases")),
-          cell(this.refs(g.tasks, "tasks")),
+          cell(g.plan_outline ? this.planOutline(g.plan_outline, { showCount: true }) : this.refs(g.tasks, "tasks")),
         );
       if (this.view === "scenes")
         row.append(
@@ -806,7 +1024,7 @@ window.DomainExplorer = class {
     wrap.append(table);
     this.$("domain-results").append(wrap);
   }
-  async detail(kind, id, parent = "") {
+  async detail(kind, id, parent = "", loop = null) {
     const version = this.version,
       request = ++this.detailRequest,
       dialog = this.$("detail");
@@ -817,7 +1035,7 @@ window.DomainExplorer = class {
     if (!dialog.open) dialog.showModal();
     try {
       const data = await this.api(
-        this.path("domain-detail", { view: kind, id, parent }),
+        this.path("domain-detail", { view: kind, id, parent, ...(loop == null ? {} : { loop_no: loop }) }),
       );
       if (
         version !== this.version ||
@@ -827,6 +1045,10 @@ window.DomainExplorer = class {
         return;
       this.$("detail-title").textContent = data.title;
       this.$("detail-fields").replaceChildren();
+      if (loop != null)
+        this.$("detail-fields").append(this.node("p",
+          (loop === 0 ? "실행 전 기록 (0)" : `Loop ${loop}`) + (data.history === "partial" ? " · 일부 기록" : ""), "hint"));
+      if (data.notes?.length) this.$("detail-fields").append(this.node("p", data.notes.join("\n"), "hint"));
       if (data.task) {
         this.$("detail-fields").append(
           this.node(

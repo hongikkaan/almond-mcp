@@ -9,11 +9,14 @@ import json
 import sqlite3
 
 from .database import Database, identifier
+from .loop_history import loop_numbers, loop_row, read_history, stored_loop_directory
 
 PAGE_SIZE = 20
 RELATED_LIMIT = 200
 LINK_LIMIT = 2000
 KINDS = ("files", "scenes", "holons", "phases", "tasks", "steps")
+PLAN_OUTLINE_FIELDS = ("plan_id", "title", "name", "status", "previous_id", "parent_plan_json", "child_plan_json",
+                       "phase_id", "scene_id")
 
 
 def text(value):
@@ -41,11 +44,13 @@ class DomainViews:
         self.db = connection
         self.columns = {}
         self.notes = []
+        self.outline_catalogue = None
         entries = {row[1]: (row[2], row[3]) for row in connection.execute("PRAGMA table_list") if row[0] == "main"}
         for name in ("project_files", "generation_phase_files", "generation_plan_ontological",
                      "scenes", "ontological_holons", "components", "generation_phases",
                      "generation_plans", "generation_plan_steps", "generation_loop_steps", "generation_plan_scenes", "ontological_scene_context",
-                     "scene_ontological", "_scene_component_refs", "scene_components", "document_objects"):
+                     "scene_ontological", "_scene_component_refs", "scene_components", "document_objects",
+                     "workflow_statuses", "generation_plan_loops", "generation_plan_revisions"):
             if name not in entries:
                 continue
             kind, column_count = entries[name]
@@ -76,8 +81,11 @@ class DomainViews:
             "step_goals": bool(self.step_goal),
         }
 
-    def rows(self, table, where="1", params=(), order="", limit=LINK_LIMIT + 1, offset=0):
-        columns = [{"name": name} for name in self.columns[table][:128]]
+    def rows(self, table, where="1", params=(), order="", limit=LINK_LIMIT + 1, offset=0, *, fields=None):
+        names = self.columns[table]
+        if fields is not None:
+            names = [field for field in fields if field in names]
+        columns = [{"name": name} for name in names[:128]]
         query = f"SELECT {Database._selection(columns)} FROM {identifier(table)} WHERE {where}"
         if order:
             query += " ORDER BY " + order
@@ -93,10 +101,13 @@ class DomainViews:
             return "1", ()
         return "(" + " OR ".join(f"instr(lower(CAST({identifier(field)} AS TEXT)),lower(?))>0" for field in fields) + ")", (search,) * len(fields)
 
-    def page(self, kind, *, search="", focus="", parent="", file="", phase="", scene="", offset=0, limit=PAGE_SIZE):
+    def page(self, kind, *, search="", focus="", parent="", file="", phase="", scene="", status="", execution="",
+             offset=0, limit=PAGE_SIZE, loop_no=None):
+        if loop_no is not None and (kind != "tasks" or not focus or type(loop_no) is not int or not 0 <= loop_no < 2**53):
+            raise ValueError("회차 조회에는 Task 하나와 0 이상의 회차 번호가 필요합니다.")
         if kind not in KINDS or not self.capabilities()[kind]:
             raise ValueError("이 DB에는 해당 조회에 필요한 저장 구조가 없습니다.")
-        if any(not isinstance(value, str) or len(value) > 200 for value in (search, focus, parent, file, phase, scene)) or not 0 <= offset <= 10_000_000 or not 1 <= limit <= PAGE_SIZE:
+        if any(not isinstance(value, str) or len(value) > 200 for value in (search, focus, parent, file, phase, scene, status)) or not 0 <= offset <= 10_000_000 or not 1 <= limit <= PAGE_SIZE:
             raise ValueError("조회 범위 또는 검색어가 올바르지 않습니다.")
         table, key, names = {"scenes": ("scenes", "scene_id", ("name",)),
                              "files": ("project_files", "file_name", ("file_name", "description")),
@@ -114,7 +125,7 @@ class DomainViews:
                 where += ' AND plan_id=?'
                 params += (parent,)
         if kind in ("tasks", "steps"):
-            task_where, task_params = self.task_filter(file=file, phase=phase, scene=scene)
+            task_where, task_params = self.task_filter(file=file, phase=phase, scene=scene, status=status, execution=execution)
             if kind == "steps":
                 where += ' AND plan_id IN (SELECT plan_id FROM generation_plans WHERE ' + task_where + ')'
             else:
@@ -144,7 +155,10 @@ class DomainViews:
         more, records = len(records) > limit, records[:limit]
         if any(not isinstance(row.get(key), str) or not row[key] or len(row[key]) > 200 for row in records):
             raise ValueError("이 DB의 항목 ID 형식은 도메인 조회에서 지원하지 않습니다.")
-        groups = self.step_groups(records) if kind == "steps" else getattr(self, kind)(records)
+        if kind == "tasks":
+            groups = self.tasks(records, loop_no)
+        else:
+            groups = self.step_groups(records) if kind == "steps" else getattr(self, kind)(records)
         if kind == "phases" and not more and not focus:
             where = '(phase_id IS NULL OR phase_id=\'\')'
             search_where, args = self.search_clause("generation_plans", ("title", "goal", "scope"), search)
@@ -160,12 +174,15 @@ class DomainViews:
             self.notes.append("현재 DB에는 Step별 목표가 저장되지 않습니다. Task 목표와 scope는 별도로 표시합니다.")
         if kind == "tasks" and not caps["steps"]:
             self.notes.append("현재 DB에는 Step 저장 구조가 없습니다.")
+        filters = {"file": file, "phase": phase, "scene": scene}
+        if kind in ("tasks", "steps"):
+            filters.update(status=status, execution=execution)
         return {"view": kind, "groups": groups, "offset": offset, "limit": limit, "has_more": more,
-                "focus": focus, "parent": parent, "filters": {"file": file, "phase": phase, "scene": scene},
+                "focus": focus, "parent": parent, "filters": filters,
                 "notes": list(dict.fromkeys(self.notes)), "capabilities": caps}
 
-    def options(self, *, file="", phase="", scene="", search=""):
-        if any(not isinstance(value, str) or len(value) > 200 for value in (file, phase, scene, search)):
+    def options(self, *, file="", phase="", scene="", status="", execution="", search=""):
+        if any(not isinstance(value, str) or len(value) > 200 for value in (file, phase, scene, status, search)):
             raise ValueError("선택 목록 필터가 올바르지 않습니다.")
         result = {}
         for kind, table, key, names in (("files", "project_files", "file_name", ("file_name",)),
@@ -177,18 +194,112 @@ class DomainViews:
             result[kind] = [self.ref(row, key, *names) for row in records[:LINK_LIMIT]]
         tasks = []
         if self.has("generation_plans", "plan_id"):
-            where, params = self.task_filter(file=file, phase=phase, scene=scene)
+            where, params = self.task_filter(file=file, phase=phase, scene=scene, status=status, execution=execution)
             search_where, search_params = self.search_clause("generation_plans", ("title", "goal", "scope"), search)
             tasks = self.rows("generation_plans", "(" + where + ") AND " + search_where, params + search_params,
-                              self.order("generation_plans", "title", "plan_id"))
+                              self.order("generation_plans", "title", "plan_id"), fields=PLAN_OUTLINE_FIELDS)
         if len(tasks) > LINK_LIMIT:
             self.notes.append(f"tasks: 선택 목록은 처음 {LINK_LIMIT}개만 표시합니다. 필터나 검색으로 범위를 좁혀 주세요.")
         result["tasks"] = [self.ref(row, "plan_id", "title", "name") for row in tasks[:LINK_LIMIT]]
+        result["statuses"] = self.plan_statuses()
+        result["has_execution_history"] = self.has_execution_history()
+        result["plan_outline"] = self.plan_outline(tasks[:LINK_LIMIT], include_context_files=bool(file))
         return {**result, "notes": list(dict.fromkeys(self.notes))}
 
-    def task_filter(self, *, file="", phase="", scene=""):
+    def plan_statuses(self):
+        if not self.has("generation_plans", "status"):
+            return []
+        stored = self.db.execute(
+            "SELECT DISTINCT status FROM generation_plans "
+            "WHERE typeof(status)='text' AND length(status) BETWEEN 1 AND 200 ORDER BY status LIMIT ?",
+            (RELATED_LIMIT,),
+        )
+        statuses = {status for status, in stored}
+        if self.has("workflow_statuses", "status"):
+            statuses.update(row["status"] for row in self.rows("workflow_statuses", limit=RELATED_LIMIT)
+                            if isinstance(row["status"], str) and 0 < len(row["status"]) <= 200)
+        return sorted(statuses)
+
+    def has_execution_history(self):
+        return (self.has("generation_plans", "plan_id", "loop_no")
+                and self.has("generation_plan_loops", "plan_id", "loop_no")
+                and self.has("generation_loop_steps", "plan_id", "loop_no", "status",
+                             "input_refs_json", "output_refs_json", "takeaways", "design_rationale"))
+
+    def unstarted_filter(self):
+        if not self.has_execution_history():
+            return "0"
+        # Legacy Step work can be imported into Loop 0. Empty JSON arrays provide no evidence.
+        references = ("CASE WHEN json_valid({field}) THEN json_type({field})!='array' "
+                      "OR json_array_length({field})>0 ELSE trim(coalesce({field},''))<>'' END")
+        evidence = (
+            "generation_plans.loop_no=0 "
+            "AND NOT EXISTS (SELECT 1 FROM generation_plan_loops l "
+            "WHERE l.plan_id=generation_plans.plan_id AND l.loop_no>0) "
+            "AND NOT EXISTS (SELECT 1 FROM generation_loop_steps s "
+            "WHERE s.plan_id=generation_plans.plan_id AND (s.loop_no>0 OR s.status IS NOT 'pending' "
+            f"OR {references.format(field='s.input_refs_json')} OR {references.format(field='s.output_refs_json')} "
+            "OR trim(coalesce(s.takeaways,''))<>'' OR trim(coalesce(s.design_rationale,''))<>''))"
+        )
+        if self.has("generation_plans", "artifact_refs_json"):
+            evidence += f" AND NOT ({references.format(field='generation_plans.artifact_refs_json')})"
+        return evidence
+
+    def plan_outline(self, matches, *, include_context_files=False):
+        if not matches:
+            return {"items": [], "truncated": False}
+        if self.outline_catalogue is None:
+            self.outline_catalogue = self.rows(
+                "generation_plans", order=self.order("generation_plans", "title", "plan_id"),
+                fields=PLAN_OUTLINE_FIELDS,
+            )
+        matched_ids = {row["plan_id"] for row in matches}
+        catalogue = {row["plan_id"]: row for row in (*self.outline_catalogue[:LINK_LIMIT], *matches)}
+        parents = {key: set() for key in catalogue}
+        for key, row in catalogue.items():
+            parents[key].update(value for value in json_list(row.get("parent_plan_json"))
+                                if isinstance(value, str) and 0 < len(value) <= 200)
+            for child in json_list(row.get("child_plan_json")):
+                if isinstance(child, str) and child in parents:
+                    parents[child].add(key)
+
+        included = set(matched_ids)
+        pending = sorted(matched_ids, reverse=True)
+        truncated = len(self.outline_catalogue) > LINK_LIMIT
+        while pending:
+            for parent in sorted(parents[pending.pop()]):
+                if parent in catalogue and parent not in included:
+                    if len(included) >= LINK_LIMIT:
+                        truncated = True
+                        continue
+                    included.add(parent)
+                    pending.append(parent)
+        items = []
+        for key in sorted(included, key=lambda key: (label(catalogue[key], "title", "name"), key)):
+            row = catalogue[key]
+            previous = row.get("previous_id")
+            previous_ref = None
+            if isinstance(previous, str) and 0 < len(previous) <= 200:
+                previous_ref = {"id": previous, "name": label(catalogue[previous], "title", "name") if previous in catalogue else None}
+            item = {**self.ref(row, "plan_id", "title", "name"), "status": row.get("status"),
+                    "matches": key in matched_ids, "parents": sorted(parents[key]), "previous": previous_ref}
+            if not item["matches"] and include_context_files:
+                item["file_names"] = self.task_context(row)["file_names"]
+            items.append(item)
+        return {"items": items, "truncated": truncated}
+
+    def task_filter(self, *, file="", phase="", scene="", status="", execution=""):
         clauses, params = [], []
         plan_id = '"generation_plans"."plan_id"'
+        if status:
+            has_status = self.has("generation_plans", "status")
+            clauses.append("status COLLATE BINARY=?" if has_status else "0")
+            if has_status:
+                params.append(status)
+        if execution:
+            if execution != "unstarted":
+                raise ValueError("실행 이력 필터가 올바르지 않습니다.")
+            clauses.append(self.unstarted_filter())
         if phase:
             clauses.append('phase_id=?' if self.has("generation_plans", "phase_id") else "0")
             if self.has("generation_plans", "phase_id"):
@@ -245,12 +356,15 @@ class DomainViews:
             tasks = []
             if self.has('generation_plans', 'plan_id'):
                 where, params = self.task_filter(file=name)
-                tasks = self.rows('generation_plans', where, params, self.order('generation_plans', 'title', 'plan_id'), RELATED_LIMIT + 1)
+                tasks = self.rows('generation_plans', where, params, self.order('generation_plans', 'title', 'plan_id'),
+                                  RELATED_LIMIT + 1, fields=PLAN_OUTLINE_FIELDS)
+            tasks = self.limited(tasks, '파일 Task')
             result.append({'id': name, 'name': name, 'file_name': name, 'description': row.get('description'), 'registered': row.get('registered'),
                            'scenes': [self.ref(item, 'scene_id', 'name') for item in self.limited(scenes, '파일 Scene')],
                            'holons': [self.ref(item, self.holon_key, 'name') for item in self.limited(holons, '파일 Holon')],
                            'phases': [self.ref(item, 'phase_id', 'name') for item in self.limited(phases, '파일 Phase')],
-                           'tasks': [self.ref(item, 'plan_id', 'title', 'name') for item in self.limited(tasks, '파일 Task')]})
+                           'tasks': [self.ref(item, 'plan_id', 'title', 'name') for item in tasks],
+                           'plan_outline': self.plan_outline(tasks, include_context_files=True)})
         return result
 
     def limited(self, records, description):
@@ -470,16 +584,38 @@ class DomainViews:
         return [{"type": kind, "id": key, "name": label(records[key], "title", "name") if key in records else "미등록 Task",
                  "missing": key not in records} for kind, key in wanted]
 
-    def tasks(self, records):
+    def tasks(self, records, loop_no=None):
         result = []
         catalogue = self.rows("generation_plans", order=self.order("generation_plans", "plan_id")) if records else []
         if len(catalogue) > LINK_LIMIT:
             self.notes.append(f"후속·의존 Task 탐색은 처음 {LINK_LIMIT}개 기록으로 제한됩니다.")
         for row in records:
+            numbers = loop_numbers(self, row, LINK_LIMIT)
+            selected = loop_no if loop_no is not None else row.get("loop_no")
+            if loop_no is None and numbers and selected not in numbers:
+                selected = numbers[-1]
+            if loop_no is not None and loop_no not in numbers:
+                raise ValueError("이 Task에 선택한 회차 기록이 없습니다.")
+            navigation = {"loop_numbers": numbers, "current_loop": row.get("loop_no"),
+                          **self.task_context(row), "relations": self.task_relations(row, catalogue[:LINK_LIMIT])}
+            if selected != row.get("loop_no"):
+                plan, historical_steps, complete = read_history(self, row["plan_id"], selected, RELATED_LIMIT)
+                result.append({**navigation, **{k: plan.get(k) for k in ("goal", "scope", "status", "revision", "feedback",
+                               "artifact_dir", "loop_artifact_dir", "artifact_refs", "loop_created_at")},
+                               "id": row["plan_id"], "name": label(plan, "title", "name"), "loop_no": selected,
+                               "history": "snapshot" if complete else "partial",
+                               "steps": [{**s, "id": s["step_id"], "name": label(s, "name", "step_id"),
+                                          "input_refs_json": s.get("input_refs", s.get("input_refs_json")),
+                                          "output_refs_json": s.get("output_refs", s.get("output_refs_json"))}
+                                         for s in historical_steps]})
+                continue
             steps = self.step_records(row)
+            loop = loop_row(self, row["plan_id"], selected)
             result.append({"id": row["plan_id"], "name": label(row, "title", "name"), "revision": row.get("revision"),
                            "goal": row.get("goal"), "scope": row.get("scope"), "status": row.get("status"), "loop_no": row.get("loop_no"),
-                           **self.task_context(row), "relations": self.task_relations(row, catalogue[:LINK_LIMIT]),
+                           **navigation, "feedback": loop.get("feedback"), "loop_created_at": loop.get("created_at"),
+                           "artifact_dir": row.get("artifact_dir"), "artifact_refs": row.get("artifact_refs_json"),
+                           "loop_artifact_dir": stored_loop_directory(self, row["plan_id"], selected),
                            "steps": [{"id": step["step_id"], "name": label(step, "name", "step_id"),
                                       "status": step.get("status"), "goal": step.get(self.step_goal), "position": step.get("position"),
                                       "step_type": step.get("step_type"), "kind": step.get("kind"), "loop_no": row.get("loop_no"),
@@ -487,9 +623,26 @@ class DomainViews:
                                      for step in self.limited(steps, "Task 소속 Step")]})
         return result
 
-    def detail(self, kind, key, parent=""):
+    def detail(self, kind, key, parent="", loop_no=None):
         if not key or len(key) > 200 or len(parent) > 200:
             raise ValueError("조회할 항목을 선택하세요.")
+        if loop_no is not None:
+            if kind not in ("tasks", "steps") or type(loop_no) is not int or not 0 <= loop_no < 2**53:
+                raise ValueError("올바른 Task 또는 Step 회차를 선택하세요.")
+            pid = key if kind == "tasks" else parent
+            plans = self.rows("generation_plans", "plan_id=?", (pid,), limit=1) if self.has("generation_plans", "plan_id") else []
+            if not plans or loop_no not in loop_numbers(self, plans[0], LINK_LIMIT):
+                raise ValueError("이 Task에 선택한 회차 기록이 없습니다.")
+            if loop_no != plans[0].get("loop_no"):
+                fields, steps, complete = read_history(self, pid, loop_no, RELATED_LIMIT, key if kind == "steps" else None)
+                title = label(fields, "title", "name")
+                if kind == "steps":
+                    if not steps:
+                        raise ValueError("선택한 회차에 이 Step의 기록이 없습니다.")
+                    fields = {**steps[0], "plan_id": pid, "loop_no": loop_no, "revision": fields["revision"]}
+                    title = label(fields, "name", "step_id")
+                return {"title": title, "fields": fields, "loop_no": loop_no,
+                        "history": "snapshot" if complete else "partial", "notes": self.notes}
         if kind == "steps":
             if not self.has("generation_plan_steps", "step_id", "plan_id") or not self.has("generation_plans", "plan_id") or not parent:
                 raise ValueError("Step을 조회하려면 소속 Task가 필요합니다.")
@@ -508,4 +661,8 @@ class DomainViews:
         records = self.rows(table, identifier(column) + "=?", (key,), limit=1)
         if not records:
             raise ValueError("선택한 항목이 없습니다. 새로고침해 주세요.")
+        if kind == "tasks" and loop_no is not None:
+            loop = loop_row(self, key, loop_no)
+            records[0].update(feedback=loop.get("feedback"), loop_created_at=loop.get("created_at"),
+                              loop_artifact_dir=stored_loop_directory(self, key, loop_no))
         return {"title": label(records[0], name), "fields": records[0]}

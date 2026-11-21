@@ -31,12 +31,20 @@ RHP 소스 수정·빌드·등록·실제 로드는 별개입니다. 개발 워�
 - **Scene 조회**: 장면의 Holon·객체 이름 기록·Task를 읽습니다.
 - **Holon 조회**: 저장된 이름·Scene·부모 Holon·객체 수 요약·등록 상태를 읽습니다. Rhino의 실시간 형상 검사가 아닙니다.
 - **Phase**: Phase별 Task와 Phase 미지정 작업을 읽습니다.
-- **Task**: 목표·Scope·파일·Phase·Scene, 관계 유형을 구분한 인접 작업, 현재 Loop의 Step을 읽습니다.
+- **Task**: 목표·Scope·파일·Phase·Scene, 관계 유형을 구분한 인접 작업, 선택한 Loop의 Step을 읽습니다.
 - **Step**: 소속 Task와 현재 Loop의 상태·판단 기록·설계 근거·입출력 참조를 읽습니다. UUID인 `step_id`와 `step_type`·표시 이름은 구분합니다.
 
 Task·Step의 파일명·Phase·Scene 드롭다운은 AND로 적용됩니다. 파일 연결은 Phase의 여러 파일 및 실제 Scene 연결을 사용합니다. 검색·선택·필터·펼침은 같은 브라우저 세션에서 DB별로 보관합니다. 다른 조회로 이동하거나 새로고침해도 해당 맥락으로 돌아옵니다. 다른 DB의 상태와 섞지 않습니다.
 
+File과 Task의 Plan 목록은 저장된 부모·자식 관계를 깊이별로 들여쓰고, 명시된 선행 작업은 화살표로 연결합니다. 좁은 화면에서는 순서를 위에서 아래로 읽습니다. 공유 자식은 각 부모 아래에서 열 수 있습니다. 파일이나 상태 필터 밖의 부모는 **상위 맥락**으로 표시하며 일치 항목 수에는 넣지 않습니다.
+
+Task에서는 저장된 상태와 실행 이력을 따로 선택합니다. **아직 시작 안 함**은 실행한 Loop와 저장된 Step 작업 증거·산출물 참조가 없는 경우를 조회합니다. Loop 0으로 이관된 작업 증거도 확인하므로 대기 상태와 결과가 다를 수 있습니다.
+
 Step 왼쪽 화살표를 누르면 같은 자리에서 기록을 펼칩니다. 항목 이름의 상세 버튼은 팝업을 열며 **닫기**, **Escape**, 팝업 바깥 클릭으로 닫습니다. 팝업 내부를 클릭하면 유지합니다.
+
+Task를 처음 열면 현재 회차가 보입니다. 오른쪽의 회차 목록이나 좌우 화살표로 저장된 회차를 선택하면 Task 본문과 Step 상세 팝업이 함께 바뀝니다. **실행 전 기록 (0)**에는 실행 전 또는 이관된 기록이 있을 수 있습니다. 관련 Task 카드에서는 그 Task의 회차를 따로 선택합니다.
+
+과거 회차는 해당 회차의 마지막 revision에 저장된 정보를 보여줍니다. 전체 기록을 읽을 수 없으면 남아 있는 피드백·Step·입출력 참조에 **일부 기록** 표시를 붙입니다. 파일·Phase·Scene·관련 Task 링크에는 현재 연결임을 표시합니다. 산출물 경로는 당시 저장값이므로 파일이 옮겨지거나 덮어써져도 그 시점의 파일 내용이나 Rhino 형상을 복원할 수 없습니다.
 
 새로운 일반 DB를 열어도 원시 테이블 목록이나 내부 테이블은 표시하지 않습니다. 지원되는 도메인 저장 구조가 없는 경우 안내합니다. DB의 테이블·뷰를 숨기려고 삭제하거나 migration하지 않습니다.
 
@@ -80,6 +88,8 @@ node --check src/mcp/runtime/dashboard/web/domain.js
 ```powershell
 $env:PLAYWRIGHT_MODULE = '<개발용 node_modules>\playwright'
 node src/mcp/tests/runtime/dashboard_browser.cjs
+node src/mcp/tests/runtime/dashboard_browser.cjs --plan-outline
+node src/mcp/tests/runtime/dashboard_browser.cjs --loop-history
 ```
 
 브라우저 검사는 임시 DB·자체 서버로 여섯 조회, 원시 UI 미노출, 현재 Step 판단, 필터·펼침 복원과 팝업 닫기를 확인합니다. RHP의 경로·중복 실행·주소 검증·실패·종료 계약은 [Dashboard host fixture](../../../rhp/Asset_Panel/tests/DashboardHostContracts/README.md)를 따릅니다. 이 fixture의 SDK 컴파일은 실제 Rhino 패널 로드 검증과 다릅니다.

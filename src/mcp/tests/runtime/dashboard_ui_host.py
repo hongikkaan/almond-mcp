@@ -6,11 +6,11 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'runtime'))
-from domain_fixture import create_domain_database
+from domain_fixture import add_loop_history_fixture, add_plan_outline_fixture, create_domain_database
 from dashboard.server import DashboardServer
 
-with tempfile.TemporaryDirectory(prefix='dashboard-ui-') as directory:
-    path = create_domain_database(Path(directory) / 'fixture.sqlite3')
+
+def seed_browsing(path):
     with sqlite3.connect(path) as db:
         db.execute("UPDATE generation_loop_steps SET takeaways='판단 기록',design_rationale='설계 근거' "
                    "WHERE plan_id='plan_a' AND step_id='z_first'")
@@ -33,6 +33,16 @@ with tempfile.TemporaryDirectory(prefix='dashboard-ui-') as directory:
         db.executemany("INSERT INTO generation_plan_steps(plan_id,step_id,position,kind,depends_on_json) "
                        "VALUES ('plan_b',?,?,'reason','[]')",
                        [(f'bounded_{index}', index + 1) for index in range(201)])
+
+
+with tempfile.TemporaryDirectory(prefix='dashboard-ui-') as directory:
+    path = create_domain_database(Path(directory) / 'fixture.sqlite3')
+    if '--plan-outline' in sys.argv[1:]:
+        add_plan_outline_fixture(path)
+    elif '--loop-history' in sys.argv[1:]:
+        add_loop_history_fixture(path)
+    else:
+        seed_browsing(path)
     server = DashboardServer(path)
     print(server.url, flush=True)
     try:

@@ -10,12 +10,63 @@ import pytest
 
 from dashboard.database import Database
 from dashboard.server import DashboardServer
-from domain_fixture import create_domain_database
+from domain_fixture import add_loop_history_fixture, add_plan_outline_fixture, create_domain_database
 
 
 @pytest.fixture
 def project(tmp_path):
     return Database(create_domain_database(tmp_path / 'project.sqlite3'))
+
+
+def test_loop_history_uses_recorded_numbers_and_last_revision(project):
+    add_loop_history_fixture(project.path)
+    before = project.path.read_bytes()
+    def task(**options):
+        return project.domain_page('tasks', focus='plan_a', **options)['groups'][0]
+    assert task()['loop_no'] == 4 and task()['loop_numbers'] == [0, 1, 3, 4]
+    assert task()['feedback'] == 'current feedback'
+    old = task(loop_no=1)
+    assert (old['history'], old['revision'], old['status'], old['name']) == ('snapshot', 2, 'paused', 'Old title')
+    assert old['loop_artifact_dir'].endswith('/01')
+    assert old['steps'][0]['id'] == 'archived_step' and old['steps'][0]['takeaways'] == 'decision 2'
+    detail = project.domain_detail('steps', 'archived_step', 'plan_a', 1)
+    assert detail['fields']['output_refs'] == ['previous/deleted.png'] and detail['fields']['loop_no'] == 1
+    long_step = old['steps'][1]
+    assert long_step['design_rationale']['truncated'] and long_step['output_refs_json'] == ['old/first.png']
+    historical_detail = project.domain_detail('steps', 'z_first', 'plan_a', 1)
+    assert historical_detail['history'] == 'snapshot' and historical_detail['fields']['output_refs'] == ['old/first.png']
+    assert json.loads(project.domain_detail('steps', 'z_first', 'plan_a', 4)['fields']['output_refs_json']) == ['current/new.png']
+    assert project.domain_detail('tasks', 'plan_a', loop_no=1)['fields']['goal'] == 'Original goal'
+    for pid, number in [('plan_a', 2), ('plan_b', 1), ('plan_a', -1)]:
+        with pytest.raises(ValueError):
+            project.domain_page('tasks', focus=pid, loop_no=number)
+    with pytest.raises(ValueError):
+        project.domain_detail('steps', 'm_middle', 'plan_a', 1)
+    assert project.path.read_bytes() == before
+
+
+def test_partial_loop_keeps_feedback_and_migrated_steps_without_current_fields(project):
+    add_loop_history_fixture(project.path)
+    partial = project.domain_page('tasks', focus='plan_a', loop_no=3)['groups'][0]
+    assert partial['history'] == 'partial' and partial['feedback'] == 'feedback only'
+    assert not partial['steps'] and partial['status'] is partial['revision'] is partial['goal'] is None
+    zero = project.domain_page('tasks', focus='plan_a', loop_no=0)['groups'][0]
+    assert zero['history'] == 'partial' and not zero['loop_artifact_dir']
+    step = project.domain_detail('steps', 'z_first', 'plan_a', 0)['fields']
+    assert step['status'] == 'completed' and json.loads(step['output_refs_json']) == ['장면 해석 결과']
+    assert 'name' not in step and 'position' not in step
+    assert project.domain_page('tasks', focus='plan_empty')['groups'][0]['loop_numbers'] == []
+    with sqlite3.connect(project.path) as db:
+        db.execute("UPDATE generation_plan_revisions SET snapshot_json='broken' WHERE revision=2 AND loop_no=1")
+    broken = project.domain_page('tasks', focus='plan_a', loop_no=1)
+    assert broken['groups'][0]['history'] == 'partial' and broken['groups'][0]['feedback'] == 'first feedback'
+    assert broken['notes'] and not broken['groups'][0]['steps']
+    with sqlite3.connect(project.path) as db:
+        db.execute("UPDATE generation_plan_revisions SET snapshot_json=? WHERE revision=2 AND loop_no=1",
+                   (json.dumps({"plan_id": "plan_a", "steps": [{"step_id": "orphan", "status": "failed"}]}),))
+    surviving = project.domain_page('tasks', focus='plan_a', loop_no=1)['groups'][0]
+    assert surviving['history'] == 'partial' and surviving['status'] is None
+    assert surviving['steps'][0]['status'] == 'failed'
 
 
 def test_step_explorer_reads_current_loop_decisions_and_identity(project):
@@ -119,6 +170,42 @@ def test_task_dropdown_bounds_options_and_explains_truncation(tmp_path):
     assert hashlib.sha256(path.read_bytes()).digest() == before
 
 
+def test_file_outline_uses_stored_edges_and_excludes_external_parents_from_count(project):
+    add_plan_outline_fixture(project.path)
+    before = project.path.read_bytes()
+    group = project.domain_page('files', focus='other.3dm')['groups'][0]
+    items = {item['id']: item for item in group['plan_outline']['items']}
+    assert items['outline_root']['file_names'] == ['example.3dm']
+    assert not items['outline_root']['matches']
+    assert {row['id'] for row in group['tasks']} == {key for key, item in items.items() if item['matches']}
+    assert 'outline_next' not in items and 'outline_branch' not in items
+    assert items['outline_child_a']['parents'] == items['outline_child_b']['parents'] == ['outline_root']
+    assert items['outline_child_b']['previous']['id'] == 'outline_child_a'
+    assert items['outline_leaf']['parents'] == ['outline_child_a', 'outline_child_b']
+    assert items['outline_loose']['parents'] == [] and items['outline_loose']['previous'] is None
+    assert project.domain_options(file='other.3dm')['plan_outline'] == group['plan_outline']
+    assert project.path.read_bytes() == before
+
+
+def test_status_and_execution_filters_keep_only_matches_and_their_ancestors(project):
+    add_plan_outline_fixture(project.path)
+    filters = dict(file='other.3dm', status='pending', execution='unstarted')
+    options = project.domain_options(**filters)
+    assert set(options['statuses']) == {'pending', 'running', 'paused', 'completed', 'failed', 'blocked'}
+    assert options['has_execution_history'] is True
+    assert [item['id'] for item in options['tasks']] == ['outline_leaf']
+    assert {item['id']: item['matches'] for item in options['plan_outline']['items']} == {
+        'outline_root': False, 'outline_child_a': False, 'outline_child_b': False, 'outline_leaf': True,
+    }
+    assert [row['id'] for row in project.domain_page('tasks', **filters)['groups']] == ['outline_leaf']
+    without_execution = project.domain_options(file='other.3dm', status='pending')['tasks']
+    assert {'outline_leaf', 'outline_pending', 'outline_legacy'} <= {item['id'] for item in without_execution}
+    assert 'outline_loose' in {row['id'] for row in project.domain_options(file='other.3dm', execution='unstarted')['tasks']}
+    assert not project.domain_options(status='not_started')['tasks']
+    with pytest.raises(ValueError, match='실행 이력 필터'):
+        project.domain_options(execution='pending')
+
+
 def test_task_relations_keep_types_and_report_dangling_without_recursive_expansion(project):
     with sqlite3.connect(project.path) as db:
         db.execute("UPDATE generation_plans SET previous_id='plan_b',depends_on_json='[\"plan_b\",\"missing\",\"plan_a\"]',parent_plan_json='[\"plan_c\"]',child_plan_json='[\"plan_empty\"]' WHERE plan_id='plan_a'")
@@ -220,6 +307,12 @@ def test_six_domain_http_reads_keep_authentication_identity_and_database_bytes(p
         assert request('/api/domain-options', params)[1]['files'][0]['id'] == 'example.3dm'
         status, body = request('/api/domain-options', {**params, 'file': 'example.3dm', 'phase': 'phase_a', 'scene': 'scene_b', 'search': 'house'})
         assert status == 200 and [row['id'] for row in body['tasks']] == ['plan_a']
+        filters = {**params, 'status': 'pending', 'execution': 'unstarted'}
+        status, body = request('/api/domain-options', filters)
+        assert status == 200 and [row['id'] for row in body['tasks']] == ['plan_unassigned']
+        status, body = request('/api/domain', {**filters, 'view': 'tasks'})
+        assert status == 200 and [row['id'] for row in body['groups']] == ['plan_unassigned']
+        assert request('/api/domain-options', {**params, 'execution': 'invalid'})[0] == 400
         for name in ('file', 'phase', 'scene', 'search'):
             assert request('/api/domain-options', {**params, name: 'x' * 201})[0] == 400
         for kind in ('files', 'scenes', 'holons', 'phases', 'tasks', 'steps'):

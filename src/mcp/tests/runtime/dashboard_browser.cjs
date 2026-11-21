@@ -5,11 +5,159 @@ const { once } = require("node:events");
 const path = require("node:path");
 const assert = require("node:assert/strict");
 
+async function checkPlanOutline(page, url) {
+  const entry = (id, root = page) => root.locator(`[data-plan-entry="${id}"]`);
+  const outline = page.locator("#task-outline");
+  const root = entry("outline_root", outline);
+  const next = entry("outline_next", outline);
+  const branch = entry("outline_branch", outline);
+  await page.goto(url);
+  await root.waitFor();
+  const firstBox = await root.boundingBox();
+  const nextBox = await next.boundingBox();
+  assert(firstBox.x + firstBox.width <= nextBox.x, "A saved successor is right of its predecessor");
+  assert.equal((await branch.boundingBox()).x, nextBox.x, "Branches share the successor column");
+  assert.equal(await next.locator(".plan-sequence-arrow").textContent(), "→");
+  assert.equal(await entry("outline_loose", outline).locator(".plan-previous").count(), 0);
+  await entry("outline_cycle_a", outline).first().waitFor();
+  await entry("outline_cycle_b", outline).first().waitFor();
+  assert.equal(await outline.getByText("표시할 수 없는 상위 참조 있음").count() > 0, true);
+
+  const children = root.locator(":scope > ul > li");
+  assert.deepEqual(await children.evaluateAll((items) => items.map((item) => item.dataset.planEntry)),
+    ["outline_child_a", "outline_child_b"]);
+  assert.equal(await root.locator("[data-outline-plan='outline_leaf']").count(), 2,
+    "A shared child is selectable from both parents");
+  assert.equal(await entry("outline_child_b", root).locator(":scope > .plan-previous .plan-sibling-arrow").textContent(), "↑");
+
+  await page.setViewportSize({ width: 360, height: 850 });
+  await page.waitForFunction(() => {
+    const element = document.querySelector("#task-outline .plan-sequence-arrow");
+    return element && getComputedStyle(element).transform !== "none";
+  });
+  assert((await next.boundingBox()).y > (await root.boundingBox()).y,
+    "A narrow screen stacks the same sequence without clipping");
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    "A narrow screen must not gain horizontal page overflow");
+
+  const filters = page.locator("#task-filters");
+  if (!(await filters.evaluate((detail) => detail.open))) await filters.locator("summary").click();
+  const options = await page.locator("#filter-status option").evaluateAll((items) => items.map((item) => item.value));
+  assert.deepEqual(new Set(options), new Set(["", "pending", "running", "paused", "completed", "failed", "blocked"]));
+  await page.locator("#filter-file").selectOption("other.3dm");
+  await page.locator("#filter-status").selectOption("pending");
+  await page.locator("#filter-execution").selectOption("unstarted");
+  await page.locator("#task-count").getByText("1개").waitFor();
+  await root.getByText("상위 맥락 · example.3dm", { exact: true }).waitFor();
+  assert.equal(await entry("outline_pending", outline).count(), 0);
+  assert.equal(await entry("outline_legacy", outline).count(), 0);
+  assert.equal(await entry("outline_next", outline).count(), 0);
+  const leaf = outline.locator("[data-outline-plan='outline_leaf']").first();
+  await leaf.press("Enter");
+  await page.locator("[data-task-group='outline_leaf']").waitFor();
+  assert.equal(await leaf.getAttribute("aria-current"), "true");
+
+  await page.locator('[data-view="files"]').click();
+  const file = page.locator("tr").filter({ has: page.getByRole("button", { name: "other.3dm", exact: true }) });
+  await file.getByText("7개 Task", { exact: true }).waitFor();
+  await entry("outline_root", file).getByText("상위 맥락 · example.3dm", { exact: true }).waitFor();
+  assert.equal(await entry("outline_next", file).count(), 0);
+  assert.equal(await entry("outline_leaf", file).count(), 2);
+  await file.locator("[data-outline-plan='outline_child_b']").press("Enter");
+  await page.locator("[data-task-group='outline_child_b']").waitFor();
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  console.log("Plan outline browser passed: branching, depth, shared child, file context, status and keyboard selection.");
+}
+
+async function checkLoopHistory(page, url) {
+  await page.setViewportSize({ width: 360, height: 760 });
+  await page.goto(url);
+  await page.locator('#task-select option[value="plan_a"]').waitFor({ state: "attached" });
+  await page.locator("#task-select").selectOption("plan_a");
+  const card = page.locator('[data-task-group="plan_a"] > .task-card');
+  const picker = card.getByLabel("조회할 회차");
+  await picker.waitFor();
+  assert.deepEqual(await picker.locator("option").evaluateAll(items => items.map(i => i.value)), ["0", "1", "3", "4"]);
+  assert.equal(await picker.inputValue(), "4");
+  assert(await card.getByRole("button", { name: "다음 회차" }).isDisabled());
+  await card.getByRole("button", { name: "이전 회차" }).click();
+  await card.getByText("feedback only", { exact: true }).waitFor();
+  assert((await card.innerText()).includes("일부 기록"));
+  assert(!(await card.innerText()).includes("current decision"));
+  await card.getByRole("button", { name: "이전 회차" }).click();
+  await card.getByRole("button", { name: "Old title" }).click();
+  await page.locator("#detail").getByText("Original goal", { exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  const step = card.locator('[data-step-id="archived_step"]');
+  await step.locator("summary").click();
+  await step.getByRole("button", { name: /Step 전체 기록/ }).click();
+  await page.locator("#detail").getByText("previous/deleted.png", { exact: true }).waitFor();
+  assert((await page.locator("#detail").innerText()).includes("decision 2"));
+  await page.keyboard.press("Escape");
+  const longStep = card.locator('[data-step-id="z_first"]');
+  await longStep.locator("summary").click();
+  await longStep.getByText("old/first.png", { exact: true }).waitFor();
+  assert((await longStep.innerText()).includes("일부 표시"));
+  assert(!(await card.innerText()).includes("current/new.png"));
+  assert(!(await card.innerText()).includes("일부 기록"));
+  await longStep.getByRole("button", { name: /Step 전체 기록/ }).click();
+  await page.locator("#detail").getByText("old/first.png", { exact: true }).waitFor();
+  assert(!(await page.locator("#detail").innerText()).includes("current/new.png"));
+  await page.keyboard.press("Escape");
+  await picker.selectOption("0");
+  await card.locator('[data-step-id="z_first"]').waitFor();
+  assert(await card.getByRole("button", { name: "이전 회차" }).isDisabled());
+  assert.equal(await picker.locator("option:checked").textContent(), "실행 전 기록 (0)");
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+
+  // Hold an old Loop response until the newer selection has rendered.
+  for (const switchPlan of [false, true]) {
+    let resume, started;
+    const gate = new Promise(resolve => { resume = resolve; });
+    const pending = new Promise(resolve => { started = resolve; });
+    const match = u => u.pathname === "/api/domain" && u.searchParams.get("loop_no") === "1";
+    await page.route(match, async route => {
+      const response = await route.fetch();
+      started();
+      await gate;
+      await route.fulfill({ response });
+    });
+    await picker.selectOption("1");
+    await pending;
+    if (switchPlan) {
+      await page.locator("#task-select").selectOption("plan_b");
+      await page.locator('[data-task-group="plan_b"]').waitFor();
+    } else {
+      await picker.selectOption("4");
+      await card.getByText("current feedback", { exact: true }).waitFor({ state: "visible" });
+      await page.waitForFunction(() => !document.querySelector('[data-task-id="plan_a"]').hasAttribute("aria-busy"));
+    }
+    const received = page.waitForResponse(response => match(new URL(response.url())));
+    resume();
+    await received;
+    await page.unroute(match);
+    await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+    assert.equal(await page.locator('[data-task-id="plan_a"][data-loop="1"]').count(), 0);
+  }
+  await page.locator("#task-select").selectOption("plan_a");
+  await picker.waitFor();
+  assert.equal(await picker.inputValue(), "4");
+  await longStep.locator("summary").click();
+  await longStep.getByText("current/new.png", { exact: true }).waitFor();
+  await longStep.getByRole("button", { name: /Step 전체 기록/ }).click();
+  await page.locator("#detail").getByText("current/new.png", { exact: true }).waitFor();
+  assert(!(await page.locator("#detail").innerText()).includes("old/first.png"));
+  console.log("Loop history browser passed: revisions, partial rows, Loop 0, popups, gaps, boundaries and delayed responses.");
+}
+
 (async () => {
   const root = path.resolve(__dirname, "../../../..");
+  const outlineOnly = process.argv.includes("--plan-outline");
+  const loopOnly = process.argv.includes("--loop-history");
   const child = spawn(
     path.join(root, "data/development/.venv/Scripts/python.exe"),
-    ["-B", "-X", "utf8", path.join(__dirname, "dashboard_ui_host.py")],
+    ["-B", "-X", "utf8", path.join(__dirname, "dashboard_ui_host.py"),
+      ...process.argv.slice(2)],
     { cwd: root, windowsHide: true },
   );
   let browser;
@@ -28,6 +176,13 @@ const assert = require("node:assert/strict");
       viewport: { width: 1440, height: 1050 },
     });
     const errors = [];
+    if (outlineOnly || loopOnly) {
+      page.on("pageerror", (error) => errors.push(error.message));
+      if (loopOnly) await checkLoopHistory(page, url);
+      else await checkPlanOutline(page, url);
+      assert.deepEqual(errors, []);
+      return;
+    }
     const chooseTask = async (id) => {
       await page
         .locator(`#task-select option[value="${id}"]`)

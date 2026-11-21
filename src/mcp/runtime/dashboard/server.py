@@ -74,8 +74,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-        self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.end_headers()
+            self.wfile.write(data)
+        except ConnectionError:
+            self.close_connection = True
 
     def _allowed(self, api=False):
         if self.headers.get("Host") != urlsplit(self.server.origin).netloc:
@@ -135,11 +138,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 if request.path == "/api/domain":
                     result = database.domain_page(get("view"), search=get("search"), focus=get("focus"),
                                                   parent=get("parent"), file=get("file"), phase=get("phase"), scene=get("scene"),
+                                                  status=get("status"), execution=get("execution"),
+                                                  loop_no=int(get("loop_no")) if "loop_no" in params else None,
                                                   offset=int(get("offset", "0")), limit=int(get("limit", "20")))
                 elif request.path == "/api/domain-options":
-                    result = database.domain_options(file=get("file"), phase=get("phase"), scene=get("scene"), search=get("search"))
+                    result = database.domain_options(file=get("file"), phase=get("phase"), scene=get("scene"),
+                                                     status=get("status"), execution=get("execution"), search=get("search"))
                 elif request.path == "/api/domain-detail":
-                    result = database.domain_detail(get("view"), get("id"), get("parent"))
+                    result = database.domain_detail(get("view"), get("id"), get("parent"),
+                                                    int(get("loop_no")) if "loop_no" in params else None)
                 elif request.path.endswith("/rows"):
                     filters = json.loads(get("filters", "{}"))
                     if not isinstance(filters, dict):
