@@ -140,7 +140,8 @@ def test_metadata_policy_is_discoverable_and_readable_on_a_new_session(guidance_
                 if route != "bound":
                     blocked = await client.call_tool("inspect_02-get_objects", {})
                     assert blocked.is_error
-                    assert "No selected live connection" in blocked.content[0].text
+                    expected = "connection_id" if route == "codex" else "No selected live connection"
+                    assert expected in blocked.content[0].text
 
     asyncio.run(inspect())
 

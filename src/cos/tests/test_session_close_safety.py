@@ -159,11 +159,14 @@ def test_pending_close_after_restart_prevents_attach(tmp_path):
         record = dict(conn.binding, host_id="host")
         restarted = Broker(CATALOG, data=tmp_path, contract_check=lambda _: None,
                            host_reader=lambda _: [record],
-                           lease_factory=lambda *_: pytest.fail("must not attach a retained close"))
+                           lease_factory=lambda *_: pytest.fail("must not attach a retained close"),
+                           explicit_connections=True)
         result = await restarted.call("connect_02-session", {"host_id": "host", "model_path": record["model_path"]})
-        assert result.is_error and "retained" in result.content[0].text
+        assert result.is_error
+        assert "request_id=retained" in result.content[0].text
+        assert "original connection_id" in result.content[0].text
         targets = (await restarted.list_connections())["targets"]
-        assert targets[0]["state"] == "unavailable" and "retained" in targets[0]["reason"]
+        assert targets[0]["state"] == "unavailable" and targets[0]["reason"] == result.content[0].text
     asyncio.run(run())
 
 

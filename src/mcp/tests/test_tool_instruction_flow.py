@@ -75,6 +75,9 @@ def test_history_partial_updates_empty_lists_and_execution_recovery():
     assert 'next_step_guide' not in empty
     pending = guide_payload('execute_rhino_script', {'status':'timeout','completed':False,'request_id':'saved'})
     assert 'script_03-get_execution' in pending['next_step_guide'] and '다시 제출하지' in pending['next_step_guide']
+    closing = guide_payload('close_session', {'status': 'unconfirmed', 'save_request_id': 'saved'})
+    for result in (pending, closing):
+        assert 'request_id' in result['next_step_guide'] and 'connection_id' in result['next_step_guide']
 
 
 @pytest.mark.parametrize('target,step_id', [('plan', ''), ('step', 'step_selected')])

@@ -66,12 +66,12 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
     """Choose from observed state, never from a tool's name alone on failure."""
     if name == "close_session":
         if value.get("status") in {"closing", "unconfirmed"}:
-            return "같은 request_id로 close_session을 다시 호출해 보관된 결과를 조회합니다. 저장·종료를 다시 실행하지 않습니다. save_request_id가 있으면 get_rhino_execution으로 저장 결과도 확인할 수 있습니다."
+            return "같은 request_id로 close_session을 다시 호출해 보관된 결과를 조회합니다. save_request_id가 있으면 get_rhino_execution의 request_id에 넣어 저장 결과를 확인합니다. 두 조회 모두 원래 호출에 connection_id가 있으면 같은 값을 함께 전달합니다. 저장·종료를 다시 실행하지 않습니다."
         if value.get("status") in {"rejected", "save_failed"}:
             return "reason을 확인합니다. Rhino는 자동으로 다시 종료하지 않습니다. 문제를 해결한 뒤 종료하려는 경우 새 request_id로 close_session을 호출합니다."
         return None
     if name in EXECUTIONS and value.get("completed") is False and value.get("request_id"):
-        return "이 request_id로 get_rhino_execution을 조회해 완료 여부를 확인합니다. 같은 코드를 다시 제출하지 않습니다."
+        return "이 request_id로 get_rhino_execution을 조회해 완료 여부를 확인합니다. 원래 호출에 connection_id가 있으면 같은 값을 함께 전달합니다. 같은 코드를 다시 제출하지 않습니다."
     planning_record = name == "get_planning" and value.get("type") in {"phase", "plan", "step"}
     failed_status = value.get("status") in {"error", "failed", "unknown", "uncertain", "incomplete"}
     if (failed_status and not planning_record) or value.get("error"):

@@ -10,7 +10,9 @@
 
 동지의 실행 도구에서는 지속형 터미널(`tty=true`)로 시작하고 반환된 터미널 `session_id`에 후속 입력을 보낸다. 입력은 한 줄 JSON이며 끝에 Enter를 붙인다. 클라이언트는 서버 시작 → initialize → tools/list를 수행한 뒤 `ready`를 출력한다. 초기 출력은 서버 소개·instructions, 도구 이름 목록, 클라이언트 사용법이며 개별 description 전체를 반복하지 않는다.
 
-프로세스를 유지하는 동안 같은 MCP 세션을 사용한다. Rhino 문서는 MCP 세션에서 선택하고, 터미널의 session_id로는 실행 도구의 프로세스를 재사용한다. 실행 환경·터미널이 종료되면 이 세션도 종료된다.
+프로세스를 유지하는 동안 같은 MCP 세션을 사용한다. 터미널의 `session_id`로 실행 도구의 프로세스를 재사용한다. 호출하는 대화에서 `connect_02-session` tool 또는 `connect_03-start_session` tool이 반환한 `connection_id`를 보관한다. 연결이 필요한 후속 호출마다 `arguments.connection_id`에 작업할 문서의 값을 직접 지정한다. 생략하면 `connection_id가 지정되지 않았습니다` 오류로 호출이 중단된다.
+
+Dot에서는 `"connection_id":"$connection_id"`라고 명시하면 이 프로세스에서 마지막으로 연결에 성공한 ID를 사용한다. 실제 ID를 입력하면 해당 연결을 사용한다. 빈 값이나 초기화되지 않은 변수 참조도 같은 오류로 중단된다.
 
 ## 명령
 
@@ -29,12 +31,19 @@
 
 ```json
 {"op":"call","name":"connect_02-session","arguments":{"host_id":"<목록의 host_id>","model_path":"<목록의 model_path>"}}
-{"op":"call","name":"context_04-get_project_info","arguments":{"sections":["document"]}}
-{"op":"call","name":"connect_04-disconnect","arguments":{}}
+{"op":"call","name":"context_04-get_project_info","arguments":{"connection_id":"$connection_id","sections":["document"]}}
+{"op":"call","name":"connect_04-disconnect","arguments":{"connection_id":"$connection_id"}}
 {"op":"shutdown"}
 ```
 
 `connect_02-session` tool 이후의 호출도 같은 실행 도구 session_id에 입력한다. 다른 클라이언트가 소유한 Rhino를 빼앗거나 잠금 파일을 삭제하지 않는다. 새 Rhino는 자동으로 만들지 않으며 `connect_03-start_session` tool은 명시적인 요청일 때만 호출한다.
+
+실행·종료 결과를 나중에 조회하려면 원래 작업의 `connection_id`와 `request_id`를 함께 보관한다. Dot을 재시작한 뒤에도 두 값을 직접 지정해 보관 결과를 조회한다.
+
+```json
+{"op":"call","name":"script_03-get_execution","arguments":{"connection_id":"<기존 연결 ID>","request_id":"<실행 요청 ID>"}}
+{"op":"call","name":"connect_05-close_session","arguments":{"connection_id":"<기존 연결 ID>","request_id":"<종료 요청 ID>"}}
+```
 
 ## 응답과 오류
 

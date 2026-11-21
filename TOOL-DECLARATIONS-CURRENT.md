@@ -2,15 +2,19 @@
 
 ## 기준 및 선언 표기
 
-beyond·CoS의 공개 도구 81개. 두 경로의 `tools/list`에서 도구 설명과 입력·출력 스키마 일치 확인.
+beyond·CoS의 공개 도구 81개. 연결 대상 입력, 연결 관리 도구 설명, 연결 성공 응답의 ID 필드 설명은 경로별로 다름.
 
-- 수집일: 2026-11-20. 기준: 이 문서와 함께 관리하는 소스.
+- 수집일: 2026-11-21. 기준: 이 문서와 함께 관리하는 소스.
 - 수집 경로: `src/cos/codex_host.py`와 `src/cos/cos_host.py`의 공용 `external_host.main`. 격리된 데이터 폴더에서 Rhino 연결 없이 stdio `initialize`·`tools/list` 호출.
 - 실행 패키지: almond-mcp 0.7.0rc2 / fastmcp 4.1.0 / mcp 2.3.0 / mcp-types 2.3.0.
-- 선언 SHA-256: `6a9d4734915ad6410e87baf0062d9bd8b0030796c97025d828f34616ab5fe9b2`. 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 해시.
+- CoS 선언 SHA-256: `6a9d4734915ad6410e87baf0062d9bd8b0030796c97025d828f34616ab5fe9b2`
+- beyond 선언 SHA-256: `936e5d62228ca41ab0affe53d6ef679d73c97ff482c5cacb3ab256bbcad4ecaa`
+- 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 해시.
 - 도구명·입력 설명은 구현 함수와 docstring, 출력 설명은 `src/mcp/output_contracts.py`에서 확인. 공통 스키마 기준은 `tests/integration/tool_schemas.json`, 외부 연결 도구 정의는 `src/cos/external_host.py` 참조.
 
 TypeScript 표기에서 `?`는 선택 인자, `Array<T>`는 배열, `| null`은 null 허용. 기본값과 범위는 필드 위에 표시. 검증 기준은 JSON Schema이며 TypeScript 표기에서 `oneOf`의 배타성은 생략. 인덱스 시그니처는 `additionalProperties` 허용을 뜻함.
+
+각 도구의 TypeScript 입력 표기는 CoS 기준. beyond에서는 `context_01-get_policy` tool, `connect_01-list_up` tool, `connect_02-session` tool, `connect_03-start_session` tool을 제외한 77개 도구의 최상위 `args`에 필수 `connection_id: string` 추가. 값은 소문자 16진수 32자리(`^[0-9a-f]{32}$`)이며 연결 또는 시작 응답에서 받은 값. 중첩된 `request`가 있는 경우에도 이 ID는 `request`와 같은 레벨에 전달. 필수 ID 생략 시 `connection_id가 지정되지 않았습니다` 오류를 반환하고 실행 중단.
 
 각 제목이 실제 공개 도구명. `mcp__rhino__`는 연결 이름의 예시. `CallToolResult<T>`의 `T`는 구조화된 출력. `result: string`의 JSON 내부 구조는 공개 `contentSchema`가 있을 때 `DecodedResult`로 표시. 이미지·텍스트 블록과 오류 여부는 MCP 응답 봉투에 포함.
 
@@ -23,7 +27,7 @@ beyond·CoS 외부 연결기 기준. RhinoTerminal과 관리 실행기의 문서
 - 서버 소개는 `serverInfo.description`과 `initialize.instructions` 첫머리에 전달. 이어서 기술 참고 자료 조회 방법과 `guide_version`을 전달. 설계 지침 본문과 별도 설치 스킬은 읽지 않음. 개별 도구 설명은 `tools/list`의 `description`에서 확인. 초기 지침을 모델에 표시하는 방식은 클라이언트에 따름.
 - 정책은 Rhino 연결 선택 전에도 `context_01-get_policy` tool로 조회 가능. 기본값 `basic`은 공통 도구 참고 목록과 참고 자료 종류를 반환. 이 연결에서 호출할 수 있는 도구는 `tools/list`에서 확인. `policy="metadata"`는 객체 키 사전을 반환.
 - `plan_03-execute_looping` tool의 성공 응답은 다음 Step의 선택·기록 방법과 회차 결과를 보고할 때 시각적 근거를 포함하라는 안내를 제공한다.
-- `connect_02-session` tool 또는 `connect_03-start_session` tool로 연결 선택. `script_03-get_execution` tool에 `request_id`를 지정하면 원래 연결의 실행 결과 조회.
+- `connect_02-session` tool 또는 `connect_03-start_session` tool로 연결. CoS의 일반 호출은 선택한 연결을 사용. beyond는 각 호출에서 연결 ID를 지정하며 `script_03-get_execution` tool로 실행을 재조회할 때도 원래의 `connection_id`와 `request_id`를 함께 전달.
 - 외부 실행의 첫 대기 한도는 `min(요청 timeout, 60초)`. `pending`이면 같은 `request_id`로 완료 여부 조회. 외부 클라이언트 제한은 600초. 대기 종료·취소·오류 후에는 실제 문서 상태와 실행 결과를 확인하고 재실행 여부를 결정. [RhinoCode 실행 계약](src/mcp/runtime/RHINOCODE-SPEC.md) · [외부 연결기 SPEC](src/cos/SPEC.md)
 
 ## 선언 갱신 절차
@@ -1245,8 +1249,16 @@ declare const tools: {
 
 ### 21. connect\_01-list\_up
 
+CoS
+
 ```txt
 열린 Rhino 문서와 이 클라이언트의 연결·시작 요청 조회. 연결된 문서도 targets에 표시된다. 연결하려면 같은 대상의 host_id와 저장된 model_path를 connect_02-session tool에 전달한다. 이후 일반 호출은 selected_connection_id의 연결을 사용한다.
+```
+
+beyond
+
+```txt
+열린 Rhino 문서와 이 클라이언트의 연결·시작 요청 조회. 연결하려면 같은 대상의 host_id와 저장된 model_path를 connect_02-session tool에 전달한다.
 ```
 
 ```ts
@@ -1306,8 +1318,16 @@ declare const tools: {
 
 ### 22. connect\_02-session
 
+CoS
+
 ```txt
 열린 Rhino 문서에 연결하거나 작업 대상 전환. connect_01-list_up tool의 targets에서 같은 대상의 host_id와 model_path를 가져온다. 유지 중인 연결도 다시 선택할 수 있으며, 선택 후 일반 호출은 그 연결을 사용한다.
+```
+
+beyond
+
+```txt
+열린 Rhino 문서에 연결하고 해당 문서의 연결 ID를 반환.
 ```
 
 ```ts
@@ -1316,6 +1336,7 @@ declare const tools: {
     host_id: string;
     model_path: string;
   }): Promise<CallToolResult<{
+    // beyond: model_path와 connection_id를 현재 대화의 변수에 함께 저장하고, 이 문서의 후속 호출마다 connection_id를 전달한다. 성공 응답의 message에도 이 안내를 제공.
     connection_id?: string | null;
     host_id?: string | null;
     // ready면 일반 작업 가능. recovering·unconfirmed이면 이전 실행 결과부터 확인.
@@ -1339,8 +1360,16 @@ declare const tools: {
 
 ### 23. connect\_03-start\_session
 
+CoS
+
 ```txt
 저장된 모델을 새 Rhino 창에서 열고 연결. model_path와 시작 시도를 식별하는 request_id 필요.
+```
+
+beyond
+
+```txt
+저장된 모델을 새 Rhino 창에서 열고 해당 문서의 연결 ID를 반환.
 ```
 
 ```ts
@@ -1353,6 +1382,7 @@ declare const tools: {
     // maxLength: 128
     request_id: string;
   }): Promise<CallToolResult<{
+    // beyond: model_path와 connection_id를 현재 대화의 변수에 함께 저장하고, 이 문서의 후속 호출마다 connection_id를 전달한다. 성공 응답의 message에도 이 안내를 제공.
     connection_id?: string | null;
     host_id?: string | null;
     // ready면 일반 작업 가능. recovering·unconfirmed이면 이전 실행 결과부터 확인.
@@ -1378,8 +1408,16 @@ declare const tools: {
 
 ### 24. connect\_04-disconnect
 
+CoS
+
 ```txt
 선택한 연결 해제. Rhino 창과 문서는 계속 열린 상태로 유지.
+```
+
+beyond
+
+```txt
+지정한 연결 해제. Rhino 창과 문서는 계속 열린 상태로 유지.
 ```
 
 ```ts
@@ -1406,8 +1444,16 @@ declare const tools: {
 
 ### 25. connect\_05-close\_session
 
+CoS
+
 ```txt
 선택한 Rhino 문서의 저장 완료를 확인한 뒤 Rhino를 정상 종료.
+```
+
+beyond
+
+```txt
+지정한 연결의 Rhino 문서 저장을 확인한 뒤 Rhino를 정상 종료. 결과 재조회에는 원래의 두 ID를 사용한다.
 ```
 
 ```ts

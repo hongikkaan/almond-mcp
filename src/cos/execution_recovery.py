@@ -66,15 +66,18 @@ class ExecutionRecoveryStore:
     def __init__(self, data):
         self.directory = Path(data).absolute() / 'execution-locators'
 
-    def remember(self, binding):
+    def remember(self, binding, *, connection_id=None):
         _locations(binding)
         from project import write_json
         from storage_cleanup import plain_descendant
         path = plain_descendant(self.directory / (binding['token'] + '.json'), self.directory.parent)
         self.directory.mkdir(parents=True, exist_ok=True)
-        write_json(path, dict(schema='almond-execution-locator', version=1, binding=dict(binding)))
+        record = dict(schema='almond-execution-locator', version=1, binding=dict(binding))
+        if connection_id is not None:
+            record['connection_id'] = connection_id
+        write_json(path, record)
 
-    def find_binding(self, request):
+    def find_binding(self, request, *, connection_id=None):
         if not isinstance(request, str) or not _TOKEN.fullmatch(request):
             raise ValueError('script_03-get_execution tool requires the exact returned request_id.')
         sys.path.insert(0, str(ENGINE))
@@ -90,6 +93,8 @@ class ExecutionRecoveryStore:
                 record = read_json(path)
                 if (record.get('schema') != 'almond-execution-locator' or type(record.get('version')) is not int
                         or record['version'] != 1):
+                    continue
+                if connection_id is not None and record.get('connection_id') != connection_id:
                     continue
                 binding = record.get('binding')
                 locations = _locations(binding)

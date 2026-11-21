@@ -41,7 +41,9 @@ RHP는 [공용 Engine](../rhp/SPEC.md#구성과-빌드)을 참조한다. Bridge�
 관측 이미지의 직접 `ToolResult`와 고정 조회의 정확한 `str | ToolResult` 반환형만 별도로 허용한다. ToolResult 입력형·중첩형·임의 annotation 실행은 허용하지 않는다. context·선택·객체·교차 조회는 기존 `{result: string}` output schema literal을 허용하고 JSON text/structuredContent와 명시적 오류 상태를 함께 보존한다. PNG는 별도 캡처 도구의 MCP image content로 전달하며 schema 생성 때문에 이 계약을 바꾸지 않는다.
 공통 도구 변경 후 수동 catalog 재생성 없이 관련 Codex/CoS MCP를 정상 종료·재시작하면 새 구현과 schema를 읽는다. Terminal은 almond 세션을 새로 시작한다. 이미 시작한 프로세스를 자동 교체하거나 restart 도구를 제공하지 않는다. RHP/DLL 변경은 빌드와 Rhino의 정상 종료·새 시작이 별도로 필요하다.
 
-연결별 PID·token·문서 binding·worker·잠금은 각 Connection에 유지한다. connect_02-session tool이나 connect_03-start_session tool이 성공하면 해당 연결을 선택한다. 이미 연결된 host_id/model_path로 connect_02-session tool을 호출하면 기존 연결을 선택한다. 일반 호출·연결 해제·새 종료 요청은 접수 시점에 선택된 Connection에 고정한다. 선택한 연결이 끝나면 다음 문서를 직접 선택한다. 종료 요청의 request_id는 기록된 대상을 재조회하며, script_03-get_execution tool의 request_id는 원래 실행 binding을 찾는다. 실행 request_id를 비우면 현재 연결에서 가장 최근 실행을 읽는다.
+연결별 PID·token·문서 binding·worker·잠금은 각 Connection에 유지한다. connect_02-session tool과 connect_03-start_session tool은 해당 연결의 connection_id를 반환한다. 같은 host_id/model_path에 다시 연결하면 활성 연결 ID를 재사용한다. beyond에서 호출자는 ID를 대화별로 보관하고 일반 호출·연결 해제·종료 요청마다 최상위 인자로 전달한다. host는 이 값으로 연결을 찾아 원래 도구 인자를 worker에 전달한다. CoS는 adapter가 선택한 연결을 사용한다. 두 경로 모두 요청 접수 시점의 대상을 유지한다.
+
+종료 요청과 script_03-get_execution tool의 보관 결과는 원래 request_id로 재조회한다. beyond는 원래 connection_id도 일치해야 연결 해제나 호스트 재시작 후에 보관된 결과를 읽는다. 실행 request_id를 비우면 지정한 활성 연결의 최근 실행을 읽는다. connection_id 기록이 도입되기 전의 미확정 실행은 기존 host에서 조회한 뒤 업데이트한다.
 
 connection ID와 token·프로세스 identity·저장 문서를 함께 확인한다. 변경된 binding, 미확인 native 결과, 실행 중 작업의 해제·취소에 대한 기존 소유권 규칙을 유지한다.
 다른 연결의 DB 접근은 기존 공유 lease·gate를 통과한다.

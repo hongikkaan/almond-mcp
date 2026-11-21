@@ -32,6 +32,7 @@ class DotClient:
     def __init__(self, session, tools):
         self.session = session
         self.tools = {tool.name: tool for tool in tools}
+        self.connection_id = None
 
     def catalog(self):
         return {"count": len(self.tools), "names": list(self.tools), "usage": USAGE}
@@ -42,7 +43,7 @@ class DotClient:
         op = request.get("op")
         if op == "help":
             return {"usage": USAGE,
-                    "connection": "Call connect_01-list_up tool, then connect_02-session tool with its exact host_id/model_path. Subsequent calls use the document selected in this MCP session. Use connect_04-disconnect tool when finished to leave Rhino open, then shut down the client.",
+                    "connection": "Keep the connection_id returned by connect_02-session tool or connect_03-start_session tool. On each connection-bound call, pass the actual ID or the literal $connection_id for Dot's last successful connection. After restart, pass the original connection_id and request_id to inspect a retained result.",
                     "errors": "Calls are never retried automatically. A timeout or error does not prove rollback."}
         if op == "catalog":
             return self.catalog()
@@ -61,9 +62,22 @@ class DotClient:
             arguments = request.get("arguments", {})
             if not isinstance(arguments, dict):
                 raise ValueError("arguments must be a JSON object.")
-            # Preserve text, images, structuredContent and isError. No parsing,
-            # summarization, implicit connection, or automatic mutation retries.
-            return {"tool_result": dump(await self.session.call_tool(name, arguments))}
+            if ("connection_id" in self.tools[name].input_schema.get("required", [])
+                    and arguments.get("connection_id") == "$connection_id"):
+                arguments = {**arguments, "connection_id": self.connection_id or ""}
+            result = await self.session.call_tool(name, arguments)
+            body = result.structured_content or {}
+            if not result.is_error and isinstance(body, dict):
+                if name in {"connect_02-session", "connect_03-start_session"}:
+                    connected = body.get("connection_id")
+                    if isinstance(connected, str) and connected:
+                        self.connection_id = connected
+                elif self.connection_id == arguments.get("connection_id") and (
+                    (name == "connect_04-disconnect" and body.get("released") is True)
+                    or (name == "connect_05-close_session" and body.get("status") == "completed")
+                ):
+                    self.connection_id = None
+            return {"tool_result": dump(result)}
         raise ValueError("Unknown op. Use help, catalog, describe, call or shutdown.")
 
 

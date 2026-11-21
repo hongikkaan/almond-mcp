@@ -146,6 +146,8 @@ def test_broker_301_returns_exact_pending_without_cancelling_worker(tmp_path):
         assert broker.call_timeout == 300
         result = await timeout_after_dispatch(broker, worker)
         assert not result.is_error and result.structured_content["request_id"] == EXECUTION
+        assert f"request_id={EXECUTION}" in result.structured_content["message"]
+        assert "original connection_id" in result.structured_content["message"]
         assert result.structured_content["pending"] and not worker.cancelled
         assert control.actions == ["begin"] and conn.state == "recovering" and conn.in_flight
         worker.release.set()

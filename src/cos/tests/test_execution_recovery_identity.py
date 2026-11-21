@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from execution_recovery import read_bound_execution
+from execution_recovery import ExecutionRecoveryStore, read_bound_execution
 from project import connection_paths, write_json
 import rhinocode
 
@@ -31,6 +31,20 @@ def retained(tmp_path, monkeypatch):
     monkeypatch.setattr(rhinocode, "_process_alive", lambda _: False)
     monkeypatch.setattr("storage_cleanup.process_identity_alive", lambda _: False)
     return binding, journal, directory
+
+
+@pytest.mark.parametrize("stored_id", [None, "connection-a"])
+def test_explicit_recovery_requires_a_matching_locator(retained, tmp_path, stored_id):
+    binding, journal, _ = retained
+    store = ExecutionRecoveryStore(tmp_path)
+    store.remember(binding, connection_id=stored_id)
+    restarted = ExecutionRecoveryStore(tmp_path)
+    request = journal["request_id"]
+    assert restarted.find_binding(request) == binding
+    with pytest.raises(ValueError, match="No unique retained session"):
+        restarted.find_binding(request, connection_id="connection-b")
+    if stored_id is not None:
+        assert restarted.find_binding(request, connection_id=stored_id) == binding
 
 
 def test_durable_reader_checks_operation_before_public_projection(retained):

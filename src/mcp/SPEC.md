@@ -245,7 +245,7 @@ standalone MCP의 `initialize.instructions`는 비어 있다. 공개 도구 목�
 
 `modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`는 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
 
-reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 연결된 호출은 기존 binding·공유 잠금·operation receipt를 거치며 외부 연결기는 선택된 연결을 자동으로 사용한다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 공개 스키마와 응답의 선택값 일치, cold stdio와 외부 경로의 스키마 일치, wheel·sdist의 지침 파일을 확인한다.
+reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 문서 대상 호출에서 beyond는 입력의 `connection_id`로 연결을 찾고 CoS는 현재 선택한 연결을 사용한다. 이후 두 경로 모두 기존 binding·공유 잠금·operation receipt를 거친다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 경로별 공개 스키마와 응답의 선택값 일치, wheel·sdist의 지침 파일을 확인한다.
 
 문서·도구 설명 변경은 해당 Python/MCP 세션을 정상 종료하고 새로 시작해야 적용된다. Python 안내 변경만으로 RHP 빌드나 Rhino 재시작을 요구하지 않는다.
 

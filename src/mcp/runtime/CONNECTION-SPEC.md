@@ -5,12 +5,12 @@
 | 사용 경로 | MCP 서버 이름 | 시작·진입점 | Rhino 쪽 플러그인 | 연결 방식 |
 |---|---|---|---|---|
 | RhinoTerminal | `Almond` | `RhinoTerminal On` → `almond` → `terminal_almond.ps1` → `codex.ps1` → `mcp_server.py` | `RhinoAlmondBridge` | 시작할 때 문서·슬롯·token이 정해짐. 문서 전용 `rhino_session` MCP 사용 |
-| 외부 Codex 직접 연결 | `beyond` | Codex에 등록한 `rhino` MCP → `codex_host.py` → `external_host.py` | `AlmondRhino` | `connect_01-list_up` tool → `connect_02-session` tool 또는 `connect_03-start_session` tool. 일반 호출은 선택한 연결을 자동으로 사용 |
-| CoS 경유 연결 | `CoS` | CoS 앱에 등록한 MCP → `cos_host.py` → `external_host.py` | `AlmondRhino` | 같은 외부 연결 방식. 원격 대화에서는 CoS 터널을 거침 |
+| 외부 Codex 직접 연결 | `beyond` | Codex에 등록한 `rhino` MCP → `codex_host.py` → `external_host.py` | `AlmondRhino` | `connect_02-session` tool 또는 `connect_03-start_session` tool에서 받은 `connection_id`를 대화가 보관하고 문서 대상 호출마다 전달 |
+| CoS 경유 연결 | `CoS` | CoS 앱에 등록한 MCP → `cos_host.py` → `external_host.py` | `AlmondRhino` | adapter가 현재 선택한 연결을 사용. 원격 대화에서는 CoS 터널을 거침 |
 
 RhinoTerminal은 Codex `/exit`로 세션을 종료하고 `RhinoTerminal Off`로 터미널을 닫는다.
 두 외부 경로는 `connect_04-disconnect` tool로 연결을 해제하며 Rhino 문서를 저장하거나 닫지 않는다.
-외부 경로에서 Rhino까지 끝낼 때는 연결을 유지한 채 `connect_05-close_session tool(request_id=...)`을 호출한다. 이 도구는 변경·읽기 전용·저장 경로·프로세스와 문서 identity를 확인하고 공식 RhinoCode `_Save`로 기존 파일명에 저장한 뒤 정확한 완료를 기다린다. 동일 문서의 `modified=false` 확인 후 별도 UI 스레드 guard가 문서·worker·binding과 변경 여부를 다시 확인하고 `_-Exit`로 정상 종료한다. 저장 실패·완료 불명확·문서 변경 시 Exit를 보내지 않는다. 저장 여부 선택이나 자동 No 응답, 강제 종료는 없다.
+외부 경로에서 Rhino까지 끝낼 때는 연결을 유지한 채 `connect_05-close_session` tool에 종료 시도별 `request_id`를 전달한다. beyond는 이 호출과 결과 재조회에 원래의 `connection_id`도 받는다. 이 도구는 변경·읽기 전용·저장 경로·프로세스와 문서 identity를 확인하고 공식 RhinoCode `_Save`로 기존 파일명에 저장한 뒤 정확한 완료를 기다린다. 동일 문서의 `modified=false` 확인 후 별도 UI 스레드 guard가 문서·worker·binding과 변경 여부를 다시 확인하고 `_-Exit`로 정상 종료한다. 저장 실패·완료 불명확·문서 변경 시 Exit를 보내지 않는다. 저장 여부 선택이나 자동 No 응답, 강제 종료는 없다.
 
 동일 `request_id` 재호출은 보관된 결과 조회이며 저장·종료를 재실행하지 않는다. 요청 ID별 OS 잠금과 대상별 보관 기록은 두 외부 host 사이의 중복 실행을 막는다. 종료 지연 중에는 기존 worker·native binding·host lease를 유지하며, 정확한 Rhino와 CLI 프로세스 종료를 확인한 뒤 worker를 정상 종료하고 소유권을 해제한다. 호스트 재시작 후에는 기록과 프로세스·lease 근거로 결과만 확인한다. 확실한 미전송은 거부로 정리하고, 불확실한 전송은 완료 근거가 생길 때까지 보관한다. Save의 늦은 완료가 확인돼도 뒤늦게 Exit를 자동 전송하지 않는다.
 
@@ -21,7 +21,7 @@ RhinoTerminal은 Codex `/exit`로 세션을 종료하고 `RhinoTerminal Off`로 
 ## 공통 구현과 유지하는 계약
 
 `external_host.py`는 클라이언트별 지연 시작과 연결별 worker 생명주기를 조정한다.
-공유 gate·lease·native 완료 정책은 기존 runtime/Engine 계약을 사용한다. Codex 진입점의 서버 이름은 `beyond`, CoS 진입점은 `CoS`다. 공통 도구 이름과 입력 schema는 같다.
+공유 gate·lease·native 완료 정책은 기존 runtime/Engine 계약을 사용한다. beyond는 정책 조회·연결 목록·연결·시작을 제외한 모든 도구의 최상위 입력에 `connection_id`를 요구한다. 생략 시 `connection_id가 지정되지 않았습니다`를 반환하고 중단한다. host가 이 인자를 소비하고 worker에는 공통 스키마의 인자만 전달한다. CoS와 문서 전용 worker의 스키마에는 이 입력이 없다.
 CoS 등록 command와 출력 디렉터리를 보존하기 위해 파일은 `src/cos`에 유지한다.
 이 디렉터리 이름이 CoS 앱 실행 의존성을 뜻하지 않는다.
 

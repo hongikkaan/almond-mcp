@@ -21,6 +21,7 @@ spec.loader.exec_module(probe)
     ({}, {"pid": 999}, True, "did not bind the intended Rhino PID", 3),
     ({}, {"model_path": "other.3dm"}, True, "did not bind the intended Rhino PID", 3),
     ({}, {"state": "recovering"}, True, "did not bind the intended Rhino PID", 3),
+    ({}, {"connection_id": None}, True, "did not return a connection_id", 2),
     ({}, {}, False, "did not release", 3),
 ])
 def test_verifies_only_the_intended_live_document_and_releases_connection(
@@ -29,7 +30,8 @@ def test_verifies_only_the_intended_live_document_and_releases_connection(
     identity = {"pid": 42, "model_path": str(model), "host_id": "verified-host"}
     targets = [{**identity, "pid": 41, "host_id": "other-host"},
                {**identity, "state": "available", "process_start_ticks": "123", **discovery}]
-    responses = [{"targets": targets}, {**identity, "state": "ready", **ready}, {"released": released}]
+    responses = [{"targets": targets}, {**identity, "state": "ready", "connection_id": "fixture-id", **ready},
+                 {"released": released}]
     client = SimpleNamespace(call_tool=AsyncMock(side_effect=[
         SimpleNamespace(is_error=False, structured_content=response) for response in responses
     ]))
@@ -44,5 +46,5 @@ def test_verifies_only_the_intended_live_document_and_releases_connection(
         }
     expected = [("connect_01-list_up", {}),
                 ("connect_02-session", {"host_id": "verified-host", "model_path": str(model)}),
-                ("connect_04-disconnect", {})]
+                ("connect_04-disconnect", {"connection_id": "fixture-id"})]
     assert [requested.args for requested in client.call_tool.await_args_list] == expected[:tools]

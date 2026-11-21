@@ -196,7 +196,8 @@ def test_reselect_for_recovery_keeps_normal_calls_blocked(tmp_path, state, route
     asyncio.run(run())
 
 
-def test_new_connections_bind_independent_workers_and_keep_previous_on_failure(tmp_path):
+@pytest.mark.parametrize("explicit", [False, True], ids=["cos", "beyond"])
+def test_new_connections_bind_independent_workers_and_keep_previous_on_failure(tmp_path, explicit):
     """Given two advertised models, connect/observe/switch retains each binding."""
     records = [{"host_id": name, "pid": pid, "process_start_ticks": str(pid)}
                for name, pid in (("a", 101), ("b", 202))]
@@ -251,23 +252,49 @@ def test_new_connections_bind_independent_workers_and_keep_previous_on_failure(t
             pass
 
     async def run():
+        locators = {}
+        def remember(binding, *, connection_id=None):
+            locators[binding["model_path"]] = connection_id
+
         broker = Broker(CATALOG, data=tmp_path, host_reader=lambda _: records,
                         control_factory=Control, worker_factory=Worker,
                         watcher_factory=Watcher, contract_check=lambda _: None,
                         lease_factory=lambda *_: SimpleNamespace(close=lambda: None),
-                        recovery_store_factory=lambda _: SimpleNamespace(remember=lambda _: None))
-        a = await broker.connect("a", "a.3dm")
-        assert (await broker.call("observe", {})).structured_content == {"model_path": "a.3dm"}
+                        recovery_store_factory=lambda _: SimpleNamespace(remember=remember),
+                        explicit_connections=explicit)
+        def routing(connection):
+            return {"connection_id": connection["connection_id"]} if explicit else {}
+
+        response = await broker.call("connect_02-session", {"host_id": "a", "model_path": "a.3dm"})
+        a = response.structured_content
+        broker.starts["start-a"] = StartAttempt("a.3dm", state="ready", connection_id=a["connection_id"])
+        resumed = await broker.call("connect_03-start_session", {"request_id": "start-a", "model_path": "a.3dm"})
+        for result in (a, resumed.structured_content):
+            assert (result["model_path"], result["connection_id"]) == ("a.3dm", a["connection_id"])
+            if explicit:
+                assert "현재 대화의 변수에 함께 저장" in result["message"]
+                assert "후속 호출마다 connection_id를 전달" in result["message"]
+            else:
+                assert "message" not in result
+        assert (await broker.call("observe", routing(a))).structured_content == {"model_path": "a.3dm"}
         b = await broker.connect("b", "b.3dm")
-        assert (await broker.call("observe", {})).structured_content == {"model_path": "b.3dm"}
+        assert (await broker.call("observe", routing(b))).structured_content == {"model_path": "b.3dm"}
+        assert locators == {"a.3dm": routing(a).get("connection_id"), "b.3dm": routing(b).get("connection_id")}
         assert a["connection_id"] != b["connection_id"]
         assert controls["a"].token != controls["b"].token
         assert len(workers) == 2
         failed = await broker.call("connect_02-session", {"host_id": "missing", "model_path": "c.3dm"})
-        assert failed.is_error and broker.selected_connection_id == b["connection_id"]
+        assert failed.is_error and broker.selected_connection_id == (None if explicit else b["connection_id"])
+        if explicit:
+            for name in ("observe", "connect_04-disconnect", "connect_05-close_session"):
+                missing = await broker.call(name, {})
+                assert missing.is_error and missing.content[0].text == "connection_id가 지정되지 않았습니다"
+            assert (await broker.call("observe", {"connection_id": "f" * 32})).is_error
+            results = await asyncio.gather(broker.call("observe", routing(a)), broker.call("observe", routing(b)))
+            assert [r.structured_content["model_path"] for r in results] == ["a.3dm", "b.3dm"]
         assert (await broker.connect("a", "a.3dm"))["connection_id"] == a["connection_id"]
         assert len(workers) == 2
-        assert (await broker.call("observe", {})).structured_content == {"model_path": "a.3dm"}
+        assert (await broker.call("observe", routing(a))).structured_content == {"model_path": "a.3dm"}
 
     asyncio.run(run())
 

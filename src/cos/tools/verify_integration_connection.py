@@ -51,12 +51,15 @@ async def verify_connection(client, pid, start_ticks, model):
     connection = await call(client, "connect_02-session", {
         "host_id": target["host_id"], "model_path": target["model_path"],
     })
+    connection_id = connection.get("connection_id")
+    if not isinstance(connection_id, str) or not connection_id:
+        raise RuntimeError("Beyond did not return a connection_id for the verification connection.")
     try:
         if (connection.get("state") != "ready" or connection.get("pid") != pid
                 or connection.get("host_id") != target["host_id"] or not has_model(connection, model)):
             raise RuntimeError("Beyond did not bind the intended Rhino PID and test model.")
     finally:
-        released = await call(client, "connect_04-disconnect", {})
+        released = await call(client, "connect_04-disconnect", {"connection_id": connection_id})
         if not released.get("released"):
             raise RuntimeError("Beyond did not release the verification connection.")
 

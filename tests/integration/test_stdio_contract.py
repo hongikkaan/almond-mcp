@@ -24,7 +24,7 @@ def request_properties(tool, target):
                 if branch["properties"]["target"]["const"] == target)
 
 
-def assert_information_placement(tools):
+def assert_information_placement(tools, route=None):
     """Check the user's reading order at the wire boundary, beyond parity."""
     assert not any(name.startswith("exchange_") for name in tools)
     assert {"export_asset_contract", "get_blender_helper_script", "import_asset_contract",
@@ -66,13 +66,14 @@ def assert_information_placement(tools):
     documented = {}
     for section in re.split(r"(?m)^### ", document)[1:]:
         name = section.splitlines()[0].split(". ", 1)[1].replace("\\_", "_")
-        documented[name] = re.search(r"```txt\n(.*?)\n```", section, re.S).group(1)
+        descriptions = re.findall(r"```txt\n(.*?)\n```", section, re.S)
+        documented[name] = descriptions[-1] if route == "beyond" else descriptions[0]
     if "connect_01-list_up" in tools:
         assert documented.keys() == tools.keys()
         catalog = [tools[name] for name in sorted(tools)]
         encoded = json.dumps(catalog, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         digest = hashlib.sha256(encoded).hexdigest()
-        assert f"선언 SHA-256: `{digest}`" in document
+        assert f"{route} 선언 SHA-256: `{digest}`" in document
     for name, tool in tools.items():
         assert documented[name] == tool["description"], name
     for tool_name, field_name, reference in (
@@ -306,13 +307,16 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
         assert external[name]["inputSchema"] == worker[name]["inputSchema"]
 
 
-def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
+def test_external_host_routes_publish_their_real_stdio_schemas(tmp_path):
     from runtime import load_catalog
     from external_host import exposed_tools
-    expected_tools = exposed_tools(load_catalog())
-    expected = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True) for t in expected_tools}
+    catalog = load_catalog()
+    unrouted = {"context_01-get_policy", "connect_01-list_up", "connect_02-session", "connect_03-start_session"}
 
-    async def inspect(client_name):
+    async def inspect(client_name, label):
+        explicit = client_name == "codex"
+        expected_tools = exposed_tools(catalog, explicit_connections=explicit)
+        expected = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True) for t in expected_tools}
         code = ("import os; from pathlib import Path; from external_host import main; "
                 f"main(Path(os.environ['ALMOND_TEST_ROOT']), client='{client_name}')")
         params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", "-c", code],
@@ -322,22 +326,32 @@ def test_both_external_host_routes_publish_same_real_stdio_schemas(tmp_path):
                 initialized = await client.initialize()
                 tools = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True)
                          for t in (await client.list_tools()).tools}
-                assert_information_placement(tools)
+                assert_information_placement(tools, label)
                 assert startup_instructions() in initialized.instructions
                 for text in (initialized.instructions, initialized.server_info.description):
                     assert not any(name in text for name in ("host_id", "model_path", "connection_id", "request_id"))
                 assert tools == expected
+                for name in ("connect_02-session", "connect_03-start_session"):
+                    field = tools[name]["outputSchema"]["properties"]["connection_id"]
+                    assert ("현재 대화의 변수에 함께 저장" in field.get("description", "")) == explicit
                 for name, tool in tools.items():
-                    assert "connection_id" not in tool["inputSchema"].get("properties", {})
+                    schema = tool["inputSchema"]
+                    routed = explicit and name not in unrouted
+                    assert ("connection_id" in schema.get("properties", {})) == routed, name
+                    assert ("connection_id" in schema.get("required", [])) == routed, name
                     Draft202012Validator.check_schema(tool["inputSchema"])
-                assert tools["connect_04-disconnect"]["inputSchema"]["properties"] == {}
+                if explicit:
+                    for name in ("context_04-get_project_info", "connect_05-close_session"):
+                        missing = await client.call_tool(name, {})
+                        assert missing.is_error
+                        assert [item.text for item in missing.content] == ["connection_id가 지정되지 않았습니다"]
                 rejected = await client.call_tool("context_04-get_project_info", {"connection_id": "old"})
                 assert rejected.is_error
                 return initialized.server_info.name
 
     for name, label in (("codex", "beyond"), ("cos", "CoS")):
         (tmp_path / name).mkdir()
-        assert asyncio.run(inspect(name)) == label
+        assert asyncio.run(inspect(name, label)) == label
 
 
 def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
@@ -361,7 +375,7 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
 
     async def route():
         broker = SimpleNamespace(worker_tool_names={"drawing_06-generate_plan_section"}, connections={"fixture": "bound"},
-                                 invoke=invoke, spawn=asyncio.create_task, selected_connection_id="fixture")
+                                 explicit_connections=False, invoke=invoke, spawn=asyncio.create_task, selected_connection_id="fixture")
         response = await Broker.call(broker, "drawing_06-generate_plan_section", arguments)
         assert not response.is_error
 

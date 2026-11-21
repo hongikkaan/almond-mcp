@@ -56,10 +56,10 @@ class Invocation:
 class ExecutionInvocations:
     """Operate an already selected connection through narrow lifecycle ports."""
 
-    def __init__(self, *, call_timeout, queue_timeout, closing_request, check_binding,
+    def __init__(self, *, call_timeout, queue_timeout, reject_pending_close, check_binding,
                  read_execution, wrapped_tools=()):
         self.call_timeout, self.queue_timeout = call_timeout, queue_timeout
-        self.closing_request, self.check_binding = closing_request, check_binding
+        self.reject_pending_close, self.check_binding = reject_pending_close, check_binding
         self.read_execution = read_execution
         self.wrapped_tools = frozenset(wrapped_tools)
 
@@ -123,8 +123,9 @@ class ExecutionInvocations:
         conn.recovery_execution_id = request_id
         value["connection_state"] = conn.state
         value["message"] = (
-            "The first response wait ended; the original operation is retained. "
-            "Read script_03-get_execution tool with request_id=" + request_id + "; do not repeat the Rhino work.")
+            "The first response wait ended. The original operation is retained. "
+            f"Read script_03-get_execution tool with request_id={request_id}. "
+            "For beyond, also pass the original connection_id. Do not repeat the Rhino work.")
         if not value.get("completed"):
             value["timed_out"] = True
         return json_result(value, name, wrapped=name in self.wrapped_tools)
@@ -189,9 +190,7 @@ class ExecutionInvocations:
         deadline = asyncio.get_running_loop().time() + self.call_timeout if name in SCRIPT_TOOLS else None
         async with serial_gate(conn.lock, self.queue_timeout):
             if name != "script_03-get_execution":
-                closing = self.closing_request(conn.binding)
-                if closing:
-                    raise RuntimeError("A close is retained. Read connect_05-close_session tool with request_id=" + closing)
+                self.reject_pending_close(conn.binding)
             return await self.invoke_locked(conn, name, arguments, invocation, deadline=deadline)
 
     async def invoke_locked(self, conn, name, arguments, invocation, *, deadline=None):
