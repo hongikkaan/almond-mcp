@@ -180,6 +180,66 @@ def _object_output(value, show_ids):
     return result
 
 
+def incomplete_intersection(error, page=None):
+    """Keep the original failure and use only evidence from the failing page."""
+    source = page if isinstance(page, dict) else error
+    tolerance = source.get("tolerance_model_units")
+    units = source.get("document_units")
+    return {"unsupported_objects": None, "failed_pairs": None, **error, "assessment": "incomplete",
+            "tolerance_model_units": tolerance if type(tolerance) in (int, float) and 0 < tolerance < float("inf") else None,
+            "document_units": units if isinstance(units, str) and units.strip() else None}
+
+
+def _intersection_rows(value):
+    if not isinstance(value, list):
+        return [], False
+    rows = [row for row in value if isinstance(row, dict)]
+    return rows, len(rows) == len(value)
+
+
+def intersection_page_error(page, include_block, *, review=False):
+    if not isinstance(page, dict):
+        raise ValueError("Native intersection query returned a non-object response.")
+    if page.get("status") == "error":
+        return incomplete_intersection(page)
+    if page.get("status") != "success":
+        raise ValueError("Native intersection query omitted its pair or unsupported-object evidence.")
+    pairs, pairs_complete = _intersection_rows(page.get("pairs"))
+    unsupported, objects_complete = _intersection_rows(page.get("unsupported_objects"))
+    failures = [item for item in unsupported if include_block or item.get("reason") != "block_excluded"]
+    unknown = [pair for pair in pairs if not isinstance(pair.get("overlap"), dict)
+               or pair["overlap"].get("status") not in ("positive_volume", "zero_volume")]
+    if not pairs_complete or not objects_complete:
+        error = error_payload("Native intersection query returned missing or invalid pair or unsupported-object rows.",
+                              error_code="intersection_review_failed" if review else "invalid_intersection_response")
+    elif failures or unknown:
+        error = error_payload("간섭 미판정. 검사하지 못한 객체나 쌍의 원인을 확인하세요.",
+                              error_code="intersection_count_incomplete")
+    else:
+        return None
+    if unknown and not review:
+        unknown = [{"objects": [pair.get("a"), pair.get("b")], "reason": pair.get("overlap")} for pair in unknown]
+    error["unsupported_objects"] = failures if objects_complete or failures else None
+    error["failed_pairs"] = unknown if pairs_complete or unknown else None
+    return incomplete_intersection(error, page)
+
+
+def intersection_next_cursor(page, seen):
+    cursor = page.get("next_cursor")
+    if page.get("pagination_complete") is True:
+        if cursor not in (None, ""):
+            raise ValueError("A completed intersection query returned a continuation cursor.")
+        if "remaining_candidate_pairs" in page and page["remaining_candidate_pairs"] != 0:
+            raise ValueError("A completed intersection query reported nonzero remaining_candidate_pairs.")
+        if "truncated" in page and page["truncated"] is not False:
+            raise ValueError("A completed intersection query did not confirm truncated=false.")
+        return None
+    if (page.get("pagination_complete") is not False or not page["pairs"]
+            or not isinstance(cursor, str) or not cursor or cursor in seen):
+        raise ValueError("Native intersection pagination did not advance.")
+    return cursor
+
+
 def intersections(send, *, ids, include_block=False):
     """Count the whole requested scope; native paging stays private and bounded."""
     try:
@@ -192,49 +252,32 @@ def intersections(send, *, ids, include_block=False):
     cursor, seen, count, evaluated = "", set(), 0, 0
     try:
         while True:
+            page = None  # This request can fail before returning any current-page evidence.
             payload = dict(type="get_object_intersections", object_ids=ids, max_pairs=64,
                            include_blocks=include_block, cursor=cursor)
             raw = dispatch(send, payload, path, capability_name="intersection_queries")
             page = json.loads(raw)
-            if not isinstance(page, dict):
-                raise ValueError("Native intersection query returned a non-object response.")
-            if page.get("status") == "error":
-                return raw
-            pairs, unsupported = page.get("pairs"), page.get("unsupported_objects")
-            if page.get("status") != "success" or not isinstance(pairs, list) or not isinstance(unsupported, list):
-                raise ValueError("Native intersection query omitted its pair or unsupported-object evidence.")
-            # An explicitly excluded block is outside the requested scope, not a failed solid.
-            failures = [item for item in unsupported
-                        if include_block or item.get("reason") != "block_excluded"]
-            unknown = [pair for pair in pairs
-                       if pair.get("overlap", {}).get("status") not in {"positive_volume", "zero_volume"}]
-            if failures or unknown:
-                return json.dumps({**error_payload(
-                    "The total overlap count could not be established. Inspect the unsupported objects or failed pairs.",
-                    error_code="intersection_count_incomplete"),
-                    "unsupported_objects": failures,
-                    "failed_pairs": [{"objects": [pair.get("a"), pair.get("b")],
-                                      "reason": pair.get("overlap")} for pair in unknown]}, ensure_ascii=False)
+            error = intersection_page_error(page, include_block)
+            if error:
+                return json.dumps(error, ensure_ascii=False)
+            pairs = page["pairs"]
             count += sum(pair["overlap"]["status"] == "positive_volume" for pair in pairs)
             evaluated += len(pairs)
             if evaluated > 20000:
                 raise ValueError("Native intersection query exceeded its 20000-candidate bound.")
-            next_cursor = page.get("next_cursor")
-            if page.get("pagination_complete") is True:
-                if next_cursor:
-                    raise ValueError("A completed intersection query returned a continuation cursor.")
+            next_cursor = intersection_next_cursor(page, seen)
+            if next_cursor is None:
                 next_step = (
                     "To review these overlaps, call intersect_02-resolve tool with the same object_ids and include_block. "
                     "Inspect its comparison and numbered objects, then pass its review_id with choice=1 or 2 to trim that numbered object, or 'skip'."
                     if count else
                     "No positive-volume overlap was found in this scope; no resolution call is needed. This does not establish other design or clearance conditions.")
                 return json.dumps({"intersections": {"number": count}, "next_step_guide": next_step}, ensure_ascii=False)
-            if not pairs or not isinstance(next_cursor, str) or not next_cursor or next_cursor in seen:
-                raise ValueError("Native intersection pagination did not advance.")
             seen.add(next_cursor)
             cursor = next_cursor
     except (TypeError, ValueError, AttributeError, KeyError) as exc:
-        return json.dumps(error_payload(str(exc), error_code="invalid_intersection_response"))
+        error = error_payload(str(exc), error_code="invalid_intersection_response")
+        return json.dumps(incomplete_intersection(error, page), ensure_ascii=False)
 
 
 def dispatch(send, payload, expected_model_path, required_version=1, capability_name="object_observation"):

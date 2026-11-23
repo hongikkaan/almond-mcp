@@ -4,13 +4,14 @@ import json
 from types import SimpleNamespace
 from uuid import UUID
 
+import pytest
 from fastmcp import Client, FastMCP
 
 from almond_mcp.features.context.tools import register
 from almond_mcp.features.components.tools import register as register_holons
 
 
-A, B = (str(UUID(int=n)) for n in (1, 2))
+A, B, C = (str(UUID(int=n)) for n in (1, 2, 3))
 MODEL = r"C:\offline\intersections.3dm"
 
 
@@ -63,16 +64,101 @@ def test_block_exclusion_is_intentional_but_unreadable_geometry_is_not_zero(monk
 
 def test_geometry_change_between_pages_does_not_publish_a_partial_count(monkeypatch):
     changed = {"status": "error", "error_code": "stale_scope", "message": "Geometry changed."}
-    tool, _, _ = setup(monkeypatch, [page("positive_volume", cursor="state:1"), changed])
+    first = {**page("positive_volume", cursor="state:1"),
+             "tolerance_model_units": 0.01, "document_units": "Inches"}
+    tool, _, _ = setup(monkeypatch, [first, changed])
     result = tool(object_ids=[A, B])
-    assert result.is_error and json.loads(result.structured_content["result"]) == changed
+    assert result.is_error
+    body = json.loads(result.structured_content["result"])
+    assert body == {**changed, "assessment": "incomplete", "unsupported_objects": None,
+                    "failed_pairs": None, "tolerance_model_units": None, "document_units": None}
+
+
+def test_incomplete_count_identifies_object_and_pair_with_their_observed_tolerance(monkeypatch):
+    unsupported = {"object_id": C, "reason": "closed_manifold_brep_required"}
+    failed = {"a": {"object_id": A}, "b": {"object_id": B},
+              "overlap": {"status": "unknown", "reason": "Mesh BooleanIntersection failed.",
+                          "meshing_tolerance": 0.005}}
+    observation = {**page(unsupported=[unsupported]), "pairs": [failed],
+                   "tolerance_model_units": 0.005, "document_units": "Meters"}
+    tool, _, _ = setup(monkeypatch, [observation])
+
+    output = tool(object_ids=[A, B, C])
+
+    assert output.is_error
+    body = json.loads(output.structured_content["result"])
+    assert "intersections" not in body and body["assessment"] == "incomplete"
+    assert body["unsupported_objects"] == [unsupported]
+    assert body["failed_pairs"] == [{"objects": [failed["a"], failed["b"]], "reason": failed["overlap"]}]
+    assert body["tolerance_model_units"] == 0.005 and body["document_units"] == "Meters"
 
 
 def test_repeated_continuation_cannot_loop_or_inflate_the_count(monkeypatch):
-    repeated = page("positive_volume", cursor="state:1")
+    repeated = {**page("positive_volume", cursor="state:1"), "document_units": "Inches"}
     tool, calls, _ = setup(monkeypatch, [repeated, repeated])
     result = tool(object_ids=[A, B])
     assert result.is_error and len(calls) == 2
+    body = json.loads(result.structured_content["result"])
+    assert body["assessment"] == "incomplete" and "intersections" not in body
+    assert body["error_code"] == "invalid_intersection_response"
+    assert body["document_units"] == "Inches" and body["tolerance_model_units"] is None
+    assert body["failed_pairs"] is None and body["unsupported_objects"] is None
+
+
+@pytest.mark.parametrize("coverage", [{"remaining_candidate_pairs": 2}, {"truncated": True}])
+def test_completion_with_reported_work_remaining_cannot_publish_zero(monkeypatch, coverage):
+    observation = {**page(), **coverage, "document_units": "Millimeters", "tolerance_model_units": 0.03}
+    tool, _, _ = setup(monkeypatch, [observation])
+    output = tool(object_ids=[A, B])
+    assert output.is_error
+    body = json.loads(output.structured_content["result"])
+    assert body["assessment"] == "incomplete" and "intersections" not in body
+    assert body["tolerance_model_units"] == 0.03 and body["document_units"] == "Millimeters"
+    assert next(iter(coverage)) in body["message"]
+
+
+def test_missing_overlap_keeps_known_pair_and_rejects_unusable_tolerance_metadata(monkeypatch):
+    observation = {**page(), "pairs": [{"a": {"object_id": A}, "b": {"object_id": B}, "overlap": None}],
+                   "tolerance_model_units": False, "document_units": ""}
+    tool, _, _ = setup(monkeypatch, [observation])
+    result = tool(object_ids=[A, B])
+    assert result.is_error
+    body = json.loads(result.structured_content["result"])
+    assert body["assessment"] == "incomplete" and "intersections" not in body
+    assert body["failed_pairs"] == [{"objects": [{"object_id": A}, {"object_id": B}], "reason": None}]
+    assert body["tolerance_model_units"] is None and body["document_units"] is None
+
+
+def test_missing_pair_list_preserves_the_reported_unsupported_object(monkeypatch):
+    unsupported = {"object_id": A, "reason": "closed_extrusion_required"}
+    excluded = {"object_id": B, "reason": "block_excluded"}
+    observation = {"status": "success", "unsupported_objects": [unsupported, excluded], "document_units": "Meters"}
+    tool, _, _ = setup(monkeypatch, [observation])
+    result = tool(object_ids=[A, B])
+    assert result.is_error
+    body = json.loads(result.structured_content["result"])
+    assert body["assessment"] == "incomplete" and body["error_code"] == "invalid_intersection_response"
+    assert body["unsupported_objects"] == [unsupported] and body["failed_pairs"] is None
+    assert body["tolerance_model_units"] is None and body["document_units"] == "Meters"
+
+
+@pytest.mark.parametrize("unsupported,pairs,known_objects,known_pairs", [
+    ([{"object_id": C, "reason": "invalid_geometry"}], [None],
+     [{"object_id": C, "reason": "invalid_geometry"}], None),
+    ([None], [], None, []),
+    ([None], [{"a": {"object_id": A}, "b": {"object_id": B}, "overlap": {"status": "unknown"}}], None,
+     [{"objects": [{"object_id": A}, {"object_id": B}], "reason": {"status": "unknown"}}]),
+])
+def test_invalid_row_does_not_hide_valid_targets_or_enter_the_failure_lists(
+        monkeypatch, unsupported, pairs, known_objects, known_pairs):
+    observation = {**page(unsupported=unsupported), "pairs": pairs, "document_units": "Meters"}
+    tool, _, _ = setup(monkeypatch, [observation])
+    result = tool(object_ids=[A, B, C], include_block=True)
+    assert result.is_error
+    body = json.loads(result.structured_content["result"])
+    assert body["assessment"] == "incomplete" and "intersections" not in body
+    assert body["unsupported_objects"] == known_objects and body["failed_pairs"] == known_pairs
+    assert body["document_units"] == "Meters"
 
 
 def test_public_schema_has_only_targets_and_singular_include_block(monkeypatch):

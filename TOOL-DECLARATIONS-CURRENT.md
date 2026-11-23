@@ -7,8 +7,8 @@ beyond·CoS의 공개 도구 81개. 연결 대상 입력, 연결 관리 도구 �
 - 수집일: 2026-11-22. 기준: 이 문서와 함께 관리하는 소스.
 - 수집 경로: `src/cos/codex_host.py`와 `src/cos/cos_host.py`의 공용 `external_host.main`. 격리된 데이터 폴더에서 Rhino 연결 없이 stdio `initialize`·`tools/list` 호출.
 - 실행 패키지: almond-mcp 0.7.0rc2 / fastmcp 4.1.0 / mcp 2.3.0 / mcp-types 2.3.0.
-- CoS 선언 SHA-256: `eff0cde93691f7e5d8c79fdc94fdb215d2acc2cb2886fd0e224e2d615d4c5cfe`
-- beyond 선언 SHA-256: `0a4419681889de81948fe91a0bc56fef0d505b9368ec9dcb9a46d805d754e087`
+- CoS 선언 SHA-256: `0e22ba2a205e1d7ea2fafb10124012df637b03bfb20a108373915d6c18d47e6f`
+- beyond 선언 SHA-256: `58cdb4d7990294f5c70562b6a19be72e80bd7c4f52068ed8a35c5d3dbdd3e5b1`
 - 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 해시.
 - 도구명·입력 설명은 구현 함수와 docstring, 출력 설명은 `src/mcp/output_contracts.py`에서 확인. 공통 스키마 기준은 `tests/integration/tool_schemas.json`, 외부 연결 도구 정의는 `src/cos/external_host.py` 참조.
 
@@ -26,6 +26,7 @@ beyond·CoS 외부 연결기 기준. RhinoTerminal과 관리 실행기의 문서
 
 - 서버 소개는 `serverInfo.description`과 `initialize.instructions` 첫머리에 전달. 이어서 기술 참고 자료 조회 방법과 `guide_version`을 전달. 설계 지침 본문과 별도 설치 스킬은 읽지 않음. 개별 도구 설명은 `tools/list`의 `description`에서 확인. 초기 지침을 모델에 표시하는 방식은 클라이언트에 따름.
 - 정책은 Rhino 연결 선택 전에도 `context_01-get_policy` tool로 조회 가능. 기본값 `basic`은 공통 도구 참고 목록과 참고 자료 종류를 반환. 이 연결에서 호출할 수 있는 도구는 `tools/list`에서 확인. `policy="metadata"`는 객체 키 사전을 반환.
+- `plan_12-update` tool로 Plan을 실제 완료한 응답의 `next_step_guide`에는 해당 Plan에서만 사용했고 이제 필요 없는 객체·레이어·레이아웃·Named View를 정리하라는 안내가 추가된다.
 - `plan_03-execute_looping` tool의 성공 응답은 다음 Step의 선택·기록 방법과 회차 결과를 보고할 때 시각적 근거를 포함하라는 안내를 제공한다.
 - `connect_02-session` tool 또는 `connect_03-start_session` tool로 연결. CoS의 일반 호출은 선택한 연결을 사용. beyond는 각 호출에서 연결 ID를 지정하며 `script_03-get_execution` tool로 실행을 재조회할 때도 원래의 `connection_id`와 `request_id`를 함께 전달.
 - 외부 실행의 첫 대기 한도는 `min(요청 timeout, 60초)`. `pending`이면 같은 `request_id`로 완료 여부 조회. 외부 클라이언트 제한은 600초. 대기 종료·취소·오류 후에는 실제 문서 상태와 실행 결과를 확인하고 재실행 여부를 결정. [RhinoCode 실행 계약](src/mcp/runtime/RHINOCODE-SPEC.md) · [외부 연결기 SPEC](src/cos/SPEC.md)
@@ -979,7 +980,7 @@ type DecodedResult = {
 
 최상위 모델 객체 GUID는 inspect_02-get_objects tool의 include_ids=true로 조회. 공통 object_ids를 지정한 뒤 views=[{"direction":"top","display_mode":"Technical"},{"direction":"iso_ne","display_mode":"Shaded"}]로 같은 대상을 평면과 사시에서 비교한다. 원본 뷰 방향에서 대상에 맞춰 확대하려면 공통 또는 타일별 object_ids와 views=[{"direction":"current","frame_objects":true}]를 사용한다. frame_objects를 생략한 current 타일은 원본 카메라 구도를 유지한다.
 
-일부 타일이 실패해도 status=success일 수 있으므로 complete와 tiles를 함께 확인한다.
+공통 또는 타일별 object_ids에 최상위 블록 인스턴스를 지정하면 전체 호출이 실패하고 메시지에 입력 위치와 블록 GUID가 표시된다. 다른 이유로 일부 타일만 실패하면 complete=false이며 tiles에서 실패 이유를 확인할 수 있다.
 ```
 
 ```ts
@@ -2856,7 +2857,7 @@ type DecodedResult = {
 ### 47. intersect\_01-find
 
 ```txt
-닫힌 솔리드 중 양의 부피가 겹치는 객체 쌍을 집계. 0건은 검사 범위의 결과이며 간격이나 전체 설계 적합성은 별개. 계산할 수 없는 객체·쌍이 있으면 intersection_count_incomplete와 상세 반환. 면 접촉만으로도 계산이 불완전할 수 있다.
+닫힌 솔리드 중 양의 부피가 겹치는 객체 쌍을 집계. 전체 검사가 끝나야 건수를 반환한다. 0건은 검사 범위의 결과이며 간격이나 전체 설계 적합성은 별개. 계산할 수 없는 객체·쌍이나 페이지 오류는 미판정(assessment=incomplete)이다. 확인된 대상·이유와 해당 페이지의 모델 공차·단위를 반환하며 null은 확인 불가를 뜻한다. 면 접촉만으로도 계산이 불완전할 수 있다.
 ```
 
 ```ts
@@ -2886,6 +2887,16 @@ type DecodedResult = {
   next_step_guide?: string;
   message?: string;
   error_code?: string;
+  // 미판정. 전체 범위의 겹침 건수 미확정.
+  assessment?: "incomplete";
+  // 검사할 수 없는 것으로 확인된 객체와 사유. null은 확인 불가.
+  unsupported_objects?: Array<{ [key: string]: unknown }> | null;
+  // 계산을 마치지 못한 쌍과 사유. null은 확인 불가.
+  failed_pairs?: Array<{ [key: string]: unknown }> | null;
+  // 미판정이 발생한 검사에서 확인한 모델 길이 공차. null은 확인 불가.
+  tolerance_model_units?: number | null;
+  // 해당 검사에서 확인한 문서 길이 단위. null은 확인 불가.
+  document_units?: string | null;
   [key: string]: unknown;
 };
 ```
@@ -2893,7 +2904,7 @@ type DecodedResult = {
 ### 48. intersect\_02-resolve
 
 ```txt
-겹친 객체 쌍을 캡처해 비교하고 지정한 객체에서 겹친 부분을 제거. 검토 시 실제 카메라와 선택이 바뀐다. 완료 후에도 건너뛴 쌍은 남는다. 다음 쌍 계산이 실패해도 직전 수정이 이미 적용됐을 수 있으므로 previous_result와 실제 형상을 확인.
+겹친 객체 쌍을 캡처해 비교하고 지정한 객체에서 겹친 부분을 제거. 검토 시 실제 카메라와 선택이 바뀐다. 완료 후에도 건너뛴 쌍은 남는다. 다음 쌍의 검사 미판정(assessment=incomplete)에는 대상·이유와 해당 검사에서 확인한 모델 공차·단위를 반환하며 null은 확인 불가를 뜻한다. 직전 수정이 이미 적용됐을 수 있으므로 previous_result와 실제 형상을 확인.
 ```
 
 ```ts
@@ -2923,6 +2934,16 @@ declare const tools: {
     skipped_pairs?: number;
     message?: string;
     error_code?: string;
+    // 미판정. 전체 범위의 겹침 건수 미확정.
+    assessment?: "incomplete";
+    // 검사할 수 없는 것으로 확인된 객체와 사유. null은 확인 불가.
+    unsupported_objects?: Array<{ [key: string]: unknown }> | null;
+    // 계산을 마치지 못한 쌍과 사유. null은 확인 불가.
+    failed_pairs?: Array<{ [key: string]: unknown }> | null;
+    // 미판정이 발생한 검사에서 확인한 모델 길이 공차. null은 확인 불가.
+    tolerance_model_units?: number | null;
+    // 해당 검사에서 확인한 문서 길이 단위. null은 확인 불가.
+    document_units?: string | null;
     next_step_guide?: string;
     // choice에서 사용할 번호가 붙은 검토 쌍의 구성원
     objects?: Array<{

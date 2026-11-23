@@ -2,6 +2,7 @@
 from almond_mcp.query_output import select_fields, requires_full_evidence
 from almond_mcp.managed_paths import relative_output
 from almond_mcp.features.planning.updates import PlanningUpdate
+from almond_mcp.tool_guidance import next_step
 from datetime import datetime, timedelta, timezone
 import json
 
@@ -41,6 +42,10 @@ def update_ack(update: PlanningUpdate, kind: str, step_id: str = "") -> dict:
     if step_id:
         step = next(item for item in update.record["steps"] if item["step_id"] == step_id)
         result["step"] = {"step_id": step_id, "status": step["status"], "loop_no": update.record["loop_no"]}
+    if update.plan_completed:
+        guide = next_step("update_planning", result, {"target": "plan"})
+        cleanup = "이 Plan 과정에서만 사용했고 이제 필요 없는 객체·레이어·레이아웃·Named View를 정리하세요."
+        result["next_step_guide"] = f"{guide} {cleanup}" if guide else cleanup
     return result
 
 

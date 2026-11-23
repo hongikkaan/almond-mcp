@@ -11,11 +11,21 @@ from almond_mcp.features.planning.tools import register
 from almond_mcp.retrieval_store import AlmondStore
 
 
+PLAN_CLEANUP_GUIDE = "이 Plan 과정에서만 사용했고 이제 필요 없는 객체·레이어·레이아웃·Named View를 정리하세요."
+
+
 @pytest.fixture
-def context(tmp_path):
+def planning_server(tmp_path):
     store = AlmondStore(tmp_path / "planning.sqlite3")
     server = FastMCP("planning-update-test")
     register(server, SimpleNamespace(retrieval_store=store))
+    return store, server
+
+
+@pytest.fixture
+def context(planning_server):
+    store, server = planning_server
+
     def call(name, **arguments):
         async def run():
             async with Client(server) as client:
@@ -27,6 +37,69 @@ def context(tmp_path):
 def body(response):
     assert not response.is_error
     return json.loads(response.content[0].text)
+
+
+def test_plan_completion_adds_guidance_only_on_a_saved_transition(context):
+    store, call = context
+    plan_id = store.create_plan("Review entrance")["plan_id"]
+
+    def update(**fields):
+        return body(call("plan_12-update", request={"target": "plan", "plan_id": plan_id, **fields}))
+
+    first = update(status="completed")
+    assert first["plan"]["status"] == "completed"
+    assert first["next_step_guide"].count(PLAN_CLEANUP_GUIDE) == 1
+    assert "plan_05-get" in first["next_step_guide"]
+    assert set(first) == {"status", "changed", "issues", "plan", "next_step_guide"}
+    assert set(first["plan"]) == {"plan_id", "status", "loop_no", "revision"}
+
+    for fields in ({"status": "completed"}, {"title": "Final review"},
+                   {"status": "completed", "title": "Approved review"}, {"status": "running"}):
+        assert PLAN_CLEANUP_GUIDE not in update(**fields)["next_step_guide"]
+
+    rejected = update(status="completed", expected_revision=first["plan"]["revision"])
+    assert rejected["status"] == "error"
+    assert PLAN_CLEANUP_GUIDE not in rejected.get("next_step_guide", "")
+    partial = update(status="completed", depends_on={"remove": ["plan_absent"]})
+    assert partial["status"] == "partial_success" and partial["changed"]
+    assert partial["issues"][0]["reason"] == "not_found"
+    assert "issues" in partial["next_step_guide"] and "expected_revision" in partial["next_step_guide"]
+    assert partial["next_step_guide"].count(PLAN_CLEANUP_GUIDE) == 1
+    assert partial["plan"]["status"] == "completed"
+    edited = update(status="completed", title="Rechecked", depends_on={"remove": ["plan_absent"]})
+    assert edited["status"] == "partial_success" and edited["issues"] == partial["issues"]
+    assert "issues" in edited["next_step_guide"] and PLAN_CLEANUP_GUIDE not in edited["next_step_guide"]
+
+
+def test_phase_completion_keeps_its_own_guide(context):
+    store, call = context
+    phase = store.create_phase("Design review")
+    result = body(call("plan_12-update", request={"target": "phase", "phase_id": phase["phase_id"],
+                                                 "status": "completed"}))
+    assert result["phase"]["status"] == "completed"
+    assert "target='phase'" in result["next_step_guide"] and PLAN_CLEANUP_GUIDE not in result["next_step_guide"]
+
+
+def test_concurrent_completed_requests_guide_only_the_first_revision(planning_server):
+    store, server = planning_server
+    plan = store.create_plan("Check elevations")
+    request = {"target": "plan", "plan_id": plan["plan_id"], "status": "completed"}
+
+    async def complete():
+        async with Client(server) as client:
+            calls = [client.call_tool("plan_12-update", {"request": {**request, "title": title}})
+                     for title in ("East elevation", "West elevation")]
+            return await asyncio.gather(*calls)
+
+    replies = asyncio.run(complete())
+    for reply in replies:
+        assert json.loads(reply.structured_content["result"]) == body(reply)
+    first, second = sorted(map(body, replies), key=lambda ack: ack["plan"]["revision"])
+    assert first["changed"] and second["changed"]
+    assert first["plan"]["revision"] == plan["revision"] + 1
+    assert second["plan"]["revision"] == plan["revision"] + 2
+    assert first["next_step_guide"].count(PLAN_CLEANUP_GUIDE) == 1
+    assert PLAN_CLEANUP_GUIDE not in second["next_step_guide"]
 
 
 def test_step_partial_edits_preserve_other_records_and_make_one_revision(context):
@@ -154,15 +227,20 @@ def test_dependencies_apply_only_same_kind_items_without_execution_gates(context
     assert current["depends_on"] == []
 
 
-def test_revision_recording_failure_rolls_back_valid_partial_edits(context, monkeypatch):
+@pytest.mark.parametrize("target", ["plan", "step"])
+def test_revision_recording_failure_rolls_back_valid_partial_edits(context, monkeypatch, target):
     store, call = context
     plan = store.create_plan("Review", scope="component")
     def fail(*args, **kwargs):
         raise RuntimeError("snapshot failure")
     monkeypatch.setattr(store, "_record_generation_revision", fail)
-    result = body(call("plan_12-update", request=dict(target="step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], status="running",
-                       output_refs={"add": ["valid", ""]})))
+    if target == "plan":
+        fields = {"status": "completed", "depends_on": {"add": ["plan_valid", ""]}}
+    else:
+        fields = {"step_id": plan["steps"][1]["step_id"], "status": "running", "output_refs": {"add": ["valid", ""]}}
+    result = body(call("plan_12-update", request={"target": target, "plan_id": plan["plan_id"], **fields}))
     assert result["status"] == "error"
+    assert PLAN_CLEANUP_GUIDE not in result.get("next_step_guide", "")
     assert store.get_plan(plan["plan_id"]) == plan
 
 

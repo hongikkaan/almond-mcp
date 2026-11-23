@@ -1757,6 +1757,16 @@ _object_results = CONTRACTS["get_objects"]["properties"]
 _object_results["objects"]["items"]["properties"]["user_text"] = _attribute_user_text
 _object_results.setdefault("nodes", {"type": "array", "items": {"type": "object"}})["items"].setdefault(
     "properties", {})["user_text"] = _attribute_user_text
+for _intersection_tool in ("get_object_intersections", "resolve_object_intersection"):
+    CONTRACTS[_intersection_tool]["properties"].update({
+        "assessment": {"const": "incomplete", "description": "미판정. 전체 범위의 겹침 건수 미확정."},
+        "unsupported_objects": {"type": ["array", "null"], "items": {"type": "object"},
+                                "description": "검사할 수 없는 것으로 확인된 객체와 사유. null은 확인 불가."},
+        "failed_pairs": {"type": ["array", "null"], "items": {"type": "object"},
+                         "description": "계산을 마치지 못한 쌍과 사유. null은 확인 불가."},
+        "tolerance_model_units": {"type": ["number", "null"], "description": "미판정이 발생한 검사에서 확인한 모델 길이 공차. null은 확인 불가."},
+        "document_units": {"type": ["string", "null"], "description": "해당 검사에서 확인한 문서 길이 단위. null은 확인 불가."},
+    })
 CONTRACTS["resolve_object_intersection"]["properties"]["objects"] = {
     "type": "array", "description": 'choice에서 사용할 번호가 붙은 검토 쌍의 구성원',
     "items": {"type": "object", "properties": {

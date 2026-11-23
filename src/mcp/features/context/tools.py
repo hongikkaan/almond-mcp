@@ -158,7 +158,7 @@ def register(mcp, context):
 
     @public_tool(mcp, wrapped=True, annotations={'readOnlyHint': True, 'destructiveHint': False})
     def get_object_intersections(object_ids: list[str], include_block: StrictBool = False) -> str | ToolResult:
-        """닫힌 솔리드 중 양의 부피가 겹치는 객체 쌍을 집계. 0건은 검사 범위의 결과이며 간격이나 전체 설계 적합성은 별개. 계산할 수 없는 객체·쌍이 있으면 intersection_count_incomplete와 상세 반환. 면 접촉만으로도 계산이 불완전할 수 있다.
+        """닫힌 솔리드 중 양의 부피가 겹치는 객체 쌍을 집계. 전체 검사가 끝나야 건수를 반환한다. 0건은 검사 범위의 결과이며 간격이나 전체 설계 적합성은 별개. 계산할 수 없는 객체·쌍이나 페이지 오류는 미판정(assessment=incomplete)이다. 확인된 대상·이유와 해당 페이지의 모델 공차·단위를 반환하며 null은 확인 불가를 뜻한다. 면 접촉만으로도 계산이 불완전할 수 있다.
 
         Args:
             object_ids: 서로 다른 현재 최상위 Rhino 객체 GUID 1..512개. 내부에서 페이지를 나누며 전체를 하나의 범위로 검사.
@@ -178,7 +178,7 @@ def register(mcp, context):
 
         최상위 모델 객체 GUID는 inspect_02-get_objects tool의 include_ids=true로 조회. 공통 object_ids를 지정한 뒤 views=[{"direction":"top","display_mode":"Technical"},{"direction":"iso_ne","display_mode":"Shaded"}]로 같은 대상을 평면과 사시에서 비교한다. 원본 뷰 방향에서 대상에 맞춰 확대하려면 공통 또는 타일별 object_ids와 views=[{"direction":"current","frame_objects":true}]를 사용한다. frame_objects를 생략한 current 타일은 원본 카메라 구도를 유지한다.
 
-        일부 타일이 실패해도 status=success일 수 있으므로 complete와 tiles를 함께 확인한다.
+        공통 또는 타일별 object_ids에 최상위 블록 인스턴스를 지정하면 전체 호출이 실패하고 메시지에 입력 위치와 블록 GUID가 표시된다. 다른 이유로 일부 타일만 실패하면 complete=false이며 tiles에서 실패 이유를 확인할 수 있다.
 
         Args:
             views: 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 설치된 모드 이름 또는 GUID. label: 최대 120자. object_ids: 블록 인스턴스를 제외한 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다.
