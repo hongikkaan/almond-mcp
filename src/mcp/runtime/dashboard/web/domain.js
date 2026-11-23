@@ -8,6 +8,13 @@ const planStatusLabels = new Map(Object.entries({
   paused: "일시정지",
 }));
 const filterLabels = { file: "파일", phase: "Phase", scene: "Scene", status: "상태", execution: "실행 이력" };
+const planRelationLabels = {
+  previous: "직전 Plan",
+  next: "다음 Plan",
+  related: "관련 Plan",
+  parent: "부모 Plan",
+  child: "자식 Plan",
+};
 
 function planSequences(ids, records) {
   const siblings = new Set(ids);
@@ -600,7 +607,7 @@ window.DomainExplorer = class {
           arrow.setAttribute("aria-hidden", "true");
           previous.append(arrow);
         }
-        previous.append(this.node("span", "선행 · " + (item.previous.name || item.previous.id)));
+        previous.append(this.node("span", "직전 Plan · " + (item.previous.name || item.previous.id)));
         entry.append(previous);
       }
       container.append(entry);
@@ -653,7 +660,7 @@ window.DomainExplorer = class {
     );
     if (!relations.length) return frame;
     const side = this.node("details", undefined, "adjacent-tasks");
-    const toggle = this.node("summary", "관련 Task 비교");
+    const toggle = this.node("summary", "연결된 Plan 비교");
     side.open =
       this.state.comparisonOpen?.[group.id] ??
       window.matchMedia("(min-width: 901px)").matches;
@@ -664,24 +671,17 @@ window.DomainExplorer = class {
     side.append(toggle);
     const label = this.node("label", "연결된 Task 나란히 읽기");
     const select = this.node("select");
-    const labels = {
-      previous: "이전",
-      next: "후속",
-      depends_on: "선행 의존",
-      dependent: "후속 의존",
-      parent: "부모",
-      child: "자식",
-    };
     for (const [index, relation] of relations.entries())
       select.add(
         new Option(
-          `${labels[relation.type] || relation.type} · ${relation.name}`,
+          `${planRelationLabels[relation.type] || relation.type} · ${relation.name}`,
           String(index),
         ),
       );
     const comparisons = (this.state.comparisons ||= {});
+    const saved = String(comparisons[group.id] ?? "").replace(/^(depends_on|dependent):/, "related:");
     const remembered = relations.findIndex(
-      (relation) => `${relation.type}:${relation.id}` === comparisons[group.id],
+      (relation) => `${relation.type}:${relation.id}` === saved,
     );
     if (remembered >= 0) select.value = String(remembered);
     label.append(select);
@@ -849,20 +849,12 @@ window.DomainExplorer = class {
     if (group.artifact_refs && group.artifact_refs !== "[]")
       card.append(this.field("artifact_refs_json", group.artifact_refs));
     if (!adjacent && group.relations?.length) {
-      const related = this.node("div", undefined, "task-relations"),
-        labels = {
-          previous: "이전 Task",
-          next: "후속 Task",
-          depends_on: "선행 의존",
-          dependent: "후속 의존",
-          parent: "부모 Task",
-          child: "자식 Task",
-        };
+      const related = this.node("div", undefined, "task-relations");
       if (group.history) related.append(this.node("span", "현재 연결된 Task", "hint"));
       for (const r of group.relations) {
         const item = this.node("div", undefined, "relation-item");
         item.append(
-          this.node("span", labels[r.type] || r.type, "relation-type"),
+          this.node("span", planRelationLabels[r.type] || r.type, "relation-type"),
           r.missing
             ? this.node("span", `미등록 · ${r.id}`, "missing-value")
             : this.detailButton(r.name, "tasks", r.id),

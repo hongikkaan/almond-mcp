@@ -60,6 +60,53 @@ def test_conditioning_status_reports_execution_even_when_no_png_was_returned(tmp
     assert json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))["status"] == "executed"
 
 
+def test_conditioning_rgb_and_edge_use_only_requested_menu_modes_and_preserve_depth():
+    frames = [{"frame":0, "camera":[1, 0, 0], "target":[0, 0, 0], "lens_mm":50}]
+    mode = '표시"__OUT__'
+    edge = "00000000-0000-0000-0000-000000000014"
+    def script(passes):
+        return conditioning.render_capture_script(frames, "project", 640, 480, passes, mode, edge, False)
+    assert "= ResolveRaster(" not in script(["depth"])
+    assert script(["edge"]).count("= ResolveRaster(") == 1
+    assert base64.b64encode(edge.encode()).decode() in script(["edge"])
+    assert base64.b64encode(mode.encode()).decode() in script(["rgb"])
+    assert script(["rgb","edge"]).count("= ResolveRaster(") == 2
+    assert 'FindByName("Shaded")' in script(["depth"])
+
+
+@pytest.mark.parametrize("confirmed, expected_status", [(0, "error"), (1, "partial")])
+def test_conditioning_public_result_preserves_native_mode_failure_and_confirmed_frames(tmp_path, confirmed, expected_status):
+    from fastmcp import Client
+
+    message = "Display mode is missing from the View Display Mode Menu or ambiguous; use a GUID from display_modes."
+    frames_dispatched = 0
+    def send(payload, timeout):
+        nonlocal frames_dispatched
+        request = json.loads(payload)
+        if "= ResolveRaster(" in request["script"]:
+            frames_dispatched += 1
+            if frames_dispatched > confirmed:
+                return json.dumps({"status":"error","message":message})
+        return json.dumps({"status":"success"})
+
+    server = FastMCP("capture-menu-feedback")
+    capture_tools.register(server, SimpleNamespace(_send_and_receive=send))
+    shot = {"type":"keyframes","frames":3,"keyframes":[{"camera":[1,0,0],"target":[0,0,0]}]}
+    async def run():
+        async with Client(server) as client:
+            return await client.call_tool("capture_01-conditioning_pass", {
+                "shot":json.dumps(shot), "out_dir":str(tmp_path), "passes":"rgb", "chunk":1,
+                "rgb_mode":"Missing-1124"}, raise_on_error=False)
+
+    reply = asyncio.run(run())
+    body = json.loads(reply.structured_content["result"])
+    assert reply.is_error == (confirmed == 0)
+    assert body["status"] == expected_status
+    assert body["frames_captured"] == confirmed
+    assert body["errors"][0]["message"] == message
+    assert frames_dispatched == confirmed + 1
+
+
 def _tools(send):
     mcp = RegisteredTools()
     def capable_send(payload):

@@ -27,6 +27,8 @@ def tools_for(reply=None, version=4):
         calls.append(request)
         if request["type"] == "get_rhino_context":
             return json.dumps({"status": "success", "capabilities": {"object_observation": version}})
+        if callable(reply):
+            return json.dumps(reply(request))
         return json.dumps(copy.deepcopy(reply or {"status": "success", "complete": True, "objects": []}))
 
     server = FastMCP("objects-contract")
@@ -82,6 +84,82 @@ def test_group_members_use_group_namespace_and_bound_fixed_query_without_selecti
     assert request["object_ids"] == []
     assert request["expected_model_path"] == MODEL
     assert not request["recursive"] and not request["selected"] and not request["inside_window"]
+
+
+def test_viewport_query_returns_ids_and_keeps_its_scope_on_the_next_page():
+    object_ids = [A, B, GROUP]
+
+    def native_page(request):
+        offset = request["offset"]
+        assert offset == 0 or request["expected_snapshot"] == "a" * 64
+        return {"status": "success", "scope": "current", "objects": [{"id": object_ids[offset]}],
+                "next_offset": offset + 1 if offset < 2 else None, "snapshot": "a" * 64}
+
+    _, calls, server = tools_for(native_page, version=6)
+
+    async def exercise():
+        async with Client(server) as client:
+            arguments = {"scope": "inside_viewport", "filters": {"layer": {"include": ["2F::Wall"]}},
+                         "output": {"limit": 1, "include_ids": True}, "expected_model_path": MODEL}
+            for index, expected_id in enumerate(object_ids):
+                response = await client.call_tool("inspect_02-get_objects", arguments)
+                page = json.loads(response.structured_content["result"])
+                assert page["scope"] == "inside_viewport" and page["objects"] == [{"id": expected_id}]
+                if index == 2:
+                    assert page["next_offset"] is None
+                    break
+                assert "output.offset" in page["next_step_guide"] and "output.expected_snapshot" in page["next_step_guide"]
+                arguments["output"].update(offset=page["next_offset"], expected_snapshot=page["snapshot"])
+
+    asyncio.run(exercise())
+    assert calls[-1]["inside_window"] and calls[-1]["scope"] == "current"
+    assert calls[-1]["filters"] == {"layer": {"include": ["2F::Wall"]}}
+    assert [call["offset"] for call in calls if call["type"] == "get_rhino_objects"] == [0, 1, 2]
+    assert (calls[-1]["limit"], calls[-1]["expected_snapshot"]) == (1, "a" * 64)
+
+
+@pytest.mark.parametrize("args", [
+    {"filters": {"material": {"include": []}}},
+    {"filters": {"layer": {"any": ["Model"]}}},
+    {"filters": {"name": {}}},
+    {"filters": {"object_type": {"include": []}}},
+    {"output": {"offset": 10}},
+    {"output": {"include_ids": 1}},
+    {"output": {"include_geometery": True}},
+    {"result_mode": "summary", "output": {"fields": ["id"]}},
+    {"scope": "inside_viewport", "selected": True},
+    {"scope": "inside_viewport", "object_ids": [A]},
+])
+def test_unsupported_object_options_return_an_error_before_observing(args):
+    tools, calls, _ = tools_for(version=6)
+    result = tools["get_objects"](**args)
+    assert result.is_error and json.loads(result.structured_content["result"])["error_code"] == "invalid_arguments"
+    assert not calls
+
+
+def test_new_filter_never_silently_disappears_on_an_older_bridge():
+    tools, calls, _ = tools_for(version=5)
+    result = tools["get_objects"](expected_model_path=MODEL, filters={"name": {"exclude": ["Desk"]}})
+    assert result.is_error and "object_observation>=6" in result.structured_content["result"]
+    assert [request["type"] for request in calls] == ["get_rhino_context"]
+
+
+def test_nested_output_reuses_the_existing_viewport_and_field_query():
+    tools, calls, _ = tools_for({"status": "success", "objects": [{"id": A}]}, version=4)
+    options = {"include_ids": True, "fields": ["id"], "limit": 2}
+    result = json.loads(tools["get_objects"](scope="inside_viewport", expected_model_path=MODEL,
+                                             include_ids=False, limit=3, output=options))
+    assert result["scope"] == "inside_viewport" and result["objects"] == [{"id": A}]
+    assert calls[-1]["fields"] == ["id"] and calls[-1]["limit"] == 2
+    assert calls[-1]["inside_window"] and calls[-1]["scope"] == "current"
+
+
+def test_filtered_continuation_reports_the_native_snapshot_change():
+    error = {"status": "error", "error_code": "observation_changed", "message": "The query or model changed."}
+    tools, _, _ = tools_for(error, version=6)
+    result = tools["get_objects"](scope="inside_viewport", filters={"layer": {"exclude": ["Roof"]}},
+                                  expected_model_path=MODEL, output={"offset": 1, "expected_snapshot": "a" * 64})
+    assert result.is_error and json.loads(result.structured_content["result"])["error_code"] == "observation_changed"
 
 
 def test_selected_hierarchy_retains_parent_relationships_and_distinguishes_occurrence_handles():
@@ -178,6 +256,58 @@ def test_dictionary_filter_rejects_a_single_object_with_a_copyable_array_example
     assert "JSON array" in detail["message"]
     assert json.dumps({"user_dictionary": [condition]}, separators=(",", ":")) in detail["message"]
     assert not calls
+
+
+@pytest.mark.parametrize("filters", [
+    {"group": {"include": ["A"], "exclude": ["B"]}},
+    {"material": {"include": ["LayerFinish", GROUP]}},
+    {"user_text": {"exclude": [{"key": "case", "any_of": ["hidden"]}]}},
+    {"user_dictionary": {"include": [{"source": "geometry", "key": "phase", "any_of": [3, True]}]}},
+])
+def test_new_filter_forms_need_a_matching_bridge_and_preserve_typed_terms(filters):
+    old, calls, _ = tools_for(version=6)
+    result = old["get_objects"](scope="document", filters=filters, expected_model_path=MODEL)
+    assert result.is_error and "object_observation>=7" in result.structured_content["result"]
+    assert [c["type"] for c in calls] == ["get_rhino_context"]
+    _, calls, server = tools_for(version=7)
+
+    async def call():
+        async with Client(server) as client:
+            return await client.call_tool("inspect_02-get_objects", {"scope": "document", "filters": filters,
+                                                                    "expected_model_path": MODEL})
+    assert not asyncio.run(call()).is_error
+    assert calls[-1]["filters"] == filters
+
+
+@pytest.mark.parametrize("group,valid", [
+    ({"include":["A"]},True), ({"include":["A","B"],"include_mode":"any","exclude":["C"]},True),
+    ({"include":["A","B"],"include_mode":"all","exclude":["A","B"],"exclude_mode":"any"},True),
+    ({"include":["A","B"]},False), ({"include":["A"],"include_mode":"any"},False),
+    ({"exclude":["A","B"],"include_mode":"all"},False), ({"exclude_mode":"all"},False),
+    ({"include":["A","B"],"include_mode":"always"},False),
+])
+def test_public_multi_group_schema_and_handler_agree(group,valid):
+    from jsonschema import Draft202012Validator
+    _, calls, server = tools_for(version=8)
+    args = {"scope":"document","filters":{"group":group},"expected_model_path":MODEL}
+    async def run():
+        async with Client(server) as client:
+            schema = next(t.input_schema for t in await client.list_tools() if t.name == "inspect_02-get_objects")
+            assert Draft202012Validator(schema).is_valid(args) == valid
+            return await client.call_tool("inspect_02-get_objects",args,raise_on_error=False)
+    assert asyncio.run(run()).is_error != valid
+    if valid:
+        assert calls[-1]["filters"]["group"] == group
+    else:
+        assert not calls
+
+
+def test_group_modes_require_v8_without_breaking_v7_single_groups():
+    tools, calls, _ = tools_for(version=7)
+    result = tools["get_objects"](scope="document",filters={"group":{"exclude":["A","B"],"exclude_mode":"all"}},
+                                  expected_model_path=MODEL)
+    assert result.is_error and "object_observation>=8" in result.structured_content["result"]
+    assert [c["type"] for c in calls] == ["get_rhino_context"]
 
 
 @pytest.mark.parametrize("conditions", [

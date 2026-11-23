@@ -190,8 +190,22 @@ class Program
             if (state == "partial") ((JArray)request["clipping_ids"]).Add(Rhino.ObjectTable.SecondClipping.ToString());
             var result = Run(request);
             responses[state] = result;
-            Check((string)result["drawing_status"] == state && (string)result["mutation_state"] == "partial", "partial evidence " + state);
+            Check((string)result["drawing_status"] == state && (string)result["mutation_state"] ==
+                (state == "cancelled" ? "not_started" : "partial"), "partial evidence " + state);
         }
+        Rhino.Runtime.PythonScript.Reset();
+        Rhino.Runtime.PythonScript.DrawingStatus = "deadline";
+        var interrupted = Request();
+        ((JArray)interrupted["clipping_ids"]).Add(Rhino.ObjectTable.SecondClipping.ToString());
+        responses["deadline"] = Run(interrupted);
+        ScriptExecutor.FailUndoClose = true;
+        responses["deadline_undo_error"] = Run(interrupted);
+        ScriptExecutor.FailUndoClose = false;
+        Rhino.Runtime.PythonScript.FailRemove = true;
+        var deadlineCleanupError = Run(interrupted);
+        Check((string)deadlineCleanupError["status"] == "error" && deadlineCleanupError["drawing_status"] == null &&
+            (int)deadlineCleanupError["result"]["completed"] == 1, "cleanup failure keeps cut evidence without confirming timeout");
+        responses["deadline_cleanup_error"] = deadlineCleanupError;
         Rhino.Runtime.PythonScript.Reset();
         Rhino.Runtime.PythonScript.FailInvoke = true;
         var runtimeError = Run(); responses["runtime_error"] = runtimeError;
@@ -309,9 +323,12 @@ namespace Rhino.Runtime
             }
             Invocations++;
             if (FailInvoke) throw new Exception("native drawing failed");
+            if (!(Variables["_almond_deadline_token"] is System.Threading.CancellationToken token) || !token.CanBeCanceled)
+                throw new Exception("The dedicated algorithm must receive a cancellable deadline token");
             var args = Arguments = JObject.Parse((string)Variables["_almond_arguments_json"]);
             var includeAttachments = (bool?)args["include_attachments"] == true;
-            string drawingStatus = DrawingStatus, attachmentError = null;
+            bool deadline = DrawingStatus == "deadline";
+            string drawingStatus = deadline ? "cancelled" : DrawingStatus, attachmentError = null;
             if (includeAttachments && (string)args["operation"] != "Move")
             {
                 var observeAttachments = (Func<Func<uint, bool>>)Variables["_almond_observe_attachments"];
@@ -327,9 +344,9 @@ namespace Rhino.Runtime
             var clipIds = (JArray)args["clipping_ids"];
             for (int i = 0; i < clipIds.Count; i++)
             {
-                bool completed = drawingStatus == "completed" || (drawingStatus == "partial" && i == 0);
+                bool completed = drawingStatus == "completed" || ((drawingStatus == "partial" || deadline) && i == 0);
                 var result = new JObject { ["clipping_id"] = clipIds[i].DeepClone(),
-                    ["status"] = completed ? "completed" : drawingStatus == "cancelled" ? "cancelled" : "failed" };
+                    ["status"] = completed ? "completed" : deadline ? "not_started" : drawingStatus == "cancelled" ? "cancelled" : "failed" };
                 if (attachmentError != null) result["error"] = attachmentError;
                 if (completed)
                 {
@@ -345,9 +362,11 @@ namespace Rhino.Runtime
                 }
                 results.Add(result);
             }
-            Variables["_almond_result_json"] = new JObject {
+            var receipt = new JObject {
                 ["status"] = drawingStatus, ["requested"] = clipIds.Count,
-                ["completed"] = results.Count(r => (string)r["status"] == "completed"), ["results"] = results }.ToString();
+                ["completed"] = results.Count(r => (string)r["status"] == "completed"), ["results"] = results };
+            if (drawingStatus == "cancelled") receipt["stop_reason"] = deadline ? "deadline" : "user";
+            Variables["_almond_result_json"] = receipt.ToString();
             return true;
         }
     }
@@ -363,6 +382,7 @@ namespace RhinoAlmondBridge
     public partial class ScriptExecutor
     {
         public static int Calls;
+        public static bool FailUndoClose;
         internal static ScriptResult CaptureForTest(object value)
         {
             var result = new ScriptResult(); CaptureResult(result, value); return result;
@@ -373,6 +393,7 @@ namespace RhinoAlmondBridge
             var result = new ScriptResult();
             try { CaptureResult(result, action()); }
             catch (Exception error) { SetRuntimeError(result, error); }
+            if (FailUndoClose) SetRuntimeError(result, new InvalidOperationException("Undo close failed."));
             return result;
         }
     }

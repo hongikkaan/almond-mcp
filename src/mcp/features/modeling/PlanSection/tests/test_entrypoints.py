@@ -201,6 +201,101 @@ class EntryPoints(unittest.TestCase):
         doc.BeginUndoRecord.assert_not_called()
         doc.EndUndoRecord.assert_not_called()
 
+    def test_native_deadline_stops_before_baking_and_preserves_finished_and_unstarted_cuts(self):
+        third = NS(Id='33333333-3333-3333-3333-333333333333', Name='last', IsReference=False)
+        planes = self.planes + [third]
+        for cp in planes:
+            cp.ClippingPlaneGeometry = NS(Plane='cut')
+        doc = Mock(CurrentUndoRecordSerialNumber=0)
+        doc.BeginUndoRecord.return_value = 44
+        token = NS(IsCancellationRequested=False)
+        app = NS(RhinoApp=NS(Wait=lambda:None, EscapeKeyPressed=MagicMock()))
+        def generate(doc, cp, *args, **kwargs):
+            self.assertIs(kwargs['cancellation_token'], token)
+            if cp.Id == B:
+                token.IsCancellationRequested = True
+            return dict(objects=[], report={}, target=NS(Origin='origin'), extraction={})
+        with patch.object(ps,'R',app), patch.object(ps,'clipping_planes',return_value=planes), \
+             patch.object(ps,'generate',side_effect=generate), patch.object(ps,'bake',return_value=['first']) as bake, \
+             patch.object(ps,'ModelCache'), patch.object(ps,'plane_data',return_value={}), \
+             patch.object(ps,'placement_plane'), contextlib.redirect_stdout(io.StringIO()):
+            result = ps.run(doc,'Create',[cp.Id for cp in planes],cancellation_token=token)
+        self.assertEqual(result['status'], 'cancelled')
+        self.assertEqual(result['stop_reason'], 'deadline')
+        self.assertEqual([i['status'] for i in result['results']], ['completed', 'cancelled', 'not_started'])
+        self.assertEqual(result['results'][0]['object_ids'], ['first'])
+        self.assertEqual(bake.call_count, 1)
+        doc.EndUndoRecord.assert_called_once_with(44)
+        doc.Views.Redraw.assert_called_once()
+
+    def test_nonpreemptible_write_and_undo_can_outlast_the_client_wait(self):
+        clock = NS(seconds=0)
+        class Token:
+            @property
+            def IsCancellationRequested(self): return clock.seconds >= 120
+        token = Token()
+        doc = Mock(CurrentUndoRecordSerialNumber=0)
+        def write(*args):
+            # One nonpreemptible native write returns after the outer client's 240 s.
+            clock.seconds = 241
+            doc.EndUndoRecord.assert_not_called()
+            return ('plane', ['committed'])
+        def end_record(serial):
+            clock.seconds += 10
+            return True
+        doc.EndUndoRecord.side_effect = end_record
+        options = dict(ps.default_options('Move'), cancellation_token=token)
+        with patch.object(ps,'reposition_drawing',side_effect=write) as move, \
+             patch.object(ps,'R',NS(RhinoApp=NS(Wait=lambda:None,EscapeKeyPressed=MagicMock()))), \
+             patch.object(ps,'plane_data',return_value={}), contextlib.redirect_stdout(io.StringIO()):
+            result = ps.run_selected(doc,self.planes,options)
+        self.assertEqual(clock.seconds,251)
+        self.assertEqual(move.call_count,1)
+        self.assertEqual((result['status'],result['stop_reason']),('cancelled','deadline'))
+        self.assertEqual([i['status'] for i in result['results']],['completed','not_started'])
+        self.assertEqual(result['results'][0]['object_ids'],['committed'])
+
+    def test_postwrite_failure_at_deadline_keeps_ids_and_requires_reconciliation(self):
+        for operation in ('Create', 'Move'):
+            with self.subTest(operation=operation):
+                token = NS(IsCancellationRequested=False)
+                for cp in self.planes: cp.ClippingPlaneGeometry = NS(Plane='cut')
+                drawing = dict(objects=[], report={}, target=NS(Origin='origin'), extraction={})
+                def fail(*args):
+                    token.IsCancellationRequested = True
+                    raise ValueError('postwrite failure')
+                plane_data = fail if operation == 'Move' else Mock(return_value={})
+                options = dict(ps.default_options(operation), cancellation_token=token)
+                with patch.object(ps,'R',NS(RhinoApp=NS(Wait=lambda:None,EscapeKeyPressed=MagicMock()))), \
+                     patch.object(ps,'generate',return_value=drawing), patch.object(ps,'ModelCache'), \
+                     patch.object(ps,'bake',return_value=['committed']), patch.object(ps,'placement_plane'), \
+                     patch.object(ps,'reposition_drawing',return_value=('plane',['committed'])), \
+                     patch.object(ps,'plane_data',side_effect=plane_data), \
+                     patch.object(ps,'dispose_drawing_items',side_effect=fail), contextlib.redirect_stdout(io.StringIO()):
+                    result = ps.run_selected(Mock(CurrentUndoRecordSerialNumber=42), self.planes, options)
+                failed, remaining = result['results']
+                self.assertTrue(result['requires_reconciliation'])
+                self.assertEqual((failed['status'],failed['mutation_state'],failed['object_ids']),('failed','unknown',['committed']))
+                self.assertEqual(remaining['status'],'not_started')
+
+    def test_hld_uses_cancellable_serial_overload_and_disposes_returned_geometry(self):
+        token = NS(IsCancellationRequested=False)
+        hld, viewport = Mock(), Mock()
+        def compute(parameters, multiple_threads, progress, cancel_token):
+            self.assertIs(cancel_token, token)
+            self.assertFalse(multiple_threads)
+            self.assertIsNone(progress)
+            token.IsCancellationRequested = True
+            return hld
+        geometry = NS(HiddenLineDrawingParameters=Mock, Plane=lambda plane:Mock(), HiddenLineDrawing=NS(Compute=compute))
+        cut = NS(DistanceTo=lambda point:0, Normal=0, YAxis=1, Origin=2)
+        with patch.object(ps,'R',NS(Display=NS(RhinoViewport=lambda:viewport))), patch.object(ps,'G',geometry), \
+             self.assertRaises(ps.DrawingCancelled):
+            ps.elevations(NS(ModelAbsoluteTolerance=.01),[dict(bounds=NS(GetCorners=lambda:[1]),geometry='mesh')],
+                          cut,None,.09,.04,80,45,cancellation_token=token)
+        hld.Dispose.assert_called_once()
+        viewport.Dispose.assert_called_once()
+
 
 class InitialOptions(unittest.TestCase):
     def setup_getter(self, results, change=False):

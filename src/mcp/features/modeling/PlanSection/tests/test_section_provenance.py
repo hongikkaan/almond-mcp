@@ -1,6 +1,6 @@
 """Planar-section provenance at the actual union-region boundary (mock Rhino)."""
 from types import SimpleNamespace as NS
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import unittest
 
 from test_logic import ps, Attributes
@@ -50,12 +50,12 @@ class Axis:
 
 
 class SectionProvenance(unittest.TestCase):
-    def section(self, entries, merged=False, hatch=False):
+    def section(self, entries, merged=False, hatch=False, progress=None):
         style = NS(HatchIndex=2, BackgroundFillMode='None', SectionFillRule='closed',
                    HatchRotationRadians=0., HatchScale=1., HatchPatternColor=NS(A=0))
         sources = [Source(name, closed) for name, closed in entries]
         records = [dict(geometry=src, source=str(i), attributes=Attributes(name=name),
-                        resolved=NS(GetCustomSectionStyle=lambda: style,ObjectColor=NS(A=0)),
+                        resolved=NS(GetCustomSectionStyle=lambda: style,ObjectColor=NS(A=0),LayerIndex=i if progress else 0),
                         source_metadata=dict(name=name, user_text={}, dictionary={}))
                    for i, ((name, closed), src) in enumerate(zip(entries, sources))]
         plane = NS(XAxis=Axis(1,0),YAxis=Axis(0,1),Origin=(0,0))
@@ -94,14 +94,30 @@ class SectionProvenance(unittest.TestCase):
              patch.object(ps,'planar_union',side_effect=planar_union), \
              patch.object(ps,'region_boundaries',side_effect=lambda region,*args:[Curve(','.join(sorted(region.members)))]), \
              patch.object(ps,'split_crossings',side_effect=lambda curve,*args:([curve],False,False)), \
-             patch.object(ps,'style_key',return_value='same'), \
+             patch.object(ps,'style_key',side_effect=lambda attrs:(attrs.LayerIndex,)), \
              patch.object(ps,'drawing_metadata',return_value=('sources','layer','style')), \
              patch.object(ps,'drawing_attributes',side_effect=drawing_attributes), \
              patch.object(ps,'create_hatches',side_effect=hatch_object), \
              patch.object(ps,'hatch_pattern',return_value=NS(Index=2)):
             result = ps.sections(NS(ModelAbsoluteTolerance=.01,ModelAngleToleranceRadians=.01,
-                                    Layers=[NS(FullPath='Model')]),records,plane,hatch)
+                                    Layers=[NS(FullPath='A'), NS(FullPath='B')]),records,plane,hatch,progress)
         return result, intersection_calls
+
+    def test_cancel_at_union_or_hatch_releases_outputs_from_every_started_group(self):
+        for boundary, count in [('union B',2), ('hatch B',3)]:
+            with self.subTest(boundary=boundary):
+                outputs = []
+                original = ps.output
+                def output(geometry, *args):
+                    geometry.Dispose = Mock()
+                    outputs.append(geometry)
+                    return original(geometry, *args)
+                def progress(stage):
+                    if stage.startswith(boundary): raise ps.DrawingCancelled()
+                with patch.object(ps,'output',side_effect=output), self.assertRaises(ps.DrawingCancelled):
+                    self.section([('wall A',True),('wall B',True)], hatch=True, progress=progress)
+                self.assertEqual(len(outputs),count)
+                for obj in outputs: obj.Dispose.assert_called_once()
 
     def test_disjoint_equal_style_regions_keep_individual_source_names(self):
         items, calls = self.section([('Wall A',True),('Wall B',True)])

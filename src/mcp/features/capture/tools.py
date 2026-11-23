@@ -8,7 +8,7 @@ from almond_mcp.features.capture import conditioning
 
 def register(mcp, context):
     """Register capture tools against this server's live connection context."""
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp, wrapped=True, errors=True)
     def capture_conditioning_pass(
         shot: str,
         out_dir: str = "",
@@ -30,8 +30,8 @@ def register(mcp, context):
             height: 짝수 픽셀.
             passes: 쉼표로 구분한 rgb, edge, depth.
             chunk: 청크당 프레임 수.
-            rgb_mode: 설치된 Rhino 디스플레이 모드 이름.
-            edge_mode: 설치된 Rhino 디스플레이 모드 이름.
+            rgb_mode: RGB 패스에 사용할 뷰 메뉴의 래스터 표시 모드 이름 또는 GUID. 기본 Rendered. 이름이 중복되면 GUID 사용.
+            edge_mode: 에지 패스에 사용할 뷰 메뉴의 래스터 표시 모드 이름 또는 GUID. 기본 Technical. depth는 별도 깊이 버퍼를 사용.
             invert_depth: false이면 가까울수록 밝게 표현.
         """
         try:

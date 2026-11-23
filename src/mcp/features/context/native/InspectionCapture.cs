@@ -162,9 +162,9 @@ namespace RhinoAlmondBridge
                             if (objects.Length == 0)
                                 throw new CaptureException("empty_scope", "The chosen scope has no document-visible model objects.");
                             string modeName = (string)tileRequest["display_mode"] ?? "";
-                            var mode = modeName.Length == 0 ? source.ActiveViewport.DisplayMode : DocumentObservation.ResolveDisplayMode(modeName);
+                            var mode = modeName.Length == 0 ? source.ActiveViewport.DisplayMode : DisplayModeMenu.Resolve(modeName);
                             if (mode == null)
-                                throw new CaptureException("display_mode_not_found", "The display mode is missing or ambiguous; provide an installed mode GUID.");
+                                throw new CaptureException("display_mode_not_found", "The display mode is missing from the View Display Mode Menu or ambiguous. Use a GUID from display_modes.");
                             if (mode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
                                 throw new CaptureException("unsupported_display_mode", "Realtime display modes are unsupported by detached inspection capture.");
                             var bounds = BoundingBox.Empty;

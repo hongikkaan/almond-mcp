@@ -1,4 +1,5 @@
 """New task templates and additive scope migration without changing existing work."""
+import asyncio
 import json
 import sqlite3
 
@@ -10,6 +11,40 @@ from almond_mcp.features.planning.schema import SCOPES
 from almond_mcp.retrieval_store import AlmondStore
 
 parse_create = TypeAdapter(CreateRequest).validate_python
+
+
+def test_inspection_plan_exposes_criteria_for_an_occluded_wall_slab_joint(tmp_path):
+    from types import SimpleNamespace
+    from fastmcp import Client, FastMCP
+    from almond_mcp.features.planning.tools import register
+
+    server = FastMCP("inspection")
+    register(server, SimpleNamespace(retrieval_store=AlmondStore(tmp_path / "inspection.sqlite3")))
+
+    async def inspect():
+        async with Client(server) as client:
+            async def call(tool, **request):
+                response = await client.call_tool(tool, {"request": request})
+                return json.loads(response.content[0].text)
+
+            created = await call("plan_02-create", target="plan", scope="inspection",
+                                 title="벽체·슬래브 접합 검수", goal="정면에서 가려진 접합의 간격을 확인한다.")
+            plan_id = created["plan"]["plan_id"]
+            detail = await call("plan_05-get", target="plan", plan_id=plan_id, include_details=True)
+            criteria, observe, evaluate, report = detail["plan"]["steps"]
+            assert "주변" in criteria["name"] and "기준" in criteria["name"]
+            assert "형상" in observe["name"] and "치수" in observe["name"]
+            assert "미확인" in evaluate["name"] and "근거" in evaluate["name"]
+            assert "같은 조건" in report["name"] and "재확인" in report["name"]
+
+            step = {"target": "step", "plan_id": plan_id, "step_id": evaluate["step_id"]}
+            finding = "북측 벽체와 슬래브 접합은 정면에서 가려져 간격 미확인."
+            await call("plan_12-update", **step, takeaways=finding)
+            saved = await call("plan_05-get", **step, include_details=True)
+            assert saved["step"]["takeaways"] == finding
+            assert saved["status"] == "pending"
+
+    asyncio.run(inspect())
 
 
 @pytest.mark.parametrize("scope", SCOPES)

@@ -1,5 +1,7 @@
 # 구축 상세
 
+Construction Detail은 사용자의 명시적 확인 없이 켜거나 끄지 않는다. 기존 상세를 읽고 검토하는 것과 작업 모드를 전환하는 것은 별개다.
+
 재료·부재·경간·간격을 정할 때 아래의 구축 시스템 설명을 참고한다. 원문 예시의 도구명과 메타데이터 키는 당시 표기다. 현재 호출명과 입력은 `tools/list`에서 확인한다.
 
 Almond MCP 원문은 `d2de2db9fb39e3b549d02b2f7ea2115811eb3bd2:docs/construction-guidance.md`의 제목부터 `The workflow` 절까지다.

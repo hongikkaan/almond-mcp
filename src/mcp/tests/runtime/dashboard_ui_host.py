@@ -14,7 +14,8 @@ def seed_browsing(path):
     with sqlite3.connect(path) as db:
         db.execute("UPDATE generation_loop_steps SET takeaways='판단 기록',design_rationale='설계 근거' "
                    "WHERE plan_id='plan_a' AND step_id='z_first'")
-        db.execute("UPDATE generation_plans SET previous_id='plan_b' WHERE plan_id='plan_a'")
+        db.execute("UPDATE generation_plans SET previous_id='plan_b', depends_on_json='[\"plan_b\"]' WHERE plan_id='plan_a'")
+        db.execute("UPDATE generation_plans SET depends_on_json='[\"plan_a\"]' WHERE plan_id='plan_b'")
         db.execute("UPDATE generation_plans SET title=? WHERE plan_id='plan_b'", ("Related Task " + "W" * 180,))
         db.execute("UPDATE generation_phases SET name=? WHERE phase_id='phase_a'", ("Phase_" + "W" * 220,))
         db.execute("UPDATE generation_phases SET name='다른 Phase' WHERE phase_id='phase_b'")

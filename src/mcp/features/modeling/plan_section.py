@@ -5,11 +5,11 @@ import json
 import math
 import uuid
 
+UNCONFIRMED_GUIDE = ("Rhino 작업의 중단과 최종 도면 상태를 확인하세요. "
+                     "확인 전에는 같은 클리핑 요청을 다시 실행하지 마세요.")
 
-def request(operation, clipping_ids, points, hatch, small_details,
-            near_width, far_width, near_dark, far_dark, model_path, include_attachments=None):
-    if operation not in ("Create", "Update", "Move"):
-        raise ValueError("operation must be Create, Update or Move.")
+
+def _clipping_ids(clipping_ids):
     if not isinstance(clipping_ids, list) or not clipping_ids:
         raise ValueError("clipping_ids must contain nonempty GUIDs.")
     ids = []
@@ -21,6 +21,25 @@ def request(operation, clipping_ids, points, hatch, small_details,
             raise ValueError("A clipping GUID cannot be empty.")
         if str(identity) not in ids:
             ids.append(str(identity))
+    return ids
+
+
+def unconfirmed_result(clipping_ids, message):
+    result = dict(status="error", error_code="plan_section_unconfirmed", mutation_state="unknown",
+                  requires_reconciliation=True, message=message or "PlanSection의 최종 응답을 확인할 수 없습니다.",
+                  next_step_guide=UNCONFIRMED_GUIDE)
+    try:
+        result["unconfirmed_clipping_ids"] = _clipping_ids(clipping_ids)
+    except ValueError:
+        pass  # A broker can lose a worker response before worker-side input validation.
+    return result
+
+
+def request(operation, clipping_ids, points, hatch, small_details,
+            near_width, far_width, near_dark, far_dark, model_path, include_attachments=None):
+    if operation not in ("Create", "Update", "Move"):
+        raise ValueError("operation must be Create, Update or Move.")
+    ids = _clipping_ids(clipping_ids)
     if points is not None and (not isinstance(points, dict) or operation == "Update"):
         raise ValueError("points is a GUID-to-coordinate object for Create or Move; omit it for Update.")
     placements = {}
@@ -62,13 +81,25 @@ def dispatch(payload, send):
         if not isinstance(context, dict) or context.get("status") != "success":
             raise ValueError("Could not verify the bound Bridge's PlanSection capability.")
         version = context.get("capabilities", {}).get("plan_section")
-        if type(version) is not int or version != 2:
+        if type(version) is not int or version != 3:
             return dict(status="error", error_code="unsupported_plan_section", mutation_state="not_started",
-                        message="Load a Bridge with plan_section=2 before generating drawings.")
+                        message="120초 취소와 클리핑별 결과를 지원하는 Bridge(plan_section=3)를 로드한 뒤 도면을 생성하세요.")
         dispatched = True
         result = json.loads(send(json.dumps(payload).encode("utf-8"), timeout=600.0))
         if not isinstance(result, dict):
             raise ValueError("The Bridge returned an invalid PlanSection response.")
+        drawing = result.get("result")
+        operation = payload["operation"]
+        include_attachments = payload.get("include_attachments", False if operation == "Create" else None)
+        confirmed = not result.get("result_error") and _confirmed(drawing, payload["clipping_ids"], operation, include_attachments)
+        if confirmed:
+            unresolved = [item["clipping_id"] for item in drawing["results"]
+                          if item.get("mutation_state") == "unknown" or item.get("cleanup_error")
+                          or item.get("recovery", {}).get("requires_reconciliation")]
+            if unresolved:
+                result["unconfirmed_clipping_ids"] = unresolved
+                result["requires_reconciliation"] = True
+                result["next_step_guide"] = UNCONFIRMED_GUIDE
         if result.get("status") != "success":
             if result.get("status") not in (None, "error"):
                 result["native_status"] = result["status"]
@@ -77,27 +108,47 @@ def dispatch(payload, send):
                 result["mutation_state"] = "unknown"
             if result["mutation_state"] == "unknown":
                 result["requires_reconciliation"] = True
+                result["next_step_guide"] = UNCONFIRMED_GUIDE
+                if not confirmed:
+                    result["unconfirmed_clipping_ids"] = payload["clipping_ids"]
+                    if isinstance(drawing, dict) and drawing.get("status") == "unconfirmed":
+                        cuts = drawing.get("results")
+                        if (isinstance(cuts, list) and all(isinstance(i, dict) and i.get("status") in
+                                ("unconfirmed", "not_started") for i in cuts)
+                                and [i.get("clipping_id") for i in cuts] == payload["clipping_ids"]):
+                            result["unconfirmed_clipping_ids"] = [i["clipping_id"] for i in cuts if i["status"] == "unconfirmed"]
             return result
-        drawing = result.get("result")
-        operation = payload["operation"]
-        include_attachments = payload.get("include_attachments", False if operation == "Create" else None)
-        if result.get("result_error") or not _confirmed(drawing, payload["clipping_ids"], operation, include_attachments):
+        if not confirmed:
             result.update(status="error", error_code="plan_section_result_unconfirmed",
                           mutation_state="unknown", requires_reconciliation=True,
+                          unconfirmed_clipping_ids=payload["clipping_ids"], next_step_guide=UNCONFIRMED_GUIDE,
                           message="PlanSection ran but its result is unconfirmed. Inspect drawings before retrying.")
             return result
         drawing_status = drawing["status"]
         result["drawing_status"] = drawing_status
         if drawing_status == "failed":
             result.update(status="error", error_code="plan_section_failed",
-                          message="No drawing completed. See the result for each clipping plane.")
+                          message="완료를 확인한 컷이 없습니다. 클리핑별 결과와 관찰된 객체 GUID를 확인하세요.")
+        elif drawing_status == "cancelled" and drawing.get("stop_reason") == "deadline":
+            if result.get("requires_reconciliation") or drawing.get("requires_reconciliation"):
+                result.pop("drawing_status", None)
+                result.update(status="error", error_code="plan_section_recovery_unconfirmed",
+                              requires_reconciliation=True, next_step_guide=UNCONFIRMED_GUIDE,
+                              message="취소 요청을 받았으나 변경 복구를 확인할 수 없는 컷이 있습니다.")
+            else:
+                result.update(status="timeout", next_step_guide=(
+                    "120초 취소 요청 후 Rhino가 안전한 지점에서 중단했습니다. 결과별 완료 컷의 object_ids를 확인하고, "
+                    "실패 컷의 도면 상태를 대조한 뒤 미완료 범위만 선택하세요."))
         else:
             result["status"] = "success" if drawing_status == "completed" else drawing_status
+            if drawing_status == "completed":
+                result["next_step_guide"] = "클리핑별 object_ids와 draw_plane으로 추출 도면을 확인한 뒤 다음 작업을 진행하세요."
         return result
     except Exception as exc:
-        return dict(status="error", error_code="plan_section_unconfirmed" if dispatched else "plan_section_not_started",
-                    mutation_state="unknown" if dispatched else "not_started",
-                    requires_reconciliation=dispatched, message=str(exc))
+        if dispatched:
+            return unconfirmed_result(payload["clipping_ids"], str(exc))
+        return dict(status="error", error_code="plan_section_not_started", mutation_state="not_started",
+                    requires_reconciliation=False, message=str(exc))
 
 
 def _confirmed(drawing, ids, operation, include_attachments):
@@ -112,7 +163,7 @@ def _confirmed(drawing, ids, operation, include_attachments):
     for item in drawing["results"]:
         if (not isinstance(item, dict) or item.get("clipping_id") not in ids
                 or item["clipping_id"] in seen
-                or item.get("status") not in ("completed", "failed", "skipped", "cancelled")):
+                or item.get("status") not in ("completed", "failed", "skipped", "cancelled", "not_started")):
             return False
         seen.add(item["clipping_id"])
         if item["status"] == "completed":
@@ -123,7 +174,16 @@ def _confirmed(drawing, ids, operation, include_attachments):
     if completed != drawing["completed"]:
         return False
     if status == "cancelled":
-        return True  # Cancellation may leave untouched clipping planes.
+        states = [item["status"] for item in drawing["results"]]
+        if len(seen) != len(ids) or drawing.get("stop_reason") not in ("deadline", "user"):
+            return False
+        # A sequential batch reports every requested cut; unstarted cuts form its tail.
+        if [item["clipping_id"] for item in drawing["results"]] != ids:
+            return False
+        first = next((i for i, state in enumerate(states) if state in ("cancelled", "not_started")), len(ids))
+        return first < len(ids) and all(state == "not_started" for state in states[first+1:])
+    if "stop_reason" in drawing or any(i["status"] in ("cancelled", "not_started") for i in drawing["results"]):
+        return False
     if len(seen) != len(ids):
         return False
     return status == ("completed" if completed == len(ids) else "partial" if completed else "failed")

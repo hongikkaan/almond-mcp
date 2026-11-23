@@ -7,6 +7,28 @@ import pytest
 from test_logic import ps, Attributes, clipping
 
 
+def test_move_deadline_during_preparation_disposes_both_copies_before_first_write():
+    before, after = Mock(), Mock(IsValid=True)
+    token = NS(expired=False)
+    def prepare(_):
+        token.expired = True
+        return True
+    after.Transform.side_effect = prepare
+    obj = NS(Id='drawing', Geometry=Mock(), Attributes=Attributes())
+    obj.Geometry.Duplicate.side_effect = [before, after]
+    doc, result = Mock(), {}
+    target = NS(Origin=1)
+    with patch.object(ps, 'drawing_objects', return_value=[obj]), patch.object(ps, 'saved_placement', return_value=target), \
+         patch.object(ps, 'placement_plane', return_value=target), patch.object(ps,'save_drawing_registry') as registry:
+        assert not ps.reposition_drawing(doc,clipping(),target,lambda:token.expired,result)
+    before.Dispose.assert_called_once()
+    after.Dispose.assert_called_once()
+    doc.Objects.Replace.assert_not_called()
+    doc.Objects.ModifyAttributes.assert_not_called()
+    registry.assert_not_called()
+    assert result == {}
+
+
 @pytest.mark.parametrize('failed_at', [2, 3])
 def test_move_recovery_attempts_every_object_attribute_after_replace_throws(failed_at):
     class Point(NS):

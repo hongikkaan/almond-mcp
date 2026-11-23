@@ -268,6 +268,11 @@ async function checkLoopHistory(page, url) {
     );
     await chooseTask("plan_a");
     await page.locator('[data-task-id="plan_a"]').waitFor();
+    const selectedPlan = page.locator('[data-task-group="plan_a"]');
+    assert.deepEqual((await selectedPlan.locator(":scope > .task-card .relation-type").allTextContents()).sort(),
+      ["관련 Plan", "직전 Plan"]);
+    assert.deepEqual((await selectedPlan.locator(":scope > .adjacent-tasks > label select option").allTextContents())
+      .map((label) => label.split(" · ")[0]).sort(), ["관련 Plan", "직전 Plan"]);
     const step = page.locator(
       '[data-task-group="plan_a"] > .task-card details[data-step-id="z_first"]',
     );

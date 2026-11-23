@@ -91,12 +91,12 @@ namespace RhinoAlmondBridge
                 ["status"] = "success",
                 ["capabilities"] = new JObject { ["block_analysis"] = 1, ["modeling_materials"] = 2, ["design_components"] = 1, ["component_registry"] = 2, ["component_group_inference"] = 1,
                     ["component_operations"] = 1, ["drawing_asset_extract"] = 2, ["context_sections"] = 2, ["document_save"] = 1, ["editing_context"] = 1, ["capture_options"] = 1,
-                    ["object_observation"] = 5, ["inspection_capture"] = 1, ["inspection_model_view"] = 1,
+                    ["object_observation"] = 8, ["inspection_capture"] = 1, ["inspection_model_view"] = 1,
                     ["inspection_shared_scope"] = 1, ["inspection_editing_context"] = 1,
-                    ["capture_output_size"] = 1, ["face_edit"] = 1,
+                    ["capture_output_size"] = 1, ["display_mode_menu"] = 1, ["face_edit"] = 1,
                     ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
                     ["intersection_review"] = 1, ["intersection_user_text"] = 1,
-                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1, ["plan_section"] = 2,
+                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1, ["plan_section"] = 3,
                     ["step_temp_cleanup"] = 1 },
                 ["warnings"] = warnings
             };
@@ -134,7 +134,8 @@ namespace RhinoAlmondBridge
                 }
                 result["editor"] = editor;
             }
-            if (requested.Contains("display_modes")) result["display_modes"] = DisplayModes(warnings);
+            if (requested.Contains("display_modes"))
+                result["display_modes"] = Observe("display_modes", () => DisplayModeMenu.List(warnings), warnings);
             foreach (var section in new[] { "named_views", "layouts", "viewports" })
                 if (requested.Contains(section)) result[section] = Observe(section, () => ListContextViews(doc, section), warnings);
             if (requested.Contains("viewport")) result["viewport"] = Observe("viewport", () =>
@@ -226,17 +227,17 @@ namespace RhinoAlmondBridge
                 DisplayModeDescription mode = null;
                 if (displayMode != "" || namedView != null || targetKind != "view")
                 {
-                    mode = ResolveDisplayMode(displayMode == "" ? "Shaded" : displayMode);
+                    mode = DisplayModeMenu.Resolve(displayMode == "" ? "Shaded" : displayMode);
                     if (mode == null)
                     {
-                        var error = Error("display_mode_not_found", "The display mode is missing or ambiguous. Use context sections=['display_modes'] for installed names/GUIDs.");
-                        error["display_modes"] = DisplayModes((JArray)error["warnings"]);
+                        var error = Error("display_mode_not_found", "The display mode is missing from the View Display Mode Menu or ambiguous. Use a GUID from display_modes.");
+                        error["display_modes"] = DisplayModeMenu.List((JArray)error["warnings"]);
                         return error;
                     }
                 }
-                // Explicit overrides and independent captures use an installed raster mode.
+                // Explicit overrides and independent captures require synchronous raster output.
                 if (mode != null && mode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
-                    return Error("unsupported_display_mode", "Realtime display modes require an asynchronous render; choose an installed raster display mode such as Shaded.");
+                    return Error("unsupported_display_mode", "Realtime display modes require an asynchronous render; choose a raster mode from the View Display Mode Menu.");
                 Size sourceSize;
                 if (explicitSize)
                     sourceSize = new Size(width, height);
@@ -418,6 +419,7 @@ namespace RhinoAlmondBridge
                     pipeline = control.Display;
                     if (pipeline == null || (!pipeline.IsOpen && !pipeline.Open()))
                         throw new InvalidOperationException("Could not initialize the independent capture pipeline.");
+                    if (mode != null) DisplayModeMenu.VerifyApplied(viewport, mode);
                     var bitmap = DisplayPipeline.DrawToBitmap(viewport, size.Width, size.Height);
                     if (bitmap != null && labels) ObservationEntities.DrawLabels(doc, bitmap, viewport,
                         entities ?? ObservationEntities.Roots(doc, ObservationEntities.ModelObjects(doc)), depth, warnings);
@@ -496,24 +498,6 @@ namespace RhinoAlmondBridge
                     using (var args = new System.Windows.Forms.PaintEventArgs(graphics, ClientRectangle))
                         base.OnPaint(args);
             }
-        }
-
-        internal static DisplayModeDescription ResolveDisplayMode(string value)
-        {
-            Guid id;
-            if (Guid.TryParse(value, out id)) return DisplayModeDescription.GetDisplayMode(id);
-            var matches = DisplayModeDescription.GetDisplayModes().Where(mode =>
-                String.Equals(mode.EnglishName, value, StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(mode.LocalName, value, StringComparison.OrdinalIgnoreCase)).ToArray();
-            return matches.Length == 1 ? matches[0] : null;
-        }
-
-        private static JArray DisplayModes(JArray warnings)
-        {
-            var modes = DisplayModeDescription.GetDisplayModes();
-            if (modes.Length > 128) warnings.Add("display_modes: first 128 installed modes returned.");
-            return new JArray(modes.Take(128).Select(mode => new JObject
-                { ["name"] = mode.EnglishName, ["id"] = mode.Id.ToString() }));
         }
 
         private static bool ReadBoolean(JObject request, string name, bool fallback, out bool value)

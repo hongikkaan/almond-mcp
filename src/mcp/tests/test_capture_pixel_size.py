@@ -19,7 +19,7 @@ def pixel_capture(*, capable=True, wrong_size=False, defined=False):
         request = json.loads(raw)
         calls.append(request)
         if request["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"view_capture": 1} if capable else {}})
+            return json.dumps({"status": "success", "capabilities": {"view_capture": 1, "display_mode_menu": 1} if capable else {}})
         width, height = request.get("width", 640), request.get("height", 480)
         if wrong_size:
             height = width

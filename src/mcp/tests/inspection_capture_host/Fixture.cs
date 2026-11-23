@@ -78,7 +78,10 @@ static class ObjectObservation
 static class DocumentObservation
 {
     public const int MaxImageBytes = 4 * 1024 * 1024;
-    public static DisplayMode ResolveDisplayMode(string name) => null;
+}
+static class DisplayModeMenu
+{
+    public static DisplayMode Resolve(string name) => null;
 }
 class EditingContext
 {

@@ -2,6 +2,7 @@
 import json
 from uuid import UUID
 
+from almond_mcp.features.context.context_query import display_mode_menu_error
 from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.tool_response import error_payload
 
@@ -15,7 +16,7 @@ def execute(send, name, *, scale_percent=75, include_usage=False, display_mode="
         if type(include_usage) is not bool or type(labels) is not bool or type(depth) is not int or not 1 <= depth <= 8:
             raise ValueError("include_usage/labels must be booleans and depth an integer from 1 to 8.")
         if not isinstance(display_mode, str) or len(display_mode) > 512:
-            raise ValueError("display_mode must be an installed name or ID of at most 512 characters.")
+            raise ValueError("display_mode must be a View Display Mode Menu name or GUID of at most 512 characters.")
         explicit_size = width is not None or height is not None
         if explicit_size and (type(width) is not int or type(height) is not int or
                               not 128 <= width <= 2048 or not 128 <= height <= 2048 or scale_percent != 100):
@@ -58,6 +59,8 @@ def execute(send, name, *, scale_percent=75, include_usage=False, display_mode="
         observed = json.loads(send(b'{"type":"get_rhino_context","sections":[],"selection_limit":0}'))
         if not isinstance(observed, dict) or observed.get("status") != "success" or observed.get("capabilities", {}).get("view_capture") != 1:
             raise ValueError("Load the matching Bridge with view_capture=1 before using the split capture tools.")
+        if display_mode and (error := display_mode_menu_error(observed["capabilities"])):
+            return {**error, "mutation_applied": False}
     except Exception as exc:
         return {**error_payload(str(exc), error_code="unsupported_view_capture"), "mutation_applied": False}
     try:

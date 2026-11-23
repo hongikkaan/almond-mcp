@@ -213,11 +213,15 @@ def test_task_relations_keep_types_and_report_dangling_without_recursive_expansi
     record = project.domain_page('tasks', focus='plan_a')['groups'][0]
     relations = {(item['type'], item['id']): item for item in record['relations']}
     assert ('previous', 'plan_b') in relations and ('next', 'plan_b') in relations
-    assert ('depends_on', 'plan_b') in relations and ('dependent', 'plan_b') in relations
+    assert [item['id'] for item in record['relations'] if item['type'] == 'related'].count('plan_b') == 1
     assert ('parent', 'plan_c') in relations and ('child', 'plan_empty') in relations
-    assert relations['depends_on', 'missing']['missing'] is True
-    assert relations['depends_on', 'missing']['name'] == '미등록 Task'
-    assert relations['depends_on', 'plan_a']['missing'] is False
+    assert relations['related', 'missing']['missing'] is True
+    assert relations['related', 'missing']['name'] == '미등록 Task'
+    assert relations['related', 'plan_a']['missing'] is False
+    parent = project.domain_page('tasks', focus='plan_c')['groups'][0]
+    child = project.domain_page('tasks', focus='plan_empty')['groups'][0]
+    assert ('child', 'plan_a') in {(r['type'], r['id']) for r in parent['relations']}
+    assert ('parent', 'plan_a') in {(r['type'], r['id']) for r in child['relations']}
     assert len(record['steps']) == 3
 
 

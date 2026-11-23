@@ -90,6 +90,7 @@ namespace RhinoAlmondBridge
                         started = true;
                         changes["display_mode_changed"] = JValue.CreateNull();
                         view.ActiveViewport.DisplayMode = mode;
+                        DisplayModeMenu.VerifyApplied(view.ActiveViewport, mode);
                         changes["display_mode_changed"] = true;
                     }
                     doc.Views.Redraw();
@@ -160,14 +161,12 @@ namespace RhinoAlmondBridge
 
         private static DisplayModeDescription ResolveMode(string name)
         {
-            Guid.TryParse(name, out var id);
-            var modes = DisplayModeDescription.GetDisplayModes().Where(m => m.Id == id ||
-                String.Equals(m.EnglishName, name, StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(m.LocalName, name, StringComparison.OrdinalIgnoreCase)).ToArray();
-            if (modes.Length != 1) throw new ArgumentException("Display mode is missing or ambiguous; use get_rhino_context.");
-            if (modes[0].DisplayAttributes.RealtimeDisplayId != Guid.Empty)
-                throw new ArgumentException("Realtime display mode changes require asynchronous rendering; choose an installed raster mode.");
-            return modes[0];
+            var mode = DisplayModeMenu.Resolve(name);
+            if (mode == null)
+                throw new ArgumentException("Display mode is missing from the View Display Mode Menu or ambiguous; use a GUID from display_modes.");
+            if (mode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
+                throw new ArgumentException("Realtime display mode changes require asynchronous rendering; choose a raster mode from the View Display Mode Menu.");
+            return mode;
         }
 
         private static string[] Strings(JToken token)

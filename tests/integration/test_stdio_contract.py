@@ -234,7 +234,7 @@ async def collect(params, *, bound):
                     **step_request, "output_refs": {"add": ["selected-survey.md"], "remove": ["survey.md"]},
                     "expected_revision": selected["revision"],
                 }})
-                assert updated["status"] == "success" and updated["plan"]["revision"] == selected["revision"] + 1
+                assert updated["status"] == "updated" and updated["plan"]["revision"] == selected["revision"] + 1
             return initialized.instructions, tools
 
 
@@ -352,6 +352,41 @@ def test_external_host_routes_publish_their_real_stdio_schemas(tmp_path):
     for name, label in (("codex", "beyond"), ("cos", "CoS")):
         (tmp_path / name).mkdir()
         assert asyncio.run(inspect(name, label)) == label
+
+
+def test_codex_first_tools_list_contains_only_the_common_advertised_capture_guids(tmp_path):
+    from uuid import uuid4
+    from winpipe import process_identity
+
+    shared, only_first, only_second = (str(uuid4()) for _ in range(3))
+    directory = tmp_path / "hosts"
+    directory.mkdir()
+    for ids in ([shared, only_first], [only_second, shared]):
+        host_id = uuid4().hex
+        advertisement = dict(schema="almond-rhino-host", protocol=1, host_id=host_id,
+                             **process_identity(os.getpid()), display_mode_ids=ids)
+        (directory / (host_id + ".json")).write_text(json.dumps(advertisement), encoding="utf8")
+    code = ("import os; from pathlib import Path; from external_host import main; "
+            "main(Path(os.environ['ALMOND_TEST_ROOT']), client='codex')")
+    params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", "-c", code],
+                                   env=isolated_environment(tmp_path))
+
+    async def inspect():
+        async with stdio_client(params) as (reader, writer):
+            async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
+                await client.initialize()
+                schemas = {tool.name: tool.input_schema["properties"] for tool in (await client.list_tools()).tools}
+                assert schemas["capture_01-conditioning_pass"]["rgb_mode"]["enum"] == [shared]
+                assert schemas["capture_01-conditioning_pass"]["edge_mode"]["enum"] == [shared]
+                tile = schemas["capture_02-inspection"]["views"]["items"]["properties"]
+                assert tile["display_mode"]["enum"] == [shared]
+                for name in ("capture_03-current_view", "capture_04-defined_view"):
+                    assert schemas[name]["display_mode"]["enum"] == [shared]
+                rejected = await client.call_tool("capture_03-current_view", {
+                    "connection_id": uuid4().hex, "display_mode": only_first})
+                assert rejected.is_error
+
+    asyncio.run(inspect())
 
 
 def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):

@@ -35,7 +35,9 @@ def encode(payload: dict) -> str:
 
 def update_ack(update: PlanningUpdate, kind: str, step_id: str = "") -> dict:
     """Report skips separately from persisted data; never claim a no-op was applied."""
-    outcome = ("partial_success" if update.changed else "no_change") if update.issues else "success"
+    outcome = "no_change"
+    if update.changed:
+        outcome = "partial_success" if update.issues else "updated"
     keys = ("phase_id", "status") if kind == "phase" else ("plan_id", "status", "loop_no", "revision")
     result = {"status": outcome, "changed": update.changed,
               kind: {key: update.record[key] for key in keys}, "issues": update.issues}

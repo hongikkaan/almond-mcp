@@ -1,6 +1,7 @@
 """Reject stale timeout recovery without canceling or replaying the worker."""
 import asyncio
 import copy
+import json
 
 import pytest
 
@@ -61,13 +62,13 @@ class DelayedWorker:
         return value
 
 
-async def timeout_after_dispatch(broker, worker):
+async def timeout_after_dispatch(broker, worker, name=TOOL, arguments=None):
     """Advance the real asyncio timer only after the intended worker boundary."""
     loop = asyncio.get_running_loop()
     real_time, now = loop.time, [0.0]
     loop.time = lambda: now[0]
     try:
-        caller = asyncio.create_task(broker.call(TOOL, {"timeout_seconds": 600}))
+        caller = asyncio.create_task(broker.call(name, arguments if arguments is not None else {"timeout_seconds": 600}))
         for _ in range(100):
             if worker.entered.is_set() or caller.done():
                 break
@@ -77,6 +78,30 @@ async def timeout_after_dispatch(broker, worker):
         return await caller
     finally:
         loop.time = real_time
+
+
+def test_plan_section_broker_timeout_returns_unknown_cuts_only_after_dispatch(tmp_path):
+    async def run():
+        from jsonschema import validate
+        from almond_mcp.output_contracts import public_output_schema
+        name = "drawing_06-generate_plan_section"
+        args = {"operation":"Create", "clipping_ids":["00000000-0000-0000-0000-000000000001"]}
+        worker, control = DelayedWorker("native_pending"), Control()
+        broker = Broker({"tools":[{"name":name, "inputSchema":{"type":"object","properties":{}}}]}, data=tmp_path)
+        before = await broker.call(name, args)
+        assert before.is_error and "No Rhino request was sent" in before.content[0].text
+        conn = Connection("connection", "host", control, "fixture-token", worker=worker, state="ready")
+        broker.connections[conn.connection_id] = conn
+        broker.selected_connection_id = conn.connection_id
+        response = await timeout_after_dispatch(broker, worker, name, args)
+        assert response.is_error and response.structured_content == {"result":response.content[0].text}
+        value = json.loads(response.content[0].text)
+        validate(value, public_output_schema("plan_section", wrapped=False))
+        assert value["status"] == "error" and value["mutation_state"] == "unknown"
+        assert value["unconfirmed_clipping_ids"] == args["clipping_ids"] and "중단" in value["next_step_guide"]
+        assert worker.calls == 1 and control.actions == ["begin", "fail"]
+        assert conn.state == "unconfirmed" and conn.in_flight
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize("variation", ["stale_caller", "missing_request", "multiple_requests",

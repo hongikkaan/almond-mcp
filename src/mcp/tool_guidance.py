@@ -94,7 +94,7 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         if target == "step":
             return "다음에 수행할 Step을 정했다면 set_working_plan으로 선택합니다."
         if target in {"phase", "plan"}:
-            return f"plan_05-get tool의 request에 target='{target}'과 해당 {target}_id를 넣어 변경된 기록을 확인할 수 있습니다."
+            return f"plan_05-get tool의 request에 target='{target}'과 해당 {target}_id를 넣어 저장된 기록을 확인할 수 있습니다."
         return None
     if name == "create_planning":
         if arguments.get("target") == "phase":
@@ -151,10 +151,12 @@ def next_step(name: str, value: dict, arguments: dict) -> str | None:
         return guide if value.get(key) else None
     if name == "get_objects":
         if value.get("next_offset") is not None:
+            output = arguments.get("output")
+            prefix = "output." if isinstance(output, dict) else ""
             if value.get("snapshot"):
-                return "같은 조회 조건에서 offset=next_offset, expected_snapshot=snapshot으로 다음 페이지를 읽습니다."
-            if arguments.get("expected_snapshot"):
-                return "기존 expected_snapshot과 조회 조건을 유지하고 offset=next_offset으로 다음 페이지를 읽습니다."
+                return f"같은 조회 조건에서 {prefix}offset=next_offset, {prefix}expected_snapshot=snapshot으로 다음 페이지를 읽습니다."
+            if (output or {}).get("expected_snapshot", arguments.get("expected_snapshot")):
+                return f"기존 expected_snapshot과 조회 조건을 유지하고 {prefix}offset=next_offset으로 다음 페이지를 읽습니다."
             return None
         if any(row.get("face_page", {}).get("next_offset") is not None for row in value.get("objects", [])):
             return "같은 객체 ID와 geometry_crc를 유지하고 face_offset에 face_page.next_offset을 입력해 다음 면을 조회합니다."

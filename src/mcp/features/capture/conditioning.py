@@ -28,6 +28,7 @@ Layout of an output folder::
 """
 from __future__ import annotations
 
+import base64
 import json
 import math
 import os
@@ -165,10 +166,23 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using Rhino;
 using Rhino.Display;
 using Rhino.Geometry;
 public class Script {
+  static DisplayModeDescription ResolveRaster(string value) {
+    var menu = DisplayModeDescription.GetDisplayModes().Where(mode => mode.InMenu);
+    bool byId = Guid.TryParse(value, out var id);
+    var matches = menu.Where(mode => byId ? mode.Id == id :
+      string.Equals(mode.EnglishName, value, StringComparison.OrdinalIgnoreCase) ||
+      string.Equals(mode.LocalName, value, StringComparison.OrdinalIgnoreCase)).ToArray();
+    if (matches.Length != 1)
+      throw new ArgumentException("Display mode is missing from the View Display Mode Menu or ambiguous; use a menu GUID.");
+    if (matches[0].DisplayAttributes.RealtimeDisplayId != Guid.Empty)
+      throw new ArgumentException("Realtime display modes require asynchronous rendering; choose a raster mode.");
+    return matches[0];
+  }
   static Bitmap Invert(Bitmap src) {
     var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format24bppRgb);
     var cm = new ColorMatrix(new float[][] {
@@ -206,7 +220,8 @@ public class Script {
   }
   static void SaveView(RhinoView view, ViewCapture vc, DisplayModeDescription mode, string path) {
     var vp = view.ActiveViewport;
-    if (mode != null && vp.DisplayMode.Id != mode.Id) vp.DisplayMode = mode;
+    if (vp.DisplayMode.Id != mode.Id) vp.DisplayMode = mode;
+    if (vp.DisplayMode?.Id != mode.Id) throw new InvalidOperationException("The viewport did not apply the requested display mode.");
     view.Redraw(); RhinoApp.Wait();
     var b = vc.CaptureToBitmap(view);
     if (b != null) { b.Save(path, ImageFormat.Png); b.Dispose(); }
@@ -215,33 +230,36 @@ public class Script {
     var view = doc.Views.ActiveView;
     var vp = view.ActiveViewport;
     var originalMode = vp.DisplayMode;
-    var rgbMode = DisplayModeDescription.FindByName("__RGBMODE__");
-    var edgeMode = DisplayModeDescription.FindByName("__EDGEMODE__");
-    var depthMode = DisplayModeDescription.FindByName("Shaded") ?? rgbMode;   // a filled mode so the z-buffer is populated
+    DisplayModeDescription rgbMode = __RGBMODE__;
+    DisplayModeDescription edgeMode = __EDGEMODE__;
+    var depthMode = DisplayModeDescription.FindByName("Shaded") ?? rgbMode;
     int W = __W__, H = __H__;
     var vc = new ViewCapture { Width = W, Height = H, ScaleScreenItems = false, DrawAxes = false,
       DrawGrid = false, DrawGridAxes = false, TransparentBackground = false };
     var zlog = new System.Text.StringBuilder();
     string outDir = @"__OUT__";
-    foreach (var rec in "__DATA__".Split(';')) {
-      var v = rec.Split(',');
-      int f = int.Parse(v[0]);
-      var cam = new Point3d(double.Parse(v[1]), double.Parse(v[2]), double.Parse(v[3]));
-      var tgt = new Point3d(double.Parse(v[4]), double.Parse(v[5]), double.Parse(v[6]));
-      vp.SetCameraLocations(tgt, cam);
-      vp.Camera35mmLensLength = double.Parse(v[7]);
-      view.Redraw(); RhinoApp.Wait();
-      string name = "f" + f.ToString("D4") + ".png";
-      if (__DO_RGB__) SaveView(view, vc, rgbMode, Path.Combine(outDir, "rgb", name));
-      if (__DO_EDGE__) SaveView(view, vc, edgeMode, Path.Combine(outDir, "edge", name));
-      if (__DO_DEPTH__) {
-        if (depthMode != null && vp.DisplayMode.Id != depthMode.Id) vp.DisplayMode = depthMode;
+    try {
+      foreach (var rec in "__DATA__".Split(';')) {
+        var v = rec.Split(',');
+        int f = int.Parse(v[0]);
+        var cam = new Point3d(double.Parse(v[1]), double.Parse(v[2]), double.Parse(v[3]));
+        var tgt = new Point3d(double.Parse(v[4]), double.Parse(v[5]), double.Parse(v[6]));
+        vp.SetCameraLocations(tgt, cam);
+        vp.Camera35mmLensLength = double.Parse(v[7]);
         view.Redraw(); RhinoApp.Wait();
-        SaveDepth(view, Path.Combine(outDir, "depth", name), W, H, __INVERT__, __DEPTH_CURVES__, zlog, f);
+        string name = "f" + f.ToString("D4") + ".png";
+        if (__DO_RGB__) SaveView(view, vc, rgbMode, Path.Combine(outDir, "rgb", name));
+        if (__DO_EDGE__) SaveView(view, vc, edgeMode, Path.Combine(outDir, "edge", name));
+        if (__DO_DEPTH__) {
+          if (depthMode != null && vp.DisplayMode.Id != depthMode.Id) vp.DisplayMode = depthMode;
+          view.Redraw(); RhinoApp.Wait();
+          SaveDepth(view, Path.Combine(outDir, "depth", name), W, H, __INVERT__, __DEPTH_CURVES__, zlog, f);
+        }
       }
+    } finally {
+      if (originalMode != null && vp.DisplayMode?.Id != originalMode.Id) vp.DisplayMode = originalMode;
+      view.Redraw(); RhinoApp.Wait();
     }
-    if (originalMode != null && vp.DisplayMode.Id != originalMode.Id) vp.DisplayMode = originalMode;
-    view.Redraw(); RhinoApp.Wait();
     File.AppendAllText(Path.Combine(outDir, "zrange.csv"), zlog.ToString());
     return new List<Guid>();
   }
@@ -258,8 +276,17 @@ def render_capture_script(frames: Iterable[dict], out_dir: str, width: int, heig
                           depth_curves: bool = True) -> str:
     rows = [f"{f['frame']},{f['camera'][0]:.3f},{f['camera'][1]:.3f},{f['camera'][2]:.3f},"
             f"{f['target'][0]:.3f},{f['target'][1]:.3f},{f['target'][2]:.3f},{f['lens_mm']:.3f}" for f in frames]
+
+    def mode_expression(channel, value):
+        if channel not in passes:
+            return "null"
+        encoded = base64.b64encode(value.encode("utf-8")).decode("ascii")
+        literal = f'Convert.FromBase64String("{encoded}")'
+        return f'ResolveRaster(System.Text.Encoding.UTF8.GetString({literal}))'
+
     return (_CS_CAPTURE
-            .replace("__RGBMODE__", rgb_mode).replace("__EDGEMODE__", edge_mode)
+            .replace("__RGBMODE__", mode_expression("rgb", rgb_mode))
+            .replace("__EDGEMODE__", mode_expression("edge", edge_mode))
             .replace("__W__", str(int(width))).replace("__H__", str(int(height)))
             .replace("__OUT__", out_dir).replace("__DATA__", ";".join(rows))
             .replace("__DO_RGB__", _cs("rgb" in passes)).replace("__DO_EDGE__", _cs("edge" in passes))
@@ -429,7 +456,7 @@ def capture_conditioning_pass(frames: Sequence[dict], out_dir: str, send: Sender
             videos[p] = mp4 if assemble_video(os.path.join(out_dir, p), mp4, fps) else None
 
     summary = {
-        "status": "executed" if not errors else "partial",
+        "status": "executed" if not errors else ("partial" if done else "error"),
         "out_dir": out_dir, "frames_requested": len(frames), "frames_captured": done,
         "passes": list(passes), "resolution": [width, height], "fps": fps,
         "camera_json": os.path.join(out_dir, "camera.json"), "videos": videos,

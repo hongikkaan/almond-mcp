@@ -6,6 +6,7 @@ from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import project_query, requires_full_evidence
 from almond_mcp.managed_paths import relative_output
+from almond_mcp.features.context.object_inputs import FILTERS, OUTPUT
 
 
 OBJECT_FIELDS = frozenset({
@@ -32,53 +33,47 @@ def object_ids(value, maximum, *, required=False):
 
 
 def validate_filters(filters):
-    if not isinstance(filters, dict) or set(filters) - {"layer_paths", "object_types", "name_contains", "user_dictionary", "user_text"}:
-        raise ValueError("filters supports layer_paths, object_types, name_contains, user_dictionary and user_text only.")
-    if "layer_paths" in filters:
-        layers = filters["layer_paths"]
-        if not isinstance(layers, list) or not 1 <= len(layers) <= 64 or any(not isinstance(v, str) or not v for v in layers):
-            raise ValueError("layer_paths requires 1..64 exact full layer paths.")
-    if "name_contains" in filters and (not isinstance(filters["name_contains"], str) or len(filters["name_contains"]) > 256):
-        raise ValueError("name_contains must be a string of at most 256 characters.")
-    if "object_types" in filters:
-        kinds = filters["object_types"]
-        if not isinstance(kinds, list) or not 1 <= len(kinds) <= 32 or any(not isinstance(v, str) or not v or len(v) > 64 for v in kinds):
-            raise ValueError("object_types requires 1..32 Rhino object_type names from an observation.")
-    text_conditions = filters.get("user_text", [])
-    if not isinstance(text_conditions, list) or len(text_conditions) > 16:
-        raise ValueError("filters.user_text must be an array of up to 16 conditions.")
-    for condition in text_conditions:
-        if (not isinstance(condition, dict) or set(condition) != {"key", "any_of"}
-                or not isinstance(condition["key"], str) or not condition["key"]
-                or not isinstance(condition["any_of"], list) or not 1 <= len(condition["any_of"]) <= 64
-                or not all(isinstance(value, str) for value in condition["any_of"])):
-            raise ValueError("Each user_text condition requires a nonempty key and 1..64 strings in any_of.")
-    conditions = filters.get("user_dictionary", [])
-    if not isinstance(conditions, list) or len(conditions) > 16:
+    if isinstance(filters, dict) and isinstance(filters.get("user_dictionary"), dict) and "key" in filters["user_dictionary"]:
         raise ValueError(
-            "filters.user_dictionary must be a JSON array of up to 16 condition objects. "
+            "filters.user_dictionary accepts a JSON array of up to 16 condition objects or include/exclude arrays. "
             'Pass the filters argument as {"user_dictionary":[{"source":"attributes",'
             '"key":"brief_probe","any_of":["yes"]}]}'
         )
-    for condition in conditions:
-        if (not isinstance(condition, dict) or set(condition) != {"source", "key", "any_of"}
-                or condition["source"] not in ("attributes", "geometry")
-                or not isinstance(condition["key"], str) or not condition["key"]
-                or not isinstance(condition["any_of"], list) or not 1 <= len(condition["any_of"]) <= 64
-                or any(type(v) not in (str, bool, int, float) for v in condition["any_of"])):
-            raise ValueError("Dictionary conditions require source=attributes|geometry, key and 1..64 scalar any_of values.")
-    return filters
+    result = FILTERS.validate_python(filters)
+    for key, value in result.items():
+        if isinstance(value, dict) and not value:
+            raise ValueError(f"filters.{key} requires include or exclude.")
+    group = result.get("group", {})
+    for side in ("include", "exclude"):
+        mode = side + "_mode"
+        if len(group.get(side, [])) > 1:
+            if mode not in group:
+                raise ValueError(f"Multiple filters.group.{side} values require {mode}=any or all.")
+        elif mode in group:
+            raise ValueError(f"filters.group.{mode} is valid only with multiple {side} values.")
+    return result
 
 
 def query(send, *, scope, ids, filters, include_geometry, offset, limit, expected_model_path,
           result_mode="objects", fields=None, face_offset=0, face_limit=128,
           expected_geometry_crcs=None, include_ids=False, group_ids=None,
-          selected=False, inside_window=False, recursive=False, depth=1, expected_snapshot=""):
+          selected=False, inside_window=False, recursive=False, depth=1, expected_snapshot="", output=None):
     try:
-        if scope not in ("current", "document"):
-            raise ValueError("scope must be current or document.")
+        if output is not None:
+            output = OUTPUT.validate_python(output)
+            fields = output.get("fields", fields)
+            include_ids = output.get("include_ids", include_ids)
+            include_geometry = output.get("include_geometry", include_geometry)
+            limit = output.get("limit", limit)
+            offset = output.get("offset", offset)
+            expected_snapshot = output.get("expected_snapshot", expected_snapshot)
         if any(type(v) is not bool for v in (selected, inside_window, recursive)):
             raise ValueError("selected, inside_window and recursive must be booleans.")
+        viewport_scope = scope == "inside_viewport"
+        if viewport_scope:
+            scope, inside_window = "current", True
+        if scope not in ("current", "document"):
+            raise ValueError("scope must be current, document or inside_viewport.")
         if selected and inside_window:
             raise ValueError("Choose selected or inside_window, not both.")
         if scope != "current" and (selected or inside_window):
@@ -140,7 +135,9 @@ def query(send, *, scope, ids, filters, include_geometry, offset, limit, expecte
         if result_mode == "hierarchy" and (include_geometry or crcs or face_offset or face_limit != 128
                 or set(fields or []) & {"geometry_valid", "solid", "manifold", "volume", "faces", "face_count"}):
             raise ValueError("Geometry detail and face editing references require result_mode=objects; hierarchy describes occurrences and metadata.")
-        payload = dict(type="get_rhino_objects", scope=scope, object_ids=ids, filters=validate_filters(filters),
+        typed_keys = {"layer", "name", "object_type", "block"}
+        filters = validate_filters(filters)
+        payload = dict(type="get_rhino_objects", scope=scope, object_ids=ids, filters=filters,
                        include_geometry=include_geometry, offset=offset, limit=limit)
         extended = result_mode != "objects" or fields is not None or face_offset or face_limit != 128 or crcs or "object_types" in filters
         if extended:
@@ -150,9 +147,17 @@ def query(send, *, scope, ids, filters, include_geometry, offset, limit, expecte
         payload.update(group_ids=groups, selected=selected, inside_window=inside_window,
                        recursive=recursive, depth=depth, expected_snapshot=expected_snapshot)
         uses_user_text = "user_text" in filters or "user_text" in (fields or [])
-        raw = dispatch(send, payload, expected_model_path, required_version=5 if uses_user_text else 4)
+        required_version = 6 if typed_keys.intersection(filters) else (5 if uses_user_text else 4)
+        if {"group", "material"}.intersection(filters) or any(
+                isinstance(filters.get(key), dict) for key in ("user_text", "user_dictionary")):
+            required_version = 7
+        if any(key in filters.get("group", {}) for key in ("include_mode", "exclude_mode")):
+            required_version = 8
+        raw = dispatch(send, payload, expected_model_path, required_version=required_version)
         value = json.loads(raw)
         if isinstance(value, dict) and value.get("status") != "error":
+            if viewport_scope:
+                value["scope"] = "inside_viewport"
             for key in ("schema", "model_path", "document_units", "tolerance_model_units"):
                 value.pop(key, None)
         if isinstance(value, dict) and value.get("status") == "error":

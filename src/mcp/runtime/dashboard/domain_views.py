@@ -568,14 +568,15 @@ class DomainViews:
         wanted = []
         if isinstance(record.get("previous_id"), str) and record["previous_id"]:
             wanted.append(("previous", record["previous_id"]))
-        for kind, field in (("depends_on", "depends_on_json"), ("parent", "parent_plan_json"), ("child", "child_plan_json")):
+        for kind, field in (("related", "depends_on_json"), ("parent", "parent_plan_json"), ("child", "child_plan_json")):
             wanted.extend((kind, value) for value in json_list(record.get(field))
                           if isinstance(value, str) and value and len(value) <= 200)
         for other in catalogue:
             if other.get("previous_id") == record["plan_id"]:
                 wanted.append(("next", other["plan_id"]))
-            if record["plan_id"] in json_list(other.get("depends_on_json")):
-                wanted.append(("dependent", other["plan_id"]))
+            for kind, field in (("related", "depends_on_json"), ("child", "parent_plan_json"), ("parent", "child_plan_json")):
+                if record["plan_id"] in json_list(other.get(field)):
+                    wanted.append((kind, other["plan_id"]))
         wanted = sorted(set(wanted))
         if len(wanted) > RELATED_LIMIT:
             self.notes.append(f"인접 Task 관계는 처음 {RELATED_LIMIT}개만 표시합니다.")
@@ -588,7 +589,7 @@ class DomainViews:
         result = []
         catalogue = self.rows("generation_plans", order=self.order("generation_plans", "plan_id")) if records else []
         if len(catalogue) > LINK_LIMIT:
-            self.notes.append(f"후속·의존 Task 탐색은 처음 {LINK_LIMIT}개 기록으로 제한됩니다.")
+            self.notes.append(f"다른 Plan에 기록된 순서·관련·상하위 관계는 처음 {LINK_LIMIT}개 기록에서 찾습니다.")
         for row in records:
             numbers = loop_numbers(self, row, LINK_LIMIT)
             selected = loop_no if loop_no is not None else row.get("loop_no")

@@ -716,7 +716,8 @@ class Workflow(unittest.TestCase):
         run = self.run_mode('Document',pick=True)
         self.assertFalse(run.generate.call_args.kwargs['place'])
         run.move_drawing.assert_called_once_with(run.drawing,run.cp.ClippingPlaneGeometry.Plane,run.picked)
-        run.bake.assert_called_once_with(run.doc,run.cp,run.drawing,run.picked)
+        run.bake.assert_called_once()
+        self.assertEqual(run.bake.call_args.args[:4], (run.doc,run.cp,run.drawing,run.picked))
         self.assertEqual([call[0] for call in run.events.mock_calls],
                          ['generate','pick_placement','move_drawing','bake'])
 

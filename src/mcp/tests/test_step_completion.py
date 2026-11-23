@@ -71,7 +71,7 @@ def test_completion_commits_in_one_call_then_runs_rhino_without_a_notice(complet
         design_rationale="Keep the circulation axis", input_refs={"add": ["survey.md"]},
         output_refs={"add": [str(artifact)]}, expected_revision=before["revision"], loop_no=before["loop_no"],
     )
-    assert result["status"] == "success" and result["changed"] is True
+    assert result["status"] == "updated" and result["changed"] is True
     assert result["step"]["status"] == "completed"
     assert result["plan"]["status"] == "pending"
     assert result["plan"]["revision"] == before["revision"] + 1
@@ -94,14 +94,14 @@ def test_completion_commits_in_one_call_then_runs_rhino_without_a_notice(complet
 def test_cleanup_runs_only_on_transition_to_completed(completion):
     first = completion.update(status="completed")
     second = completion.update(status="completed")
-    assert first["status"] == second["status"] == "success"
+    assert first["status"] == "updated" and second["status"] == "no_change"
     assert first["changed"] is True and second["changed"] is False
     assert first["plan"]["revision"] == second["plan"]["revision"]
     assert len(completion.bridge_requests) == 2
-    assert completion.update(status="completed", takeaways="Revised notes")["status"] == "success"
-    assert completion.update(status="running")["status"] == "success"
+    assert completion.update(status="completed", takeaways="Revised notes")["status"] == "updated"
+    assert completion.update(status="running")["status"] == "updated"
     assert len(completion.bridge_requests) == 2
-    assert completion.update(status="completed")["status"] == "success"
+    assert completion.update(status="completed")["status"] == "updated"
     assert len(completion.bridge_requests) == 4
 
 
@@ -229,7 +229,7 @@ def test_failed_rhino_follow_up_reports_committed_step_without_retry(completion,
     assert result["plan"]["revision"] == after["revision"] == before["revision"] + 1
     assert after["step"]["takeaways"] == "Saved before the follow-up"
     assert "delete" not in result["message"].lower() and "next_step_guide" not in result
-    assert completion.update(status="completed")["status"] == "success"
+    assert completion.update(status="completed")["status"] == "no_change"
     assert len(attempts) == 1
 
 

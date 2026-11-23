@@ -19,8 +19,10 @@ sections를 생략하면 document/named_views/layouts/layer_tree/display_modes�
 | `editor` | mode/target/stable/warnings; include_editor_details=true일 때 provider·명령·Undo 근거 추가 |
 | `named_views`, `layouts` | 이름과 ID, 각각 최대 128개와 초과 경고; include_ids와 무관하게 ID 유지 |
 | `layer_tree` | 삭제되지 않은 모든 레이어의 이름과 부모 계층; 깊이당 공백 두 칸; 비어 있으면 빈 문자열 |
-| `display_modes` | 설치된 이름과 ID, 최대 128개와 초과 경고; ID 항상 유지 |
+| `display_modes` | Rhino View Display Mode Menu에 등재된 모드의 이름과 ID. 최대 128개이며 초과하면 경고. ID 항상 유지 |
 | `viewports` | 모델 viewport 목록; 선택 조회이며 일반 include_ids 정책 적용 |
+
+표시 모드 목록을 요청하거나 캡처에서 모드를 선택할 때는 같은 문서 조회 응답 또는 캡처 직전의 기존 capability 응답에서 `display_mode_menu=1`을 확인한다. 이 값이 없으면 `unsupported_display_mode_menu` 오류를 반환한다. Named View의 기본 모드 Shaded 선택도 같은 기준을 적용한다. 현재 모드를 그대로 캡처하거나 Layout을 출력할 때는 해당 capability가 필요하지 않다.
 
 문서 파일명·경로는 context_04-get_project_info tool에서 확인한다. 문서 객체 수는 정상·숨김·잠금·reference·light를 포함하며 삭제 객체·블록 정의 내부·grip은 제외한다. 레이어 수는 삭제 레이어를 제외한다. 실패한 관측은 null과 경고이며 가짜 0/빈 목록으로 바꾸지 않는다. 공개 context는 이미지를 받거나 파일을 쓰지 않는다.
 
@@ -40,7 +42,7 @@ sections를 생략하면 document/named_views/layouts/layer_tree/display_modes�
 
 ## 화면 캡처
 
-`capture_04-defined_view tool(target_kind="named_view"|"layout", target="이름 또는 ID")`는 지정된 Named View 또는 Layout을 캡처한다. 목록은 inspect_03-get_document_context tool에서 조회한다. 같은 이름이 여러 개이면 오류이며 고유 ID로 구분한다. Named View는 저장된 카메라를 별도 화면에서 그리므로 실제 활성 뷰를 바꾸지 않는다. 기본 표시 모드는 Shaded이며 설치된 이름/ID로 변경할 수 있다.
+`capture_04-defined_view tool(target_kind="named_view"|"layout", target="이름 또는 ID")`는 지정된 Named View 또는 Layout을 캡처한다. 목록은 inspect_03-get_document_context tool에서 조회한다. 같은 이름이 여러 개이면 오류이며 고유 ID로 구분한다. Named View는 저장된 카메라를 별도 화면에서 그린다. 기본 표시 모드는 Shaded이며 뷰 메뉴에 등록된 래스터 모드의 영문 이름·현지화 이름·GUID로 변경할 수 있다.
 
 Layout은 실제 용지와 Detail을 인쇄 색·선 두께로 캡처하고 주변 작업창을 포함하지 않는다. 100%는 용지를 144 dpi로 표현한 크기다. 호출자는 픽셀이나 용지 비율을 계산하지 않는다. Layout의 표시 모드·픽셀 강제 지정은 거절하며 Detail 축척과 문서 PrintDisplay를 바꾸지 않는다. 인쇄 가능한 가시 객체를 캡처하며 잠긴 객체도 가시성에 따라 포함한다. Layout 본체를 사용하므로 Detail의 카메라·투영 잠금·clipping 할당을 따로 편집하지 않는다. 숨김 등으로 출력할 내용이 없는 용지도 유효한 PNG다. scale_percent는 기본 75의 상한이며 정의된 뷰가 PNG 전달 한도를 넘으면 비율을 줄이고 경고한다. 명시한 Named View 픽셀은 자동 축소하지 않는다.
 
@@ -58,9 +60,14 @@ labels는 기본 false이고 선택 시 최대 200개의 임시 pixel label을 �
 
 ## 일반 객체 범위·형상과 묶음 캡처
 
-`inspect_02-get_objects` tool는 `object_observation>=4`(객체 속성 User Text 필드·조건은 5 이상)로 확인한 고정 native 경로다. 내부 get_rhino_objects 요청 이름과 기존 내부 소비자는 유지한다.
-공개 scope는 current(기본)/document다. current는 화면 밖을 포함한 표시·비잠금 모델 객체이고 객체 및 상위 Layer 잠금을 제외한다. selected/inside_window는 current에서만 허용하며 서로 배타적이다. selected는 화면 밖의 선택을 포함하되 current의 표시·잠금 조건을 유지한다. inside_window는 활성 모델뷰 또는 Detail의 frustum과 world 경계 상자가 일부라도 교차하면 포함한다. 경계 상자 근사이며 픽셀 가림·클리핑 평면은 판정하지 않는다. document는 숨김·잠금 객체를 포함하고 object_ids로 좁힐 수 있다. 양 scope에서 group_ids로 원하는 그룹을 지정할 수 있으며 object_ids와 혼용하지 않는다. 이름은 식별자가 아니다.
-필터·페이지·기하 상세의 입력은 [도구 설명](../features/context/tools.py)에 둔다.
+`inspect_02-get_objects` tool은 고정 native 경로 get_rhino_objects로 조회한다. 최소 object_observation은 기본 조회 4, 속성 User Text 필드·기존 배열 조건 5, 새 include·exclude 조건 6이다.
+공개 scope는 current(기본), document, inside_viewport다. current는 화면 밖을 포함한 표시·비잠금 모델 객체이고 객체 및 상위 레이어 잠금을 제외한다. selected는 current에서 화면 밖의 선택도 포함한다. inside_viewport와 기존 current + inside_window=true는 활성 모델뷰 또는 Detail의 frustum과 world 경계 상자가 일부라도 교차하는 current 객체를 조회한다. 경계 상자 근사이며 픽셀 가림·클리핑 평면은 판정하지 않는다. selected와 뷰포트 조건은 서로 배타적이다. document는 숨김·잠금 객체를 포함하고 object_ids로 좁힐 수 있다. 각 scope에서 group_ids로 원하는 그룹을 지정할 수 있으며 object_ids와 혼용하지 않는다.
+filters.layer는 레이어 전체 경로 또는 GUID, block은 배치가 직접 쓰는 블록 정의의 이름 또는 GUID를 문서 테이블에서 해석한다. 찾을 수 없거나 둘 이상인 참조는 문제가 된 값을 포함한 오류로 반환한다. name은 객체 이름 정확 일치, object_type은 Rhino 유형명이다. 각 include 목록은 한 값과 일치하면 통과하고 exclude 값은 모두 제외하며 문자열 비교는 대소문자를 구분하지 않는다. 서로 다른 조건은 함께 적용한다. 기존 layer_paths, object_types, name_contains, user_text·user_dictionary 조건 배열을 계속 사용할 수 있다.
+
+object_observation 7에서 filters.group은 이름·GUID로 문서 그룹의 멤버십을 조회한다. 각 측의 단일 그룹은 모드 없이 지정하며 hierarchy의 시작점을 선택하는 group_ids는 기존 동작을 유지한다. object_observation 8부터 한쪽에 그룹을 2..64개 지정할 때 그쪽의 include_mode 또는 exclude_mode를 any나 all로 명시한다. include는 합집합(any)·교집합(all)에 속한 객체를 남기고, exclude는 해당 집합에 속한 객체를 제외한다. 단일·빈 측에는 모드를 지정할 수 없다. filters.material은 최상위 객체·블록 배치의 전면 실효 재질을 검사한다. RenderMaterial을 우선하고 없으면 Rhino가 해당 객체에 적용한 Material을 읽는다. 같은 재질에 연결된 두 테이블의 GUID와 이름을 허용하며 서로 다른 재질의 동명 참조는 오류로 반환한다. 재질 테이블·객체의 실효 재질 변경은 재질 조회 페이지의 snapshot에 반영된다.
+
+user_text·user_dictionary는 기존 전체 일치 조건 배열과 include·exclude 양식을 받는다. 새 양식에서는 각 측에 최대 한 조건을 지정한다. 해당 키가 없으면 include에 일치하지 않고 exclude에는 걸리지 않는다. User Text 값은 대소문자를 구분하는 문자열이며 User Dictionary는 source·키·값의 자료형을 유지한다.
+output에 fields, include_ids, include_geometry, limit, offset, expected_snapshot을 지정한다. 기존 평면 인자도 허용하며 양쪽에 함께 지정한 항목은 output 값을 사용한다. [필터·페이지·형상 상세 입력](../features/context/tools.py)
 result_mode=objects는 문서 객체, summary는 레이어·유형 수량, hierarchy는 그룹·블록 계층이다. recursive=true는 hierarchy를 선택하고 그룹·블록을 함께 펼친다. 기본 false, depth는 1–8(최상위=1)이며 number/parent_number가 페이지를 가로지르는 부모 관계를 보존한다. 필터는 top-level 객체에 먼저 적용한다. 그룹 계층은 엄격한 멤버 포함 관계로 판정하며 겹치는 그룹·동일 멤버 그룹을 임의의 단일 부모에 배치하지 않는다. member_count, observed_member_count, matched_member_count와 all_members_in_scope를 구분한다. 확인할 수 없는 전체 개수는 null이다.
 블록 내부는 root_object_id와 block_path_ids로 구분하고 document_object=false를 표시한다. bounds는 world 좌표, 나머지 metadata는 정의 객체 기준이며 effective occurrence visible/selected는 null이다. 문서 객체의 수정 ID와 혼동하지 않도록 hierarchy에서 geometry/face 상세 입력은 거절한다. 해당 상세는 objects 모드로 조회한다.
 children_state는 leaf/collapsed/expanded/depth_limit/cycle/unavailable을 구분한다. complete는 페이지와 확인한 관계의 완전성이며 모든 자손 조사 완료를 뜻하지 않는다. page_complete와 membership_complete를 구분한다. 후속 offset 페이지에는 첫 응답의 snapshot을 expected_snapshot으로 전달한다. 문서·형상·속성·그룹·Layer·블록 정의·편집기·선택·조회 조건 또는 inside_window 카메라가 바뀌면 observation_changed로 거절하고 처음부터 조회한다. 계층은 100000 occurrence 한도를 둔다.
@@ -93,7 +100,7 @@ GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 compon
 
 `capture_02-inspection` tool은 `inspection_capture=1`을 확인한 뒤 최대 16개 타일을 합성한다.
 별도 viewport와 범위 제한 display conduit를 사용하며 live 카메라·선택·가시 상태를 수정하지 않는다.
-필터의 culling 실행과 실제 비트맵 그리기에 적용된 표시 모드 ID를 확인할 수 없는 타일은 실패로 표시한다. 타일별 범위·적용 모드·카메라·오류를 돌려주며 일부 실패는 `complete=false`로 표시한다. 설치된 래스터 모드는 문서 컨텍스트의 `display_modes`에 있는 이름이나 GUID로 지정한다. 전체 이미지는 16M 픽셀·PNG 4 MiB 이내다.
+필터의 culling 실행과 실제 비트맵 그리기에 적용된 표시 모드 ID를 확인할 수 없는 타일은 실패로 표시한다. 타일별 범위·적용 모드·카메라·오류를 돌려주며 일부 실패는 `complete=false`로 표시한다. 뷰 메뉴에 등록된 래스터 모드를 이름이나 GUID로 지정하며, 메뉴에 같은 이름이 여러 개이면 GUID로 선택한다. 전체 이미지는 16M 픽셀·PNG 4 MiB 이내다.
 기본은 활성 모델뷰를 사용한다. `inspection_model_view=1`에서는 `model_view_id`로 기존 모델뷰를 지정해 활성 Layout·Detail을 바꾸지 않고 모델을 관찰한다. 문서·선택·가시성·Modified와 원본/활성 viewport·ActiveSpace가 전후 일치하지 않으면 이미지를 내보내지 않는다.
 기존 tile별 GUID는 512개 한도를 유지한다. `inspection_shared_scope=1`에서는 최상위 `object_ids`에 기존 객체 조회와 같은 상한인 1..4096개를 한 번 전달해 모든 tile에 재사용한다. 공통 `[]`와 공통/개별 집합 혼용은 오류다. 전체 GUID·총수는 `shared_scope`에 한 번 반환하며, 성공 tile의 참조·개수와 요청 집합을 Python에서 대조한다. 요청 256 KiB·메타데이터 512 KiB 한도를 유지한다. 전체/부분 성공 표시는 실제 tile 상태와 일치해야 하며 정상 부분 이미지는 보존한다.
 `current` 타일은 복제한 카메라 구도를 사용한다. 공통 또는 타일별 객체 GUID와 함께 `frame_objects: true`를 전달하면 분리된 viewport의 방향과 투영을 사용해 지정 객체의 결합 경계에 맞춘다.

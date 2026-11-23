@@ -61,7 +61,7 @@ request ID는 한 adapter 수명 안에서 시작 시도 하나를 가리킨다.
 
 완료 결과 재조회는 공통 runtime이 원본 실행 근거를 읽고 조정한 다음 공개 응답만 축약한다. 정상 완료의 결과·페이지·요청한 로그·복구 대상 정보는 남기며 `include_diagnostics=true`로 전체 근거를 조회한다. 실패·불확실·부분 변경·0이 아닌 CLI 종료 코드·결과 표시 오류는 기본 응답에서도 유지한다. 보관 파일 복구 경로도 같은 projection을 사용하며 journal, worker schema 검사와 완료 판단을 바꾸지 않는다.
 
-외부 worker는 공통 runtime 구성 훅으로 두 공개 스크립트의 첫 완료 근거 대기를 최대 60초로 제한한다. public 기본값 60·범위 1–600과 클라이언트 호출 제한 600초는 유지한다. `ExecutionInvocations`는 공개 스크립트의 응답 대기가 끝나도 원래 worker tools/call을 취소하지 않는다. 비공개 caller ID·runtime operation ID·durable RhinoCode request ID를 대조하여 CLI-only인 현재 실행의 상태만 반환한다. 아직 durable ID가 없거나 native 결과가 불확실하면 미확인 오류를 반환하며 기존 native fence를 유지한다. 대기 종료는 재실행·강제 종료·완료 증거가 아니다.
+외부 worker는 공통 runtime 구성 훅으로 두 공개 스크립트의 첫 완료 근거 대기를 최대 60초로 제한한다. 공개 스크립트의 기본값은 60초, 범위는 1–600초다. 클라이언트 호출 대기의 생성 기본값은 Codex 직접 연결 240초, CoS 앱 600초다. `ExecutionInvocations`는 공개 스크립트의 응답 대기가 끝나도 원래 worker tools/call을 취소하지 않는다. 비공개 caller ID·runtime operation ID·durable RhinoCode request ID를 대조하여 CLI-only인 현재 실행의 상태만 반환한다. 아직 durable ID가 없거나 native 결과가 불확실하면 미확인 오류를 반환하며 기존 native fence를 유지한다. 대기 종료는 재실행·강제 종료·완료 증거가 아니다.
 
 원 worker 호출이 정리 중이면 같은 직렬 잠금을 사용하는 worker 조회 대신 검증된 보관 파일을 읽는다. 완료 receipt가 먼저 생겨도 원 호출과 runtime 정리가 끝나기 전에는 예약을 해제하지 않는다. exact 완료·native 상태·binding이 모두 확인된 뒤에만 해당 예약을 end한다. Broker 예약 ID를 공개 실행 request_id로 대신 쓰거나 종료·무효화된 연결을 되살리지 않는다.
 

@@ -66,6 +66,8 @@ def test_legacy_step_identity_migration_preserves_history_and_dependencies(tmp_p
         snapshot = json.loads(db.execute("SELECT snapshot_json FROM generation_plan_revisions WHERE plan_id=?", (pid,)).fetchone()[0])
         for step in snapshot["steps"]:
             step["step_id"] = old_ids[step["step_id"]]
+            # Pre-UUID snapshots used the original Step ID as their display name.
+            step["name"] = step["step_id"]
             step["depends_on"] = [old_ids[v] for v in step["depends_on"]]
             step.pop("step_type")
         raw = json.dumps(snapshot)

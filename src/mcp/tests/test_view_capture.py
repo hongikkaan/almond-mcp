@@ -20,7 +20,7 @@ def capture_tools(response=None, failure=None):
         request = json.loads(raw)
         calls.append(request)
         if request["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"view_capture": 1}})
+            return json.dumps({"status": "success", "capabilities": {"view_capture": 1, "display_mode_menu": 1}})
         if failure:
             raise failure
         return json.dumps(response)

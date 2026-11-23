@@ -22,7 +22,7 @@ namespace Rhino.Geometry {
         public void Union(BoundingBox other) { }
         public void Transform(Transform transform) { Min.X += transform.X; Max.X += transform.X; }
     }
-    public class GeometryBase {
+    public class GeometryBase : Rhino.Runtime.CommonObject {
         public double MinX, MaxX;
         public BoundingBox GetBoundingBox(bool accurate) => new BoundingBox { Min = new Point3d { X=MinX }, Max = new Point3d { X=MaxX } };
     }
@@ -30,7 +30,10 @@ namespace Rhino.Geometry {
 namespace Rhino.DocObjects {
     public enum ActiveSpace { ModelSpace, PageSpace }
     public enum ObjectType { Brep, InstanceReference }
-    public class ObjectAttributes { public ActiveSpace Space; public int LayerIndex; }
+    public class ObjectAttributes : Rhino.Runtime.CommonObject {
+        public ActiveSpace Space; public int LayerIndex; public JObject Text = new JObject();
+        public string GetUserString(string key) => (string)Text[key];
+    }
     public class RhinoObject {
         public Guid Id; public string Name = "";
         public bool IsDeleted, IsInstanceDefinitionGeometry, IsLocked, Selected, Visible = true;
@@ -38,8 +41,12 @@ namespace Rhino.DocObjects {
         public ObjectType ObjectType = ObjectType.Brep;
         public ObjectAttributes Attributes = new ObjectAttributes();
         public GeometryBase Geometry = new GeometryBase();
+        public Material Front; public Rhino.Render.RenderMaterial Render;
+        public Material GetMaterial(bool front) => front ? Front : null;
+        public Rhino.Render.RenderMaterial GetRenderMaterial(bool front) => front ? Render : null;
     }
     public class InstanceDefinition {
+        public Guid Id; public bool IsDeleted;
         public string Name = "Block";
         public RhinoObject[] Objects = Array.Empty<RhinoObject>();
         public int ObjectCount => Objects.Length;
@@ -54,7 +61,11 @@ namespace Rhino.DocObjects {
         public bool NormalObjects, HiddenObjects, LockedObjects, ReferenceObjects, DeletedObjects, IdefObjects, VisibleFilter;
     }
     public class Layer { public string FullPath = "Model"; public Guid Id, ParentLayerId; public bool IsDeleted, IsLocked; }
+    public class Material { public Guid Id, RenderMaterialInstanceId; public string Name; public bool IsDeleted; }
 }
+namespace Rhino.Render { public class RenderMaterial { public Guid Id; public string Name; } }
+namespace Rhino.Collections { public class ArchivableDictionary : Dictionary<string,object> {} }
+namespace Rhino.Runtime { public class CommonObject { public Rhino.Collections.ArchivableDictionary Dictionary; } }
 namespace Rhino {
     public class ObjectTable : List<RhinoObject> {
         public RhinoObject FindId(Guid id) => this.FirstOrDefault(o => o.Id == id);
@@ -72,6 +83,9 @@ namespace Rhino {
         public ObjectTable Objects = new ObjectTable();
         public GroupTable Groups = new GroupTable();
         public LayerTable Layers = new LayerTable();
+        public List<InstanceDefinition> InstanceDefinitions = new List<InstanceDefinition>();
+        public List<Material> Materials = new List<Material>();
+        public List<Rhino.Render.RenderMaterial> RenderMaterials = new List<Rhino.Render.RenderMaterial>();
         public Views Views = new Views(); public ActiveSpace ActiveSpace = ActiveSpace.ModelSpace;
         public RhinoDoc() { Groups.Objects = Objects; Layers.Add(new Layer { Id=Guid.NewGuid() }); }
     }
@@ -110,6 +124,13 @@ namespace RhinoAlmondBridge {
     public static partial class ObjectObservation {
         const int MaxBytes = 262144;
         class ValueBudget {}
+        static Rhino.Collections.ArchivableDictionary ExistingDictionary(Rhino.Runtime.CommonObject obj) => obj.Dictionary;
+        static void LoadDictionary(Rhino.Runtime.CommonObject obj, JToken input) {
+            if (!(input is JObject properties)) return;
+            obj.Dictionary = new Rhino.Collections.ArchivableDictionary();
+            foreach (var p in properties.Properties())
+                obj.Dictionary[p.Name] = p.Value is JArray arr ? arr.Select(t => ((JValue)t).Value).ToArray() : ((JValue)p.Value).Value;
+        }
         static JObject Bounds(BoundingBox box) => new JObject { ["min_x"] = box.Min.X };
         static JObject Error(string code, string message) => new JObject { ["status"] = "error", ["error_code"] = code, ["message"] = message };
         // Metadata serialization is covered by the production build and public contract tests.
@@ -119,19 +140,31 @@ namespace RhinoAlmondBridge {
 
         public static JObject Run(JObject input) {
             var doc = new Rhino.RhinoDoc();
+            foreach (var row in input["materials"] ?? new JArray())
+                doc.Materials.Add(new Material { Id=Guid.Parse((string)row["id"]), Name=(string)row["name"],
+                    RenderMaterialInstanceId=(Guid?)row["render"] ?? Guid.Empty });
+            foreach (var row in input["render_materials"] ?? new JArray())
+                doc.RenderMaterials.Add(new Rhino.Render.RenderMaterial { Id=Guid.Parse((string)row["id"]), Name=(string)row["name"] });
             if (input["layers"] is JArray layers) {
                 doc.Layers.Clear();
-                foreach (var row in layers) doc.Layers.Add(new Layer { Id=Guid.Parse((string)row["id"]),
+                foreach (var row in layers) doc.Layers.Add(new Layer { Id=Guid.Parse((string)row["id"]), FullPath=(string)row["path"] ?? "Model",
                     ParentLayerId=row["parent"] == null ? Guid.Empty : Guid.Parse((string)row["parent"]), IsLocked=(bool?)row["locked"] ?? false });
             }
             foreach (var item in input["objects"]) {
                 RhinoObject obj = item["members"] == null ? new RhinoObject() : new InstanceObject();
                 obj.Id = Guid.Parse((string)item["id"]); obj.Name = (string)item["name"] ?? "";
+                obj.Front = doc.Materials.FirstOrDefault(m => m.Id == (Guid?)item["front"]);
+                obj.Render = doc.RenderMaterials.FirstOrDefault(m => m.Id == (Guid?)item["render"]);
+                obj.Attributes.Text = (JObject)item["text"] ?? new JObject();
+                LoadDictionary(obj.Attributes,item["attribute_data"]); LoadDictionary(obj.Geometry,item["geometry_data"]);
                 obj.IsInstanceDefinitionGeometry = (bool?)item["definition"] ?? false;
                 obj.Visible = !((bool?)item["hidden"] ?? false); obj.IsLocked = (bool?)item["locked"] ?? false;
                 obj.Selected = (bool?)item["selected"] ?? false; obj.Attributes.LayerIndex = (int?)item["layer"] ?? 0;
                 obj.Geometry.MinX = (double?)item["min_x"] ?? 0; obj.Geometry.MaxX = (double?)item["max_x"] ?? 0;
                 if (obj is InstanceObject block) {
+                    block.InstanceDefinition.Id = item["definition_id"] == null ? obj.Id : Guid.Parse((string)item["definition_id"]);
+                    block.InstanceDefinition.Name = (string)item["definition_name"] ?? "Block";
+                    doc.InstanceDefinitions.Add(block.InstanceDefinition);
                     block.ObjectType = ObjectType.InstanceReference;
                     block.InstanceXform = new Transform { X = (double?)item["x"] ?? 0 };
                 }
@@ -153,6 +186,16 @@ namespace RhinoAlmondBridge {
                     .Values<string>().Select(id => doc.Objects.FindId(Guid.Parse(id))).ToArray();
             if (scope == "current") source = CurrentObjects(doc, source, (bool?)input["current_selected"] ?? false, (bool?)input["inside_window"] ?? false);
             var matched = input["matched"] == null ? source : source.Where(o => input["matched"].Values<string>().Contains(o.Id.ToString())).ToArray();
+            if (input["filters"] is JObject filters) {
+                ValidateMetadataFilter(filters["user_text"],"user_text",ValidateUserText);
+                ValidateMetadataFilter(filters["user_dictionary"],"user_dictionary",ValidateDictionary);
+                var conditions = NamedFilters(doc, filters);
+                matched = matched.Where(o => conditions.All(condition => condition(o)) &&
+                    MatchesMetadata(filters["user_text"], terms => MatchesUserText(o.Attributes.GetUserString,terms)) &&
+                    MatchesMetadata(filters["user_dictionary"],terms => MatchesDictionary(o,terms))).ToArray();
+            }
+            if ((bool?)input["matched_ids_only"] == true)
+                return new JObject { ["ids"] = new JArray(matched.Select(o => o.Id.ToString())) };
             return Hierarchy(doc, scope, groupIds, source, matched, new HashSet<Guid>(source.Select(o => o.Id)), null,
                 (bool?)input["expand_groups"] ?? false, (bool?)input["expand_blocks"] ?? false,
                 (int?)input["depth"] ?? 1, (int?)input["offset"] ?? 0, (int?)input["limit"] ?? 200);

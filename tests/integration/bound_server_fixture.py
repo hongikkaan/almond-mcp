@@ -37,7 +37,7 @@ def main():
         def observe(_sender, payload, *_positional, **_keywords):
             request = json.loads(payload)
             if request == {"type": "get_rhino_context", "sections": [], "selection_limit": 0}:
-                return json.dumps({"status": "success", "capabilities": {"view_capture": 1}})
+                return json.dumps({"status": "success", "capabilities": {"view_capture": 1, "display_mode_menu": 1}})
             if request["type"] == "get_defined_viewcapture":
                 from PIL import Image
                 assert Path(request["expected_model_path"]) == model

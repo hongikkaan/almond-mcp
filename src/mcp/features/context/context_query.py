@@ -19,6 +19,13 @@ def _error(message, code="invalid_arguments"):
     return json.dumps(error_payload(message, error_code=code), ensure_ascii=False)
 
 
+def display_mode_menu_error(capabilities):
+    if capabilities.get("display_mode_menu") != 1:
+        return error_payload("Load a matching Rhino Bridge with display_mode_menu=1 to list or select modes from the View Display Mode Menu.",
+                             error_code="unsupported_display_mode_menu")
+    return None
+
+
 def observe(send, sections, **options):
     request = {"type": "get_rhino_context", "sections": sections, "public_context": True, **options}
     return json.loads(send(json.dumps(request).encode("utf-8")))
@@ -83,6 +90,9 @@ def _observe(send, sections):
     if response["status"] == "success" and response.get("capabilities", {}).get("context_sections", 0) < 2:
         return error_payload("Load the matching Bridge with context_sections>=2 for context and selection queries.",
                              error_code="unsupported_context")
+    if response["status"] == "success" and "display_modes" in sections:
+        if error := display_mode_menu_error(response.get("capabilities", {})):
+            return error
     return response
 
 

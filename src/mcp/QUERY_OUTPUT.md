@@ -11,7 +11,7 @@ Feature tools project their own records. Collections keep their original envelop
 Successful Plan/Phase/Scene writes acknowledge their needed handle, revision and counts, rather than echoing whole records, geometry or input metadata. Existing envelope names remain. Use the matching get query for details.
 Component mutation acknowledgements are owned by the Component feature.
 
-Planning update tools return changed and unsummarized per-item issues. status is success when no item was skipped (including a clean no-op), partial_success when changes and skips coexist, or no_change when skips exist but no stored value changed. Step updates also acknowledge the Step ID/status separately from the Plan status/revision. General-field validation and revision conflicts reject the entire request; typed-input errors are rejected before the tool body. Creation and unrelated write contracts remain unchanged.
+The `plan_12-update` tool returns `updated` when a stored value changes and every item was applied, `partial_success` when changes and skips coexist, and `no_change` whenever the stored values stay the same. The `changed` flag records whether data was saved and `issues` lists every skipped item. Step updates also acknowledge the Step ID/status separately from the Plan status/revision. General-field validation and revision conflicts reject the entire request. Typed-input errors are rejected before the tool body.
 
 ## Follow-up guidance
 

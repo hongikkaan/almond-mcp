@@ -16,7 +16,8 @@ from almond_mcp.output_contracts import public_output_schema
     ("create_planning", {"status": "success", "phase": []}),
     ("create_planning", {"status": "success", "plan": "bad"}),
     ("list_planning", {"status": "success", "steps": "bad"}),
-    ("update_planning", {"status": "success", "step": "bad"}),
+    ("update_planning", {"status": "updated", "step": "bad"}),
+    ("update_planning", {"status": "success", "changed": True}),
 ])
 def test_output_types_are_checked_even_when_another_target_is_possible(name, payload):
     with pytest.raises(ValidationError):

@@ -699,7 +699,7 @@ CONTRACTS = {'list_connections': {'type': 'object',
                                     'next_step_guide': {'type': 'string'}}},
  'capture_conditioning_pass': {'type': 'object',
                                'properties': {'status': {'type': 'string',
-                                                         'description': 'executed는 모든 청크 실행 완료, partial은 청크 실행 중 오류.'},
+                                                         'description': 'executed는 모든 청크 실행 완료. error는 완료가 확인된 청크 없이 실패, partial은 앞선 청크의 완료 후 실패.'},
                                               'frames_requested': {'type': 'integer'},
                                               'frames_captured': {'type': 'integer',
                                                                   'description': '실행 완료 응답을 받은 청크에 포함된 프레임 수.'},
@@ -1371,10 +1371,13 @@ CONTRACTS = {'list_connections': {'type': 'object',
  'plan_section': {
     'type': 'object',
     'properties': {
-        'status': {'type': 'string', 'description': 'success, partial, cancelled, error'},
+        'status': {'type': 'string', 'description': 'success, partial, cancelled(사용자 취소), timeout(120초 취소 후 중단·정리 확인), error'},
         'drawing_status': {'type': 'string', 'description': 'completed, partial, cancelled, failed'},
         'mutation_state': {'type': 'string'},
         'requires_reconciliation': {'type': 'boolean'},
+        'unconfirmed_clipping_ids': {'type': 'array', 'items': {'type': 'string'},
+                                     'description': '최종 변경 상태를 확인할 수 없는 클리핑 GUID'},
+        'next_step_guide': {'type': 'string', 'description': '도면 확인 또는 중단·미완료 범위 확인 안내'},
         'recovery': {'type': 'array', 'description': '복구가 필요했던 클리핑별 오류와 보상 내역',
                      'items': {'type': 'object', 'properties': {
                          'clipping_id': {'type': 'string'},
@@ -1387,15 +1390,19 @@ CONTRACTS = {'list_connections': {'type': 'object',
                 'status': {'type': 'string'},
                 'requested': {'type': 'integer', 'description': '중복을 제외한 클리핑 요청 수'},
                 'completed': {'type': 'integer'},
+                'stop_reason': {'type': 'string', 'enum': ['deadline', 'user'],
+                                'description': '알고리즘이 안전한 지점에서 관찰한 취소 사유'},
                 'requires_reconciliation': {'type': 'boolean'},
                 'results': {
                     'type': 'array',
                     'items': {'type': 'object', 'properties': {
                         'clipping_id': {'type': 'string'},
                         'name': {'type': ['string', 'null']},
-                        'status': {'type': 'string'},
+                        'status': {'type': 'string', 'enum': ['completed', 'failed', 'skipped', 'cancelled', 'not_started', 'unconfirmed']},
+                        'mutation_state': {'type': 'string', 'description': '변경 후 최종 결과 미확인 시 unknown'},
+                        'cleanup_error': {'type': 'string'},
                         'object_ids': {'type': 'array', 'items': {'type': 'string'},
-                                       'description': '생성·갱신·이동한 도면 객체의 GUID'},
+                                       'description': '생성·갱신·이동에서 관찰한 객체 GUID. unconfirmed이면 최종 문서에 남았는지 대조 필요'},
                         'draw_plane': {'type': 'object', 'description': '원점과 축으로 표현한 실제 배치 평면',
                                        'properties': {'origin': _POINT, 'xaxis': _POINT, 'yaxis': _POINT}},
                         'extraction': {
@@ -1706,7 +1713,11 @@ for _script_contract in ("execute_project_python", "execute_rhino_script"):
 CONTRACTS["create_planning"] = _planning_variants("create_phase", "create_plan")
 CONTRACTS["get_planning"] = deepcopy(CONTRACTS["get_phase_plan_step"])
 CONTRACTS["update_planning"] = _planning_variants("update_phase", "update_plan", "update_step")
-CONTRACTS["update_planning"]["properties"]["changed"]["description"] = '`success`여도 저장 값이 같으면 `false`.'
+CONTRACTS["update_planning"]["properties"]["status"] = {
+    "type": "string", "enum": ["updated", "no_change", "partial_success", "error"],
+    "description": '수정 결과. 실제 변경은 updated, 무변경은 no_change, 변경과 건너뛴 항목이 함께 있으면 partial_success.',
+}
+CONTRACTS["update_planning"]["properties"]["changed"]["description"] = '실제 저장 값이 바뀌었으면 true. Step 완료 후 Rhino 후속 작업이 실패해도 저장된 변경은 유지.'
 CONTRACTS["update_planning"]["properties"]["plan"]["description"] = 'Step 수정 응답에도 소속 Plan의 저장 정보 포함.'
 CONTRACTS["update_planning"]["properties"].update({
     "cleanup_state": {"enum": ["not_started", "rolled_back", "unknown"], "description": '실패 시 확인된 Rhino 후속 작업 상태.'},

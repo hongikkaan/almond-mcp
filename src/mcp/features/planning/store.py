@@ -12,6 +12,14 @@ from almond_mcp.features.planning.schema import previous_reference
 from almond_mcp.features.planning.looping import LoopingStore, initialize_looping, loop_artifact_dir
 
 
+INSPECTION_STEP_NAMES = {
+    "define_criteria": "검수 대상과 영향을 받는 주변 관계의 판정 기준 정하기",
+    "observe": "관계가 드러나는 뷰나 조회를 고르고 가려진 접합은 형상·치수 확인",
+    "evaluate": "결함의 위치와 판단 근거를 기록하고 미확인 구간 구분",
+    "report_findings": "검수 결과를 보고하고 수정한 곳은 같은 조건에서 재확인",
+}
+
+
 class PlanningStore(LoopingStore):
     """Planning rules using the facade's shared connection and component reader."""
 
@@ -506,6 +514,7 @@ class PlanningStore(LoopingStore):
             )
             step_ids = {step_type: "step_" + uuid.uuid4().hex
                         for step_type, _, _ in templates[template[0]]}
+            step_names = INSPECTION_STEP_NAMES if template[0] == "inspection" else {}
             for position, (step_type, kind, dependencies) in enumerate(templates[template[0]]):
                 connection.execute(
                     """
@@ -513,7 +522,7 @@ class PlanningStore(LoopingStore):
                         plan_id, step_id, step_type, name, position, kind, depends_on_json
                     ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (plan_id, step_ids[step_type], step_type, step_type, position, kind,
+                    (plan_id, step_ids[step_type], step_type, step_names.get(step_type, step_type), position, kind,
                      _json([step_ids[item] for item in dependencies])),
                 )
                 connection.execute("INSERT INTO generation_loop_steps(plan_id,loop_no,step_id,status) VALUES(?,0,?,'pending')",

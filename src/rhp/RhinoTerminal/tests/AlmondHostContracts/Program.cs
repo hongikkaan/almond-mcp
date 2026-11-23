@@ -10,6 +10,17 @@ string root = Path.Combine(Path.GetTempPath(), "almond-terminal-" + Guid.NewGuid
 Directory.CreateDirectory(root);
 try
 {
+    var menuHost = (AlmondRhino.RhinoHost)RuntimeHelpers.GetUninitializedObject(typeof(AlmondRhino.RhinoHost));
+    string discovery = Path.Combine(root, "discovery.json");
+    Set(menuHost, "discoveryPath", discovery);
+    var menuOnly = Guid.NewGuid();
+    var shadeOnly = Guid.NewGuid();
+    Rhino.Display.DisplayModeDescription.Modes = [new(menuOnly, true, false), new(shadeOnly, false, true)];
+    menuHost.PublishMenu();
+    using (var published = JsonDocument.Parse(File.ReadAllText(discovery)))
+        Require(published.RootElement.GetProperty("display_mode_ids").EnumerateArray().Single().GetGuid() == menuOnly,
+                "The discovery menu must follow InMenu independently of Shade.");
+
     foreach (bool terminal in new[] { true, false })
     {
     var session = Path.Combine(root, ".almond", ".sessions", Guid.NewGuid().ToString("N"));
