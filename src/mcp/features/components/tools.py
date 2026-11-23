@@ -248,7 +248,7 @@ def register(mcp, context):
     def resolve_object_intersection(object_ids: list[str] | None = None, include_block: StrictBool = False,
                                     review_id: str = "", choice: StrictInt | Literal["skip"] | None = None,
                                     user_text: list[dict] | None = None):
-        """겹친 객체 쌍을 캡처해 비교하고 지정한 객체에서 겹친 부분을 제거. 검토 시 실제 카메라와 선택이 바뀐다. 완료 후에도 건너뛴 쌍은 남는다. 다음 쌍 계산이 실패해도 직전 수정이 이미 적용됐을 수 있으므로 previous_result와 실제 형상을 확인.
+        """겹친 객체 쌍을 캡처해 비교하고 지정한 객체에서 겹친 부분을 제거. 검토 시 실제 카메라와 선택이 바뀐다. 완료 후에도 건너뛴 쌍은 남는다. 다음 쌍의 검사 미판정(assessment=incomplete)에는 대상·이유와 해당 검사에서 확인한 모델 공차·단위를 반환하며 null은 확인 불가를 뜻한다. 직전 수정이 이미 적용됐을 수 있으므로 previous_result와 실제 형상을 확인.
 
         Args:
             object_ids: 새 검토를 시작할 현재 최상위 객체의 서로 다른 GUID 1..512개. 이어서 검토하거나 선택을 제출할 때는 생략.

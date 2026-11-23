@@ -11,7 +11,9 @@ from PIL import Image
 
 from almond_mcp.features.components.intersection_queries import handle
 from almond_mcp.features.context.capture_artifacts import save_png
-from almond_mcp.features.context.object_queries import dispatch, object_ids, validate_filters
+from almond_mcp.features.context.object_queries import (
+    dispatch, incomplete_intersection, intersection_next_cursor, intersection_page_error, object_ids, validate_filters,
+)
 from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.tool_response import error_payload
 
@@ -170,23 +172,24 @@ class Workflow:
                     "stop_at_first_positive": True}, path,
                     capability_name="intersection_review"))
             except Exception as exc:
-                return error_payload(str(exc), error_code="intersection_review_query_failed")
-            if page.get("status") == "error":
-                return page
-            pairs, unsupported = page.get("pairs"), page.get("unsupported_objects")
-            if page.get("status") != "success" or not isinstance(pairs, list) or not isinstance(unsupported, list):
-                raise ValueError("Intersection query omitted its evidence.")
-            failures = [v for v in unsupported if include_block or v.get("reason") != "block_excluded"]
-            if failures:
-                return {**error_payload("Some objects cannot be checked; narrow or correct the scope.", error_code="intersection_count_incomplete"),
-                        "unsupported_objects": failures}
+                return incomplete_intersection(error_payload(str(exc), error_code="intersection_review_query_failed"))
+            try:
+                error = intersection_page_error(page, include_block, review=True)
+                if error:
+                    return error
+                next_cursor = intersection_next_cursor(page, seen)
+            except (TypeError, ValueError, AttributeError, KeyError) as exc:
+                return incomplete_intersection(error_payload(str(exc), error_code="intersection_review_failed"), page)
+            pairs = page["pairs"]
             for pair in pairs:
                 status = pair.get("overlap", {}).get("status")
-                if status not in ("positive_volume", "zero_volume"):
-                    return {**error_payload("A candidate could not be calculated.", error_code="intersection_count_incomplete"), "failed_pairs": [pair]}
                 if status == "zero_volume":
                     continue
-                handles = [handle(pair[side]["handle"]) for side in ("a", "b")]
+                try:
+                    handles = [handle(pair[side]["handle"]) for side in ("a", "b")]
+                except (TypeError, ValueError, AttributeError, KeyError) as exc:
+                    error = error_payload(str(exc), error_code="intersection_review_failed")
+                    return incomplete_intersection({**error, "failed_pairs": [pair], "unsupported_objects": []}, page)
                 key = tuple(sorted(json.dumps(v, sort_keys=True) for v in handles))
                 if key in self.skipped:
                     continue
@@ -216,15 +219,11 @@ class Workflow:
                 review.update(state="awaiting_choice", review_id=identity, number=self.number,
                               next_step="Inspect this image and objects[].number, then call intersect_02-resolve tool with review_id=<this review_id> and choice=1 or 2 to trim only that numbered object and keep the other. Use choice='skip' to leave both unchanged; do not resend object_ids when answering this review.")
                 return review
-            next_cursor = page.get("next_cursor")
-            if page.get("pagination_complete") is True:
-                if next_cursor:
-                    raise ValueError("A completed query returned a cursor.")
+            if next_cursor is None:
                 self.pending = None
                 return {"status": "success", "state": "completed", "skipped_pairs": len(self.skipped),
                         "message": "현재 범위와 조건에서 검토할 겹침이 더 없습니다. skip한 쌍은 수정하지 않았습니다."}
-            if not pairs or not isinstance(next_cursor, str) or not next_cursor or next_cursor in seen:
-                raise ValueError("Intersection pagination did not advance.")
             seen.add(next_cursor)
             cursor = next_cursor
-        raise ValueError("Intersection review exceeded the candidate bound.")
+        return incomplete_intersection(error_payload("Intersection review exceeded the candidate bound.",
+                                                     error_code="intersection_review_failed"), page)

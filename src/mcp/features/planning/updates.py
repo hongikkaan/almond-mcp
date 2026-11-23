@@ -18,6 +18,7 @@ class PlanningUpdate:
     record: dict[str, Any]
     changed: bool
     issues: list[dict[str, Any]]
+    plan_completed: bool = False
 
 
 def apply_list_patch(current: list[str], patch: StringListPatch, field: str,

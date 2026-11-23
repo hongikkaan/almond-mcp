@@ -46,12 +46,14 @@ namespace RhinoAlmondBridge
                 // Reuse the ordinary object query's 4096-object bound, sending the set once.
                 // An explicitly empty shared set is never the legacy visible-document fallback.
                 var sharedIds = sharedScope ? ObjectObservation.ReadIds(request["object_ids"], 4096, true) : Array.Empty<Guid>();
-                foreach (var token in views)
+                var idsByTile = new Guid[views.Count][];
+                for (int index = 0; index < views.Count; index++)
                 {
-                    var tile = token as JObject;
+                    var tile = views[index] as JObject;
                     if (tile == null || tile.Properties().Any(p => !new[] { "object_ids", "direction", "display_mode", "label", "frame_objects" }.Contains(p.Name)))
                         throw new ArgumentException("Each tile accepts object_ids, direction, display_mode, label and frame_objects.");
                     var tileIds = ObjectObservation.ReadIds(tile["object_ids"], 512, false);
+                    idsByTile[index] = tileIds;
                     if (sharedScope && tileIds.Length != 0)
                         throw new ArgumentException("Use either shared object_ids or per-tile object_ids, not both.");
                     string direction = Text(tile, "direction", "current", 32);
@@ -85,9 +87,26 @@ namespace RhinoAlmondBridge
                 var editor = EditingContext.ObserveObjects(doc).State;
                 if (!EditingContext.CanObserve(editor))
                     return Error("editing_context_unverified", "Detached inspection requires a verified model or supported group/block editor context.");
-                var baseline = ObjectObservation.VisibleObjects(doc);
+                var modelObjects = ObjectObservation.ModelObjects(doc);
+                var explicitScopes = sharedScope ? new[] { sharedIds } : idsByTile;
+                if (explicitScopes.Any(ids => ids.Length > 0))
+                {
+                    var blockIds = modelObjects.OfType<InstanceObject>().Select(o => o.Id).ToHashSet();
+                    var invalidInputs = new List<string>();
+                    for (int index = 0; index < explicitScopes.Length; index++)
+                    {
+                        var unsupported = explicitScopes[index].Where(blockIds.Contains).ToArray();
+                        if (unsupported.Length == 0) continue;
+                        string path = sharedScope ? "object_ids" : $"views[{index}].object_ids";
+                        invalidInputs.Add(path + ": " + String.Join(", ", unsupported));
+                    }
+                    if (invalidInputs.Count > 0)
+                        return Error("unsupported_block_filter", "Remove these explicitly selected top-level block instances from the capture inputs: " +
+                            String.Join("; ", invalidInputs));
+                }
+                var baseline = modelObjects.Where(o => o.Visible).ToArray();
                 var baselineIds = new HashSet<Guid>(baseline.Select(o => o.Id));
-                string beforeContent = ObjectObservation.SnapshotToken(doc, new JObject(), ObjectObservation.ModelObjects(doc), editor);
+                string beforeContent = ObjectObservation.SnapshotToken(doc, new JObject(), modelObjects, editor);
                 var beforeView = ViewState(source.ActiveViewport);
                 var beforeActiveMain = ViewState(activeView.MainViewport);
                 var beforeActiveViewport = ViewState(activeView.ActiveViewport);
@@ -111,7 +130,7 @@ namespace RhinoAlmondBridge
                         tiles.Add(tile);
                         try
                         {
-                            var requested = sharedScope ? sharedIds : ObjectObservation.ReadIds(tileRequest["object_ids"], 512, false);
+                            var requested = sharedScope ? sharedIds : idsByTile[index];
                             bool explicitFilter = requested.Length != 0;
                             var filter = new HashSet<Guid>(requested);
                             var objects = explicitFilter ? baseline.Where(o => filter.Contains(o.Id)).ToArray() : baseline;
@@ -142,8 +161,6 @@ namespace RhinoAlmondBridge
                                 throw new CaptureException("scope_unavailable", "Some requested IDs are hidden, missing, or not top-level model objects; the tile was not rendered.");
                             if (objects.Length == 0)
                                 throw new CaptureException("empty_scope", "The chosen scope has no document-visible model objects.");
-                            if (explicitFilter && objects.Any(o => o is InstanceObject))
-                                throw new CaptureException("unsupported_block_filter", "Explicit block occurrence filtering is unsupported; no definition/member expansion was performed.");
                             string modeName = (string)tileRequest["display_mode"] ?? "";
                             var mode = modeName.Length == 0 ? source.ActiveViewport.DisplayMode : DocumentObservation.ResolveDisplayMode(modeName);
                             if (mode == null)

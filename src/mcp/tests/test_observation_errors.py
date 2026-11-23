@@ -46,7 +46,11 @@ def test_native_observation_error_keeps_details_and_sets_mcp_error(name, argumen
     result = tools[name](**arguments)
     assert isinstance(result, ToolResult)
     assert result.is_error
-    assert json.loads(result.structured_content["result"]) == error
+    expected = dict(error)
+    if name == "get_object_intersections":
+        expected.update(assessment="incomplete", failed_pairs=None, unsupported_objects=None,
+                        tolerance_model_units=None, document_units=None)
+    assert json.loads(result.structured_content["result"]) == expected
 
 
 def test_unknown_intersections_cannot_be_reported_as_a_complete_count(monkeypatch):

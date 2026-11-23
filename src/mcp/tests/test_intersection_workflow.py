@@ -56,6 +56,8 @@ def setup(monkeypatch, tmp_path):
             value = next(responses)
             if isinstance(value, Exception):
                 raise value
+            if isinstance(value, bytes):
+                return value
             return json.dumps(value)
         return Workflow(send), calls, send
     return create
@@ -68,6 +70,66 @@ def test_stops_at_first_positive_without_scanning_later_pairs(setup):
     assert [c["type"] for c in calls] == ["get_object_intersections", "get_object_intersections", "intersection_review"]
     assert all(c["max_pairs"] == 64 and c["stop_at_first_positive"] is True for c in calls[:2])
     assert "pair_state" not in calls[-1] and response.content[0].type == "image"
+
+
+def test_review_reports_unassessed_pair_and_unsupported_object_with_page_tolerance(setup):
+    failed = pair(status="unknown")
+    failed["overlap"]["reason"] = "Empty BooleanIntersection."
+    unsupported = {"object_id": C, "reason": "invalid_geometry"}
+    observation = {**page(failed), "unsupported_objects": [unsupported],
+                   "document_units": "Millimeters", "tolerance_model_units": 0.02}
+    _, calls, send = setup(observation)
+    review = register(FastMCP("incomplete-review"), SimpleNamespace(_send_and_receive=send))
+
+    output = review["resolve_object_intersection"](object_ids=[A, B, C])
+
+    assert output.is_error and len(calls) == 1
+    body = output.structured_content
+    assert body["error_code"] == "intersection_count_incomplete" and body["assessment"] == "incomplete"
+    assert body["unsupported_objects"] == [unsupported] and body["failed_pairs"] == [failed]
+    assert body["tolerance_model_units"] == 0.02 and body["document_units"] == "Millimeters"
+    assert "state" not in body and "review_id" not in body
+
+
+@pytest.mark.parametrize("failed_page,code,units,tolerance", [
+    ({**page(), "next_cursor": "unexpected", "document_units": "Meters", "tolerance_model_units": 0.002},
+     "intersection_review_failed", "Meters", 0.002),
+    ({"status": "success", "tolerance_model_units": 0.01}, "intersection_review_failed", None, 0.01),
+    (b"invalid json", "intersection_review_query_failed", None, None),
+    (OSError("disconnected"), "bridge_error", None, None),
+])
+def test_failed_review_page_reports_only_current_evidence(setup, failed_page, code, units, tolerance):
+    first = {**page(pair(status="zero_volume"), cursor="state:1"),
+             "document_units": "Feet", "tolerance_model_units": 0.75}
+    _, calls, send = setup(first, failed_page)
+    review = register(FastMCP("failed-review-page"), SimpleNamespace(_send_and_receive=send))
+
+    output = review["resolve_object_intersection"](object_ids=[A, B])
+
+    assert output.is_error and len(calls) == 2
+    body = output.structured_content
+    assert body["assessment"] == "incomplete" and body["error_code"] == code
+    assert body["failed_pairs"] is None and body["unsupported_objects"] is None
+    assert body["tolerance_model_units"] == tolerance and body["document_units"] == units
+    assert "state" not in body and "review_id" not in body
+
+
+@pytest.mark.parametrize("reported_b,reason", [
+    ({}, "'b'"),
+    ({"b": {"handle": {"object_id": "invalid", "path": []}}}, "badly formed hexadecimal UUID string"),
+])
+def test_unidentifiable_positive_pair_preserves_review_failure_evidence(setup, reported_b, reason):
+    observed = {"a": {"handle": HA}, **reported_b, "overlap": {"status": "positive_volume"}}
+    _, calls, send = setup({**page(observed), "document_units": "Feet", "tolerance_model_units": 0.003})
+    review = register(FastMCP("unidentifiable-pair"), SimpleNamespace(_send_and_receive=send))
+    output = review["resolve_object_intersection"](object_ids=[A, B])
+
+    assert output.is_error and len(calls) == 1
+    body = output.structured_content
+    assert body["error_code"] == "intersection_review_failed" and body["message"] == reason
+    assert body["assessment"] == "incomplete" and body["failed_pairs"] == [observed]
+    assert body["document_units"] == "Feet" and body["tolerance_model_units"] == 0.003
+    assert "state" not in body and "review_id" not in body
 
 
 def test_registered_workflow_keeps_its_review_on_its_own_connection(setup):

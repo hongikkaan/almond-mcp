@@ -62,6 +62,8 @@ def test_completion_commits_in_one_call_then_runs_rhino_without_a_notice(complet
     artifact = tmp_path / "handoff.3dm"
     artifact.write_bytes(b"preserve this file")
     store = completion.context.retrieval_store
+    for sibling in completion.plan["steps"][1:]:
+        store.update_plan_step(completion.plan["plan_id"], sibling["step_id"], "completed")
     registered_files = store.list_project_files()
     before = completion.read()
     result = completion.update(
@@ -71,6 +73,7 @@ def test_completion_commits_in_one_call_then_runs_rhino_without_a_notice(complet
     )
     assert result["status"] == "success" and result["changed"] is True
     assert result["step"]["status"] == "completed"
+    assert result["plan"]["status"] == "pending"
     assert result["plan"]["revision"] == before["revision"] + 1
     assert {"confirmation", "cleanup", "cleanup_state", "requires_reconciliation"}.isdisjoint(result)
     assert [request["type"] for request in completion.bridge_requests] == [

@@ -21,7 +21,7 @@ namespace RhinoAlmondBridge
             uint serial = 0;
             HashSet<Guid> hidden = null;
             IntersectionAnalysis.Scope sa = null, sb = null;
-            JObject answer = null;
+            JObject answer = null, incomplete = null;
             try
             {
                 ObjectObservation.ValidateDocument(doc, request);
@@ -46,8 +46,15 @@ namespace RhinoAlmondBridge
                     return new JObject { ["status"] = "success", ["filtered_out"] = true };
                 using (var observed = IntersectionAnalysis.Observe(doc, a, b))
                 {
-                    if ((string)observed.Report["overlap"]?["status"] != "positive_volume")
+                    string status = (string)observed.Report["overlap"]?["status"];
+                    if (status != "positive_volume")
+                    {
+                        if (status == "unknown")
+                            incomplete = new JObject { ["assessment"] = "incomplete",
+                                ["failed_pairs"] = new JArray(observed.Report.DeepClone()), ["unsupported_objects"] = new JArray(),
+                                ["tolerance_model_units"] = doc.ModelAbsoluteTolerance, ["document_units"] = doc.ModelUnitSystem.ToString() };
                         throw new ArgumentException("The current pair has no confirmed positive overlap; query again.");
+                    }
                     answer = new JObject { ["status"] = "success", ["objects"] = new JArray(first, second),
                         ["overlap"] = observed.Report["overlap"].DeepClone(),
                         ["regions"] = observed.Report["regions"]?.DeepClone(),
@@ -99,6 +106,7 @@ namespace RhinoAlmondBridge
             {
                 answer = new JObject { ["status"] = "error", ["error_code"] = "intersection_review_failed", ["message"] = ex.Message,
                     ["requires_reconciliation"] = started };
+                if (incomplete != null) answer.Merge(incomplete);
             }
             finally
             {

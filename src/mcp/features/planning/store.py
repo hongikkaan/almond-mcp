@@ -707,7 +707,8 @@ class PlanningStore(LoopingStore):
             )
             self._write_generation_refs(connection, plan_id, scene_ids, component_ids)
             result = self._record_generation_revision(connection, plan_id, "update_plan")
-        return PlanningUpdate(result, True, issues)
+            plan_completed = plan["status"] != "completed" and result["status"] == "completed"
+        return PlanningUpdate(result, True, issues, plan_completed=plan_completed)
 
     def _step_update_target(self, connection, plan_id, step_id, expected_revision, loop_no):
         plan = self._read_generation_plan(connection, plan_id)

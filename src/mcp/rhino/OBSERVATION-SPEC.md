@@ -97,7 +97,9 @@ GUID·Component 교차 검사는 `intersection_queries=1`을 확인하고 compon
 기본은 활성 모델뷰를 사용한다. `inspection_model_view=1`에서는 `model_view_id`로 기존 모델뷰를 지정해 활성 Layout·Detail을 바꾸지 않고 모델을 관찰한다. 문서·선택·가시성·Modified와 원본/활성 viewport·ActiveSpace가 전후 일치하지 않으면 이미지를 내보내지 않는다.
 기존 tile별 GUID는 512개 한도를 유지한다. `inspection_shared_scope=1`에서는 최상위 `object_ids`에 기존 객체 조회와 같은 상한인 1..4096개를 한 번 전달해 모든 tile에 재사용한다. 공통 `[]`와 공통/개별 집합 혼용은 오류다. 전체 GUID·총수는 `shared_scope`에 한 번 반환하며, 성공 tile의 참조·개수와 요청 집합을 Python에서 대조한다. 요청 256 KiB·메타데이터 512 KiB 한도를 유지한다. 전체/부분 성공 표시는 실제 tile 상태와 일치해야 하며 정상 부분 이미지는 보존한다.
 `current` 타일은 복제한 카메라 구도를 사용한다. 공통 또는 타일별 객체 GUID와 함께 `frame_objects: true`를 전달하면 분리된 viewport의 방향과 투영을 사용해 지정 객체의 결합 경계에 맞춘다.
-명시 블록 인스턴스 필터는 지원하지 않는다. inspection_editing_context=1에서는 검증된 group/block 편집 상태의 캡처를 허용한다. 타일 사이 편집 대상과 마지막 문서 내용·현재 작업 멤버도 대조하며 변하면 이미지를 반환하지 않는다. 편집기로 숨겨진 바깥 객체를 자동으로 복원하지 않는다. 알 수 없는 편집기·명령 전환 중에는 거절한다.
+공통 `object_ids` 또는 `views[i].object_ids`에 최상위 블록 인스턴스를 직접 지정하면 전체 호출이 `unsupported_block_filter`로 실패한다. 오류 메시지에 해당 입력 위치와 블록 GUID가 표시되며 PNG와 파일 경로는 반환하지 않는다.
+
+`inspection_editing_context=1`에서는 검증된 group/block 편집 상태의 캡처를 허용한다. 타일 사이 편집 대상과 마지막 문서 내용·현재 작업 멤버도 대조하며 변하면 이미지를 반환하지 않는다. 편집기로 숨겨진 바깥 객체를 자동으로 복원하지 않는다. 알 수 없는 편집기·명령 전환 중에는 거절한다.
 
 ## 제한된 평면 면 편집
 
@@ -124,7 +126,11 @@ outline은 summary를 기본으로 하며 field_groups로 objects/annotations/tr
 
 Python은 `capabilities.block_analysis=1`을 먼저 확인한다. 지원하지 않는 Bridge에는 분석 요청을 보내지 않는다.
 Bridge의 알 수 없는 request type도 실행 없이 unsupported_request로 거절한다.
-Holon 전용 겹침 도구는 제공하지 않는다. Holon의 현재 객체 GUID를 확인한 뒤 일반 객체와 같은 intersect_01-find tool(object_ids, include_block=false)로 조회하며 성공 시 intersections.number에 전체 겹침 쌍의 건수와 next_step만 반환한다. max_pairs·cursor는 내부 페이지 계산에만 사용한다. 미지원 형상·계산 실패·조회 중 범위 변경은 정상 건수로 축약하지 않고 오류 근거를 반환한다. include_block=false로 제외한 블록은 계산 범위 밖이다. Holon의 rhino_group_id로 inspect_02-get_objects tool(scope="document", group_ids=[...], include_ids=true)를 조회해 객체 GUID를 얻는 경로도 유지한다. 공통 교차 계산기는 components/native가 소유하며 의미 등록의 정합 검사는 Holon 조회 계약으로 남는다.
+Holon 전용 겹침 도구는 제공하지 않는다. Holon의 현재 객체 GUID는 `inspect_02-get_objects` tool에 `scope="document"`, `group_ids=[rhino_group_id]`, `include_ids=true`를 지정해 조회할 수 있다. 일반 객체와 같은 `intersect_01-find` tool에 GUID를 전달한다. `include_block=false`로 제외한 블록은 검사 범위 밖이다.
+
+전체 범위의 검사가 끝나면 `intersections.number`에 겹친 쌍의 건수를 반환하고 `next_step_guide`에 후속 안내를 표시한다. 0은 요청 범위에서 양의 부피가 겹친 쌍이 없다는 뜻이다. `max_pairs`와 `cursor`는 내부 페이지 계산에 사용한다.
+
+미지원 형상·계산 실패·조회 중 범위 변경으로 검사를 마치지 못하면 전체 건수 없이 `assessment=incomplete`를 반환한다. `intersect_01-find` tool과 `intersect_02-resolve` tool은 확인된 객체·쌍과 이유, 해당 검사에서 확인한 모델 공차와 단위를 전달한다. 확인할 수 없는 값은 `null`로 표시한다. 공통 교차 계산기는 `components/native`가 소유하며 의미 등록의 정합 검사는 Holon 조회 계약으로 둔다.
 
 ## Private Bridge C# recipe에서 계산값 반환
 
