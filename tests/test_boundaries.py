@@ -59,7 +59,7 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
             assert wheel.read("almond_mcp/" + relative) == (package / relative).read_bytes()
         assert not any("almond_mcp/" + relative in names for relative in retired_guides)
         assert not any(name.startswith(("almond_mcp/runtime/", "almond_mcp/tests/")) for name in names)
-        assert not any(name.removeprefix("almond_mcp/").startswith(("skill/", *retired_dirs)) for name in names)
+        assert not any(name.removeprefix("almond_mcp/").startswith((".agents/skills/", "skill/", *retired_dirs)) for name in names)
     with tarfile.open(sdists[0]) as sdist:
         prefix = "src/mcp/"
         members = {member.name.partition("/")[2]: member for member in sdist.getmembers() if member.isfile()}
@@ -67,7 +67,7 @@ def test_offline_built_distributions_contain_unaltered_guidance_without_runtime_
         for relative in guidance_files:
             assert sdist.extractfile(members[prefix + relative]).read() == (package / relative).read_bytes()
         assert not any(prefix + relative in members for relative in retired_guides)
-        assert not any(name.removeprefix(prefix).startswith(("skill/", *retired_dirs)) for name in members)
+        assert not any(name.removeprefix(prefix).startswith((".agents/skills/", "skill/", *retired_dirs)) for name in members)
     isolated = dict(os.environ, TMP=str(tmp_path), TEMP=str(tmp_path), TMPDIR=str(tmp_path))
     audit = subprocess.run(
         [sys.executable, "-B", str(ROOT / "src/mcp/release_validation/verify_release.py"), str(wheels[0])],

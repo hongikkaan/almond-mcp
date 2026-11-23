@@ -181,13 +181,13 @@ def register(mcp, context):
         일부 타일이 실패해도 status=success일 수 있으므로 complete와 tiles를 함께 확인한다.
 
         Args:
-            views: 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 설치된 모드 이름 또는 GUID. label: 최대 120자. object_ids: 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다.
+            views: 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 설치된 모드 이름 또는 GUID. label: 최대 120자. object_ids: 블록 인스턴스를 제외한 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다.
             width: 타일당 128..2048픽셀. 결합 이미지 제한도 적용.
             height: 타일당 128..2048픽셀. 결합 이미지 제한도 적용.
             columns: 1..뷰 개수. 생략 시 자동 격자.
             expected_model_path: 생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.
             model_view_id: 활성화하지 않고 사용할 모델 뷰포트 GUID. Layout·Detail에서 작업 중일 때도 지정 가능.
-            object_ids: 모든 타일에 적용할 최상위 객체 GUID 1..4096개. 타일별 object_ids와 함께 지정할 수 없다.
+            object_ids: 모든 타일에 적용할 최상위 객체 GUID 1..4096개. 블록 인스턴스 제외. 타일별 object_ids와 함께 지정할 수 없다.
         """
         from almond_mcp.features.context.inspection_capture import execute
         try:

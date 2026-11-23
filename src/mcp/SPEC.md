@@ -144,7 +144,7 @@ GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper
 
 ## Scene·Component·계획
 
-공통 건축 판단 원칙은 [별도 RhinoBeyond 스킬](../../skill/SKILL.md), Scene·Holon의 의미와 등록 기준은 [Scene 도구 설명](features/scenes/tools.py)과 [Holon 도구 설명](features/components/tools.py)을 따른다. 구현 계약은 [Component 등록·계층·동기화](features/components/SPEC.md)와 [계획 저장·참조](#계획-저장참조)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](features/assets/SPEC.md#기존-glbscene-배치-장부)에 둔다.
+공통 건축 판단 원칙은 [별도 RhinoBeyond 스킬](../../.agents/skills/rhinobeyond/SKILL.md), Scene·Holon의 의미와 등록 기준은 [Scene 도구 설명](features/scenes/tools.py)과 [Holon 도구 설명](features/components/tools.py)을 따른다. 구현 계약은 [Component 등록·계층·동기화](features/components/SPEC.md)와 [계획 저장·참조](#계획-저장참조)에 둔다. 기존 Room·asset instance 검사의 범위는 [자산 안내](features/assets/SPEC.md#기존-glbscene-배치-장부)에 둔다.
 
 `scene_07-list` tool는 Plan이나 live 문서 조회 없이 프로젝트 전체 Scene 이름의 제한된 페이지를 제공한다. Component 목록은 `scene_id`로 범위를 정하고 기본 root/선택적 recursive를 지원한다. `scene_11-sync_holon` tool는 기존 단건 호출과 함께 holon_ids·Scene·bound 문서 범위를 지원하며 대상 형식을 혼합하지 않는다.
 
@@ -197,7 +197,7 @@ Phase는 `generation_phase_files`에서 순서 있는 여러 등록 파일명을
 
 공개 도구와 리소스의 설명·입력 안내는 구현 함수의 docstring에 둔다. `public_tool` 등록은 공개 이름·출력 계약·후속 안내를 적용한다. 외부 카탈로그는 같은 선언의 서명과 docstring 및 등록 옵션으로 스키마를 생성한다.
 입력 검증 조건, 오류 상태·수치 결과, SQL과 실행할 C#/Blender 코드는 지침 원본이 아니다.
-설계 작업 지침은 별도 [RhinoBeyond 스킬](../../skill/SKILL.md)에 둔다.
+설계 작업 지침은 별도 [RhinoBeyond 스킬](../../.agents/skills/rhinobeyond/SKILL.md)에 둔다.
 
 beyond와 CoS는 모델 서버를 import하지 않고 선언만 읽어 스키마를 추출한다.
 package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는 해당 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.

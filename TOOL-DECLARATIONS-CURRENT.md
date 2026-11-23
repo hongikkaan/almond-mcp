@@ -4,11 +4,11 @@
 
 beyond·CoS의 공개 도구 81개. 연결 대상 입력, 연결 관리 도구 설명, 연결 성공 응답의 ID 필드 설명은 경로별로 다름.
 
-- 수집일: 2026-11-21. 기준: 이 문서와 함께 관리하는 소스.
+- 수집일: 2026-11-22. 기준: 이 문서와 함께 관리하는 소스.
 - 수집 경로: `src/cos/codex_host.py`와 `src/cos/cos_host.py`의 공용 `external_host.main`. 격리된 데이터 폴더에서 Rhino 연결 없이 stdio `initialize`·`tools/list` 호출.
 - 실행 패키지: almond-mcp 0.7.0rc2 / fastmcp 4.1.0 / mcp 2.3.0 / mcp-types 2.3.0.
-- CoS 선언 SHA-256: `6a9d4734915ad6410e87baf0062d9bd8b0030796c97025d828f34616ab5fe9b2`
-- beyond 선언 SHA-256: `936e5d62228ca41ab0affe53d6ef679d73c97ff482c5cacb3ab256bbcad4ecaa`
+- CoS 선언 SHA-256: `eff0cde93691f7e5d8c79fdc94fdb215d2acc2cb2886fd0e224e2d615d4c5cfe`
+- beyond 선언 SHA-256: `0a4419681889de81948fe91a0bc56fef0d505b9368ec9dcb9a46d805d754e087`
 - 이름순 tools 배열을 UTF-8 JSON(`sort_keys=True`, `ensure_ascii=False`, `separators=(",", ":")`)으로 직렬화한 해시.
 - 도구명·입력 설명은 구현 함수와 docstring, 출력 설명은 `src/mcp/output_contracts.py`에서 확인. 공통 스키마 기준은 `tests/integration/tool_schemas.json`, 외부 연결 도구 정의는 `src/cos/external_host.py` 참조.
 
@@ -985,7 +985,7 @@ type DecodedResult = {
 ```ts
 declare const tools: {
   mcp__rhino__capture_02_inspection(args: {
-    // 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 설치된 모드 이름 또는 GUID. label: 최대 120자. object_ids: 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다.
+    // 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 설치된 모드 이름 또는 GUID. label: 최대 120자. object_ids: 블록 인스턴스를 제외한 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다.
     views: Array<{
       [key: string]: unknown;
     }>;
@@ -1004,7 +1004,7 @@ declare const tools: {
     // 활성화하지 않고 사용할 모델 뷰포트 GUID. Layout·Detail에서 작업 중일 때도 지정 가능.
     // default: ""
     model_view_id?: string;
-    // 모든 타일에 적용할 최상위 객체 GUID 1..4096개. 타일별 object_ids와 함께 지정할 수 없다.
+    // 모든 타일에 적용할 최상위 객체 GUID 1..4096개. 블록 인스턴스 제외. 타일별 object_ids와 함께 지정할 수 없다.
     // default: null
     object_ids?: (Array<string> | null);
   }): Promise<CallToolResult<{
@@ -3333,6 +3333,8 @@ type DecodedResult = {
 Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에이전트가 직접 수행.
 
 새 회차의 Step은 `pending`에서 시작하며 이전 회차 기록은 `previous_loop`에서 확인. 실행된 회차가 있어야 `resume=true`로 재개 가능.
+
+다음 회차를 시작하기 전, 현재 Plan Goal을 사용자의 피드백 및 작업방향에 맞게 align하여 수정하고, 다음 회차에 필요하지 않음이 분명한 라이노 객체, layout, namedview, layer등을 삭제한다.
 ```
 
 ```ts
@@ -3774,6 +3776,8 @@ Phase·Plan 작업 정보 또는 Step 상태·입출력 참조·판단 기록 �
 `depends_on`, `input_refs`, `output_refs`는 `add`/`remove` 패치. 나머지 대상·산출물·상하위 관계 배열은 전체 교체. 생략·`null`은 기존 값 유지, 교체 배열의 `[]`는 전체 삭제.
 
 적용하지 못한 패치 항목은 `issues`에서 확인. 일부만 적용되면 `partial_success`. Step을 `completed`로 지정하면 함께 전달한 필드와 한 번에 저장.
+
+Plan 완료는 사용자 확인 후 지정.
 ```
 
 ```ts

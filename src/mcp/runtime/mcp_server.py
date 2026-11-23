@@ -181,6 +181,8 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
 
         새 회차의 Step은 `pending`에서 시작하며 이전 회차 기록은 `previous_loop`에서 확인. 실행된 회차가 있어야 `resume=true`로 재개 가능.
 
+        다음 회차를 시작하기 전, 현재 Plan Goal을 사용자의 피드백 및 작업방향에 맞게 align하여 수정하고, 다음 회차에 필요하지 않음이 분명한 라이노 객체, layout, namedview, layer등을 삭제한다.
+
         Args:
             plan_id: plan_02-create tool 또는 plan_08-list tool에서 얻은 ID.
             resume: `true`면 최신 회차 재개, `false`면 새 회차 시작.
