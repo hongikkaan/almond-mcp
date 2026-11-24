@@ -15,6 +15,7 @@ static class DocumentObservation
     internal static string HandleContext(RhinoDoc doc,JObject value) => Leaf.Observe(doc,value).ToString(Newtonsoft.Json.Formatting.None);
     internal static string HandleViewportImage(RhinoDoc doc,JObject value) => HandleContext(doc,value);
 }
+static class ViewManipulation { internal static JObject Handle(RhinoDoc doc,JObject value) => Leaf.Observe(doc,value); }
 static class ViewCaptureTools { internal static JObject Handle(RhinoDoc doc,JObject value) => Leaf.Observe(doc,value); }
 static class ObjectObservation { internal static JObject Handle(RhinoDoc doc,JObject value) => Leaf.Observe(doc,value); }
 static class InspectionCapture { internal static JObject Handle(RhinoDoc doc,JObject value) => Leaf.Observe(doc,value); }

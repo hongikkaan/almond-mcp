@@ -273,7 +273,9 @@ namespace Rhino.DocObjects {
         public HashSet<int> Groups = new HashSet<int>();
         public string TemporaryEditData;
         public bool IsInGroup(int index) => Groups.Contains(index);
-        public string GetUserString(string key) => key == "$TempBlockEditUserData$" ? TemporaryEditData : null;
+        public string LegacyComponentRecord;
+        public string GetUserString(string key) => key == "$TempBlockEditUserData$" ? TemporaryEditData :
+            key == "component_record" ? LegacyComponentRecord : null;
     }
     public class RhinoObject {
         public Guid Id;
@@ -354,7 +356,6 @@ namespace Rhino {
     }
 }
 namespace RhinoAlmondBridge {
-    public static class ModelingMetadata { public static string Key(string key) => key; }
     public static class EditingContext {
         public static JObject Observe(RhinoDoc doc) => new JObject { ["stable"]=doc.Stable };
         public class ObjectScope { public JObject State; }
@@ -377,7 +378,7 @@ public static class FixtureProgram {
             Id=Guid.Parse((string)row["id"]), IsDeleted=(bool?)row["deleted"] ?? false,
             IsReference=(bool?)row["reference"] ?? false, IsInstanceDefinitionGeometry=(bool?)row["definition"] ?? false,
             Attributes=new ObjectAttributes { Space=(bool?)row["page"] == true ? ActiveSpace.PageSpace : ActiveSpace.ModelSpace,
-                TemporaryEditData=(string)row["temporary"] }
+                TemporaryEditData=(string)row["temporary"], LegacyComponentRecord=(string)row["legacy_component_record"] }
         });
         foreach (var row in input["groups"].OfType<JObject>()) {
             int index=doc.Groups.Count;
@@ -386,7 +387,7 @@ public static class FixtureProgram {
             foreach (string id in row["members"].Values<string>()) doc.Objects.FindId(Guid.Parse(id)).Attributes.Groups.Add(index);
         }
         ComponentSemanticRegistry.Import(doc, new JObject {
-            ["version"]=1, ["records"]=input["records"] ?? new JObject(), ["legacy_initialized"]=true
+            ["version"]=1, ["records"]=input["records"] ?? new JObject(), ["legacy_initialized"]=(bool?)input["legacy_initialized"] ?? true
         }.ToString(Formatting.None));
         var replies=new JArray();
         foreach (var request in input["requests"].OfType<JObject>()) replies.Add(ComponentRegistry.Handle(doc, request));
@@ -453,6 +454,20 @@ def native_case():
                           "component_id": COMPONENT, "rhino_group_id": GROUP,
                           "name": "Arrival", "scene_ids": ["scene_arrival"],
                           "child_component_ids": []}]}
+
+
+def test_native_legacy_component_record_is_read_without_modeling_policy(native_host):
+    case = native_case()
+    case["legacy_initialized"] = False
+    case["objects"][0]["legacy_component_record"] = json.dumps({
+        "component_id": COMPONENT, "rhino_group_id": GROUP, "name": "Arrival",
+        "scene_ids": ["scene_arrival"], "child_component_ids": [],
+    })
+    case["requests"] = [{"action": "inspect_many", "expected_model_path": MODEL}]
+    result = native_host(case)
+    assert result["replies"][0]["status"] == "success", result
+    assert result["records"][COMPONENT]["rhino_group_id"] == GROUP
+    assert result["executions"] == 0
 
 
 @pytest.mark.parametrize("explicit_null", [False, True])

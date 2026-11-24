@@ -1,4 +1,5 @@
 {
+  "layer_template": "standard_d",
   "recipe_id": "architectural_plan_section_a4",
   "name": "Architectural Plan and Section A4",
   "description": "A4 architectural plans and sections with a restrained monochrome line hierarchy for reading actual 2D geometry and reviewing access, connections, places to stay, boundaries, and levels. After application, suggests a command to prepare this document's print preview.",

@@ -360,7 +360,7 @@ namespace RhinoAlmondBridge
                 types.Any(v => v.Type != JTokenType.String || !Enum.GetNames(typeof(ObjectType)).Contains((string)v, StringComparer.OrdinalIgnoreCase))))
                 throw new ArgumentException("object_types must contain 1..32 Rhino object_type names from an observation.");
             ValidateMetadataFilter(filters["user_text"], "user_text", ValidateUserText);
-            ValidateMetadataFilter(filters["user_dictionary"], "user_dictionary", ValidateDictionary);
+            ValidateUserDictionary(filters["user_dictionary"]);
         }
 
         static bool Matches(RhinoDoc doc, RhinoObject obj, JObject filters)
@@ -368,8 +368,7 @@ namespace RhinoAlmondBridge
             if (filters["layer_paths"] is JArray layers && !layers.Values<string>().Contains(doc.Layers.FindIndex(obj.Attributes.LayerIndex)?.FullPath, StringComparer.OrdinalIgnoreCase)) return false;
             if (filters["object_types"] is JArray types && !types.Values<string>().Contains(obj.ObjectType.ToString(), StringComparer.OrdinalIgnoreCase)) return false;
             if (filters["name_contains"] != null && (obj.Name ?? "").IndexOf((string)filters["name_contains"], StringComparison.OrdinalIgnoreCase) < 0) return false;
-            if (!MatchesMetadata(filters["user_text"], terms => MatchesUserText(obj.Attributes.GetUserString, terms))) return false;
-            return MatchesMetadata(filters["user_dictionary"], terms => MatchesDictionary(obj, terms));
+            return MatchesObjectMetadata(obj, filters["user_text"], filters["user_dictionary"]);
         }
 
         sealed class ValueBudget { public int Nodes = 8192, Characters = 131072; }

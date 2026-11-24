@@ -29,12 +29,13 @@ _almond_result_json = json.dumps(run(_almond_doc,
     near_width=_almond_args['near_width'], far_width=_almond_args['far_width'],
     near_dark=_almond_args['near_dark'], far_dark=_almond_args['far_dark'],
     include_attachments=_almond_args.get('include_attachments'),
+    section_width_source=_almond_args.get('section_width_source', 'source'),
     observe_attachments=_almond_observe_attachments,
     cancellation_token=_almond_deadline_token), ensure_ascii=False)
 ";
         static readonly HashSet<string> Fields = new HashSet<string>(new[] {
             "type", "operation", "clipping_ids", "points", "hatch", "small_details",
-            "near_width", "far_width", "near_dark", "far_dark", "expected_model_path", "include_attachments" });
+            "near_width", "far_width", "near_dark", "far_dark", "expected_model_path", "include_attachments", "section_width_source" });
 
         internal static JObject Validate(RhinoDoc doc, JObject request)
         {
@@ -56,6 +57,10 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 throw new ArgumentException("PlanSection supports Create, Update or Move in the bound document.");
             if (!(request["clipping_ids"] is JArray input) || input.Count == 0)
                 throw new ArgumentException("Supply a nonempty clipping GUID list.");
+            var widthSource = request["section_width_source"];
+            if (widthSource != null && (widthSource.Type != JTokenType.String ||
+                !new[] { "source", "output_layer" }.Contains((string)widthSource)))
+                throw new ArgumentException("section_width_source must be source or output_layer.");
             var includeAttachments = request["include_attachments"];
             if (includeAttachments != null && includeAttachments.Type != JTokenType.Boolean)
                 throw new ArgumentException("include_attachments must be boolean or omitted.");

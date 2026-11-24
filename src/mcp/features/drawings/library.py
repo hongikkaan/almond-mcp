@@ -4,6 +4,11 @@ import re
 import sys
 from pathlib import Path
 
+from almond_mcp.features.drawings.standard import STANDARD_D, STANDARD_D_ID, STANDARD_D_LAYERS
+
+
+_RESERVED_D_PATHS = {path.casefold() for path in STANDARD_D_LAYERS} | {"d", "d::plansection"}
+
 
 class DrawingRecipeIndexer:
     """Loads audited drawing-style recipes from a controlled directory."""
@@ -25,6 +30,15 @@ class DrawingRecipeIndexer:
                     for layer in layers:
                         if isinstance(layer, dict):
                             layer.pop("linetype_segments", None)
+                if recipe.get("layer_template") == STANDARD_D_ID:
+                    recipe["_layer_template"] = recipe.pop("layer_template")
+                    if not isinstance(layers, list):
+                        raise ValueError("Recipe layers must be a list")
+                    for layer in layers:
+                        path = layer["path"].casefold()
+                        if path in _RESERVED_D_PATHS or path.startswith("d::plansection::"):
+                            raise ValueError(f"Reserved drawing layer: {layer['path']}")
+                    recipe["layers"] = [*layers, *STANDARD_D["layers"]]
                 recipe["_source_file"] = str(recipe_path)
                 self.recipes[recipe_id] = recipe
             except Exception as exc:

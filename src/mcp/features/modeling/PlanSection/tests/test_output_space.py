@@ -119,10 +119,11 @@ class ModelSpaceOutput(unittest.TestCase):
         drawing = dict(objects=[] if empty else [dict(geometry=object(),attributes=source,role='section')])
         if failure == 'second-add': drawing['objects'] *= 2
         objects = NS(ActiveSpace=NS(ModelSpace='model'),
+                     ObjectColorSource=NS(ColorFromLayer='by-layer'),
                      ObjectPlotColorSource=NS(PlotColorFromLayer='by-layer'),
-                     ObjectPlotWeightSource=NS(PlotWeightFromLayer='by-layer'))
+                     ObjectPlotWeightSource=NS(PlotWeightFromLayer='by-layer', PlotWeightFromObject='by-object'))
         error = None
-        with patch.object(ps,'D',objects), patch.object(ps,'R',NS(Display=NS(RhinoPageView=Page))), \
+        with patch.object(ps,'Color',NS(FromArgb=lambda *rgb: rgb)), patch.object(ps,'D',objects), patch.object(ps,'R',NS(Display=NS(RhinoPageView=Page))), \
              patch.object(ps,'System',NS(Guid=NS(Empty='empty'))), \
              patch.object(ps,'drawing_objects',return_value=[old,old2] if failure == 'late-delete' else [old]), \
              patch.object(ps,'local_output_layer',wraps=ps.local_output_layer) as layer, \
@@ -148,7 +149,13 @@ class ModelSpaceOutput(unittest.TestCase):
                 self.assertEqual(set(run.stored),{'new'})
                 self.assertEqual(run.source.Space,'page')
                 self.assertEqual(run.source.ViewportId,'source-page')
-                self.assertEqual(run.stored['new'].Attributes.PlotColor,'manual-color')
+                attrs = run.stored['new'].Attributes
+                self.assertEqual((attrs.ColorSource, attrs.PlotColorSource, attrs.PlotWeightSource),
+                                 ('by-layer', 'by-layer', 'by-object'))
+                self.assertEqual(attrs.PlotWeight, .2)
+                layer = run.doc.Layers[attrs.LayerIndex]
+                self.assertEqual((layer.FullPath, layer.Color, layer.PlotColor),
+                                 ('D::PlanSection::Section', (255, 165, 0), (0, 0, 0)))
                 self.assertEqual(run.registry.call_args.args[1].Id, 'clip')
                 self.assertEqual(run.registry.call_args.args[2], '["new"]')
                 self.assert_restored(run,initial)
@@ -227,11 +234,32 @@ class ModelSpaceOutput(unittest.TestCase):
     def test_second_add_failure_restores_previous_drawing_and_created_layers(self):
         run = self.scenario('detail', 'second-add')
         self.assertEqual(set(run.stored), {'old'})
-        self.assertEqual(run.doc.Layers.FindByFullPath('Drawing::Section', -1), -1)
+        self.assertEqual(run.doc.Layers.FindByFullPath('D::PlanSection::Section', -1), -1)
         self.assertEqual(run.doc.Layers[0].GetUserString('ps:clip:clip'), 'old-registry')
         self.assertTrue(run.error.recovery['tracked_changes_restored'])
         self.assertEqual(run.error.recovery['mutation_state'], 'unknown')
         self.assert_restored(run, 'detail')
+
+
+def test_legacy_registry_lookup_without_object_markers_and_current_registry_precedence():
+    layers = LayerTable()
+    key = 'ps:clip:clip'
+    layers.items[0].SetUserString(key, '["legacy"]')
+    legacy = NS(Id='legacy', IsReference=False, Attributes=Attributes())
+    current = NS(Id='current', IsReference=False, Attributes=Attributes())
+    doc = NS(Layers=layers)
+    cp = NS(Id='clip')
+    with patch.object(ps, 'System', NS(Guid=lambda value: value)), \
+         patch.object(ps, 'objects', return_value=[legacy, current]):
+        assert ps.drawing_objects(doc, cp) == [legacy]
+        index = layers.AddPath(ps.DRAWING_ROOT)
+        layers.items[index].values.clear()
+        assert ps.drawing_objects(doc, cp) == [legacy]
+        ps.save_drawing_registry(doc, cp, '["current"]')
+        assert ps.drawing_objects(doc, cp) == [current]
+        ps.save_drawing_registry(doc, cp, '[]')
+        assert ps.drawing_objects(doc, cp) == []
+        assert layers.items[0].GetUserString(key) == '["legacy"]'
 
 
 if __name__ == '__main__': unittest.main()

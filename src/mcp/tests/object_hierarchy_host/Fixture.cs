@@ -188,11 +188,10 @@ namespace RhinoAlmondBridge {
             var matched = input["matched"] == null ? source : source.Where(o => input["matched"].Values<string>().Contains(o.Id.ToString())).ToArray();
             if (input["filters"] is JObject filters) {
                 ValidateMetadataFilter(filters["user_text"],"user_text",ValidateUserText);
-                ValidateMetadataFilter(filters["user_dictionary"],"user_dictionary",ValidateDictionary);
+                ValidateUserDictionary(filters["user_dictionary"]);
                 var conditions = NamedFilters(doc, filters);
                 matched = matched.Where(o => conditions.All(condition => condition(o)) &&
-                    MatchesMetadata(filters["user_text"], terms => MatchesUserText(o.Attributes.GetUserString,terms)) &&
-                    MatchesMetadata(filters["user_dictionary"],terms => MatchesDictionary(o,terms))).ToArray();
+                    MatchesObjectMetadata(o, filters["user_text"], filters["user_dictionary"])).ToArray();
             }
             if ((bool?)input["matched_ids_only"] == true)
                 return new JObject { ["ids"] = new JArray(matched.Select(o => o.Id.ToString())) };

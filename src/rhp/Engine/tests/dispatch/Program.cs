@@ -33,6 +33,11 @@ try
 catch (InvalidOperationException) { }
 Require(ReferenceEquals(RhinoAlmondBridge.Leaf.Document, original), "BridgeServer reacquired a different document");
 RhinoAlmondBridge.Leaf.OnObservation = null;
+RhinoDoc.ActiveDoc = original;
+var viewRequest = new RhinoAlmondBridge.BridgeServer().HandleRequest(new BridgeDispatchContext(original, original.Path, 71,
+    Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N")), "{\"type\":\"manipulate_view\",\"operation\":\"zoom\"}");
+Require(JsonDocument.Parse(viewRequest).RootElement.GetProperty("operation").GetString() == "zoom",
+    "BridgeServer did not route relative view manipulation to the fixed typed handler");
 Console.WriteLine("PASS: production BoundBridge TCP authentication, typed document dispatch, callback completion and failure drain");
 
 async Task Run(string scenario, bool changeDocument, bool fail, bool failReceipt = false, bool stopQueued = false)

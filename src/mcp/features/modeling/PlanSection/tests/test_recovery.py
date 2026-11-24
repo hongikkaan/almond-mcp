@@ -100,6 +100,7 @@ def test_layer_recovery_restores_existing_and_removes_only_owned_created_paths()
 def test_registry_mutation_then_exception_restores_owned_layer_snapshot():
     from test_output_space import LayerTable
     layers = LayerTable()
+    index = layers.AddPath(ps.DRAWING_ROOT)
     doc = NS(Layers=layers)
     cp = NS(Id='clip')
     original_modify = layers.Modify
@@ -114,10 +115,11 @@ def test_registry_mutation_then_exception_restores_owned_layer_snapshot():
     journal = ps.DrawingRecovery()
     with pytest.raises(ValueError):
         ps.save_drawing_registry(doc, cp, '["new"]', journal)
-    assert layers[0].GetUserString('ps:clip:clip') == '["new"]'
+    assert layers[index].GetUserString('ps:clip:clip') == '["new"]'
     journal.restore_layers(doc)
-    assert layers[0].GetUserString('ps:clip:clip') == 'old-registry'
-    assert journal.attempts == [dict(action='layer', target='Drawing', status='restored')]
+    assert layers[index].GetUserString('ps:clip:clip') == 'old-registry'
+    assert journal.attempts == [dict(action='layer', target=layer, status='restored')
+                                for layer in (ps.DRAWING_ROOT, 'D')]
 
 
 def test_layer_restore_failure_does_not_skip_remaining_layers():

@@ -48,7 +48,16 @@ def response(status="completed", item_status="completed"):
     return dict(status="success", mutation_state="completed", result=drawing)
 
 
-def transport(reply=None, capability=3):
+def test_section_width_source_contract_applies_only_to_regeneration():
+    assert request()["section_width_source"] == "source"
+    assert request(operation="Update", section_width_source="output_layer")["section_width_source"] == "output_layer"
+    assert "section_width_source" not in request(operation="Move", points={ID: [1, 2]},
+                                                  section_width_source="output_layer")
+    with pytest.raises(ValueError, match="section_width_source"):
+        request(section_width_source="arbitrary")
+
+
+def transport(reply=None, capability=4):
     calls = []
     def send(data, **kwargs):
         payload = json.loads(data)
@@ -89,7 +98,7 @@ def test_dedicated_native_dispatch_never_routes_caller_script_or_rhinocode():
     assert not {"script", "language", "folder", "path", "output"}.intersection(calls[-1][0])
 
 
-@pytest.mark.parametrize("capability", [None, 0, True, "3", 1, 2])
+@pytest.mark.parametrize("capability", [None, 0, True, "4", 1, 2, 3])
 def test_old_or_invalid_capability_never_dispatches_mutation(capability):
     send, calls = transport(capability=capability)
     result = plan_section.dispatch(request(), send)

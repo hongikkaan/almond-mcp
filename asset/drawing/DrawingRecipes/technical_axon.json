@@ -1,4 +1,5 @@
 {
+  "layer_template": "standard_d",
   "recipe_id": "technical_axon_v1",
   "name": "Technical Axonometric",
   "description": "Black-and-white architectural axonometric with hierarchical line weights.",

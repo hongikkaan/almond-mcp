@@ -95,8 +95,9 @@ namespace RhinoAlmondBridge
                     ["inspection_shared_scope"] = 1, ["inspection_editing_context"] = 1,
                     ["capture_output_size"] = 1, ["display_mode_menu"] = 1, ["face_edit"] = 1,
                     ["face_edit_batch"] = 1, ["intersection_queries"] = 1, ["intersection_tools"] = 1,
-                    ["intersection_review"] = 1, ["intersection_user_text"] = 1,
-                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["view_capture"] = 1, ["plan_section"] = 3,
+                    ["intersection_review"] = 1, ["intersection_user_text"] = 1, ["intersection_user_dictionary"] = 1,
+                    ["view_manipulation"] = 1, ["drawing_style_protection"] = 1,
+                    ["drawing_asset_linked"] = 1, ["modeling_setup"] = 1, ["material_layer_assignment"] = 1, ["view_capture"] = 1, ["plan_section"] = 4,
                     ["step_temp_cleanup"] = 1 },
                 ["warnings"] = warnings
             };

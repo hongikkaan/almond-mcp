@@ -13,7 +13,7 @@ from almond_mcp.features.modeling import modeling_setup
 from almond_mcp.features.modeling.tools import register
 
 
-def context(reply=None, *, capability=True):
+def context(reply=None, *, capability=True, material_layer=True):
     material = {"material_id": "oak", "name": "Oak", "category": "Wood", "ue_material_slot": "Oak",
                 "base_color": [10, 20, 30], "metallic": 0.0, "roughness": 0.5, "opacity": 1.0}
     system = {"category": "floor", "name": "Oak floor", "render_material_ids": ["oak"],
@@ -25,7 +25,8 @@ def context(reply=None, *, capability=True):
         requests.append(request)
         if request["type"] == "get_rhino_context":
             return json.dumps({"status": "success", "capabilities": {
-                "modeling_materials": 2, **({"modeling_setup": 1} if capability else {})}})
+                "modeling_materials": 2, **({"modeling_setup": 1} if capability else {}),
+                **({"material_layer_assignment": 1} if material_layer else {})}})
         if isinstance(reply, Exception):
             raise reply
         return json.dumps(reply or {"status": "success", "result": {"applied": True, "differences": [], "errors": []}})
@@ -92,12 +93,84 @@ def test_material_script_execution_does_not_claim_assignment_after_result_error(
 @pytest.mark.parametrize("applied_count, status", [(0, "executed"), (1, "partial"), (2, "success")])
 def test_material_result_distinguishes_assignment_coverage(applied_count, status):
     guids = ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]
-    ctx = context({"status": "success", "result": {"material_id": "oak", "applied_guids": guids[:applied_count]}})
+    applied = guids[:applied_count]
+    ctx = context({"status": "success", "result": {
+        "material_id": "oak", "applied_guids": applied, "changed_guids": applied,
+        "layer_path": "M::Wood::oak", "layer_action": "created",
+        "layer_changed_guids": applied[:1], "render_material_applied": True,
+    }})
     tools = register(FastMCP("material-result-coverage"), ctx)
     result = json.loads(tools["assign_material"](guids, "oak", apply_render_material=bool(applied_count)))
     assert result["status"] == status
     assert result["applied_count"] == applied_count
     assert result["requested_count"] == len(guids)
+    assert result["layer_path"] == ("M::Wood::oak" if applied else None)
+    assert result["layer_action"] == ("created" if applied else "not_applied")
+    assert result["layer_changed_guids"] == applied[:1]
+
+
+def test_layer_settings_use_material_category_and_are_sent_only_for_render_assignment():
+    from almond_mcp.features.modeling.modeling_policy import material_layer, validate_material
+
+    material = context().material_library.get("oak")
+    assert material_layer(material) == {"path": "M::Wood::oak"}
+    style = {"path": "M::Wood::Oak custom", "color": [40, 50, 60],
+             "plot_color": [0, 0, 0], "plot_weight_mm": 0.25, "linetype": "Continuous"}
+    assert material_layer(validate_material({**material, "layer_settings": style})) == style
+    for invalid in ({"path": "D::Wood::oak"}, {"path": "M::Metal::oak"},
+                    {"path": "M::Wood::oak::child"}, {"color": [256, 1, 2]}, {"plot_weight_mm": True}):
+        with pytest.raises(ValueError):
+            material_layer(validate_material({**material, "layer_settings": invalid}))
+    material["layer_settings"] = style
+    code = modeling_setup.material_script(material, [], True, False)
+    assert "M::Wood::Oak custom" in code and "plot_weight_mm" in code
+    assert "layer_settings" not in modeling_setup.material_script(material, [], False, True)
+
+
+def test_material_layer_rules_only_apply_to_render_assignment(tmp_path):
+    from almond_mcp.features.modeling.library import MaterialLibrary
+    from almond_mcp.features.modeling.modeling_policy import POLICY
+
+    guid = "00000000-0000-0000-0000-000000000001"
+    ctx = context({"status": "success", "result": {"material_id": "oak", "applied_guids": [guid], "metadata_attached": True}})
+    material = {**ctx.material_library.get("oak"), "category": "paint:interior"}
+    (tmp_path / "manifest.json").write_text(json.dumps({"materials": [material]}))
+    ctx.material_library = MaterialLibrary(tmp_path)
+    assert ctx.material_library.get("oak") == material
+    assign = register(FastMCP("legacy-material"), ctx)["assign_material"]
+    assert json.loads(assign([guid], "oak"))["status"] == "error"
+    assert ctx.requests == []
+    assert json.loads(assign([guid], "oak", False, True, floor="1F"))["status"] == "success"
+    assert set(POLICY["material_assignment_keys"]) == {"floor", "construction_detail", "construction_reference", "structural_role"}
+
+
+def test_old_bridge_rejects_render_assignment_but_can_still_attach_metadata():
+    guid = "00000000-0000-0000-0000-000000000001"
+    ctx = context({"status": "success", "result": {
+        "material_id": "oak", "applied_guids": [guid], "metadata_attached": True,
+    }}, material_layer=False)
+    tools = register(FastMCP("material-capability"), ctx)
+    failed = json.loads(tools["assign_material"]([guid], "oak"))
+    assert failed["error_code"] == "unsupported_material_layer_assignment"
+    assert failed["mutation_state"] == "not_started"
+    assert [r["type"] for r in ctx.requests] == ["get_rhino_context"]
+    result = json.loads(tools["assign_material"]([guid], "oak", False, True, floor="1F", structural_role="slab"))
+    assert result["status"] == "success" and result["metadata_attached"] is True
+    assert result["layer_action"] == "not_applied" and result["layer_changed_guids"] == []
+    assert result["layer_path"] is None and result["render_material_applied"] is False
+    assert result["structural_role"] == "slab" and "structural_role" in ctx.requests[-1]["script"]
+
+
+def test_material_result_does_not_confirm_a_move_without_bridge_evidence():
+    guid = "00000000-0000-0000-0000-000000000001"
+    ctx = context({"status": "success", "result": {
+        "material_id": "oak", "applied_guids": [guid], "changed_guids": [],
+        "layer_path": "M::Wood::oak", "layer_action": "reused",
+        "layer_changed_guids": [guid], "render_material_applied": True,
+    }})
+    result = json.loads(register(FastMCP("material-unconfirmed"), ctx)["assign_material"]([guid], "oak"))
+    assert result["error_code"] == "material_layer_result_unavailable"
+    assert result["mutation_state"] == "unknown"
 
 
 async def check_required_strict_boolean_and_no_operation_argument():

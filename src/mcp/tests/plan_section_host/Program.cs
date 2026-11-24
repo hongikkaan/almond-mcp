@@ -61,6 +61,10 @@ class Program
         Check(python.LoadedSource.StartsWith("__name__ = 'almond_plansection_internal'\n"), "interactive main disabled");
         Check(python.LoadedSource.Contains("def run(doc, operation, clipping_ids"), "packaged algorithm shared");
         var responses = new JObject { ["completed"] = good };
+        var outputLayerWidth = Request(); outputLayerWidth["section_width_source"] = "output_layer";
+        Check((string)Run(outputLayerWidth)["status"] == "success" && ScriptExecutor.Calls == 1 &&
+            (string)Rhino.Runtime.PythonScript.Last.Arguments["section_width_source"] == "output_layer",
+            "Width-only layer option reaches the packaged script");
         var move = Request(); move["operation"] = "Move";
         Check((string)Run(move)["mutation_state"] == "not_started" && ScriptExecutor.Calls == 0,
             "Move without a target never enters Undo");
@@ -164,6 +168,8 @@ class Program
         foreach (var change in new Action<JObject>[] {
             r => r["operation"] = "PDF", r => r["hatch"] = 1, r => r["near_width"] = 0,
             r => r["include_attachments"] = 1,
+            r => r["section_width_source"] = true,
+            r => r["section_width_source"] = "unsupported",
             r => r["clipping_ids"] = new JArray(Guid.Empty.ToString()),
             r => r["clipping_ids"] = new JArray(Guid.NewGuid().ToString()),
             r => r["expected_model_path"] = @"C:\other.3dm",

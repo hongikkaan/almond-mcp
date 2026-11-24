@@ -29,7 +29,10 @@ def material_script(material, guids, apply_render_material, attach_metadata, ext
     entries = ", ".join("{ " + json.dumps(key) + ", " + json.dumps(value, ensure_ascii=True) + " }"
                         for key, value in metadata.items())
     ids = ", ".join("new Guid(" + json.dumps(value) + ")" for value in guids)
-    return script(f"ModelingMaterials.Apply(doc, {literal(recipe(material))}, new Guid[] {{ {ids} }}, "
+    payload = recipe(material)
+    if apply_render_material:
+        payload["layer_settings"] = modeling_policy.material_layer(material)
+    return script(f"ModelingMaterials.Apply(doc, {literal(payload)}, new Guid[] {{ {ids} }}, "
                   f"new Dictionary<string, string> {{ {entries} }}, "
                   f"{str(apply_render_material).lower()}, {str(attach_metadata).lower()})")
 
@@ -75,11 +78,11 @@ def setup_script(material_library, construction_library, overwrite):
     return script(f"ModelingMaterials.Setup(doc, {literal(recipes)}, {literal(layers)}, {str(overwrite).lower()})")
 
 
-def dispatch(code, send, timeout=60.0, *, require_setup=False):
+def dispatch(code, send, timeout=60.0, *, require_setup=False, require_material_layer=False):
     """Require the explicit-only Bridge contract before one mutation dispatch."""
     dispatched = False
     try:
-        problem = check_bridge(send, require_setup=require_setup)
+        problem = check_bridge(send, require_setup=require_setup, require_material_layer=require_material_layer)
         if problem:
             return problem
         dispatched = True
@@ -92,7 +95,7 @@ def dispatch(code, send, timeout=60.0, *, require_setup=False):
                 "message": 'Could not confirm modeling operation: {0}. Inspect Rhino before retrying.'.format(exc)}
 
 
-def check_bridge(send, *, require_setup=False):
+def check_bridge(send, *, require_setup=False, require_material_layer=False):
     try:
         context = json.loads(send(b'{"type":"get_rhino_context","selection_limit":0}'))
         if not isinstance(context, dict) or context.get("status") not in ("success", "error"):
@@ -102,6 +105,9 @@ def check_bridge(send, *, require_setup=False):
         if context.get("capabilities", {}).get("modeling_materials") != 2:
             return {"status": "error", "error_code": "unsupported_materials", "mutation_state": "not_started",
                     "message": 'Load the updated Bridge (modeling_materials=2) before editing materials or layers.'}
+        if require_material_layer and context.get("capabilities", {}).get("material_layer_assignment") != 1:
+            return {"status": "error", "error_code": "unsupported_material_layer_assignment", "mutation_state": "not_started",
+                    "message": "Load the updated Bridge (material_layer_assignment=1) before assigning a material layer."}
         if require_setup and context.get("capabilities", {}).get("modeling_setup") != 1:
             return {"status": "error", "error_code": "unsupported_modeling_setup", "mutation_state": "not_started",
                     "message": "Load the updated Bridge (modeling_setup=1) before combined Material/Layer setup."}

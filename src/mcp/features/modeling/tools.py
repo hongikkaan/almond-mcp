@@ -22,7 +22,8 @@ def register(mcp, context):
                           hatch: StrictBool = True, small_details: StrictBool = False,
                           near_width: StrictFloat | StrictInt = 0.09, far_width: StrictFloat | StrictInt = 0.04,
                           near_dark: StrictFloat | StrictInt = 80.0, far_dark: StrictFloat | StrictInt = 45.0,
-                          include_attachments: StrictBool | None = None) -> str:
+                          include_attachments: StrictBool | None = None,
+                          section_width_source: Literal["source", "output_layer"] = "source") -> str:
         """활성 모델이나 Worksession 첨부 파일의 클리핑 평면에서 단면선·가시 입면선·해치를 생성. Update는 저장 위치에서 다시 계산해 수동 편집을 교체할 수 있고, Move는 GUID와 수동 편집을 유지한 채 원점만 이동.
 
         Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 중단하고 Undo와 정리를 마치면 timeout 및 클리핑별 결과를 반환한다. 완료된 도면은 남는다. SDK 호출 또는 정리 중 클라이언트 대기가 끝나면 중단 여부는 미확인이다. 변경 실패 시 객체·속성·레이어 복구 시도는 recovery.attempts에 기록하며 tracked_changes_restored는 추적한 변경의 복구 결과다. requires_reconciliation=true이면 실제 도면과 Undo 상태를 확인하고 자동 재시도하지 않는다.
@@ -37,12 +38,14 @@ def register(mcp, context):
             far_width: 먼 입면선 두께(mm). 양수, near_width 이하.
             near_dark: 가까운 입면선 농도(%). 0..100, far_dark 이상.
             far_dark: 먼 입면선 농도(%). 0..100, near_dark 이하.
+            section_width_source: 단면선의 인쇄 선폭 기준. source는 원본의 유효 선폭, output_layer는 D::PlanSection::Section 레이어의 선폭. Move에는 적용되지 않음.
             include_attachments: Worksession 첨부 형상 포함. Create에서 생략하면 활성 모델만, Update에서 생략하면 저장된 설정 사용. Move에는 적용되지 않음.
         """
         try:
             payload = section_operations.request(operation, clipping_ids, points, hatch, small_details,
                                                  near_width, far_width, near_dark, far_dark,
-                                                 bound_model_path(), include_attachments=include_attachments)
+                                                 bound_model_path(), include_attachments=include_attachments,
+                                                 section_width_source=section_width_source)
         except (ValueError, TypeError, AttributeError, OverflowError) as exc:
             return json.dumps({**error_payload(str(exc), error_code="invalid_arguments"),
                                "mutation_state": "not_started"})
@@ -194,13 +197,14 @@ def register(mcp, context):
         construction_detail: str = "",
         construction_reference: dict | None = None,
     ) -> str:
-        """Rhino 객체에 라이브러리 렌더 재료와 선택적 구축 메타데이터 지정. 재료는 객체에 직접 지정하고 레이어는 유지. 중복 GUID는 한 번만 처리. 메타데이터는 inspect_02-get_objects tool에서 fields=["user_text"]로 읽거나 filters.user_text로 검색.
+        """Rhino 객체에 라이브러리 렌더 재료와 선택적 구축 메타데이터 지정. 렌더 재료를 적용하면 지정한 객체를 해당 재료의 레이어로 옮겨 ByLayer로 지정한다. 중복 GUID는 한 번만 처리. 메타데이터는 inspect_02-get_objects tool에서 fields=["user_text"]로 읽거나 filters.user_text로 검색.
 
         success는 전체 처리, partial은 일부 처리. executed는 적용한 객체가 없거나 적용 결과를 읽지 못한 상태. 결과 확인이 안 된 경우 재시도 전에 Rhino에서 대상 객체 확인.
 
         Args:
             guids: 현재 Rhino 객체의 GUID. 관찰 또는 생성 결과에서 가져온 값.
             material_id: model_04-list_materials tool에서 include_ids=true로 조회한 표준 재료 ID
+            apply_render_material: true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 재료를 유지한다.
             attach_metadata: Almond 재료·구축 메타데이터를 객체 속성에 기록
             structural_role: attach_metadata=true일 때 기록할 구조 역할
             construction_system: 라이브러리에서 확인한 구축 시스템 ID. attach_metadata=true일 때 기록하며 construction_reference와 함께 지정하면 동일한 시스템 필요.
@@ -240,7 +244,7 @@ def register(mcp, context):
                 return json.dumps(error_payload("construction_system and construction_reference identify different sources."))
             construction_system = construction_reference["id"]
         if structural_role:
-            extra_strings[modeling_policy.key("structural_role")] = structural_role
+            extra_strings["structural_role"] = structural_role
         if construction_system:
             system = context.construction_library.get(construction_system)
             if system is None:
@@ -260,9 +264,13 @@ def register(mcp, context):
             extra_strings[modeling_policy.key("floor")] = floor
         if construction_detail:
             extra_strings[modeling_policy.key("construction_detail")] = construction_detail
-        script = modeling_setup.material_script(material, guid_list, apply_render_material,
-                                  attach_metadata, extra_strings)
-        response = modeling_setup.dispatch(script, context._send_and_receive)
+        try:
+            script = modeling_setup.material_script(material, guid_list, apply_render_material,
+                                                   attach_metadata, extra_strings)
+        except ValueError as exc:
+            return json.dumps(error_payload(str(exc)))
+        response = modeling_setup.dispatch(script, context._send_and_receive,
+                                           require_material_layer=apply_render_material)
         if response.get("status") != "success":
             return json.dumps(response)
         if response.get("result_error"):
@@ -274,6 +282,25 @@ def register(mcp, context):
                 or len(applied) != len(set(applied)) or native.get("material_id") != material_id):
             return json.dumps({"status": "error", "error_code": "material_result_unavailable", "mutation_state": "unknown",
                                "message": 'Material assignment returned no valid applied-object result. Inspect Rhino before retrying.'})
+        layer_path, layer_action, layer_changed = None, "not_applied", []
+        if apply_render_material:
+            layer_path = native.get("layer_path")
+            layer_action = native.get("layer_action")
+            layer_changed = native.get("layer_changed_guids")
+            expected_path = modeling_policy.material_layer(material)["path"]
+            changed = native.get("changed_guids")
+            actual = layer_path.casefold().split("::") if isinstance(layer_path, str) else []
+            expected = expected_path.casefold().split("::")
+            if (len(actual) != 3 or not actual[-1] or actual[:2] != expected[:2]
+                    or layer_action not in ("created", "reused")
+                    or (layer_action == "created" and actual != expected)
+                    or native.get("render_material_applied") is not True
+                    or not isinstance(layer_changed, list) or not isinstance(changed, list)
+                    or any(not isinstance(g, str) or g not in applied or g not in changed for g in layer_changed)
+                    or len(layer_changed) != len(set(layer_changed))):
+                return json.dumps({"status": "error", "error_code": "material_layer_result_unavailable",
+                                   "mutation_state": "unknown",
+                                   "message": "Could not confirm material layer assignment. Inspect Rhino before retrying."})
         status = "success"
         if not applied:
             status = "executed"
@@ -290,7 +317,9 @@ def register(mcp, context):
             "metadata_attached": native.get("metadata_attached", attach_metadata and (apply_render_material or bool(extra_strings))),
             "material_metadata_attached": attach_metadata and apply_render_material,
             "render_material_applied": apply_render_material,
-            "layer_path": native.get("layer_path"),
+            "layer_path": layer_path,
+            "layer_action": layer_action,
+            "layer_changed_guids": layer_changed,
         }
         changed = native.get("changed_guids")
         if (isinstance(changed, list) and all(isinstance(g, str) and g in applied for g in changed)

@@ -3,6 +3,7 @@ from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.drawings.output import GROUPS, project
 from almond_mcp.tool_declarations import public_tool
+from almond_mcp.features.drawings.standard import STANDARD_D, STANDARD_D_ID, STANDARD_D_LAYERS, StandardDLayerPath
 from pydantic import StrictBool
 import json
 import socket
@@ -74,7 +75,7 @@ def register(mcp, context):
             field_groups: scales, parameters, source, audit, all. 생략하거나 비우면 요약.
         """
         validate_field_groups(field_groups, GROUPS)
-        recipe = context.drawing_recipe_indexer.get(recipe_id)
+        recipe = STANDARD_D if recipe_id == STANDARD_D_ID else context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
             return json.dumps(project(error_payload(f"Unknown drawing recipe_id: {recipe_id}"), field_groups))
         return json.dumps(project({
@@ -84,32 +85,52 @@ def register(mcp, context):
 
 
     @public_tool(mcp, wrapped=True)
-    def apply_drawing_style(recipe_id: str = "") -> str:
-        """도면 레시피의 레이어 계층과 색·출력색·출력 선 두께·선종류를 Rhino 문서에 적용. 같은 경로의 기존 레이어도 갱신한다. 같은 이름의 선종류는 기존 정의를 재사용하고 새 선종류는 Almond 선종 매니페스트에서 가져온다. 적용 범위는 레이어와 속성이다.
-
-        변경 전 전용 Undo record를 확보하고 실패 시 해당 record를 복구한다. mutation_state는 none·completed·rolled_back·unknown. requires_reconciliation=true면 재시도 전에 실제 문서 상태를 확인한다.
-
-        레시피의 review_preparation.print_display가 true이면 적용 성공 시 PrintDisplay 설정 명령을 안내한다.
+    def apply_drawing_style(
+        recipe_id: str = "standard_d",
+        layer_path: StandardDLayerPath = None,
+        overwrite: StrictBool | None = None,
+    ) -> str:
+        """수동 2D 작도에 사용할 표준 D 레이어와 속성을 적용한다. 작도 전에 용도에 맞는 layer_path를 선택하고, 반환된 레이어에서 객체의 선종을 ByLayer로 사용한다. D::PlanSection은 별도다. 다른 Drawing Recipe도 명시해 적용할 수 있다.
 
         Args:
-            recipe_id: drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool에서 확인. 생략 시 파일명 순으로 처음 로드된 레시피 적용.
+            recipe_id: 기본값 standard_d는 목록 조회 없이 바로 적용한다. 다른 레시피는 명시한 ID를 사용한다.
+            layer_path: 표준 D에서 작도할 레이어. 생략하면 표준 D 전체를 적용한다. 다른 레시피에는 사용할 수 없다.
+            overwrite: 표준 D는 기본으로 기존의 다른 정의를 보존한다. true로만 바꾼다. 공통 D를 포함한 레시피에도 이 보호를 적용한다. 나머지 레이어는 생략 시 기존처럼 덮어쓴다.
         """
-        if not recipe_id:
-            recipe_id = next(iter(context.drawing_recipe_indexer.recipes), "")
-            if not recipe_id:
-                return json.dumps(error_payload("No drawing recipes were loaded."))
-        recipe = context.drawing_recipe_indexer.get(recipe_id)
+        recipe_id = recipe_id or STANDARD_D_ID
+        standard_d = recipe_id == STANDARD_D_ID
+        if layer_path is not None and not standard_d:
+            return json.dumps(error_payload("layer_path is only available for the standard_d recipe."))
+        recipe = STANDARD_D if standard_d else context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
             return json.dumps(error_payload(f"Unknown drawing recipe_id: {recipe_id}"))
+        layers = recipe.get("layers", [])
+        if layer_path is not None:
+            layer = STANDARD_D_LAYERS.get(layer_path)
+            if layer is None:
+                return json.dumps(error_payload(f"Unknown standard D layer_path: {layer_path}"))
+            # A chosen sublayer must not create its standard parent with Rhino defaults.
+            layers = [layer, *(
+                row for path, row in STANDARD_D_LAYERS.items() if layer_path.startswith(path + "::")
+            )]
         preparation = recipe.get("review_preparation")
         prepare_review = isinstance(preparation, dict) and preparation.get("print_display") is True
+        includes_standard = recipe.get("_layer_template") == STANDARD_D_ID
         payload = json.dumps({
             "type": "apply_drawing_style",
+            **({"include_standard_d": True} if includes_standard else {}),
             "recipe_id": recipe_id,
-            "layers": recipe.get("layers", []),
+            "layers": layers,
+            "overwrite": (not standard_d) if overwrite is None and not includes_standard else overwrite,
             "linetype_manifest_path": str(_LINETYPE_MANIFEST),
         }).encode("utf-8")
         try:
+            if standard_d or includes_standard or overwrite is False:
+                observed = json.loads(context._send_and_receive(
+                    b'{"type":"get_rhino_context","sections":[],"selection_limit":0}', timeout=60.0))
+                capability = observed.get("capabilities", {}).get("drawing_style_protection")
+                if observed.get("status") != "success" or type(capability) is not int or capability != 1:
+                    return json.dumps(error_payload("Load a Bridge with drawing_style_protection=1."))
             response = context._send_and_receive(payload, timeout=60.0)
             return _add_print_review_preparation(response) if prepare_review else response
         except socket.timeout:

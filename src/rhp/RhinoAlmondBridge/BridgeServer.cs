@@ -96,6 +96,9 @@ namespace RhinoAlmondBridge
                     case "get_current_viewcapture":
                         return ViewCaptureTools.Handle(doc, jobj).ToString(Formatting.None);
 
+                    case "manipulate_view":
+                        return ViewManipulation.Handle(doc, jobj).ToString(Formatting.None);
+
                     case "get_rhino_objects":
                     case "get_object_intersections":
                         return ObjectObservation.Handle(doc, jobj).ToString(Formatting.None);

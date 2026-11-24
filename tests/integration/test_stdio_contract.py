@@ -1,6 +1,5 @@
 """Exercise the actual cold stdio protocol and external schema composition."""
 import asyncio
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -14,6 +13,7 @@ import ast
 from almond_mcp.tool_declarations import declaration_sources, inspect_declarations
 from almond_mcp.modeling_guidance import BASIC_SUMMARY, read_policy, startup_instructions
 from jsonschema import Draft202012Validator
+from render_tool_declarations import render_catalogs
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -24,7 +24,7 @@ def request_properties(tool, target):
                 if branch["properties"]["target"]["const"] == target)
 
 
-def assert_information_placement(tools, route=None):
+def assert_information_placement(tools):
     """Check the user's reading order at the wire boundary, beyond parity."""
     assert not any(name.startswith("exchange_") for name in tools)
     assert {"export_asset_contract", "get_blender_helper_script", "import_asset_contract",
@@ -54,8 +54,6 @@ def assert_information_placement(tools, route=None):
         assert "새 회차" in loop["inputSchema"]["properties"]["resume"]["description"]
     assert {"inspect_02-get_objects", "capture_03-current_view", "intersect_02-resolve",
             "model_05-setup", "drawing_06-generate_plan_section", "script_02-run_rhino"} <= tools.keys()
-    document = (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8")
-    assert not re.search(r"(?:니다|세요)(?=[.!?\s]|$)", document)
     context = tools["inspect_03-get_document_context"]["outputSchema"]["properties"]["result"]["contentSchema"]["properties"]
     assert "description" not in context["layer_tree"]
     for field in ("named_views", "layouts"):
@@ -63,26 +61,15 @@ def assert_information_placement(tools, route=None):
         assert all("description" not in prop for prop in context[field]["items"]["properties"].values())
     material = tools["model_01-assign_material"]["outputSchema"]["properties"]["result"]["contentSchema"]
     assert material["properties"]["result_error"] == {"type": "string"}
-    documented = {}
-    for section in re.split(r"(?m)^### ", document)[1:]:
-        name = section.splitlines()[0].split(". ", 1)[1].replace("\\_", "_")
-        descriptions = re.findall(r"```txt\n(.*?)\n```", section, re.S)
-        documented[name] = descriptions[-1] if route == "beyond" else descriptions[0]
-    if "connect_01-list_up" in tools:
-        assert documented.keys() == tools.keys()
-        catalog = [tools[name] for name in sorted(tools)]
-        encoded = json.dumps(catalog, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        digest = hashlib.sha256(encoded).hexdigest()
-        assert f"{route} 선언 SHA-256: `{digest}`" in document
-    for name, tool in tools.items():
-        assert documented[name] == tool["description"], name
     for tool_name, field_name, reference in (
-        ("drawing_01-apply_style", "recipe_id", "drawing_05-list_recipes"),
-        ("drawing_01-apply_style", "recipe_id", "drawing_02-get_recipe"),
         ("drawing_02-get_recipe", "recipe_id", "drawing_05-list_recipes"),
     ):
         assert reference in tools
         assert reference + " tool" in tools[tool_name]["inputSchema"]["properties"][field_name]["description"]
+    drawing = tools["drawing_01-apply_style"]["inputSchema"]["properties"]
+    assert drawing["recipe_id"]["default"] == "standard_d"
+    assert drawing["layer_path"]["default"] is None
+    assert drawing["overwrite"]["default"] is None
     # Public tool references in all exposed help must retain the AGENTS suffix.
     def assert_tool_reference_suffix(value):
         if isinstance(value, dict):
@@ -267,6 +254,9 @@ def test_bound_worker_reads_checkout_recipes_with_legacy_launcher_path(tmp_path)
             expected_ids = set()
             for recipe_path in recipes:
                 recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+                if recipe.pop("layer_template", None) == "standard_d":
+                    template = ROOT / "src/mcp/profiles/drawing/standard_d.json"
+                    recipe["layers"] += json.loads(template.read_text(encoding="utf-8"))["layers"]
                 recipe_id = recipe.pop("recipe_id")
                 expected_ids.add(recipe_id)
                 detail = await client.call_tool("drawing_02-get_recipe", {
@@ -326,7 +316,7 @@ def test_external_host_routes_publish_their_real_stdio_schemas(tmp_path):
                 initialized = await client.initialize()
                 tools = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True)
                          for t in (await client.list_tools()).tools}
-                assert_information_placement(tools, label)
+                assert_information_placement(tools)
                 assert startup_instructions() in initialized.instructions
                 for text in (initialized.instructions, initialized.server_info.description):
                     assert not any(name in text for name in ("host_id", "model_path", "connection_id", "request_id"))
@@ -347,11 +337,14 @@ def test_external_host_routes_publish_their_real_stdio_schemas(tmp_path):
                         assert [item.text for item in missing.content] == ["connection_id가 지정되지 않았습니다"]
                 rejected = await client.call_tool("context_04-get_project_info", {"connection_id": "old"})
                 assert rejected.is_error
-                return initialized.server_info.name
+                assert initialized.server_info.name == label
+                return tools
 
+    catalogs = {}
     for name, label in (("codex", "beyond"), ("cos", "CoS")):
         (tmp_path / name).mkdir()
-        assert asyncio.run(inspect(name, label)) == label
+        catalogs[label] = asyncio.run(inspect(name, label))
+    assert (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8") == render_catalogs(catalogs["CoS"], catalogs["beyond"])
 
 
 def test_codex_first_tools_list_contains_only_the_common_advertised_capture_guids(tmp_path):

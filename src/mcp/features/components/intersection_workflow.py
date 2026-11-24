@@ -55,17 +55,17 @@ class Workflow:
         self.blocked = False
         self.lock = Lock()
 
-    def execute(self, ids=None, include_block=False, review_id="", choice=None, user_text=None):
+    def execute(self, ids=None, include_block=False, review_id="", choice=None, user_text=None, user_dictionary=None):
         if not self.lock.acquire(blocking=False):
             return result(error_payload("Finish the pending review call first.", error_code="intersection_review_busy"))
         try:
-            return self._execute(ids, include_block, review_id, choice, user_text)
+            return self._execute(ids, include_block, review_id, choice, user_text, user_dictionary)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             return result(error_payload(str(exc), error_code="invalid_intersection_review"))
         finally:
             self.lock.release()
 
-    def _execute(self, ids, include_block, review_id, choice, user_text):
+    def _execute(self, ids, include_block, review_id, choice, user_text, user_dictionary):
         path = bound_model_path()
         if type(include_block) is not bool or not isinstance(review_id, str):
             raise ValueError("include_block must be boolean and review_id must be a string.")
@@ -75,11 +75,16 @@ class Workflow:
             if ids is None:
                 raise ValueError("Specify user_text only when starting a review with object_ids.")
             validate_filters({"user_text": user_text})
+        if user_dictionary is not None:
+            if ids is None:
+                raise ValueError("Specify user_dictionary only when starting a review with object_ids.")
+            user_dictionary = validate_filters({"user_dictionary": user_dictionary})["user_dictionary"]
+            json.dumps(user_dictionary, allow_nan=False)
         if ids is not None:
             if choice is not None or review_id:
                 raise ValueError("Start with object_ids, or answer a review with review_id and choice; do not mix them.")
             normalized = object_ids(ids, 512, required=True)
-            self.scope = (path, normalized, include_block, user_text)
+            self.scope = (path, normalized, include_block, user_text, user_dictionary)
             self.pending, self.skipped, self.number, self.blocked = None, set(), 0, False
         if self.scope is None or self.scope[0] != path:
             raise ValueError("Start a review with current object_ids in this bound document.")
@@ -139,8 +144,10 @@ class Workflow:
             observed = json.loads(self.send(b'{"type":"get_rhino_context","sections":[],"selection_limit":0}'))
             if observed.get("status") != "success" or observed.get("capabilities", {}).get("intersection_review") != 1:
                 return error_payload("Load the matching Bridge with intersection_review=1.", error_code="unsupported_intersection_review")
-            if "user_text" in payload and observed["capabilities"].get("intersection_user_text") != 1:
-                return error_payload("Load a Bridge with intersection_user_text=1.", error_code="unsupported_intersection_review")
+            for key in ("user_text", "user_dictionary"):
+                capability = f"intersection_{key}"
+                if key in payload and observed["capabilities"].get(capability) != 1:
+                    return error_payload(f"Load a Bridge with {capability}=1.", error_code="unsupported_intersection_review")
             payload["expected_model_path"] = self.scope[0]
             dispatched = True
             value = json.loads(self.send(json.dumps(payload).encode("utf-8")))
@@ -162,7 +169,7 @@ class Workflow:
                     "geometry_change_possible": dispatched and mutates_geometry}
 
     def _advance(self):
-        path, ids, include_block, user_text = self.scope
+        path, ids, include_block, user_text, user_dictionary = self.scope
         cursor, seen = "", set()
         # Native code stops immediately on a positive pair, with bounded pages for preceding zeros.
         for _ in range(20001):
@@ -196,6 +203,8 @@ class Workflow:
                 request = {"type": "intersection_review", "a": handles[0], "b": handles[1]}
                 if user_text:
                     request["user_text"] = user_text
+                if user_dictionary:
+                    request["user_dictionary"] = user_dictionary
                 review = self._native(request)
                 if review.get("status") == "success" and review.get("filtered_out") is True:
                     continue

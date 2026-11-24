@@ -39,9 +39,9 @@ namespace RhinoAlmondBridge
                 var b = IntersectionAnalysis.ResolveHandle(doc, request["b"] as JObject, out sb);
                 if (a.Key == b.Key) throw new ArgumentException("Choose distinct occurrences.");
                 ObjectObservation.ValidateUserText(request["user_text"]);
-                var conditions = request["user_text"] as JArray;
-                var first = Describe(doc, a, 1, conditions, out bool firstMatches);
-                var second = Describe(doc, b, 2, conditions, out bool secondMatches);
+                ObjectObservation.ValidateUserDictionary(request["user_dictionary"]);
+                var first = Describe(doc, a, 1, request, out bool firstMatches);
+                var second = Describe(doc, b, 2, request, out bool secondMatches);
                 if (!firstMatches && !secondMatches)
                     return new JObject { ["status"] = "success", ["filtered_out"] = true };
                 using (var observed = IntersectionAnalysis.Observe(doc, a, b))
@@ -153,7 +153,7 @@ namespace RhinoAlmondBridge
             using (var decoded = System.Drawing.Image.FromStream(stream)) return new Bitmap(decoded);
         }
 
-        static JObject Describe(RhinoDoc doc, IntersectionAnalysis.Member member, int number, JArray conditions, out bool matches)
+        static JObject Describe(RhinoDoc doc, IntersectionAnalysis.Member member, int number, JObject request, out bool matches)
         {
             var obj = doc.Objects.FindId(member.RootId);
             var blocks = new JArray();
@@ -163,7 +163,7 @@ namespace RhinoAlmondBridge
                 blocks.Add(new JObject { ["instance_id"] = obj.Id.ToString("D"), ["name"] = instance.InstanceDefinition.Name });
                 obj = instance.InstanceDefinition.GetObjects().Single(o => o.Id == id);
             }
-            matches = conditions == null || ObjectObservation.MatchesUserText(obj.Attributes.GetUserString, conditions);
+            matches = ObjectObservation.MatchesObjectMetadata(obj, request["user_text"], request["user_dictionary"]);
             var detail = ObjectObservation.IntersectionMetadata(obj);
             detail["number"] = number;
             detail["guid"] = member.RootId.ToString("D");

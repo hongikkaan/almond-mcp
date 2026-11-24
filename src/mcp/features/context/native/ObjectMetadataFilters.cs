@@ -36,6 +36,12 @@ namespace RhinoAlmondBridge
             }
         }
 
+        internal static void ValidateUserDictionary(JToken token) => ValidateMetadataFilter(token, "user_dictionary", ValidateDictionary);
+
+        internal static bool MatchesObjectMetadata(RhinoObject obj, JToken userText, JToken userDictionary) =>
+            MatchesMetadata(userText, terms => MatchesUserText(obj.Attributes.GetUserString, terms)) &&
+            MatchesMetadata(userDictionary, terms => MatchesDictionary(obj, terms));
+
         static bool Scalar(JToken token) => token.Type == JTokenType.String || token.Type == JTokenType.Boolean ||
             token.Type == JTokenType.Integer || token.Type == JTokenType.Float;
         internal static void ValidateUserText(JToken token)

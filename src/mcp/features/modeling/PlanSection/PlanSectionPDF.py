@@ -41,6 +41,9 @@ def main():
     options = json.loads(os.environ.get('PLANSECTION_PDF_OPTIONS') or '{}')
     model, folder = options.get('model'), options.get('output')
     keep = options.get('small_details',True)
+    width_source = options.get('section_width_source', 'source')
+    if width_source not in ('source', 'output_layer'):
+        raise ValueError('section_width_source must be source or output_layer')
     interactive = not model
     clr.AddReference('System.Windows.Forms')
     import System.Windows.Forms as F
@@ -89,6 +92,7 @@ def main():
                 paper,scale = ps.pdf_settings(cp)
                 drawing = ps.generate(doc,cp,target=R.Geometry.Plane.WorldXY,
                                       small_details=keep,progress=progress,model_cache=model_cache)
+                drawing['section_width_source'] = width_source
                 path = ps.export_pdf(doc,drawing,folder,name,paper,scale)
                 System.Console.WriteLine(u'Exported: '+path)
                 System.Console.WriteLine(json.dumps(drawing['report']))

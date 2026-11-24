@@ -213,30 +213,30 @@ Clipping plane의 CPlane Z가 World Z와 평행하지 않을 때 CPlane을 180°
 
 | 출력 | 로컬 레이어 | 표현 |
 | --- | --- | --- |
-| 단면선 | `Drawing::Section` | 원본 화면 표현과 SectionStyle 경계 색·선종류; 인쇄색·인쇄 두께는 ByLayer |
-| 해치 | `Drawing::Hatch` | SectionStyle 패턴·스케일; 화면색·인쇄색은 레이어의 90% 검정, 인쇄 두께는 No Print |
-| 입면선 | `Drawing::Elevation` | 원본 화면색·선종류; 거리별 객체 인쇄색·인쇄 두께 유지 |
+| 단면선 | `D::PlanSection::Section` | 화면 주황색, 인쇄 검은색(ByLayer). 유효 원본 선폭(기본) 또는 출력 레이어 선폭. |
+| 해치 | `D::PlanSection::Hatch` | 화면·인쇄 진회색, 레이어 인쇄 선폭. SectionStyle 패턴·스케일(객체 지정 우선). |
+| 입면선 | `D::PlanSection::Elevation` | 화면 연두색, 거리별 객체 인쇄색·인쇄 선폭 유지. |
 
-원본의 숨김·잠금·그룹·참조 소유권·재질은 출력 속성으로 복사하지 않는다. 목적 레이어나 부모가 참조·숨김·잠금이면 Document 출력은 명시적으로 실패한다. Document 출력은 기존 Drawing::Hatch 레이어도 지정 색과 No Print로 갱신하며, Files/PDF에는 동일한 레이어 속성을 적용한다. SectionAttributesSource.FromSectioner는 지원하지 않는다. BoundaryVisible/화면용 BoundaryWidthScale, 재질, viewport별 override를 일반 도면 속성으로 변환하지 않는다.
+원본의 숨김·잠금·그룹·참조 소유권·재질은 출력 속성으로 복사하지 않는다. 목적 레이어나 부모가 참조·숨김·잠금이면 Document 출력은 명시적으로 실패한다. Document·Files·PDF는 같은 출력 표현을 적용한다. 기존 출력 레이어의 선폭은 덮어쓰지 않는다. 새 Hatch 레이어는 Rhino 기본 인쇄 선폭을 사용한다. `section_width_source`는 `source`(원본 객체 또는 원본 레이어의 유효 선폭)와 `output_layer`(출력 레이어 선폭)를 받으며 Section 선폭에만 적용된다. SectionAttributesSource.FromSectioner는 지원하지 않는다. BoundaryVisible/화면용 BoundaryWidthScale, 재질, viewport별 override를 일반 도면 속성으로 변환하지 않는다.
 
 출력 Name은 모든 기여 원본의 이름이 동일하고 비어 있지 않을 때 그 이름을 보존한다. 하나라도 무명이거나 다른 이름이면 빈 Name으로 둔다. 일반 user text와 UserDictionary는 **기여자 전체에 동일한 key/type/value가 존재하고 안전하게 저장할 수 있는 경우만** 상속한다. 예약 `ps:*`·`draft_plane`·원본 `Floor`와 소유권·그룹·잠금·참조·재질·geometry UserData는 복사하지 않는다. UserDictionary에서 지원하는 값은 유한한 scalar, 문자열 배열, Point3d·Plane·Vector3d·Guid·Color 등 명시적으로 비교 가능한 RhinoCommon 값이며, 그 외의 타입은 자동 보존하지 않는다. 충돌·누락·미지원 값은 `report.metadata_conflicts`에 필드·원본 경로·사유를 남긴다. `metadata_conflict_count`는 전체 고유 충돌 수이고 상세 목록은 앞의 64개까지 반환한다.
 
 SectionStyle이 같은 단면 원본은 기존처럼 union하며, 입면은 동일 적용 속성끼리 join한다. 열린 단면선은 해당 입력 원본만 기여자로 기록한다. 닫힌 단면 union의 각 결과 영역은 원본 영역과의 실제 planar intersection에서 양의 면적이 확인되는 원본만 기여자로 연결하며, bbox/RTree는 후보를 줄이는 용도로만 사용한다. 해치는 채움이 허용된 원본 영역과 별도로 대응시켜 채움에서 제외된 원본을 기여자로 섞지 않는다. 기여자 판정이 실패하면 새 출력을 적용하지 않고 오류를 반환한다. 겹침 제거·Join에서는 합쳐진 원본을 추가로 기록한다. 결과 곡선만 보고 어느 단일 객체에서 왔다고 임의 추정하지 않는다.
 
-새 출력은 모든 역할의 UserDictionary `Floor`를 **clipping 이름**으로 기록한다. 원본 단일·다층 Floor는 수정하지 않는다. 로컬 clipping의 `draft_plane`은 typed Plane, 출력의 `ps:placement`는 typed Point3d로 UserDictionary에 저장하며, 기존 호출부용 JSON user text도 함께 동기화한다. 생성 출력의 user text는 `ps:source_layer`, `ps:placement`, `ps:include_attachments`, 모든 기여자에 공통인 일반 user text를 보존한다. 내부 `ps:sources`·`ps:role`·`ps:style`·`ps:depth`·`ps:inherited_keys`는 출력에서 제거한다. Move는 이미 출력된 Name/Floor·일반 user text·수동 편집을 보존하고 배치 Point3d와 JSON만 갱신한다. 오래된 도면에 빠진 속성을 자동 보충하지 않는다.
+Create·Update는 출력에 clipping 이름을 `Floor` 또는 다른 키로 기록하지 않는다. 원본 단일·다층 Floor는 수정하지 않는다. 로컬 clipping의 `draft_plane`은 typed Plane, 출력의 `ps:placement`는 typed Point3d로 UserDictionary에 저장하며, 기존 호출부용 JSON user text도 함께 동기화한다. 생성 출력의 user text는 `ps:source_layer`, `ps:placement`, `ps:include_attachments`, 모든 기여자에 공통인 일반 user text를 보존한다. 내부 `ps:sources`·`ps:role`·`ps:style`·`ps:depth`·`ps:inherited_keys`는 출력에서 제거한다. Move는 이미 출력된 Name/Floor·일반 user text·수동 편집을 보존하고 배치 Point3d와 JSON만 갱신한다. 오래된 도면에 빠진 속성을 자동 보충하지 않는다.
 
 Create·Update는 출력 객체마다 첨부 형상 허용 여부를 user text `ps:include_attachments`에 `true` 또는 `false`로 저장한다. Update에서 값을 생략하면 기존 출력 객체의 값을 읽으며, 누락된 값은 `false`로 해석한다. 값이 일치하지 않거나 유효하지 않으면 범위를 명시하도록 오류를 반환한다. 첨부 계산에는 그 시점의 첨부 목록을 사용한다. Move는 출력 객체의 범위 값을 보존한다.
 
-소유 정보는 로컬 `Drawing` 루트 레이어의 `ps:clip:<clipping GUID>`에 출력 GUID 목록으로 저장한다. `drawing_objects`는 이 목록과 이전 버전 generator/clip 태그로 **해당 clipping의 로컬 출력만** 찾는다. 참조 도면은 이동·교체하지 않는다.
+소유 정보는 Create·Update 시 로컬 `D::PlanSection` 레이어의 `ps:clip:<clipping GUID>`에 출력 GUID 목록으로 저장한다. 새 목록이 없으면 이전 `Drawing` 루트의 목록을 읽는다. Move는 기존 소유 목록을 그대로 둔다. `drawing_objects`는 이 목록과 이전 버전 generator/clip 태그로 **해당 clipping의 로컬 출력만** 찾는다. 참조 도면은 이동·교체하지 않는다.
 
 `bake`의 교체 순서는 다음과 같다.
 
 1. 기존 모델뷰가 없으면 문서 출력을 시작하기 전에 실패한다. 형상 계산·배치 검증 후 기존 모델뷰를 임시 활성화하고 새 객체에 ModelSpace·ViewportId=Guid.Empty를 강제한다. Add 직후 실제 귀속을 검사하고 원래 Layout·Detail을 복원한다. 복원 실패도 이전 객체를 삭제하기 전에 처리한다.
-2. 필요한 로컬 draft_plane과 Drawing 레이어의 소유 목록을 갱신한다.
+2. 필요한 로컬 draft_plane과 `D::PlanSection` 레이어의 소유 목록을 갱신한다.
 3. 이전 출력 객체를 삭제한다.
 4. 중간 실패는 삭제한 이전 객체를 Undelete하고 새 객체를 제거하며 metadata를 복원한다. 복구가 불완전하면 오류에 그 사실과 Undo 필요를 명시한다.
 
-Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 기존 ObjectAttributes 전체를 보존하면서 배치 정보만 갱신한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 Undo 필요 오류를 보고한다. Drawing 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다.
+Placement는 먼저 이동할 복사본 전체를 검증한 뒤 같은 GUID에 Replace한다. 기존 ObjectAttributes 전체를 보존하면서 배치 정보만 갱신한다. 실패 시 변경한 형상·속성을 되돌리며 복구가 불완전하면 Undo 필요 오류를 보고한다. `D::PlanSection` 레이어는 EnsurePrivateCopy 후 Modify하여 소유 목록도 native Undo에 포함시킨다. 현재 키가 없으면 구형 `Drawing` 레이어의 소유 목록을 조회한다.
 
 PDF 이외 실행은 기존 Undo record가 없을 때만 PlanSection record를 열고 그 record만 종료한다. 전용 Bridge 도구의 ScriptExecutor 또는 Rhino 명령이 이미 연 record는 재사용한다. 자동 저장은 하지 않는다. Files/PDF로 생성한 외부 파일은 Undo로 지워지지 않는다. 선택한 범위에서 정상적으로 산출한 빈 결과는 이전 출력 객체를 제거하고 소유 목록을 빈 배열로 갱신한다. 이후 Update에서는 기존 출력이 없어 건너뛴다.
 
@@ -382,8 +382,8 @@ $env:PLANSECTION_CASES = '3F,4F,Sec-D,Sec-C,Sec-B,Sec-A'
 
 `drawing_06-generate_plan_section` tool의 응답에서 클리핑별 결과를 읽는다. 완료된 항목의 `draw_plane`은 도면이 놓인 수평 평면의 `origin`·`xaxis`·`yaxis`를 XYZ 배열로 돌려준다. Create·Update의 `extraction.layers`와 `source_object_count`는 참여 목록·지원 형상·깊이 필터를 통과해 계산에 들어간 원본의 전체 레이어 경로와 형상 레코드 수다. 블록은 배치와 구성원 경로별로 계산된다. `include_hidden`과 `include_locked`는 숨김·잠금을 제외 조건으로 삼지 않는다는 의미다. `extraction.include_attachments`는 계산에서 첨부 형상을 허용했는지 나타낸다. 참여 목록과 깊이 조건을 적용한 뒤 남은 원본은 앞의 레이어와 객체 수에 반영한다. Move는 이동한 객체의 GUID와 배치 평면을 돌려준다.
 
-전용 worker는 Bridge의 `plan_section=3`을 조회한 뒤 도면 요청을 한 번 보낸다. Rhino의 전용 처리에 진입한 뒤 120초에 취소 신호를 보낸다. 단일 스레드 HLD에는 SDK 취소 토큰을 전달한다. 단계 또는 다음 클리핑의 안전 경계에서 추가 작업을 멈추고, 이미 시작한 도면 교체·이동과 보상·Undo 종료는 기다린다. Escape는 별도의 사용자 취소다. `result.stop_reason`은 `deadline` 또는 `user`다. 클리핑 결과에는 이미 완료한 도면, 취소된 컷, 시작하지 않은 뒷부분이 포함된다. Undo나 컨텍스트 복원 실패는 오류로 반환하고, 변경을 확인할 수 없는 컷에는 `unconfirmed_clipping_ids`를 사용한다. 클라이언트가 응답을 잃으면 240초 후에도 native 작업이 진행 중일 수 있다. 중단과 실제 도면을 확인한 뒤 미완료 범위만 선택한다.
+전용 worker는 Bridge의 `plan_section=4`을 조회한 뒤 도면 요청을 한 번 보낸다. Rhino의 전용 처리에 진입한 뒤 120초에 취소 신호를 보낸다. 단일 스레드 HLD에는 SDK 취소 토큰을 전달한다. 단계 또는 다음 클리핑의 안전 경계에서 추가 작업을 멈추고, 이미 시작한 도면 교체·이동과 보상·Undo 종료는 기다린다. Escape는 별도의 사용자 취소다. `result.stop_reason`은 `deadline` 또는 `user`다. 클리핑 결과에는 이미 완료한 도면, 취소된 컷, 시작하지 않은 뒷부분이 포함된다. Undo나 컨텍스트 복원 실패는 오류로 반환하고, 변경을 확인할 수 없는 컷에는 `unconfirmed_clipping_ids`를 사용한다. 클라이언트가 응답을 잃으면 240초 후에도 native 작업이 진행 중일 수 있다. 중단과 실제 도면을 확인한 뒤 미완료 범위만 선택한다.
 
 Bridge는 고정 알고리즘의 JSON 결과를 생성 응답에 담는다. 같은 Undo 실행 경계를 사용하며 일반 스크립트의 결과 크기·깊이 제한도 유지한다. 완료된 항목과 함께 일부 완료·취소·전체 실패의 항목별 상태를 확인할 수 있다. 전달이 끊겨 완료 여부를 확인할 수 없으면 기존 도면을 관찰한 뒤 다음 작업을 결정한다.
 
-문서 출력과 Move 실패는 작업이 소유한 객체·clipping 속성과 출력 레이어 변경을 독립적으로 복구한다. 기존 출력 레이어는 수정 전 사본으로 복원하고 이번 작업이 만든 경로만 자식부터 제거한다. Drawing 레이어의 registry도 같은 사본에 포함된다. 한 복구의 예외나 false 결과는 다음 복구를 막지 않는다. 각 항목의 `recovery.attempts`는 action·target·status·선택적 error를 보존하며 상위 응답에서도 유지한다. `tracked_changes_restored`가 true여도 native 호출이 식별값을 반환하기 전에 변경했을 가능성은 남으므로 `mutation_state=unknown`, 복구 실패가 있으면 `partial`로 보고하고 `requires_reconciliation=true`를 반환한다. 이는 자동 재시도나 원자적 rollback의 근거가 아니다. 기존 Undo 소유자와 Move의 GUID·수동 속성 보존 계약은 유지한다.
+문서 출력과 Move 실패는 작업이 소유한 객체·clipping 속성과 출력 레이어 변경을 독립적으로 복구한다. 기존 출력 레이어는 수정 전 사본으로 복원하고 이번 작업이 만든 경로만 자식부터 제거한다. `D::PlanSection` 레이어의 registry도 같은 사본에 포함된다. 한 복구의 예외나 false 결과는 다음 복구를 막지 않는다. 각 항목의 `recovery.attempts`는 action·target·status·선택적 error를 보존하며 상위 응답에서도 유지한다. `tracked_changes_restored`가 true여도 native 호출이 식별값을 반환하기 전에 변경했을 가능성은 남으므로 `mutation_state=unknown`, 복구 실패가 있으면 `partial`로 보고하고 `requires_reconciliation=true`를 반환한다. 이는 자동 재시도나 원자적 rollback의 근거가 아니다. 기존 Undo 소유자와 Move의 GUID·수동 속성 보존 계약은 유지한다.

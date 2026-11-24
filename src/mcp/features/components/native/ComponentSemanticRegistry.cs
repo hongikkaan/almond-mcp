@@ -23,6 +23,8 @@ namespace RhinoAlmondBridge
         }
 
         private const int MaxArchiveBytes = 4194304;
+        // Only the legacy migration reader owns this old on-object storage key.
+        private const string LegacyComponentRecordKey = "component_record";
         private static DocumentData Data(RhinoDoc doc) => new DocumentData(doc.RuntimeData.GetValue(
             "almond:semantic_registry/v1", _ => new Dictionary<string, object> {
                 ["records"] = new JObject(), ["problems"] = new JArray(), ["initialized"] = false }));
@@ -42,7 +44,7 @@ namespace RhinoAlmondBridge
                 };
                 foreach (var obj in doc.Objects.GetObjectList(settings))
                 {
-                    string raw = obj.Attributes.GetUserString(ModelingMetadata.Key("component_record"));
+                    string raw = obj.Attributes.GetUserString(LegacyComponentRecordKey);
                     if (String.IsNullOrEmpty(raw)) continue;
                     try
                     {

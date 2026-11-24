@@ -1787,6 +1787,31 @@ CONTRACTS["resolve_object_intersection"]["properties"]["objects"] = {
 }
 
 
+
+CONTRACTS["assign_material"]["properties"].update({
+    "layer_path": {"type": ["string", "null"], "description": "자동 배정한 전체 레이어 경로. 메타데이터 전용 호출이면 null."},
+    "layer_action": {"type": "string", "enum": ["created", "reused", "not_applied"],
+                     "description": "레이어 신규 등록·재사용·미적용 여부."},
+    "layer_changed_guids": {"type": "array", "items": {"type": "string"},
+                            "description": "실제로 다른 레이어로 옮긴 객체 GUID. 같은 레이어에서 ByLayer만 복구했으면 제외."},
+})
+
+_camera_vector = {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+CONTRACTS["manipulate_view"] = {
+    "type": "object",
+    "required": ["status"],
+    "properties": {
+        "status": {"type": "string", "enum": ["success", "error"]},
+        "viewport_id": {"type": "string"},
+        "camera_location": _camera_vector,
+        "camera_target": _camera_vector,
+        "mutation_applied": {"type": ["boolean", "null"]},
+        "requires_reconciliation": {"type": "boolean"},
+        "error_code": {"type": "string"},
+    },
+}
+
+
 def public_output_schema(name: str, wrapped: bool = True) -> dict:
     from almond_mcp.public_names import internal_tool_name, tool_references
     contract = deepcopy(CONTRACTS[internal_tool_name(name)])

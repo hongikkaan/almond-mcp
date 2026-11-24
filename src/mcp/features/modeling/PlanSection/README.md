@@ -22,11 +22,11 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 | Move | 기존 도면의 원점만 XYZ로 옮긴다. 재계산하지 않으며 객체 GUID와 수동 형상·시각 속성 편집을 유지한다. |
 | PDF | clipping의 Paper·Scale로 재계산한 벡터 PDF를 만든다. 수동 편집한 출력의 그대로 인쇄 기능은 아니다. 활성 모델과 배치점을 바꾸지 않는다. |
 
-해치는 `Drawing::Hatch`에 생성하며 해당 레이어의 화면색·인쇄색은 90% 검정, 인쇄 두께는 No Print다. 단면 곡선의 인쇄색과 인쇄 두께는 출력 레이어를 따르고, 입면 곡선은 거리별 객체 인쇄 속성을 유지한다. 기존 `Drawing::Hatch` 레이어도 이 설정으로 갱신한다. 모든 Document 출력은 ModelSpace에 생성하고 ViewportId를 비우며, 생성 후 원래 Layout·Detail을 활성 상태로 복원한다.
+`D::PlanSection` 아래 Section(주황), Elevation(연두), Hatch(진회색)에 출력한다. 단면 인쇄는 검은색이며 기본은 원본의 유효 선폭이다. `section_width_source=output_layer`는 단면 선폭만 출력 레이어에서 가져온다. 입면의 거리별 인쇄색과 선폭은 유지한다. 해치 인쇄색과 선폭은 레이어를 따르고, 패턴은 원본 SectionStyle에서 가져온다(객체 지정 우선). 모든 Document 출력은 ModelSpace에 생성하고 ViewportId를 비우며, 생성 후 원래 Layout·Detail을 활성 상태로 복원한다.
 
 대상은 현재 문서의 모든 레이어에 있는 clipping이며 Worksession 참조 clipping도 포함한다. 이름·GUID·레이어를 함께 표시하고 원본 레이어를 옮기지 않는다. 도면은 WorldXY와 평행하며 지정 배치점의 Z를 유지한다. 기본 원점과 PDF는 Z=0이다. 저장되지 않은 원본 모델을 자동 저장하지 않는다. 도면 변경은 실행 단위 Undo이며 외부 PDF/3dm 파일은 Undo로 지워지지 않는다. 상세 속성·형상 계약은 [SPEC.md](SPEC.md)에 있다.
 
-원본의 SectionStyle과 표시 속성을 해석하고, 기여 원본의 Name이 모두 같을 때만 출력 Name으로 보존한다. 기여자 중 무명이 있거나 이름이 충돌하면 출력 Name은 빈 값이다. 같은 값으로 합의된 일반 user text·지원되는 UserDictionary 값만 복사하며 충돌 항목과 원본 경로는 `report.metadata_conflicts`에서 확인한다. 생성 출력의 UserDictionary `Floor`는 clipping 이름으로 정하고 원본의 단일·다층 Floor는 건드리지 않는다. Move는 기존 도면의 이름·Floor·기타 수동 속성을 변경하지 않는다.
+원본의 SectionStyle과 표시 속성을 해석하고, 기여 원본의 Name이 모두 같을 때만 출력 Name으로 보존한다. 기여자 중 무명이 있거나 이름이 충돌하면 출력 Name은 빈 값이다. 같은 값으로 합의된 일반 user text·지원되는 UserDictionary 값만 복사하며 충돌 항목과 원본 경로는 `report.metadata_conflicts`에서 확인한다. Create·Update는 clipping 이름을 출력의 `Floor` 또는 다른 키로 기록하지 않고, 원본의 단일·다층 Floor는 건드리지 않는다. Move는 기존 도면의 이름·Floor·기타 수동 속성을 변경하지 않는다.
 
 ## 에이전트에서 사용
 

@@ -1,5 +1,4 @@
 {
-  "schema_version": 2,
   "construction_layer_root": "M",
   "material_assignment_keys": [
     "floor",
@@ -8,41 +7,29 @@
     "structural_role"
   ],
   "public_object_keys": {
-    "component_id": "component_id",
     "floor": "floor",
     "construction_detail": "construction_detail"
   },
   "internal_object_keys": {
-    "component_record": "component_record",
+    "component_id": "component_id",
+
+    "construction_system": "construction_system",
+    "construction_detail": "construction_detail",
+    "construction_reference": "construction_reference",
+    "ue_material_slot": "ue_material_slot",
     "sheet_id": "sheet_id",
     "sheet_metadata": "sheet_metadata",
-    "construction_reference": "construction_reference",
-    "material_id": "material_id",
-    "material_name": "material_name",
-    "material_category": "material_category",
-    "ue_material_slot": "ue_material_slot",
-    "base_color": "base_color",
-    "metallic": "metallic",
-    "roughness": "roughness",
-    "opacity": "opacity",
-    "structural_role": "structural_role",
-    "construction_system": "construction_system",
     "structural_material": "structural_material",
     "section": "section",
-    "release": "release",
-    "asset_id": "asset_id",
-    "asset_id_legacy": "almond.asset_id",
-    "asset_id_legacy_caps": "Almond.AssetId",
-    "asset_type": "almond.asset_type",
-    "asset_metadata": "almond.metadata",
-    "passport": "passport",
+
+
     "derivation": "derivation",
-    "source_record": "source_record",
-    "source_app": "source_app",
-    "license": "license",
     "attribution": "attribution",
-    "scale": "scale",
-    "scale_legacy": "Almond.UniformScale"
+    "rhino_group_id": "rhino_group_id",
+  
+    "asset_id": "asset_id",
+    "asset_type": "asset_type",
+    "scale": "scale"
   },
   "group_keys": {},
   "component_record_fields": ["component_id", "rhino_group_id", "name", "scene_ids", "child_component_ids"],

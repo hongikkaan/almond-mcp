@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 using Newtonsoft.Json.Linq;
 
 namespace RhinoAlmondBridge
@@ -20,13 +19,9 @@ namespace RhinoAlmondBridge
 
         public static string Key(string name)
         {
-            foreach (var mapping in new[] { "public_object_keys", "internal_object_keys", "group_keys" })
+            foreach (var mapping in new[] { "public_object_keys", "internal_object_keys" })
                 if (Policy[mapping]?[name]?.Type == JTokenType.String) return (string)Policy[mapping][name];
             throw new ArgumentException("Unknown modeling metadata key: " + name);
         }
-
-        internal static bool IsMaterialAssignmentKey(string key) =>
-            ((JArray)Policy["material_assignment_keys"]).Values<string>().Any(name => Key(name) == key);
-
     }
 }

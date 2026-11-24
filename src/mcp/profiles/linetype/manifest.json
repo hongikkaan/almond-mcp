@@ -54,5 +54,33 @@
       "length": 3,
       "is_solid": false
     }
+  ],
+  "ALMOND D ISO 02 Dashed": [
+    {
+      "length": 2.16,
+      "is_solid": true
+    },
+    {
+      "length": 0.54,
+      "is_solid": false
+    }
+  ],
+  "ALMOND D ISO 04 Long dash dot": [
+    {
+      "length": 4.32,
+      "is_solid": true
+    },
+    {
+      "length": 0.54,
+      "is_solid": false
+    },
+    {
+      "length": 0.09,
+      "is_solid": true
+    },
+    {
+      "length": 0.54,
+      "is_solid": false
+    }
   ]
 }

@@ -15,9 +15,11 @@ from System.Collections.Generic import List, IEnumerable
 G = R.Geometry
 D = R.DocObjects
 CLIP_LAYER = 'setting::clipping::Section'
-SECTION_LAYER = 'Drawing::Section'
-HATCH_LAYER = 'Drawing::Hatch'
-ELEVATION_LAYER = 'Drawing::Elevation'
+DRAWING_ROOT = 'D::PlanSection'
+LEGACY_DRAWING_ROOT = 'Drawing'
+SECTION_LAYER = DRAWING_ROOT+'::Section'
+HATCH_LAYER = DRAWING_ROOT+'::Hatch'
+ELEVATION_LAYER = DRAWING_ROOT+'::Elevation'
 OWNER = 'PlanSection/2'
 ATTACHMENT_SCOPE_KEY = 'ps:include_attachments'
 try:
@@ -221,7 +223,7 @@ def set_dictionary_field(dictionary, key, value):
     return dictionary.Set(key, value)
 
 
-def apply_source_metadata(attributes, agreed, floor):
+def apply_source_metadata(attributes, agreed):
     attributes.Name = agreed['name']
     for key, value in agreed['user_text'].items():
         if attributes.SetUserString(key, value) is False:
@@ -229,8 +231,6 @@ def apply_source_metadata(attributes, agreed, floor):
     for key, value in agreed['dictionary'].items():
         if set_dictionary_field(attributes.UserDictionary, key, value) is False:
             raise ValueError('Cannot inherit source dictionary key: '+key)
-    if attributes.UserDictionary.Set('Floor', floor) is False:
-        raise ValueError('Cannot set drawing Floor')
     # The marker is discarded by output_attributes; arbitrary user strings remain excluded.
     if attributes.SetUserString('ps:inherited_keys', json.dumps(sorted(agreed['user_text']))) is False:
         raise ValueError('Cannot record inherited user text keys')
@@ -304,8 +304,9 @@ def resolved_attributes(doc, original, parents=()):
     source = section.SectionAttributesSource
     if source == D.ObjectSectionAttributesSource.FromSectioner:
         raise ValueError('SectionStyle FromSectioner is not supported on source layer '+doc.Layers[original.LayerIndex].FullPath)
-    style = (section.GetCustomSectionStyle() if source == D.ObjectSectionAttributesSource.FromObject
-             else doc.Layers[section.LayerIndex].GetCustomSectionStyle())
+    style = section.GetCustomSectionStyle() if source == D.ObjectSectionAttributesSource.FromObject else None
+    if style is None:
+        style = doc.Layers[section.LayerIndex].GetCustomSectionStyle()
     if style is not None:
         style = D.SectionStyle(style)
         if style.HatchIndex != R.RhinoMath.UnsetIntIndex:
@@ -1243,7 +1244,7 @@ def generate(doc, cp, hatch=True, elevation=True, target=None,
         conflicts = {}
         for item in items:
             agreed = consensus_metadata(list(item.get('contributors', {}).items()))
-            apply_source_metadata(item['attributes'], agreed, cp.Name or '')
+            apply_source_metadata(item['attributes'], agreed)
             for conflict in agreed['conflicts']:
                 key = (item['role'], conflict['field'], tuple(conflict['sources']))
                 conflicts[key] = dict(role=item['role'], field=conflict['field'],
@@ -1270,8 +1271,13 @@ def generate(doc, cp, hatch=True, elevation=True, target=None,
 
 
 def drawing_objects(doc, cp):
-    index = doc.Layers.FindByFullPath('Drawing', -1)
-    text = doc.Layers[index].GetUserString('ps:clip:'+str(cp.Id)) if index >= 0 else None
+    key = 'ps:clip:'+str(cp.Id)
+    text = None
+    for path in (DRAWING_ROOT, LEGACY_DRAWING_ROOT):
+        index = doc.Layers.FindByFullPath(path, -1)
+        if index >= 0:
+            text = doc.Layers[index].GetUserString(key)
+            if text is not None: break
     ids = set(System.Guid(value) for value in json.loads(text or '[]'))
     return [o for o in objects(doc) if not o.IsReference and (o.Id in ids
             or (o.Attributes.GetUserString('ps:generator') == OWNER
@@ -1309,7 +1315,7 @@ def saved_include_attachments(existing):
     return 'true' in scopes
 
 
-def output_attributes(original, role=None):
+def output_attributes(original, role=None, section_width_source='source'):
     attrs = original.Duplicate()
     selected = ['ps:source_layer', 'ps:placement', ATTACHMENT_SCOPE_KEY]
     inherited = attrs.GetUserString('ps:inherited_keys')
@@ -1319,13 +1325,15 @@ def output_attributes(original, role=None):
     attrs.DeleteAllUserStrings()
     # Elevation already carries the distance-interpolated object print style.
     # Do not replace it at the final Document/Files output boundary.
-    if role == 'section':
-        attrs.PlotColorSource = D.ObjectPlotColorSource.PlotColorFromLayer
-        attrs.PlotWeightSource = D.ObjectPlotWeightSource.PlotWeightFromLayer
-    elif role == 'hatch':
+    if role in ('section', 'elevation', 'hatch'):
         attrs.ColorSource = D.ObjectColorSource.ColorFromLayer
+    if role in ('section', 'hatch'):
         attrs.PlotColorSource = D.ObjectPlotColorSource.PlotColorFromLayer
+    if role == 'hatch' or (role == 'section' and section_width_source == 'output_layer'):
         attrs.PlotWeightSource = D.ObjectPlotWeightSource.PlotWeightFromLayer
+    elif role == 'section':
+        # Generation already resolved the effective source width, including ByParent.
+        attrs.PlotWeightSource = D.ObjectPlotWeightSource.PlotWeightFromObject
     for key, value in values:
         if value is not None: attrs.SetUserString(key, value)
     return attrs
@@ -1386,14 +1394,14 @@ class DrawingRecovery:
 
 
 def save_drawing_registry(doc, cp, value, recovery=None):
-    index = local_output_layer(doc, 'Drawing', recovery)
+    index = local_output_layer(doc, DRAWING_ROOT, recovery)
     layer = doc.Layers[index]
     layer.EnsurePrivateCopy()  # Keep the pre-edit layer available to native Undo.
     key = 'ps:clip:'+str(cp.Id)
     previous = layer.GetUserString(key)
     if not layer.SetUserString(key, value): raise ValueError('Cannot set drawing ownership')
     if not doc.Layers.Modify(layer, index, True):
-        raise ValueError('Cannot save drawing ownership on Drawing layer')
+        raise ValueError('Cannot save PlanSection drawing ownership')
     return previous
 
 
@@ -1419,9 +1427,24 @@ def local_output_layer(doc, path, recovery=None):
     return index
 
 
-def configure_hatch_layer(layer):
-    layer.Color = layer.PlotColor = Color.FromArgb(26, 26, 26)
-    layer.PlotWeight = -1.0  # Rhino No Print
+def configure_output_layer(layer, role, new):
+    colors = {'section': (255, 165, 0), 'elevation': (144, 238, 144), 'hatch': (64, 64, 64)}
+    layer.Color = Color.FromArgb(*colors[role])
+    if role == 'section':
+        layer.PlotColor = Color.FromArgb(0, 0, 0)
+    elif role == 'hatch':
+        layer.PlotColor = layer.Color
+        if new: layer.PlotWeight = 0.0  # Rhino default print width.
+
+
+def effective_output_width(doc, item, section_width_source):
+    role = item['role']
+    if role == 'hatch' or (role == 'section' and section_width_source == 'output_layer'):
+        index = doc.Layers.FindByFullPath(output_layer(role), -1)
+        if index >= 0 and not doc.Layers[index].IsReference:
+            return doc.Layers[index].PlotWeight
+        return 0.0  # Same default as a newly created output layer.
+    return item['attributes'].PlotWeight
 
 
 @contextmanager
@@ -1457,18 +1480,20 @@ def bake(doc, cp, drawing, target=None, is_cancelled=None):
     added_patterns = []
     if is_cancelled and is_cancelled(): raise DrawingCancelled()
     try:
-        layers = {role: local_output_layer(doc, output_layer(role), recovery)
-                  for role in set(i['role'] for i in drawing['objects'])}
-        if 'hatch' in layers:
-            index = layers['hatch']
+        layers = {}
+        for role in sorted(set(i['role'] for i in drawing['objects'])):
+            path = output_layer(role)
+            new = doc.Layers.FindByFullPath(path, -1) < 0
+            index = layers[role] = local_output_layer(doc, path, recovery)
             layer = doc.Layers[index]
             layer.EnsurePrivateCopy()
-            configure_hatch_layer(layer)
+            configure_output_layer(layer, role, new)
             if not doc.Layers.Modify(layer, index, True):
-                raise ValueError('Cannot configure hatch output layer')
+                raise ValueError('Cannot configure output layer: '+path)
         with model_output_view(doc, model_views[0]):
             for item in drawing['objects']:
-                attrs = output_attributes(item['attributes'], item['role'])
+                attrs = output_attributes(item['attributes'], item['role'],
+                                          drawing.get('section_width_source', 'source'))
                 attrs.LayerIndex = layers[item['role']]
                 attrs.Space = D.ActiveSpace.ModelSpace
                 attrs.ViewportId = System.Guid.Empty
@@ -1622,7 +1647,6 @@ def reposition_drawing(doc, cp, target=None, is_cancelled=None, result=None):
             write_saved_plane(attrs, 'draft_plane', target)
             if not doc.Objects.ModifyAttributes(cp.Id, attrs, True): raise ValueError('Cannot save draft_plane')
         ids = [str(entry[0]) for entry in prepared]
-        save_drawing_registry(doc, cp, json.dumps(ids), recovery)
         if result is not None: result['object_ids'] = ids
         return target, ids
     except Exception as error:
@@ -1680,7 +1704,8 @@ def export_drawing(doc, drawing, folder, name):
                 model.Linetypes.Add(original)
                 linetypes[index] = model.Linetypes.FindId(original.Id).Index
             return linetypes[index]
-        def layer(path):
+        def layer(role):
+            path = output_layer(role)
             if path in layers: return layers[path]
             parent = System.Guid.Empty
             for end, part in enumerate(path.split('::'), 1):
@@ -1690,19 +1715,21 @@ def export_drawing(doc, drawing, folder, name):
                     copied.Name, copied.ParentLayerId = part, parent
                     # Preserve local drawing-layer print settings (hatches are ByLayer).
                     index = doc.Layers.FindByFullPath('::'.join(path.split('::')[:end]), -1)
-                    if index >= 0 and not doc.Layers[index].IsReference:
+                    local = index >= 0 and not doc.Layers[index].IsReference
+                    if local:
                         original = doc.Layers[index]
                         copied.Color, copied.PlotColor, copied.PlotWeight = original.Color, original.PlotColor, original.PlotWeight
-                    if '::'.join(path.split('::')[:end]) == HATCH_LAYER:
-                        configure_hatch_layer(copied)
+                    if end == len(path.split('::')):
+                        configure_output_layer(copied, role, not local)
                     model.Layers.Add(copied)
                     found = model.Layers.FindName(part, parent)
                 parent = found.Id
             layers[path] = found.Index
             return found.Index
         for item in drawing['objects']:
-            attrs = output_attributes(item['attributes'], item['role'])
-            attrs.LayerIndex = layer(output_layer(item['role']))
+            attrs = output_attributes(item['attributes'], item['role'],
+                                          drawing.get('section_width_source', 'source'))
+            attrs.LayerIndex = layer(item['role'])
             attrs.LinetypeIndex = linetype(attrs.LinetypeIndex)
             style = attrs.GetCustomSectionStyle()
             if style is not None and style.HatchIndex != R.RhinoMath.UnsetIntIndex:
@@ -1749,27 +1776,30 @@ def export_pdf(doc, drawing, folder, name, paper, scale):
         raise ValueError('PDF requires a standard model unit system')
     units = R.RhinoMath.UnitScale(R.UnitSystem.Millimeters, doc.ModelUnitSystem)
     half_w, half_h = [v*scale*units/2. for v in paper]
-    kept = []
+    kept, widths = [], []
+    section_width_source = drawing.get('section_width_source', 'source')
     for item in drawing['objects']:
         bounds = item['geometry'].GetBoundingBox(True)
-        pad = max(.18, item['attributes'].PlotWeight)*scale*units
+        width = effective_output_width(doc, item, section_width_source)
+        pad = max(.18, width)*scale*units
         if (bounds.Max.X < -half_w-pad or bounds.Min.X > half_w+pad or
                 bounds.Max.Y < -half_h-pad or bounds.Min.Y > half_h+pad): continue
         attrs = item['attributes'].Duplicate()
         attrs.DeleteAllUserStrings()  # Provenance is large and has no printed content.
         kept.append(output(item['geometry'], attrs, item['role']))
+        if width > 0: widths.append(width)
     if not kept: raise ValueError('No drawing geometry inside the PDF paper window')
     work = tempfile.mkdtemp(prefix='PlanSection-pdf-')
     temporary = os.path.join(folder, str(System.Guid.NewGuid())+'.tmp.pdf')
     target, viewport, settings = None, None, None
     try:
-        path3dm = export_drawing(doc, dict(objects=kept), work, 'drawing')
+        path3dm = export_drawing(doc, dict(objects=kept, section_width_source=section_width_source), work, 'drawing')
         target = R.RhinoDoc.OpenHeadless(path3dm)
         if target is None: raise ValueError('Cannot open temporary PDF drawing')
         viewport = R.Display.RhinoViewport()
         # Native capture clamps strokes to one dot. Keep even the thinnest print
         # width; vector output does not allocate a page-sized bitmap.
-        dot_mm = min([.01]+[i['attributes'].PlotWeight for i in kept if i['attributes'].PlotWeight > 0])
+        dot_mm = min([.01]+widths)
         size = Size(int(round(paper[0]/dot_mm)), int(round(paper[1]/dot_mm)))
         if size.Width <= 0 or size.Height <= 0: raise ValueError('PDF paper is too small')
         viewport.Size = size
@@ -1916,7 +1946,7 @@ def default_options(operation='Create'):
     modes = {'Create': 'Document', 'Update': 'Update', 'Move': 'Placement', 'PDF': 'PDF'}
     if operation not in modes: raise ValueError('Expected Create, Update, Move or PDF')
     return dict(mode=modes[operation], hatch=True, elevation=True, pick=False, small_details=True,
-                near_width=.09, far_width=.04, near_dark=80., far_dark=45.)
+                near_width=.09, far_width=.04, near_dark=80., far_dark=45., section_width_source='source')
 
 
 def get_options(operation='Create'):
@@ -1938,6 +1968,7 @@ def get_options(operation='Create'):
                 if key.endswith('width') else R.Input.Custom.OptionDouble(values[key], 0., 100.))
                for name, key in zip(('NearWidth','FarWidth','NearDark','FarDark'), keys)]
     modes = ['Document', 'Files']
+    width_sources = ('source', 'output_layer')
     getter = R.Input.Custom.GetOption()
     getter.SetCommandPrompt('PlanSection options: change any option or Enter to run (width mm, darkness 0-100%)')
     getter.AcceptNothing(True)
@@ -1946,12 +1977,16 @@ def get_options(operation='Create'):
             getter.ClearCommandOptions()
             mode_index = (getter.AddOptionList('Output', modes, modes.index(values['mode']))
                           if operation == 'Create' else None)
+            width_index = getter.AddOptionList('SectionWidthSource', ['Source', 'OutputLayer'],
+                                                width_sources.index(values['section_width_source']))
             for name, key, option in toggles: getter.AddOptionToggle(name, option)
             for name, key, option in numbers: getter.AddOptionDouble(name, option)
             result = getter.Get()
             if result == R.Input.GetResult.Option:
                 if mode_index is not None and getter.OptionIndex() == mode_index:
                     values['mode'] = modes[getter.Option().CurrentListOptionIndex]
+                elif getter.OptionIndex() == width_index:
+                    values['section_width_source'] = width_sources[getter.Option().CurrentListOptionIndex]
                 continue
             if result != R.Input.GetResult.Nothing: return None
             values.update((key, option.CurrentValue) for name, key, option in toggles+numbers)
@@ -2018,6 +2053,7 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
                            small_details=options['small_details'], model_cache=model_cache,
                            attached_model=attached_model if include_attachments else None,
                            cancellation_token=options.get('cancellation_token'))
+        drawing['section_width_source'] = options.get('section_width_source', 'source')
         if is_cancelled(): return 'cancelled'
         if pick and drawing['objects']:
             R.RhinoApp.Wait()
@@ -2140,7 +2176,8 @@ def run_selected(doc, planes, options, folder=None, targets=None):
 def run(doc, operation, clipping_ids, points=None, folder=None, output='Document',
         hatch=True, elevation=True, small_details=True,
         near_width=.09, far_width=.04, near_dark=80., far_dark=45.,
-        include_attachments=None, observe_attachments=None, cancellation_token=None):
+        include_attachments=None, observe_attachments=None, cancellation_token=None,
+        section_width_source='source'):
     """Agent entry: explicit document/GUIDs/XYZ points; never opens an input dialog.
 
     points maps clipping GUIDs to [x, y] (Z=0) or [x, y, z] in document units.
@@ -2152,6 +2189,9 @@ def run(doc, operation, clipping_ids, points=None, folder=None, output='Document
     if operation != 'Create' and output != 'Document':
         raise ValueError('Files output is only available for Create')
     if operation == 'Create': options['mode'] = output
+    if section_width_source not in ('source', 'output_layer'):
+        raise ValueError('section_width_source must be source or output_layer')
+    options['section_width_source'] = section_width_source
     validate_options(near_width, far_width, near_dark, far_dark)
     options.update(hatch=hatch, elevation=elevation, small_details=small_details,
                    near_width=near_width, far_width=far_width, near_dark=near_dark, far_dark=far_dark,

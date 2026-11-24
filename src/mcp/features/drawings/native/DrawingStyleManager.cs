@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Rhino;
@@ -37,57 +38,131 @@ namespace RhinoAlmondBridge
 
             try
             {
-                var missingNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                bool standard = string.Equals(request.RecipeId, "standard_d", StringComparison.Ordinal);
+                bool overwrite = request.Overwrite ?? !standard;
+                bool standardOverwrite = request.Overwrite == true;
+                bool StandardLayer(DrawingLayerSpecification layer) => standard ||
+                    (request.IncludeStandardD && layer.Path.StartsWith("D::", StringComparison.OrdinalIgnoreCase));
+                var neededDefinitions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var linetypeIndices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 foreach (var specification in request.Layers)
                 {
                     if (specification == null || string.IsNullOrWhiteSpace(specification.Path))
                         throw new ArgumentException("Drawing layer path cannot be empty.");
+                    if (StandardLayer(specification) && (!specification.Path.StartsWith("D::", StringComparison.OrdinalIgnoreCase)
+                        || specification.Path.Equals("D::PlanSection", StringComparison.OrdinalIgnoreCase)
+                        || specification.Path.StartsWith("D::PlanSection::", StringComparison.OrdinalIgnoreCase)))
+                        throw new ArgumentException($"Not a manual standard D layer: {specification.Path}.");
 
                     string name = LinetypeName(specification.Linetype);
                     var existing = FindExactLinetype(doc, name);
+                    bool continuous = string.Equals(name, "Continuous", StringComparison.OrdinalIgnoreCase);
                     if (existing != null)
                         linetypeIndices[name] = existing.Index;
-                    else if (string.Equals(name, "Continuous", StringComparison.OrdinalIgnoreCase))
+                    else if (continuous)
                         linetypeIndices[name] = -1;
-                    else
-                        missingNames.Add(name);
+                    if (!continuous && (StandardLayer(specification) || existing == null))
+                        neededDefinitions.Add(name);
                 }
 
-                var definitions = ReadDefinitions(request.LinetypeManifestPath, missingNames);
-                var mutation = AlmondEngine.NativeUndoRecord.Run(doc, "Apply Almond drawing style", () => {
+                var definitions = ReadDefinitions(request.LinetypeManifestPath, neededDefinitions);
+                var changedPatterns = new List<string>();
+                var conflicts = new List<string>();
+                if (standard || request.IncludeStandardD)
+                {
+                    foreach (var definition in definitions.Values)
+                    {
+                        if (!linetypeIndices.TryGetValue(definition.Name, out int index)
+                            || PatternMatches(doc.Linetypes[index], definition))
+                            continue;
+                        if (standardOverwrite)
+                        {
+                            var generated = FindLocalLayer(doc, "D::PlanSection");
+                            if (generated != null && SubtreeUsesLinetype(doc, generated, index))
+                                throw new InvalidOperationException($"Linetype {definition.Name} is used by D::PlanSection and cannot be overwritten by the manual template.");
+                        }
+                        changedPatterns.Add(definition.Name);
+                        if (!standardOverwrite) conflicts.Add($"linetype {definition.Name}");
+                    }
+                }
+
+                var updates = new List<DrawingLayerSpecification>();
                 foreach (var specification in request.Layers)
                 {
-                    string name = LinetypeName(specification.Linetype);
-                    if (!linetypeIndices.TryGetValue(name, out int linetypeIndex))
+                    var existing = FindLocalLayer(doc, specification.Path);
+                    if (existing != null)
                     {
-                        linetypeIndex = AddLinetype(doc, definitions[name]);
-                        linetypeIndices.Add(name, linetypeIndex);
+                        var name = LinetypeName(specification.Linetype);
+                        if (linetypeIndices.TryGetValue(name, out int index)
+                            && LayerMatches(existing, specification, index))
+                            continue;
+                        if (!(StandardLayer(specification) ? standardOverwrite : overwrite))
+                            conflicts.Add(specification.Path);
                     }
-                    int layerIndex = DocumentLayers.Ensure(doc, specification.Path);
-                    var layer = doc.Layers[layerIndex];
-                    layer.EnsurePrivateCopy();
-                    layer.Color = ReadColor(specification.Color, Color.Black);
-                    layer.PlotColor = ReadColor(specification.PlotColor, layer.Color);
-                    layer.PlotWeight = Math.Max(0.0, specification.PlotWeightMm);
-                    layer.LinetypeIndex = linetypeIndex;
-                    if (!doc.Layers.Modify(layer, layerIndex, true))
-                        throw new InvalidOperationException(
-                            $"Rhino failed to update drawing layer {specification.Path}."
-                        );
-
-                    result.Layers.Add(new DrawingLayerResult
-                    {
-                        Path = specification.Path,
-                        Role = specification.Role,
-                        LayerIndex = layerIndex,
-                        PlotWeightMm = layer.PlotWeight,
-                        Linetype = layer.LinetypeIndex < 0
-                            ? "Continuous"
-                            : doc.Linetypes[layer.LinetypeIndex]?.Name ?? "Continuous"
-                    });
+                    updates.Add(specification);
                 }
+                if (conflicts.Count != 0)
+                {
+                    result.Message = $"Existing definitions differ: {string.Join(", ", conflicts)}. No changes made. Use overwrite=true to replace them.";
+                    return result;
+                }
+
+                if (updates.Count == 0 && changedPatterns.Count == 0)
+                {
+                    ReadResultLayers();
+                    result.Status = "success";
+                    result.Message = $"All {result.Layers.Count} drawing layers already match.";
+                    return result;
+                }
+
+                var mutation = AlmondEngine.NativeUndoRecord.Run(doc, "Apply Almond drawing style", () =>
+                {
+                    foreach (var name in changedPatterns)
+                        if (!doc.Linetypes.Modify(CreateLinetype(definitions[name]), linetypeIndices[name], true))
+                            throw new InvalidOperationException($"Could not replace linetype {name}.");
+
+                    foreach (var specification in updates)
+                    {
+                        string name = LinetypeName(specification.Linetype);
+                        if (!linetypeIndices.TryGetValue(name, out int linetypeIndex))
+                        {
+                            linetypeIndex = AddLinetype(doc, definitions[name]);
+                            linetypeIndices.Add(name, linetypeIndex);
+                        }
+                        int layerIndex = DocumentLayers.Ensure(doc, specification.Path);
+                        var layer = doc.Layers[layerIndex];
+                        layer.EnsurePrivateCopy();
+                        layer.Color = ReadColor(specification.Color, Color.Black);
+                        layer.PlotColor = ReadColor(specification.PlotColor, layer.Color);
+                        layer.PlotWeight = Math.Max(0.0, specification.PlotWeightMm);
+                        layer.LinetypeIndex = linetypeIndex;
+                        if (!doc.Layers.Modify(layer, layerIndex, true))
+                            throw new InvalidOperationException($"Rhino failed to update drawing layer {specification.Path}.");
+                    }
+
+                    ReadResultLayers();
                 });
+
+                void ReadResultLayers()
+                {
+                    foreach (var specification in request.Layers)
+                    {
+                        var layer = FindLocalLayer(doc, specification.Path);
+                        if (layer == null)
+                            throw new InvalidOperationException($"Drawing layer {specification.Path} could not be resolved.");
+                        result.Layers.Add(new DrawingLayerResult
+                        {
+                            Path = specification.Path,
+                            Role = specification.Role,
+                            LayerIndex = layer.Index,
+                            PlotWeightMm = layer.PlotWeight,
+                            Linetype = layer.LinetypeIndex < 0
+                                ? "Continuous"
+                                : doc.Linetypes[layer.LinetypeIndex]?.Name ?? "Continuous"
+                        });
+                    }
+                }
+
                 result.MutationState = mutation.State;
                 result.RequiresReconciliation = mutation.State == "unknown";
                 if (!mutation.Success)
@@ -184,14 +259,64 @@ namespace RhinoAlmondBridge
 
         private sealed record DrawingLinetypeDefinition(string Name, List<DrawingLinetypeSegment> Segments);
 
-        private static int AddLinetype(RhinoDoc doc, DrawingLinetypeDefinition definition)
+        private static Layer FindLocalLayer(RhinoDoc doc, string path)
+        {
+            Guid parent = Guid.Empty;
+            Layer found = null;
+            foreach (var part in path.Split(new[] { "::" }, StringSplitOptions.None))
+            {
+                found = doc.Layers.FirstOrDefault(l => !l.IsDeleted && !l.IsReference
+                    && l.ParentLayerId == parent && string.Equals(l.Name, part, StringComparison.OrdinalIgnoreCase));
+                if (found == null) return null;
+                parent = found.Id;
+            }
+            return found;
+        }
+
+        private static bool SubtreeUsesLinetype(RhinoDoc doc, Layer layer, int index)
+        {
+            var objects = doc.Objects.FindByLayer(layer);
+            return layer.LinetypeIndex == index || (objects != null && objects.Any(obj =>
+                obj.Attributes.LinetypeSource == ObjectLinetypeSource.LinetypeFromObject &&
+                obj.Attributes.LinetypeIndex == index)) || doc.Layers.Any(child => !child.IsDeleted
+                && child.ParentLayerId == layer.Id && SubtreeUsesLinetype(doc, child, index));
+        }
+
+        private static bool LayerMatches(Layer layer, DrawingLayerSpecification specification, int index)
+        {
+            var color = ReadColor(specification.Color, Color.Black);
+            return layer.Color.ToArgb() == color.ToArgb()
+                && layer.PlotColor.ToArgb() == ReadColor(specification.PlotColor, color).ToArgb()
+                && Math.Abs(layer.PlotWeight - Math.Max(0, specification.PlotWeightMm)) < 1e-6
+                && layer.LinetypeIndex == index;
+        }
+
+        private static bool PatternMatches(Linetype pattern, DrawingLinetypeDefinition definition)
+        {
+            if (pattern.SegmentCount != definition.Segments.Count) return false;
+            for (int i = 0; i < pattern.SegmentCount; i++)
+            {
+                pattern.GetSegment(i, out double length, out bool solid);
+                var expected = definition.Segments[i];
+                if (solid != expected.IsSolid.Value || Math.Abs(length - expected.Length) >= 1e-6)
+                    return false;
+            }
+            return true;
+        }
+
+        private static Linetype CreateLinetype(DrawingLinetypeDefinition definition)
         {
             var created = new Linetype { Name = definition.Name };
             foreach (var segment in definition.Segments)
                 created.AppendSegment(segment.Length, segment.IsSolid.Value);
-            int index = doc.Linetypes.Add(created);
+            return created;
+        }
+
+        private static int AddLinetype(RhinoDoc doc, DrawingLinetypeDefinition definition)
+        {
+            int index = doc.Linetypes.Add(CreateLinetype(definition));
             if (index < 0)
-                throw new InvalidOperationException($"Could not create linetype {created.Name}.");
+                throw new InvalidOperationException($"Could not create linetype {definition.Name}.");
             return index;
         }
 
@@ -211,6 +336,12 @@ namespace RhinoAlmondBridge
     {
         [JsonProperty("recipe_id")]
         public string RecipeId { get; set; }
+
+        [JsonProperty("overwrite")]
+        public bool? Overwrite { get; set; }
+
+        [JsonProperty("include_standard_d")]
+        public bool IncludeStandardD { get; set; }
 
         [JsonProperty("layers")]
         public List<DrawingLayerSpecification> Layers { get; set; }

@@ -105,26 +105,73 @@ class OptionsAndMetadata(unittest.TestCase):
                          {'ps:source_layer':'Model','ps:placement':'local','ps:include_attachments':'true'})
         self.assertEqual(source.values,values)
 
-    def test_output_uses_layer_print_properties_and_hatch_layer_style(self):
-        color_source, plot_color_source, plot_weight_source = object(), object(), object()
-        api = NS(ObjectColorSource=NS(ColorFromLayer=color_source),
-                 ObjectPlotColorSource=NS(PlotColorFromLayer=plot_color_source),
-                 ObjectPlotWeightSource=NS(PlotWeightFromLayer=plot_weight_source))
+    def test_section_width_mode_does_not_change_display_or_plot_color(self):
+        api = NS(ObjectColorSource=NS(ColorFromLayer='layer'),
+                 ObjectPlotColorSource=NS(PlotColorFromLayer='layer'),
+                 ObjectPlotWeightSource=NS(PlotWeightFromLayer='layer', PlotWeightFromObject='object'))
         with patch.object(ps, 'D', api):
-            for role in ('section', 'hatch'):
-                attrs = ps.output_attributes(Attributes(), role)
-                self.assertIs(attrs.PlotColorSource, plot_color_source)
-                self.assertIs(attrs.PlotWeightSource, plot_weight_source)
-                if role == 'hatch': self.assertIs(attrs.ColorSource, color_source)
-        color = object()
-        layer = NS()
-        with patch.object(ps, 'Color', NS(FromArgb=Mock(return_value=color))) as colors:
-            ps.configure_hatch_layer(layer)
-        colors.FromArgb.assert_called_once_with(26, 26, 26)
-        self.assertIs(layer.Color, color)
-        self.assertIs(layer.PlotColor, color)
-        self.assertEqual(layer.PlotWeight, -1.0)
-        self.assertEqual(ps.output_layer('hatch'), 'Drawing::Hatch')
+            for role, mode, expected_width_source in (
+                    ('section', 'source', 'object'), ('section', 'output_layer', 'layer'),
+                    ('hatch', 'source', 'layer'), ('hatch', 'output_layer', 'layer')):
+                attrs = ps.output_attributes(Attributes(), role, mode)
+                self.assertEqual((attrs.ColorSource, attrs.PlotColorSource), ('layer', 'layer'))
+                self.assertEqual(attrs.PlotWeightSource, expected_width_source)
+
+    def test_resolved_attributes_use_source_layer_or_object_width_and_section_style(self):
+        def source(weight_source, width, style_source, style):
+            return NS(LayerIndex=0, ColorSource='FromObject', DrawColor=lambda doc: 'color',
+                      PlotColorSource='FromObject', ComputedPlotColor=lambda doc: 'print',
+                      PlotWeightSource=weight_source, ComputedPlotWeight=lambda doc: width if weight_source == 'FromObject' else doc.Layers[0].PlotWeight,
+                      LinetypeSource='FromObject', LinetypeIndex=-1, LinetypePatternScale=1.,
+                      GetCustomLinetype=lambda: None, SectionAttributesSource=style_source,
+                      GetCustomSectionStyle=lambda: style)
+
+        # The source layer intentionally differs from the originating object's custom settings.
+        layer_style, object_style = NS(HatchIndex=-7, Pattern='layer'), NS(HatchIndex=-7, Pattern='object')
+        doc = NS(Layers=[NS(PlotWeight=.36, GetCustomSectionStyle=lambda: layer_style)])
+        out = NS(SetCustomSectionStyle=Mock())
+        api = NS(ObjectAttributes=lambda: out,
+                 ObjectColorSource=NS(ColorFromObject='FromObject'),
+                 ObjectPlotColorSource=NS(PlotColorFromDisplay='FromDisplay', PlotColorFromObject='FromObject'),
+                 ObjectPlotWeightSource=NS(PlotWeightFromObject='FromObject'),
+                 ObjectLinetypeSource=NS(LinetypeFromObject='FromObject'),
+                 ObjectSectionAttributesSource=NS(FromObject='FromObject', FromSectioner='FromSectioner'),
+                 SectionStyle=lambda style: NS(**vars(style)))
+        with patch.object(ps, 'D', api), patch.object(ps, 'R', NS(RhinoMath=NS(UnsetIntIndex=-7))):
+            for width_source, section_source, custom, expected_width, expected_style in (
+                    ('FromLayer', 'FromLayer', object_style, .36, 'layer'),
+                    ('FromObject', 'FromObject', object_style, .72, 'object'),
+                    ('FromObject', 'FromObject', None, .72, 'layer')):
+                attrs = ps.resolved_attributes(doc, source(width_source, .72, section_source, custom))
+                self.assertEqual(attrs.PlotWeight, expected_width)
+                self.assertEqual(attrs.SetCustomSectionStyle.call_args.args[0].Pattern, expected_style)
+
+    def test_role_layers_keep_existing_width_and_enforce_colors(self):
+        with patch.object(ps, 'Color', NS(FromArgb=lambda *rgb: rgb)):
+            for role, suffix, color, plot_color in (
+                    ('section', 'Section', (255, 165, 0), (0, 0, 0)),
+                    ('elevation', 'Elevation', (144, 238, 144), 'unused'),
+                    ('hatch', 'Hatch', (64, 64, 64), (64, 64, 64))):
+                layer = NS(PlotColor='unused', PlotWeight=.24)
+                ps.configure_output_layer(layer, role, False)
+                self.assertEqual((layer.Color, layer.PlotColor, layer.PlotWeight), (color, plot_color, .24))
+                self.assertEqual(ps.output_layer(role), 'D::PlanSection::'+suffix)
+            ps.configure_output_layer(layer, 'hatch', True)
+            self.assertEqual(layer.PlotWeight, 0.0)
+
+    def test_pdf_width_uses_same_source_or_layer_as_output(self):
+        layer_paths = {ps.SECTION_LAYER: 0, ps.HATCH_LAYER: 1}
+        class Layers(list):
+            def FindByFullPath(self, path, default): return layer_paths.get(path, default)
+        doc = NS(Layers=Layers([NS(IsReference=False, PlotWeight=.07),
+                               NS(IsReference=False, PlotWeight=-1.)]))
+        item = {'role': 'section', 'attributes': NS(PlotWeight=.31)}
+        self.assertEqual(ps.effective_output_width(doc, item, 'source'), .31)
+        self.assertEqual(ps.effective_output_width(doc, item, 'output_layer'), .07)
+        item['role'] = 'hatch'
+        self.assertEqual(ps.effective_output_width(doc, item, 'source'), -1.)
+        item['role'] = 'elevation'
+        self.assertEqual(ps.effective_output_width(doc, item, 'output_layer'), .31)
 
     def test_final_elevation_keeps_distance_print_style_and_source_is_unchanged(self):
         import copy
@@ -140,7 +187,9 @@ class OptionsAndMetadata(unittest.TestCase):
                 result.values = dict(source.values)
                 return result
             source.Duplicate = duplicate
-            attrs = ps.output_attributes(source, 'elevation')
+            with patch.object(ps, 'D', NS(ObjectColorSource=NS(ColorFromLayer='layer'))):
+                attrs = ps.output_attributes(source, 'elevation')
+            self.assertEqual(attrs.ColorSource, 'layer')
             self.assertEqual((attrs.PlotWeight, attrs.PlotColor), (width, (gray, gray, gray)))
             self.assertEqual((attrs.PlotWeightSource, attrs.PlotColorSource), ('object','object'))
             self.assertEqual(attrs.values, {'ps:source_layer':'Model'})
@@ -243,7 +292,7 @@ class PlacementHeight(unittest.TestCase):
                 self.assertEqual(changes[0].args[1].GetUserString('ps:source_layer'),'Model')
                 self.assertEqual(changes[0].args[1].GetUserString('ps:include_attachments'),'true')
                 self.assertEqual(cp.Attributes.GetUserString('draft_plane'),'original')
-                registry.assert_called_once()
+                registry.assert_not_called()
                 before.Dispose.assert_called_once()
                 after.Dispose.assert_called_once()
 
@@ -640,13 +689,15 @@ class GeneratedOwnership(unittest.TestCase):
 
 
 class Workflow(unittest.TestCase):
-    def run_mode(self,mode,pick=False,cancel=False,fail=False,reference=False,fail_output=False):
+    def run_mode(self,mode,pick=False,cancel=False,fail=False,reference=False,fail_output=False,
+                 section_width_source='source'):
         cp,other = clipping(reference),clipping()
         other.Id = 'other'
         saved,picked,world = NS(OriginZ=100,Origin='saved'),NS(Origin='picked'),NS(OriginZ=0)
         drawing = dict(objects=[{'geometry':Mock()}],report={},target=saved,extraction={})
         options = dict(mode=mode,hatch=True,elevation=True,pick=pick,small_details=False,
-                       near_width=.09,far_width=.04,near_dark=80,far_dark=45)
+                       near_width=.09,far_width=.04,near_dark=80,far_dark=45,
+                       section_width_source=section_width_source)
         doc = Mock()
         doc.CurrentUndoRecordSerialNumber = 0
         doc.BeginUndoRecord.return_value = 7
@@ -676,6 +727,14 @@ class Workflow(unittest.TestCase):
              contextlib.redirect_stdout(io.StringIO()):
             ps.main(doc)
         return NS(**replacements,doc=doc,cp=cp,saved=saved,picked=picked,world=world,drawing=drawing,events=events)
+
+    def test_regenerating_modes_share_the_chosen_width_source(self):
+        for mode, export, argument in (('Document','bake',2), ('Update','bake',2),
+                                       ('Files','export_drawing',1), ('PDF','export_pdf',1)):
+            with self.subTest(mode=mode):
+                run = self.run_mode(mode, section_width_source='output_layer')
+                output = getattr(run, export).call_args.args[argument]
+                self.assertEqual(output['section_width_source'], 'output_layer')
 
     def test_generated_geometry_released_after_each_output(self):
         for mode in ('Document','Update','Files','PDF'):

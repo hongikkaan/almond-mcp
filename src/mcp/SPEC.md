@@ -78,7 +78,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 
 ### 공개 도구 위치
 
-package는 69개, 문서 전용 runtime은 7개를 더한 공통 76개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 81개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 `public_tool` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 도구 설명과 입력 안내는 구현 함수의 docstring, 출력 계약은 [output_contracts.py](output_contracts.py), 공통 공개 입출력 스키마는 [통합 검사 기준](../../tests/integration/tool_schemas.json)을 따른다.
+package는 70개, 문서 전용 runtime은 7개를 더한 공통 77개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 82개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 `public_tool` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 도구 설명과 입력 안내는 구현 함수의 docstring, 출력 계약은 [output_contracts.py](output_contracts.py), 공통 공개 입출력 스키마는 [통합 검사 기준](../../tests/integration/tool_schemas.json)을 따른다.
 
 | 기능 | 공개 도구 |
 |---|---|
@@ -189,7 +189,7 @@ Phase는 `generation_phase_files`에서 순서 있는 여러 등록 파일명을
 
 ## 재료·도면·자산
 
-재료 등록·구축 레이어 준비·객체 재료 적용은 MCP가 recipe를 해석하고 공통 native 구현을 호출한다. `model_01-assign_material` tool은 객체 레이어를 유지한다. 세부 recipe·레이어·메타데이터 계약은 [구법 안내](features/guidance/construction-guide.md#재료구축-레이어-구현), 종료된 Sheet 등록과 기존 Layout 보존은 [자산 안내](features/assets/SPEC.md#layoutsheet-호환)를 따른다.
+재료 등록·구축 레이어 준비·객체 재료 적용은 MCP가 recipe를 해석하고 공통 native 구현을 호출한다. `model_01-assign_material` tool은 렌더 재료를 적용할 때 지정한 객체를 재료 전용 레이어에 배치해 ByLayer로 지정한다. 세부 recipe·레이어·메타데이터 계약은 [구법 안내](features/guidance/construction-guide.md#재료구축-레이어-구현), 종료된 Sheet 등록과 기존 Layout 보존은 [자산 안내](features/assets/SPEC.md#layoutsheet-호환)를 따른다.
 
 저장소 `asset/`, wheel `almond_mcp/data/`, AppData 라이브러리의 배치는 다르다. 명시적 `RHINO_MCP_*_DIR`이 우선하며 기존 사용자 파일·manifest 상대 경로·계약/모델 해시를 보존한다. 다운로드한 community model과 원시 생성 파일은 기본 패키지에 포함하지 않는다. 자산·도면 도구와 단위·출처 계약은 [자산 안내](features/assets/SPEC.md)를 따른다.
 

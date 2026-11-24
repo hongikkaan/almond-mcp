@@ -99,3 +99,19 @@ def {name}() -> str | ToolResult:
     options = {kw.arg: ast.literal_eval(kw.value) for kw in node.decorator_list[0].keywords}
     assert options["output_schema"]["x-fastmcp-wrap-result"] is True
     assert "contentSchema" in options["output_schema"]["properties"]["result"]
+
+
+def test_dictionary_filter_annotation_is_admitted_only_for_intersection_input():
+    source = '''
+@public_tool(mcp, wrapped=False)
+def resolve_object_intersection(user_dictionary: DictionaryFilter | None = None):
+    ...
+'''
+    checked_stub(ast.parse(source).body[0])
+    for changed in (
+        source.replace("resolve_object_intersection(", "get_objects("),
+        source.replace("user_dictionary:", "other_input:"),
+        source.replace("DictionaryFilter | None", "list[DictionaryFilter]"),
+    ):
+        with pytest.raises(ValueError, match="Review annotation name DictionaryFilter"):
+            checked_stub(ast.parse(changed).body[0])

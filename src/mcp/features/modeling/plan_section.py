@@ -36,7 +36,8 @@ def unconfirmed_result(clipping_ids, message):
 
 
 def request(operation, clipping_ids, points, hatch, small_details,
-            near_width, far_width, near_dark, far_dark, model_path, include_attachments=None):
+            near_width, far_width, near_dark, far_dark, model_path, include_attachments=None,
+            section_width_source="source"):
     if operation not in ("Create", "Update", "Move"):
         raise ValueError("operation must be Create, Update or Move.")
     ids = _clipping_ids(clipping_ids)
@@ -64,12 +65,16 @@ def request(operation, clipping_ids, points, hatch, small_details,
         raise ValueError("A bound saved model path is required.")
     if include_attachments is not None and type(include_attachments) is not bool:
         raise ValueError("include_attachments must be boolean or omitted.")
+    if section_width_source not in ("source", "output_layer"):
+        raise ValueError("section_width_source must be source or output_layer.")
     payload = dict(type="plan_section", operation=operation, clipping_ids=ids, points=placements,
                    hatch=hatch, small_details=small_details,
                    near_width=near_width, far_width=far_width, near_dark=near_dark, far_dark=far_dark,
                    expected_model_path=model_path)
     if include_attachments is not None and operation != "Move":
         payload["include_attachments"] = include_attachments
+    if operation != "Move":
+        payload["section_width_source"] = section_width_source
     return payload
 
 
@@ -81,9 +86,9 @@ def dispatch(payload, send):
         if not isinstance(context, dict) or context.get("status") != "success":
             raise ValueError("Could not verify the bound Bridge's PlanSection capability.")
         version = context.get("capabilities", {}).get("plan_section")
-        if type(version) is not int or version != 3:
+        if type(version) is not int or version != 4:
             return dict(status="error", error_code="unsupported_plan_section", mutation_state="not_started",
-                        message="120초 취소와 클리핑별 결과를 지원하는 Bridge(plan_section=3)를 로드한 뒤 도면을 생성하세요.")
+                        message="120초 취소와 클리핑별 결과를 지원하는 Bridge(plan_section=4)를 로드한 뒤 도면을 생성하세요.")
         dispatched = True
         result = json.loads(send(json.dumps(payload).encode("utf-8"), timeout=600.0))
         if not isinstance(result, dict):

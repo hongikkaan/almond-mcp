@@ -50,6 +50,39 @@ def _tool_options(internal_name, *, wrapped, annotations=None):
     return options
 
 
+def _register_manipulate_view(mcp, **options):
+    def register(handler):
+        if not hasattr(mcp, "add_tool"):
+            return mcp.tool(**options)(handler)
+        from fastmcp.tools import FunctionTool
+
+        tool = FunctionTool.from_function(handler, **options)
+        # Keep flat wire fields but disclose both exclusive request branches.
+        # FastMCP still validates each top-level argument through the handler signature.
+        tool.parameters = {
+            **tool.parameters,
+            "properties": {key: {k: v for k, v in prop.items() if k != "default"}
+                           for key, prop in tool.parameters["properties"].items()},
+            "additionalProperties": False,
+            "oneOf": [
+                {
+                    "properties": {"operation": {"const": "rotate"}},
+                    "required": ["operation", "mode"],
+                    "not": {"required": ["factor"]},
+                },
+                {
+                    "properties": {"operation": {"const": "zoom"}, "factor": {"exclusiveMinimum": 0}},
+                    "required": ["operation", "factor"],
+                    "not": {"anyOf": [{"required": [key]} for key in ("mode", "yaw_deg", "pitch_deg")]},
+                },
+            ],
+        }
+        mcp.add_tool(tool)
+        return handler
+
+    return register
+
+
 def public_tool(mcp, *, wrapped, annotations=None, errors=False):
     """Register the handler and the declarations used by the external catalog."""
     def register(handler):
@@ -63,7 +96,8 @@ def public_tool(mcp, *, wrapped, annotations=None, errors=False):
             arguments.apply_defaults()
             return guide_result(handler.__name__, handler(*args, **kwargs), arguments.arguments)
 
-        return mcp.tool(**options)(mcp_error_result(guided) if errors else guided)
+        add = _register_manipulate_view(mcp, **options) if handler.__name__ == "manipulate_view" else mcp.tool(**options)
+        return add(mcp_error_result(guided) if errors else guided)
 
     return register
 
@@ -109,7 +143,10 @@ def _inert_registration(node: ast.FunctionDef) -> ast.Call:
             or any(not isinstance(key, str) or type(value) is not bool for key, value in annotations.items())):
         raise ValueError(f"Invalid annotations: {node.name}")
     options = _tool_options(node.name, **arguments)
-    return ast.Call(ast.Attribute(ast.Name("mcp", ast.Load()), "tool", ast.Load()), [],
+    mcp = ast.Name("mcp", ast.Load())
+    special = node.name == "manipulate_view"
+    register = ast.Name("_register_manipulate_view", ast.Load()) if special else ast.Attribute(mcp, "tool", ast.Load())
+    return ast.Call(register, [mcp] if special else [],
                     [ast.keyword(key, ast.parse(repr(value), mode="eval").body) for key, value in options.items()])
 
 
@@ -169,6 +206,16 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
                 and isinstance(annotation.left, ast.Name) and annotation.left.id == "str"
                 and isinstance(annotation.right, ast.Name) and annotation.right.id == "ToolResult"):
             continue
+        if (node.name == "apply_drawing_style"
+                and isinstance(annotation, ast.Name) and annotation.id == "StandardDLayerPath"
+                and any(argument.arg == "layer_path" and argument.annotation is annotation
+                        for argument in node.args.args)):
+            continue
+        if (node.name == "resolve_object_intersection"
+                and any(argument.arg == "user_dictionary" and argument.annotation is annotation
+                        for argument in node.args.args)
+                and ast.dump(annotation) == ast.dump(ast.parse("DictionaryFilter | None", mode="eval").body)):
+            continue
         for part in ast.walk(annotation):
             if not isinstance(part, allowed):
                 raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
@@ -202,15 +249,18 @@ def register_inert_tools(mcp, declarations: tuple[ToolDeclaration, ...]) -> None
     """Compile reviewed metadata into FastMCP with bodies that cannot run tools."""
     from fastmcp.tools import ToolResult
     from pydantic import StrictBool, StrictFloat, StrictInt
-    from almond_mcp.features.context.object_inputs import ObjectFilters, ObjectOutput, ObjectResultMode, ObjectScope
+    from almond_mcp.features.context.object_inputs import DictionaryFilter, ObjectFilters, ObjectOutput, ObjectResultMode, ObjectScope
 
+    from almond_mcp.features.drawings.standard import StandardDLayerPath
     from almond_mcp.features.planning.requests import CreateRequest, GetRequest, ListRequest, UpdateRequest
     from almond_mcp.features.planning.updates import StringListPatch
 
     namespace = {
         "__name__": __name__,
         "mcp": mcp,
+        "_register_manipulate_view": _register_manipulate_view,
         "ToolResult": ToolResult,
+        "StandardDLayerPath": StandardDLayerPath,
         "StrictInt": StrictInt,
         "StrictFloat": StrictFloat,
         "StrictBool": StrictBool,
@@ -218,6 +268,7 @@ def register_inert_tools(mcp, declarations: tuple[ToolDeclaration, ...]) -> None
         "ObjectScope": ObjectScope,
         "ObjectResultMode": ObjectResultMode,
         "ObjectFilters": ObjectFilters,
+        "DictionaryFilter": DictionaryFilter,
         "ObjectOutput": ObjectOutput,
         "StringListPatch": StringListPatch,
         "CreateRequest": CreateRequest,

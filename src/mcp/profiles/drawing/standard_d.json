@@ -1,0 +1,167 @@
+{
+  "recipe_id": "standard_d",
+  "name": "Standard D",
+  "description": "Standard layers for manual 2D drafting. PlanSection output is separate.",
+  "layers": [
+    {
+      "path": "D::Section",
+      "role": "Cut profiles",
+      "color": [
+        25,
+        25,
+        25
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.5,
+      "linetype": "Continuous"
+    },
+    {
+      "path": "D::Elev",
+      "role": "Visible elevation profiles beyond the cut",
+      "color": [
+        75,
+        75,
+        75
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.25,
+      "linetype": "Continuous"
+    },
+    {
+      "path": "D::Line",
+      "role": "Fine lines and secondary outlines",
+      "color": [
+        110,
+        110,
+        110
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.18,
+      "linetype": "Continuous"
+    },
+    {
+      "path": "D::Line::Hidden",
+      "role": "Concealed edges",
+      "color": [
+        115,
+        115,
+        115
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.18,
+      "linetype": "ALMOND D ISO 02 Dashed"
+    },
+    {
+      "path": "D::Line::Axis",
+      "role": "Axes and centre lines",
+      "color": [
+        115,
+        115,
+        115
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.18,
+      "linetype": "ALMOND D ISO 04 Long dash dot"
+    },
+    {
+      "path": "D::Dim",
+      "role": "Dimension lines, extension lines and marks",
+      "color": [
+        120,
+        120,
+        120
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.18,
+      "linetype": "Continuous"
+    },
+    {
+      "path": "D::Annotation",
+      "role": "Labels and leaders",
+      "color": [
+        105,
+        105,
+        105
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.18,
+      "linetype": "Continuous"
+    },
+    {
+      "path": "D::Note",
+      "role": "General drawing notes",
+      "color": [
+        105,
+        105,
+        105
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.18,
+      "linetype": "Continuous"
+    },
+    {
+      "path": "D::Symbol",
+      "role": "Drawing and reference symbols",
+      "color": [
+        75,
+        75,
+        75
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.25,
+      "linetype": "Continuous"
+    },
+    {
+      "path": "D::Hatch",
+      "role": "Manually drawn material hatches",
+      "color": [
+        140,
+        140,
+        140
+      ],
+      "plot_color": [
+        0,
+        0,
+        0
+      ],
+      "plot_weight_mm": 0.13,
+      "linetype": "Continuous"
+    }
+  ]
+}

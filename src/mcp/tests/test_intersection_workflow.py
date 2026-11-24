@@ -45,13 +45,16 @@ def setup(monkeypatch, tmp_path):
     monkeypatch.setenv("ALMOND_PROJECT_ROOT", str(tmp_path))
     monkeypatch.setenv("ALMOND_MODEL_PATH", str(tmp_path / "review.3dm"))
     monkeypatch.setattr("almond_mcp.features.components.intersection_workflow.save_png", lambda *_: {"status": "saved"})
-    def create(*replies):
+    def create(*replies, dictionary_capability=True):
         responses = iter(replies)
         calls = []
         def send(raw):
             request = json.loads(raw)
             if request["type"] == "get_rhino_context":
-                return json.dumps({"status": "success", "capabilities": {"intersection_queries": 1, "intersection_review": 1, "intersection_user_text": 1}})
+                caps = {"intersection_queries": 1, "intersection_review": 1, "intersection_user_text": 1}
+                if dictionary_capability:
+                    caps["intersection_user_dictionary"] = 1
+                return json.dumps({"status": "success", "capabilities": caps})
             calls.append(request)
             value = next(responses)
             if isinstance(value, Exception):
@@ -281,9 +284,10 @@ def test_public_tool_combines_review_and_choice_with_strict_schema(setup):
             tools = {v.name: v for v in await client.list_tools()}
             assert "show_object_intersection" not in tools
             schema = tools["intersect_02-resolve"].input_schema
-            assert set(schema["properties"]) == {"object_ids", "include_block", "review_id", "choice", "user_text"}
+            assert set(schema["properties"]) == {"object_ids", "include_block", "review_id", "choice", "user_text", "user_dictionary"}
             for args in ({"choice": True}, {"choice": "1"}, {"choice": 3}, {"pair_state": "x"},
-                         {"object_ids": [A], "choice": 1}, {"review_id": "missing", "choice": 2}):
+                         {"object_ids": [A], "choice": 1}, {"review_id": "missing", "choice": 2},
+                         {"object_ids": [A, B], "user_dictionary": [{"source": "geometry", "key": "Floor"}]}):
                 response = await client.call_tool("intersect_02-resolve", args, raise_on_error=False)
                 assert response.is_error
             assert not calls
@@ -317,3 +321,34 @@ def test_invalid_review_text_filter_does_not_start_a_scan(setup):
     assert workflow.execute([A, B], user_text=[{"key": "floor", "any_of": [2]}]).is_error
     assert workflow.execute(user_text=[]).is_error
     assert not calls
+
+
+def test_dictionary_filter_survives_skipped_pairs_and_combines_with_text(setup):
+    conditions = [{"source": "geometry", "key": "Floor", "any_of": ["2F", "3F"]}]
+    user_text = [{"key": "class", "any_of": ["stair"]}]
+    match = image(HA, HC)
+    workflow, calls, _ = setup(page(pair(), cursor="s:1"), {"status": "success", "filtered_out": True},
+                               page(pair(HA, HC)), match)
+    result = workflow.execute([A, B, C], user_text=user_text, user_dictionary=conditions).structured_content
+    assert result["objects"] == match["objects"] and result["state"] == "awaiting_choice"
+    reviews = [call for call in calls if call["type"] == "intersection_review"]
+    assert [(call["user_dictionary"], call["user_text"]) for call in reviews] == [(conditions, user_text)] * 2
+
+
+def test_invalid_dictionary_filter_does_not_start_a_scan(setup):
+    workflow, calls, _ = setup()
+    assert workflow.execute([A, B], user_dictionary=[{"source": "other", "key": "Floor", "any_of": [2]}]).is_error
+    assert workflow.execute([A, B], user_dictionary=[{"source": "attributes", "key": "Floor", "any_of": [float("nan")]}]).is_error
+    assert workflow.execute(user_dictionary=[]).is_error
+    assert not calls
+
+
+def test_old_bridge_cannot_silently_drop_dictionary_filter(setup):
+    workflow, calls, _ = setup(page(pair()), dictionary_capability=False)
+    response = workflow.execute([A, B], user_dictionary=[
+        {"source": "attributes", "key": "Floor", "any_of": ["B1F"]},
+    ]).structured_content
+    assert response["error_code"] == "unsupported_intersection_review"
+    assert "intersection_user_dictionary=1" in response["message"]
+    assert [call["type"] for call in calls] == ["get_object_intersections"]
+    assert workflow.pending is None

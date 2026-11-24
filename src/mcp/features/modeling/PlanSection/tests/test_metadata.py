@@ -118,7 +118,7 @@ class TypedPlacement(unittest.TestCase):
             Geometry=NS(Duplicate=Mock(side_effect=[Mock(), moved_shape])), Attributes=placed)
         registry = { 'ps:clip:clip': '["drawing"]' }
         class LayerTable:
-            def FindByFullPath(self, path, default): return 0
+            def FindByFullPath(self, path, default): return 0 if path == ps.LEGACY_DRAWING_ROOT else default
             def __getitem__(self, index): return NS(GetUserString=registry.get)
         def modify(guid, attributes, quiet):
             (clip if guid == clip.Id else stored[guid]).Attributes = attributes
@@ -133,8 +133,7 @@ class TypedPlacement(unittest.TestCase):
         with patch.object(Point, '__sub__', make_subtraction, create=True), \
              patch.object(ps, 'System', NS(Guid=lambda value:value)), \
              patch.object(ps, 'objects', side_effect=lambda doc:list(stored.values())), \
-             patch.object(ps, 'save_drawing_registry', side_effect=lambda doc, cp, value, recovery=None:
-                          registry.update({'ps:clip:'+cp.Id:value})), \
+             patch.object(ps, 'save_drawing_registry', side_effect=AssertionError('Move wrote the ownership registry')), \
              patch.object(ps, 'generate', side_effect=generate), \
              patch.object(ps, 'bake', return_value=['regenerated']):
             moved, updated = {}, {}
@@ -198,7 +197,7 @@ class SourceMetadata(unittest.TestCase):
                 sources = [(str(i), ps.source_metadata(Attributes(name))) for i, name in enumerate(names)]
                 self.assertEqual(ps.consensus_metadata(sources)['name'], '')
 
-    def test_reserved_and_floor_do_not_override_output_floor(self):
+    def test_floor_remains_only_on_sources(self):
         src = Attributes('Wall', {'Floor':'5F'},
                          {'Floor': ['5F','6F'], 'ps:clip': 'forged', 'MaterialClass':'wall'})
         result = ps.consensus_metadata([('source', ps.source_metadata(src))])
@@ -206,8 +205,8 @@ class SourceMetadata(unittest.TestCase):
         self.assertNotIn('Floor', result['user_text'])
         self.assertNotIn('ps:clip', result['dictionary'])
         attrs = Attributes()
-        ps.apply_source_metadata(attrs, result, '5F')
-        self.assertEqual(attrs.UserDictionary['Floor'], '5F')
+        ps.apply_source_metadata(attrs, result)
+        self.assertFalse(attrs.UserDictionary.ContainsKey('Floor'))
         self.assertEqual(attrs.UserDictionary['MaterialClass'], 'wall')
         self.assertEqual(src.UserDictionary['Floor'], ['5F','6F'])
 
@@ -229,7 +228,7 @@ class SourceMetadata(unittest.TestCase):
             generated = ps.generate(NS(ModelAbsoluteTolerance=.01),clip,elevation=False,place=False)
         attrs = ps.output_attributes(generated['objects'][0]['attributes'])
         self.assertEqual(attrs.Name,'Partition')
-        self.assertEqual(attrs.UserDictionary['Floor'],'6F')
+        self.assertFalse(attrs.UserDictionary.ContainsKey('Floor'))
         self.assertEqual(attrs.UserDictionary['Class'],'Wall')
         self.assertEqual(attrs.GetUserString('Phase'),'A')
         self.assertIsNone(attrs.GetUserString('ps:inherited_keys'))

@@ -30,6 +30,7 @@ PUBLIC_TOOL_NAMES = {
     'capture_conditioning_pass': 'capture_01-conditioning_pass',
     'capture_rhino_inspection': 'capture_02-inspection',
     'get_current_viewcapture': 'capture_03-current_view',
+    'manipulate_view': 'capture_05-manipulate_view',
     'get_defined_viewcapture': 'capture_04-defined_view',
     'assign_material': 'model_01-assign_material',
     'edit_planar_face': 'model_02-edit_planar_face',

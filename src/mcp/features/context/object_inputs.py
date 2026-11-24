@@ -56,6 +56,9 @@ class DictionarySides(TypedDict, total=False):
     exclude: Annotated[list[DictionaryCondition], Field(min_length=1, max_length=1)]
 
 
+DictionaryFilter = Annotated[list[DictionaryCondition], Field(max_length=16)] | DictionarySides
+
+
 @with_config(ConfigDict(extra="forbid", strict=True))
 class FilterFields(TypedDict, total=False):
     layer: NamedCondition
@@ -68,7 +71,7 @@ class FilterFields(TypedDict, total=False):
     name_contains: Annotated[str, Field(max_length=256)]
     object_types: Annotated[list[Annotated[str, Field(min_length=1, max_length=64)]], Field(min_length=1, max_length=32)]
     user_text: Annotated[list[TextCondition], Field(max_length=16)] | TextSides
-    user_dictionary: Annotated[list[DictionaryCondition], Field(max_length=16)] | DictionarySides
+    user_dictionary: DictionaryFilter
 
 
 @with_config(ConfigDict(extra="forbid", strict=True))

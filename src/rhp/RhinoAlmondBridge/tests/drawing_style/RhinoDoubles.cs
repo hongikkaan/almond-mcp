@@ -8,6 +8,7 @@ namespace Rhino
         public static RhinoDoc ActiveDoc { get; set; }
         public LinetypeTable Linetypes { get; } = new();
         public LayerTable Layers { get; } = new();
+        public ObjectTable Objects { get; } = new();
         public ViewTable Views { get; } = new();
         public uint UndoRecord { get; set; } = 1;
         public bool UndoSucceeds { get; set; } = true;
@@ -34,6 +35,11 @@ namespace Rhino
         public void ClearRedoRecords() { }
     }
 
+    public sealed class ObjectTable : List<RhinoObject>
+    {
+        public RhinoObject[] FindByLayer(Layer layer) => this.Where(obj => obj.Attributes.LayerIndex == layer.Index).ToArray();
+    }
+
     public sealed class LinetypeTable : List<Linetype>
     {
         private readonly Linetype _continuous = new() { Name = "Continuous", Index = -1 };
@@ -46,6 +52,12 @@ namespace Rhino
             definition.Index = Count;
             base.Add(definition);
             return definition.Index;
+        }
+        public bool Modify(Linetype definition, int index, bool quiet)
+        {
+            definition.Index = index;
+            this[index] = definition;
+            return true;
         }
     }
 
@@ -92,8 +104,20 @@ namespace Rhino.DocObjects
         public int Index { get; set; }
         public bool IsDeleted { get; set; }
         public List<(double Length, bool IsSolid)> Segments { get; } = new();
+        public int SegmentCount => Segments.Count;
+        public void GetSegment(int index, out double length, out bool solid) =>
+            (length, solid) = Segments[index];
         public void AppendSegment(double length, bool isSolid) => Segments.Add((length, isSolid));
     }
+
+    public enum ObjectLinetypeSource { LinetypeFromLayer, LinetypeFromObject }
+    public sealed class ObjectAttributes
+    {
+        public int LayerIndex { get; set; }
+        public int LinetypeIndex { get; set; }
+        public ObjectLinetypeSource LinetypeSource { get; set; }
+    }
+    public sealed class RhinoObject { public ObjectAttributes Attributes { get; } = new(); }
 
     public sealed class Layer
     {
@@ -106,7 +130,7 @@ namespace Rhino.DocObjects
         public Color Color { get; set; }
         public Color PlotColor { get; set; }
         public double PlotWeight { get; set; }
-        public int LinetypeIndex { get; set; }
+        public int LinetypeIndex { get; set; } = -1;
         public void EnsurePrivateCopy() { }
     }
 }

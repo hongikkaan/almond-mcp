@@ -195,9 +195,45 @@
       "additionalProperties": false,
       "properties": {
         "recipe_id": {
-          "default": "",
+          "default": "standard_d",
           "type": "string",
-          "description": "drawing_05-list_recipes tool 또는 drawing_02-get_recipe tool에서 확인. 생략 시 파일명 순으로 처음 로드된 레시피 적용."
+          "description": "기본값 standard_d는 목록 조회 없이 바로 적용한다. 다른 레시피는 명시한 ID를 사용한다."
+        },
+        "layer_path": {
+          "anyOf": [
+            {
+              "enum": [
+                "D::Section",
+                "D::Elev",
+                "D::Line",
+                "D::Line::Hidden",
+                "D::Line::Axis",
+                "D::Dim",
+                "D::Annotation",
+                "D::Note",
+                "D::Symbol",
+                "D::Hatch"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "D::Section: Cut profiles; D::Elev: Visible elevation profiles beyond the cut; D::Line: Fine lines and secondary outlines; D::Line::Hidden: Concealed edges; D::Line::Axis: Axes and centre lines; D::Dim: Dimension lines, extension lines and marks; D::Annotation: Labels and leaders; D::Note: General drawing notes; D::Symbol: Drawing and reference symbols; D::Hatch: Manually drawn material hatches"
+        },
+        "overwrite": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "표준 D는 기본으로 기존의 다른 정의를 보존한다. true로만 바꾼다. 공통 D를 포함한 레시피에도 이 보호를 적용한다. 나머지 레이어는 생략 시 기존처럼 덮어쓴다."
         }
       },
       "type": "object"
@@ -320,7 +356,8 @@
         },
         "apply_render_material": {
           "default": true,
-          "type": "boolean"
+          "type": "boolean",
+          "description": "true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 재료를 유지한다."
         },
         "attach_metadata": {
           "default": false,
@@ -421,7 +458,8 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "자동 배정한 전체 레이어 경로. 메타데이터 전용 호출이면 null."
               },
               "message": {
                 "type": "string"
@@ -431,6 +469,22 @@
               },
               "next_step_guide": {
                 "type": "string"
+              },
+              "layer_action": {
+                "type": "string",
+                "enum": [
+                  "created",
+                  "reused",
+                  "not_applied"
+                ],
+                "description": "레이어 신규 등록·재사용·미적용 여부."
+              },
+              "layer_changed_guids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "실제로 다른 레이어로 옮긴 객체 GUID. 같은 레이어에서 ByLayer만 복구했으면 제외."
               }
             }
           }
@@ -647,6 +701,7 @@
   "capture_02-inspection": {
     "name": "capture_02-inspection",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "views": {
           "items": {
@@ -707,10 +762,10 @@
       "required": [
         "views"
       ],
-      "type": "object",
-      "additionalProperties": false
+      "type": "object"
     },
     "outputSchema": {
+      "type": "object",
       "properties": {
         "status": {
           "type": "string"
@@ -782,8 +837,7 @@
         "next_step_guide": {
           "type": "string"
         }
-      },
-      "type": "object"
+      }
     },
     "annotations": {
       "readOnlyHint": false,
@@ -2601,6 +2655,7 @@
   "capture_03-current_view": {
     "name": "capture_03-current_view",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "target_ids": {
           "anyOf": [
@@ -2682,10 +2737,10 @@
           "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다."
         }
       },
-      "type": "object",
-      "additionalProperties": false
+      "type": "object"
     },
     "outputSchema": {
+      "type": "object",
       "properties": {
         "mutation_applied": {
           "type": [
@@ -2909,8 +2964,7 @@
         "status": {
           "type": "string"
         }
-      },
-      "type": "object"
+      }
     },
     "annotations": {
       "readOnlyHint": false,
@@ -2920,6 +2974,7 @@
   "capture_04-defined_view": {
     "name": "capture_04-defined_view",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "target_kind": {
           "type": "string",
@@ -2988,10 +3043,10 @@
         "target_kind",
         "target"
       ],
-      "type": "object",
-      "additionalProperties": false
+      "type": "object"
     },
     "outputSchema": {
+      "type": "object",
       "properties": {
         "image_file": {
           "type": "object",
@@ -3028,8 +3083,7 @@
         "status": {
           "type": "string"
         }
-      },
-      "type": "object"
+      }
     },
     "annotations": {
       "readOnlyHint": false,
@@ -3584,6 +3638,7 @@
   "inspect_02-get_objects": {
     "name": "inspect_02-get_objects",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "scope": {
           "default": "current",
@@ -4262,10 +4317,10 @@
           "description": "fields·include_ids·include_geometry·limit·offset·expected_snapshot 중 필요한 항목. 같은 이름의 평면 인자도 지정하면 output 값이 우선."
         }
       },
-      "type": "object",
-      "additionalProperties": false
+      "type": "object"
     },
     "outputSchema": {
+      "type": "object",
       "properties": {
         "result": {
           "type": "string",
@@ -4428,7 +4483,6 @@
       "required": [
         "result"
       ],
-      "type": "object",
       "x-fastmcp-wrap-result": true
     },
     "annotations": {
@@ -7208,6 +7262,7 @@
   "drawing_06-generate_plan_section": {
     "name": "drawing_06-generate_plan_section",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "operation": {
           "enum": [
@@ -7319,16 +7374,25 @@
           ],
           "default": null,
           "description": "Worksession 첨부 형상 포함. Create에서 생략하면 활성 모델만, Update에서 생략하면 저장된 설정 사용. Move에는 적용되지 않음."
+        },
+        "section_width_source": {
+          "default": "source",
+          "enum": [
+            "source",
+            "output_layer"
+          ],
+          "type": "string",
+          "description": "단면선의 인쇄 선폭 기준. source는 원본의 유효 선폭, output_layer는 D::PlanSection::Section 레이어의 선폭. Move에는 적용되지 않음."
         }
       },
       "required": [
         "operation",
         "clipping_ids"
       ],
-      "type": "object",
-      "additionalProperties": false
+      "type": "object"
     },
     "outputSchema": {
+      "type": "object",
       "properties": {
         "result": {
           "type": "string",
@@ -7599,7 +7663,6 @@
       "required": [
         "result"
       ],
-      "type": "object",
       "x-fastmcp-wrap-result": true
     },
     "annotations": null
@@ -8439,6 +8502,7 @@
   "intersect_02-resolve": {
     "name": "intersect_02-resolve",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "object_ids": {
           "anyOf": [
@@ -8496,12 +8560,171 @@
           ],
           "default": null,
           "description": "새 검토 범위의 객체 속성 User Text 조건 배열. 예: [{\"key\":\"floor\",\"any_of\":[\"2F\"]}]. 한 객체가 모든 조건과 일치하는 쌍을 표시. 양쪽 값은 objects[].attributes.user_strings.values에서 확인. 중첩 블록에는 정의 구성원의 속성 적용."
+        },
+        "user_dictionary": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "enum": [
+                      "attributes",
+                      "geometry"
+                    ],
+                    "type": "string"
+                  },
+                  "key": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "any_of": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ]
+                    },
+                    "maxItems": 64,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "source",
+                  "key",
+                  "any_of"
+                ],
+                "type": "object"
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            {
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "include": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "enum": [
+                          "attributes",
+                          "geometry"
+                        ],
+                        "type": "string"
+                      },
+                      "key": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "any_of": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        "maxItems": 64,
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "key",
+                      "any_of"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "exclude": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "enum": [
+                          "attributes",
+                          "geometry"
+                        ],
+                        "type": "string"
+                      },
+                      "key": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "any_of": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        "maxItems": 64,
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "key",
+                      "any_of"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1,
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "새 검수에서 속성(attributes) 또는 형상(geometry)의 UserDictionary를 source, key, any_of 조건으로 필터링. 배열 값은 원소 하나라도 일치하면 통과. User Text도 지정하면 같은 객체가 두 필터를 모두 통과해야 쌍을 표시. 값은 objects[].user_dictionary에서 확인."
         }
       },
-      "type": "object",
-      "additionalProperties": false
+      "type": "object"
     },
     "outputSchema": {
+      "type": "object",
       "properties": {
         "status": {
           "type": "string"
@@ -8521,41 +8744,6 @@
         },
         "next_step_guide": {
           "type": "string"
-        },
-        "objects": {
-          "type": "array",
-          "description": "choice에서 사용할 번호가 붙은 검토 쌍의 구성원",
-          "items": {
-            "type": "object",
-            "properties": {
-              "attributes": {
-                "type": "object",
-                "properties": {
-                  "user_strings": {
-                    "type": "object",
-                    "description": "Rhino 객체 속성의 User Text",
-                    "properties": {
-                      "values": {
-                        "type": "object",
-                        "description": "저장된 문자열이나 응답 제한으로 생략된 값의 표시"
-                      },
-                      "total_keys": {
-                        "type": "integer",
-                        "description": "응답 제한을 적용하기 전 저장된 키 수"
-                      },
-                      "truncated": {
-                        "type": "boolean"
-                      }
-                    }
-                  }
-                }
-              },
-              "user_dictionary": {
-                "type": "object",
-                "description": "객체 속성과 형상의 UserDictionary를 구분"
-              }
-            }
-          }
         },
         "assessment": {
           "const": "incomplete",
@@ -8594,9 +8782,43 @@
             "null"
           ],
           "description": "해당 검사에서 확인한 문서 길이 단위. null은 확인 불가."
+        },
+        "objects": {
+          "type": "array",
+          "description": "choice에서 사용할 번호가 붙은 검토 쌍의 구성원",
+          "items": {
+            "type": "object",
+            "properties": {
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "user_strings": {
+                    "type": "object",
+                    "description": "Rhino 객체 속성의 User Text",
+                    "properties": {
+                      "values": {
+                        "type": "object",
+                        "description": "저장된 문자열이나 응답 제한으로 생략된 값의 표시"
+                      },
+                      "total_keys": {
+                        "type": "integer",
+                        "description": "응답 제한을 적용하기 전 저장된 키 수"
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              },
+              "user_dictionary": {
+                "type": "object",
+                "description": "객체 속성과 형상의 UserDictionary를 구분"
+              }
+            }
+          }
         }
-      },
-      "type": "object"
+      }
     },
     "annotations": null
   },
@@ -9657,6 +9879,7 @@
   "plan_12-update": {
     "name": "plan_12-update",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "request": {
           "oneOf": [
@@ -10147,10 +10370,10 @@
       "required": [
         "request"
       ],
-      "type": "object",
-      "additionalProperties": false
+      "type": "object"
     },
     "outputSchema": {
+      "type": "object",
       "properties": {
         "result": {
           "type": "string",
@@ -10273,7 +10496,6 @@
       "required": [
         "result"
       ],
-      "type": "object",
       "x-fastmcp-wrap-result": true
     },
     "annotations": null
@@ -10994,6 +11216,156 @@
     "annotations": {
       "readOnlyHint": false,
       "destructiveHint": false
+    }
+  },
+  "capture_05-manipulate_view": {
+    "name": "capture_05-manipulate_view",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "enum": [
+            "rotate",
+            "zoom"
+          ],
+          "type": "string",
+          "description": "rotate는 시점 회전, zoom은 실제 뷰포트 확대·축소."
+        },
+        "mode": {
+          "enum": [
+            "look",
+            "orbit"
+          ],
+          "type": "string",
+          "description": "rotate 전용. look은 카메라 위치 고정, orbit은 바라보는 지점과 카메라 거리 고정."
+        },
+        "yaw_deg": {
+          "type": "number",
+          "description": "rotate 전용. 상대 좌우 각도(도). 양수는 오른쪽, 생략하면 0. pitch_deg와 둘 다 0이거나 회전 결과가 수직이면 적용하지 않는다."
+        },
+        "pitch_deg": {
+          "type": "number",
+          "description": "rotate 전용. 상대 상하 각도(도). 양수는 위쪽, 생략하면 0. yaw_deg 적용 후 회전한다."
+        },
+        "factor": {
+          "type": "number",
+          "description": "zoom 전용. 0보다 큰 유한 배율. 2는 2배 확대, 0.5는 절반으로 축소."
+        },
+        "expected_viewport_id": {
+          "type": "string",
+          "description": "주면 현재 활성 뷰포트 ID와 일치해야 한다."
+        },
+        "expected_model_path": {
+          "type": "string",
+          "description": "주면 현재 문서의 모델 경로와 일치해야 한다."
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "operation": {
+              "const": "rotate"
+            }
+          },
+          "required": [
+            "operation",
+            "mode"
+          ],
+          "not": {
+            "required": [
+              "factor"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "operation": {
+              "const": "zoom"
+            },
+            "factor": {
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "operation",
+            "factor"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "mode"
+                ]
+              },
+              {
+                "required": [
+                  "yaw_deg"
+                ]
+              },
+              {
+                "required": [
+                  "pitch_deg"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "success",
+            "error"
+          ]
+        },
+        "viewport_id": {
+          "type": "string"
+        },
+        "camera_location": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "camera_target": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "mutation_applied": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "requires_reconciliation": {
+          "type": "boolean"
+        },
+        "error_code": {
+          "type": "string"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false
     }
   }
 }

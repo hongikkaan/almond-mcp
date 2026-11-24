@@ -1,6 +1,7 @@
 """Component MCP tools; register explicitly with the current server context."""
 from almond_mcp.tool_response import error_payload
 from almond_mcp.features.components.public_contract import holon_output
+from almond_mcp.features.context.object_inputs import DictionaryFilter
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.components.output import GROUPS, project
 from almond_mcp.managed_paths import bound_model_path
@@ -247,7 +248,8 @@ def register(mcp, context):
     @public_tool(mcp, wrapped=False)
     def resolve_object_intersection(object_ids: list[str] | None = None, include_block: StrictBool = False,
                                     review_id: str = "", choice: StrictInt | Literal["skip"] | None = None,
-                                    user_text: list[dict] | None = None):
+                                    user_text: list[dict] | None = None,
+                                    user_dictionary: DictionaryFilter | None = None):
         """겹친 객체 쌍을 캡처해 비교하고 지정한 객체에서 겹친 부분을 제거. 검토 시 실제 카메라와 선택이 바뀐다. 완료 후에도 건너뛴 쌍은 남는다. 다음 쌍의 검사 미판정(assessment=incomplete)에는 대상·이유와 해당 검사에서 확인한 모델 공차·단위를 반환하며 null은 확인 불가를 뜻한다. 직전 수정이 이미 적용됐을 수 있으므로 previous_result와 실제 형상을 확인.
 
         Args:
@@ -255,9 +257,10 @@ def register(mcp, context):
             include_block: 새 검토에 배치 변환을 적용한 중첩 블록 구성원 포함. 블록 정의 편집은 지원하지 않음.
             user_text: 새 검토 범위의 객체 속성 User Text 조건 배열. 예: [{"key":"floor","any_of":["2F"]}]. 한 객체가 모든 조건과 일치하는 쌍을 표시. 양쪽 값은 objects[].attributes.user_strings.values에서 확인. 중첩 블록에는 정의 구성원의 속성 적용.
             review_id: 비교 화면의 대상을 식별하는 반환 ID. choice 제출 시 필수. 완료됐거나 새 검토로 대체된 ID는 재사용 불가.
+            user_dictionary: 새 검수에서 속성(attributes) 또는 형상(geometry)의 UserDictionary를 source, key, any_of 조건으로 필터링. 배열 값은 원소 하나라도 일치하면 통과. User Text도 지정하면 같은 객체가 두 필터를 모두 통과해야 쌍을 표시. 값은 objects[].user_dictionary에서 확인.
             choice: 1 또는 2: 해당 번호 객체에서 겹친 부분 제거. skip: 두 객체 유지. 선택 제출 시 review_id를 지정하고 object_ids는 생략. 검토만 하거나 이어갈 때는 choice 생략.
         """
-        return intersection_workflow.execute(object_ids, include_block, review_id, choice, user_text)
+        return intersection_workflow.execute(object_ids, include_block, review_id, choice, user_text, user_dictionary)
 
     @public_tool(mcp, wrapped=True, annotations={'destructiveHint': False})
     @holon_output
