@@ -39,6 +39,18 @@ def body(response):
     return json.loads(response.content[0].text)
 
 
+def test_saving_the_same_title_twice_returns_the_saved_revision(context):
+    _, call = context
+    created = body(call("plan_02-create", request={"target": "plan", "title": "검토", "goal": "입구 점검"}))
+    request = {"target": "plan", "plan_id": created["plan"]["plan_id"], "title": "입구 검토"}
+    updated = body(call("plan_12-update", request=request))
+    repeated = body(call("plan_12-update", request=request))
+    assert updated["status"] == "updated" and updated["changed"] and updated["issues"] == []
+    assert repeated["status"] == "no_change" and not repeated["changed"] and repeated["issues"] == []
+    assert updated["plan"] == repeated["plan"]
+    assert repeated["plan"]["revision"] == 2 and repeated["plan"]["status"] == "pending"
+
+
 def test_plan_completion_adds_guidance_only_on_a_saved_transition(context):
     store, call = context
     plan_id = store.create_plan("Review entrance")["plan_id"]
@@ -47,13 +59,19 @@ def test_plan_completion_adds_guidance_only_on_a_saved_transition(context):
         return body(call("plan_12-update", request={"target": "plan", "plan_id": plan_id, **fields}))
 
     first = update(status="completed")
+    assert first["status"] == "updated" and first["changed"]
     assert first["plan"]["status"] == "completed"
     assert first["next_step_guide"].count(PLAN_CLEANUP_GUIDE) == 1
     assert "plan_05-get" in first["next_step_guide"]
     assert set(first) == {"status", "changed", "issues", "plan", "next_step_guide"}
     assert set(first["plan"]) == {"plan_id", "status", "loop_no", "revision"}
 
-    for fields in ({"status": "completed"}, {"title": "Final review"},
+    again = update(status="completed")
+    assert again["status"] == "no_change" and not again["changed"] and again["issues"] == []
+    assert again["plan"] == first["plan"]
+    assert PLAN_CLEANUP_GUIDE not in again["next_step_guide"]
+
+    for fields in ({"title": "Final review"},
                    {"status": "completed", "title": "Approved review"}, {"status": "running"}):
         assert PLAN_CLEANUP_GUIDE not in update(**fields)["next_step_guide"]
 
@@ -76,8 +94,11 @@ def test_phase_completion_keeps_its_own_guide(context):
     phase = store.create_phase("Design review")
     result = body(call("plan_12-update", request={"target": "phase", "phase_id": phase["phase_id"],
                                                  "status": "completed"}))
-    assert result["phase"]["status"] == "completed"
+    assert result["status"] == "updated" and result["phase"]["status"] == "completed"
     assert "target='phase'" in result["next_step_guide"] and PLAN_CLEANUP_GUIDE not in result["next_step_guide"]
+    repeated = body(call("plan_12-update", request={"target": "phase", "phase_id": phase["phase_id"],
+                                                    "status": "completed"}))
+    assert repeated["status"] == "no_change" and repeated["changed"] is False and repeated["issues"] == []
 
 
 def test_concurrent_completed_requests_guide_only_the_first_revision(planning_server):
@@ -95,6 +116,7 @@ def test_concurrent_completed_requests_guide_only_the_first_revision(planning_se
     for reply in replies:
         assert json.loads(reply.structured_content["result"]) == body(reply)
     first, second = sorted(map(body, replies), key=lambda ack: ack["plan"]["revision"])
+    assert first["status"] == second["status"] == "updated"
     assert first["changed"] and second["changed"]
     assert first["plan"]["revision"] == plan["revision"] + 1
     assert second["plan"]["revision"] == plan["revision"] + 2
@@ -128,6 +150,7 @@ def test_step_partial_edits_preserve_other_records_and_make_one_revision(context
     assert store.list_plan_revisions(pid)["total"] == after["revision"]
     replay = body(call("plan_12-update", request=dict(target="step", **arguments)))
     assert replay["status"] == "no_change" and replay["changed"] is False
+    assert replay["issues"] and "issues" in replay["next_step_guide"]
     assert store.get_plan(pid) == after
     conflict = body(call("plan_12-update", request=dict(target="step", **arguments, expected_revision=before["revision"])))
     assert conflict["status"] == "error" and store.get_plan(pid) == after
@@ -148,7 +171,7 @@ def test_each_combination_uses_one_revision(context, status, inputs, outputs):
     if outputs:
         changes["output_refs"] = {"add": ["survey"]}
     result = body(call("plan_12-update", request=dict(target="step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], **changes)))
-    assert result["status"] == "success" and result["changed"] is True and result["issues"] == []
+    assert result["status"] == "updated" and result["changed"] is True and result["issues"] == []
     assert result["plan"]["revision"] == plan["revision"] + 1
     assert result["step"]["status"] == ("running" if status else "pending")
 
@@ -159,7 +182,7 @@ def test_empty_patch_keeps_records_and_revision(context, patch):
     plan = store.create_plan("Review", scope="component")
     saved = store.update_plan_step(plan["plan_id"], plan["steps"][1]["step_id"], output_refs=["keep"])
     result = body(call("plan_12-update", request=dict(target="step", plan_id=plan["plan_id"], step_id=plan["steps"][1]["step_id"], output_refs=patch)))
-    assert result["status"] == "success" and result["changed"] is False and result["issues"] == []
+    assert result["status"] == "no_change" and result["changed"] is False and result["issues"] == []
     assert store.get_plan(plan["plan_id"]) == saved
 
 
@@ -222,7 +245,7 @@ def test_dependencies_apply_only_same_kind_items_without_execution_gates(context
     else:
         assert result["plan"]["revision"] == record["revision"] + 1
     removed = body(call("plan_12-update", request={**request, "depends_on": {"remove": current["depends_on"]}}))
-    assert removed["status"] == "success"
+    assert removed["status"] == "updated"
     current = store.get_phase(identifier) if kind == "phase" else store.get_plan(identifier)
     assert current["depends_on"] == []
 

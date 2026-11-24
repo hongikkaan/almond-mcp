@@ -41,11 +41,14 @@ def response(status="completed", item_status="completed"):
     results = [item]
     if status == "partial":
         results.append(completed_item(OTHER))
-    return dict(status="success", mutation_state="completed", result=dict(status=status, requested=len(results),
-                completed=sum(i["status"] == "completed" for i in results), results=results))
+    drawing = dict(status=status, requested=len(results),
+                   completed=sum(i["status"] == "completed" for i in results), results=results)
+    if status == "cancelled":
+        drawing["stop_reason"] = "user"
+    return dict(status="success", mutation_state="completed", result=drawing)
 
 
-def transport(reply=None, capability=2):
+def transport(reply=None, capability=3):
     calls = []
     def send(data, **kwargs):
         payload = json.loads(data)
@@ -79,17 +82,80 @@ def test_dedicated_native_dispatch_never_routes_caller_script_or_rhinocode():
     send, calls = transport()
     result = plan_section.dispatch(request(), send)
     assert result["status"] == "success" and result["drawing_status"] == "completed"
+    assert "object_ids" in result["next_step_guide"]
     validate(result, public_output_schema('plan_section', wrapped=False))
     assert [c[0]["type"] for c in calls] == ["get_rhino_context", "plan_section"]
     assert calls[-1][1] == {"timeout": 600.0}
     assert not {"script", "language", "folder", "path", "output"}.intersection(calls[-1][0])
 
 
-@pytest.mark.parametrize("capability", [None, 0, True, "2", 1])
+@pytest.mark.parametrize("capability", [None, 0, True, "3", 1, 2])
 def test_old_or_invalid_capability_never_dispatches_mutation(capability):
     send, calls = transport(capability=capability)
     result = plan_section.dispatch(request(), send)
     assert result["mutation_state"] == "not_started" and len(calls) == 1
+
+
+def test_deadline_receipt_classifies_every_cut_and_never_replays():
+    third = str(UUID(int=3))
+    drawing = dict(status="cancelled", stop_reason="deadline", requested=3, completed=1,
+                   results=[completed_item(), dict(clipping_id=OTHER, status="cancelled"),
+                            dict(clipping_id=third, status="not_started")])
+    send, calls = transport(dict(status="success", mutation_state="partial", result=drawing))
+    result = plan_section.dispatch(request(clipping_ids=[ID, OTHER, third]), send)
+    assert result["status"] == "timeout" and result["drawing_status"] == "cancelled"
+    assert result["result"] == drawing and len(calls) == 2
+    assert "미완료" in result["next_step_guide"]
+    validate(result, public_output_schema('plan_section', wrapped=False))
+
+
+def test_client_losing_its_wait_before_native_cleanup_cannot_confirm_any_cut():
+    send, calls = transport(TimeoutError("Client wait ended before native cleanup"))
+    result = plan_section.dispatch(request(clipping_ids=[ID, OTHER]), send)
+    assert result["status"] == "error" and result["mutation_state"] == "unknown"
+    assert result["unconfirmed_clipping_ids"] == [ID, OTHER]
+    assert "중단" in result["next_step_guide"] and len(calls) == 2
+
+
+def test_deadline_with_failed_recovery_preserves_the_other_cuts():
+    third = str(UUID(int=3))
+    failed = dict(clipping_id=OTHER, status="failed", recovery=dict(requires_reconciliation=True))
+    drawing = dict(status="cancelled", stop_reason="deadline", requested=3, completed=1,
+                   results=[completed_item(), failed, dict(clipping_id=third, status="not_started")])
+    send, calls = transport(dict(status="success", mutation_state="partial", result=drawing))
+    result = plan_section.dispatch(request(clipping_ids=[ID, OTHER, third]), send)
+    assert result["status"] == "error" and result["requires_reconciliation"]
+    assert "drawing_status" not in result
+    assert result["unconfirmed_clipping_ids"] == [OTHER] and result["result"] == drawing
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("prior", [False, True])
+def test_last_cuts_postwrite_error_reports_uncertain_ids_and_guidance(prior):
+    ids = [ID, OTHER] if prior else [OTHER]
+    failed = dict(clipping_id=OTHER, status="failed", object_ids=[OTHER], mutation_state="unknown",
+                  cleanup_error="dispose failed")
+    cuts = [completed_item(), failed] if prior else [failed]
+    drawing = dict(status="partial" if prior else "failed", requested=len(ids), completed=int(prior), results=cuts)
+    send, calls = transport(dict(status="success", mutation_state="unknown", result=drawing))
+    result = plan_section.dispatch(request(clipping_ids=ids), send)
+    assert result["status"] == ("partial" if prior else "error") and result["requires_reconciliation"]
+    assert result["unconfirmed_clipping_ids"] == [OTHER] and result["result"]["results"] == cuts
+    assert "다시 실행하지" in result["next_step_guide"] and len(calls) == 2
+    if not prior:
+        assert "완료를 확인한" in result["message"]
+
+
+@pytest.mark.parametrize("states", [["cancelled"], ["not_started", "completed"], ["cancelled", "cancelled"]])
+def test_incomplete_or_nonsequential_deadline_receipt_does_not_confirm_timeout(states):
+    ids = [ID, OTHER]
+    items = [completed_item(id) if state == "completed" else dict(clipping_id=id, status=state)
+             for id, state in zip(ids, states)]
+    drawing = dict(status="cancelled", stop_reason="deadline", requested=2, completed=states.count("completed"), results=items)
+    send, calls = transport(dict(status="success", mutation_state="partial", result=drawing))
+    result = plan_section.dispatch(request(clipping_ids=ids), send)
+    assert result["status"] == "error" and result["unconfirmed_clipping_ids"] == ids
+    assert len(calls) == 2
 
 
 @pytest.mark.parametrize("status,item_status", [("partial", "skipped"), ("partial", "failed"), ("cancelled", "cancelled")])
@@ -128,7 +194,9 @@ def test_entire_batch_failure_keeps_clipping_evidence():
 def test_native_error_keeps_undo_diagnostics():
     reply = dict(status="error", mutation_state="unknown", message="Undo recovery failed", error_trace="evidence")
     send, calls = transport(reply)
-    assert plan_section.dispatch(request(), send) == {**reply, "requires_reconciliation": True} and len(calls) == 2
+    result = plan_section.dispatch(request(), send)
+    assert all(result[key] == value for key, value in reply.items())
+    assert result["requires_reconciliation"] and result["unconfirmed_clipping_ids"] == [ID] and len(calls) == 2
 
 
 @pytest.mark.parametrize("reply", [
@@ -272,7 +340,7 @@ def test_native_result_serializes_unicode_without_ironpython_ascii_encoder(opera
                 small_details=False, near_width=.09, far_width=.04, near_dark=80, far_dark=45)
     scope = dict(json=SimpleNamespace(loads=json.loads, dumps=ironpython_dumps), run=run,
                  _almond_doc=object(), _almond_arguments_json=json.dumps(args),
-                 _almond_observe_attachments=None)
+                 _almond_observe_attachments=None, _almond_deadline_token=None)
     exec(invocation, scope)
     assert json.loads(scope["_almond_result_json"]) == result
 
@@ -298,6 +366,7 @@ def test_native_adapter_context_and_failure_boundaries(native_boundary_results):
 @pytest.mark.parametrize("case,is_error,status", [
     ("completed", False, "success"), ("partial", False, "partial"), ("cancelled", False, "cancelled"),
     ("runtime_error", True, "error"), ("failed", True, "error"), ("oversized", False, "success"),
+    ("deadline", False, "timeout"), ("deadline_cleanup_error", True, "error"), ("deadline_undo_error", True, "error"),
 ])
 def test_production_native_responses_through_actual_mcp_boundary(native_boundary_results, case, is_error, status, monkeypatch):
     monkeypatch.setenv("ALMOND_MODEL_PATH", MODEL)
@@ -307,7 +376,7 @@ def test_production_native_responses_through_actual_mcp_boundary(native_boundary
         mcp = FastMCP("production-plan-section-result")
         register(mcp, SimpleNamespace(_send_and_receive=send))
         async with Client(mcp) as client:
-            ids = [ID, OTHER] if case == "partial" else [ID]
+            ids = [ID, OTHER] if case in {"partial", "deadline", "deadline_cleanup_error", "deadline_undo_error"} else [ID]
             result = await client.call_tool("drawing_06-generate_plan_section",
                 dict(operation="Create", clipping_ids=ids), raise_on_error=False)
             assert result.is_error is is_error
@@ -325,6 +394,15 @@ def test_production_native_responses_through_actual_mcp_boundary(native_boundary
                 assert len(item["object_ids"]) == 1681
                 assert item["draw_plane"]["origin"] == [12, 34, -9]
                 assert item["extraction"]["layers"] == ["model::walls"]
+            if case == "deadline_cleanup_error":
+                assert "drawing_status" not in value and value["requires_reconciliation"]
+                assert value["result"]["completed"] == 1
+                assert "중단" in value["next_step_guide"]
+            if case == "deadline_undo_error":
+                assert value["unconfirmed_clipping_ids"] == [ID] and value["requires_reconciliation"]
+                assert "completed" not in value["result"] and value["mutation_state"] == "unknown"
+                assert [cut["status"] for cut in value["result"]["results"]] == ["unconfirmed", "not_started"]
+                assert value["result"]["results"][0]["object_ids"]
     asyncio.run(check())
 
 

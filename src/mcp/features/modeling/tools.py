@@ -25,7 +25,7 @@ def register(mcp, context):
                           include_attachments: StrictBool | None = None) -> str:
         """활성 모델이나 Worksession 첨부 파일의 클리핑 평면에서 단면선·가시 입면선·해치를 생성. Update는 저장 위치에서 다시 계산해 수동 편집을 교체할 수 있고, Move는 GUID와 수동 편집을 유지한 채 원점만 이동.
 
-        일부 완료나 취소 뒤에도 완료된 도면이 남을 수 있다. 변경 실패 시 객체·속성·레이어의 복구를 각각 시도하고 recovery.attempts에 기록. tracked_changes_restored는 추적한 변경의 복구 결과다. mutation_state가 partial 또는 unknown이고 requires_reconciliation=true이면 자동 재시도 금지. 실제 도면이나 Undo 결과 확인.
+        Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 중단하고 Undo와 정리를 마치면 timeout 및 클리핑별 결과를 반환한다. 완료된 도면은 남는다. SDK 호출 또는 정리 중 클라이언트 대기가 끝나면 중단 여부는 미확인이다. 변경 실패 시 객체·속성·레이어 복구 시도는 recovery.attempts에 기록하며 tracked_changes_restored는 추적한 변경의 복구 결과다. requires_reconciliation=true이면 실제 도면과 Undo 상태를 확인하고 자동 재시도하지 않는다.
 
         Args:
             operation: Create: 생성 또는 교체. Update: 저장 위치에서 재생성. Move: 기존 도면의 평행이동.

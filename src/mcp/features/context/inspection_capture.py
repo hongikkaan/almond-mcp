@@ -10,6 +10,7 @@ from fastmcp.tools import ToolResult
 from mcp.types import ImageContent, TextContent
 from PIL import Image
 from almond_mcp.features.context.capture_artifacts import save_png
+from almond_mcp.features.context.context_query import display_mode_menu_error
 
 
 MAX_TILES = 16
@@ -148,6 +149,9 @@ def execute(send, payload, path):
             return _result(_error("unsupported_inspection_model_view", "Load a Bridge with inspection_model_view=1."))
         if "object_ids" in request and capabilities.get("capabilities", {}).get("inspection_shared_scope") != 1:
             return _result(_error("unsupported_inspection_shared_scope", "Load a Bridge with inspection_shared_scope=1."))
+        if any(tile["display_mode"] for tile in request["views"]):
+            if error := display_mode_menu_error(capabilities["capabilities"]):
+                return _result(error)
         response = send(json.dumps(request, ensure_ascii=False, allow_nan=False).encode("utf-8"))
         if len(response.encode("utf-8")) > 6 * 1024 * 1024:
             raise ValueError("Inspection capture response exceeds its bounded image and metadata budget.")

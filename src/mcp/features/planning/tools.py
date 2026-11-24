@@ -105,7 +105,7 @@ def register(mcp, context):
 
         `depends_on`, `input_refs`, `output_refs`는 `add`/`remove` 패치. 나머지 대상·산출물·상하위 관계 배열은 전체 교체. 생략·`null`은 기존 값 유지, 교체 배열의 `[]`는 전체 삭제.
 
-        적용하지 못한 패치 항목은 `issues`에서 확인. 일부만 적용되면 `partial_success`. Step을 `completed`로 지정하면 함께 전달한 필드와 한 번에 저장.
+        응답 `status`는 모두 반영해 값이 바뀌면 `updated`, 바뀐 값이 없으면 `no_change`, 변경과 건너뛴 항목이 함께 있으면 `partial_success`. 건너뛴 항목은 `issues`에서 확인. Step을 `completed`로 지정하면 함께 전달한 필드와 한 번에 저장.
 
         Plan 완료는 사용자 확인 후 지정.
         """

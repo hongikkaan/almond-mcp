@@ -15,7 +15,19 @@ namespace Rhino
     }
     public sealed class DocumentEventArgs : EventArgs { public RhinoDoc? Document { get; set; } }
     public sealed class DocumentSaveEventArgs : EventArgs { }
-    public static class RhinoApp { public static void WriteLine(string message) { } public static event EventHandler? Idle; }
+    public static class RhinoApp {
+        public static void WriteLine(string message) { }
+        public static event EventHandler? Idle;
+        public static event EventHandler? AppSettingsChanged;
+    }
+}
+namespace Rhino.Display
+{
+    public sealed record DisplayModeDescription(Guid Id, bool InMenu, bool SupportsShadeCommand)
+    {
+        public static DisplayModeDescription[] Modes { get; set; } = [];
+        public static DisplayModeDescription[] GetDisplayModes() => Modes;
+    }
 }
 namespace Eto.Forms { public sealed class Application { public static Application? Instance => null; public void AsyncInvoke(Action action) => action(); } }
 namespace AlmondEngine

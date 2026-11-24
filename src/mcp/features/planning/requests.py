@@ -27,8 +27,8 @@ class CreatePlan(PlanningRequest):
     phase_id: str = ''
     scene_ids: list[str] | None = Field(None, description='생략하거나 `null`이면 `scene_id` 사용.')
     holon_ids: list[str] | None = None
-    depends_on: list[str] | None = Field(None, description='같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음.')
-    previous_id: str | None = Field(None, description='Plan ID 형식만 검사. 참조 대상의 존재는 확인하지 않음.')
+    depends_on: list[str] | None = Field(None, description='결과나 결정에 의존하는 관련 Plan. 같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음.')
+    previous_id: str | None = Field(None, description='작업 순서상 직전 Plan. Plan ID 형식만 검사. 참조 대상의 존재는 확인하지 않음.')
     parent_plan: list[str] | None = Field(None, description='상위 Plan의 존재를 검사하거나 상대 Plan을 자동 수정하지 않음.')
     child_plan: list[str] | None = Field(None, description='하위 Plan의 존재를 검사하거나 상대 Plan을 자동 수정하지 않음.')
 
@@ -82,11 +82,11 @@ class UpdatePlan(PlanningRequest):
     scene_ids: list[str] | None = None
     holon_ids: list[str] | None = None
     expected_revision: StrictInt | None = Field(None, description='현재 리비전과 다르면 수정 거부. Loop 시작 후에는 `loop_no`도 함께 지정.')
-    depends_on: StringListPatch | None = Field(None, description='Plan ID 형식만 검사. 대상 존재·자기 참조·순환은 확인하지 않으며 순서나 완료도 강제하지 않음.')
+    depends_on: StringListPatch | None = Field(None, description='결과나 결정에 의존하는 관련 Plan. Plan ID 형식만 검사. 대상 존재·자기 참조·순환은 확인하지 않으며 순서나 완료도 강제하지 않음.')
     status: Literal['pending', 'running', 'paused', 'completed', 'failed', 'blocked'] | None = Field(None, description='`completed`는 사용자의 완료 결정 후 지정.')
     artifact_refs: list[str] | None = None
     title: str | None = Field(None, description='빈 제목은 거부.')
-    previous_id: str | None = Field(None, description='빈 문자열은 연결 해제.')
+    previous_id: str | None = Field(None, description='작업 순서상 직전 Plan. 빈 문자열은 연결 해제.')
     parent_plan: list[str] | None = Field(None, description='상대 Plan을 자동 수정하거나 참조 대상의 존재를 검사하지 않음.')
     child_plan: list[str] | None = Field(None, description='상대 Plan을 자동 수정하거나 참조 대상의 존재를 검사하지 않음.')
     loop_no: StrictInt | None = Field(None, description='현재 회차만 허용. 생략하면 현재 회차 적용.')

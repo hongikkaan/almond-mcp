@@ -542,12 +542,12 @@
         "rgb_mode": {
           "default": "Rendered",
           "type": "string",
-          "description": "설치된 Rhino 디스플레이 모드 이름."
+          "description": "RGB 패스에 사용할 뷰 메뉴의 래스터 표시 모드 이름 또는 GUID. 기본 Rendered. 이름이 중복되면 GUID 사용."
         },
         "edge_mode": {
           "default": "Technical",
           "type": "string",
-          "description": "설치된 Rhino 디스플레이 모드 이름."
+          "description": "에지 패스에 사용할 뷰 메뉴의 래스터 표시 모드 이름 또는 GUID. 기본 Technical. depth는 별도 깊이 버퍼를 사용."
         },
         "invert_depth": {
           "default": false,
@@ -571,7 +571,7 @@
             "properties": {
               "status": {
                 "type": "string",
-                "description": "executed는 모든 청크 실행 완료, partial은 청크 실행 중 오류."
+                "description": "executed는 모든 청크 실행 완료. error는 완료가 확인된 청크 없이 실패, partial은 앞선 청크의 완료 후 실패."
               },
               "frames_requested": {
                 "type": "integer"
@@ -647,7 +647,6 @@
   "capture_02-inspection": {
     "name": "capture_02-inspection",
     "inputSchema": {
-      "additionalProperties": false,
       "properties": {
         "views": {
           "items": {
@@ -655,7 +654,7 @@
             "type": "object"
           },
           "type": "array",
-          "description": "타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 설치된 모드 이름 또는 GUID. label: 최대 120자. object_ids: 블록 인스턴스를 제외한 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다."
+          "description": "타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 뷰 메뉴의 래스터 모드 이름 또는 GUID. RhinoBeyond에서는 세션의 공개 입력에 열거된 GUID를 사용한다. label: 최대 120자. object_ids: 블록 인스턴스를 제외한 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다."
         },
         "width": {
           "default": 640,
@@ -708,10 +707,10 @@
       "required": [
         "views"
       ],
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "outputSchema": {
-      "type": "object",
       "properties": {
         "status": {
           "type": "string"
@@ -783,7 +782,8 @@
         "next_step_guide": {
           "type": "string"
         }
-      }
+      },
+      "type": "object"
     },
     "annotations": {
       "readOnlyHint": false,
@@ -1151,7 +1151,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음."
+                  "description": "결과나 결정에 의존하는 관련 Plan. 같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음."
                 },
                 "previous_id": {
                   "anyOf": [
@@ -1163,7 +1163,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "Plan ID 형식만 검사. 참조 대상의 존재는 확인하지 않음."
+                  "description": "작업 순서상 직전 Plan. Plan ID 형식만 검사. 참조 대상의 존재는 확인하지 않음."
                 },
                 "parent_plan": {
                   "anyOf": [
@@ -2601,7 +2601,6 @@
   "capture_03-current_view": {
     "name": "capture_03-current_view",
     "inputSchema": {
-      "additionalProperties": false,
       "properties": {
         "target_ids": {
           "anyOf": [
@@ -2641,7 +2640,7 @@
         "display_mode": {
           "default": "",
           "type": "string",
-          "description": "설치된 래스터 모드 이름 또는 GUID."
+          "description": "뷰 메뉴에 등록된 래스터 모드 이름 또는 GUID."
         },
         "labels": {
           "default": false,
@@ -2683,10 +2682,10 @@
           "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다."
         }
       },
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "outputSchema": {
-      "type": "object",
       "properties": {
         "mutation_applied": {
           "type": [
@@ -2910,7 +2909,8 @@
         "status": {
           "type": "string"
         }
-      }
+      },
+      "type": "object"
     },
     "annotations": {
       "readOnlyHint": false,
@@ -2920,7 +2920,6 @@
   "capture_04-defined_view": {
     "name": "capture_04-defined_view",
     "inputSchema": {
-      "additionalProperties": false,
       "properties": {
         "target_kind": {
           "type": "string",
@@ -2943,7 +2942,7 @@
         "display_mode": {
           "default": "",
           "type": "string",
-          "description": "Named View 전용. 생략 시 Shaded. 설치된 래스터 모드 이름 또는 GUID."
+          "description": "Named View 전용. 생략 시 Shaded. 뷰 메뉴에 등록된 래스터 모드 이름 또는 GUID."
         },
         "labels": {
           "default": false,
@@ -2989,10 +2988,10 @@
         "target_kind",
         "target"
       ],
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "outputSchema": {
-      "type": "object",
       "properties": {
         "image_file": {
           "type": "object",
@@ -3029,7 +3028,8 @@
         "status": {
           "type": "string"
         }
-      }
+      },
+      "type": "object"
     },
     "annotations": {
       "readOnlyHint": false,
@@ -3587,8 +3587,13 @@
       "properties": {
         "scope": {
           "default": "current",
+          "enum": [
+            "current",
+            "document",
+            "inside_viewport"
+          ],
           "type": "string",
-          "description": "current 또는 document"
+          "description": "current, document 또는 inside_viewport. inside_viewport는 current 중 활성 모델 뷰 또는 Detail 경계와 바운딩 박스가 교차하는 객체. 가림과 클리핑 평면은 판정하지 않음."
         },
         "object_ids": {
           "anyOf": [
@@ -3608,7 +3613,491 @@
         "filters": {
           "anyOf": [
             {
-              "additionalProperties": true,
+              "additionalProperties": false,
+              "properties": {
+                "layer": {
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "properties": {
+                    "include": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "exclude": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                "name": {
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "properties": {
+                    "include": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "exclude": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                "object_type": {
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "properties": {
+                    "include": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "exclude": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                "block": {
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "properties": {
+                    "include": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "exclude": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                "group": {
+                  "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "else": {
+                        "not": {
+                          "required": [
+                            "include_mode"
+                          ]
+                        }
+                      },
+                      "if": {
+                        "properties": {
+                          "include": {
+                            "minItems": 2
+                          }
+                        },
+                        "required": [
+                          "include"
+                        ]
+                      },
+                      "then": {
+                        "required": [
+                          "include_mode"
+                        ]
+                      }
+                    },
+                    {
+                      "else": {
+                        "not": {
+                          "required": [
+                            "exclude_mode"
+                          ]
+                        }
+                      },
+                      "if": {
+                        "properties": {
+                          "exclude": {
+                            "minItems": 2
+                          }
+                        },
+                        "required": [
+                          "exclude"
+                        ]
+                      },
+                      "then": {
+                        "required": [
+                          "exclude_mode"
+                        ]
+                      }
+                    }
+                  ],
+                  "minProperties": 1,
+                  "properties": {
+                    "include": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "exclude": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "include_mode": {
+                      "enum": [
+                        "any",
+                        "all"
+                      ],
+                      "type": "string"
+                    },
+                    "exclude_mode": {
+                      "enum": [
+                        "any",
+                        "all"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "material": {
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "properties": {
+                    "include": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "exclude": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                },
+                "layer_paths": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "maxItems": 64,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "name_contains": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "object_types": {
+                  "items": {
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "maxItems": 32,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "user_text": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "key": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "any_of": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 64,
+                            "minItems": 1,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "any_of"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 16,
+                      "type": "array"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "minProperties": 1,
+                      "properties": {
+                        "include": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "key": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "any_of": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "maxItems": 64,
+                                "minItems": 1,
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "any_of"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 1,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "exclude": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "key": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "any_of": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "maxItems": 64,
+                                "minItems": 1,
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "any_of"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 1,
+                          "minItems": 1,
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                },
+                "user_dictionary": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "source": {
+                            "enum": [
+                              "attributes",
+                              "geometry"
+                            ],
+                            "type": "string"
+                          },
+                          "key": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "any_of": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ]
+                            },
+                            "maxItems": 64,
+                            "minItems": 1,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "key",
+                          "any_of"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 16,
+                      "type": "array"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "minProperties": 1,
+                      "properties": {
+                        "include": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "source": {
+                                "enum": [
+                                  "attributes",
+                                  "geometry"
+                                ],
+                                "type": "string"
+                              },
+                              "key": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "any_of": {
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                "maxItems": 64,
+                                "minItems": 1,
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "source",
+                              "key",
+                              "any_of"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 1,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "exclude": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "source": {
+                                "enum": [
+                                  "attributes",
+                                  "geometry"
+                                ],
+                                "type": "string"
+                              },
+                              "key": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "any_of": {
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                "maxItems": 64,
+                                "minItems": 1,
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "source",
+                              "key",
+                              "any_of"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 1,
+                          "minItems": 1,
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              },
               "type": "object"
             },
             {
@@ -3616,7 +4105,7 @@
             }
           ],
           "default": null,
-          "description": "모든 조건을 함께 적용. layer_paths는 정확한 전체 경로, object_types는 관찰된 Rhino 이름, name_contains는 대소문자 구분 없이 검색. 객체 속성 User Text의 user_text와 UserDictionary의 user_dictionary는 각각 조건 객체 1개도 배열로 지정하며 최대 16개 조건이 모두 일치해야 한다. user_text 예: [{\"key\":\"floor\",\"any_of\":[\"2F\"]}]. user_dictionary는 source=attributes(객체 속성) 또는 geometry(형상)와 비어 있지 않은 key 필요. any_of는 user_text에서 문자열 1..64개, user_dictionary에서 문자열·불리언·숫자 1..64개. 키의 값 또는 배열 원소가 any_of 중 하나와 정확히 일치해야 한다."
+          "description": "서로 다른 조건은 함께 적용. layer는 전체 경로/GUID, block은 배치의 정의 이름/GUID, group은 멤버십 이름/GUID, material은 배치 객체 전면의 실효 재질 이름/GUID(레이어 상속 포함), name은 객체 이름 정확 일치, object_type은 Rhino 유형명. 이름 비교는 대소문자 무시. 단일값 속성은 include 중 하나에 해당하고 exclude에 없어야 함. group의 include·exclude는 각각 1..64개. 두 개 이상 지정한 쪽에만 include_mode·exclude_mode로 any(하나 이상) 또는 all(모두)을 명시. exclude는 그 조건에 해당하면 제외. user_text·user_dictionary의 include·exclude는 각각 한 조건. 메타데이터는 조건 객체 1개도 배열로 지정. 기존 조건 배열은 최대 16개 조건을 모두 만족해야 함. 각 any_of는 값 하나와 일치하면 충족. 기존 layer_paths·object_types·name_contains(부분 문자열) 사용 가능."
         },
         "include_geometry": {
           "default": false,
@@ -3644,6 +4133,11 @@
         },
         "result_mode": {
           "default": "objects",
+          "enum": [
+            "objects",
+            "hierarchy",
+            "summary"
+          ],
           "type": "string",
           "description": "objects, hierarchy, summary. recursive=true와 summary는 동시 지정 불가."
         },
@@ -3726,6 +4220,46 @@
           "default": "",
           "type": "string",
           "description": "offset > 0이면 첫 페이지의 snapshot 필요"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "fields": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "include_ids": {
+                  "type": "boolean"
+                },
+                "include_geometry": {
+                  "type": "boolean"
+                },
+                "limit": {
+                  "maximum": 200,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "offset": {
+                  "maximum": 100000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "expected_snapshot": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "fields·include_ids·include_geometry·limit·offset·expected_snapshot 중 필요한 항목. 같은 이름의 평면 인자도 지정하면 output 값이 우선."
         }
       },
       "type": "object",
@@ -6674,7 +7208,6 @@
   "drawing_06-generate_plan_section": {
     "name": "drawing_06-generate_plan_section",
     "inputSchema": {
-      "additionalProperties": false,
       "properties": {
         "operation": {
           "enum": [
@@ -6792,10 +7325,10 @@
         "operation",
         "clipping_ids"
       ],
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "outputSchema": {
-      "type": "object",
       "properties": {
         "result": {
           "type": "string",
@@ -6805,7 +7338,7 @@
             "properties": {
               "status": {
                 "type": "string",
-                "description": "success, partial, cancelled, error"
+                "description": "success, partial, cancelled(사용자 취소), timeout(120초 취소 후 중단·정리 확인), error"
               },
               "drawing_status": {
                 "type": "string",
@@ -6816,6 +7349,17 @@
               },
               "requires_reconciliation": {
                 "type": "boolean"
+              },
+              "unconfirmed_clipping_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "최종 변경 상태를 확인할 수 없는 클리핑 GUID"
+              },
+              "next_step_guide": {
+                "type": "string",
+                "description": "도면 확인 또는 중단·미완료 범위 확인 안내"
               },
               "recovery": {
                 "type": "array",
@@ -6885,6 +7429,14 @@
                   "completed": {
                     "type": "integer"
                   },
+                  "stop_reason": {
+                    "type": "string",
+                    "enum": [
+                      "deadline",
+                      "user"
+                    ],
+                    "description": "알고리즘이 안전한 지점에서 관찰한 취소 사유"
+                  },
                   "requires_reconciliation": {
                     "type": "boolean"
                   },
@@ -6903,6 +7455,21 @@
                           ]
                         },
                         "status": {
+                          "type": "string",
+                          "enum": [
+                            "completed",
+                            "failed",
+                            "skipped",
+                            "cancelled",
+                            "not_started",
+                            "unconfirmed"
+                          ]
+                        },
+                        "mutation_state": {
+                          "type": "string",
+                          "description": "변경 후 최종 결과 미확인 시 unknown"
+                        },
+                        "cleanup_error": {
                           "type": "string"
                         },
                         "object_ids": {
@@ -6910,7 +7477,7 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "생성·갱신·이동한 도면 객체의 GUID"
+                          "description": "생성·갱신·이동에서 관찰한 객체 GUID. unconfirmed이면 최종 문서에 남았는지 대조 필요"
                         },
                         "draw_plane": {
                           "type": "object",
@@ -7032,6 +7599,7 @@
       "required": [
         "result"
       ],
+      "type": "object",
       "x-fastmcp-wrap-result": true
     },
     "annotations": null
@@ -9089,7 +9657,6 @@
   "plan_12-update": {
     "name": "plan_12-update",
     "inputSchema": {
-      "additionalProperties": false,
       "properties": {
         "request": {
           "oneOf": [
@@ -9317,7 +9884,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "Plan ID 형식만 검사. 대상 존재·자기 참조·순환은 확인하지 않으며 순서나 완료도 강제하지 않음."
+                  "description": "결과나 결정에 의존하는 관련 Plan. Plan ID 형식만 검사. 대상 존재·자기 참조·순환은 확인하지 않으며 순서나 완료도 강제하지 않음."
                 },
                 "status": {
                   "anyOf": [
@@ -9375,7 +9942,7 @@
                     }
                   ],
                   "default": null,
-                  "description": "빈 문자열은 연결 해제."
+                  "description": "작업 순서상 직전 Plan. 빈 문자열은 연결 해제."
                 },
                 "parent_plan": {
                   "anyOf": [
@@ -9580,10 +10147,10 @@
       "required": [
         "request"
       ],
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "outputSchema": {
-      "type": "object",
       "properties": {
         "result": {
           "type": "string",
@@ -9592,11 +10159,18 @@
             "type": "object",
             "properties": {
               "status": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "updated",
+                  "no_change",
+                  "partial_success",
+                  "error"
+                ],
+                "description": "수정 결과. 실제 변경은 updated, 무변경은 no_change, 변경과 건너뛴 항목이 함께 있으면 partial_success."
               },
               "changed": {
                 "type": "boolean",
-                "description": "`success`여도 저장 값이 같으면 `false`."
+                "description": "실제 저장 값이 바뀌었으면 true. Step 완료 후 Rhino 후속 작업이 실패해도 저장된 변경은 유지."
               },
               "phase": {
                 "type": "object",
@@ -9699,6 +10273,7 @@
       "required": [
         "result"
       ],
+      "type": "object",
       "x-fastmcp-wrap-result": true
     },
     "annotations": null

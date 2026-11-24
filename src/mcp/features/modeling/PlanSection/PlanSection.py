@@ -527,12 +527,15 @@ def output(geo, attrs, role, contributors=None):
 def dispose_drawing_items(items, retained=()):
     """Release generated geometry replaced at a stage boundary; keep shared aliases."""
     keep = set(id(item['geometry']) for item in retained)
+    errors = []
     for item in items:
         geometry = item['geometry']
         identity = id(geometry)
         if identity not in keep:
             keep.add(identity)
-            geometry.Dispose()
+            try: geometry.Dispose()
+            except Exception as error: errors.append(str(error))
+    if errors: raise ValueError('Geometry cleanup failed: '+' / '.join(errors))
 
 
 def intersect(geo, plane, tol):
@@ -803,12 +806,19 @@ def sections(doc, records, plane, hatch_on, progress=None):
             if split:
                 for geo in pieces: geo.Dispose()
     results = []
+    def checkpoint(stage):
+        try:
+            progress(stage)
+        except DrawingCancelled:
+            # generate() cannot take ownership until sections() returns.
+            dispose_drawing_items(results)
+            raise
     # Python 3 cannot order absent custom styles (None) against numeric CRCs.
     # Tag values only for sorting; keep grouping and stored style keys unchanged.
     for key, group in sorted(groups.items(),
                              key=lambda item: tuple((v is not None, v) for v in item[0])):
         layer = key[0]
-        if progress: progress('union '+doc.Layers[layer].FullPath+' ('+str(len(group['regions']))+' regions)')
+        if progress: checkpoint('union '+doc.Layers[layer].FullPath+' ('+str(len(group['regions']))+' regions)')
         regions = planar_union(group['regions'], plane, tol)
         region_sources = section_region_contributors(regions, group['region_sources'],
                                                      group['contributors'], plane, tol)
@@ -841,7 +851,7 @@ def sections(doc, records, plane, hatch_on, progress=None):
                                                        plane, tol)
             boundaries = [region_boundaries(region, tol, doc.ModelAngleToleranceRadians,
                                            doc.ModelAbsoluteTolerance) for region in fill]
-        if progress: progress('hatch '+doc.Layers[layer].FullPath)
+        if progress: checkpoint('hatch '+doc.Layers[layer].FullPath)
         patterns = []
         if str(style.BackgroundFillMode) == 'SolidColor':
             patterns.append((hatch_pattern(doc, -1).Index, 0., 1.,
@@ -873,7 +883,8 @@ def sections(doc, records, plane, hatch_on, progress=None):
     return results
 
 
-def elevations(doc, records, plane, depth, near_width, far_width, near_dark, far_dark, profile=None):
+def elevations(doc, records, plane, depth, near_width, far_width, near_dark, far_dark, profile=None,
+               cancellation_token=None):
     tol = doc.ModelAbsoluteTolerance
     if depth == 0:
         return []
@@ -913,7 +924,16 @@ def elevations(doc, records, plane, depth, near_width, far_width, near_dark, far
                 raise ValueError('HLD rejected geometry: '+record['source'])
         watch = System.Diagnostics.Stopwatch.StartNew() if profile is not None else None
         # Parallel HLD can change visible segments between identical runs.
-        hld = G.HiddenLineDrawing.Compute(parameters, False)
+        if cancellation_token is None:
+            hld = G.HiddenLineDrawing.Compute(parameters, False)
+        else:
+            if cancellation_token.IsCancellationRequested: raise DrawingCancelled()
+            try:
+                hld = G.HiddenLineDrawing.Compute(parameters, False, None, cancellation_token)
+            except System.OperationCanceledException:
+                if cancellation_token.IsCancellationRequested: raise DrawingCancelled()
+                raise
+            if cancellation_token.IsCancellationRequested: raise DrawingCancelled()
         if watch is not None:
             profile['hld_compute_seconds'] = watch.Elapsed.TotalSeconds
         if hld is None:
@@ -1186,7 +1206,7 @@ def cleanup_elevations(doc, items, plane=G.Plane.WorldXY, small_details=True):
 
 def generate(doc, cp, hatch=True, elevation=True, target=None,
              near_width=.09, far_width=.04, near_dark=80., far_dark=45., progress=None, place=True,
-             small_details=True, profile=None, model_cache=None, attached_model=None):
+             small_details=True, profile=None, model_cache=None, attached_model=None, cancellation_token=None):
     validate_options(near_width, far_width, near_dark, far_dark)
     clip = read_clip(doc, cp, target)
     clip['elevation'] = elevation
@@ -1210,7 +1230,7 @@ def generate(doc, cp, hatch=True, elevation=True, target=None,
         if elevation:
             if progress: progress('elevation')
             items.extend(elevations(doc, records, clip['plane'], clip['depth'],
-                                    near_width, far_width, near_dark, far_dark, profile))
+                                    near_width, far_width, near_dark, far_dark, profile, cancellation_token))
         if progress: progress('overlaps')
         previous, items = items, deduplicate(items, doc.ModelAbsoluteTolerance, section_tolerance(doc))
         dispose_drawing_items(previous, items)
@@ -1315,6 +1335,10 @@ class DrawingMutationError(ValueError):
     def __init__(self, message, recovery):
         ValueError.__init__(self, message)
         self.recovery = recovery
+
+
+class DrawingCancelled(Exception):
+    """Cancellation observed before entering a document mutation."""
 
 
 class DrawingRecovery:
@@ -1422,7 +1446,7 @@ def model_output_view(doc, model_view):
                 raise ValueError('Cannot restore the previously active layout detail')
 
 
-def bake(doc, cp, drawing, target=None):
+def bake(doc, cp, drawing, target=None, is_cancelled=None):
     model_views = doc.Views.GetViewList(True, False)
     if not model_views:
         raise ValueError('An existing model viewport is required for drawing output')
@@ -1431,6 +1455,7 @@ def bake(doc, cp, drawing, target=None):
     original = cp.Attributes.Duplicate()
     recovery = DrawingRecovery()
     added_patterns = []
+    if is_cancelled and is_cancelled(): raise DrawingCancelled()
     try:
         layers = {role: local_output_layer(doc, output_layer(role), recovery)
                   for role in set(i['role'] for i in drawing['objects'])}
@@ -1561,7 +1586,7 @@ def move_drawing(drawing, source, target):
         write_saved_plane(item['attributes'], 'ps:placement', placement_plane(source, target.Origin))
 
 
-def reposition_drawing(doc, cp, target=None):
+def reposition_drawing(doc, cp, target=None, is_cancelled=None, result=None):
     """Translate existing horizontal output in XYZ; retain IDs and user edits."""
     existing = drawing_objects(doc, cp)
     if not existing: raise ValueError('No generated drawing to move')
@@ -1582,6 +1607,8 @@ def reposition_drawing(doc, cp, target=None):
             prepared.append((obj.Id, before, obj.Attributes.Duplicate(), after))
             if not after.Transform(transform) or not after.IsValid:
                 raise ValueError('Invalid drawing geometry after move')
+        if is_cancelled and is_cancelled(): return False
+        if result is not None: result['mutation_state'] = 'unknown'
         for guid, before, attrs_before, after in prepared:
             changed.append((guid, before, attrs_before))
             if not doc.Objects.Replace(guid, after, True): raise ValueError('Cannot move drawing object '+str(guid))
@@ -1596,6 +1623,7 @@ def reposition_drawing(doc, cp, target=None):
             if not doc.Objects.ModifyAttributes(cp.Id, attrs, True): raise ValueError('Cannot save draft_plane')
         ids = [str(entry[0]) for entry in prepared]
         save_drawing_registry(doc, cp, json.dumps(ids), recovery)
+        if result is not None: result['object_ids'] = ids
         return target, ids
     except Exception as error:
         for guid, geo, attrs in reversed(changed):
@@ -1606,10 +1634,16 @@ def reposition_drawing(doc, cp, target=None):
             recovery.attempt('clipping_attributes', cp.Id,
                              lambda: doc.Objects.ModifyAttributes(cp.Id, original_cp, True))
         recovery.restore_layers(doc)
-        raise recovery.failure(error)
+        failure = recovery.failure(error)
+        if result is not None:
+            result.update(error=str(failure), recovery=failure.recovery)
+        raise failure
     finally:
-        for guid, before, attrs_before, after in prepared:
-            before.Dispose(); after.Dispose()
+        try:
+            dispose_drawing_items(dict(geometry=geo) for guid, before, attrs, after in prepared for geo in (before, after))
+        except Exception as error:
+            if result is not None: result['cleanup_error'] = str(error)
+            raise
 
 
 def export_path(folder, name, extension):
@@ -1941,6 +1975,7 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
     near_width, far_width, near_dark, far_dark = [options[key]
         for key in ('near_width','far_width','near_dark','far_dark')]
     drawing = None
+    finished = False
     try:
         observe_attachments = options.get('observe_attachments')
         attached_model = None
@@ -1950,12 +1985,15 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
             if not attached_model(cp.ReferenceModelSerialNumber):
                 raise ValueError('The reference clipping is no longer attached to the current Worksession')
         if mode == 'Placement':
-            moved = reposition_drawing(doc, cp, target)
+            if is_cancelled(): return 'cancelled'
+            moved = reposition_drawing(doc, cp, target, is_cancelled, result)
             if not moved: return 'cancelled'
             if result is not None:
                 position, ids = moved
-                result.update(draw_plane=plane_data(position), object_ids=ids)
+                result.update(mutation_state='unknown', object_ids=ids)
+                result['draw_plane'] = plane_data(position)
             print('Moved: '+(cp.Name or str(cp.Id)))
+            finished = True
             return 'completed'
         cut = cp.ClippingPlaneGeometry.Plane
         if mode == 'PDF':
@@ -1978,7 +2016,9 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
         drawing = generate(doc, cp, options['hatch'], options['elevation'], placement,
                            near_width, far_width, near_dark, far_dark, progress, place=not pick,
                            small_details=options['small_details'], model_cache=model_cache,
-                           attached_model=attached_model if include_attachments else None)
+                           attached_model=attached_model if include_attachments else None,
+                           cancellation_token=options.get('cancellation_token'))
+        if is_cancelled(): return 'cancelled'
         if pick and drawing['objects']:
             R.RhinoApp.Wait()
             if is_cancelled(): return 'cancelled'
@@ -2002,16 +2042,24 @@ def process_clipping(doc, cp, options, folder, progress, is_cancelled, model_cac
             position = target if pick else drawing['target']
             # All generated document output is horizontal, regardless of the cut axes.
             draw_plane = plane_data(placement_plane(G.Plane.WorldXY, position.Origin))
-            ids = bake(doc, cp, drawing, target)
+            ids = bake(doc, cp, drawing, target, is_cancelled)
             if result is not None:
-                result.update(object_ids=[str(value) for value in ids],
-                              draw_plane=draw_plane, extraction=drawing['extraction'])
+                result.update(mutation_state='unknown', object_ids=[str(value) for value in ids])
+                result.update(draw_plane=draw_plane, extraction=drawing['extraction'])
         if result is not None: result['report'] = drawing['report']
         print('{0}: {1}'.format(cp.Name or cp.Id, drawing['report']))
+        finished = True
         return 'completed'
+    except DrawingMutationError as error:
+        if result is not None: result.update(recovery=error.recovery, error=str(error))
+        raise
     finally:
         if drawing is not None:
-            dispose_drawing_items(drawing['objects'])
+            try: dispose_drawing_items(drawing['objects'])
+            except Exception as error:
+                if result is not None: result['cleanup_error'] = str(error)
+                raise
+        if finished and result is not None: result.pop('mutation_state', None)
 
 
 def run_selected(doc, planes, options, folder=None, targets=None):
@@ -2027,50 +2075,72 @@ def run_selected(doc, planes, options, folder=None, targets=None):
     serial = (doc.BeginUndoRecord('PlanSection')
               if mode != 'PDF' and not doc.CurrentUndoRecordSerialNumber else 0)
     done = 0
-    cancelled = [False]
-    def cancel(sender, event): cancelled[0] = True
+    escape = [False]
+    token = options.get('cancellation_token')
+    def cancel(sender, event): escape[0] = True
+    def stop_reason():
+        if token is not None and token.IsCancellationRequested: return 'deadline'
+        if escape[0]: return 'user'
+        return None
     R.RhinoApp.EscapeKeyPressed += cancel
     def progress(stage):
         print(stage)
         R.RhinoApp.Wait()
-        if cancelled[0]: raise RuntimeError('Cancelled')
+        if stop_reason(): raise DrawingCancelled()
     model_cache = None
+    stopped = None
     try:
         if mode != 'Placement' and len(planes)>1: model_cache = ModelCache(doc)
         for cp in planes:
             R.RhinoApp.Wait()
-            if cancelled[0]: break
+            stopped = stop_reason()
+            if stopped: break
             item = dict(clipping_id=str(cp.Id), name=cp.Name, status='failed')
             results.append(item)
             try:
-                status = process_clipping(doc, cp, options, folder, progress, lambda: cancelled[0], model_cache,
+                status = process_clipping(doc, cp, options, folder, progress, stop_reason, model_cache,
                                           targets.get(str(cp.Id).lower()), item)
                 item['status'] = status
-                if status == 'cancelled': break
+                if status == 'cancelled':
+                    stopped = stop_reason() or 'user'
+                    break
                 if status == 'completed': done += 1
+            except DrawingCancelled:
+                item['status'] = 'cancelled'
+                stopped = stop_reason() or 'user'
+                break
             except Exception as error:
-                item['error'] = str(error)
+                if item.setdefault('error', str(error)) != str(error):
+                    item['cleanup_error'] = str(error)
                 if isinstance(error, DrawingMutationError):
                     item['recovery'] = error.recovery
-                if cancelled[0]: item['status'] = 'cancelled'
                 print('FAILED {0}: {1}'.format(cp.Name or cp.Id, error))
         print('Completed {0}/{1} drawings. {2}'.format(done, len(planes),
               'Exported files remain after Undo.' if mode in ('Files','PDF') else 'Undo reverses this run.'))
     finally:
-        if model_cache is not None: model_cache.Dispose()
-        R.RhinoApp.EscapeKeyPressed -= cancel
-        if serial: doc.EndUndoRecord(serial)
-        doc.Views.Redraw()
-    return dict(status=('cancelled' if cancelled[0] or any(i['status']=='cancelled' for i in results)
-                        else 'completed' if done == len(planes) else 'partial' if done else 'failed'),
-                completed=done, requested=len(planes), results=results,
-                requires_reconciliation=any(i.get('recovery', {}).get('requires_reconciliation') for i in results))
+        try:
+            if model_cache is not None: model_cache.Dispose()
+        finally:
+            try:
+                R.RhinoApp.EscapeKeyPressed -= cancel
+            finally:
+                if serial and not doc.EndUndoRecord(serial):
+                    raise ValueError('Cannot close the PlanSection Undo record')
+                doc.Views.Redraw()
+    outcome = dict(status=('cancelled' if stopped else 'completed' if done == len(planes) else 'partial' if done else 'failed'),
+                   completed=done, requested=len(planes), results=results,
+                   requires_reconciliation=any(i.get('mutation_state') == 'unknown' or i.get('cleanup_error') or
+                       i.get('recovery', {}).get('requires_reconciliation') for i in results))
+    if stopped:
+        outcome['stop_reason'] = stopped
+        results.extend(dict(clipping_id=str(cp.Id), name=cp.Name, status='not_started') for cp in planes[len(results):])
+    return outcome
 
 
 def run(doc, operation, clipping_ids, points=None, folder=None, output='Document',
         hatch=True, elevation=True, small_details=True,
         near_width=.09, far_width=.04, near_dark=80., far_dark=45.,
-        include_attachments=None, observe_attachments=None):
+        include_attachments=None, observe_attachments=None, cancellation_token=None):
     """Agent entry: explicit document/GUIDs/XYZ points; never opens an input dialog.
 
     points maps clipping GUIDs to [x, y] (Z=0) or [x, y, z] in document units.
@@ -2085,7 +2155,8 @@ def run(doc, operation, clipping_ids, points=None, folder=None, output='Document
     validate_options(near_width, far_width, near_dark, far_dark)
     options.update(hatch=hatch, elevation=elevation, small_details=small_details,
                    near_width=near_width, far_width=far_width, near_dark=near_dark, far_dark=far_dark,
-                   include_attachments=include_attachments, observe_attachments=observe_attachments)
+                   include_attachments=include_attachments, observe_attachments=observe_attachments,
+                   cancellation_token=cancellation_token)
     planes = resolve_clippings(clipping_planes(doc), clipping_ids)
     if points and operation not in ('Create', 'Move'):
         raise ValueError('Placement points apply only to Create or Move')

@@ -39,7 +39,7 @@ def settings(root: Path) -> dict:
         "args": ["-B", "-X", "utf8", "-u", str(host)],
         "cwd": str(root),
         "startup_timeout_sec": 120,
-        "tool_timeout_sec": 600,
+        "tool_timeout_sec": 240,
         "env_vars": list(ENV_VARS),
         "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
     }
@@ -75,7 +75,7 @@ def install_codex(path: Path, config: dict) -> Path | None:
     legacy = servers.get(LEGACY_NAME)
     old_config = dict(config, args=[*config["args"][:-1],
                                   str(Path(config["args"][-1]).with_name("cos_host.py"))])
-    supported = (config, old_config)
+    supported = (config, old_config, dict(config, tool_timeout_sec=600), dict(old_config, tool_timeout_sec=600))
     if legacy is not None:
         if existing is not None or legacy not in supported:
             raise ValueError(f"Conflicting or customized {LEGACY_NAME}/{NAME} settings in {path}; no changes made.")
@@ -92,24 +92,28 @@ def install_codex(path: Path, config: dict) -> Path | None:
     if existing is not None:
         if existing == config:
             return None
-        if existing != old_config:
+        if existing not in supported:
             raise ValueError(f"{NAME} already exists with different settings in {path}; no changes made.")
         updated = text
-    if (legacy if legacy is not None else existing) == old_config:
-        # Only the generated one-line args assignment is replaced. Reject any
+    installed = legacy if legacy is not None else existing
+    if installed is not None and installed != config:
+        # Only generated one-line assignments are replaced. Reject any
         # unfamiliar syntax rather than rewriting unrelated tables or comments.
         header = re.search(r"(?m)^\[mcp_servers\.rhino\][ \t]*\r?$", updated)
         if header is None:
             raise ValueError("Cannot locate the owned rhino table; no changes made.")
         end = re.search(r"(?m)^\s*\[", updated[header.end():])
         stop = header.end() + end.start() if end else len(updated)
-        old_args = json.dumps(old_config["args"], ensure_ascii=False)
-        pattern = r"(?m)^(args[ \t]*=[ \t]*)" + re.escape(old_args) + r"([ \t]*(?:#[^\r\n]*)?)(\r?)$"
-        body, count = re.subn(pattern,
-                             lambda match: match[1] + json.dumps(config["args"], ensure_ascii=False) + match[2] + match[3],
-                             updated[header.end():stop])
-        if count != 1:
-            raise ValueError("Cannot safely migrate the owned host arguments; no changes made.")
+        body = updated[header.end():stop]
+        for key in ("args", "tool_timeout_sec"):
+            if installed[key] == config[key]:
+                continue
+            old = json.dumps(installed[key], ensure_ascii=False)
+            new = json.dumps(config[key], ensure_ascii=False)
+            pattern = rf"(?m)^({key}[ \t]*=[ \t]*)" + re.escape(old) + r"([ \t]*(?:#[^\r\n]*)?)(\r?)$"
+            body, count = re.subn(pattern, lambda match: match[1] + new + match[2] + match[3], body)
+            if count != 1:
+                raise ValueError(f"Cannot safely migrate the owned {key}; no changes made.")
         updated = updated[:header.end()] + body + updated[stop:]
     expected = dict(parsed)
     expected["mcp_servers"] = expected_servers

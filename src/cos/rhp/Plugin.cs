@@ -26,7 +26,8 @@ public sealed class ConnectCommand : Command
     {
         try
         {
-            RhinoPlugin.Instance.Host ??= new RhinoHost();
+            if (RhinoPlugin.Instance.Host == null) RhinoPlugin.Instance.Host = new RhinoHost();
+            else RhinoPlugin.Instance.Host.PublishMenu();
             RhinoApp.WriteLine(RhinoPlugin.Instance.Host.StatusText());
             return Result.Success;
         }

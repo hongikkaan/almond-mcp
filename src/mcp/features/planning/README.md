@@ -208,7 +208,7 @@ Output — plan_02-create tool (target="plan")
     revision: integer
 
 Output — plan_12-update tool
-  status: success | partial_success | no_change | error
+  status: updated | no_change | partial_success | error
   changed: boolean
   phase?:                  target="phase"
     phase_id: string
@@ -234,7 +234,7 @@ Output — plan_12-update tool
 
 항목은 앞뒤 공백을 제외해 비교하고 새 값은 정규화해 추가한다. 기존 항목 순서는 보존하고 새 항목은 add 순서로 뒤에 붙인다. 같은 값이 add/remove 양쪽에 있으면 양쪽 모두 건너뛰며 다른 정상 항목은 적용한다. 같은 작업 내 반복 입력은 첫 항목을 처리하고 이후 항목을 중복으로 보고한다. 비어 있는 문자열, 잘못된 종류의 의존 ID, 이미 있는 값의 추가, 없는 값의 제거는 해당 항목만 건너뛴다.
 
-건너뛴 항목이 없으면 success이며, 유효한 변경과 건너뛴 항목이 함께 있으면 partial_success다. 문제 항목은 있으나 실제 변경이 없으면 no_change다. 빈 요청 등 문제 없는 무변경은 success와 changed=false다. 실제 변경이 없으면 revision·시각을 유지한다. partial_success/no_change의 issues는 축약하거나 숨기지 않는다.
+모두 반영해 저장 값이 바뀌면 `updated`다. 변경과 건너뛴 항목이 함께 있으면 `partial_success`다. 값이 그대로면 `no_change`와 `changed=false`를 반환하고 revision·시각을 유지한다. 같은 값을 다시 요청하면 `issues=[]`이고, 건너뛴 항목이 있으면 해당 항목을 모두 표시한다. Phase·Plan·Step의 업무 상태는 각 대상의 `status`에서 확인한다.
 
 잘못된 일반 필드, 존재하지 않는 수정 대상, 예상 revision 불일치는 요청 전체 미적용이다. 자료형·입력 구조 오류도 전체 거절한다. 예를 들어 add=["기록", 42], add=null, 알 수 없는 patch 키, 기존 배열 형식은 MCP 입력 검증에서 거절된다. 이 오류는 MCP isError=true이고, 저장소의 일반 필드 오류는 기존처럼 본문 status=error를 반환한다. 배열 항목별 부분 성공은 입력 형식이 올바른 문자열의 내용 문제에 적용된다.
 
@@ -280,6 +280,8 @@ Output — plan_12-update tool
 | `semantic_exploration` | 공간과 주변 맥락의 해석·보고 | inspect_context → inspect_surroundings → interpret_spatial_context → report_findings |
 
 `drawing`은 도면 생성·표현·출력 흐름이고 `plan_editing`은 기존 평면의 공간·선·치수 관계를 편집하는 흐름이다. 일반 공간 발전·모델 수정 템플릿에는 구축 상세를 자동 요구하는 Step이 없다. 검수의 report_findings는 판단·기록 단계이며 모델 수정 단계가 아니다.
+
+새 `inspection` Plan의 Step 이름은 검수 대상과 주변 관계의 판정 기준, 필요한 형상·치수 확인, 결함의 위치·근거와 미확인 구간의 구분을 안내한다. 수정한 곳은 문제가 드러난 조건에서 다시 확인한다. 예를 들어 정면에서 가려진 벽체·슬래브 접합은 필요한 단면이나 간격을 확인할 때까지 미확인으로 기록한다.
 
 Construction detail은 저장된 ON/OFF 필드가 없다. 해당 Task의 사용자 요청과 작업 기록·지침으로 판단하며 기본 OFF다. `construction_detail` scope를 선택했다고 사용자 요청이 생긴 것으로 간주하지 않는다. `review_system`에서는 실제 시스템 Layer면 해당 자료와 주변 조건을 확인하고, 유형 Layer면 시스템 미정으로 보고 대안을 논의한다. `resolve_detail`에서 필요한 선택을 정한 뒤 모델링한다. 일반 자료 조회 자체를 금지하는 정책은 아니다.
 

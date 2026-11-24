@@ -12,7 +12,7 @@ from almond_mcp.features.context.tools import register
 
 def fixture_tools():
     calls = []
-    response = {"status": "success", "capabilities": {"context_sections": 2}, "warnings": [],
+    response = {"status": "success", "capabilities": {"context_sections": 2, "display_mode_menu": 1}, "warnings": [],
                 "document": {"name": "private.3dm", "path": "private/path.3dm", "runtime_serial_number": 42,
                              "units": "Millimeters", "absolute_tolerance": .01, "angle_tolerance_radians": .02,
                              "modified": True, "object_count": 7, "layer_count": 3},

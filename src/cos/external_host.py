@@ -25,11 +25,13 @@ from mcp.server.lowlevel.server import Server
 from mcp.server.stdio import stdio_server
 from almond_mcp.modeling_guidance import read_policy, startup_instructions
 from almond_mcp.output_contracts import public_output_schema
+from almond_mcp.features.modeling.plan_section import unconfirmed_result as unconfirmed_plan_section
 
 from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_contract, catalog_identity,
                      load_catalog, validate_worker_tools)
 from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
+from capture_menu import apply_menu_schema, common_mode_ids, menu_input_error
 from execution_recovery import ExecutionRecoveryStore, read_bound_execution
 from execution_invocation import ExecutionInvocations, Invocation, json_result, error_result, result_dict
 from session_close import SessionCloser
@@ -50,7 +52,7 @@ UNKNOWN_CONNECTION = "이 connection_id의 활성 연결이 없습니다. 대상
 CODEX_CONNECTION_GUIDE = "model_path와 connection_id를 현재 대화의 변수에 함께 저장하고, 이 문서의 후속 호출마다 connection_id를 전달한다."
 
 
-def exposed_tools(catalog: dict, *, explicit_connections=False) -> list[types.Tool]:
+def exposed_tools(catalog: dict, *, explicit_connections=False, mode_ids=()) -> list[types.Tool]:
     tools = []
     for original in catalog["tools"]:
         name = original["name"]
@@ -91,6 +93,7 @@ def exposed_tools(catalog: dict, *, explicit_connections=False) -> list[types.To
             "connect_05-close_session": "지정한 연결의 Rhino 문서 저장을 확인한 뒤 Rhino를 정상 종료. 결과 재조회에는 원래의 두 ID를 사용한다.",
         }
         for tool in tools:
+            apply_menu_schema(tool, mode_ids)
             if tool.name in descriptions:
                 tool.description = descriptions[tool.name]
             if tool.name in {"connect_02-session", "connect_03-start_session"}:
@@ -688,6 +691,10 @@ class Broker:
                 conn.state, conn.reason = "unconfirmed", "Caller stopped waiting; inspect the operation's outcome."
             raise
         except Exception as exc:
+            if name == "drawing_06-generate_plan_section" and invocation is not None and invocation.worker_dispatched:
+                response = json_result(unconfirmed_plan_section(arguments.get("clipping_ids"), str(exc)), wrapped=True)
+                response.is_error = True
+                return response
             return error_result(str(exc))
 
     async def close(self):
@@ -715,12 +722,17 @@ class SessionAdapter:
     def __init__(self, catalog, data=ROOT / "data", *, broker_factory=Broker, explicit_connections=False):
         self.catalog, self.data, self.broker_factory = catalog, data, broker_factory
         self.explicit_connections = explicit_connections
-        self.tools = exposed_tools(catalog, explicit_connections=explicit_connections)
+        self.mode_ids = common_mode_ids(read_hosts(data)) if explicit_connections else ()
+        self.tools = exposed_tools(catalog, explicit_connections=explicit_connections, mode_ids=self.mode_ids)
         self.broker = None
 
     async def call(self, name, arguments):
         if self.explicit_connections and name not in UNBOUND_TOOLS and not arguments.get("connection_id"):
             return error_result(MISSING_CONNECTION)
+        if self.explicit_connections:
+            error = menu_input_error(name, arguments, self.mode_ids)
+            if error:
+                return error_result(error)
         if name == "context_01-get_policy":
             try:
                 return json_result(read_policy(**arguments))

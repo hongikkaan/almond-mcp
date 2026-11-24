@@ -12,6 +12,55 @@ from PIL import Image
 from almond_mcp.features.context.tools import register
 
 
+@pytest.mark.parametrize("tool,options", [
+    ("get_rhino_context", {}),
+    ("get_rhino_context", {"sections": ["display_modes"]}),
+    ("get_current_viewcapture", {"display_mode": "Shaded"}),
+    ("get_defined_viewcapture", {"target_kind": "named_view", "target": "Entrance"}),
+    ("capture_rhino_inspection", {"views": [{}, {"display_mode": "Shaded"}]}),
+])
+def test_old_bridge_does_not_expose_or_apply_unfiltered_display_modes(tool, options):
+    calls = []
+
+    def send(raw):
+        request = json.loads(raw)
+        calls.append(request["type"])
+        return json.dumps({"status": "success", "capabilities": {
+            "context_sections": 2, "view_capture": 1, "inspection_capture": 1},
+            "display_modes": [{"id": "hidden", "name": "Hidden mode"}]})
+
+    if tool != "get_rhino_context":
+        options = {**options, "expected_model_path": r"C:\offline\model.3dm"}
+    tools = register(FastMCP("legacy-display-menu"), SimpleNamespace(_send_and_receive=send))
+    result = tools[tool](**options)
+    assert result.is_error
+    payload = result.structured_content
+    if tool == "get_rhino_context":
+        payload = json.loads(payload["result"])
+    assert payload["error_code"] == "unsupported_display_mode_menu"
+    assert "display_modes" not in payload
+    assert calls == ["get_rhino_context"]
+
+
+@pytest.mark.parametrize("tool,options", [
+    ("get_current_viewcapture", {}),
+    ("get_defined_viewcapture", {"target_kind": "layout", "target": "Paper"}),
+    ("capture_rhino_inspection", {"views": [{}]}),
+])
+def test_old_bridge_can_capture_without_selecting_a_display_mode(tool, options):
+    calls = []
+    def send(raw):
+        calls.append(json.loads(raw)["type"])
+        if calls[-1] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {"view_capture": 1, "inspection_capture": 1}})
+        return json.dumps({"status": "error", "error_code": "no_viewport"})
+
+    tools = register(FastMCP("legacy-current-mode"), SimpleNamespace(_send_and_receive=send))
+    result = tools[tool](expected_model_path=r"C:\offline\model.3dm", **options)
+    assert calls == ["get_rhino_context", tool]
+    assert result.structured_content["error_code"] == "no_viewport"
+
+
 def test_inspection_public_description_explains_mode_discovery_and_object_scope():
     async def list_tools():
         mcp = FastMCP("inspection-discovery")
@@ -51,7 +100,7 @@ def test_inspection_only_delivers_an_image_with_matching_display_mode(
     def send(raw):
         request = json.loads(raw)
         if request["type"] == "get_rhino_context":
-            return json.dumps({"status": "success", "capabilities": {"inspection_capture": 1}})
+            return json.dumps({"status": "success", "capabilities": {"inspection_capture": 1, "display_mode_menu": 1}})
         assert request["views"][0]["display_mode"] == selector
         tile = {"index": 0, "direction": "top", "status": "success", "scope": {"complete": True}}
         if reported_mode is not None:

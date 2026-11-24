@@ -172,7 +172,7 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
         for part in ast.walk(annotation):
             if not isinstance(part, allowed):
                 raise ValueError(f"Review annotation in {node.name}: {ast.dump(part)}")
-            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict", "StringListPatch", "Literal", "CreateRequest", "GetRequest", "ListRequest", "UpdateRequest"}:
+            if isinstance(part, ast.Name) and part.id not in {"str", "int", "StrictInt", "StrictFloat", "StrictBool", "float", "bool", "list", "dict", "StringListPatch", "Literal", "CreateRequest", "GetRequest", "ListRequest", "UpdateRequest", "ObjectScope", "ObjectResultMode", "ObjectFilters", "ObjectOutput"}:
                 raise ValueError(f"Review annotation name {part.id} in {node.name}")
     for default in [*node.args.defaults, *node.args.kw_defaults]:
         if default is not None:
@@ -202,6 +202,7 @@ def register_inert_tools(mcp, declarations: tuple[ToolDeclaration, ...]) -> None
     """Compile reviewed metadata into FastMCP with bodies that cannot run tools."""
     from fastmcp.tools import ToolResult
     from pydantic import StrictBool, StrictFloat, StrictInt
+    from almond_mcp.features.context.object_inputs import ObjectFilters, ObjectOutput, ObjectResultMode, ObjectScope
 
     from almond_mcp.features.planning.requests import CreateRequest, GetRequest, ListRequest, UpdateRequest
     from almond_mcp.features.planning.updates import StringListPatch
@@ -214,6 +215,10 @@ def register_inert_tools(mcp, declarations: tuple[ToolDeclaration, ...]) -> None
         "StrictFloat": StrictFloat,
         "StrictBool": StrictBool,
         "Literal": Literal,
+        "ObjectScope": ObjectScope,
+        "ObjectResultMode": ObjectResultMode,
+        "ObjectFilters": ObjectFilters,
+        "ObjectOutput": ObjectOutput,
         "StringListPatch": StringListPatch,
         "CreateRequest": CreateRequest,
         "GetRequest": GetRequest,

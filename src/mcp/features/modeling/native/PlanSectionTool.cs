@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Rhino;
@@ -28,7 +29,8 @@ _almond_result_json = json.dumps(run(_almond_doc,
     near_width=_almond_args['near_width'], far_width=_almond_args['far_width'],
     near_dark=_almond_args['near_dark'], far_dark=_almond_args['far_dark'],
     include_attachments=_almond_args.get('include_attachments'),
-    observe_attachments=_almond_observe_attachments), ensure_ascii=False)
+    observe_attachments=_almond_observe_attachments,
+    cancellation_token=_almond_deadline_token), ensure_ascii=False)
 ";
         static readonly HashSet<string> Fields = new HashSet<string>(new[] {
             "type", "operation", "clipping_ids", "points", "hatch", "small_details",
@@ -152,6 +154,9 @@ _almond_result_json = json.dumps(run(_almond_doc,
 
         public static JObject Handle(RhinoDoc doc, JObject request)
         {
+            // The timer can signal while the Rhino UI thread is inside a native call.
+            // ScriptExecutor keeps its Undo record until the synchronous action exits.
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(120));
             bool entered = false;
             PythonScript python = null;
             object previousDoc = null;
@@ -193,6 +198,7 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 if (!python.ExecuteScript(source)) throw new InvalidOperationException("The packaged PlanSection algorithm could not be loaded.");
                 python.SetVariable("_almond_doc", doc);
                 python.SetVariable("_almond_arguments_json", args.ToString(Formatting.None));
+                python.SetVariable("_almond_deadline_token", deadline.Token);
                 python.SetVariable("_almond_observe_attachments", new Func<Func<uint, bool>>(() => ObserveAttachments(doc)));
                 Validate(doc, request); // Runtime initialization must not stale the document/editor check.
                 JObject drawing = null;
@@ -215,12 +221,32 @@ _almond_result_json = json.dumps(run(_almond_doc,
                 {
                     response["mutation_state"] = entered ? "unknown" : "not_started";
                     response["requires_reconciliation"] = entered;
+                    if (drawing?["results"] is JArray observed)
+                    {
+                        // The callback returned, but the outer Undo operation failed.
+                        // IDs are observations before Undo; only untouched cuts retain a final status.
+                        var cuts = new JArray();
+                        foreach (var item in observed.OfType<JObject>())
+                        {
+                            var evidence = new JObject();
+                            foreach (string key in new[] { "clipping_id", "name", "object_ids", "error", "cleanup_error", "recovery" })
+                                if (item[key] != null) evidence[key] = item[key].DeepClone();
+                            evidence["status"] = (string)item["status"] == "not_started" ? "not_started" : "unconfirmed";
+                            cuts.Add(evidence);
+                        }
+                        response["result"] = new JObject { ["status"] = "unconfirmed",
+                            ["requested"] = drawing["requested"], ["results"] = cuts };
+                    }
                 }
                 else
                 {
                     response["result"] = drawing;
                     response["drawing_status"] = drawing["status"]?.DeepClone();
                     response["mutation_state"] = (string)response["drawing_status"] == "completed" ? "completed" : "partial";
+                    if ((string)response["drawing_status"] == "cancelled" && (int?)drawing["completed"] == 0 &&
+                        drawing["results"] is JArray cuts && cuts.All(cut =>
+                            (string)cut["status"] == "not_started" || (string)cut["status"] == "cancelled"))
+                        response["mutation_state"] = "not_started";
                     response["requires_reconciliation"] = (bool?)drawing["requires_reconciliation"] ?? false;
                     if ((bool)response["requires_reconciliation"])
                     {
@@ -265,6 +291,7 @@ _almond_result_json = json.dumps(run(_almond_doc,
                         response = response ?? new JObject();
                         response["status"] = "error";
                         response["error_code"] = "plan_section_context_restore_failed";
+                        response.Remove("drawing_status"); // Only the per-cut evidence survived cleanup.
                         response["context_restore_errors"] = new JArray(errors);
                         response["mutation_state"] = entered ? "unknown" : "not_started";
                         response["requires_reconciliation"] = entered;

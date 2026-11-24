@@ -43,8 +43,8 @@ internal sealed class RhinoHost : IDisposable
         control = new ControlPipe(pipeName, accessToken, Dispatch, OwnerDisconnected);
         try
         {
-            Save(discoveryPath, new { schema = "almond-rhino-host", protocol = 1, host_id = hostId,
-                pid, process_start_ticks = startTicks, pipe = pipeName, access_token = accessToken });
+            PublishMenu();
+            RhinoApp.AppSettingsChanged += SettingsChanged;
             RhinoDoc.ActiveDocumentChanged += DocumentChanged;
             RhinoDoc.EndSaveDocument += AfterSave;
             RhinoDoc.CloseDocument += BeforeClose;
@@ -57,6 +57,29 @@ internal sealed class RhinoHost : IDisposable
     static bool Same(string a, string b) => string.Equals(Canonical(a), Canonical(b), StringComparison.OrdinalIgnoreCase);
     static string Text(JsonElement value, string key) => value.GetProperty(key).GetString() ?? "";
     static void Save(string path, object value) => SessionFiles.WriteJson(path, value);
+
+    internal void PublishMenu()
+    {
+        Guid[] modes;
+        try {
+            modes = Rhino.Display.DisplayModeDescription.GetDisplayModes()
+                .Where(mode => mode.InMenu).Select(mode => mode.Id).Distinct().Order().ToArray();
+        }
+        catch (Exception ex) {
+            modes = [];
+            RhinoApp.WriteLine("Almond display mode menu unavailable: " + ex.Message);
+        }
+        Save(discoveryPath, new { schema = "almond-rhino-host", protocol = 1, host_id = hostId,
+            pid, process_start_ticks = startTicks, pipe = pipeName, access_token = accessToken,
+            display_mode_ids = modes });
+    }
+
+    void SettingsChanged(object? sender, EventArgs e)
+    {
+        if (disposed) return;
+        try { PublishMenu(); }
+        catch (Exception ex) { RhinoApp.WriteLine("Almond display mode discovery: " + ex.Message); }
+    }
 
     Task<object> OnUi(Func<object> action, CancellationToken cancellation = default)
     {
@@ -390,6 +413,7 @@ internal sealed class RhinoHost : IDisposable
     {
         if (disposed) return;
         disposed = true;
+        RhinoApp.AppSettingsChanged -= SettingsChanged;
         RhinoDoc.ActiveDocumentChanged -= DocumentChanged;
         RhinoDoc.EndSaveDocument -= AfterSave;
         RhinoDoc.CloseDocument -= BeforeClose;

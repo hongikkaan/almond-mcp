@@ -4,6 +4,7 @@ from almond_mcp.query_output import query_output
 from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.tool_declarations import public_tool
 from almond_mcp.features.context import object_queries
+from almond_mcp.features.context.object_inputs import ObjectFilters, ObjectOutput, ObjectResultMode, ObjectScope
 from almond_mcp.features.context.capture_artifacts import save_png
 
 import base64
@@ -33,7 +34,7 @@ def register(mcp, context):
     @public_tool(mcp, wrapped=True, annotations={'readOnlyHint': True, 'destructiveHint': False})
     def get_rhino_context(sections: list[str] | None = None, include_ids: StrictBool = False,
                           include_editor_details: StrictBool = False) -> str | ToolResult:
-        """연결된 Rhino 문서·뷰·편집 상태와 Named View·Layout·레이어 계층·표시 모드 조회. Named View·Layout·표시 모드는 목록별 최대 128개이며 include_ids와 무관하게 ID를 반환. 화면 캡처에는 capture_03-current_view tool 사용.
+        """연결된 Rhino 문서·뷰·편집 상태와 Named View·Layout·레이어 계층·뷰 메뉴의 표시 모드 조회. Named View·Layout·표시 모드는 목록별 최대 128개이며 include_ids와 무관하게 ID를 반환. 화면 캡처에는 capture_03-current_view tool 사용.
 
         Args:
             sections: document, viewport, editor, viewports, named_views, layouts, layer_tree, display_modes 중 선택. 생략 또는 null이면 document, named_views, layouts, layer_tree, display_modes. []이면 항목 조회 생략.
@@ -109,26 +110,29 @@ def register(mcp, context):
 
 
     @public_tool(mcp, wrapped=True, annotations={'readOnlyHint': True, 'destructiveHint': False})
-    def get_objects(scope: str = "current", object_ids: list[str] | None = None,
-                          filters: dict | None = None, include_geometry: StrictBool = False,
+    def get_objects(scope: ObjectScope = "current", object_ids: list[str] | None = None,
+                          filters: ObjectFilters | None = None, include_geometry: StrictBool = False,
                           offset: StrictInt = 0, limit: StrictInt = 50,
                           expected_model_path: str = "", include_ids: StrictBool = False,
-                          result_mode: str = "objects", fields: list[str] | None = None,
+                          result_mode: ObjectResultMode = "objects", fields: list[str] | None = None,
                           face_offset: StrictInt = 0, face_limit: StrictInt = 128,
                           expected_geometry_crcs: dict[str, StrictInt] | None = None,
                           group_ids: list[str] | None = None, selected: StrictBool = False,
                           inside_window: StrictBool = False, recursive: StrictBool = False,
-                          depth: StrictInt = 1, expected_snapshot: str = "") -> str | ToolResult:
-        """Rhino 최상위 모델 객체를 ID·그룹·메타데이터로 조회. current는 표시되고 잠기지 않은 객체(화면 밖 포함), document는 숨김·잠금 객체까지 포함. 그룹은 선택 범위와 구성원의 교집합. 계층 모드는 그룹·블록 배치를 펼쳐 문서 객체와 블록 정의 내부 항목을 구분. 표시 여부는 가림을 고려한 화면 가시성과 별개.
+                          depth: StrictInt = 1, expected_snapshot: str = "",
+                          output: ObjectOutput | None = None) -> str | ToolResult:
+        """GUID를 몰라도 레이어·이름·객체 유형·그룹·메타데이터 조건으로 Rhino 최상위 모델 객체를 찾고 후속 호출에 쓸 GUID를 조회. Rhino의 선택 상태는 변경하지 않음. current는 표시되고 잠기지 않은 객체(화면 밖 포함), document는 숨김·잠금 객체까지 포함. 그룹은 선택 범위와 구성원의 교집합. 계층 모드는 그룹·블록 배치를 펼쳐 문서 객체와 블록 정의 내부 항목을 구분. 표시 여부는 가림을 고려한 화면 가시성과 별개.
 
+        활성 뷰포트의 벽 레이어 객체 GUID 조회 예: `{"scope":"inside_viewport","filters":{"layer":{"include":["2F::Wall"]}},"output":{"include_ids":true}}`.
         UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes","key":"brief_probe","any_of":["yes"]}]}}`.
 
         행 후속 조회에는 같은 조건과 첫 응답의 snapshot·next_offset을 사용. 면 후속 조회에는 document 객체 ID와 geometry_crc 사용. objects·summary의 complete는 전체 행이 첫 응답에 포함되고 편집 상태가 안정적일 때 true. hierarchy는 관계 완전성도 확인하며 깊이 제한을 적용할 수 있다. face_page.complete는 전체 면이 첫 응답에 포함됐을 때 true. 마지막 행 페이지는 next_offset=null.
 
         Args:
-            scope: current 또는 document
+            scope: current, document 또는 inside_viewport. inside_viewport는 current 중 활성 모델 뷰 또는 Detail 경계와 바운딩 박스가 교차하는 객체. 가림과 클리핑 평면은 판정하지 않음.
             object_ids: scope=document 전용. 서로 다른 최상위 객체 GUID 1..4096개. group_ids와 동시 지정 불가.
-            filters: 모든 조건을 함께 적용. layer_paths는 정확한 전체 경로, object_types는 관찰된 Rhino 이름, name_contains는 대소문자 구분 없이 검색. 객체 속성 User Text의 user_text와 UserDictionary의 user_dictionary는 각각 조건 객체 1개도 배열로 지정하며 최대 16개 조건이 모두 일치해야 한다. user_text 예: [{"key":"floor","any_of":["2F"]}]. user_dictionary는 source=attributes(객체 속성) 또는 geometry(형상)와 비어 있지 않은 key 필요. any_of는 user_text에서 문자열 1..64개, user_dictionary에서 문자열·불리언·숫자 1..64개. 키의 값 또는 배열 원소가 any_of 중 하나와 정확히 일치해야 한다.
+            filters: 서로 다른 조건은 함께 적용. layer는 전체 경로/GUID, block은 배치의 정의 이름/GUID, group은 멤버십 이름/GUID, material은 배치 객체 전면의 실효 재질 이름/GUID(레이어 상속 포함), name은 객체 이름 정확 일치, object_type은 Rhino 유형명. 이름 비교는 대소문자 무시. 단일값 속성은 include 중 하나에 해당하고 exclude에 없어야 함. group의 include·exclude는 각각 1..64개. 두 개 이상 지정한 쪽에만 include_mode·exclude_mode로 any(하나 이상) 또는 all(모두)을 명시. exclude는 그 조건에 해당하면 제외. user_text·user_dictionary의 include·exclude는 각각 한 조건. 메타데이터는 조건 객체 1개도 배열로 지정. 기존 조건 배열은 최대 16개 조건을 모두 만족해야 함. 각 any_of는 값 하나와 일치하면 충족. 기존 layer_paths·object_types·name_contains(부분 문자열) 사용 가능.
+            output: fields·include_ids·include_geometry·limit·offset·expected_snapshot 중 필요한 항목. 같은 이름의 평면 인자도 지정하면 output 값이 우선.
             include_geometry: fields를 생략한 objects 모드에서 형상 상세를 포함. fields를 명시하면 그 목록 우선.
             offset: 0..100000. 양수이면 expected_snapshot 필요.
             limit: 1..200
@@ -153,7 +157,7 @@ def register(mcp, context):
                                     fields=fields, face_offset=face_offset, face_limit=face_limit,
                                     expected_geometry_crcs=expected_geometry_crcs, include_ids=include_ids,
                                     group_ids=group_ids, selected=selected, inside_window=inside_window,
-                                    recursive=recursive, depth=depth, expected_snapshot=expected_snapshot))
+                                    recursive=recursive, depth=depth, expected_snapshot=expected_snapshot, output=output))
 
 
     @public_tool(mcp, wrapped=True, annotations={'readOnlyHint': True, 'destructiveHint': False})
@@ -174,14 +178,14 @@ def register(mcp, context):
                                  model_view_id: str = "", object_ids: list[str] | None = None) -> ToolResult:
         """작업 화면을 유지하면서 여러 시점과 객체 범위를 한 PNG로 비교. 범위는 문서 표시 상태 기준이며 픽셀 가시성이나 가림은 판정하지 않는다. 그룹 자동 확장과 블록 배치·정의 필터는 지원하지 않는다.
 
-        표시 모드 이름·GUID는 inspect_03-get_document_context tool의 sections=["display_modes"]에서 조회. Wireframe은 곡선·와이어, Shaded는 면과 입체, Technical은 가려진 선을 포함한 선 표현 검토에 적합하다. 사용자 정의 래스터 모드도 선택할 수 있으며 이름이 중복되면 GUID를 사용한다.
+        뷰 메뉴의 표시 모드 이름·GUID는 inspect_03-get_document_context tool의 sections=["display_modes"]에서 조회. Wireframe은 곡선·와이어, Shaded는 면과 입체, Technical은 가려진 선을 포함한 선 표현 검토에 적합하다. 메뉴에 등록된 사용자 정의 래스터 모드도 선택할 수 있으며 이름이 중복되면 GUID를 사용한다.
 
         최상위 모델 객체 GUID는 inspect_02-get_objects tool의 include_ids=true로 조회. 공통 object_ids를 지정한 뒤 views=[{"direction":"top","display_mode":"Technical"},{"direction":"iso_ne","display_mode":"Shaded"}]로 같은 대상을 평면과 사시에서 비교한다. 원본 뷰 방향에서 대상에 맞춰 확대하려면 공통 또는 타일별 object_ids와 views=[{"direction":"current","frame_objects":true}]를 사용한다. frame_objects를 생략한 current 타일은 원본 카메라 구도를 유지한다.
 
         공통 또는 타일별 object_ids에 최상위 블록 인스턴스를 지정하면 전체 호출이 실패하고 메시지에 입력 위치와 블록 GUID가 표시된다. 다른 이유로 일부 타일만 실패하면 complete=false이며 tiles에서 실패 이유를 확인할 수 있다.
 
         Args:
-            views: 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 설치된 모드 이름 또는 GUID. label: 최대 120자. object_ids: 블록 인스턴스를 제외한 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다.
+            views: 타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 뷰 메뉴의 래스터 모드 이름 또는 GUID. RhinoBeyond에서는 세션의 공개 입력에 열거된 GUID를 사용한다. label: 최대 120자. object_ids: 블록 인스턴스를 제외한 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다.
             width: 타일당 128..2048픽셀. 결합 이미지 제한도 적용.
             height: 타일당 128..2048픽셀. 결합 이미지 제한도 적용.
             columns: 1..뷰 개수. 생략 시 자동 격자.
@@ -227,7 +231,7 @@ def register(mcp, context):
             target: 기존 이름 또는 ID. 이름은 대소문자 무시 기준으로 하나만 일치해야 한다.
             scale_percent: 1..100 범위의 상한. 전달 용량에 맞춰 더 작아질 수 있다.
             include_usage: 이미지 크기와 픽셀 기준 토큰 추정치 포함.
-            display_mode: Named View 전용. 생략 시 Shaded. 설치된 래스터 모드 이름 또는 GUID.
+            display_mode: Named View 전용. 생략 시 Shaded. 뷰 메뉴에 등록된 래스터 모드 이름 또는 GUID.
             labels: 최대 200개. 주변 레이블과 겹칠 수 있다.
             depth: 레이블 깊이 1..8.
             width: Named View 전용. 128..2048픽셀. height와 함께 지정하고 scale_percent=100 사용.
@@ -259,7 +263,7 @@ def register(mcp, context):
             isolate: target_ids가 필요하며 확대 전에 격리.
             scale_percent: 1..100.
             include_usage: 이미지 크기와 픽셀 기준 토큰 추정치 포함.
-            display_mode: 설치된 래스터 모드 이름 또는 GUID.
+            display_mode: 뷰 메뉴에 등록된 래스터 모드 이름 또는 GUID.
             labels: 주변 객체에도 최대 200개 표시하므로 화면을 가릴 수 있다.
             depth: 레이블 확장 깊이 1..8.
             width: 128..2048픽셀. height와 함께 지정하고 scale_percent=100 사용.

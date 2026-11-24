@@ -52,7 +52,7 @@ def test_new_bound_worker_reads_prior_loop_judgments_and_actual_files(tmp_path):
             **step, **notes, "expected_revision": selected["revision"],
             "input_refs": {"add": [str(input_file)]}, "output_refs": {"add": [str(output_file)]},
         }})
-        assert saved["status"] == "success"
+        assert saved["status"] == "updated"
         revision = saved["plan"]["revision"]
         next_loop = await call("plan_03-execute_looping", {"plan_id": plan_id})
         assert next_loop["loop_no"] == 2

@@ -196,19 +196,20 @@ namespace Rhino.Display {
     public class DisplayAttributes { public Guid RealtimeDisplayId; }
     public class DisplayModeDescription {
         public Guid Id=Guid.NewGuid(); public string EnglishName="Shaded",LocalName="Shaded";
+        public bool InMenu=true, SupportsShadeCommand;
         public DisplayAttributes DisplayAttributes=new DisplayAttributes();
         public static DisplayModeDescription[] Modes={ new DisplayModeDescription() };
         public static DisplayModeDescription[] GetDisplayModes() => Modes;
     }
     public class RhinoViewport {
         public Guid Id=Guid.NewGuid(); public string Name="Perspective";
-        public bool IsParallelProjection=true,ZoomResult,BoundsZoomResult,FailCamera,FailDisplay;
+        public bool IsParallelProjection=true,ZoomResult,BoundsZoomResult,FailCamera,FailDisplay,IgnoreDisplay;
         public int SelectedZoomCalls, BoundsZoomCalls;
         public BoundingBox LastZoomBounds;
         public Point3d CameraLocation { get { if(FailCamera) throw new Exception("Camera unavailable"); return new Point3d(231000,200000,1000); } }
         public Point3d CameraTarget => new Point3d(231000,200000,0);
         DisplayModeDescription mode=new DisplayModeDescription();
-        public DisplayModeDescription DisplayMode { get=>mode; set { if(FailDisplay) throw new Exception("Mode acknowledgement unavailable"); mode=value; } }
+        public DisplayModeDescription DisplayMode { get=>mode; set { if(FailDisplay) throw new Exception("Mode acknowledgement unavailable"); if(!IgnoreDisplay) mode=value; } }
         public bool ZoomExtentsSelected() { SelectedZoomCalls++; return ZoomResult; }
         public bool ZoomBoundingBox(BoundingBox bounds) {
             BoundsZoomCalls++;
@@ -264,6 +265,20 @@ class Program {
         doc.Objects.Items.Add(new RhinoObject { Geometry=new GeometryBase { Bounds=new BoundingBox {
             IsValid=true,Min=new Point3d(229500,199500,0),Max=new Point3d(230500,200500,0) } } });
         var view=doc.Views.ActiveView.ActiveViewport;
+        if (scenario.StartsWith("{")) {
+            var options = JObject.Parse(scenario);
+            DisplayModeDescription.Modes = options["installed"].ToObject<DisplayModeDescription[]>();
+            view.IgnoreDisplay = (bool?)options["ignore_assignment"] ?? false;
+            var warnings = new JArray();
+            var output = new JObject { ["display_modes"]=DisplayModeMenu.List(warnings), ["warnings"]=warnings };
+            if (options["selector"] != null) {
+                output["capture"] = ViewCaptureTools.Handle(doc, new JObject {
+                    ["type"]="get_current_viewcapture", ["display_mode"]=options["selector"].DeepClone() });
+                output["active_mode"] = view.DisplayMode.Id.ToString();
+            }
+            Console.WriteLine(output.ToString(Formatting.None));
+            return;
+        }
         view.ZoomResult=scenario=="capture_failed" || scenario=="success" || scenario=="redraw_failed" || scenario=="selected_without_bounds";
         view.BoundsZoomResult=scenario=="bounds_fallback";
         view.FailCamera=scenario=="camera_unavailable";
@@ -293,7 +308,8 @@ class Program {
         }
         Console.WriteLine(result.ToString(Formatting.None));
     }
-}''', ["features/components/native/ComponentOperations.cs", "features/context/native/ViewCaptureTools.cs"])
+}''', ["features/components/native/ComponentOperations.cs", "features/context/native/ViewCaptureTools.cs",
+       "features/context/native/DisplayModeMenu.cs"])
 
 
 def test_zoom_failure_keeps_completed_steps_and_observed_planar_bounds(focus_host):
@@ -362,9 +378,63 @@ def test_failure_identifies_completed_unconfirmed_and_unattempted_steps(focus_ho
     assert result["view_change"]["zoom_selected"] is zoom
 
 
+def test_only_view_menu_modes_count_toward_the_catalogue_limit(focus_host):
+    installed = [{"EnglishName": "Private", "InMenu": False}] * 130 + [
+        {"EnglishName": "Shade only", "InMenu": False, "SupportsShadeCommand": True},
+        {"EnglishName": "Menu only", "InMenu": True, "SupportsShadeCommand": False},
+        {"EnglishName": "Menu and Shade", "InMenu": True, "SupportsShadeCommand": True},
+    ]
+    result = focus_host(json.dumps({"installed": installed}))
+    assert [mode["name"] for mode in result["display_modes"]] == ["Menu only", "Menu and Shade"]
+    assert all(mode["id"] for mode in result["display_modes"])
+    assert result["warnings"] == []
+
+    installed.extend({"EnglishName": f"Menu {i}"} for i in range(127))
+    limited = focus_host(json.dumps({"installed": installed, "selector": "Menu 126"}))
+    assert len(limited["display_modes"]) == 128
+    assert limited["display_modes"][-1]["name"] == "Menu 125"
+    assert len(limited["warnings"]) == 1
+    assert limited["capture"]["view_change"]["display_mode_changed"] is True
+
+
+@pytest.mark.parametrize("selector,expected", [
+    ("LOCAL RASTER", "applied"), ("Custom Raster", "applied"),
+    ("Shared name", "ambiguous"), ("c97620c8-ad9a-4f8c-ad82-d7a673cd5f07", "applied"),
+    ("Shade only", "hidden"), ("c97620c8-ad9a-4f8c-ad82-d7a673cd5f09", "hidden"),
+    ("Realtime", "asynchronous"),
+])
+def test_current_capture_resolves_only_unique_menu_modes_before_changing_the_view(focus_host, selector, expected):
+    chosen = "c97620c8-ad9a-4f8c-ad82-d7a673cd5f07"
+    installed = [
+        {"Id": chosen, "EnglishName": "Custom Raster", "LocalName": "Local Raster", "SupportsShadeCommand": False},
+        {"EnglishName": "Local Raster", "InMenu": False},
+        {"Id": "c97620c8-ad9a-4f8c-ad82-d7a673cd5f09", "EnglishName": "Shade only",
+         "InMenu": False, "SupportsShadeCommand": True},
+        {"EnglishName": "Shared name"}, {"EnglishName": "Another mode", "LocalName": "Shared name"},
+        {"EnglishName": "Realtime", "DisplayAttributes": {"RealtimeDisplayId": chosen}},
+    ]
+    result = focus_host(json.dumps({"installed": installed, "selector": selector}))
+    capture = result["capture"]
+    if expected == "applied":
+        assert capture["status"] == "success" and result["active_mode"] == chosen
+    else:
+        assert capture["status"] == "error"
+        assert capture["mutation_applied"] is False
+        assert capture["view_change"]["display_mode_changed"] is False
+        assert ("asynchronous" in capture["message"]) == (expected == "asynchronous")
+
+
 def test_failed_display_mode_acknowledgement_is_unknown(focus_host):
     result = focus_host("display_failed")
     assert result["mutation_applied"] is None and result["requires_reconciliation"] is True
+    assert result["view_change"]["display_mode_changed"] is None
+
+
+def test_current_capture_verifies_the_mode_guid_after_the_viewport_assignment(focus_host):
+    result = focus_host(json.dumps({"installed": [{"EnglishName": "Custom raster"}],
+                                    "selector": "Custom raster", "ignore_assignment": True}))["capture"]
+    assert result["status"] == "error"
+    assert result["requires_reconciliation"] is True
     assert result["view_change"]["display_mode_changed"] is None
 
 

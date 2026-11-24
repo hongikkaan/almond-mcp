@@ -213,17 +213,18 @@ namespace RhinoAlmondBridge
                 source = source.Where(o => groupMembers.Contains(o.Id));
             }
             var candidates = source.ToArray();
-            var matched = candidates.Where(o => Matches(doc, o, filters)).OrderBy(o => o.Id).ToArray();
             foreach (var obj in candidates)
                 if (expected.TryGetValue(obj.Id, out var crc) && obj.Geometry.DataCRC(0) != crc)
                     return Error("stale_geometry", "An object's geometry changed; observe its faces from the beginning: " + obj.Id);
-            var set = new HashSet<Guid>(matched.Select(o => o.Id));
             string snapshot = SnapshotToken(doc, request, all, editor);
             string wantedSnapshot = (string)request["expected_snapshot"] ?? "";
             if (wantedSnapshot.Length != 0 && !String.Equals(wantedSnapshot, snapshot, StringComparison.Ordinal))
                 return Error("observation_changed", "The model, editor, selection, view or query changed; restart at offset=0.");
             if (request["recursive"] != null && offset > 0 && wantedSnapshot.Length == 0)
                 throw new ArgumentException("Subsequent pages require expected_snapshot from the first page.");
+            var namedFilters = NamedFilters(doc, filters, editing);
+            var matched = candidates.Where(o => namedFilters.All(match => match(o)) && Matches(doc, o, filters)).OrderBy(o => o.Id).ToArray();
+            var set = new HashSet<Guid>(matched.Select(o => o.Id));
             if (mode == "hierarchy")
             {
                 var hierarchy = Hierarchy(doc, scope, groupIds, candidates, matched, visible,
@@ -314,6 +315,14 @@ namespace RhinoAlmondBridge
                 ["definitions"] = new JArray(doc.InstanceDefinitions.Where(d => d != null && !d.IsDeleted)
                     .OrderBy(d => d.Id).Select(d => new JObject { ["id"] = d.Id.ToString(), ["name"] = d.Name,
                         ["members"] = new JArray(d.GetObjects().OrderBy(o => o.Id).Select(ObjectStamp)) })) };
+            if (request["filters"]?["material"] != null)
+            {
+                state["front_materials"] = new JArray(objects.OrderBy(o => o.Id).Select(o => FrontMaterialId(o).ToString()));
+                state["material_table"] = new JArray(doc.Materials.Where(m => m != null && !m.IsDeleted)
+                    .OrderBy(m => m.Id).Select(m => new JArray(m.Id.ToString(), m.Name, m.RenderMaterialInstanceId.ToString())));
+                state["render_materials"] = new JArray(doc.RenderMaterials.OrderBy(m => m.Id)
+                    .Select(m => new JArray(m.Id.ToString(), m.Name)));
+            }
             if ((bool?)request["inside_window"] == true)
             {
                 var view = doc.Views.ActiveView.ActiveViewport;
@@ -339,8 +348,9 @@ namespace RhinoAlmondBridge
 
         static void ValidateFilters(JObject filters)
         {
-            if (filters.Properties().Any(p => p.Name != "layer_paths" && p.Name != "object_types" && p.Name != "name_contains" && p.Name != "user_dictionary" && p.Name != "user_text"))
-                throw new ArgumentException("Filters support layer_paths, object_types, name_contains, user_dictionary and user_text only.");
+            foreach (var p in filters.Properties())
+                if (!IsNamedFilter(p.Name) && p.Name != "layer_paths" && p.Name != "object_types" && p.Name != "name_contains" && p.Name != "user_dictionary" && p.Name != "user_text")
+                    throw new ArgumentException("Unsupported filters." + p.Name + ".");
             if (filters["layer_paths"] != null && (!(filters["layer_paths"] is JArray layers) || layers.Count == 0 || layers.Count > 64 ||
                 layers.Any(v => v.Type != JTokenType.String || String.IsNullOrEmpty((string)v))))
                 throw new ArgumentException("layer_paths must contain 1..64 exact full layer paths.");
@@ -349,80 +359,20 @@ namespace RhinoAlmondBridge
             if (filters["object_types"] != null && (!(filters["object_types"] is JArray types) || types.Count == 0 || types.Count > 32 ||
                 types.Any(v => v.Type != JTokenType.String || !Enum.GetNames(typeof(ObjectType)).Contains((string)v, StringComparer.OrdinalIgnoreCase))))
                 throw new ArgumentException("object_types must contain 1..32 Rhino object_type names from an observation.");
-            ValidateUserText(filters["user_text"]);
-            if (filters["user_dictionary"] == null) return;
-            if (!(filters["user_dictionary"] is JArray conditions) || conditions.Count > 16) throw new ArgumentException("user_dictionary must contain at most 16 conditions.");
-            foreach (var item in conditions)
-            {
-                var c = item as JObject;
-                if (c == null || c.Properties().Any(p => p.Name != "source" && p.Name != "key" && p.Name != "any_of") ||
-                    ((string)c["source"] != "attributes" && (string)c["source"] != "geometry") ||
-                    c["key"]?.Type != JTokenType.String || String.IsNullOrEmpty((string)c["key"]) ||
-                    !(c["any_of"] is JArray values) || values.Count < 1 || values.Count > 64 || values.Any(v => !Scalar(v)))
-                    throw new ArgumentException("Each dictionary condition requires source=attributes|geometry, key and 1..64 scalar any_of values.");
-            }
+            ValidateMetadataFilter(filters["user_text"], "user_text", ValidateUserText);
+            ValidateMetadataFilter(filters["user_dictionary"], "user_dictionary", ValidateDictionary);
         }
 
-        static bool Scalar(JToken token) => token.Type == JTokenType.String || token.Type == JTokenType.Boolean ||
-            token.Type == JTokenType.Integer || token.Type == JTokenType.Float;
-        internal static void ValidateUserText(JToken token)
-        {
-            if (token != null)
-            {
-                if (!(token is JArray textConditions) || textConditions.Count > 16)
-                    throw new ArgumentException("filters.user_text must be an array of up to 16 conditions.");
-                foreach (var item in textConditions)
-                {
-                    if (!(item is JObject condition) || condition.Properties().Any(p => p.Name != "key" && p.Name != "any_of") ||
-                        condition["key"]?.Type != JTokenType.String || String.IsNullOrEmpty((string)condition["key"]) ||
-                        !(condition["any_of"] is JArray options) || options.Count < 1 || options.Count > 64 ||
-                        options.Any(value => value.Type != JTokenType.String))
-                        throw new ArgumentException("Each user_text condition requires a nonempty key and 1..64 strings in any_of.");
-                }
-            }
-        }
-        internal static bool MatchesUserText(Func<string, string> read, JArray conditions)
-        {
-            foreach (var condition in conditions)
-            {
-                string actual = read((string)condition["key"]);
-                if (actual == null || !condition["any_of"].Values<string>().Contains(actual, StringComparer.Ordinal))
-                    return false;
-            }
-            return true;
-        }
         static bool Matches(RhinoDoc doc, RhinoObject obj, JObject filters)
         {
             if (filters["layer_paths"] is JArray layers && !layers.Values<string>().Contains(doc.Layers.FindIndex(obj.Attributes.LayerIndex)?.FullPath, StringComparer.OrdinalIgnoreCase)) return false;
             if (filters["object_types"] is JArray types && !types.Values<string>().Contains(obj.ObjectType.ToString(), StringComparer.OrdinalIgnoreCase)) return false;
             if (filters["name_contains"] != null && (obj.Name ?? "").IndexOf((string)filters["name_contains"], StringComparison.OrdinalIgnoreCase) < 0) return false;
-            if (filters["user_text"] is JArray textConditions && !MatchesUserText(obj.Attributes.GetUserString, textConditions)) return false;
-            foreach (var c in filters["user_dictionary"] as JArray ?? new JArray())
-            {
-                var dictionary = ExistingDictionary((string)c["source"] == "attributes" ? (Rhino.Runtime.CommonObject)obj.Attributes : obj.Geometry);
-                string key = (string)c["key"];
-                if (dictionary == null || !dictionary.ContainsKey(key)) return false;
-                var raw = dictionary[key];
-                object[] values;
-                if (!(raw is string) && raw is IEnumerable sequence && !(raw is ArchivableDictionary))
-                {
-                    values = sequence.Cast<object>().Take(4097).ToArray();
-                    if (values.Length > 4096) throw new ArgumentException("Dictionary filter value exceeds 4096 items; narrow the object set.");
-                }
-                else values = new[] { raw };
-                if (!values.Select(ScalarValue).Where(v => v != null).Any(v => ((JArray)c["any_of"]).Any(expected => JToken.DeepEquals(v, expected)))) return false;
-            }
-            return true;
+            if (!MatchesMetadata(filters["user_text"], terms => MatchesUserText(obj.Attributes.GetUserString, terms))) return false;
+            return MatchesMetadata(filters["user_dictionary"], terms => MatchesDictionary(obj, terms));
         }
 
         sealed class ValueBudget { public int Nodes = 8192, Characters = 131072; }
-        static JToken ScalarValue(object value)
-        {
-            if (value is string || value is bool || value is byte || value is short || value is int || value is long ||
-                value is sbyte || value is ushort || value is uint || value is ulong || value is float || value is double || value is decimal)
-                return JToken.FromObject(value);
-            return null;
-        }
         static JToken SafeValue(object value, int depth, ValueBudget budget)
         {
             if (--budget.Nodes < 0) return new JObject { ["value_omitted"] = true, ["reason"] = "metadata_budget" };
