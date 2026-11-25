@@ -6,7 +6,6 @@ coplanar merging and block expansion are not registration prerequisites.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -17,10 +16,12 @@ import re
 import shutil
 from uuid import uuid4
 
+from almond_mcp.features.assets._file_lock import asset_file_lock
 from almond_mcp.tool_response import script_result
 
 
 SCHEMA = "almond-asset-preparation/v2"
+JOB_LOCK = ".prepare.lock"
 GROUPS = {"summary", "parts", "previews", "provenance", "all"}
 STAGES = {"inspect", "normalize", "verify", "status"}
 UNITS = {"", "mm", "cm", "m", "in", "ft"}
@@ -79,29 +80,6 @@ def _job(root: Path, value: str) -> tuple[Path, dict]:
     if record.get("schema") != SCHEMA or Path(record.get("job_dir", "")).resolve() != path:
         raise ValueError("Preparation job identity does not match its directory")
     return path, record
-
-
-@contextmanager
-def _lock(job: Path):
-    with (job / ".prepare.lock").open("a+b") as handle:
-        if handle.seek(0, 2) == 0:
-            handle.write(b"0")
-            handle.flush()
-        handle.seek(0)
-        if os.name == "nt":
-            import msvcrt
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        try:
-            yield
-        finally:
-            handle.seek(0)
-            if os.name == "nt":
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def _match(path: Path, expected: str, label: str) -> None:
@@ -264,7 +242,7 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
                   "input_units": input_units, "expected_bounds_mm": expected_bounds,
                   "created_at": datetime.now(timezone.utc).isoformat(), "state": "new", "stages": {}}
         _write(job / "job.json", record)
-        with _lock(job):
+        with asset_file_lock(job / JOB_LOCK):
             _dispatch(job, record, stage, sender, execute)
     else:
         if not root.is_dir():
@@ -273,7 +251,7 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
         if source_file or input_units:
             raise ValueError("Source and units are fixed by inspect; omit them for later stages")
         if stage != "status":
-            with _lock(job):
+            with asset_file_lock(job / JOB_LOCK):
                 record = _read(job / "job.json")
                 _match(_inside(job, Path(record["source"])), record["source_sha256"], "Preserved source")
                 if stage == "verify" and record["state"] == "verified" and review is not None:
