@@ -119,6 +119,76 @@ def test_archive_cannot_serve_a_drawing_modified_after_indexing(tmp_path):
             running.join(timeout=2)
 
 
+def write_archive_model(root, asset_id):
+    model = root / f"{asset_id}.3dm"
+    model.write_bytes(b"registered source")
+    model_hash = hashlib.sha256(model.read_bytes()).hexdigest().upper()
+    package = root / asset_id
+    package.mkdir()
+    outputs = {"plan.svg": b"<svg>fixture</svg>", "plan.dxf": b"0\nEOF\n"}
+    for name, data in outputs.items():
+        (package / name).write_bytes(data)
+    (package / "drawing.json").write_text(json.dumps({
+        "source": {"asset_id": asset_id, "source_format": "3dm", "model_sha256": model_hash},
+        "representations": [{"view": "plan", "scale": 50, "svg": "plan.svg", "dxf": "plan.dxf"}],
+        "files": {name: hashlib.sha256(data).hexdigest() for name, data in outputs.items()},
+    }), encoding="utf-8")
+    return {"asset_id": asset_id, "file": model.name, "product": "Chair", "sha256": model_hash,
+            "drawing_package": asset_id, "tags": ["upholstered"]}
+
+
+@pytest.mark.parametrize("state,drawing_status", [
+    ("current", "current"), ("missing", "unverified"), ("stale", "stale"),
+    ("malformed", "invalid"), ("tampered", "invalid"),
+])
+def test_archive_search_defers_package_files(tmp_path, monkeypatch, state, drawing_status):
+    roots = {key: tmp_path / key for key in ("generated", "drawing", "drafting")}
+    root = roots["drawing"]
+    root.mkdir()
+    first, second = "z-first", "a-second"
+    assets = [write_archive_model(root, first), write_archive_model(root, second)]
+    (root / "manifest.json").write_text(json.dumps({
+        "library_id": "drawing_assets", "assets": assets,
+    }), encoding="utf-8")
+    if state == "missing":
+        (root / first / "plan.svg").unlink()
+    elif state == "stale":
+        (root / assets[0]["file"]).write_bytes(b"edited source")
+    elif state == "malformed":
+        (root / first / "drawing.json").write_text("{", encoding="utf-8")
+    elif state == "tampered":
+        (root / first / "plan.svg").write_bytes(b"<svg>changed</svg>")
+
+    context = SimpleNamespace(
+        DRAWING_LIBRARY_DIR=str(root), GENERATED_LIBRARY_DIR=str(roots["generated"]),
+        DRAFTING_LIBRARY_DIR=str(roots["drafting"]),
+        drawing_asset_indexer=AssetLibraryIndexer(root, "drawing_assets", "drawing"),
+    )
+    tool = register(FastMCP("archive-search"), context)["search_asset_repository"]
+    packages_read = []
+    verify = drafting.verified_package_file
+
+    def trace(package, filename, digest):
+        packages_read.append(package.name)
+        return verify(package, filename, digest)
+
+    monkeypatch.setattr(drafting, "verified_package_file", trace)
+    assert tool(query="unmatched") == {"total": 0, "assets": []}
+    assert packages_read == []
+
+    filters = {"query": "CHAIR upholstered", "kind": "model", "limit": 0,
+               "include_ids": True, "field_groups": ["all"]}
+    page = tool(**filters)
+    assert page["total"] == 2
+    assert [(item["id"], item["drawing_status"]) for item in page["assets"]] == [(first, drawing_status)]
+    assert second not in packages_read
+
+    ready = tool(**filters, drawing_ready=True)
+    assert ready["total"] == (2 if state == "current" else 1)
+    assert [item["id"] for item in ready["assets"]] == [first if state == "current" else second]
+    assert all(item["drawing_ready"] for item in ready["assets"])
+
+
 @pytest.mark.parametrize("canonical", ["available", "missing", "no_package", "no_legacy"])
 def test_drawing_lookup_uses_the_selected_package_and_its_own_source(tmp_path, canonical):
     roots = {key: tmp_path / key for key in ("generated", "drawing", "drafting")}

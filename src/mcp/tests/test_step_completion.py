@@ -262,6 +262,8 @@ def test_native_cleanup_removes_temp_block_instances_and_definition_members(nati
     assert result["definition_members"] == [202]
     assert result["definition_preserved"] and result["outside_instance_preserved"]
     assert result["temp_instance_deleted"] and result["drawing_preserved"] and result["attachment_preserved"]
+    # The plan stamps both members once. Pre-mutation and verification stamp live geometry again.
+    assert (result["crc_reads"], result["attribute_writes"]) == (5, 8)
 
 
 def test_native_cleanup_filters_both_owning_definitions_and_keeps_nested_placement(native_cleanup):
@@ -308,6 +310,8 @@ def test_native_block_cleanup_failure_keeps_definition_and_instances(native_clea
     assert result["definition_preserved"] and result["outside_instance_preserved"]
     assert result["temp_instance_deleted"] is False
     assert result["layers"] == ["Drawing", "Temp", "tests", "empty", "temp", "temp"]
+    if scenario == "block-rollback":
+        assert (result["crc_reads"], result["attribute_writes"]) == (6, 10)
 
 
 @pytest.mark.parametrize("scenario,state,objects", [

@@ -34,9 +34,14 @@ namespace Rhino.Geometry
 {
     public sealed class GeometryBase
     {
+        public static int CrcReads;
         public readonly uint Code;
         public GeometryBase(uint code) { Code = code; }
-        public uint DataCRC(uint seed) => Code;
+        public uint DataCRC(uint seed)
+        {
+            CrcReads++;
+            return Code;
+        }
     }
 
     public readonly record struct Transform(int FixtureTransform);
@@ -90,6 +95,7 @@ namespace Rhino.DocObjects
 
     public sealed class ObjectAttributes : IDisposable
     {
+        public static int ArchiveWrites;
         public int LayerIndex;
         public bool IsInstanceDefinitionObject;
         public Guid ObjectId;
@@ -101,10 +107,14 @@ namespace Rhino.DocObjects
         public DictionaryArchive UserDictionary { get; } = new();
 
         public ObjectAttributes Duplicate() => (ObjectAttributes)MemberwiseClone();
-        public string ToJSON(Rhino.FileIO.SerializationOptions options) => new JObject {
-            ["data"] = $"{LayerIndex}|{IsInstanceDefinitionObject}|{ObjectId}|{Name}" +
-                (options.WriteUserData ? $"|{CopyCount}" : "")
-        }.ToString();
+        public string ToJSON(Rhino.FileIO.SerializationOptions options)
+        {
+            ArchiveWrites++;
+            return new JObject {
+                ["data"] = $"{LayerIndex}|{IsInstanceDefinitionObject}|{ObjectId}|{Name}" +
+                    (options.WriteUserData ? $"|{CopyCount}" : "")
+            }.ToString();
+        }
         public void Dispose() { }
     }
 
@@ -378,6 +388,8 @@ namespace RhinoAlmondBridge
             var result = StepTempCleanup.Handle(doc, new JObject { ["expected_model_path"] = path });
             Console.WriteLine(new JObject {
                 ["result"] = result,
+                ["crc_reads"] = Rhino.Geometry.GeometryBase.CrcReads,
+                ["attribute_writes"] = ObjectAttributes.ArchiveWrites,
                 ["layers"] = JArray.FromObject(doc.Layers.Where(l => !l.IsDeleted).Select(l => l.Name)),
                 ["objects"] = doc.Objects.Count(o => !o.IsDeleted),
                 ["current_layer"] = doc.Layers.CurrentLayerIndex,

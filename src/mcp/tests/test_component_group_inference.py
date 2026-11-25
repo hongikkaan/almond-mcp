@@ -277,11 +277,16 @@ namespace Rhino.Geometry {
     public struct Point3d { public double X, Y, Z; }
     public struct BoundingBox {
         public Point3d Min, Max;
-        public bool IsValid => true;
+        public bool IsValid;
     }
     public class GeometryBase {
-        public BoundingBox GetBoundingBox(bool accurate) => new BoundingBox {
-            Min = new Point3d(), Max = new Point3d { X=100, Y=200, Z=300 } };
+        public static int BoundsReads;
+        public double Width = 100;
+        public bool Valid = true;
+        public BoundingBox GetBoundingBox(bool accurate) {
+            BoundsReads++;
+            return new BoundingBox { Min=new Point3d(), Max=new Point3d { X=Width, Y=200, Z=300 }, IsValid=Valid };
+        }
     }
 }
 namespace Rhino.DocObjects {
@@ -343,7 +348,11 @@ namespace Rhino {
         }
     }
     public class ObjectTable : List<RhinoObject> {
-        public RhinoObject FindId(Guid id) => this.FirstOrDefault(o => o.Id == id);
+        public int Lookups;
+        public RhinoObject FindId(Guid id) {
+            Lookups++;
+            return this.FirstOrDefault(o => o.Id == id);
+        }
         public IEnumerable<RhinoObject> GetObjectList(ObjectEnumeratorSettings settings) => this;
     }
     public class GroupTable : List<Group> {
@@ -397,6 +406,7 @@ public static class FixtureProgram {
         foreach (var row in input["objects"].OfType<JObject>()) doc.Objects.Add(new RhinoObject {
             Id=Guid.Parse((string)row["id"]), IsDeleted=(bool?)row["deleted"] ?? false,
             IsReference=(bool?)row["reference"] ?? false, IsInstanceDefinitionGeometry=(bool?)row["definition"] ?? false,
+            Geometry=new Rhino.Geometry.GeometryBase { Valid=(bool?)row["valid_bounds"] ?? true },
             Attributes=new ObjectAttributes { Space=(bool?)row["page"] == true ? ActiveSpace.PageSpace : ActiveSpace.ModelSpace,
                 TemporaryEditData=(string)row["temporary"], LegacyComponentRecord=(string)row["legacy_component_record"] }
         });
@@ -410,9 +420,22 @@ public static class FixtureProgram {
             ["version"]=1, ["records"]=input["records"] ?? new JObject(), ["legacy_initialized"]=(bool?)input["legacy_initialized"] ?? true
         }.ToString(Formatting.None));
         var replies=new JArray();
-        foreach (var request in input["requests"].OfType<JObject>()) replies.Add(ComponentRegistry.Handle(doc, request));
+        var reads=new JArray();
+        foreach (var request in input["requests"].OfType<JObject>()) {
+            if (request["edit"] is JObject edit) {
+                var edited=doc.Objects.FindId(Guid.Parse((string)edit["object_id"]));
+                edited.Attributes.Name=(string)edit["name"];
+                edited.Geometry.Width=(double)edit["width"];
+                doc.Objects.FindId(Guid.Parse((string)edit["delete_object"])).IsDeleted=true;
+                doc.Groups.FindId(Guid.Parse((string)edit["delete_group"])).IsDeleted=true;
+            }
+            Rhino.Geometry.GeometryBase.BoundsReads=0;
+            doc.Objects.Lookups=0;
+            replies.Add(ComponentRegistry.Handle(doc, request));
+            reads.Add(new JObject { ["bounds"]=Rhino.Geometry.GeometryBase.BoundsReads, ["objects"]=doc.Objects.Lookups });
+        }
         Console.WriteLine(new JObject {
-            ["replies"]=replies, ["executions"]=doc.Executions, ["undo_events"]=doc.UndoEvents,
+            ["replies"]=replies, ["reads"]=reads, ["executions"]=doc.Executions, ["undo_events"]=doc.UndoEvents,
             ["groups_created"]=doc.Groups.Created, ["modified"]=doc.Modified,
             ["records"]=JObject.Parse(ComponentSemanticRegistry.Export(doc))["records"],
             ["groups"]=new JArray(doc.Groups.Select(g => new JObject {
@@ -516,6 +539,69 @@ def native_child_case():
                               "child_component_ids": [], "registration_status": "registered"}}
     case["requests"][0]["child_component_ids"] = [CHILD]
     return case
+
+
+def native_batch_case():
+    case = native_child_case()
+    case["records"][COMPONENT] = {
+        "component_id": COMPONENT, "rhino_group_id": GROUP, "name": "Arrival",
+        "scene_ids": ["scene_arrival"], "child_component_ids": [CHILD], "registration_status": "registered",
+    }
+    case["requests"] = [{"action": "inspect_many", "expected_model_path": MODEL}]
+    return case
+
+
+def test_native_batch_reuses_holon_reads_and_observes_the_next_edit(native_host):
+    case = native_batch_case()
+    case["requests"].append({**case["requests"][0], "prior_object_ids": [OBJECT, CHILD_OBJECT], "edit": {
+        "object_id": CHILD_OBJECT, "name": "Moved bench", "width": 150,
+        "delete_object": OBJECT, "delete_group": CHILD_GROUP,
+    }})
+
+    result = native_host(case)
+
+    before, after = result["replies"]
+    assert before["problems"] == after["problems"] == []
+    parent, child = before["components"]
+    assert parent["object_ids"] == [OBJECT]
+    assert parent["effective_objects"] == parent["objects"] + child["objects"]
+    assert child["objects"] == child["effective_objects"]
+    assert child["objects"][0]["component_id"] == CHILD
+    parent, child = after["components"]
+    assert child["availability"] == "missing_group"
+    assert child["effective_objects"] == []
+    assert after["absent_object_ids"] == [OBJECT]
+    assert parent["effective_objects"] == parent["objects"]
+    assert parent["objects"] == [{
+        "rhino_guid": CHILD_OBJECT, "component_id": COMPONENT, "object_type": "Brep",
+        "name": "Moved bench", "bounds_mm": [0, 0, 0, 150, 200, 300],
+    }]
+    assert result["executions"] == result["undo_events"] == 0
+    assert result["reads"][0] == {"bounds": 2, "objects": 4}
+
+
+@pytest.mark.parametrize("valid_bounds, reason", [
+    (False, "Invalid member bounds or model units."),
+    (True, f"An object is in unrelated semantic groups: {OBJECT}"),
+])
+def test_native_batch_preserves_failure_priority_and_isolates_invalid_holons(native_host, valid_bounds, reason):
+    case = native_batch_case()
+    case["objects"][0]["valid_bounds"] = valid_bounds
+    conflict = "component_conflict"
+    conflict_group = "00000000-0000-0000-0000-000000000103"
+    case["groups"].append({"id": conflict_group, "name": "Conflict", "members": [OBJECT]})
+    case["records"][conflict] = {
+        "component_id": conflict, "rhino_group_id": conflict_group, "name": "Conflict",
+        "scene_ids": ["scene_arrival"], "child_component_ids": [], "registration_status": "registered",
+    }
+
+    reply = native_host(case)["replies"][0]
+
+    assert [item["component_id"] for item in reply["components"]] == [CHILD]
+    assert reply["problems"] == [
+        {"component_id": holon, "code": "invalid_binding", "message": reason}
+        for holon in (COMPONENT, conflict)
+    ]
 
 
 def test_native_group_inference_preserves_declared_child_ownership(native_host):

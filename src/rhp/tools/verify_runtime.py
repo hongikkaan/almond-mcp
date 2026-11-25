@@ -79,7 +79,7 @@ def source_files(root, component):
     tracked = subprocess.check_output([
         "git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"
     ]).decode().split("\0")
-    return sorted({p for p in tracked if (root / p).is_file() and is_source(p, component)})
+    return sorted({p for p in tracked if is_source(p, component) and (root / p).is_file()})
 
 
 def required_outputs(component):

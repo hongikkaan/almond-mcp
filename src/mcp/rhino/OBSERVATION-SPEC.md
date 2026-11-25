@@ -28,6 +28,8 @@ sections를 생략하면 document/named_views/layouts/layer_tree/display_modes�
 
 선택 조회는 `inspect_02-get_objects tool(scope="current", selected=true)`로 통합한다. 기본은 문서 객체 목록이며, `result_mode="hierarchy"`로 그룹·블록을 요약하고 recursive와 depth로 내부를 펼친다. 부분 범위의 그룹은 전체 구성원과 조회에 포함된 구성원 수를 구분한다. 문서 객체 수와 계층 occurrence 수는 서로 다르다.
 
+한 번의 객체 조회에서 같은 그룹의 구성원은 같은 편집 상태를 기준으로 읽는다. 같은 블록 정의를 여러 곳에 배치했으면 각 배치의 경로와 월드 좌표 범위를 따로 반환한다. 다음 조회와 캡처 전후의 모델 변경 검사는 문서를 새로 읽는다.
+
 공개 조회는 context_sections>=2를 요구하고 native public_context=true로 요청한다. 기존 내부 native 호출은 문서 identity/capabilities, 필요한 compact editor, raw 선택 GUID 기본값을 유지한다. 이로써 연결 문서 검증과 Holon/Plan 역조회 계약을 보존한다.
 
 연결을 시작할 때는 저장된 모델 경로와 문서 일련번호로 연결을 확인한다. 문서 속성·뷰·레이어·Worksession은 명시적으로 요청한 MCP 조회에서만 읽는다. 프로젝트 조회와 문서 조회는 같은 native 문서 관찰과 MCP의 문서 속성·목록 투영을 재사용한다.

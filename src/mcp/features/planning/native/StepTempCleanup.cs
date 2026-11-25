@@ -174,9 +174,11 @@ namespace RhinoAlmondBridge
                 if (definition.UpdateType != InstanceDefinitionUpdateType.Static || targeted.Any(obj => obj.IsReference))
                     throw new InvalidOperationException(
                         $"Block definition '{definition.Name}' contains linked or reference geometry on temp.");
-                var retained = members.Where(obj => !indices.Contains(obj.Attributes.LayerIndex));
                 nested ??= ActiveNestedInstances(doc);
-                edits.Add(new DefinitionEdit(definition.Id, definition.Name, Stamps(members), Stamps(retained),
+                // Derive the retained subset from the same pre-cleanup observation.
+                var before = Stamps(members);
+                var retained = before.Where((_, index) => !indices.Contains(members[index].Attributes.LayerIndex)).ToArray();
+                edits.Add(new DefinitionEdit(definition.Id, definition.Name, before, retained,
                     InstanceStamps(definition, nested[definition.Id]).ToArray(), targeted.Length));
             }
             return edits;

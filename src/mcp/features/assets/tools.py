@@ -656,19 +656,19 @@ def register(mcp, context):
         """
         validate_field_groups(field_groups, GROUPS)
         try:
-            return project(asset_repository().search(query, kind, drawing_ready, limit), field_groups)
+            return project(asset_repository(include_drawing_files=False).search(query, kind, drawing_ready, limit), field_groups)
         except ValueError as exc:
             return project(error_payload(str(exc)), field_groups)
 
 
-    def asset_repository():
+    def asset_repository(*, include_drawing_files=True):
         from almond_mcp.features.assets.asset_repository import AssetRepository
 
         return AssetRepository({
             "drawing": Path(context.DRAWING_LIBRARY_DIR),
             "drafting": Path(context.DRAFTING_LIBRARY_DIR),
             "generated": Path(context.GENERATED_LIBRARY_DIR),
-        }, model_index=model_index.for_context(context))
+        }, model_index=model_index.for_context(context), include_drawing_files=include_drawing_files)
 
     @mcp.resource("almond://repository/{asset_id}")
     def repository_asset_resource(asset_id: str) -> str:

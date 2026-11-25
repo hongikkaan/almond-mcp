@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import re
+from functools import cache
 from pathlib import Path, PurePosixPath
 import zipfile
 
@@ -22,6 +23,10 @@ def verify(path, rhino_sdk_version=None):
     if tag is None or (rhino_sdk_version is not None and tag[1] != rhino_sdk_version.replace(".", "_")):
         raise ValueError("Incorrect Yak version or Rhino/platform compatibility tag")
     with zipfile.ZipFile(path) as archive:
+        @cache
+        def member_digest(member):
+            return hashlib.sha256(archive.read(member)).hexdigest()
+
         names = archive.namelist()
         if len(names) != len(set(names)):
             raise ValueError("Duplicate zip members")
@@ -54,7 +59,7 @@ def verify(path, rhino_sdk_version=None):
             member = "archive/" + record["path"]
             if ".." in PurePosixPath(record["path"]).parts or record["path"].startswith("/"):
                 raise ValueError("Unsafe route target")
-            if hashlib.sha256(archive.read(member)).hexdigest() != record["sha256"]:
+            if member_digest(member) != record["sha256"]:
                 raise ValueError(f"Checksum mismatch: {route}")
         catalogue = json.loads(archive.read("archive/api/catalogue.json"))
         counts = catalogue["counts"]
@@ -65,13 +70,13 @@ def verify(path, rhino_sdk_version=None):
         evidence = json.loads(archive.read("archive/evidence/source-register.json"))
         sources = {a["asset_id"]:a for a in evidence["assets"]}
         for record in generated:
-            model = archive.read("archive/" + bundle["routes"][record["source_file"]]["path"])
-            if hashlib.sha256(model).hexdigest().upper() != sources[record["id"]]["model_sha256"]:
+            model_path = "archive/" + bundle["routes"][record["source_file"]]["path"]
+            if member_digest(model_path).upper() != sources[record["id"]]["model_sha256"]:
                 raise ValueError("Source evidence does not match bundled model")
             captured = sources[record["id"]]["recorded_generation"].get("captured_generation")
             if captured:
                 image_path = "archive/" + bundle["routes"][record["generation_image"]]["path"]
-                if hashlib.sha256(archive.read(image_path)).hexdigest() != captured["image"]["output_sha256"]:
+                if member_digest(image_path) != captured["image"]["output_sha256"]:
                     raise ValueError("Captured generation image is missing or changed")
             if record["drawing"]:
                 drawing_path = "archive/" + bundle["routes"][record["drawing"]["record"]]["path"]
@@ -79,8 +84,8 @@ def verify(path, rhino_sdk_version=None):
                 for filename, expected in drawing["files"].items():
                     if PurePosixPath(filename).name != filename:
                         raise ValueError("Unsafe drawing member")
-                    payload = archive.read(str(PurePosixPath(drawing_path).parent / filename))
-                    if hashlib.sha256(payload).hexdigest().upper() != expected:
+                    member = str(PurePosixPath(drawing_path).parent / filename)
+                    if member_digest(member).upper() != expected:
                         raise ValueError("Drawing package is stale or incomplete")
     return {"status":"success", "yak":path.name,"bridge_version":version,"archive_version":__version__,
             "rhino_sdk_tag":"rh" + tag[1], "target_framework":"net8.0-windows",

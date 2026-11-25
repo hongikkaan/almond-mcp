@@ -21,7 +21,7 @@ Rhino에서는 `Almond` 또는 `AlmondLibraryBrowser`를 연다. Python만으로
 
 실행 환경의 `RHINO_MCP_*_DIR`이 저장소 경로보다 우선한다. 파일이나 manifest를 변경한 뒤 Rhino 패널은 Reload로 현재 목록을 다시 읽고 Python standalone archive는 재시작한다. 현재 등록 목록 조회에는 설치된 Almond Python 환경이 필요하며 MCP 연결은 필요 없다. 검색은 이름·ID·분류·태그·drawing role을 사용하며 즐겨찾기는 브라우저 localStorage에 남는다. HTTP 서버는 loopback에 바인딩하고 Host 검사와 파일 allowlist를 사용한다. 업로드나 임의 파일 탐색 기능은 없다.
 
-- `asset_10-search_repository tool(query, kind, drawing_ready, limit)`: 통합 검색.
+- `asset_10-search_repository tool(query, kind, drawing_ready, limit)`은 목록 메타데이터에서 후보를 찾는다. 도면 준비 여부로 검색할 때는 일치하는 전체 후보의 준비 상태를 확인한 뒤 페이지를 나눈다. 개별 도면 파일의 다운로드 주소는 Archive에서 제공한다.
 - `almond://repository/{asset_id}`: 출처·표현·로컬 경로를 포함한 MCP record.
 - `/api/catalogue`, `/api/assets/{asset_id}.json`: HTTP 목록과 개별 record. 공개 provenance·metadata에서 절대 로컬 경로를 제외하며, 명시적 MCP file handle과 native 내부 snapshot allowlist에서만 제공한다. 내보낸 목록은 모델 파일 묶음이 아니다.
 

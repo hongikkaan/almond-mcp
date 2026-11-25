@@ -23,7 +23,8 @@ def hierarchy(tmp_path_factory):
     tests = Path(__file__).resolve().parent
     native = tests.parent / "features/context/native"
     includes = [tests / "object_hierarchy_host/Fixture.cs", native / "ObservationEntities.cs", native / "ObjectHierarchy.cs",
-                native / "ObjectScope.cs", native / "ObjectFilters.cs", native / "ObjectMetadataFilters.cs"]
+                native / "ObjectObservation.cs", native / "ObjectScope.cs", native / "ObjectFilters.cs",
+                native / "ObjectMetadataFilters.cs"]
     compile_items = "".join(f'<Compile Include="{escape(str(p))}" Link="{p.name}" />' for p in includes)
     (folder / "NuGet.Config").write_text('<configuration><packageSources><clear /></packageSources></configuration>', encoding="utf-8")
     (folder / "Hierarchy.csproj").write_text(f'''<Project Sdk="Microsoft.NET.Sdk">
@@ -51,6 +52,175 @@ def grouped_case():
             "groups": [{"id": guid(101), "members": [guid(1), guid(2)]},
                        {"id": guid(102), "members": [guid(2), guid(3)]}],
             "expand_groups": True, "depth": 4}
+
+
+def group_observation_case():
+    return {
+        "objects": [{"id": guid(n), "hidden": n == 70, "definition": n == 69} for n in range(1, 71)],
+        "groups": [
+            {"id": guid(101), "name": "Main", "members": [guid(n) for n in range(70, 0, -1)]},
+            {"id": guid(102), "name": "Exclude", "members": [guid(4)]},
+        ],
+        "request": {"scope": "current", "group_ids": [guid(101)], "fields": ["id", "groups"], "limit": 4,
+                    "filters": {"group": {"include": ["Main"], "exclude": ["Exclude"]}}},
+    }
+
+
+def group_hierarchy_case():
+    return {
+        "objects": [{"id": guid(n), "min_x": n, "max_x": n + 1} for n in range(1, 5)],
+        "groups": [
+            {"id": guid(101), "name": "Parent", "members": [guid(1), guid(2), guid(3)]},
+            {"id": guid(102), "name": "Child", "members": [guid(1), guid(2)]},
+            {"id": guid(103), "name": "Overlap", "members": [guid(3), guid(4)]},
+        ],
+        "request": {"scope": "document", "group_ids": [guid(101)], "result_mode": "hierarchy",
+                    "fields": ["id", "name", "bounds"], "expand_groups": True, "depth": 4},
+    }
+
+
+def geometry_observation_case():
+    return {
+        "objects": [{"id": guid(1), "crc": 42, "faces": [0, 1, 2]}, {"id": guid(2), "crc": 43}],
+        "request": {"scope": "document", "object_ids": [guid(1), guid(2)], "fields": ["geometry_crc", "faces"],
+                    "face_offset": 1, "face_limit": 1, "expected_geometry_crcs": {guid(1): 42, guid(2): 43}},
+    }
+
+
+def placed_hierarchy_case():
+    shared_definition = {"definition_id": guid(201), "members": [guid(3), guid(5)]}
+    return {
+        "objects": [
+            {"id": guid(1), **shared_definition, "xy_matrix": [0, -1, 1, 0], "x": 10, "y": 20},
+            {"id": guid(2), **shared_definition, "xy_matrix": [-1, 0, 0, 2], "x": -10, "y": 4},
+            {"id": guid(3), "definition": True, "members": [guid(4)], "xy_matrix": [-2, 0, 0, 3], "x": 5, "y": 2},
+            {"id": guid(4), "definition": True, "min_x": 1, "max_x": 3, "min_y": 2, "max_y": 4},
+            {"id": guid(5), "definition": True, "min_x": 2, "max_x": 1},
+        ],
+        "groups": [{"id": guid(101), "members": [guid(4)]}],
+        "request": {"scope": "document", "result_mode": "hierarchy", "fields": ["id", "bounds"],
+                    "expand_blocks": True, "expand_groups": True, "depth": 5},
+    }
+
+
+def test_block_hierarchy_places_each_reused_definition_occurrence_once(hierarchy):
+    observed = hierarchy(placed_hierarchy_case())
+    response = observed["response"]
+    assert response["status"] == "success" and response["root_count"] == 2
+    rows = {(row["root_object_id"], row["id"]): row for row in response["nodes"]}
+    world_bounds = ({"min": [-4, 19, 0], "max": [2, 23, 0]}, {"min": [-13, 20, 0], "max": [-9, 32, 0]})
+    for root, bounds in zip((guid(1), guid(2)), world_bounds):
+        group, leaf, invalid = (rows[root, guid(n)] for n in (101, 4, 5))
+        assert group["bounds"] == leaf["bounds"] == bounds
+        assert group["block_path_ids"] == [guid(3)] and leaf["block_path_ids"] == [guid(3), guid(4)]
+        assert not group["document_object"] and not leaf["document_object"]
+        assert invalid["bounds"] is None and invalid["block_path_ids"] == [guid(5)]
+    assert observed["bounds_reads"] == 10
+
+
+@pytest.mark.parametrize("group_source, expected, member_reads", [
+    ({"members": [guid(2)]}, [12, 14], 0),
+    ({"members": [guid(2)], "bounds": [-9, -5]}, [12, 14], 0),
+    ({"bounds": [-9, -5]}, [10, 14], 1),
+])
+def test_public_roots_calculates_bounds_from_group_members(hierarchy, group_source, expected, member_reads):
+    observed = hierarchy({
+        "objects": [{"id": guid(1), "min_x": 10, "max_x": 11}, {"id": guid(2), "min_x": 12, "max_x": 14}],
+        "groups": [{"id": guid(101), "members": [guid(1), guid(2)]}],
+        "public_group_source": group_source,
+    })
+    assert observed["bounds"] == {"min": [expected[0], 0, 0], "max": [expected[1], 0, 0]}
+    assert observed["member_reads"] == member_reads
+
+
+def test_observation_reuses_crc_for_face_pages(hierarchy):
+    observed = hierarchy(geometry_observation_case())
+    response = observed["response"]
+    assert response["status"] == "success"
+    first, second = response["objects"]
+    assert first["id"] == guid(1) and first["geometry_crc"] == 42
+    assert first["face_page"] == {"offset": 1, "limit": 1, "returned": 1, "next_offset": 2, "complete": False}
+    assert [face["face_index"] for face in first["faces"]] == [1]
+    assert second == {"geometry_crc": 43, "face_edit_supported": False}
+    assert observed["crc_reads"] == 2
+
+
+def test_observation_rejects_stale_face_crc_before_snapshot(hierarchy):
+    case = geometry_observation_case()
+    case["request"]["expected_geometry_crcs"][guid(1)] = 1
+    observed = hierarchy(case)
+    assert observed["response"]["error_code"] == "stale_geometry"
+    assert observed["crc_reads"] == 1
+
+
+def test_observation_reuses_group_reads_and_keeps_row_metadata_independent(hierarchy):
+    observed = hierarchy(group_observation_case())
+    response = observed["response"]
+    assert response["status"] == "success"
+    assert response["source_count"] == 68 and response["matched_count"] == 67
+    rows = response["objects"]
+    assert [row["id"] for row in rows] == [guid(n) for n in (1, 2, 3, 5)]
+    assert all(row["groups"] == rows[0]["groups"] for row in rows)
+    assert rows[0]["groups"] == [{
+        "id": guid(101), "name": "Main", "member_count": 70, "members_outside_match_count": 3,
+        "visible_member_count": 68, "membership_complete": True, "membership_basis": "document_group_table",
+        "observed_member_count": 70, "observed_members_outside_match_count": 3, "observed_visible_member_count": 68,
+        "member_ids": [guid(n) for n in range(70, 6, -1)], "members_truncated": True,
+    }]
+    assert observed["independent_rows"]
+    assert observed["member_reads"] == 2
+
+
+def test_observation_reuses_group_roots_and_preserves_hierarchy_scope(hierarchy):
+    observed = hierarchy(group_hierarchy_case())
+    response = observed["response"]
+    assert response["status"] == "success"
+    assert response["root_count"] == 1 and response["hierarchy_count"] == 5
+    rows = response["nodes"]
+    assert {row["id"] for row in rows} == {guid(n) for n in (101, 102, 1, 2, 3)}
+    parent = next(row for row in rows if row["id"] == guid(101))
+    child = next(row for row in rows if row["id"] == guid(102))
+    assert parent["parent_number"] is None and child["parent_number"] == parent["number"]
+    assert parent["matched_member_count"] == 3 and child["matched_member_count"] == 2
+    assert parent["bounds"] == {"min": [1, 0, 0], "max": [4, 0, 0]}
+    assert child["bounds"] == {"min": [1, 0, 0], "max": [3, 0, 0]}
+    assert observed["member_reads"] == 3
+    assert observed["bounds_reads"] == 10
+
+
+def test_observation_reuses_incomplete_editor_members_without_certifying_them(hierarchy):
+    case = group_observation_case()
+    case["editor_stable"] = False
+    case["groups"][0]["complete"] = False
+    filters = case["request"].pop("filters")
+    observed = hierarchy(case)
+    response = observed["response"]
+    assert response["status"] == "success" and not response["membership_complete"]
+    groups = [row["groups"][0] for row in response["objects"]]
+    assert all(group["member_count"] is None and group["members_outside_match_count"] is None
+               and group["visible_member_count"] is None and group["observed_member_count"] == 70
+               and group["observed_members_outside_match_count"] == 2 and group["observed_visible_member_count"] == 68
+               and group["membership_basis"] == "editor_incomplete" for group in groups)
+    assert observed["member_reads"] == 2
+    case["request"]["filters"] = filters
+    filtered = hierarchy(case)
+    assert filtered["response"]["error_code"] == "invalid_arguments"
+    assert "filters.group.include membership is uncertain during editing" in filtered["response"]["message"]
+    assert filtered["member_reads"] == 1
+
+
+def test_observation_checks_group_scope_and_snapshot_before_filters(hierarchy):
+    case = group_observation_case()
+    case["request"]["group_ids"] = [guid(999)]
+    case["request"]["expected_snapshot"] = "stale"
+    case["request"]["filters"]["group"]["include"] = ["Unknown filter"]
+    response = hierarchy(case)["response"]
+    assert response["error_code"] == "invalid_arguments" and "Unknown group GUID" in response["message"]
+    case["request"]["group_ids"] = [guid(101)]
+    assert hierarchy(case)["response"]["error_code"] == "observation_changed"
+    del case["request"]["expected_snapshot"]
+    response = hierarchy(case)["response"]
+    assert response["error_code"] == "invalid_arguments" and "Unknown filters.group reference" in response["message"]
 
 
 def test_layer_full_paths_and_guids_filter_top_level_objects_before_grouping(hierarchy):
@@ -215,7 +385,7 @@ def test_reused_nested_block_members_have_distinct_root_paths_and_world_bounds(h
     assert len(leaves) == 2
     assert [n["root_object_id"] for n in leaves] == [guid(1), guid(2)]
     assert all(n["block_path_ids"] == [guid(3), guid(4)] and not n["document_object"] for n in leaves)
-    assert [n["bounds"]["min_x"] for n in leaves] == [15, 25]
+    assert [n["bounds"]["min"][0] for n in leaves] == [15, 25]
     assert all(n["visible"] is None and n["selected"] is None for n in leaves)
 
 
@@ -293,7 +463,7 @@ def test_group_inside_block_uses_the_occurrence_transform_and_never_document_ids
     rows = hierarchy(case)["nodes"]
     leaves = [n for n in rows if n["id"] == guid(4)]
     assert len(leaves) == 2 and all(not n["document_object"] for n in leaves)
-    assert [n["bounds"]["min_x"] for n in leaves] == [15, 25]
+    assert [n["bounds"]["min"][0] for n in leaves] == [15, 25]
     groups = [n for n in rows if n["id"] == guid(101)]
     assert len(groups) == 2 and all(not n["document_object"] for n in groups)
     assert [n["root_object_id"] for n in groups] == [n["root_object_id"] for n in leaves]
