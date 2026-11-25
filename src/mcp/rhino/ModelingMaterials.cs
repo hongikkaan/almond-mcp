@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Drawing;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using Rhino;
+using Rhino.Collections;
 using Rhino.DocObjects;
 using Rhino.Render;
 
@@ -86,25 +88,62 @@ namespace RhinoAlmondBridge
             return attributes;
         }
 
-        // Preserve the legacy assignment field even though it is no longer a general metadata mapping.
-        private static readonly HashSet<string> AssignmentMetadataKeys = new HashSet<string>(
-            new[] { "floor", "construction_detail", "construction_reference" }.Select(ModelingMetadata.Key)
-                .Concat(new[] { "structural_role" }), StringComparer.Ordinal);
+        // CreateAttributes is also used by archive placement and existing batch scripts.
+        private static readonly HashSet<string> AttributeTextKeys = new HashSet<string>(
+            new[] { "floor", "structural_role", "construction_detail", "construction_reference" }, StringComparer.Ordinal);
 
         internal static void ValidateMetadata(IDictionary<string, string> metadata)
         {
             if (metadata == null) return;
             foreach (var pair in metadata)
-                if (!AssignmentMetadataKeys.Contains(pair.Key) || pair.Value == null)
-                    throw new ArgumentException("Unexpected material-assignment metadata: " + pair.Key);
-            if (metadata.TryGetValue(ModelingMetadata.Key("construction_reference"), out string reference))
+                if (!AttributeTextKeys.Contains(pair.Key) || pair.Value == null)
+                    throw new ArgumentException("Unexpected material metadata: " + pair.Key);
+            if (metadata.TryGetValue("construction_reference", out string reference))
+                ValidateReference(reference);
+        }
+
+        private static void ValidateReference(string reference)
+        {
+            var value = JObject.Parse(reference);
+            if (value.Properties().Any(p => p.Name != "kind" && p.Name != "id") ||
+                (string)value["kind"] != "construction_system" || value["id"]?.Type != JTokenType.String ||
+                String.IsNullOrWhiteSpace((string)value["id"]))
+                throw new ArgumentException("construction_reference requires kind=construction_system and a nonempty id.");
+        }
+
+        internal sealed record AssignmentFields(string Floor, string Role, string Detail, string Reference)
+        {
+            internal static AssignmentFields Read(IDictionary<string, string> metadata)
             {
-                var value = JObject.Parse(reference);
-                if (value.Properties().Any(p => p.Name != "kind" && p.Name != "id") ||
-                    (string)value["kind"] != "construction_system" || value["id"]?.Type != JTokenType.String ||
-                    String.IsNullOrWhiteSpace((string)value["id"]))
-                    throw new ArgumentException("construction_reference requires kind=construction_system and a nonempty id.");
+                if (metadata == null || !metadata.TryGetValue("Floor", out var floor) || String.IsNullOrWhiteSpace(floor) ||
+                    !metadata.TryGetValue("structural_role", out var role) || String.IsNullOrWhiteSpace(role))
+                    throw new ArgumentException("Floor and structural_role are required.");
+                foreach (var key in metadata.Keys)
+                    if (key != "Floor" && key != "structural_role" && key != "construction_detail" && key != "construction_reference")
+                        throw new ArgumentException("Unexpected assignment field: " + key);
+                metadata.TryGetValue("construction_detail", out var detail);
+                metadata.TryGetValue("construction_reference", out var reference);
+                if (!String.IsNullOrWhiteSpace(reference)) ValidateReference(reference);
+                return new AssignmentFields(floor, role, detail, reference);
             }
+
+            internal Dictionary<string, string> UserTextToWrite(NameValueCollection existing)
+            {
+                var keys = existing?.AllKeys ?? Array.Empty<string>();
+                var writes = new Dictionary<string, string> { ["structural_role"] = Role };
+                void AddOptional(string key, string value)
+                {
+                    if (!String.IsNullOrWhiteSpace(value)) writes.Add(key, value);
+                    // Rhino removes User Text on an empty-string write. A space creates a visible key.
+                    else if (!keys.Contains(key, StringComparer.OrdinalIgnoreCase)) writes.Add(key, " ");
+                }
+                AddOptional("construction_detail", Detail);
+                AddOptional("construction_reference", Reference);
+                return writes;
+            }
+
+            internal bool MatchesFloor(ArchivableDictionary dictionary) =>
+                dictionary != null && dictionary.TryGetString("Floor", out var floor) && floor == Floor;
         }
 
         private static bool SameAssignment(RhinoDoc doc, ObjectAttributes before, ObjectAttributes after)
@@ -219,12 +258,12 @@ namespace RhinoAlmondBridge
             if (doc == null) throw new ArgumentNullException(nameof(doc));
             var requested = ids?.Distinct().ToArray() ?? throw new ArgumentNullException(nameof(ids));
             if (requested.Length == 0) throw new ArgumentException("At least one object GUID is required.");
-            ValidateMetadata(metadata);
+            var fields = AssignmentFields.Read(metadata);
             var recipe = JObject.Parse(recipeJson);
             var objects = requested.Select(doc.Objects.FindId).ToArray();
             if (objects.Any(o => o == null || o.IsDeleted || o.IsReference || o.IsInstanceDefinitionGeometry))
                 throw new ArgumentException("Material targets must be existing editable document objects.");
-            if (applyRenderMaterial && objects.Any(o => o.IsLocked || doc.Layers[o.Attributes.LayerIndex].IsLocked))
+            if (objects.Any(o => o.IsLocked || doc.Layers[o.Attributes.LayerIndex].IsLocked))
                 throw new ArgumentException("Material targets and their source layers must not be locked.");
             string layerAction = "not_applied";
             var layer = applyRenderMaterial ? AssignmentLayer(doc, recipe, out layerAction) : null;
@@ -233,9 +272,13 @@ namespace RhinoAlmondBridge
             var layerChanged = new List<string>();
             foreach (var obj in objects)
             {
-                if (!applyRenderMaterial && (!attachMetadata || metadata == null || metadata.Count == 0)) continue;
-                var attributes = CreateAttributes(doc, recipeJson, metadata, obj.Attributes,
-                    applyRenderMaterial: false, attachMetadata: attachMetadata);
+                var previous = obj.Attributes;
+                string legacyFloor = previous.GetUserString("floor");
+                bool floorMatches = fields.MatchesFloor(ObjectObservation.ExistingDictionary(previous));
+                var writes = fields.UserTextToWrite(previous.GetUserStrings());
+                using var attributes = previous.Duplicate();
+                attributes.UserDictionary.Set("Floor", fields.Floor);
+                foreach (var pair in writes) attributes.SetUserString(pair.Key, pair.Value);
                 if (layer != null)
                 {
                     attributes.LayerIndex = layer.Index;
@@ -243,27 +286,29 @@ namespace RhinoAlmondBridge
                     attributes.MaterialSource = ObjectMaterialSource.MaterialFromLayer;
                     if (attachMetadata) attributes.SetUserString(MaterialIdKey, (string)recipe["material_id"]);
                 }
-                bool moved = obj.Attributes.LayerIndex != attributes.LayerIndex;
-                if (!SameAssignment(doc, obj.Attributes, attributes))
+                bool moved = previous.LayerIndex != attributes.LayerIndex;
+                if (!floorMatches || !SameAssignment(doc, previous, attributes))
                 {
                     if (!doc.Objects.ModifyAttributes(obj.Id, attributes, true))
                         throw new InvalidOperationException("Rhino refused material attributes for object " + obj.Id);
                     changed.Add(obj.Id.ToString());
                     if (moved) layerChanged.Add(obj.Id.ToString());
                 }
-                if (layer != null)
-                {
-                    var confirmed = doc.Objects.FindId(obj.Id)?.Attributes;
-                    if (confirmed?.LayerIndex != layer.Index ||
-                        confirmed.MaterialSource != ObjectMaterialSource.MaterialFromLayer)
-                        throw new InvalidOperationException("Rhino did not retain ByLayer material for object " + obj.Id);
-                }
+                var confirmed = doc.Objects.FindId(obj.Id)?.Attributes;
+                if (confirmed == null || confirmed.GetUserString("floor") != legacyFloor ||
+                    !fields.MatchesFloor(ObjectObservation.ExistingDictionary(confirmed)) ||
+                    writes.Any(pair => confirmed.GetUserString(pair.Key) != pair.Value))
+                    throw new InvalidOperationException("Rhino did not retain assignment metadata for object " + obj.Id);
+                if (layer != null && (confirmed.LayerIndex != layer.Index ||
+                    confirmed.MaterialSource != ObjectMaterialSource.MaterialFromLayer ||
+                    (attachMetadata && confirmed.GetUserString(MaterialIdKey) != (string)recipe["material_id"])))
+                    throw new InvalidOperationException("Rhino did not retain ByLayer material for object " + obj.Id);
                 applied.Add(obj.Id.ToString());
             }
             return new {
                 material_id = (string)recipe["material_id"], applied_guids = applied, changed_guids = changed,
                 layer_path = layer?.FullPath, layer_action = layerAction, layer_changed_guids = layerChanged,
-                metadata_attached = attachMetadata && (applyRenderMaterial || (metadata != null && metadata.Count != 0)),
+                metadata_attached = applied.Count > 0,
                 render_material_applied = applyRenderMaterial
             };
         }

@@ -2,8 +2,8 @@
 
 beyond와 CoS의 `tools/list`에서 읽은 설명 및 입출력 스키마다. 두 경로의 값이 같으면 한 번만 표시한다.
 
-- CoS 선언 SHA-256: `f3adab8ed3ec6c745d73a91795fa8be890f12860b81e96665a63b5faa566ea02`
-- beyond 선언 SHA-256: `9d2142a5d720468d9ff48b9295635ca5ed6252198bee5019d13ab7945e7c050b`
+- CoS 선언 SHA-256: `d6448c5471cbd8311537d2951b8caf66be30c66bbc3c16b88b3d37ba7e5310bd`
+- beyond 선언 SHA-256: `99d7eab6c1d3eba93bb99d46047e812a62095421a1d05249902af4ea81ac5fa2`
 
 ### 1. analysis_01-list_design_codes
 
@@ -11778,9 +11778,9 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
 **CoS · beyond**
 
 ```txt
-Rhino 객체에 라이브러리 렌더 재료와 선택적 구축 메타데이터 지정. 렌더 재료를 적용하면 지정한 객체를 해당 재료의 레이어로 옮겨 ByLayer로 지정한다. 중복 GUID는 한 번만 처리. 메타데이터는 inspect_02-get_objects tool에서 fields=["user_text"]로 읽거나 filters.user_text로 검색.
+대상 객체마다 층과 일반 모델의 구조 역할을 기록한다. 렌더 재료를 적용하면 재료 전용 레이어로 옮겨 ByLayer로 지정한다. 구축 상세와 참조는 각각 입력한 값만 쓴다. 생략한 키는 객체에 없을 때만 공백 한 칸으로 추가한다. 중복 GUID는 한 번만 처리한다.
 
-success는 전체 처리, partial은 일부 처리. executed는 적용한 객체가 없거나 적용 결과를 읽지 못한 상태. 결과 확인이 안 된 경우 재시도 전에 Rhino에서 대상 객체 확인.
+inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록을 확인한다. success는 전체 대상, partial은 일부 대상의 적용 확인을 뜻한다. 결과를 확인할 수 없으면 재시도 전에 대상 객체를 조회한다.
 ```
 
 <details><summary>CoS 입력 스키마</summary>
@@ -11791,17 +11791,17 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
   "properties": {
     "apply_render_material": {
       "default": true,
-      "description": "true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 재료를 유지한다.",
+      "description": "true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 렌더 재료를 유지하고 메타데이터를 기록한다.",
       "type": "boolean"
     },
     "attach_metadata": {
       "default": false,
-      "description": "Almond 재료·구축 메타데이터를 객체 속성에 기록",
+      "description": "렌더 재료를 적용할 때 객체 User Text에 material_id도 기록할지 선택한다. 층·구조 역할 기록과 구축 필드 처리는 이 옵션과 독립적이다.",
       "type": "boolean"
     },
     "construction_detail": {
       "default": "",
-      "description": "attach_metadata=true일 때 기록할 구축 상세",
+      "description": "사람이 읽는 구축 상세 설명. 생략하거나 공백만 입력하면 키가 없는 객체에만 공백 한 칸을 쓴다.",
       "type": "string"
     },
     "construction_reference": {
@@ -11815,16 +11815,15 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
         }
       ],
       "default": null,
-      "description": "{\"kind\":\"construction_system\",\"id\":\"확인한 system_id\"} 형식. attach_metadata=true일 때 기록하며 construction_system을 함께 지정하면 동일한 시스템 필요."
+      "description": "구법 라이브러리의 참조 {\"kind\":\"construction_system\",\"id\":\"확인한 system_id\"}. 두 참조 입력을 모두 생략하면 키가 없는 객체에만 공백 한 칸을 쓴다."
     },
     "construction_system": {
       "default": "",
-      "description": "라이브러리에서 확인한 구축 시스템 ID. attach_metadata=true일 때 기록하며 construction_reference와 함께 지정하면 동일한 시스템 필요.",
+      "description": "기존 호출에서 구법을 ID로 지정하는 입력. 예를 들어 wood-joist-floor는 construction_reference의 id로 쓰인다. 두 입력을 함께 쓰면 같은 구법이어야 한다.",
       "type": "string"
     },
     "floor": {
-      "default": "",
-      "description": "attach_metadata=true일 때 기록할 층 레이블",
+      "description": "필수 층 표기. 객체 속성 UserDictionary의 Floor에 기록한다. 기존 User Text의 floor는 유지한다.",
       "type": "string"
     },
     "guids": {
@@ -11839,14 +11838,15 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
       "type": "string"
     },
     "structural_role": {
-      "default": "",
-      "description": "attach_metadata=true일 때 기록할 구조 역할",
+      "description": "필수 구조 역할. 일반 모델 분류를 객체 속성 User Text의 structural_role에 기록한다. 해석용 단면·단부·재질은 별도로 지정한다.",
       "type": "string"
     }
   },
   "required": [
     "guids",
-    "material_id"
+    "material_id",
+    "floor",
+    "structural_role"
   ],
   "type": "object"
 }
@@ -11862,12 +11862,12 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
   "properties": {
     "apply_render_material": {
       "default": true,
-      "description": "true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 재료를 유지한다.",
+      "description": "true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 렌더 재료를 유지하고 메타데이터를 기록한다.",
       "type": "boolean"
     },
     "attach_metadata": {
       "default": false,
-      "description": "Almond 재료·구축 메타데이터를 객체 속성에 기록",
+      "description": "렌더 재료를 적용할 때 객체 User Text에 material_id도 기록할지 선택한다. 층·구조 역할 기록과 구축 필드 처리는 이 옵션과 독립적이다.",
       "type": "boolean"
     },
     "connection_id": {
@@ -11877,7 +11877,7 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
     },
     "construction_detail": {
       "default": "",
-      "description": "attach_metadata=true일 때 기록할 구축 상세",
+      "description": "사람이 읽는 구축 상세 설명. 생략하거나 공백만 입력하면 키가 없는 객체에만 공백 한 칸을 쓴다.",
       "type": "string"
     },
     "construction_reference": {
@@ -11891,16 +11891,15 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
         }
       ],
       "default": null,
-      "description": "{\"kind\":\"construction_system\",\"id\":\"확인한 system_id\"} 형식. attach_metadata=true일 때 기록하며 construction_system을 함께 지정하면 동일한 시스템 필요."
+      "description": "구법 라이브러리의 참조 {\"kind\":\"construction_system\",\"id\":\"확인한 system_id\"}. 두 참조 입력을 모두 생략하면 키가 없는 객체에만 공백 한 칸을 쓴다."
     },
     "construction_system": {
       "default": "",
-      "description": "라이브러리에서 확인한 구축 시스템 ID. attach_metadata=true일 때 기록하며 construction_reference와 함께 지정하면 동일한 시스템 필요.",
+      "description": "기존 호출에서 구법을 ID로 지정하는 입력. 예를 들어 wood-joist-floor는 construction_reference의 id로 쓰인다. 두 입력을 함께 쓰면 같은 구법이어야 한다.",
       "type": "string"
     },
     "floor": {
-      "default": "",
-      "description": "attach_metadata=true일 때 기록할 층 레이블",
+      "description": "필수 층 표기. 객체 속성 UserDictionary의 Floor에 기록한다. 기존 User Text의 floor는 유지한다.",
       "type": "string"
     },
     "guids": {
@@ -11915,14 +11914,15 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
       "type": "string"
     },
     "structural_role": {
-      "default": "",
-      "description": "attach_metadata=true일 때 기록할 구조 역할",
+      "description": "필수 구조 역할. 일반 모델 분류를 객체 속성 User Text의 structural_role에 기록한다. 해석용 단면·단부·재질은 별도로 지정한다.",
       "type": "string"
     }
   },
   "required": [
     "guids",
     "material_id",
+    "floor",
+    "structural_role",
     "connection_id"
   ],
   "type": "object"
@@ -11951,7 +11951,48 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
             },
             "type": "array"
           },
+          "changed_count": {
+            "type": "integer"
+          },
+          "changed_guids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "construction_detail": {
+            "description": "이번 호출에서 입력해 적용한 구축 상세. 상세 입력을 생략하면 결과에서도 이 필드를 생략한다.",
+            "type": "string"
+          },
+          "construction_reference": {
+            "additionalProperties": false,
+            "description": "이번 호출에서 지정해 적용한 구법 참조. 참조 입력을 생략하면 결과에서도 이 필드를 생략한다.",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "construction_system"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ],
+            "type": "object"
+          },
+          "construction_system": {
+            "description": "설정된 구축 참조의 시스템 ID.",
+            "type": "string"
+          },
           "error_code": {
+            "type": "string"
+          },
+          "floor": {
+            "description": "적용한 객체 속성 UserDictionary의 Floor.",
             "type": "string"
           },
           "layer_action": {
@@ -11981,14 +12022,14 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
             "type": "string"
           },
           "material_metadata_attached": {
-            "description": "attach_metadata와 apply_render_material을 모두 요청했는지 표시",
+            "description": "렌더 재료와 함께 material_id를 기록하고 확인한 대상이 있는지 표시",
             "type": "boolean"
           },
           "message": {
             "type": "string"
           },
           "metadata_attached": {
-            "description": "attach_metadata와 함께 렌더 재료 적용 또는 추가 구축 메타데이터를 지정했는지 표시",
+            "description": "Floor·구조 역할 및 요청한 구축 필드를 확인한 대상이 있는지 표시",
             "type": "boolean"
           },
           "next_step_guide": {
@@ -12008,6 +12049,10 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
             "type": "string"
           },
           "status": {
+            "type": "string"
+          },
+          "structural_role": {
+            "description": "적용한 객체 속성 User Text의 일반 모델 구조 역할.",
             "type": "string"
           },
           "ue_material_slot": {

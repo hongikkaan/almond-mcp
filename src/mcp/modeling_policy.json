@@ -1,13 +1,21 @@
 {
   "construction_layer_root": "M",
   "material_assignment_keys": [
-    "floor",
+    "Floor",
     "construction_detail",
     "construction_reference",
     "structural_role"
   ],
+  "material_assignment": {
+    "required": {"floor": "attributes.UserDictionary.Floor", "structural_role": "attributes.UserText.structural_role"},
+    "optional_user_text": ["construction_detail", "construction_reference"],
+    "omitted_optional_value": "write one ASCII space only if the key is absent on that object",
+    "legacy_floor_user_text": "preserve",
+    "attach_metadata": "also write material_id when applying a render material"
+  },
   "public_object_keys": {
     "floor": "floor",
+    "structural_role": "structural_role",
     "construction_detail": "construction_detail"
   },
   "internal_object_keys": {

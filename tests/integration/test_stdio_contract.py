@@ -60,6 +60,8 @@ def assert_information_placement(tools):
     for field in ("named_views", "layouts"):
         assert "description" not in context[field]
         assert all("description" not in prop for prop in context[field]["items"]["properties"].values())
+    assignment_inputs = tools["model_01-assign_material"]["inputSchema"]
+    assert set(assignment_inputs["required"]) - {"connection_id"} == {"guids", "material_id", "floor", "structural_role"}
     material = tools["model_01-assign_material"]["outputSchema"]["properties"]["result"]["contentSchema"]
     assert material["properties"]["result_error"] == {"type": "string"}
     for tool_name, field_name, reference in (

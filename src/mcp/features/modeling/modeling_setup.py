@@ -41,7 +41,7 @@ def dispatch(code, send, timeout=60.0, *, require_material_layer=False):
     """Require the explicit-only Bridge contract before one mutation dispatch."""
     dispatched = False
     try:
-        problem = check_bridge(send, require_material_layer=require_material_layer)
+        problem = check_bridge(send, require_assignment=True, require_material_layer=require_material_layer)
         if problem:
             return problem
         dispatched = True
@@ -54,7 +54,7 @@ def dispatch(code, send, timeout=60.0, *, require_material_layer=False):
                 "message": 'Could not confirm modeling operation: {0}. Inspect Rhino before retrying.'.format(exc)}
 
 
-def check_bridge(send, *, require_material_layer=False):
+def check_bridge(send, *, require_assignment=False, require_material_layer=False):
     try:
         context = json.loads(send(b'{"type":"get_rhino_context","selection_limit":0}'))
         if not isinstance(context, dict) or context.get("status") not in ("success", "error"):
@@ -64,6 +64,9 @@ def check_bridge(send, *, require_material_layer=False):
         if context.get("capabilities", {}).get("modeling_materials") != 2:
             return {"status": "error", "error_code": "unsupported_materials", "mutation_state": "not_started",
                     "message": 'Load the updated Bridge (modeling_materials=2) before editing materials or layers.'}
+        if require_assignment and context.get("capabilities", {}).get("material_assignment_metadata") != 2:
+            return {"status": "error", "error_code": "unsupported_material_assignment_metadata", "mutation_state": "not_started",
+                    "message": "Load a Bridge with material_assignment_metadata=2 before assigning material."}
         if require_material_layer and context.get("capabilities", {}).get("material_layer_assignment") != 1:
             return {"status": "error", "error_code": "unsupported_material_layer_assignment", "mutation_state": "not_started",
                     "message": "Load the updated Bridge (material_layer_assignment=1) before assigning a material layer."}

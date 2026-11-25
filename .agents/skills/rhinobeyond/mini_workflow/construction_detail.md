@@ -75,10 +75,10 @@ get_construction_guidance(material="Wood", structure_type="beam", span_m=4.5)
 execute_rhino_script          — generate members at real sections/spacings
         ▼
 assign_material(guids, "wood-oak",
-                structural_role="joist",
+                floor="2F", structural_role="joist",
                 construction_system="wood-joist-floor")
-        │  stamps almond:structural_role / almond:construction_system /
-        │  almond:structural_material user text on the objects
+        │  records Floor in the attributes UserDictionary and structural_role
+        │  and construction_reference in User Text. A missing detail key gets one space.
         ▼
 validate_structure(guids, "beam", load_kn, "Wood")
         │  Karamba pathway as before, PLUS construction_check appended:

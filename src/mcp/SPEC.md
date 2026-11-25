@@ -189,7 +189,7 @@ Phase는 `generation_phase_files`에서 순서 있는 여러 등록 파일명을
 
 ## 재료·도면·자산
 
-재료 등록·구축 레이어 준비·객체 재료 적용은 MCP가 recipe를 해석하고 공통 native 구현을 호출한다. `model_01-assign_material` tool은 렌더 재료를 적용할 때 지정한 객체를 재료 전용 레이어에 배치해 ByLayer로 지정한다. 세부 recipe·레이어·메타데이터 계약은 [구법 안내](features/guidance/construction-guide.md#재료구축-레이어-구현), 종료된 Sheet 등록과 기존 Layout 보존은 [자산 안내](features/assets/SPEC.md#layoutsheet-호환)를 따른다.
+재료 배정은 MCP가 recipe를 해석하고 공통 native 구현을 호출한다. 호출할 때마다 대상 객체 속성 UserDictionary에 `Floor`, User Text에 `structural_role`을 기록한다. 기존 User Text의 `floor`는 유지한다. 구축 상세와 참조는 객체마다 독립적으로 처리한다. 입력한 값이 있으면 해당 키에 쓰고, 생략한 키는 객체에 없을 때만 ASCII 공백 한 칸으로 추가한다. `model_01-assign_material` tool은 렌더 재료를 적용할 때 지정한 객체를 재료 전용 레이어에 배치해 ByLayer로 지정한다. 세부 recipe·레이어·메타데이터 계약은 [구법 안내](features/guidance/construction-guide.md#재료구축-레이어-구현), 종료된 Sheet 등록과 기존 Layout 보존은 [자산 안내](features/assets/SPEC.md#layoutsheet-호환)를 따른다.
 
 저장소 `asset/`, wheel `almond_mcp/data/`, AppData 라이브러리의 배치는 다르다. 명시적 `RHINO_MCP_*_DIR`이 우선하며 기존 사용자 파일·manifest 상대 경로·계약/모델 해시를 보존한다. 다운로드한 community model과 원시 생성 파일은 기본 패키지에 포함하지 않는다. 자산·도면 도구와 단위·출처 계약은 [자산 안내](features/assets/SPEC.md)를 따른다.
 

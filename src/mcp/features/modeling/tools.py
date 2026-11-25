@@ -173,28 +173,28 @@ def register(mcp, context):
     def assign_material(
         guids: list[str],
         material_id: str,
+        floor: str,
+        structural_role: str,
         apply_render_material: bool = True,
         attach_metadata: bool = False,
-        structural_role: str = "",
         construction_system: str = "",
-        floor: str = "",
         construction_detail: str = "",
         construction_reference: dict | None = None,
     ) -> str:
-        """Rhino 객체에 라이브러리 렌더 재료와 선택적 구축 메타데이터 지정. 렌더 재료를 적용하면 지정한 객체를 해당 재료의 레이어로 옮겨 ByLayer로 지정한다. 중복 GUID는 한 번만 처리. 메타데이터는 inspect_02-get_objects tool에서 fields=["user_text"]로 읽거나 filters.user_text로 검색.
+        """대상 객체마다 층과 일반 모델의 구조 역할을 기록한다. 렌더 재료를 적용하면 재료 전용 레이어로 옮겨 ByLayer로 지정한다. 구축 상세와 참조는 각각 입력한 값만 쓴다. 생략한 키는 객체에 없을 때만 공백 한 칸으로 추가한다. 중복 GUID는 한 번만 처리한다.
 
-        success는 전체 처리, partial은 일부 처리. executed는 적용한 객체가 없거나 적용 결과를 읽지 못한 상태. 결과 확인이 안 된 경우 재시도 전에 Rhino에서 대상 객체 확인.
+        inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록을 확인한다. success는 전체 대상, partial은 일부 대상의 적용 확인을 뜻한다. 결과를 확인할 수 없으면 재시도 전에 대상 객체를 조회한다.
 
         Args:
             guids: 현재 Rhino 객체의 GUID. 관찰 또는 생성 결과에서 가져온 값.
             material_id: model_04-list_materials tool에서 include_ids=true로 조회한 표준 재료 ID
-            apply_render_material: true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 재료를 유지한다.
-            attach_metadata: Almond 재료·구축 메타데이터를 객체 속성에 기록
-            structural_role: attach_metadata=true일 때 기록할 구조 역할
-            construction_system: 라이브러리에서 확인한 구축 시스템 ID. attach_metadata=true일 때 기록하며 construction_reference와 함께 지정하면 동일한 시스템 필요.
-            floor: attach_metadata=true일 때 기록할 층 레이블
-            construction_detail: attach_metadata=true일 때 기록할 구축 상세
-            construction_reference: {"kind":"construction_system","id":"확인한 system_id"} 형식. attach_metadata=true일 때 기록하며 construction_system을 함께 지정하면 동일한 시스템 필요.
+            floor: 필수 층 표기. 객체 속성 UserDictionary의 Floor에 기록한다. 기존 User Text의 floor는 유지한다.
+            structural_role: 필수 구조 역할. 일반 모델 분류를 객체 속성 User Text의 structural_role에 기록한다. 해석용 단면·단부·재질은 별도로 지정한다.
+            apply_render_material: true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 렌더 재료를 유지하고 메타데이터를 기록한다.
+            attach_metadata: 렌더 재료를 적용할 때 객체 User Text에 material_id도 기록할지 선택한다. 층·구조 역할 기록과 구축 필드 처리는 이 옵션과 독립적이다.
+            construction_system: 기존 호출에서 구법을 ID로 지정하는 입력. 예를 들어 wood-joist-floor는 construction_reference의 id로 쓰인다. 두 입력을 함께 쓰면 같은 구법이어야 한다.
+            construction_detail: 사람이 읽는 구축 상세 설명. 생략하거나 공백만 입력하면 키가 없는 객체에만 공백 한 칸을 쓴다.
+            construction_reference: 구법 라이브러리의 참조 {"kind":"construction_system","id":"확인한 system_id"}. 두 참조 입력을 모두 생략하면 키가 없는 객체에만 공백 한 칸을 쓴다.
         """
         material = context.material_library.get(material_id)
         if not material:
@@ -212,11 +212,14 @@ def register(mcp, context):
             return json.dumps(error_payload("guids must not be empty."))
 
         warnings = []
-        extra_strings: dict[str, str] = {}
         for name, value in (("floor", floor), ("construction_detail", construction_detail),
                             ("structural_role", structural_role), ("construction_system", construction_system)):
             if not isinstance(value, str):
                 return json.dumps(error_payload(f"{name} must be a string."))
+        if not floor.strip() or not structural_role.strip():
+            return json.dumps(error_payload("floor and structural_role must both be nonempty."))
+        if not construction_system.strip():
+            construction_system = ""
         if construction_reference is not None:
             if (not isinstance(construction_reference, dict)
                     or set(construction_reference) != {"kind", "id"}
@@ -227,8 +230,6 @@ def register(mcp, context):
             if construction_system and construction_system != construction_reference["id"]:
                 return json.dumps(error_payload("construction_system and construction_reference identify different sources."))
             construction_system = construction_reference["id"]
-        if structural_role:
-            extra_strings["structural_role"] = structural_role
         if construction_system:
             system = context.construction_library.get(construction_system)
             if system is None:
@@ -236,18 +237,17 @@ def register(mcp, context):
                 return json.dumps(error_payload(f"Unknown construction_system: {construction_system}. "
                                f"Known: {known}"))
             construction_reference = {"kind": "construction_system", "id": construction_system}
-            construction_detail = construction_detail or system["name"]
-            extra_strings[modeling_policy.key("construction_reference")] = json.dumps(construction_reference, ensure_ascii=True, separators=(",", ":"))
             typical = system.get("render_material_ids", [])
             if typical and material_id not in typical:
                 warnings.append(
                     f"Material '{material_id}' is not a typical finish for "
                     f"{construction_system} (typical: {', '.join(typical)}).")
 
-        if floor:
-            extra_strings[modeling_policy.key("floor")] = floor
-        if construction_detail:
-            extra_strings[modeling_policy.key("construction_detail")] = construction_detail
+        extra_strings = {"Floor": floor, "structural_role": structural_role}
+        if construction_detail.strip():
+            extra_strings["construction_detail"] = construction_detail
+        if construction_reference:
+            extra_strings["construction_reference"] = json.dumps(construction_reference, ensure_ascii=True, separators=(",", ":"))
         try:
             script = modeling_setup.material_script(material, guid_list, apply_render_material,
                                                    attach_metadata, extra_strings)
@@ -266,6 +266,9 @@ def register(mcp, context):
                 or len(applied) != len(set(applied)) or native.get("material_id") != material_id):
             return json.dumps({"status": "error", "error_code": "material_result_unavailable", "mutation_state": "unknown",
                                "message": 'Material assignment returned no valid applied-object result. Inspect Rhino before retrying.'})
+        if native.get("metadata_attached") is not bool(applied):
+            return json.dumps({"status": "error", "error_code": "material_metadata_unconfirmed", "mutation_state": "unknown",
+                               "message": "Could not confirm assignment metadata. Inspect the target objects before retrying."})
         layer_path, layer_action, layer_changed = None, "not_applied", []
         if apply_render_material:
             layer_path = native.get("layer_path")
@@ -298,8 +301,8 @@ def register(mcp, context):
             "applied_count": len(applied),
             "requested_count": len(guid_list),
             "applied_guids": applied,
-            "metadata_attached": native.get("metadata_attached", attach_metadata and (apply_render_material or bool(extra_strings))),
-            "material_metadata_attached": attach_metadata and apply_render_material,
+            "metadata_attached": bool(applied),
+            "material_metadata_attached": bool(applied) and attach_metadata and apply_render_material,
             "render_material_applied": apply_render_material,
             "layer_path": layer_path,
             "layer_action": layer_action,
@@ -310,16 +313,13 @@ def register(mcp, context):
                 and len(changed) == len(set(changed))):
             result["changed_guids"] = changed
             result["changed_count"] = len(changed)
-        if structural_role:
-            result["structural_role"] = structural_role
-        if construction_system:
-            result["construction_system"] = construction_system
-        if floor:
-            result["floor"] = floor
-        if construction_detail:
-            result["construction_detail"] = construction_detail
-        if construction_reference:
-            result["construction_reference"] = construction_reference
+        if applied:
+            result.update(floor=floor, structural_role=structural_role)
+            if "construction_detail" in extra_strings:
+                result["construction_detail"] = construction_detail
+            if construction_reference:
+                result["construction_reference"] = construction_reference
+                result["construction_system"] = construction_system
         if warnings:
             result["warnings"] = warnings
         return json.dumps(result)
