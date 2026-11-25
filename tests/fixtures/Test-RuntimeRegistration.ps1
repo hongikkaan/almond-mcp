@@ -167,4 +167,43 @@ Assert-That ((Get-RegistrationSnapshot) -ceq $clean) 'Installer left empty keys 
 $fake.FailWrite = -1
 $null = Install-RuntimeRegistration $entries $Scratch $registry
 Assert-RuntimeRegistration $entries $registry
+
+# Simulate an upgrade whose only differences are stale lazy-load commands.
+$retiredCommands = 'AlmondCOS', 'AlmondCOSDisconnect'
+foreach ($name in $retiredCommands) {
+    $fake.Keys[$rhino.CommandKey][$name] = @{ Kind = 'String'; Value = "2;$name" }
+}
+$fake.Keys[$rhino.CommandKey]['AlmondCOSUserCommand'] = @{ Kind = 'String'; Value = 'keep' }
+$stale = Get-RegistrationSnapshot
+$writesBeforeVerification = $fake.Writes
+$verificationError = $null
+try { Assert-RuntimeRegistration $entries $registry }
+catch { $verificationError = $_.Exception.Message }
+foreach ($name in $retiredCommands) {
+    Assert-That ($verificationError -match "\b$name\b") "Verification missed the retired command $name."
+}
+Assert-That ($fake.Writes -eq $writesBeforeVerification) 'Verification wrote to the registry.'
+
+$fake.FailWrite = $fake.Writes + $retiredCommands.Count
+$fake.FailAfterWrite = $true
+$installError = $null
+try { $null = Install-RuntimeRegistration $entries $Scratch $registry }
+catch { $installError = $_.Exception.Message }
+Assert-That ($installError -match 'Injected write failure') 'A failed removal passed installation.'
+Assert-That ((Get-RegistrationSnapshot) -ceq $stale) 'Rollback did not restore retired commands.'
+
+$fake.FailWrite = -1
+$backup = Install-RuntimeRegistration $entries $Scratch $registry
+Assert-That ($backup -and (Test-Path (Join-Path $backup 'AlmondRhino.reg'))) 'Upgrade did not back up AlmondRhino.'
+foreach ($name in $retiredCommands) {
+    Assert-That (-not $fake.Keys[$rhino.CommandKey].ContainsKey($name)) "Retired command $name persisted."
+}
+Assert-That ($fake.Keys[$rhino.CommandKey].almondconnect.Value -ceq '2;almondconnect') 'Connect cache changed.'
+Assert-That ($fake.Keys[$rhino.CommandKey].almonddisconnect.Value -ceq '2;almonddisconnect') 'Disconnect cache changed.'
+Assert-That ($fake.Keys[$rhino.CommandKey].AlmondCOSUserCommand.Value -ceq 'keep') 'User command was overwritten.'
+Assert-RuntimeRegistration $entries $registry
+$writesAfterUpgrade = $fake.Writes
+$repeatBackup = Install-RuntimeRegistration $entries $Scratch $registry
+Assert-That (-not $repeatBackup -and $fake.Writes -eq $writesAfterUpgrade) 'Repeat upgrade changed registration.'
+
 Write-Output "$operationCount injected mutation points checked before and after writing."

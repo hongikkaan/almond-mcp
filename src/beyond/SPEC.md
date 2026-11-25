@@ -4,7 +4,7 @@ beyond는 외부 Codex와 로컬 stdio MCP 클라이언트의 직접 연결을 �
 [루트 작업 지침](../../AGENTS.md)과 [공통 경계](../../SPEC.md)를 함께 따른다.
 
 직접 연결의 진입점은 `src/beyond/codex_host.py`이며 `external_host.py`의 stdio 연결기와 worker를 사용한다.
-`client_config.py`는 일상 설치의 설정을 생성하고 명시적으로 요청할 때만 Codex 설정에 `rhino` 항목을 추가한다. 기존 직접 연결 설정과 다른 MCP 항목의 사용자 설정을 보존한다.
+`client_config.py`는 기본 실행에서 설정을 출력한다. `--install-codex`는 지정한 Codex 설정 파일에 `rhino`를 등록한다. 같은 일상 설치에서 생성한 이전 주소와 중복 등록은 현행 `rhino` 하나로 합치고, 사용자 설정과 충돌하면 쓰기 전에 중단한다. 기존 파일을 바꿀 때만 원본을 백업하며, 이미 현행 등록이면 재실행해도 파일과 백업이 그대로다. 실행·종료 기록의 이전은 [배포 절차](EXTERNAL_CLIENTS.md#기존-설치-전환)에서 별도로 처리한다.
 공개 호출명은 `context_04-get_project_info`, `connect_02-session`, `connect_03-start_session`처럼 `<category>_<NN>-<name>` 형식이며 이전 이름의 alias를 공개하지 않는다. 클라이언트가 붙이는 서버 namespace는 도구 schema와 별개다.
 등록·initialize·tools/list는 catalog만 제공하며 broker·worker· Rhino·모델 DB 연결이나 소유권 잠금을 준비하지 않는다. stdio 통신을 위한 클라이언트별 최소 Python 프로세스는 필요하다. 모델링 준비는 명시적 connect_02-session tool/connect_03-start_session tool 호출에서 한다.
 사용 방법과 동시 연결 제한은 [외부 클라이언트 안내](EXTERNAL_CLIENTS.md)에 둔다.

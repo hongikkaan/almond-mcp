@@ -42,7 +42,7 @@ Windows 패키지 앱의 AppData 가상화가 감지되면 `desktop_runtime.py`�
 
 ## 확인 단계
 
-1. **등록**: `client_config.py`가 출력한 command/args가 일상 폴더를 가리키는지 확인한다.
+1. **등록 확인** — Codex에서 `codex mcp get rhino --json`으로 저장된 `command`와 `args`를 읽는다. Python은 일상 폴더의 `src/engine/.venv/Scripts/python.exe`, 호스트는 같은 폴더의 `src/beyond/codex_host.py`여야 한다. 이전 주소나 퇴역 등록이 남아 있으면 [기존 설치 전환](../../beyond/EXTERNAL_CLIENTS.md#기존-설치-전환)을 따른다.
 2. **서버 실행**: 새 MCP 프로세스의 초기화·도구 목록을 확인한다. stdio 검사 통과는 그 서버의 증거이며 특정 대화에 도구가 전달됐다는 증거가 아니다.
 3. **대화 도구 전달**: 실제 작업할 대화에서 `rhino`의 `connect_01-list_up` tool를 호출한다.
 4. **실제 Rhino 작업**: 사용자가 연결한 작업 문서의 기존 형상·뷰·Layout에서 기능을 검증한다.

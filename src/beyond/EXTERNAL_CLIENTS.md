@@ -15,12 +15,14 @@ Python 환경과 RHP 최초 설치는 [저장소 설치 안내](../../AGENTS.md)
 Set-Location C:\TOOL\Rhino\mcp\almond-mcp
 # 미리 볼 때: 설정을 출력할 뿐 파일이나 연결을 변경하지 않는다.
 & ./src/engine/.venv/Scripts/python.exe -B src/beyond/client_config.py
-# 실제 Codex 등록: rhino 항목을 추가하거나 기존 생성 기본값을 갱신한다.
+# 실제 Codex 등록: rhino 항목을 설치하거나 이전 생성 등록을 전환한다.
 & ./src/engine/.venv/Scripts/python.exe -B src/beyond/client_config.py --install-codex "$env:USERPROFILE/.codex/config.toml"
 ```
 
 다른 `CODEX_HOME`을 쓰는 CLI라면 그 디렉터리의 `config.toml` 경로를 명시한다.
 기존 `rhino` 등록의 `args`가 일상 폴더의 `src/beyond/codex_host.py`를 가리키는지 확인한다. 이전 진입점을 쓰는 경우 [기존 설치 전환](#기존-설치-전환)을 먼저 적용한다.
+같은 일상 폴더의 자동 생성 등록은 설치 명령이 현재 주소로 갱신한다. 이전 키 `[mcp_servers.almond_cos]`는 `rhino`로 옮기고 생성된 `rhino`와 중복되면 제거한다. 변경 전에 원본 설정을 `config.toml.almond-backup-*`에 백업한다.
+설정을 직접 수정했거나 두 항목의 설정이 충돌하면 설치 명령은 변경하지 않고 확인할 항목을 표시한다. 두 항목과 각 `.env`를 비교하고 유지할 직접 연결 설정을 `rhino`에 모은 다음 퇴역 항목과 그 `.env`를 제거한다. 같은 이름을 쓰는 다른 서버는 항목과 하위 테이블의 이름을 바꿔 보존한다.
 기존 모델·reasoning·다른 MCP·승인 설정은 유지한다. 실행 중인 클라이언트는 MCP를 다시 로드하거나 재시작한다. `codex mcp get rhino --json`으로 등록 경로를 확인할 수 있지만, 이 명령 자체는 MCP 연결 검증이 아니다.
 
 Codex 직접 연결의 MCP 서버 이름은 `beyond`이며 Rhino 측 플러그인은 `AlmondRhino`다.
@@ -104,11 +106,11 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
 
 일상 폴더 `C:\TOOL\Rhino\mcp\almond-mcp`의 직접 연결 주소와 복구 기록을 새 위치로 옮기는 배포에 한 번 적용한다.
 
-1. 현재 사용하는 설정에서 `[mcp_servers.rhino]`의 `args`를 확인한다. 다른 stdio 클라이언트는 해당 `rhino` 항목의 `args`를 확인한다. 주소가 이미 현행이어도 기록은 이전 위치에 있을 수 있다. 업데이트 전에 일상 폴더의 `src/*/data/` 아래에서 `execution-locators`와 `session-closes`를 각각 찾아 어느 위치에 기록이 있는지 확인한다. 데이터 위치를 따로 지정한 설치는 그 경로도 확인한다.
+1. 현재 사용하는 설정에서 `[mcp_servers.rhino]`와 이전 등록 `[mcp_servers.almond_cos]`의 `args`를 확인한다. 다른 stdio 클라이언트는 연결에 쓰는 항목의 `args`를 확인한다. 주소가 이미 현행이어도 기록은 이전 위치에 있을 수 있다. 업데이트 전에 일상 폴더의 `src/*/data/` 아래에서 `execution-locators`와 `session-closes`를 각각 찾아 어느 위치에 기록이 있는지 확인한다. 데이터 위치를 따로 지정한 설치는 그 경로도 확인한다.
 2. 새 작업을 시작하지 않고 진행 중인 실행·저장·종료의 결과를 기존 클라이언트에서 확인한다. 전환 뒤 재조회할 기록의 `connection_id`와 `request_id`를 보관한다. 현재 연결을 정상 해제하고 MCP 클라이언트를 종료한다. 해당 host·worker·종료 guard가 끝났는지 확인한 뒤 Rhino를 정상 종료한다. 완료가 불명확하거나 프로세스가 남아 있으면 기록 이동과 pull을 보류한다.
 3. 전환 커밋을 받을 일상 브랜치에서 `git pull --ff-only`를 실행해 `src/beyond/codex_host.py`가 생겼는지 확인한다. 목적지는 각각 `src/beyond/data/execution-locators`와 `src/beyond/data/session-closes`다. 이전 기본 위치에 기록이 있는 종류만 옮긴다. 원본과 목적지의 절대 경로가 일상 폴더 안에 있는지 확인하고, 양쪽에 기록이 있으면 먼저 요청별 내용을 대조해 충돌을 해결한다. 이동 전후에 상대경로별 파일 수와 해시를 확인한다. 호스트 광고·잠금 등 다른 데이터는 기존 위치에 두고, 별도로 지정한 데이터 위치는 그대로 사용한다.
-4. `args`에서 해당 host 스크립트 인수만 일상 폴더의 `src/beyond/codex_host.py` 절대 경로로 바꾼다. Python·나머지 인수·작업 폴더·호출 제한·환경 변수와 다른 설정은 보존한다. Codex에서는 `codex mcp get rhino --json`으로 주소와 유지할 설정을 확인한다.
-5. Rhino를 시작하기 전에 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`로 RHP 경로와 현행 명령 캐시를 확인한다. 일회성 전환에서는 AlmondRhino GUID `39eb74f6-8283-4e43-bf26-f0106d891b75`의 `CommandList`도 읽어 `almondconnect`·`almonddisconnect` 외에 이전 플러그인이 등록한 값이 남았는지 확인한다. `-VerifyOnly`는 추가 값을 보고하지 않는다. 플러그인 경로나 현행 명령값 갱신이 필요하면 Rhino를 닫은 상태에서 설치 명령을 실행하고 다시 확인한다.
+4. Codex의 자동 생성 등록은 [설치 명령](#한-번-설정하기)으로 전환한다. 직접 관리하는 등록은 `args`의 host 스크립트 인수를 일상 폴더의 `src/beyond/codex_host.py` 절대 경로로 바꾸고 Python·나머지 인수·작업 폴더·호출 제한·환경 변수와 다른 설정을 보존한다. Codex에서는 `codex mcp get rhino --json`으로 주소와 유지할 설정을 확인한다.
+5. Rhino를 시작하기 전에 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`로 RHP 경로, 현행 명령값, AlmondRhino의 폐기 명령 캐시 두 항목의 잔존 여부를 검사한다. 갱신 또는 제거가 필요하면 Rhino를 닫은 상태에서 `./src/rhp/tools/install_runtime.ps1`을 실행하고 다시 확인한다. 설치 명령은 레지스트리를 백업한 뒤 지정된 폐기 값만 제거하며 다른 명령값을 보존한다.
 6. 일상 클라이언트를 다시 로드한다. 기존 실행은 원래의 `connection_id`와 `request_id`로 `script_03-get_execution` tool에서 조회한다. 종료 기록은 이동한 `session-closes` 아래의 `request.json`에서 원래의 요청 ID·연결 ID와 종료 상태를 확인한다. 기록을 찾지 못하면 이동 결과부터 점검한다. Rhino에서 `almondconnect`로 문서를 표시하고, 실제 사용할 대화의 `connect_01-list_up` tool에서 그 문서가 보이는지 확인한다. 오프라인 검증은 [실행 기록 이전 테스트](tests/test_execution_recovery_identity.py)와 [세션 종료 테스트](tests/test_session_close.py)를 따른다.
 
 ## 일반 업데이트

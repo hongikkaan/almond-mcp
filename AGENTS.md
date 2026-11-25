@@ -48,9 +48,9 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 | Bridge | `src/rhp/RhinoAlmondBridge/plugin-runtime/RhinoAlmondBridge.rhp` | `c337dbb8-394a-4593-9c2b-a3d7cfc91893` |
 | AlmondRhino | `src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp` | `39eb74f6-8283-4e43-bf26-f0106d891b75` |
 
-등록 확인은 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`다. RHP 경로와 현행 연결 명령 캐시를 검사한다. 필요한 등록 갱신은 Rhino를 닫고 이 스크립트를 `-VerifyOnly` 없이 실행한다. 실제 로드 경로 확인은 사용자가 별도로 요청한 경우 새 Rhino에서 수행하며, 등록 검증과 구분한다. 예전 standalone Terminal GUID `27D4B9A1-8FAD-421C-B64A-7A213D3B4079`가 남았다면 백업 후 중복 등록을 제거한다.
+등록 확인은 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`다. RHP 경로, 현행 연결 명령, 폐기된 연결 명령의 잔존 여부를 검사한다. 갱신이 필요하면 Rhino를 닫고 이 스크립트를 `-VerifyOnly` 없이 실행한다. 기존 등록을 백업한 뒤 폐기된 연결 명령을 제거한다. 실제 로드 경로 확인은 사용자가 별도로 요청한 경우 새 Rhino에서 수행하며, 등록 검증과 구분한다. 예전 standalone Terminal GUID `27D4B9A1-8FAD-421C-B64A-7A213D3B4079`가 남았다면 백업 후 중복 등록을 제거한다.
 
-Codex의 직접 연결 주소와 복구 기록을 새 위치로 옮기는 배포에는 [일회성 전환 절차](src/beyond/EXTERNAL_CLIENTS.md#기존-설치-전환)를 적용한다.
+Codex에 이전 연결 주소나 중복 등록이 남았거나 기존 실행·종료 기록을 새 위치로 옮겨야 하면 [일회성 전환 절차](src/beyond/EXTERNAL_CLIENTS.md#기존-설치-전환)를 따른다.
 
 전환을 마친 이후 업데이트는 **Rhino를 정상 종료 → 일상 폴더에서 `git pull --ff-only` → Rhino 시작** 순서다. pull은 fetch와 현재 브랜치·추적 파일의 fast-forward를 수행한다. fetch만으로 파일은 바뀌지 않고, 실행 중 Rhino는 이미 로드한 assembly를 계속 쓴다. 소스와 실행 파일을 함께 받으므로 매번 빌드·복사·등록할 필요가 없다.
 

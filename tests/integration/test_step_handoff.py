@@ -2,16 +2,15 @@
 import asyncio
 import json
 from pathlib import Path
-import sys
 
 from mcp.client.session import ClientSession
-from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp.client.stdio import stdio_client
 
-from render_tool_declarations import ROOT, isolated_environment
+from render_tool_declarations import stdio_parameters
 
 
 def test_new_bound_worker_reads_prior_loop_judgments_and_actual_files(tmp_path):
-    env = isolated_environment(tmp_path)
+    params = stdio_parameters("terminal", tmp_path)
     input_file = tmp_path / "survey.md"
     input_file.write_text("Existing north entrance.\n", encoding="utf-8")
     # Absolute-looking prose is still a judgment, while file paths are normalized.
@@ -19,11 +18,7 @@ def test_new_bound_worker_reads_prior_loop_judgments_and_actual_files(tmp_path):
              "design_rationale": "Preserve the north approach.\nKeep the existing public axis."}
 
     async def connect(token, action):
-        params = StdioServerParameters(
-            command=sys.executable,
-            args=["-B", "-X", "utf8", "-u", str(ROOT / "tests/integration/bound_server_fixture.py")],
-            env={**env, "ALMOND_TEST_TOKEN": token},
-        )
+        params.env["ALMOND_TEST_TOKEN"] = token
         async with stdio_client(params) as (reader, writer):
             async with ClientSession(reader, writer) as client:
                 await client.initialize()

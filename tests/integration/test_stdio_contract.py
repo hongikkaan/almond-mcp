@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import sys
 
+import pytest
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from almond_mcp import paths
@@ -226,12 +227,41 @@ def test_cold_direct_full_descriptions_and_basic_scripting_guide(tmp_path):
     assert "context_01-get_policy" in tools
 
 
+def test_terminal_catalog_preserves_model_from_parent_environment(tmp_path, monkeypatch):
+    outside = tmp_path / "existing.3dm"
+    outside.write_bytes(b"existing model")
+    monkeypatch.setenv("ALMOND_TEST_MODEL", str(outside))
+    monkeypatch.setenv("ALMOND_TEST_SLOT", "invalid slot")
+    monkeypatch.setenv("ALMOND_TEST_TOKEN", "invalid token")
+    project = tmp_path / "fixture"
+    _, tools = asyncio.run(read_catalog(stdio_parameters("terminal", project)))
+    assert tools
+    assert outside.read_bytes() == b"existing model"
+    assert (project / "disposable.3dm").is_file()
+    assert not (tmp_path / ".almond").exists()
+
+
+def test_terminal_fixture_preserves_existing_placeholder(tmp_path):
+    model = tmp_path / "disposable.3dm"
+    model.write_bytes(b"existing model")
+    with pytest.raises(FileExistsError):
+        asyncio.run(read_catalog(stdio_parameters("terminal", tmp_path)))
+    assert model.read_bytes() == b"existing model"
+
+
+@pytest.mark.parametrize("absolute", [False, True], ids=["parent-directory", "absolute"])
+def test_terminal_fixture_rejects_model_name_outside_project(tmp_path, absolute):
+    outside = tmp_path / "outside.3dm"
+    name = str(outside) if absolute else "../outside.3dm"
+    with pytest.raises(ValueError, match="filename"):
+        stdio_parameters("terminal", tmp_path / "project", model_name=name)
+    assert not outside.exists()
+
+
 def test_bound_worker_reads_checkout_recipes_with_legacy_launcher_path(tmp_path):
-    env = isolated_environment(tmp_path)
+    params = stdio_parameters("terminal", tmp_path)
     key = paths.DRAWING_RECIPE_ENV
-    env[key] = str(paths.user_data_dir() / "DrawingRecipes")
-    params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
-        str(ROOT / "tests/integration/bound_server_fixture.py")], env=env)
+    params.env[key] = str(paths.user_data_dir() / "DrawingRecipes")
     directory = ROOT / "asset/drawing/DrawingRecipes"
 
     async def check():
@@ -263,8 +293,7 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
     from capture_menu import apply_menu_schema
     from mcp_types import Tool
 
-    params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
-        str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path))
+    params = stdio_parameters("terminal", tmp_path)
     _, worker = asyncio.run(collect(params, bound=True))
     from runtime import load_catalog, schema_identity, validate_worker_tools
     from external_host import exposed_tools
@@ -383,8 +412,7 @@ def test_beyond_first_tools_list_contains_only_the_common_advertised_capture_gui
 def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
     from uuid import uuid4
 
-    params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
-        str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path))
+    params = stdio_parameters("terminal", tmp_path)
     _, worker = asyncio.run(collect(params, bound=True))
     from runtime import load_catalog, schema_identity
     from external_host import Broker, json_result

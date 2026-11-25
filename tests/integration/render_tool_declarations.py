@@ -44,27 +44,34 @@ def render_catalogs(beyond, terminal):
 
 def isolated_environment(directory, checkout=ROOT):
     env = dict(os.environ)
+    for variable in ("ALMOND_TEST_MODEL", "ALMOND_TEST_TOKEN", "ALMOND_TEST_SLOT"):
+        env.pop(variable, None)
     env.update(ALMOND_TEST_ROOT=str(directory), RHINO_MCP_STATE_DB=str(directory / "direct.sqlite3"),
                PYTHONPATH=os.pathsep.join(str(checkout / path) for path in ("src/mcp", "src/mcp/runtime", "src/beyond")))
     for variable in paths.LIBRARY_DIRS:
         location = directory / variable
-        location.mkdir(parents=True)
+        location.mkdir(parents=True, exist_ok=True)
         env[variable] = str(location)
     return env
 
 
-def stdio_parameters(route, directory, checkout=ROOT):
+def stdio_parameters(route, directory, checkout=ROOT, *, model_name="disposable.3dm"):
+    env = isolated_environment(directory, checkout)
     if route == "beyond":
         entry = ["-c", "import os; from pathlib import Path; from codex_host import main; "
                        "main(Path(os.environ['ALMOND_TEST_ROOT']))"]
     elif route == "terminal":
-        entry = [str(ROOT / "tests/integration/bound_server_fixture.py")]
+        model = directory / model_name
+        if model.name != model_name or ":" in model_name or model.suffix.lower() != ".3dm":
+            raise ValueError("The fixture needs a .3dm filename inside its temporary directory")
+        model.touch(exist_ok=False)
+        entry = [str(ROOT / "tests/integration/bound_server_fixture.py"), model.name]
     elif route == "standalone":
         entry = ["-c", "from almond_mcp.server import mcp; mcp.run()"]
     else:
         raise ValueError(f"Unsupported stdio route: {route}")
     return StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", *entry],
-                                 env=isolated_environment(directory, checkout), cwd=checkout)
+                                 env=env, cwd=checkout)
 
 
 async def read_catalog(params):

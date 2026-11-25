@@ -30,7 +30,7 @@
 - [MCP 모듈 실행기](../src/mcp/run_tests.ps1)는 자체 `pytest.ini`로 `src/mcp/tests`를 실행한다.
 - [외부 연결기 실행기](../src/beyond/run_tests.ps1)는 Engine·Terminal·pipe fixture를 빌드하고 실행한 뒤 `src/beyond/tests`를 실행한다.
 - [루트 실행기](run_tests.ps1)는 독립 ArchiveHost를 빌드하고 절대 실행 파일 경로를 `ALMOND_ARCHIVE_TEST_HOST`로 지정한 뒤 루트 `tests/`를 실행한다. ArchiveHost가 필요한 검사를 pytest에서 직접 선택하면 해당 실행 파일이 필수이며, 누락 시 수집 단계에서 오류가 난다.
-- [stdio 계약 검사](integration/test_stdio_contract.py)는 실제 Python MCP 서비스를 자식 프로세스로 시작한다. 문서 연결 fixture는 임시 경로와 합성 binding 메타데이터를 사용한다. 초기화 안내, 공개 도구 설명·가이드, worker 스키마와 beyond 카탈로그의 일치를 확인한다. 실제 모델링 동작은 이 검사의 범위 밖이다.
+- [stdio 계약 검사](integration/test_stdio_contract.py)는 실제 Python MCP 서비스를 자식 프로세스로 시작한다. RhinoTerminal 검사와 도구 선언 문서 생성은 시험 폴더에 빈 `.3dm` 파일을 새로 만들고, 같은 이름의 파일이 있으면 중단한다. 자식 프로세스는 전달받은 시험 파일 경로로 연결 정보를 구성한다. 재연결 검사에서도 같은 경로를 재사용한다. 초기화 안내, 공개 도구 설명·가이드, worker 스키마와 beyond 카탈로그의 일치를 확인한다. 실제 모델링 동작은 이 검사의 범위 밖이다.
 - [설치된 CLI 실행기 검사](../src/mcp/tests/runtime/test_terminal_launch.ps1)는 `./src/mcp/tests/runtime/test_terminal_launch.ps1 -Codex <installed-codex.exe>`에서 실제 CLI의 설정 해석을 사용한다. OS의 binding 관측은 대역을 사용하고 대화형 실행은 가로챈다. 실제 RhinoTerminal 세션의 도구 목록은 연결 후 별도로 확인한다.
 
 [릴리스 준비 실행기](../src/rhp/tools/prepare_release.ps1)는 별도 셸에서 위 세 실행기와 패널 Node 검사를 호출한다. 릴리스용 Python 환경과 임시 폴더는 체크아웃 `data/t/` 아래에 두고, 세 pytest 결과를 릴리스 출력에 기록한다. SDK 경로를 지정할 때 `-DotNet`을 사용한다.

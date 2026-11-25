@@ -8,15 +8,17 @@ import io
 import json
 import os
 from pathlib import Path
+import sys
 
 from project import STORAGE_PROTOCOL, connection_paths, process_start_ticks, read_json, write_json
 from mcp_server import main as run_document_server
 
 
-def main():
-    root = Path(os.environ["ALMOND_TEST_ROOT"])
-    model = root / os.environ.get("ALMOND_TEST_MODEL", "disposable.3dm")
-    model.write_bytes(b"")
+def main(model_name):
+    root = Path(os.environ["ALMOND_TEST_ROOT"]).resolve(strict=True)
+    model = (root / model_name).resolve(strict=True)
+    if model.parent != root or not model.is_file():
+        raise ValueError("The model must be a fixture file inside the temporary directory")
     token = os.environ.get("ALMOND_TEST_TOKEN", "a" * 32)
     slot = os.environ.get("ALMOND_TEST_SLOT", "A")
     port = 5501 + ord(slot) - ord("A")
@@ -63,4 +65,4 @@ def main():
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1]))

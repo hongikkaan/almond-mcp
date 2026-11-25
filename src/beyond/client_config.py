@@ -1,12 +1,13 @@
 """Configure the direct stdio entry for Codex or another local MCP client.
 
-Printing configuration is the default. --install-codex adds the direct entry
-or updates its generated timeout while preserving other settings.
+Printing configuration is the default. --install-codex adds or updates the
+direct entry and migrates an earlier generated registration.
 This module does not import Almond, start a host, or touch a Rhino document.
 """
 from __future__ import annotations
 
 import argparse
+from codecs import BOM_UTF8
 from datetime import datetime, timezone
 import json
 import os
@@ -16,6 +17,8 @@ import tempfile
 import tomllib
 
 NAME = "rhino"
+_LEGACY_NAME = "almond_cos"
+_OLD_TOOL_TIMEOUT = 600
 ENV_VARS = (
     "LOCALAPPDATA", "TEMP", "TMP", "TMPDIR",
     "RHINO_MCP_LIBRARY_DIR", "RHINO_MCP_DRAWING_ASSET_DIR",
@@ -64,35 +67,132 @@ def generic_json(config: dict, environment: dict) -> str:
     return json.dumps({"mcpServers": {NAME: server}}, ensure_ascii=False, indent=2) + "\n"
 
 
+def _edit_table(text: str, table: str, before: dict, after: dict | None, destination: str) -> str:
+    # Limit edits to generated lines and keep comments when removing duplicates.
+    line_end = r"(?P<space>[ \t]*)(?P<comment>#[^\r\n]*)?(?P<eol>\r?\n|\Z)"
+    header = re.search(rf"(?m)^(?P<indent>[ \t]*)\[{re.escape(table)}\]" + line_end, text)
+    if header is None:
+        raise ValueError(f"Cannot locate the generated [{table}] table.")
+
+    end = re.search(r"(?m)^[ \t]*\[", text[header.end():])
+    stop = header.end() + end.start() if end else len(text)
+    body = text[header.end():stop]
+
+    def keep_comment(match):
+        if match["comment"] is None:
+            return ""
+        return match["indent"] + match["comment"] + match["eol"]
+
+    for key, value in before.items():
+        if after is not None and value == after[key]:
+            continue
+
+        old = re.escape(json.dumps(value, ensure_ascii=False))
+        assignment = rf"(?m)^(?P<indent>[ \t]*)(?P<assignment>{re.escape(key)}[ \t]*=[ \t]*)"
+
+        def replace(match):
+            if after is None:
+                return keep_comment(match)
+            new = json.dumps(after[key], ensure_ascii=False)
+            return (match["indent"] + match["assignment"] + new + match["space"]
+                    + (match["comment"] or "") + match["eol"])
+
+        body, count = re.subn(assignment + old + line_end, replace, body)
+        if count != 1:
+            raise ValueError(f"Cannot safely update the generated {key} in [{table}].")
+
+    if after is None:
+        heading = keep_comment(header)
+    else:
+        heading = header[0].replace(f"[{table}]", f"[{destination}]", 1)
+    return text[:header.start()] + heading + body + text[stop:]
+
+
+def _edit_entry(text: str, name: str, before: dict, after: dict | None) -> str:
+    table = f"mcp_servers.{name}"
+    direct = f"mcp_servers.{NAME}"
+    values = {key: value for key, value in before.items() if key != "env"}
+    text = _edit_table(text, table, values, after, direct)
+    if name == NAME:
+        return text
+
+    env = after["env"] if after is not None else None
+    return _edit_table(text, f"{table}.env", before["env"], env, f"{direct}.env")
+
+
+def _prior_entries(config: dict) -> tuple[dict, ...]:
+    # Both historical script names belong to the same checkout as the new host.
+    old_dir = Path(config["cwd"]) / "src/cos"
+    return tuple(
+        dict(config, args=[*config["args"][:-1], str(old_dir / host)], tool_timeout_sec=timeout)
+        for host in ("cos_host.py", "codex_host.py")
+        for timeout in (config["tool_timeout_sec"], _OLD_TOOL_TIMEOUT)
+    )
+
+
+def _is_generated(entry: dict, supported: tuple[dict, ...]) -> bool:
+    # TOML floats compare equal to integers in Python.
+    return entry in supported and all(type(entry[key]) is int for key in ("startup_timeout_sec", "tool_timeout_sec"))
+
+
+def _update_codex(text: str, path: Path, config: dict) -> str:
+    parsed = tomllib.loads(text)
+    servers = parsed.get("mcp_servers", {})
+    if not isinstance(servers, dict):
+        raise ValueError(f"Expected a table for mcp_servers in {path}.")
+
+    existing = servers.get(NAME)
+    legacy = servers.get(_LEGACY_NAME)
+    expected_servers = dict(servers, **{NAME: config})
+    expected_servers.pop(_LEGACY_NAME, None)
+    expected = dict(parsed, mcp_servers=expected_servers)
+
+    try:
+        prior = _prior_entries(config)
+        supported = (*prior, config, dict(config, tool_timeout_sec=_OLD_TOOL_TIMEOUT))
+        if existing is not None and not _is_generated(existing, supported):
+            raise ValueError(f"{NAME} already exists with different settings in {path}; no changes made.")
+        if legacy is not None and not _is_generated(legacy, prior):
+            raise ValueError("The previous entry differs from the generated registration.")
+
+        updated = text
+        if existing is not None and legacy is not None:
+            updated = _edit_entry(updated, _LEGACY_NAME, legacy, None)
+
+        source = NAME if existing is not None else _LEGACY_NAME
+        entry = existing if existing is not None else legacy
+        if entry is None:
+            updated = text.rstrip() + "\n\n" + codex_toml(config)
+        elif source != NAME or entry != config:
+            updated = _edit_entry(updated, source, entry, config)
+
+        if tomllib.loads(updated) != expected:
+            raise ValueError("Cannot update the MCP table without changing existing settings.")
+        return updated
+    except ValueError as exc:
+        if legacy is None:
+            if existing is None:
+                raise
+            raise ValueError(
+                f"{exc}\nReview [mcp_servers.{NAME}] in {path}. For an older direct connection, "
+                f"set the host argument to {config['args'][-1]} and keep the other settings."
+            ) from exc
+        raise ValueError(
+            f"Cannot migrate [{_LEGACY_NAME}] to [{NAME}] with the settings in {path}. {exc}\n"
+            f"Review both MCP tables and their .env sections. Keep needed direct-connection settings "
+            f"in [mcp_servers.{NAME}] and set its host argument to {config['args'][-1]}. "
+            f"Remove the retired [mcp_servers.{_LEGACY_NAME}] entry or rename it if it is a different server."
+        ) from exc
+
+
 def install_codex(path: Path, config: dict) -> Path | None:
     path = path.expanduser().resolve()
     original = path.read_bytes() if path.exists() else b""
     text = original.decode("utf-8-sig")
-    parsed = tomllib.loads(text)
-    servers = parsed.get("mcp_servers", {})
-    existing = servers.get(NAME)
-    if existing is None:
-        updated = text.rstrip() + "\n\n" + codex_toml(config)
-    else:
-        if existing == config:
-            return None
-        if existing != dict(config, tool_timeout_sec=600):
-            raise ValueError(f"{NAME} already exists with different settings in {path}; no changes made.")
-        header = re.search(r"(?m)^\[mcp_servers\.rhino\][ \t]*\r?$", text)
-        if header is None:
-            raise ValueError("Cannot locate the owned rhino table; no changes made.")
-        end = re.search(r"(?m)^\s*\[", text[header.end():])
-        stop = header.end() + end.start() if end else len(text)
-        body, count = re.subn(r"(?m)^(tool_timeout_sec[ \t]*=[ \t]*)600([ \t]*(?:#[^\r\n]*)?\r?)$",
-                              lambda match: f'{match[1]}{config["tool_timeout_sec"]}{match[2]}',
-                              text[header.end():stop])
-        if count != 1:
-            raise ValueError("Cannot safely update the owned timeout; no changes made.")
-        updated = text[:header.end()] + body + text[stop:]
-    expected = dict(parsed)
-    expected["mcp_servers"] = dict(servers, **{NAME: config})
-    if tomllib.loads(updated) != expected:
-        raise ValueError("Cannot update the MCP table without changing existing settings.")
+    updated = _update_codex(text, path, config)
+    if updated == text:
+        return None
+
     if not path.parent.is_dir():
         raise ValueError(f"Config directory does not exist: {path.parent}")
     temporary = None
@@ -100,6 +200,8 @@ def install_codex(path: Path, config: dict) -> Path | None:
         with tempfile.NamedTemporaryFile(dir=path.parent, prefix=path.name + ".almond-",
                                          suffix=".tmp", delete=False) as stream:
             temporary = Path(stream.name)
+            if original.startswith(BOM_UTF8):
+                stream.write(BOM_UTF8)
             stream.write(updated.encode("utf-8"))
         if (path.read_bytes() if path.exists() else b"") != original:
             raise ValueError("Codex config changed during setup; no changes made. Run setup again.")
@@ -122,7 +224,7 @@ def main():
                         help="Daily installation checkout, never a development worktree.")
     parser.add_argument("--format", choices=("codex", "json"), default="codex")
     parser.add_argument("--install-codex", type=Path, metavar="CONFIG_TOML",
-                        help="Install the rhino entry or update its generated timeout.")
+                        help="Install or update the rhino entry and migrate its earlier generated registration.")
     args = parser.parse_args()
     if args.install_codex and args.format != "codex":
         parser.error("--install-codex requires --format codex")

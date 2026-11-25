@@ -18,9 +18,9 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, AlmondRhino는 별도 RHP로 구
 - [구조해석 사용법](src/mcp/features/structure/guides/tutorial.md) · [native solver](src/mcp/features/structure/SPEC.md) · [Karamba 경로](src/mcp/features/structure/validation/SPEC.md) · [설계 코드](src/mcp/features/structure/PROFILES-SPEC.md)
 - [구법 안내](src/mcp/features/guidance/construction-guide.md) · [구법 참조표](src/mcp/profiles/construction_system/SPEC.md)
 
-Codex의 직접 연결 주소와 복구 기록을 새 위치로 옮길 때는 [일회성 전환 절차](src/beyond/EXTERNAL_CLIENTS.md#기존-설치-전환)를 따릅니다.
+이전 Codex 연결을 사용했다면 [일회성 전환 절차](src/beyond/EXTERNAL_CLIENTS.md#기존-설치-전환)를 따릅니다. 설치 명령은 자동 생성된 Codex 등록을 갱신합니다. 이전 실행·종료 기록을 계속 조회하려면 같은 안내에 따라 기록도 옮깁니다.
 `almondconnect`가 없으면 [AlmondRhino 등록 경로](AGENTS.md#일상-실행과-최초-설치)부터 확인합니다. 올바른 RHP가 아직 로드되지 않은 프로세스에서는 공식 `Rhino.PlugIns.PlugIn.LoadPlugIn(fullPath)`로 기존 파일을 직접 로드할 수 있습니다. Python에서는 반환값이 `(LoadPlugInResult, Guid)`이며, 로드 후 명령 존재와 실제 assembly 경로를 확인합니다. 이 방식은 로드된 구형 assembly를 교체하는 기능이 아닙니다.
-이미 새 경로로 등록된 환경과 이후 업데이트는 Rhino 종료 → `git pull --ff-only` → Rhino 시작 순서입니다.
+직접 연결 주소와 Rhino 명령 등록까지 전환한 뒤에는 Rhino 종료 → `git pull --ff-only` → Rhino 시작 순서로 업데이트합니다.
 Git에 실행 파일이 포함되어 있어 일반 업데이트마다 빌드하거나 재등록할 필요는 없습니다.
 
 Python 의존성이 바뀐 업데이트에서는 `git pull` 뒤, 클라이언트를 시작하기 전에 환경도 확인합니다.

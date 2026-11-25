@@ -4,16 +4,14 @@ import base64
 from contextlib import AsyncExitStack
 import json
 from pathlib import Path
-import sys
 
 from mcp.client.session import ClientSession
-from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp.client.stdio import stdio_client
 
-from render_tool_declarations import ROOT, isolated_environment
+from render_tool_declarations import stdio_parameters
 
 
 def test_defined_view_keeps_callers_plan_loop_and_step_when_peer_opens_next_loop(tmp_path):
-    environment = isolated_environment(tmp_path)
     models = ("low-rise.3dm", "housing.3dm")
     tokens = ("a" * 32, "b" * 32)
 
@@ -42,10 +40,8 @@ def test_defined_view_keeps_callers_plan_loop_and_step_when_peer_opens_next_loop
         async with AsyncExitStack() as stack:
             clients = []
             for slot, model, token in zip(("A", "B"), models, tokens):
-                params = StdioServerParameters(command=sys.executable, args=[
-                    "-B", "-X", "utf8", str(ROOT / "tests/integration/bound_server_fixture.py"),
-                ], env=dict(environment, ALMOND_TEST_MODEL=model, ALMOND_TEST_TOKEN=token,
-                            ALMOND_TEST_SLOT=slot), cwd=ROOT)
+                params = stdio_parameters("terminal", tmp_path, model_name=model)
+                params.env.update(ALMOND_TEST_TOKEN=token, ALMOND_TEST_SLOT=slot)
                 reader, writer = await stack.enter_async_context(stdio_client(params))
                 client = await stack.enter_async_context(ClientSession(reader, writer, read_timeout_seconds=45.0))
                 await client.initialize()
