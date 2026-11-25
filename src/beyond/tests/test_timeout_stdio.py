@@ -92,7 +92,7 @@ def test_delayed_stdio_script_recovers_the_same_execution(tmp_path, monkeypatch,
         assert fixture.read(directory / "active.json")["request_id"] == request_id
         return binding
 
-    def read_evidence(self, requested_binding, arguments, *, operation_id=None):
+    def read_evidence(requested_binding, arguments, *, operation_id=None):
         assert requested_binding is binding
         execution = fixture.read(directory / "active.json")
         assert arguments["request_id"] == execution["request_id"]
@@ -103,10 +103,9 @@ def test_delayed_stdio_script_recovers_the_same_execution(tmp_path, monkeypatch,
                                        include_diagnostics=arguments.get("include_diagnostics", False))
 
     monkeypatch.setattr(external_host, "StdioServerParameters", child_params)
-    monkeypatch.setattr(Broker, "_read_execution_files", read_evidence)
 
     async def run():
-        broker = Broker(worker_catalog, data=tmp_path, call_timeout=0.8)
+        broker = Broker(worker_catalog, data=tmp_path, call_timeout=0.8, read_execution=read_evidence)
         monkeypatch.setattr(broker.recovery_store, "find_binding", find_binding)
         worker = Worker(binding, CONNECTION_ID, worker_catalog)
         conn = Connection(CONNECTION_ID, "host", control, binding["token"],
@@ -201,7 +200,7 @@ def test_fastmcp_wire_meta_reaches_the_owned_runtime_operation(tmp_path, monkeyp
             "args": ["-B", "-u", fastmcp_fixture.__file__, str(directory)],
         })
 
-    def read_evidence(self, requested_binding, arguments, *, operation_id=None):
+    def read_evidence(requested_binding, arguments, *, operation_id=None):
         assert requested_binding is binding
         execution = fixture.read(directory / "active.json")
         assert arguments["request_id"] == execution["request_id"]
@@ -210,11 +209,10 @@ def test_fastmcp_wire_meta_reaches_the_owned_runtime_operation(tmp_path, monkeyp
         return fixture.execution_value(directory, execution, include_diagnostics=operation_id is not None)
 
     monkeypatch.setattr(external_host, "StdioServerParameters", child_params)
-    monkeypatch.setattr(Broker, "_read_execution_files", read_evidence)
 
     async def run():
         catalog = await fastmcp_fixture.catalog(directory)
-        broker = Broker(catalog, data=tmp_path, call_timeout=0.8)
+        broker = Broker(catalog, data=tmp_path, call_timeout=0.8, read_execution=read_evidence)
         monkeypatch.setattr(broker.recovery_store, "find_binding", lambda _, *, connection_id: binding)
         worker = Worker(binding, CONNECTION_ID, catalog)
         conn = Connection(CONNECTION_ID, "host", control, binding["token"],

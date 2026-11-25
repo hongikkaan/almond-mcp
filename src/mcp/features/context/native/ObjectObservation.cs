@@ -383,7 +383,7 @@ namespace RhinoAlmondBridge
             {
                 if ((budget.Nodes -= 3) < 0)
                     return new JObject { ["value_omitted"] = true, ["reason"] = "metadata_budget" };
-                return new JObject { ["type"] = "Point3d", ["coordinates"] = Point(point) };
+                return new JObject { ["type"] = "Point3d", ["coordinates"] = GeometryJson.Point(point) };
             }
             if (value is Plane plane)
             {
@@ -391,7 +391,7 @@ namespace RhinoAlmondBridge
                     return new JObject { ["value_omitted"] = true, ["reason"] = "metadata_budget" };
                 return new JObject {
                     ["type"] = "Plane",
-                    ["origin"] = Point(plane.Origin),
+                    ["origin"] = GeometryJson.Point(plane.Origin),
                     ["xaxis"] = new JArray(plane.XAxis.X, plane.XAxis.Y, plane.XAxis.Z),
                     ["yaxis"] = new JArray(plane.YAxis.X, plane.YAxis.Y, plane.YAxis.Z)
                 };
@@ -416,7 +416,6 @@ namespace RhinoAlmondBridge
             }
             return new JObject { ["values"] = data, ["total_keys"] = dictionary.Count, ["truncated"] = dictionary.Count > data.Count };
         }
-        static JArray Point(Point3d p) => new JArray(p.X, p.Y, p.Z);
         static JObject UserText(System.Collections.Specialized.NameValueCollection strings, ValueBudget budget)
         {
             var values = new JObject();
@@ -450,7 +449,7 @@ namespace RhinoAlmondBridge
                 }
             };
         }
-        static JObject Bounds(BoundingBox b) => b.IsValid ? new JObject { ["min"] = Point(b.Min), ["max"] = Point(b.Max) } : null;
+        static JObject Bounds(BoundingBox b) => b.IsValid ? new JObject { ["min"] = GeometryJson.Point(b.Min), ["max"] = GeometryJson.Point(b.Max) } : null;
         static JObject Describe(RhinoDoc doc, RhinoObject obj, HashSet<Guid> matched, HashSet<Guid> visible,
             bool includeGeometry, ValueBudget budget, HashSet<string> fields, int faceOffset, int faceLimit,
             EditingContext.ObjectScope editing = null)
@@ -501,7 +500,7 @@ namespace RhinoAlmondBridge
                         bool adjacentPlanar = planar && face.AdjacentEdges().SelectMany(i => brep.Edges[i].AdjacentFaces()).Distinct()
                             .All(i => brep.Faces[i].IsPlanar(doc.ModelAbsoluteTolerance));
                         faces.Add(new JObject { ["face_index"] = face.FaceIndex, ["planar"] = planar,
-                            ["plane_origin"] = planar ? Point(plane.Origin) : null,
+                            ["plane_origin"] = planar ? GeometryJson.Point(plane.Origin) : null,
                             ["normal"] = planar ? new JArray(normal.X, normal.Y, normal.Z) : null,
                             ["bounds"] = Bounds(face.GetBoundingBox(true)),
                             ["face_edit_supported"] = editable && adjacentPlanar });

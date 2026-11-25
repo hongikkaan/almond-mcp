@@ -270,7 +270,7 @@ namespace RhinoAlmondBridge
                     using (var mass = Mass(geometry))
                     {
                         regions.Add(new JObject { ["region_index"] = index++, ["bounds"] = Box(geometry.GetBoundingBox(true)),
-                            ["centroid"] = mass == null ? null : Point(mass.Centroid),
+                            ["centroid"] = mass == null ? null : GeometryJson.Point(mass.Centroid),
                             ["volume_model_units3"] = mass == null ? JValue.CreateNull() : new JValue(Math.Abs(mass.Volume)) });
                     }
                 }
@@ -388,8 +388,7 @@ namespace RhinoAlmondBridge
         }
         internal static double BoxDistance(BoundingBox a, BoundingBox b)
         { double x = Math.Max(0, Math.Max(a.Min.X - b.Max.X, b.Min.X - a.Max.X)); double y = Math.Max(0, Math.Max(a.Min.Y - b.Max.Y, b.Min.Y - a.Max.Y)); double z = Math.Max(0, Math.Max(a.Min.Z - b.Max.Z, b.Min.Z - a.Max.Z)); return Math.Sqrt(x * x + y * y + z * z); }
-        internal static JArray Box(BoundingBox box) => new JArray(Point(box.Min), Point(box.Max));
-        internal static JArray Point(Point3d p) => new JArray(p.X, p.Y, p.Z);
+        internal static JArray Box(BoundingBox box) => new JArray(GeometryJson.Point(box.Min), GeometryJson.Point(box.Max));
         internal static string Short(string value, int length) => value.Length <= length ? value : value.Substring(0, length);
         internal static bool Finite(double value) => !Double.IsNaN(value) && !Double.IsInfinity(value);
     }

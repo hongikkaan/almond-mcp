@@ -269,7 +269,7 @@ class Broker:
                  contract_check=check_contract, call_timeout: float = 300,
                  watcher_factory=BindingWatcher, lease_factory=host_lease,
                  starter_factory=start_rhino, queue_timeout: float = 10.0,
-                 recovery_store_factory=ExecutionRecoveryStore):
+                 recovery_store_factory=ExecutionRecoveryStore, read_execution=read_bound_execution):
         self.catalog, self.data = catalog, data
         self.control_factory, self.worker_factory = control_factory, worker_factory
         self.host_reader, self.contract_check = host_reader, contract_check
@@ -287,10 +287,11 @@ class Broker:
         self.starts: dict[str, StartAttempt] = {}
         self.recovery_store = recovery_store_factory(data)
         self.session_closer = SessionCloser(data)
+        self._execution_reader = read_execution
         self.invocations = ExecutionInvocations(
             call_timeout=call_timeout, queue_timeout=queue_timeout,
             reject_pending_close=self.session_closer.reject_pending, check_binding=self._binding_status,
-            read_execution=lambda *args, **kwargs: self._read_execution_files(*args, **kwargs),
+            read_execution=read_execution,
             wrapped_tools=[tool.name for tool in self.tools
                            if (tool.output_schema or {}).get("x-fastmcp-wrap-result")])
 
@@ -511,9 +512,6 @@ class Broker:
                 await self._dispose_locked(conn)
                 raise
 
-    def _read_execution_files(self, binding, arguments, *, operation_id=None):
-        return read_bound_execution(binding, arguments, operation_id=operation_id)
-
     async def recover_execution(self, conn, arguments):
         return await self.invocations.recover_execution(conn, arguments)
 
@@ -640,7 +638,7 @@ class Broker:
                                                   connection_id=connection_id)
                 conn = next((c for c in self.connections.values() if c.binding == binding), None)
                 if conn is None:
-                    value = await asyncio.to_thread(self._read_execution_files, binding, arguments)
+                    value = await asyncio.to_thread(self._execution_reader, binding, arguments)
                     value.update(connection_state="unbound", requires_reconnect=True, recovery_only=True)
                     return json_result(value)
             else:

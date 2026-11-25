@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 DOF = 6   # ux uy uz rx ry rz per node
+LEVEL_TOL_M = 0.05
+LEVEL_MAX_SLOPE = 0.02
 
 
 # ------------------------------------------------------------------ materials
@@ -236,6 +238,20 @@ class Frame:
             added.append((new, wm, wb, case))
         self.member_loads = kept + added
         return k
+
+
+def horizontal_levels(frame: Frame, tol: float = LEVEL_TOL_M) -> dict[float, list[int]]:
+    """Group horizontal elements at the first matching elevation in element order."""
+    levels: dict[float, list[int]] = {}
+    for ei, e in enumerate(frame.elements):
+        a, b = frame.nodes[e.n1], frame.nodes[e.n2]
+        length = math.dist(a, b)
+        if length <= 0 or abs(a[2] - b[2]) > min(tol, LEVEL_MAX_SLOPE * length):
+            continue
+        z = (a[2] + b[2]) / 2
+        key = next((k for k in levels if abs(k - z) <= tol), None)
+        levels.setdefault(z if key is None else key, []).append(ei)
+    return levels
 
 
 class MechanismError(ValueError):

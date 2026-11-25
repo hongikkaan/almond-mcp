@@ -111,10 +111,7 @@ def test_plan_section_broker_timeout_returns_unknown_cuts_only_after_dispatch(tm
 def test_timeout_never_uses_stale_or_unproven_identity(tmp_path, variation):
     async def run():
         worker, control = DelayedWorker(variation), Control()
-        broker = Broker(CATALOG, data=tmp_path)
         conn = Connection(CONNECTION_ID, "host", control, "fixture-token", worker=worker, state="ready")
-        broker.connections[conn.connection_id] = conn
-
         reads = []
 
         def read(binding, arguments, *, operation_id=None):
@@ -124,7 +121,9 @@ def test_timeout_never_uses_stale_or_unproven_identity(tmp_path, variation):
             return dict(status="pending", completed=False, pending=True,
                         request_id="e" * 32 if variation == "wrong_return_id" else EXECUTION)
 
-        broker._read_execution_files = read
+        broker = Broker(CATALOG, data=tmp_path, read_execution=read)
+        broker.connections[conn.connection_id] = conn
+
         result = await timeout_after_dispatch(broker, worker)
         assert result.is_error and "outcome is unknown" in result.content[0].text
         assert EXECUTION not in result.content[0].text
@@ -142,16 +141,15 @@ def test_timeout_never_uses_stale_or_unproven_identity(tmp_path, variation):
 def test_closing_during_durable_read_cannot_resurrect_connection(tmp_path):
     async def run():
         worker, control = DelayedWorker("valid"), Control()
-        broker = Broker(CATALOG, data=tmp_path)
         conn = Connection(CONNECTION_ID, "host", control, "fixture-token", worker=worker, state="ready")
-        broker.connections[conn.connection_id] = conn
-
 
         def read(binding, arguments, *, operation_id=None):
             conn.closing, conn.state, conn.reason = True, "disconnecting", "Owner changed"
             return dict(status="pending", completed=False, pending=True, request_id=EXECUTION)
 
-        broker._read_execution_files = read
+        broker = Broker(CATALOG, data=tmp_path, read_execution=read)
+        broker.connections[conn.connection_id] = conn
+
         result = await timeout_after_dispatch(broker, worker)
         assert result.is_error and conn.state == "disconnecting" and conn.reason == "Owner changed"
         assert "end" not in control.actions and not worker.cancelled
@@ -164,12 +162,14 @@ def test_closing_during_durable_read_cannot_resurrect_connection(tmp_path):
 def test_broker_301_returns_exact_pending_without_cancelling_worker(tmp_path):
     async def run():
         worker, control = DelayedWorker("valid"), Control()
-        broker = Broker(CATALOG, data=tmp_path)
+
+        def read(binding, arguments, *, operation_id=None):
+            return dict(status="pending", pending=True, completed=False, request_id=EXECUTION)
+
+        broker = Broker(CATALOG, data=tmp_path, read_execution=read)
         conn = Connection(CONNECTION_ID, "host", control, "fixture-token", worker=worker, state="ready")
         broker.connections[conn.connection_id] = conn
 
-        broker._read_execution_files = lambda *_, **__: dict(
-            status="pending", pending=True, completed=False, request_id=EXECUTION)
         assert broker.call_timeout == 300
         result = await timeout_after_dispatch(broker, worker)
         assert not result.is_error and result.structured_content["request_id"] == EXECUTION

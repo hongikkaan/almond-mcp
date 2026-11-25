@@ -15,7 +15,7 @@
 | `tools/` | 빌드·패키징·설치·실행 파일 검증 도구 |
 | `AlmondRhino/` | AlmondRhino 출력 폴더. 구현은 [외부 연결기 모듈](../beyond/SPEC.md) 소유 |
 
-Bridge의 유일한 plugin entry가 패널 등록과 Terminal 종료를 담당한다. Engine과 AlmondRhino는 별도 assembly다. Engine은 호스트 프로젝트를 참조하지 않는다. Bridge는 MCP 소유 `features/<기능>/native`의 C# 도구 구현과 재료 정책을 링크하므로 해당 변경도 빌드 입력이다.
+Bridge의 유일한 plugin entry가 패널 등록과 Terminal 종료를 담당한다. Engine과 AlmondRhino는 별도 assembly다. Engine은 호스트 프로젝트를 참조하지 않는다. Bridge는 MCP 소유 `features/<기능>/native`의 C# 도구 구현, `src/mcp/rhino`의 공용 C# 소스와 재료 정책을 빌드 입력으로 사용한다. [GeometryJson.Point](../mcp/rhino/GeometryJson.cs)는 점의 세 좌표를 그대로 배열에 넣는다. 문서 관측에서 유한하지 않은 좌표를 `null`로 표시하는 처리는 `DocumentObservation`에 둔다.
 
 ## 실행·관찰
 

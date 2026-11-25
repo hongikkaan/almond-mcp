@@ -210,7 +210,7 @@ class Program {
         Console.WriteLine(result.ToString(Formatting.None));
     }
 }''', ["features/components/native/ComponentOperations.cs", "features/context/native/ViewCaptureTools.cs",
-       "features/context/native/DisplayModeMenu.cs"])
+       "features/context/native/DisplayModeMenu.cs", "rhino/GeometryJson.cs"])
 
 
 def test_zoom_failure_keeps_completed_steps_and_observed_planar_bounds(focus_host):
