@@ -253,7 +253,7 @@ def register(mcp, context):
                                 labels: StrictBool = False, depth: StrictInt = 1,
                                 width: StrictInt | None = None, height: StrictInt | None = None,
                                 expected_model_path: str = "") -> ToolResult:
-        """현재 Rhino 모델 뷰포트를 화면 색과 선 표현으로 PNG 캡처. 문서의 PrintDisplay 설정은 유지한다. 대상 지정은 실제 선택과 카메라를 바꾸고 isolate와 display_mode도 작업 화면에 적용된다.
+        """현재 Rhino 모델 뷰포트를 화면 색과 선 표현으로 PNG 캡처. 문서의 PrintDisplay 설정은 유지한다. 대상 지정은 실제 선택과 카메라를 바꾸고 isolate와 display_mode도 작업 화면에 적용된다. 확대 검수는 이미지를 확대하는 대신 실제 Rhino 뷰포트를 확대한 뒤 대상을 지정하지 않고 캡처한다.
 
         표시 모드 이름·GUID는 inspect_03-get_document_context tool의 sections=["display_modes"]에서 조회. 작업 화면을 유지하면서 여러 방향이나 모드를 비교하려면 capture_02-inspection tool을 사용한다. 격리는 Rhino Unisolate로 해제할 수 있다. 잠긴 주변 객체는 격리 중에도 보일 수 있으며 선택과 카메라 상태는 별도로 확인한다.
 

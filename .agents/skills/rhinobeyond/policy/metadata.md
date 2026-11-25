@@ -8,6 +8,7 @@
 
 ## 기존 기능으로 기록
 
-- 재료나 구축 의도를 기록할 때는 `model_04-list_materials` tool과 `research_01-get_construction_guidance` tool에서 필요한 ID를 확인한 뒤 `model_01-assign_material` tool의 해당 입력을 사용한다. `floor`는 사용자나 프로젝트가 정한 층 표기를 사용한다. `construction_detail`은 사람이 읽는 구축 설명이고 `construction_reference`는 확인한 시스템 ID를 가리킨다. 구조 역할은 근거가 있는 경우에 지정하고, 재료의 시각 속성은 Rhino 재료에 둔다.
+- 모델 공간에 배치한 최상위 블록 인스턴스의 층은 객체 속성 UserDictionary의 `Floor`에 기록한다. 블록 정의와 중첩 블록에는 같은 값을 반복해서 기록할 필요가 없다. 기존 객체 속성 User Text의 `floor`는 유지한다. 구형 PlanSection 출력의 `Floor`는 Move에서 유지하며, Create·Update로 생성한 출력에는 기록하지 않는다.
+- 재료나 구축 의도를 기록할 때는 `model_04-list_materials` tool과 `research_01-get_construction_guidance` tool에서 필요한 ID를 확인한 뒤 `model_01-assign_material` tool의 해당 입력을 사용한다. `floor`는 사용자나 프로젝트가 정한 층 표기를 사용한다. `construction_detail`은 사람이 읽는 구축 설명이고 `construction_reference`는 확인한 시스템 ID를 가리킨다. 구조 역할은 근거가 있는 경우에 지정하고, 재료의 시각 속성은 Rhino 재료에 둔다. 3D 재료와 레이어는 `M` 아래에서 1:1로 대응시킨다. 객체별 재료를 지정하지 않고 `ByLayer`를 사용하며, 재료 변경은 레이어 변경으로 처리한다. `model_01-assign_material` tool이 재료 레이어 배정을 지원할 때는 그 경로를 사용한다.
 - 구조 해석용 단면이나 단부 조건은 `analysis_02-validate_structure` tool의 설명과 구조 지침을 확인한다. 해석 대상 곡선의 객체 속성 User Text에 단면 `section`(예: `rect 300x640`)이나 단부 조건 `release`(예: `pinned_start`)을 지정할 수 있다. 해석에서 읽는 값이므로 해당 조건을 의도한 경우에만 쓴다.
 - 전용 도구가 없는 키를 스크립트로 변경할 때는 저장소와 대상만 지정하고 기존 속성을 보존한다. 변경 후 같은 저장소에서 값을 다시 읽어 확인한다. 새 사용자 키는 허용되며, 기존 키를 자동으로 이름 변경하거나 다른 저장소로 옮기지 않는다.
