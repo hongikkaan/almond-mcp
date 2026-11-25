@@ -84,7 +84,7 @@ Codex 직접 연결에서는 `context_01-get_policy` tool, `connect_01-list_up` 
 
 Codex 직접 연결기는 공통 도구 입력에 필요한 `connection_id`를 추가한다. RhinoTerminal은 시작할 때 바인딩한 문서 전용 세션을 사용한다. 외부 연결기는 연결 관리 도구를 추가한다. 카탈로그를 따로 갱신할 필요는 없다.
 Python 도구 변경 후 해당 beyond MCP를 정상 종료하고 새로 시작하면 현재 소스의 구현·목록·입력 schema를 읽는다. Terminal은 almond 세션을 정상 종료·재시작한다.
-현행 데이터 위치에 보관된 beyond 기록은 업데이트 뒤에도 원래의 두 ID로 조회할 수 있다. 연결 ID를 기록하기 전에 만들어진 실행은 업데이트 전에 기존 호스트에서 결과를 확인한다.
+업데이트 뒤에 기존 실행을 다시 조회하려면 원래의 두 ID와 프로젝트 쪽 실행 기록이 모두 필요하다. 연결 ID를 기록하기 전에 만들어진 실행은 업데이트 전에 기존 호스트에서 필요한 결과를 파일로 저장한다.
 Rhino만 재시작해도 외부 beyond MCP 프로세스가 살아 있으면 그 메모리는 바뀌지 않는다.
 이미 실행 중인 프로세스의 자동 갱신이나 restart 도구는 이번 범위에 포함하지 않는다.
 C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 종료·재시작해야 한다.
@@ -107,11 +107,11 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
 일상 폴더 `C:\TOOL\Rhino\mcp\almond-mcp`의 직접 연결 주소와 복구 기록을 새 위치로 옮기는 배포에 한 번 적용한다.
 
 1. 현재 사용하는 설정에서 `[mcp_servers.rhino]`와 이전 등록 `[mcp_servers.almond_cos]`의 `args`를 확인한다. 다른 stdio 클라이언트는 연결에 쓰는 항목의 `args`를 확인한다. 주소가 이미 현행이어도 기록은 이전 위치에 있을 수 있다. 업데이트 전에 일상 폴더의 `src/*/data/` 아래에서 `execution-locators`와 `session-closes`를 각각 찾아 어느 위치에 기록이 있는지 확인한다. 데이터 위치를 따로 지정한 설치는 그 경로도 확인한다.
-2. 새 작업을 시작하지 않고 진행 중인 실행·저장·종료의 결과를 기존 클라이언트에서 확인한다. 전환 뒤 재조회할 기록의 `connection_id`와 `request_id`를 보관한다. 현재 연결을 정상 해제하고 MCP 클라이언트를 종료한다. 해당 host·worker·종료 guard가 끝났는지 확인한 뒤 Rhino를 정상 종료한다. 완료가 불명확하거나 프로세스가 남아 있으면 기록 이동과 pull을 보류한다.
+2. 새 작업을 시작하지 않고 진행 중인 실행·저장·종료의 결과를 기존 클라이언트에서 확인한다. **연결을 해제하기 전에** 기존 클라이언트에서 보관할 실행의 `request_id`를 지정해 `script_03-get_execution` tool로 결과를 조회한다. 결과가 여러 페이지면 끝까지 조회하고, 필요한 결과 본문을 연결별 임시 폴더 밖에 JSON 파일로 저장해 열어 본다. 전환 뒤 재조회할 기록의 `connection_id`와 `request_id`도 보관한다. 현재 연결을 정상 해제하고 MCP 클라이언트를 종료한다. 해당 host·worker·종료 guard가 끝났는지 확인한 뒤 Rhino를 정상 종료한다. 완료가 불명확하거나 프로세스가 남아 있으면 기록 이동과 pull을 보류한다.
 3. 전환 커밋을 받을 일상 브랜치에서 `git pull --ff-only`를 실행해 `src/beyond/codex_host.py`가 생겼는지 확인한다. 목적지는 각각 `src/beyond/data/execution-locators`와 `src/beyond/data/session-closes`다. 이전 기본 위치에 기록이 있는 종류만 옮긴다. 원본과 목적지의 절대 경로가 일상 폴더 안에 있는지 확인하고, 양쪽에 기록이 있으면 먼저 요청별 내용을 대조해 충돌을 해결한다. 이동 전후에 상대경로별 파일 수와 해시를 확인한다. 호스트 광고·잠금 등 다른 데이터는 기존 위치에 두고, 별도로 지정한 데이터 위치는 그대로 사용한다.
 4. Codex의 자동 생성 등록은 [설치 명령](#한-번-설정하기)으로 전환한다. 직접 관리하는 등록은 `args`의 host 스크립트 인수를 일상 폴더의 `src/beyond/codex_host.py` 절대 경로로 바꾸고 Python·나머지 인수·작업 폴더·호출 제한·환경 변수와 다른 설정을 보존한다. Codex에서는 `codex mcp get rhino --json`으로 주소와 유지할 설정을 확인한다.
 5. Rhino를 시작하기 전에 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`로 RHP 경로, 현행 명령값, AlmondRhino의 폐기 명령 캐시 두 항목의 잔존 여부를 검사한다. 갱신 또는 제거가 필요하면 Rhino를 닫은 상태에서 `./src/rhp/tools/install_runtime.ps1`을 실행하고 다시 확인한다. 설치 명령은 레지스트리를 백업한 뒤 지정된 폐기 값만 제거하며 다른 명령값을 보존한다.
-6. 일상 클라이언트를 다시 로드한다. 기존 실행은 원래의 `connection_id`와 `request_id`로 `script_03-get_execution` tool에서 조회한다. 종료 기록은 이동한 `session-closes` 아래의 `request.json`에서 원래의 요청 ID·연결 ID와 종료 상태를 확인한다. 기록을 찾지 못하면 이동 결과부터 점검한다. Rhino에서 `almondconnect`로 문서를 표시하고, 실제 사용할 대화의 `connect_01-list_up` tool에서 그 문서가 보이는지 확인한다. 오프라인 검증은 [실행 기록 이전 테스트](tests/test_execution_recovery_identity.py)와 [세션 종료 테스트](tests/test_session_close.py)를 따른다.
+6. 일상 클라이언트를 다시 로드한다. `execution-locators`에는 실행 기록을 찾는 정보만 있다. 프로젝트에 원본 실행 기록이 남아 있으면 원래의 `connection_id`와 `request_id`로 `script_03-get_execution` tool에서 결과를 다시 조회할 수 있다. 같은 프로젝트에서 새 연결을 시작하면 이전 실행 기록이 정리될 수 있다. 재조회에 실패하면 3단계의 이동 결과를 확인하고, 원본 실행 기록이 이미 정리됐다면 2단계에서 저장한 파일을 연다. 종료 요청은 옮긴 `session-closes` 아래의 `request.json`에서 원래의 요청 ID·연결 ID와 종료 상태를 확인한다. Rhino에서 `almondconnect`로 문서를 표시하고, 실제 사용할 대화의 `connect_01-list_up` tool에서 그 문서가 보이는지 확인한다. 오프라인 검증은 [실행 기록 이전 테스트](tests/test_execution_recovery_identity.py)와 [세션 종료 테스트](tests/test_session_close.py)를 따른다.
 
 ## 일반 업데이트
 
