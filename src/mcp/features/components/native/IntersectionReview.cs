@@ -36,7 +36,7 @@ namespace RhinoAlmondBridge
                 if (view.ActiveViewport.DisplayMode.DisplayAttributes.RealtimeDisplayId != Guid.Empty)
                     throw new ArgumentException("Use a raster display mode for synchronized comparison captures.");
                 var a = IntersectionAnalysis.ResolveHandle(doc, request["a"] as JObject, out sa);
-                var b = IntersectionAnalysis.ResolveHandle(doc, request["b"] as JObject, out sb);
+                var b = IntersectionAnalysis.ResolveHandle(doc, request["b"] as JObject, out sb, (a, sa));
                 if (a.Key == b.Key) throw new ArgumentException("Choose distinct occurrences.");
                 ObjectObservation.ValidateUserText(request["user_text"]);
                 ObjectObservation.ValidateUserDictionary(request["user_dictionary"]);

@@ -205,7 +205,8 @@ namespace RhinoAlmondBridge
             if (!member.Supported) scope.Unsupported.Add(member.Info.DeepClone());
         }
 
-        internal static Member ResolveHandle(RhinoDoc doc, JObject handle, out Scope scope)
+        internal static Member ResolveHandle(RhinoDoc doc, JObject handle, out Scope scope,
+            (Member Member, Scope Scope) prior = default)
         {
             if (handle == null || handle["object_id"]?.Type != JTokenType.String ||
                 !Guid.TryParse((string)handle["object_id"], out var root) || root == Guid.Empty)
@@ -215,9 +216,11 @@ namespace RhinoAlmondBridge
             if (path.Count > 32 || path.Any(v => v.Type != JTokenType.String || !Guid.TryParse((string)v, out var id) || id == Guid.Empty))
                 throw new ArgumentException("Handle path must contain at most 32 member GUIDs.");
             string key = root.ToString("D") + "/" + String.Join("/", path.Values<string>().Select(s => Guid.Parse(s)));
-            scope = Resolve(doc, new[] { root }, path.Count != 0);
-            var found = scope.Members.SingleOrDefault(m => m.Key == key);
-            if (found == null) { scope.Dispose(); scope = null; throw new ArgumentException("The block occurrence no longer exists; inspect it again."); }
+            // The first handle owns the expanded scope for both occurrences of this block.
+            var shared = path.Count != 0 && prior.Member?.RootId == root && prior.Member.Path.Length != 0 ? prior.Scope : null;
+            scope = shared == null ? Resolve(doc, new[] { root }, path.Count != 0) : null;
+            var found = (shared ?? scope).Members.SingleOrDefault(m => m.Key == key);
+            if (found == null) { scope?.Dispose(); scope = null; throw new ArgumentException("The block occurrence no longer exists; inspect it again."); }
             return found;
         }
 
