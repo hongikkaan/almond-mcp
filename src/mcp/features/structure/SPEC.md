@@ -30,6 +30,8 @@ The plugin uses the registered checkout's `src/engine/.venv/Scripts/python.exe` 
 
 `engine="auto"` routes to Karamba when the structure type is shell, gridshell or membrane, when the selection contains shells, or when the installed bridge cannot export a structural model (older than this change); the result then carries a warning saying why.
 
+When the native model export succeeds with an empty member list, validation in auto mode can still try Karamba. Visualization returns an error because there are no members to draw.
+
 ## Method
 
 - Direct stiffness method, Euler-Bernoulli beams, 6 DOF per node, rigid joints (`src/mcp/features/structure/frame_solver.py`, numpy only, written from the textbook method).

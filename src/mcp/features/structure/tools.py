@@ -106,7 +106,7 @@ def register(mcp, context):
                 return json.dumps(error_payload(err))
         if engine == "native" or (engine == "auto" and structure_type.lower() not in KARAMBA_ONLY_TYPES):
             result, note = _native_validation(guids, structure_type, load_kn, material, fixed_supports,
-                                              self_weight, span_m, required=engine == "native", asset_spec=spec,
+                                              self_weight, span_m, engine=engine, asset_spec=spec,
                                               floor_spec=floor, design=(design_basis, uls_combination, design_code),
                                               connections=connections, stability=stability, detail=detail,
                                               fabrication=fabrication, history=native_inputs)
@@ -205,7 +205,30 @@ def register(mcp, context):
         return {"imposed": imposed, "dead": dead}, None
 
 
-    def _native_validation(guids, structure_type, load_kn, material, fixed_supports, self_weight, span_m, required,
+    def _model_unavailable(engine, message):
+        if engine == "native":
+            return json.dumps(error_payload(message)), None
+        return None, message + " Fell back to the Karamba route."
+
+    def _read_structure_model(guids, engine, *, timeout_message=None):
+        """Export the line model or return the native route's error or fallback note."""
+        try:
+            model = json.loads(context._send_and_receive(
+                json.dumps({"type": "structure_model", "guids": guids}).encode('utf-8'), timeout=60.0))
+        except ConnectionRefusedError:
+            return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?")), None
+        except Exception as e:
+            if timeout_message is not None and isinstance(e, socket.timeout):
+                return _model_unavailable(engine, timeout_message)
+            return _model_unavailable(engine, f"The bridge could not export a structural model ({e}).")
+        if not isinstance(model, dict) or model.get("status") != "ok" or "members" not in model:
+            return _model_unavailable(engine, "This bridge version cannot export structural models (update almondbridge).")
+        if model.get("shells"):
+            return _model_unavailable(engine, f"The model contains {model['shells']} shell element(s), which the native frame solver does not analyse.")
+        return model, None
+
+
+    def _native_validation(guids, structure_type, load_kn, material, fixed_supports, self_weight, span_m, engine,
                            asset_spec=None, floor_spec=None, design=("en1990", None, "eurocode"), connections="rigid",
                            stability="auto", detail=False, fabrication="cold_formed", history=None):
         """Native frame check on the bridge's exported line model.
@@ -213,25 +236,12 @@ def register(mcp, context):
         Returns (result_dict, None) when it ran, (None, note) to fall back to the Karamba
         route with a note, or (json_error_string, None) when it must stop (explicit native
         request that cannot run, or no bridge)."""
-        def unavailable(msg):
-            if required:
-                return json.dumps(error_payload(msg)), None
-            return None, msg + " Fell back to the Karamba route."
-        try:
-            reply = json.loads(context._send_and_receive(
-                json.dumps({"type": "structure_model", "guids": guids}).encode('utf-8'), timeout=60.0))
-        except socket.timeout:
-            return unavailable("Exporting the structural model timed out.")
-        except ConnectionRefusedError:
-            return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?")), None
-        except Exception as e:
-            return unavailable(f"The bridge could not export a structural model ({e}).")
-        if not isinstance(reply, dict) or reply.get("status") != "ok" or "members" not in reply:
-            return unavailable("This bridge version cannot export structural models (update almondbridge).")
-        if reply.get("shells"):
-            return unavailable(f"The model contains {reply['shells']} shell element(s), which the native frame solver does not analyse.")
+        reply, note = _read_structure_model(
+            guids, engine, timeout_message="Exporting the structural model timed out.")
+        if not isinstance(reply, dict):
+            return reply, note
         if not reply["members"]:
-            return unavailable("No line members found for the given GUIDs.")
+            return _model_unavailable(engine, "No line members found for the given GUIDs.")
         if history is not None:
             history.update(model=reply, floor_load_spec=floor_spec, asset_load_spec=None)
             if asset_spec is not None:
@@ -416,7 +426,7 @@ def register(mcp, context):
                 pass
             return out
         if not clear and engine != "karamba":
-            reply, note = _native_view(request, guids, required=engine == "native", asset_spec=spec, floor_spec=floor,
+            reply, note = _native_view(request, guids, engine=engine, asset_spec=spec, floor_spec=floor,
                                        design=(design_basis, uls_combination, design_code), connections=connections,
                                        stability=stability, view=view, fabrication=fabrication)
             if reply is not None:
@@ -451,28 +461,16 @@ def register(mcp, context):
             return json.dumps(error_payload(f"Bridge error: {e}"))
 
 
-    def _native_view(request: dict, guids, required: bool, asset_spec=None, floor_spec=None, design=("en1990", None, "eurocode"),
+    def _native_view(request: dict, guids, engine: str, asset_spec=None, floor_spec=None, design=("en1990", None, "eurocode"),
                      connections="rigid", stability="auto", view="deflection", fabrication="cold_formed"):
         """Solve natively and draw through the bridge's structure_draw overlay.
 
         Returns (reply_json, None) when it ran or must stop, (None, note) to fall back to Karamba."""
 
         nonlocal view_engine, native_report
-        def unavailable(msg):
-            if required:
-                return json.dumps(error_payload(msg)), None
-            return None, msg + " Fell back to the Karamba route."
-        try:
-            model = json.loads(context._send_and_receive(
-                json.dumps({"type": "structure_model", "guids": guids}).encode('utf-8'), timeout=60.0))
-        except ConnectionRefusedError:
-            return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?")), None
-        except Exception as e:
-            return unavailable(f"The bridge could not export a structural model ({e}).")
-        if not isinstance(model, dict) or model.get("status") != "ok" or "members" not in model:
-            return unavailable("This bridge version cannot export structural models (update almondbridge).")
-        if model.get("shells"):
-            return unavailable(f"The model contains {model['shells']} shell element(s), which the native frame solver does not analyse.")
+        model, note = _read_structure_model(guids, engine)
+        if not isinstance(model, dict):
+            return model, note
         if not model["members"]:
             return json.dumps(error_payload("No curve members found for the given GUIDs.")), None
         try:
@@ -522,7 +520,7 @@ def register(mcp, context):
             native_report = {"overlay_id": overlay_id, "report": enrichment} if overlay_id else {}
             _enrich_native_view(parsed, enrichment)
             _native_verdict(parsed)
-        elif not required:
+        elif engine != "native":
             # a bridge without structure_draw: fall back to the Karamba overlay
             return None, "This bridge version cannot draw native results (update almondbridge)."
         return json.dumps(parsed), None

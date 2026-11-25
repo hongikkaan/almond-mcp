@@ -183,17 +183,25 @@ namespace RhinoAlmondBridge
                         DrawCaption(graphics, rectangle, tile);
                     }
                     ObjectObservation.ValidateDocument(doc, request);
-                    if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber ||
+                    bool stateChanged = RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber ||
                         doc.Views.ActiveView?.RuntimeSerialNumber != activeView.RuntimeSerialNumber ||
                         doc.ActiveSpace != beforeSpace ||
                         !JToken.DeepEquals(beforeActiveMain, ViewState(activeView.MainViewport)) ||
                         !JToken.DeepEquals(beforeActiveViewport, ViewState(activeView.ActiveViewport)) ||
                         !JToken.DeepEquals(beforeView, ViewState(source.ActiveViewport)) ||
-                        !beforeSelection.SetEquals(Selected(doc)) || doc.Modified != beforeModified ||
-                        !baselineIds.SetEquals(ObjectObservation.VisibleObjects(doc).Select(o => o.Id)) ||
-                        !JToken.DeepEquals(editor, EditingContext.ObserveObjects(doc).State) ||
-                        beforeContent != ObjectObservation.SnapshotToken(doc, new JObject(), ObjectObservation.ModelObjects(doc), editor))
+                        !beforeSelection.SetEquals(Selected(doc)) || doc.Modified != beforeModified;
+                    if (!stateChanged)
+                    {
+                        // Check visibility and content against the same fresh object table.
+                        var afterObjects = ObjectObservation.ModelObjects(doc);
+                        stateChanged = !baselineIds.SetEquals(afterObjects.Where(o => o.Visible).Select(o => o.Id)) ||
+                            !JToken.DeepEquals(editor, EditingContext.ObserveObjects(doc).State) ||
+                            beforeContent != ObjectObservation.SnapshotToken(doc, new JObject(), afterObjects, editor);
+                    }
+                    if (stateChanged)
+                    {
                         return Error("observation_state_changed", "Document, camera, selection or visibility changed during capture; no image was returned.", tiles);
+                    }
                     if (captured == 0)
                         return Error("all_tiles_failed", "No requested inspection tile could be captured.", tiles);
                     using (var stream = new MemoryStream())

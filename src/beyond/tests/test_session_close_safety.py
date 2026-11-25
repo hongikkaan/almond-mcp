@@ -17,7 +17,7 @@ CONNECTION_ID = "1" * 32
 CATALOG = {"tools": [{"name": "observe", "inputSchema": {"type": "object", "properties": {}}}]}
 
 
-def fixture(tmp_path):
+def fixture(tmp_path, *, wrapped_save=True):
     actions = []
     binding = dict(pid=123, process_start_ticks="456", document_serial="7",
                    model_path=str(tmp_path / "model.3dm"), token="a" * 32,
@@ -41,11 +41,10 @@ def fixture(tmp_path):
     async def state():
         return dict(pending=False, uncertain=False, native_uncertain=False, pid=321, process_start_ticks="654")
     async def call(name, arguments, *, caller_request_id=None):
-        assert name == "script_02-run_rhino"
+        assert name == "script_02-run_rhino" and caller_request_id
         assert arguments["language"] == "command" and arguments["script"] == "_Save"
         actions.append("save")
-        # script_02-run_rhino has the reviewed wrapped-string MCP schema.
-        return json_result({"result": json.dumps(behavior["save"])})
+        return json_result(behavior["save"], wrapped=wrapped_save)
     broker = Broker(CATALOG, data=tmp_path, contract_check=lambda _: None)
     conn = Connection(CONNECTION_ID, "host", SimpleNamespace(request=request, close=close_control),
                       binding["token"], binding=binding,
@@ -67,15 +66,17 @@ def fixture(tmp_path):
     return broker, conn, actions, behavior
 
 
-def test_close_full_lifecycle_and_restart_only_read_result(tmp_path):
+@pytest.mark.parametrize("wrapped_save", [True, False])
+def test_close_full_lifecycle_and_restart_only_read_result(tmp_path, wrapped_save):
     async def run():
-        broker, conn, actions, behavior = fixture(tmp_path)
+        broker, conn, actions, behavior = fixture(tmp_path, wrapped_save=wrapped_save)
         result = await broker.call("connect_05-close_session", {"request_id": "close-test", "connection_id": CONNECTION_ID})
         assert not result.is_error
         value = result.structured_content
         assert value["status"] == "completed" and value["saved"]
         assert value["rhino_closed"] and value["worker_closed"] and value["released"]
-        assert actions.index("save") < actions.index("exit") < actions.index("worker_closed") < actions.index("lease_closed")
+        assert actions.index("begin") < actions.index("save") < actions.index("end") < actions.index("exit")
+        assert actions.index("exit") < actions.index("worker_closed") < actions.index("lease_closed")
         assert "detach" not in actions
         before = list(actions)
         again = await broker.call("connect_05-close_session", {"request_id": "close-test", "connection_id": CONNECTION_ID})

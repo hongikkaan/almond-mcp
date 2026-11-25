@@ -18,13 +18,23 @@ from almond_mcp.retrieval_store import AlmondStore
 @pytest.mark.parametrize("outcome", ["timeout", "lost_reply", "connection_refused", "not_started", "native_unknown", "success"])
 def test_placement_preserves_native_mutation_state(tmp_path, tool, outcome):
     requests = []
-    (tmp_path / "item.svg").touch()
-    asset = {"asset_id": "fixture", "file": "item.svg", "_resolved_file": str(tmp_path / "item.svg"),
-             "file_available": True, "dimensions_mm": {"width": 100, "depth": 100, "height": 100}}
+    is_model = tool == "asset_06-place"
+    source = tmp_path / ("item.3dm" if is_model and outcome == "success" else "item.svg")
+    source.touch()
+    asset = {
+        "asset_id": "fixture", "file": source.name, "_resolved_file": str(source),
+        "file_available": True, "product": "Fixture", "variant": "A", "category": "people",
+        "dimensions_mm": {"width": 100, "depth": 100, "height": 100}, "lod": "low",
+        "warehouse_url": "https://example.test/asset", "match_status": "exact_dimensions",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    }
     index = SimpleNamespace(get=lambda _: asset, assets={"fixture": asset})
 
     def send(raw, **kwargs):
-        requests.append(json.loads(raw))
+        request = json.loads(raw)
+        requests.append((request, kwargs))
+        if request["type"] == "get_rhino_context":
+            return '{"status":"success","capabilities":{"drawing_asset_linked":1}}'
         if outcome == "timeout":
             raise TimeoutError("delayed native response")
         if outcome == "lost_reply":
@@ -44,15 +54,34 @@ def test_placement_preserves_native_mutation_state(tmp_path, tool, outcome):
     asset_tools(mcp, context)
     diagram_tools(mcp, context)
 
+    arguments = {"asset_id": "fixture"}
+    if outcome == "success":
+        arguments.update(x=1.5, y=-2, z=3, rotation_degrees=45, scale=2.5 if is_model else 125)
+
     async def run():
         async with Client(mcp) as client:
-            reply = await client.call_tool(tool, {"asset_id": "fixture"}, raise_on_error=False)
+            reply = await client.call_tool(tool, arguments, raise_on_error=False)
             return json.loads(reply.content[0].text)
 
     result = asyncio.run(run())
-    contract = "place_drawing_asset" if tool.startswith("asset_") else "place_diagram_asset"
+    contract = "place_drawing_asset" if is_model else "place_diagram_asset"
     validate(result, public_output_schema(contract, wrapped=False))
-    assert len(requests) == 1 and requests[0]["type"] == "place_drawing_asset"
+
+    metadata = {
+        "library_id": "model_assets" if is_model else "diagram_assets",
+        "product": "Fixture", "variant": "A", "category": "people",
+        "dimensions_mm": {"width": 100, "depth": 100, "height": 100}, "drawing_roles": [], "lod": "low",
+    }
+    if is_model:
+        metadata.update({key: asset[key] for key in ("warehouse_url", "match_status", "sha256")})
+    preflight = [({"type": "get_rhino_context", "sections": [], "selection_limit": 0}, {})] if source.suffix == ".3dm" else []
+    assert requests == [*preflight, ({
+        "type": "place_drawing_asset", "asset_id": "fixture", "file_path": str(source), "name": "Fixture A",
+        "position": [arguments.get(axis, 0) for axis in ("x", "y", "z")],
+        "rotation_degrees": arguments.get("rotation_degrees", 0), "scale": arguments.get("scale", 1),
+        "metadata": metadata,
+    }, {"timeout": 90.0})]
+
     if outcome == "success":
         assert result["status"] == "success"
         assert result["object_guid"] == "00000000-0000-0000-0000-000000000001"

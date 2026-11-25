@@ -31,7 +31,9 @@ Imported와 Generated 모델은 같은 ID 공간에서 조회·등록·배치한
 
 모델 도구와 Archive는 같은 manifest 선택 규칙을 사용한다. 같은 ID의 Drawing 파일을 라이브러리에서 확인할 수 없으면 Generated 원본을 표시한다. Diagram과 Drawing에 의도적으로 복제된 2D ID는 각 라이브러리의 파일을 사용한다. Diagram과 Generated는 SQLite의 전역 ID를 공유하므로 양쪽 manifest에 같은 ID가 있으면 인덱싱을 중단한다. SQLite 자산 캐시는 관련 라이브러리를 한 트랜잭션에서 갱신하며 다른 라이브러리 소유 ID를 덮어쓰지 않는다. 유효한 빈 manifest는 하나의 revision이며 누락 manifest는 시작 로그에서 확인할 수 있다.
 
-도면 리소스는 manifest의 뷰·축척·형식에 해당하는 파일의 실제 바이트와 SHA-256을 검사하여 제공한다. Archive의 도면 파일도 등록과 제공 시 선언된 해시 및 패키지 안 경로를 검사한다. 배치 응답의 `requires_reconciliation=true`는 Rhino 문서 상태 확인이 필요함을 뜻한다. 여러 단계로 가져온 작업은 이미 관찰한 객체 GUID와 후속 실패를 함께 반환한다.
+도면 리소스는 manifest의 뷰·축척·형식에 해당하는 파일의 실제 바이트와 SHA-256을 검사하여 제공한다. Archive의 도면 파일도 등록과 제공 시 선언된 해시 및 패키지 안 경로를 검사한다.
+
+`asset_06-place` tool과 `diagram_03-place` tool은 각 라이브러리에서 파일을 선택한 뒤 같은 Bridge 블록 배치 요청을 사용한다. 모델 자산은 원본 출처·일치 상태·해시를 함께 전달하며 3DM은 먼저 Bridge의 linked 배치 지원을 확인한다. 배치 응답의 `requires_reconciliation=true`는 Rhino 문서 상태 확인이 필요함을 뜻한다. 여러 단계로 가져온 작업은 이미 관찰한 객체 GUID와 후속 실패를 함께 반환한다.
 
 `asset_07-prepare` tool의 inspect는 원본 사본·SHA256을 보존하고 Rhino의 headless 가져오기로 3DM과 관찰 이미지를 만든다. 기존 3DM의 단위·원점·레이어·이름·블록 구조를 보존한다. Mesh interchange 입력은 명시적 단위를 요구하며 importer의 실제 치수·방향은 반환된 측정과 이미지로 확인한다. 100 MB 입력, 10,000 top-level 객체, 32 preview block 깊이로 제한한다. normalize는 선택 단계로, 관찰한 hash에 연결된 호출자 판단에 따라 top-level 객체 제거와 명시 XYZ 회전·이동만 적용한다. 면 병합·블록 해체·단일 레이어화·바닥 중심 원점은 강제하지 않는다.
 

@@ -22,7 +22,7 @@ connect_02-session tool는 discovery host를 재사용하고 connect_04-disconne
 | `external_host.py`의 서버 설명 | 건축설계·모델링·도면·연결 관리 역할을 담은 공통 소개 |
 | `session_start.py` | 명시적 요청으로 새 Rhino를 열고 해당 프로세스의 외부 연결 광고 확인 |
 | `execution_invocation.py` | 선택된 연결의 호출 예약·취소·첫 응답 대기·완료 복구. 연결 탐색·attach·detach는 Broker가 소유 |
-| `session_close.py`, `session_close_guard.py.txt` | 저장 확인·문서 변경 방지·정상 종료·보관 결과 조회. 일반 실행 receipt와 종료 프로세스 근거를 구분 |
+| `session_close.py`, `session_close_guard.py.txt` | 저장·종료 순서와 보관 결과 조회를 관리한다. 연결 잠금 안에서 `ExecutionInvocations`로 저장을 실행하거나 이전 저장 결과를 회수하고, 종료는 별도 프로세스 근거로 확인한다. |
 | `detached_process.py` | 새 프로세스를 suspended 상태로 생성하고 모든 Windows Job 밖임을 확인한 뒤 실행 |
 | `runtime.py`, `build_catalog.py` | 시작 시 MCP에서 읽은 공통 schema의 lockfile 버전·source fingerprint·worker schema 검사 |
 | `data/tool_catalog.json` | `build_catalog.py`로 만드는 Git 추적 제외 개발용 export. 런타임은 현재 소스에서 schema를 생성함 |

@@ -13,7 +13,15 @@ class Program
     {
         var scenario = JObject.Parse(args[0]);
         Bitmap.Raster = Convert.FromBase64String((string)scenario["raster"]);
-        Console.WriteLine(InspectionCapture.Handle(RhinoDoc.ActiveDoc, (JObject)scenario["request"]).ToString(Formatting.None));
+        var doc = RhinoDoc.ActiveDoc;
+        doc.OnCapture = (string)scenario["change"] switch {
+            "hide_visible" => () => doc.Objects.First(o => o.Visible).Visible = false,
+            "remove_hidden" => () => doc.Objects.RemoveAll(o => !o.Visible),
+            "mark_modified" => () => doc.Modified = true,
+            _ => () => { }
+        };
+        var response = InspectionCapture.Handle(doc, (JObject)scenario["request"]);
+        Console.WriteLine(new JObject { ["response"] = response, ["scans"] = doc.Scans }.ToString(Formatting.None));
     }
 }
 
@@ -21,11 +29,18 @@ class RhinoDoc
 {
     public static readonly RhinoDoc ActiveDoc = new RhinoDoc();
     public readonly ViewTable Views = new ViewTable();
+    public readonly List<RhinoObject> Objects = new List<RhinoObject> {
+        new RhinoObject { Id = Guid.Parse("00000000-0000-0000-0000-000000000001") },
+        new InstanceObject { Id = Guid.Parse("00000000-0000-0000-0000-000000000002") },
+        new InstanceObject { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Visible = false }
+    };
+    public Action OnCapture;
+    public int Scans;
     public bool IsHeadless => false;
     public uint RuntimeSerialNumber => 1;
     public string Path => @"C:\offline\inspection.3dm";
     public string ActiveSpace => "ModelSpace";
-    public bool Modified => false;
+    public bool Modified { get; set; }
 }
 enum ViewTypeFilter { Model }
 class ViewTable
@@ -50,7 +65,7 @@ class Attributes { public Guid RealtimeDisplayId => Guid.Empty; }
 class RhinoObject
 {
     public Guid Id { get; init; }
-    public bool Visible { get; init; } = true;
+    public bool Visible { get; set; } = true;
     public Geometry Geometry => new Geometry();
 }
 class InstanceObject : RhinoObject { }
@@ -63,17 +78,16 @@ struct BoundingBox
 }
 static class ObjectObservation
 {
-    static readonly RhinoObject[] Model = {
-        new RhinoObject { Id = Guid.Parse("00000000-0000-0000-0000-000000000001") },
-        new InstanceObject { Id = Guid.Parse("00000000-0000-0000-0000-000000000002") },
-        new InstanceObject { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Visible = false }
-    };
     public static void ValidateDocument(RhinoDoc doc, JObject request) { }
     public static Guid[] ReadIds(JToken token, int max, bool required) =>
         token == null ? Array.Empty<Guid>() : token.Values<string>().Select(Guid.Parse).ToArray();
-    public static RhinoObject[] ModelObjects(RhinoDoc doc) => Model;
-    public static RhinoObject[] VisibleObjects(RhinoDoc doc) => Model.Where(o => o.Visible).ToArray();
-    public static string SnapshotToken(RhinoDoc doc, JObject scope, RhinoObject[] model, JObject editor) => "unchanged";
+    public static RhinoObject[] ModelObjects(RhinoDoc doc)
+    {
+        doc.Scans++;
+        return doc.Objects.ToArray();
+    }
+    public static string SnapshotToken(RhinoDoc doc, JObject scope, RhinoObject[] model, JObject editor) =>
+        String.Join(",", model.Select(o => o.Id));
 }
 static class DocumentObservation
 {
@@ -114,8 +128,11 @@ static class InspectionCapture
     static HashSet<Guid> Selected(RhinoDoc doc) => new HashSet<Guid>();
     static void DrawCaption(Graphics graphics, Rectangle rectangle, JObject tile) { }
     static Bitmap Capture(RhinoDoc doc, RhinoViewport source, RhinoObject[] objects, BoundingBox bounds,
-        string direction, DisplayMode mode, Size size, bool explicitFilter, bool frameObjects, JObject metadata) =>
-        new Bitmap(size.Width, size.Height, PixelFormat.Format24bppRgb);
+        string direction, DisplayMode mode, Size size, bool explicitFilter, bool frameObjects, JObject metadata)
+    {
+        doc.OnCapture();
+        return new Bitmap(size.Width, size.Height, PixelFormat.Format24bppRgb);
+    }
 
     // CAPTURE_HANDLER
 }

@@ -2,7 +2,7 @@
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.diagrams.output import GROUPS, project
-from almond_mcp.features.assets.mutation import send_mutation
+from almond_mcp.features.assets.mutation import send_placement
 from almond_mcp.tool_declarations import public_tool
 
 from pydantic import StrictBool
@@ -115,26 +115,11 @@ def register(mcp, context):
         if not asset or not asset.get("file_available"):
             return json.dumps(error_payload(f"Diagram asset file is missing for {asset_id}."))
 
-        payload = json.dumps({
-            "type": "place_drawing_asset",
-            "asset_id": asset_id,
-            "file_path": asset["_resolved_file"],
-            "name": f"{asset.get('product', '')} {asset.get('variant', '')}".strip(),
-            "position": [x, y, z],
-            "rotation_degrees": rotation_degrees,
-            "scale": scale,
-            "metadata": {
-                "library_id": "diagram_assets",
-                "product": asset.get("product"),
-                "variant": asset.get("variant"),
-                "category": asset.get("category"),
-                "dimensions_mm": asset.get("dimensions_mm"),
-                "drawing_roles": asset.get("drawing_roles", []),
-                "lod": asset.get("lod"),
-            },
-        }).encode("utf-8")
-
-        return json.dumps(send_mutation(context._send_and_receive, payload, timeout=90.0, action="Diagram asset placement"))
+        return json.dumps(send_placement(
+            context._send_and_receive, asset_id=asset_id, asset=asset, position=(x, y, z),
+            rotation_degrees=rotation_degrees, scale=scale, library_id="diagram_assets",
+            action="Diagram asset placement",
+        ))
 
     return {
         "list_diagram_assets": list_diagram_assets,

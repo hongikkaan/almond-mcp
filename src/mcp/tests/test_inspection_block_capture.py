@@ -47,7 +47,7 @@ def capture(native_capture, tmp_path, monkeypatch):
         Image.new("RGB", (128 * len(request["views"]), 128)).save(png, format="PNG")
         return json.dumps(native_capture(json.dumps({
             "request": request, "raster": base64.b64encode(png.getvalue()).decode("ascii"),
-        })))
+        }))["response"])
 
     tool = register(FastMCP("block-scope"), SimpleNamespace(_send_and_receive=send))["capture_rhino_inspection"]
 
@@ -55,6 +55,23 @@ def capture(native_capture, tmp_path, monkeypatch):
         return tool(views=views, width=128, height=128, columns=len(views),
                     expected_model_path=r"C:\offline\inspection.3dm", **scope)
     return invoke
+
+
+@pytest.mark.parametrize(("change", "scans"), [
+    (None, 2), ("hide_visible", 2), ("remove_hidden", 2), ("mark_modified", 1),
+])
+def test_capture_rechecks_the_document_once(native_capture, change, scans):
+    result = native_capture(json.dumps({
+        "request": {"type": "capture_rhino_inspection", "views": [{}]},
+        "raster": "AA==", "change": change,
+    }))
+    assert result["scans"] == scans
+    response = result["response"]
+    if change is None:
+        assert response["status"] == "success" and "image" in response
+    else:
+        assert response["error_code"] == "observation_state_changed"
+        assert "image" not in response
 
 
 def test_shared_mixed_scope_identifies_the_block_and_returns_no_png(capture, tmp_path):

@@ -2,6 +2,37 @@
 import json
 
 
+_PLACEMENT_TIMEOUT = 90.0
+
+
+def send_placement(
+    send, *, asset_id: str, asset: dict, position: tuple[float, float, float],
+    rotation_degrees: float, scale: float, library_id: str, action: str,
+    extra_metadata: dict | None = None,
+) -> dict:
+    """Send the native block placement request shared by both asset libraries."""
+    payload = json.dumps({
+        "type": "place_drawing_asset",
+        "asset_id": asset_id,
+        "file_path": asset["_resolved_file"],
+        "name": f"{asset.get('product', '')} {asset.get('variant', '')}".strip(),
+        "position": position,
+        "rotation_degrees": rotation_degrees,
+        "scale": scale,
+        "metadata": {
+            "library_id": library_id,
+            "product": asset.get("product"),
+            "variant": asset.get("variant"),
+            "category": asset.get("category"),
+            "dimensions_mm": asset.get("dimensions_mm"),
+            "drawing_roles": asset.get("drawing_roles", []),
+            "lod": asset.get("lod"),
+            **(extra_metadata or {}),
+        },
+    }).encode("utf-8")
+    return send_mutation(send, payload, timeout=_PLACEMENT_TIMEOUT, action=action)
+
+
 def unresolved(message: str, *, reply=None, imported_guids=None, partial=False) -> dict:
     result = {
         **(reply or {}),

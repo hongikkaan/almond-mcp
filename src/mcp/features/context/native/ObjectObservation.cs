@@ -34,8 +34,6 @@ namespace RhinoAlmondBridge
             return objects;
         }
 
-        public static RhinoObject[] VisibleObjects(RhinoDoc doc) => ModelObjects(doc).Where(o => o.Visible).ToArray();
-
         public static void ValidateDocument(RhinoDoc doc, JObject request)
         {
             if (doc == null) throw new ArgumentException("No Rhino document is available.");

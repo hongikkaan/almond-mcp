@@ -24,6 +24,7 @@ from project import ExclusiveFile, read_json, write_json
 from rhinocode import find_binary, discover_instances, select_instance
 from owned_process import authorize_owned, launch_owned, read_owned_identity, read_owned_exit
 from storage_cleanup import plain_descendant, process_identity_alive
+from execution_invocation import Invocation, result_dict
 from execution_recovery import read_bound_execution
 
 
@@ -270,7 +271,7 @@ class SessionCloser:
                 return
             conn = broker.connections.get(record["connection_id"])
             if conn is not None and conn.state == "recovering":
-                await broker.recover_execution(conn, {"request_id": request_id})
+                await broker.invocations.recover_execution(conn, {"request_id": request_id})
             executed = result.get("status") == "executed"
             record.update(status="rejected" if executed else "save_failed", stage="save_completed_without_exit",
                           reason="The retained Save finished. This close did not send Exit; submit a new close request only when you intend to close now.")
@@ -323,7 +324,6 @@ class SessionCloser:
             self.running.discard(request_id)
 
     async def _run_new(self, broker, conn, request_id):
-        from external_host import Invocation, result_dict
         async with conn.lock:
             record = dict(schema="almond-session-close", version=1, request_id=request_id,
                           nonce=uuid4().hex, connection_id=conn.connection_id,
@@ -348,7 +348,7 @@ class SessionCloser:
                 record["save_baseline"] = read_json(baseline)["request_id"] if baseline.is_file() else None
                 record["stage"] = "saving"
                 self.persist(record)  # Fence precedes the first possible save dispatch.
-                response = await broker._invoke_locked(conn, "script_02-run_rhino",
+                response = await broker.invocations.invoke_locked(conn, "script_02-run_rhino",
                     dict(script=SAVE_COMMAND, language="command", timeout_seconds=60), Invocation())
                 if conn.state == "ready" and not conn.in_flight:
                     record["stage"] = "save_settled"

@@ -512,16 +512,10 @@ class Broker:
                 await self._dispose_locked(conn)
                 raise
 
-    async def recover_execution(self, conn, arguments):
-        return await self.invocations.recover_execution(conn, arguments)
-
     async def invoke(self, conn: Connection, name: str, arguments: dict, invocation: Invocation):
         # The shared runtime remains the admission gate implementation.
         sys.path.insert(0, str(ENGINE))
         return await self.invocations.invoke(conn, name, arguments, invocation)
-
-    async def _invoke_locked(self, conn, name, arguments, invocation):
-        return await self.invocations.invoke_locked(conn, name, arguments, invocation)
 
     async def _dispose(self, conn: Connection):
         conn.closing = True

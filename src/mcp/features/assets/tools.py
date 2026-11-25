@@ -18,7 +18,7 @@ from almond_mcp.features.structure import asset_loads
 from almond_mcp import paths, managed_paths
 from almond_mcp.features.assets import asset_passport
 from almond_mcp.features.assets import drawing_assets, drafting, preparation, model_index
-from almond_mcp.features.assets.mutation import send_mutation
+from almond_mcp.features.assets.mutation import send_placement
 from almond_mcp.features.exchange import exchange
 from almond_mcp.features.exchange.tools import Exchange
 
@@ -531,80 +531,6 @@ def register(mcp, context):
         return json.dumps({"status": "success", "asset": asset})
 
 
-    def _dimension_check(asset: dict, bounds: dict | None, scale: float) -> dict | None:
-        """Flags gross mismatches between placed AABB and catalogue dimensions.
-
-    Sorted-extent comparison so plan rotations don't false-positive. Only
-    returns a payload on failure; a clean placement stays silent.
-    """
-        dims = asset.get("dimensions_mm") or {}
-        expected = [dims.get("width"), dims.get("depth"), dims.get("height")]
-        if not bounds or not all(isinstance(v, (int, float)) and v > 0 for v in expected):
-            return None
-        try:
-            placed = sorted(
-                abs(float(bounds["max"][i]) - float(bounds["min"][i])) for i in range(3)
-            )
-        except (KeyError, IndexError, TypeError, ValueError):
-            return None
-        expected_sorted = sorted(float(v) * scale for v in expected)
-        tolerance = 0.15
-        mismatched = [
-            axis for axis, (p, e) in enumerate(zip(placed, expected_sorted))
-            if e > 0 and abs(p - e) / e > tolerance
-        ]
-        if not mismatched:
-            return None
-        return {
-            "status": "mismatch",
-            "expected_sorted_mm": [round(v, 1) for v in expected_sorted],
-            "placed_sorted_mm": [round(v, 1) for v in placed],
-            "tolerance": tolerance,
-            "note": (
-                'Placed geometry deviates from catalogue dimensions beyond tolerance; inspect the source model (see '
-                'manifest match note).'
-            ),
-        }
-
-
-    def _apply_import_correction(object_guid: str, rotate_x_degrees: float, target_z: float) -> bool:
-        """Re-orients a placed instance whose source geometry is mis-oriented
-    (manifest import_correction), then re-seats it on the placement plane."""
-        script = f"""
-using System;
-using System.Collections.Generic;
-using Rhino;
-using Rhino.Geometry;
-
-public class Script
-{{
-    public static List<Guid> Run(RhinoDoc doc)
-    {{
-        var id = new Guid("{object_guid}");
-        var obj = doc.Objects.FindId(id);
-        if (obj == null) return new List<Guid>();
-        var bb = obj.Geometry.GetBoundingBox(true);
-        var rot = Transform.Rotation(RhinoMath.ToRadians({rotate_x_degrees}), Vector3d.XAxis, bb.Center);
-        doc.Objects.Transform(id, rot, true);
-        var obj2 = doc.Objects.FindId(id);
-        if (obj2 != null)
-        {{
-            var bb2 = obj2.Geometry.GetBoundingBox(true);
-            doc.Objects.Transform(id, Transform.Translation(0, 0, {target_z} - bb2.Min.Z), true);
-        }}
-        doc.Views.Redraw();
-        return new List<Guid>();
-    }}
-}}
-"""
-        payload = json.dumps({"type": "execute", "script": script}).encode("utf-8")
-        try:
-            response = json.loads(context._send_and_receive(payload, timeout=30.0))
-            return response.get("status") == "success"
-        except Exception:
-            return False
-
-
     @public_tool(mcp, wrapped=True)
     def place_drawing_asset(
         asset_id: str,
@@ -652,29 +578,16 @@ public class Script
             except Exception as exc:
                 return json.dumps({"status": "error", "error_code": "linked_asset_not_started", "mutation_state": "not_started", "message": str(exc)})
 
-        payload = json.dumps({
-            "type": "place_drawing_asset",
-            "asset_id": asset_id,
-            "file_path": asset["_resolved_file"],
-            "name": f"{asset.get('product', '')} {asset.get('variant', '')}".strip(),
-            "position": [x, y, z],
-            "rotation_degrees": rotation_degrees,
-            "scale": scale,
-            "metadata": {
-                "library_id": "model_assets",
-                "product": asset.get("product"),
-                "variant": asset.get("variant"),
-                "category": asset.get("category"),
-                "dimensions_mm": asset.get("dimensions_mm"),
-                "drawing_roles": asset.get("drawing_roles", []),
-                "lod": asset.get("lod"),
+        return json.dumps(send_placement(
+            context._send_and_receive, asset_id=asset_id, asset=asset, position=(x, y, z),
+            rotation_degrees=rotation_degrees, scale=scale, library_id="model_assets",
+            action="Drawing asset placement",
+            extra_metadata={
                 "warehouse_url": asset.get("warehouse_url"),
                 "match_status": asset.get("match_status"),
                 "sha256": asset.get("sha256"),
             },
-        }).encode("utf-8")
-
-        return json.dumps(send_mutation(context._send_and_receive, payload, timeout=90.0, action="Drawing asset placement"))
+        ))
 
 
     def place_asset(
@@ -801,8 +714,6 @@ public class Script
         "asset_passport_resource": asset_passport_resource,
         "asset_preview_resource": asset_preview_resource,
         "get_asset": get_asset,
-        "_dimension_check": _dimension_check,
-        "_apply_import_correction": _apply_import_correction,
         "place_drawing_asset": place_drawing_asset,
         "place_asset": place_asset,
         "search_asset_repository": search_asset_repository,
