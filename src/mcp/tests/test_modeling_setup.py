@@ -1,5 +1,4 @@
-"""Combined setup contract; isolated transport and production native policy, no live Rhino."""
-import asyncio
+"""Material assignment through isolated transport and the production native layer policy."""
 import json
 import os
 from pathlib import Path
@@ -7,17 +6,19 @@ import subprocess
 from types import SimpleNamespace
 
 import pytest
-from fastmcp import Client, FastMCP
+from fastmcp import FastMCP
 
 from almond_mcp.features.modeling import modeling_setup
+from almond_mcp.features.modeling.library import MaterialLibrary
 from almond_mcp.features.modeling.tools import register
 
 
-def context(reply=None, *, capability=True, material_layer=True):
+PROFILE = Path(__file__).resolve().parents[1] / "profiles/material"
+
+
+def context(reply=None, *, material_layer=True):
     material = {"material_id": "oak", "name": "Oak", "category": "Wood", "ue_material_slot": "Oak",
                 "base_color": [10, 20, 30], "metallic": 0.0, "roughness": 0.5, "opacity": 1.0}
-    system = {"category": "floor", "name": "Oak floor", "render_material_ids": ["oak"],
-              "structural_material": "Other", "elements": [{"role": "surface"}]}
     requests = []
 
     def send(payload, **kwargs):
@@ -25,58 +26,15 @@ def context(reply=None, *, capability=True, material_layer=True):
         requests.append(request)
         if request["type"] == "get_rhino_context":
             return json.dumps({"status": "success", "capabilities": {
-                "modeling_materials": 2, **({"modeling_setup": 1} if capability else {}),
+                "modeling_materials": 2,
                 **({"material_layer_assignment": 1} if material_layer else {})}})
         if isinstance(reply, Exception):
             raise reply
-        return json.dumps(reply or {"status": "success", "result": {"applied": True, "differences": [], "errors": []}})
+        return json.dumps(reply)
 
     materials = {"oak": material}
     return SimpleNamespace(material_library=SimpleNamespace(materials=materials, get=materials.get),
-                           construction_library=SimpleNamespace(systems={"floor": system}),
                            _send_and_receive=send, requests=requests)
-
-
-@pytest.mark.parametrize("overwrite", [False, True])
-def test_single_dispatch_and_compact_confirmation(overwrite):
-    ctx = context()
-    tools = register(FastMCP("setup-test"), ctx)
-    result = json.loads(tools["setup_modeling"](overwrite))
-    assert "model_01-assign_material" in result.pop("next_step_guide")
-    assert result == {"status": "success", "applied": True}
-    assert [r["type"] for r in ctx.requests] == ["get_rhino_context", "execute"]
-    code = ctx.requests[-1]["script"]
-    assert "ModelingMaterials.Setup(doc," in code and f", {str(overwrite).lower()})" in code
-    assert "ApplyLayers(" not in code and "Register(" not in code
-
-
-def test_old_loaded_bridge_rejected_before_mutation_and_assignment_still_supported():
-    ctx = context(capability=False)
-    result = json.loads(register(FastMCP("old-setup"), ctx)["setup_modeling"](False))
-    assert result["mutation_state"] == "not_started" and result["error_code"] == "unsupported_modeling_setup"
-    assert len(ctx.requests) == 1
-    assert modeling_setup.check_bridge(ctx._send_and_receive) is None
-
-
-def test_differences_and_item_errors_remain_actionable():
-    details = {"applied": False,
-               "differences": [{"kind": "layer", "name": "M::floor", "property": "color", "current": [1, 2, 3], "expected": [128]*3}],
-               "errors": [{"kind": "material", "name": "Oak", "message": "conflicting material_id"}]}
-    ctx = context({"status": "success", "result": details})
-    result = json.loads(register(FastMCP("incomplete-setup"), ctx)["setup_modeling"](False))
-    assert result == {"status": "incomplete", **details}
-
-
-@pytest.mark.parametrize("reply", [
-    TimeoutError("disconnected"), {"status": "success", "result_error": "serialization failed"},
-    {"status": "success", "result": {"applied": True, "differences": [{}], "errors": []}},
-    {"status": "success", "result": {"applied": False}},
-])
-def test_unknown_mutation_never_retried(reply):
-    ctx = context(reply)
-    result = json.loads(register(FastMCP("unknown-setup"), ctx)["setup_modeling"](False))
-    assert result["status"] == "error" and result["mutation_state"] == "unknown"
-    assert len([r for r in ctx.requests if r["type"] == "execute"]) == 1
 
 
 def test_material_script_execution_does_not_claim_assignment_after_result_error():
@@ -127,8 +85,57 @@ def test_layer_settings_use_material_category_and_are_sent_only_for_render_assig
     assert "layer_settings" not in modeling_setup.material_script(material, [], False, True)
 
 
+def test_bundled_layer_colors_reach_the_public_assignment():
+    guid = "00000000-0000-0000-0000-000000000001"
+    native = {"applied_guids": [guid], "changed_guids": [guid], "layer_action": "created",
+              "layer_changed_guids": [guid], "render_material_applied": True}
+    ctx = context({"status": "success", "result": native})
+    ctx.material_library = MaterialLibrary(PROFILE)
+    assign = register(FastMCP("bundled-materials"), ctx)["assign_material"]
+    materials = json.loads((PROFILE / "manifest.json").read_text(encoding="utf-8"))["materials"]
+    assert materials and len(materials) == len(ctx.material_library.materials)
+    for material in materials:
+        colors = {"color": material["base_color"], "plot_color": material["base_color"]}
+        assert material["layer_settings"] == colors
+        path = f"M::{material['category']}::{material['material_id']}"
+        native.update(material_id=material["material_id"], layer_path=path)
+        assert json.loads(assign([guid], material["material_id"]))["status"] == "success"
+        context_request, execute_request = ctx.requests
+        assert [context_request["type"], execute_request["type"]] == ["get_rhino_context", "execute"]
+        argument = execute_request["script"].split("ModelingMaterials.Apply(doc, ", 1)[1]
+        encoded, _ = json.JSONDecoder().raw_decode(argument)
+        payload = json.loads(encoded)
+        assert payload["layer_settings"] == {"path": path, **colors}
+        ctx.requests.clear()
+
+
+def test_existing_default_installation_uses_only_unchanged_bundled_records(tmp_path, monkeypatch):
+    from almond_mcp import paths
+
+    monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path)
+    current = json.loads((PROFILE / "manifest.json").read_text(encoding="utf-8"))["materials"]
+    original, edited, styled = current[:3]
+    records = [{k: v for k, v in record.items() if k != "layer_settings"} for record in current[:3]]
+    records[1]["base_color"] = [1, 2, 3]
+    records[2]["layer_settings"] = {}
+    content = json.dumps({"materials": records})
+    for folder in ("Materialfiles", "custom"):
+        directory = tmp_path / folder
+        directory.mkdir()
+        manifest = directory / "manifest.json"
+        manifest.write_text(content, encoding="utf-8")
+        library = MaterialLibrary(directory)
+        expected = original if folder == "Materialfiles" else records[0]
+        assert library.get(original["material_id"]) == expected
+        assert library.get(edited["material_id"]) == records[1]
+        assert library.get(styled["material_id"]) == records[2]
+        assert manifest.read_text(encoding="utf-8") == content
+    monkeypatch.setattr("almond_mcp.features.modeling.library.__file__",
+                        str(tmp_path / "unbundled/features/modeling/library.py"))
+    assert MaterialLibrary(tmp_path / "Materialfiles").get(original["material_id"]) == records[0]
+
+
 def test_material_layer_rules_only_apply_to_render_assignment(tmp_path):
-    from almond_mcp.features.modeling.library import MaterialLibrary
     from almond_mcp.features.modeling.modeling_policy import POLICY
 
     guid = "00000000-0000-0000-0000-000000000001"
@@ -173,35 +180,7 @@ def test_material_result_does_not_confirm_a_move_without_bridge_evidence():
     assert result["mutation_state"] == "unknown"
 
 
-async def check_required_strict_boolean_and_no_operation_argument():
-    ctx = context()
-    mcp = FastMCP("setup-schema")
-    register(mcp, ctx)
-    async with Client(mcp) as client:
-        tool = next(t for t in await client.list_tools() if t.name == "model_05-setup")
-        assert tool.input_schema["required"] == ["overwrite"]
-        assert set(tool.input_schema["properties"]) == {"overwrite"}
-        baseline = Path(__file__).resolve().parents[3] / "tests/integration/tool_schemas.json"
-        assert tool.input_schema == json.loads(baseline.read_text(encoding="utf-8"))["model_05-setup"]["inputSchema"]
-        for args in ({}, {"overwrite": None}, {"overwrite": "false"}, {"overwrite": 1}, {"overwrite": False, "operation": "layers"}):
-            result = await client.call_tool("model_05-setup", args, raise_on_error=False)
-            assert result.is_error
-        assert ctx.requests == []
-
-
-def test_required_strict_boolean_and_no_operation_argument():
-    asyncio.run(check_required_strict_boolean_and_no_operation_argument())
-
-
-def test_unavailable_library_rejected_before_mutation():
-    ctx = context()
-    ctx.material_library.materials.clear()
-    result = json.loads(register(FastMCP("empty-setup"), ctx)["setup_modeling"](False))
-    assert result["mutation_state"] == "not_started"
-    assert not ctx.requests
-
-
-def test_native_setup_preservation_and_failure_policy(tmp_path):
+def test_native_material_layer_selection_and_metadata(tmp_path):
     sdk = os.environ.get("ALMOND_TEST_DOTNET")
     assert sdk, "Run through run_tests.ps1 to select the .NET 8 SDK."
     project = Path(__file__).with_name("modeling_setup_host") / "ModelingSetupHost.csproj"

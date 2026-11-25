@@ -87,7 +87,7 @@ package는 70개, 문서 전용 runtime은 7개를 더한 공통 77개 도구를
 | Scene | `scene_02-create` tool, `scene_12-update` tool, `scene_04-get` tool, `scene_07-list` tool, `scene_06-get_objects` tool, `scene_01-add_objects` tool, `scene_10-remove_objects` tool |
 | Component | `scene_13-upsert_holon` tool, `scene_05-get_holon` tool, `scene_08-list_holons` tool, `scene_11-sync_holon` tool, `scene_09-remove_holon` tool, `intersect_02-resolve` tool, `scene_03-focus_holons` tool |
 | 설계 참고자료 | `context_01-get_policy` tool, `research_01-get_construction_guidance` tool, `research_02-get_typology_narrative` tool, `research_03-search_details` tool |
-| 모델링·재료 | `script_02-run_rhino` tool, `script_04-save_document` tool, `model_02-edit_planar_face` tool, `model_03-edit_planar_faces` tool, `model_05-setup` tool, `model_04-list_materials` tool, `model_01-assign_material` tool, `drawing_06-generate_plan_section` tool |
+| 모델링·재료 | `script_02-run_rhino` tool, `script_04-save_document` tool, `model_02-edit_planar_face` tool, `model_03-edit_planar_faces` tool, `model_04-list_materials` tool, `model_01-assign_material` tool, `drawing_06-generate_plan_section` tool |
 | Grasshopper | `grasshopper_03-list_library` tool, `grasshopper_01-get_logic` tool, `grasshopper_02-list_capsules` tool, `grasshopper_04-run_definition` tool |
 | 자산 | `asset_05-list` tool, `asset_11-search` tool, `asset_04-get` tool, `asset_07-prepare` tool, `asset_09-register` tool, `asset_08-refresh` tool, `asset_03-get_drawings` tool, `asset_02-generate_drawing_views` tool, `asset_01-audit_drawing` tool, `asset_06-place` tool, `asset_10-search_repository` tool |
 | 다이어그램 | `diagram_02-list` tool, `diagram_04-search` tool, `diagram_01-get` tool, `diagram_03-place` tool |
@@ -258,6 +258,7 @@ See [QUERY_OUTPUT.md](QUERY_OUTPUT.md) for summary defaults, explicit field grou
 
 - 내장 원본은 `profiles/eurocode.json`, `profiles/construction_system/manifest.json`, `profiles/material/manifest.json`이다. 재료·구조 시스템 로더는 각 폴더의 `manifest.json`을 읽는다. 설계 기준 검색은 `profiles` 바로 아래 JSON만 읽으므로 하위 manifest와 섞이지 않는다.
 - 명시적인 `RHINO_MCP_*_DIR`, `ALMOND_DESIGN_CODE_DIR` 및 일상 실행의 AppData 경로와 기존 파일은 보존한다. 개발 체크아웃과 오프라인 환경만 새 원본 위치를 사용한다. wheel은 `profiles`의 원본을 포함하고 최초 배치 시 기존 AppData `Materialfiles`, `Constructionfiles` 폴더로 누락된 파일만 복사한다.
+- 기본 AppData의 재질이 이전 번들 정의와 일치하고 `layer_settings`가 생략돼 있으면 읽을 때 번들의 색상 설정을 보충한다. 직접 편집한 재질과 별도 경로의 라이브러리는 해당 파일의 값을 사용한다.
 - `features/assets/asset_passport.py`와 `library_index.py`는 자산 전용 구현이다. 서버·CLI·생성기·배포 도구는 이 위치를 직접 가져온다.
 - 외부 연결기는 프로필 JSON도 source fingerprint에 포함한다. 프로필이나 설명을 바꾼 뒤에는 해당 클라이언트/세션을 정상 종료하고 새로 시작한다.
 

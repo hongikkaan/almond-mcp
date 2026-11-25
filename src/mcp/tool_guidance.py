@@ -24,7 +24,6 @@ SUCCESS_GUIDES = {
     "get_selection_references": "관련 Plan은 plan_05-get tool의 request에 target='plan'과 plan_id를 넣어 확인합니다.",
     "analyze_block_reculviely": "블록 편집에 들어간 뒤에는 get_objects로 현재 편집 대상 ID를 다시 조회합니다.",
     "assign_material": "get_objects로 적용된 재료를 확인합니다.",
-    "setup_modeling": "객체에 재료를 적용하려면 list_materials에서 선택한 재료를 assign_material에 사용합니다.",
     "edit_planar_face": "get_objects로 변경된 형상과 CRC를 다시 확인합니다.",
     "edit_planar_faces": "get_objects로 변경된 객체의 형상과 CRC를 다시 확인합니다.",
     "add_scene_objects": "get_scene_objects로 Scene의 현재 구성원을 확인합니다.",

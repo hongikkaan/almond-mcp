@@ -23,7 +23,19 @@
         "structure",
         "green"
       ],
-      "description": "Shop-painted structural steel, satin finish."
+      "description": "Shop-painted structural steel, satin finish.",
+      "layer_settings": {
+        "color": [
+          150,
+          170,
+          120
+        ],
+        "plot_color": [
+          150,
+          170,
+          120
+        ]
+      }
     },
     {
       "material_id": "steel-galvanized",
@@ -43,7 +55,19 @@
         "zinc",
         "spangle"
       ],
-      "description": "Hot-dip galvanized steel with mild spangle."
+      "description": "Hot-dip galvanized steel with mild spangle.",
+      "layer_settings": {
+        "color": [
+          168,
+          172,
+          175
+        ],
+        "plot_color": [
+          168,
+          172,
+          175
+        ]
+      }
     },
     {
       "material_id": "steel-mesh",
@@ -63,7 +87,19 @@
         "grating",
         "walkway"
       ],
-      "description": "Painted steel mesh plate; model opacity via masked material in UE."
+      "description": "Painted steel mesh plate; model opacity via masked material in UE.",
+      "layer_settings": {
+        "color": [
+          128,
+          148,
+          100
+        ],
+        "plot_color": [
+          128,
+          148,
+          100
+        ]
+      }
     },
     {
       "material_id": "aluminium-anodized",
@@ -83,7 +119,19 @@
         "blinds",
         "frame"
       ],
-      "description": "Clear-anodized aluminium, satin."
+      "description": "Clear-anodized aluminium, satin.",
+      "layer_settings": {
+        "color": [
+          200,
+          202,
+          205
+        ],
+        "plot_color": [
+          200,
+          202,
+          205
+        ]
+      }
     },
     {
       "material_id": "metal-corrugated",
@@ -103,7 +151,19 @@
         "cladding",
         "trapezoidal"
       ],
-      "description": "Painted trapezoidal-profile sheet metal."
+      "description": "Painted trapezoidal-profile sheet metal.",
+      "layer_settings": {
+        "color": [
+          105,
+          125,
+          82
+        ],
+        "plot_color": [
+          105,
+          125,
+          82
+        ]
+      }
     },
     {
       "material_id": "polycarbonate-clear",
@@ -123,7 +183,19 @@
         "facade",
         "screen"
       ],
-      "description": "Clear multiwall polycarbonate; translucent blend mode in UE."
+      "description": "Clear multiwall polycarbonate; translucent blend mode in UE.",
+      "layer_settings": {
+        "color": [
+          225,
+          232,
+          215
+        ],
+        "plot_color": [
+          225,
+          232,
+          215
+        ]
+      }
     },
     {
       "material_id": "polycarbonate-opal",
@@ -143,7 +215,19 @@
         "diffusing",
         "facade"
       ],
-      "description": "Opal diffusing polycarbonate sheet."
+      "description": "Opal diffusing polycarbonate sheet.",
+      "layer_settings": {
+        "color": [
+          235,
+          240,
+          228
+        ],
+        "plot_color": [
+          235,
+          240,
+          228
+        ]
+      }
     },
     {
       "material_id": "glass-clear",
@@ -162,7 +246,19 @@
         "glazing",
         "window"
       ],
-      "description": "Clear float glass."
+      "description": "Clear float glass.",
+      "layer_settings": {
+        "color": [
+          190,
+          212,
+          200
+        ],
+        "plot_color": [
+          190,
+          212,
+          200
+        ]
+      }
     },
     {
       "material_id": "glass-laminated",
@@ -182,7 +278,19 @@
         "safety",
         "sliding-door"
       ],
-      "description": "Laminated safety glass with slight green cast."
+      "description": "Laminated safety glass with slight green cast.",
+      "layer_settings": {
+        "color": [
+          185,
+          208,
+          198
+        ],
+        "plot_color": [
+          185,
+          208,
+          198
+        ]
+      }
     },
     {
       "material_id": "wood-oak",
@@ -201,7 +309,19 @@
         "flooring",
         "furniture"
       ],
-      "description": "Oiled oak, warm mid tone."
+      "description": "Oiled oak, warm mid tone.",
+      "layer_settings": {
+        "color": [
+          200,
+          170,
+          130
+        ],
+        "plot_color": [
+          200,
+          170,
+          130
+        ]
+      }
     },
     {
       "material_id": "wood-birch-ply",
@@ -221,7 +341,19 @@
         "furniture",
         "interior"
       ],
-      "description": "Sanded birch ply, clear sealed."
+      "description": "Sanded birch ply, clear sealed.",
+      "layer_settings": {
+        "color": [
+          214,
+          190,
+          152
+        ],
+        "plot_color": [
+          214,
+          190,
+          152
+        ]
+      }
     },
     {
       "material_id": "wood-walnut",
@@ -240,7 +372,19 @@
         "furniture",
         "dark"
       ],
-      "description": "Oiled walnut, dark."
+      "description": "Oiled walnut, dark.",
+      "layer_settings": {
+        "color": [
+          120,
+          80,
+          50
+        ],
+        "plot_color": [
+          120,
+          80,
+          50
+        ]
+      }
     },
     {
       "material_id": "concrete-smooth",
@@ -259,7 +403,19 @@
         "plinth",
         "slab"
       ],
-      "description": "Steel-formed smooth concrete."
+      "description": "Steel-formed smooth concrete.",
+      "layer_settings": {
+        "color": [
+          200,
+          200,
+          198
+        ],
+        "plot_color": [
+          200,
+          200,
+          198
+        ]
+      }
     },
     {
       "material_id": "concrete-boardformed",
@@ -278,7 +434,19 @@
         "wall",
         "texture"
       ],
-      "description": "Board-formed concrete with timber grain."
+      "description": "Board-formed concrete with timber grain.",
+      "layer_settings": {
+        "color": [
+          190,
+          188,
+          182
+        ],
+        "plot_color": [
+          190,
+          188,
+          182
+        ]
+      }
     },
     {
       "material_id": "plaster-white",
@@ -298,7 +466,19 @@
         "wall",
         "ceiling"
       ],
-      "description": "Matte white plaster."
+      "description": "Matte white plaster.",
+      "layer_settings": {
+        "color": [
+          240,
+          240,
+          238
+        ],
+        "plot_color": [
+          240,
+          240,
+          238
+        ]
+      }
     },
     {
       "material_id": "brick-red",
@@ -317,7 +497,19 @@
         "masonry",
         "wall"
       ],
-      "description": "Common red brick."
+      "description": "Common red brick.",
+      "layer_settings": {
+        "color": [
+          158,
+          84,
+          66
+        ],
+        "plot_color": [
+          158,
+          84,
+          66
+        ]
+      }
     },
     {
       "material_id": "rubber-black",
@@ -336,7 +528,19 @@
         "flooring",
         "gasket"
       ],
-      "description": "Matte black rubber."
+      "description": "Matte black rubber.",
+      "layer_settings": {
+        "color": [
+          35,
+          35,
+          35
+        ],
+        "plot_color": [
+          35,
+          35,
+          35
+        ]
+      }
     },
     {
       "material_id": "steel-painted-vermilion",
@@ -358,7 +562,19 @@
         "orange",
         "vermilion"
       ],
-      "description": "Shop-painted structural steel, vermilion accent panels."
+      "description": "Shop-painted structural steel, vermilion accent panels.",
+      "layer_settings": {
+        "color": [
+          214,
+          76,
+          22
+        ],
+        "plot_color": [
+          214,
+          76,
+          22
+        ]
+      }
     },
     {
       "material_id": "steel-painted-charcoal",
@@ -379,7 +595,19 @@
         "dark",
         "panel"
       ],
-      "description": "Dark gunmetal panel steel, satin finish."
+      "description": "Dark gunmetal panel steel, satin finish.",
+      "layer_settings": {
+        "color": [
+          46,
+          50,
+          54
+        ],
+        "plot_color": [
+          46,
+          50,
+          54
+        ]
+      }
     },
     {
       "material_id": "stone-granite-paving",
@@ -400,7 +628,19 @@
         "paving",
         "landscape"
       ],
-      "description": "Flame-finished granite paving slabs."
+      "description": "Flame-finished granite paving slabs.",
+      "layer_settings": {
+        "color": [
+          168,
+          168,
+          164
+        ],
+        "plot_color": [
+          168,
+          168,
+          164
+        ]
+      }
     },
     {
       "material_id": "gravel-raked",
@@ -420,7 +660,19 @@
         "karesansui",
         "landscape"
       ],
-      "description": "Fine raked gravel field, karesansui garden."
+      "description": "Fine raked gravel field, karesansui garden.",
+      "layer_settings": {
+        "color": [
+          150,
+          144,
+          132
+        ],
+        "plot_color": [
+          150,
+          144,
+          132
+        ]
+      }
     },
     {
       "material_id": "water-still",
@@ -440,7 +692,19 @@
         "pond",
         "landscape"
       ],
-      "description": "Still dark pond water, near-mirror surface."
+      "description": "Still dark pond water, near-mirror surface.",
+      "layer_settings": {
+        "color": [
+          18,
+          28,
+          36
+        ],
+        "plot_color": [
+          18,
+          28,
+          36
+        ]
+      }
     },
     {
       "material_id": "foliage-pine",
@@ -461,7 +725,19 @@
         "landscape",
         "tree"
       ],
-      "description": "Clipped pine foliage, niwaki garden trees."
+      "description": "Clipped pine foliage, niwaki garden trees.",
+      "layer_settings": {
+        "color": [
+          52,
+          82,
+          48
+        ],
+        "plot_color": [
+          52,
+          82,
+          48
+        ]
+      }
     },
     {
       "material_id": "brass-polished",
@@ -482,7 +758,19 @@
         "trim",
         "ornament"
       ],
-      "description": "Polished brass trim, warm gold tone."
+      "description": "Polished brass trim, warm gold tone.",
+      "layer_settings": {
+        "color": [
+          212,
+          168,
+          90
+        ],
+        "plot_color": [
+          212,
+          168,
+          90
+        ]
+      }
     },
     {
       "material_id": "ceramic-teal",
@@ -503,7 +791,19 @@
         "roof",
         "teal"
       ],
-      "description": "Glazed ceramic roof tile, deep teal."
+      "description": "Glazed ceramic roof tile, deep teal.",
+      "layer_settings": {
+        "color": [
+          42,
+          108,
+          118
+        ],
+        "plot_color": [
+          42,
+          108,
+          118
+        ]
+      }
     },
     {
       "material_id": "grass-meadow",
@@ -523,7 +823,19 @@
         "meadow",
         "landscape"
       ],
-      "description": "Bright meadow grass ground cover."
+      "description": "Bright meadow grass ground cover.",
+      "layer_settings": {
+        "color": [
+          116,
+          166,
+          96
+        ],
+        "plot_color": [
+          116,
+          166,
+          96
+        ]
+      }
     },
     {
       "material_id": "fabric-linen",
@@ -544,7 +856,19 @@
         "natural",
         "upholstery"
       ],
-      "description": "Plain natural linen material study; no woven texture or product certification."
+      "description": "Plain natural linen material study; no woven texture or product certification.",
+      "layer_settings": {
+        "color": [
+          190,
+          178,
+          153
+        ],
+        "plot_color": [
+          190,
+          178,
+          153
+        ]
+      }
     }
   ]
 }

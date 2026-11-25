@@ -2,8 +2,8 @@
 
 beyond와 CoS의 `tools/list`에서 읽은 설명 및 입출력 스키마다. 두 경로의 값이 같으면 한 번만 표시한다.
 
-- CoS 선언 SHA-256: `83a1ec14bc9d2037be9affb63a9e23e122854f675498d03edbf5e5c98e8322da`
-- beyond 선언 SHA-256: `5c7f974d03415a06525f781c9974ca3f41937e1089c2685f0cfc39789c6ece0b`
+- CoS 선언 SHA-256: `f3adab8ed3ec6c745d73a91795fa8be890f12860b81e96665a63b5faa566ea02`
+- beyond 선언 SHA-256: `9d2142a5d720468d9ff48b9295635ca5ed6252198bee5019d13ab7945e7c050b`
 
 ### 1. analysis_01-list_design_codes
 
@@ -12509,189 +12509,7 @@ success는 전체 처리, partial은 일부 처리. executed는 적용한 객체
 </details>
 
 
-### 54. model_05-setup
-
-**CoS · beyond**
-
-```txt
-연결된 Rhino 문서에 표준 재료를 등록하고 M 아래 분류·시스템·부재 역할별 레이어와 색·재료를 설정.
-
-overwrite=false는 누락 항목만 생성하고 기존 속성의 차이를 보고. true는 누락 항목을 생성하고 기존 항목의 사전 정의 속성도 갱신. applied=true는 차이와 오류가 없는 상태. incomplete여도 일부 항목이 이미 생성·변경됐을 수 있다.
-
-객체별 재료는 model_04-list_materials tool로 찾고 model_01-assign_material tool로 지정.
-```
-
-<details><summary>CoS 입력 스키마</summary>
-
-```json
-{
-  "additionalProperties": false,
-  "properties": {
-    "overwrite": {
-      "type": "boolean"
-    }
-  },
-  "required": [
-    "overwrite"
-  ],
-  "type": "object"
-}
-```
-
-</details>
-
-<details><summary>beyond 입력 스키마</summary>
-
-```json
-{
-  "additionalProperties": false,
-  "properties": {
-    "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
-      "pattern": "^[0-9a-f]{32}$",
-      "type": "string"
-    },
-    "overwrite": {
-      "type": "boolean"
-    }
-  },
-  "required": [
-    "overwrite",
-    "connection_id"
-  ],
-  "type": "object"
-}
-```
-
-</details>
-
-<details><summary>CoS · beyond 출력 스키마</summary>
-
-```json
-{
-  "properties": {
-    "result": {
-      "contentMediaType": "application/json",
-      "contentSchema": {
-        "properties": {
-          "applied": {
-            "type": "boolean"
-          },
-          "changes": {
-            "description": "재료 레시피별 RenderMaterial과 지정 레이어의 처리 내역. 레이어 재료 지정으로 추가된 Rhino Materials 테이블 항목은 집계에서 제외. 변경 내역을 지원하는 Bridge에서 제공.",
-            "items": {
-              "properties": {
-                "action": {
-                  "description": "created: RenderMaterial 수 증가 또는 레이어 생성. updated: 기존 값 변경. preserved: 기존 값 유지. unchanged: 작성 후 관측값 동일. unconfirmed: 작성 후 확인 실패. skipped: 작성 전 중단.",
-                  "enum": [
-                    "created",
-                    "updated",
-                    "preserved",
-                    "unchanged",
-                    "unconfirmed",
-                    "skipped"
-                  ],
-                  "type": "string"
-                },
-                "current_count": {
-                  "description": "처리 후 일치하는 RenderMaterial 수 또는 지정 레이어의 존재 여부(0/1)",
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                },
-                "kind": {
-                  "description": "material: RenderMaterial을 확인한 재료 레시피. layer: 지정 레이어.",
-                  "enum": [
-                    "material",
-                    "layer"
-                  ],
-                  "type": "string"
-                },
-                "name": {
-                  "description": "재료 레시피 이름 또는 레이어 전체 경로",
-                  "type": "string"
-                },
-                "previous_count": {
-                  "description": "처리 전 일치하는 RenderMaterial 수 또는 지정 레이어의 존재 여부(0/1)",
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            },
-            "type": "array"
-          },
-          "differences": {
-            "description": "설정 기준과 최종 관측값이 다른 항목",
-            "items": {
-              "properties": {
-                "current": {},
-                "expected": {},
-                "kind": {
-                  "type": "string"
-                },
-                "name": {
-                  "description": "재료 이름 또는 레이어 경로",
-                  "type": "string"
-                },
-                "property": {
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            },
-            "type": "array"
-          },
-          "error_code": {
-            "type": "string"
-          },
-          "errors": {
-            "items": {
-              "properties": {
-                "kind": {
-                  "type": "string"
-                },
-                "message": {
-                  "type": "string"
-                },
-                "name": {
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            },
-            "type": "array"
-          },
-          "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "x-fastmcp-wrap-result": true
-}
-```
-
-</details>
-
-
-### 55. plan_02-create
+### 54. plan_02-create
 
 **CoS · beyond**
 
@@ -13204,7 +13022,7 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
 </details>
 
 
-### 56. plan_03-execute_looping
+### 55. plan_03-execute_looping
 
 **CoS · beyond**
 
@@ -13487,7 +13305,7 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
 </details>
 
 
-### 57. plan_05-get
+### 56. plan_05-get
 
 **CoS · beyond**
 
@@ -14010,7 +13828,7 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
 </details>
 
 
-### 58. plan_07-list_revisions
+### 57. plan_07-list_revisions
 
 **CoS · beyond**
 
@@ -14218,7 +14036,7 @@ Plan 리비전 목록을 최신 회차·리비전 순으로 조회. Step 필터�
 </details>
 
 
-### 59. plan_08-list
+### 58. plan_08-list
 
 **CoS · beyond**
 
@@ -14668,7 +14486,7 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
 </details>
 
 
-### 60. plan_09-rename_artifact_folder
+### 59. plan_09-rename_artifact_folder
 
 **CoS · beyond**
 
@@ -14769,7 +14587,7 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
 </details>
 
 
-### 61. plan_10-set_working
+### 60. plan_10-set_working
 
 **CoS · beyond**
 
@@ -14916,7 +14734,7 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
 </details>
 
 
-### 62. plan_12-update
+### 61. plan_12-update
 
 **CoS · beyond**
 
@@ -16072,7 +15890,7 @@ Plan 완료는 사용자 확인 후 지정.
 </details>
 
 
-### 63. research_01-get_construction_guidance
+### 62. research_01-get_construction_guidance
 
 **CoS · beyond**
 
@@ -16318,7 +16136,7 @@ Plan 완료는 사용자 확인 후 지정.
 </details>
 
 
-### 64. research_02-get_typology_narrative
+### 63. research_02-get_typology_narrative
 
 **CoS · beyond**
 
@@ -16511,7 +16329,7 @@ Plan 완료는 사용자 확인 후 지정.
 </details>
 
 
-### 65. research_03-search_details
+### 64. research_03-search_details
 
 **CoS · beyond**
 
@@ -16681,7 +16499,7 @@ Plan 완료는 사용자 확인 후 지정.
 </details>
 
 
-### 66. scene_01-add_objects
+### 65. scene_01-add_objects
 
 **CoS · beyond**
 
@@ -16809,7 +16627,7 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
 </details>
 
 
-### 67. scene_02-create
+### 66. scene_02-create
 
 **CoS · beyond**
 
@@ -16932,7 +16750,7 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
 </details>
 
 
-### 68. scene_03-focus_holons
+### 67. scene_03-focus_holons
 
 **CoS · beyond**
 
@@ -17251,7 +17069,7 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
 </details>
 
 
-### 69. scene_04-get
+### 68. scene_04-get
 
 **CoS · beyond**
 
@@ -17411,7 +17229,7 @@ Scene의 등록 정보와 저장된 Holon·객체 수 조회. 현재 Rhino 구�
 </details>
 
 
-### 70. scene_05-get_holon
+### 69. scene_05-get_holon
 
 **CoS · beyond**
 
@@ -17577,7 +17395,7 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
 </details>
 
 
-### 71. scene_06-get_objects
+### 70. scene_06-get_objects
 
 **CoS · beyond**
 
@@ -17760,7 +17578,7 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
 </details>
 
 
-### 72. scene_07-list
+### 71. scene_07-list
 
 **CoS · beyond**
 
@@ -17935,7 +17753,7 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
 </details>
 
 
-### 73. scene_08-list_holons
+### 72. scene_08-list_holons
 
 **CoS · beyond**
 
@@ -18091,7 +17909,7 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
 </details>
 
 
-### 74. scene_09-remove_holon
+### 73. scene_09-remove_holon
 
 **CoS · beyond**
 
@@ -18197,7 +18015,7 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
 </details>
 
 
-### 75. scene_10-remove_objects
+### 74. scene_10-remove_objects
 
 **CoS · beyond**
 
@@ -18325,7 +18143,7 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
 </details>
 
 
-### 76. scene_11-sync_holon
+### 75. scene_11-sync_holon
 
 **CoS · beyond**
 
@@ -18497,7 +18315,7 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
 </details>
 
 
-### 77. scene_12-update
+### 76. scene_12-update
 
 **CoS · beyond**
 
@@ -18625,7 +18443,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 </details>
 
 
-### 78. scene_13-upsert_holon
+### 77. scene_13-upsert_holon
 
 **CoS · beyond**
 
@@ -18854,7 +18672,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 </details>
 
 
-### 79. script_01-run_project_python
+### 78. script_01-run_project_python
 
 **CoS · beyond**
 
@@ -19037,7 +18855,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 </details>
 
 
-### 80. script_02-run_rhino
+### 79. script_02-run_rhino
 
 **CoS · beyond**
 
@@ -19235,7 +19053,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 </details>
 
 
-### 81. script_03-get_execution
+### 80. script_03-get_execution
 
 **CoS · beyond**
 
@@ -19463,7 +19281,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 </details>
 
 
-### 82. script_04-save_document
+### 81. script_04-save_document
 
 **CoS · beyond**
 

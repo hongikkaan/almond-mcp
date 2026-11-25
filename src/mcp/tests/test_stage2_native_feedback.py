@@ -10,12 +10,9 @@ import subprocess
 from xml.sax.saxutils import escape
 
 import pytest
-from fastmcp import FastMCP
 from jsonschema import validate
 
-from almond_mcp.features.modeling.tools import register as register_modeling
 from almond_mcp.output_contracts import public_output_schema
-from test_modeling_setup import context as modeling_context
 from test_view_capture import capture_tools, invoke
 
 
@@ -43,102 +40,6 @@ def build_host(directory, code, sources):
         assert completed.returncode == 0, completed.stdout + completed.stderr
         return json.loads(completed.stdout)
     return run
-
-
-@pytest.fixture(scope="module")
-def setup_host(tmp_path_factory):
-    return build_host(tmp_path_factory.mktemp("setup_feedback"), r'''
-using System;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using RhinoAlmondBridge;
-class Program {
-    static void Main(string[] args) {
-        string scenario = args[0]; int reads = 0;
-        var recipe = new JObject { ["name"]="Oak", ["base_color"]=new JArray(10,20,30),
-            ["metallic"]=0.0, ["roughness"]=0.5, ["opacity"]=1.0 };
-        var materials = new JArray();
-        if (scenario == "preserved" || scenario == "updated" || scenario == "unchanged") {
-            var existing = (JObject)recipe.DeepClone(); existing["type"]="pbr";
-            if (scenario != "unchanged") existing["roughness"]=0.2;
-            materials.Add(existing);
-        }
-        JObject layer = null;
-        var spec = new JObject { ["path"]="M::wood", ["color"]=new JArray(10,20,30), ["material"]=recipe.DeepClone() };
-        var result = ModelingSetup.Apply(new JArray(recipe), new JArray(spec), scenario == "updated" || scenario == "unchanged",
-            r => {
-                reads++;
-                if (scenario == "lookup_failed" || (scenario == "verification_failed" && reads == 2))
-                    throw new Exception("Material lookup unavailable");
-                return (JArray)materials.DeepClone();
-            },
-            r => {
-                var material = (JObject)r.DeepClone(); material["type"]="pbr"; materials.Clear(); materials.Add(material);
-                if (scenario == "write_failed") throw new Exception("Write acknowledgement unavailable");
-            },
-            s => { if (scenario == "layer_lookup_failed") throw new Exception("Layer lookup unavailable"); return layer; },
-            s => { if (scenario != "refused") layer = new JObject { ["color"]=s["color"].DeepClone(),
-                ["plot_color"]=s["color"].DeepClone(), ["material"]="Oak" }; });
-        Console.WriteLine(result.ToString(Formatting.None));
-    }
-}''', ["features/modeling/native/ModelingSetup.cs"])
-
-
-def test_failed_initial_observation_does_not_claim_zero_records(setup_host):
-    result = setup_host("lookup_failed")
-    assert result["applied"] is False
-    assert result["changes"] == [
-        {"kind": "material", "name": "Oak", "action": "skipped", "previous_count": None, "current_count": None},
-        {"kind": "layer", "name": "M::wood", "action": "skipped", "previous_count": None, "current_count": None},
-    ]
-
-
-@pytest.mark.parametrize("scenario", ["write_failed", "verification_failed"])
-def test_write_or_verification_failure_keeps_known_before_and_unknown_after(setup_host, scenario):
-    result = setup_host(scenario)
-    assert result["changes"][0] == {
-        "kind": "material", "name": "Oak", "action": "unconfirmed", "previous_count": 0, "current_count": None,
-    }
-    assert result["changes"][1] == {
-        "kind": "layer", "name": "M::wood", "action": "skipped", "previous_count": None, "current_count": None,
-    }
-
-
-def test_missing_layer_read_is_unknown_but_verified_refusal_is_zero(setup_host):
-    failed = setup_host("layer_lookup_failed")
-    assert failed["changes"][1]["previous_count"] is None
-    refused = setup_host("refused")
-    assert refused["applied"] is False
-    assert refused["changes"][1] == {
-        "kind": "layer", "name": "M::wood", "action": "unchanged", "previous_count": 0, "current_count": 0,
-    }
-
-
-def test_confirmed_creations_are_reported_independently_of_other_targets(setup_host):
-    result = setup_host("refused")
-    assert result["applied"] is False
-    assert result["changes"][0] == {
-        "kind": "material", "name": "Oak", "action": "created", "previous_count": 0, "current_count": 1,
-    }
-
-
-def test_incomplete_preserved_properties_do_not_hide_new_layer_creation(setup_host):
-    result = setup_host("preserved")
-    assert result["applied"] is False and result["errors"] == []
-    assert result["differences"] == [{"kind": "material", "name": "Oak", "property": "roughness", "current": 0.2, "expected": 0.5}]
-    assert result["changes"] == [
-        {"kind": "material", "name": "Oak", "action": "preserved", "previous_count": 1, "current_count": 1},
-        {"kind": "layer", "name": "M::wood", "action": "created", "previous_count": 0, "current_count": 1},
-    ]
-
-
-@pytest.mark.parametrize("scenario", ["updated", "unchanged"])
-def test_same_count_distinguishes_updated_and_unchanged_values(setup_host, scenario):
-    result = setup_host(scenario)
-    assert result["applied"] is True
-    assert result["changes"][0] == {
-        "kind": "material", "name": "Oak", "action": scenario, "previous_count": 1, "current_count": 1,
-    }
 
 
 @pytest.fixture(scope="module")
@@ -445,16 +346,6 @@ def test_capture_error_preserves_completed_focus_and_original_error(focus_host):
     assert result["mutation_applied"] is True
     assert result["view_change"]["zoom_selected"] is True
     assert result["view_change"]["restore_visibility_command"] == "Unisolate"
-
-
-@pytest.mark.parametrize("scenario", ["lookup_failed", "write_failed", "refused", "created", "preserved", "updated", "unchanged"])
-def test_native_setup_accounting_survives_the_public_tool_and_schema(setup_host, scenario):
-    native = setup_host(scenario)
-    ctx = modeling_context({"status": "success", "result": native})
-    result = json.loads(register_modeling(FastMCP("native-setup-feedback"), ctx)["setup_modeling"](False))
-    assert result["applied"] is native["applied"]
-    assert result["changes"] == native["changes"]
-    validate(result, public_output_schema("setup_modeling", wrapped=False))
 
 
 @pytest.mark.parametrize("scenario", ["bounds_fallback", "zoom_failed", "bounds_unavailable", "camera_unavailable",

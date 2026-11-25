@@ -53,7 +53,8 @@ def assert_information_placement(tools):
         assert "회차가 끝나면" not in loop["description"]
         assert "새 회차" in loop["inputSchema"]["properties"]["resume"]["description"]
     assert {"inspect_02-get_objects", "capture_03-current_view", "intersect_02-resolve",
-            "model_05-setup", "drawing_06-generate_plan_section", "script_02-run_rhino"} <= tools.keys()
+            "model_01-assign_material", "drawing_06-generate_plan_section", "script_02-run_rhino"} <= tools.keys()
+    assert "model_05-setup" not in tools
     context = tools["inspect_03-get_document_context"]["outputSchema"]["properties"]["result"]["contentSchema"]["properties"]
     assert "description" not in context["layer_tree"]
     for field in ("named_views", "layouts"):

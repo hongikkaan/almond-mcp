@@ -36,7 +36,6 @@ PUBLIC_TOOL_NAMES = {
     'edit_planar_face': 'model_02-edit_planar_face',
     'edit_planar_faces': 'model_03-edit_planar_faces',
     'list_materials': 'model_04-list_materials',
-    'setup_modeling': 'model_05-setup',
     'execute_project_python': 'script_01-run_project_python',
     'execute_rhino_script': 'script_02-run_rhino',
     'get_rhino_execution': 'script_03-get_execution',

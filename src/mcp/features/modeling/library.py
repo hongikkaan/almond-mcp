@@ -3,7 +3,25 @@ import json
 import sys
 from pathlib import Path
 
+from almond_mcp import paths
 from almond_mcp.features.modeling import modeling_policy
+
+
+def _installed_layer_defaults(directory: Path) -> dict:
+    """Read styles for unchanged copies of previously shipped AppData records."""
+    name = paths.LIBRARY_DIRS["RHINO_MCP_MATERIAL_DIR"]
+    default_dirs = {paths.user_data_dir() / name}
+    if sys.platform == "win32":
+        default_dirs.add(Path.home() / "AppData" / "Local" / paths.APP_NAME / name)
+    if directory.resolve() not in default_dirs:
+        return {}
+    bundled = Path(__file__).resolve().parents[2] / "profiles/material/manifest.json"
+    try:
+        records = json.loads(bundled.read_text(encoding="utf-8"))["materials"]
+        return {record["material_id"]: record for record in records}
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"Bundled material layer settings unavailable: {exc}", file=sys.stderr)
+        return {}
 
 
 class MaterialLibrary:
@@ -24,8 +42,13 @@ class MaterialLibrary:
         except (OSError, ValueError) as exc:
             print(f"Material manifest unreadable: {exc}", file=sys.stderr)
             return
+        defaults = _installed_layer_defaults(self.directory)
         for material in manifest.get("materials", []):
             try:
+                if isinstance(material, dict) and "layer_settings" not in material:
+                    bundled = defaults.get(material.get("material_id"))
+                    if bundled and material == {k: v for k, v in bundled.items() if k != "layer_settings"}:
+                        material = bundled
                 material = modeling_policy.validate_material(material)
             except (KeyError, TypeError, ValueError) as exc:
                 print(f"Skipped invalid material: {exc}", file=sys.stderr)

@@ -1,4 +1,4 @@
-"""Modeling policy, script execution, setup and material tools."""
+"""Modeling policy, script execution and material tools."""
 from almond_mcp.tool_response import error_payload, script_result
 from almond_mcp.query_output import query_output, validate_field_groups
 from almond_mcp.features.modeling.output import GROUPS, project
@@ -148,22 +148,6 @@ def register(mcp, context):
         except Exception as exc:
             return json.dumps({**error_payload(str(exc), error_code="save_result_unconfirmed"),
                                "saved": None, "requires_reconciliation": True})
-
-
-    @public_tool(mcp, wrapped=True)
-    def setup_modeling(overwrite: StrictBool) -> str:
-        """연결된 Rhino 문서에 표준 재료를 등록하고 M 아래 분류·시스템·부재 역할별 레이어와 색·재료를 설정.
-
-        overwrite=false는 누락 항목만 생성하고 기존 속성의 차이를 보고. true는 누락 항목을 생성하고 기존 항목의 사전 정의 속성도 갱신. applied=true는 차이와 오류가 없는 상태. incomplete여도 일부 항목이 이미 생성·변경됐을 수 있다.
-
-        객체별 재료는 model_04-list_materials tool로 찾고 model_01-assign_material tool로 지정.
-        """
-        try:
-            code = modeling_setup.setup_script(context.material_library, context.construction_library, overwrite)
-        except (KeyError, ValueError, IndexError, TypeError) as exc:
-            return json.dumps({"status": "error", "mutation_state": "not_started", "message": str(exc)})
-        result = modeling_setup.dispatch(code, context._send_and_receive, timeout=600.0, require_setup=True)
-        return json.dumps(modeling_setup.setup_result(result), ensure_ascii=False)
 
 
     @public_tool(mcp, wrapped=True)
@@ -347,7 +331,6 @@ def register(mcp, context):
         "edit_planar_face": edit_planar_face,
         "edit_planar_faces": edit_planar_faces,
         "save_rhino_document": save_rhino_document,
-        "setup_modeling": setup_modeling,
         "list_materials": list_materials,
         "assign_material": assign_material,
     }
