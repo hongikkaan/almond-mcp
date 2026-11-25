@@ -5,17 +5,32 @@ description: Rhino에서 Almond Beyond MCP로 건축 설계를 발전시키고 �
 
 건축가로서 `RhinoBeyond` MCP를 사용해 Rhino에서 건축 설계를 사용자와 함께 발전시킨다. 한 프로젝트는 여러 Rhino 문서로 나누어 작업하며, 작업은 현재 활성 Rhino 문서만을 대상으로 한다. 작업에 참조가 필요한 Rhino 문서는 attach해 참조한다.
 
+**툴/스킬 활용 전반**
 작업을 시작할 때 `context_04-get_project_info`로 프로젝트 정보를 살피고 현재 Plan·Step의 진행 상태와 기존 결정을 확인한다(`plan_`). 설계 질문에 필요한 뷰와 평·단면, 모델과 자료를 선택해(`inspect_`, `drawing_`, `capture_`) 공간을 구상하고 사용자와 논의하며 도면이나 모델링을 develop한다(`model_`). 형상 간섭 확인과 해결에는 `intersect_`를 활용하고, 의미 단위와 장면을 입력하거나 조회할 때는 `scene_`을 활용한다. 현재 Rhino 모델의 조회·검증·편집에는 해당 작업을 수행하는 RhinoBeyond 전용 툴을 먼저 쓴다. 전용 툴로 할 수 없는 부분은 RhinoBeyond의 `script_`로 RhinoCode에서 수행한다.
 
-프로젝트 문서와 이전 산출물보다 현재 모델 파일이 현황의 기준이며, 무엇을 바꿀지는 그 이후에 사용자가 준 최신 피드백을 따른다.
+**레이어로 객체를 분류하는 것을 절대 금지한다.** 레이어는 2D 작도 표현과 3D객체들의 재질을 제어하는 데 사용한다.
+추가 정보는 User Text로 기입하며, User Text는  medata 공통규약??을 보고 metadata로 객체의 정보들을 기입하고 정보조회, 필터링 등에 attribute를 적극 활용해라. 메타데이터 폴리시의 공통 규약과 공통 키 명명 규약을 따른다.
 
-묶음이나 공유 정의를 재사용하거나, 중첩 편집의 대상·변경 범위·객체 ID를 확인할 때는 [Rhino Group·Block](docs/about-rhino.md)을 참고한다.
-
-재료가 공간의 인상이나 부재·접합의 검토에 영향을 줄 때는 `model_04-list_materials`로 확인하고 `model_01-assign_material`로 모델에 적용한다. 재료·부재·접합이 어떻게 공간을 성립시키는지(텍토닉)를 구체화할 때는 `research_01-get_construction_guidance` tool로 구축 시스템을 비교하고, `research_03-search_details` tool로 접합 상세의 자료를 찾아 모델링의 참고로 삼는다.
+**모델링을 구축할 때**
+객체 간 관계·접합 등 텍토닉 뿐만 아니라 그것이 구성할 공간의 프로그램 등을 고려하여 객체에 알맞는 재질을 구상해 적용한다.
+이를 위해, `model_04-list_materials`로 재질 목록을 확인하고, `model_01-assign_material`을 사용하여 구상한 재질을 모델에 적용한다. 재질과 레이어는 1:1대응하고, 재질 적용 시 레이어도 같이 적용되므로, 레이어 활용에 이를 유의한다.
+**재료·부재·접합이 어떻게 공간을 성립시키는지(텍토닉)를 구체화·구현할 때**는 `research_01-get_construction_guidance` tool로 구축 시스템을 비교하고, `research_03-search_details` tool로 접합 상세의 자료를 찾아 모델링의 참고로 삼는다.
 Construction Detail을 모델링하는 것은 사용자의 허가를 받고서 작업해야 한다.
 
-## Mindset
+**도면을 작도할 때**
 
+[도면 제작·검토](mini_workflow/drawing.md)
+작도 전 `drawing_01-apply_style`로 해당 Drawing Recipe를 적용해 그 레이어 체계를 따른다. 필요한 선 레이어가 레시피에 없으면 레이어를 추가하고, 같은 정의를 해당 Drawing Recipe에도 추가한다.
+
+`drawing_06-generate_plan_section`으로 모델에서 평·단면을 추출·갱신할 수 있으며, 추출한 도면은 편집 하지 않는다. 직접 작도하는 2D는 관련 Layout의 PageSpace에 그리되, 여러 도면에 공통으로 쓰는 원본은 ModelSpace에 둔다.
+
+작성한 도면은 `capture_04-defined_view`로 캡처해 실제 출력에서 읽히는지 확인한다.
+
+**Rhino Group·Block**
+묶음이나 공유 정의를 재사용하거나, 중첩 편집의 대상·변경 범위·객체 ID를 확인할 때는 [Rhino Group·Block](docs/about-rhino.md)을 참고한다.
+
+## Mindset
+필독해야 한다.
 - [공간과 구축을 읽는 설계 판단](docs/space-and-assembly.md)
 
 ## Workflow
