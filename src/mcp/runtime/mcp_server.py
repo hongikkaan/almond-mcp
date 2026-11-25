@@ -86,19 +86,13 @@ def main(argv: list[str] | None = None, *, validate_binding=None, configure=None
 async def configure_project_context(mcp, args, binding, locations, *, sender=None, runtime=None):
     """Register tools that use the current connection's workspace."""
     from almond_mcp.features.context.project_info import query_project_info
-    from almond_mcp.features.context.project_file_catalog import save_project_file
+    from almond_mcp.tool_response import error_payload
 
     def verify_current_binding():
         current, _ = read_binding(args.session, args.token)
         if current != binding:
             raise RuntimeError('Connection changed. Exit Codex and reconnect with almond.')
         verify_process(current)
-
-    def project_file_store():
-        verify_current_binding()
-        if runtime is None or runtime.workspace is None:
-            raise RuntimeError("The project workspace is not connected.")
-        return runtime.workspace.store
 
     @public_tool(mcp, wrapped=False)
     def project_info(sections: list[str] | None = None, include_ids: StrictBool = False,
@@ -130,7 +124,14 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
             file_name: 폴더를 뺀 모델 파일명. 프로젝트 안에서 고유해야 한다.
             description: 생략하거나 null이면 기존 설명 유지. 빈 문자열로 삭제.
         """
-        return save_project_file(project_file_store, file_name, description)
+        try:
+            verify_current_binding()
+            if runtime is None or runtime.workspace is None:
+                raise RuntimeError("The project workspace is not connected.")
+            record = runtime.workspace.store.upsert_project_file(file_name, description)
+            return {"status": "success", **record}
+        except (ValueError, RuntimeError) as exc:
+            return error_payload(str(exc))
 
     @public_tool(mcp, wrapped=False, annotations={'readOnlyHint': True, 'destructiveHint': False})
     def get_rhino_execution(request_id: str = "", include_result: StrictBool = True,

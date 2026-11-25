@@ -235,7 +235,29 @@ def test_legacy_step_fields_remain_readable(tmp_path):
         db.execute("INSERT INTO generation_plan_steps VALUES ('p','s','completed','[]')")
     legacy = Database(path)
     assert legacy.domain_page('tasks')['groups'][0]['steps'][0]['status'] == 'completed'
+    assert legacy.domain_page('steps')['groups'][0]['status'] == 'completed'
     assert legacy.domain_detail('steps', 's', 'p')['fields']['output_refs_json'] == '[]'
+
+
+def test_step_page_resolves_duplicate_view_rows_in_definition_order(tmp_path):
+    path = tmp_path / 'compatibility.sqlite3'
+    with sqlite3.connect(path) as db:
+        db.executescript("""
+            CREATE TABLE generation_plans(plan_id TEXT, title TEXT, loop_no INTEGER);
+            INSERT INTO generation_plans VALUES ('p','Legacy',1);
+            CREATE VIEW generation_plan_steps AS
+                SELECT 'p' AS plan_id, 's' AS step_id, 1 AS position, 'First' AS name
+                UNION ALL SELECT 'p','s',2,'Second';
+            CREATE VIEW generation_loop_steps AS
+                SELECT 'p' AS plan_id, 1 AS loop_no, 's' AS step_id, 'running' AS status
+                UNION ALL SELECT 'p',1,'s','completed';
+        """)
+    legacy = Database(path)
+
+    for options in ({'search': 'Second'}, {'offset': 1}):
+        page = legacy.domain_page('steps', limit=1, **options)
+        assert not page['has_more']
+        assert [(step['name'], step['position'], step['status']) for step in page['groups']] == [('First', 1, 'running')]
 
 
 @pytest.mark.parametrize("partial_loop_table", [False, True])

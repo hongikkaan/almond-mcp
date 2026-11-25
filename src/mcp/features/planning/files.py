@@ -50,7 +50,21 @@ class ProjectFilesStore:
             names = file_name
         else:
             raise ValueError('file_name must be a filename string or an array of nonempty filenames.')
-        return list(dict.fromkeys(self._project_file_reference(connection, name) for name in names))
+
+        # Keep the first Windows name match as the shared cursor advances.
+        rows = self._project_file_rows(connection)
+        by_key = {}
+        references = []
+        for requested in names:
+            name = self._clean_file_name(requested)
+            key = ntpath.normcase(name)
+            if key not in by_key:
+                for row_key, row in rows:
+                    by_key.setdefault(row_key, row)
+                    if row_key == key:
+                        break
+            references.append(self._registered_file_name(name, by_key.get(key)))
+        return list(dict.fromkeys(references))
 
     @staticmethod
     def _write_phase_files(connection, phase_id, file_names):
@@ -72,9 +86,12 @@ class ProjectFilesStore:
             return None
         if file_name in {'.','..'} or any(c in file_name for c in ('/', chr(92), ':')):
             raise ValueError('file_name must contain only the filename; use project_file_id for an existing file.')
-        rows = connection.execute('SELECT file_id FROM project_files WHERE file_name=? COLLATE NOCASE ORDER BY file_id', (file_name,)).fetchall()
+        where = 'f.file_name=? COLLATE NOCASE'
         if model_path:
-            rows = [r for r in rows if not connection.execute('SELECT 1 FROM _project_file_locations WHERE file_id=?',(r[0],)).fetchone()]
+            # An unbound legacy record can acquire this model's normalized path.
+            where += ' AND NOT EXISTS (SELECT 1 FROM _project_file_locations l WHERE l.file_id=f.file_id)'
+        rows = connection.execute(f'SELECT f.file_id FROM project_files f WHERE {where} ORDER BY f.file_id',
+                                  (file_name,)).fetchall()
         if len(rows) > 1:
             raise ValueError('Several project files have this name; select a project_file_id.')
         file_id = rows[0][0] if rows else str(uuid.uuid4())
@@ -94,12 +111,21 @@ class ProjectFilesStore:
         return name
 
     @staticmethod
-    def _find_project_file(connection, name):
+    def _project_file_rows(connection):
         # SQLite NOCASE folds ASCII only; use the same Windows casing rule
         # that the migration uses, while storing one canonical display spelling.
+        for row in connection.execute('SELECT file_name,description,registered FROM project_files'):
+            yield ntpath.normcase(row['file_name']), row
+
+    def _find_project_file(self, connection, name):
         key = ntpath.normcase(name)
-        return next((row for row in connection.execute('SELECT file_name,description,registered FROM project_files')
-                     if ntpath.normcase(row['file_name']) == key), None)
+        return next((row for row_key, row in self._project_file_rows(connection) if row_key == key), None)
+
+    @staticmethod
+    def _registered_file_name(name, row):
+        if row is None or not row['registered']:
+            raise ValueError(f'Project file {name!r} is not registered. Register it before selecting it.')
+        return row['file_name']
 
     def _project_file_reference(self, connection, file_name='', *, model_path=''):
         if model_path:
@@ -111,9 +137,7 @@ class ProjectFilesStore:
                 return None
         row = self._find_project_file(connection, name)
         if not model_path:
-            if row is None or not row['registered']:
-                raise ValueError(f'Project file {name!r} is not registered. Register it before selecting it.')
-            return row['file_name']
+            return self._registered_file_name(name, row)
         if row is None:
             connection.execute('INSERT INTO project_files(file_name,registered) VALUES(?,0)', (name,))
         else:

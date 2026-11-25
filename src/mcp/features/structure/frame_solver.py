@@ -420,7 +420,8 @@ class _Assembly:
     """Everything one factorisation gives: stiffness, per-case loads and displacements, restraints."""
 
 
-def _assemble(frame: Frame) -> _Assembly:
+def prepare(frame: Frame) -> "_Assembly":
+    """Assemble and factorise once; pass the result to the analysis functions to reuse it."""
     nn, ne = len(frame.nodes), len(frame.elements)
     if nn == 0 or ne == 0:
         raise ValueError("The frame has no nodes or no elements.")
@@ -524,7 +525,7 @@ def _solve_linear(m: _Assembly, rhs: np.ndarray) -> np.ndarray:
 
 def load_vector(frame_or_assembly, combination: dict) -> np.ndarray:
     """Global load vector (nodal + equivalent member loads) of a combination."""
-    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else _assemble(frame_or_assembly)
+    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else prepare(frame_or_assembly)
     f = _factors(m, combination)
     return sum(f[c] * m.F[c] for c in m.cases)
 
@@ -577,7 +578,7 @@ def solve_combinations(frame: Frame, combinations: dict, stations: int = 11, pla
     """Solve every load case once (one factorisation) and return {name: FrameResult} for each
     combination {case: factor}; cases a combination does not name get factor 0. ``extra`` adds
     a global load vector to named combinations (e.g. sway imperfections)."""
-    m = _assemble(frame)
+    m = prepare(frame)
     out = {}
     for name, combo in combinations.items():
         f = _factors(m, combo)
@@ -636,7 +637,7 @@ def critical_load_factor(frame_or_assembly, combination: dict, extra: np.ndarray
     """Elastic critical load factor alpha_cr of a combination (EN 1993-1-1 5.2.1) and its buckling
     mode (global displacement vector, max translation 1): smallest alpha with det(K + alpha K_G) = 0,
     K_G from the first-order axial forces. inf when nothing is in compression."""
-    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else _assemble(frame_or_assembly)
+    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else prepare(frame_or_assembly)
     f = _factors(m, combination)
     uc = sum(f[c] * m.u[c] for c in m.cases)
     if extra is not None:
@@ -661,7 +662,7 @@ def solve_second_order(frame_or_assembly, combination: dict, extra: np.ndarray |
                        plastic: bool = False, max_iter: int = 50, tol: float = 1e-6) -> "FrameResult":
     """Second-order (P-Delta) analysis: solve (K + K_G(N)) u = F, updating the axial forces N until
     they settle. Raises MechanismError if the frame loses stability under the combination."""
-    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else _assemble(frame_or_assembly)
+    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else prepare(frame_or_assembly)
     f = _factors(m, combination)
     Fc = sum(f[c] * m.F[c] for c in m.cases) + (extra if extra is not None else 0.0)
     uc = sum(f[c] * m.u[c] for c in m.cases) + (_solve_linear(m, extra) if extra is not None else 0.0)
@@ -805,15 +806,10 @@ def member_utilization(er: ElementResult, e: Element, gamma_m0: float = 1.0, gam
     er.util_detail = detail
 
 
-def prepare(frame: Frame) -> "_Assembly":
-    """Assemble and factorise once; pass the result to the analysis functions to reuse it."""
-    return _assemble(frame)
-
-
 def solve_linear(frame_or_assembly, combination: dict, extra: np.ndarray | None = None, stations: int = 11,
                  plastic: bool = False) -> "FrameResult":
     """First-order result of one combination, plus an optional extra global load vector."""
-    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else _assemble(frame_or_assembly)
+    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else prepare(frame_or_assembly)
     f = _factors(m, combination)
     uc = sum(f[c] * m.u[c] for c in m.cases)
     Fc = sum(f[c] * m.F[c] for c in m.cases)
@@ -825,12 +821,12 @@ def solve_linear(frame_or_assembly, combination: dict, extra: np.ndarray | None 
 
 def mode_result(frame_or_assembly, mode: np.ndarray, stations: int = 13) -> "FrameResult":
     """Element shapes of a displacement vector (e.g. a buckling mode) with no member loads."""
-    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else _assemble(frame_or_assembly)
+    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else prepare(frame_or_assembly)
     return _results(m, {}, mode, np.zeros(m.ndof), stations, False)
 
 
 def axial_forces(frame_or_assembly, combination: dict) -> np.ndarray:
     """First-order mean axial force per element (tension positive) for a combination."""
-    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else _assemble(frame_or_assembly)
+    m = frame_or_assembly if isinstance(frame_or_assembly, _Assembly) else prepare(frame_or_assembly)
     f = _factors(m, combination)
     return _axial_forces(m, f, sum(f[c] * m.u[c] for c in m.cases))

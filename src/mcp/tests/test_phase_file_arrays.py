@@ -63,3 +63,21 @@ def test_unknown_file_name_cannot_partially_replace_phase_links_or_register_itse
     assert store.list_project_files() == before
 
 
+def test_phase_files_use_first_windows_name_match_and_request_error_order(tmp_path):
+    store = AlmondStore(tmp_path / "files.sqlite3")
+    store.upsert_project_file("Site.3dm")
+    with store._connect() as db:
+        db.execute("INSERT INTO project_files(file_name,registered) VALUES ('Å.3dm',0),('å.3dm',1)")
+
+    # SQLite NOCASE permits both spellings, but the first Windows match decides.
+    with pytest.raises(ValueError, match=r"Project file 'å\.3dm' is not registered"):
+        store.create_phase("First match", file_name=["site.3dm", "å.3dm", "../bad.3dm"])
+    assert store.upsert_project_file("å.3dm")["file_name"] == "Å.3dm"
+
+    phase = store.create_phase("Files", file_name=[" å.3dm ", "site.3dm", "Å.3dm"])
+    assert phase["file_names"] == ["Å.3dm", "Site.3dm"]
+    with pytest.raises(ValueError, match="filename string or an array"):
+        store.edit_phase(phase["phase_id"], file_name=["missing.3dm", " "])
+    assert store.get_phase(phase["phase_id"]) == phase
+
+

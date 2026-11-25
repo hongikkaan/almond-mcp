@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from functools import partial
 
 sys.dont_write_bytecode = True
 from runtime import ENGINE, WORKER_STATE_TOOL, catalog_identity, check_contract, load_catalog, validate_worker_tools
@@ -49,15 +50,10 @@ def main() -> int:
     sys.path.insert(0, str(ENGINE))
     import mcp_server as entry
 
-    def validate(original_args, binding, locations):
-        validate_external_binding(entry, original_args, binding, locations)
-
-    async def configure(mcp, original_args, binding, locations, runtime):
-        await configure_external_worker(mcp, original_args, binding, locations, runtime, catalog)
-
     return entry.main(["--session", args.session, "--token", token, "--port", str(args.port),
                        "--expected-version", catalog["packages"]["almond-mcp"]],
-                      validate_binding=validate, configure=configure)
+                      validate_binding=partial(validate_external_binding, entry),
+                      configure=partial(configure_external_worker, catalog=catalog))
 
 
 if __name__ == "__main__":

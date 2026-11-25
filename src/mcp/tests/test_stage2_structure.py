@@ -14,6 +14,7 @@ import pytest
 from fastmcp import FastMCP
 from jsonschema import validate
 
+from almond_mcp.features.structure import design_codes
 from almond_mcp.features.structure.tools import register
 from almond_mcp.output_contracts import public_output_schema
 from almond_mcp.retrieval_store import AlmondStore
@@ -88,6 +89,48 @@ class StructureTools:
         value = json.loads(self.tools[name](**kwargs))
         validate(value, public_output_schema(name, wrapped=False))
         return value
+
+
+@pytest.mark.parametrize("tool", ["validate_structure", "visualize_structure"])
+def test_structure_uses_one_profile_per_call(tmp_path, monkeypatch, tool):
+    monkeypatch.setenv("ALMOND_DESIGN_CODE_DIR", str(tmp_path))
+    design = json.loads((design_codes.BUILT_IN / "eurocode.json").read_text(encoding="utf-8"))
+    design.update(id="fixture-code", name="Fixture design code")
+    profile_path = tmp_path / "custom.json"
+    profile_path.write_text(json.dumps(design), encoding="utf-8")
+    profile_reads = []
+    read_text = Path.read_text
+
+    def read_profile(path, *args, **kwargs):
+        if path == profile_path:
+            profile_reads.append(path)
+        return read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_profile)
+
+    class EditedProfileTools(StructureTools):
+        def send(self, payload, timeout=0):
+            # Simulate a user's profile edit while the model export is in progress.
+            if json.loads(payload)["type"] == "structure_model":
+                design["parameters"]["deflection_limit_ratio"]["value"] = 500
+                profile_path.write_text(json.dumps(design), encoding="utf-8")
+            return super().send(payload, timeout)
+
+    fixture = EditedProfileTools(tmp_path / "scene.sqlite3")
+    for ratio in (250, 500):
+        profile_reads.clear()
+        result = fixture.call(tool, guids=["beam"], engine="native", design_code="fixture-code", **OPTIONS)
+        assert result["status"] == "indicative"
+        assert result["design_code"]["values"]["deflection_limit_ratio"] == ratio
+        if tool == "validate_structure":
+            run = fixture.store.list_validation_runs(limit=1)[0]
+            assert run["analysis"]["inputs"]["deflection_limit_ratio"] == ratio
+            assert run["result"]["design_code"] == result["design_code"]
+            assert result["results"]["deflection_limit_mm"] == 2000 / ratio
+        else:
+            assert fixture.requests[-1]["type"] == "structure_draw"
+            assert fixture.requests[-1]["deflection_limit_ratio"] == ratio
+        assert len(profile_reads) == 1
 
 
 @pytest.mark.parametrize("engine", ["native", "auto"])

@@ -143,6 +143,12 @@ def execution_directory(call_root, journal: dict) -> Path:
 
 def find_request_manifest(call_root, request_id: str) -> Path | None:
     """Locate both supported layouts, checking the full ID after short-leaf lookup."""
+    match = _find_request_record(call_root, request_id)
+    return match[0] if match is not None else None
+
+
+def _find_request_record(call_root, request_id: str) -> tuple[Path, dict] | None:
+    """Keep the journal whose full ID and owned path matched the lookup."""
     if not isinstance(request_id, str) or not _UUID.fullmatch(request_id):
         raise ValueError("request_id must be a returned execution ID.")
     root = Path(call_root).absolute()
@@ -155,7 +161,7 @@ def find_request_manifest(call_root, request_id: str) -> Path | None:
         if execution_directory(root, journal) / "request.json" != manifest:
             raise ValueError("Retained execution path does not match its manifest.")
         if journal["request_id"] == request_id:
-            matches.append(manifest)
+            matches.append((manifest, journal))
     if len(matches) > 1:
         raise ValueError("Multiple retained executions have the same full request_id.")
     return matches[0] if matches else None
@@ -629,10 +635,10 @@ class RhinocodeExecution:
     def _load(self, request_id):
         if request_id:
             root = Path(self.locations["call_root"]).absolute()
-            manifest = find_request_manifest(root, request_id)
-            if manifest is None:
+            match = _find_request_record(root, request_id)
+            if match is None:
                 raise ValueError("No unique retained execution for this request_id.")
-            journal = read_json(manifest)
+            manifest, journal = match
         else:
             journal = read_json(self.journal_path)
             root = Path(self.locations["call_root"]).absolute()
@@ -644,10 +650,11 @@ class RhinocodeExecution:
         return journal, manifest.parent
 
     def has_execution(self, request_id):
-        manifest = find_request_manifest(self.locations["call_root"], request_id)
-        if manifest is None:
+        match = _find_request_record(self.locations["call_root"], request_id)
+        if match is None:
             return False
-        _matches_binding(read_json(manifest), self.binding)
+        _, journal = match
+        _matches_binding(journal, self.binding)
         return True
 
     def get_execution(self, request_id="", *, include_result=True, include_stdout=False,

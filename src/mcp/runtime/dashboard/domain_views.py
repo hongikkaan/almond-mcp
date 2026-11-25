@@ -528,16 +528,20 @@ class DomainViews:
 
     def step_groups(self, records):
         plans = self.indexed("generation_plans", "plan_id", [row["plan_id"] for row in records])
+        contexts = {}
         result = []
         for record in records:
-            plan = plans.get(record["plan_id"])
+            plan_id = record["plan_id"]
+            plan = plans.get(plan_id)
             if not plan:
                 continue
             # This selected definition can be beyond the first Task expansion page.
             step = self.step_records(plan, record["step_id"])[0]
+            if plan_id not in contexts:
+                contexts[plan_id] = self.task_context(plan)
             result.append({"id": step["step_id"], "parent": plan["plan_id"],
                            "task": self.ref(plan, "plan_id", "title", "name"),
-                           **self.task_context(plan),
+                           **contexts[plan_id],
                            "name": label(step, "name", "step_id"),
                            "step_type": step.get("step_type"), "kind": step.get("kind"), "position": step.get("position"),
                            "loop_no": plan.get("loop_no"),

@@ -91,7 +91,7 @@ def register(mcp, context):
         if err:
             return json.dumps(error_payload(err))
         try:
-            native_structure.combinations(design_basis, uls_combination, design_code)
+            code = native_structure.design_profile(design_basis, design_code, uls=uls_combination)
             if (connections or "rigid").lower() not in native_structure.CONNECTIONS:
                 raise ValueError("connections must be 'rigid' or 'simple'.")
             if (stability or "auto").lower() not in ("auto", "off"):
@@ -107,7 +107,7 @@ def register(mcp, context):
         if engine == "native" or (engine == "auto" and structure_type.lower() not in KARAMBA_ONLY_TYPES):
             result, note = _native_validation(guids, structure_type, load_kn, material, fixed_supports,
                                               self_weight, span_m, engine=engine, asset_spec=spec,
-                                              floor_spec=floor, design=(design_basis, uls_combination, design_code),
+                                              floor_spec=floor, design=(design_basis, uls_combination, code),
                                               connections=connections, stability=stability, detail=detail,
                                               fabrication=fabrication, history=native_inputs)
             if isinstance(result, str):          # hard error (explicit native request, or no bridge)
@@ -228,8 +228,8 @@ def register(mcp, context):
         return model, None
 
 
-    def _native_validation(guids, structure_type, load_kn, material, fixed_supports, self_weight, span_m, engine,
-                           asset_spec=None, floor_spec=None, design=("en1990", None, "eurocode"), connections="rigid",
+    def _native_validation(guids, structure_type, load_kn, material, fixed_supports, self_weight, span_m, engine, *,
+                           design, asset_spec=None, floor_spec=None, connections="rigid",
                            stability="auto", detail=False, fabrication="cold_formed", history=None):
         """Native frame check on the bridge's exported line model.
 
@@ -251,14 +251,14 @@ def register(mcp, context):
                     basis=table.basis, loads={p["asset_id"]: table.lookup(p["asset_id"],
                         (catalogue.get(p["asset_id"]) or {}).get("category", "")) for p in asset_spec["placements"]})
         try:
-            code = native_structure.design_profile(design[0], design[2])
+            design_basis, uls, code = design
             if history is not None:
                 history.update(design_profile=code.summary(),
-                               uls_expression=code.uls(design[1] or None)[0] if code.factored else "unfactored")
+                               uls_expression=code.uls(uls or None)[0] if code.factored else "unfactored")
             result = native_structure.validate(reply, structure_type.lower(), load_kn, material,
                                                fixed_supports=fixed_supports, self_weight=self_weight, span_m=span_m,
                                                asset_loads=asset_spec, floor_loads=floor_spec,
-                                               design_basis=design[0], uls=design[1], connections=connections,
+                                               design_basis=design_basis, uls=uls, connections=connections,
                                                stability=stability, design_code=code, detail=detail,
                                                fabrication=fabrication)
         except ValueError as e:
@@ -346,9 +346,11 @@ def register(mcp, context):
         engine = (engine or "auto").lower()
         if engine not in ("auto", "native", "karamba"):
             return json.dumps(error_payload("engine must be 'auto', 'native' or 'karamba'."))
+        code = design_code
         if deflection_limit_ratio is None:
             try:
-                deflection_limit_ratio = native_structure.design_profile(design_basis, design_code).deflection_limit_ratio
+                code = native_structure.design_profile(design_basis, code)
+                deflection_limit_ratio = code.deflection_limit_ratio
             except ValueError as e:
                 return json.dumps(error_payload(str(e)))
         request = {
@@ -384,7 +386,7 @@ def register(mcp, context):
             if err:
                 return json.dumps(error_payload(err))
             try:
-                native_structure.combinations(design_basis, uls_combination, design_code)
+                code = native_structure.design_profile(design_basis, code, uls=uls_combination)
                 if (connections or "rigid").lower() not in native_structure.CONNECTIONS:
                     raise ValueError("connections must be 'rigid' or 'simple'.")
                 if (stability or "auto").lower() not in ("auto", "off"):
@@ -427,7 +429,7 @@ def register(mcp, context):
             return out
         if not clear and engine != "karamba":
             reply, note = _native_view(request, guids, engine=engine, asset_spec=spec, floor_spec=floor,
-                                       design=(design_basis, uls_combination, design_code), connections=connections,
+                                       design=(design_basis, uls_combination, code), connections=connections,
                                        stability=stability, view=view, fabrication=fabrication)
             if reply is not None:
                 return reply
