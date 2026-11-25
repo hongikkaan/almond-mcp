@@ -41,7 +41,9 @@ verify는 준비한 3DM을 다시 열어 최종 이미지와 측정값을 반환
 
 `asset_09-register` tool는 표준 단위의 3DM을 복사하고, File3dm에서 형상·중첩 변환을 읽어 mm 단위 triangle/bounds를 측정한다. AABB 입력은 받지 않는다. source 파일의 단위·좌표·원점은 바꾸지 않는다. 미지원 형상·불완전 추출·미확인 외부 block 의존성은 발행을 막는다. 측정값과 같은 source에서 plan/front/right DXF·SVG 및 dimensions.json을 작성한다. 2D는 mesh silhouette이며 내부 visible/hidden edge나 단면을 대체하지 않는다. 준비 job 없이 검토한 외부 3DM도 등록할 수 있으며 이 경로는 이미지 검토를 보증하지 않는다.
 
-발행은 OS lock으로 직렬화한다. 파일 검증 후 manifest를 atomic하게 갱신하고 이전 파일·manifest와 최초 발행 source bytes를 보존한다. 같은 ID를 명시적으로 교체할 때에도 기존 3DM 경로를 유지하여 linked source가 계속 같은 파일을 가리킨다. 교체 전후 source hash를 확인한다. manifest 발행 실패 시 자신의 source bytes가 그대로 남아 있을 때만 이전 bytes를 복구하며, 외부 수정이나 복구 미확인은 evidence를 남기고 `requires_reconciliation`을 반환한다. 같은 ID의 원본 교체는 그 source를 공유하는 linked 배치에 반영될 수 있다.
+준비 단계는 작업 폴더의 `.prepare.lock`을 사용한다. inspect는 새 작업의 실행 중에, normalize와 verify는 기존 작업의 단계를 처리하는 동안 이 잠금을 잡는다. status는 잠금 없이 기록을 읽는다. 등록과 갱신은 같은 라이브러리 루트의 `.register.lock`을 공유한다. 두 잠금은 독립적이다. [공통 파일 잠금 함수](_file_lock.py)는 지정한 파일이 이미 잠겨 있으면 즉시 실패하며, 보호 구간을 벗어날 때 예외가 발생한 경우에도 잠금을 해제한다.
+
+발행 시 파일 검증 후 manifest를 atomic하게 갱신하고 이전 파일·manifest와 최초 발행 source bytes를 보존한다. 같은 ID를 명시적으로 교체할 때에도 기존 3DM 경로를 유지하여 linked source가 계속 같은 파일을 가리킨다. 교체 전후 source hash를 확인한다. manifest 발행 실패 시 자신의 source bytes가 그대로 남아 있을 때만 이전 bytes를 복구하며, 외부 수정이나 복구 미확인은 evidence를 남기고 `requires_reconciliation`을 반환한다. 같은 ID의 원본 교체는 그 source를 공유하는 linked 배치에 반영될 수 있다.
 
 3DM 배치는 Linked block과 Active layer style을 사용한다. 일반 문서 block은 에셋으로 전환하지 않는다. 배치 metadata는 배치 당시 source snapshot이며, 현재 source와 일치하는지는 실제 파일·manifest hash로 확인한다. 원본 3DM을 저장한 뒤 `asset_08-refresh tool(asset_id)`를 호출하면 같은 source 경로에서 측정·hash·2D package를 새 revision으로 발행한다. 기존 2D와 source revision은 보존하고 source 변환이나 Rhino 문서 저장·linked instance 갱신은 하지 않는다. source와 manifest가 다르면 새 배치는 `needs_refresh`를 반환한다.
 

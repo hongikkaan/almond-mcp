@@ -83,7 +83,7 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 
 ## 데이터와 실행 안전
 
-기존 AppData 라이브러리와 명시적 `RHINO_MCP_*_DIR`을 보존한다. 저장소 `asset/`, wheel의 `almond_mcp/data/`, AppData의 이름은 서로 다른 배치다. Bridge와 Python의 라이브러리 경로를 일치시키고 원본 다운로드 URL·manifest 상대 경로·모델 바이트·해시를 임의로 바꾸지 않는다.
+기존 AppData 라이브러리와 명시적 `RHINO_MCP_*_DIR`을 보존한다. 저장소 `asset/`, wheel의 `almond_mcp/data/`, AppData의 이름은 서로 다른 배치다. Bridge와 Python의 라이브러리 경로를 일치시키고 원본 다운로드 URL·manifest 상대 경로·모델 바이트·해시를 임의로 바꾸지 않는다. 자산 준비·등록·갱신의 잠금 범위는 [자산 스펙](src/mcp/features/assets/SPEC.md)을 따른다.
 
 모델 폴더는 `.almond/scene.sqlite3`를 공유한다. Plan 산출물은 프로젝트 `.almond/produced/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 종료된 연결의 소유 임시자료와 `.sessions` 기록은 프로세스·잠금·native 완료로 회수하며 Plan·Step 완료 여부와 연결하지 않는다. 공유 잠금·역할 lease·A–J 슬롯·프로세스 identity·UI thread·native 완료 확인을 유지한다. 모델을 이동·이름 변경하기 전에 연결을 정상 종료한다.
 
