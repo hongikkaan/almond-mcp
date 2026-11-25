@@ -107,7 +107,7 @@ include = [
     "/src/mcp/features/assets/generation/render_generated_previews.py", "/src/mcp/release_validation/verify_release.py",
     "/README.md", "/AGENTS.md", "/SPEC.md", "/LICENSE", "/THIRD-PARTY-NOTICES.md",
     "/src/mcp/SPEC.md", "/src/mcp/QUERY_OUTPUT.md", "/src/mcp/pytest.ini",
-    "/src/cos/SPEC.md", "/src/rhp/SPEC.md",
+    "/src/beyond/SPEC.md", "/src/rhp/SPEC.md",
     "/src/engine/README.md",
     "/pyproject.toml", "/uv.lock", "/.gitattributes",
 ]
@@ -128,5 +128,5 @@ exclude = [
 [tool.pytest.ini_options]
 # Root pytest owns integration checks. Modules have their own test entry points.
 testpaths = ["tests"]
-pythonpath = ["src/mcp", "src/mcp/runtime", "src/cos", "src/mcp/tests"]
+pythonpath = ["src/mcp", "src/mcp/runtime", "src/beyond", "src/mcp/tests"]
 markers = ["archive_host: requires the standalone ArchiveHost fixture prepared by tests/run_tests.ps1"]

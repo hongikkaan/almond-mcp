@@ -37,7 +37,7 @@ internal sealed class RhinoHost : IDisposable
         using var current = Process.GetCurrentProcess();
         startTicks = current.StartTime.ToUniversalTime().Ticks.ToString();
         pipeName = "AlmondRhino-" + pid + "-" + hostId;
-        var discovery = Path.GetFullPath(Path.Combine(root, "..", "..", "cos", "data", "hosts"));
+        var discovery = Path.GetFullPath(Path.Combine(root, "..", "..", "beyond", "data", "hosts"));
         Directory.CreateDirectory(discovery);
         discoveryPath = Path.Combine(discovery, hostId + ".json");
         control = new ControlPipe(pipeName, accessToken, Dispatch, OwnerDisconnected);
@@ -130,7 +130,7 @@ internal sealed class RhinoHost : IDisposable
     string State => binding == null ? "available" : busy ? "unconfirmed_or_running" : invalid ? "cleanup_pending" : "connected";
 
     internal string StatusText() => binding == null
-        ? "Almond 연결 준비됨. Codex 또는 CoS에서 connect_01-list_up tool → connect_02-session tool로 저장된 현재 문서를 선택하세요."
+        ? "Almond 연결 준비됨. Codex의 beyond에서 connect_01-list_up tool → connect_02-session tool로 저장된 현재 문서를 선택하세요."
         : "Almond " + binding["label"] + " · " + Path.GetFileName((string)binding["model_path"]!) +
           (busy ? " · 요청 처리 중 또는 결과 확인 필요" : invalid ? " · 연결 정리 대기" : " · 연결됨");
 
@@ -266,7 +266,7 @@ internal sealed class RhinoHost : IDisposable
         if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ALMOND_SESSION_FOLDER")) ||
             !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ALMOND_SESSION_TOKEN")) ||
             Environment.GetCommandLineArgs().Any(a => a.Contains(oldStart, StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException("기존 Almond 실행기로 연 Rhino입니다. COS는 일반적으로 실행한 Rhino에서 사용하세요.");
+            throw new InvalidOperationException("기존 Almond 실행기로 연 Rhino입니다. beyond는 일반적으로 실행한 Rhino에서 사용하세요.");
         var doc = RhinoDoc.ActiveDoc;
         var model = Text(request, "model_path");
         var serial = Text(request, "document_serial");
@@ -309,7 +309,7 @@ internal sealed class RhinoHost : IDisposable
             readyPath = sessionPaths.ReadyPath;
             activePath = Path.Combine(commonData, selected, "active.json");
             binding = NativeBinding.Create(sessionPaths, selected, port, doc.RuntimeSerialNumber,
-                pid, startTicks, engine, doc.ModelUnitSystem.ToString(), "cos");
+                pid, startTicks, engine, doc.ModelUnitSystem.ToString(), "beyond");
             binding["call_root"] = sessionPaths.CallRoot;
             invalid = false; busy = false; problem = "";
             Directory.CreateDirectory(Path.GetDirectoryName(activePath)!);

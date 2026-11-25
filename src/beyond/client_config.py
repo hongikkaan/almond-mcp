@@ -1,7 +1,7 @@
 """Configure the direct stdio entry for Codex or another local MCP client.
 
-Printing configuration is the default. --install-codex explicitly adds a new
-entry or migrates its exact previous entry, and preserves all other settings.
+Printing configuration is the default. --install-codex adds the direct entry
+or updates its generated timeout while preserving other settings.
 This module does not import Almond, start a host, or touch a Rhino document.
 """
 from __future__ import annotations
@@ -16,7 +16,6 @@ import tempfile
 import tomllib
 
 NAME = "rhino"
-LEGACY_NAME = "almond_cos"
 ENV_VARS = (
     "LOCALAPPDATA", "TEMP", "TMP", "TMPDIR",
     "RHINO_MCP_LIBRARY_DIR", "RHINO_MCP_DRAWING_ASSET_DIR",
@@ -30,7 +29,7 @@ ENV_VARS = (
 def settings(root: Path) -> dict:
     root = root.resolve()
     python = root / "src/engine/.venv/Scripts/python.exe"
-    host = root / "src/cos/codex_host.py"
+    host = root / "src/beyond/codex_host.py"
     for path in (python, host):
         if not path.is_file():
             raise ValueError(f"Missing runtime file: {path}. Set up this installation first.")
@@ -72,51 +71,29 @@ def install_codex(path: Path, config: dict) -> Path | None:
     parsed = tomllib.loads(text)
     servers = parsed.get("mcp_servers", {})
     existing = servers.get(NAME)
-    legacy = servers.get(LEGACY_NAME)
-    old_config = dict(config, args=[*config["args"][:-1],
-                                  str(Path(config["args"][-1]).with_name("cos_host.py"))])
-    supported = (config, old_config, dict(config, tool_timeout_sec=600), dict(old_config, tool_timeout_sec=600))
-    if legacy is not None:
-        if existing is not None or legacy not in supported:
-            raise ValueError(f"Conflicting or customized {LEGACY_NAME}/{NAME} settings in {path}; no changes made.")
-        # Only migrate our exact old generated configuration. Preserve the
-        # surrounding text/comments and validate its parsed meaning afterward.
-        updated = re.sub(r"(?m)^(\s*\[mcp_servers\.)almond_cos(?=(?:\.env)?\])",
-                         lambda match: match.group(1) + NAME, text)
-        expected_servers = dict(servers)
-        expected_servers.pop(LEGACY_NAME)
-        expected_servers[NAME] = config
-    else:
-        expected_servers = dict(servers, **{NAME: config})
+    if existing is None:
         updated = text.rstrip() + "\n\n" + codex_toml(config)
-    if existing is not None:
+    else:
+        direct_args = [*config["args"][:-1], str(Path(config["cwd"]) / "src/cos/codex_host.py")]
+        if isinstance(existing, dict) and existing.get("args") == direct_args:
+            config = dict(config, args=direct_args)
         if existing == config:
             return None
-        if existing not in supported:
+        if existing != dict(config, tool_timeout_sec=600):
             raise ValueError(f"{NAME} already exists with different settings in {path}; no changes made.")
-        updated = text
-    installed = legacy if legacy is not None else existing
-    if installed is not None and installed != config:
-        # Only generated one-line assignments are replaced. Reject any
-        # unfamiliar syntax rather than rewriting unrelated tables or comments.
-        header = re.search(r"(?m)^\[mcp_servers\.rhino\][ \t]*\r?$", updated)
+        header = re.search(r"(?m)^\[mcp_servers\.rhino\][ \t]*\r?$", text)
         if header is None:
             raise ValueError("Cannot locate the owned rhino table; no changes made.")
-        end = re.search(r"(?m)^\s*\[", updated[header.end():])
-        stop = header.end() + end.start() if end else len(updated)
-        body = updated[header.end():stop]
-        for key in ("args", "tool_timeout_sec"):
-            if installed[key] == config[key]:
-                continue
-            old = json.dumps(installed[key], ensure_ascii=False)
-            new = json.dumps(config[key], ensure_ascii=False)
-            pattern = rf"(?m)^({key}[ \t]*=[ \t]*)" + re.escape(old) + r"([ \t]*(?:#[^\r\n]*)?)(\r?)$"
-            body, count = re.subn(pattern, lambda match: match[1] + new + match[2] + match[3], body)
-            if count != 1:
-                raise ValueError(f"Cannot safely migrate the owned {key}; no changes made.")
-        updated = updated[:header.end()] + body + updated[stop:]
+        end = re.search(r"(?m)^\s*\[", text[header.end():])
+        stop = header.end() + end.start() if end else len(text)
+        body, count = re.subn(r"(?m)^(tool_timeout_sec[ \t]*=[ \t]*)600([ \t]*(?:#[^\r\n]*)?\r?)$",
+                              lambda match: f'{match[1]}{config["tool_timeout_sec"]}{match[2]}',
+                              text[header.end():stop])
+        if count != 1:
+            raise ValueError("Cannot safely update the owned timeout; no changes made.")
+        updated = text[:header.end()] + body + text[stop:]
     expected = dict(parsed)
-    expected["mcp_servers"] = expected_servers
+    expected["mcp_servers"] = dict(servers, **{NAME: config})
     if tomllib.loads(updated) != expected:
         raise ValueError("Cannot update the MCP table without changing existing settings.")
     if not path.parent.is_dir():
@@ -148,7 +125,7 @@ def main():
                         help="Daily installation checkout, never a development worktree.")
     parser.add_argument("--format", choices=("codex", "json"), default="codex")
     parser.add_argument("--install-codex", type=Path, metavar="CONFIG_TOML",
-                        help="Add rhino or migrate the exact legacy almond_cos entry (backup existing file).")
+                        help="Install the rhino entry or update its generated timeout.")
     args = parser.parse_args()
     if args.install_codex and args.format != "codex":
         parser.error("--install-codex requires --format codex")

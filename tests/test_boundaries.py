@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_mcp_never_imports_external_host_modules():
-    modules = {p.stem for p in (ROOT / "src/cos").glob("*.py")}
+    modules = {"beyond", *(p.stem for p in (ROOT / "src/beyond").glob("*.py"))}
     violations = []
     for path in (ROOT / "src/mcp").rglob("*.py"):
         if any(part in {"data", "__pycache__", ".venv"} for part in path.relative_to(ROOT / "src/mcp").parts):
@@ -23,7 +23,7 @@ def test_mcp_never_imports_external_host_modules():
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
             names = [x.name for x in node.names] if isinstance(node, ast.Import) else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
             violations.extend(f"{path}:{node.lineno}: {name}" for name in names
-                              if name.split(".")[0] in modules or name.startswith(("cos.", "src.cos")))
+                              if name.split(".")[0] in modules or name.split(".")[:2] == ["src", "beyond"])
     assert not violations
 
 

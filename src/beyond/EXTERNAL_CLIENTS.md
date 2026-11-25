@@ -1,8 +1,7 @@
 # Codex·외부 MCP 클라이언트 연결
 
-Codex 직접 연결은 `codex_host.py`, CoS 경유 연결은 기존 `cos_host.py`를 실행한다.
-두 진입점은 표준 **stdio MCP 서버**인 `external_host.py`를 공유한다. Codex 직접 연결에는 CoS 앱이나 터널이 필요하지 않다. 기존 CoS 명령·터널과 native 등록은 유지한다.
-RhinoTerminal을 포함한 세 경로의 구분은 [연결 경로 안내](../mcp/runtime/CONNECTION-SPEC.md)를 따른다.
+Codex 직접 연결은 `src/beyond/codex_host.py`에서 표준 **stdio MCP 서버**인 `external_host.py`를 실행한다.
+RhinoTerminal과 beyond의 연결 방식은 [연결 경로 안내](../mcp/runtime/CONNECTION-SPEC.md)를 따른다.
 
 MCP 등록과 클라이언트 시작 시에는 **도구 목록을 제공하는 최소 stdio 프로세스**만 실행된다.
 모델링 worker·Rhino·모델 DB 연결은 시작하지 않는다. 사용하는 대화에서 연결 또는 시작 도구를 명시적으로 호출하면 필요한 준비를 한다.
@@ -15,38 +14,36 @@ Python 환경과 RHP 최초 설치는 [저장소 설치 안내](../../AGENTS.md)
 ```powershell
 Set-Location C:\TOOL\Rhino\mcp\almond-mcp
 # 미리 볼 때: 설정을 출력할 뿐 파일이나 연결을 변경하지 않는다.
-& ./src/engine/.venv/Scripts/python.exe -B src/cos/client_config.py
-# 실제 Codex 등록: 기존 파일 백업 후 rhino 항목을 추가/이전한다.
-& ./src/engine/.venv/Scripts/python.exe -B src/cos/client_config.py --install-codex "$env:USERPROFILE/.codex/config.toml"
+& ./src/engine/.venv/Scripts/python.exe -B src/beyond/client_config.py
+# 실제 Codex 등록: rhino 항목을 추가하거나 기존 생성 기본값을 갱신한다.
+& ./src/engine/.venv/Scripts/python.exe -B src/beyond/client_config.py --install-codex "$env:USERPROFILE/.codex/config.toml"
 ```
 
 다른 `CODEX_HOME`을 쓰는 CLI라면 그 디렉터리의 `config.toml` 경로를 명시한다.
-이미 동일한 `rhino` 등록이 있으면 그대로 둔다. 이 도구가 이전에 생성한 `cos_host.py` 등록은 백업 후 `codex_host.py` 직접 진입점으로 이전한다. 이전 `almond_cos` 항목도 생성 설정과 정확히 같을 때만 `rhino`로 이름을 이전하여 두 host가 중복 시작되지 않게 한다.
-수정된 이전 설정이나 `rhino` 항목과 충돌하면 아무것도 변경하지 않고 중단한다.
+이미 직접 연결의 `rhino` 등록이 있으면 계속 사용할 수 있다. 이전 직접 진입점인 `src/cos/codex_host.py`는 `src/beyond/codex_host.py`로 전달한다.
+이전 설치가 생성한 `src/cos/cos-plugin.json`은 직접 연결에서 읽지 않는다. 일상 폴더 업데이트 후 이 파일이 남아 있으면 삭제할 수 있다.
 기존 모델·reasoning·다른 MCP·승인 설정은 유지한다. 실행 중인 클라이언트는 MCP를 다시 로드하거나 재시작한다. `codex mcp get rhino --json`으로 등록 경로를 확인할 수 있지만, 이 명령 자체는 MCP 연결 검증이 아니다.
 
-Codex 직접 연결의 MCP 서버 이름은 `beyond`, CoS 경유 연결은 `CoS`다.
-CoS 앱 등록용 `cos-plugin.json`의 표시 이름도 `CoS`다. 두 경로는 `AlmondRhino` 플러그인을 사용한다.
+Codex 직접 연결의 MCP 서버 이름은 `beyond`이며 Rhino 측 플러그인은 `AlmondRhino`다.
 Codex의 기존 등록 키 `rhino`와 클라이언트가 붙이는 namespace는 별도로 유지한다.
-공통 소개는 `external_host.py`의 서버 설명에서 수정하며, `{server_name}`을 각 경로의 이름으로 치환해 초기화 응답의 서버 설명과 첫 안내에 전달한다.
+`external_host.py`의 서버 소개가 초기화 응답의 서버 설명과 안내에 전달된다.
 
-설정 후 **실제로 사용할 Codex 대화에서 등록된 `rhino` MCP의 `connect_01-list_up` tool를 직접 호출**해 확인한다. 터미널에서 별도 MCP 클라이언트를 실행한 결과는 서버 검사일 뿐, 그 대화에 도구가 전달된 증거가 아니다. 도구를 상속하지 않는 위임 실행 환경은 일반 로컬 Codex 대화와 구분한다. 도구가 없을 때 CoS 터널 호출로 대신 성공 처리하지 않는다.
+설정 후 **실제로 사용할 Codex 대화에서 등록된 `rhino` MCP의 `connect_01-list_up` tool를 직접 호출**해 확인한다. 터미널에서 별도 MCP 클라이언트를 실행한 결과는 서버 검사일 뿐, 그 대화에 도구가 전달된 증거가 아니다. 도구를 상속하지 않는 위임 실행 환경은 일반 로컬 Codex 대화와 구분한다.
 
 다른 로컬 클라이언트는 다음 JSON의 `mcpServers.rhino`를 등록한다.
 도구 호출 제한은 클라이언트 설정에서 **600초**로 지정한다. JSON에는 클라이언트마다 다른 timeout 키를 넣지 않는다. 경로와 필요한 라이브러리 환경 변수만 출력한다.
 
 ```powershell
-& ./src/engine/.venv/Scripts/python.exe -B src/cos/client_config.py --format json
+& ./src/engine/.venv/Scripts/python.exe -B src/beyond/client_config.py --format json
 ```
 
-Codex용 생성 설정은 `[mcp_servers.rhino]`의 `tool_timeout_sec = 240`, 시작 제한 120초, Python/host의 절대 경로, UTF-8과 라이브러리 환경 변수를 포함한다. 실제 등록 대기는 `codex mcp get rhino --json`의 `tool_timeout_sec`로 확인한다. 기존 생성값 600초는 위의 명시적 설치 명령으로 이전할 수 있다. 사용자가 따로 지정한 값은 보존되므로 바꾸려면 해당 Codex 설정에서 직접 수정한 뒤 MCP를 다시 로드한다. CoS 앱의 호출 제한은 600초다.
+Codex용 생성 설정은 `[mcp_servers.rhino]`의 `tool_timeout_sec = 240`, 시작 제한 120초, Python/host의 절대 경로, UTF-8과 라이브러리 환경 변수를 포함한다. 실제 등록 대기는 `codex mcp get rhino --json`의 `tool_timeout_sec`로 확인한다. 이 스크립트가 생성한 이전 600초 등록은 명시적 설치 실행으로 240초로 갱신할 수 있다. 이 경우 기존 직접 진입점 경로를 유지한다. 직접 지정한 호출 제한을 바꾸려면 해당 Codex 설정에서 수정한 뒤 MCP를 다시 로드한다.
 `script_01-run_project_python` tool과 `script_02-run_rhino` tool은 외부 연결에서 첫 완료 대기를 최대 60초로 제한한다. 더 짧은 timeout_seconds는 그대로 사용한다. 실행이 계속되면 pending과 정확한 request_id를 받아 `script_03-get_execution` tool로 같은 ID를 조회한다. 실행 결과를 기다리는 동안 같은 코드를 재실행하지 않는다. 준비·응답 회수가 지연될 때도 현재 실행의 저장 근거가 확인되어야 pending을 반환하며, 근거가 없으면 결과 미확인 오류로 알린다.
 [Codex 공식 MCP 명령 안내](https://learn.chatgpt.com/docs/developer-commands#codex-mcp).
 
 도구 호출명은 `context_04-get_project_info`, `connect_03-start_session`, `inspect_03-get_document_context`처럼 `<category>_<NN>-<name>` 형식이다. 이전 이름의 별칭은 제공하지 않는다.
 클라이언트가 표시하는 `mcp__rhino__...` 같은 서버 namespace는 클라이언트가 추가한다.
 RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 않는 `rhino_session`을 사용한다.
-기존 CoS의 표시 이름·터널 namespace는 해당 앱에서 관리하며 이 도구명 변경과 구분한다.
 
 ## 매번 사용하기
 
@@ -54,12 +51,12 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 
 1. 일반 Codex 대화에서 "`C:\작업\모델.3dm`을 Almond의 새 세션으로 열어 줘"라고 요청한다.
 2. Codex가 `connect_03-start_session` tool에 절대 `model_path`와 새 `request_id`를 전달한다.
-   새 Rhino를 열고 `_almondconnect`를 자동 실행한 뒤 해당 프로세스에만 연결한다. CoS 앱이나 별도 Codex 창을 열 필요는 없다. 원본 모델을 저장하거나 기존 Rhino를 종료하지 않는다.
+   새 Rhino를 열고 `_almondconnect`를 자동 실행한 뒤 해당 프로세스에만 연결한다. 원본 모델을 저장하거나 기존 Rhino를 종료하지 않는다.
 3. 시작 결과의 `connection_id`를 이 대화에 보관한다. 프로젝트·문서 정보가 필요하면 `context_04-get_project_info` tool에 그 ID와 필요한 sections를 전달한다. project/document는 한 번의 live 확인을 공유하고, project에 파일 목록·문서 이름·경로·is_bound_document가 나온다. DB·선택 Plan의 산출물 경로는 locations에서 조회한다. 자료를 작성할 때는 `plan_10-set_working` tool으로 Plan의 `artifact_dir`를 선택한다.
 4. 작업 문서를 저장하고 Rhino까지 종료하려면 `connect_05-close_session` tool에 `connection_id`와 새 `request_id`를 전달한다. 저장 완료를 확인한 뒤 정상 종료한다. 연결만 해제하고 창을 유지하려면 `connect_04-disconnect` tool에 `connection_id`를 전달한다.
 
 새 Rhino는 디스크에 저장된 파일을 연다. 다른 Rhino 창의 저장되지 않은 변경을 복제하지 않는다.
-다른 Codex 대화나 CoS에서도 별도 Rhino 세션을 시작할 수 있다. 슬롯 A–J는 기존 Terminal· CoS 연결과 함께 사용하며 사용 가능한 자리가 있어야 연결된다.
+다른 Codex 대화에서도 별도 Rhino 세션을 시작할 수 있다. beyond와 Terminal은 슬롯 A–J를 공유한다.
 
 이미 열린 일반 Rhino에 연결하려면:
 
@@ -87,10 +84,10 @@ Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고 연결 가능�
 
 Codex 직접 연결에서는 `context_01-get_policy` tool, `connect_01-list_up` tool, `connect_02-session` tool, `connect_03-start_session` tool을 연결 ID 없이 호출한다. 나머지 도구는 매번 `connection_id`를 받는다. 생략하면 `connection_id가 지정되지 않았습니다` 오류로 요청이 중단된다. 연결 해제나 MCP 재시작 뒤 보관된 결과를 조회할 때는 `script_03-get_execution` tool 또는 `connect_05-close_session` tool에 원래의 `connection_id`와 `request_id`를 함께 전달한다.
 
-Codex 직접 연결기는 공통 도구 입력에 필요한 `connection_id`를 추가한다. CoS는 해당 adapter에서 선택한 연결을 사용하고, RhinoTerminal은 기존 문서 전용 세션을 사용한다. 외부 연결기는 연결 관리 도구를 추가한다. 카탈로그를 따로 갱신할 필요는 없다.
-Python 도구 변경 후 해당 Codex/CoS MCP를 정상 종료하고 새로 시작하면 현재 소스의 구현·목록·입력 schema를 읽는다. Terminal은 almond 세션을 정상 종료·재시작한다.
-이전 버전에서 시작한 실행의 보관 기록에는 `connection_id`가 없다. 아직 결과를 확인해야 하는 실행은 기존 호스트에서 조회한 뒤 업데이트한다.
-Rhino만 재시작해도 외부 Codex/CoS MCP 프로세스가 살아 있으면 그 메모리는 바뀌지 않는다.
+Codex 직접 연결기는 공통 도구 입력에 필요한 `connection_id`를 추가한다. RhinoTerminal은 시작할 때 바인딩한 문서 전용 세션을 사용한다. 외부 연결기는 연결 관리 도구를 추가한다. 카탈로그를 따로 갱신할 필요는 없다.
+Python 도구 변경 후 해당 beyond MCP를 정상 종료하고 새로 시작하면 현재 소스의 구현·목록·입력 schema를 읽는다. Terminal은 almond 세션을 정상 종료·재시작한다.
+기존 beyond 기록에 `connection_id`가 있으면 업데이트 뒤에도 원래의 두 ID로 결과를 조회할 수 있다. 연결 ID를 기록하기 전에 만들어진 실행은 업데이트 전에 기존 호스트에서 결과를 확인한다.
+Rhino만 재시작해도 외부 beyond MCP 프로세스가 살아 있으면 그 메모리는 바뀌지 않는다.
 이미 실행 중인 프로세스의 자동 갱신이나 restart 도구는 이번 범위에 포함하지 않는다.
 C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 종료·재시작해야 한다.
 
@@ -98,18 +95,16 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
 
 - 클라이언트의 Windows 실행 환경이 독립 프로세스를 허용하지 않으면 새 Rhino 시작을 모델을 열기 전에 거절한다. 이 경우 Rhino를 평소처럼 직접 열고 `almondconnect` → `connect_01-list_up` tool → `connect_02-session` tool로 연결한다. Terminal의 Off가 별도 Rhino를 닫지 않도록 실행 전에 확인하는 제한이며, 기존 Terminal의 자식 종료 규칙은 바꾸지 않는다.
 
-- 여러 CoS·Codex stdio adapter가 같은 설치를 사용할 수 있다. 각 Rhino는 한 연결의 소유권을 유지한다. Codex는 각 호출에 지정한 연결 ID로 문서를 찾는다.
+- 여러 beyond stdio adapter가 같은 설치를 사용할 수 있다. 각 Rhino는 한 연결의 소유권을 유지한다. Codex는 각 호출에 지정한 연결 ID로 문서를 찾는다.
   다른 클라이언트가 사용하는 Rhino는 `in_use`로 표시한다. 그 연결을 유지하면서 `connect_03-start_session` tool으로 별도 Rhino를 열 수 있다.
-- 업데이트 전에 시작한 singleton host가 살아 있으면 새 활성 연결은 차단한다. 기존 작업을 정상 마친 뒤 해당 CoS/Codex MCP를 재시작해 새 Python 소스를 로드한다. RHP 안내 문구는 일상 업데이트 후 새 Rhino에서 반영된다. 잠금 파일을 삭제하지 않는다.
+- 같은 데이터 위치를 사용하는 singleton host가 살아 있으면 새 활성 연결은 차단한다. 기존 작업을 정상 마친 뒤 해당 beyond MCP를 재시작해 새 Python 소스를 로드한다. RHP 안내 문구는 일상 업데이트 후 새 Rhino에서 반영된다. 잠금 파일을 삭제하지 않는다.
 - Rhino 시작 확인이 늦으면 그 창의 알림과 등록 상태를 확인한다. **같은 `request_id`**로 다시 호출하면 같은 프로세스를 재조회한다. 새 ID는 새 Rhino를 여는 별도 요청이다. attach 실패나 결과 불명 오류를 새 ID로 자동 반복하지 않는다. `connect_01-list_up` tool의 `starts`에서 현재 adapter가 시작한 요청·PID·상태를 볼 수 있다.
 - 새 Rhino의 시작 요청 기록은 현재 MCP adapter 수명에 한정된다. MCP 재시작 후 모델 작업을 계속하려면 `connect_01-list_up` tool로 남은 Rhino를 확인하고 연결한다. 이전 시작 요청을 자동 재실행하지 않는다.
 - 공유 DB 및 같은 연결의 요청 직렬화 잠금 대기는 최대 **10초**다. 대기 초과 호출은 작업을 실행하지 않으며, 기존 실행 중인 작업과 소유권을 유지한다. 실제 모델링 실행시간 제한과 연결 종료 시 native 완료 대기는 별도다. 대기 초과 뒤 수정을 자동 반복하지 않는다.
-- Windows 사용자 세션의 named pipe를 사용한다. 이 진입점은 stdio만 지원하며 원격 URL, SSE/HTTP 서버를 제공하지 않는다. 기존 CoS가 제공하는 터널 경로는 변경하지 않는다.
+- Windows 사용자 세션의 named pipe를 사용한다. 이 진입점은 stdio만 지원하며 원격 URL, SSE/HTTP 서버를 제공하지 않는다.
 - timeout은 rollback이 아니다. 결과 불명인 수정은 자동 반복하지 않는다.
 
-## AlmondRhino 이름 이전
+## 기존 설치 업데이트
 
-기존 AlmondCOS 플러그인은 같은 GUID를 유지한 AlmondRhino로 이름과 출력 위치를 이전했다.
-Rhino가 종료된 상태에서 `src/rhp/tools/install_runtime.ps1`을 실행하면 이전 등록을 백업하고 새 `src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp` 경로와 표시 이름을 등록한다.
-Python host/worker도 정상 종료 후 새로 시작해야 새 제어 pipe와 환경 변수 이름을 사용한다.
-등록 확인은 `-VerifyOnly`로 수행하며, 실제 Rhino 로드 확인과는 별개다.
+이전 외부 연결과 Rhino를 정상 종료하고 일상 폴더에서 `git pull --ff-only`를 실행한다. Rhino를 다시 시작하고 beyond 클라이언트를 다시 로드한 뒤 해당 문서에 연결한다. 기존 Codex 직접 연결 등록은 호환 진입점을 통해 계속 실행된다.
+Rhino 플러그인 등록이 구형 AlmondCOS 경로를 가리키면 [설치 안내의 재등록 절차](../../AGENTS.md#일상-실행과-최초-설치)를 따른다.

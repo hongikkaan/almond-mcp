@@ -22,7 +22,7 @@ def release(tmp_path):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(name.encode())
         files[relative] = verifier.digest(path)
-    return tmp_path, {"format": 1, "component": "cos", "sources": {}, "files": files}
+    return tmp_path, {"format": 1, "component": "beyond", "sources": {}, "files": files}
 
 
 def test_empty_output_inventory_is_rejected(release):
@@ -62,13 +62,13 @@ def test_recorded_optional_file_damage_is_detected(release, damage):
 def test_cli_rejects_empty_inventory(release, monkeypatch):
     root, manifest = release
     manifest["files"] = {}
-    destination = root / "src/cos/runtime-manifest.json"
+    destination = root / "src/beyond/runtime-manifest.json"
     destination.parent.mkdir(parents=True)
     destination.write_text(json.dumps(manifest), encoding="utf-8")
     monkeypatch.setattr(verifier, "ROOT", root)
     # This test isolates output validation; source inventory has its own gate.
     monkeypatch.setattr(verifier, "source_files", lambda *_: [])
-    monkeypatch.setattr("sys.argv", ["verify_runtime.py", "--component", "cos"])
+    monkeypatch.setattr("sys.argv", ["verify_runtime.py", "--component", "beyond"])
     with pytest.raises(SystemExit, match="runtime differs"):
         verifier.main()
 
@@ -124,7 +124,7 @@ def test_bridge_detects_a_changed_build_input(tmp_path, relative):
     assert verifier.verify(tmp_path, manifest) == []
     source.write_bytes(b"changed")
     assert relative in verifier.verify(tmp_path, manifest)
-    assert relative not in verifier.source_files(tmp_path, "cos")
+    assert relative not in verifier.source_files(tmp_path, "beyond")
 
 
 @pytest.mark.parametrize("relative", [
@@ -148,4 +148,4 @@ def test_shared_runtime_build_helper_is_an_input_for_both_plugins(tmp_path):
     source.parent.mkdir(parents=True)
     source.touch()
     assert relative in verifier.source_files(tmp_path, "bridge")
-    assert relative in verifier.source_files(tmp_path, "cos")
+    assert relative in verifier.source_files(tmp_path, "beyond")

@@ -16,7 +16,7 @@ $fixtures = @(
     @{ Project = 'src/rhp/RhinoAlmondBridge/tests/grasshopper/GrasshopperFixture.csproj'; Output = 'src/rhp/RhinoAlmondBridge/tests/grasshopper/bin/Release/net8.0/GrasshopperFixture.dll'; Scratch = 'grasshopper' },
     @{ Project = 'src/rhp/Structural_Analysis/tests/lifetime/AnalysisLifetime.csproj'; Output = 'src/rhp/Structural_Analysis/tests/lifetime/bin/Release/net8.0/AnalysisLifetime.dll' },
     @{ Project = 'src/rhp/RhinoTerminal/tests/AlmondHostContracts/AlmondHostContracts.csproj'; Output = 'src/rhp/RhinoTerminal/tests/AlmondHostContracts/bin/Release/net8.0-windows/AlmondHostContracts.dll' },
-    @{ Project = 'src/cos/tests/PipeFixture.csproj'; Output = 'src/cos/tests/bin/Release/net8.0-windows/PipeFixture.dll' }
+    @{ Project = 'src/beyond/tests/PipeFixture.csproj'; Output = 'src/beyond/tests/bin/Release/net8.0-windows/PipeFixture.dll' }
 )
 Push-Location $repo
 try {

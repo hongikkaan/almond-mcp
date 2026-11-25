@@ -107,4 +107,4 @@ Each row names fields added to the feature's normal summary. Each input property
 - `asset_01-audit_drawing` tool: one requested package's validation/proof result.
 - `analysis_02-validate_structure` tool: its existing detail=false summary/detail=true contract.
 
-Fresh clients derive the explicit signatures through both FastMCP and inert COS catalog generation. Existing client/worker processes need a normal session restart to load changed Python; no catalog export, Rhino rebuild or plugin registration is implied by these Python API changes.
+Fresh clients derive the explicit signatures through both FastMCP and inert beyond catalog generation. Existing client/worker processes need a normal session restart to load changed Python; no catalog export, Rhino rebuild or plugin registration is implied by these Python API changes.

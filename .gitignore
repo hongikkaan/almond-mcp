@@ -41,12 +41,13 @@ obj/
 /src/engine/data/
 /tests/engine/data/
 /src/mcp/runtime/data/
+/src/beyond/data/
 /src/cos/data/
+/src/cos/cos-plugin.json
 /src/rhp/*/data/
 /src/mcp/tests/runtime/data/
 .almond/
 /src/rhp/*/plugin-*/
-/src/cos/cos-plugin.json
 *.3dm
 *.3dmbak
 *.rhp

@@ -29,7 +29,7 @@ def test_routed_schema_and_direct_calls_agree_without_changing_worker_schema(nam
     catalog = {"tools": [original]}
 
     def schema(modes):
-        public = exposed_tools(catalog, explicit_connections=True, mode_ids=modes)[0].input_schema
+        public = exposed_tools(catalog, mode_ids=modes)[0].input_schema
         Draft202012Validator.check_schema(public)
         props = public["properties"]
         return props["views"]["items"].get("properties", {}) if name == "capture_02-inspection" else props

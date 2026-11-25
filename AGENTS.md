@@ -16,15 +16,15 @@
 
 ## 구조와 변경 경계
 
-이름과 세 실행 경로는 [GLOSSARY.md](GLOSSARY.md)와 [연결 경로 안내](src/mcp/runtime/CONNECTION-SPEC.md)를 따른다. 구조는 [SPEC.md](SPEC.md), 기능별 사용법은 [README.md](README.md)의 링크를 필요할 때 읽는다.
+이름과 실행 경로는 [GLOSSARY.md](GLOSSARY.md)와 [연결 경로 안내](src/mcp/runtime/CONNECTION-SPEC.md)를 따른다. 구조는 [SPEC.md](SPEC.md), 기능별 사용법은 [README.md](README.md)의 링크를 필요할 때 읽는다.
 
 - `src/mcp`: upstream Python MCP·계산·라이브러리 API.
 - `src/mcp/runtime`: CLI 실행·연결·공유 저장소와 MCP 실행기. 외부 연결기는 이 실행기의 공개 확장 훅을 사용한다.
 - `src/rhp/Engine`: Bridge·AlmondRhino가 공유하는 별도 `Almond.Engine.dll`.
-- `src/cos`: beyond·CoS의 공용 외부 host/worker, 도구 카탈로그, `rhp/`의 AlmondRhino 플러그인 소스와 자체 빌드·테스트.
+- `src/beyond`: Codex 직접 연결의 외부 host/worker, 도구 카탈로그, `rhp/`의 AlmondRhino 플러그인 소스와 자체 빌드·테스트.
 - `src/rhp/RhinoAlmondBridge`: Bridge RHP. `Structural_Analysis`, `Asset_Panel`, `RhinoTerminal` 소스도 여기에 컴파일한다. Terminal에는 별도 PlugIn entry가 없다.
-- `src/rhp/AlmondRhino`: 공용 외부 연결용 Rhino 플러그인의 출력 폴더. 구현은 `src/cos/rhp`에 둔다. 패널의 공용 웹 원본은 `src/rhp/Asset_Panel/web`이다.
-- `src/engine`: 예전 시작 버튼·설치 명령의 전달 스크립트와 기존 CoS command가 가리키는 `.venv`만 유지한다. 구현을 추가하지 않는다.
+- `src/rhp/AlmondRhino`: 공용 외부 연결용 Rhino 플러그인의 출력 폴더. 구현은 `src/beyond/rhp`에 둔다. 패널의 공용 웹 원본은 `src/rhp/Asset_Panel/web`이다.
+- `src/engine`: 예전 시작 버튼·설치 명령의 전달 스크립트와 일상 실행용 `.venv`만 유지한다. 구현을 추가하지 않는다.
 - 모듈 전용 테스트는 각 모듈의 `tests/`, 여러 모듈의 계약 검사는 루트 `tests/`에 둔다. 의존 방향·변경 범위는 [소유권과 의존 방향](SPEC.md#소유권과-의존-방향)를 따른다.
 
 Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 보존한다. 경로 정리 때문에 기능을 리팩터링하지 않는다. Engine DLL을 Bridge RHP나 상위 리포의 `mcp/native`와 혼동하지 말고 설치된 패키지를 패치하지 않는다.
@@ -32,17 +32,16 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 ## 일상 실행과 최초 설치
 
-일상 폴더는 브랜치 이름과 무관하게 `C:\TOOL\Rhino\mcp\almond-mcp`다. 평소 Rhino의 Bridge/AlmondRhino 등록과 CoS command/args를 이곳에 고정한다. 통합 검수에서 사용자가 워크트리 런타임 직접 등록을 허가하면 [검수 절차](tests/README.md#실제-rhino-통합-검수)의 임시 등록·복구를 따른다. 사용 중인 Rhino는 기존에 로드한 assembly를 계속 사용하므로 유지한다. 검수용 새 PID·시작 시각으로 워크트리 RHP 로드를 확인하면 기존 등록을 즉시 원복하고 시험 모델의 연결을 검증한다. 종료와 기능 검사는 식별한 검수 인스턴스만 대상으로 한다.
+일상 폴더는 브랜치 이름과 무관하게 `C:\TOOL\Rhino\mcp\almond-mcp`다. 평소 Rhino의 Bridge/AlmondRhino 등록과 beyond command/args를 이곳에 고정한다. 통합 검수에서 사용자가 워크트리 런타임 직접 등록을 허가하면 [검수 절차](tests/README.md#실제-rhino-통합-검수)의 임시 등록·복구를 따른다. 사용 중인 Rhino는 기존에 로드한 assembly를 계속 사용하므로 유지한다. 검수용 새 PID·시작 시각으로 워크트리 RHP 로드를 확인하면 기존 등록을 즉시 원복하고 시험 모델의 연결을 검증한다. 종료와 기능 검사는 식별한 검수 인스턴스만 대상으로 한다.
 
 최초 설치에는 해당 환경의 host/worker와 Rhino 연결을 종료한 뒤 리포 루트에서 실행한다.
 
 ```powershell
 ./src/mcp/rebuild_environment.ps1
-./src/cos/configure.ps1
 ./src/rhp/tools/install_runtime.ps1
 ```
 
-첫 명령은 `src/engine/.venv`에 Python 3.12.12·`uv.lock` 의존성과 editable MCP를 구성한다. 둘째는 외부 연결기 카탈로그와 로컬 `src/cos/cos-plugin.json`만 생성한다. 셋째는 기존 등록을 `data/runtime-install`에 백업하고 다음 고정 파일을 등록한다. CoS 앱에는 생성된 JSON의 command/args와 600초 제한을 한 번 등록한다. JSON 생성 자체가 CoS 앱 등록은 아니다. 예전 `src/engine/rebuild_environment.ps1`은 앞의 두 단계를 호출하는 호환 진입점이다.
+첫 명령은 `src/engine/.venv`에 Python 3.12.12·`uv.lock` 의존성과 editable MCP를 구성한다. 둘째는 기존 등록을 `data/runtime-install`에 백업하고 다음 고정 파일을 등록한다. 예전 `src/engine/rebuild_environment.ps1`은 첫 명령에 전달한다. 외부 Codex를 사용할 때만 [beyond의 클라이언트 등록 절차](src/beyond/EXTERNAL_CLIENTS.md#한-번-설정하기)를 추가로 따른다.
 
 | 플러그인 | 등록 파일 | GUID |
 |---|---|---|
@@ -57,27 +56,27 @@ Bridge assembly·GUID·패널 GUID·명령·도구 schema·Undo/Redo 계약을 �
 
 - 외부 실행: `src/mcp/runtime/Almond 시작.cmd`에서 저장된 모델을 선택한다.
 - Rhino 내부: `RhinoTerminal` → `On`; 패널이 숨으면 `PanelToggle`로 표시한 뒤 `almond`를 입력하거나 우측 상단 버튼을 누른다. 재연결은 `almond resume` 또는 resume 버튼. `Off`는 패널 표시와 무관하게 터미널을 종료한다.
-- 외부 Codex·CoS: 저장된 Rhino 문서에서 `almondconnect`를 실행하고 클라이언트에서 host/model을 선택한다. 연결 해제는 `almonddisconnect` 또는 클라이언트의 `connect_04-disconnect` tool다.
+- 외부 Codex (beyond): 저장된 Rhino 문서에서 `almondconnect`를 실행하고 클라이언트에서 host/model을 선택한다. 연결 해제는 `almonddisconnect` 또는 클라이언트의 `connect_04-disconnect` tool다.
 - 패널: `Almond`, `AlmondLibrary`, `AlmondStructure`, `AlmondResults`. 패널이 숨으면 Terminal/Layers와 같은 dock에 둔다.
 
 ## 개발·빌드·반영
 
 기존 적합한 워크트리를 우선 사용한다. 새 작업은 최신 `main`에서 분기하고 환경은 각 체크아웃에서 새로 구성한다. venv를 복사·공유하지 않는다. 작업 폴더를 바꾸는 것만으로 모델 DB·슬롯·로드된 RHP가 격리되지는 않는다.
 
-일반 시작은 의존성을 동기화하지 않는다. Python 공통 도구 변경 후에는 관련 Codex/CoS MCP 또는 Terminal의 almond 세션을 정상 종료하고 새로 시작한다. 시작 시 현재 소스에서 도구 schema를 자동 추출하므로 카탈로그 수동 재생성은 필요 없다. `uv.lock` 버전·세션 source fingerprint·실제 worker schema 검사를 유지한다. 기존 프로세스에 대한 hot reload/restart 도구는 제공하지 않는다.
+일반 시작은 의존성을 동기화하지 않는다. Python 공통 도구 변경 후에는 관련 beyond MCP 또는 Terminal의 almond 세션을 정상 종료하고 새로 시작한다. 시작 시 현재 소스에서 도구 schema를 자동 추출하므로 카탈로그 수동 재생성은 필요 없다. `uv.lock` 버전·세션 source fingerprint·실제 worker schema 검사를 유지한다. 기존 프로세스에 대한 hot reload/restart 도구는 제공하지 않는다.
 
 Rhino 실행 여부와 관계없이 개발 워크트리에서 RHP를 빌드할 수 있다. 빌드 스크립트는 대상 출력 파일의 사용 가능 여부를 확인하고 staging 후 교체한다. .NET 8 SDK와 Windows Rhino 8 SDK를 사용하며 기본 빌드는 설치된 SDK를 참조한다. 선택 SDK 위치는 `src/rhp/RhinoTerminal/data/sdk`다.
 
 ```powershell
 ./src/rhp/build.ps1
-./src/cos/build.ps1
+./src/beyond/build.ps1
 & ./src/engine/.venv/Scripts/python.exe -B src/rhp/tools/verify_runtime.py --record
 & ./src/engine/.venv/Scripts/python.exe -B src/rhp/tools/verify_runtime.py
 ```
 
 Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을 변경했다면 양쪽을 빌드해 `Almond.Engine.dll`이 같게 한다. RHP와 의존 DLL·deps/runtimeconfig JSON·archive를 함께 추적한다. Rhino 제공 DLL은 포함하지 않는다. 빌드는 staging 후 교체하며 등록하지 않는다. Terminal과 AlmondRhino는 이 고정 출력 위치에서 `src/mcp/runtime`을 찾으므로 출력 깊이를 유지한다.
 
-검증 기록은 `src/rhp/RhinoAlmondBridge/runtime-manifest.json`과 `src/cos/runtime-manifest.json`으로 나뉜다. 모듈별 빌드 후에는 `verify_runtime.py --record --component bridge` 또는 `--component cos`로 자기 기록만 갱신한다. 통합 시 옵션 없이 검사하면 양쪽 기록과 Engine 바이너리 일치까지 확인한다.
+검증 기록은 `src/rhp/RhinoAlmondBridge/runtime-manifest.json`과 `src/beyond/runtime-manifest.json`으로 나뉜다. 모듈별 빌드 후에는 `verify_runtime.py --record --component bridge` 또는 `--component beyond`로 자기 기록만 갱신한다. 통합 시 옵션 없이 검사하면 양쪽 기록과 Engine 바이너리 일치까지 확인한다.
 
 **개발 워크트리에서 구현·빌드·검증 → 소스와 실행 파일을 같은 commit → push·PR·merge → Rhino를 닫고 일상 폴더에서 pull → 사용자 Rhino 시작 시 새 런타임 로드**가 전체 전달 순서다. 실제 로드 검증은 별도 요청이 있을 때 수행한다. 사용자에게 빌드·바이너리 복사·등록 수정을 떠넘기는 소스만의 전달은 하지 않는다. commit, push, merge, 일상 파일 갱신과 실제 로드를 각각 구분해 보고한다.
 
@@ -87,7 +86,7 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 
 모델 폴더는 `.almond/scene.sqlite3`를 공유한다. Plan 산출물은 프로젝트 `.almond/produced/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 종료된 연결의 소유 임시자료와 `.sessions` 기록은 프로세스·잠금·native 완료로 회수하며 Plan·Step 완료 여부와 연결하지 않는다. 공유 잠금·역할 lease·A–J 슬롯·프로세스 identity·UI thread·native 완료 확인을 유지한다. 모델을 이동·이름 변경하기 전에 연결을 정상 종료한다.
 
-프로젝트 정보가 필요하면 `context_04-get_project_info` tool에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `inspect_03-get_document_context` tool를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `plan_10-set_working` tool으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond·CoS 외부 연결에서는 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 재사용한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [관측 SPEC](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
+프로젝트 정보가 필요하면 `context_04-get_project_info` tool에서 필요한 sections만 조회한다. document 항목이 live 문서를 함께 확인하므로 같은 확인을 위해 `inspect_03-get_document_context` tool를 반복 호출하지 않는다. 런타임의 `ALMOND_PROJECT_ROOT`를 기준으로 worker는 상대경로를 쓰고, 파일 작성 전 `plan_10-set_working` tool으로 산출물 폴더를 선택한다. 작업은 미완료 상태로 중단·전환·재개할 수 있다. beyond 외부 연결에서는 connect_02-session tool/connect_03-start_session tool으로 선택한 연결을 재사용한다. 고정 조회는 일반 수정 실행기를 사용하지 않는다. timeout·`result_error`는 rollback이 아니며 완료가 불명확한 수정을 자동 재시도하지 않는다. 상세 계약은 [관측 SPEC](src/mcp/rhino/OBSERVATION-SPEC.md)를 따른다.
 
 임시 개발 자료는 ignored `data/`에 두고 모델 데이터와 섞지 않는다. SPEC·AGENTS에는 현재 구조·계약·작업 규칙만 유지한다. 과거 설계안·진행 보고·커밋별 변경 내역·검증 실측은 누적하지 않는다. 사용자 모델·DB 삭제는 명시 요청이 있을 때만 한다.
 
@@ -95,7 +94,7 @@ Bridge와 AlmondRhino 출력은 위의 각 `plugin-runtime` 폴더다. Engine을
 
 공개 도구 계약에 영향을 주는 변경을 마무리할 때 구현 함수의 docstring에 있는 도구 설명·입력 안내, [출력 계약](src/mcp/output_contracts.py), [공통 공개 스키마 기준](tests/integration/tool_schemas.json)을 현재 구현과 실제 공개 스키마에 대조하고, 달라진 내용을 갱신한다. 코드 기반 예시와 실제 Rhino 검증 결과를 구분한다.
 
-공개 도구 등록·입력·출력 스키마 또는 문서에 수록된 계약을 바꾸면 같은 변경에서 [현행 툴 선언](TOOL-DECLARATIONS-CURRENT.md)을 갱신한다. 커밋 전 현재 체크아웃의 beyond·CoS `tools/list`로 도구 목록·설명·입력·출력 스키마의 일치와 문서의 누락·폐기 도구 여부를 확인한다. `initialize`에서 공통 안내 전달을 확인한 뒤 변경을 함께 커밋한다.
+공개 도구 등록·입력·출력 스키마 또는 문서에 수록된 계약을 바꾸면 같은 변경에서 [현행 툴 선언](TOOL-DECLARATIONS-CURRENT.md)을 갱신한다. 커밋 전 현재 체크아웃의 beyond·RhinoTerminal `tools/list`로 도구 목록·설명·입력·출력 스키마의 일치와 문서의 누락·폐기 도구 여부를 확인한다. `initialize`에서 공통 안내 전달을 확인한 뒤 변경을 함께 커밋한다.
 
 ## 검증
 

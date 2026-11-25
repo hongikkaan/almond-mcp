@@ -1,9 +1,8 @@
-"""Disposable stdio worker exercising the real document-bound serve path.
+"""Disposable stdio worker exercising the RhinoTerminal document-bound entry.
 
 No Rhino is launched and no native request is sent. All paths are supplied by
 the test in an isolated temporary directory, including an empty .3dm placeholder.
 """
-import argparse
 import base64
 import io
 import json
@@ -11,7 +10,7 @@ import os
 from pathlib import Path
 
 from project import STORAGE_PROTOCOL, connection_paths, process_start_ticks, read_json, write_json
-from mcp_server import serve
+from mcp_server import main as run_document_server
 
 
 def main():
@@ -28,9 +27,7 @@ def main():
                "process_start_ticks": process_start_ticks(os.getpid()),
                **{key: locations[key] for key in ("model_path", "storage", "temp", "session_dir", "ready_path")}}
     write_json(locations["ready_path"], binding)
-    write_json(Path(locations["session_dir"]) / "worker.json", {
-        "token": token, "pid": os.getpid(), "process_start_ticks": process_start_ticks(os.getpid())})
-    args = argparse.Namespace(port=port, token=token, session=Path(locations["ready_path"]))
+
     async def configure(_mcp, _args, _binding, _locations, runtime):
         # Only the live observer is a test double; tool registration, workspace,
         # store, middleware and stdio transport use the real bound serve path.
@@ -61,7 +58,8 @@ def main():
         runtime.workspace.store.upsert_project_file(model.name)
         runtime.workspace.store.create_phase(name="Fixture", file_name=model.name)
 
-    return serve(args, binding, locations, Path(locations["state_db"]), configure=configure)
+    return run_document_server(["--port", str(port), "--token", token, "--session", locations["ready_path"]],
+                               configure=configure)
 
 
 if __name__ == "__main__":

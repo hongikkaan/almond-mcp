@@ -137,9 +137,10 @@ def test_optional_root_environment_is_not_created(checkout):
     assert not (checkout / ".venv").exists()
 
 
-def test_compatibility_readonly_entry_does_not_configure_cos(checkout):
+def test_original_installer_can_set_up_and_verify_the_environment(checkout):
     wrapper = checkout / "src/engine/rebuild_environment.ps1"
     shutil.copyfile(ROOT / "src/engine/rebuild_environment.ps1", wrapper)
-    (checkout / "src/cos").mkdir()
-    (checkout / "src/cos/configure.ps1").write_text("throw 'Unexpected configure mutation'", encoding="utf-8")
+    leftover = add_leftover(checkout, "src/engine/.venv")
+    run(["pwsh", "-NoProfile", "-File", str(wrapper)], checkout)
+    assert not leftover.exists()
     run(["pwsh", "-NoProfile", "-File", str(wrapper), "-VerifyOnly"], checkout)

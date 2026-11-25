@@ -7,7 +7,7 @@ import sys
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
-from test_stdio_contract import ROOT, isolated_environment
+from render_tool_declarations import ROOT, isolated_environment
 
 
 def test_new_bound_worker_reads_prior_loop_judgments_and_actual_files(tmp_path):

@@ -33,7 +33,7 @@ description: >
   Third-party community model files are not bundled. Download them separately
   from their original sources under the applicable terms.
 
-  For AI workflows, configure the personal checkout's Codex/CoS connection,
+  For AI workflows, configure the personal checkout's beyond connection in Codex,
   run almondconnect in Rhino and select the saved document in the client.
   Windows only; this .NET 8 build targets Rhino 8.34 and later Rhino 8 service releases.
 url: https://github.com/liangjunglj-cpu/almond-mcp

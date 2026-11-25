@@ -13,7 +13,7 @@
 | `Structural_Analysis/` | 구조해석 작업·결과 표시 UI; Bridge에 컴파일 |
 | `Asset_Panel/` | 라이브러리 패널·마우스 배치·archive와 공용 웹 원본; Bridge에 컴파일 |
 | `tools/` | 빌드·패키징·설치·실행 파일 검증 도구 |
-| `AlmondRhino/` | AlmondRhino 출력 폴더. 구현은 [외부 연결기 모듈](../cos/SPEC.md) 소유 |
+| `AlmondRhino/` | AlmondRhino 출력 폴더. 구현은 [외부 연결기 모듈](../beyond/SPEC.md) 소유 |
 
 Bridge의 유일한 plugin entry가 패널 등록과 Terminal 종료를 담당한다. Engine과 AlmondRhino는 별도 assembly다. Engine은 호스트 프로젝트를 참조하지 않는다. Bridge는 MCP 소유 `features/<기능>/native`의 C# 도구 구현과 재료 정책을 링크하므로 해당 변경도 빌드 입력이다.
 

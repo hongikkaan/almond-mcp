@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "src/cos"))
+sys.path.insert(0, str(ROOT / "src/beyond"))
 from detached_process import rhino_command_line
 from external_host import Broker, UNSAVED_DOCUMENT
 from session_start import RhinoStart

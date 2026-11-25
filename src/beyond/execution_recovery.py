@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sys
 
-from runtime import ENGINE
+from runtime import ENGINE, recovery_directory
 
 
 _TOKEN = re.compile(r"[0-9a-f]{32}\Z")
@@ -64,20 +64,19 @@ def read_bound_execution(binding, arguments, *, operation_id=None):
 
 class ExecutionRecoveryStore:
     def __init__(self, data):
-        self.directory = Path(data).absolute() / 'execution-locators'
+        self.directory = recovery_directory(data, 'execution-locators')
 
-    def remember(self, binding, *, connection_id=None):
+    def remember(self, binding, *, connection_id):
         _locations(binding)
         from project import write_json
         from storage_cleanup import plain_descendant
         path = plain_descendant(self.directory / (binding['token'] + '.json'), self.directory.parent)
         self.directory.mkdir(parents=True, exist_ok=True)
-        record = dict(schema='almond-execution-locator', version=1, binding=dict(binding))
-        if connection_id is not None:
-            record['connection_id'] = connection_id
+        record = dict(schema='almond-execution-locator', version=1, binding=dict(binding),
+                      connection_id=connection_id)
         write_json(path, record)
 
-    def find_binding(self, request, *, connection_id=None):
+    def find_binding(self, request, *, connection_id):
         if not isinstance(request, str) or not _TOKEN.fullmatch(request):
             raise ValueError('script_03-get_execution tool requires the exact returned request_id.')
         sys.path.insert(0, str(ENGINE))
@@ -92,9 +91,7 @@ class ExecutionRecoveryStore:
                 plain_descendant(path, self.directory.parent)
                 record = read_json(path)
                 if (record.get('schema') != 'almond-execution-locator' or type(record.get('version')) is not int
-                        or record['version'] != 1):
-                    continue
-                if connection_id is not None and record.get('connection_id') != connection_id:
+                        or record['version'] != 1 or record.get('connection_id') != connection_id):
                     continue
                 binding = record.get('binding')
                 locations = _locations(binding)

@@ -140,7 +140,7 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
         """이전 RhinoCode 실행의 상태와 보관된 결과·로그 조회. 조회는 실행 기록만 읽으며, 연결이 끝난 뒤에도 기록이 남아 있으면 조회할 수 있다. 배열이나 문자열 결과는 페이지로 조회하고 로그는 별도의 바이트 오프셋을 사용한다.
 
         Args:
-            request_id: 생략하면 현재 연결의 최근 실행 조회. beyond·CoS에서 지정한 ID로 최초 실행 연결을 찾으며, 시간 초과 후에는 같은 ID를 지정
+            request_id: 생략하면 현재 연결의 최근 실행 조회. beyond에서 지정한 ID로 최초 실행 연결을 찾으며, 시간 초과 후에는 같은 ID를 지정
             include_stdout: stdout·stderr와 CLI 로그 포함
             result_fields: 객체 결과의 최상위 키 또는 객체 배열의 각 행에서 유지할 키
             offset: 결과는 배열 항목 또는 문자열 문자, 로그는 바이트 단위
@@ -215,7 +215,7 @@ async def configure_project_context(mcp, args, binding, locations, *, sender=Non
 
         Args:
             code: 동기식 코드. doc과 scriptcontext.doc은 연결된 문서. JSON 호환 반환값은 result에 할당하고 상대 경로는 선택한 산출물 폴더 기준
-            timeout_seconds: 완료 근거 대기 한도 1~600초. beyond·CoS는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음.
+            timeout_seconds: 완료 근거 대기 한도 1~600초. beyond는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음.
         """
         if not isinstance(code, str) or not code.strip():
             raise ValueError("code must be nonempty Python source.")

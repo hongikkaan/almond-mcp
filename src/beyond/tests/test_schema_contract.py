@@ -6,7 +6,7 @@ import sys
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "src/cos"))
+sys.path.insert(0, str(ROOT / "src/beyond"))
 from runtime import check_contract, schema_identity, validate_worker_tools
 
 

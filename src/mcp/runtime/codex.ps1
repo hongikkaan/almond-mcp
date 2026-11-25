@@ -93,7 +93,7 @@ try {
     $serverName = 'rhino_session'
     $overrides = @()
     if ($RhinoTerminal) {
-        # Hosted Apps (including CoS) and plugin MCPs are added at runtime and
+        # Hosted Apps and plugin MCPs are added at runtime and
         # need not appear in `mcp list`. Disable their sources for this process.
         # Ordinary user skills remain available; no config/auth files are edited.
         $overrides += @('-c', 'features.apps=false', '-c', 'features.plugins=false')

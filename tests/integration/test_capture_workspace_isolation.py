@@ -9,7 +9,7 @@ import sys
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
-from test_stdio_contract import ROOT, isolated_environment
+from render_tool_declarations import ROOT, isolated_environment
 
 
 def test_defined_view_keeps_callers_plan_loop_and_step_when_peer_opens_next_loop(tmp_path):

@@ -1,6 +1,6 @@
 # dot 전용 Almond MCP 클라이언트
 
-`dot_client.py`는 기존 `codex_host.py`를 자식 프로세스로 실행하는 별도 MCP 클라이언트다. 기존 서버 코드, Codex MCP 등록, CoS 설정은 수정하지 않는다.
+`dot_client.py`는 `src/beyond/codex_host.py`를 자식 프로세스로 실행하는 별도 MCP 클라이언트다. 기존 서버 코드와 Codex MCP 등록은 수정하지 않는다.
 
 ## 시작과 세션 유지
 

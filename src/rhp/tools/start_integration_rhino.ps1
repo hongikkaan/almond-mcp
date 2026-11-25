@@ -35,8 +35,8 @@ $python = Join-Path $repo 'src\engine\.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
     throw 'Prepare the worktree Python environment with src/mcp/rebuild_environment.ps1.'
 }
-$probe = Join-Path $repo 'src\cos\tools\verify_integration_connection.py'
-$launcher = Join-Path $repo 'src\cos\tools\launch_integration_rhino.py'
+$probe = Join-Path $repo 'src\beyond\tools\verify_integration_connection.py'
+$launcher = Join-Path $repo 'src\beyond\tools\launch_integration_rhino.py'
 & $python -B -E -X utf8 $probe --check-environment
 if ($LASTEXITCODE -ne 0) { throw 'The worktree Beyond environment could not be verified.' }
 Write-Host "Rhino integration model: $model"

@@ -33,18 +33,69 @@ def retained(tmp_path, monkeypatch):
     return binding, journal, directory
 
 
-@pytest.mark.parametrize("stored_id", [None, "connection-a"])
-def test_explicit_recovery_requires_a_matching_locator(retained, tmp_path, stored_id):
+def test_explicit_recovery_requires_a_matching_locator(retained, tmp_path):
     binding, journal, _ = retained
+    stored_id = "a" * 32
     store = ExecutionRecoveryStore(tmp_path)
     store.remember(binding, connection_id=stored_id)
     restarted = ExecutionRecoveryStore(tmp_path)
     request = journal["request_id"]
-    assert restarted.find_binding(request) == binding
     with pytest.raises(ValueError, match="No unique retained session"):
-        restarted.find_binding(request, connection_id="connection-b")
-    if stored_id is not None:
-        assert restarted.find_binding(request, connection_id=stored_id) == binding
+        restarted.find_binding(request, connection_id="b" * 32)
+    assert restarted.find_binding(request, connection_id=stored_id) == binding
+
+
+def test_default_recovery_uses_existing_receipts_without_creating_a_second_root(retained, tmp_path, monkeypatch):
+    from session_close import SessionCloser
+    import runtime
+
+    binding, journal, _ = retained
+    source = tmp_path / "src"
+    default = source / "beyond" / "data"
+    legacy = source / "cos" / "data"
+    custom = tmp_path / "custom"
+    monkeypatch.setattr(runtime, "ROOT", default.parent)
+    assert ExecutionRecoveryStore(default).directory == default / "execution-locators"
+    assert SessionCloser(default).root == default / "session-closes"
+    assert not default.exists() and not legacy.exists()
+
+    connection_id = "a" * 32
+    previous_store = ExecutionRecoveryStore(legacy)
+    previous_store.remember(binding, connection_id=connection_id)
+    previous_close = SessionCloser(legacy)
+    record = dict(schema="almond-session-close", version=1, request_id="close-fixture",
+                  connection_id=connection_id, status="completed")
+    previous_close.persist(record)
+
+    store = ExecutionRecoveryStore(default)
+    close = SessionCloser(default)
+    assert store.find_binding(journal["request_id"], connection_id=connection_id) == binding
+    assert close.load(record["request_id"]) == record
+    store.remember(binding, connection_id=connection_id)
+    updated = dict(record, request_id="another-close")
+    close.persist(updated)
+    assert previous_close.load(updated["request_id"]) == updated
+    assert not default.exists()
+    assert ExecutionRecoveryStore(custom).directory == custom / "execution-locators"
+    assert SessionCloser(custom).root == custom / "session-closes"
+    assert not custom.exists()
+
+
+def test_rollback_cannot_hide_existing_recovery_records(tmp_path, monkeypatch):
+    import runtime
+
+    source = tmp_path / "src"
+    data = source / "beyond/data"
+    current = data / "session-closes"
+    legacy = source / "cos/data/session-closes"
+    monkeypatch.setattr(runtime, "ROOT", data.parent)
+    current.mkdir(parents=True)
+    legacy.mkdir(parents=True)
+    (current / "current-request").mkdir()
+    assert runtime.recovery_directory(data, "session-closes") == current
+    (legacy / "older-request").mkdir()
+    with pytest.raises(RuntimeError, match="Recovery records exist in both"):
+        runtime.recovery_directory(data, "session-closes")
 
 
 def test_durable_reader_checks_operation_before_public_projection(retained):

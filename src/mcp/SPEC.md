@@ -8,23 +8,23 @@
 - `./`: Python package의 소스와 공개 도구·계산·라이브러리 API.
 - `runtime/`: CLI 시작·재연결, 모델 binding, A–J 슬롯, 공유 저장소와 native 완료 확인.
 - `*-explain.md`: 보조 스크립트 안내. `release_validation/`은 배포 검증을 소유한다.
-- `tests/`, `pytest.ini`, `run_tests.ps1`: 모듈 검사. COS import 없이 실행한다.
-- `rebuild_environment.ps1`: 일상 환경과 이미 존재하는 루트 환경을 함께 정합화한다. `-VerifyOnly`는 패키지를 변경하지 않고 검사하며, `-Development`는 개발 환경만 대상으로 한다. COS catalog는 수정하지 않는다.
+- `tests/`, `pytest.ini`, `run_tests.ps1`: 모듈 검사. beyond import 없이 실행한다.
+- `rebuild_environment.ps1`: 일상 환경과 이미 존재하는 루트 환경을 함께 정합화한다. `-VerifyOnly`는 패키지를 변경하지 않고 검사하며, `-Development`는 개발 환경만 대상으로 한다.
 - `use_offline_environment.ps1`: 현재 셸과 자식에만 로컬 검사 경로를 설정한다.
 
-COS는 runtime의 binding 검증·구성 훅을 사용한다. MCP는 COS 구현을 참조하지 않는다.
+beyond는 runtime의 binding 검증·구성 훅을 사용한다. MCP는 beyond 구현을 참조하지 않는다.
 Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema를 보존한다.
 소스는 이 폴더에 직접 둔다. editable 설치는 `almond_mcp.py`가 이곳의 `__init__.py`를 package로 로드하며, wheel은 빌드 경로 매핑으로 `almond_mcp/`에 담는다.
 이 진입 파일은 wheel에 포함하지 않는다.
-runtime 메타데이터 도구는 `context_04-get_project_info` tool, COS 내부 완료 조회는 `worker_state`다.
+runtime 메타데이터 도구는 `context_04-get_project_info` tool, beyond 내부 완료 조회는 `worker_state`다.
 공개 도구 이름에 제품·클라이언트 접두사를 붙이거나 이전 이름의 alias를 남기지 않는다.
 전용 CLI가 이 실행에만 주입하는 MCP 서버 키는 `rhino_session`이며 일반 Codex의 전역 `rhino` 등록과 구분한다. 이전에 실행된 프로세스의 식별 호환성은 유지한다.
-RhinoTerminal은 `codex.ps1 -RhinoTerminal`로 시작하며 새 대화·resume·exec에 실행별 `features.apps=false`, `features.plugins=false`를 전달한다. `mcp list`에 나타나지 않고 실행 중 추가되는 Apps(CoS 포함)와 플러그인 MCP의 등록 경로를 끈다. 일반 개인 스킬은 유지되며 플러그인 소속 스킬은 제외된다. 이 옵션은 별도 창의 전용 시작기나 일반 Codex에는 적용하지 않고, 전역·프로젝트 설정과 인증 파일도 수정하지 않는다.
+RhinoTerminal은 `codex.ps1 -RhinoTerminal`로 시작하며 새 대화·resume·exec에 실행별 `features.apps=false`, `features.plugins=false`를 전달한다. `mcp list`에 나타나지 않고 실행 중 추가되는 Apps와 플러그인 MCP의 등록 경로를 끈다. 일반 개인 스킬은 유지되며 플러그인 소속 스킬은 제외된다. 이 옵션은 별도 창의 전용 시작기나 일반 Codex에는 적용하지 않고, 전역·프로젝트 설정과 인증 파일도 수정하지 않는다.
 설정 목록 검사는 MCP 연결·도구 탐색·실제 호출 검증과 별개다. Codex TUI 자체가 추가하는 도구는 Apps·플러그인과 별도 경로이므로 설정 목록만으로 `rhino_session` 외 모든 도구의 부재를 보장하지 않는다. 실행기 회귀 검사는 `tests/runtime/test_terminal_launch.ps1`에서 실제 설치 CLI의 설정 해석을 사용하고 Rhino 관측만 대역으로 수행한다. 이 스크립트 변경만으로 RHP 빌드·등록은 필요하지 않으며, 배포된 변경은 RhinoTerminal의 기존 Codex를 `/exit`한 뒤 `almond` 또는 `almond resume`으로 다시 시작할 때 적용된다.
 공유 DB gate와 연결별 요청 직렬화 잠금은 획득을 최대 10초 기다린다. 대기 초과 호출은 operation·native 요청 생성 전 종료하며 소유자의 작업·잠금은 유지한다. 실행 제한과 cleanup·native 완료를 기다리는 시간은 이 10초와 구분한다.
 `features/<기능>/native`의 C# 도구 구현과 `rhino`의 공통 모델링 코드·재료 정책은 MCP 소유지만 Bridge에 컴파일되므로, 변경 시 Bridge 빌드가 필요하다. Python package가 사용하는 웹 원본은 [RHP Asset Panel](../rhp/SPEC.md)의 공유 자원이다.
 
-공개 API 내부 동작이나 schema를 바꾸면 루트 통합 검사를 수행한다. 새 COS/Codex 클라이언트가 현재 소스에서 catalog를 자동 추출한다. 실행 중인 세션은 시작 시 소스 fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하다. 공유 계약을 우회하지 않는다.
+공개 API 내부 동작이나 schema를 바꾸면 루트 통합 검사를 수행한다. beyond의 새 stdio host가 현재 소스에서 catalog를 자동 추출한다. 실행 중인 세션은 시작 시 소스 fingerprint를 유지하므로 변경 후 정상 종료·새 시작이 필요하다. 공유 계약을 우회하지 않는다.
 
 공통 오류 반환 필드인 `status`, `message`, 선택적 `error_code`는 `tool_response.py`에서 구성한다. 각 도구의 JSON 문자열·dict·이미지 반환 방식과 변경 적용·정합 필요 상태는 각 호출부가 유지하며, 공통 오류 필드만으로 rollback 여부를 추정하지 않는다.
 
@@ -78,7 +78,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 
 ### 공개 도구 위치
 
-package는 70개, 문서 전용 runtime은 7개를 더한 공통 77개 도구를 공개한다. 외부 host는 연결 관리 5개를 더해 82개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 `public_tool` 등록, 외부 관리 도구는 `src/cos/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 도구 설명과 입력 안내는 구현 함수의 docstring, 출력 계약은 [output_contracts.py](output_contracts.py), 공통 공개 입출력 스키마는 [통합 검사 기준](../../tests/integration/tool_schemas.json)을 따른다.
+package는 69개, 문서 전용 runtime은 7개를 더한 공통 76개 도구를 공개한다. beyond는 연결 관리 5개를 더해 81개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `features/*/tools.py`와 `runtime/mcp_server.py`의 `public_tool` 등록, 외부 관리 도구는 `src/beyond/external_host.py`를 기준으로 한다. Python 함수·native command·DB 식별자는 유지하며 `public_names.py`가 공개 호출과 내부 실행 정책을 연결한다. 기존 이름의 별칭은 등록하지 않는다. 도구 설명과 입력 안내는 구현 함수의 docstring, 출력 계약은 [output_contracts.py](output_contracts.py), 공통 공개 입출력 스키마는 [통합 검사 기준](../../tests/integration/tool_schemas.json)을 따른다.
 
 | 기능 | 공개 도구 |
 |---|---|
@@ -124,7 +124,7 @@ GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper
 비공개 generated-asset helper는 기능 모듈의 내부 인터페이스로 사용하며 새 공개 MCP 도구로 노출하지 않는다. 기존 resource URI·등록을 유지한다.
 
 모듈 검사는 `tests/test_readonly_contracts.py`와 `tests/runtime/`에서 읽기 전용 응답·공유 저장소·환경 분리를 확인한다. 실제 stdio와 외부 연결기 사이의 도구 설명·schema 계약은 루트 `tests/integration/test_stdio_contract.py`가 검사한다. 이 범위는 모든 모델링·계산 기능 또는 실제 Rhino의 Undo/Redo 검증을 대신하지 않는다.
-변경 종류별 실행기와 전제는 [개발 검사 안내](../../tests/README.md)를 따른다. 새 기능 파일을 추가하거나 기존 구현을 바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. `tool_declarations.py`는 실행 등록과 같은 기능 목록 및 bound runtime의 명시적 도구 선언에서 AST를 읽어 공통 schema와 안내용 이름 목록을 추출한다. COS는 이 추출기를 사용하며 서버·기능 실행 코드·DB를 import하지 않는다. annotation·기본값·decorator는 허용된 표현만 읽고 선언 검사 때문에 실행하지 않는다. package의 모든 Python 파일 목록과 내용이 fingerprint 대상이므로 이동·추가·삭제도 감지한다.
+변경 종류별 실행기와 전제는 [개발 검사 안내](../../tests/README.md)를 따른다. 새 기능 파일을 추가하거나 기존 구현을 바꾸면 자동 catalog와 실제 worker의 일치를 검사한다. `tool_declarations.py`는 실행 등록과 같은 기능 목록 및 bound runtime의 명시적 도구 선언에서 AST를 읽어 공통 schema와 안내용 이름 목록을 추출한다. beyond는 이 추출기를 사용하며 서버·기능 실행 코드·DB를 import하지 않는다. annotation·기본값·decorator는 허용된 표현만 읽고 선언 검사 때문에 실행하지 않는다. package의 모든 Python 파일 목록과 내용이 fingerprint 대상이므로 이동·추가·삭제도 감지한다.
 
 ## 실행·관측 계약
 
@@ -137,7 +137,7 @@ GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper
 내장 스킬·언어·산출물 폴더·완료 조회는 [RhinoCode 실행 계약](runtime/RHINOCODE-SPEC.md)을 따른다.
 요청·반환 제한과 미확인 값의 의미는 [관측 계약](rhino/OBSERVATION-SPEC.md)을 따른다.
 
-기존 CoS command를 유지하기 위해 Python 환경은 `../engine/.venv`에 둔다.
+일상 실행용 Python 환경은 `../engine/.venv`에 둔다.
 루트 `.venv`가 있으면 저장소 셸·`uv run`의 별도 환경으로 유지보수 대상에 포함한다. 일반 유지보수는 두 환경의 사용 여부를 모두 확인한 뒤 lock 동기화·editable 메타데이터 재설치·검증을 수행한다. 없는 루트 환경은 만들지 않는다. `-VerifyOnly`는 실행 중인 환경에서도 lock 정합성·패키지 호환성·중복·Python 버전·editable 출처/메타데이터를 읽기 전용으로 검사한다. `-Development`는 일상 환경·루트 환경·연결 등록을 변경하지 않는다. 일반 실행에서 자동 동기화하지 않는다.
 구현 위치와 실행 파일 위치는 별개다. 이전 시작 버튼은 호환 스크립트를 거쳐 `runtime/` 실행기를 호출한다. 사용자 모델·라이브러리를 자동 이동하지 않는다.
 기존 확장자 없는 `DB`는 아래의 DB 파일명 이전 조건을 충족할 때만 같은 폴더의 `scene.sqlite3`로 바꾼다.
@@ -199,8 +199,8 @@ Phase는 `generation_phase_files`에서 순서 있는 여러 등록 파일명을
 입력 검증 조건, 오류 상태·수치 결과, SQL과 실행할 C#/Blender 코드는 지침 원본이 아니다.
 설계 작업 지침은 별도 [RhinoBeyond 스킬](../../.agents/skills/rhinobeyond/SKILL.md)에 둔다.
 
-beyond와 CoS는 모델 서버를 import하지 않고 선언만 읽어 스키마를 추출한다.
-package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는 해당 Codex/CoS MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
+beyond는 모델 서버를 import하지 않고 선언만 읽어 스키마를 추출한다.
+package와 runtime의 지침 Markdown도 세션 source fingerprint에 포함하므로 변경 후에는 해당 beyond MCP 또는 Terminal almond 세션을 정상 종료하고 새로 시작한다.
 Python 지침만 변경했을 때 Rhino RHP 빌드·등록 변경은 필요하지 않다.
 
 ## 조회와 작업자료 계약
@@ -239,13 +239,13 @@ Plan별 .almond/produced/YYMMDD_name 폴더는 재사용하며 plan_09-rename_ar
 
 `context_01-get_policy` tool은 `policy`를 생략하거나 빈 문자열로 지정하면 `basic`으로 공통 도구 참고 목록, 조회 방법 요약과 `available_policies`를 반환한다. `metadata`는 객체 키 사전, `rhinocode`는 코드·커맨드 실행 지침, `rhino_scripting`은 내장 rhino3d-scripts의 INTEGRATION·SKILL·참고자료를 제공한다. 이 연결에서 호출할 수 있는 도구와 사용법은 `tools/list`에서 확인한다.
 
-RhinoTerminal과 별도 창의 문서 전용 세션, beyond 및 CoS의 외부 host는 `initialize.instructions`로 서버 소개, 기술 참고 자료 조회 방법과 `guide_version`을 전달한다. 런타임은 설계 지침 파일이나 별도 설치 스킬을 읽지 않는다.
+RhinoTerminal과 별도 창의 문서 전용 세션, beyond 외부 host는 `initialize.instructions`로 서버 소개, 기술 참고 자료 조회 방법과 `guide_version`을 전달한다. 런타임은 설계 지침 파일이나 별도 설치 스킬을 읽지 않는다.
 
-standalone MCP의 `initialize.instructions`는 비어 있다. 공개 도구 목록과 기술 참고 자료는 `context_01-get_policy` tool로 조회한다. 시작 안내와 정책 조회는 [stdio 검사](../../tests/integration/test_guidance_delivery.py)에서 확인한다. [외부 연결기의 시작 안내](../cos/SPEC.md#공통-모델링-안내)
+standalone MCP의 `initialize.instructions`는 비어 있다. 공개 도구 목록과 기술 참고 자료는 `context_01-get_policy` tool로 조회한다. 시작 안내와 정책 조회는 [stdio 검사](../../tests/integration/test_guidance_delivery.py)에서 확인한다. [외부 연결기의 시작 안내](../beyond/SPEC.md#공통-모델링-안내)
 
 `modeling_guidance.py`의 정책 등록 목록을 공개 입력의 선택값과 `available_policies`에 사용한다. `guide_version`은 정책 키·설명·경로와 지침 파일·공개 도구명 수집용 소스·내장 스크립팅 자료의 정규화 SHA-256으로 계산한다. 스냅샷 수집 중 변경을 거절하고 외부 source fingerprint·worker schema 검사를 유지한다. 개별 도구의 설명 파일은 외부 실행기의 일반 소스 검사에 포함한다. 모든 지침 응답은 `status`, `guide_version`, `selected_policy`, `available_policies`와 `source_refs`를 포함한다. `basic`은 `text`와 `tools`, `metadata`는 `policy`, `rhino_scripting`은 `scripting_skill`, `rhinocode`는 `text`를 함께 반환한다. `source_refs`는 `src/mcp/` 기준 출처 경로와 정규화 SHA-256을 담는다.
 
-reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 문서 대상 호출에서 beyond는 입력의 `connection_id`로 연결을 찾고 CoS는 현재 선택한 연결을 사용한다. 이후 두 경로 모두 기존 binding·공유 잠금·operation receipt를 거친다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 경로별 공개 스키마와 응답의 선택값 일치, wheel·sdist의 지침 파일을 확인한다.
+reader는 배포된 지침과 공개 도구명 수집용 소스를 읽는다. 문서 대상 호출에서 beyond는 입력의 `connection_id`로 연결을 찾고 기존 binding·공유 잠금·operation receipt를 거친다. 체크아웃은 runtime의 공개 도구명도 수집하고, standalone wheel은 설치된 공통 도구명만 수집한다. 검증은 정책 목록과 출처, 본문과 버전, 경로별 공개 스키마와 응답의 선택값 일치, wheel·sdist의 지침 파일을 확인한다.
 
 문서·도구 설명 변경은 해당 Python/MCP 세션을 정상 종료하고 새로 시작해야 적용된다. Python 안내 변경만으로 RHP 빌드나 Rhino 재시작을 요구하지 않는다.
 

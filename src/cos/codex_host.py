@@ -1,12 +1,10 @@
-"""Direct local Codex MCP entry. Does not start or import the CoS app entry."""
+"""Start beyond from the address used by existing Codex registrations."""
+import sys
 from pathlib import Path
-from external_host import main as _main, run
-from runtime import ROOT
 
-
-def main(data: Path = ROOT / "data"):
-    _main(data, client="codex")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "beyond"))
+from external_host import main, run
 
 
 if __name__ == "__main__":
-    run("codex")
+    run()

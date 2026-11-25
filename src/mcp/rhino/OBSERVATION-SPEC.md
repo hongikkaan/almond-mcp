@@ -1,10 +1,10 @@
 # 현재 문서·화면 조회와 C# 결과 반환
 
-프로젝트 정보가 필요하면 `context_04-get_project_info` tool를 조회한다. project/document/named_views/layouts/layer_tree 항목은 한 번의 문서 관찰을 공유하고 project는 연결 문서와의 일치 여부를 제공하므로 같은 live 확인을 위해 `inspect_03-get_document_context` tool를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때 `capture_03-current_view` tool를 호출한다. beyond·CoS는 선택한 연결에서 같은 도구를 호출한다.
+프로젝트 정보가 필요하면 `context_04-get_project_info` tool를 조회한다. project/document/named_views/layouts/layer_tree 항목은 한 번의 문서 관찰을 공유하고 project는 연결 문서와의 일치 여부를 제공하므로 같은 live 확인을 위해 `inspect_03-get_document_context` tool를 다시 호출하지 않는다. 현재 화면이 판단에 필요할 때 `capture_03-current_view` tool를 호출한다. beyond는 선택한 연결에서 같은 도구를 호출한다.
 
 두 조회는 기존 Engine의 문서 binding·UI thread·호출 identity·native 완료 확인을 거친다. 파일 경로를 임의로 골라 다른 모델을 조회하는 기능은 없다.
 
-문서 전용 MCP 서버와 외부 host가 안내하는 BASIC은 필요한 현황 조회, 관련 객체 조사, 수정 후보 검증 후 원본 교체 순서를 전달한다. beyond·CoS 클라이언트도 이 안내를 받는다.
+문서 전용 MCP 서버와 외부 host가 안내하는 BASIC은 필요한 현황 조회, 관련 객체 조사, 수정 후보 검증 후 원본 교체 순서를 전달한다. beyond 클라이언트도 이 안내를 받는다.
 
 ## 현재 상태
 

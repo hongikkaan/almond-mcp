@@ -60,7 +60,7 @@ Results are snapshots, not live monitoring. This is design-stage screening of th
 
 ## Optional AI/MCP workflow
 
-Use the daily installation's isolated MCP runtime as described in [Codex/CoS connection setup](../../../../cos/EXTERNAL_CLIENTS.md). In Rhino, run `almondconnect`, then select the saved document from the client's connection tools. `almonddisconnect` releases that connection without saving or closing Rhino.
+Use the daily installation's isolated MCP runtime as described in [beyond connection setup](../../../../beyond/EXTERNAL_CLIENTS.md). In Rhino, run `almondconnect`, then select the saved document from the client's connection tools. `almonddisconnect` releases that connection without saving or closing Rhino.
 The old port-5000 listener and standalone server start/stop commands are removed from this fork. Browsing the archive itself does not require an MCP connection.
 
 ## Troubleshooting

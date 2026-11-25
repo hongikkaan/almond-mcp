@@ -5,9 +5,10 @@ import json
 
 import pytest
 
-from external_host import Broker, Connection, json_result
+from external_host import Broker, Connection, UNKNOWN_CONNECTION, json_result
 
 
+CONNECTION_ID = "1" * 32
 TOOL = "script_01-run_project_python"
 OPERATION = "a" * 32
 EXECUTION = "b" * 32
@@ -68,7 +69,8 @@ async def timeout_after_dispatch(broker, worker, name=TOOL, arguments=None):
     real_time, now = loop.time, [0.0]
     loop.time = lambda: now[0]
     try:
-        caller = asyncio.create_task(broker.call(name, arguments if arguments is not None else {"timeout_seconds": 600}))
+        routed = dict(arguments if arguments is not None else {"timeout_seconds": 600}, connection_id=CONNECTION_ID)
+        caller = asyncio.create_task(broker.call(name, routed))
         for _ in range(100):
             if worker.entered.is_set() or caller.done():
                 break
@@ -88,11 +90,11 @@ def test_plan_section_broker_timeout_returns_unknown_cuts_only_after_dispatch(tm
         args = {"operation":"Create", "clipping_ids":["00000000-0000-0000-0000-000000000001"]}
         worker, control = DelayedWorker("native_pending"), Control()
         broker = Broker({"tools":[{"name":name, "inputSchema":{"type":"object","properties":{}}}]}, data=tmp_path)
-        before = await broker.call(name, args)
-        assert before.is_error and "No Rhino request was sent" in before.content[0].text
-        conn = Connection("connection", "host", control, "fixture-token", worker=worker, state="ready")
+        before = await broker.call(name, dict(args, connection_id=CONNECTION_ID))
+        assert before.is_error and before.content[0].text == UNKNOWN_CONNECTION
+        conn = Connection(CONNECTION_ID, "host", control, "fixture-token", worker=worker, state="ready")
         broker.connections[conn.connection_id] = conn
-        broker.selected_connection_id = conn.connection_id
+
         response = await timeout_after_dispatch(broker, worker, name, args)
         assert response.is_error and response.structured_content == {"result":response.content[0].text}
         value = json.loads(response.content[0].text)
@@ -110,9 +112,9 @@ def test_timeout_never_uses_stale_or_unproven_identity(tmp_path, variation):
     async def run():
         worker, control = DelayedWorker(variation), Control()
         broker = Broker(CATALOG, data=tmp_path)
-        conn = Connection("connection", "host", control, "fixture-token", worker=worker, state="ready")
+        conn = Connection(CONNECTION_ID, "host", control, "fixture-token", worker=worker, state="ready")
         broker.connections[conn.connection_id] = conn
-        broker.selected_connection_id = conn.connection_id
+
         reads = []
 
         def read(binding, arguments, *, operation_id=None):
@@ -141,9 +143,9 @@ def test_closing_during_durable_read_cannot_resurrect_connection(tmp_path):
     async def run():
         worker, control = DelayedWorker("valid"), Control()
         broker = Broker(CATALOG, data=tmp_path)
-        conn = Connection("connection", "host", control, "fixture-token", worker=worker, state="ready")
+        conn = Connection(CONNECTION_ID, "host", control, "fixture-token", worker=worker, state="ready")
         broker.connections[conn.connection_id] = conn
-        broker.selected_connection_id = conn.connection_id
+
 
         def read(binding, arguments, *, operation_id=None):
             conn.closing, conn.state, conn.reason = True, "disconnecting", "Owner changed"
@@ -163,9 +165,9 @@ def test_broker_301_returns_exact_pending_without_cancelling_worker(tmp_path):
     async def run():
         worker, control = DelayedWorker("valid"), Control()
         broker = Broker(CATALOG, data=tmp_path)
-        conn = Connection("connection", "host", control, "fixture-token", worker=worker, state="ready")
+        conn = Connection(CONNECTION_ID, "host", control, "fixture-token", worker=worker, state="ready")
         broker.connections[conn.connection_id] = conn
-        broker.selected_connection_id = conn.connection_id
+
         broker._read_execution_files = lambda *_, **__: dict(
             status="pending", pending=True, completed=False, request_id=EXECUTION)
         assert broker.call_timeout == 300

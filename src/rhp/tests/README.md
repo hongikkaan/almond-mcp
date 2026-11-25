@@ -4,7 +4,7 @@
 
 | 실행기 | Native 검사 범위 |
 | --- | --- |
-| 외부 연결기 실행기 | [NativeFixture](../Engine/tests/NativeFixture.csproj)는 실제 Engine의 세션 경로, 공유·배타 잠금과 완료 영수증 fence를 검사한다. [AlmondHostContracts](../RhinoTerminal/tests/AlmondHostContracts/AlmondHostContracts.csproj)는 Rhino UI와 native bridge를 대역으로 두고 두 호스트의 종료 소유권과 foreign ready/locator 보존을 검사한다. [DispatchFixture](../Engine/tests/dispatch/DispatchFixture.csproj)는 실제 BoundBridge TCP 인증·큐·native callback·완료/실패 drain을 Rhino adapter 대역으로 실행한다. [PipeFixture](../../cos/tests/PipeFixture.csproj)는 제어 파이프의 토큰과 연결 종료를 검사한다. |
+| 외부 연결기 실행기 | [NativeFixture](../Engine/tests/NativeFixture.csproj)는 실제 Engine의 세션 경로, 공유·배타 잠금과 완료 영수증 fence를 검사한다. [AlmondHostContracts](../RhinoTerminal/tests/AlmondHostContracts/AlmondHostContracts.csproj)는 Rhino UI와 native bridge를 대역으로 두고 두 호스트의 종료 소유권과 foreign ready/locator 보존을 검사한다. [DispatchFixture](../Engine/tests/dispatch/DispatchFixture.csproj)는 실제 BoundBridge TCP 인증·큐·native callback·완료/실패 drain을 Rhino adapter 대역으로 실행한다. [PipeFixture](../../beyond/tests/PipeFixture.csproj)는 제어 파이프의 토큰과 연결 종료를 검사한다. |
 | 루트 실행기 | [ArchiveHost](../RhinoAlmondBridge/tests/archive_host/ArchiveHost.csproj)를 빌드해 실제 `ArchiveMeshData` 디코더를 사용하는 Python 통합 검사에 제공한다. `--overlay <임시 폴더>`는 실제 HTTP 응답에서 같은 size/mtime의 drawing 변조를 거절하는지 검사한다. |
 | GH·분석 수명 fixture | [GrasshopperFixture](../RhinoAlmondBridge/tests/grasshopper/GrasshopperFixture.csproj)는 전체 production runner의 출력 preflight·Undo 실패/복구·불확실한 GUID를 검사한다. [AnalysisLifetime](../Structural_Analysis/tests/lifetime/AnalysisLifetime.csproj)는 실제 Request→UI queue→비동기 결과 적용에서 문서/형상/속성/닫기/이름/패널 수명을 검사한다. 계산·Rhino 표시 자체는 adapter 대역이다. |
 | 도면 스타일 fixture | Rhino 문서 테이블을 대역으로 두고 실제 스타일 적용 코드에서 임시 매니페스트를 사용한 생성, 동일명 정의와 참조 재사용, 반복 적용 및 새 정의가 없을 때의 오류를 검사한다. |

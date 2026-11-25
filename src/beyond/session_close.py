@@ -17,7 +17,7 @@ import sys
 import time
 from uuid import uuid4
 
-from runtime import ENGINE
+from runtime import ENGINE, recovery_directory
 
 sys.path.insert(0, str(ENGINE))
 from project import ExclusiveFile, read_json, write_json
@@ -112,7 +112,7 @@ class RhinoExit:
 
 class SessionCloser:
     def __init__(self, data, *, exit_factory=RhinoExit, wait_seconds=30.0):
-        self.root = Path(data).absolute() / "session-closes"
+        self.root = recovery_directory(data, "session-closes")
         self.exit_factory, self.wait_seconds = exit_factory, wait_seconds
         self.exits = {}
         self.running = set()
@@ -278,14 +278,13 @@ class SessionCloser:
         except (OSError, ValueError, RuntimeError, KeyError):
             return  # Missing or corrupt completion remains unconfirmed.
 
-    async def run(self, broker, selected_connection_id, /, *, request_id, require_connection_match=False):
-        if require_connection_match and not selected_connection_id:
+    async def run(self, broker, connection_id, /, *, request_id):
+        if not connection_id:
             raise ValueError("A connection_id is required to close or inspect this session.")
 
         def load_record():
             record = self.load(request_id)
-            if (record is not None and require_connection_match
-                    and record.get("connection_id") != selected_connection_id):
+            if record is not None and record.get("connection_id") != connection_id:
                 raise RuntimeError("This close request_id belongs to another connection. No Rhino request was sent.")
             return record
 
@@ -301,18 +300,18 @@ class SessionCloser:
                 raise RuntimeError("This close request is being initialized; query the same request_id again.") from exc
             return self.public(record)
         try:
-            return await self._run_reserved(broker, request_id, selected_connection_id, load_record())
+            return await self._run_reserved(broker, request_id, connection_id, load_record())
         finally:
             reservation.close()
 
-    async def _run_reserved(self, broker, request_id, selected_connection_id, record):
+    async def _run_reserved(self, broker, request_id, connection_id, record):
         if record is not None:
             if request_id in self.running:
                 return self.public(record)
             return await self.inspect(broker, record)
-        conn = broker.connections.get(selected_connection_id)
+        conn = broker.connections.get(connection_id)
         if conn is None:
-            raise RuntimeError("No selected live connection. Connect before closing a new session.")
+            raise RuntimeError("No live connection matches this connection_id. Connect before requesting a new close.")
         if conn.lock.locked() or conn.in_flight or conn.closing or conn.state != "ready":
             raise RuntimeError("Rhino has active or unconfirmed work; no save or Exit was sent.")
         broker.contract_check(broker.catalog)

@@ -6,6 +6,7 @@ import pytest
 from external_host import Broker, Connection, SessionAdapter, json_result
 
 
+CONNECTION_ID = "1" * 32
 TOOL = "fixture_observe"
 CATALOG = {"tools": [{"name": TOOL, "inputSchema": {"type": "object", "properties": {}}}]}
 
@@ -78,10 +79,10 @@ def session(data):
     control, worker = Control(), Worker()
     adapter = SessionAdapter(CATALOG, data=data)
     broker = Broker(CATALOG, data=data)
-    conn = Connection("connection", "host", control, "fixture-token", worker=worker, state="ready")
+    conn = Connection(CONNECTION_ID, "host", control, "fixture-token", worker=worker, state="ready")
     broker.connections[conn.connection_id] = conn
     broker.host_connections[conn.host_id] = conn.connection_id
-    broker.selected_connection_id = conn.connection_id
+
     adapter.broker = broker
     return adapter, broker, conn, control, worker
 
@@ -120,7 +121,7 @@ def test_cancel_during_begin_releases_unused_reservation_and_keeps_connection(tm
     async def run():
         adapter, broker, _, control, worker = session(tmp_path)
         entered, release = control.pause("begin")
-        caller = asyncio.create_task(adapter.call(TOOL, {}))
+        caller = asyncio.create_task(adapter.call(TOOL, {"connection_id": CONNECTION_ID}))
         await arrived(entered)
         await abandon(caller)
         release.set()
@@ -130,7 +131,7 @@ def test_cancel_during_begin_releases_unused_reservation_and_keeps_connection(tm
         assert state["state"] == "ready" and not state["in_flight"]
         assert control.reservation is None and not control.invalidated
         assert worker.calls == []
-        assert not (await adapter.call(TOOL, {})).is_error
+        assert not (await adapter.call(TOOL, {"connection_id": CONNECTION_ID})).is_error
         assert worker.calls == [TOOL]
 
     asyncio.run(run())
@@ -140,9 +141,9 @@ def test_cancel_while_queued_creates_no_reservation(tmp_path):
     async def run():
         adapter, broker, _, control, worker = session(tmp_path)
         worker.pause = True
-        owner = asyncio.create_task(adapter.call(TOOL, {}))
+        owner = asyncio.create_task(adapter.call(TOOL, {"connection_id": CONNECTION_ID}))
         await arrived(worker.entered)
-        queued = asyncio.create_task(adapter.call(TOOL, {}))
+        queued = asyncio.create_task(adapter.call(TOOL, {"connection_id": CONNECTION_ID}))
         # Let the caller reach the shielded queue while the owner holds it.
         await asyncio.sleep(0)
         assert len(broker.background) == 2
@@ -165,7 +166,7 @@ def test_cancel_keeps_reservation_unconfirmed_when_acknowledgement_is_lost(tmp_p
         adapter, broker, _, control, worker = session(tmp_path)
         control.lost_reply = lost_reply
         entered, release = control.pause("begin")
-        caller = asyncio.create_task(adapter.call(TOOL, {}))
+        caller = asyncio.create_task(adapter.call(TOOL, {"connection_id": CONNECTION_ID}))
         await arrived(entered)
         await abandon(caller)
         release.set()
@@ -174,7 +175,7 @@ def test_cancel_keeps_reservation_unconfirmed_when_acknowledgement_is_lost(tmp_p
         state, = await connection_status(adapter)
         assert state["state"] == "unconfirmed"
         assert control.invalidated and worker.calls == []
-        assert (await adapter.call(TOOL, {})).is_error
+        assert (await adapter.call(TOOL, {"connection_id": CONNECTION_ID})).is_error
         assert worker.calls == []
 
     asyncio.run(run())
@@ -185,7 +186,7 @@ def test_cancel_during_binding_status_prevents_dispatch(tmp_path):
         adapter, broker, conn, control, worker = session(tmp_path)
         in_begin, release_begin = control.pause("begin")
         in_status, release_status = control.pause("status")
-        caller = asyncio.create_task(adapter.call(TOOL, {}))
+        caller = asyncio.create_task(adapter.call(TOOL, {"connection_id": CONNECTION_ID}))
         await arrived(in_begin)
         broker.binding_changed(conn.connection_id, None)
         release_begin.set()
@@ -209,7 +210,7 @@ def test_cancel_does_not_reopen_connection_while_reservation_release_is_in_fligh
         in_begin, release_begin = control.pause("begin")
         in_end, release_end = control.pause("end")
         in_detach, release_detach = control.pause("detach")
-        caller = asyncio.create_task(adapter.call(TOOL, {}))
+        caller = asyncio.create_task(adapter.call(TOOL, {"connection_id": CONNECTION_ID}))
         await arrived(in_begin)
         await abandon(caller)
         release_begin.set()
@@ -219,7 +220,7 @@ def test_cancel_does_not_reopen_connection_while_reservation_release_is_in_fligh
         release_end.set()
         await arrived(in_detach)
 
-        follow_up = asyncio.create_task(adapter.call(TOOL, {}))
+        follow_up = asyncio.create_task(adapter.call(TOOL, {"connection_id": CONNECTION_ID}))
         try:
             state, = await connection_status(adapter)
             assert state["state"] != "ready"
@@ -241,7 +242,7 @@ def test_cancel_after_owner_starts_closing_preserves_owner_state(tmp_path, owner
     async def run():
         adapter, broker, conn, control, worker = session(tmp_path)
         worker.pause = True
-        caller = asyncio.create_task(adapter.call(TOOL, {}))
+        caller = asyncio.create_task(adapter.call(TOOL, {"connection_id": CONNECTION_ID}))
         await arrived(worker.entered)
         shutdown = await close_owner(broker, conn, worker, owner_event)
         owner_state, owner_reason = conn.state, conn.reason
@@ -268,7 +269,7 @@ def test_cancel_after_dispatch_keeps_unseen_outcome_from_being_replayed(tmp_path
             entered, release = worker.entered, worker.release
         else:
             entered, release = control.pause("end")
-        caller = asyncio.create_task(adapter.call(TOOL, {}))
+        caller = asyncio.create_task(adapter.call(TOOL, {"connection_id": CONNECTION_ID}))
         await arrived(entered)
         await abandon(caller)
         release.set()
@@ -277,7 +278,7 @@ def test_cancel_after_dispatch_keeps_unseen_outcome_from_being_replayed(tmp_path
         state, = await connection_status(adapter)
         assert state["state"] == "unconfirmed"
         assert control.invalidated is native_unknown
-        assert (await adapter.call(TOOL, {})).is_error
+        assert (await adapter.call(TOOL, {"connection_id": CONNECTION_ID})).is_error
         assert worker.calls == [TOOL]
 
     asyncio.run(run())

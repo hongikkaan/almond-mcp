@@ -12,7 +12,7 @@ from mcp.client.stdio import stdio_client
 
 
 ROOT = Path(__file__).resolve().parents[3]
-HOST = ROOT / "src/cos/codex_host.py"
+HOST = ROOT / "src/beyond/codex_host.py"
 
 
 async def call(client, name, arguments):

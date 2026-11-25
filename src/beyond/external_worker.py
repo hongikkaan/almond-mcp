@@ -1,8 +1,4 @@
-"""One bound Almond process, launched only by the shared external MCP host.
-
-The stored attachment=cos value is a compatibility tag shared by both external routes;
-it does not identify the CoS application.
-"""
+"""One bound Almond process, launched only by the beyond MCP host."""
 from __future__ import annotations
 
 import argparse
@@ -17,16 +13,15 @@ from winpipe import process_identity
 def validate_external_binding(entry, args, binding, locations):
     """Validate after acquiring this generation's MCP lease, before Almond import."""
     current, _ = entry.read_binding(args.session, args.token)
-    if (current != binding or current.get("attachment") != "cos"
+    if (current != binding or current.get("attachment") != "beyond"
             or current.get("storage_protocol") != 2):
         raise RuntimeError("External binding changed while the worker was acquiring its lease.")
 
 
 async def configure_external_worker(mcp, args, binding, locations, runtime, catalog):
     """Use engine extension hooks and the public runtime's completion receipt."""
-    if binding.get("attachment") != "cos" or binding.get("storage_protocol") != 2:
-        raise RuntimeError("This entry point requires a protocol-2 external binding (attachment=cos).")
-    # Both external clients keep their existing 600-second outer settings.
+    if binding.get("attachment") != "beyond" or binding.get("storage_protocol") != 2:
+        raise RuntimeError("This entry point requires a protocol-2 beyond binding.")
     # Dedicated document runtimes retain their own requested evidence wait.
     runtime.configure_rhinocode_wait(60)
     before = [t.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)

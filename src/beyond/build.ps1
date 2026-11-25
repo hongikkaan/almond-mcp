@@ -16,7 +16,7 @@ if(-not (Test-Path -LiteralPath $sdk)) {
     if(-not $installed) { throw 'An installed .NET 8 SDK is required. No SDK will be downloaded automatically.' }
     $sdk=$installed.Source
 }
-# AlmondRhino output stays at the fixed installation depth; source belongs to src/cos.
+# AlmondRhino output stays at the fixed installation depth; source belongs to src/beyond.
 if(-not $OutputDirectory) { $OutputDirectory=Join-Path $install 'plugin-runtime' }
 $OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
 Assert-RuntimeOutputAvailable $OutputDirectory $install
@@ -25,7 +25,7 @@ $staging=Join-Path $data ('build-'+[guid]::NewGuid().ToString('N'))
 if($LASTEXITCODE) { throw 'AlmondRhino build failed.' }
 if($RefreshCatalog) {
     $python=Join-Path $src 'engine\.venv\Scripts\python.exe'
-    & $python -B (Join-Path $src 'cos\build_catalog.py')
+    & $python -B (Join-Path $root 'build_catalog.py')
     if($LASTEXITCODE) { throw 'AlmondRhino catalog generation failed.' }
 }
 Publish-RuntimeBuild $staging $OutputDirectory $install $data

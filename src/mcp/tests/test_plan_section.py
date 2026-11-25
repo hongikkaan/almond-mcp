@@ -421,7 +421,7 @@ def test_embedded_algorithm_is_a_runtime_source_and_stale_changes_are_detected(t
     verifier = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(verifier)
     source = "src/mcp/features/modeling/PlanSection/PlanSection.py"
-    assert verifier.is_source(source, "bridge") and not verifier.is_source(source, "cos")
+    assert verifier.is_source(source, "bridge") and not verifier.is_source(source, "beyond")
     assert not verifier.is_source("src/mcp/features/modeling/plan_section.py", "bridge")
     target = tmp_path / source
     target.parent.mkdir(parents=True)

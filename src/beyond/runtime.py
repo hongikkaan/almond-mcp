@@ -12,11 +12,29 @@ from almond_mcp.modeling_guidance import content_digest, source_files as guide_f
 ROOT = Path(__file__).resolve().parent
 ENGINE = ROOT.parent / "mcp" / "runtime"
 PACKAGE = Path(almond_mcp.__file__).parent
-# Keep the interpreter path used by existing CoS registrations stable.
+# Use the checkout-local interpreter shared with the Bridge runtime.
 PYTHON = ROOT.parent / "engine" / ".venv" / "Scripts" / "python.exe"
 CATALOG = ROOT / "data" / "tool_catalog.json"
 WORKER_STATE_TOOL = "worker_state"
 VERSION = "0.2.0"
+
+
+def recovery_directory(data: Path, name: str) -> Path:
+    """Keep existing direct-client receipts in their original request namespace."""
+    data = Path(data).absolute()
+    current = data / name
+    if data == ROOT / "data":
+        legacy = ROOT.parent / "cos" / "data" / name
+        if legacy.is_dir():
+            if current.is_dir() and any(current.iterdir()):
+                if any(legacy.iterdir()):
+                    raise RuntimeError(
+                        f"Recovery records exist in both {legacy} and {current}. "
+                        "Resolve the two record locations before reconnecting."
+                    )
+                return current
+            return legacy
+    return current
 
 
 def digest(path: Path) -> str:

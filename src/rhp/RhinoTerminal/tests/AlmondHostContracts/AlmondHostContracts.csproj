@@ -6,7 +6,7 @@
     <Compile Include="../../../Engine/SharedStorageLease.cs" Link="SharedStorageLease.cs" />
     <Compile Include="../../../Engine/NativeBinding.cs" Link="NativeBinding.cs" />
     <Compile Include="../../../Engine/RuntimeEnvironment.cs" Link="RuntimeEnvironment.cs" />
-    <Compile Include="../../../../cos/rhp/RhinoHost.cs" Link="RhinoHost.cs" />
-    <Compile Include="../../../../cos/rhp/ControlPipe.cs" Link="ControlPipe.cs" />
+    <Compile Include="../../../../beyond/rhp/RhinoHost.cs" Link="RhinoHost.cs" />
+    <Compile Include="../../../../beyond/rhp/ControlPipe.cs" Link="ControlPipe.cs" />
   </ItemGroup>
 </Project>

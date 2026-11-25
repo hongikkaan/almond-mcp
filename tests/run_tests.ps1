@@ -10,7 +10,7 @@ $testEnvironment = @{ Development = $Development; DotNet = $DotNet; PythonExecut
 & (Join-Path $repo 'src/mcp/use_offline_environment.ps1') @testEnvironment -RequireDotNet
 if ($ReleaseReportDirectory) {
     & (Join-Path $repo 'src/mcp/run_tests.ps1') @testEnvironment -TestArgs @('-q', '--junitxml', (Join-Path $ReleaseReportDirectory 'mcp-tests.xml'))
-    & (Join-Path $repo 'src/cos/run_tests.ps1') @testEnvironment -TestArgs @('-q', '--junitxml', (Join-Path $ReleaseReportDirectory 'cos-tests.xml'))
+    & (Join-Path $repo 'src/beyond/run_tests.ps1') @testEnvironment -TestArgs @('-q', '--junitxml', (Join-Path $ReleaseReportDirectory 'beyond-tests.xml'))
     $panelTests = Get-ChildItem -LiteralPath (Join-Path $repo 'src/rhp/Asset_Panel/tests') -File -Filter '*.test.mjs'
     $panelPaths = @($panelTests | ForEach-Object FullName)
     if (-not $panelPaths.Count) { throw 'Asset Panel tests are missing.' }

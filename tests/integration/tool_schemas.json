@@ -1794,7 +1794,7 @@
         "timeout_seconds": {
           "default": 60,
           "type": "integer",
-          "description": "완료 근거 대기 한도 1~600초. beyond·CoS는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음."
+          "description": "완료 근거 대기 한도 1~600초. beyond는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음."
         }
       },
       "required": [
@@ -1930,7 +1930,7 @@
         "timeout_seconds": {
           "default": 60,
           "type": "integer",
-          "description": "완료 근거 대기 한도 1~600초. beyond·CoS는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음."
+          "description": "완료 근거 대기 한도 1~600초. beyond는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음."
         }
       },
       "required": [
@@ -5269,7 +5269,7 @@
         "request_id": {
           "default": "",
           "type": "string",
-          "description": "생략하면 현재 연결의 최근 실행 조회. beyond·CoS에서 지정한 ID로 최초 실행 연결을 찾으며, 시간 초과 후에는 같은 ID를 지정"
+          "description": "생략하면 현재 연결의 최근 실행 조회. beyond에서 지정한 ID로 최초 실행 연결을 찾으며, 시간 초과 후에는 같은 ID를 지정"
         },
         "include_result": {
           "default": true,

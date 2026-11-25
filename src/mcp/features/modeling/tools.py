@@ -59,7 +59,7 @@ def register(mcp, context):
         Args:
             script: 동기식 Python 소스, C# 문장 본문 또는 명령 매크로. Python은 JSON 호환 값을 result에, C#은 JSON을 result_json에 할당. doc은 연결된 문서. command는 !·Pause·대화상자 없이 종료되는 매크로
             language: python(Python 3), python2, csharp, csharp-script, command 중 선택.
-            timeout_seconds: 완료 근거 대기 한도 1~600초. beyond·CoS는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음.
+            timeout_seconds: 완료 근거 대기 한도 1~600초. beyond는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음.
         """
         if not isinstance(script, str) or not script.strip():
             return json.dumps(error_payload("script must be nonempty source or a command.",

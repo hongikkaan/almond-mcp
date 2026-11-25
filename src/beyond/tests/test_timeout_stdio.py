@@ -15,6 +15,9 @@ from fixtures import timeout_fastmcp_worker as fastmcp_fixture
 from fixtures import timeout_stdio_worker as fixture
 
 
+CONNECTION_ID = "1" * 32
+
+
 class Control:
     """Acknowledge native reservations without a Rhino process."""
 
@@ -84,7 +87,8 @@ def test_delayed_stdio_script_recovers_the_same_execution(tmp_path, monkeypatch,
             "args": ["-B", "-u", fixture.__file__, str(directory)],
         })
 
-    def find_binding(request_id):
+    def find_binding(request_id, *, connection_id):
+        assert connection_id == CONNECTION_ID
         assert fixture.read(directory / "active.json")["request_id"] == request_id
         return binding
 
@@ -104,14 +108,14 @@ def test_delayed_stdio_script_recovers_the_same_execution(tmp_path, monkeypatch,
     async def run():
         broker = Broker(worker_catalog, data=tmp_path, call_timeout=0.8)
         monkeypatch.setattr(broker.recovery_store, "find_binding", find_binding)
-        worker = Worker(binding, "connection", worker_catalog)
-        conn = Connection("connection", "host", control, binding["token"],
+        worker = Worker(binding, CONNECTION_ID, worker_catalog)
+        conn = Connection(CONNECTION_ID, "host", control, binding["token"],
                           binding=binding, worker=worker, state="ready")
         broker.connections[conn.connection_id] = conn
         broker.host_connections[conn.host_id] = conn.connection_id
-        broker.selected_connection_id = conn.connection_id
+
         arguments = {"code": "result = 1"} if tool == fixture.PROJECT_PYTHON else {"script": "result = 1"}
-        arguments["timeout_seconds"] = 600
+        arguments.update(timeout_seconds=600, connection_id=CONNECTION_ID)
         try:
             await worker.start()
             caller = asyncio.create_task(broker.call(tool, arguments))
@@ -130,7 +134,7 @@ def test_delayed_stdio_script_recovers_the_same_execution(tmp_path, monkeypatch,
             retained = conn.retained_call
             assert not retained.done()
 
-            query = {"request_id": request_id}
+            query = {"request_id": request_id, "connection_id": CONNECTION_ID}
             pending = validate_result(broker, fixture.GET_EXECUTION, await broker.call(fixture.GET_EXECUTION, query))
             assert pending["request_id"] == request_id and pending["completed"] is False
             assert pending["connection_state"] == "recovering" and not pending.get("requires_reconnect", False)
@@ -211,16 +215,16 @@ def test_fastmcp_wire_meta_reaches_the_owned_runtime_operation(tmp_path, monkeyp
     async def run():
         catalog = await fastmcp_fixture.catalog(directory)
         broker = Broker(catalog, data=tmp_path, call_timeout=0.8)
-        monkeypatch.setattr(broker.recovery_store, "find_binding", lambda _: binding)
-        worker = Worker(binding, "connection", catalog)
-        conn = Connection("connection", "host", control, binding["token"],
+        monkeypatch.setattr(broker.recovery_store, "find_binding", lambda _, *, connection_id: binding)
+        worker = Worker(binding, CONNECTION_ID, catalog)
+        conn = Connection(CONNECTION_ID, "host", control, binding["token"],
                           binding=binding, worker=worker, state="ready")
         broker.connections[conn.connection_id] = conn
         broker.host_connections[conn.host_id] = conn.connection_id
-        broker.selected_connection_id = conn.connection_id
+
         try:
             await worker.start()
-            caller = asyncio.create_task(broker.call(fixture.PROJECT_PYTHON, {"code": "result = 1"}))
+            caller = asyncio.create_task(broker.call(fixture.PROJECT_PYTHON, {"code": "result = 1", "connection_id": CONNECTION_ID}))
             await wait_exists(directory / "active.json")
             execution = fixture.read(directory / "active.json")
             request_id, operation_id = execution["request_id"], execution["operation_id"]
@@ -237,7 +241,7 @@ def test_fastmcp_wire_meta_reaches_the_owned_runtime_operation(tmp_path, monkeyp
             assert not retained.done()
 
             fixture.write(directory / (request_id + ".json"), dict(status="executed", completed=True))
-            query = {"request_id": request_id}
+            query = {"request_id": request_id, "connection_id": CONNECTION_ID}
             reply = await asyncio.wait_for(broker.call(fixture.GET_EXECUTION, query), 2)
             completed = validate_result(broker, fixture.GET_EXECUTION, reply)
             assert completed["request_id"] == request_id and completed["completed"] is True

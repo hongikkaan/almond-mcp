@@ -1,5 +1,6 @@
 """Exercise the actual cold stdio protocol and external schema composition."""
 import asyncio
+from copy import deepcopy
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,7 @@ import ast
 from almond_mcp.tool_declarations import declaration_sources, inspect_declarations
 from almond_mcp.modeling_guidance import BASIC_SUMMARY, read_policy, startup_instructions
 from jsonschema import Draft202012Validator
-from render_tool_declarations import render_catalogs
+from render_tool_declarations import isolated_environment, read_catalog, render_catalogs, stdio_parameters
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -92,18 +93,6 @@ def assert_information_placement(tools):
         published = json.dumps(tool, ensure_ascii=False)
         assert "drawing_01-list_recipes" not in published
         assert "drawing_05-generate_plan_section" not in published
-
-
-def isolated_environment(tmp_path):
-    env = dict(os.environ)
-    env["ALMOND_TEST_ROOT"] = str(tmp_path)
-    env["RHINO_MCP_STATE_DB"] = str(tmp_path / "direct.sqlite3")
-    env["PYTHONPATH"] = os.pathsep.join(str(ROOT / p) for p in ("src/mcp", "src/mcp/runtime", "src/cos"))
-    for variable in paths.LIBRARY_DIRS:
-        folder = tmp_path / variable
-        folder.mkdir()
-        env[variable] = str(folder)
-    return env
 
 
 async def collect(params, *, bound):
@@ -271,6 +260,9 @@ def test_bound_worker_reads_checkout_recipes_with_legacy_launcher_path(tmp_path)
 
 
 def test_bound_serve_and_external_catalog_identity(tmp_path):
+    from capture_menu import apply_menu_schema
+    from mcp_types import Tool
+
     params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
         str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path))
     _, worker = asyncio.run(collect(params, bound=True))
@@ -297,23 +289,28 @@ def test_bound_serve_and_external_catalog_identity(tmp_path):
     assert policy_tool["inputSchema"]["properties"]["policy"]["description"] == arguments.strip().removeprefix("policy: ")
     for name in worker:
         assert external[name]["description"] == worker[name]["description"]
-        assert external[name]["inputSchema"] == worker[name]["inputSchema"]
+        external_input = deepcopy(external[name]["inputSchema"])
+        if name != "context_01-get_policy":
+            del external_input["properties"]["connection_id"]
+            external_input["required"].remove("connection_id")
+            if "required" not in worker[name]["inputSchema"]:
+                assert external_input.pop("required") == []
+        public_worker = Tool.model_validate(worker[name])
+        apply_menu_schema(public_worker, ())
+        assert external_input == public_worker.input_schema, name
+        assert external[name]["outputSchema"] == worker[name]["outputSchema"], name
 
 
-def test_external_host_routes_publish_their_real_stdio_schemas(tmp_path):
+def test_beyond_and_terminal_publish_their_real_stdio_schemas(tmp_path):
     from runtime import load_catalog
     from external_host import exposed_tools
     catalog = load_catalog()
     unrouted = {"context_01-get_policy", "connect_01-list_up", "connect_02-session", "connect_03-start_session"}
+    expected = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True)
+                for t in exposed_tools(catalog)}
 
-    async def inspect(client_name, label):
-        explicit = client_name == "codex"
-        expected_tools = exposed_tools(catalog, explicit_connections=explicit)
-        expected = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True) for t in expected_tools}
-        code = ("import os; from pathlib import Path; from external_host import main; "
-                f"main(Path(os.environ['ALMOND_TEST_ROOT']), client='{client_name}')")
-        params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", "-c", code],
-                                       env=isolated_environment(tmp_path / client_name))
+    async def inspect_beyond():
+        params = stdio_parameters("beyond", tmp_path / "beyond")
         async with stdio_client(params) as (reader, writer):
             async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
                 initialized = await client.initialize()
@@ -326,31 +323,32 @@ def test_external_host_routes_publish_their_real_stdio_schemas(tmp_path):
                 assert tools == expected
                 for name in ("connect_02-session", "connect_03-start_session"):
                     field = tools[name]["outputSchema"]["properties"]["connection_id"]
-                    assert ("현재 대화의 변수에 함께 저장" in field.get("description", "")) == explicit
+                    assert "현재 대화의 변수에 함께 저장" in field["description"]
                 for name, tool in tools.items():
                     schema = tool["inputSchema"]
-                    routed = explicit and name not in unrouted
+                    routed = name not in unrouted
                     assert ("connection_id" in schema.get("properties", {})) == routed, name
                     assert ("connection_id" in schema.get("required", [])) == routed, name
                     Draft202012Validator.check_schema(tool["inputSchema"])
-                if explicit:
-                    for name in ("context_04-get_project_info", "connect_05-close_session"):
-                        missing = await client.call_tool(name, {})
-                        assert missing.is_error
-                        assert [item.text for item in missing.content] == ["connection_id가 지정되지 않았습니다"]
+                    Draft202012Validator.check_schema(tool["outputSchema"])
+                for name in ("context_04-get_project_info", "connect_05-close_session"):
+                    missing = await client.call_tool(name, {})
+                    assert missing.is_error
+                    assert [item.text for item in missing.content] == ["connection_id가 지정되지 않았습니다"]
                 rejected = await client.call_tool("context_04-get_project_info", {"connection_id": "old"})
                 assert rejected.is_error
-                assert initialized.server_info.name == label
+                assert initialized.server_info.name == "beyond"
                 return tools
 
-    catalogs = {}
-    for name, label in (("codex", "beyond"), ("cos", "CoS")):
-        (tmp_path / name).mkdir()
-        catalogs[label] = asyncio.run(inspect(name, label))
-    assert (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8") == render_catalogs(catalogs["CoS"], catalogs["beyond"])
+    beyond = asyncio.run(inspect_beyond())
+    initialized, terminal = asyncio.run(read_catalog(stdio_parameters("terminal", tmp_path / "terminal")))
+    assert initialized.instructions == startup_instructions()
+    assert set(beyond) - set(terminal) == {name for name in beyond if name.startswith("connect_")}
+    assert set(terminal) <= set(beyond)
+    assert (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8") == render_catalogs(beyond, terminal)
 
 
-def test_codex_first_tools_list_contains_only_the_common_advertised_capture_guids(tmp_path):
+def test_beyond_first_tools_list_contains_only_the_common_advertised_capture_guids(tmp_path):
     from uuid import uuid4
     from winpipe import process_identity
 
@@ -362,10 +360,7 @@ def test_codex_first_tools_list_contains_only_the_common_advertised_capture_guid
         advertisement = dict(schema="almond-rhino-host", protocol=1, host_id=host_id,
                              **process_identity(os.getpid()), display_mode_ids=ids)
         (directory / (host_id + ".json")).write_text(json.dumps(advertisement), encoding="utf8")
-    code = ("import os; from pathlib import Path; from external_host import main; "
-            "main(Path(os.environ['ALMOND_TEST_ROOT']), client='codex')")
-    params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", "-c", code],
-                                   env=isolated_environment(tmp_path))
+    params = stdio_parameters("beyond", tmp_path)
 
     async def inspect():
         async with stdio_client(params) as (reader, writer):
@@ -386,6 +381,8 @@ def test_codex_first_tools_list_contains_only_the_common_advertised_capture_guid
 
 
 def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
+    from uuid import uuid4
+
     params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u",
         str(ROOT / "tests/integration/bound_server_fixture.py")], env=isolated_environment(tmp_path))
     _, worker = asyncio.run(collect(params, bound=True))
@@ -396,6 +393,7 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
     baseline = json.loads((ROOT / "tests/integration/tool_schemas.json").read_text(encoding="utf-8"))["drawing_06-generate_plan_section"]
     assert schema_identity(worker["drawing_06-generate_plan_section"]) == schema_identity(catalog) == baseline
     assert "drawing_03-get_plan_section_result" not in worker
+    connection_id = uuid4().hex
     clipping_id = "00000000-0000-0000-0000-000000000001"
     arguments = dict(operation="Move", clipping_ids=[clipping_id], points={clipping_id: [0, 0, -10]})
     observed = []
@@ -405,9 +403,9 @@ def test_plan_section_bound_schema_and_external_argument_routing(tmp_path):
         return json_result({"status": "success"})
 
     async def route():
-        broker = SimpleNamespace(worker_tool_names={"drawing_06-generate_plan_section"}, connections={"fixture": "bound"},
-                                 explicit_connections=False, invoke=invoke, spawn=asyncio.create_task, selected_connection_id="fixture")
-        response = await Broker.call(broker, "drawing_06-generate_plan_section", arguments)
+        broker = SimpleNamespace(worker_tool_names={"drawing_06-generate_plan_section"},
+                                 connections={connection_id: "bound"}, invoke=invoke, spawn=asyncio.create_task)
+        response = await Broker.call(broker, "drawing_06-generate_plan_section", {**arguments, "connection_id": connection_id})
         assert not response.is_error
 
     asyncio.run(route())

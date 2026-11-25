@@ -9,6 +9,7 @@ from project import ExclusiveFile
 from session_close import SessionCloser
 
 
+CONNECTION_ID = "1" * 32
 CATALOG = {"tools": []}
 
 
@@ -23,12 +24,11 @@ def test_retained_close_requires_original_explicit_connection(tmp_path, lock_hel
     lock = ExclusiveFile(closer.directory(request) / "request.lock") if lock_held else None
     try:
         with pytest.raises(RuntimeError, match="another connection"):
-            asyncio.run(restarted.run(broker, "connection-b", request_id=request, require_connection_match=True))
+            asyncio.run(restarted.run(broker, "connection-b", request_id=request))
         with pytest.raises(ValueError, match="connection_id"):
-            asyncio.run(restarted.run(broker, None, request_id=request, require_connection_match=True))
-        recovered = asyncio.run(restarted.run(broker, "connection-a", request_id=request, require_connection_match=True))
+            asyncio.run(restarted.run(broker, None, request_id=request))
+        recovered = asyncio.run(restarted.run(broker, "connection-a", request_id=request))
         assert recovered["status"] == "completed"
-        assert asyncio.run(restarted.run(broker, None, request_id=request)) == recovered
     finally:
         if lock is not None:
             lock.close()
@@ -50,13 +50,13 @@ def test_close_saves_then_exits_and_repeated_id_only_reads(tmp_path):
         async def state():
             return dict(pending=False, uncertain=False)
         broker = Broker(CATALOG, data=tmp_path, contract_check=lambda _: None)
-        conn = Connection("connection", "host", SimpleNamespace(request=request, close=close),
+        conn = Connection(CONNECTION_ID, "host", SimpleNamespace(request=request, close=close),
                           binding["token"], binding=binding,
                           worker=SimpleNamespace(close=close, state=state), state="ready",
                           lease=SimpleNamespace(close=lambda: actions.append("lease_closed")))
         broker.connections[conn.connection_id] = conn
         broker.host_connections[conn.host_id] = conn.connection_id
-        broker.selected_connection_id = conn.connection_id
+
         async def invoke(conn, name, arguments, invocation):
             assert arguments["language"] == "command" and arguments["script"] == "_Save"
             actions.append("save")
@@ -72,14 +72,14 @@ def test_close_saves_then_exits_and_repeated_id_only_reads(tmp_path):
             def inspect(self, record, directory):
                 return dict(guard_state="exit_dispatched", rhino_closed=True, cli_closed=True)
         broker.session_closer.exit_factory = Exit
-        result = await broker.call("connect_05-close_session", {"request_id": "close-test"})
+        result = await broker.call("connect_05-close_session", {"request_id": "close-test", "connection_id": CONNECTION_ID})
         assert not result.is_error
         value = result.structured_content
         assert value["status"] == "completed" and value["saved"]
         assert value["rhino_closed"] and value["worker_closed"] and value["released"]
         assert actions.index("save") < actions.index("exit") < actions.index("worker_closed") < actions.index("lease_closed")
         before = list(actions)
-        again = await broker.call("connect_05-close_session", {"request_id": "close-test"})
+        again = await broker.call("connect_05-close_session", {"request_id": "close-test", "connection_id": CONNECTION_ID})
         assert again.structured_content == value
         assert actions == before and not broker.connections
     asyncio.run(run())

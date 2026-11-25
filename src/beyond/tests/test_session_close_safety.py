@@ -13,6 +13,7 @@ from external_host import Broker, Connection, HostInUse, error_result, exposed_t
 from session_close import ExitNotDispatched
 
 
+CONNECTION_ID = "1" * 32
 CATALOG = {"tools": [{"name": "observe", "inputSchema": {"type": "object", "properties": {}}}]}
 
 
@@ -46,13 +47,13 @@ def fixture(tmp_path):
         # script_02-run_rhino has the reviewed wrapped-string MCP schema.
         return json_result({"result": json.dumps(behavior["save"])})
     broker = Broker(CATALOG, data=tmp_path, contract_check=lambda _: None)
-    conn = Connection("connection", "host", SimpleNamespace(request=request, close=close_control),
+    conn = Connection(CONNECTION_ID, "host", SimpleNamespace(request=request, close=close_control),
                       binding["token"], binding=binding,
                       worker=SimpleNamespace(close=close_worker, state=state, call=call), state="ready",
                       lease=SimpleNamespace(close=lambda: actions.append("lease_closed")))
     broker.connections[conn.connection_id] = conn
     broker.host_connections[conn.host_id] = conn.connection_id
-    broker.selected_connection_id = conn.connection_id
+
     class Exit:
         def prepare(self, record, directory):
             actions.append("prepare")
@@ -69,7 +70,7 @@ def fixture(tmp_path):
 def test_close_full_lifecycle_and_restart_only_read_result(tmp_path):
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
-        result = await broker.call("connect_05-close_session", {"request_id": "close-test"})
+        result = await broker.call("connect_05-close_session", {"request_id": "close-test", "connection_id": CONNECTION_ID})
         assert not result.is_error
         value = result.structured_content
         assert value["status"] == "completed" and value["saved"]
@@ -77,13 +78,13 @@ def test_close_full_lifecycle_and_restart_only_read_result(tmp_path):
         assert actions.index("save") < actions.index("exit") < actions.index("worker_closed") < actions.index("lease_closed")
         assert "detach" not in actions
         before = list(actions)
-        again = await broker.call("connect_05-close_session", {"request_id": "close-test"})
+        again = await broker.call("connect_05-close_session", {"request_id": "close-test", "connection_id": CONNECTION_ID})
         assert again.structured_content == value
         assert actions == before and not broker.connections
-        other = await broker.call("connect_05-close_session", {"request_id": "close-test", "connection_id": "other"})
+        other = await broker.call("connect_05-close_session", {"request_id": "close-test", "connection_id": "2" * 32})
         assert other.is_error
         restarted = Broker(CATALOG, data=tmp_path, contract_check=lambda _: None)
-        assert (await restarted.call("connect_05-close_session", {"request_id": "close-test"})).structured_content == value
+        assert (await restarted.call("connect_05-close_session", {"request_id": "close-test", "connection_id": CONNECTION_ID})).structured_content == value
     asyncio.run(run())
 
 
@@ -94,7 +95,7 @@ def test_preflight_rejection_sends_neither_save_nor_exit(tmp_path, changed):
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior["before"] = changed
-        result = (await broker.call("connect_05-close_session", {"request_id": "readonly"})).structured_content
+        result = (await broker.call("connect_05-close_session", {"request_id": "readonly", "connection_id": CONNECTION_ID})).structured_content
         assert result["status"] == "rejected" and not result["saved"]
         assert "save" not in actions and "exit" not in actions and "worker_closed" not in actions
         assert conn.state == "ready" and not conn.closing
@@ -113,11 +114,11 @@ def test_unsuccessful_or_changed_save_never_exits(tmp_path, save, after, expecte
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior.update(save=save, after=after)
-        result = (await broker.call("connect_05-close_session", {"request_id": "failed"})).structured_content
+        result = (await broker.call("connect_05-close_session", {"request_id": "failed", "connection_id": CONNECTION_ID})).structured_content
         assert result["status"] == expected
         assert "save" in actions and "exit" not in actions and "worker_closed" not in actions
         before = list(actions)
-        await broker.call("connect_05-close_session", {"request_id": "failed"})
+        await broker.call("connect_05-close_session", {"request_id": "failed", "connection_id": CONNECTION_ID})
         assert actions == before
     asyncio.run(run())
 
@@ -126,14 +127,14 @@ def test_pending_exit_preserves_ownership_blocks_new_work_and_recovers_without_r
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior["evidence"] = dict(guard_state="exit_dispatched", rhino_closed=False, cli_closed=True)
-        first = (await broker.call("connect_05-close_session", {"request_id": "delayed"})).structured_content
+        first = (await broker.call("connect_05-close_session", {"request_id": "delayed", "connection_id": CONNECTION_ID})).structured_content
         assert first["status"] == "unconfirmed" and first["saved"]
         assert "worker_closed" not in actions and "lease_closed" not in actions
         for name, args in [("connect_05-close_session", {"request_id": "different"}), ("connect_04-disconnect", {}), ("observe", {})]:
-            assert (await broker.call(name, args)).is_error
+            assert (await broker.call(name, dict(args, connection_id=CONNECTION_ID))).is_error
         assert actions.count("save") == actions.count("exit") == 1
         behavior["evidence"]["rhino_closed"] = True
-        finished = (await broker.call("connect_05-close_session", {"request_id": "delayed"})).structured_content
+        finished = (await broker.call("connect_05-close_session", {"request_id": "delayed", "connection_id": CONNECTION_ID})).structured_content
         assert finished["status"] == "completed"
         assert actions.count("save") == actions.count("exit") == 1
     asyncio.run(run())
@@ -143,7 +144,7 @@ def test_guard_rejection_releases_close_reservation_but_preserves_open_connectio
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior["evidence"] = dict(guard_state="rejected", rhino_closed=False, cli_closed=True, reason="dirty")
-        value = (await broker.call("connect_05-close_session", {"request_id": "guard"})).structured_content
+        value = (await broker.call("connect_05-close_session", {"request_id": "guard", "connection_id": CONNECTION_ID})).structured_content
         assert value["status"] == "rejected" and value["reason"] == "dirty"
         assert not conn.closing and conn.state == "ready"
         assert "worker_closed" not in actions and "lease_closed" not in actions
@@ -155,12 +156,11 @@ def test_pending_close_after_restart_prevents_attach(tmp_path):
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior["evidence"] = dict(guard_state="missing", rhino_closed=False, cli_closed=True)
-        await broker.call("connect_05-close_session", {"request_id": "retained"})
+        await broker.call("connect_05-close_session", {"request_id": "retained", "connection_id": CONNECTION_ID})
         record = dict(conn.binding, host_id="host")
         restarted = Broker(CATALOG, data=tmp_path, contract_check=lambda _: None,
                            host_reader=lambda _: [record],
-                           lease_factory=lambda *_: pytest.fail("must not attach a retained close"),
-                           explicit_connections=True)
+                           lease_factory=lambda *_: pytest.fail("must not attach a retained close"))
         result = await restarted.call("connect_02-session", {"host_id": "host", "model_path": record["model_path"]})
         assert result.is_error
         assert "request_id=retained" in result.content[0].text
@@ -210,8 +210,8 @@ def test_exit_guard_checks_live_identity_and_dirty_state_in_same_callback(tmp_pa
 
 def test_close_schema_is_explicit():
     tool = next(t for t in exposed_tools(CATALOG) if t.name == "connect_05-close_session")
-    assert tool.input_schema["required"] == ["request_id"]
-    assert set(tool.input_schema["properties"]) == {"request_id"}
+    assert tool.input_schema["required"] == ["request_id", "connection_id"]
+    assert set(tool.input_schema["properties"]) == {"request_id", "connection_id"}
     assert "saved" in tool.output_schema["properties"]
 
 
@@ -225,14 +225,13 @@ def test_concurrent_brokers_cannot_reuse_request_id_for_another_rhino(tmp_path):
             await finish.wait()
             return await original(name, arguments, caller_request_id=caller_request_id)
         conn.worker.call = saving
-        first = asyncio.create_task(broker.call("connect_05-close_session", {"request_id": "same-id"}))
+        first = asyncio.create_task(broker.call("connect_05-close_session", {"request_id": "same-id", "connection_id": CONNECTION_ID}))
         await entered.wait()
         second, other, other_actions, _ = fixture(tmp_path)
         other.binding.update(pid=999, process_start_ticks="999")
-        other.connection_id = "different-connection"
+        other.connection_id = "2" * 32
         second.connections = {other.connection_id: other}
-        second.selected_connection_id = other.connection_id
-        result = await second.call("connect_05-close_session", {"request_id": "same-id"})
+        result = await second.call("connect_05-close_session", {"request_id": "same-id", "connection_id": CONNECTION_ID})
         assert result.structured_content["connection_id"] == conn.connection_id
         assert other_actions == []
         conflict = await second.call("connect_05-close_session", {"request_id": "same-id", "connection_id": other.connection_id})
@@ -248,12 +247,12 @@ def test_interrupted_before_exit_is_rejected_on_read_without_replay(tmp_path, st
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior["evidence"] = dict(guard_state="missing", rhino_closed=False, cli_closed=False)
-        await broker.call("connect_05-close_session", {"request_id": "interrupted"})
+        await broker.call("connect_05-close_session", {"request_id": "interrupted", "connection_id": CONNECTION_ID})
         record = broker.session_closer.load("interrupted")
         record.update(stage=stage, status="closing")
         broker.session_closer.persist(record)
         restarted = Broker(CATALOG, data=tmp_path, contract_check=lambda _: None)
-        value = (await restarted.call("connect_05-close_session", {"request_id": "interrupted"})).structured_content
+        value = (await restarted.call("connect_05-close_session", {"request_id": "interrupted", "connection_id": CONNECTION_ID})).structured_content
         assert value["status"] == "rejected"
         assert restarted.session_closer.pending_for(conn.binding) is None
         assert actions.count("save") == actions.count("exit") == 1
@@ -268,7 +267,7 @@ def test_exit_known_not_dispatched_preserves_open_connection(tmp_path):
             def launch(self, record, directory):
                 raise ExitNotDispatched("CreateProcess failed before dispatch")
         broker.session_closer.exit_factory = FailedLaunch
-        value = (await broker.call("connect_05-close_session", {"request_id": "no-dispatch"})).structured_content
+        value = (await broker.call("connect_05-close_session", {"request_id": "no-dispatch", "connection_id": CONNECTION_ID})).structured_content
         assert value["status"] == "rejected" and value["saved"]
         assert conn.state == "ready" and not conn.closing
         assert "exit" not in actions and "worker_closed" not in actions
@@ -280,18 +279,18 @@ def test_foreign_recovery_does_not_claim_release_while_previous_host_owns_lease(
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior["evidence"] = dict(guard_state="exit_dispatched", rhino_closed=False, cli_closed=True)
-        await broker.call("connect_05-close_session", {"request_id": "owner-held"})
+        await broker.call("connect_05-close_session", {"request_id": "owner-held", "connection_id": CONNECTION_ID})
         behavior["evidence"]["rhino_closed"] = True
         def held(*_):
             raise HostInUse("original host still owns this Rhino")
         restarted = Broker(CATALOG, data=tmp_path, contract_check=lambda _: None, lease_factory=held)
         restarted.session_closer.exit_factory = broker.session_closer.exit_factory
         monkeypatch.setattr("session_close.process_identity_alive", lambda _: False)
-        result = (await restarted.call("connect_05-close_session", {"request_id": "owner-held"})).structured_content
+        result = (await restarted.call("connect_05-close_session", {"request_id": "owner-held", "connection_id": CONNECTION_ID})).structured_content
         assert result["rhino_closed"] and result["worker_closed"] and not result["released"]
         assert result["status"] == "closing"
         assert "lease_closed" not in actions
-        final = (await broker.call("connect_05-close_session", {"request_id": "owner-held"})).structured_content
+        final = (await broker.call("connect_05-close_session", {"request_id": "owner-held", "connection_id": CONNECTION_ID})).structured_content
         assert final["status"] == "completed" and final["released"]
     asyncio.run(run())
 
@@ -302,7 +301,7 @@ def test_unrelated_corrupt_close_record_does_not_block_this_rhino(tmp_path):
         unrelated = broker.session_closer.directory("another-target")
         unrelated.mkdir(parents=True)
         (unrelated / "request.json").write_text("broken unrelated JSON")
-        result = (await broker.call("connect_05-close_session", {"request_id": "valid-target"})).structured_content
+        result = (await broker.call("connect_05-close_session", {"request_id": "valid-target", "connection_id": CONNECTION_ID})).structured_content
         assert result["status"] == "completed"
     asyncio.run(run())
 
@@ -311,11 +310,11 @@ def test_old_orphan_request_query_cannot_replace_new_target_fence(tmp_path):
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior["evidence"] = dict(guard_state="missing", rhino_closed=False, cli_closed=False)
-        await broker.call("connect_05-close_session", {"request_id": "new-active"})
+        await broker.call("connect_05-close_session", {"request_id": "new-active", "connection_id": CONNECTION_ID})
         orphan = broker.session_closer.load("new-active")
         orphan.update(request_id="older-orphan", stage="preflight", status="closing")
         broker.session_closer.persist(orphan)  # Crash had occurred before its index publication.
-        value = (await broker.call("connect_05-close_session", {"request_id": "older-orphan"})).structured_content
+        value = (await broker.call("connect_05-close_session", {"request_id": "older-orphan", "connection_id": CONNECTION_ID})).structured_content
         assert value["status"] == "rejected"
         assert broker.session_closer.pending_for(conn.binding) == "new-active"
         assert actions.count("save") == actions.count("exit") == 1
@@ -326,14 +325,14 @@ def test_foreign_guard_rejection_still_restores_original_owner_on_its_later_read
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior["evidence"] = dict(guard_state="missing", rhino_closed=False, cli_closed=False)
-        await broker.call("connect_05-close_session", {"request_id": "foreign-rejection"})
+        await broker.call("connect_05-close_session", {"request_id": "foreign-rejection", "connection_id": CONNECTION_ID})
         assert conn.closing
         behavior["evidence"] = dict(guard_state="rejected", rhino_closed=False, cli_closed=True, reason="dirty")
         reader = Broker(CATALOG, data=tmp_path, contract_check=lambda _: None)
         reader.session_closer.exit_factory = broker.session_closer.exit_factory
-        assert (await reader.call("connect_05-close_session", {"request_id": "foreign-rejection"})).structured_content["status"] == "rejected"
+        assert (await reader.call("connect_05-close_session", {"request_id": "foreign-rejection", "connection_id": CONNECTION_ID})).structured_content["status"] == "rejected"
         assert conn.closing
-        assert (await broker.call("connect_05-close_session", {"request_id": "foreign-rejection"})).structured_content["status"] == "rejected"
+        assert (await broker.call("connect_05-close_session", {"request_id": "foreign-rejection", "connection_id": CONNECTION_ID})).structured_content["status"] == "rejected"
         assert not conn.closing and conn.state == "ready"
     asyncio.run(run())
 
@@ -344,12 +343,12 @@ def test_settled_worker_error_before_save_journal_does_not_strand_connection(tmp
         async def fail_before_execution(name, arguments, *, caller_request_id=None):
             return error_result("ScriptServer unavailable before dispatch")
         conn.worker.call = fail_before_execution
-        value = (await broker.call("connect_05-close_session", {"request_id": "save-not-dispatched"})).structured_content
+        value = (await broker.call("connect_05-close_session", {"request_id": "save-not-dispatched", "connection_id": CONNECTION_ID})).structured_content
         assert value["status"] == "rejected"
         assert broker.session_closer.pending_for(conn.binding) is None
         assert not conn.in_flight and conn.state == "ready"
         assert "save" not in actions and "exit" not in actions
-        assert not (await broker.call("connect_04-disconnect", {})).is_error
+        assert not (await broker.call("connect_04-disconnect", {"connection_id": CONNECTION_ID})).is_error
     asyncio.run(run())
 
 
@@ -357,7 +356,7 @@ def test_exact_late_save_completion_is_read_without_automatically_exiting(tmp_pa
     async def run():
         broker, conn, actions, behavior = fixture(tmp_path)
         behavior["save"] = dict(completed=False, status="pending", request_id="b" * 32)
-        value = (await broker.call("connect_05-close_session", {"request_id": "late-save"})).structured_content
+        value = (await broker.call("connect_05-close_session", {"request_id": "late-save", "connection_id": CONNECTION_ID})).structured_content
         assert value["status"] == "unconfirmed" and "exit" not in actions
         import hashlib
         folder = Path(conn.binding["session_dir"])
@@ -366,7 +365,7 @@ def test_exact_late_save_completion_is_read_without_automatically_exiting(tmp_pa
             request_id="b" * 32, token=conn.token, source_hash=hashlib.sha256(b"_Save").hexdigest(),
             target=conn.binding)))
         monkeypatch.setattr("session_close.read_bound_execution", lambda *_: dict(completed=True, status="executed"))
-        value = (await broker.call("connect_05-close_session", {"request_id": "late-save"})).structured_content
+        value = (await broker.call("connect_05-close_session", {"request_id": "late-save", "connection_id": CONNECTION_ID})).structured_content
         assert value["status"] == "rejected" and value["stage"] == "save_completed_without_exit"
         assert actions.count("save") == 1 and "exit" not in actions
         assert broker.session_closer.pending_for(conn.binding) is None

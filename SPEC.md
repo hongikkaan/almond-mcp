@@ -6,7 +6,7 @@
 | 모듈 | 책임 | 상세 계약 |
 |---|---|---|
 | MCP | 모델링 도구·계산·자산 API, CLI와 Python 실행기 | [SPEC](src/mcp/SPEC.md) |
-| 외부 연결기·AlmondRhino | beyond/CoS 진입점, 공용 외부 host/worker와 AlmondRhino 플러그인 | [SPEC](src/cos/SPEC.md) |
+| 외부 연결기·AlmondRhino | beyond 진입점, 외부 host/worker와 AlmondRhino 플러그인 | [SPEC](src/beyond/SPEC.md) |
 | RHP | Rhino Bridge·패널·Terminal과 공용 native Engine | [SPEC](src/rhp/SPEC.md) |
 | 호환 진입점 | 기존 시작 버튼과 Python 환경 위치 보존 | [설명](src/engine/README.md) |
 
@@ -24,7 +24,7 @@
 | 소유 모듈 | 구현·검사 위치 | 허용하는 의존 관계 |
 |---|---|---|
 | MCP | `src/mcp`의 공용 코드·`features`, `runtime`, `release_validation`, `tests` | Python 라이브러리와 Rhino의 기존 전송 계약. 외부 연결기 구현을 import하지 않는다. |
-| 외부 연결기 | `src/cos`의 host/worker·catalog, `rhp`, `tests` | MCP 실행기의 검증·구성 훅, native Engine. MCP 내부 정책을 외부 연결기에 복제하지 않는다. |
+| 외부 연결기 | `src/beyond`의 host/worker·catalog, `rhp`, `tests` | MCP 실행기의 검증·구성 훅, native Engine. MCP 내부 정책을 외부 연결기에 복제하지 않는다. |
 | Native Engine | `src/rhp/Engine`, 그 안의 `tests` | Rhino·플랫폼 API. 개별 호스트 프로젝트를 참조하지 않는다. |
 | Bridge | `src/rhp/RhinoAlmondBridge` 및 자체 `tests` | Engine, MCP 소유 C# 모델링·조회 코드와 재료 정책, 아래 패널·Terminal 소스. |
 | RhinoTerminal | `src/rhp/RhinoTerminal/src`, `tests` | Engine과 MCP 실행기. 기존처럼 Bridge RHP에 컴파일된다. |

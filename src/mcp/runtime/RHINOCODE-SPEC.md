@@ -19,7 +19,7 @@
 프로젝트 Python은 선택한 Plan의 산출물 폴더를 cwd로 사용한다. 일반 스크립트는 프로젝트 루트를 사용한다. Rhino wrapper는 cwd와 프로젝트·모델·산출물 환경을 일시 적용하고 복구한다.
 외부 worker venv 실행기는 제거했으며, 그 패키지를 Rhino Python에 자동 설치하지 않는다.
 timeout은 두 공개 도구 모두 실행 종료가 아닌 대기 한도다.
-공통 runtime의 기본 대기 정책은 요청값을 유지한다. beyond·CoS의 external worker는 구성 훅에서 첫 완료 근거 대기를 `min(timeout_seconds, 60)`으로 제한한다. 기본 60초와 더 짧은 요청은 유지하며, 더 긴 실행은 durable `request_id`를 포함한 pending으로 먼저 반환하고 `script_03-get_execution` tool로 같은 요청을 조회한다. 이 상한은 준비·파일 I/O까지 포함하는 실행 시간 제한이 아니다. 문서 전용 Terminal·시작기에는 이 외부 대기 정책을 적용하지 않는다.
+공통 runtime의 기본 대기 정책은 요청값을 유지한다. beyond의 external worker는 구성 훅에서 첫 완료 근거 대기를 `min(timeout_seconds, 60)`으로 제한한다. 기본 60초와 더 짧은 요청은 유지하며, 더 긴 실행은 durable `request_id`를 포함한 pending으로 먼저 반환하고 `script_03-get_execution` tool로 같은 요청을 조회한다. 이 상한은 준비·파일 I/O까지 포함하는 실행 시간 제한이 아니다. 문서 전용 Terminal·시작기에는 이 외부 대기 정책을 적용하지 않는다.
 
 스킬 본문·네 참고자료·라이선스는 `features/modeling/rhino3d-scripts`에 포함한다.
 정적 도구 가이드 snapshot과 source fingerprint가 이 파일들도 포함하므로 연결 도중 개인 설치본이나 네트워크 내용으로 지침이 바뀌지 않는다. 자동화 적용 차이는 그 폴더의 `INTEGRATION.md`에 명시한다. 대화형 선택·macro의 강제 취소를 자동 도입하지 않는다.
