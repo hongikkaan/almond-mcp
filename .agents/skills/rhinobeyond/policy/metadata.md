@@ -1,14 +1,13 @@
-# Rhino 메타데이터
+# Rhino 객체 메타데이터
 
-## 키와 저장 범위 확인
+**층·유닛 타입 같은 객체 분류는 레이어가 아니라 객체 속성에 기록하고, 그 값으로 조회·필터링한다.** 같은 의미의 키가 이미 있으면 이름과 저장 위치를 그대로 쓴다. 새 키를 만들기 전에 `context_01-get_policy`에 `policy="metadata"`를 넣어 공통 키를 확인한다. 도구가 관리하는 내부 키는 직접 채우지 않는다.
 
-- 기존 객체를 편집하기 전에 현재 값과 저장 위치를 확인한다. 객체 속성 User Text는 객체에 붙는 문자열이다. 형상 User Text, 객체·형상 각각의 UserDictionary, 문서 전체의 User Text(`RhinoDoc.Strings`)는 별도 저장소다. 문서 전체에 적용할 정보만 문서 범위에 기록하고, 객체 키 사전을 문서 키 규약으로 사용하지 않는다.
-- `inspect_02-get_objects` tool의 `fields=["user_dictionary"]`와 `filters.user_dictionary`는 객체 속성·형상의 UserDictionary를 대상으로 한다. 객체 속성 User Text는 같은 도구의 fields=["user_text"]로 읽고 filters.user_text로 찾는다. 예를 들어 [{"key":"floor","any_of":["2F"]}]는 층 표기가 2F인 객체에 일치한다. Rhino의 속성 패널에서도 확인할 수 있다. 문서 User Text는 문서 속성에서 확인한다. 자동화가 필요하면 `script_02-run_rhino` tool을 통해 해당 저장소만 읽는다.
-- `context_01-get_policy` tool에서 `policy="metadata"`로 조회한 키 사전의 `public_object_keys`와 `internal_object_keys`에서 기존 키를 확인한다. 이미 같은 의미의 키가 있으면 기존 기능에 맞는 키와 저장 위치를 재사용한다. 내부 키는 해당 기능에서 관리하므로 일괄 기입하지 않는다. 사용자가 정한 키와 별도 메타데이터는 보존한다.
+## 기록
 
-## 기존 기능으로 기록
+- **모델 공간의 최상위 블록 인스턴스는 층을 객체 속성 UserDictionary의 `Floor`에 기록한다.** 프로젝트의 층 표기를 그대로 쓴다. 블록 정의나 중첩 블록에 같은 값을 반복해 넣지 않는다. 기존 User Text의 `floor`는 자동으로 바꾸거나 지우지 않는다.
+- **프로젝트에서 추가로 정한 문자열 정보는 객체 속성 User Text에 기록한다.** 문서 전체의 User Text에는 문서 공통 정보만 둔다. 편집할 때는 대상 키만 바꾸고 기존 사용자 키와 다른 속성을 보존한다.
 
-- 모델 공간에 배치한 최상위 블록 인스턴스의 층은 객체 속성 UserDictionary의 `Floor`에 기록한다. 블록 정의와 중첩 블록에는 같은 값을 반복해서 기록할 필요가 없다. 기존 객체 속성 User Text의 `floor`는 유지한다. 구형 PlanSection 출력의 `Floor`는 Move에서 유지하며, Create·Update로 생성한 출력에는 기록하지 않는다.
-- 재료나 구축 의도를 기록할 때는 `model_04-list_materials` tool과 `research_01-get_construction_guidance` tool에서 필요한 ID를 확인한 뒤 `model_01-assign_material` tool의 해당 입력을 사용한다. `floor`는 사용자나 프로젝트가 정한 층 표기를 사용한다. `construction_detail`은 사람이 읽는 구축 설명이고 `construction_reference`는 확인한 시스템 ID를 가리킨다. 구조 역할은 근거가 있는 경우에 지정하고, 재료의 시각 속성은 Rhino 재료에 둔다. 3D 재료와 레이어는 `M` 아래에서 1:1로 대응시킨다. 객체별 재료를 지정하지 않고 `ByLayer`를 사용하며, 재료 변경은 레이어 변경으로 처리한다. `model_01-assign_material` tool이 재료 레이어 배정을 지원할 때는 그 경로를 사용한다.
-- 구조 해석용 단면이나 단부 조건은 `analysis_02-validate_structure` tool의 설명과 구조 지침을 확인한다. 해석 대상 곡선의 객체 속성 User Text에 단면 `section`(예: `rect 300x640`)이나 단부 조건 `release`(예: `pinned_start`)을 지정할 수 있다. 해석에서 읽는 값이므로 해당 조건을 의도한 경우에만 쓴다.
-- 전용 도구가 없는 키를 스크립트로 변경할 때는 저장소와 대상만 지정하고 기존 속성을 보존한다. 변경 후 같은 저장소에서 값을 다시 읽어 확인한다. 새 사용자 키는 허용되며, 기존 키를 자동으로 이름 변경하거나 다른 저장소로 옮기지 않는다.
+## 조회·검수
+
+- **객체를 찾을 때는 `inspect_02-get_objects`에서 기록한 저장소로 필터링한다.** 최상위 블록의 2층을 찾을 때는 `filters.user_dictionary`에 `[{"key":"Floor","any_of":["2F"]}]`를 넣는다. User Text에 기록한 정보에는 `filters.user_text`를 쓴다.
+- **기존 값을 수정하기 전과 수정한 뒤에는 같은 저장소에서 읽어 확인한다.** `fields=["user_dictionary"]` 또는 `fields=["user_text"]`로 확인한다. 객체 속성과 형상에 붙은 값은 서로 다른 저장소에 있으므로 혼동하지 않는다. 전용 도구가 없어 스크립트를 쓸 때도 대상과 저장소를 명시한다.
