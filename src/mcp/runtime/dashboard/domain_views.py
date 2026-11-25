@@ -461,9 +461,6 @@ class DomainViews:
         return result
 
     def holons(self, records):
-        return self._holon_groups(records)
-
-    def _holon_groups(self, records):
         result = []
         for row in records:
             key = row[self.holon_key]

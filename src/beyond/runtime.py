@@ -7,7 +7,7 @@ from importlib.metadata import version
 import json
 from pathlib import Path
 import almond_mcp
-from almond_mcp.modeling_guidance import content_digest, source_files as guide_files
+from almond_mcp.modeling_guidance import content_digest as digest, source_files as guide_files
 
 ROOT = Path(__file__).resolve().parent
 ENGINE = ROOT.parent / "mcp" / "runtime"
@@ -35,10 +35,6 @@ def recovery_directory(data: Path, name: str) -> Path:
                 return current
             return legacy
     return current
-
-
-def digest(path: Path) -> str:
-    return content_digest(path)
 
 
 def source_paths(engine: Path) -> dict[str, Path]:

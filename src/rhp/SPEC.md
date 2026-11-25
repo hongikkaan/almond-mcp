@@ -27,7 +27,8 @@ Bridge 로드는 패널과 기존 native handler/helper만 준비한다. 구형 
 
 `NativeBinding`이 두 호스트의 공통 binding 구성·소유자 확인 발행·무효화·문서 identity·native drain 이후 worker gate를 잡은 locator/lease 해제를 소유한다. Terminal의 PTY와 AlmondRhino의 discovery·worker·slot 수명은 각 호스트가 소유한다. 다른 token의 ready/locator 기록은 덮어쓰거나 삭제하지 않는다.
 
-Terminal과 AlmondRhino는 공용 `RuntimeEnvironment`로 고정 RHP 출력 위치에서 `../mcp/runtime`에 해당하는 실제 경로를 계산해 사용한다. 개발 워크트리로 일상 Rhino 등록을 변경하지 않는다.
+Terminal과 AlmondRhino는 모델 경로를 표시하고 비교할 때 Engine의 `SessionFiles.Canonical`과 `SessionFiles.Same`을 사용한다. 각 호스트는 연결할 문서의 저장 상태와 문서 식별번호를 확인한다.
+두 호스트는 공용 `RuntimeEnvironment`로 고정 RHP 출력 위치에서 `../mcp/runtime`에 해당하는 실제 경로를 계산해 사용한다. 개발 워크트리로 일상 Rhino 등록을 변경하지 않는다.
 
 Terminal의 shell·AlmondHost 수명은 패널과 독립적이다. Rhino 시작이나 패널 복원은 실행을 시작하지 않는다. `RhinoTerminal`의 `On`/`Off`는 표시 상태와 무관하게 실행을 제어하고 `PanelToggle`은 표시만 바꾼다. 패널 없는 실행도 출력 소비와 문서 확인을 유지하며, 최근 128 Ki 문자 출력을 보관해 새 패널에 재생한다.
 패널 오른쪽 위 almond/resume 버튼은 기존 터미널 입력 경로로 명령과 Enter를 보낸다.

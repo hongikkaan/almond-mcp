@@ -47,8 +47,6 @@ internal sealed class AlmondHost : IDisposable
         _ = Task.Run(Listen);
     }
 
-    public static string Canonical(string path) => Path.GetFullPath(path).TrimEnd('\\', '/');
-    static bool Same(string a, string b) => string.Equals(Canonical(a), Canonical(b), StringComparison.OrdinalIgnoreCase);
     static string Text(JsonElement value, string key) => value.GetProperty(key).GetString() ?? "";
     static void Save(string path, object value)
         => SessionFiles.WriteJson(path, value);
@@ -122,7 +120,7 @@ internal sealed class AlmondHost : IDisposable
         if (doc == null || string.IsNullOrWhiteSpace(doc.Path) || !File.Exists(doc.Path))
             throw new InvalidOperationException("먼저 이 Rhino 문서를 .3dm으로 저장한 뒤 almond를 입력하세요.");
         using var process = Process.GetCurrentProcess();
-        return new { model_path = Canonical(doc.Path), document_serial = doc.RuntimeSerialNumber.ToString(),
+        return new { model_path = SessionFiles.Canonical(doc.Path), document_serial = doc.RuntimeSerialNumber.ToString(),
             pid = process.Id, process_start_ticks = process.StartTime.ToUniversalTime().Ticks.ToString(),
             supported_slots = SupportedSlots, storage_protocol = StorageProtocol };
     }
@@ -164,7 +162,7 @@ internal sealed class AlmondHost : IDisposable
         var slot = Text(request, "slot");
         var token = Text(request, "session_token");
         var port = request.GetProperty("port").GetInt32();
-        if (doc == null || string.IsNullOrEmpty(doc.Path) || !File.Exists(doc.Path) || !Same(doc.Path, model) ||
+        if (doc == null || string.IsNullOrEmpty(doc.Path) || !File.Exists(doc.Path) || !SessionFiles.Same(doc.Path, model) ||
             doc.RuntimeSerialNumber.ToString() != serial || slot.Length != 1 ||
             !SupportedSlots.Contains(slot) || port != 5501 + SupportedSlots.IndexOf(slot) || !Guid.TryParseExact(token, "N", out _))
             throw new InvalidOperationException("요청한 모델·문서·연결 번호가 현재 Rhino와 다릅니다.");
@@ -172,11 +170,11 @@ internal sealed class AlmondHost : IDisposable
         var storage = paths.Storage;
         // Operation temp directories are created on demand, including for a
         // saved model in a project that has never run Almond before.
-        if (!Same(storage, Text(request, "storage")))
+        if (!SessionFiles.Same(storage, Text(request, "storage")))
             throw new InvalidOperationException("공유 프로젝트 저장소 경로가 다릅니다.");
         var session = paths.SessionDir;
         if (request.TryGetProperty("session_dir", out var requestedSession) &&
-            !Same(session, requestedSession.GetString() ?? ""))
+            !SessionFiles.Same(session, requestedSession.GetString() ?? ""))
             throw new InvalidOperationException("요청한 Almond 세션 경로가 다릅니다.");
         // Do not attach a second bridge to a Rhino owned by the external launcher.
         using var process = Process.GetCurrentProcess();
@@ -215,7 +213,7 @@ internal sealed class AlmondHost : IDisposable
             SaveOwned(readyPath);
             // Publish ownership before starting a listener, including failed-start cleanup.
             Save(locatorPath, binding);
-            bridge = new BoundBridge(port, readyPath, token, Canonical(model), doc.RuntimeSerialNumber);
+            bridge = new BoundBridge(port, readyPath, token, SessionFiles.Canonical(model), doc.RuntimeSerialNumber);
             bridge.Start();
             var watch = Stopwatch.StartNew();
             while (watch.Elapsed < TimeSpan.FromSeconds(5))

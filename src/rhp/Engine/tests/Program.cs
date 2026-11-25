@@ -12,6 +12,9 @@ try
     string token = Guid.NewGuid().ToString("N");
     var paths = SessionFiles.Paths(model, "A", token, true);
     Require(SessionFiles.Same(model, Path.Combine(root, ".", "saved.3dm")), "Canonical identity mismatch");
+    Require(SessionFiles.Same(model, Path.Combine(root, "SAVED.3DM")), "Path casing changed identity");
+    Require(SessionFiles.Same(model, model + Path.DirectorySeparatorChar), "Trailing separator changed identity");
+    Require(!SessionFiles.Same(model, Path.Combine(root, "other.3dm")), "Different model matched");
     Throws<ArgumentException>(() => SessionFiles.Paths(model, "K", token));
     Throws<ArgumentException>(() => SessionFiles.Paths(model, "A", token.ToUpperInvariant()));
     Throws<IOException>(() => SessionFiles.Paths(Path.Combine(root, "missing.3dm"), "A", token));

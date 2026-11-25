@@ -53,8 +53,6 @@ internal sealed class RhinoHost : IDisposable
         catch { control.Dispose(); throw; }
     }
 
-    static string Canonical(string path) => Path.GetFullPath(path).TrimEnd('\\', '/');
-    static bool Same(string a, string b) => string.Equals(Canonical(a), Canonical(b), StringComparison.OrdinalIgnoreCase);
     static string Text(JsonElement value, string key) => value.GetProperty(key).GetString() ?? "";
     static void Save(string path, object value) => SessionFiles.WriteJson(path, value);
 
@@ -140,7 +138,7 @@ internal sealed class RhinoHost : IDisposable
         var doc = RhinoDoc.ActiveDoc;
         bool saved = doc != null && !string.IsNullOrWhiteSpace(doc.Path) && File.Exists(doc.Path);
         return new { host_id = hostId, pid, process_start_ticks = startTicks,
-            model_path = saved ? Canonical(doc!.Path) : null,
+            model_path = saved ? SessionFiles.Canonical(doc!.Path) : null,
             document_serial = saved ? doc!.RuntimeSerialNumber.ToString() : null,
             supported_slots = Slots, state = State, reason = problem, saved,
             modified = doc?.Modified, read_only = doc?.IsReadOnly };
@@ -271,11 +269,11 @@ internal sealed class RhinoHost : IDisposable
         var model = Text(request, "model_path");
         var serial = Text(request, "document_serial");
         var token = Text(request, "session_token");
-        if (doc == null || string.IsNullOrWhiteSpace(doc.Path) || !Same(doc.Path, model) ||
+        if (doc == null || string.IsNullOrWhiteSpace(doc.Path) || !SessionFiles.Same(doc.Path, model) ||
             serial != doc.RuntimeSerialNumber.ToString() || request.GetProperty("pid").GetInt32() != pid ||
             Text(request, "process_start_ticks") != startTicks || !Guid.TryParseExact(token, "N", out _))
             throw new InvalidOperationException("선택한 Rhino 문서가 변경됐습니다. 연결 목록을 다시 확인하세요.");
-        model = Canonical(model);
+        model = SessionFiles.Canonical(model);
         var storage = SessionFiles.Paths(model, "A", token).Storage;
         using var gate = new Mutex(false, @"Local\Almond_Process_Maintenance");
         if (!Acquire(gate, 2000)) throw new InvalidOperationException("Almond 시작 또는 정리가 진행 중입니다. 잠시 후 다시 연결하세요.");
