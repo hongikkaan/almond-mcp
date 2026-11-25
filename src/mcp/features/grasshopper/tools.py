@@ -99,11 +99,12 @@ def register(mcp, context):
             field_groups: paths·all은 라이브러리 경로 포함. ports·definition·source·audit은 목록에 적용되지 않음.
         """
         validate_field_groups(field_groups, GROUPS)
+        logic_ids = context.indexer.list_ids()
         return json.dumps(project({
             "library_dir": context.LIBRARY_DIR,
-            "total_entries": len(context.indexer.index),
-            "logic_names": context.indexer.list_ids(),
-            "logic_ids": context.indexer.list_ids(),
+            "total_entries": len(logic_ids),
+            "logic_names": logic_ids,
+            "logic_ids": logic_ids,
         }, field_groups))
 
 

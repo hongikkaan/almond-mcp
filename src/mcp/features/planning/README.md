@@ -254,7 +254,7 @@ Output — plan_12-update tool
 
 ## Step 완료
 
-`plan_12-update` tool에서 현재 Step의 `status="completed"`를 지정하면 함께 입력한 Step 필드와 같은 DB 트랜잭션에 저장한다. 실제 변경은 revision을 한 번 증가시킨다. 새로 완료 상태가 된 경우, DB 저장을 확인한 뒤 기존 로컬 Temp 트리를 정리한다. 최상위 Temp 레이어는 유지한다. 이미 완료된 Step을 재호출하거나 일반 필드만 수정해도 정리를 반복하지 않는다. 성공 응답에는 정리 내용을 표시하지 않는다.
+`plan_12-update` tool에서 현재 Step의 `status="completed"`를 지정하면 함께 입력한 Step 필드와 같은 DB 트랜잭션에 저장한다. 완료 여부를 확인할 때 읽은 Loop와 revision을 저장 직전에 다시 대조한다. 그 사이 다른 수정이 저장됐다면 충돌을 반환하고 Rhino 정리를 시작하지 않는다. 실제 변경은 revision을 한 번 증가시킨다. 새로 완료 상태가 된 경우, DB 저장을 확인한 뒤 기존 로컬 Temp 트리를 정리한다. 최상위 Temp 레이어는 유지한다. 이미 완료된 Step을 재호출하거나 일반 필드만 수정해도 정리를 반복하지 않는다. 성공 응답에는 정리 내용을 표시하지 않는다.
 
 블록 인스턴스는 배치 레이어로 정리 대상을 판단한다. 로컬 블록 정의에서는 구성원의 레이어로 판단하며, temp에 속한 구성원만 제거한다. 정의의 남은 구성원은 순서·형상·속성을 대조한다. temp 밖 인스턴스는 참조 대상·변환·속성을 대조한다. 최상위 인스턴스는 GUID도 비교한다. Rhino가 블록 정의를 수정하며 다시 지정한 중첩 구성원 GUID는 허용한다. 정리는 Worksession 참조, PlanSection의 관리 데이터 및 외부 파일을 보존한다. 현재 레이어가 삭제할 하위 레이어이면 최상위 temp 또는 사용 가능한 기존 로컬 최상위 레이어로 전환한다. 사용할 레이어가 없으면 Rhino가 기본 레이어를 추가한다. 실패 응답의 `cleanup_state`는 `not_started`, `rolled_back`, `unknown` 중 하나다. 정리를 시작한 뒤 블록 구성원이나 인스턴스의 상태를 대조할 수 없으면 `unknown`을 반환한다. `plan`과 `step`은 확인한 DB 상태를 담는다. DB 저장이 실패하면 Rhino 정리 요청을 보내지 않는다. 저장 후 Rhino 정리가 실패하면 완료한 Step과 별도로 정리 상태를 보고하며, `requires_reconciliation=true`가 반환되면 Rhino의 temp 상태를 확인한다.
 

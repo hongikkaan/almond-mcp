@@ -61,6 +61,9 @@ KARAMBA_COMPONENTS = {
     'PrincipalStress', 'ForceFlow',
 }
 
+_KANGAROO_PATTERN = re.compile("|".join(re.escape(name.lower()) for name in KANGAROO_COMPONENTS))
+_KARAMBA_PATTERN = re.compile("|".join(re.escape(name.lower()) for name in KARAMBA_COMPONENTS))
+
 # ── Capsule Manifests ────────────────────────────────────────────────────────
 # A capsule is a GH definition plus a sidecar manifest (<name>.capsule.json)
 # declaring a typed input/output contract bound by reserved ALMOND_IN_* /
@@ -209,18 +212,16 @@ class GHParser:
             results.append(''.join(current))
         return results
 
-    def _classify_component(self, name: str) -> str:
-        """Classify a component string as kangaroo, karamba, or grasshopper."""
+    def _classify_component(self, name: str) -> str | None:
+        """Recognize known components and resolve ambiguous plugin matches."""
         name_lower = name.lower()
-        if 'karamba' in name_lower:
+
+        # Explicit Karamba text wins only when a known component also matches.
+        if _KANGAROO_PATTERN.search(name_lower):
+            return 'karamba' if 'karamba' in name_lower else 'kangaroo'
+        if _KARAMBA_PATTERN.search(name_lower):
             return 'karamba'
-        for kw in KANGAROO_COMPONENTS:
-            if kw.lower() == name_lower or kw.lower() in name_lower:
-                return 'kangaroo'
-        for kw in KARAMBA_COMPONENTS:
-            if kw.lower() == name_lower or kw.lower() in name_lower:
-                return 'karamba'
-        return 'grasshopper'
+        return None
 
     def _clean_string(self, s: str) -> str:
         """Strip leading non-alphabetic garbage from .NET BinaryFormatter length-prefix leaks."""
@@ -280,33 +281,21 @@ class GHParser:
         # Decompress and extract strings
         data = self._decompress()
         strings = self._extract_strings(data, min_len=5)
-        unique_strings = list(dict.fromkeys(strings))  # preserve order, deduplicate
+        unique_strings = dict.fromkeys(strings)  # preserve order, deduplicate
 
-        # Build keyword sets for matching (lowercase)
-        all_keywords = KANGAROO_COMPONENTS | KARAMBA_COMPONENTS
-
-        # Detect components
+        # Different raw strings can clean to the same name. Only components
+        # deduplicate by cleaned name because descriptions retain each variant.
         seen_components = set()
         for s in unique_strings:
             cleaned = self._clean_string(s.strip())
-            if not cleaned:
+            if not cleaned or cleaned in seen_components:
                 continue
 
-            # Direct match against known component names
-            for kw in all_keywords:
-                if kw.lower() in cleaned.lower() and cleaned not in seen_components:
-                    category = self._classify_component(cleaned)
-                    context.components.append(PhysicsComponent(
-                        name=cleaned,
-                        category=category,
-                    ))
-                    seen_components.add(cleaned)
-                    break
-
-        # Collect meaningful descriptions
-        for s in unique_strings:
-            cleaned = self._clean_string(s.strip())
-            if self._is_description(cleaned) and cleaned not in seen_components:
+            category = self._classify_component(cleaned)
+            if category is not None:
+                context.components.append(PhysicsComponent(name=cleaned, category=category))
+                seen_components.add(cleaned)
+            elif self._is_description(cleaned):
                 context.all_descriptions.append(cleaned)
 
         return context

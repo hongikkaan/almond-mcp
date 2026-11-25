@@ -200,6 +200,26 @@ def test_parent_without_direct_members_preserves_child_ownership_through_store(r
     assert store.get_component(COMPONENT)["effective_object_count"] == 1
     assert store.get_component(CHILD)["parent_component_id"] == COMPONENT
     assert native.requests[-1]["object_ids"] == member_ids
+    listed = store.list_components(MODEL, scene_id=scene_id, recursive=True)
+    assert [(row["component_id"], row["child_component_ids"]) for row in listed] == [(COMPONENT, [CHILD]), (CHILD, [])]
+    observation = dict(status="success", complete=True, model_path=MODEL, editing={"stable": True},
+                       components=[parent, child])
+    objects = store.scene_objects(scene_id, MODEL, lambda request: observation)
+    assert [(row["rhino_guid"], row["component_id"]) for row in objects] == [(CHILD_OBJECT, CHILD)]
+
+
+def test_alignment_rejects_a_handle_registered_to_another_model(registry):
+    store, scene_id = registry
+    existing = snapshot(scene_id)
+    store.upsert_component(MODEL, "Arrival", [OBJECT], [scene_id], COMPONENT, GROUP,
+                           native_apply=lambda request: {"status": "success", "component": existing})
+    other_model = r"C:\fixture\annex.3dm"
+    observation = dict(status="success", complete=True, model_path=other_model, editing={"stable": True},
+                       components=[dict(existing, model_path=other_model)])
+    before = store.get_component(COMPONENT)
+    with pytest.raises(ValueError, match="cannot be rebound"):
+        store.align_components(other_model, native_inspect=lambda request: observation)
+    assert store.get_component(COMPONENT) == before
 
 
 @pytest.mark.parametrize("broken", ["document", "group", "name", "owner", "effective_owner",

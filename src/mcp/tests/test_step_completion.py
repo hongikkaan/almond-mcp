@@ -121,6 +121,29 @@ def test_completion_rejects_stale_revision_or_loop(completion, change):
     assert completion.bridge_requests == []
 
 
+def test_completion_rechecks_revision_after_preflight(completion, monkeypatch):
+    from almond_mcp.features.planning import completion as workflow
+
+    store = completion.context.retrieval_store
+    bound_model_path = workflow.bound_model_path
+    before = completion.read()
+
+    def change_plan_before_write():
+        store.edit_plan(completion.plan["plan_id"], title="Concurrent edit")
+        return bound_model_path()
+
+    monkeypatch.setattr(workflow, "bound_model_path", change_plan_before_write)
+    result = completion.update(status="completed", takeaways="Stale notes")
+
+    assert result["error_code"] == "step_completion_db_failed"
+    assert result["cleanup_state"] == "not_started"
+    assert result["requires_reconciliation"] is False
+    assert result["plan"]["revision"] == before["revision"] + 1
+    assert result["step"]["status"] == before["status"]
+    assert completion.read()["step"] == before["step"]
+    assert completion.bridge_requests == []
+
+
 @pytest.fixture(scope="module")
 def native_cleanup(tmp_path_factory):
     sdk = os.environ["ALMOND_TEST_DOTNET"]
