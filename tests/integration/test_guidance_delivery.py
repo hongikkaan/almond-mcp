@@ -29,24 +29,16 @@ def guidance_directory(checkout):
 RETIRED_NAMES = ("BASIC-INSTRUCTIONS.md", "design_judgment.md", "About Rhino.md")
 
 
-def test_existing_codex_registration_starts_the_same_beyond_server(guidance_checkout, tmp_path):
-    previous_entry = guidance_checkout / "src/cos/codex_host.py"
-    previous_entry.parent.mkdir()
-    shutil.copy2(ROOT / "src/cos/codex_host.py", previous_entry)
+def test_codex_entry_starts_beyond(guidance_checkout, tmp_path):
+    entry = guidance_checkout / "src/beyond/codex_host.py"
     env = isolated_environment(tmp_path / "libraries", guidance_checkout)
     env.pop("PYTHONPATH", None)
-
-    async def start(script):
-        params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", str(script)],
-                                       cwd=tmp_path, env=env)
-        return await read_catalog(params)
-
-    current, current_tools = asyncio.run(start(guidance_checkout / "src/beyond/codex_host.py"))
-    previous, previous_tools = asyncio.run(start(previous_entry))
-    assert current.server_info.name == "beyond"
-    assert previous.server_info == current.server_info
-    assert previous.instructions == current.instructions
-    assert previous_tools == current_tools
+    params = StdioServerParameters(command=sys.executable, args=["-B", "-X", "utf8", "-u", str(entry)],
+                                   cwd=tmp_path, env=env)
+    initialized, tools = asyncio.run(read_catalog(params))
+    assert initialized.server_info.name == "beyond"
+    assert initialized.instructions
+    assert "connect_03-start_session" in tools
 
 
 @pytest.mark.parametrize("route", ["terminal", "beyond"])

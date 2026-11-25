@@ -1,6 +1,6 @@
 # beyond 외부 연결기와 AlmondRhino
 
-- `src/beyond`는 beyond의 host/worker와 도구 카탈로그를 소유한다. MCP runtime의 확장 훅 위에서 검증·바인딩한다. 계약은 `src/beyond/SPEC.md`. 기존 Codex 직접 설정은 `src/cos/codex_host.py` 호환 진입점으로 실행된다.
+- `src/beyond`는 beyond의 host/worker와 도구 카탈로그를 소유한다. MCP runtime의 확장 훅 위에서 검증·바인딩한다. 직접 연결 진입점은 `src/beyond/codex_host.py`다. 계약은 `src/beyond/SPEC.md`.
 - 클라이언트 시작 시 MCP `tool_declarations.py`의 공용 선언 판독기로 현재 소스에서 카탈로그를 만든다. `data/tool_catalog.json`은 개발용 export다. 실제 worker 계약과 source fingerprint를 대조하고 선택한 연결의 lease·receipt를 보존한다. `external_host.Broker`는 연결 탐색·선택·attach·detach를, `execution_invocation.ExecutionInvocations`는 호출 접수·전송·대기·취소·결과 회수를 맡는다. 실제 완료 판정과 native fence는 공통 runtime에 둔다. 외부 worker의 첫 완료 근거 대기는 min(요청 timeout, 60초)이고 긴 작업은 정확한 RhinoCode 실행 ID로 조회한다. Codex 직접 연결의 생성 설정에는 호출 제한 240초를 적용한다. 대기 종료를 강제 취소·rollback·재실행 허가로 해석하지 않는다. 세부 상태·상관 ID·예약 해제 조건은 `src/beyond/SPEC.md`와 `src/mcp/runtime/RHINOCODE-SPEC.md`를 따른다.
 - beyond(Codex·Dot)는 connect_02-session tool / connect_03-start_session tool이 반환한 connection_id를 모든 문서 대상 호출의 최상위 필수 인자로 받는다. 호출자가 대화별로 값을 보관하고 전달한다. Dot의 명시적 변수 참조는 `$connection_id`다. host는 입력 ID를 소비하고 worker에는 원래 인자만 전달한다. 최근 선택이나 thread/session 메타데이터로 대체하지 않는다. RhinoTerminal은 시작 문서 binding을 사용한다.
 - beyond는 연결·시작 성공 응답의 message와 outputSchema의 connection_id 설명에 model_path·connection_id를 함께 보관하는 방법을 전달한다. 같은 파일을 여러 Rhino 창에서 열 수 있으므로 클라이언트는 host_id로 창을 구분하고 연결마다 ID를 보관한다. 실행·종료 보관 결과 재조회에는 원래 connection_id와 request_id가 함께 필요하다. 활성 연결이 종료되어도 보관 근거가 남아 있으면 읽을 수 있다.

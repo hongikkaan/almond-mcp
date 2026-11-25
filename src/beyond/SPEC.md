@@ -3,13 +3,13 @@
 beyond는 외부 Codex와 로컬 stdio MCP 클라이언트의 직접 연결을 제공하며 AlmondRhino 플러그인을 소유한다.
 [루트 작업 지침](../../AGENTS.md)과 [공통 경계](../../SPEC.md)를 함께 따른다.
 
-직접 연결의 진입점은 `src/beyond/codex_host.py`이며 `external_host.py`의 stdio 연결기와 worker를 사용한다. 기존 직접 연결 설정의 `src/cos/codex_host.py`는 이 진입점으로 전달한다.
+직접 연결의 진입점은 `src/beyond/codex_host.py`이며 `external_host.py`의 stdio 연결기와 worker를 사용한다.
 `client_config.py`는 일상 설치의 설정을 생성하고 명시적으로 요청할 때만 Codex 설정에 `rhino` 항목을 추가한다. 기존 직접 연결 설정과 다른 MCP 항목의 사용자 설정을 보존한다.
 공개 호출명은 `context_04-get_project_info`, `connect_02-session`, `connect_03-start_session`처럼 `<category>_<NN>-<name>` 형식이며 이전 이름의 alias를 공개하지 않는다. 클라이언트가 붙이는 서버 namespace는 도구 schema와 별개다.
 등록·initialize·tools/list는 catalog만 제공하며 broker·worker· Rhino·모델 DB 연결이나 소유권 잠금을 준비하지 않는다. stdio 통신을 위한 클라이언트별 최소 Python 프로세스는 필요하다. 모델링 준비는 명시적 connect_02-session tool/connect_03-start_session tool 호출에서 한다.
 사용 방법과 동시 연결 제한은 [외부 클라이언트 안내](EXTERNAL_CLIENTS.md)에 둔다.
 
-Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. 기존 `AlmondCOS`와 `AlmondCOSDisconnect` 명령/별칭은 등록하지 않는다. 플러그인 GUID는 유지하고, 이전 AlmondCOS의 이름과 파일 경로는 AlmondRhino로 이전한다.
+Rhino 연결 명령은 `almondconnect`·`almonddisconnect`다. AlmondRhino의 플러그인 GUID는 `39eb74f6-8283-4e43-bf26-f0106d891b75`다.
 connect_02-session tool는 discovery host를 재사용하고 connect_04-disconnect tool는 기존 native drain·worker 종료 확인을 거쳐 연결만 해제한다. Rhino 문서는 유지한다.
 `connect_05-close_session` tool은 연결된 문서의 변경 여부를 조회하고 공식 RhinoCode `_Save`로 기존 파일명에 저장한다. 저장 완료·동일 문서의 저장 상태를 확인한 뒤 `_-Exit`로 정상 종료한다. 요청 ID별 OS 잠금·보관 결과·대상별 진행 기록으로 재호출과 호스트 재시작의 중복 저장·종료를 막는다. 종료 직전 guard와 실제 프로세스 종료·worker 종료·lease 해제를 구분해 입증한다. 상세 절차는 [연결 계약](../mcp/runtime/CONNECTION-SPEC.md)에 둔다.
 

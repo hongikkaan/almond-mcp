@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sys
 
-from runtime import ENGINE, recovery_directory
+from runtime import ENGINE
 
 
 _TOKEN = re.compile(r"[0-9a-f]{32}\Z")
@@ -64,7 +64,7 @@ def read_bound_execution(binding, arguments, *, operation_id=None):
 
 class ExecutionRecoveryStore:
     def __init__(self, data):
-        self.directory = recovery_directory(data, 'execution-locators')
+        self.directory = Path(data).absolute() / 'execution-locators'
 
     def remember(self, binding, *, connection_id):
         _locations(binding)

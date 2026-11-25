@@ -20,8 +20,7 @@ Set-Location C:\TOOL\Rhino\mcp\almond-mcp
 ```
 
 다른 `CODEX_HOME`을 쓰는 CLI라면 그 디렉터리의 `config.toml` 경로를 명시한다.
-이미 직접 연결의 `rhino` 등록이 있으면 계속 사용할 수 있다. 이전 직접 진입점인 `src/cos/codex_host.py`는 `src/beyond/codex_host.py`로 전달한다.
-이전 설치가 생성한 `src/cos/cos-plugin.json`은 직접 연결에서 읽지 않는다. 일상 폴더 업데이트 후 이 파일이 남아 있으면 삭제할 수 있다.
+기존 `rhino` 등록의 `args`가 일상 폴더의 `src/beyond/codex_host.py`를 가리키는지 확인한다. 이전 진입점을 쓰는 경우 [기존 설치 전환](#기존-설치-전환)을 먼저 적용한다.
 기존 모델·reasoning·다른 MCP·승인 설정은 유지한다. 실행 중인 클라이언트는 MCP를 다시 로드하거나 재시작한다. `codex mcp get rhino --json`으로 등록 경로를 확인할 수 있지만, 이 명령 자체는 MCP 연결 검증이 아니다.
 
 Codex 직접 연결의 MCP 서버 이름은 `beyond`이며 Rhino 측 플러그인은 `AlmondRhino`다.
@@ -37,7 +36,7 @@ Codex의 기존 등록 키 `rhino`와 클라이언트가 붙이는 namespace는 
 & ./src/engine/.venv/Scripts/python.exe -B src/beyond/client_config.py --format json
 ```
 
-Codex용 생성 설정은 `[mcp_servers.rhino]`의 `tool_timeout_sec = 240`, 시작 제한 120초, Python/host의 절대 경로, UTF-8과 라이브러리 환경 변수를 포함한다. 실제 등록 대기는 `codex mcp get rhino --json`의 `tool_timeout_sec`로 확인한다. 이 스크립트가 생성한 이전 600초 등록은 명시적 설치 실행으로 240초로 갱신할 수 있다. 이 경우 기존 직접 진입점 경로를 유지한다. 직접 지정한 호출 제한을 바꾸려면 해당 Codex 설정에서 수정한 뒤 MCP를 다시 로드한다.
+Codex용 생성 설정은 `[mcp_servers.rhino]`의 `tool_timeout_sec = 240`, 시작 제한 120초, Python/host의 절대 경로, UTF-8과 라이브러리 환경 변수를 포함한다. 실제 등록 대기는 `codex mcp get rhino --json`의 `tool_timeout_sec`로 확인한다. 현행 진입점을 가리키고 그 밖의 설정이 생성값과 일치하는 600초 등록은 명시적 설치 실행으로 240초로 갱신할 수 있다. 직접 지정한 호출 제한을 바꾸려면 해당 Codex 설정에서 수정한 뒤 MCP를 다시 로드한다.
 `script_01-run_project_python` tool과 `script_02-run_rhino` tool은 외부 연결에서 첫 완료 대기를 최대 60초로 제한한다. 더 짧은 timeout_seconds는 그대로 사용한다. 실행이 계속되면 pending과 정확한 request_id를 받아 `script_03-get_execution` tool로 같은 ID를 조회한다. 실행 결과를 기다리는 동안 같은 코드를 재실행하지 않는다. 준비·응답 회수가 지연될 때도 현재 실행의 저장 근거가 확인되어야 pending을 반환하며, 근거가 없으면 결과 미확인 오류로 알린다.
 [Codex 공식 MCP 명령 안내](https://learn.chatgpt.com/docs/developer-commands#codex-mcp).
 
@@ -70,10 +69,7 @@ RhinoTerminal·전용 시작기의 CLI 설정은 전역 등록과 충돌하지 �
 `connect_05-close_session` tool이 지연되거나 결과가 불확실하면 원래의 `connection_id`와 `request_id`로 다시 조회한다. 이 조회는 Save·Exit를 반복하지 않는다. 저장 실패·읽기 전용 문서·저장 뒤 새 변경이 있으면 문서를 닫지 않고 사유를 반환한다. `completed`는 저장 확인, 실제 Rhino 프로세스 종료, worker 종료와 연결 소유권 해제를 모두 확인한 결과다. 같은 문서의 다른 연결이나 다른 Rhino 창은 종료하지 않는다.
 
 Rhino에서 직접 해제하려면 `almonddisconnect`를 사용한다. 처리 중인 작업이나 worker의 종료가 아직 확인되지 않으면 완료 안내를 기다린다. Rhino와 모델은 저장·종료하지 않는다.
-기존 `AlmondCOS`·`AlmondCOSDisconnect`와 `AlmondMCPStart`·`AlmondMCPStop`· `AlmondMCPStatus` 명령은 제거했다. PackageManager에서 다른 패키지를 삭제할 필요는 없다.
-
-이 명령 이름 변경을 처음 적용할 때는 Rhino를 닫은 상태에서 일상 폴더의 `src/rhp/tools/install_runtime.ps1`을 한 번 실행한다. 파일만 갱신하면 Rhino의 지연 로드용 `CommandList`가 옛 이름을 계속 기억할 수 있다. 설치 스크립트는 기존 등록을 백업하고 새 연결 명령 두 개와 제거된 명령 목록을 맞춘다.
-`-VerifyOnly`는 경로가 올바르더라도 명령 캐시가 옛 상태이면 실패한다.
+Bridge의 `AlmondMCPStart`·`AlmondMCPStop`·`AlmondMCPStatus`는 퇴역 명령이다.
 
 `almondconnect`는 Rhino를 발견 가능하게 만드는 명령이다. Codex 프로그램을 자동 실행하거나 새 채팅에 자동 연결하지는 않는다. 새 시작 도구는 이 명령을 새 Rhino에 자동 전달한다.
 Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고 연결 가능한 문서 목록만 비어 있다. 기존 `Almond 시작.cmd`·`RhinoTerminal → almond`로 관리되는 Rhino는 기존 전용 CLI를 사용하거나, 연결을 정상 종료한 뒤 일반 Rhino로 연다.
@@ -86,7 +82,7 @@ Codex 직접 연결에서는 `context_01-get_policy` tool, `connect_01-list_up` 
 
 Codex 직접 연결기는 공통 도구 입력에 필요한 `connection_id`를 추가한다. RhinoTerminal은 시작할 때 바인딩한 문서 전용 세션을 사용한다. 외부 연결기는 연결 관리 도구를 추가한다. 카탈로그를 따로 갱신할 필요는 없다.
 Python 도구 변경 후 해당 beyond MCP를 정상 종료하고 새로 시작하면 현재 소스의 구현·목록·입력 schema를 읽는다. Terminal은 almond 세션을 정상 종료·재시작한다.
-기존 beyond 기록에 `connection_id`가 있으면 업데이트 뒤에도 원래의 두 ID로 결과를 조회할 수 있다. 연결 ID를 기록하기 전에 만들어진 실행은 업데이트 전에 기존 호스트에서 결과를 확인한다.
+현행 데이터 위치에 보관된 beyond 기록은 업데이트 뒤에도 원래의 두 ID로 조회할 수 있다. 연결 ID를 기록하기 전에 만들어진 실행은 업데이트 전에 기존 호스트에서 결과를 확인한다.
 Rhino만 재시작해도 외부 beyond MCP 프로세스가 살아 있으면 그 메모리는 바뀌지 않는다.
 이미 실행 중인 프로세스의 자동 갱신이나 restart 도구는 이번 범위에 포함하지 않는다.
 C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 종료·재시작해야 한다.
@@ -104,7 +100,17 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
 - Windows 사용자 세션의 named pipe를 사용한다. 이 진입점은 stdio만 지원하며 원격 URL, SSE/HTTP 서버를 제공하지 않는다.
 - timeout은 rollback이 아니다. 결과 불명인 수정은 자동 반복하지 않는다.
 
-## 기존 설치 업데이트
+## 기존 설치 전환
 
-이전 외부 연결과 Rhino를 정상 종료하고 일상 폴더에서 `git pull --ff-only`를 실행한다. Rhino를 다시 시작하고 beyond 클라이언트를 다시 로드한 뒤 해당 문서에 연결한다. 기존 Codex 직접 연결 등록은 호환 진입점을 통해 계속 실행된다.
-Rhino 플러그인 등록이 구형 AlmondCOS 경로를 가리키면 [설치 안내의 재등록 절차](../../AGENTS.md#일상-실행과-최초-설치)를 따른다.
+일상 폴더 `C:\TOOL\Rhino\mcp\almond-mcp`의 직접 연결 주소와 복구 기록을 새 위치로 옮기는 배포에 한 번 적용한다.
+
+1. 현재 사용하는 설정에서 `[mcp_servers.rhino]`의 `args`를 확인한다. 다른 stdio 클라이언트는 해당 `rhino` 항목의 `args`를 확인한다. 주소가 이미 현행이어도 기록은 이전 위치에 있을 수 있다. 업데이트 전에 일상 폴더의 `src/*/data/` 아래에서 `execution-locators`와 `session-closes`를 각각 찾아 어느 위치에 기록이 있는지 확인한다. 데이터 위치를 따로 지정한 설치는 그 경로도 확인한다.
+2. 새 작업을 시작하지 않고 진행 중인 실행·저장·종료의 결과를 기존 클라이언트에서 확인한다. 전환 뒤 재조회할 기록의 `connection_id`와 `request_id`를 보관한다. 현재 연결을 정상 해제하고 MCP 클라이언트를 종료한다. 해당 host·worker·종료 guard가 끝났는지 확인한 뒤 Rhino를 정상 종료한다. 완료가 불명확하거나 프로세스가 남아 있으면 기록 이동과 pull을 보류한다.
+3. 전환 커밋을 받을 일상 브랜치에서 `git pull --ff-only`를 실행해 `src/beyond/codex_host.py`가 생겼는지 확인한다. 목적지는 각각 `src/beyond/data/execution-locators`와 `src/beyond/data/session-closes`다. 이전 기본 위치에 기록이 있는 종류만 옮긴다. 원본과 목적지의 절대 경로가 일상 폴더 안에 있는지 확인하고, 양쪽에 기록이 있으면 먼저 요청별 내용을 대조해 충돌을 해결한다. 이동 전후에 상대경로별 파일 수와 해시를 확인한다. 호스트 광고·잠금 등 다른 데이터는 기존 위치에 두고, 별도로 지정한 데이터 위치는 그대로 사용한다.
+4. `args`에서 해당 host 스크립트 인수만 일상 폴더의 `src/beyond/codex_host.py` 절대 경로로 바꾼다. Python·나머지 인수·작업 폴더·호출 제한·환경 변수와 다른 설정은 보존한다. Codex에서는 `codex mcp get rhino --json`으로 주소와 유지할 설정을 확인한다.
+5. Rhino를 시작하기 전에 `./src/rhp/tools/install_runtime.ps1 -VerifyOnly`로 RHP 경로와 현행 명령 캐시를 확인한다. 일회성 전환에서는 AlmondRhino GUID `39eb74f6-8283-4e43-bf26-f0106d891b75`의 `CommandList`도 읽어 `almondconnect`·`almonddisconnect` 외에 이전 플러그인이 등록한 값이 남았는지 확인한다. `-VerifyOnly`는 추가 값을 보고하지 않는다. 플러그인 경로나 현행 명령값 갱신이 필요하면 Rhino를 닫은 상태에서 설치 명령을 실행하고 다시 확인한다.
+6. 일상 클라이언트를 다시 로드한다. 기존 실행은 원래의 `connection_id`와 `request_id`로 `script_03-get_execution` tool에서 조회한다. 종료 기록은 이동한 `session-closes` 아래의 `request.json`에서 원래의 요청 ID·연결 ID와 종료 상태를 확인한다. 기록을 찾지 못하면 이동 결과부터 점검한다. Rhino에서 `almondconnect`로 문서를 표시하고, 실제 사용할 대화의 `connect_01-list_up` tool에서 그 문서가 보이는지 확인한다. 오프라인 검증은 [실행 기록 이전 테스트](tests/test_execution_recovery_identity.py)와 [세션 종료 테스트](tests/test_session_close.py)를 따른다.
+
+## 일반 업데이트
+
+외부 연결과 Rhino를 정상 종료하고 일상 폴더에서 `git pull --ff-only`를 실행한다. Rhino를 시작하고 beyond 클라이언트를 다시 로드한 뒤 해당 문서에 연결한다.

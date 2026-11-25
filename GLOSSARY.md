@@ -59,7 +59,6 @@ _Avoid_: 전체 Almond 환경의 이름
 
 **AlmondRhino**:
 beyond의 요청을 Rhino 문서에 연결하는 Rhino 플러그인.
-_Avoid_: AlmondCOS
 
 **Codex 직접 연결 (beyond)**:
 Rhino가 있는 Windows 컴퓨터의 외부 Codex가 beyond를 통해 Almond에 직접 연결하는 경로.

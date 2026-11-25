@@ -26,11 +26,9 @@ def test_new_codex_config_uses_the_canonical_beyond_host(tmp_path, current):
     assert tomllib.loads(target.read_text(encoding="utf-8")) == {"mcp_servers": {"rhino": current}}
 
 
-@pytest.mark.parametrize("folder", ["beyond", "cos"])
-def test_generated_direct_settings_update_only_the_old_timeout(tmp_path, current, folder):
-    direct = dict(current, args=[*current["args"][:-1], str(tmp_path / "src" / folder / "codex_host.py")])
+def test_generated_direct_settings_update_only_the_old_timeout(tmp_path, current):
     target = tmp_path / "config.toml"
-    original = "title = 'keep'\n" + codex_toml(dict(direct, tool_timeout_sec=600))
+    original = "title = 'keep'\n" + codex_toml(dict(current, tool_timeout_sec=600))
     original = original.replace("tool_timeout_sec = 600", "tool_timeout_sec = 600 # keep this comment")
     target.write_text(original, encoding="utf-8")
     backup = install_codex(target, current)
@@ -42,9 +40,11 @@ def test_generated_direct_settings_update_only_the_old_timeout(tmp_path, current
     assert list(tmp_path.glob("config.toml.almond-backup-*")) == [backup]
 
 
-def test_customized_direct_settings_are_untouched(tmp_path, current):
+@pytest.mark.parametrize("setting", ["tool_timeout_sec", "args"])
+def test_customized_direct_settings_are_untouched(tmp_path, current, setting):
     target = tmp_path / "config.toml"
-    target.write_text(codex_toml(dict(current, tool_timeout_sec=30)), encoding="utf-8")
+    overrides = {"tool_timeout_sec": 30, "args": [*current["args"][:-1], str(tmp_path / "custom_host.py")]}
+    target.write_text(codex_toml(dict(current, **{setting: overrides[setting]})), encoding="utf-8")
     before = target.read_bytes()
     with pytest.raises(ValueError, match="different settings"):
         install_codex(target, current)

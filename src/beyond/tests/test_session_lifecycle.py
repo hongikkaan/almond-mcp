@@ -46,14 +46,20 @@ def test_session_start_uses_quoted_macro_without_touching_saved_model(tmp_path, 
     def launch(args, **kwargs):
         launches.append((args, kwargs))
         return SimpleNamespace(pid=123, poll=lambda: None)
-    monkeypatch.setenv("ALMOND_SESSION_TOKEN", "old-test-token")
+    almond_tokens = ("ALMOND_SESSION_TOKEN", "ALMONDRHINO_SESSION_TOKEN", "ALMONDFIXTURE_SESSION_TOKEN")
+    for key in almond_tokens:
+        monkeypatch.setenv(key, "parent-test-token")
+    monkeypatch.setenv("FIXTURE_SESSION_TOKEN", "unrelated-test-token")
+    monkeypatch.setenv("ALMOND_FIXTURE_SETTING", "keep")
     started = RhinoStart(str(model), tmp_path, settings_path=settings, process_factory=launch,
                          identity_reader=lambda pid: {"pid": pid, "process_start_ticks": "456"})
     args, options = launches[0]
     assert args == [str(executable), "/nosplash", str(model)]
     assert options["startup_script"] == "_almondconnect"
     assert options["cwd"] == str(tmp_path)
-    assert "ALMOND_SESSION_TOKEN" not in options["env"]
+    assert not options["env"].keys() & set(almond_tokens)
+    assert options["env"]["FIXTURE_SESSION_TOKEN"] == "unrelated-test-token"
+    assert options["env"]["ALMOND_FIXTURE_SETTING"] == "keep"
     assert started.identity["pid"] == 123
     assert model.read_bytes() == before
     assert not (tmp_path / ".almond").exists()

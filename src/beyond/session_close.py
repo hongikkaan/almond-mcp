@@ -17,7 +17,7 @@ import sys
 import time
 from uuid import uuid4
 
-from runtime import ENGINE, recovery_directory
+from runtime import ENGINE
 
 sys.path.insert(0, str(ENGINE))
 from project import ExclusiveFile, read_json, write_json
@@ -112,7 +112,7 @@ class RhinoExit:
 
 class SessionCloser:
     def __init__(self, data, *, exit_factory=RhinoExit, wait_seconds=30.0):
-        self.root = recovery_directory(data, "session-closes")
+        self.root = Path(data).absolute() / "session-closes"
         self.exit_factory, self.wait_seconds = exit_factory, wait_seconds
         self.exits = {}
         self.running = set()

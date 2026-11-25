@@ -6,7 +6,7 @@ function Get-RuntimeRegistration([string]$Repo) {
            Commands = @{}; Retired = @('AlmondMCPStart', 'AlmondMCPStop', 'AlmondMCPStatus') },
         @{ Name = 'AlmondRhino'; Guid = '39eb74f6-8283-4e43-bf26-f0106d891b75'; Mode = 2
            Commands = @{ almondconnect = '2;almondconnect'; almonddisconnect = '2;almonddisconnect' }
-           Retired = @('AlmondCOS', 'AlmondCOSDisconnect') }
+           Retired = @() }
     )
     foreach ($entry in $definitions) {
         $entry.File = Join-Path $Repo "src/rhp/$($entry.Name)/plugin-runtime/$($entry.Name).rhp"

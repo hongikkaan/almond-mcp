@@ -36,10 +36,10 @@ class RhinoStart:
             raise ValueError("Rhino executable is missing. Check runtime/settings.json before starting a session.")
         self.data, self.host_reader, self.identity_reader = data, host_reader, identity_reader
         self.timeout, self.poll_interval = timeout, poll_interval
-        environment = dict(os.environ)
-        for key in ("ALMOND_SESSION_FOLDER", "ALMOND_SESSION_TOKEN", "ALMONDRHINO_SESSION_TOKEN",
-                    "ALMONDCOS_SESSION_TOKEN",  # Strip pre-rename credentials inherited from an old client too.
-                    "ALMOND_ISOLATED_RUN", "ALMOND_V2_RUN", "ALMOND_V3_SESSION"):
+        # The independent Rhino must start without credentials for any client session.
+        environment = {key: value for key, value in os.environ.items()
+                       if not (key.startswith("ALMOND") and key.endswith("_SESSION_TOKEN"))}
+        for key in ("ALMOND_SESSION_FOLDER", "ALMOND_ISOLATED_RUN", "ALMOND_V2_RUN", "ALMOND_V3_SESSION"):
             environment.pop(key, None)
         # The launcher verifies complete job breakaway before Rhino can execute;
         # ending a Terminal/client job must never terminate this separate Rhino.

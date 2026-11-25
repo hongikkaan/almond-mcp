@@ -74,9 +74,6 @@ def install_codex(path: Path, config: dict) -> Path | None:
     if existing is None:
         updated = text.rstrip() + "\n\n" + codex_toml(config)
     else:
-        direct_args = [*config["args"][:-1], str(Path(config["cwd"]) / "src/cos/codex_host.py")]
-        if isinstance(existing, dict) and existing.get("args") == direct_args:
-            config = dict(config, args=direct_args)
         if existing == config:
             return None
         if existing != dict(config, tool_timeout_sec=600):

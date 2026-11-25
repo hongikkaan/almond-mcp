@@ -18,18 +18,8 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, AlmondRhino는 별도 RHP로 구
 - [구조해석 사용법](src/mcp/features/structure/guides/tutorial.md) · [native solver](src/mcp/features/structure/SPEC.md) · [Karamba 경로](src/mcp/features/structure/validation/SPEC.md) · [설계 코드](src/mcp/features/structure/PROFILES-SPEC.md)
 - [구법 안내](src/mcp/features/guidance/construction-guide.md) · [구법 참조표](src/mcp/profiles/construction_system/SPEC.md)
 
-Rhino의 플러그인 등록이 구형 AlmondCOS 경로를 가리키면 **한 번 재등록해야 합니다**.
-Rhino와 해당 MCP 연결을 정상 종료한 뒤 일상 폴더 `C:\TOOL\Rhino\mcp\almond-mcp`에서 다음 순서로 실행하고 Rhino를 다시 시작합니다.
-
-```powershell
-git pull --ff-only
-./src/rhp/tools/install_runtime.ps1
-./src/rhp/tools/install_runtime.ps1 -VerifyOnly
-```
-
-설치 스크립트는 기존 등록을 `data/runtime-install`에 백업하고 동일 GUID의 경로를 `src/rhp/AlmondCOS/plugin-runtime/AlmondCOS.rhp`에서 `src/rhp/AlmondRhino/plugin-runtime/AlmondRhino.rhp`로 전환하며 명령 캐시도 갱신합니다.
-`-VerifyOnly`는 확인만 하므로 최초 전환에는 그 앞의 설치 명령이 필요합니다.
-`almondconnect`가 없으면 이 등록 경로부터 확인합니다. 올바른 RHP가 아직 로드되지 않은 프로세스에서는 공식 `Rhino.PlugIns.PlugIn.LoadPlugIn(fullPath)`로 기존 파일을 직접 로드할 수 있습니다. Python에서는 반환값이 `(LoadPlugInResult, Guid)`이며, 로드 후 명령 존재와 실제 assembly 경로를 확인합니다. 이 방식은 로드된 구형 assembly를 교체하는 기능이 아닙니다.
+Codex의 직접 연결 주소와 복구 기록을 새 위치로 옮길 때는 [일회성 전환 절차](src/beyond/EXTERNAL_CLIENTS.md#기존-설치-전환)를 따릅니다.
+`almondconnect`가 없으면 [AlmondRhino 등록 경로](AGENTS.md#일상-실행과-최초-설치)부터 확인합니다. 올바른 RHP가 아직 로드되지 않은 프로세스에서는 공식 `Rhino.PlugIns.PlugIn.LoadPlugIn(fullPath)`로 기존 파일을 직접 로드할 수 있습니다. Python에서는 반환값이 `(LoadPlugInResult, Guid)`이며, 로드 후 명령 존재와 실제 assembly 경로를 확인합니다. 이 방식은 로드된 구형 assembly를 교체하는 기능이 아닙니다.
 이미 새 경로로 등록된 환경과 이후 업데이트는 Rhino 종료 → `git pull --ff-only` → Rhino 시작 순서입니다.
 Git에 실행 파일이 포함되어 있어 일반 업데이트마다 빌드하거나 재등록할 필요는 없습니다.
 
