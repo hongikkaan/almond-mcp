@@ -133,7 +133,8 @@ static void VerifyStandardTemplate(string manifestPath)
       "recipe_id": "standard_d",
       "layers": [
         {"path": "D::Section", "plot_weight_mm": 0.50, "role": "Cut profiles"},
-        {"path": "D::Line::Hidden", "linetype": "ALMOND D ISO 02 Dashed", "plot_weight_mm": 0.18}
+        {"path": "D::Line::Hidden", "linetype": "ALMOND D ISO 02 Dashed", "plot_weight_mm": 0.18},
+        {"path": "D::Line::Overhead", "linetype": " almond d iso 02 DASHED "}
       ]
     }
     """);
@@ -144,6 +145,9 @@ static void VerifyStandardTemplate(string manifestPath)
     Require(first.Status == "success" && first.MutationState == "completed", first.Message);
     int sectionIndex = first.Layers[0].LayerIndex;
     int patternIndex = doc.Layers[first.Layers[1].LayerIndex].LinetypeIndex;
+    Require(doc.Linetypes.NameLookups == 2 && doc.Linetypes.Count == 1 &&
+        doc.Layers[first.Layers[2].LayerIndex].LinetypeIndex == patternIndex,
+        "Look up each distinct linetype once and share the new document index between layers.");
     Require(first.Layers[0].Role == "Cut profiles" && doc.Layers[sectionIndex].PlotWeight == .50,
         "A manual role must resolve to its styled local layer.");
     Require(doc.Linetypes[patternIndex].Segments.SequenceEqual(new[] { (2.16, true), (.54, false) }),
@@ -189,7 +193,7 @@ static void VerifyStandardTemplate(string manifestPath)
     Require(mixed.Status == "error" && !doc.Layers.Any(layer => layer.Name == "Profile") &&
         doc.Layers.Modifications == changes, "A standard conflict must stop the entire mixed recipe before writes.");
     style.Overwrite = true;
-    style.Layers.RemoveAt(2);
+    style.Layers.RemoveAt(style.Layers.Count - 1);
     var overwrite = manager.Apply(doc, style);
     Require(overwrite.Status == "success" && doc.Layers[sectionIndex].PlotWeight == .50 &&
         doc.Linetypes[patternIndex].Segments[0].Length == 2.16 && doc.Layers.Modifications == changes + 1 &&

@@ -44,8 +44,13 @@ namespace Rhino
     {
         private readonly Linetype _continuous = new() { Name = "Continuous", Index = -1 };
 
-        public Linetype FindName(string name) =>
-            Find(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)) ?? _continuous;
+        public int NameLookups { get; private set; }
+
+        public Linetype FindName(string name)
+        {
+            NameLookups++;
+            return Find(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)) ?? _continuous;
+        }
 
         public new int Add(Linetype definition)
         {

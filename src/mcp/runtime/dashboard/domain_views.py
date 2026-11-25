@@ -39,6 +39,19 @@ def json_list(value):
     return result if isinstance(result, list) else []
 
 
+def task_links(record):
+    """Yield each stored link with its meaning when viewed from either end."""
+    previous = record.get("previous_id")
+    if isinstance(previous, str) and previous:
+        yield "previous", "next", previous
+    for forward, reverse, field in (("related", "related", "depends_on_json"),
+                                    ("parent", "child", "parent_plan_json"),
+                                    ("child", "parent", "child_plan_json")):
+        for target in json_list(record.get(field)):
+            if isinstance(target, str) and 0 < len(target) <= 200:
+                yield forward, reverse, target
+
+
 class DomainViews:
     def __init__(self, connection):
         self.db = connection
@@ -561,20 +574,18 @@ class DomainViews:
                 "scenes": [self.ref(row, "scene_id", "name") for row in scenes.values()],
                 "file_names": sorted(files)}
 
-    def task_relations(self, record, catalogue):
-        wanted = []
-        if isinstance(record.get("previous_id"), str) and record["previous_id"]:
-            wanted.append(("previous", record["previous_id"]))
-        for kind, field in (("related", "depends_on_json"), ("parent", "parent_plan_json"), ("child", "child_plan_json")):
-            wanted.extend((kind, value) for value in json_list(record.get(field))
-                          if isinstance(value, str) and value and len(value) <= 200)
-        for other in catalogue:
-            if other.get("previous_id") == record["plan_id"]:
-                wanted.append(("next", other["plan_id"]))
-            for kind, field in (("related", "depends_on_json"), ("child", "parent_plan_json"), ("parent", "child_plan_json")):
-                if record["plan_id"] in json_list(other.get(field)):
-                    wanted.append((kind, other["plan_id"]))
-        wanted = sorted(set(wanted))
+    @staticmethod
+    def incoming_task_relations(records, catalogue):
+        incoming = {row["plan_id"]: [] for row in records}
+        for row in catalogue:
+            matches = {(reverse, target) for _, reverse, target in task_links(row) if target in incoming}
+            for reverse, target in matches:
+                incoming[target].append((reverse, row["plan_id"]))
+        return incoming
+
+    def task_relations(self, record, incoming):
+        links = {(forward, target) for forward, _, target in task_links(record)}
+        wanted = sorted(links.union(incoming))
         if len(wanted) > RELATED_LIMIT:
             self.notes.append(f"인접 Task 관계는 처음 {RELATED_LIMIT}개만 표시합니다.")
         wanted = wanted[:RELATED_LIMIT]
@@ -587,6 +598,7 @@ class DomainViews:
         catalogue = self.rows("generation_plans", order=self.order("generation_plans", "plan_id")) if records else []
         if len(catalogue) > LINK_LIMIT:
             self.notes.append(f"다른 Plan에 기록된 순서·관련·상하위 관계는 처음 {LINK_LIMIT}개 기록에서 찾습니다.")
+        incoming = None
         for row in records:
             numbers = loop_numbers(self, row, LINK_LIMIT)
             selected = loop_no if loop_no is not None else row.get("loop_no")
@@ -594,8 +606,10 @@ class DomainViews:
                 selected = numbers[-1]
             if loop_no is not None and loop_no not in numbers:
                 raise ValueError("이 Task에 선택한 회차 기록이 없습니다.")
+            if incoming is None:
+                incoming = self.incoming_task_relations(records, catalogue[:LINK_LIMIT])
             navigation = {"loop_numbers": numbers, "current_loop": row.get("loop_no"),
-                          **self.task_context(row), "relations": self.task_relations(row, catalogue[:LINK_LIMIT])}
+                          **self.task_context(row), "relations": self.task_relations(row, incoming[row["plan_id"]])}
             if selected != row.get("loop_no"):
                 plan, historical_steps, complete = read_history(self, row["plan_id"], selected, RELATED_LIMIT)
                 result.append({**navigation, **{k: plan.get(k) for k in ("goal", "scope", "status", "revision", "feedback",

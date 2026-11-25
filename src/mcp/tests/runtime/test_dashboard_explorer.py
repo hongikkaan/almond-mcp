@@ -225,6 +225,32 @@ def test_task_relations_keep_types_and_report_dangling_without_recursive_expansi
     assert len(record['steps']) == 3
 
 
+def test_task_page_uses_each_tasks_own_links_even_outside_reverse_lookup_limit(project, monkeypatch):
+    monkeypatch.setattr('dashboard.domain_views.LINK_LIMIT', 2)
+    with sqlite3.connect(project.path) as db:
+        db.execute("UPDATE generation_plans SET depends_on_json=? WHERE plan_id='plan_a'",
+                   (json.dumps([{}, None, 'plan_c', 'plan_c']),))
+        db.execute("UPDATE generation_plans SET previous_id='plan_empty' WHERE plan_id='plan_b'")
+        db.execute("UPDATE generation_plans SET parent_plan_json=? WHERE plan_id='plan_c'",
+                   (json.dumps(['plan_empty']),))
+    page = project.domain_page('tasks')
+    links = {row['id']: [(link['type'], link['id']) for link in row['relations']] for row in page['groups']}
+    assert links['plan_c'].count(('related', 'plan_a')) == 1
+    assert ('parent', 'plan_empty') in links['plan_c']
+    assert ('next', 'plan_b') in links['plan_empty']
+    assert ('child', 'plan_c') not in links['plan_empty']
+    assert any('처음 2개 기록' in note for note in page['notes'])
+
+
+def test_missing_loop_is_reported_before_decoding_other_task_relations(tmp_path):
+    path = tmp_path / 'legacy.sqlite3'
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE generation_plans(plan_id,previous_id,loop_no)")
+        db.executemany("INSERT INTO generation_plans VALUES(?,?,1)", [('p', None), (b'legacy', 'p')])
+    with pytest.raises(ValueError, match='선택한 회차 기록이 없습니다'):
+        Database(path).domain_page('tasks', focus='p', loop_no=5)
+
+
 @pytest.mark.parametrize('canonical_state', ['populated', 'empty', 'partial'])
 def test_holon_scene_filter_uses_canonical_relationships_and_intersects_file(project, canonical_state):
     with sqlite3.connect(project.path) as db:
