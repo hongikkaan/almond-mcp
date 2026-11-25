@@ -68,6 +68,23 @@ def error_payload(message: str, *, error_code: str | None = None) -> dict:
     return result
 
 
+def wrapped_json_error(serialized: str):
+    """Mark an error while retaining the exact JSON string in both MCP fields."""
+    from fastmcp.tools import ToolResult
+    from mcp.types import TextContent
+
+    return ToolResult(content=[TextContent(type="text", text=serialized)],
+                      structured_content={"result": serialized}, is_error=True)
+
+
+def wrapped_json_result(value):
+    """Serialize an observation once and classify its explicit status."""
+    serialized = json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict) and value.get("status") == "error":
+        return wrapped_json_error(serialized)
+    return serialized
+
+
 def mcp_error_result(function):
     """Preserve the JSON string contract while marking explicit failures as MCP errors."""
     @wraps(function)
@@ -76,9 +93,6 @@ def mcp_error_result(function):
         if isinstance(serialized, str):
             value = json.loads(serialized)
             if isinstance(value, dict) and value.get("status") == "error":
-                from fastmcp.tools import ToolResult
-                from mcp.types import TextContent
-                return ToolResult(content=[TextContent(type="text", text=serialized)],
-                                  structured_content={"result": serialized}, is_error=True)
+                return wrapped_json_error(serialized)
         return serialized
     return invoke

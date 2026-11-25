@@ -25,13 +25,13 @@ POLICIES = {
 PolicyName = Literal[("", *POLICIES)]
 
 
-def _read_content(path: Path) -> bytes:
-    raw = path.read_bytes()
+def _read_content(path: Path, *, captured_bytes: bytes | None = None) -> bytes:
+    raw = path.read_bytes() if captured_bytes is None else captured_bytes
     return raw if path.suffix == ".png" else raw.decode("utf-8-sig").replace("\r\n", "\n").encode("utf-8")
 
 
-def content_digest(path: Path) -> str:
-    return hashlib.sha256(_read_content(path)).hexdigest()
+def content_digest(path: Path, *, captured_bytes: bytes | None = None) -> str:
+    return hashlib.sha256(_read_content(path, captured_bytes=captured_bytes)).hexdigest()
 
 
 def _tool_sources() -> tuple[Path, ...]:

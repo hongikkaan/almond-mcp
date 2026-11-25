@@ -3,7 +3,7 @@ import json
 import uuid
 
 from almond_mcp.managed_paths import bound_model_path
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, wrapped_json_error, wrapped_json_result
 from almond_mcp.query_output import project_query, requires_full_evidence
 from almond_mcp.managed_paths import relative_output
 from almond_mcp.features.context.object_inputs import FILTERS, OUTPUT
@@ -155,18 +155,18 @@ def query(send, *, scope, ids, filters, include_geometry, offset, limit, expecte
             required_version = 8
         raw = dispatch(send, payload, expected_model_path, required_version=required_version)
         value = json.loads(raw)
-        if isinstance(value, dict) and value.get("status") != "error":
+        if isinstance(value, dict):
+            if value.get("status") == "error":
+                return wrapped_json_result(value)
             if viewport_scope:
                 value["scope"] = "inside_viewport"
             for key in ("schema", "model_path", "document_units", "tolerance_model_units"):
                 value.pop(key, None)
-        if isinstance(value, dict) and value.get("status") == "error":
-            return json.dumps(value, ensure_ascii=False)
         # Explicit requested identity fields take precedence over the general query default.
         show_ids = include_ids or bool({"id", "faces"} & set(fields or []))
-        return json.dumps(_object_output(value, show_ids), ensure_ascii=False)
+        return wrapped_json_result(_object_output(value, show_ids))
     except (TypeError, ValueError, AttributeError) as exc:
-        return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
+        return wrapped_json_error(json.dumps(error_payload(str(exc), error_code="invalid_arguments")))
 
 
 def _object_output(value, show_ids):
@@ -253,7 +253,7 @@ def intersections(send, *, ids, include_block=False):
             raise ValueError("include_block must be boolean.")
         path = bound_model_path()
     except (TypeError, ValueError, AttributeError) as exc:
-        return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
+        return wrapped_json_error(json.dumps(error_payload(str(exc), error_code="invalid_arguments")))
     cursor, seen, count, evaluated = "", set(), 0, 0
     try:
         while True:
@@ -264,7 +264,7 @@ def intersections(send, *, ids, include_block=False):
             page = json.loads(raw)
             error = intersection_page_error(page, include_block)
             if error:
-                return json.dumps(error, ensure_ascii=False)
+                return wrapped_json_result(error)
             pairs = page["pairs"]
             count += sum(pair["overlap"]["status"] == "positive_volume" for pair in pairs)
             evaluated += len(pairs)
@@ -277,12 +277,12 @@ def intersections(send, *, ids, include_block=False):
                     "Inspect its comparison and numbered objects, then pass its review_id with choice=1 or 2 to trim that numbered object, or 'skip'."
                     if count else
                     "No positive-volume overlap was found in this scope; no resolution call is needed. This does not establish other design or clearance conditions.")
-                return json.dumps({"intersections": {"number": count}, "next_step_guide": next_step}, ensure_ascii=False)
+                return wrapped_json_result({"intersections": {"number": count}, "next_step_guide": next_step})
             seen.add(next_cursor)
             cursor = next_cursor
     except (TypeError, ValueError, AttributeError, KeyError) as exc:
         error = error_payload(str(exc), error_code="invalid_intersection_response")
-        return json.dumps(incomplete_intersection(error, page), ensure_ascii=False)
+        return wrapped_json_result(incomplete_intersection(error, page))
 
 
 def dispatch(send, payload, expected_model_path, required_version=1, capability_name="object_observation"):

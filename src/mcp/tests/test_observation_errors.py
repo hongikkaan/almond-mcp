@@ -13,6 +13,7 @@ from almond_mcp.features.context.tools import register
 
 @pytest.mark.parametrize("name,arguments", [
     ("get_objects", {"scope": "not-a-scope"}),
+    ("get_objects", {"filters": {"name_contains": ["한글"]}}),
     ("get_object_intersections", {"object_ids": []}),
 ])
 def test_invalid_observation_input_sets_mcp_error_without_native_dispatch(name, arguments):
@@ -23,22 +24,25 @@ def test_invalid_observation_input_sets_mcp_error_without_native_dispatch(name, 
 
     assert isinstance(result, ToolResult)
     assert result.is_error
-    assert json.loads(result.structured_content["result"])["error_code"] == "invalid_arguments"
-    assert result.content[0].text == result.structured_content["result"]
+    serialized = result.structured_content["result"]
+    assert serialized.isascii()
+    assert json.loads(serialized)["error_code"] == "invalid_arguments"
+    assert result.content[0].text == serialized
     assert calls == []
 
 
 @pytest.mark.parametrize("name,arguments", [
+    ("get_rhino_context", {"sections": ["document"]}),
     ("get_objects", {}),
     ("get_object_intersections", {"object_ids": [str(UUID(int=1))]}),
 ])
 def test_native_observation_error_keeps_details_and_sets_mcp_error(name, arguments, monkeypatch):
     monkeypatch.setenv("ALMOND_MODEL_PATH", r"C:\offline\model.3dm")
-    error = {"status": "error", "error_code": "document_mismatch", "message": "Bound document changed.",
+    error = {"status": "error", "error_code": "document_mismatch", "message": "연결된 문서가 바뀌었습니다.",
              "details": {"observed_path": "other.3dm"}, "complete": False}
 
     def send(raw):
-        if json.loads(raw)["type"] == "get_rhino_context":
+        if name != "get_rhino_context" and json.loads(raw)["type"] == "get_rhino_context":
             return json.dumps({"status": "success", "capabilities": {"object_observation": 4, "intersection_queries": 1}})
         return json.dumps(error)
 
@@ -50,7 +54,10 @@ def test_native_observation_error_keeps_details_and_sets_mcp_error(name, argumen
     if name == "get_object_intersections":
         expected.update(assessment="incomplete", failed_pairs=None, unsupported_objects=None,
                         tolerance_model_units=None, document_units=None)
-    assert json.loads(result.structured_content["result"]) == expected
+    serialized = result.structured_content["result"]
+    assert error["message"] in serialized
+    assert result.content[0].text == serialized
+    assert json.loads(serialized) == expected
 
 
 def test_unknown_intersections_cannot_be_reported_as_a_complete_count(monkeypatch):

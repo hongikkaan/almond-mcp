@@ -4,7 +4,7 @@ from collections import defaultdict
 
 from almond_mcp.managed_paths import relative_output
 from almond_mcp.query_output import project_query
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, wrapped_json_result
 
 
 VIEW_CATALOGUES = ("named_views", "layouts")
@@ -16,7 +16,7 @@ VIEW_LIST_LIMIT = 128
 
 
 def _error(message, code="invalid_arguments"):
-    return json.dumps(error_payload(message, error_code=code), ensure_ascii=False)
+    return wrapped_json_result(error_payload(message, error_code=code))
 
 
 def display_mode_menu_error(capabilities):
@@ -106,7 +106,7 @@ def query(send, sections=None, include_ids=False, include_editor_details=False):
     try:
         response = _observe(send, sections)
         if response["status"] == "error":
-            return json.dumps(response, ensure_ascii=False)
+            return wrapped_json_result(response)
         missing = [s for s in sections if s not in response]
         if missing:
             raise ValueError("The Bridge omitted requested sections: " + ", ".join(missing))
@@ -129,6 +129,6 @@ def query(send, sections=None, include_ids=False, include_editor_details=False):
         result.update(catalogues)
         if default:
             result["next_step_guide"] = "현재 화면을 보려면 capture_03-current_view tool을 사용하세요."
-        return json.dumps(relative_output(result, preserve_text_fields=("name", "layer_tree")), ensure_ascii=False)
+        return wrapped_json_result(relative_output(result, preserve_text_fields=("name", "layer_tree")))
     except Exception as exc:
         return _error(f"Could not read the live Rhino context: {exc}", "bridge_error")

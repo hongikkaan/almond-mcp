@@ -32,14 +32,24 @@ def checked_versions() -> dict[str, str]:
     return result
 
 
+def _source_digests(paths: dict[str, Path], captured: dict[Path, bytes] | None = None) -> dict[str, str]:
+    captured = {} if captured is None else captured
+    # Several inventory keys can refer to the same file.
+    by_path = {path: digest(path, captured_bytes=captured.get(path)) for path in dict.fromkeys(paths.values())}
+    return {name: by_path[path] for name, path in paths.items()}
+
+
 async def generate(engine: Path = ENGINE) -> dict:
     packages = checked_versions()
     server_loaded = "almond_mcp.server" in sys.modules
     from fastmcp import FastMCP
 
     paths = source_paths(engine)
-    sources = {name: digest(path) for name, path in paths.items()}
-    declarations = inspect_declarations(declaration_sources(paths["server"].parent, document_entry=paths["entry"]))
+    tool_sources = declaration_sources(paths["server"].parent, document_entry=paths["entry"])
+    # Use one snapshot so a transient edit cannot separate declarations from their hashes.
+    captured = {path: path.read_bytes() for path in tool_sources}
+    sources = _source_digests(paths, captured)
+    declarations = inspect_declarations(tool_sources, captured_bytes=captured)
     mcp = FastMCP("Almond external schema build")
     register_inert_tools(mcp, declarations)
     tools = [tool.to_mcp_tool().model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -48,7 +58,7 @@ async def generate(engine: Path = ENGINE) -> dict:
         raise RuntimeError("No common tools found in the current source.")
     if not server_loaded and "almond_mcp.server" in sys.modules:
         raise RuntimeError("Catalog generation must not import the Almond server.")
-    if sources != {name: digest(path) for name, path in source_paths(engine).items()}:
+    if sources != _source_digests(source_paths(engine)):
         raise RuntimeError("Tool sources changed during schema discovery. Start a new client session.")
     return {
         "format": 1,

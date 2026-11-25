@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from copy import deepcopy
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from functools import wraps
 from inspect import signature
@@ -177,7 +177,10 @@ def inspect_declarations(sources: tuple[Path, ...], *,
 
 def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
     """Keep only reviewed declaration syntax and replace the executable body."""
-    node = deepcopy(node)
+    doc = ast.get_docstring(node)
+    declaration = copy(node)
+    declaration.body = []
+    node = deepcopy(declaration)
     if node.type_params:
         raise ValueError(f"Review type parameters in {node.name}.")
     registration = _inert_registration(node)
@@ -237,7 +240,6 @@ def checked_stub(node: ast.FunctionDef) -> ast.FunctionDef:
             continue
         raise ValueError(f"Unexpected output decorator: {node.name}")
     node.decorator_list = [registration]
-    doc = ast.get_docstring(node)
     node.body = ([ast.Expr(ast.Constant(doc))] if doc else []) + [
         ast.Raise(ast.Call(ast.Name("RuntimeError", ast.Load()),
                           [ast.Constant("A tool declaration cannot execute its handler")], []), None)

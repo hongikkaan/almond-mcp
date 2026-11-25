@@ -18,15 +18,6 @@ from PIL import Image as PillowImage
 from pydantic import StrictBool, StrictInt
 
 
-def _observation_result(serialized: str) -> str | ToolResult:
-    """Keep the wrapped-string schema while marking explicit observation errors."""
-    value = json.loads(serialized)
-    if isinstance(value, dict) and value.get("status") == "error":
-        return ToolResult(content=[TextContent(type="text", text=serialized)],
-                          structured_content={"result": serialized}, is_error=True)
-    return serialized
-
-
 def register(mcp, context):
     """Register observation tools using the server's current connection and state."""
 
@@ -42,7 +33,7 @@ def register(mcp, context):
             include_editor_details: editor 요청 시 공급자·명령·Undo 근거 포함
         """
         from almond_mcp.features.context.context_query import query
-        return _observation_result(query(context._send_and_receive, sections, include_ids, include_editor_details))
+        return query(context._send_and_receive, sections, include_ids, include_editor_details)
 
 
     @public_tool(mcp, wrapped=True, annotations={'readOnlyHint': True, 'destructiveHint': False}, errors=True)
@@ -149,7 +140,7 @@ def register(mcp, context):
             depth: 1..8, 루트=1. 1 초과 시 recursive=true.
             expected_snapshot: offset > 0이면 첫 페이지의 snapshot 필요
         """
-        return _observation_result(object_queries.query(context._send_and_receive, scope=scope,
+        return object_queries.query(context._send_and_receive, scope=scope,
                                     ids=[] if object_ids is None else object_ids,
                                     filters={} if filters is None else filters,
                                     include_geometry=include_geometry, offset=offset, limit=limit,
@@ -157,7 +148,7 @@ def register(mcp, context):
                                     fields=fields, face_offset=face_offset, face_limit=face_limit,
                                     expected_geometry_crcs=expected_geometry_crcs, include_ids=include_ids,
                                     group_ids=group_ids, selected=selected, inside_window=inside_window,
-                                    recursive=recursive, depth=depth, expected_snapshot=expected_snapshot, output=output))
+                                    recursive=recursive, depth=depth, expected_snapshot=expected_snapshot, output=output)
 
 
     @public_tool(mcp, wrapped=True, annotations={'readOnlyHint': True, 'destructiveHint': False})
@@ -168,8 +159,7 @@ def register(mcp, context):
             object_ids: 서로 다른 현재 최상위 Rhino 객체 GUID 1..512개. 내부에서 페이지를 나누며 전체를 하나의 범위로 검사.
             include_block: 중첩 블록의 배치 변환을 적용해 구성원까지 검사. false이면 블록 제외.
         """
-        return _observation_result(object_queries.intersections(
-            context._send_and_receive, ids=object_ids, include_block=include_block))
+        return object_queries.intersections(context._send_and_receive, ids=object_ids, include_block=include_block)
 
 
     @public_tool(mcp, wrapped=False, annotations={'readOnlyHint': False, 'destructiveHint': False})
