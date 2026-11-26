@@ -67,27 +67,13 @@ class FilterFields(TypedDict, total=False):
     block: NamedCondition
     group: GroupCondition
     material: NamedCondition
-    layer_paths: Names
     name_contains: Annotated[str, Field(max_length=256)]
-    object_types: Annotated[list[Annotated[str, Field(min_length=1, max_length=64)]], Field(min_length=1, max_length=32)]
     user_text: Annotated[list[TextCondition], Field(max_length=16)] | TextSides
     user_dictionary: DictionaryFilter
 
 
-@with_config(ConfigDict(extra="forbid", strict=True))
-class OutputFields(TypedDict, total=False):
-    fields: list[str]
-    include_ids: bool
-    include_geometry: bool
-    limit: Annotated[int, Field(ge=1, le=200)]
-    offset: Annotated[int, Field(ge=0, le=100000)]
-    expected_snapshot: str
-
-
 # Validate inside the handler so invalid calls retain the public JSON error envelope.
 ObjectFilters = SkipValidation[FilterFields]
-ObjectOutput = SkipValidation[OutputFields]
 ObjectScope = SkipValidation[Literal["current", "document", "inside_viewport"]]
 ObjectResultMode = SkipValidation[Literal["objects", "hierarchy", "summary"]]
 FILTERS = TypeAdapter(FilterFields)
-OUTPUT = TypeAdapter(OutputFields)

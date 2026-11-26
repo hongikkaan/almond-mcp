@@ -38,15 +38,16 @@ obj/
 # Personal integration runtime, local settings and verification artifacts
 /.trash/
 /data/
-/src/engine/data/
+# Module-local runtime data can survive a connector move and contain access tokens.
+/src/*/data/
+!/src/mcp/data/
+/src/*/*-plugin.json
 /tests/engine/data/
 /src/mcp/runtime/data/
-/src/cos/data/
 /src/rhp/*/data/
 /src/mcp/tests/runtime/data/
 .almond/
 /src/rhp/*/plugin-*/
-/src/cos/cos-plugin.json
 *.3dm
 *.3dmbak
 *.rhp

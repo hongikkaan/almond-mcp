@@ -183,17 +183,25 @@ namespace RhinoAlmondBridge
                         DrawCaption(graphics, rectangle, tile);
                     }
                     ObjectObservation.ValidateDocument(doc, request);
-                    if (RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber ||
+                    bool stateChanged = RhinoDoc.ActiveDoc == null || RhinoDoc.ActiveDoc.RuntimeSerialNumber != doc.RuntimeSerialNumber ||
                         doc.Views.ActiveView?.RuntimeSerialNumber != activeView.RuntimeSerialNumber ||
                         doc.ActiveSpace != beforeSpace ||
                         !JToken.DeepEquals(beforeActiveMain, ViewState(activeView.MainViewport)) ||
                         !JToken.DeepEquals(beforeActiveViewport, ViewState(activeView.ActiveViewport)) ||
                         !JToken.DeepEquals(beforeView, ViewState(source.ActiveViewport)) ||
-                        !beforeSelection.SetEquals(Selected(doc)) || doc.Modified != beforeModified ||
-                        !baselineIds.SetEquals(ObjectObservation.VisibleObjects(doc).Select(o => o.Id)) ||
-                        !JToken.DeepEquals(editor, EditingContext.ObserveObjects(doc).State) ||
-                        beforeContent != ObjectObservation.SnapshotToken(doc, new JObject(), ObjectObservation.ModelObjects(doc), editor))
+                        !beforeSelection.SetEquals(Selected(doc)) || doc.Modified != beforeModified;
+                    if (!stateChanged)
+                    {
+                        // Check visibility and content against the same fresh object table.
+                        var afterObjects = ObjectObservation.ModelObjects(doc);
+                        stateChanged = !baselineIds.SetEquals(afterObjects.Where(o => o.Visible).Select(o => o.Id)) ||
+                            !JToken.DeepEquals(editor, EditingContext.ObserveObjects(doc).State) ||
+                            beforeContent != ObjectObservation.SnapshotToken(doc, new JObject(), afterObjects, editor);
+                    }
+                    if (stateChanged)
+                    {
                         return Error("observation_state_changed", "Document, camera, selection or visibility changed during capture; no image was returned.", tiles);
+                    }
                     if (captured == 0)
                         return Error("all_tiles_failed", "No requested inspection tile could be captured.", tiles);
                     using (var stream = new MemoryStream())
@@ -372,14 +380,13 @@ namespace RhinoAlmondBridge
         {
             var frustum = viewport.GetFrustum(out double left, out double right, out double bottom, out double top,
                 out _, out _) ? new JArray(left, right, bottom, top) : null;
-            return new JObject { ["id"] = viewport.Id.ToString(), ["camera"] = Point(viewport.CameraLocation),
+            return new JObject { ["id"] = viewport.Id.ToString(), ["camera"] = GeometryJson.Point(viewport.CameraLocation),
                 ["frustum_bounds"] = frustum,
-                ["target"] = Point(viewport.CameraTarget), ["up"] = Point((Point3d)viewport.CameraUp),
-                ["direction"] = Point((Point3d)viewport.CameraDirection), ["lens"] = viewport.Camera35mmLensLength,
+                ["target"] = GeometryJson.Point(viewport.CameraTarget), ["up"] = GeometryJson.Point((Point3d)viewport.CameraUp),
+                ["direction"] = GeometryJson.Point((Point3d)viewport.CameraDirection), ["lens"] = viewport.Camera35mmLensLength,
                 ["projection"] = viewport.IsParallelProjection ? "parallel" : viewport.IsTwoPointPerspectiveProjection ? "two_point" : "perspective",
                 ["display_mode_id"] = viewport.DisplayMode.Id.ToString(), ["size"] = new JArray(viewport.Size.Width, viewport.Size.Height) };
         }
-        static JArray Point(Point3d p) => new JArray(p.X, p.Y, p.Z);
         static HashSet<Guid> Selected(RhinoDoc doc) => new HashSet<Guid>(doc.Objects.GetSelectedObjects(false, false).Select(o => o.Id));
         static string Text(JObject value, string key, string fallback, int maximum)
         {

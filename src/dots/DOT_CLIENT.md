@@ -1,6 +1,6 @@
 # dot 전용 Almond MCP 클라이언트
 
-`dot_client.py`는 기존 `codex_host.py`를 자식 프로세스로 실행하는 별도 MCP 클라이언트다. 기존 서버 코드, Codex MCP 등록, CoS 설정은 수정하지 않는다.
+`dot_client.py`는 `src/beyond/codex_host.py`를 자식 프로세스로 실행하는 별도 MCP 클라이언트다. 기존 서버 코드와 Codex MCP 등록은 수정하지 않는다.
 
 ## 시작과 세션 유지
 
@@ -58,7 +58,7 @@ Dot에서는 `"connection_id":"$connection_id"`라고 명시하면 이 프로세
 ## 검증
 
 ```powershell
-& ./data/development/.venv/Scripts/python.exe -B -X utf8 -m unittest discover -s src/dots/tests -p 'test_*.py' -v
+& ./data/development/.venv/Scripts/python.exe -B -X utf8 -m pytest -q src/dots/tests
 ```
 
-기존 도구의 이름 변경이나 instruction 재배분은 이 클라이언트와 별도 작업이다.
+실제 Dot CLI와 일회용 MCP 서버 사이에서 도구 목록 페이지, 연결 선택, 이미지와 오류 응답, 시간 초과 시 재전송 여부를 검증한다.

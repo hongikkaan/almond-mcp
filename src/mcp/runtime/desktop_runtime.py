@@ -113,8 +113,7 @@ def _validate_args(args):
             "almond_mcp", "almond_mcp.cli", "almond_mcp.features.assets.asset_repository"):
         return
     source = Path(__file__).resolve().parents[2]
-    allowed = {source / "cos/codex_host.py", source / "cos/cos_host.py",
-               source / "mcp/runtime/mcp_server.py"}
+    allowed = {source / "beyond/codex_host.py", source / "mcp/runtime/mcp_server.py"}
     if command and not command[0].startswith("-") and Path(command[0]).resolve() in allowed:
         return
     raise ValueError("Only Almond runtime entry points can use the desktop bootstrap.")

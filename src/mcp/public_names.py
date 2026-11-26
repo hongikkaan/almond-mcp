@@ -3,8 +3,6 @@
 The same map provides the registered name, inert schema name and response references.
 Internal Python and native operations retain their own identifiers.
 """
-import re
-
 PUBLIC_TOOL_NAMES = {
     "create_planning": "plan_02-create",
     "get_planning": "plan_05-get",
@@ -98,12 +96,3 @@ def internal_tool_name(name: str) -> str:
 
 def public_tool_name(name: str) -> str:
     return PUBLIC_TOOL_NAMES.get(name, name)
-
-
-_REFERENCE = re.compile(r"(?<![A-Za-z0-9_-])(" + "|".join(
-    sorted(map(re.escape, PUBLIC_TOOL_NAMES), key=len, reverse=True)) + r")(?![A-Za-z0-9_-])")
-
-
-def tool_references(text: str) -> str:
-    """Render authored tool references, never apply this to arbitrary user data."""
-    return _REFERENCE.sub(lambda match: public_tool_name(match[0]) + " tool", text)

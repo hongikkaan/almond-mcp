@@ -3,10 +3,9 @@ import json
 import uuid
 
 from almond_mcp.managed_paths import bound_model_path
-from almond_mcp.tool_response import error_payload
-from almond_mcp.query_output import project_query, requires_full_evidence
+from almond_mcp.tool_response import error_payload, wrapped_json_error, wrapped_json_result
 from almond_mcp.managed_paths import relative_output
-from almond_mcp.features.context.object_inputs import FILTERS, OUTPUT
+from almond_mcp.features.context.object_inputs import FILTERS
 
 
 OBJECT_FIELDS = frozenset({
@@ -57,18 +56,12 @@ def validate_filters(filters):
 def query(send, *, scope, ids, filters, include_geometry, offset, limit, expected_model_path,
           result_mode="objects", fields=None, face_offset=0, face_limit=128,
           expected_geometry_crcs=None, include_ids=False, group_ids=None,
-          selected=False, inside_window=False, recursive=False, depth=1, expected_snapshot="", output=None):
+          selected=False, inside_window=False, recursive=False, depth=1, expected_snapshot=""):
     try:
-        if output is not None:
-            output = OUTPUT.validate_python(output)
-            fields = output.get("fields", fields)
-            include_ids = output.get("include_ids", include_ids)
-            include_geometry = output.get("include_geometry", include_geometry)
-            limit = output.get("limit", limit)
-            offset = output.get("offset", offset)
-            expected_snapshot = output.get("expected_snapshot", expected_snapshot)
         if any(type(v) is not bool for v in (selected, inside_window, recursive)):
             raise ValueError("selected, inside_window and recursive must be booleans.")
+        if scope != "current" and (selected or inside_window):
+            raise ValueError("selected and inside_window require scope=current.")
         viewport_scope = scope == "inside_viewport"
         if viewport_scope:
             scope, inside_window = "current", True
@@ -76,13 +69,11 @@ def query(send, *, scope, ids, filters, include_geometry, offset, limit, expecte
             raise ValueError("scope must be current, document or inside_viewport.")
         if selected and inside_window:
             raise ValueError("Choose selected or inside_window, not both.")
-        if scope != "current" and (selected or inside_window):
-            raise ValueError("selected and inside_window require scope=current.")
-        ids = object_ids(ids, 4096)
+        ids = [] if ids is None else object_ids(ids, 4096, required=True)
         if ids and scope != "document":
             raise ValueError("object_ids requires scope=document.")
         try:
-            groups = object_ids([] if group_ids is None else group_ids, 64)
+            groups = [] if group_ids is None else object_ids(group_ids, 64, required=True)
         except (TypeError, ValueError, AttributeError) as exc:
             raise ValueError("group_ids: " + str(exc).replace("object_ids", "group_ids")) from exc
         if groups and ids:
@@ -139,7 +130,7 @@ def query(send, *, scope, ids, filters, include_geometry, offset, limit, expecte
         filters = validate_filters(filters)
         payload = dict(type="get_rhino_objects", scope=scope, object_ids=ids, filters=filters,
                        include_geometry=include_geometry, offset=offset, limit=limit)
-        extended = result_mode != "objects" or fields is not None or face_offset or face_limit != 128 or crcs or "object_types" in filters
+        extended = result_mode != "objects" or fields is not None or face_offset or face_limit != 128 or crcs
         if extended:
             payload.update(result_mode=result_mode, fields=fields, face_offset=face_offset,
                            face_limit=face_limit, expected_geometry_crcs=crcs)
@@ -155,29 +146,29 @@ def query(send, *, scope, ids, filters, include_geometry, offset, limit, expecte
             required_version = 8
         raw = dispatch(send, payload, expected_model_path, required_version=required_version)
         value = json.loads(raw)
-        if isinstance(value, dict) and value.get("status") != "error":
+        if isinstance(value, dict):
+            if value.get("status") == "error":
+                return wrapped_json_result(value)
             if viewport_scope:
                 value["scope"] = "inside_viewport"
             for key in ("schema", "model_path", "document_units", "tolerance_model_units"):
                 value.pop(key, None)
-        if isinstance(value, dict) and value.get("status") == "error":
-            return json.dumps(value, ensure_ascii=False)
         # Explicit requested identity fields take precedence over the general query default.
         show_ids = include_ids or bool({"id", "faces"} & set(fields or []))
-        return json.dumps(_object_output(value, show_ids), ensure_ascii=False)
+        return wrapped_json_result(_object_output(value, show_ids))
     except (TypeError, ValueError, AttributeError) as exc:
-        return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
+        return wrapped_json_error(json.dumps(error_payload(str(exc), error_code="invalid_arguments")))
 
 
 def _object_output(value, show_ids):
-    """Format observation paths and IDs while returning stored User Text verbatim."""
+    """Apply the identity policy to observations and preserve user-defined metadata keys."""
     if isinstance(value, list):
         return [_object_output(item, show_ids) for item in value]
     if not isinstance(value, dict) or value.get("status") == "error":
         return relative_output(value)
     result = {}
     for key, item in value.items():
-        if key == "user_text":
+        if key in {"user_text", "user_dictionary"}:
             result[key] = item
         elif show_ids or (key not in {"id", "ids", "guid", "guids", "document_serial_number"}
                           and not key.endswith(("_id", "_ids", "_guid", "_guids"))):
@@ -253,7 +244,7 @@ def intersections(send, *, ids, include_block=False):
             raise ValueError("include_block must be boolean.")
         path = bound_model_path()
     except (TypeError, ValueError, AttributeError) as exc:
-        return json.dumps(error_payload(str(exc), error_code="invalid_arguments"))
+        return wrapped_json_error(json.dumps(error_payload(str(exc), error_code="invalid_arguments")))
     cursor, seen, count, evaluated = "", set(), 0, 0
     try:
         while True:
@@ -264,7 +255,7 @@ def intersections(send, *, ids, include_block=False):
             page = json.loads(raw)
             error = intersection_page_error(page, include_block)
             if error:
-                return json.dumps(error, ensure_ascii=False)
+                return wrapped_json_result(error)
             pairs = page["pairs"]
             count += sum(pair["overlap"]["status"] == "positive_volume" for pair in pairs)
             evaluated += len(pairs)
@@ -272,17 +263,12 @@ def intersections(send, *, ids, include_block=False):
                 raise ValueError("Native intersection query exceeded its 20000-candidate bound.")
             next_cursor = intersection_next_cursor(page, seen)
             if next_cursor is None:
-                next_step = (
-                    "To review these overlaps, call intersect_02-resolve tool with the same object_ids and include_block. "
-                    "Inspect its comparison and numbered objects, then pass its review_id with choice=1 or 2 to trim that numbered object, or 'skip'."
-                    if count else
-                    "No positive-volume overlap was found in this scope; no resolution call is needed. This does not establish other design or clearance conditions.")
-                return json.dumps({"intersections": {"number": count}, "next_step_guide": next_step}, ensure_ascii=False)
+                return wrapped_json_result({"intersections": {"number": count}})
             seen.add(next_cursor)
             cursor = next_cursor
     except (TypeError, ValueError, AttributeError, KeyError) as exc:
         error = error_payload(str(exc), error_code="invalid_intersection_response")
-        return json.dumps(incomplete_intersection(error, page), ensure_ascii=False)
+        return wrapped_json_result(incomplete_intersection(error, page))
 
 
 def dispatch(send, payload, expected_model_path, required_version=1, capability_name="object_observation"):

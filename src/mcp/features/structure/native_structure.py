@@ -253,8 +253,10 @@ def build_frame(model: dict, load_kn: float, material: str = "Steel", fixed_supp
 SLS = ("SLS characteristic", {"G": 1.0, "Q": 1.0})
 
 
-def design_profile(design_basis: str = "en1990", design_code=None) -> dc.Profile:
-    """The design code profile in force: design_basis="unfactored" means no code ("off")."""
+def design_profile(design_basis: str = "en1990", design_code=None, *, uls: str | None = None) -> dc.Profile:
+    """Resolve the profile after checking the requested load combination."""
+    if uls not in (None, "", "6.10", "6.10ab"):
+        raise ValueError("uls_combination must be '6.10' or '6.10ab'.")
     basis = (design_basis or "en1990").lower()
     if basis not in ("en1990", "unfactored"):
         raise ValueError("design_basis must be 'en1990' or 'unfactored'.")
@@ -263,9 +265,7 @@ def design_profile(design_basis: str = "en1990", design_code=None) -> dc.Profile
 
 def combinations(design_basis: str = "en1990", uls: str | None = None, design_code=None) -> tuple[tuple, list]:
     """(SLS combination, [ULS combinations]) as (name, {case: factor}), factors from the design code profile."""
-    if uls not in (None, "", "6.10", "6.10ab"):
-        raise ValueError("uls_combination must be '6.10' or '6.10ab'.")
-    code = design_profile(design_basis, design_code)
+    code = design_profile(design_basis, design_code, uls=uls)
     if not code.factored:
         return SLS, [("Unfactored", {"G": 1.0, "Q": 1.0})]
     expression, _ = code.uls(uls or None)

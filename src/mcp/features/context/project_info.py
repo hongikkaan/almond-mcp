@@ -42,10 +42,9 @@ def query_project_info(sections, include_ids, files_limit, files_offset, *,
         missing_identity = "document" in observation_sections and (
             not isinstance(document, dict) or not isinstance(document.get("path"), str))
         if live.get("status") != "success" or missing_identity:
-            evidence = {key: value for key, value in live.items()
-                        if key not in (*DISCOVERY_SECTIONS[1:], "worksession_files")}
-            return relative_output({**evidence, "status": "error",
-                "message": live.get("message") or "The live document observation is incomplete."})
+            evidence = {key: live[key] for key in ("error_code", "warnings") if key in live}
+            return {**evidence, "status": "error",
+                "message": live.get("message") or "The live document observation is incomplete."}
         warnings.extend(live.get("warnings") or [])
     if "project" in sections:
         if runtime is None or runtime.workspace is None:
@@ -56,11 +55,9 @@ def query_project_info(sections, include_ids, files_limit, files_offset, *,
         attachments = live.get("worksession_files")
         worksession_files = None
         if isinstance(attachments, list) and all(
-            isinstance(row, dict) and isinstance(row.get("file_name"), str)
-            and isinstance(row.get("file_path"), str) for row in attachments
+            isinstance(row, dict) and isinstance(row.get("file_path"), str) for row in attachments
         ):
-            worksession_files = [{"file_name": row["file_name"],
-                "file_path": relative_path(row["file_path"], root, preserve_cross_drive=True)}
+            worksession_files = [{"file_path": relative_path(row["file_path"], root, preserve_cross_drive=True)}
                 for row in attachments]
         elif not any(str(warning).startswith("worksession_files:") for warning in warnings):
             warnings.append("worksession_files: Rhino did not return the attachment list.")
@@ -69,7 +66,7 @@ def query_project_info(sections, include_ids, files_limit, files_offset, *,
             "is_bound_document": is_bound_document,
             "files": page["files"],
             "worksession_files": worksession_files,
-            "files_page": {key: page[key] for key in ("total", "limit", "offset", "truncated")}}
+            "files_page": {key: page[key] for key in ("total", "offset")}}
     if "document" in sections:
         result["document"] = document_metadata(document, angle_key="angle_tolerance_radians")
         if include_ids and "runtime_serial_number" in document:
@@ -82,19 +79,13 @@ def query_project_info(sections, include_ids, files_limit, files_offset, *,
     if "locations" in sections:
         work = runtime.workspace.current() if runtime and runtime.workspace else {"artifact_dir": ""}
         result["locations"] = project_query({**work, "artifact_dir": work["artifact_dir"] or None}, include_ids=include_ids)
-        result["locations"].update(database=relative_path(locations["state_db"], root),
-            path_rule="Managed tools apply ALMOND_PROJECT_ROOT automatically; pass relative paths.",
-            artifact_rule="Select a Plan with plan_10-set_working tool; managed outputs use its current Loop folder .almond/produced/YYMMDD_name/01, /02, etc.; before plan_03-execute_looping tool they use the Plan root.")
+        result["locations"]["database"] = relative_path(locations["state_db"], root)
     if "runtime" in sections:
-        result["runtime"] = relative_output({"slot": binding["label"], "port": binding["port"],
-            "session_dir": locations["session_dir"], "scratch_root": str(Path(locations["temp"]) / "python"),
-            "rhino_temp_at_attach": binding.get("rhino_temp"),
-            "rhino_temp_note": "Rhino process TEMP at attach, not the artifact folder.",
-            "python_executable": sys.executable, "attachment": binding.get("attachment", "external")})
-        if runtime is not None:
-            result["runtime"]["rhinocode"] = runtime.rhinocode_availability()
-        result["runtime"] = project_query(result["runtime"], include_ids=include_ids)
-    result["next_step_guide"] = ("- plan_08-list tool에 request.target='plan'으로 프로젝트 진행상황을 조회합니다.\n"
-                                 "- 산출물 작업 공간은 plan_10-set_working tool으로 선택합니다.\n"
-                                 "- 객체 상태가 필요하면 inspect_02-get_objects tool로 확인합니다.")
+        availability = (runtime.rhinocode_availability() if runtime is not None else
+                        {"available": False, "languages": [], "message": "RhinoCode runtime is not connected."})
+        if not include_ids:
+            availability = {key: value for key, value in availability.items() if key != "pipe_id"}
+        result["runtime"] = {**relative_output({"slot": binding["label"],
+            "scratch_root": str(Path(locations["temp"]) / "python"), "python_executable": sys.executable}),
+            "rhinocode": availability}
     return result

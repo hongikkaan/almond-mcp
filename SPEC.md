@@ -6,7 +6,7 @@
 | 모듈 | 책임 | 상세 계약 |
 |---|---|---|
 | MCP | 모델링 도구·계산·자산 API, CLI와 Python 실행기 | [SPEC](src/mcp/SPEC.md) |
-| 외부 연결기·AlmondRhino | beyond/CoS 진입점, 공용 외부 host/worker와 AlmondRhino 플러그인 | [SPEC](src/cos/SPEC.md) |
+| 외부 연결기·AlmondRhino | beyond 진입점, 외부 host/worker와 AlmondRhino 플러그인 | [SPEC](src/beyond/SPEC.md) |
 | RHP | Rhino Bridge·패널·Terminal과 공용 native Engine | [SPEC](src/rhp/SPEC.md) |
 | 호환 진입점 | 기존 시작 버튼과 Python 환경 위치 보존 | [설명](src/engine/README.md) |
 
@@ -17,14 +17,14 @@
 - 모델 폴더의 `.almond/scene.sqlite3`를 공유한다. Plan 산출물은 프로젝트 `.almond/produced/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 연결별 token·session·call과 프로세스 identity를 구분하며 잠금·lease·native 완료 확인을 유지한다.
 - 객체 identity는 정규화한 모델 경로와 Rhino GUID의 조합이다. timeout은 rollback이나 자동 재실행 허가가 아니다.
 - 기존 사용자 변경·모델·DB·라이브러리, 공개 tool schema, plugin identity와 Undo/Redo 계약을 보존한다.
-- 모듈 전용 테스트와 검증 기록은 모듈이 소유한다. 루트 `tests/`는 여러 모듈의 계약을 확인한다. 워크트리는 실행 중 Rhino와 모델 DB를 자동 격리하지 않는다.
+- 모듈 전용 테스트와 검증 기록은 모듈이 소유한다. 루트 `tests/`는 여러 모듈의 계약을 확인한다. 문서에 연결된 RhinoTerminal의 공개 도구 선언은 [임시 모델을 사용하는 stdio 검사](tests/README.md#실행기별-확인-범위)로 검증한다. 워크트리는 실행 중 Rhino와 모델 DB를 자동 격리하지 않는다.
 
 ## 소유권과 의존 방향
 
 | 소유 모듈 | 구현·검사 위치 | 허용하는 의존 관계 |
 |---|---|---|
 | MCP | `src/mcp`의 공용 코드·`features`, `runtime`, `release_validation`, `tests` | Python 라이브러리와 Rhino의 기존 전송 계약. 외부 연결기 구현을 import하지 않는다. |
-| 외부 연결기 | `src/cos`의 host/worker·catalog, `rhp`, `tests` | MCP 실행기의 검증·구성 훅, native Engine. MCP 내부 정책을 외부 연결기에 복제하지 않는다. |
+| 외부 연결기 | `src/beyond`의 host/worker·catalog, `rhp`, `tests` | MCP 실행기의 검증·구성 훅, native Engine. MCP 내부 정책을 외부 연결기에 복제하지 않는다. |
 | Native Engine | `src/rhp/Engine`, 그 안의 `tests` | Rhino·플랫폼 API. 개별 호스트 프로젝트를 참조하지 않는다. |
 | Bridge | `src/rhp/RhinoAlmondBridge` 및 자체 `tests` | Engine, MCP 소유 C# 모델링·조회 코드와 재료 정책, 아래 패널·Terminal 소스. |
 | RhinoTerminal | `src/rhp/RhinoTerminal/src`, `tests` | Engine과 MCP 실행기. 기존처럼 Bridge RHP에 컴파일된다. |
@@ -38,7 +38,7 @@ MCP 도구의 native 구현은 `src/mcp/features/<기능>/native`에 두고 Brid
 
 | 경계 | 소유자 | 전달하는 것 |
 |---|---|---|
-| 도구 선언 | MCP `tool_declarations` | 기능의 명시적 선언에서 읽은 schema·이름. 실행 등록·기본 안내·외부 catalog가 같은 기능 목록을 사용한다. |
+| 도구 선언 | MCP `tool_declarations` | [공개 선언 원본](TOOL-DECLARATIONS-CURRENT.md)에서 생성한 [스키마 데이터](src/mcp/public_contract_data.json)를 문서용 런타임과 beyond가 함께 사용한다. |
 | 서버 시작 | MCP `startup` | 명시적 DB·라이브러리 경로와 전송 함수를 받아 한 `ServerApplication`을 만든다. import만으로 저장소를 열지 않는다. |
 | 기능 실행 | MCP `features` | 서버별 `FeatureContext`의 의존성을 사용한다. 기능별 SQL·모델링·계산 규칙을 유지한다. |
 | 저장소 수명 | MCP `store_database` | SQLite 연결·트랜잭션·초기 스키마·migration 순서를 관리한다. `AlmondStore`는 기능별 저장소의 기존 인터페이스를 제공한다. |
@@ -56,5 +56,6 @@ MCP 도구의 native 구현은 `src/mcp/features/<기능>/native`에 두고 Brid
 
 - [작업 원칙·설치·배포](AGENTS.md)
 - [기능별 사용 문서](README.md)
+- [공개 선언의 실제 stdio 스냅샷](tests/integration/tool_catalogs.md)
 
 모듈 내부만 변경되는 작업은 이 문서를 수정할 필요가 없다. 공통 의존 방향이나 설치·저장소 계약이 실제로 바뀔 때만 함께 갱신한다.

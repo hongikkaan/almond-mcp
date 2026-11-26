@@ -12,59 +12,102 @@ namespace RhinoAlmondBridge
 {
     public static partial class ObjectObservation
     {
-        static ObservationEntities.Entity GroupEntity(RhinoDoc doc, Group group, EditingContext.ObjectScope editing)
+        // Share live group reads only within one request and editor observation.
+        sealed class ObservedGroups
         {
-            var members = EditingContext.GroupObjects(doc, group, editing, out bool complete, out string basis)
-                .Where(o => o != null && !o.IsDeleted && !o.IsInstanceDefinitionGeometry &&
-                    o.Attributes.Space != ActiveSpace.PageSpace).ToArray();
-            var bounds = BoundingBox.Empty;
-            foreach (var member in members) bounds.Union(member.Geometry.GetBoundingBox(true));
-            return new ObservationEntities.Entity { Id = group.Id, Name = group.Name ?? "", Kind = "Group",
-                Members = members, Bounds = bounds, Path = Array.Empty<Guid>(),
-                MembershipComplete = complete, MembershipBasis = basis };
-        }
+            private readonly RhinoDoc doc;
+            private readonly EditingContext.ObjectScope editing;
+            private readonly Dictionary<int, (RhinoObject[] Members, bool Complete, string Basis)> members = new();
+            private readonly Dictionary<int, ObservationEntities.Entity> entities = new();
 
-        static List<ObservationEntities.Entity> RequestedGroups(RhinoDoc doc, Guid[] ids, EditingContext.ObjectScope editing = null)
-        {
-            editing = editing ?? EditingContext.ObserveObjects(doc);
-            var result = new List<ObservationEntities.Entity>();
-            foreach (var id in ids.OrderBy(value => value))
+            public ObservedGroups(RhinoDoc doc, EditingContext.ObjectScope editing)
             {
-                var group = doc.Groups.FirstOrDefault(g => g != null && !g.IsDeleted && g.Id == id);
-                if (group == null) throw new ArgumentException("Unknown group GUID: " + id);
-                result.Add(GroupEntity(doc, group, editing));
+                this.doc = doc;
+                this.editing = editing;
             }
-            return result;
+
+            public (RhinoObject[] Members, bool Complete, string Basis) Read(Group group)
+            {
+                if (members.TryGetValue(group.Index, out var observed)) { return observed; }
+                var objects = EditingContext.GroupObjects(doc, group, editing, out bool complete, out string basis);
+                observed = (objects, complete, basis);
+                members.Add(group.Index, observed);
+                return observed;
+            }
+
+            public ObservationEntities.Entity Entity(Group group)
+            {
+                if (entities.TryGetValue(group.Index, out var entity)) { return entity; }
+                var observed = Read(group);
+                var objects = observed.Members.Where(o => o != null && !o.IsDeleted && !o.IsInstanceDefinitionGeometry &&
+                    o.Attributes.Space != ActiveSpace.PageSpace).ToArray();
+                var bounds = BoundingBox.Empty;
+                foreach (var member in objects) { bounds.Union(member.Geometry.GetBoundingBox(true)); }
+                entity = new ObservationEntities.Entity { Id = group.Id, Name = group.Name ?? "", Kind = "Group",
+                    Members = objects, Bounds = bounds, Path = Array.Empty<Guid>(),
+                    MembershipComplete = observed.Complete, MembershipBasis = observed.Basis };
+                entities.Add(group.Index, entity);
+                return entity;
+            }
+
+            public List<ObservationEntities.Entity> Requested(Guid[] ids)
+            {
+                var result = new List<ObservationEntities.Entity>();
+                foreach (var id in ids.OrderBy(value => value))
+                {
+                    var group = doc.Groups.FirstOrDefault(g => g != null && !g.IsDeleted && g.Id == id);
+                    if (group == null) { throw new ArgumentException("Unknown group GUID: " + id); }
+                    result.Add(Entity(group));
+                }
+                return result;
+            }
         }
 
-        static JObject GroupMembership(RhinoDoc doc, Group group, HashSet<Guid> matched, HashSet<Guid> visible,
-            EditingContext.ObjectScope editing)
+        static Func<Group, JObject> GroupMembership(ObservedGroups observed, HashSet<Guid> matched, HashSet<Guid> visible)
         {
-            // Metadata keeps the group's actual namespace, including definition members.
-            // Only top-level hierarchy roots exclude definition/PageSpace objects.
-            var members = EditingContext.GroupObjects(doc, group, editing, out bool complete, out string basis);
-            return new JObject {
-                ["id"] = group.Id.ToString(), ["name"] = group.Name,
-                ["member_count"] = complete ? new JValue(members.Length) : JValue.CreateNull(),
-                ["members_outside_match_count"] = complete ? new JValue(members.Count(o => !matched.Contains(o.Id))) : JValue.CreateNull(),
-                ["visible_member_count"] = complete ? new JValue(members.Count(o => visible.Contains(o.Id))) : JValue.CreateNull(),
-                ["membership_complete"] = complete, ["membership_basis"] = basis,
-                ["observed_member_count"] = members.Length,
-                ["observed_members_outside_match_count"] = members.Count(o => !matched.Contains(o.Id)),
-                ["observed_visible_member_count"] = members.Count(o => visible.Contains(o.Id)),
-                ["member_ids"] = new JArray(members.Take(64).Select(o => o.Id.ToString())),
-                ["members_truncated"] = members.Length > 64 };
+            var rows = new Dictionary<int, JObject>();
+            return group => {
+                if (!rows.TryGetValue(group.Index, out var row))
+                {
+                    // Metadata keeps the full group's namespace, including definition members.
+                    var (members, complete, basis) = observed.Read(group);
+                    int outsideCount = 0, visibleCount = 0;
+                    foreach (var member in members)
+                    {
+                        if (!matched.Contains(member.Id)) { outsideCount++; }
+                        if (visible.Contains(member.Id)) { visibleCount++; }
+                    }
+                    row = new JObject {
+                        ["id"] = group.Id.ToString(), ["name"] = group.Name,
+                        ["member_count"] = complete ? new JValue(members.Length) : JValue.CreateNull(),
+                        ["members_outside_match_count"] = complete ? new JValue(outsideCount) : JValue.CreateNull(),
+                        ["visible_member_count"] = complete ? new JValue(visibleCount) : JValue.CreateNull(),
+                        ["membership_complete"] = complete, ["membership_basis"] = basis,
+                        ["observed_member_count"] = members.Length,
+                        ["observed_members_outside_match_count"] = outsideCount,
+                        ["observed_visible_member_count"] = visibleCount,
+                        ["member_ids"] = new JArray(members.Take(64).Select(o => o.Id.ToString())),
+                        ["members_truncated"] = members.Length > 64 };
+                    rows.Add(group.Index, row);
+                }
+                return (JObject)row.DeepClone();
+            };
         }
 
-        static JObject Hierarchy(RhinoDoc doc, string scope, Guid[] groupIds, RhinoObject[] candidates,
+        static JObject Hierarchy(RhinoDoc doc, string scope, List<ObservationEntities.Entity> requestedGroups, RhinoObject[] candidates,
             RhinoObject[] matched, HashSet<Guid> visible, HashSet<string> fields,
-            bool expandGroups, bool expandBlocks, int depth, int offset, int limit, EditingContext.ObjectScope editing = null)
+            bool expandGroups, bool expandBlocks, int depth, int offset, int limit, ObservedGroups groups, Func<RhinoObject, uint> readCrc)
         {
-            editing = editing ?? EditingContext.ObserveObjects(doc);
             var matchedIds = new HashSet<Guid>(matched.Select(o => o.Id));
-            Func<Group, ObservationEntities.Entity> groupSource = g => GroupEntity(doc, g, editing);
-            var roots = groupIds.Length != 0 ? RequestedGroups(doc, groupIds, editing) :
-                ObservationEntities.Roots(doc, matched, null, groupSource, includePartial: scope == "current" || scope == "document");
+            (ObservationEntities.Entity Group, BoundingBox? Bounds) ReadGroup(Group group)
+            {
+                var observed = groups.Entity(group);
+                return (observed, observed.Bounds);
+            }
+            var describeGroup = GroupMembership(groups, matchedIds, visible);
+            var roots = requestedGroups ??
+                ObservationEntities.Roots(doc, matched, occurrence: null, groupSource: ReadGroup,
+                    includePartial: scope == "current" || scope == "document");
             // Explicit group roots retain their identity even when filtering selects only some members.
             // The traversal below sees only matched members, so it cannot widen the requested scope.
             var rows = new JArray();
@@ -111,13 +154,12 @@ namespace RhinoAlmondBridge
                     }
                     else
                     {
-                        row = Describe(doc, entity.Object, matchedIds, visible, false, budget, fields, 0, 128, editing);
+                        row = Describe(doc, entity.Object, visible, false, budget, fields, 0, 128, describeGroup, readCrc, entity.Bounds);
                         if (fields == null || fields.Contains("name")) row["name"] = entity.Name;
                         bool definitionMember = entity.Path.Length > 1;
                         row["root_object_id"] = entity.Path[0].ToString();
                         row["block_path_ids"] = new JArray(entity.Path.Skip(1).Select(id => id.ToString()));
                         row["document_object"] = !definitionMember;
-                        if (fields == null || fields.Contains("bounds")) row["bounds"] = Bounds(entity.Bounds);
                         if (definitionMember)
                         {
                             // Definition attributes are not effective inherited occurrence visibility/selection.
@@ -140,14 +182,12 @@ namespace RhinoAlmondBridge
                 IEnumerable<ObservationEntities.Entity> children;
                 if (group)
                 {
-                    children = ObservationEntities.Roots(doc, members, entity.Id, entity.DefinitionOccurrence ? null : groupSource,
+                    children = ObservationEntities.Roots(doc, members, entity.DefinitionOccurrence ? entity : null,
+                        entity.Id, entity.DefinitionOccurrence ? null : ReadGroup,
                         includePartial: !entity.DefinitionOccurrence && (scope == "current" || scope == "document"),
                         parentMembers: entity.Members);
-                    if (entity.DefinitionOccurrence)
-                        children = children.Select(e => Place(doc, e, entity.ToWorld, entity.Path));
                 }
-                else children = ObservationEntities.Roots(doc, block.InstanceDefinition.GetObjects())
-                    .Select(e => Place(doc, e, entity.ToWorld, entity.Path));
+                else { children = ObservationEntities.Roots(doc, block.InstanceDefinition.GetObjects(), entity); }
                 foreach (var child in children) visit(child, number, level + 1, next);
             };
             foreach (var root in roots) visit(root, null, 1, new HashSet<Guid>());
@@ -173,12 +213,5 @@ namespace RhinoAlmondBridge
             return answer;
         }
 
-        static ObservationEntities.Entity Place(RhinoDoc doc, ObservationEntities.Entity entity, Transform parent, Guid[] prefix)
-        {
-            if (entity.Kind != "Group") return ObservationEntities.ObjectEntity(doc, entity.Object, parent, prefix);
-            entity.ToWorld = parent; entity.Path = prefix; entity.DefinitionOccurrence = true;
-            var bounds = entity.Bounds; bounds.Transform(parent); entity.Bounds = bounds;
-            return entity;
-        }
     }
 }

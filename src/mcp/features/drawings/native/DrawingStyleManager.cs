@@ -44,44 +44,51 @@ namespace RhinoAlmondBridge
                 bool StandardLayer(DrawingLayerSpecification layer) => standard ||
                     (request.IncludeStandardD && layer.Path.StartsWith("D::", StringComparison.OrdinalIgnoreCase));
                 var neededDefinitions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var linetypeIndices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                var linetypeIndices = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
                 foreach (var specification in request.Layers)
                 {
                     if (specification == null || string.IsNullOrWhiteSpace(specification.Path))
                         throw new ArgumentException("Drawing layer path cannot be empty.");
-                    if (StandardLayer(specification) && (!specification.Path.StartsWith("D::", StringComparison.OrdinalIgnoreCase)
+                    bool isStandardLayer = StandardLayer(specification);
+                    if (isStandardLayer && (!specification.Path.StartsWith("D::", StringComparison.OrdinalIgnoreCase)
                         || specification.Path.Equals("D::PlanSection", StringComparison.OrdinalIgnoreCase)
                         || specification.Path.StartsWith("D::PlanSection::", StringComparison.OrdinalIgnoreCase)))
+                    {
                         throw new ArgumentException($"Not a manual standard D layer: {specification.Path}.");
+                    }
 
                     string name = LinetypeName(specification.Linetype);
-                    var existing = FindExactLinetype(doc, name);
                     bool continuous = string.Equals(name, "Continuous", StringComparison.OrdinalIgnoreCase);
-                    if (existing != null)
-                        linetypeIndices[name] = existing.Index;
-                    else if (continuous)
-                        linetypeIndices[name] = -1;
-                    if (!continuous && (StandardLayer(specification) || existing == null))
+                    // Remember missing definitions too, so later layers reuse the lookup.
+                    if (!linetypeIndices.TryGetValue(name, out int? index))
+                    {
+                        index = FindExactLinetype(doc, name)?.Index ?? (continuous ? -1 : (int?)null);
+                        linetypeIndices.Add(name, index);
+                    }
+                    if (!continuous && (isStandardLayer || index == null))
+                    {
                         neededDefinitions.Add(name);
+                    }
                 }
 
                 var definitions = ReadDefinitions(request.LinetypeManifestPath, neededDefinitions);
-                var changedPatterns = new List<string>();
+                var changedPatterns = new List<(DrawingLinetypeDefinition Definition, int Index)>();
                 var conflicts = new List<string>();
                 if (standard || request.IncludeStandardD)
                 {
                     foreach (var definition in definitions.Values)
                     {
-                        if (!linetypeIndices.TryGetValue(definition.Name, out int index)
-                            || PatternMatches(doc.Linetypes[index], definition))
+                        if (linetypeIndices[definition.Name] is not int index || PatternMatches(doc.Linetypes[index], definition))
+                        {
                             continue;
+                        }
                         if (standardOverwrite)
                         {
                             var generated = FindLocalLayer(doc, "D::PlanSection");
                             if (generated != null && SubtreeUsesLinetype(doc, generated, index))
                                 throw new InvalidOperationException($"Linetype {definition.Name} is used by D::PlanSection and cannot be overwritten by the manual template.");
                         }
-                        changedPatterns.Add(definition.Name);
+                        changedPatterns.Add((definition, index));
                         if (!standardOverwrite) conflicts.Add($"linetype {definition.Name}");
                     }
                 }
@@ -93,9 +100,10 @@ namespace RhinoAlmondBridge
                     if (existing != null)
                     {
                         var name = LinetypeName(specification.Linetype);
-                        if (linetypeIndices.TryGetValue(name, out int index)
-                            && LayerMatches(existing, specification, index))
+                        if (linetypeIndices[name] is int index && LayerMatches(existing, specification, index))
+                        {
                             continue;
+                        }
                         if (!(StandardLayer(specification) ? standardOverwrite : overwrite))
                             conflicts.Add(specification.Path);
                     }
@@ -117,17 +125,21 @@ namespace RhinoAlmondBridge
 
                 var mutation = AlmondEngine.NativeUndoRecord.Run(doc, "Apply Almond drawing style", () =>
                 {
-                    foreach (var name in changedPatterns)
-                        if (!doc.Linetypes.Modify(CreateLinetype(definitions[name]), linetypeIndices[name], true))
-                            throw new InvalidOperationException($"Could not replace linetype {name}.");
+                    foreach (var (definition, index) in changedPatterns)
+                    {
+                        if (!doc.Linetypes.Modify(CreateLinetype(definition), index, true))
+                        {
+                            throw new InvalidOperationException($"Could not replace linetype {definition.Name}.");
+                        }
+                    }
 
                     foreach (var specification in updates)
                     {
                         string name = LinetypeName(specification.Linetype);
-                        if (!linetypeIndices.TryGetValue(name, out int linetypeIndex))
+                        if (linetypeIndices[name] is not int linetypeIndex)
                         {
                             linetypeIndex = AddLinetype(doc, definitions[name]);
-                            linetypeIndices.Add(name, linetypeIndex);
+                            linetypeIndices[name] = linetypeIndex;
                         }
                         int layerIndex = DocumentLayers.Ensure(doc, specification.Path);
                         var layer = doc.Layers[layerIndex];

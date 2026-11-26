@@ -2,7 +2,6 @@
 import json
 
 from almond_mcp.features.planning.output import update_ack
-from almond_mcp.features.planning.updates import PlanningUpdate
 from almond_mcp.managed_paths import bound_model_path
 from almond_mcp.tool_response import error_payload
 
@@ -44,8 +43,8 @@ def update_step(store, request, send):
                   takeaways=request.takeaways, design_rationale=request.design_rationale)
     model_path = None
     if request.status == "completed":
-        plan, step = store.step_update_target(request.plan_id, request.step_id,
-                                             request.expected_revision, request.loop_no)
+        plan, step = store.read_step_completion(request.plan_id, request.step_id,
+                                               request.expected_revision, request.loop_no)
         fields.update(expected_revision=plan["revision"], loop_no=plan["loop_no"])
         if step["status"] != "completed":
             model_path = bound_model_path()
@@ -57,9 +56,8 @@ def update_step(store, request, send):
         error = {**error_payload(str(exc), error_code="step_completion_db_failed"),
                  "changed": False, "cleanup_state": "not_started", "requires_reconciliation": False}
         try:
-            plan, _ = store.step_update_target(request.plan_id, request.step_id, None, None)
-            observed = update_ack(PlanningUpdate(plan, False, []), "plan", request.step_id)
-            error.update(plan=observed["plan"], step=observed["step"])
+            plan, step = store.read_step_completion(request.plan_id, request.step_id, None, None)
+            error.update(plan=plan, step=step)
         except Exception:
             error["requires_reconciliation"] = True
         return error

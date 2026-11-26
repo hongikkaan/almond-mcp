@@ -39,14 +39,13 @@ namespace RhinoAlmondBridge
             return material.RenderMaterialInstanceId != Guid.Empty ? material.RenderMaterialInstanceId : material.Id;
         }
 
-        static IEnumerable<Func<RhinoObject, bool>> GroupFilters(RhinoDoc doc, JObject sides, EditingContext.ObjectScope editing)
+        static IEnumerable<Func<RhinoObject, bool>> GroupFilters(RhinoDoc doc, JObject sides, ObservedGroups observed)
         {
             foreach (var field in sides.Properties())
                 if (field.Name != "include" && field.Name != "exclude" && field.Name != "include_mode" && field.Name != "exclude_mode")
                     throw new ArgumentException($"Unsupported filters.group.{field.Name}.");
             var groups = doc.Groups.Where(g => g != null && !g.IsDeleted).ToDictionary(g => g.Id);
             var resolve = ReferenceResolver("group", groups.Values.Select(g => (g.Id, g.Name)));
-            editing = editing ?? EditingContext.ObserveObjects(doc);
             foreach (string side in new[] { "include", "exclude" })
             {
                 string modeKey = side + "_mode";
@@ -64,10 +63,10 @@ namespace RhinoAlmondBridge
                 foreach (var id in ids)
                 {
                     var group = groups[id];
-                    var objects = EditingContext.GroupObjects(doc, group, editing, out bool complete, out _);
-                    if (!complete)
+                    var membership = observed.Read(group);
+                    if (!membership.Complete)
                         throw new ArgumentException($"filters.group.{side} membership is uncertain during editing: {group.Name} ({id}). Finish editing before filtering this group.");
-                    var objectIds = objects.Where(o => o != null && !o.IsDeleted).Select(o => o.Id);
+                    var objectIds = membership.Members.Where(o => o != null && !o.IsDeleted).Select(o => o.Id);
                     if (members == null) members = objectIds.ToHashSet();
                     else if ((string)mode == "all") members.IntersectWith(objectIds);
                     else members.UnionWith(objectIds);
@@ -77,7 +76,7 @@ namespace RhinoAlmondBridge
             }
         }
 
-        static List<Func<RhinoObject, bool>> NamedFilters(RhinoDoc doc, JObject filters, EditingContext.ObjectScope editing = null)
+        static List<Func<RhinoObject, bool>> NamedFilters(RhinoDoc doc, JObject filters, ObservedGroups groups)
         {
             var predicates = new List<Func<RhinoObject, bool>>();
             foreach (var field in filters.Properties().Where(p => IsNamedFilter(p.Name)))
@@ -87,7 +86,7 @@ namespace RhinoAlmondBridge
                     throw new ArgumentException($"filters.{key} requires include or exclude.");
                 if (key == "group")
                 {
-                    predicates.AddRange(GroupFilters(doc, sides, editing));
+                    predicates.AddRange(GroupFilters(doc, sides, groups));
                     continue;
                 }
                 Func<RhinoObject, string> getValue;

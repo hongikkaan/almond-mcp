@@ -130,8 +130,9 @@ def embed_passport(data: bytes, passport: dict) -> bytes:
     return struct.pack("<III", 0x46546C67, 2, len(body) + 12) + body
 
 
-def read_embedded_passport(path: Path) -> dict:
-    gltf = json.loads(read_glb_chunks(path.read_bytes())[0][1])
+def read_embedded_passport(path: Path | bytes) -> dict:
+    data = path if isinstance(path, bytes) else path.read_bytes()
+    gltf = json.loads(read_glb_chunks(data)[0][1])
     return AssetPassport.model_validate(gltf["asset"]["extras"]["almond"]["passport"]).model_dump()
 
 
@@ -159,12 +160,13 @@ def audit_library(library: Path) -> dict:
             contract_path.relative_to(library.resolve())
             contract_bytes = contract_path.read_bytes()
             contract = json.loads(contract_bytes)
-            model_hash = hashlib.sha256(model.read_bytes()).hexdigest().upper()
+            model_bytes = model.read_bytes()
+            model_hash = hashlib.sha256(model_bytes).hexdigest().upper()
             if model_hash != asset["sha256"] or model_hash != contract["model_sha256"]:
                 raise ValueError("Model checksum mismatch")
             if hashlib.sha256(contract_bytes).hexdigest().upper() != asset["contract_sha256"]:
                 raise ValueError("Contract checksum mismatch")
-            passport = read_embedded_passport(model)
+            passport = read_embedded_passport(model_bytes)
             if passport != asset["passport"] or passport != contract["passport"]:
                 raise ValueError("Embedded, manifest and sidecar passports disagree")
             if passport["asset_id"] != asset_id or contract["asset_id"] != asset_id:
@@ -172,13 +174,14 @@ def audit_library(library: Path) -> dict:
             if passport["dimensions_mm"] != asset["dimensions_mm"] or passport["dimensions_mm"] != contract["dimensions_mm"]:
                 raise ValueError("Dimension metadata mismatch")
             preview = library / "previews" / f"{asset_id}.png"
-            if not preview.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+            preview_bytes = preview.read_bytes()
+            if not preview_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
                 raise ValueError("Preview is not PNG")
             if render_records is not None:
                 render = render_records[asset_id]
                 if render["model_sha256"].upper() != model_hash:
                     raise ValueError("Preview source model has changed")
-                if render["preview_sha256"] != hashlib.sha256(preview.read_bytes()).hexdigest():
+                if render["preview_sha256"] != hashlib.sha256(preview_bytes).hexdigest():
                     raise ValueError("Preview checksum mismatch")
         except (OSError, ValueError, KeyError) as exc:
             failures.append({"asset_id": asset_id, "error": str(exc)})

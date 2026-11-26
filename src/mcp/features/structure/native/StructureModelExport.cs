@@ -17,6 +17,7 @@ namespace RhinoAlmondBridge
     public static class StructureModelExport
     {
         private static readonly string[] ReleaseKeys = { "release", "Almond.Release" };
+        private readonly record struct SourceInfo(string Release, string Name, string Layer, double[] CurveStart, double[] CurveEnd);
 
         public static string Handle(JObject jobj) => Handle(RhinoDoc.ActiveDoc, jobj);
 
@@ -33,6 +34,7 @@ namespace RhinoAlmondBridge
                 Func<Point3d, double[]> M = p => new[] { p.X * s, p.Y * s, p.Z * s };
                 var warnings = new List<string>(cond.Warnings);
                 var members = new List<object>();
+                var sources = new Dictionary<Guid, SourceInfo>();
                 foreach (var beam in cond.Beams)
                 {
                     List<Point3d> pts;
@@ -50,28 +52,23 @@ namespace RhinoAlmondBridge
                         pts = poly.ToList();
                     }
                     var sec = beam.Section ?? SectionSpec.DefaultBeam(s);
-                    // designer's connection intent on the source curve, and that curve's own ends
-                    string release = null, name = null, layer = null;
-                    double[] curveStart = null, curveEnd = null;
-                    Guid gid;
-                    var src = beam.SourceGuids.Count > 0 && Guid.TryParse(beam.SourceGuids[0], out gid) ? doc.Objects.FindId(gid) : null;
-                    if (src != null)
+                    // Split members share the source's connection intent and original curve ends.
+                    SourceInfo source = default;
+                    if (beam.SourceGuids.Count > 0 && Guid.TryParse(beam.SourceGuids[0], out var sourceId) &&
+                        !sources.TryGetValue(sourceId, out source))
                     {
-                        release = ReleaseKeys.Select(k => src.Attributes.GetUserString(k)).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim();
-                        if (src.Geometry is Curve crv) { curveStart = M(crv.PointAtStart); curveEnd = M(crv.PointAtEnd); }
-                        name = string.IsNullOrWhiteSpace(src.Attributes.Name) ? null : src.Attributes.Name.Trim();
-                        layer = src.Attributes.LayerIndex >= 0 && src.Attributes.LayerIndex < doc.Layers.Count
-                            ? doc.Layers[src.Attributes.LayerIndex].FullPath : null;
+                        source = ReadSource(doc, sourceId, M);
+                        sources.Add(sourceId, source);
                     }
                     members.Add(new
                     {
                         source_guids = beam.SourceGuids,
                         points = pts.Select(M).ToList(),
-                        release,
-                        name,
-                        layer,
-                        curve_start_m = curveStart,
-                        curve_end_m = curveEnd,
+                        release = source.Release,
+                        name = source.Name,
+                        layer = source.Layer,
+                        curve_start_m = source.CurveStart,
+                        curve_end_m = source.CurveEnd,
                         section = new
                         {
                             shape = sec.Shape, source = sec.Source,
@@ -98,6 +95,26 @@ namespace RhinoAlmondBridge
                 foreach (var b in cond.Beams) b.Axis.Dispose();
                 foreach (var sh in cond.Shells) sh.Mesh.Dispose();
             }
+        }
+
+        private static SourceInfo ReadSource(RhinoDoc doc, Guid id, Func<Point3d, double[]> toMeters)
+        {
+            var source = doc.Objects.FindId(id);
+            if (source == null)
+            {
+                return default;
+            }
+
+            var attributes = source.Attributes;
+            string release = ReleaseKeys.Select(key => attributes.GetUserString(key))
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+            var curve = source.Geometry as Curve;
+            var start = curve == null ? null : toMeters(curve.PointAtStart);
+            var end = curve == null ? null : toMeters(curve.PointAtEnd);
+            string name = string.IsNullOrWhiteSpace(attributes.Name) ? null : attributes.Name.Trim();
+            int layerIndex = attributes.LayerIndex;
+            string layer = layerIndex >= 0 && layerIndex < doc.Layers.Count ? doc.Layers[layerIndex].FullPath : null;
+            return new SourceInfo(release, name, layer, start, end);
         }
     }
 }

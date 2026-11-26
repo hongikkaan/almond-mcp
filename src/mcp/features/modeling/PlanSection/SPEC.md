@@ -285,12 +285,7 @@ Rhino UI를 미리 열지 않는 별도 실행기는 [PlanSectionPDF.ps1](PlanSe
 
 ### 모델 없는 유지보수 검사
 
-```powershell
-$sectionFolder = 'C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSection'
-py -3 -m unittest discover -s "$sectionFolder\tests" -p 'test_*.py' -v
-```
-
-CPython 표준 라이브러리만 필요하다. Rhino·라이선스·MCP·모델 로딩 없이 실제 Python 함수의 옵션 검증, 메타데이터, 로컬/참조 입력 분기, 닫힌 seam의 Trim/Split API 계약, 정상 폐곡선의 Boolean 생략·빈 Boolean 오류, 단면/입면 중복 공차 분리·mm 환산, 단계 교체·성공 반환·실패 시 출력 소유권, Update/Document/Files/PDF/Placement와 취소·실패 흐름을 검사한다. Rhino API는 모의 객체이므로 native 교차·Boolean·HLD·해치의 정확성을 증명하지 않는다. `test_fixture_policy.py`는 보관된 `.3dm`이 `TEST.3dm` 한 개인지 검사한다.
+[Rhino 플러그인 오프라인 검사](../../../../rhp/tests/README.md)는 실제 Update 진입점과 저장 배치 해석을 실행한다. 기존 JSON과 typed 배치가 함께 있는 도면은 높이를 유지하고, 값이 충돌하면 다시 배치하기 전에 오류가 발생해야 한다. 문서 테이블과 형상 생성·배치는 대역을 사용한다.
 
 ### 보존된 대표 모델 RhinoCore 검사 참고 자료
 
@@ -299,6 +294,7 @@ CPython 표준 라이브러리만 필요하다. Rhino·라이선스·MCP·모델
 Windows PowerShell, 설치된 Rhino 8(기본 `C:\Program Files\Rhino 8\System`), 사용 가능한 Rhino 라이선스가 필요하다. 실행기는 별도 STA RhinoCore 프로세스를 사용하며 사용자 Rhino 문서나 MCP에 연결하지 않는다. 첫 실행 시 포함된 C# 소스로 `%TEMP%/PlanSection-runtime/native_check_host.exe`를 빌드한다.
 
 ```powershell
+$sectionFolder = 'C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSection'
 & "$sectionFolder\data\run_native_check.ps1"
 & "$sectionFolder\data\run_native_check.ps1" -Script "$sectionFolder\tests\check_worksession.py"
 & "$sectionFolder\data\run_native_check.ps1" -Script "$sectionFolder\tests\check_command.py"

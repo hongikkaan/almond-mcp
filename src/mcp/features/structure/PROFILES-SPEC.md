@@ -9,6 +9,8 @@ Almond's native structural engine follows the Eurocode method: EN 1990 load comb
 
 Choose the profile under **Design code** in the panel (step 02), or pass `design_code` to `analysis_02-validate_structure` tool / `analysis_03-visualize_structure` tool (`analysis_01-list_design_codes` tool lists them). Every result states the profile, the values it used and any value that is not yet verified.
 
+Each new native analysis uses one profile for its load combinations, default deflection limit and reported values. An explicit deflection limit overrides the default. Redrawing an existing analysis keeps its recorded profile. Edits to a profile file take effect on the next native analysis.
+
 ## What a profile sets
 
 | Parameter | Meaning | Eurocode recommended value | Clause |

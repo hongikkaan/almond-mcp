@@ -89,34 +89,21 @@ def _capsule_input_error(port: dict, value) -> str | None:
 def register(mcp, context):
     """Register the existing Grasshopper MCP surface without import-time effects."""
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     @query_output
-    def list_library(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """로컬 Grasshopper 라이브러리의 색인된 로직 목록. logic_names는 grasshopper_01-get_logic tool에서 조회할 때 사용.
-
-        Args:
-            include_ids: logic_names와 같은 값의 logic_ids 포함
-            field_groups: paths·all은 라이브러리 경로 포함. ports·definition·source·audit은 목록에 적용되지 않음.
-        """
+    def list_library(field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
+        logic_names = context.indexer.list_ids()
         return json.dumps(project({
-            "library_dir": context.LIBRARY_DIR,
-            "total_entries": len(context.indexer.index),
-            "logic_names": context.indexer.list_ids(),
-            "logic_ids": context.indexer.list_ids(),
+            "library_dir": str(context.LIBRARY_DIR),
+            "total_entries": len(logic_names),
+            "logic_names": logic_names,
         }, field_groups))
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     @query_output
     def get_logic_by_id(logic_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """색인된 Grasshopper 로직에서 물리 관련 컴포넌트, 설명, 메타데이터를 추출해 조회. JSON만 있는 항목은 메타데이터만 제공. 구성·연결 관계의 완전성과 실행 가능성은 별도 확인.
-
-        Args:
-            logic_id: 확장자를 뺀 파일명. grasshopper_03-list_library tool의 logic_names 사용 가능.
-            include_ids: 추가 식별자 포함. 입력 logic_id는 반복하지 않음.
-            field_groups: ports, definition, source, paths, audit, all. 제공된 필드에만 적용.
-        """
         validate_field_groups(field_groups, GROUPS)
         query_id = logic_id.lower()
         file_map = context.indexer.index.get(query_id)
@@ -131,7 +118,7 @@ def register(mcp, context):
         # If only a JSON sidecar exists, return it directly
         if target_json and not target_file:
             try:
-                with open(target_json, 'r') as f:
+                with open(target_json, 'r', encoding='utf-8-sig') as f:
                     data = json.load(f)
                 return json.dumps(project({"logic_id": logic_id, "source": target_json, "metadata": data}, field_groups))
             except Exception as e:
@@ -146,16 +133,9 @@ def register(mcp, context):
             return json.dumps(project({"error": f"Failed to parse '{target_file}': {str(e)}"}, field_groups))
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     @query_output
-    def list_capsules(capability: str = "", audited_only: bool = False, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """등록된 Grasshopper 캡슐의 기능과 실행 감사 상태를 조회. 포트와 ID는 grasshopper_04-run_definition tool의 입력에 사용. 감사 상태와 정의 파일의 존재·실행 성공은 별개.
-
-        Args:
-            capability: analyze, generate, form_find, aggregate. 대소문자 구분 없음.
-            include_ids: capsule_id 포함. all과 별도 지정.
-            field_groups: ports, definition, source, paths, audit, all. 생략·빈 배열이면 요약.
-        """
+    def list_capsules(capability: str = "", audited_only: bool = False, field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
         page = context.retrieval_store.search_capsules(
             capability=capability,
@@ -163,26 +143,18 @@ def register(mcp, context):
             limit=50,
         )
         return json.dumps(project({
-            "capsule_library_dir": context.CAPSULE_LIBRARY_DIR,
+            "capsule_library_dir": str(context.CAPSULE_LIBRARY_DIR),
             **page,
         }, field_groups))
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     def run_gh_definition(
         capsule_id: str,
         inputs: dict,
         seed: int | None = None,
         timeout_s: float = 60.0,
     ) -> str:
-        """실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산. 모든 출력 포트를 확인한 뒤 정의에 따라 하나의 Undo 기록으로 형상 베이크. mutation_state는 none·completed·rolled_back·unknown. requires_reconciliation=true이면 자동 재시도 금지. baked_guids와 현재 문서 확인.
-
-        Args:
-            capsule_id: grasshopper_02-list_capsules tool에서 얻은 캡슐 ID. 예: karamba_beam_v1.
-            inputs: ALMOND_IN_ 포트 이름을 키로 사용. grasshopper_02-list_capsules tool의 field_groups=['ports']로 input_ports의 타입·단위·필수 여부 확인. 형상은 {"guids":["객체 GUID"]}, 숫자·정수·문자열·불리언은 JSON 값, number[]·integer[]·string[]은 평탄한 배열.
-            seed: 확률적 정의에만 정수 시드 사용
-            timeout_s: 솔버 시간 한도(초). 0 초과, 600 이하.
-        """
         manifest = context.retrieval_store.get_capsule(capsule_id)
         if not manifest:
             listing = context.retrieval_store.search_capsules(limit=50)
@@ -258,16 +230,24 @@ def register(mcp, context):
             "timeout_s": timeout_s,
         }).encode("utf-8")
 
+        # A lost acknowledgement cannot establish whether baking occurred.
+        def unconfirmed(message):
+            return json.dumps({**error_payload(message), "mutation_state": "unknown", "requires_reconciliation": True})
+
         try:
             # Socket budget exceeds the solver budget so the bridge can report its
             # own timeout as structured JSON instead of a dead connection.
-            return context._send_and_receive(payload, timeout=float(timeout_s) + 15.0)
+            response = context._send_and_receive(payload, timeout=float(timeout_s) + 15.0)
+            result = json.loads(response)
+            if not isinstance(result, dict) or result.get("status") not in {"ok", "error"}:
+                raise ValueError("Invalid native response")
+            return response
         except socket.timeout:
-            return json.dumps(error_payload(f"Capsule '{capsule_id}' timed out (>{timeout_s}s solver budget)."))
+            return unconfirmed(f"No confirmation of capsule '{capsule_id}' completion after the solver budget ({timeout_s}s). Inspect Rhino before retrying.")
         except ConnectionRefusedError:
             return json.dumps(error_payload("Connection refused. Is the RhinoAlmondBridge plugin loaded in Rhino?"))
         except Exception as e:
-            return json.dumps(error_payload(f"Bridge error: {e}"))
+            return unconfirmed(f"Capsule '{capsule_id}' completion is unconfirmed: {e}. Inspect Rhino before retrying.")
 
     return {
         "list_library": list_library,

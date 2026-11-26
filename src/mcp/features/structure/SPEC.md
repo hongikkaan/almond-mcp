@@ -30,6 +30,8 @@ The plugin uses the registered checkout's `src/engine/.venv/Scripts/python.exe` 
 
 `engine="auto"` routes to Karamba when the structure type is shell, gridshell or membrane, when the selection contains shells, or when the installed bridge cannot export a structural model (older than this change); the result then carries a warning saying why.
 
+When the native model export succeeds with an empty member list, validation in auto mode can still try Karamba. Visualization returns an error because there are no members to draw.
+
 ## Method
 
 - Direct stiffness method, Euler-Bernoulli beams, 6 DOF per node, rigid joints (`src/mcp/features/structure/frame_solver.py`, numpy only, written from the textbook method).
@@ -57,8 +59,7 @@ The bridge's `structure_model` message exports the conditioned geometry used by 
 
 ### Validation
 
-- `src/mcp/tests/test_hand_calculations.py` and `src/mcp/tests/test_ec3.py`: closed forms worked from first principles and from the standard's text (beam, cantilever, column buckling on curves a and c, Table 5.2 classes by grade, Table B.3 C_m, an Annex B case where k = 1.3).
-- `src/mcp/features/structure/validation/mutation_check.py` plants known engineering errors one at a time (wrong factors, wrong curve, unscaled class limits, buckling length of one analysis element, ...) and reports whether the tests catch each.
+The [analysis workflow](../../tests/workflows/test_analysis_workflows.py) compares the public tool's cantilever result with the closed-form deflection and support reaction. It reopens the saved analysis and exports a report. Invalid geometry must leave no completed run.
 ## Stability (EN 1993-1-1 5.2)
 
 With `stability="auto"` (the default), every ULS combination gets:
@@ -135,6 +136,6 @@ The panel study owns one `DesignAnalysis` for validation and its deflection over
 
 New validation history stores the requested options, applied engine/package version, native exported model and applied option/load snapshots, and the full calculation result. The normal tool response remains unchanged. Native-only requested options are not labelled as applied when a Karamba route runs. Existing rows retain their IDs and prior values; missing request/analysis/result snapshots remain null and reports identify those inputs as unknown. A stored result is evidence of that calculation, not proof of current geometry or external code compliance.
 
-`src/mcp/tests/test_frame_solver.py`, `test_hand_calculations.py` and `test_ec3.py` compare closed-form beam/column results, equilibrium, superposition, orientation invariance, mechanisms, section properties and member checks. `test_native_structure.py` compares the reference cases in `src/mcp/tests/data/karamba_reference.json`; `features/structure/validation/mutation_check.py` checks whether known calculation faults are detected.
+For additional beam and truss cases, run `python src/mcp/features/structure/validation/run_structural_benchmarks.py` from the checkout. To compare against measured Karamba runs, supply their JSON file with `--karamba-reference <path>`.
 
 The native solver uses Euler-Bernoulli beams while Karamba may include Timoshenko shear deformation, so differences must be interpreted against the actual analysis method and assumptions. Benchmark outputs belong under ignored `data/`, not in this contract. Live functionality is verified in the working Rhino files the user connected, preserving existing model state.

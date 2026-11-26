@@ -1,110 +1,30 @@
 # Public query and write responses
 
-The public MCP query API returns feature summaries by default. `field_groups` is an explicit optional array: omitted, null and [] mean summary; selected groups add fields, and `all` restores the complete existing payload. Unknown groups fail with `invalid_arguments` before store or native work. Group selection never changes persisted records or the Python store API.
+The [authored declarations](../../TOOL-DECLARATIONS-CURRENT.md) specify each tool’s inputs, result fields and follow-up calls. `tools/list` publishes the declarations for the current connection. Structured results return a JSON object. A `JsonResult` puts JSON text in `structuredContent.result`, with the decoded shape declared in `contentSchema`. Image results can also carry separate image and usage blocks. Public schema projection leaves the remaining keys and values intact in open fields such as a script’s `result` or an asset `manifest`.
 
-Except for planning queries described below, `include_ids` remains an independent strict boolean, default false. It enables handles in the selected records, without enabling geometry, references, steps or timestamps. Supplied target IDs are not repeated. Technical timestamps (`created_at`, `updated_at`, `observed_at`, `generated_at`) require `audit` or `all`.
-Pagination, status, availability, counts and required revisions remain useful.
-Errors, warnings, incomplete/unsupported work, mutation uncertainty, conflicts, reconciliation requirements and native completion/proof are never hidden by projection, ID display or timestamp preferences. Uncertain outcomes retain their full evidence and must not be retried automatically.
+## Field selection
 
-Feature tools project their own records. Collections keep their original envelopes, totals and pagination. A requested asset drawing manifest, parsed Grasshopper logic or helper script is intrinsically the useful payload and stays available by default. `grasshopper_03-list_library` tool also returns logic_names so discovery remains useful with IDs hidden. Field groups are additive: a selected optional field can be absent when the source record does not contain it.
+Where a tool accepts `field_groups`, an empty array selects the summary. Named groups add available fields and `all` selects all supported groups. Omission uses the tool’s documented default. For example, `asset_07-prepare` tool includes previews by default. `include_ids` controls optional IDs where offered. Discovery keys such as Scene IDs in `scene_07-list` tool and view IDs in `inspect_03-get_document_context` tool are always available. Detail queries can omit the ID used to select that record. In group-based queries, audit timestamps are available through `audit` or `all` where supported.
 
-Successful Plan/Phase/Scene writes acknowledge their needed handle, revision and counts, rather than echoing whole records, geometry or input metadata. Existing envelope names remain. Use the matching get query for details.
-Component mutation acknowledgements are owned by the Component feature.
+Check the returned status, completeness and mutation evidence before acting on a result. Required reconciliation can follow a successful write with a lost acknowledgement. An uncertain operation calls for observation or receipt lookup before retry.
 
-The `plan_12-update` tool returns `updated` when a stored value changes and every item was applied, `partial_success` when changes and skips coexist, and `no_change` whenever the stored values stay the same. The `changed` flag records whether data was saved and `issues` lists every skipped item. Step updates also acknowledge the Step ID/status separately from the Plan status/revision. General-field validation and revision conflicts reject the entire request. Typed-input errors are rejected before the tool body.
+## Planning queries and writes
 
-## Follow-up guidance
+- `plan_05-get` tool returns `type`, `name`, `status` and the target’s `phase_id`, `plan_id` or `step_id`. Plan and Step also identify the Plan, Loop and revision. `include_details=true` adds the matching `phase`, `plan` or `step` body. Use the same `loop_no` and `revision` when opening a read-only record in more detail.
+- `plan_08-list` tool takes `request.target` of `phase`, `plan` or `step`. The Step page and `loop_no`, `revision` and `read_only` come from one Plan snapshot. Select a Step to work on with `plan_10-set_working` tool. After starting or resuming a Loop with `plan_03-execute_looping` tool, pass its `next_step_id` to select the next unfinished Step.
+- `plan_12-update` tool returns `updated` when changes were applied, `partial_success` when changes and skips coexist, and `no_change` when values stay the same. `changed` and `issues` report stored changes and skipped items. A Step update also returns its Plan’s revision. The `cleanup_state` and `requires_reconciliation` fields describe failure to confirm the Rhino follow-up after completion.
 
-`next_step_guide` is conditional call guidance, not a Plan Step, an execution command or a requirement to call every named tool. It identifies the public tool and maps available response/input handles to its arguments; when IDs, paths, units or a user choice are missing, it says how to obtain or choose them. It does not imply that a prior operation succeeded or authorize a mutation.
+See [planning inputs and outputs](features/planning/README.md).
 
-- Default `inspect_03-get_document_context` tool offers current-view capture; explicit sections omit this hint.
-- Whole-scope intersection counts guide positive results into `intersect_02-resolve` tool using the original object scope. Zero needs no resolution. Each valid comparison supplies `review_id` and numbered choices; choice 1/2 trims that object, while skip preserves both. Errors/completion do not fabricate another actionable comparison.
-- Phase/Plan lists and Plan/Step details link IDs to detail/workspace selection. Saved revisions retain their historical read context and require a current read before selecting work.
-- Asset records with `next_tool` keep matching `next_step_guide` in summary output, even when IDs/paths are omitted; the hint explains those missing inputs. Ready/empty records do not invent conversion work. A source-only placement rejection carries the same conversion guidance.
-- Preparation retains `next_stage` and adds its concrete tool/job/hash inputs. Final preview approval is distinct from producing previews. Errors clear the next stage; status only rereads saved evidence and does not reconcile late native completion or promote an unconfirmed job.
-- Contract export maps the returned contract path to an import only when importing into a destination is intended. The Blender helper supports export/materials, not import.
+## Project and Scene discovery
 
-Tool descriptions explain the role and essential selection conditions. Input-schema properties explain the requested values. Output schemas describe result fields; JSON text results use contentSchema within the result field. These annotations do not assert that every optional field exists in every mode. Dynamic instructions must use current public names and survive the relevant response projection. Legacy non-public asset helper functions do not expand the MCP tool catalogue.
+- `context_04-get_project_info` tool reads the document, layer tree, Named Views, Layouts and project locations by default. `project.files_page` returns `total` and `offset` for the separate registered file catalog. Advance the offset by the number of returned `project.files` rows. `worksession_files` lists paths attached in Rhino. `include_ids=true` also returns the document’s `runtime_serial_number`, selected Plan and Step IDs, and RhinoCode `pipe_id` when their sections are requested. Requesting only `locations` or `runtime` skips document observation.
+- `scene_07-list` tool returns paged project Scene IDs and names, with file, revision and time fields available through the corresponding groups. `scene_06-get_objects` tool pages the observed members of a Scene in the connected document, including direct objects and Holon members after exclusions. Both return `total` and `truncated`. For a cached Scene with membership overrides, `scene_04-get` tool returns `objects: null`. Read live group membership with `scene_05-get_holon` tool and `live=true`. Its `requires_sync` identifies a mismatch with the stored registration.
 
-## Planning queries
+## Other bounded queries and follow-up calls
 
-Phase/Plan/Step discovery and related target/selection queries always expose IDs and have no `include_ids` option. The four planning CRUD tools accept one `request` object with a discriminating `target`. `plan_08-list` tool selects Phase, Plan or Step with `request.target="phase"`, `"plan"` or `"step"` and provides target-specific `next_step_guide` call guidance. Plan rows contain plan_id/title/scope/status/loop_no/revision without field groups. Step rows preserve the selected Plan snapshot's order and return plan_id/loop_no/revision/read_only plus total/limit/truncated; unknown Plan/Loop/revision returns an error.
-
-`plan_05-get` tool selects one Phase, Plan or Step with `request.target` and the corresponding phase_id, plan_id, or plan_id+step_id. The default result contains id/type/name/status. Plan and Step retain plan_id/loop_no/revision/read_only regardless of detail selection. `request.include_details=true` adds the corresponding phase/plan/step body. A selected Step includes only its own input_refs/output_refs; Plan details include Step summaries. Historical detail guidance preserves target, IDs, loop_no and revision. Phase rejects loop_no/revision and returns an array of registered file names. Errors have status=error. See [planning inputs and outputs](features/planning/README.md).
-
-The planning field groups below apply only to `plan_08-list` tool with `request.target="phase"`, `plan_07-list_revisions` tool, `inspect_05-resolve_targets` tool and `inspect_04-get_selection_references` tool, according to each tool's signature; they do not change the unified detail response.
-
-## Declared field groups
-
-Each row names fields added to the feature's normal summary. Each input property lists the supported groups; `all` is available for every field-group query.
-
-| Feature | Group | Added fields |
-|---|---|---|
-| assets | `dimensions` | `bounds_mm`, `clearance_mm`, `dimension_basis`, `dimensions_mm`, `spatial` |
-| assets | `source` | `license`, `provenance`, `sha256`, `source`, `source_url`, `warehouse_url` |
-| assets | `paths` | `contract`, `dimensions_path`, `file`, `generation_image`, `library_dir`, `model`, `model_path`, `package_dir`, `preview`, `preview_uri`, `source_file`, `source_path` |
-| assets | `drawing` | `drawing`, `drawing_manifest`, `drawing_package`, `drawing_roles`, `lod` |
-| assets | `metadata` | `description`, `material_id`, `metadata`, `passport`, `render_material_id`, `series`, `tags` |
-| assets | `audit` | `created_at`, `generated_at`, `updated_at`, `verification_basis` |
-| components | `references` | `child_holon_ids`, `parent_holon_id`, `rhino_group_id`, `scene_ids` |
-| components | `geometry` | `bounds_mm`, `direct_object_ids`, `effective_object_ids`, `effective_objects`, `intersections`, `object_ids`, `objects`, `pairs`, `pending_objects` |
-| components | `scope` | `expected_model_path`, `model_path`, `file_name` |
-| components | `audit` | `created_at`, `observed_at`, `updated_at` |
-| diagrams | `dimensions` | `bounds_mm`, `dimensions_mm` |
-| diagrams | `drawing` | `drawing_roles`, `lod`, `projection` |
-| diagrams | `metadata` | `description`, `series`, `tags` |
-| diagrams | `source` | `license`, `sha256`, `source`, `source_url`, `warehouse_url` |
-| diagrams | `paths` | `file`, `model_path`, `preview`, `preview_uri` |
-| diagrams | `audit` | `created_at`, `updated_at` |
-| drawings | `scales` | `recommended_scales`, `scales` |
-| drawings | `parameters` | `annotations`, `display`, `hatches`, `layers`, `layout`, `linework`, `output`, `parameters`, `projection`, `review_preparation`, `style`, `units`, `views` |
-| drawings | `source` | `license`, `references`, `source` |
-| drawings | `audit` | `created_at`, `updated_at` |
-| grasshopper | `ports` | `input_ports`, `inputs`, `output_ports`, `outputs` |
-| grasshopper | `definition` | `all_descriptions`, `components`, `definition`, `definition_file`, `metadata` |
-| grasshopper | `source` | `license`, `provenance`, `source`, `source_url` |
-| grasshopper | `paths` | `capsule_library_dir`, `definition_file`, `file_name`, `library_dir` |
-| grasshopper | `audit` | `audit`, `audit_status`, `created_at`, `sha256`, `updated_at` |
-| guidance | `rules` | `construction_detail`, `construction_notes`, `construction_reference`, `depth_guidance`, `depth_rules`, `elements`, `render_material_ids`, `span_axis`, `span_range_m`, `typical_spacing_m` |
-| guidance | `narrative` | `narrative`, `precedents`, `related_construction_systems`, `urban_role` |
-| guidance | `source` | `access`, `bci_ref`, `formats`, `gha_ref`, `license`, `reference`, `source`, `url`, `urls` |
-| guidance | `metadata` | `description`, `notes`, `structure_types`, `tags` |
-| guidance | `audit` | `created_at`, `updated_at` |
-| modeling | `display` | `base_color`, `emission`, `ior`, `metallic`, `opacity`, `roughness`, `textures`, `ue_material_slot` |
-| modeling | `physical` | `density`, `density_kg_m3`, `physical`, `structural_material` |
-| modeling | `metadata` | `description`, `tags` |
-| modeling | `source` | `license`, `provenance`, `source` |
-| modeling | `paths` | `file`, `library_dir` |
-| modeling | `audit` | `created_at`, `updated_at` |
-| planning | `steps` | `steps` |
-| planning | `references` | `child_holon_ids`, `holon_id`, `holon_ids`, `depends_on`, `input_refs`, `matched_step_ids`, `output_refs`, `parent_holon_id`, `phase_id`, `related_holon_ids`, `scene_ids` |
-| planning | `geometry` | `direct_object_ids`, `effective_object_ids` |
-| planning | `artifacts` | `artifact_dir`, `artifact_refs` |
-| planning | `description` | `description` |
-| planning | `scope` | `file_name`, `model_path`, `rhino_group_id` |
-| planning | `audit` | `created_at`, `updated_at` |
-| structure | `parameters` | `deflection_limit_ratio`, `imposed_floor_kn_m2`, `uls_default`, `uls_expression`, `values` |
-| structure | `source` | `origin`, `source`, `sources` |
-| structure | `audit` | `created_at`, `updated_at` |
-| scenes | `scope` | `file_name`, `units`, `model_path` |
-| scenes | `state` | `revision` |
-| scenes | `geometry` | `bounds_mm`, `holon_id` |
-| scenes | `audit` | `created_at`, `updated_at`, `observed_at` |
-
-## Project Scene discovery
-
-`scene_07-list tool(name="", file_name="", limit=50, offset=0)` lists the entire project DB without Plan, live document or per-Scene geometry queries. `name` is a case-insensitive substring; `file_name` is an exact optional match. Default rows are names only. `include_ids=true` adds Scene handles, `scope` adds file_name and units, `state` adds revision and `audit` adds timestamps. One SELECT returns the bounded page and total, including an offset beyond the final row. `limit` is 1–200; offset is non-negative. `scene_06-get_objects` tool also returns a bounded page (limit 1–200, offset, total and truncated), with names/types of current semantic-group members and direct Scene objects by default, deduplicated and adjusted for exclusions. It requires complete live observations; direct membership GUIDs are stored per Scene and model. When membership overrides exist, the cached Scene object count is null because an exact deduplicated count requires a live query. Cached component queries return only group summaries with geometry_available=false. A child-only sync invalidates unobserved ancestors' effective count/bounds and sets requires_sync.
-
-## Other bounded/query-specific contracts
-
-- `context_04-get_project_info` tool: project/document/locations by default, optional runtime. project/document share one live observation; failed identity checks return an error, otherwise project.is_bound_document is a boolean: true for the bound model, false for a different document. Document name/path occur only in project. project.files pages the recorded DB list using files_limit (1–500, default 50) and files_offset; files_page retains total/limit/offset/truncated. Rows contain the unique registered filename and its description, which is null when absent. Edit the separate catalog with the `context_05-upsert_project_file` tool. The live `worksession_files` list is independent and can contain distinct paths with the same filename. Document runtime_serial_number and runtime.rhinocode.pipe_id are also hidden by default. locations contains the project DB and connection-selected Plan folder (null before selection); locations/runtime alone need no live observation. Basic instructions come from context_01-get_policy tool.
-- `inspect_03-get_document_context` tool: explicit document/selection/viewport/editor/display_modes sections, bounded selection expansion and optional current image.
-- `inspect_01-analyze_nested_blocks` tool: outline/resolve-block mode and bounded traversal options. `resolve-block` also returns placed Model/Layout occurrence paths and counts in `definition_impact`, with separate completeness and list truncation. Definition-member IDs and matching working candidates are not document edit identities. Its `next_step_guide` connects impact review to an intended BlockEditNew entry and fresh working-ID observation; it does not grant unsupported editor mutation permission.
-- `capture_04-defined_view` tool, `capture_03-current_view` tool: one bounded image/file result; live-view mutation evidence is never omitted.
-- `inspect_02-get_objects` tool: selected/visible/document/explicit-object/group scopes; flat objects, layer/type counts or numbered group/block hierarchy. Internal block paths are distinct from editable document IDs.
-- `inspect_03-get_document_context` tool: requested sections only; Named View/Layout/Display Mode catalogue IDs are always included.
-- `context_01-get_policy` tool은 선택값을 생략하면 공개 도구명, 조회 방법 요약, `available_policies`를 반환한다. `policy`에는 공개 입력 스키마와 `available_policies`의 이름을 사용한다. `metadata`는 객체 키 사전, `rhinocode`와 `rhino_scripting`은 실행·스크립팅 자료다. 선택한 지침의 출처는 `source_refs`, 지침 묶음의 버전은 `guide_version`으로 확인한다.
-- `asset_01-audit_drawing` tool: one requested package's validation/proof result.
-- `analysis_02-validate_structure` tool: its existing detail=false summary/detail=true contract.
-
-Fresh clients derive the explicit signatures through both FastMCP and inert COS catalog generation. Existing client/worker processes need a normal session restart to load changed Python; no catalog export, Rhino rebuild or plugin registration is implied by these Python API changes.
+- `inspect_03-get_document_context` tool returns the requested document, viewport, editor, layer or view-catalog sections. Named Views, Layouts and display modes always carry IDs. `inspect_02-get_objects` tool returns object rows, counts or a hierarchy. For a subsequent object page use `next_offset` and pass `snapshot` as `expected_snapshot`. Use fresh top-level object identities and `geometry_crc` for face edits.
+- `inspect_01-analyze_nested_blocks` tool returns `definition_impact` with Model/Layout occurrence paths and counts in `resolve-block` mode. It reports traversal completeness and occurrence truncation separately. Inspect working objects after entering the correct block edit scope before attempting an edit.
+- With a positive confirmed count from `intersect_01-find` tool, pass the same object scope to `intersect_02-resolve` tool to review comparisons. Submit the current `review_id` and choice 1 or 2 to remove the overlap from that object, or `skip` to keep both. `previous_result` records the last edit when the next comparison fails.
+- Asset queries can return `next_tool` when conversion or refresh is needed. A rejected source-only placement uses `asset_07-prepare` tool. Preparation reports distinct `status` and `state`, with `next_stage` indicating a verification step when applicable. Request `stage="status"` to reread stored evidence. Register the reviewed `source_3dm` when `state="ready"`.
+- `script_03-get_execution` tool reads the retained receipt using the execution’s `request_id`. It pages results and logs. `diagnostics` includes available log capture limits and read errors when logs are requested and the recorded target when recovering from a retained connection. `include_diagnostics=true` adds CLI, Undo and invocation evidence for normal completions.
