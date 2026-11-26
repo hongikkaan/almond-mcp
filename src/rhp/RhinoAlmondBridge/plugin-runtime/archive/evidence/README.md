@@ -113,7 +113,7 @@ The second batch (ids with `batch: 2` in the catalogue) describes design languag
    `meshy_text_to_image` (nano-banana, prompt + `prompt_suffix`) then `meshy_image_to_3d` chained on that task (`meshy-t2`, `smart-topology`, `should_texture=false`, `target_formats=["glb"]`, `auto_size`, `origin_at=bottom`).
    About 8 credits per asset.
 3. Save the GLB as `raw/<asset_id>.glb` and record both task ids in `provenance.json`.
-4. Run `python src/mcp/features/assets/generation/build_generated_assets.py` (optionally `--only <id>`), then `pytest tests/test_generated_assets.py`.
+4. Run `python src/mcp/features/assets/generation/build_generated_assets.py` (optionally `--only <id>`), then `python tests/verify_library_sources.py` to check the generated files against their manifest and provenance.
 5. Note the change in `docs/licensing-audit.md` if the recipe or licence position changes.
 
 Quality notes: most meshes are untextured smart-topology output at roughly 4k triangles; the two trees are meshy-7 ultra output decimated to 80k triangles (see `src/mcp/features/assets/generation/decimate_glb.py`) - right for entourage, plans, sections and massing, not for close-up renders. Plan-dimension deviations above 25% are flagged in the build log; the measured values are what the manifest stores.

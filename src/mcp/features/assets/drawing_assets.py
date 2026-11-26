@@ -1,7 +1,6 @@
 """Publish a prepared 3DM and its derived drawings as one versioned library entry."""
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
 import os
@@ -15,6 +14,10 @@ from uuid import uuid4
 import numpy as np
 
 from almond_mcp.features.assets import drafting, preparation
+from almond_mcp.features.assets._file_lock import asset_file_lock
+
+
+MANIFEST_LOCK = ".register.lock"
 
 
 class PublicationUnconfirmed(RuntimeError):
@@ -32,30 +35,6 @@ def _replace_bytes(path: Path, contents: bytes) -> None:
     finally:
         if pending.exists():
             pending.unlink()
-
-
-@contextmanager
-def _manifest_lock(root: Path):
-    # An OS lock is released after a crash; a stale marker must not block the library.
-    with (root / ".register.lock").open("a+b") as handle:
-        if handle.seek(0, 2) == 0:
-            handle.write(b"0")
-            handle.flush()
-        handle.seek(0)
-        if os.name == "nt":
-            import msvcrt
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        try:
-            yield
-        finally:
-            handle.seek(0)
-            if os.name == "nt":
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def _text(value, label, maximum=300):
@@ -126,7 +105,7 @@ def register_prepared_3dm(root: Path, *, source_3dm: str, asset_id: str, name: s
     root = Path(root).resolve()
     root.mkdir(parents=True, exist_ok=True)
     manifest_path = root / "manifest.json"
-    with _manifest_lock(root):
+    with asset_file_lock(root / MANIFEST_LOCK):
         original = manifest_path.read_bytes() if manifest_path.exists() else None
         manifest = json.loads(original.decode("utf-8-sig")) if original else {"library_id": "drawing_assets", "assets": []}
         if manifest.get("library_id", "drawing_assets") != "drawing_assets" or not isinstance(manifest.get("assets"), list):
@@ -272,7 +251,7 @@ def refresh_registered_asset(root: Path, asset_id: str, *, extract) -> dict:
         raise ValueError("asset_id must be a stable 1-100 character identifier")
     root = Path(root).resolve()
     manifest_path = root / "manifest.json"
-    with _manifest_lock(root):
+    with asset_file_lock(root / MANIFEST_LOCK):
         original = manifest_path.read_bytes()
         manifest = json.loads(original.decode("utf-8-sig"))
         matches = [a for a in manifest.get("assets", []) if a.get("asset_id") == asset_id]

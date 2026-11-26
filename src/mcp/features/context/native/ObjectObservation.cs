@@ -34,8 +34,6 @@ namespace RhinoAlmondBridge
             return objects;
         }
 
-        public static RhinoObject[] VisibleObjects(RhinoDoc doc) => ModelObjects(doc).Where(o => o.Visible).ToArray();
-
         public static void ValidateDocument(RhinoDoc doc, JObject request)
         {
             if (doc == null) throw new ArgumentException("No Rhino document is available.");
@@ -180,6 +178,8 @@ namespace RhinoAlmondBridge
             var viewport = insideWindow ? doc.Views.ActiveView?.ActiveViewport : null;
             if (insideWindow && (viewport == null || doc.ActiveSpace != ActiveSpace.ModelSpace))
                 return Error("model_viewport_required", "inside_window requires an active model viewport or model Detail.");
+            var observedGroups = new ObservedGroups(doc, editing);
+            List<ObservationEntities.Entity> requestedGroups = null;
             IEnumerable<RhinoObject> source;
             switch (scope)
             {
@@ -198,32 +198,46 @@ namespace RhinoAlmondBridge
                     source = ids.Select(id => byId[id]); break;
                 case "groups":
                     var modelIds = new HashSet<Guid>(all.Select(o => o.Id));
-                    source = RequestedGroups(doc, groupIds, editing).SelectMany(g => g.Members)
+                    requestedGroups = observedGroups.Requested(groupIds);
+                    source = requestedGroups.SelectMany(g => g.Members)
                         .Where(o => modelIds.Contains(o.Id)).GroupBy(o => o.Id).Select(g => g.First()); break;
                 default: throw new ArgumentException("scope must be current or document.");
             }
             if (groupIds.Length != 0 && scope != "groups")
             {
-                var groupMembers = new HashSet<Guid>(RequestedGroups(doc, groupIds, editing).SelectMany(g => g.Members).Select(o => o.Id));
+                requestedGroups = observedGroups.Requested(groupIds);
+                var groupMembers = new HashSet<Guid>(requestedGroups.SelectMany(g => g.Members).Select(o => o.Id));
                 source = source.Where(o => groupMembers.Contains(o.Id));
             }
             var candidates = source.ToArray();
+            Func<RhinoObject, uint> readCrc = ReadCrc;
+            if (expected.Count != 0 || (mode != "summary" && (fields == null || fields.Contains("geometry_crc") || wantsFaces)))
+            {
+                // The expected CRC, snapshot and result rows observe the same document state.
+                var crcs = new Dictionary<RhinoObject, uint>(ReferenceEqualityComparer.Instance);
+                readCrc = obj => {
+                    if (crcs.TryGetValue(obj, out uint cached)) { return cached; }
+                    uint value = ReadCrc(obj);
+                    crcs.Add(obj, value);
+                    return value;
+                };
+            }
             foreach (var obj in candidates)
-                if (expected.TryGetValue(obj.Id, out var crc) && obj.Geometry.DataCRC(0) != crc)
+                if (expected.TryGetValue(obj.Id, out var crc) && readCrc(obj) != crc)
                     return Error("stale_geometry", "An object's geometry changed; observe its faces from the beginning: " + obj.Id);
-            string snapshot = SnapshotToken(doc, request, all, editor);
+            string snapshot = SnapshotToken(doc, request, all, editor, readCrc);
             string wantedSnapshot = (string)request["expected_snapshot"] ?? "";
             if (wantedSnapshot.Length != 0 && !String.Equals(wantedSnapshot, snapshot, StringComparison.Ordinal))
                 return Error("observation_changed", "The model, editor, selection, view or query changed; restart at offset=0.");
             if (request["recursive"] != null && offset > 0 && wantedSnapshot.Length == 0)
                 throw new ArgumentException("Subsequent pages require expected_snapshot from the first page.");
-            var namedFilters = NamedFilters(doc, filters, editing);
+            var namedFilters = NamedFilters(doc, filters, observedGroups);
             var matched = candidates.Where(o => namedFilters.All(match => match(o)) && Matches(doc, o, filters)).OrderBy(o => o.Id).ToArray();
             var set = new HashSet<Guid>(matched.Select(o => o.Id));
             if (mode == "hierarchy")
             {
-                var hierarchy = Hierarchy(doc, scope, groupIds, candidates, matched, visible,
-                    fields, expandGroups, expandBlocks, depth, offset, limit, editing);
+                var hierarchy = Hierarchy(doc, scope, requestedGroups, candidates, matched, visible,
+                    fields, expandGroups, expandBlocks, depth, offset, limit, observedGroups, readCrc);
                 return QueryEvidence(hierarchy, editor, snapshot, current, selected, insideWindow);
             }
             var rows = new JArray();
@@ -244,8 +258,12 @@ namespace RhinoAlmondBridge
                     ["object_count"] = g.Count(), ["visible_count"] = g.Count(o => visible.Contains(o.Id))
                 });
             }
-            else page = matched.Skip(offset).Take(limit).Select(obj =>
-                Describe(doc, obj, set, visible, geometry, budget, fields, faceOffset, faceLimit, editing));
+            else
+            {
+                var describeGroup = GroupMembership(observedGroups, set, visible);
+                page = matched.Skip(offset).Take(limit).Select(obj =>
+                    Describe(doc, obj, visible, geometry, budget, fields, faceOffset, faceLimit, describeGroup, readCrc));
+            }
             foreach (var row in page)
             {
                 rowBytes += Encoding.UTF8.GetByteCount(row.ToString(Formatting.None));
@@ -296,20 +314,22 @@ namespace RhinoAlmondBridge
             return result;
         }
 
-        internal static string SnapshotToken(RhinoDoc doc, JObject request, RhinoObject[] objects, JObject editor)
+        internal static string SnapshotToken(RhinoDoc doc, JObject request, RhinoObject[] objects, JObject editor,
+            Func<RhinoObject, uint> readCrc = null)
         {
+            readCrc ??= ReadCrc;
             var options = (JObject)request.DeepClone();
             foreach (string key in new[] { "offset", "limit", "face_offset", "face_limit", "expected_snapshot" }) options.Remove(key);
             var state = new JObject { ["document"] = doc.RuntimeSerialNumber, ["query"] = options, ["editing"] = editor,
                 ["units"] = doc.ModelUnitSystem.ToString(), ["tolerance"] = doc.ModelAbsoluteTolerance,
-                ["objects"] = new JArray(objects.OrderBy(o => o.Id).Select(ObjectStamp)),
+                ["objects"] = new JArray(objects.OrderBy(o => o.Id).Select(o => ObjectStamp(o, readCrc))),
                 ["groups"] = new JArray(doc.Groups.Where(g => g != null && !g.IsDeleted).OrderBy(g => g.Id)
                     .Select(g => new JArray(g.Id.ToString(), g.Index, g.Name))),
                 ["layers"] = new JArray(doc.Layers.Where(l => l != null && !l.IsDeleted)
                     .Select(l => new JArray(l.Id.ToString(), l.FullPath, l.IsVisible, l.IsLocked))),
                 ["definitions"] = new JArray(doc.InstanceDefinitions.Where(d => d != null && !d.IsDeleted)
                     .OrderBy(d => d.Id).Select(d => new JObject { ["id"] = d.Id.ToString(), ["name"] = d.Name,
-                        ["members"] = new JArray(d.GetObjects().OrderBy(o => o.Id).Select(ObjectStamp)) })) };
+                        ["members"] = new JArray(d.GetObjects().OrderBy(o => o.Id).Select(o => ObjectStamp(o, ReadCrc))) })) };
             if (request["filters"]?["material"] != null)
             {
                 state["front_materials"] = new JArray(objects.OrderBy(o => o.Id).Select(o => FrontMaterialId(o).ToString()));
@@ -331,7 +351,9 @@ namespace RhinoAlmondBridge
                 return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(state.ToString(Formatting.None)))).ToLowerInvariant();
         }
 
-        static JArray ObjectStamp(RhinoObject obj) => new JArray(obj.Id.ToString(), obj.Geometry.DataCRC(0),
+        static uint ReadCrc(RhinoObject obj) => obj.Geometry.DataCRC(0);
+
+        static JArray ObjectStamp(RhinoObject obj, Func<RhinoObject, uint> readCrc) => new JArray(obj.Id.ToString(), readCrc(obj),
             obj.Attributes.ToJSON(new Rhino.FileIO.SerializationOptions()), obj.Visible, obj.IsLocked, obj.IsSelected(false));
 
         static bool Boolean(JObject request, string key)
@@ -383,7 +405,7 @@ namespace RhinoAlmondBridge
             {
                 if ((budget.Nodes -= 3) < 0)
                     return new JObject { ["value_omitted"] = true, ["reason"] = "metadata_budget" };
-                return new JObject { ["type"] = "Point3d", ["coordinates"] = Point(point) };
+                return new JObject { ["type"] = "Point3d", ["coordinates"] = GeometryJson.Point(point) };
             }
             if (value is Plane plane)
             {
@@ -391,7 +413,7 @@ namespace RhinoAlmondBridge
                     return new JObject { ["value_omitted"] = true, ["reason"] = "metadata_budget" };
                 return new JObject {
                     ["type"] = "Plane",
-                    ["origin"] = Point(plane.Origin),
+                    ["origin"] = GeometryJson.Point(plane.Origin),
                     ["xaxis"] = new JArray(plane.XAxis.X, plane.XAxis.Y, plane.XAxis.Z),
                     ["yaxis"] = new JArray(plane.YAxis.X, plane.YAxis.Y, plane.YAxis.Z)
                 };
@@ -416,7 +438,6 @@ namespace RhinoAlmondBridge
             }
             return new JObject { ["values"] = data, ["total_keys"] = dictionary.Count, ["truncated"] = dictionary.Count > data.Count };
         }
-        static JArray Point(Point3d p) => new JArray(p.X, p.Y, p.Z);
         static JObject UserText(System.Collections.Specialized.NameValueCollection strings, ValueBudget budget)
         {
             var values = new JObject();
@@ -450,10 +471,10 @@ namespace RhinoAlmondBridge
                 }
             };
         }
-        static JObject Bounds(BoundingBox b) => b.IsValid ? new JObject { ["min"] = Point(b.Min), ["max"] = Point(b.Max) } : null;
-        static JObject Describe(RhinoDoc doc, RhinoObject obj, HashSet<Guid> matched, HashSet<Guid> visible,
+        static JObject Bounds(BoundingBox b) => b.IsValid ? new JObject { ["min"] = GeometryJson.Point(b.Min), ["max"] = GeometryJson.Point(b.Max) } : null;
+        static JObject Describe(RhinoDoc doc, RhinoObject obj, HashSet<Guid> visible,
             bool includeGeometry, ValueBudget budget, HashSet<string> fields, int faceOffset, int faceLimit,
-            EditingContext.ObjectScope editing = null)
+            Func<Group, JObject> describeGroup, Func<RhinoObject, uint> readCrc, BoundingBox? bounds = null)
         {
             bool Want(string field, bool detail = false) => fields == null ? !detail || includeGeometry : fields.Contains(field);
             var geometry = obj.Geometry;
@@ -463,20 +484,18 @@ namespace RhinoAlmondBridge
             if (Want("layer_path")) row["layer_path"] = doc.Layers.FindIndex(obj.Attributes.LayerIndex)?.FullPath;
             if (Want("object_type")) row["object_type"] = obj.ObjectType.ToString();
             if (Want("geometry_kind")) row["geometry_kind"] = geometry.GetType().Name;
-            if (Want("geometry_crc")) row["geometry_crc"] = geometry.DataCRC(0);
+            if (Want("geometry_crc")) row["geometry_crc"] = readCrc(obj);
             if (Want("visible")) row["visible"] = visible.Contains(obj.Id);
             if (Want("selected")) row["selected"] = obj.IsSelected(false) != 0;
             if (Want("hidden")) row["hidden"] = obj.IsHidden;
             if (Want("locked")) row["locked"] = obj.IsLocked;
-            if (Want("bounds")) row["bounds"] = Bounds(geometry.GetBoundingBox(true));
+            if (Want("bounds")) row["bounds"] = Bounds(bounds ?? geometry.GetBoundingBox(true));
             if (Want("groups"))
             {
-                editing = editing ?? EditingContext.ObserveObjects(doc);
                 var groups = new JArray();
                 foreach (int index in (obj.Attributes.GetGroupList() ?? Array.Empty<int>()).Take(64))
                 {
-                    var group = doc.Groups[index];
-                    groups.Add(GroupMembership(doc, group, matched, visible, editing));
+                    groups.Add(describeGroup(doc.Groups[index]));
                 }
                 row["groups"] = groups;
                 row["groups_truncated"] = obj.Attributes.GroupCount > 64;
@@ -501,14 +520,14 @@ namespace RhinoAlmondBridge
                         bool adjacentPlanar = planar && face.AdjacentEdges().SelectMany(i => brep.Edges[i].AdjacentFaces()).Distinct()
                             .All(i => brep.Faces[i].IsPlanar(doc.ModelAbsoluteTolerance));
                         faces.Add(new JObject { ["face_index"] = face.FaceIndex, ["planar"] = planar,
-                            ["plane_origin"] = planar ? Point(plane.Origin) : null,
+                            ["plane_origin"] = planar ? GeometryJson.Point(plane.Origin) : null,
                             ["normal"] = planar ? new JArray(normal.X, normal.Y, normal.Z) : null,
                             ["bounds"] = Bounds(face.GetBoundingBox(true)),
                             ["face_edit_supported"] = editable && adjacentPlanar });
                     }
                     // A face page always carries its source identity and version, even under field selection.
                     row["id"] = obj.Id.ToString();
-                    row["geometry_crc"] = geometry.DataCRC(0);
+                    row["geometry_crc"] ??= readCrc(obj);
                     row["face_count"] = brep.Faces.Count;
                     row["faces_truncated"] = faceOffset != 0 || faces.Count < brep.Faces.Count;
                     row["face_page"] = new JObject { ["offset"] = faceOffset, ["limit"] = faceLimit,

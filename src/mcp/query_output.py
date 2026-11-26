@@ -5,7 +5,7 @@ from inspect import signature
 import json
 from typing import Any
 from uuid import UUID
-from almond_mcp.managed_paths import relative_output
+from almond_mcp.managed_paths import VERBATIM_FIELDS, relative_output
 from almond_mcp.tool_response import error_payload, transform_response
 
 
@@ -92,16 +92,17 @@ def compact_ack(record: dict, core_keys) -> dict:
 
 
 def project_query(value: Any, *, include_ids: bool = False, supplied: dict | None = None,
-                  include_audit: bool = True) -> Any:
+                  include_audit: bool = True, verbatim_fields=()) -> Any:
     if isinstance(value, list):
-        return [project_query(item, include_ids=include_ids, supplied=supplied, include_audit=include_audit) for item in value]
+        return [project_query(item, include_ids=include_ids, supplied=supplied, include_audit=include_audit,
+                              verbatim_fields=verbatim_fields) for item in value]
     if not isinstance(value, dict):
         return value
     if requires_full_evidence(value):
         return value
     result = {}
     for key, item in value.items():
-        if _evidence_field(key):
+        if key in verbatim_fields or _evidence_field(key):
             result[key] = item
             continue
         if not include_audit and key in {"created_at", "updated_at", "observed_at", "generated_at"}:
@@ -114,21 +115,23 @@ def project_query(value: Any, *, include_ids: bool = False, supplied: dict | Non
                 count_key = key.removesuffix("_ids").removesuffix("_guids") + "_count"
                 result.setdefault(count_key, len(item))
             continue
-        result[key] = project_query(item, include_ids=include_ids, supplied=supplied, include_audit=include_audit)
+        result[key] = project_query(item, include_ids=include_ids, supplied=supplied, include_audit=include_audit,
+                                    verbatim_fields=verbatim_fields)
     return result
 
 
 def query_output(function=None, *, preserve_cross_drive_fields=()):
-    """Wrap JSON query output; callers still declare include_ids in their schema."""
+    """Keep navigable IDs unless the tool offers an explicit switch to hide them."""
     if function is None:
         return partial(query_output, preserve_cross_drive_fields=preserve_cross_drive_fields)
     parameters = signature(function)
+    verbatim = VERBATIM_FIELDS.get(function.__name__, ())
 
     @wraps(function)
     def invoke(*args, **kwargs):
         arguments = parameters.bind(*args, **kwargs)
         arguments.apply_defaults()
-        include_ids = arguments.arguments.get("include_ids", False)
+        include_ids = arguments.arguments.get("include_ids", True)
         if type(include_ids) is not bool:
             raise ValueError("include_ids must be a boolean.")
         try:
@@ -143,8 +146,8 @@ def query_output(function=None, *, preserve_cross_drive_fields=()):
             if isinstance(value, dict) and requires_full_evidence(value):
                 return value
             return relative_output(project_query(value, include_ids=include_ids, supplied=arguments.arguments,
-                                                  include_audit=include_audit),
-                                   preserve_cross_drive_fields=preserve_cross_drive_fields)
+                                                  include_audit=include_audit, verbatim_fields=verbatim),
+                                   preserve_cross_drive_fields=preserve_cross_drive_fields, verbatim_fields=verbatim)
 
         return transform_response(result, project)
 

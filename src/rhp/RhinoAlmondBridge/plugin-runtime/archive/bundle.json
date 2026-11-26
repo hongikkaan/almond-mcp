@@ -1581,7 +1581,7 @@
     },
     "/app.js": {
       "path": "ui/app.js",
-      "sha256": "f87376b0d316144765ca06844f195bdcedc00a30e51720b0a8f3be39642e1a45",
+      "sha256": "0a69d6e795e4f2cdd043375c324582a9bd76b3c2e652261add3e7fca889bb2ba",
       "mime": "text/javascript; charset=utf-8"
     },
     "/favicon.svg": {

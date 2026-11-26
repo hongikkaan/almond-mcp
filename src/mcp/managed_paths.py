@@ -3,6 +3,29 @@ import os
 from pathlib import Path
 
 
+# Caller data, source records and field values can contain arbitrary strings
+# and keys that look like managed paths, IDs or audit timestamps.
+VERBATIM_FIELDS = {
+    "execute_project_python": {"result"},
+    "execute_rhino_script": {"result"},
+    "get_objects": {"user_text", "user_dictionary"},
+    "get_rhino_context": {"name", "layer_tree"},
+    "resolve_object_intersection": {"user_strings", "user_dictionary"},
+    "get_logic_by_id": {"metadata"},
+    "run_gh_definition": {"outputs"},
+    "get_diagram_asset": {"source"},
+    "generate_asset_drawing_views": {"manifest"},
+    "get_asset_drawing": {"manifest"},
+    "get_drawing_asset": {"spatial"},
+    "list_drawing_assets": {"spatial"},
+    "search_drawing_assets": {"spatial"},
+    "prepare_drawing_asset": {"provenance"},
+    "get_drawing_recipe": {"recipe"},
+    "list_drawing_recipes": {"recipes"},
+    "list_materials": {"textures", "physical", "structural_material", "source", "provenance"},
+}
+
+
 def bound_model_path(value: str = "") -> str:
     bound = os.environ.get("ALMOND_MODEL_PATH", "")
     if not value:
@@ -84,23 +107,25 @@ def drawing_package_path(value: str, *, library_roots: list[Path]) -> Path:
     raise ValueError("Use a project drawing package or a package returned by the configured drawing library.")
 
 
-def relative_output(value, *, preserve_cross_drive_fields=(), preserve_text_fields=()):
+def relative_output(value, *, preserve_cross_drive_fields=(), verbatim_fields=()):
     """Only absolute filesystem strings change, not URI/code/text payloads.
 
-    Explicitly allowed top-level fields keep their path across Windows drives.
-    The caller may also identify text fields at any depth that must remain verbatim.
+    Named package paths keep their spelling across Windows drives. Opaque
+    fields are copied as a whole, including nested caller-owned keys.
     """
     if isinstance(value, list):
-        return [relative_output(item, preserve_text_fields=preserve_text_fields) for item in value]
+        return [relative_output(item, preserve_cross_drive_fields=preserve_cross_drive_fields,
+                                verbatim_fields=verbatim_fields) for item in value]
     if isinstance(value, dict):
         result = {}
         for key, item in value.items():
-            if key in preserve_text_fields and isinstance(item, str):
+            if key in verbatim_fields:
                 result[key] = item
             elif key in preserve_cross_drive_fields and isinstance(item, str) and "\n" not in item:
                 result[key] = relative_path(item, preserve_cross_drive=True)
             else:
-                result[key] = relative_output(item, preserve_text_fields=preserve_text_fields)
+                result[key] = relative_output(item, preserve_cross_drive_fields=preserve_cross_drive_fields,
+                                              verbatim_fields=verbatim_fields)
         return result
     if isinstance(value, str) and "\n" not in value and os.path.isabs(value):
         return relative_path(value)

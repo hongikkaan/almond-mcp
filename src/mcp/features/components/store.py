@@ -14,6 +14,14 @@ from typing import Any, Callable
 from almond_mcp.store_common import ComponentReconciliationError, _NativeRejected, _utc_now
 
 
+_COMPONENT_SELECT = """SELECT record.*, (
+    SELECT json_group_array(component_id) FROM (
+        SELECT child.component_id FROM _component_records AS child
+        WHERE child.parent_component_id = record.component_id ORDER BY child.component_id
+    )
+) AS child_ids_json FROM _component_records AS record"""
+
+
 class ComponentsStore:
     """Own Component hierarchy, direct ownership and native reconciliation SQL."""
 
@@ -232,30 +240,37 @@ class ComponentsStore:
                                   for kind in sorted({o['object_type'] for o in objects})}, bounds_mm=bounds)
 
     @staticmethod
-    def _component_read(connection, component_id):
-        row = connection.execute('SELECT * FROM _component_records WHERE component_id = ?', (component_id,)).fetchone()
-        if row is None:
-            return None
+    def _component_record(row):
         result = dict(row)
         result['scene_ids'] = json.loads(result.pop('scene_ids_json'))
         result['object_types'] = json.loads(result.pop('object_types_json'))
         result['bounds_mm'] = json.loads(result.pop('bounds_json'))
-        result['child_component_ids'] = [r[0] for r in connection.execute(
-            'SELECT component_id FROM _component_records WHERE parent_component_id = ? ORDER BY component_id', (component_id,))]
+        result['child_component_ids'] = json.loads(result.pop('child_ids_json'))
         result.update(status='unregistered' if row['availability'] == 'unregistered' else 'registered',
                       live_verified=False, geometry_available=False)
         if result.pop('effective_summary_stale'):
             result.update(effective_object_count=None, bounds_mm=None, requires_sync=True)
         return result
 
-    def _component_snapshot(self, connection, item, model_path):
+    @classmethod
+    def _component_read(cls, connection, component_id):
+        row = connection.execute(_COMPONENT_SELECT + ' WHERE component_id = ?', (component_id,)).fetchone()
+        return cls._component_record(row) if row is not None else None
+
+    @classmethod
+    def _components_for_model(cls, connection, model_path):
+        rows = connection.execute(_COMPONENT_SELECT + ' WHERE model_path = ?', (model_path,))
+        return {row['component_id']: cls._component_record(row) for row in rows}
+
+    def _component_snapshot(self, connection, item, model_path, cached=None):
         if not isinstance(item, dict) or item.get('complete') is not True or item.get('truncated'):
             raise ValueError('Native Component snapshot must be complete and untruncated.')
         handle = self._component_handle(item.get('component_id'))
         if self._component_model_path(item.get('model_path')) != model_path:
             raise ValueError('Native snapshot belongs to a different document.')
         group = self._component_guid(item.get('rhino_group_id'))
-        prior = self._component_read(connection, handle)
+        # An unknown handle can still belong to a different model.
+        prior = cached[handle] if cached is not None and handle in cached else self._component_read(connection, handle)
         if prior and (prior['model_path'] != model_path or prior['rhino_group_id'] != group):
             raise ValueError('A Component cannot be rebound to another document or Rhino group.')
         name = item.get('name')
@@ -300,10 +315,9 @@ class ComponentsStore:
                     object_ids=direct_ids, direct_object_ids=direct_ids, effective_object_ids=effective_ids,
                     **self._component_summary(objects, effective))
 
-    def _component_validate_tree(self, connection, prepared, model_path):
+    @staticmethod
+    def _component_validate_tree(prepared, cached):
         """Validate observed relations and transient ownership before any ledger writes."""
-        cached = {r[0]: self._component_read(connection, r[0]) for r in connection.execute(
-            'SELECT component_id FROM _component_records WHERE model_path = ?', (model_path,))}
         combined = {**cached, **prepared}
         for handle, item in prepared.items():
             for related in item['child_component_ids'] + ([item['parent_component_id']] if item['parent_component_id'] else []):
@@ -365,16 +379,16 @@ class ComponentsStore:
                     for obj in prepared[owner]['objects']:
                         if observed.get(obj['rhino_guid']) != obj:
                             raise ValueError('Native effective membership omitted a descendant object.')
-        return cached
 
-    def _component_apply_snapshots(self, connection, snapshots, model_path, operation):
-        prepared = {}
-        for raw in snapshots:
+    def _component_apply_snapshots(self, connection, prepared, model_path, operation, *, related=(), cached=None):
+        for raw in related:
             item = self._component_snapshot(connection, raw, model_path)
             if item['component_id'] in prepared:
                 raise ValueError('Duplicate Component snapshot.')
             prepared[item['component_id']] = item
-        cached = self._component_validate_tree(connection, prepared, model_path)
+        if cached is None:
+            cached = self._components_for_model(connection, model_path)
+        self._component_validate_tree(prepared, cached)
         def signature(item):
             return tuple(item[k] for k in ('name', 'rhino_group_id', 'scene_ids', 'child_component_ids',
                 'parent_component_id', 'availability', 'geometry_digest'))
@@ -424,7 +438,7 @@ class ComponentsStore:
                 [(h,) for h in unobserved_ancestors - prepared.keys()])
         revisions = {scene: self._record_revision(connection, scene, operation, {'component_ids': changed})
                      for scene in sorted(affected)}
-        return prepared, changed, revisions
+        return changed, revisions
 
     def get_component(self, component_id, live=False, native_inspect=None):
         with self._connect() as connection:
@@ -455,14 +469,14 @@ class ComponentsStore:
         with self._connect() as connection:
             if scene_id:
                 self._component_scene_ids(connection, [scene_id])
-            rows = connection.execute("""WITH RECURSIVE scoped(component_id) AS (
+            rows = connection.execute(f"""WITH RECURSIVE scoped(component_id) AS (
                 SELECT component_id FROM _scene_component_refs WHERE scene_id = ? UNION
                 SELECT c.component_id FROM _component_records c JOIN scoped p ON c.parent_component_id = p.component_id WHERE ?)
-                SELECT component_id FROM _component_records WHERE (? = '' OR model_path = ?)
+                {_COMPONENT_SELECT} WHERE (? = '' OR model_path = ?)
                 AND (? = '' OR component_id IN (SELECT component_id FROM scoped))
                 AND (? OR ? != '' OR parent_component_id IS NULL) ORDER BY model_path,name,component_id""",
                 (scene_id,recursive,model_path,model_path,scene_id,recursive,scene_id)).fetchall()
-            return [{k:v for k,v in self._component_read(connection,r[0]).items() if k != 'geometry_digest'} for r in rows]
+            return [{k:v for k,v in self._component_record(row).items() if k != 'geometry_digest'} for row in rows]
 
     def upsert_component(self, model_path, name, object_ids=None, scene_ids=None, component_id='', rhino_group_id='',
                          native_apply=None, child_component_ids=None):
@@ -520,8 +534,8 @@ class ComponentsStore:
                 changed_children = set(children) ^ set(prior['child_component_ids'] if prior else [])
                 if not changed_children.issubset(r.get('component_id') for r in related):
                     raise ValueError('Native response omitted changed child Component proof.')
-                prepared, _, revisions = self._component_apply_snapshots(connection,[item]+related,model_path,'upsert_component')
-                result = dict(self._component_read(connection,handle), **{k:v for k,v in prepared[handle].items() if k not in {'status'}})
+                _, revisions = self._component_apply_snapshots(connection, {handle: item}, model_path, 'upsert_component', related=related)
+                result = dict(self._component_read(connection,handle), **{k:v for k,v in item.items() if k not in {'status'}})
                 result.update(live_verified=True,geometry_available=True,scene_revisions=revisions)
                 result.pop('geometry_digest',None)
                 return result
@@ -546,7 +560,7 @@ class ComponentsStore:
                 raise ValueError('component_ids must not contain duplicates.')
         with self._connect() as connection:
             connection.execute('BEGIN IMMEDIATE')
-            cached = {r[0]:self._component_read(connection,r[0]) for r in connection.execute('SELECT component_id FROM _component_records WHERE model_path=?',(model_path,))}
+            cached = self._components_for_model(connection, model_path)
             ids = component_ids
             if scene_id:
                 self._component_scene_ids(connection,[scene_id])
@@ -568,7 +582,7 @@ class ComponentsStore:
                 raise ValueError('Alignment must report at most 64 snapshots and item-specific problems.')
             prepared = {}
             for raw in snapshots:
-                item = self._component_snapshot(connection,raw,model_path)
+                item = self._component_snapshot(connection, raw, model_path, cached=cached)
                 h = item['component_id']
                 if h in prepared:
                     raise ValueError('Duplicate Component snapshot.')
@@ -591,9 +605,9 @@ class ComponentsStore:
                 raise ValueError('Alignment omitted requested Component identities.')
             # Tombstones unknown to this ledger do not create new inactive registrations.
             prepared={h:r for h,r in prepared.items() if h in cached or r['availability']!='unregistered'}
-            applied,changed,revisions=self._component_apply_snapshots(connection,list(prepared.values()),model_path,'align_components')
-            return dict(status='success',checked=len(applied),changed=len(changed),
-                unavailable=sum(r['availability']!='present' for r in applied.values()),problems=problems,
+            changed, revisions = self._component_apply_snapshots(connection, prepared, model_path, 'align_components', cached=cached)
+            return dict(status='success',checked=len(prepared),changed=len(changed),
+                unavailable=sum(r['availability']!='present' for r in prepared.values()),problems=problems,
                 scene_revisions=revisions,live_verified=not problems)
 
     def sync_component(self, model_path, component_id, rhino_group_id='', native_inspect=None):
@@ -629,7 +643,7 @@ class ComponentsStore:
                     raise ValueError('Native response omitted detached child Component proof.')
                 if any(r.get('parent_component_id') is not None for r in related):
                     raise ValueError('Native detached child still has a parent.')
-                _,_,revisions=self._component_apply_snapshots(connection,related,model_path,'detach_components')
+                _, revisions = self._component_apply_snapshots(connection, {}, model_path, 'detach_components', related=related)
                 connection.execute('DELETE FROM ontological_holons WHERE ontological_id=?',(component_id,))
                 self._component_canonical_scene_links(connection,model_path)
                 for scene in prior['scene_ids']:

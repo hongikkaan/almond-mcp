@@ -1,11 +1,11 @@
 """Drawing/repository shortlist fields and explicit detail groups."""
-from almond_mcp.public_names import internal_tool_name, public_tool_name, tool_references
+from almond_mcp.public_names import public_tool_name
 from almond_mcp.query_output import select_fields, select_records, requires_full_evidence
 
 
 CORE = {"asset_id", "id", "name", "product", "variant", "category", "kind", "file_available",
         "drawing_ready", "drawing_status", "ready", "available", "format", "match_status",
-        "asset_kind", "model_status", "source_only", "source_available", "next_tool", "next_step_guide", "conversion_target", "verification_issue"}
+        "asset_kind", "model_status", "source_only", "source_available", "next_tool", "conversion_target", "verification_issue"}
 GROUPS = {
     "dimensions": {"dimensions_mm", "dimension_basis", "bounds_mm", "spatial", "clearance_mm"},
     "source": {"source", "source_url", "warehouse_url", "license", "provenance", "sha256"},
@@ -17,17 +17,10 @@ GROUPS = {
 }
 
 
-def with_next_step(record: dict) -> dict:
-    """Explain existing readiness hints without choosing an asset or hiding missing inputs."""
-    tool = internal_tool_name(record.get("next_tool", ""))
-    if tool not in {"prepare_drawing_asset", "refresh_asset"}:
+def _public_next_tool(record: dict) -> dict:
+    if "next_tool" not in record:
         return record
-    if tool == "refresh_asset":
-        hint = "원본의 저장된 변경을 반영하려면 조회에 사용한 asset_id로 asset_08-refresh tool을 호출합니다."
-    else:
-        hint = ("asset_04-get tool에서 field_groups=['paths']로 원본 경로를 확인하고, "
-                "Plan을 선택한 뒤 asset_07-prepare tool에 stage='inspect', source_file의 프로젝트 기준 경로와 원본 단위를 입력합니다.")
-    return {**record, "next_tool": public_tool_name(tool), "next_step_guide": tool_references(hint)}
+    return {**record, "next_tool": public_tool_name(record["next_tool"])}
 
 
 def project(payload: dict, groups: list[str] | None) -> dict:
@@ -37,9 +30,8 @@ def project(payload: dict, groups: list[str] | None) -> dict:
     for key in ("asset", "assets"):
         if key in result:
             records = result[key]
-            records = [with_next_step(item) for item in records] if isinstance(records, list) else with_next_step(records)
+            records = [_public_next_tool(item) for item in records] if isinstance(records, list) else _public_next_tool(records)
             result[key] = select_records(records, groups, CORE, GROUPS)
-    # get_asset_drawing's manifest and URI are the requested, intrinsically bounded payload.
     return select_fields(result, groups,
         {"status", "library_id", "purpose", "asset", "assets", "total", "limit", "offset",
-         "truncated", "has_more", "manifest", "plan_svg_uri", "asset_id", "hint"}, GROUPS)
+         "next_offset", "truncated", "has_more", "asset_id", "hint"}, GROUPS)

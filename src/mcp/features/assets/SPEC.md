@@ -21,7 +21,7 @@ Rhino에서는 `Almond` 또는 `AlmondLibraryBrowser`를 연다. Python만으로
 
 실행 환경의 `RHINO_MCP_*_DIR`이 저장소 경로보다 우선한다. 파일이나 manifest를 변경한 뒤 Rhino 패널은 Reload로 현재 목록을 다시 읽고 Python standalone archive는 재시작한다. 현재 등록 목록 조회에는 설치된 Almond Python 환경이 필요하며 MCP 연결은 필요 없다. 검색은 이름·ID·분류·태그·drawing role을 사용하며 즐겨찾기는 브라우저 localStorage에 남는다. HTTP 서버는 loopback에 바인딩하고 Host 검사와 파일 allowlist를 사용한다. 업로드나 임의 파일 탐색 기능은 없다.
 
-- `asset_10-search_repository tool(query, kind, drawing_ready, limit)`: 통합 검색.
+- `asset_10-search_repository tool(query, kind, drawing_ready, limit)`은 목록 메타데이터에서 후보를 찾는다. 도면 준비 여부로 검색할 때는 일치하는 전체 후보의 준비 상태를 확인한 뒤 페이지를 나눈다. 개별 도면 파일의 다운로드 주소는 Archive에서 제공한다.
 - `almond://repository/{asset_id}`: 출처·표현·로컬 경로를 포함한 MCP record.
 - `/api/catalogue`, `/api/assets/{asset_id}.json`: HTTP 목록과 개별 record. 공개 provenance·metadata에서 절대 로컬 경로를 제외하며, 명시적 MCP file handle과 native 내부 snapshot allowlist에서만 제공한다. 내보낸 목록은 모델 파일 묶음이 아니다.
 
@@ -31,7 +31,9 @@ Imported와 Generated 모델은 같은 ID 공간에서 조회·등록·배치한
 
 모델 도구와 Archive는 같은 manifest 선택 규칙을 사용한다. 같은 ID의 Drawing 파일을 라이브러리에서 확인할 수 없으면 Generated 원본을 표시한다. Diagram과 Drawing에 의도적으로 복제된 2D ID는 각 라이브러리의 파일을 사용한다. Diagram과 Generated는 SQLite의 전역 ID를 공유하므로 양쪽 manifest에 같은 ID가 있으면 인덱싱을 중단한다. SQLite 자산 캐시는 관련 라이브러리를 한 트랜잭션에서 갱신하며 다른 라이브러리 소유 ID를 덮어쓰지 않는다. 유효한 빈 manifest는 하나의 revision이며 누락 manifest는 시작 로그에서 확인할 수 있다.
 
-도면 리소스는 manifest의 뷰·축척·형식에 해당하는 파일의 실제 바이트와 SHA-256을 검사하여 제공한다. Archive의 도면 파일도 등록과 제공 시 선언된 해시 및 패키지 안 경로를 검사한다. 배치 응답의 `requires_reconciliation=true`는 Rhino 문서 상태 확인이 필요함을 뜻한다. 여러 단계로 가져온 작업은 이미 관찰한 객체 GUID와 후속 실패를 함께 반환한다.
+도면 리소스는 manifest의 뷰·축척·형식에 해당하는 파일의 실제 바이트와 SHA-256을 검사하여 제공한다. Archive의 도면 파일도 등록과 제공 시 선언된 해시 및 패키지 안 경로를 검사한다.
+
+`asset_06-place` tool과 `diagram_03-place` tool은 각 라이브러리에서 파일을 선택한 뒤 같은 Bridge 블록 배치 요청을 사용한다. 모델 자산은 원본 출처·일치 상태·해시를 함께 전달하며 3DM은 먼저 Bridge의 linked 배치 지원을 확인한다. 배치 응답의 `requires_reconciliation=true`는 Rhino 문서 상태 확인이 필요함을 뜻한다. 여러 단계로 가져온 작업은 이미 관찰한 객체 GUID와 후속 실패를 함께 반환한다.
 
 `asset_07-prepare` tool의 inspect는 원본 사본·SHA256을 보존하고 Rhino의 headless 가져오기로 3DM과 관찰 이미지를 만든다. 기존 3DM의 단위·원점·레이어·이름·블록 구조를 보존한다. Mesh interchange 입력은 명시적 단위를 요구하며 importer의 실제 치수·방향은 반환된 측정과 이미지로 확인한다. 100 MB 입력, 10,000 top-level 객체, 32 preview block 깊이로 제한한다. normalize는 선택 단계로, 관찰한 hash에 연결된 호출자 판단에 따라 top-level 객체 제거와 명시 XYZ 회전·이동만 적용한다. 면 병합·블록 해체·단일 레이어화·바닥 중심 원점은 강제하지 않는다.
 
@@ -41,7 +43,9 @@ verify는 준비한 3DM을 다시 열어 최종 이미지와 측정값을 반환
 
 `asset_09-register` tool는 표준 단위의 3DM을 복사하고, File3dm에서 형상·중첩 변환을 읽어 mm 단위 triangle/bounds를 측정한다. AABB 입력은 받지 않는다. source 파일의 단위·좌표·원점은 바꾸지 않는다. 미지원 형상·불완전 추출·미확인 외부 block 의존성은 발행을 막는다. 측정값과 같은 source에서 plan/front/right DXF·SVG 및 dimensions.json을 작성한다. 2D는 mesh silhouette이며 내부 visible/hidden edge나 단면을 대체하지 않는다. 준비 job 없이 검토한 외부 3DM도 등록할 수 있으며 이 경로는 이미지 검토를 보증하지 않는다.
 
-발행은 OS lock으로 직렬화한다. 파일 검증 후 manifest를 atomic하게 갱신하고 이전 파일·manifest와 최초 발행 source bytes를 보존한다. 같은 ID를 명시적으로 교체할 때에도 기존 3DM 경로를 유지하여 linked source가 계속 같은 파일을 가리킨다. 교체 전후 source hash를 확인한다. manifest 발행 실패 시 자신의 source bytes가 그대로 남아 있을 때만 이전 bytes를 복구하며, 외부 수정이나 복구 미확인은 evidence를 남기고 `requires_reconciliation`을 반환한다. 같은 ID의 원본 교체는 그 source를 공유하는 linked 배치에 반영될 수 있다.
+준비 단계는 작업 폴더의 `.prepare.lock`을 사용한다. inspect는 새 작업의 실행 중에, normalize와 verify는 기존 작업의 단계를 처리하는 동안 이 잠금을 잡는다. status는 잠금 없이 기록을 읽는다. 등록과 갱신은 같은 라이브러리 루트의 `.register.lock`을 공유한다. 두 잠금은 독립적이다. [공통 파일 잠금 함수](_file_lock.py)는 지정한 파일이 이미 잠겨 있으면 즉시 실패하며, 보호 구간을 벗어날 때 예외가 발생한 경우에도 잠금을 해제한다.
+
+발행 시 파일 검증 후 manifest를 atomic하게 갱신하고 이전 파일·manifest와 최초 발행 source bytes를 보존한다. 같은 ID를 명시적으로 교체할 때에도 기존 3DM 경로를 유지하여 linked source가 계속 같은 파일을 가리킨다. 교체 전후 source hash를 확인한다. manifest 발행 실패 시 자신의 source bytes가 그대로 남아 있을 때만 이전 bytes를 복구하며, 외부 수정이나 복구 미확인은 evidence를 남기고 `requires_reconciliation`을 반환한다. 같은 ID의 원본 교체는 그 source를 공유하는 linked 배치에 반영될 수 있다.
 
 3DM 배치는 Linked block과 Active layer style을 사용한다. 일반 문서 block은 에셋으로 전환하지 않는다. 배치 metadata는 배치 당시 source snapshot이며, 현재 source와 일치하는지는 실제 파일·manifest hash로 확인한다. 원본 3DM을 저장한 뒤 `asset_08-refresh tool(asset_id)`를 호출하면 같은 source 경로에서 측정·hash·2D package를 새 revision으로 발행한다. 기존 2D와 source revision은 보존하고 source 변환이나 Rhino 문서 저장·linked instance 갱신은 하지 않는다. source와 manifest가 다르면 새 배치는 `needs_refresh`를 반환한다.
 

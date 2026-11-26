@@ -141,7 +141,7 @@ async def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-python", type=Path, default=ROOT / "src/engine/.venv/Scripts/python.exe")
-    parser.add_argument("--server-entry", type=Path, default=ROOT / "src/cos/codex_host.py")
+    parser.add_argument("--server-entry", type=Path, default=ROOT / "src/beyond/codex_host.py")
     parser.add_argument("--timeout", type=float, default=600.0)
     args = parser.parse_args()
     if args.timeout <= 0:

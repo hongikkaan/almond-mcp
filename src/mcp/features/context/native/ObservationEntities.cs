@@ -56,21 +56,35 @@ namespace RhinoAlmondBridge
 
         public static List<Entity> Roots(RhinoDoc doc, RhinoObject[] objects, Guid? excludedGroup = null,
             Func<Group, Entity> groupSource = null, bool includePartial = false, RhinoObject[] parentMembers = null)
+            => Roots(doc, objects, null, excludedGroup,
+                groupSource == null ? null : group => (groupSource(group), null), includePartial, parentMembers);
+
+        internal static List<Entity> Roots(RhinoDoc doc, RhinoObject[] objects, Entity occurrence, Guid? excludedGroup = null,
+            Func<Group, (Entity Group, BoundingBox? Bounds)> groupSource = null,
+            bool includePartial = false, RhinoObject[] parentMembers = null)
         {
             var present = new HashSet<Guid>(objects.Select(o => o.Id));
-            var parentIds = new HashSet<Guid>((parentMembers ?? objects).Select(o => o.Id));
+            // An expanded group can have fewer matched members than its actual parent group.
+            var parentIds = excludedGroup.HasValue && parentMembers != null && !ReferenceEquals(parentMembers, objects)
+                ? new HashSet<Guid>(parentMembers.Select(o => o.Id)) : present;
             var groups = new List<Entity>();
             foreach (var group in doc.Groups)
             {
                 if (group == null || group.IsDeleted || group.Id == excludedGroup) continue;
-                var observed = groupSource?.Invoke(group);
+                var observation = groupSource?.Invoke(group);
+                var observed = observation?.Group;
                 var members = observed?.Members ?? doc.Groups.GroupMembers(group.Index) ?? Array.Empty<RhinoObject>();
                 if (members.Length == 0 || members.Any(o => o == null) ||
                     (includePartial ? !members.Any(o => present.Contains(o.Id)) : members.Any(o => !present.Contains(o.Id)))) continue;
                 if (excludedGroup.HasValue && (members.Length >= parentIds.Count ||
                     members.Any(o => !parentIds.Contains(o.Id)))) continue;
-                var bounds = BoundingBox.Empty;
-                foreach (var member in members) bounds.Union(member.Geometry.GetBoundingBox(true));
+                // Reuse bounds only when they describe the member list supplied by the internal observer.
+                var knownBounds = observed?.Members == null ? null : observation?.Bounds;
+                var bounds = knownBounds ?? BoundingBox.Empty;
+                if (!knownBounds.HasValue)
+                {
+                    foreach (var member in members) { bounds.Union(member.Geometry.GetBoundingBox(true)); }
+                }
                 groups.Add(new Entity { Id = group.Id, Name = group.Name ?? "", Kind = "Group",
                     Members = members, Bounds = bounds, Path = new[] { group.Id },
                     MembershipComplete = observed?.MembershipComplete ?? true,
@@ -80,7 +94,22 @@ namespace RhinoAlmondBridge
                 parent.Members.Length > g.Members.Length &&
                 !g.Members.Select(o => o.Id).Except(parent.Members.Select(o => o.Id)).Any())).ToList();
             var covered = new HashSet<Guid>(roots.SelectMany(g => g.Members).Select(o => o.Id));
-            roots.AddRange(objects.Where(o => !covered.Contains(o.Id)).Select(o => ObjectEntity(doc, o, Transform.Identity, null)));
+            var transform = occurrence?.ToWorld ?? Transform.Identity;
+            var prefix = occurrence?.Path;
+            if (occurrence != null)
+            {
+                // Group bounds were assembled in definition space before the containment test.
+                foreach (var group in roots)
+                {
+                    group.ToWorld = transform;
+                    group.Path = prefix;
+                    group.DefinitionOccurrence = true;
+                    var bounds = group.Bounds;
+                    bounds.Transform(transform);
+                    group.Bounds = bounds;
+                }
+            }
+            roots.AddRange(objects.Where(o => !covered.Contains(o.Id)).Select(o => ObjectEntity(doc, o, transform, prefix)));
             return roots.OrderBy(e => e.Kind).ThenBy(e => e.Name, StringComparer.Ordinal).ThenBy(e => e.Id).ToList();
         }
 

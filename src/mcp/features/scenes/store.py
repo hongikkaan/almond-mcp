@@ -121,7 +121,8 @@ class ScenesStore:
                 return []
             if len(ids)>64:
                 raise ValueError('Narrow Scene observation to at most 64 Component registrations.')
-            seeds=[{k:v for k,v in self._component_read(connection,h).items()
+            cached = self._components_for_model(connection, model_path)
+            seeds=[{k:v for k,v in cached[h].items()
                     if k in {'component_id','rhino_group_id','name','scene_ids','child_component_ids'}} for h in ids]
             reply=self._component_native(native_inspect,dict(type='design_component',action='inspect_many',
                 expected_model_path=model_path,component_ids=ids,registrations=seeds))
@@ -133,13 +134,13 @@ class ScenesStore:
                 raise ValueError('Scene observation must contain Component snapshots.')
             prepared={}
             for raw in reply['components']:
-                item=self._component_snapshot(connection,raw,model_path)
+                item=self._component_snapshot(connection,raw,model_path,cached=cached)
                 if item['component_id'] in prepared or item['component_id'] not in ids:
                     raise ValueError('Scene observation contains duplicate or out-of-scope Components; align first.')
                 prepared[item['component_id']]=item
             if set(prepared)!=set(ids):
                 raise ValueError('Scene observation omitted registered Components.')
-            self._component_validate_tree(connection,prepared,model_path)
+            self._component_validate_tree(prepared, cached)
             objects={}
             for item in prepared.values():
                 for obj in item['objects']:

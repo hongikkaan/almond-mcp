@@ -13,9 +13,9 @@
 | `Structural_Analysis/` | 구조해석 작업·결과 표시 UI; Bridge에 컴파일 |
 | `Asset_Panel/` | 라이브러리 패널·마우스 배치·archive와 공용 웹 원본; Bridge에 컴파일 |
 | `tools/` | 빌드·패키징·설치·실행 파일 검증 도구 |
-| `AlmondRhino/` | AlmondRhino 출력 폴더. 구현은 [외부 연결기 모듈](../cos/SPEC.md) 소유 |
+| `AlmondRhino/` | AlmondRhino 출력 폴더. 구현은 [외부 연결기 모듈](../beyond/SPEC.md) 소유 |
 
-Bridge의 유일한 plugin entry가 패널 등록과 Terminal 종료를 담당한다. Engine과 AlmondRhino는 별도 assembly다. Engine은 호스트 프로젝트를 참조하지 않는다. Bridge는 MCP 소유 `features/<기능>/native`의 C# 도구 구현과 재료 정책을 링크하므로 해당 변경도 빌드 입력이다.
+Bridge의 유일한 plugin entry가 패널 등록과 Terminal 종료를 담당한다. Engine과 AlmondRhino는 별도 assembly다. Engine은 호스트 프로젝트를 참조하지 않는다. Bridge는 MCP 소유 `features/<기능>/native`의 C# 도구 구현, `src/mcp/rhino`의 공용 C# 소스와 재료 정책을 빌드 입력으로 사용한다. [GeometryJson.Point](../mcp/rhino/GeometryJson.cs)는 점의 세 좌표를 그대로 배열에 넣는다. 문서 관측에서 유한하지 않은 좌표를 `null`로 표시하는 처리는 `DocumentObservation`에 둔다.
 
 ## 실행·관찰
 
@@ -27,7 +27,8 @@ Bridge 로드는 패널과 기존 native handler/helper만 준비한다. 구형 
 
 `NativeBinding`이 두 호스트의 공통 binding 구성·소유자 확인 발행·무효화·문서 identity·native drain 이후 worker gate를 잡은 locator/lease 해제를 소유한다. Terminal의 PTY와 AlmondRhino의 discovery·worker·slot 수명은 각 호스트가 소유한다. 다른 token의 ready/locator 기록은 덮어쓰거나 삭제하지 않는다.
 
-Terminal과 AlmondRhino는 공용 `RuntimeEnvironment`로 고정 RHP 출력 위치에서 `../mcp/runtime`에 해당하는 실제 경로를 계산해 사용한다. 개발 워크트리로 일상 Rhino 등록을 변경하지 않는다.
+Terminal과 AlmondRhino는 모델 경로를 표시하고 비교할 때 Engine의 `SessionFiles.Canonical`과 `SessionFiles.Same`을 사용한다. 각 호스트는 연결할 문서의 저장 상태와 문서 식별번호를 확인한다.
+두 호스트는 공용 `RuntimeEnvironment`로 고정 RHP 출력 위치에서 `../mcp/runtime`에 해당하는 실제 경로를 계산해 사용한다. 개발 워크트리로 일상 Rhino 등록을 변경하지 않는다.
 
 Terminal의 shell·AlmondHost 수명은 패널과 독립적이다. Rhino 시작이나 패널 복원은 실행을 시작하지 않는다. `RhinoTerminal`의 `On`/`Off`는 표시 상태와 무관하게 실행을 제어하고 `PanelToggle`은 표시만 바꾼다. 패널 없는 실행도 출력 소비와 문서 확인을 유지하며, 최근 128 Ki 문자 출력을 보관해 새 패널에 재생한다.
 패널 오른쪽 위 almond/resume 버튼은 기존 터미널 입력 경로로 명령과 Enter를 보낸다.
@@ -41,9 +42,9 @@ Terminal의 shell·AlmondHost 수명은 패널과 독립적이다. Rhino 시작�
 
 ## 도면 스타일
 
-`DrawingStyleManager`는 요청한 선종류의 이름까지 확인한다. 없는 이름에 대한 Rhino의 Continuous 반환을 해당 선종류가 존재한다는 근거로 사용하지 않는다.
-문서에 같은 이름의 선종류가 있으면 기존 인덱스를 레이어에 적용한다. 이미 연결된 도면의 선종 정의와 참조를 유지한다.
-레이어는 선종류의 이름을 지정한다. Python MCP는 패키지에 포함된 `profiles/linetype/manifest.json` 경로를 native 요청에 전달한다. 문서에 없는 이름이 필요할 때만 해당 파일을 읽는다. 새 정의의 각 세그먼트에는 유한한 양수 길이와 명시적인 실선/공백 여부가 필요하다. 필요한 파일을 읽을 수 없거나 정의가 누락 또는 유효하지 않으면 Undo 시작 전에 오류를 반환한다.
+`DrawingStyleManager`는 스타일 적용 한 번에 선종류 이름별로 문서를 한 번 조회한다. 앞뒤 공백과 대소문자만 다른 이름은 같은 선종으로 처리한다. Rhino가 없는 이름에 대해 Continuous를 반환할 수 있으므로 반환된 이름까지 대조한다.
+같은 선종을 요청한 레이어는 기존 인덱스나 이번 적용에서 만든 인덱스를 공유한다. 표준 D 선종이 매니페스트와 다르면 `overwrite=true`로만 교체할 수 있으며, 생성된 `D::PlanSection` 도면에서 사용하는 선종은 보호한다.
+Python MCP는 패키지의 `profiles/linetype/manifest.json` 경로를 native 요청에 전달한다. 새 선종을 만들거나 표준 D 선종의 패턴을 대조할 때 이 파일을 읽는다. Continuous에는 별도 정의가 필요 없다. 각 세그먼트에는 유한한 양수 길이와 명시적인 실선/공백 여부가 필요하다. 필요한 파일을 읽을 수 없거나 정의가 누락 또는 유효하지 않으면 Undo 시작 전에 오류를 반환한다.
 
 ## 공유 자원과 출력
 
@@ -61,9 +62,9 @@ Bridge 일상 빌드와 Yak 빌드는 같은 컴파일·archive·라이선스 �
 
 ## 검사
 
-각 구성요소의 `tests/`에 fixture를 둔다. 패널의 Node 검사는 자산 배치와 결과 선택을, Engine의 NativeFixture는 세션 identity·공유 잠금·완료 확인을, Terminal의 AlmondHostContracts는 소유권 해제를 검사한다. Bridge의 archive host는 오프라인 GLB 디코더 검사를 지원한다. 실행 방법과 범위는 [native 검사 안내](tests/README.md), Undo·관측의 현재 상태는 [별도 안내](RhinoAlmondBridge/tests/script_executor_undo/README.md)를 따른다.
+오프라인 개발 검사는 세션 공유 잠금, 인증된 요청의 문서 바인딩과 완료 확인, Grasshopper 일부 배치 복구, PlanSection Update의 배치 보존과 패널 표시 동작을 다룬다. Bridge의 archive host는 루트 검사에서 아카이브 디코더를 실행한다. [실행 방법과 범위](tests/README.md)를 참고한다.
 개발 검사는 [오프라인 검사 기준](../../tests/README.md)에 따라 Rhino·RhinoCore와 사용자 작업 파일을 사용하지 않는다. Rhino에서만 확인 가능한 동작은 검증 범위 밖으로 기록한다.
 
 현재 오프라인 fixture는 Bridge·연결 RHP의 실제 시작, 배포 명령 목록, 일상 worker와 배포 RHP의 라이브러리 캐시 일치를 검증하지 않는다. managed helper 검사는 Rhino 프로세스를 실행하거나 연결하지 않는다.
 
-Rhino의 지연 로드는 `LoadMode`와 `CommandList` 등록에 의존한다. 설치 스크립트는 바꿀 값을 계획하고 기존 키를 내보낸 다음 경로·로드 모드·명령을 적용한다. 쓰기나 최종 검증에 실패하면 이 실행이 수정한 값만 원복하며 이미 바뀐 다른 값은 보존한다. `-VerifyOnly`는 경로, 이름, DWORD 로드 모드, 명령 캐시를 대조한다. 오프라인 테스트는 대역 레지스트리로 반복 적용, 쓰기 실패 복구와 사용자 값 보존을 검증한다.
+Rhino의 지연 로드는 `LoadMode`와 `CommandList` 등록에 의존한다. 설치 스크립트는 바꿀 값을 계획하고 기존 키를 내보낸 다음 경로·로드 모드·명령을 적용한다. 명령 캐시에서는 등록 목록에 지정한 폐기 값만 제거한다. 쓰기나 최종 검증에 실패하면 이 실행이 수정한 값만 원복하며 이미 바뀐 다른 값은 보존한다. `-VerifyOnly`는 경로, 이름, DWORD 로드 모드, 현행 명령값과 폐기 값의 잔존 여부를 검사한다. 오프라인 테스트는 대역 레지스트리로 반복 적용, 쓰기 실패 복구와 사용자 값 보존을 검증한다.

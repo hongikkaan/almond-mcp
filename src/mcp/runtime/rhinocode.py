@@ -29,11 +29,21 @@ LANGUAGES = frozenset({"python", "python2", "csharp-script", "command"})
 VERIFIED_LANGUAGES: frozenset[str] = frozenset({"python", "python2", "csharp-script", "command"})
 RECEIPT_LIMIT = 65536
 RESULT_LIMIT = 16 * 1024 * 1024
+RESULT_FIELD_LIMIT = 128
 LOG_LIMIT = 1024 * 1024
 SOURCE_LIMIT = 262144
 _UUID = re.compile(r"[0-9a-f]{32}\Z")
 _HASH = re.compile(r"[0-9a-f]{64}\Z")
 _IDENTITY = ("token", "operation_id", "request_id", "nonce", "source_hash", "target")
+_EXECUTION_DIAGNOSTICS = frozenset({
+    "operation_id", "language", "exit_code", "native_status", "not_dispatched", "error",
+    "execution_complete", "user_code_started", "user_code_completed", "undo", "runtime_completion",
+    "native_pending", "native_uncertain", "external_pending", "external_uncertain",
+    "target_identity", "rhino_process_alive",
+})
+_LOG_STREAMS = ("stdout", "stderr", "cli_stdout", "cli_stderr")
+_LOG_DIAGNOSTICS = frozenset({"log_capture"}).union(
+    stream + suffix for stream in _LOG_STREAMS for suffix in ("_capture", "_display_error"))
 
 
 def _normal_path(value: str) -> str:
@@ -143,6 +153,12 @@ def execution_directory(call_root, journal: dict) -> Path:
 
 def find_request_manifest(call_root, request_id: str) -> Path | None:
     """Locate both supported layouts, checking the full ID after short-leaf lookup."""
+    match = _find_request_record(call_root, request_id)
+    return match[0] if match is not None else None
+
+
+def _find_request_record(call_root, request_id: str) -> tuple[Path, dict] | None:
+    """Keep the journal whose full ID and owned path matched the lookup."""
     if not isinstance(request_id, str) or not _UUID.fullmatch(request_id):
         raise ValueError("request_id must be a returned execution ID.")
     root = Path(call_root).absolute()
@@ -155,7 +171,7 @@ def find_request_manifest(call_root, request_id: str) -> Path | None:
         if execution_directory(root, journal) / "request.json" != manifest:
             raise ValueError("Retained execution path does not match its manifest.")
         if journal["request_id"] == request_id:
-            matches.append(manifest)
+            matches.append((manifest, journal))
     if len(matches) > 1:
         raise ValueError("Multiple retained executions have the same full request_id.")
     return matches[0] if matches else None
@@ -448,8 +464,10 @@ def _result_page(value, fields, offset, limit, *, initial=False):
         if unknown:
             raise ValueError("Unknown result_fields: " + ", ".join(sorted(unknown)))
         result = {key: page(value[key], key) if isinstance(value[key], list) else value[key] for key in keys}
-        info = dict(type="object", available_fields=list(value)[:128],
-                    field_count=len(value), fields_truncated=len(value) > 128, pages=pages)
+        info = dict(type="object", available_fields=list(value)[:RESULT_FIELD_LIMIT],
+                    field_count=len(value), fields_truncated=len(value) > RESULT_FIELD_LIMIT, pages=pages)
+        if info["fields_truncated"]:
+            info["metadata_truncated"] = True
     elif isinstance(value, list):
         result = page(value, "result")
         if fields is not None:
@@ -482,24 +500,32 @@ def _execution_summary(value):
     summary = {key: item for key, item in value.items() if key in keys}
     page = value.get("result_page", {})
     has_more = any(item.get("next_offset") is not None for item in page.get("pages", {}).values())
-    if has_more or page.get("metadata_truncated"):
+    show_page = has_more or page.get("metadata_truncated")
+    if show_page:
         summary["result_page"] = page
-    if has_more or "result_display_error" in value:
+    if show_page or "result_display_error" in value:
         for key in ("result_file", "result_bytes", "result_sha256"):
             if key in value:
                 summary[key] = value[key]
     return summary
 
 
+def _with_diagnostics(value):
+    details = {key: item for key, item in value.items()
+               if key in _EXECUTION_DIAGNOSTICS or (key in _LOG_DIAGNOSTICS and item)}
+    return {**value, "diagnostics": details} if details else value
+
+
 def execution_output(value, *, include_diagnostics=False):
     """Project a public result read without changing retained/lifecycle evidence."""
     if type(include_diagnostics) is not bool:
         raise ValueError("include_diagnostics must be a boolean.")
-    if (include_diagnostics or not isinstance(value, dict)
-            or value.get("completed") is not True or value.get("status") != "executed"
+    if not isinstance(value, dict):
+        return value
+    if (include_diagnostics or value.get("completed") is not True or value.get("status") != "executed"
             or value.get("exit_code") not in (None, 0)
             or value.get("mutation_state") in {"partial", "unknown"}):
-        return value
+        return _with_diagnostics(value)
     flags = ("pending", "uncertain", "native_pending", "native_uncertain",
              "external_pending", "external_uncertain")
     runtime = value.get("runtime_completion", {})
@@ -507,16 +533,16 @@ def execution_output(value, *, include_diagnostics=False):
             or any(value.get(key) or runtime.get(key) for key in flags)
             or any(value.get(key) for key in ("error", "result_error", "result_display_error", "cleanup_errors", "diagnostics_truncated"))
             or value.get("result_page", {}).get("metadata_truncated")):
-        return value
+        return _with_diagnostics(value)
     keys = {"request_id", "completed", "status", "mutation_state", "result", "result_page",
             "message", "warnings", "connection_state", "requires_reconnect", "recovery_only",
-            "target_identity", "rhino_process_alive", "log_capture"}
-    # Preserve explicitly requested log chunks and their byte paging/capture notes.
-    for stream in ("stdout", "stderr", "cli_stdout", "cli_stderr"):
-        keys.update((stream, stream + "_page", stream + "_capture", stream + "_display_error"))
+            "native_completed", "target_identity", "rhino_process_alive", *_LOG_DIAGNOSTICS}
+    # Carry requested log evidence and old binding identity through the public schema.
+    for stream in _LOG_STREAMS:
+        keys.update((stream, stream + "_page"))
     if "result" not in value:
         keys.add("result_available")
-    return {key: item for key, item in value.items() if key in keys}
+    return _with_diagnostics({key: item for key, item in value.items() if key in keys})
 
 
 class RhinocodeExecution:
@@ -629,10 +655,10 @@ class RhinocodeExecution:
     def _load(self, request_id):
         if request_id:
             root = Path(self.locations["call_root"]).absolute()
-            manifest = find_request_manifest(root, request_id)
-            if manifest is None:
+            match = _find_request_record(root, request_id)
+            if match is None:
                 raise ValueError("No unique retained execution for this request_id.")
-            journal = read_json(manifest)
+            manifest, journal = match
         else:
             journal = read_json(self.journal_path)
             root = Path(self.locations["call_root"]).absolute()
@@ -644,10 +670,11 @@ class RhinocodeExecution:
         return journal, manifest.parent
 
     def has_execution(self, request_id):
-        manifest = find_request_manifest(self.locations["call_root"], request_id)
-        if manifest is None:
+        match = _find_request_record(self.locations["call_root"], request_id)
+        if match is None:
             return False
-        _matches_binding(read_json(manifest), self.binding)
+        _, journal = match
+        _matches_binding(journal, self.binding)
         return True
 
     def get_execution(self, request_id="", *, include_result=True, include_stdout=False,
@@ -703,7 +730,7 @@ class RhinocodeExecution:
                 except (OSError, ValueError, TypeError, RecursionError) as exc:
                     result["result_display_error"] = str(exc)[:4000]
         if include_stdout:
-            for name in ("stdout", "stderr", "cli_stdout", "cli_stderr"):
+            for name in _LOG_STREAMS:
                 try:
                     path = _owned(directory / (name + ".txt"), Path(self.locations["call_root"]))
                     if path.exists():
@@ -721,4 +748,11 @@ class RhinocodeExecution:
             if final:
                 result["stdout_capture"] = final.get("stdout_capture", {})
                 result["stderr_capture"] = final.get("stderr_capture", {})
+        error = result.get("error")
+        if isinstance(error, dict):
+            error = error.get("message")
+        if isinstance(error, str) and error:
+            result.setdefault("message", error)
+        elif result.get("cleanup_errors"):
+            result.setdefault("message", "RhinoCode cleanup failed. Read script_03-get_execution tool for the retained evidence.")
         return result

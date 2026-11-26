@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Geometry;
+using RhinoAlmondBridge;
 
 // Helpers for nested block traversal, note ownership, and block occurrence resolution.
 // No selection or geometry edits.
@@ -46,8 +47,6 @@ public static class AlmondSpatial
         if (value == null) return null;
         return value.Length <= 512 ? value : value.Substring(0, 512) + "…";
     }
-
-    static JArray Point(Point3d p) { return new JArray(p.X, p.Y, p.Z); }
 
     public static JArray Matrix(Transform t)
     {
@@ -173,7 +172,7 @@ public static class AlmondSpatial
                     ["kind"] = "note", ["owner"] = ownerKey, ["id"] = obj.Id.ToString(),
                     ["name"] = Short(obj.Name), ["text"] = Short(dot.Text),
                     ["text_limited"] = dot.Text != null && dot.Text.Length > 512,
-                    ["layer"] = Short(layerName), ["point_local"] = Point(dot.Point)
+                    ["layer"] = Short(layerName), ["point_local"] = GeometryJson.Point(dot.Point)
                 })) return;
                 if (String.IsNullOrEmpty(obj.Name)) continue;
                 foreach (var target in objects) {

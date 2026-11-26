@@ -68,6 +68,12 @@ print(json.dumps(environment))
 '@ | & $offlinePython -B -X utf8 - $offlineRepo $offlineTempRoot $offlineData
 if ($LASTEXITCODE -ne 0) { throw 'Offline environment preparation failed.' }
 $offlineValues = $offlineJson | ConvertFrom-Json
+# MSBuild wildcard imports need an ordinary drive path. Windows may return an
+# extended-length spelling for the same local scratch directory.
+if ($offlineValues.TEMP -match '^\\\\\?\\([A-Za-z]:\\.*)$') {
+    $offlineValues.TEMP = $Matches[1]
+    $offlineValues.TMP = $offlineValues.TEMP
+}
 foreach ($entry in $offlineValues.PSObject.Properties) {
     [Environment]::SetEnvironmentVariable($entry.Name, [string]$entry.Value, 'Process')
 }

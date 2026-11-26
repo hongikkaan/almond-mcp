@@ -1,11 +1,17 @@
 """Feature-owned asset index queries using AlmondStore's shared connection."""
 from __future__ import annotations
 
+from enum import Enum, auto
 import re
 import sqlite3
 from typing import Any
 
 from almond_mcp.store_common import RETIRED_LIBRARY_ID, _utc_now, _json, _decode
+
+
+class AssetResult(Enum):
+    COMPACT = auto()
+    MANIFEST = auto()
 
 
 class AssetsStore:
@@ -227,6 +233,7 @@ class AssetsStore:
         exact_dimensions_only: bool = False,
         limit: int = 10,
         offset: int = 0,
+        record_format: AssetResult = AssetResult.COMPACT,
     ) -> dict[str, Any]:
         limit = max(1, min(int(limit), 50))
         offset = max(0, int(offset))
@@ -279,10 +286,9 @@ class AssetsStore:
                 query_sql,
                 [*parameters, limit, offset],
             ).fetchall()
-        assets = [
-            self.compact_asset(_decode(row["metadata_json"], {}))
-            for row in rows
-        ]
+        assets = [_decode(row["metadata_json"], {}) for row in rows]
+        if record_format is AssetResult.COMPACT:
+            assets = [self.compact_asset(asset) for asset in assets]
         next_offset = offset + len(assets)
         return {
             "total": total,

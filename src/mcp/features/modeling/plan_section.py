@@ -25,9 +25,9 @@ def _clipping_ids(clipping_ids):
 
 
 def unconfirmed_result(clipping_ids, message):
+    detail = f"{message}\n{UNCONFIRMED_GUIDE}" if message else UNCONFIRMED_GUIDE
     result = dict(status="error", error_code="plan_section_unconfirmed", mutation_state="unknown",
-                  requires_reconciliation=True, message=message or "PlanSection의 최종 응답을 확인할 수 없습니다.",
-                  next_step_guide=UNCONFIRMED_GUIDE)
+                  requires_reconciliation=True, message=detail)
     try:
         result["unconfirmed_clipping_ids"] = _clipping_ids(clipping_ids)
     except ValueError:
@@ -93,18 +93,21 @@ def dispatch(payload, send):
         result = json.loads(send(json.dumps(payload).encode("utf-8"), timeout=600.0))
         if not isinstance(result, dict):
             raise ValueError("The Bridge returned an invalid PlanSection response.")
-        drawing = result.get("result")
+        drawing = result.pop("result", None)
         operation = payload["operation"]
         include_attachments = payload.get("include_attachments", False if operation == "Create" else None)
         confirmed = not result.get("result_error") and _confirmed(drawing, payload["clipping_ids"], operation, include_attachments)
         if confirmed:
+            result.update(completed=drawing["completed"], requested=drawing["requested"], cuts=drawing["results"])
+            if "stop_reason" in drawing:
+                result["stop_reason"] = drawing["stop_reason"]
             unresolved = [item["clipping_id"] for item in drawing["results"]
                           if item.get("mutation_state") == "unknown" or item.get("cleanup_error")
                           or item.get("recovery", {}).get("requires_reconciliation")]
             if unresolved:
                 result["unconfirmed_clipping_ids"] = unresolved
                 result["requires_reconciliation"] = True
-                result["next_step_guide"] = UNCONFIRMED_GUIDE
+                result.setdefault("message", UNCONFIRMED_GUIDE)
         if result.get("status") != "success":
             if result.get("status") not in (None, "error"):
                 result["native_status"] = result["status"]
@@ -113,7 +116,7 @@ def dispatch(payload, send):
                 result["mutation_state"] = "unknown"
             if result["mutation_state"] == "unknown":
                 result["requires_reconciliation"] = True
-                result["next_step_guide"] = UNCONFIRMED_GUIDE
+                result.setdefault("message", UNCONFIRMED_GUIDE)
                 if not confirmed:
                     result["unconfirmed_clipping_ids"] = payload["clipping_ids"]
                     if isinstance(drawing, dict) and drawing.get("status") == "unconfirmed":
@@ -121,33 +124,27 @@ def dispatch(payload, send):
                         if (isinstance(cuts, list) and all(isinstance(i, dict) and i.get("status") in
                                 ("unconfirmed", "not_started") for i in cuts)
                                 and [i.get("clipping_id") for i in cuts] == payload["clipping_ids"]):
+                            result.update(requested=len(cuts), cuts=cuts)
                             result["unconfirmed_clipping_ids"] = [i["clipping_id"] for i in cuts if i["status"] == "unconfirmed"]
             return result
         if not confirmed:
             result.update(status="error", error_code="plan_section_result_unconfirmed",
                           mutation_state="unknown", requires_reconciliation=True,
-                          unconfirmed_clipping_ids=payload["clipping_ids"], next_step_guide=UNCONFIRMED_GUIDE,
-                          message="PlanSection ran but its result is unconfirmed. Inspect drawings before retrying.")
+                          unconfirmed_clipping_ids=payload["clipping_ids"], message=UNCONFIRMED_GUIDE)
             return result
         drawing_status = drawing["status"]
-        result["drawing_status"] = drawing_status
         if drawing_status == "failed":
             result.update(status="error", error_code="plan_section_failed",
                           message="완료를 확인한 컷이 없습니다. 클리핑별 결과와 관찰된 객체 GUID를 확인하세요.")
         elif drawing_status == "cancelled" and drawing.get("stop_reason") == "deadline":
             if result.get("requires_reconciliation") or drawing.get("requires_reconciliation"):
-                result.pop("drawing_status", None)
                 result.update(status="error", error_code="plan_section_recovery_unconfirmed",
-                              requires_reconciliation=True, next_step_guide=UNCONFIRMED_GUIDE,
-                              message="취소 요청을 받았으나 변경 복구를 확인할 수 없는 컷이 있습니다.")
+                              requires_reconciliation=True,
+                              message=f"취소 요청을 받았으나 변경 복구를 확인할 수 없는 컷이 있습니다. {UNCONFIRMED_GUIDE}")
             else:
-                result.update(status="timeout", next_step_guide=(
-                    "120초 취소 요청 후 Rhino가 안전한 지점에서 중단했습니다. 결과별 완료 컷의 object_ids를 확인하고, "
-                    "실패 컷의 도면 상태를 대조한 뒤 미완료 범위만 선택하세요."))
+                result.update(status="timeout", message="120초 취소 요청 후 Rhino가 중단과 정리를 완료했습니다.")
         else:
             result["status"] = "success" if drawing_status == "completed" else drawing_status
-            if drawing_status == "completed":
-                result["next_step_guide"] = "클리핑별 object_ids와 draw_plane으로 추출 도면을 확인한 뒤 다음 작업을 진행하세요."
         return result
     except Exception as exc:
         if dispatched:

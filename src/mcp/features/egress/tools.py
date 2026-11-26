@@ -7,7 +7,7 @@ from .inputs import validate_inputs
 
 def register(mcp, context):
     """Register egress checks and return the server compatibility exports."""
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     def check_egress(
         plate_bounds_mm: list[float],
         exits: list[dict],
@@ -18,22 +18,6 @@ def register(mcp, context):
         travel_distances_m: list[float] = [],
         dead_end_m: float = 0.0,
     ) -> str:
-        """층별 출구 수·유효 폭·이격·보행거리 예비 검토. Rhino에서 형상이나 경로를 읽지 않으므로 실제 층 경계와 문 중심·유효 폭, 가장 불리한 보행 경로를 직접 측정해 입력. 출구가 둘 이상이면 가장 먼 두 출구의 직선 이격을 검사.
-
-        출구는 문마다 한 번만 입력. 중복 중심, 좌표·폭 누락, 비유한 수, 음수 폭·거리·면적, 양의 정수가 아닌 층수, 면적이 0인 경계는 거절. 폭 0은 폭 부족 판정을 위해 허용.
-
-        비업무 용도의 보행거리는 업무용 기준으로 대체. 스프링클러가 있는 막다른 복도도 업무용 기준을 쓰며 용도 경고는 별도로 나오지 않음. 경계값에서는 표시값 반올림으로 판정이 달라 보일 수 있음. BCI와 통상적인 IBC 수치를 사용하므로 source_note·warnings를 프로젝트 적용 법규와 대조.
-
-        Args:
-            plate_bounds_mm: 층 바닥 경계 [min_x, min_y, max_x, max_y].
-            exits: 문마다 {"name": string, "x_mm": number, "y_mm": number, "width_mm": number}. 좌표는 문 중심, 폭은 유효 피난 폭.
-            occupancy: business, mercantile, assembly_unconcentrated, classroom, residential, storage.
-            stories: 출구가 담당하는 층수. 2층 이상이면 최소 2개 출구와 계단 폭 계수(7.6 mm/인) 적용.
-            sprinklered: 전체 구역 설치 기준.
-            net_area_m2: 실제 재실 면적. 0이면 층 경계의 직사각형 면적 사용.
-            travel_distances_m: 입력 길이 중 최댓값 검사. 빈 배열이면 검사 생략.
-            dead_end_m: 가장 긴 막다른 복도 길이. 0이면 검사 생략.
-        """
         rules = context.construction_library.reference.get("egress_rules")
         if not rules:
             return json.dumps(error_payload("egress_rules missing from the construction manifest."))

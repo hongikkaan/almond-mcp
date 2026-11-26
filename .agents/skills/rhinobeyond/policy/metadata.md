@@ -9,5 +9,5 @@
 
 ## 조회·검수
 
-- **객체를 찾을 때는 `inspect_02-get_objects`에서 기록한 저장소로 필터링한다.** 최상위 블록의 2층을 찾을 때는 `filters.user_dictionary`에 `[{"key":"Floor","any_of":["2F"]}]`를 넣는다. User Text에 기록한 정보에는 `filters.user_text`를 쓴다.
+- **객체를 찾을 때는 `inspect_02-get_objects` tool에서 기록한 저장소로 필터링한다.** 최상위 블록의 2층을 찾을 때는 `filters.user_dictionary`에 `[{"source":"attributes","key":"Floor","any_of":["2F"]}]`를 넣는다. User Text에 기록한 정보에는 `filters.user_text`를 쓴다.
 - **기존 값을 수정하기 전과 수정한 뒤에는 같은 저장소에서 읽어 확인한다.** `fields=["user_dictionary"]` 또는 `fields=["user_text"]`로 확인한다. 객체 속성과 형상에 붙은 값은 서로 다른 저장소에 있으므로 혼동하지 않는다. 전용 도구가 없어 스크립트를 쓸 때도 대상과 저장소를 명시한다.

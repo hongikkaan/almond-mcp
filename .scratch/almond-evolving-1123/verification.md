@@ -22,19 +22,17 @@
 ```powershell
 ./tests/verify_integration_worktree.ps1 -TicketWorktree (Get-Location).Path -ExpectedBase dbdb6f37cd25903883ca33227cf8b6c0f6dd9b01
 ./src/rhp/build.ps1 -PythonExecutable (Resolve-Path ./data/development/.venv/Scripts/python.exe).Path
-./src/cos/build.ps1
 & ./data/development/.venv/Scripts/python.exe -B src/rhp/tools/verify_runtime.py --record
 & ./data/development/.venv/Scripts/python.exe -B src/rhp/tools/verify_runtime.py
 ./src/mcp/run_tests.ps1 -Development -TestArgs @('-q','--tb=short')
-./src/cos/run_tests.ps1 -Development -TestArgs @('-q','--tb=short')
 ./tests/run_tests.ps1 -Development -TestArgs @('-q','--tb=short')
 & ./data/development/.venv/Scripts/python.exe -B -X utf8 .scratch/almond-evolving-1123/verify_catalog.py
 ```
 
-- 워크트리 기준 검사와 양쪽 빌드가 통과했다. 첫 Bridge 빌드의 Engine이 기존 AlmondRhino 출력과 달라 같은 dev에서 AlmondRhino도 빌드했다. Bridge 472개 소스·461개 런타임 파일, CoS 21개 소스·6개 런타임 파일의 기록과 검증이 통과했다.
+- 위 명령에 더해 당시 외부 연결기의 빌드와 모듈 검사를 실행했다. 워크트리 기준 검사와 양쪽 빌드가 통과했다. 첫 Bridge 빌드의 Engine이 기존 AlmondRhino 출력과 달라 같은 dev에서 AlmondRhino도 빌드했다. Bridge 472개 소스·461개 런타임 파일과 외부 연결기 21개 소스·6개 런타임 파일의 기록과 검증이 통과했다.
 - MCP 전체는 979개와 하위 사례 3개 통과, 6개 실패다. 여섯 건 모두 `test_stage2_asset_paths.py`의 파일·폴더 심볼릭 링크 fixture를 만들 때 Windows가 `WinError 1314`를 반환했다.
-- CoS 전체는 Python 116개와 .NET fixture 6묶음이 통과했다. 저장소 통합 검사는 53개 통과, 4개 실패다. 네 건은 `test_stdio_contract.py:58`의 한국어 종결형 검사에서 멈췄다. 기준 커밋 선언 문서의 1225·4138행 ‘아니다.’에서도 같은 패턴이 일치한다.
-- 문서의 설명 문구와 실제 카탈로그 설명 사이에는 기존 차이가 남아 있다. 별도의 실제 stdio 검사에서 worker 76개의 설명·스키마와 소스 카탈로그를 대조하고 beyond·CoS 각 81개에 대해 initialize, tools/list, 경로별 스키마·선언 해시, 문서에 적힌 공개 이름을 확인했다.
+- 당시 외부 연결기의 Python 116개와 .NET fixture 6묶음이 통과했다. 저장소 통합 검사는 53개 통과, 4개 실패다. 네 건은 `test_stdio_contract.py:58`의 한국어 종결형 검사에서 멈췄다. 기준 커밋 선언 문서의 1225·4138행 ‘아니다.’에서도 같은 패턴이 일치한다.
+- 문서의 설명 문구와 실제 카탈로그 설명 사이에는 기존 차이가 남아 있다. 별도의 실제 stdio 검사에서 worker 76개의 설명·스키마와 소스 카탈로그를 대조했다. 당시 직접 연결과 별도 앱 경유 연결에서 각 81개에 대해 initialize, tools/list, 경로별 스키마·선언 해시, 문서에 적힌 공개 이름을 확인했다.
 - Dashboard는 임시 DB와 헤드리스 Chromium에서 상세·비교 화면, Plan 개요와 반복 이력을 확인했다. 별도 검수 모델을 사용하는 실제 Rhino 동작은 후속 승인 대상이다.
 
 | dev 출력 | SHA-256 |
@@ -43,11 +41,11 @@
 | AlmondRhino/plugin-runtime/AlmondRhino.rhp | `b1954a8c0a1c5127b47ecc8e3e6ad9824066073ae4e355c8dc93fddbac5bf406` |
 | 두 출력의 Almond.Engine.dll | `48b59e6245519fefc0a2e084f7973295cdc75451171ab58765946d6037764bf0` |
 
-manifest는 `src/rhp/RhinoAlmondBridge/runtime-manifest.json`과 `src/cos/runtime-manifest.json`이다. 빌드 산출물은 이 dev의 `src/rhp` 아래에 있다. 생성된 실행 파일을 활용할 실제 모델 검수와 일상 폴더 병합은 별도 결정 단계다.
+manifest는 `src/rhp/RhinoAlmondBridge/runtime-manifest.json`과 당시 외부 연결기 폴더의 `runtime-manifest.json`이다. 빌드 산출물은 이 dev의 `src/rhp` 아래에 있다. 생성된 실행 파일을 활용할 실제 모델 검수와 일상 폴더 병합은 별도 결정 단계다.
 
 
 ## 11/24 루트 dev 실검수
 
 #14 객체 필터의 실제 결과와 예측값은 [객체 필터 티켓](issues/07-objects.md)에 기록했다. 표준 Beyond에서 수동으로 열린 시험 문서에 연결했다. 자동 파일 열기의 부모 Job 제한은 별도로 남아 있다. 이번 실제 검수는 #14를 대상으로 했으며, #08은 익환이 이번 회차에서 제외했고 #15는 보류했다.
 
-루트의 관련 자동 테스트 115개, worker 76개·CoS/Beyond 각 81개 공개 도구 선언 검사가 통과했다. 두 manifest 검증 결과는 Bridge 소스 473개·런타임 461개, CoS 소스 21개·런타임 6개다. 루트 검수본의 SHA-256은 Bridge RHP 45e6df04d158b69ae15a6c701b44a17dfeb0aa824156c008f5722a40731a62b0, AlmondRhino RHP 04cfc16bfcbcff4a6fb9930a3f6ba9f4a72125c61b934e4bd1f01cfbedcc3106, 공용 Engine DLL 71c43d32848650c7e046190e63d7bb524161213378f1948e9526f25e0e712726이다.
+루트의 관련 자동 테스트 115개, worker 76개, 당시 직접·별도 앱 경유 연결의 공개 도구 선언 각 81개 검사가 통과했다. 두 manifest 검증 결과는 Bridge 소스 473개·런타임 461개, 외부 연결기 소스 21개·런타임 6개다. 루트 검수본의 SHA-256은 Bridge RHP 45e6df04d158b69ae15a6c701b44a17dfeb0aa824156c008f5722a40731a62b0, AlmondRhino RHP 04cfc16bfcbcff4a6fb9930a3f6ba9f4a72125c61b934e4bd1f01cfbedcc3106, 공용 Engine DLL 71c43d32848650c7e046190e63d7bb524161213378f1948e9526f25e0e712726이다.

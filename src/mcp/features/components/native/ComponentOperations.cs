@@ -147,7 +147,7 @@ namespace RhinoAlmondBridge
                     if (bounds.IsValid)
                     {
                         zoomBounds = bounds;
-                        observations["target_bounds"] = new JObject { ["min"] = Coordinates(bounds.Min), ["max"] = Coordinates(bounds.Max) };
+                        observations["target_bounds"] = new JObject { ["min"] = GeometryJson.Point(bounds.Min), ["max"] = GeometryJson.Point(bounds.Max) };
                     }
                     else observations["target_bounds_error"] = "Target bounds are unavailable.";
                 }
@@ -184,16 +184,14 @@ namespace RhinoAlmondBridge
             }
         }
 
-        private static JArray Coordinates(Point3d point) => new JArray(point.X, point.Y, point.Z);
-
         private static JObject FocusViewState(RhinoViewport viewport)
         {
             try
             {
                 var state = new JObject { ["viewport_id"] = viewport.Id.ToString("D"),
                     ["parallel_projection"] = viewport.IsParallelProjection,
-                    ["camera_location"] = Coordinates(viewport.CameraLocation),
-                    ["camera_target"] = Coordinates(viewport.CameraTarget) };
+                    ["camera_location"] = GeometryJson.Point(viewport.CameraLocation),
+                    ["camera_target"] = GeometryJson.Point(viewport.CameraTarget) };
                 if (viewport.GetFrustum(out double left, out double right, out double bottom,
                     out double top, out double near, out double far))
                     state["frustum"] = new JArray(left, right, bottom, top, near, far);
