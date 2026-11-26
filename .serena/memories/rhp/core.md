@@ -1,6 +1,6 @@
 # Rhino 플러그인과 공유 Engine
 
-- `src/rhp/Engine`은 Bridge와 AlmondRhino가 공유하는 `Almond.Engine.dll`이며 개별 호스트에 의존하지 않는다. 두 연결 경로에서 모델 경로의 정규화·비교는 Engine의 `SessionFiles`가 맡는다. `src/rhp/RhinoAlmondBridge`는 Bridge RHP와 Terminal·패널·MCP 기능별 native 소스를 컴파일한다. Terminal은 별도 플러그인이 아니다.
+- `src/rhp/Engine`은 Bridge와 AlmondRhino가 공유하는 `Almond.Engine.dll`이며 개별 호스트에 의존하지 않는다. 두 연결 경로에서 모델 경로의 정규화·비교는 Engine의 `SessionFiles`가 맡는다. `src/rhp/RhinoAlmondBridge`는 Bridge RHP와 Terminal·패널·MCP 기능별 native 소스를 컴파일한다. Terminal은 별도 플러그인이 아니다. Terminal 실행과 대화 재개는 `src/mcp/SPEC.md`의 문서 전용 Codex 실행 절을 따른다.
 - 공용 패널 웹 원본은 `src/rhp/Asset_Panel/web`이며 Bridge archive와 wheel의 소비 경로를 함께 고려한다. Bridge·AlmondRhino의 assembly·GUID·명령과 Undo/Redo 계약을 보존한다.
 - 빌드·출력 계약은 `src/rhp/SPEC.md`, 오프라인 시나리오와 수동 검수 범위는 `src/rhp/tests/README.md`를 따른다. Native 범위는 공유 잠금·인증된 TCP 요청의 문서 소유권, 실패한 Grasshopper 출력의 복구, 패널 선택과 PlanSection 배치를 다룬다. ArchiveHost는 통합 범위에서 실행한다. 실제 RhinoCore 진단은 별도로 승인된 검수에서만 실행한다.
 - Engine `NativeBinding`이 Terminal/AlmondRhino의 binding 발행·무효화·drain을 공유한다. `BridgeDispatchContext`와 명시적인 Bridge provider가 private reflection을 대체하고 검증한 문서를 전달한다. `NativeUndoRecord`가 스크립트·도면 스타일·GH 변경의 Undo 소유권을 공유한다. 패널은 실제 표시한 결과의 문서/모델 근거를 대조하고, `RuntimeEnvironment`가 Terminal에 의존하지 않는 공용 실행 경로를 해석한다.

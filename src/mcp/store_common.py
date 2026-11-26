@@ -1,6 +1,5 @@
 """Shared serialization and reconciliation errors for feature-owned stores."""
 from __future__ import annotations
-from almond_mcp.instruction_text import read_instruction
 
 import json
 from datetime import datetime, timezone
@@ -25,7 +24,7 @@ class ComponentReconciliationError(RuntimeError):
 
     def __init__(self, component_id: str, model_path: str, message: str):
         super().__init__(
-            read_instruction(__file__, 'response-58').format(message, component_id)
+            f"{message} Inspect and reconcile component {component_id}; do not automatically retry."
         )
         self.component_id = component_id
         self.model_path = model_path
@@ -35,7 +34,7 @@ class DrawingSheetReconciliationError(RuntimeError):
     """A Layout operation may have succeeded while its ledger transaction failed."""
 
     def __init__(self, sheet_id: str, model_path: str, message: str):
-        super().__init__(read_instruction(__file__, 'response-59').format(message, sheet_id))
+        super().__init__(f"{message} Inspect and sync drawing sheet {sheet_id}; do not automatically retry.")
         self.sheet_id = sheet_id
         self.model_path = model_path
 

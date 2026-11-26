@@ -11,9 +11,11 @@ from runtime import ENGINE, WORKER_STATE_TOOL, catalog_identity, check_contract,
 from winpipe import process_identity
 
 
-def validate_external_binding(entry, args, binding, locations):
-    """Validate after acquiring this generation's MCP lease, before Almond import."""
-    current, _ = entry.read_binding(args.session, args.token)
+def validate_external_binding(args, binding, locations):
+    """Validate after acquiring this generation's MCP lease."""
+    from project import read_binding
+
+    current, _ = read_binding(args.session, args.token)
     if (current != binding or current.get("attachment") != "beyond"
             or current.get("storage_protocol") != 2):
         raise RuntimeError("External binding changed while the worker was acquiring its lease.")
@@ -52,7 +54,7 @@ def main() -> int:
 
     return entry.main(["--session", args.session, "--token", token, "--port", str(args.port),
                        "--expected-version", catalog["packages"]["almond-mcp"]],
-                      validate_binding=partial(validate_external_binding, entry),
+                      validate_binding=validate_external_binding,
                       configure=partial(configure_external_worker, catalog=catalog))
 
 

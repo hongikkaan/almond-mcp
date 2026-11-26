@@ -139,7 +139,7 @@ Click **Open full results ↗**, or type `AlmondResults`. The **Almond Results**
 
 ## 8. Use it from Claude
 
-With the daily checkout's MCP connection configured using [the connection guide](../../../../beyond/EXTERNAL_CLIENTS.md), your client can run the same engine on the objects you name or select:
+With the daily checkout's MCP connection configured using [the connection guide](../../../../beyond/SPEC.md#codex와-외부-mcp-클라이언트-사용), your client can run the same engine on the objects you name or select:
 
 - `analysis_02-validate_structure` tool: solve and check. Pass `detail=True` for the per-member and per-support tables. `design_code`, `fabrication`, `floor_load_kn_m2` and `asset_loads` match the panel settings.
 - `analysis_03-visualize_structure` tool: draw the deflected shape or a buckling mode (`view="buckling"`) in the viewport.

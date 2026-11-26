@@ -5,7 +5,7 @@
 | 사용 경로 | MCP 서버 이름 | 시작·진입점 | Rhino 쪽 플러그인 | 연결 방식 |
 |---|---|---|---|---|
 | RhinoTerminal | `Almond` | `RhinoTerminal On` → `almond` → `terminal_almond.ps1` → `codex.ps1` → `mcp_server.py` | `RhinoAlmondBridge` | 시작할 때 문서·슬롯·token이 정해짐. 문서 전용 `rhino_session` MCP 사용 |
-| 외부 Codex 직접 연결 | `beyond` | Codex에 등록한 `rhino` MCP → `src/beyond/codex_host.py` → `external_host.py` | `AlmondRhino` | `connect_02-session` tool 또는 `connect_03-start_session` tool에서 받은 `connection_id`를 대화가 보관하고 문서 대상 호출마다 전달 |
+| 외부 Codex 직접 연결 | `beyond` | 저장된 `rhino` 등록 또는 Codex CLI 실행별 설정 → `src/beyond/codex_host.py` | `AlmondRhino` | `connect_02-session` tool 또는 `connect_03-start_session` tool에서 받은 `connection_id`를 대화가 보관하고 문서 대상 호출마다 전달 |
 
 RhinoTerminal은 Codex `/exit`로 세션을 종료하고 `RhinoTerminal Off`로 터미널을 닫는다.
 beyond는 `connect_04-disconnect` tool로 연결을 해제하며 Rhino 문서를 저장하거나 닫지 않는다.
@@ -15,11 +15,12 @@ beyond에서 Rhino까지 종료할 때는 연결을 유지한 채 `connect_05-cl
 
 `connect_04-disconnect` tool 성공 응답의 `pid`·`model_path`는 해제한 대상을 식별하며 후속 안내는 해당 문서에 다시 연결한 뒤 `connect_05-close_session` tool을 쓰도록 한다. 해제가 미확정이면 종료 안내를 성공 응답으로 제공하지 않는다. RhinoTerminal의 `/exit`·`Off`는 기존 문서 전용 세션/터미널 종료 의미를 유지한다.
 
-외부 시작 버튼 `src/mcp/runtime/Almond 시작.cmd`도 문서 전용 Codex를 만드는 기존 관리 세션 경로다. 별도 창을 열며 RhinoTerminal과 같은 **문서 전용 세션 방식**을 사용한다.
+별도 창의 `src/mcp/runtime/Almond 시작.cmd`도 RhinoTerminal과 같은 문서 전용 세션 방식이다. [문서 전용 Codex 실행](../SPEC.md#문서-전용-codex-실행) · [Dot 클라이언트](../../beyond/SPEC.md#dot-클라이언트-사용)
 
 ## 공통 구현과 유지하는 계약
 
-`external_host.py`는 클라이언트별 지연 시작과 연결별 worker 생명주기를 조정한다.
+`codex_host.py`는 클라이언트별 지연 시작과 연결별 worker 생명주기를 조정한다.
+RhinoTerminal과 beyond의 worker는 `mcp_server.py`에서 `document_session.py`로 진입한다. 문서 세션은 binding과 lease를 확인하고 공통 MCP 서버에 `Workspace`, 문서 전용 도구, 외부 구성 훅을 연결한다. worker가 종료 기록을 남긴 뒤 lease를 반납한다.
 공유 gate·lease·native 완료 정책은 기존 runtime/Engine 계약을 사용한다. beyond는 정책 조회·연결 목록·연결·시작을 제외한 모든 도구의 최상위 입력에 `connection_id`를 요구한다. 생략 시 `connection_id가 지정되지 않았습니다`를 반환하고 중단한다. host가 이 인자를 소비하고 worker에는 공통 스키마의 인자만 전달한다.
 
 Rhino 플러그인의 assembly·namespace·출력 폴더는 `AlmondRhino`, 클래스는 `RhinoPlugin`·`RhinoHost`다.
@@ -42,7 +43,7 @@ Windows 패키지 앱의 AppData 가상화가 감지되면 `desktop_runtime.py`�
 
 ## 확인 단계
 
-1. **등록 확인** — Codex에서 `codex mcp get rhino --json`으로 저장된 `command`와 `args`를 읽는다. Python은 일상 폴더의 `src/engine/.venv/Scripts/python.exe`, 호스트는 같은 폴더의 `src/beyond/codex_host.py`여야 한다. 이전 주소나 퇴역 등록이 남아 있으면 [기존 설치 전환](../../beyond/EXTERNAL_CLIENTS.md#기존-설치-전환)을 따른다.
+1. **설정 확인**. Codex에서 `codex mcp get rhino --json`으로 적용된 `command`와 `args`를 읽는다. [실행별 설정](../../beyond/SPEC.md#한-번-설정하기)을 쓰면 같은 `-c` 인자를 검사에도 전달한다. Python은 일상 폴더의 `src/engine/.venv/Scripts/python.exe`, 호스트는 같은 폴더의 `src/beyond/codex_host.py`여야 한다. 이전 주소나 퇴역 등록이 남아 있으면 [기존 설치 전환](../../beyond/SPEC.md#기존-설치-전환)을 따른다.
 2. **서버 실행**: 새 MCP 프로세스의 초기화·도구 목록을 확인한다. stdio 검사 통과는 그 서버의 증거이며 특정 대화에 도구가 전달됐다는 증거가 아니다.
 3. **대화 도구 전달**: 실제 작업할 대화에서 `rhino`의 `connect_01-list_up` tool를 호출한다.
 4. **실제 Rhino 작업**: 사용자가 연결한 작업 문서의 기존 형상·뷰·Layout에서 기능을 검증한다.
@@ -51,4 +52,4 @@ Windows 패키지 앱의 AppData 가상화가 감지되면 `desktop_runtime.py`�
 로컬 MCP를 전달하지 않는 원격/위임 실행 환경에서는 3단계가 막힐 수 있다.
 그 경우 로컬 Windows Codex 실행 환경으로 작업을 옮기거나 플랫폼의 직접 MCP 전달이 필요하다. 이 저장소의 Python 변경이나 로컬 설정 등록만으로 원격 대화의 도구 목록을 바꿀 수 없다.
 
-실제 설치·사용 절차는 [외부 클라이언트 안내](../../beyond/EXTERNAL_CLIENTS.md)를 따른다.
+실제 설치·사용 절차는 [외부 클라이언트 안내](../../beyond/SPEC.md#codex와-외부-mcp-클라이언트-사용)를 따른다.

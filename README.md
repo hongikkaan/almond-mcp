@@ -7,7 +7,7 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, AlmondRhino는 별도 RHP로 구
 - [저장소 구조와 데이터 계약](SPEC.md)
 - [용어](GLOSSARY.md) · [RhinoTerminal·beyond 연결 경로](src/mcp/runtime/CONNECTION-SPEC.md)
 - [모듈 소유권과 의존 방향](SPEC.md#소유권과-의존-방향)
-- [Codex·외부 MCP 클라이언트 연결](src/beyond/EXTERNAL_CLIENTS.md)
+- [Codex·외부 MCP 클라이언트 연결](src/beyond/SPEC.md#codex와-외부-mcp-클라이언트-사용)
 - [Rhino 패널 사용법](src/mcp/features/assets/guides/rhino-archive-quickstart.md)
 - [DB Dashboard — SQLite 자료·구조 자동 탐색](src/mcp/runtime/dashboard/README.md)
 - [자산 검색·배치·도면·출처 관리](src/mcp/features/assets/SPEC.md)
@@ -18,7 +18,7 @@ Bridge·패널·RhinoTerminal은 하나의 RHP, AlmondRhino는 별도 RHP로 구
 - [구조해석 사용법](src/mcp/features/structure/guides/tutorial.md) · [native solver](src/mcp/features/structure/SPEC.md) · [Karamba 경로](src/mcp/features/structure/validation/SPEC.md) · [설계 코드](src/mcp/features/structure/PROFILES-SPEC.md)
 - [구법 안내](src/mcp/features/guidance/construction-guide.md) · [구법 참조표](src/mcp/profiles/construction_system/SPEC.md)
 
-이전 Codex 연결을 사용했다면 [일회성 전환 절차](src/beyond/EXTERNAL_CLIENTS.md#기존-설치-전환)를 따릅니다. 설치 명령은 자동 생성된 Codex 등록을 갱신합니다. 이전 실행·종료 기록을 계속 조회하려면 같은 안내에 따라 기록도 옮깁니다.
+이전 Codex 연결을 사용했다면 [일회성 전환 절차](src/beyond/SPEC.md#기존-설치-전환)를 따릅니다. 기존 Codex 등록이 이전 경로를 가리키는 경우 일상 폴더의 현행 경로로 갱신합니다. 이전 실행·종료 기록을 계속 조회하려면 같은 안내에 따라 기록도 옮깁니다.
 `almondconnect`가 없으면 [AlmondRhino 등록 경로](AGENTS.md#일상-실행과-최초-설치)부터 확인합니다. 올바른 RHP가 아직 로드되지 않은 프로세스에서는 공식 `Rhino.PlugIns.PlugIn.LoadPlugIn(fullPath)`로 기존 파일을 직접 로드할 수 있습니다. Python에서는 반환값이 `(LoadPlugInResult, Guid)`이며, 로드 후 명령 존재와 실제 assembly 경로를 확인합니다. 이 방식은 로드된 구형 assembly를 교체하는 기능이 아닙니다.
 직접 연결 주소와 Rhino 명령 등록까지 전환한 뒤에는 Rhino 종료 → `git pull --ff-only` → Rhino 시작 순서로 업데이트합니다.
 Git에 실행 파일이 포함되어 있어 일반 업데이트마다 빌드하거나 재등록할 필요는 없습니다.

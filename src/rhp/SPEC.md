@@ -32,7 +32,7 @@ Terminal과 AlmondRhino는 모델 경로를 표시하고 비교할 때 Engine의
 
 Terminal의 shell·AlmondHost 수명은 패널과 독립적이다. Rhino 시작이나 패널 복원은 실행을 시작하지 않는다. `RhinoTerminal`의 `On`/`Off`는 표시 상태와 무관하게 실행을 제어하고 `PanelToggle`은 표시만 바꾼다. 패널 없는 실행도 출력 소비와 문서 확인을 유지하며, 최근 128 Ki 문자 출력을 보관해 새 패널에 재생한다.
 패널 오른쪽 위 almond/resume 버튼은 기존 터미널 입력 경로로 명령과 Enter를 보낸다.
-자세한 절차는 [Terminal 사용법](RhinoTerminal/사용법.txt)을 따른다.
+시작, 대화 재개와 종료는 [문서 전용 Codex 실행](../mcp/SPEC.md#문서-전용-codex-실행)을 따른다. AlmondRhino의 무효화 기록과 해제 재시도는 [beyond 연결 계약](../beyond/SPEC.md#의존연결-계약)에 둔다.
 
 ## 문서 변경과 비동기 결과
 
