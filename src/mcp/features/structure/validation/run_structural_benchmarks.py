@@ -1,11 +1,11 @@
-"""Print the native solver's benchmark table (closed-form + Karamba cross-check) as Markdown.
+"""Print closed-form solver benchmarks, with an optional measured Karamba comparison.
 
     uv run python src/mcp/features/structure/validation/run_structural_benchmarks.py
 
-The same cases are asserted in src/mcp/tests/test_frame_solver.py and src/mcp/tests/test_native_structure.py;
-this script only renders the numbers for src/mcp/features/structure/SPEC.md."""
+Pass --karamba-reference <json> to include measurements from an external Karamba run."""
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import sys
@@ -56,8 +56,8 @@ def closed_form():
     return rows
 
 
-def karamba():
-    ref = json.loads((ROOT / "src" / "mcp" / "tests" / "data" / "karamba_reference.json").read_text())
+def karamba(reference):
+    ref = json.loads(reference.read_text(encoding="utf-8"))
     rows = []
     for case in ref["cases"]:
         mm = lambda p: [v / 1000 for v in p]
@@ -75,11 +75,16 @@ def karamba():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--karamba-reference", type=Path)
+    args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     print("| Case | Closed form | Exact (mm) | Native (mm) | Error |\n| --- | --- | ---: | ---: | ---: |")
     for name, formula, exact, got in closed_form():
         print(f"| {name} | {formula} | {exact * 1000:.4f} | {got * 1000:.4f} | {abs(got / exact - 1):.1e} |")
-    rows, prov = karamba()
+    if args.karamba_reference is None:
+        return
+    rows, prov = karamba(args.karamba_reference)
     print(f"\nKaramba reference: {prov['engine']}, {prov['date']}.\n")
     print("| Model | Section | Load (kN) | Karamba δ (mm) | Native δ (mm) | Δ | Karamba u | Native u | Δ |")
     print("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")

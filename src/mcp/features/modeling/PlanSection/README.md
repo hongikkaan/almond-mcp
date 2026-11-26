@@ -59,11 +59,10 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 ## 개발 검사
 
-리포 루트에서 개발 환경을 구성한 뒤 실행한다. 실제 Rhino나 모델을 열지 않는다.
+리포 루트에서 [오프라인 실행기](../../../../rhp/tests/README.md)를 호출한다. PlanSection Update에서 기존 JSON과 typed 배치가 일치하면 저장 높이를 유지하고, 충돌하면 바꾸기 전에 오류를 반환하는지 확인한다.
 
 ```powershell
-./src/mcp/use_offline_environment.ps1 -Development
-& ./data/development/.venv/Scripts/python.exe -B -X utf8 -m unittest discover -s src/mcp/features/modeling/PlanSection/tests -p 'test_*.py'
+./src/rhp/run_tests.ps1 -Development
 ```
 
 기존 `TEST.3dm`과 native 검사 도구도 함께 보관하지만, 실제 사용 검증은 사용자가 지정한 연결 문서에서 별도로 수행한다. 모의 API 검사 통과를 실제 단면·UI·PDF 품질 검증으로 간주하지 않는다. 직접 Rhino에서 실행하는 Python 파일과 전용 도구의 embedded 알고리즘은 배포 경로가 다르다. 전용 도구 경로는 `PlanSection.py` 변경 시 Bridge RHP 재빌드와 runtime manifest 갱신이 필요하며, 실제 Rhino 로드 확인은 별도 검증이다. typed Point3d·Plane 조회를 지원하는 `features/context/native/ObjectObservation.cs` 변경도 Bridge 재빌드·로드 검증이 필요하다.

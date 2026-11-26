@@ -1,5 +1,6 @@
 """Publish the beyond and RhinoTerminal stdio catalogs as reproducible Markdown."""
 import asyncio
+from contextlib import asynccontextmanager
 import hashlib
 import json
 import os
@@ -44,10 +45,12 @@ def render_catalogs(beyond, terminal):
 
 def isolated_environment(directory, checkout=ROOT):
     env = dict(os.environ)
-    for variable in ("ALMOND_TEST_MODEL", "ALMOND_TEST_TOKEN", "ALMOND_TEST_SLOT"):
-        env.pop(variable, None)
+    for variable in env.copy():
+        if variable.startswith(("ALMOND_", "ALMONDRHINO_", "RHINO_MCP_")):
+            del env[variable]
     env.update(ALMOND_TEST_ROOT=str(directory), RHINO_MCP_STATE_DB=str(directory / "direct.sqlite3"),
-               PYTHONPATH=os.pathsep.join(str(checkout / path) for path in ("src/mcp", "src/mcp/runtime", "src/beyond")))
+               PYTHONPATH=os.pathsep.join(str(checkout / path) for path in ("src/mcp", "src/mcp/runtime", "src/beyond")),
+               FASTMCP_CHECK_FOR_UPDATES="off")
     for variable in paths.LIBRARY_DIRS:
         location = directory / variable
         location.mkdir(parents=True, exist_ok=True)
@@ -74,9 +77,15 @@ def stdio_parameters(route, directory, checkout=ROOT, *, model_name="disposable.
                                  env=env, cwd=checkout)
 
 
+@asynccontextmanager
+async def open_stdio(params):
+    async with stdio_client(params) as (reader, writer):
+        async with ClientSession(reader, writer, read_timeout_seconds=45.0) as client:
+            yield client, await client.initialize()
+
+
 async def read_catalog(params):
-    async with stdio_client(params) as (reader, writer), ClientSession(reader, writer) as client:
-        initialized = await client.initialize()
+    async with open_stdio(params) as (client, initialized):
         tools = {t.name: t.model_dump(mode="json", by_alias=True, exclude_none=True)
                  for t in (await client.list_tools()).tools}
         return initialized, tools

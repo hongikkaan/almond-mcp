@@ -76,22 +76,17 @@ Task가 직접 기록한 관계는 해당 Task에서 읽습니다. 다른 Task�
 
 ## 개발 검사
 
-[Dashboard 작업 지침](AGENTS.md)과 [개발 검사 안내](../../../../tests/README.md)를 따릅니다. 개발 검사는 일회용 DB와 host 대역을 사용하며 Rhino·RhinoCore를 실행하거나 연결하지 않습니다.
+[Dashboard 작업 지침](AGENTS.md)과 [개발 검사 안내](../../../../tests/README.md)를 따릅니다. 일회용 DB와 로컬 서버에서 접근 제어, 파일 선택, Loop 기록 조회, WAL 읽기와 DB 보존을 확인합니다.
 
 ```powershell
 ./src/mcp/run_tests.ps1 -Development -TestArgs @('-q', '-k', 'dashboard')
-dotnet run --project src/rhp/Asset_Panel/tests/DashboardHostContracts -c Release
-node --check src/mcp/runtime/dashboard/web/app.js
-node --check src/mcp/runtime/dashboard/web/domain.js
 ```
 
-브라우저 검사는 개발용 Playwright가 필요합니다. 런타임 의존성에는 추가하지 않습니다. 개발용 위치에 Playwright를 준비하고 해당 디렉터리를 지정한 뒤 실행합니다.
+브라우저 검사는 설치된 Chrome과 별도로 준비한 개발용 Playwright를 사용합니다. 좁은 창에서 필터·Task 선택 복원과 과거 Loop의 Step 상세를 확인합니다.
 
 ```powershell
 $env:PLAYWRIGHT_MODULE = '<개발용 node_modules>\playwright'
-node src/mcp/tests/runtime/dashboard_browser.cjs
-node src/mcp/tests/runtime/dashboard_browser.cjs --plan-outline
-node src/mcp/tests/runtime/dashboard_browser.cjs --loop-history
+node src/mcp/tests/runtime/dashboard_journey.cjs
 ```
 
-브라우저 검사는 임시 DB·자체 서버로 여섯 조회, 원시 UI 미노출, 현재 Step 판단, 필터·펼침 복원과 팝업 닫기를 확인합니다. RHP의 경로·중복 실행·주소 검증·실패·종료 계약은 [Dashboard host fixture](../../../rhp/Asset_Panel/tests/DashboardHostContracts/README.md)를 따릅니다. 이 fixture의 SDK 컴파일은 실제 Rhino 패널 로드 검증과 다릅니다.
+기본 Python 경로는 `data/development/.venv/Scripts/python.exe`입니다. 다른 개발 환경은 `DASHBOARD_TEST_PYTHON`으로 지정합니다. Rhino에서의 패널 로드와 문서 전환은 [실제 Rhino 통합 검수](../../../../tests/README.md#실제-rhino-통합-검수) 범위입니다.

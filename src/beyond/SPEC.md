@@ -28,7 +28,7 @@ connect_02-session tool는 discovery host를 재사용하고 connect_04-disconne
 | `data/tool_catalog.json` | `build_catalog.py`로 만드는 Git 추적 제외 개발용 export. 런타임은 현재 소스에서 schema를 생성함 |
 | `binding_watch.py`, `winpipe.py` | 연결 변경 감시와 Windows 제어 채널 |
 | `rhp/` | Rhino 내부 almondconnect·almonddisconnect 명령·host 탐색·문서 binding |
-| `tests/`, `run_tests.ps1` | Python 계약과 오프라인 Engine·Terminal 수명·제어 pipe 검사. 실제 AlmondRhino host 전체 수명주기는 별도 검증 필요 |
+| `tests/`, `run_tests.ps1` | 연결 수명과 실행 결과 복구, Python 클라이언트와 C# 제어 파이프 사이의 통신을 검사한다. 실제 AlmondRhino 호스트는 Rhino 통합 검수에서 확인한다. |
 | `build.ps1`, `runtime-manifest.json` | AlmondRhino RHP 빌드와 소스·실행 파일 검증 기록 |
 
 ## 의존·연결 계약

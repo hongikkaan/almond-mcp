@@ -4,9 +4,9 @@ param(
     [string]$PythonExecutable = '', [string]$ScratchDirectory = ''
 )
 $ErrorActionPreference = 'Stop'
-& (Join-Path $PSScriptRoot 'use_offline_environment.ps1') -Development:$Development -DotNet $DotNet -RequireDotNet -PythonExecutable $PythonExecutable -ScratchDirectory $ScratchDirectory
+& (Join-Path $PSScriptRoot 'use_offline_environment.ps1') -Development:$Development -DotNet $DotNet -PythonExecutable $PythonExecutable -ScratchDirectory $ScratchDirectory
 $python = $env:ALMOND_TEST_PYTHON
-# Keep native receipt paths below MAX_PATH without reusing retained failure files.
+# Keep Windows test paths short and isolate concurrent runs.
 do {
     $pytestTemporary = Join-Path $env:TEMP ('p' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 } while (Test-Path -LiteralPath $pytestTemporary)

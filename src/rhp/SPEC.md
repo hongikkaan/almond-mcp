@@ -62,7 +62,7 @@ Bridge 일상 빌드와 Yak 빌드는 같은 컴파일·archive·라이선스 �
 
 ## 검사
 
-각 구성요소의 `tests/`에 fixture를 둔다. 패널의 Node 검사는 자산 배치와 결과 선택을, Engine의 NativeFixture는 세션 identity·공유 잠금·완료 확인을, Terminal의 AlmondHostContracts는 소유권 해제를 검사한다. Bridge의 archive host는 오프라인 GLB 디코더 검사를 지원한다. 실행 방법과 범위는 [native 검사 안내](tests/README.md), Undo·관측의 현재 상태는 [별도 안내](RhinoAlmondBridge/tests/script_executor_undo/README.md)를 따른다.
+오프라인 개발 검사는 세션 공유 잠금, 인증된 요청의 문서 바인딩과 완료 확인, Grasshopper 일부 배치 복구, PlanSection Update의 배치 보존과 패널 표시 동작을 다룬다. Bridge의 archive host는 루트 검사에서 아카이브 디코더를 실행한다. [실행 방법과 범위](tests/README.md)를 참고한다.
 개발 검사는 [오프라인 검사 기준](../../tests/README.md)에 따라 Rhino·RhinoCore와 사용자 작업 파일을 사용하지 않는다. Rhino에서만 확인 가능한 동작은 검증 범위 밖으로 기록한다.
 
 현재 오프라인 fixture는 Bridge·연결 RHP의 실제 시작, 배포 명령 목록, 일상 worker와 배포 RHP의 라이브러리 캐시 일치를 검증하지 않는다. managed helper 검사는 Rhino 프로세스를 실행하거나 연결하지 않는다.

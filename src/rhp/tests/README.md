@@ -1,24 +1,18 @@
-# Native 오프라인 검사
+# Rhino 플러그인 오프라인 검사
 
-개발 환경 준비, .NET SDK 지정과 변경 유형별 실행기 선택은 [개발 검사 안내](../../../tests/README.md)를 따른다.
+리포 루트에서 .NET 8 SDK, 개발용 Python 환경과 Node를 사용한다. SDK가 PATH에 없으면 `-DotNet <dotnet.exe>`를 지정한다. [개발 검사 안내](../../../tests/README.md)를 참고한다.
 
-| 실행기 | Native 검사 범위 |
+```powershell
+./src/rhp/run_tests.ps1 -Development
+```
+
+| 검사 | 확인하는 동작 |
 | --- | --- |
-| 외부 연결기 실행기 | [NativeFixture](../Engine/tests/NativeFixture.csproj)는 실제 Engine의 세션 경로, 공유·배타 잠금과 완료 영수증 fence를 검사한다. [AlmondHostContracts](../RhinoTerminal/tests/AlmondHostContracts/AlmondHostContracts.csproj)는 Rhino UI와 native bridge를 대역으로 두고 두 호스트의 종료 소유권과 foreign ready/locator 보존을 검사한다. [DispatchFixture](../Engine/tests/dispatch/DispatchFixture.csproj)는 실제 BoundBridge TCP 인증·큐·native callback·완료/실패 drain을 Rhino adapter 대역으로 실행한다. [PipeFixture](../../beyond/tests/PipeFixture.csproj)는 제어 파이프의 토큰과 연결 종료를 검사한다. |
-| 루트 실행기 | [ArchiveHost](../RhinoAlmondBridge/tests/archive_host/ArchiveHost.csproj)를 빌드해 실제 `ArchiveMeshData` 디코더를 사용하는 Python 통합 검사에 제공한다. `--overlay <임시 폴더>`는 실제 HTTP 응답에서 같은 size/mtime의 drawing 변조를 거절하는지 검사한다. |
-| GH·분석 수명 fixture | [GrasshopperFixture](../RhinoAlmondBridge/tests/grasshopper/GrasshopperFixture.csproj)는 전체 production runner의 출력 preflight·Undo 실패/복구·불확실한 GUID를 검사한다. [AnalysisLifetime](../Structural_Analysis/tests/lifetime/AnalysisLifetime.csproj)는 실제 Request→UI queue→비동기 결과 적용에서 문서/형상/속성/닫기/이름/패널 수명을 검사한다. 계산·Rhino 표시 자체는 adapter 대역이다. |
-| 도면 스타일 fixture | Rhino 문서 테이블을 대역으로 두고 실제 스타일 적용 코드에서 임시 매니페스트를 사용한 생성, 동일명 정의와 참조 재사용, 반복 적용 및 새 정의가 없을 때의 오류를 검사한다. |
-| Asset Panel Node 검사 | 모델 배치 가능 여부와 결과 선택·정렬을 검사한다. 체크아웃 루트에서 아래 명령을 실행한다. |
+| [NativeBehavior](NativeBehavior/Program.cs) | Windows 공유·배타 잠금, localhost TCP 요청 인증, UI 콜백 직전 같은 경로의 다른 문서 인스턴스 거절, 일치하는 RhinoCode 완료 영수증을 받은 뒤 연결 해제를 확인한다. |
+| [CapsuleRecovery](CapsuleRecovery/Program.cs) | Grasshopper 출력을 일부 배치한 뒤 실패했을 때 기존 객체를 보존하는지 확인한다. Undo 실패 시 남은 객체 GUID와 재확인 필요 상태를 돌려주는지 확인한다. |
+| [PlanSection Update](../../mcp/features/modeling/PlanSection/tests/test_update_placement.py) | 기존 JSON과 typed 배치 메타데이터가 함께 있는 도면의 높이를 유지하고, 두 값이 충돌하면 기존 도면을 보존하는지 확인한다. |
+| [Asset Panel](../Asset_Panel/tests/results_view.test.mjs) | 판정 상태에 따른 3DM 배치 버튼과 Karamba 결과의 모델 객체 검색·누락 수치 표시를 확인한다. |
 
-```powershell
-node --test (Get-ChildItem src/rhp/Asset_Panel/tests -Filter *.test.mjs | ForEach-Object FullName)
-```
+루트 검사의 [ArchiveHost](../RhinoAlmondBridge/tests/archive_host/ArchiveHost.csproj)는 아카이브 디코더와 HTTP 응답 테스트의 실행 도구다. HTTP 검사는 `--serve <bundle-dir> <snapshot.json>`으로 테스트용 서버를 띄운다.
 
-도면 스타일 fixture는 체크아웃 루트에서 실행한다.
-
-```powershell
-dotnet build src/rhp/RhinoAlmondBridge/tests/drawing_style/DrawingStyleFixture.csproj --artifacts-path data/drawing-style-fixture
-dotnet data/drawing-style-fixture/bin/DrawingStyleFixture/debug/DrawingStyleFixture.dll
-```
-
-이 fixture들은 Rhino 프로세스를 열거나 연결하지 않고 실행한다. 추출한 viewport helper 검사는 raster 설정만 확인하며 production dispatch 검사를 대신하지 않는다. Undo/Redo와 Rhino 문서 관측의 현재 상태는 [Undo·관측 검증 안내](../RhinoAlmondBridge/tests/script_executor_undo/README.md)를 참고한다. Rhino UI·ConPTY와 실제 AlmondRhino host의 전체 수명주기는 오프라인 검증 범위 밖이다. 빌드·등록·실제 로드의 증거와 미검증 동작은 [결과 보고 기준](../../../tests/README.md#결과-보고-기준)에 따라 기록한다.
+Rhino API 경계는 대역으로 실행한다. 실제 Rhino 문서의 Undo/Redo, 교차·Boolean·HLD·해치, 뷰포트, 패널 렌더링 및 RHP 로드는 별도 검증 범위다. [Undo·관측 안내](../RhinoAlmondBridge/tests/script_executor_undo/README.md)를 참고한다.

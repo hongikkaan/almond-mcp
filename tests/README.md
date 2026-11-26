@@ -2,42 +2,43 @@
 
 ## 변경에 맞는 검사 선택
 
-개발 검사는 Rhino를 사용하지 않는 오프라인 검사로 수행한다. 실행 중인 Rhino와 연결된 사용자 문서, RhinoCore를 사용하는 fixture는 개발 검사 범위 밖이다. 명령은 체크아웃 루트의 PowerShell에서 실행한다. 여러 변경 유형이 겹치면 각 유형이 영향을 주는 검사 범위를 함께 본다.
+체크아웃 루트의 PowerShell에서 실행한다. 모든 범위를 한 번씩 실행하려면 다음 명령을 쓴다.
 
-| 변경 유형 | 검사와 판단 기준 |
+```powershell
+./tests/run_tests.ps1 -Development
+```
+
+작은 변경은 같은 명령에 `-Scope`를 붙여 영향을 받는 경계를 선택한다. 예를 들어 `./tests/run_tests.ps1 -Development -Scope Mcp`는 모델을 열지 않고 기능 호출과 저장 결과를 확인한다.
+
+| 범위 | 실패하면 확인할 동작 |
 | --- | --- |
-| 저장소 안내 문서만 변경 | 변경된 링크·앵커를 확인하고 명령·전제·설명은 해당 스크립트와 구현에 대조한다. 문서가 실제 제품 입력으로 쓰이는 경우에는 소비 경로에 맞는 검사도 선택한다. |
-| MCP Python 구현 변경 | `./src/mcp/run_tests.ps1 -Development`로 모듈 회귀를 검사한다. 모듈 경계·공개 계약·패키징에 영향이 있으면 루트 검사도 사용한다. |
-| Python 공개 도구 계약 변경 | MCP 모듈 검사와 `./tests/run_tests.ps1 -Development`를 사용한다. 구현 옆 지침·[출력 계약](../src/mcp/output_contracts.py)·[공개 스키마 기준](integration/tool_schemas.json)을 비교한다. 스키마 변경이 의도된 경우 기준의 차이를 검토한다. 루트 검사는 실제 stdio와 beyond 카탈로그의 계약을 확인한다. |
-| 외부 연결기·native 계약 변경 | `./src/beyond/run_tests.ps1 -Development`로 외부 연결기의 Python 계약과 Engine·Terminal·pipe fixture를 검사한다. Archive·패널 등 변경된 소비 경로는 [native 검사 안내](../src/rhp/tests/README.md)에서 고른다. |
-| 공유 Engine 변경 | 외부 연결기 실행기의 Engine fixture를 실행하고 영향을 받는 소비 경로를 검사한다. [RHP 빌드 절차](../AGENTS.md#개발빌드반영)에 따라 Bridge와 AlmondRhino를 모두 빌드한 뒤 두 manifest와 Engine DLL 일치를 확인한다. 루트 전체 검사(`./tests/run_tests.ps1 -Development`)에는 배포 파일 대조가 포함되므로 빌드와 manifest 기록을 마친 상태에서 실행한다. |
-| 배포용 자산 원본·출처 변경 | `& ./data/development/.venv/Scripts/python.exe -B tests/verify_library_sources.py`로 저장소에 포함된 생성 모델의 경로·바이트 해시·출처 기록을 확인한다. 설치된 AppData 라이브러리나 Rhino에서의 자산 사용은 별도 확인 범위다. |
+| `Mcp` | Plan·Step 수정 후 재조회, 기존 DB 이전 중 데이터 보존, 자산 파일 경계와 무결성, 구조 계산·보고서, 모델 요청의 불확실한 결과, 연결별 저장 공간과 Dashboard 조회 |
+| `Beyond` | 특정 문서에 연결·종료, 중복 실행 방지, 취소·시간 초과 뒤 결과를 원래 요청에서만 조회, Python과 C# 제어 파이프 통신 |
+| `Native` | [native 검사 안내](../src/rhp/tests/README.md)에 지정된 C# 동작, 패널 선택, PlanSection 출력의 성공·실패 처리 |
+| `Dot` | 로컬 통신 상대와 실제 Dot CLI 사이의 요청·응답·오류 처리 |
+| `Integration` | 실제 stdio에서 양쪽 도구 선언과 시작 안내, 두 연결의 데이터 격리, 설치 패키지의 정책 조회, 배포 모델의 ArchiveHost 디코딩과 변경된 파일 거부, 런타임 배포·등록 계약 |
+
+공개 도구가 바뀌면 해당 기능 범위와 `Integration`을 함께 실행한다. [출력 계약](../src/mcp/output_contracts.py), [공개 스키마](integration/tool_schemas.json), [현행 선언 문서](../TOOL-DECLARATIONS-CURRENT.md)를 실제 응답과 대조한다. Engine 변경은 [두 RHP의 빌드와 manifest 기록](../AGENTS.md#개발빌드반영)을 마친 뒤 전체 검사를 실행한다.
+
+검사를 추가하기 전에 어떤 입력에서 사용자에게 보이는 결과가 어떻게 달라지는지 정한다. 저장과 복구는 새 연결에서 다시 읽은 값으로, 구조 계산은 독립적인 손계산으로, 공개 계약은 실제 메시지로 판정한다. 실패 시 보존해야 할 파일이나 기록도 확인한다. 동일한 고장을 기존 검사에서 재현할 수 있으면 그 사례를 사용한다.
 
 ## 오프라인 검사 준비
 
-체크아웃별 개발 환경을 처음 준비하거나 잠금 의존성을 동기화할 때 실행한다.
+1. 이 체크아웃에서 `./src/mcp/rebuild_environment.ps1 -Development`로 `data/development/.venv`를 준비한다.
+2. 전체 검사에는 .NET 8 SDK, Node.js, 로컬 Python 패키지 빌드 캐시가 필요하다. SDK 자동 탐색에 실패하면 `-DotNet '<SDK의 dotnet.exe 절대 경로>'`를 추가한다. `Mcp`와 `Dot`은 Python만으로 실행한다.
+3. 실행기는 현 체크아웃의 Python·자산 경로와 오프라인 DB·임시 폴더를 설정한다. 기본 위치는 `data/offline/`, `data/t/`다. `-ScratchDirectory`로 별도 검사 폴더를 지정할 수 있다. 개별 명령을 직접 실행할 때는 별도 셸에서 `./src/mcp/use_offline_environment.ps1 -Development`로 같은 경로를 설정한다.
 
-```powershell
-./src/mcp/rebuild_environment.ps1 -Development
-```
+Python 범위 안에서 한 사례를 재실행하려면 `-Scope`와 pytest 인자를 함께 준다. 예를 들어 `-Scope Mcp -TestArgs @('-k', 'cantilever')`로 외팔보 계산·보고서를 확인한다. 전체 실행에 준 `-TestArgs`는 루트 통합 검사에 적용된다. [릴리스 준비](../src/rhp/tools/prepare_release.ps1)도 같은 전체 진입점을 사용하고 각 Python 범위의 JUnit 결과를 릴리스 폴더에 기록한다.
 
-세 `run_tests.ps1`은 `-Development`로 실행하면 이 체크아웃의 `data/development/.venv`를 사용한다. 실행기가 오프라인 경로를 직접 설정한다. 세 실행기 모두 .NET 8 SDK를 확인하며, 자동 탐색에 실패하면 `-DotNet`에 SDK의 `dotnet.exe` 경로를 전달한다.
+Beyond 검사가 실패하면 실행기가 출력한 임시 폴더에서 해당 요청의 `request.json`과 완료 기록을 대조한다. 각 실행은 별도 폴더에 제어 파이프 검사 프로그램을 빌드한다.
 
-로컬 도구를 별도 셸에서 직접 실행하면서 같은 데이터 경로가 필요한 경우에만 `./src/mcp/use_offline_environment.ps1 -Development`를 호출한다. 라이브러리는 체크아웃의 `asset/`을 사용하고, 해당 원본 폴더가 없으면 `data/offline/libraries/` 밑에 대체 경로를 만든다. 상태 DB는 `data/offline/state.sqlite3`, TEMP/TMP는 체크아웃의 짧은 `data/t/` 경로를 사용한다. 설정은 현재 셸과 자식 프로세스에 적용되므로 일반 실행은 새 셸에서 시작한다. 검사의 오프라인 범위는 Rhino와 일상 연결·데이터를 사용하지 않는다는 뜻이다. 예를 들어 패키징 검사는 `uv build --offline`이 사용하는 로컬 uv 캐시에 빌드 의존성이 준비되어 있어야 한다.
+## 별도 확인이 필요한 작업
 
-## 실행기별 확인 범위
-
-- [MCP 모듈 실행기](../src/mcp/run_tests.ps1)는 자체 `pytest.ini`로 `src/mcp/tests`를 실행한다.
-- [외부 연결기 실행기](../src/beyond/run_tests.ps1)는 Engine·Terminal·pipe fixture를 빌드하고 실행한 뒤 `src/beyond/tests`를 실행한다.
-- [루트 실행기](run_tests.ps1)는 독립 ArchiveHost를 빌드하고 절대 실행 파일 경로를 `ALMOND_ARCHIVE_TEST_HOST`로 지정한 뒤 루트 `tests/`를 실행한다. ArchiveHost가 필요한 검사를 pytest에서 직접 선택하면 해당 실행 파일이 필수이며, 누락 시 수집 단계에서 오류가 난다.
-- [stdio 계약 검사](integration/test_stdio_contract.py)는 실제 Python MCP 서비스를 자식 프로세스로 시작한다. RhinoTerminal 검사와 도구 선언 문서 생성은 시험 폴더에 빈 `.3dm` 파일을 새로 만들고, 같은 이름의 파일이 있으면 중단한다. 자식 프로세스는 전달받은 시험 파일 경로로 연결 정보를 구성한다. 재연결 검사에서도 같은 경로를 재사용한다. 초기화 안내, 공개 도구 설명·가이드, worker 스키마와 beyond 카탈로그의 일치를 확인한다. 실제 모델링 동작은 이 검사의 범위 밖이다.
-- [설치된 CLI 실행기 검사](../src/mcp/tests/runtime/test_terminal_launch.ps1)는 `./src/mcp/tests/runtime/test_terminal_launch.ps1 -Codex <installed-codex.exe>`에서 실제 CLI의 설정 해석을 사용한다. OS의 binding 관측은 대역을 사용하고 대화형 실행은 가로챈다. 실제 RhinoTerminal 세션의 도구 목록은 연결 후 별도로 확인한다.
-
-[릴리스 준비 실행기](../src/rhp/tools/prepare_release.ps1)는 별도 셸에서 위 세 실행기와 패널 Node 검사를 호출한다. 릴리스용 Python 환경과 임시 폴더는 체크아웃 `data/t/` 아래에 두고, 세 pytest 결과를 릴리스 출력에 기록한다. SDK 경로를 지정할 때 `-DotNet`을 사용한다.
-
-오프라인 검사에서 다루는 모델링·계산 동작의 범위는 실제로 실행한 사례에 한정된다.
-
-Windows에서 symlink를 만드는 자산 경계 검사는 파일 시스템과 실행 환경의 symlink 생성 지원이 필요하다. `WinError 1314`가 symlink 생성에서 발생하면 해당 검사는 환경에서 중단된 것으로 기록하고, 전체 실행 결과에도 실패로 남긴다.
+- 설치된 Codex의 설정 해석은 [수동 CLI 검사](../src/mcp/tests/runtime/test_terminal_launch.ps1)에 `-Codex <설치한 codex.exe>`를 전달해 확인한다.
+- Dashboard 화면 변경은 [브라우저 검사](../src/mcp/runtime/dashboard/README.md#개발-검사)로 좁은 창에서 필터와 이전 Loop의 Step 선택을 확인한다. 이 검사는 로컬 Chrome과 Playwright가 필요하다.
+- 생성 자산의 배포 파일 전체와 출처는 `& ./data/development/.venv/Scripts/python.exe -B tests/verify_library_sources.py`로 대조한다.
+- 안내 문서만 변경한 경우 링크와 명령을 확인한다. MCP 클라이언트나 배포 패키지가 실제로 읽는 문서는 소비하는 경로까지 실행한다.
+- 오프라인 검사는 일회용 입력을 사용한다. 실제 모델의 형상·Undo/Redo·화면·Rhino 플러그인 로드는 아래 통합 검수에서 확인한다.
 
 ## 실제 Rhino 통합 검수
 

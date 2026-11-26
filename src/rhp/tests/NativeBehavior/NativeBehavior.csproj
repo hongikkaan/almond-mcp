@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Engine/BoundBridge.cs" />
+    <Compile Include="../../Engine/BridgeDispatchContext.cs" />
+    <Compile Include="../../Engine/ExternalExecutionFence.cs" />
+    <Compile Include="../../Engine/NativeLibraryRoots.cs" />
+    <Compile Include="../../Engine/RhinoBridgeTarget.cs" />
+    <Compile Include="../../Engine/SessionFiles.cs" />
+    <Compile Include="../../Engine/SharedStorageLease.cs" />
+    <Compile Include="../../Engine/WindowsPeerIdentity.cs" />
+  </ItemGroup>
+</Project>
