@@ -16,6 +16,8 @@ Use the current request, relevant conversation history, established decisions, a
 
 Investigate facts that can reasonably be established through available sources before asking the user to choose a technical scope or boundary that depends on them. Do not make the user repeat known facts or perform your investigative work. Read only materials relevant to defining the assignment. Do not modify the subject project during this skill without separate authorization.
 
+When rebuilding an existing design, identify which relationships the user wants to retain and which drawing, sketch, or model establishes each one. If a later correction supersedes part of a drawing, use the correction for that part. Carry the remaining agreed conditions forward.
+
 Identify the provisional objective and what remains undecided. If even the underlying problem is unclear, begin by discussing that rather than prematurely selecting an implementation approach.
 
 ### 2. Map decisions before asking
