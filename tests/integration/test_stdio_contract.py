@@ -5,7 +5,7 @@ import json
 
 from jsonschema import Draft202012Validator
 
-from render_tool_declarations import ROOT, open_stdio, render_catalogs, stdio_parameters
+from render_tool_declarations import CATALOG_SNAPSHOT, ROOT, open_stdio, render_catalogs, stdio_parameters
 
 
 CONNECT_TOOLS = {
@@ -88,5 +88,5 @@ def test_public_catalogs_and_guide(tmp_path):
         Draft202012Validator.check_schema(tool["inputSchema"])
         Draft202012Validator.check_schema(tool["outputSchema"])
 
-    published = (ROOT / "TOOL-DECLARATIONS-CURRENT.md").read_text(encoding="utf-8")
+    published = CATALOG_SNAPSHOT.read_text(encoding="utf-8")
     assert published == render_catalogs(beyond, terminal)

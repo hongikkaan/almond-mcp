@@ -15,6 +15,7 @@ from almond_mcp import paths
 
 
 ROOT = Path(__file__).resolve().parents[2]
+CATALOG_SNAPSHOT = Path(__file__).with_name("tool_catalogs.md")
 
 
 def render_catalogs(beyond, terminal):
@@ -97,4 +98,4 @@ if __name__ == "__main__":
     with TemporaryDirectory(dir=scratch, prefix="tools-") as temporary:
         _, beyond = asyncio.run(read_catalog(stdio_parameters("beyond", Path(temporary) / "beyond")))
         _, terminal = asyncio.run(read_catalog(stdio_parameters("terminal", Path(temporary) / "terminal")))
-    (ROOT / "TOOL-DECLARATIONS-CURRENT.md").write_text(render_catalogs(beyond, terminal), encoding="utf-8", newline="\n")
+    CATALOG_SNAPSHOT.write_text(render_catalogs(beyond, terminal), encoding="utf-8", newline="\n")

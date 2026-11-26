@@ -18,7 +18,7 @@
 | `Dot` | 로컬 통신 상대와 실제 Dot CLI 사이의 요청·응답·오류 처리 |
 | `Integration` | 실제 stdio에서 양쪽 도구 선언과 시작 안내, 두 연결의 데이터 격리, 설치 패키지의 정책 조회, 배포 모델의 ArchiveHost 디코딩과 변경된 파일 거부, 런타임 배포·등록 계약 |
 
-공개 도구가 바뀌면 해당 기능 범위와 `Integration`을 함께 실행한다. [출력 계약](../src/mcp/output_contracts.py), [공개 스키마](integration/tool_schemas.json), [현행 선언 문서](../TOOL-DECLARATIONS-CURRENT.md)를 실제 응답과 대조한다. Engine 변경은 [두 RHP의 빌드와 manifest 기록](../AGENTS.md#개발빌드반영)을 마친 뒤 전체 검사를 실행한다.
+공개 도구가 바뀌면 해당 기능 범위와 `Integration`을 함께 실행한다. [출력 계약](../src/mcp/output_contracts.py), [공개 스키마](integration/tool_schemas.json), [런타임 선언 스냅샷](integration/tool_catalogs.md)를 실제 응답과 대조한다. Engine 변경은 [두 RHP의 빌드와 manifest 기록](../AGENTS.md#개발빌드반영)을 마친 뒤 전체 검사를 실행한다.
 
 검사를 추가하기 전에 어떤 입력에서 사용자에게 보이는 결과가 어떻게 달라지는지 정한다. 저장과 복구는 새 연결에서 다시 읽은 값으로, 구조 계산은 독립적인 손계산으로, 공개 계약은 실제 메시지로 판정한다. 실패 시 보존해야 할 파일이나 기록도 확인한다. 동일한 고장을 기존 검사에서 재현할 수 있으면 그 사례를 사용한다.
 
