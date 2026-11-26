@@ -51,7 +51,7 @@ _-RunPythonScript "C:\TOOL\Rhino\mcp\almond-mcp\src\mcp\features\modeling\PlanSe
 
 로컬 clipping의 `draft_plane`은 UserDictionary의 RhinoCommon `Plane`, 출력의 `ps:placement`는 UserDictionary의 `Point3d`로 저장한다. 기존 user text JSON도 호환을 위해 함께 기록한다. 두 값이 모두 있으면 좌표·(Plane의 경우) 축을 검증하며 불일치는 오류다. typed 값이 없는 구 도면은 기존 JSON으로 읽을 수 있다. 비수평 clipping은 실제 CPlane의 방향을 확인하고 설정 지침에 따라 축을 지정해야 하며, 스크립트가 CPlane을 자동 회전시키지 않는다.
 
-전용 응답의 `status`는 전체 완료 `success`, 일부 완료 `partial`, 사용자 취소 `cancelled`, 120초 취소 요청 후 중단·정리 확인 `timeout`, 또는 `error`다. `result.status`에는 알고리즘의 completed/partial/cancelled/failed가 보존된다. 바깥 Undo가 실패하면 unconfirmed와 관찰된 객체 GUID, 영향 미확인 컷과 미시작 컷만 남는다. `result.results`에는 GUID별 완료·건너뜀·실패·취소·미시작, 생성·이동된 object_ids, 배치 평면과 보고서가 들어간다. `algorithm_sha256`는 실제 RHP에 포함된 알고리즘의 해시다. 부분 완료는 이미 완료한 도면을 되돌리지 않는다. 시간 초과·결과 불명은 rollback을 뜻하지 않으며 native 완료 상태와 기존 도면을 확인하기 전 재실행하지 않는다. 실행기 Undo 안에서 기존 `run_selected`가 같은 record를 재사용한다. Rhino에서 스크립트를 직접 실행할 때는 활성 모델의 형상을 사용한다. 첨부 형상을 포함해 생성한 도면을 다시 계산할 때는 `drawing_06-generate_plan_section` tool에서 Update를 사용한다.
+전용 응답의 `status`는 전체 완료 `success`, 일부 완료 `partial`, 사용자 취소 `cancelled`, 120초 취소 요청 후 중단·정리 확인 `timeout`, 또는 `error`다. `cuts`에는 클리핑별 상태, 관찰한 객체 GUID, 배치 평면과 보고서가 들어간다. 바깥 Undo가 실패하면 이미 시도한 컷은 `unconfirmed`, 남은 컷은 `not_started`로 표시한다. `unconfirmed_clipping_ids`가 있으면 해당 도면의 완료 상태를 확인한 뒤 다음 작업을 결정한다. 부분 완료 시 이미 완료한 도면은 남는다. 실행기 Undo 안에서 기존 `run_selected`가 같은 record를 재사용한다. Rhino에서 스크립트를 직접 실행할 때는 활성 모델의 형상을 사용한다. 첨부 형상을 포함해 생성한 도면을 다시 계산할 때는 `drawing_06-generate_plan_section` tool에서 Update를 사용한다.
 
 거리별 입면선 0.09→0.04mm·darkness 80→45% 기본값은 내부 style 구분과 최종 객체 인쇄 속성에 모두 적용된다. 단면선·해치는 기존 레이어 인쇄 속성을 따른다.
 

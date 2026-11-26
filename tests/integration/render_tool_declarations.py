@@ -1,4 +1,4 @@
-"""Publish the beyond and RhinoTerminal stdio catalogs as reproducible Markdown."""
+"""Regenerate the checked-in public contracts from offline stdio routes."""
 import asyncio
 from contextlib import asynccontextmanager
 import hashlib
@@ -16,6 +16,12 @@ from almond_mcp import paths
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG_SNAPSHOT = Path(__file__).with_name("tool_catalogs.md")
+SCHEMA_BASELINE = Path(__file__).with_name("tool_schemas.json")
+SCHEMA_FIELDS = ("name", "inputSchema", "outputSchema", "annotations")
+
+
+def schema_baseline(terminal):
+    return {name: {key: tool.get(key) for key in SCHEMA_FIELDS} for name, tool in terminal.items()}
 
 
 def render_catalogs(beyond, terminal):
@@ -98,4 +104,7 @@ if __name__ == "__main__":
     with TemporaryDirectory(dir=scratch, prefix="tools-") as temporary:
         _, beyond = asyncio.run(read_catalog(stdio_parameters("beyond", Path(temporary) / "beyond")))
         _, terminal = asyncio.run(read_catalog(stdio_parameters("terminal", Path(temporary) / "terminal")))
-    CATALOG_SNAPSHOT.write_text(render_catalogs(beyond, terminal), encoding="utf-8", newline="\n")
+    declarations = render_catalogs(beyond, terminal)
+    schemas = json.dumps(schema_baseline(terminal), ensure_ascii=False, indent=2) + "\n"
+    CATALOG_SNAPSHOT.write_text(declarations, encoding="utf-8", newline="\n")
+    SCHEMA_BASELINE.write_text(schemas, encoding="utf-8", newline="\n")

@@ -9,6 +9,7 @@ from fastmcp import FastMCP
 from PIL import Image
 
 from almond_mcp.features.context import tools as context_tools
+from almond_mcp.features.drawings import tools as drawing_tools
 from almond_mcp.features.modeling import tools as modeling_tools
 
 
@@ -52,6 +53,26 @@ def test_invalid_scope(call_tool):
     assert attempted == []
 
 
+def test_object_geometry_and_dictionary(tmp_path, monkeypatch, call_tool):
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(tmp_path / "Atrium.3dm"))
+    fields = ["geometry_valid", "solid", "manifold", "volume", "user_dictionary"]
+    attributes = {"values": {"source_id": "author metadata"}, "total_keys": 1, "truncated": False}
+    observed = {"id": FIRST, "geometry_valid": True, "solid": True, "manifold": True, "volume": 4000,
+                "user_dictionary": {"attributes": attributes}}
+
+    def bridge(raw):
+        request = json.loads(raw)
+        if request["type"] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {"object_observation": 4}})
+        assert request["fields"] == fields
+        return json.dumps({"status": "success", "objects": [observed]})
+
+    server = with_bridge(context_tools.register, bridge)
+    reply, evidence = call_tool(server, "inspect_02-get_objects", fields=fields)
+    assert not reply.is_error
+    assert evidence["objects"] == [{key: observed[key] for key in fields}]
+
+
 def test_lost_section_reply(tmp_path, monkeypatch, call_tool):
     model = str(tmp_path / "Courtyard.3dm")
     monkeypatch.setenv("ALMOND_MODEL_PATH", model)
@@ -73,6 +94,67 @@ def test_lost_section_reply(tmp_path, monkeypatch, call_tool):
     attempt, = received
     assert attempt["type"] == "plan_section" and attempt["clipping_ids"] == [FIRST, SECOND]
     assert attempt["expected_model_path"] == model
+
+
+@pytest.mark.parametrize(
+    ("native_status", "cut_status", "expected_status"),
+    [("success", "completed", "success"), ("runtime_error", "unconfirmed", "error")],
+)
+def test_section_cut_evidence(tmp_path, monkeypatch, call_tool, native_status, cut_status, expected_status):
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(tmp_path / "Courtyard.3dm"))
+    cut = {"clipping_id": FIRST, "status": cut_status, "object_ids": [SECOND]}
+    drawing = {"requested": 1, "results": [cut], "status": cut_status}
+    if native_status == "success":
+        drawing["completed"] = 1
+        cut["draw_plane"] = {"origin": [0, 0, 0], "xaxis": [1, 0, 0], "yaxis": [0, 1, 0]}
+
+    def bridge(raw, **_options):
+        if json.loads(raw)["type"] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {"plan_section": 4}})
+        return json.dumps({"status": native_status, "result": drawing})
+
+    server = with_bridge(modeling_tools.register, bridge)
+    _, evidence = call_tool(server, "drawing_06-generate_plan_section", operation="Move",
+                            clipping_ids=[FIRST], points={FIRST: [0, 0]})
+    assert evidence["status"] == expected_status
+    assert evidence["requested"] == 1 and evidence["cuts"] == [cut]
+    assert "result" not in evidence
+    if native_status == "success":
+        assert evidence["completed"] == 1
+    else:
+        assert evidence["requires_reconciliation"] and evidence["unconfirmed_clipping_ids"] == [FIRST]
+
+
+def test_drawing_style_print_review(call_tool):
+    recipe = {"layers": [], "review_preparation": {"print_display": True}}
+    server = FastMCP("Bound drawing workflow")
+    drawing_tools.register(server, SimpleNamespace(
+        drawing_recipe_indexer=SimpleNamespace(get={"sample": recipe}.get),
+        _send_and_receive=lambda _raw, **_options: '{"status":"success","layers":[]}',
+    ))
+    _, style = call_tool(server, "drawing_01-apply_style", recipe_id="sample")
+    assert "_Scope=_Document _Viewport=_Model" in style["print_display_review"]["macro"]
+
+
+def test_material_list_details(tmp_path, call_tool):
+    server = FastMCP("Bound material library")
+    material = {"material_id": "oak", "name": "Oak", "category": "Wood", "roughness": 0.5}
+    modeling_tools.register(server, SimpleNamespace(material_library=SimpleNamespace(
+        directory=tmp_path, list=lambda **_filters: [material],
+    )))
+    _, summary = call_tool(server, "model_04-list_materials")
+    assert summary["materials"] == [{key: material[key] for key in ("material_id", "name", "category")}]
+    _, detailed = call_tool(server, "model_04-list_materials", field_groups=["display"])
+    assert detailed["materials"] == [material]
+
+
+def test_layout_capture_rejects_detail_labels(tmp_path, monkeypatch, call_tool):
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(tmp_path / "Atrium.3dm"))
+    attempted = []
+    server = with_bridge(context_tools.register, attempted.append)
+    reply, evidence = call_tool(server, "capture_04-defined_view", target_kind="layout", target="A4", labels=True)
+    assert reply.is_error and evidence["error_code"] == "invalid_arguments"
+    assert attempted == []
 
 
 @pytest.mark.parametrize("destination", ["available", "blocked"])

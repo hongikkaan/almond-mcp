@@ -12,7 +12,10 @@ from mcp.client.stdio import stdio_client
 
 
 ROOT = Path(__file__).resolve().parents[3]
-HOST = ROOT / "src/beyond/codex_host.py"
+BEYOND = ROOT / "src/beyond"
+HOST = BEYOND / "codex_host.py"
+sys.path.insert(0, str(BEYOND))
+from winpipe import read_hosts
 
 
 async def call(client, name, arguments):
@@ -32,8 +35,14 @@ async def verify_connection(client, pid, start_ticks, model):
     try:
         async with asyncio.timeout(30):
             while True:
+                # The public listing exposes host IDs. The local advertisement
+                # establishes the process identity independently of that reply.
+                host_ids = {
+                    record["host_id"] for record in read_hosts(BEYOND / "data")
+                    if record["pid"] == pid and str(record["process_start_ticks"]) == start_ticks
+                }
                 inventory = await call(client, "connect_01-list_up", {})
-                targets = [target for target in inventory["targets"] if target.get("pid") == pid]
+                targets = [target for target in inventory["targets"] if target.get("host_id") in host_ids]
                 if targets:
                     break
                 await asyncio.sleep(0.25)
@@ -45,8 +54,8 @@ async def verify_connection(client, pid, start_ticks, model):
     target = targets[0]
     if target.get("state") != "available":
         raise RuntimeError(f"Rhino PID {pid} is {target.get('state')}: {target.get('reason')}")
-    if str(target.get("process_start_ticks")) != start_ticks or not has_model(target, model):
-        raise RuntimeError(f"Beyond discovered the wrong Rhino process or model: {target.get('model_path')}")
+    if not has_model(target, model):
+        raise RuntimeError(f"Beyond discovered the wrong model for Rhino PID {pid}: {target.get('model_path')}")
 
     connection = await call(client, "connect_02-session", {
         "host_id": target["host_id"], "model_path": target["model_path"],
@@ -55,8 +64,10 @@ async def verify_connection(client, pid, start_ticks, model):
     if not isinstance(connection_id, str) or not connection_id:
         raise RuntimeError("Beyond did not return a connection_id for the verification connection.")
     try:
-        if (connection.get("state") != "ready" or connection.get("pid") != pid
-                or connection.get("host_id") != target["host_id"] or not has_model(connection, model)):
+        inventory = await call(client, "connect_01-list_up", {})
+        bound = next((row for row in inventory["targets"] if row.get("connection_id") == connection_id), {})
+        if (connection.get("state") != "ready" or bound.get("state") != "ready"
+                or bound.get("host_id") != target["host_id"] or not has_model(bound, model)):
             raise RuntimeError("Beyond did not bind the intended Rhino PID and test model.")
     finally:
         released = await call(client, "connect_04-disconnect", {"connection_id": connection_id})

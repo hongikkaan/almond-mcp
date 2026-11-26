@@ -53,6 +53,8 @@ def test_step_history_and_pause(tmp_path, call_tool):
     _, selected_plan = call_tool(reopened, GET, request=plan)
 
     assert selected_plan["status"] == "paused"
+    assert selected_plan["plan_id"] == plan["plan_id"]
+    assert current["step_id"] == previous["step_id"] == step["step_id"]
     assert current["status"] == "running" and current["revision"] == paused_revision + 1
     assert current["step"]["input_refs"] == ["survey.md"]
     assert current["step"]["output_refs"] == ["entrance.png"]
@@ -66,7 +68,8 @@ def test_phase_edit_is_atomic(tmp_path, call_tool):
         catalog.upsert_project_file(name)
     server = planning_server(database)
     _, created = call_tool(server, CREATE, request={
-        "target": "phase", "name": "Survey", "file_name": ["Proposed.3dm", "Existing.3dm"],
+        "target": "phase", "name": "Survey", "description": "Record existing circulation",
+        "file_name": ["Proposed.3dm", "Existing.3dm"],
     })
     phase = {"target": "phase", "phase_id": created["phase"]["phase_id"]}
 
@@ -76,8 +79,14 @@ def test_phase_edit_is_atomic(tmp_path, call_tool):
     assert rejected["status"] == "error"
     assert "Missing.3dm" in rejected["message"]
     _, saved = call_tool(planning_server(database), GET, request={**phase, "include_details": True})
+    assert saved["phase_id"] == phase["phase_id"]
     assert saved["name"] == "Survey"
     assert saved["phase"]["file_name"] == ["Proposed.3dm", "Existing.3dm"]
+    _, listed = call_tool(server, LIST, request={"target": "phase", "field_groups": ["description", "scope", "audit"]})
+    row, = listed["phases"]
+    assert row["description"] == "Record existing circulation"
+    assert row["file_name"] == saved["phase"]["file_name"]
+    assert row["created_at"] and row["updated_at"]
     assert len(AlmondStore(database).list_project_files()["files"]) == 3
 
 

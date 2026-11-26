@@ -99,7 +99,7 @@ class Workflow:
             self.pending = None
             if choice == "skip":
                 self.skipped.add(pending["key"])
-                previous = {"status": "skipped", "number": pending["number"], "geometry_changed": False}
+                previous = {"status": "skipped", "number": pending["number"], "edited": False}
             else:
                 trim, keep = pending["handles"][choice - 1], pending["handles"][2 - choice]
                 if trim["path"] or keep["path"]:
@@ -116,6 +116,7 @@ class Workflow:
                 ):
                     response.update(status="error", error_code="intersection_resolution_unconfirmed",
                                     requires_reconciliation=True, mutation_state="unknown",
+                                    geometry_change_possible=True,
                                     message="The edit result is unconfirmed; inspect the target before any retry.")
                 if response.get("status") != "success":
                     self.blocked = bool(response.get("requires_reconciliation") or response.get("mutation_state") == "unknown")
@@ -225,8 +226,7 @@ class Workflow:
                 self.number += 1
                 identity = uuid4().hex
                 self.pending = {"review_id": identity, "number": self.number, "handles": handles, "key": key}
-                review.update(state="awaiting_choice", review_id=identity, number=self.number,
-                              next_step="Inspect this image and objects[].number, then call intersect_02-resolve tool with review_id=<this review_id> and choice=1 or 2 to trim only that numbered object and keep the other. Use choice='skip' to leave both unchanged; do not resend object_ids when answering this review.")
+                review.update(state="awaiting_choice", review_id=identity, number=self.number)
                 return review
             if next_cursor is None:
                 self.pending = None

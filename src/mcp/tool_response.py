@@ -4,7 +4,7 @@ from functools import wraps
 import json
 
 
-def transform_response(result, transform, *, text_transform=None):
+def transform_response(result, transform, *, text_transform=None, mark_errors=False):
     """Map a JSON body without changing its public transport or binary evidence.
 
     FastMCP represents a string return as ``{result: <JSON text>}``; a dict
@@ -49,7 +49,10 @@ def transform_response(result, transform, *, text_transform=None):
             elif text_transform:
                 block = block.model_copy(update={"text": text_transform(block.text)})
         content.append(block)
-    return result.model_copy(update={"content": content, "structured_content": structured})
+    is_error = result.is_error
+    if mark_errors and isinstance(body, dict) and (body.get("status") == "error" or body.get("error")):
+        is_error = True
+    return result.model_copy(update={"content": content, "structured_content": structured, "is_error": is_error})
 
 
 def script_result(value):

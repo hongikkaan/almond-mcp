@@ -178,10 +178,13 @@ class SessionCloser:
 
     @staticmethod
     def public(record):
-        return {key: value for key, value in record.items() if key in {
-            "request_id", "connection_id", "status", "stage", "saved", "modified_before",
-            "modified_after", "rhino_closed", "worker_closed", "released", "reason",
-            "save_request_id", "pid", "model_path"}}
+        reply = {"status": record["status"]}
+        if record.get("reason"):
+            reply["reason"] = record["reason"]
+        if (record["status"] == "unconfirmed" and record["stage"] == "saving"
+                and record.get("save_request_id")):
+            reply["save_request_id"] = record["save_request_id"]
+        return reply
 
     async def inspect(self, broker, record, *, locked=False):
         conn = broker.connections.get(record["connection_id"])

@@ -1,12 +1,10 @@
 # 현행 툴 선언
 
-아래는 런타임에 반영하기 전의 공개 선언 정리안이다. `Integer`는 정수다. `JsonResult<T>`는 `CallToolResult<{ result: string }>`이며, `result`를 JSON으로 파싱하면 `T`를 얻는다.
+이 문서는 beyond에서 호출하는 81개 도구의 공개 계약 원본이다. RhinoTerminal은 연결 관리 도구 5개를 제외한 76개를 현재 문서에 연결해 제공하며 `connection_id`를 받지 않는다. `Integer`는 정수다. `JsonResult<T>`는 `CallToolResult<{ result: string }>`이며, `result`를 JSON으로 파싱하면 `T`를 얻는다. 실제 두 경로의 스키마는 [런타임 선언 스냅샷](tests/integration/tool_catalogs.md)에서 확인한다.
 
 `connection_id`는 `connect_02-session` 또는 `connect_03-start_session`에서 받은 소문자 16진수 32자리 문자열이다. 필요한 도구에는 필수 인자로 표시했다.
 
 ---
-
-# purged
 
 ## connect
 
@@ -495,6 +493,8 @@ declare const tools: {
     message?: string;
     phases?: Array<{
       depends_on?: string[];
+      // `description` 또는 `all` 그룹에서 반환.
+      description?: string;
       // `scope` 또는 `all` 그룹에서 반환하는 Rhino 파일명.
       file_name?: string[];
       name?: string;
@@ -502,6 +502,9 @@ declare const tools: {
       plan_count?: Integer;
       previous_id?: string | null;
       status?: string;
+      // `audit` 또는 `all` 그룹에서 반환.
+      created_at?: string;
+      updated_at?: string;
     }>;
     plan_id?: string;
     plans?: Array<{
@@ -710,6 +713,7 @@ type ExecutionReceipt = {
   request_id?: string; status?: string; completed?: boolean; pending?: boolean;
   mutation_state?: string; completion_state?: string; connection_state?: string;
   timed_out?: boolean; uncertain?: boolean;
+  diagnostics_truncated?: boolean;
   result?: unknown; result_error?: string | null; result_display_error?: string | null;
   error_code?: string; message?: string;
   result_file?: string; result_bytes?: Integer; result_sha256?: string;
@@ -756,7 +760,7 @@ declare const tools: {
 declare const tools: {
   mcp__rhino__script_03_get_execution(args: {
     connection_id: string;
-    // 정상 완료에서도 전체 실행 근거를 조회.
+    // 정상 완료에서도 CLI·Undo·호출 식별 근거를 diagnostics에 포함.
     include_diagnostics?: boolean;
     // 기본값 true
     include_ids?: boolean;
@@ -776,6 +780,10 @@ declare const tools: {
     stdout?: string; stderr?: string; cli_stdout?: string; cli_stderr?: string;
     stdout_page?: LogPage; stderr_page?: LogPage; cli_stdout_page?: LogPage; cli_stderr_page?: LogPage;
     native_completed?: boolean; cleanup_errors?: unknown[]; requires_reconnect?: boolean; recovery_only?: boolean;
+    // include_result=false일 때 보관된 결과 유무.
+    result_available?: boolean;
+    // 상세 요청 또는 실패·미확정 실행의 근거. 요청한 로그가 잘리거나 읽히지 않은 경우와 연결 종료 후 조회한 실행의 Rhino 식별 정보도 포함한다.
+    diagnostics?: Record<string, unknown>;
   }>>;
 };
 ```
@@ -822,6 +830,24 @@ declare const tools: {
   }): Promise<JsonResult<{
     data?: {
       items?: Integer;
+      depth_limited?: boolean;
+      reason?: string | null;
+      // resolve-block에서 확인한 조회 대상. 정의 배치 행렬은 행 우선 4×4 배열.
+      definition?: string;
+      definition_to_world?: number[];
+      id?: string;
+      name?: string | null;
+      layer?: string | null;
+      type?: string;
+      document_object?: boolean;
+      root_object_id?: string;
+      block_path_ids?: string[];
+      selectable_now?: boolean;
+      candidate_count?: Integer;
+      candidate_object_ids?: string[];
+      candidates_truncated?: boolean;
+      editor_owner_verified?: boolean;
+      editing_permission?: string;
       definition_impact?: {
         // 영향 범위 계수 완료 여부와 반환 목록의 잘림 여부
         complete?: boolean;
@@ -842,7 +868,26 @@ declare const tools: {
         definition?: string;
         // 배치 객체 또는 정의 구성원의 ID. 편집 가능한 문서 객체 ID는 inspect_02-get_objects tool로 확인.
         id?: string;
-        kind?: string;
+        kind?: "summary" | "occurrence" | "owner" | "note" | "note_target";
+        name?: string | null;
+        layer?: string | null;
+        hidden?: boolean;
+        locked?: boolean;
+        // summary의 선택 범위 집계
+        root_count?: Integer;
+        names?: string[];
+        names_truncated?: boolean;
+        types?: Record<string, Integer>;
+        // annotations의 소유 범위와 TextDot
+        owner?: string;
+        note_id?: string;
+        member_types?: Record<string, Integer>;
+        point_local?: [number, number, number];
+        text?: string | null;
+        text_limited?: boolean;
+        // transforms의 행 우선 4×4 배열
+        definition_to_world?: number[];
+        geometry_to_world?: number[];
         // 공유 정의 영향을 조회할 때 resolve-block의 options.path에 재사용
         path?: string[];
         type?: string;
@@ -872,7 +917,7 @@ type ObjectMetadata = { values?: Record<string, unknown>; total_keys?: Integer; 
 type ObservedObject = {
   id?: string; name?: string; layer_path?: string; object_type?: string; geometry_kind?: string;
   visible?: boolean; selected?: boolean; hidden?: boolean; locked?: boolean;
-  bounds?: Bounds; groups?: Array<Record<string, unknown>>; user_text?: ObjectMetadata;
+  bounds?: Bounds | null; groups?: Array<Record<string, unknown>>; groups_truncated?: boolean; user_text?: ObjectMetadata;
   user_dictionary?: { attributes?: ObjectMetadata; geometry?: ObjectMetadata };
 };
 type Terms = { include?: string[]; exclude?: string[] };
@@ -944,6 +989,12 @@ declare const tools: {
     }>;
     objects?: Array<ObservedObject & {
       face_count?: Integer;
+      face_edit_supported?: boolean;
+      geometry_valid?: boolean;
+      solid?: boolean;
+      manifold?: boolean;
+      // 문서 길이 단위의 세제곱. null은 계산 실패.
+      volume?: number | null;
       face_page?: {
         complete?: boolean;
         next_offset?: Integer | null;
@@ -953,7 +1004,7 @@ declare const tools: {
         // 기본 편집 조건만 확인한 값. 실제 편집 전에 형상 버전을 다시 검사.
         face_edit_supported?: boolean;
         // 같은 관찰의 id·geometry_crc와 묶어 model_02-edit_planar_face tool의 object_id·face_index·expected_geometry_crc에 전달
-        face_index?: Integer; planar?: boolean; normal?: XYZ; plane_origin?: XYZ; bounds?: Bounds;
+        face_index?: Integer; planar?: boolean; normal?: XYZ | null; plane_origin?: XYZ | null; bounds?: Bounds | null;
       }>;
       faces_truncated?: boolean;
       // 면 편집과 후속 면 조회에 사용할 형상 버전
@@ -1054,7 +1105,7 @@ Plan의 Scene 참조와 등록 Holon을 조회한다. Step을 지정하면 소�
 declare const tools: {
   mcp__rhino__inspect_05_resolve_targets(args: {
     connection_id: string;
-    // plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id
+    // plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id
     plan_id: string;
     // references, geometry, scope, audit, all. 생략·빈 배열이면 요약.
     field_groups?: string[] | null;
@@ -1209,7 +1260,31 @@ declare const tools: {
       category?: string;
       name?: string;
       material_id: string;
+      // display
+      base_color?: number[];
+      metallic?: number;
+      roughness?: number;
+      opacity?: number;
+      emission?: unknown;
+      ior?: number;
+      textures?: unknown;
+      ue_material_slot?: string;
+      // physical
+      density?: number;
+      density_kg_m3?: number;
+      structural_material?: unknown;
+      physical?: unknown;
+      // metadata, source, paths, audit
+      description?: string;
+      tags?: string[];
+      source?: unknown;
+      provenance?: unknown;
+      license?: unknown;
+      file?: string;
+      created_at?: unknown;
+      updated_at?: unknown;
     }>;
+    library_dir?: string;
     message?: string;
     total?: Integer;
   }>>;
@@ -1297,7 +1372,7 @@ declare const tools: {
       user_dictionary?: Record<string, unknown>;
     }>;
     overlap?: { status?: string; volume_model_units3?: number; method?: string };
-    regions?: Array<{ region_index?: Integer; bounds?: number[][]; centroid?: number[]; volume_model_units3?: number }>;
+    regions?: Array<{ region_index?: Integer; bounds?: number[][]; centroid?: number[] | null; volume_model_units3?: number | null }>;
     warnings?: string[];
     skipped_pairs?: number;
     state?: "awaiting_choice" | "completed";
@@ -1388,6 +1463,7 @@ declare const tools: {
       era?: string;
       name?: string;
       narrative?: string;
+      precedents?: Array<{ name?: string; place?: string; date?: string }>;
       region?: string;
       // research_01-get_construction_guidance tool의 `query`로 검색 가능.
       related_construction_systems?: string[];
@@ -1425,7 +1501,8 @@ declare const tools: {
       matched_terms?: string[];
       redistribution?: string;
       source_id: string;
-      terms_url?: string;
+      tags?: string[];
+      terms_url?: string | null;
       title?: string;
       url?: string;
     }>;
@@ -1460,7 +1537,11 @@ declare const tools: {
     field_groups?: DiagramGroup[] | null;
     include_ids?: boolean;
   }): Promise<JsonResult<{
-    asset?: Omit<DiagramAsset, "asset_id"> & { source?: Record<string, unknown> };
+    asset?: Omit<DiagramAsset, "asset_id"> & {
+      // 라이브러리 기준 원본 상대 경로.
+      file?: string;
+      source?: Record<string, unknown>;
+    };
     error_code?: string;
     message?: string;
     status?: string;
@@ -1589,6 +1670,8 @@ declare const tools: {
       // 용도별 권장 활하중.
       imposed_floor_kn_m2?: Record<string, number>;
       name?: string;
+      uls_expression?: string;
+      uls_default?: string;
       // 확인되지 않은 프로필 항목. 빈 배열이면 모든 항목을 확인했다.
       unverified: string[];
     }>;
@@ -1714,10 +1797,11 @@ declare const tools: {
     // 변형 표시 배율. 생략 시 표시 변형을 경간의 약 6%로 조정.
     scale?: number | null;
     title?: string;
-    // deflection은 처짐, buckling은 native 해석의 지배 ULS 첫 좌굴 모드와 alpha_cr을 표시한다.
+    // deflection은 처짐, buckling은 native 해석의 첫 ULS 조합에 대한 좌굴 모드와 alpha_cr을 표시한다.
     view?: string;
   }): Promise<JsonResult<{
     analysis_method?: string;
+    buckling?: { alpha_cr: number; combination?: string };
     deflection_limit_mm?: number;
     elements?: Array<{
       max_displacement_mm?: number;
@@ -1826,6 +1910,21 @@ type ScenePageInput = { limit?: Integer; offset?: Integer };
 type ScenePage = { total?: Integer; truncated?: boolean };
 type SceneRecord = { scene_id: string; name?: string; file_name?: string; units?: SceneUnits; revision?: Integer; created_at?: string; updated_at?: string };
 type SceneUnits = "mm" | "cm" | "m" | "in" | "ft";
+type HolonDetails = {
+  // `references` 또는 `all`과 include_ids=true에서 반환.
+  parent_holon_id?: string | null;
+  child_holon_ids?: string[];
+  scene_ids?: string[];
+  rhino_group_id?: string;
+  // `geometry` 또는 `all`에서 반환하는 유효 구성원의 경계.
+  bounds_mm?: [number, number, number, number, number, number] | null;
+  // `scope` 또는 `all`에서 반환.
+  file_name?: string;
+  model_path?: string;
+  // `audit` 또는 `all`에서 반환.
+  created_at?: string;
+  updated_at?: string;
+};
 
 declare const tools: {
   mcp__rhino__scene_01_add_objects(args: {
@@ -1969,13 +2068,14 @@ declare const tools: {
     recursive?: boolean;
   }): Promise<JsonResult<{
     error_code?: string;
-    holon?: {
+    holon?: HolonDetails & {
       // 등록 정보와 현재 관찰 결과의 구분은 live_verified로 확인
       availability?: string;
       live_verified?: boolean;
       requires_sync?: boolean;
       name?: string;
       object_count?: Integer;
+      effective_object_count?: Integer | null;
       objects?: SceneMember[];
       effective_objects?: SceneMember[];
     };
@@ -2040,7 +2140,7 @@ declare const tools: {
 모델에서 저장된 Holon 등록 목록 조회. Scene을 지정하면 연결된 Holon을, 생략하면 기본으로 최상위 Holon을 조회. recursive=true는 자손을 포함하며 이 자손은 Scene에 직접 등록되지 않았을 수 있다. 현재 Rhino 구성원은 scene_05-get_holon tool에서 live=true로 조회.
 
 ```ts
-type HolonRecord = { holon_id?: string; name?: string; availability?: string; object_count?: Integer; effective_object_count?: Integer; parent_holon_id?: string; child_holon_ids?: string[]; scene_ids?: string[]; rhino_group_id?: string };
+type HolonRecord = HolonDetails & { holon_id?: string; name?: string; availability?: string; object_count?: Integer; effective_object_count?: Integer | null; requires_sync?: boolean };
 
 declare const tools: {
   mcp__rhino__scene_08_list_holons(args: {
@@ -2212,11 +2312,11 @@ declare const tools: {
     rgb_mode?: DisplayModeId;
     // 기본 Technical
     edge_mode?: DisplayModeId;
-    // 청크당 프레임 수. · 기본값 16
+    // 청크당 프레임 수. 양의 정수 · 기본값 16
     chunk?: Integer;
-    // 기본값 16
+    // 초당 프레임 수. 양의 정수 · 기본값 16
     fps?: Integer;
-    // 짝수 픽셀. · 기본값 480
+    // 양의 짝수 픽셀 · 기본값 480
     height?: Integer;
     // false이면 가까울수록 밝게 표현.
     invert_depth?: boolean;
@@ -2224,7 +2324,7 @@ declare const tools: {
     out_dir?: string;
     // 쉼표로 구분한 rgb, edge, depth. · 기본값 "rgb,edge,depth"
     passes?: string;
-    // 짝수 픽셀. · 기본값 832
+    // 양의 짝수 픽셀 · 기본값 832
     width?: Integer;
   }): Promise<JsonResult<{
     // 촬영 성공 범위와 무관하게 계획한 전체 경로를 기록한 파일.
@@ -2609,7 +2709,7 @@ declare const tools: {
     error_code?: string;
     layers?: Array<{
       linetype?: string;
-      // inspect_02-get_objects tool의 layer_paths 필터에 재사용 가능.
+      // inspect_02-get_objects tool의 filters.layer.include에 재사용 가능.
       path?: string;
       plot_weight_mm?: number;
       role?: string;
@@ -2632,6 +2732,16 @@ declare const tools: {
 ```ts
 type RecipeFieldGroup = "scales" | "parameters" | "source" | "audit" | "all";
 type RecipeSummary = { name?: string | null; description?: string | null; recommended_scales?: string[] };
+type RecipeFields = {
+  scales?: unknown;
+  layers?: Record<string, unknown>[];
+  output?: Record<string, unknown>;
+  linework?: unknown; hatches?: unknown; style?: unknown; parameters?: unknown;
+  views?: unknown; layout?: unknown; annotations?: unknown; display?: unknown; units?: unknown;
+  review_preparation?: unknown;
+  source?: unknown; references?: unknown; license?: unknown;
+  created_at?: unknown; updated_at?: unknown;
+};
 
 declare const tools: {
   mcp__rhino__drawing_02_get_recipe(args: {
@@ -2642,10 +2752,8 @@ declare const tools: {
   }): Promise<JsonResult<{
     error_code?: string;
     message?: string;
-    recipe?: RecipeSummary & {
-      projection?: { type?: string };
-      layers?: Record<string, unknown>[];
-      output?: Record<string, unknown>;
+    recipe?: RecipeSummary & RecipeFields & {
+      projection?: { type?: string } & Record<string, unknown>;
     };
     status?: string;
   }>>;
@@ -2682,7 +2790,7 @@ declare const tools: {
   }): Promise<JsonResult<{
     error_code?: string;
     message?: string;
-    recipes?: (RecipeSummary & { recipe_id: string; projection?: string | null })[];
+    recipes?: (RecipeSummary & RecipeFields & { recipe_id: string; projection?: string | null })[];
   }>>;
 };
 ```
@@ -2929,6 +3037,8 @@ declare const tools: {
     mutation_state?: string;
     // 삽입한 최상위 블록 GUID. inspect_02-get_objects tool 또는 Scene 구성원 입력에 재사용.
     object_guid?: string;
+    // 3DM 변환이 필요한 원본의 준비 도구.
+    next_tool?: "asset_07-prepare";
     // true이면 Rhino 문서의 실제 변경 상태를 확인. 자동 재실행 금지.
     requires_reconciliation?: boolean;
     status?: string;
@@ -2969,7 +3079,10 @@ declare const tools: {
     // 이후 단계에 전달. asset_09-register tool에는 preparation_job으로 전달.
     job_dir?: string;
     message?: string;
+    // verified 상태에서 verify를 호출할 때는 최종 이미지 검토를 제출. ready면 source_3dm으로 등록.
+    next_stage?: "verify" | null;
     previews?: string[];
+    provenance?: Record<string, unknown>;
     review_targets?: { inspected_sha256?: string; normalized_sha256?: string; final_sha256?: string };
     summary?: { units?: string; dimensions_mm?: Record<string, number>; object_count?: Integer; limitations?: string[] };
     parts?: Array<Record<string, unknown>>;

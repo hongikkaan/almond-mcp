@@ -40,6 +40,7 @@ def source_paths(engine: Path) -> dict[str, Path]:
         "workspace": engine / "workspace.py",
         "storage_cleanup": engine / "storage_cleanup.py",
         "server": Path(almond_mcp.__file__).with_name("server.py"),
+        "public_contract_data": package / "public_contract_data.json",
         "retrieval_store": Path(almond_mcp.__file__).with_name("retrieval_store.py"),
         "modeling_policy": package / "features/modeling/modeling_policy.py",
         "modeling_setup": package / "features/modeling/modeling_setup.py",
@@ -93,7 +94,7 @@ def check_contract(catalog: dict, engine: Path = ENGINE) -> None:
 
 
 def schema_identity(tool: dict) -> dict:
-    return {key: tool.get(key) for key in ("name", "inputSchema", "outputSchema", "annotations")}
+    return {key: tool.get(key) for key in ("name", "description", "inputSchema", "outputSchema", "annotations")}
 
 
 def catalog_identity(catalog: dict) -> str:

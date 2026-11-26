@@ -14,78 +14,51 @@ from uuid import uuid4
 
 sys.dont_write_bytecode = True
 import mcp_types as types
+from jsonschema import Draft202012Validator
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.server.lowlevel.server import Server
 from mcp.server.stdio import stdio_server
 from almond_mcp.modeling_guidance import read_policy, startup_instructions
-from almond_mcp.output_contracts import public_output_schema
+from almond_mcp.output_contracts import public_tool_contract
 from almond_mcp.features.modeling.plan_section import unconfirmed_result as unconfirmed_plan_section
 
 from runtime import (ENGINE, PYTHON, ROOT, VERSION, WORKER_STATE_TOOL, check_contract, catalog_identity,
                      load_catalog, validate_worker_tools)
 from winpipe import PipeControl, read_hosts
 from binding_watch import BindingWatcher
-from capture_menu import apply_menu_schema, common_mode_ids, menu_input_error
+from capture_menu import apply_menu_schema, common_mode_ids
 from execution_recovery import ExecutionRecoveryStore, read_bound_execution
-from execution_invocation import ExecutionInvocations, Invocation, json_result, error_result, result_dict
+from execution_invocation import GET_EXECUTION, ExecutionInvocations, Invocation, json_result, error_result, result_dict
 from session_close import SessionCloser
 
-GUIDANCE = 'targets는 발견한 Rhino 문서, connections는 유지 중인 연결, starts는 새 Rhino 시작 요청의 상태입니다. 대상의 state와 reason으로 사용 가능 여부를 확인합니다. 사용 중이거나 확인할 수 없는 대상은 파일 정보가 비어 있을 수 있습니다.'
 DESCRIPTION = 'beyond는 AlmondRhino를 통해 Rhino의 건축 설계·모델링·도면 작업과 연결 관리를 제공합니다.'
 UNSAVED_DOCUMENT = ("Save this Rhino document as a local .3dm, then refresh "
                     "connect_01-list_up tool before connecting.")
 UNBOUND_TOOLS = {"context_01-get_policy", "connect_01-list_up", "connect_02-session", "connect_03-start_session"}
-CONNECTION_INPUT = {
-    "type": "string", "pattern": "^[0-9a-f]{32}$",
-    "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
-}
+MANAGEMENT_TOOLS = (
+    "connect_01-list_up", "connect_02-session", "connect_03-start_session",
+    "connect_04-disconnect", "connect_05-close_session",
+)
+POLICY_TOOL = "context_01-get_policy"
 MISSING_CONNECTION = "connection_id가 지정되지 않았습니다"
 UNKNOWN_CONNECTION = "이 connection_id의 활성 연결이 없습니다. 대상 문서에 다시 연결하세요."
-CODEX_CONNECTION_GUIDE = "model_path와 connection_id를 현재 대화의 변수에 함께 저장하고, 이 문서의 후속 호출마다 connection_id를 전달한다."
 
 
 def exposed_tools(catalog: dict, *, mode_ids=()) -> list[types.Tool]:
+    worker_tools = {tool["name"]: tool for tool in catalog["tools"]}
+    if worker_tools.keys() & set(MANAGEMENT_TOOLS):
+        raise RuntimeError("Management tool name collides with Almond.")
     tools = []
-    for original in catalog["tools"]:
-        name = original["name"]
-        schema = original["inputSchema"]
-        if schema.get("type") != "object" or "connection_id" in schema.get("properties", {}):
-            raise RuntimeError(f"Unsupported routing schema: {name}")
-        tools.append(types.Tool.model_validate(original))
-    management = [
-        ("connect_01-list_up", "열린 Rhino 문서와 이 클라이언트의 연결·시작 요청 조회. 연결하려면 같은 대상의 host_id와 저장된 model_path를 connect_02-session tool에 전달한다.",
-         {}, []),
-        ("connect_02-session", "열린 Rhino 문서에 연결하고 해당 문서의 연결 ID를 반환.",
-         {"host_id": {"type": "string"}, "model_path": {"type": "string"}},
-         ["host_id", "model_path"]),
-        ("connect_03-start_session", "저장된 모델을 새 Rhino 창에서 열고 해당 문서의 연결 ID를 반환.",
-         {"model_path": {"type": "string", "description": '저장된 로컬 .3dm 파일의 절대 경로.'},
-          "request_id": {"type": "string", "minLength": 1, "maxLength": 128,
-                         "description": '시작 시도마다 고유한 값. 지연되거나 결과가 불확실하면 같은 값으로 다시 조회.'}},
-         ["model_path", "request_id"]),
-        ("connect_04-disconnect", "지정한 연결 해제. Rhino 창과 문서는 계속 열린 상태로 유지.",
-         {}, []),
-        ("connect_05-close_session", "지정한 연결의 Rhino 문서 저장을 확인한 뒤 Rhino를 정상 종료. 결과 재조회에는 원래의 두 ID를 사용한다.",
-         {"request_id": {"type": "string", "minLength": 1, "maxLength": 128,
-                         "description": '종료 시도마다 고유한 값. 지연되거나 결과가 불확실하면 같은 값으로 재호출해 기존 결과를 조회.'}}, ["request_id"]),
-    ]
-    worker_names = {tool.name for tool in tools}
-    for name, description, properties, required in management:
-        if name in worker_names:
-            raise RuntimeError("Management tool name collides with Almond.")
-        tools.append(types.Tool(name=name, description=description, output_schema=public_output_schema(name, wrapped=False),
-                                input_schema={"type": "object", "properties": properties,
-                                              "required": required, "additionalProperties": False}))
-    for tool in tools:
+    for name in (*worker_tools, *MANAGEMENT_TOOLS):
+        contract = public_tool_contract(name)
+        declaration = dict(worker_tools.get(name, {}), name=name,
+                           description=contract["description"],
+                           inputSchema=contract["input_schema"],
+                           outputSchema=contract["output_schema"])
+        tool = types.Tool.model_validate(declaration)
         apply_menu_schema(tool, mode_ids)
-        if tool.name in {"connect_02-session", "connect_03-start_session"}:
-            tool.output_schema["properties"]["connection_id"]["description"] = CODEX_CONNECTION_GUIDE
-        if tool.name not in UNBOUND_TOOLS:
-            schema = tool.input_schema
-            tool.input_schema = dict(schema, properties={**schema.get("properties", {}),
-                                                         "connection_id": CONNECTION_INPUT.copy()},
-                                     required=[*schema.get("required", []), "connection_id"])
+        tools.append(tool)
     return tools
 
 
@@ -238,13 +211,17 @@ class Connection:
     recovery_execution_id: str = ""
     retained_call: asyncio.Task | None = None
 
-    def public(self):
-        b = self.binding
-        model_path = b.get("model_path")
-        return dict(connection_id=self.connection_id, host_id=self.host_id, state=self.state,
-                    reason=self.reason, model_path=model_path,
-                    model_filename=Path(model_path).name if model_path else None, slot=b.get("label"),
-                    pid=b.get("pid"), artifact_dir=b.get("call_root"), in_flight=self.in_flight)
+    def session(self):
+        reply = {"connection_id": self.connection_id, "state": self.state}
+        if self.reason:
+            reply["reason"] = self.reason
+        return reply
+
+    def target(self):
+        reply = dict(self.session(), host_id=self.host_id)
+        if self.binding.get("model_path"):
+            reply["model_path"] = self.binding["model_path"]
+        return reply
 
 
 @dataclass
@@ -255,12 +232,6 @@ class StartAttempt:
     state: str = "starting"
     connection_id: str | None = None
     reason: str = ""
-
-    def public(self, request_id):
-        return dict(request_id=request_id, model_path=self.model_path, state=self.state,
-                    model_filename=Path(self.model_path).name,
-                    connection_id=self.connection_id, reason=self.reason,
-                    **(self.launch.identity if self.launch is not None else {}))
 
 
 class Broker:
@@ -358,10 +329,13 @@ class Broker:
 
     async def list_connections(self):
         targets = []
+        seen = set()
         for record in self.host_reader(self.data):
-            existing = self.host_connections.get(record["host_id"])
+            host_id = record["host_id"]
+            seen.add(host_id)
+            existing = self.host_connections.get(host_id)
             if existing:
-                targets.append(self.connections[existing].public())
+                targets.append(self.connections[existing].target())
                 continue
             control = None
             lease = None
@@ -372,15 +346,14 @@ class Broker:
                 target = await control.request("describe")
                 model_path = target.get("model_path")
                 if not isinstance(model_path, str) or not model_path.strip():
-                    target = dict(target, state="unavailable", reason=UNSAVED_DOCUMENT)
-                targets.append(dict(target, host_id=record["host_id"],
-                                    model_filename=Path(model_path).name if model_path else None))
+                    target = {"state": "unavailable", "reason": UNSAVED_DOCUMENT}
+                targets.append(dict(host_id=host_id, **{
+                    key: target[key] for key in ("model_path", "state", "reason") if target.get(key)
+                }))
             except HostInUse as exc:
-                targets.append({"host_id": record["host_id"], "pid": record["pid"],
-                                "state": "in_use", "reason": str(exc)})
+                targets.append({"host_id": host_id, "state": "in_use", "reason": str(exc)})
             except Exception as exc:
-                targets.append({"host_id": record["host_id"], "pid": record["pid"],
-                                "state": "unavailable", "reason": str(exc)})
+                targets.append({"host_id": host_id, "state": "unavailable", "reason": str(exc)})
             finally:
                 try:
                     if control is not None:
@@ -388,9 +361,9 @@ class Broker:
                 finally:
                     if lease is not None:
                         lease.close()
-        return {"instructions": GUIDANCE, "selected_connection_id": None,
-                "targets": targets, "connections": [c.public() for c in self.connections.values()],
-                "starts": [attempt.public(key) for key, attempt in self.starts.items()]}
+        # Binding validity is tracked independently of the discovery advertisement.
+        targets.extend(conn.target() for conn in self.connections.values() if conn.host_id not in seen)
+        return {"targets": targets}
 
     async def start_session(self, model_path: str, request_id: str):
         if self.closing:
@@ -407,7 +380,7 @@ class Broker:
                     raise RuntimeError("This start's connection has ended. No new Rhino was started; list existing Rhino documents before deliberately creating another session.")
                 if conn.closing or conn.state not in {"ready", "recovering", "unconfirmed"}:
                     raise RuntimeError(f"Connection is {conn.state}: {conn.reason}.")
-                return dict(self._connected(conn), request_id=request_id)
+                return conn.session()
         else:
             self.contract_check(self.catalog)
             attempt = self.starts[request_id] = StartAttempt(model_path)
@@ -432,14 +405,11 @@ class Broker:
             attempt.state = "connecting"
             result = await self.connect(record["host_id"], attempt.launch.model_path)
             attempt.connection_id, attempt.state, attempt.reason = result["connection_id"], "ready", ""
-            return dict(result, request_id=request_id)
+            return result
         except BaseException as exc:
             if attempt.state != "waiting":
                 attempt.state, attempt.reason = "failed", str(exc)
             raise
-
-    def _connected(self, conn: Connection):
-        return dict(conn.public(), message=CODEX_CONNECTION_GUIDE)
 
     async def connect(self, host_id: str, model_path: str):
         if self.closing:
@@ -453,7 +423,7 @@ class Broker:
             # calls on ready and never clears an uncertain native operation.
             if conn.closing or conn.state not in {"ready", "recovering", "unconfirmed"}:
                 raise RuntimeError(f"Connection is {conn.state}: {conn.reason}.")
-            return self._connected(conn)
+            return conn.session()
         record = next((r for r in self.host_reader(self.data) if r["host_id"] == host_id), None)
         if record is None:
             raise RuntimeError("Rhino advertisement is stale. Run almondconnect in the intended saved document.")
@@ -507,7 +477,7 @@ class Broker:
                                            process_start_ticks=state["process_start_ticks"])
                 ensure_open()
                 conn.state = "ready"
-                return self._connected(conn)
+                return conn.session()
             except BaseException:
                 await self._dispose_locked(conn)
                 raise
@@ -596,7 +566,10 @@ class Broker:
         if not result["released"]:
             raise RuntimeError("Almond worker closed; Rhino is retaining ownership until native work drains. "
                                "Check the document and Almond connection status before reconnecting. " + result["reason"])
-        return result
+        reply = {"released": True}
+        if result["reason"]:
+            reply["reason"] = result["reason"]
+        return reply
 
     async def call(self, name: str, arguments: dict) -> types.CallToolResult:
         conn = None
@@ -634,7 +607,7 @@ class Broker:
                 if conn is None:
                     value = await asyncio.to_thread(self._execution_reader, binding, arguments)
                     value.update(connection_state="unbound", requires_reconnect=True, recovery_only=True)
-                    return json_result(value)
+                    return json_result(value, name)
             else:
                 conn = self.connections.get(connection_id)
             if conn is None:
@@ -652,7 +625,8 @@ class Broker:
             raise
         except Exception as exc:
             if name == "drawing_06-generate_plan_section" and invocation is not None and invocation.worker_dispatched:
-                response = json_result(unconfirmed_plan_section(arguments.get("clipping_ids"), str(exc)), wrapped=True)
+                response = json_result(unconfirmed_plan_section(arguments.get("clipping_ids"), str(exc)), name,
+                                       wrapped=True)
                 response.is_error = True
                 return response
             return error_result(str(exc))
@@ -681,19 +655,24 @@ class SessionAdapter:
 
     def __init__(self, catalog, data=ROOT / "data", *, broker_factory=Broker):
         self.catalog, self.data, self.broker_factory = catalog, data, broker_factory
-        self.mode_ids = common_mode_ids(read_hosts(data))
-        self.tools = exposed_tools(catalog, mode_ids=self.mode_ids)
+        self.tools = exposed_tools(catalog, mode_ids=common_mode_ids(read_hosts(data)))
+        self.local_inputs = {
+            tool.name: Draft202012Validator(tool.input_schema) for tool in self.tools
+            if tool.name in (POLICY_TOOL, GET_EXECUTION) or tool.name in MANAGEMENT_TOOLS
+        }
         self.broker = None
 
     async def call(self, name, arguments):
         if name not in UNBOUND_TOOLS and not arguments.get("connection_id"):
             return error_result(MISSING_CONNECTION)
-        error = menu_input_error(name, arguments, self.mode_ids)
-        if error:
-            return error_result(error)
-        if name == "context_01-get_policy":
+        validator = self.local_inputs.get(name)
+        if validator is not None:
+            failure = next(validator.iter_errors(arguments), None)
+            if failure is not None:
+                return error_result(f"{failure.json_path}: {failure.message}")
+        if name == POLICY_TOOL:
             try:
-                return json_result(read_policy(**arguments))
+                return json_result(read_policy(**arguments), name)
             except (TypeError, ValueError, RuntimeError) as exc:
                 return error_result(str(exc))
         if self.broker is None:

@@ -13,7 +13,7 @@ class CreatePhase(PlanningRequest):
     target: Literal['phase']
     name: str = Field(..., description='공백만 있는 이름은 거부.')
     description: str = ''
-    file_name: str | list[str] = Field('', description='context_04-get_project_info tool의 `project.files`에 등록된 파일명.')
+    file_name: list[str] = Field(default_factory=list, description='context_04-get_project_info tool의 `project.files`에 등록된 파일명.')
     status: Literal['pending', 'running', 'paused', 'completed', 'failed', 'blocked'] = 'pending'
     depends_on: list[str] | None = Field(None, description='같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음.')
     previous_id: str | None = Field(None, description='Phase ID 형식만 검사. 참조 대상의 존재는 확인하지 않음.')
@@ -23,9 +23,8 @@ class CreatePlan(PlanningRequest):
     title: str = Field(..., description='공백만 있는 제목은 거부.')
     goal: str = Field(..., description='공백만 있는 목표는 거부.')
     scope: str = Field('house', description='Step 템플릿. 기본 제공 키는 `spatial_development`, `drawing_development`, `semantic_exploration`, `plan_editing`, `model_revision`, `inspection`, `structure`, `construction_detail`, `drawing`, `component`, `house`, `interior`. 등록된 사용자 템플릿도 사용 가능.')
-    scene_id: str = Field('', description='단일 Scene용 호환 입력. `scene_ids`와 함께 지정하면 배열의 첫 ID와 일치해야 함.')
     phase_id: str = ''
-    scene_ids: list[str] | None = Field(None, description='생략하거나 `null`이면 `scene_id` 사용.')
+    scene_ids: list[str] | None = None
     holon_ids: list[str] | None = None
     depends_on: list[str] | None = Field(None, description='결과나 결정에 의존하는 관련 Plan. 같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음.')
     previous_id: str | None = Field(None, description='작업 순서상 직전 Plan. Plan ID 형식만 검사. 참조 대상의 존재는 확인하지 않음.')
@@ -66,17 +65,17 @@ class ListPlans(PlanningRequest):
 
 class UpdatePhase(PlanningRequest):
     target: Literal['phase']
-    phase_id: str = Field(..., description='plan_08-list tool의 `request.target="phase"` 결과에 있는 `phases[].phase_id` 또는 plan_05-get tool의 Phase `id`.')
+    phase_id: str = Field(..., description='plan_08-list tool의 `request.target="phase"` 결과에 있는 `phases[].phase_id` 또는 plan_05-get tool의 phase_id.')
     name: str | None = Field(None, description='빈 이름은 거부.')
     description: str | None = Field(None, description='빈 문자열은 설명 삭제.')
-    file_name: str | list[str] | None = Field(None, description='context_04-get_project_info tool의 `project.files`에 등록된 파일명. 빈 문자열 또는 `[]`는 연결 해제, 생략·`null`은 연결 유지.')
+    file_name: list[str] | None = Field(None, description='project.files에 등록된 파일명. []는 연결 해제.')
     status: Literal['pending', 'running', 'paused', 'completed', 'failed', 'blocked'] | None = None
     depends_on: StringListPatch | None = Field(None, description='같은 종류의 Phase ID만 사용. 대상 존재·순환·완료 여부는 검사하지 않음.')
     previous_id: str | None = Field(None, description='빈 문자열은 연결 해제.')
 
 class UpdatePlan(PlanningRequest):
     target: Literal['plan']
-    plan_id: str = Field(..., description='plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id')
+    plan_id: str = Field(..., description='plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id')
     goal: str | None = Field(None, description='빈 목표는 거부.')
     phase_id: str | None = Field(None, description='빈 문자열은 Phase 소속 해제.')
     scene_ids: list[str] | None = None
@@ -93,7 +92,7 @@ class UpdatePlan(PlanningRequest):
 
 class UpdateStep(PlanningRequest):
     target: Literal['step']
-    plan_id: str = Field(..., description='plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id')
+    plan_id: str = Field(..., description='plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id')
     step_id: str = Field(..., description='plan_05-get tool의 Plan 상세에서 확인한 Step ID.')
     status: Literal['pending', 'running', 'paused', 'completed', 'failed', 'blocked'] | None = None
     input_refs: StringListPatch | None = None

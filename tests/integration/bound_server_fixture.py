@@ -11,6 +11,11 @@ from PIL import Image
 from almond_mcp.bridge_transport import BridgeTransport
 from mcp_server import main as run_worker
 from project import STORAGE_PROTOCOL, connection_paths, process_start_ticks, write_json
+from shared_store import ProjectRuntime
+
+
+DISPLAY_MODE_ID = "01020304-0000-0000-0000-000000000001"
+CAPTURE_SIZE = 128
 
 
 def native_transport(model, token, session):
@@ -22,13 +27,24 @@ def native_transport(model, token, session):
         operation = json.loads(request["payload"])
         match operation["type"]:
             case "get_rhino_context":
-                value = {"status": "success", "capabilities": {"view_capture": 1, "display_mode_menu": 1}}
-            case "get_defined_viewcapture" if Path(operation["expected_model_path"]) == model:
+                value = {"status": "success", "capabilities": {
+                    "view_capture": 1, "display_mode_menu": 1, "context_sections": 2,
+                }}
+                sections = operation["sections"]
+                if "document" in sections:
+                    value["document"] = {"name": model.name, "path": str(model), "runtime_serial_number": 1}
+                if "worksession_files" in sections:
+                    value["worksession_files"] = []
+                if "display_modes" in sections:
+                    value["display_modes"] = [{"id": DISPLAY_MODE_ID, "name": "Fixture mode"}]
+            case "get_defined_viewcapture" if (Path(operation["expected_model_path"]) == model
+                                              and operation["display_mode"] == DISPLAY_MODE_ID):
                 output = io.BytesIO()
-                Image.new("RGB", (128, 128), "#" + token[0] * 3).save(output, format="PNG")
+                Image.new("RGB", (CAPTURE_SIZE, CAPTURE_SIZE), "#" + token[0] * 3).save(output, format="PNG")
                 value = {"status": "success", "image": {
                     "mime_type": "image/png", "data": base64.b64encode(output.getvalue()).decode("ascii"),
-                    "width": 128, "height": 128, "source_width": 128, "source_height": 128,
+                    "width": CAPTURE_SIZE, "height": CAPTURE_SIZE,
+                    "source_width": CAPTURE_SIZE, "source_height": CAPTURE_SIZE,
                 }}
             case _:
                 raise ValueError(f"Fixture cannot serve {operation['type']} for {model.name}")
@@ -59,6 +75,11 @@ def main(model_name):
                **{key: locations[key] for key in ("model_path", "storage", "temp", "session_dir", "ready_path")}}
     write_json(locations["ready_path"], binding)
     BridgeTransport.__call__ = native_transport(model, token, Path(locations["session_dir"]))
+    # Return the supplied JSON as user data through the real bound middleware.
+    def simulated_script(self, code, language, timeout, *, working_directory=None):
+        return {"status": "executed", "completed": True, "result": json.loads(code)}
+
+    ProjectRuntime.execute_rhinocode = simulated_script
     return run_worker(["--port", str(port), "--token", token, "--session", locations["ready_path"]])
 
 

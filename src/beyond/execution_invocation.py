@@ -13,15 +13,16 @@ import json
 from uuid import uuid4
 
 import mcp_types as types
-from almond_mcp.tool_guidance import guide_payload
+from almond_mcp.tool_declarations import public_result
 
 
 SCRIPT_TOOLS = frozenset({"script_01-run_project_python", "script_02-run_rhino"})
+GET_EXECUTION = "script_03-get_execution"
 RECOVERY_TIMEOUT = 10.0
 
 
 def json_result(value: dict, name: str = "", *, wrapped=False) -> types.CallToolResult:
-    value = guide_payload(name, value) if name else value
+    value = public_result(name, value) if name else value
     serialized = json.dumps(value, ensure_ascii=False)
     return types.CallToolResult(content=[types.TextContent(type="text", text=serialized)],
                                 structured_content={"result": serialized} if wrapped else value)
@@ -139,7 +140,7 @@ class ExecutionInvocations:
             except Exception:
                 value = await self._read(conn, arguments)
                 value.update(connection_state=conn.state, requires_reconnect=True)
-                return json_result(value)
+                return json_result(value, GET_EXECUTION)
             if active_call or state.get("operation_active"):
                 # script03 in the worker shares the running tool's serial gate.
                 # Files can be observed without releasing its TEMP/DB ownership.
@@ -150,15 +151,15 @@ class ExecutionInvocations:
                 value["connection_state"] = conn.state
                 if state.get("native_uncertain"):
                     value["requires_reconnect"] = True
-                return json_result(value)
+                return json_result(value, GET_EXECUTION)
         try:
-            result = await asyncio.wait_for(conn.worker.call("script_03-get_execution", arguments), RECOVERY_TIMEOUT)
+            result = await asyncio.wait_for(conn.worker.call(GET_EXECUTION, arguments), RECOVERY_TIMEOUT)
             value = result_dict(result)
             state = await asyncio.wait_for(conn.worker.state(), RECOVERY_TIMEOUT)
         except Exception:
             value = await self._read(conn, arguments)
             value.update(connection_state=conn.state, requires_reconnect=True)
-            return json_result(value)
+            return json_result(value, GET_EXECUTION)
         settled_call = conn.retained_call is None or conn.retained_call.done()
         if (conn.state == "recovering" and not conn.closing and settled_call
                 and not state.get("operation_active") and not state.get("pending")
@@ -181,7 +182,7 @@ class ExecutionInvocations:
         value["connection_state"] = conn.state
         if state.get("native_uncertain") or conn.closing:
             value["requires_reconnect"] = True
-        return json_result(value)
+        return json_result(value, GET_EXECUTION)
 
     async def invoke(self, conn, name, arguments, invocation):
         from project import serial_gate
@@ -189,16 +190,16 @@ class ExecutionInvocations:
         # scripts. The separate bounded evidence reads have ample margin to600.
         deadline = asyncio.get_running_loop().time() + self.call_timeout if name in SCRIPT_TOOLS else None
         async with serial_gate(conn.lock, self.queue_timeout):
-            if name != "script_03-get_execution":
+            if name != GET_EXECUTION:
                 self.reject_pending_close(conn.binding)
             return await self.invoke_locked(conn, name, arguments, invocation, deadline=deadline)
 
     async def invoke_locked(self, conn, name, arguments, invocation, *, deadline=None):
-        if name == "script_03-get_execution":
+        if name == GET_EXECUTION:
             if conn.closing:
                 value = await self._read(conn, arguments)
                 value.update(connection_state=conn.state, requires_reconnect=True)
-                return json_result(value)
+                return json_result(value, name)
             return await self.recover_execution(conn, arguments)
         if invocation.abandoned:
             raise RuntimeError("Caller stopped while this request was queued. No Rhino request was sent.")

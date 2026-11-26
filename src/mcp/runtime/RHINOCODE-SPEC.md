@@ -64,7 +64,7 @@ wrapper는 자신이 소유한 0이 아닌 Undo record만 종료한다. 사용�
 최초 실행 응답은 배열 또는 최상위 list 필드마다 20항목, 최상위 문자열은 4096문자까지 반환한다.
 명시적 후속 조회의 offset/limit는 배열에는 항목, 문자열에는 문자 단위다. 문자열을 JSON으로 추정해 다시 파싱하지 않는다. Python의 구조화 결과는 `result`에 dict/list를 직접 대입한다.
 
-확인된 정상 완료 응답은 결과·페이지·요청한 로그·복구 대상 상태를 기본으로 보존한다. `include_diagnostics=true`는 전체 근거를 반환한다. pending·불확실·실패·부분 적용·0이 아닌 CLI exit·결과 표시 오류는 기본 응답에서도 상세 근거를 유지한다.
+정상 완료 응답은 결과·페이지·요청한 로그·복구 상태를 반환한다. 로그 요청 시 `diagnostics`에서 확인 가능한 보관량·잘림·읽기 오류를 확인한다. 기존 연결의 보관 결과를 복구할 때는 실행 대상과 Rhino 프로세스 생존 여부도 `diagnostics`에 포함한다. `include_diagnostics=true`는 CLI 종료·Undo·호출 식별 근거를 추가한다. 미확정·실패·부분 적용 응답은 확인 가능한 진단을 포함한다.
 
 공개 응답 projection은 원본 journal을 읽고 정합한 뒤 적용한다. journal 저장·fence·완료 판단·worker schema 검사를 바꾸지 않는다. 클라이언트 재시작 후에는 정확한 request_id로 보관 파일을 조회할 수 있으며 이 경로는 Rhino를 재연결하거나 실행하지 않는다.
 

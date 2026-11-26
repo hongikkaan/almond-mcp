@@ -2,15 +2,15 @@
 
 beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키마다. 공통 값은 한 번만 표시한다. 각 해시는 도구를 이름순으로 정렬하고 객체 키를 정렬한 뒤, 공백과 유니코드 이스케이프 없이 UTF-8 JSON으로 직렬화한 전체 배열에서 계산한다.
 
-- beyond 도구 81개, 선언 SHA-256 `9fbddcc1d9dec9fd0f1e9668a52ca4dc07757764538868eb1b06c772f925386e`
-- RhinoTerminal 도구 76개, 선언 SHA-256 `31fa06c50ce358bef01b87dde3b0235eedf2e7471c60b0967e5678da15cb10d6`
+- beyond 도구 81개, 선언 SHA-256 `72dfcdd69a39ddcd8343e22988ba6b4e4b41c760e839657b98193da9a329dce7`
+- RhinoTerminal 도구 76개, 선언 SHA-256 `d9c78115346aae4a9070faf43f320dac876f4e08229b50b2bd1b17edca4f67ee`
 
 ### 1. analysis_01-list_design_codes
 
 **beyond · RhinoTerminal**
 
 ```txt
-구조 해석에 사용할 설계기준 프로필 조회.
+구조 해석의 설계기준 프로필 조회. 프로필 ID는 해석·시각화의 design_code에 전달한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -20,7 +20,8 @@ beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -28,6 +29,12 @@ beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키�
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "parameters",
+              "source",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -36,12 +43,7 @@ beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키�
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "parameters, source, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "description": "기본은 요약. 수치와 조합식은 `parameters`로 요청."
     }
   },
   "required": [
@@ -63,6 +65,12 @@ beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키�
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "parameters",
+              "source",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -71,12 +79,7 @@ beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키�
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "parameters, source, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "description": "기본은 요약. 수치와 조합식은 `parameters`로 요청."
     }
   },
   "type": "object"
@@ -95,7 +98,6 @@ beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키�
       "contentSchema": {
         "properties": {
           "default": {
-            "description": "기본으로 적용되는 프로필 ID.",
             "type": "string"
           },
           "error_code": {
@@ -104,12 +106,11 @@ beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키�
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "problems": {
             "description": "로딩 중 거절된 사용자 프로필의 문제.",
-            "items": {},
+            "items": {
+              "type": "string"
+            },
             "type": "array"
           },
           "profiles": {
@@ -123,26 +124,37 @@ beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키�
                   "type": "number"
                 },
                 "id": {
-                  "description": "analysis_02-validate_structure tool과 analysis_03-visualize_structure tool의 design_code에 전달.",
+                  "description": "구조 해석·시각화의 `design_code`에 전달.",
                   "type": "string"
                 },
                 "imposed_floor_kn_m2": {
-                  "description": "프로필 권장 활하중.",
-                  "properties": {},
+                  "additionalProperties": {
+                    "type": "number"
+                  },
+                  "description": "용도별 권장 활하중.",
                   "type": "object"
                 },
                 "name": {
                   "type": "string"
                 },
-                "unverified": {
-                  "items": {},
-                  "type": "array"
+                "uls_default": {
+                  "type": "string"
                 },
-                "verified": {
-                  "description": "프로필 값의 검증 여부. 프로젝트 법규 준수나 구조 승인은 별도.",
-                  "type": "boolean"
+                "uls_expression": {
+                  "type": "string"
+                },
+                "unverified": {
+                  "description": "확인되지 않은 프로필 항목. 빈 배열이면 모든 항목을 확인했다.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 }
               },
+              "required": [
+                "id",
+                "unverified"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -172,7 +184,7 @@ beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키�
 **beyond · RhinoTerminal**
 
 ```txt
-Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청 옵션, 실제 엔진·입력·결과를 보관. native는 내보낸 모델과 적용한 하중도 기록. 이전 이력에 기록되지 않은 옵션은 알 수 없음으로 표시.
+Rhino 구조 형상을 해석하고 설계기준을 검토한다. 실제 엔진과 적용 입력은 실행 이력에 기록한다. 엔진·경고·가정과 미검증 설계기준 값을 함께 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -182,58 +194,50 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_loads": {
-      "default": false,
-      "description": "네이티브 해석에서 배치 자산의 자중·내용물·재실자 하중 추가. 다른 입력에 반영한 하중과 중복되지 않게 산정.",
+      "description": "native에서 배치 자산의 자중·내용물·재실자 하중 추가. 다른 하중과 중복을 피한다.",
       "type": "boolean"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "connections": {
-      "default": "rigid",
-      "description": "네이티브 접합 조건. \"rigid\"는 모든 접합부의 모멘트를 전달하고, \"simple\"은 보 단부의 강축 휨과 가새 단부의 양축 휨을 해제. 같은 선상으로 이어지는 부재와 기둥은 연속 유지. 일반 볼트 접합 강구조·목구조는 \"simple\"에 가깝고 강접합은 보 처짐을 과소평가할 수 있음. 곡선 User Text의 release 값(\"pinned\", \"pinned_start\", \"pinned_end\", \"rigid\") 우선.",
+      "description": "기본 rigid. simple은 보 강축·가새 양축의 단부 휨을 해제하고 동축 부재·기둥의 연속성을 유지.\n곡선 User Text의 release(pinned, pinned_start, pinned_end, rigid)가 우선.",
       "type": "string"
     },
     "design_basis": {
-      "default": "en1990",
-      "description": "네이티브 하중 조합. \"en1990\"은 처짐에 SLS G + Q, 부재 검토에 ULS 1.35 G + 1.5 Q 사용. G는 자중·바닥 구성층·배치 물품 중량, Q는 load_kn·용도별 활하중·내용물·재실자. \"unfactored\"는 Karamba와 같이 둘 다 G + Q 적용.",
+      "description": "기본 en1990은 선택 프로필의 SLS·ULS 조합 적용. unfactored는 양쪽에 G + Q 사용.",
       "type": "string"
     },
     "design_code": {
-      "default": "eurocode",
-      "description": "설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. \"eurocode\"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. \"off\"는 design_basis=\"unfactored\"와 같이 G + Q 적용.",
+      "description": "analysis_01-list_design_codes tool의 프로필 ID. 기본 eurocode, off는 비계수 G + Q.",
       "type": "string"
     },
     "detail": {
-      "default": false,
       "description": "네이티브 결과에 부재별 단면력·사용률·처짐과 지점 반력 포함.",
       "type": "boolean"
     },
     "engine": {
-      "default": "auto",
-      "description": "auto, native, karamba 중 선택. auto는 선형 프레임에 native, 그 외에 Karamba 선택. karamba는 api → template → rule_based 순으로 시도. 실제 적용 방식은 analysis_method·warnings에서 확인.",
+      "description": "기본 auto는 native 프레임 해석 우선. 셸·그리드셸·막 구조 또는 지원 불가 형상은 Karamba.\nkaramba는 api → template → rule_based 순. 실제 경로는 analysis_method와 warnings에서 확인.",
       "type": "string"
     },
     "fabrication": {
-      "default": "cold_formed",
-      "description": "강재 중공 단면(CHS/RHS)의 제작 방식. \"cold_formed\"는 EN 10219 좌굴 곡선 c, \"hot_finished\"는 EN 10210 곡선 a(S460은 a0). 좌굴 내력 차이가 최대 약 23%이므로 명시된 경우에만 \"hot_finished\" 사용.",
+      "description": "강재 중공 단면 제작 방식. 기본 cold_formed는 좌굴 곡선 c, hot_finished는 a(S460은 a0).",
       "type": "string"
     },
     "fixed_supports": {
       "default": true,
-      "description": "true는 완전 고정, false는 회전이 자유로운 핀 지점.",
+      "description": "true는 완전 고정, false는 회전이 자유로운 핀 지점. · 기본값 true",
       "type": "boolean"
     },
     "floor_dead_kn_m2": {
-      "default": 0.0,
-      "description": "같은 바닥 구획의 구성층·마감 등 추가 고정하중.",
+      "description": "바닥 구성층·마감의 추가 고정하중. 기본값 0.",
       "type": "number"
     },
     "floor_load_kn_m2": {
-      "default": 0.0,
-      "description": "네이티브 해석에서 한 층의 보로 둘러싸인 모든 구획에 적용(예: EN 1991-1-1 Category A 주거용 2.0 kN/m²). 보는 45° 규칙에 따라 양방향 분담하며 장단변비가 2:1을 넘으면 일방향 분담. 용도별 활하중에 가구·재실자가 포함되므로 asset_loads는 무거운 특정 물품에만 병행하고 중복 계산을 피하려면 load_kn을 0으로 지정.",
+      "description": "native 바닥 구획의 용도별 활하중. 45° 양방향 분담, 장단변비가 2:1을 넘으면 일방향. 기본값 0.\n가구·재실자 하중이 중복되지 않게 asset_loads와 load_kn을 조정.",
       "type": "number"
     },
     "guids": {
@@ -244,17 +248,17 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "array"
     },
     "load_kn": {
-      "default": 10.0,
-      "description": "전체 부과하중. native는 자유 절점에 하향(-Z) 균등 분배. 바닥·자산 하중과 중복되지 않게 산정하고 필요 시 0 지정.",
+      "description": "전체 추가 하중. native는 자유 절점에 하향(-Z) 균등 분배. 기본 10, 바닥·자산 하중으로 충당 시 0.",
       "type": "number"
     },
     "material": {
       "default": "Steel",
-      "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\".",
+      "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\". · 기본값 \"Steel\"",
       "type": "string"
     },
     "self_weight": {
       "default": true,
+      "description": "기본값 true",
       "type": "boolean"
     },
     "span_m": {
@@ -266,17 +270,14 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "네이티브 해석에서 부재가 여러 절점으로 분할된 경우 L/250을 적용할 전체 경간(예: 3.1 m 두 구간으로 그린 6.2 m 장선)."
+      "description": "여러 절점으로 분할한 부재의 처짐 검토용 전체 경간."
     },
     "stability": {
-      "default": "auto",
-      "description": "\"auto\"는 모든 ULS 조합의 탄성 임계 하중 계수 alpha_cr(EN 1993-1-1 5.2.1)과 ±X·±Y 횡변위 초기 불완전성 φ = 1/200 × αh × αm(5.3.2) 적용. alpha_cr < 10이면 2차 P-Delta ULS 해석, alpha_cr ≤ 1이면 불안정으로 실패 처리. \"off\"는 초기 불완전성을 적용하지 않는 1차 해석.",
+      "description": "기본 auto는 초기 불완전성을 반영하고 alpha_cr < 10에서 2차 해석, ≤ 1이면 불안정.\noff는 초기 불완전성을 생략하는 1차 해석.",
       "type": "string"
     },
     "structure_type": {
-      "default": "beam",
-      "description": "\"beam\" 단순 보 휨·처짐, \"truss\" 축력·좌굴, \"shell\" 셸 응력·변위, \"frame\" 프레임 모멘트·전단, \"canopy\" 캔틸레버 캐노피, \"gridshell\" 대변형 그리드셸, \"membrane\" 막 구조 형상 탐색, \"highrise\" 고층 구조 시스템.",
+      "description": "beam(기본), truss, shell, frame, canopy, gridshell, membrane, highrise.",
       "type": "string"
     },
     "uls_combination": {
@@ -288,13 +289,12 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "\"6.10\" 또는 \"6.10ab\". \"6.10ab\"는 각 부재에서 6.10a·6.10b 중 불리한 결과를 적용. 생략 시 프로필의 식을 사용(Eurocode: 6.10). 프로필이 식을 지정한 경우 요청보다 우선하며 경고 반환."
+      "description": "6.10 또는 6.10ab(부재별로 더 불리한 6.10a/b). 프로필 고정식이 우선하며 충돌 시 경고."
     }
   },
   "required": [
-    "guids",
-    "connection_id"
+    "connection_id",
+    "guids"
   ],
   "type": "object"
 }
@@ -309,53 +309,44 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_loads": {
-      "default": false,
-      "description": "네이티브 해석에서 배치 자산의 자중·내용물·재실자 하중 추가. 다른 입력에 반영한 하중과 중복되지 않게 산정.",
+      "description": "native에서 배치 자산의 자중·내용물·재실자 하중 추가. 다른 하중과 중복을 피한다.",
       "type": "boolean"
     },
     "connections": {
-      "default": "rigid",
-      "description": "네이티브 접합 조건. \"rigid\"는 모든 접합부의 모멘트를 전달하고, \"simple\"은 보 단부의 강축 휨과 가새 단부의 양축 휨을 해제. 같은 선상으로 이어지는 부재와 기둥은 연속 유지. 일반 볼트 접합 강구조·목구조는 \"simple\"에 가깝고 강접합은 보 처짐을 과소평가할 수 있음. 곡선 User Text의 release 값(\"pinned\", \"pinned_start\", \"pinned_end\", \"rigid\") 우선.",
+      "description": "기본 rigid. simple은 보 강축·가새 양축의 단부 휨을 해제하고 동축 부재·기둥의 연속성을 유지.\n곡선 User Text의 release(pinned, pinned_start, pinned_end, rigid)가 우선.",
       "type": "string"
     },
     "design_basis": {
-      "default": "en1990",
-      "description": "네이티브 하중 조합. \"en1990\"은 처짐에 SLS G + Q, 부재 검토에 ULS 1.35 G + 1.5 Q 사용. G는 자중·바닥 구성층·배치 물품 중량, Q는 load_kn·용도별 활하중·내용물·재실자. \"unfactored\"는 Karamba와 같이 둘 다 G + Q 적용.",
+      "description": "기본 en1990은 선택 프로필의 SLS·ULS 조합 적용. unfactored는 양쪽에 G + Q 사용.",
       "type": "string"
     },
     "design_code": {
-      "default": "eurocode",
-      "description": "설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. \"eurocode\"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. \"off\"는 design_basis=\"unfactored\"와 같이 G + Q 적용.",
+      "description": "analysis_01-list_design_codes tool의 프로필 ID. 기본 eurocode, off는 비계수 G + Q.",
       "type": "string"
     },
     "detail": {
-      "default": false,
       "description": "네이티브 결과에 부재별 단면력·사용률·처짐과 지점 반력 포함.",
       "type": "boolean"
     },
     "engine": {
-      "default": "auto",
-      "description": "auto, native, karamba 중 선택. auto는 선형 프레임에 native, 그 외에 Karamba 선택. karamba는 api → template → rule_based 순으로 시도. 실제 적용 방식은 analysis_method·warnings에서 확인.",
+      "description": "기본 auto는 native 프레임 해석 우선. 셸·그리드셸·막 구조 또는 지원 불가 형상은 Karamba.\nkaramba는 api → template → rule_based 순. 실제 경로는 analysis_method와 warnings에서 확인.",
       "type": "string"
     },
     "fabrication": {
-      "default": "cold_formed",
-      "description": "강재 중공 단면(CHS/RHS)의 제작 방식. \"cold_formed\"는 EN 10219 좌굴 곡선 c, \"hot_finished\"는 EN 10210 곡선 a(S460은 a0). 좌굴 내력 차이가 최대 약 23%이므로 명시된 경우에만 \"hot_finished\" 사용.",
+      "description": "강재 중공 단면 제작 방식. 기본 cold_formed는 좌굴 곡선 c, hot_finished는 a(S460은 a0).",
       "type": "string"
     },
     "fixed_supports": {
       "default": true,
-      "description": "true는 완전 고정, false는 회전이 자유로운 핀 지점.",
+      "description": "true는 완전 고정, false는 회전이 자유로운 핀 지점. · 기본값 true",
       "type": "boolean"
     },
     "floor_dead_kn_m2": {
-      "default": 0.0,
-      "description": "같은 바닥 구획의 구성층·마감 등 추가 고정하중.",
+      "description": "바닥 구성층·마감의 추가 고정하중. 기본값 0.",
       "type": "number"
     },
     "floor_load_kn_m2": {
-      "default": 0.0,
-      "description": "네이티브 해석에서 한 층의 보로 둘러싸인 모든 구획에 적용(예: EN 1991-1-1 Category A 주거용 2.0 kN/m²). 보는 45° 규칙에 따라 양방향 분담하며 장단변비가 2:1을 넘으면 일방향 분담. 용도별 활하중에 가구·재실자가 포함되므로 asset_loads는 무거운 특정 물품에만 병행하고 중복 계산을 피하려면 load_kn을 0으로 지정.",
+      "description": "native 바닥 구획의 용도별 활하중. 45° 양방향 분담, 장단변비가 2:1을 넘으면 일방향. 기본값 0.\n가구·재실자 하중이 중복되지 않게 asset_loads와 load_kn을 조정.",
       "type": "number"
     },
     "guids": {
@@ -366,17 +357,17 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "array"
     },
     "load_kn": {
-      "default": 10.0,
-      "description": "전체 부과하중. native는 자유 절점에 하향(-Z) 균등 분배. 바닥·자산 하중과 중복되지 않게 산정하고 필요 시 0 지정.",
+      "description": "전체 추가 하중. native는 자유 절점에 하향(-Z) 균등 분배. 기본 10, 바닥·자산 하중으로 충당 시 0.",
       "type": "number"
     },
     "material": {
       "default": "Steel",
-      "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\".",
+      "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\". · 기본값 \"Steel\"",
       "type": "string"
     },
     "self_weight": {
       "default": true,
+      "description": "기본값 true",
       "type": "boolean"
     },
     "span_m": {
@@ -388,17 +379,14 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "네이티브 해석에서 부재가 여러 절점으로 분할된 경우 L/250을 적용할 전체 경간(예: 3.1 m 두 구간으로 그린 6.2 m 장선)."
+      "description": "여러 절점으로 분할한 부재의 처짐 검토용 전체 경간."
     },
     "stability": {
-      "default": "auto",
-      "description": "\"auto\"는 모든 ULS 조합의 탄성 임계 하중 계수 alpha_cr(EN 1993-1-1 5.2.1)과 ±X·±Y 횡변위 초기 불완전성 φ = 1/200 × αh × αm(5.3.2) 적용. alpha_cr < 10이면 2차 P-Delta ULS 해석, alpha_cr ≤ 1이면 불안정으로 실패 처리. \"off\"는 초기 불완전성을 적용하지 않는 1차 해석.",
+      "description": "기본 auto는 초기 불완전성을 반영하고 alpha_cr < 10에서 2차 해석, ≤ 1이면 불안정.\noff는 초기 불완전성을 생략하는 1차 해석.",
       "type": "string"
     },
     "structure_type": {
-      "default": "beam",
-      "description": "\"beam\" 단순 보 휨·처짐, \"truss\" 축력·좌굴, \"shell\" 셸 응력·변위, \"frame\" 프레임 모멘트·전단, \"canopy\" 캔틸레버 캐노피, \"gridshell\" 대변형 그리드셸, \"membrane\" 막 구조 형상 탐색, \"highrise\" 고층 구조 시스템.",
+      "description": "beam(기본), truss, shell, frame, canopy, gridshell, membrane, highrise.",
       "type": "string"
     },
     "uls_combination": {
@@ -410,8 +398,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "\"6.10\" 또는 \"6.10ab\". \"6.10ab\"는 각 부재에서 6.10a·6.10b 중 불리한 결과를 적용. 생략 시 프로필의 식을 사용(Eurocode: 6.10). 프로필이 식을 지정한 경우 요청보다 우선하며 경고 반환."
+      "description": "6.10 또는 6.10ab(부재별로 더 불리한 6.10a/b). 프로필 고정식이 우선하며 충돌 시 경고."
     }
   },
   "required": [
@@ -439,7 +426,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
             "type": "array"
           },
           "confidence": {
-            "description": "warnings·assumptions와 설계기준의 미검증 값까지 함께 검토.",
             "type": "string"
           },
           "design_code": {
@@ -448,7 +434,9 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
                 "type": "string"
               },
               "unverified": {
-                "items": {},
+                "items": {
+                  "type": "string"
+                },
                 "type": "array"
               }
             },
@@ -457,21 +445,46 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "error_code": {
             "type": "string"
           },
-          "material": {
-            "type": "string"
+          "members": {
+            "description": "native에서 `detail: true`일 때 부재별 단면력·처짐과 지점 반력.",
+            "items": {
+              "properties": {
+                "deflection_mm": {
+                  "type": "number"
+                },
+                "m_max_knm": {
+                  "type": "number"
+                },
+                "source_guids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "utilization": {
+                  "type": "number"
+                },
+                "v_max_kn": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
           },
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "passed": {
-            "description": "indicative 해석에서는 판정이 없을 수 있음(null). 구조 안전 인증은 별도.",
-            "type": [
-              "boolean",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "indicative 해석에서는 판정이 없을 수 있음(null). 구조 안전 인증은 별도."
           },
           "results": {
             "properties": {
@@ -518,8 +531,37 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "status": {
             "type": "string"
           },
-          "structure_type": {
-            "type": "string"
+          "supports": {
+            "items": {
+              "properties": {
+                "node": {
+                  "type": "integer"
+                },
+                "position_m": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "sls": {
+                  "additionalProperties": {
+                    "type": "number"
+                  },
+                  "type": "object"
+                },
+                "uls": {
+                  "additionalProperties": {
+                    "additionalProperties": {
+                      "type": "number"
+                    },
+                    "type": "object"
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
           },
           "warnings": {
             "items": {
@@ -528,7 +570,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
             "type": "array"
           },
           "worst_member_guids": {
-            "description": "검토 결과가 가장 불리한 부재 최대 5개.",
+            "description": "사용률 상위 최대 5개. 시각화의 `display_guids`에 전달.",
             "items": {
               "type": "string"
             },
@@ -556,7 +598,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-구조 해석 결과를 임시 뷰포트 오버레이로 표시.
+구조 해석의 임시 뷰포트 오버레이를 표시한다. `clear: true`로 제거한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -566,8 +608,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_loads": {
-      "default": false,
-      "description": "네이티브 해석에서 analysis_02-validate_structure tool과 같은 배치 자산 하중을 추가하고 작용점에 하중 화살표 표시.",
+      "description": "native에서 배치 자산의 자중·내용물·재실자 하중 추가. 다른 하중과 중복을 피한다.",
       "type": "boolean"
     },
     "beam_diameter_mm": {
@@ -579,7 +620,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
       "description": "원형 부재의 외경."
     },
     "beam_wall_mm": {
@@ -591,26 +631,24 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null
+      "description": "외경을 지정했을 때 기본 두께는 외경의 1/20."
     },
     "clear": {
-      "default": false,
-      "description": "현재 해석 오버레이 제거.",
       "type": "boolean"
     },
     "color_by": {
       "default": "displacement",
-      "description": "\"displacement\" 또는 \"utilization\".",
+      "description": "\"displacement\" 또는 \"utilization\". · 기본값 \"displacement\"",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "connections": {
-      "default": "rigid",
-      "description": "analysis_02-validate_structure tool과 같은 \"rigid\" 또는 \"simple\". 핀 접합 단부는 작은 원으로 표시.",
+      "description": "기본 rigid. simple은 보 강축·가새 양축의 단부 휨을 해제하고 동축 부재·기둥의 연속성을 유지.\n곡선 User Text의 release(pinned, pinned_start, pinned_end, rigid)가 우선.",
       "type": "string"
     },
     "deflection_limit_ratio": {
@@ -622,17 +660,14 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "허용 처짐 L/n의 n. 생략 시 설계기준 한계 사용(예: Eurocode의 L/250은 250)."
+      "description": "L/n의 n. 생략하면 설계기준 한계 사용."
     },
     "design_basis": {
-      "default": "en1990",
-      "description": "네이티브 하중 조합. \"en1990\"은 처짐에 SLS G + Q, 부재 검토에 ULS 1.35 G + 1.5 Q 사용. G는 자중·바닥 구성층·배치 물품 중량, Q는 load_kn·용도별 활하중·내용물·재실자. \"unfactored\"는 Karamba와 같이 둘 다 G + Q 적용.",
+      "description": "기본 en1990은 선택 프로필의 SLS·ULS 조합 적용. unfactored는 양쪽에 G + Q 사용.",
       "type": "string"
     },
     "design_code": {
-      "default": "eurocode",
-      "description": "설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. \"eurocode\"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. \"off\"는 design_basis=\"unfactored\"와 같이 G + Q 적용.",
+      "description": "analysis_01-list_design_codes tool의 프로필 ID. 기본 eurocode, off는 비계수 G + Q.",
       "type": "string"
     },
     "display_guids": {
@@ -647,32 +682,27 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "그릴 부재만 선택(예: 단면을 보여 줄 한 줄의 프레임). 해석은 guids 전체에 적용."
+      "description": "오버레이 대상 부재만 지정. 해석에는 `guids` 전체 사용."
     },
     "engine": {
-      "default": "auto",
-      "description": "\"native\", \"karamba\", \"auto\". \"auto\"는 네이티브 프레임 솔버를 우선 사용하고 셸이 포함되거나 브리지에서 모델을 내보낼 수 없으면 Karamba 사용.",
+      "description": "기본 auto는 native 프레임 해석 우선. 셸·그리드셸·막 구조 또는 지원 불가 형상은 Karamba.\nkaramba는 api → template → rule_based 순. 실제 경로는 analysis_method와 warnings에서 확인.",
       "type": "string"
     },
     "fabrication": {
-      "default": "cold_formed",
-      "description": "강재 중공 단면(CHS/RHS)의 제작 방식. \"cold_formed\"는 EN 10219 좌굴 곡선 c, \"hot_finished\"는 EN 10210 곡선 a(S460은 a0). 좌굴 내력 차이가 최대 약 23%이므로 명시된 경우에만 \"hot_finished\" 사용.",
+      "description": "강재 중공 단면 제작 방식. 기본 cold_formed는 좌굴 곡선 c, hot_finished는 a(S460은 a0).",
       "type": "string"
     },
     "fixed_supports": {
       "default": true,
-      "description": "true는 완전 고정, false는 회전이 자유로운 핀 지점.",
+      "description": "true는 완전 고정, false는 회전이 자유로운 핀 지점. · 기본값 true",
       "type": "boolean"
     },
     "floor_dead_kn_m2": {
-      "default": 0.0,
-      "description": "같은 바닥 구획의 구성층·마감 등 추가 고정하중.",
+      "description": "바닥 구성층·마감의 추가 고정하중. 기본값 0.",
       "type": "number"
     },
     "floor_load_kn_m2": {
-      "default": 0.0,
-      "description": "네이티브 해석에서 한 층의 보로 둘러싸인 모든 구획에 적용(예: EN 1991-1-1 Category A 주거용 2.0 kN/m²). 보는 45° 규칙에 따라 양방향 분담하며 장단변비가 2:1을 넘으면 일방향 분담. 용도별 활하중에 가구·재실자가 포함되므로 asset_loads는 무거운 특정 물품에만 병행하고 중복 계산을 피하려면 load_kn을 0으로 지정.",
+      "description": "native 바닥 구획의 용도별 활하중. 45° 양방향 분담, 장단변비가 2:1을 넘으면 일방향. 기본값 0.\n가구·재실자 하중이 중복되지 않게 asset_loads와 load_kn을 조정.",
       "type": "number"
     },
     "guids": {
@@ -687,32 +717,28 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "구조 축선 곡선과 지점 표식 점의 GUID. 지점 표식이 없으면 최하단 절점을 지점으로 사용(fixed_supports 참조)."
+      "description": "clear일 때만 생략 가능. 축선 곡선과 지점 점 GUID. 지점 점이 없으면 최하단 절점을 사용한다."
     },
     "load_kn": {
-      "default": 10.0,
-      "description": "자유 절점에 하향(-Z) 균등 분배할 전체 부과하중.",
+      "description": "전체 추가 하중. native는 자유 절점에 하향(-Z) 균등 분배. 기본 10, 바닥·자산 하중으로 충당 시 0.",
       "type": "number"
     },
     "material": {
       "default": "Steel",
-      "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\".",
+      "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\". · 기본값 \"Steel\"",
       "type": "string"
     },
     "physics": {
-      "default": true,
-      "description": "false이면 해석 오버레이 없이 같은 부재의 일반 형상을 그려 전후 비교.",
+      "description": "false면 변형 없이 표시. 기본값 true.",
       "type": "boolean"
     },
     "reanalyze": {
-      "default": true,
-      "description": "false이면 마지막 계산을 재사용하고 표시 옵션(scale, color_by, reveal, physics, title)만 갱신.",
+      "description": "false면 현재 오버레이의 해석을 재사용해 표시만 갱신. 오버레이가 없으면 오류. 기본값 true.",
       "type": "boolean"
     },
     "reveal": {
-      "default": 1.0,
-      "description": "표시할 부재 비율 0..1. 단계별 시공 재생에 사용.",
+      "default": 1,
+      "description": "표시할 부재 비율 0..1. 단계별 시공 재생에 사용. · 기본값 1.0",
       "type": "number"
     },
     "scale": {
@@ -724,11 +750,11 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
       "description": "변형 표시 배율. 생략 시 표시 변형을 경간의 약 6%로 조정."
     },
     "self_weight": {
       "default": true,
+      "description": "기본값 true",
       "type": "boolean"
     },
     "span_m": {
@@ -740,16 +766,13 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "처짐 한계 평가에 쓸 기준 경간. 생략 시 가장 긴 부재 사용. 6.2 m 장선을 3.1 m씩 분할했다면 6.2 지정."
+      "description": "여러 절점으로 분할한 부재의 처짐 검토용 전체 경간."
     },
     "stability": {
-      "default": "auto",
-      "description": "analysis_02-validate_structure tool과 같은 \"auto\" 또는 \"off\".",
+      "description": "기본 auto는 초기 불완전성을 반영하고 alpha_cr < 10에서 2차 해석, ≤ 1이면 불안정.\noff는 초기 불완전성을 생략하는 1차 해석.",
       "type": "string"
     },
     "title": {
-      "default": "",
       "type": "string"
     },
     "uls_combination": {
@@ -761,12 +784,10 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "\"6.10\" 또는 \"6.10ab\". \"6.10ab\"는 각 부재에서 6.10a·6.10b 중 불리한 결과를 적용. 생략 시 프로필의 식을 사용(Eurocode: 6.10). 프로필이 식을 지정한 경우 요청보다 우선하며 경고 반환."
+      "description": "6.10 또는 6.10ab(부재별로 더 불리한 6.10a/b). 프로필 고정식이 우선하며 충돌 시 경고."
     },
     "view": {
-      "default": "deflection",
-      "description": "\"deflection\"은 처짐 형상, \"buckling\"은 지배 ULS 조합의 첫 좌굴 모드와 alpha_cr 표시(STABLE ≥ 10, SWAY-SENSITIVE 1~10, UNSTABLE ≤ 1).",
+      "description": "deflection은 처짐, buckling은 native 해석의 첫 ULS 조합에 대한 좌굴 모드와 alpha_cr을 표시한다.",
       "type": "string"
     }
   },
@@ -786,8 +807,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_loads": {
-      "default": false,
-      "description": "네이티브 해석에서 analysis_02-validate_structure tool과 같은 배치 자산 하중을 추가하고 작용점에 하중 화살표 표시.",
+      "description": "native에서 배치 자산의 자중·내용물·재실자 하중 추가. 다른 하중과 중복을 피한다.",
       "type": "boolean"
     },
     "beam_diameter_mm": {
@@ -799,7 +819,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
       "description": "원형 부재의 외경."
     },
     "beam_wall_mm": {
@@ -811,21 +830,18 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null
+      "description": "외경을 지정했을 때 기본 두께는 외경의 1/20."
     },
     "clear": {
-      "default": false,
-      "description": "현재 해석 오버레이 제거.",
       "type": "boolean"
     },
     "color_by": {
       "default": "displacement",
-      "description": "\"displacement\" 또는 \"utilization\".",
+      "description": "\"displacement\" 또는 \"utilization\". · 기본값 \"displacement\"",
       "type": "string"
     },
     "connections": {
-      "default": "rigid",
-      "description": "analysis_02-validate_structure tool과 같은 \"rigid\" 또는 \"simple\". 핀 접합 단부는 작은 원으로 표시.",
+      "description": "기본 rigid. simple은 보 강축·가새 양축의 단부 휨을 해제하고 동축 부재·기둥의 연속성을 유지.\n곡선 User Text의 release(pinned, pinned_start, pinned_end, rigid)가 우선.",
       "type": "string"
     },
     "deflection_limit_ratio": {
@@ -837,17 +853,14 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "허용 처짐 L/n의 n. 생략 시 설계기준 한계 사용(예: Eurocode의 L/250은 250)."
+      "description": "L/n의 n. 생략하면 설계기준 한계 사용."
     },
     "design_basis": {
-      "default": "en1990",
-      "description": "네이티브 하중 조합. \"en1990\"은 처짐에 SLS G + Q, 부재 검토에 ULS 1.35 G + 1.5 Q 사용. G는 자중·바닥 구성층·배치 물품 중량, Q는 load_kn·용도별 활하중·내용물·재실자. \"unfactored\"는 Karamba와 같이 둘 다 G + Q 적용.",
+      "description": "기본 en1990은 선택 프로필의 SLS·ULS 조합 적용. unfactored는 양쪽에 G + Q 사용.",
       "type": "string"
     },
     "design_code": {
-      "default": "eurocode",
-      "description": "설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. \"eurocode\"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. \"off\"는 design_basis=\"unfactored\"와 같이 G + Q 적용.",
+      "description": "analysis_01-list_design_codes tool의 프로필 ID. 기본 eurocode, off는 비계수 G + Q.",
       "type": "string"
     },
     "display_guids": {
@@ -862,32 +875,27 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "그릴 부재만 선택(예: 단면을 보여 줄 한 줄의 프레임). 해석은 guids 전체에 적용."
+      "description": "오버레이 대상 부재만 지정. 해석에는 `guids` 전체 사용."
     },
     "engine": {
-      "default": "auto",
-      "description": "\"native\", \"karamba\", \"auto\". \"auto\"는 네이티브 프레임 솔버를 우선 사용하고 셸이 포함되거나 브리지에서 모델을 내보낼 수 없으면 Karamba 사용.",
+      "description": "기본 auto는 native 프레임 해석 우선. 셸·그리드셸·막 구조 또는 지원 불가 형상은 Karamba.\nkaramba는 api → template → rule_based 순. 실제 경로는 analysis_method와 warnings에서 확인.",
       "type": "string"
     },
     "fabrication": {
-      "default": "cold_formed",
-      "description": "강재 중공 단면(CHS/RHS)의 제작 방식. \"cold_formed\"는 EN 10219 좌굴 곡선 c, \"hot_finished\"는 EN 10210 곡선 a(S460은 a0). 좌굴 내력 차이가 최대 약 23%이므로 명시된 경우에만 \"hot_finished\" 사용.",
+      "description": "강재 중공 단면 제작 방식. 기본 cold_formed는 좌굴 곡선 c, hot_finished는 a(S460은 a0).",
       "type": "string"
     },
     "fixed_supports": {
       "default": true,
-      "description": "true는 완전 고정, false는 회전이 자유로운 핀 지점.",
+      "description": "true는 완전 고정, false는 회전이 자유로운 핀 지점. · 기본값 true",
       "type": "boolean"
     },
     "floor_dead_kn_m2": {
-      "default": 0.0,
-      "description": "같은 바닥 구획의 구성층·마감 등 추가 고정하중.",
+      "description": "바닥 구성층·마감의 추가 고정하중. 기본값 0.",
       "type": "number"
     },
     "floor_load_kn_m2": {
-      "default": 0.0,
-      "description": "네이티브 해석에서 한 층의 보로 둘러싸인 모든 구획에 적용(예: EN 1991-1-1 Category A 주거용 2.0 kN/m²). 보는 45° 규칙에 따라 양방향 분담하며 장단변비가 2:1을 넘으면 일방향 분담. 용도별 활하중에 가구·재실자가 포함되므로 asset_loads는 무거운 특정 물품에만 병행하고 중복 계산을 피하려면 load_kn을 0으로 지정.",
+      "description": "native 바닥 구획의 용도별 활하중. 45° 양방향 분담, 장단변비가 2:1을 넘으면 일방향. 기본값 0.\n가구·재실자 하중이 중복되지 않게 asset_loads와 load_kn을 조정.",
       "type": "number"
     },
     "guids": {
@@ -902,32 +910,28 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "구조 축선 곡선과 지점 표식 점의 GUID. 지점 표식이 없으면 최하단 절점을 지점으로 사용(fixed_supports 참조)."
+      "description": "clear일 때만 생략 가능. 축선 곡선과 지점 점 GUID. 지점 점이 없으면 최하단 절점을 사용한다."
     },
     "load_kn": {
-      "default": 10.0,
-      "description": "자유 절점에 하향(-Z) 균등 분배할 전체 부과하중.",
+      "description": "전체 추가 하중. native는 자유 절점에 하향(-Z) 균등 분배. 기본 10, 바닥·자산 하중으로 충당 시 0.",
       "type": "number"
     },
     "material": {
       "default": "Steel",
-      "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\".",
+      "description": "\"Steel\", \"S355\", \"Concrete\", \"Wood\", \"Aluminium\". · 기본값 \"Steel\"",
       "type": "string"
     },
     "physics": {
-      "default": true,
-      "description": "false이면 해석 오버레이 없이 같은 부재의 일반 형상을 그려 전후 비교.",
+      "description": "false면 변형 없이 표시. 기본값 true.",
       "type": "boolean"
     },
     "reanalyze": {
-      "default": true,
-      "description": "false이면 마지막 계산을 재사용하고 표시 옵션(scale, color_by, reveal, physics, title)만 갱신.",
+      "description": "false면 현재 오버레이의 해석을 재사용해 표시만 갱신. 오버레이가 없으면 오류. 기본값 true.",
       "type": "boolean"
     },
     "reveal": {
-      "default": 1.0,
-      "description": "표시할 부재 비율 0..1. 단계별 시공 재생에 사용.",
+      "default": 1,
+      "description": "표시할 부재 비율 0..1. 단계별 시공 재생에 사용. · 기본값 1.0",
       "type": "number"
     },
     "scale": {
@@ -939,11 +943,11 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
       "description": "변형 표시 배율. 생략 시 표시 변형을 경간의 약 6%로 조정."
     },
     "self_weight": {
       "default": true,
+      "description": "기본값 true",
       "type": "boolean"
     },
     "span_m": {
@@ -955,16 +959,13 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "처짐 한계 평가에 쓸 기준 경간. 생략 시 가장 긴 부재 사용. 6.2 m 장선을 3.1 m씩 분할했다면 6.2 지정."
+      "description": "여러 절점으로 분할한 부재의 처짐 검토용 전체 경간."
     },
     "stability": {
-      "default": "auto",
-      "description": "analysis_02-validate_structure tool과 같은 \"auto\" 또는 \"off\".",
+      "description": "기본 auto는 초기 불완전성을 반영하고 alpha_cr < 10에서 2차 해석, ≤ 1이면 불안정.\noff는 초기 불완전성을 생략하는 1차 해석.",
       "type": "string"
     },
     "title": {
-      "default": "",
       "type": "string"
     },
     "uls_combination": {
@@ -976,12 +977,10 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "\"6.10\" 또는 \"6.10ab\". \"6.10ab\"는 각 부재에서 6.10a·6.10b 중 불리한 결과를 적용. 생략 시 프로필의 식을 사용(Eurocode: 6.10). 프로필이 식을 지정한 경우 요청보다 우선하며 경고 반환."
+      "description": "6.10 또는 6.10ab(부재별로 더 불리한 6.10a/b). 프로필 고정식이 우선하며 충돌 시 경고."
     },
     "view": {
-      "default": "deflection",
-      "description": "\"deflection\"은 처짐 형상, \"buckling\"은 지배 ULS 조합의 첫 좌굴 모드와 alpha_cr 표시(STABLE ≥ 10, SWAY-SENSITIVE 1~10, UNSTABLE ≤ 1).",
+      "description": "deflection은 처짐, buckling은 native 해석의 첫 ULS 조합에 대한 좌굴 모드와 alpha_cr을 표시한다.",
       "type": "string"
     }
   },
@@ -1003,6 +1002,20 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "analysis_method": {
             "type": "string"
           },
+          "buckling": {
+            "properties": {
+              "alpha_cr": {
+                "type": "number"
+              },
+              "combination": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "alpha_cr"
+            ],
+            "type": "object"
+          },
           "deflection_limit_mm": {
             "type": "number"
           },
@@ -1020,9 +1033,13 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
                   "type": "array"
                 },
                 "utilization": {
-                  "type": [
-                    "number",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 }
               },
@@ -1037,26 +1054,31 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
             "type": "number"
           },
           "max_utilization": {
-            "type": [
-              "number",
-              "null"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "nodes": {
             "type": "integer"
           },
           "passed": {
-            "description": "indicative에서 null이면 해석까지 완료했으며 재료 내력의 합격 판정은 생략.",
-            "type": [
-              "boolean",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null이면 참고 해석 결과로 재료 내력 판정은 생략."
           },
           "scale": {
             "description": "변형을 화면에 그릴 때 적용한 과장 배율.",
@@ -1096,7 +1118,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-구조 검증 이력의 Markdown 보고서 생성. 각 실행에 실제 엔진과 적용 입력을 기록하고, 저장되지 않은 과거 입력은 알 수 없음으로 표시.
+구조 검증 이력의 Markdown 보고서를 저장한다. 실제 엔진·입력과 과거 미기록 입력의 상태를 담는다. 이력이 없으면 analysis_02-validate_structure tool을 먼저 호출한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -1106,18 +1128,18 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "limit": {
       "default": 50,
-      "description": "최대 500회.",
+      "description": "최대 500회. · 기본값 50",
       "type": "integer"
     },
     "path": {
-      "default": "",
-      "description": "관리형은 선택한 Plan 산출물 폴더 기준 상대 경로(생략 시 reports/structural-validation.md). 독립 실행에서 생략 시 사용자 데이터의 reports/structural-validation-<timestamp>.md.",
+      "description": "관리형은 선택한 Plan 산출물 폴더 기준 상대 경로. 기본 reports/structural-validation.md.\n독립 실행의 기본은 사용자 데이터 아래 reports/structural-validation-<timestamp>.md.",
       "type": "string"
     }
   },
@@ -1138,12 +1160,11 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "properties": {
     "limit": {
       "default": 50,
-      "description": "최대 500회.",
+      "description": "최대 500회. · 기본값 50",
       "type": "integer"
     },
     "path": {
-      "default": "",
-      "description": "관리형은 선택한 Plan 산출물 폴더 기준 상대 경로(생략 시 reports/structural-validation.md). 독립 실행에서 생략 시 사용자 데이터의 reports/structural-validation-<timestamp>.md.",
+      "description": "관리형은 선택한 Plan 산출물 폴더 기준 상대 경로. 기본 reports/structural-validation.md.\n독립 실행의 기본은 사용자 데이터 아래 reports/structural-validation-<timestamp>.md.",
       "type": "string"
     }
   },
@@ -1169,9 +1190,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
             "type": "string"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "path": {
@@ -1205,11 +1223,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-층별 출구 수·유효 폭·이격·보행거리 예비 검토. Rhino에서 형상이나 경로를 읽지 않으므로 실제 층 경계와 문 중심·유효 폭, 가장 불리한 보행 경로를 직접 측정해 입력. 출구가 둘 이상이면 가장 먼 두 출구의 직선 이격을 검사.
-
-출구는 문마다 한 번만 입력. 중복 중심, 좌표·폭 누락, 비유한 수, 음수 폭·거리·면적, 양의 정수가 아닌 층수, 면적이 0인 경계는 거절. 폭 0은 폭 부족 판정을 위해 허용.
-
-비업무 용도의 보행거리는 업무용 기준으로 대체. 스프링클러가 있는 막다른 복도도 업무용 기준을 쓰며 용도 경고는 별도로 나오지 않음. 경계값에서는 표시값 반올림으로 판정이 달라 보일 수 있음. BCI와 통상적인 IBC 수치를 사용하므로 source_note·warnings를 프로젝트 적용 법규와 대조.
+직접 측정한 층 경계·출구 중심·유효 폭·경로 길이로 피난 조건을 예비 검토한다. 보행거리와 스프링클러 설치 구역의 막다른 복도는 업무용 기준을 적용하므로 `basis`·`source_note`·`warnings`를 적용 법규와 대조한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -1219,31 +1233,50 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "dead_end_m": {
-      "default": 0.0,
-      "description": "가장 긴 막다른 복도 길이. 0이면 검사 생략.",
+      "default": 0,
+      "description": "가장 긴 막다른 복도 길이. 0이면 검사 생략. · 기본값 0.0",
       "type": "number"
     },
     "exits": {
-      "description": "문마다 {\"name\": string, \"x_mm\": number, \"y_mm\": number, \"width_mm\": number}. 좌표는 문 중심, 폭은 유효 피난 폭.",
+      "description": "문 하나당 한 항목. 중심 좌표와 유효 폭을 mm로 지정.",
       "items": {
-        "additionalProperties": true,
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "width_mm": {
+            "type": "number"
+          },
+          "x_mm": {
+            "type": "number"
+          },
+          "y_mm": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "x_mm",
+          "y_mm",
+          "width_mm"
+        ],
         "type": "object"
       },
       "type": "array"
     },
     "net_area_m2": {
-      "default": 0.0,
-      "description": "실제 재실 면적. 0이면 층 경계의 직사각형 면적 사용.",
+      "description": "실제 재실 면적. 생략 또는 0이면 경계의 직사각형 면적.",
       "type": "number"
     },
     "occupancy": {
       "default": "business",
-      "description": "business, mercantile, assembly_unconcentrated, classroom, residential, storage.",
+      "description": "business, mercantile, assembly_unconcentrated, classroom, residential, storage. · 기본값 \"business\"",
       "type": "string"
     },
     "plate_bounds_mm": {
@@ -1251,21 +1284,21 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "items": {
         "type": "number"
       },
+      "maxItems": 4,
+      "minItems": 4,
       "type": "array"
     },
     "sprinklered": {
       "default": true,
-      "description": "전체 구역 설치 기준.",
+      "description": "전체 구역 설치 기준. · 기본값 true",
       "type": "boolean"
     },
     "stories": {
-      "default": 1,
-      "description": "출구가 담당하는 층수. 2층 이상이면 최소 2개 출구와 계단 폭 계수(7.6 mm/인) 적용.",
+      "description": "출구가 담당하는 층수. 기본 1. 2층 이상은 최소 2개 출구와 계단 폭 기준 적용.",
       "type": "integer"
     },
     "travel_distances_m": {
-      "default": [],
-      "description": "입력 길이 중 최댓값 검사. 빈 배열이면 검사 생략.",
+      "description": "입력 길이 중 최댓값 검사. 빈 배열이면 검사 생략. · 기본값 []",
       "items": {
         "type": "number"
       },
@@ -1273,9 +1306,9 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
     }
   },
   "required": [
-    "plate_bounds_mm",
+    "connection_id",
     "exits",
-    "connection_id"
+    "plate_bounds_mm"
   ],
   "type": "object"
 }
@@ -1290,26 +1323,44 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "dead_end_m": {
-      "default": 0.0,
-      "description": "가장 긴 막다른 복도 길이. 0이면 검사 생략.",
+      "default": 0,
+      "description": "가장 긴 막다른 복도 길이. 0이면 검사 생략. · 기본값 0.0",
       "type": "number"
     },
     "exits": {
-      "description": "문마다 {\"name\": string, \"x_mm\": number, \"y_mm\": number, \"width_mm\": number}. 좌표는 문 중심, 폭은 유효 피난 폭.",
+      "description": "문 하나당 한 항목. 중심 좌표와 유효 폭을 mm로 지정.",
       "items": {
-        "additionalProperties": true,
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "width_mm": {
+            "type": "number"
+          },
+          "x_mm": {
+            "type": "number"
+          },
+          "y_mm": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "x_mm",
+          "y_mm",
+          "width_mm"
+        ],
         "type": "object"
       },
       "type": "array"
     },
     "net_area_m2": {
-      "default": 0.0,
-      "description": "실제 재실 면적. 0이면 층 경계의 직사각형 면적 사용.",
+      "description": "실제 재실 면적. 생략 또는 0이면 경계의 직사각형 면적.",
       "type": "number"
     },
     "occupancy": {
       "default": "business",
-      "description": "business, mercantile, assembly_unconcentrated, classroom, residential, storage.",
+      "description": "business, mercantile, assembly_unconcentrated, classroom, residential, storage. · 기본값 \"business\"",
       "type": "string"
     },
     "plate_bounds_mm": {
@@ -1317,21 +1368,21 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "items": {
         "type": "number"
       },
+      "maxItems": 4,
+      "minItems": 4,
       "type": "array"
     },
     "sprinklered": {
       "default": true,
-      "description": "전체 구역 설치 기준.",
+      "description": "전체 구역 설치 기준. · 기본값 true",
       "type": "boolean"
     },
     "stories": {
-      "default": 1,
-      "description": "출구가 담당하는 층수. 2층 이상이면 최소 2개 출구와 계단 폭 계수(7.6 mm/인) 적용.",
+      "description": "출구가 담당하는 층수. 기본 1. 2층 이상은 최소 2개 출구와 계단 폭 기준 적용.",
       "type": "integer"
     },
     "travel_distances_m": {
-      "default": [],
-      "description": "입력 길이 중 최댓값 검사. 빈 배열이면 검사 생략.",
+      "description": "입력 길이 중 최댓값 검사. 빈 배열이면 검사 생략. · 기본값 []",
       "items": {
         "type": "number"
       },
@@ -1339,8 +1390,8 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
     }
   },
   "required": [
-    "plate_bounds_mm",
-    "exits"
+    "exits",
+    "plate_bounds_mm"
   ],
   "type": "object"
 }
@@ -1393,12 +1444,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "occupancy": {
-            "type": "string"
-          },
           "occupant_load": {
             "description": "재실 면적을 용도별 1인당 면적으로 나누어 올림.",
             "type": "integer"
@@ -1448,7 +1493,8 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -1457,14 +1503,13 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "source_glb": {
-      "default": "",
       "description": "원본이 바뀌었는지 비교할 GLB. 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로. 라이브러리에서 원본을 찾을 수 있으면 생략 가능.",
       "type": "string"
     }
   },
   "required": [
-    "package_dir",
-    "connection_id"
+    "connection_id",
+    "package_dir"
   ],
   "type": "object"
 }
@@ -1483,7 +1528,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "source_glb": {
-      "default": "",
       "description": "원본이 바뀌었는지 비교할 GLB. 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로. 라이브러리에서 원본을 찾을 수 있으면 생략 가능.",
       "type": "string"
     }
@@ -1502,10 +1546,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 ```json
 {
   "properties": {
-    "asset_id": {
-      "description": "패키지 원본 ID. custom-*는 등록 자산 ID로 사용할 수 없음.",
-      "type": "string"
-    },
     "checked_files": {
       "description": "파일 해시 검사 건수. 시각 검토는 별도.",
       "type": "integer"
@@ -1520,11 +1560,14 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
     "message": {
       "type": "string"
     },
-    "next_step_guide": {
-      "type": "string"
-    },
     "source_geometry": {
-      "description": "current, source_file_current, stale, not_checked. not_checked이면 success여도 원본은 미비교.",
+      "description": "not_checked이면 파일만 검사했다.",
+      "enum": [
+        "current",
+        "source_file_current",
+        "stale",
+        "not_checked"
+      ],
       "type": "string"
     },
     "status": {
@@ -1543,7 +1586,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-등록 3DM 또는 사용자 GLB 메시의 평면·정면·우측면 실루엣 생성. 실물 크기 mm DXF와 축척 SVG를 출력. 세 뷰가 A3에 들어가면 시트 SVG도 생성하며, 시트 없이도 성공 가능.
+등록 3DM 또는 삼각형 GLB(정적·비압축, 최대 100 MB·250,000 삼각형)에서 평면·정면·우측면 실루엣을 생성한다. GLB 경로는 관리형에서 프로젝트 상대 경로, 독립 실행에서 절대 경로다. 기본 위쪽 축은 y이고 (X, -Z, Y)로 변환한다. 실물 크기 mm DXF와 축척 SVG를 출력. 세 뷰가 A3에 들어가면 시트 SVG도 생성하며, 시트 없이도 성공 가능.
 
 정면은 좌표계 기준. 실루엣에 단면·내부 가시선·은선은 없으며 축척별 단순화로 작은 윤곽이 달라질 수 있음. 결과는 별도 drawing-runs에 저장하고 등록 자산의 도면은 갱신하지 않음.
 ```
@@ -1553,61 +1596,112 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 ```json
 {
   "additionalProperties": false,
+  "anyOf": [
+    {
+      "properties": {
+        "input_units": false,
+        "source_glb": false,
+        "up_axis": false
+      },
+      "required": [
+        "asset_id"
+      ]
+    },
+    {
+      "properties": {
+        "asset_id": false
+      },
+      "required": [
+        "source_glb",
+        "input_units"
+      ]
+    }
+  ],
   "properties": {
     "asset_id": {
-      "default": "",
-      "description": "등록 3DM 자산 ID. source_glb와 택일.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "input_units": {
-      "default": "",
-      "description": "source_glb를 지정하면 GLB 원본 단위 mm 또는 m 필수.",
+      "enum": [
+        "mm",
+        "m"
+      ],
       "type": "string"
     },
     "scales": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "integer"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "서로 다른 정수 축척 분모 1~4개(5~1000). 생략 시 [50, 100]."
+      "description": "서로 다른 5~1000 범위의 분모 1~4개. 기본 [50, 100].",
+      "items": {
+        "type": "integer"
+      },
+      "type": "array"
     },
     "source_glb": {
-      "default": "",
-      "description": "정적·비압축 삼각형 GLB(최대 100 MB, 250,000 삼각형).\n관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로.",
       "type": "string"
     },
     "source_references": {
-      "anyOf": [
-        {
-          "items": {
-            "additionalProperties": true,
-            "type": "object"
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "accessed_on": {
+            "type": "string"
           },
-          "type": "array"
+          "locator": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "relationship": {
+            "enum": [
+              "background_reading",
+              "dimensional_reference",
+              "assembly_reference",
+              "post_generation_reference"
+            ],
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "terms_url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "used_for": {
+            "type": "string"
+          }
         },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "도면에 첨부하는 참고 출처. 원본 모델의 생성 이력 증빙과는 별도.\n필수 키: source_id, title, url, publisher, locator, accessed_on, relationship, used_for, terms_url.\nrelationship: background_reading, dimensional_reference, assembly_reference, post_generation_reference."
+        "required": [
+          "source_id",
+          "title",
+          "url",
+          "publisher",
+          "locator",
+          "accessed_on",
+          "used_for",
+          "terms_url",
+          "relationship"
+        ],
+        "type": "object"
+      },
+      "type": "array"
     },
     "up_axis": {
-      "default": "y",
-      "description": "GLB 위쪽 축 y 또는 z. y는 (X, -Z, Y)로 변환. 등록 3DM에는 적용하지 않음.",
+      "enum": [
+        "y",
+        "z"
+      ],
       "type": "string"
     }
   },
@@ -1625,56 +1719,106 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 ```json
 {
   "additionalProperties": false,
+  "anyOf": [
+    {
+      "properties": {
+        "input_units": false,
+        "source_glb": false,
+        "up_axis": false
+      },
+      "required": [
+        "asset_id"
+      ]
+    },
+    {
+      "properties": {
+        "asset_id": false
+      },
+      "required": [
+        "source_glb",
+        "input_units"
+      ]
+    }
+  ],
   "properties": {
     "asset_id": {
-      "default": "",
-      "description": "등록 3DM 자산 ID. source_glb와 택일.",
       "type": "string"
     },
     "input_units": {
-      "default": "",
-      "description": "source_glb를 지정하면 GLB 원본 단위 mm 또는 m 필수.",
+      "enum": [
+        "mm",
+        "m"
+      ],
       "type": "string"
     },
     "scales": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "integer"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "서로 다른 정수 축척 분모 1~4개(5~1000). 생략 시 [50, 100]."
+      "description": "서로 다른 5~1000 범위의 분모 1~4개. 기본 [50, 100].",
+      "items": {
+        "type": "integer"
+      },
+      "type": "array"
     },
     "source_glb": {
-      "default": "",
-      "description": "정적·비압축 삼각형 GLB(최대 100 MB, 250,000 삼각형).\n관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로.",
       "type": "string"
     },
     "source_references": {
-      "anyOf": [
-        {
-          "items": {
-            "additionalProperties": true,
-            "type": "object"
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "accessed_on": {
+            "type": "string"
           },
-          "type": "array"
+          "locator": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "relationship": {
+            "enum": [
+              "background_reading",
+              "dimensional_reference",
+              "assembly_reference",
+              "post_generation_reference"
+            ],
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "terms_url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "used_for": {
+            "type": "string"
+          }
         },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "도면에 첨부하는 참고 출처. 원본 모델의 생성 이력 증빙과는 별도.\n필수 키: source_id, title, url, publisher, locator, accessed_on, relationship, used_for, terms_url.\nrelationship: background_reading, dimensional_reference, assembly_reference, post_generation_reference."
+        "required": [
+          "source_id",
+          "title",
+          "url",
+          "publisher",
+          "locator",
+          "accessed_on",
+          "used_for",
+          "terms_url",
+          "relationship"
+        ],
+        "type": "object"
+      },
+      "type": "array"
     },
     "up_axis": {
-      "default": "y",
-      "description": "GLB 위쪽 축 y 또는 z. y는 (X, -Z, Y)로 변환. 등록 3DM에는 적용하지 않음.",
+      "enum": [
+        "y",
+        "z"
+      ],
       "type": "string"
     }
   },
@@ -1693,13 +1837,10 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "manifest": {
-      "properties": {},
+      "additionalProperties": true,
       "type": "object"
     },
     "message": {
-      "type": "string"
-    },
-    "next_step_guide": {
       "type": "string"
     },
     "package_dir": {
@@ -1732,37 +1873,19 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "기존 라이브러리 자산 ID. 모르는 경우 include_ids=true로 목록·검색 결과에서 확인.",
+      "description": "목록·검색이 반환한 asset_id.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
-    },
-    "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "connection_id",
+    "asset_id"
   ],
   "type": "object"
 }
@@ -1777,27 +1900,8 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "기존 라이브러리 자산 ID. 모르는 경우 include_ids=true로 목록·검색 결과에서 확인.",
+      "description": "목록·검색이 반환한 asset_id.",
       "type": "string"
-    },
-    "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
     }
   },
   "required": [
@@ -1818,17 +1922,14 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "manifest": {
-      "properties": {},
+      "additionalProperties": true,
       "type": "object"
     },
     "message": {
       "type": "string"
     },
-    "next_step_guide": {
-      "type": "string"
-    },
     "package_dir": {
-      "description": "field_groups에 all을 지정해 반환받은 경로를 asset_01-audit_drawing tool의 package_dir에 전달.",
+      "description": "asset_01-audit_drawing tool에 전달.",
       "type": "string"
     },
     "plan_svg_uri": {
@@ -1860,38 +1961,34 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "기존 라이브러리 자산 ID. 모르는 경우 include_ids=true로 목록·검색 결과에서 확인.",
+      "description": "목록·검색이 반환한 asset_id.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "description": "조회에 사용한 asset_id는 응답에 반복되지 않을 수 있음.",
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "dimensions",
+          "source",
+          "paths",
+          "drawing",
+          "metadata",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "connection_id",
+    "asset_id"
   ],
   "type": "object"
 }
@@ -1906,28 +2003,23 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "기존 라이브러리 자산 ID. 모르는 경우 include_ids=true로 목록·검색 결과에서 확인.",
+      "description": "목록·검색이 반환한 asset_id.",
       "type": "string"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "description": "조회에 사용한 asset_id는 응답에 반복되지 않을 수 있음.",
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "dimensions",
+          "source",
+          "paths",
+          "drawing",
+          "metadata",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     }
   },
   "required": [
@@ -1950,19 +2042,48 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
         "properties": {
           "asset": {
             "properties": {
-              "drawing_ready": {
-                "description": "현재 원본과 일치하는 도면 패키지가 준비된 상태.",
-                "type": "boolean"
-              },
-              "file_available": {
-                "description": "원본·등록 파일의 존재 여부.",
-                "type": "boolean"
-              },
-              "model_status": {
-                "description": "ready, needs_conversion, needs_refresh 등. source_only인 자산은 배치 전 변환 필요.",
+              "category": {
                 "type": "string"
               },
-              "name": {
+              "dimensions_mm": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              "drawing_status": {
+                "type": "string"
+              },
+              "file_available": {
+                "type": "boolean"
+              },
+              "model_path": {
+                "type": "string"
+              },
+              "model_status": {
+                "type": "string"
+              },
+              "next_tool": {
+                "description": "변환이나 갱신이 필요할 때 호출할 도구.",
+                "type": "string"
+              },
+              "product": {
+                "type": "string"
+              },
+              "source_available": {
+                "type": "boolean"
+              },
+              "source_only": {
+                "type": "boolean"
+              },
+              "source_path": {
+                "type": "string"
+              },
+              "spatial": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "variant": {
                 "type": "string"
               }
             },
@@ -1972,9 +2093,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
             "type": "string"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "status": {
@@ -2002,7 +2120,8 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-모델·2D 자산 목록과 배치 준비 상태 조회. 상세 조회용 ID는 include_ids=true로 포함.
+모델·2D 자산 목록과 배치 준비 상태 조회. asset_id는 상세 조회와 배치에 사용한다.
+next_offset이 있으면 같은 조건으로 다음 페이지를 조회한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -2012,41 +2131,38 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
       "description": "빈 값은 전체 분류.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "dimensions",
+          "source",
+          "paths",
+          "drawing",
+          "metadata",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "limit": {
       "default": 20,
+      "description": "기본값 20",
       "type": "integer"
     },
     "offset": {
       "default": 0,
-      "description": "페이지의 시작 위치(0부터).",
+      "description": "페이지의 시작 위치(0부터). · 기본값 0",
       "type": "integer"
     }
   },
@@ -2066,36 +2182,32 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
       "description": "빈 값은 전체 분류.",
       "type": "string"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "dimensions",
+          "source",
+          "paths",
+          "drawing",
+          "metadata",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "limit": {
       "default": 20,
+      "description": "기본값 20",
       "type": "integer"
     },
     "offset": {
       "default": 0,
-      "description": "페이지의 시작 위치(0부터).",
+      "description": "페이지의 시작 위치(0부터). · 기본값 0",
       "type": "integer"
     }
   },
@@ -2115,8 +2227,59 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "contentSchema": {
         "properties": {
           "assets": {
-            "description": "추가 준비가 필요한 항목은 next_tool·next_step_guide 참고.",
             "items": {
+              "properties": {
+                "asset_id": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "dimensions_mm": {
+                  "additionalProperties": {
+                    "type": "number"
+                  },
+                  "type": "object"
+                },
+                "drawing_status": {
+                  "type": "string"
+                },
+                "file_available": {
+                  "type": "boolean"
+                },
+                "model_path": {
+                  "type": "string"
+                },
+                "model_status": {
+                  "type": "string"
+                },
+                "next_tool": {
+                  "description": "변환이나 갱신이 필요할 때 호출할 도구.",
+                  "type": "string"
+                },
+                "product": {
+                  "type": "string"
+                },
+                "source_available": {
+                  "type": "boolean"
+                },
+                "source_only": {
+                  "type": "boolean"
+                },
+                "source_path": {
+                  "type": "string"
+                },
+                "spatial": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "variant": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "asset_id"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -2124,31 +2287,21 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "error_code": {
             "type": "string"
           },
-          "library_id": {
-            "description": "include_ids=true일 때 포함.",
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer"
-          },
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "integer"
-          },
-          "purpose": {
-            "type": "string"
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "total": {
             "type": "integer"
-          },
-          "truncated": {
-            "description": "true이면 같은 필터로 offset에 이번에 반환된 자산 수를 더해 다음 페이지 조회.",
-            "type": "boolean"
           }
         },
         "type": "object"
@@ -2182,43 +2335,44 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "기존 라이브러리 자산 ID. 모르는 경우 include_ids=true로 목록·검색 결과에서 확인.",
+      "description": "목록·검색이 반환한 asset_id.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "rotation_degrees": {
       "default": 0,
-      "description": "월드 Z축 기준.",
+      "description": "월드 Z축 기준. · 기본값 0",
       "type": "number"
     },
     "scale": {
       "default": 1,
-      "description": "균일 배치 축척(0 초과 100 이하).",
+      "description": "균일 배치 축척(0 초과 100 이하). · 기본값 1",
       "type": "number"
     },
     "x": {
       "default": 0,
-      "description": "원본 기준점의 월드 좌표(문서 단위).",
+      "description": "원본 기준점의 월드 좌표(문서 단위). · 기본값 0",
       "type": "number"
     },
     "y": {
       "default": 0,
-      "description": "원본 기준점의 월드 좌표(문서 단위).",
+      "description": "원본 기준점의 월드 좌표(문서 단위). · 기본값 0",
       "type": "number"
     },
     "z": {
       "default": 0,
-      "description": "원본 기준점의 월드 좌표(문서 단위).",
+      "description": "원본 기준점의 월드 좌표(문서 단위). · 기본값 0",
       "type": "number"
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "connection_id",
+    "asset_id"
   ],
   "type": "object"
 }
@@ -2233,32 +2387,32 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "기존 라이브러리 자산 ID. 모르는 경우 include_ids=true로 목록·검색 결과에서 확인.",
+      "description": "목록·검색이 반환한 asset_id.",
       "type": "string"
     },
     "rotation_degrees": {
       "default": 0,
-      "description": "월드 Z축 기준.",
+      "description": "월드 Z축 기준. · 기본값 0",
       "type": "number"
     },
     "scale": {
       "default": 1,
-      "description": "균일 배치 축척(0 초과 100 이하).",
+      "description": "균일 배치 축척(0 초과 100 이하). · 기본값 1",
       "type": "number"
     },
     "x": {
       "default": 0,
-      "description": "원본 기준점의 월드 좌표(문서 단위).",
+      "description": "원본 기준점의 월드 좌표(문서 단위). · 기본값 0",
       "type": "number"
     },
     "y": {
       "default": 0,
-      "description": "원본 기준점의 월드 좌표(문서 단위).",
+      "description": "원본 기준점의 월드 좌표(문서 단위). · 기본값 0",
       "type": "number"
     },
     "z": {
       "default": 0,
-      "description": "원본 기준점의 월드 좌표(문서 단위).",
+      "description": "원본 기준점의 월드 좌표(문서 단위). · 기본값 0",
       "type": "number"
     }
   },
@@ -2280,11 +2434,13 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "contentMediaType": "application/json",
       "contentSchema": {
         "properties": {
-          "asset_id": {
-            "type": "string"
+          "affected_existing_instances": {
+            "type": "integer"
           },
           "definition_created": {
-            "description": "공유 정의 갱신 시 definition_refreshed·affected_existing_instances가 추가될 수 있음.",
+            "type": "boolean"
+          },
+          "definition_refreshed": {
             "type": "boolean"
           },
           "error_code": {
@@ -2294,17 +2450,23 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
             "type": "string"
           },
           "mutation_applied": {
-            "description": "null이면 변경 적용 여부 미확인.",
-            "type": [
-              "boolean",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null이면 변경 적용 여부 미확인."
           },
           "mutation_state": {
             "description": "unknown·partial이면 문서에 변경이 남아 있을 수 있음.",
             "type": "string"
           },
-          "next_step_guide": {
+          "next_tool": {
+            "const": "asset_07-prepare",
+            "description": "3DM 변환이 필요한 원본의 준비 도구.",
             "type": "string"
           },
           "object_guid": {
@@ -2340,7 +2502,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-원본 사본을 시각 검토해 등록용 3DM을 준비. inspect로 작업을 만들고, 수정이 필요할 때만 normalize 실행. 첫 verify가 생성한 최종 미리보기를 확인한 뒤 같은 해시·이름·ID로 verify를 다시 호출.
+inspect는 원본을 보존하고 미리보기를 만든다. 3DM은 내장 단위를 쓰고 다른 형식은 입력 단위를 지정한다. 새 normalize에는 검토를 제출한다. 이미 끝난 단계는 같은 job_dir로 조회할 수 있다. 첫 verify에서 받은 최종 이미지와 해시를 확인한 뒤 같은 job_dir로 검토를 제출한다. ready면 source_3dm과 job_dir를 등록에 사용한다. status는 저장된 근거만 읽는다. 관리형 경로는 프로젝트 상대 경로, 독립 실행에서는 절대 경로다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -2348,77 +2510,284 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 ```json
 {
   "additionalProperties": false,
+  "anyOf": [
+    {
+      "properties": {
+        "job_dir": false,
+        "review": false,
+        "stage": {
+          "const": "inspect",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_file"
+      ]
+    },
+    {
+      "properties": {
+        "input_units": false,
+        "review": {
+          "additionalProperties": false,
+          "properties": {
+            "inspected_sha256": {
+              "type": "string"
+            },
+            "remove": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "object_id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "object_id",
+                  "reason"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "rotation_degrees_xyz": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "translation": {
+              "description": "원본 단위",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "vision_reviewed": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "vision_reviewed",
+            "inspected_sha256"
+          ],
+          "type": "object"
+        },
+        "source_file": false,
+        "stage": {
+          "const": "normalize",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_dir"
+      ]
+    },
+    {
+      "properties": {
+        "input_units": false,
+        "review": {
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": {
+              "type": "string"
+            },
+            "final_sha256": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "vision_reviewed": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "vision_reviewed",
+            "final_sha256",
+            "name",
+            "asset_id"
+          ],
+          "type": "object"
+        },
+        "source_file": false,
+        "stage": {
+          "const": "verify",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_dir"
+      ]
+    },
+    {
+      "properties": {
+        "input_units": false,
+        "review": false,
+        "source_file": false,
+        "stage": {
+          "const": "status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_dir"
+      ]
+    }
+  ],
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "summary, parts, previews, provenance, all. 생략 시 미리보기 경로 포함, []는 요약. 페이지 처리는 parts에만 적용."
+      "description": "생략 시 미리보기 포함, []는 요약. limit·offset은 parts에만 적용.",
+      "items": {
+        "enum": [
+          "summary",
+          "parts",
+          "previews",
+          "provenance",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "input_units": {
-      "default": "",
-      "description": "OBJ/STL/PLY/OFF/GLB/glTF의 측정된 원본 단위(mm, cm, m, in, ft). inspect 이후 생략. 3DM은 내장 단위 유지.",
+      "enum": [
+        "mm",
+        "cm",
+        "m",
+        "in",
+        "ft"
+      ],
       "type": "string"
     },
     "job_dir": {
-      "default": "",
-      "description": "이전 응답의 job_dir. normalize·verify·status에 필수. 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로.",
       "type": "string"
     },
     "limit": {
-      "default": 50,
-      "description": "부품 목록 페이지당 1~200개.",
+      "description": "1~200, 기본 50",
+      "maximum": 200,
+      "minimum": 1,
       "type": "integer"
     },
     "offset": {
-      "default": 0,
-      "description": "페이지의 시작 위치(0부터).",
+      "minimum": 0,
       "type": "integer"
     },
     "review": {
       "anyOf": [
         {
-          "additionalProperties": true,
+          "additionalProperties": false,
+          "properties": {
+            "inspected_sha256": {
+              "type": "string"
+            },
+            "remove": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "object_id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "object_id",
+                  "reason"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "rotation_degrees_xyz": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "translation": {
+              "description": "원본 단위",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "vision_reviewed": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "vision_reviewed",
+            "inspected_sha256"
+          ],
           "type": "object"
         },
         {
-          "type": "null"
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": {
+              "type": "string"
+            },
+            "final_sha256": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "vision_reviewed": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "vision_reviewed",
+            "final_sha256",
+            "name",
+            "asset_id"
+          ],
+          "type": "object"
         }
-      ],
-      "default": null,
-      "description": "normalize: {vision_reviewed:true, inspected_sha256:\"확인한 해시\", rotation_degrees_xyz:[x,y,z], translation:[x,y,z], remove:[{object_id:\"ID\", reason:\"사유\"}]}. 생략한 변환은 그대로 두며 translation은 원본 단위. 최종 미리보기 확인 후 verify: {vision_reviewed:true, final_sha256:\"확인한 해시\", name:\"이름\", asset_id:\"ID\"}."
+      ]
     },
     "source_file": {
-      "default": "",
-      "description": "inspect에 사용할 모델. 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로. 원본 바이트는 보존.",
       "type": "string"
     },
     "stage": {
-      "description": "inspect, normalize, verify, status. status는 저장 근거만 조회하며 네이티브 실행 재개나 단계 갱신은 하지 않음.",
+      "enum": [
+        "inspect",
+        "normalize",
+        "verify",
+        "status"
+      ],
       "type": "string"
     }
   },
   "required": [
-    "stage",
-    "connection_id"
+    "connection_id",
+    "stage"
   ],
   "type": "object"
 }
@@ -2431,66 +2800,272 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 ```json
 {
   "additionalProperties": false,
+  "anyOf": [
+    {
+      "properties": {
+        "job_dir": false,
+        "review": false,
+        "stage": {
+          "const": "inspect",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_file"
+      ]
+    },
+    {
+      "properties": {
+        "input_units": false,
+        "review": {
+          "additionalProperties": false,
+          "properties": {
+            "inspected_sha256": {
+              "type": "string"
+            },
+            "remove": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "object_id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "object_id",
+                  "reason"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "rotation_degrees_xyz": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "translation": {
+              "description": "원본 단위",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "vision_reviewed": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "vision_reviewed",
+            "inspected_sha256"
+          ],
+          "type": "object"
+        },
+        "source_file": false,
+        "stage": {
+          "const": "normalize",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_dir"
+      ]
+    },
+    {
+      "properties": {
+        "input_units": false,
+        "review": {
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": {
+              "type": "string"
+            },
+            "final_sha256": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "vision_reviewed": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "vision_reviewed",
+            "final_sha256",
+            "name",
+            "asset_id"
+          ],
+          "type": "object"
+        },
+        "source_file": false,
+        "stage": {
+          "const": "verify",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_dir"
+      ]
+    },
+    {
+      "properties": {
+        "input_units": false,
+        "review": false,
+        "source_file": false,
+        "stage": {
+          "const": "status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_dir"
+      ]
+    }
+  ],
   "properties": {
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "summary, parts, previews, provenance, all. 생략 시 미리보기 경로 포함, []는 요약. 페이지 처리는 parts에만 적용."
+      "description": "생략 시 미리보기 포함, []는 요약. limit·offset은 parts에만 적용.",
+      "items": {
+        "enum": [
+          "summary",
+          "parts",
+          "previews",
+          "provenance",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "input_units": {
-      "default": "",
-      "description": "OBJ/STL/PLY/OFF/GLB/glTF의 측정된 원본 단위(mm, cm, m, in, ft). inspect 이후 생략. 3DM은 내장 단위 유지.",
+      "enum": [
+        "mm",
+        "cm",
+        "m",
+        "in",
+        "ft"
+      ],
       "type": "string"
     },
     "job_dir": {
-      "default": "",
-      "description": "이전 응답의 job_dir. normalize·verify·status에 필수. 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로.",
       "type": "string"
     },
     "limit": {
-      "default": 50,
-      "description": "부품 목록 페이지당 1~200개.",
+      "description": "1~200, 기본 50",
+      "maximum": 200,
+      "minimum": 1,
       "type": "integer"
     },
     "offset": {
-      "default": 0,
-      "description": "페이지의 시작 위치(0부터).",
+      "minimum": 0,
       "type": "integer"
     },
     "review": {
       "anyOf": [
         {
-          "additionalProperties": true,
+          "additionalProperties": false,
+          "properties": {
+            "inspected_sha256": {
+              "type": "string"
+            },
+            "remove": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "object_id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "object_id",
+                  "reason"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "rotation_degrees_xyz": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "translation": {
+              "description": "원본 단위",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "vision_reviewed": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "vision_reviewed",
+            "inspected_sha256"
+          ],
           "type": "object"
         },
         {
-          "type": "null"
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": {
+              "type": "string"
+            },
+            "final_sha256": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "vision_reviewed": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "vision_reviewed",
+            "final_sha256",
+            "name",
+            "asset_id"
+          ],
+          "type": "object"
         }
-      ],
-      "default": null,
-      "description": "normalize: {vision_reviewed:true, inspected_sha256:\"확인한 해시\", rotation_degrees_xyz:[x,y,z], translation:[x,y,z], remove:[{object_id:\"ID\", reason:\"사유\"}]}. 생략한 변환은 그대로 두며 translation은 원본 단위. 최종 미리보기 확인 후 verify: {vision_reviewed:true, final_sha256:\"확인한 해시\", name:\"이름\", asset_id:\"ID\"}."
+      ]
     },
     "source_file": {
-      "default": "",
-      "description": "inspect에 사용할 모델. 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로. 원본 바이트는 보존.",
       "type": "string"
     },
     "stage": {
-      "description": "inspect, normalize, verify, status. status는 저장 근거만 조회하며 네이티브 실행 재개나 단계 갱신은 하지 않음.",
+      "enum": [
+        "inspect",
+        "normalize",
+        "verify",
+        "status"
+      ],
       "type": "string"
     }
   },
@@ -2518,33 +3093,114 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
     "message": {
       "type": "string"
     },
-    "next_stage": {
-      "type": [
-        "string",
-        "null"
+    "next_offset": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
-    "next_step_guide": {
-      "type": "string"
+    "next_stage": {
+      "anyOf": [
+        {
+          "const": "verify",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "verified 상태에서 verify를 호출할 때는 최종 이미지 검토를 제출. ready면 source_3dm으로 등록."
     },
-    "ready_for_registration": {
-      "description": "현재 파일 해시에 대해 호출자가 이미지 검토를 확인한 상태. 형상 적합성은 별도 판단.",
+    "parts": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "previews": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "provenance": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "requires_reconciliation": {
       "type": "boolean"
     },
-    "review_evidence": {
-      "type": "string"
+    "review_targets": {
+      "properties": {
+        "final_sha256": {
+          "type": "string"
+        },
+        "inspected_sha256": {
+          "type": "string"
+        },
+        "normalized_sha256": {
+          "type": "string"
+        }
+      },
+      "type": "object"
     },
     "source_3dm": {
       "description": "검토를 마친 최종 3DM. 검토한 name·asset_id와 함께 asset_09-register tool에 전달.",
       "type": "string"
     },
     "state": {
-      "description": "ready일 때만 source_3dm 제공. running·unconfirmed·failed이면 status=error.",
+      "description": "ready는 해당 해시의 이미지 검토가 기록됐다는 뜻이다.",
+      "enum": [
+        "new",
+        "running",
+        "inspected",
+        "normalized",
+        "verified",
+        "ready",
+        "failed",
+        "unconfirmed"
+      ],
       "type": "string"
     },
     "status": {
-      "description": "passed는 해당 단계의 검사 통과, pending은 검사 대기, error는 실패 또는 완료 미확정. 등록 가능 여부는 ready_for_registration으로 확인.",
+      "description": "passed는 단계 검사 통과. 등록에는 state가 ready일 때의 source_3dm을 쓴다.",
+      "enum": [
+        "pending",
+        "passed",
+        "error"
+      ],
       "type": "string"
+    },
+    "summary": {
+      "properties": {
+        "dimensions_mm": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "object_count": {
+          "type": "integer"
+        },
+        "units": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "total": {
+      "type": "integer"
     }
   },
   "type": "object"
@@ -2574,14 +3230,15 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "connection_id",
+    "asset_id"
   ],
   "type": "object"
 }
@@ -2613,15 +3270,11 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 ```json
 {
   "properties": {
-    "asset": {
-      "properties": {},
-      "type": "object"
-    },
     "error_code": {
       "type": "string"
     },
     "live_index_refreshed": {
-      "description": "게시 완료 후 인덱스 갱신만 실패했다면 재연결.",
+      "description": "게시됐지만 인덱스 갱신에 실패하면 false. 다시 게시하지 말고 재연결한다.",
       "type": "boolean"
     },
     "message": {
@@ -2630,24 +3283,21 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
     "model_path": {
       "type": "string"
     },
-    "next_step_guide": {
-      "type": "string"
-    },
     "package_dir": {
       "type": "string"
     },
-    "previous_files_retained": {
-      "description": "이전 도면, 매니페스트 백업, 원본 리비전 사본 보존 여부.",
-      "type": "boolean"
-    },
     "registration_applied": {
-      "description": "true이면 인덱스 갱신 오류가 있어도 게시 완료. 다시 게시하기 전에 상태 확인.",
-      "type": "boolean"
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "rhino_linked_instances_updated": {
-      "type": "boolean"
-    },
-    "source_path_preserved": {
+    "requires_reconciliation": {
+      "description": "변경이 미확정이면 모델과 라이브러리를 확인한 뒤 재시도한다.",
       "type": "boolean"
     },
     "status": {
@@ -2681,15 +3331,16 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
     },
     "category": {
       "default": "other",
+      "description": "기본값 \"other\"",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "description": {
-      "default": "",
       "type": "string"
     },
     "name": {
@@ -2697,12 +3348,10 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "preparation_job": {
-      "default": "",
       "description": "완료한 준비 작업의 job_dir. 검토를 거친 다중 형식 변환 등록에 필수. 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로.",
       "type": "string"
     },
     "replace_existing": {
-      "default": false,
       "description": "true일 때만 같은 ID의 기존 자산 교체.",
       "type": "boolean"
     },
@@ -2711,7 +3360,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "source_url": {
-      "default": "",
       "type": "string"
     },
     "tags": {
@@ -2725,15 +3373,14 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
         {
           "type": "null"
         }
-      ],
-      "default": null
+      ]
     }
   },
   "required": [
-    "source_3dm",
+    "connection_id",
     "asset_id",
     "name",
-    "connection_id"
+    "source_3dm"
   ],
   "type": "object"
 }
@@ -2753,10 +3400,10 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
     },
     "category": {
       "default": "other",
+      "description": "기본값 \"other\"",
       "type": "string"
     },
     "description": {
-      "default": "",
       "type": "string"
     },
     "name": {
@@ -2764,12 +3411,10 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "preparation_job": {
-      "default": "",
       "description": "완료한 준비 작업의 job_dir. 검토를 거친 다중 형식 변환 등록에 필수. 관리형은 프로젝트 상대 경로, 독립 실행은 절대 경로.",
       "type": "string"
     },
     "replace_existing": {
-      "default": false,
       "description": "true일 때만 같은 ID의 기존 자산 교체.",
       "type": "boolean"
     },
@@ -2778,7 +3423,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "source_url": {
-      "default": "",
       "type": "string"
     },
     "tags": {
@@ -2792,14 +3436,13 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
         {
           "type": "null"
         }
-      ],
-      "default": null
+      ]
     }
   },
   "required": [
-    "source_3dm",
     "asset_id",
-    "name"
+    "name",
+    "source_3dm"
   ],
   "type": "object"
 }
@@ -2812,14 +3455,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 ```json
 {
   "properties": {
-    "asset": {
-      "properties": {},
-      "type": "object"
-    },
     "error_code": {
-      "type": "string"
-    },
-    "library_dir": {
       "type": "string"
     },
     "linked_instances_may_update": {
@@ -2827,19 +3463,13 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "boolean"
     },
     "live_index_refreshed": {
-      "description": "게시 완료 후 인덱스 갱신만 실패했다면 재등록 없이 재연결.",
+      "description": "게시됐지만 인덱스 갱신에 실패하면 false. 다시 게시하지 말고 재연결한다.",
       "type": "boolean"
-    },
-    "manifest_path": {
-      "type": "string"
     },
     "message": {
       "type": "string"
     },
     "model_path": {
-      "type": "string"
-    },
-    "next_step_guide": {
       "type": "string"
     },
     "package_dir": {
@@ -2851,19 +3481,27 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "boolean"
     },
     "previous_source_sha256": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "registration_applied": {
-      "description": "게시 결과가 불명확하면 null과 requires_reconciliation 반환. 상태 확인 없이 재시도 금지.",
-      "type": [
-        "boolean",
-        "null"
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
-    "source_path_preserved": {
+    "requires_reconciliation": {
+      "description": "게시 결과가 불명확하면 null과 requires_reconciliation 반환. 상태 확인 없이 재시도 금지.",
       "type": "boolean"
     },
     "status": {
@@ -2882,7 +3520,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-모델·2D 요소 아카이브 검색. 후보가 limit에서 잘리면 검색어나 유형을 좁혀 다시 조회. 원본만 있는 자산은 변환이 필요할 수 있으며 상세 정보·경로는 후보 ID로 asset_04-get tool에서 조회.
+모델·2D 요소 아카이브 검색. 후보가 limit에서 잘리면 검색어나 유형을 좁혀 다시 조회. 원본만 있는 자산은 변환이 필요할 수 있으며 asset_id를 asset_04-get tool에 전달해 상세 정보·경로를 조회한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -2892,45 +3530,45 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "drawing_ready": {
-      "default": false,
       "type": "boolean"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "dimensions",
+          "source",
+          "paths",
+          "drawing",
+          "metadata",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "kind": {
       "default": "all",
-      "description": "all, element, model.",
+      "description": "all, element, model. · 기본값 \"all\"",
+      "enum": [
+        "all",
+        "model",
+        "element"
+      ],
       "type": "string"
     },
     "limit": {
       "default": 20,
-      "description": "1..100으로 보정.",
+      "description": "1..100으로 보정. · 기본값 20",
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "이름·ID·분류·variant·재료 ID·태그·역할에서 대소문자 구분 없이 공백으로 나눈 모든 단어 검색.",
       "type": "string"
     }
@@ -2951,40 +3589,39 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "drawing_ready": {
-      "default": false,
       "type": "boolean"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "dimensions",
+          "source",
+          "paths",
+          "drawing",
+          "metadata",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "kind": {
       "default": "all",
-      "description": "all, element, model.",
+      "description": "all, element, model. · 기본값 \"all\"",
+      "enum": [
+        "all",
+        "model",
+        "element"
+      ],
       "type": "string"
     },
     "limit": {
       "default": 20,
-      "description": "1..100으로 보정.",
+      "description": "1..100으로 보정. · 기본값 20",
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "이름·ID·분류·variant·재료 ID·태그·역할에서 대소문자 구분 없이 공백으로 나눈 모든 단어 검색.",
       "type": "string"
     }
@@ -3001,8 +3638,49 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 {
   "properties": {
     "assets": {
-      "description": "id를 후속 조회의 asset_id로 전달.",
       "items": {
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "dimensions_mm": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object"
+          },
+          "drawing_ready": {
+            "type": "boolean"
+          },
+          "drawing_status": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "model",
+              "element"
+            ],
+            "type": "string"
+          },
+          "model_status": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source_available": {
+            "type": "boolean"
+          },
+          "source_only": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
         "type": "object"
       },
       "type": "array"
@@ -3011,9 +3689,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "message": {
-      "type": "string"
-    },
-    "next_step_guide": {
       "type": "string"
     },
     "total": {
@@ -3033,7 +3708,8 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-모델·2D 자산을 검색어·분류·최대 치수로 검색. 단어가 하나라도 일치하면 포함하고 일치 단어가 많은 순으로 반환. 치수 필터는 등록 치수를 비교하며 해당 치수가 없는 자산도 포함할 수 있음. include_ids=true로 얻은 ID를 asset_04-get tool에 전달해 상세 조회.
+모델·2D 자산을 검색어·분류·최대 치수로 검색. 단어가 하나라도 일치하면 포함하고 일치 단어가 많은 순으로 반환. 치수 필터는 등록 치수를 비교하며 해당 치수가 없는 자산도 포함할 수 있음. asset_id를 asset_04-get tool에 전달해 상세 조회.
+next_offset이 있으면 같은 조건으로 다음 페이지를 조회한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -3043,61 +3719,56 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
       "description": "대소문자를 구분하지 않는 정확 일치. 빈 값은 전체 분류.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "dimensions",
+          "source",
+          "paths",
+          "drawing",
+          "metadata",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "limit": {
       "default": 10,
-      "description": "페이지당 1~100개.",
+      "description": "페이지당 1~100개. · 기본값 10",
       "type": "integer"
     },
     "max_depth_mm": {
       "default": 0,
-      "description": "양수일 때만 필터 적용.",
+      "description": "양수일 때만 필터 적용. · 기본값 0",
       "type": "number"
     },
     "max_height_mm": {
       "default": 0,
-      "description": "양수일 때만 필터 적용.",
+      "description": "양수일 때만 필터 적용. · 기본값 0",
       "type": "number"
     },
     "max_width_mm": {
       "default": 0,
-      "description": "양수일 때만 필터 적용.",
+      "description": "양수일 때만 필터 적용. · 기본값 0",
       "type": "number"
     },
     "offset": {
       "default": 0,
-      "description": "페이지의 시작 위치(0부터).",
+      "description": "페이지의 시작 위치(0부터). · 기본값 0",
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "이름·설명·제품·분류·태그 등에서 대소문자 구분 없이 부분 일치 검색.",
       "type": "string"
     }
@@ -3118,56 +3789,50 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
       "description": "대소문자를 구분하지 않는 정확 일치. 빈 값은 전체 분류.",
       "type": "string"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "dimensions, source, paths, drawing, metadata, audit, all. 생략하거나 빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "dimensions",
+          "source",
+          "paths",
+          "drawing",
+          "metadata",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "limit": {
       "default": 10,
-      "description": "페이지당 1~100개.",
+      "description": "페이지당 1~100개. · 기본값 10",
       "type": "integer"
     },
     "max_depth_mm": {
       "default": 0,
-      "description": "양수일 때만 필터 적용.",
+      "description": "양수일 때만 필터 적용. · 기본값 0",
       "type": "number"
     },
     "max_height_mm": {
       "default": 0,
-      "description": "양수일 때만 필터 적용.",
+      "description": "양수일 때만 필터 적용. · 기본값 0",
       "type": "number"
     },
     "max_width_mm": {
       "default": 0,
-      "description": "양수일 때만 필터 적용.",
+      "description": "양수일 때만 필터 적용. · 기본값 0",
       "type": "number"
     },
     "offset": {
       "default": 0,
-      "description": "페이지의 시작 위치(0부터).",
+      "description": "페이지의 시작 위치(0부터). · 기본값 0",
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "이름·설명·제품·분류·태그 등에서 대소문자 구분 없이 부분 일치 검색.",
       "type": "string"
     }
@@ -3189,6 +3854,58 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
         "properties": {
           "assets": {
             "items": {
+              "properties": {
+                "asset_id": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "dimensions_mm": {
+                  "additionalProperties": {
+                    "type": "number"
+                  },
+                  "type": "object"
+                },
+                "drawing_status": {
+                  "type": "string"
+                },
+                "file_available": {
+                  "type": "boolean"
+                },
+                "model_path": {
+                  "type": "string"
+                },
+                "model_status": {
+                  "type": "string"
+                },
+                "next_tool": {
+                  "description": "변환이나 갱신이 필요할 때 호출할 도구.",
+                  "type": "string"
+                },
+                "product": {
+                  "type": "string"
+                },
+                "source_available": {
+                  "type": "boolean"
+                },
+                "source_only": {
+                  "type": "boolean"
+                },
+                "source_path": {
+                  "type": "string"
+                },
+                "spatial": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "variant": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "asset_id"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -3196,24 +3913,21 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "error_code": {
             "type": "string"
           },
-          "limit": {
-            "type": "integer"
-          },
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "integer"
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "total": {
             "type": "integer"
-          },
-          "truncated": {
-            "description": "true이면 같은 필터로 offset에 이번 반환 건수를 더해 다음 페이지 조회.",
-            "type": "boolean"
           }
         },
         "type": "object"
@@ -3237,7 +3951,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-활성 Rhino 뷰의 카메라 경로를 따라 RGB·에지·깊이 PNG 및 카메라 기록 저장. 촬영 중 뷰가 바뀌며 전체 뷰 상태가 복원되지 않을 수 있음. 패스별 PNG 생성과 대상 가시성은 출력 파일에서 확인. 같은 출력 폴더를 재사용하면 기존 파일을 덮어쓰고 일부 이전 프레임이 남을 수 있음.
+활성 Rhino 뷰의 카메라 경로를 따라 RGB·에지·깊이 PNG와 카메라 기록을 저장한다. 뷰가 변경되고 복원이 일부만 적용될 수 있다. 출력 폴더를 재사용하면 기존 파일을 덮어쓰거나 이전 프레임이 남을 수 있다. PNG와 대상 가시성은 파일에서 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -3248,51 +3962,59 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "properties": {
     "chunk": {
       "default": 16,
-      "description": "청크당 프레임 수.",
+      "description": "청크당 프레임 수. 양의 정수 · 기본값 16",
       "type": "integer"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "edge_mode": {
+      "description": "기본 Technical\ninspect_03-get_document_context tool의 display_modes[].id",
       "type": "string"
     },
     "fps": {
       "default": 16,
+      "description": "초당 프레임 수. 양의 정수 · 기본값 16",
       "type": "integer"
     },
     "height": {
       "default": 480,
-      "description": "짝수 픽셀.",
+      "description": "양의 짝수 픽셀 · 기본값 480",
       "type": "integer"
     },
     "invert_depth": {
-      "default": false,
       "description": "false이면 가까울수록 밝게 표현.",
       "type": "boolean"
     },
     "out_dir": {
-      "default": "",
-      "description": "관리형은 먼저 Plan을 선택한 뒤 산출물 폴더 기준 상대 경로 사용(생략 시 conditioning). 독립 실행에서 생략 시 현재 작업 폴더.",
+      "description": "선택한 Plan의 산출물 폴더 기준 상대 경로. 기본 conditioning.",
       "type": "string"
     },
     "passes": {
       "default": "rgb,edge,depth",
-      "description": "쉼표로 구분한 rgb, edge, depth.",
+      "description": "쉼표로 구분한 rgb, edge, depth. · 기본값 \"rgb,edge,depth\"",
+      "type": "string"
+    },
+    "rgb_mode": {
+      "description": "기본 Rendered\ninspect_03-get_document_context tool의 display_modes[].id",
       "type": "string"
     },
     "shot": {
-      "description": "카메라 경로를 담은 JSON 문자열. orbit은 center:[x,y,z], radius, height, 선택 start_deg·end_deg·lens·target_height. track은 cam0·cam1·target0·target1 좌표, 선택 lens. keyframes는 camera·target·선택 lens를 가진 keyframes 배열. type으로 경로 유형 지정. frames 생략 시 81, lens는 mm, 좌표는 문서 단위.",
+      "description": "카메라 경로 JSON 문자열. 좌표는 문서 단위, lens는 mm, frames 기본 81.\ntype=orbit: center, radius, height, 선택 start_deg·end_deg·lens·target_height.\ntype=track: cam0, cam1, target0, target1, 선택 lens.\ntype=keyframes: keyframes 배열의 각 항목에 camera, target, 선택 lens.",
       "type": "string"
     },
     "width": {
       "default": 832,
-      "description": "짝수 픽셀.",
+      "description": "양의 짝수 픽셀 · 기본값 832",
       "type": "integer"
     }
   },
   "required": [
-    "shot",
-    "connection_id"
+    "connection_id",
+    "shot"
   ],
   "type": "object"
 }
@@ -3308,50 +4030,47 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "properties": {
     "chunk": {
       "default": 16,
-      "description": "청크당 프레임 수.",
+      "description": "청크당 프레임 수. 양의 정수 · 기본값 16",
       "type": "integer"
     },
     "edge_mode": {
-      "default": "Technical",
-      "description": "에지 패스에 사용할 뷰 메뉴의 래스터 표시 모드 이름 또는 GUID. 기본 Technical. depth는 별도 깊이 버퍼를 사용.",
+      "description": "기본 Technical\ninspect_03-get_document_context tool의 display_modes[].id",
       "type": "string"
     },
     "fps": {
       "default": 16,
+      "description": "초당 프레임 수. 양의 정수 · 기본값 16",
       "type": "integer"
     },
     "height": {
       "default": 480,
-      "description": "짝수 픽셀.",
+      "description": "양의 짝수 픽셀 · 기본값 480",
       "type": "integer"
     },
     "invert_depth": {
-      "default": false,
       "description": "false이면 가까울수록 밝게 표현.",
       "type": "boolean"
     },
     "out_dir": {
-      "default": "",
-      "description": "관리형은 먼저 Plan을 선택한 뒤 산출물 폴더 기준 상대 경로 사용(생략 시 conditioning). 독립 실행에서 생략 시 현재 작업 폴더.",
+      "description": "선택한 Plan의 산출물 폴더 기준 상대 경로. 기본 conditioning.",
       "type": "string"
     },
     "passes": {
       "default": "rgb,edge,depth",
-      "description": "쉼표로 구분한 rgb, edge, depth.",
+      "description": "쉼표로 구분한 rgb, edge, depth. · 기본값 \"rgb,edge,depth\"",
       "type": "string"
     },
     "rgb_mode": {
-      "default": "Rendered",
-      "description": "RGB 패스에 사용할 뷰 메뉴의 래스터 표시 모드 이름 또는 GUID. 기본 Rendered. 이름이 중복되면 GUID 사용.",
+      "description": "기본 Rendered\ninspect_03-get_document_context tool의 display_modes[].id",
       "type": "string"
     },
     "shot": {
-      "description": "카메라 경로를 담은 JSON 문자열. orbit은 center:[x,y,z], radius, height, 선택 start_deg·end_deg·lens·target_height. track은 cam0·cam1·target0·target1 좌표, 선택 lens. keyframes는 camera·target·선택 lens를 가진 keyframes 배열. type으로 경로 유형 지정. frames 생략 시 81, lens는 mm, 좌표는 문서 단위.",
+      "description": "카메라 경로 JSON 문자열. 좌표는 문서 단위, lens는 mm, frames 기본 81.\ntype=orbit: center, radius, height, 선택 start_deg·end_deg·lens·target_height.\ntype=track: cam0, cam1, target0, target1, 선택 lens.\ntype=keyframes: keyframes 배열의 각 항목에 camera, target, 선택 lens.",
       "type": "string"
     },
     "width": {
       "default": 832,
-      "description": "짝수 픽셀.",
+      "description": "양의 짝수 픽셀 · 기본값 832",
       "type": "integer"
     }
   },
@@ -3374,11 +4093,11 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "contentSchema": {
         "properties": {
           "camera_json": {
-            "description": "계획 경로 전체 기록. 촬영이 일부만 끝나도 frames[].camera·target·lens_mm는 전체 경로 기준.",
+            "description": "촬영 성공 범위와 무관하게 계획한 전체 경로를 기록한 파일.",
             "type": "string"
           },
           "document": {
-            "properties": {},
+            "additionalProperties": true,
             "type": "object"
           },
           "error_code": {
@@ -3388,9 +4107,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
             "description": "실패 청크의 프레임 범위와 메시지. 일부 출력 파일이 남을 수 있음.",
             "items": {},
             "type": "array"
-          },
-          "fps": {
-            "type": "number"
           },
           "frames_captured": {
             "description": "실행 완료 응답을 받은 청크에 포함된 프레임 수.",
@@ -3402,36 +4118,50 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "out_dir": {
             "description": "패스별 PNG와 doc.json, camera.json, zrange.csv, summary.json 저장 위치.",
             "type": "string"
           },
-          "passes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "resolution": {
-            "description": "[너비, 높이].",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
-          },
           "status": {
-            "description": "executed는 모든 청크 실행 완료. error는 완료가 확인된 청크 없이 실패, partial은 앞선 청크의 완료 후 실패.",
+            "description": "executed는 전체 청크 완료. partial은 일부 청크만 완료.",
+            "enum": [
+              "executed",
+              "partial",
+              "error"
+            ],
             "type": "string"
           },
           "videos": {
+            "additionalProperties": false,
             "properties": {
+              "depth": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "edge": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "rgb": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
@@ -3459,13 +4189,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-작업 화면을 유지하면서 여러 시점과 객체 범위를 한 PNG로 비교. 범위는 문서 표시 상태 기준이며 픽셀 가시성이나 가림은 판정하지 않는다. 그룹 자동 확장과 블록 배치·정의 필터는 지원하지 않는다.
-
-뷰 메뉴의 표시 모드 이름·GUID는 inspect_03-get_document_context tool의 sections=["display_modes"]에서 조회. Wireframe은 곡선·와이어, Shaded는 면과 입체, Technical은 가려진 선을 포함한 선 표현 검토에 적합하다. 메뉴에 등록된 사용자 정의 래스터 모드도 선택할 수 있으며 이름이 중복되면 GUID를 사용한다.
-
-최상위 모델 객체 GUID는 inspect_02-get_objects tool의 include_ids=true로 조회. 공통 object_ids를 지정한 뒤 views=[{"direction":"top","display_mode":"Technical"},{"direction":"iso_ne","display_mode":"Shaded"}]로 같은 대상을 평면과 사시에서 비교한다. 원본 뷰 방향에서 대상에 맞춰 확대하려면 공통 또는 타일별 object_ids와 views=[{"direction":"current","frame_objects":true}]를 사용한다. frame_objects를 생략한 current 타일은 원본 카메라 구도를 유지한다.
-
-공통 또는 타일별 object_ids에 최상위 블록 인스턴스를 지정하면 전체 호출이 실패하고 메시지에 입력 위치와 블록 GUID가 표시된다. 다른 이유로 일부 타일만 실패하면 complete=false이며 tiles에서 실패 이유를 확인할 수 있다.
+작업 화면을 유지하며 여러 시점과 객체 범위를 타일 PNG로 비교한다. 범위는 문서의 표시 상태 기준이며 픽셀 가시성은 이미지에서 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -3483,27 +4207,29 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "1..뷰 개수. 생략 시 자동 격자."
+      "description": "1..뷰 개수. 생략 시 자동 격자.",
+      "maximum": 16,
+      "minimum": 1
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
     "height": {
       "default": 480,
-      "description": "타일당 128..2048픽셀. 결합 이미지 제한도 적용.",
+      "description": "타일당 128..2048픽셀. 결합 이미지 제한도 적용. · 기본값 480",
+      "maximum": 2048,
+      "minimum": 128,
       "type": "integer"
     },
     "model_view_id": {
-      "default": "",
-      "description": "활성화하지 않고 사용할 모델 뷰포트 GUID. Layout·Detail에서 작업 중일 때도 지정 가능.",
+      "description": "활성화 없이 사용할 모델 뷰포트 GUID. Layout·Detail에서도 지정 가능.",
       "type": "string"
     },
     "object_ids": {
@@ -3518,43 +4244,78 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "모든 타일에 적용할 최상위 객체 GUID 1..4096개. 블록 인스턴스 제외. 타일별 object_ids와 함께 지정할 수 없다."
+      "description": "모든 타일의 최상위 객체 GUID 1..4096개, 블록 인스턴스 제외. 타일별 object_ids와 동시 지정 불가.",
+      "maxItems": 4096,
+      "minItems": 1,
+      "uniqueItems": true
     },
     "views": {
-      "description": "타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 뷰 메뉴의 래스터 모드 이름 또는 GUID. RhinoBeyond에서는 세션의 공개 입력에 열거된 GUID를 사용한다. label: 최대 120자. object_ids: 블록 인스턴스를 제외한 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다.",
+      "description": "타일 1..16개. 타일별 범위가 비어 있으면 공통 범위 또는 문서 표시 상태를 사용.",
       "items": {
         "additionalProperties": false,
         "properties": {
           "direction": {
+            "description": "기본 current",
+            "enum": [
+              "current",
+              "top",
+              "bottom",
+              "front",
+              "back",
+              "left",
+              "right",
+              "iso_ne",
+              "iso_nw",
+              "iso_se",
+              "iso_sw",
+              "below_ne",
+              "below_nw",
+              "below_se",
+              "below_sw"
+            ],
+            "type": "string"
+          },
+          "display_mode": {
+            "description": "inspect_03-get_document_context tool의 display_modes[].id",
+            "maxLength": 512,
             "type": "string"
           },
           "frame_objects": {
+            "description": "current에서 범위 객체에 맞게 확대. object_ids 필요.",
             "type": "boolean"
           },
           "label": {
+            "description": "120자 이하",
+            "maxLength": 120,
             "type": "string"
           },
           "object_ids": {
+            "description": "최상위 객체 GUID 1..512개, 블록 인스턴스 제외",
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "maxItems": 512,
+            "type": "array",
+            "uniqueItems": true
           }
         },
         "type": "object"
       },
+      "maxItems": 16,
+      "minItems": 1,
       "type": "array"
     },
     "width": {
       "default": 640,
-      "description": "타일당 128..2048픽셀. 결합 이미지 제한도 적용.",
+      "description": "타일당 128..2048픽셀. 결합 이미지 제한도 적용. · 기본값 640",
+      "maximum": 2048,
+      "minimum": 128,
       "type": "integer"
     }
   },
   "required": [
-    "views",
-    "connection_id"
+    "connection_id",
+    "views"
   ],
   "type": "object"
 }
@@ -3577,22 +4338,23 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "1..뷰 개수. 생략 시 자동 격자."
+      "description": "1..뷰 개수. 생략 시 자동 격자.",
+      "maximum": 16,
+      "minimum": 1
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
     "height": {
       "default": 480,
-      "description": "타일당 128..2048픽셀. 결합 이미지 제한도 적용.",
+      "description": "타일당 128..2048픽셀. 결합 이미지 제한도 적용. · 기본값 480",
+      "maximum": 2048,
+      "minimum": 128,
       "type": "integer"
     },
     "model_view_id": {
-      "default": "",
-      "description": "활성화하지 않고 사용할 모델 뷰포트 GUID. Layout·Detail에서 작업 중일 때도 지정 가능.",
+      "description": "활성화 없이 사용할 모델 뷰포트 GUID. Layout·Detail에서도 지정 가능.",
       "type": "string"
     },
     "object_ids": {
@@ -3607,20 +4369,72 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "모든 타일에 적용할 최상위 객체 GUID 1..4096개. 블록 인스턴스 제외. 타일별 object_ids와 함께 지정할 수 없다."
+      "description": "모든 타일의 최상위 객체 GUID 1..4096개, 블록 인스턴스 제외. 타일별 object_ids와 동시 지정 불가.",
+      "maxItems": 4096,
+      "minItems": 1,
+      "uniqueItems": true
     },
     "views": {
-      "description": "타일 1..16개. direction: current(기본), top, bottom, front, back, left, right, iso_ne, iso_nw, iso_se, iso_sw, below_ne, below_nw, below_se, below_sw. display_mode: 뷰 메뉴의 래스터 모드 이름 또는 GUID. RhinoBeyond에서는 세션의 공개 입력에 열거된 GUID를 사용한다. label: 최대 120자. object_ids: 블록 인스턴스를 제외한 최상위 객체 GUID 1..512개. 생략하거나 비우면 공통 범위 또는 문서 표시 상태를 사용한다.",
+      "description": "타일 1..16개. 타일별 범위가 비어 있으면 공통 범위 또는 문서 표시 상태를 사용.",
       "items": {
-        "additionalProperties": true,
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "description": "기본 current",
+            "enum": [
+              "current",
+              "top",
+              "bottom",
+              "front",
+              "back",
+              "left",
+              "right",
+              "iso_ne",
+              "iso_nw",
+              "iso_se",
+              "iso_sw",
+              "below_ne",
+              "below_nw",
+              "below_se",
+              "below_sw"
+            ],
+            "type": "string"
+          },
+          "display_mode": {
+            "description": "inspect_03-get_document_context tool의 display_modes[].id",
+            "maxLength": 512,
+            "type": "string"
+          },
+          "frame_objects": {
+            "description": "current에서 범위 객체에 맞게 확대. object_ids 필요.",
+            "type": "boolean"
+          },
+          "label": {
+            "description": "120자 이하",
+            "maxLength": 120,
+            "type": "string"
+          },
+          "object_ids": {
+            "description": "최상위 객체 GUID 1..512개, 블록 인스턴스 제외",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 512,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
         "type": "object"
       },
+      "maxItems": 16,
+      "minItems": 1,
       "type": "array"
     },
     "width": {
       "default": 640,
-      "description": "타일당 128..2048픽셀. 결합 이미지 제한도 적용.",
+      "description": "타일당 128..2048픽셀. 결합 이미지 제한도 적용. · 기본값 640",
+      "maximum": 2048,
+      "minimum": 128,
       "type": "integer"
     }
   },
@@ -3645,33 +4459,41 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "image_file": {
-      "description": "저장에 실패해도 PNG는 전달될 수 있다.",
+      "description": "저장에 실패해도 PNG는 전달될 수 있다.\npath는 프로젝트 상대 경로. connection 파일은 연결 해제 때 정리된다.",
       "properties": {
         "bytes": {
           "type": "integer"
         },
+        "error_code": {
+          "type": "string"
+        },
         "lifetime": {
-          "description": "plan은 Plan 산출물, connection은 연결 정리까지 유지되는 임시 파일.",
+          "enum": [
+            "plan",
+            "connection"
+          ],
+          "type": "string"
+        },
+        "message": {
           "type": "string"
         },
         "path": {
-          "description": "프로젝트 기준 상대 경로. output_refs에는 이 문자열만 기록.",
           "type": "string"
         },
         "sha256": {
           "type": "string"
         },
         "status": {
-          "description": "saved일 때만 path 사용 가능.",
+          "enum": [
+            "saved",
+            "error"
+          ],
           "type": "string"
         }
       },
       "type": "object"
     },
     "message": {
-      "type": "string"
-    },
-    "next_step_guide": {
       "type": "string"
     },
     "status": {
@@ -3681,9 +4503,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "description": "실패한 타일도 포함.",
       "items": {
         "properties": {
-          "direction": {
-            "type": "string"
-          },
           "display_mode": {
             "description": "성공한 타일에 실제로 적용된 모드.",
             "properties": {
@@ -3696,11 +4515,38 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
             },
             "type": "object"
           },
+          "error_code": {
+            "type": "string"
+          },
           "index": {
             "description": "0부터 시작.",
             "type": "integer"
           },
+          "message": {
+            "type": "string"
+          },
+          "scope": {
+            "properties": {
+              "complete": {
+                "type": "boolean"
+              },
+              "eligible_count": {
+                "type": "integer"
+              },
+              "excluded_requested_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
           "status": {
+            "enum": [
+              "success",
+              "error"
+            ],
             "type": "string"
           }
         },
@@ -3721,9 +4567,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-현재 Rhino 모델 뷰포트를 화면 색과 선 표현으로 PNG 캡처. 문서의 PrintDisplay 설정은 유지한다. 대상 지정은 실제 선택과 카메라를 바꾸고 isolate와 display_mode도 작업 화면에 적용된다. 확대 검수는 이미지를 확대하는 대신 실제 Rhino 뷰포트를 확대한 뒤 대상을 지정하지 않고 캡처한다.
-
-표시 모드 이름·GUID는 inspect_03-get_document_context tool의 sections=["display_modes"]에서 조회. 작업 화면을 유지하면서 여러 방향이나 모드를 비교하려면 capture_02-inspection tool을 사용한다. 격리는 Rhino Unisolate로 해제할 수 있다. 잠긴 주변 객체는 격리 중에도 보일 수 있으며 선택과 카메라 상태는 별도로 확인한다.
+현재 모델 뷰를 PNG로 캡처한다. 대상을 지정하면 실제 선택과 카메라가 바뀌며 isolate와 display_mode도 작업 화면에 적용된다. 고정 크기는 width·height와 scale_percent=100을 함께 지정한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -3733,17 +4577,23 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "depth": {
       "default": 1,
-      "description": "레이블 확장 깊이 1..8.",
+      "description": "레이블 확장 깊이 1..8. · 기본값 1",
+      "maximum": 8,
+      "minimum": 1,
       "type": "integer"
     },
+    "display_mode": {
+      "description": "inspect_03-get_document_context tool의 display_modes[].id",
+      "type": "string"
+    },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
@@ -3756,27 +4606,27 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "128..2048픽셀. width와 함께 지정하고 scale_percent=100 사용."
+      "description": "128..2048픽셀",
+      "maximum": 2048,
+      "minimum": 128
     },
     "include_usage": {
-      "default": false,
       "description": "이미지 크기와 픽셀 기준 토큰 추정치 포함.",
       "type": "boolean"
     },
     "isolate": {
-      "default": false,
       "description": "target_ids가 필요하며 확대 전에 격리.",
       "type": "boolean"
     },
     "labels": {
-      "default": false,
       "description": "주변 객체에도 최대 200개 표시하므로 화면을 가릴 수 있다.",
       "type": "boolean"
     },
     "scale_percent": {
       "default": 75,
-      "description": "1..100.",
+      "description": "1..100. · 기본값 75",
+      "maximum": 100,
+      "minimum": 1,
       "type": "integer"
     },
     "target_ids": {
@@ -3791,12 +4641,16 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
       "description": "선택·확대할 대상 ID를 하나 이상 지정. 생략 시 현재 구도로 캡처."
     },
     "target_kind": {
-      "default": "object",
-      "description": "object, group, block, holon. block에는 배치 객체 ID 사용. object 이외에는 target_ids 필요.",
+      "description": "기본 object. 다른 종류에는 target_ids 필요. block에는 배치 객체 ID 사용.",
+      "enum": [
+        "object",
+        "group",
+        "block",
+        "holon"
+      ],
       "type": "string"
     },
     "width": {
@@ -3808,8 +4662,9 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "128..2048픽셀. height와 함께 지정하고 scale_percent=100 사용."
+      "description": "128..2048픽셀",
+      "maximum": 2048,
+      "minimum": 128
     }
   },
   "required": [
@@ -3829,16 +4684,16 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
   "properties": {
     "depth": {
       "default": 1,
-      "description": "레이블 확장 깊이 1..8.",
+      "description": "레이블 확장 깊이 1..8. · 기본값 1",
+      "maximum": 8,
+      "minimum": 1,
       "type": "integer"
     },
     "display_mode": {
-      "default": "",
-      "description": "뷰 메뉴에 등록된 래스터 모드 이름 또는 GUID.",
+      "description": "inspect_03-get_document_context tool의 display_modes[].id",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
@@ -3851,27 +4706,27 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "128..2048픽셀. width와 함께 지정하고 scale_percent=100 사용."
+      "description": "128..2048픽셀",
+      "maximum": 2048,
+      "minimum": 128
     },
     "include_usage": {
-      "default": false,
       "description": "이미지 크기와 픽셀 기준 토큰 추정치 포함.",
       "type": "boolean"
     },
     "isolate": {
-      "default": false,
       "description": "target_ids가 필요하며 확대 전에 격리.",
       "type": "boolean"
     },
     "labels": {
-      "default": false,
       "description": "주변 객체에도 최대 200개 표시하므로 화면을 가릴 수 있다.",
       "type": "boolean"
     },
     "scale_percent": {
       "default": 75,
-      "description": "1..100.",
+      "description": "1..100. · 기본값 75",
+      "maximum": 100,
+      "minimum": 1,
       "type": "integer"
     },
     "target_ids": {
@@ -3886,12 +4741,16 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
       "description": "선택·확대할 대상 ID를 하나 이상 지정. 생략 시 현재 구도로 캡처."
     },
     "target_kind": {
-      "default": "object",
-      "description": "object, group, block, holon. block에는 배치 객체 ID 사용. object 이외에는 target_ids 필요.",
+      "description": "기본 object. 다른 종류에는 target_ids 필요. block에는 배치 객체 ID 사용.",
+      "enum": [
+        "object",
+        "group",
+        "block",
+        "holon"
+      ],
       "type": "string"
     },
     "width": {
@@ -3903,8 +4762,9 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "128..2048픽셀. height와 함께 지정하고 scale_percent=100 사용."
+      "description": "128..2048픽셀",
+      "maximum": 2048,
+      "minimum": 128
     }
   },
   "type": "object"
@@ -3930,7 +4790,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
         "after_failure": {
           "properties": {
             "camera_location": {
-              "description": "문서 단위의 [x, y, z].",
+              "description": "좌표와 프러스텀 경계는 문서 단위.",
               "items": {
                 "type": "number"
               },
@@ -3939,7 +4799,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
               "type": "array"
             },
             "camera_target": {
-              "description": "문서 단위의 [x, y, z].",
               "items": {
                 "type": "number"
               },
@@ -3948,7 +4807,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
               "type": "array"
             },
             "frustum": {
-              "description": "[left, right, bottom, top, near, far] 순서.",
+              "description": "left, right, bottom, top, near, far",
               "items": {
                 "type": "number"
               },
@@ -3971,7 +4830,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
         "before_zoom": {
           "properties": {
             "camera_location": {
-              "description": "문서 단위의 [x, y, z].",
+              "description": "좌표와 프러스텀 경계는 문서 단위.",
               "items": {
                 "type": "number"
               },
@@ -3980,7 +4839,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
               "type": "array"
             },
             "camera_target": {
-              "description": "문서 단위의 [x, y, z].",
               "items": {
                 "type": "number"
               },
@@ -3989,7 +4847,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
               "type": "array"
             },
             "frustum": {
-              "description": "[left, right, bottom, top, near, far] 순서.",
+              "description": "left, right, bottom, top, near, far",
               "items": {
                 "type": "number"
               },
@@ -4010,10 +4868,9 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "object"
         },
         "target_bounds": {
-          "description": "문서 단위의 대상 합집합 경계.",
+          "description": "대상 합집합 경계. 좌표는 문서 단위.",
           "properties": {
             "max": {
-              "description": "[x, y, z] 순서.",
               "items": {
                 "type": "number"
               },
@@ -4022,7 +4879,6 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
               "type": "array"
             },
             "min": {
-              "description": "[x, y, z] 순서.",
               "items": {
                 "type": "number"
               },
@@ -4040,39 +4896,58 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "integer"
         },
         "zoom_bounding_box": {
-          "type": [
-            "boolean",
-            "null"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "zoom_extents_selected": {
-          "type": [
-            "boolean",
-            "null"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       },
       "type": "object"
     },
     "image_file": {
-      "description": "저장과 PNG 전달은 별개로 확인.",
+      "description": "저장과 PNG 전달은 별개로 확인.\npath는 프로젝트 상대 경로. connection 파일은 연결 해제 때 정리된다.",
       "properties": {
         "bytes": {
           "type": "integer"
         },
+        "error_code": {
+          "type": "string"
+        },
         "lifetime": {
-          "description": "plan은 Plan 산출물, connection은 연결 정리까지 유지되는 임시 파일.",
+          "enum": [
+            "plan",
+            "connection"
+          ],
+          "type": "string"
+        },
+        "message": {
           "type": "string"
         },
         "path": {
-          "description": "프로젝트 기준 상대 경로. output_refs에는 이 문자열만 기록.",
           "type": "string"
         },
         "sha256": {
           "type": "string"
         },
         "status": {
-          "description": "saved일 때만 path 사용 가능.",
+          "enum": [
+            "saved",
+            "error"
+          ],
           "type": "string"
         }
       },
@@ -4082,14 +4957,15 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
       "type": "string"
     },
     "mutation_applied": {
-      "description": "null이면 뷰 변경 적용을 확인하지 못한 상태.",
-      "type": [
-        "boolean",
-        "null"
-      ]
-    },
-    "next_step_guide": {
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "null이면 뷰 변경 적용을 확인하지 못한 상태."
     },
     "requires_reconciliation": {
       "description": "true면 현재 Rhino 상태를 확인한 뒤 다음 작업을 결정.",
@@ -4101,29 +4977,38 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
     "view_change": {
       "properties": {
         "display_mode_changed": {
-          "type": [
-            "boolean",
-            "null"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "isolated": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
-        "restore_visibility_command": {
-          "description": "격리 가시성만 복구. 카메라와 선택은 별도로 확인.",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Unisolate로 가시성을 복구. 카메라와 선택은 별도로 확인."
         },
         "selection_changed": {
-          "type": [
-            "boolean",
-            "null"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "zoom_method": {
-          "description": "selected는 기본 선택 확대, bounding_box는 기본 확대 실패 후 대상 경계로 확대한 경우.",
+          "description": "bounding_box는 기본 확대 실패 후 대상 경계로 확대한 경우.",
           "enum": [
             "selected",
             "bounding_box"
@@ -4131,11 +5016,15 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
           "type": "string"
         },
         "zoom_selected": {
-          "description": "선택 확대 또는 대체 경계 확대를 완료하면 true.",
-          "type": [
-            "boolean",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "선택 확대 또는 대체 경계 확대를 완료하면 true."
         }
       },
       "type": "object"
@@ -4153,11 +5042,7 @@ Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청
 **beyond · RhinoTerminal**
 
 ```txt
-저장된 Named View 또는 Layout 용지를 PNG로 캡처. 대상 이름·ID는 inspect_03-get_document_context tool에서 조회한다.
-
-Named View는 저장된 카메라를 사용하며 표시 모드 선택은 capture_02-inspection tool 참고. Layout은 용지·Detail의 기존 모드와 인쇄 색·선폭으로 출력하고 PrintDisplay는 유지한다. Layout에는 픽셀 크기·display_mode를 지정할 수 없고 Detail 레이블도 지원하지 않는다. 인쇄 대상이 없으면 빈 PNG도 정상이다.
-
-PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 text content로 전달한다.
+Named View는 저장된 카메라로 캡처한다. Layout은 용지와 Detail의 인쇄 설정을 사용하므로 픽셀 크기·표시 모드·Detail 레이블을 생략한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -4167,17 +5052,23 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "depth": {
       "default": 1,
-      "description": "레이블 깊이 1..8.",
+      "description": "레이블 깊이 1..8. · 기본값 1",
+      "maximum": 8,
+      "minimum": 1,
       "type": "integer"
     },
+    "display_mode": {
+      "description": "Named View 전용, 기본 Shaded\ninspect_03-get_document_context tool의 display_modes[].id",
+      "type": "string"
+    },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
@@ -4190,22 +5081,23 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "Named View 전용. 128..2048픽셀. width와 함께 지정하고 scale_percent=100 사용."
+      "description": "Named View 전용 128..2048픽셀. width와 scale_percent=100을 함께 지정.",
+      "maximum": 2048,
+      "minimum": 128
     },
     "include_usage": {
-      "default": false,
       "description": "이미지 크기와 픽셀 기준 토큰 추정치 포함.",
       "type": "boolean"
     },
     "labels": {
-      "default": false,
       "description": "최대 200개. 주변 레이블과 겹칠 수 있다.",
       "type": "boolean"
     },
     "scale_percent": {
       "default": 75,
-      "description": "1..100 범위의 상한. 전달 용량에 맞춰 더 작아질 수 있다.",
+      "description": "1..100 범위의 상한. 전달 용량에 맞춰 더 작아질 수 있다. · 기본값 75",
+      "maximum": 100,
+      "minimum": 1,
       "type": "integer"
     },
     "target": {
@@ -4213,7 +5105,10 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "target_kind": {
-      "description": "named_view 또는 layout.",
+      "enum": [
+        "named_view",
+        "layout"
+      ],
       "type": "string"
     },
     "width": {
@@ -4225,14 +5120,15 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "Named View 전용. 128..2048픽셀. height와 함께 지정하고 scale_percent=100 사용."
+      "description": "Named View 전용 128..2048픽셀",
+      "maximum": 2048,
+      "minimum": 128
     }
   },
   "required": [
-    "target_kind",
+    "connection_id",
     "target",
-    "connection_id"
+    "target_kind"
   ],
   "type": "object"
 }
@@ -4248,16 +5144,16 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
   "properties": {
     "depth": {
       "default": 1,
-      "description": "레이블 깊이 1..8.",
+      "description": "레이블 깊이 1..8. · 기본값 1",
+      "maximum": 8,
+      "minimum": 1,
       "type": "integer"
     },
     "display_mode": {
-      "default": "",
-      "description": "Named View 전용. 생략 시 Shaded. 뷰 메뉴에 등록된 래스터 모드 이름 또는 GUID.",
+      "description": "Named View 전용, 기본 Shaded\ninspect_03-get_document_context tool의 display_modes[].id",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
@@ -4270,22 +5166,23 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "Named View 전용. 128..2048픽셀. width와 함께 지정하고 scale_percent=100 사용."
+      "description": "Named View 전용 128..2048픽셀. width와 scale_percent=100을 함께 지정.",
+      "maximum": 2048,
+      "minimum": 128
     },
     "include_usage": {
-      "default": false,
       "description": "이미지 크기와 픽셀 기준 토큰 추정치 포함.",
       "type": "boolean"
     },
     "labels": {
-      "default": false,
       "description": "최대 200개. 주변 레이블과 겹칠 수 있다.",
       "type": "boolean"
     },
     "scale_percent": {
       "default": 75,
-      "description": "1..100 범위의 상한. 전달 용량에 맞춰 더 작아질 수 있다.",
+      "description": "1..100 범위의 상한. 전달 용량에 맞춰 더 작아질 수 있다. · 기본값 75",
+      "maximum": 100,
+      "minimum": 1,
       "type": "integer"
     },
     "target": {
@@ -4293,7 +5190,10 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "target_kind": {
-      "description": "named_view 또는 layout.",
+      "enum": [
+        "named_view",
+        "layout"
+      ],
       "type": "string"
     },
     "width": {
@@ -4305,13 +5205,14 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "Named View 전용. 128..2048픽셀. height와 함께 지정하고 scale_percent=100 사용."
+      "description": "Named View 전용 128..2048픽셀",
+      "maximum": 2048,
+      "minimum": 128
     }
   },
   "required": [
-    "target_kind",
-    "target"
+    "target",
+    "target_kind"
   ],
   "type": "object"
 }
@@ -4328,32 +5229,41 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "image_file": {
+      "description": "path는 프로젝트 상대 경로. connection 파일은 연결 해제 때 정리된다.",
       "properties": {
         "bytes": {
           "type": "integer"
         },
+        "error_code": {
+          "type": "string"
+        },
         "lifetime": {
-          "description": "plan은 Plan 산출물, connection은 연결 정리까지 유지되는 임시 파일.",
+          "enum": [
+            "plan",
+            "connection"
+          ],
+          "type": "string"
+        },
+        "message": {
           "type": "string"
         },
         "path": {
-          "description": "프로젝트 기준 상대 경로. output_refs에는 이 문자열만 기록.",
           "type": "string"
         },
         "sha256": {
           "type": "string"
         },
         "status": {
-          "description": "saved일 때만 path 사용 가능.",
+          "enum": [
+            "saved",
+            "error"
+          ],
           "type": "string"
         }
       },
       "type": "object"
     },
     "message": {
-      "type": "string"
-    },
-    "next_step_guide": {
       "type": "string"
     },
     "status": {
@@ -4372,7 +5282,7 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 **beyond · RhinoTerminal**
 
 ```txt
-카메라를 조작하여 뷰포트를 조작하는 툴이다. 활성 일반 원근 모델 뷰포트에서만 rotate 또는 zoom을 적용한다. 확대 검수는 실제 뷰포트를 확대한 뒤 capture_03-current_view tool을 대상 없이 호출해 확인한다.
+활성 원근 모델 뷰를 회전하거나 확대한다. 결과는 capture_03-current_view tool에 대상 없이 호출해 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -4380,60 +5290,38 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 ```json
 {
   "additionalProperties": false,
-  "oneOf": [
+  "anyOf": [
     {
-      "not": {
-        "required": [
-          "factor"
-        ]
-      },
       "properties": {
+        "factor": false,
         "operation": {
-          "const": "rotate"
+          "const": "rotate",
+          "type": "string"
         }
       },
       "required": [
-        "operation",
         "mode"
       ]
     },
     {
-      "not": {
-        "anyOf": [
-          {
-            "required": [
-              "mode"
-            ]
-          },
-          {
-            "required": [
-              "yaw_deg"
-            ]
-          },
-          {
-            "required": [
-              "pitch_deg"
-            ]
-          }
-        ]
-      },
       "properties": {
-        "factor": {
-          "exclusiveMinimum": 0
-        },
+        "mode": false,
         "operation": {
-          "const": "zoom"
-        }
+          "const": "zoom",
+          "type": "string"
+        },
+        "pitch_deg": false,
+        "yaw_deg": false
       },
       "required": [
-        "operation",
         "factor"
       ]
     }
   ],
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -4446,11 +5334,12 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "factor": {
-      "description": "zoom 전용. 0보다 큰 유한 배율. 2는 2배 확대, 0.5는 절반으로 축소.",
+      "description": "0보다 큰 유한 배율. 2는 2배 확대, 0.5는 절반으로 축소.",
+      "exclusiveMinimum": 0,
       "type": "number"
     },
     "mode": {
-      "description": "rotate 전용. look은 카메라 위치 고정, orbit은 바라보는 지점과 카메라 거리 고정.",
+      "description": "look은 카메라 위치 고정. orbit은 타깃과 카메라 거리 고정.",
       "enum": [
         "look",
         "orbit"
@@ -4458,7 +5347,6 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "operation": {
-      "description": "rotate는 시점 회전, zoom은 실제 뷰포트 확대·축소.",
       "enum": [
         "rotate",
         "zoom"
@@ -4466,17 +5354,17 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "pitch_deg": {
-      "description": "rotate 전용. 상대 상하 각도(도). 양수는 위쪽, 생략하면 0. yaw_deg 적용 후 회전한다.",
+      "description": "yaw_deg 적용 후 상대 상하 회전(도). 양수는 위, 기본 0.",
       "type": "number"
     },
     "yaw_deg": {
-      "description": "rotate 전용. 상대 좌우 각도(도). 양수는 오른쪽, 생략하면 0. pitch_deg와 둘 다 0이거나 회전 결과가 수직이면 적용하지 않는다.",
+      "description": "상대 좌우 회전(도). 양수는 오른쪽, 기본 0. 두 각도 중 하나는 0이 아니어야 하며 수직 회전은 거부.",
       "type": "number"
     }
   },
   "required": [
-    "operation",
-    "connection_id"
+    "connection_id",
+    "operation"
   ],
   "type": "object"
 }
@@ -4489,53 +5377,30 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 ```json
 {
   "additionalProperties": false,
-  "oneOf": [
+  "anyOf": [
     {
-      "not": {
-        "required": [
-          "factor"
-        ]
-      },
       "properties": {
+        "factor": false,
         "operation": {
-          "const": "rotate"
+          "const": "rotate",
+          "type": "string"
         }
       },
       "required": [
-        "operation",
         "mode"
       ]
     },
     {
-      "not": {
-        "anyOf": [
-          {
-            "required": [
-              "mode"
-            ]
-          },
-          {
-            "required": [
-              "yaw_deg"
-            ]
-          },
-          {
-            "required": [
-              "pitch_deg"
-            ]
-          }
-        ]
-      },
       "properties": {
-        "factor": {
-          "exclusiveMinimum": 0
-        },
+        "mode": false,
         "operation": {
-          "const": "zoom"
-        }
+          "const": "zoom",
+          "type": "string"
+        },
+        "pitch_deg": false,
+        "yaw_deg": false
       },
       "required": [
-        "operation",
         "factor"
       ]
     }
@@ -4550,11 +5415,12 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "factor": {
-      "description": "zoom 전용. 0보다 큰 유한 배율. 2는 2배 확대, 0.5는 절반으로 축소.",
+      "description": "0보다 큰 유한 배율. 2는 2배 확대, 0.5는 절반으로 축소.",
+      "exclusiveMinimum": 0,
       "type": "number"
     },
     "mode": {
-      "description": "rotate 전용. look은 카메라 위치 고정, orbit은 바라보는 지점과 카메라 거리 고정.",
+      "description": "look은 카메라 위치 고정. orbit은 타깃과 카메라 거리 고정.",
       "enum": [
         "look",
         "orbit"
@@ -4562,7 +5428,6 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "operation": {
-      "description": "rotate는 시점 회전, zoom은 실제 뷰포트 확대·축소.",
       "enum": [
         "rotate",
         "zoom"
@@ -4570,11 +5435,11 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "pitch_deg": {
-      "description": "rotate 전용. 상대 상하 각도(도). 양수는 위쪽, 생략하면 0. yaw_deg 적용 후 회전한다.",
+      "description": "yaw_deg 적용 후 상대 상하 회전(도). 양수는 위, 기본 0.",
       "type": "number"
     },
     "yaw_deg": {
-      "description": "rotate 전용. 상대 좌우 각도(도). 양수는 오른쪽, 생략하면 0. pitch_deg와 둘 다 0이거나 회전 결과가 수직이면 적용하지 않는다.",
+      "description": "상대 좌우 회전(도). 양수는 오른쪽, 기본 0. 두 각도 중 하나는 0이 아니어야 하며 수직 회전은 거부.",
       "type": "number"
     }
   },
@@ -4612,9 +5477,13 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
       "type": "string"
     },
     "mutation_applied": {
-      "type": [
-        "boolean",
-        "null"
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "requires_reconciliation": {
@@ -4646,7 +5515,7 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 **beyond**
 
 ```txt
-열린 Rhino 문서와 이 클라이언트의 연결·시작 요청 조회. 연결하려면 같은 대상의 host_id와 저장된 model_path를 connect_02-session tool에 전달한다.
+열린 Rhino 문서와 연결 상태를 조회한다. available이면 host_id와 model_path로 connect_02-session tool에 연결을 요청한다. ready이면 connection_id로 바로 작업한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -4655,7 +5524,6 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 {
   "additionalProperties": false,
   "properties": {},
-  "required": [],
   "type": "object"
 }
 ```
@@ -4667,177 +5535,37 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 ```json
 {
   "properties": {
-    "connections": {
-      "items": {
-        "properties": {
-          "artifact_dir": {
-            "description": "연결 단위 임시 작업 폴더.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "connection_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "host_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "in_flight": {
-            "type": "boolean"
-          },
-          "model_filename": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "model_path": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "pid": {
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "reason": {
-            "type": "string"
-          },
-          "slot": {
-            "description": "독립 연결 슬롯. 같은 폴더의 모델은 DB와 산출물 루트를 공유한다.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "state": {
-            "description": "ready면 일반 작업 가능. recovering·unconfirmed이면 이전 실행 결과부터 확인.",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "type": "array"
-    },
-    "error_code": {
-      "type": "string"
-    },
-    "instructions": {
-      "type": "string"
-    },
-    "message": {
-      "type": "string"
-    },
-    "next_step_guide": {
-      "type": "string"
-    },
-    "selected_connection_id": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "starts": {
-      "items": {
-        "properties": {
-          "connection_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "model_path": {
-            "description": "시작 요청 모델의 절대 경로.",
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          },
-          "request_id": {
-            "description": "같은 시작 요청을 조회할 때 재사용.",
-            "type": "string"
-          },
-          "state": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "type": "array"
-    },
     "targets": {
       "items": {
         "properties": {
-          "artifact_dir": {
-            "description": "연결 단위 임시 작업 폴더.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "connection_id": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string"
           },
           "host_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "in_flight": {
-            "type": "boolean"
-          },
-          "model_filename": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string"
           },
           "model_path": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "pid": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": "string"
           },
           "reason": {
             "type": "string"
           },
-          "slot": {
-            "description": "독립 연결 슬롯. 같은 폴더의 모델은 DB와 산출물 루트를 공유한다.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "state": {
-            "description": "ready면 일반 작업 가능. recovering·unconfirmed이면 이전 실행 결과부터 확인.",
+            "description": "recovering·unconfirmed이면 이전 실행 결과부터 확인한다.",
             "type": "string"
           }
         },
+        "required": [
+          "state"
+        ],
         "type": "object"
       },
       "type": "array"
     }
   },
+  "required": [
+    "targets"
+  ],
   "type": "object"
 }
 ```
@@ -4850,7 +5578,7 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 **beyond**
 
 ```txt
-열린 Rhino 문서에 연결하고 해당 문서의 연결 ID를 반환.
+connect_01-list_up tool에서 고른 문서의 host_id와 model_path로 연결한다. 같은 문서에 이미 연결되어 있으면 기존 connection_id를 반환한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -4881,71 +5609,25 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 ```json
 {
   "properties": {
-    "artifact_dir": {
-      "description": "연결 단위 임시 작업 폴더.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
     "connection_id": {
-      "description": "model_path와 connection_id를 현재 대화의 변수에 함께 저장하고, 이 문서의 후속 호출마다 connection_id를 전달한다.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "error_code": {
       "type": "string"
-    },
-    "host_id": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "in_flight": {
-      "type": "boolean"
-    },
-    "message": {
-      "type": "string"
-    },
-    "model_filename": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "model_path": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "next_step_guide": {
-      "type": "string"
-    },
-    "pid": {
-      "type": [
-        "integer",
-        "null"
-      ]
     },
     "reason": {
       "type": "string"
     },
-    "slot": {
-      "description": "독립 연결 슬롯. 같은 폴더의 모델은 DB와 산출물 루트를 공유한다.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
     "state": {
-      "description": "ready면 일반 작업 가능. recovering·unconfirmed이면 이전 실행 결과부터 확인.",
+      "enum": [
+        "ready",
+        "recovering",
+        "unconfirmed"
+      ],
       "type": "string"
     }
   },
+  "required": [
+    "connection_id",
+    "state"
+  ],
   "type": "object"
 }
 ```
@@ -4958,7 +5640,7 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 **beyond**
 
 ```txt
-저장된 모델을 새 Rhino 창에서 열고 해당 문서의 연결 ID를 반환.
+저장된 .3dm을 새 Rhino 창에서 연다. 시작을 기다리는 중이면 같은 경로와 request_id로 조회한다. 독립 실행이 거부되면 Rhino에서 파일을 열고 almondconnect를 실행한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -4968,11 +5650,11 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
   "additionalProperties": false,
   "properties": {
     "model_path": {
-      "description": "저장된 로컬 .3dm 파일의 절대 경로.",
+      "description": "로컬 .3dm 파일의 절대 경로.",
       "type": "string"
     },
     "request_id": {
-      "description": "시작 시도마다 고유한 값. 지연되거나 결과가 불확실하면 같은 값으로 다시 조회.",
+      "description": "새 창을 열 때마다 정하는 1~128자 고유 문자열.",
       "maxLength": 128,
       "minLength": 1,
       "type": "string"
@@ -4993,75 +5675,25 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 ```json
 {
   "properties": {
-    "artifact_dir": {
-      "description": "연결 단위 임시 작업 폴더.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
     "connection_id": {
-      "description": "model_path와 connection_id를 현재 대화의 변수에 함께 저장하고, 이 문서의 후속 호출마다 connection_id를 전달한다.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "error_code": {
       "type": "string"
-    },
-    "host_id": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "in_flight": {
-      "type": "boolean"
-    },
-    "message": {
-      "type": "string"
-    },
-    "model_filename": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "model_path": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "next_step_guide": {
-      "type": "string"
-    },
-    "pid": {
-      "type": [
-        "integer",
-        "null"
-      ]
     },
     "reason": {
       "type": "string"
     },
-    "request_id": {
-      "description": "대기·실패 상태는 connect_01-list_up tool의 starts에서 확인.",
-      "type": "string"
-    },
-    "slot": {
-      "description": "독립 연결 슬롯. 같은 폴더의 모델은 DB와 산출물 루트를 공유한다.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
     "state": {
-      "description": "ready면 일반 작업 가능. recovering·unconfirmed이면 이전 실행 결과부터 확인.",
+      "enum": [
+        "ready",
+        "recovering",
+        "unconfirmed"
+      ],
       "type": "string"
     }
   },
+  "required": [
+    "connection_id",
+    "state"
+  ],
   "type": "object"
 }
 ```
@@ -5074,7 +5706,7 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 **beyond**
 
 ```txt
-지정한 연결 해제. Rhino 창과 문서는 계속 열린 상태로 유지.
+연결 슬롯을 해제하고 Rhino 문서는 열어 둔다. 실행 중인 호출이 끝나야 해제할 수 있다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -5084,7 +5716,8 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     }
@@ -5103,47 +5736,18 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 ```json
 {
   "properties": {
-    "connection_id": {
-      "type": "string"
-    },
-    "error_code": {
-      "type": "string"
-    },
-    "message": {
-      "type": "string"
-    },
-    "model_path": {
-      "description": "저장·종료 전에 현재 문서 경로와 대조.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "next_step_guide": {
-      "type": "string"
-    },
-    "pid": {
-      "description": "종료할 Rhino 창은 이 PID와 model_path를 함께 대조해 식별.",
-      "type": [
-        "integer",
-        "null"
-      ]
-    },
     "reason": {
-      "description": "잠금이 남은 경우 그 사유 포함.",
+      "description": "연결은 해제됐지만 내부 정리 중 오류가 생긴 경우.",
       "type": "string"
     },
     "released": {
-      "description": "Rhino가 연결 해제를 확인한 경우 true.",
-      "type": "boolean"
-    },
-    "rhino_closed": {
-      "type": "boolean"
-    },
-    "worker_closed": {
+      "const": true,
       "type": "boolean"
     }
   },
+  "required": [
+    "released"
+  ],
   "type": "object"
 }
 ```
@@ -5156,7 +5760,7 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 **beyond**
 
 ```txt
-지정한 연결의 Rhino 문서 저장을 확인한 뒤 Rhino를 정상 종료. 결과 재조회에는 원래의 두 ID를 사용한다.
+Rhino 문서를 저장한 뒤 해당 Rhino 창을 닫는다. 같은 connection_id와 request_id로 다시 호출하면 이전 결과를 조회한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -5166,20 +5770,21 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "request_id": {
-      "description": "종료 시도마다 고유한 값. 지연되거나 결과가 불확실하면 같은 값으로 재호출해 기존 결과를 조회.",
+      "description": "종료 요청마다 새로 정하는 1~128자 문자열.",
       "maxLength": 128,
       "minLength": 1,
       "type": "string"
     }
   },
   "required": [
-    "request_id",
-    "connection_id"
+    "connection_id",
+    "request_id"
   ],
   "type": "object"
 }
@@ -5192,64 +5797,28 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 ```json
 {
   "properties": {
-    "connection_id": {
-      "type": "string"
-    },
-    "model_path": {
-      "description": "저장·종료 대상의 절대 경로.",
-      "type": "string"
-    },
-    "modified_after": {
-      "type": "boolean"
-    },
-    "modified_before": {
-      "type": "boolean"
-    },
-    "next_step_guide": {
-      "type": "string"
-    },
-    "pid": {
-      "description": "프로세스 시작 정보까지 대조한 Rhino PID.",
-      "type": "integer"
-    },
     "reason": {
       "type": "string"
     },
-    "released": {
-      "type": "boolean"
-    },
-    "request_id": {
-      "type": "string"
-    },
-    "rhino_closed": {
-      "type": "boolean"
-    },
     "save_request_id": {
-      "description": "script_03-get_execution tool에서 저장 결과를 조회할 때 사용.",
-      "type": "string"
-    },
-    "saved": {
-      "description": "Save 완료와 같은 문서의 modified=false를 모두 확인.",
-      "type": "boolean"
-    },
-    "stage": {
+      "description": "저장 결과가 불확실할 때 script_03-get_execution tool에 전달할 request_id.",
       "type": "string"
     },
     "status": {
-      "description": "completed는 저장, Rhino·worker 종료, 연결 소유권 해제를 모두 확인한 상태.",
+      "description": "completed이면 저장, Rhino 종료, 연결 해제가 모두 끝났다.",
       "enum": [
-        "closing",
         "completed",
+        "closing",
         "rejected",
         "save_failed",
         "unconfirmed"
       ],
       "type": "string"
-    },
-    "worker_closed": {
-      "type": "boolean"
     }
   },
+  "required": [
+    "status"
+  ],
   "type": "object"
 }
 ```
@@ -5262,11 +5831,7 @@ PNG 전달과 파일 저장은 별개다. 사용량 추정·경고는 별도 tex
 **beyond · RhinoTerminal**
 
 ```txt
-Almond 도구와 기술 참고 자료 조회. policy를 생략하면 공개 도구 목록과 참고 자료 종류를 반환.
-
-metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 내장 스크립팅 자료, rhinocode는 코드·명령 실행 지침.
-
-같은 guide_version에서 이미 읽은 지침은 재사용할 수 있다.
+Rhino 기술 자료를 조회한다. `basic`(기본값)은 공통 도구명과 자료 목록, `metadata`는 객체 메타데이터 키 사전, `rhino_scripting`은 스크립팅 문서, `rhinocode`는 실행 지침이다.
 ```
 
 <details><summary>beyond · RhinoTerminal 입력 스키마</summary>
@@ -5276,10 +5841,7 @@ metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 
   "additionalProperties": false,
   "properties": {
     "policy": {
-      "default": "",
-      "description": "생략하거나 비워 두면 basic(공개 도구 목록). 참고 자료 종류는 available_policies 참고.",
       "enum": [
-        "",
         "basic",
         "metadata",
         "rhino_scripting",
@@ -5298,24 +5860,208 @@ metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 
 
 ```json
 {
-  "properties": {
-    "available_policies": {
-      "additionalProperties": {
-        "type": "string"
+  "anyOf": [
+    {
+      "properties": {
+        "available_policies": {
+          "additionalProperties": false,
+          "properties": {
+            "basic": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "string"
+            },
+            "rhino_scripting": {
+              "type": "string"
+            },
+            "rhinocode": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "basic",
+            "metadata",
+            "rhino_scripting",
+            "rhinocode"
+          ],
+          "type": "object"
+        },
+        "guide_version": {
+          "type": "string"
+        },
+        "selected_policy": {
+          "const": "basic",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
       },
+      "required": [
+        "guide_version",
+        "selected_policy",
+        "available_policies",
+        "tools"
+      ],
       "type": "object"
     },
-    "error_code": {
-      "type": "string"
+    {
+      "properties": {
+        "guide_version": {
+          "type": "string"
+        },
+        "policy": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "selected_policy": {
+          "const": "metadata",
+          "type": "string"
+        },
+        "source_refs": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "guide_version",
+        "selected_policy",
+        "policy",
+        "source_refs"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "guide_version": {
+          "type": "string"
+        },
+        "scripting_skill": {
+          "properties": {
+            "sources": {
+              "items": {
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "sources"
+          ],
+          "type": "object"
+        },
+        "selected_policy": {
+          "const": "rhino_scripting",
+          "type": "string"
+        }
+      },
+      "required": [
+        "guide_version",
+        "selected_policy",
+        "scripting_skill"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "guide_version": {
+          "type": "string"
+        },
+        "selected_policy": {
+          "const": "rhinocode",
+          "type": "string"
+        },
+        "source_refs": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "guide_version",
+        "selected_policy",
+        "text",
+        "source_refs"
+      ],
+      "type": "object"
+    }
+  ],
+  "properties": {
+    "available_policies": {
+      "additionalProperties": false,
+      "properties": {
+        "basic": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "string"
+        },
+        "rhino_scripting": {
+          "type": "string"
+        },
+        "rhinocode": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "basic",
+        "metadata",
+        "rhino_scripting",
+        "rhinocode"
+      ],
+      "type": "object"
     },
     "guide_version": {
-      "description": "같은 지침인지 비교할 수 있는 버전 해시.",
-      "type": "string"
-    },
-    "message": {
-      "type": "string"
-    },
-    "next_step_guide": {
       "type": "string"
     },
     "policy": {
@@ -5324,32 +6070,41 @@ metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 
     },
     "scripting_skill": {
       "properties": {
-        "name": {
-          "type": "string"
-        },
         "sources": {
           "items": {
             "properties": {
               "path": {
-                "description": "저장소 상대 경로. src/mcp/로 시작.",
                 "type": "string"
               },
               "sha256": {
-                "description": "줄바꿈 등을 정규화한 출처의 해시.",
                 "type": "string"
               },
               "text": {
                 "type": "string"
               }
             },
+            "required": [
+              "path",
+              "sha256",
+              "text"
+            ],
             "type": "object"
           },
           "type": "array"
         }
       },
+      "required": [
+        "sources"
+      ],
       "type": "object"
     },
     "selected_policy": {
+      "enum": [
+        "basic",
+        "metadata",
+        "rhino_scripting",
+        "rhinocode"
+      ],
       "type": "string"
     },
     "source_refs": {
@@ -5362,12 +6117,13 @@ metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 
             "type": "string"
           }
         },
+        "required": [
+          "path",
+          "sha256"
+        ],
         "type": "object"
       },
       "type": "array"
-    },
-    "status": {
-      "type": "string"
     },
     "text": {
       "type": "string"
@@ -5379,6 +6135,10 @@ metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 
       "type": "array"
     }
   },
+  "required": [
+    "guide_version",
+    "selected_policy"
+  ],
   "type": "object"
 }
 ```
@@ -5391,13 +6151,7 @@ metadata는 User Text 등 객체 메타데이터 키 사전, rhino_scripting은 
 **beyond · RhinoTerminal**
 
 ```txt
-연결된 Rhino 문서와 프로젝트 작업 정보 조회.
-
-sections에서 필요한 항목을 선택한다. locations·runtime만 요청하면 Rhino 문서를 직접 관찰하지 않는다. named_views와 layouts는 각각 최대 128개이며 include_ids와 관계없이 ID를 포함한다.
-
-project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨부 파일이다. 이 목록과 DB 등록 목록인 project.files는 별개다. Worksession 첨부·해제로 DB 등록은 바뀌지 않는다. 파일 등록과 설명 갱신은 context_05-upsert_project_file tool을 사용한다. Phase와 Scene에는 등록 파일명을 지정한다.
-
-후속 호출에 쓸 Plan·Step ID가 필요하면 include_ids=true. 프로젝트 내부 경로는 project_root를 기준으로 읽는다.
+연결한 문서와 프로젝트를 조회한다. 기본 조회에는 레이어 트리, Named View, Layout, 작업 경로가 포함된다. sections로 일부만 고를 수 있고 runtime은 요청할 때만 읽는다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -5407,28 +6161,38 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "files_limit": {
-      "default": 50,
-      "description": "등록 파일 페이지 크기. 정수 1..500.",
+      "description": "등록 파일만 페이지로 읽는다. 기본 50개, 범위 1~500. offset에 읽은 개수를 더해 total까지 조회한다.",
+      "maximum": 500,
+      "minimum": 1,
       "type": "integer"
     },
     "files_offset": {
-      "default": 0,
-      "description": "등록 파일 페이지의 시작 위치. 0 이상의 정수.",
+      "minimum": 0,
       "type": "integer"
     },
     "include_ids": {
-      "default": false,
+      "description": "Plan·Step ID, 문서 실행 번호와 RhinoCode pipe ID도 조회한다.",
       "type": "boolean"
     },
     "sections": {
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "project",
+              "document",
+              "layer_tree",
+              "named_views",
+              "layouts",
+              "locations",
+              "runtime"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -5436,9 +6200,7 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "project, document, named_views, layouts, layer_tree, locations, runtime. 생략 시 runtime을 제외한 전체."
+      ]
     }
   },
   "required": [
@@ -5457,23 +6219,32 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
   "additionalProperties": false,
   "properties": {
     "files_limit": {
-      "default": 50,
-      "description": "등록 파일 페이지 크기. 정수 1..500.",
+      "description": "등록 파일만 페이지로 읽는다. 기본 50개, 범위 1~500. offset에 읽은 개수를 더해 total까지 조회한다.",
+      "maximum": 500,
+      "minimum": 1,
       "type": "integer"
     },
     "files_offset": {
-      "default": 0,
-      "description": "등록 파일 페이지의 시작 위치. 0 이상의 정수.",
+      "minimum": 0,
       "type": "integer"
     },
     "include_ids": {
-      "default": false,
+      "description": "Plan·Step ID, 문서 실행 번호와 RhinoCode pipe ID도 조회한다.",
       "type": "boolean"
     },
     "sections": {
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "project",
+              "document",
+              "layer_tree",
+              "named_views",
+              "layouts",
+              "locations",
+              "runtime"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -5481,9 +6252,7 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "project, document, named_views, layouts, layer_tree, locations, runtime. 생략 시 runtime을 제외한 전체."
+      ]
     }
   },
   "type": "object"
@@ -5496,256 +6265,703 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
 
 ```json
 {
+  "anyOf": [
+    {
+      "properties": {
+        "document": {
+          "properties": {
+            "absolute_tolerance": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "angle_tolerance_radians": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "layer_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "modified": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "object_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "runtime_serial_number": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "units": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "units",
+            "absolute_tolerance",
+            "angle_tolerance_radians",
+            "modified",
+            "layer_count",
+            "object_count"
+          ],
+          "type": "object"
+        },
+        "layer_tree": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "한 줄에 한 레이어, 깊이마다 두 칸 들여쓴다. inspect_02-get_objects tool의 레이어 필터에는 부모부터 이름을 ::로 이은 전체 경로를 쓴다."
+        },
+        "layouts": {
+          "anyOf": [
+            {
+              "items": {
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "id"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locations": {
+          "properties": {
+            "artifact_dir": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "현재 작업의 산출물 폴더"
+            },
+            "database": {
+              "type": "string"
+            },
+            "loop_no": {
+              "type": "integer"
+            },
+            "plan_artifact_dir": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Plan 전체 폴더"
+            },
+            "plan_id": {
+              "type": "string"
+            },
+            "read_only": {
+              "type": "boolean"
+            },
+            "step_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "database",
+            "artifact_dir"
+          ],
+          "type": "object"
+        },
+        "named_views": {
+          "anyOf": [
+            {
+              "items": {
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "id"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "이름과 ID는 capture_04-defined_view tool의 target에 쓸 수 있다."
+        },
+        "project": {
+          "properties": {
+            "file_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "file_path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "files": {
+              "description": "Phase·Scene에서 참조하는 프로젝트 등록 파일.",
+              "items": {
+                "properties": {
+                  "description": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "file_name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file_name",
+                  "description"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "files_page": {
+              "properties": {
+                "offset": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "total",
+                "offset"
+              ],
+              "type": "object"
+            },
+            "is_bound_document": {
+              "type": "boolean"
+            },
+            "project_root": {
+              "type": "string"
+            },
+            "worksession_files": {
+              "anyOf": [
+                {
+                  "items": {
+                    "properties": {
+                      "file_path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "file_path"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "현재 Rhino에 첨부한 파일. []는 첨부 없음, null은 조회 실패."
+            }
+          },
+          "required": [
+            "project_root",
+            "file_name",
+            "file_path",
+            "is_bound_document",
+            "files",
+            "files_page",
+            "worksession_files"
+          ],
+          "type": "object"
+        },
+        "runtime": {
+          "properties": {
+            "python_executable": {
+              "type": "string"
+            },
+            "rhinocode": {
+              "properties": {
+                "available": {
+                  "type": "boolean"
+                },
+                "executable": {
+                  "type": "string"
+                },
+                "languages": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "pipe_id": {
+                  "type": "string"
+                },
+                "version": {}
+              },
+              "required": [
+                "available",
+                "languages"
+              ],
+              "type": "object"
+            },
+            "scratch_root": {
+              "type": "string"
+            },
+            "slot": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "slot",
+            "scratch_root",
+            "python_executable",
+            "rhinocode"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "const": "success",
+          "type": "string"
+        },
+        "warnings": {
+          "description": "조회 실패나 뷰 목록 잘림을 알린다. Named View와 Layout은 각각 최대 128개다.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "error_code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "status": {
+          "const": "error",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "message"
+      ],
+      "type": "object"
+    }
+  ],
   "properties": {
     "document": {
       "properties": {
         "absolute_tolerance": {
-          "description": "현재 문서 단위.",
-          "type": [
-            "number",
-            "null"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "angle_tolerance_radians": {
-          "type": [
-            "number",
-            "null"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "layer_count": {
-          "description": "활성 레이어만 집계.",
-          "type": [
-            "integer",
-            "null"
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "modified": {
-          "type": [
-            "boolean",
-            "null"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "object_count": {
-          "type": [
-            "integer",
-            "null"
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "runtime_serial_number": {
-          "description": "include_ids=true일 때 포함.",
-          "type": [
-            "integer",
-            "null"
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "units": {
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       },
-      "type": [
-        "object",
-        "null"
-      ]
+      "required": [
+        "units",
+        "absolute_tolerance",
+        "angle_tolerance_radians",
+        "modified",
+        "layer_count",
+        "object_count"
+      ],
+      "type": "object"
     },
     "error_code": {
       "type": "string"
     },
     "layer_tree": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "한 줄에 한 레이어, 깊이마다 두 칸 들여쓴다. inspect_02-get_objects tool의 레이어 필터에는 부모부터 이름을 ::로 이은 전체 경로를 쓴다."
     },
     "layouts": {
-      "items": {
-        "properties": {
-          "id": {
-            "type": "string"
+      "anyOf": [
+        {
+          "items": {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "id"
+            ],
+            "type": "object"
           },
-          "name": {
-            "type": "string"
-          }
+          "type": "array"
         },
-        "type": "object"
-      },
-      "type": [
-        "array",
-        "null"
+        {
+          "type": "null"
+        }
       ]
     },
     "locations": {
       "properties": {
         "artifact_dir": {
-          "description": "선택된 Plan·Loop의 산출물 폴더.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "artifact_rule": {
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "현재 작업의 산출물 폴더"
         },
         "database": {
-          "description": "연결된 모델이 공유하는 DB 경로.",
           "type": "string"
         },
         "loop_no": {
-          "description": "0은 첫 실행 전 기록.",
           "type": "integer"
         },
-        "path_rule": {
-          "type": "string"
-        },
         "plan_artifact_dir": {
-          "description": "프로젝트 기준 상대 경로.",
-          "type": [
-            "string",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Plan 전체 폴더"
         },
         "plan_id": {
           "type": "string"
         },
         "read_only": {
-          "description": "선택한 회차가 최신 회차보다 이전이면 true.",
           "type": "boolean"
         },
         "step_id": {
           "type": "string"
         }
       },
+      "required": [
+        "database",
+        "artifact_dir"
+      ],
       "type": "object"
     },
     "message": {
       "type": "string"
     },
     "named_views": {
-      "items": {
-        "properties": {
-          "id": {
-            "type": "string"
+      "anyOf": [
+        {
+          "items": {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "id"
+            ],
+            "type": "object"
           },
-          "name": {
-            "type": "string"
-          }
+          "type": "array"
         },
-        "type": "object"
-      },
-      "type": [
-        "array",
-        "null"
-      ]
-    },
-    "next_step_guide": {
-      "type": "string"
+        {
+          "type": "null"
+        }
+      ],
+      "description": "이름과 ID는 capture_04-defined_view tool의 target에 쓸 수 있다."
     },
     "project": {
       "properties": {
         "file_name": {
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "file_path": {
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "files": {
+          "description": "Phase·Scene에서 참조하는 프로젝트 등록 파일.",
           "items": {
             "properties": {
               "description": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "file_name": {
                 "type": "string"
               }
             },
+            "required": [
+              "file_name",
+              "description"
+            ],
             "type": "object"
           },
           "type": "array"
         },
         "files_page": {
           "properties": {
-            "limit": {
-              "type": "integer"
-            },
             "offset": {
               "type": "integer"
             },
             "total": {
               "type": "integer"
-            },
-            "truncated": {
-              "description": "true면 같은 조건에서 files_offset=offset+limit으로 다음 페이지 조회.",
-              "type": "boolean"
             }
           },
+          "required": [
+            "total",
+            "offset"
+          ],
           "type": "object"
         },
         "is_bound_document": {
-          "description": "현재 Rhino 문서가 이 연결에서 선택한 모델과 일치하는지 확인.",
           "type": "boolean"
         },
         "project_root": {
-          "description": "프로젝트 파일 도구에서 상대 경로를 해석하는 기준 디렉터리의 절대 경로.",
           "type": "string"
         },
         "worksession_files": {
-          "items": {
-            "properties": {
-              "file_name": {
-                "type": "string"
+          "anyOf": [
+            {
+              "items": {
+                "properties": {
+                  "file_path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file_path"
+                ],
+                "type": "object"
               },
-              "file_path": {
-                "description": "다른 드라이브의 파일은 절대 경로.",
-                "type": "string"
-              }
+              "type": "array"
             },
-            "type": "object"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
+            {
+              "type": "null"
+            }
+          ],
+          "description": "현재 Rhino에 첨부한 파일. []는 첨부 없음, null은 조회 실패."
         }
       },
+      "required": [
+        "project_root",
+        "file_name",
+        "file_path",
+        "is_bound_document",
+        "files",
+        "files_page",
+        "worksession_files"
+      ],
       "type": "object"
     },
     "runtime": {
       "properties": {
-        "attachment": {
-          "type": "string"
-        },
-        "port": {
-          "type": "integer"
-        },
         "python_executable": {
-          "description": "현재 worker의 Python 실행 파일 경로.",
-          "type": "string"
-        },
-        "rhino_temp_at_attach": {
-          "description": "연결 시 기록한 Rhino 프로세스의 TEMP 경로.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "rhino_temp_note": {
           "type": "string"
         },
         "rhinocode": {
           "properties": {
             "available": {
-              "description": "현재 연결에서 허용된 실행 언어를 사용할 수 있으면 true.",
               "type": "boolean"
             },
             "executable": {
@@ -5761,37 +6977,59 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
               "type": "string"
             },
             "pipe_id": {
-              "description": "include_ids=true일 때 포함.",
               "type": "string"
             },
-            "version": {
-              "description": "RhinoCode 인스턴스의 원본 processVersion."
-            }
+            "version": {}
           },
+          "required": [
+            "available",
+            "languages"
+          ],
           "type": "object"
         },
         "scratch_root": {
-          "type": "string"
-        },
-        "session_dir": {
           "type": "string"
         },
         "slot": {
           "type": "string"
         }
       },
+      "required": [
+        "slot",
+        "scratch_root",
+        "python_executable",
+        "rhinocode"
+      ],
       "type": "object"
     },
     "status": {
+      "enum": [
+        "success",
+        "error"
+      ],
       "type": "string"
     },
     "warnings": {
-      "items": {
-        "type": "string"
-      },
-      "type": "array"
+      "anyOf": [
+        {
+          "description": "조회 실패나 뷰 목록 잘림을 알린다. Named View와 Layout은 각각 최대 128개다.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
     }
   },
+  "required": [
+    "status"
+  ],
   "type": "object"
 }
 ```
@@ -5804,9 +7042,7 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
 **beyond · RhinoTerminal**
 
 ```txt
-프로젝트 파일 카탈로그에 모델 파일을 등록하거나 설명을 갱신. 파일명 비교는 Windows 기준이며 수정 시 기존 표기를 유지한다. Rhino 문서 열기나 Worksession 첨부는 별도 작업이다.
-
-등록 목록은 context_04-get_project_info tool의 project.files에서 조회한다. Phase와 Scene에는 목록에 있는 파일명을 사용한다.
+프로젝트에 파일명을 등록하거나 설명을 갱신한다. 기존 파일은 등록된 대소문자와 실제 저장된 설명을 돌려준다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -5816,7 +7052,8 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -5829,17 +7066,16 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "생략하거나 null이면 기존 설명 유지. 빈 문자열로 삭제."
+      "description": "생략하거나 null이면 기존 설명을 유지하고, 빈 문자열이면 지운다."
     },
     "file_name": {
-      "description": "폴더를 뺀 모델 파일명. 프로젝트 안에서 고유해야 한다.",
+      "description": "폴더를 제외한 파일명",
       "type": "string"
     }
   },
   "required": [
-    "file_name",
-    "connection_id"
+    "connection_id",
+    "file_name"
   ],
   "type": "object"
 }
@@ -5862,11 +7098,10 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "생략하거나 null이면 기존 설명 유지. 빈 문자열로 삭제."
+      "description": "생략하거나 null이면 기존 설명을 유지하고, 빈 문자열이면 지운다."
     },
     "file_name": {
-      "description": "폴더를 뺀 모델 파일명. 프로젝트 안에서 고유해야 한다.",
+      "description": "폴더를 제외한 파일명",
       "type": "string"
     }
   },
@@ -5883,15 +7118,61 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
 
 ```json
 {
+  "anyOf": [
+    {
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file_name": {
+          "type": "string"
+        },
+        "status": {
+          "const": "success",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "file_name",
+        "description"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "status": {
+          "const": "error",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "message"
+      ],
+      "type": "object"
+    }
+  ],
   "properties": {
     "description": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
-    },
-    "error_code": {
-      "type": "string"
     },
     "file_name": {
       "type": "string"
@@ -5900,9 +7181,16 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
       "type": "string"
     },
     "status": {
+      "enum": [
+        "success",
+        "error"
+      ],
       "type": "string"
     }
   },
+  "required": [
+    "status"
+  ],
   "type": "object"
 }
 ```
@@ -5915,7 +7203,7 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
 **beyond · RhinoTerminal**
 
 ```txt
-다이어그램 자산의 등록 정보와 원본 파일 상태 조회. 파일이 없는 항목도 조회 가능.
+다이어그램의 등록 정보와 원본 유무 조회. 치수는 `dimensions`, 경로는 `paths` 그룹으로 요청한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -5925,11 +7213,12 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "diagram_02-list tool 또는 diagram_04-search tool에서 얻은 ID. 대소문자와 공백까지 그대로 사용.",
+      "description": "diagram_02-list tool 또는 diagram_04-search tool의 ID를 그대로 사용.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -5937,6 +7226,15 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "dimensions",
+              "drawing",
+              "metadata",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -5944,19 +7242,15 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "dimensions, drawing, metadata, source, paths, audit, all. 생략하거나 비우면 요약. all은 다른 그룹 밖의 등록 필드도 포함."
+      ]
     },
     "include_ids": {
-      "default": false,
-      "description": "true면 추가 식별자 포함. 입력 asset_id는 응답에 반복하지 않는다.",
       "type": "boolean"
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "connection_id",
+    "asset_id"
   ],
   "type": "object"
 }
@@ -5971,13 +7265,22 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "diagram_02-list tool 또는 diagram_04-search tool에서 얻은 ID. 대소문자와 공백까지 그대로 사용.",
+      "description": "diagram_02-list tool 또는 diagram_04-search tool의 ID를 그대로 사용.",
       "type": "string"
     },
     "field_groups": {
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "dimensions",
+              "drawing",
+              "metadata",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -5985,13 +7288,9 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "dimensions, drawing, metadata, source, paths, audit, all. 생략하거나 비우면 요약. all은 다른 그룹 밖의 등록 필드도 포함."
+      ]
     },
     "include_ids": {
-      "default": false,
-      "description": "true면 추가 식별자 포함. 입력 asset_id는 응답에 반복하지 않는다.",
       "type": "boolean"
     }
   },
@@ -6015,10 +7314,41 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
         "properties": {
           "asset": {
             "properties": {
+              "category": {
+                "type": "string"
+              },
+              "dimensions_mm": {
+                "properties": {
+                  "depth": {
+                    "type": "number"
+                  },
+                  "height": {
+                    "type": "number"
+                  },
+                  "width": {
+                    "type": "number"
+                  }
+                },
+                "type": "object"
+              },
+              "file": {
+                "description": "라이브러리 기준 원본 상대 경로.",
+                "type": "string"
+              },
               "file_available": {
                 "type": "boolean"
               },
               "name": {
+                "type": "string"
+              },
+              "product": {
+                "type": "string"
+              },
+              "source": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "variant": {
                 "type": "string"
               }
             },
@@ -6028,9 +7358,6 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
             "type": "string"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "status": {
@@ -6058,7 +7385,7 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
 **beyond · RhinoTerminal**
 
 ```txt
-사람·나무·기호 등 등록된 2D 벡터·CAD 다이어그램 조회. 파일이 없는 항목도 포함한다. 상세 정보는 diagram_01-get tool, 키워드·치수 검색은 diagram_04-search tool.
+등록된 2D 다이어그램 목록. asset_id는 상세 조회와 배치에 사용한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -6068,12 +7395,12 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
-      "description": "분류값 전체 일치. 대소문자 무시. 비워 두면 전체 조회.",
+      "description": "분류 전체 일치, 대소문자 무시. 기본값은 전체.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -6081,6 +7408,15 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "dimensions",
+              "drawing",
+              "metadata",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -6088,22 +7424,15 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "dimensions, drawing, metadata, source, paths, audit, all. 생략하거나 비우면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "limit": {
       "default": 20,
-      "description": "1..50으로 보정.",
+      "description": "1..50으로 보정. · 기본값 20",
       "type": "integer"
     },
     "offset": {
-      "default": 0,
-      "description": "음수는 0으로 보정.",
+      "description": "다음 페이지에는 `next_offset` 사용. 기본값 0.",
       "type": "integer"
     }
   },
@@ -6123,14 +7452,22 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
-      "description": "분류값 전체 일치. 대소문자 무시. 비워 두면 전체 조회.",
+      "description": "분류 전체 일치, 대소문자 무시. 기본값은 전체.",
       "type": "string"
     },
     "field_groups": {
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "dimensions",
+              "drawing",
+              "metadata",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -6138,22 +7475,15 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "dimensions, drawing, metadata, source, paths, audit, all. 생략하거나 비우면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "limit": {
       "default": 20,
-      "description": "1..50으로 보정.",
+      "description": "1..50으로 보정. · 기본값 20",
       "type": "integer"
     },
     "offset": {
-      "default": 0,
-      "description": "음수는 0으로 보정.",
+      "description": "다음 페이지에는 `next_offset` 사용. 기본값 0.",
       "type": "integer"
     }
   },
@@ -6174,6 +7504,43 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
         "properties": {
           "assets": {
             "items": {
+              "properties": {
+                "asset_id": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "dimensions_mm": {
+                  "properties": {
+                    "depth": {
+                      "type": "number"
+                    },
+                    "height": {
+                      "type": "number"
+                    },
+                    "width": {
+                      "type": "number"
+                    }
+                  },
+                  "type": "object"
+                },
+                "file_available": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "product": {
+                  "type": "string"
+                },
+                "variant": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "asset_id"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -6181,30 +7548,18 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
           "error_code": {
             "type": "string"
           },
-          "library_id": {
-            "description": "include_ids=true일 때 포함.",
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer"
-          },
           "message": {
             "type": "string"
           },
           "next_offset": {
-            "type": [
-              "integer",
-              "null"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ]
-          },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "integer"
-          },
-          "purpose": {
-            "type": "string"
           },
           "total": {
             "type": "integer"
@@ -6231,7 +7586,7 @@ project.worksession_files는 활성 문서를 제외한 현재 Worksession 첨�
 **beyond · RhinoTerminal**
 
 ```txt
-SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. requires_reconciliation=true면 문서에서 실제 배치를 확인한 뒤 다음 작업을 결정한다.
+도면 라이브러리의 SVG·DWG·DXF를 Rhino 블록으로 배치한다. 결과는 `object_guid`와 `bounds`로 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -6241,43 +7596,37 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "기존 라이브러리 자산 ID. 모르는 경우 include_ids=true로 목록·검색 결과에서 확인.",
+      "description": "목록·검색이 반환한 asset_id.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "rotation_degrees": {
-      "default": 0,
-      "description": "월드 Z축 기준.",
+      "description": "월드 Z축 기준 각도. 기본값 0°.",
       "type": "number"
     },
     "scale": {
-      "default": 1,
-      "description": "양수인 균일 축척. 1은 문서 단위로 변환한 자산의 원래 크기.",
+      "description": "양수인 균일 축척. 기본값 1은 문서 단위로 환산한 원래 크기.",
       "type": "number"
     },
     "x": {
-      "default": 0,
-      "description": "현재 Rhino 문서 단위.",
+      "description": "삽입점 x·y·z는 Rhino 문서 단위. 기본값은 원점.",
       "type": "number"
     },
     "y": {
-      "default": 0,
-      "description": "현재 Rhino 문서 단위.",
       "type": "number"
     },
     "z": {
-      "default": 0,
-      "description": "현재 Rhino 문서 단위.",
       "type": "number"
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "connection_id",
+    "asset_id"
   ],
   "type": "object"
 }
@@ -6292,32 +7641,25 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "asset_id": {
-      "description": "기존 라이브러리 자산 ID. 모르는 경우 include_ids=true로 목록·검색 결과에서 확인.",
+      "description": "목록·검색이 반환한 asset_id.",
       "type": "string"
     },
     "rotation_degrees": {
-      "default": 0,
-      "description": "월드 Z축 기준.",
+      "description": "월드 Z축 기준 각도. 기본값 0°.",
       "type": "number"
     },
     "scale": {
-      "default": 1,
-      "description": "양수인 균일 축척. 1은 문서 단위로 변환한 자산의 원래 크기.",
+      "description": "양수인 균일 축척. 기본값 1은 문서 단위로 환산한 원래 크기.",
       "type": "number"
     },
     "x": {
-      "default": 0,
-      "description": "현재 Rhino 문서 단위.",
+      "description": "삽입점 x·y·z는 Rhino 문서 단위. 기본값은 원점.",
       "type": "number"
     },
     "y": {
-      "default": 0,
-      "description": "현재 Rhino 문서 단위.",
       "type": "number"
     },
     "z": {
-      "default": 0,
-      "description": "현재 Rhino 문서 단위.",
       "type": "number"
     }
   },
@@ -6339,8 +7681,47 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
       "contentMediaType": "application/json",
       "contentSchema": {
         "properties": {
-          "asset_id": {
-            "type": "string"
+          "block_definition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bounds": {
+            "anyOf": [
+              {
+                "properties": {
+                  "max": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "type": "array"
+                  },
+                  "min": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "min",
+                  "max"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "definition_created": {
             "type": "boolean"
@@ -6352,22 +7733,30 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
             "type": "string"
           },
           "mutation_applied": {
-            "description": "null이면 변경 적용 여부 미확인.",
-            "type": [
-              "boolean",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null이면 변경 적용 여부 미확인."
           },
           "mutation_state": {
             "description": "unknown·partial이면 문서에 변경이 남아 있을 수 있음.",
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "object_guid": {
-            "description": "삽입한 최상위 블록 GUID. inspect_02-get_objects tool 또는 Scene 구성원 입력에 재사용.",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "inspect_02-get_objects tool과 Scene 구성원 입력에 전달할 블록 GUID."
           },
           "requires_reconciliation": {
             "description": "true이면 Rhino 문서의 실제 변경 상태를 확인. 자동 재실행 금지.",
@@ -6398,7 +7787,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
 **beyond · RhinoTerminal**
 
 ```txt
-등록된 2D 다이어그램을 키워드·분류·최대 치수로 검색. 파일이 없는 자산도 포함한다. 상세 정보와 파일 상태는 diagram_01-get tool에서 조회한다.
+등록된 2D 다이어그램을 키워드·분류·최대 치수로 검색한다. asset_id는 상세 조회와 배치에 사용한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -6408,12 +7797,12 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
-      "description": "분류값 전체 일치. 대소문자 무시. 비워 두면 전체 검색.",
+      "description": "분류 전체 일치, 대소문자 무시. 기본값은 전체.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -6421,6 +7810,15 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "dimensions",
+              "drawing",
+              "metadata",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -6428,41 +7826,28 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "dimensions, drawing, metadata, source, paths, audit, all. 생략하거나 비우면 요약. 일부 세부 값은 포함되지 않을 수 있다."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "limit": {
       "default": 10,
-      "description": "1..50으로 보정.",
+      "description": "1..50으로 보정. · 기본값 10",
       "type": "integer"
     },
     "max_depth_mm": {
-      "default": 0,
-      "description": "0 이하이면 치수 필터 해제. 등록 치수는 추정치일 수 있다.",
+      "description": "등록 치수는 추정치일 수 있다. 각 한계가 0 이하면 해당 치수 필터 해제.",
       "type": "number"
     },
     "max_height_mm": {
-      "default": 0,
-      "description": "0 이하이면 치수 필터 해제.",
       "type": "number"
     },
     "max_width_mm": {
-      "default": 0,
-      "description": "0 이하이면 치수 필터 해제.",
       "type": "number"
     },
     "offset": {
-      "default": 0,
-      "description": "음수는 0으로 보정. 다음 페이지에도 같은 필터 사용.",
+      "description": "다음 페이지에는 같은 필터와 `next_offset` 사용. 기본값 0.",
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "여러 검색어는 OR로 결합. 비워 두면 키워드 조건 없이 검색.",
       "type": "string"
     }
@@ -6483,14 +7868,22 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
-      "description": "분류값 전체 일치. 대소문자 무시. 비워 두면 전체 검색.",
+      "description": "분류 전체 일치, 대소문자 무시. 기본값은 전체.",
       "type": "string"
     },
     "field_groups": {
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "dimensions",
+              "drawing",
+              "metadata",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -6498,41 +7891,28 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "dimensions, drawing, metadata, source, paths, audit, all. 생략하거나 비우면 요약. 일부 세부 값은 포함되지 않을 수 있다."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "limit": {
       "default": 10,
-      "description": "1..50으로 보정.",
+      "description": "1..50으로 보정. · 기본값 10",
       "type": "integer"
     },
     "max_depth_mm": {
-      "default": 0,
-      "description": "0 이하이면 치수 필터 해제. 등록 치수는 추정치일 수 있다.",
+      "description": "등록 치수는 추정치일 수 있다. 각 한계가 0 이하면 해당 치수 필터 해제.",
       "type": "number"
     },
     "max_height_mm": {
-      "default": 0,
-      "description": "0 이하이면 치수 필터 해제.",
       "type": "number"
     },
     "max_width_mm": {
-      "default": 0,
-      "description": "0 이하이면 치수 필터 해제.",
       "type": "number"
     },
     "offset": {
-      "default": 0,
-      "description": "음수는 0으로 보정. 다음 페이지에도 같은 필터 사용.",
+      "description": "다음 페이지에는 같은 필터와 `next_offset` 사용. 기본값 0.",
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "여러 검색어는 OR로 결합. 비워 두면 키워드 조건 없이 검색.",
       "type": "string"
     }
@@ -6554,6 +7934,43 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
         "properties": {
           "assets": {
             "items": {
+              "properties": {
+                "asset_id": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "dimensions_mm": {
+                  "properties": {
+                    "depth": {
+                      "type": "number"
+                    },
+                    "height": {
+                      "type": "number"
+                    },
+                    "width": {
+                      "type": "number"
+                    }
+                  },
+                  "type": "object"
+                },
+                "file_available": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "product": {
+                  "type": "string"
+                },
+                "variant": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "asset_id"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -6561,23 +7978,18 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
           "error_code": {
             "type": "string"
           },
-          "limit": {
-            "type": "integer"
-          },
           "message": {
             "type": "string"
           },
           "next_offset": {
-            "type": [
-              "integer",
-              "null"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ]
-          },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "integer"
           },
           "total": {
             "type": "integer"
@@ -6604,7 +8016,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
 **beyond · RhinoTerminal**
 
 ```txt
-수동 2D 작도에 사용할 표준 D 레이어와 속성을 적용한다. 작도 전에 용도에 맞는 layer_path를 선택하고, 반환된 레이어에서 객체의 선종을 ByLayer로 사용한다. D::PlanSection은 별도다. 다른 Drawing Recipe도 명시해 적용할 수 있다.
+수동 2D 작도에 사용할 표준 D 레이어와 속성을 적용한다. 작도 전에 용도에 맞는 layer_path를 선택하고, 반환된 레이어에서 객체의 선종을 ByLayer로 사용한다. D::PlanSection은 별도다. 다른 레시피를 지정한 경우에는 layer_path를 생략한다. print_display_review가 있으면 현재 연결과 일치하는 RhinoCode에서 Document 범위의 Model·Layout 인쇄 표시를 확인하고 필요할 때 macro를 실행한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -6614,49 +8026,32 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "layer_path": {
-      "anyOf": [
-        {
-          "enum": [
-            "D::Section",
-            "D::Elev",
-            "D::Line",
-            "D::Line::Hidden",
-            "D::Line::Axis",
-            "D::Dim",
-            "D::Annotation",
-            "D::Note",
-            "D::Symbol",
-            "D::Hatch"
-          ],
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
+      "enum": [
+        "D::Section",
+        "D::Elev",
+        "D::Line",
+        "D::Line::Hidden",
+        "D::Line::Axis",
+        "D::Dim",
+        "D::Annotation",
+        "D::Note",
+        "D::Symbol",
+        "D::Hatch"
       ],
-      "default": null,
-      "description": "D::Section: Cut profiles; D::Elev: Visible elevation profiles beyond the cut; D::Line: Fine lines and secondary outlines; D::Line::Hidden: Concealed edges; D::Line::Axis: Axes and centre lines; D::Dim: Dimension lines, extension lines and marks; D::Annotation: Labels and leaders; D::Note: General drawing notes; D::Symbol: Drawing and reference symbols; D::Hatch: Manually drawn material hatches"
+      "type": "string"
     },
     "overwrite": {
-      "anyOf": [
-        {
-          "type": "boolean"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "표준 D는 기본으로 기존의 다른 정의를 보존한다. true로만 바꾼다. 공통 D를 포함한 레시피에도 이 보호를 적용한다. 나머지 레이어는 생략 시 기존처럼 덮어쓴다."
+      "description": "true로 표준 D 기존 정의 덮어쓰기. 생략하면 표준 D는 보존하고 다른 레이어는 덮어쓴다.",
+      "type": "boolean"
     },
     "recipe_id": {
-      "default": "standard_d",
-      "description": "기본값 standard_d는 목록 조회 없이 바로 적용한다. 다른 레시피는 명시한 ID를 사용한다.",
+      "description": "기본 standard_d",
       "type": "string"
     }
   },
@@ -6676,44 +8071,26 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "layer_path": {
-      "anyOf": [
-        {
-          "enum": [
-            "D::Section",
-            "D::Elev",
-            "D::Line",
-            "D::Line::Hidden",
-            "D::Line::Axis",
-            "D::Dim",
-            "D::Annotation",
-            "D::Note",
-            "D::Symbol",
-            "D::Hatch"
-          ],
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
+      "enum": [
+        "D::Section",
+        "D::Elev",
+        "D::Line",
+        "D::Line::Hidden",
+        "D::Line::Axis",
+        "D::Dim",
+        "D::Annotation",
+        "D::Note",
+        "D::Symbol",
+        "D::Hatch"
       ],
-      "default": null,
-      "description": "D::Section: Cut profiles; D::Elev: Visible elevation profiles beyond the cut; D::Line: Fine lines and secondary outlines; D::Line::Hidden: Concealed edges; D::Line::Axis: Axes and centre lines; D::Dim: Dimension lines, extension lines and marks; D::Annotation: Labels and leaders; D::Note: General drawing notes; D::Symbol: Drawing and reference symbols; D::Hatch: Manually drawn material hatches"
+      "type": "string"
     },
     "overwrite": {
-      "anyOf": [
-        {
-          "type": "boolean"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "표준 D는 기본으로 기존의 다른 정의를 보존한다. true로만 바꾼다. 공통 D를 포함한 레시피에도 이 보호를 적용한다. 나머지 레이어는 생략 시 기존처럼 덮어쓴다."
+      "description": "true로 표준 D 기존 정의 덮어쓰기. 생략하면 표준 D는 보존하고 다른 레이어는 덮어쓴다.",
+      "type": "boolean"
     },
     "recipe_id": {
-      "default": "standard_d",
-      "description": "기본값 standard_d는 목록 조회 없이 바로 적용한다. 다른 레시피는 명시한 ID를 사용한다.",
+      "description": "기본 standard_d",
       "type": "string"
     }
   },
@@ -6738,14 +8115,11 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
           "layers": {
             "items": {
               "properties": {
-                "layer_index": {
-                  "type": "integer"
-                },
                 "linetype": {
                   "type": "string"
                 },
                 "path": {
-                  "description": "inspect_02-get_objects tool의 layer_paths 필터에 재사용 가능.",
+                  "description": "inspect_02-get_objects tool의 filters.layer.include에 재사용 가능.",
                   "type": "string"
                 },
                 "plot_weight_mm": {
@@ -6766,48 +8140,21 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
             "description": "unknown·partial이면 문서에 변경이 남아 있을 수 있음.",
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "recipe_id": {
-            "type": "string"
+          "print_display_review": {
+            "description": "연결 모델의 Document PrintDisplay 확인이 필요할 때 반환",
+            "properties": {
+              "macro": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "macro"
+            ],
+            "type": "object"
           },
           "requires_reconciliation": {
             "description": "true이면 Rhino 문서의 실제 변경 상태를 확인. 자동 재실행 금지.",
             "type": "boolean"
-          },
-          "review_preparation": {
-            "properties": {
-              "cli": {
-                "properties": {
-                  "arguments_template": {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "discovery_arguments": {
-                    "description": "실행 파이프 확인에 사용할 인수.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "program": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              },
-              "message": {
-                "description": "이 연결의 Rhino PID와 문서 경로로 실행 파이프 확인.",
-                "type": "string"
-              },
-              "status": {
-                "type": "string"
-              }
-            },
-            "type": "object"
           },
           "status": {
             "type": "string"
@@ -6844,37 +8191,32 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "scales, parameters, source, audit, all. 생략하거나 비우면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "scales",
+          "parameters",
+          "source",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "recipe_id": {
-      "description": "이미 확인한 레시피 ID 또는 drawing_05-list_recipes tool에서 include_ids=true로 조회한 ID.",
+      "description": "이미 확인한 레시피 ID 또는 drawing_05-list_recipes tool의 recipe_id.",
       "type": "string"
     }
   },
   "required": [
-    "recipe_id",
-    "connection_id"
+    "connection_id",
+    "recipe_id"
   ],
   "type": "object"
 }
@@ -6889,26 +8231,20 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "scales, parameters, source, audit, all. 생략하거나 비우면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "scales",
+          "parameters",
+          "source",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     },
     "recipe_id": {
-      "description": "이미 확인한 레시피 ID 또는 drawing_05-list_recipes tool에서 include_ids=true로 조회한 ID.",
+      "description": "이미 확인한 레시피 ID 또는 drawing_05-list_recipes tool의 recipe_id.",
       "type": "string"
     }
   },
@@ -6936,25 +8272,77 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "recipe": {
             "properties": {
+              "annotations": {},
+              "created_at": {},
               "description": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "projection": {
-                "properties": {
-                  "type": {
+                "anyOf": [
+                  {
                     "type": "string"
+                  },
+                  {
+                    "type": "null"
                   }
+                ]
+              },
+              "display": {},
+              "hatches": {},
+              "layers": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
+                "type": "array"
+              },
+              "layout": {},
+              "license": {},
+              "linework": {},
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "output": {
+                "additionalProperties": true,
                 "type": "object"
-              }
+              },
+              "parameters": {},
+              "projection": {
+                "allOf": [
+                  {
+                    "properties": {
+                      "type": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                ]
+              },
+              "recommended_scales": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "references": {},
+              "review_preparation": {},
+              "scales": {},
+              "source": {},
+              "style": {},
+              "units": {},
+              "updated_at": {},
+              "views": {}
             },
             "type": "object"
           },
@@ -6983,7 +8371,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
 **beyond · RhinoTerminal**
 
 ```txt
-등록된 PAT 자산의 해치 패턴 정의를 Rhino 문서에 가져오기. 같은 이름이 있으면 기존 정의 재사용. 적용 범위는 해치 패턴 정의.
+등록된 PAT의 패턴 정의를 가져오고 이름 목록을 반환한다. 같은 이름이 이미 있으면 기존 정의를 재사용한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -6996,14 +8384,15 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     }
   },
   "required": [
-    "asset_id",
-    "connection_id"
+    "connection_id",
+    "asset_id"
   ],
   "type": "object"
 }
@@ -7042,15 +8431,10 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
           "error_code": {
             "type": "string"
           },
-          "error_trace": {},
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "patterns": {
-            "description": "새로 가져온 패턴과 재사용한 기존 패턴 모두 포함.",
             "items": {
               "type": "string"
             },
@@ -7081,7 +8465,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
 **beyond · RhinoTerminal**
 
 ```txt
-로드된 도면 스타일 레시피 목록. include_ids=true로 얻은 recipe_id는 drawing_02-get_recipe tool과 drawing_01-apply_style tool에서 사용.
+로드된 도면 스타일 레시피 목록. recipe_id는 drawing_02-get_recipe tool과 drawing_01-apply_style tool에서 사용.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -7091,28 +8475,23 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "scales, parameters, source, audit, all. 생략하거나 비우면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "scales",
+          "parameters",
+          "source",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     }
   },
   "required": [
@@ -7131,23 +8510,17 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
   "additionalProperties": false,
   "properties": {
     "field_groups": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "scales, parameters, source, audit, all. 생략하거나 비우면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      "items": {
+        "enum": [
+          "scales",
+          "parameters",
+          "source",
+          "audit",
+          "all"
+        ],
+        "type": "string"
+      },
+      "type": "array"
     }
   },
   "type": "object"
@@ -7171,47 +8544,82 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "recipes": {
             "items": {
               "properties": {
+                "annotations": {},
+                "created_at": {},
                 "description": {
-                  "type": [
-                    "string",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
+                "display": {},
+                "hatches": {},
+                "layers": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "layout": {},
+                "license": {},
+                "linework": {},
                 "name": {
-                  "type": [
-                    "string",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
+                "output": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "parameters": {},
                 "projection": {
-                  "type": [
-                    "string",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "recipe_id": {
                   "type": "string"
                 },
                 "recommended_scales": {
-                  "description": "축척 1:N의 분모 N",
                   "items": {
                     "type": "string"
                   },
                   "type": "array"
-                }
+                },
+                "references": {},
+                "review_preparation": {},
+                "scales": {},
+                "source": {},
+                "style": {},
+                "units": {},
+                "updated_at": {},
+                "views": {}
               },
+              "required": [
+                "recipe_id"
+              ],
               "type": "object"
             },
             "type": "array"
-          },
-          "total": {
-            "type": "integer"
           }
         },
         "type": "object"
@@ -7235,9 +8643,7 @@ SVG·DWG·DXF 다이어그램을 Rhino 문서에 블록 인스턴스로 배치. 
 **beyond · RhinoTerminal**
 
 ```txt
-활성 모델이나 Worksession 첨부 파일의 클리핑 평면에서 단면선·가시 입면선·해치를 생성. Update는 저장 위치에서 다시 계산해 수동 편집을 교체할 수 있고, Move는 GUID와 수동 편집을 유지한 채 원점만 이동.
-
-Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 중단하고 Undo와 정리를 마치면 timeout 및 클리핑별 결과를 반환한다. 완료된 도면은 남는다. SDK 호출 또는 정리 중 클라이언트 대기가 끝나면 중단 여부는 미확인이다. 변경 실패 시 객체·속성·레이어 복구 시도는 recovery.attempts에 기록하며 tracked_changes_restored는 추적한 변경의 복구 결과다. requires_reconciliation=true이면 실제 도면과 Undo 상태를 확인하고 자동 재시도하지 않는다.
+클리핑 평면에서 도면을 생성·갱신·이동한다. Update는 기존 위치와 저장된 첨부 형상 설정을 사용한다. Create의 기본 범위는 활성 모델이다. include_attachments로 범위를 바꿀 수 있다. Move는 원점만 바꾼다. points는 클리핑 GUID별 문서 단위 절대 좌표다. 일부 클리핑만 끝날 수 있으므로 cuts와 unconfirmed_clipping_ids를 확인한다. Move에서는 모든 클리핑의 새 원점을 지정한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -7245,86 +8651,83 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
 ```json
 {
   "additionalProperties": false,
+  "anyOf": [
+    {
+      "properties": {
+        "operation": {
+          "const": "Create",
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "Update",
+          "type": "string"
+        },
+        "points": false
+      }
+    },
+    {
+      "properties": {
+        "far_dark": false,
+        "far_width": false,
+        "hatch": false,
+        "include_attachments": false,
+        "near_dark": false,
+        "near_width": false,
+        "operation": {
+          "const": "Move",
+          "type": "string"
+        },
+        "section_width_source": false,
+        "small_details": false
+      },
+      "required": [
+        "points"
+      ]
+    }
+  ],
   "properties": {
     "clipping_ids": {
       "description": "활성 모델 또는 Worksession 첨부 파일의 클리핑 평면 GUID. 최소 1개, 중복은 한 번만 처리.",
       "items": {
         "type": "string"
       },
+      "minItems": 1,
       "type": "array"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "far_dark": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer"
-        }
-      ],
-      "default": 45.0,
-      "description": "먼 입면선 농도(%). 0..100, near_dark 이하."
+      "description": "기본 45%, near_dark 이하",
+      "type": "number"
     },
     "far_width": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer"
-        }
-      ],
-      "default": 0.04,
-      "description": "먼 입면선 두께(mm). 양수, near_width 이하."
+      "description": "기본 0.04 mm, near_width 이하",
+      "type": "number"
     },
     "hatch": {
-      "default": true,
-      "description": "원본 단면 스타일의 채움과 형상 조건에 따라 해치 생성",
+      "description": "기본 true, 원본 채움·형상에 따라 생성",
       "type": "boolean"
     },
     "include_attachments": {
-      "anyOf": [
-        {
-          "type": "boolean"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Worksession 첨부 형상 포함. Create에서 생략하면 활성 모델만, Update에서 생략하면 저장된 설정 사용. Move에는 적용되지 않음."
+      "type": "boolean"
     },
     "near_dark": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer"
-        }
-      ],
-      "default": 80.0,
-      "description": "가까운 입면선 농도(%). 0..100, far_dark 이상."
+      "description": "기본 80%",
+      "type": "number"
     },
     "near_width": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer"
-        }
-      ],
-      "default": 0.09,
-      "description": "가까운 입면선 두께(mm). 양수, far_width 이상."
+      "description": "기본 0.09 mm",
+      "type": "number"
     },
     "operation": {
-      "description": "Create: 생성 또는 교체. Update: 저장 위치에서 재생성. Move: 기존 도면의 평행이동.",
       "enum": [
         "Create",
         "Update",
@@ -7333,33 +8736,30 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "type": "string"
     },
     "points": {
-      "anyOf": [
-        {
-          "additionalProperties": {
+      "additionalProperties": {
+        "anyOf": [
+          {
             "items": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
+              "type": "number"
             },
+            "maxItems": 2,
+            "minItems": 2,
             "type": "array"
           },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위. Create에서 선택, Move에서 모든 GUID에 필수, Update에서 생략."
+          {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "type": "array"
+          }
+        ]
+      },
+      "type": "object"
     },
     "section_width_source": {
-      "default": "source",
-      "description": "단면선의 인쇄 선폭 기준. source는 원본의 유효 선폭, output_layer는 D::PlanSection::Section 레이어의 선폭. Move에는 적용되지 않음.",
+      "description": "기본 source, 원본 또는 D::PlanSection::Section 선폭",
       "enum": [
         "source",
         "output_layer"
@@ -7367,15 +8767,13 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "type": "string"
     },
     "small_details": {
-      "default": false,
-      "description": "입면 투영에서 작은 상세 보호",
       "type": "boolean"
     }
   },
   "required": [
-    "operation",
+    "connection_id",
     "clipping_ids",
-    "connection_id"
+    "operation"
   ],
   "type": "object"
 }
@@ -7388,81 +8786,77 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
 ```json
 {
   "additionalProperties": false,
+  "anyOf": [
+    {
+      "properties": {
+        "operation": {
+          "const": "Create",
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "Update",
+          "type": "string"
+        },
+        "points": false
+      }
+    },
+    {
+      "properties": {
+        "far_dark": false,
+        "far_width": false,
+        "hatch": false,
+        "include_attachments": false,
+        "near_dark": false,
+        "near_width": false,
+        "operation": {
+          "const": "Move",
+          "type": "string"
+        },
+        "section_width_source": false,
+        "small_details": false
+      },
+      "required": [
+        "points"
+      ]
+    }
+  ],
   "properties": {
     "clipping_ids": {
       "description": "활성 모델 또는 Worksession 첨부 파일의 클리핑 평면 GUID. 최소 1개, 중복은 한 번만 처리.",
       "items": {
         "type": "string"
       },
+      "minItems": 1,
       "type": "array"
     },
     "far_dark": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer"
-        }
-      ],
-      "default": 45.0,
-      "description": "먼 입면선 농도(%). 0..100, near_dark 이하."
+      "description": "기본 45%, near_dark 이하",
+      "type": "number"
     },
     "far_width": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer"
-        }
-      ],
-      "default": 0.04,
-      "description": "먼 입면선 두께(mm). 양수, near_width 이하."
+      "description": "기본 0.04 mm, near_width 이하",
+      "type": "number"
     },
     "hatch": {
-      "default": true,
-      "description": "원본 단면 스타일의 채움과 형상 조건에 따라 해치 생성",
+      "description": "기본 true, 원본 채움·형상에 따라 생성",
       "type": "boolean"
     },
     "include_attachments": {
-      "anyOf": [
-        {
-          "type": "boolean"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Worksession 첨부 형상 포함. Create에서 생략하면 활성 모델만, Update에서 생략하면 저장된 설정 사용. Move에는 적용되지 않음."
+      "type": "boolean"
     },
     "near_dark": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer"
-        }
-      ],
-      "default": 80.0,
-      "description": "가까운 입면선 농도(%). 0..100, far_dark 이상."
+      "description": "기본 80%",
+      "type": "number"
     },
     "near_width": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer"
-        }
-      ],
-      "default": 0.09,
-      "description": "가까운 입면선 두께(mm). 양수, far_width 이상."
+      "description": "기본 0.09 mm",
+      "type": "number"
     },
     "operation": {
-      "description": "Create: 생성 또는 교체. Update: 저장 위치에서 재생성. Move: 기존 도면의 평행이동.",
       "enum": [
         "Create",
         "Update",
@@ -7471,33 +8865,30 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "type": "string"
     },
     "points": {
-      "anyOf": [
-        {
-          "additionalProperties": {
+      "additionalProperties": {
+        "anyOf": [
+          {
             "items": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
+              "type": "number"
             },
+            "maxItems": 2,
+            "minItems": 2,
             "type": "array"
           },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위. Create에서 선택, Move에서 모든 GUID에 필수, Update에서 생략."
+          {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "type": "array"
+          }
+        ]
+      },
+      "type": "object"
     },
     "section_width_source": {
-      "default": "source",
-      "description": "단면선의 인쇄 선폭 기준. source는 원본의 유효 선폭, output_layer는 D::PlanSection::Section 레이어의 선폭. Move에는 적용되지 않음.",
+      "description": "기본 source, 원본 또는 D::PlanSection::Section 선폭",
       "enum": [
         "source",
         "output_layer"
@@ -7505,14 +8896,12 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "type": "string"
     },
     "small_details": {
-      "default": false,
-      "description": "입면 투영에서 작은 상세 보호",
       "type": "boolean"
     }
   },
   "required": [
-    "operation",
-    "clipping_ids"
+    "clipping_ids",
+    "operation"
   ],
   "type": "object"
 }
@@ -7529,33 +8918,102 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "contentMediaType": "application/json",
       "contentSchema": {
         "properties": {
-          "drawing_status": {
-            "description": "completed, partial, cancelled, failed",
-            "type": "string"
+          "completed": {
+            "type": "integer"
           },
-          "error_code": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "mutation_state": {
-            "type": "string"
-          },
-          "next_step_guide": {
-            "description": "도면 확인 또는 중단·미완료 범위 확인 안내",
-            "type": "string"
-          },
-          "recovery": {
-            "description": "복구가 필요했던 클리핑별 오류와 보상 내역",
+          "cuts": {
             "items": {
               "properties": {
+                "cleanup_error": {
+                  "type": "string"
+                },
                 "clipping_id": {
                   "type": "string"
                 },
+                "draw_plane": {
+                  "description": "원점과 축으로 표현한 실제 배치 평면",
+                  "properties": {
+                    "origin": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "maxItems": 3,
+                      "minItems": 3,
+                      "type": "array"
+                    },
+                    "xaxis": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "maxItems": 3,
+                      "minItems": 3,
+                      "type": "array"
+                    },
+                    "yaxis": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "maxItems": 3,
+                      "minItems": 3,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "origin",
+                    "xaxis",
+                    "yaxis"
+                  ],
+                  "type": "object"
+                },
                 "error": {
-                  "description": "복구 시도 전 최초 변경 실패 원문",
                   "type": "string"
+                },
+                "extraction": {
+                  "description": "Create·Update에서 실제 계산에 사용한 추출 조건",
+                  "properties": {
+                    "include_attachments": {
+                      "description": "Worksession 첨부 형상을 계산 범위에 허용했는지 표시",
+                      "type": "boolean"
+                    },
+                    "include_hidden": {
+                      "type": "boolean"
+                    },
+                    "include_locked": {
+                      "type": "boolean"
+                    },
+                    "layers": {
+                      "description": "계산에 사용한 원본 레이어 전체 경로",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "source_object_count": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                },
+                "mutation_state": {
+                  "description": "변경 후 최종 결과 미확인 시 unknown",
+                  "type": "string"
+                },
+                "name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "object_ids": {
+                  "description": "생성·갱신·이동에서 관찰한 객체 GUID. unconfirmed이면 최종 문서에 남았는지 대조 필요",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 },
                 "recovery": {
                   "description": "추적한 변경에 대한 보상 결과. 성공해도 원자적 롤백은 보장되지 않음.",
@@ -7570,11 +9028,9 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
                             "type": "string"
                           },
                           "status": {
-                            "description": "restored 또는 failed",
                             "type": "string"
                           },
                           "target": {
-                            "description": "복구 대상 객체·레이어·기록",
                             "type": "string"
                           }
                         },
@@ -7583,199 +9039,70 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
                       "type": "array"
                     },
                     "mutation_state": {
-                      "description": "보상 실패는 partial, 미확인 변경 가능성이 남으면 unknown",
                       "type": "string"
                     },
                     "requires_reconciliation": {
                       "type": "boolean"
                     },
                     "tracked_changes_restored": {
-                      "description": "추적한 변경에 대한 모든 보상 시도의 성공 여부",
                       "type": "boolean"
                     }
                   },
                   "type": "object"
+                },
+                "report": {
+                  "additionalProperties": true,
+                  "description": "계산 단계와 제외·정리한 형상에 대한 기록",
+                  "type": "object"
+                },
+                "status": {
+                  "enum": [
+                    "completed",
+                    "failed",
+                    "skipped",
+                    "cancelled",
+                    "not_started",
+                    "unconfirmed"
+                  ],
+                  "type": "string"
                 }
               },
               "type": "object"
             },
             "type": "array"
           },
+          "error_code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "mutation_state": {
+            "type": "string"
+          },
+          "requested": {
+            "description": "중복을 제외한 클리핑 수",
+            "type": "integer"
+          },
           "requires_reconciliation": {
             "type": "boolean"
           },
-          "result": {
-            "properties": {
-              "completed": {
-                "type": "integer"
-              },
-              "requested": {
-                "description": "중복을 제외한 클리핑 요청 수",
-                "type": "integer"
-              },
-              "requires_reconciliation": {
-                "type": "boolean"
-              },
-              "results": {
-                "items": {
-                  "properties": {
-                    "cleanup_error": {
-                      "type": "string"
-                    },
-                    "clipping_id": {
-                      "type": "string"
-                    },
-                    "draw_plane": {
-                      "description": "원점과 축으로 표현한 실제 배치 평면",
-                      "properties": {
-                        "origin": {
-                          "items": {
-                            "type": "number"
-                          },
-                          "maxItems": 3,
-                          "minItems": 3,
-                          "type": "array"
-                        },
-                        "xaxis": {
-                          "items": {
-                            "type": "number"
-                          },
-                          "maxItems": 3,
-                          "minItems": 3,
-                          "type": "array"
-                        },
-                        "yaxis": {
-                          "items": {
-                            "type": "number"
-                          },
-                          "maxItems": 3,
-                          "minItems": 3,
-                          "type": "array"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "error": {
-                      "type": "string"
-                    },
-                    "extraction": {
-                      "description": "Create·Update에서 실제 계산에 사용한 추출 조건",
-                      "properties": {
-                        "include_attachments": {
-                          "description": "Worksession 첨부 형상을 계산 범위에 허용했는지 표시",
-                          "type": "boolean"
-                        },
-                        "include_hidden": {
-                          "type": "boolean"
-                        },
-                        "include_locked": {
-                          "type": "boolean"
-                        },
-                        "layers": {
-                          "description": "계산에 사용한 원본 레이어 전체 경로",
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
-                        },
-                        "source_object_count": {
-                          "type": "integer"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "mutation_state": {
-                      "description": "변경 후 최종 결과 미확인 시 unknown",
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "object_ids": {
-                      "description": "생성·갱신·이동에서 관찰한 객체 GUID. unconfirmed이면 최종 문서에 남았는지 대조 필요",
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
-                    },
-                    "recovery": {
-                      "description": "추적한 변경에 대한 보상 결과. 성공해도 원자적 롤백은 보장되지 않음.",
-                      "properties": {
-                        "attempts": {
-                          "items": {
-                            "properties": {
-                              "action": {
-                                "type": "string"
-                              },
-                              "error": {
-                                "type": "string"
-                              },
-                              "status": {
-                                "description": "restored 또는 failed",
-                                "type": "string"
-                              },
-                              "target": {
-                                "description": "복구 대상 객체·레이어·기록",
-                                "type": "string"
-                              }
-                            },
-                            "type": "object"
-                          },
-                          "type": "array"
-                        },
-                        "mutation_state": {
-                          "description": "보상 실패는 partial, 미확인 변경 가능성이 남으면 unknown",
-                          "type": "string"
-                        },
-                        "requires_reconciliation": {
-                          "type": "boolean"
-                        },
-                        "tracked_changes_restored": {
-                          "description": "추적한 변경에 대한 모든 보상 시도의 성공 여부",
-                          "type": "boolean"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "report": {
-                      "description": "계산 단계와 제외·정리한 형상에 대한 기록",
-                      "type": "object"
-                    },
-                    "status": {
-                      "enum": [
-                        "completed",
-                        "failed",
-                        "skipped",
-                        "cancelled",
-                        "not_started",
-                        "unconfirmed"
-                      ],
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              "status": {
-                "type": "string"
-              },
-              "stop_reason": {
-                "description": "알고리즘이 안전한 지점에서 관찰한 취소 사유",
-                "enum": [
-                  "deadline",
-                  "user"
-                ],
-                "type": "string"
-              }
-            },
-            "type": "object"
-          },
           "status": {
-            "description": "success, partial, cancelled(사용자 취소), timeout(120초 취소 후 중단·정리 확인), error",
+            "description": "timeout은 120초 취소 요청 뒤 중단·정리가 확인된 경우.",
+            "enum": [
+              "success",
+              "partial",
+              "cancelled",
+              "timeout",
+              "error"
+            ],
+            "type": "string"
+          },
+          "stop_reason": {
+            "enum": [
+              "deadline",
+              "user"
+            ],
             "type": "string"
           },
           "unconfirmed_clipping_ids": {
@@ -7807,7 +9134,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
 **beyond · RhinoTerminal**
 
 ```txt
-색인된 Grasshopper 로직에서 물리 관련 컴포넌트, 설명, 메타데이터를 추출해 조회. JSON만 있는 항목은 메타데이터만 제공. 구성·연결 관계의 완전성과 실행 가능성은 별도 확인.
+색인된 로직의 물리 컴포넌트·설명·메타데이터 조회. JSON 단독 항목은 메타데이터를 반환한다. 연결 관계와 실행 가능성은 별도 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -7817,7 +9144,8 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -7825,6 +9153,14 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "ports",
+              "definition",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -7832,23 +9168,19 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "ports, definition, source, paths, audit, all. 제공된 필드에만 적용."
+      ]
     },
     "include_ids": {
-      "default": false,
-      "description": "추가 식별자 포함. 입력 logic_id는 반복하지 않음.",
       "type": "boolean"
     },
     "logic_id": {
-      "description": "확장자를 뺀 파일명. grasshopper_03-list_library tool의 logic_names 사용 가능.",
+      "description": "grasshopper_03-list_library tool의 `logic_names`에서 선택.",
       "type": "string"
     }
   },
   "required": [
-    "logic_id",
-    "connection_id"
+    "connection_id",
+    "logic_id"
   ],
   "type": "object"
 }
@@ -7866,6 +9198,14 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "ports",
+              "definition",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -7873,17 +9213,13 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "ports, definition, source, paths, audit, all. 제공된 필드에만 적용."
+      ]
     },
     "include_ids": {
-      "default": false,
-      "description": "추가 식별자 포함. 입력 logic_id는 반복하지 않음.",
       "type": "boolean"
     },
     "logic_id": {
-      "description": "확장자를 뺀 파일명. grasshopper_03-list_library tool의 logic_names 사용 가능.",
+      "description": "grasshopper_03-list_library tool의 `logic_names`에서 선택.",
       "type": "string"
     }
   },
@@ -7931,6 +9267,10 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
             },
             "type": "array"
           },
+          "error": {
+            "description": "로직 미등록 시 grasshopper_03-list_library tool로 이름 조회.",
+            "type": "string"
+          },
           "error_code": {
             "type": "string"
           },
@@ -7941,10 +9281,10 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
             "type": "string"
           },
           "metadata": {
-            "properties": {},
+            "additionalProperties": true,
             "type": "object"
           },
-          "next_step_guide": {
+          "source": {
             "type": "string"
           }
         },
@@ -7969,7 +9309,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
 **beyond · RhinoTerminal**
 
 ```txt
-등록된 Grasshopper 캡슐의 기능과 실행 감사 상태를 조회. 포트와 ID는 grasshopper_04-run_definition tool의 입력에 사용. 감사 상태와 정의 파일의 존재·실행 성공은 별개.
+등록 캡슐의 기능과 실행 감사 상태를 최대 50개 조회한다. capsule_id로 실행한다. 포트 이름과 타입은 `field_groups: ["ports"]`로 확인한다. 정의 파일의 존재와 실행 결과는 별도 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -7979,16 +9319,15 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
   "additionalProperties": false,
   "properties": {
     "audited_only": {
-      "default": false,
       "type": "boolean"
     },
     "capability": {
-      "default": "",
       "description": "analyze, generate, form_find, aggregate. 대소문자 구분 없음.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -7996,6 +9335,14 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "ports",
+              "definition",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -8003,14 +9350,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "ports, definition, source, paths, audit, all. 생략·빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "description": "capsule_id 포함. all과 별도 지정.",
-      "type": "boolean"
+      ]
     }
   },
   "required": [
@@ -8029,11 +9369,9 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
   "additionalProperties": false,
   "properties": {
     "audited_only": {
-      "default": false,
       "type": "boolean"
     },
     "capability": {
-      "default": "",
       "description": "analyze, generate, form_find, aggregate. 대소문자 구분 없음.",
       "type": "string"
     },
@@ -8041,6 +9379,14 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "ports",
+              "definition",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -8048,14 +9394,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "ports, definition, source, paths, audit, all. 생략·빈 배열이면 요약."
-    },
-    "include_ids": {
-      "default": false,
-      "description": "capsule_id 포함. all과 별도 지정.",
-      "type": "boolean"
+      ]
     }
   },
   "type": "object"
@@ -8083,29 +9422,27 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
                   "type": "string"
                 },
                 "capsule_id": {
-                  "description": "audited=true인 캡슐을 grasshopper_04-run_definition tool에 지정",
+                  "description": "`audited: true`인 ID를 grasshopper_04-run_definition tool에 전달.",
                   "type": "string"
                 },
                 "definition_file": {
-                  "description": "캡슐 라이브러리 기준 정의 파일명",
                   "type": "string"
                 },
                 "input_ports": {
+                  "description": "포트 이름은 실행의 `inputs`·`outputs` 키. 입력은 `required: false`일 때만 선택.",
                   "items": {
                     "properties": {
                       "description": {
                         "type": "string"
                       },
                       "name": {
-                        "description": "grasshopper_04-run_definition tool에서 inputs의 키로 사용",
                         "type": "string"
                       },
                       "required": {
-                        "description": "true 또는 생략이면 입력 필수",
                         "type": "boolean"
                       },
                       "type": {
-                        "description": "[] 접미사는 해당 타입의 배열",
+                        "description": "[] 접미사는 배열.",
                         "type": "string"
                       },
                       "units": {
@@ -8113,13 +9450,6 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
                       }
                     },
                     "type": "object"
-                  },
-                  "type": "array"
-                },
-                "inputs": {
-                  "description": "타입·단위·필수 여부는 input_ports 참조",
-                  "items": {
-                    "type": "string"
                   },
                   "type": "array"
                 },
@@ -8130,11 +9460,10 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
                         "type": "string"
                       },
                       "name": {
-                        "description": "grasshopper_04-run_definition tool의 outputs에서 이 이름을 키로 사용",
                         "type": "string"
                       },
                       "type": {
-                        "description": "[] 접미사는 해당 타입의 배열",
+                        "description": "[] 접미사는 배열.",
                         "type": "string"
                       },
                       "units": {
@@ -8145,22 +9474,23 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
                   },
                   "type": "array"
                 },
-                "outputs": {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
                 "structure_type": {
-                  "type": [
-                    "string",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "title": {
                   "type": "string"
                 }
               },
+              "required": [
+                "capsule_id"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -8168,23 +9498,8 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
           "error_code": {
             "type": "string"
           },
-          "limit": {
-            "type": "integer"
-          },
           "message": {
             "type": "string"
-          },
-          "next_offset": {
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "integer"
           },
           "total": {
             "type": "integer"
@@ -8211,7 +9526,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
 **beyond · RhinoTerminal**
 
 ```txt
-로컬 Grasshopper 라이브러리의 색인된 로직 목록. logic_names는 grasshopper_01-get_logic tool에서 조회할 때 사용.
+색인된 로직 이름 목록. `logic_names`를 grasshopper_01-get_logic tool에 전달한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -8221,7 +9536,8 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -8229,6 +9545,14 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "ports",
+              "definition",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -8237,13 +9561,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "paths·all은 라이브러리 경로 포함. ports·definition·source·audit은 목록에 적용되지 않음."
-    },
-    "include_ids": {
-      "default": false,
-      "description": "logic_names와 같은 값의 logic_ids 포함",
-      "type": "boolean"
+      "description": "`paths` 또는 `all`로 라이브러리 경로 포함."
     }
   },
   "required": [
@@ -8265,6 +9583,14 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "ports",
+              "definition",
+              "source",
+              "paths",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -8273,13 +9599,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "paths·all은 라이브러리 경로 포함. ports·definition·source·audit은 목록에 적용되지 않음."
-    },
-    "include_ids": {
-      "default": false,
-      "description": "logic_names와 같은 값의 logic_ids 포함",
-      "type": "boolean"
+      "description": "`paths` 또는 `all`로 라이브러리 경로 포함."
     }
   },
   "type": "object"
@@ -8300,9 +9620,8 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
           "error_code": {
             "type": "string"
           },
-          "logic_count": {
-            "description": "include_ids=false일 때 logic_ids 대신 반환",
-            "type": "number"
+          "library_dir": {
+            "type": "string"
           },
           "logic_names": {
             "items": {
@@ -8311,9 +9630,6 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
             "type": "array"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "total_entries": {
@@ -8341,7 +9657,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
 **beyond · RhinoTerminal**
 
 ```txt
-실행 감사를 통과한 Grasshopper 캡슐을 Rhino에서 계산. 모든 출력 포트를 확인한 뒤 정의에 따라 하나의 Undo 기록으로 형상 베이크. mutation_state는 none·completed·rolled_back·unknown. requires_reconciliation=true이면 자동 재시도 금지. baked_guids와 현재 문서 확인.
+실행 감사를 통과한 캡슐을 Rhino에서 계산한다. 출력 포트를 확인한 뒤 정의에 따라 하나의 Undo 기록으로 형상을 베이크한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -8351,17 +9667,57 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
   "additionalProperties": false,
   "properties": {
     "capsule_id": {
-      "description": "grasshopper_02-list_capsules tool에서 얻은 캡슐 ID. 예: karamba_beam_v1.",
+      "description": "grasshopper_02-list_capsules tool의 감사 통과 ID.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "inputs": {
-      "additionalProperties": true,
-      "description": "ALMOND_IN_ 포트 이름을 키로 사용. grasshopper_02-list_capsules tool의 field_groups=['ports']로 input_ports의 타입·단위·필수 여부 확인. 형상은 {\"guids\":[\"객체 GUID\"]}, 숫자·정수·문자열·불리언은 JSON 값, number[]·integer[]·string[]은 평탄한 배열.",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "guids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "guids"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "description": "`ALMOND_IN_` 포트 이름과 `input_ports`의 타입·단위·필수 조건을 사용한다.",
       "type": "object"
     },
     "seed": {
@@ -8373,19 +9729,18 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
           "type": "null"
         }
       ],
-      "default": null,
       "description": "확률적 정의에만 정수 시드 사용"
     },
     "timeout_s": {
-      "default": 60.0,
-      "description": "솔버 시간 한도(초). 0 초과, 600 이하.",
+      "default": 60,
+      "description": "솔버 시간 한도(초). 0 초과, 600 이하. · 기본값 60.0",
       "type": "number"
     }
   },
   "required": [
+    "connection_id",
     "capsule_id",
-    "inputs",
-    "connection_id"
+    "inputs"
   ],
   "type": "object"
 }
@@ -8400,12 +9755,51 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
   "additionalProperties": false,
   "properties": {
     "capsule_id": {
-      "description": "grasshopper_02-list_capsules tool에서 얻은 캡슐 ID. 예: karamba_beam_v1.",
+      "description": "grasshopper_02-list_capsules tool의 감사 통과 ID.",
       "type": "string"
     },
     "inputs": {
-      "additionalProperties": true,
-      "description": "ALMOND_IN_ 포트 이름을 키로 사용. grasshopper_02-list_capsules tool의 field_groups=['ports']로 input_ports의 타입·단위·필수 여부 확인. 형상은 {\"guids\":[\"객체 GUID\"]}, 숫자·정수·문자열·불리언은 JSON 값, number[]·integer[]·string[]은 평탄한 배열.",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "guids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "guids"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "description": "`ALMOND_IN_` 포트 이름과 `input_ports`의 타입·단위·필수 조건을 사용한다.",
       "type": "object"
     },
     "seed": {
@@ -8417,12 +9811,11 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
           "type": "null"
         }
       ],
-      "default": null,
       "description": "확률적 정의에만 정수 시드 사용"
     },
     "timeout_s": {
-      "default": 60.0,
-      "description": "솔버 시간 한도(초). 0 초과, 600 이하.",
+      "default": 60,
+      "description": "솔버 시간 한도(초). 0 초과, 600 이하. · 기본값 60.0",
       "type": "number"
     }
   },
@@ -8449,7 +9842,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
             "type": "string"
           },
           "available_capsules": {
-            "description": "알 수 없는 capsule_id를 요청했을 때 반환. 실행 감사 상태는 grasshopper_02-list_capsules tool의 audited 참조.",
+            "description": "미등록 ID 요청 시 반환. 감사 상태는 목록에서 확인.",
             "items": {
               "type": "string"
             },
@@ -8460,9 +9853,6 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
               "type": "string"
             },
             "type": "array"
-          },
-          "capsule_id": {
-            "type": "string"
           },
           "confidence": {
             "description": "매니페스트 선언 기준: api/high, template/medium, rule_based/low",
@@ -8476,26 +9866,29 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
             "type": "string"
           },
           "mutation_state": {
-            "description": "unknown·partial이면 문서에 변경이 남아 있을 수 있음.",
-            "type": "string"
-          },
-          "next_step_guide": {
+            "description": "`unknown`이면 문서에 변경이 남을 수 있음.",
+            "enum": [
+              "none",
+              "completed",
+              "rolled_back",
+              "unknown"
+            ],
             "type": "string"
           },
           "outputs": {
+            "additionalProperties": true,
             "description": "값의 의미·타입·단위는 캡슐 포트 계약을 따름",
-            "properties": {},
             "type": "object"
           },
           "requires_reconciliation": {
-            "description": "true이면 Rhino 문서의 실제 변경 상태를 확인. 자동 재실행 금지.",
+            "description": "true 또는 응답 유실 시 `baked_guids`와 실제 문서 확인 후 재시도 판단.",
             "type": "boolean"
           },
           "status": {
             "type": "string"
           },
           "valid_inputs": {
-            "description": "입력 검증 실패 시 반환. 타입·단위·필수 여부는 grasshopper_02-list_capsules tool의 input_ports 참조.",
+            "description": "입력 검증 실패 시 유효한 입력 포트 이름.",
             "items": {
               "type": "string"
             },
@@ -8529,9 +9922,7 @@ Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 
 **beyond · RhinoTerminal**
 
 ```txt
-읽기 전용 중첩 블록 조회. outline은 선택된 루트를 기본으로 구조를 요약하고, resolve-block은 루트부터 대상까지의 경로로 공유 배치와 참조·링크 제한을 확인.
-
-definition_impact.complete는 영향 범위 계수 완료 여부, occurrences_truncated는 반환 목록의 잘림 여부. 정의 내부 ID는 편집 가능한 문서 객체 ID와 다를 수 있다. 후속 조회에 ID가 필요하면 include_ids=true 사용.
+outline으로 중첩 블록 구조를 조회하고 resolve-block으로 공유 정의의 영향 범위와 참조·링크 제한을 확인한다. 후속 조회에 ID가 필요하면 include_ids=true를 지정한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -8541,33 +9932,35 @@ definition_impact.complete는 영향 범위 계수 완료 여부, occurrences_tr
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략하면 연결 문서 사용. 지정하면 일치하는 경로에서만 조회.",
       "type": "string"
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "mode": {
-      "description": "outline 또는 resolve-block",
+      "enum": [
+        "outline",
+        "resolve-block"
+      ],
       "type": "string"
     },
     "options": {
       "additionalProperties": true,
-      "description": "outline: ids 또는 path로 지정. 둘 다 생략하면 scope=selected(기본)·viewport·document 중 사용.\ndepth 0..64(기본 64), max_items 1..5000(기본 200), max_bytes 2048..262144(기본 48000).\nfield_groups: summary(기본), objects, annotations, transforms. include_geometry와 annotations로 형상·주석 포함, annotation_layer로 TextDot 레이어 필터링. field_groups를 생략하고 include_geometry 또는 annotations를 지정하면 기존 상세 모드.\nresolve-block: path에 최상위부터 대상 블록까지 GUID 1..65개.",
+      "description": "outline: ids 또는 path로 지정. 둘 다 생략하면 scope=selected(기본)·viewport·document 중 사용.\ndepth 0..64(기본 64), max_items 1..5000(기본 200), max_bytes 2048..262144(기본 48000).\nfield_groups: summary(기본), objects, annotations, transforms. annotation_layer는 TextDot 레이어 필터. field_groups 생략 시 include_geometry·annotations로 상세 조회.\nresolve-block: options에는 최상위부터 대상까지 GUID 1..65개를 담은 path만 지정.",
       "type": "object"
     }
   },
   "required": [
+    "connection_id",
     "mode",
-    "options",
-    "connection_id"
+    "options"
   ],
   "type": "object"
 }
@@ -8582,21 +9975,22 @@ definition_impact.complete는 영향 범위 계수 완료 여부, occurrences_tr
   "additionalProperties": false,
   "properties": {
     "expected_model_path": {
-      "default": "",
       "description": "생략하면 연결 문서 사용. 지정하면 일치하는 경로에서만 조회.",
       "type": "string"
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "mode": {
-      "description": "outline 또는 resolve-block",
+      "enum": [
+        "outline",
+        "resolve-block"
+      ],
       "type": "string"
     },
     "options": {
       "additionalProperties": true,
-      "description": "outline: ids 또는 path로 지정. 둘 다 생략하면 scope=selected(기본)·viewport·document 중 사용.\ndepth 0..64(기본 64), max_items 1..5000(기본 200), max_bytes 2048..262144(기본 48000).\nfield_groups: summary(기본), objects, annotations, transforms. include_geometry와 annotations로 형상·주석 포함, annotation_layer로 TextDot 레이어 필터링. field_groups를 생략하고 include_geometry 또는 annotations를 지정하면 기존 상세 모드.\nresolve-block: path에 최상위부터 대상 블록까지 GUID 1..65개.",
+      "description": "outline: ids 또는 path로 지정. 둘 다 생략하면 scope=selected(기본)·viewport·document 중 사용.\ndepth 0..64(기본 64), max_items 1..5000(기본 200), max_bytes 2048..262144(기본 48000).\nfield_groups: summary(기본), objects, annotations, transforms. annotation_layer는 TextDot 레이어 필터. field_groups 생략 시 include_geometry·annotations로 상세 조회.\nresolve-block: options에는 최상위부터 대상까지 GUID 1..65개를 담은 path만 지정.",
       "type": "object"
     }
   },
@@ -8621,21 +10015,231 @@ definition_impact.complete는 영향 범위 계수 완료 여부, occurrences_tr
         "properties": {
           "data": {
             "properties": {
+              "block_path_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "candidate_count": {
+                "type": "integer"
+              },
+              "candidate_object_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "candidates_truncated": {
+                "type": "boolean"
+              },
+              "definition": {
+                "description": "resolve-block에서 확인한 조회 대상. 정의 배치 행렬은 행 우선 4×4 배열.",
+                "type": "string"
+              },
+              "definition_impact": {
+                "properties": {
+                  "affected_root_count": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "complete": {
+                    "description": "영향 범위 계수 완료 여부와 반환 목록의 잘림 여부",
+                    "type": "boolean"
+                  },
+                  "container_definitions": {
+                    "items": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "container_definitions_truncated": {
+                    "type": "boolean"
+                  },
+                  "definition_is_reference": {
+                    "type": "boolean"
+                  },
+                  "limits": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "observed_affected_root_count": {
+                    "type": "integer"
+                  },
+                  "observed_occurrence_count": {
+                    "type": "integer"
+                  },
+                  "occurrence_count": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "occurrences": {
+                    "items": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "occurrences_truncated": {
+                    "type": "boolean"
+                  },
+                  "source_archive_present": {
+                    "type": "boolean"
+                  },
+                  "update_type": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "definition_to_world": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "depth_limited": {
+                "type": "boolean"
+              },
+              "document_object": {
+                "type": "boolean"
+              },
+              "editing_permission": {
+                "type": "string"
+              },
+              "editor_owner_verified": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
               "items": {
                 "type": "integer"
               },
+              "layer": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "records": {
-                "description": "블록 배치 또는 정의별 분석 항목",
                 "items": {
                   "properties": {
                     "definition": {
                       "type": "string"
+                    },
+                    "definition_to_world": {
+                      "description": "transforms의 행 우선 4×4 배열",
+                      "items": {
+                        "type": "number"
+                      },
+                      "type": "array"
+                    },
+                    "geometry_to_world": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "type": "array"
+                    },
+                    "hidden": {
+                      "type": "boolean"
                     },
                     "id": {
                       "description": "배치 객체 또는 정의 구성원의 ID. 편집 가능한 문서 객체 ID는 inspect_02-get_objects tool로 확인.",
                       "type": "string"
                     },
                     "kind": {
+                      "enum": [
+                        "summary",
+                        "occurrence",
+                        "owner",
+                        "note",
+                        "note_target"
+                      ],
+                      "type": "string"
+                    },
+                    "layer": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "locked": {
+                      "type": "boolean"
+                    },
+                    "member_types": {
+                      "additionalProperties": {
+                        "type": "integer"
+                      },
+                      "type": "object"
+                    },
+                    "name": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "names": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "names_truncated": {
+                      "type": "boolean"
+                    },
+                    "note_id": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "description": "annotations의 소유 범위와 TextDot",
                       "type": "string"
                     },
                     "path": {
@@ -8645,16 +10249,56 @@ definition_impact.complete는 영향 범위 계수 완료 여부, occurrences_tr
                       },
                       "type": "array"
                     },
+                    "point_local": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "maxItems": 3,
+                      "minItems": 3,
+                      "type": "array"
+                    },
+                    "root_count": {
+                      "description": "summary의 선택 범위 집계",
+                      "type": "integer"
+                    },
+                    "text": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "text_limited": {
+                      "type": "boolean"
+                    },
                     "type": {
                       "type": "string"
+                    },
+                    "types": {
+                      "additionalProperties": {
+                        "type": "integer"
+                      },
+                      "type": "object"
                     }
                   },
                   "type": "object"
                 },
                 "type": "array"
               },
+              "root_object_id": {
+                "type": "string"
+              },
+              "selectable_now": {
+                "type": "boolean"
+              },
               "truncated": {
                 "type": "boolean"
+              },
+              "type": {
+                "type": "string"
               }
             },
             "type": "object"
@@ -8675,12 +10319,6 @@ definition_impact.complete는 영향 범위 계수 완료 여부, occurrences_tr
             "type": "string"
           },
           "message": {
-            "type": "string"
-          },
-          "mode": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "status": {
@@ -8708,12 +10346,7 @@ definition_impact.complete는 영향 범위 계수 완료 여부, occurrences_tr
 **beyond · RhinoTerminal**
 
 ```txt
-GUID를 몰라도 레이어·이름·객체 유형·그룹·메타데이터 조건으로 Rhino 최상위 모델 객체를 찾고 후속 호출에 쓸 GUID를 조회. Rhino의 선택 상태는 변경하지 않음. current는 표시되고 잠기지 않은 객체(화면 밖 포함), document는 숨김·잠금 객체까지 포함. 그룹은 선택 범위와 구성원의 교집합. 계층 모드는 그룹·블록 배치를 펼쳐 문서 객체와 블록 정의 내부 항목을 구분. 표시 여부는 가림을 고려한 화면 가시성과 별개.
-
-활성 뷰포트의 벽 레이어 객체 GUID 조회 예: `{"scope":"inside_viewport","filters":{"layer":{"include":["2F::Wall"]}},"output":{"include_ids":true}}`.
-UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes","key":"brief_probe","any_of":["yes"]}]}}`.
-
-행 후속 조회에는 같은 조건과 첫 응답의 snapshot·next_offset을 사용. 면 후속 조회에는 document 객체 ID와 geometry_crc 사용. objects·summary의 complete는 전체 행이 첫 응답에 포함되고 편집 상태가 안정적일 때 true. hierarchy는 관계 완전성도 확인하며 깊이 제한을 적용할 수 있다. face_page.complete는 전체 면이 첫 응답에 포함됐을 때 true. 마지막 행 페이지는 next_offset=null.
+현재·전체 문서·뷰포트에서 객체를 필터링한다. hierarchy는 그룹·블록을 펼친다. 다음 행 페이지에는 snapshot과 next_offset, 면 편집에는 최상위 객체 ID·geometry_crc·face_index를 사용한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -8723,48 +10356,55 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "depth": {
-      "default": 1,
-      "description": "1..8, 루트=1. 1 초과 시 recursive=true.",
+      "description": "1..8, 루트=1(기본). 하위 깊이에는 recursive=true 필요.",
+      "maximum": 8,
+      "minimum": 1,
       "type": "integer"
     },
     "expected_geometry_crcs": {
       "anyOf": [
         {
           "additionalProperties": {
+            "maximum": 4294967295,
+            "minimum": 0,
             "type": "integer"
           },
+          "maxProperties": 4096,
           "type": "object"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
       "description": "객체 GUID별 CRC. 면을 이어서 조회할 때 형상이 바뀌면 거부."
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략하면 연결 문서 사용. 지정하면 일치하는 경로에서만 조회.",
       "type": "string"
     },
     "expected_snapshot": {
-      "default": "",
       "description": "offset > 0이면 첫 페이지의 snapshot 필요",
+      "pattern": "^(?:[0-9a-f]{64})?$",
       "type": "string"
     },
     "face_limit": {
       "default": 128,
-      "description": "1..128. objects 모드에서 사용.",
+      "description": "1..128. objects 모드에서 사용. · 기본값 128",
+      "maximum": 128,
+      "minimum": 1,
       "type": "integer"
     },
     "face_offset": {
       "default": 0,
-      "description": "양수이면 scope=document, object_ids 및 객체별 expected_geometry_crcs 필요",
+      "description": "양수이면 scope=document, object_ids 및 객체별 expected_geometry_crcs 필요 · 기본값 0",
+      "maximum": 100000,
+      "minimum": 0,
       "type": "integer"
     },
     "fields": {
@@ -8773,13 +10413,14 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
       "description": "1개 이상 선택: id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, user_text, geometry_valid, solid, manifold, volume, faces, face_count. 형상 상세와 faces는 objects 모드에서만 사용. summary에서는 fields 지정 불가."
     },
     "filters": {
@@ -8926,15 +10567,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
               },
               "type": "object"
             },
-            "layer_paths": {
-              "items": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "maxItems": 64,
-              "minItems": 1,
-              "type": "array"
-            },
             "material": {
               "additionalProperties": false,
               "minProperties": 1,
@@ -9014,16 +10646,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
               },
               "type": "object"
             },
-            "object_types": {
-              "items": {
-                "maxLength": 64,
-                "minLength": 1,
-                "type": "string"
-              },
-              "maxItems": 32,
-              "minItems": 1,
-              "type": "array"
-            },
             "user_dictionary": {
               "anyOf": [
                 {
@@ -9038,9 +10660,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                             },
                             {
                               "type": "boolean"
-                            },
-                            {
-                              "type": "integer"
                             },
                             {
                               "type": "number"
@@ -9091,9 +10710,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                                   "type": "boolean"
                                 },
                                 {
-                                  "type": "integer"
-                                },
-                                {
                                   "type": "number"
                                 }
                               ]
@@ -9139,9 +10755,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                                   "type": "boolean"
                                 },
                                 {
-                                  "type": "integer"
-                                },
-                                {
                                   "type": "number"
                                 }
                               ]
@@ -9176,7 +10789,8 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                   },
                   "type": "object"
                 }
-              ]
+              ],
+              "description": "배열은 최대 16개 조건을 모두 만족해야 한다. include·exclude는 각각 조건 하나다."
             },
             "user_text": {
               "anyOf": [
@@ -9267,7 +10881,8 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                   },
                   "type": "object"
                 }
-              ]
+              ],
+              "description": "배열은 최대 16개 조건을 모두 만족해야 한다. include·exclude는 각각 조건 하나다."
             }
           },
           "type": "object"
@@ -9276,8 +10891,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "서로 다른 조건은 함께 적용. layer는 전체 경로/GUID, block은 배치의 정의 이름/GUID, group은 멤버십 이름/GUID, material은 배치 객체 전면의 실효 재질 이름/GUID(레이어 상속 포함), name은 객체 이름 정확 일치, object_type은 Rhino 유형명. 이름 비교는 대소문자 무시. 단일값 속성은 include 중 하나에 해당하고 exclude에 없어야 함. group의 include·exclude는 각각 1..64개. 두 개 이상 지정한 쪽에만 include_mode·exclude_mode로 any(하나 이상) 또는 all(모두)을 명시. exclude는 그 조건에 해당하면 제외. user_text·user_dictionary의 include·exclude는 각각 한 조건. 메타데이터는 조건 객체 1개도 배열로 지정. 기존 조건 배열은 최대 16개 조건을 모두 만족해야 함. 각 any_of는 값 하나와 일치하면 충족. 기존 layer_paths·object_types·name_contains(부분 문자열) 사용 가능."
+      "description": "layer는 전체 경로 또는 GUID. group은 여러 값일 때 해당 쪽의 mode를 지정한다."
     },
     "group_ids": {
       "anyOf": [
@@ -9285,32 +10899,33 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
       "description": "서로 다른 Rhino 그룹 GUID 1..64개. 모든 scope에서 사용 가능, object_ids와 동시 지정 불가."
     },
     "include_geometry": {
-      "default": false,
       "description": "fields를 생략한 objects 모드에서 형상 상세를 포함. fields를 명시하면 그 목록 우선.",
       "type": "boolean"
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "inside_window": {
-      "default": false,
       "description": "current 전용. 활성 뷰포트 경계에 걸친 바운딩 박스 포함. 클리핑 평면과 픽셀 가림은 고려하지 않으며 selected와 동시 지정 불가.",
       "type": "boolean"
     },
     "limit": {
       "default": 50,
-      "description": "1..200",
+      "description": "1..200 · 기본값 50",
+      "maximum": 200,
+      "minimum": 1,
       "type": "integer"
     },
     "object_ids": {
@@ -9319,68 +10934,30 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "maxItems": 4096,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
       "description": "scope=document 전용. 서로 다른 최상위 객체 GUID 1..4096개. group_ids와 동시 지정 불가."
     },
     "offset": {
-      "default": 0,
-      "description": "0..100000. 양수이면 expected_snapshot 필요.",
+      "description": "0..100000, 기본 0",
+      "maximum": 100000,
+      "minimum": 0,
       "type": "integer"
     },
-    "output": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "expected_snapshot": {
-              "type": "string"
-            },
-            "fields": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "include_geometry": {
-              "type": "boolean"
-            },
-            "include_ids": {
-              "type": "boolean"
-            },
-            "limit": {
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            },
-            "offset": {
-              "maximum": 100000,
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "fields·include_ids·include_geometry·limit·offset·expected_snapshot 중 필요한 항목. 같은 이름의 평면 인자도 지정하면 output 값이 우선."
-    },
     "recursive": {
-      "default": false,
-      "description": "true이면 계층 모드 사용",
+      "description": "블록·그룹 하위를 펼친다.",
       "type": "boolean"
     },
     "result_mode": {
       "default": "objects",
-      "description": "objects, hierarchy, summary. recursive=true와 summary는 동시 지정 불가.",
+      "description": "기본값 \"objects\". summary에서 recursive=true 사용 불가.",
       "enum": [
         "objects",
         "hierarchy",
@@ -9390,7 +10967,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
     },
     "scope": {
       "default": "current",
-      "description": "current, document 또는 inside_viewport. inside_viewport는 current 중 활성 모델 뷰 또는 Detail 경계와 바운딩 박스가 교차하는 객체. 가림과 클리핑 평면은 판정하지 않음.",
+      "description": "기본값 \"current\". document는 숨김·잠금 포함. inside_viewport는 current 중 활성 뷰 또는 Detail과 경계 상자가 교차하는 객체.",
       "enum": [
         "current",
         "document",
@@ -9399,7 +10976,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
       "type": "string"
     },
     "selected": {
-      "default": false,
       "description": "current 전용. 화면 밖에서 선택된 객체도 포함. inside_window와 동시 지정 불가.",
       "type": "boolean"
     }
@@ -9420,43 +10996,49 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
   "additionalProperties": false,
   "properties": {
     "depth": {
-      "default": 1,
-      "description": "1..8, 루트=1. 1 초과 시 recursive=true.",
+      "description": "1..8, 루트=1(기본). 하위 깊이에는 recursive=true 필요.",
+      "maximum": 8,
+      "minimum": 1,
       "type": "integer"
     },
     "expected_geometry_crcs": {
       "anyOf": [
         {
           "additionalProperties": {
+            "maximum": 4294967295,
+            "minimum": 0,
             "type": "integer"
           },
+          "maxProperties": 4096,
           "type": "object"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
       "description": "객체 GUID별 CRC. 면을 이어서 조회할 때 형상이 바뀌면 거부."
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략하면 연결 문서 사용. 지정하면 일치하는 경로에서만 조회.",
       "type": "string"
     },
     "expected_snapshot": {
-      "default": "",
       "description": "offset > 0이면 첫 페이지의 snapshot 필요",
+      "pattern": "^(?:[0-9a-f]{64})?$",
       "type": "string"
     },
     "face_limit": {
       "default": 128,
-      "description": "1..128. objects 모드에서 사용.",
+      "description": "1..128. objects 모드에서 사용. · 기본값 128",
+      "maximum": 128,
+      "minimum": 1,
       "type": "integer"
     },
     "face_offset": {
       "default": 0,
-      "description": "양수이면 scope=document, object_ids 및 객체별 expected_geometry_crcs 필요",
+      "description": "양수이면 scope=document, object_ids 및 객체별 expected_geometry_crcs 필요 · 기본값 0",
+      "maximum": 100000,
+      "minimum": 0,
       "type": "integer"
     },
     "fields": {
@@ -9465,13 +11047,14 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
       "description": "1개 이상 선택: id, name, layer_path, object_type, geometry_kind, geometry_crc, visible, selected, hidden, locked, bounds, groups, user_dictionary, user_text, geometry_valid, solid, manifold, volume, faces, face_count. 형상 상세와 faces는 objects 모드에서만 사용. summary에서는 fields 지정 불가."
     },
     "filters": {
@@ -9618,15 +11201,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
               },
               "type": "object"
             },
-            "layer_paths": {
-              "items": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "maxItems": 64,
-              "minItems": 1,
-              "type": "array"
-            },
             "material": {
               "additionalProperties": false,
               "minProperties": 1,
@@ -9706,16 +11280,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
               },
               "type": "object"
             },
-            "object_types": {
-              "items": {
-                "maxLength": 64,
-                "minLength": 1,
-                "type": "string"
-              },
-              "maxItems": 32,
-              "minItems": 1,
-              "type": "array"
-            },
             "user_dictionary": {
               "anyOf": [
                 {
@@ -9730,9 +11294,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                             },
                             {
                               "type": "boolean"
-                            },
-                            {
-                              "type": "integer"
                             },
                             {
                               "type": "number"
@@ -9783,9 +11344,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                                   "type": "boolean"
                                 },
                                 {
-                                  "type": "integer"
-                                },
-                                {
                                   "type": "number"
                                 }
                               ]
@@ -9831,9 +11389,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                                   "type": "boolean"
                                 },
                                 {
-                                  "type": "integer"
-                                },
-                                {
                                   "type": "number"
                                 }
                               ]
@@ -9868,7 +11423,8 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                   },
                   "type": "object"
                 }
-              ]
+              ],
+              "description": "배열은 최대 16개 조건을 모두 만족해야 한다. include·exclude는 각각 조건 하나다."
             },
             "user_text": {
               "anyOf": [
@@ -9959,7 +11515,8 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                   },
                   "type": "object"
                 }
-              ]
+              ],
+              "description": "배열은 최대 16개 조건을 모두 만족해야 한다. include·exclude는 각각 조건 하나다."
             }
           },
           "type": "object"
@@ -9968,8 +11525,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "서로 다른 조건은 함께 적용. layer는 전체 경로/GUID, block은 배치의 정의 이름/GUID, group은 멤버십 이름/GUID, material은 배치 객체 전면의 실효 재질 이름/GUID(레이어 상속 포함), name은 객체 이름 정확 일치, object_type은 Rhino 유형명. 이름 비교는 대소문자 무시. 단일값 속성은 include 중 하나에 해당하고 exclude에 없어야 함. group의 include·exclude는 각각 1..64개. 두 개 이상 지정한 쪽에만 include_mode·exclude_mode로 any(하나 이상) 또는 all(모두)을 명시. exclude는 그 조건에 해당하면 제외. user_text·user_dictionary의 include·exclude는 각각 한 조건. 메타데이터는 조건 객체 1개도 배열로 지정. 기존 조건 배열은 최대 16개 조건을 모두 만족해야 함. 각 any_of는 값 하나와 일치하면 충족. 기존 layer_paths·object_types·name_contains(부분 문자열) 사용 가능."
+      "description": "layer는 전체 경로 또는 GUID. group은 여러 값일 때 해당 쪽의 mode를 지정한다."
     },
     "group_ids": {
       "anyOf": [
@@ -9977,32 +11533,33 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
       "description": "서로 다른 Rhino 그룹 GUID 1..64개. 모든 scope에서 사용 가능, object_ids와 동시 지정 불가."
     },
     "include_geometry": {
-      "default": false,
       "description": "fields를 생략한 objects 모드에서 형상 상세를 포함. fields를 명시하면 그 목록 우선.",
       "type": "boolean"
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "inside_window": {
-      "default": false,
       "description": "current 전용. 활성 뷰포트 경계에 걸친 바운딩 박스 포함. 클리핑 평면과 픽셀 가림은 고려하지 않으며 selected와 동시 지정 불가.",
       "type": "boolean"
     },
     "limit": {
       "default": 50,
-      "description": "1..200",
+      "description": "1..200 · 기본값 50",
+      "maximum": 200,
+      "minimum": 1,
       "type": "integer"
     },
     "object_ids": {
@@ -10011,68 +11568,30 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "maxItems": 4096,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
       "description": "scope=document 전용. 서로 다른 최상위 객체 GUID 1..4096개. group_ids와 동시 지정 불가."
     },
     "offset": {
-      "default": 0,
-      "description": "0..100000. 양수이면 expected_snapshot 필요.",
+      "description": "0..100000, 기본 0",
+      "maximum": 100000,
+      "minimum": 0,
       "type": "integer"
     },
-    "output": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "expected_snapshot": {
-              "type": "string"
-            },
-            "fields": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "include_geometry": {
-              "type": "boolean"
-            },
-            "include_ids": {
-              "type": "boolean"
-            },
-            "limit": {
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            },
-            "offset": {
-              "maximum": 100000,
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "fields·include_ids·include_geometry·limit·offset·expected_snapshot 중 필요한 항목. 같은 이름의 평면 인자도 지정하면 output 값이 우선."
-    },
     "recursive": {
-      "default": false,
-      "description": "true이면 계층 모드 사용",
+      "description": "블록·그룹 하위를 펼친다.",
       "type": "boolean"
     },
     "result_mode": {
       "default": "objects",
-      "description": "objects, hierarchy, summary. recursive=true와 summary는 동시 지정 불가.",
+      "description": "기본값 \"objects\". summary에서 recursive=true 사용 불가.",
       "enum": [
         "objects",
         "hierarchy",
@@ -10082,7 +11601,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
     },
     "scope": {
       "default": "current",
-      "description": "current, document 또는 inside_viewport. inside_viewport는 current 중 활성 모델 뷰 또는 Detail 경계와 바운딩 박스가 교차하는 객체. 가림과 클리핑 평면은 판정하지 않음.",
+      "description": "기본값 \"current\". document는 숨김·잠금 포함. inside_viewport는 current 중 활성 뷰 또는 Detail과 경계 상자가 교차하는 객체.",
       "enum": [
         "current",
         "document",
@@ -10091,7 +11610,6 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
       "type": "string"
     },
     "selected": {
-      "default": false,
       "description": "current 전용. 화면 밖에서 선택된 객체도 포함. inside_window와 동시 지정 불가.",
       "type": "boolean"
     }
@@ -10115,51 +11633,213 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
             "description": "계층 하위의 관찰 상태는 각 children_state 참조",
             "type": "boolean"
           },
+          "cycle_limited": {
+            "type": "boolean"
+          },
+          "depth_limited": {
+            "type": "boolean"
+          },
           "editing": {
-            "description": "편집 컨텍스트와 저장 대상",
-            "properties": {},
+            "properties": {
+              "mode": {
+                "type": "string"
+              },
+              "stable": {
+                "type": "boolean"
+              },
+              "target": {},
+              "warnings": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
             "type": "object"
           },
           "error_code": {
             "type": "string"
           },
-          "limit": {
-            "type": "integer"
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "matched_count": {
             "type": "integer"
+          },
+          "membership_complete": {
+            "type": "boolean"
           },
           "message": {
             "type": "string"
           },
           "next_offset": {
-            "type": [
-              "integer",
-              "null"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ]
-          },
-          "next_step_guide": {
-            "type": "string"
           },
           "nodes": {
             "items": {
               "properties": {
+                "block_path_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "bounds": {
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "max": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "maxItems": 3,
+                          "minItems": 3,
+                          "type": "array"
+                        },
+                        "min": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "maxItems": 3,
+                          "minItems": 3,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "min",
+                        "max"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "children_state": {
+                  "type": "string"
+                },
+                "depth": {
+                  "type": "integer"
+                },
+                "document_object": {
+                  "type": "boolean"
+                },
+                "entity_kind": {
+                  "type": "string"
+                },
+                "geometry_kind": {
+                  "type": "string"
+                },
+                "groups": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "groups_truncated": {
+                  "type": "boolean"
+                },
+                "hidden": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "layer_path": {
+                  "type": "string"
+                },
+                "locked": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "object_type": {
+                  "type": "string"
+                },
+                "parent_number": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "root_object_id": {
+                  "type": "string"
+                },
+                "selected": {
+                  "type": "boolean"
+                },
+                "user_dictionary": {
+                  "properties": {
+                    "attributes": {
+                      "properties": {
+                        "total_keys": {
+                          "type": "integer"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        },
+                        "values": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "geometry": {
+                      "properties": {
+                        "total_keys": {
+                          "type": "integer"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        },
+                        "values": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                },
                 "user_text": {
-                  "description": "Rhino 객체 속성의 User Text",
                   "properties": {
                     "total_keys": {
-                      "description": "응답 제한을 적용하기 전 저장된 키 수",
                       "type": "integer"
                     },
                     "truncated": {
                       "type": "boolean"
                     },
                     "values": {
-                      "description": "저장된 문자열이나 응답 제한으로 생략된 값의 표시",
+                      "additionalProperties": true,
                       "type": "object"
                     }
                   },
                   "type": "object"
+                },
+                "visible": {
+                  "type": "boolean"
                 }
               },
               "type": "object"
@@ -10169,25 +11849,58 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "objects": {
             "items": {
               "properties": {
+                "bounds": {
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "max": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "maxItems": 3,
+                          "minItems": 3,
+                          "type": "array"
+                        },
+                        "min": {
+                          "items": {
+                            "type": "number"
+                          },
+                          "maxItems": 3,
+                          "minItems": 3,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "min",
+                        "max"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "face_count": {
                   "type": "integer"
+                },
+                "face_edit_supported": {
+                  "type": "boolean"
                 },
                 "face_page": {
                   "properties": {
                     "complete": {
                       "type": "boolean"
                     },
-                    "limit": {
-                      "type": "integer"
-                    },
                     "next_offset": {
-                      "type": [
-                        "integer",
-                        "null"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
-                    },
-                    "offset": {
-                      "type": "integer"
                     },
                     "returned": {
                       "type": "integer"
@@ -10198,16 +11911,78 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                 "faces": {
                   "items": {
                     "properties": {
+                      "bounds": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "max": {
+                                "items": {
+                                  "type": "number"
+                                },
+                                "maxItems": 3,
+                                "minItems": 3,
+                                "type": "array"
+                              },
+                              "min": {
+                                "items": {
+                                  "type": "number"
+                                },
+                                "maxItems": 3,
+                                "minItems": 3,
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "min",
+                              "max"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "face_edit_supported": {
                         "description": "기본 편집 조건만 확인한 값. 실제 편집 전에 형상 버전을 다시 검사.",
                         "type": "boolean"
                       },
                       "face_index": {
                         "description": "같은 관찰의 id·geometry_crc와 묶어 model_02-edit_planar_face tool의 object_id·face_index·expected_geometry_crc에 전달",
-                        "type": "number"
+                        "type": "integer"
+                      },
+                      "normal": {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "type": "number"
+                            },
+                            "maxItems": 3,
+                            "minItems": 3,
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "planar": {
                         "type": "boolean"
+                      },
+                      "plane_origin": {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "type": "number"
+                            },
+                            "maxItems": 3,
+                            "minItems": 3,
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "type": "object"
@@ -10221,36 +11996,120 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
                   "description": "면 편집과 후속 면 조회에 사용할 형상 버전",
                   "type": "number"
                 },
+                "geometry_kind": {
+                  "type": "string"
+                },
+                "geometry_valid": {
+                  "type": "boolean"
+                },
+                "groups": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "groups_truncated": {
+                  "type": "boolean"
+                },
+                "hidden": {
+                  "type": "boolean"
+                },
                 "id": {
                   "type": "string"
                 },
+                "layer_path": {
+                  "type": "string"
+                },
+                "locked": {
+                  "type": "boolean"
+                },
+                "manifold": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "object_type": {
+                  "type": "string"
+                },
+                "selected": {
+                  "type": "boolean"
+                },
+                "solid": {
+                  "type": "boolean"
+                },
+                "user_dictionary": {
+                  "properties": {
+                    "attributes": {
+                      "properties": {
+                        "total_keys": {
+                          "type": "integer"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        },
+                        "values": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "geometry": {
+                      "properties": {
+                        "total_keys": {
+                          "type": "integer"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        },
+                        "values": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                },
                 "user_text": {
-                  "description": "Rhino 객체 속성의 User Text",
                   "properties": {
                     "total_keys": {
-                      "description": "응답 제한을 적용하기 전 저장된 키 수",
                       "type": "integer"
                     },
                     "truncated": {
                       "type": "boolean"
                     },
                     "values": {
-                      "description": "저장된 문자열이나 응답 제한으로 생략된 값의 표시",
+                      "additionalProperties": true,
                       "type": "object"
                     }
                   },
                   "type": "object"
+                },
+                "visible": {
+                  "type": "boolean"
+                },
+                "volume": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "문서 길이 단위의 세제곱. null은 계산 실패."
                 }
               },
               "type": "object"
             },
             "type": "array"
           },
-          "offset": {
-            "type": "integer"
-          },
-          "scope": {
-            "type": "string"
+          "page_complete": {
+            "type": "boolean"
           },
           "snapshot": {
             "description": "후속 행 조회의 expected_snapshot에 그대로 전달",
@@ -10258,6 +12117,29 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           },
           "status": {
             "type": "string"
+          },
+          "summary": {
+            "items": {
+              "properties": {
+                "geometry_kind": {
+                  "type": "string"
+                },
+                "layer_path": {
+                  "type": "string"
+                },
+                "object_count": {
+                  "type": "integer"
+                },
+                "object_type": {
+                  "type": "string"
+                },
+                "visible_count": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -10281,7 +12163,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
 **beyond · RhinoTerminal**
 
 ```txt
-연결된 Rhino 문서·뷰·편집 상태와 Named View·Layout·레이어 계층·뷰 메뉴의 표시 모드 조회. Named View·Layout·표시 모드는 목록별 최대 128개이며 include_ids와 무관하게 ID를 반환. 화면 캡처에는 capture_03-current_view tool 사용.
+연결 문서의 상태와 Named View·Layout·레이어 계층·표시 모드를 조회한다. Named View·Layout·표시 모드는 목록별 최대 128개이며 항상 ID를 반환한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -10291,17 +12173,16 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "include_editor_details": {
-      "default": false,
       "description": "editor 요청 시 공급자·명령·Undo 근거 포함",
       "type": "boolean"
     },
     "include_ids": {
-      "default": false,
       "description": "뷰포트 등 선택적으로 ID를 반환하는 항목에 적용",
       "type": "boolean"
     },
@@ -10309,6 +12190,16 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "document",
+              "viewport",
+              "editor",
+              "viewports",
+              "named_views",
+              "layouts",
+              "layer_tree",
+              "display_modes"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -10317,8 +12208,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "document, viewport, editor, viewports, named_views, layouts, layer_tree, display_modes 중 선택. 생략 또는 null이면 document, named_views, layouts, layer_tree, display_modes. []이면 항목 조회 생략."
+      "description": "기본값: document, named_views, layouts, layer_tree, display_modes. []이면 조회 항목 없음."
     }
   },
   "required": [
@@ -10337,12 +12227,10 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
   "additionalProperties": false,
   "properties": {
     "include_editor_details": {
-      "default": false,
       "description": "editor 요청 시 공급자·명령·Undo 근거 포함",
       "type": "boolean"
     },
     "include_ids": {
-      "default": false,
       "description": "뷰포트 등 선택적으로 ID를 반환하는 항목에 적용",
       "type": "boolean"
     },
@@ -10350,6 +12238,16 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "document",
+              "viewport",
+              "editor",
+              "viewports",
+              "named_views",
+              "layouts",
+              "layer_tree",
+              "display_modes"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -10358,8 +12256,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "document, viewport, editor, viewports, named_views, layouts, layer_tree, display_modes 중 선택. 생략 또는 null이면 document, named_views, layouts, layer_tree, display_modes. []이면 항목 조회 생략."
+      "description": "기본값: document, named_views, layouts, layer_tree, display_modes. []이면 조회 항목 없음."
     }
   },
   "type": "object"
@@ -10377,45 +12274,112 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
       "contentMediaType": "application/json",
       "contentSchema": {
         "properties": {
+          "display_modes": {
+            "anyOf": [
+              {
+                "items": {
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "document": {
             "properties": {
               "absolute_tolerance": {
-                "description": "문서 길이 단위",
-                "type": [
-                  "number",
-                  "null"
-                ]
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "문서 길이 단위"
               },
               "angle_tolerance": {
-                "description": "라디안",
-                "type": [
-                  "number",
-                  "null"
-                ]
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "라디안"
               },
               "layer_count": {
-                "type": [
-                  "number",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "modified": {
-                "type": [
-                  "boolean",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "object_count": {
-                "type": [
-                  "integer",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "units": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
+              }
+            },
+            "type": "object"
+          },
+          "editor": {
+            "properties": {
+              "evidence": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "stable": {
+                "type": "boolean"
+              },
+              "target": {},
+              "warnings": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
               }
             },
             "type": "object"
@@ -10424,53 +12388,87 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
             "type": "string"
           },
           "layer_tree": {
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "layouts": {
-            "items": {
-              "properties": {
-                "id": {
-                  "type": "string"
+            "anyOf": [
+              {
+                "items": {
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 },
-                "name": {
-                  "type": "string"
-                }
+                "type": "array"
               },
-              "type": "object"
-            },
-            "type": [
-              "array",
-              "null"
+              {
+                "type": "null"
+              }
             ]
           },
           "message": {
             "type": "string"
           },
           "named_views": {
-            "items": {
-              "properties": {
-                "id": {
-                  "type": "string"
+            "anyOf": [
+              {
+                "items": {
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 },
-                "name": {
-                  "type": "string"
-                }
+                "type": "array"
               },
-              "type": "object"
-            },
-            "type": [
-              "array",
-              "null"
+              {
+                "type": "null"
+              }
             ]
-          },
-          "next_step_guide": {
-            "type": "string"
           },
           "status": {
             "type": "string"
+          },
+          "viewport": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "viewports": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "warnings": {
             "items": {
@@ -10500,7 +12498,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
 **beyond · RhinoTerminal**
 
 ```txt
-저장된 Rhino 문서의 일반 모델에서 선택 객체의 소속 Holon과 상위 Holon을 참조하는 Plan 조회. 일치한 Holon과 Plan의 전체 대상은 다를 수 있다. selection_truncated는 선택 목록, truncated는 Plan 목록에 적용.
+저장된 Rhino 문서의 일반 모델에서 선택 객체의 소속 Holon과 상위 Holon을 참조하는 Plan을 조회한다. 선택과 일치한 Holon을 반환하며 Plan의 전체 대상은 별도 조회한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -10510,7 +12508,8 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -10526,17 +12525,16 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "type": "null"
         }
       ],
-      "default": null,
       "description": "steps, references, geometry, artifacts, description, scope, audit, all. 생략·빈 배열이면 요약."
     },
     "limit": {
       "default": 50,
-      "description": "반환할 Plan 수 1..500",
+      "description": "반환할 Plan 수 1..500 · 기본값 50",
       "type": "integer"
     },
     "selection_limit": {
       "default": 50,
-      "description": "검사할 선택 객체 수 1..200",
+      "description": "검사할 선택 객체 수 1..200 · 기본값 50",
       "type": "integer"
     }
   },
@@ -10567,17 +12565,16 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "type": "null"
         }
       ],
-      "default": null,
       "description": "steps, references, geometry, artifacts, description, scope, audit, all. 생략·빈 배열이면 요약."
     },
     "limit": {
       "default": 50,
-      "description": "반환할 Plan 수 1..500",
+      "description": "반환할 Plan 수 1..500 · 기본값 50",
       "type": "integer"
     },
     "selection_limit": {
       "default": 50,
-      "description": "검사할 선택 객체 수 1..200",
+      "description": "검사할 선택 객체 수 1..200 · 기본값 50",
       "type": "integer"
     }
   },
@@ -10602,6 +12599,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "holons": {
             "description": "선택 객체를 소유한 Holon과 상위 Holon",
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array"
@@ -10609,12 +12607,10 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "objects": {
             "description": "선택 객체의 등록 여부와 소유 Holon 포함",
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array"
@@ -10625,13 +12621,10 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
           },
           "plans": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array"
-          },
-          "references_live_verified": {
-            "description": "저장된 Plan·계층 참조의 현재 Rhino 검증 여부",
-            "type": "boolean"
           },
           "selection_total": {
             "type": "integer"
@@ -10646,6 +12639,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
             "type": "integer"
           },
           "truncated": {
+            "description": "반환한 Plan 목록의 잘림 여부",
             "type": "boolean"
           }
         },
@@ -10670,7 +12664,7 @@ UserDictionary 조건 예: `{"filters":{"user_dictionary":[{"source":"attributes
 **beyond · RhinoTerminal**
 
 ```txt
-Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지정 시 해당 Plan 소속을 검사하며 대상은 Plan 기준. Scene 전체로 Holon을 늘리거나 Rhino의 현재 구성원을 확인하지 않는다.
+Plan의 Scene 참조와 등록 Holon을 조회한다. Step을 지정하면 소속 Plan을 확인한다. 현재 Rhino 구성원은 별도 조회한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -10680,7 +12674,8 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -10696,21 +12691,19 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
           "type": "null"
         }
       ],
-      "default": null,
       "description": "references, geometry, scope, audit, all. 생략·빈 배열이면 요약."
     },
     "plan_id": {
-      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
       "type": "string"
     },
     "step_id": {
-      "default": "",
       "type": "string"
     }
   },
   "required": [
-    "plan_id",
-    "connection_id"
+    "connection_id",
+    "plan_id"
   ],
   "type": "object"
 }
@@ -10736,15 +12729,13 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
           "type": "null"
         }
       ],
-      "default": null,
       "description": "references, geometry, scope, audit, all. 생략·빈 배열이면 요약."
     },
     "plan_id": {
-      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
       "type": "string"
     },
     "step_id": {
-      "default": "",
       "type": "string"
     }
   },
@@ -10775,20 +12766,12 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
           },
           "holons": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array"
           },
-          "live_verified": {
-            "type": "boolean"
-          },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "plan_id": {
             "type": "string"
           },
           "revision": {
@@ -10799,13 +12782,9 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
             "items": {},
             "type": "array"
           },
-          "source": {
-            "type": "string"
-          },
           "status": {
             "type": "string"
-          },
-          "step_id": {}
+          }
         },
         "type": "object"
       },
@@ -10828,7 +12807,7 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
 **beyond · RhinoTerminal**
 
 ```txt
-닫힌 솔리드 중 양의 부피가 겹치는 객체 쌍을 집계. 전체 검사가 끝나야 건수를 반환한다. 0건은 검사 범위의 결과이며 간격이나 전체 설계 적합성은 별개. 계산할 수 없는 객체·쌍이나 페이지 오류는 미판정(assessment=incomplete)이다. 확인된 대상·이유와 해당 페이지의 모델 공차·단위를 반환하며 null은 확인 불가를 뜻한다. 면 접촉만으로도 계산이 불완전할 수 있다.
+닫힌 솔리드 사이에 양의 부피가 겹치는 쌍을 센다. assessment=incomplete이면 전체 건수는 미확정이다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -10838,17 +12817,17 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "include_block": {
-      "default": false,
-      "description": "중첩 블록의 배치 변환을 적용해 구성원까지 검사. false이면 블록 제외.",
+      "description": "true이면 배치 변환을 적용해 중첩 블록 구성원까지 검사.",
       "type": "boolean"
     },
     "object_ids": {
-      "description": "서로 다른 현재 최상위 Rhino 객체 GUID 1..512개. 내부에서 페이지를 나누며 전체를 하나의 범위로 검사.",
+      "description": "서로 다른 최상위 Rhino 객체 GUID 1..512개",
       "items": {
         "type": "string"
       },
@@ -10856,8 +12835,8 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
     }
   },
   "required": [
-    "object_ids",
-    "connection_id"
+    "connection_id",
+    "object_ids"
   ],
   "type": "object"
 }
@@ -10872,12 +12851,11 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
   "additionalProperties": false,
   "properties": {
     "include_block": {
-      "default": false,
-      "description": "중첩 블록의 배치 변환을 적용해 구성원까지 검사. false이면 블록 제외.",
+      "description": "true이면 배치 변환을 적용해 중첩 블록 구성원까지 검사.",
       "type": "boolean"
     },
     "object_ids": {
-      "description": "서로 다른 현재 최상위 Rhino 객체 GUID 1..512개. 내부에서 페이지를 나누며 전체를 하나의 범위로 검사.",
+      "description": "서로 다른 최상위 Rhino 객체 GUID 1..512개",
       "items": {
         "type": "string"
       },
@@ -10904,27 +12882,36 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
         "properties": {
           "assessment": {
             "const": "incomplete",
-            "description": "미판정. 전체 범위의 겹침 건수 미확정."
+            "type": "string"
           },
           "document_units": {
-            "description": "해당 검사에서 확인한 문서 길이 단위. null은 확인 불가.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "미판정 검사에서 확인한 문서 길이 단위"
           },
           "error_code": {
             "type": "string"
           },
           "failed_pairs": {
-            "description": "계산을 마치지 못한 쌍과 사유. null은 확인 불가.",
-            "items": {
-              "type": "object"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "미판정 쌍과 사유"
           },
           "intersections": {
             "properties": {
@@ -10938,25 +12925,31 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "tolerance_model_units": {
-            "description": "미판정이 발생한 검사에서 확인한 모델 길이 공차. null은 확인 불가.",
-            "type": [
-              "number",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "미판정 검사에서 확인한 모델 길이 공차"
           },
           "unsupported_objects": {
-            "description": "검사할 수 없는 것으로 확인된 객체와 사유. null은 확인 불가.",
-            "items": {
-              "type": "object"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "검사할 수 없는 객체와 사유"
           }
         },
         "type": "object"
@@ -10980,7 +12973,7 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
 **beyond · RhinoTerminal**
 
 ```txt
-겹친 객체 쌍을 캡처해 비교하고 지정한 객체에서 겹친 부분을 제거. 검토 시 실제 카메라와 선택이 바뀐다. 완료 후에도 건너뛴 쌍은 남는다. 다음 쌍의 검사 미판정(assessment=incomplete)에는 대상·이유와 해당 검사에서 확인한 모델 공차·단위를 반환하며 null은 확인 불가를 뜻한다. 직전 수정이 이미 적용됐을 수 있으므로 previous_result와 실제 형상을 확인.
+겹치는 쌍을 비교해 선택한 객체에서 겹친 부분을 제거한다. 비교 시 실제 카메라와 선택이 바뀐다. 다음 검사에 실패하면 previous_result에서 직전 편집을 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -10992,7 +12985,12 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
     "choice": {
       "anyOf": [
         {
-          "type": "integer"
+          "const": 1,
+          "type": "number"
+        },
+        {
+          "const": 2,
+          "type": "number"
         },
         {
           "const": "skip",
@@ -11002,17 +13000,16 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "1 또는 2: 해당 번호 객체에서 겹친 부분 제거. skip: 두 객체 유지. 선택 제출 시 review_id를 지정하고 object_ids는 생략. 검토만 하거나 이어갈 때는 choice 생략."
+      "description": "review_id와 함께 지정. 1·2는 해당 번호 객체의 겹친 부분 제거, skip은 두 객체 유지."
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "include_block": {
-      "default": false,
-      "description": "새 검토에 배치 변환을 적용한 중첩 블록 구성원 포함. 블록 정의 편집은 지원하지 않음.",
+      "description": "true이면 중첩 블록 구성원도 비교. 이 도구에서 블록에 속한 쌍은 skip만 지원.",
       "type": "boolean"
     },
     "object_ids": {
@@ -11027,15 +13024,167 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "새 검토를 시작할 현재 최상위 객체의 서로 다른 GUID 1..512개. 이어서 검토하거나 선택을 제출할 때는 생략."
+      "description": "새 검토에만 서로 다른 최상위 객체 GUID 1..512개 지정."
     },
     "review_id": {
-      "default": "",
-      "description": "비교 화면의 대상을 식별하는 반환 ID. choice 제출 시 필수. 완료됐거나 새 검토로 대체된 ID는 재사용 불가.",
+      "description": "choice 제출에 사용할 현재 비교 ID. 이미 처리된 ID는 재사용 불가.",
       "type": "string"
     },
     "user_dictionary": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "any_of": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ]
+                    },
+                    "maxItems": 64,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "key": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "source": {
+                    "enum": [
+                      "attributes",
+                      "geometry"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "key",
+                  "any_of"
+                ],
+                "type": "object"
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            {
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "exclude": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "any_of": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        "maxItems": 64,
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "key": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "source": {
+                        "enum": [
+                          "attributes",
+                          "geometry"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "key",
+                      "any_of"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "include": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "any_of": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        "maxItems": 64,
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "key": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "source": {
+                        "enum": [
+                          "attributes",
+                          "geometry"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "key",
+                      "any_of"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1,
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "배열은 최대 16개 조건을 모두 만족해야 한다. include·exclude는 각각 조건 하나다."
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "새 검토의 UserDictionary 조건. 한 객체가 User Text와 UserDictionary 조건을 모두 충족해야 해당 쌍 표시."
+    },
+    "user_text": {
       "anyOf": [
         {
           "items": {
@@ -11043,172 +13192,27 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
             "properties": {
               "any_of": {
                 "items": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "type": "integer"
-                    },
-                    {
-                      "type": "number"
-                    }
-                  ]
+                  "type": "string"
                 },
-                "maxItems": 64,
-                "minItems": 1,
                 "type": "array"
               },
               "key": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "source": {
-                "enum": [
-                  "attributes",
-                  "geometry"
-                ],
                 "type": "string"
               }
             },
             "required": [
-              "source",
               "key",
               "any_of"
             ],
             "type": "object"
           },
-          "maxItems": 16,
-          "type": "array"
-        },
-        {
-          "additionalProperties": false,
-          "minProperties": 1,
-          "properties": {
-            "exclude": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "any_of": {
-                    "items": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "number"
-                        }
-                      ]
-                    },
-                    "maxItems": 64,
-                    "minItems": 1,
-                    "type": "array"
-                  },
-                  "key": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "source": {
-                    "enum": [
-                      "attributes",
-                      "geometry"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "source",
-                  "key",
-                  "any_of"
-                ],
-                "type": "object"
-              },
-              "maxItems": 1,
-              "minItems": 1,
-              "type": "array"
-            },
-            "include": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "any_of": {
-                    "items": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "number"
-                        }
-                      ]
-                    },
-                    "maxItems": 64,
-                    "minItems": 1,
-                    "type": "array"
-                  },
-                  "key": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "source": {
-                    "enum": [
-                      "attributes",
-                      "geometry"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "source",
-                  "key",
-                  "any_of"
-                ],
-                "type": "object"
-              },
-              "maxItems": 1,
-              "minItems": 1,
-              "type": "array"
-            }
-          },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "새 검수에서 속성(attributes) 또는 형상(geometry)의 UserDictionary를 source, key, any_of 조건으로 필터링. 배열 값은 원소 하나라도 일치하면 통과. User Text도 지정하면 같은 객체가 두 필터를 모두 통과해야 쌍을 표시. 값은 objects[].user_dictionary에서 확인."
-    },
-    "user_text": {
-      "anyOf": [
-        {
-          "items": {
-            "additionalProperties": true,
-            "type": "object"
-          },
           "type": "array"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "새 검토 범위의 객체 속성 User Text 조건 배열. 예: [{\"key\":\"floor\",\"any_of\":[\"2F\"]}]. 한 객체가 모든 조건과 일치하는 쌍을 표시. 양쪽 값은 objects[].attributes.user_strings.values에서 확인. 중첩 블록에는 정의 구성원의 속성 적용."
+      "description": "새 검토의 객체 속성 User Text 조건. 중첩 블록은 정의 구성원 속성 기준."
     }
   },
   "required": [
@@ -11229,7 +13233,12 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
     "choice": {
       "anyOf": [
         {
-          "type": "integer"
+          "const": 1,
+          "type": "number"
+        },
+        {
+          "const": 2,
+          "type": "number"
         },
         {
           "const": "skip",
@@ -11239,12 +13248,10 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "1 또는 2: 해당 번호 객체에서 겹친 부분 제거. skip: 두 객체 유지. 선택 제출 시 review_id를 지정하고 object_ids는 생략. 검토만 하거나 이어갈 때는 choice 생략."
+      "description": "review_id와 함께 지정. 1·2는 해당 번호 객체의 겹친 부분 제거, skip은 두 객체 유지."
     },
     "include_block": {
-      "default": false,
-      "description": "새 검토에 배치 변환을 적용한 중첩 블록 구성원 포함. 블록 정의 편집은 지원하지 않음.",
+      "description": "true이면 중첩 블록 구성원도 비교. 이 도구에서 블록에 속한 쌍은 skip만 지원.",
       "type": "boolean"
     },
     "object_ids": {
@@ -11259,15 +13266,167 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "새 검토를 시작할 현재 최상위 객체의 서로 다른 GUID 1..512개. 이어서 검토하거나 선택을 제출할 때는 생략."
+      "description": "새 검토에만 서로 다른 최상위 객체 GUID 1..512개 지정."
     },
     "review_id": {
-      "default": "",
-      "description": "비교 화면의 대상을 식별하는 반환 ID. choice 제출 시 필수. 완료됐거나 새 검토로 대체된 ID는 재사용 불가.",
+      "description": "choice 제출에 사용할 현재 비교 ID. 이미 처리된 ID는 재사용 불가.",
       "type": "string"
     },
     "user_dictionary": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "any_of": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ]
+                    },
+                    "maxItems": 64,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "key": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "source": {
+                    "enum": [
+                      "attributes",
+                      "geometry"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "key",
+                  "any_of"
+                ],
+                "type": "object"
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            {
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "exclude": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "any_of": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        "maxItems": 64,
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "key": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "source": {
+                        "enum": [
+                          "attributes",
+                          "geometry"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "key",
+                      "any_of"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "include": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "any_of": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ]
+                        },
+                        "maxItems": 64,
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "key": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "source": {
+                        "enum": [
+                          "attributes",
+                          "geometry"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "key",
+                      "any_of"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1,
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "배열은 최대 16개 조건을 모두 만족해야 한다. include·exclude는 각각 조건 하나다."
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "새 검토의 UserDictionary 조건. 한 객체가 User Text와 UserDictionary 조건을 모두 충족해야 해당 쌍 표시."
+    },
+    "user_text": {
       "anyOf": [
         {
           "items": {
@@ -11275,172 +13434,27 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
             "properties": {
               "any_of": {
                 "items": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "type": "integer"
-                    },
-                    {
-                      "type": "number"
-                    }
-                  ]
+                  "type": "string"
                 },
-                "maxItems": 64,
-                "minItems": 1,
                 "type": "array"
               },
               "key": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "source": {
-                "enum": [
-                  "attributes",
-                  "geometry"
-                ],
                 "type": "string"
               }
             },
             "required": [
-              "source",
               "key",
               "any_of"
             ],
             "type": "object"
           },
-          "maxItems": 16,
-          "type": "array"
-        },
-        {
-          "additionalProperties": false,
-          "minProperties": 1,
-          "properties": {
-            "exclude": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "any_of": {
-                    "items": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "number"
-                        }
-                      ]
-                    },
-                    "maxItems": 64,
-                    "minItems": 1,
-                    "type": "array"
-                  },
-                  "key": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "source": {
-                    "enum": [
-                      "attributes",
-                      "geometry"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "source",
-                  "key",
-                  "any_of"
-                ],
-                "type": "object"
-              },
-              "maxItems": 1,
-              "minItems": 1,
-              "type": "array"
-            },
-            "include": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "any_of": {
-                    "items": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "number"
-                        }
-                      ]
-                    },
-                    "maxItems": 64,
-                    "minItems": 1,
-                    "type": "array"
-                  },
-                  "key": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "source": {
-                    "enum": [
-                      "attributes",
-                      "geometry"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "source",
-                  "key",
-                  "any_of"
-                ],
-                "type": "object"
-              },
-              "maxItems": 1,
-              "minItems": 1,
-              "type": "array"
-            }
-          },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "새 검수에서 속성(attributes) 또는 형상(geometry)의 UserDictionary를 source, key, any_of 조건으로 필터링. 배열 값은 원소 하나라도 일치하면 통과. User Text도 지정하면 같은 객체가 두 필터를 모두 통과해야 쌍을 표시. 값은 objects[].user_dictionary에서 확인."
-    },
-    "user_text": {
-      "anyOf": [
-        {
-          "items": {
-            "additionalProperties": true,
-            "type": "object"
-          },
           "type": "array"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "새 검토 범위의 객체 속성 User Text 조건 배열. 예: [{\"key\":\"floor\",\"any_of\":[\"2F\"]}]. 한 객체가 모든 조건과 일치하는 쌍을 표시. 양쪽 값은 objects[].attributes.user_strings.values에서 확인. 중첩 블록에는 정의 구성원의 속성 적용."
+      "description": "새 검토의 객체 속성 User Text 조건. 중첩 블록은 정의 구성원 속성 기준."
     }
   },
   "type": "object"
@@ -11456,52 +13470,72 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
   "properties": {
     "assessment": {
       "const": "incomplete",
-      "description": "미판정. 전체 범위의 겹침 건수 미확정."
+      "type": "string"
     },
     "document_units": {
-      "description": "해당 검사에서 확인한 문서 길이 단위. null은 확인 불가.",
-      "type": [
-        "string",
-        "null"
-      ]
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "미판정 검사에서 확인한 문서 길이 단위"
     },
     "error_code": {
       "type": "string"
     },
     "failed_pairs": {
-      "description": "계산을 마치지 못한 쌍과 사유. null은 확인 불가.",
-      "items": {
-        "type": "object"
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "미판정 쌍과 사유"
+    },
+    "geometry_change_possible": {
+      "type": "boolean"
+    },
+    "image_file": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
       },
-      "type": [
-        "array",
-        "null"
-      ]
+      "type": "object"
     },
     "message": {
       "type": "string"
     },
-    "next_step_guide": {
+    "mutation_state": {
       "type": "string"
     },
     "objects": {
-      "description": "choice에서 사용할 번호가 붙은 검토 쌍의 구성원",
       "items": {
         "properties": {
           "attributes": {
             "properties": {
               "user_strings": {
-                "description": "Rhino 객체 속성의 User Text",
                 "properties": {
                   "total_keys": {
-                    "description": "응답 제한을 적용하기 전 저장된 키 수",
                     "type": "integer"
                   },
                   "truncated": {
                     "type": "boolean"
                   },
                   "values": {
-                    "description": "저장된 문자열이나 응답 제한으로 생략된 값의 표시",
+                    "additionalProperties": true,
                     "type": "object"
                   }
                 },
@@ -11510,7 +13544,35 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
             },
             "type": "object"
           },
+          "guid": {
+            "type": "string"
+          },
+          "handle": {
+            "properties": {
+              "object_id": {
+                "type": "string"
+              },
+              "path": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "object_id",
+              "path"
+            ],
+            "type": "object"
+          },
+          "member_id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
           "user_dictionary": {
+            "additionalProperties": true,
             "description": "객체 속성과 형상의 UserDictionary를 구분",
             "type": "object"
           }
@@ -11519,32 +13581,137 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
       },
       "type": "array"
     },
+    "overlap": {
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "volume_model_units3": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "previous_result": {
+      "properties": {
+        "edited": {
+          "type": "boolean"
+        },
+        "geometry_crc": {
+          "type": "integer"
+        },
+        "keep_id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "resolved",
+            "skipped"
+          ],
+          "type": "string"
+        },
+        "trim_id": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "regions": {
+      "items": {
+        "properties": {
+          "bounds": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "centroid": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "region_index": {
+            "type": "integer"
+          },
+          "volume_model_units3": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "requires_reconciliation": {
+      "type": "boolean"
+    },
+    "review_id": {
+      "type": "string"
+    },
     "skipped_pairs": {
       "type": "number"
     },
     "state": {
-      "description": "awaiting_choice이면 비교 결과를 보고 choice를 제출",
+      "enum": [
+        "awaiting_choice",
+        "completed"
+      ],
       "type": "string"
     },
     "status": {
       "type": "string"
     },
     "tolerance_model_units": {
-      "description": "미판정이 발생한 검사에서 확인한 모델 길이 공차. null은 확인 불가.",
-      "type": [
-        "number",
-        "null"
-      ]
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "미판정 검사에서 확인한 모델 길이 공차"
     },
     "unsupported_objects": {
-      "description": "검사할 수 없는 것으로 확인된 객체와 사유. null은 확인 불가.",
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "검사할 수 없는 객체와 사유"
+    },
+    "warnings": {
       "items": {
-        "type": "object"
+        "type": "string"
       },
-      "type": [
-        "array",
-        "null"
-      ]
+      "type": "array"
     }
   },
   "type": "object"
@@ -11559,9 +13726,7 @@ Plan에 등록된 Scene·Holon 대상과 저장된 Holon 정보 조회. Step 지
 **beyond · RhinoTerminal**
 
 ```txt
-대상 객체마다 층과 일반 모델의 구조 역할을 기록한다. 렌더 재료를 적용하면 재료 전용 레이어로 옮겨 ByLayer로 지정한다. 구축 상세와 참조는 각각 입력한 값만 쓴다. 생략한 키는 객체에 없을 때만 공백 한 칸으로 추가한다. 중복 GUID는 한 번만 처리한다.
-
-inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록을 확인한다. success는 전체 대상, partial은 일부 대상의 적용 확인을 뜻한다. 결과를 확인할 수 없으면 재시도 전에 대상 객체를 조회한다.
+층·구조 역할을 기록하고 재료를 ByLayer로 적용한다. applied_guids는 처리 성공, changed_guids는 실제 변경 대상이다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -11571,69 +13736,74 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
   "additionalProperties": false,
   "properties": {
     "apply_render_material": {
-      "default": true,
-      "description": "true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 렌더 재료를 유지하고 메타데이터를 기록한다.",
+      "description": "기본 true. 재료 레이어(기본 M::<category>::<material_id>)에 배치하며 새 레이어에만 스타일을 적용. false는 메타데이터만 기록.",
       "type": "boolean"
     },
     "attach_metadata": {
-      "default": false,
-      "description": "렌더 재료를 적용할 때 객체 User Text에 material_id도 기록할지 선택한다. 층·구조 역할 기록과 구축 필드 처리는 이 옵션과 독립적이다.",
+      "description": "렌더 재료 적용 시 User Text에 material_id도 기록.",
       "type": "boolean"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "construction_detail": {
-      "default": "",
-      "description": "사람이 읽는 구축 상세 설명. 생략하거나 공백만 입력하면 키가 없는 객체에만 공백 한 칸을 쓴다.",
+      "description": "생략·공백이면 키가 없는 객체에만 공백 한 칸을 기록.",
       "type": "string"
     },
     "construction_reference": {
       "anyOf": [
         {
-          "additionalProperties": true,
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "construction_system",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
           "type": "object"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "구법 라이브러리의 참조 {\"kind\":\"construction_system\",\"id\":\"확인한 system_id\"}. 두 참조 입력을 모두 생략하면 키가 없는 객체에만 공백 한 칸을 쓴다."
-    },
-    "construction_system": {
-      "default": "",
-      "description": "기존 호출에서 구법을 ID로 지정하는 입력. 예를 들어 wood-joist-floor는 construction_reference의 id로 쓰인다. 두 입력을 함께 쓰면 같은 구법이어야 한다.",
-      "type": "string"
+      "description": "id는 구법 라이브러리의 system_id. 생략 시 키가 없는 객체에만 공백 한 칸을 기록."
     },
     "floor": {
-      "description": "필수 층 표기. 객체 속성 UserDictionary의 Floor에 기록한다. 기존 User Text의 floor는 유지한다.",
+      "description": "객체 속성 UserDictionary의 Floor에 기록. 기존 User Text의 floor는 유지.",
       "type": "string"
     },
     "guids": {
-      "description": "현재 Rhino 객체의 GUID. 관찰 또는 생성 결과에서 가져온 값.",
+      "description": "현재 Rhino 객체 GUID",
       "items": {
         "type": "string"
       },
       "type": "array"
     },
     "material_id": {
-      "description": "model_04-list_materials tool에서 include_ids=true로 조회한 표준 재료 ID",
+      "description": "model_04-list_materials tool의 materials[].material_id",
       "type": "string"
     },
     "structural_role": {
-      "description": "필수 구조 역할. 일반 모델 분류를 객체 속성 User Text의 structural_role에 기록한다. 해석용 단면·단부·재질은 별도로 지정한다.",
+      "description": "객체 속성 User Text의 structural_role에 기록하는 모델 분류. 해석 설정은 별도.",
       "type": "string"
     }
   },
   "required": [
+    "connection_id",
+    "floor",
     "guids",
     "material_id",
-    "floor",
-    "structural_role",
-    "connection_id"
+    "structural_role"
   ],
   "type": "object"
 }
@@ -11648,62 +13818,66 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
   "additionalProperties": false,
   "properties": {
     "apply_render_material": {
-      "default": true,
-      "description": "true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 렌더 재료를 유지하고 메타데이터를 기록한다.",
+      "description": "기본 true. 재료 레이어(기본 M::<category>::<material_id>)에 배치하며 새 레이어에만 스타일을 적용. false는 메타데이터만 기록.",
       "type": "boolean"
     },
     "attach_metadata": {
-      "default": false,
-      "description": "렌더 재료를 적용할 때 객체 User Text에 material_id도 기록할지 선택한다. 층·구조 역할 기록과 구축 필드 처리는 이 옵션과 독립적이다.",
+      "description": "렌더 재료 적용 시 User Text에 material_id도 기록.",
       "type": "boolean"
     },
     "construction_detail": {
-      "default": "",
-      "description": "사람이 읽는 구축 상세 설명. 생략하거나 공백만 입력하면 키가 없는 객체에만 공백 한 칸을 쓴다.",
+      "description": "생략·공백이면 키가 없는 객체에만 공백 한 칸을 기록.",
       "type": "string"
     },
     "construction_reference": {
       "anyOf": [
         {
-          "additionalProperties": true,
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "construction_system",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
           "type": "object"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "구법 라이브러리의 참조 {\"kind\":\"construction_system\",\"id\":\"확인한 system_id\"}. 두 참조 입력을 모두 생략하면 키가 없는 객체에만 공백 한 칸을 쓴다."
-    },
-    "construction_system": {
-      "default": "",
-      "description": "기존 호출에서 구법을 ID로 지정하는 입력. 예를 들어 wood-joist-floor는 construction_reference의 id로 쓰인다. 두 입력을 함께 쓰면 같은 구법이어야 한다.",
-      "type": "string"
+      "description": "id는 구법 라이브러리의 system_id. 생략 시 키가 없는 객체에만 공백 한 칸을 기록."
     },
     "floor": {
-      "description": "필수 층 표기. 객체 속성 UserDictionary의 Floor에 기록한다. 기존 User Text의 floor는 유지한다.",
+      "description": "객체 속성 UserDictionary의 Floor에 기록. 기존 User Text의 floor는 유지.",
       "type": "string"
     },
     "guids": {
-      "description": "현재 Rhino 객체의 GUID. 관찰 또는 생성 결과에서 가져온 값.",
+      "description": "현재 Rhino 객체 GUID",
       "items": {
         "type": "string"
       },
       "type": "array"
     },
     "material_id": {
-      "description": "model_04-list_materials tool에서 include_ids=true로 조회한 표준 재료 ID",
+      "description": "model_04-list_materials tool의 materials[].material_id",
       "type": "string"
     },
     "structural_role": {
-      "description": "필수 구조 역할. 일반 모델 분류를 객체 속성 User Text의 structural_role에 기록한다. 해석용 단면·단부·재질은 별도로 지정한다.",
+      "description": "객체 속성 User Text의 structural_role에 기록하는 모델 분류. 해석 설정은 별도.",
       "type": "string"
     }
   },
   "required": [
+    "floor",
     "guids",
     "material_id",
-    "floor",
     "structural_role"
   ],
   "type": "object"
@@ -11721,19 +13895,11 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
       "contentMediaType": "application/json",
       "contentSchema": {
         "properties": {
-          "applied_count": {
-            "description": "처리 성공 수. 실제로 달라진 객체 수는 changed_count 참조.",
-            "type": "integer"
-          },
           "applied_guids": {
-            "description": "처리 성공 GUID. 실제 변경이 확인된 객체는 changed_guids 참조.",
             "items": {
               "type": "string"
             },
             "type": "array"
-          },
-          "changed_count": {
-            "type": "integer"
           },
           "changed_guids": {
             "items": {
@@ -11741,43 +13907,10 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
             },
             "type": "array"
           },
-          "construction_detail": {
-            "description": "이번 호출에서 입력해 적용한 구축 상세. 상세 입력을 생략하면 결과에서도 이 필드를 생략한다.",
-            "type": "string"
-          },
-          "construction_reference": {
-            "additionalProperties": false,
-            "description": "이번 호출에서 지정해 적용한 구법 참조. 참조 입력을 생략하면 결과에서도 이 필드를 생략한다.",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "kind": {
-                "enum": [
-                  "construction_system"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "kind",
-              "id"
-            ],
-            "type": "object"
-          },
-          "construction_system": {
-            "description": "설정된 구축 참조의 시스템 ID.",
-            "type": "string"
-          },
           "error_code": {
             "type": "string"
           },
-          "floor": {
-            "description": "적용한 객체 속성 UserDictionary의 Floor.",
-            "type": "string"
-          },
           "layer_action": {
-            "description": "레이어 신규 등록·재사용·미적용 여부.",
             "enum": [
               "created",
               "reused",
@@ -11793,14 +13926,15 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
             "type": "array"
           },
           "layer_path": {
-            "description": "자동 배정한 전체 레이어 경로. 메타데이터 전용 호출이면 null.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "material_id": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "자동 배정한 전체 레이어 경로. 메타데이터 전용 호출이면 null."
           },
           "material_metadata_attached": {
             "description": "렌더 재료와 함께 material_id를 기록하고 확인한 대상이 있는지 표시",
@@ -11809,19 +13943,8 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
           "message": {
             "type": "string"
           },
-          "metadata_attached": {
-            "description": "Floor·구조 역할 및 요청한 구축 필드를 확인한 대상이 있는지 표시",
-            "type": "boolean"
-          },
-          "next_step_guide": {
+          "mutation_state": {
             "type": "string"
-          },
-          "render_material_applied": {
-            "description": "렌더 재료 적용을 요청했는지 표시. 변경 확인은 changed_guids 참조.",
-            "type": "boolean"
-          },
-          "requested_count": {
-            "type": "integer"
           },
           "result_error": {
             "type": "string"
@@ -11832,12 +13955,11 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
           "status": {
             "type": "string"
           },
-          "structural_role": {
-            "description": "적용한 객체 속성 User Text의 일반 모델 구조 역할.",
-            "type": "string"
-          },
-          "ue_material_slot": {
-            "type": "string"
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -11861,7 +13983,7 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
 **beyond · RhinoTerminal**
 
 ```txt
-닫힌 Brep의 평면 한 면을 PushPull Extend로 이동. 그룹·블록 편집을 종료한 일반 모델에서 사용. 현재 객체의 면 번호와 geometry_crc를 같은 관찰에서 가져온다. 일부 오류 응답에는 mutation_state가 없을 수 있다.
+일반 모델에서 닫힌 Brep의 평면 한 면을 PushPull Extend로 이동한다. 편집 후 후속 작업에 필요한 faces와 geometry_crc를 다시 조회한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -11871,21 +13993,25 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "expected_geometry_crc": {
       "description": "면 번호와 같은 관찰에서 얻은 형상 CRC. 형상이 바뀌면 객체 교체 전에 거부.",
+      "maximum": 4294967295,
+      "minimum": 0,
       "type": "integer"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
     "face_index": {
       "description": "같은 형상 관찰에서 얻은 평면 인덱스. 0부터 시작.",
+      "maximum": 2147483647,
+      "minimum": 0,
       "type": "integer"
     },
     "object_id": {
@@ -11895,24 +14021,19 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
     "translation": {
       "description": "문서 단위의 유한한 XYZ 값 3개. 면 법선 방향 성분의 절댓값은 문서 허용오차를 넘어야 한다.",
       "items": {
-        "anyOf": [
-          {
-            "type": "number"
-          },
-          {
-            "type": "integer"
-          }
-        ]
+        "type": "number"
       },
+      "maxItems": 3,
+      "minItems": 3,
       "type": "array"
     }
   },
   "required": [
-    "object_id",
-    "face_index",
+    "connection_id",
     "expected_geometry_crc",
-    "translation",
-    "connection_id"
+    "face_index",
+    "object_id",
+    "translation"
   ],
   "type": "object"
 }
@@ -11928,15 +14049,18 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
   "properties": {
     "expected_geometry_crc": {
       "description": "면 번호와 같은 관찰에서 얻은 형상 CRC. 형상이 바뀌면 객체 교체 전에 거부.",
+      "maximum": 4294967295,
+      "minimum": 0,
       "type": "integer"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
     "face_index": {
       "description": "같은 형상 관찰에서 얻은 평면 인덱스. 0부터 시작.",
+      "maximum": 2147483647,
+      "minimum": 0,
       "type": "integer"
     },
     "object_id": {
@@ -11946,22 +14070,17 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
     "translation": {
       "description": "문서 단위의 유한한 XYZ 값 3개. 면 법선 방향 성분의 절댓값은 문서 허용오차를 넘어야 한다.",
       "items": {
-        "anyOf": [
-          {
-            "type": "number"
-          },
-          {
-            "type": "integer"
-          }
-        ]
+        "type": "number"
       },
+      "maxItems": 3,
+      "minItems": 3,
       "type": "array"
     }
   },
   "required": [
-    "object_id",
-    "face_index",
     "expected_geometry_crc",
+    "face_index",
+    "object_id",
     "translation"
   ],
   "type": "object"
@@ -11985,23 +14104,18 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
+          "mutation_state": {
             "type": "string"
+          },
+          "requires_reconciliation": {
+            "type": "boolean"
           },
           "result": {
             "properties": {
               "edited": {
-                "description": "대상 객체와 기존 CRC를 확인한 뒤 편집을 적용한 결과",
                 "type": "boolean"
               },
               "geometry_crc": {
-                "description": "추가 면 편집 전 faces와 새 CRC를 다시 조회. 편집 후 면 인덱스가 달라질 수 있다.",
-                "type": "number"
-              },
-              "object_id": {
-                "type": "string"
-              },
-              "previous_geometry_crc": {
                 "type": "number"
               }
             },
@@ -12032,7 +14146,7 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
 **beyond · RhinoTerminal**
 
 ```txt
-서로 다른 닫힌 Brep의 평면을 한 면씩 단일 Undo 기록으로 이동. 그룹·블록 편집을 종료한 일반 모델에서 사용. 객체별 면 번호와 CRC는 같은 관찰에서 가져온다. 준비 단계에서 한 항목이 거부되면 객체 교체를 시작하지 않는다.
+일반 모델에서 서로 다른 닫힌 Brep의 평면을 한 면씩 단일 Undo 기록으로 이동한다. 준비 단계에서 한 항목이라도 거부되면 객체 교체를 시작하지 않는다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -12042,27 +14156,54 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "edits": {
-      "description": "서로 다른 Brep에 대한 항목 1..32개. 각 항목에 object_id, face_index, expected_geometry_crc, translation을 지정하며 model_02-edit_planar_face tool과 동일한 조건 적용.",
+      "description": "서로 다른 Brep 1..32개. 각 항목은 model_02-edit_planar_face tool의 입력 조건 적용.",
       "items": {
-        "additionalProperties": true,
+        "additionalProperties": false,
+        "properties": {
+          "expected_geometry_crc": {
+            "type": "integer"
+          },
+          "face_index": {
+            "type": "integer"
+          },
+          "object_id": {
+            "type": "string"
+          },
+          "translation": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "type": "array"
+          }
+        },
+        "required": [
+          "object_id",
+          "face_index",
+          "expected_geometry_crc",
+          "translation"
+        ],
         "type": "object"
       },
+      "maxItems": 32,
+      "minItems": 1,
       "type": "array"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     }
   },
   "required": [
-    "edits",
-    "connection_id"
+    "connection_id",
+    "edits"
   ],
   "type": "object"
 }
@@ -12077,15 +14218,41 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
   "additionalProperties": false,
   "properties": {
     "edits": {
-      "description": "서로 다른 Brep에 대한 항목 1..32개. 각 항목에 object_id, face_index, expected_geometry_crc, translation을 지정하며 model_02-edit_planar_face tool과 동일한 조건 적용.",
+      "description": "서로 다른 Brep 1..32개. 각 항목은 model_02-edit_planar_face tool의 입력 조건 적용.",
       "items": {
-        "additionalProperties": true,
+        "additionalProperties": false,
+        "properties": {
+          "expected_geometry_crc": {
+            "type": "integer"
+          },
+          "face_index": {
+            "type": "integer"
+          },
+          "object_id": {
+            "type": "string"
+          },
+          "translation": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "type": "array"
+          }
+        },
+        "required": [
+          "object_id",
+          "face_index",
+          "expected_geometry_crc",
+          "translation"
+        ],
         "type": "object"
       },
+      "maxItems": 32,
+      "minItems": 1,
       "type": "array"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     }
@@ -12114,8 +14281,11 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
+          "mutation_state": {
             "type": "string"
+          },
+          "requires_reconciliation": {
+            "type": "boolean"
           },
           "result": {
             "description": "객체 교체 중 실패하면 일부 편집이 남을 수 있다.",
@@ -12124,25 +14294,35 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
                 "type": "integer"
               },
               "complete": {
-                "description": "모든 항목의 적용을 확인했을 때 true",
                 "type": "boolean"
               },
               "items": {
                 "description": "입력 순서의 항목별 결과. 실패 단계와 메시지 포함.",
                 "items": {
                   "properties": {
-                    "edited": {
-                      "type": "boolean"
-                    },
                     "geometry_crc": {
                       "description": "다음 면 편집 전 면 인덱스와 CRC를 다시 조회",
                       "type": "number"
                     },
-                    "previous_geometry_crc": {
-                      "type": "number"
+                    "message": {
+                      "type": "string"
+                    },
+                    "stage": {
+                      "enum": [
+                        "prepare",
+                        "recheck",
+                        "replace"
+                      ],
+                      "type": "string"
                     },
                     "status": {
-                      "description": "applied, rejected, failed, unknown, not_attempted",
+                      "enum": [
+                        "applied",
+                        "rejected",
+                        "failed",
+                        "unknown",
+                        "not_attempted"
+                      ],
                       "type": "string"
                     }
                   },
@@ -12153,9 +14333,6 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
               "mutation_state": {
                 "description": "not_started, applied, partial, unknown 등. partial 또는 unknown이면 전체 배치를 자동 재실행하지 않음.",
                 "type": "string"
-              },
-              "requested_count": {
-                "type": "integer"
               },
               "status": {
                 "type": "string"
@@ -12188,7 +14365,7 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
 **beyond · RhinoTerminal**
 
 ```txt
-라이브러리에서 이름·설명·태그나 분류로 재료 검색. model_01-assign_material tool에 사용할 material_id는 include_ids=true로 조회.
+라이브러리에서 이름·ID·설명·태그나 분류로 재료를 검색한다. material_id는 model_01-assign_material tool에 전달한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -12198,12 +14375,12 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
       "description": "분류와 정확히 일치, 대소문자 구분. 생략하면 전체 분류.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -12219,16 +14396,10 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
           "type": "null"
         }
       ],
-      "default": null,
       "description": "display, physical, metadata, source, paths, audit, all. 생략·빈 배열이면 요약."
     },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
-    },
     "query": {
-      "default": "",
-      "description": "이름·설명·태그 검색. 대소문자 구분 없음.",
+      "description": "대소문자 구분 없는 부분 일치",
       "type": "string"
     }
   },
@@ -12248,7 +14419,6 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
       "description": "분류와 정확히 일치, 대소문자 구분. 생략하면 전체 분류.",
       "type": "string"
     },
@@ -12264,16 +14434,10 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
           "type": "null"
         }
       ],
-      "default": null,
       "description": "display, physical, metadata, source, paths, audit, all. 생략·빈 배열이면 요약."
     },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
-    },
     "query": {
-      "default": "",
-      "description": "이름·설명·태그 검색. 대소문자 구분 없음.",
+      "description": "대소문자 구분 없는 부분 일치",
       "type": "string"
     }
   },
@@ -12295,24 +14459,81 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
           "error_code": {
             "type": "string"
           },
+          "library_dir": {
+            "type": "string"
+          },
           "materials": {
             "items": {
               "properties": {
+                "base_color": {
+                  "description": "display",
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
                 "category": {
                   "type": "string"
                 },
+                "created_at": {},
+                "density": {
+                  "description": "physical",
+                  "type": "number"
+                },
+                "density_kg_m3": {
+                  "type": "number"
+                },
+                "description": {
+                  "description": "metadata, source, paths, audit",
+                  "type": "string"
+                },
+                "emission": {},
+                "file": {
+                  "type": "string"
+                },
+                "ior": {
+                  "type": "number"
+                },
+                "license": {},
+                "material_id": {
+                  "type": "string"
+                },
+                "metallic": {
+                  "type": "number"
+                },
                 "name": {
                   "type": "string"
-                }
+                },
+                "opacity": {
+                  "type": "number"
+                },
+                "physical": {},
+                "provenance": {},
+                "roughness": {
+                  "type": "number"
+                },
+                "source": {},
+                "structural_material": {},
+                "tags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "textures": {},
+                "ue_material_slot": {
+                  "type": "string"
+                },
+                "updated_at": {}
               },
+              "required": [
+                "material_id"
+              ],
               "type": "object"
             },
             "type": "array"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "total": {
@@ -12340,7 +14561,7 @@ inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록�
 **beyond · RhinoTerminal**
 
 ```txt
-Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_no=0`, `revision=1`에서 시작하며 실제 작업은 별도 수행. 생성 오류는 `result.status`에서 확인. 자동 생성된 Step은 plan_05-get tool로 확인.
+Phase 또는 Plan을 만든다. Plan은 scope에 맞는 Step과 회차 0에서 시작한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -12350,12 +14571,13 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "request": {
-      "oneOf": [
+      "anyOf": [
         {
           "additionalProperties": false,
           "properties": {
@@ -12371,27 +14593,17 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음."
             },
             "description": {
-              "default": "",
               "type": "string"
             },
             "file_name": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                }
-              ],
-              "default": "",
-              "description": "context_04-get_project_info tool의 `project.files`에 등록된 파일명."
+              "description": "context_04-get_project_info tool의 `project.files`에 등록된 파일명.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "name": {
               "description": "공백만 있는 이름은 거부.",
@@ -12406,11 +14618,11 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "Phase ID 형식만 검사. 참조 대상의 존재는 확인하지 않음."
             },
             "status": {
               "default": "pending",
+              "description": "기본값 \"pending\"",
               "enum": [
                 "pending",
                 "running",
@@ -12447,7 +14659,6 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "하위 Plan의 존재를 검사하거나 상대 Plan을 자동 수정하지 않음."
             },
             "depends_on": {
@@ -12462,7 +14673,6 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "결과나 결정에 의존하는 관련 Plan. 같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음."
             },
             "goal": {
@@ -12480,8 +14690,7 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "parent_plan": {
               "anyOf": [
@@ -12495,11 +14704,9 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "상위 Plan의 존재를 검사하거나 상대 Plan을 자동 수정하지 않음."
             },
             "phase_id": {
-              "default": "",
               "type": "string"
             },
             "previous_id": {
@@ -12511,13 +14718,7 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "작업 순서상 직전 Plan. Plan ID 형식만 검사. 참조 대상의 존재는 확인하지 않음."
-            },
-            "scene_id": {
-              "default": "",
-              "description": "단일 Scene용 호환 입력. `scene_ids`와 함께 지정하면 배열의 첫 ID와 일치해야 함.",
-              "type": "string"
             },
             "scene_ids": {
               "anyOf": [
@@ -12530,13 +14731,11 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                 {
                   "type": "null"
                 }
-              ],
-              "default": null,
-              "description": "생략하거나 `null`이면 `scene_id` 사용."
+              ]
             },
             "scope": {
               "default": "house",
-              "description": "Step 템플릿. 기본 제공 키는 `spatial_development`, `drawing_development`, `semantic_exploration`, `plan_editing`, `model_revision`, `inspection`, `structure`, `construction_detail`, `drawing`, `component`, `house`, `interior`. 등록된 사용자 템플릿도 사용 가능.",
+              "description": "Step 템플릿. 기본 제공 키는 `spatial_development`, `drawing_development`, `semantic_exploration`, `plan_editing`, `model_revision`, `inspection`, `structure`, `construction_detail`, `drawing`, `component`, `house`, `interior`. 등록된 사용자 템플릿도 사용 가능. · 기본값 \"house\"",
               "type": "string"
             },
             "target": {
@@ -12550,8 +14749,8 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
           },
           "required": [
             "target",
-            "title",
-            "goal"
+            "goal",
+            "title"
           ],
           "type": "object"
         }
@@ -12559,8 +14758,8 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
     }
   },
   "required": [
-    "request",
-    "connection_id"
+    "connection_id",
+    "request"
   ],
   "type": "object"
 }
@@ -12575,7 +14774,7 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
   "additionalProperties": false,
   "properties": {
     "request": {
-      "oneOf": [
+      "anyOf": [
         {
           "additionalProperties": false,
           "properties": {
@@ -12591,27 +14790,17 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음."
             },
             "description": {
-              "default": "",
               "type": "string"
             },
             "file_name": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                }
-              ],
-              "default": "",
-              "description": "context_04-get_project_info tool의 `project.files`에 등록된 파일명."
+              "description": "context_04-get_project_info tool의 `project.files`에 등록된 파일명.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "name": {
               "description": "공백만 있는 이름은 거부.",
@@ -12626,11 +14815,11 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "Phase ID 형식만 검사. 참조 대상의 존재는 확인하지 않음."
             },
             "status": {
               "default": "pending",
+              "description": "기본값 \"pending\"",
               "enum": [
                 "pending",
                 "running",
@@ -12667,7 +14856,6 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "하위 Plan의 존재를 검사하거나 상대 Plan을 자동 수정하지 않음."
             },
             "depends_on": {
@@ -12682,7 +14870,6 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "결과나 결정에 의존하는 관련 Plan. 같은 종류의 ID 형식만 검사. 대상 존재·순환·작업 순서는 확인하거나 강제하지 않음."
             },
             "goal": {
@@ -12700,8 +14887,7 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "parent_plan": {
               "anyOf": [
@@ -12715,11 +14901,9 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "상위 Plan의 존재를 검사하거나 상대 Plan을 자동 수정하지 않음."
             },
             "phase_id": {
-              "default": "",
               "type": "string"
             },
             "previous_id": {
@@ -12731,13 +14915,7 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "작업 순서상 직전 Plan. Plan ID 형식만 검사. 참조 대상의 존재는 확인하지 않음."
-            },
-            "scene_id": {
-              "default": "",
-              "description": "단일 Scene용 호환 입력. `scene_ids`와 함께 지정하면 배열의 첫 ID와 일치해야 함.",
-              "type": "string"
             },
             "scene_ids": {
               "anyOf": [
@@ -12750,13 +14928,11 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
                 {
                   "type": "null"
                 }
-              ],
-              "default": null,
-              "description": "생략하거나 `null`이면 `scene_id` 사용."
+              ]
             },
             "scope": {
               "default": "house",
-              "description": "Step 템플릿. 기본 제공 키는 `spatial_development`, `drawing_development`, `semantic_exploration`, `plan_editing`, `model_revision`, `inspection`, `structure`, `construction_detail`, `drawing`, `component`, `house`, `interior`. 등록된 사용자 템플릿도 사용 가능.",
+              "description": "Step 템플릿. 기본 제공 키는 `spatial_development`, `drawing_development`, `semantic_exploration`, `plan_editing`, `model_revision`, `inspection`, `structure`, `construction_detail`, `drawing`, `component`, `house`, `interior`. 등록된 사용자 템플릿도 사용 가능. · 기본값 \"house\"",
               "type": "string"
             },
             "target": {
@@ -12770,8 +14946,8 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
           },
           "required": [
             "target",
-            "title",
-            "goal"
+            "goal",
+            "title"
           ],
           "type": "object"
         }
@@ -12800,9 +14976,6 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
             "type": "string"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "phase": {
@@ -12853,11 +15026,7 @@ Phase 또는 Plan 생성. Plan은 `scope`의 Step 템플릿을 적용해 `loop_n
 **beyond · RhinoTerminal**
 
 ```txt
-Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에이전트가 직접 수행.
-
-새 회차의 Step은 `pending`에서 시작하며 이전 회차 기록은 `previous_loop`에서 확인. 실행된 회차가 있어야 `resume=true`로 재개 가능.
-
-다음 회차를 시작하기 전, 현재 Plan Goal을 사용자의 피드백 및 작업방향에 맞게 align하여 수정하고, 다음 회차에 필요하지 않음이 분명한 라이노 객체, layout, namedview, layer등을 삭제한다.
+새 회차를 시작하거나 resume으로 최신 회차를 재개한다. plan_10-set_working tool의 step_id에 next_step_id를 전달해 Step을 선택한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -12867,17 +15036,16 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
   "additionalProperties": false,
   "properties": {
     "artifact_name": {
-      "default": "",
       "description": "최초 산출물 폴더명. 생략하면 목표에서 정하고 `YYMMDD_` 접두사를 붙임. 기존 폴더는 재사용.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "feedback": {
-      "default": "",
       "description": "재개 시 생략하거나 비우면 이전 피드백 유지.",
       "type": "string"
     },
@@ -12886,14 +15054,13 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
       "type": "string"
     },
     "resume": {
-      "default": false,
       "description": "`true`면 최신 회차 재개, `false`면 새 회차 시작.",
       "type": "boolean"
     }
   },
   "required": [
-    "plan_id",
-    "connection_id"
+    "connection_id",
+    "plan_id"
   ],
   "type": "object"
 }
@@ -12908,12 +15075,10 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
   "additionalProperties": false,
   "properties": {
     "artifact_name": {
-      "default": "",
       "description": "최초 산출물 폴더명. 생략하면 목표에서 정하고 `YYMMDD_` 접두사를 붙임. 기존 폴더는 재사용.",
       "type": "string"
     },
     "feedback": {
-      "default": "",
       "description": "재개 시 생략하거나 비우면 이전 피드백 유지.",
       "type": "string"
     },
@@ -12922,7 +15087,6 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
       "type": "string"
     },
     "resume": {
-      "default": false,
       "description": "`true`면 최신 회차 재개, `false`면 새 회차 시작.",
       "type": "boolean"
     }
@@ -12942,9 +15106,13 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
 {
   "properties": {
     "artifact_dir": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "error_code": {
@@ -12962,15 +15130,16 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
     "message": {
       "type": "string"
     },
-    "next_step_guide": {
-      "type": "string"
-    },
     "next_step_id": {
-      "description": "다음 작업으로 선택할 첫 미완료 Step.",
-      "type": [
-        "string",
-        "null"
-      ]
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "다음 작업으로 선택할 첫 미완료 Step."
     },
     "plan_artifact_dir": {
       "type": "string"
@@ -12980,79 +15149,92 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
     },
     "plan_status": {
       "description": "회차를 시작해도 Plan 상태는 유지.",
-      "type": "string"
-    },
-    "policy_reminder": {
+      "enum": [
+        "pending",
+        "running",
+        "paused",
+        "completed",
+        "failed",
+        "blocked"
+      ],
       "type": "string"
     },
     "previous_loop": {
-      "description": "첫 회차에는 실행 전 0번 기록을 포함할 수 있음.",
-      "properties": {
-        "loop_no": {
-          "type": "integer"
-        },
-        "steps": {
-          "items": {
-            "properties": {
-              "depends_on": {
-                "description": "선행 Step UUID.",
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "design_rationale": {
-                "type": "string"
-              },
-              "input_refs": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "kind": {
-                "type": "string"
-              },
-              "loop_no": {
-                "type": "integer"
-              },
-              "name": {
-                "type": "string"
-              },
-              "output_refs": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "position": {
-                "type": "integer"
-              },
-              "status": {
-                "description": "Step 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`.",
-                "type": "string"
-              },
-              "step_id": {
-                "description": "회차가 바뀌어도 유지되는 Step UUID.",
-                "type": "string"
-              },
-              "step_type": {
-                "type": "string"
-              },
-              "takeaways": {
-                "description": "다음 작업에 넘길 주요 발견과 교훈.",
-                "type": "string"
-              }
+      "anyOf": [
+        {
+          "properties": {
+            "loop_no": {
+              "type": "integer"
             },
-            "type": "object"
+            "steps": {
+              "items": {
+                "properties": {
+                  "depends_on": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "design_rationale": {
+                    "type": "string"
+                  },
+                  "input_refs": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "output_refs": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "status": {
+                    "enum": [
+                      "pending",
+                      "running",
+                      "paused",
+                      "completed",
+                      "failed",
+                      "blocked"
+                    ],
+                    "type": "string"
+                  },
+                  "step_id": {
+                    "type": "string"
+                  },
+                  "step_type": {
+                    "type": "string"
+                  },
+                  "takeaways": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "step_id",
+                  "name",
+                  "step_type",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
           },
-          "type": "array"
+          "type": "object"
+        },
+        {
+          "type": "null"
         }
-      },
-      "type": [
-        "object",
-        "null"
-      ]
+      ],
+      "description": "첫 회차에는 실행 전 0번 기록을 포함할 수 있음."
     },
     "revision": {
       "type": "integer"
@@ -13060,14 +15242,10 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
     "status": {
       "type": "string"
     },
-    "step_id": {
-      "type": "string"
-    },
     "steps": {
       "items": {
         "properties": {
           "depends_on": {
-            "description": "선행 Step UUID.",
             "items": {
               "type": "string"
             },
@@ -13085,9 +15263,6 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
           "kind": {
             "type": "string"
           },
-          "loop_no": {
-            "type": "integer"
-          },
           "name": {
             "type": "string"
           },
@@ -13097,25 +15272,33 @@ Plan의 새 작업 회차 시작 또는 최신 회차 재개. Step 실행은 에
             },
             "type": "array"
           },
-          "position": {
-            "type": "integer"
-          },
           "status": {
-            "description": "Step 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`.",
+            "enum": [
+              "pending",
+              "running",
+              "paused",
+              "completed",
+              "failed",
+              "blocked"
+            ],
             "type": "string"
           },
           "step_id": {
-            "description": "회차가 바뀌어도 유지되는 Step UUID.",
             "type": "string"
           },
           "step_type": {
             "type": "string"
           },
           "takeaways": {
-            "description": "다음 작업에 넘길 주요 발견과 교훈.",
             "type": "string"
           }
         },
+        "required": [
+          "step_id",
+          "name",
+          "step_type",
+          "status"
+        ],
         "type": "object"
       },
       "type": "array"
@@ -13148,17 +15331,17 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "request": {
-      "oneOf": [
+      "anyOf": [
         {
           "additionalProperties": false,
           "properties": {
             "include_details": {
-              "default": false,
               "type": "boolean"
             },
             "phase_id": {
@@ -13179,7 +15362,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
           "additionalProperties": false,
           "properties": {
             "include_details": {
-              "default": false,
               "type": "boolean"
             },
             "loop_no": {
@@ -13191,7 +15373,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "0 이상. 생략·`null`은 최신 회차, 0은 실행 전 기록."
             },
             "plan_id": {
@@ -13206,7 +15387,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "생략·`null`은 선택한 회차의 최신 상태."
             },
             "target": {
@@ -13224,7 +15404,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
           "additionalProperties": false,
           "properties": {
             "include_details": {
-              "default": false,
               "type": "boolean"
             },
             "loop_no": {
@@ -13236,7 +15415,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "0 이상. 생략·`null`은 최신 회차, 0은 실행 전 기록."
             },
             "plan_id": {
@@ -13251,7 +15429,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "생략·`null`은 선택한 회차의 최신 상태."
             },
             "step_id": {
@@ -13274,8 +15451,8 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
     }
   },
   "required": [
-    "request",
-    "connection_id"
+    "connection_id",
+    "request"
   ],
   "type": "object"
 }
@@ -13290,12 +15467,11 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
   "additionalProperties": false,
   "properties": {
     "request": {
-      "oneOf": [
+      "anyOf": [
         {
           "additionalProperties": false,
           "properties": {
             "include_details": {
-              "default": false,
               "type": "boolean"
             },
             "phase_id": {
@@ -13316,7 +15492,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
           "additionalProperties": false,
           "properties": {
             "include_details": {
-              "default": false,
               "type": "boolean"
             },
             "loop_no": {
@@ -13328,7 +15503,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "0 이상. 생략·`null`은 최신 회차, 0은 실행 전 기록."
             },
             "plan_id": {
@@ -13343,7 +15517,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "생략·`null`은 선택한 회차의 최신 상태."
             },
             "target": {
@@ -13361,7 +15534,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
           "additionalProperties": false,
           "properties": {
             "include_details": {
-              "default": false,
               "type": "boolean"
             },
             "loop_no": {
@@ -13373,7 +15545,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "0 이상. 생략·`null`은 최신 회차, 0은 실행 전 기록."
             },
             "plan_id": {
@@ -13388,7 +15559,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "생략·`null`은 선택한 회차의 최신 상태."
             },
             "step_id": {
@@ -13431,9 +15601,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
           "error_code": {
             "type": "string"
           },
-          "id": {
-            "type": "string"
-          },
           "loop_no": {
             "description": "0은 회차 시작 전 기록.",
             "type": "integer"
@@ -13442,9 +15609,6 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
             "type": "string"
           },
           "name": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "phase": {
@@ -13471,13 +15635,20 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                 "type": "array"
               },
               "previous_id": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
             "type": "object"
+          },
+          "phase_id": {
+            "type": "string"
           },
           "plan": {
             "properties": {
@@ -13529,23 +15700,31 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                 "type": "array"
               },
               "phase": {
-                "properties": {
-                  "name": {
-                    "type": "string"
+                "anyOf": [
+                  {
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "phase_id": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
                   },
-                  "phase_id": {
-                    "type": "string"
+                  {
+                    "type": "null"
                   }
-                },
-                "type": [
-                  "object",
-                  "null"
                 ]
               },
               "previous_id": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "scene_ids": {
@@ -13561,13 +15740,18 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
               "steps": {
                 "items": {
                   "properties": {
-                    "loop_no": {
-                      "type": "integer"
-                    },
                     "name": {
                       "type": "string"
                     },
                     "status": {
+                      "enum": [
+                        "pending",
+                        "running",
+                        "paused",
+                        "completed",
+                        "failed",
+                        "blocked"
+                      ],
                       "type": "string"
                     },
                     "step_id": {
@@ -13577,6 +15761,12 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
                       "type": "string"
                     }
                   },
+                  "required": [
+                    "step_id",
+                    "name",
+                    "step_type",
+                    "status"
+                  ],
                   "type": "object"
                 },
                 "type": "array"
@@ -13599,8 +15789,23 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
             "type": "integer"
           },
           "status": {
-            "description": "성공 시 `pending`, `running`, `paused`, `completed`, `failed`, `blocked` 중 하나. 조회 실패는 `error`.",
-            "type": "string"
+            "anyOf": [
+              {
+                "enum": [
+                  "pending",
+                  "running",
+                  "paused",
+                  "completed",
+                  "failed",
+                  "blocked"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "error",
+                "type": "string"
+              }
+            ]
           },
           "step": {
             "properties": {
@@ -13628,6 +15833,9 @@ Plan·Step 조회에 `revision`을 지정하면 현재 번호여도 읽기 전�
               }
             },
             "type": "object"
+          },
+          "step_id": {
+            "type": "string"
           },
           "type": {
             "enum": [
@@ -13671,7 +15879,8 @@ Plan 리비전 목록을 최신 회차·리비전 순으로 조회. Step 필터�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -13687,12 +15896,11 @@ Plan 리비전 목록을 최신 회차·리비전 순으로 조회. Step 필터�
           "type": "null"
         }
       ],
-      "default": null,
       "description": "`audit` 또는 `all`은 생성 시각 포함. 생략하거나 비우면 기본 필드만 반환."
     },
     "limit": {
       "default": 50,
-      "description": "1~500.",
+      "description": "1~500. · 기본값 50",
       "type": "integer"
     },
     "loop_no": {
@@ -13704,22 +15912,20 @@ Plan 리비전 목록을 최신 회차·리비전 순으로 조회. Step 필터�
           "type": "null"
         }
       ],
-      "default": null,
       "description": "생략·`null`은 모든 회차, 0은 실행 전 기록."
     },
     "plan_id": {
-      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
       "type": "string"
     },
     "step_id": {
-      "default": "",
       "description": "생략하거나 비우면 Step으로 필터링하지 않음.",
       "type": "string"
     }
   },
   "required": [
-    "plan_id",
-    "connection_id"
+    "connection_id",
+    "plan_id"
   ],
   "type": "object"
 }
@@ -13745,12 +15951,11 @@ Plan 리비전 목록을 최신 회차·리비전 순으로 조회. Step 필터�
           "type": "null"
         }
       ],
-      "default": null,
       "description": "`audit` 또는 `all`은 생성 시각 포함. 생략하거나 비우면 기본 필드만 반환."
     },
     "limit": {
       "default": 50,
-      "description": "1~500.",
+      "description": "1~500. · 기본값 50",
       "type": "integer"
     },
     "loop_no": {
@@ -13762,15 +15967,13 @@ Plan 리비전 목록을 최신 회차·리비전 순으로 조회. Step 필터�
           "type": "null"
         }
       ],
-      "default": null,
       "description": "생략·`null`은 모든 회차, 0은 실행 전 기록."
     },
     "plan_id": {
-      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
       "type": "string"
     },
     "step_id": {
-      "default": "",
       "description": "생략하거나 비우면 Step으로 필터링하지 않음.",
       "type": "string"
     }
@@ -13802,9 +16005,6 @@ Plan 리비전 목록을 최신 회차·리비전 순으로 조회. Step 필터�
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "plan_id": {
             "description": "행의 `loop_no`·`revision`과 함께 plan_05-get tool의 `request`에 사용.",
             "type": "string"
@@ -13826,9 +16026,13 @@ Plan 리비전 목록을 최신 회차·리비전 순으로 조회. Step 필터�
                   "type": "integer"
                 },
                 "step_id": {
-                  "type": [
-                    "string",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 }
               },
@@ -13877,12 +16081,13 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "request": {
-      "oneOf": [
+      "anyOf": [
         {
           "additionalProperties": false,
           "properties": {
@@ -13898,12 +16103,11 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "`description`은 설명, `scope`는 연결 파일, `audit`는 생성·수정 시각, `all`은 전체. 생략하거나 비우면 요약 반환."
             },
             "limit": {
               "default": 50,
-              "description": "1~500.",
+              "description": "1~500. · 기본값 50",
               "type": "integer"
             },
             "target": {
@@ -13921,32 +16125,36 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
           "properties": {
             "limit": {
               "default": 50,
-              "description": "1~500.",
+              "description": "1~500. · 기본값 50",
               "type": "integer"
             },
             "phase_id": {
-              "default": "",
               "description": "생략하거나 비우면 Phase 소속 여부와 관계없이 조회.",
               "type": "string"
             },
             "scene_id": {
-              "default": "",
               "description": "생략하거나 비우면 Scene 연결 여부와 관계없이 조회.",
               "type": "string"
             },
             "status": {
-              "default": "",
-              "description": "생략하거나 비우면 상태 필터를 적용하지 않음.",
-              "enum": [
-                "",
-                "pending",
-                "running",
-                "paused",
-                "completed",
-                "failed",
-                "blocked"
+              "anyOf": [
+                {
+                  "const": "",
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "pending",
+                    "running",
+                    "paused",
+                    "completed",
+                    "failed",
+                    "blocked"
+                  ],
+                  "type": "string"
+                }
               ],
-              "type": "string"
+              "description": "생략하거나 비우면 상태 필터를 적용하지 않음."
             },
             "target": {
               "const": "plan",
@@ -13963,7 +16171,7 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
           "properties": {
             "limit": {
               "default": 50,
-              "description": "1~500. 정의된 순서의 앞부분을 반환.",
+              "description": "1~500. 정의된 순서의 앞부분을 반환. · 값 1~500 · 기본값 50",
               "maximum": 500,
               "minimum": 1,
               "type": "integer"
@@ -13977,7 +16185,6 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "0 이상. 생략·`null`은 최신 회차, 0은 실행 전 기록."
             },
             "plan_id": {
@@ -13992,7 +16199,6 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "생략·`null`은 선택한 회차의 최신 상태. 지정하면 읽기 전용 스냅샷."
             },
             "target": {
@@ -14010,8 +16216,8 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
     }
   },
   "required": [
-    "request",
-    "connection_id"
+    "connection_id",
+    "request"
   ],
   "type": "object"
 }
@@ -14026,7 +16232,7 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
   "additionalProperties": false,
   "properties": {
     "request": {
-      "oneOf": [
+      "anyOf": [
         {
           "additionalProperties": false,
           "properties": {
@@ -14042,12 +16248,11 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "`description`은 설명, `scope`는 연결 파일, `audit`는 생성·수정 시각, `all`은 전체. 생략하거나 비우면 요약 반환."
             },
             "limit": {
               "default": 50,
-              "description": "1~500.",
+              "description": "1~500. · 기본값 50",
               "type": "integer"
             },
             "target": {
@@ -14065,32 +16270,36 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
           "properties": {
             "limit": {
               "default": 50,
-              "description": "1~500.",
+              "description": "1~500. · 기본값 50",
               "type": "integer"
             },
             "phase_id": {
-              "default": "",
               "description": "생략하거나 비우면 Phase 소속 여부와 관계없이 조회.",
               "type": "string"
             },
             "scene_id": {
-              "default": "",
               "description": "생략하거나 비우면 Scene 연결 여부와 관계없이 조회.",
               "type": "string"
             },
             "status": {
-              "default": "",
-              "description": "생략하거나 비우면 상태 필터를 적용하지 않음.",
-              "enum": [
-                "",
-                "pending",
-                "running",
-                "paused",
-                "completed",
-                "failed",
-                "blocked"
+              "anyOf": [
+                {
+                  "const": "",
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "pending",
+                    "running",
+                    "paused",
+                    "completed",
+                    "failed",
+                    "blocked"
+                  ],
+                  "type": "string"
+                }
               ],
-              "type": "string"
+              "description": "생략하거나 비우면 상태 필터를 적용하지 않음."
             },
             "target": {
               "const": "plan",
@@ -14107,7 +16316,7 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
           "properties": {
             "limit": {
               "default": 50,
-              "description": "1~500. 정의된 순서의 앞부분을 반환.",
+              "description": "1~500. 정의된 순서의 앞부분을 반환. · 값 1~500 · 기본값 50",
               "maximum": 500,
               "minimum": 1,
               "type": "integer"
@@ -14121,7 +16330,6 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "0 이상. 생략·`null`은 최신 회차, 0은 실행 전 기록."
             },
             "plan_id": {
@@ -14136,7 +16344,6 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "생략·`null`은 선택한 회차의 최신 상태. 지정하면 읽기 전용 스냅샷."
             },
             "target": {
@@ -14183,17 +16390,22 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "phases": {
             "items": {
               "properties": {
+                "created_at": {
+                  "description": "`audit` 또는 `all` 그룹에서 반환.",
+                  "type": "string"
+                },
                 "depends_on": {
                   "items": {
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "description": {
+                  "description": "`description` 또는 `all` 그룹에서 반환.",
+                  "type": "string"
                 },
                 "file_name": {
                   "description": "`scope` 또는 `all` 그룹에서 반환하는 Rhino 파일명.",
@@ -14212,12 +16424,19 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
                   "type": "integer"
                 },
                 "previous_id": {
-                  "type": [
-                    "string",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "status": {
+                  "type": "string"
+                },
+                "updated_at": {
                   "type": "string"
                 }
               },
@@ -14268,23 +16487,33 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
           "steps": {
             "items": {
               "properties": {
-                "loop_no": {
-                  "type": "integer"
-                },
                 "name": {
                   "type": "string"
                 },
                 "status": {
+                  "enum": [
+                    "pending",
+                    "running",
+                    "paused",
+                    "completed",
+                    "failed",
+                    "blocked"
+                  ],
                   "type": "string"
                 },
                 "step_id": {
-                  "description": "회차가 바뀌어도 유지되는 Step UUID.",
                   "type": "string"
                 },
                 "step_type": {
                   "type": "string"
                 }
               },
+              "required": [
+                "step_id",
+                "name",
+                "step_type",
+                "status"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -14317,9 +16546,7 @@ Phase·Plan 목록 또는 한 Plan의 순서 있는 Step 목록 조회. `offset`
 **beyond · RhinoTerminal**
 
 ```txt
-Plan 산출물 폴더 이름 변경 및 저장된 Plan·Step 경로 참조 갱신. 먼저 plan_10-set_working tool로 산출물 폴더를 지정.
-
-Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴더는 변경 불가. 같은 이름은 변경 없이 성공. 대상이 이미 존재하거나 다른 Plan 소유이면 실패. 실제 변경 시 새 리비전을 저장하고 이전 리비전은 보존.
+첫 Loop를 시작하기 전에 현재 Plan의 산출물 폴더명을 바꾼다. 먼저 plan_10-set_working tool로 폴더를 만든다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -14329,7 +16556,8 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -14338,14 +16566,13 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
       "type": "string"
     },
     "plan_id": {
-      "default": "",
       "description": "생략하거나 비우면 현재 선택된 Plan 사용.",
       "type": "string"
     }
   },
   "required": [
-    "name",
-    "connection_id"
+    "connection_id",
+    "name"
   ],
   "type": "object"
 }
@@ -14364,7 +16591,6 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
       "type": "string"
     },
     "plan_id": {
-      "default": "",
       "description": "생략하거나 비우면 현재 선택된 Plan 사용.",
       "type": "string"
     }
@@ -14384,18 +16610,19 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
 {
   "properties": {
     "artifact_dir": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "error_code": {
       "type": "string"
     },
     "message": {
-      "type": "string"
-    },
-    "next_step_guide": {
       "type": "string"
     },
     "previous_artifact_dir": {
@@ -14430,12 +16657,12 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
   "additionalProperties": false,
   "properties": {
     "artifact_name": {
-      "default": "",
       "description": "최초 폴더명. 생략하면 목표에서 정하고 `YYMMDD_` 접두사를 붙임. 기존 폴더와 다른 이름은 거부.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -14448,22 +16675,20 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "생략·`null`은 현재 회차. 이전 회차 또는 존재하지 않는 회차는 선택 불가."
+      "description": "지정한 회차가 최신 회차인지 확인한다."
     },
     "plan_id": {
-      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
       "type": "string"
     },
     "step_id": {
-      "default": "",
       "description": "생략하면 Plan만 선택.",
       "type": "string"
     }
   },
   "required": [
-    "plan_id",
-    "connection_id"
+    "connection_id",
+    "plan_id"
   ],
   "type": "object"
 }
@@ -14478,7 +16703,6 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
   "additionalProperties": false,
   "properties": {
     "artifact_name": {
-      "default": "",
       "description": "최초 폴더명. 생략하면 목표에서 정하고 `YYMMDD_` 접두사를 붙임. 기존 폴더와 다른 이름은 거부.",
       "type": "string"
     },
@@ -14491,15 +16715,13 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "생략·`null`은 현재 회차. 이전 회차 또는 존재하지 않는 회차는 선택 불가."
+      "description": "지정한 회차가 최신 회차인지 확인한다."
     },
     "plan_id": {
-      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+      "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
       "type": "string"
     },
     "step_id": {
-      "default": "",
       "description": "생략하면 Plan만 선택.",
       "type": "string"
     }
@@ -14519,11 +16741,15 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
 {
   "properties": {
     "artifact_dir": {
-      "description": "script_01-run_project_python tool의 작업 디렉터리.",
-      "type": [
-        "string",
-        "null"
-      ]
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "script_01-run_project_python tool의 작업 디렉터리."
     },
     "error_code": {
       "type": "string"
@@ -14532,9 +16758,6 @@ Loop를 이미 실행했거나 다른 Plan의 과거 회차가 참조하는 폴�
       "type": "integer"
     },
     "message": {
-      "type": "string"
-    },
-    "next_step_guide": {
       "type": "string"
     },
     "plan_artifact_dir": {
@@ -14569,7 +16792,7 @@ Phase·Plan 작업 정보 또는 Step 상태·입출력 참조·판단 기록 �
 
 `depends_on`, `input_refs`, `output_refs`는 `add`/`remove` 패치. 나머지 대상·산출물·상하위 관계 배열은 전체 교체. 생략·`null`은 기존 값 유지, 교체 배열의 `[]`는 전체 삭제.
 
-응답 `status`는 모두 반영해 값이 바뀌면 `updated`, 바뀐 값이 없으면 `no_change`, 변경과 건너뛴 항목이 함께 있으면 `partial_success`. 건너뛴 항목은 `issues`에서 확인. Step을 `completed`로 지정하면 함께 전달한 필드와 한 번에 저장.
+응답 `status`는 모두 반영해 값이 바뀌면 `updated`, 바뀐 값이 없으면 `no_change`, 변경과 건너뛴 항목이 함께 있으면 `partial_success`. 이미 추가된 값, 없어서 지울 수 없는 값, 중복·잘못된 값과 두 목록에 동시에 넣은 값은 issues에서 확인. Step을 `completed`로 지정하면 함께 전달한 필드와 한 번에 저장.
 
 Plan 완료는 사용자 확인 후 지정.
 ```
@@ -14581,12 +16804,13 @@ Plan 완료는 사용자 확인 후 지정.
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "request": {
-      "oneOf": [
+      "anyOf": [
         {
           "additionalProperties": false,
           "properties": {
@@ -14594,17 +16818,14 @@ Plan 완료는 사용자 확인 후 지정.
               "anyOf": [
                 {
                   "additionalProperties": false,
-                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
                   "properties": {
                     "add": {
-                      "description": "이미 있는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록. `remove`에도 있는 값은 양쪽에서 건너뜀.",
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
                     },
                     "remove": {
-                      "description": "없는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록.",
                       "items": {
                         "type": "string"
                       },
@@ -14617,7 +16838,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "같은 종류의 Phase ID만 사용. 대상 존재·순환·완료 여부는 검사하지 않음."
             },
             "description": {
@@ -14629,14 +16849,10 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 문자열은 설명 삭제."
             },
             "file_name": {
               "anyOf": [
-                {
-                  "type": "string"
-                },
                 {
                   "items": {
                     "type": "string"
@@ -14647,8 +16863,7 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
-              "description": "context_04-get_project_info tool의 `project.files`에 등록된 파일명. 빈 문자열 또는 `[]`는 연결 해제, 생략·`null`은 연결 유지."
+              "description": "project.files에 등록된 파일명. []는 연결 해제."
             },
             "name": {
               "anyOf": [
@@ -14659,11 +16874,10 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 이름은 거부."
             },
             "phase_id": {
-              "description": "plan_08-list tool의 `request.target=\"phase\"` 결과에 있는 `phases[].phase_id` 또는 plan_05-get tool의 Phase `id`.",
+              "description": "plan_08-list tool의 `request.target=\"phase\"` 결과에 있는 `phases[].phase_id` 또는 plan_05-get tool의 phase_id.",
               "type": "string"
             },
             "previous_id": {
@@ -14675,7 +16889,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 문자열은 연결 해제."
             },
             "status": {
@@ -14694,8 +16907,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "target": {
               "const": "phase",
@@ -14722,8 +16934,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "child_plan": {
               "anyOf": [
@@ -14737,24 +16948,20 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "상대 Plan을 자동 수정하거나 참조 대상의 존재를 검사하지 않음."
             },
             "depends_on": {
               "anyOf": [
                 {
                   "additionalProperties": false,
-                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
                   "properties": {
                     "add": {
-                      "description": "이미 있는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록. `remove`에도 있는 값은 양쪽에서 건너뜀.",
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
                     },
                     "remove": {
-                      "description": "없는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록.",
                       "items": {
                         "type": "string"
                       },
@@ -14767,7 +16974,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "결과나 결정에 의존하는 관련 Plan. Plan ID 형식만 검사. 대상 존재·자기 참조·순환은 확인하지 않으며 순서나 완료도 강제하지 않음."
             },
             "expected_revision": {
@@ -14779,7 +16985,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "현재 리비전과 다르면 수정 거부. Loop 시작 후에는 `loop_no`도 함께 지정."
             },
             "goal": {
@@ -14791,7 +16996,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 목표는 거부."
             },
             "holon_ids": {
@@ -14805,8 +17009,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "loop_no": {
               "anyOf": [
@@ -14817,7 +17020,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "현재 회차만 허용. 생략하면 현재 회차 적용."
             },
             "parent_plan": {
@@ -14832,7 +17034,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "상대 Plan을 자동 수정하거나 참조 대상의 존재를 검사하지 않음."
             },
             "phase_id": {
@@ -14844,11 +17045,10 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 문자열은 Phase 소속 해제."
             },
             "plan_id": {
-              "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+              "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
               "type": "string"
             },
             "previous_id": {
@@ -14860,7 +17060,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "작업 순서상 직전 Plan. 빈 문자열은 연결 해제."
             },
             "scene_ids": {
@@ -14874,8 +17073,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "status": {
               "anyOf": [
@@ -14894,7 +17092,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "`completed`는 사용자의 완료 결정 후 지정."
             },
             "target": {
@@ -14910,7 +17107,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 제목은 거부."
             }
           },
@@ -14932,7 +17128,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "설계 결정의 이유와 근거. 빈 문자열은 내용 삭제."
             },
             "expected_revision": {
@@ -14944,24 +17139,20 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "현재 리비전과 다르면 수정 거부. Loop 시작 후에는 `loop_no`도 함께 지정."
             },
             "input_refs": {
               "anyOf": [
                 {
                   "additionalProperties": false,
-                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
                   "properties": {
                     "add": {
-                      "description": "이미 있는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록. `remove`에도 있는 값은 양쪽에서 건너뜀.",
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
                     },
                     "remove": {
-                      "description": "없는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록.",
                       "items": {
                         "type": "string"
                       },
@@ -14973,8 +17164,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "loop_no": {
               "anyOf": [
@@ -14985,24 +17175,20 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "현재 회차만 허용. 생략하면 현재 회차 적용."
             },
             "output_refs": {
               "anyOf": [
                 {
                   "additionalProperties": false,
-                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
                   "properties": {
                     "add": {
-                      "description": "이미 있는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록. `remove`에도 있는 값은 양쪽에서 건너뜀.",
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
                     },
                     "remove": {
-                      "description": "없는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록.",
                       "items": {
                         "type": "string"
                       },
@@ -15014,11 +17200,10 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "plan_id": {
-              "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+              "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
               "type": "string"
             },
             "status": {
@@ -15037,8 +17222,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "step_id": {
               "description": "plan_05-get tool의 Plan 상세에서 확인한 Step ID.",
@@ -15053,7 +17237,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "다음 작업에 넘길 핵심 결론과 확인 사항. 빈 문자열은 내용 삭제."
             },
             "target": {
@@ -15072,8 +17255,8 @@ Plan 완료는 사용자 확인 후 지정.
     }
   },
   "required": [
-    "request",
-    "connection_id"
+    "connection_id",
+    "request"
   ],
   "type": "object"
 }
@@ -15088,7 +17271,7 @@ Plan 완료는 사용자 확인 후 지정.
   "additionalProperties": false,
   "properties": {
     "request": {
-      "oneOf": [
+      "anyOf": [
         {
           "additionalProperties": false,
           "properties": {
@@ -15096,17 +17279,14 @@ Plan 완료는 사용자 확인 후 지정.
               "anyOf": [
                 {
                   "additionalProperties": false,
-                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
                   "properties": {
                     "add": {
-                      "description": "이미 있는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록. `remove`에도 있는 값은 양쪽에서 건너뜀.",
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
                     },
                     "remove": {
-                      "description": "없는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록.",
                       "items": {
                         "type": "string"
                       },
@@ -15119,7 +17299,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "같은 종류의 Phase ID만 사용. 대상 존재·순환·완료 여부는 검사하지 않음."
             },
             "description": {
@@ -15131,14 +17310,10 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 문자열은 설명 삭제."
             },
             "file_name": {
               "anyOf": [
-                {
-                  "type": "string"
-                },
                 {
                   "items": {
                     "type": "string"
@@ -15149,8 +17324,7 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
-              "description": "context_04-get_project_info tool의 `project.files`에 등록된 파일명. 빈 문자열 또는 `[]`는 연결 해제, 생략·`null`은 연결 유지."
+              "description": "project.files에 등록된 파일명. []는 연결 해제."
             },
             "name": {
               "anyOf": [
@@ -15161,11 +17335,10 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 이름은 거부."
             },
             "phase_id": {
-              "description": "plan_08-list tool의 `request.target=\"phase\"` 결과에 있는 `phases[].phase_id` 또는 plan_05-get tool의 Phase `id`.",
+              "description": "plan_08-list tool의 `request.target=\"phase\"` 결과에 있는 `phases[].phase_id` 또는 plan_05-get tool의 phase_id.",
               "type": "string"
             },
             "previous_id": {
@@ -15177,7 +17350,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 문자열은 연결 해제."
             },
             "status": {
@@ -15196,8 +17368,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "target": {
               "const": "phase",
@@ -15224,8 +17395,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "child_plan": {
               "anyOf": [
@@ -15239,24 +17409,20 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "상대 Plan을 자동 수정하거나 참조 대상의 존재를 검사하지 않음."
             },
             "depends_on": {
               "anyOf": [
                 {
                   "additionalProperties": false,
-                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
                   "properties": {
                     "add": {
-                      "description": "이미 있는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록. `remove`에도 있는 값은 양쪽에서 건너뜀.",
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
                     },
                     "remove": {
-                      "description": "없는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록.",
                       "items": {
                         "type": "string"
                       },
@@ -15269,7 +17435,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "결과나 결정에 의존하는 관련 Plan. Plan ID 형식만 검사. 대상 존재·자기 참조·순환은 확인하지 않으며 순서나 완료도 강제하지 않음."
             },
             "expected_revision": {
@@ -15281,7 +17446,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "현재 리비전과 다르면 수정 거부. Loop 시작 후에는 `loop_no`도 함께 지정."
             },
             "goal": {
@@ -15293,7 +17457,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 목표는 거부."
             },
             "holon_ids": {
@@ -15307,8 +17470,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "loop_no": {
               "anyOf": [
@@ -15319,7 +17481,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "현재 회차만 허용. 생략하면 현재 회차 적용."
             },
             "parent_plan": {
@@ -15334,7 +17495,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "상대 Plan을 자동 수정하거나 참조 대상의 존재를 검사하지 않음."
             },
             "phase_id": {
@@ -15346,11 +17506,10 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 문자열은 Phase 소속 해제."
             },
             "plan_id": {
-              "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+              "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
               "type": "string"
             },
             "previous_id": {
@@ -15362,7 +17521,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "작업 순서상 직전 Plan. 빈 문자열은 연결 해제."
             },
             "scene_ids": {
@@ -15376,8 +17534,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "status": {
               "anyOf": [
@@ -15396,7 +17553,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "`completed`는 사용자의 완료 결정 후 지정."
             },
             "target": {
@@ -15412,7 +17568,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "빈 제목은 거부."
             }
           },
@@ -15434,7 +17589,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "설계 결정의 이유와 근거. 빈 문자열은 내용 삭제."
             },
             "expected_revision": {
@@ -15446,24 +17600,20 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "현재 리비전과 다르면 수정 거부. Loop 시작 후에는 `loop_no`도 함께 지정."
             },
             "input_refs": {
               "anyOf": [
                 {
                   "additionalProperties": false,
-                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
                   "properties": {
                     "add": {
-                      "description": "이미 있는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록. `remove`에도 있는 값은 양쪽에서 건너뜀.",
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
                     },
                     "remove": {
-                      "description": "없는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록.",
                       "items": {
                         "type": "string"
                       },
@@ -15475,8 +17625,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "loop_no": {
               "anyOf": [
@@ -15487,24 +17636,20 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "현재 회차만 허용. 생략하면 현재 회차 적용."
             },
             "output_refs": {
               "anyOf": [
                 {
                   "additionalProperties": false,
-                  "description": "문자열 목록의 추가·제거 패치입니다. 생략한 연산과 빈 배열은 현재 값을 유지합니다.",
                   "properties": {
                     "add": {
-                      "description": "이미 있는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록. `remove`에도 있는 값은 양쪽에서 건너뜀.",
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
                     },
                     "remove": {
-                      "description": "없는 값, 중복, 유효하지 않은 값은 건너뛰고 `issues`에 기록.",
                       "items": {
                         "type": "string"
                       },
@@ -15516,11 +17661,10 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "plan_id": {
-              "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 id",
+              "description": "plan_08-list tool의 request.target=plan 응답에 있는 plans[].plan_id 또는 plan_05-get tool의 plan_id",
               "type": "string"
             },
             "status": {
@@ -15539,8 +17683,7 @@ Plan 완료는 사용자 확인 후 지정.
                 {
                   "type": "null"
                 }
-              ],
-              "default": null
+              ]
             },
             "step_id": {
               "description": "plan_05-get tool의 Plan 상세에서 확인한 Step ID.",
@@ -15555,7 +17698,6 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "null"
                 }
               ],
-              "default": null,
               "description": "다음 작업에 넘길 핵심 결론과 확인 사항. 빈 문자열은 내용 삭제."
             },
             "target": {
@@ -15601,7 +17743,8 @@ Plan 완료는 사용자 확인 후 지정.
               "not_started",
               "rolled_back",
               "unknown"
-            ]
+            ],
+            "type": "string"
           },
           "error_code": {
             "type": "string"
@@ -15633,16 +17776,20 @@ Plan 완료는 사용자 확인 후 지정.
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "phase": {
             "properties": {
               "phase_id": {
                 "type": "string"
               },
               "status": {
-                "description": "업무 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`.",
+                "enum": [
+                  "pending",
+                  "running",
+                  "paused",
+                  "completed",
+                  "failed",
+                  "blocked"
+                ],
                 "type": "string"
               }
             },
@@ -15663,7 +17810,14 @@ Plan 완료는 사용자 확인 후 지정.
                 "type": "integer"
               },
               "status": {
-                "description": "업무 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`.",
+                "enum": [
+                  "pending",
+                  "running",
+                  "paused",
+                  "completed",
+                  "failed",
+                  "blocked"
+                ],
                 "type": "string"
               }
             },
@@ -15685,12 +17839,15 @@ Plan 완료는 사용자 확인 후 지정.
           },
           "step": {
             "properties": {
-              "loop_no": {
-                "description": "0은 회차 시작 전 기록.",
-                "type": "integer"
-              },
               "status": {
-                "description": "업무 상태는 `pending`, `running`, `paused`, `completed`, `failed`, `blocked`.",
+                "enum": [
+                  "pending",
+                  "running",
+                  "paused",
+                  "completed",
+                  "failed",
+                  "blocked"
+                ],
                 "type": "string"
               },
               "step_id": {
@@ -15721,7 +17878,7 @@ Plan 완료는 사용자 확인 후 지정.
 **beyond · RhinoTerminal**
 
 ```txt
-건축 구법 비교·선정을 위한 참고 자료 조회.
+구법 후보와 예비 부재 깊이 조회. `field_groups`를 생략하면 요약을 반환한다. 부재 깊이와 재료 참조는 `rules`를 요청한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -15731,12 +17888,12 @@ Plan 완료는 사용자 확인 후 지정.
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
-      "description": "floor, wall, roof, foundation 중 선택. 빈 값은 전체 분류.",
+      "description": "floor, wall, roof, foundation. 기본값은 전체.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -15744,6 +17901,14 @@ Plan 완료는 사용자 확인 후 지정.
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "rules",
+              "narrative",
+              "source",
+              "metadata",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -15751,37 +17916,26 @@ Plan 완료는 사용자 확인 후 지정.
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "`rules`, `narrative`, `source`, `metadata`, `audit`, `all`. 생략하거나 비우면 요약 반환."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "include_reference_data": {
-      "default": false,
       "description": "`load_kn` 산정에 참고할 용도별 활하중(kPa)과 재료 밀도(kg/m³)를 포함.",
       "type": "boolean"
     },
     "material": {
-      "default": "",
-      "description": "analysis_02-validate_structure tool과 같은 재료명. `Wood`, `Steel`, `Concrete`.",
+      "description": "`Wood`, `Steel`, `Concrete`. `S355`는 `Steel`로 조회.",
       "type": "string"
     },
     "query": {
-      "default": "",
       "description": "예: `glulam`, `longspan`, `bearing wall`.",
       "type": "string"
     },
     "span_m": {
-      "default": 0.0,
-      "description": "0보다 크면 시스템별 `fits_span`과 경험칙에 따른 권장 부재 깊이를 계산.",
+      "description": "양수면 경간 적합 여부와 권장 깊이 계산. 벽 구법에는 비지지 높이.",
       "type": "number"
     },
     "structure_type": {
-      "default": "",
-      "description": "analysis_02-validate_structure tool과 같은 유형. `beam`, `truss`, `shell`, `frame`, `canopy`, `gridshell`, `membrane`, `highrise`.",
+      "description": "`beam`, `truss`, `shell`, `frame`, `canopy`, `gridshell`, `membrane`, `highrise`.",
       "type": "string"
     }
   },
@@ -15801,14 +17955,21 @@ Plan 완료는 사용자 확인 후 지정.
   "additionalProperties": false,
   "properties": {
     "category": {
-      "default": "",
-      "description": "floor, wall, roof, foundation 중 선택. 빈 값은 전체 분류.",
+      "description": "floor, wall, roof, foundation. 기본값은 전체.",
       "type": "string"
     },
     "field_groups": {
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "rules",
+              "narrative",
+              "source",
+              "metadata",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -15816,37 +17977,26 @@ Plan 완료는 사용자 확인 후 지정.
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "`rules`, `narrative`, `source`, `metadata`, `audit`, `all`. 생략하거나 비우면 요약 반환."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "include_reference_data": {
-      "default": false,
       "description": "`load_kn` 산정에 참고할 용도별 활하중(kPa)과 재료 밀도(kg/m³)를 포함.",
       "type": "boolean"
     },
     "material": {
-      "default": "",
-      "description": "analysis_02-validate_structure tool과 같은 재료명. `Wood`, `Steel`, `Concrete`.",
+      "description": "`Wood`, `Steel`, `Concrete`. `S355`는 `Steel`로 조회.",
       "type": "string"
     },
     "query": {
-      "default": "",
       "description": "예: `glulam`, `longspan`, `bearing wall`.",
       "type": "string"
     },
     "span_m": {
-      "default": 0.0,
-      "description": "0보다 크면 시스템별 `fits_span`과 경험칙에 따른 권장 부재 깊이를 계산.",
+      "description": "양수면 경간 적합 여부와 권장 깊이 계산. 벽 구법에는 비지지 높이.",
       "type": "number"
     },
     "structure_type": {
-      "default": "",
-      "description": "analysis_02-validate_structure tool과 같은 유형. `beam`, `truss`, `shell`, `frame`, `canopy`, `gridshell`, `membrane`, `highrise`.",
+      "description": "`beam`, `truss`, `shell`, `frame`, `canopy`, `gridshell`, `membrane`, `highrise`.",
       "type": "string"
     }
   },
@@ -15871,11 +18021,37 @@ Plan 완료는 사용자 확인 후 지정.
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
+          "reference": {
+            "properties": {
+              "egress_rules": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "live_loads_kpa": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              "material_densities_kg_m3": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "live_loads_kpa",
+              "material_densities_kg_m3",
+              "egress_rules",
+              "notes"
+            ],
+            "type": "object"
           },
           "source": {
-            "description": "예비 치수 산정용 구법 라이브러리.",
             "type": "string"
           },
           "systems": {
@@ -15884,20 +18060,6 @@ Plan 완료는 사용자 확인 후 지정.
                 "category": {
                   "type": "string"
                 },
-                "construction_detail": {
-                  "type": "string"
-                },
-                "construction_reference": {
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "kind": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                },
                 "depth_guidance": {
                   "items": {
                     "properties": {
@@ -15905,7 +18067,6 @@ Plan 완료는 사용자 확인 후 지정.
                         "type": "string"
                       },
                       "rule": {
-                        "description": "권장 깊이 산정에 사용한 경간 비율.",
                         "type": "string"
                       },
                       "suggested_depth_mm": {
@@ -15917,14 +18078,14 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "array"
                 },
                 "fits_span": {
-                  "description": "입력 경간이 경험칙 범위에 드는지 표시. 내력 판단에는 별도 구조 검토 필요.",
+                  "description": "경험칙의 경간 범위에 해당하는지 표시. 내력은 별도 검토.",
                   "type": "boolean"
                 },
                 "name": {
                   "type": "string"
                 },
                 "render_material_ids": {
-                  "description": "의도에 맞는 재료 ID 하나를 골라 model_01-assign_material tool에 사용.",
+                  "description": "model_01-assign_material tool에 전달할 재료 ID 후보.",
                   "items": {
                     "type": "string"
                   },
@@ -15934,10 +18095,13 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "string"
                 },
                 "system_id": {
-                  "description": "research_02-get_typology_narrative tool의 `construction_system` 필터 또는 재료 메타데이터에 사용.",
+                  "description": "유형 조회의 construction_system 또는 model_01-assign_material tool의 construction_reference.id로 사용.",
                   "type": "string"
                 }
               },
+              "required": [
+                "system_id"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -15967,7 +18131,7 @@ Plan 완료는 사용자 확인 후 지정.
 **beyond · RhinoTerminal**
 
 ```txt
-건축 유형의 서사와 선례 조회.
+건축 유형 조회. 서사·선례·관련 구법은 `field_groups: ["narrative"]`로 요청한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -15977,19 +18141,27 @@ Plan 완료는 사용자 확인 후 지정.
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "construction_system": {
-      "default": "",
-      "description": "구법 라이브러리의 `system_id` 기준 필터. 예: `steel-column-frame`.",
+      "description": "research_01-get_construction_guidance tool의 `system_id`.",
       "type": "string"
     },
     "field_groups": {
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "rules",
+              "narrative",
+              "source",
+              "metadata",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -15997,26 +18169,19 @@ Plan 완료는 사용자 확인 후 지정.
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "`rules`, `narrative`, `source`, `metadata`, `audit`, `all`. 생략하거나 비우면 요약 반환."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "limit": {
       "default": 5,
+      "description": "기본값 5",
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "예: `courtyard`, `skyscraper`, `timber hall`.",
       "type": "string"
     },
     "structure_type": {
-      "default": "",
-      "description": "analysis_02-validate_structure tool의 유형으로 필터링. 예: `shell`, `truss`, `frame`, `membrane`.",
+      "description": "research_01-get_construction_guidance tool과 같은 구조 유형.",
       "type": "string"
     }
   },
@@ -16036,14 +18201,21 @@ Plan 완료는 사용자 확인 후 지정.
   "additionalProperties": false,
   "properties": {
     "construction_system": {
-      "default": "",
-      "description": "구법 라이브러리의 `system_id` 기준 필터. 예: `steel-column-frame`.",
+      "description": "research_01-get_construction_guidance tool의 `system_id`.",
       "type": "string"
     },
     "field_groups": {
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "rules",
+              "narrative",
+              "source",
+              "metadata",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -16051,26 +18223,19 @@ Plan 완료는 사용자 확인 후 지정.
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "`rules`, `narrative`, `source`, `metadata`, `audit`, `all`. 생략하거나 비우면 요약 반환."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "limit": {
       "default": 5,
+      "description": "기본값 5",
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "예: `courtyard`, `skyscraper`, `timber hall`.",
       "type": "string"
     },
     "structure_type": {
-      "default": "",
-      "description": "analysis_02-validate_structure tool의 유형으로 필터링. 예: `shell`, `truss`, `frame`, `membrane`.",
+      "description": "research_01-get_construction_guidance tool과 같은 구조 유형.",
       "type": "string"
     }
   },
@@ -16101,6 +18266,23 @@ Plan 완료는 사용자 확인 후 지정.
                 "narrative": {
                   "type": "string"
                 },
+                "precedents": {
+                  "items": {
+                    "properties": {
+                      "date": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "place": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
                 "region": {
                   "type": "string"
                 },
@@ -16118,6 +18300,9 @@ Plan 완료는 사용자 확인 후 지정.
                   "type": "string"
                 }
               },
+              "required": [
+                "typology_id"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -16126,9 +18311,6 @@ Plan 완료는 사용자 확인 후 지정.
             "type": "string"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "source": {
@@ -16160,7 +18342,7 @@ Plan 완료는 사용자 확인 후 지정.
 **beyond · RhinoTerminal**
 
 ```txt
-건축 자료 디렉터리의 메타데이터 검색.
+건축 자료 출처의 제목·태그·형식 검색. URL과 이용 조건은 `field_groups: ["all"]`로 요청한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -16170,7 +18352,8 @@ Plan 완료는 사용자 확인 후 지정.
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -16178,6 +18361,14 @@ Plan 완료는 사용자 확인 후 지정.
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "rules",
+              "narrative",
+              "source",
+              "metadata",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -16185,16 +18376,10 @@ Plan 완료는 사용자 확인 후 지정.
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "`rules`, `narrative`, `source`, `metadata`, `audit`, `all`. 생략하거나 비우면 요약 반환."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "query": {
-      "default": "",
+      "description": "빈 문자열로 출처 목록 조회. 검색 가능한 단어가 없으면 `invalid_query`.",
       "type": "string"
     }
   },
@@ -16217,6 +18402,14 @@ Plan 완료는 사용자 확인 후 지정.
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "rules",
+              "narrative",
+              "source",
+              "metadata",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -16224,16 +18417,10 @@ Plan 완료는 사용자 확인 후 지정.
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "`rules`, `narrative`, `source`, `metadata`, `audit`, `all`. 생략하거나 비우면 요약 반환."
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "query": {
-      "default": "",
+      "description": "빈 문자열로 출처 목록 조회. 검색 가능한 단어가 없으면 `invalid_query`.",
       "type": "string"
     }
   },
@@ -16251,24 +18438,8 @@ Plan 완료는 사용자 확인 후 지정.
     "error_code": {
       "type": "string"
     },
-    "expanded_terms": {
-      "items": {},
-      "type": "array"
-    },
     "message": {
       "type": "string"
-    },
-    "next_step_guide": {
-      "type": "string"
-    },
-    "query": {
-      "type": "string"
-    },
-    "query_terms": {
-      "items": {
-        "type": "string"
-      },
-      "type": "array"
     },
     "scope": {
       "type": "string"
@@ -16300,8 +18471,21 @@ Plan 완료는 사용자 확인 후 지정.
           "source_id": {
             "type": "string"
           },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "terms_url": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "title": {
             "type": "string"
@@ -16310,6 +18494,9 @@ Plan 완료는 사용자 확인 후 지정.
             "type": "string"
           }
         },
+        "required": [
+          "source_id"
+        ],
         "type": "object"
       },
       "type": "array"
@@ -16331,6 +18518,7 @@ Plan 완료는 사용자 확인 후 지정.
 
 ```txt
 Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구성원을 복원
+응답의 인덱스는 object_ids에서 0부터 센다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -16340,12 +18528,12 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
@@ -16357,14 +18545,14 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
       "type": "array"
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회한 Scene ID",
+      "description": "scene_07-list tool에서 조회한 Scene ID",
       "type": "string"
     }
   },
   "required": [
-    "scene_id",
+    "connection_id",
     "object_ids",
-    "connection_id"
+    "scene_id"
   ],
   "type": "object"
 }
@@ -16379,7 +18567,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
   "additionalProperties": false,
   "properties": {
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
@@ -16391,13 +18578,13 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
       "type": "array"
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회한 Scene ID",
+      "description": "scene_07-list tool에서 조회한 Scene ID",
       "type": "string"
     }
   },
   "required": [
-    "scene_id",
-    "object_ids"
+    "object_ids",
+    "scene_id"
   ],
   "type": "object"
 }
@@ -16416,21 +18603,21 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
         "properties": {
           "already_present_indices": {
             "description": "Holon을 통해 이미 포함된 객체도 해당",
-            "items": {},
+            "items": {
+              "type": "integer"
+            },
             "type": "array"
           },
           "error_code": {
             "type": "string"
           },
           "failed_indices": {
-            "description": "object_ids의 0부터 시작하는 위치",
-            "items": {},
+            "items": {
+              "type": "integer"
+            },
             "type": "array"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "status": {
@@ -16468,12 +18655,12 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "file_name": {
-      "default": "",
       "description": "context_04-get_project_info tool의 project.files에 등록된 파일명으로, 폴더 제외",
       "type": "string"
     },
@@ -16482,14 +18669,20 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
       "type": "string"
     },
     "units": {
-      "default": "mm",
-      "description": "mm, cm, m, in, ft 중 선택.",
+      "description": "기본 mm",
+      "enum": [
+        "mm",
+        "cm",
+        "m",
+        "in",
+        "ft"
+      ],
       "type": "string"
     }
   },
   "required": [
-    "name",
-    "connection_id"
+    "connection_id",
+    "name"
   ],
   "type": "object"
 }
@@ -16504,7 +18697,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
   "additionalProperties": false,
   "properties": {
     "file_name": {
-      "default": "",
       "description": "context_04-get_project_info tool의 project.files에 등록된 파일명으로, 폴더 제외",
       "type": "string"
     },
@@ -16513,8 +18705,14 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
       "type": "string"
     },
     "units": {
-      "default": "mm",
-      "description": "mm, cm, m, in, ft 중 선택.",
+      "description": "기본 mm",
+      "enum": [
+        "mm",
+        "cm",
+        "m",
+        "in",
+        "ft"
+      ],
       "type": "string"
     }
   },
@@ -16542,9 +18740,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "scene": {
             "properties": {
               "revision": {
@@ -16554,6 +18749,10 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                 "type": "string"
               }
             },
+            "required": [
+              "scene_id",
+              "revision"
+            ],
             "type": "object"
           },
           "status": {
@@ -16581,7 +18780,7 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
 **beyond · RhinoTerminal**
 
 ```txt
-선택한 Holon과 하위 Holon의 유효 구성원을 Rhino에서 선택·격리·확대. 잠긴 주변 객체는 계속 보일 수 있다. Unisolate는 격리 전 표시 상태를 복원하며, 선택과 카메라 상태는 별도로 복원해야 할 수 있다.
+Holon의 유효 구성원을 선택·격리·확대한다. 격리 해제는 view_change.restore_visibility_command를 쓴다. 카메라와 선택은 별도로 복원한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -16591,13 +18790,9 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
-      "type": "string"
-    },
-    "expected_model_path": {
-      "default": "",
-      "description": "지정한 경로가 연결 문서와 일치해야 함",
       "type": "string"
     },
     "holon_ids": {
@@ -16609,8 +18804,8 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
     }
   },
   "required": [
-    "holon_ids",
-    "connection_id"
+    "connection_id",
+    "holon_ids"
   ],
   "type": "object"
 }
@@ -16624,11 +18819,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
 {
   "additionalProperties": false,
   "properties": {
-    "expected_model_path": {
-      "default": "",
-      "description": "지정한 경로가 연결 문서와 일치해야 함",
-      "type": "string"
-    },
     "holon_ids": {
       "description": "서로 다른 ID 1~32개. 유효 최상위 객체는 최대 4096개",
       "items": {
@@ -16667,7 +18857,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
               "after_failure": {
                 "properties": {
                   "camera_location": {
-                    "description": "문서 단위의 [x, y, z].",
                     "items": {
                       "type": "number"
                     },
@@ -16676,7 +18865,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                     "type": "array"
                   },
                   "camera_target": {
-                    "description": "문서 단위의 [x, y, z].",
                     "items": {
                       "type": "number"
                     },
@@ -16685,7 +18873,7 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                     "type": "array"
                   },
                   "frustum": {
-                    "description": "[left, right, bottom, top, near, far] 순서.",
+                    "description": "left, right, bottom, top, near, far",
                     "items": {
                       "type": "number"
                     },
@@ -16708,7 +18896,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
               "before_zoom": {
                 "properties": {
                   "camera_location": {
-                    "description": "문서 단위의 [x, y, z].",
                     "items": {
                       "type": "number"
                     },
@@ -16717,7 +18904,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                     "type": "array"
                   },
                   "camera_target": {
-                    "description": "문서 단위의 [x, y, z].",
                     "items": {
                       "type": "number"
                     },
@@ -16726,7 +18912,7 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                     "type": "array"
                   },
                   "frustum": {
-                    "description": "[left, right, bottom, top, near, far] 순서.",
+                    "description": "left, right, bottom, top, near, far",
                     "items": {
                       "type": "number"
                     },
@@ -16750,7 +18936,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                 "description": "문서 단위의 대상 합집합 경계.",
                 "properties": {
                   "max": {
-                    "description": "[x, y, z] 순서.",
                     "items": {
                       "type": "number"
                     },
@@ -16759,7 +18944,6 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                     "type": "array"
                   },
                   "min": {
-                    "description": "[x, y, z] 순서.",
                     "items": {
                       "type": "number"
                     },
@@ -16768,6 +18952,10 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                     "type": "array"
                   }
                 },
+                "required": [
+                  "min",
+                  "max"
+                ],
                 "type": "object"
               },
               "target_bounds_error": {
@@ -16777,22 +18965,27 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                 "type": "integer"
               },
               "zoom_bounding_box": {
-                "type": [
-                  "boolean",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "zoom_extents_selected": {
-                "type": [
-                  "boolean",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
             "type": "object"
-          },
-          "isolated": {
-            "type": "boolean"
           },
           "locked_context_remains_visible": {
             "type": "boolean"
@@ -16804,21 +18997,19 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
             "type": "string"
           },
           "mutation_applied": {
-            "description": "null이면 뷰 변경 적용을 확인하지 못한 상태.",
-            "type": [
-              "boolean",
-              "null"
-            ]
-          },
-          "next_step_guide": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null이면 뷰 변경 적용을 확인하지 못한 상태."
           },
           "requires_reconciliation": {
             "description": "true면 현재 Rhino 상태를 확인한 뒤 다음 작업을 결정.",
             "type": "boolean"
-          },
-          "restore_visibility_command": {
-            "type": "string"
           },
           "selected_ids": {
             "items": {
@@ -16832,15 +19023,23 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
           "view_change": {
             "properties": {
               "display_mode_changed": {
-                "type": [
-                  "boolean",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "isolated": {
-                "type": [
-                  "boolean",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "restore_visibility_command": {
@@ -16848,9 +19047,13 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                 "type": "string"
               },
               "selection_changed": {
-                "type": [
-                  "boolean",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "zoom_method": {
@@ -16862,21 +19065,21 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
                 "type": "string"
               },
               "zoom_selected": {
-                "description": "선택 확대 또는 대체 경계 확대를 완료하면 true.",
-                "type": [
-                  "boolean",
-                  "null"
-                ]
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "선택 확대 또는 대체 경계 확대를 완료하면 true."
               }
             },
             "type": "object"
           },
           "viewport_id": {
             "type": "string"
-          },
-          "zoom_selected": {
-            "description": "선택 확대 또는 대체 경계 확대를 완료하면 true.",
-            "type": "boolean"
           }
         },
         "type": "object"
@@ -16900,7 +19103,7 @@ Rhino 객체를 Scene에 추가하거나 해당 Scene에서 제외한 Holon 구�
 **beyond · RhinoTerminal**
 
 ```txt
-Scene의 등록 정보와 저장된 Holon·객체 수 조회. 현재 Rhino 구성원은 scene_06-get_objects tool로 조회. include_ids=true일 때도 입력한 scene_id는 생략.
+저장된 Scene과 Holon·객체 수를 조회한다. 현재 Rhino 구성원은 scene_06-get_objects tool에서 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -16910,7 +19113,8 @@ Scene의 등록 정보와 저장된 Holon·객체 수 조회. 현재 Rhino 구�
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -16918,6 +19122,13 @@ Scene의 등록 정보와 저장된 Holon·객체 수 조회. 현재 Rhino 구�
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "scope",
+              "state",
+              "geometry",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -16925,22 +19136,16 @@ Scene의 등록 정보와 저장된 Holon·객체 수 조회. 현재 Rhino 구�
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "scope, state, geometry, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회하거나 이전에 기록한 Scene ID",
+      "description": "scene_07-list tool에서 조회하거나 이전에 기록한 Scene ID",
       "type": "string"
     }
   },
   "required": [
-    "scene_id",
-    "connection_id"
+    "connection_id",
+    "scene_id"
   ],
   "type": "object"
 }
@@ -16958,6 +19163,13 @@ Scene의 등록 정보와 저장된 Holon·객체 수 조회. 현재 Rhino 구�
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "scope",
+              "state",
+              "geometry",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -16965,16 +19177,10 @@ Scene의 등록 정보와 저장된 Holon·객체 수 조회. 현재 Rhino 구�
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "scope, state, geometry, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
-    },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
+      ]
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회하거나 이전에 기록한 Scene ID",
+      "description": "scene_07-list tool에서 조회하거나 이전에 기록한 Scene ID",
       "type": "string"
     }
   },
@@ -17002,34 +19208,45 @@ Scene의 등록 정보와 저장된 Holon·객체 수 조회. 현재 Rhino 구�
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "scene": {
             "properties": {
               "direct_objects": {
                 "type": "integer"
               },
+              "file_name": {
+                "type": "string"
+              },
               "holons": {
                 "type": "integer"
-              },
-              "live_verified": {
-                "type": "boolean"
               },
               "name": {
                 "type": "string"
               },
               "objects": {
-                "description": "직접 등록 또는 제외 override가 있으면 저장된 정보만으로 수를 확정하기 어려워 null 반환",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "직접 등록 또는 제외 override가 있으면 저장된 정보만으로 수를 확정하기 어려워 null 반환"
               },
               "revision": {
                 "type": "integer"
               },
               "units": {
+                "enum": [
+                  "mm",
+                  "cm",
+                  "m",
+                  "in",
+                  "ft"
+                ],
+                "type": "string"
+              },
+              "updated_at": {
                 "type": "string"
               }
             },
@@ -17070,7 +19287,8 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -17078,6 +19296,13 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "references",
+              "geometry",
+              "scope",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -17085,31 +19310,26 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "references, geometry, scope, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
+      ]
     },
     "holon_id": {
       "description": "include_ids=true로 조회하거나 이전 등록 결과에서 확인한 Holon ID",
       "type": "string"
     },
     "include_ids": {
-      "default": false,
       "description": "요청한 필드 그룹에 해당하는 ID만 포함",
       "type": "boolean"
     },
     "live": {
-      "default": false,
       "type": "boolean"
     },
     "recursive": {
-      "default": false,
       "type": "boolean"
     }
   },
   "required": [
-    "holon_id",
-    "connection_id"
+    "connection_id",
+    "holon_id"
   ],
   "type": "object"
 }
@@ -17127,6 +19347,13 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "references",
+              "geometry",
+              "scope",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -17134,25 +19361,20 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "references, geometry, scope, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
+      ]
     },
     "holon_id": {
       "description": "include_ids=true로 조회하거나 이전 등록 결과에서 확인한 Holon ID",
       "type": "string"
     },
     "include_ids": {
-      "default": false,
       "description": "요청한 필드 그룹에 해당하는 ID만 포함",
       "type": "boolean"
     },
     "live": {
-      "default": false,
       "type": "boolean"
     },
     "recursive": {
-      "default": false,
       "type": "boolean"
     }
   },
@@ -17183,22 +19405,144 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
                 "description": "등록 정보와 현재 관찰 결과의 구분은 live_verified로 확인",
                 "type": "string"
               },
+              "bounds_mm": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "maxItems": 6,
+                    "minItems": 6,
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`geometry` 또는 `all`에서 반환하는 유효 구성원의 경계."
+              },
+              "child_holon_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "created_at": {
+                "description": "`audit` 또는 `all`에서 반환.",
+                "type": "string"
+              },
+              "effective_object_count": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "effective_objects": {
+                "items": {
+                  "properties": {
+                    "bounds_mm": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "maxItems": 6,
+                      "minItems": 6,
+                      "type": "array"
+                    },
+                    "holon_id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "object_type": {
+                      "type": "string"
+                    },
+                    "rhino_guid": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "file_name": {
+                "description": "`scope` 또는 `all`에서 반환.",
+                "type": "string"
+              },
               "live_verified": {
                 "type": "boolean"
+              },
+              "model_path": {
+                "type": "string"
               },
               "name": {
                 "type": "string"
               },
               "object_count": {
                 "type": "integer"
+              },
+              "objects": {
+                "items": {
+                  "properties": {
+                    "bounds_mm": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "maxItems": 6,
+                      "minItems": 6,
+                      "type": "array"
+                    },
+                    "holon_id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "object_type": {
+                      "type": "string"
+                    },
+                    "rhino_guid": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "parent_holon_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`references` 또는 `all`과 include_ids=true에서 반환."
+              },
+              "requires_sync": {
+                "type": "boolean"
+              },
+              "rhino_group_id": {
+                "type": "string"
+              },
+              "scene_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "updated_at": {
+                "type": "string"
               }
             },
             "type": "object"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "status": {
@@ -17227,6 +19571,7 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
 
 ```txt
 현재 Rhino 문서에서 Scene의 직접 객체와 Holon 구성원 조회. Scene에서 제외한 구성원은 생략.
+페이지 기본값은 limit=50, offset=0이며 limit은 1~200이다. truncated이면 같은 조건에서 반환한 항목 수만큼 offset을 늘린다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -17236,12 +19581,12 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "지정한 경로가 연결 문서와 일치해야 함",
       "type": "string"
     },
@@ -17249,6 +19594,13 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "scope",
+              "state",
+              "geometry",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -17256,31 +19608,25 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "scope, state, geometry, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
+      ]
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "limit": {
-      "default": 50,
-      "description": "1~200",
       "type": "integer"
     },
     "offset": {
-      "default": 0,
       "type": "integer"
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회하거나 이전에 기록한 Scene ID",
+      "description": "scene_07-list tool에서 조회하거나 이전에 기록한 Scene ID",
       "type": "string"
     }
   },
   "required": [
-    "scene_id",
-    "connection_id"
+    "connection_id",
+    "scene_id"
   ],
   "type": "object"
 }
@@ -17295,7 +19641,6 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
   "additionalProperties": false,
   "properties": {
     "expected_model_path": {
-      "default": "",
       "description": "지정한 경로가 연결 문서와 일치해야 함",
       "type": "string"
     },
@@ -17303,6 +19648,13 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "scope",
+              "state",
+              "geometry",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -17310,25 +19662,19 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "scope, state, geometry, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
+      ]
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "limit": {
-      "default": 50,
-      "description": "1~200",
       "type": "integer"
     },
     "offset": {
-      "default": 0,
       "type": "integer"
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회하거나 이전에 기록한 Scene ID",
+      "description": "scene_07-list tool에서 조회하거나 이전에 기록한 Scene ID",
       "type": "string"
     }
   },
@@ -17353,29 +19699,39 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
           "error_code": {
             "type": "string"
           },
-          "limit": {
-            "type": "integer"
-          },
-          "live_verified": {
-            "type": "boolean"
-          },
           "message": {
             "type": "string"
           },
           "model_path": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "objects": {
             "items": {
+              "properties": {
+                "bounds_mm": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 6,
+                  "minItems": 6,
+                  "type": "array"
+                },
+                "holon_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "object_type": {
+                  "type": "string"
+                },
+                "rhino_guid": {
+                  "type": "string"
+                }
+              },
               "type": "object"
             },
             "type": "array"
-          },
-          "offset": {
-            "type": "integer"
           },
           "status": {
             "type": "string"
@@ -17384,7 +19740,6 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
             "type": "integer"
           },
           "truncated": {
-            "description": "true이면 같은 조건에서 offset을 반환한 objects의 길이만큼 늘려 다음 페이지 조회",
             "type": "boolean"
           }
         },
@@ -17410,6 +19765,7 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
 
 ```txt
 공유 프로젝트 DB의 Scene 목록 조회. Scene 상세는 scene_04-get tool, 현재 Rhino 구성원은 scene_06-get_objects tool로 조회.
+페이지 기본값은 limit=50, offset=0이며 limit은 1~200이다. truncated이면 같은 조건에서 반환한 항목 수만큼 offset을 늘린다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -17419,7 +19775,8 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -17427,6 +19784,13 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "scope",
+              "state",
+              "geometry",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -17434,31 +19798,20 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "scope, state, geometry, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
+      ]
     },
     "file_name": {
-      "default": "",
       "description": "확장자를 포함한 정확한 프로젝트 파일명. 생략 시 프로젝트 전체 범위에서 조회",
       "type": "string"
     },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
-    },
     "limit": {
-      "default": 50,
-      "description": "1~200",
       "type": "integer"
     },
     "name": {
-      "default": "",
       "description": "대소문자를 구분하지 않는 부분 검색",
       "type": "string"
     },
     "offset": {
-      "default": 0,
       "type": "integer"
     }
   },
@@ -17481,6 +19834,13 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "scope",
+              "state",
+              "geometry",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -17488,31 +19848,20 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "scope, state, geometry, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
+      ]
     },
     "file_name": {
-      "default": "",
       "description": "확장자를 포함한 정확한 프로젝트 파일명. 생략 시 프로젝트 전체 범위에서 조회",
       "type": "string"
     },
-    "include_ids": {
-      "default": false,
-      "type": "boolean"
-    },
     "limit": {
-      "default": 50,
-      "description": "1~200",
       "type": "integer"
     },
     "name": {
-      "default": "",
       "description": "대소문자를 구분하지 않는 부분 검색",
       "type": "string"
     },
     "offset": {
-      "default": 0,
       "type": "integer"
     }
   },
@@ -17534,20 +19883,44 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
           "error_code": {
             "type": "string"
           },
-          "limit": {
-            "type": "integer"
-          },
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "integer"
-          },
           "scenes": {
             "items": {
+              "properties": {
+                "created_at": {
+                  "type": "string"
+                },
+                "file_name": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer"
+                },
+                "scene_id": {
+                  "type": "string"
+                },
+                "units": {
+                  "enum": [
+                    "mm",
+                    "cm",
+                    "m",
+                    "in",
+                    "ft"
+                  ],
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "scene_id"
+              ],
               "type": "object"
             },
             "type": "array"
@@ -17559,7 +19932,6 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
             "type": "integer"
           },
           "truncated": {
-            "description": "true이면 같은 필터에서 offset을 반환한 scenes의 길이만큼 늘려 다음 페이지 조회",
             "type": "boolean"
           }
         },
@@ -17594,12 +19966,12 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "관리형 세션에서 생략하면 연결된 모델 기준",
       "type": "string"
     },
@@ -17607,6 +19979,13 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "references",
+              "geometry",
+              "scope",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -17614,20 +19993,15 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "references, geometry, scope, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
+      ]
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "recursive": {
-      "default": false,
       "type": "boolean"
     },
     "scene_id": {
-      "default": "",
       "type": "string"
     }
   },
@@ -17647,7 +20021,6 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
   "additionalProperties": false,
   "properties": {
     "expected_model_path": {
-      "default": "",
       "description": "관리형 세션에서 생략하면 연결된 모델 기준",
       "type": "string"
     },
@@ -17655,6 +20028,13 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
       "anyOf": [
         {
           "items": {
+            "enum": [
+              "references",
+              "geometry",
+              "scope",
+              "audit",
+              "all"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -17662,20 +20042,15 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
         {
           "type": "null"
         }
-      ],
-      "default": null,
-      "description": "references, geometry, scope, audit, all 중 선택. 생략하거나 빈 배열을 주면 요약 조회"
+      ]
     },
     "include_ids": {
-      "default": false,
       "type": "boolean"
     },
     "recursive": {
-      "default": false,
       "type": "boolean"
     },
     "scene_id": {
-      "default": "",
       "type": "string"
     }
   },
@@ -17699,24 +20074,98 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
           },
           "holons": {
             "items": {
+              "properties": {
+                "availability": {
+                  "type": "string"
+                },
+                "bounds_mm": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "number"
+                      },
+                      "maxItems": 6,
+                      "minItems": 6,
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "`geometry` 또는 `all`에서 반환하는 유효 구성원의 경계."
+                },
+                "child_holon_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "created_at": {
+                  "description": "`audit` 또는 `all`에서 반환.",
+                  "type": "string"
+                },
+                "effective_object_count": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "file_name": {
+                  "description": "`scope` 또는 `all`에서 반환.",
+                  "type": "string"
+                },
+                "holon_id": {
+                  "type": "string"
+                },
+                "model_path": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "object_count": {
+                  "type": "integer"
+                },
+                "parent_holon_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "`references` 또는 `all`과 include_ids=true에서 반환."
+                },
+                "requires_sync": {
+                  "type": "boolean"
+                },
+                "rhino_group_id": {
+                  "type": "string"
+                },
+                "scene_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "updated_at": {
+                  "type": "string"
+                }
+              },
               "type": "object"
             },
             "type": "array"
           },
-          "live_verified": {
-            "type": "boolean"
-          },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "status": {
             "type": "string"
-          },
-          "total": {
-            "type": "integer"
           }
         },
         "type": "object"
@@ -17750,7 +20199,8 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -17760,8 +20210,8 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
     }
   },
   "required": [
-    "holon_id",
-    "connection_id"
+    "connection_id",
+    "holon_id"
   ],
   "type": "object"
 }
@@ -17801,24 +20251,7 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
           "error_code": {
             "type": "string"
           },
-          "holon": {
-            "properties": {
-              "holon_id": {
-                "type": "string"
-              },
-              "live_verified": {
-                "type": "boolean"
-              },
-              "status": {
-                "type": "string"
-              }
-            },
-            "type": "object"
-          },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "status": {
@@ -17847,6 +20280,7 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
 
 ```txt
 객체를 Scene에서 제외. Rhino 형상과 Holon 그룹은 보존.
+응답의 인덱스는 object_ids에서 0부터 센다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -17856,12 +20290,12 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
@@ -17873,14 +20307,14 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
       "type": "array"
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회한 Scene ID",
+      "description": "scene_07-list tool에서 조회한 Scene ID",
       "type": "string"
     }
   },
   "required": [
-    "scene_id",
+    "connection_id",
     "object_ids",
-    "connection_id"
+    "scene_id"
   ],
   "type": "object"
 }
@@ -17895,7 +20329,6 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
   "additionalProperties": false,
   "properties": {
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
@@ -17907,13 +20340,13 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
       "type": "array"
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회한 Scene ID",
+      "description": "scene_07-list tool에서 조회한 Scene ID",
       "type": "string"
     }
   },
   "required": [
-    "scene_id",
-    "object_ids"
+    "object_ids",
+    "scene_id"
   ],
   "type": "object"
 }
@@ -17931,22 +20364,21 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
       "contentSchema": {
         "properties": {
           "already_absent_indices": {
-            "description": "object_ids의 0부터 시작하는 위치",
-            "items": {},
+            "items": {
+              "type": "integer"
+            },
             "type": "array"
           },
           "error_code": {
             "type": "string"
           },
           "failed_indices": {
-            "description": "object_ids의 0부터 시작하는 위치",
-            "items": {},
+            "items": {
+              "type": "integer"
+            },
             "type": "array"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "status": {
@@ -17974,7 +20406,7 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
 **beyond · RhinoTerminal**
 
 ```txt
-현재 Rhino 구성원으로 Holon 등록 정보 갱신
+현재 Rhino 구성원으로 Holon 등록 정보를 갱신한다. holon_ids 또는 scene_id로 대상을 선택한다. 둘 다 생략하면 연결 모델 전체를 확인한다. holon_ids는 서로 다른 ID 1~64개다. 한 Holon의 그룹 일치를 확인하려면 holon_id와 rhino_group_id를 함께 보낸다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -17982,44 +20414,58 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
 ```json
 {
   "additionalProperties": false,
+  "anyOf": [
+    {
+      "properties": {
+        "holon_id": false,
+        "rhino_group_id": false,
+        "scene_id": false
+      },
+      "required": [
+        "holon_ids"
+      ]
+    },
+    {
+      "properties": {
+        "holon_ids": false,
+        "scene_id": false
+      },
+      "required": [
+        "holon_id"
+      ]
+    },
+    {
+      "properties": {
+        "holon_id": false,
+        "holon_ids": false,
+        "rhino_group_id": false
+      }
+    }
+  ],
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
     "holon_id": {
-      "default": "",
       "type": "string"
     },
     "holon_ids": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "holon_id 또는 rhino_group_id와 동시 지정 불가"
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "rhino_group_id": {
-      "default": "",
-      "description": "holon_id와 함께 지정해 현재 Rhino 그룹 GUID가 일치하는지 확인하는 용도",
       "type": "string"
     },
     "scene_id": {
-      "default": "",
-      "description": "holon_id, holon_ids, rhino_group_id와 동시 지정 불가",
       "type": "string"
     }
   },
@@ -18037,39 +20483,52 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
 ```json
 {
   "additionalProperties": false,
+  "anyOf": [
+    {
+      "properties": {
+        "holon_id": false,
+        "rhino_group_id": false,
+        "scene_id": false
+      },
+      "required": [
+        "holon_ids"
+      ]
+    },
+    {
+      "properties": {
+        "holon_ids": false,
+        "scene_id": false
+      },
+      "required": [
+        "holon_id"
+      ]
+    },
+    {
+      "properties": {
+        "holon_id": false,
+        "holon_ids": false,
+        "rhino_group_id": false
+      }
+    }
+  ],
   "properties": {
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
     "holon_id": {
-      "default": "",
       "type": "string"
     },
     "holon_ids": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "holon_id 또는 rhino_group_id와 동시 지정 불가"
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "rhino_group_id": {
-      "default": "",
-      "description": "holon_id와 함께 지정해 현재 Rhino 그룹 GUID가 일치하는지 확인하는 용도",
       "type": "string"
     },
     "scene_id": {
-      "default": "",
-      "description": "holon_id, holon_ids, rhino_group_id와 동시 지정 불가",
       "type": "string"
     }
   },
@@ -18105,16 +20564,15 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "problems": {
             "description": "문제 항목과 무관한 유효 등록은 함께 갱신될 수 있음",
             "items": {},
             "type": "array"
           },
           "scene_revisions": {
-            "properties": {},
+            "additionalProperties": {
+              "type": "integer"
+            },
             "type": "object"
           },
           "status": {
@@ -18156,7 +20614,8 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
@@ -18169,17 +20628,16 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "context_04-get_project_info tool의 project.files에 등록된 파일명. 빈 문자열은 연결 해제, 생략하거나 null이면 기존 연결 유지"
+      "description": "빈 문자열은 연결 해제. 생략하거나 null이면 기존 파일 연결을 유지한다."
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회하거나 이전에 기록한 Scene ID",
+      "description": "scene_07-list tool에서 조회하거나 이전에 기록한 Scene ID",
       "type": "string"
     }
   },
   "required": [
-    "scene_id",
-    "connection_id"
+    "connection_id",
+    "scene_id"
   ],
   "type": "object"
 }
@@ -18202,11 +20660,10 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
-      "description": "context_04-get_project_info tool의 project.files에 등록된 파일명. 빈 문자열은 연결 해제, 생략하거나 null이면 기존 연결 유지"
+      "description": "빈 문자열은 연결 해제. 생략하거나 null이면 기존 파일 연결을 유지한다."
     },
     "scene_id": {
-      "description": "scene_07-list tool에서 include_ids=true로 조회하거나 이전에 기록한 Scene ID",
+      "description": "scene_07-list tool에서 조회하거나 이전에 기록한 Scene ID",
       "type": "string"
     }
   },
@@ -18234,19 +20691,16 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "message": {
             "type": "string"
           },
-          "next_step_guide": {
-            "type": "string"
-          },
           "scene": {
+            "description": "파일 연결이 바뀌면 증가",
             "properties": {
               "revision": {
-                "description": "파일 연결이 실제로 바뀔 때 증가",
                 "type": "integer"
-              },
-              "scene_id": {
-                "type": "string"
               }
             },
+            "required": [
+              "revision"
+            ],
             "type": "object"
           },
           "status": {
@@ -18295,21 +20749,19 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
       "description": "빈 배열은 기존 자식 분리, 생략은 유지. 자식당 부모 한 개만 허용하며 순환 금지"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
     "holon_id": {
-      "default": "",
       "description": "생략하면 새 Holon 등록",
       "type": "string"
     },
@@ -18329,11 +20781,9 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
       "description": "최상위 Rhino 객체만 지정 가능하며 객체당 Holon 한 개. 생략하면 name과 일치하는 기존 그룹을 사용하고 빈 배열은 child_holon_ids가 있는 부모에만 허용"
     },
     "rhino_group_id": {
-      "default": "",
       "description": "동명 Rhino 그룹을 구분할 때 사용",
       "type": "string"
     },
@@ -18349,13 +20799,12 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
       "description": "새 Holon은 필수. 수정 시 생략하면 기존 Scene 연결 유지"
     }
   },
   "required": [
-    "name",
-    "connection_id"
+    "connection_id",
+    "name"
   ],
   "type": "object"
 }
@@ -18381,16 +20830,13 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
       "description": "빈 배열은 기존 자식 분리, 생략은 유지. 자식당 부모 한 개만 허용하며 순환 금지"
     },
     "expected_model_path": {
-      "default": "",
       "description": "생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.",
       "type": "string"
     },
     "holon_id": {
-      "default": "",
       "description": "생략하면 새 Holon 등록",
       "type": "string"
     },
@@ -18410,11 +20856,9 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
       "description": "최상위 Rhino 객체만 지정 가능하며 객체당 Holon 한 개. 생략하면 name과 일치하는 기존 그룹을 사용하고 빈 배열은 child_holon_ids가 있는 부모에만 허용"
     },
     "rhino_group_id": {
-      "default": "",
       "description": "동명 Rhino 그룹을 구분할 때 사용",
       "type": "string"
     },
@@ -18430,7 +20874,6 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
       "description": "새 Holon은 필수. 수정 시 생략하면 기존 Scene 연결 유지"
     }
   },
@@ -18468,14 +20911,14 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
               },
               "object_count": {
                 "type": "integer"
+              },
+              "rhino_group_id": {
+                "type": "string"
               }
             },
             "type": "object"
           },
           "message": {
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "status": {
@@ -18503,9 +20946,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 **beyond · RhinoTerminal**
 
 ```txt
-연결된 Rhino 문서에서 Python 3 코드로 형상을 편집하거나 산출물을 생성. 선택한 Plan·Loop 산출물 폴더가 작업 디렉터리. 쓰기 가능한 공간을 plan_10-set_working tool으로 선택하거나 기존 선택을 재사용한다.
-
-스크립트 실행만 기록할 때는 출력 또는 반환값에 executed를 사용한다. 작업 목적의 달성 여부는 실제 변경과 산출물로 확인하고, 문서 저장 여부는 별도로 확인한다. 시간 초과 뒤에도 실행이 이어지거나 오류 시 부분 변경이 남을 수 있다. 완료가 불확실하면 반환된 request_id로 script_03-get_execution tool을 조회하고, 같은 변경을 다시 실행하기 전에 문서 상태를 확인한다.
+선택한 Plan·Loop 폴더에서 Python을 실행한다. 상대 경로로 산출물을 쓰고 JSON 결과는 result에 할당한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -18515,23 +20956,25 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
   "additionalProperties": false,
   "properties": {
     "code": {
-      "description": "동기식 코드. doc과 scriptcontext.doc은 연결된 문서. JSON 호환 반환값은 result에 할당하고 상대 경로는 선택한 산출물 폴더 기준",
+      "description": "동기식 Python. doc과 scriptcontext.doc은 연결 문서. 상대 경로는 산출물 폴더 기준.",
       "type": "string"
     },
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "timeout_seconds": {
-      "default": 60,
-      "description": "완료 근거 대기 한도 1~600초. beyond는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음.",
+      "description": "1~600초, 기본 60. 60초 이내에 완료를 확인하지 못하면 pending과 request_id를 반환할 수 있다.",
+      "maximum": 600,
+      "minimum": 1,
       "type": "integer"
     }
   },
   "required": [
-    "code",
-    "connection_id"
+    "connection_id",
+    "code"
   ],
   "type": "object"
 }
@@ -18546,12 +20989,13 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
   "additionalProperties": false,
   "properties": {
     "code": {
-      "description": "동기식 코드. doc과 scriptcontext.doc은 연결된 문서. JSON 호환 반환값은 result에 할당하고 상대 경로는 선택한 산출물 폴더 기준",
+      "description": "동기식 Python. doc과 scriptcontext.doc은 연결 문서. 상대 경로는 산출물 폴더 기준.",
       "type": "string"
     },
     "timeout_seconds": {
-      "default": 60,
-      "description": "완료 근거 대기 한도 1~600초. beyond는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음.",
+      "description": "1~600초, 기본 60. 60초 이내에 완료를 확인하지 못하면 pending과 request_id를 반환할 수 있다.",
+      "maximum": 600,
+      "minimum": 1,
       "type": "integer"
     }
   },
@@ -18570,21 +21014,26 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 {
   "properties": {
     "artifact_dir": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "completed": {
       "type": "boolean"
     },
     "completion_state": {
-      "description": "finishing은 Rhino 완료 후 CLI 종료 대기, awaiting_receipt는 CLI 종료 후 Rhino 완료 근거 대기.",
       "type": "string"
     },
     "connection_state": {
-      "description": "recovering이면 실행 확인과 최초 호출의 정리가 진행 중",
       "type": "string"
+    },
+    "diagnostics_truncated": {
+      "type": "boolean"
     },
     "error_code": {
       "type": "string"
@@ -18593,32 +21042,40 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
       "type": "string"
     },
     "mutation_state": {
-      "description": "partial 또는 unknown이면 같은 수정을 다시 실행하기 전에 현재 문서 상태 확인",
-      "type": "string"
-    },
-    "next_step_guide": {
       "type": "string"
     },
     "pending": {
-      "description": "true이면 같은 request_id로 script_03-get_execution tool 조회",
       "type": "boolean"
     },
     "request_id": {
-      "description": "미완료 실행, 불확실한 결과 또는 다음 결과 페이지를 script_03-get_execution tool로 조회할 때 사용",
       "type": "string"
     },
     "result": {},
+    "result_bytes": {
+      "type": "integer"
+    },
     "result_display_error": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "result_error": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
+    },
+    "result_file": {
+      "type": "string"
     },
     "result_page": {
       "properties": {
@@ -18628,17 +21085,21 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           },
           "type": "array"
         },
+        "metadata_truncated": {
+          "type": "boolean"
+        },
         "pages": {
           "additionalProperties": {
             "properties": {
               "next_offset": {
-                "type": [
-                  "integer",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
-              },
-              "offset": {
-                "type": "integer"
               },
               "returned": {
                 "type": "integer"
@@ -18649,7 +21110,6 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
             },
             "type": "object"
           },
-          "description": "배열이나 문자열이 최상위 결과이면 result 키로 페이지 조회",
           "type": "object"
         },
         "type": {
@@ -18661,16 +21121,16 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
       },
       "type": "object"
     },
+    "result_sha256": {
+      "type": "string"
+    },
     "status": {
-      "description": "executed는 스크립트 본문 실행 종료를 뜻하며 작업 결과는 result와 mutation_state에서 별도 확인",
       "type": "string"
     },
     "timed_out": {
-      "description": "첫 응답 대기 한도 초과. 이때 실행이 이어지거나 부분 변경이 남을 수 있음",
       "type": "boolean"
     },
     "uncertain": {
-      "description": "완료 근거 미확인. 재실행 전 문서 상태 확인 필요",
       "type": "boolean"
     }
   },
@@ -18686,7 +21146,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 **beyond · RhinoTerminal**
 
 ```txt
-연결된 RhinoCode에서 모델링·편집·측정 코드 또는 명령 매크로 실행. 실행 완료만 기록할 때는 출력 또는 반환값에 executed를 사용하고, 작업 결과는 result와 mutation_state에서 확인한다. 완료가 불확실하면 반환된 request_id로 script_03-get_execution tool을 조회하고, 같은 변경을 다시 실행하기 전에 문서 상태를 확인한다.
+RhinoCode에서 스크립트나 명령을 실행한다. 완료가 불확실하면 request_id로 실행 기록과 모델 상태를 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -18696,28 +21156,37 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "language": {
       "default": "python",
-      "description": "python(Python 3), python2, csharp, csharp-script, command 중 선택.",
+      "description": "기본값 \"python\" (Python 3)",
+      "enum": [
+        "python",
+        "python2",
+        "csharp",
+        "csharp-script",
+        "command"
+      ],
       "type": "string"
     },
     "script": {
-      "description": "동기식 Python 소스, C# 문장 본문 또는 명령 매크로. Python은 JSON 호환 값을 result에, C#은 JSON을 result_json에 할당. doc은 연결된 문서. command는 !·Pause·대화상자 없이 종료되는 매크로",
+      "description": "Python은 result에 JSON 호환 값, C# 문장 본문은 result_json에 JSON을 할당. doc은 연결 문서. 명령 매크로는 !·Pause·대화상자 없이 종료해야 한다.",
       "type": "string"
     },
     "timeout_seconds": {
-      "default": 60,
-      "description": "완료 근거 대기 한도 1~600초. beyond는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음.",
+      "description": "1~600초, 기본 60. 60초 이내에 완료를 확인하지 못하면 pending과 request_id를 반환할 수 있다.",
+      "maximum": 600,
+      "minimum": 1,
       "type": "integer"
     }
   },
   "required": [
-    "script",
-    "connection_id"
+    "connection_id",
+    "script"
   ],
   "type": "object"
 }
@@ -18733,16 +21202,24 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
   "properties": {
     "language": {
       "default": "python",
-      "description": "python(Python 3), python2, csharp, csharp-script, command 중 선택.",
+      "description": "기본값 \"python\" (Python 3)",
+      "enum": [
+        "python",
+        "python2",
+        "csharp",
+        "csharp-script",
+        "command"
+      ],
       "type": "string"
     },
     "script": {
-      "description": "동기식 Python 소스, C# 문장 본문 또는 명령 매크로. Python은 JSON 호환 값을 result에, C#은 JSON을 result_json에 할당. doc은 연결된 문서. command는 !·Pause·대화상자 없이 종료되는 매크로",
+      "description": "Python은 result에 JSON 호환 값, C# 문장 본문은 result_json에 JSON을 할당. doc은 연결 문서. 명령 매크로는 !·Pause·대화상자 없이 종료해야 한다.",
       "type": "string"
     },
     "timeout_seconds": {
-      "default": 60,
-      "description": "완료 근거 대기 한도 1~600초. beyond는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음.",
+      "description": "1~600초, 기본 60. 60초 이내에 완료를 확인하지 못하면 pending과 request_id를 반환할 수 있다.",
+      "maximum": 600,
+      "minimum": 1,
       "type": "integer"
     }
   },
@@ -18768,12 +21245,13 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
             "type": "boolean"
           },
           "completion_state": {
-            "description": "finishing은 Rhino 완료 후 CLI 종료 대기, awaiting_receipt는 CLI 종료 후 Rhino 완료 근거 대기.",
             "type": "string"
           },
           "connection_state": {
-            "description": "recovering이면 실행 확인과 최초 호출의 정리가 진행 중",
             "type": "string"
+          },
+          "diagnostics_truncated": {
+            "type": "boolean"
           },
           "error_code": {
             "type": "string"
@@ -18782,32 +21260,40 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
             "type": "string"
           },
           "mutation_state": {
-            "description": "partial 또는 unknown이면 같은 수정을 다시 실행하기 전에 현재 문서 상태 확인",
-            "type": "string"
-          },
-          "next_step_guide": {
             "type": "string"
           },
           "pending": {
-            "description": "true이면 같은 request_id로 script_03-get_execution tool 조회",
             "type": "boolean"
           },
           "request_id": {
-            "description": "같은 실행을 script_03-get_execution tool로 조회할 때 사용",
             "type": "string"
           },
           "result": {},
+          "result_bytes": {
+            "type": "integer"
+          },
           "result_display_error": {
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "result_error": {
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ]
+          },
+          "result_file": {
+            "type": "string"
           },
           "result_page": {
             "properties": {
@@ -18817,17 +21303,21 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
                 },
                 "type": "array"
               },
+              "metadata_truncated": {
+                "type": "boolean"
+              },
               "pages": {
                 "additionalProperties": {
                   "properties": {
                     "next_offset": {
-                      "type": [
-                        "integer",
-                        "null"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
-                    },
-                    "offset": {
-                      "type": "integer"
                     },
                     "returned": {
                       "type": "integer"
@@ -18838,7 +21328,6 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
                   },
                   "type": "object"
                 },
-                "description": "배열이나 문자열이 최상위 결과이면 result 키로 페이지 조회",
                 "type": "object"
               },
               "type": {
@@ -18850,16 +21339,16 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
             },
             "type": "object"
           },
+          "result_sha256": {
+            "type": "string"
+          },
           "status": {
-            "description": "executed는 스크립트 본문 실행 종료를 뜻하며 작업 결과는 result와 mutation_state에서 별도 확인",
             "type": "string"
           },
           "timed_out": {
-            "description": "첫 응답 대기 한도 초과. 이때 실행이 이어지거나 부분 변경이 남을 수 있음",
             "type": "boolean"
           },
           "uncertain": {
-            "description": "완료 근거 미확인. 재실행 전 문서 상태 확인 필요",
             "type": "boolean"
           }
         },
@@ -18884,7 +21373,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 **beyond · RhinoTerminal**
 
 ```txt
-이전 RhinoCode 실행의 상태와 보관된 결과·로그 조회. 조회는 실행 기록만 읽으며, 연결이 끝난 뒤에도 기록이 남아 있으면 조회할 수 있다. 배열이나 문자열 결과는 페이지로 조회하고 로그는 별도의 바이트 오프셋을 사용한다.
+실행 상태·결과·로그를 조회한다. 결과의 배열은 항목, 문자열은 문자, 로그는 바이트 단위로 페이지를 읽는다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -18894,40 +21383,44 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     },
     "include_diagnostics": {
-      "default": false,
+      "description": "정상 완료에서도 CLI·Undo·호출 식별 근거를 diagnostics에 포함.",
       "type": "boolean"
     },
     "include_ids": {
       "default": true,
+      "description": "기본값 true",
       "type": "boolean"
     },
     "include_result": {
       "default": true,
+      "description": "기본값 true",
       "type": "boolean"
     },
     "include_stdout": {
-      "default": false,
       "description": "stdout·stderr와 CLI 로그 포함",
       "type": "boolean"
     },
     "limit": {
       "default": 100,
-      "description": "결과 페이지당 1~1000. 로그에는 별도 크기 제한 적용",
+      "description": "결과 페이지당 1~1000. 로그에는 별도 크기 제한 적용 · 기본값 100",
+      "maximum": 1000,
+      "minimum": 1,
       "type": "integer"
     },
     "offset": {
       "default": 0,
-      "description": "결과는 배열 항목 또는 문자열 문자, 로그는 바이트 단위",
+      "description": "기본값 0",
+      "minimum": 0,
       "type": "integer"
     },
     "request_id": {
-      "default": "",
-      "description": "생략하면 현재 연결의 최근 실행 조회. beyond에서 지정한 ID로 최초 실행 연결을 찾으며, 시간 초과 후에는 같은 ID를 지정",
+      "description": "생략 시 현재 연결의 최근 실행. 시간 초과 후에는 반환된 ID를 지정.",
       "type": "string"
     },
     "result_fields": {
@@ -18942,7 +21435,6 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
       "description": "객체 결과의 최상위 키 또는 객체 배열의 각 행에서 유지할 키"
     }
   },
@@ -18962,35 +21454,38 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
   "additionalProperties": false,
   "properties": {
     "include_diagnostics": {
-      "default": false,
+      "description": "정상 완료에서도 CLI·Undo·호출 식별 근거를 diagnostics에 포함.",
       "type": "boolean"
     },
     "include_ids": {
       "default": true,
+      "description": "기본값 true",
       "type": "boolean"
     },
     "include_result": {
       "default": true,
+      "description": "기본값 true",
       "type": "boolean"
     },
     "include_stdout": {
-      "default": false,
       "description": "stdout·stderr와 CLI 로그 포함",
       "type": "boolean"
     },
     "limit": {
       "default": 100,
-      "description": "결과 페이지당 1~1000. 로그에는 별도 크기 제한 적용",
+      "description": "결과 페이지당 1~1000. 로그에는 별도 크기 제한 적용 · 기본값 100",
+      "maximum": 1000,
+      "minimum": 1,
       "type": "integer"
     },
     "offset": {
       "default": 0,
-      "description": "결과는 배열 항목 또는 문자열 문자, 로그는 바이트 단위",
+      "description": "기본값 0",
+      "minimum": 0,
       "type": "integer"
     },
     "request_id": {
-      "default": "",
-      "description": "생략하면 현재 연결의 최근 실행 조회. beyond에서 지정한 ID로 최초 실행 연결을 찾으며, 시간 초과 후에는 같은 ID를 지정",
+      "description": "생략 시 현재 연결의 최근 실행. 시간 초과 후에는 반환된 ID를 지정.",
       "type": "string"
     },
     "result_fields": {
@@ -19005,7 +21500,6 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "type": "null"
         }
       ],
-      "default": null,
       "description": "객체 결과의 최상위 키 또는 객체 배열의 각 행에서 유지할 키"
     }
   },
@@ -19020,8 +21514,73 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 ```json
 {
   "properties": {
+    "cleanup_errors": {
+      "items": {},
+      "type": "array"
+    },
+    "cli_stderr": {
+      "type": "string"
+    },
+    "cli_stderr_page": {
+      "properties": {
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retained_bytes": {
+          "type": "integer"
+        },
+        "returned_bytes": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "cli_stdout": {
+      "type": "string"
+    },
+    "cli_stdout_page": {
+      "properties": {
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retained_bytes": {
+          "type": "integer"
+        },
+        "returned_bytes": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
     "completed": {
-      "description": "최종 Rhino 처리 근거와 CLI 종료를 모두 확인한 경우 true. native_completed는 Rhino 측 완료 확인",
+      "type": "boolean"
+    },
+    "completion_state": {
+      "type": "string"
+    },
+    "connection_state": {
+      "type": "string"
+    },
+    "diagnostics": {
+      "additionalProperties": true,
+      "description": "상세 요청 또는 실패·미확정 실행의 근거. 요청한 로그가 잘리거나 읽히지 않은 경우와 연결 종료 후 조회한 실행의 Rhino 식별 정보도 포함한다.",
+      "type": "object"
+    },
+    "diagnostics_truncated": {
       "type": "boolean"
     },
     "error_code": {
@@ -19031,28 +21590,53 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
       "type": "string"
     },
     "mutation_state": {
-      "description": "partial 또는 unknown이면 같은 수정을 다시 실행하기 전에 현재 문서 상태 확인",
       "type": "string"
     },
-    "next_step_guide": {
-      "type": "string"
+    "native_completed": {
+      "type": "boolean"
+    },
+    "pending": {
+      "type": "boolean"
+    },
+    "recovery_only": {
+      "type": "boolean"
     },
     "request_id": {
-      "description": "같은 실행의 상태나 다음 결과 페이지를 조회할 때 사용",
       "type": "string"
     },
+    "requires_reconnect": {
+      "type": "boolean"
+    },
     "result": {},
+    "result_available": {
+      "description": "include_result=false일 때 보관된 결과 유무.",
+      "type": "boolean"
+    },
+    "result_bytes": {
+      "type": "integer"
+    },
     "result_display_error": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "result_error": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ]
+    },
+    "result_file": {
+      "type": "string"
     },
     "result_page": {
       "properties": {
@@ -19062,17 +21646,21 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           },
           "type": "array"
         },
+        "metadata_truncated": {
+          "type": "boolean"
+        },
         "pages": {
           "additionalProperties": {
             "properties": {
               "next_offset": {
-                "type": [
-                  "integer",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
-              },
-              "offset": {
-                "type": "integer"
               },
               "returned": {
                 "type": "integer"
@@ -19083,7 +21671,6 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
             },
             "type": "object"
           },
-          "description": "배열이나 문자열이 최상위 결과이면 result 키로 페이지 조회",
           "type": "object"
         },
         "type": {
@@ -19095,9 +21682,65 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
       },
       "type": "object"
     },
-    "status": {
-      "description": "executed는 스크립트 본문 실행 종료를 뜻하며 작업 결과는 별도 확인",
+    "result_sha256": {
       "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "stderr": {
+      "type": "string"
+    },
+    "stderr_page": {
+      "properties": {
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retained_bytes": {
+          "type": "integer"
+        },
+        "returned_bytes": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "stdout": {
+      "type": "string"
+    },
+    "stdout_page": {
+      "properties": {
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retained_bytes": {
+          "type": "integer"
+        },
+        "returned_bytes": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "timed_out": {
+      "type": "boolean"
+    },
+    "uncertain": {
+      "type": "boolean"
     }
   },
   "type": "object"
@@ -19112,7 +21755,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 **beyond · RhinoTerminal**
 
 ```txt
-사용자의 영구 저장 요청에 따라 연결된 문서 전체를 기존 .3dm 경로에 저장
+사용자가 영구 저장을 요청하면 연결 문서 전체를 기존 .3dm 경로에 저장한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -19122,7 +21765,8 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
   "additionalProperties": false,
   "properties": {
     "connection_id": {
-      "description": "이 대화에서 connect_02-session tool 또는 connect_03-start_session tool로 받은 연결 ID.",
+      "maxLength": 32,
+      "minLength": 32,
       "pattern": "^[0-9a-f]{32}$",
       "type": "string"
     }
@@ -19166,15 +21810,19 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "modified": {
             "type": "boolean"
           },
-          "next_step_guide": {
-            "type": "string"
+          "requires_reconciliation": {
+            "type": "boolean"
           },
           "saved": {
-            "description": "저장이 미확정이면 null과 requires_reconciliation=true를 반환. 재호출 전 현재 문서 상태 확인",
-            "type": [
-              "boolean",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "저장이 미확정이면 null이다. 재호출 전 문서 상태를 확인한다."
           },
           "status": {
             "type": "string"

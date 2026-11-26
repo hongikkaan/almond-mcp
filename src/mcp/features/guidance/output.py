@@ -16,7 +16,7 @@ def project(payload: dict, groups: list[str] | None) -> dict:
     result = dict(payload)
     for key, core in (("systems", {"system_id", "name", "category", "structural_material", "fits_span"}),
                       ("entries", {"typology_id", "name", "era", "region"}),
-                      ("sources", {"source_id", "title", "scope", "matched_terms"})):
+                      ("sources", {"source_id", "title", "scope", "matched_terms", "tags", "formats"})):
         if key in result:
             result[key] = [select_fields(item, groups, core, GROUPS) for item in result[key]]
     # Library-level source includes the preliminary-sizing/narration-only limitation.

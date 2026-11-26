@@ -78,7 +78,7 @@ Rhino가 없으면 MCP 초기화와 도구 목록은 정상이고 연결 가능�
 
 ## 공통 도구를 수정했을 때
 
-이 파일은 설치·사용·개발 참고 문서이며 MCP의 server description이나 tool description에 주입되지 않는다. `external_host.py`의 서버 설명은 서버 역할로 노출되고, 구현 docstring의 도구 역할 본문은 description, `Args` 항목은 각 inputSchema 필드의 description으로 분리된다. outputSchema는 `output_contracts.py`, 실행 결과의 후속 안내는 `tool_guidance.py`와 각 실행기의 상태별 응답에서 제공한다.
+이 파일은 설치·사용·개발 참고 문서다. `external_host.py`의 서버 설명은 초기화 응답에 실린다. `output_contracts.py`는 공통 공개 선언에서 도구 설명과 입출력 schema를 제공한다. 실행 상태에 따른 사유는 각 도구의 응답에서 확인한다.
 
 Codex 직접 연결에서는 `context_01-get_policy` tool, `connect_01-list_up` tool, `connect_02-session` tool, `connect_03-start_session` tool을 연결 ID 없이 호출한다. 나머지 도구는 매번 `connection_id`를 받는다. 생략하면 `connection_id가 지정되지 않았습니다` 오류로 요청이 중단된다. 연결 해제나 MCP 재시작 뒤 보관된 결과를 조회할 때는 `script_03-get_execution` tool 또는 `connect_05-close_session` tool에 원래의 `connection_id`와 `request_id`를 함께 전달한다.
 
@@ -96,7 +96,7 @@ C#/RHP/DLL 수정은 빌드된 실행 파일을 반영한 뒤 Rhino를 정상 �
 - 여러 beyond stdio adapter가 같은 설치를 사용할 수 있다. 각 Rhino는 한 연결의 소유권을 유지한다. Codex는 각 호출에 지정한 연결 ID로 문서를 찾는다.
   다른 클라이언트가 사용하는 Rhino는 `in_use`로 표시한다. 그 연결을 유지하면서 `connect_03-start_session` tool으로 별도 Rhino를 열 수 있다.
 - 같은 데이터 위치를 사용하는 singleton host가 살아 있으면 새 활성 연결은 차단한다. 기존 작업을 정상 마친 뒤 해당 beyond MCP를 재시작해 새 Python 소스를 로드한다. RHP 안내 문구는 일상 업데이트 후 새 Rhino에서 반영된다. 잠금 파일을 삭제하지 않는다.
-- Rhino 시작 확인이 늦으면 그 창의 알림과 등록 상태를 확인한다. **같은 `request_id`**로 다시 호출하면 같은 프로세스를 재조회한다. 새 ID는 새 Rhino를 여는 별도 요청이다. attach 실패나 결과 불명 오류를 새 ID로 자동 반복하지 않는다. `connect_01-list_up` tool의 `starts`에서 현재 adapter가 시작한 요청·PID·상태를 볼 수 있다.
+- Rhino 시작 확인이 늦으면 응답에 표시된 PID의 창과 등록 상태를 확인한다. 같은 `model_path`와 **같은 `request_id`**로 다시 호출하면 같은 프로세스를 재조회한다. 새 ID는 새 Rhino를 여는 별도 요청이다. attach 실패나 결과 불명 오류를 새 ID로 자동 반복하지 않는다.
 - 새 Rhino의 시작 요청 기록은 현재 MCP adapter 수명에 한정된다. MCP 재시작 후 모델 작업을 계속하려면 `connect_01-list_up` tool로 남은 Rhino를 확인하고 연결한다. 이전 시작 요청을 자동 재실행하지 않는다.
 - 공유 DB 및 같은 연결의 요청 직렬화 잠금 대기는 최대 **10초**다. 대기 초과 호출은 작업을 실행하지 않으며, 기존 실행 중인 작업과 소유권을 유지한다. 실제 모델링 실행시간 제한과 연결 종료 시 native 완료 대기는 별도다. 대기 초과 뒤 수정을 자동 반복하지 않는다.
 - Windows 사용자 세션의 named pipe를 사용한다. 이 진입점은 stdio만 지원하며 원격 URL, SSE/HTTP 서버를 제공하지 않는다.

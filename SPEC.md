@@ -38,7 +38,7 @@ MCP 도구의 native 구현은 `src/mcp/features/<기능>/native`에 두고 Brid
 
 | 경계 | 소유자 | 전달하는 것 |
 |---|---|---|
-| 도구 선언 | MCP `tool_declarations` | 기능의 명시적 선언에서 읽은 schema·이름. 실행 등록·기본 안내·외부 catalog가 같은 기능 목록을 사용한다. |
+| 도구 선언 | MCP `tool_declarations` | [공개 선언 원본](TOOL-DECLARATIONS-CURRENT.md)에서 생성한 [스키마 데이터](src/mcp/public_contract_data.json)를 문서용 런타임과 beyond가 함께 사용한다. |
 | 서버 시작 | MCP `startup` | 명시적 DB·라이브러리 경로와 전송 함수를 받아 한 `ServerApplication`을 만든다. import만으로 저장소를 열지 않는다. |
 | 기능 실행 | MCP `features` | 서버별 `FeatureContext`의 의존성을 사용한다. 기능별 SQL·모델링·계산 규칙을 유지한다. |
 | 저장소 수명 | MCP `store_database` | SQLite 연결·트랜잭션·초기 스키마·migration 순서를 관리한다. `AlmondStore`는 기능별 저장소의 기존 인터페이스를 제공한다. |
@@ -56,5 +56,6 @@ MCP 도구의 native 구현은 `src/mcp/features/<기능>/native`에 두고 Brid
 
 - [작업 원칙·설치·배포](AGENTS.md)
 - [기능별 사용 문서](README.md)
+- [공개 선언의 실제 stdio 스냅샷](tests/integration/tool_catalogs.md)
 
 모듈 내부만 변경되는 작업은 이 문서를 수정할 필요가 없다. 공통 의존 방향이나 설치·저장소 계약이 실제로 바뀔 때만 함께 갱신한다.

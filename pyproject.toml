@@ -17,6 +17,7 @@ classifiers = [
 dependencies = [
     "fastmcp>=3.0.2",
     "mcp>=1.26.0",
+    "jsonschema>=4.18",
     "pydantic>=2.12.5",
     "numpy>=2.0,<3",
     "shapely>=2.1,<3",
@@ -52,7 +53,7 @@ path = "src/mcp/__init__.py"
 only-include = ["src/mcp"]
 include = [
     "src/mcp/*.py", "src/mcp/*-explain.md", "src/mcp/RHINOCODE-INSTRUCTIONS.md",
-    "src/mcp/modeling_policy.json", "src/mcp/profiles/**",
+    "src/mcp/modeling_policy.json", "src/mcp/public_contract_data.json", "src/mcp/profiles/**",
     "src/mcp/features/**", "src/mcp/rhino/**",
 ]
 sources = {"src/mcp" = "almond_mcp"}

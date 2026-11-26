@@ -10,6 +10,7 @@ from almond_mcp.retrieval_store import AlmondStore
 
 
 VALIDATE = "analysis_02-validate_structure"
+VISUALIZE = "analysis_03-visualize_structure"
 EXPORT = "analysis_04-export_structural_report"
 BEAM_ID = str(UUID(int=1))
 
@@ -38,13 +39,14 @@ def test_cantilever_report(tmp_path, call_tool):
 
     _, result = call_tool(analysis_server(database, bridge), VALIDATE, guids=[BEAM_ID],
                           engine="native", load_kn=tip_load_kn, material="Concrete", self_weight=False,
-                          stability="off", structure_type="canopy")
+                          stability="off", structure_type="canopy", detail=True)
     assert result["status"] == "indicative" and result["passed"] is None
     # Euler–Bernoulli displacement of a fixed cantilever with a tip load, in mm.
     inertia_m4 = breadth_m * depth_m**3 / 12
     expected_mm = 1000 * tip_load_kn * length_m**3 / (3 * elasticity_kn_m2 * inertia_m4)
     assert result["results"]["max_deflection_mm"] == pytest.approx(expected_mm, abs=0.0005)
-    assert result["results"]["reactions_kn"] == pytest.approx(tip_load_kn)
+    assert result["supports"][0]["sls"]["Fz"] == pytest.approx(tip_load_kn)
+    assert result["members"][0]["source_guids"] == [BEAM_ID]
 
     run, = AlmondStore(database).list_validation_runs()
     assert run["result"]["passed"] is None
@@ -74,3 +76,13 @@ def test_invalid_model_has_no_run(tmp_path, call_tool):
     report = tmp_path / "invalid.md"
     assert call_tool(server, EXPORT, path=str(report))[1]["status"] == "error"
     assert not report.exists()
+
+
+def test_display_only_uses_existing_overlay(tmp_path, call_tool):
+    def bridge(raw, **_options):
+        assert json.loads(raw)["type"] == "structure_draw"
+        return json.dumps({"status": "error", "message": "Nothing to display yet: send a result first."})
+
+    server = analysis_server(tmp_path / "project.sqlite3", bridge)
+    _, result = call_tool(server, VISUALIZE, guids=[BEAM_ID], reanalyze=False)
+    assert result["status"] == "error" and "Nothing to display" in result["message"]

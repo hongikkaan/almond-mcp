@@ -1,9 +1,8 @@
 """MCP tools and bridge helpers for structural validation and overlays."""
 from almond_mcp.tool_response import error_payload
 from almond_mcp.query_output import query_output, validate_field_groups
-from almond_mcp.features.structure.output import GROUPS, project
+from almond_mcp.features.structure.output import GROUPS, project, validation_result
 from almond_mcp.tool_declarations import public_tool
-from pydantic import StrictBool
 import json
 import math
 import socket
@@ -17,10 +16,9 @@ KARAMBA_ONLY_TYPES = ("shell", "gridshell", "membrane")
 
 def register(mcp, context):
     """Register structural tools with overlay state for one application."""
-    view_engine = None
     native_report = {}
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     def validate_structure(
         guids: list[str],
         structure_type: str = "beam",
@@ -41,27 +39,6 @@ def register(mcp, context):
         detail: bool = False,
         fabrication: str = "cold_formed",
     ) -> str:
-        """Rhino 구조 형상의 해석과 설계기준 검토. 실행 이력에는 요청 옵션, 실제 엔진·입력·결과를 보관. native는 내보낸 모델과 적용한 하중도 기록. 이전 이력에 기록되지 않은 옵션은 알 수 없음으로 표시.
-
-        Args:
-            guids: 현재 Rhino 문서의 해석 대상 객체 GUID.
-            structure_type: "beam" 단순 보 휨·처짐, "truss" 축력·좌굴, "shell" 셸 응력·변위, "frame" 프레임 모멘트·전단, "canopy" 캔틸레버 캐노피, "gridshell" 대변형 그리드셸, "membrane" 막 구조 형상 탐색, "highrise" 고층 구조 시스템.
-            load_kn: 전체 부과하중. native는 자유 절점에 하향(-Z) 균등 분배. 바닥·자산 하중과 중복되지 않게 산정하고 필요 시 0 지정.
-            material: "Steel", "S355", "Concrete", "Wood", "Aluminium".
-            engine: auto, native, karamba 중 선택. auto는 선형 프레임에 native, 그 외에 Karamba 선택. karamba는 api → template → rule_based 순으로 시도. 실제 적용 방식은 analysis_method·warnings에서 확인.
-            fixed_supports: true는 완전 고정, false는 회전이 자유로운 핀 지점.
-            span_m: 네이티브 해석에서 부재가 여러 절점으로 분할된 경우 L/250을 적용할 전체 경간(예: 3.1 m 두 구간으로 그린 6.2 m 장선).
-            asset_loads: 네이티브 해석에서 배치 자산의 자중·내용물·재실자 하중 추가. 다른 입력에 반영한 하중과 중복되지 않게 산정.
-            floor_load_kn_m2: 네이티브 해석에서 한 층의 보로 둘러싸인 모든 구획에 적용(예: EN 1991-1-1 Category A 주거용 2.0 kN/m²). 보는 45° 규칙에 따라 양방향 분담하며 장단변비가 2:1을 넘으면 일방향 분담. 용도별 활하중에 가구·재실자가 포함되므로 asset_loads는 무거운 특정 물품에만 병행하고 중복 계산을 피하려면 load_kn을 0으로 지정.
-            floor_dead_kn_m2: 같은 바닥 구획의 구성층·마감 등 추가 고정하중.
-            design_basis: 네이티브 하중 조합. "en1990"은 처짐에 SLS G + Q, 부재 검토에 ULS 1.35 G + 1.5 Q 사용. G는 자중·바닥 구성층·배치 물품 중량, Q는 load_kn·용도별 활하중·내용물·재실자. "unfactored"는 Karamba와 같이 둘 다 G + Q 적용.
-            uls_combination: "6.10" 또는 "6.10ab". "6.10ab"는 각 부재에서 6.10a·6.10b 중 불리한 결과를 적용. 생략 시 프로필의 식을 사용(Eurocode: 6.10). 프로필이 식을 지정한 경우 요청보다 우선하며 경고 반환.
-            connections: 네이티브 접합 조건. "rigid"는 모든 접합부의 모멘트를 전달하고, "simple"은 보 단부의 강축 휨과 가새 단부의 양축 휨을 해제. 같은 선상으로 이어지는 부재와 기둥은 연속 유지. 일반 볼트 접합 강구조·목구조는 "simple"에 가깝고 강접합은 보 처짐을 과소평가할 수 있음. 곡선 User Text의 release 값("pinned", "pinned_start", "pinned_end", "rigid") 우선.
-            stability: "auto"는 모든 ULS 조합의 탄성 임계 하중 계수 alpha_cr(EN 1993-1-1 5.2.1)과 ±X·±Y 횡변위 초기 불완전성 φ = 1/200 × αh × αm(5.3.2) 적용. alpha_cr < 10이면 2차 P-Delta ULS 해석, alpha_cr ≤ 1이면 불안정으로 실패 처리. "off"는 초기 불완전성을 적용하지 않는 1차 해석.
-            design_code: 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
-            detail: 네이티브 결과에 부재별 단면력·사용률·처짐과 지점 반력 포함.
-            fabrication: 강재 중공 단면(CHS/RHS)의 제작 방식. "cold_formed"는 EN 10219 좌굴 곡선 c, "hot_finished"는 EN 10210 곡선 a(S460은 a0). 좌굴 내력 차이가 최대 약 23%이므로 명시된 경우에만 "hot_finished" 사용.
-        """
         engine = (engine or "auto").lower()
         if engine not in ("auto", "native", "karamba"):
             return json.dumps(error_payload("engine must be 'auto', 'native' or 'karamba'."))
@@ -171,7 +148,7 @@ def register(mcp, context):
                 context.retrieval_store.record_validation_run(requested, result, guids, analysis=analysis)
         except Exception:
             pass
-        return json.dumps(result)
+        return json.dumps(validation_result(result))
 
 
     def _asset_load_spec():
@@ -266,19 +243,14 @@ def register(mcp, context):
         return result, None
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     @query_output
-    def list_design_codes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """구조 해석에 사용할 설계기준 프로필 조회.
-
-        Args:
-            field_groups: parameters, source, audit, all. 생략하거나 빈 배열이면 요약.
-        """
+    def list_design_codes(field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
         return json.dumps(project(design_codes.listing(), field_groups))
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     def visualize_structure(
         guids: list[str] | None = None,
         load_kn: float = 10.0,
@@ -309,36 +281,7 @@ def register(mcp, context):
         fabrication: str = "cold_formed",
         view: str = "deflection",
     ) -> str:
-        """구조 해석 결과를 임시 뷰포트 오버레이로 표시.
-
-        Args:
-            guids: 구조 축선 곡선과 지점 표식 점의 GUID. 지점 표식이 없으면 최하단 절점을 지점으로 사용(fixed_supports 참조).
-            load_kn: 자유 절점에 하향(-Z) 균등 분배할 전체 부과하중.
-            material: "Steel", "S355", "Concrete", "Wood", "Aluminium".
-            beam_diameter_mm: 원형 부재의 외경.
-            fixed_supports: true는 완전 고정, false는 회전이 자유로운 핀 지점.
-            deflection_limit_ratio: 허용 처짐 L/n의 n. 생략 시 설계기준 한계 사용(예: Eurocode의 L/250은 250).
-            span_m: 처짐 한계 평가에 쓸 기준 경간. 생략 시 가장 긴 부재 사용. 6.2 m 장선을 3.1 m씩 분할했다면 6.2 지정.
-            color_by: "displacement" 또는 "utilization".
-            scale: 변형 표시 배율. 생략 시 표시 변형을 경간의 약 6%로 조정.
-            reveal: 표시할 부재 비율 0..1. 단계별 시공 재생에 사용.
-            reanalyze: false이면 마지막 계산을 재사용하고 표시 옵션(scale, color_by, reveal, physics, title)만 갱신.
-            physics: false이면 해석 오버레이 없이 같은 부재의 일반 형상을 그려 전후 비교.
-            display_guids: 그릴 부재만 선택(예: 단면을 보여 줄 한 줄의 프레임). 해석은 guids 전체에 적용.
-            clear: 현재 해석 오버레이 제거.
-            engine: "native", "karamba", "auto". "auto"는 네이티브 프레임 솔버를 우선 사용하고 셸이 포함되거나 브리지에서 모델을 내보낼 수 없으면 Karamba 사용.
-            asset_loads: 네이티브 해석에서 analysis_02-validate_structure tool과 같은 배치 자산 하중을 추가하고 작용점에 하중 화살표 표시.
-            floor_load_kn_m2: 네이티브 해석에서 한 층의 보로 둘러싸인 모든 구획에 적용(예: EN 1991-1-1 Category A 주거용 2.0 kN/m²). 보는 45° 규칙에 따라 양방향 분담하며 장단변비가 2:1을 넘으면 일방향 분담. 용도별 활하중에 가구·재실자가 포함되므로 asset_loads는 무거운 특정 물품에만 병행하고 중복 계산을 피하려면 load_kn을 0으로 지정.
-            floor_dead_kn_m2: 같은 바닥 구획의 구성층·마감 등 추가 고정하중.
-            design_basis: 네이티브 하중 조합. "en1990"은 처짐에 SLS G + Q, 부재 검토에 ULS 1.35 G + 1.5 Q 사용. G는 자중·바닥 구성층·배치 물품 중량, Q는 load_kn·용도별 활하중·내용물·재실자. "unfactored"는 Karamba와 같이 둘 다 G + Q 적용.
-            uls_combination: "6.10" 또는 "6.10ab". "6.10ab"는 각 부재에서 6.10a·6.10b 중 불리한 결과를 적용. 생략 시 프로필의 식을 사용(Eurocode: 6.10). 프로필이 식을 지정한 경우 요청보다 우선하며 경고 반환.
-            connections: analysis_02-validate_structure tool과 같은 "rigid" 또는 "simple". 핀 접합 단부는 작은 원으로 표시.
-            stability: analysis_02-validate_structure tool과 같은 "auto" 또는 "off".
-            design_code: 설계기준·국가 부록의 gamma_G, gamma_Q, psi_0, xi, gamma_M0, gamma_M1, 처짐 한계를 정하는 프로필. "eurocode"는 EN 권장값, 기타 프로필은 analysis_01-list_design_codes tool에서 선택. "off"는 design_basis="unfactored"와 같이 G + Q 적용.
-            fabrication: 강재 중공 단면(CHS/RHS)의 제작 방식. "cold_formed"는 EN 10219 좌굴 곡선 c, "hot_finished"는 EN 10210 곡선 a(S460은 a0). 좌굴 내력 차이가 최대 약 23%이므로 명시된 경우에만 "hot_finished" 사용.
-            view: "deflection"은 처짐 형상, "buckling"은 지배 ULS 조합의 첫 좌굴 모드와 alpha_cr 표시(STABLE ≥ 10, SWAY-SENSITIVE 1~10, UNSTABLE ≤ 1).
-        """
-        nonlocal view_engine, native_report
+        nonlocal native_report
         if not clear and not guids:
             return json.dumps(error_payload("Provide the curve (and support point) GUIDs to analyse."))
         if color_by not in ("displacement", "utilization"):
@@ -403,7 +346,7 @@ def register(mcp, context):
             spec, err = _asset_load_spec()
             if err:
                 return json.dumps(error_payload(err))
-        if not clear and not reanalyze and view_engine is not None:
+        if not clear and not reanalyze:
             # An established overlay is display-only regardless of who last
             # replaced it or which engine produced it. HandleDraw errors when
             # it was cleared elsewhere; structure_view would start a new solve.
@@ -421,31 +364,28 @@ def register(mcp, context):
                         _enrich_native_view(parsed, cached["report"])
                     else:
                         native_report = {}
-                    _native_verdict(parsed)
+                    _view_verdict(parsed)
                     return json.dumps(parsed)
                 native_report = {}
             except (ValueError, TypeError):
                 pass
             return out
         if not clear and engine != "karamba":
-            reply, note = _native_view(request, guids, engine=engine, asset_spec=spec, floor_spec=floor,
+            draw_engine = "native" if (view or "").lower() == "buckling" else engine
+            reply, note = _native_view(request, guids, engine=draw_engine, asset_spec=spec, floor_spec=floor,
                                        design=(design_basis, uls_combination, code), connections=connections,
                                        stability=stability, view=view, fabrication=fabrication)
             if reply is not None:
                 return reply
         out = _bridge_call(request, 90.0)
-        if clear:
-            view_engine = None
-            native_report = {}
-        elif reanalyze:
-            view_engine = "api"
-            native_report = {}
+        native_report = {}
         try:
             parsed = json.loads(out)
             if isinstance(parsed, dict):
                 parsed.pop("overlay_id", None)
                 if note:
                     parsed.setdefault("warnings", []).append(note)
+                _view_verdict(parsed)
                 out = json.dumps(parsed)
         except (ValueError, TypeError):
             pass
@@ -469,7 +409,7 @@ def register(mcp, context):
 
         Returns (reply_json, None) when it ran or must stop, (None, note) to fall back to Karamba."""
 
-        nonlocal view_engine, native_report
+        nonlocal native_report
         model, note = _read_structure_model(guids, engine)
         if not isinstance(model, dict):
             return model, note
@@ -500,7 +440,6 @@ def register(mcp, context):
         except Exception:
             return out, None
         if isinstance(parsed, dict) and parsed.get("status") in ("pass", "fail", "indicative"):
-            view_engine = "native"
             overlay_id = parsed.pop("overlay_id", None)
             enrichment = {"warnings": result["warnings"]}
             if report is not None:
@@ -521,7 +460,7 @@ def register(mcp, context):
             enrichment["nodes"] = len({tuple(p) for e in result["elements"] for p in (e["start_m"], e["end_m"])})
             native_report = {"overlay_id": overlay_id, "report": enrichment} if overlay_id else {}
             _enrich_native_view(parsed, enrichment)
-            _native_verdict(parsed)
+            _view_verdict(parsed)
         elif engine != "native":
             # a bridge without structure_draw: fall back to the Karamba overlay
             return None, "This bridge version cannot draw native results (update almondbridge)."
@@ -540,8 +479,11 @@ def register(mcp, context):
                 parsed.setdefault(key, value)
 
 
-    def _native_verdict(parsed):
-        indicative = parsed.pop("_indicative", False) or parsed.get("status") == "indicative"
+    def _view_verdict(parsed):
+        status = parsed.get("status")
+        if status not in {"pass", "fail", "indicative"}:
+            return
+        indicative = parsed.pop("_indicative", False) or status == "indicative"
         if indicative and parsed.get("status") == "pass":
             parsed["status"] = "indicative"
         if parsed.get("buckling"):
@@ -551,6 +493,9 @@ def register(mcp, context):
             if not stable:
                 parsed["status"] = "fail"
             parsed.pop("max_displacement_mm", None)
+        if parsed.get("analysis_method") == "native" and "max_displacement_mm" not in parsed:
+            for element in parsed.get("elements", []):
+                element.pop("max_displacement_mm", None)
         parsed["passed"] = None if parsed["status"] == "indicative" else parsed["status"] == "pass"
 
 
@@ -637,14 +582,8 @@ def register(mcp, context):
         return "\n".join(lines)
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     def export_structural_report(path: str = "", limit: int = 50) -> str:
-        """구조 검증 이력의 Markdown 보고서 생성. 각 실행에 실제 엔진과 적용 입력을 기록하고, 저장되지 않은 과거 입력은 알 수 없음으로 표시.
-
-        Args:
-            path: 관리형은 선택한 Plan 산출물 폴더 기준 상대 경로(생략 시 reports/structural-validation.md). 독립 실행에서 생략 시 사용자 데이터의 reports/structural-validation-<timestamp>.md.
-            limit: 최대 500회.
-        """
         from datetime import datetime, timezone
 
         try:

@@ -36,9 +36,9 @@ connect_02-session tool는 discovery host를 재사용하고 connect_04-disconne
 Python worker는 MCP runtime의 기존 `main`, binding 검증·구성 훅과 완료 receipt를 사용한다. 저장소 잠금·native 완료·자산 helper 정책을 외부 연결기에 복제하지 않는다.
 RHP는 [공용 Engine](../rhp/SPEC.md#구성과-빌드)을 참조한다. Bridge·Terminal의 구현 소스를 AlmondRhino에 링크하지 않는다.
 
-새 클라이언트의 catalog는 [공용 MCP 선언 판독기](../mcp/tool_declarations.py)로 feature와 문서 전용 도구의 schema를 읽는다. 선언 판독기와 실행 서버는 같은 feature 목록을 사용한다. 판독기는 handler나 서버를 import하지 않고 중복 도구명을 거절한다. fingerprint는 runtime의 검토된 소스와 MCP package 전체 Python 파일 목록·내용을 포함하여 feature 파일의 추가·삭제·이동도 감지한다. 패키지 버전은 `uv.lock`과 대조한다. 추출 중 소스 변경, 시작한 클라이언트와 worker의 snapshot 불일치, 실제 worker schema 불일치를 검사하며 불일치하면 모델링 요청을 보내지 않는다.
+새 클라이언트의 catalog는 [공용 MCP 선언 판독기](../mcp/tool_declarations.py)로 feature와 문서 전용 도구의 등록 이름·MCP annotations를 확인하고 패키지의 `public_contract_data.json`에서 해당 schema를 읽는다. 선언 판독기와 실행 서버는 같은 feature 목록을 사용한다. 판독기는 handler나 서버를 import하지 않고 중복 도구명을 거절한다. fingerprint는 runtime의 검토된 소스와 공개 계약 JSON 및 MCP package 전체 Python 파일 목록·내용을 포함하여 feature 파일의 추가·삭제·이동도 감지한다. 패키지 버전은 `uv.lock`과 대조한다. 추출 중 소스 변경, 시작한 클라이언트와 worker의 snapshot 불일치, 실제 worker schema 불일치를 검사하며 불일치하면 모델링 요청을 보내지 않는다.
 선언 파일을 처음 읽은 바이트에서 AST와 fingerprint를 함께 구한다. 카탈로그를 완성한 뒤 파일 목록과 내용을 다시 읽어 처음 기록과 대조한다.
-관측 이미지의 직접 `ToolResult`와 고정 조회의 정확한 `str | ToolResult` 반환형만 별도로 허용한다. ToolResult 입력형·중첩형·임의 annotation 실행은 허용하지 않는다. context·선택·객체·교차 조회는 기존 `{result: string}` output schema literal을 허용하고 JSON text/structuredContent와 명시적 오류 상태를 함께 보존한다. PNG는 별도 캡처 도구의 MCP image content로 전달하며 schema 생성 때문에 이 계약을 바꾸지 않는다.
+관측 이미지는 별도 MCP image content로 전달한다. 호스트는 공통 공개 선언에 맞춰 결과를 전달하며 연결 관리와 실행 기록 복구의 공개 응답에도 같은 계약을 적용한다. 캡처의 표시 모드 인자는 연결 전에도 사용할 수 있다. 클라이언트 초기화 시 확인한 공통 메뉴 GUID를 입력 예시로 제공한다. 현재 모드 목록은 `inspect_03-get_document_context` tool에서 조회하고, 적용 가능 여부는 연결된 Rhino에서 판단한다.
 공통 도구 변경 후 수동 catalog 재생성 없이 관련 beyond MCP를 정상 종료·재시작하면 새 구현과 schema를 읽는다. Terminal은 almond 세션을 새로 시작한다. 이미 시작한 프로세스를 자동 교체하거나 restart 도구를 제공하지 않는다. RHP/DLL 변경은 빌드와 Rhino의 정상 종료·새 시작이 별도로 필요하다.
 
 연결별 PID·token·문서 binding·worker·잠금은 각 Connection에 유지한다. connect_02-session tool과 connect_03-start_session tool은 해당 연결의 connection_id를 반환한다. 같은 host_id/model_path에 다시 연결하면 활성 연결 ID를 재사용한다. beyond에서 호출자는 ID를 대화별로 보관하고 일반 호출·연결 해제·종료 요청마다 최상위 인자로 전달한다. host는 이 값으로 연결을 찾아 원래 도구 인자를 worker에 전달한다. 요청 접수 시점의 대상을 유지한다.

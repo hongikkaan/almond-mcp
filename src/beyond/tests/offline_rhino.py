@@ -61,7 +61,7 @@ class OfflineRhino:
 
     async def request(self, action, **fields):
         if action == "describe":
-            return self.status()
+            return dict(self.status(), state="available" if self.binding is None else "connected")
         if action == "attach":
             for key in ("model_path", "document_serial", "pid", "process_start_ticks"):
                 assert fields[key] == self.status()[key]

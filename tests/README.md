@@ -20,6 +20,16 @@
 
 공개 도구가 바뀌면 해당 기능 범위와 `Integration`을 함께 실행한다. [출력 계약](../src/mcp/output_contracts.py), [공개 스키마](integration/tool_schemas.json), [런타임 선언 스냅샷](integration/tool_catalogs.md)를 실제 응답과 대조한다. Engine 변경은 [두 RHP의 빌드와 manifest 기록](../AGENTS.md#개발빌드반영)을 마친 뒤 전체 검사를 실행한다.
 
+공개 선언을 변경하면 아래 명령으로 패키지 스키마를 생성하고, beyond와 RhinoTerminal의 오프라인 stdio 응답으로 두 기준 파일을 갱신한다. `Integration`은 stdio에 다시 연결해 기준 파일을 대조한다.
+
+```powershell
+node tests/integration/compile_tool_contracts.cjs
+./src/mcp/use_offline_environment.ps1 -Development
+& $env:ALMOND_TEST_PYTHON -B -X utf8 tests/integration/render_tool_declarations.py
+```
+
+컴파일러에 `--check`를 추가하면 패키지 스키마의 일치 여부만 검사한다. 로컬 TypeScript 자동 탐색이 실패하면 `--typescript '<typescript.js 경로>'`를 지정한다.
+
 검사를 추가하기 전에 어떤 입력에서 사용자에게 보이는 결과가 어떻게 달라지는지 정한다. 저장과 복구는 새 연결에서 다시 읽은 값으로, 구조 계산은 독립적인 손계산으로, 공개 계약은 실제 메시지로 판정한다. 실패 시 보존해야 할 파일이나 기록도 확인한다. 동일한 고장을 기존 검사에서 재현할 수 있으면 그 사례를 사용한다.
 
 ## 오프라인 검사 준비

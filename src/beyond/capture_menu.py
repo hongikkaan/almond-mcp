@@ -4,11 +4,10 @@ from uuid import UUID
 
 
 MODE_FIELDS = {
-    "capture_01-conditioning_pass": {"rgb_mode": "RGB 패스에 적용. 생략 시 Rendered.",
-                                     "edge_mode": "에지 패스에 적용. 생략 시 Technical."},
-    "capture_02-inspection": {"display_mode": "이 타일에 적용. 생략 시 원본 뷰 모드."},
-    "capture_03-current_view": {"display_mode": "작업 뷰에 적용. 생략 시 현재 모드."},
-    "capture_04-defined_view": {"display_mode": "Named View 전용. 생략 시 Shaded."},
+    "capture_01-conditioning_pass": ("rgb_mode", "edge_mode"),
+    "capture_02-inspection": ("display_mode",),
+    "capture_03-current_view": ("display_mode",),
+    "capture_04-defined_view": ("display_mode",),
 }
 
 
@@ -31,32 +30,12 @@ def common_mode_ids(hosts):
 
 def apply_menu_schema(tool, modes):
     fields = MODE_FIELDS.get(tool.name)
-    if not fields:
+    if not fields or not modes:
         return
     tool.input_schema = deepcopy(tool.input_schema)
     props = tool.input_schema["properties"]
     if tool.name == "capture_02-inspection":
-        tile = props["views"]["items"]
-        tile["additionalProperties"] = False
-        props = tile.setdefault("properties", {})
-        props.update(direction={"type": "string"}, label={"type": "string"},
-                     object_ids={"type": "array", "items": {"type": "string"}},
-                     frame_objects={"type": "boolean"})
-    for field, usage in fields.items():
-        if modes:
-            props[field] = {"type": "string", "enum": list(modes),
-                            "description": "세션 시작 시 Rhino 뷰 메뉴에서 확인한 GUID. 실시간 렌더 모드는 캡처에서 제외. "
-                                           + usage}
-        else:
-            props.pop(field, None)
-
-
-def menu_input_error(name, arguments, modes):
-    fields = MODE_FIELDS.get(name)
-    if fields:
-        entries = arguments.get("views", []) if name == "capture_02-inspection" else [arguments]
-        if isinstance(entries, list):
-            for entry in entries:
-                if isinstance(entry, dict) and any(key in entry and entry[key] not in modes for key in fields):
-                    return ("The requested display mode GUID is absent from this session's View Display Mode Menu. "
-                            "After changing Rhino hosts or menu settings, start a new Codex session.")
+        props = props["views"]["items"]["properties"]
+    # Newly opened hosts can accept other modes. The selected Rhino validates each call.
+    for field in fields:
+        props[field]["examples"] = list(modes)

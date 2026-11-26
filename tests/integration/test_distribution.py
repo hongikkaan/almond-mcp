@@ -5,6 +5,7 @@ import json
 import subprocess
 import sys
 
+from jsonschema import Draft202012Validator
 from mcp.client.stdio import StdioServerParameters
 
 from render_tool_declarations import ROOT, isolated_environment, open_stdio
@@ -51,31 +52,36 @@ raise SystemExit(entry.load()())
     async def inspect():
         async with open_stdio(params) as (client, initialized):
             assert initialized.instructions is None
-            tools = {tool.name for tool in (await client.list_tools()).tools}
+            tools = {tool.name: tool for tool in (await client.list_tools()).tools}
             name = "context_01-get_policy"
+            validator = Draft202012Validator(tools[name].output_schema)
             result = await client.call_tool(name, {})
             assert not result.is_error, result.content
             guide = result.structured_content
+            validator.validate(guide)
             assert guide["selected_policy"] == "basic"
-            assert set(guide["tools"]) == tools
+            assert set(guide["tools"]) == tools.keys()
             assert "context_04-get_project_info" not in tools
 
             for policy, files in policy_files.items():
                 result = await client.call_tool(name, {"policy": policy})
                 assert not result.is_error, result.content
                 value = result.structured_content
+                validator.validate(value)
                 assert value["selected_policy"] == policy
                 assert value["guide_version"] == guide["guide_version"]
                 expected = {f"src/mcp/{path.relative_to(package).as_posix()}": path.read_text(encoding="utf-8-sig")
                             for path in files}
-                assert {ref["path"]: ref["sha256"] for ref in value["source_refs"]} == {
+                sources = value["scripting_skill"]["sources"] if policy == "rhino_scripting" else value["source_refs"]
+                assert {ref["path"]: ref["sha256"] for ref in sources} == {
                     path: sha256(content.encode("utf-8")).hexdigest() for path, content in expected.items()
                 }
                 if policy == "metadata":
                     assert value["policy"] == json.loads(next(iter(expected.values())))
                     assert value["policy"]["public_object_keys"]
                 elif policy == "rhino_scripting":
-                    assert {source["path"]: source["text"] for source in value["scripting_skill"]["sources"]} == expected
+                    assert set(value) == {"selected_policy", "guide_version", "scripting_skill"}
+                    assert {source["path"]: source["text"] for source in sources} == expected
                 else:
                     assert value["text"] == next(iter(expected.values())).strip()
                     assert value["text"]
