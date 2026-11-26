@@ -25,6 +25,8 @@ internal sealed class RhinoHost : IDisposable
     BoundBridge? bridge;
     string readyPath = "", activePath = "", requestId = "";
     string problem = "";
+    string? invalidationReason;
+    bool invalidationPublished;
     bool busy, invalid, disposed, notifyDisconnect;
 
     internal RhinoHost()
@@ -335,10 +337,18 @@ internal sealed class RhinoHost : IDisposable
 
     void Invalidate(string reason)
     {
-        if (binding == null) return;
+        if (binding == null) { return; }
         problem = reason;
         invalid = true;
-        try { NativeBinding.Invalidate(binding, readyPath, reason, bridge); }
+        // Idle can retry release while the worker or native work still holds ownership.
+        if (invalidationPublished && invalidationReason == reason) { return; }
+        invalidationReason = reason;
+        invalidationPublished = false;
+        try
+        {
+            NativeBinding.Invalidate(binding, readyPath, reason, bridge);
+            invalidationPublished = true;
+        }
         catch (Exception ex) { RhinoApp.WriteLine("Almond 연결 무효화/중단 확인 필요: " + ex.Message); }
     }
 
@@ -368,7 +378,7 @@ internal sealed class RhinoHost : IDisposable
     internal bool Release()
     {
         if (binding == null) return true;
-        Invalidate(string.IsNullOrEmpty(problem) ? "MCP 연결 종료" : problem);
+        Invalidate(invalidationReason ?? "MCP 연결 종료");
         if (worker != null && !worker.HasExited) return false;
         try
         {
@@ -378,6 +388,7 @@ internal sealed class RhinoHost : IDisposable
         worker?.Dispose(); worker = null;
         bridge = null; binding = null;
         busy = false; invalid = false; requestId = ""; problem = "";
+        invalidationReason = null; invalidationPublished = false;
         if (notifyDisconnect)
         {
             notifyDisconnect = false;

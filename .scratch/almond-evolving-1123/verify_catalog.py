@@ -10,7 +10,7 @@ sys.path[:0] = [str(ROOT / path) for path in ("tests/integration", "src/beyond",
 
 from almond_mcp.modeling_guidance import startup_instructions
 from build_catalog import generate
-from external_host import exposed_tools
+from codex_host import exposed_tools
 from jsonschema import Draft202012Validator
 from render_tool_declarations import read_catalog, render_catalogs, stdio_parameters
 from runtime import schema_identity

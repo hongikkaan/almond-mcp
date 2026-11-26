@@ -3,8 +3,8 @@ import json
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
-import external_host
-from external_host import SessionAdapter
+import codex_host
+from codex_host import SessionAdapter
 from offline_rhino import (
     ATTACH, CATALOG, CLOSE, DETACH, LIST, OBSERVE, RECOVER, START, OfflineRhino, broker_for, rejected, value,
 )
@@ -131,7 +131,7 @@ def test_display_mode_menu_keeps_fields_available(monkeypatch, tmp_path):
     )]}
     initial_guid, later_guid = uuid4().hex, str(uuid4())
     hosts = []
-    monkeypatch.setattr(external_host, "read_hosts", lambda _: hosts)
+    monkeypatch.setattr(codex_host, "read_hosts", lambda _: hosts)
     adapter = SessionAdapter(catalog, data=tmp_path)
     fields = {tool.name: tool.input_schema["properties"] for tool in adapter.tools}
     assert fields[current_view]["display_mode"]["type"] == "string"
@@ -157,7 +157,7 @@ def test_display_mode_menu_keeps_fields_available(monkeypatch, tmp_path):
 
 
 def test_invalid_local_input_never_opens_broker(monkeypatch, tmp_path):
-    monkeypatch.setattr(external_host, "read_hosts", lambda _: [])
+    monkeypatch.setattr(codex_host, "read_hosts", lambda _: [])
     adapter = SessionAdapter(CATALOG, data=tmp_path)
     disallowed = asyncio.run(rejected(adapter, LIST, host_id="unexpected"))
     assert "host_id" in disallowed and adapter.broker is None

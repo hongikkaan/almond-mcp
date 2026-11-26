@@ -17,7 +17,7 @@
 - 모델 폴더의 `.almond/scene.sqlite3`를 공유한다. Plan 산출물은 프로젝트 `.almond/produced/YYMMDD_name`, 연결별 임시자료는 `.almond/tmp/python/<token>/<operation>`에 둔다. 연결별 token·session·call과 프로세스 identity를 구분하며 잠금·lease·native 완료 확인을 유지한다.
 - 객체 identity는 정규화한 모델 경로와 Rhino GUID의 조합이다. timeout은 rollback이나 자동 재실행 허가가 아니다.
 - 기존 사용자 변경·모델·DB·라이브러리, 공개 tool schema, plugin identity와 Undo/Redo 계약을 보존한다.
-- 모듈 전용 테스트와 검증 기록은 모듈이 소유한다. 루트 `tests/`는 여러 모듈의 계약을 확인한다. 문서에 연결된 RhinoTerminal의 공개 도구 선언은 [임시 모델을 사용하는 stdio 검사](tests/README.md#실행기별-확인-범위)로 검증한다. 워크트리는 실행 중 Rhino와 모델 DB를 자동 격리하지 않는다.
+- 모듈 전용 테스트와 검증 기록은 모듈이 소유한다. 루트 `tests/`는 여러 모듈의 계약을 확인한다. 문서에 연결된 RhinoTerminal의 공개 도구 선언은 [임시 모델을 사용하는 stdio 검사](tests/README.md#변경에-맞는-검사-선택)로 검증한다. 워크트리는 실행 중 Rhino와 모델 DB를 자동 격리하지 않는다.
 
 ## 소유권과 의존 방향
 
@@ -44,7 +44,8 @@ MCP 도구의 native 구현은 `src/mcp/features/<기능>/native`에 두고 Brid
 | 저장소 수명 | MCP `store_database` | SQLite 연결·트랜잭션·초기 스키마·migration 순서를 관리한다. `AlmondStore`는 기능별 저장소의 기존 인터페이스를 제공한다. |
 | 작업 경로·전이 | MCP `runtime/workspace`와 planning 저장소 | 파일 이동 intent와 같은 DB transaction의 Loop 전이 receipt로 미완료 전이를 복구한다. 작업 경로를 사용하는 호출은 공유 gate 아래 선택한 snapshot을 재사용한다. |
 | 외부 명령 접수 | MCP `runtime/owned_process` | 자식의 정확한 프로세스 identity를 기록하고 부모 승인 후 명령을 시작한다. Python과 Engine이 같은 소유권 근거를 읽으며 프로세스 종료와 native 완료를 별도로 확인한다. |
-| 외부 연결 수명 | 외부 연결기 `external_host` | 연결 탐색·선택·attach·detach와 worker 수명. 선택된 연결을 실행 담당자에 전달한다. |
+| 문서 세션 수명 | MCP `runtime/document_session.py` | 연결 검증·lease·공통 서버 조립·Workspace 구성·종료를 조정한다. 문서 전용 진입점과 도구 등록은 `mcp_server.py`에 둔다. |
+| 외부 연결 수명 | 외부 연결기 `codex_host.py` | 연결 탐색·선택·attach·detach와 worker 수명. 선택된 연결을 실행 담당자에 전달한다. |
 | 외부 호출 수명 | 외부 연결기 `execution_invocation` | 호출 접수·전송 여부·예약·대기·취소와 결과 회수를 관리한다. 실제 완료 판정은 공통 runtime의 journal·receipt·프로세스 근거에 따른다. |
 | Rhino 문서 실행 | MCP `runtime`와 `bridge_transport`, 공용 Engine | endpoint 전송과 binding·문서·UI thread·native 완료의 기존 검증을 연결한다. 외부 연결기에서 문서 실행 정책을 복제하지 않는다. |
 | Native binding·변경 | Engine `NativeBinding`, `BridgeDispatchContext`, `NativeUndoRecord` | 두 호스트의 binding 발행·무효화·drain, 검증한 문서의 dispatch와 Undo 소유권을 공통화한다. PTY·worker·discovery 수명은 각 호스트가 소유한다. |

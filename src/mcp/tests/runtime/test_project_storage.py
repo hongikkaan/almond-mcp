@@ -1,4 +1,5 @@
 from contextlib import closing
+import os
 from pathlib import Path
 import sqlite3
 import sys
@@ -7,7 +8,10 @@ from uuid import uuid4
 import pytest
 
 from almond_mcp.retrieval_store import AlmondStore
-from project import ExclusiveFile, SharedStorageLease, connection_paths, write_json
+from mcp_server import main as run_worker
+from project import (
+    ExclusiveFile, SharedStorageLease, STORAGE_PROTOCOL, connection_paths, process_start_ticks, read_json, write_json,
+)
 from shared_store import StoreGate
 from storage_cleanup import cleanup_retired_sessions, migrate_database
 from workspace import Workspace
@@ -21,6 +25,34 @@ def _connect(root, model_name, slot):
     model.touch()
     token = uuid4().hex
     return token, connection_paths(model, slot, token, create=True)
+
+
+def test_failed_worker_configure_releases_locks(tmp_path, monkeypatch):
+    token, paths = _connect(tmp_path, "Study.3dm", "A")
+    storage, session = Path(paths["storage"]), Path(paths["session_dir"])
+    pid = os.getpid()
+    port = 5501
+    write_json(paths["ready_path"], {
+        "schema": "almond-project", "token": token, "label": "A", "port": port,
+        "storage_protocol": STORAGE_PROTOCOL, "valid": True, "document_serial": 1,
+        "pid": pid, "process_start_ticks": process_start_ticks(pid),
+        **{key: paths[key] for key in ("model_path", "storage", "temp", "session_dir", "ready_path")},
+    })
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ALMOND_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("ALMOND_MODEL_PATH", paths["model_path"])
+
+    async def reject_worker(mcp, args, binding, locations, runtime):
+        # A worker adapter can use the shared DB gate after initialization.
+        with StoreGate(storage, timeout=0):
+            raise RuntimeError("Worker adapter refused the session")
+
+    with pytest.raises(RuntimeError, match="Worker adapter refused the session"):
+        run_worker(["--port", str(port), "--token", token, "--session", paths["ready_path"]], configure=reject_worker)
+
+    with ExclusiveFile(session / "mcp.lock"), ExclusiveFile(storage / "mcp.lock"):
+        receipt = read_json(session / "worker.json")
+        assert receipt["token"] == token and receipt["closed"] is True
 
 
 def test_retiring_one_connection_keeps_the_other_and_shared_work(tmp_path):

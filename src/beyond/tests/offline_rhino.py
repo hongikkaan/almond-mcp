@@ -7,7 +7,7 @@ import json
 from types import SimpleNamespace
 from uuid import uuid4
 
-from external_host import Broker
+from codex_host import Broker
 from execution_invocation import json_result
 from project import connection_paths, write_json
 from rhinocode import execution_directory

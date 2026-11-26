@@ -33,6 +33,57 @@ IDENTITY = ("pid", "process_start_ticks", "document_serial", "model_path")
 SAVE_COMMAND = "_Save"  # The verified bound document already has its saved filename.
 
 
+_EXIT_GUARD_SOURCE = """# Python 3, synchronous Rhino ScriptEditor body. No user source is inserted.
+import base64
+import json
+import os
+import Rhino
+import System
+
+_close = json.loads(base64.b64decode("__PAYLOAD__").decode("ascii"))
+_target = _close["target"]
+_receipt = dict(schema="almond-close-guard", request_id=_close["request_id"],
+                nonce=_close["nonce"], target=_target, state="rejected", reason="")
+
+def _publish_close():
+    temporary = _close["receipt_path"] + ".new"
+    with open(temporary, "w", encoding="utf-8") as stream:
+        json.dump(_receipt, stream, ensure_ascii=True)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, _close["receipt_path"])
+
+try:
+    _process = System.Diagnostics.Process.GetCurrentProcess()
+    _doc = Rhino.RhinoDoc.ActiveDoc
+    with open(_close["ready_path"], "r", encoding="utf-8-sig") as _stream:
+        _binding = json.load(_stream)
+    _worker = System.Diagnostics.Process.GetProcessById(_close["worker_identity"]["pid"])
+    if (not Rhino.RhinoApp.IsOnMainThread or not Rhino.Commands.Command.InScriptRunnerCommand()
+            or _binding.get("token") != _close["token"] or _binding.get("valid") is not True
+            or _worker.HasExited
+            or str(_worker.StartTime.ToUniversalTime().Ticks) != str(_close["worker_identity"]["process_start_ticks"])
+            or int(_process.Id) != _target["pid"]
+            or str(_process.StartTime.ToUniversalTime().Ticks) != str(_target["process_start_ticks"])
+            or _doc is None or str(_doc.RuntimeSerialNumber) != str(_target["document_serial"])
+            or os.path.normcase(os.path.abspath(str(_doc.Path))) != os.path.normcase(os.path.abspath(_target["model_path"]))
+            or not os.path.isfile(str(_doc.Path)) or _doc.IsReadOnly or _doc.Modified):
+        raise RuntimeError("The document changed or became modified/read-only after Save; Exit was not sent.")
+    _worker.Dispose()
+    _receipt["state"] = "exit_dispatched"
+    _publish_close()
+    # No await, event pump, or other command between the dirty check and Exit.
+    # Never answer No: a plug-in changing the document must not discard data.
+    _accepted = Rhino.RhinoApp.RunScript(_doc.RuntimeSerialNumber, "_-Exit", False)
+    _receipt.update(state="exit_returned" if _accepted else "rejected",
+                    reason="Exit returned; process termination still requires external confirmation." if _accepted else "Rhino rejected Exit; the document remains open.")
+    _publish_close()
+except BaseException as _error:
+    _receipt["reason"] = str(_error)[:2000]
+    _publish_close()
+"""
+
+
 class ExitNotDispatched(RuntimeError):
     pass
 
@@ -57,9 +108,8 @@ class RhinoExit:
         payload = {key: record[key] for key in ("request_id", "nonce", "target", "worker_identity")}
         payload.update(ready_path=record["binding"]["ready_path"], token=record["binding"]["token"])
         payload["receipt_path"] = str(directory / "guard.json")
-        template = Path(__file__).with_name("session_close_guard.py.txt").read_text(encoding="utf-8")
         encoded = base64.b64encode(json.dumps(payload, ensure_ascii=True).encode("ascii")).decode("ascii")
-        (directory / "guard.py").write_text(template.replace("__PAYLOAD__", encoded), encoding="utf-8")
+        (directory / "guard.py").write_text(_EXIT_GUARD_SOURCE.replace("__PAYLOAD__", encoded), encoding="utf-8")
 
     def launch(self, record, directory):
         try:

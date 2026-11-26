@@ -13,6 +13,7 @@
 - `use_offline_environment.ps1`: 현재 셸과 자식에만 로컬 검사 경로를 설정한다.
 
 beyond는 runtime의 binding 검증·구성 훅을 사용한다. MCP는 beyond 구현을 참조하지 않는다.
+`runtime/mcp_server.py`는 CLI 진입점과 문서 전용 도구 7개의 등록을 맡는다. `runtime/document_session.py`는 binding 재확인, 세션 lease, `worker.json` 기록과 MCP 실행·종료를 맡는다. 공유 DB gate 아래에서 이전 DB와 종료된 세션을 정리하고 `startup.create_server`를 호출한다. gate를 해제한 뒤 같은 저장소로 `Workspace`를 구성하고 문서 도구와 외부 구성 훅을 순서대로 적용한다. worker는 종료를 기록한 뒤 lease를 반납한다.
 Python package 이름은 `almond_mcp`이며 외부 entry point와 도구 schema를 보존한다.
 소스는 이 폴더에 직접 둔다. editable 설치는 `almond_mcp.py`가 이곳의 `__init__.py`를 package로 로드하며, wheel은 빌드 경로 매핑으로 `almond_mcp/`에 담는다.
 이 진입 파일은 wheel에 포함하지 않는다.
@@ -78,7 +79,7 @@ Almond schema에 맞춘 UI 목록을 유지하지 않는다. 기존 store의 초
 
 ### 공개 도구 위치
 
-package는 69개, 문서 전용 runtime은 7개를 더한 공통 76개 도구를 공개한다. beyond는 연결 관리 5개를 더해 81개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `public_names.py`가 공개 호출과 내부 Python 함수를 연결한다. 구현 등록 위치는 `features/*/tools.py`, `runtime/mcp_server.py`, 외부 연결 관리는 `src/beyond/external_host.py`다. 공개 설명과 스키마의 작성 원본은 [공개 도구 선언](../../TOOL-DECLARATIONS-CURRENT.md)이다.
+package는 69개, 문서 전용 runtime은 7개를 더한 공통 76개 도구를 공개한다. beyond는 연결 관리 5개를 더해 81개를 노출한다. 공개 호출명은 `<category>_<NN>-<name>`이며 `public_names.py`가 공개 호출과 내부 Python 함수를 연결한다. 구현 등록 위치는 `features/*/tools.py`, `runtime/mcp_server.py`, 외부 연결 관리는 `src/beyond/codex_host.py`다. 공개 설명과 스키마의 작성 원본은 [공개 도구 선언](../../TOOL-DECLARATIONS-CURRENT.md)이다.
 
 | 기능 | 공개 도구 |
 |---|---|
@@ -141,6 +142,17 @@ GHX parser를 직접 실행할 때는 `python -m almond_mcp.features.grasshopper
 루트 `.venv`가 있으면 저장소 셸·`uv run`의 별도 환경으로 유지보수 대상에 포함한다. 일반 유지보수는 두 환경의 사용 여부를 모두 확인한 뒤 lock 동기화·editable 메타데이터 재설치·검증을 수행한다. 없는 루트 환경은 만들지 않는다. `-VerifyOnly`는 실행 중인 환경에서도 lock 정합성·패키지 호환성·중복·Python 버전·editable 출처/메타데이터를 읽기 전용으로 검사한다. `-Development`는 일상 환경·루트 환경·연결 등록을 변경하지 않는다. 일반 실행에서 자동 동기화하지 않는다.
 구현 위치와 실행 파일 위치는 별개다. 이전 시작 버튼은 호환 스크립트를 거쳐 `runtime/` 실행기를 호출한다. 사용자 모델·라이브러리를 자동 이동하지 않는다.
 기존 확장자 없는 `DB`는 아래의 DB 파일명 이전 조건을 충족할 때만 같은 폴더의 `scene.sqlite3`로 바꾼다.
+
+### 문서 전용 Codex 실행
+
+- **RhinoTerminal**. 저장된 `.3dm`을 열고 Rhino 명령줄에서 `RhinoTerminal On`을 실행한다. 필요하면 `PanelToggle`로 패널을 연다. PowerShell에 `almond`를 입력하거나 패널의 almond 버튼을 누르면 현재 문서용 Codex가 시작된다. Rhino 시작과 패널 복원은 터미널 실행과 별개다. 패널을 숨겨도 프로세스와 최근 출력은 유지된다.
+- **이전 대화**. Codex가 열려 있다면 `/exit`로 PowerShell에 돌아온 뒤 `almond resume` 또는 패널의 resume 버튼을 쓴다. ID를 알면 `almond resume <대화 UUID>`로 직접 지정할 수 있다. 대화 목록은 Enter로 선택, Ctrl+C로 취소, Esc로 새 대화를 시작한다. 이 방법은 현재 문서의 연결·DB·작업 경로로 세션을 다시 만든다.
+- **별도 창**. 저장된 `.3dm`을 `Almond 시작.cmd`에서 선택하거나 버튼 위에 끌어다 놓으면 해당 모델의 Rhino와 문서 전용 Codex가 열린다. Terminal·별도 창·beyond는 A–J 슬롯(5501–5510)을 공유한다. 기본 연결, 해제와 상태 확인은 [연결 계약](runtime/CONNECTION-SPEC.md)을 따른다.
+- **종료와 전환**. `/exit`는 Terminal의 Codex 세션을 끝낸다. `RhinoTerminal Off`와 패널의 종료·새 터미널은 셸과 자식 작업에 영향을 준다. 작업을 마친 뒤 사용한다. 다른 Rhino 문서를 열거나 Save As를 하기 전에 연결을 해제한 뒤 새 문서에 연결한다.
+- **모델 이동**. 같은 폴더에서 모델 이름을 바꿔도 공유 `.almond` 위치는 같다. 폴더를 옮길 때는 공유 DB에 연결한 모든 세션을 정상 종료하고 모델과 공유 `.almond`를 함께 옮긴다. 여러 모델이 쓰는 DB는 프로젝트 단위로 관리한다. 과거 기록의 절대경로, 외부 참조, 공용 라이브러리와 Codex 대화는 이 이동으로 갱신되지 않는다.
+- **남은 프로세스 확인**. `Almond 정리.cmd`는 이 설치가 소유한 프로세스만 목록에 표시한다. 기본 모드는 열린 Rhino와 Codex를 보존하고 남은 보조 프로세스를 대상으로 한다. 종료·강제 종료 모드는 대상 확인과 명시적인 입력이 필요하다. 강제 종료는 미저장 편집을 잃을 수 있다. DB·tmp·모델 파일은 정리 대상이 아니다.
+
+프로젝트 경로는 저장된 로컬 `.3dm`을 기준으로 확인한다. `project_paths`와 `connection_paths`의 내부 `recovery=True`는 이름이 바뀌거나 삭제된 모델의 원래 절대경로로 보관 기록을 조회하는 읽기 전용 경로다. `create=True`와 함께 쓸 수 없으며 기존 경로·모델 확장자·저장소·링크 제한을 유지한다. 복구 조회는 기록의 연결·실행 identity를 확인한다. 이동한 프로젝트를 검색하거나 누락된 기록을 다시 만들지는 않는다.
 
 ## Scene·Component·계획
 

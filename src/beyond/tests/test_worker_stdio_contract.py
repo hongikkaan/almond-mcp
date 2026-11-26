@@ -4,14 +4,14 @@ from uuid import uuid4
 
 import pytest
 
-import external_host
-from external_host import Worker
+import codex_host
+from codex_host import Worker
 from fixtures import worker_stdio
 
 
 def test_worker_verifies_contract_and_forwards_call_identity(monkeypatch):
     async def scenario():
-        parameters = external_host.StdioServerParameters
+        parameters = codex_host.StdioServerParameters
         worker_mode = "compatible"
 
         def launch(**settings):
@@ -20,7 +20,7 @@ def test_worker_verifies_contract_and_forwards_call_identity(monkeypatch):
                    "args": ["-B", "-u", worker_stdio.__file__, worker_mode]},
             )
 
-        monkeypatch.setattr(external_host, "StdioServerParameters", launch)
+        monkeypatch.setattr(codex_host, "StdioServerParameters", launch)
         token, connection_id, caller = uuid4().hex, uuid4().hex, uuid4().hex
         binding = {"token": token, "ready_path": "offline-ready.json", "port": 1}
         catalog = {"tools": [{"name": worker_stdio.TOOL, "inputSchema": worker_stdio.INPUT}]}
